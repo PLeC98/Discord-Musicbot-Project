@@ -16,13 +16,13 @@ const exported: GuildCommand = {
 
     const player = client.players.get(guild.id);
     if (!player) {
-      return interaction.reply(noticeReply(errors.noSong()));
+      return interaction.reply(noticeReply(errors.notice("no-song")));
     }
 
     const queueInfo = queueInfoOf(player);
 
     if (queueInfo.queue.length === 0) {
-      return interaction.reply(noticeReply(errors.queueEmpty()));
+      return interaction.reply(noticeReply(errors.notice("queue-empty")));
     }
 
     await interaction.reply({ ...queueView(queueInfo, interaction.options.getInteger("page") ?? 1), flags: MessageFlags.Ephemeral });

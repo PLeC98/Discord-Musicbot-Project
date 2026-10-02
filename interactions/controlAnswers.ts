@@ -8,14 +8,14 @@ import * as replies from "../src/ui/controlReplies.ts";
 import { noticeFrame, noticeReply, post, reply } from "../src/ui/frame.ts";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import type { Player } from "../src/player/Player.ts";
-import type { Refusal } from "../src/ui/text/ko/errors.ts";
+import type { Problem } from "../src/rules/problems.ts";
 
 /** 서버 안의 명령 · 버튼 */
 type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 
-const refuse = (interaction: Asked, r: Refusal) => interaction.reply(noticeReply(controlMessage(r)));
+const refuse = (interaction: Asked, r: Problem) => interaction.reply(noticeReply(controlMessage(r)));
 
 async function answerPause(interaction: Asked, player: MaybePlayer) {
   const r = await controls.pause(player, { member: interaction.member });

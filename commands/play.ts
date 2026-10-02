@@ -8,7 +8,7 @@ import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
 import { frame, noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
-import type { PermissionDenied } from "../src/ui/text/ko/errors.ts";
+import type { PermissionDenied } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { GuildMember } from "discord.js";
 
@@ -43,7 +43,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
       const { member, guild, channel } = interaction;
 
       const permErr = await permission(member);
-      if (permErr) return await interaction.reply(noticeReply(errors.permission(permErr)));
+      if (permErr) return await interaction.reply(noticeReply(errors.notice(permErr)));
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply(post(frame({ body: searchText.searching(query) })));

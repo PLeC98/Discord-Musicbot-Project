@@ -99,6 +99,6 @@ test("받아들인 뒤에 던지면 하는 중 자리를 안내로 바꾼다", a
   await assert.rejects(answerReplay(it, p));
   const show = failureShow(it);
   assert.ok(show);
-  await show(errors.processingFailed());
+  await show(errors.notice("processing-failed"));
   assert.deepEqual(log.at(-1), ["editReply", ["### ❌ 예상치 못한 오류예요!\n처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."], CV2]);
 });

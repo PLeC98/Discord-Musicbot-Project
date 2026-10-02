@@ -19,7 +19,8 @@ import { interactionKind } from "../helpers/interactionKind.ts";
 import { withConfig } from "../helpers/config.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
-import { noticeReply, type Notice } from "../../src/ui/frame.ts";
+import { noticeReply } from "../../src/ui/frame.ts";
+import type { Notice } from "../../src/ui/text/notice.ts";
 
 useExampleConfig();
 
@@ -157,11 +158,11 @@ test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린�
   const w = world();
   const stale = press(w, "panel:skip:OLD");
   await interactionCreate.execute(stale.it);
-  assert.deepEqual(stale.log, [["reply", said(errors.staleSession())]]);
+  assert.deepEqual(stale.log, [["reply", said(errors.notice("stale-session"))]]);
 
   const unknown = press(w, "panel:nope:S1");
   await interactionCreate.execute(unknown.it);
-  assert.deepEqual(unknown.log, [["reply", said(errors.unknownInteraction())]]);
+  assert.deepEqual(unknown.log, [["reply", said(errors.notice("unknown-interaction"))]]);
 
   Object.defineProperty(w.player, "queue", {
     get() {
@@ -170,7 +171,7 @@ test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린�
   });
   const broken = press(w, "panel:queue:S1");
   await interactionCreate.execute(broken.it);
-  assert.deepEqual(broken.log, [["reply", said(errors.processingFailed())]]);
+  assert.deepEqual(broken.log, [["reply", said(errors.notice("processing-failed"))]]);
 });
 
 // ── 조작이 실패했을 때의 답 ───────────────────────────────────────────
@@ -281,7 +282,7 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은
   p.seek = async () => void (seeked = true);
   const off = press(w, "panel:highlight:S1");
   await withConfig({ sponsorblock: { enabled: false } }, () => interactionCreate.execute(off.it));
-  assert.deepEqual(off.log, [["reply", said(errors.unknownInteraction())]]);
+  assert.deepEqual(off.log, [["reply", said(errors.notice("unknown-interaction"))]]);
   assert.equal(seeked, false);
 });
 
@@ -297,11 +298,11 @@ test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 
   const w = world();
   const empty = press(w, "panel:queue:S1");
   await interactionCreate.execute(empty.it);
-  assert.deepEqual(empty.log, [["reply", said(errors.queueEmpty())]]);
+  assert.deepEqual(empty.log, [["reply", said(errors.notice("queue-empty"))]]);
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   const onlyNow = press(w, "panel:queue:S1");
   await interactionCreate.execute(onlyNow.it);
-  assert.deepEqual(onlyNow.log, [["reply", said(errors.queueEmpty())]], "지금 곡만 있으면 비었다");
+  assert.deepEqual(onlyNow.log, [["reply", said(errors.notice("queue-empty"))]], "지금 곡만 있으면 비었다");
 
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
@@ -351,7 +352,7 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
   const gone = press(w, "queue:page:1", { update: async (p: QueuePayload) => updates.push(p) });
   await interactionCreate.execute(gone.it);
   assert.equal(updates.length, 2, "대기열 화면은 안내로 고칠 수 없다");
-  assert.deepEqual(gone.log, [["deferUpdate"], ["deleteReply"], ["followUp", said(errors.queueEmpty())]], "그 화면을 지우고 본인에게만 알린다");
+  assert.deepEqual(gone.log, [["deferUpdate"], ["deleteReply"], ["followUp", said(errors.notice("queue-empty"))]], "그 화면을 지우고 본인에게만 알린다");
 });
 
 // ── 자동재생 버튼 ─────────────────────────────────────────────────────
@@ -387,7 +388,7 @@ test("자동재생 버튼: 옛 세션의 패널 버튼은 거절하고 자동재
   w.player.autoplay = "가요";
   const { it, log } = press(w, "panel:autoplay:OLD");
   await interactionCreate.execute(it);
-  assert.deepEqual(log, [["reply", said(errors.staleSession())]]);
+  assert.deepEqual(log, [["reply", said(errors.notice("stale-session"))]]);
   assert.deepEqual(w.seen, []);
 });
 
@@ -397,7 +398,7 @@ test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 
   const a = press(off, "panel:autoplay:idle");
   await interactionCreate.execute(a.it);
   assert.equal(a.log[0][0], "reply");
-  assert.notEqual(a.log[0][1], said(errors.staleSession()));
+  assert.notEqual(a.log[0][1], said(errors.notice("stale-session")));
   assert.equal(lifetimeOf(a.it), null, "장르 메뉴는 고르는 동안 떠 있다");
 
   const on = world();
@@ -412,7 +413,7 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
   const idle = world({ botVoice: null, userVoice: null });
   const { it, log } = press(idle, "panel:autoplay:S1");
   await interactionCreate.execute(it);
-  assert.deepEqual(log, [["reply", said(errors.mustBeInVoice())]]);
+  assert.deepEqual(log, [["reply", said(errors.notice("must-be-in-voice"))]]);
 });
 
 // ── 도움말 · 시스템 새로고침 ──────────────────────────────────────────
@@ -428,7 +429,7 @@ test("도움말 새로고침: 제자리에서 다시 그린다. 실패하면 뒤
   };
   const bad = press(w, "help:refresh");
   await interactionCreate.execute(bad.it);
-  assert.deepEqual(bad.log, [["deferUpdate"], ["followUp", said(errors.refreshFailed())]]);
+  assert.deepEqual(bad.log, [["deferUpdate"], ["followUp", said(errors.notice("refresh-failed"))]]);
 });
 
 test("시스템 새로고침: 봇 운영자만", async () => {
@@ -438,7 +439,7 @@ test("시스템 새로고침: 봇 운영자만", async () => {
     const w = world();
     const denied = press(w, "system:refresh");
     await interactionCreate.execute(denied.it);
-    assert.deepEqual(denied.log, [["reply", said(errors.mustOwner())]]);
+    assert.deepEqual(denied.log, [["reply", said(errors.notice("must-owner"))]]);
 
     config.dashboard.ownerId = USER;
     const ok = press(w, "system:refresh");
@@ -457,18 +458,18 @@ test("검색 버튼: 고르기는 곡 추가와 같은 검사. 봇이 음성에 
   const other = world({ userVoice: "v2" });
   const a = press(other, PICK);
   await interactionCreate.execute(a.it);
-  assert.deepEqual(a.log, [["reply", said(errors.mustBeInSameVoice())]]);
+  assert.deepEqual(a.log, [["reply", said(errors.notice("must-be-in-same-voice"))]]);
 
   const idle = world({ botVoice: null, userVoice: null });
   const b = press(idle, PICK);
   await interactionCreate.execute(b.it);
-  assert.deepEqual(b.log, [["reply", said(errors.mustBeInVoice())]]);
+  assert.deepEqual(b.log, [["reply", said(errors.notice("must-be-in-voice"))]]);
 
   const denied = world({ botVoice: null, userVoice: "v1" });
   denied.member.voice.channel = { id: "v1", name: "v1", permissionsFor: () => ({ has: () => false }) };
   const c = press(denied, PICK);
   await interactionCreate.execute(c.it);
-  assert.deepEqual(c.log, [["reply", said(errors.permissionVoice())]], "봇이 연결 · 말하기 권한이 없으면 /play 처럼 막는다");
+  assert.deepEqual(c.log, [["reply", said(errors.notice("permission-voice"))]], "봇이 연결 · 말하기 권한이 없으면 /play 처럼 막는다");
   assert.deepEqual(denied.seen, []);
 });
 
@@ -476,15 +477,15 @@ test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 �
   const w = world();
   const others = press(w, "search:pick:someone:1:aaaaaaaaaaa");
   await interactionCreate.execute(others.it);
-  assert.deepEqual(others.log, [["reply", said(errors.searchOwnerOnly())]]);
+  assert.deepEqual(others.log, [["reply", said(errors.notice("search-owner-only"))]]);
   const othersCancel = press(w, "search:cancel:someone");
   await interactionCreate.execute(othersCancel.it);
-  assert.deepEqual(othersCancel.log, [["reply", said(errors.searchOwnerOnly())]]);
+  assert.deepEqual(othersCancel.log, [["reply", said(errors.notice("search-owner-only"))]]);
 
   for (const id of [`search:pick:${USER}:1:bad`, `search:nope:${USER}:1:aaaaaaaaaaa`]) {
     const bad = press(w, id);
     await interactionCreate.execute(bad.it);
-    assert.deepEqual(bad.log, [["reply", said(errors.unknownInteraction())]], id);
+    assert.deepEqual(bad.log, [["reply", said(errors.notice("unknown-interaction"))]], id);
   }
   assert.deepEqual(w.seen, []);
 
@@ -513,7 +514,7 @@ test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류.
   const failed = world({ handle: async () => ({ success: false, message: "대기열이 가득 찼습니다" }) });
   const a = press(failed, PICK);
   await interactionCreate.execute(a.it);
-  assert.deepEqual(a.log.slice(-2), [["deleteReply"], ["followUp", said(errors.cannotStart())]]);
+  assert.deepEqual(a.log.slice(-2), [["deleteReply"], ["followUp", said(errors.notice("cannot-start"))]]);
 
   const thrown = world({
     handle: async () => {
@@ -522,5 +523,5 @@ test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류.
   });
   const b = press(thrown, PICK);
   await interactionCreate.execute(b.it);
-  assert.deepEqual(b.log.slice(-2), [["deleteReply"], ["followUp", said(errors.processingFailed())]]);
+  assert.deepEqual(b.log.slice(-2), [["deleteReply"], ["followUp", said(errors.notice("processing-failed"))]]);
 });

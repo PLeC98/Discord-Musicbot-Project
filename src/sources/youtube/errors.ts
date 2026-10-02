@@ -133,7 +133,7 @@ function codeOf(error: unknown) {
   if (isSkippedClientError(error)) return "skipped-client";
   if (isStaleMediaError(error)) return "stale-media";
   if (isClientFault(error)) return "client-fault";
-  if (NETWORK.test(msg)) return "network";
+  if (NETWORK.test(msg)) return "network-error";
   if (FFMPEG.test(msg)) return "stream-failed";
   return null;
 }

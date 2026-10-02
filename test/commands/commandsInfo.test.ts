@@ -112,11 +112,11 @@ function nowPlayer(track: object | null, status: Status = { playing: true, pause
 test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", async () => {
   const none = interaction();
   await run(await command("nowplaying"), none.it, none.client);
-  assert.deepEqual(none.log[0][1], noticeReply(errors.noSong()));
+  assert.deepEqual(none.log[0][1], noticeReply(errors.notice("no-song")));
 
   const idle = interaction({ player: nowPlayer(null) });
   await run(await command("nowplaying"), idle.it, idle.client);
-  assert.deepEqual(idle.log[0][1], noticeReply(errors.noSong()));
+  assert.deepEqual(idle.log[0][1], noticeReply(errors.notice("no-song")));
 });
 
 test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상태를 담는다", async () => {
@@ -157,7 +157,7 @@ test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면
     },
   });
   await runViaEntrance(await command("nowplaying"), broken.it, broken.client);
-  assert.deepEqual(broken.log, [["reply", noticeReply(errors.commandFailed())]]);
+  assert.deepEqual(broken.log, [["reply", noticeReply(errors.notice("command-failed"))]]);
 });
 
 // ── /queue ────────────────────────────────────────────────────────────
@@ -167,14 +167,14 @@ const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack
 test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const none = interaction();
   await run(await command("queue"), none.it, none.client);
-  assert.deepEqual(none.log[0][1], noticeReply(errors.noSong()));
+  assert.deepEqual(none.log[0][1], noticeReply(errors.notice("no-song")));
   const empty = interaction({ player: queuePlayer(null, []) });
   await run(await command("queue"), empty.it, empty.client);
-  assert.deepEqual(empty.log[0][1], noticeReply(errors.queueEmpty()));
+  assert.deepEqual(empty.log[0][1], noticeReply(errors.notice("queue-empty")));
   // 대기열 화면은 다음 곡만 보인다. 지금 곡만 있으면 비었다고 한다
   const onlyNow = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, []) });
   await run(await command("queue"), onlyNow.it, onlyNow.client);
-  assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.queueEmpty()));
+  assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.notice("queue-empty")));
 });
 
 // 대기열은 본문(description)에 싣는다. 칸(field)에 나눠 실으면 칸마다 이름 줄이 생겨 빈 여백이 끼었다
@@ -245,7 +245,7 @@ test("/help: 만들다 던지면 입구가 알린다", async () => {
     throw new Error("x");
   };
   await runViaEntrance(await command("help"), it, client);
-  assert.deepEqual(log, [["reply", noticeReply(errors.commandFailed())]]);
+  assert.deepEqual(log, [["reply", noticeReply(errors.notice("command-failed"))]]);
 });
 
 test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 바꾼다", async () => {
@@ -254,7 +254,7 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
   try {
     const other = interaction({ userId: "u1" });
     await run(await command("system"), other.it, other.client);
-    assert.deepEqual(other.log, [["reply", noticeReply(errors.mustOwner())]]);
+    assert.deepEqual(other.log, [["reply", noticeReply(errors.notice("must-owner"))]]);
 
     const owner = interaction({ userId: "owner" });
     await run(await command("system"), owner.it, owner.client);
@@ -326,7 +326,7 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
   await whenSettingsBroken(async () => {
     const failed = interaction();
     await run(await command("setchannel"), failed.it, failed.client);
-    assert.deepEqual(failed.log[0][1], noticeReply(errors.channelSetFailed()));
+    assert.deepEqual(failed.log[0][1], noticeReply(errors.notice("channel-set-failed")));
   });
 });
 
@@ -384,7 +384,7 @@ test("/sponsorblock: 지금 설정으로 화면을 띄우고 보류 상태를 �
 test("SponsorBlock 화면: 서버 관리 권한이 필요하다", async () => {
   const denied = sbInteraction({ customId: "sb:save", manage: false });
   await interactionCreate.execute(fake<Interaction>(denied.it));
-  assert.deepEqual(denied.log, [["reply", noticeReply(errors.mustModerator())]]);
+  assert.deepEqual(denied.log, [["reply", noticeReply(errors.notice("must-moderator"))]]);
 });
 
 test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저장한다. 보류가 없으면 지금 설정에서 시작한다", async () => {
@@ -430,7 +430,7 @@ test("SponsorBlock 화면: 봇 전체에서 꺼져 있으면 열려 있던 메�
     for (const customId of ["sb:toggle", "sb:save", "sb:cats"]) {
       const it = sbInteraction({ customId, values: ["intro"], messageId: "m-off-global" });
       await interactionCreate.execute(fake<Interaction>(it.it));
-      assert.deepEqual(it.log, [["reply", noticeReply(errors.unknownInteraction())]], customId);
+      assert.deepEqual(it.log, [["reply", noticeReply(errors.notice("unknown-interaction"))]], customId);
     }
     settings._reset();
     assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });

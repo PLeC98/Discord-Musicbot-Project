@@ -45,7 +45,7 @@ const exported: GuildCommand = {
 
     if (count < min || count > max) {
       const queueCap = config.bot.maxQueueSize > 0 && max === config.bot.maxQueueSize ? config.bot.maxQueueSize : null;
-      return interaction.reply(noticeReply(errors.playlistLimitOutOfRange(min, max, queueCap)));
+      return interaction.reply(noticeReply(errors.notice("playlist-limit-out-of-range", { min, max, queueCap })));
     }
 
     if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, count))) return failed(interaction);
@@ -55,5 +55,5 @@ const exported: GuildCommand = {
 export default exported;
 
 function failed(interaction: ChatInputCommandInteraction) {
-  return interaction.reply(noticeReply(errors.settingsSaveFailed()));
+  return interaction.reply(noticeReply(errors.notice("settings-save-failed")));
 }

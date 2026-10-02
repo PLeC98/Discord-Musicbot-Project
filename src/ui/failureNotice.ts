@@ -2,7 +2,8 @@
 // 자리표시자("검색 중" · "처리 중")를 띄운 처리기는 그 자리를 안내로 바꾸는 법을 선언한다. 선언이 없으면 입구의 기본대로
 
 import type { RepliableInteraction } from "discord.js";
-import { noticeReply, type Notice } from "./frame.ts";
+import { noticeReply } from "./frame.ts";
+import type { Notice } from "./text/notice.ts";
 
 type Show = (notice: Notice) => Promise<unknown>;
 

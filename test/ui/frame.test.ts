@@ -3,7 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags, resolveColor } from "discord.js";
-import { EMOJI, frame, noticeFrame, noticeOf, noticeReply, plainText, post, reply } from "../../src/ui/frame.ts";
+import { EMOJI, frame, noticeFrame, noticeReply, plainText, post, reply } from "../../src/ui/frame.ts";
+import { noticeOf } from "../../src/ui/text/notice.ts";
 import { toApiError } from "../../dashboard/server/middleware/requireControl.ts";
 import { textsOf, thumbnailOf } from "../helpers/cv2.ts";
 

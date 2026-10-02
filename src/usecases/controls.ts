@@ -1,8 +1,8 @@
 // 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/controlMessages).
 // 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 차례로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
-// 결과: { ok: true, ...사실 } | { ok: false, code, … }
-//   공통 code: no-player(이 서버에 플레이어가 없다) · no-permission(permission: 권한 판정이 막은 까닭) · no-track(틀고 있는 곡이 없다)
+// 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
+//   공통 code: no-song(플레이어나 틀고 있는 곡이 없다) · 권한 판정이 막은 까닭의 코드(must-dj 등)
 //
 // actor: 누가 시켰나. { member } 는 디스코드 멤버, { owner: true } 는 대시보드 운영자(권한 판정을 건너뛴다)
 
@@ -17,18 +17,21 @@ import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/Player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../player/trackState.ts";
-import type { PermissionDenied } from "../ui/text/ko/errors.ts";
+import type { PermissionDenied } from "./permissions.ts";
+import type { Code, Params, Problem } from "../rules/problems.ts";
 
 /** 누가 시켰나. 디스코드 멤버, 또는 대시보드 운영자(권한 판정을 건너뛴다) */
 type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?: undefined };
-/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 막은 까닭(permission), 붙들린 멈춤은 그 까닭(reason), 모르는 장르는 genre 를 싣는다 */
-type Refusal = { ok: false; code: string; permission?: PermissionDenied; durationMs?: number; size?: number; reason?: string; genre?: string };
+/** 거절: 문제의 코드와 그 문장에 드는 값(길이 넘침은 durationMs, 자리 틀림은 size, 모르는 장르는 genre) */
+type Refusal = { ok: false } & Problem;
 /** 이 서버에 플레이어가 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 /** 권한 판정. 막으면 그 까닭 */
 type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied | null>;
 
-const fail = (code: string, extra: Omit<Refusal, "ok" | "code"> = {}): Refusal => ({ ok: false, code, ...extra });
+const fail = (code: Code, params: Params = {}): Refusal => ({ ok: false, code, ...params });
+// 사람이 풀 수 없는 멈춤(Player.pauseReasons)의 까닭마다
+const HELD: Record<string, Code> = { mute: "held-mute", alone: "held-alone" };
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
@@ -39,7 +42,7 @@ const refresh = (player: Player) => playerEvents.refresh(player).catch((error) =
 async function permitted(player: Player, actor: Actor, check: Check = perm.checkControl) {
   if (actor.owner) return null;
   const permission = await check(actor.member, player);
-  return permission ? fail("no-permission", { permission }) : null;
+  return permission ? fail(permission) : null;
 }
 
 // 수는 입구가 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
@@ -50,19 +53,19 @@ async function permittedTrack(player: Player, actor: Actor, check?: Check) {
   const blocked = await permitted(player, actor, check);
   if (blocked) return { blocked };
   const track = player.currentTrack;
-  return track ? { track } : { blocked: fail("no-track") };
+  return track ? { track } : { blocked: fail("no-song") };
 }
 
 /** 멈춤 · 재개를 뒤집는다 */
 async function pause(player: MaybePlayer, actor: Actor) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const resuming = player.paused;
   if (!(resuming ? player.resumeFor("manual") : player.pauseFor("manual"))) {
     // 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있다. 그 까닭이 풀리면 이어 튼다
     const held = resuming ? [...player.pauseReasons].find((reason) => reason !== "manual") : undefined;
-    return held ? fail("held", { reason: held }) : fail("failed");
+    return fail((held && HELD[held]) || "control-failed");
   }
   await refresh(player);
   return done({ paused: !resuming, track });
@@ -73,7 +76,7 @@ async function pause(player: MaybePlayer, actor: Actor) {
  * 대기열이 비었으면 거절한다. 자동재생이 켜져 있으면 다음 곡을 자동재생이 고르므로 넘긴다
  */
 async function skip(player: MaybePlayer, actor: Actor) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor, perm.checkSkip);
   if (!track) return blocked;
   const restarted = player.loop === "track";
@@ -85,7 +88,7 @@ async function skip(player: MaybePlayer, actor: Actor) {
 
 /** 멈추고 대기열을 비우고 나간다. 세션도 지운다 */
 async function stop(player: MaybePlayer, actor: Actor) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   const track = player.currentTrack;
@@ -97,7 +100,7 @@ async function stop(player: MaybePlayer, actor: Actor) {
 
 /** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track 은 되돌아간 곡(처음부터면 지금 곡) */
 async function previous(player: MaybePlayer, actor: Actor) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const restarted = player._restartsOnPrevious();
@@ -114,7 +117,7 @@ async function previous(player: MaybePlayer, actor: Actor) {
  * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
  */
 async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "seek", onAccepted }: SeekOptions = {}) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const unseekable = seekBlocked(player);
@@ -134,7 +137,7 @@ function seekBlocked(player: Player) {
   // 라이브에는 실시간밖에 없다. 옮길 자리가 없다
   if (player.isLive) return fail("live-no-seek");
   // 여는 중에는 옮길 곡이 아직 자리 잡지 않았다
-  if (player.isPlayStarting) return fail("starting");
+  if (player.isPlayStarting) return fail("still-starting");
   return null;
 }
 
@@ -143,7 +146,7 @@ const replay = (player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) => se
 
 /** SponsorBlock 하이라이트 지점으로 */
 async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const unseekable = seekBlocked(player);
@@ -155,7 +158,7 @@ async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = 
 
 /** 음량(0 ~ 100 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번 */
 async function volume(player: MaybePlayer, actor: Actor, level: unknown) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   if (!isIndex(level, 101)) return fail("bad-volume");
@@ -185,7 +188,7 @@ const isLoop = (mode: unknown): mode is Loop => mode === false || mode === "trac
 
 /** 반복 모드. mode: false(끔) · "track" · "queue". 입구가 받은 값 그대로 온다 */
 async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   if (!isLoop(mode)) return fail("bad-loop-mode");
@@ -204,7 +207,7 @@ function nextLoopMode(current: Loop | "off"): Loop {
 
 /** 대기열 섞기 */
 async function shuffle(player: MaybePlayer, actor: Actor) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   if (player.queue.length < 2) return fail("too-few-to-shuffle");
@@ -215,7 +218,7 @@ async function shuffle(player: MaybePlayer, actor: Actor) {
 
 /** 대기열에서 한 곡 빼기. index 는 0부터. 자기가 넣은 곡은 DJ 가 아니어도 뺄 수 있어 권한은 곡을 보고 판정한다 */
 async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   if (player.queue.length === 0) return fail("queue-empty");
   if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, player.queue[index]));
@@ -228,7 +231,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
 
 /** 대기열 안에서 옮기기. from · to 는 0부터 */
 async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknown) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   const size = player.queue.length;
@@ -243,7 +246,7 @@ async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknow
 
 /** 대기열 비우기(지금 곡은 그대로) */
 async function clear(player: MaybePlayer, actor: Actor) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   const count = player.queue.length;
@@ -255,7 +258,7 @@ async function clear(player: MaybePlayer, actor: Actor) {
 
 /** 대기열의 한 곡으로 바로 넘어간다. 한곡 반복 중에도 그 곡으로 간다 */
 async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
-  if (!player) return fail("no-player");
+  if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
@@ -275,7 +278,7 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
 async function autoplayBlocked(actor: Actor) {
   if (actor.owner) return null;
   const permission = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
-  return permission ? fail("no-permission", { permission }) : null;
+  return permission ? fail(permission) : null;
 }
 
 /** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 뽑기 전에 부른다(응답) */
@@ -290,7 +293,7 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
   if (blocked) return blocked;
   if (genre !== false && !genreConfig.genres().genres[genre]) return fail("unknown-genre", { genre });
   const target = player ?? (genre === false ? null : create?.());
-  if (!target) return fail("no-player");
+  if (!target) return fail("no-song");
   target.setAutoplay(genre);
   await onAccepted?.();
   if (genre !== false && !target.currentTrack) {
@@ -308,11 +311,11 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
   if (!actor.owner) {
     const permission = await perm.checkControl(actor.member);
-    if (permission) return fail("no-permission", { permission });
+    if (permission) return fail(permission);
   }
   const player = players.get(guild.id);
   if (!player) {
-    if (!guild.members.me?.voice?.channel) return fail("no-player");
+    if (!guild.members.me?.voice?.channel) return fail("no-song");
     await guild.members.me.voice.disconnect();
     return done({ left: "voice-only" as const });
   }

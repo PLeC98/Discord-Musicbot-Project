@@ -16,7 +16,7 @@ import { moreView, countModal as moreCountModal } from "../ui/playlistMoreMenu.t
 import { messageOf } from "../rules/errorKind.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/Player.ts";
-import type { MoreRefusal } from "../ui/text/ko/more.ts";
+import type { Code } from "../rules/problems.ts";
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
@@ -125,10 +125,10 @@ function moreChoices({ remaining, room, batch, perClick = Infinity }: { remainin
   return { cap, steps: cap > 0 ? [batch, batch * 2].filter((n) => n < cap) : [] };
 }
 
-// 누른 사람·메시지 나이 확인. 문제가 있으면 거절 까닭
-function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }): MoreRefusal | null {
-  if (state.requesterId && state.requesterId !== userId) return "not-requester";
-  if (now - lastTouched > LIFETIME_MS) return "expired";
+// 누른 사람·메시지 나이 확인. 문제가 있으면 그 코드
+function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }): Extract<Code, "more-not-requester" | "more-expired"> | null {
+  if (state.requesterId && state.requesterId !== userId) return "more-not-requester";
+  if (now - lastTouched > LIFETIME_MS) return "more-expired";
   return null;
 }
 

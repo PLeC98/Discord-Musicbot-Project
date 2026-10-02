@@ -219,7 +219,7 @@ class VoiceLink {
   _onError(error: Error) {
     if (this.state === "closed") return;
     // 네트워크가 끊긴 것은 복구 시작 줄이 까닭과 함께 남긴다
-    if (errorKind(error) === "network") {
+    if (errorKind(error) === "network-error") {
       this.recover(`네트워크 오류(${messageOf(error)})`);
       return;
     }

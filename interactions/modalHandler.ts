@@ -12,11 +12,11 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   const player = client.players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
   if (player && sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return await interaction.reply(noticeReply(errors.staleSession()));
+    return await interaction.reply(noticeReply(errors.notice("stale-session")));
   }
 
   const r = await controls.jump(player, { member: interaction.member }, Number(interaction.values[0]));
-  if (!r.ok && r.code === "bad-position") return await interaction.reply(noticeReply(errors.jumpTargetGone()));
+  if (!r.ok && r.code === "bad-position") return await interaction.reply(noticeReply(errors.notice("jump-target-gone")));
   if (!r.ok) return await interaction.reply(noticeReply(controlMessage(r)));
 
   await interaction.reply(reply(replies.jumped(r.track)));

@@ -1,6 +1,6 @@
 // 플레이어가 알린 일(player/events 의 notice)을 글자 채널에 보낼 안내. 세부(detail)는 알린 쪽이 준 것
 
-import { noticeOf } from "../../frame.ts";
+import { noticeOf } from "../notice.ts";
 import { escapeMd } from "../../mentions.ts";
 import { josa } from "../../../rules/josa.ts";
 

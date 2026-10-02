@@ -37,7 +37,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 곡 추가 권한: 봇 동작 중에는 재적 규칙(모더레이터 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
-      const reply = await message.reply(post(noticeFrame(errors.permission(permError))));
+      const reply = await message.reply(post(noticeFrame(errors.notice(permError))));
       scheduleDelete(reply, 5000);
       scheduleDelete(message, 5000);
       return;
@@ -79,7 +79,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     } catch (error) {
       log.error({ sub: "message" }, "메시지 처리 오류:", error);
       await responder.dismissPlaceholder();
-      const errMsg = await message.channel.send(post(noticeFrame(errors.processingFailed())));
+      const errMsg = await message.channel.send(post(noticeFrame(errors.notice("processing-failed"))));
       scheduleDelete(errMsg, 8000);
     }
   },

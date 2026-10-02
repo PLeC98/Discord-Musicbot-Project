@@ -97,7 +97,7 @@ function installErrorHandlers(client: WatchedClient, { fault, proc = process, ex
       return;
     }
     // 서버를 모른다: 경계가 빠진 자리다. 게이트웨이 · 네트워크 오류는 discord.js 가 스스로 다시 붙는다
-    if (errorKind(error) === "network") coreLog.warn(`경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
+    if (errorKind(error) === "network-error") coreLog.warn(`경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
     else coreLog.error(`경계가 빠진 자리에서 새어 나온 오류 (${source}):`, error);
     if (flooding()) {
       coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 모르는 오류가 ${FLOOD_MAX}번을 넘었습니다`);

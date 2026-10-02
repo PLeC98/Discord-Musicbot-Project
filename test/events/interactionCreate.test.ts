@@ -58,7 +58,7 @@ test("슬래시 명령도 버튼 · 메뉴 · 모달도 아니면 지나간다",
 test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 쓸 수 없다고 본인에게 답한다. 답하지 못해도 던지지 않는다", async () => {
   const { it, sent } = interaction({ name: "nope" });
   await interactionCreate.execute(it);
-  assert.deepEqual(sent, [["reply", noticeReply(errors.unknownCommand())]]);
+  assert.deepEqual(sent, [["reply", noticeReply(errors.notice("unknown-command"))]]);
   await interactionCreate.execute(interaction({ name: "nope", replyFails: true }).it);
 });
 
@@ -74,7 +74,7 @@ test("서버 밖(DM)에서는 서버 명령을 부르지 않고 그렇다고 알
   const { it, sent } = interaction({ guild: false, commands: { play: { execute: async () => seen.push("ran") } } });
   await interactionCreate.execute(it);
   assert.deepEqual(seen, []);
-  assert.deepEqual(sent, [["reply", noticeReply(errors.guildOnly())]]);
+  assert.deepEqual(sent, [["reply", noticeReply(errors.notice("guild-only"))]]);
 });
 
 test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", async () => {
@@ -88,7 +88,7 @@ test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", as
 test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으면 이어서 보낸다", async () => {
   const fresh = interaction({ commands: { play: failing(new Error("x")) } });
   await interactionCreate.execute(fresh.it);
-  assert.deepEqual(fresh.sent, [["reply", noticeReply(errors.commandFailed())]]);
+  assert.deepEqual(fresh.sent, [["reply", noticeReply(errors.notice("command-failed"))]]);
 
   const answered = interaction({ commands: { play: failing(new Error("x")) }, replied: true });
   await interactionCreate.execute(answered.it);
@@ -98,17 +98,17 @@ test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으�
 test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답 자리를 지우고 본인에게만 알린다", async () => {
   const { it, sent } = interaction({ commands: { play: failing(new Error("x")) }, deferred: true });
   await interactionCreate.execute(it);
-  assert.deepEqual(sent, [["deleteReply"], ["followUp", noticeReply(errors.commandFailed())]]);
+  assert.deepEqual(sent, [["deleteReply"], ["followUp", noticeReply(errors.notice("command-failed"))]]);
 });
 
 test("종류를 가를 수 있는 오류(네트워크 등)는 그 종류의 문장으로 알린다", async () => {
   const { it, sent } = interaction({ commands: { play: failing(networkError()) } });
   await interactionCreate.execute(it);
-  assert.deepEqual(sent[0][1], noticeReply(errors.forKind("network")));
+  assert.deepEqual(sent[0][1], noticeReply(errors.notice("network-error")));
 
   const pressed = press();
   await routeInteraction(pressed.it, throwing(networkError()));
-  assert.deepEqual(pressed.sent[0][1], noticeReply(errors.forKind("network")));
+  assert.deepEqual(pressed.sent[0][1], noticeReply(errors.notice("network-error")));
 });
 
 test("자리표시자를 띄운 처리기가 선언했으면 그 자리에 알린다", async () => {
@@ -120,7 +120,7 @@ test("자리표시자를 띄운 처리기가 선언했으면 그 자리에 알�
   };
   const { it, sent } = interaction({ commands: { play: placeholder }, replied: true });
   await interactionCreate.execute(it);
-  assert.deepEqual(sent, [["shown", errors.commandFailed()]]);
+  assert.deepEqual(sent, [["shown", errors.notice("command-failed")]]);
 
   const pressed = press({ deferred: true });
   await routeInteraction(pressed.it, [
@@ -129,7 +129,7 @@ test("자리표시자를 띄운 처리기가 선언했으면 그 자리에 알�
       throw new Error("x");
     }),
   ]);
-  assert.deepEqual(pressed.sent, [["shown", errors.processingFailed()]]);
+  assert.deepEqual(pressed.sent, [["shown", errors.notice("processing-failed")]]);
 });
 
 test("상호작용이 이미 죽었으면 알리려 하지 않는다", async () => {
@@ -171,7 +171,7 @@ const throwing = (error: Error) => [
 test("버튼 처리가 던지면 본인에게만 보이게 알린다. 이미 답했으면 이어서 보낸다", async () => {
   const fresh = press();
   await routeInteraction(fresh.it, throwing(new Error("x")));
-  assert.deepEqual(fresh.sent, [["reply", noticeReply(errors.processingFailed())]]);
+  assert.deepEqual(fresh.sent, [["reply", noticeReply(errors.notice("processing-failed"))]]);
 
   const answered = press({ deferred: true });
   await routeInteraction(answered.it, throwing(new Error("x")));

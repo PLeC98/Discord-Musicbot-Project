@@ -220,7 +220,7 @@ test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브�
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success ? null : result.code, "live-no-ffmpeg");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.liveNoFfmpeg()));
+  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("live-no-ffmpeg")));
   assert.equal(client.embedCalls.length, 0);
 });
 
@@ -377,7 +377,7 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "없는곡" }));
 
   assert.equal(result.success ? null : result.code, "no-song-result");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.noSongResult()));
+  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("no-song-result")));
   assert.equal(client.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
@@ -385,7 +385,7 @@ test("곡 찾기가 던졌으면 그 까닭과 오류 종류를 넘긴다(입구
   mockResolve = () => ({ success: false, code: "lookup-failed", error: networkError() });
   const client = makeClient();
   const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "끊긴 곡" }));
-  assert.deepEqual(result, { success: false, code: "lookup-failed", kind: "network" });
+  assert.deepEqual(result, { success: false, code: "lookup-failed", kind: "network-error" });
 });
 
 test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대로 넘긴다", async () => {
@@ -476,7 +476,7 @@ test("로그: 못 넣은 까닭은 코드로. 곡 찾기가 던졌으면 오류 
     return (await requestLines({ query: "q" })).lines;
   };
   assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: no-song-result']);
-  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 못 넣음: lookup-failed(network)']);
+  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 못 넣음: lookup-failed(network-error)']);
   assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: unsupported-link']);
   const upcoming = { success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] } as const;
   assert.deepEqual(await refused(() => ({ ...upcoming, tracks: [...upcoming.tracks] })), ['info 곡 요청: /play | carl | "q" → 못 넣음: live-upcoming']);
@@ -486,7 +486,7 @@ test("로그: 담지 못했으면 그 까닭을 한 줄 더(info). 담았으면 
   mockResolve = () => ok("곡A");
   const failed = async (outcome: object) => (await requestLines({ query: "곡A" }, outcome)).lines.slice(1);
   assert.deepEqual(await failed({ success: false, code: "voice-failed" }), ["info 곡 담기 실패: voice-failed"]);
-  assert.deepEqual(await failed({ success: false, code: "threw", kind: "network" }), ["info 곡 담기 실패: threw(network)"]);
+  assert.deepEqual(await failed({ success: false, code: "add-failed", kind: "network-error" }), ["info 곡 담기 실패: add-failed(network-error)"]);
   assert.deepEqual(await failed({ success: false, code: "queue-full", dropped: 1 }), ["info 곡 담기 실패: queue-full"]);
 
   const level = logger.level;
@@ -667,7 +667,7 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
 test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 받을 수 없는 곡뿐이다(뺀 곡 수) · 받은 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const client = makeClient();
-    assert.deepEqual(await continueCollection(client, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "no-player" });
+    assert.deepEqual(await continueCollection(client, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "ended-while-adding" });
 
     const scState: MoreState = { kind: "scs", listId: "2284916349", offset: 10, anchorId: "3009", insertFirst: false, requesterId: null };
     const previews = await continueWith({ state: scState, count: 50, source: ({ offset = 0 }: Range) => ({ tracks: [], total: 41, nextOffset: offset + 10, skipped: 10 }) });

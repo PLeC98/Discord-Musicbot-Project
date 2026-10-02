@@ -1,6 +1,6 @@
 import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
-import type { PermissionDenied } from "../ui/text/ko/errors.ts";
+import type { Code } from "../rules/problems.ts";
 import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 
@@ -8,6 +8,9 @@ import type { QueuedTrack } from "../player/track.ts";
 // 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 dashboard/server/owner.ts.
 // 서버 소유자와 Administrator(관리자) 권한 보유자는 discord.js 권한 검사가 자동으로 전부 통과시킨다.
 // 기준을 조정하려면 이 배열만 수정하면 된다.
+/** 권한 판정이 막은 까닭 */
+type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
+
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
 
 function isModerator(member: GuildMember) {
@@ -107,3 +110,4 @@ async function checkRemoveTrack(member: GuildMember, track: Pick<QueuedTrack, "r
 }
 
 export { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
+export type { PermissionDenied };

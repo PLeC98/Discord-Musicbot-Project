@@ -36,7 +36,7 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
 async function handleAutoplayButton(interaction: ButtonInteraction<"cached">) {
   const player = interaction.client.players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
-  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply(noticeReply(errors.staleSession()));
+  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply(noticeReply(errors.notice("stale-session")));
   return answerAutoplay(interaction, player);
 }
 

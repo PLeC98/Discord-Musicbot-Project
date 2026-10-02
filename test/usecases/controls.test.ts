@@ -88,15 +88,15 @@ function panel() {
   return seen;
 }
 
-test("공통: 플레이어가 없으면 no-player, 권한이 없으면 no-permission(권한 판정의 안내), 운영자는 권한을 건너뛴다", async () => {
-  assert.deepEqual(await controls.pause(null, DJ), { ok: false, code: "no-player" });
-  assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "no-permission", permission: "must-be-in-same-voice" });
+test("공통: 플레이어가 없으면 no-song, 권한이 없으면 권한 판정이 막은 까닭의 코드, 운영자는 권한을 건너뛴다", async () => {
+  assert.deepEqual(await controls.pause(null, DJ), { ok: false, code: "no-song" });
+  assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "must-be-in-same-voice" });
   assert.equal((await controls.pause(fakePlayer(), OWNER)).ok, true);
 });
 
 test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다", async () => {
   const seen = panel();
-  assert.equal(codeOf(await controls.pause(fakePlayer({ currentTrack: null }), DJ)), "no-track");
+  assert.equal(codeOf(await controls.pause(fakePlayer({ currentTrack: null }), DJ)), "no-song");
 
   const playing = fakePlayer();
   assert.deepEqual(await controls.pause(playing, DJ), { ok: true, paused: true, track: playing.currentTrack });
@@ -105,16 +105,16 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
   assert.deepEqual([...playing.calls, ...paused.calls], ["pause", "resume"]);
   assert.deepEqual(seen, ["refresh", "refresh"]);
 
-  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseFor: () => false }), DJ)), "failed");
+  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseFor: () => false }), DJ)), "control-failed");
 });
 
-test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있으면 그 까닭을 싣고 거절한다", async () => {
+test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있으면 그 까닭의 코드로 거절한다", async () => {
   const muted = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "mute"]), resumeFor: () => (muted.pauseReasons.delete("manual"), false) });
-  assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held", reason: "mute" });
-  assert.equal(plainText(controlMessage({ code: "held", reason: "mute" })).includes("음소거"), true);
-  assert.equal(plainText(controlMessage({ code: "held", reason: "alone" })).includes("혼자"), true);
-  assert.equal(codeOf(await controls.pause(fakePlayer({ paused: true, resumeFor: () => false }), DJ)), "failed", "붙든 까닭이 없으면 그냥 실패");
-  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "failed", "멈추기 실패는 붙든 까닭과 상관없다");
+  assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held-mute" });
+  const alone = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "alone"]), resumeFor: () => (alone.pauseReasons.delete("manual"), false) });
+  assert.deepEqual(await controls.pause(alone, DJ), { ok: false, code: "held-alone" });
+  assert.equal(codeOf(await controls.pause(fakePlayer({ paused: true, resumeFor: () => false }), DJ)), "control-failed", "붙든 까닭이 없으면 그냥 실패");
+  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "control-failed", "멈추기 실패는 붙든 까닭과 상관없다");
 });
 
 test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터, 자동재생은 다음 곡을 골라 허용). 곡 요청자는 DJ 가 아니어도 된다", async () => {
@@ -145,12 +145,12 @@ test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한�
   assert.deepEqual(await controls.previous(rewound({ previousTracks: [], loop: "track" }), DJ), { ok: true, restarted: true, track: now }, "되감으면 지금 곡");
   assert.deepEqual(await controls.previous(rewound({ previousTracks: [], loop: "queue" }), DJ), { ok: true, restarted: false, track: back }, "대기열이 고리라 맨 끝 곡으로");
   assert.deepEqual(await controls.previous(rewound({ previousTracks: [], loop: "queue", queue: [] }), DJ), { ok: true, restarted: true, track: now }, "고리에 지금 곡뿐");
-  assert.equal(codeOf(await controls.previous(fakePlayer({ currentTrack: null }), DJ)), "no-track");
+  assert.equal(codeOf(await controls.previous(fakePlayer({ currentTrack: null }), DJ)), "no-song");
 });
 
 test("위치 이동: 라이브 · 여는 중은 거절. 받아들이면 onAccepted 뒤에 옮긴다", async () => {
   assert.equal(codeOf(await controls.seek(fakePlayer({ isLive: true }), DJ, 1000)), "live-no-seek");
-  assert.equal(codeOf(await controls.seek(fakePlayer({ isPlayStarting: true }), DJ, 1000)), "starting");
+  assert.equal(codeOf(await controls.seek(fakePlayer({ isPlayStarting: true }), DJ, 1000)), "still-starting");
 
   const order: string[] = [];
   const p = fakePlayer({ seek: async (ms: number, reason: string) => order.push(`seek:${ms}:${reason}`) });
@@ -215,7 +215,7 @@ test("빼기: 빈 대기열 · 범위 밖 거절, 권한은 그 곡을 보고(�
   assert.deepEqual(await controls.remove(fakePlayer(), DJ, 5), { ok: false, code: "bad-position", size: 2 });
   const p = fakePlayer({ queue: [track("남의 곡"), track("내 곡", { requestedBy: { id: "u9" } })] });
   const requester = { member: member({ mod: false, id: "u9" }) };
-  assert.equal(codeOf(await controls.remove(p, OUTSIDER, 0)), "no-permission");
+  assert.equal(codeOf(await controls.remove(p, OUTSIDER, 0)), "must-be-in-same-voice");
   assert.equal(accepted(await controls.remove(p, requester, 1)).track?.title, "내 곡");
 });
 
@@ -245,7 +245,7 @@ test("점프: 그 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기�
 
 test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼고 알리고, 없어도 봇이 음성에 있으면 나간다", async () => {
   const players = new Map<string, Player>();
-  assert.equal(codeOf(await controls.leave(guild, OUTSIDER, players)), "no-permission");
+  assert.equal(codeOf(await controls.leave(guild, OUTSIDER, players)), "must-be-in-same-voice");
 
   const p = fakePlayer();
   players.set("g1", p);
@@ -257,7 +257,7 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });
   assert.deepEqual(await controls.leave(lingering, OWNER, players), { ok: true, left: "voice-only" });
   assert.equal(disconnected, 1);
-  assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), OWNER, players)), "no-player");
+  assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), OWNER, players)), "no-song");
 });
 
 test("패널을 못 고쳐도 조작은 된 것이다", async () => {
@@ -269,7 +269,7 @@ test("패널을 못 고쳐도 조작은 된 것이다", async () => {
 
 test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 있어야 한다. 운영자는 건너뛴다", async () => {
   const [genre] = Object.keys(genreConfig.genres().genres);
-  assert.deepEqual(await controls.autoplayBlocked(OUTSIDER), { ok: false, code: "no-permission", permission: "must-be-in-same-voice" });
+  assert.deepEqual(await controls.autoplayBlocked(OUTSIDER), { ok: false, code: "must-be-in-same-voice" });
   assert.equal(await controls.autoplayBlocked(DJ), null);
   assert.equal(await controls.autoplayBlocked(OWNER), null);
 
@@ -277,12 +277,12 @@ test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 �
   const idleGuild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: null } } } });
   const away: Actor = { member: fake<GuildMember>({ id: "u1", guild: idleGuild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }) };
   const p = fakePlayer({ setAutoplay: () => assert.fail("바꾸지 않는다") });
-  assert.deepEqual(await controls.autoplay(p, away, genre), { ok: false, code: "no-permission", permission: "must-be-in-voice" });
+  assert.deepEqual(await controls.autoplay(p, away, genre), { ok: false, code: "must-be-in-voice" });
 });
 
 test("자동재생 끄기: 플레이어가 없으면 거절. 끄고 응답한 뒤 패널에 알린다", async () => {
   const seen = panel();
-  assert.deepEqual(await controls.autoplay(null, DJ, false, { create: () => assert.fail("끌 때는 만들지 않는다") }), { ok: false, code: "no-player" });
+  assert.deepEqual(await controls.autoplay(null, DJ, false, { create: () => assert.fail("끌 때는 만들지 않는다") }), { ok: false, code: "no-song" });
 
   const order: string[] = [];
   const p = fakePlayer({ autoplay: "가요", setAutoplay: (g: unknown) => order.push(`set:${g}`) });
@@ -309,11 +309,11 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(seen, ["refresh"]);
 });
 
-test("안내: 권한은 판정의 안내 그대로, 나머지는 코드별 안내. 대시보드는 머리 줄 · 본문의 글자에 상태 코드를 붙인다", () => {
-  assert.deepEqual(controlMessage({ code: "no-permission", permission: "must-dj" }), errors.mustDj());
+test("안내: 코드와 값의 안내. 대시보드는 머리 줄 · 본문의 글자에 목록의 상태 코드를 붙인다", () => {
+  assert.deepEqual(controlMessage({ code: "must-dj" }), errors.notice("must-dj"));
   assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
-  assert.equal(plainText(controlMessage({ code: "알 수 없음" })), "작업이 실패했어요!\n잠시 뒤 재시도해 보고, 계속되면 봇 운영자에게 알려주세요.");
-  assert.deepEqual(controlApiError({ code: "no-track" }), { status: 409, error: "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요." });
-  assert.equal(controlApiError({ code: "no-permission", permission: "must-dj" }).status, 403);
+  assert.deepEqual(controlApiError({ code: "no-song" }), { status: 409, error: "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요." });
+  assert.equal(controlApiError({ code: "must-dj" }).status, 403);
+  assert.equal(controlApiError({ code: "must-be-in-voice" }).status, 409, "권한이 아니라 사람의 상태");
   assert.equal(controlApiError({ code: "bad-volume" }).status, 400);
 });

@@ -3,6 +3,7 @@
 
 import { ContainerBuilder, MessageFlags, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import { colorOf, type Meaning } from "./colors.ts";
+import type { Notice, Topic } from "./text/notice.ts";
 
 // 사용자가 할 일이 같으면 한 이모지
 const EMOJI = {
@@ -19,14 +20,7 @@ const EMOJI = {
   muted: "🔇", // 봇이 음소거됨
   autoplay: "🎲", // 자동재생
   state: "⚠️", // 그 밖에 지금 상태라 못 함 · 일부만 됨
-} as const;
-
-type Topic = keyof typeof EMOJI;
-/** 오류 · 경고 안내. error 는 봇 쪽 문제, warning 은 사용자가 고칠 수 있거나 지금 상태라 못 한 것 */
-type Notice = { topic: Topic; severity: "error" | "warning"; title: string; body?: string };
-
-/** 안내 하나. 본문이 없으면 칸을 두지 않는다 */
-const noticeOf = (severity: Notice["severity"], topic: Topic, title: string, body?: string): Notice => (body ? { topic, severity, title, body } : { topic, severity, title });
+} as const satisfies Record<Topic, string>;
 
 /** 화면의 칸. footer 는 작은 글씨 줄들(비면 건너뛴다) */
 type Look = { title?: string; body?: string | null; footer?: Array<string | null>; thumbnail?: string | null; color?: Meaning };
@@ -58,5 +52,5 @@ const post = (container: ContainerBuilder) => ({ components: [container], flags:
 /** 오류 · 경고 안내를 새 응답으로(본인에게만) */
 const noticeReply = (notice: Notice) => reply(noticeFrame(notice));
 
-export { frame, noticeOf, noticeFrame, noticeReply, plainText, reply, post, EMOJI };
-export type { Notice, Topic, Look };
+export { frame, noticeFrame, noticeReply, plainText, reply, post, EMOJI };
+export type { Look };

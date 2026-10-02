@@ -319,7 +319,7 @@ class NowPlayingPanel {
       else {
         player.nowPlayingMessage = null;
         this.stopProgressUpdate(guildId);
-        if (errorKind(error) === "network") log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
+        if (errorKind(error) === "network-error") log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
         else log.error("재생 중 임베드 다시 올리기 실패:", messageOf(error));
       }
     } finally {
@@ -438,7 +438,7 @@ class NowPlayingPanel {
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
-    if (errorKind(error) === "network") {
+    if (errorKind(error) === "network-error") {
       this._editFailure(player).fail(messageOf(error));
       return;
     }
@@ -531,7 +531,7 @@ class NowPlayingPanel {
       else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
       // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (errorKind(error) === "network") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
+      if (errorKind(error) === "network-error") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
       else if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
     }
   }

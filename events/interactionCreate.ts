@@ -7,7 +7,8 @@ const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
 import { errorKind, messageOf } from "../src/rules/errorKind.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeReply } from "../src/ui/frame.ts";
+import type { Notice } from "../src/ui/text/notice.ts";
 import { errorMessage } from "../src/ui/errorMessages.ts";
 import { failureShow, noticeInstead } from "../src/ui/failureNotice.ts";
 import { ROUTES } from "../interactions/index.ts";
@@ -24,7 +25,7 @@ async function failed(interaction: RepliableInteraction, what: string, error: un
   const kind = errorKind(error);
   log.error({ kind }, `${what} 처리 실패:`, error);
   if (isDeadInteraction(error)) return;
-  const notice = kind === "unknown" ? fallback : errorMessage(error);
+  const notice = kind === "unknown-error" ? fallback : errorMessage(error);
   // 안내 실패는 여기서 끝낸다. 리스너 밖으로 던지면 client "error"를 거쳐 uncaughtException이 된다
   await tell(interaction, notice).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
 }
@@ -42,15 +43,15 @@ async function runCommand(interaction: ChatInputCommandInteraction) {
   const command = interaction.client.commands.get(interaction.commandName);
   if (!command) {
     log.warn(`실행 목록에 없는 명령: /${interaction.commandName}`);
-    return interaction.reply(noticeReply(errors.unknownCommand())).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    return interaction.reply(noticeReply(errors.notice("unknown-command"))).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     // 서버 명령은 서버 안에서만. DM 에서도 쓰는 명령은 그대로 부른다
     if (command.anywhere) await command.execute(interaction, interaction.client);
     else if (interaction.inCachedGuild()) await command.execute(interaction, interaction.client);
-    else await interaction.reply(noticeReply(errors.guildOnly()));
+    else await interaction.reply(noticeReply(errors.notice("guild-only")));
   } catch (error) {
-    await failed(interaction, `/${interaction.commandName}`, error, errors.commandFailed());
+    await failed(interaction, `/${interaction.commandName}`, error, errors.notice("command-failed"));
   }
 }
 
@@ -62,12 +63,12 @@ async function runComponent(input: Interaction, routes: readonly Route[]) {
   const route = routeOf(routes, kind, interaction.customId);
   if (!route) {
     log.warn(`처리기가 없는 상호작용: ${kind} ${interaction.customId}`);
-    return interaction.reply(noticeReply(errors.unknownInteraction())).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    return interaction.reply(noticeReply(errors.notice("unknown-interaction"))).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     await route.handle(interaction);
   } catch (error) {
-    await failed(interaction, `${kind} ${interaction.customId}`, error, errors.processingFailed());
+    await failed(interaction, `${kind} ${interaction.customId}`, error, errors.notice("processing-failed"));
   }
 }
 

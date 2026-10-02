@@ -47,7 +47,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const seekMs = parseTimeInput(interaction.options.getString("time", true));
-    if (seekMs === null) return interaction.reply(noticeReply(errors.badTime()));
+    if (seekMs === null) return interaction.reply(noticeReply(errors.notice("bad-time")));
     await answerSeek(interaction, client.players.get(interaction.guild.id), seekMs);
   },
 };

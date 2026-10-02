@@ -53,11 +53,11 @@ const exported: GuildCommand = {
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
-    if (!channel) return interaction.reply(noticeReply(errors.channelSetFailed())); // 캐시에 없는 채널
+    if (!channel) return interaction.reply(noticeReply(errors.notice("channel-set-failed"))); // 캐시에 없는 채널
     const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
 
     if (!success) {
-      return await interaction.reply(noticeReply(errors.channelSetFailed()));
+      return await interaction.reply(noticeReply(errors.notice("channel-set-failed")));
     }
 
     await interaction.reply(post(screens.channelSet(`${channel}`)));

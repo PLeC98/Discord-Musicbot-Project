@@ -4,10 +4,11 @@ import type { ContainerBuilder, ModalMessageModalSubmitInteraction, StringSelect
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, post, type Notice } from "../src/ui/frame.ts";
+import config from "../config.ts";
+import { noticeReply, post } from "../src/ui/frame.ts";
+import type { Notice } from "../src/ui/text/notice.ts";
 import { fetchingView } from "../src/ui/playlistMoreMenu.ts";
 import { noticeInstead } from "../src/ui/failureNotice.ts";
-import * as moreText from "../src/ui/text/ko/more.ts";
 import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
@@ -30,7 +31,7 @@ const refuser = (interaction: MoreInteraction) => (notice: Notice) => interactio
 
 // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {
-  if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)(moreText.refusal("not-requester-close"));
+  if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)(errors.notice("more-not-requester-close"));
   More.clearExpiry(interaction.message.id);
   await interaction.deferUpdate().catch(closed);
   return interaction.deleteReply().catch(closed);
@@ -44,13 +45,13 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
     const value = interaction.values[0];
     if (value === "custom") {
       const room = More.roomFor(player);
-      if (room <= 0) await refuse(moreText.refusal("full"));
+      if (room <= 0) await refuse(errors.notice("queue-full", { max: config.bot.maxQueueSize }));
       else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : More.MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
       return null;
     }
     count = More.parseCount(value);
   } else count = More.parseCount(interaction.fields.getTextInputValue("count"));
-  if (!count) await refuse(moreText.refusal("bad-count"));
+  if (!count) await refuse(errors.notice("more-bad-count"));
   return count || null;
 }
 
@@ -100,19 +101,19 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
 async function handleMore(interaction: MoreInteraction) {
   const refuse = refuser(interaction);
   const state = More.decodeState(interaction.customId);
-  if (!state) return refuse(moreText.refusal("unknown-menu"));
+  if (!state) return refuse(errors.notice("more-unknown-menu"));
   if (interaction.isStringSelectMenu() && interaction.values[0] === "stop") return stop(interaction, state);
 
   const message = interaction.message;
   const lastTouched = message?.editedTimestamp ?? message?.createdTimestamp ?? 0;
   const clickErr = More.clickError(state, { userId: interaction.user.id, lastTouched });
-  if (clickErr) return refuse(moreText.refusal(clickErr));
+  if (clickErr) return refuse(errors.notice(clickErr));
 
   const permErr = checkAdd(interaction.member);
-  if (permErr) return refuse(errors.permission(permErr));
+  if (permErr) return refuse(errors.notice(permErr));
 
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return refuse(errors.noSong());
+  if (!player) return refuse(errors.notice("no-song"));
 
   const count = await countOf(interaction, state, player);
   if (count) await addMore(interaction, state, count, player);

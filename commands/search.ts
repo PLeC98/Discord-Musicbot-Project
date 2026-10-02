@@ -76,7 +76,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
 
     // 검색 뒤 고르기는 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
     const permErr = checkAdd(member) || checkSummon(member);
-    if (permErr) return interaction.reply(noticeReply(errors.permission(permErr)));
+    if (permErr) return interaction.reply(noticeReply(errors.notice(permErr)));
 
     // 검색이 던지면(네트워크 · 봇 감지 등) 입구가 남기고 이 답 자리에 그 종류로 알린다
     await interaction.deferReply();
@@ -85,7 +85,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
 
     if (!results || results.length === 0) {
-      return await noticeInstead(interaction, errors.noSearchResults());
+      return await noticeInstead(interaction, errors.notice("no-search-results"));
     }
 
     await showSearchMenu(interaction, results, query);

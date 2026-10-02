@@ -68,8 +68,8 @@ test("메뉴: 자리가 없으면 메뉴를 붙이지 않고, 있으면 선택�
 test("누를 때: 전용 채널 메뉴는 넣은 사람만, 30초가 지나면 닫힌다", () => {
   const now = 1_000_000;
   const mine = stateOf("12345678901234567");
-  assert.equal(More.clickError(mine, { userId: "99999999999999999", lastTouched: now, now }), "not-requester");
-  assert.equal(More.clickError(stateOf(null), { userId: "a", lastTouched: now - More.LIFETIME_MS - 1, now }), "expired");
+  assert.equal(More.clickError(mine, { userId: "99999999999999999", lastTouched: now, now }), "more-not-requester");
+  assert.equal(More.clickError(stateOf(null), { userId: "a", lastTouched: now - More.LIFETIME_MS - 1, now }), "more-expired");
   assert.equal(More.clickError(mine, { userId: "12345678901234567", lastTouched: now - 1000, now }), null);
 });
 

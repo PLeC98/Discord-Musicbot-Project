@@ -70,7 +70,7 @@ test("곡 링크의 실패는 까닭의 이름을 단다: 없음 · 지역 제�
     ["ERROR: [soundcloud:set] artist/sets/gone: Unable to download JSON metadata: HTTP Error 404: Not Found", "unavailable-playlist", "set"],
     [GEO, "geo-blocked", "track"],
     ["ERROR: [soundcloud:set] a/sets/b: Unable to download JSON metadata: HTTP Error 403: Forbidden (caused by <HTTPError 403: Forbidden>)", "rate-limited", "set"],
-    ["ERROR: [soundcloud] 1: Unable to download JSON metadata: <urlopen error [Errno 11001] getaddrinfo failed>", "network", "track"],
+    ["ERROR: [soundcloud] 1: Unable to download JSON metadata: <urlopen error [Errno 11001] getaddrinfo failed>", "network-error", "track"],
   ];
   for (const [stderr, kind, what] of cases) {
     respond = () => ({ fail: stderr });

@@ -26,7 +26,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
   // 커맨드 진입 조건과 동일 기준 재확인 (심층 방어. 원본이 에페메랄이라 실질 노출은 없음)
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply(noticeReply(errors.mustModerator()));
+    return interaction.reply(noticeReply(errors.notice("must-moderator")));
   }
 
   // 드롭메뉴 선택. 즉시 저장하지 않고 보류만 (저장 버튼이 확정)
@@ -58,7 +58,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
     const success = await GuildSettingsManager.setDjRoles(guild.id, roleIds);
     if (!success) {
       // 설정 화면은 임베드라 안내로 고칠 수 없다. 화면을 지우고 알린다
-      return noticeInstead(interaction, errors.djRoleSaveFailed());
+      return noticeInstead(interaction, errors.notice("dj-role-save-failed"));
     }
 
     return interaction.update(post(screens.saved(settingsText.djRoleSaved(roleIds))));

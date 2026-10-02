@@ -11,8 +11,8 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const player = client.players.get(interaction.guild.id);
-    if (!player) return await interaction.reply(noticeReply(errors.noSong()));
-    if (!player.currentTrack) return await interaction.reply(noticeReply(errors.noSong()));
+    if (!player) return await interaction.reply(noticeReply(errors.notice("no-song")));
+    if (!player.currentTrack) return await interaction.reply(noticeReply(errors.notice("no-song")));
     await interaction.reply(post(nowPlayingView(player, player.currentTrack)));
   },
 };

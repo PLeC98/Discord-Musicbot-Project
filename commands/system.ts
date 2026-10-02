@@ -76,7 +76,7 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     // 호스트 CPU/메모리/디스크 정보 노출. Discord 권한으로 표현할 수 없는 봇 운영자(OWNER_ID) 전용
     if (interaction.user.id !== config.dashboard.ownerId) {
-      return interaction.reply(noticeReply(errors.mustOwner()));
+      return interaction.reply(noticeReply(errors.notice("must-owner")));
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

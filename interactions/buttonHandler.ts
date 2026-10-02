@@ -3,7 +3,8 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeReply } from "../src/ui/frame.ts";
+import type { Notice } from "../src/ui/text/notice.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
@@ -47,15 +48,15 @@ const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () =>
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return interaction.reply(noticeReply(errors.noSong()));
+  if (!player) return interaction.reply(noticeReply(errors.notice("no-song")));
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return interaction.reply(noticeReply(errors.staleSession()));
+    return interaction.reply(noticeReply(errors.notice("stale-session")));
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle || PANEL_ENABLED[action]?.() === false) return interaction.reply(noticeReply(errors.unknownInteraction()));
+  if (!handle || PANEL_ENABLED[action]?.() === false) return interaction.reply(noticeReply(errors.notice("unknown-interaction")));
   await handle(interaction, player);
 }
 
@@ -63,7 +64,7 @@ async function handleQueue(interaction: Press, player: Player) {
   const queueInfo = queueInfoOf(player);
 
   if (queueInfo.queue.length === 0) {
-    return await interaction.reply(noticeReply(errors.queueEmpty()));
+    return await interaction.reply(noticeReply(errors.notice("queue-empty")));
   }
 
   await interaction.reply({ ...queueView(queueInfo), flags: MessageFlags.Ephemeral });
@@ -74,7 +75,7 @@ async function handleQueuePage(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
   if (!info || info.queue.length === 0) {
-    return noticeInstead(interaction, player ? errors.queueEmpty() : errors.noSong());
+    return noticeInstead(interaction, player ? errors.notice("queue-empty") : errors.notice("no-song"));
   }
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
@@ -82,7 +83,7 @@ async function handleQueuePage(interaction: Press) {
 async function handleVolumeModal(interaction: Press) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
-    return await interaction.reply(noticeReply(errors.permission(permErr)));
+    return await interaction.reply(noticeReply(errors.notice(permErr)));
   }
 
   await interaction.showModal(volumeModal());
@@ -119,15 +120,15 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
 }
 
 function handleHelpRefresh(interaction: Press) {
-  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: errors.refreshFailed() });
+  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
 async function handleSystemRefresh(interaction: Press) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
-    return await interaction.reply(noticeReply(errors.mustOwner()));
+    return await interaction.reply(noticeReply(errors.notice("must-owner")));
   }
-  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.refreshFailed() });
+  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
 // 검색 결과 고르기 · 취소. 검색한 사람만 누를 수 있다. 고른 영상은 다시 찾는다(받아 둔 곡이면 캐시에서)
@@ -137,7 +138,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const [userId, position, videoId = ""] = rest;
 
   if (userId !== interaction.user.id) {
-    return await interaction.reply(noticeReply(errors.searchOwnerOnly()));
+    return await interaction.reply(noticeReply(errors.notice("search-owner-only")));
   }
 
   if (action === "cancel") {
@@ -145,11 +146,11 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
-  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply(noticeReply(errors.unknownInteraction()));
+  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply(noticeReply(errors.notice("unknown-interaction")));
 
   // 곡 추가 경로. /play · /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return await interaction.reply(noticeReply(errors.permission(permErr)));
+  if (permErr) return await interaction.reply(noticeReply(errors.notice(permErr)));
 
   await interaction.deferUpdate();
 

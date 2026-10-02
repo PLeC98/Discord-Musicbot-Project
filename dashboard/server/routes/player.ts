@@ -11,7 +11,8 @@ import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permi
 import * as errors from "../../../src/ui/text/ko/errors.ts";
 import { addFailureMessage } from "../../../src/ui/errorMessages.ts";
 import * as controls from "../../../src/usecases/controls.ts";
-import { controlApiError, type Refusal } from "../../../src/ui/controlMessages.ts";
+import { controlApiError } from "../../../src/ui/controlMessages.ts";
+import type { Problem } from "../../../src/rules/problems.ts";
 import type { More } from "../../../src/usecases/playlistMore.ts";
 import { messageOf } from "../../../src/rules/errorKind.ts";
 import { requestPlayback, continueCollection, ensurePlayer } from "../../../src/usecases/addTracks.ts";
@@ -27,7 +28,7 @@ import { bestEffort } from "../../../src/infra/bestEffort.ts";
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
 
-function refuse(res: Response, result: Refusal) {
+function refuse(res: Response, result: Problem) {
   const { status, error } = controlApiError(result);
   return res.status(status).json({ error });
 }
@@ -299,7 +300,7 @@ function addRoutes(router: Router) {
       const mctx = await resolveMember(req, res);
       if (!mctx) return;
       const err = checkAdd(mctx.member);
-      if (err) return res.status(403).json({ error: toApiError(errors.permission(err)) });
+      if (err) return res.status(403).json({ error: toApiError(errors.notice(err)) });
     }
 
     const body = parse(AddBody, req.body ?? {});
@@ -341,7 +342,7 @@ function addRoutes(router: Router) {
       const mctx = await resolveMember(req, res);
       if (!mctx) return;
       const err = checkAdd(mctx.member);
-      if (err) return res.status(403).json({ error: toApiError(errors.permission(err)) });
+      if (err) return res.status(403).json({ error: toApiError(errors.notice(err)) });
     }
 
     // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다

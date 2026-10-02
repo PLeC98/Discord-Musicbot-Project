@@ -116,7 +116,7 @@ test("검색: 결과가 없으면 빈 배열, 실패하면 이름을 단 채로 
   respond = () => ({});
   assert.deepEqual(await YouTube.search("x"), []);
   respond = () => ({ fail: "ERROR: Unable to download API page: <urlopen error [Errno 11001] getaddrinfo failed>" });
-  await assert.rejects(YouTube.search("x"), (e) => codeOf(e) === "network");
+  await assert.rejects(YouTube.search("x"), (e) => codeOf(e) === "network-error");
 });
 
 // ── 정보 ──────────────────────────────────────────────────────────────
