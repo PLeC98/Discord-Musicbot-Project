@@ -13,33 +13,31 @@ const PAGE_SIZE = 10;
 const PAGE_PREFIX = customId(QUEUE, "page", "");
 
 type Listed = Pick<QueuedTrack, "title" | "pageUrl" | "autoplay" | "requestedBy">;
-/** 플레이어의 대기열(getQueue 에서 읽는 칸) */
-type QueueInfo = { current: Listed | null; queue: Listed[] };
+/** 대기열 화면이 보는 것. 다음 곡들(지금 곡은 재생 패널이 보인다) */
+type QueueInfo = { queue: Listed[] };
 
 /** 이 대기열의 쪽 수(적어도 1) */
 const pagesOf = (info: QueueInfo) => Math.max(1, Math.ceil(info.queue.length / PAGE_SIZE));
 
-/**
- * 대기열 한 쪽. 쪽 번호는 1 부터이고 범위를 넘으면 끝 쪽으로 붙인다. 현재 곡은 첫 쪽에만.
- * 쪽이 둘 이상이면 넘기기 버튼(◀ ▶)을 단다. 넘기면 그때의 대기열로 다시 그린다
- */
-/** 대기열 화면이 보는 것. 지금 곡과 대기열 */
-function queueInfoOf(player: { currentTrack: Listed | null; queue: Listed[] }): QueueInfo {
-  return { current: player.currentTrack, queue: player.queue };
+/** 대기열 화면이 보는 것 */
+function queueInfoOf(player: { queue: Listed[] }): QueueInfo {
+  return { queue: player.queue };
 }
 
+/**
+ * 대기열 한 쪽. 쪽 번호는 1 부터이고 범위를 넘으면 끝 쪽으로 붙인다.
+ * 쪽이 둘 이상이면 넘기기 버튼(◀ ▶)을 단다. 넘기면 그때의 대기열로 다시 그린다
+ */
 function queueView(info: QueueInfo, page = 1) {
   const pages = pagesOf(info);
   const shown = Math.min(Math.max(1, Math.floor(page) || 1), pages);
   const offset = (shown - 1) * PAGE_SIZE;
-  const total = info.queue.length + (info.current ? 1 : 0);
-
-  const t = queueText.view({ waiting: info.queue.length, total, page: shown, pages });
+  const t = queueText.view({ count: info.queue.length, page: shown, pages });
   const embed = new EmbedBuilder()
     .setTitle(t.title)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .setDescription(queueDescription({ current: shown === 1 ? info.current : null, header: t.header, tracks: info.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }))
+    .setDescription(queueDescription({ tracks: info.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }))
     .setFooter({ text: t.footer });
 
   if (pages === 1) return { embeds: [embed], components: [] };

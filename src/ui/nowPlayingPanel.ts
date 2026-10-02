@@ -82,6 +82,8 @@ const LOOP_LOOKS = {
 const canGoBack = (p: Controls) => p.previousTracks.length > 0 || p.loop === "track";
 // 한곡 반복은 재시작, 자동재생은 다음 곡을 골라 대기열이 비어도 활성
 const canSkip = (p: Controls) => p.queue.length > 0 || p.loop === "track" || Boolean(p.autoplay);
+// 대기열 화면은 다음 곡만 보인다. 다음 곡이 없으면 대기열 버튼을 끈다
+const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
 // 상태 줄 (일시정지 / 대기열 수)
 // 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
@@ -660,7 +662,7 @@ class NowPlayingPanel {
       .setDisabled(disabled);
 
     const labels = panelText.buttons();
-    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel(labels.queue).setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
+    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel(labels.queue).setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(queueOff(player, disabled));
 
     const autoplayButton = new ButtonBuilder()
       .setCustomId(id("autoplay"))

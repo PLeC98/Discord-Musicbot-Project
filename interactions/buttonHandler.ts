@@ -60,7 +60,7 @@ async function handlePanelButton(interaction: Press) {
 async function handleQueue(interaction: Press, player: Player) {
   const queueInfo = queueInfoOf(player);
 
-  if (!queueInfo.current && queueInfo.queue.length === 0) {
+  if (queueInfo.queue.length === 0) {
     return await interaction.reply(noticeReply(errors.queueEmpty()));
   }
 
@@ -71,7 +71,7 @@ async function handleQueue(interaction: Press, player: Player) {
 async function handleQueuePage(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
-  if (!info || (!info.current && info.queue.length === 0)) {
+  if (!info || info.queue.length === 0) {
     return noticeInstead(interaction, player ? errors.queueEmpty() : errors.noSong());
   }
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));

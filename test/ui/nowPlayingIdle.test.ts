@@ -313,6 +313,16 @@ test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있�
   assert.equal(await skipDisabled({ autoplay: "pop" }), false);
 });
 
+test("대기열 버튼: 다음 곡이 없으면 끈다(대기열 화면은 다음 곡만 보인다)", async () => {
+  const { mem, guild, text } = setup({});
+  const queueDisabled = async (over: object) => {
+    const rows = await mem.createControlButtons(makePlayer(guild, text(BOT), over));
+    return rows.flatMap((row) => row.toJSON().components).find((b) => "custom_id" in b && b.custom_id.startsWith("panel:queue:"))?.disabled;
+  };
+  assert.equal(await queueDisabled({}), true);
+  assert.equal(await queueDisabled({ queue: [{ title: "다음" }] }), false);
+});
+
 test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다", async () => {
   const { mem, guild, text } = setup({});
   const ids = async () => (await mem.createControlButtons(makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));

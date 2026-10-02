@@ -57,8 +57,8 @@ test("넘치는 곡은 빼고, 몇 곡을 뺐는지 결과와 안내에 싣는�
   assert.equal(result.dropped, 5);
   assert.equal(player.queue.length, 30);
   assert.deepEqual(titles(player.queue.slice(25)), ["new0", "new1", "new2", "new3", "new4"], "목록의 앞부분부터 들어간다");
-  assert.match(notices[0], /5개 노래가 대기열에 추가/);
-  assert.match(notices[0], /5곡은 넣지 못했습니다 \(최대 30곡\)/);
+  assert.match(notices[0], /^### ⚠️ 일부 곡을 추가했어요!\n.*의 5곡을 대기열에 넣었어요/);
+  assert.match(notices[0], /5곡은 넣지 못했어요\. \(최대 30곡\)/);
 });
 
 test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", async () => {
@@ -104,5 +104,5 @@ test("0이면 상한이 꺼진다", async () => {
 
   assert.equal(result.dropped, 0);
   assert.equal(player.queue.length, 350);
-  assert.doesNotMatch(notices[0], /넣지 못했습니다/);
+  assert.doesNotMatch(notices[0], /넣지 못했어요/);
 });

@@ -172,26 +172,30 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const empty = interaction({ player: queuePlayer(null, []) });
   await run(await command("queue"), empty.it, empty.client);
   assert.deepEqual(empty.log[0][1], noticeReply(errors.queueEmpty()));
+  // 대기열 화면은 다음 곡만 보인다. 지금 곡만 있으면 비었다고 한다
+  const onlyNow = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, []) });
+  await run(await command("queue"), onlyNow.it, onlyNow.client);
+  assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.queueEmpty()));
 });
 
 // 대기열은 본문(description)에 싣는다. 칸(field)에 나눠 실으면 칸마다 이름 줄이 생겨 빈 여백이 끼었다
 const descriptionOf = (payload: Sent) => String(payload.embeds[0].data.description ?? "");
 
-test("/queue: 쪽마다 나눠 보이고, 현재 곡은 첫 쪽에만. 없는 쪽은 마지막 쪽으로", async () => {
+test("/queue: 다음 곡만 쪽마다 나눠 보인다. 없는 쪽은 마지막 쪽으로", async () => {
   const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
   const first = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue) });
   await run(await command("queue"), first.it, first.client);
   const p1 = first.log[0][1];
-  assert.match(descriptionOf(p1), /^\*\*🎵 현재 재생 중\*\*\n\*\*\[지금\]\(now\)\*\*\n\n\*\*📋 다음 노래들 \(25개\)\*\*\n`1\.` \*\*\[곡1\]\(u0\)\*\*/);
+  assert.match(descriptionOf(p1), /^`1\.` \*\*\[곡1\]\(u0\)\*\*/);
+  assert.doesNotMatch(descriptionOf(p1), /지금/, "지금 곡은 재생 패널이 보인다");
   assert.equal(p1.embeds[0].data.fields, undefined, "칸을 쓰지 않는다");
-  assert.equal(p1.embeds[0].data.footer?.text, "총 26개의 노래 • 1/3 페이지");
+  assert.equal(p1.embeds[0].data.footer?.text, "모두 25곡 • 1/3쪽");
 
   const last = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue), options: { page: 9 } });
   await run(await command("queue"), last.it, last.client);
   const p3 = last.log[0][1];
-  assert.doesNotMatch(descriptionOf(p3), /현재 재생 중/);
   assert.match(descriptionOf(p3), /`21\.` \*\*\[곡21\]/, "번호는 쪽을 이어 센다");
-  assert.equal(p3.embeds[0].data.footer?.text, "총 26개의 노래 • 3/3 페이지");
+  assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3쪽");
 });
 
 // 링크가 붙은 긴 유튜브 제목 열 줄이면 칸 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).

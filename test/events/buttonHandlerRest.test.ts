@@ -284,6 +284,10 @@ test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 
   const empty = press(w, "panel:queue:S1");
   await interactionCreate.execute(empty.it);
   assert.deepEqual(empty.log, [["reply", said(errors.queueEmpty())]]);
+  w.player.currentTrack = { title: "지금", pageUrl: "now" };
+  const onlyNow = press(w, "panel:queue:S1");
+  await interactionCreate.execute(onlyNow.it);
+  assert.deepEqual(onlyNow.log, [["reply", said(errors.queueEmpty())]], "지금 곡만 있으면 비었다");
 
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
@@ -297,10 +301,10 @@ test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 
   const payload = got.payload;
   assert.ok(payload);
   const text = String(payload.embeds[0].data.description);
-  assert.match(text, /^\*\*🎵 현재 재생 중\*\*\n\*\*\[지금\]\(now\)\*\*\n\n\*\*📋 다음 노래들 \(12개\)\*\*\n/);
+  assert.match(text, /^`1\.` \*\*\[곡1\]/);
   assert.match(text, /`10\.` \*\*\[곡10\]/);
   assert.doesNotMatch(text, /곡11/, "한 쪽 10곡");
-  assert.equal(payload.embeds[0].data.footer.text, "총 13개의 노래 • 1/2 페이지");
+  assert.equal(payload.embeds[0].data.footer.text, "모두 12곡 • 1/2쪽");
   assert.deepEqual(buttonsOf(payload), [
     ["◀", "queue:page:0", true],
     ["▶", "queue:page:2", false],
@@ -315,8 +319,8 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
   const next = press(w, "queue:page:2", { update: async (p: QueuePayload) => updates.push(p) });
   await interactionCreate.execute(next.it);
   const text = String(updates[0].embeds[0].data.description);
-  assert.match(text, /^\*\*📋 다음 노래들 \(12개\)\*\*\n`11\.` \*\*\[곡11\]/, "현재 곡은 첫 쪽에만, 번호는 이어 센다");
-  assert.equal(updates[0].embeds[0].data.footer.text, "총 13개의 노래 • 2/2 페이지");
+  assert.match(text, /^`11\.` \*\*\[곡11\]/, "번호는 쪽을 이어 센다");
+  assert.equal(updates[0].embeds[0].data.footer.text, "모두 12곡 • 2/2쪽");
   assert.deepEqual(buttonsOf(updates[0]), [
     ["◀", "queue:page:1", false],
     ["▶", "queue:page:3", true],
@@ -325,7 +329,7 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
   // 그사이 곡이 줄어 쪽이 없어졌으면 끝 쪽으로
   w.player.queue = w.player.queue.slice(0, 3);
   await interactionCreate.execute(press(w, "queue:page:2", { update: async (p: QueuePayload) => updates.push(p) }).it);
-  assert.equal(updates[1].embeds[0].data.footer.text, "총 4개의 노래");
+  assert.equal(updates[1].embeds[0].data.footer.text, "모두 3곡");
   assert.deepEqual(updates[1].components, [], "한 쪽이면 버튼이 없다");
 
   w.player.currentTrack = null;

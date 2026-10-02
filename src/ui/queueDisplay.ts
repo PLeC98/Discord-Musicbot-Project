@@ -4,7 +4,6 @@
 // 줄 만드는 일을 여기로 모은다. 점프 메뉴 설명도 같은 규칙(요청자 표기)을 따른다.
 
 import { formatDuration } from "./format.ts";
-import * as queueText from "./text/queue.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 요청자 표기에서 읽는 칸
@@ -66,25 +65,16 @@ function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration
 const DESCRIPTION_MAX = 4096;
 
 /**
- * 대기열 임베드의 본문. 칸(field)은 1024자라 나눠 실어야 하고, 나누면 칸마다 이름 줄이 생겨 빈 여백이 끼어 본문(4096자)에 싣는다.
+ * 대기열 임베드의 본문: 다음 곡들의 줄. 칸(field)은 1024자라 나눠 실어야 하고, 나누면 칸마다 이름 줄이 생겨 빈 여백이 끼어 본문(4096자)에 싣는다.
  * 제목은 60자에서 줄이고, 그래도 넘치면 주소가 가장 긴 곡부터 링크를 떼 제목만 남긴다(서명된 직접 링크 · 한글이 인코딩된 출처 주소는
  * 수백 자다). 링크를 다 떼면 줄마다 150자 안쪽이라 한 쪽이 반드시 들어간다.
  * first: 첫 곡의 번호
  */
-function queueDescription({ current, header, tracks, first = 1 }: { current?: Listed | null; header: string; tracks: Listed[]; first?: number }) {
-  // 링크를 다는 곡. 현재 곡은 -1
+function queueDescription({ tracks, first = 1 }: { tracks: Listed[]; first?: number }) {
+  // 링크를 다는 곡
   const linked = new Set<number>(tracks.map((_, i) => i));
-  if (current) linked.add(-1);
-  const urlOf = (i: number) => (i < 0 ? current?.pageUrl : tracks[i]?.pageUrl) || "";
-  const render = () => {
-    const parts: string[] = [];
-    if (current) {
-      const title = shorten(current.title || "");
-      parts.push(`**${queueText.currentHeader()}**\n**${linked.has(-1) && current.pageUrl ? `[${title}](${current.pageUrl})` : title}**`);
-    }
-    if (tracks.length) parts.push(`**${header}**\n${tracks.map((track, i) => queueLine(track, first + i, { link: linked.has(i) })).join("")}`);
-    return parts.join("\n\n");
-  };
+  const urlOf = (i: number) => tracks[i]?.pageUrl || "";
+  const render = () => tracks.map((track, i) => queueLine(track, first + i, { link: linked.has(i) })).join("");
   let text = render();
   while (text.length > DESCRIPTION_MAX && linked.size) {
     const longest = [...linked].reduce((a, b) => (urlOf(b).length > urlOf(a).length ? b : a));

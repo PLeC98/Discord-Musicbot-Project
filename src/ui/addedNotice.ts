@@ -1,5 +1,5 @@
 // 곡을 담은 안내. /play · /playfirst · 전용 채널 · 검색 고르기 · 재생목록의 남은 곡이 같은 화면(응답 틀)을 쓴다.
-// 일부만 담았으면(받을 수 없는 곡을 뺐거나 대기열이 찼다) 경고 색
+// 일부만 담았으면(받을 수 없는 곡을 뺐거나 대기열이 찼다) 머리 줄을 "일부 곡을 추가했어요" 로 바꾸고 까닭을 본문에 이어 적는다. 경고 색
 
 import config from "../../config.ts";
 import { frame } from "./frame.ts";
@@ -15,7 +15,8 @@ function addedView({ tracks, collection, insertFirst = false, notice = {} }: Add
   const { dropped = 0, skipped = 0, total = null, queueLimited = false } = notice;
   const head = queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst });
   const warnings = queueText.addedWarnings({ dropped, skipped, queueLimited, max: config.bot.maxQueueSize });
-  return frame({ body: head + warnings, color: dropped > 0 || skipped > 0 || queueLimited ? "warning" : "brand" });
+  if (!warnings.length) return frame({ title: head.title, body: head.body });
+  return frame({ title: queueText.partlyAdded(), body: [head.body, ...warnings].join("\n"), color: "warning" });
 }
 
 export { addedView };

@@ -966,7 +966,7 @@ test("대기열 조작: 빼기 · 옮기기", () => {
   p.currentTrack = yt("c0ccccccccc", { duration: 5 });
   p.queue = [a, b, c];
 
-  assert.deepEqual(queueInfoOf(p), { current: p.currentTrack, queue: [a, b, c] });
+  assert.deepEqual(queueInfoOf(p), { queue: [a, b, c] });
   assert.equal(p.moveInQueue(0, 2), true);
   assert.deepEqual(p.queue, [b, c, a]);
   assert.equal(p.removeFromQueue(1), c);

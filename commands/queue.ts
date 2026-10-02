@@ -21,7 +21,7 @@ const exported: GuildCommand = {
 
     const queueInfo = queueInfoOf(player);
 
-    if (!queueInfo.current && queueInfo.queue.length === 0) {
+    if (queueInfo.queue.length === 0) {
       return interaction.reply(noticeReply(errors.queueEmpty()));
     }
 
