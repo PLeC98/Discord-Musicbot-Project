@@ -94,6 +94,7 @@
 </template>
 
 <script setup>
+import { problemText, problemDetails } from "../utils/problem.js";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -236,7 +237,7 @@ async function fetchConfig() {
     const res = await axios.get("/api/admin/config/genres");
     apply(res.data.data);
   } catch (error) {
-    loadError.value = error.response?.data?.error || "설정을 읽지 못했습니다.";
+    loadError.value = problemText(error, "설정을 읽지 못했습니다.");
   }
 }
 
@@ -260,7 +261,7 @@ async function save() {
     apply(res.data.data);
     savedAt.value = Date.now();
   } catch (error) {
-    serverProblems.value = error.response?.data?.problems || [error.response?.data?.error || "저장하지 못했습니다."];
+    serverProblems.value = problemDetails(error).length ? problemDetails(error) : [problemText(error, "저장하지 못했습니다.")];
   } finally {
     saving.value = false;
   }

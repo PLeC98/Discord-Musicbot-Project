@@ -22,6 +22,7 @@
 </template>
 
 <script setup>
+import { problemText } from "../utils/problem.js";
 import { ref, reactive, computed, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -50,7 +51,7 @@ async function put(text) {
     apply((await axios.put("/api/admin/cookies", { text })).data);
     input.value = "";
   } catch (err) {
-    error.value = err.response?.data?.error || "쿠키를 저장하지 못했습니다.";
+    error.value = problemText(err, "쿠키를 저장하지 못했습니다.");
   } finally {
     saving.value = false;
   }

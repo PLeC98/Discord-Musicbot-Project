@@ -341,6 +341,7 @@
 </template>
 
 <script setup>
+import { problemText } from "../utils/problem.js";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
@@ -404,7 +405,7 @@ async function pickTier(tier) {
   try {
     await user.setViewAs(tier); // 성공하면 새로고침되므로 아래로 돌아오지 않는다
   } catch (e) {
-    tierError.value = e.response?.data?.error || "권한 수준을 바꾸지 못했습니다";
+    tierError.value = problemText(e, "권한 수준을 바꾸지 못했습니다");
     switchingTier.value = false;
   }
 }
@@ -541,8 +542,8 @@ async function broadcast() {
     result.value = res.data;
     if (res.data.success) bMsg.value = "";
   } catch (e) {
-    // 서버가 알려 준 이유를 그대로 보여 준다. "발송 실패"만으로는 무엇을 고쳐야 할지 알 수 없다
-    result.value = { success: false, error: e.response?.data?.error };
+    // 서버가 알려 준 이유를 보여 준다. "발송 실패"만으로는 무엇을 고쳐야 할지 알 수 없다
+    result.value = { success: false, error: problemText(e, "발송하지 못했습니다.") };
   } finally {
     sending.value = false;
   }
@@ -573,7 +574,7 @@ async function leaveGuild() {
     leaveResult.value = { success: true, name: g.name };
     await Promise.all([fetchGuilds(), fetchStatus()]);
   } catch (e) {
-    leaveResult.value = { success: false, error: e.response?.data?.error || "요청 실패" };
+    leaveResult.value = { success: false, error: problemText(e, "요청 실패") };
   } finally {
     leaving.value = false;
     leaveTarget.value = null;
@@ -601,7 +602,7 @@ async function resetCache() {
     const res = await axios.post("/api/admin/reset-cache");
     resetResult.value = res.data;
   } catch (e) {
-    resetResult.value = { success: false, error: e.response?.data?.error || "요청 실패" };
+    resetResult.value = { success: false, error: problemText(e, "요청 실패") };
   } finally {
     resetting.value = false;
     confirmReset.value = false;
@@ -620,7 +621,7 @@ async function redeploy() {
     const res = await axios.post("/api/admin/redeploy-commands");
     redeployResult.value = res.data;
   } catch (e) {
-    redeployResult.value = { success: false, error: e.response?.data?.error || "요청 실패" };
+    redeployResult.value = { success: false, error: problemText(e, "요청 실패") };
   } finally {
     redeploying.value = false;
   }

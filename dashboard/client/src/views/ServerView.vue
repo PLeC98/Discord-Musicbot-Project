@@ -226,6 +226,7 @@
 </template>
 
 <script setup>
+import { problemText } from "../utils/problem.js";
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
@@ -450,7 +451,7 @@ async function addTrack(single = false) {
     if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${max}곡)`;
     else if (queueLimited) addNotice.value = `대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${max}곡)`;
   } catch (e) {
-    addError.value = e.response?.data?.error || "추가에 실패했습니다.";
+    addError.value = problemText(e, "추가에 실패했습니다.");
   } finally {
     adding.value = false;
   }
@@ -471,7 +472,7 @@ async function addMore(count) {
     if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${max}곡)`;
     else addInfo.value = nextMore ? `${added.toLocaleString()}곡을 더 넣었습니다` : `${added.toLocaleString()}곡을 더 넣어 목록을 끝까지 넣었습니다`;
   } catch (e) {
-    addError.value = e.response?.data?.error || "추가에 실패했습니다.";
+    addError.value = problemText(e, "추가에 실패했습니다.");
   } finally {
     moreBusy.value = false;
   }
@@ -485,7 +486,7 @@ async function joinBot() {
     const res = await axios.post(`/api/guilds/${guildId}/player/join${qs()}`);
     applyState(res.data);
   } catch (e) {
-    addError.value = e.response?.data?.error || "참가에 실패했습니다.";
+    addError.value = problemText(e, "참가에 실패했습니다.");
   } finally {
     joining.value = false;
   }

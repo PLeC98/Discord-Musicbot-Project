@@ -5,8 +5,13 @@ import router from "./router/index.js";
 import axios from "axios";
 import tooltip from "./directives/tooltip.js";
 import "./style.css";
+import { problemCode } from "./utils/problem.js";
+import { loadPronunciations } from "../../../src/rules/pronunciations.ts";
 
 axios.defaults.withCredentials = true;
+
+// 오류 안내의 조사(영어 낱말)에 쓰는 발음 사전. 따로 받는 조각이라 화면을 막지 않는다
+loadPronunciations();
 
 let csrfToken = null;
 let csrfTokenRequest = null;
@@ -37,7 +42,7 @@ axios.interceptors.request.use(async (request) => {
 });
 
 axios.interceptors.response.use(undefined, (error) => {
-  if (error.response?.data?.code === "INVALID_CSRF_TOKEN") csrfToken = null;
+  if (problemCode(error) === "bad-csrf-token") csrfToken = null;
   return Promise.reject(error);
 });
 

@@ -485,6 +485,7 @@
 </template>
 
 <script setup>
+import { problemText, problemDetails } from "../utils/problem.js";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -547,7 +548,7 @@ async function refreshModels() {
     refreshNote.value = data.changed ? `모델 ${data.count}개로 갱신` : "이미 최신";
     if (data.changed) await loadFields();
   } catch (error) {
-    refreshNote.value = error.response?.data?.error || "받지 못했습니다";
+    refreshNote.value = problemText(error, "받지 못했습니다");
   } finally {
     refreshing.value = false;
     setTimeout(() => (refreshNote.value = ""), 4000);
@@ -1061,7 +1062,7 @@ async function lookupJudge() {
     judgeCands.value = (await axios.post("/api/admin/ai/judge/lookup", { urls: judgeUrlList() })).data.candidates;
     judgeLookedUp.value = judgeUrls.value.trim();
   } catch (error) {
-    judgeError.value = error.response?.data?.error || "조회하지 못했습니다.";
+    judgeError.value = problemText(error, "조회하지 못했습니다.");
   } finally {
     judging.value = false;
   }
@@ -1097,7 +1098,7 @@ async function runJudge() {
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
   } catch (error) {
-    judgeError.value = error.response?.data?.error || "판정을 받지 못했습니다.";
+    judgeError.value = problemText(error, "판정을 받지 못했습니다.");
   } finally {
     judging.value = false;
   }
@@ -1130,7 +1131,7 @@ async function fetchAll() {
     apply((await axios.get("/api/admin/config/ai")).data.data);
     applyPrompt((await axios.get("/api/admin/ai/prompt")).data.sections);
   } catch (error) {
-    loadError.value = error.response?.data?.error || "설정을 읽지 못했습니다.";
+    loadError.value = problemText(error, "설정을 읽지 못했습니다.");
   }
 }
 
@@ -1154,7 +1155,7 @@ async function openPreview() {
   try {
     shown.value = { ...(await axios.post("/api/admin/ai/preview", { data: aiRequestDraft() })).data, sent: false };
   } catch (error) {
-    loadError.value = error.response?.data?.error || "미리보기를 만들지 못했습니다.";
+    loadError.value = problemText(error, "미리보기를 만들지 못했습니다.");
   }
 }
 
@@ -1199,7 +1200,7 @@ async function loadModels({ quiet = false } = {}) {
       raw: got.response,
     };
   } catch (error) {
-    if (!quiet) tested.value = { kind: "무료 테스트", ok: false, status: null, tookMs: 0, reason: error.response?.data?.error || "불러오지 못했습니다." };
+    if (!quiet) tested.value = { kind: "무료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "불러오지 못했습니다.") };
   } finally {
     loadingModels.value = false;
   }
@@ -1234,7 +1235,7 @@ async function putKey(value) {
     keyPresence.value = (await axios.put("/api/admin/ai/keys", { keys: { [draft.value.provider]: value } })).data.hasKey || {};
     keyInput.value = "";
   } catch (error) {
-    loadError.value = error.response?.data?.error || "키를 저장하지 못했습니다.";
+    loadError.value = problemText(error, "키를 저장하지 못했습니다.");
   } finally {
     savingKey.value = false;
   }
@@ -1273,7 +1274,7 @@ async function runPing() {
       raw: got.response,
     };
   } catch (error) {
-    tested.value = { kind: "유료 테스트", ok: false, status: null, tookMs: 0, reason: error.response?.data?.error || "보내지 못했습니다." };
+    tested.value = { kind: "유료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "보내지 못했습니다.") };
   } finally {
     pinging.value = false;
   }
@@ -1287,7 +1288,7 @@ async function save() {
     applyPrompt((await axios.put("/api/admin/ai/prompt", { sections: promptPayload.value })).data.sections);
     savedAt.value = Date.now();
   } catch (error) {
-    serverProblems.value = error.response?.data?.problems || [error.response?.data?.error || "저장하지 못했습니다."];
+    serverProblems.value = problemDetails(error).length ? problemDetails(error) : [problemText(error, "저장하지 못했습니다.")];
   } finally {
     saving.value = false;
   }

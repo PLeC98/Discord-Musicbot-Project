@@ -129,6 +129,7 @@
 </template>
 
 <script setup>
+import { problemText } from "../utils/problem.js";
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
@@ -265,7 +266,7 @@ async function load() {
     syncSbForm();
     syncPaForm();
   } catch (e) {
-    loadError.value = e.response?.data?.error || "설정을 불러오지 못했습니다";
+    loadError.value = problemText(e, "설정을 불러오지 못했습니다");
   } finally {
     loading.value = false;
   }
@@ -285,7 +286,7 @@ async function save() {
     result.value = { success: true };
     await load(); // 서버가 확정한 값(삭제 역할 정리 등)으로 동기화
   } catch (e) {
-    result.value = { success: false, error: e.response?.data?.error || "요청 실패" };
+    result.value = { success: false, error: problemText(e, "요청 실패") };
   } finally {
     saving.value = false;
   }
