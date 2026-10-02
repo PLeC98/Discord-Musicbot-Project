@@ -1,4 +1,4 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
@@ -20,7 +20,7 @@ const NO_RESPONDER: Responder = {
 import * as playerEvents from "../player/events.ts";
 import * as panelText from "./text/ko/panel.ts";
 import { addedView, type AdditionNotice } from "./addedNotice.ts";
-import { post } from "./frame.ts";
+import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
@@ -488,7 +488,7 @@ class NowPlayingPanel {
    * 재생이 끝났을 때. 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 끝난 패널의 문구만 고친다
    * (대기 중에 음성에서 나감 등). 종료 메시지는 전용 채널 밖에서, 방금까지 재생하던 때만 올린다.
    */
-  async drawEndedPanel(player: Player, { reason = "stop" } = {}) {
+  async drawEndedPanel(player: Player, { reason = "stop", cause }: { reason?: string; cause?: string } = {}) {
     const guild = player.guild;
     if (guild?.id) playerEvents.touched(guild.id); // 대시보드 SSE 넛지 (종료/정지)
     this.stopProgressUpdate(guild?.id);
@@ -501,12 +501,10 @@ class NowPlayingPanel {
     if (guild?.id) this.idleViews.set(guild.id, view);
     await this._showIdle(player, live, { ...view, dedicated });
 
-    // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 연달아 실패해 멈춘 것은 채널 알림이 따로 간다
-    if (live && !dedicated && reason !== "failures" && canSend(textChannel)) {
-      const t = panelText.ended();
-      const endEmbed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
-      await bestEffort(log, textChannel.send({ embeds: [endEmbed] }), "끝 안내 보내기");
-    }
+    // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 다 틀었거나 끊겼으면 따로 알린다.
+    // 사람이 멈추거나 내보낸 것(/stop · /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
+    const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
+    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
     // 플레이어 정리
     trackState.setCurrent(player, null);

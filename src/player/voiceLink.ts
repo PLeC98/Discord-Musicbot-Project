@@ -36,7 +36,7 @@ const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
 // 빠짐 · 사라짐으로 버릴 때(세션 지움)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
-const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", end: "channel-gone" } as const;
+const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
 
 class VoiceLink {
   player: VoiceHost;

@@ -150,7 +150,7 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
 // 플레이어의 알림을 화면과 대시보드에 잇는다
 function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof createPlayerStream>) {
   playerEvents.on("refresh", (player) => panels.updatePlaying(player));
-  playerEvents.on("ended", (player, reason) => panels.drawEndedPanel(player, { reason }));
+  playerEvents.on("ended", (player, reason, cause) => panels.drawEndedPanel(player, { reason, cause }));
   playerEvents.on("started", (player) => player.currentTrack && panels.postPlaying(player, player.currentTrack));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));

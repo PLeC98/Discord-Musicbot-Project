@@ -190,7 +190,7 @@ test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 지움 �
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
   assert.equal(g1.leftCount, 1);
-  assert.deepEqual(playerG1.disposed, [{ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "forced-disconnect" }]);
+  assert.deepEqual(playerG1.disposed, [{ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" }]);
 });
 
 test("POST leave: 플레이어 없는 서버도 정상", async () => {

@@ -70,7 +70,7 @@ test("봇이 음성에서 쫓겨나면 세션을 지우고 끝난 패널(disconn
 test("봇이 있던 채널이 지워져 빠졌으면 강제 퇴장이 아니라 채널 사라짐으로 버린다", async () => {
   const { client, calls, state } = setup({ channelExists: false });
   await onVoiceStateUpdate(client, state(BOT, "vc1"), state(BOT, null));
-  assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:-"]);
+  assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:disconnected"]);
 });
 
 test("봇이 다른 채널로 옮겨지면 기록과 채널 상태를 맞추고 혼자 남음을 풀고 패널을 고친다", async () => {
@@ -126,7 +126,7 @@ test("사람이 돌아오면 혼자 남음을 풀고, 그걸로 멈춰 있었으
 test("봇의 채널이 사라졌으면 세션을 지우고 버린다", async () => {
   const { client, calls, state } = setup({ channelExists: false });
   await onVoiceStateUpdate(client, state("u0", "vc1"), state("u0", null));
-  assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:-"]);
+  assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:disconnected"]);
 });
 
 test("다른 채널의 일은 보지 않는다", async () => {

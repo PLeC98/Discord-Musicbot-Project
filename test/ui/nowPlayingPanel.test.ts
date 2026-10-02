@@ -3,7 +3,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
-import type { Client } from "discord.js";
+import { MessageFlags, type Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tempStore from "../helpers/tempStore.ts";
@@ -177,7 +177,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
         textChannel: { id: "chan-1", send: async (payload: unknown) => sent.push(payload) },
       });
 
-      await mem.drawEndedPanel(player, { reason: "stop" });
+      await mem.drawEndedPanel(player, { reason: "queue-end" });
 
       assert.equal(edits.length, 1, `패널을 고친다 (전용 채널=${botChannel})`);
       assert.equal(edits[0].id, "100");
@@ -192,6 +192,39 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
     }
   } finally {
     tempStore.setGuild("g1", { botChannel: null });
+  }
+});
+
+test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로). 사람이 멈추거나 내보낸 것 · 연달아 실패는 보내지 않는다", async () => {
+  const cases: Array<[reason: string, cause: string | undefined, notice: string | null]> = [
+    ["queue-end", undefined, "재생이 끝났어요"],
+    ["stop", "stop", null],
+    ["leave", "leave", null],
+    ["disconnected", "stop", null],
+    ["failures", undefined, null],
+    ["disconnected", "inactivity-timeout", "쉬러 갔어요"],
+    ["disconnected", "forced-disconnect", "내보냈어요"],
+    ["disconnected", "operator-leave", "봇 운영자가"],
+    ["disconnected", "voice-lost", "다시 붙지 못했어요"],
+    ["disconnected", "channel-gone", "채널이 사라졌어요"],
+    ["stop", "fault", "되풀이되어"],
+  ];
+  for (const [reason, cause, notice] of cases) {
+    const sent: unknown[] = [];
+    const player = panelPlayer({
+      nowPlayingMessage: { id: "100" },
+      nowPlayingWebhook: { editMessage: async () => {} },
+      textChannel: { id: "chan-1", send: async (payload: unknown) => sent.push(payload) },
+    });
+    await newManager().drawEndedPanel(player, { reason, cause });
+    const label = `${reason}/${cause}`;
+    if (!notice) {
+      assert.equal(sent.length, 0, label);
+      continue;
+    }
+    assert.equal(sent.length, 1, label);
+    assert.deepEqual((sent[0] as { flags: unknown }).flags, [MessageFlags.IsComponentsV2], `${label}: 응답 틀(Components V2)`);
+    assert.match(JSON.stringify(sent[0]), new RegExp(notice), label);
   }
 });
 

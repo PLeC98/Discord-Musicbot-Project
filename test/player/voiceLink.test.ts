@@ -344,7 +344,7 @@ test("복구 중에 채널이 사라졌으면 채널 사라짐으로 버린다",
   channels.delete("vc1");
   link.recover("시험");
   await until(() => steps.length > 0, "버리기");
-  assert.deepEqual(steps, ["dispose:remove:-:channel-gone"]);
+  assert.deepEqual(steps, ["dispose:remove:disconnected:channel-gone"]);
 });
 
 test("복구 중에 정리하면 늦게 돌아온 성공이 상태를 건드리지 않는다", async () => {
@@ -372,14 +372,14 @@ test("봇이 채널에서 빠졌다: 채널이 있으면 강제 퇴장, 없으�
   gone.channels.delete("vc1");
   gone.link.onBotState(state("vc1"), state(null));
   await until(() => gone.steps.length > 0, "버리기");
-  assert.deepEqual(gone.steps, ["dispose:remove:-:channel-gone"]);
+  assert.deepEqual(gone.steps, ["dispose:remove:disconnected:channel-gone"]);
 });
 
 test("채널 삭제 알림보다 빠짐 알림이 먼저 와 캐시에 채널이 남아 있어도, 디스코드가 없다고(10003) 하면 채널 사라짐이다. 묻지 못하면 강제 퇴장", async () => {
   const deleted = await ready({ fetchAs: () => Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
   deleted.link.onBotState(state("vc1"), state(null));
   await until(() => deleted.steps.length > 0, "버리기");
-  assert.deepEqual(deleted.steps, ["dispose:remove:-:channel-gone"]);
+  assert.deepEqual(deleted.steps, ["dispose:remove:disconnected:channel-gone"]);
 
   const offline = await ready({ fetchAs: () => Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }) });
   offline.link.onBotState(state("vc1"), state(null));

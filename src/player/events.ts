@@ -2,7 +2,8 @@
 // 듣는 쪽은 조립(src/app/main.ts)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
-//   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · failures · stop · leave · disconnected · joined)
+//   ended(player, reason, cause) 재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · failures · stop · leave · disconnected · joined).
+//                               cause 는 버린 까닭(dispose 의 end: forced-disconnect · inactivity-timeout · voice-lost 등). 없으면 패널 모양이 곧 까닭
 //   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡 · 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   disposed(player, reason)    플레이어를 버렸다(reason: 버린 까닭). 등록부가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
@@ -29,7 +30,7 @@ type NoticeCode = keyof Notices;
 /** 알림마다 넘기는 것 */
 type EventArgs = {
   refresh: [player: Player];
-  ended: [player: Player, reason: string];
+  ended: [player: Player, reason: string, cause?: string];
   started: [player: Player];
   released: [player: Player, textChannelId: string];
   disposed: [player: Player, reason: string];
@@ -55,7 +56,7 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
 }
 
 const refresh = (player: Player) => emit("refresh", player);
-const ended = (player: Player, reason: string) => emit("ended", player, reason);
+const ended = (player: Player, reason: string, cause?: string) => emit("ended", player, reason, cause);
 const started = (player: Player) => emit("started", player);
 const leaving = (player: Player, leavesAt: number | null) => emit("leaving", player, leavesAt);
 const notice = <C extends NoticeCode>(player: Player, code: C, detail: Notices[C]) => emit("notice", player, code, detail);

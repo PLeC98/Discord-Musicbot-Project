@@ -681,6 +681,21 @@ test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고�
   assert.equal(p.lifecycle.phase, "disposed");
 });
 
+test("버린 까닭(end)을 끝난 패널 알림에 같이 넘긴다(끝 안내가 그 까닭으로 고른다)", async () => {
+  const p = h.makePlayer();
+  const seen: unknown[] = [];
+  const off = playerEvents.on("ended", (q, reason, cause) => {
+    if (q === p) seen.push([reason, cause]);
+  });
+  try {
+    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
+  } finally {
+    off();
+    h.dispose(p);
+  }
+  assert.deepEqual(seen, [["disconnected", "inactivity-timeout"]]);
+});
+
 test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다", async () => {
   const p = scripted();
   const seeks: number[] = [];

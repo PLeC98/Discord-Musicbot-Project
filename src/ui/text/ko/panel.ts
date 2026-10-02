@@ -40,8 +40,19 @@ function idle({ reason, leavesAt, dedicated }: { reason: string; leavesAt?: numb
   return `### 💤 재생 대기 중\n**${title}**\n-# ${status}`;
 }
 
-/** 전용 채널 밖에서 재생이 끝났다는 안내 */
-// 끝난 까닭마다의 문장과 보낼지는 9e(#35)에서 정한다
-const ended = () => ({ title: "🎵 재생이 끝났어요", description: "`/play`로 곡을 넣으면 다시 틀어요." });
+/** 전용 채널 밖에서 대기열을 다 틀었다는 안내 */
+const ended = () => ({ title: "🎵 재생이 끝났어요", body: "`/play`로 곡을 넣으면 다시 틀어요." });
 
-export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, queuedStatus, segmentsStatus, dashboardLink, idle, ended };
+// 끊겨서 음성 채널에서 나왔다. 까닭(Player.dispose 의 end)마다의 본문
+const CUT_OFF: Record<string, string> = {
+  "inactivity-timeout": "한동안 곡이 없거나 듣는 사람이 없어서 쉬러 갔어요. `/play`로 부르면 다시 올게요.",
+  "forced-disconnect": "누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요.",
+  "operator-leave": "봇 운영자가 이 서버에서 저를 내보냈어요.",
+  "voice-lost": "음성 연결이 끊겨 다시 붙지 못했어요. `/join`으로 이어 들을 수 있어요.",
+  "channel-gone": "제가 있던 음성 채널이 사라졌어요. `/play`로 부르면 다시 올게요.",
+  fault: "같은 오류가 되풀이되어 재생을 멈췄어요. 계속되면 봇 운영자에게 알려주세요.",
+};
+/** 전용 채널 밖에서 끊겨 끝났다는 안내. 알릴 까닭이 아니면(stop · leave 등) null */
+const cutOff = (cause: string) => (CUT_OFF[cause] ? { title: "👋 음성 채널에서 나왔어요", body: CUT_OFF[cause] } : null);
+
+export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, queuedStatus, segmentsStatus, dashboardLink, idle, ended, cutOff };
