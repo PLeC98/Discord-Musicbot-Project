@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
 import { queueView, queueInfoOf } from "../src/ui/queueView.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";

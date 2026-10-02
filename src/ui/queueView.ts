@@ -5,7 +5,7 @@ import { queueDescription } from "./queueDisplay.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import { QUEUE, customId } from "./customIds.ts";
 import { colorOf } from "./colors.ts";
-import * as queueText from "./text/queue.ts";
+import * as queueText from "./text/ko/queue.ts";
 
 /** 한 쪽에 보이는 곡 수 */
 const PAGE_SIZE = 10;

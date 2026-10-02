@@ -1,5 +1,5 @@
 import { type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, reply } from "../src/ui/frame.ts";
 import * as replies from "../src/ui/controlReplies.ts";
 import * as controls from "../src/usecases/controls.ts";

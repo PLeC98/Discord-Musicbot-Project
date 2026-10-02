@@ -5,7 +5,7 @@ import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import * as errors from "../../src/ui/text/errors.ts";
+import * as errors from "../../src/ui/text/ko/errors.ts";
 import { controlMessage, controlApiError } from "../../src/ui/controlMessages.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { openTempStore } from "../helpers/tempStore.ts";

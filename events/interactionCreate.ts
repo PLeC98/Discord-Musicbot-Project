@@ -6,7 +6,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
 import { errorKind, messageOf } from "../src/rules/errorKind.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, type Notice } from "../src/ui/frame.ts";
 import { errorMessage } from "../src/ui/errorMessages.ts";
 import { failureShow, noticeInstead } from "../src/ui/failureNotice.ts";

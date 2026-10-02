@@ -2,8 +2,8 @@
 // 대시보드는 머리 줄 · 본문의 글자와 HTTP 상태 코드로 쓴다. 권한 거절은 권한 판정이 막은 까닭(permission)의 안내다.
 
 import { plainText } from "./frame.ts";
-import * as errors from "./text/errors.ts";
-import type { Refusal } from "./text/errors.ts";
+import * as errors from "./text/ko/errors.ts";
+import type { Refusal } from "./text/ko/errors.ts";
 
 // 대시보드의 HTTP 상태. 입력이 틀린 것은 400, 권한은 403, 지금 상태로는 못 하는 것은 409
 const STATUS: Record<string, number> = { "no-permission": 403, "beyond-end": 400, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400, "unknown-genre": 400 };

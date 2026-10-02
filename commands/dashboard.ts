@@ -3,7 +3,7 @@ import { interactionResponder } from "../src/usecases/responders.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { checkControl } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
 
 const exported: GuildCommand = {

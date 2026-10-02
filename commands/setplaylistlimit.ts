@@ -3,8 +3,8 @@ import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
-import * as settingsText from "../src/ui/text/settings.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as settingsText from "../src/ui/text/ko/settings.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, post, reply } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
 

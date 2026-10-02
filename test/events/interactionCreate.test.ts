@@ -10,7 +10,7 @@ import type { SlashCommand } from "../../src/app/commandLoader.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { networkError } from "../helpers/errors.ts";
 import { showFailureWith } from "../../src/ui/failureNotice.ts";
-import * as errors from "../../src/ui/text/errors.ts";
+import * as errors from "../../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 
 type Sent = [string, unknown?];

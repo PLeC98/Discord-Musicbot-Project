@@ -3,7 +3,7 @@
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, StringSelectMenuBuilder } from "discord.js";
 import { frame } from "./frame.ts";
-import * as settingsText from "./text/settings.ts";
+import * as settingsText from "./text/ko/settings.ts";
 
 /** 머리 줄과 본문 */
 type Card = { title: string; description: string };

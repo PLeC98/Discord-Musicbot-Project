@@ -27,7 +27,7 @@ import { test, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
-import * as errors from "../../src/ui/text/errors.ts";
+import * as errors from "../../src/ui/text/ko/errors.ts";
 import * as settings from "../../src/store/guildSettings.ts";
 import * as lookup from "../../src/sources/lookup.ts";
 import * as addTracks from "../../src/usecases/addTracks.ts";
@@ -38,7 +38,7 @@ import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/controlReplies.ts";
-import * as controlText from "../../src/ui/text/controls.ts";
+import * as controlText from "../../src/ui/text/ko/controls.ts";
 
 useExampleConfig();
 

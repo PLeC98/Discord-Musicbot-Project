@@ -1,7 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "error" });
 import { errorKind, messageOf } from "../rules/errorKind.ts";
-import * as errors from "./text/errors.ts";
+import * as errors from "./text/ko/errors.ts";
 import config from "../../config.ts";
 
 // 곡을 찾거나 담지 못한 결과. 여기서 읽는 칸만. kind 는 오류로 못 했을 때 그 오류의 종류, skipped 는 받을 수 없어 뺀 곡 수

@@ -28,7 +28,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
-const errors = await import("../../src/ui/text/errors.ts");
+const errors = await import("../../src/ui/text/ko/errors.ts");
 // 안내 응답의 머리 줄
 const said = (notice: Notice) => headOf(noticeReply(notice));
 const settings = await import("../../src/store/guildSettings.ts");

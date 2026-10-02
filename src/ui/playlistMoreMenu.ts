@@ -3,7 +3,7 @@
 
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { frame } from "./frame.ts";
-import * as moreText from "./text/more.ts";
+import * as moreText from "./text/ko/more.ts";
 
 /** 곡 수 메뉴. steps 는 묶음 선택지, cap 은 가장 큰 선택지(all: 남은 곡 전부 · perClick: 출처의 한 번 상한에 걸렸다), remaining 은 남은 곡 수 */
 type MoreMenu = { customId: string; remaining: number; steps: number[]; cap: number; all: boolean; perClick: boolean };

@@ -17,7 +17,7 @@ import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/Player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../player/trackState.ts";
-import type { PermissionDenied } from "../ui/text/errors.ts";
+import type { PermissionDenied } from "../ui/text/ko/errors.ts";
 
 /** 누가 시켰나. 디스코드 멤버, 또는 대시보드 운영자(권한 판정을 건너뛴다) */
 type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?: undefined };

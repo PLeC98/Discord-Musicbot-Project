@@ -18,7 +18,7 @@ import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/Player.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { noticeReply, post } from "../../src/ui/frame.ts";
-import * as infoText from "../../src/ui/text/info.ts";
+import * as infoText from "../../src/ui/text/ko/info.ts";
 import { headOf, screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
@@ -28,7 +28,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
-const errors = await import("../../src/ui/text/errors.ts");
+const errors = await import("../../src/ui/text/ko/errors.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const { SKIP_CATEGORIES } = await import("../../src/rules/sponsorCategories.ts");
 const interactionCreate = (await import("../../events/interactionCreate.ts")).default;

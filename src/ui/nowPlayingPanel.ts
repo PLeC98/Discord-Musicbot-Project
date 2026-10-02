@@ -18,7 +18,7 @@ const NO_RESPONDER: Responder = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import * as panelText from "./text/panel.ts";
+import * as panelText from "./text/ko/panel.ts";
 import { addedView, type AdditionNotice } from "./addedNotice.ts";
 import { post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";

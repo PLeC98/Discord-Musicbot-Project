@@ -3,8 +3,8 @@ import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
 import { route, type Route } from "./route.ts";
-import * as settingsText from "../src/ui/text/settings.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as settingsText from "../src/ui/text/ko/settings.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, post } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
 

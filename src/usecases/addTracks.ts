@@ -7,7 +7,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
-import * as labels from "../ui/text/labels.ts";
+import * as labels from "../ui/text/ko/labels.ts";
 import { continuation, validState, roomFor, batchFor, KINDS, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";

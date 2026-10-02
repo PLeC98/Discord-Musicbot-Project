@@ -5,7 +5,7 @@ import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilde
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./customIds.ts";
 import { frame, post, reply } from "./frame.ts";
-import * as autoplayText from "./text/autoplay.ts";
+import * as autoplayText from "./text/ko/autoplay.ts";
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
 const OFF_MENU_MS = 30_000;

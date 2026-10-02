@@ -3,8 +3,8 @@
 
 import config from "../../config.ts";
 import { frame } from "./frame.ts";
-import * as labels from "./text/labels.ts";
-import * as queueText from "./text/queue.ts";
+import * as labels from "./text/ko/labels.ts";
+import * as queueText from "./text/ko/queue.ts";
 
 /** 일부만 담은 까닭. dropped 대기열이 차서 못 넣은 곡 수, skipped 받을 수 없어 뺀 곡 수, total 출처 전체 곡 수(일부만 받았을 때), queueLimited 자리가 모자라 목록을 덜 받음 */
 type AdditionNotice = { dropped?: number; skipped?: number; total?: number | null; queueLimited?: boolean };

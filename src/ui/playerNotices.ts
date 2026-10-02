@@ -4,7 +4,7 @@ import type { ContainerBuilder } from "discord.js";
 import { errorMessage } from "./errorMessages.ts";
 import { formatDuration } from "./format.ts";
 import { frame, noticeFrame, post } from "./frame.ts";
-import * as notices from "./text/notices.ts";
+import * as notices from "./text/ko/notices.ts";
 import { scheduleDelete } from "./transientMessages.ts";
 import type { Player } from "../player/Player.ts";
 import type { Notices, NoticeCode } from "../player/events.ts";

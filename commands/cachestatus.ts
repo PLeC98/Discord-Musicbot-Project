@@ -3,7 +3,7 @@ import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } 
 import * as audioCache from "../src/store/audioCache.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
-import * as infoText from "../src/ui/text/info.ts";
+import * as infoText from "../src/ui/text/ko/info.ts";
 
 const GB2 = { gbDigits: 2 };
 

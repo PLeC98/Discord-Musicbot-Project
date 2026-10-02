@@ -18,7 +18,7 @@ import { plainText } from "../../src/ui/frame.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { addedView } from "../../src/ui/addedNotice.ts";
-import * as errors from "../../src/ui/text/errors.ts";
+import * as errors from "../../src/ui/text/ko/errors.ts";
 
 // 실패 결과에 입구가 보일 문장을 붙여 본다
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });

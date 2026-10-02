@@ -1,9 +1,9 @@
 // 오류 · 거절 안내. 부르는 자리는 뜻으로 고르고 값만 넘긴다. 안내는 무엇에 관한 것인지(topic) · 심각한 정도(severity) · 머리 줄 · 본문이고,
 // 머리 줄의 이모지와 색은 응답 틀(ui/frame)이 붙인다
 
-import { formatMs } from "../format.ts";
-import { noticeOf, type Notice, type Topic } from "../frame.ts";
-import { josa } from "../../rules/josa.ts";
+import { formatMs } from "../../format.ts";
+import { noticeOf, type Notice, type Topic } from "../../frame.ts";
+import { josa } from "../../../rules/josa.ts";
 
 // 봇 쪽 문제 · 외부 실패로 못 했다
 const error = (topic: Topic, title: string, body?: string) => noticeOf("error", topic, title, body);

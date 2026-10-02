@@ -2,7 +2,7 @@ import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInp
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, type Notice } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
@@ -10,7 +10,7 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { checkControl, checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./controlAnswers.ts";
-import * as controlText from "../src/ui/text/controls.ts";
+import * as controlText from "../src/ui/text/ko/controls.ts";
 
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
 import { noticeInstead, showFailureWith } from "../src/ui/failureNotice.ts";
@@ -20,7 +20,7 @@ import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 import { colorOf } from "../src/ui/colors.ts";
-import * as searchText from "../src/ui/text/search.ts";
+import * as searchText from "../src/ui/text/ko/search.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;

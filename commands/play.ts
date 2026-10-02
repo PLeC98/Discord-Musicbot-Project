@@ -1,14 +1,14 @@
 import { SlashCommandBuilder } from "discord.js";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
-import * as searchText from "../src/ui/text/search.ts";
+import * as searchText from "../src/ui/text/ko/search.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { frame, noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
-import type { PermissionDenied } from "../src/ui/text/errors.ts";
+import type { PermissionDenied } from "../src/ui/text/ko/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { GuildMember } from "discord.js";
 

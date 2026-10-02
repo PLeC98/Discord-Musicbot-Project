@@ -3,11 +3,11 @@
 import type { ContainerBuilder, ModalMessageModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, post, type Notice } from "../src/ui/frame.ts";
 import { fetchingView } from "../src/ui/playlistMoreMenu.ts";
 import { noticeInstead } from "../src/ui/failureNotice.ts";
-import * as moreText from "../src/ui/text/more.ts";
+import * as moreText from "../src/ui/text/ko/more.ts";
 import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";

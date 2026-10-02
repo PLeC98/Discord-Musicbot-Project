@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
-import * as infoText from "../src/ui/text/info.ts";
+import * as infoText from "../src/ui/text/ko/info.ts";
 
 const exported: AnywhereCommand = {
   anywhere: true,

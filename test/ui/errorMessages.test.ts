@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { addFailureMessage, errorMessage, reportError } from "../../src/ui/errorMessages.ts";
-import * as text from "../../src/ui/text/errors.ts";
+import * as text from "../../src/ui/text/ko/errors.ts";
 import { errorKind } from "../../src/rules/errorKind.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";

@@ -8,7 +8,7 @@ import * as replies from "../src/ui/controlReplies.ts";
 import { noticeFrame, noticeReply, post, reply } from "../src/ui/frame.ts";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import type { Player } from "../src/player/Player.ts";
-import type { Refusal } from "../src/ui/text/errors.ts";
+import type { Refusal } from "../src/ui/text/ko/errors.ts";
 
 /** 서버 안의 명령 · 버튼 */
 type Asked = RepliableInteraction<"cached">;

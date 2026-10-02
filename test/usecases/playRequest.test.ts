@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 import config from "../../config.ts";
-import * as errors from "../../src/ui/text/errors.ts";
+import * as errors from "../../src/ui/text/ko/errors.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import { Player } from "../../src/player/Player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";

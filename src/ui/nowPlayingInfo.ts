@@ -5,7 +5,7 @@ import { emojiOf, labelOf } from "../rules/platforms.ts";
 import { frame } from "./frame.ts";
 import { playbackStatus } from "./playerStatus.ts";
 import { progressBar } from "./progressBar.ts";
-import * as infoText from "./text/info.ts";
+import * as infoText from "./text/ko/info.ts";
 import type { Player } from "../player/Player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 

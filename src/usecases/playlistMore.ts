@@ -7,8 +7,8 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
-import * as labels from "../ui/text/labels.ts";
-import * as moreText from "../ui/text/more.ts";
+import * as labels from "../ui/text/ko/labels.ts";
+import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transientMessages.ts";
 import { canSend } from "../ui/channels.ts";
 import { post, reply } from "../ui/frame.ts";
@@ -16,7 +16,7 @@ import { moreView, countModal as moreCountModal } from "../ui/playlistMoreMenu.t
 import { messageOf } from "../rules/errorKind.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/Player.ts";
-import type { MoreRefusal } from "../ui/text/more.ts";
+import type { MoreRefusal } from "../ui/text/ko/more.ts";
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다

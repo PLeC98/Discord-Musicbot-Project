@@ -1,8 +1,8 @@
-// src/ui/text/queue.ts — 담은 안내와 대기열 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/queue.ts — 담은 안내와 대기열 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as queue from "../../../src/ui/text/queue.ts";
+import * as queue from "../../../../src/ui/text/ko/queue.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(

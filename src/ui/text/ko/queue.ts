@@ -1,7 +1,7 @@
 // 대기열에 담은 안내와 대기열 화면의 글자
 
-import { escapeMd } from "../mentions.ts";
-import { josa } from "../../rules/josa.ts";
+import { escapeMd } from "../../mentions.ts";
+import { josa } from "../../../rules/josa.ts";
 
 /**
  * 곡을 담은 안내 { title, body }. collection 은 여러 곡을 담은 출처의 이름(labels.collection, 없으면 한 곡),

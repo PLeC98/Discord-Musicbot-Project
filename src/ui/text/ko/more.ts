@@ -1,7 +1,7 @@
 // 재생목록 "더 넣기" 메뉴 · 모달 · 결과의 글자. 수는 여기서 자릿점을 찍는다
 
-import { noticeOf, type Notice } from "../frame.ts";
-import { josa } from "../../rules/josa.ts";
+import { noticeOf, type Notice } from "../../frame.ts";
+import { josa } from "../../../rules/josa.ts";
 
 const fmt = (n: number | null) => Number(n).toLocaleString("ko-KR");
 

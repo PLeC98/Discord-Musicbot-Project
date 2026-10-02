@@ -5,7 +5,7 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
 import { HELP, customId } from "../src/ui/customIds.ts";
 import { colorOf } from "../src/ui/colors.ts";
-import * as helpText from "../src/ui/text/help.ts";
+import * as helpText from "../src/ui/text/ko/help.ts";
 
 async function buildHelpEmbed(client: Client<true>) {
   const guilds = client.guilds.cache.size;

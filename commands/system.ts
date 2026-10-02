@@ -6,8 +6,8 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
 import { SYSTEM, customId } from "../src/ui/customIds.ts";
 import { colorOf } from "../src/ui/colors.ts";
-import * as infoText from "../src/ui/text/info.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as infoText from "../src/ui/text/ko/info.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
 
 const UPTIME = { withSeconds: true };

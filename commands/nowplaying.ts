@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply, post } from "../src/ui/frame.ts";
 import { nowPlayingView } from "../src/ui/nowPlayingInfo.ts";
 

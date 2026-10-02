@@ -7,10 +7,10 @@ import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { frame, noticeFrame, post } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
-import * as searchText from "../src/ui/text/search.ts";
+import * as searchText from "../src/ui/text/ko/search.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지

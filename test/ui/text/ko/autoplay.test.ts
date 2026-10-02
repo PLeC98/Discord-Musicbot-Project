@@ -1,8 +1,8 @@
-// src/ui/text/autoplay.ts — 자동재생 장르 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/autoplay.ts — 자동재생 장르 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as autoplay from "../../../src/ui/text/autoplay.ts";
+import * as autoplay from "../../../../src/ui/text/ko/autoplay.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(

@@ -2,7 +2,7 @@
 
 import { frame } from "./frame.ts";
 import { formatDuration, formatMs } from "./format.ts";
-import * as controlText from "./text/controls.ts";
+import * as controlText from "./text/ko/controls.ts";
 import type { Loop } from "../player/trackState.ts";
 
 type Track = { title: string; pageUrl: string; thumbnail?: string | null };

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { answerSeek } from "../interactions/controlAnswers.ts";
 import { noticeReply } from "../src/ui/frame.ts";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 /**

@@ -28,8 +28,8 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const errors = await import("../../src/ui/text/errors.ts");
-const moreText = await import("../../src/ui/text/more.ts");
+const errors = await import("../../src/ui/text/ko/errors.ts");
+const moreText = await import("../../src/ui/text/ko/more.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const lookup = await import("../../src/sources/lookup.ts");
 const yamlStore = await import("../../src/config/yamlStore.ts");

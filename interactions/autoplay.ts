@@ -2,7 +2,7 @@
 // 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
 import { type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
-import * as errors from "../src/ui/text/errors.ts";
+import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { ensurePlayer } from "../src/usecases/addTracks.ts";

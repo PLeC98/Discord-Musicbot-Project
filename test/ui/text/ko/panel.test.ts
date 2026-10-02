@@ -1,8 +1,8 @@
-// src/ui/text/panel.ts — 재생 패널의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/panel.ts — 재생 패널의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as panel from "../../../src/ui/text/panel.ts";
+import * as panel from "../../../../src/ui/text/ko/panel.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(

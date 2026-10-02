@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { answerReplay, answerSeek, answerVolume } from "../../interactions/controlAnswers.ts";
 import { failureShow } from "../../src/ui/failureNotice.ts";
-import * as errors from "../../src/ui/text/errors.ts";
+import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/tempStore.ts";

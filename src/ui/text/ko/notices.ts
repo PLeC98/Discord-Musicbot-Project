@@ -1,8 +1,8 @@
 // 플레이어가 알린 일(player/events 의 notice)을 글자 채널에 보낼 안내. 세부(detail)는 알린 쪽이 준 것
 
-import { noticeOf } from "../frame.ts";
-import { escapeMd } from "../mentions.ts";
-import { josa } from "../../rules/josa.ts";
+import { noticeOf } from "../../frame.ts";
+import { escapeMd } from "../../mentions.ts";
+import { josa } from "../../../rules/josa.ts";
 
 // 저장된 세션의 장르가 장르 목록에서 없어졌다
 const autoplayUnknownGenre = (genre: string) => noticeOf("warning", "autoplay", "알 수 없는 장르예요!", `장르 목록이 변경되어 \`${genre}\`${josa(genre, "이")} 없어져서 자동 재생을 껐어요. 장르를 다시 선택해 주세요.`);

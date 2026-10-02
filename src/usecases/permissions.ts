@@ -1,6 +1,6 @@
 import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
-import type { PermissionDenied } from "../ui/text/errors.ts";
+import type { PermissionDenied } from "../ui/text/ko/errors.ts";
 import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 

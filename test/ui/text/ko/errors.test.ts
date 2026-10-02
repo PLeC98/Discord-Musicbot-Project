@@ -1,9 +1,9 @@
-// src/ui/text/errors.ts — 오류 · 거절 안내를 모두 적어 둔다(경고 수준 · 이모지 · 머리 줄, 본문은 다음 줄). 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/errors.ts — 오류 · 거절 안내를 모두 적어 둔다(경고 수준 · 이모지 · 머리 줄, 본문은 다음 줄). 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as errors from "../../../src/ui/text/errors.ts";
-import { shown } from "../../helpers/notice.ts";
+import * as errors from "../../../../src/ui/text/ko/errors.ts";
+import { shown } from "../../../helpers/notice.ts";
 
 test("뜻마다 하나인 문장", () => {
   assert.deepEqual(
