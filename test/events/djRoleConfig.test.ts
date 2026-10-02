@@ -82,7 +82,7 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
   await interactionCreate.execute(save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1", "r2"]);
   assert.equal(screenOf(save.updatedWith).rows, 0, "저장 후 메뉴 · 버튼 제거");
-  assert.match(screenOf(save.updatedWith).title, /설정됨/);
+  assert.match(screenOf(save.updatedWith).title, /DJ 역할을 설정했어요/);
   assert.equal(screenOf(save.updatedWith).done, true);
 });
 
@@ -104,7 +104,7 @@ test("선택 없이 저장: 현재 설정 유지 (no-op에 가깝게 재저장)"
   assert.deepEqual(store.djRoles.get("g1"), ["r1"]);
 });
 
-test("전부 해제하고 저장: 제한 해제", async () => {
+test("전부 해제하고 저장: 모두가 조작", async () => {
   store.djRoles.set("g1", ["r1"]);
 
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: [], messageId: "mC" });
@@ -113,7 +113,7 @@ test("전부 해제하고 저장: 제한 해제", async () => {
   await interactionCreate.execute(save);
 
   assert.equal(store.djRoles.has("g1"), false);
-  assert.match(screenOf(save.updatedWith).title, /해제/);
+  assert.match(screenOf(save.updatedWith).title, /DJ 역할을 지정하지 않았어요/);
   assert.equal(screenOf(save.updatedWith).done, true, "해제도 설정을 바꾼 것이라 완료 색");
 });
 

@@ -304,7 +304,7 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
   await run(await command("setchannel"), it, client);
   settings._reset();
   assert.equal(await settings.getBotChannel("g1"), "c5");
-  assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["✅ 봇 채널 설정됨", true]);
+  assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["✅ 전용 채널 설정됨", true]);
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2], "모두에게 보인다");
   assert.deepEqual(seen, ["movePanel"], "안내 뒤에 옮긴다");
 
@@ -321,7 +321,7 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
   settings._reset();
   assert.equal(await settings.getBotChannel("g1"), null);
   assert.deepEqual(seen, ["movePanel"]);
-  assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["🔧 봇 채널 제거됨", true], "해제도 설정을 바꾼 것이라 완료 색");
+  assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["🔧 전용 채널 해제됨", true], "해제도 설정을 바꾼 것이라 완료 색");
 
   // 저장이 실패하게 서버 설정 표를 잠깐 치운다
   await whenSettingsBroken(async () => {
@@ -345,7 +345,7 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
   storeDb.get().exec("DELETE FROM guild_settings;");
   const none = interaction();
   await run(await command("setdjrole"), none.it, none.client);
-  assert.match(screenOf(none.log[0][1]).body, /모든 유저/);
+  assert.match(screenOf(none.log[0][1]).body, /DJ 역할이 없어 \*\*모두\*\*/);
 });
 
 // ── /sponsorblock 과 설정 화면 ────────────────────────────────────────
@@ -376,10 +376,10 @@ test("/sponsorblock: 지금 설정으로 화면을 띄우고 보류 상태를 �
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
   assert.deepEqual(screenOf(log[0][1]).buttons, ["sb:toggle", "sb:save", "sb:cancel"]);
 
-  // 보류 상태를 이어받는지: 토글하면 사용 → 미사용
+  // 보류 상태를 이어받는지: 토글하면 켬 → 끔
   const toggle = sbInteraction({ customId: "sb:toggle" });
   await interactionCreate.execute(fake<Interaction>(toggle.it));
-  assert.match(String(toggle.log[0][2]), /미사용/);
+  assert.match(String(toggle.log[0][2]), /현재 설정: \*\*끔\*\*/);
 });
 
 test("SponsorBlock 화면: 서버 관리 권한이 필요하다", async () => {
@@ -397,29 +397,29 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
   await interactionCreate.execute(fake<Interaction>(save.it));
   settings._reset();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
-  assert.deepEqual([save.log[0][1], save.log[0][4]], ["⏭️ SponsorBlock 설정 저장됨", "완료"]);
+  assert.deepEqual([save.log[0][1], save.log[0][4]], ["⏭️ SponsorBlock 설정을 저장했어요", "완료"]);
   assert.match(String(save.log[0][2]), /인트로\/무음 구간, 최종 화면 구간/);
   assert.ok(SKIP_CATEGORIES.includes("intro"));
 });
 
-test("SponsorBlock 화면: 끄고 저장하면 미사용, 구간을 비우고 저장하면 사실상 미적용, 취소하면 그대로 닫는다", async () => {
+test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장하면 건너뛰지 않는다고, 취소하면 그대로 닫는다", async () => {
   const toggle = sbInteraction({ customId: "sb:toggle", messageId: "m-off" });
   await interactionCreate.execute(fake<Interaction>(toggle.it));
   const save = sbInteraction({ customId: "sb:save", messageId: "m-off" });
   await interactionCreate.execute(fake<Interaction>(save.it));
-  assert.match(String(save.log[0][2]), /구간: 미사용/);
+  assert.match(String(save.log[0][2]), /구간: 끔/);
 
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "사용"에서 시작하게
+  storeDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "켬"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
   await interactionCreate.execute(fake<Interaction>(empty.it));
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });
   await interactionCreate.execute(fake<Interaction>(saveEmpty.it));
-  assert.match(String(saveEmpty.log[0][2]), /선택된 구간 없음\(사실상 미적용\)/);
+  assert.match(String(saveEmpty.log[0][2]), /고른 구간 없음 \(건너뛰지 않아요\)/);
 
   const cancel = sbInteraction({ customId: "sb:cancel", messageId: "m-cancel" });
   await interactionCreate.execute(fake<Interaction>(cancel.it));
-  assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정 취소됨", "변경 사항 없이 닫았어요.", 0, "기본"]]);
+  assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정을 취소했어요", "변경 사항은 반영하지 않았어요.", 0, "기본"]]);
 });
 
 test("SponsorBlock 화면: 전역이 꺼져 있으면 적용되지 않는다고 적는다", () => {
@@ -427,7 +427,7 @@ test("SponsorBlock 화면: 전역이 꺼져 있으면 적용되지 않는다고 
   config.sponsorblock.enabled = false;
   try {
     const view = sponsorConfigView({ enabled: true, categories: [] });
-    assert.match(screenOf(post(view)).body, /전역 설정에서 SponsorBlock이 꺼져/);
+    assert.match(screenOf(post(view)).body, /봇 전체 설정에서 SponsorBlock이 꺼져/);
   } finally {
     config.sponsorblock.enabled = saved;
   }
