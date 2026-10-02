@@ -511,7 +511,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
-  assert.deepEqual(pick.log, [["update", "### 🎲 자동 재생이 활성화되었습니다"]]);
+  assert.deepEqual(pick.log, [["update", "### 🎲 자동 재생을 시작할게요!"]]);
   // 메뉴를 덮은 결과(update)는 본인에게만 보이는 것으로 기록되지 않는다. 지우라고 선언해 두었으니 지운다
   t.mock.timers.enable({ apis: ["setTimeout"] });
   scheduleReplyCleanup(pick.it);

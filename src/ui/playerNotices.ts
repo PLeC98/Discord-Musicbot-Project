@@ -18,7 +18,10 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => ContainerBuilder } = {
   "skipped-after-error": ({ error }) => noticeFrame(errorMessage(error)),
   // 곡이 연달아 실패해 넘기기를 그만뒀다. 대기열은 남아 있다
   "failed-in-row": ({ count, left }) => noticeFrame(notices.failedInRow(count, left)),
-  restored: ({ title, atSec, paused }) => frame({ body: notices.restored(title, formatDuration(atSec), paused) }),
+  restored: ({ title, atSec, paused }) => {
+    const t = notices.restored(title, formatDuration(atSec), paused);
+    return frame({ title: t.title, body: t.body });
+  },
 };
 
 // 잠깐 보이고 지우는 알림

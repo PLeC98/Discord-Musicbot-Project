@@ -8,9 +8,9 @@ test("모든 문장", () => {
   assert.deepEqual(
     [autoplay.pickGenre(), autoplay.turnedOff(), autoplay.turnedOn("J-POP")],
     [
-      { title: "🎲 음악 장르 선택", description: "어떤 장르를 재생할까요?", placeholder: "음악 장르를 선택하세요..." },
-      { title: "🎲 자동 재생이 비활성화되었습니다", description: "다른 장르로 다시 켜려면 아래에서 고르세요. 그냥 두면 꺼진 채로 둡니다.", placeholder: "장르를 바꿔 다시 켜기..." },
-      { title: "🎲 자동 재생이 활성화되었습니다", description: "**J-POP** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.", by: "👤 변경한 사람" },
+      { title: "🎲 자동 재생 장르 선택", description: "어떤 장르를 재생할까요?", placeholder: "장르를 선택해 주세요!" },
+      { title: "🎲 자동 재생을 껐어요!", description: "장르를 바꾸려던 거라면 아래에서 골라주세요! 자동 재생을 끄려던 거라면 선택하지 않고 두면 돼요.", placeholder: "바꿀 장르를 선택해 주세요!" },
+      { title: "🎲 자동 재생을 시작할게요!", description: "**J-POP** 장르로 켰어요. 직접 넣어둔 대기열이 끝나면 자동 재생 곡들이 나와요.", by: "👤 요청한 사람" },
     ],
   );
 });

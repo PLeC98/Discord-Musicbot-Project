@@ -861,7 +861,7 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   assert.equal(p.currentTrack, null);
   assert.deepEqual(p.queue, [d]);
   assert.equal(p.failedTracks, 0, "멈추면 다시 센다. 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게");
-  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개를 연달아 틀지 못해 재생을 멈췄습니다.\n남은 1곡은 대기열에 그대로 있고, 곡을 추가하면 이어서 틉니다."));
+  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개 재생에 연달아 실패해서 재생을 중단했어요.\n남은 1곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요."));
   assert.ok(seen.includes("end:failures"));
   assert.equal(calls.persists.includes("remove"), false, "대기열이 남았으니 세션을 지우지 않는다");
   assert.equal(leaveTimer, null, "남은 곡이 있으니 나갈 예약을 걸지 않는다(패널이 오지 않을 나갈 시각을 보이지 않게)");
@@ -880,7 +880,7 @@ test("연달아 실패해 멈출 때 남은 곡이 없으면 보통의 대기열
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
-  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개를 연달아 틀지 못해 재생을 멈췄습니다."));
+  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개 재생에 연달아 실패해서 재생을 중단했어요."));
   assert.ok(seen.includes("end:queue-end"));
   assert.ok(calls.persists.includes("remove"));
   assert.ok(leaveTimer, "대기열 소진처럼 나갈 예약을 건다");

@@ -48,13 +48,13 @@ test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
 
 test("끄기 화면: 이미 꺼졌음을 알리고 30초 동안 다시 고를 기회를 준다", () => {
   const off = buildAutoplayOffMenu();
-  assert.match(headOf(off) ?? "", /비활성화/);
+  assert.match(headOf(off) ?? "", /자동 재생을 껐어요/);
   assert.equal(OFF_MENU_MS, 30_000, '"더 넣기" 메뉴와 같은 수명');
 });
 
 test("켠 결과: 메뉴 화면을 고친다. 고른 장르와 누가 켰는지", () => {
   const on = autoplayOn("가요", "<@1>");
-  assert.deepEqual(textsOf(on), ["### 🎲 자동 재생이 활성화되었습니다\n**가요** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.", "-# 👤 변경한 사람 <@1>"]);
+  assert.deepEqual(textsOf(on), ["### 🎲 자동 재생을 시작할게요!\n**가요** 장르로 켰어요. 직접 넣어둔 대기열이 끝나면 자동 재생 곡들이 나와요.", "-# 👤 요청한 사람 <@1>"]);
   assert.deepEqual(on.flags, [MessageFlags.IsComponentsV2]);
 });
 

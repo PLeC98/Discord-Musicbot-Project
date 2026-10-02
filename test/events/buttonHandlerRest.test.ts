@@ -477,7 +477,7 @@ test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 �
   const away = world({ botVoice: null, userVoice: null });
   const cancel = press(away, `search:cancel:${USER}`);
   await interactionCreate.execute(cancel.it);
-  assert.deepEqual(cancel.log, [["update", "❌ 검색 취소됨"]]);
+  assert.deepEqual(cancel.log, [["update", "검색 취소"]]);
 });
 
 test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {
@@ -492,7 +492,7 @@ test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기�
     "몇 번째를 골랐는지 남긴다",
   );
   assert.deepEqual(w.seen, [{ handle: ["결과 1"] }]);
-  assert.deepEqual(log, [["deferUpdate"], ["editReply", "🔄 처리 중..."], ["deleteReply"]]);
+  assert.deepEqual(log, [["deferUpdate"], ["editReply", "🔄 넣는 중..."], ["deleteReply"]]);
 });
 
 test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류. 검색 메시지를 지우고 본인에게만", async () => {

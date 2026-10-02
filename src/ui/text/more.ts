@@ -1,11 +1,12 @@
 // 재생목록 "더 넣기" 메뉴 · 모달 · 결과의 글자. 수는 여기서 자릿점을 찍는다
 
 import { noticeOf, type Notice } from "../frame.ts";
+import { josa } from "../../rules/josa.ts";
 
 const fmt = (n: number | null) => Number(n).toLocaleString("ko-KR");
 
 /** 처음 띄우는 메뉴의 머리. collection 은 출처의 이름(labels.collection) */
-const offered = (collection: string, total: number, offset: number) => `📃 ${collection}은 전체 ${fmt(total)}곡이에요. 앞 ${fmt(offset)}곡까지 넣었어요.`;
+const offered = (collection: string, total: number, offset: number) => `📃 ${collection}${josa(collection, "은")} 모두 ${fmt(total)}곡이에요. 앞 ${fmt(offset)}곡까지 넣었어요.`;
 
 /** 이어 넣은 결과의 머리 */
 function added({ collection, added, skipped, dropped }: { collection: string; added: number; skipped?: number; dropped?: number }) {
@@ -17,7 +18,7 @@ function added({ collection, added, skipped, dropped }: { collection: string; ad
 /** 목록을 끝까지 넣었다 */
 const finished = (head: string) => `${head} 목록을 끝까지 넣었어요.`;
 /** 이어 넣을 것이 남았다. at 은 넣은 데까지의 자리 */
-const progressed = (head: string, total: number | null, at: number) => `${head} (전체 ${fmt(total)}곡 중 ${fmt(at)}곡까지)`;
+const progressed = (head: string, total: number | null, at: number) => `${head} (${fmt(total)}곡 중 ${fmt(at)}곡까지)`;
 /** 자리가 없어 메뉴를 띄우지 않는다 */
 const noRoom = (head: string) => `${head}\n대기열이 가득 차 지금은 더 넣을 수 없어요.`;
 

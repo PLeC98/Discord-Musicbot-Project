@@ -6,7 +6,7 @@ import * as search from "../../../src/ui/text/search.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
-    [search.results("노래", 5), search.result(1, { title: "곡", uploader: "채널", length: "3:00" }), search.result(2, { title: null, uploader: undefined, length: "알 수 없음" }), search.unknownLength(), search.cancelled(), search.adding(), search.searching("노래"), search.searchingChannel("노래")],
-    [{ title: '🔍 "노래" 검색 결과', description: "번호 버튼을 눌러 노래를 선택하세요.", footer: "5개의 결과", cancel: "취소" }, { name: "1. 곡", value: "👤 채널 • ⏱️ 3:00" }, { name: "2. 알 수 없는 제목", value: "👤 알 수 없는 채널 • ⏱️ 알 수 없음" }, "알 수 없음", { title: "❌ 검색 취소됨", description: "검색이 취소되었습니다." }, { title: "🔄 처리 중...", description: "고른 곡을 추가하는 중..." }, "**노래** 검색 중...", "🔍 **노래** 검색 중..."],
+    [search.results("노래", 5), search.result(1, { title: "곡", uploader: "채널", length: "3:00" }), search.result(2, { title: null, uploader: undefined, length: "알 수 없음" }), search.unknownLength(), search.cancelled(), search.adding(), search.searching("노래")],
+    [{ title: '🔍 "노래" 검색 결과', description: "번호 버튼을 눌러 곡을 골라주세요.", footer: "결과 5개", cancel: "취소" }, { name: "1. 곡", value: "👤 채널 • ⏱️ 3:00" }, { name: "2. 알 수 없는 제목", value: "👤 알 수 없는 채널 • ⏱️ 알 수 없음" }, "알 수 없음", { title: "검색 취소", description: "검색을 취소했어요." }, { title: "🔄 넣는 중...", description: "고른 곡을 추가하고 있어요..." }, "🔍 **노래** 검색 중..."],
   );
 });

@@ -49,7 +49,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
-    const loadingMsg = await message.channel.send(post(frame({ body: searchText.searchingChannel(preview) })));
+    const loadingMsg = await message.channel.send(post(frame({ body: searchText.searching(preview) })));
 
     const responder = channelResponder(message.channel, () =>
       loadingMsg.delete().catch(() => {
