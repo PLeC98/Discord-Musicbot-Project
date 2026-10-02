@@ -57,9 +57,9 @@ const cache = (v: CacheValues) => ({
     name: "💿 캐시 현황",
     value: [`**용량:** ${v.sizeBar}`, `\`${v.size}\` / \`${v.maxSize}\``, `**파일 수:** ${v.countBar}`, `\`${v.files}개\` / \`${v.maxFiles}개\``, `**디스크 여유:** ${v.diskFree === null ? "측정 불가" : `${v.diskFree} 여유`} (최소 ${v.minFreeDisk})`].join("\n"),
   },
-  plays: { name: "▶️ 재생 통계", value: [`**총 재생 횟수:** ${v.plays.toLocaleString()}회`, `**총 재생 시간:** ${v.played}`, `**평균 곡 길이:** ${v.averageLength}`, `**한 번도 안 재생:** ${v.neverPlayed}개`].join("\n") },
+  plays: { name: "▶️ 재생 통계", value: [`**총 재생 횟수:** ${v.plays.toLocaleString()}회`, `**총 재생 시간:** ${v.played}`, `**평균 곡 길이:** ${v.averageLength}`, `**한 번도 안 튼 곡:** ${v.neverPlayed}개`].join("\n") },
   platforms: { name: "🌐 플랫폼 분포", value: [`🔴 YouTube: **${v.platforms.youtube}**개`, `🟠 SoundCloud: **${v.platforms.soundcloud}**개`, `🔗 직접 링크: **${v.platforms.direct}**개`].join("\n") },
-  misc: { name: "🔧 기타", value: [`**URL 매핑:** ${v.lookups}개`, `**다운로드 중:** ${v.downloading}개`, `**재생 보호 중:** ${v.protectedCount}개`].join("\n") },
+  misc: { name: "🔧 기타", value: [`**주소 기록:** ${v.lookups}개`, `**다운로드 중:** ${v.downloading}개`, `**재생 보호 중:** ${v.protectedCount}개`].join("\n") },
   top: "🏆 재생 TOP 5",
   recent: "🆕 최근 추가",
   footer: `캐시 경로: audio_cache/`,
@@ -96,12 +96,12 @@ const license = (lines: string[]) => ({
 });
 
 /** /nowplaying. 칸 이름표 */
-const nowPlaying = () => ({ title: "🎵 현재 재생 중", artist: "🎤 아티스트", album: "💿 앨범", platform: "🎵 플랫폼", progress: "⏱️ 진행", requester: "👤 요청자", status: "📊 상태" });
+const nowPlaying = () => ({ title: "🎵 현재 재생 중", artist: "🎤 아티스트", album: "💿 앨범", platform: "🌐 출처", progress: "⏱️ 진행", requester: "👤 요청자", status: "📊 상태" });
 /** /nowplaying 의 상태 줄 */
 function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {
-  let text = playing ? "▶️ 재생 중" : paused ? "⏸️ 일시정지" : "⏹️ 중지됨";
+  let text = playing ? "▶️ 재생 중" : paused ? "⏸️ 일시정지" : "⏳ 준비 중";
   text += ` • 🔊 ${volume}%`;
-  if (loop === "track") text += " • 🔂 트랙 반복";
+  if (loop === "track") text += " • 🔂 한 곡 반복";
   else if (loop === "queue") text += " • 🔁 대기열 반복";
   return text;
 }

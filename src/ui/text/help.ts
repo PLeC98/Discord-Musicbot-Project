@@ -14,19 +14,19 @@ const sections = () => [
     lines: ["`/join`: 음성 채널 입장 (이전 세션 복구)", "`/leave`: 퇴장 및 세션 저장 🔒", "`/setchannel`: 전용 채널 지정 (서버 관리 권한)", "`/setdjrole`: DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]`: 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/sponsorblock`: SponsorBlock 자동 스킵 설정 (서버 관리 권한)", "`/dashboard`: 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"],
   },
   { name: "📊 봇 정보", lines: ["`/ping`: 레이턴시 확인 (서버 관리 권한)", "`/system`: 시스템 상태 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계 (서버 관리 권한)", "`/license`: 라이선스와 소스 코드 위치"] },
-  { name: "🌐 지원 플랫폼", lines: ["🔴 **YouTube** - 비디오/음악 링크 및 검색", "🟢 **Spotify** - 노래/재생목록/앨범 링크", "🟠 **SoundCloud** - 음악 링크 및 검색", "🔗 **직접 링크** - 오디오/영상 파일 주소 (MP3, FLAC, M4A, MP4 등)"] },
+  { name: "🌐 지원 플랫폼", lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3 · FLAC · M4A · MP4 등)"] },
 ];
 
 /** 머리 */
 const intro = () => ({
   title: "🎵 도움말",
-  description: "🔒 표시 명령어는 **봇과 같은 음성 채널에 있는 DJ**부터 사용할 수 있습니다. 모더레이터는 채널에 없어도 사용 가능해요.\nDJ 역할이 설정되지 않은 서버에서는 전원이 DJ로 취급됩니다. (`/setdjrole`)",
+  description: "🔒 표시 명령은 **봇과 같은 음성 채널에 있는 DJ**만 쓸 수 있어요. 서버 관리자는 채널에 없어도 쓸 수 있어요.\nDJ 역할을 정하지 않은 서버에서는 모두가 DJ 역할을 가진 것으로 간주해요. (`/setdjrole`)",
 });
 
 /** 통계 칸. uptime 은 말로 적은 가동 시간 */
 const stats = ({ guilds, users, active, uptime }: { guilds: number; users: number; active: number; uptime: string }) => ({
   name: "📊 통계",
-  lines: [`🏠 **서버:** ${guilds}개`, `👥 **사용자:** ${users.toLocaleString()}명`, `🎵 **활성 서버:** ${active}개`, `⏱️ **업타임:** ${uptime}`],
+  lines: [`🏠 **서버:** ${guilds}개`, `👥 **사용자:** ${users.toLocaleString()}명`, `🎵 **재생 중인 서버:** ${active}개`, `⏱️ **업타임:** ${uptime}`],
 });
 
 /** 링크 칸. website 는 없을 수 있다 */

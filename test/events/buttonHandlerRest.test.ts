@@ -203,7 +203,7 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
   const skip = press(w, "panel:skip:S1");
   await interactionCreate.execute(skip.it);
   assert.deepEqual(skip.log, [["reply", "### ⏭️ 곡을 건너뛰었어요!"]]);
-  // 트랙 반복이면 건너뛰지 않고 처음부터 다시 튼다. 머리 줄 없이 그 안내만
+  // 한 곡 반복이면 건너뛰지 않고 처음부터 다시 튼다. 머리 줄 없이 그 안내만
   w.player.loop = "track";
   const again = press(w, "panel:skip:S1");
   await interactionCreate.execute(again.it);

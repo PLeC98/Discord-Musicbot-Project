@@ -129,16 +129,16 @@ test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상�
   const f = nowLines(log[0][1]);
   assert.equal(f["🎤 아티스트"], "가수");
   assert.equal(f["💿 앨범"], "앨범");
-  assert.match(f["🎵 플랫폼"], /YouTube/);
+  assert.match(f["🌐 출처"], /YouTube/);
   assert.match(f["⏱️ 진행"], /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
   assert.equal(f["👤 요청자"], "<@u9>");
-  assert.equal(f["📊 상태"], "▶️ 재생 중 • 🔊 70% • 🔂 트랙 반복");
+  assert.equal(f["📊 상태"], "▶️ 재생 중 • 🔊 70% • 🔂 한 곡 반복");
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2], "모두에게 보인다");
   assert.equal(headOf(log[0][1] as never), "### 🎵 현재 재생 중");
 });
 
-test("/nowplaying: 멈춤 · 중지 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 입구가 알린다", async () => {
+test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 입구가 알린다", async () => {
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.client);
   const f = nowLines(paused.log[0][1]);
@@ -147,7 +147,7 @@ test("/nowplaying: 멈춤 · 중지 · 대기열 반복, 길이를 모르면 진
 
   const stopped = interaction({ player: nowPlayer({ title: "곡", url: "u" }, { playing: false, paused: false, volume: 1, loop: false }) });
   await run(await command("nowplaying"), stopped.it, stopped.client);
-  assert.equal(nowLines(stopped.log[0][1])["📊 상태"], "⏹️ 중지됨 • 🔊 1%");
+  assert.equal(nowLines(stopped.log[0][1])["📊 상태"], "⏳ 준비 중 • 🔊 1%");
 
   const broken = interaction({
     player: {
@@ -222,7 +222,7 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   const f = fieldsOf(log[0][1]);
   assert.ok(f["🎵 재생"].includes("`/play <곡/URL>`"));
   assert.match(f["📊 통계"], /서버:\*\* 1개/);
-  assert.match(f["📊 통계"], /활성 서버:\*\* 1개/);
+  assert.match(f["📊 통계"], /재생 중인 서버:\*\* 1개/);
   // 웹사이트 버튼은 WEBSITE 가 있을 때만 앞에 붙는다. 순서가 아니라 ID 로 찾는다
   const buttons: Array<{ data: { custom_id?: string } }> = log[0][1].components[0].components;
   assert.ok(buttons.some((b) => b.data.custom_id === "help:refresh"));
@@ -290,10 +290,10 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
   assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
   const f = fieldsOf(log[1][1]);
   assert.match(f["▶️ 재생 통계"], /총 재생 횟수:\*\* 4회/);
-  assert.match(f["▶️ 재생 통계"], /한 번도 안 재생:\*\* 1개/);
+  assert.match(f["▶️ 재생 통계"], /한 번도 안 튼 곡:\*\* 1개/);
   assert.match(f["▶️ 재생 통계"], /평균 곡 길이:\*\* 2분 5초/);
   assert.equal(f["🌐 플랫폼 분포"], "🔴 YouTube: **1**개\n🟠 SoundCloud: **1**개\n🔗 직접 링크: **1**개");
-  assert.match(f["🔧 기타"], /URL 매핑:\*\* 1개/);
+  assert.match(f["🔧 기타"], /주소 기록:\*\* 1개/);
   assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*: 3회 \(2:05\)/);
 });
 

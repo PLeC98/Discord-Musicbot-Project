@@ -39,9 +39,9 @@ test("모든 문장", () => {
       {
         title: "📦 오디오 캐시 현황",
         overview: { name: "💿 캐시 현황", value: "**용량:** S\n`1 GB` / `2 GB`\n**파일 수:** C\n`3개` / `9개`\n**디스크 여유:** 5 GB 여유 (최소 1 GB)" },
-        plays: { name: "▶️ 재생 통계", value: "**총 재생 횟수:** 1,234회\n**총 재생 시간:** 2시간 3분\n**평균 곡 길이:** 4분 5초\n**한 번도 안 재생:** 1개" },
+        plays: { name: "▶️ 재생 통계", value: "**총 재생 횟수:** 1,234회\n**총 재생 시간:** 2시간 3분\n**평균 곡 길이:** 4분 5초\n**한 번도 안 튼 곡:** 1개" },
         platforms: { name: "🌐 플랫폼 분포", value: "🔴 YouTube: **1**개\n🟠 SoundCloud: **2**개\n🔗 직접 링크: **3**개" },
-        misc: { name: "🔧 기타", value: "**URL 매핑:** 4개\n**다운로드 중:** 0개\n**재생 보호 중:** 1개" },
+        misc: { name: "🔧 기타", value: "**주소 기록:** 4개\n**다운로드 중:** 0개\n**재생 보호 중:** 1개" },
         top: "🏆 재생 TOP 5",
         recent: "🆕 최근 추가",
         footer: "캐시 경로: audio_cache/",
@@ -62,10 +62,10 @@ test("모든 문장", () => {
         fullText: { name: "📚 라이선스 전문", value: "저장소의 `LICENSE`(AGPL-3.0) / `LICENSE-MIT`(MIT) / `NOTICE.md`(구조 설명) 파일을 참조하세요." },
         footer: "GNU AGPL-3.0-or-later • MIT",
       },
-      { title: "🎵 현재 재생 중", artist: "🎤 아티스트", album: "💿 앨범", platform: "🎵 플랫폼", progress: "⏱️ 진행", requester: "👤 요청자", status: "📊 상태" },
+      { title: "🎵 현재 재생 중", artist: "🎤 아티스트", album: "💿 앨범", platform: "🌐 출처", progress: "⏱️ 진행", requester: "👤 요청자", status: "📊 상태" },
       "▶️ 재생 중 • 🔊 80%",
-      "⏸️ 일시정지 • 🔊 50% • 🔂 트랙 반복",
-      "⏹️ 중지됨 • 🔊 50% • 🔁 대기열 반복",
+      "⏸️ 일시정지 • 🔊 50% • 🔂 한 곡 반복",
+      "⏳ 준비 중 • 🔊 50% • 🔁 대기열 반복",
     ],
   );
 });
