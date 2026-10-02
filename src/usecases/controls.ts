@@ -325,5 +325,5 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   return done({ left: "player" as const, track, saved });
 }
 
-export type { Actor };
+export type { Actor, Refusal };
 export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, autoplayBlocked, autoplay, leave };

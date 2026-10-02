@@ -7,7 +7,7 @@ import * as text from "../../src/ui/text/ko/errors.ts";
 import { errorKind } from "../../src/rules/errorKind.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 
 // [실제로 들어오는 모양의 오류, 기대 범주]. yt-dlp 는 실행하는 곳이, 우리 코드는 만든 곳이, Node · 디스코드는 저마다 이름을 단다
 const CASES: Array<[Error, string]> = [

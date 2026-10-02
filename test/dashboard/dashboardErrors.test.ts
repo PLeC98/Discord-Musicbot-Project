@@ -17,6 +17,8 @@ import type { NextFunction, Request, Response } from "express";
 import { fake } from "../helpers/fake.ts";
 import { baseUrl } from "../helpers/listen.ts";
 import logSink from "../../src/infra/log/sink.ts";
+import { PROBLEMS } from "../../src/rules/problems.ts";
+import { notice } from "../../src/ui/text/ko/errors.ts";
 
 // ── 로그: 싱크에 받는 곳을 달아 본다(errorId가 로그에도 남는지 확인용) ──────
 const logLines: string[] = [];
@@ -65,41 +67,27 @@ async function req(urlPath: string, init: RequestInit = {}) {
 
 // ── 오류 분류 (순수) ───────────────────────────────────────────────────────────
 
-test("분류: SQLITE_*·I/O 오류는 503, 4xx는 그대로, 나머지는 500", () => {
-  const c = (err: unknown) => _internals.classify(err).status;
+test("분류: SQLITE_*·I/O 오류는 storage-unavailable(503), 4xx는 bad-request(400), 나머지는 unknown-error(500)", () => {
+  const c = _internals.classify;
 
-  assert.equal(c(Object.assign(new Error("x"), { code: "SQLITE_CORRUPT" })), 503);
-  assert.equal(c(Object.assign(new Error("x"), { code: "SQLITE_NOTADB" })), 503);
-  assert.equal(c(Object.assign(new Error("x"), { code: "EIO" })), 503);
-  assert.equal(c(Object.assign(new Error("x"), { code: "ENOENT" })), 503);
+  for (const code of ["SQLITE_CORRUPT", "SQLITE_NOTADB", "EIO", "ENOENT"]) assert.equal(c(Object.assign(new Error("x"), { code })), "storage-unavailable", code);
+  assert.equal(PROBLEMS["storage-unavailable"].status, 503);
 
   // express.json()이 잘못된 본문에 붙이는 400 — 500으로 뭉개면 안 된다
-  assert.equal(c(Object.assign(new Error("x"), { status: 400 })), 400);
-  assert.equal(c(Object.assign(new Error("x"), { statusCode: 403 })), 403);
+  assert.equal(c(Object.assign(new Error("x"), { status: 400 })), "bad-request");
+  assert.equal(c(Object.assign(new Error("x"), { statusCode: 403 })), "bad-request");
 
-  assert.equal(c(new Error("그냥 버그")), 500);
+  assert.equal(c(new Error("그냥 버그")), "unknown-error");
   // 5xx를 err.status로 들고 와도 우리 분류를 거친다
-  assert.equal(c(Object.assign(new Error("x"), { status: 502 })), 500);
+  assert.equal(c(Object.assign(new Error("x"), { status: 502 })), "unknown-error");
 });
 
 // 2026-09-15 사용자 보고: 긴 공지를 보내면 대시보드에 "발송 실패"만 떠 무엇을 고칠지 알 수 없었다.
 // 내부 사정은 감추되 무엇을 고쳐야 하는지는 알려 준다.
-test("분류: 413·429는 고칠 방법이 드러나는 문구를 준다", () => {
-  const tooLarge = _internals.classify(Object.assign(new Error("request entity too large"), { status: 413, type: "entity.too.large" }));
-  assert.equal(tooLarge.status, 413);
-  assert.match(tooLarge.message, /너무 깁니다/);
-  assert.ok(!tooLarge.message.includes("entity"), "내부 용어는 내보내지 않는다");
-
-  const tooMany = _internals.classify(Object.assign(new Error("x"), { status: 429 }));
-  assert.match(tooMany.message, /잦습니다/);
-
-  // 나머지 4xx는 그대로 일반 문구
-  assert.match(_internals.classify(Object.assign(new Error("x"), { status: 400 })).message, /형식/);
-});
-
-test("분류: 어떤 경우에도 err.message를 사용자 문구로 쓰지 않는다", () => {
-  const { message } = _internals.classify(Object.assign(new Error("database disk image is malformed"), { code: "SQLITE_CORRUPT" }));
-  assert.ok(!message.includes("malformed"));
+test("분류: 413·429는 고칠 방법이 드러나는 코드를 준다", () => {
+  assert.equal(_internals.classify(Object.assign(new Error("request entity too large"), { status: 413, type: "entity.too.large" })), "payload-too-large");
+  assert.match(notice("payload-too-large").title, /너무 깁니다/);
+  assert.equal(_internals.classify(Object.assign(new Error("x"), { status: 429 })), "too-many-requests");
 });
 
 test("헤더가 이미 나간 응답(SSE)은 건드리지 않고 넘긴다", () => {
@@ -146,9 +134,10 @@ test("스토어가 죽어도 스택·내부 경로가 응답에 실리지 않는
   const res = await req("/api/me");
 
   assert.equal(res.status, 503, "저장장치 장애는 재시도 가능한 상태");
-  assert.match(res.headers.get("content-type") || "", /application\/json/);
+  assert.match(res.headers.get("content-type") || "", /application\/problem\+json/);
 
   const json = JSON.parse(res.body);
+  assert.deepEqual([json.type, json.code, json.status], ["/problems/storage-unavailable", "storage-unavailable", 503]);
   assert.match(json.errorId, /^[0-9a-f]{8}$/);
   assert.ok(!res.body.includes("    at "), "스택 프레임");
   assert.ok(!res.body.includes("malformed"), "내부 오류 메시지");
@@ -159,6 +148,12 @@ test("스토어가 죽어도 스택·내부 경로가 응답에 실리지 않는
   const logged = logLines.filter((l) => l.includes(json.errorId));
   assert.equal(logged.length, 1);
   assert.ok(logged[0].includes("malformed"), "전체 오류는 로그에만");
+});
+
+test("코드 설명 주소(/problems/<코드>)는 화면(SPA) 폴백보다 먼저 받는다. 세션과 무관하다", async () => {
+  const res = await req("/problems/queue-full");
+  assert.equal(res.status, 200);
+  assert.match(res.body, /<h1>queue-full<\/h1>/);
 });
 
 test("스토어가 죽어도 앱 껍데기는 뜬다 (백지 회귀)", async () => {
@@ -195,14 +190,14 @@ test("보안 헤더: 넣기로 한 것만 있고, 넣으면 안 되는 것은 �
 
 // ── 실 앱: 스토어 정상 ─────────────────────────────────────────────────────────
 
-test("등록되지 않은 /api 경로는 HTML이 아니라 JSON 404", async () => {
+test("등록되지 않은 /api 경로는 HTML이 아니라 문제 응답 404", async () => {
   storeBroken = false;
   try {
     const res = await req("/api/definitely-not-a-route");
     assert.equal(res.status, 404);
-    assert.match(res.headers.get("content-type") || "", /application\/json/);
-    // 클라이언트가 e.response?.data?.error로 읽는다
-    assert.ok(JSON.parse(res.body).error);
+    assert.match(res.headers.get("content-type") || "", /application\/problem\+json/);
+    // 클라이언트가 code 로 문장을 고른다
+    assert.equal(JSON.parse(res.body).code, "route-not-found");
   } finally {
     storeBroken = true;
   }
@@ -217,7 +212,8 @@ test("잘못된 JSON 본문은 400 — 500으로 뭉개지 않는다", async () 
       body: "{ this is not json",
     });
     assert.equal(res.status, 400);
-    assert.match(res.headers.get("content-type") || "", /application\/json/);
+    assert.match(res.headers.get("content-type") || "", /application\/problem\+json/);
+    assert.equal(JSON.parse(res.body).code, "bad-request");
     assert.match(JSON.parse(res.body).errorId, /^[0-9a-f]{8}$/);
     assert.ok(!res.body.includes("    at "));
   } finally {

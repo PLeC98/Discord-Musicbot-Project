@@ -1,6 +1,9 @@
 import crypto from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import logger from "../../../src/infra/log/logger.ts";
+import { PROBLEMS, type Code } from "../../../src/rules/problems.ts";
+import { notice } from "../../../src/ui/text/ko/errors.ts";
+import { sendProblem } from "../problem.ts";
 const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택·내부 경로·의존성 버전이 실리지 않게 한다.
@@ -13,13 +16,6 @@ const log = logger.child({ category: "dashboard" });
 // 다른 방식으로 기동했을 때 다시 샌다. 미들웨어는 환경과 무관하게 동작한다.
 //
 // 진단 가능성은 오류 ID로 유지한다. 응답에는 ID만, 서버 로그에는 ID + 전체 스택.
-
-const MSG_BAD_REQUEST = "요청 형식이 올바르지 않습니다.";
-const MSG_TOO_LARGE = "보낸 내용이 너무 깁니다. 줄여서 다시 시도해 주세요.";
-const MSG_TOO_MANY = "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.";
-const MSG_UNAVAILABLE = "일시적으로 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.";
-const MSG_INTERNAL = "요청을 처리하지 못했습니다.";
-const MSG_NOT_FOUND = "요청한 경로를 찾을 수 없습니다.";
 
 // 저장장치/DB 계층 장애. 요청이 잘못된 게 아니라 지금 처리할 수 없는 상태라 503으로 낸다.
 // (언마운트된 볼륨의 SQLite는 파일이 멀쩡해도 SQLITE_CORRUPT를 던진다.)
@@ -38,17 +34,17 @@ function isUnavailable(err: unknown) {
 // err.message는 절대 내보내지 않는다. "database disk image is malformed"도 내부 정보다.
 // 다만 무엇을 고쳐야 하는지는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
 // 내용이 길어서 막힌 사람이 무엇을 줄여야 할지 알 수 없다.
-function classify(err: unknown) {
+function classify(err: unknown): Code {
   const e = fieldsOf(err);
   const status = e.status ?? e.statusCode;
   // express.json()이 잘못된 본문에 400을, 한도를 넘은 본문에 413을 붙여 던진다.
   if (typeof status === "number" && Number.isInteger(status) && status >= 400 && status < 500) {
-    if (status === 413) return { status, message: MSG_TOO_LARGE };
-    if (status === 429) return { status, message: MSG_TOO_MANY };
-    return { status, message: MSG_BAD_REQUEST };
+    if (status === 413) return "payload-too-large";
+    if (status === 429) return "too-many-requests";
+    return "bad-request";
   }
-  if (isUnavailable(err)) return { status: 503, message: MSG_UNAVAILABLE };
-  return { status: 500, message: MSG_INTERNAL };
+  if (isUnavailable(err)) return "storage-unavailable";
+  return "unknown-error";
 }
 
 function wantsJson(req: Request) {
@@ -56,17 +52,17 @@ function wantsJson(req: Request) {
   return p.startsWith("/api") || p.startsWith("/auth");
 }
 
-// 등록되지 않은 /api·/auth 경로. Express 기본 404는 HTML이라 클라이언트의
-// e.response?.data?.error가 읽지 못해 사용자에게는 그냥 실패한 것처럼 보인다.
+// 등록되지 않은 /api·/auth 경로. Express 기본 404는 HTML이라 클라이언트가 문제 코드를 읽지 못한다.
 // 404에는 오류 객체가 없어 오류 미들웨어가 돌지 않으므로 별도 폴백이 필요하다.
 function notFoundJson(req: Request, res: Response, next: NextFunction) {
   if (!wantsJson(req)) return next();
-  res.status(404).json({ error: MSG_NOT_FOUND });
+  sendProblem(res, "route-not-found");
 }
 
 function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
   const errorId = crypto.randomBytes(4).toString("hex");
-  const { status, message } = classify(err);
+  const code = classify(err);
+  const { status } = PROBLEMS[code];
 
   // 로그는 응답을 쓸 수 있든 없든 남긴다. 헤더가 이미 나간 응답(SSE)에서 나는 오류가
   // 기록조차 안 되면 사후에 존재 자체를 알 수 없다.
@@ -81,9 +77,11 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   // 헤더가 나간 뒤에 또 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다. 연결 정리는 express에 맡긴다.
   if (res.headersSent) return next(err);
 
-  res.status(status);
-  if (wantsJson(req)) return res.json({ error: message, errorId });
-  res.type("html").send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${message}</p><p>오류 ID: ${errorId}</p>`);
+  if (wantsJson(req)) return sendProblem(res, code, {}, { errorId });
+  res
+    .status(status)
+    .type("html")
+    .send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${notice(code).title}</p><p>오류 ID: ${errorId}</p>`);
 }
 
 export { errorHandler, notFoundJson };

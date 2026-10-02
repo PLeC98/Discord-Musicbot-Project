@@ -20,6 +20,10 @@ function response() {
       this.sentHeaders[name] = value;
       return this;
     },
+    type(value: string) {
+      this.sentHeaders["Content-Type"] = value;
+      return this;
+    },
     json(body: Body) {
       this.sentBody = body;
       return this;
@@ -73,7 +77,7 @@ test("rejects unsafe methods with a missing or incorrect token", () => {
     );
     assert.equal(called, false);
     assert.equal(res.statusCode, 403);
-    assert.equal(res.sentBody?.code, "INVALID_CSRF_TOKEN");
+    assert.equal(res.sentBody?.code, "bad-csrf-token");
   }
 });
 

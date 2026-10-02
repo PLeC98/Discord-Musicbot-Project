@@ -18,7 +18,7 @@ import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 import { networkError } from "../helpers/errors.ts";
 import { codedError, errorKind } from "../../src/rules/errorKind.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audioCache.ts");

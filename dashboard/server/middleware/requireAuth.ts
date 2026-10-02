@@ -1,9 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import type { SessionUser } from "../expressSlots.d.ts";
+import { sendProblem } from "../problem.ts";
 
 // 경로 인자 타입(P)은 경로 글자에서 추론되게 받는 쪽이 정하지 않는다
 function requireAuth<P>(req: Request<P>, res: Response, next: NextFunction) {
-  if (!req.session?.user) return res.status(401).json({ error: "로그인이 필요합니다." });
+  if (!req.session?.user) return sendProblem(res, "login-required");
   next();
 }
 

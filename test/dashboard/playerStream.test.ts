@@ -28,7 +28,8 @@ function makeRes() {
       },
       status: (code: number) => {
         res.statusCode = code;
-        return { json: () => {} };
+        const sent = { type: () => sent, json: () => sent };
+        return sent;
       },
     }),
   );

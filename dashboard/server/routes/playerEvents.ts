@@ -5,6 +5,7 @@ import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import type { PlayerStream } from "../playerStream.ts";
 import { isOwner } from "../owner.ts";
 import { getPlayer } from "../guildAccess.ts";
+import { sendProblem } from "../problem.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.
 // req.params는 스택이 풀리면 복원되므로, 요청 시작 시점의 라우터-상대 URL 첫 세그먼트(=guildId)를
@@ -30,7 +31,7 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
   // SSE. 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 서버 전체를 한 연결로).
   router.get("/events", requireAuth, async (req, res) => {
     const client = req.app.locals.discordClient;
-    if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
+    if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
 
     // 구독할 서버 집합 = 상호 서버 중 실멤버십 확인된 것
     const user = signedIn(req);

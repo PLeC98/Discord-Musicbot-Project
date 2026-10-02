@@ -12,11 +12,10 @@ import type { Server } from "node:http";
 import type { Client } from "discord.js";
 import type { Player } from "../../src/player/Player.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
-import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 
 /** 이 시험이 읽는 답의 칸(서버 설정 · 플레이어 · 서버 목록) */
-type Reply = {
-  error?: string;
+type Reply = ProblemReply & {
   canEdit?: boolean;
   guildName?: string;
   djRoleIds?: string[];
@@ -456,20 +455,22 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   currentMember = plainMember();
 });
 
-test("PUT settings: 모양이 틀리면 그 칸의 문장으로 400, 아무것도 반영하지 않는다", async () => {
+test("PUT settings: 모양이 틀리면 bad-settings 400 에 칸별 문제(JSON Pointer · 코드), 아무것도 반영하지 않는다", async () => {
   currentMember = modMember();
   const rowBefore = settingsRow();
-  const cases = [
-    [{ djRoleIds: "r1" }, "djRoleIds는 역할 ID 문자열 배열이어야 합니다"],
-    [{ sponsorblock: { categories: [1] } }, "sponsorblock.categories는 문자열 배열이어야 합니다"],
-    [{ sponsorblock: "on" }, "sponsorblock 설정 형식이 올바르지 않습니다"],
-    [{ botChannelId: 5 }, "봇 전용 채널은 일반 텍스트 채널이어야 합니다"],
-    [[1, 2], "서버 설정 형식이 올바르지 않습니다"],
+  const cases: Array<[unknown, string, string]> = [
+    [{ djRoleIds: "r1" }, "/djRoleIds", "bad-dj-roles"],
+    [{ sponsorblock: { categories: [1] } }, "/sponsorblock/categories/0", "bad-sponsor-categories"],
+    [{ sponsorblock: "on" }, "/sponsorblock", "bad-sponsorblock"],
+    [{ botChannelId: 5 }, "/botChannelId", "bad-bot-channel"],
+    [[1, 2], "", "bad-settings"],
   ];
-  for (const [body, error] of cases) {
+  for (const [body, pointer, code] of cases) {
     const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, body);
     assert.equal(r.status, 400, JSON.stringify(body));
-    assert.deepEqual(r.json, { error });
+    assert.deepEqual(r.json, { type: "/problems/bad-settings", code: "bad-settings", status: 400, title: "Invalid server settings", errors: [{ pointer, code }] });
   }
+  const range = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 0 });
+  assert.deepEqual(range.json.errors, [{ pointer: "/playlistAddMax", code: "playlist-limit-out-of-range", min: settings.playlistAddLimits().min, max: settings.playlistAddLimits().max }], "곡 수는 범위를 같이 싣는다");
   assert.deepEqual(settingsRow(), rowBefore);
 });

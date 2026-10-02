@@ -26,7 +26,8 @@ function setup({ ready = true, guild = true, member = true, viewAs }: { ready?: 
   const res = fake<Response>({
     status(code: number) {
       sent.status = code;
-      return { json: (body: unknown) => (sent.body = body) };
+      const chain = { type: () => chain, json: (body: unknown) => (sent.body = body) };
+      return chain;
     },
   });
   return { req, res, sent, fetched, client, g };
@@ -35,20 +36,20 @@ function setup({ ready = true, guild = true, member = true, viewAs }: { ready?: 
 test("봇이 준비되지 않았으면 503", async () => {
   const { req, res, sent, fetched } = setup({ ready: false });
   assert.equal(await resolveMember(req, res), null);
-  assert.equal(sent.status, 503);
+  assert.deepEqual([sent.status, (sent.body as { code: string }).code], [503, "bot-not-ready"]);
   assert.deepEqual(fetched, []);
 });
 
 test("봇이 없는 서버면 404", async () => {
   const { req, res, sent } = setup({ guild: false });
   assert.equal(await resolveMember(req, res), null);
-  assert.equal(sent.status, 404);
+  assert.deepEqual([sent.status, (sent.body as { code: string }).code], [404, "guild-not-found"]);
 });
 
 test("세션 사용자가 지금 그 서버 멤버가 아니면 403", async () => {
   const { req, res, sent, fetched } = setup({ member: false });
   assert.equal(await resolveMember(req, res), null);
-  assert.equal(sent.status, 403);
+  assert.deepEqual([sent.status, (sent.body as { code: string }).code], [403, "not-guild-member"]);
   assert.deepEqual(fetched, ["u1"], "세션 사용자 ID 로 서버에 묻는다");
 });
 

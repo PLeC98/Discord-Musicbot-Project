@@ -11,7 +11,7 @@ import { getTrackData } from "../../src/sources/lookup.ts";
 import { messageOf, codeOf, errorKind } from "../../src/rules/errorKind.ts";
 import { addFailureMessage, errorMessage } from "../../src/ui/errorMessages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 
 // yt-dlp 가 줄 것. 실패면 fail 에 stderr
 type Reply = ({ fail?: string } & Record<string, unknown>) | null;

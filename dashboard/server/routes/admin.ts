@@ -8,6 +8,7 @@ const adminRouter = express.Router();
 import { requireOwner } from "../middleware/requireOwner.ts";
 import { signedIn } from "../middleware/requireAuth.ts";
 import { codeOf, messageOf } from "../../../src/rules/errorKind.ts";
+import { sendProblem } from "../problem.ts";
 import os from "os";
 import logManager from "../../../src/infra/log/sink.ts";
 import * as procRegistry from "../../../src/infra/processRegistry.ts";
@@ -128,13 +129,13 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
   // 문자열인지 먼저 본다. 객체가 오면 message.trim()에서 TypeError가 나 500이 됐다
-  if (typeof message !== "string" || !message.trim()) return res.status(400).json({ error: "공지 내용을 입력해 주세요." });
+  if (typeof message !== "string" || !message.trim()) return sendProblem(res, "announce-empty");
   const body = message.trim();
-  if (body.length > ANNOUNCE_MAX) return res.status(400).json({ error: `공지는 ${ANNOUNCE_MAX}자까지 보낼 수 있습니다 (지금 ${body.length}자).` });
-  if (typeof type !== "string" || !Object.hasOwn(ANNOUNCE_TYPES, type)) return res.status(400).json({ error: "공지 종류가 올바르지 않습니다." });
+  if (body.length > ANNOUNCE_MAX) return sendProblem(res, "announce-too-long", { max: ANNOUNCE_MAX, length: body.length });
+  if (typeof type !== "string" || !Object.hasOwn(ANNOUNCE_TYPES, type)) return sendProblem(res, "bad-announce-type");
 
   const client = req.app.locals.discordClient;
-  if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
+  if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
 
   const cfg = ANNOUNCE_TYPES[type];
 
@@ -157,14 +158,14 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
 
   // 한 곳도 못 보낸 것을 성공으로 돌려주면 운영자가 보냈다고 믿는다. 일부 실패도 구분해 알린다.
   const total = client.guilds.cache.size;
-  if (sent === 0) return res.status(502).json({ success: false, sent, failed, total, error: total === 0 ? "봇이 들어가 있는 서버가 없습니다." : "어느 서버에도 보내지 못했습니다 (보낼 수 있는 채널이 없거나 권한이 없습니다)." });
+  if (sent === 0) return sendProblem(res, total === 0 ? "announce-no-guilds" : "announce-failed", {}, { sent, failed, total });
   return res.json({ success: true, sent, failed, total, partial: failed > 0 });
 });
 
 // List all guilds bot is in
 adminRouter.get("/guilds", requireOwner, (req, res) => {
   const client = req.app.locals.discordClient;
-  if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
+  if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
 
   const guilds = [...client.guilds.cache.values()].map((g) => ({
     id: g.id,
@@ -182,10 +183,10 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
 // guild.leave() 이후에는 서버 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
 adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   const client = req.app.locals.discordClient;
-  if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
+  if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
 
   const guild = client.guilds.cache.get(req.params.guildId);
-  if (!guild) return res.status(404).json({ error: "서버를 찾을 수 없습니다" });
+  if (!guild) return sendProblem(res, "guild-not-found");
 
   const name = guild.name;
   try {
@@ -200,7 +201,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     res.json({ success: true, name });
   } catch (error) {
     log.error({ sub: "admin" }, "서버 나가기 실패:", error);
-    res.status(502).json({ error: messageOf(error, "서버 나가기에 실패했습니다") });
+    sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -215,7 +216,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
   }
   log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}`);
-  return res.status(502).json({ success: false, error: messageOf(r.error, "배포에 실패했습니다"), code: codeOf(r.error) || null });
+  return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
 });
 
 // 캐시 초기화. 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
@@ -227,7 +228,7 @@ adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
-    res.status(500).json({ error: messageOf(error, "캐시 초기화에 실패했습니다") });
+    sendProblem(res, "cache-clear-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -255,14 +256,14 @@ adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
   const type = String(req.query.type || "");
   const what = String(req.query.field || "");
   const term = String(req.query.q || "").trim();
-  if (!autoplaySources.isSite(type)) return res.status(400).json({ error: "자동완성이 없는 종류입니다." });
-  if (what !== "tags" && what !== "artists") return res.status(400).json({ error: "자동완성이 없는 칸입니다." });
-  if (!term || term.length > SUGGEST_TERM_MAX) return res.status(400).json({ error: `검색어는 1~${SUGGEST_TERM_MAX}자여야 합니다.` });
+  if (!autoplaySources.isSite(type)) return sendProblem(res, "bad-suggest-type");
+  if (what !== "tags" && what !== "artists") return sendProblem(res, "bad-suggest-field");
+  if (!term || term.length > SUGGEST_TERM_MAX) return sendProblem(res, "bad-suggest-term", { max: SUGGEST_TERM_MAX });
   try {
     res.json({ items: await autoplaySources.suggest(type, what, term) });
   } catch (error) {
     log.debug(`자동완성 실패 (${type} ${what}): ${messageOf(error)}`);
-    res.status(502).json({ error: messageOf(error, "후보를 받지 못했습니다") });
+    sendProblem(res, "suggest-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -333,14 +334,14 @@ async function countBodies(texts: string[], provider: string, model: string) {
  */
 adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
   const texts: unknown[] = Array.isArray(req.body?.texts) ? req.body.texts : [];
-  if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
+  if (texts.length > 50) return sendProblem(res, "too-many-items", { max: 50 });
   const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
 
   try {
     const { each, by, exact } = await countBodies(cut, String(req.body?.provider || ""), String(req.body?.model || ""));
     res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact });
   } catch (error) {
-    res.status(503).json({ error: messageOf(error, "토큰을 세지 못했습니다.") });
+    sendProblem(res, "token-count-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -350,7 +351,7 @@ adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
     const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
     res.json(await models.refresh({ registries, force: !!req.body?.force }));
   } catch (error) {
-    res.status(502).json({ error: messageOf(error, "모델 정보를 받지 못했습니다.") });
+    sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -359,8 +360,8 @@ adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
  */
 adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
   const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
-  if (!urls.length) return res.status(400).json({ error: "유튜브 주소를 적어 주세요." });
-  if (urls.length > 20) return res.status(400).json({ error: "한 번에 20개까지" });
+  if (!urls.length) return sendProblem(res, "urls-empty");
+  if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
 
   res.json({ candidates: await assist.candidatesFromUrls(urls) });
 });
@@ -379,13 +380,13 @@ adminRouter.post("/ai/judge/run", requireOwner, async (req, res) => {
 
 adminRouter.put("/ai/keys", requireOwner, (req, res) => {
   const keys = req.body?.keys;
-  if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
+  if (!keys || typeof keys !== "object") return sendProblem(res, "nothing-to-save");
 
   try {
     log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
     res.json({ hasKey: aiConfig.saveAiKeys(keys) });
   } catch (error) {
-    res.status(409).json({ error: messageOf(error) });
+    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -397,16 +398,16 @@ adminRouter.get("/ai/prompt", requireOwner, (req, res) => {
 
 adminRouter.put("/ai/prompt", requireOwner, (req, res) => {
   const sections = req.body?.sections;
-  if (!Array.isArray(sections)) return res.status(400).json({ error: "저장할 내용이 없습니다." });
+  if (!Array.isArray(sections)) return sendProblem(res, "nothing-to-save");
 
   const problems = aiConfig.promptProblems(sections, true);
-  if (problems.length) return res.status(400).json({ error: problems[0], problems });
+  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
   try {
     log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml. 실행 ${ranBy(req)}`);
     res.json({ sections: aiConfig.saveAiPrompt(sections) });
   } catch (error) {
-    res.status(409).json({ error: messageOf(error) });
+    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -427,7 +428,7 @@ adminRouter.get("/cookies", requireOwner, (req, res) => res.json(cookieState()))
 
 adminRouter.put("/cookies", requireOwner, (req, res) => {
   const text = req.body?.text;
-  if (typeof text !== "string") return res.status(400).json({ error: "저장할 내용이 없습니다." });
+  if (typeof text !== "string") return sendProblem(res, "nothing-to-save");
 
   try {
     // 내용은 절대 남기지 않는다. 로그인된 세션 그 자체다
@@ -435,14 +436,14 @@ adminRouter.put("/cookies", requireOwner, (req, res) => {
     cookieConfig.saveCookies(text);
     res.json(cookieState());
   } catch (error) {
-    res.status(409).json({ error: messageOf(error) });
+    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
 
 // 나갈 것을 만들어만 본다. 보내지 않는다. 조립은 봇이 쓰는 코드 그대로다.
 adminRouter.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
-  if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
+  if (!data || typeof data !== "object") return sendProblem(res, "nothing-to-save");
   res.json(await assist.preview(data));
 });
 
@@ -459,26 +460,26 @@ adminRouter.post("/ai/ping", requireOwner, async (req, res) => {
 
 adminRouter.get("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
-  if (!CONFIG_NAMES.includes(name)) return res.status(404).json({ error: "그런 설정이 없습니다." });
+  if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
 
   try {
     res.json({ name, data: yamlStore.load(name) });
   } catch (error) {
     // 파일이 없거나 문법이 깨졌다. 화면이 이유를 그대로 보여줄 수 있게 넘긴다
-    res.status(409).json({ error: messageOf(error), code: codeOf(error) || null });
+    sendProblem(res, "config-unreadable", {}, { detail: messageOf(error) });
   }
 });
 
 adminRouter.put("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
-  if (!CONFIG_NAMES.includes(name)) return res.status(404).json({ error: "그런 설정이 없습니다." });
+  if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
 
   const data = req.body?.data;
-  if (!data || typeof data !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
+  if (!data || typeof data !== "object") return sendProblem(res, "nothing-to-save");
 
   // 저장 전에 본다. 깨진 값을 파일에 남기느니 거절한다. 봇이 그 파일로 돌기 때문이다.
   const problems = VALIDATORS[name](data);
-  if (problems.length) return res.status(400).json({ error: problems[0], problems });
+  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
   try {
     const saved = yamlStore.save(name, data);
@@ -486,7 +487,7 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
     res.json({ success: true, data: saved });
   } catch (error) {
     log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${messageOf(error)}`);
-    res.status(409).json({ error: messageOf(error), code: codeOf(error) || null });
+    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -500,7 +501,7 @@ adminRouter.get("/logs/stream", requireOwner, (req, res) => {
 adminRouter.post("/view-as", requireOwner, (req, res) => {
   const { tier } = req.body || {};
   if (tier !== null && !TIERS.includes(tier)) {
-    return res.status(400).json({ error: "권한 수준이 올바르지 않습니다" });
+    return sendProblem(res, "bad-tier");
   }
 
   if (tier === null) delete req.session.viewAs;

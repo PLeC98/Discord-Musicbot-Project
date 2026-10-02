@@ -14,7 +14,7 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { addedView } from "../../src/ui/addedNotice.ts";

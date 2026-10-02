@@ -6,17 +6,18 @@ import type { Actor } from "../../src/usecases/controls.ts";
 import { signedIn } from "./middleware/requireAuth.ts";
 import { isOwner } from "./owner.ts";
 import { shadowMember } from "./viewAs.ts";
+import { sendProblem } from "./problem.ts";
 
 async function getPlayer<P>(req: Request<P>, res: Response, guildId: string) {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) {
-    res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
+    sendProblem(res, "bot-not-ready");
     return null;
   }
 
   const guild = client.guilds.cache.get(guildId);
   if (!guild) {
-    res.status(404).json({ error: "서버를 찾을 수 없습니다" });
+    sendProblem(res, "guild-not-found");
     return null;
   }
 
@@ -37,7 +38,7 @@ async function getPlayer<P>(req: Request<P>, res: Response, guildId: string) {
   if (isOwner(req)) actor = { owner: true };
   else if (member) actor = { member };
   else {
-    res.status(403).json({ error: "접근 권한이 없습니다" });
+    sendProblem(res, "no-guild-access");
     return null;
   }
   return { client, guild, player: client.players.get(guildId) ?? null, member, actor };

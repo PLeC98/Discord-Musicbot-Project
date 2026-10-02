@@ -6,7 +6,7 @@ import { failureReason } from "../../src/rules/failureReason.ts";
 import { errorMessage } from "../../src/ui/errorMessages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;

@@ -6,15 +6,11 @@ import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
-import { resolveMember, toApiError } from "../middleware/requireControl.ts";
+import { resolveMember } from "../middleware/requireControl.ts";
 import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permissions.ts";
-import * as errors from "../../../src/ui/text/ko/errors.ts";
-import { addFailureMessage } from "../../../src/ui/errorMessages.ts";
+import { addFailure } from "../../../src/ui/errorMessages.ts";
 import * as controls from "../../../src/usecases/controls.ts";
-import { controlApiError } from "../../../src/ui/controlMessages.ts";
-import type { Problem } from "../../../src/rules/problems.ts";
 import type { More } from "../../../src/usecases/playlistMore.ts";
-import { messageOf } from "../../../src/rules/errorKind.ts";
 import { requestPlayback, continueCollection, ensurePlayer } from "../../../src/usecases/addTracks.ts";
 import { validState, LIFETIME_MS, KINDS } from "../../../src/usecases/playlistMore.ts";
 import config from "../../../config.ts";
@@ -22,16 +18,15 @@ import { isOwner } from "../owner.ts";
 import { shadowMember } from "../viewAs.ts";
 import { getPlayer, voiceFlags, toInt } from "../guildAccess.ts";
 import { queueTrack, queueWindow, playerState } from "../playerView.ts";
-import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } from "../requestSchemas.ts";
+import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../requestSchemas.ts";
+import { sendProblem, refuseWith, tooManyRequests } from "../problem.ts";
 import { bestEffort } from "../../../src/infra/bestEffort.ts";
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
 
-function refuse(res: Response, result: Problem) {
-  const { status, error } = controlApiError(result);
-  return res.status(status).json({ error });
-}
+// 조작의 거절(ok: false 와 문제)을 문제 응답으로
+const refuse = (res: Response, { ok: _ok, ...problem }: controls.Refusal) => refuseWith(res, problem);
 
 // 반복 모드  { mode: 'off' | 'track' | 'queue' }
 const LOOP_MODE = new Map<string, false | "track" | "queue">([
@@ -93,7 +88,7 @@ function readRoutes(router: Router) {
     const queue = ctx.player?.queue || [];
 
     const window = parse(QueueWindowQuery, req.query);
-    if (!window.ok) return res.status(400).json({ error: window.error });
+    if (!window.ok) return sendProblem(res, window.code);
     const { offset, limit } = window.value;
 
     res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length });
@@ -117,28 +112,28 @@ function joinRoute(router: Router) {
     const { client } = ctx;
 
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) return res.status(404).json({ error: "서버를 찾을 수 없습니다" });
+    if (!guild) return sendProblem(res, "guild-not-found");
 
     const userId = signedIn(req).id;
     let member;
     try {
       member = shadowMember(req, await guild.members.fetch(userId));
     } catch {
-      return res.status(400).json({ error: "서버에서 사용자를 찾을 수 없습니다" });
+      return sendProblem(res, "member-not-found");
     }
 
     const voiceChannel = member.voice.channel;
-    if (!voiceChannel) return res.status(400).json({ error: "음성 채널에 참가해 있지 않습니다" });
+    if (!voiceChannel) return sendProblem(res, "must-be-in-voice");
 
     if (!botCanJoin(guild, voiceChannel)) {
-      return res.status(403).json({ error: "봇이 해당 채널에 접속할 권한이 없습니다" });
+      return sendProblem(res, "permission-voice");
     }
 
     // Discord 쪽 /join과 동일. 봇이 이미 다른 채널에서 사용 중이면 이동 불가.
     // (모더레이터의 봇 이동은 Discord 네이티브 드래그 기능으로 충분. API 이동 미지원, 사용자 결정)
     const botChannel = guild.members.me?.voice?.channel;
     if (botChannel && botChannel.id !== voiceChannel.id) {
-      return res.status(403).json({ error: "봇이 이미 다른 음성 채널에서 사용 중입니다" });
+      return sendProblem(res, "bot-in-other-voice");
     }
 
     // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
@@ -148,7 +143,7 @@ function joinRoute(router: Router) {
       await player.voice.connect();
     } catch {
       await player.dispose({ reason: "접속 실패", session: "keep" });
-      return res.status(500).json({ error: "음성 채널 접속에 실패했습니다" });
+      return sendProblem(res, "voice-failed");
     }
 
     if (!player.currentTrack) {
@@ -205,20 +200,16 @@ function controlRoutes(router: Router) {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
     const body = parse(SeekBody, req.body ?? {});
-    if (!body.ok) return res.status(400).json({ error: body.error });
+    if (!body.ok) return sendProblem(res, body.code);
     const positionSec = body.value.position;
 
     // 진행바를 끝까지 끌면 곡 길이와 같은 값이 온다. 끝 1초 앞으로 당긴다
     const durationSec = ctx.player?.currentTrack?.duration ?? 0;
     const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
-    try {
-      const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
-      if (!r.ok) return refuse(res, r);
-      res.json({ ok: true, position: clampedSec });
-    } catch (e) {
-      res.status(500).json({ error: messageOf(e) });
-    }
+    const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
+    if (!r.ok) return refuse(res, r);
+    res.json({ ok: true, position: clampedSec });
   });
 
   // Volume  { volume: 0-100 }. 화면은 끄는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
@@ -228,7 +219,7 @@ function controlRoutes(router: Router) {
     standardHeaders: "draft-7",
     legacyHeaders: false,
     keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip ?? ""),
-    message: { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
+    handler: tooManyRequests,
   });
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
@@ -284,7 +275,7 @@ function addRoutes(router: Router) {
     standardHeaders: "draft-7",
     legacyHeaders: false,
     keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip ?? ""),
-    message: { error: "곡 추가 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
+    handler: tooManyRequests,
   });
 
   // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
@@ -294,17 +285,17 @@ function addRoutes(router: Router) {
     if (!ctx) return;
     const { player, client, guild } = ctx;
 
-    if (!player) return res.status(409).json({ error: "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요" });
+    if (!player) return sendProblem(res, "bot-not-in-voice");
 
     if (!isOwner(req)) {
       const mctx = await resolveMember(req, res);
       if (!mctx) return;
       const err = checkAdd(mctx.member);
-      if (err) return res.status(403).json({ error: toApiError(errors.notice(err)) });
+      if (err) return sendProblem(res, err);
     }
 
     const body = parse(AddBody, req.body ?? {});
-    if (!body.ok) return res.status(400).json({ error: body.error });
+    if (!body.ok) return sendProblem(res, body.code, { max: QUERY_MAX_LEN });
     const { query, single } = body.value;
 
     try {
@@ -319,13 +310,12 @@ function addRoutes(router: Router) {
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
       });
 
-      // 디스코드와 같은 문장에서 ❌ 를 뗀다
-      if (!result.success) return res.status(400).json({ error: toApiError(addFailureMessage(result)) });
+      if (!result.success) return refuseWith(res, addFailure(result));
 
       res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize });
     } catch (err) {
       log.error("대시보드에서 곡 추가 실패:", err);
-      res.status(500).json({ error: "곡 추가에 실패했습니다" });
+      sendProblem(res, "add-failed");
     }
   });
 
@@ -336,19 +326,19 @@ function addRoutes(router: Router) {
     if (!ctx) return;
     const { player, client, guild } = ctx;
 
-    if (!player) return res.status(409).json({ error: "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요" });
+    if (!player) return sendProblem(res, "bot-not-in-voice");
 
     if (!isOwner(req)) {
       const mctx = await resolveMember(req, res);
       if (!mctx) return;
       const err = checkAdd(mctx.member);
-      if (err) return res.status(403).json({ error: toApiError(errors.notice(err)) });
+      if (err) return sendProblem(res, err);
     }
 
     // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다
     const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
     const count = parse(MoreCount, req.body?.count);
-    if (!state || !count.ok) return res.status(400).json({ error: "더 넣을 목록 정보가 올바르지 않습니다" });
+    if (!state || !count.ok) return sendProblem(res, "bad-more-state");
 
     try {
       const result = await continueCollection(client, {
@@ -359,12 +349,12 @@ function addRoutes(router: Router) {
         source: "대시보드 더 넣기",
         lookup: req.app.locals.lookup,
       });
-      if (!result.success) return res.status(400).json({ error: toApiError(addFailureMessage(result)) });
+      if (!result.success) return refuseWith(res, addFailure(result));
 
       res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize });
     } catch (err) {
       log.error("대시보드에서 재생목록 더 넣기 실패:", err);
-      res.status(500).json({ error: "곡 추가에 실패했습니다" });
+      sendProblem(res, "add-failed");
     }
   });
 }

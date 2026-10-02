@@ -19,7 +19,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 import * as storeDb from "../../src/store/db.ts";
 import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 import runYtDlp, { useExec, type Exec, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlpSpawn.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 
 // yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
 type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;

@@ -4,7 +4,7 @@
 // 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 바깥(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
 
 /** 문장에 드는 값. 이름은 RFC 9457 확장 칸 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
-type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; channelId?: string };
+type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; channelId?: string; length?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
 
@@ -96,6 +96,57 @@ const PROBLEMS = {
   "channel-set-failed": { status: 500, title: "Could not set the bot channel" },
   "settings-save-failed": { status: 500, title: "Could not save settings" },
   "dj-role-save-failed": { status: 500, title: "Could not save the DJ role" },
+
+  // 대시보드: 접속 · 권한
+  "login-required": { status: 401, title: "Login required" },
+  "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
+  "no-guild-access": { status: 403, title: "No access to this server" },
+  "not-guild-member": { status: 403, title: "Not a member of this server" },
+  "bad-tier": { status: 400, title: "Unknown permission tier" },
+  // 대시보드: 상태
+  "bot-not-ready": { status: 503, title: "Bot is not ready" },
+  "guild-not-found": { status: 404, title: "Server not found" },
+  "member-not-found": { status: 404, title: "Member not found in the server" },
+  "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
+  "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
+  "too-many-requests": { status: 429, title: "Too many requests" },
+  "too-many-streams": { status: 429, title: "Too many event streams" },
+  // 대시보드: 요청 형식
+  "bad-request": { status: 400, title: "Malformed request" },
+  "payload-too-large": { status: 413, title: "Request body is too large" },
+  "route-not-found": { status: 404, title: "Route not found" },
+  "bad-queue-range": { status: 400, title: "Invalid queue range" },
+  "bad-query": { status: 400, title: "Invalid search query", params: ["max"] },
+  "bad-more-state": { status: 400, title: "Invalid add-more state" },
+  "bad-settings": { status: 400, title: "Invalid server settings" },
+  "bad-sponsorblock": { status: 400, title: "Invalid SponsorBlock settings" },
+  "bad-sponsor-categories": { status: 400, title: "SponsorBlock categories must be strings" },
+  "bad-dj-roles": { status: 400, title: "DJ roles must be role ID strings" },
+  "too-many-dj-roles": { status: 400, title: "Too many DJ roles", params: ["max"] },
+  "bad-bot-channel": { status: 400, title: "Bot channel must be a text channel" },
+  // 대시보드: 운영자
+  "announce-empty": { status: 400, title: "Announcement is empty" },
+  "announce-too-long": { status: 400, title: "Announcement is too long", params: ["max", "length"] },
+  "bad-announce-type": { status: 400, title: "Unknown announcement type" },
+  "announce-no-guilds": { status: 409, title: "Bot is in no servers" },
+  "announce-failed": { status: 502, title: "Announcement reached no server" },
+  "leave-guild-failed": { status: 502, title: "Could not leave the server" },
+  "deploy-failed": { status: 502, title: "Command deployment failed" },
+  "suggest-failed": { status: 502, title: "Could not fetch suggestions" },
+  "model-refresh-failed": { status: 502, title: "Could not fetch model information" },
+  "cache-clear-failed": { status: 500, title: "Could not clear the cache" },
+  "token-count-failed": { status: 503, title: "Could not count tokens" },
+  "bad-suggest-type": { status: 400, title: "No suggestions for this source type" },
+  "bad-suggest-field": { status: 400, title: "No suggestions for this field" },
+  "bad-suggest-term": { status: 400, title: "Suggestion term length out of range", params: ["max"] },
+  "too-many-items": { status: 400, title: "Too many items", params: ["max"] },
+  "urls-empty": { status: 400, title: "No YouTube URLs given" },
+  "nothing-to-save": { status: 400, title: "Nothing was sent" },
+  "config-not-found": { status: 404, title: "Unknown config file" },
+  "config-invalid": { status: 400, title: "Config has problems" },
+  "config-unreadable": { status: 409, title: "Config file could not be read" },
+  "config-save-failed": { status: 409, title: "Config could not be saved" },
+  "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
 } as const satisfies Record<string, ProblemSpec>;
 
 type Code = keyof typeof PROBLEMS;

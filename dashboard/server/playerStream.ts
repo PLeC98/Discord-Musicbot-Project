@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import config from "../../config.ts";
+import { sendProblem } from "./problem.ts";
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
 /** 서버 목록 페이지의 연결 하나 */
@@ -51,7 +52,7 @@ class PlayerStream {
   _capOk(res: Response, userKey: string) {
     const count = this.perKey.get(userKey) || 0;
     if (count >= this.maxPerUser) {
-      res.status(429).json({ error: "이벤트 연결이 너무 많습니다" });
+      sendProblem(res, "too-many-streams");
       return false;
     }
     this.perKey.set(userKey, count + 1);

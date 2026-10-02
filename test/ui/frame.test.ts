@@ -3,9 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags, resolveColor } from "discord.js";
-import { EMOJI, frame, noticeFrame, noticeReply, plainText, post, reply } from "../../src/ui/frame.ts";
+import { EMOJI, frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import { noticeOf } from "../../src/ui/text/notice.ts";
-import { toApiError } from "../../dashboard/server/middleware/requireControl.ts";
 import { textsOf, thumbnailOf } from "../helpers/cv2.ts";
 
 const accentOf = (container: ReturnType<typeof frame>) => (container.toJSON() as { accent_color?: number }).accent_color;
@@ -37,12 +36,6 @@ test("안내의 화면: 머리 줄에 주제의 이모지, 본문은 그 아래,
   assert.deepEqual(bare, { topic: "voice", severity: "warning", title: "음성 채널에 있어야 합니다!" }, "본문이 없으면 칸을 두지 않는다");
   assert.deepEqual(textsOf(noticeReply(bare)), ["### 🎧 음성 채널에 있어야 합니다!"]);
   assert.equal(accentOf(noticeFrame(bare)), resolveColor("#FEE75C"));
-});
-
-test("대시보드는 이모지 없이 머리 줄과 본문의 글자", () => {
-  assert.equal(plainText(noticeOf("error", "failed", "네트워크 오류", "잠시 뒤에")), "네트워크 오류\n잠시 뒤에");
-  assert.equal(plainText(noticeOf("warning", "state", "대기열이 비었어요")), "대기열이 비었어요");
-  assert.equal(toApiError, plainText);
 });
 
 test("틀: 머리 줄 · 본문 · 작은 글씨 줄, 썸네일은 머리 칸 옆. 빈 꼬리 줄은 건너뛴다", () => {

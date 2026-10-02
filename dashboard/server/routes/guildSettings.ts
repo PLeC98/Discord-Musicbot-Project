@@ -13,14 +13,16 @@ import config from "../../../config.ts";
 import { isOwner } from "../owner.ts";
 import { getPlayer } from "../guildAccess.ts";
 import { parse, settingsBody } from "../requestSchemas.ts";
+import { sendProblem, refuseWith } from "../problem.ts";
+import type { Problem } from "../../../src/rules/problems.ts";
 
 /** 검사를 지난 본문. 칸마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
 /** 반영할 것. undefined 는 변경 없음, null 은 해제 */
 type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null };
 
-// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 걸러 내고, 받을 수 없는 값이면 까닭
-function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax }: SettingsBody): SettingsPlan | { error: string } {
+// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 걸러 내고, 받을 수 없는 값이면 그 문제
+function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax }: SettingsBody): SettingsPlan | { refused: Problem } {
   const plan: SettingsPlan = { playlistAdd: playlistAddMax };
 
   if (sponsorblock !== undefined) {
@@ -32,13 +34,13 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
   if (djRoleIds !== undefined) {
     plan.roles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
     // 디스코드 /setdjrole GUI(셀렉트 메뉴 최대 25개)와 정합 유지
-    if (plan.roles.length > 25) return { error: "DJ 역할은 최대 25개까지 지정할 수 있습니다" };
+    if (plan.roles.length > 25) return { refused: { code: "too-many-dj-roles", max: 25 } };
   }
 
   if (botChannelId === null || botChannelId === "") plan.channel = null;
   else if (botChannelId !== undefined) {
     const ch = guild.channels.cache.get(botChannelId);
-    if (!ch || ch.type !== ChannelType.GuildText) return { error: "봇 전용 채널은 일반 텍스트 채널이어야 합니다" };
+    if (!ch || ch.type !== ChannelType.GuildText) return { refused: { code: "bad-bot-channel" } };
     plan.channel = botChannelId;
   }
   return plan;
@@ -75,7 +77,7 @@ function createGuildSettingsRouter() {
 
     const canEdit = isOwner(req) || (member ? isModerator(member) : false);
     if (!canEdit) {
-      return res.status(403).json({ error: "서버 설정은 모더레이터(서버 관리 권한)만 볼 수 있습니다" });
+      return sendProblem(res, "must-moderator");
     }
 
     const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => guild.roles.cache.has(id));
@@ -121,14 +123,16 @@ function createGuildSettingsRouter() {
     const { guild, member, client } = ctx;
 
     if (!isOwner(req) && !(member && isModerator(member))) {
-      return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
+      return sendProblem(res, "must-moderator");
     }
 
-    const body = parse(settingsBody(GuildSettingsManager.playlistAddLimits()), req.body ?? {});
-    if (!body.ok) return res.status(400).json({ error: body.error });
+    const limits = GuildSettingsManager.playlistAddLimits();
+    const body = parse(settingsBody(limits), req.body ?? {});
+    // 칸별 문제. 재생목록 곡 수는 범위를 같이 싣는다
+    if (!body.ok) return sendProblem(res, "bad-settings", {}, { errors: body.errors.map((one) => (one.code === "playlist-limit-out-of-range" ? { ...one, min: limits.min, max: limits.max } : one)) });
 
     const plan = planSettings(guild, body.value);
-    if ("error" in plan) return res.status(400).json({ error: plan.error });
+    if ("refused" in plan) return refuseWith(res, plan.refused);
     const channelChanged = await applySettings(guild, plan);
     if (channelChanged) {
       client?.panels?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));

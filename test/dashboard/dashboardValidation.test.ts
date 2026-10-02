@@ -234,11 +234,11 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400,
   assert.equal(ok.json.more?.requesterId, undefined);
 });
 
-test("조작 거절은 디스코드와 같은 안내의 머리 줄과 본문을 글자로 보낸다", async () => {
+test("조작 거절은 디스코드와 같은 코드의 문제 응답으로 보낸다(문장은 클라이언트가 코드로 만든다)", async () => {
   freshPlayer().currentTrack = null;
   const r = await req("POST", `/api/guilds/${GUILD_ID}/player/pause`);
   assert.equal(r.status, 409);
-  assert.deepEqual(r.json, { error: "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요." });
+  assert.deepEqual(r.json, { type: "/problems/no-song", code: "no-song", status: 409, title: "Nothing is playing" });
 });
 
 test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
@@ -259,6 +259,6 @@ test("본문 없는 요청은 400 으로 답한다(본문을 읽다 던지지 �
   freshPlayer();
   const r = await fetch(`${base}/api/guilds/${GUILD_ID}/player/seek`, { method: "POST", signal: AbortSignal.timeout(3000) });
   assert.equal(r.status, 400);
-  assert.deepEqual(await r.json(), { error: "재생 위치가 올바르지 않습니다." });
+  assert.equal(((await r.json()) as { code: string }).code, "bad-time");
   assert.equal(player.calls.length, 0);
 });

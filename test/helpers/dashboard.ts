@@ -35,4 +35,11 @@ async function requestJson<T>(base: string, method: string, urlPath: string, bod
   };
 }
 
-export { signedInAs, requestJson };
+/** 문제 응답(RFC 9457)에서 시험이 읽는 칸 */
+type ProblemReply = { type?: string; code?: string; status?: number; title?: string; detail?: string; errors?: Array<{ pointer?: string; code: string; detail?: string }> };
+
+/** 문제 응답의 운영자용 원문(detail 과 칸별 detail)을 한 글자로 */
+const detailsOf = (json: ProblemReply) => [json.detail, ...(json.errors ?? []).map((one) => one.detail)].filter(Boolean).join("\n");
+
+export { signedInAs, requestJson, detailsOf };
+export type { ProblemReply };

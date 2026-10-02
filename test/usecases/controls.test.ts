@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
-import { controlMessage, controlApiError } from "../../src/ui/controlMessages.ts";
+import { controlMessage } from "../../src/ui/controlMessages.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import type { Guild, GuildMember } from "discord.js";
@@ -17,7 +17,7 @@ import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import * as genreConfig from "../../src/config/genres.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 
 useExampleConfig();
 
@@ -309,11 +309,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(seen, ["refresh"]);
 });
 
-test("안내: 코드와 값의 안내. 대시보드는 머리 줄 · 본문의 글자에 목록의 상태 코드를 붙인다", () => {
+test("안내: 코드와 값의 안내", () => {
   assert.deepEqual(controlMessage({ code: "must-dj" }), errors.notice("must-dj"));
   assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
-  assert.deepEqual(controlApiError({ code: "no-song" }), { status: 409, error: "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요." });
-  assert.equal(controlApiError({ code: "must-dj" }).status, 403);
-  assert.equal(controlApiError({ code: "must-be-in-voice" }).status, 409, "권한이 아니라 사람의 상태");
-  assert.equal(controlApiError({ code: "bad-volume" }).status, 400);
 });

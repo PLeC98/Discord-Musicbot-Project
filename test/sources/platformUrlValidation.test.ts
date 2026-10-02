@@ -5,7 +5,7 @@ import test from "node:test";
 const links = await import("../../src/rules/links.ts");
 import assert from "node:assert/strict";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonicalUrl.ts");
 

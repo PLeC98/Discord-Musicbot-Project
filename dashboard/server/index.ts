@@ -23,6 +23,7 @@ import { createAuthRouter } from "./routes/auth.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import type { PlayerStream } from "./playerStream.ts";
+import { problemsRouter, sendProblem, tooManyRequests } from "./problem.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware 는 시험이 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; sessionMiddleware?: RequestHandler };
@@ -90,6 +91,9 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host));
 
+  // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
+  app.use(problemsRouter);
+
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   const clientDist = path.join(import.meta.dirname, "../client/dist");
@@ -128,7 +132,7 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
       standardHeaders: "draft-7",
       legacyHeaders: false,
       keyGenerator: apiKey,
-      message: { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
+      handler: tooManyRequests,
       // 음량은 재생 경로가 따로 센다(끄는 동안 잇달아 온다)
       skip: (req) => req.originalUrl.startsWith("/api/admin/logs/stream") || req.originalUrl.includes("/player/events") || req.originalUrl.startsWith("/api/guilds/events") || /\/player\/volume(\?|$)/.test(req.originalUrl),
     }),
@@ -142,7 +146,7 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
       limit: rl.authMax,
       standardHeaders: "draft-7",
       legacyHeaders: false,
-      message: { error: "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요" },
+      handler: tooManyRequests,
     }),
   );
 
@@ -158,14 +162,14 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
   // isOwner는 권한 수준 오버라이드가 반영된 값(UI가 그 계층으로 보이게), isRealOwner는 해제 수단을
   // 계속 노출하기 위한 원래 값이다.
   app.get("/api/me", (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: "로그인이 필요합니다." });
+    if (!req.session.user) return sendProblem(res, "login-required");
     res.json({ ...req.session.user, isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) });
   });
 
   // 로그인 전 화면이 쓰는 공개 정보
   app.get("/api/bot", (req, res) => {
     const botUser = client?.user;
-    if (!botUser) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
+    if (!botUser) return sendProblem(res, "bot-not-ready");
     res.json({
       name: botUser.username,
       avatarUrl: botUser.avatarURL({ size: 256, extension: "webp" }) || null,

@@ -10,7 +10,7 @@ import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 import { textOf } from "../helpers/cv2.ts";
 
 const realMax = config.bot.maxQueueSize;

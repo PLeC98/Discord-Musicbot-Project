@@ -24,7 +24,7 @@ import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
-import { plainText } from "../../src/ui/frame.ts";
+import { plainText } from "../helpers/notice.ts";
 import { frame } from "../../src/ui/frame.ts";
 
 const store = openTempStore("play-request-");

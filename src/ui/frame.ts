@@ -42,9 +42,6 @@ const headOf = (notice: Notice) => `${EMOJI[notice.topic]} ${notice.title}`;
 /** 오류 · 경고 안내의 화면 */
 const noticeFrame = (notice: Notice) => frame({ title: headOf(notice), body: notice.body, color: notice.severity });
 
-/** 글자만 받는 곳(대시보드). 이모지 없이 머리 줄과 본문을 줄을 바꿔 잇는다 */
-const plainText = (notice: Notice) => (notice.body ? `${notice.title}\n${notice.body}` : notice.title);
-
 /** 새 응답(본인에게만) */
 const reply = (container: ContainerBuilder) => ({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const });
 /** 채널에 보내는 메시지, 또는 처음부터 Components V2 로 보낸 메시지 · 응답을 고칠 때 */
@@ -52,5 +49,5 @@ const post = (container: ContainerBuilder) => ({ components: [container], flags:
 /** 오류 · 경고 안내를 새 응답으로(본인에게만) */
 const noticeReply = (notice: Notice) => reply(noticeFrame(notice));
 
-export { frame, noticeFrame, noticeReply, plainText, reply, post, EMOJI };
+export { frame, noticeFrame, noticeReply, reply, post, EMOJI };
 export type { Look };

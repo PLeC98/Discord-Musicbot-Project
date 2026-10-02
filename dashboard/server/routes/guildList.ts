@@ -4,6 +4,7 @@ import express from "express";
 import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import { isOwner } from "../owner.ts";
 import { voiceFlags } from "../guildAccess.ts";
+import { sendProblem } from "../problem.ts";
 
 const MANAGE_GUILD = 0x20;
 
@@ -13,7 +14,7 @@ function createGuildListRouter() {
   // Mutual guilds (user + bot)
   router.get("/", requireAuth, async (req, res) => {
     const client = req.app.locals.discordClient;
-    if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
+    if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
 
     // 후보는 세션의 서버 목록이지만 표시는 실멤버십으로 필터 (추방된 서버는 목록에서 제외).
     const user = signedIn(req);
