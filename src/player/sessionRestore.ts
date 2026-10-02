@@ -98,13 +98,16 @@ async function restoreOne(client: Client, PlayerCtor: PlayerClass, record: Resto
   const player = new PlayerCtor(guild, channels.text, channels.voice);
   client.players.set(guildId, player);
   try {
-    await player.persistence.restoreFromState(record);
-    log.info(`서버 ${guild.name}의 세션 복원 완료`);
+    const outcome = await player.persistence.restoreFromState(record);
+    log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
     log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, messageOf(error));
     await player.dispose({ reason: "세션 복원 실패", session: "remove" });
   }
 }
+
+// 되살린 결과를 로그에
+const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
 
 // 저장된 음성 · 글자 채널. 기록이 없거나 그 종류의 채널이 아니면 null
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {

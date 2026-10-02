@@ -499,6 +499,45 @@ test("복원 안내: 멈춘 채 되살렸으면 재개됐다고 하지 않는다
   assert.ok(playing.sent[0].content.startsWith("### ▶️ 봇이 복구됐어요.\n기록된 마지막 재생 상태를 이어갈게요."), playing.sent[0].content);
 });
 
+test("복원: 무엇이 됐나를 돌려준다(이어 틂 · 틀 곡을 열지 못함 · 틀 곡 없음)", async () => {
+  const { sp } = makeRestorePlayer();
+  assert.equal(await sp.restoreFromState(makeRecord()), "restored");
+
+  const failing = makeRestorePlayer();
+  failing.p.play = fake<Player["play"]>(async () => {
+    trackState.setCurrent(failing.p, null);
+    return { ok: false, code: "play-failed", error: new Error("x") };
+  });
+  assert.equal(await failing.sp.restoreFromState(makeRecord()), "failed");
+
+  assert.equal(await makeRestorePlayer().sp.restoreFromState(makeRecord({}, null)), "empty");
+  assert.equal(await makeRestorePlayer().sp.restoreFromState(null), "empty");
+});
+
+test("복원: announce 를 끄면 글자 채널에 알리지 않고, 되살리는 동안만 연달아 실패 알림을 끈다(/join 이 응답으로 말한다)", async () => {
+  const quiet = fakeChannel();
+  const seenQuiet: boolean[] = [];
+  const { p, sp } = makeRestorePlayer();
+  p.textChannel = fake<GuildTextBasedChannel>(quiet);
+  p.play = fake<Player["play"]>(async () => {
+    seenQuiet.push(p.quietFailures);
+    return { ok: true, track: p.currentTrack };
+  });
+  assert.equal(await sp.restoreFromState(makeRecord(), { announce: false }), "restored");
+  assert.deepEqual(quiet.sent, []);
+  assert.deepEqual(seenQuiet, [true], "되살리는 동안은 끈다");
+  assert.equal(p.quietFailures, false, "되살린 뒤에는 다시 알린다");
+
+  const loud = makeRestorePlayer();
+  const seenLoud: boolean[] = [];
+  loud.p.play = fake<Player["play"]>(async () => {
+    seenLoud.push(loud.p.quietFailures);
+    return { ok: true, track: loud.p.currentTrack };
+  });
+  await loud.sp.restoreFromState(makeRecord());
+  assert.deepEqual(seenLoud, [false]);
+});
+
 test("복원 안내는 잠시 뒤 지운다", async () => {
   const { AUTO_DELETE_MS } = transientMessages;
   mock.timers.enable({ apis: ["setTimeout"] });

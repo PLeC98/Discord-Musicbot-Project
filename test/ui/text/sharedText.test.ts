@@ -55,7 +55,7 @@ test("바꿔 끼우는 자리는 같은 이름을 내보내는 브라우저 판�
 });
 
 test("공유 문장에는 디스코드에서만 읽히는 꼴(멘션 · 머리글 · 작은 글씨 · 링크 · 가림 · 취소선)이 없다", () => {
-  const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", channelId: "42", length: 2100 };
+  const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", channelId: "42", length: 2100, left: 2 };
   for (const [code, spec] of Object.entries(PROBLEMS) as Array<[Code, (typeof PROBLEMS)[Code]]>) {
     const params = Object.fromEntries(("params" in spec ? spec.params : []).map((name) => [name, SAMPLE[name]]));
     const { title, body = "" } = notice(code, params);

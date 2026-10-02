@@ -867,6 +867,26 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   assert.equal(leaveTimer, null, "남은 곡이 있으니 나갈 예약을 걸지 않는다(패널이 오지 않을 나갈 시각을 보이지 않게)");
 });
 
+test("세션을 되살리는 동안(quietFailures) 연달아 실패해 멈추면 채널에 알리지 않는다. 패널은 멈춘 모양으로", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  const [a, b, c, d] = ["q1fffffffff", "q2fffffffff", "q3fffffffff", "q4fffffffff"].map((id) => yt(id));
+  unplayable();
+  p.currentTrack = a;
+  p.queue = [b, c, d];
+  p.quietFailures = true;
+
+  await p.play(0);
+  h.dispose(p);
+
+  assert.deepEqual(p.queue, [d]);
+  assert.equal(
+    calls.sent.map(textOf).some((text) => text.includes("연달아 실패")),
+    false,
+  );
+  assert.ok(seen.includes("end:failures"));
+});
+
 test("연달아 실패해 멈출 때 남은 곡이 없으면 보통의 대기열 소진처럼 끝낸다: 세션을 지우고 나갈 시각을 보이고 나갈 예약", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);

@@ -4,7 +4,7 @@
 // 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 바깥(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
 
 /** 문장에 드는 값. 이름은 RFC 9457 확장 칸 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
-type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; channelId?: string; length?: number };
+type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; channelId?: string; length?: number; left?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
 
@@ -96,6 +96,11 @@ const PROBLEMS = {
   "channel-set-failed": { status: 500, title: "Could not set the bot channel" },
   "settings-save-failed": { status: 500, title: "Could not save settings" },
   "dj-role-save-failed": { status: 500, title: "Could not save the DJ role" },
+  // /join 이 저장한 세션을 되살리지 못했다
+  "restore-nothing-saved": { status: 404, title: "No saved track to resume" },
+  "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
+  "restore-failed-in-row": { status: 500, title: "Saved tracks failed in a row", params: ["left"] },
+  "restore-failed": { status: 500, title: "Could not restore the session" },
 
   // 대시보드: 접속 · 권한
   "login-required": { status: 401, title: "Login required" },

@@ -177,6 +177,8 @@ class Player {
   retry: RetryState;
   /** 연달아 실패한 곡 수. 소리를 낸 곡이 끝나면 0 */
   failedTracks: number;
+  /** 연달아 실패해 멈춰도 글자 채널에 알리지 않는다(세션을 되살리는 /join 이 명령 응답으로 말하는 동안) */
+  quietFailures = false;
   lifecycle: PlaybackState;
   lastPlaybackPosition: number;
   pauseReasons: Set<string>;
@@ -981,7 +983,8 @@ class Player {
     } catch {
       /* 이미 멈춘 플레이어다 */
     }
-    await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
+    // 세션을 되살리는 /join 은 이것을 명령 응답으로 말한다(quietFailures)
+    if (!this.quietFailures) await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
     // 남은 곡이 없으면 보통의 대기열 소진과 같다(세션을 지우고, 나갈 시각을 보이고, 나간다)
     if (this.queue.length === 0) return this._finishQueue();
     bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");

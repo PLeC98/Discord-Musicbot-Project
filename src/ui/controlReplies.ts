@@ -118,4 +118,11 @@ function alreadyJoined() {
   return frame({ title: t.title, body: t.body });
 }
 
-export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined };
+/** /join 이 저장한 세션을 되살리는 동안 · 되살렸다 */
+const restoring = () => frame({ body: controlText.restoring() });
+function restored(track: Track, isPaused: boolean) {
+  const t = controlText.restored(track, isPaused);
+  return frame({ title: t.title, body: t.body });
+}
+
+export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored };

@@ -24,7 +24,7 @@ test("값 이름은 RFC 9457 확장 칸 규칙(글자로 시작, 글자 · 숫�
 });
 
 test("목록에 적은 값으로 그린 안내에는 빈 값이 끼지 않는다", () => {
-  const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", channelId: "42", length: 2100 };
+  const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", channelId: "42", length: 2100, left: 2 };
   for (const [code, spec] of Object.entries(PROBLEMS) as Array<[Code, (typeof PROBLEMS)[Code]]>) {
     const params = Object.fromEntries(("params" in spec ? spec.params : []).map((name) => [name, SAMPLE[name]]));
     const { title, body = "" } = notice(code, params);

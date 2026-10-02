@@ -38,7 +38,6 @@ import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/controlReplies.ts";
-import * as controlText from "../../src/ui/text/ko/controls.ts";
 import { DISCORD_LOOK } from "../../src/ui/mentions.ts";
 
 useExampleConfig();
@@ -438,11 +437,11 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   h.dispose(replaced);
 });
 
-test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재생 · 일시정지 · 곡 없음 · 실패)", async () => {
+test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하고 결과로 고친다(재생 · 일시정지 · 저장된 곡 없음 · 연달아 실패 · 오류)', async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
-  const run = async (restore: (this: Player) => Promise<void>) => {
+  const run = async (restore: (this: Player, record: unknown, options?: { announce?: boolean }) => Promise<void>) => {
     h.behavior.restore = restore;
     const w = world({ player: null });
     const { it, log } = interaction(w);
@@ -456,11 +455,16 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
     return { log, w, it };
   };
 
-  const playing = await run(async function () {
+  const options: unknown[] = [];
+  const playing = await run(async function (_record, given) {
+    options.push(given);
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
   });
-  assert.deepEqual(playing.log[0], ["deferReply", undefined]);
-  assert.deepEqual(playing.log[1], ["editReply", { content: "### ▶️ 듣던 곡이 있어요!\n이전에 듣던 곡을 이어서 재생할게요.\n**[저장된 곡](https://www.youtube.com/watch?v=ccccccccccc)** (재생 중)" }]);
+  assert.deepEqual(options, [{ announce: false }], "채널 알림은 내지 않는다(이 응답이 말한다)");
+  const saved = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
+  assert.deepEqual(playing.log[0], ["reply", post(replies.restoring())]);
+  assert.deepEqual(playing.log[1], ["editReply", post(replies.restored(saved, false))]);
+  assert.match(JSON.stringify(playing.log[1]), /이전에 듣던 곡을 이어서 재생할게요/);
   // 모두에게 보이는 응답이지만 잠깐 뒤 지운다(기본 정리는 본인에게만 보이는 응답만 지운다)
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
@@ -476,15 +480,21 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
     this.paused = true;
   });
-  assert.deepEqual(paused.log[1], ["editReply", { content: "### ⏸️ 듣던 곡이 있어요!\n이전에 듣던 곡들을 다시 가져왔어요.\n**[저장된 곡](https://www.youtube.com/watch?v=ccccccccccc)** (일시정지 중)" }]);
+  assert.deepEqual(paused.log[1], ["editReply", post(replies.restored(saved, true))]);
 
+  // 되살린 결과(restoreFromState)로 가른다. 시험의 가짜는 되살린 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
   const empty = await run(async () => {});
-  assert.deepEqual(empty.log[1], ["editReply", { content: "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)" }]);
+  assert.deepEqual(empty.log[1], ["editReply", post(noticeFrame(errors.notice("restore-nothing-saved")))]);
+
+  const stopped = await run(async function () {
+    this.queue.push(tracks.youtube("ddddddddddd"), tracks.youtube("eeeeeeeeeee"));
+  });
+  assert.deepEqual(stopped.log[1], ["editReply", post(noticeFrame(errors.notice("restore-failed-in-row", { left: 2 })))]);
 
   const failed = await run(async () => {
     throw new Error("복원 실패");
   });
-  assert.deepEqual(failed.log[1], ["editReply", { content: controlText.restoreFailed() }]);
+  assert.deepEqual(failed.log[1], ["editReply", post(noticeFrame(errors.notice("restore-failed")))]);
   assert.equal(failed.w.client.players.has("g1"), false, "실패하면 레지스트리에서 뺀다");
 });
 

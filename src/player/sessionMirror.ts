@@ -240,9 +240,13 @@ class SessionPersistence {
     return track;
   }
 
-  async restoreFromState(record: RestoredSession | null | undefined) {
+  /**
+   * 저장한 세션을 되살려 이어 튼다. 무엇이 됐나: restored 이어 틂 · failed 틀 곡을 열지 못함(남은 곡은 대기열에) · empty 틀 곡이 없음.
+   * announce 를 끄면 글자 채널에 되살렸다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
+   */
+  async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "failed" | "empty"> {
     const player = this.player;
-    if (!record || !player.guild?.id) return;
+    if (!record || !player.guild?.id) return "empty";
     const { session } = record;
     this.stopStateSync();
     player.restoreSettings({
@@ -260,19 +264,26 @@ class SessionPersistence {
 
     if (!player.currentTrack) {
       this.removeSession();
-      return;
+      return "empty";
     }
 
     if (session.pausedManual) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
 
-    await player.play(resumeMs, { continued: true });
+    player.quietFailures = !announce;
+    try {
+      await player.play(resumeMs, { continued: true });
+    } finally {
+      player.quietFailures = false;
+    }
+    if (!player.currentTrack) return "failed";
     if (session.pausedManual) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
     if (player.resource?.volume) {
       player.resource.volume.setVolume(player.volume / 100);
     }
 
-    await this._announceRestored(resumeMs);
+    await this._announceRestored(resumeMs, announce);
+    return "restored";
   }
 
   // 저장된 트랙을 메모리에 올린다
@@ -315,8 +326,8 @@ class SessionPersistence {
     }
   }
 
-  // 패널을 다시 세우고 이어 튼다고 알린다
-  async _announceRestored(resumeMs: number) {
+  // 패널을 다시 세운다. announce 면 이어 튼다고 글자 채널에 알린다
+  async _announceRestored(resumeMs: number, announce: boolean) {
     const player = this.player;
     if (player.textChannel) {
       try {
@@ -327,7 +338,7 @@ class SessionPersistence {
       }
     }
 
-    if (player.currentTrack) {
+    if (announce && player.currentTrack) {
       try {
         await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(resumeMs / 1000), paused: player.paused });
       } catch {

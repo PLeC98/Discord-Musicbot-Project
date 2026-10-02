@@ -233,13 +233,13 @@ class FakePersistence extends SessionPersistence {
   removeSession() {
     calls.persists.push("remove");
   }
-  // 시험이 되살리기를 정했으면 그것으로. 아니면 진짜
-  async restoreFromState(record: RestoredSession | null | undefined) {
+  // 시험이 되살리기를 정했으면 그것으로(결과는 되살린 뒤의 상태로 가른다). 아니면 진짜
+  async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
     if (behavior.restore) {
-      await behavior.restore.call(this.player, record);
-      return;
+      await behavior.restore.call(this.player, record, options);
+      return this.player.currentTrack ? "restored" : this.player.queue.length ? "failed" : "empty";
     }
-    return super.restoreFromState(record);
+    return super.restoreFromState(record, options);
   }
   onSetCurrent() {
     calls.sink.push("onSetCurrent");
@@ -286,7 +286,7 @@ type Behavior = {
   fetch: ((url: string, init: FetchInit) => unknown) | null;
   chunked: ((opts: ChunkedOptions) => unknown) | null;
   directStream: ((url: string) => Readable | Promise<Readable>) | null;
-  restore: ((this: Player, record: RestoredSession | null | undefined) => unknown) | null;
+  restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
 };
 const behavior: Behavior = {

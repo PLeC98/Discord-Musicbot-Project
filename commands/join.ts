@@ -1,18 +1,48 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits, type ChatInputCommandInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import * as playerEvents from "../src/player/events.ts";
-import { sessions } from "../src/store/playerSessions.ts";
+import { sessions, type RestoredSession } from "../src/store/playerSessions.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, reply } from "../src/ui/frame.ts";
+import { noticeFrame, noticeReply, post, reply } from "../src/ui/frame.ts";
+import type { Player } from "../src/player/Player.ts";
 import * as replies from "../src/ui/controlReplies.ts";
-import * as controlText from "../src/ui/text/ko/controls.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
 import { bestEffort } from "../src/infra/bestEffort.ts";
 import { expireReply } from "../src/ui/replyLifetime.ts";
+
+// 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
+function waitEmpty(player: Player) {
+  bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+  if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
+  playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
+}
+
+// 저장한 세션을 되살린다. 되살리는 동안 Components V2 로 먼저 답하고 결과로 고친다. 모두에게 보이는 응답이라 기본 정리에서 빠진다.
+// 결과는 패널이 보이므로 잠깐 뒤 지운다. 채널 알림은 내지 않는다(이 응답이 말한다)
+async function restoreSession(interaction: ChatInputCommandInteraction<"cached">, player: Player, savedState: RestoredSession) {
+  await interaction.reply(post(replies.restoring()));
+  expireReply(interaction);
+  try {
+    const outcome = await player.persistence.restoreFromState(savedState, { announce: false });
+    if (outcome === "restored" && player.currentTrack) return await interaction.editReply(post(replies.restored(player.currentTrack, player.paused)));
+    if (outcome === "empty") {
+      // 틀 것 없이 들어왔다. 세션 없이 들어온 것과 같다
+      waitEmpty(player);
+      return await interaction.editReply(post(noticeFrame(errors.notice("restore-nothing-saved"))));
+    }
+    // 틀지 못했다. 남은 곡이 있으면 연달아 실패해 멈춘 것이다
+    const left = player.queue.length;
+    return await interaction.editReply(post(noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"))));
+  } catch (error) {
+    log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
+    await player.dispose({ reason: "세션 복원 실패", session: "keep" });
+    return await interaction.editReply(post(noticeFrame(errors.notice("restore-failed"))));
+  }
+}
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시켜요" }),
@@ -43,31 +73,10 @@ const exported: GuildCommand = {
     const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice.channel });
 
     if (hasSession) {
-      await interaction.deferReply();
-      // 모두에게 보이는 응답이라 기본 정리에서 빠진다. 되살린 결과는 패널이 보이므로 잠깐 뒤 지운다
-      expireReply(interaction);
-      try {
-        await player.persistence.restoreFromState(savedState);
-
-        if (!player.currentTrack) {
-          await interaction.editReply({ content: controlText.restoredEmpty() });
-          return;
-        }
-
-        // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
-        // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
-        await interaction.editReply({ content: controlText.restored(player.currentTrack, player.paused) });
-      } catch (error) {
-        log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
-        await player.dispose({ reason: "세션 복원 실패", session: "keep" });
-        await interaction.editReply({ content: controlText.restoreFailed() });
-      }
+      await restoreSession(interaction, player, savedState);
     } else {
       await player.voice.connect();
-      bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
-      // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
-      if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
-      playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
+      waitEmpty(player);
       await interaction.reply(reply(replies.joined()));
     }
   },

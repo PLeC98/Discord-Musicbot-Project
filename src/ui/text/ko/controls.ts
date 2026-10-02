@@ -88,11 +88,9 @@ const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
 /** 음성 채널에 들어오기 */
 const joined = () => ({ title: "✅ 음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." });
 const alreadyJoined = () => ({ title: "✅ 이미 음성 채널에 있어요.", body: "저는 준비됐어요. 언제든지 곡을 넣어 주세요." });
-/** /join 이 저장한 세션을 되살렸다(미뤄 둔 응답의 글자) */
-const restored = (track: Linked, isPaused: boolean) => (isPaused ? `### ⏸️ 듣던 곡이 있어요!\n이전에 듣던 곡들을 다시 가져왔어요.\n${link(track)} (일시정지 중)` : `### ▶️ 듣던 곡이 있어요!\n이전에 듣던 곡을 이어서 재생할게요.\n${link(track)} (재생 중)`);
-/** 세션을 되살렸는데 틀 곡이 없다 */
-const restoredEmpty = () => "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)";
-/** 세션을 되살리다 오류가 났다(미뤄 둔 응답의 글자) */
-const restoreFailed = () => "### ⚠️ 오류가 발생했어요!\n이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join`을 다시 시도해보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요.";
+/** /join 이 저장한 세션을 되살리는 동안 */
+const restoring = () => "💾 듣던 곡을 불러오는 중...";
+/** /join 이 저장한 세션을 되살렸다 */
+const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 듣던 곡들을 다시 가져왔어요.\n${link(track)} (일시정지 중)` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 듣던 곡을 이어서 재생할게요.\n${link(track)} (재생 중)` });
 
-export { requestedBy, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };
+export { requestedBy, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };

@@ -40,8 +40,7 @@ test("모든 문장", () => {
       controls.alreadyJoined(),
       controls.restored({ title: "곡", pageUrl: "https://example.com/v" }, true),
       controls.restored({ title: "곡", pageUrl: "https://example.com/v" }, false),
-      controls.restoredEmpty(),
-      controls.restoreFailed(),
+      controls.restoring(),
     ],
     [
       "👤 요청한 사람",
@@ -75,10 +74,9 @@ test("모든 문장", () => {
       { title: "👋 음성 채널에서 나갔어요", body: null },
       { title: "✅ 음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." },
       { title: "✅ 이미 음성 채널에 있어요.", body: "저는 준비됐어요. 언제든지 곡을 넣어 주세요." },
-      "### ⏸️ 듣던 곡이 있어요!\n이전에 듣던 곡들을 다시 가져왔어요.\n**[곡](https://example.com/v)** (일시정지 중)",
-      "### ▶️ 듣던 곡이 있어요!\n이전에 듣던 곡을 이어서 재생할게요.\n**[곡](https://example.com/v)** (재생 중)",
-      "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)",
-      "### ⚠️ 오류가 발생했어요!\n이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join`을 다시 시도해보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요.",
+      { title: "⏸️ 듣던 곡이 있어요!", body: "이전에 듣던 곡들을 다시 가져왔어요.\n**[곡](https://example.com/v)** (일시정지 중)" },
+      { title: "▶️ 듣던 곡이 있어요!", body: "이전에 듣던 곡을 이어서 재생할게요.\n**[곡](https://example.com/v)** (재생 중)" },
+      "💾 듣던 곡을 불러오는 중...",
     ],
   );
 });
