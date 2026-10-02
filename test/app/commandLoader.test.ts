@@ -25,14 +25,19 @@ const put: PutCommands = (route, body) => {
   return putImpl(route, body);
 };
 
-const { definitions, deployCommands, deployErrorLines } = await import("../../src/app/commandLoader.ts");
+const { enabledCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/commandLoader.ts");
 const { COMMANDS } = await import("../../commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../config.ts")).default;
 
-test("봇 전체에서 SponsorBlock 을 껐으면 /sponsorblock · /highlight 를 등록하지 않는다", async () => {
+test("봇 전체에서 SponsorBlock 을 껐으면 /sponsorblock · /highlight 를 등록하지도 실행 목록에 올리지도 않는다", async () => {
   const { withConfig } = await import("../helpers/config.ts");
   const names = () => definitions().map((c) => c.name);
+  assert.deepEqual(
+    withConfig({ sponsorblock: { enabled: false } }, () => enabledCommands().map((c) => c.data.name)),
+    withConfig({ sponsorblock: { enabled: false } }, names),
+    "배포하는 것과 실행 목록이 같은 집합",
+  );
   assert.ok(withConfig({ sponsorblock: { enabled: true } }, names).includes("sponsorblock"));
   const off = withConfig({ sponsorblock: { enabled: false } }, names);
   assert.ok(!off.includes("sponsorblock") && !off.includes("highlight"));

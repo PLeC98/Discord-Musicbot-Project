@@ -26,7 +26,7 @@ function sweepPending() {
 /** 설정 화면. 처음 띄울 때는 본인에게만(reply), 고칠 때는 그대로(post) */
 function sponsorConfigView({ enabled, categories }: Draft) {
   const chosen = new Set(categories);
-  return screens.sponsorMenu({ enabled, globalOff: !config.sponsorblock.enabled, options: SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: chosen.has(id) })) });
+  return screens.sponsorMenu({ enabled, options: SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: chosen.has(id) })) });
 }
 
 function registerPending(messageId: string, state: Draft) {
@@ -84,6 +84,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   }
 }
 
-const routes: Route[] = [route("select", "sb:cats", handleSponsorConfig), route("button", "sb:", handleSponsorConfig)];
+const sponsorBlockOn = { enabled: () => config.sponsorblock.enabled };
+const routes: Route[] = [route("select", "sb:cats", handleSponsorConfig, sponsorBlockOn), route("button", "sb:", handleSponsorConfig, sponsorBlockOn)];
 
 export { routes, sponsorConfigView, registerPending };

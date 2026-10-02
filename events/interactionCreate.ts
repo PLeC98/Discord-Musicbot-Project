@@ -41,8 +41,8 @@ function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknow
 async function runCommand(interaction: ChatInputCommandInteraction) {
   const command = interaction.client.commands.get(interaction.commandName);
   if (!command) {
-    log.error(`등록되지 않은 명령어: ${interaction.commandName}`);
-    return;
+    log.warn(`실행 목록에 없는 명령: /${interaction.commandName}`);
+    return interaction.reply(noticeReply(errors.unknownCommand())).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     // 서버 명령은 서버 안에서만. DM 에서도 쓰는 명령은 그대로 부른다

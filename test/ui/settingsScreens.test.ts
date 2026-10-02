@@ -25,6 +25,6 @@ test("전용 채널을 정한 결과: 받는 입력을 본문 끝에", () => {
 });
 
 test("SponsorBlock 화면: 구간 메뉴와 토글 · 저장 · 취소", () => {
-  const s = screenOf(post(screens.sponsorMenu({ enabled: false, globalOff: false, options: [{ label: "인트로", value: "intro", default: true }] })));
+  const s = screenOf(post(screens.sponsorMenu({ enabled: false, options: [{ label: "인트로", value: "intro", default: true }] })));
   assert.deepEqual([s.rows, s.buttons], [2, ["sb:toggle", "sb:save", "sb:cancel"]]);
 });

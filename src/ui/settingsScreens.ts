@@ -32,9 +32,9 @@ function djRoleMenu(roleIds: string[]) {
     .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("djrole:save").setLabel(save).setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("djrole:cancel").setLabel(cancel).setStyle(ButtonStyle.Secondary)));
 }
 
-/** SponsorBlock 설정 화면. options 는 고를 구간 종류(이름표 · 고른 것인지), globalOff 는 봇 전체에서 꺼져 있는지. 받는 쪽은 interactions/sponsorConfigHandler */
-function sponsorMenu({ enabled, globalOff, options }: { enabled: boolean; globalOff: boolean; options: Array<{ label: string; value: string; default: boolean }> }) {
-  const t = settingsText.sponsorMenu({ enabled, globalOff });
+/** SponsorBlock 설정 화면. options 는 고를 구간 종류(이름표 · 고른 것인지). 받는 쪽은 interactions/sponsorConfigHandler */
+function sponsorMenu({ enabled, options }: { enabled: boolean; options: Array<{ label: string; value: string; default: boolean }> }) {
+  const t = settingsText.sponsorMenu(enabled);
   const select = new StringSelectMenuBuilder().setCustomId("sb:cats").setPlaceholder(t.placeholder).setMinValues(0).setMaxValues(options.length).addOptions(options);
   const toggle = new ButtonBuilder()
     .setCustomId("sb:toggle")

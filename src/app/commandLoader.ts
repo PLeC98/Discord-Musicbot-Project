@@ -22,9 +22,14 @@ type SlashCommand = GuildCommand | AnywhereCommand;
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
 const HASH_PATH = path.join(import.meta.dirname, "..", "..", "database", "deployed-commands.json");
 
-/** 배포용 JSON. 핸들러로 등록되는 것(commands/index 의 목록)과 같은 집합이다 */
+/** 켜진 명령. 배포하는 것과 실행 목록에 올리는 것이 이 집합이다(꺼진 기능은 입구가 없다) */
+function enabledCommands() {
+  return COMMANDS.filter((command) => command.enabled?.() ?? true);
+}
+
+/** 배포용 JSON */
 function definitions() {
-  return COMMANDS.filter((command) => command.enabled?.() ?? true).map((command) => command.data.toJSON());
+  return enabledCommands().map((command) => command.data.toJSON());
 }
 
 // 현재 명령어 세트 + 배포 대상의 지문. 어느 하나라도 바뀌면 재배포 대상
@@ -90,5 +95,5 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
   return lines;
 }
 
-export { definitions, deployCommands, deployErrorLines };
+export { enabledCommands, definitions, deployCommands, deployErrorLines };
 export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, DeployResult };

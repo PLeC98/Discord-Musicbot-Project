@@ -21,7 +21,6 @@ import { ytdlpBinary } from "../sources/ytdlpBinary.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
 import * as commandLoader from "./commandLoader.ts";
-import { COMMANDS } from "../../commands/index.ts";
 import { EVENTS } from "../../events/index.ts";
 import { installErrorHandlers } from "./resilience.ts";
 import { createGuildFaults } from "./guildFault.ts";
@@ -238,8 +237,9 @@ function stopIfThrows(check: () => unknown, hint: string | null = null) {
 }
 
 function loadCommands(client: Client) {
-  for (const command of COMMANDS) client.commands.set(command.data.name, command);
-  log.info({ tags: ["startup"] }, `슬래시 명령어 ${COMMANDS.length}개 준비 완료`);
+  const commands = commandLoader.enabledCommands();
+  for (const command of commands) client.commands.set(command.data.name, command);
+  log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
 }
 
 // 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.ts). 핸들러의 결과·오류는 그대로 돌려준다.

@@ -40,6 +40,8 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   loop: (it, player) => answerLoop(it, player, controls.nextLoopMode(player.loop)),
   previous: (it, player) => answerPrevious(it, player),
 };
+// 운영자 설정으로 꺼지는 패널 동작. 꺼져 있으면 없는 버튼과 같다
+const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () => config.sponsorblock.enabled };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
@@ -53,7 +55,7 @@ async function handlePanelButton(interaction: Press) {
     return interaction.reply(noticeReply(errors.staleSession()));
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle) return interaction.reply(noticeReply(errors.unknownInteraction()));
+  if (!handle || PANEL_ENABLED[action]?.() === false) return interaction.reply(noticeReply(errors.unknownInteraction()));
   await handle(interaction, player);
 }
 

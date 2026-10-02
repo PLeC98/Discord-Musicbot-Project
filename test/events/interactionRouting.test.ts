@@ -14,7 +14,7 @@ import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import * as tracks from "../helpers/tracks.ts";
 import interactionCreate from "../../events/interactionCreate.ts";
 import { ROUTES } from "../../interactions/index.ts";
-import { routeOf, type Kind as RouteKind } from "../../interactions/route.ts";
+import { route, routeOf, type Kind as RouteKind } from "../../interactions/route.ts";
 import { routes as buttonHandler, volumeModal } from "../../interactions/buttonHandler.ts";
 import { routes as autoplay } from "../../interactions/autoplay.ts";
 import { routes as djRoleConfigHandler } from "../../interactions/djRoleConfigHandler.ts";
@@ -133,6 +133,18 @@ test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로
 test("처리기가 없는 custom_id 는 모른다고 한 번 답한다", async () => {
   assert.deepEqual(await answers("button", "nobody_knows"), ["reply"]);
   assert.deepEqual(await answers("modal", "nobody_knows"), ["reply"]);
+});
+
+test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 모른다고 한 번 답한다", async () => {
+  assert.deepEqual(await answers("command", "nobody_knows"), ["reply"]);
+});
+
+test("꺼진 처리기는 없는 것과 같고, 더 넓은 처리기로 넘기지 않는다", () => {
+  const wide = route("button", "a:", () => {});
+  const narrow = route("button", "a:b:", () => {}, { enabled: () => false });
+  assert.equal(routeOf([wide, narrow], "button", "a:b:1"), null);
+  assert.equal(routeOf([wide, narrow], "button", "a:c:1"), wide);
+  assert.equal(routeOf([wide, route("button", "a:b:", () => {}, { enabled: () => true })], "button", "a:b:1")?.prefix, "a:b:");
 });
 
 test("앞머리가 여럿 맞으면 더 좁은 처리기가 받는다(자동재생 버튼은 재생 패널 버튼보다 좁다)", () => {

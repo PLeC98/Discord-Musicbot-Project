@@ -16,6 +16,7 @@ import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
+import { withConfig } from "../helpers/config.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 import { noticeReply, type Notice } from "../../src/ui/frame.ts";
@@ -269,6 +270,19 @@ test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내�
   const none = press(w, "panel:highlight:S1");
   await interactionCreate.execute(none.it);
   assert.deepEqual(none.log, [["deferUpdate"]]);
+});
+
+test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은 패널의 버튼은 없는 것과 같다", async () => {
+  const w = world();
+  w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", duration: 300 };
+  const p = w.player as typeof w.player & { sponsor?: { highlightAt: number | null }; seek?: () => Promise<void> };
+  p.sponsor = { highlightAt: 42 };
+  let seeked = false;
+  p.seek = async () => void (seeked = true);
+  const off = press(w, "panel:highlight:S1");
+  await withConfig({ sponsorblock: { enabled: false } }, () => interactionCreate.execute(off.it));
+  assert.deepEqual(off.log, [["reply", said(errors.unknownInteraction())]]);
+  assert.equal(seeked, false);
 });
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────

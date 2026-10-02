@@ -25,7 +25,9 @@ const queueEmpty = () => warning("state", "대기열에 곡이 없어요!", "이
 const staleSession = () => warning("stale", "만료된 버튼이에요!", '새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, "현재 재생 중" 패널을 새로 불러와서 사용해 주세요!');
 // 버튼 · 메뉴의 처리가 던졌다(전용 채널 입력 포함)
 const processingFailed = () => error("failed", "예상치 못한 오류예요!", "처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요.");
-// 버튼 · 메뉴를 받을 처리기가 없다. 봇을 고치기 전에 올린 메시지의 것이 대개 이렇다(custom_id 모양이 바뀌었다)
+// 실행 목록에 없는 명령(꺼진 기능이 디스코드에 아직 남아 있다)
+const unknownCommand = () => warning("stale", "지금은 쓸 수 없는 명령이에요.", "꺼져 있거나 없어진 명령이에요.");
+// 버튼 · 메뉴를 받을 처리기가 없다. 봇을 고치기 전에 올린 메시지의 것이 대개 이렇다(custom_id 모양이 바뀌었다). 꺼진 기능의 버튼 · 메뉴도 이렇다
 const unknownInteraction = () => warning("stale", "만료되었거나 알 수 없는 버튼이에요.", "새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, 명령을 다시 실행하거나 패널을 새로 불러와서 사용해 주세요!");
 const liveUpcoming = () => warning("live", "아직 시작되지 않은 라이브예요!", "예정된 라이브는 재생할 수 없어요. 라이브가 시작된 뒤에 다시 요청해 주세요!");
 // 설치된 ffmpeg 가 라이브를 열 수 없다. 고치는 법은 운영자 로그에
@@ -164,5 +166,40 @@ const REFUSAL: Record<string, (r: Refusal) => Notice> = {
 /** 거절 까닭의 안내. 모르는 까닭은 일반 실패 */
 const refusal = (r: Refusal) => REFUSAL[r.code]?.(r) ?? failed();
 
-export { mustBeInVoice, noSong, mustBeInSameVoice, mustDj, permissionVoice, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, mustModerator, channelSetFailed, settingsSaveFailed, djRoleSaveFailed, playlistLimitOutOfRange, onlyInBotChannel, mustOwner, refreshFailed, noSearchResults, searchOwnerOnly, commandFailed, guildOnly, permission, forKind, cannotStart, noSongResult, addRefusal, refusal };
+export {
+  mustBeInVoice,
+  noSong,
+  mustBeInSameVoice,
+  mustDj,
+  permissionVoice,
+  queueEmpty,
+  staleSession,
+  processingFailed,
+  unknownCommand,
+  unknownInteraction,
+  liveUpcoming,
+  liveNoFfmpeg,
+  liveNoSeek,
+  liveNoLoop,
+  badTime,
+  jumpTargetGone,
+  mustModerator,
+  channelSetFailed,
+  settingsSaveFailed,
+  djRoleSaveFailed,
+  playlistLimitOutOfRange,
+  onlyInBotChannel,
+  mustOwner,
+  refreshFailed,
+  noSearchResults,
+  searchOwnerOnly,
+  commandFailed,
+  guildOnly,
+  permission,
+  forKind,
+  cannotStart,
+  noSongResult,
+  addRefusal,
+  refusal,
+};
 export type { Refusal, PermissionDenied };

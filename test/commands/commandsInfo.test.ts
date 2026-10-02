@@ -17,7 +17,7 @@ import { whenSettingsBroken } from "../helpers/tempStore.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/Player.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
-import { noticeReply, post } from "../../src/ui/frame.ts";
+import { noticeReply } from "../../src/ui/frame.ts";
 import * as infoText from "../../src/ui/text/ko/info.ts";
 import { headOf, screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 
@@ -32,7 +32,6 @@ const errors = await import("../../src/ui/text/ko/errors.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const { SKIP_CATEGORIES } = await import("../../src/rules/sponsorCategories.ts");
 const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
-const { sponsorConfigView } = await import("../../interactions/sponsorConfigHandler.ts");
 
 after(() => {
   audioCache.close();
@@ -422,12 +421,19 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정을 취소했어요", "변경 사항은 반영하지 않았어요.", 0, "기본"]]);
 });
 
-test("SponsorBlock 화면: 전역이 꺼져 있으면 적용되지 않는다고 적는다", () => {
+test("SponsorBlock 화면: 봇 전체에서 꺼져 있으면 열려 있던 메뉴의 버튼 · 메뉴는 없는 것과 같다(저장하지 않는다)", async () => {
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings;");
   const saved = config.sponsorblock.enabled;
   config.sponsorblock.enabled = false;
   try {
-    const view = sponsorConfigView({ enabled: true, categories: [] });
-    assert.match(screenOf(post(view)).body, /봇 전체 설정에서 SponsorBlock이 꺼져/);
+    for (const customId of ["sb:toggle", "sb:save", "sb:cats"]) {
+      const it = sbInteraction({ customId, values: ["intro"], messageId: "m-off-global" });
+      await interactionCreate.execute(fake<Interaction>(it.it));
+      assert.deepEqual(it.log, [["reply", noticeReply(errors.unknownInteraction())]], customId);
+    }
+    settings._reset();
+    assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });
   } finally {
     config.sponsorblock.enabled = saved;
   }

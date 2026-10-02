@@ -55,10 +55,11 @@ test("슬래시 명령도 버튼 · 메뉴 · 모달도 아니면 지나간다",
   assert.deepEqual(sent, []);
 });
 
-test("등록되지 않은 명령은 답하지 않는다", async () => {
+test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 쓸 수 없다고 본인에게 답한다. 답하지 못해도 던지지 않는다", async () => {
   const { it, sent } = interaction({ name: "nope" });
   await interactionCreate.execute(it);
-  assert.deepEqual(sent, []);
+  assert.deepEqual(sent, [["reply", noticeReply(errors.unknownCommand())]]);
+  await interactionCreate.execute(interaction({ name: "nope", replyFails: true }).it);
 });
 
 test("명령을 상호작용과 클라이언트로 부른다", async () => {

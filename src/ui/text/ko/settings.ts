@@ -30,10 +30,10 @@ const djRoleSaved = (roleIds: string[]) => ({
 });
 
 const onOff = (enabled: boolean) => (enabled ? "켬" : "끔");
-/** SponsorBlock 설정 화면. globalOff 는 봇 전체에서 꺼져 있어 이 서버의 설정이 듣지 않는지 */
-const sponsorMenu = ({ enabled, globalOff }: { enabled: boolean; globalOff: boolean }) => ({
+/** SponsorBlock 설정 화면. enabled 는 이 서버에서 켰는지 */
+const sponsorMenu = (enabled: boolean) => ({
   title: "⏭️ SponsorBlock 자동 건너뛰기",
-  description: [globalOff ? "⚠️ 봇 전체 설정에서 SponsorBlock이 꺼져 있어서 이 설정은 적용되지 않아요." : "", `현재 설정: **${onOff(enabled)}**`, "", "건너뛸 구간 종류를 아래에서 고르고 **저장**을 누르세요. 켜고 끄기는 버튼으로 해요."].filter((l) => l !== "").join("\n"),
+  description: `현재 설정: **${onOff(enabled)}**\n건너뛸 구간 종류를 아래에서 고르고 **저장**을 누르세요. 켜고 끄기는 버튼으로 해요.`,
   placeholder: "건너뛸 구간 종류 선택",
   toggle: enabled ? "켜짐 (끄기)" : "꺼짐 (켜기)",
 });
