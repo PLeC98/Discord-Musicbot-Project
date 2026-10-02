@@ -9,9 +9,10 @@
 //   일본어 가나는 ん 이면 ㄴ, っ 면 ㅅ, 장음 ー · 작은 가나 · 그 밖의 가나는 받침이 없다. 반복 기호는 앞 글자를 따른다.
 //   한자는 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다(data/kanji-finals.json, 유니코드 Unihan 에서 만든 표). 갈리면 모른다.
 
-import fs from "fs";
-import path from "path";
-import { createRequire } from "module";
+// 브라우저(대시보드)도 쓴다. Node 에 기대는 것은 발음 사전 하나이고 그것은 pronunciations.ts 가 맡는다(브라우저는 바꿔 끼운다)
+
+import KANJI from "../../data/kanji-finals.json" with { type: "json" };
+import { pronunciationOf } from "./pronunciations.ts";
 
 /** 끝소리. none 받침 없음, final 받침(ㄹ 아님), rieul ㄹ 받침, null 모름 */
 type Final = "none" | "final" | "rieul" | null;
@@ -75,16 +76,12 @@ function kanaFinal(ch: string): Final {
   return "んンっッ".includes(ch) ? "final" : "none";
 }
 
-// 한자 표. endsN 은 읽기가 모두 ん 으로, endsVowel 은 모두 모음으로 끝나는 한자. scripts/build-kanji-finals.ts 가 만든다
-const KANJI_FILE = path.join(import.meta.dirname, "..", "..", "data", "kanji-finals.json");
-let kanji: { endsN: string; endsVowel: string } | null = null;
-
-// 한자. 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다. 표는 한자를 처음 만났을 때 한 번 읽는다
+// 한자. 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다. 표(KANJI)의 endsN 은 읽기가 모두 ん 으로, endsVowel 은 모두 모음으로 끝나는 한자.
+// 표는 scripts/build-kanji-finals.ts 가 만든다
 function kanjiFinal(ch: string): Final {
   if (!/\p{Script=Han}/u.test(ch)) return null;
-  kanji ??= JSON.parse(fs.readFileSync(KANJI_FILE, "utf8")) as { endsN: string; endsVowel: string };
-  if (kanji.endsN.includes(ch)) return "final";
-  if (kanji.endsVowel.includes(ch)) return "none";
+  if (KANJI.endsN.includes(ch)) return "final";
+  if (KANJI.endsVowel.includes(ch)) return "none";
   return null;
 }
 
@@ -109,13 +106,6 @@ function numberFinal(text: string): Final {
 
 // ── 영어 ──
 
-let dictionary: Record<string, string> | null = null;
-// 발음 사전(13만여 낱말, 약 5MB). 영어로 끝나는 말을 처음 만났을 때 한 번 읽는다
-function pronunciation(word: string) {
-  dictionary ??= (createRequire(import.meta.url)("cmu-pronouncing-dictionary") as { dictionary: Record<string, string> }).dictionary;
-  return dictionary[word.toLowerCase()] ?? null;
-}
-
 // 짧은 모음(외래어 표기법: 짧은 모음 뒤의 어말 무성 파열음은 받침으로 적는다)
 const SHORT_VOWELS = new Set(["AE", "EH", "IH", "AH", "UH", "AA"]);
 const VOWELS = new Set(["AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "IH", "IY", "OW", "OY", "UH", "UW"]);
@@ -123,7 +113,7 @@ const VOWELS = new Set(["AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "I
 const LETTER: Record<string, Final> = { L: "rieul", R: "rieul", M: "final", N: "final" };
 
 function englishFinal(word: string): Final {
-  const said = pronunciation(word);
+  const said = pronunciationOf(word.toLowerCase());
   const acronym = /^[A-Z]{1,5}$/.test(word) && (!said || !/[AEIOUY]/.test(word));
   if (acronym) return LETTER[word.at(-1) ?? ""] ?? "none";
   if (said) return phonemeFinal(said.split(" ").map((p) => p.replace(/\d/, "")));

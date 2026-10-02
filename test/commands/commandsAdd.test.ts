@@ -39,6 +39,7 @@ import { interactionKind } from "../helpers/interactionKind.ts";
 import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/controlReplies.ts";
 import * as controlText from "../../src/ui/text/ko/controls.ts";
+import { DISCORD_LOOK } from "../../src/ui/mentions.ts";
 
 useExampleConfig();
 
@@ -582,7 +583,7 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
   const w = world();
   const elsewhere = interaction(w, { channelId: "c1" });
   await runCommand(await command("dashboard"), elsewhere.it, w.client);
-  assert.deepEqual(elsewhere.log, [["reply", noticeReply(errors.notice("only-in-bot-channel", { channelId: "panel-channel" }))]]);
+  assert.deepEqual(elsewhere.log, [["reply", noticeReply(errors.notice("only-in-bot-channel", { channelId: "panel-channel" }, DISCORD_LOOK))]]);
 
   const inPanel = interaction(w, { channelId: "panel-channel" });
   await runCommand(await command("dashboard"), inPanel.it, w.client);

@@ -11,7 +11,12 @@ const error = (topic: Topic, title: string, body?: string) => noticeOf("error", 
 // 사용자가 고칠 수 있거나 지금 상태라 못 했다
 const warning = (topic: Topic, title: string, body?: string) => noticeOf("warning", topic, title, body);
 
-const TEXT: { [C in Code]: (p: Params) => Notice } = {
+/** 그리는 쪽마다 다른 값의 꼴. 디스코드는 채널을 멘션으로 적는다(ui/mentions 의 DISCORD_LOOK) */
+type Look = { channel: (id: string) => string };
+/** 꾸밈 없는 꼴(대시보드) */
+const PLAIN: Look = { channel: (id) => `#${id}` };
+
+const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 요청한 사람이 갖추지 못함
   // 봇을 부를 때 부른 사람이 음성 채널에 없다
   "must-be-in-voice": () => warning("voice", "먼저 음성 채널에 접속해 주세요!", "그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요."),
@@ -25,7 +30,7 @@ const TEXT: { [C in Code]: (p: Params) => Notice } = {
   // 검색 결과 버튼은 검색한 사람만 누른다
   "search-owner-only": () => warning("permission", "다른 사람의 패널이에요!", "검색한 사람만 고를 수 있어요."),
   // 전용 채널이 있으면 /dashboard 는 그 채널에서만. channelId 는 전용 채널
-  "only-in-bot-channel": ({ channelId }) => warning("permission", "전용 채널이 아니에요!", `이 명령어는 <#${channelId}> 채널에서만 사용할 수 있어요.`),
+  "only-in-bot-channel": ({ channelId = "" }, look) => warning("permission", "전용 채널이 아니에요!", `이 명령어는 ${look.channel(channelId)} 채널에서만 사용할 수 있어요.`),
   // DM 에서 서버 명령을 불렀다
   "guild-only": () => warning("permission", "마음만 받을게요.", "아쉽게도 서버에서만 사용할 수 있는 명령어예요. 서버에서 사용해 주세요!"),
   // 봇에게 디스코드 권한이 없음
@@ -134,7 +139,8 @@ const TEXT: { [C in Code]: (p: Params) => Notice } = {
   "dj-role-save-failed": () => error("failed", "저장하지 못했어요", "DJ 역할 저장 중에 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
 };
 
-/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params) */
-const notice = (code: Code, params: Params = {}): Notice => ({ code, ...TEXT[code](params) });
+/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */
+const notice = (code: Code, params: Params = {}, look: Look = PLAIN): Notice => ({ code, ...TEXT[code](params, look) });
 
-export { notice };
+export { notice, PLAIN };
+export type { Look };

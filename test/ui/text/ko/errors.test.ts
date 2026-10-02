@@ -96,7 +96,7 @@ test("모든 문장", () => {
       "must-moderator": "warning 🚫 이 조작을 할 권한이 없어요.\n이 조작에는 서버 관리 권한이 필요해요!",
       "must-owner": "warning 🚫 이 조작을 할 권한이 없어요.\n이 조작은 봇 운영자 전용이에요.",
       "search-owner-only": "warning 🚫 다른 사람의 패널이에요!\n검색한 사람만 고를 수 있어요.",
-      "only-in-bot-channel": "warning 🚫 전용 채널이 아니에요!\n이 명령어는 <#42> 채널에서만 사용할 수 있어요.",
+      "only-in-bot-channel": "warning 🚫 전용 채널이 아니에요!\n이 명령어는 #42 채널에서만 사용할 수 있어요.",
       "guild-only": "warning 🚫 마음만 받을게요.\n아쉽게도 서버에서만 사용할 수 있는 명령어예요. 서버에서 사용해 주세요!",
       "permission-voice": "error 🚫 제게 권한이 없어요.\n봇이 그 음성 채널에 접속하거나 말할 권한이 없어요.",
       "permission-text": "error 🚫 제게 권한이 없어요.\n봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요.",

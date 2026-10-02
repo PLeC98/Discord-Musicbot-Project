@@ -5,6 +5,7 @@ import { checkControl } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
+import { DISCORD_LOOK } from "../src/ui/mentions.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "재생 패널을 이 채널의 맨 아래에 다시 띄워요" }),
@@ -18,7 +19,7 @@ const exported: GuildCommand = {
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {
       if (channel.id !== botChannelId) {
-        return interaction.reply(noticeReply(errors.notice("only-in-bot-channel", { channelId: botChannelId })));
+        return interaction.reply(noticeReply(errors.notice("only-in-bot-channel", { channelId: botChannelId }, DISCORD_LOOK)));
       }
     } else {
       const permErr = await checkControl(member);
