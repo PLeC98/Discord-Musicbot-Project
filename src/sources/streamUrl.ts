@@ -8,6 +8,7 @@ const log = logger.child({ category: "track" });
 import * as SoundCloud from "./soundcloud/index.ts";
 import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 // 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
 /** 스트림 서술자. 재생 쪽이 읽는 칸만 적는다. 소스마다 칸이 더 있다 */
@@ -45,7 +46,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
   const { youtube, soundcloud, equivalent, canPlayHls } = { ...DEFAULTS, ...options };
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
-    throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
+    throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
   }
 
   switch (inputKind(audioUrl)) {
@@ -55,7 +56,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
       } catch (err) {
         // 장부에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
-          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);
           if (ytUrl) return await youtube.getStream(ytUrl);
         }

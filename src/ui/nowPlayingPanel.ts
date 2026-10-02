@@ -66,6 +66,7 @@ import { PanelLocation, type PanelStore } from "./panelLocation.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/publicAddress.ts";
+import { songTitle } from "./text/ko/labels.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
@@ -371,7 +372,7 @@ class NowPlayingPanel {
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
     // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.ts).
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
-    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.pageUrl})**${artistLine}`;
+    const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
     // 직접 링크는 썸네일이 없으므로(임의 URL이라 앨범아트를 알 수 없다) 텍스트만 넣는다.
@@ -701,7 +702,7 @@ class NowPlayingPanel {
 
     const tracks = player.queue.slice(0, 25);
     const options = tracks.map((track, i) => {
-      const label = `${i + 1}. ${track.title}`.slice(0, 100);
+      const label = `${i + 1}. ${songTitle(track.title)}`.slice(0, 100);
       const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));
       const description = jumpDescription(track);
       if (description) opt.setDescription(description);

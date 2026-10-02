@@ -8,6 +8,7 @@ import { progressBar } from "./progressBar.ts";
 import * as infoText from "./text/ko/info.ts";
 import type { Player } from "../player/Player.ts";
 import type { QueuedTrack } from "../player/track.ts";
+import { songTitle } from "./text/ko/labels.ts";
 
 function nowPlayingView(player: Player, track: QueuedTrack) {
   const t = infoText.nowPlaying();
@@ -17,7 +18,7 @@ function nowPlayingView(player: Player, track: QueuedTrack) {
   const platform = String(track.platform || "").toLowerCase();
   return frame({
     title: t.title,
-    body: `**[${track.title}](${track.pageUrl})**`,
+    body: `**[${songTitle(track.title)}](${track.pageUrl})**`,
     thumbnail: track.thumbnail,
     footer: [track.artist ? `${t.artist} ${track.artist}` : null, track.album ? `${t.album} ${track.album}` : null, `${t.platform} ${emojiOf(platform)} ${labelOf(platform)}`, progress ? `${t.progress} ${progress}` : null, track.requestedBy ? `${t.requester} <@${track.requestedBy.id}>` : null, `${t.status} ${infoText.nowPlayingStatus(playbackStatus(player))}`],
   });

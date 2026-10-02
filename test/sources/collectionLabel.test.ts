@@ -11,7 +11,7 @@ import config from "../../config.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
 // 담은 안내가 보인 글자(ui/addedNotice)
-const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
+const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
 

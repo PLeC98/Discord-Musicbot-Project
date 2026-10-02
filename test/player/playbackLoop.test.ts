@@ -42,7 +42,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _stopWith: Player.prototype._stopWith,
     _restartsOnPrevious: Player.prototype._restartsOnPrevious,
     guild: { id: "g1", client: null },
-    played: [] as Array<{ title: string | undefined; ms: number }>,
+    played: [] as Array<{ title: string | null | undefined; ms: number }>,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)

@@ -38,9 +38,9 @@ const calls = {
   ytdlp: [] as Array<{ url: string; options: Options }>,
   direct: [] as string[],
   convert: [] as Array<{ src: string; out: string; srcExists: boolean }>,
-  sponsor: [] as Array<{ title: string; guildId: string }>,
-  equivalent: [] as string[],
-  reresolve: [] as string[],
+  sponsor: [] as Array<{ title: string | null; guildId: string }>,
+  equivalent: [] as Array<string | null>,
+  reresolve: [] as Array<string | null>,
 };
 // 시험마다 바꾸는 yt-dlp 의 행동. 기본은 "출력 경로에 파일과 info.json 을 쓴다"
 let ytdlpBehavior: (url: string, options: Options) => unknown;

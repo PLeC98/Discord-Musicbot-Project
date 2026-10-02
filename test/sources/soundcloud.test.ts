@@ -4,6 +4,7 @@
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as SoundCloud from "../../src/sources/soundcloud/index.ts";
+import { trackOf } from "../../src/sources/soundcloud/api.ts";
 import { codeOf, errorKind } from "../../src/rules/errorKind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
@@ -194,4 +195,8 @@ test("세트 읽기 중 요청 제한(403 · 429)이 섞이면 뺀 곡으로 세
     fail: "ERROR: [soundcloud] 2: Unable to download JSON metadata: HTTP Error 429: Too Many Requests\nERROR: [soundcloud] 3: Unable to download JSON metadata: HTTP Error 429: Too Many Requests",
   });
   await assert.rejects(SoundCloud.find("https://soundcloud.com/x/sets/busy", { what: "set" }), (e: unknown) => errorKind(e) === "rate-limited");
+});
+
+test("곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", () => {
+  assert.equal(trackOf({ webpage_url: "https://soundcloud.com/a/b" })?.title, null);
 });

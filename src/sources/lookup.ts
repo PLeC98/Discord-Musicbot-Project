@@ -12,6 +12,7 @@ import { failureReason } from "../rules/failureReason.ts";
 import type { CacheHit } from "../store/trackLookup.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
+import { logTitle } from "../infra/log/title.ts";
 const log = logger.child({ category: "track" });
 
 /** 소스가 찾은 곡. 소스마다 칸이 더 있다. 트랙 모델(player/track)의 TrackInfo 에 맞추는 것은 player 를 TS 로 옮길 때 */
@@ -155,7 +156,7 @@ async function resolveQuery(query: string, context?: string | null, range: Range
   const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query) || (soundcloud !== null && soundcloud !== "track");
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit) {
-    log.debug(`캐시 히트(조회 · 검색 생략): "${cacheHit.track.title}" → ${cacheHit.track.audioUrl}`);
+    log.debug(`캐시 히트(조회 · 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
   return getTrackData(query, context, range, sources);

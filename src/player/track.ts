@@ -18,7 +18,8 @@ type DurationSource = "provided" | "measured" | "unknown";
 
 /** 소스가 준 것(링크 조회 · 검색 · 자동재생 후보). */
 type TrackInfo = {
-  title: string;
+  /** 출처가 제목을 주지 않았으면 null. 그리는 쪽이 "알 수 없는 곡"으로 적는다 */
+  title: string | null;
   artist?: string;
   album?: string | null;
   /** 초. 모르면 0 */

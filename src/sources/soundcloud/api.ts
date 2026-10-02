@@ -12,10 +12,9 @@ import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
 const SET_BATCH = 10;
 
 // 제목이 없는 곡은 없다시피 해 표시 문구로 채운다. 가수(올린 사람)는 비워 둔다
-const UNKNOWN_TITLE = "알 수 없는 제목";
 
 /** 찾은 곡. 트랙 모델(player/track)의 TrackInfo 와 같은 칸 */
-type ScTrack = { title: string; artist?: string; duration: number; thumbnail?: string | null; platform: "soundcloud"; id?: string; pageUrl: string; requestKey: string; audioUrl: string };
+type ScTrack = { title: string | null; artist?: string; duration: number; thumbnail?: string | null; platform: "soundcloud"; id?: string; pageUrl: string; requestKey: string; audioUrl: string };
 /** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 받을 때 부를 숫자 id, skipped 는 받을 수 없어 뺀 곡 수(미리듣기 · 지역 제한 등) */
 type ScSet = { title: string | null; setId: string | null; tracks: ScTrack[]; total: number | null; nextOffset: number; skipped: number };
 /** 곡 찾기가 받는 것. 짧은 링크는 풀어 봐야 곡인지 세트인지 안다 */
@@ -36,7 +35,7 @@ function trackOf(item: YtInfo): ScTrack | null {
   if (!item.webpage_url) return null;
   const link = canonicalUrl(item.webpage_url);
   return {
-    title: item.title || item.fulltitle || UNKNOWN_TITLE,
+    title: item.title || item.fulltitle || null,
     artist: item.uploader || undefined,
     duration: item.duration || 0,
     thumbnail: item.thumbnail || item.thumbnails?.[0]?.url || null,

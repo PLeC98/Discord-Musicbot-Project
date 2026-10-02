@@ -9,7 +9,7 @@
       <button type="button" :class="metaBtn" v-tooltip="'이 서버 화면으로'" @click="openServer">
         <TrackArt :track="np.track" size-class="size-11" />
         <span class="min-w-0 text-left">
-          <span class="block text-[0.85rem] font-semibold truncate" :class="np.track ? 'text-fg' : 'text-muted'">{{ np.track?.title ?? "재생 중인 곡이 없어요" }}</span>
+          <span class="block text-[0.85rem] font-semibold truncate" :class="np.track ? 'text-fg' : 'text-muted'">{{ np.track ? songTitle(np.track.title) : "재생 중인 곡이 없어요" }}</span>
           <span class="block text-[0.75rem] text-muted truncate">{{ np.track?.artist || np.guild?.name }}</span>
         </span>
       </button>
@@ -44,7 +44,7 @@
       <button type="button" :class="[metaBtn, 'flex-1']" @click="openServer">
         <TrackArt :track="np.track" size-class="size-10" />
         <span class="min-w-0 text-left">
-          <span class="block text-[0.82rem] font-semibold truncate" :class="np.track ? 'text-fg' : 'text-muted'">{{ np.track?.title ?? "재생 중인 곡이 없어요" }}</span>
+          <span class="block text-[0.82rem] font-semibold truncate" :class="np.track ? 'text-fg' : 'text-muted'">{{ np.track ? songTitle(np.track.title) : "재생 중인 곡이 없어요" }}</span>
           <span class="block text-[0.72rem] text-muted truncate">{{ np.track?.artist || np.guild?.name }}</span>
         </span>
       </button>
@@ -59,6 +59,7 @@
 </template>
 
 <script setup>
+import { songTitle } from "../../../../src/ui/text/ko/labels.ts";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import Icon from "./BaseIcon.vue";

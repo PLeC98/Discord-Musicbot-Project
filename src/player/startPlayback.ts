@@ -19,6 +19,7 @@ import type { Resume } from "./currentPlayback.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
 import type { Segments } from "../sources/sponsorBlock.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 /** 소리를 어디서 받을지 정한 것 */
 type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
@@ -81,7 +82,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     // 캐시 파일을 한 번 더 보고, 있으면 스트림을 받지 않는다
     if (!track.audioUrl) {
       const ytUrl = await player.io.findEquivalent(track);
-      if (!ytUrl) throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
+      if (!ytUrl) throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
       cacheFile = TrackDownloader.findCacheFile(track);
     }
     // 어느 사이트에서 받을지는 sources/streamUrl 한 곳에서 가른다
@@ -105,7 +106,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
   if (track.platform !== "youtube" || !streamInfo?.title) return false;
   if (streamInfo.title !== track.title) {
-    log.debug(`제목 교정: "${track.title}" → "${streamInfo.title}"`);
+    log.debug(`제목 교정: "${logTitle(track.title)}" → "${streamInfo.title}"`);
     track.title = streamInfo.title;
   }
   return true;
@@ -129,11 +130,11 @@ function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, sta
   const expireMs = expireOf(resume.url);
   const remainingMs = Math.max(0, (resume.info.duration || track.duration || 0) * 1000 - startMs);
   if (!expireMs) {
-    log.debug(`직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다: ${track.title}`);
+    log.debug(`직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다: ${logTitle(track.title)}`);
     return null;
   }
   if (expireMs - Date.now() < remainingMs + RESUME_URL_MARGIN_MS) {
-    log.debug(`직전 스트림 주소의 만료가 가까워 주소를 새로 받습니다: ${track.title} | 만료 ${Math.round((expireMs - Date.now()) / 1000)}초 후`);
+    log.debug(`직전 스트림 주소의 만료가 가까워 주소를 새로 받습니다: ${logTitle(track.title)} | 만료 ${Math.round((expireMs - Date.now()) / 1000)}초 후`);
     return null;
   }
   return { ...resume.info, url: resume.url };
@@ -151,7 +152,7 @@ function expireOf(url: string) {
 
 function resumeKeyOf(track: QueuedTrack | null) {
   if (!track) return null;
-  return track.id || track.requestKey || `${track.title}-${track.duration}`;
+  return track.id || track.requestKey || `${track.title ?? ""}-${track.duration}`;
 }
 
 /**
@@ -175,7 +176,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   // 표시는 처음 보인 값을 지킨다. 캐시 기록은 받아 둔 음원을 잰 값, 스트림 정보는 출처가 준 값이다
   const shown = shownDuration(track, durationSec, pb.cacheFile ? "measured" : "provided");
   if (shown) Object.assign(track, shown);
-  log.info(`재생: ${track.title} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
+  log.info(`재생: ${logTitle(track.title)} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
 
   const audioKey = audioKeyOf(track.audioUrl);
   protectAudio(player, audioKey);

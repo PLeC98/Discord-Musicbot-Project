@@ -65,7 +65,7 @@ beforeEach(() => {
 
 const USER = "111111111111111111";
 
-type Seen = string | { handle: string[] };
+type Seen = string | { handle: Array<string | null> };
 type FakeTrack = { title: string; url?: string; pageUrl?: string; thumbnail?: string; duration?: number };
 type World = ReturnType<typeof world>;
 

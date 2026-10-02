@@ -56,6 +56,7 @@ import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { bindToGuild } from "../infra/guildContext.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
@@ -1087,7 +1088,7 @@ class Player {
       // platform 으로는 못 가른다. 음원을 직접 트는 곡도 platform 은 출처 이름(anisongdb 등)이다.
       // 소리가 어디서 오는지는 음원 주소가 가른다.
       const how = `${inputKind(picked.audioUrl) === "direct" ? "음원 직접" : `유튜브 ${picked.audioUrl}`}${picked.audioFoundBy === "ledger" ? " (매핑 재사용, 검색 생략)" : ""}`;
-      clog.info(`자동재생 뽑기: "${picked.title}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
+      clog.info(`자동재생 뽑기: "${logTitle(picked.title)}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {
       log.error("자동재생 오류:", messageOf(error));
@@ -1198,7 +1199,7 @@ class Player {
     const failed = this.currentTrack;
     if (failed?.autoplay && YouTube.isVideoUnavailableError(error)) {
       autoplayRoute.markDead(failed);
-      log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
+      log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${logTitle(failed.title)}"`);
       tell = false;
     }
     // 다음 곡이 또 실패하면 여기로 다시 온다. 연달아 실패하면 대기열을 다 버리기 전에 멈춘다(자동재생이 죽은 곡을 계속 고를 때도)
@@ -1259,7 +1260,7 @@ class Player {
   _showTrackInVoiceStatus() {
     if (!this.currentTrack) return;
     const { playingPrefix, pausedPrefix } = config.voiceStatus;
-    bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
+    bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title ?? ""}`.trimEnd()), "음성 채널 상태 바꾸기");
   }
 
   /** 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다 */

@@ -9,7 +9,7 @@ import * as queueText from "./text/ko/queue.ts";
 /** 일부만 담은 까닭. dropped 대기열이 차서 못 넣은 곡 수, skipped 받을 수 없어 뺀 곡 수, total 출처 전체 곡 수(일부만 받았을 때), queueLimited 자리가 모자라 목록을 덜 받음 */
 type AdditionNotice = { dropped?: number; skipped?: number; total?: number | null; queueLimited?: boolean };
 /** 담은 곡. collection 은 여러 곡을 담은 출처의 종류(sources/lookup 의 collection 값), null 이면 한 곡. insertFirst 는 대기열 맨 앞에 넣었는지 */
-type Added = { tracks: Array<{ title?: string }>; collection: string | null; insertFirst?: boolean; notice?: AdditionNotice };
+type Added = { tracks: Array<{ title?: string | null }>; collection: string | null; insertFirst?: boolean; notice?: AdditionNotice };
 
 function addedView({ tracks, collection, insertFirst = false, notice = {} }: Added) {
   const { dropped = 0, skipped = 0, total = null, queueLimited = false } = notice;

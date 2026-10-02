@@ -32,7 +32,7 @@ async function youtube(source: GenreSource): Promise<Candidate[]> {
   const part = await YouTube.getPlaylist(source.url, { offset, limit: PLAYLIST_PAGE });
   // 재생목록은 아티스트가 안 온다(제목뿐). 그래서 youtubeMatch를 거치지 않고 주소를 그대로 쓴다
   // 영상 주소가 곧 요청 열쇠다(getPlaylist)
-  return (part?.tracks || []).flatMap((t) => (t.audioUrl && !t.isLive ? [{ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey ?? t.audioUrl }] : []));
+  return (part?.tracks || []).flatMap((t) => (t.audioUrl && t.title && !t.isLive ? [{ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey ?? t.audioUrl }] : []));
 }
 
 export { spotify, youtube };

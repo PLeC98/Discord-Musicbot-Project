@@ -31,7 +31,7 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
 
     // 서버가 알려 준 파일 이름이 먼저다(서명된 주소 · 다운로드 주소는 경로가 파일 이름이 아닐 수 있다)
     const urlPath = new URL(url).pathname;
-    const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath) || "알 수 없는 파일";
+    const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath);
     const extension = path.extname(filename).toLowerCase();
     // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 머리를 붙인다. 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 받아 두기 없음)
     const radio = Object.keys(headers).some((name) => name.toLowerCase().startsWith("icy-"));
@@ -94,10 +94,10 @@ function decoded(text: string): string {
  * 파일 이름에서 제목. 확장자를 떼고 인코딩을 푼다. 띄어쓰기가 없는 이름(my-song_name)만 구분자를 공백으로 바꾼다.
  * 대소문자는 건드리지 않는다(iPhone 같은 이름을 바꾼다). 받은 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cacheDownload)
  */
-function extractTitle(filename: string): string {
+function extractTitle(filename: string): string | null {
   const name = decoded(path.parse(filename).name);
   const title = /\s/.test(name) ? name.replace(/_+/g, " ") : name.replace(/[-_.]+/g, " ");
-  return title.replace(/\s+/g, " ").trim() || "알 수 없는 제목";
+  return title.replace(/\s+/g, " ").trim() || null;
 }
 
 /** Content-Disposition 의 파일 이름(filename* 가 먼저). 없으면 null */

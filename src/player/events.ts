@@ -24,7 +24,7 @@ type Notices = {
   "autoplay-gave-up": { genre: string };
   "skipped-after-error": { error: unknown };
   "failed-in-row": { count: number; left: number };
-  restored: { title: string; atSec: number; paused: boolean };
+  restored: { title: string | null; atSec: number; paused: boolean };
 };
 type NoticeCode = keyof Notices;
 /** 알림마다 넘기는 것 */

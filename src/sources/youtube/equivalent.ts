@@ -6,6 +6,7 @@ import * as links from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { rankCandidates, searchCandidates } from "./match.ts";
+import { logTitle } from "../../infra/log/title.ts";
 
 /** 동등물을 찾을 곡. 찾으면 audioUrl · audioFoundBy 를 적는다 */
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: "given" | "ledger" | "search"; [field: string]: unknown };
@@ -28,7 +29,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
   if (known && links.isYouTubeURL(known)) {
     track.audioUrl = known;
     track.audioFoundBy = "ledger"; // 소비 시 unavailable이면 재검색 트리거
-    log.debug(`유튜브 동등물(매핑 재사용, 검색 생략): "${track.title}" → ${known}`);
+    log.debug(`유튜브 동등물(매핑 재사용, 검색 생략): "${logTitle(track.title)}" → ${known}`);
     return known;
   }
 
@@ -42,7 +43,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 
   track.audioUrl = best.url;
   track.audioFoundBy = "search";
-  log.info(`유튜브 동등물(검색): "${track.title}" → ${best.url}`);
+  log.info(`유튜브 동등물(검색): "${logTitle(track.title)}" → ${best.url}`);
   return track.audioUrl;
 }
 

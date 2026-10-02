@@ -2,12 +2,13 @@
 // 머리 줄과 본문이 있는 응답은 { title, body } 로 돌려준다(ui/controlReplies 가 그리고, 누가 했나 줄을 붙인다)
 
 import { josa } from "../../../rules/josa.ts";
+import { songTitle } from "./labels.ts";
 
-type Linked = { title: string; pageUrl: string };
+type Linked = { title: string | null; pageUrl: string };
 
-const link = (track: Linked) => `**[${track.title}](${track.pageUrl})**`;
-// 곡 링크 뒤에 목적격 조사(제목의 끝소리로 고른다)
-const linkObject = (track: Linked) => `${link(track)}${josa(track.title, "을")}`;
+const link = (track: Linked) => `**[${songTitle(track.title)}](${track.pageUrl})**`;
+// 곡 링크 뒤에 목적격 조사(보이는 제목의 끝소리로 고른다)
+const linkObject = (track: Linked) => `${link(track)}${josa(songTitle(track.title), "을")}`;
 
 /** 누가 했나 줄의 이름표 */
 const requestedBy = () => "👤 요청한 사람";

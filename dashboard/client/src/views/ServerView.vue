@@ -28,7 +28,7 @@
               </div>
               <div class="flex-1 pt-0.5 overflow-hidden">
                 <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="block text-[1.1rem] font-extrabold text-fg no-underline mb-1 overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em] hover:underline">
-                  {{ player.currentTrack.title }}
+                  {{ songTitle(player.currentTrack.title) }}
                 </a>
                 <div class="text-muted text-sm mb-3" v-if="player.currentTrack.artist">{{ player.currentTrack.artist }}</div>
               </div>
@@ -193,7 +193,7 @@
             <img v-if="track.thumbnail" :src="track.thumbnail" class="size-9 rounded-md object-cover shrink-0" />
             <div v-else class="size-9 rounded-md bg-white/6 flex items-center justify-center shrink-0 text-muted"><Icon name="audio-file" :size="18" /></div>
             <div class="flex-1 overflow-hidden">
-              <div class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap mb-0.5">{{ track.title }}</div>
+              <div class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap mb-0.5">{{ songTitle(track.title) }}</div>
               <div class="text-[0.78rem] text-muted">
                 <span v-if="track.artist">{{ track.artist }} &bull; </span>
                 <span>{{ fmt(track.duration) }}</span>
@@ -226,6 +226,7 @@
 </template>
 
 <script setup>
+import { songTitle } from "../../../../src/ui/text/ko/labels.ts";
 import { problemText } from "../utils/problem.js";
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";

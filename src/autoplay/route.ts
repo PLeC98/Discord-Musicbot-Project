@@ -28,6 +28,7 @@ import type { QueuedTrack } from "../player/track.ts";
 import type { Candidate } from "./sources/candidate.ts";
 import type { Limits, FilterConfig } from "./filter.ts";
 import type { Judged, AiPick } from "./assist/index.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 /** 틀 수 있는 트랙. 대기열에 담는 곡이다 */
 type PickedTrack = QueuedTrack & { audioUrl: string };
@@ -257,7 +258,7 @@ async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | u
   if (!verdict.ok) {
     // 소스를 같이 남긴다. "길이 없음"이 무더기로 나오면 그 소스가 길이를 안 준다는 뜻이고,
     // 그건 후보가 나쁜 게 아니라 소스 쪽을 고쳐야 하는 일이다.
-    log.debug(`걸러냄(${verdict.reason}${verdict.detail ? `: ${verdict.detail}` : ""}) [${cand.sourceKey}]: ${track.title}`);
+    log.debug(`걸러냄(${verdict.reason}${verdict.detail ? `: ${verdict.detail}` : ""}) [${cand.sourceKey}]: ${logTitle(track.title)}`);
     return null;
   }
   // 검색으로 얻은 것(키워드)만 한 번 더 묻는다. 주소를 직접 주는 소스는 출처가 곧 정답이다.

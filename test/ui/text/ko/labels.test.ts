@@ -11,3 +11,7 @@ test("여러 곡을 담은 출처의 이름. 모르면 재생목록", () => {
 test("곡 수", () => {
   assert.equal(labels.trackCount(12), "12곡");
 });
+
+test("곡 제목. 출처가 제목을 주지 않았으면 알 수 없는 곡", () => {
+  assert.deepEqual(["곡", null, undefined, ""].map(labels.songTitle), ["곡", "알 수 없는 곡", "알 수 없는 곡", "알 수 없는 곡"]);
+});

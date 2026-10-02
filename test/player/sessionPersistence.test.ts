@@ -122,7 +122,7 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
     () => trackState.removeAt(p, pick(p.queue.length + 1)),
     () => trackState.move(p, pick(p.queue.length + 1), pick(p.queue.length + 1)),
     () => trackState.shuffle(p, random),
-    () => p.queue.length > 0 && trackState.insertAfter(p, p.queue[pick(p.queue.length)].title, [t(), t()]),
+    () => p.queue.length > 0 && trackState.insertAfter(p, p.queue[pick(p.queue.length)].title ?? undefined, [t(), t()]),
     () => trackState.setCurrent(p, pick(3) === 0 ? null : t()),
   ];
   const rare = [() => trackState.clearQueue(p), () => trackState.reset(p, { history: pick(2) === 0 }), () => trackState.restore(p, { current: t(), queue: [t(), t()], history: [t()] })];

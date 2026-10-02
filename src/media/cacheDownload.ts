@@ -30,6 +30,7 @@ type DownloadTrack = Pick<TrackInfo, "title" | "requestKey"> & Partial<TrackInfo
 type HasAudio = Partial<TrackInfo> | null | undefined;
 import type { AudioStream } from "../sources/direct.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 // 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
 type Sources = {
@@ -119,7 +120,7 @@ const LINGER_LOG_MS = 5_000;
 // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
 function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
   if (!verifiedTitle || (track.platform !== "youtube" && track.platform !== "direct") || verifiedTitle === track.title) return;
-  log.debug(`제목 교정: "${track.title}" → "${verifiedTitle}"`);
+  log.debug(`제목 교정: "${logTitle(track.title)}" → "${verifiedTitle}"`);
   track.title = verifiedTitle;
 }
 
@@ -138,7 +139,7 @@ function record(audioKey: string, filepath: string, track: DownloadTrack, { veri
     audioCache.recordDownloadComplete(audioKey, filepath, size, track, { durationSec: audioDurationSec, audioVersion });
     trackLookup.recordTrackLookup(track, { verified: !!verifiedTitle && track.platform === "youtube" });
   } catch (error) {
-    log.warn(`캐시 기록 실패 ("${track.title}"): ${error instanceof Error ? error.message : String(error)}`);
+    log.warn(`캐시 기록 실패 ("${logTitle(track.title)}"): ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -214,7 +215,7 @@ class TrackDownloader {
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
         // (극히 드문 케이스. 새로 검색한 영상이면 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
-          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const fresh = await this.deps.equivalent.reresolveYouTube(track);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
@@ -232,7 +233,7 @@ class TrackDownloader {
 
   // 받기 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 받기 · 사전 캐싱)은 그 결과만 debug 로 남긴다
   _failed(track: DownloadTrack, error: unknown) {
-    log.error(`캐시 다운로드 실패 ("${track.title}"):`, YouTube.briefError(error));
+    log.error(`캐시 다운로드 실패 ("${logTitle(track.title)}"):`, YouTube.briefError(error));
     return error;
   }
 
@@ -268,7 +269,7 @@ class TrackDownloader {
       const measured = await this.deps.measure.durationSec(tempPath);
       const measureMs = Date.now() - measureStarted;
       const mine = await publish(tempPath, filepath);
-      if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${track.title}"`);
+      if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${logTitle(track.title)}"`);
 
       correctTitle(track, got.verifiedTitle);
       const shown = shownDuration(track, measured, "measured");
@@ -279,7 +280,7 @@ class TrackDownloader {
       // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 가를 근거다
-      log.debug(`캐시 다운로드 완료: "${track.title}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
+      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.
@@ -288,7 +289,7 @@ class TrackDownloader {
       // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
       try {
         const removed = cleanTemp(tempPath);
-        if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${track.title}`);
+        if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${logTitle(track.title)}`);
         if (audioKey) audioCache.recordError(audioKey);
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */

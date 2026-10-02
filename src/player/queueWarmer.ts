@@ -8,6 +8,7 @@ import type { Tracks } from "./trackState.ts";
 import type { QueuedTrack } from "./track.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 import { tooLongToCache } from "../media/cacheDownload.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 /** 예열이 읽는 플레이어 칸. 뺀 자리를 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
@@ -155,7 +156,7 @@ class QueueWarmer {
 
     autoplayRoute.markDead(track);
     trackState.removeAt(this.player, index);
-    log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}". 다른 곡을 고릅니다`);
+    log.info(`자동재생 곡을 뺍니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 고릅니다`);
 
     // 뺀 자리를 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
     if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 자리의 자동재생 곡 뽑기");
@@ -218,7 +219,7 @@ class QueueWarmer {
         try {
           // 예열은 조용히 도는 배경 작업이라, 이게 없으면 "왜 지금 이 곡을 받고 있나"를
           // 사후에 알 방법이 없다. 다운로드 완료는 track 카테고리가 따로 남긴다.
-          log.debug(`사전 캐싱: "${track.title}" | 대상 ${this.targets().length}곡`);
+          log.debug(`사전 캐싱: "${logTitle(track.title)}" | 대상 ${this.targets().length}곡`);
           await this.warm(track);
         } catch (err) {
           // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생 차례에 스트림도 실패해
@@ -229,7 +230,7 @@ class QueueWarmer {
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
           // 까닭은 받기가 남겼다(캐시 다운로드 실패 줄)
-          log.debug(`사전 캐싱 실패, 재생할 때 다시 받습니다: "${track.title}"`);
+          log.debug(`사전 캐싱 실패, 재생할 때 다시 받습니다: "${logTitle(track.title)}"`);
           this._failed.add(track);
         }
 

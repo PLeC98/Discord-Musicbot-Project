@@ -20,7 +20,7 @@ import type { StreamInfo } from "../sources/streamUrl.ts";
 import type { Transport } from "../rules/transportOf.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
-type ResourceMeta = { title: string; url: string; duration: number; bitrate: number };
+type ResourceMeta = { title: string | null; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 칸만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 // startedAtMs: 곡 안의 어디부터 흘리나(조각 스트림은 위치가 든 조각부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태
@@ -47,7 +47,7 @@ type InputOptions<R> = {
   streamInfo: StreamInfo | null;
   cacheFile: string | null;
   startMs: number;
-  meta: { title: string; url: string; duration: number };
+  meta: { title: string | null; url: string; duration: number };
   download: Download | null;
   onStreamLost(splicer: Splicer): boolean;
   onProgress(): void;

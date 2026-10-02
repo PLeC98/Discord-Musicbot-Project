@@ -176,6 +176,7 @@ test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이�
   assert.equal(DirectLink.extractTitle("iPhone_demo.mp3"), "iPhone demo");
   assert.equal(DirectLink.extractTitle("Artist - Song_Title.mp3"), "Artist - Song Title", "띄어 쓴 이름의 - 는 그대로");
   assert.equal(DirectLink.extractTitle("broken%E0%A4.mp3"), "broken%E0%A4", "깨진 인코딩은 그대로");
+  assert.equal(DirectLink.extractTitle("___.mp3"), null, "이름이 남지 않으면 표시 문구로 채우지 않고 비워 둔다");
 });
 
 // 회귀 대상: 주소 앞 12글자로 만들어 같은 호스트의 곡이 모두 같은 ID 였다
