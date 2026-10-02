@@ -246,8 +246,8 @@ test("POST broadcast: 한 곳도 못 보내면 성공으로 돌려주지 않는�
   const guilds = client.guilds.cache;
   client.guilds.cache = new Map(); // 보낼 서버가 없는 상태
   try {
-    const r = await req<ProblemReply & { sent: number }>("POST", "/api/admin/broadcast", { message: "아무도 못 받음" });
-    assert.deepEqual([r.status, r.json.code, r.json.sent], [409, "announce-no-guilds", 0]);
+    const r = await req<ProblemReply & { sentCount: number; totalCount: number }>("POST", "/api/admin/broadcast", { message: "아무도 못 받음" });
+    assert.deepEqual([r.status, r.json.code, r.json.sentCount, r.json.totalCount], [409, "announce-no-guilds", 0, 0]);
   } finally {
     client.guilds.cache = guilds;
   }

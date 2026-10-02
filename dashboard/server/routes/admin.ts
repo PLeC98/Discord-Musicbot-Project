@@ -158,7 +158,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
 
   // 한 곳도 못 보낸 것을 성공으로 돌려주면 운영자가 보냈다고 믿는다. 일부 실패도 구분해 알린다.
   const total = client.guilds.cache.size;
-  if (sent === 0) return sendProblem(res, total === 0 ? "announce-no-guilds" : "announce-failed", {}, { sent, failed, total });
+  if (sent === 0) return sendProblem(res, total === 0 ? "announce-no-guilds" : "announce-failed", {}, { sentCount: sent, failedCount: failed, totalCount: total });
   return res.json({ success: true, sent, failed, total, partial: failed > 0 });
 });
 
