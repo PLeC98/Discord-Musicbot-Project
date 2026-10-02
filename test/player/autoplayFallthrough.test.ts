@@ -50,7 +50,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     _countFailure: Player.prototype._countFailure,
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
-    _finishQueue: Player.prototype._finishQueue,
+    finishQueue: Player.prototype.finishQueue,
     audioPlayer: { stop() {} },
     releaseAudioProtection() {},
     scheduleStatePersist() {},

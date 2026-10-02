@@ -53,7 +53,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _countFailure: Player.prototype._countFailure,
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
-    _finishQueue: Player.prototype._finishQueue,
+    finishQueue: Player.prototype.finishQueue,
     audioPlayer: { stop() {} },
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });

@@ -419,20 +419,38 @@ async function processTracks(client: Client, guildId: string, trackData: TrackDa
 // 첫 곡이 실패해 다음 곡으로 살렸으면 그 곡은 이미 대기열 몫에 들어 있다
 const placedOf = (start: FirstStart, queued: QueuedTrack[]) => (start.started ? [start.started, ...queued] : queued);
 
+// 쉬던 플레이어면 첫 곡을 틀고, 나머지를 대기열에 넣는다. 첫 곡이 실패했으면 다음 곡부터 다시 시도한다.
+// 첫 곡을 트는 동안은 틀지 못해도 플레이어가 끝내지 않는다(남은 곡을 아직 넣지 않았다). 끝은 부르는 쪽(place)이 맡는다
+async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackData, stamped: QueuedTrack[], responder: Responder) {
+  const wasIdle = !player.currentTrack && player.queue.length === 0 && stamped.length > 0;
+  player.finishByCaller = wasIdle;
+  try {
+    const start: FirstStart = wasIdle ? await startFirst(panel, player, stamped[0], responder) : { opened: null, failure: null };
+    const addition = enqueue(player, trackData, wasIdle ? stamped.slice(1) : stamped);
+    // 음성 채널에 붙지 못했으면 다음 곡도 붙지 못한다
+    const opened = start.failure ? (start.failure.code === "voice-failed" ? null : await startNext(panel, player, responder)) : start.opened;
+    return { start, addition, opened };
+  } finally {
+    player.finishByCaller = false;
+  }
+}
+
 async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
   const wasPlayingBefore = player.currentTrack !== null;
   const { tracks } = trackData;
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester, addedAt: Date.now() });
 
   // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
-  const wasIdle = !player.currentTrack && player.queue.length === 0 && tracks.length > 0;
-  const start = wasIdle ? await startFirst(panel, player, stamp(tracks[0]), responder) : { opened: null, failure: null };
-  const addition = enqueue(player, trackData, (wasIdle ? tracks.slice(1) : tracks).map(stamp));
-  // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도. 음성 채널에 붙지 못했으면 다음 곡도 붙지 못한다
-  const opened = start.failure ? (start.failure.code === "voice-failed" ? null : await startNext(panel, player, responder)) : start.opened;
+  const { start, addition, opened } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 
   // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
-  if (start.failure && !opened) return { success: false, ...start.failure };
+  // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
+  // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
+  if (start.failure && !opened) {
+    if (start.failure.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+    else if (!player.currentTrack && player.queue.length === 0) await player.finishQueue();
+    return { success: false, ...start.failure };
+  }
 
   // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
   if (opened && tracks.length > 1) {

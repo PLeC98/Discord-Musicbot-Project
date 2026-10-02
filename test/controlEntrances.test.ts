@@ -215,7 +215,7 @@ type Entrance = "C" | "B" | "D";
 const ENTRANCES: Entrance[] = ["C", "B", "D"];
 
 //            none   denied idle  alone  playing loopTrack live  starting
-// alone: 곡은 있고 대기열·기록이 빔. live: 지금 곡이 라이브, 대기열 2곡. starting: play() 가 도는 중.
+// alone: 곡은 있고 대기열·기록이 빔(건너뛰면 대기열 소진으로 끝난다). live: 지금 곡이 라이브, 대기열 2곡. starting: play() 가 도는 중.
 
 const TABLE: Record<string, Partial<Record<Entrance, string>>> = {
   pause: {
@@ -224,9 +224,9 @@ const TABLE: Record<string, Partial<Record<Entrance, string>>> = {
     D: "x x x pause pause pause pause pause",
   },
   skip: {
-    C: "x x x x skip skip skip skip",
-    B: "x x x x skip skip skip skip",
-    D: "x x x x skip skip skip skip",
+    C: "x x x skip skip skip skip skip",
+    B: "x x x skip skip skip skip skip",
+    D: "x x x skip skip skip skip skip",
   },
   stop: {
     C: "x x dispose dispose dispose dispose dispose dispose", // 곡이 없어도 멈춘다(버린다)

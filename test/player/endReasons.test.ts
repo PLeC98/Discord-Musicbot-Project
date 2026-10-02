@@ -87,6 +87,18 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 등록부에 남는다", asy
 // 운영자는 권한 검사를 건너뛴다. 입구(controls)를 그대로 지난다
 const OWNER = { owner: true as const };
 
+test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 지움 · 나갈 예약)", async () => {
+  const p = playingPlayer(yt("zzzzzzzzzzz", { title: "마지막 곡" }));
+  p.queue = [];
+  const lines = await endLines(async () => assert.equal((await controls.skip(p, OWNER)).ok, true));
+  const leaveTimer = p.idle.emptyTimer;
+  h.dispose(p);
+  assert.deepEqual(lines, ['트랙 종료: "마지막 곡" (youtube) | 원인=skip']);
+  assert.equal(p.currentTrack, null);
+  assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
+  assert.ok(leaveTimer, "나갈 예약");
+});
+
 test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 지운다", async () => {
   const p = playingPlayer(yt("bbbbbbbbbbb", { title: "둘째 곡" }));
   const lines = await endLines(() => controls.stop(p, OWNER));

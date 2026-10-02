@@ -80,7 +80,6 @@ async function skip(player: MaybePlayer, actor: Actor) {
   const { blocked, track } = await permittedTrack(player, actor, perm.checkSkip);
   if (!track) return blocked;
   const restarted = player.loop === "track";
-  if (player.queue.length === 0 && !restarted && !player.autoplay) return fail("nothing-to-skip");
   if (!player.skip()) return fail("switch-failed");
   if (!restarted && player.currentTrack) await refresh(player);
   return done({ track, restarted });

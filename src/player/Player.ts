@@ -179,6 +179,8 @@ class Player {
   failedTracks: number;
   /** 연달아 실패해 멈춰도 글자 채널에 알리지 않는다(세션을 되살리는 /join 이 명령 응답으로 말하는 동안) */
   quietFailures = false;
+  /** 곡 담기가 쉬던 플레이어에 첫 곡을 트는 동안. 틀지 못해도 대기열 소진으로 끝내지 않는다(담을 곡이 아직 남았다). 끝은 담기가 맡는다 */
+  finishByCaller = false;
   lifecycle: PlaybackState;
   lastPlaybackPosition: number;
   pauseReasons: Set<string>;
@@ -885,7 +887,7 @@ class Player {
         return;
       }
       if (await this._playNext(finishedTrack, reason)) return;
-      await this._finishQueue();
+      await this.finishQueue();
     } finally {
       this.lifecycle.finishEnd();
       this._endReason = null;
@@ -985,8 +987,8 @@ class Player {
     }
     // 세션을 되살리는 /join 은 이것을 명령 응답으로 말한다(quietFailures)
     if (!this.quietFailures) await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
-    // 남은 곡이 없으면 보통의 대기열 소진과 같다(세션을 지우고, 나갈 시각을 보이고, 나간다)
-    if (this.queue.length === 0) return this._finishQueue();
+    // 남은 곡이 없으면 보통의 대기열 소진과 같다(세션을 지우고, 나갈 시각을 보이고, 나간다). 곡 담기가 첫 곡을 트는 중이면 담기가 끝낸다
+    if (this.queue.length === 0) return this.finishByCaller ? undefined : this.finishQueue();
     bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
     // 남은 곡이 있으니 나가지 않는다. 틀 게 없음 퇴장을 걸지 않는다(혼자 남음 퇴장은 그대로 돈다)
     await playerEvents.ended(this, "failures");
@@ -1038,7 +1040,7 @@ class Player {
   }
 
   // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
-  async _finishQueue() {
+  async finishQueue() {
     trackState.reset(this, { history: true });
 
     bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
@@ -1216,14 +1218,15 @@ class Player {
       await this.play(0);
     } else {
       trackState.setCurrent(this, null);
-      // 시작/마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태·유령 재생을 해제.
-      // 사용자 알림은 호출자(명령 editReply / 대시보드 응답)가 play() 반환값으로 처리.
-      // 여기서 textChannel로 또 보내면 중복이 되므로 전송하지 않는다.
+      // 마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태·유령 재생을 해제.
+      // 사용자 알림은 호출자(명령 editReply / 대시보드 응답)가 play() 반환값으로 처리한다. 여기서 글자 채널로 또 보내지 않는다.
       try {
         this.audioPlayer.stop(true);
       } catch {
         /* 이미 멈춘 플레이어다 */
       }
+      // 틀 곡이 없다. 다 튼 것과 같이 끝낸다(끝난 패널 · 세션 지움 · 나갈 예약). 곡 담기가 첫 곡을 트는 중이면 담기가 끝낸다
+      if (!this.finishByCaller) await this.finishQueue();
     }
   }
 

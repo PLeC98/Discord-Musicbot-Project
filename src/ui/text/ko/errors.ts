@@ -46,7 +46,6 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "queue-full": ({ max }) => warning("state", "곡을 추가하지 못했어요!", `대기열이 가득 찼어요... (최대 ${max}곡)`),
   "no-previous": () => warning("state", "이전 곡이 없어요!", "이 곡이 처음으로 튼 곡이거나, 기록이 초기화되어 이전 곡을 재생할 수 없어요."),
   "no-highlight": () => warning("state", "하이라이트가 없어요!", "이 곡에는 SponsorBlock 하이라이트 지점이 없어요."),
-  "nothing-to-skip": () => warning("state", "건너뛸 노래가 없습니다! 대기열에 노래가 없습니다."),
   "too-few-to-shuffle": () => warning("state", "섞을 곡이 없어요!", "셔플하려면 대기열에 곡이 2곡 이상 있어야 해요."),
   "too-few-to-move": () => warning("state", "순서를 바꿀 곡이 없어요!", "순서를 바꾸려면 대기열에 곡이 2곡 이상 있어야 해요."),
   // 건너뛰기 · 이전 곡 · 곡으로 건너뛰기가 곡을 바꾸지 못했다(지금 곡이 없을 때 난다)

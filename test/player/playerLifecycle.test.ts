@@ -906,6 +906,58 @@ test("연달아 실패해 멈출 때 남은 곡이 없으면 보통의 대기열
   assert.ok(leaveTimer, "대기열 소진처럼 나갈 예약을 건다");
 });
 
+test("마지막 곡이 열리지 않으면(연달아 실패 전) 다 튼 것과 같이 끝낸다: 끝난 패널 · 세션 지움 · 나갈 예약", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  unplayable();
+  p.currentTrack = yt("l1aaaaaaaaa");
+  p.queue = [];
+
+  await p.play(0);
+  const leaveTimer = p.idle.emptyTimer;
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.ok(seen.includes("end:queue-end"));
+  assert.ok(calls.persists.includes("remove"));
+  assert.ok(leaveTimer, "나갈 예약을 건다(음성에 머물러 얼지 않게)");
+});
+
+test("곡 담기가 첫 곡을 트는 동안(finishByCaller)은 열리지 않아도 끝내지 않는다. 담기가 끝을 맡는다", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  unplayable();
+  p.currentTrack = yt("l2aaaaaaaaa");
+  p.queue = [];
+  p.finishByCaller = true;
+
+  await p.play(0);
+  const leaveTimer = p.idle.emptyTimer;
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.equal(seen.includes("end:queue-end"), false);
+  assert.equal(calls.persists.includes("remove"), false);
+  assert.equal(leaveTimer, null);
+});
+
+test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 없어도 끝내지 않는다(담기가 한 번 끝낸다)", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  const [a, b, c] = ["l3aaaaaaaaa", "l3bbbbbbbbb", "l3ccccccccc"].map((id) => yt(id));
+  unplayable();
+  p.currentTrack = a;
+  p.queue = [b, c];
+  p.finishByCaller = true;
+
+  await p.play(0);
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.equal(seen.includes("end:queue-end"), false);
+  assert.equal(calls.persists.includes("remove"), false);
+});
+
 test("소리를 낸 곡이 끝나면 연달아 실패한 수를 다시 센다", async () => {
   const p = h.makePlayer();
   playing(p, yt("f5fffffffff"), 5_000);

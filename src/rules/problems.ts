@@ -28,7 +28,6 @@ const PROBLEMS = {
   "queue-full": { status: 409, title: "Queue is full", params: ["max"] },
   "no-previous": { status: 409, title: "No previous track" },
   "no-highlight": { status: 409, title: "Track has no highlight" },
-  "nothing-to-skip": { status: 409, title: "Nothing to skip" },
   "too-few-to-shuffle": { status: 409, title: "Too few tracks to shuffle" },
   "too-few-to-move": { status: 409, title: "Too few tracks to move" },
   "switch-failed": { status: 409, title: "Could not switch tracks" },

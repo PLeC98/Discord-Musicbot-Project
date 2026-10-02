@@ -117,8 +117,10 @@ test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 �
   assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "control-failed", "멈추기 실패는 붙든 까닭과 상관없다");
 });
 
-test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터, 자동재생은 다음 곡을 골라 허용). 곡 요청자는 DJ 가 아니어도 된다", async () => {
-  assert.equal(codeOf(await controls.skip(fakePlayer({ queue: [] }), DJ)), "nothing-to-skip");
+test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처리가 대기열 소진으로 끝낸다, 한곡 반복은 처음부터). 곡 요청자는 DJ 가 아니어도 된다", async () => {
+  const last = fakePlayer({ queue: [] });
+  assert.deepEqual(await controls.skip(last, DJ), { ok: true, track: last.currentTrack, restarted: false });
+  assert.deepEqual(last.calls, ["skip"]);
   assert.equal((await controls.skip(fakePlayer({ queue: [], autoplay: "pop" }), DJ)).ok, true);
 
   const looping = fakePlayer({ queue: [], loop: "track" });

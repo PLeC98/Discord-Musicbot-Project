@@ -82,6 +82,12 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
       if (!this.currentTrack && this.queue.length) this.currentTrack = this.queue.shift() ?? null;
       return next;
     },
+    async finishQueue() {
+      calls.push("finish");
+    },
+    async dispose() {
+      calls.push("dispose");
+    },
   });
   const client = fake<Client>({ players: new Map([["g1", player]]), user: { id: "bot" } });
   const mem = new RecordingPanels(client, calls);
@@ -109,11 +115,13 @@ test("이미 붙어 있으면 연결하지 않는다", async () => {
   assert.deepEqual(calls, [["play"], ["embed", "a"]]);
 });
 
-test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만든다", async () => {
+test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만들고, 틀 곡이 없으니 대기열 소진으로 끝낸다(나갈 예약)", async () => {
   const withCode = setup({ plays: [{ ok: false, code: "live-ended" }] });
   assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("cannot-start")) });
   assert.equal(withCode.player.currentTrack, null);
   assert.ok(!withCode.calls.some((c) => Array.isArray(c) && c[0] === "embed"));
+  assert.equal(withCode.calls.at(-1), "finish");
+  assert.equal(withCode.player.finishByCaller, false, "첫 곡을 트는 동안만 끝을 맡는다");
 
   const noMessage = setup({ plays: [{ ok: false }] });
   const quiet = await noMessage.add({ tracks: [track("a")] }, who);
@@ -171,15 +179,15 @@ test("되살리기도 실패하면 첫 곡의 실패를 돌려준다", async () 
   assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("cannot-start")) });
 });
 
-test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목록이어도 다음 곡을 붙여 보지 않는다", async () => {
+test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목록이어도 다음 곡을 붙여 보지 않고, 플레이어를 버린다", async () => {
   const one = setup({ connects: false });
   assert.deepEqual(said(await one.add({ tracks: [track("a")] }, who)), { success: false, code: "voice-failed", message: plainText(errors.notice("voice-failed")) });
   assert.equal(one.player.currentTrack, null);
-  assert.deepEqual(one.calls, ["connect"]);
+  assert.deepEqual(one.calls, ["connect", "dispose"]);
 
   const list = setup({ connects: false });
   assert.equal(said(await list.add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)).success, false);
-  assert.deepEqual(list.calls, ["connect"]);
+  assert.deepEqual(list.calls, ["connect", "dispose"]);
 });
 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {

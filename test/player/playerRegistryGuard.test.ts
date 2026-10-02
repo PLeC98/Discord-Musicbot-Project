@@ -63,7 +63,7 @@ function makePlayer(players: Map<string, unknown>, current: { title: string; dur
     _countFailure: Player.prototype._countFailure,
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
-    _finishQueue: Player.prototype._finishQueue,
+    finishQueue: Player.prototype.finishQueue,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     async persistState() {},
