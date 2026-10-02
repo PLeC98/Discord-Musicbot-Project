@@ -17,14 +17,14 @@ const exported: GuildCommand = {
     .setName("setchannel")
     .setDescription("Set a dedicated bot channel for music requests and announcements")
     .setDescriptionLocalizations({
-      ko: "음악 요청 및 공지용 봇 전용 채널을 설정합니다",
+      ko: "제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요)",
     })
     .addChannelOption((option) =>
       option
         .setName("channel")
         .setDescription("Channel to designate (defaults to current channel)")
         .setDescriptionLocalizations({
-          ko: "지정할 채널 (기본값: 현재 채널)",
+          ko: "설정할 채널 (비우면 명령어를 입력한 채널)",
         })
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(false),
@@ -34,9 +34,9 @@ const exported: GuildCommand = {
         .setName("action")
         .setDescription("Set or remove the bot channel")
         .setDescriptionLocalizations({
-          ko: "봇 채널 설정 또는 제거",
+          ko: "설정 또는 해제",
         })
-        .addChoices({ name: "Set", value: "set" }, { name: "Remove", value: "remove" })
+        .addChoices({ name: "Set", name_localizations: { ko: "설정" }, value: "set" }, { name: "Remove", name_localizations: { ko: "해제" }, value: "remove" })
         .setRequired(false),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),

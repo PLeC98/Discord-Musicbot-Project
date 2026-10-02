@@ -8,7 +8,7 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("queue")
     .setDescription("Show the play queue")
-    .setDescriptionLocalizations({ ko: "대기열을 표시합니다" })
+    .setDescriptionLocalizations({ ko: "대기열을 보여줘요" })
     .addIntegerOption((option) => option.setName("page").setDescription("Page number (default: 1)").setDescriptionLocalizations({ ko: "페이지 번호 (기본값: 1)" }).setRequired(false).setMinValue(1)),
 
   async execute(interaction, client) {

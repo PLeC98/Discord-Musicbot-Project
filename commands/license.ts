@@ -6,7 +6,7 @@ import * as infoText from "../src/ui/text/info.ts";
 
 const exported: AnywhereCommand = {
   anywhere: true,
-  data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스 정보와 소스 코드 위치를 보여줍니다" }),
+  data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스와 소스 코드 저장소를 표시해요" }),
 
   async execute(interaction) {
     const UPSTREAM_REPO = "https://github.com/umutxyp/MusicBot";

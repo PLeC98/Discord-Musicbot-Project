@@ -6,8 +6,8 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("volume")
     .setDescription("Set the playback volume")
-    .setDescriptionLocalizations({ ko: "재생 볼륨을 설정합니다" })
-    .addIntegerOption((option) => option.setName("level").setDescription("Volume level (0 ~ 100)").setDescriptionLocalizations({ ko: "볼륨 크기 (0 ~ 100)" }).setRequired(true).setMinValue(0).setMaxValue(100)),
+    .setDescriptionLocalizations({ ko: "볼륨을 설정해요" })
+    .addIntegerOption((option) => option.setName("level").setDescription("Volume level (0 ~ 100)").setDescriptionLocalizations({ ko: "설정할 볼륨 (0~100)" }).setRequired(true).setMinValue(0).setMaxValue(100)),
 
   async execute(interaction, client) {
     await answerVolume(interaction, client.players.get(interaction.guild.id), interaction.options.getInteger("level", true));

@@ -9,7 +9,7 @@ import config from "../config.ts";
 const exported: GuildCommand = {
   // 봇 전체에서 SponsorBlock 을 껐으면(SPONSORBLOCK_ENABLED=false) 등록하지 않는다
   enabled: () => config.sponsorblock.enabled,
-  data: new SlashCommandBuilder().setName("sponsorblock").setDescription("Configure SponsorBlock auto-skip").setDescriptionLocalizations({ ko: "SponsorBlock 자동 스킵을 설정합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("sponsorblock").setDescription("Configure SponsorBlock auto-skip").setDescriptionLocalizations({ ko: "SponsorBlock 기능 설정 패널을 열어요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
     const per = await GuildSettingsManager.getSponsorBlock(interaction.guild.id);

@@ -7,7 +7,7 @@ import * as errors from "../src/ui/text/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
 
 const exported: GuildCommand = {
-  data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "현재 재생 중 패널을 채널 하단에 띄웁니다" }),
+  data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "재생 패널을 이 채널의 맨 아래에 다시 띄워요" }),
 
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;

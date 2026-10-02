@@ -23,7 +23,7 @@ function usageBar(used: number, max: number, width = 12) {
 
 const exported: AnywhereCommand = {
   anywhere: true,
-  data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 표시합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 보여줘요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, _client) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

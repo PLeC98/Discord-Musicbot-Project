@@ -5,7 +5,7 @@ import * as infoText from "../src/ui/text/info.ts";
 
 const exported: AnywhereCommand = {
   anywhere: true,
-  data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇 응답 레이턴시를 확인합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇의 응답 시간을 측정해요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, client) {
     const { resource } = await interaction.reply({ content: infoText.pinging(), withResponse: true, flags: MessageFlags.Ephemeral });

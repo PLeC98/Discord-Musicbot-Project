@@ -6,7 +6,7 @@ import { nowPlayingView } from "../src/ui/nowPlayingInfo.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
-    ko: "현재 재생 중인 곡의 정보를 보여줍니다",
+    ko: "재생 중인 곡의 정보를 보여줘요",
   }),
 
   async execute(interaction, client) {

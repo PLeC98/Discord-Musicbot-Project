@@ -11,7 +11,7 @@ const exported: GuildCommand = {
     .setName("setdjrole")
     .setDescription("Configure DJ roles for playback controls")
     .setDescriptionLocalizations({
-      ko: "DJ 역할을 지정합니다 (복수 선택 가능)",
+      ko: "DJ 역할을 설정해요 (복수 선택 가능)",
     })
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 

@@ -42,8 +42,8 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("seek")
     .setDescription("Seek to a specific time in the current track")
-    .setDescriptionLocalizations({ ko: "현재 곡의 특정 시간으로 이동합니다" })
-    .addStringOption((option) => option.setName("time").setDescription("Target time (e.g. 1:30, 3m20s, 90)").setDescriptionLocalizations({ ko: "이동할 시간 (예: 1:30, 3m20s, 90)" }).setRequired(true)),
+    .setDescriptionLocalizations({ ko: "현재 곡의 특정 시간으로 이동해요" })
+    .addStringOption((option) => option.setName("time").setDescription("Target time (e.g. 1:30, 3m20s, 90)").setDescriptionLocalizations({ ko: "이동할 시간 (예: 1:30 · 3m20s · 90)" }).setRequired(true)),
 
   async execute(interaction, client) {
     const seekMs = parseTimeInput(interaction.options.getString("time", true));

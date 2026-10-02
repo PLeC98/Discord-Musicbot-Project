@@ -58,14 +58,14 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     .setName("search")
     .setDescription("Search and select music on YouTube")
     .setDescriptionLocalizations({
-      ko: "유튜브에서 음악을 검색/선택합니다",
+      ko: "유튜브에서 검색해서 재생해요",
     })
     .addStringOption((option) =>
       option
         .setName("query")
         .setDescription("Music name or artist to search")
         .setDescriptionLocalizations({
-          ko: "검색할 음악 이름 또는 아티스트",
+          ko: "검색할 키워드",
         })
         .setRequired(true),
     ),

@@ -33,7 +33,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
           .setName("query")
           .setDescription("Song name, artist, YouTube/Spotify/SoundCloud URL or direct link")
           .setDescriptionLocalizations({
-            ko: "곡 이름, 아티스트, 유튜브/스포티파이/사운드클라우드 URL, 직접 링크",
+            ko: "지원하는 플랫폼이나 미디어 파일 링크, 유튜브 검색어",
           })
           .setRequired(true),
       ),
@@ -73,7 +73,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
 const exported = playCommand({
   name: "play",
   description: "Plays music - Supports YouTube, Spotify, SoundCloud or direct links",
-  ko: "음악을 재생합니다",
+  ko: "곡을 재생해요",
   permission: (member) => checkAdd(member) || checkSummon(member),
 });
 export default exported;

@@ -71,7 +71,7 @@ function buildSystemEmbed(client: Client<true>) {
 }
 
 const exported: GuildCommand = {
-  data: new SlashCommandBuilder().setName("system").setDescription("Show bot system information").setDescriptionLocalizations({ ko: "봇 시스템 정보를 표시합니다" }),
+  data: new SlashCommandBuilder().setName("system").setDescription("Show bot system information").setDescriptionLocalizations({ ko: "봇의 시스템 정보를 보여줘요" }),
 
   async execute(interaction, client) {
     // 호스트 CPU/메모리/디스크 정보 노출. Discord 권한으로 표현할 수 없는 봇 운영자(OWNER_ID) 전용

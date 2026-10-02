@@ -33,7 +33,7 @@ async function buildHelpEmbed(client: Client<true>) {
 }
 
 const exported: GuildCommand = {
-  data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어를 표시합니다" }),
+  data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어 목록을 알려줘요" }),
 
   async execute(interaction, client) {
     const { embed, row } = await buildHelpEmbed(client);

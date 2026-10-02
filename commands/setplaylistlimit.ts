@@ -14,9 +14,16 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("setplaylistlimit")
     .setDescription("Set how many songs a playlist adds at once")
-    .setDescriptionLocalizations({ ko: "재생목록을 넣을 때 한 번에 들어가는 곡 수를 정합니다" })
-    .addIntegerOption((option) => option.setName("count").setDescription("Songs per add (leave empty to see the current value)").setDescriptionLocalizations({ ko: "한 번에 넣을 곡 수 (비우면 지금 값을 보여 줍니다)" }).setMinValue(1).setRequired(false))
-    .addStringOption((option) => option.setName("action").setDescription("Set, or reset to the default").setDescriptionLocalizations({ ko: "설정하거나 기본값으로 되돌립니다" }).addChoices({ name: "Set", value: "set" }, { name: "Reset", value: "reset" }).setRequired(false))
+    .setDescriptionLocalizations({ ko: "재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요" })
+    .addIntegerOption((option) => option.setName("count").setDescription("Songs per add (leave empty to see the current value)").setDescriptionLocalizations({ ko: "한 번에 넣을 곡 수 (비우면 현재 설정 값 표시)" }).setMinValue(1).setRequired(false))
+    .addStringOption((option) =>
+      option
+        .setName("action")
+        .setDescription("Set, or reset to the default")
+        .setDescriptionLocalizations({ ko: "설정 또는 기본값으로 되돌리기" })
+        .addChoices({ name: "Set", name_localizations: { ko: "설정" }, value: "set" }, { name: "Reset", name_localizations: { ko: "기본값" }, value: "reset" })
+        .setRequired(false),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {

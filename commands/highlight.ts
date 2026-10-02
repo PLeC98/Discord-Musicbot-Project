@@ -7,7 +7,7 @@ import config from "../config.ts";
 const exported: GuildCommand = {
   // 하이라이트는 SponsorBlock 이 준다. 봇 전체에서 껐으면 등록하지 않는다
   enabled: () => config.sponsorblock.enabled,
-  data: new SlashCommandBuilder().setName("highlight").setDescription("Jump to the community highlight of the current track").setDescriptionLocalizations({ ko: "현재 곡의 하이라이트 지점으로 이동합니다" }),
+  data: new SlashCommandBuilder().setName("highlight").setDescription("Jump to the community highlight of the current track").setDescriptionLocalizations({ ko: "현재 곡의 하이라이트로 이동해요" }),
 
   async execute(interaction, client) {
     await answerHighlight(interaction, client.players.get(interaction.guild.id));

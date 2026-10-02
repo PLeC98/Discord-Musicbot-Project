@@ -15,7 +15,7 @@ import { bestEffort } from "../src/infra/bestEffort.ts";
 import { expireReply } from "../src/ui/replyLifetime.ts";
 
 const exported: GuildCommand = {
-  data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시킵니다" }),
+  data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시켜요" }),
 
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
