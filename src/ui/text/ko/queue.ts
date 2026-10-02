@@ -13,7 +13,7 @@ function added({ tracks, collection, total, first }: { tracks: Array<{ title?: s
   // 목록의 일부만 넣었으면 전체 중 몇 곡인지. "N개 (전체 M곡)"은 넣은 수인지 대기열 수인지 헷갈렸다
   if (collection && total) return { title, body: `${collection} ${total.toLocaleString("ko-KR")}곡 중 ${tracks.length}곡을 ${where} 넣었어요.` };
   if (collection) return { title, body: `${collection}의 ${tracks.length}곡을 ${where} 넣었어요.` };
-  const name = tracks[0]?.title || "알 수 없는 트랙";
+  const name = tracks[0]?.title || "알 수 없는 곡";
   return { title, body: `**${escapeMd(name)}**${josa(name, "을")} ${where} 넣었어요.` };
 }
 
