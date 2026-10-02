@@ -3,7 +3,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
-import { MessageFlags, type Client } from "discord.js";
+import { Collection, MessageFlags, WebhookClient, type Client, type GuildTextBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tempStore from "../helpers/tempStore.ts";
@@ -226,6 +226,33 @@ test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로
     assert.deepEqual((sent[0] as { flags: unknown }).flags, [MessageFlags.IsComponentsV2], `${label}: 응답 틀(Components V2)`);
     assert.match(JSON.stringify(sent[0]), new RegExp(notice), label);
   }
+});
+
+test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(10015) 기억을 지우고 새 웹훅으로 한 번 더 보낸다", async () => {
+  const mem = newManager();
+  const sent: string[] = [];
+  const stale = { send: async () => Promise.reject(Object.assign(new Error("Unknown Webhook"), { code: 10015 })), destroy: () => sent.push("stale-destroyed") };
+  mem.webhookCache.set("c1", fake<WebhookClient>(stale));
+  const fresh = { id: "w2", token: "t2", name: "Music Now Playing", owner: { id: "bot" }, isIncoming: () => true };
+  const channel = fake<GuildTextBasedChannel>({
+    id: "c1",
+    fetchWebhooks: async () => new Collection(),
+    createWebhook: async () => fresh,
+    send: async () => assert.fail("웹훅이 있으면 채널로 보내지 않는다"),
+  });
+  const realSend = WebhookClient.prototype.send;
+  WebhookClient.prototype.send = async function () {
+    sent.push("fresh");
+    return fake<Awaited<ReturnType<typeof realSend>>>({ id: "m-new" });
+  };
+  try {
+    const { message } = await mem._sendPanel(channel, { components: [], flags: MessageFlags.IsComponentsV2 });
+    assert.equal(message.id, "m-new");
+  } finally {
+    WebhookClient.prototype.send = realSend;
+    mem.deleteWebhookCache("c1");
+  }
+  assert.deepEqual(sent, ["stale-destroyed", "fresh"]);
 });
 
 test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {

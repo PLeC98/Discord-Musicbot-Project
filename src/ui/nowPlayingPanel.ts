@@ -233,17 +233,24 @@ class NowPlayingPanel {
     return this._sendPanel(channel, await this._playingPayload(player, track));
   }
 
-  async _sendPanel(channel: GuildTextBasedChannel, payload: Payload): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
+  // 기억해 둔 웹훅이 디스코드에서 지워졌으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 지웠다) 기억을 지우고 새로 만들어 한 번 더 보낸다
+  async _sendPanel(channel: GuildTextBasedChannel, payload: Payload, retried = false): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
     const webhook = await this.getOrCreateWebhook(channel);
     if (!webhook) return { message: await channel.send(payload), webhook: null };
 
     const me = this.client.user;
-    const message = await webhook.send({
-      ...payload,
-      username: me?.displayName || me?.username,
-      avatarURL: me?.displayAvatarURL(),
-    });
-    return { message, webhook };
+    try {
+      const message = await webhook.send({
+        ...payload,
+        username: me?.displayName || me?.username,
+        avatarURL: me?.displayAvatarURL(),
+      });
+      return { message, webhook };
+    } catch (error) {
+      if (retried || codeOf(error) !== UNKNOWN_WEBHOOK) throw error;
+      this.deleteWebhookCache(channel.id);
+      return this._sendPanel(channel, payload, true);
+    }
   }
 
   async _playingPayload(player: Player, track: QueuedTrack): Promise<Payload> {

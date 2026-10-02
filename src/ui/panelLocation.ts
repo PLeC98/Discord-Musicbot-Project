@@ -8,9 +8,11 @@ import type { PanelRecord } from "../store/guildSettings.ts";
 import type { PanelHook as Hook } from "../player/Player.ts";
 
 const UNKNOWN_MESSAGE = 10008;
+const UNKNOWN_WEBHOOK = 10015;
 
 /** 웹훅을 다시 찾는 쪽(NowPlayingPanel) */
-type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null> };
+/** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 지워진 웹훅의 기억을 지운다 */
+type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
 /** 기록 저장소. 시험은 가짜를 준다 */
 type Store = Pick<typeof GuildSettingsManager, "getPanel" | "setPanel">;
 type PanelGuild = Pick<Guild, "id" | "channels">;
@@ -62,6 +64,8 @@ class PanelLocation {
         return { channel, webhook, messageId: record.messageId };
       } catch (error) {
         if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 지워졌다. 다음 게시가 새로 올린다
+        // 웹훅이 지워졌다. 기억을 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 지운다)
+        if (codeOf(error) === UNKNOWN_WEBHOOK) this.embeds.deleteWebhookCache(channel.id);
         return null;
       }
     });

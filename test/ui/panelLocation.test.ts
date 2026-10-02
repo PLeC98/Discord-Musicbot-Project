@@ -41,8 +41,9 @@ function setup({ record, webhooks = {} }: { record?: PanelRecord; webhooks?: Rec
   ]);
   const guild = fake<Guild>({ id: "g1", channels: { cache: channels } });
   const store = memoryStore(record ? { g1: record } : {});
-  const embeds = { getOrCreateWebhook: async (channel: GuildBasedChannel) => webhooks[channel.id] ?? null };
-  return { log, guild, channels, store, panel: new PanelLocation(embeds, store) };
+  const forgotten: string[] = [];
+  const embeds = { getOrCreateWebhook: async (channel: GuildBasedChannel) => webhooks[channel.id] ?? null, deleteWebhookCache: (channelId: string) => forgotten.push(channelId) };
+  return { log, guild, channels, store, forgotten, panel: new PanelLocation(embeds, store) };
 }
 
 test("새 패널을 기록하고, 같은 채널의 옛 패널은 방금 쓴 웹훅으로 지운다", async () => {
@@ -79,7 +80,7 @@ test("재시작한 뒤에도 기록만으로 옛 패널을 치운다", async () 
   assert.deepEqual(first.log, [], "처음에는 치울 것이 없다");
 
   const log: string[] = [];
-  const restarted = new PanelLocation({ getOrCreateWebhook: async () => fakeWebhook(log) }, first.store);
+  const restarted = new PanelLocation({ getOrCreateWebhook: async () => fakeWebhook(log), deleteWebhookCache: () => {} }, first.store);
   await restarted.commit(first.guild, first.channels.get("c1"), { id: "after-restart" });
 
   assert.deepEqual(log, ["webhook:before-restart"]);
@@ -122,6 +123,18 @@ test("기록된 패널을 제자리에서 고친다 — 지워졌으면 기록�
   assert.equal(await panel.edit(guild, {}), null);
   assert.equal(store.records.get("g1"), null, "다음 게시가 새로 올리도록 기록을 비운다");
   assert.equal(await panel.edit(guild, {}), null, "기록이 없으면 할 일이 없다");
+});
+
+test("기록된 패널을 고치는데 웹훅이 지워졌으면(10015) 그 채널의 웹훅 기억을 지운다", async () => {
+  const webhook = fake<PanelHook>({
+    deleteMessage: async () => {},
+    editMessage: async () => {
+      throw Object.assign(new Error("Unknown Webhook"), { code: 10015 });
+    },
+  });
+  const { guild, panel, forgotten } = setup({ record: { channelId: "c1", messageId: "m1" }, webhooks: { c1: webhook } });
+  assert.equal(await panel.edit(guild, {}), null);
+  assert.deepEqual(forgotten, ["c1"]);
 });
 
 test("패널을 지우고 기록을 비운다", async () => {
