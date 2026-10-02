@@ -13,6 +13,7 @@ const log = logger.child({ category: "commands" });
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.panels?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
 
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "moderator" },
   data: new SlashCommandBuilder()
     .setName("setchannel")
     .setDescription("Set a dedicated bot channel for music requests and announcements")
@@ -22,6 +23,7 @@ const exported: GuildCommand = {
     .addChannelOption((option) =>
       option
         .setName("channel")
+        .setNameLocalizations({ ko: "채널" })
         .setDescription("Channel to designate (defaults to current channel)")
         .setDescriptionLocalizations({
           ko: "설정할 채널 (비우면 명령어를 입력한 채널)",
@@ -32,6 +34,7 @@ const exported: GuildCommand = {
     .addStringOption((option) =>
       option
         .setName("action")
+        .setNameLocalizations({ ko: "동작" })
         .setDescription("Set or remove the bot channel")
         .setDescriptionLocalizations({
           ko: "설정 또는 해제",

@@ -45,6 +45,7 @@ async function restoreSession(interaction: ChatInputCommandInteraction<"cached">
 }
 
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "everyone" },
   data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시켜요" }),
 
   async execute(interaction, client) {

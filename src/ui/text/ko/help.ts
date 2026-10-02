@@ -1,21 +1,33 @@
 // /help 화면의 글자
 
-/** 명령 목록. 칸 이름과 줄들 */
-const sections = () => [
-  {
-    name: "🎵 재생",
-    lines: ["`/play <곡/URL>`: 음악 재생", "`/playfirst <곡/URL>`: 대기열 맨 앞에 추가 🔒", "`/pause`: 일시정지 / 재개 🔒", "`/stop`: 재생 중지 및 퇴장 🔒", "`/skip`: 다음 곡 🔒 (자기가 추가한 곡은 누구나)", "`/previous`: 이전 곡 🔒", "`/replay`: 현재 곡 처음부터 🔒", "`/seek <시간>`: 특정 위치로 이동 (예: `1:30`, `90`) 🔒", "`/highlight`: 하이라이트 지점으로 이동 🔒"],
-  },
-  { name: "📋 대기열", lines: ["`/queue [페이지]`: 대기열 표시", "`/clear`: 대기열 비우기 🔒", "`/remove <번호>`: 특정 곡 제거 🔒 (자기가 추가한 곡은 누구나)", "`/move <from> <to>`: 곡 순서 변경 🔒", "`/shuffle`: 대기열 셔플 🔒"] },
-  { name: "🎛️ 모드 & 오디오", lines: ["`/loop [mode]`: 반복 설정 (`off` · `track` · `queue`) 🔒", "`/autoplay`: 자동재생 켜기 · 끄기 (켤 때 장르 선택) 🔒", "`/volume <0-100>`: 볼륨 설정 🔒"] },
-  { name: "🔍 탐색 & 정보", lines: ["`/search <검색어>`: YouTube 검색 후 선택", "`/nowplaying`: 현재 곡 상세 정보"] },
-  {
-    name: "📡 채널 & 세션",
-    lines: ["`/join`: 음성 채널 입장 (이전 세션 복구)", "`/leave`: 퇴장 및 세션 저장 🔒", "`/setchannel`: 전용 채널 지정 (서버 관리 권한)", "`/setdjrole`: DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]`: 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/sponsorblock`: SponsorBlock 자동 스킵 설정 (서버 관리 권한)", "`/dashboard`: 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"],
-  },
-  { name: "📊 봇 정보", lines: ["`/ping`: 레이턴시 확인 (서버 관리 권한)", "`/system`: 시스템 상태 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계 (서버 관리 권한)", "`/license`: 라이선스와 소스 코드 위치"] },
-  { name: "🌐 지원 플랫폼", lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3 · FLAC · M4A · MP4 등)"] },
-];
+import type { HelpSection, HelpTier } from "../../helpLines.ts";
+
+// 명령 줄은 명령 정의에서 만든다(ui/helpLines). 여기는 묶음 이름 · 권한 표시 · 지원 플랫폼만
+
+const SECTION_NAME: Record<HelpSection, string> = {
+  play: "🎵 재생",
+  queue: "📋 대기열",
+  mode: "🎛️ 모드 & 오디오",
+  explore: "🔍 탐색 & 정보",
+  channel: "📡 채널 & 세션",
+  info: "📊 봇 정보",
+};
+/** 묶음 이름 */
+const sectionName = (section: HelpSection) => SECTION_NAME[section];
+
+const TIER_MARK: Record<HelpTier, string> = {
+  everyone: "",
+  dj: "🔒",
+  "dj-or-requester": "🔒 (자기가 추가한 곡은 누구나)",
+  "dj-outside-bot-channel": "(봇 전용 채널에서는 전원, 그 외 🔒)",
+  moderator: "(서버 관리 권한)",
+  owner: "(봇 운영자)",
+};
+/** 줄 끝의 권한 표시. 누구나 쓰면 빈 글자 */
+const tierMark = (tier: HelpTier) => TIER_MARK[tier];
+
+/** 지원 플랫폼 칸 */
+const platforms = () => ({ name: "🌐 지원 플랫폼", lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3 · FLAC · M4A · MP4 등)"] });
 
 /** 머리 */
 const intro = () => ({
@@ -38,4 +50,4 @@ const links = ({ invite, website }: { invite: string; website: string | null }) 
 /** 버튼 */
 const buttons = () => ({ website: "웹사이트", refresh: "새로고침" });
 
-export { sections, intro, stats, links, buttons };
+export { sectionName, tierMark, platforms, intro, stats, links, buttons };

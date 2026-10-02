@@ -6,6 +6,7 @@ import { noticeReply, reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const exported: GuildCommand = {
+  help: { section: "queue", tier: "dj" },
   data: new SlashCommandBuilder().setName("clear").setDescription("Clear the queue").setDescriptionLocalizations({ ko: "대기열을 비워요" }),
 
   async execute(interaction, client) {

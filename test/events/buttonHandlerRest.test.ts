@@ -21,6 +21,7 @@ import { fakeAdder } from "../helpers/adder.ts";
 import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
+import { COMMANDS } from "../../commands/index.ts";
 
 useExampleConfig();
 
@@ -78,6 +79,8 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     panels: {
       updatePlaying: async () => seen.push("update"),
     },
+    // 실행 목록. 도움말 새로고침이 이것으로 명령 줄을 만든다
+    commands: new Map(COMMANDS.map((command) => [command.data.name, command])),
   };
   // 곡 담기는 받은 곡의 제목만 적는다
   fakeAdder(client, async (_client, _guildId, trackData) => {

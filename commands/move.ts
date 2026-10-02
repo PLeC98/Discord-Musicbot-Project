@@ -6,12 +6,13 @@ import { noticeReply, reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const exported: GuildCommand = {
+  help: { section: "queue", tier: "dj" },
   data: new SlashCommandBuilder()
     .setName("move")
     .setDescription("Move a track to a different position in the queue")
     .setDescriptionLocalizations({ ko: "대기열에서 곡 순서를 변경합니다" })
-    .addIntegerOption((option) => option.setName("from").setDescription("Current position of the track").setDescriptionLocalizations({ ko: "변경할 곡의 현재 위치" }).setRequired(true).setMinValue(1))
-    .addIntegerOption((option) => option.setName("to").setDescription("New position for the track").setDescriptionLocalizations({ ko: "변경할 위치" }).setRequired(true).setMinValue(1)),
+    .addIntegerOption((option) => option.setName("from").setNameLocalizations({ ko: "원래번호" }).setDescription("Current position of the track").setDescriptionLocalizations({ ko: "변경할 곡의 현재 위치" }).setRequired(true).setMinValue(1))
+    .addIntegerOption((option) => option.setName("to").setNameLocalizations({ ko: "새번호" }).setDescription("New position for the track").setDescriptionLocalizations({ ko: "변경할 위치" }).setRequired(true).setMinValue(1)),
 
   async execute(interaction, client) {
     const { guild, member } = interaction;

@@ -71,6 +71,7 @@ function buildSystemEmbed(client: Client<true>) {
 }
 
 const exported: GuildCommand = {
+  help: { section: "info", tier: "owner" },
   data: new SlashCommandBuilder().setName("system").setDescription("Show bot system information").setDescriptionLocalizations({ ko: "봇의 시스템 정보를 보여줘요" }),
 
   async execute(interaction, client) {

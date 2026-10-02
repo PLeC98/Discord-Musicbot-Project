@@ -7,6 +7,7 @@ import * as screens from "../src/ui/settingsScreens.ts";
 // 실제 저장/취소 처리는 interactions/djRoleConfigHandler.ts (customId: djrole:*)
 // 복수 선택은 디스코드 셀렉트 메뉴 한계로 최대 25개.
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "moderator" },
   data: new SlashCommandBuilder()
     .setName("setdjrole")
     .setDescription("Configure DJ roles for playback controls")

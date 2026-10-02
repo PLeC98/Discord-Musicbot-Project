@@ -53,13 +53,16 @@ test("명령 목록의 명령 전부가 유효한 정의(name/description)다", 
   }
 });
 
-test("명령 · 옵션 설명과 선택지 이름 전부에 한국어가 있다(설명은 디스코드 상한 100자 안)", () => {
+test("명령 · 옵션 설명, 옵션 · 선택지 이름 전부에 한국어가 있다(설명은 디스코드 상한 100자 안)", () => {
   type Node = { name: string; description?: string; description_localizations?: Record<string, string> | null; name_localizations?: Record<string, string> | null; options?: Node[]; choices?: Node[] };
   const missing: string[] = [];
   const visit = (n: Node, at: string) => {
     const ko = n.description_localizations?.ko;
     if (!ko || ko.length > 100) missing.push(`${at} 설명`);
-    for (const o of n.options ?? []) visit(o, `${at} ${o.name}`);
+    for (const o of n.options ?? []) {
+      if (!o.name_localizations?.ko) missing.push(`${at} ${o.name} 이름`);
+      visit(o, `${at} ${o.name}`);
+    }
     for (const c of n.choices ?? []) if (!c.name_localizations?.ko) missing.push(`${at}=${c.name}`);
   };
   for (const c of commands) visit(fake<Node>(c), `/${c.name}`);

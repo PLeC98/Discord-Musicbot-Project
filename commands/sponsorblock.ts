@@ -7,6 +7,7 @@ import config from "../config.ts";
 
 // 실제 저장/취소 처리는 interactions/sponsorConfigHandler.ts (customId: sb:*)
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "moderator" },
   // 봇 전체에서 SponsorBlock 을 껐으면(SPONSORBLOCK_ENABLED=false) 등록하지 않는다
   enabled: () => config.sponsorblock.enabled,
   data: new SlashCommandBuilder().setName("sponsorblock").setDescription("Configure SponsorBlock auto-skip").setDescriptionLocalizations({ ko: "SponsorBlock 기능 설정 패널을 열어요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),

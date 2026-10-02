@@ -20,6 +20,7 @@ import { interactionKind } from "../helpers/interactionKind.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import * as infoText from "../../src/ui/text/ko/info.ts";
 import { headOf, screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
+import { COMMANDS as COMMAND_LIST } from "../../commands/index.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -75,6 +76,8 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     guilds: { cache: Object.assign(guilds, { reduce: (fn: (acc: number, g: { memberCount: number }) => number, init: number) => [...guilds.values()].reduce(fn, init) }) },
     user: { username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
     panels: { onBotChannelChanged: async () => seen.push("movePanel") },
+    // 실행 목록. /help 가 이것으로 명령 줄을 만든다
+    commands: new Map(COMMAND_LIST.map((command) => [command.data.name, command])),
   });
   const it = {
     guild: { id: "g1", roles: { cache: new Map(guildRoles.map((r) => [r, { id: r }])) } },
@@ -219,7 +222,7 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   const { it, log, client } = interaction({ player: { any: 1 } });
   await run(await command("help"), it, client);
   const f = fieldsOf(log[0][1]);
-  assert.ok(f["🎵 재생"].includes("`/play <곡/URL>`"));
+  assert.ok(f["🎵 재생"].includes("`/play <곡>`: 곡을 재생해요"));
   assert.match(f["📊 통계"], /서버:\*\* 1개/);
   assert.match(f["📊 통계"], /재생 중인 서버:\*\* 1개/);
   // 웹사이트 버튼은 WEBSITE 가 있을 때만 앞에 붙는다. 순서가 아니라 ID 로 찾는다

@@ -11,14 +11,16 @@ import * as screens from "../src/ui/settingsScreens.ts";
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "moderator" },
   data: new SlashCommandBuilder()
     .setName("setplaylistlimit")
     .setDescription("Set how many songs a playlist adds at once")
     .setDescriptionLocalizations({ ko: "재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요" })
-    .addIntegerOption((option) => option.setName("count").setDescription("Songs per add (leave empty to see the current value)").setDescriptionLocalizations({ ko: "한 번에 넣을 곡 수 (비우면 현재 설정 값 표시)" }).setMinValue(1).setRequired(false))
+    .addIntegerOption((option) => option.setName("count").setNameLocalizations({ ko: "곡수" }).setDescription("Songs per add (leave empty to see the current value)").setDescriptionLocalizations({ ko: "한 번에 넣을 곡 수 (비우면 현재 설정 값 표시)" }).setMinValue(1).setRequired(false))
     .addStringOption((option) =>
       option
         .setName("action")
+        .setNameLocalizations({ ko: "동작" })
         .setDescription("Set, or reset to the default")
         .setDescriptionLocalizations({ ko: "설정 또는 기본값으로 되돌리기" })
         .addChoices({ name: "Set", name_localizations: { ko: "설정" }, value: "set" }, { name: "Reset", name_localizations: { ko: "기본값" }, value: "reset" })

@@ -4,6 +4,7 @@ import { answerLoop } from "../interactions/controlAnswers.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const exported: GuildCommand = {
+  help: { section: "mode", tier: "dj" },
   data: new SlashCommandBuilder()
     .setName("loop")
     .setDescription("Set loop mode")
@@ -11,6 +12,7 @@ const exported: GuildCommand = {
     .addStringOption((option) =>
       option
         .setName("mode")
+        .setNameLocalizations({ ko: "모드" })
         .setDescription("Loop mode (omit to cycle: off → track → queue → off)")
         .setDescriptionLocalizations({ ko: "반복 모드 (모드를 정하지 않으면 차례로 순환해요: 끔 → 한 곡 반복 → 대기열 반복)" })
         .setRequired(false)

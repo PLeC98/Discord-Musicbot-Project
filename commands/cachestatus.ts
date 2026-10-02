@@ -22,6 +22,7 @@ function usageBar(used: number, max: number, width = 12) {
 }
 
 const exported: AnywhereCommand = {
+  help: { section: "info", tier: "moderator" },
   anywhere: true,
   data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 보여줘요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 

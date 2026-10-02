@@ -10,6 +10,7 @@ import * as errors from "../src/ui/text/ko/errors.ts";
 import { frame, noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
 import type { PermissionDenied } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { HelpEntry } from "../src/ui/helpLines.ts";
 import type { GuildMember } from "discord.js";
 
 /** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름 · 설명 · 권한 · 넣을 자리만 다르다 */
@@ -17,13 +18,15 @@ type PlayOptions = {
   name: string;
   description: string;
   ko: string;
+  help: HelpEntry;
   /** 막으면 안내 문장 */
   permission: (member: GuildMember) => Promise<PermissionDenied | null> | PermissionDenied | null;
   insertFirst?: boolean;
 };
 
-function playCommand({ name, description, ko, permission, insertFirst = false }: PlayOptions): GuildCommand {
+function playCommand({ name, description, ko, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
   return {
+    help,
     data: new SlashCommandBuilder()
       .setName(name)
       .setDescription(description)
@@ -31,6 +34,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
       .addStringOption((option) =>
         option
           .setName("query")
+          .setNameLocalizations({ ko: "곡" })
           .setDescription("Song name, artist, YouTube/Spotify/SoundCloud URL or direct link")
           .setDescriptionLocalizations({
             ko: "지원하는 플랫폼이나 미디어 파일 링크, 유튜브 검색어",
@@ -71,6 +75,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
 
 // 곡 추가는 전 계층 가능. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
 const exported = playCommand({
+  help: { section: "play", tier: "everyone" },
   name: "play",
   description: "Plays music - Supports YouTube, Spotify, SoundCloud or direct links",
   ko: "곡을 재생해요",

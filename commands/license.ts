@@ -5,6 +5,7 @@ import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/ko/info.ts";
 
 const exported: AnywhereCommand = {
+  help: { section: "info", tier: "everyone" },
   anywhere: true,
   data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스와 소스 코드 저장소를 표시해요" }),
 

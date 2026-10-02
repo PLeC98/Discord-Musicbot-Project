@@ -6,6 +6,7 @@ import { noticeReply, reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "dj" },
   data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "대기열을 저장하고 음성 채널에서 나가요" }),
 
   async execute(interaction, client) {

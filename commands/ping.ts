@@ -4,6 +4,7 @@ import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/ko/info.ts";
 
 const exported: AnywhereCommand = {
+  help: { section: "info", tier: "moderator" },
   anywhere: true,
   data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇의 응답 시간을 측정해요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 

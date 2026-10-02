@@ -54,6 +54,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
 type SearchDeps = { search?: (query: string, limit: number) => Promise<TrackInfo[]> };
 
 const exported: GuildCommand & { execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>, deps?: SearchDeps): unknown } = {
+  help: { section: "explore", tier: "everyone" },
   data: new SlashCommandBuilder()
     .setName("search")
     .setDescription("Search and select music on YouTube")
@@ -63,6 +64,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     .addStringOption((option) =>
       option
         .setName("query")
+        .setNameLocalizations({ ko: "검색어" })
         .setDescription("Music name or artist to search")
         .setDescriptionLocalizations({
           ko: "검색할 키워드",

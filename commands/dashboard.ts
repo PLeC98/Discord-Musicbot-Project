@@ -8,6 +8,7 @@ import { noticeReply } from "../src/ui/frame.ts";
 import { DISCORD_LOOK } from "../src/ui/mentions.ts";
 
 const exported: GuildCommand = {
+  help: { section: "channel", tier: "dj-outside-bot-channel" },
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "재생 패널을 이 채널의 맨 아래에 다시 띄워요" }),
 
   async execute(interaction, client) {

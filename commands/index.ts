@@ -33,6 +33,7 @@ import system from "./system.ts";
 import volume from "./volume.ts";
 import type { SlashCommand } from "../src/app/commandLoader.ts";
 
-const COMMANDS: readonly SlashCommand[] = [autoplay, cachestatus, clear, dashboard, help, highlight, join, leave, license, loop, move, nowplaying, pause, ping, play, playfirst, previous, queue, remove, replay, search, seek, setchannel, setdjrole, setplaylistlimit, shuffle, skip, sponsorblock, stop, system, volume];
+// 차례가 곧 /help 의 차례다(묶음 안에서 위에서 아래로)
+const COMMANDS: readonly SlashCommand[] = [play, playfirst, pause, stop, skip, previous, replay, seek, highlight, queue, clear, remove, move, shuffle, loop, autoplay, volume, search, nowplaying, join, leave, setchannel, setdjrole, setplaylistlimit, sponsorblock, dashboard, ping, system, cachestatus, license, help];
 
 export { COMMANDS };
