@@ -96,7 +96,6 @@ const PROBLEMS = {
   "settings-save-failed": { status: 500, title: "Could not save settings" },
   "dj-role-save-failed": { status: 500, title: "Could not save the DJ role" },
   // /join 이 저장한 세션을 되살리지 못했다
-  "restore-nothing-saved": { status: 404, title: "No saved track to resume" },
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-failed-in-row": { status: 500, title: "Saved tracks failed in a row", params: ["left"] },
   "restore-failed": { status: 500, title: "Could not restore the session" },

@@ -91,6 +91,6 @@ const alreadyJoined = () => ({ title: "✅ 이미 음성 채널에 있어요.", 
 /** /join 이 저장한 세션을 되살리는 동안 */
 const restoring = () => "💾 듣던 곡을 불러오는 중...";
 /** /join 이 저장한 세션을 되살렸다 */
-const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 듣던 곡들을 다시 가져왔어요.\n${link(track)} (일시정지 중)` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 듣던 곡을 이어서 재생할게요.\n${link(track)} (재생 중)` });
+const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지 해 둔 상태였어요. 이어 들으려면 일시정지를 해제해주세요!` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
 export { requestedBy, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };

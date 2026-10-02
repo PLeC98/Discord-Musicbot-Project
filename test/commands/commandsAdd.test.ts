@@ -437,7 +437,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   h.dispose(replaced);
 });
 
-test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하고 결과로 고친다(재생 · 일시정지 · 저장된 곡 없음 · 연달아 실패 · 오류)', async () => {
+test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하고 결과로 고친다(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
@@ -464,7 +464,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하�
   const saved = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
   assert.deepEqual(playing.log[0], ["reply", post(replies.restoring())]);
   assert.deepEqual(playing.log[1], ["editReply", post(replies.restored(saved, false))]);
-  assert.match(JSON.stringify(playing.log[1]), /이전에 듣던 곡을 이어서 재생할게요/);
+  assert.match(JSON.stringify(playing.log[1]), /을 듣고 있었어요\. 이어서 재생할게요!/);
   // 모두에게 보이는 응답이지만 잠깐 뒤 지운다(기본 정리는 본인에게만 보이는 응답만 지운다)
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
@@ -483,8 +483,8 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하�
   assert.deepEqual(paused.log[1], ["editReply", post(replies.restored(saved, true))]);
 
   // 되살린 결과(restoreFromState)로 가른다. 시험의 가짜는 되살린 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
-  const empty = await run(async () => {});
-  assert.deepEqual(empty.log[1], ["editReply", post(noticeFrame(errors.notice("restore-nothing-saved")))]);
+  const nothingLeft = await run(async () => {});
+  assert.deepEqual(nothingLeft.log[1], ["editReply", post(noticeFrame(errors.notice("restore-nothing-left")))]);
 
   const stopped = await run(async function () {
     this.queue.push(tracks.youtube("ddddddddddd"), tracks.youtube("eeeeeeeeeee"));

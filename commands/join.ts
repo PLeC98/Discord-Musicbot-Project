@@ -29,12 +29,7 @@ async function restoreSession(interaction: ChatInputCommandInteraction<"cached">
   try {
     const outcome = await player.persistence.restoreFromState(savedState, { announce: false });
     if (outcome === "restored" && player.currentTrack) return await interaction.editReply(post(replies.restored(player.currentTrack, player.paused)));
-    if (outcome === "empty") {
-      // 틀 것 없이 들어왔다. 세션 없이 들어온 것과 같다
-      waitEmpty(player);
-      return await interaction.editReply(post(noticeFrame(errors.notice("restore-nothing-saved"))));
-    }
-    // 틀지 못했다. 남은 곡이 있으면 연달아 실패해 멈춘 것이다
+    // 틀지 못했다. 남은 곡이 있으면 연달아 실패해 멈춘 것이다. 재생 중이던 곡이 저장된 세션만 되살리니 틀 곡이 없는 결과(empty)는 나오지 않는다
     const left = player.queue.length;
     return await interaction.editReply(post(noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"))));
   } catch (error) {

@@ -222,7 +222,7 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   const { it, log, client } = interaction({ player: { any: 1 } });
   await run(await command("help"), it, client);
   const f = fieldsOf(log[0][1]);
-  assert.ok(f["🎵 재생"].includes("`/play <곡>`: 곡을 재생해요"));
+  assert.ok(f["🎵 재생"].includes("`/play`: 곡을 재생해요"));
   assert.match(f["📊 통계"], /서버:\*\* 1개/);
   assert.match(f["📊 통계"], /재생 중인 서버:\*\* 1개/);
   // 웹사이트 버튼은 WEBSITE 가 있을 때만 앞에 붙는다. 순서가 아니라 ID 로 찾는다

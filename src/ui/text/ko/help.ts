@@ -20,7 +20,7 @@ const TIER_MARK: Record<HelpTier, string> = {
   dj: "🔒",
   "dj-or-requester": "🔒 (자기가 추가한 곡은 누구나)",
   "dj-outside-bot-channel": "(봇 전용 채널에서는 전원, 그 외 🔒)",
-  moderator: "(서버 관리 권한)",
+  moderator: "🛡️",
   owner: "(봇 운영자)",
 };
 /** 줄 끝의 권한 표시. 누구나 쓰면 빈 글자 */
@@ -32,7 +32,7 @@ const platforms = () => ({ name: "🌐 지원 플랫폼", lines: ["🔴 **YouTub
 /** 머리 */
 const intro = () => ({
   title: "🎵 도움말",
-  description: "🔒 표시 명령은 **봇과 같은 음성 채널에 있는 DJ**만 쓸 수 있어요. 서버 관리자는 채널에 없어도 쓸 수 있어요.\nDJ 역할을 정하지 않은 서버에서는 모두가 DJ 역할을 가진 것으로 간주해요. (`/setdjrole`)",
+  description: "🔒: 봇과 같은 음성 채널에 있는 DJ들만 쓸 수 있어요. (서버 관리자들은 예외예요)\n⠀⠀⠀- DJ 역할이 설정되지 않은 서버는 모두가 역할을 갖고 있는 것으로 간주해요\n🛡️: 서버 관리자들만 사용할 수 있어요.",
 });
 
 /** 통계 칸. uptime 은 말로 적은 가동 시간 */
