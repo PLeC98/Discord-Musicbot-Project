@@ -4,6 +4,7 @@
 // 줄 만드는 일을 여기로 모은다. 점프 메뉴 설명도 같은 규칙(요청자 표기)을 따른다.
 
 import { formatDuration } from "./format.ts";
+import { songTitle } from "./text/ko/labels.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 요청자 표기에서 읽는 칸
@@ -40,7 +41,7 @@ const shorten = (title: string) => (title.length > TITLE_MAX ? `${title.slice(0,
 
 /** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함). link 가 거짓이면 제목만 */
 function queueLine(track: Listed, number: number, { link = true }: { link?: boolean } = {}) {
-  const title = shorten(track.title || "");
+  const title = shorten(songTitle(track.title));
   const head = `\`${number}.\` **${link && track.pageUrl ? `[${title}](${track.pageUrl})` : title}**`;
   const who = requesterLabel(track);
   return `${who ? `${head} | ${who}` : head}\n`;

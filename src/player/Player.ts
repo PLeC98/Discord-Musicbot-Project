@@ -538,7 +538,7 @@ class Player {
 
   // 로그용 트랙 식별
   _trackLabel(track = this.currentTrack) {
-    return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
+    return track ? `"${logTitle(track.title)}" (${track.platform})` : "(곡 없음)";
   }
 
   onPlayerIdle(trigger = "idle") {
@@ -843,7 +843,7 @@ class Player {
   removeFromQueue(index: number) {
     const removed = trackState.removeAt(this, index);
     if (removed) {
-      clog.info(`대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
+      clog.info(`대기열 제거: [${index}] "${logTitle(removed.title)}" | 남은 ${this.queue.length}곡`);
       return removed;
     }
     return null;
@@ -852,7 +852,7 @@ class Player {
   moveInQueue(from: number, to: number) {
     const track = trackState.move(this, from, to);
     if (track) {
-      clog.info(`대기열 이동: "${track?.title ?? "?"}" ${from}번 → ${to}번`);
+      clog.info(`대기열 이동: "${logTitle(track.title)}" ${from}번 → ${to}번`);
       return true;
     }
     return false;

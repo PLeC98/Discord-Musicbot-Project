@@ -75,6 +75,19 @@ test("캐시 찾기: 장부의 음원 주소에서 열쇠를 계산해 audio_cac
   assert.equal(hit.track.title, "곡", "장부의 표시 이름이 앞선다");
 });
 
+test("캐시 찾기: 장부와 캐시 모두 제목이 없으면 제목을 비워 둔다(null)", () => {
+  const file = audioCache.getFilePath("yt:untitled01");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, "opus");
+  audioCache.recordDownloadStart("yt:untitled01", {});
+  audioCache.recordDownloadComplete("yt:untitled01", file, 4, {}, { durationSec: 90 });
+  trackLookup.recordTrackLookup({ requestKey: "amq:78", pageUrl: "https://anilist.co/anime/78", audioUrl: "https://www.youtube.com/watch?v=untitled01", platform: "anisongdb", title: null });
+
+  const hit = trackLookup.resolveFromCache("amq:78");
+  assert.equal(hit.hit, true);
+  assert.equal(hit.track.title, null);
+});
+
 test("퇴거로 audio_cache 행이 지워져도 장부는 남는다. 다음에 받으면 같은 음원을 쓴다", () => {
   const file = cacheFile("yt:evictedvid");
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/ev1", pageUrl: "https://open.spotify.com/track/ev1", audioUrl: "https://www.youtube.com/watch?v=evictedvid", platform: "spotify", title: "곡" });

@@ -4,6 +4,7 @@ const log = logger.child({ category: "sponsor" });
 import type { Player } from "./Player.ts";
 import type { SkipSegment } from "../sources/sponsorBlock.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { logTitle } from "../infra/log/title.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 칸 */
 type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor" | "playback">;
@@ -95,10 +96,10 @@ class SponsorSkipper {
 
     if (d.action === "end") {
       // 스킵과 트랙 종료가 원인=sponsorblock 을 달고 따라나온다. 세 줄이 한 사건이다.
-      log.debug(`${p.currentTrack?.title ?? ""}: 종료 구간 도달, 트랙 종료`);
+      log.debug(`${logTitle(p.currentTrack?.title)}: 종료 구간 도달, 트랙 종료`);
       p.skip("sponsorblock"); // 스킵 버튼과 동일 처리 (다음 곡/루프 존중)
     } else if (d.action === "seek") {
-      log.info(`${p.currentTrack?.title ?? ""}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
+      log.info(`${logTitle(p.currentTrack?.title)}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
       bestEffort(log, p.play(Math.round(d.toSec * 1000), { continued: true }), "구간 건너뛰기");
     }

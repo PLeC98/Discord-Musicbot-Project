@@ -44,7 +44,7 @@ function resolveFromCache(requestKey: string): CacheHit {
     audioUrl: row.audio_url,
     platform: row.platform,
     // 행의 빈 칸은 곡 모양으로(세션 되살리기와 같다)
-    title: row.display_title || cached.title || "",
+    title: row.display_title || cached.title || null,
     artist: row.display_artist || cached.channel || undefined,
     thumbnail: row.display_thumbnail,
     duration: cached.duration_sec ?? 0,

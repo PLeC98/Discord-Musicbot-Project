@@ -25,6 +25,10 @@ test("대기열 줄: 요청자를 모르면 제목만", () => {
   assert.equal(queueLine(song(), 2), "`2.` **[곡](https://y/1)**\n");
 });
 
+test("대기열 줄: 제목이 없으면 알 수 없는 곡", () => {
+  assert.equal(queueLine(song({ title: null }), 2), "`2.` **[알 수 없는 곡](https://y/1)**\n");
+});
+
 // 셀렉트 메뉴 설명은 멘션을 렌더링하지 않는다(<@id>가 그대로 보인다) — 이름을 쓴다.
 test("점프 설명: 아티스트 | 길이 | 요청자 이름", () => {
   assert.equal(jumpDescription(song({ requestedBy: { id: "u1", username: "PLeC" } })), "가수 | 1:40 | PLeC");

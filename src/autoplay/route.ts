@@ -159,7 +159,7 @@ function fromYouTube(video: Video, cand: Candidate): PickedTrack {
   const videoUrl = canonicalUrl(video.url);
 
   return {
-    title: cand.title || video.title || "",
+    title: cand.title || video.title || null,
     artist: cand.artist || video.channel || video.artist || "",
     pageUrl: sourced && cand.sourceUrl ? cand.sourceUrl : videoUrl,
     requestKey: requestKeyOf(cand),

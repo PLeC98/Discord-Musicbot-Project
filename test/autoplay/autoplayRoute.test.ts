@@ -62,6 +62,11 @@ test("유튜브 주소를 받았으면 검색하지 않는다", async () => {
   assert.equal(ytCalls.length, 0, "주소가 있으면 유튜브를 검색할 이유가 없다");
 });
 
+test("출처 · 영상 모두 제목이 없으면 곡 제목을 비워 둔다(null)", async () => {
+  const track = await resolved({ title: "", durationSec: 200, youtubeUrl: "https://youtu.be/abd", sourceKey: "vocadb:2" }, LIMITS);
+  assert.equal(track.title, null);
+});
+
 test("유튜브 주소를 받은 것에는 필터를 건다 — 검색을 안 했으니 제목을 못 믿는다", async () => {
   assert.equal(await resolve({ title: "2시간 연속 재생 mix", durationSec: 200, youtubeUrl: "https://youtu.be/x", sourceKey: "yt:x" }, LIMITS), null);
   assert.equal(await resolve({ title: "긴 영상", durationSec: 9999, youtubeUrl: "https://youtu.be/y", sourceKey: "yt:y" }, LIMITS), null);
