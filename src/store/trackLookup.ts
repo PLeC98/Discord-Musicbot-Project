@@ -16,15 +16,15 @@ type CacheHit = { hit: false } | { hit: true; track: CachedTrack; audioKey: stri
 // 열기 전에 부르면 던진다
 const conn = () => db.get();
 
-// 조회 (읽기)
+// 읽기
 
 function rowOf(requestKey: string) {
   return checked(LookupRow, conn().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)), "링크 장부");
 }
 
 /**
- * 요청을 받아 둔 파일과 트랙 정보로. 사용자가 넣은 링크면 다듬어서 찾는다.
- * { hit: false } 또는 { hit: true, track, audioKey, filePath }를 반환합니다.
+ * 요청을 받아 둔 파일과 곡 정보로 바꾼다. 사용자가 넣은 링크면 다듬어서 찾는다.
+ * 없으면 { hit: false }, 있으면 { hit: true, track, audioKey, filePath }
  */
 function resolveFromCache(requestKey: string): CacheHit {
   const row = rowOf(requestKey);
@@ -52,7 +52,7 @@ function resolveFromCache(requestKey: string): CacheHit {
   return { hit: true, track: cachedTrack, audioKey, filePath };
 }
 
-// 쓰기. track_lookup
+// 쓰기(track_lookup)
 
 /**
  * "이 요청은 이 음원이다"와 표시용 메타데이터 기록. 음원 주소가 정해진 곡만 적는다.

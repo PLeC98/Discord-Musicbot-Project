@@ -175,7 +175,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   });
   if (!result.success) return await noticeInstead(interaction, addFailureMessage(result));
 
-  // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
+  // "곡을 추가하는 중" 자리(본인)를 치운다. 담은 안내 · 패널은 채널에 따로 갔다
   await responder.dismissPlaceholder();
 }
 

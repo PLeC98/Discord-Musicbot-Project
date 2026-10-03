@@ -84,7 +84,7 @@ function isSoundCloudURL(url: unknown): boolean {
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
-    // 모바일 앱 공유용 짧은 링크 (yt-dlp가 리디렉션을 따라감)
+    // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 넘겨주기를 따라간다
     /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
     // 곡 · 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
     /^https?:\/\/api(-v2)?\.soundcloud\.com\/(tracks|playlists)\/\d+/,
@@ -125,10 +125,8 @@ function isDirectAudioLink(url: unknown): boolean {
     const urlObj = new URL(String(url));
     const pathname = urlObj.pathname.toLowerCase();
 
-    // URL이 지원되는 오디오 형식으로 끝나는지 확인
+    // 주소가 받는 오디오 확장자로 끝나야 하고, http · https 여야 한다
     const hasAudioExtension = DIRECT_AUDIO_FORMATS.some((format) => pathname.endsWith(format));
-
-    // 직접 HTTP/HTTPS 링크인지 확인
     const isHttpLink = urlObj.protocol === "http:" || urlObj.protocol === "https:";
 
     return isHttpLink && hasAudioExtension;

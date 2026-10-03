@@ -58,7 +58,8 @@ type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" |
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
-import { markTransient, isTransient } from "./transientMessages.ts";
+import { isTransient, scheduleDelete } from "./transientMessages.ts";
+import { LIFETIME } from "./delivery.ts";
 import { panelId, IDLE_SESSION } from "./customIds.ts";
 import * as blankThumbnail from "./blankThumbnail.ts";
 import { jumpDescription } from "./queueDisplay.ts";
@@ -86,8 +87,7 @@ const canSkip = (p: Controls) => p.queue.length > 0 || p.loop === "track" || Boo
 // 대기열 화면은 다음 곡만 보인다. 다음 곡이 없으면 대기열 버튼을 끈다
 const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
-// 상태 줄 (일시정지 / 대기열 수)
-// 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
+// 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
   if (player.paused) {
@@ -122,7 +122,7 @@ function idleViewOf(reason: string): IdleView {
 class NowPlayingPanel {
   client: Client;
   progressTimers = new Map<string, NodeJS.Timeout>(); // guildId -> 다음 진행 막대 갱신
-  webhookCache = new Map<string, WebhookClient>(); // channelId -> WebhookClient 매핑
+  webhookCache = new Map<string, WebhookClient>(); // channelId -> 그 채널에 패널을 올리는 웹훅
   reposting = new Set<string>(); // 현재 재생 메시지를 다시 올리는 중인 guildId
   location: PanelLocation;
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
@@ -169,9 +169,7 @@ class NowPlayingPanel {
     }
   }
 
-  /**
-   * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
-   */
+  /** 재생목록을 넣어 첫 곡이 시작된 뒤 남은 곡을 담았다고 알린다. 잠깐 보이고 지운다 */
   async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
@@ -179,23 +177,13 @@ class NowPlayingPanel {
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
 
     try {
-      const infoMessage = await player.textChannel.send(post(view));
-      markTransient(infoMessage?.id, 10000);
-
-      // 10초 후 정보 메시지 삭제
-      setTimeout(() => {
-        infoMessage.delete().catch(() => {
-          // 메시지가 이미 삭제되었을 수 있음
-        });
-      }, 10000);
+      scheduleDelete(await player.textChannel.send(post(view)), LIFETIME.glance);
     } catch (error) {
       log.error("재생목록 추가 안내 전송 실패:", error);
     }
   }
 
-  /**
-   * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
-   */
+  /** 새 곡을 틀기 시작할 때 재생 패널을 올린다(전용 채널 맨 아래의 끝난 패널은 고쳐 쓴다) */
   async postPlaying(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this.panelChannel(player);
@@ -355,9 +343,7 @@ class NowPlayingPanel {
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
-  /**
-   * 현재 재생 컨테이너를 빌드합니다 (Components v2).
-   */
+  /** 재생 중 패널의 화면(Components V2) */
   async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false) {
     const nowPlayingTitle = panelText.playingTitle();
 
@@ -389,7 +375,7 @@ class NowPlayingPanel {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${statusParts.join(" • ")}`));
     }
 
-    // 구분선 + 제어 버튼
+    // 구분선 뒤에 조작 버튼
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
     const buttons = await this.createControlButtons(player, buttonsDisabled);
     for (const row of buttons) {
@@ -403,9 +389,7 @@ class NowPlayingPanel {
     return container;
   }
 
-  /**
-   * 현재 재생 임베드를 제자리에서 갱신합니다.
-   */
+  /** 재생 중 패널을 제자리에서 다시 그린다 */
   async updatePlaying(player: Player) {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     const panel = player.nowPlayingMessage;
@@ -514,7 +498,7 @@ class NowPlayingPanel {
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
     if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
-    // 플레이어 정리
+    // 플레이어는 이제 틀고 있는 곡 · 패널이 없다
     trackState.setCurrent(player, null);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -625,10 +609,7 @@ class NowPlayingPanel {
     }
   }
 
-  /**
-   * 제어 버튼을 생성합니다.
-   */
-  // keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
+  // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
   async createControlButtons(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
     const id = (action: string) => panelId(action, player.sessionId);
 
@@ -655,10 +636,10 @@ class NowPlayingPanel {
 
     const volumeButton = new ButtonBuilder().setCustomId(id("volume")).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
 
-    // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
+    // 둘째 줄: 섞기(아이콘만) · 반복 · 대기열 · 자동재생
     const shuffleButton = new ButtonBuilder().setCustomId(id("shuffle")).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
 
-    // 반복 버튼. 꺼짐 → 트랙 → 대기열 순환
+    // 반복 버튼은 끔 → 한 곡 반복 → 대기열 반복 차례로 돈다
     const loopLook = LOOP_LOOKS[player.loop || "off"];
     const loopButton = new ButtonBuilder()
       .setCustomId(id("loop"))
@@ -693,9 +674,8 @@ class NowPlayingPanel {
   }
 
   /**
-   * 대기열 이동 선택 메뉴를 독립 ActionRow로 빌드합니다.
-   * Discord가 Container 안에 중첩된 선택 메뉴 ActionRow를 무시하므로 최상위 components 배열에 배치해야 합니다 (Container 안이 아님).
-   * 대기열이 비었거나 플레이어 상태가 없으면 null을 반환합니다.
+   * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
+   * 대기열이 비었거나 재생 이름표가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
@@ -715,9 +695,7 @@ class NowPlayingPanel {
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
   }
 
-  /**
-   * 진행 바를 새로고침하는 5초 간격 타이머를 시작합니다.
-   */
+  /** 진행 막대를 PROGRESS_MS 마다 다시 그리기 시작한다 */
   startProgressUpdate(player: Player) {
     const guildId = player.guild.id;
     this.stopProgressUpdate(guildId);
@@ -754,9 +732,7 @@ class NowPlayingPanel {
     else await this.updatePlaying(player);
   }
 
-  /**
-   * 서버의 진행 갱신 타이머를 중지합니다.
-   */
+  /** 그 서버의 진행 막대 다시 그리기를 멈춘다 */
   stopProgressUpdate(guildId: string | undefined) {
     if (!guildId) return;
     const timer = this.progressTimers.get(guildId);

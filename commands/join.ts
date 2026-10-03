@@ -57,7 +57,7 @@ const exported: GuildCommand = {
       return toSelf(interaction, reply(replies.alreadyJoined()), LIFETIME.glance);
     }
 
-    // /leave에서 저장한 세션이 있는지 확인
+    // /leave 나 종료가 저장해 둔 세션
     const savedState = sessions().load(guild.id);
     const hasSession = savedState?.current;
 

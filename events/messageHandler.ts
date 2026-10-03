@@ -27,7 +27,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     const content = message.content.trim();
     if (!content) return;
 
-    // 지정된 봇 채널인지 확인
+    // 전용 채널의 글만 받는다
     const botChannelId = await GuildSettingsManager.getBotChannel(guildId);
     if (!botChannelId || message.channel.id !== botChannelId) return;
 

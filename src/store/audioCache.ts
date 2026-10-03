@@ -13,11 +13,11 @@ import { bestEffort } from "../infra/bestEffort.ts";
 
 const CACHE_DIR = path.join(import.meta.dirname, "..", "..", "audio_cache");
 
-// 제거 점수 가중치
+// 퇴거 점수의 가중치(최근성 · 빈도 · 크기)
 const W_RECENCY = 0.4;
 const W_FREQUENCY = 0.4;
 const W_SIZE = 0.2;
-// 고정 크기 기준: opus 128kbps ≈ 1 MB/분 → 50 MB ≈ 50분
+// 크기 점수의 기준. opus 128kbps 는 1분에 약 1MB 라 50MB 는 약 50분이다
 const SIZE_REF_BYTES = 50 * 1024 * 1024;
 
 /** audio_cache 한 줄(표는 db.ts) */
@@ -106,7 +106,7 @@ async function removeFile(fp: string): Promise<boolean> {
   }
 }
 
-// 초기화. dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
+// DB 를 열고 정기 퇴거를 건다. dbPath 는 시험이 임시 DB 를 넘기는 자리이고 운영은 기본 경로다
 function initialize(dbPath = db.DB_PATH) {
   if (db.isOpen()) return;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -115,19 +115,19 @@ function initialize(dbPath = db.DB_PATH) {
   log.info({ tags: ["startup"] }, "SQLite 캐시 DB 준비 완료");
 }
 
-/** audio_key에 대한 결정적 파일 경로 */
+/** 오디오 열쇠의 파일 경로. 같은 열쇠는 늘 같은 경로다 */
 function getFilePath(audioKey: string) {
   return path.join(dir, `track_${md5(audioKey)}.opus`);
 }
 
-// 라이브 보호 (재생 중/사전 캐시된 트랙)
+// 퇴거 보호: 틀고 있거나 미리 받아 둔 곡
 
-/** 키를 사용 중으로 표시. 제거 대상에서 건너뜀 */
+/** 쓰는 중인 열쇠로 표시한다. 퇴거가 건너뛴다 */
 function protect(audioKey: string | null | undefined) {
   if (audioKey) protectedKeys.add(audioKey);
 }
 
-/** 더 이상 필요하지 않은 키 해제 */
+/** 다 쓴 열쇠의 보호를 푼다 */
 function unprotect(audioKey: string | null | undefined) {
   if (audioKey) protectedKeys.delete(audioKey);
 }
@@ -167,12 +167,12 @@ function liveKeys() {
   return keys;
 }
 
-/** audio_key로 원시 조회 */
+/** 오디오 열쇠로 장부 한 줄을 그대로 읽는다 */
 function lookupByAudioKey(audioKey: string): AudioRow | null {
   return (conn().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) as AudioRow | undefined) || null;
 }
 
-// 쓰기. audio_cache
+// 장부 쓰기(audio_cache)
 
 function recordDownloadStart(audioKey: string, track: TrackMeta | null | undefined) {
   const now = Date.now();
@@ -253,14 +253,14 @@ function sessionKeys(audioUrls = sessions().liveAudioUrls()) {
   return keys;
 }
 
-// 시작 시 정리
+// 기동 정리
 
 async function onStartup() {
-  // 1. 다운로드 중 중단된 행 재설정
+  // 지난 실행이 받다가 멈춘 줄은 실패로 돌린다
   const resetCount = conn().prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
   if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
-  // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
+  // 받아 둔 줄의 파일이 디스크에 남아 있는지 본다
   const cachedRows = conn().prepare("SELECT audio_key, file_path FROM audio_cache WHERE status = 'cached'").all() as Array<Pick<AudioRow, "audio_key" | "file_path">>;
   let orphanDbCount = 0;
   for (const row of cachedRows) {
@@ -362,7 +362,7 @@ async function cleanOrphanFiles() {
       .map((r) => path.resolve((r as { file_path: string }).file_path)),
   );
 
-  // 보호 대상: 저장된 세션 + 실시간 재생/사전 캐시 키
+  // 지키는 파일: 저장된 세션의 곡 · 틀고 있거나 미리 받아 둔 곡
   const sessionFiles = getProtectedCacheFiles();
   const liveFiles = new Set([...liveKeys()].map((k) => path.resolve(getFilePath(k))));
   const allProtected = new Set([...sessionFiles, ...liveFiles, ...protectedFiles]); // 마지막은 받는 중인 임시 파일
@@ -460,20 +460,19 @@ function rankForEviction(rows: AudioRow[]) {
     .map((r) => {
       const ageDays = (now - (r.last_played_at || r.downloaded_at || r.created_at || now)) / 86_400_000;
 
-      // 최근성: 지수 감쇠, 특성 시간 7일
+      // 최근성: 7일을 특성 시간으로 지수 감쇠
       const recency = Math.exp(-ageDays / 7);
 
-      // 빈도: 재생 횟수 합계를 나이에 따라 감쇠 (반감기 60일)
-      // 오래된 재생은 최근 재생보다 낮게 계산
+      // 빈도: 재생 횟수를 나이에 따라 감쇠(60일). 오래전 재생은 덜 친다
       const freq = Math.min(1, ((r.play_count || 0) * Math.exp(-ageDays / 60)) / 10);
 
-      // 크기: 고정 50 MB 기준
+      // 크기: 50MB 를 1 로 본다
       const sizeFrac = Math.min(1, (r.file_size_bytes || 0) / SIZE_REF_BYTES);
 
-      // 한 번도 재생되지 않은 파일에 추가 페널티
+      // 한 번도 틀지 않은 파일은 더 먼저 지운다
       const neverPlayed = (r.play_count || 0) === 0 ? 0.15 : 0;
 
-      // 점수가 높을수록 더 먼저 제거
+      // 점수가 높을수록 먼저 지운다
       let score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
 
       // 연령 제한 영상: 점수를 낮춰 잔존 우선순위를 높임 (재취득 비용↑). 절대 임계값이 아닌 상대 랭킹이라 영구보존은 아님.
@@ -542,14 +541,14 @@ function reportEviction({ evicted, failed, guarded, files, size, reached }: { ev
   log.info(`오디오 캐시 ${evicted}개를 지웠습니다 (${files}개 남음, ${MB(size)}MB)${short}${unremoved}`);
 }
 
-/** 백그라운드 주기적 제거 타이머 시작 */
+/** 정기 퇴거를 건다(간격은 설정) */
 function startPeriodicEviction() {
   const cfg = config.cache;
   if (evictInterval) clearInterval(evictInterval);
   evictInterval = setInterval(() => {
     evictIfNeeded().catch((err: unknown) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", messageOf(err)));
   }, cfg.evictIntervalMs);
-  evictInterval.unref(); // 프로세스 종료를 막지 않음
+  evictInterval.unref(); // 프로세스가 끝나는 것을 붙잡지 않는다
 }
 
 // 통계
@@ -594,7 +593,7 @@ function getCacheStats() {
   };
 }
 
-// 생명주기
+// 닫기
 
 function close() {
   if (evictInterval) {

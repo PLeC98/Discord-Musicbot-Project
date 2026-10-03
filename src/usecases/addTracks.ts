@@ -440,7 +440,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   const { tracks } = trackData;
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester, addedAt: Date.now() });
 
-  // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
+  // 쉬던 플레이어면 첫 곡을 틀기 시작하고, 나머지는 대기열에 담는다
   const { start, addition, opened } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 
   // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
@@ -452,21 +452,19 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
     return { success: false, ...start.failure };
   }
 
-  // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
+  // 첫 곡을 틀기 시작했고 목록에 남은 곡이 있다. 담은 안내를 내고 패널의 대기열 수를 고친다
   if (opened && tracks.length > 1) {
-    // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
     await panel.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.collection, addition.insertFirst, addition.notice);
-    // 대기열 갱신. 임베드 새로고침
     await panel.updatePlaying(player);
     return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
   }
 
-  // 대기열에만 추가됨 (이미 음악 재생 중)
+  // 이미 틀고 있었다. 대기열에만 담았다
   if (wasPlayingBefore || (!opened && tracks.length > 0)) {
     return await queueOnly(panel, player, responder, addition);
   }
 
-  // 단일 트랙 재생 시작
+  // 한 곡을 틀기 시작했다
   return opened ?? { success: true };
 }
 
@@ -517,7 +515,7 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
   return null;
 }
 
-// UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
+// 화면이 실패해도 재생은 이어진다. 패널을 올리지 못해도(Components V2 로 고칠 수 없는 자리 등) 곡은 그대로 튼다
 async function openPanel(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<Opened> {
   try {
     return await panel.postPlaying(player, track, responder);
@@ -551,7 +549,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
   // 자리가 없어 한 곡도 못 담았다
   if (queued.length === 0 && notice.dropped > 0) return { success: false, code: "queue-full", dropped: notice.dropped };
 
-  // 기존 임베드 갱신
+  // 패널의 대기열 수를 고친다
   if (player.nowPlayingMessage && player.currentTrack) {
     await panel.updatePlaying(player);
   }

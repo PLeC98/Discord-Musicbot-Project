@@ -14,7 +14,7 @@ type AudioStream = Readable & { headers?: Record<string, unknown> };
 type StreamNet = { getStream: (url: string, deps?: undefined, opts?: { bodyIdleMs?: number }) => Promise<AudioStream> };
 
 /**
- * 직접 오디오 링크의 메타데이터 조회.
+ * 직접 링크의 곡 정보. HEAD 로 종류 · 크기 · 파일 이름을 본다.
  * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 링크를 열지 못하면 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. net 은 테스트가 가짜를 넘기는 자리
  */
@@ -24,7 +24,7 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
       return [];
     }
 
-    // SSRF 가드된 HEAD. Content-Type/크기 검증 포함
+    // SSRF 가드를 지나는 HEAD. 종류 · 크기도 거기서 본다
     const headers = (await net.head(url)).headers as Record<string, unknown>;
     const contentType = String(headers["content-type"] || "");
     const contentLength = headers["content-length"];
@@ -64,9 +64,8 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
 }
 
 /**
- * 재생/다운로드용 스트림 획득. SSRF 가드된 Readable 반환.
- * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 Player의 FFmpeg가 처리하므로
- * startSeconds는 여기서 무시한다. net 은 테스트가 가짜를 넘기는 자리
+ * 재생 · 받기용 스트림(SSRF 가드를 지난 Readable). 직접 링크는 주소로 위치를 옮길 수 없어 위치 이동은 ffmpeg 가 한다.
+ * net 은 테스트가 가짜를 넘기는 자리
  */
 async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<AudioStream> {
   try {

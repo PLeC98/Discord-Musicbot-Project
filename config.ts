@@ -76,7 +76,7 @@ const COOKIE_BROWSERS = ["brave", "chrome", "chromium", "edge", "firefox", "oper
 
 // .env 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다
 function envReaders(source: EnvSource, problems: string[]) {
-  // .env 값 읽기. 키가 없거나 공백뿐이면 def 반환
+  // .env 의 값. 키가 없거나 공백뿐이면 def
   function env(key: string): string | null;
   function env(key: string, def: string): string;
   function env(key: string, def: string | null = null) {
@@ -207,7 +207,6 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
   const config = {
     userAgents: USER_AGENTS,
 
-    // 디스코드 봇 설정
     // 토큰 · 클라이언트 id 는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
     discord: {
       token: env("DISCORD_TOKEN", ""),
@@ -216,7 +215,6 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       guildId: env("GUILD_ID"),
     },
 
-    // 스포티파이 API 설정
     spotify: {
       clientId: env("SPOTIFY_CLIENT_ID"),
       clientSecret: env("SPOTIFY_CLIENT_SECRET"),
@@ -229,7 +227,6 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       listenbrainzToken: env("LISTENBRAINZ_TOKEN"),
     },
 
-    // 봇 설정
     bot: {
       defaultVolume: 100,
       maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", 250), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
@@ -303,7 +300,6 @@ const LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
 // 대시보드 · 캐시 · SponsorBlock · 음성 상태 · 스트림 · 로그. 한 함수가 너무 길어 나눴다
 function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
-    // 대시보드 설정
     dashboard: {
       port: dashboardPort,
       // 바인딩 주소. 기본은 루프백. 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
@@ -332,7 +328,6 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       },
     },
 
-    // 오디오 캐시 설정
     cache: {
       maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024, { min: 1, max: 1048576 }) * 1024 * 1024,
       maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1, max: 1000000 }),
@@ -355,7 +350,6 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       categories: parseSbCategories(env("SPONSORBLOCK_CATEGORIES", "music_offtopic,intro,outro")),
     },
 
-    // 음성 채널 상태 설정
     voiceStatus: {
       playingPrefix: env("VOICE_PLAYING_PREFIX", ""),
       pausedPrefix: env("VOICE_PAUSED_PREFIX", ""),

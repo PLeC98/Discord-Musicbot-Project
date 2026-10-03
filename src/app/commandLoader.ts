@@ -63,9 +63,8 @@ const putCommands: PutCommands = async (route, body) => (await new REST().setTok
 
 type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
 
-// 슬래시 명령어를 Discord에 (재)배포하는 재사용 함수.
-// 기동 경로는 정의 무변경이면 PUT 생략(지문 비교), 대시보드 재배포·수동 스크립트는 force로 항상 PUT.
-// hashPath · put 은 테스트 시임 (임시 파일. 운영 지문 미접촉, 실제 등록 없음).
+// 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(지문이 같으면) 건너뛰고, 대시보드의 다시 등록 · 수동 스크립트는 force 로 늘 등록한다.
+// hashPath · put 은 시험이 넘기는 자리(임시 파일이라 운영 지문을 건드리지 않고, 실제로 등록하지 않는다)
 async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;

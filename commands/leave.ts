@@ -14,7 +14,7 @@ const exported: GuildCommand = {
     const r = await controls.leave(guild, { member }, client.players);
     if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
-    // 플레이어는 없었지만 봇이 음성 채널에 남아 있었다(음악이 끝난 뒤 자동 퇴장 타이머가 아직 안 돌았다)
+    // 플레이어 없이 봇만 음성 채널에 남아 있었다(곡이 끝난 뒤 나갈 예약이 아직 돌지 않았다)
     if (r.left === "voice-only") return toAll(interaction, replies.left(null, member), LIFETIME.farewell);
 
     await toAll(interaction, replies.left(r.track ? { track: r.track, ...r.saved } : null, member), LIFETIME.farewell);

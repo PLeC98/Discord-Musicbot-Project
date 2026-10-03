@@ -206,7 +206,6 @@ class Player {
     this.voiceChannel = voiceChannel;
     this.io = { ...defaultBoundary, ...boundary };
 
-    // 오디오 플레이어 설정
     this.audioPlayer = this.io.createAudioPlayer({ behaviors: { maxMissedFrames: MAX_MISSED_FRAMES } });
     this.connection = null;
     this.playback = null; // 지금 트는 한 번(CurrentPlayback). 곡이 바뀌면 버린다
@@ -217,26 +216,25 @@ class Player {
     // 종료 경로가 currentTrack을 먼저 null해도 해제가 누락되지 않게
     this._protectedAudioKey = null;
 
-    // 플레이어 설정
+    // 사람이 바꾸는 재생 설정. 세션에 저장되어 다시 켤 때 돌아온다
     this.volume = config.bot.defaultVolume;
-    this.loop = false; // false, 'track', 'queue' 중 하나
-    this.autoplay = false; // false 또는 장르 문자열: 'pop', 'rock', 'hiphop' 등
+    this.loop = false;
+    this.autoplay = false;
     this.paused = false;
 
-    // UI 관리
-    this.nowPlayingMessage = null;
+    this.nowPlayingMessage = null; // 이 재생의 패널 메시지
 
-    // 세션 관리 - 오래된 버튼 상호작용을 막기 위한 고유 ID
+    // 이 재생의 이름표. 패널 버튼에 실어 지난 재생의 버튼을 가른다
     this.sessionId = createPlayerSessionId();
 
-    // 재생 생명주기 상태
+    // 곡 끝 · 다시 열기 · 연달아 실패의 상태
     this._endReason = null;
     this.retry = FRESH;
     this.failedTracks = 0;
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
     this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
 
-    // 일시정지 관리
+    // 멈춘 까닭들. 하나라도 남아 있으면 멈춰 있다
     this.pauseReasons = new Set();
 
     // 협력 모듈. 각자 자기 상태와 타이머를 가진다
@@ -256,7 +254,6 @@ class Player {
     });
     this.sponsorSkipper = new SponsorSkipper(this);
 
-    // 이벤트 설정
     this.setupEvents();
   }
 
@@ -623,10 +620,7 @@ class Player {
     return false;
   }
 
-  /**
-   * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제.
-   * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
-   */
+  /** 반복 타이머를 모두 멈춘다. 재생 상태 · 저장된 세션은 건드리지 않는다. 버리는 플레이어는 꼭 부른다(남은 타이머가 플레이어를 붙잡는다) */
   _stopTimers() {
     this.idle.stop();
     this.warmer.stop();
@@ -686,7 +680,7 @@ class Player {
     try {
       this.playback?.resource?.playStream?.destroy();
     } catch {
-      // 스트림이 이미 제거되었을 수 있음
+      // 이미 닫혔다
     }
     this.playback = null;
     this.lastPlaybackPosition = 0;
@@ -725,7 +719,7 @@ class Player {
   skip(reason = "skip") {
     if (this.currentTrack) {
       clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
-      // 트랙 타이머 정리
+      // 이 곡에 걸린 감시 · 대기 타이머를 멈춘다
       this.watch.stopOverflow();
       this.idle.cancelEmpty();
 
@@ -799,7 +793,6 @@ class Player {
   }
 
   setLoop(mode: Loop) {
-    // 모드: false, 'track', 'queue'
     // 끝이 없는 것은 반복할 수 없다. 켜려는 요청만 막고 끄는 것은 언제나 통한다.
     if (mode && this.hasLiveTrack()) {
       clog.info(`반복 거부: 라이브가 있어 반복(${mode})을 켜지 않습니다`);
@@ -1015,8 +1008,6 @@ class Player {
 
     if (this.queue.length > 0) {
       trackState.shiftNext(this);
-
-      // 다음 트랙을 처음부터 재생
       await this.play(0);
       await playerEvents.refresh(this);
       return true;
@@ -1212,9 +1203,8 @@ class Player {
       if (await this.handleAutoplay()) return;
     }
 
-    // 오류 시 다음 트랙으로 스킵 시도
+    // 남은 곡이 있으면 못 튼 까닭을 알리고 다음 곡으로 넘긴다
     if (this.queue.length > 0) {
-      // 스킵 전에 오류를 텍스트 채널로 전송
       if (tell) await playerEvents.notice(this, "skipped-after-error", { error }).catch(noticeFailed);
       trackState.shiftNext(this);
       await this.play(0);
