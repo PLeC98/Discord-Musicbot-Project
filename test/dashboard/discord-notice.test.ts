@@ -3,10 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request } from "express";
-import { announcer, announceVolume, dashboardActor, dashboardResponder } from "../../src/dashboard/discord-notice.ts";
+import { announcer, dashboardActor, dashboardResponder } from "../../src/dashboard/discord-notice.ts";
 import { LIFETIME } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
-import { VOLUME_SETTLE_MS } from "../../src/usecases/controls.ts";
 import type { Player } from "../../src/player/player.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
@@ -67,24 +66,6 @@ test("조작 안내: 플레이어나 패널 채널이 없으면 알리지 않는
   announcer(lost.bot, lost.player)(frame({ title: "결과" }));
   await settle();
   assert.deepEqual([none.sent, none.lookups(), lost.sent], [[], 0, []]);
-});
-
-test("볼륨: 잇달아 바꾸면 멈춘 뒤 한 번, 처음 값 → 마지막 값. 처음 값으로 돌아왔으면 알리지 않는다", (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const shown: string[] = [];
-  const show = (before: number, level: number) => shown.push(`${before}→${level}`);
-  announceVolume("g1", 50, 60, show);
-  announceVolume("g1", 60, 70, show);
-  t.mock.timers.tick(VOLUME_SETTLE_MS - 1);
-  assert.deepEqual(shown, []);
-  announceVolume("g1", 70, 80, show);
-  t.mock.timers.tick(VOLUME_SETTLE_MS);
-  assert.deepEqual(shown, ["50→80"]);
-
-  announceVolume("g2", 30, 40, show);
-  announceVolume("g2", 40, 30, show);
-  t.mock.timers.tick(VOLUME_SETTLE_MS);
-  assert.deepEqual(shown, ["50→80"], "제자리면 알리지 않는다");
 });
 
 test("곡 넣기: 담은 안내를 그때의 패널 채널에 잠깐 보인다. 자리표시자는 없다", async (t) => {

@@ -20,7 +20,7 @@ import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
-import { announcer, announceVolume, dashboardActor, dashboardResponder } from "../discord-notice.ts";
+import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -189,11 +189,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume));
-    if (!r.ok) return refuse(res, r);
-    const announce = announcer(ctx.bot, ctx.player);
+    // 디스코드 패널 채널에는 끄기를 멈춘 뒤 처음 값 → 마지막 값으로 한 번 알린다(채널도 그때 찾는다)
     const by = dashboardActor(req);
-    announceVolume(req.params.guildId, r.before, r.level, (before, level) => announce(replies.volumeSet(before, level, by)));
+    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume), { settled: (from, to) => announcer(ctx.bot, ctx.player)(replies.volumeSet(from, to, by)) });
+    if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 

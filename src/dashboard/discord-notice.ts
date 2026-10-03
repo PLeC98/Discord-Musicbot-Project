@@ -11,7 +11,6 @@ import { LIFETIME } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { scheduleDelete } from "../ui/transient-messages.ts";
 import * as controlText from "../ui/text/ko/controls.ts";
-import { VOLUME_SETTLE_MS } from "../usecases/controls.ts";
 import type { Player } from "../player/player.ts";
 import type { NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
 import type { BotContext } from "../app/bot-context.ts";
@@ -45,22 +44,6 @@ function announcer(bot: Pick<BotContext, "panels">, player: Player | null | unde
   };
 }
 
-// 볼륨은 끄는 동안 잇달아 온다. 서버마다 처음 값을 들고 있다가 멈춘 뒤 한 번 알린다
-const settling = new Map<string, { before: number; timer: NodeJS.Timeout }>();
-
-/** 볼륨 안내. 멈춘 뒤 처음 값 → 마지막 값으로 show 를 부른다. 처음 값으로 돌아왔으면 알리지 않는다 */
-function announceVolume(guildId: string, before: number, level: number, show: (before: number, level: number) => void) {
-  const s = settling.get(guildId);
-  const from = s?.before ?? before;
-  clearTimeout(s?.timer);
-  const timer = setTimeout(() => {
-    settling.delete(guildId);
-    if (from !== level) show(from, level);
-  }, VOLUME_SETTLE_MS);
-  timer.unref?.();
-  settling.set(guildId, { before: from, timer });
-}
-
 /** 곡 넣기. 담은 안내를 패널 채널에 보낸다. 플레이어의 글자 채널은 코어가 곡을 넣으며 정하므로 보낼 때 찾는다 */
 function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId: string): Responder {
   return {
@@ -73,4 +56,4 @@ function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId
   };
 }
 
-export { dashboardActor, announcer, announceVolume, dashboardResponder };
+export { dashboardActor, announcer, dashboardResponder };

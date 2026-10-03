@@ -196,6 +196,27 @@ test("음량: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고
   assert.deepEqual(lines, ["볼륨: 50% → 80%"]);
 });
 
+test("음량: 멈춘 뒤 settled 를 처음 값 → 마지막 값으로 한 번 부른다. 처음 값으로 돌아왔으면 부르지 않는다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const shown: string[] = [];
+  const settled = (from: number, to: number) => shown.push(`${from}→${to}`);
+  const p = fakePlayer();
+  p.setVolume = (v: number) => (p.volume = v);
+
+  await controls.volume(p, DJ, 60, { settled });
+  await controls.volume(p, DJ, 70, { settled });
+  t.mock.timers.tick(controls.VOLUME_SETTLE_MS - 1);
+  assert.deepEqual(shown, []);
+  await controls.volume(p, DJ, 80, { settled });
+  t.mock.timers.tick(controls.VOLUME_SETTLE_MS);
+  assert.deepEqual(shown, ["50→80"]);
+
+  await controls.volume(p, DJ, 90, { settled });
+  await controls.volume(p, DJ, 80, { settled });
+  t.mock.timers.tick(controls.VOLUME_SETTLE_MS);
+  assert.deepEqual(shown, ["50→80"], "제자리면 부르지 않는다");
+});
+
 test("반복: 모드 확인, 라이브가 있으면 켜기만 거절. 버튼의 다음 모드는 끔 → 한곡 → 대기열 → 끔", async () => {
   assert.equal(codeOf(await controls.loop(fakePlayer(), DJ, "all")), "bad-loop-mode");
   const live = fakePlayer({ hasLiveTrack: () => true });
