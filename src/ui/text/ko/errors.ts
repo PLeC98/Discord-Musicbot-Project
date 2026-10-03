@@ -22,6 +22,8 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "must-be-in-voice": () => warning("voice", "먼저 음성 채널에 접속해 주세요!", "그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요."),
   // 봇이 음성 채널에 있는데 그 채널 밖에서 조작했다
   "must-be-in-same-voice": () => warning("voice", "봇과 같은 음성 채널에 있어야 해요!", "곡을 듣고 있는 사람들만 재생을 제어할 수 있어요."),
+  // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join · 대시보드 부르기)
+  "bot-in-other-voice": () => warning("voice", "음성 채널에 들어갈 수 없어요!", "이미 다른 채널에 접속해 있어요. 먼저 그 채널에서 내보내거나, 더 이상 그 채널에서 사용하지 않을 때 까지 기다려 주세요."),
   "must-dj": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작을 하려면 DJ 역할을 갖고 있어야 해요."),
   // 설정 화면은 서버 관리 권한이 있어야 만진다
   "must-moderator": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작에는 서버 관리 권한이 필요해요!"),
@@ -151,7 +153,6 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없습니다."),
   "member-not-found": () => warning("notFound", "서버에서 사용자를 찾을 수 없습니다"),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요"),
-  "bot-in-other-voice": () => warning("voice", "봇이 이미 다른 음성 채널에서 사용 중입니다"),
   "too-many-requests": () => warning("waiting", "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"),
   "too-many-streams": () => warning("waiting", "이벤트 연결이 너무 많습니다"),
   // 대시보드: 요청 형식
