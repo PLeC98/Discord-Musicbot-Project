@@ -105,6 +105,7 @@ import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
 import { isFolded, toggleFold, genreFoldId } from "../composables/configFolds";
+import { toRows, toMap, newRow } from "../utils/genre-rows.js";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
@@ -122,14 +123,6 @@ const loadError = ref("");
 const serverProblems = ref([]);
 const sourceTypes = ref([]);
 const sourceTypesState = ref("loading"); // loading · ready · failed. 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
-
-// 편집 중에는 배열로 다룬다. 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
-// 이름이 곧 키다. 따로 id를 두지 않는다.
-let serial = 0;
-const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ key: ++serial, name, emoji: g.emoji || "", sources: (g.sources || []).map((one) => ({ ...one })) }));
-// _key 는 편집 중 행을 붙잡아 두려고 붙인 것이라 저장할 때는 뺀다
-const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
-const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, sources: r.sources.map(clean) }]));
 
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
@@ -219,7 +212,7 @@ function onDragEnd() {
 }
 
 function addRow() {
-  rows.value.push({ key: ++serial, name: "", emoji: "", sources: [] });
+  rows.value.push(newRow());
 }
 
 function apply(data) {

@@ -172,6 +172,28 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
+// 장르마다 기본값의 길이 · 차단할 말을 덮어쓸 수 있다(예시 파일 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다
+test("검사: 장르별 덮어쓰기(길이 · 차단할 말)도 본다", () => {
+  const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800, blockedKeywords: ["live"] }), "");
+  assert.match(of({ minDurationSec: -1 }), /팝: minDurationSec/);
+  assert.match(of({ maxDurationSec: 0 }), /팝: maxDurationSec/);
+  assert.match(of({ blockedKeywords: "live" }), /팝: blockedKeywords/, "글자 하나로 적으면 글자마다 거르게 된다");
+  assert.match(genreConfig.validateGenres({ defaults: { blockedKeywords: "live" }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /blockedKeywords/);
+});
+
+test("검사: 장르의 실제 길이 범위(기본값 위에 얹은 것)가 뒤집혀 있으면 걸린다", () => {
+  const of = (genre: object) => genreConfig.validateGenres({ defaults: { minDurationSec: 60, maxDurationSec: 600 }, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  assert.match(of({ minDurationSec: 900 }), /팝: .*minDurationSec.*900.*maxDurationSec.*600/);
+  assert.match(of({ maxDurationSec: 30 }), /팝: .*minDurationSec.*60.*maxDurationSec.*30/);
+  assert.equal(of({ minDurationSec: 300 }), "");
+});
+
+test("검사: 미리 뽑아 둘 곡 수는 장르마다 둘 수 없다(기본값에만)", () => {
+  const problems = genreConfig.validateGenres({ genres: { 팝: { prefetchCount: 2, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  assert.match(problems, /팝: prefetchCount.*defaults/);
+});
+
 // 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 켜야 다음 문제가 보이던 것을 없앴다
 test("기동 오류는 문제를 한 번에 모두 나열한다(대시보드 저장 전 검사와 같은 문구)", () => {
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", "  팝:", "    emoji: abc", "    sources: []", ""].join("\n"));

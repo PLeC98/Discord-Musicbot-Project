@@ -61,6 +61,15 @@ const genre = z.preprocess(
       .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
       .optional(),
     sources: z.array(source, { error: "{id}: 소스(sources)가 하나는 있어야 합니다." }).min(1, { error: "{id}: 소스(sources)가 하나는 있어야 합니다." }),
+    // 기본값의 길이 · 차단할 말은 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile 이 본다
+    minDurationSec: present((v) => Number(v) >= 0, "{id}: minDurationSec은 0 이상이어야 합니다."),
+    maxDurationSec: present((v) => Number(v) > 0, "{id}: maxDurationSec은 비우거나 0보다 커야 합니다."),
+    blockedKeywords: present(Array.isArray, "{id}: blockedKeywords는 목록으로 적어야 합니다."),
+    // 미리 뽑아 둘 곡 수는 기본값에만 둔다. 재생도 장르와 상관없이 기본값만 본다
+    prefetchCount: z
+      .unknown()
+      .refine((v) => v === undefined, { error: "{id}: prefetchCount는 장르마다 둘 수 없습니다. defaults 에만 적어 주세요." })
+      .optional(),
   }),
 );
 
@@ -85,13 +94,27 @@ const defaults = z.preprocess(
       prefetchCount: present((v) => Number(v) >= 1, "prefetchCount는 1 이상이어야 합니다."),
       minDurationSec: present((v) => Number(v) >= 0, "minDurationSec은 0 이상이어야 합니다."),
       maxDurationSec: present((v) => Number(v) > 0, "maxDurationSec은 비우거나 0보다 커야 합니다."),
+      blockedKeywords: present(Array.isArray, "blockedKeywords는 목록으로 적어야 합니다."),
     })
     .superRefine((d, ctx) => {
       if (d.minDurationSec != null && d.maxDurationSec != null && Number(d.minDurationSec) > Number(d.maxDurationSec)) ctx.addIssue({ code: "custom", message: "minDurationSec이 maxDurationSec보다 큽니다." });
     }, ALWAYS),
 );
 
-const genresFile = z.preprocess(plain, z.object({ genres, defaults }));
+// 장르가 길이를 덮어쓰면 그 장르의 실제 범위는 기본값 위에 얹은 것이다. 덮어쓰지 않은 장르는 기본값의 검사가 본다
+const genresFile = z.preprocess(
+  plain,
+  z.object({ genres, defaults }).superRefine((file, ctx) => {
+    const base = plain(file.defaults);
+    for (const [id, genre] of Object.entries(plain(file.genres))) {
+      const own = plain(genre);
+      if (own.minDurationSec == null && own.maxDurationSec == null) continue;
+      const min = own.minDurationSec ?? base.minDurationSec;
+      const max = own.maxDurationSec ?? base.maxDurationSec;
+      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${min})이 maxDurationSec(${max})보다 큽니다.` });
+    }
+  }, ALWAYS),
+);
 
 /** 장르 설정의 문제 목록. 없으면 빈 배열 */
 function genreProblems(data: unknown): string[] {

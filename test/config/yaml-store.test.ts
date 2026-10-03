@@ -12,6 +12,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as yamlStore from "../../src/config/yaml-store.ts";
+import { toRows, toMap } from "../../dashboard/src/utils/genre-rows.js";
 import sink from "../../src/infra/log/sink.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
@@ -175,6 +176,21 @@ test("저장해도 사람이 적은 주석이 남는다 — 값이 바뀐 자리
   assert.match(text, /# 손으로 적은 메모/, "값이 바뀐 자리의 주석도 남아야 한다");
   assert.match(text, /label: 팝송/);
   assert.match(text, /rock:/);
+});
+
+// 대시보드 장르 화면에는 장르별 길이 · 차단할 말 칸이 없다. 행이 그것을 들고 있다가 돌려보내야 저장이 지우지 않는다
+test("대시보드 장르 화면의 행을 거쳐 저장해도 장르별 덮어쓰기와 그 주석이 남는다", () => {
+  write("genres", ["defaults:", "  minDurationSec: 60", "genres:", "  팝:", "    emoji: 🎤", "    # 팝만 짧은 곡도", "    minDurationSec: 30", "    blockedKeywords:", "      - live", "    sources:", "      - type: keyword", "        keywords:", "          - pop", ""].join("\n"));
+  const data = loadGenres();
+  const rows = toRows(data.genres);
+  rows[0].emoji = "🎸";
+  yamlStore.save("genres", { defaults: data.defaults, genres: toMap(rows) });
+
+  const text = fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8");
+  assert.match(text, /# 팝만 짧은 곡도\n {4}minDurationSec: 30/);
+  assert.match(text, /blockedKeywords:\n {6}- live/);
+  assert.match(text, /emoji: 🎸/);
+  assert.deepEqual(Object.keys(loadGenres().genres.팝), ["emoji", "minDurationSec", "blockedKeywords", "sources"], "칸의 차례도 그대로");
 });
 
 // 회귀 대상: 값은 그대로 두고 차례만 바꾸면 고칠 것이 없다고 보고 아무것도 쓰지 않았다.
