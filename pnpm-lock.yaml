@@ -24,9 +24,6 @@ importers:
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
-      cmu-pronouncing-dictionary:
-        specifier: 3.0.0
-        version: 3.0.0
       cors:
         specifier: ^2.8.6
         version: 2.8.6
@@ -79,6 +76,9 @@ importers:
       '@types/node':
         specifier: ^24.13.6
         version: 24.13.6
+      cmu-pronouncing-dictionary:
+        specifier: 3.0.0
+        version: 3.0.0
       eslint:
         specifier: ^10.11.0
         version: 10.11.0(jiti@2.7.0)(supports-color@7.2.0)
