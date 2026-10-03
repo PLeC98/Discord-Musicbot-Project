@@ -4,6 +4,8 @@
 import path from "path";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
+/** 설치 스크립트가 받아 두는 외부 도구. git 은 추적하지 않는다 */
+const VENDOR = path.join(ROOT, "vendor");
 
 const PROJECT = {
   root: ROOT,
@@ -18,9 +20,9 @@ const PROJECT = {
   /** 받아 둔 오디오 */
   audioCache: path.join(ROOT, "audio_cache"),
   /** 설치 스크립트가 받는 실행 파일(ffmpeg · yt-dlp) */
-  bin: path.join(ROOT, "bin"),
+  bin: path.join(VENDOR, "bin"),
   /** POToken 공급자 체크아웃 */
-  bgutil: path.join(ROOT, "bgutil-ytdlp-pot-provider"),
+  bgutil: path.join(VENDOR, "bgutil-ytdlp-pot-provider"),
   /** 대시보드 화면 빌드 결과 */
   dashboardDist: path.join(ROOT, "dashboard", "dist"),
 } as const;

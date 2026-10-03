@@ -1,4 +1,4 @@
-// yt-dlp 바이너리. 버전마다 bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 띄우는 곳(ytdlpSpawn)은 지금 버전의 경로를 묻는다.
+// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 띄우는 곳(ytdlpSpawn)은 지금 버전의 경로를 묻는다.
 //
 // 새 버전은 지금 버전의 복사본 위에서 yt-dlp 의 자체 업데이트(--update-to 채널@태그. 받은 파일의 SHA-256 을 검사한다)로 받고,
 // 받은 버전이 목표와 같을 때만 바꿔 끼운다. 바꿔 끼우기는 가리키는 경로만 바꾸므로 이미 돌고 있는 yt-dlp 는 옛 버전으로 끝까지 돈다.
@@ -35,7 +35,7 @@ const API_TIMEOUT_MS = 15_000;
 // youtube-dl-exec 가 설치 때 받은 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
 
-/** bin/yt-dlp/state.json. 지금 버전 · 직전 버전 · 최신을 마지막으로 본 때 · 받아 봤지만 목표가 아니었던 태그 */
+/** vendor/bin/yt-dlp/state.json. 지금 버전 · 직전 버전 · 최신을 마지막으로 본 때 · 받아 봤지만 목표가 아니었던 태그 */
 type State = { version: string; previous: string | null; lastChecked: number; capped: string | null };
 /** 바이너리를 한 번 부른 결과 */
 type Ran = { status: number | null; stdout: string; stderr: string };

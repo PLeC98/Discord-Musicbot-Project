@@ -11,7 +11,7 @@ export default [
   {
     ignores: [
       "node_modules",
-      "bgutil-ytdlp-pot-provider", // 외부 클론
+      "vendor", // 설치 스크립트가 받는 외부 도구
       "dashboard/dist", // 빌드 산출물
       "database",
       "cache",

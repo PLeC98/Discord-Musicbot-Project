@@ -1,5 +1,5 @@
 node_modules
-bgutil-ytdlp-pot-provider
+vendor
 dashboard/dist
 database
 cache

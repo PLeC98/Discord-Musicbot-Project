@@ -66,7 +66,7 @@
     - Ubuntu 24.04 이상은 `sudo apt install -y build-essential python3`로 충족. 기본 gcc가 12 미만인 배포판(Ubuntu 22.04 = gcc 11 등)은 `g++-12` 이상을 별도 설치. 시스템 libopus 패키지는 불필요. (opus 소스가 번들되어 함께 컴파일됨)
 - [pnpm](https://pnpm.io/)
 - 저장소 `clone`을 위한 [git](https://git-scm.com/)
-- ffmpeg: Windows / Linux(x64·arm64)는 `pnpm install` 시 [BtbN 빌드](https://github.com/BtbN/FFmpeg-Builds)를 `bin/`에 자동으로 내려받습니다. **별도 설치가 필요 없습니다**.
+- ffmpeg: Windows / Linux(x64·arm64)는 `pnpm install` 시 [BtbN 빌드](https://github.com/BtbN/FFmpeg-Builds)를 `vendor/bin/`에 자동으로 내려받습니다. **별도 설치가 필요 없습니다**.
   - Linux의 `.tar.xz` 해제에 `xz-utils`가 필요합니다 (대부분의 배포판에 기본 포함).
   - **macOS는 자동 설치 대상이 아닙니다** (BtbN이 macOS 빌드를 제공하지 않음). `brew install ffmpeg`로 설치해 PATH에 두거나 `.env`의 `FFMPEG_PATH`로 지정하세요.
   - 시스템에 이미 쓰던 ffmpeg가 있으면 `.env`의 `FFMPEG_PATH`로 지정할 수 있고, 그러면 자동 다운로드를 건너뜁니다.
@@ -316,11 +316,11 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.
 
-**ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
+**ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `vendor/bin/`의 바이너리가 없어졌을 때만 쓰세요.
 내려받는 릴리스는 `src/config/index.ts`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
 **각 달의 마지막 빌드만 쓸 수 있습니다** — BtbN은 그 외 autobuild를 2주 뒤 삭제하므로, 중간 날짜로 고정하면 얼마 못 가 내려받기가 404가 됩니다(월말 빌드는 2년 보존).
 
-**yt-dlp 버전**: 봇은 `bin/yt-dlp`의 버전을 쓰고, 기본으로 nightly 채널의 최신을 하루 한 번 확인해 새 버전이면 받아서 곧바로 바꿔 끼웁니다(재시작 불필요).
+**yt-dlp 버전**: 봇은 `vendor/bin/yt-dlp`의 버전을 쓰고, 기본으로 nightly 채널의 최신을 하루 한 번 확인해 새 버전이면 받아서 곧바로 바꿔 끼웁니다(재시작 불필요).
 채널 · 버전 고정 · 자동 교체 여부는 `.env`의 `YTDLP_CHANNEL` · `YTDLP_VERSION` · `YTDLP_UPDATE`로 정합니다. 새 버전이 말썽이면 로그의 교체 줄에 적힌 직전 버전을 `YTDLP_VERSION`에 적으세요(받아 둔 버전이라 곧바로 돌아갑니다).
 YouTube 추출이 갑자기 막히면 하루를 기다리지 말고 `pnpm run update:ytdlp`로 받으세요.
 

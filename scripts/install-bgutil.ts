@@ -86,7 +86,7 @@ try {
   try {
     run("npm audit fix", SERVER);
   } catch {
-    console.warn("⚠️  npm audit fix 실패(네트워크/레지스트리 문제일 수 있음). 설치는 계속 진행합니다. 나중에 bgutil-ytdlp-pot-provider/server에서 직접 실행해 주세요.");
+    console.warn("⚠️  npm audit fix 실패(네트워크/레지스트리 문제일 수 있음). 설치는 계속 진행합니다. 나중에 vendor/bgutil-ytdlp-pot-provider/server에서 직접 실행해 주세요.");
   }
 
   run("npx tsc", SERVER); // build/main.js 생성 (tsconfig outDir=./build)

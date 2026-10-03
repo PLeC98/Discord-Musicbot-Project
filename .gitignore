@@ -12,7 +12,6 @@ config/ai-prompt.chatml
 audio_cache/
 node_modules/
 dashboard/dist/
-bgutil-ytdlp-pot-provider/
 *.log
 logs/
 # 커버리지 결과(pnpm run test:coverage)
@@ -22,5 +21,5 @@ original_docs/
 notes/
 CLAUDE.md
 
-# 내려받은 ffmpeg 바이너리 (scripts/install-ffmpeg.ts)
-bin/
+# 설치 스크립트가 받는 외부 도구: ffmpeg · yt-dlp(vendor/bin), POToken 공급자(vendor/bgutil-ytdlp-pot-provider)
+vendor/

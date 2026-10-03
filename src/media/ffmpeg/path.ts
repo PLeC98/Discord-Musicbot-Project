@@ -11,7 +11,7 @@ const log = logger.child({ category: "ffmpeg" });
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이
  * 같은 바이너리를 쓰도록 여기서만 결정한다.
  *
- * 해석 순서: FFMPEG_PATH(.env) → bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 던진다.
+ * 해석 순서: FFMPEG_PATH(.env) → vendor/bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 던진다.
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
  */
 

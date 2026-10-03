@@ -17,7 +17,7 @@ const say = (level: "info" | "warn", line: string) => log[level](line);
 
 try {
   const { version, seeded } = await ytdlpBinary.prepare();
-  if (seeded) say("info", `설치 때 받은 버전을 bin/yt-dlp 로 옮겼습니다(${version})`);
+  if (seeded) say("info", `설치 때 받은 버전을 vendor/bin/yt-dlp 로 옮겼습니다(${version})`);
   if (postinstall && config.ytdlp.update === "off") {
     say("info", `지금 버전을 씁니다(${version}, YTDLP_UPDATE=off)`);
   } else {

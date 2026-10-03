@@ -61,7 +61,7 @@ test("켜져 있고 설치돼 있으면 서버 폴더에서 띄우고, /ping 이
     server.start();
     assert.equal(spawned.length, 1);
     assert.deepEqual(spawned[0].args, ["build/main.js"]);
-    assert.match(spawned[0].opts.cwd, /bgutil-ytdlp-pot-provider[\\/]server$/);
+    assert.match(spawned[0].opts.cwd, /[\\/]vendor[\\/]bgutil-ytdlp-pot-provider[\\/]server$/);
     assert.equal(await server.waitReady(5000), true);
   });
   assert.equal(pings.length, 2, "답할 때까지 다시 묻는다");

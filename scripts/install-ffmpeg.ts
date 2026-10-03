@@ -1,5 +1,5 @@
 /**
- * ffmpeg 바이너리 설치. BtbN/FFmpeg-Builds 릴리스에서 받아 `bin/`에 둔다.
+ * ffmpeg 바이너리 설치. BtbN/FFmpeg-Builds 릴리스에서 받아 `vendor/bin/`에 둔다.
  *
  * 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀐다.
  * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 지워져서 고정해 두면 404가 난다.

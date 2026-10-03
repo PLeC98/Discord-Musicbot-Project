@@ -248,7 +248,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       tickMs: 3000, // 대기열 점검 주기. 실제 반응은 최대 2틱. 조작이 멎은 뒤에 움직이므로
     },
 
-    // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.ts가 자동 탐색(bin/의 번들 → PATH).
+    // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.ts가 자동 탐색(vendor/bin/의 번들 → PATH).
     // macOS는 자동 다운로드 대상이 아니므로 여기로 지정하거나 PATH에 두어야 한다(brew install ffmpeg).
     ffmpeg: {
       path: resolveFromRoot(env("FFMPEG_PATH")),
