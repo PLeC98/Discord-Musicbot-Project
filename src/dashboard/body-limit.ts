@@ -9,9 +9,7 @@ const PROMPT_PATHS = ["/api/admin/ai/prompt", "/api/admin/ai/tokens", "/api/admi
 function bodyLimit() {
   const small = express.json({ limit: "32kb" });
   const prompt = express.json({ limit: "1mb" });
-  // 테스트는 라우터를 /api/admin 에 직접 붙이기도 한다. 그때는 경로가 /ai/... 로 온다
-  const isPrompt = (path: string) => PROMPT_PATHS.includes(path) || PROMPT_PATHS.includes(`/api/admin${path}`);
-  return (req: Request, res: Response, next: NextFunction) => (isPrompt(req.path) ? prompt : small)(req, res, next);
+  return (req: Request, res: Response, next: NextFunction) => (PROMPT_PATHS.includes(req.path) ? prompt : small)(req, res, next);
 }
 
 export { bodyLimit, PROMPT_PATHS };
