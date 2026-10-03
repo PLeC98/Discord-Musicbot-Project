@@ -49,17 +49,22 @@ test("개별 구독: 쓰기 실패 시 Set·빈 Set·연결 캡이 전부 정리
   assert.equal(DashboardEvents.perKey.has("evU1"), false, "연결 캡 해제 — 구 코드는 영구 점유");
 });
 
-test("목록 구독: 쓰기 실패 시 listSubs·listGuildIds·캡 정리", () => {
+// 볼 수 있는 서버(목록 구독이 보낼 때 묻는 것)
+const sees =
+  (...ids: string[]) =>
+  (guildId: string) =>
+    ids.includes(guildId);
+
+test("목록 구독: 쓰기 실패 시 listSubs·캡 정리", () => {
   const res = makeRes();
-  DashboardEvents.addListClient(res, new Set(["evG2", "evG3"]), "evU2");
-  assert.equal(DashboardEvents.listGuildIds.get("evG2"), 1);
+  DashboardEvents.addListClient(res, sees("evG2", "evG3"), "evU2");
+  assert.equal(DashboardEvents.perKey.get("evU2"), 1);
 
   res.failWrite = true;
   DashboardEvents._emit("evG2");
 
   assert.equal(DashboardEvents.listSubs.size, 0);
-  assert.equal(DashboardEvents.listGuildIds.has("evG2"), false);
-  assert.equal(DashboardEvents.listGuildIds.has("evG3"), false);
+  assert.equal(DashboardEvents.perKey.has("evU2"), false);
   assert.equal(DashboardEvents.perKey.has("evU2"), false);
 });
 
@@ -82,10 +87,10 @@ test("idempotent: 쓰기 실패 정리 후 늦은 close가 와도 이중 감산 
 test("등록 전에 끊긴 연결은 받지 않는다(멤버 확인을 기다리는 사이 끊김. 그 뒤 건 close 감시는 불리지 않는다)", () => {
   const gone = makeClosed();
   DashboardEvents.addClient("evG9", gone, "evU9");
-  DashboardEvents.addListClient(makeClosed(), new Set(["evG9"]), "evU9");
+  DashboardEvents.addListClient(makeClosed(), sees("evG9"), "evU9");
   assert.equal(DashboardEvents.perKey.has("evU9"), false, "연결 캡을 쥐지 않는다");
   assert.equal(DashboardEvents.guilds.has("evG9"), false);
-  assert.equal(DashboardEvents.listGuildIds.has("evG9"), false);
+  assert.equal(DashboardEvents.listSubs.size, 0);
   assert.deepEqual(gone.writes, []);
 });
 
@@ -117,7 +122,7 @@ test("연결 캡: 초과분은 429, 정리 후 재접속 가능", () => {
 // 전역 재생 바가 자기 대상 서버만 골라낼 수 없다.
 test("넛지 페이로드에 guildId가 실린다", () => {
   const res = makeRes();
-  DashboardEvents.addListClient(res, new Set(["evG9", "evG8"]), "evU9");
+  DashboardEvents.addListClient(res, sees("evG9", "evG8"), "evU9");
   res.writes.length = 0;
 
   DashboardEvents._emit("evG9");
@@ -130,13 +135,18 @@ test("넛지 페이로드에 guildId가 실린다", () => {
   res.emit("close");
 });
 
-test("구독하지 않은 서버의 넛지는 받지 않는다 (guildId 스코핑 유지)", () => {
+test("볼 수 없는 서버의 넛지는 받지 않는다. 볼 수 있는지는 보낼 때 물어 연결을 연 뒤 보이게 된 서버도 받는다", () => {
   const res = makeRes();
-  DashboardEvents.addListClient(res, new Set(["evG7"]), "evU7");
+  const visible = new Set(["evG7"]);
+  DashboardEvents.addListClient(res, (id) => visible.has(id), "evU7");
   res.writes.length = 0;
 
   DashboardEvents._emit("evG6");
   assert.equal(res.writes.length, 0);
+  visible.add("evG6"); // 연결을 연 뒤 들어간 서버
+  DashboardEvents._emit("evG6");
+  assert.equal(res.writes.length, 1);
+  assert.deepEqual([...DashboardEvents.listUsers()], ["evU7"], "목록 연결을 연 사람");
 
   res.emit("close");
 });

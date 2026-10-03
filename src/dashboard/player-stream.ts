@@ -3,15 +3,15 @@ import config from "../config/index.ts";
 import { sendProblem } from "./problem.ts";
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
-/** 서버 목록 페이지의 연결 하나 */
-type ListSub = { res: Response; guildIds: Set<string>; cleanup?: () => void };
+/** 서버 목록 페이지의 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다 */
+type ListSub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; cleanup?: () => void };
 
 /**
  * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
  *
  * 두 종류의 구독:
  *  - 개별 서버(플레이어) 페이지: 서버 1개 구독 (this.guilds: guildId -> Set<res>)
- *  - 서버 목록 페이지: 사용자의 상호+멤버 서버 전체를 한 연결로 멀티플렉스 (this.listSubs)
+ *  - 서버 목록 페이지: 사용자가 볼 수 있는 서버 전체를 한 연결로 멀티플렉스 (this.listSubs). 볼 수 있는지는 보낼 때 묻는다
  *    → 목록마다 서버 수만큼 연결을 여는 폭발을 피함.
  *
  * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`). 받으면 GET으로 재조회.
@@ -22,7 +22,6 @@ class PlayerStream {
   coalesceMs: number;
   guilds = new Map<string, Set<Response>>(); // 개별 서버 페이지
   listSubs = new Set<ListSub>(); // 서버 목록 페이지. 멀티플렉스
-  listGuildIds = new Map<string, number>(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
   perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭 · 기기의 개별+목록 공유)
   _cleanups = new WeakMap<Response, () => void>(); // idempotent cleanup (쓰기 실패 경로에서 호출)
   coalesceTimers = new Map<string, NodeJS.Timeout>();
@@ -94,25 +93,19 @@ class PlayerStream {
     res.on("error", cleanup);
   }
 
-  /** 서버 목록 페이지 구독. guildIds(사용자의 상호+멤버 서버 집합)의 이벤트를 한 연결로 멀티플렉스. */
-  addListClient(res: Response, guildIds: Set<string>, userKey: string) {
+  /** 서버 목록 페이지 구독. 볼 수 있는 서버(canSee)의 이벤트를 한 연결로 멀티플렉스. 연결을 연 뒤 들어간 서버도 보낼 때 본다 */
+  addListClient(res: Response, canSee: (guildId: string) => boolean, userKey: string) {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
 
-    const sub: ListSub = { res, guildIds };
+    const sub: ListSub = { res, canSee, userKey };
     this.listSubs.add(sub);
-    for (const gid of guildIds) this.listGuildIds.set(gid, (this.listGuildIds.get(gid) || 0) + 1);
 
     let done = false;
     const cleanup = () => {
       if (done) return;
       done = true;
       this.listSubs.delete(sub);
-      for (const gid of guildIds) {
-        const c = (this.listGuildIds.get(gid) || 1) - 1;
-        if (c <= 0) this.listGuildIds.delete(gid);
-        else this.listGuildIds.set(gid, c);
-      }
       this._releaseKey(userKey);
     };
     sub.cleanup = cleanup;
@@ -123,7 +116,7 @@ class PlayerStream {
   /** 서버 상태 변화 알림. coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
   notify(guildId: string | null | undefined) {
     if (!guildId) return;
-    if (!this.guilds.has(guildId) && !this.listGuildIds.has(guildId)) return; // 이 서버를 보는 구독자 없음
+    if (!this.guilds.has(guildId) && this.listSubs.size === 0) return; // 이 서버를 볼 구독자 없음
     if (this.coalesceTimers.has(guildId)) return; // 이미 예약됨
     const t = setTimeout(() => {
       this.coalesceTimers.delete(guildId);
@@ -136,7 +129,7 @@ class PlayerStream {
   _emit(guildId: string) {
     // guildId를 함께 보낸다. 목록 구독자는 여러 서버를 한 연결로 받으므로, 이게 없으면
     // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(전역 재생 바가 자기 대상만 고르는 근거).
-    // 구독자는 이미 그 서버 멤버로 검증된 뒤라 ID 노출 문제는 없다.
+    // 목록 구독자에게는 그 서버를 볼 수 있을 때만 보내 ID 노출 문제는 없다.
     const payload = `data: {"t":"changed","g":${JSON.stringify(guildId)}}\n\n`;
     const set = this.guilds.get(guildId);
     if (set) {
@@ -148,9 +141,9 @@ class PlayerStream {
         }
       }
     }
-    // 목록 구독자: 자기 서버 집합에 든 서버의 이벤트만 (스코핑)
+    // 목록 구독자: 볼 수 있는 서버의 이벤트만 (스코핑)
     for (const sub of this.listSubs) {
-      if (sub.guildIds.has(guildId)) {
+      if (sub.canSee(guildId)) {
         try {
           sub.res.write(payload);
         } catch {
@@ -178,6 +171,11 @@ class PlayerStream {
         sub.cleanup?.();
       }
     }
+  }
+
+  /** 서버 목록 연결을 열어 둔 사용자 */
+  listUsers() {
+    return new Set([...this.listSubs].map((sub) => sub.userKey));
   }
 
   /** 하트비트와 예약한 넛지를 멈춘다 */

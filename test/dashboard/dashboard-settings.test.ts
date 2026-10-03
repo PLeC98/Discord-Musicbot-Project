@@ -30,7 +30,7 @@ type Reply = ProblemReply & {
   botInVoice?: boolean;
   userInVoice?: boolean;
   sameVoice?: boolean;
-  guilds?: { listening: boolean }[];
+  guilds?: { id: string; listening: boolean; canManageGuild: boolean }[];
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
@@ -384,6 +384,41 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래�
   guild.members.me = null;
   currentMember = plainMember();
   noVoice();
+});
+
+// ── GET /api/guilds 의 후보 ──
+
+test("GET guilds: 로그인 때 받은 목록이 아니라 봇이 든 서버 중 지금 멤버인 곳. 운영자는 멤버가 아니어도. 서버 관리 권한은 지금 멤버 권한", async () => {
+  noVoice();
+  currentUser = { id: "u1", username: "tester", guilds: [] }; // 로그인한 뒤에 들어간 서버
+  currentMember = modMember();
+  let r = await req("GET", "/api/guilds");
+  assert.deepEqual(
+    r.json.guilds?.map((g) => [g.id, g.canManageGuild]),
+    [[GUILD_ID, true]],
+  );
+
+  currentMember = plainMember();
+  r = await req("GET", "/api/guilds");
+  assert.deepEqual(
+    r.json.guilds?.map((g) => g.canManageGuild),
+    [false],
+  );
+
+  currentMember = null; // 나간 서버
+  r = await req("GET", "/api/guilds");
+  assert.deepEqual(r.json.guilds, []);
+
+  currentUser = { id: "owner", username: "운영자", guilds: [] };
+  r = await req("GET", "/api/guilds");
+  assert.deepEqual(
+    r.json.guilds?.map((g) => [g.id, g.canManageGuild]),
+    [[GUILD_ID, false]],
+    "운영자는 멤버가 아니어도 보인다",
+  );
+
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+  currentMember = plainMember();
 });
 
 // ── GET /api/guilds의 listening (전역 재생 바가 대상 서버를 찾는 기준) ──

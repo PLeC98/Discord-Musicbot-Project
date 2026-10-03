@@ -38,6 +38,7 @@ import { StatusManager } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
+import { botJoinedGuild } from "../dashboard/routes/player-events.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -131,6 +132,10 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   const stream = createPlayerStream();
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands });
   listenToPlayers(panels, stream);
+  // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
+  client.on(Events.GuildCreate, (guild) => {
+    bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
+  });
 
   // 서버 하나 다시 켜기. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
