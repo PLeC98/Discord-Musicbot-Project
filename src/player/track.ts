@@ -45,6 +45,8 @@ type Requester = { id: string | null; username?: string | null; displayName?: st
 
 /** 대기열에 담은 것. */
 type QueuedTrack = TrackInfo & {
+  /** 대기열 줄 번호. track-state 가 들어올 때 찍는 열거되지 않는 칸(복사본에는 따라가지 않는다) */
+  readonly entry?: number;
   requestedBy?: Requester | null;
   addedAt?: number;
   autoplay?: boolean;

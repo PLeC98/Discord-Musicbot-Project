@@ -189,3 +189,51 @@ test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리
   trackState.rewind(p);
   assert.deepEqual(titles(p.queue), ["A", "B", "A"]);
 });
+
+// ── 대기열 줄 번호 ─────────────────────────────────────────────────────
+// 대시보드가 빼기 · 옮기기 · "지금 곡이 이것일 때만"을 순번이 아니라 이 번호로 가리킨다
+
+test("줄 번호: 들어오는 다섯 길(지금 곡 · 넣기 · 자동재생 앞 · 뒤에 잇기 · 되살리기)에서 찍고, 서로 다르다", () => {
+  const p = make({ current: t("R0"), queue: [t("R1")], history: [t("R2")] });
+  trackState.setCurrent(p, t("C"));
+  trackState.enqueue(p, [t("E1"), t("E2")]);
+  trackState.enqueue(p, [t("F")], { front: true });
+  trackState.enqueue(p, [t("Auto", { autoplay: true })]);
+  trackState.enqueueAheadOfAutoplay(p, [t("A")]);
+  trackState.insertAfter(p, undefined, [t("I")]);
+  const all = [p.currentTrack, ...p.queue, ...p.previousTracks].filter((x): x is QueuedTrack => !!x);
+  const entries = all.map((x) => x.entry);
+  assert.ok(
+    entries.every((e) => Number.isInteger(e)),
+    JSON.stringify(entries),
+  );
+  assert.equal(new Set(entries).size, entries.length, "겹치지 않는다");
+});
+
+test("줄 번호: 옮기기 · 섞기 · 되감기 · 반복으로 끝에 돌리기는 같은 번호, 복사해 넣은 곡은 새 번호", () => {
+  const p = make();
+  const a = t("A");
+  const b = t("B");
+  trackState.enqueue(p, [a, b]);
+  const [ea, eb] = [a.entry, b.entry];
+  trackState.move(p, 0, 1);
+  trackState.shuffle(p, () => 0);
+  trackState.shiftNext(p);
+  const first = p.currentTrack as QueuedTrack;
+  trackState.retire(p, first, { requeue: true });
+  assert.deepEqual(new Set([...p.queue, first].map((x) => x.entry)), new Set([ea, eb]));
+
+  const copy = { ...a };
+  assert.equal(copy.entry, undefined, "복사본에는 번호가 따라가지 않는다(열거되지 않는 칸)");
+  trackState.enqueue(p, [copy]);
+  assert.ok(copy.entry !== undefined && copy.entry !== ea);
+  assert.deepEqual(Object.keys(copy).includes("entry"), false, "객체 비교 · JSON 에는 나오지 않는다");
+});
+
+test("줄 번호: 쉬던 플레이어의 첫 곡(대기열을 거치지 않는다)도 대기열 반복으로 끝에 돌아가면 번호가 있다", () => {
+  const p = make();
+  const first = t("첫 곡");
+  trackState.setCurrent(p, first);
+  trackState.retire(p, first, { requeue: true });
+  assert.ok(Number.isInteger(p.queue[0].entry));
+});

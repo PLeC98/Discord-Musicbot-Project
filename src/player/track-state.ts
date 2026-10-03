@@ -25,6 +25,14 @@ type Queue = Pick<Tracks, "queue" | "trackSink">;
 
 const sinkOf = (player: Pick<Tracks, "trackSink">) => player.trackSink;
 
+// 대기열 줄 번호. 곡 객체가 처음 들어올 때 찍는다. 옮기기 · 섞기 · 되감기 · 반복으로 대기열 끝에 돌리기는 같은 객체라 번호가 그대로다.
+// 열거되지 않는 칸이라 복사본({...track})에는 따라가지 않는다. 복사해 넣은 곡은 새 번호를 받아 번호가 겹치지 않는다.
+// 프로세스 안에서만 유일하다(봇을 다시 켜면 처음부터. 화면은 재생 상태의 boot 로 가린다)
+let lastEntry = 0;
+function admit(tracks: Iterable<QueuedTrack | null | undefined>) {
+  for (const track of tracks) if (track && track.entry === undefined) Object.defineProperty(track, "entry", { value: ++lastEntry, enumerable: false });
+}
+
 function init(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks">) {
   player.currentTrack = null;
   player.queue = [];
@@ -37,12 +45,14 @@ function roomLeft(player: Pick<Tracks, "queue">, max: number) {
 }
 
 function setCurrent(player: Pick<Tracks, "currentTrack" | "trackSink">, track: QueuedTrack | null | undefined) {
+  admit([track]);
   player.currentTrack = track ?? null;
   sinkOf(player)?.onSetCurrent(player.currentTrack);
 }
 
 function enqueue(player: Queue, tracks: QueuedTrack[], { front = false }: { front?: boolean } = {}) {
   if (tracks.length === 0) return;
+  admit(tracks);
   if (front) player.queue.unshift(...tracks);
   else player.queue.push(...tracks);
   sinkOf(player)?.onEnqueue(tracks, front);
@@ -54,6 +64,7 @@ function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   if (tracks.length === 0) return;
   const at = player.queue.findIndex((t) => t?.autoplay);
   if (at < 0) return enqueue(player, tracks);
+  admit(tracks);
   player.queue.splice(at, 0, ...tracks);
   sinkOf(player)?.onReplace();
 }
@@ -70,6 +81,7 @@ function dropAutoplay(player: Queue) {
 // anchorId 곡 바로 뒤에 넣는다. 맨 앞에 넣은 목록을 이어 넣을 때. 그 곡이 이미 재생돼 없으면 맨 앞.
 function insertAfter(player: Queue, anchorId: string | undefined, tracks: QueuedTrack[]) {
   if (tracks.length === 0) return;
+  admit(tracks);
   const at = player.queue.findIndex((t) => t.id === anchorId) + 1;
   player.queue.splice(at, 0, ...tracks);
   sinkOf(player)?.onReplace();
@@ -161,6 +173,7 @@ function reset(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks" 
 
 // persisted: 저장소에서 막 읽은 그대로라 다시 쓰지 않는다. 수천 곡이면 되쓰기가 다른 서버의 재생까지 멈춘다
 function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks" | "trackSink">, { current = null, queue = [], history = [] }: { current?: QueuedTrack | null; queue?: QueuedTrack[]; history?: QueuedTrack[] }, { persisted = false }: { persisted?: boolean } = {}) {
+  admit([current, ...queue, ...history]);
   player.currentTrack = current ?? null;
   player.queue = queue;
   player.previousTracks = history.slice(-HISTORY_MAX);
