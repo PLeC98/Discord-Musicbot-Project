@@ -15,7 +15,7 @@ import config from "../../config/index.ts";
 import { isOwner } from "../owner.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState, toInt } from "../player-view.ts";
-import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
+import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as replies from "../../ui/control-replies.ts";
@@ -51,6 +51,7 @@ function createPlayerRouter() {
   readRoutes(router);
   joinRoute(router);
   controlRoutes(router);
+  queueEditRoutes(router);
   addRoutes(router);
   return router;
 }
@@ -142,8 +143,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
+    const body = parse(OnTrackBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.previous(ctx.player, ctx.actor);
+    const r = await controls.previous(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
     announce(replies.previous(r.restarted, r.track));
     res.json(stateAfter(req));
@@ -153,8 +156,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
+    const body = parse(OnTrackBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.skip(ctx.player, ctx.actor);
+    const r = await controls.skip(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
     announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
     res.json(stateAfter(req));
@@ -184,7 +189,7 @@ function controlRoutes(router: Router) {
     const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
+    const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard", onTrack: body.value.onTrack });
     if (!r.ok) return refuse(res, r);
     announce(replies.seeked(r.ms));
     res.json(stateAfter(req));
@@ -206,8 +211,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/highlight", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
+    const body = parse(OnTrackBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.highlight(ctx.player, ctx.actor);
+    const r = await controls.highlight(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
     announce(replies.highlighted(r.ms));
     res.json(stateAfter(req));
@@ -234,7 +241,10 @@ function controlRoutes(router: Router) {
     announce(replies.shuffled(r.count, dashboardActor(req)));
     res.json(stateAfter(req));
   });
+}
 
+// 대기열 빼기 · 옮기기. 순번 경로(디스코드와 같은 꼴)와 줄 번호 경로
+function queueEditRoutes(router: Router) {
   // Remove track from queue  DELETE /:guildId/player/queue/:index. DJ 계층이거나 그 곡의 요청자 본인
   router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
@@ -243,6 +253,33 @@ function controlRoutes(router: Router) {
     const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
     if (!r.ok) return refuse(res, r);
     announce(replies.removed(r.left, dashboardActor(req)));
+    res.json(stateAfter(req));
+  });
+
+  // 줄 번호로 빼기. 화면이 오래돼도 그 곡을 뺀다(순번 경로는 디스코드와 같은 /queue/:index)
+  router.delete("/:guildId/player/queue/entry/:entry", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const entry = parse(Entry, toInt(req.params.entry));
+    if (!entry.ok) return sendProblem(res, entry.code);
+    const announce = announcer(ctx.bot, ctx.player);
+    const r = await controls.removeEntry(ctx.player, ctx.actor, entry.value);
+    if (!r.ok) return refuse(res, r);
+    announce(replies.removed(r.left, dashboardActor(req)));
+    res.json(stateAfter(req));
+  });
+
+  // 줄 번호로 옮기기 { entry, before }. entry 줄을 before 줄 앞으로, before 가 null 이면 맨 끝
+  router.post("/:guildId/player/queue/move-entry", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const body = parse(MoveEntryBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
+    const announce = announcer(ctx.bot, ctx.player);
+    const r = await controls.moveEntry(ctx.player, ctx.actor, body.value.entry, body.value.before);
+    if (!r.ok) return refuse(res, r);
+    // 사람은 1부터 센다
+    announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
     res.json(stateAfter(req));
   });
 

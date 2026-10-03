@@ -237,3 +237,9 @@ test("줄 번호: 쉬던 플레이어의 첫 곡(대기열을 거치지 않는�
   trackState.retire(p, first, { requeue: true });
   assert.ok(Number.isInteger(p.queue[0].entry));
 });
+
+test("줄 번호: 이미 번호를 가진 곡(저장된 번호로 되살린 곡)은 그 번호를 지킨다", () => {
+  const kept = Object.defineProperty(t("저장된 곡"), "entry", { value: 500, enumerable: false });
+  const p = make({ queue: [kept] });
+  assert.equal(p.queue[0].entry, 500);
+});

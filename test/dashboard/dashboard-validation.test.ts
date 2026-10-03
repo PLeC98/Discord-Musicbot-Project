@@ -304,6 +304,62 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 차례가 오른
   assert.equal(seen.at(-1)?.currentTrack, null, "정지 뒤에는 플레이어가 없다");
 });
 
+// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 칸과 같게)
+const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
+type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
+const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
+
+test("줄 번호: 상태에 싣고, 빼기 · 옮기기는 그 줄을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
+  const p = freshPlayer();
+  Object.assign(p, { currentTrack: entered("현재곡", 10), queue: [entered("새 곡", 14), entered("q0", 11), entered("q1", 12), entered("q2", 13)] });
+  Object.assign(p, {
+    moveInQueue(from: number, to: number) {
+      p.calls.push(["moveInQueue", from, to]);
+      p.queue.splice(to, 0, p.queue.splice(from, 1)[0]);
+    },
+  });
+  const state = await rowsReq("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.deepEqual([state.json.currentTrack?.entry, state.json.queue.map((t) => t.entry)], [10, [14, 11, 12, 13]]);
+
+  const removed = await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/12`);
+  assert.equal(removed.status, 200);
+  assert.deepEqual(
+    removed.json.queue.map((t) => t.title),
+    ["새 곡", "q0", "q2"],
+  );
+  assert.deepEqual([(await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/12`)).json.code, (await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/x`)).status], ["entry-gone", 400]);
+
+  const moved = await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 13, before: 14 });
+  assert.deepEqual(
+    moved.json.queue.map((t) => t.title),
+    ["q2", "새 곡", "q0"],
+  );
+  const toEnd = await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 13, before: null });
+  assert.deepEqual(
+    toEnd.json.queue.map((t) => t.title),
+    ["새 곡", "q0", "q2"],
+  );
+  assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 99, before: null })).status, 410);
+  for (const body of [{ entry: 13 }, { entry: "13", before: null }, { entry: 1.5, before: null }, {}]) assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, body)).status, 400, JSON.stringify(body));
+});
+
+test("지금 곡 확인: 보던 곡(onTrack)이 지금 곡이 아니면 넘기기 · 이전 · 이동 · 하이라이트를 409 로 거절한다", async () => {
+  const p = freshPlayer();
+  Object.assign(p, { currentTrack: entered("현재곡", 10), sponsor: { highlightAt: 5 }, previousTracks: [makeTrack("전곡")], skip: () => (p.calls.push(["skip"]), true), previous: () => true, _restartsOnPrevious: () => false });
+  for (const [action, body] of [
+    ["skip", { onTrack: 9 }],
+    ["previous", { onTrack: 9 }],
+    ["seek", { position: 10, onTrack: 9 }],
+    ["highlight", { onTrack: 9 }],
+  ] as const) {
+    const r = await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/${action}`, body);
+    assert.deepEqual([r.status, r.json.code], [409, "track-changed"], action);
+  }
+  assert.deepEqual(p.calls, [], "아무것도 하지 않았다");
+  assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/skip`, { onTrack: 10 })).status, 200);
+  assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/skip`, { onTrack: "10" })).status, 400);
+});
+
 test("?queue=0 이면 대기열 없이 답한다(곡 수는 그대로). 비우거나 모르는 값이면 기본 창", async () => {
   freshPlayer();
   const none = await stateReq("GET", `/api/guilds/${GUILD_ID}/player?queue=0`);

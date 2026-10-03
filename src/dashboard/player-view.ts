@@ -14,6 +14,8 @@ const QUEUE_WINDOW_MAX = 1000;
 function queueTrack(t: QueuedTrack, i: number) {
   return {
     index: i,
+    // 줄 번호. 빼기 · 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
+    entry: t.entry ?? null,
     title: t.title,
     artist: t.artist,
     duration: t.duration,
@@ -42,6 +44,8 @@ function queueWindow(req: Request) {
 // 지금 곡
 function playingView(player: Player, track: QueuedTrack) {
   return {
+    // 줄 번호. 넘기기 · 이동이 보던 곡일 때만 하도록 실어 보낸다
+    entry: track.entry ?? null,
     title: track.title,
     artist: track.artist,
     duration: track.duration,

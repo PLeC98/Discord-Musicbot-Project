@@ -21,9 +21,18 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; valu
 
 // ── 재생 ──
 
-// 구간 이동 { position: 초 }. "Infinity"(라이브 duration 0 에서 클램프를 뚫는다)와 비숫자 문자열은 거부
+// 대기열 줄 번호(track-state 가 찍는다). 화면은 받은 그대로 돌려보낸다
+const BAD_ENTRY = { error: "bad-request" satisfies Code };
+const Entry = z.number(BAD_ENTRY).int(BAD_ENTRY).positive(BAD_ENTRY);
+// 지금 곡이 이 줄일 때만(넘기기 · 이전 · 하이라이트). 없으면 확인하지 않는다
+const OnTrackBody = z.object({ onTrack: Entry.optional() }, BAD_ENTRY);
+
+// 구간 이동 { position: 초, onTrack? }. "Infinity"(라이브 duration 0 에서 클램프를 뚫는다)와 비숫자 문자열은 거부
 const BAD_POSITION = { error: "bad-time" satisfies Code };
-const SeekBody = z.object({ position: z.coerce.number(BAD_POSITION).min(0, BAD_POSITION) }, BAD_POSITION);
+const SeekBody = z.object({ position: z.coerce.number(BAD_POSITION).min(0, BAD_POSITION), onTrack: Entry.optional() }, BAD_POSITION);
+
+// 줄 번호로 옮기기 { entry, before }. before 줄 앞으로, null 이면 맨 끝
+const MoveEntryBody = z.object({ entry: Entry, before: Entry.nullable() }, BAD_ENTRY);
 
 // 대기열 구간 ?offset=&limit=
 const BAD_OFFSET = { error: "bad-queue-range" satisfies Code };
@@ -84,4 +93,4 @@ function settingsBody({ min, max }: { min: number; max: number }) {
   );
 }
 
-export { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, QUERY_MAX_LEN };
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, QUERY_MAX_LEN };

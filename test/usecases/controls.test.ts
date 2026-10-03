@@ -251,6 +251,71 @@ test("옮기기: 두 곡 미만 · 범위 밖 · 같은 자리 거절", async ()
   assert.deepEqual(p.calls, ["move:1->0"]);
 });
 
+// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 칸과 같게)
+const entered = (title: string, entry: number, extra: Partial<QueuedTrack> = {}) => Object.defineProperty(track(title, extra), "entry", { value: entry, enumerable: false });
+
+test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰기 · 이전 · 이동 · 처음부터 · 하이라이트를 하지 않는다", async () => {
+  const now = entered("지금", 7);
+  const of = (over: object = {}) => fakePlayer({ currentTrack: now, sponsor: { highlightAt: 30 }, ...over });
+  const changed: Array<[string, (p: ReturnType<typeof fakePlayer>) => Promise<object>]> = [
+    ["skip", (p) => controls.skip(p, DJ, { onTrack: 6 })],
+    ["previous", (p) => controls.previous(p, DJ, { onTrack: 6 })],
+    ["seek", (p) => controls.seek(p, DJ, 1000, { onTrack: 6 })],
+    ["replay", (p) => controls.replay(p, DJ, { onTrack: 6 })],
+    ["highlight", (p) => controls.highlight(p, DJ, { onTrack: 6 })],
+  ];
+  for (const [name, run] of changed) {
+    const p = of();
+    assert.equal(codeOf(await run(p)), "track-changed", name);
+    assert.deepEqual(p.calls, [], `${name}: 아무것도 안 했다`);
+  }
+  // 바뀐 곡에 하이라이트가 없어도 "곡이 바뀌었다"가 먼저다
+  assert.equal(codeOf(await controls.highlight(of({ sponsor: null }), DJ, { onTrack: 6 })), "track-changed");
+  const p = of();
+  accepted(await controls.skip(p, DJ, { onTrack: 7 }));
+  accepted(await controls.highlight(p, DJ, { onTrack: 7 }));
+  accepted(await controls.skip(of(), DJ));
+  assert.deepEqual(p.calls, ["skip", "seek:30000:highlight"]);
+});
+
+test("줄 번호로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 사이 빠졌으면 entry-gone, 권한은 그 곡을 보고", async () => {
+  const p = fakePlayer({ queue: [entered("새로 들어온 곡", 9), entered("a", 1), entered("b", 2)] });
+  assert.equal(accepted(await controls.removeEntry(p, DJ, 2)).track?.title, "b");
+  assert.deepEqual(p.calls, ["remove:2"]);
+  assert.equal(codeOf(await controls.removeEntry(p, DJ, 2)), "entry-gone");
+
+  // 권한을 기다리는 사이 그 곡이 빠지면 다른 곡을 빼지 않고 거절한다
+  const racing = fakePlayer({ queue: [entered("a", 1), entered("b", 2), entered("c", 3)] });
+  queueMicrotask(() => racing.queue.splice(0, 1));
+  assert.equal(codeOf(await controls.removeEntry(racing, DJ, 1)), "entry-gone");
+  assert.deepEqual(racing.calls, [], "아무것도 빼지 않았다");
+
+  const mine = fakePlayer({ queue: [entered("남의 곡", 1), entered("내 곡", 2, { requestedBy: { id: "u9" } })] });
+  const requester = { member: member({ mod: false, id: "u9" }) };
+  assert.equal(codeOf(await controls.removeEntry(mine, OUTSIDER, 2)), "must-be-in-same-voice");
+  assert.equal(accepted(await controls.removeEntry(mine, requester, 2)).track?.title, "내 곡");
+});
+
+test("줄 번호로 옮기기: 그 줄 앞으로(null 이면 맨 끝). 그 사이 빠졌으면 entry-gone, 제자리면 same-position", async () => {
+  const queue = () => [entered("a", 1), entered("b", 2), entered("c", 3)];
+  const titles = (p: ReturnType<typeof fakePlayer>) => p.queue.map((t: QueuedTrack) => t.title).join("");
+  const front = fakePlayer({ queue: queue() });
+  accepted(await controls.moveEntry(front, DJ, 3, 1));
+  assert.equal(titles(front), "cab");
+  const back = fakePlayer({ queue: queue() });
+  accepted(await controls.moveEntry(back, DJ, 1, 3));
+  assert.equal(titles(back), "bac", "뒤쪽 줄 앞으로");
+  const end = fakePlayer({ queue: queue() });
+  accepted(await controls.moveEntry(end, DJ, 1, null));
+  assert.equal(titles(end), "bca");
+  assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), DJ, 9, 1)), "entry-gone");
+  assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), DJ, 1, 9)), "entry-gone");
+  assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), DJ, 1, 2)), "same-position", "바로 뒤 줄 앞은 제자리");
+  assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), DJ, 3, null)), "same-position");
+  assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: [entered("a", 1)] }), DJ, 1, null)), "too-few-to-move");
+  assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), OUTSIDER, 1, 3)), "must-be-in-same-voice");
+});
+
 test("점프: 그 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
   const p = fakePlayer();
   assert.equal(accepted(await controls.jump(p, DJ, 1)).track.title, "b");

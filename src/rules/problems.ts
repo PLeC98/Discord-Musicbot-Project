@@ -40,6 +40,8 @@ const PROBLEMS = {
   // 그 사이 사라짐
   "stale-session": { status: 410, title: "Panel is from an earlier session" },
   "jump-target-gone": { status: 410, title: "Selected track left the queue" },
+  "entry-gone": { status: 410, title: "Queue entry is gone" },
+  "track-changed": { status: 409, title: "The current track changed" },
   "more-expired": { status: 410, title: "Add-more menu expired" },
   // 입력이 틀림
   "bad-time": { status: 400, title: "Unreadable time" },

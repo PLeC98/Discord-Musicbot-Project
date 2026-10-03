@@ -48,13 +48,19 @@ async function permitted(player: Player, actor: Actor, check: Check = perm.check
 // 수는 입구가 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
 const isIndex = (i: unknown, size: number): i is number => typeof i === "number" && Number.isInteger(i) && i >= 0 && i < size;
 
-// 권한을 보고 틀고 있는 곡을 잡는다. 막히면 거절, 지나가면 그 곡
-async function permittedTrack(player: Player, actor: Actor, check?: Check) {
+// 권한을 보고 틀고 있는 곡을 잡는다. 막히면 거절, 지나가면 그 곡.
+// onTrack(줄 번호)을 주면 지금 곡이 그 곡일 때만 지난다. 대시보드가 보던 곡이 그 사이 넘어갔으면 다음 곡에 조작이 가지 않게 거절한다
+async function permittedTrack(player: Player, actor: Actor, check?: Check, onTrack?: number) {
   const blocked = await permitted(player, actor, check);
   if (blocked) return { blocked };
   const track = player.currentTrack;
-  return track ? { track } : { blocked: fail("no-song") };
+  if (!track) return { blocked: fail("no-song") };
+  if (onTrack !== undefined && track.entry !== onTrack) return { blocked: fail("track-changed") };
+  return { track };
 }
+
+/** 지금 곡이 이 줄 번호의 곡일 때만(대시보드). 없으면 확인하지 않는다 */
+type OnTrack = { onTrack?: number };
 
 /** 멈춤 · 재개를 뒤집는다 */
 async function pause(player: MaybePlayer, actor: Actor) {
@@ -75,9 +81,9 @@ async function pause(player: MaybePlayer, actor: Actor) {
  * 지금 곡을 건너뛴다. 한곡 반복 중이면 처음부터 다시(restarted).
  * 대기열이 비었으면 거절한다. 자동재생이 켜져 있으면 다음 곡을 자동재생이 고르므로 넘긴다
  */
-async function skip(player: MaybePlayer, actor: Actor) {
+async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}) {
   if (!player) return fail("no-song");
-  const { blocked, track } = await permittedTrack(player, actor, perm.checkSkip);
+  const { blocked, track } = await permittedTrack(player, actor, perm.checkSkip, onTrack);
   if (!track) return blocked;
   const restarted = player.loop === "track";
   if (!player.skip()) return fail("switch-failed");
@@ -98,9 +104,9 @@ async function stop(player: MaybePlayer, actor: Actor) {
 }
 
 /** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track 은 되돌아간 곡(처음부터면 지금 곡) */
-async function previous(player: MaybePlayer, actor: Actor) {
+async function previous(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}) {
   if (!player) return fail("no-song");
-  const { blocked, track } = await permittedTrack(player, actor);
+  const { blocked, track } = await permittedTrack(player, actor, undefined, onTrack);
   if (!track) return blocked;
   const restarted = player._restartsOnPrevious();
   // 대기열 반복은 대기열이 고리라 기록이 없어도 이전 곡이 있다
@@ -115,9 +121,9 @@ async function previous(player: MaybePlayer, actor: Actor) {
  * 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 일 전에 부른다(응답 미루기 등).
  * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
  */
-async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "seek", onAccepted }: SeekOptions = {}) {
+async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "seek", onAccepted, onTrack }: SeekOptions = {}) {
   if (!player) return fail("no-song");
-  const { blocked, track } = await permittedTrack(player, actor);
+  const { blocked, track } = await permittedTrack(player, actor, undefined, onTrack);
   if (!track) return blocked;
   const unseekable = seekBlocked(player);
   if (unseekable) return unseekable;
@@ -130,7 +136,7 @@ async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "s
 }
 
 /** 위치 이동. reason 은 로그에 남는 원인, onAccepted 는 전제 조건을 지난 뒤 부른다 */
-type SeekOptions = { reason?: string; onAccepted?: () => unknown };
+type SeekOptions = { reason?: string; onAccepted?: () => unknown } & OnTrack;
 
 function seekBlocked(player: Player) {
   // 라이브에는 실시간밖에 없다. 옮길 자리가 없다
@@ -146,7 +152,7 @@ const replay = (player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) => se
 /** SponsorBlock 하이라이트 지점으로 */
 async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) {
   if (!player) return fail("no-song");
-  const { blocked, track } = await permittedTrack(player, actor);
+  const { blocked, track } = await permittedTrack(player, actor, undefined, opts.onTrack);
   if (!track) return blocked;
   const unseekable = seekBlocked(player);
   if (unseekable) return unseekable;
@@ -249,6 +255,42 @@ async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknow
   return done({ track, from, to });
 }
 
+/** 줄 번호로 한 곡 빼기(대시보드). 보던 화면이 오래돼도 그 곡을 뺀다. 그 사이 빠졌으면 거절 */
+async function removeEntry(player: MaybePlayer, actor: Actor, entry: number) {
+  if (!player) return fail("no-song");
+  const at = () => player.queue.findIndex((t) => t.entry === entry);
+  const found = player.queue[at()];
+  if (!found) return fail("entry-gone");
+  const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, found));
+  if (blocked) return blocked;
+  // 권한을 기다린 사이 자리가 바뀌었을 수 있어 다시 찾는다
+  const index = at();
+  if (index < 0) return fail("entry-gone");
+  const track = player.removeFromQueue(index);
+  await refresh(player);
+  return done({ track, left: player.queue.length });
+}
+
+/** 줄 번호로 옮기기(대시보드). entry 를 before 앞에, before 가 null 이면 맨 끝으로. 그 사이 빠졌으면 거절 */
+async function moveEntry(player: MaybePlayer, actor: Actor, entry: number, before: number | null) {
+  if (!player) return fail("no-song");
+  const blocked = await permitted(player, actor);
+  if (blocked) return blocked;
+  const size = player.queue.length;
+  if (size < 2) return fail("too-few-to-move");
+  const indexOf = (e: number) => player.queue.findIndex((t) => t.entry === e);
+  const from = indexOf(entry);
+  const anchor = before === null ? size : indexOf(before);
+  if (from < 0 || anchor < 0) return fail("entry-gone");
+  // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
+  const to = from < anchor ? anchor - 1 : anchor;
+  if (from === to) return fail("same-position");
+  const track = player.queue[from];
+  player.moveInQueue(from, to);
+  await refresh(player);
+  return done({ track, from, to });
+}
+
 /** 대기열 비우기(지금 곡은 그대로) */
 async function clear(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
@@ -331,4 +373,4 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
 }
 
 export type { Actor, Refusal };
-export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, autoplayBlocked, autoplay, leave };
+export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, removeEntry, move, moveEntry, clear, jump, autoplayBlocked, autoplay, leave };
