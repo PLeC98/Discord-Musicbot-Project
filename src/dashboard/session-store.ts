@@ -3,6 +3,9 @@ import fs from "fs";
 import { Store, type SessionData } from "express-session";
 import Database, { type Statement } from "better-sqlite3";
 import { PROJECT } from "../infra/project-paths.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "dashboard" });
+import { messageOf } from "../rules/error-kind.ts";
 
 // express-session의 기본 MemoryStore 대체:
 // 재시작 시 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
@@ -69,9 +72,20 @@ class SqliteSessionStore extends Store {
     try {
       const row = this._getStmt.get(sid);
       if (!row || row.expires_at <= Date.now()) return cb(null, null);
-      cb(null, JSON.parse(row.data));
+      cb(null, this._parse(sid, row.data));
     } catch (e) {
       cb(e);
+    }
+  }
+
+  // 읽을 수 없는 행은 없는 세션으로 보고 지운다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500 이 된다
+  _parse(sid: string, data: string): SessionData | null {
+    try {
+      return JSON.parse(data);
+    } catch (error) {
+      this._destroyStmt.run(sid);
+      log.warn(`읽을 수 없는 로그인 세션 하나를 지웠습니다(그 사용자는 다시 로그인합니다): ${messageOf(error)}`);
+      return null;
     }
   }
 

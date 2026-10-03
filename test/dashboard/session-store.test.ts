@@ -45,6 +45,16 @@ test("set/get 라운드트립: 세션 객체 보존", async () => {
   assert.equal(await getAsync(store, "sid-없음"), null);
 });
 
+test("읽을 수 없는 세션 행은 없는 세션으로 보고 지운다(오류로 넘기면 그 쿠키의 요청이 모두 500 이 된다)", async () => {
+  const store = makeStore("broken.db");
+  store.set("sid1", makeSession({ id: "u1" }));
+  store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run("{깨짐", "sid1");
+
+  assert.equal(await getAsync(store, "sid1"), null);
+  const left = store.db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE sid = ?").get("sid1") as { n: number };
+  assert.equal(left.n, 0);
+});
+
 test("재시작 생존: 같은 DB 파일을 다시 열어도 세션 유지 (MemoryStore 회귀)", async () => {
   const dbPath = path.join(tmpDir, "restart.db");
   const first = new SqliteSessionStore({ dbPath });
