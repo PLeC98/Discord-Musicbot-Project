@@ -23,7 +23,7 @@ class PlayerStream {
   guilds = new Map<string, Set<Response>>(); // 개별 서버 페이지
   listSubs = new Set<ListSub>(); // 서버 목록 페이지. 멀티플렉스
   listGuildIds = new Map<string, number>(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
-  perKey = new Map<string, number>(); // userKey -> 연결 수 (세션당 캡, 개별+목록 공유)
+  perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭 · 기기의 개별+목록 공유)
   _cleanups = new WeakMap<Response, () => void>(); // idempotent cleanup (쓰기 실패 경로에서 호출)
   coalesceTimers = new Map<string, NodeJS.Timeout>();
   heartbeat: NodeJS.Timeout;
@@ -48,8 +48,10 @@ class PlayerStream {
     res.write(": connected\n\n");
   }
 
-  /** 세션당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. */
+  /** 사용자당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. 이미 끊긴 연결도 false */
   _capOk(res: Response, userKey: string) {
+    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 셈이 남는다
+    if (res.closed) return false;
     const count = this.perKey.get(userKey) || 0;
     if (count >= this.maxPerUser) {
       sendProblem(res, "too-many-streams");
