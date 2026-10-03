@@ -1,6 +1,7 @@
 // 재생 조작의 응답 화면(응답 틀 ui/frame). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다
 
-import { frame } from "./frame.ts";
+import { frame, noticeFrame } from "./frame.ts";
+import * as errors from "./text/ko/errors.ts";
 import { formatDuration, formatMs } from "./format.ts";
 import * as controlText from "./text/ko/controls.ts";
 import type { Loop } from "../player/track-state.ts";
@@ -124,5 +125,10 @@ function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ title: t.title, body: t.body });
 }
+/** 되살린 결과. 이어 튼 곡이 있으면 그 곡, 없으면 까닭(남은 곡이 있으면 연달아 실패해 멈춘 것) */
+function restoreResult(track: Track | null, isPaused: boolean, left: number) {
+  if (track) return restored(track, isPaused);
+  return noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"));
+}
 
-export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored };
+export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };

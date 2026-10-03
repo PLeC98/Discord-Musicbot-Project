@@ -410,6 +410,29 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
   assert.deepEqual(lifetimesOf(c.it), [LIFETIME.glance], "아무것도 바뀌지 않았다");
 });
 
+test("/join: 봇이 다른 음성 채널에 있으면 옮기지 않고 거절한다(대시보드 부르기와 같은 규칙)", async () => {
+  const w = world({ botVoice: "v2", userVoice: "v1", player: null });
+  const { it, log } = interaction(w);
+  await runCommand(await command("join"), it, w.bot);
+  assert.deepEqual(log, [["reply", noticeReply(errors.notice("bot-in-other-voice"))]]);
+  assert.equal(w.bot.players.has("g1"), false);
+});
+
+test("/join: 음성 채널에 붙지 못하면 만든 플레이어를 버리고 본인에게 알린다", async () => {
+  const w = world({ player: null });
+  behavior.connect = () => {
+    throw new Error("붙지 못함");
+  };
+  const { it, log } = interaction(w);
+  try {
+    await runCommand(await command("join"), it, w.bot);
+  } finally {
+    behavior.connect = null;
+  }
+  assert.deepEqual(log, [["reply", noticeReply(errors.notice("voice-failed"))]]);
+  assert.equal(w.bot.players.has("g1"), false, "붙지 못한 플레이어가 남지 않는다");
+});
+
 test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
   const w = world({ player: null });
   const { it, log } = interaction(w);

@@ -1,7 +1,6 @@
 // 재생. 상태 읽기 · 음성 참가 · 재생 조작(usecases/controls) · 곡 추가(usecases/add-tracks)
 
 import express, { type Request, type Response, type Router } from "express";
-import type { Guild, VoiceBasedChannel } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
@@ -10,7 +9,8 @@ import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../usecases/playlist-more.ts";
-import { requestPlayback, continueCollection, ensurePlayer } from "../../usecases/add-tracks.ts";
+import { requestPlayback, continueCollection } from "../../usecases/add-tracks.ts";
+import { join } from "../../usecases/join.ts";
 import { validState, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
 import config from "../../config/index.ts";
 import { isOwner } from "../owner.ts";
@@ -18,7 +18,6 @@ import { openGuild, voiceFlags, toInt } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState } from "../player-view.ts";
 import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
 import { sendProblem, refuseWith, tooManyRequests } from "../problem.ts";
-import { bestEffort } from "../../infra/best-effort.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, announceVolume, dashboardActor, dashboardResponder } from "../discord-notice.ts";
@@ -97,59 +96,26 @@ function readRoutes(router: Router) {
   });
 }
 
-// 봇이 그 음성 채널에 들어가 말할 수 있는가
-function botCanJoin(guild: Guild, channel: VoiceBasedChannel) {
-  const me = guild.members.me;
-  const permissions = me && channel.permissionsFor(me);
-  return Boolean(permissions?.has("Connect") && permissions.has("Speak"));
-}
-
-// 음성 참가
+// 음성 참가. 판정과 일은 디스코드 /join 과 같다(usecases/join). 붙었거나 되살린 결과는 디스코드의 패널 채널에도 알린다
 function joinRoute(router: Router) {
-  // Join user's voice channel
   router.post("/:guildId/player/join", requireAuth, async (req, res) => {
-    const { guildId } = req.params;
-    const ctx = await openGuild(req, res, guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { bot, guild, member } = ctx;
     // 운영자는 멤버가 아니어도 서버를 열지만, 부르려면 그 서버의 음성 채널에 있어야 한다
     if (!member) return sendProblem(res, "member-not-found");
-    const userId = member.id;
 
-    const voiceChannel = member.voice.channel;
-    if (!voiceChannel) return sendProblem(res, "must-be-in-voice");
-
-    if (!botCanJoin(guild, voiceChannel)) {
-      return sendProblem(res, "permission-voice");
-    }
-
-    // Discord 쪽 /join과 동일. 봇이 이미 다른 채널에서 사용 중이면 이동 불가.
-    // (모더레이터의 봇 이동은 Discord 네이티브 드래그 기능으로 충분. API 이동 미지원, 사용자 결정)
-    const botChannel = guild.members.me?.voice?.channel;
-    if (botChannel && botChannel.id !== voiceChannel.id) {
-      return sendProblem(res, "bot-in-other-voice");
-    }
-
-    // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
-    const player = ensurePlayer(bot, { guild, voiceChannel });
-
-    try {
-      await player.voice.connect();
-    } catch {
-      await player.dispose({ reason: "접속 실패", session: "keep" });
-      return sendProblem(res, "voice-failed");
-    }
-
-    if (!player.currentTrack) {
-      bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
-    }
-    // 전용 채널이 있으면 그 채널에 알린다. 없으면 글자 채널이 아직 없어 알리지 않는다
-    announcer(bot, player)(replies.joined());
+    const result = await join(bot, { guild, member });
+    if (result.kind === "refused") return sendProblem(res, result.code);
+    if (result.kind === "restore-error") return sendProblem(res, "restore-failed");
+    const { player } = result;
+    if (result.kind === "joined") announcer(bot, player)(replies.joined());
+    if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(result.track, player.paused, result.left));
 
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = isOwner(req) || !(await checkControl(member));
     const addable = isOwner(req) || !checkAdd(member);
-    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, userId), hasPlayer: true, canControl: controllable, canAdd: addable, userId });
+    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: member.id });
   });
 }
 

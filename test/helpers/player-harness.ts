@@ -209,6 +209,7 @@ class FakeVoice extends VoiceLink {
     calls.recoveries.push(why);
   }
   async connect() {
+    await behavior.connect?.();
     this.player.connection = fakeConnection();
     this.state = "ready";
     return true;
@@ -285,6 +286,7 @@ type Behavior = {
   directStream: ((url: string) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
+  connect: (() => unknown) | null;
 };
 const behavior: Behavior = {
   stream: null, // (track) → streamInfo. 던지면 스트림 실패
@@ -296,6 +298,7 @@ const behavior: Behavior = {
   directStream: null, // (url) → Readable
   restore: null, // function (record) — this 는 플레이어. 세션 되살리기(명령 · 곡 추가의 갈래)
   autoplay: null, // () → 자동재생이 뽑을 곡. 기본은 못 찾음
+  connect: null, // () → 던지면 음성 채널에 붙지 못함
 };
 
 // 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다

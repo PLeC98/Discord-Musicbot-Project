@@ -562,6 +562,6 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }
 
-export { requestPlayback, continueCollection, queueTracks, toRequester, requesterName, ensurePlayer, useLookup, useAdder };
+export { requestPlayback, continueCollection, queueTracks, toRequester, requesterName, ensurePlayer, resolveFallbackTextChannel, useLookup, useAdder };
 export const _internals = { resolveFallbackTextChannel };
 export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult, TrackData, AddResult };
