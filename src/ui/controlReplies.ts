@@ -15,7 +15,7 @@ const who = (by: Actor) => `${controlText.requestedBy()} ${by}`;
 /** 일시정지 · 재개 */
 function paused(isPaused: boolean, track: Track, by: Actor) {
   const t = controlText.paused(isPaused, track);
-  return frame({ title: t.title, body: t.body, footer: [who(by)], thumbnail: track.thumbnail });
+  return frame({ title: t.title, body: t.body, footer: [who(by)] });
 }
 
 /** 건너뛰기. 한 곡 반복이면 처음부터 다시 틀었다(restarted) */

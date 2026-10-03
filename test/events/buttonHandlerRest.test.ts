@@ -248,13 +248,13 @@ test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정�
   }
 });
 
-test("조작 응답: 썸네일 · 누가 했나는 Components V2 화면에 담는다", async () => {
+test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정지는 썸네일을 붙이지 않는다", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.pauseFor = () => true;
   let payload: Payload = {};
   await interactionCreate.execute(press(w, "panel:pause:S1", { reply: async (p: Payload) => void (payload = p) }).it);
-  assert.equal(thumbnailOf(payload), "https://t.test/a.jpg");
+  assert.equal(thumbnailOf(payload), null);
   assert.deepEqual(textsOf(payload), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", `-# 👤 요청한 사람 <@${USER}>`]);
 });
 

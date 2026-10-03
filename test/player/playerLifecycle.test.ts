@@ -1054,9 +1054,16 @@ test("대기열 조작: 빼기 · 옮기기", () => {
   p.queue = [a, b, c];
 
   assert.deepEqual(queueInfoOf(p), { queue: [a, b, c] });
+  const from = sink.buffer.length;
   assert.equal(p.moveInQueue(0, 2), true);
   assert.deepEqual(p.queue, [b, c, a]);
   assert.equal(p.removeFromQueue(1), c);
+  const lines = sink.buffer.slice(from).map((e) => e.text);
+  assert.ok(
+    lines.some((t) => t.startsWith("대기열 이동:") && t.endsWith("1번 → 3번")),
+    "로그의 번호는 대기열 화면처럼 1부터",
+  );
+  assert.ok(lines.some((t) => t.startsWith("대기열 제거: 2번 ")));
   assert.equal(p.removeFromQueue(9), null);
   assert.equal(p.shuffleQueue(), true);
   assert.equal(p.clearQueue(), 2);
