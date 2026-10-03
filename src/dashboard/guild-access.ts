@@ -8,7 +8,8 @@ import { isOwner } from "./owner.ts";
 import { shadowMember } from "./view-as.ts";
 import { sendProblem } from "./problem.ts";
 
-async function getPlayer<P>(req: Request<P>, res: Response, guildId: string) {
+/** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null. 운영자가 아니면 actor.member 가 있다 */
+async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) {
     sendProblem(res, "bot-not-ready");
@@ -63,4 +64,4 @@ function toInt(value: unknown) {
   return Number.isInteger(n) ? n : NaN;
 }
 
-export { getPlayer, voiceFlags, toInt };
+export { openGuild, voiceFlags, toInt };

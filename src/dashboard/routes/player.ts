@@ -6,7 +6,6 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { resolveMember } from "../middleware/require-control.ts";
 import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.ts";
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
@@ -16,7 +15,7 @@ import { validState, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts"
 import config from "../../config/index.ts";
 import { isOwner } from "../owner.ts";
 import { shadowMember } from "../view-as.ts";
-import { getPlayer, voiceFlags, toInt } from "../guild-access.ts";
+import { openGuild, voiceFlags, toInt } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState } from "../player-view.ts";
 import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
 import { sendProblem, refuseWith, tooManyRequests } from "../problem.ts";
@@ -62,7 +61,7 @@ function createPlayerRouter() {
 function readRoutes(router: Router) {
   // Player state
   router.get("/:guildId/player", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member } = ctx;
 
@@ -87,7 +86,7 @@ function readRoutes(router: Router) {
 
   // 대기열 더 보기. 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
   router.get("/:guildId/player/queue", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const queue = ctx.player?.queue || [];
 
@@ -111,7 +110,7 @@ function joinRoute(router: Router) {
   // Join user's voice channel
   router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     const { guildId } = req.params;
-    const ctx = await getPlayer(req, res, guildId);
+    const ctx = await openGuild(req, res, guildId);
     if (!ctx) return;
     const { client } = ctx;
 
@@ -167,7 +166,7 @@ function joinRoute(router: Router) {
 function controlRoutes(router: Router) {
   // Toggle pause / resume
   router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.pause(ctx.player, ctx.actor);
@@ -178,7 +177,7 @@ function controlRoutes(router: Router) {
 
   // Previous
   router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.previous(ctx.player, ctx.actor);
@@ -189,7 +188,7 @@ function controlRoutes(router: Router) {
 
   // Skip. DJ 계층이거나 현재 곡의 요청자 본인이면 가능
   router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.skip(ctx.player, ctx.actor);
@@ -200,7 +199,7 @@ function controlRoutes(router: Router) {
 
   // Stop
   router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.stop(ctx.player, ctx.actor);
@@ -211,7 +210,7 @@ function controlRoutes(router: Router) {
 
   // Seek  { position: seconds }
   router.post("/:guildId/player/seek", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const body = parse(SeekBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code);
@@ -238,7 +237,7 @@ function controlRoutes(router: Router) {
     handler: tooManyRequests,
   });
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body.volume));
     if (!r.ok) return refuse(res, r);
@@ -249,7 +248,7 @@ function controlRoutes(router: Router) {
   });
 
   router.post("/:guildId/player/loop", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
     const announce = announcer(ctx.client, ctx.player);
@@ -261,7 +260,7 @@ function controlRoutes(router: Router) {
 
   // Shuffle
   router.post("/:guildId/player/shuffle", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.shuffle(ctx.player, ctx.actor);
@@ -272,7 +271,7 @@ function controlRoutes(router: Router) {
 
   // Remove track from queue  DELETE /:guildId/player/queue/:index. DJ 계층이거나 그 곡의 요청자 본인
   router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
@@ -283,7 +282,7 @@ function controlRoutes(router: Router) {
 
   // Move track in queue  { from: number, to: number }
   router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId);
+    const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.client, ctx.player);
     const r = await controls.move(ctx.player, ctx.actor, toInt(req.body.from), toInt(req.body.to));
@@ -309,16 +308,15 @@ function addRoutes(router: Router) {
   // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
-    const ctx = await getPlayer(req, res, guildId);
+    const ctx = await openGuild(req, res, guildId);
     if (!ctx) return;
-    const { player, client, guild } = ctx;
+    const { player, client, guild, actor } = ctx;
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    if (!isOwner(req)) {
-      const mctx = await resolveMember(req, res);
-      if (!mctx) return;
-      const err = checkAdd(mctx.member);
+    // 운영자가 아니면 멤버로 곡 추가 권한을 본다
+    if (actor.member) {
+      const err = checkAdd(actor.member);
       if (err) return sendProblem(res, err);
     }
 
@@ -351,16 +349,15 @@ function addRoutes(router: Router) {
   // Continue a playlist  POST /:guildId/player/queue/more. 곡 추가와 같은 권한·제한
   router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
-    const ctx = await getPlayer(req, res, guildId);
+    const ctx = await openGuild(req, res, guildId);
     if (!ctx) return;
-    const { player, client, guild } = ctx;
+    const { player, client, guild, actor } = ctx;
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    if (!isOwner(req)) {
-      const mctx = await resolveMember(req, res);
-      if (!mctx) return;
-      const err = checkAdd(mctx.member);
+    // 운영자가 아니면 멤버로 곡 추가 권한을 본다
+    if (actor.member) {
+      const err = checkAdd(actor.member);
       if (err) return sendProblem(res, err);
     }
 

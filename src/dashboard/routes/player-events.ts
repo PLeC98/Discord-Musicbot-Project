@@ -4,7 +4,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import type { PlayerStream } from "../player-stream.ts";
 import { isOwner } from "../owner.ts";
-import { getPlayer } from "../guild-access.ts";
+import { openGuild } from "../guild-access.ts";
 import { sendProblem } from "../problem.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.
@@ -57,7 +57,7 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
 
   // SSE. 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
   router.get("/:guildId/player/events", requireAuth, async (req, res) => {
-    const ctx = await getPlayer(req, res, req.params.guildId); // 비멤버 403 / 봇 미참여 404
+    const ctx = await openGuild(req, res, req.params.guildId); // 비멤버 403 / 봇 미참여 404
     if (!ctx) return;
     stream.addClient(req.params.guildId, res, signedIn(req).id);
   });

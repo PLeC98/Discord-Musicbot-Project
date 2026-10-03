@@ -145,7 +145,6 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "login-required": () => warning("permission", "로그인이 필요합니다."),
   "bad-csrf-token": () => warning("stale", "Invalid CSRF token."),
   "no-guild-access": () => warning("permission", "접근 권한이 없습니다"),
-  "not-guild-member": () => warning("permission", "서버 멤버가 아닙니다"),
   "bad-tier": () => warning("input", "권한 수준이 올바르지 않습니다"),
   // 대시보드: 상태
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았습니다."),

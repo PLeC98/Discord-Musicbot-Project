@@ -104,7 +104,6 @@ const PROBLEMS = {
   "login-required": { status: 401, title: "Login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
   "no-guild-access": { status: 403, title: "No access to this server" },
-  "not-guild-member": { status: 403, title: "Not a member of this server" },
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
