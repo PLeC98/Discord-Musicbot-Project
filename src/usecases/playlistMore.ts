@@ -11,14 +11,16 @@ import * as labels from "../ui/text/ko/labels.ts";
 import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transientMessages.ts";
 import { canSend } from "../ui/channels.ts";
-import { post, reply } from "../ui/frame.ts";
+import { LIFETIME } from "../ui/delivery.ts";
+import { post } from "../ui/frame.ts";
 import { moreView, countModal as moreCountModal } from "../ui/playlistMoreMenu.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/Player.ts";
 import type { Code } from "../rules/problems.ts";
 
-const LIFETIME_MS = 30_000;
+// 메뉴가 떠 있는 시간(ui/delivery 의 메뉴 수명). 마지막으로 누른 뒤 이만큼 지나면 닫힌 메뉴로 본다
+const LIFETIME_MS = LIFETIME.menu;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
 const LOOKBACK = 5;
 const MAX_COUNT = 10_000;
@@ -178,7 +180,7 @@ function clearExpiry(messageId: string) {
   expiries.delete(messageId);
 }
 
-function expireLater(messageId: string, remove: () => unknown, ms = LIFETIME_MS) {
+function expireLater(messageId: string, remove: () => unknown, ms: number = LIFETIME_MS) {
   clearExpiry(messageId);
   markTransient(messageId, ms); // 조작하는 동안 현재 재생 메시지가 이 밑으로 내려오지 않게
   const timer = setTimeout(() => {
@@ -193,17 +195,18 @@ function expireLater(messageId: string, remove: () => unknown, ms = LIFETIME_MS)
   expiries.set(messageId, timer);
 }
 
-// 슬래시 명령. 일반 채널 메시지로 띄운다. 상호작용 후속 메시지는 디스코드가 원래 응답에 답장 모양으로 붙이는데,
-// 그 응답이 지워지면 "메시지를 불러올 수 없어요"에 매달린다. 채널에 쓸 권한이 없을 때만 본인 전용 후속 메시지로.
+// 슬래시 명령. 본인에게만 보이는 "검색 중" 자리를 메뉴로 고친다(후속 메시지는 원래 응답이 지워지면 "메시지를 불러올 수 없어요" 에 매달린다).
+// 메뉴를 띄웠으면 true
 async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: Player) {
-  if (await offerOnChannel(interaction.channel, more, player, interaction.user.id, { quiet: true })) return;
-  const offer = offerView(more, roomFor(player));
-  if (!offer.menu) return;
+  const offer = offerView({ ...more, requesterId: interaction.user.id }, roomFor(player));
+  if (!offer.menu) return false;
   try {
-    const message = await interaction.followUp(reply(offer.view));
-    expireLater(message.id, () => interaction.deleteReply(message.id));
+    const message = await interaction.editReply(post(offer.view));
+    expireLater(message.id, () => interaction.deleteReply());
+    return true;
   } catch (error) {
     log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
+    return false;
   }
 }
 

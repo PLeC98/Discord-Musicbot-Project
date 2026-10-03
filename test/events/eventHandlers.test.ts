@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
 import { Player } from "../../src/player/Player.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -258,7 +258,7 @@ test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다",
   assert.equal(textOf(msg.sent[0].payload), `🔍 **${"가".repeat(60)}…** 검색 중...`);
 });
 
-test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 5초 뒤 지운다", async () => {
+test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 경고 수명(10초) 뒤 지운다", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const w = world({ botVoice: "v1", userVoice: null });
@@ -272,8 +272,11 @@ test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시�
       [said(errors.notice("must-be-in-same-voice"))],
       "봇이 음성 채널에 있으면 그 채널에 들어오라고 한다",
     );
+    mock.timers.tick(9999);
+    await new Promise(setImmediate);
     assert.equal(msg.deleted, false);
-    mock.timers.tick(5000);
+    assert.equal(msg.replies[0].deleted, false, "답도 같은 수명");
+    mock.timers.tick(1);
     await new Promise(setImmediate);
     assert.equal(msg.deleted, true);
     assert.equal(msg.replies[0].deleted, true);
@@ -299,7 +302,7 @@ test("전용 채널: 봇이 쉬고 있으면 소환할 수 있는지 본다(사�
   }
 });
 
-test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문장을 8초 동안 보인다", async () => {
+test("전용 채널: 코어가 실패하면 자리표시자를 치우고 안내를 그 수준의 수명(경고 10초) 동안 보인다", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const w = world();
@@ -312,7 +315,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
     const [loading, err] = msg.sent;
     assert.equal(loading.deleted, true, "자리표시자를 치운다");
     assert.equal(textOf(err.payload), said(errors.notice("no-song-result")));
-    mock.timers.tick(7999);
+    mock.timers.tick(9999);
     await new Promise(setImmediate);
     assert.equal(err.deleted, false);
     mock.timers.tick(1);
@@ -373,30 +376,36 @@ type Shown = { content?: string; embeds?: { data: { title?: string } }[]; compon
 const shown = (p: Shown) => p.content ?? (p.components ? textsOf(p).join("\n") : p.embeds?.[0]?.data?.title);
 
 // 메뉴 메시지 id 는 따로 돌려준다(모달 상호작용은 메시지가 없을 수 있다)
-function moreInteraction(w: World, { select = null, modalCount = null, customState = state(), customId = undefined, userId = USER, touched = Date.now() }: { select?: string | null; modalCount?: string | null; customState?: ReturnType<typeof state>; customId?: string; userId?: string; touched?: number } = {}) {
+function moreInteraction(w: World, { select = null, modalCount = null, customState = state(), customId = undefined, userId = USER, touched = Date.now(), mine = false }: { select?: string | null; modalCount?: string | null; customState?: ReturnType<typeof state>; customId?: string; userId?: string; touched?: number; mine?: boolean } = {}) {
   const log: Entry[] = [];
   const isSelect = select !== null;
   const messageId = `menu-${Math.random()}`;
+  const room = channel("c1");
   const it = fakeWith<Menu>()({
     guild: w.guild,
     member: w.member,
     client: w.client,
-    channel: channel("c1"),
+    channel: room,
     user: { id: userId },
+    replied: false,
+    deferred: false,
     customId: customId ?? More.encodeState(isSelect ? More.SELECT_PREFIX : More.MODAL_PREFIX, customState),
     values: isSelect ? [select] : [],
     fields: { getTextInputValue: () => modalCount },
-    message: { id: messageId, createdTimestamp: touched, editedTimestamp: null },
+    message: { id: messageId, createdTimestamp: touched, editedTimestamp: null, flags: { has: (flag: number) => mine && flag === MessageFlags.Ephemeral } },
     ...interactionKind(isSelect ? "select" : "modal"),
     isFromMessage: () => true,
     reply: async (p: Shown) => log.push(["reply", shown(p)]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     deleteReply: async () => log.push(["deleteReply"]),
-    update: async (p: Shown) => log.push(["update", shown(p)]),
+    update: async (p: Shown) => {
+      it.replied = true;
+      log.push(["update", shown(p)]);
+    },
     editReply: async (p: Shown) => log.push(["editReply", shown(p) ?? "(메뉴)"]),
     showModal: async (m: { data: { custom_id: string } }) => log.push(["showModal", m.data.custom_id]),
   });
-  return { it, log, messageId };
+  return { it, log, messageId, room };
 }
 
 test("더 넣기: 모르는 상태는 거절한다", async () => {
@@ -419,7 +428,7 @@ test("더 넣기: 그만 넣기는 넣은 사람만. 넣은 사람이 누르면 
 
 test("더 넣기: 시간이 지난 메뉴 · 권한 · 플레이어 없음은 거절", async () => {
   const w = world();
-  const old = moreInteraction(w, { select: "10", touched: Date.now() - 31_000 });
+  const old = moreInteraction(w, { select: "10", touched: Date.now() - More.LIFETIME_MS - 1_000 });
   await interactionCreate.execute(old.it);
   assert.deepEqual(old.log, [["reply", said(errors.notice("more-expired"))]]);
 
@@ -447,7 +456,7 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
   assert.deepEqual(bad.log, [["reply", said(errors.notice("more-bad-count"))]]);
 });
 
-test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 바꾼 뒤 30초 뒤 지우게 한다", async () => {
+test("더 넣기: 고른 수만큼 이어 받아 넣고, 채널의 메뉴는 결과로 고치고 본인 메뉴는 지우고 결과를 모두에게", async () => {
   const w = world();
   const asked: { url: string; range?: Range }[] = [];
   fakeLookup.getCollection = async (url, range) => {
@@ -469,12 +478,22 @@ test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 
   );
   assert.equal(log.at(-1)?.[0], "editReply");
   assert.match(String(log.at(-1)?.[1]), /^✅ 재생목록에서 2곡을 더 넣었어요\./, "결과로 고친다");
+
+  const own = moreInteraction(world(), { select: "2", mine: true });
+  try {
+    await interactionCreate.execute(own.it);
+  } finally {
+    More.clearExpiry(own.messageId);
+  }
+  assert.deepEqual(own.log.at(-1), ["deleteReply"], "본인 메뉴는 지운다");
+  assert.match(textOf(own.room.sent.at(-1)?.payload ?? {}), /^✅ 재생목록에서 2곡을 더 넣었어요\./, "결과는 모두에게");
 });
 
 // ── 모달 · 선택 메뉴 ──────────────────────────────────────────────────
 
 function menu(w: World, { customId, values = [], volume = null, select = true }: { customId: string; values?: string[]; volume?: string | null; select?: boolean }) {
   const log: Entry[] = [];
+  const room = channel("c1");
   const it = fakeWith<Menu>()({
     guild: w.guild,
     member: w.member,
@@ -483,6 +502,7 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
     values,
     replied: false,
     deferred: false,
+    channel: room,
     fields: { getTextInputValue: () => volume },
     ...interactionKind(select ? "select" : "modal"),
     isFromMessage: () => true,
@@ -494,9 +514,13 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
       it.replied = true;
       log.push(["update", shown(p)?.split("\n")[0]]);
     },
+    deferUpdate: async () => {
+      it.deferred = true;
+      log.push(["deferUpdate"]);
+    },
     deleteReply: async () => log.push(["deleteReply"]),
   });
-  return { it, log };
+  return { it, log, room };
 }
 
 test("모달: 모르는 모달은 알린다", async () => {
@@ -511,8 +535,9 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
-  assert.deepEqual(pick.log, [["update", "### 🎲 자동 재생을 시작할게요!"]]);
-  assert.deepEqual(lifetimesOf(pick.it), [LIFETIME.result], "메뉴를 덮은 결과는 결과 수명 뒤 지운다");
+  assert.deepEqual(pick.log, [["deferUpdate"], ["deleteReply"]], "장르 메뉴(본인)는 지운다");
+  assert.match(textOf(pick.room.sent[0]?.payload ?? {}), /^### 🎲 자동 재생을 시작할게요!/, "켠 결과는 모두에게");
+  assert.deepEqual(lifetimesOf(pick.it), [LIFETIME.result], "결과 수명 뒤 지운다");
 
   const w2 = world();
   w2.player.currentTrack = { title: "지금 곡" };

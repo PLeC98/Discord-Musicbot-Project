@@ -4,7 +4,7 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./customIds.ts";
-import { frame, post, reply } from "./frame.ts";
+import { frame, reply } from "./frame.ts";
 import * as autoplayText from "./text/ko/autoplay.ts";
 
 /**
@@ -45,10 +45,10 @@ const buildGenreMenu = () => withMenu(autoplayText.pickGenre());
  */
 const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
 
-/** 장르를 골라 켰다. 메뉴 화면을 이 화면으로 고친다. by 는 고른 사람 */
+/** 장르를 골라 켰다(모두에게 보내는 결과). by 는 고른 사람 */
 function autoplayOn(genre: string, by: { toString(): string }) {
   const t = autoplayText.turnedOn(genre);
-  return post(frame({ title: t.title, body: t.description, footer: [`${t.by} ${by}`] }));
+  return frame({ title: t.title, body: t.description, footer: [`${t.by} ${by}`], divider: true });
 }
 
 export { buildGenreMenu, buildAutoplayOffMenu, autoplayOn };

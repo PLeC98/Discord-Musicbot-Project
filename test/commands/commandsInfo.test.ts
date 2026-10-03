@@ -137,7 +137,7 @@ test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상�
   assert.equal(f["👤 요청자"], "<@u9>");
   assert.equal(f["📊 상태"], "▶️ 재생 중 • 🔊 70% • 🔂 한 곡 반복");
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
-  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2], "모두에게 보인다");
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
   assert.equal(headOf(log[0][1] as never), "### 🎵 현재 재생 중");
 });
 
@@ -366,11 +366,24 @@ function sbInteraction({ customId, values = [], messageId = "reply-msg", manage 
     message: { id: messageId },
     memberPermissions: { has: (p: bigint) => manage && p === PermissionFlagsBits.ManageGuild },
     ...interactionKind(customId === "sb:cats" ? "select" : "button"),
+    replied: false,
+    deferred: false,
     reply: async (p: Sent) => log.push(["reply", p]),
-    deferUpdate: async () => log.push(["deferUpdate"]),
+    deferUpdate: async () => {
+      it.deferred = true;
+      log.push(["deferUpdate"]);
+    },
+    deleteReply: async () => log.push(["deleteReply"]),
     update: async (p: Sent) => {
       const s = screenOf(p);
       log.push(["update", s.title, s.body, s.rows, s.done ? "완료" : "기본"]);
+    },
+    channel: {
+      send: async (p: Sent) => {
+        const s = screenOf(p);
+        log.push(["send", s.title, s.body, s.rows, s.done ? "완료" : "기본"]);
+        return { id: "sent", delete: async () => {} };
+      },
     },
   };
   return { it, log };
@@ -403,8 +416,14 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
   await interactionCreate.execute(fake<Interaction>(save.it));
   settings._reset();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
-  assert.deepEqual([save.log[0][1], save.log[0][4]], ["⏭️ SponsorBlock 설정을 저장했어요", "완료"]);
-  assert.match(String(save.log[0][2]), /인트로\/무음 구간, 최종 화면 구간/);
+  assert.deepEqual(
+    save.log.map(([name]) => name),
+    ["deferUpdate", "deleteReply", "send"],
+    "설정 화면(본인)을 지우고 저장한 결과는 모두에게",
+  );
+  const shown = save.log.at(-1) ?? [];
+  assert.deepEqual([shown[1], shown[4]], ["⏭️ SponsorBlock 설정을 저장했어요", "완료"]);
+  assert.match(String(shown[2]), /인트로\/무음 구간, 최종 화면 구간/);
   assert.ok(SKIP_CATEGORIES.includes("intro"));
 });
 
@@ -413,7 +432,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   await interactionCreate.execute(fake<Interaction>(toggle.it));
   const save = sbInteraction({ customId: "sb:save", messageId: "m-off" });
   await interactionCreate.execute(fake<Interaction>(save.it));
-  assert.match(String(save.log[0][2]), /구간: 끔/);
+  assert.match(String(save.log.at(-1)?.[2]), /구간: 끔/);
 
   settings._reset();
   storeDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "켬"에서 시작하게
@@ -421,7 +440,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   await interactionCreate.execute(fake<Interaction>(empty.it));
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });
   await interactionCreate.execute(fake<Interaction>(saveEmpty.it));
-  assert.match(String(saveEmpty.log[0][2]), /고른 구간 없음 \(건너뛰지 않아요\)/);
+  assert.match(String(saveEmpty.log.at(-1)?.[2]), /고른 구간 없음 \(건너뛰지 않아요\)/);
 
   const cancel = sbInteraction({ customId: "sb:cancel", messageId: "m-cancel" });
   await interactionCreate.execute(fake<Interaction>(cancel.it));

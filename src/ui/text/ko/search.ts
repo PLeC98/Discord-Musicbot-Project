@@ -6,12 +6,10 @@ const results = (query: string, count: number) => ({ title: `🔍 "${query}" 검
 const result = (rank: number, { title, uploader, length }: { title?: string | null; uploader?: string | null; length: string }) => ({ name: `${rank}. ${title || "알 수 없는 제목"}`, value: `👤 ${uploader || "알 수 없는 채널"} • ⏱️ ${length}` });
 /** 길이를 모르는 결과 */
 const unknownLength = () => "알 수 없음";
-/** 고르기를 취소했다 */
-const cancelled = () => ({ title: "검색 취소", description: "검색을 취소했어요." });
 /** 고른 곡을 넣는 동안 */
 const adding = () => ({ title: "🔄 넣는 중...", description: "고른 곡을 추가하고 있어요..." });
 
 /** /play · 전용 채널 입력이 찾는 동안의 자리표시자. input 은 넣은 것(전용 채널은 앞부분만 자른 것) */
 const searching = (input: string) => `🔍 **${input}** 검색 중...`;
 
-export { results, result, unknownLength, cancelled, adding, searching };
+export { results, result, unknownLength, adding, searching };

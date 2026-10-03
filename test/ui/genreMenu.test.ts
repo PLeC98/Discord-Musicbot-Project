@@ -9,7 +9,8 @@ import { MessageFlags } from "discord.js";
 import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../src/ui/genreMenu.ts";
 import * as genresModule from "../../src/config/genres.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
-import { headOf, selectOf, textsOf } from "../helpers/cv2.ts";
+import { headOf, selectOf, separatorsOf, textsOf } from "../helpers/cv2.ts";
+import { post } from "../../src/ui/frame.ts";
 
 useExampleConfig();
 const { genres } = genresModule.genres();
@@ -51,10 +52,10 @@ test("끄기 화면: 이미 꺼졌음을 알리고 다시 고를 기회를 준�
   assert.match(headOf(off) ?? "", /자동 재생을 껐어요/);
 });
 
-test("켠 결과: 메뉴 화면을 고친다. 고른 장르와 누가 켰는지", () => {
-  const on = autoplayOn("가요", "<@1>");
+test("켠 결과: 고른 장르와 누가 켰는지, 그 줄 위에 구분선", () => {
+  const on = post(autoplayOn("가요", "<@1>"));
   assert.deepEqual(textsOf(on), ["### 🎲 자동 재생을 시작할게요!\n**가요** 장르로 켰어요. 직접 넣어둔 대기열이 끝나면 자동 재생 곡들이 나와요.", "-# 👤 요청한 사람 <@1>"]);
-  assert.deepEqual(on.flags, [MessageFlags.IsComponentsV2]);
+  assert.equal(separatorsOf(on), 1);
 });
 
 test("두 화면 다 본인에게만 보인다", () => {

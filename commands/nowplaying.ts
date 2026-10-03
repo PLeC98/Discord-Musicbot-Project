@@ -1,9 +1,9 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { post } from "../src/ui/frame.ts";
+import { reply } from "../src/ui/frame.ts";
 import { nowPlayingView } from "../src/ui/nowPlayingInfo.ts";
-import { noticeSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, noticeSelf, toSelf } from "../src/ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "explore", tier: "everyone" },
@@ -15,7 +15,7 @@ const exported: GuildCommand = {
     const player = client.players.get(interaction.guild.id);
     if (!player) return await noticeSelf(interaction, errors.notice("no-song"));
     if (!player.currentTrack) return await noticeSelf(interaction, errors.notice("no-song"));
-    await interaction.reply(post(nowPlayingView(player, player.currentTrack)));
+    await toSelf(interaction, reply(nowPlayingView(player, player.currentTrack)), LIFETIME.screen);
   },
 };
 export default exported;

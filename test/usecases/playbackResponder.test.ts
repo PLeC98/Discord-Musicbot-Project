@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import { interactionResponder, channelResponder, silentResponder, _internals } from "../../src/usecases/responders.ts";
 import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
-import { frame, post, reply } from "../../src/ui/frame.ts";
+import { frame, post } from "../../src/ui/frame.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 
 // 보낸 것. 여기서 보는 칸만
@@ -90,14 +90,18 @@ test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대�
 
 // ── interactionResponder ─────────────────────────────────────
 
-test("상호작용: 자리표시자(CV2)를 안내로 고친다. 아직 답하지 않았으면 본인에게만 새로", async () => {
-  const interaction = fakeInteraction({ deferred: true });
+test("상호작용: 담은 안내는 모두에게 채널로 새로(채널에 못 쓰면 공개 후속 메시지), 본인 자리표시자는 명령이 치운다", async () => {
+  const sent: Payload[] = [];
+  const interaction = Object.assign(fakeInteraction({ deferred: false, replied: true }), { channel: { send: async (p: Payload) => (sent.push(p), { id: "c1", delete: async () => {} }) } });
   await interactionResponder(interaction).notifyQueued(view);
-  assert.deepEqual(interaction.calls[0], ["editReply", post(view)]);
+  await interactionResponder(interaction).dismissPlaceholder();
+  assert.deepEqual(sent, [post(view)]);
+  assert.deepEqual(interaction.calls, [], "자리표시자를 건드리지 않는다");
 
-  const fresh = fakeInteraction({ deferred: false });
-  await interactionResponder(fresh).notifyQueued(view);
-  assert.deepEqual(fresh.calls[0], ["reply", reply(view)]);
+  const calls: Call[] = [];
+  const noChannel = Object.assign(fakeInteraction({ deferred: false, replied: true }), { channel: null, followUp: async (p: Payload) => (calls.push(["followUp", p]), { id: "f1" }) });
+  await interactionResponder(noChannel).notifyQueued(view);
+  assert.deepEqual(calls, [["followUp", post(view)]]);
 });
 
 test("채널: 안내를 CV2 메시지로 보낸다", async () => {

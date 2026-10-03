@@ -1,5 +1,5 @@
 import { formatDuration } from "../src/ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 import * as YouTube from "../src/sources/youtube/index.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
@@ -11,7 +11,7 @@ import logger from "../src/infra/log/logger.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as searchText from "../src/ui/text/ko/search.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, expireSelf, noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
 const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
@@ -80,7 +80,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
     // 검색이 던지면(네트워크 · 봇 감지 등) 입구가 남기고 이 답 자리에 그 종류로 알린다
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const results = await search(query, MAX_RESULTS);
     log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
@@ -90,6 +90,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     }
 
     await showSearchMenu(interaction, results, query);
+    expireSelf(interaction, LIFETIME.menu);
   },
 };
 export default exported;

@@ -10,7 +10,7 @@ import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../src/ui/genr
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../src/ui/customIds.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
-import { LIFETIME, expireSelf, noticeSelf, toSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, noticeSelf, toAll, toSelf } from "../src/ui/delivery.ts";
 
 /**
  * 켜져 있으면 끄고 메뉴가 떠 있는 동안 장르를 다시 고를 기회를 준다(고르면 변경, 두면 종료).
@@ -37,7 +37,7 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">) {
   return answerAutoplay(interaction, player);
 }
 
-// 장르 메뉴에서 골랐다. 메뉴를 결과로 덮는다. reply 로 새 메시지를 만들면 고른 뒤에도 선택 화면이 남는다
+// 장르 메뉴에서 골랐다. 메뉴(본인)를 지우고 켠 결과는 모두에게
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">) {
   const { guild, member, client } = interaction;
   const genre = interaction.values[0];
@@ -45,8 +45,8 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
   const r = await controls.autoplay(client.players.get(guild.id), { member }, genre, {
     create,
     onAccepted: async () => {
-      await interaction.update(autoplayOn(genre, member));
-      expireSelf(interaction, LIFETIME.result);
+      await interaction.deferUpdate();
+      await toAll(interaction, autoplayOn(genre, member), LIFETIME.result);
     },
   });
   if (!r.ok) return noticeSelf(interaction, controlMessage(r));

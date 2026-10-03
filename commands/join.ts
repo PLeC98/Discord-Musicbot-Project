@@ -5,14 +5,14 @@ import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import * as playerEvents from "../src/player/events.ts";
 import { sessions, type RestoredSession } from "../src/store/playerSessions.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeFrame, post, reply } from "../src/ui/frame.ts";
+import { noticeFrame, reply } from "../src/ui/frame.ts";
 import type { Player } from "../src/player/Player.ts";
 import * as replies from "../src/ui/controlReplies.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
 import { bestEffort } from "../src/infra/bestEffort.ts";
-import { LIFETIME, expireSelf, noticeSelf, toSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, noticeSelf, toAll, toSelf } from "../src/ui/delivery.ts";
 
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {
@@ -21,21 +21,20 @@ function waitEmpty(player: Player) {
   playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
 }
 
-// 저장한 세션을 되살린다. 되살리는 동안 Components V2 로 먼저 답하고 결과로 고친다. 모두에게 보이는 응답이라 기본 정리에서 빠진다.
-// 결과는 패널이 보이므로 잠깐 뒤 지운다. 채널 알림은 내지 않는다(이 응답이 말한다)
+// 저장한 세션을 되살린다. 되살리는 동안 "불러오는 중" 을 본인에게 먼저 보내고, 결과는 모두에게 새로 보낸다(ui/delivery).
+// 채널 알림은 내지 않는다(이 응답이 말한다)
 async function restoreSession(interaction: ChatInputCommandInteraction<"cached">, player: Player, savedState: RestoredSession) {
-  await interaction.reply(post(replies.restoring()));
-  expireSelf(interaction, LIFETIME.result);
+  await interaction.reply(reply(replies.restoring()));
   try {
     const outcome = await player.persistence.restoreFromState(savedState, { announce: false });
-    if (outcome === "restored" && player.currentTrack) return await interaction.editReply(post(replies.restored(player.currentTrack, player.paused)));
+    if (outcome === "restored" && player.currentTrack) return await toAll(interaction, replies.restored(player.currentTrack, player.paused), LIFETIME.result);
     // 틀지 못했다. 남은 곡이 있으면 연달아 실패해 멈춘 것이다. 재생 중이던 곡이 저장된 세션만 되살리니 틀 곡이 없는 결과(empty)는 나오지 않는다
     const left = player.queue.length;
-    return await interaction.editReply(post(noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"))));
+    return await toAll(interaction, noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left")), LIFETIME.result);
   } catch (error) {
     log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
     await player.dispose({ reason: "세션 복원 실패", session: "keep" });
-    return await interaction.editReply(post(noticeFrame(errors.notice("restore-failed"))));
+    return await toAll(interaction, noticeFrame(errors.notice("restore-failed")), LIFETIME.result);
   }
 }
 
@@ -73,7 +72,7 @@ const exported: GuildCommand = {
     } else {
       await player.voice.connect();
       waitEmpty(player);
-      await toSelf(interaction, reply(replies.joined()), LIFETIME.result);
+      await toAll(interaction, replies.joined(), LIFETIME.result);
     }
   },
 };

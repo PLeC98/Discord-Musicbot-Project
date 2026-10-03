@@ -5,7 +5,7 @@ import * as settingsText from "../src/ui/text/ko/settings.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
 import { post } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
-import { LIFETIME, expireSelf, noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, expireSelf, noticeInstead, noticeSelf, toAll } from "../src/ui/delivery.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
@@ -53,7 +53,8 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
     if (!roleIds.length) {
       await GuildSettingsManager.clearDjRoles(guild.id);
-      return interaction.update(post(screens.saved(settingsText.djRoleCleared())));
+      await interaction.deferUpdate();
+      return toAll(interaction, screens.saved(settingsText.djRoleCleared()), null);
     }
 
     const success = await GuildSettingsManager.setDjRoles(guild.id, roleIds);
@@ -62,7 +63,8 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
       return noticeInstead(interaction, errors.notice("dj-role-save-failed"));
     }
 
-    return interaction.update(post(screens.saved(settingsText.djRoleSaved(roleIds))));
+    await interaction.deferUpdate();
+    return toAll(interaction, screens.saved(settingsText.djRoleSaved(roleIds)), null);
   }
 }
 

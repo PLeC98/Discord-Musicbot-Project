@@ -2,9 +2,8 @@ import { SlashCommandBuilder } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import * as replies from "../src/ui/controlReplies.ts";
-import { reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import { LIFETIME, noticeSelf, toSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, noticeSelf, toAll } from "../src/ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj-or-requester" },
@@ -20,7 +19,7 @@ const exported: GuildCommand = {
     const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
     if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
-    await toSelf(interaction, reply(replies.removed(r.left, member)), LIFETIME.result);
+    await toAll(interaction, replies.removed(r.left, member), LIFETIME.result);
   },
 };
 export default exported;

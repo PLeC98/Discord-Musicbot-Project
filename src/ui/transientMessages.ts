@@ -40,14 +40,18 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
   const remove = message?.delete;
   if (!message || typeof remove !== "function") return;
   markTransient(message.id, ms);
-  setTimeout(() => {
-    Promise.resolve(remove.call(message)).catch((error: unknown) => {
-      const retryMs = errorKind(error) === "network-error" ? RETRY_AFTER_MS[tries] : undefined;
-      if (retryMs === undefined) return log.debug(`잠깐 보이는 메시지를 지우지 못함: ${messageOf(error)}`);
-      log.debug(`잠깐 보이는 메시지를 네트워크 오류로 못 지워 ${retryMs / 1000}초 뒤 다시 지웁니다: ${messageOf(error)}`);
-      scheduleDelete(message, retryMs, tries + 1);
-    });
+  const timer = setTimeout(() => {
+    // 지우는 함수가 바로 던져도 여기서 받는다(타이머 밖으로 새면 프로세스 수준 예외가 된다)
+    Promise.resolve()
+      .then(() => remove.call(message))
+      .catch((error: unknown) => {
+        const retryMs = errorKind(error) === "network-error" ? RETRY_AFTER_MS[tries] : undefined;
+        if (retryMs === undefined) return log.debug(`잠깐 보이는 메시지를 지우지 못함: ${messageOf(error)}`);
+        log.debug(`잠깐 보이는 메시지를 네트워크 오류로 못 지워 ${retryMs / 1000}초 뒤 다시 지웁니다: ${messageOf(error)}`);
+        scheduleDelete(message, retryMs, tries + 1);
+      });
   }, ms);
+  timer.unref?.();
 }
 
 export { markTransient, isTransient, scheduleDelete, AUTO_DELETE_MS, RETRY_AFTER_MS };

@@ -18,6 +18,7 @@ import { Player, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { TrackData } from "../../src/usecases/addTracks.ts";
+import { selectOf } from "../helpers/cv2.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
@@ -206,11 +207,11 @@ test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지
   assert.deepEqual(resolved, []);
 });
 
-test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /play 로 넘긴다", async () => {
+test("/play: 검색 중 자리표시자를 본인에게 CV2 로 먼저 답하고 코어에 /play 로 넘긴다", async () => {
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.client);
-  assert.deepEqual(log[0], ["reply", post(frame({ body: "🔍 **노래** 검색 중..." }))], "처음부터 Components V2 로 답해야 결과로 고칠 수 있다");
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔍 **노래** 검색 중..." }))], "처음부터 Components V2 로 답해야 안내 · 메뉴로 고칠 수 있다");
   assert.equal(resolved[0].context, "play.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, undefined);
   assert.equal(w.handled[0].who?.username, "사용자");
@@ -242,13 +243,20 @@ test("/play: 답하기 전에 던지면 입구가 본인에게만 알린다", as
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("command-failed"))]]);
 });
 
-test("/play: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 띄운다", async () => {
+test("/play: 재생목록이 더 남았으면 검색 중 자리(본인)를 더 넣기 메뉴로 고친다. 없으면 그 자리를 지운다", async () => {
   const w = world();
   resolveReply = () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [tracks.youtube("bbbbbbbbbbb", { title: "첫 곡" })] });
-  const { it, sentOnChannel } = interaction(w, { options: { query: "https://www.youtube.com/playlist?list=PLabcdefghij" } });
+  const { it, log, sentOnChannel } = interaction(w, { options: { query: "https://www.youtube.com/playlist?list=PLabcdefghij" } });
   await runCommand(await command("play"), it, w.client);
-  assert.equal(sentOnChannel.length, 1);
-  More.clearExpiry(sentOnChannel[0].id);
+  assert.ok(selectOf(lastSent(log) as never), "검색 중 자리를 메뉴로");
+  assert.equal(log.at(-1)?.[0], "editReply");
+  assert.equal(sentOnChannel.length, 0, "메뉴는 채널에 올리지 않는다");
+  More.clearExpiry("edited-msg");
+
+  resolveReply = () => ({ success: true, isPlaylist: false, tracks: [tracks.youtube("ccccccccccc", { title: "한 곡" })] });
+  const single = interaction(world(), { options: { query: "노래" } });
+  await runCommand(await command("play"), single.it, single.it.client);
+  assert.deepEqual(single.log.at(-1), ["deleteReply"]);
 });
 
 test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 알린다", async () => {
@@ -305,8 +313,8 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
   resolveReply = () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [tracks.youtube("bbbbbbbbbbb", { title: "첫 곡" })] });
   const more = interaction(world({ roles: ["dj"] }), { options: { query: "https://www.youtube.com/playlist?list=PLabcdefghij" } });
   await runCommand(await command("playfirst"), more.it, more.it.client);
-  assert.equal(more.sentOnChannel.length, 1);
-  More.clearExpiry(more.sentOnChannel[0].id);
+  assert.ok(selectOf(lastSent(more.log) as never), "검색 중 자리를 메뉴로");
+  More.clearExpiry("edited-msg");
 });
 
 // ── /search ───────────────────────────────────────────────────────────
@@ -323,6 +331,8 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼�
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.client, { search });
 
   assert.deepEqual(asked, [["노래", 9]]);
+  assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }], "검색 결과는 본인에게만");
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.menu], "고르는 화면은 메뉴 수명 뒤 지운다");
   assert.deepEqual(
     sink.buffer
       .slice(from)
@@ -410,7 +420,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
-    assert.deepEqual(log, [["reply", reply(replies.joined())]]);
+    assert.deepEqual(log, [["reply", { ...post(replies.joined()), withResponse: true }]], "모두에게");
     assert.ok(w.seen.includes("end:joined"));
     assert.ok(player.idle.emptyTimer, "곡 없이 대기");
   } finally {
@@ -438,14 +448,14 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   h.dispose(replaced);
 });
 
-test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하고 결과로 고친다(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
+test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 먼저 답하고, 그 자리를 지우고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
   const run = async (restore: (this: Player, record: unknown, options?: { announce?: boolean }) => Promise<void>) => {
     h.behavior.restore = restore;
     const w = world({ player: null });
-    const { it, log } = interaction(w);
+    const { it, log, sentOnChannel } = interaction(w);
     try {
       await runCommand(await command("join"), it, w.client);
     } finally {
@@ -453,7 +463,9 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하�
       const p = w.client.players.get("g1");
       if (p) h.dispose(p);
     }
-    return { log, w, it };
+    // 모두에게 보낸 결과
+    const shown = () => sentOnChannel.map((m) => m.payload);
+    return { log, w, it, shown };
   };
 
   const options: unknown[] = [];
@@ -463,36 +475,36 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하�
   });
   assert.deepEqual(options, [{ announce: false }], "채널 알림은 내지 않는다(이 응답이 말한다)");
   const saved = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
-  assert.deepEqual(playing.log[0], ["reply", post(replies.restoring())]);
-  assert.deepEqual(playing.log[1], ["editReply", post(replies.restored(saved, false))]);
-  assert.match(JSON.stringify(playing.log[1]), /을 듣고 있었어요\. 이어서 재생할게요!/);
+  assert.deepEqual(playing.log, [["reply", reply(replies.restoring())], ["deleteReply"]]);
+  assert.deepEqual(playing.shown(), [post(replies.restored(saved, false))]);
+  assert.match(JSON.stringify(playing.shown()), /을 듣고 있었어요\. 이어서 재생할게요!/);
   assert.deepEqual(lifetimesOf(playing.it), [LIFETIME.result], "결과 수명 뒤 지운다");
 
   const paused = await run(async function () {
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
     this.paused = true;
   });
-  assert.deepEqual(paused.log[1], ["editReply", post(replies.restored(saved, true))]);
+  assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
   // 되살린 결과(restoreFromState)로 가른다. 시험의 가짜는 되살린 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
   const nothingLeft = await run(async () => {});
-  assert.deepEqual(nothingLeft.log[1], ["editReply", post(noticeFrame(errors.notice("restore-nothing-left")))]);
+  assert.deepEqual(nothingLeft.shown(), [post(noticeFrame(errors.notice("restore-nothing-left")))]);
 
   const stopped = await run(async function () {
     this.queue.push(tracks.youtube("ddddddddddd"), tracks.youtube("eeeeeeeeeee"));
   });
-  assert.deepEqual(stopped.log[1], ["editReply", post(noticeFrame(errors.notice("restore-failed-in-row", { left: 2 })))]);
+  assert.deepEqual(stopped.shown(), [post(noticeFrame(errors.notice("restore-failed-in-row", { left: 2 })))]);
 
   const failed = await run(async () => {
     throw new Error("복원 실패");
   });
-  assert.deepEqual(failed.log[1], ["editReply", post(noticeFrame(errors.notice("restore-failed")))]);
+  assert.deepEqual(failed.shown(), [post(noticeFrame(errors.notice("restore-failed")))]);
   assert.equal(failed.w.client.players.has("g1"), false, "실패하면 레지스트리에서 뺀다");
 });
 
 // ── /autoplay ─────────────────────────────────────────────────────────
 
-test("/autoplay: 켜져 있으면 끄고 30초짜리 다시 고르기 메뉴를, 꺼져 있으면 장르 메뉴를", async () => {
+test("/autoplay: 켜져 있으면 끄고 다시 고르기 메뉴를, 꺼져 있으면 장르 메뉴를", async () => {
   const on = world();
   on.player.autoplay = "가요";
   const a = interaction(on);
@@ -541,7 +553,11 @@ test("/autoplay 장르 선택: 플레이어가 없으면 고른 그때 만들어
     values: [genre],
     ...interactionKind("select"),
     reply: async (m: unknown) => log.push(["reply", m]),
-    update: async () => log.push("update"),
+    async deferUpdate(this: { deferred: boolean }) {
+      this.deferred = true;
+      log.push("deferUpdate");
+    },
+    deleteReply: async () => log.push("deleteReply"),
   });
 
   await interactionCreate.execute(pick);

@@ -1,13 +1,12 @@
 import { type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { reply } from "../src/ui/frame.ts";
 import * as replies from "../src/ui/controlReplies.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import { answerVolume } from "./controlAnswers.ts";
 import { route, type Route } from "./route.ts";
 import { PANEL, customId, partsOf } from "../src/ui/customIds.ts";
-import { LIFETIME, noticeSelf, toSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, noticeSelf, toAll } from "../src/ui/delivery.ts";
 
 async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, client: Client<true>) {
   const player = client.players.get(interaction.guild.id);
@@ -20,7 +19,7 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   if (!r.ok && r.code === "bad-position") return await noticeSelf(interaction, errors.notice("jump-target-gone"));
   if (!r.ok) return await noticeSelf(interaction, controlMessage(r));
 
-  await toSelf(interaction, reply(replies.jumped(r.track)), LIFETIME.result);
+  await toAll(interaction, replies.jumped(r.track), LIFETIME.result);
 }
 
 async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, client: Client<true>) {

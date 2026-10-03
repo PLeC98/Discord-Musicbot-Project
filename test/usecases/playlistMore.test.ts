@@ -78,34 +78,31 @@ test("곡 수 입력: 1 이상의 정수만", () => {
   for (const bad of ["0", "-5", "1.5", "abc", "", "123456"]) assert.equal(More.parseCount(bad), null, bad);
 });
 
-test("슬래시 명령 메뉴: 채널 메시지로 띄우고(요청자 기록), 채널에 못 쓰면 본인 전용 후속 메시지로", async () => {
+test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요청자 기록). 못 고치면 false", async () => {
   const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9945, remaining: 9895, batch: 50 };
   const player = fakePlayer({ queue: [] });
   // 보낸 메뉴. 여기서 보는 칸만
   type Sent = { flags?: unknown; components: Array<{ toJSON(): unknown }> };
-  const sent: Sent[] = [];
-  const followUps: Sent[] = [];
-  const interaction = (channel: object) => fake<RepliableInteraction>({ channel, user: { id: "12345678901234567" }, followUp: async (p: Sent) => (followUps.push(p), { id: "f1" }), deleteReply: async () => {} });
+  const edited: Sent[] = [];
+  const interaction = (editReply: (p: Sent) => Promise<unknown>) => fake<RepliableInteraction>({ user: { id: "12345678901234567" }, editReply, deleteReply: async () => {} });
 
-  await More.offerOnInteraction(interaction({ send: async (p: Sent) => (sent.push(p), { id: "m1", delete: async () => {} }) }), more, player);
-  assert.equal(sent.length, 1);
-  assert.equal(followUps.length, 0);
-  assert.deepEqual(sent[0].flags, [MessageFlags.IsComponentsV2], "공개 메시지");
-  assert.equal(More.decodeState(selectOf(sent[0])?.custom_id)?.requesterId, "12345678901234567");
+  assert.equal(
+    await More.offerOnInteraction(
+      interaction(async (p) => (edited.push(p), { id: "m1" })),
+      more,
+      player,
+    ),
+    true,
+  );
+  assert.equal(edited.length, 1);
+  assert.deepEqual(edited[0].flags, [MessageFlags.IsComponentsV2], "자리표시자를 고친다(본인 표시는 처음 응답이 정했다)");
+  assert.equal(More.decodeState(selectOf(edited[0])?.custom_id)?.requesterId, "12345678901234567");
   More.clearExpiry("m1");
 
-  await More.offerOnInteraction(
-    interaction({
-      send: async () => {
-        throw new Error("Missing Permissions");
-      },
-    }),
-    more,
-    player,
-  );
-  assert.equal(followUps.length, 1);
-  assert.deepEqual(followUps[0].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인 전용");
-  More.clearExpiry("f1");
+  const gone = interaction(async () => {
+    throw new Error("Unknown Message");
+  });
+  assert.equal(await More.offerOnInteraction(gone, more, player), false);
 });
 
 // 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id 로 이어 받고, 한 번에 10곡까지(곡마다 요청이 들어 IP 가 막히지 않게)

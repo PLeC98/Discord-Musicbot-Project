@@ -32,8 +32,15 @@ function asked() {
   const it = {
     ...interactionKind("command"),
     member,
-    reply: async (p: Payload) => log.push(["reply", textsOf(p), p.flags]),
+    replied: false,
+    reply: async (p: Payload) => {
+      log.push(["reply", textsOf(p), p.flags]);
+      it.replied = true;
+      return { resource: { message: { id: "r1" } } };
+    },
     editReply: async (p: Payload) => log.push(["editReply", textsOf(p), p.flags]),
+    deleteReply: async () => log.push(["deleteReply", [], null]),
+    channel: { send: async (p: Payload) => (log.push(["send", textsOf(p), p.flags]), { id: "c1", delete: async () => {} }) },
   };
   return { it: fake<Parameters<typeof answerReplay>[0]>(it), log };
 }
@@ -54,14 +61,15 @@ function player(over: object = {}) {
 const CV2 = [MessageFlags.IsComponentsV2];
 const MINE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral];
 
-test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로 옮긴 뒤 결과로 고친다", async () => {
+test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로 옮긴 뒤 그 자리를 지우고 결과는 모두에게 새로", async () => {
   const { it, log } = asked();
   const { p, seeks } = player();
   await answerReplay(it, p);
   assert.deepEqual(seeks, ["0:replay"]);
   assert.deepEqual(log, [
     ["reply", ["🔄 처음부터 다시 트는 중..."], MINE],
-    ["editReply", ["### 🔄 곡을 되감았어요!\n**[곡](https://u.test)**을 처음부터 재생할게요.", "-# 👤 요청한 사람 <@u1>"], CV2],
+    ["deleteReply", [], null],
+    ["send", ["### 🔄 곡을 되감았어요!\n**[곡](https://u.test)**을 처음부터 재생할게요.", "-# 👤 요청한 사람 <@u1>"], CV2],
   ]);
   assert.deepEqual(lifetimesOf(it), [LIFETIME.result]);
 });
@@ -73,7 +81,8 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
   assert.deepEqual(seeks, ["90000:seek"]);
   assert.deepEqual(log, [
     ["reply", ["⏩ 위치를 옮기는 중..."], MINE],
-    ["editReply", ["### ⏩ 위치를 옮겼어요!\n⏱️ 옮긴 위치: `1:30`"], CV2],
+    ["deleteReply", [], null],
+    ["send", ["### ⏩ 위치를 옮겼어요!\n⏱️ 옮긴 위치: `1:30`"], CV2],
   ]);
 
   const beyond = asked();
@@ -83,13 +92,13 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
   assert.deepEqual(lifetimesOf(beyond.it), [LIFETIME.warning], "거절은 경고 수명");
 });
 
-test("음량: 바꾼 결과를 본인에게만. 명령과 패널의 입력 창이 이 하나를 부른다", async () => {
+test("음량: 바꾼 결과를 모두에게. 명령과 패널의 입력 창이 이 하나를 부른다", async () => {
   const { it, log } = asked();
   const levels: number[] = [];
   const { p } = player({ volume: 80, setVolume: (v: number) => (levels.push(v), v) });
   await answerVolume(it, p, 35);
   assert.deepEqual(levels, [35]);
-  assert.deepEqual(log, [["reply", ["### 🔊 볼륨을 조절했어요!\n**80%** → **35%**", "-# 👤 요청한 사람 <@u1>"], MINE]]);
+  assert.deepEqual(log, [["reply", ["### 🔊 볼륨을 조절했어요!\n**80%** → **35%**", "-# 👤 요청한 사람 <@u1>"], CV2]]);
 
   const root = path.join(import.meta.dirname, "..", "..");
   for (const file of ["commands/volume.ts", "interactions/modalHandler.ts"]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), /answerVolume\(/, file);

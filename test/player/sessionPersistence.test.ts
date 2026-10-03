@@ -547,6 +547,7 @@ test("복원 안내는 잠시 뒤 지운다", async () => {
     assert.equal(channel.sent[0].deleted, false);
 
     mock.timers.tick(AUTO_DELETE_MS);
+    await new Promise(setImmediate);
     assert.equal(channel.sent[0].deleted, true);
   } finally {
     mock.timers.reset();

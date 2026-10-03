@@ -137,10 +137,10 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     return await noticeSelf(interaction, errors.notice("search-owner-only"));
   }
 
+  // 취소는 결과 화면(본인)을 바로 지운다
   if (action === "cancel") {
-    const t = searchText.cancelled();
-    const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
-    return await interaction.update({ embeds: [embed], components: [] });
+    await interaction.deferUpdate();
+    return await interaction.deleteReply();
   }
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
 

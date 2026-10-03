@@ -133,11 +133,14 @@ function fakeInteraction({ customId = null as string | null, options = {} as Rec
     options: { getString: (n: string) => options[n] ?? null, getInteger: (n: string) => options[n] ?? null },
     reply: async () => {
       it.replied = true;
+      return { resource: { message: { id: "r1" } } };
     },
     deferReply: async () => {
       it.deferred = true;
     },
     editReply: async () => {},
+    deleteReply: async () => {},
+    followUp: async () => ({ id: "f1" }),
     deferUpdate: async () => {},
     showModal: async () => shown.push("modal"),
   });

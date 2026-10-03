@@ -15,13 +15,13 @@ const who = (by: Actor) => `${controlText.requestedBy()} ${by}`;
 /** 일시정지 · 재개 */
 function paused(isPaused: boolean, track: Track, by: Actor) {
   const t = controlText.paused(isPaused, track);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 건너뛰기. 한 곡 반복이면 처음부터 다시 틀었다(restarted) */
 function skipped(restarted: boolean, track: Track, by: Actor) {
   const t = restarted ? controlText.restartedOnRepeat() : controlText.skipped(track);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 이전 곡. 한 곡 반복이면 처음부터 다시 틀었다(restarted). track 은 되돌아간 곡 */
@@ -39,19 +39,19 @@ function jumped(track: Track) {
 /** 정지. cleared 는 비운 대기열 곡 수 */
 function stopped(cleared: number, by: Actor) {
   const t = controlText.stopped(cleared);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 섞기 */
 function shuffled(count: number, by: Actor) {
   const t = controlText.shuffled(count);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 반복 모드 */
 function loopSet(mode: Loop, track: Track | null | undefined, by: Actor) {
   const t = controlText.loopSet(mode);
-  return frame({ title: t.title, body: t.body, footer: [who(by)], thumbnail: track?.thumbnail });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true, thumbnail: track?.thumbnail });
 }
 
 /** 하이라이트로 건너뛰는 동안 */
@@ -67,7 +67,7 @@ const replaying = () => frame({ body: controlText.replaying() });
 /** 처음부터 다시 틀었다 */
 function replayed(track: Track, by: Actor) {
   const t = controlText.replayed(track);
-  return frame({ title: t.title, body: t.body, footer: [who(by)], thumbnail: track.thumbnail });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true, thumbnail: track.thumbnail });
 }
 
 /** 위치를 옮기는 동안 */
@@ -81,13 +81,13 @@ function seeked(ms: number) {
 /** 대기열 비우기. count 는 버린 곡 수 */
 function cleared(count: number, by: Actor) {
   const t = controlText.cleared(count);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
 function removed(left: number, by: Actor) {
   const t = controlText.removed(left);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
@@ -99,13 +99,13 @@ function moved(track: Track, from: number, to: number, by: Actor) {
 /** 음량. before · level 은 0~100 */
 function volumeSet(before: number, level: number, by: Actor) {
   const t = controlText.volumeSet(before, level);
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 자리(초) · 대기열 곡 수 */
 function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor) {
   const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue });
-  return frame({ title: t.title, body: t.body, footer: [who(by)] });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 음성 채널에 들어왔다 · 이미 들어와 있다 */

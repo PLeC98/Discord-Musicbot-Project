@@ -7,7 +7,7 @@ import * as settingsText from "../src/ui/text/ko/settings.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
 import { post } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
-import { LIFETIME, expireSelf, noticeSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, expireSelf, noticeSelf, toAll } from "../src/ui/delivery.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -82,7 +82,9 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
 
   if (interaction.customId === "sb:save") {
     pending.delete(mid);
-    return interaction.update(post(screens.saved(settingsText.sponsorSaved(state.enabled, await saveDraft(interaction.guild.id, state)))));
+    const saved = screens.saved(settingsText.sponsorSaved(state.enabled, await saveDraft(interaction.guild.id, state)));
+    await interaction.deferUpdate();
+    return toAll(interaction, saved, null);
   }
 }
 

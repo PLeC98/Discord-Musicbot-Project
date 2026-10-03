@@ -12,6 +12,7 @@ import { frame, noticeFrame, post } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import * as searchText from "../src/ui/text/ko/search.ts";
 import type { ClientEvent } from "../src/app/main.ts";
+import { noticeMs } from "../src/ui/delivery.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지
 
@@ -37,9 +38,10 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 곡 추가 권한: 봇 동작 중에는 재적 규칙(모더레이터 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
-      const reply = await message.reply(post(noticeFrame(errors.notice(permError))));
-      scheduleDelete(reply, 5000);
-      scheduleDelete(message, 5000);
+      const refused = errors.notice(permError);
+      const reply = await message.reply(post(noticeFrame(refused)));
+      scheduleDelete(reply, noticeMs(refused));
+      scheduleDelete(message, noticeMs(refused));
       return;
     }
 
@@ -71,16 +73,18 @@ const exported: ClientEvent<Events.MessageCreate> = {
       // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
-        const errMsg = await message.channel.send(post(noticeFrame(addFailureMessage(result))));
-        scheduleDelete(errMsg, 8000);
+        const failed = addFailureMessage(result);
+        const errMsg = await message.channel.send(post(noticeFrame(failed)));
+        scheduleDelete(errMsg, noticeMs(failed));
       } else if (result.more) {
         await offerOnChannel(message.channel, result.more, result.player, member.id);
       }
     } catch (error) {
       log.error({ sub: "message" }, "메시지 처리 오류:", error);
       await responder.dismissPlaceholder();
-      const errMsg = await message.channel.send(post(noticeFrame(errors.notice("processing-failed"))));
-      scheduleDelete(errMsg, 8000);
+      const failed = errors.notice("processing-failed");
+      const errMsg = await message.channel.send(post(noticeFrame(failed)));
+      scheduleDelete(errMsg, noticeMs(failed));
     }
   },
 };

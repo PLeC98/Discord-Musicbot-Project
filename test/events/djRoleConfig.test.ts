@@ -46,6 +46,15 @@ function fakeInteraction({ type, customId, values = [] as string[], messageId = 
     deferredUpdate: false,
     deleted: false,
     followedWith: null as unknown,
+    sentWith: null as Updated | null,
+    replied: false,
+    deferred: false,
+    channel: {
+      async send(payload: Updated) {
+        ix.sentWith = payload;
+        return { id: "sent", delete: async () => {} };
+      },
+    },
     async reply(payload: { content: string }) {
       ix.repliedWith = payload;
     },
@@ -54,12 +63,14 @@ function fakeInteraction({ type, customId, values = [] as string[], messageId = 
     },
     async followUp(payload: unknown) {
       ix.followedWith = payload;
+      return { id: "f1" };
     },
     async update(payload: Updated) {
       ix.updatedWith = payload;
     },
     async deferUpdate() {
       ix.deferredUpdate = true;
+      ix.deferred = true;
     },
   });
   return ix;
@@ -82,9 +93,10 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mA" });
   await interactionCreate.execute(save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1", "r2"]);
-  assert.equal(screenOf(save.updatedWith).rows, 0, "저장 후 메뉴 · 버튼 제거");
-  assert.match(screenOf(save.updatedWith).title, /DJ 역할을 설정했어요/);
-  assert.equal(screenOf(save.updatedWith).done, true);
+  assert.deepEqual([save.updatedWith, save.deleted], [null, true], "설정 화면(본인)은 지운다");
+  assert.equal(screenOf(save.sentWith).rows, 0, "모두에게 보내는 결과에는 메뉴 · 버튼이 없다");
+  assert.match(screenOf(save.sentWith).title, /DJ 역할을 설정했어요/);
+  assert.equal(screenOf(save.sentWith).done, true);
 });
 
 test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 지우고 본인에게만 알린다", async () => {
@@ -114,8 +126,8 @@ test("전부 해제하고 저장: 모두가 조작", async () => {
   await interactionCreate.execute(save);
 
   assert.equal(store.djRoles.has("g1"), false);
-  assert.match(screenOf(save.updatedWith).title, /DJ 역할을 지정하지 않았어요/);
-  assert.equal(screenOf(save.updatedWith).done, true, "해제도 설정을 바꾼 것이라 완료 색");
+  assert.match(screenOf(save.sentWith).title, /DJ 역할을 지정하지 않았어요/);
+  assert.equal(screenOf(save.sentWith).done, true, "해제도 설정을 바꾼 것이라 완료 색");
 });
 
 test("선택~저장 사이 삭제된 역할은 걸러서 저장", async () => {

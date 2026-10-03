@@ -132,7 +132,7 @@ function press(w: World, customId: string, extra: object = {}) {
     member: w.member,
     user: w.member.user,
     client: w.client,
-    channel: { id: "c1", send: async () => ({ id: "x" }) },
+    channel: { id: "c1", send: async (p: Payload) => (log.push(["send", headOf(p)]), { id: "x", delete: async () => {} }) },
     message: { id: "search-msg" },
     replied: false,
     deferred: false,
@@ -140,6 +140,7 @@ function press(w: World, customId: string, extra: object = {}) {
     reply: async (p: Payload) => {
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title ?? headOf(p) ?? "(메뉴)"]);
+      return { resource: { message: { id: "r1" } } };
     },
     update: async (p: Payload) => log.push(["update", p.embeds?.[0]?.data.title]),
     deferUpdate: async () => {
@@ -147,7 +148,7 @@ function press(w: World, customId: string, extra: object = {}) {
       log.push(["deferUpdate"]);
     },
     editReply: async (p: Payload) => log.push(["editReply", p.content ?? p.embeds?.[0]?.data?.title ?? p.embeds?.[0]?.data?.description ?? headOf(p)]),
-    followUp: async (p: Payload) => log.push(["followUp", p.content ?? headOf(p)]),
+    followUp: async (p: Payload) => (log.push(["followUp", p.content ?? headOf(p)]), { id: "f1" }),
     deleteReply: async () => log.push(["deleteReply"]),
     ...extra,
   });
@@ -236,11 +237,12 @@ test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정�
     const sent: unknown[] = [];
     const record = async (p: { toJSON?: unknown; components?: Array<{ toJSON(): unknown }>; flags?: unknown }) => {
       sent.push({ components: p.components?.map((c) => c.toJSON()), flags: p.flags });
+      return { resource: { message: { id: "r1" } } };
     };
     const b = ready();
     await interactionCreate.execute(press(b, `panel:${name}:S1`, { reply: record }).it);
     const c = ready();
-    const asked = fake<Parameters<typeof command.execute>[0]>({ guild: c.guild, member: c.member, options: { getString: () => null }, reply: record });
+    const asked = fake<Parameters<typeof command.execute>[0]>({ ...interactionKind("command"), guild: c.guild, member: c.member, options: { getString: () => null }, reply: record, deleteReply: async () => {} });
     await command.execute(asked, fake(c.client));
     assert.equal(sent.length, 2, name);
     assert.deepEqual(sent[1], sent[0], name);
@@ -252,14 +254,14 @@ test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정�
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.pauseFor = () => true;
   let payload: Payload = {};
-  const { it } = press(w, "panel:pause:S1", { reply: async (p: Payload) => void (payload = p) });
+  const { it } = press(w, "panel:pause:S1", { reply: async (p: Payload) => ((payload = p), { resource: { message: { id: "r1" } } }) });
   await interactionCreate.execute(it);
   assert.equal(thumbnailOf(payload), null);
   assert.deepEqual(textsOf(payload), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", `-# 👤 요청한 사람 <@${USER}>`]);
   assert.deepEqual(lifetimesOf(it), [LIFETIME.result], "조작 결과의 수명");
 });
 
-test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내고 결과로 고친다. 없으면 조용히 넘긴다", async () => {
+test("하이라이트 버튼: 옮기는 중을 본인에게 먼저 보내고, 그 자리를 지우고 결과는 모두에게. 없으면 조용히 넘긴다", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", duration: 300 };
   const p = w.player as typeof w.player & { sponsor?: { highlightAt: number | null }; seek?: () => Promise<void>; isLive?: boolean; isPlayStarting?: boolean };
@@ -267,10 +269,7 @@ test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내�
   p.seek = async () => {};
   const done = press(w, "panel:highlight:S1");
   await interactionCreate.execute(done.it);
-  assert.deepEqual(done.log, [
-    ["reply", "✨ 하이라이트로 건너뛰는 중..."],
-    ["editReply", "### ✨ 하이라이트로 건너 뛰었어요!"],
-  ]);
+  assert.deepEqual(done.log, [["reply", "✨ 하이라이트로 건너뛰는 중..."], ["deleteReply"], ["send", "### ✨ 하이라이트로 건너 뛰었어요!"]]);
   p.sponsor = { highlightAt: null };
   const none = press(w, "panel:highlight:S1");
   await interactionCreate.execute(none.it);
@@ -477,7 +476,7 @@ test("검색 버튼: 고르기는 곡 추가와 같은 검사. 봇이 음성에 
   assert.deepEqual(denied.seen, []);
 });
 
-test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 된다", async () => {
+test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 되고 결과 화면을 바로 지운다", async () => {
   const w = world();
   const others = press(w, "search:pick:someone:1:aaaaaaaaaaa");
   await interactionCreate.execute(others.it);
@@ -496,7 +495,7 @@ test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 �
   const away = world({ botVoice: null, userVoice: null });
   const cancel = press(away, `search:cancel:${USER}`);
   await interactionCreate.execute(cancel.it);
-  assert.deepEqual(cancel.log, [["update", "검색 취소"]]);
+  assert.deepEqual(cancel.log, [["deferUpdate"], ["deleteReply"]]);
 });
 
 test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {

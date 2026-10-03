@@ -5,7 +5,9 @@ import { scheduleDelete } from "../ui/transientMessages.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
 import type { Responder } from "../ui/nowPlayingPanel.ts";
-import { post, reply } from "../ui/frame.ts";
+import { post } from "../ui/frame.ts";
+import { canSend } from "../ui/channels.ts";
+import { LIFETIME } from "../ui/delivery.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -34,24 +36,24 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
   };
 }
 
-/** 슬래시 명령. 자리표시자가 상호작용 응답 그 자체다(Components V2). 안내로 그 자리를 고친다 */
+/**
+ * 슬래시 명령. 자리표시자("검색 중")는 본인에게만 보이는 응답이라 채널에 남지 않는다. 담은 안내는 모두에게 새로 보내고
+ * (채널에 쓸 수 없으면 공개 후속 메시지), 자리표시자는 명령이 끝낼 때 치운다(더 넣기 메뉴로 고치거나 지운다).
+ * 자리표시자 없이 부른 명령(/dashboard)은 조용히 확인만 하고 지운다
+ */
 function interactionResponder(interaction: RepliableInteraction): Responder {
   const dismiss = onceDismiss(async () => {
-    if (interaction.deferred || interaction.replied) {
-      await interaction.deleteReply();
-    } else {
-      // 아직 응답하지 않은 상호작용은 조용히 확인만 하고 제거
-      await interaction.reply({ content: "▶️", flags: MessageFlags.Ephemeral });
-      await interaction.deleteReply();
-    }
+    if (interaction.deferred || interaction.replied) return;
+    await interaction.reply({ content: "▶️", flags: MessageFlags.Ephemeral });
+    await interaction.deleteReply();
   });
 
   return {
-    // 자리표시자를 안내로 덮어쓴다. 별도 메시지를 만들지 않으므로 dismiss가 필요 없다
     async notifyQueued(view: ContainerBuilder) {
       try {
-        if (interaction.deferred || interaction.replied) scheduleDelete(await interaction.editReply(post(view)));
-        else scheduleDelete(await interaction.reply(reply(view)));
+        if (canSend(interaction.channel)) return scheduleDelete(await interaction.channel.send(post(view)), LIFETIME.glance);
+        const message = await interaction.followUp(post(view));
+        scheduleDelete({ id: message.id, delete: () => interaction.deleteReply(message.id) }, LIFETIME.glance);
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }

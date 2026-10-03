@@ -1,6 +1,6 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.ts).
 
-import type { ContainerBuilder, ModalMessageModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
+import { MessageFlags, type ContainerBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/ko/errors.ts";
@@ -16,7 +16,7 @@ import * as More from "../src/usecases/playlistMore.ts";
 import { route, type Route } from "./route.ts";
 import type { MoreState } from "../src/usecases/playlistMore.ts";
 import type { Player } from "../src/player/Player.ts";
-import { noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
+import { LIFETIME, noticeInstead, noticeSelf, toAll } from "../src/ui/delivery.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
@@ -89,13 +89,15 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     outcome = { failed: errorMessage(error) };
   }
 
-  // 실패면 메뉴 메시지(모두에게 보인다)를 지우고 본인에게만 알린다
+  // 실패면 메뉴를 지우고 본인에게만 알린다
   if ("failed" in outcome) {
     await noticeInstead(interaction, outcome.failed).catch(closed);
     return;
   }
+  // 결과는 모두에게. 본인 메뉴(/play)면 지우고 채널에 새로, 채널의 메뉴(전용 채널)면 그 자리를 고친다
+  if (message?.flags.has(MessageFlags.Ephemeral)) return toAll(interaction, outcome.view, LIFETIME.glance).catch(closed);
   await interaction.editReply(post(outcome.view)).catch(closed);
-  if (message) More.expireLater(message.id, () => interaction.deleteReply());
+  if (message) More.expireLater(message.id, () => interaction.deleteReply(), LIFETIME.glance);
 }
 
 async function handleMore(interaction: MoreInteraction) {

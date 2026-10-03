@@ -16,6 +16,7 @@ test("일시정지: 누가 했나 줄, 썸네일은 붙이지 않는다. 반복�
   assert.deepEqual(shown(c), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", BY]);
   assert.equal(thumbnailOf(post(c)), null);
   assert.equal(thumbnailOf(post(replies.paused(false, track, by))), null);
+  assert.equal(separatorsOf(post(c)), 1, "누가 했나 줄 위에 구분선");
   assert.equal(thumbnailOf(post(replies.loopSet("track", track, by))), "https://i.test/t.jpg");
 });
 
@@ -50,7 +51,8 @@ test("순서: 옮기기 전 · 뒤 자리와 누가", () => {
   const moved = post(replies.moved(track, 3, 1, by));
   assert.deepEqual(textsOf(moved), ["### 🔀 곡의 순서를 옮겼어요\n**[곡](https://u.test)**\n📍 기존 순번: 3번째\n📍 현재 순번: 1번째", "-# 👤 변경한 사람 <@1>"]);
   assert.equal(separatorsOf(moved), 1, "변경한 사람 줄 위에 구분선");
-  assert.equal(separatorsOf(post(replies.removed(4, by))), 0, "다른 응답은 구분선이 없다");
+  assert.equal(separatorsOf(post(replies.removed(4, by))), 1, "요청한 사람 줄이 있는 결과도 그 위에 구분선");
+  assert.equal(separatorsOf(post(replies.previous(false, track))), 0, "누가 했나 줄이 없으면 구분선도 없다");
 });
 
 test("음량: 바뀌면 이전 → 지금, 같으면 그대로", () => {
