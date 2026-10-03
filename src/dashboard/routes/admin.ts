@@ -141,20 +141,16 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
 
   const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(body).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
 
-  let sent = 0,
-    failed = 0;
-
-  for (const [, guild] of client.guilds.cache) {
-    try {
+  // 서버마다 따로 보낸다. 한 서버가 늦어도 다른 서버는 기다리지 않는다
+  const results = await Promise.allSettled(
+    [...client.guilds.cache.values()].map(async (guild) => {
       const ch = await announceChannel(guild);
-      if (ch) {
-        await ch.send({ embeds: [embed] });
-        sent++;
-      } else failed++;
-    } catch {
-      failed++;
-    }
-  }
+      if (!ch) throw new Error("보낼 채널 없음");
+      await ch.send({ embeds: [embed] });
+    }),
+  );
+  const sent = results.filter((r) => r.status === "fulfilled").length;
+  const failed = results.length - sent;
 
   // 한 곳도 못 보낸 것을 성공으로 돌려주면 운영자가 보냈다고 믿는다. 일부 실패도 구분해 알린다.
   const total = client.guilds.cache.size;
