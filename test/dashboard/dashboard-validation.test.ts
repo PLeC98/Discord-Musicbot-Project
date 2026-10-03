@@ -234,6 +234,28 @@ test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면�
   }
 });
 
+test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 채널에도 하이라이트로 건너뛰었다고 알린다(위치를 옮겼다가 아니라)", async () => {
+  const p = freshPlayer();
+  Object.assign(p, { sponsor: { highlightAt: 42 } });
+  const sent: string[] = [];
+  bot.panels = fake<BotContext["panels"]>({ ...panels, panelChannel: async () => ({ send: async (m: { components: Array<{ toJSON(): unknown }> }) => (sent.push(textsOf(m).join("\n")), { id: "m1", delete: async () => {} }) }) });
+  try {
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/highlight`);
+    assert.equal(r.status, 200);
+    await new Promise(setImmediate);
+    assert.deepEqual(p.calls, [["seek", 42000, "highlight"]]);
+    assert.equal(sent.length, 1);
+    assert.match(sent[0], /^### ✨ 하이라이트로 건너 뛰었어요!/);
+
+    Object.assign(p, { sponsor: null });
+    const none = await req("POST", `/api/guilds/${GUILD_ID}/player/highlight`);
+    assert.equal(none.status, 409);
+    assert.equal((none.json as { code?: string }).code, "no-highlight");
+  } finally {
+    bot.panels = fake<BotContext["panels"]>(panels);
+  }
+});
+
 test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400, 본문의 맨 앞 넣기는 무시한다", async () => {
   freshPlayer();
   const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };

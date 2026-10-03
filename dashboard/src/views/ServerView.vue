@@ -665,7 +665,7 @@ async function jumpToHighlight() {
   if (h === null || h === undefined) return;
   localTime.value = h;
   try {
-    await axios.post(`/api/guilds/${guildId}/player/seek`, { position: h });
+    await axios.post(`/api/guilds/${guildId}/player/highlight`);
   } catch (e) {
     console.error("highlight", e);
   }

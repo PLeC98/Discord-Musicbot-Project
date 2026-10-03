@@ -59,7 +59,7 @@ async function answerVolume(interaction: Asked, player: MaybePlayer, level: unkn
 async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown) {
   const r = await controls.loop(player, { member: interaction.member }, mode);
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.loopSet(r.mode, r.track, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.loopSet(r.mode, interaction.member), LIFETIME.result);
 }
 
 /**

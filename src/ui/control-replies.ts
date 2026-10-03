@@ -50,9 +50,9 @@ function shuffled(count: number, by: Actor) {
 }
 
 /** 반복 모드 */
-function loopSet(mode: Loop, track: Track | null | undefined, by: Actor) {
+function loopSet(mode: Loop, by: Actor) {
   const t = controlText.loopSet(mode);
-  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true, thumbnail: track?.thumbnail });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
 /** 하이라이트로 건너뛰는 동안 */

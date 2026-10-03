@@ -1,4 +1,4 @@
-// src/ui/control-replies.ts — 조작 결과 화면. 머리 줄 · 본문 · 작은 글씨의 누가 했나 줄, 반복 · 처음부터는 곡에 썸네일이 있으면 머리 옆(일시정지 · 건너뛰기는 붙이지 않는다)
+// src/ui/control-replies.ts — 조작 결과 화면. 머리 줄 · 본문 · 작은 글씨의 누가 했나 줄, 처음부터는 곡에 썸네일이 있으면 머리 옆(일시정지 · 건너뛰기 · 반복은 붙이지 않는다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,13 +11,13 @@ const track = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://i.t
 const shown = (c: ReturnType<typeof replies.cleared>) => textsOf(post(c));
 const BY = "-# 👤 요청한 사람 <@1>";
 
-test("일시정지: 누가 했나 줄, 썸네일은 붙이지 않는다. 반복은 곡 썸네일", () => {
+test("일시정지 · 반복: 누가 했나 줄, 썸네일은 붙이지 않는다", () => {
   const c = replies.paused(true, track, by);
   assert.deepEqual(shown(c), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", BY]);
   assert.equal(thumbnailOf(post(c)), null);
   assert.equal(thumbnailOf(post(replies.paused(false, track, by))), null);
   assert.equal(separatorsOf(post(c)), 1, "누가 했나 줄 위에 구분선");
-  assert.equal(thumbnailOf(post(replies.loopSet("track", track, by))), "https://i.test/t.jpg");
+  assert.equal(thumbnailOf(post(replies.loopSet("track", by))), null);
 });
 
 test("건너뛰기: 건너뛴 곡과 누가 했나, 썸네일은 붙이지 않는다. 한 곡 반복이면 되감았다고", () => {

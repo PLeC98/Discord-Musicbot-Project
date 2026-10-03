@@ -196,6 +196,17 @@ function controlRoutes(router: Router) {
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
+  // 하이라이트로. 디스코드 /highlight 와 같은 조작 · 같은 안내
+  router.post("/:guildId/player/highlight", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const announce = announcer(ctx.bot, ctx.player);
+    const r = await controls.highlight(ctx.player, ctx.actor);
+    if (!r.ok) return refuse(res, r);
+    announce(replies.highlighted(r.ms));
+    res.json(playerState(ctx.player, queueWindow(req)));
+  });
+
   router.post("/:guildId/player/loop", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -203,7 +214,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body?.mode));
     if (!r.ok) return refuse(res, r);
-    announce(replies.loopSet(r.mode, r.track, dashboardActor(req)));
+    announce(replies.loopSet(r.mode, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
