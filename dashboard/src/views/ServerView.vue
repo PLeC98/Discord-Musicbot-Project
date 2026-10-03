@@ -77,7 +77,7 @@
                 </button>
 
                 <!-- Volume: capsule hover-expand. 모바일에서는 펼치면 오른쪽 버튼이 밀려 줄이 바뀌므로 처음부터 아랫줄에 둔다 -->
-                <div class="order-last basis-full flex sm:order-none sm:basis-auto">
+                <div class="order-last basis-full flex sm:order-0 sm:basis-auto">
                   <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
                     <button :class="volBtn" v-tooltip="`볼륨: ${volumeShown}%`">
                       <VolumeIcon :level="volumeShown" :size="17" />
