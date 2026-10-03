@@ -103,11 +103,14 @@ test("?queue=n이면 펼쳐 둔 만큼 돌려준다 — 조작 응답도 같다"
   assert.equal(removed.json.queueTotal, QUEUE_LEN - 1);
 });
 
-test("창 크기는 상한을 넘지 못하고, 이상한 값은 기본값으로 떨어진다", async () => {
+test("창 크기는 상한을 넘지 못하고, 이상한 값은 기본값으로 떨어진다. 0 은 대기열 없이(재생 바)", async () => {
   const huge = await get(`/api/guilds/${GUILD_ID}/player?queue=999999`);
   assert.equal(huge.json.queue.length, huge.json.queueTotal, "상한(1000)이 큐보다 크므로 전부");
 
-  for (const bad of ["0", "-5", "abc", "1.5"]) {
+  const none = await get(`/api/guilds/${GUILD_ID}/player?queue=0`);
+  assert.equal(none.json.queue.length, 0);
+
+  for (const bad of ["-5", "abc", "1.5"]) {
     const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=${bad}`);
     assert.equal(json.queue.length, PAGE, `?queue=${bad}`);
   }

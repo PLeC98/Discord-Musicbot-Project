@@ -256,6 +256,61 @@ test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 �
   }
 });
 
+// 화면이 받은 상태를 만든 차례로 가려 늦게 온 옛 응답이 새 상태를 덮지 않게 한다
+type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; canManage?: boolean };
+const stateReq = (method: string, urlPath: string, body?: unknown) => requestJson<State>(base, method, urlPath, body, { timeoutMs: 3000 });
+
+test("조작은 모두 같은 재생 상태로 답하고 만든 차례가 오른다. 정지 뒤에는 빈 상태", async () => {
+  const p = freshPlayer();
+  Object.assign(p, {
+    paused: false,
+    previousTracks: [makeTrack("전곡")],
+    skip: () => true,
+    previous: () => true,
+    _restartsOnPrevious: () => false,
+    pauseFor: () => true,
+    resumeFor: () => true,
+    hasLiveTrack: () => false,
+    setLoop: (mode: Player["loop"]) => (p.loop = mode),
+    shuffleQueue() {},
+    _trackLabel: () => "현재곡",
+    async dispose() {
+      bot.players.delete(GUILD_ID);
+    },
+  });
+  const steps: Array<[string, string, unknown?]> = [
+    ["POST", "pause"],
+    ["POST", "skip"],
+    ["POST", "previous"],
+    ["POST", "seek", { position: 10 }],
+    ["POST", "volume", { volume: 60 }],
+    ["POST", "loop", { mode: "track" }],
+    ["POST", "shuffle"],
+    ["POST", "queue/move", { from: 0, to: 1 }],
+    ["DELETE", "queue/0"],
+    ["POST", "stop"],
+  ];
+  const seen: State[] = [];
+  for (const [method, action, body] of steps) {
+    const r = await stateReq(method, `/api/guilds/${GUILD_ID}/player/${action}`, body);
+    assert.equal(r.status, 200, action);
+    for (const key of ["boot", "seq", "playing", "queue", "queueTotal", "currentTrack"]) assert.ok(key in r.json, `${action}: ${key}`);
+    seen.push(r.json);
+  }
+  assert.ok(
+    seen.every((s, i) => i === 0 || (s.seq > seen[i - 1].seq && s.boot === seen[0].boot)),
+    "만든 차례가 오르고 기동 표는 같다",
+  );
+  assert.equal(seen.at(-1)?.currentTrack, null, "정지 뒤에는 플레이어가 없다");
+});
+
+test("?queue=0 이면 대기열 없이 답한다(곡 수는 그대로). 비우거나 모르는 값이면 기본 창", async () => {
+  freshPlayer();
+  const none = await stateReq("GET", `/api/guilds/${GUILD_ID}/player?queue=0`);
+  assert.deepEqual([none.json.queue.length, none.json.queueTotal], [0, 3]);
+  for (const qs of ["", "?queue=", "?queue=abc", "?queue=-1"]) assert.equal((await stateReq("GET", `/api/guilds/${GUILD_ID}/player${qs}`)).json.queue.length, 3, qs);
+});
+
 test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400, 본문의 맨 앞 넣기는 무시한다", async () => {
   freshPlayer();
   const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };

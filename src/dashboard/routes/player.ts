@@ -115,8 +115,14 @@ function joinRoute(router: Router) {
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = isOwner(req) || !(await checkControl(member));
     const addable = isOwner(req) || !checkAdd(member);
-    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: member.id });
+    const manageable = isOwner(req) || isModerator(member);
+    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, canManage: manageable, userId: member.id });
   });
+}
+
+// 조작 뒤의 재생 상태. 모든 조작이 같은 모양으로 답한다. 조작이 플레이어를 버렸을 수 있어(정지) 등록부에서 다시 찾는다
+function stateAfter(req: Request<{ guildId: string }>) {
+  return playerState(req.app.locals.bot.players.get(req.params.guildId), queueWindow(req));
 }
 
 // 재생 조작
@@ -129,7 +135,7 @@ function controlRoutes(router: Router) {
     const r = await controls.pause(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.paused(r.paused, r.track, dashboardActor(req)));
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 
   // Previous
@@ -140,7 +146,7 @@ function controlRoutes(router: Router) {
     const r = await controls.previous(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.previous(r.restarted, r.track));
-    res.json({ ok: true });
+    res.json(stateAfter(req));
   });
 
   // Skip. DJ 계층이거나 현재 곡의 요청자 본인이면 가능
@@ -151,7 +157,7 @@ function controlRoutes(router: Router) {
     const r = await controls.skip(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
-    res.json({ ok: true });
+    res.json(stateAfter(req));
   });
 
   // Stop
@@ -162,7 +168,7 @@ function controlRoutes(router: Router) {
     const r = await controls.stop(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.stopped(r.cleared, dashboardActor(req)), LIFETIME.farewell);
-    res.json({ ok: true });
+    res.json(stateAfter(req));
   });
 
   // Seek  { position: seconds }
@@ -181,7 +187,7 @@ function controlRoutes(router: Router) {
     const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
     if (!r.ok) return refuse(res, r);
     announce(replies.seeked(r.ms));
-    res.json({ ok: true, position: clampedSec });
+    res.json(stateAfter(req));
   });
 
   // Volume  { volume: 0-100 }. 화면은 끄는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
@@ -193,7 +199,7 @@ function controlRoutes(router: Router) {
     const by = dashboardActor(req);
     const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume), { settled: (from, to) => announcer(ctx.bot, ctx.player)(replies.volumeSet(from, to, by)) });
     if (!r.ok) return refuse(res, r);
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 
   // 하이라이트로. 디스코드 /highlight 와 같은 조작 · 같은 안내
@@ -204,7 +210,7 @@ function controlRoutes(router: Router) {
     const r = await controls.highlight(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.highlighted(r.ms));
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 
   router.post("/:guildId/player/loop", requireAuth, async (req, res) => {
@@ -215,7 +221,7 @@ function controlRoutes(router: Router) {
     const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body?.mode));
     if (!r.ok) return refuse(res, r);
     announce(replies.loopSet(r.mode, dashboardActor(req)));
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 
   // Shuffle
@@ -226,7 +232,7 @@ function controlRoutes(router: Router) {
     const r = await controls.shuffle(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.shuffled(r.count, dashboardActor(req)));
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 
   // Remove track from queue  DELETE /:guildId/player/queue/:index. DJ 계층이거나 그 곡의 요청자 본인
@@ -237,7 +243,7 @@ function controlRoutes(router: Router) {
     const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
     if (!r.ok) return refuse(res, r);
     announce(replies.removed(r.left, dashboardActor(req)));
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 
   // Move track in queue  { from: number, to: number }
@@ -249,7 +255,7 @@ function controlRoutes(router: Router) {
     if (!r.ok) return refuse(res, r);
     // 사람은 1부터 센다
     announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
-    res.json(playerState(ctx.player, queueWindow(req)));
+    res.json(stateAfter(req));
   });
 }
 
