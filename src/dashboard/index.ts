@@ -26,8 +26,8 @@ import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter, sendProblem, tooManyRequests } from "./problem.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
-/** 조립이 넘기는 것. sessionMiddleware 는 시험이 바꿔 넘긴다 */
-type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; sessionMiddleware?: RequestHandler };
+/** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 시험이 바꿔 넘긴다 */
+type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
 // 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
@@ -80,7 +80,7 @@ function createSessionMiddleware() {
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼). 조립이 넘긴다
-function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware = createSessionMiddleware() }: AppDeps) {
+function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware = createSessionMiddleware(), clientDist = PROJECT.dashboardDist }: AppDeps) {
   const app = express();
   const { host, url } = config.dashboard;
 
@@ -97,18 +97,14 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
-  const clientDist = PROJECT.dashboardDist;
-  if (fs.existsSync(clientDist)) {
-    app.use(express.static(clientDist));
-    app.get("/{*path}", (req, res, next) => {
-      if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
-      res.sendFile(path.join(clientDist, "index.html"));
-    });
-  } else {
-    app.get("/", (req, res) => {
-      res.send("<h2>Dashboard client not built yet.<br>Run: <code>cd dashboard && pnpm install && pnpm build</code></h2>");
-    });
-  }
+  // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 켜지 않고 보인다
+  const indexHtml = path.join(clientDist, "index.html");
+  app.use(express.static(clientDist));
+  app.get("/{*path}", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
+    if (!fs.existsSync(indexHtml)) return res.send("<h2>Dashboard client not built yet.<br>Run: <code>cd dashboard && pnpm install && pnpm build</code></h2>");
+    res.sendFile(indexHtml);
+  });
 
   app.use(bodyLimit());
   app.use(cors(createCorsOptions(url, { allowDevOrigin: config.dashboard.devOrigin })));
