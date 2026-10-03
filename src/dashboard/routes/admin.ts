@@ -487,9 +487,11 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
   }
 });
 
-// Real-time log stream (SSE)
+// 실시간 로그(SSE). 화면이 마지막으로 받은 줄 뒤부터 보낸다. 브라우저가 스스로 다시 붙을 때는 Last-Event-ID 를,
+// 화면이 닫았다 다시 열 때는 ?after= 를 싣는다
 adminRouter.get("/logs/stream", requireOwner, (req, res) => {
-  logManager.addClient(res, signedIn(req).id);
+  const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");
+  if (!logManager.addClient(res, signedIn(req).id, after)) sendProblem(res, "too-many-streams");
 });
 
 // 권한 수준 오버라이드. { tier: "owner"|"moderator"|"dj"|"user"|null }. null이면 해제.

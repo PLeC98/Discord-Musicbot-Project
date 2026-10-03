@@ -343,6 +343,7 @@
 <script setup>
 import { problemText } from "../utils/problem.js";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { reopenDelay } from "../utils/reconnect.js";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
@@ -635,6 +636,11 @@ const autoScroll = ref(true);
 const sseConnected = ref(false);
 const logPane = ref(null);
 let sse = null;
+// 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
+let lastLogEventId = "";
+let lastLogId = 0;
+let reopenTimer = null;
+let reopenAttempt = 0;
 
 // 레벨 필터는 다중 토글이다. "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
 // 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
@@ -726,21 +732,53 @@ watch(
 watch(tab, (t) => {
   if (t === "logs" && autoScroll.value) scrollLogsToEnd();
   poll(); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
+  syncLogs();
 });
 
-function connectSSE() {
-  sse = new EventSource("/api/admin/logs/stream", { withCredentials: true });
+// 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 500줄까지 들고 있다)
+const wantLogs = () => tab.value === "logs" && !document.hidden;
+function syncLogs() {
+  if (wantLogs()) openLogs();
+  else closeLogs();
+}
+function openLogs() {
+  if (sse || reopenTimer) return;
+  sse = new EventSource(`/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`, { withCredentials: true });
   sse.onopen = () => {
     sseConnected.value = true;
+    reopenAttempt = 0;
   };
+  // 봇을 다시 켜 줄 번호가 처음부터다. 지금 목록은 옛 실행의 것이라 비운다
+  sse.addEventListener("reset", () => {
+    logs.value = [];
+    lastLogId = 0;
+  });
   sse.onmessage = (e) => {
     const entry = JSON.parse(e.data);
+    lastLogEventId = e.lastEventId || lastLogEventId;
+    if (entry.id <= lastLogId) return; // 이미 받은 줄
+    lastLogId = entry.id;
     logs.value.push(entry);
     if (logs.value.length > 500) logs.value.splice(0, logs.value.length - 500);
   };
   sse.onerror = () => {
     sseConnected.value = false;
+    // 200 으로 연 뒤 끊기면 브라우저가 마지막 id 를 실어 스스로 다시 붙는다.
+    // 200 이 아닌 답(상한 · 세션 끝 · 준비 전)이면 닫히고 다시 붙지 않아, 간격을 늘려 가며 화면이 다시 연다
+    if (sse?.readyState !== EventSource.CLOSED) return;
+    sse = null;
+    reopenTimer = setTimeout(() => {
+      reopenTimer = null;
+      if (wantLogs()) openLogs();
+    }, reopenDelay(reopenAttempt++));
   };
+}
+function closeLogs() {
+  clearTimeout(reopenTimer);
+  reopenTimer = null;
+  if (sse) sse.close();
+  sse = null;
+  sseConnected.value = false;
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
@@ -776,10 +814,11 @@ onMounted(() => {
       poll();
       startPoll();
     }
+    syncLogs();
   };
   document.addEventListener("visibilitychange", visHandler);
   if (!document.hidden) startPoll();
-  connectSSE(); // 로그 스트림은 백그라운드에서도 유지. 폴링이 아니라 이벤트 발생 시에만 전송
+  syncLogs();
 });
 onUnmounted(() => {
   if (visHandler) {
@@ -787,6 +826,6 @@ onUnmounted(() => {
     visHandler = null;
   }
   stopPoll();
-  if (sse) sse.close();
+  closeLogs();
 });
 </script>

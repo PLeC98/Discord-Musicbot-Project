@@ -24,6 +24,8 @@ const autoplaySources = await import("../../src/autoplay/sources/index.ts");
 const { useFetch } = await import("../../src/autoplay/sources/http.ts");
 const assist = await import("../../src/autoplay/assist/index.ts");
 const yamlStore = await import("../../src/config/yaml-store.ts");
+const logSink = (await import("../../src/infra/log/sink.ts")).default;
+const config = (await import("../../src/config/index.ts")).default;
 
 /** 거절 · 확인 답의 칸. 경로마다 읽는 칸이 더 있으면 부를 때 모양을 적는다 */
 type Reply = ProblemReply & { success?: boolean };
@@ -675,4 +677,47 @@ test("소스 종류: 운영자만 볼 수 있다", async () => {
   currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/source-types")).status, 403);
   currentUser = { id: "owner", username: "owner" };
+});
+
+// ── 실시간 로그(SSE) ──────────────────────────────────────────
+
+// 연결을 열어 첫 묶음만 읽고 닫는다
+async function firstChunk(urlPath: string, headers: Record<string, string> = {}) {
+  const ctl = new AbortController();
+  const res = await fetch(base + urlPath, { headers, signal: ctl.signal });
+  if (res.status !== 200) return { status: res.status, text: await res.text() };
+  const reader = res.body!.getReader();
+  let text = "";
+  const until = Date.now() + 1000;
+  while (!/data: /.test(text) && Date.now() < until) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    text += new TextDecoder().decode(value);
+  }
+  ctl.abort();
+  return { status: res.status, text };
+}
+
+test("GET logs/stream: 마지막으로 받은 줄 뒤부터 보낸다(?after= · Last-Event-ID). 상한을 넘으면 too-many-streams", async () => {
+  currentUser = { id: "owner", username: "owner" };
+  logSink.record({ level: 30, time: 1, msg: "앞 줄" });
+  const mark = `${logSink.boot}.${logSink.lastId}`;
+  logSink.record({ level: 30, time: 2, msg: "뒤 줄" });
+
+  const byQuery = await firstChunk(`/api/admin/logs/stream?after=${mark}`);
+  assert.equal(byQuery.status, 200);
+  assert.match(byQuery.text, /뒤 줄/);
+  assert.doesNotMatch(byQuery.text, /앞 줄/);
+  const byHeader = await firstChunk("/api/admin/logs/stream?after=0.0", { "Last-Event-ID": mark });
+  assert.doesNotMatch(byHeader.text, /앞 줄/, "브라우저가 실어 준 Last-Event-ID 가 앞선다");
+
+  const saved = config.dashboard.sse.maxPerUser;
+  config.dashboard.sse.maxPerUser = 0;
+  try {
+    const over = await firstChunk("/api/admin/logs/stream");
+    assert.equal(over.status, 429);
+    assert.equal((JSON.parse(over.text) as { code: string }).code, "too-many-streams");
+  } finally {
+    config.dashboard.sse.maxPerUser = saved;
+  }
 });

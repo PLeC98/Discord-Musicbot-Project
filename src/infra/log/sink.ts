@@ -19,16 +19,17 @@ export type LevelName = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 /** 로그 레코드(pino JSON 부분집합). 바인딩(category · sub · tags · err …)이 같이 실린다 */
 export type LogRecord = { level: number; time: number; msg?: unknown; category?: string; sub?: string; tags?: string[]; [field: string]: unknown };
-/** 대시보드(SSE)로 보내는 한 줄 */
-type WireEntry = { ts: number; level: string; text: string; category?: string; sub?: string; tags?: string[] };
+/** 대시보드(SSE)로 보내는 한 줄. id 는 이 프로세스 안에서 오르는 줄 번호(다시 붙을 때 이어 받기) */
+type WireEntry = { id: number; ts: number; level: string; text: string; category?: string; sub?: string; tags?: string[] };
 /** 레코드를 받는 곳(파일 등) */
 type Destination = (rec: LogRecord) => void;
 /** 로그 스트림을 받는 HTTP 응답. 여기서 쓰는 것만 */
 type SseClient = {
   write(chunk: string): boolean;
+  /** 아직 보내지 못하고 쌓인 바이트 */
+  readonly writableLength: number;
   end(): void;
   on(event: "close" | "error", fn: () => void): unknown;
-  status(code: number): { json(body: unknown): unknown };
   writeHead(code: number, headers: Record<string, string>): unknown;
   flushHeaders(): void;
 };
@@ -41,6 +42,9 @@ const WIRE_LEVEL: Record<number, string> = { 10: "trace", 20: "debug", 30: "info
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
+// 로그 스트림에 보내지 못하고 쌓인 양이 이만큼을 넘으면 읽지 않는 소비자로 보고 끊는다.
+// 붙을 때 쌓인 줄(500줄 약 100KB)을 보내는 동안 write 가 false 를 돌려주는 것은 정상이라 그것만으로는 끊지 않는다
+const MAX_PENDING_BYTES = 1024 * 1024;
 
 // 색 입히기. 칠할지는 sink 가 정하므로(useColor) 스트림을 보지 않는다
 type Style = Parameters<typeof styleText>[0];
@@ -88,6 +92,8 @@ class LogManager {
   maxLines: number;
   consoleLevel: number;
   buffer: WireEntry[];
+  lastId: number;
+  boot: number;
   clients: Set<SseClient>;
   _owners: Map<SseClient, string>;
   _cleanups: WeakMap<SseClient, () => void>;
@@ -105,6 +111,9 @@ class LogManager {
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
     this.consoleLevel = 0;
     this.buffer = [];
+    this.lastId = 0;
+    // 기동 표. 줄 번호는 다시 켜면 처음부터라, 이어 받을 번호가 이 실행의 것인지 가른다
+    this.boot = Date.now();
     this.clients = new Set();
     this._owners = new Map(); // res -> 연 사람(상한을 사람마다 센다)
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
@@ -146,15 +155,16 @@ class LogManager {
     this.buffer.push(entry);
     if (this.buffer.length > this.maxLines) this.buffer.shift();
 
-    const payload = `data: ${JSON.stringify(entry)}\n\n`;
+    const payload = this._frameOf(entry);
     for (const res of this.clients) {
       try {
-        // write가 false면 커널 버퍼가 찼다는 뜻. 읽지 않는 소비자를 붙들고 있으면 메모리가 는다.
-        // 로그는 지나간 것을 되돌려 줄 성질이 아니므로 기다리지 않고 끊는다(다시 열면 버퍼부터 받는다).
-        if (res.write(payload) === false) {
+        // 읽지 않는 소비자를 붙들고 있으면 메모리가 는다. 쌓인 양이 상한을 넘으면 끊는다(다시 열면 마지막 번호 뒤부터 받는다)
+        if (res.writableLength > MAX_PENDING_BYTES) {
           res.end();
           this._dropClient(res);
+          continue;
         }
+        res.write(payload);
       } catch {
         this._dropClient(res);
       }
@@ -232,6 +242,7 @@ class LogManager {
 
   _toWire(rec: LogRecord): WireEntry {
     const entry: WireEntry = {
+      id: ++this.lastId,
       ts: rec.time,
       level: WIRE_LEVEL[rec.level] || "info",
       text: this._strip(rec.msg),
@@ -249,15 +260,14 @@ class LogManager {
   /**
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
    * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
+   * after: 화면이 마지막으로 받은 줄의 SSE id("기동표.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 켬)
+   * reset 을 먼저 보내고 전부. 없으면(처음 연결) 전부.
    *
-   * 상한을 넘으면 429. 느린 소비자는 record 가 정리한다(write 반환값을 본다).
+   * 상한을 넘으면 아무것도 쓰지 않고 false(답은 부른 경로가 문제 응답으로 쓴다). 느린 소비자는 record 가 정리한다(쌓인 양을 본다).
    */
-  addClient(res: SseClient, userKey: string) {
+  addClient(res: SseClient, userKey: string, after = "") {
     const { maxPerUser, heartbeatMs } = config.dashboard.sse;
-    if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) {
-      res.status(429).json({ error: "로그 연결이 너무 많습니다" });
-      return;
-    }
+    if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) return false;
 
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -267,8 +277,12 @@ class LogManager {
     });
     res.flushHeaders();
 
+    const [boot, seqText] = after.split(".");
+    const seq = Number(seqText);
+    const resuming = boot === String(this.boot) && Number.isInteger(seq);
+    if (after && !resuming) res.write("event: reset\ndata: {}\n\n");
     for (const entry of this.buffer) {
-      res.write(`data: ${JSON.stringify(entry)}\n\n`);
+      if (!resuming || entry.id > seq) res.write(this._frameOf(entry));
     }
 
     // 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
@@ -295,6 +309,12 @@ class LogManager {
     this._cleanups.set(res, cleanup);
     res.on("close", cleanup);
     res.on("error", cleanup);
+    return true;
+  }
+
+  // SSE 한 줄. id 를 실어 브라우저가 다시 붙을 때 마지막 id(Last-Event-ID)를 보내게 한다
+  _frameOf(entry: WireEntry) {
+    return `id: ${this.boot}.${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`;
   }
 
   /** 연결 정리. 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
