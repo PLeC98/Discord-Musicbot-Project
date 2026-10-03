@@ -1,4 +1,4 @@
-// 봇 조립. index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
+// 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
 import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type VoiceState } from "discord.js";

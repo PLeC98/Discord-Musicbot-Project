@@ -7,7 +7,7 @@ import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 
-// 명령 목록은 설정 검사를 지난 뒤에 불러온다(index.ts 가 본체를 부르는 차례와 같다)
+// 명령 목록은 설정 검사를 지난 뒤에 불러온다(src/index.ts 가 본체를 부르는 차례와 같다)
 const { deployCommands, definitions, deployErrorLines } = await import("../src/app/command-loader.ts");
 const commands = definitions();
 console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);

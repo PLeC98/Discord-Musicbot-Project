@@ -1,4 +1,4 @@
-// 상호작용 입구 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼 · 메뉴 · 모달은 종류와 custom_id 앞머리로 처리기를 고른다(interactions/).
+// 상호작용 입구 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼 · 메뉴 · 모달은 종류와 custom_id 앞머리로 처리기를 고른다(discord/interactions/).
 // 처리가 던지면 여기서 한 번 남기고 알린다(명령 · 처리기는 제 catch 를 두지 않는다). 응답의 대상 · 수명은 ui/delivery 가 정한다.
 
 import { Events, type ChatInputCommandInteraction, type Interaction, type RepliableInteraction } from "discord.js";
