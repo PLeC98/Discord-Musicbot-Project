@@ -8,7 +8,7 @@
 import fs from "fs";
 import path from "path";
 import zlib from "zlib";
-import { PROJECT } from "../src/infra/projectPaths.ts";
+import { PROJECT } from "../src/infra/project-paths.ts";
 
 const SOURCE = "https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip";
 const ENTRY = "Unihan_Readings.txt";

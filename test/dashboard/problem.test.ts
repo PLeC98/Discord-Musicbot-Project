@@ -1,10 +1,10 @@
-// dashboard/server/problem.ts — 대시보드 HTTP 오류 응답(RFC 9457). 본문의 모양 · 상태 · 값 칸, 요청 제한의 Retry-After, 코드 설명 주소
+// src/dashboard/problem.ts — 대시보드 HTTP 오류 응답(RFC 9457). 본문의 모양 · 상태 · 값 칸, 요청 제한의 Retry-After, 코드 설명 주소
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import express from "express";
-import { problemBody, refuseWith, sendProblem, tooManyRequests, problemsRouter } from "../../dashboard/server/problem.ts";
+import { problemBody, refuseWith, sendProblem, tooManyRequests, problemsRouter } from "../../src/dashboard/problem.ts";
 import { PROBLEMS } from "../../src/rules/problems.ts";
 import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 import { fake } from "../helpers/fake.ts";

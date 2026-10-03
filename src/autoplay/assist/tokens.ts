@@ -10,7 +10,7 @@
  * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")
  */
 import { Worker } from "worker_threads";
-import * as models from "../../config/aiModels.ts";
+import * as models from "../../config/ai-models.ts";
 import logger from "../../infra/log/logger.ts";
 import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
 import type { Counted } from "./tokenizers.ts";
@@ -48,7 +48,7 @@ const waiting = new Map<number, Waiting>();
 let lastId = 0;
 
 function spawn() {
-  const one = new Worker(new URL("./tokenizerWorker.ts", import.meta.url));
+  const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
   one.on("message", ({ id, counted, error }: { id: number; counted?: Counted[]; error?: string }) => {
     const job = waiting.get(id);
     if (!job) return;

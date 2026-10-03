@@ -8,7 +8,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
-import config from "../../../config.ts";
+import config from "../../config/index.ts";
 
 // 2026-09-11 기준, yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.

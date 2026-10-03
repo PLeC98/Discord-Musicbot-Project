@@ -2,13 +2,13 @@
 // 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
-import * as configCheck from "../src/app/configCheck.ts";
-import * as loadedConfig from "../config.ts"; // 설정 값과 함께 문제 · 경고 목록
+import * as configCheck from "../src/app/config-check.ts";
+import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제 · 경고 목록
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 
 // 명령 목록은 설정 검사를 지난 뒤에 불러온다(index.ts 가 본체를 부르는 차례와 같다)
-const { deployCommands, definitions, deployErrorLines } = await import("../src/app/commandLoader.ts");
+const { deployCommands, definitions, deployErrorLines } = await import("../src/app/command-loader.ts");
 const commands = definitions();
 console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
 const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도. 지문 무시

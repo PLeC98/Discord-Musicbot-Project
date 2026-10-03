@@ -4,7 +4,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { PROJECT } from "../../infra/projectPaths.ts";
+import { PROJECT } from "../../infra/project-paths.ts";
 
 // gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
 let tik: Promise<typeof import("gpt-tokenizer")> | null = null;

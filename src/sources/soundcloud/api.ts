@@ -1,12 +1,12 @@
 // 사운드클라우드 곡 · 세트 · 스트림. 모두 yt-dlp 가 읽는다(run.ts).
 
-import { readInfo } from "../ytdlpInfo.ts";
-import { canonicalUrl } from "../../rules/canonicalUrl.ts";
-import { codedError, codeOf } from "../../rules/errorKind.ts";
-import youtubedl from "../ytdlpSpawn.ts";
+import { readInfo } from "../ytdlp-info.ts";
+import { canonicalUrl } from "../../rules/canonical-url.ts";
+import { codedError, codeOf } from "../../rules/error-kind.ts";
+import youtubedl from "../ytdlp-spawn.ts";
 import * as run from "./run.ts";
-import type { YtInfo } from "../ytdlpInfo.ts";
-import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
+import type { YtInfo } from "../ytdlp-info.ts";
+import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
 
 /** 세트에서 한 번에 받는 곡 수. 곡마다 요청이 들어(3) 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 받고 나머지는 "더 넣기"로 */
 const SET_BATCH = 10;

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
-import { issueCsrfToken, requireCsrfToken } from "../../dashboard/server/middleware/csrf.ts";
+import { issueCsrfToken, requireCsrfToken } from "../../src/dashboard/middleware/csrf.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 
 type Body = { csrfToken?: string; code?: string };

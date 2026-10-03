@@ -9,8 +9,8 @@
  */
 import fs from "fs";
 import path from "path";
-import { messageOf } from "../src/rules/errorKind.ts";
-import { PROJECT } from "../src/infra/projectPaths.ts";
+import { messageOf } from "../src/rules/error-kind.ts";
+import { PROJECT } from "../src/infra/project-paths.ts";
 
 const CONFIG_DIR = PROJECT.config;
 // 이름 뒤에 확장자가 다른 것도 있다(프롬프트는 ChatML 글 파일이다)

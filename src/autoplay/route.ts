@@ -13,14 +13,14 @@
 
 import * as autoplayFilter from "./filter.ts";
 import * as links from "../rules/links.ts";
-import { canonicalUrl } from "../rules/canonicalUrl.ts";
-import { candidateKind } from "../rules/candidateKind.ts";
+import { canonicalUrl } from "../rules/canonical-url.ts";
+import { candidateKind } from "../rules/candidate-kind.ts";
 import * as pool from "./pool.ts";
 import * as sources from "./sources/index.ts";
 import * as match from "../sources/youtube/match.ts";
 import * as aiAssist from "./assist/index.ts";
 import * as YouTube from "../sources/youtube/index.ts";
-import * as trackLookup from "../store/trackLookup.ts";
+import * as trackLookup from "../store/track-lookup.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import type { GenreSource } from "../config/genres.ts";

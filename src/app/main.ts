@@ -4,41 +4,41 @@
 import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
-import config from "../../config.ts";
-import * as audioCache from "../store/audioCache.ts";
+import config from "../config/index.ts";
+import * as audioCache from "../store/audio-cache.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
-import { Player } from "../player/Player.ts";
-import { restoreSavedPlayers, restoreGuild } from "../player/sessionRestore.ts";
-import { adoptLingeringVoice } from "../player/voiceAdopt.ts";
-import * as voiceChannelStatus from "../player/voiceChannelStatus.ts";
-import * as voiceStatusStore from "../store/voiceStatus.ts";
-import { onVoiceStateUpdate } from "../player/voicePresence.ts";
+import { Player } from "../player/player.ts";
+import { restoreSavedPlayers, restoreGuild } from "../player/session-restore.ts";
+import { adoptLingeringVoice } from "../player/voice-adopt.ts";
+import * as voiceChannelStatus from "../player/voice-channel-status.ts";
+import * as voiceStatusStore from "../store/voice-status.ts";
+import { onVoiceStateUpdate } from "../player/voice-presence.ts";
 import { PlayerRegistry } from "../player/registry.ts";
-import { createPotServer } from "../sources/youtube/potServer.ts";
+import { createPotServer } from "../sources/youtube/pot-server.ts";
 import * as YouTube from "../sources/youtube/index.ts";
-import * as ytdlpOptions from "../sources/ytdlpOptions.ts";
-import { ytdlpBinary } from "../sources/ytdlpBinary.ts";
+import * as ytdlpOptions from "../sources/ytdlp-options.ts";
+import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
-import * as commandLoader from "./commandLoader.ts";
-import { EVENTS } from "../../events/index.ts";
+import * as commandLoader from "./command-loader.ts";
+import { EVENTS } from "../discord/events/index.ts";
 import { installErrorHandlers } from "./resilience.ts";
-import { createGuildFaults } from "./guildFault.ts";
-import { guarded, type OnFault } from "./eventBoundary.ts";
+import { createGuildFaults } from "./guild-fault.ts";
+import { guarded, type OnFault } from "./event-boundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
-import { NowPlayingPanel } from "../ui/nowPlayingPanel.ts";
-import { StatusManager } from "../ui/botPresence.ts";
+import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
+import { StatusManager } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
-import { startDashboard } from "../../dashboard/server/index.ts";
-import { createPlayerStream } from "../../dashboard/server/playerStream.ts";
+import { startDashboard } from "../dashboard/index.ts";
+import { createPlayerStream } from "../dashboard/player-stream.ts";
 import * as playerEvents from "../player/events.ts";
-import { sendNotice } from "../ui/playerNotices.ts";
-import { messageOf } from "../rules/errorKind.ts";
-import { failedStartCode } from "./exitCodes.ts";
+import { sendNotice } from "../ui/player-notices.ts";
+import { messageOf } from "../rules/error-kind.ts";
+import { failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
-import { runRecord } from "./runRecord.ts";
-import { bestEffort } from "../infra/bestEffort.ts";
+import { runRecord } from "./run-record.ts";
+import { bestEffort } from "../infra/best-effort.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -46,7 +46,7 @@ type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
 /** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(...args: ClientEvents[K]): unknown };
-/** 이벤트 목록(events/index)의 한 칸. 이벤트마다 인자가 다르다 */
+/** 이벤트 목록(src/discord/events/index)의 한 칸. 이벤트마다 인자가 다르다 */
 type AnyClientEvent = { [K in keyof ClientEvents]: ClientEvent<K> }[keyof ClientEvents];
 /** 등록할 때 보는 모양. 인자는 이름이 정한다 */
 type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: unknown[]): unknown };
@@ -245,7 +245,7 @@ function loadEvents(client: Client, onFault: OnFault) {
   const events = EVENTS as readonly EventModule[];
   for (const event of events) {
     const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
-    // 처리기마다 서버 경계로 감싼다(app/eventBoundary). 새어 나온 오류는 그 서버의 오류로 받는다
+    // 처리기마다 서버 경계로 감싼다(app/event-boundary). 새어 나온 오류는 그 서버의 오류로 받는다
     register(
       event.name,
       guarded(event.name, (...args: unknown[]) => event.execute(...args), onFault),

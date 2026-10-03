@@ -6,8 +6,8 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import { load } from "./yamlStore.ts";
-import { codeOf, messageOf } from "../rules/errorKind.ts";
+import { load } from "./yaml-store.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { statusProblems, ACTIVITY_TYPES } from "./schema/status.ts";
 
 const validateStatus = statusProblems;

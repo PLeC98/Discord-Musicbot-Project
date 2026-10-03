@@ -4,10 +4,10 @@
 // 묻는 포맷 수에 달렸다(정보 1 + 포맷마다 1, 기본값이면 5). 그래서 쓰임마다 필요한 포맷만 묻는다.
 
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlpSpawn.ts";
-import { baseOptions } from "../ytdlpOptions.ts";
-import { codedError, codeOf } from "../../rules/errorKind.ts";
-import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
+import youtubedl from "../ytdlp-spawn.ts";
+import { baseOptions } from "../ytdlp-options.ts";
+import { codedError, codeOf } from "../../rules/error-kind.ts";
+import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 

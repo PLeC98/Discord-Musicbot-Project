@@ -7,14 +7,14 @@
 //   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡 · 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   disposed(player, reason)    플레이어를 버렸다(reason: 버린 까닭). 등록부가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
-//   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
+//   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/player-notices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 //   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 끝난 패널의 문구를 고친다
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import { messageOf } from "../rules/errorKind.ts";
-import type { Player } from "./Player.ts";
+import { messageOf } from "../rules/error-kind.ts";
+import type { Player } from "./player.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };

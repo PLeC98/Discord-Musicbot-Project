@@ -5,10 +5,10 @@ import readline from "readline";
 import { getVoiceConnections } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
-import * as procRegistry from "../infra/processRegistry.ts";
-import { messageOf } from "../rules/errorKind.ts";
-import { EXIT, type ExitCode } from "./exitCodes.ts";
-import { runRecord } from "./runRecord.ts";
+import * as procRegistry from "../infra/process-registry.ts";
+import { messageOf } from "../rules/error-kind.ts";
+import { EXIT, type ExitCode } from "./exit-codes.ts";
+import { runRecord } from "./run-record.ts";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
 type Boundary = {

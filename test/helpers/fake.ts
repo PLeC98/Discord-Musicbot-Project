@@ -3,7 +3,7 @@
 //
 //   const player = fake<SkipHost>({ currentTrack, paused: false, … });
 
-import type { Player } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/player.ts";
 
 function fake<T>(partial: object): T {
   return partial as T;

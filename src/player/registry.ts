@@ -1,7 +1,7 @@
 import { Collection } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
-import type { Player } from "./Player.ts";
+import type { Player } from "./player.ts";
 import * as playerEvents from "./events.ts";
 
 /**

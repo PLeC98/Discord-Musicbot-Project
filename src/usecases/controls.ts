@@ -1,4 +1,4 @@
-// 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/controlMessages).
+// 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
 // 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 차례로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
 // 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
@@ -9,14 +9,14 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
 import * as perm from "./permissions.ts";
-import { bestEffort } from "../infra/bestEffort.ts";
+import { bestEffort } from "../infra/best-effort.ts";
 import * as playerEvents from "../player/events.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
-import type { Player } from "../player/Player.ts";
+import type { Player } from "../player/player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
-import type { Loop } from "../player/trackState.ts";
+import type { Loop } from "../player/track-state.ts";
 import type { PermissionDenied } from "./permissions.ts";
 import type { Code, Params, Problem } from "../rules/problems.ts";
 

@@ -20,4 +20,4 @@ comment:
 ignore:
   - "test/**"
   - "scripts/**"
-  - "dashboard/client/**"
+  - "dashboard/**"

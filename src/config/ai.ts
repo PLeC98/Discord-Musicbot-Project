@@ -3,12 +3,12 @@
 import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
-import { repeatingFailure } from "../infra/repeatingFailure.ts";
-import { codeOf, messageOf } from "../rules/errorKind.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 const log = logger.child({ category: "config" });
-import { PROVIDERS } from "./schema/aiProviders.ts";
-import { load, fileOf, save, configDir, cache } from "./yamlStore.ts";
-import type { ConfigData } from "./yamlStore.ts";
+import { PROVIDERS } from "./schema/ai-providers.ts";
+import { load, fileOf, save, configDir, cache } from "./yaml-store.ts";
+import type { ConfigData } from "./yaml-store.ts";
 import { aiProblems, PROMPT_FILE } from "./schema/ai.ts";
 
 const validateAi = aiProblems;
@@ -19,7 +19,7 @@ type PromptSection = { role: string; text: string };
 // ── ai-keys.yaml ──────────────────────────────────────────────────────────
 //
 // 프로바이더마다 키가 따로다. 이 값은 대시보드로 내려보내지 않는다.
-// 화면에는 있는지 없는지만 간다(dashboard/server/routes/admin.ts).
+// 화면에는 있는지 없는지만 간다(src/dashboard/routes/admin.ts).
 //
 // .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
 // 키를 갈아 끼울 때마다 봇을 다시 띄워야 한다. 설정 파일은 mtime 이 바뀌면 다시 읽는다.

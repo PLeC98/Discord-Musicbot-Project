@@ -1,7 +1,7 @@
 // 자동재생 소스가 같이 쓰는 요청 도우미.
 
 import { setTimeout as sleep } from "node:timers/promises";
-import config from "../../../config.ts";
+import config from "../../config/index.ts";
 
 const userAgent = () => config.userAgents.bot;
 

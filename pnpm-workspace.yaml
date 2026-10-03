@@ -10,7 +10,7 @@ minimumReleaseAgeExclude:
   - vite@8.1.0
 
 packages:
-  - "dashboard/client"
+  - "dashboard"
 
 patchedDependencies:
   "@discordjs/node-pre-gyp@0.4.5": patches/@discordjs__node-pre-gyp@0.4.5.patch

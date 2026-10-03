@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { makeFloodGuard, knownDiscordError, fatalShutdown, installErrorHandlers, FLOOD_MAX, FLOOD_WINDOW_MS } from "../../src/app/resilience.ts";
-import { inGuild } from "../../src/infra/guildContext.ts";
+import { inGuild } from "../../src/infra/guild-context.ts";
 
 // ── 빈도 가드 ──
 

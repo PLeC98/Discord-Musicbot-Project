@@ -1,6 +1,6 @@
 // AI 보조 설정(ai.yaml)의 스키마. 프롬프트(ai-prompt.chatml)는 제 형식이 따로 있어 여기서 보지 않는다.
 
-import { PROVIDERS } from "./aiProviders.ts";
+import { PROVIDERS } from "./ai-providers.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const PROMPT_FILE = "ai-prompt.chatml";

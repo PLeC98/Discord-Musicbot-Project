@@ -1,10 +1,10 @@
-import { codedError } from "../../rules/errorKind.ts";
+import { codedError } from "../../rules/error-kind.ts";
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
-import config from "../../../config.ts";
+import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
-import { PROJECT } from "../../infra/projectPaths.ts";
+import { PROJECT } from "../../infra/project-paths.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**

@@ -1,6 +1,6 @@
 node_modules
 bgutil-ytdlp-pot-provider
-dashboard/client/dist
+dashboard/dist
 database
 cache
 notes

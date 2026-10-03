@@ -7,7 +7,7 @@ import type { LogRecord } from "../../src/infra/log/sink.ts";
 
 import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
-import config from "../../config.ts";
+import config from "../../src/config/index.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;
 // 터미널 소음 억제

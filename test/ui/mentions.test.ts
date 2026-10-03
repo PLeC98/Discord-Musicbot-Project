@@ -9,14 +9,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { WebhookClient, MessagePayload } from "discord.js";
 import { ALLOWED_MENTIONS, escapeMd } from "../../src/ui/mentions.ts";
-import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
-import { addedView } from "../../src/ui/addedNotice.ts";
+import { addedView } from "../../src/ui/added-notice.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
-// 담은 안내가 보인 글자(ui/addedNotice)
+// 담은 안내가 보인 글자(ui/added-notice)
 const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";

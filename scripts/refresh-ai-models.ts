@@ -1,10 +1,10 @@
 /**
  * 모델 프로필 받아 오기. pnpm run update:models
  *
- * 대시보드의 갱신 버튼과 같은 길(src/config/aiModels 의 refresh)을 쓴다.
+ * 대시보드의 갱신 버튼과 같은 길(src/config/ai-models 의 refresh)을 쓴다.
  */
 import path from "path";
-import * as models from "../src/config/aiModels.ts";
+import * as models from "../src/config/ai-models.ts";
 import { PROVIDER_SPECS } from "../src/autoplay/assist/index.ts";
 
 (async () => {

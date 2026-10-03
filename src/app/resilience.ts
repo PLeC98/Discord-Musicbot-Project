@@ -2,17 +2,17 @@
 //
 // 방침(notes/plan-refactor-2.md #26): 봇 전체를 내리지 않고 서버 하나로 가둔다.
 // - 아는 오류는 난 자리에서 가른다(오류 목록). 여기까지 오는 것 가운데 이미 아는 디스코드 코드는 로그만 남긴다.
-// - 서버 문맥(infra/guildContext)이 있으면 그 서버의 오류다. 그 서버만 다시 켠다(guildFault).
+// - 서버 문맥(infra/guild-context)이 있으면 그 서버의 오류다. 그 서버만 다시 켠다(guildFault).
 // - 서버를 모르면 경계가 빠진 자리다. 로그로 남기고 계속 돈다. 서버를 가리지 않고 쏟아질 때만 내린다(전역 폭주).
-// 네트워크 복구는 음성 연결 상태 기계(player/voiceLink)와 discord.js 가 맡는다. 여기서 플레이어를 되살리지 않는다.
+// 네트워크 복구는 음성 연결 상태 기계(player/voice-link)와 discord.js 가 맡는다. 여기서 플레이어를 되살리지 않는다.
 
 import logger from "../infra/log/logger.ts";
 import { Events } from "discord.js";
-import { currentGuild } from "../infra/guildContext.ts";
-import { errorKind, codeOf, messageOf } from "../rules/errorKind.ts";
-import { EXIT } from "./exitCodes.ts";
-import { runRecord } from "./runRecord.ts";
-import type { GuildFault } from "./guildFault.ts";
+import { currentGuild } from "../infra/guild-context.ts";
+import { errorKind, codeOf, messageOf } from "../rules/error-kind.ts";
+import { EXIT } from "./exit-codes.ts";
+import { runRecord } from "./run-record.ts";
+import type { GuildFault } from "./guild-fault.ts";
 
 const flog = logger.child({ category: "core", sub: "fatal" });
 const coreLog = logger.child({ category: "core" });
@@ -52,7 +52,7 @@ function knownDiscordError(err: unknown) {
 }
 
 // 치명적 오류: 세션을 저장하고 음성 채널에는 남긴 채 연결을 정리한 뒤 내린다(다시 켜면 그 자리에서 이어 튼다).
-// 세션이 까닭이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 되살리지 않는다, app/runRecord).
+// 세션이 까닭이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 되살리지 않는다, app/run-record).
 // exit · record 는 시험이 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
 function fatalShutdown(client: FatalClient | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
   client?.players?.forEach((player, guildId) => {
@@ -105,7 +105,7 @@ function installErrorHandlers(client: WatchedClient, { fault, proc = process, ex
     }
   };
 
-  // discord.js 가 알리는 오류. 처리기의 거부는 경계(app/eventBoundary)가 받으므로 여기는 라이브러리 안의 오류다
+  // discord.js 가 알리는 오류. 처리기의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
   client.on(Events.Error, (error) => loose(error, "client"));
   proc.on("unhandledRejection", (reason) => loose(reason, "rejection"));
   proc.on("uncaughtException", (error) => loose(error, "exception"));

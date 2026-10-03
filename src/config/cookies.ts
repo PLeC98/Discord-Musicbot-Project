@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import { configDir } from "./yamlStore.ts";
+import { configDir } from "./yaml-store.ts";
 
 // ── cookies.txt ───────────────────────────────────────────────────────────
 //

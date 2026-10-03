@@ -11,7 +11,7 @@
 
 import fs from "fs";
 import path from "path";
-import { repeatingFailure } from "../repeatingFailure.ts";
+import { repeatingFailure } from "../repeating-failure.ts";
 import type { LogRecord } from "./sink.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;

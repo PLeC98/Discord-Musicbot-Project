@@ -101,7 +101,7 @@ importers:
         specifier: ^8.70.1
         version: 8.70.1(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
 
-  dashboard/client:
+  dashboard:
     dependencies:
       '@twemoji/api':
         specifier: ^17.0.3

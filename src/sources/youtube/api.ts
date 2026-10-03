@@ -3,18 +3,18 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
-import { codedError } from "../../rules/errorKind.ts";
-import { canonicalUrl } from "../../rules/canonicalUrl.ts";
-import { readInfo } from "../ytdlpInfo.ts";
+import { codedError } from "../../rules/error-kind.ts";
+import { canonicalUrl } from "../../rules/canonical-url.ts";
+import { readInfo } from "../ytdlp-info.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlpSpawn.ts";
-import config from "../../../config.ts";
-import * as trackLookup from "../../store/trackLookup.ts";
+import youtubedl from "../ytdlp-spawn.ts";
+import config from "../../config/index.ts";
+import * as trackLookup from "../../store/track-lookup.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
-import * as run from "./ytdlpRun.ts";
-import type { YtInfo } from "../ytdlpInfo.ts";
-import type { RunYtDlp } from "../ytdlpSpawn.ts";
+import * as run from "./ytdlp-run.ts";
+import type { YtInfo } from "../ytdlp-info.ts";
+import type { RunYtDlp } from "../ytdlp-spawn.ts";
 
 // yt-dlp 정보 한 벌(검색 항목이거나 상세 정보). 없을 수 있다
 type Item = YtInfo | null | undefined;
@@ -220,7 +220,7 @@ async function getStream(url: string, { exec }: { exec?: RunYtDlp } = {}) {
     protocol: info.protocol || null,
     // 앞 광고가 붙은 응답이면 광고가 끝나는 시각. 그 전에는 본편 요청이 403 일 수 있다(yt-dlp 가 광고 길이로 매긴다)
     availableAt: info.available_at ?? null,
-    // 조각 목록으로만 주는 포맷이면 조각 주소의 모양. 재생 쪽이 조각을 차례로 받는다(media/fragmentStream)
+    // 조각 목록으로만 주는 포맷이면 조각 주소의 모양. 재생 쪽이 조각을 차례로 받는다(media/fragment-stream)
     fragments: fragmentsOf(info),
   };
 }

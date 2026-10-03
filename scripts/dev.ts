@@ -10,4 +10,4 @@
 process.env.DASHBOARD_DEV_ORIGIN = "true";
 
 // 환경 변수를 심은 뒤에 불러와야 한다(import 는 끌어올려진다)
-await import("../index.ts");
+await import("../src/index.ts");

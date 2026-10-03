@@ -1,5 +1,5 @@
 // 재생 조작이 된 뒤의 응답 문장. 명령과 패널 버튼이 같은 조작을 하면 같은 함수를 부른다.
-// 머리 줄과 본문이 있는 응답은 { title, body } 로 돌려준다(ui/controlReplies 가 그리고, 누가 했나 줄을 붙인다)
+// 머리 줄과 본문이 있는 응답은 { title, body } 로 돌려준다(ui/control-replies 가 그리고, 누가 했나 줄을 붙인다)
 
 import { josa } from "../../../rules/josa.ts";
 import { songTitle } from "./labels.ts";

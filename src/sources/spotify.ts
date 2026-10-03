@@ -11,9 +11,9 @@ import crypto from "crypto";
 import { parseSpotifyURL } from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
-import config from "../../config.ts";
-import * as externalCaches from "../store/externalCaches.ts";
-import { messageOf, codedError, codeOf } from "../rules/errorKind.ts";
+import config from "../config/index.ts";
+import * as externalCaches from "../store/external-caches.ts";
+import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 
 // 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
 let send: typeof fetch = fetch;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createCorsOptions, normalizeDashboardOrigin } from "../../dashboard/server/cors.ts";
+import { createCorsOptions, normalizeDashboardOrigin } from "../../src/dashboard/cors.ts";
 
 function isAllowed(options: ReturnType<typeof createCorsOptions>, origin: string | undefined) {
   return new Promise((resolve, reject) => {

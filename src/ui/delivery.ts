@@ -6,12 +6,12 @@
 import { MessageFlags, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import { messageOf } from "../rules/errorKind.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
 import { noticeReply, post } from "./frame.ts";
-import { scheduleDelete } from "./transientMessages.ts";
+import { scheduleDelete } from "./transient-messages.ts";
 
 /** 응답의 수명(ms). null 은 지우지 않는다 */
 const LIFETIME = {

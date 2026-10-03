@@ -1,6 +1,6 @@
 // Last.fm 소스.
 
-import config from "../../../config.ts";
+import config from "../../config/index.ts";
 import { pick, rand, query, getJson } from "./http.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";

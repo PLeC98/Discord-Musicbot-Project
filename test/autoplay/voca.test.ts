@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { vocaFamily, suggest, _forgetIds } from "../../src/autoplay/sources/voca.ts";
 import { useFetch } from "../../src/autoplay/sources/http.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
-import { VOCA_WINDOW } from "../../src/config/schema/genreSources.ts";
+import { VOCA_WINDOW } from "../../src/config/schema/genre-sources.ts";
 import { fake } from "../helpers/fake.ts";
 
 after(() => useFetch(null));

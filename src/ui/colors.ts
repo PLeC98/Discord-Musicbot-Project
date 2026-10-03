@@ -1,7 +1,7 @@
 // 화면의 색. 경고 수준마다 하나(디스코드 기본 팔레트). 그 밖의 화면은 운영자가 정한 색(EMBED_COLOR).
 // 완료(초록)는 서버 설정을 바꿔 저장한 결과에만 쓴다. 오래 남는 바뀜이라 눈에 띄게
 
-import config from "../../config.ts";
+import config from "../config/index.ts";
 
 const FIXED = {
   error: "#ED4245", // 봇 쪽 문제 · 외부 실패로 못 했다

@@ -5,7 +5,7 @@
 // 생산자는 두 갈래: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 import util from "util";
-import config from "../../../config.ts";
+import config from "../../config/index.ts";
 import { styleText } from "node:util";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.

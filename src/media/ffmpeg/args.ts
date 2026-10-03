@@ -35,7 +35,7 @@ function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps
     const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1", "-rw_timeout", String(RW_TIMEOUT_US)];
     // HLS 디먹서의 옵션이고 오래된 빌드에는 없다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로 확인하고 붙인다.
     const retry = hls && (caps ?? capabilities()).segMaxRetry ? ["-seg_max_retry", String(SEG_MAX_RETRY)] : [];
-    // HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 0 으로 끝난다. 그 줄(warning)을 보려고 한 단계 낮춘다(media/playbackInput 이 읽는다)
+    // HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 0 으로 끝난다. 그 줄(warning)을 보려고 한 단계 낮춘다(media/playback-input 이 읽는다)
     return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", hls ? "warning" : "error", ...seek, "-i", url, ...output];
   }
 

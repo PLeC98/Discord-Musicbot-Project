@@ -40,7 +40,7 @@ type TrackInfo = {
   liveStatus?: string | null;
 };
 
-/** 요청한 사람. 입구가 접은 표준형(usecases/addTracks 의 toRequester)이거나 디스코드 사용자. 복원한 곡은 id 뿐이다 */
+/** 요청한 사람. 입구가 접은 표준형(usecases/add-tracks 의 toRequester)이거나 디스코드 사용자. 복원한 곡은 id 뿐이다 */
 type Requester = { id: string | null; username?: string | null; displayName?: string; tag?: string | null };
 
 /** 대기열에 담은 것. */

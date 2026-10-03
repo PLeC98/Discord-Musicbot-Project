@@ -3,7 +3,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
-import { PROJECT } from "../infra/projectPaths.ts";
+import { PROJECT } from "../infra/project-paths.ts";
 
 const DB_PATH = path.join(PROJECT.database, "cache.db");
 

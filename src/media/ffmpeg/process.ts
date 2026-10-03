@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { ffmpegPath } from "./path.ts";
-import * as procRegistry from "../../infra/processRegistry.ts";
+import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "ffmpeg" });
 

@@ -1,4 +1,4 @@
-// dashboard/server/routes/auth.ts — 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
+// src/dashboard/routes/auth.ts — 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 세션은 express-session 의 메모리 저장소.
 
 import { test, after } from "node:test";
@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import session from "express-session";
 import type { Server } from "node:http";
-import { createAuthRouter, type DiscordHttp } from "../../dashboard/server/routes/auth.ts";
+import { createAuthRouter, type DiscordHttp } from "../../src/dashboard/routes/auth.ts";
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
 const { listenForFetch } = listen;

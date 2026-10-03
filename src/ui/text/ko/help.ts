@@ -1,8 +1,8 @@
 // /help 화면의 글자
 
-import type { HelpSection, HelpTier } from "../../helpLines.ts";
+import type { HelpSection, HelpTier } from "../../help-lines.ts";
 
-// 명령 줄은 명령 정의에서 만든다(ui/helpLines). 여기는 묶음 이름 · 권한 표시 · 지원 플랫폼만
+// 명령 줄은 명령 정의에서 만든다(ui/help-lines). 여기는 묶음 이름 · 권한 표시 · 지원 플랫폼만
 
 const SECTION_NAME: Record<HelpSection, string> = {
   play: "🎵 재생",

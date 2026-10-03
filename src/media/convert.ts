@@ -1,8 +1,8 @@
-import { codedError } from "../rules/errorKind.ts";
+import { codedError } from "../rules/error-kind.ts";
 import { spawnFfmpeg, probeAudio } from "./ffmpeg/process.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type ConvertPlan } from "../rules/convertPlan.ts";
+import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type ConvertPlan } from "../rules/convert-plan.ts";
 
 type Converted = ConvertPlan & { durationSec: number | null; title: string | null; artist: string | null };
 

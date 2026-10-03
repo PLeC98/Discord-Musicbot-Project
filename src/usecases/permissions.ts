@@ -1,11 +1,11 @@
 import { PermissionFlagsBits } from "discord.js";
-import * as GuildSettingsManager from "../store/guildSettings.ts";
+import * as GuildSettingsManager from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
 import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
-// 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 dashboard/server/owner.ts.
+// 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 src/dashboard/owner.ts.
 // 서버 소유자와 Administrator(관리자) 권한 보유자는 discord.js 권한 검사가 자동으로 전부 통과시킨다.
 // 기준을 조정하려면 이 배열만 수정하면 된다.
 /** 권한 판정이 막은 까닭 */

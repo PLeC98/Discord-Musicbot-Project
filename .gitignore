@@ -11,12 +11,12 @@ config/ai-keys.yaml
 config/ai-prompt.chatml
 audio_cache/
 node_modules/
-dashboard/client/dist/
+dashboard/dist/
 bgutil-ytdlp-pot-provider/
 *.log
 logs/
 # 커버리지 결과(pnpm run test:coverage)
-lcov.info
+coverage/
 *.tmp
 original_docs/
 notes/

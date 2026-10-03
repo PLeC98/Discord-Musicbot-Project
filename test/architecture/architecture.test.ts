@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PROJECT } from "../../src/infra/projectPaths.ts";
+import { PROJECT } from "../../src/infra/project-paths.ts";
 import { scan, LAYERS } from "./scan.ts";
 import baseline from "./baseline.json" with { type: "json" };
 
@@ -72,12 +72,19 @@ test("테스트가 프로젝트 모듈의 메서드를 덮어쓰지 않는다", 
   sameList("메서드 바꿔 끼우기", now.methodSwap, baseline.methodSwap);
 });
 
-// 실행 중 경로는 PROJECT 하나에서 나온다(src/infra/projectPaths). 루트를 잘못 세면 DB · 캐시가 엉뚱한 빈 자리에 새로 생긴다
+// 실행 중 경로는 PROJECT 하나에서 나온다(src/infra/project-paths). 루트를 잘못 세면 DB · 캐시가 엉뚱한 빈 자리에 새로 생긴다
 test("저장소 루트를 맞게 가리킨다", () => {
   assert.ok(fs.existsSync(path.join(PROJECT.root, "package.json")), PROJECT.root);
   assert.ok(fs.existsSync(path.join(PROJECT.root, "pnpm-workspace.yaml")), "다른 package.json 이 아니라 이 저장소의 루트");
 });
 
 test("실행 중 경로를 파일 자리에서 세지 않는다(import.meta.dirname 은 경로 모듈에만)", () => {
-  assert.deepEqual(now.dirnameUse, ["src/infra/projectPaths.ts"]);
+  assert.deepEqual(now.dirnameUse, ["src/infra/project-paths.ts"]);
+});
+
+// 파일 이름은 kebab-case(점 뒤는 .test · .d · .browser 같은 꼬리). 대시보드 화면(Vue 컴포넌트는 PascalCase)은 따로 본다
+test("봇 · 시험 · 스크립트의 파일 이름은 kebab-case", () => {
+  const files = (dir: string): string[] => fs.readdirSync(path.join(PROJECT.root, dir), { recursive: true, encoding: "utf8" }).filter((f) => /\.(ts|js|mjs)$/.test(f));
+  const bad = ["src", "test", "scripts"].flatMap((dir) => files(dir).map((f) => `${dir}/${f.split(path.sep).join("/")}`)).filter((f) => !/^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)*\.(ts|js|mjs)$/.test(path.posix.basename(f)));
+  assert.deepEqual(bad, []);
 });

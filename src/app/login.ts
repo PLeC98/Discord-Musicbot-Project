@@ -7,8 +7,8 @@
 
 import { Routes } from "discord.js";
 import logger from "../infra/log/logger.ts";
-import { codedError, messageOf } from "../rules/errorKind.ts";
-import { EXIT, failedStartCode } from "./exitCodes.ts";
+import { codedError, messageOf } from "../rules/error-kind.ts";
+import { EXIT, failedStartCode } from "./exit-codes.ts";
 
 const log = logger.child({ category: "core" });
 

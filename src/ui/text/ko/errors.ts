@@ -36,7 +36,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 봇에게 디스코드 권한이 없음
   // 봇이 그 음성 채널에 들어가거나 말할 권한이 없다. 디스코드가 음성 채널 상태를 권한 없음으로 거절해도 이것이다
   "permission-voice": () => error("permission", "제게 권한이 없어요.", "봇이 그 음성 채널에 접속하거나 말할 권한이 없어요."),
-  // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅) · 그 밖(rules/errorKind 가 거절된 요청의 주소로 가른다)
+  // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅) · 그 밖(rules/error-kind 가 거절된 요청의 주소로 가른다)
   "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
   "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요."),
   // 지금 상태로는 못 함
@@ -107,7 +107,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요."),
   "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간의 곡들이 받을 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
   // 바깥 실패
-  // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operatorHints). 사용자는 설정을 만질 수 없다
+  // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operator-hints). 사용자는 설정을 만질 수 없다
   "yt-bot-check": () => error("failed", "유튜브가 요청을 차단했어요!", "잠시 후에 재시도해 보고, 계속 동일한 문제가 발생하면 봇 운영자에게 알려주세요."),
   "network-error": () => error("failed", "연결 오류가 발생했어요!", "해당 플랫폼에 연결하지 못했어요. 보통은 일시적인 오류이니 잠시 뒤에 다시 시도해 보세요. 오류가 계속되면 봇 운영자에게 알려주세요."),
   "stream-failed": () => error("failed", "오디오를 받아오지 못했어요!", "링크에 성공적으로 접속했지만 정상적으로 재생 가능한 음원을 가져오지 못했어요. 다시 시도하거나 다른 버전을 넣어 주세요."),

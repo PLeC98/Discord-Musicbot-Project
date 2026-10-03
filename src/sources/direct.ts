@@ -3,9 +3,9 @@ import path from "path";
 import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
-import * as SafeUrl from "../infra/safeUrl.ts";
+import * as SafeUrl from "../infra/safe-url.ts";
 import type { Readable } from "stream";
-import { messageOf, codedError } from "../rules/errorKind.ts";
+import { messageOf, codedError } from "../rules/error-kind.ts";
 
 // 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다. 여기서 읽는 칸만
 type HeadNet = { head: (url: string) => Promise<{ headers: object }> };
@@ -91,7 +91,7 @@ function decoded(text: string): string {
 
 /**
  * 파일 이름에서 제목. 확장자를 떼고 인코딩을 푼다. 띄어쓰기가 없는 이름(my-song_name)만 구분자를 공백으로 바꾼다.
- * 대소문자는 건드리지 않는다(iPhone 같은 이름을 바꾼다). 받은 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cacheDownload)
+ * 대소문자는 건드리지 않는다(iPhone 같은 이름을 바꾼다). 받은 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cache-download)
  */
 function extractTitle(filename: string): string | null {
   const name = decoded(path.parse(filename).name);

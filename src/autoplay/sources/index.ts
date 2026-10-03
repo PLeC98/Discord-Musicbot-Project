@@ -14,8 +14,8 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { SPEC, usable, needsOf, opts, type Field } from "../../config/schema/genreSources.ts";
-import { messageOf } from "../../rules/errorKind.ts";
+import { SPEC, usable, needsOf, opts, type Field } from "../../config/schema/genre-sources.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import type { Search } from "./keyword.ts";

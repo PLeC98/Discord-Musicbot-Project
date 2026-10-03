@@ -5,8 +5,8 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as SoundCloud from "../../src/sources/soundcloud/index.ts";
 import { trackOf } from "../../src/sources/soundcloud/api.ts";
-import { codeOf, errorKind } from "../../src/rules/errorKind.ts";
-import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
+import { codeOf, errorKind } from "../../src/rules/error-kind.ts";
+import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 
 // yt-dlp 가 줄 것. fail 이면 그 stderr 로 1 을 내고 끝난다(json 이 있으면 stdout 에 함께)
 type Reply = { json?: unknown; fail?: string };

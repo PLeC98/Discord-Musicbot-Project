@@ -27,8 +27,8 @@ const normalize = (line: string) =>
     .replace(/^import\s+(["'])[^"']*\1/, "import <경로>")
     .replace(/new URL\(\s*(["'`])[^"'`]*\1\s*,\s*import\.meta\.url\s*\)/g, "new URL(<경로>)")
     .replace(/path\.(join|resolve)\(\s*(?:__dirname|import\.meta\.dirname)[^)]*\)/g, "path.$1(<경로>)")
-    .replace(/path\.join\(\s*(["'])(?:src|test|commands|events|dashboard|scripts)\1[^)]*\)/g, "path.join(<경로>)")
-    .replace(/(["'])(?:\.{1,2}\/)*(?:src|test|commands|events|dashboard|scripts)\/[\w./-]*\1/g, "<경로>");
+    .replace(/path\.join\(\s*(["'])(?:src|test|commands|events|interactions|dashboard|scripts|vendor)\1[^)]*\)/g, "path.join(<경로>)")
+    .replace(/(["'])(?:\.{1,2}\/)*(?:src|test|commands|events|interactions|dashboard|scripts|vendor)\/[\w./-]*\1/g, "<경로>");
 
 // 기준선 파일은 옮긴 파일 이름을 따라 키와 수가 바뀐다. 코드가 아니므로 보지 않는다
 const SKIP = new Set(["eslint-suppressions.json", "test/architecture/baseline.json"]);

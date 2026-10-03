@@ -1,14 +1,14 @@
 /**
- * yt-dlp 를 목표 버전(.env 의 YTDLP_CHANNEL · YTDLP_VERSION)으로 맞춘다. 일은 src/sources/ytdlpBinary.ts 가 한다.
+ * yt-dlp 를 목표 버전(.env 의 YTDLP_CHANNEL · YTDLP_VERSION)으로 맞춘다. 일은 src/sources/ytdlp-binary.ts 가 한다.
  *
  * 설치 뒤(postinstall): YTDLP_UPDATE=off 면 설치 때 받은 것을 옮겨 두기만 한다. 실패해도 설치를 깨지 않는다.
  * 사람이 부르면(update:ytdlp): YTDLP_UPDATE 와 상관없이 목표 버전으로 받고, 실패하면 1 로 끝난다.
  * 봇 모듈을 부르면 로거가 콘솔을 가로채므로 콘솔이 아니라 로거로 남긴다(봇과 같은 모양).
  */
-import config from "../config.ts";
+import config from "../src/config/index.ts";
 import logger from "../src/infra/log/logger.ts";
-import { ytdlpBinary, describe } from "../src/sources/ytdlpBinary.ts";
-import { messageOf } from "../src/rules/errorKind.ts";
+import { ytdlpBinary, describe } from "../src/sources/ytdlp-binary.ts";
+import { messageOf } from "../src/rules/error-kind.ts";
 
 const postinstall = process.env.npm_lifecycle_event === "postinstall";
 

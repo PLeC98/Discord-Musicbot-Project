@@ -11,7 +11,7 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { messageOf } from "../rules/errorKind.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import type { GenreSource } from "../config/genres.ts";
 import type { Candidate } from "./sources/candidate.ts";
 

@@ -2,7 +2,7 @@
 //   pnpm run install:bgutil · update:bgutil. 둘은 같은 일을 한다:
 //   없으면 git clone, 설정한 태그로 체크아웃, 의존성 설치 + 빌드
 //
-// 받는 버전은 config.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
+// 받는 버전은 src/config/index.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
 // 기본 브랜치를 따라가지 않는다. 설치한 날에 따라 다른 코드가 깔린다.
 //
 // bgutil은 별도로 가져와야 한다.
@@ -11,9 +11,9 @@
 import { execSync, execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
-import config from "../config.ts";
-import { messageOf } from "../src/rules/errorKind.ts";
-import { PROJECT } from "../src/infra/projectPaths.ts";
+import config from "../src/config/index.ts";
+import { messageOf } from "../src/rules/error-kind.ts";
+import { PROJECT } from "../src/infra/project-paths.ts";
 
 const ROOT = PROJECT.root;
 const DIR = PROJECT.bgutil;

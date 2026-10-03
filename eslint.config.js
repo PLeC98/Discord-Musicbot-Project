@@ -12,7 +12,7 @@ export default [
     ignores: [
       "node_modules",
       "bgutil-ytdlp-pot-provider", // 외부 클론
-      "dashboard/client/dist", // 빌드 산출물
+      "dashboard/dist", // 빌드 산출물
       "database",
       "cache",
       "notes",
@@ -45,7 +45,7 @@ export default [
   // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
   ...pluginVue.configs["flat/essential"],
   {
-    files: ["dashboard/client/src/**/*.{js,vue}"],
+    files: ["dashboard/src/**/*.{js,vue}"],
     languageOptions: {
       sourceType: "module",
       globals: globals.browser,
@@ -72,7 +72,7 @@ export default [
   // 그 줄에 `// eslint-disable-next-line <규칙> -- 이유` 를 단다.
   // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다).
   {
-    files: ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "interactions/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts"],
     rules: {
       complexity: ["error", 15],
       "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }],
@@ -87,10 +87,10 @@ export default [
   // 새어 나가는 약속을 막는다. 기다리지 않는 약속은 경계를 지나거나 bestEffort 로(실패를 받는 곳이 있어야 한다).
   // 타입 정보가 필요해 봇 쪽 코드에만 건다(시험은 가짜 · 일부러 기다리지 않는 약속이 많다)
   {
-    files: ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "interactions/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts"],
     languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
     rules: {
-      "@typescript-eslint/no-floating-promises": ["error", { allowForKnownSafeCalls: [{ from: "file", name: "bestEffort", path: "src/infra/bestEffort.ts" }] }],
+      "@typescript-eslint/no-floating-promises": ["error", { allowForKnownSafeCalls: [{ from: "file", name: "bestEffort", path: "src/infra/best-effort.ts" }] }],
       "@typescript-eslint/no-misused-promises": "error",
     },
   },

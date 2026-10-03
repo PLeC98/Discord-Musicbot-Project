@@ -1,14 +1,14 @@
 // 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · 유튜브용 yt-dlp 옵션 · 인증 상태 로그.
 
 import path from "path";
-import type { YtDlpFlags as Flags } from "../ytdlpSpawn.ts";
+import type { YtDlpFlags as Flags } from "../ytdlp-spawn.ts";
 import fs from "fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
-import config from "../../../config.ts";
-import { baseOptions } from "../ytdlpOptions.ts";
+import config from "../../config/index.ts";
+import { baseOptions } from "../ytdlp-options.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
-import { PROJECT } from "../../infra/projectPaths.ts";
+import { PROJECT } from "../../infra/project-paths.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면

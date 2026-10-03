@@ -1,10 +1,10 @@
 import { MessageFlags } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import { scheduleDelete } from "../ui/transientMessages.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import { scheduleDelete } from "../ui/transient-messages.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
-import type { Responder } from "../ui/nowPlayingPanel.ts";
+import type { Responder } from "../ui/now-playing-panel.ts";
 import { post } from "../ui/frame.ts";
 import { LIFETIME, postNew } from "../ui/delivery.ts";
 
@@ -14,7 +14,7 @@ import { LIFETIME, postNew } from "../ui/delivery.ts";
  * 코어는 아래 두 메서드만 부르고 매체를 모른다. 이 경계가 없으면 "디스코드에 아무것도 보내지 않음"
  * (대시보드)을 표현할 수 없다.
  *
- *   notifyQueued(view)     담은 안내(ui/addedNotice 의 화면)를 표시한다
+ *   notifyQueued(view)     담은 안내(ui/added-notice 의 화면)를 표시한다
  *   dismissPlaceholder()   진입점이 띄운 "검색 중…" 자리표시자를 정리한다 (멱등)
  *
  * 둘 다 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.

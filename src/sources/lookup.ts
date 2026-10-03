@@ -6,11 +6,11 @@ import * as links from "../rules/links.ts";
 import * as Spotify from "./spotify.ts";
 import * as SoundCloud from "./soundcloud/index.ts";
 import * as DirectLink from "./direct.ts";
-import * as trackLookup from "../store/trackLookup.ts";
-import { errorKind, messageOf } from "../rules/errorKind.ts";
-import { failureReason } from "../rules/failureReason.ts";
-import type { CacheHit } from "../store/trackLookup.ts";
-import { inputKind } from "../rules/inputKind.ts";
+import * as trackLookup from "../store/track-lookup.ts";
+import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { failureReason } from "../rules/failure-reason.ts";
+import type { CacheHit } from "../store/track-lookup.ts";
+import { inputKind } from "../rules/input-kind.ts";
 import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
 const log = logger.child({ category: "track" });
@@ -24,7 +24,7 @@ type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: nu
 /** 찾은 결과. 못 찾았으면 그 까닭(code), 던졌으면 그 오류(error) */
 // 두 갈래가 서로의 칸을 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
 // collectionId: 이어 받을 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
-/** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/errorMessages 가 고른다 */
+/** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/error-messages 가 고른다 */
 type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "sc-unsupported" | "nothing-playable";
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; skipped?: number; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
@@ -53,7 +53,7 @@ function isUnsupportedLink(query: string): boolean {
 }
 
 // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, code, error? }
-//   code: no-song-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
+//   code: no-song-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/error-messages 로 만든다
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
 // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
 /** 찾은 곡들과 그 출처. 한 곡이면 collection · total · nextOffset 이 null */
