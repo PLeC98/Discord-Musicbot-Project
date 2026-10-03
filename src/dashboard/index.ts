@@ -16,7 +16,7 @@ import { SqliteSessionStore } from "./session-store.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
-import { isLoopbackHost, describeBinding } from "./binding.ts";
+import { isLoopbackHost, listen } from "./binding.ts";
 import { isOwner, isRealOwner } from "./owner.ts";
 import { getViewAs } from "./view-as.ts";
 import { createAuthRouter } from "./routes/auth.ts";
@@ -188,11 +188,7 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
 function startDashboard(bot: BotContext, { stream, deployCommands }: AppDeps) {
   const app = createApp(bot, { stream, deployCommands });
 
-  const { port, host, url } = config.dashboard;
-  const { line, warnings } = describeBinding(host, port, url);
-  app.listen(port, host, () => {
-    log.info(line);
-    for (const w of warnings) log.warn(w);
+  listen(app, config.dashboard, () => {
     // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
     if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
   });

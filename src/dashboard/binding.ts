@@ -1,7 +1,13 @@
-// 대시보드 바인딩 주소 → 기동 로그 문장.
+// 대시보드 바인딩 주소 → 기동 로그 문장. 대시보드를 열고 그 결과를 남긴다.
 //
 // 로그는 실제 바인딩을 그대로 말해야 한다. 모든 인터페이스에 열어놓고 localhost라고 적으면
 // 운영자가 자기 노출 상태를 알 방법이 없다.
+
+import type { Express } from "express";
+import type { Server } from "node:http";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "dashboard" });
+import { messageOf } from "../rules/error-kind.ts";
 
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
 const WILDCARD = new Set(["0.0.0.0", "::"]);
@@ -29,4 +35,15 @@ function describeBinding(host: string | null | undefined, port: number, dashboar
   return { line: `🌐 Dashboard: ${host}:${port} (${scope})`, warnings };
 }
 
-export { isLoopbackHost, describeBinding };
+/** 대시보드를 연다. 연 주소나 못 연 까닭을 남기고, 열었으면 opened 를 부른다. 못 열면 봇은 대시보드 없이 돈다 */
+function listen(app: Pick<Express, "listen">, { host, port, url }: { host: string; port: number; url: string }, opened?: () => void): Server {
+  const { line, warnings } = describeBinding(host, port, url);
+  return app.listen(port, host, (error?: Error) => {
+    if (error) return log.error(`대시보드를 열지 못했습니다. 봇은 대시보드 없이 돕니다: ${messageOf(error)}`);
+    log.info(line);
+    for (const w of warnings) log.warn(w);
+    opened?.();
+  });
+}
+
+export { isLoopbackHost, describeBinding, listen };
