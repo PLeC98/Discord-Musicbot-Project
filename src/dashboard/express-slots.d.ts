@@ -1,6 +1,7 @@
 // 대시보드 서버가 세션과 앱(app.locals)에 매단 것
 
-import type { Client, RESTAPIPartialCurrentUserGuild } from "discord.js";
+import type { RESTAPIPartialCurrentUserGuild } from "discord.js";
+import type { BotContext } from "../app/bot-context.ts";
 import type { deployCommands } from "../app/command-loader.ts";
 import type { Lookup } from "../usecases/add-tracks.ts";
 
@@ -22,7 +23,8 @@ declare global {
   namespace Express {
     // app.locals 에 매단다. res.locals 는 쓰지 않는다
     interface Locals {
-      discordClient: Client;
+      /** 디스코드 클라이언트 · 플레이어 · 패널. 조립이 넘긴다 */
+      bot: BotContext;
       /** 슬래시 명령 등록. 조립이 넘긴다 */
       deployCommands: typeof deployCommands;
       /** 곡 찾기. 시험이 가짜를 넘기는 자리. 없으면 진짜 */

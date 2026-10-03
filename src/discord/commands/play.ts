@@ -43,7 +43,7 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
           .setRequired(true),
       ),
 
-    async execute(interaction, client) {
+    async execute(interaction, bot) {
       const query = interaction.options.getString("query", true);
       const { member, guild, channel } = interaction;
 
@@ -55,7 +55,7 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
       showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 
-      const result = await requestPlayback(client, {
+      const result = await requestPlayback(bot, {
         guild,
         requester: member,
         query,

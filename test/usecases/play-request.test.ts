@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 import config from "../../src/config/index.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
-import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import type { BotContext } from "../../src/app/bot-context.ts";
 import { Player } from "../../src/player/player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import type { Collection, LookupResult, Range } from "../../src/sources/lookup.ts";
@@ -66,24 +67,24 @@ function makeGuild({ botVoice = null, channels = [] }: { botVoice?: VoiceBasedCh
 // 곡 요청이 곡 담기(queueTracks)에 넘긴 것
 type EmbedCall = { guildId: string; trackData: TrackData; requester: unknown; responder: Responder | undefined };
 
-function makeClient() {
+function makeBot() {
   const embedCalls: EmbedCall[] = [];
-  const client = fakeWith<Client>()({
+  const bot = fakeWith<BotContext>()({
     embedCalls,
     players: new Map<string, Player>(),
     panels: {},
   });
-  fakeAdder(client, async (_client, guildId, trackData, requester, responder) => {
+  fakeAdder(bot, async (_bot, guildId, trackData, requester, responder) => {
     embedCalls.push({ guildId, trackData, requester, responder });
     return { success: true };
   });
-  return client;
+  return bot;
 }
-type TestClient = ReturnType<typeof makeClient>;
+type TestBot = ReturnType<typeof makeBot>;
 
 // 이 서버의 플레이어. 없으면 실패
-function playerOf(client: TestClient) {
-  const player = client.players.get(GUILD_ID);
+function playerOf(bot: TestBot) {
+  const player = bot.players.get(GUILD_ID);
   assert.ok(player, "플레이어가 있다");
   return player;
 }
@@ -128,85 +129,85 @@ test("toRequester: null/문자열에 던지지 않는다", () => {
 // ── ensurePlayer ─────────────────────────────────────────────
 
 test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
   const channel = makeChannel("t1");
   const voice = voiceOf("v1");
 
-  const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: voice });
-  assert.equal(client.players.get(GUILD_ID), player);
+  const player = ensurePlayer(bot, { guild, textChannel: channel, voiceChannel: voice });
+  assert.equal(bot.players.get(GUILD_ID), player);
   assert.equal(player.textChannel, channel);
   assert.equal(player.voiceChannel, voice);
 });
 
 test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
   const existing = fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: voiceOf("v0") });
-  client.players.set(GUILD_ID, existing);
+  bot.players.set(GUILD_ID, existing);
 
-  const player = ensurePlayer(client, { guild, textChannel: makeChannel("new"), voiceChannel: voiceOf("v1") });
+  const player = ensurePlayer(bot, { guild, textChannel: makeChannel("new"), voiceChannel: voiceOf("v1") });
   assert.equal(player, existing);
   assert.equal(player.queue.length, 1);
 });
 
 test("ensurePlayer: 봇이 재생 중이면 voiceChannel을 갱신하지 않는다 (다른 채널 참조 오염 방지)", () => {
-  const client = makeClient();
+  const bot = makeBot();
   const botVoice = voiceOf("botVC");
   const guild = makeGuild({ botVoice });
   const existing = fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, voiceChannel: botVoice, textChannel: null });
-  client.players.set(GUILD_ID, existing);
+  bot.players.set(GUILD_ID, existing);
 
-  ensurePlayer(client, { guild, textChannel: makeChannel("t"), voiceChannel: voiceOf("요청자VC") });
+  ensurePlayer(bot, { guild, textChannel: makeChannel("t"), voiceChannel: voiceOf("요청자VC") });
   assert.equal(existing.voiceChannel, botVoice);
 });
 
 test("ensurePlayer: 봇이 유휴면 요청자 채널로 갱신한다", () => {
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild({ botVoice: null });
   const existing = fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, voiceChannel: null, textChannel: null });
-  client.players.set(GUILD_ID, existing);
+  bot.players.set(GUILD_ID, existing);
 
   const requesterVC = voiceOf("v9");
-  ensurePlayer(client, { guild, textChannel: null, voiceChannel: requesterVC });
+  ensurePlayer(bot, { guild, textChannel: null, voiceChannel: requesterVC });
   assert.equal(existing.voiceChannel, requesterVC);
 });
 
 test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드가 기존 채널을 지우면 안 됨)", () => {
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
   const kept = makeChannel("keep");
   const existing = fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: kept, voiceChannel: null });
-  client.players.set(GUILD_ID, existing);
+  bot.players.set(GUILD_ID, existing);
 
-  ensurePlayer(client, { guild, textChannel: null, voiceChannel: null });
+  ensurePlayer(bot, { guild, textChannel: null, voiceChannel: null });
   assert.equal(existing.textChannel, kept);
 });
 
 // ── requestPlayback ──────────────────────────────────────────
 
 // 이 서버에 붙어 있는 플레이어
-function seedPlayer(client: TestClient) {
-  client.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive: () => true, hasLiveTrack: () => false }));
+function seedPlayer(bot: TestBot) {
+  bot.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive: () => true, hasLiveTrack: () => false }));
 }
 
 // 검색어나 찾은 곡 가운데 하나와 나머지 선택
 type Extra = Omit<Partial<PlaybackRequest>, "query" | "tracks"> & ({ query: string; tracks?: undefined } | { tracks: TrackInfo[]; query?: undefined });
 
-function baseArgs(client: TestClient, guild: Guild, extra: Extra): PlaybackRequest {
-  seedPlayer(client);
+function baseArgs(bot: TestBot, guild: Guild, extra: Extra): PlaybackRequest {
+  seedPlayer(bot);
   return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 더 이상 입구에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play" }));
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/live", source: "/play" }));
 
-  const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
+  const sent = bot.embedCalls[0].trackData.tracks.map((t) => t.title);
   assert.deepEqual(sent, ["24/7 라디오"]);
   // 로그의 하위 이름에 슬래시 명령의 "/"가 들어가면 track//play 가 된다
   assert.equal(resolverCalls.at(-1)?.context, "play.resolveQuery");
@@ -214,28 +215,28 @@ test("방송 중인 라이브는 통과시킨다", async () => {
 
 test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success ? null : result.code, "live-no-ffmpeg");
   assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("live-no-ffmpeg")));
-  assert.equal(client.embedCalls.length, 0);
+  assert.equal(bot.embedCalls.length, 0);
 });
 
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
 // 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
 test("시작 전 방송은 거절하고 이유를 알린다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/soon", source: "/play" }));
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/soon", source: "/play" }));
 
   assert.equal(result.success ? null : result.code, "live-upcoming");
   assert.match(result.success ? "" : plainText(addFailureMessage(result)), /아직 시작되지 않은 라이브예요/);
-  assert.equal(client.embedCalls.length, 0, "코어까지 가지 않는다");
+  assert.equal(bot.embedCalls.length, 0, "코어까지 가지 않는다");
 });
 
 // 재생목록에 시작 전 방송이 섞여 있으면 그것만 빼고 나머지는 넣는다.
@@ -246,23 +247,23 @@ test("재생목록의 시작 전 방송만 걸러내고 나머지는 넣는다",
     collection: "playlist",
     tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" }), track("보통곡", { duration: 100 })],
   });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "https://y/list", source: "/play" }));
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/list", source: "/play" }));
 
-  const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
+  const sent = bot.embedCalls[0].trackData.tracks.map((t) => t.title);
   assert.deepEqual(sent, ["보통곡"]);
 });
 
 // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
 test("라이브가 대기열에 들어오면 반복을 푼다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
-  const args = baseArgs(client, guild, { query: "https://y/live", source: "/play" });
+  const args = baseArgs(bot, guild, { query: "https://y/live", source: "/play" });
   let released = 0;
-  const player = playerOf(client);
+  const player = playerOf(bot);
   player.loop = "queue";
   player.releaseLoopForLive = () => {
     released++;
@@ -270,7 +271,7 @@ test("라이브가 대기열에 들어오면 반복을 푼다", async () => {
     return true;
   };
 
-  await requestPlayback(client, args);
+  await requestPlayback(bot, args);
 
   assert.equal(released, 1);
   assert.equal(player.loop, false);
@@ -278,14 +279,14 @@ test("라이브가 대기열에 들어오면 반복을 푼다", async () => {
 
 test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () => {
   mockResolve = () => ok("곡A");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, baseArgs(client, guild, { query: "곡A", source: "/play" }));
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "곡A", source: "/play" }));
 
   assert.equal(result.success, true);
   assert.deepEqual(
-    client.embedCalls[0].trackData.tracks.map((t) => t.title),
+    bot.embedCalls[0].trackData.tracks.map((t) => t.title),
     ["곡A"],
   );
   assert.equal(resolverCalls.at(-1)?.query, "곡A");
@@ -294,14 +295,14 @@ test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () =>
 
 test("tracks 경로: 이미 해석된 트랙은 해석기를 거치지 않는다 (검색 선택)", async () => {
   const before = resolverCalls.length;
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, baseArgs(client, guild, { tracks: [track("선택곡")] }));
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { tracks: [track("선택곡")] }));
 
   assert.equal(result.success, true);
   assert.equal(resolverCalls.length, before, "해석기 미호출");
-  assert.equal(client.embedCalls[0].trackData.tracks[0].title, "선택곡");
+  assert.equal(bot.embedCalls[0].trackData.tracks[0].title, "선택곡");
 });
 
 test("받아 둔 음원이 있는 곡은 담을 때부터 그 음원을 잰 길이를 보인다(스포티파이는 장부가 기억하는 음원으로)", async () => {
@@ -312,21 +313,21 @@ test("받아 둔 음원이 있는 곡은 담을 때부터 그 음원을 잰 길�
   audioCache.recordDownloadComplete("yt:lenreq00001", audioCache.getFilePath("yt:lenreq00001"), 1, { title: "곡" }, { durationSec: 213.4 });
   const sp = "https://open.spotify.com/track/lenreq1";
   trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: yt, platform: "spotify", title: "곡" });
-  const client = makeClient();
+  const bot = makeBot();
   const spotifyTrack = { ...track("스포티파이 곡"), platform: "spotify", requestKey: sp, pageUrl: sp, audioUrl: undefined, duration: 205 };
   const fresh = { ...track("처음 듣는 곡"), duration: 190 };
 
-  await requestPlayback(client, baseArgs(client, makeGuild(), { tracks: [spotifyTrack, fresh] }));
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { tracks: [spotifyTrack, fresh] }));
 
-  const [a, b] = client.embedCalls[0].trackData.tracks;
+  const [a, b] = bot.embedCalls[0].trackData.tracks;
   assert.deepEqual({ duration: a.duration, durationSource: a.durationSource }, { duration: 213.4, durationSource: "measured" });
   assert.deepEqual({ duration: b.duration, durationSource: b.durationSource }, { duration: 190, durationSource: undefined }, "받아 둔 음원이 없으면 출처가 준 길이");
 });
 
 test("두 경로가 같은 결과 모양을 낸다", async () => {
   mockResolve = () => ok("곡A");
-  const c1 = makeClient();
-  const c2 = makeClient();
+  const c1 = makeBot();
+  const c2 = makeBot();
   const g = makeGuild();
 
   const a = await requestPlayback(c1, baseArgs(c1, g, { query: "곡A" }));
@@ -337,12 +338,12 @@ test("두 경로가 같은 결과 모양을 낸다", async () => {
 
 test("single: 재생목록이어도 첫 곡만 넣는다 (대시보드 '한 곡만')", async () => {
   mockResolve = () => ok("1번", "2번", "3번");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "리스트", single: true }));
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "리스트", single: true }));
 
-  const { trackData } = client.embedCalls[0];
+  const { trackData } = bot.embedCalls[0];
   assert.deepEqual(
     trackData.tracks.map((t) => t.title),
     ["1번"],
@@ -352,54 +353,54 @@ test("single: 재생목록이어도 첫 곡만 넣는다 (대시보드 '한 곡�
 
 test("single이 아니면 재생목록 전체가 간다", async () => {
   mockResolve = () => ok("1번", "2번", "3번");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "리스트" }));
-  assert.equal(client.embedCalls[0].trackData.tracks.length, 3);
-  assert.equal(client.embedCalls[0].trackData.isPlaylist, true);
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "리스트" }));
+  assert.equal(bot.embedCalls[0].trackData.tracks.length, 3);
+  assert.equal(bot.embedCalls[0].trackData.isPlaylist, true);
 });
 
 test("insertFirst가 코어로 전달된다", async () => {
   mockResolve = () => ok("곡A");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "곡A", insertFirst: true }));
-  assert.equal(client.embedCalls[0].trackData.insertFirst, true);
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "곡A", insertFirst: true }));
+  assert.equal(bot.embedCalls[0].trackData.insertFirst, true);
 });
 
 test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () => {
   mockResolve = () => ({ success: false, code: "no-song-result" });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, baseArgs(client, guild, { query: "없는곡" }));
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "없는곡" }));
 
   assert.equal(result.success ? null : result.code, "no-song-result");
   assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("no-song-result")));
-  assert.equal(client.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
+  assert.equal(bot.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
 test("곡 찾기가 던졌으면 그 까닭과 오류 종류를 넘긴다(입구가 종류로 알린다)", async () => {
   mockResolve = () => ({ success: false, code: "lookup-failed", error: networkError() });
-  const client = makeClient();
-  const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "끊긴 곡" }));
+  const bot = makeBot();
+  const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "끊긴 곡" }));
   assert.deepEqual(result, { success: false, code: "lookup-failed", kind: "network-error" });
 });
 
 test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대로 넘긴다", async () => {
   mockResolve = () => ({ success: false, code: "unsupported-link" });
-  const client = makeClient();
+  const bot = makeBot();
 
-  const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
+  const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
 
   assert.equal(result.success ? null : result.code, "unsupported-link");
   assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
 
   // 받을 수 없어 뺀 곡 수도 넘겨 안내에 쓴다
   mockResolve = () => ({ success: false, code: "nothing-playable", skipped: 4 });
-  const none = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "https://soundcloud.com/a/sets/b" }));
+  const none = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://soundcloud.com/a/sets/b" }));
   assert.deepEqual(none, { success: false, code: "nothing-playable", skipped: 4 });
   assert.match(none.success ? "" : plainText(addFailureMessage(none)), /^앞의 4곡이 전부/);
 });
@@ -407,31 +408,31 @@ test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대�
 // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남았다
 test("봇이 쉬는 서버에서 곡을 못 찾으면 플레이어를 만들지 않는다", async () => {
   mockResolve = () => ({ success: false, code: "no-song-result" });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, query: "없는곡", textChannel: makeChannel("t1"), voiceChannel: voiceOf("v1") });
+  const result = await requestPlayback(bot, { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, query: "없는곡", textChannel: makeChannel("t1"), voiceChannel: voiceOf("v1") });
 
   assert.equal(result.success, false);
-  assert.equal(client.players.has(guild.id), false);
+  assert.equal(bot.players.has(guild.id), false);
 });
 
 test("요청자는 정규화된 모양으로 코어에 들어간다 (대시보드 username undefined 회귀)", async () => {
   mockResolve = () => ok("곡A");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "곡A" }));
-  assert.deepEqual(client.embedCalls[0].requester, { id: "u1", username: "carl", tag: null });
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "곡A" }));
+  assert.deepEqual(bot.embedCalls[0].requester, { id: "u1", username: "carl", tag: null });
 });
 
 test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)", async () => {
   mockResolve = () => ok("곡A");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
 
-  await requestPlayback(client, baseArgs(client, guild, { query: "곡A" }));
-  const { responder } = client.embedCalls[0];
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "곡A" }));
+  const { responder } = bot.embedCalls[0];
   assert.ok(responder, "곡 요청은 늘 매체를 넘긴다");
   assert.equal(typeof responder.notifyQueued, "function");
   await responder.notifyQueued(frame({ body: "x" })); // 무동작이므로 던지지 않는다
@@ -441,11 +442,11 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
 
 // 곡 요청 줄들. 담기(queueTracks)를 부른 때의 로그 길이도 적는다
 async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { success: true }) {
-  const client = makeClient();
+  const bot = makeBot();
   let handledAt = -1;
-  fakeAdder(client, async () => ((handledAt = sink.buffer.length), outcome));
+  fakeAdder(bot, async () => ((handledAt = sink.buffer.length), outcome));
   const from = sink.buffer.length;
-  await requestPlayback(client, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, source: "/play", ...args } as PlaybackRequest);
+  await requestPlayback(bot, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, source: "/play", ...args } as PlaybackRequest);
   const all = sink.buffer.slice(from).filter((e) => e.sub === "play");
   const lines = all.filter((e) => e.level !== "debug");
   return { lines: lines.map((e) => `${e.level} ${e.text}`), debug: all.filter((e) => e.level === "debug").map((e) => e.text), requestBeforeHandling: handledAt < 0 || sink.buffer.indexOf(lines[0]) < handledAt };
@@ -508,35 +509,35 @@ test("텍스트 채널이 없으면 서버가 지정한 봇 전용 채널로 채
   mockResolve = () => ok("곡A");
   setGuild(GUILD_ID, { botChannel: "botCh" });
   const botChannel = makeChannel("botCh");
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild({ channels: [botChannel] });
-  client.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
+  bot.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
 
-  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
-  assert.equal(playerOf(client).textChannel, botChannel);
+  await requestPlayback(bot, { guild, requester: { id: "u1" }, query: "곡A", lookup });
+  assert.equal(playerOf(bot).textChannel, botChannel);
 });
 
 test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는다", async () => {
   mockResolve = () => ok("곡A");
   setGuild(GUILD_ID, { botChannel: null });
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild({ channels: [makeChannel("random")] });
-  client.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
+  bot.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
 
-  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
-  assert.equal(playerOf(client).textChannel, null);
+  await requestPlayback(bot, { guild, requester: { id: "u1" }, query: "곡A", lookup });
+  assert.equal(playerOf(bot).textChannel, null);
 });
 
 test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는다", async () => {
   mockResolve = () => ok("곡A");
   setGuild(GUILD_ID, { botChannel: "botCh" });
-  const client = makeClient();
+  const bot = makeBot();
   const given = makeChannel("given");
   const guild = makeGuild({ channels: [makeChannel("botCh")] });
-  client.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
+  bot.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
 
-  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given, lookup });
-  assert.equal(playerOf(client).textChannel, given);
+  await requestPlayback(bot, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given, lookup });
+  assert.equal(playerOf(bot).textChannel, given);
 });
 
 // ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
@@ -555,13 +556,13 @@ async function withLimits(queueMax: number, playlistMax: number, fn: () => Promi
 
 async function requestWith({ queued = 0, playing = false, single = false, resolve = () => ok("곡A") }: { queued?: number; playing?: boolean; single?: boolean; resolve?: () => LookupResult }) {
   mockResolve = resolve;
-  const client = makeClient();
-  const args = baseArgs(client, makeGuild(), { query: "목록", single });
-  const player = playerOf(client);
+  const bot = makeBot();
+  const args = baseArgs(bot, makeGuild(), { query: "목록", single });
+  const player = playerOf(bot);
   player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
   if (playing) player.currentTrack = track("now");
-  await requestPlayback(client, args);
-  return { limit: resolverCalls.at(-1)?.range?.limit, trackData: client.embedCalls[0]?.trackData };
+  await requestPlayback(bot, args);
+  return { limit: resolverCalls.at(-1)?.range?.limit, trackData: bot.embedCalls[0]?.trackData };
 }
 
 test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽", () =>
@@ -615,15 +616,15 @@ function stateAt(offset: number, extra: Partial<MoreState> = {}): MoreState {
 async function continueWith({ state, count, size = 300, shift = 0, queued = 0, source }: { state: MoreState; count: number; size?: number; shift?: number; queued?: number; source?: (range: Range) => Collection }) {
   mockCollection = source ?? listSource(size, { shift });
   collectionCalls.length = 0;
-  const client = makeClient();
+  const bot = makeBot();
   const guild = makeGuild();
-  seedPlayer(client);
-  const player = playerOf(client);
+  seedPlayer(bot);
+  const player = playerOf(bot);
   player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
   player.currentTrack = track("now");
   const progress: Array<[number, number]> = [];
-  const result = await continueCollection(client, { guild, requester: { id: "u1" }, state, count, lookup, onProgress: (done, want) => progress.push([done, want]) });
-  return { result, progress, added: client.embedCalls[0]?.trackData };
+  const result = await continueCollection(bot, { guild, requester: { id: "u1" }, state, count, lookup, onProgress: (done, want) => progress.push([done, want]) });
+  return { result, progress, added: bot.embedCalls[0]?.trackData };
 }
 
 // 이어 넣은 결과(넣은 수 · 다음 위치). 넣기 전에 거절됐으면 실패
@@ -666,8 +667,8 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
 
 test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 받을 수 없는 곡뿐이다(뺀 곡 수) · 받은 곡이 없다", () =>
   withLimits(250, 50, async () => {
-    const client = makeClient();
-    assert.deepEqual(await continueCollection(client, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "ended-while-adding" });
+    const bot = makeBot();
+    assert.deepEqual(await continueCollection(bot, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "ended-while-adding" });
 
     const scState: MoreState = { kind: "scs", listId: "2284916349", offset: 10, anchorId: "3009", insertFirst: false, requesterId: null };
     const previews = await continueWith({ state: scState, count: 50, source: ({ offset = 0 }: Range) => ({ tracks: [], total: 41, nextOffset: offset + 10, skipped: 10 }) });
@@ -753,8 +754,8 @@ test("이어 넣기(사운드클라우드 세트): 한 구간만 읽고, 뺀 곡
 
 test("재생목록을 넣으면 이어 받을 상태를 결과에 싣는다", async () => {
   mockResolve = () => ({ ...ok("1", "2"), collection: "playlist", total: 120, nextOffset: 2, tracks: [track("1"), { ...track("2"), id: idOf(1) }] });
-  const client = makeClient();
-  const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: `https://open.spotify.com/playlist/${SP}` }));
+  const bot = makeBot();
+  const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: `https://open.spotify.com/playlist/${SP}` }));
   assert.equal(result.more?.offset, 2);
   assert.equal(result.more?.remaining, 118);
 });

@@ -13,10 +13,10 @@ const exported: GuildCommand = {
     .setDescriptionLocalizations({ ko: "대기열에서 선택한 곡을 빼요" })
     .addIntegerOption((option) => option.setName("position").setNameLocalizations({ ko: "번호" }).setDescription("Position in queue (e.g. 1 = next song)").setDescriptionLocalizations({ ko: "대기열 순번 (1 = 다음 곡)" }).setRequired(true).setMinValue(1)),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const { guild, member } = interaction;
     // 사람은 1부터 센다
-    const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
+    const r = await controls.remove(bot.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
     if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
     await toAll(interaction, replies.removed(r.left, member), LIFETIME.result);

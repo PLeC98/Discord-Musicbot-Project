@@ -30,7 +30,7 @@ class TestPanels extends NowPlayingPanel {
   sendAs: (() => Promise<Sent>) | null = null;
 
   constructor(client: Client, webhook: WebhookClient, panelStore: PanelStore) {
-    super(client, { panelStore });
+    super(client, new Map(), { panelStore });
     this.webhook = webhook;
   }
   async getOrCreateWebhook() {
@@ -77,7 +77,6 @@ function makeSetup(state: State = {}) {
     },
   };
   const client = fake<Client>({
-    players: new Map(),
     user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" },
   });
   const mem = new TestPanels(client, webhook, panelStore);

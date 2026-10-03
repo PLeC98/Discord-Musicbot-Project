@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
-import { fake } from "../helpers/fake.ts";
+import { fake, fakeBot } from "../helpers/fake.ts";
 import { withConfig } from "../helpers/config.ts";
 import { openGuild } from "../../src/dashboard/guild-access.ts";
 
@@ -22,8 +22,9 @@ function setup({ ready = true, guild = true, member = true, viewAs }: { ready?: 
     },
   };
   const player = { guildId: "g1" };
-  const client = { isReady: () => ready, guilds: { cache: new Map(guild ? [["g1", g]] : []) }, players: new Map([["g1", player]]) };
-  const req = fake<Request<{ guildId: string }>>({ app: { locals: { discordClient: client } }, params: { guildId: "g1" }, session: { user: { id: "u1" }, viewAs } });
+  const client = { isReady: () => ready, guilds: { cache: new Map(guild ? [["g1", g]] : []) } };
+  const bot = fakeBot({ client, players: new Map([["g1", player]]) });
+  const req = fake<Request<{ guildId: string }>>({ app: { locals: { bot } }, params: { guildId: "g1" }, session: { user: { id: "u1" }, viewAs } });
   const sent: { status?: number; body?: unknown } = {};
   const res = fake<Response>({
     status(code: number) {
@@ -32,7 +33,7 @@ function setup({ ready = true, guild = true, member = true, viewAs }: { ready?: 
       return chain;
     },
   });
-  return { req, res, sent, fetched, client, g, player };
+  return { req, res, sent, fetched, bot, g, player };
 }
 
 const codeOf = (sent: { status?: number; body?: unknown }) => [sent.status, (sent.body as { code: string }).code];
@@ -58,10 +59,10 @@ test("세션 사용자가 지금 그 서버 멤버가 아니면 403", async () =
 });
 
 test("멤버면 응답을 쓰지 않고 서버 · 플레이어 · 멤버를 돌려준다. 조작하는 사람은 그 멤버다", async () => {
-  const { req, res, sent, client, g, player } = setup();
+  const { req, res, sent, bot, g, player } = setup();
   const got = await openGuild(req, res, "g1");
   assert.deepEqual(sent, {});
-  assert.equal(got?.client, client);
+  assert.equal(got?.bot, bot);
   assert.equal(got?.guild, g);
   assert.equal(got?.player, player);
   assert.equal((got?.member as unknown as Member).id, "u1");

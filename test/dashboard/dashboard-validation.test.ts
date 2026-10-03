@@ -11,10 +11,10 @@ const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import type { Client } from "discord.js";
+import type { BotContext } from "../../src/app/bot-context.ts";
 import type { Player } from "../../src/player/player.ts";
 import type { Lookup } from "../../src/usecases/add-tracks.ts";
-import { fake, fakePlayer } from "../helpers/fake.ts";
+import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
@@ -107,14 +107,14 @@ const embedCalls: [string, { tracks: object[]; insertAfterId?: string | null }][
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map<string, Player>(),
-  panels: {
-    panelChannel: async (): Promise<unknown> => null,
-    updatePlaying: async () => {},
-  },
 };
+const panels = {
+  panelChannel: async (): Promise<unknown> => null,
+  updatePlaying: async () => {},
+};
+const bot = fakeBot({ client, players: new Map<string, Player>(), panels });
 // 곡 담기는 받은 것만 적는다
-fakeAdder(client, async (_client, guildId, trackData) => {
+fakeAdder(bot, async (_bot, guildId, trackData) => {
   embedCalls.push([guildId, trackData]);
   return { success: true };
 });
@@ -126,7 +126,7 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use(signedInAs(() => ({ id: "owner", username: "owner", guilds: [] })));
-  app.locals.discordClient = fake<Client>(client);
+  app.locals.bot = bot;
   app.locals.lookup = lookup;
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
@@ -140,7 +140,7 @@ const req = (method: string, urlPath: string, body?: unknown) => requestJson<Rep
 
 function freshPlayer() {
   player = makePlayer();
-  client.players.set(GUILD_ID, player);
+  bot.players.set(GUILD_ID, player);
   resolverCalls.length = 0;
   embedCalls.length = 0;
   return player;
@@ -216,8 +216,7 @@ test("queue delete/move: '1junk'·소수 인덱스는 400, 정수만 통과", as
 test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면으로 알린다. 누가 했나는 (대시보드)", async () => {
   freshPlayer();
   const sent: string[] = [];
-  const panels = client.panels;
-  client.panels = { ...panels, panelChannel: async () => ({ send: async (p: { components: Array<{ toJSON(): unknown }> }) => (sent.push(textsOf(p).join("\n")), { id: "m1", delete: async () => {} }) }) };
+  bot.panels = fake<BotContext["panels"]>({ ...panels, panelChannel: async () => ({ send: async (p: { components: Array<{ toJSON(): unknown }> }) => (sent.push(textsOf(p).join("\n")), { id: "m1", delete: async () => {} }) }) });
   try {
     const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 });
     assert.equal(r.status, 200);
@@ -231,7 +230,7 @@ test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면�
     await new Promise(setImmediate);
     assert.equal(sent.length, 1, "거절한 조작은 알리지 않는다");
   } finally {
-    client.panels = panels;
+    bot.panels = fake<BotContext["panels"]>(panels);
   }
 });
 

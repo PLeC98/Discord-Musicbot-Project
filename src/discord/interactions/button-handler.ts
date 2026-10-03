@@ -18,6 +18,7 @@ import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
+import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
@@ -46,8 +47,8 @@ const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () =>
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
-async function handlePanelButton(interaction: Press) {
-  const player = interaction.client.players.get(interaction.guild.id);
+async function handlePanelButton(interaction: Press, { players }: BotContext) {
+  const player = players.get(interaction.guild.id);
   if (!player) return noticeSelf(interaction, errors.notice("no-song"));
 
   const { action, rest } = partsOf(interaction.customId);
@@ -71,8 +72,8 @@ async function handleQueue(interaction: Press, player: Player) {
 }
 
 // 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 지우고 그렇다고 알린다
-async function handleQueuePage(interaction: Press) {
-  const player = interaction.client.players.get(interaction.guild.id);
+async function handleQueuePage(interaction: Press, { players }: BotContext) {
+  const player = players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
   if (!info || info.queue.length === 0) {
     return noticeInstead(interaction, player ? errors.notice("queue-empty") : errors.notice("no-song"));
@@ -115,20 +116,20 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
   }
 }
 
-function handleHelpRefresh(interaction: Press) {
-  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: errors.notice("refresh-failed") });
+function handleHelpRefresh(interaction: Press, bot: BotContext) {
+  return refreshMessage(interaction, (client) => buildHelpEmbed(client, bot), { failed: "명령어 도움말 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
-async function handleSystemRefresh(interaction: Press) {
+async function handleSystemRefresh(interaction: Press, { players }: BotContext) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
     return await noticeSelf(interaction, errors.notice("must-owner"));
   }
-  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
+  return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
 // 검색 결과 고르기 · 취소. 검색한 사람만 누를 수 있다. 고른 영상은 다시 찾는다(받아 둔 곡이면 캐시에서)
-async function handleSearchInteraction(interaction: Press, client: Client<true>) {
+async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   const { member, guild } = interaction;
   const { action, rest } = partsOf(interaction.customId);
   const [userId, position, videoId = ""] = rest;
@@ -164,7 +165,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     }),
   );
 
-  const result = await requestPlayback(client, {
+  const result = await requestPlayback(bot, {
     guild,
     requester: member,
     query: `https://www.youtube.com/watch?v=${videoId}`,
@@ -182,7 +183,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
 const routes: Route[] = [
-  route("button", customId(SEARCH, ""), (it) => handleSearchInteraction(it, it.client)),
+  route("button", customId(SEARCH, ""), handleSearchInteraction),
   route("button", customId(HELP, "refresh"), handleHelpRefresh),
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),

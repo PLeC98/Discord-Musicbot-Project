@@ -1,11 +1,12 @@
 import type { HelpEntry } from "../ui/help-lines.ts";
-import { REST, Routes, type ChatInputCommandInteraction, type Client, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
+import { REST, Routes, type ChatInputCommandInteraction, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import config from "../config/index.ts";
 import { COMMANDS } from "../discord/commands/index.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import type { BotContext } from "./bot-context.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
 /** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
@@ -14,9 +15,9 @@ type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONB
  * 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다.
  * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(다음 기동의 배포에서)
  */
-type GuildCommand = { data: CommandData; help: HelpEntry | null; anywhere?: false; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>): unknown };
+type GuildCommand = { data: CommandData; help: HelpEntry | null; anywhere?: false; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext): unknown };
 /** 서버 밖(DM)에서도 쓰는 명령 */
-type AnywhereCommand = { data: CommandData; help: HelpEntry | null; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, client: Client<true>): unknown };
+type AnywhereCommand = { data: CommandData; help: HelpEntry | null; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, bot: BotContext): unknown };
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
 type SlashCommand = GuildCommand | AnywhereCommand;
 

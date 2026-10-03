@@ -3,7 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import express, { type NextFunction, type Request, type RequestHandler, type Response } from "express";
-import type { Client } from "discord.js";
+import type { BotContext } from "../app/bot-context.ts";
 import session from "express-session";
 import cors from "cors";
 import path from "path";
@@ -80,7 +80,7 @@ function createSessionMiddleware() {
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼). 조립이 넘긴다
-function createApp(client: Client, { stream, deployCommands, sessionMiddleware = createSessionMiddleware() }: AppDeps) {
+function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware = createSessionMiddleware() }: AppDeps) {
   const app = express();
   const { host, url } = config.dashboard;
 
@@ -116,8 +116,8 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 
-  // 라우트에서 디스코드 클라이언트를 쓸 수 있게
-  app.locals.discordClient = client;
+  // 라우트에서 디스코드 클라이언트 · 플레이어 · 패널을 쓸 수 있게
+  app.locals.bot = bot;
   app.locals.deployCommands = deployCommands;
 
   // ── API 요청 제한 (express-rate-limit). 라우트 마운트보다 먼저 등록 ──
@@ -169,7 +169,7 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
 
   // 로그인 전 화면이 쓰는 공개 정보
   app.get("/api/bot", (req, res) => {
-    const botUser = client?.user;
+    const botUser = bot.client.user;
     if (!botUser) return sendProblem(res, "bot-not-ready");
     res.json({
       name: botUser.username,
@@ -185,8 +185,8 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
   return app;
 }
 
-function startDashboard(client: Client, { stream, deployCommands }: AppDeps) {
-  const app = createApp(client, { stream, deployCommands });
+function startDashboard(bot: BotContext, { stream, deployCommands }: AppDeps) {
+  const app = createApp(bot, { stream, deployCommands });
 
   const { port, host, url } = config.dashboard;
   const { line, warnings } = describeBinding(host, port, url);

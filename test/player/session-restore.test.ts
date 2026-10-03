@@ -148,11 +148,12 @@ function fakePlayerClass({ restoreFails = false } = {}) {
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 
-type PlayerClass = Parameters<typeof restoreSavedPlayers>[1];
+type PlayerClass = Parameters<typeof restoreSavedPlayers>[2];
 
+// 서버들을 아는 클라이언트와 빈 등록부
 function clientWith(guilds: Guild[], fetch: (id: string) => Promise<unknown> = async () => null) {
-  const players = new Map<string, unknown>();
-  return fake<Client>({ players, guilds: { cache: new Map(guilds.map((g) => [g.id, g])), fetch } });
+  const players = new Map<string, Player>();
+  return { client: fake<Client>({ guilds: { cache: new Map(guilds.map((g) => [g.id, g])), fetch } }), players };
 }
 
 const remaining = () =>
@@ -162,25 +163,25 @@ const remaining = () =>
 
 test("되살리기: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저장 상태로 되돌린다", async () => {
   saved("r1");
-  const client = clientWith([guildWith("r1")]);
+  const { client, players } = clientWith([guildWith("r1")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, FakePlayer);
+  await restoreSavedPlayers(client, players, FakePlayer);
 
   assert.equal(made.length, 1);
   assert.equal(made[0].voice.id, "vc1");
   assert.equal(made[0].text.id, "tc1");
   assert.deepEqual(made[0].calls, ["restore:r1"]);
-  assert.equal(client.players.get("r1"), made[0]);
+  assert.equal(players.get("r1"), made[0]);
   sessions().removeSession("r1");
 });
 
 test("되살리지 않기(짧게 끊긴 실행이 연달아): 플레이어를 만들지 않고 세션은 남긴다", async () => {
   saved("r9");
-  const client = clientWith([guildWith("r9")]);
+  const { client, players } = clientWith([guildWith("r9")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  assert.deepEqual(await restoreSavedPlayers(client, FakePlayer, { skip: true }), ["r9"], "세션이 있던 서버를 알린다(이어받기가 건드리지 않게)");
+  assert.deepEqual(await restoreSavedPlayers(client, players, FakePlayer, { skip: true }), ["r9"], "세션이 있던 서버를 알린다(이어받기가 건드리지 않게)");
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), ["r9"]);
@@ -189,10 +190,10 @@ test("되살리지 않기(짧게 끊긴 실행이 연달아): 플레이어를 �
 
 test("되살리기: 저장 상태를 못 되돌리면 플레이어를 세션 지움으로 버린다(등록부 빼기 · 세션 지우기는 버림이 한다)", async () => {
   saved("r2");
-  const client = clientWith([guildWith("r2")]);
+  const { client, players } = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
 
-  await restoreSavedPlayers(client, FakePlayer);
+  await restoreSavedPlayers(client, players, FakePlayer);
 
   assert.deepEqual(made[0].calls, ["restore:r2", "dispose:세션 복원 실패:remove"]);
   sessions().removeSession("r2");
@@ -201,10 +202,10 @@ test("되살리기: 저장 상태를 못 되돌리면 플레이어를 세션 지
 test("되살리기: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 지운다", async () => {
   saved("r3", { voice: null });
   saved("r4", { voice: "tc1", text: "vc1" }); // 서로 바뀐 종류
-  const client = clientWith([guildWith("r3"), guildWith("r4")]);
+  const { client, players } = clientWith([guildWith("r3"), guildWith("r4")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, FakePlayer);
+  await restoreSavedPlayers(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), []);
@@ -213,13 +214,13 @@ test("되살리기: 채널 기록이 없거나 채널이 음성 · 글자 채널
 test("되살리기: 서버가 사라졌으면 세션을 지우고, 잠깐 못 받은 것이면 남긴다", async () => {
   saved("gone1");
   saved("flaky1");
-  const client = clientWith([], async (id) => {
+  const { client, players } = clientWith([], async (id) => {
     if (id === "gone1") throw Object.assign(new Error("Unknown Guild"), { code: RESTJSONErrorCodes.UnknownGuild });
     throw new Error("네트워크");
   });
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, FakePlayer);
+  await restoreSavedPlayers(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), ["flaky1"]);
@@ -227,23 +228,23 @@ test("되살리기: 서버가 사라졌으면 세션을 지우고, 잠깐 못 �
 });
 
 test("되살리기: 저장 세션이 없으면 아무것도 안 한다", async () => {
-  const client = clientWith([]);
+  const { client, players } = clientWith([]);
   const { FakePlayer, made } = fakePlayerClass();
-  await restoreSavedPlayers(client, FakePlayer);
+  await restoreSavedPlayers(client, players, FakePlayer);
   assert.equal(made.length, 0);
 });
 
 test("되살리기: 기다리는 사이 그 서버에서 재생이 시작됐으면 건드리지 않는다", async () => {
   saved("r5");
-  const client = clientWith([guildWith("r5")]);
+  const { client, players } = clientWith([guildWith("r5")]);
   const live = fake<Player>({ live: true });
-  client.players.set("r5", live);
+  players.set("r5", live);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, FakePlayer);
+  await restoreSavedPlayers(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
-  assert.equal(client.players.get("r5"), live, "지금 도는 플레이어를 바꿔 끼우지 않는다");
+  assert.equal(players.get("r5"), live, "지금 도는 플레이어를 바꿔 끼우지 않는다");
   assert.deepEqual(remaining(), ["r5"], "세션 기록도 그 플레이어의 것이다");
   sessions().removeSession("r5");
 });

@@ -10,7 +10,7 @@ import * as tempStore from "../helpers/temp-store.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 
-const newManager = () => new NowPlayingPanel(fake<Client>({ players: new Map() }));
+const newManager = () => new NowPlayingPanel(fake<Client>({}), new Map());
 
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
 // 직접 링크는 thumbnail이 null이라 now-playing 갱신이 매번 CombinedError로 죽었다

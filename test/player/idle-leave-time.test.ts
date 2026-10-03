@@ -94,7 +94,7 @@ class RecordingPanel extends NowPlayingPanel {
 }
 
 test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그린다", async () => {
-  const panels = new RecordingPanel(fake<Client>({ players: new Map() }));
+  const panels = new RecordingPanel(fake<Client>({}), new Map());
   const idlePlayer = fake<Player>(player());
 
   panels.idleViews.set("g", { reason: "queue-end", leavesAt: 1000 });

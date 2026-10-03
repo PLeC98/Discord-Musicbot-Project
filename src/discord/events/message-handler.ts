@@ -19,7 +19,7 @@ const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지
 const exported: ClientEvent<Events.MessageCreate> = {
   name: Events.MessageCreate,
 
-  async execute(message) {
+  async execute(bot, message) {
     if (message.author.bot) return;
     if (!message.inGuild()) return;
 
@@ -31,7 +31,6 @@ const exported: ClientEvent<Events.MessageCreate> = {
     const botChannelId = await GuildSettingsManager.getBotChannel(guildId);
     if (!botChannelId || message.channel.id !== botChannelId) return;
 
-    const client = message.client;
     const member = message.member;
     if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)
 
@@ -60,7 +59,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     );
 
     try {
-      const result = await requestPlayback(client, {
+      const result = await requestPlayback(bot, {
         guild: message.guild,
         requester: member,
         query: content,

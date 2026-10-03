@@ -12,7 +12,7 @@ import { screenOf, textOf } from "../helpers/cv2.ts";
 const temp = openTempStore("dj-role-");
 after(() => temp.close());
 const settings = await import("../../src/store/guild-settings.ts");
-const { fakeWith } = await import("../helpers/fake.ts");
+const { fakeWith, fakeBot } = await import("../helpers/fake.ts");
 
 // 저장된 DJ 역할을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
 const store = {
@@ -78,7 +78,7 @@ function fakeInteraction({ type, customId, values = [] as string[], messageId = 
 
 test("권한 없는 유저는 거부 (심층 방어)", async () => {
   const ix = fakeInteraction({ type: "button", customId: "djrole:save", canManage: false });
-  await interactionCreate.execute(ix);
+  await interactionCreate.execute(fakeBot(), ix);
   assert.match(textOf(ix.repliedWith), /서버 관리 권한/);
 });
 
@@ -86,12 +86,12 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
   store.djRoles.delete("g1");
 
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1", "r2"], messageId: "mA" });
-  await interactionCreate.execute(select);
+  await interactionCreate.execute(fakeBot(), select);
   assert.equal(select.deferredUpdate, true, "선택은 저장하지 않고 보류만 (deferUpdate)");
   assert.equal(store.djRoles.has("g1"), false, "저장 전에는 미반영");
 
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mA" });
-  await interactionCreate.execute(save);
+  await interactionCreate.execute(fakeBot(), save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1", "r2"]);
   assert.deepEqual([save.updatedWith, save.deleted], [null, true], "설정 화면(본인)은 지운다");
   assert.equal(screenOf(save.sentWith).rows, 0, "모두에게 보내는 결과에는 메뉴 · 버튼이 없다");
@@ -101,10 +101,10 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
 
 test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 지우고 본인에게만 알린다", async () => {
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1"], messageId: "mF" });
-  await interactionCreate.execute(select);
+  await interactionCreate.execute(fakeBot(), select);
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mF" });
   // 저장이 실패하게 서버 설정 표를 잠깐 치운다
-  await whenSettingsBroken(() => interactionCreate.execute(save));
+  await whenSettingsBroken(() => interactionCreate.execute(fakeBot(), save));
   assert.equal(save.updatedWith, null);
   assert.deepEqual([save.deferredUpdate, save.deleted], [true, true]);
   assert.match(textOf(save.followedWith), /### ❌ 저장하지 못했어요/);
@@ -113,7 +113,7 @@ test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 
 test("선택 없이 저장: 현재 설정 유지 (no-op에 가깝게 재저장)", async () => {
   store.djRoles.set("g1", ["r1"]);
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mB" });
-  await interactionCreate.execute(save);
+  await interactionCreate.execute(fakeBot(), save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1"]);
 });
 
@@ -121,9 +121,9 @@ test("전부 해제하고 저장: 모두가 조작", async () => {
   store.djRoles.set("g1", ["r1"]);
 
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: [], messageId: "mC" });
-  await interactionCreate.execute(select);
+  await interactionCreate.execute(fakeBot(), select);
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mC" });
-  await interactionCreate.execute(save);
+  await interactionCreate.execute(fakeBot(), save);
 
   assert.equal(store.djRoles.has("g1"), false);
   assert.match(screenOf(save.sentWith).title, /DJ 역할을 지정하지 않았어요/);
@@ -132,9 +132,9 @@ test("전부 해제하고 저장: 모두가 조작", async () => {
 
 test("선택~저장 사이 삭제된 역할은 걸러서 저장", async () => {
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1", "deleted"], messageId: "mD" });
-  await interactionCreate.execute(select);
+  await interactionCreate.execute(fakeBot(), select);
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mD" });
-  await interactionCreate.execute(save);
+  await interactionCreate.execute(fakeBot(), save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1"]);
 });
 
@@ -142,9 +142,9 @@ test("취소: 보류 선택 폐기, 설정 무변경", async () => {
   store.djRoles.set("g1", ["r1"]);
 
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r2"], messageId: "mE" });
-  await interactionCreate.execute(select);
+  await interactionCreate.execute(fakeBot(), select);
   const cancel = fakeInteraction({ type: "button", customId: "djrole:cancel", messageId: "mE" });
-  await interactionCreate.execute(cancel);
+  await interactionCreate.execute(fakeBot(), cancel);
 
   assert.deepEqual(store.djRoles.get("g1"), ["r1"], "설정 무변경");
   assert.match(screenOf(cancel.updatedWith).title, /취소/);
@@ -153,17 +153,17 @@ test("취소: 보류 선택 폐기, 설정 무변경", async () => {
 
   // 취소 후 저장을 눌러도(다른 세션 가정) 폐기된 선택이 부활하지 않음
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mE" });
-  await interactionCreate.execute(save);
+  await interactionCreate.execute(fakeBot(), save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1"]);
 });
 
 test("메시지별 보류 분리: 다른 메시지의 선택이 섞이지 않음", async () => {
   store.djRoles.delete("g1");
 
-  await interactionCreate.execute(fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1"], messageId: "mF" }));
-  await interactionCreate.execute(fakeInteraction({ type: "select", customId: "djrole:select", values: ["r2"], messageId: "mG" }));
+  await interactionCreate.execute(fakeBot(), fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1"], messageId: "mF" }));
+  await interactionCreate.execute(fakeBot(), fakeInteraction({ type: "select", customId: "djrole:select", values: ["r2"], messageId: "mG" }));
 
   const saveF = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mF" });
-  await interactionCreate.execute(saveF);
+  await interactionCreate.execute(fakeBot(), saveF);
   assert.deepEqual(store.djRoles.get("g1"), ["r1"], "mF의 선택만 반영");
 });

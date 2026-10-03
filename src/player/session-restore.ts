@@ -4,6 +4,7 @@ const log = logger.child({ category: "session" });
 import { sessions, type RestoredSession, type SessionState } from "../store/player-sessions.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
+import type { PlayerSeats } from "./registry.ts";
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -41,12 +42,14 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
 
 // 기동 때 저장된 재생 세션을 모두 되살린다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
 type PlayerClass = typeof Player;
+/** 서버마다의 플레이어. 되살린 플레이어를 여기에 올린다(되살리는 동안 들어온 명령이 같은 플레이어를 보게 먼저 올린다) */
+type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
  * skip: 이번 기동은 되살리지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
  * 돌려주는 것: 저장된 세션이 있던 서버 ID(되살렸든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
-async function restoreSavedPlayers(client: Client, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
+async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
   const saved = sessions().loadAll();
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
@@ -59,7 +62,7 @@ async function restoreSavedPlayers(client: Client, PlayerCtor: PlayerClass, { sk
 
   for (const record of saved) {
     try {
-      await restoreOne(client, PlayerCtor, record);
+      await restoreOne(client, players, PlayerCtor, record);
     } catch (error) {
       log.error(`서버 ID ${record.guildId} 세션 복원 중 오류:`, messageOf(error));
       sessions().removeSession(record.guildId);
@@ -68,7 +71,7 @@ async function restoreSavedPlayers(client: Client, PlayerCtor: PlayerClass, { sk
   return touched;
 }
 
-async function restoreOne(client: Client, PlayerCtor: PlayerClass, record: RestoredSession) {
+async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerClass, record: RestoredSession) {
   const { guildId } = record;
   const { guild, gone } = await resolveGuildForRestore(client, guildId);
   if (!guild) {
@@ -82,7 +85,7 @@ async function restoreOne(client: Client, PlayerCtor: PlayerClass, record: Resto
 
   // 기다리는 사이 사람이 이 서버에서 재생을 시작했으면 그쪽이 이긴다. 세션 기록도 이미 그 플레이어가 쓰고 있어 건드리지 않는다
   const alreadyPlaying = () => {
-    if (!client.players.has(guildId)) return false;
+    if (!players.has(guildId)) return false;
     log.info(`서버 ${guild.name}은(는) 이미 재생 중이라 저장 세션 복원을 건너뜁니다`);
     return true;
   };
@@ -96,7 +99,7 @@ async function restoreOne(client: Client, PlayerCtor: PlayerClass, record: Resto
   }
 
   const player = new PlayerCtor(guild, channels.text, channels.voice);
-  client.players.set(guildId, player);
+  players.set(guildId, player);
   try {
     const outcome = await player.persistence.restoreFromState(record);
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
@@ -121,9 +124,9 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
 }
 
 /** 서버 하나의 저장된 세션을 되살린다(서버 하나 다시 켜기). 세션이 없으면 아무것도 안 한다 */
-async function restoreGuild(client: Client, PlayerCtor: PlayerClass, guildId: string) {
+async function restoreGuild(client: Client, players: Registry, PlayerCtor: PlayerClass, guildId: string) {
   const record = sessions().load(guildId);
-  if (record) await restoreOne(client, PlayerCtor, record);
+  if (record) await restoreOne(client, players, PlayerCtor, record);
 }
 
 export { resolveGuildForRestore, restoreSavedPlayers, restoreGuild, ATTEMPTS, RETRY_DELAY_MS };

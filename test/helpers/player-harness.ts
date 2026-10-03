@@ -190,10 +190,7 @@ const QueueWarmer = (await import("../../src/player/queue-warmer.ts")).QueueWarm
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
 const playerEvents = await import("../../src/player/events.ts");
 // 운영처럼 버려진 플레이어는 등록부가 뺀다(그 서버에 이 플레이어가 아직 있을 때만). 서버마다 등록부가 따로라 알림은 여기서 한 번만 듣는다
-playerEvents.on("disposed", (player) => {
-  const players = player.guild.client.players as Map<string, unknown>;
-  if (players.get(player.guild.id) === player) players.delete(player.guild.id);
-});
+playerEvents.on("disposed", (player) => registryOf(player)?.forget(player));
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 시험은 emit 으로 상태를 흉내 낸다
@@ -370,8 +367,13 @@ const fakes: Partial<Boundary> = {
 Player.useBoundary(fakes);
 
 // ── 6. 도우미 ────────────────────────────────────────────────────────
+// 서버마다의 등록부. 운영에서는 조립이 하나 만들어 넘기고, 하네스는 가짜 서버마다 하나를 둔다
+const registries = new WeakMap<object, InstanceType<typeof PlayerRegistry>>();
+/** 이 플레이어의 서버 등록부 */
+const registryOf = (player: Pick<Player, "guild">) => registries.get(player.guild);
+
 function fakeGuild(id = "g1"): Guild {
-  const client = { players: new PlayerRegistry(), user: { id: "bot" }, guilds: { fetch: async () => null } };
+  const client = { user: { id: "bot" }, guilds: { fetch: async () => null } };
   const guild = {
     id,
     name: `서버 ${id}`,
@@ -380,6 +382,7 @@ function fakeGuild(id = "g1"): Guild {
     members: { me: { user: { id: "bot" }, id: "bot" } },
     voiceAdapterCreator: () => ({}),
   };
+  registries.set(guild, new PlayerRegistry());
   return guild as unknown as Guild;
 }
 
@@ -399,7 +402,7 @@ function makePlayer<P extends Player = Player>({ connected = true, guildId = "g1
   const voice = { id: "voice1", name: "voice" } as unknown as VoiceBasedChannel;
   const Cls = as ?? (Player as unknown as PlayerClass<P>);
   const player = new Cls(guild, text, voice);
-  guild.client.players.set(guild.id, player);
+  registryOf(player)?.set(guild.id, player);
   if (connected) player.connection = fakeConnection();
   return player;
 }
@@ -453,5 +456,5 @@ const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | nul
 /** 플레이어의 가짜 오디오 플레이어. 시험이 멈춘 횟수 · 튼 것을 본다 */
 const fakeAudioOf = (player: Player) => player.audioPlayer as unknown as FakeAudioPlayer;
 
-export { Player, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, TMP };
+export { Player, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, registryOf, TMP };
 export type { FakeChild, FakeResource, Behavior };

@@ -12,10 +12,10 @@ const exported: GuildCommand = {
     .setDescriptionLocalizations({ ko: "대기열을 보여줘요" })
     .addIntegerOption((option) => option.setName("page").setNameLocalizations({ ko: "페이지" }).setDescription("Page number (default: 1)").setDescriptionLocalizations({ ko: "페이지 번호 (기본값: 1)" }).setRequired(false).setMinValue(1)),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const { guild } = interaction;
 
-    const player = client.players.get(guild.id);
+    const player = bot.players.get(guild.id);
     if (!player) {
       return noticeSelf(interaction, errors.notice("no-song"));
     }

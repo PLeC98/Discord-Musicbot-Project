@@ -19,8 +19,8 @@ const exported: GuildCommand = {
         .addChoices({ name: "Off", name_localizations: { ko: "끔" }, value: "off" }, { name: "Track (repeat current)", name_localizations: { ko: "한 곡 반복" }, value: "track" }, { name: "Queue (repeat all)", name_localizations: { ko: "대기열 반복" }, value: "queue" }),
     ),
 
-  async execute(interaction, client) {
-    const player = client.players.get(interaction.guild.id);
+  async execute(interaction, bot) {
+    const player = bot.players.get(interaction.guild.id);
     const option = interaction.options.getString("mode");
     // 모드를 안 고르면 반복 버튼처럼 다음 모드로
     const mode = option ? (option === "off" ? false : option) : controls.nextLoopMode(player?.loop ?? false);

@@ -2,7 +2,6 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Client } from "discord.js";
 import type { Request } from "express";
 import { announcer, announceVolume, dashboardActor, dashboardResponder } from "../../src/dashboard/discord-notice.ts";
 import { LIFETIME } from "../../src/ui/delivery.ts";
@@ -10,7 +9,7 @@ import { frame } from "../../src/ui/frame.ts";
 import { VOLUME_SETTLE_MS } from "../../src/usecases/controls.ts";
 import type { Player } from "../../src/player/player.ts";
 import { textsOf } from "../helpers/cv2.ts";
-import { fake } from "../helpers/fake.ts";
+import { fake, fakeBot } from "../helpers/fake.ts";
 
 type Sent = { components: Array<{ toJSON(): unknown }> };
 
@@ -27,7 +26,7 @@ function world(found = true) {
     },
   };
   const player = fake<Player>({ guild: { id: "g1" } });
-  const client = fake<Client>({
+  const bot = fakeBot({
     players: new Map([["g1", player]]),
     panels: {
       panelChannel: async () => {
@@ -36,7 +35,7 @@ function world(found = true) {
       },
     },
   });
-  return { client, player, sent, deleted, lookups: () => lookups };
+  return { bot, player, sent, deleted, lookups: () => lookups };
 }
 
 const settle = () => new Promise(setImmediate);
@@ -48,7 +47,7 @@ test("누가 했나: 로그인한 사람의 멘션 뒤에 (대시보드)", () =>
 test("조작 안내: 패널 채널에 보내고 수명 뒤 지운다. 채널은 알리기 전에 찾아 둔다(정지 뒤에는 플레이어가 없다)", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const w = world();
-  const announce = announcer(w.client, w.player);
+  const announce = announcer(w.bot, w.player);
   assert.equal(w.lookups(), 1, "만들 때 찾는다");
   announce(frame({ title: "결과" }), LIFETIME.farewell);
   await settle();
@@ -63,9 +62,9 @@ test("조작 안내: 패널 채널에 보내고 수명 뒤 지운다. 채널은 
 
 test("조작 안내: 플레이어나 패널 채널이 없으면 알리지 않는다", async () => {
   const none = world();
-  announcer(none.client, null)(frame({ title: "결과" }));
+  announcer(none.bot, null)(frame({ title: "결과" }));
   const lost = world(false);
-  announcer(lost.client, lost.player)(frame({ title: "결과" }));
+  announcer(lost.bot, lost.player)(frame({ title: "결과" }));
   await settle();
   assert.deepEqual([none.sent, none.lookups(), lost.sent], [[], 0, []]);
 });
@@ -91,7 +90,7 @@ test("볼륨: 잇달아 바꾸면 멈춘 뒤 한 번, 처음 값 → 마지막 �
 test("곡 넣기: 담은 안내를 그때의 패널 채널에 잠깐 보인다. 자리표시자는 없다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const w = world();
-  const responder = dashboardResponder(w.client, "g1");
+  const responder = dashboardResponder(w.bot, "g1");
   assert.equal(w.lookups(), 0, "곡을 넣기 전에는 찾지 않는다(글자 채널은 코어가 정한다)");
   await responder.notifyQueued(frame({ title: "담았어요" }));
   await responder.dismissPlaceholder();
@@ -101,6 +100,6 @@ test("곡 넣기: 담은 안내를 그때의 패널 채널에 잠깐 보인다. 
   assert.deepEqual(w.deleted, ["### 담았어요"]);
 
   const empty = world();
-  await dashboardResponder(empty.client, "없는 서버").notifyQueued(frame({ title: "담았어요" }));
+  await dashboardResponder(empty.bot, "없는 서버").notifyQueued(frame({ title: "담았어요" }));
   assert.deepEqual(empty.sent, []);
 });

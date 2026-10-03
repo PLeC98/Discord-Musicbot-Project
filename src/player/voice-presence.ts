@@ -3,8 +3,9 @@
 import * as playerEvents from "./events.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
+import type { PlayerSeats } from "./registry.ts";
 
-async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState: VoiceState) {
+async function onVoiceStateUpdate(client: Client, players: Pick<PlayerSeats, "get">, oldState: VoiceState, newState: VoiceState) {
   const guild = oldState.guild;
 
   // 채널 이동은 대시보드의 "봇 부르기 / 곡 추가 / 재생 조작" 노출 조건을 바꾼다.
@@ -12,7 +13,7 @@ async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState
   // 마이크 음소거·화면 공유 등도 같은 이벤트로 오지만 노출 조건과 무관하므로 채널이 바뀔 때만.
   if (oldState.channelId !== newState.channelId) playerEvents.touched(guild.id);
 
-  const player = client.players.get(guild.id);
+  const player = players.get(guild.id);
   if (!player) return;
 
   const botId = guild.members.me?.id ?? client.user?.id;

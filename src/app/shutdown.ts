@@ -37,11 +37,11 @@ const STATUS_CLEAR_MS = 2000;
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
 
-/** 종료할 때 쓰는 클라이언트 칸 */
-type ShutdownClient = { players: Iterable<readonly [string, Saver | null]>; guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown };
+/** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름 · 내리기)와 서버마다의 플레이어 */
+type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]> };
 
 /** 종료 신호에 처리기를 건다 */
-function installShutdown(client: ShutdownClient, { potServer, logFile, ...boundary }: ShutdownDeps) {
+function installShutdown({ client, players }: ShutdownBot, { potServer, logFile, ...boundary }: ShutdownDeps) {
   const { proc, voiceConnections, killAll, exit, record } = { ...REAL, ...boundary };
 
   let shuttingDown = false;
@@ -52,7 +52,7 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
 
     // 켜져 있는 플레이어의 세션을 먼저 저장한다
     const saves = [];
-    for (const [guildId, player] of client.players) {
+    for (const [guildId, player] of players) {
       if (!player) continue;
       saves.push(player.persistence.persistState("shutdown").catch((err: unknown) => log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err)));
     }
@@ -60,14 +60,14 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
 
     // 음성 채널에는 남는다(짧은 재시작이면 나갔다 들어오지 않고 이어 튼다). 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 상태 문구만 지운다
     const clears = [];
-    for (const [, player] of client.players) if (player) clears.push(player.updateVoiceStatus("").catch((error: unknown) => log.warn(`음성 채널 상태 지우기 실패: ${messageOf(error)}`)));
+    for (const [, player] of players) if (player) clears.push(player.updateVoiceStatus("").catch((error: unknown) => log.warn(`음성 채널 상태 지우기 실패: ${messageOf(error)}`)));
     let cap: NodeJS.Timeout | undefined;
     await Promise.race([Promise.all(clears), new Promise((done) => (cap = setTimeout(done, STATUS_CLEAR_MS)))]);
     clearTimeout(cap);
 
     // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
     const reason = `프로세스 종료(${signal})`;
-    for (const [, player] of client.players) player?.voice.release(reason);
+    for (const [, player] of players) player?.voice.release(reason);
     // 레지스트리에 없던 연결도 채널에는 남긴 채 정리한다
     for (const [guildId, connection] of voiceConnections()) {
       const name = client.guilds.cache.get(guildId)?.name ?? guildId;

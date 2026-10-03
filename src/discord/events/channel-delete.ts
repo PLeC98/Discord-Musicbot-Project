@@ -9,13 +9,13 @@ import type { ClientEvent } from "../../app/main.ts";
 
 const exported: ClientEvent<Events.ChannelDelete> = {
   name: Events.ChannelDelete,
-  async execute(channel) {
+  async execute({ panels }, channel) {
     if (channel.isDMBased()) return;
     const guild = channel.guild;
     if ((await GuildSettingsManager.getBotChannel(guild.id)) !== channel.id) return;
     await GuildSettingsManager.clearBotChannel(guild.id);
     log.info(`전용 채널 "${channel.name}" 이 지워져 전용 채널 설정을 비웁니다 (${guild.name})`);
-    await channel.client.panels?.onBotChannelChanged(guild);
+    await panels.onBotChannelChanged(guild);
   },
 };
 export default exported;

@@ -29,6 +29,7 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { canSend } from "./channels.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
 import type { Player, PanelMessage } from "../player/player.ts";
+import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
@@ -121,6 +122,7 @@ function idleViewOf(reason: string): IdleView {
 
 class NowPlayingPanel {
   client: Client;
+  players: Pick<PlayerSeats, "get">; // 서버마다의 플레이어. 패널이 지금 재생 중인지 본다
   progressTimers = new Map<string, NodeJS.Timeout>(); // guildId -> 다음 진행 막대 갱신
   webhookCache = new Map<string, WebhookClient>(); // channelId -> 그 채널에 패널을 올리는 웹훅
   reposting = new Set<string>(); // 현재 재생 메시지를 다시 올리는 중인 guildId
@@ -130,8 +132,9 @@ class NowPlayingPanel {
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
 
   // panelStore: 패널 자리 기록. 시험은 메모리 가짜를 준다
-  constructor(client: Client, { panelStore }: { panelStore?: PanelStore } = {}) {
+  constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
     this.client = client;
+    this.players = players;
     this.location = new PanelLocation(this, panelStore);
   }
 
@@ -552,7 +555,7 @@ class NowPlayingPanel {
   }
 
   async repinIdlePanel(guild: Guild, channelId: string, now = Date.now()) {
-    const player = this.client.players.get(guild.id);
+    const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) return;
     const channel = await this._dedicatedChannel(guild);
     if (!canSend(channel) || channel.id !== channelId) return;
@@ -573,7 +576,7 @@ class NowPlayingPanel {
   /** 전용 채널을 정했거나 바꿨거나 풀었을 때. 재생 중이면 패널을 옮기고, 아니면 끝난 패널을 새 채널에 올리거나 치운다 */
   async onBotChannelChanged(guild: Guild) {
     const channel = await this._dedicatedChannel(guild);
-    const player = this.client.players.get(guild.id);
+    const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) {
       if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
       return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
@@ -595,7 +598,7 @@ class NowPlayingPanel {
   async restorePanels() {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
-        if (this.client.players.get(guild.id)?.nowPlayingMessage) continue;
+        if (this.players.get(guild.id)?.nowPlayingMessage) continue;
         const channel = await this._dedicatedChannel(guild);
         const record = await this.location.store.getPanel(guild.id);
         if (record && (!channel || record.channelId === channel.id)) {

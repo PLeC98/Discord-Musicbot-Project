@@ -68,7 +68,7 @@ function processSummary() {
 
 // Bot/Node/System status
 adminRouter.get("/status", requireOwner, (req, res) => {
-  const client = req.app.locals.discordClient;
+  const { client, players } = req.app.locals.bot;
   const uptime = process.uptime();
   const mem = process.memoryUsage();
 
@@ -90,7 +90,7 @@ adminRouter.get("/status", requireOwner, (req, res) => {
       freeMem: Math.round(os.freemem() / 1024 / 1024),
       loadAvg: os.loadavg(),
     },
-    activePlayers: client?.players?.size || 0,
+    activePlayers: players.size,
     // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다.
     // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
     processes: processSummary(),
@@ -134,8 +134,8 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   if (body.length > ANNOUNCE_MAX) return sendProblem(res, "announce-too-long", { max: ANNOUNCE_MAX, length: body.length });
   if (typeof type !== "string" || !Object.hasOwn(ANNOUNCE_TYPES, type)) return sendProblem(res, "bad-announce-type");
 
-  const client = req.app.locals.discordClient;
-  if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
+  const { client } = req.app.locals.bot;
+  if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
   const cfg = ANNOUNCE_TYPES[type];
 
@@ -164,15 +164,15 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
 
 // List all guilds bot is in
 adminRouter.get("/guilds", requireOwner, (req, res) => {
-  const client = req.app.locals.discordClient;
-  if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
+  const { client, players } = req.app.locals.bot;
+  if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
   const guilds = [...client.guilds.cache.values()].map((g) => ({
     id: g.id,
     name: g.name,
     icon: g.iconURL({ size: 64 }),
     memberCount: g.memberCount,
-    hasPlayer: client.players?.has(g.id) || false,
+    hasPlayer: players.has(g.id),
   }));
 
   res.json({ guilds });
@@ -182,15 +182,15 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
 // 재생 중이면 플레이어를 먼저 정리해 음성 연결/타이머가 남지 않게 한다.
 // guild.leave() 이후에는 서버 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
 adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
-  const client = req.app.locals.discordClient;
-  if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
+  const { client, players } = req.app.locals.bot;
+  if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
   const guild = client.guilds.cache.get(req.params.guildId);
   if (!guild) return sendProblem(res, "guild-not-found");
 
   const name = guild.name;
   try {
-    const player = client.players?.get(guild.id);
+    const player = players.get(guild.id);
     if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" });
     await guild.leave();
 

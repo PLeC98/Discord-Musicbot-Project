@@ -45,7 +45,7 @@ test("안전 종료: 모든 플레이어의 세션을 저장하고 채널에는 
     ["g2", null], // 빈 항목도 안전
     ["g3", savable("g3", steps)],
   ]);
-  fatalShutdown({ players }, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: (how) => void steps.push(`record:${how}`) } });
+  fatalShutdown(players, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: (how) => void steps.push(`record:${how}`) } });
   assert.deepEqual(steps, ["save:g1:shutdown", "release:g1:치명적 오류", "save:g3:shutdown", "release:g3:치명적 오류", "record:global-flood", "exit"]);
 });
 
@@ -55,11 +55,11 @@ test("안전 종료: 한 서버의 저장이 실패해도 그 연결은 정리�
     ["g1", savable("g1", steps, { saveFails: true })],
     ["g2", savable("g2", steps)],
   ]);
-  fatalShutdown({ players }, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: () => {} } });
+  fatalShutdown(players, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: () => {} } });
   assert.deepEqual(steps, ["release:g1:치명적 오류", "save:g2:shutdown", "release:g2:치명적 오류", "exit"]);
 });
 
-test("안전 종료: client 없음도 exit 호출", () => {
+test("안전 종료: 플레이어 없음도 exit 호출", () => {
   let exited = 0;
   fatalShutdown(null, new Error("fatal"), { exit: () => exited++, record: { end: () => {} } });
   assert.equal(exited, 1);
@@ -71,7 +71,7 @@ test("안전 종료: client 없음도 exit 호출", () => {
 function installed() {
   const faults: string[] = [];
   const exits: number[] = [];
-  const client = Object.assign(new EventEmitter(), { players: new Map() });
+  const client = new EventEmitter();
   const proc = new EventEmitter();
   installErrorHandlers(client, {
     proc,

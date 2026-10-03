@@ -1,10 +1,11 @@
 // 슬래시 명령을 시험에서 부른다. 명령은 봇과 같은 목록(src/discord/commands/index)에서 이름으로 찾고(처음 부를 때 한 번 불러온다),
-// 가짜 상호작용 · 클라이언트는 명령이 읽는 칸만 채운 것을 진짜 타입으로 본다.
+// 가짜 상호작용 · 봇 문맥은 명령이 읽는 칸만 채운 것을 진짜 타입으로 본다.
 
 import assert from "node:assert/strict";
-import type { ChatInputCommandInteraction, Client, Interaction } from "discord.js";
+import type { ChatInputCommandInteraction, Interaction } from "discord.js";
+import type { BotContext } from "../../src/app/bot-context.ts";
 import type { SlashCommand } from "../../src/app/command-loader.ts";
-import { fake } from "./fake.ts";
+import { fake, fakeBot } from "./fake.ts";
 import { interactionKind } from "./interaction-kind.ts";
 
 let loading: Promise<Map<string, SlashCommand>> | null = null;
@@ -17,21 +18,20 @@ async function command(name: string) {
   return found;
 }
 
-/** 명령을 가짜 상호작용 · 클라이언트로 부른다. 종류 메서드(isChatInputCommand 등)는 시험이 정하지 않았으면 명령 것으로 채운다 */
-function run(c: SlashCommand, interaction: object, client: object = {}) {
+/** 명령을 가짜 상호작용 · 봇 문맥으로 부른다. 종류 메서드(isChatInputCommand 등)는 시험이 정하지 않았으면 명령 것으로 채운다 */
+function run(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) {
   for (const [key, value] of Object.entries(interactionKind("command"))) if (!(key in interaction)) Object.assign(interaction, { [key]: value });
-  return c.execute(fake<ChatInputCommandInteraction<"cached">>(interaction), fake<Client<true>>(client));
+  return c.execute(fake<ChatInputCommandInteraction<"cached">>(interaction), bot);
 }
 
 /**
  * 명령을 상호작용 입구(src/discord/events/interaction-create)로 부른다. 명령이 던진 것을 입구가 남기고 알리는 모습을 볼 때.
- * 가짜 상호작용 · 클라이언트에 입구가 읽는 칸(종류 · 명령 이름 · 명령 목록)을 채운다
+ * 가짜 상호작용에 입구가 읽는 칸(종류 · 명령 이름)을, 봇 문맥의 명령 목록에 이 명령을 채운다
  */
-async function runViaEntrance(c: SlashCommand, interaction: object, client: object) {
+async function runViaEntrance(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) {
   const { default: entrance } = await import("../../src/discord/events/interaction-create.ts");
-  Object.assign(client, { commands: new Map([[c.data.name, c]]) });
-  Object.assign(interaction, interactionKind("command"), { commandName: c.data.name, client });
-  await entrance.execute(fake<Interaction>(interaction));
+  Object.assign(interaction, interactionKind("command"), { commandName: c.data.name });
+  await entrance.execute({ ...bot, commands: new Map([[c.data.name, c]]) }, fake<Interaction>(interaction));
 }
 
 export { command, run, runViaEntrance };

@@ -9,9 +9,9 @@ const exported: GuildCommand = {
   help: { section: "queue", tier: "dj" },
   data: new SlashCommandBuilder().setName("clear").setDescription("Clear the queue").setDescriptionLocalizations({ ko: "대기열을 비워요" }),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const { guild, member } = interaction;
-    const r = await controls.clear(client.players.get(guild.id), { member });
+    const r = await controls.clear(bot.players.get(guild.id), { member });
     if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
     await toAll(interaction, replies.cleared(r.count, member), LIFETIME.result);

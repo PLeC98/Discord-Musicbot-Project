@@ -9,6 +9,7 @@ import { queueTracks } from "../../src/usecases/add-tracks.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import type { Player } from "../../src/player/player.ts";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { textOf } from "../helpers/cv2.ts";
@@ -41,11 +42,11 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
   if (playing) trackState.setCurrent(player, t("now"));
   trackState.enqueue(player, many("old", queued));
 
-  const client = fake<Client>({ players: new Map([["g", player]]) });
-  Object.assign(client, { panels: new NoPanelRefresh(client) });
+  const players = new Map<string, Player>([["g", player]]);
+  const bot = { players, panels: new NoPanelRefresh(fake<Client>({}), players) };
   const notices: string[] = [];
   const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
-  const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(client, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
+  const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(bot, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
   return { player, add, notices };
 }
 

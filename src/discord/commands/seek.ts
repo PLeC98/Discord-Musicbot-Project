@@ -42,10 +42,10 @@ const exported: GuildCommand = {
     .setDescriptionLocalizations({ ko: "현재 곡의 특정 시간으로 이동해요" })
     .addStringOption((option) => option.setName("time").setNameLocalizations({ ko: "시간" }).setDescription("Target time (e.g. 1:30, 3m20s, 90)").setDescriptionLocalizations({ ko: "이동할 시간 (예: 1:30 · 3m20s · 90)" }).setRequired(true)),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const seekMs = parseTimeInput(interaction.options.getString("time", true));
     if (seekMs === null) return noticeSelf(interaction, errors.notice("bad-time"));
-    await answerSeek(interaction, client.players.get(interaction.guild.id), seekMs);
+    await answerSeek(interaction, bot.players.get(interaction.guild.id), seekMs);
   },
 };
 export default exported;

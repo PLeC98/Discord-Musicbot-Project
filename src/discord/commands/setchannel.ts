@@ -2,6 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from "discord.j
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import logger from "../../infra/log/logger.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
+import type { BotContext } from "../../app/bot-context.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../../rules/error-kind.ts";
 import * as settingsText from "../../ui/text/ko/settings.ts";
@@ -11,7 +12,7 @@ import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 const log = logger.child({ category: "commands" });
 
-const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.panels?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
+const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "moderator" },
@@ -45,13 +46,13 @@ const exported: GuildCommand = {
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
-  async execute(interaction) {
+  async execute(interaction, bot) {
     const guildId = interaction.guild.id;
     const action = interaction.options.getString("action") || "set";
 
     if (action === "remove") {
       await GuildSettingsManager.clearBotChannel(guildId);
-      await movePanel(interaction);
+      await movePanel(interaction, bot);
 
       return await interaction.reply(post(screens.saved(settingsText.channelRemoved())));
     }
@@ -66,7 +67,7 @@ const exported: GuildCommand = {
 
     await interaction.reply(post(screens.channelSet(`${channel}`)));
     // 안내 뒤에 올려야 패널이 맨 아래에 온다
-    await movePanel(interaction);
+    await movePanel(interaction, bot);
   },
 };
 export default exported;

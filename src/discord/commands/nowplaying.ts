@@ -11,8 +11,8 @@ const exported: GuildCommand = {
     ko: "재생 중인 곡의 정보를 보여줘요",
   }),
 
-  async execute(interaction, client) {
-    const player = client.players.get(interaction.guild.id);
+  async execute(interaction, bot) {
+    const player = bot.players.get(interaction.guild.id);
     if (!player) return await noticeSelf(interaction, errors.notice("no-song"));
     if (!player.currentTrack) return await noticeSelf(interaction, errors.notice("no-song"));
     await toSelf(interaction, reply(nowPlayingView(player, player.currentTrack)), LIFETIME.screen);

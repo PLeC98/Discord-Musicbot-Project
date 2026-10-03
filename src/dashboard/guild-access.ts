@@ -10,8 +10,9 @@ import { sendProblem } from "./problem.ts";
 
 /** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null. 운영자가 아니면 actor.member 가 있다 */
 async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
-  const client = req.app.locals.discordClient;
-  if (!client?.isReady()) {
+  const { bot } = req.app.locals;
+  const { client } = bot;
+  if (!client.isReady()) {
     sendProblem(res, "bot-not-ready");
     return null;
   }
@@ -42,7 +43,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
     sendProblem(res, "no-guild-access");
     return null;
   }
-  return { client, guild, player: client.players.get(guildId) ?? null, member, actor };
+  return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };
 }
 
 // 음성 재적 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,

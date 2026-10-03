@@ -12,9 +12,9 @@ const { listenForFetch, baseUrl } = await import("./helpers/listen.ts");
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import type { ButtonInteraction, Client } from "discord.js";
+import type { ButtonInteraction } from "discord.js";
 import { Player } from "../src/player/player.ts";
-import { fake, fakeWith } from "./helpers/fake.ts";
+import { fake, fakeWith, fakeBot } from "./helpers/fake.ts";
 import { command, run } from "./helpers/commands.ts";
 import { signedInAs } from "./helpers/dashboard.ts";
 
@@ -103,16 +103,16 @@ member.guild = guild;
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([["g1", guild]]) },
-  players: new Map<string, Player>(),
-  panels: { updatePlaying: async () => {}, drawEndedPanel: async () => {}, panelChannel: async () => null },
 };
+const players = new Map<string, Player>();
+const bot = fakeBot({ client, players, panels: { updatePlaying: async () => {}, drawEndedPanel: async () => {}, panelChannel: async () => null } });
 
 // 한 칸을 세운다. 부른 메서드를 모을 곳을 돌려준다
 function arrange(state: string) {
   const acts: string[] = [];
-  client.players.clear();
+  players.clear();
   setGuild("g1", { djRoles: state === "denied" ? ["dj"] : [] });
-  if (state !== "none") client.players.set("g1", fake<Player>(makePlayer(state, acts)));
+  if (state !== "none") players.set("g1", fake<Player>(makePlayer(state, acts)));
   return acts;
 }
 
@@ -151,14 +151,14 @@ async function viaCommand(op: string, state: string) {
   const { name, options } = COMMAND[op];
   const acts = arrange(state);
   const { it, shown } = fakeInteraction({ options });
-  await run(await command(name), it, client);
+  await run(await command(name), it, bot);
   return outcome(acts, shown);
 }
 
 async function viaButton(op: string, state: string) {
   const acts = arrange(state);
   const { it, shown } = fakeInteraction({ customId: `panel:${BUTTON[op]}:S1` });
-  await interactionCreate.execute(it);
+  await interactionCreate.execute(bot, it);
   return outcome(acts, shown);
 }
 
@@ -290,7 +290,7 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use(signedInAs(() => ({ id: "u1", username: "u1", guilds: [] })));
-  app.locals.discordClient = fake<Client>(client);
+  app.locals.bot = bot;
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
   base = baseUrl(server);

@@ -4,6 +4,7 @@
 //   const player = fake<SkipHost>({ currentTrack, paused: false, … });
 
 import type { Player } from "../../src/player/player.ts";
+import type { BotContext } from "../../src/app/bot-context.ts";
 
 function fake<T>(partial: object): T {
   return partial as T;
@@ -20,4 +21,9 @@ function fakeWith<T>() {
 /** 가짜 플레이어 */
 const fakePlayer = fakeWith<Player>();
 
-export { fake, fakeWith, fakePlayer };
+/** 가짜 봇 문맥(src/app/bot-context). 시험이 읽는 칸만 채운다. 플레이어 · 명령은 없으면 빈 목록 */
+function fakeBot(partial: { client?: object; players?: Map<string, unknown>; panels?: object; commands?: Map<string, unknown> } = {}): BotContext {
+  return fake<BotContext>({ client: {}, players: new Map(), commands: new Map(), ...partial });
+}
+
+export { fake, fakeWith, fakePlayer, fakeBot };

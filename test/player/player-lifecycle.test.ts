@@ -657,7 +657,7 @@ test("버리기(세션 그대로): 저장도 지우지도 않는다. 따로 저�
   h.dispose(p);
 
   assert.deepEqual(calls.persists, []);
-  assert.equal(p.guild.client.players.has("g1"), false, "등록부에서는 빠진다");
+  assert.equal(h.registryOf(p)?.has("g1"), false, "등록부에서는 빠진다");
 });
 
 test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고친다. 패널 고치기가 실패해도 버림은 끝난다", async () => {
@@ -666,7 +666,7 @@ test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고�
   const at: Array<{ track: unknown; text: unknown; registered: boolean }> = [];
   const off = playerEvents.on("ended", async (q) => {
     if (q !== p) return;
-    at.push({ track: q.currentTrack, text: q.textChannel?.id, registered: q.guild.client.players.has("g1") });
+    at.push({ track: q.currentTrack, text: q.textChannel?.id, registered: h.registryOf(q)!.has("g1") });
     throw new Error("패널 고치기 실패");
   });
   try {
@@ -748,7 +748,7 @@ test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도
   assert.deepEqual(seen, ["end:disconnected", "webhook:text1"]);
   assert.ok(calls.persists.includes("remove"), "세션을 지운다");
   assert.equal(p.connection, null);
-  assert.equal(p.guild.client.players.has("g1"), false);
+  assert.equal(h.registryOf(p)?.has("g1"), false);
 });
 
 test("시간이 됐을 때 사람이 있으면 alone 을 풀고 패널만 갱신한다", async () => {
@@ -765,7 +765,7 @@ test("시간이 됐을 때 사람이 있으면 alone 을 풀고 패널만 갱신
   assert.equal(p.pauseReasons.has("alone"), false);
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Playing);
   assert.deepEqual(seen, ["update"]);
-  assert.equal(p.guild.client.players.get("g1"), p);
+  assert.equal(h.registryOf(p)?.get("g1"), p);
 });
 
 test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무것도 하지 않는다. 현행 플레이어와 연결을 건드리지 않는다", async () => {
@@ -773,7 +773,7 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   embeds(p);
   voiceChannelWith(p, []);
   const current = fake<Player>({});
-  p.guild.client.players.set("g1", current);
+  h.registryOf(p)?.set("g1", current);
   p.idle.aloneMs = 0;
 
   p.idle.startAlone();
@@ -781,7 +781,7 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   await tick(10);
   h.dispose(p);
 
-  assert.equal(p.guild.client.players.get("g1"), current);
+  assert.equal(h.registryOf(p)?.get("g1"), current);
   assert.ok(p.connection, "연결은 현행 플레이어 것일 수 있어 끊지 않는다");
 });
 

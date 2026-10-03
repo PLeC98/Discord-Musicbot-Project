@@ -5,9 +5,9 @@ import type { ClientEvent } from "../../app/main.ts";
 
 const exported: ClientEvent<Events.MessageCreate> = {
   name: Events.MessageCreate,
-  async execute(message) {
+  async execute({ panels }, message) {
     if (!message.guild) return;
-    await message.client.panels?.scheduleIdleRepin(message.guild, message.channel.id);
+    await panels.scheduleIdleRepin(message.guild, message.channel.id);
   },
 };
 export default exported;

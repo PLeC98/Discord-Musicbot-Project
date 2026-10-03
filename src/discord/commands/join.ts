@@ -42,7 +42,7 @@ const exported: GuildCommand = {
   help: { section: "channel", tier: "everyone" },
   data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시켜요" }),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
 
     if (!member.voice.channel) return noticeSelf(interaction, errors.notice("must-be-in-voice"));
@@ -52,7 +52,7 @@ const exported: GuildCommand = {
     if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return noticeSelf(interaction, errors.notice("permission-voice"));
 
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
-    const existing = client.players.get(guild.id);
+    const existing = bot.players.get(guild.id);
     if (existing?.voice.isAlive()) {
       return toSelf(interaction, reply(replies.alreadyJoined()), LIFETIME.glance);
     }
@@ -65,7 +65,7 @@ const exported: GuildCommand = {
     // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 되살린다
     if (existing) await existing.dispose({ reason: "/join 교체", session: "keep" });
 
-    const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice.channel });
+    const player = ensurePlayer(bot, { guild, textChannel: channel, voiceChannel: member.voice.channel });
 
     if (hasSession) {
       await restoreSession(interaction, player, savedState);

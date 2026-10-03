@@ -10,8 +10,8 @@ const exported: GuildCommand = {
   enabled: () => config.sponsorblock.enabled,
   data: new SlashCommandBuilder().setName("highlight").setDescription("Jump to the community highlight of the current track").setDescriptionLocalizations({ ko: "현재 곡의 하이라이트로 이동해요" }),
 
-  async execute(interaction, client) {
-    await answerHighlight(interaction, client.players.get(interaction.guild.id));
+  async execute(interaction, bot) {
+    await answerHighlight(interaction, bot.players.get(interaction.guild.id));
   },
 };
 export default exported;

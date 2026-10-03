@@ -18,7 +18,8 @@ function loadBar(used: number, total: number, width = 10) {
   return `${"█".repeat(filled)}${"░".repeat(width - filled)} ${(pct * 100).toFixed(1)}%`;
 }
 
-function buildSystemEmbed(client: Client<true>) {
+// players: 지금 도는 서버 수를 센다
+function buildSystemEmbed(client: Client<true>, players: { size: number }) {
   const mem = process.memoryUsage();
   const cpus = os.cpus();
   const load = os.loadavg();
@@ -26,7 +27,7 @@ function buildSystemEmbed(client: Client<true>) {
   const freeMem = os.freemem();
   const usedMem = totalMem - freeMem;
   const guildCount = client.guilds.cache.size;
-  const activeCount = client.players?.size ?? 0;
+  const activeCount = players.size;
 
   const t = infoText.system({
     botUptime: formatSpan(process.uptime(), UPTIME),
@@ -74,14 +75,14 @@ const exported: GuildCommand = {
   help: { section: "info", tier: "owner" },
   data: new SlashCommandBuilder().setName("system").setDescription("Show bot system information").setDescriptionLocalizations({ ko: "봇의 시스템 정보를 보여줘요" }),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     // 호스트 CPU/메모리/디스크 정보 노출. Discord 권한으로 표현할 수 없는 봇 운영자(OWNER_ID) 전용
     if (interaction.user.id !== config.dashboard.ownerId) {
       return noticeSelf(interaction, errors.notice("must-owner"));
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const { embed, row } = buildSystemEmbed(client);
+    const { embed, row } = buildSystemEmbed(interaction.client, bot.players);
     await interaction.editReply({ embeds: [embed], components: [row] });
     expireSelf(interaction, LIFETIME.screen);
   },

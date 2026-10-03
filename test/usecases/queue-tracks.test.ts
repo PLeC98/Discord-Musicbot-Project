@@ -10,7 +10,7 @@ import type { Responder } from "../../src/ui/now-playing-panel.ts";
 import type { Client } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
-import { fake, fakePlayer } from "../helpers/fake.ts";
+import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
@@ -31,8 +31,8 @@ class RecordingPanels extends NowPlayingPanel {
   calls: unknown[];
   embedFails = false;
 
-  constructor(client: Client, calls: unknown[]) {
-    super(client);
+  constructor(client: Client, players: Map<string, Player>, calls: unknown[]) {
+    super(client, players);
     this.calls = calls;
   }
   async postPlaying(_player: Player, t: QueuedTrack) {
@@ -89,13 +89,13 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
       calls.push("dispose");
     },
   });
-  const client = fake<Client>({ players: new Map([["g1", player]]), user: { id: "bot" } });
-  const mem = new RecordingPanels(client, calls);
-  Object.assign(client, { panels: mem });
+  const players = new Map<string, Player>([["g1", player]]);
+  const mem = new RecordingPanels(fake<Client>({ user: { id: "bot" } }), players, calls);
+  const bot = { players, panels: mem };
   const notices: string[] = [];
   const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
   // 이 서버에 곡을 담는다
-  const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(client, "g1", data, requester, via);
+  const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(bot, "g1", data, requester, via);
   return { mem, add, player, calls, sent, notices, responder };
 }
 
@@ -264,7 +264,7 @@ test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧
 });
 
 test("플레이어가 없거나 처리 중 던지면 실패 문장", async () => {
-  assert.deepEqual(said(await queueTracks(fake<Client>({ players: new Map() }), "g1", { tracks: [] }, who)), { success: false, code: "ended-while-adding", message: "그 사이에 재생이 끝나버렸어요!\n플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요." });
+  assert.deepEqual(said(await queueTracks(fakeBot(), "g1", { tracks: [] }, who)), { success: false, code: "ended-while-adding", message: "그 사이에 재생이 끝나버렸어요!\n플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요." });
 
   // 곡 목록이 없는 요청(처리 중 던진다)
   const { add: m2 } = setup({ current: track("now") });

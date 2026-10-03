@@ -11,9 +11,8 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import express, { type Response } from "express";
 import type { Server } from "node:http";
-import type { Client } from "discord.js";
 import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
-import { fake } from "../helpers/fake.ts";
+import { fake, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 
 // 멤버 확인이 되는 서버와 안 되는 서버
@@ -53,7 +52,7 @@ let base: string;
 before(async () => {
   const app = express();
   app.use(signedInAs(() => user));
-  app.locals.discordClient = fake<Client>(client);
+  app.locals.bot = fakeBot({ client });
   app.use("/api/guilds", createPlayerEventsRouter({ stream }));
   server = await listenForFetch(app);
   base = baseUrl(server);

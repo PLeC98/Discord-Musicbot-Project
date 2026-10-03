@@ -11,7 +11,7 @@ const exported: GuildCommand = {
   help: { section: "channel", tier: "dj-outside-bot-channel" },
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "재생 패널을 이 채널의 맨 아래에 다시 띄워요" }),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
     if (!channel) return noticeSelf(interaction, errors.notice("processing-failed")); // 캐시에 없는 채널
 
@@ -27,20 +27,20 @@ const exported: GuildCommand = {
       if (permErr) return noticeSelf(interaction, errors.notice(permErr));
     }
 
-    const player = client.players.get(guild.id);
+    const player = bot.players.get(guild.id);
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
     if (!player?.currentTrack) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      await client.panels.repostIdlePanel(guild, channel);
+      await bot.panels.repostIdlePanel(guild, channel);
       return interaction.deleteReply().catch(() => {
         /* 상호작용이 이미 닫혔다 */
       });
     }
 
     player.movePanel(channel);
-    client.panels.stopProgressUpdate(guild.id);
+    bot.panels.stopProgressUpdate(guild.id);
 
-    await client.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction), { reuse: false });
+    await bot.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction), { reuse: false });
   },
 };
 export default exported;

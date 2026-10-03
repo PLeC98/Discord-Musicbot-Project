@@ -14,7 +14,6 @@ import { requestPlayback, continueCollection, ensurePlayer } from "../../usecase
 import { validState, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
 import config from "../../config/index.ts";
 import { isOwner } from "../owner.ts";
-import { shadowMember } from "../view-as.ts";
 import { openGuild, voiceFlags, toInt } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState } from "../player-view.ts";
 import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
@@ -112,18 +111,10 @@ function joinRoute(router: Router) {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
     if (!ctx) return;
-    const { client } = ctx;
-
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) return sendProblem(res, "guild-not-found");
-
-    const userId = signedIn(req).id;
-    let member;
-    try {
-      member = shadowMember(req, await guild.members.fetch(userId));
-    } catch {
-      return sendProblem(res, "member-not-found");
-    }
+    const { bot, guild, member } = ctx;
+    // 운영자는 멤버가 아니어도 서버를 열지만, 부르려면 그 서버의 음성 채널에 있어야 한다
+    if (!member) return sendProblem(res, "member-not-found");
+    const userId = member.id;
 
     const voiceChannel = member.voice.channel;
     if (!voiceChannel) return sendProblem(res, "must-be-in-voice");
@@ -140,7 +131,7 @@ function joinRoute(router: Router) {
     }
 
     // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
-    const player = ensurePlayer(client, { guild, voiceChannel });
+    const player = ensurePlayer(bot, { guild, voiceChannel });
 
     try {
       await player.voice.connect();
@@ -153,7 +144,7 @@ function joinRoute(router: Router) {
       bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
     }
     // 전용 채널이 있으면 그 채널에 알린다. 없으면 글자 채널이 아직 없어 알리지 않는다
-    announcer(client, player)(replies.joined());
+    announcer(bot, player)(replies.joined());
 
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = isOwner(req) || !(await checkControl(member));
@@ -168,7 +159,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.pause(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.paused(r.paused, r.track, dashboardActor(req)));
@@ -179,7 +170,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.previous(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.previous(r.restarted, r.track));
@@ -190,7 +181,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.skip(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
@@ -201,7 +192,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.stop(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.stopped(r.cleared, dashboardActor(req)), LIFETIME.farewell);
@@ -220,7 +211,7 @@ function controlRoutes(router: Router) {
     const durationSec = ctx.player?.currentTrack?.duration ?? 0;
     const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
     if (!r.ok) return refuse(res, r);
     announce(replies.seeked(r.ms));
@@ -241,7 +232,7 @@ function controlRoutes(router: Router) {
     if (!ctx) return;
     const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body.volume));
     if (!r.ok) return refuse(res, r);
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const by = dashboardActor(req);
     announceVolume(req.params.guildId, r.before, r.level, (before, level) => announce(replies.volumeSet(before, level, by)));
     res.json(playerState(ctx.player, queueWindow(req)));
@@ -251,7 +242,7 @@ function controlRoutes(router: Router) {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body.mode));
     if (!r.ok) return refuse(res, r);
     announce(replies.loopSet(r.mode, r.track, dashboardActor(req)));
@@ -262,7 +253,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/shuffle", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.shuffle(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     announce(replies.shuffled(r.count, dashboardActor(req)));
@@ -273,7 +264,7 @@ function controlRoutes(router: Router) {
   router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
     if (!r.ok) return refuse(res, r);
     announce(replies.removed(r.left, dashboardActor(req)));
@@ -284,7 +275,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const announce = announcer(ctx.client, ctx.player);
+    const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.move(ctx.player, ctx.actor, toInt(req.body.from), toInt(req.body.to));
     if (!r.ok) return refuse(res, r);
     // 사람은 1부터 센다
@@ -310,7 +301,7 @@ function addRoutes(router: Router) {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
     if (!ctx) return;
-    const { player, client, guild, actor } = ctx;
+    const { player, bot, guild, actor } = ctx;
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
@@ -327,13 +318,13 @@ function addRoutes(router: Router) {
     try {
       // 담은 안내는 디스코드의 패널 채널에도 보내고(dashboardResponder), 결과는 이 응답으로 전달한다.
       // 재생 시작·임베드·로깅은 슬래시 명령과 같은 코어를 지난다.
-      const result = await requestPlayback(client, {
+      const result = await requestPlayback(bot, {
         guild,
         requester: requesterOf(req),
         query,
         single,
         source: "대시보드",
-        responder: dashboardResponder(client, guildId),
+        responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
       });
 
@@ -351,7 +342,7 @@ function addRoutes(router: Router) {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
     if (!ctx) return;
-    const { player, client, guild, actor } = ctx;
+    const { player, bot, guild, actor } = ctx;
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
@@ -367,7 +358,7 @@ function addRoutes(router: Router) {
     if (!state || !count.ok) return sendProblem(res, "bad-more-state");
 
     try {
-      const result = await continueCollection(client, {
+      const result = await continueCollection(bot, {
         guild,
         requester: requesterOf(req),
         state,

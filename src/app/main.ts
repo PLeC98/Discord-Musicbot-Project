@@ -1,7 +1,7 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
-import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type VoiceState } from "discord.js";
+import { Client, GatewayIntentBits, Events, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../config/index.ts";
@@ -21,6 +21,8 @@ import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
 import * as commandLoader from "./command-loader.ts";
+import type { SlashCommand } from "./command-loader.ts";
+import type { BotContext } from "./bot-context.ts";
 import { EVENTS } from "../discord/events/index.ts";
 import { installErrorHandlers } from "./resilience.ts";
 import { createGuildFaults } from "./guild-fault.ts";
@@ -45,11 +47,11 @@ const log = logger.child({ category: "core" });
 type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
 /** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
-type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(...args: ClientEvents[K]): unknown };
+type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(bot: BotContext, ...args: ClientEvents[K]): unknown };
 /** 이벤트 목록(src/discord/events/index)의 한 칸. 이벤트마다 인자가 다르다 */
 type AnyClientEvent = { [K in keyof ClientEvents]: ClientEvent<K> }[keyof ClientEvents];
 /** 등록할 때 보는 모양. 인자는 이름이 정한다 */
-type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: unknown[]): unknown };
+type EventModule = { name: keyof ClientEvents; once?: boolean; execute(bot: BotContext, ...args: unknown[]): unknown };
 
 // 기동을 멈춘다. 까닭은 던지기 전에 로그에 남겼다
 class StartupStopped extends Error {}
@@ -113,23 +115,25 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
     // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,
   });
-  client.commands = new Collection();
-  client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
-  client.players.followDisposals(); // 버려진 플레이어는 등록부가 스스로 뺀다
-  client.panels = new NowPlayingPanel(client);
+  const players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
+  players.followDisposals(); // 버려진 플레이어는 등록부가 스스로 뺀다
+  const panels = new NowPlayingPanel(client, players);
+  // 명령은 기동 확인 뒤 init 이 채운다
+  const commands = new Map<string, SlashCommand>();
+  const bot: BotContext = { client, players, panels, commands };
   const stream = createPlayerStream();
-  startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
-  listenToPlayers(client.panels, stream);
+  startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands });
+  listenToPlayers(panels, stream);
 
   // 서버 하나 다시 켜기. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
-  const fault = createGuildFaults({ players: client.players, restore: (guildId) => restoreGuild(client, Player, guildId) });
+  const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
   const onFault: OnFault = (error, guildId, where) => {
     if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
     else log.error(`처리기 오류 (${where}):`, error);
   };
 
   client.once(Events.ClientReady, (ready) => {
-    onReady(ready, skipRestore).catch((error: unknown) => log.error("기동 마무리(세션 복원 · 패널) 실패:", error));
+    onReady(ready, bot, skipRestore).catch((error: unknown) => log.error("기동 마무리(세션 복원 · 패널) 실패:", error));
   });
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
@@ -137,13 +141,13 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   // 음성 상태 변화: 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음
   client.on(
     Events.VoiceStateUpdate,
-    guarded("음성 상태", (oldState: VoiceState, newState: VoiceState) => onVoiceStateUpdate(client, oldState, newState), onFault),
+    guarded("음성 상태", (oldState: VoiceState, newState: VoiceState) => onVoiceStateUpdate(client, players, oldState, newState), onFault),
   );
   // 새어 나온 오류 · 거부 · 예외를 가려 표적 복구하거나 안전 종료한다
-  installErrorHandlers(client, { fault });
+  installErrorHandlers(client, { players, fault });
 
   // 실패는 init 이 받아 기동 실패로 내린다
-  bestEffort(log, init(client, { potServer, logFile, onFault }), "기동");
+  bestEffort(log, init(bot, { commands, potServer, logFile, onFault }), "기동");
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다
@@ -157,7 +161,7 @@ function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof crea
   playerEvents.on("leaving", (player, leavesAt) => panels.updateIdleLeave(player, leavesAt));
 }
 
-async function onReady(client: Client<true>, skipRestore: boolean) {
+async function onReady(client: Client<true>, { players, panels }: BotContext, skipRestore: boolean) {
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
@@ -166,11 +170,11 @@ async function onReady(client: Client<true>, skipRestore: boolean) {
   // 이번 실행이 받기 시작한 행까지 받다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
-  const touched = await restoreSavedPlayers(client, Player, { skip: skipRestore });
+  const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
-  await adoptLingeringVoice(client, Player, { touched });
+  await adoptLingeringVoice(client, players, Player, { touched });
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
-  await client.panels?.restorePanels();
+  await panels.restorePanels();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
 }
 
@@ -183,14 +187,15 @@ async function cleanupAudioCache() {
   }
 }
 
-async function init(client: Client, { potServer, logFile, onFault }: { potServer: PotServer; logFile: LogFile | null; onFault: OnFault }) {
+async function init(bot: BotContext, { commands, potServer, logFile, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; onFault: OnFault }) {
+  const { client, players } = bot;
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
-    loadCommands(client);
-    loadEvents(client, onFault);
+    loadCommands(commands);
+    loadEvents(bot, onFault);
     // 종료 신호를 받으면 저장하고 정리한 뒤 나간다
-    installShutdown(client, { potServer, logFile });
+    installShutdown({ client, players }, { potServer, logFile });
     await loginWithRetry(client, config.discord.token);
   } catch (error) {
     const stopped = error instanceof StartupStopped;
@@ -235,20 +240,21 @@ function stopIfThrows(check: () => unknown, hint: string | null = null) {
   }
 }
 
-function loadCommands(client: Client) {
-  const commands = commandLoader.enabledCommands();
-  for (const command of commands) client.commands.set(command.data.name, command);
-  log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
+function loadCommands(commands: Map<string, SlashCommand>) {
+  const enabled = commandLoader.enabledCommands();
+  for (const command of enabled) commands.set(command.data.name, command);
+  log.info({ tags: ["startup"] }, `슬래시 명령어 ${enabled.length}개 준비 완료`);
 }
 
-function loadEvents(client: Client, onFault: OnFault) {
+function loadEvents(bot: BotContext, onFault: OnFault) {
+  const { client } = bot;
   const events = EVENTS as readonly EventModule[];
   for (const event of events) {
     const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
     // 처리기마다 서버 경계로 감싼다(app/event-boundary). 새어 나온 오류는 그 서버의 오류로 받는다
     register(
       event.name,
-      guarded(event.name, (...args: unknown[]) => event.execute(...args), onFault),
+      guarded(event.name, (...args: unknown[]) => event.execute(bot, ...args), onFault),
     );
   }
   log.info({ tags: ["startup"] }, `이벤트 핸들러 ${events.length}개 등록 완료`);

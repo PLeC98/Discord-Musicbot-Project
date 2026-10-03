@@ -3,7 +3,8 @@ import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, But
 import * as YouTube from "../../sources/youtube/index.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
-import type { ChatInputCommandInteraction, Client } from "discord.js";
+import type { ChatInputCommandInteraction } from "discord.js";
+import type { BotContext } from "../../app/bot-context.ts";
 import type { TrackInfo } from "../../player/track.ts";
 import { requesterName } from "../../usecases/add-tracks.ts";
 import { SEARCH, customId } from "../../ui/custom-ids.ts";
@@ -52,7 +53,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
 /** 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다) */
 type SearchDeps = { search?: (query: string, limit: number) => Promise<TrackInfo[]> };
 
-const exported: GuildCommand & { execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>, deps?: SearchDeps): unknown } = {
+const exported: GuildCommand & { execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, deps?: SearchDeps): unknown } = {
   help: { section: "explore", tier: "everyone" },
   data: new SlashCommandBuilder()
     .setName("search")
@@ -71,7 +72,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
         .setRequired(true),
     ),
 
-  async execute(interaction: ChatInputCommandInteraction<"cached">, _client: Client<true>, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
+  async execute(interaction: ChatInputCommandInteraction<"cached">, _bot: BotContext, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
     const query = interaction.options.getString("query", true);
     const member = interaction.member;
 

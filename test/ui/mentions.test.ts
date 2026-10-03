@@ -78,7 +78,7 @@ test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않
 // 라벨 밖으로 탈출해 다른 URL을 거는 것도 불가능함을 확인했다 — 라벨이 깨지면
 // 디스코드가 링크 자체를 만들지 않는다.
 test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () => {
-  const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
+  const mem = new NowPlayingPanel(fake<Client>({}), new Map());
   const track: QueuedTrack = { title: "게임 실황 [Official] my_song_name", pageUrl: "https://ok.example", requestKey: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
   const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false });
 

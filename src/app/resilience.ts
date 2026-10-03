@@ -19,9 +19,10 @@ const coreLog = logger.child({ category: "core" });
 
 /** 치명적 오류로 내릴 때 세션을 저장하고 연결을 정리할 플레이어 */
 type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string): unknown } };
-type FatalClient = { players?: Pick<Map<string, Savable | null>, "forEach"> };
+/** 서버마다의 플레이어 */
+type Savables = Pick<Map<string, Savable | null>, "forEach">;
 /** 오류 처리기를 걸 클라이언트 */
-type WatchedClient = FatalClient & { on(event: "error", listener: (error: Error) => void): unknown };
+type WatchedClient = { on(event: "error", listener: (error: Error) => void): unknown };
 /** 처리되지 않은 거부 · 예외를 알리는 곳(프로세스) */
 type Proc = { on(event: "unhandledRejection" | "uncaughtException", listener: (error: unknown) => void): unknown };
 
@@ -54,8 +55,8 @@ function knownDiscordError(err: unknown) {
 // 치명적 오류: 세션을 저장하고 음성 채널에는 남긴 채 연결을 정리한 뒤 내린다(다시 켜면 그 자리에서 이어 튼다).
 // 세션이 까닭이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 되살리지 않는다, app/run-record).
 // exit · record 는 시험이 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
-function fatalShutdown(client: FatalClient | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
-  client?.players?.forEach((player, guildId) => {
+function fatalShutdown(players: Savables | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
+  players?.forEach((player, guildId) => {
     if (!player) return;
     try {
       player.persistence.saveNow("shutdown");
@@ -78,11 +79,11 @@ ${String(stack || error)}`,
   exit();
 }
 
-/** 처리기에 넘기는 것. fault: 서버 하나 다시 켜기(없으면 로그만) · proc · exit · record: 시험이 넘긴다 */
-type Options = { fault?: GuildFault; proc?: Proc; exit?: () => void; record?: Pick<typeof runRecord, "end"> };
+/** 처리기에 넘기는 것. players: 내릴 때 세션을 저장할 플레이어 · fault: 서버 하나 다시 켜기(없으면 로그만) · proc · exit · record: 시험이 넘긴다 */
+type Options = { players?: Savables; fault?: GuildFault; proc?: Proc; exit?: () => void; record?: Pick<typeof runRecord, "end"> };
 
 // 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다
-function installErrorHandlers(client: WatchedClient, { fault, proc = process, exit, record }: Options = {}) {
+function installErrorHandlers(client: WatchedClient, { players, fault, proc = process, exit, record }: Options = {}) {
   const flooding = makeFloodGuard();
 
   const loose = (error: unknown, source: string) => {
@@ -101,7 +102,7 @@ function installErrorHandlers(client: WatchedClient, { fault, proc = process, ex
     else coreLog.error(`경계가 빠진 자리에서 새어 나온 오류 (${source}):`, error);
     if (flooding()) {
       coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 모르는 오류가 ${FLOOD_MAX}번을 넘었습니다`);
-      fatalShutdown(client, error, { exit, record });
+      fatalShutdown(players, error, { exit, record });
     }
   };
 

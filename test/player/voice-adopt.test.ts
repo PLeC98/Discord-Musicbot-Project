@@ -49,15 +49,15 @@ function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as str
       steps.push(`${this.guild.id}:dispose:${o.session}`);
     }
   }
-  const client = fake<Client<true>>({ user: { id: BOT }, players, guilds: { cache: new Map(guilds.map((g) => [g.id, g])) } });
-  return { client, players, steps, FakePlayer: FakePlayer as unknown as Parameters<typeof adoptLingeringVoice>[1] };
+  const client = fake<Client<true>>({ user: { id: BOT }, guilds: { cache: new Map(guilds.map((g) => [g.id, g])) } });
+  return { client, players, steps, FakePlayer: FakePlayer as unknown as Parameters<typeof adoptLingeringVoice>[2] };
 }
 
 test("봇이 음성 채널에 남아 있고 플레이어가 없는 서버만 이어받는다: 붙고, 쉬는 문구를 걸고, 틀 게 없음 퇴장을 건다", async () => {
   const restored = guildWith("g2");
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), restored, guildWith("g3", { botIn: null })]);
   players.set("g2", "세션을 되살린 플레이어");
-  await adoptLingeringVoice(client, FakePlayer);
+  await adoptLingeringVoice(client, players, FakePlayer);
   assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", `g1:status:${config.voiceStatus.idleText}`, "g1:empty:곡 없이 대기"]);
   assert.ok(players.has("g1"));
   assert.equal(players.get("g2"), "세션을 되살린 플레이어");
@@ -65,14 +65,14 @@ test("봇이 음성 채널에 남아 있고 플레이어가 없는 서버만 이
 });
 
 test("그 채널에 사람이 없으면 혼자 남음 퇴장도 건다", async () => {
-  const { client, steps, FakePlayer } = world([guildWith("g1", { humans: 0 })]);
-  await adoptLingeringVoice(client, FakePlayer);
+  const { client, players, steps, FakePlayer } = world([guildWith("g1", { humans: 0 })]);
+  await adoptLingeringVoice(client, players, FakePlayer);
   assert.deepEqual(steps.slice(-2), ["g1:empty:곡 없이 대기", "g1:alone"]);
 });
 
 test("다시 붙지 못하면 그 서버는 정리하고(세션은 남김) 다음 서버로 넘어간다", async () => {
-  const { client, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")], { failConnect: ["g1"] });
-  await adoptLingeringVoice(client, FakePlayer);
+  const { client, players, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")], { failConnect: ["g1"] });
+  await adoptLingeringVoice(client, players, FakePlayer);
   assert.deepEqual(steps.slice(0, 2), ["g1:new:null:vc1", "g1:dispose:keep"]);
   assert.ok(steps.includes("g2:connect"));
 });
@@ -81,7 +81,7 @@ test("저장된 세션이 있는 서버(이번에 되살리지 않았다)는 이
   sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: null });
   try {
     const { client, players, steps, FakePlayer } = world([guildWith("g1")]);
-    await adoptLingeringVoice(client, FakePlayer);
+    await adoptLingeringVoice(client, players, FakePlayer);
     assert.deepEqual(steps, []);
     assert.equal(players.has("g1"), false);
     assert.ok(sessions().load("g1"), "세션은 그대로");
@@ -91,8 +91,8 @@ test("저장된 세션이 있는 서버(이번에 되살리지 않았다)는 이
 });
 
 test("이번 기동에 세션 복원이 손댄 서버(복원하다 실패해 세션을 지우고 나감)는 캐시에 봇이 남아 보여도 이어받지 않는다", async () => {
-  const { client, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")]);
-  await adoptLingeringVoice(client, FakePlayer, { touched: ["g1"] });
+  const { client, players, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")]);
+  await adoptLingeringVoice(client, players, FakePlayer, { touched: ["g1"] });
   assert.ok(!steps.some((s) => s.startsWith("g1:")));
   assert.ok(steps.includes("g2:connect"));
 });

@@ -4,11 +4,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Client } from "discord.js";
 import { queueTracks, type AddResult, type TrackData } from "../../src/usecases/add-tracks.ts";
 import type { Player } from "../../src/player/player.ts";
 import type { Responder } from "../../src/ui/now-playing-panel.ts";
-import { fake, fakePlayer } from "../helpers/fake.ts";
+import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 
 function deferred() {
   let resolve!: () => void;
@@ -35,7 +34,7 @@ function world(guildIds = ["g1"]) {
   let active = 0;
   let maxActive = 0;
   const players = new Map<string, Player>(guildIds.map((name) => [idOf(name), fakePlayer({ guild: { id: idOf(name) }, currentTrack: { title: "지금" }, queue: [], nowPlayingMessage: null })]));
-  const client = fake<Client>({ players, panels: { createQueueAdditionMessage: () => "담음" } });
+  const bot = fakeBot({ players, panels: { createQueueAdditionMessage: () => "담음" } });
 
   // 이 작업을 알리는 매체. 알리는 동안 붙잡는다
   const responder = (id: string): Responder => ({
@@ -54,14 +53,14 @@ function world(guildIds = ["g1"]) {
     },
     async dismissPlaceholder() {},
   });
-  const add = (guildName: string, id: string) => queueTracks(client, idOf(guildName), job(id), null, responder(id));
+  const add = (guildName: string, id: string) => queueTracks(bot, idOf(guildName), job(id), null, responder(id));
   const playerOf = (guildName: string) => players.get(idOf(guildName));
   const gate = (id: string) => {
     const g = gates.get(id);
     assert.ok(g, `${id} 가 시작했다`);
     return g;
   };
-  return { client, players, playerOf, events, add, gate, maxActive: () => maxActive };
+  return { bot, players, playerOf, events, add, gate, maxActive: () => maxActive };
 }
 
 const tick = () => new Promise((r) => setImmediate(r));

@@ -9,9 +9,8 @@ const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import type { Client } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
-import { fake, fakePlayer } from "../helpers/fake.ts";
+import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 
 /** 이 시험이 읽는 답의 칸(서버 설정 · 플레이어 · 서버 목록) */
@@ -117,8 +116,8 @@ const guild = {
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map<string, Player>(),
 };
+const players = new Map<string, Player>();
 
 function modMember() {
   return { permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
@@ -137,7 +136,7 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use(signedInAs(() => currentUser));
-  app.locals.discordClient = fake<Client>(client);
+  app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {} } });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
   base = baseUrl(server);
@@ -438,18 +437,18 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   noVoice();
   guild.members.me = { voice: voiceState("v1") };
   currentMember = inVoice("v1");
-  client.players.delete(GUILD_ID);
+  players.delete(GUILD_ID);
 
   let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.botInVoice, true, "디스코드는 봇이 음성에 있다고 본다");
   assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다 — 조작은 전부 409");
   assert.equal(r.json.canAdd, true, "권한은 통과하므로 이것만 보면 폼이 열린다");
 
-  client.players.set(GUILD_ID, fakePlayer({ currentTrack: null, previousTracks: [], queue: [] }));
+  players.set(GUILD_ID, fakePlayer({ currentTrack: null, previousTracks: [], queue: [] }));
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.hasPlayer, true);
 
-  client.players.delete(GUILD_ID);
+  players.delete(GUILD_ID);
   noVoice();
   guild.members.me = null;
   currentMember = plainMember();
@@ -473,4 +472,20 @@ test("PUT settings: 모양이 틀리면 bad-settings 400 에 칸별 문제(JSON 
   const range = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 0 });
   assert.deepEqual(range.json.errors, [{ pointer: "/playlistAddMax", code: "playlist-limit-out-of-range", min: settings.playlistAddLimits().min, max: settings.playlistAddLimits().max }], "곡 수는 범위를 같이 싣는다");
   assert.deepEqual(settingsRow(), rowBefore);
+});
+
+// ── POST /player/join ────────────────────────────────────────
+
+// 부르는 사람은 서버를 연 그 멤버다(대역 멤버도 거기서 걸린다). 운영자는 멤버가 아니어도 서버를 열지만 음성에 없으니 부를 수 없다
+test("POST join: 멤버가 아닌 운영자는 member-not-found, 음성 밖의 멤버는 must-be-in-voice", async () => {
+  currentMember = null;
+  currentUser = { id: "owner", username: "운영자", guilds: [] };
+  const owner = await req("POST", `/api/guilds/${GUILD_ID}/player/join`);
+  assert.deepEqual([owner.status, owner.json.code], [404, "member-not-found"]);
+
+  currentMember = plainMember();
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+  const away = await req("POST", `/api/guilds/${GUILD_ID}/player/join`);
+  assert.deepEqual([away.status, away.json.code], [409, "must-be-in-voice"]);
+  assert.equal(players.has(GUILD_ID), false, "부르지 못했으면 플레이어를 만들지 않는다");
 });

@@ -12,7 +12,7 @@ import { command, run } from "../helpers/commands.ts";
 import { failureShow } from "../../src/ui/failure-notice.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
-import { fake, fakePlayer } from "../helpers/fake.ts";
+import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { useExampleConfig } from "../helpers/example-config.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
@@ -130,7 +130,7 @@ test("수명: 조작 결과는 결과 수명, 정지 · 나가기는 더 오래"
 
   const leave = asked();
   const { p } = player({ queue: [], getCurrentTime: () => 0, dispose: async () => {} });
-  await run(await command("leave"), Object.assign(leave.it, { guild }), { players: new Map([["g1", p]]) });
+  await run(await command("leave"), Object.assign(leave.it, { guild }), fakeBot({ players: new Map([["g1", p]]) }));
   assert.deepEqual(lifetimesOf(leave.it), [LIFETIME.farewell]);
   assert.ok(LIFETIME.farewell > LIFETIME.result);
 });

@@ -15,7 +15,8 @@ import { errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { canSend } from "../ui/channels.ts";
 import { addedView } from "../ui/added-notice.ts";
-import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
 import type { NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
 
@@ -75,13 +76,13 @@ function toRequester(source: RequesterSource): Requester | null {
  * voiceChannel은 봇이 유휴일 때만 갱신한다. 재생 중 다른 채널 참조로 오염되면
  * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드).
  */
-function ensurePlayer(client: Client, { guild, textChannel = null, voiceChannel = null }: { guild: Guild; textChannel?: GuildTextBasedChannel | null; voiceChannel?: VoiceBasedChannel | null }) {
+function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel = null, voiceChannel = null }: { guild: Guild; textChannel?: GuildTextBasedChannel | null; voiceChannel?: VoiceBasedChannel | null }) {
   const botVoiceChannel = guild.members.me?.voice?.channel ?? null;
 
-  let player = client.players.get(guild.id);
+  let player = bot.players.get(guild.id);
   if (!player) {
     player = new Player(guild, textChannel, voiceChannel ?? botVoiceChannel);
-    client.players.set(guild.id, player);
+    bot.players.set(guild.id, player);
     return player;
   }
 
@@ -148,17 +149,17 @@ function useAdder(fake: typeof queueTracks | null | undefined) {
 // skipped: 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기 · 지역 제한)
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
-async function requestPlayback(client: Client, request: PlaybackRequest): Promise<PlaybackResult> {
+async function requestPlayback(bot: Bot, request: PlaybackRequest): Promise<PlaybackResult> {
   const { guild, insertFirst = false, responder = silentResponder } = request;
   // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(출처가 더 작게 자르면 그쪽), 더 넣기 선택지 단위이기도 하다
   const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));
 
   // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 등록부에 남는다
-  const checked = await tracksFor(client.players.get(guild.id) ?? null, request, batch);
+  const checked = await tracksFor(bot.players.get(guild.id) ?? null, request, batch);
   const who = toRequester(request.requester);
   logRequest(request, who, isRefused(checked) ? checked : trimmed(checked, request.single));
   if (isRefused(checked)) return { success: false, ...checked };
-  const player = await playerFor(client, request);
+  const player = await playerFor(bot, request);
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
   if (checked.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
@@ -167,7 +168,7 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
   withKnownLengths(trackData.tracks);
   const toAdd: TrackData = { ...trackData, ...placement(request) };
 
-  const result = await defaultAdder(client, guild.id, toAdd, who, responder);
+  const result = await defaultAdder(bot, guild.id, toAdd, who, responder);
   logOutcome(result, player);
 
   // 목록이 더 남았으면 이어 받을 상태. 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
@@ -176,12 +177,12 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
 }
 
 // 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다
-async function playerFor(client: Client, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
+async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
   let resolvedTextChannel = textChannel;
-  if (!resolvedTextChannel && !client.players.get(guild.id)?.textChannel) {
+  if (!resolvedTextChannel && !bot.players.get(guild.id)?.textChannel) {
     resolvedTextChannel = await resolveFallbackTextChannel(guild);
   }
-  return ensurePlayer(client, { guild, textChannel: resolvedTextChannel, voiceChannel });
+  return ensurePlayer(bot, { guild, textChannel: resolvedTextChannel, voiceChannel });
 }
 
 // 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 안내 문구
@@ -297,9 +298,9 @@ const ignoreProgress = () => {
   /* 진행을 알릴 곳이 없다 */
 };
 
-async function continueCollection(client: Client, request: CollectionRequest): Promise<CollectionResult> {
+async function continueCollection(bot: Bot, request: CollectionRequest): Promise<CollectionResult> {
   const { guild, state } = request;
-  const player = client.players.get(guild.id);
+  const player = bot.players.get(guild.id);
   if (!player) return { success: false, code: "ended-while-adding" };
   const want = Math.min(request.count, roomFor(player), KINDS[state.kind].perClick);
   if (want <= 0) return { success: false, code: "queue-full" };
@@ -311,7 +312,7 @@ async function continueCollection(client: Client, request: CollectionRequest): P
   if (tracks.length === 0) return skipped > 0 ? { success: false, code: "more-nothing-playable", skipped } : { success: false, code: "more-nothing-found" };
   const nextOffset = cursor - (found.length - tracks.length);
 
-  const result = await requestPlayback(client, {
+  const result = await requestPlayback(bot, {
     guild,
     requester: request.requester,
     tracks,
@@ -379,6 +380,8 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
 
 /** 곡 담기에서 부르는 패널(그리기만) */
 type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage">;
+/** 곡을 담는 데 쓰는 것: 서버마다의 플레이어와 재생 패널 */
+type Bot = { players: Pick<PlayerSeats, "get" | "set">; panels: Panel };
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
 type Opened = { success: true };
 /** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패(까닭과 안내), started 곧바로 튼 곡 */
@@ -390,13 +393,13 @@ type Addition = { queued: QueuedTrack[]; collection: string | null; insertFirst:
 const adding = new Map<string, Promise<AddResult>>();
 
 /** 곡을 서버의 플레이어에 담는다. 쉬고 있으면 첫 곡을 틀고 패널을 세우고, 나머지는 대기열에. responder: 결과를 알릴 매체 */
-function queueTracks(client: Client, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
+function queueTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
   const tail = adding.get(guildId) || Promise.resolve();
   const task = tail
     .catch(() => {
       /* 앞 작업의 실패는 그 호출자가 받는다. 뒤 작업까지 실패시키지 않는다 */
     })
-    .then(() => processTracks(client, guildId, trackData, requester, responder));
+    .then(() => processTracks(bot, guildId, trackData, requester, responder));
   adding.set(guildId, task);
 
   return task.finally(() => {
@@ -404,11 +407,11 @@ function queueTracks(client: Client, guildId: string, trackData: TrackData, requ
   });
 }
 
-async function processTracks(client: Client, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
-  const player = client.players.get(guildId);
+async function processTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
+  const player = bot.players.get(guildId);
   if (!player) return { success: false, code: "ended-while-adding" };
   try {
-    return await place(client.panels, player, trackData, requester, responder);
+    return await place(bot.panels, player, trackData, requester, responder);
   } catch (error) {
     log.error({ kind: errorKind(error) }, "곡 담기 처리 실패:", error);
     return { success: false, code: "add-failed", ...kindOf(error) };

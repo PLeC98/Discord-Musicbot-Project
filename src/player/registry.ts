@@ -5,7 +5,7 @@ import type { Player } from "./player.ts";
 import * as playerEvents from "./events.ts";
 
 /**
- * 서버마다 플레이어 하나(client.players). 등록 · 해제를 기록한다.
+ * 서버마다 플레이어 하나. 조립(app/main)이 하나 만들어 넘긴다. 등록 · 해제를 기록한다.
  * 빼는 길은 플레이어를 버릴 때 오는 알림 하나다(followDisposals → forget). 그 서버에 새 플레이어가
  * 이미 들어와 있으면 늦게 버려진 옛 플레이어가 새것을 빼지 않는다.
  */
@@ -32,4 +32,8 @@ class PlayerRegistry extends Collection<string, Player> {
   }
 }
 
+/** 등록부를 읽거나 올리기만 하는 쪽이 받는 모양. 조립은 등록부를, 시험은 Map 을 넘긴다 */
+type PlayerSeats = { get(guildId: string): Player | undefined; has(guildId: string): boolean; set(guildId: string, player: Player): unknown };
+
 export { PlayerRegistry };
+export type { PlayerSeats };

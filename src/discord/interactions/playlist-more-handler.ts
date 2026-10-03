@@ -14,6 +14,7 @@ import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { continueCollection } from "../../usecases/add-tracks.ts";
 import * as More from "../../usecases/playlist-more.ts";
 import { route, type Route } from "./route.ts";
+import type { BotContext } from "../../app/bot-context.ts";
 import type { MoreState } from "../../usecases/playlist-more.ts";
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeInstead, noticeSelf, toAll } from "../../ui/delivery.ts";
@@ -56,7 +57,7 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
 }
 
 // 이어 받아 넣고 결과로 메시지를 바꾼다
-async function addMore(interaction: MoreInteraction, state: MoreState, count: number, player: Player) {
+async function addMore(interaction: MoreInteraction, state: MoreState, count: number, player: Player, bot: BotContext) {
   const message = interaction.message;
   // 메뉴를 떼어 두 번 누르지 못하게 하면서 3초 안에 응답한다
   if (message) More.clearExpiry(message.id);
@@ -74,7 +75,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
 
   let outcome: { view: ContainerBuilder } | { failed: Notice };
   try {
-    const result = await continueCollection(interaction.client, {
+    const result = await continueCollection(bot, {
       guild: interaction.guild,
       requester: interaction.member,
       state,
@@ -100,7 +101,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
   if (message) More.expireLater(message.id, () => interaction.deleteReply(), LIFETIME.glance);
 }
 
-async function handleMore(interaction: MoreInteraction) {
+async function handleMore(interaction: MoreInteraction, bot: BotContext) {
   const refuse = refuser(interaction);
   const state = More.decodeState(interaction.customId);
   if (!state) return refuse(errors.notice("more-unknown-menu"));
@@ -114,14 +115,14 @@ async function handleMore(interaction: MoreInteraction) {
   const permErr = checkAdd(interaction.member);
   if (permErr) return refuse(errors.notice(permErr));
 
-  const player = interaction.client.players.get(interaction.guild.id);
+  const player = bot.players.get(interaction.guild.id);
   if (!player) return refuse(errors.notice("no-song"));
 
   const count = await countOf(interaction, state, player);
-  if (count) await addMore(interaction, state, count, player);
+  if (count) await addMore(interaction, state, count, player, bot);
 }
 
 // 곡 수 입력 모달은 메뉴 메시지에서 연다(그 메시지를 고친다). 메시지에서 온 것이 아니면 받지 않는다
-const routes: Route[] = [route("select", `${More.SELECT_PREFIX}:`, handleMore), route("modal", `${More.MODAL_PREFIX}:`, (it) => (it.isFromMessage() ? handleMore(it) : undefined))];
+const routes: Route[] = [route("select", `${More.SELECT_PREFIX}:`, handleMore), route("modal", `${More.MODAL_PREFIX}:`, (it, bot) => (it.isFromMessage() ? handleMore(it, bot) : undefined))];
 
 export { routes };

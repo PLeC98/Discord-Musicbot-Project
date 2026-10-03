@@ -3,22 +3,24 @@ import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, But
 import config from "../../config/index.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { Client } from "discord.js";
+import type { BotContext } from "../../app/bot-context.ts";
 import { HELP, customId } from "../../ui/custom-ids.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as helpText from "../../ui/text/ko/help.ts";
 import { helpSections } from "../../ui/help-lines.ts";
 import { LIFETIME, selfOnly, toSelf } from "../../ui/delivery.ts";
 
-async function buildHelpEmbed(client: Client<true>) {
+// players: 지금 도는 서버 수 · commands: 켜진 명령(실행 목록)
+async function buildHelpEmbed(client: Client<true>, { players, commands }: Pick<BotContext, "players" | "commands">) {
   const guilds = client.guilds.cache.size;
   const users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
-  const activeServers = client.players.size;
+  const activeServers = players.size;
 
   const intro = helpText.intro();
   const embed = new EmbedBuilder().setTitle(intro.title).setDescription(intro.description).setColor(colorOf("brand")).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
   // 명령 줄은 실행 목록(켜진 명령만, 등록 목록의 차례)에서 만든다
-  const commands = [...client.commands.values()].map((command) => ({ defined: command.data.toJSON(), help: command.help }));
-  for (const { name, lines } of helpSections(commands)) embed.addFields({ name, value: lines.join("\n"), inline: false });
+  const defined = [...commands.values()].map((command) => ({ defined: command.data.toJSON(), help: command.help }));
+  for (const { name, lines } of helpSections(defined)) embed.addFields({ name, value: lines.join("\n"), inline: false });
   const stats = helpText.stats({ guilds, users, active: activeServers, uptime: formatSpan(process.uptime()) });
   embed.addFields({ name: stats.name, value: stats.lines.join("\n"), inline: true });
   // WEBSITE는 선택 설정(null 허용). 없으면 링크/버튼을 생략한다
@@ -40,8 +42,8 @@ const exported: GuildCommand = {
   help: null,
   data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어 목록을 알려줘요" }),
 
-  async execute(interaction, client) {
-    const { embed, row } = await buildHelpEmbed(client);
+  async execute(interaction, bot) {
+    const { embed, row } = await buildHelpEmbed(interaction.client, bot);
     await toSelf(interaction, selfOnly({ embeds: [embed], components: [row] }), LIFETIME.screen);
   },
 };

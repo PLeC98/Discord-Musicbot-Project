@@ -12,10 +12,9 @@ import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import type { Client } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
-import { fake } from "../helpers/fake.ts";
+import { fake, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, detailsOf, type ProblemReply } from "../helpers/dashboard.ts";
 
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
@@ -100,12 +99,12 @@ const client = {
       [gStuck.id, gStuck],
     ]),
   },
-  players: new Map([[g1.id, fake<Player>(playerG1)]]),
-  panels: {
-    endedPlayers: [] as unknown[],
-    async drawEndedPanel(player: unknown) {
-      this.endedPlayers.push(player);
-    },
+};
+const players = new Map([[g1.id, fake<Player>(playerG1)]]);
+const panels = {
+  endedPlayers: [] as unknown[],
+  async drawEndedPanel(player: unknown) {
+    this.endedPlayers.push(player);
   },
 };
 
@@ -119,7 +118,7 @@ before(async () => {
   const app = express();
   app.use(bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use(signedInAs(() => currentUser));
-  app.locals.discordClient = fake<Client>(client);
+  app.locals.bot = fakeBot({ client, players, panels });
   // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 칸 중 이름만)
   const put = fake<PutCommands>(async (_route: string, body: { name: string }[]) => body.map((c) => ({ name: c.name })));
   app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });

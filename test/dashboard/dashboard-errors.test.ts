@@ -12,9 +12,8 @@ import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import type { Client } from "discord.js";
 import type { NextFunction, Request, Response } from "express";
-import { fake } from "../helpers/fake.ts";
+import { fake, fakeBot } from "../helpers/fake.ts";
 import { baseUrl } from "../helpers/listen.ts";
 import logSink from "../../src/infra/log/sink.ts";
 import { PROBLEMS } from "../../src/rules/problems.ts";
@@ -53,7 +52,7 @@ let base: string;
 
 before(async () => {
   const deployCommands = () => assert.fail("이 시험은 명령을 등록하지 않는다");
-  server = createApp(fake<Client>({ user: null }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
+  server = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   base = baseUrl(server);
 });

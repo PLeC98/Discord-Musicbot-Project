@@ -9,9 +9,9 @@ const exported: GuildCommand = {
   help: { section: "channel", tier: "dj" },
   data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "대기열을 저장하고 음성 채널에서 나가요" }),
 
-  async execute(interaction, client) {
+  async execute(interaction, bot) {
     const { guild, member } = interaction;
-    const r = await controls.leave(guild, { member }, client.players);
+    const r = await controls.leave(guild, { member }, bot.players);
     if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
     // 플레이어 없이 봇만 음성 채널에 남아 있었다(곡이 끝난 뒤 나갈 예약이 아직 돌지 않았다)

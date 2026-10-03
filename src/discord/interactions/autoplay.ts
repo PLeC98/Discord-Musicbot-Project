@@ -9,6 +9,7 @@ import { controlMessage } from "../../ui/control-messages.ts";
 import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../ui/genre-menu.ts";
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../../ui/custom-ids.ts";
 import { route, type Route } from "./route.ts";
+import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf } from "../../ui/delivery.ts";
 
@@ -30,19 +31,19 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
 
 // 끝난 패널 · 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
 // 끝난 패널의 버튼(idle)은 세션이 없어 어느 플레이어에도 통한다(/join 뒤 · 대기열이 끝나 기다리는 동안에도 플레이어가 있다). /autoplay 와 같다
-async function handleAutoplayButton(interaction: ButtonInteraction<"cached">) {
-  const player = interaction.client.players.get(interaction.guild.id);
+async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { players }: BotContext) {
+  const player = players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
   if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return noticeSelf(interaction, errors.notice("stale-session"));
   return answerAutoplay(interaction, player);
 }
 
 // 장르 메뉴에서 골랐다. 메뉴(본인)를 지우고 켠 결과는 모두에게
-async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">) {
-  const { guild, member, client } = interaction;
+async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
+  const { guild, member } = interaction;
   const genre = interaction.values[0];
-  const create = () => ensurePlayer(client, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
-  const r = await controls.autoplay(client.players.get(guild.id), { member }, genre, {
+  const create = () => ensurePlayer(bot, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
+  const r = await controls.autoplay(bot.players.get(guild.id), { member }, genre, {
     create,
     onAccepted: async () => {
       await interaction.deferUpdate();

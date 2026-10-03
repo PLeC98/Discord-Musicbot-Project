@@ -49,7 +49,7 @@ async function endLines(act: () => unknown) {
     .map((e) => e.text.slice(e.text.indexOf("트랙 종료:")));
 }
 
-const registered = (p: Player) => p.guild.client.players.get(p.guild.id) === p;
+const registered = (p: Player) => h.registryOf(p)?.get(p.guild.id) === p;
 
 test("곡이 끝까지 돌면: 원인=idle, 다음 곡을 튼다", async () => {
   const next = yt("fffffffffff", { title: "다음 곡" });
@@ -109,7 +109,7 @@ test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 지운다", async (
 
 test("/leave: 원인=leave. 세션을 저장하고 지우지 않는다", async () => {
   const p = playingPlayer(yt("ccccccccccc", { title: "셋째 곡" }));
-  const lines = await endLines(() => controls.leave(p.guild, OWNER, p.guild.client.players));
+  const lines = await endLines(() => controls.leave(p.guild, OWNER, h.registryOf(p)!));
   assert.deepEqual(lines, ['트랙 종료: "셋째 곡" (youtube) | 원인=leave']);
   assert.ok(calls.persists.includes("leave"));
   assert.equal(calls.persists.includes("remove"), false);
@@ -120,7 +120,7 @@ test("강제 퇴장: 원인=forced-disconnect, 곡 이름이 남는다. 등록�
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", isVoiceBased: () => true })); // 채널은 그대로 있다(지워졌으면 채널 사라짐)
   const client = p.guild.client as Client;
   const state = (channelId: string | null) => fake<VoiceState>({ id: "bot", channelId, guild: p.guild });
-  const lines = await endLines(() => onVoiceStateUpdate(client, state("voice1"), state(null)));
+  const lines = await endLines(() => onVoiceStateUpdate(client, h.registryOf(p)!, state("voice1"), state(null)));
   assert.deepEqual(lines, ['트랙 종료: "넷째 곡" (youtube) | 원인=forced-disconnect']);
   assert.equal(registered(p), false);
 });

@@ -9,8 +9,8 @@ const exported: GuildCommand = {
   help: { section: "mode", tier: "dj" },
   data: new SlashCommandBuilder().setName("autoplay").setDescription("Toggle autoplay. Pick a genre when turning it on.").setDescriptionLocalizations({ ko: "자동 재생 기능을 켜거나 꺼요" }),
 
-  execute(interaction, client) {
-    return answerAutoplay(interaction, client.players.get(interaction.guild.id));
+  execute(interaction, bot) {
+    return answerAutoplay(interaction, bot.players.get(interaction.guild.id));
   },
 };
 export default exported;

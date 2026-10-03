@@ -46,8 +46,8 @@ class TestPanels extends NowPlayingPanel {
   calls: Calls;
   next = 500;
 
-  constructor(client: Client, calls: Calls, panelStore: PanelStore) {
-    super(client, { panelStore });
+  constructor(client: Client, players: Map<string, Player>, calls: Calls, panelStore: PanelStore) {
+    super(client, players, { panelStore });
     this.calls = calls;
   }
   async getOrCreateWebhook(channel: GuildBasedChannel) {
@@ -78,7 +78,7 @@ function setup({ record = null }: { record?: PanelRecord | null } = {}) {
   ]);
   const guild = fake<Guild>({ id: "g1", channels: { cache: channels } });
   const players = new Map<string, Player>();
-  const client = fake<Client>({ players, guilds: { cache: new Collection([["g1", guild]]) }, user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" } });
+  const client = fake<Client>({ guilds: { cache: new Collection([["g1", guild]]) }, user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" } });
   const records = new Map<string, PanelRecord | null>(record ? [["g1", record]] : []);
   const panelStore: PanelStore = {
     getPanel: async (g) => records.get(g) ?? null,
@@ -86,7 +86,7 @@ function setup({ record = null }: { record?: PanelRecord | null } = {}) {
       records.set(g, messageId ? { channelId, messageId } : null);
     },
   };
-  const mem = new TestPanels(client, calls, panelStore);
+  const mem = new TestPanels(client, players, calls, panelStore);
   // 패널을 둘 채널. 가짜 채널을 글 채널로 본다
   const text = (id: string) => {
     const channel = channels.get(id);

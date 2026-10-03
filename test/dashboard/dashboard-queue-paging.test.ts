@@ -16,10 +16,9 @@ after(() => store.close());
 
 import express from "express";
 import type { Server } from "node:http";
-import type { Client } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { playerState, queueTrack } from "../../src/dashboard/player-view.ts";
-import { fake, fakePlayer } from "../helpers/fake.ts";
+import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 
 type PlayerReply = ReturnType<typeof playerState>;
@@ -61,9 +60,9 @@ const guild = {
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map<string, Player>(),
-  panels: { updatePlaying: async () => {}, panelChannel: async () => null },
 };
+const players = new Map<string, Player>();
+const panels = { updatePlaying: async () => {}, panelChannel: async () => null };
 
 let server: Server;
 let base: string;
@@ -72,12 +71,12 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use(signedInAs(() => ({ id: "owner", username: "owner", guilds: [] })));
-  app.locals.discordClient = fake<Client>(client);
+  app.locals.bot = fakeBot({ client, players, panels });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
   base = baseUrl(server);
   player = makePlayer();
-  client.players.set(GUILD_ID, player);
+  players.set(GUILD_ID, player);
 });
 
 after(() => server.close());

@@ -82,6 +82,16 @@ test("실행 중 경로를 파일 자리에서 세지 않는다(import.meta.dirn
   assert.deepEqual(now.dirnameUse, ["src/infra/project-paths.ts"]);
 });
 
+// 조립이 만든 것(플레이어 등록부 · 패널 · 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 다시 열린다
+test("디스코드 클라이언트 타입을 늘려 칸을 매달지 않는다", () => {
+  const src = path.join(PROJECT.root, "src");
+  const augmenting = fs
+    .readdirSync(src, { recursive: true, encoding: "utf8" })
+    .filter((f) => /\.ts$/.test(f) && /declare\s+module\s+["']discord\.js["']/.test(fs.readFileSync(path.join(src, f), "utf8")))
+    .map((f) => `src/${f.split(path.sep).join("/")}`);
+  assert.deepEqual(augmenting, []);
+});
+
 // 파일 이름은 kebab-case(점 뒤는 .test · .d · .browser 같은 꼬리). 대시보드 화면(Vue 컴포넌트는 PascalCase)은 따로 본다
 test("봇 · 시험 · 스크립트의 파일 이름은 kebab-case", () => {
   const files = (dir: string): string[] => fs.readdirSync(path.join(PROJECT.root, dir), { recursive: true, encoding: "utf8" }).filter((f) => /\.(ts|js|mjs)$/.test(f));

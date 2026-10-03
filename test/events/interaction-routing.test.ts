@@ -6,7 +6,7 @@ import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection, type Interaction } from "discord.js";
-import { fake } from "../helpers/fake.ts";
+import { fake, fakeBot } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { useExampleConfig } from "../helpers/example-config.ts";
 import { buildGenreMenu, buildAutoplayOffMenu } from "../../src/ui/genre-menu.ts";
@@ -28,6 +28,8 @@ const store = openTempStore("listeners-");
 after(() => store.close());
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
+// 봇은 쉬고 있다(플레이어 없음). 명령은 시험용 하나
+const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
 const OWNERS = { autoplay, buttonHandler, djRoleConfigHandler, modalHandler, playlistMoreHandler, sponsorConfigHandler };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
@@ -52,7 +54,7 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
     fields: { getTextInputValue: () => "50" },
     replied: false,
     deferred: false,
-    client: { user: { id: "bot", tag: "bot#0", username: "bot", displayAvatarURL: () => "https://example.invalid/a.png" }, guilds: { cache: new Collection([["g1", guild]]) }, players: new Map(), commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) },
+    client: { user: { id: "bot", tag: "bot#0", username: "bot", displayAvatarURL: () => "https://example.invalid/a.png" }, guilds: { cache: new Collection([["g1", guild]]) } },
     isButton: () => kind === "button",
     isStringSelectMenu: () => kind === "select",
     isRoleSelectMenu: () => kind === "roleSelect",
@@ -85,7 +87,7 @@ function ownerOf(kind: Kind, customId: string) {
 const FIRST = new Set(["reply", "deferReply", "deferUpdate", "update", "showModal"]);
 async function answers(kind: Kind, customId: string) {
   const answered: string[] = [];
-  await interactionCreate.execute(interaction(kind, customId, answered));
+  await interactionCreate.execute(BOT, interaction(kind, customId, answered));
   return answered.filter((a) => FIRST.has(a));
 }
 
@@ -126,7 +128,7 @@ test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal().toJSON().custom_id, "panel:volume");
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
-  const jump = await new NowPlayingPanel(fake({ players: new Map() })).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
+  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
 });
 

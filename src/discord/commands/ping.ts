@@ -9,13 +9,13 @@ const exported: AnywhereCommand = {
   anywhere: true,
   data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇의 응답 시간을 측정해요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
-  async execute(interaction, client) {
+  async execute(interaction) {
     const { resource } = await interaction.reply({ content: infoText.pinging(), withResponse: true, flags: MessageFlags.Ephemeral });
     // 보낸 응답의 시각. 응답이 안 실려 오면 지금으로 본다
     const sentAt = resource?.message?.createdTimestamp ?? Date.now();
 
     const botLatency = sentAt - interaction.createdTimestamp;
-    const wsLatency = Math.round(client.ws.ping);
+    const wsLatency = Math.round(interaction.client.ws.ping);
     const wsReady = wsLatency >= 0;
 
     const botStatus = botLatency < 100 ? "🟢" : botLatency < 300 ? "🟡" : "🔴";

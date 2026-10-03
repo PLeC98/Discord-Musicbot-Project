@@ -41,18 +41,17 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       await status();
     },
   });
-  const client = {
+  const bot = {
+    client: { guilds: { cache: new Map([["g1", { name: "서버1" }]]) }, destroy: () => steps.push("client:destroy") },
     players: new Map([
       ["g1", player("g1")],
       ["g2", null],
     ]),
-    guilds: { cache: new Map([["g1", { name: "서버1" }]]) },
-    destroy: () => steps.push("client:destroy"),
   };
   const proc = fakeWith<ShutdownBoundary["proc"]>()(Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } }));
   let exits = 0;
   const exited = new Promise((resolve) => {
-    installShutdown(client, {
+    installShutdown(bot, {
       potServer: { stop: () => steps.push("pot:stop") },
       logFile: { close: () => steps.push("log:close") },
       proc,

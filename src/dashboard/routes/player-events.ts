@@ -30,8 +30,8 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
 
   // SSE. 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 서버 전체를 한 연결로).
   router.get("/events", requireAuth, async (req, res) => {
-    const client = req.app.locals.discordClient;
-    if (!client?.isReady()) return sendProblem(res, "bot-not-ready");
+    const { client } = req.app.locals.bot;
+    if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     // 구독할 서버 집합 = 상호 서버 중 실멤버십 확인된 것
     const user = signedIn(req);

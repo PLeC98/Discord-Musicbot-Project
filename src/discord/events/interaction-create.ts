@@ -14,6 +14,7 @@ import { noticeSelf } from "../../ui/delivery.ts";
 import { ROUTES } from "../interactions/index.ts";
 import { componentOf, routeOf, type Route } from "../interactions/route.ts";
 import type { ClientEvent } from "../../app/main.ts";
+import type { BotContext } from "../../app/bot-context.ts";
 
 /**
  * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 가를 수 있는 오류(네트워크 · 봇 감지 등)는
@@ -37,16 +38,16 @@ function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknow
   return noticeSelf(interaction, notice);
 }
 
-async function runCommand(interaction: ChatInputCommandInteraction) {
-  const command = interaction.client.commands.get(interaction.commandName);
+async function runCommand(bot: BotContext, interaction: ChatInputCommandInteraction) {
+  const command = bot.commands.get(interaction.commandName);
   if (!command) {
     log.warn(`실행 목록에 없는 명령: /${interaction.commandName}`);
     return noticeSelf(interaction, errors.notice("unknown-command")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     // 서버 명령은 서버 안에서만. DM 에서도 쓰는 명령은 그대로 부른다
-    if (command.anywhere) await command.execute(interaction, interaction.client);
-    else if (interaction.inCachedGuild()) await command.execute(interaction, interaction.client);
+    if (command.anywhere) await command.execute(interaction, bot);
+    else if (interaction.inCachedGuild()) await command.execute(interaction, bot);
     else await noticeSelf(interaction, errors.notice("guild-only"));
   } catch (error) {
     await failed(interaction, `/${interaction.commandName}`, error, errors.notice("command-failed"));
@@ -54,7 +55,7 @@ async function runCommand(interaction: ChatInputCommandInteraction) {
 }
 
 // 버튼 · 메뉴 · 모달. 서버 안의 것만 받는다
-async function runComponent(input: Interaction, routes: readonly Route[]) {
+async function runComponent(bot: BotContext, input: Interaction, routes: readonly Route[]) {
   const component = componentOf(input);
   if (!component) return;
   const { kind, interaction } = component;
@@ -64,21 +65,21 @@ async function runComponent(input: Interaction, routes: readonly Route[]) {
     return noticeSelf(interaction, errors.notice("unknown-interaction")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
-    await route.handle(interaction);
+    await route.handle(interaction, bot);
   } catch (error) {
     await failed(interaction, `${kind} ${interaction.customId}`, error, errors.notice("processing-failed"));
   }
 }
 
 /** 상호작용 하나를 맡는다. routes 는 시험이 가짜 표를 넘기는 자리 */
-async function route(interaction: Interaction, routes: readonly Route[] = ROUTES) {
-  if (interaction.isChatInputCommand()) return runCommand(interaction);
-  return runComponent(interaction, routes);
+async function route(bot: BotContext, interaction: Interaction, routes: readonly Route[] = ROUTES) {
+  if (interaction.isChatInputCommand()) return runCommand(bot, interaction);
+  return runComponent(bot, interaction, routes);
 }
 
 const exported: ClientEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
-  execute: (interaction) => route(interaction),
+  execute: (bot, interaction) => route(bot, interaction),
 };
 export default exported;
 export { route };

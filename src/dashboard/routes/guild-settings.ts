@@ -120,7 +120,7 @@ function createGuildSettingsRouter() {
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const { guild, member, client } = ctx;
+    const { guild, member, bot } = ctx;
 
     if (!isOwner(req) && !(member && isModerator(member))) {
       return sendProblem(res, "must-moderator");
@@ -135,7 +135,7 @@ function createGuildSettingsRouter() {
     if ("refused" in plan) return refuseWith(res, plan.refused);
     const channelChanged = await applySettings(guild, plan);
     if (channelChanged) {
-      client?.panels?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
+      bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
     }
 
     const user = signedIn(req);
