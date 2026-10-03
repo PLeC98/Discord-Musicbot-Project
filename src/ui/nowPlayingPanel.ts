@@ -198,7 +198,7 @@ class NowPlayingPanel {
    */
   async postPlaying(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
-    const channel = await this._panelChannel(player);
+    const channel = await this.panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
     if (!canSend(channel)) {
       return { success: true };
@@ -269,7 +269,7 @@ class NowPlayingPanel {
   }
 
   /** 패널을 둘 채널. 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
-  async _panelChannel(player: Player) {
+  async panelChannel(player: Player) {
     return (await this._dedicatedChannel(player.guild, player.textChannel)) ?? player.textChannel;
   }
 
@@ -308,7 +308,7 @@ class NowPlayingPanel {
     this.reposting.add(guildId);
     const previous = player.nowPlayingMessage;
     try {
-      const channel = await this._panelChannel(player);
+      const channel = await this.panelChannel(player);
       if (!canSend(channel)) return;
       const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack, channel);
 
@@ -428,7 +428,7 @@ class NowPlayingPanel {
     // 편집 대상이 없어졌다. 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
     if (isGone(error)) {
       if (codeOf(error) === UNKNOWN_WEBHOOK) {
-        const channel = await this._panelChannel(player);
+        const channel = await this.panelChannel(player);
         if (channel?.id) this.deleteWebhookCache(channel.id);
         player.nowPlayingWebhook = null;
       }
@@ -524,7 +524,7 @@ class NowPlayingPanel {
   async _panelIsDedicated(player: Player, live: PanelMessage | null) {
     const guildId = player.guild?.id;
     if (!guildId) return false;
-    const panelChannelId = live ? (channelIdOf(live) ?? (await this._panelChannel(player))?.id) : (await this.location.store.getPanel(guildId))?.channelId;
+    const panelChannelId = live ? (channelIdOf(live) ?? (await this.panelChannel(player))?.id) : (await this.location.store.getPanel(guildId))?.channelId;
     return Boolean(panelChannelId) && panelChannelId === (await GuildSettingsManager.getBotChannel(guildId));
   }
 

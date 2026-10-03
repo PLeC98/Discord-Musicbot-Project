@@ -104,7 +104,7 @@ const client = {
   isReady: () => true,
   guilds: { cache: new Map([["g1", guild]]) },
   players: new Map<string, Player>(),
-  panels: { updatePlaying: async () => {}, drawEndedPanel: async () => {} },
+  panels: { updatePlaying: async () => {}, drawEndedPanel: async () => {}, panelChannel: async () => null },
 };
 
 // 한 칸을 세운다. 부른 메서드를 모을 곳을 돌려준다

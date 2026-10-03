@@ -62,7 +62,7 @@ const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
   players: new Map<string, Player>(),
-  panels: { updatePlaying: async () => {} },
+  panels: { updatePlaying: async () => {}, panelChannel: async () => null },
 };
 
 let server: Server;

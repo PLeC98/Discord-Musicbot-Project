@@ -12,6 +12,8 @@ const linkObject = (track: Linked) => `${link(track)}${josa(songTitle(track.titl
 
 /** 누가 했나 줄의 이름표 */
 const requestedBy = () => "👤 요청한 사람";
+/** 대시보드에서 한 조작의 누가 했나(사람 멘션 뒤에 붙인다) */
+const viaDashboard = (who: string) => `${who} (대시보드)`;
 
 /** 일시정지 · 재개 */
 const paused = (isPaused: boolean, track: Linked) => (isPaused ? { title: "⏸️ 일시정지했어요!", body: `${linkObject(track)} 일시정지 했어요.` } : { title: "▶️ 일시정지를 해제했어요!", body: `${linkObject(track)} 다시 재생할게요.` });
@@ -90,4 +92,4 @@ const restoring = () => "💾 듣던 곡을 불러오는 중...";
 /** /join 이 저장한 세션을 되살렸다 */
 const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지 해 둔 상태였어요. 이어 들으려면 일시정지를 해제해주세요!` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
-export { requestedBy, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };
+export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };

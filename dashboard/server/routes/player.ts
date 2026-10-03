@@ -21,9 +21,13 @@ import { queueTrack, queueWindow, playerState } from "../playerView.ts";
 import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../requestSchemas.ts";
 import { sendProblem, refuseWith, tooManyRequests } from "../problem.ts";
 import { bestEffort } from "../../../src/infra/bestEffort.ts";
+import * as replies from "../../../src/ui/controlReplies.ts";
+import { LIFETIME } from "../../../src/ui/delivery.ts";
+import { announcer, announceVolume, dashboardActor, dashboardResponder } from "../discordNotice.ts";
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
+// 받아들인 조작은 디스코드의 패널 채널에도 디스코드 조작과 같은 화면으로 알린다(discordNotice).
 
 // 조작의 거절(ok: false 와 문제)을 문제 응답으로
 const refuse = (res: Response, { ok: _ok, ...problem }: controls.Refusal) => refuseWith(res, problem);
@@ -149,6 +153,8 @@ function joinRoute(router: Router) {
     if (!player.currentTrack) {
       bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
     }
+    // 전용 채널이 있으면 그 채널에 알린다. 없으면 글자 채널이 아직 없어 알리지 않는다
+    announcer(client, player)(replies.joined());
 
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = isOwner(req) || !(await checkControl(member));
@@ -163,8 +169,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.pause(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
+    announce(replies.paused(r.paused, r.track, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
@@ -172,8 +180,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.previous(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
+    announce(replies.previous(r.restarted, r.track));
     res.json({ ok: true });
   });
 
@@ -181,8 +191,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.skip(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
+    announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
     res.json({ ok: true });
   });
 
@@ -190,8 +202,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.stop(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
+    announce(replies.stopped(r.cleared, dashboardActor(req)), LIFETIME.farewell);
     res.json({ ok: true });
   });
 
@@ -207,8 +221,10 @@ function controlRoutes(router: Router) {
     const durationSec = ctx.player?.currentTrack?.duration ?? 0;
     const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
     if (!r.ok) return refuse(res, r);
+    announce(replies.seeked(r.ms));
     res.json({ ok: true, position: clampedSec });
   });
 
@@ -226,6 +242,9 @@ function controlRoutes(router: Router) {
     if (!ctx) return;
     const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body.volume));
     if (!r.ok) return refuse(res, r);
+    const announce = announcer(ctx.client, ctx.player);
+    const by = dashboardActor(req);
+    announceVolume(req.params.guildId, r.before, r.level, (before, level) => announce(replies.volumeSet(before, level, by)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
@@ -233,8 +252,10 @@ function controlRoutes(router: Router) {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
     // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body.mode));
     if (!r.ok) return refuse(res, r);
+    announce(replies.loopSet(r.mode, r.track, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
@@ -242,8 +263,10 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/shuffle", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.shuffle(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
+    announce(replies.shuffled(r.count, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
@@ -251,8 +274,10 @@ function controlRoutes(router: Router) {
   router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
     if (!r.ok) return refuse(res, r);
+    announce(replies.removed(r.left, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 
@@ -260,8 +285,11 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
+    const announce = announcer(ctx.client, ctx.player);
     const r = await controls.move(ctx.player, ctx.actor, toInt(req.body.from), toInt(req.body.to));
     if (!r.ok) return refuse(res, r);
+    // 사람은 1부터 센다
+    announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 }
@@ -299,7 +327,7 @@ function addRoutes(router: Router) {
     const { query, single } = body.value;
 
     try {
-      // responder를 주지 않으면 무동작. 디스코드에는 알리지 않고 결과를 이 응답으로만 전달한다.
+      // 담은 안내는 디스코드의 패널 채널에도 보내고(dashboardResponder), 결과는 이 응답으로 전달한다.
       // 재생 시작·임베드·로깅은 슬래시 명령과 같은 코어를 지난다.
       const result = await requestPlayback(client, {
         guild,
@@ -307,6 +335,7 @@ function addRoutes(router: Router) {
         query,
         single,
         source: "대시보드",
+        responder: dashboardResponder(client, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
       });
 
