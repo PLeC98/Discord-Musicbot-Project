@@ -1,9 +1,8 @@
-import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client, MessageFlags } from "discord.js";
+import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
 import type { Notice } from "../src/ui/text/notice.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
@@ -14,7 +13,7 @@ import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, ans
 import * as controlText from "../src/ui/text/ko/controls.ts";
 
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
-import { noticeInstead, showFailureWith } from "../src/ui/failureNotice.ts";
+import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
@@ -22,6 +21,7 @@ import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as searchText from "../src/ui/text/ko/search.ts";
+import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf } from "../src/ui/delivery.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -48,15 +48,15 @@ const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () =>
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return interaction.reply(noticeReply(errors.notice("no-song")));
+  if (!player) return noticeSelf(interaction, errors.notice("no-song"));
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return interaction.reply(noticeReply(errors.notice("stale-session")));
+    return noticeSelf(interaction, errors.notice("stale-session"));
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle || PANEL_ENABLED[action]?.() === false) return interaction.reply(noticeReply(errors.notice("unknown-interaction")));
+  if (!handle || PANEL_ENABLED[action]?.() === false) return noticeSelf(interaction, errors.notice("unknown-interaction"));
   await handle(interaction, player);
 }
 
@@ -64,10 +64,10 @@ async function handleQueue(interaction: Press, player: Player) {
   const queueInfo = queueInfoOf(player);
 
   if (queueInfo.queue.length === 0) {
-    return await interaction.reply(noticeReply(errors.notice("queue-empty")));
+    return await noticeSelf(interaction, errors.notice("queue-empty"));
   }
 
-  await interaction.reply({ ...queueView(queueInfo), flags: MessageFlags.Ephemeral });
+  await toSelf(interaction, selfOnly(queueView(queueInfo)), LIFETIME.screen);
 }
 
 // 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 지우고 그렇다고 알린다
@@ -83,7 +83,7 @@ async function handleQueuePage(interaction: Press) {
 async function handleVolumeModal(interaction: Press) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
-    return await interaction.reply(noticeReply(errors.notice(permErr)));
+    return await noticeSelf(interaction, errors.notice(permErr));
   }
 
   await interaction.showModal(volumeModal());
@@ -108,11 +108,7 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
   } catch (error) {
     log.error(failed, error);
     try {
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply(noticeReply(notice));
-      } else {
-        await interaction.followUp(noticeReply(notice));
-      }
+      await noticeSelf(interaction, notice);
     } catch (err) {
       log.error("오류 안내 전송 실패:", err);
     }
@@ -126,7 +122,7 @@ function handleHelpRefresh(interaction: Press) {
 async function handleSystemRefresh(interaction: Press) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
-    return await interaction.reply(noticeReply(errors.notice("must-owner")));
+    return await noticeSelf(interaction, errors.notice("must-owner"));
   }
   return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
@@ -138,7 +134,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const [userId, position, videoId = ""] = rest;
 
   if (userId !== interaction.user.id) {
-    return await interaction.reply(noticeReply(errors.notice("search-owner-only")));
+    return await noticeSelf(interaction, errors.notice("search-owner-only"));
   }
 
   if (action === "cancel") {
@@ -146,11 +142,11 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
-  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply(noticeReply(errors.notice("unknown-interaction")));
+  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
 
   // 곡 추가 경로. /play · /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return await interaction.reply(noticeReply(errors.notice(permErr)));
+  if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
   await interaction.deferUpdate();
 

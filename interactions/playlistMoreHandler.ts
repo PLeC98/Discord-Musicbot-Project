@@ -5,10 +5,9 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/ko/errors.ts";
 import config from "../config.ts";
-import { noticeReply, post } from "../src/ui/frame.ts";
+import { post } from "../src/ui/frame.ts";
 import type { Notice } from "../src/ui/text/notice.ts";
 import { fetchingView } from "../src/ui/playlistMoreMenu.ts";
-import { noticeInstead } from "../src/ui/failureNotice.ts";
 import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
@@ -17,6 +16,7 @@ import * as More from "../src/usecases/playlistMore.ts";
 import { route, type Route } from "./route.ts";
 import type { MoreState } from "../src/usecases/playlistMore.ts";
 import type { Player } from "../src/player/Player.ts";
+import { noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
@@ -27,7 +27,7 @@ const closed = () => {
   /* 상호작용이 이미 닫혔다 */
 };
 
-const refuser = (interaction: MoreInteraction) => (notice: Notice) => interaction.reply(noticeReply(notice)).catch(closed);
+const refuser = (interaction: MoreInteraction) => (notice: Notice) => noticeSelf(interaction, notice).catch(closed);
 
 // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {

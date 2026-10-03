@@ -2,6 +2,7 @@
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after } from "node:test";
+import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInteraction } from "discord.js";
 
@@ -136,6 +137,7 @@ test("취소: 보류 선택 폐기, 설정 무변경", async () => {
   assert.deepEqual(store.djRoles.get("g1"), ["r1"], "설정 무변경");
   assert.match(screenOf(cancel.updatedWith).title, /취소/);
   assert.equal(screenOf(cancel.updatedWith).done, false);
+  assert.deepEqual(lifetimesOf(cancel), [LIFETIME.glance], "취소 화면은 잠깐 보이고 지운다");
 
   // 취소 후 저장을 눌러도(다른 세션 가정) 폐기된 선택이 부활하지 않음
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mE" });

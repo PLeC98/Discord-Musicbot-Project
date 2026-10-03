@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } 
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/ko/info.ts";
+import { LIFETIME, expireSelf } from "../src/ui/delivery.ts";
 
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "moderator" },
@@ -28,6 +29,7 @@ const exported: AnywhereCommand = {
       .setTimestamp();
 
     await interaction.editReply({ content: "", embeds: [embed] });
+    expireSelf(interaction, LIFETIME.screen);
   },
 };
 export default exported;

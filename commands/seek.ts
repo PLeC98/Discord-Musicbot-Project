@@ -1,8 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import { answerSeek } from "../interactions/controlAnswers.ts";
-import { noticeReply } from "../src/ui/frame.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { noticeSelf } from "../src/ui/delivery.ts";
 
 /**
  * 시간 문자열을 밀리초로 파싱
@@ -48,7 +48,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const seekMs = parseTimeInput(interaction.options.getString("time", true));
-    if (seekMs === null) return interaction.reply(noticeReply(errors.notice("bad-time")));
+    if (seekMs === null) return noticeSelf(interaction, errors.notice("bad-time"));
     await answerSeek(interaction, client.players.get(interaction.guild.id), seekMs);
   },
 };

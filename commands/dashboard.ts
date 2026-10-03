@@ -4,8 +4,8 @@ import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { checkControl } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
 import { DISCORD_LOOK } from "../src/ui/mentions.ts";
+import { noticeSelf } from "../src/ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj-outside-bot-channel" },
@@ -13,18 +13,18 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
-    if (!channel) return interaction.reply(noticeReply(errors.notice("processing-failed"))); // 캐시에 없는 채널
+    if (!channel) return noticeSelf(interaction, errors.notice("processing-failed")); // 캐시에 없는 채널
 
     // 패널을 호출 채널로 옮기는 부작용이 있는 명령어. 봇 전용 채널이 지정된 서버: 그 채널에서만 사용 가능하되 전원 허용 (패널이 항상 전용 채널에 유지됨)
     //  미지정 서버(삭제된 채널 포함): 어디서나 사용 가능하되 DJ 계층 필요
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {
       if (channel.id !== botChannelId) {
-        return interaction.reply(noticeReply(errors.notice("only-in-bot-channel", { channelId: botChannelId }, DISCORD_LOOK)));
+        return noticeSelf(interaction, errors.notice("only-in-bot-channel", { channelId: botChannelId }, DISCORD_LOOK));
       }
     } else {
       const permErr = await checkControl(member);
-      if (permErr) return interaction.reply(noticeReply(errors.notice(permErr)));
+      if (permErr) return noticeSelf(interaction, errors.notice(permErr));
     }
 
     const player = client.players.get(guild.id);

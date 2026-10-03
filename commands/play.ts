@@ -7,11 +7,12 @@ import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { frame, noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
+import { frame, noticeFrame, post } from "../src/ui/frame.ts";
 import type { PermissionDenied } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { HelpEntry } from "../src/ui/helpLines.ts";
 import type { GuildMember } from "discord.js";
+import { noticeMs, noticeSelf, replaceSelf } from "../src/ui/delivery.ts";
 
 /** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름 · 설명 · 권한 · 넣을 자리만 다르다 */
 type PlayOptions = {
@@ -47,12 +48,12 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       const { member, guild, channel } = interaction;
 
       const permErr = await permission(member);
-      if (permErr) return await interaction.reply(noticeReply(errors.notice(permErr)));
+      if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply(post(frame({ body: searchText.searching(query) })));
       // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
-      showFailureWith(interaction, (notice) => interaction.editReply(post(noticeFrame(notice))));
+      showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 
       const result = await requestPlayback(client, {
         guild,
@@ -66,7 +67,8 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       });
 
       if (!result.success) {
-        return await interaction.editReply(post(noticeFrame(addFailureMessage(result))));
+        const failed = addFailureMessage(result);
+        return await replaceSelf(interaction, noticeFrame(failed), noticeMs(failed));
       }
       if (result.more) await offerOnInteraction(interaction, result.more, result.player);
     },

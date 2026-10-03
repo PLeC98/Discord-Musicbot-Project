@@ -5,8 +5,9 @@ import config from "../config.ts";
 import { route, type Route } from "./route.ts";
 import * as settingsText from "../src/ui/text/ko/settings.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, post } from "../src/ui/frame.ts";
+import { post } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
+import { LIFETIME, expireSelf, noticeSelf } from "../src/ui/delivery.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -55,7 +56,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   sweepPending();
 
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply(noticeReply(errors.notice("must-moderator")));
+    return noticeSelf(interaction, errors.notice("must-moderator"));
   }
 
   const mid = interaction.message.id;
@@ -75,7 +76,8 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
 
   if (interaction.customId === "sb:cancel") {
     pending.delete(mid);
-    return interaction.update(post(screens.shown(settingsText.sponsorCancelled())));
+    await interaction.update(post(screens.shown(settingsText.sponsorCancelled())));
+    return expireSelf(interaction, LIFETIME.glance);
   }
 
   if (interaction.customId === "sb:save") {

@@ -4,6 +4,7 @@ import { sponsorConfigView, registerPending } from "../interactions/sponsorConfi
 import { reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import config from "../config.ts";
+import { LIFETIME, toSelf } from "../src/ui/delivery.ts";
 
 // 실제 저장/취소 처리는 interactions/sponsorConfigHandler.ts (customId: sb:*)
 const exported: GuildCommand = {
@@ -20,7 +21,7 @@ const exported: GuildCommand = {
       categories: per.categories ?? eff.categories,
     };
 
-    await interaction.reply(reply(sponsorConfigView(state)));
+    await toSelf(interaction, reply(sponsorConfigView(state)), LIFETIME.screen);
     // 보류 상태 등록 (셀렉트/토글이 이 기준값을 이어받음)
     const msg = await interaction.fetchReply();
     registerPending(msg.id, state);

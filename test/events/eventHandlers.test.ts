@@ -13,7 +13,7 @@ import { PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, ty
 import * as storeDb from "../../src/store/db.ts";
 import { Player } from "../../src/player/Player.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import { scheduleReplyCleanup, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
+import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
@@ -506,19 +506,13 @@ test("모달: 모르는 모달은 알린다", async () => {
   assert.deepEqual(unknown.log, [["reply", said(errors.notice("unknown-interaction"))]]);
 });
 
-test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async (t) => {
+test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
   const w = world();
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
   assert.deepEqual(pick.log, [["update", "### 🎲 자동 재생을 시작할게요!"]]);
-  // 메뉴를 덮은 결과(update)는 본인에게만 보이는 것으로 기록되지 않는다. 지우라고 선언해 두었으니 지운다
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  scheduleReplyCleanup(pick.it);
-  t.mock.timers.tick(DEFAULT_MS);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(pick.log.at(-1), ["deleteReply"]);
-  t.mock.timers.reset();
+  assert.deepEqual(lifetimesOf(pick.it), [LIFETIME.result], "메뉴를 덮은 결과는 결과 수명 뒤 지운다");
 
   const w2 = world();
   w2.player.currentTrack = { title: "지금 곡" };

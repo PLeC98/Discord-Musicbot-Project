@@ -11,8 +11,7 @@ import logger from "../src/infra/log/logger.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as searchText from "../src/ui/text/ko/search.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
-import { noticeInstead } from "../src/ui/failureNotice.ts";
+import { noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
 const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
@@ -78,7 +77,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
 
     // 검색 뒤 고르기는 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
     const permErr = checkAdd(member) || checkSummon(member);
-    if (permErr) return interaction.reply(noticeReply(errors.notice(permErr)));
+    if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
     // 검색이 던지면(네트워크 · 봇 감지 등) 입구가 남기고 이 답 자리에 그 종류로 알린다
     await interaction.deferReply();

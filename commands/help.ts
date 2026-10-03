@@ -1,5 +1,5 @@
 import { formatSpan } from "../src/ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
@@ -7,6 +7,7 @@ import { HELP, customId } from "../src/ui/customIds.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as helpText from "../src/ui/text/ko/help.ts";
 import { helpSections } from "../src/ui/helpLines.ts";
+import { LIFETIME, selfOnly, toSelf } from "../src/ui/delivery.ts";
 
 async function buildHelpEmbed(client: Client<true>) {
   const guilds = client.guilds.cache.size;
@@ -41,7 +42,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const { embed, row } = await buildHelpEmbed(client);
-    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+    await toSelf(interaction, selfOnly({ embeds: [embed], components: [row] }), LIFETIME.screen);
   },
 };
 export default exported;

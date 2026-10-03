@@ -5,8 +5,9 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import * as settingsText from "../src/ui/text/ko/settings.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, post, reply } from "../src/ui/frame.ts";
+import { post, reply } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
+import { LIFETIME, noticeSelf, toSelf } from "../src/ui/delivery.ts";
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
@@ -42,12 +43,12 @@ const exported: GuildCommand = {
     if (count === null) {
       const stored = await GuildSettingsManager.getPlaylistAddMax(guildId);
       const current = GuildSettingsManager.resolvePlaylistAddMax(guildId);
-      return interaction.reply(reply(screens.shown(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))));
+      return toSelf(interaction, reply(screens.shown(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))), LIFETIME.glance);
     }
 
     if (count < min || count > max) {
       const queueCap = config.bot.maxQueueSize > 0 && max === config.bot.maxQueueSize ? config.bot.maxQueueSize : null;
-      return interaction.reply(noticeReply(errors.notice("playlist-limit-out-of-range", { min, max, queueCap })));
+      return noticeSelf(interaction, errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
     }
 
     if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, count))) return failed(interaction);
@@ -57,5 +58,5 @@ const exported: GuildCommand = {
 export default exported;
 
 function failed(interaction: ChatInputCommandInteraction) {
-  return interaction.reply(noticeReply(errors.notice("settings-save-failed")));
+  return noticeSelf(interaction, errors.notice("settings-save-failed"));
 }

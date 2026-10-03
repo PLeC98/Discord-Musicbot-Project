@@ -5,7 +5,8 @@ import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import * as replies from "../src/ui/controlReplies.ts";
-import { noticeFrame, noticeReply, post, reply } from "../src/ui/frame.ts";
+import { noticeFrame, reply } from "../src/ui/frame.ts";
+import { LIFETIME, noticeMs, noticeSelf, replaceSelf, toSelf } from "../src/ui/delivery.ts";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import type { Player } from "../src/player/Player.ts";
 import type { Problem } from "../src/rules/problems.ts";
@@ -15,50 +16,50 @@ type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 
-const refuse = (interaction: Asked, r: Problem) => interaction.reply(noticeReply(controlMessage(r)));
+const refuse = (interaction: Asked, r: Problem) => noticeSelf(interaction, controlMessage(r));
 
 async function answerPause(interaction: Asked, player: MaybePlayer) {
   const r = await controls.pause(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.paused(r.paused, r.track, interaction.member)));
+  return toSelf(interaction, reply(replies.paused(r.paused, r.track, interaction.member)), LIFETIME.result);
 }
 
 async function answerSkip(interaction: Asked, player: MaybePlayer) {
   const r = await controls.skip(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.skipped(r.restarted, r.track, interaction.member)));
+  return toSelf(interaction, reply(replies.skipped(r.restarted, r.track, interaction.member)), LIFETIME.result);
 }
 
 async function answerPrevious(interaction: Asked, player: MaybePlayer) {
   const r = await controls.previous(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.previous(r.restarted, r.track)));
+  return toSelf(interaction, reply(replies.previous(r.restarted, r.track)), LIFETIME.result);
 }
 
 async function answerStop(interaction: Asked, player: MaybePlayer) {
   const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.stopped(r.cleared, interaction.member)));
+  return toSelf(interaction, reply(replies.stopped(r.cleared, interaction.member)), LIFETIME.farewell);
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {
   const r = await controls.shuffle(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.shuffled(r.count, interaction.member)));
+  return toSelf(interaction, reply(replies.shuffled(r.count, interaction.member)), LIFETIME.result);
 }
 
 /** 음량. level 은 명령이 받은 수이거나 입력 창에 적은 값(맞는 값인지는 controls 가 본다) */
 async function answerVolume(interaction: Asked, player: MaybePlayer, level: unknown) {
   const r = await controls.volume(player, { member: interaction.member }, level);
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.volumeSet(r.before, r.level, interaction.member)));
+  return toSelf(interaction, reply(replies.volumeSet(r.before, r.level, interaction.member)), LIFETIME.result);
 }
 
 /** 반복 모드. mode 는 명령이 고른 값이거나 버튼의 다음 모드(맞는 값인지는 controls 가 본다) */
 async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown) {
   const r = await controls.loop(player, { member: interaction.member }, mode);
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.loopSet(r.mode, r.track, interaction.member)));
+  return toSelf(interaction, reply(replies.loopSet(r.mode, r.track, interaction.member)), LIFETIME.result);
 }
 
 /**
@@ -67,21 +68,21 @@ async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown
  */
 const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () => {
   await interaction.reply(reply(working));
-  showFailureWith(interaction, (notice) => interaction.editReply(post(noticeFrame(notice))));
+  showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 };
 
 /** 처음부터 다시 */
 async function answerReplay(interaction: Asked, player: MaybePlayer) {
   const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.editReply(post(replies.replayed(r.track, interaction.member)));
+  return replaceSelf(interaction, replies.replayed(r.track, interaction.member), LIFETIME.result);
 }
 
 /** 곡 안의 위치로. ms 는 옮길 위치 */
 async function answerSeek(interaction: Asked, player: MaybePlayer, ms: number) {
   const r = await controls.seek(player, { member: interaction.member }, ms, { reason: "seek", onAccepted: acceptWith(interaction, replies.seeking()) });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.editReply(post(replies.seeked(r.ms)));
+  return replaceSelf(interaction, replies.seeked(r.ms), LIFETIME.result);
 }
 
 /**
@@ -92,7 +93,7 @@ async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone
   const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.highlighting()) });
   if (!r.ok && r.code === "no-highlight" && onNone) return onNone();
   if (!r.ok) return refuse(interaction, r);
-  return interaction.editReply(post(replies.highlighted(r.ms)));
+  return replaceSelf(interaction, replies.highlighted(r.ms), LIFETIME.result);
 }
 
 export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight };

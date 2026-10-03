@@ -3,6 +3,7 @@ import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { reply } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
+import { LIFETIME, toSelf } from "../src/ui/delivery.ts";
 
 // 실제 저장/취소 처리는 interactions/djRoleConfigHandler.ts (customId: djrole:*)
 // 복수 선택은 디스코드 셀렉트 메뉴 한계로 최대 25개.
@@ -21,7 +22,7 @@ const exported: GuildCommand = {
     const currentIds = await GuildSettingsManager.getDjRoles(guild.id);
     const validIds = currentIds.filter((id) => guild.roles.cache.has(id));
 
-    await interaction.reply(reply(screens.djRoleMenu(validIds)));
+    await toSelf(interaction, reply(screens.djRoleMenu(validIds)), LIFETIME.screen);
   },
 };
 export default exported;

@@ -10,7 +10,7 @@ import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand, runViaEntrance } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { scheduleReplyCleanup, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
+import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import interactionCreate from "../../events/interactionCreate.ts";
 import * as genreConfig from "../../src/config/genres.ts";
@@ -23,7 +23,7 @@ import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
 const { behavior } = h; // 하네스의 가짜 설정
-import { test, beforeEach, after, mock } from "node:test";
+import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
@@ -391,6 +391,7 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
   const c = interaction(joined);
   await runCommand(await command("join"), c.it, joined.client);
   assert.deepEqual(c.log, [["reply", reply(replies.alreadyJoined())]]);
+  assert.deepEqual(lifetimesOf(c.it), [LIFETIME.glance], "아무것도 바뀌지 않았다");
 });
 
 test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
@@ -465,16 +466,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 먼저 답하�
   assert.deepEqual(playing.log[0], ["reply", post(replies.restoring())]);
   assert.deepEqual(playing.log[1], ["editReply", post(replies.restored(saved, false))]);
   assert.match(JSON.stringify(playing.log[1]), /을 듣고 있었어요\. 이어서 재생할게요!/);
-  // 모두에게 보이는 응답이지만 잠깐 뒤 지운다(기본 정리는 본인에게만 보이는 응답만 지운다)
-  mock.timers.enable({ apis: ["setTimeout"] });
-  try {
-    scheduleReplyCleanup(playing.it);
-    mock.timers.tick(DEFAULT_MS);
-    await new Promise(setImmediate);
-    assert.deepEqual(playing.log.at(-1), ["deleteReply"]);
-  } finally {
-    mock.timers.reset();
-  }
+  assert.deepEqual(lifetimesOf(playing.it), [LIFETIME.result], "결과 수명 뒤 지운다");
 
   const paused = await run(async function () {
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });

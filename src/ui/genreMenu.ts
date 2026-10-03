@@ -7,9 +7,6 @@ import { AUTOPLAY, customId } from "./customIds.ts";
 import { frame, post, reply } from "./frame.ts";
 import * as autoplayText from "./text/ko/autoplay.ts";
 
-// 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
-const OFF_MENU_MS = 30_000;
-
 /**
  * 본인에게만 보이는 장르 선택 메시지. 그대로 reply에 넘긴다.
  * 고른 결과는 interactions/modalHandler.ts 의 장르 처리가 받는다. 지금 플레이어(없으면 새로 만든 것)에 걸므로 세션을 싣지 않는다.
@@ -39,11 +36,11 @@ function withMenu(t: { title: string; description: string; placeholder: string }
   return reply(container);
 }
 
-/** 켤 때. 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */
+/** 켤 때. 장르를 고르면 그 장르로 켜진다 */
 const buildGenreMenu = () => withMenu(autoplayText.pickGenre());
 
 /**
- * 끌 때. 이미 꺼진 상태를 알리면서, 30초 동안 장르를 다시 고를 기회를 준다.
+ * 끌 때. 이미 꺼진 상태를 알리면서, 메뉴가 떠 있는 동안 장르를 다시 고를 기회를 준다.
  * 고르면 그 장르로 다시 켜지고(장르 변경), 그냥 두거나 닫으면 꺼진 채로 끝난다.
  */
 const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
@@ -54,4 +51,4 @@ function autoplayOn(genre: string, by: { toString(): string }) {
   return post(frame({ title: t.title, body: t.description, footer: [`${t.by} ${by}`] }));
 }
 
-export { buildGenreMenu, buildAutoplayOffMenu, autoplayOn, OFF_MENU_MS };
+export { buildGenreMenu, buildAutoplayOffMenu, autoplayOn };

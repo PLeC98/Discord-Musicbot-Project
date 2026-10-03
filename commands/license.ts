@@ -1,8 +1,9 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/ko/info.ts";
+import { LIFETIME, selfOnly, toSelf } from "../src/ui/delivery.ts";
 
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "everyone" },
@@ -31,7 +32,7 @@ const exported: AnywhereCommand = {
       .setFooter({ text: t.footer })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    await toSelf(interaction, selfOnly({ embeds: [embed] }), LIFETIME.screen);
   },
 };
 export default exported;

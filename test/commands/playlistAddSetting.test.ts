@@ -2,6 +2,7 @@
 // 진짜 서버 설정을 임시 DB 로 쓴다.
 
 import { test, beforeEach, after } from "node:test";
+import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/tempStore.ts";
 import { command as commandNamed, run } from "../helpers/commands.ts";
@@ -89,6 +90,7 @@ test("/setplaylistlimit: 값 없이 부르면 지금 값만 보여 준다 (기�
   assert.equal(stored.has(G), false);
   assert.match(text(i.replies[0]), new RegExp(`${config.bot.playlistAddDefault}곡.*기본값`));
   assert.deepEqual([screenOf(i.replies[0]).done, i.replies[0].flags], [false, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]], "지금 값은 본인에게만");
+  assert.deepEqual(lifetimesOf(i), [LIFETIME.glance], "잠깐 보는 값");
 });
 
 test("/setplaylistlimit: 대기열 상한을 넘으면 거부하고 저장하지 않는다", () =>

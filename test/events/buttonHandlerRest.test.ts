@@ -38,8 +38,7 @@ const settings = await import("../../src/store/guildSettings.ts");
 const playerEvents = await import("../../src/player/events.ts");
 const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
 const addTracks = await import("../../src/usecases/addTracks.ts");
-const { lifetimeOf } = await import("../../src/ui/replyLifetime.ts");
-const { OFF_MENU_MS } = await import("../../src/ui/genreMenu.ts");
+const { LIFETIME, lifetimesOf } = await import("../../src/ui/delivery.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 
 // 검색 결과 고르기는 영상을 다시 찾는다. 찾은 주소를 적고 "결과 1" 을 돌려준다
@@ -253,9 +252,11 @@ test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정�
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.pauseFor = () => true;
   let payload: Payload = {};
-  await interactionCreate.execute(press(w, "panel:pause:S1", { reply: async (p: Payload) => void (payload = p) }).it);
+  const { it } = press(w, "panel:pause:S1", { reply: async (p: Payload) => void (payload = p) });
+  await interactionCreate.execute(it);
   assert.equal(thumbnailOf(payload), null);
   assert.deepEqual(textsOf(payload), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", `-# 👤 요청한 사람 <@${USER}>`]);
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.result], "조작 결과의 수명");
 });
 
 test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내고 결과로 고친다. 없으면 조용히 넘긴다", async () => {
@@ -367,14 +368,14 @@ test("자동재생 버튼: 플레이어가 없어도 받는다. 켜져 있으면
   await interactionCreate.execute(a.it);
   assert.deepEqual(on.seen, ["autoplay:false", "update"]);
   assert.equal(a.log[0][0], "reply");
-  assert.equal(lifetimeOf(a.it), OFF_MENU_MS, "다시 고르기 메뉴는 30초 뒤 지운다");
+  assert.deepEqual(lifetimesOf(a.it), [LIFETIME.menu], "다시 고르기 메뉴는 메뉴 수명 뒤 지운다");
 
   const off = world();
   const b = press(off, "panel:autoplay:S1");
   await interactionCreate.execute(b.it);
   assert.deepEqual(off.seen, []);
   assert.equal(b.log[0][0], "reply");
-  assert.equal(lifetimeOf(b.it), null, "고르는 동안 떠 있다");
+  assert.deepEqual(lifetimesOf(b.it), [LIFETIME.menu], "장르 메뉴도 메뉴 수명 뒤 지운다");
 });
 
 test("자동재생 버튼: 플레이어가 없으면 만들지 않고 장르 메뉴만 띄운다(고른 뒤에 만든다)", async () => {
@@ -402,14 +403,14 @@ test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 
   await interactionCreate.execute(a.it);
   assert.equal(a.log[0][0], "reply");
   assert.notEqual(a.log[0][1], said(errors.notice("stale-session")));
-  assert.equal(lifetimeOf(a.it), null, "장르 메뉴는 고르는 동안 떠 있다");
+  assert.deepEqual(lifetimesOf(a.it), [LIFETIME.menu]);
 
   const on = world();
   on.player.autoplay = "가요";
   const b = press(on, "panel:autoplay:idle");
   await interactionCreate.execute(b.it);
   assert.deepEqual(on.seen, ["autoplay:false", "update"]);
-  assert.equal(lifetimeOf(b.it), OFF_MENU_MS);
+  assert.deepEqual(lifetimesOf(b.it), [LIFETIME.menu]);
 });
 
 test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한다", async () => {

@@ -4,6 +4,7 @@ import * as audioCache from "../src/store/audioCache.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/ko/info.ts";
+import { LIFETIME, expireSelf } from "../src/ui/delivery.ts";
 
 const GB2 = { gbDigits: 2 };
 
@@ -88,6 +89,7 @@ const exported: AnywhereCommand = {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
+    expireSelf(interaction, LIFETIME.screen);
   },
 };
 export default exported;

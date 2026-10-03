@@ -1,7 +1,7 @@
 // 봇 조립. index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
-import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type Interaction, type VoiceState } from "discord.js";
+import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../../config.ts";
@@ -26,7 +26,6 @@ import { installErrorHandlers } from "./resilience.ts";
 import { createGuildFaults } from "./guildFault.ts";
 import { guarded, type OnFault } from "./eventBoundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
-import { scheduleReplyCleanup } from "../ui/replyLifetime.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { NowPlayingPanel } from "../ui/nowPlayingPanel.ts";
 import { StatusManager } from "../ui/botPresence.ts";
@@ -242,25 +241,15 @@ function loadCommands(client: Client) {
   log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
 }
 
-// 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.ts). 핸들러의 결과·오류는 그대로 돌려준다.
-const withReplyCleanup = (execute: (interaction: Interaction) => unknown) => (interaction: Interaction) => {
-  const done = execute(interaction);
-  const schedule = () => scheduleReplyCleanup(interaction);
-  Promise.resolve(done).then(schedule, schedule);
-  return done;
-};
-
 function loadEvents(client: Client, onFault: OnFault) {
   const events = EVENTS as readonly EventModule[];
   for (const event of events) {
     const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
     // 처리기마다 서버 경계로 감싼다(app/eventBoundary). 새어 나온 오류는 그 서버의 오류로 받는다
-    if (event.name === Events.InteractionCreate) register(Events.InteractionCreate, guarded(event.name, withReplyCleanup(event.execute.bind(event)), onFault));
-    else
-      register(
-        event.name,
-        guarded(event.name, (...args: unknown[]) => event.execute(...args), onFault),
-      );
+    register(
+      event.name,
+      guarded(event.name, (...args: unknown[]) => event.execute(...args), onFault),
+    );
   }
   log.info({ tags: ["startup"] }, `이벤트 핸들러 ${events.length}개 등록 완료`);
 }

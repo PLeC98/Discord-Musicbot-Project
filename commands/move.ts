@@ -2,8 +2,9 @@ import { SlashCommandBuilder } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import * as replies from "../src/ui/controlReplies.ts";
-import { noticeReply, reply } from "../src/ui/frame.ts";
+import { reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { LIFETIME, noticeSelf, toSelf } from "../src/ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj" },
@@ -20,9 +21,9 @@ const exported: GuildCommand = {
     const to = interaction.options.getInteger("to", true);
     // 사람은 1부터 센다
     const r = await controls.move(client.players.get(guild.id), { member }, from - 1, to - 1);
-    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
+    if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
-    await interaction.reply(reply(replies.moved(r.track, from, to, member)));
+    await toSelf(interaction, reply(replies.moved(r.track, from, to, member)), LIFETIME.result);
   },
 };
 export default exported;

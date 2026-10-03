@@ -17,8 +17,9 @@ async function command(name: string) {
   return found;
 }
 
-/** 명령을 가짜 상호작용 · 클라이언트로 부른다 */
+/** 명령을 가짜 상호작용 · 클라이언트로 부른다. 종류 메서드(isChatInputCommand 등)는 시험이 정하지 않았으면 명령 것으로 채운다 */
 function run(c: SlashCommand, interaction: object, client: object = {}) {
+  for (const [key, value] of Object.entries(interactionKind("command"))) if (!(key in interaction)) Object.assign(interaction, { [key]: value });
   return c.execute(fake<ChatInputCommandInteraction<"cached">>(interaction), fake<Client<true>>(client));
 }
 

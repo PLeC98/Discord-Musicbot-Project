@@ -1,8 +1,8 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
 import { queueView, queueInfoOf } from "../src/ui/queueView.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { LIFETIME, noticeSelf, selfOnly, toSelf } from "../src/ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "everyone" },
@@ -17,16 +17,16 @@ const exported: GuildCommand = {
 
     const player = client.players.get(guild.id);
     if (!player) {
-      return interaction.reply(noticeReply(errors.notice("no-song")));
+      return noticeSelf(interaction, errors.notice("no-song"));
     }
 
     const queueInfo = queueInfoOf(player);
 
     if (queueInfo.queue.length === 0) {
-      return interaction.reply(noticeReply(errors.notice("queue-empty")));
+      return noticeSelf(interaction, errors.notice("queue-empty"));
     }
 
-    await interaction.reply({ ...queueView(queueInfo, interaction.options.getInteger("page") ?? 1), flags: MessageFlags.Ephemeral });
+    await toSelf(interaction, selfOnly(queueView(queueInfo, interaction.options.getInteger("page") ?? 1)), LIFETIME.screen);
   },
 };
 export default exported;

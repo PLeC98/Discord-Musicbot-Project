@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
-import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn, OFF_MENU_MS } from "../../src/ui/genreMenu.ts";
+import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../src/ui/genreMenu.ts";
 import * as genresModule from "../../src/config/genres.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { headOf, selectOf, textsOf } from "../helpers/cv2.ts";
@@ -46,10 +46,9 @@ test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
   assert.ok(ids.length <= 25, `장르 ${ids.length}개 — 25개를 넘으면 메뉴가 거부된다`);
 });
 
-test("끄기 화면: 이미 꺼졌음을 알리고 30초 동안 다시 고를 기회를 준다", () => {
+test("끄기 화면: 이미 꺼졌음을 알리고 다시 고를 기회를 준다", () => {
   const off = buildAutoplayOffMenu();
   assert.match(headOf(off) ?? "", /자동 재생을 껐어요/);
-  assert.equal(OFF_MENU_MS, 30_000, '"더 넣기" 메뉴와 같은 수명');
 });
 
 test("켠 결과: 메뉴 화면을 고친다. 고른 장르와 누가 켰는지", () => {

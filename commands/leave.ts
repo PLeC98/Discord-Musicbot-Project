@@ -2,8 +2,9 @@ import { SlashCommandBuilder } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import * as replies from "../src/ui/controlReplies.ts";
-import { noticeReply, reply } from "../src/ui/frame.ts";
+import { reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { LIFETIME, noticeSelf, toSelf } from "../src/ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj" },
@@ -12,12 +13,12 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const r = await controls.leave(guild, { member }, client.players);
-    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
+    if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 
     // 플레이어는 없었지만 봇이 음성 채널에 남아 있었다(음악이 끝난 뒤 자동 퇴장 타이머가 아직 안 돌았다)
-    if (r.left === "voice-only") return interaction.reply(reply(replies.left(null, member)));
+    if (r.left === "voice-only") return toSelf(interaction, reply(replies.left(null, member)), LIFETIME.farewell);
 
-    await interaction.reply(reply(replies.left(r.track ? { track: r.track, ...r.saved } : null, member)));
+    await toSelf(interaction, reply(replies.left(r.track ? { track: r.track, ...r.saved } : null, member)), LIFETIME.farewell);
   },
 };
 export default exported;

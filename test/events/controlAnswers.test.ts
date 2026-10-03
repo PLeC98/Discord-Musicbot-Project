@@ -6,13 +6,16 @@ import assert from "node:assert/strict";
 import { MessageFlags, type Guild, type GuildMember } from "discord.js";
 import fs from "node:fs";
 import path from "node:path";
-import { answerReplay, answerSeek, answerVolume } from "../../interactions/controlAnswers.ts";
+import { answerReplay, answerSeek, answerStop, answerVolume } from "../../interactions/controlAnswers.ts";
+import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
+import { command, run } from "../helpers/commands.ts";
 import { failureShow } from "../../src/ui/failureNotice.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
+import { interactionKind } from "../helpers/interactionKind.ts";
 
 useExampleConfig();
 // 권한 판정이 서버 설정(DJ 역할)을 읽는다
@@ -27,6 +30,7 @@ type Payload = { components: Array<{ toJSON(): unknown }>; flags: unknown };
 function asked() {
   const log: Array<[string, string[], unknown]> = [];
   const it = {
+    ...interactionKind("command"),
     member,
     reply: async (p: Payload) => log.push(["reply", textsOf(p), p.flags]),
     editReply: async (p: Payload) => log.push(["editReply", textsOf(p), p.flags]),
@@ -59,6 +63,7 @@ test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로
     ["reply", ["🔄 처음부터 다시 트는 중..."], MINE],
     ["editReply", ["### 🔄 곡을 되감았어요!\n**[곡](https://u.test)**을 처음부터 재생할게요.", "-# 👤 요청한 사람 <@u1>"], CV2],
   ]);
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.result]);
 });
 
 test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. 곡 길이를 넘으면 받아들이지 않고 안내", async () => {
@@ -75,6 +80,7 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
   await answerSeek(beyond.it, p, 400_000);
   assert.deepEqual(beyond.log, [["reply", ["### ✏️ 곡이 그만큼 길지 않아요!\n곡 길이(5:00)보다 뒤로 이동할 수는 없어요."], MINE]]);
   assert.equal(failureShow(beyond.it), null, "받아들이지 않았으면 자리를 바꿀 안내도 없다");
+  assert.deepEqual(lifetimesOf(beyond.it), [LIFETIME.warning], "거절은 경고 수명");
 });
 
 test("음량: 바꾼 결과를 본인에게만. 명령과 패널의 입력 창이 이 하나를 부른다", async () => {
@@ -101,4 +107,21 @@ test("받아들인 뒤에 던지면 하는 중 자리를 안내로 바꾼다", a
   assert.ok(show);
   await show(errors.notice("processing-failed"));
   assert.deepEqual(log.at(-1), ["editReply", ["### ❌ 예상치 못한 오류예요!\n처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."], CV2]);
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.error], "오류로 바꾼 자리는 오류 수명");
+});
+
+test("수명: 조작 결과는 결과 수명, 정지 · 나가기는 더 오래", async () => {
+  const volume = asked();
+  await answerVolume(volume.it, player({ volume: 80, setVolume: (v: number) => v }).p, 35);
+  assert.deepEqual(lifetimesOf(volume.it), [LIFETIME.result]);
+
+  const stop = asked();
+  await answerStop(stop.it, player({ queue: [], _trackLabel: () => "곡", dispose: async () => {} }).p);
+  assert.deepEqual(lifetimesOf(stop.it), [LIFETIME.farewell]);
+
+  const leave = asked();
+  const { p } = player({ queue: [], getCurrentTime: () => 0, dispose: async () => {} });
+  await run(await command("leave"), Object.assign(leave.it, { guild }), { players: new Map([["g1", p]]) });
+  assert.deepEqual(lifetimesOf(leave.it), [LIFETIME.farewell]);
+  assert.ok(LIFETIME.farewell > LIFETIME.result);
 });

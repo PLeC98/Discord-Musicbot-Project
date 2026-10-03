@@ -3,9 +3,9 @@ import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { route, type Route } from "./route.ts";
 import * as settingsText from "../src/ui/text/ko/settings.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, post } from "../src/ui/frame.ts";
+import { post } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
-import { noticeInstead } from "../src/ui/failureNotice.ts";
+import { LIFETIME, expireSelf, noticeInstead, noticeSelf } from "../src/ui/delivery.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
@@ -26,7 +26,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
   // 커맨드 진입 조건과 동일 기준 재확인 (심층 방어. 원본이 에페메랄이라 실질 노출은 없음)
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply(noticeReply(errors.notice("must-moderator")));
+    return noticeSelf(interaction, errors.notice("must-moderator"));
   }
 
   // 드롭메뉴 선택. 즉시 저장하지 않고 보류만 (저장 버튼이 확정)
@@ -37,7 +37,8 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
   if (interaction.customId === "djrole:cancel") {
     pending.delete(interaction.message.id);
-    return interaction.update(post(screens.shown(settingsText.djRoleCancelled())));
+    await interaction.update(post(screens.shown(settingsText.djRoleCancelled())));
+    return expireSelf(interaction, LIFETIME.glance);
   }
 
   if (interaction.customId === "djrole:save") {

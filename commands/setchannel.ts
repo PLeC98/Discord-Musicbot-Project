@@ -6,8 +6,9 @@ import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../src/rules/errorKind.ts";
 import * as settingsText from "../src/ui/text/ko/settings.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeReply, post } from "../src/ui/frame.ts";
+import { post } from "../src/ui/frame.ts";
 import * as screens from "../src/ui/settingsScreens.ts";
+import { noticeSelf } from "../src/ui/delivery.ts";
 const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.panels?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
@@ -56,11 +57,11 @@ const exported: GuildCommand = {
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
-    if (!channel) return interaction.reply(noticeReply(errors.notice("channel-set-failed"))); // 캐시에 없는 채널
+    if (!channel) return noticeSelf(interaction, errors.notice("channel-set-failed")); // 캐시에 없는 채널
     const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
 
     if (!success) {
-      return await interaction.reply(noticeReply(errors.notice("channel-set-failed")));
+      return await noticeSelf(interaction, errors.notice("channel-set-failed"));
     }
 
     await interaction.reply(post(screens.channelSet(`${channel}`)));

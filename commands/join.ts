@@ -5,14 +5,14 @@ import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import * as playerEvents from "../src/player/events.ts";
 import { sessions, type RestoredSession } from "../src/store/playerSessions.ts";
 import * as errors from "../src/ui/text/ko/errors.ts";
-import { noticeFrame, noticeReply, post, reply } from "../src/ui/frame.ts";
+import { noticeFrame, post, reply } from "../src/ui/frame.ts";
 import type { Player } from "../src/player/Player.ts";
 import * as replies from "../src/ui/controlReplies.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
 import { bestEffort } from "../src/infra/bestEffort.ts";
-import { expireReply } from "../src/ui/replyLifetime.ts";
+import { LIFETIME, expireSelf, noticeSelf, toSelf } from "../src/ui/delivery.ts";
 
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {
@@ -25,7 +25,7 @@ function waitEmpty(player: Player) {
 // 결과는 패널이 보이므로 잠깐 뒤 지운다. 채널 알림은 내지 않는다(이 응답이 말한다)
 async function restoreSession(interaction: ChatInputCommandInteraction<"cached">, player: Player, savedState: RestoredSession) {
   await interaction.reply(post(replies.restoring()));
-  expireReply(interaction);
+  expireSelf(interaction, LIFETIME.result);
   try {
     const outcome = await player.persistence.restoreFromState(savedState, { announce: false });
     if (outcome === "restored" && player.currentTrack) return await interaction.editReply(post(replies.restored(player.currentTrack, player.paused)));
@@ -46,16 +46,16 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
 
-    if (!member.voice.channel) return interaction.reply(noticeReply(errors.notice("must-be-in-voice")));
+    if (!member.voice.channel) return noticeSelf(interaction, errors.notice("must-be-in-voice"));
 
     const me = guild.members.me;
     const permissions = me ? member.voice.channel.permissionsFor(me) : null;
-    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply(noticeReply(errors.notice("permission-voice")));
+    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return noticeSelf(interaction, errors.notice("permission-voice"));
 
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);
     if (existing?.voice.isAlive()) {
-      return interaction.reply(reply(replies.alreadyJoined()));
+      return toSelf(interaction, reply(replies.alreadyJoined()), LIFETIME.glance);
     }
 
     // /leave에서 저장한 세션이 있는지 확인
@@ -73,7 +73,7 @@ const exported: GuildCommand = {
     } else {
       await player.voice.connect();
       waitEmpty(player);
-      await interaction.reply(reply(replies.joined()));
+      await toSelf(interaction, reply(replies.joined()), LIFETIME.result);
     }
   },
 };
