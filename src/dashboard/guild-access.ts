@@ -59,10 +59,4 @@ function voiceFlags(guild: Guild | null | undefined, userId: string | null | und
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
-// 유한 정수 파싱. parseInt와 달리 "50junk"·Infinity·소수를 전부 NaN으로 거부
-function toInt(value: unknown) {
-  const n = Number(value);
-  return Number.isInteger(n) ? n : NaN;
-}
-
-export { openGuild, voiceFlags, toInt };
+export { openGuild, voiceFlags };
