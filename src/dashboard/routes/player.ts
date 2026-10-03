@@ -3,7 +3,6 @@
 import express, { type Request, type Response, type Router } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.ts";
 import { addFailure } from "../../ui/error-messages.ts";
@@ -17,7 +16,8 @@ import { isOwner } from "../owner.ts";
 import { openGuild, voiceFlags, toInt } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState } from "../player-view.ts";
 import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
-import { sendProblem, refuseWith, tooManyRequests } from "../problem.ts";
+import { sendProblem, refuseWith } from "../problem.ts";
+import { limiter } from "../rate-limits.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, announceVolume, dashboardActor, dashboardResponder } from "../discord-notice.ts";
@@ -185,14 +185,7 @@ function controlRoutes(router: Router) {
   });
 
   // Volume  { volume: 0-100 }. 화면은 끄는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
-  const volumeLimiter = rateLimit({
-    windowMs: config.dashboard.rateLimit.windowMs,
-    limit: config.dashboard.rateLimit.apiMax,
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip ?? ""),
-    handler: tooManyRequests,
-  });
+  const volumeLimiter = limiter(config.dashboard.rateLimit.apiMax);
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -253,14 +246,7 @@ function controlRoutes(router: Router) {
 // 곡 추가
 function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
-  const queueLimiter = rateLimit({
-    windowMs: config.dashboard.rateLimit.windowMs,
-    limit: config.dashboard.rateLimit.queueMax,
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip ?? ""),
-    handler: tooManyRequests,
-  });
+  const queueLimiter = limiter(config.dashboard.rateLimit.queueMax);
 
   // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {

@@ -8,7 +8,6 @@ import session from "express-session";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
-import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
 import { createCorsOptions } from "./cors.ts";
 import { bodyLimit } from "./body-limit.ts";
@@ -23,7 +22,8 @@ import { createAuthRouter } from "./routes/auth.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import type { PlayerStream } from "./player-stream.ts";
-import { problemsRouter, sendProblem, tooManyRequests } from "./problem.ts";
+import { problemsRouter, sendProblem } from "./problem.ts";
+import { limiter, unlimited } from "./rate-limits.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 시험이 바꿔 넘긴다 */
@@ -116,36 +116,12 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   app.locals.bot = bot;
   app.locals.deployCommands = deployCommands;
 
-  // ── API 요청 제한 (express-rate-limit). 라우트 마운트보다 먼저 등록 ──
+  // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
-  const apiKey = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
-
-  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE(장수명 연결) 경로는 제외.
-  app.use(
-    "/api",
-    rateLimit({
-      windowMs: rl.windowMs,
-      limit: rl.apiMax,
-      standardHeaders: "draft-7",
-      legacyHeaders: false,
-      keyGenerator: apiKey,
-      handler: tooManyRequests,
-      // 음량은 재생 경로가 따로 센다(끄는 동안 잇달아 온다)
-      skip: (req) => req.originalUrl.startsWith("/api/admin/logs/stream") || req.originalUrl.includes("/player/events") || req.originalUrl.startsWith("/api/guilds/events") || /\/player\/volume(\?|$)/.test(req.originalUrl),
-    }),
-  );
-
-  // 로그인/OAuth. 세션 전이라 IP 키 (trust proxy가 사설망 한정이라 신뢰 가능)
-  app.use(
-    "/auth",
-    rateLimit({
-      windowMs: rl.authWindowMs,
-      limit: rl.authMax,
-      standardHeaders: "draft-7",
-      legacyHeaders: false,
-      handler: tooManyRequests,
-    }),
-  );
+  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 실시간 연결 · 음량은 뺀다(rate-limits)
+  app.use("/api", limiter(rl.apiMax, { skip: unlimited }));
+  // 로그인/OAuth. 세션 전이라 IP 로 센다
+  app.use("/auth", limiter(rl.authMax, { windowMs: rl.authWindowMs, byIp: true }));
 
   // 로그인 관련(/auth/login · /auth/callback · /auth/logout)
   app.use("/auth", createAuthRouter());
