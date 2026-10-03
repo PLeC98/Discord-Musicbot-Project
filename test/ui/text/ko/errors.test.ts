@@ -227,7 +227,7 @@ test("모든 문장", () => {
       "guild-not-found": "warning 🔍 서버를 찾을 수 없습니다.",
       "member-not-found": "warning 🔍 서버에서 사용자를 찾을 수 없습니다",
       "bot-not-in-voice": "warning ⚠️ 봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요",
-      "bot-in-other-voice": "warning 🎧 음성 채널에 들어갈 수 없어요!\n이미 다른 채널에 접속해 있어요. 먼저 그 채널에서 내보내거나, 더 이상 그 채널에서 사용하지 않을 때 까지 기다려 주세요.",
+      "bot-in-other-voice": "warning 🎧 음성 채널에 들어갈 수 없어요!\n이미 다른 채널에 접속해 있어요. 먼저 그 채널에서 내보내거나, 더 이상 그 채널에서 사용하지 않을 때까지 기다려 주세요.",
       "too-many-requests": "warning ⏳ 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요",
       "too-many-streams": "warning ⏳ 이벤트 연결이 너무 많습니다",
       "bad-request": "warning ✏️ 요청 형식이 올바르지 않습니다.",
