@@ -279,9 +279,17 @@ test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨�
 });
 
 test("본문 없는 요청은 400 으로 답한다(본문을 읽다 던지지 않는다)", async () => {
-  freshPlayer();
-  const r = await fetch(`${base}/api/guilds/${GUILD_ID}/player/seek`, { method: "POST", signal: AbortSignal.timeout(3000) });
-  assert.equal(r.status, 400);
-  assert.equal(((await r.json()) as { code: string }).code, "bad-time");
-  assert.equal(player.calls.length, 0);
+  // Content-Type 없이 본문도 없으면 Express 5 는 req.body 를 비워 둔다
+  for (const [action, code] of [
+    ["seek", "bad-time"],
+    ["volume", "bad-volume"],
+    ["loop", "bad-loop-mode"],
+    ["queue/move", "bad-position"],
+  ]) {
+    freshPlayer();
+    const r = await fetch(`${base}/api/guilds/${GUILD_ID}/player/${action}`, { method: "POST", signal: AbortSignal.timeout(3000) });
+    assert.equal(r.status, 400, action);
+    assert.equal(((await r.json()) as { code: string }).code, code, action);
+    assert.equal(player.calls.length, 0, action);
+  }
 });

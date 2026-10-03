@@ -230,7 +230,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body.volume));
+    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume));
     if (!r.ok) return refuse(res, r);
     const announce = announcer(ctx.bot, ctx.player);
     const by = dashboardActor(req);
@@ -243,7 +243,7 @@ function controlRoutes(router: Router) {
     if (!ctx) return;
     // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body.mode));
+    const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body?.mode));
     if (!r.ok) return refuse(res, r);
     announce(replies.loopSet(r.mode, r.track, dashboardActor(req)));
     res.json(playerState(ctx.player, queueWindow(req)));
@@ -276,7 +276,7 @@ function controlRoutes(router: Router) {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.move(ctx.player, ctx.actor, toInt(req.body.from), toInt(req.body.to));
+    const r = await controls.move(ctx.player, ctx.actor, toInt(req.body?.from), toInt(req.body?.to));
     if (!r.ok) return refuse(res, r);
     // 사람은 1부터 센다
     announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
