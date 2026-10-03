@@ -128,6 +128,15 @@ function killTree(entry: Entry): boolean {
   return true;
 }
 
+/** 등록한 자식 하나를 트리째 내린다(시간 한도를 넘긴 것 등). 등록돼 있지 않거나 이미 끝났으면 false */
+function kill(child: Tracked): boolean {
+  const entry = typeof child.pid === "number" ? active.get(child.pid) : undefined;
+  if (!entry || entry.child !== child) return false;
+  active.delete(entry.pid);
+  save();
+  return killTree(entry);
+}
+
 /**
  * 등록된 모든 프로세스를 트리째 종료한다. 멱등. 두 번 불러도 안전하다.
  * reason 은 로그용. 돌려주는 것은 실제로 종료를 시도한 프로세스 수
@@ -168,6 +177,6 @@ function list() {
     .sort((a, b) => b.ageMs - a.ageMs);
 }
 
-export { register, killAll, size, list, install, persistTo, imageOf };
+export { register, kill, killAll, size, list, install, persistTo, imageOf };
 export type { Record as ChildRecord };
 export const _internals = { active, killTree, _isAlive };

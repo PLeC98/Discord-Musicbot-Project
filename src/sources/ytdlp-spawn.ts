@@ -28,6 +28,15 @@ function useExec(exec: Exec | null) {
   fake = exec;
 }
 
+// 파일로 받지 않는 부름(정보 · 검색 · 재생목록 · 스트림 주소)의 한도. 멈춘 yt-dlp 가 곡 넣기를 끝없이 붙잡지 않게 넘으면 내린다.
+// 곡 넣기 하나가 yt-dlp 를 여러 번 불러도 운영 로그(25일)에서 길어야 54초였다. 내려받기는 곡 길이만큼 걸려 걸지 않는다
+const INFO_TIMEOUT_MS = 90_000;
+let infoTimeoutMs = INFO_TIMEOUT_MS;
+/** 시험이 한도를 줄인다. null 이면 원래대로 */
+function useInfoTimeout(ms: number | null) {
+  infoTimeoutMs = ms ?? INFO_TIMEOUT_MS;
+}
+
 // 띄울 때마다 지금 버전의 경로를 묻는다. 버전이 바뀌면(ytdlpBinary) 다음 부름부터 새 버전이 뜨고, 돌고 있던 것은 옛 버전으로 끝난다
 let bound: { file: string; exec: Exec } | null = null;
 function execNow(): Exec {
@@ -49,6 +58,13 @@ function execNow(): Exec {
 async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {}): Promise<unknown> {
   const sub = execNow()(url, flags, { ...SPAWN_OPTS, ...opts });
   const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN });
+  let timedOut = false;
+  const limit = flags.output
+    ? undefined
+    : setTimeout(() => {
+        timedOut = true;
+        procRegistry.kill(sub);
+      }, infoTimeoutMs);
   try {
     const { stdout, stderr } = await sub;
     const out: unknown = isJSON(stdout) ? JSON.parse(stdout) : stdout;
@@ -57,6 +73,8 @@ async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {})
     if (stderr && out && typeof out === "object") Object.defineProperty(out, "_stderr", { value: stderr, enumerable: false });
     return out;
   } catch (error) {
+    // 한도에서 내렸다. 플랫폼이 답하지 않은 것으로 보고 다른 클라이언트로 다시 묻지 않는다(stderr 를 싣지 않아 클라이언트 탓으로 읽히지 않는다)
+    if (timedOut) throw Object.assign(new Error(`yt-dlp 가 ${infoTimeoutMs / 1000}초 안에 끝나지 않아 내렸습니다`), { code: "network-error" }) satisfies YtDlpError;
     // tinyspawn의 오류를 youtube-dl-exec와 같은 모양(message = stderr)으로 맞춘다.
     // spawn 자체가 실패하면(ENOENT 등) stderr가 없으므로 원래 message를 쓴다.
     // 어떤 실패인지는 여기서 한 번 가려 code 로 붙인다. 부르는 쪽은 글이 아니라 code 를 본다.
@@ -69,12 +87,13 @@ async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {})
     shaped.code = errors.codeOf(shaped) || failed.code;
     throw shaped;
   } finally {
+    clearTimeout(limit);
     release();
   }
 }
 
 export default run;
-export { useExec };
+export { useExec, useInfoTimeout };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 자리의 모양 */
 type RunYtDlp = typeof run;
 export type { YtDlpFlags, YtDlpError, RunYtDlp, Exec };
