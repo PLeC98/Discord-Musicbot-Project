@@ -12,7 +12,7 @@ import { sendProblem } from "../problem.ts";
 import os from "os";
 import logManager from "../../infra/log/sink.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
-import { TIERS, getViewAs } from "../view-as.ts";
+import { isTier, getViewAs } from "../view-as.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -500,7 +500,7 @@ adminRouter.get("/logs/stream", requireOwner, (req, res) => {
 // requireOwner가 오버라이드를 무시하므로(실 운영자 기준) 낮춘 뒤에도 여기로 되돌아올 수 있다.
 adminRouter.post("/view-as", requireOwner, (req, res) => {
   const { tier } = req.body || {};
-  if (tier !== null && !TIERS.includes(tier)) {
+  if (tier !== null && !isTier(tier)) {
     return sendProblem(res, "bad-tier");
   }
 

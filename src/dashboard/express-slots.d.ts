@@ -4,6 +4,7 @@ import type { RESTAPIPartialCurrentUserGuild } from "discord.js";
 import type { BotContext } from "../app/bot-context.ts";
 import type { deployCommands } from "../app/command-loader.ts";
 import type { Lookup } from "../usecases/add-tracks.ts";
+import type { Tier } from "./view-as.ts";
 
 /** 로그인한 사용자. OAuth 콜백이 세션에 담는다 */
 type SessionUser = { id: string; username: string; globalName: string; avatar: string | null; guilds: RESTAPIPartialCurrentUserGuild[] };
@@ -14,8 +15,8 @@ declare module "express-session" {
     /** OAuth 요청과 콜백을 잇는 값 */
     oauthState: string;
     csrfToken: string;
-    /** 권한 수준 오버라이드(viewAs) */
-    viewAs: string;
+    /** 권한 수준 오버라이드(viewAs). 세션 저장소에서 읽은 값이라 쓰는 곳은 getViewAs 로 다시 본다 */
+    viewAs: Tier;
   }
 }
 

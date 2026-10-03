@@ -52,4 +52,5 @@ function shadowMember<M extends GuildMember | null, P>(req: Request<P>, member: 
   });
 }
 
-export { TIERS, getViewAs, shadowMember };
+export { TIERS, isTier, getViewAs, shadowMember };
+export type { Tier };
