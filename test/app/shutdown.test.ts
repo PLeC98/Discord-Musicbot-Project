@@ -6,7 +6,8 @@ import { EventEmitter } from "node:events";
 import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
 
-function setup({ saveFails = false, releaseFails = false, status = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown> } = {}) {
+// attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
+function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
   // destroy(false) 는 나감 메시지를 보내지 않는다(채널에 남는다)
@@ -51,7 +52,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   const proc = fakeWith<ShutdownBoundary["proc"]>()(Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } }));
   let exits = 0;
   const exited = new Promise((resolve) => {
-    installShutdown(bot, {
+    const shutdown = installShutdown({
       potServer: { stop: () => steps.push("pot:stop") },
       logFile: { close: () => steps.push("log:close") },
       proc,
@@ -63,6 +64,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       },
       record: { end: (how) => void steps.push(`record:${how}`) },
     });
+    if (attach) shutdown.attach(bot);
   });
   return { steps, proc, exited, exits: () => exits };
 }
@@ -72,6 +74,17 @@ test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
   assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
+});
+
+test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 띄운 것만 내리고 깨끗이 끝났다고 적는다", async () => {
+  const { steps, proc, exited } = setup({ attach: false });
+  proc.emit("SIGINT");
+  assert.equal(await exited, 0);
+  assert.deepEqual(
+    steps.filter((s) => !s.startsWith("voice:")),
+    ["record:shutdown", "pot:stop", "kill:SIGINT", "log:close"],
+    "세션 저장 · 봇 내리기는 없다",
+  );
 });
 
 test("레지스트리에 없는 음성 연결도 채널에는 남긴 채 정리한다. 저장 · 상태 지우기 · 정리가 실패해도 끝까지 간다", async () => {

@@ -1,5 +1,5 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
-// 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
+// 로그 → 남은 자식 프로세스 정리 → 종료 처리기 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
 import { Client, GatewayIntentBits, Events, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
@@ -28,6 +28,10 @@ import { installErrorHandlers } from "./resilience.ts";
 import { createGuildFaults } from "./guild-fault.ts";
 import { guarded, type OnFault } from "./event-boundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
+import * as procRegistry from "../infra/process-registry.ts";
+import { sweepLeftoverChildren } from "../infra/leftover-children.ts";
+import { PROJECT } from "../infra/project-paths.ts";
+import path from "path";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
 import { StatusManager } from "../ui/bot-presence.ts";
@@ -46,6 +50,9 @@ const log = logger.child({ category: "core" });
 
 type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
+type Shutdown = ReturnType<typeof installShutdown>;
+// 등록부가 적는 자식 프로세스 기록. 다음 기동이 남은 것을 정리한다
+const CHILDREN_FILE = path.join(PROJECT.database, "child-processes.json");
 /** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(bot: BotContext, ...args: ClientEvents[K]): unknown };
 /** 이벤트 목록(src/discord/events/index)의 한 칸. 이벤트마다 인자가 다르다 */
@@ -61,23 +68,23 @@ function main() {
   // 직전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 되살리지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
-  deploySlashCommands();
+  // 직전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 띄우기 전에
+  sweepLeftoverChildren(CHILDREN_FILE);
+  procRegistry.persistTo(CHILDREN_FILE);
 
   // 유튜브 POToken 서버. 준비를 확인한 뒤 봇을 켠다
   const potServer = createPotServer();
+  // 종료 처리기는 POToken 서버를 기다리는 동안에도 받는다. 기다리다 끈 것이 기록 없이 끊김으로 세어지지 않게
+  const shutdown = installShutdown({ potServer, logFile });
+  deploySlashCommands();
   potServer.start();
   potServer
     .waitReady()
-    .then(() => startBot({ potServer, logFile, skipRestore: previous.skipRestore }))
+    .then(() => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore }))
     .catch((error: unknown) => {
       // 클라이언트를 만들기 전에 던졌다. 띄운 것을 내리고 나간다
       log.error("봇 기동 실패:", error);
-      const noClient = {
-        destroy() {
-          // 클라이언트를 만들기 전이다
-        },
-      };
-      stopFailedStart(noClient, { potServer, logFile }, failedStartCode(error, false));
+      stopFailedStart(null, { potServer, logFile }, failedStartCode(error, false));
     });
 }
 
@@ -107,7 +114,7 @@ function deploySlashCommands() {
     .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));
 }
 
-function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; logFile: LogFile | null; skipRestore: boolean }) {
+function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean }) {
   const client = new Client({
     // GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다. 권한 판정 · 서버 목록이 멤버를 캐시에서 먼저 보는데,
     // 역할 · 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
@@ -147,7 +154,7 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   installErrorHandlers(client, { players, fault });
 
   // 실패는 init 이 받아 기동 실패로 내린다
-  bestEffort(log, init(bot, { commands, potServer, logFile, onFault }), "기동");
+  bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), "기동");
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다
@@ -187,15 +194,15 @@ async function cleanupAudioCache() {
   }
 }
 
-async function init(bot: BotContext, { commands, potServer, logFile, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; onFault: OnFault }) {
+async function init(bot: BotContext, { commands, potServer, logFile, shutdown, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; onFault: OnFault }) {
   const { client, players } = bot;
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
     loadCommands(commands);
     loadEvents(bot, onFault);
-    // 종료 신호를 받으면 저장하고 정리한 뒤 나간다
-    installShutdown({ client, players }, { potServer, logFile });
+    // 이제부터 끄면 세션을 저장하고 연결 · 봇까지 정리한다
+    shutdown.attach({ client, players });
     await loginWithRetry(client, config.discord.token);
   } catch (error) {
     const stopped = error instanceof StartupStopped;

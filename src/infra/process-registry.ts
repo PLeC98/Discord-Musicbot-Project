@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import logger from "./log/logger.ts";
 const log = logger.child({ category: "proc" });
 
@@ -14,14 +16,52 @@ const IS_WIN = process.platform === "win32";
  * 시그널 전에 두 가지를 확인한다. 빠뜨리면 무관한 프로세스를 죽인다.
  *  1. pid > 1 인 정수. pid 0이면 `-0`이 되어 우리 자신의 프로세스 그룹이 죽는다.
  *  2. 이미 종료한 자식은 건너뛴다. OS가 PID를 재사용한다.
+ *
+ * 기동이 persistTo 로 기록 파일을 켜면 등록 · 해제마다 지금 목록을 적는다. 강제 종료 · 충돌로 이 정리를 못 하고 나가면
+ * 다음 기동이 그 파일로 남은 자식을 찾아 내린다(infra/leftover-children).
  */
 
-// spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 칸만
-type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null };
+// spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 칸과 띄운 실행 파일
+type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null; spawnfile?: string };
 type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number };
+/** 기록 파일의 모양. owner: 적은 봇 프로세스(pid · 시작 시각), children: 그때 살아 있던 자식(image: 실행 파일 이름) */
+type Record = { owner: { pid: number; startedAt: number }; children: Array<{ pid: number; label: string; image: string | null; group: boolean; startedAt: number }> };
 
 const active = new Map<number, Entry>();
 let hooksInstalled = false;
+let recordFile: string | null = null;
+
+/** 실행 파일 이름(경로 · .exe 를 뗀 소문자) */
+const imageOf = (file: string | undefined) =>
+  file
+    ? path
+        .basename(file)
+        .replace(/\.exe$/i, "")
+        .toLowerCase()
+    : null;
+
+// 지금 목록을 기록 파일에. 읽다 만 파일이 남지 않게 옆에 쓰고 옮긴다. 실패해도 등록 · 정리는 그대로 간다
+function save() {
+  if (!recordFile) return;
+  const record: Record = {
+    owner: { pid: process.pid, startedAt: Math.round(Date.now() - process.uptime() * 1000) },
+    children: [...active.values()].map((e) => ({ pid: e.pid, label: e.label, image: imageOf(e.child.spawnfile), group: e.group, startedAt: e.startedAt })),
+  };
+  try {
+    const temp = `${recordFile}.${process.pid}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(record));
+    fs.renameSync(temp, recordFile);
+  } catch (error) {
+    log.debug(`자식 프로세스 기록 실패: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/** 기록 파일을 켠다. 기동이 남은 자식을 정리한 뒤 한 번 부른다(시험 · 스크립트는 켜지 않는다) */
+function persistTo(file: string) {
+  recordFile = file;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  save();
+}
 
 /**
  * exit 훅 설치. 첫 register 때 한 번만.
@@ -46,7 +86,10 @@ function register(child: Tracked | null | undefined, label = "child", { group = 
     };
   install();
   active.set(pid, { pid, label, group, child, startedAt: Date.now() });
-  return () => active.delete(pid);
+  save();
+  return () => {
+    if (active.delete(pid)) save();
+  };
 }
 
 /** 자식이 아직 살아있는가. 종료했으면 PID 재사용 위험이 있으므로 시그널을 보내면 안 된다. */
@@ -93,6 +136,7 @@ function killAll(reason = "shutdown"): number {
   if (active.size === 0) return 0;
   const entries = [...active.values()];
   active.clear();
+  save();
 
   const killed = [];
   for (const entry of entries) {
@@ -124,5 +168,6 @@ function list() {
     .sort((a, b) => b.ageMs - a.ageMs);
 }
 
-export { register, killAll, size, list, install };
+export { register, killAll, size, list, install, persistTo, imageOf };
+export type { Record as ChildRecord };
 export const _internals = { active, killTree, _isAlive };
