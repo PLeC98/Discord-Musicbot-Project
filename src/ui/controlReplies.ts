@@ -93,7 +93,7 @@ function removed(left: number, by: Actor) {
 /** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
 function moved(track: Track, from: number, to: number, by: Actor) {
   const t = controlText.moved(track, from, to);
-  return frame({ title: t.title, body: t.description, footer: [`${t.from} ${t.fromValue}`, `${t.to} ${t.toValue}`, `${t.by} ${by}`] });
+  return frame({ title: t.title, body: t.body, footer: [`${t.by} ${by}`], divider: true });
 }
 
 /** 음량. before · level 은 0~100 */

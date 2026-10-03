@@ -4,6 +4,7 @@ type Node = { type?: number; content?: string; components?: Node[]; accessory?: 
 type Payload = { components?: Array<{ toJSON(): unknown }> };
 
 const TEXT = 10;
+const SEPARATOR = 14;
 const STRING_SELECT = 3;
 const ACTION_ROW = 1;
 const BUTTON = 2;
@@ -30,6 +31,9 @@ const headOf = (payload: Payload) => textsOf(payload)[0]?.split("\n")[0];
 /** 섹션의 썸네일 주소 */
 const thumbnailOf = (payload: Payload) => nodesOf(payload).find((n) => n.accessory?.media?.url)?.accessory?.media?.url ?? null;
 
+/** 구분선 수 */
+const separatorsOf = (payload: Payload) => nodesOf(payload).filter((n) => n.type === SEPARATOR).length;
+
 /** 첫 글자 고르기 메뉴. 없으면 undefined */
 const selectOf = (payload: Payload) => nodesOf(payload).find((n) => n.type === STRING_SELECT);
 
@@ -53,4 +57,4 @@ function screenOf(payload: unknown) {
   };
 }
 
-export { textsOf, textOf, headOf, thumbnailOf, selectOf, screenOf };
+export { textsOf, textOf, headOf, thumbnailOf, separatorsOf, selectOf, screenOf };

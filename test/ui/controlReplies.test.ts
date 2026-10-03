@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as replies from "../../src/ui/controlReplies.ts";
 import { post } from "../../src/ui/frame.ts";
-import { textsOf, thumbnailOf } from "../helpers/cv2.ts";
+import { separatorsOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 
 const by = "<@1>";
 const track = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://i.test/t.jpg" };
@@ -47,7 +47,10 @@ test("비우기 · 빼기: 곡 수와 누가 했나", () => {
 });
 
 test("순서: 옮기기 전 · 뒤 자리와 누가", () => {
-  assert.deepEqual(shown(replies.moved(track, 3, 1, by)), ["### 🔀 순서 변경됨\n**[곡](https://u.test)**", "-# 📍 이동 전 3번째\n-# 📍 이동 후 1번째\n-# 👤 변경한 사람 <@1>"]);
+  const moved = post(replies.moved(track, 3, 1, by));
+  assert.deepEqual(textsOf(moved), ["### 🔀 곡의 순서를 옮겼어요\n[곡](https://u.test)\n📍 기존 순번: 3번째\n📍 현재 순번: 1번째", "-# 👤 변경한 사람 <@1>"]);
+  assert.equal(separatorsOf(moved), 1, "변경한 사람 줄 위에 구분선");
+  assert.equal(separatorsOf(post(replies.removed(4, by))), 0, "다른 응답은 구분선이 없다");
 });
 
 test("음량: 바뀌면 이전 → 지금, 같으면 그대로", () => {

@@ -54,12 +54,8 @@ const removed = (left: number) => ({ title: "🗑️ 선택한 곡을 버렸어�
 
 /** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
 const moved = (track: Linked, from: number, to: number) => ({
-  title: "🔀 순서 변경됨",
-  description: link(track),
-  from: "📍 이동 전",
-  fromValue: `${from}번째`,
-  to: "📍 이동 후",
-  toValue: `${to}번째`,
+  title: "🔀 곡의 순서를 옮겼어요",
+  body: `[${songTitle(track.title)}](${track.pageUrl})\n📍 기존 순번: ${from}번째\n📍 현재 순번: ${to}번째`,
   by: "👤 변경한 사람",
 });
 

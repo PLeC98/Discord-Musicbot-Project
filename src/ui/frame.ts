@@ -1,7 +1,7 @@
 // 응답 틀. 머리 줄 · 본문 · 작은 글씨의 꼬리 줄을 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 머리 칸 옆에 붙인다.
 // 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 머리 줄의 이모지를, 얼마나 심각한지(severity)로 색을 고른다
 
-import { ContainerBuilder, MessageFlags, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
+import { ContainerBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import { colorOf, type Meaning } from "./colors.ts";
 import type { Notice, Topic } from "./text/notice.ts";
 
@@ -22,17 +22,18 @@ const EMOJI = {
   state: "⚠️", // 그 밖에 지금 상태라 못 함 · 일부만 됨
 } as const satisfies Record<Topic, string>;
 
-/** 화면의 칸. footer 는 작은 글씨 줄들(비면 건너뛴다) */
-type Look = { title?: string; body?: string | null; footer?: Array<string | null>; thumbnail?: string | null; color?: Meaning };
+/** 화면의 칸. footer 는 작은 글씨 줄들(비면 건너뛴다), divider 면 그 위에 구분선 */
+type Look = { title?: string; body?: string | null; footer?: Array<string | null>; divider?: boolean; thumbnail?: string | null; color?: Meaning };
 
 // 머리 줄 · 본문을 한 덩이로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 글자만 둔다
-function frame({ title, body, footer = [], thumbnail, color = "brand" }: Look) {
+function frame({ title, body, footer = [], divider = false, thumbnail, color = "brand" }: Look) {
   const head = [title ? `### ${title}` : null, body].filter(Boolean).join("\n");
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf(color)));
   const text = new TextDisplayBuilder().setContent(head);
   if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
   else container.addTextDisplayComponents(text);
   const small = footer.filter((line): line is string => Boolean(line)).map((line) => `-# ${line}`);
+  if (small.length && divider) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   if (small.length) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(small.join("\n")));
   return container;
 }
