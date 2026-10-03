@@ -102,6 +102,25 @@ test("상호작용: 담은 안내는 모두에게 채널로 새로(채널에 못
   const noChannel = Object.assign(fakeInteraction({ deferred: false, replied: true }), { channel: null, followUp: async (p: Payload) => (calls.push(["followUp", p]), { id: "f1" }) });
   await interactionResponder(noChannel).notifyQueued(view);
   assert.deepEqual(calls, [["followUp", post(view)]]);
+
+  // 채널은 있는데 봇이 글을 쓸 수 없다
+  const denied = Object.assign(fakeInteraction({ deferred: false, replied: true }), {
+    channel: {
+      send: async () => {
+        throw new Error("Missing Permissions");
+      },
+    },
+    followUp: async (p: Payload) => (calls.push(["followUp", p]), { id: "f2" }),
+  });
+  await interactionResponder(denied).notifyQueued(view);
+  assert.deepEqual(
+    calls,
+    [
+      ["followUp", post(view)],
+      ["followUp", post(view)],
+    ],
+    "권한이 없으면 공개 후속 메시지로",
+  );
 });
 
 test("채널: 안내를 CV2 메시지로 보낸다", async () => {

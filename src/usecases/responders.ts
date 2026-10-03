@@ -6,8 +6,7 @@ import { messageOf } from "../rules/errorKind.ts";
 import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
 import type { Responder } from "../ui/nowPlayingPanel.ts";
 import { post } from "../ui/frame.ts";
-import { canSend } from "../ui/channels.ts";
-import { LIFETIME } from "../ui/delivery.ts";
+import { LIFETIME, postNew } from "../ui/delivery.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -51,9 +50,7 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
   return {
     async notifyQueued(view: ContainerBuilder) {
       try {
-        if (canSend(interaction.channel)) return scheduleDelete(await interaction.channel.send(post(view)), LIFETIME.glance);
-        const message = await interaction.followUp(post(view));
-        scheduleDelete({ id: message.id, delete: () => interaction.deleteReply(message.id) }, LIFETIME.glance);
+        await postNew(interaction, view, LIFETIME.glance);
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }

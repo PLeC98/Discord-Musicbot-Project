@@ -4,6 +4,9 @@
 // "하는 중"(자리표시자 · 메뉴 · 설정 화면)은 본인에게, 결과는 모두에게. 본인 자리표시자 뒤의 결과는 자리표시자를 지우고 채널에 새로 보낸다
 
 import { MessageFlags, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "events" });
+import { messageOf } from "../rules/errorKind.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
@@ -100,10 +103,22 @@ async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, 
   await interaction.deleteReply().catch(() => {
     /* 자리표시자가 이미 지워졌다 */
   });
+  return postNew(interaction, view, ms);
+}
+
+/**
+ * 모두에게 새 메시지로 보내고 ms 뒤 지운다. 채널에 쓸 수 없으면(권한 없음 등) 공개 후속 메시지로.
+ * 상호작용 응답은 채널 권한이 없어도 되므로 봇이 글을 못 쓰는 채널에서도 결과는 보인다
+ */
+async function postNew(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null) {
   if (canSend(interaction.channel)) {
-    const message = await interaction.channel.send(post(view));
-    if (ms !== null) scheduleDelete(message, ms);
-    return;
+    try {
+      const message = await interaction.channel.send(post(view));
+      if (ms !== null) scheduleDelete(message, ms);
+      return;
+    } catch (error) {
+      log.debug(`채널에 보내지 못해 후속 메시지로 보냅니다: ${messageOf(error)}`);
+    }
   }
   const message = await interaction.followUp(post(view));
   if (ms !== null) scheduleDelete({ id: message.id, delete: () => interaction.deleteReply(message.id) }, ms);
@@ -112,4 +127,4 @@ async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, 
 /** 본인 표시를 단 응답(임베드 · 글자 화면) */
 const selfOnly = <P extends object>(payload: P) => ({ ...payload, flags: MessageFlags.Ephemeral }) as P & { flags: MessageFlags.Ephemeral };
 
-export { LIFETIME, TOKEN_MS, noticeMs, expireSelf, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, selfOnly, lifetimesOf };
+export { LIFETIME, TOKEN_MS, noticeMs, expireSelf, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };

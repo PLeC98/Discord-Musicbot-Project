@@ -9,10 +9,10 @@ import { notice } from "../../src/ui/text/ko/errors.ts";
 import { noticeOf } from "../../src/ui/text/notice.ts";
 import { fake } from "../helpers/fake.ts";
 
-type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean };
+type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean; denied?: boolean };
 
 // 부른 차례를 적는 상호작용. 보낸 것은 flags 로 본인 · 모두를 가른다
-function asked({ replied = false, deferred = false, command = true, component = false, channel = true }: Over = {}) {
+function asked({ replied = false, deferred = false, command = true, component = false, channel = true, denied = false }: Over = {}) {
   const calls: string[] = [];
   const visible = (p: { flags?: unknown }) => ([p.flags].flat().includes(MessageFlags.Ephemeral) ? "self" : "all");
   const it = {
@@ -29,7 +29,15 @@ function asked({ replied = false, deferred = false, command = true, component = 
     editReply: async () => calls.push("editReply"),
     deferUpdate: async () => ((it.deferred = true), calls.push("deferUpdate")),
     deleteReply: async (id?: string) => calls.push(id ? `delete:${id}` : "delete"),
-    channel: channel ? { send: async () => (calls.push("send"), { id: "C", delete: async () => calls.push("delete:C") }) } : null,
+    channel: channel
+      ? {
+          send: async () => {
+            calls.push("send");
+            if (denied) throw new Error("Missing Permissions");
+            return { id: "C", delete: async () => calls.push("delete:C") };
+          },
+        }
+      : null,
   };
   return { it, calls, real: fake<RepliableInteraction>(it) };
 }
@@ -138,6 +146,12 @@ test("모두: 본인 자리표시자를 띄웠으면 지우고 채널에 새로,
   await Promise.resolve();
   await Promise.resolve();
   assert.deepEqual(b.calls, ["delete", "followUp:all", "delete:F"]);
+});
+
+test("모두: 채널에 쓸 권한이 없으면 공개 후속 메시지로 보낸다(상호작용 응답은 채널 권한이 없어도 된다)", async () => {
+  const a = asked({ replied: true, denied: true });
+  await toAll(a.real, view(), 15_000);
+  assert.deepEqual(a.calls, ["delete", "send", "followUp:all"]);
 });
 
 test("모두: 지우지 않는 수명(null)이면 남긴다", async (t) => {
