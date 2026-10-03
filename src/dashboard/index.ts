@@ -16,13 +16,12 @@ import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
 import { isLoopbackHost, listen } from "./binding.ts";
-import { isOwner, isRealOwner } from "./owner.ts";
-import { getViewAs } from "./view-as.ts";
 import { createAuthRouter } from "./routes/auth.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
+import { identityRouter } from "./routes/identity.ts";
 import type { PlayerStream } from "./player-stream.ts";
-import { problemsRouter, sendProblem } from "./problem.ts";
+import { problemsRouter } from "./problem.ts";
 import { limiter, unlimited } from "./rate-limits.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
@@ -130,26 +129,8 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
 
-  // 지금 로그인한 사람
-  // isOwner는 세션에 저장하지 않고 여기서 파생한다. UI 표시용이고 권한 판정은 서버가 매번 다시 한다.
-  // isOwner는 권한 수준 오버라이드가 반영된 값(UI가 그 계층으로 보이게), isRealOwner는 해제 수단을
-  // 계속 노출하기 위한 원래 값이다.
-  app.get("/api/me", (req, res) => {
-    if (!req.session.user) return sendProblem(res, "login-required");
-    res.json({ ...req.session.user, isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) });
-  });
-
-  // 로그인 전 화면이 쓰는 공개 정보
-  app.get("/api/bot", (req, res) => {
-    const botUser = bot.client.user;
-    if (!botUser) return sendProblem(res, "bot-not-ready");
-    res.json({
-      name: botUser.username,
-      avatarUrl: botUser.avatarURL({ size: 256, extension: "webp" }) || null,
-      sourceRepo: config.bot.sourceRepo, // AGPL 소스 공개 (개조본 = SOURCE_REPO_URL, 미설정 시 projectRepo)
-      projectRepo: config.bot.projectRepo, // 원본 프로젝트 저장소
-    });
-  });
+  // 지금 로그인한 사람(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
+  app.use("/api", identityRouter);
 
   app.use(notFoundJson);
   app.use(errorHandler);
