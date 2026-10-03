@@ -7,13 +7,14 @@
 
 import fs from "fs";
 import path from "path";
+import { PROJECT } from "../infra/projectPaths.ts";
 
 type Ending = "shutdown" | "startup-failed" | "global-flood";
 type Run = { startedAt: number; aliveAt: number; ended: { how: Ending; at: number } | null; shortStreak: number };
 /** 기동이 알게 되는 것 */
 type Previous = { line: string; skipRestore: boolean; shortStreak: number };
 
-const FILE = path.join(import.meta.dirname, "..", "..", "database", "run-state.json");
+const FILE = path.join(PROJECT.database, "run-state.json");
 const ALIVE_MS = 30_000; // 살아 있던 시각을 고쳐 적는 간격
 const SHORT_RUN_MS = 10 * 60_000; // 이보다 짧게 끊긴 실행을 센다
 const SKIP_RESTORE_STREAK = 2;

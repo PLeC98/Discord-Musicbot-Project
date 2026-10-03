@@ -8,12 +8,13 @@ const log = logger.child({ category: "youtube" });
 import config from "../../../config.ts";
 import { baseOptions } from "../ytdlpOptions.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
+import { PROJECT } from "../../infra/projectPaths.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
 // 한 단계 더 들어가 찾다가 아무것도 못 찾고 조용히 넘어간다. 오류도 경고도 없다.
 // 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
-const BGUTIL_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider");
+const BGUTIL_DIR = PROJECT.bgutil;
 // 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
 // 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다.
 function findPluginRoot(dir: string): string | null {

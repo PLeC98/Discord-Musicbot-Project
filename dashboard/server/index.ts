@@ -24,6 +24,7 @@ import { adminRouter } from "./routes/admin.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import type { PlayerStream } from "./playerStream.ts";
 import { problemsRouter, sendProblem, tooManyRequests } from "./problem.ts";
+import { PROJECT } from "../../src/infra/projectPaths.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware 는 시험이 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; sessionMiddleware?: RequestHandler };
@@ -96,7 +97,7 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
-  const clientDist = path.join(import.meta.dirname, "../client/dist");
+  const clientDist = PROJECT.dashboardDist;
   if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));
     app.get("/{*path}", (req, res, next) => {

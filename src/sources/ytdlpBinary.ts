@@ -16,6 +16,7 @@ import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/processRegistry.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { PROJECT } from "../infra/projectPaths.ts";
 
 const log = logger.child({ category: "ytdlp" });
 
@@ -30,7 +31,6 @@ const RETRY_MS = 60 * 60 * 1000;
 const UPDATE_TIMEOUT_MS = 180_000; // 바이너리 20MB 안팎을 받는다
 const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으로 뜬다
 const API_TIMEOUT_MS = 15_000;
-const ROOT = path.join(import.meta.dirname, "..", "..");
 
 // youtube-dl-exec 가 설치 때 받은 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
@@ -93,7 +93,7 @@ async function realLatestTag(channel: Channel) {
   return tag;
 }
 
-const REAL: Io = { dir: path.join(ROOT, "bin", "yt-dlp"), seed: YOUTUBE_DL_PATH, run: realRun, latestTag: realLatestTag, now: () => Date.now() };
+const REAL: Io = { dir: path.join(PROJECT.bin, "yt-dlp"), seed: YOUTUBE_DL_PATH, run: realRun, latestTag: realLatestTag, now: () => Date.now() };
 
 // 실패한 부름을 한 줄로. yt-dlp 는 마지막 줄에 까닭(ERROR: …)을 적는다
 const reasonOf = (ran: Ran) => ran.stderr.trim().split(/\r?\n/).at(-1)?.trim() || `종료 코드 ${ran.status ?? "없음"}`;

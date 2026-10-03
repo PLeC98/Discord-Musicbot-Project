@@ -2,11 +2,12 @@ import path from "path";
 import fs from "fs";
 import { Store, type SessionData } from "express-session";
 import Database, { type Statement } from "better-sqlite3";
+import { PROJECT } from "../../src/infra/projectPaths.ts";
 
 // express-session의 기본 MemoryStore 대체:
 // 재시작 시 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
 // 캐시 DB와 같은 better-sqlite3 사용, 파일은 분리(database/sessions.db).
-const DB_PATH = path.join(import.meta.dirname, "..", "..", "database", "sessions.db");
+const DB_PATH = path.join(PROJECT.database, "sessions.db");
 
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;

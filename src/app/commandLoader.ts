@@ -6,6 +6,7 @@ import path from "path";
 import config from "../../config.ts";
 import { COMMANDS } from "../../commands/index.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
+import { PROJECT } from "../infra/projectPaths.ts";
 
 /** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
 type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
@@ -21,7 +22,7 @@ type SlashCommand = GuildCommand | AnywhereCommand;
 
 // 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
-const HASH_PATH = path.join(import.meta.dirname, "..", "..", "database", "deployed-commands.json");
+const HASH_PATH = path.join(PROJECT.database, "deployed-commands.json");
 
 /** 켜진 명령. 배포하는 것과 실행 목록에 올리는 것이 이 집합이다(꺼진 기능은 입구가 없다) */
 function enabledCommands() {

@@ -4,6 +4,7 @@ import path from "path";
 import { spawnSync } from "child_process";
 import config from "../../../config.ts";
 import logger from "../../infra/log/logger.ts";
+import { PROJECT } from "../../infra/projectPaths.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
@@ -35,7 +36,7 @@ function probe(candidate: string | null | undefined): string | null {
 
 /** scripts/install-ffmpeg.ts가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
 function fromBundle(): string | null {
-  const p = path.join(import.meta.dirname, "..", "..", "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  const p = path.join(PROJECT.bin, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   return fs.existsSync(p) ? p : null;
 }
 

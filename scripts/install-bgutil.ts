@@ -13,9 +13,10 @@ import path from "path";
 import fs from "fs";
 import config from "../config.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
+import { PROJECT } from "../src/infra/projectPaths.ts";
 
-const ROOT = path.join(import.meta.dirname, "..");
-const DIR = path.join(ROOT, "bgutil-ytdlp-pot-provider");
+const ROOT = PROJECT.root;
+const DIR = PROJECT.bgutil;
 const SERVER = path.join(DIR, "server");
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
 const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
@@ -52,7 +53,7 @@ function hasTag(tag: string) {
 
 try {
   const existed = fs.existsSync(DIR);
-  if (!existed) git(["clone", REPO, "bgutil-ytdlp-pot-provider"], ROOT);
+  if (!existed) git(["clone", REPO, DIR], ROOT);
 
   const before = currentTag();
   const moved = before !== VERSION;

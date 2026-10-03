@@ -8,8 +8,9 @@ import logger from "../../infra/log/logger.ts";
 import * as processRegistry from "../../infra/processRegistry.ts";
 const log = logger.child({ category: "core" });
 import config from "../../../config.ts";
+import { PROJECT } from "../../infra/projectPaths.ts";
 
-const SERVER_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider", "server");
+const SERVER_DIR = path.join(PROJECT.bgutil, "server");
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");
 const PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 띄우기까지

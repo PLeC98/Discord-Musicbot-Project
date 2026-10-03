@@ -16,12 +16,13 @@ import path from "path";
 import crypto from "crypto";
 import { spawnSync } from "child_process";
 import config from "../config.ts";
+import { PROJECT } from "../src/infra/projectPaths.ts";
 
 const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
 
 const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
-const ROOT = path.join(import.meta.dirname, "..");
-const BIN_DIR = path.join(ROOT, "bin");
+const ROOT = PROJECT.root;
+const BIN_DIR = PROJECT.bin;
 
 /** BtbN 빌드 하나. 자산 이름 조각 · 아카이브 확장자 · 실행 파일 이름 */
 type Target = { slug: string; ext: string; bin: string };

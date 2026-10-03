@@ -10,8 +10,9 @@ import { sessions } from "./playerSessions.ts";
 import * as db from "./db.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { PROJECT } from "../infra/projectPaths.ts";
 
-const CACHE_DIR = path.join(import.meta.dirname, "..", "..", "audio_cache");
+const CACHE_DIR = PROJECT.audioCache;
 
 // 퇴거 점수의 가중치(최근성 · 빈도 · 크기)
 const W_RECENCY = 0.4;

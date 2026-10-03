@@ -4,6 +4,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { PROJECT } from "../../infra/projectPaths.ts";
 
 // gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
 let tik: Promise<typeof import("gpt-tokenizer")> | null = null;
@@ -12,7 +13,7 @@ const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer")
 
 type Counted = { tokens: number; by: string; exact: boolean };
 
-const GEMMA_FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
+const GEMMA_FILE = path.join(PROJECT.data, "gemma-tokenizer.model");
 
 // ── SentencePiece BPE ──────────────────────────────────────────────────────
 // 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.

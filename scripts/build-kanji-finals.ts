@@ -8,10 +8,11 @@
 import fs from "fs";
 import path from "path";
 import zlib from "zlib";
+import { PROJECT } from "../src/infra/projectPaths.ts";
 
 const SOURCE = "https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip";
 const ENTRY = "Unihan_Readings.txt";
-const OUT = path.join(import.meta.dirname, "..", "data", "kanji-finals.json");
+const OUT = path.join(PROJECT.data, "kanji-finals.json");
 
 // zip 안의 파일 하나를 꺼낸다. 중앙 디렉터리에서 크기와 위치를 읽고 deflate 를 푼다
 function unzipEntry(zip: Buffer, name: string) {

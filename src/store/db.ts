@@ -3,8 +3,9 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { PROJECT } from "../infra/projectPaths.ts";
 
-const DB_PATH = path.join(import.meta.dirname, "..", "..", "database", "cache.db");
+const DB_PATH = path.join(PROJECT.database, "cache.db");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
 const SCHEMA_VERSION = 4;

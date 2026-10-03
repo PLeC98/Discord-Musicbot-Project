@@ -305,6 +305,8 @@ function scan() {
     requireCache: perFile(tests, (f) => f.requireCache),
     methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
     lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
+    // 실행 중 경로를 파일 자리에서 세는 파일(import.meta.dirname, 주석은 뺀다)
+    dirnameUse: sources.map((f) => f.rel).filter((rel) => /import\.meta\.dirname/.test(fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\/\/.*$/gm, ""))),
     // 어느 줄인가(진단용. 기준선은 파일만 본다)
     methodSwapLines: Object.fromEntries(tests.filter((f) => f.swaps.length).map((f) => [f.rel, f.swaps])),
   };
