@@ -13,7 +13,6 @@ import type { Guild, GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
 import { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
-import type { Loop } from "../../src/player/track-state.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
 import { useExampleConfig } from "../helpers/example-config.ts";
 import * as genreConfig from "../../src/config/genres.ts";
@@ -217,13 +216,11 @@ test("음량: 멈춘 뒤 settled 를 처음 값 → 마지막 값으로 한 번 
   assert.deepEqual(shown, ["50→80"], "제자리면 부르지 않는다");
 });
 
-test("반복: 모드 확인, 라이브가 있으면 켜기만 거절. 버튼의 다음 모드는 끔 → 한곡 → 대기열 → 끔", async () => {
+test("반복: 모드 확인, 라이브가 있으면 켜기만 거절", async () => {
   assert.equal(codeOf(await controls.loop(fakePlayer(), DJ, "all")), "bad-loop-mode");
   const live = fakePlayer({ hasLiveTrack: () => true });
   assert.equal(codeOf(await controls.loop(live, DJ, "track")), "live-no-loop");
   assert.equal((await controls.loop(live, DJ, false)).ok, true, "끄는 것은 언제나 통한다");
-  const modes: Array<Loop | "off"> = [false, "off", "track", "queue"];
-  assert.deepEqual(modes.map(controls.nextLoopMode), ["track", "track", "queue", false]);
 });
 
 test("섞기 · 비우기: 곡 수가 모자라면 거절", async () => {

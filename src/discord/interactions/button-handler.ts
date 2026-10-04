@@ -8,7 +8,7 @@ import { addFailureMessage } from "../../ui/error-messages.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { channelResponder } from "../../usecases/responders.ts";
 import { checkControl, checkAdd, checkSummon } from "../../usecases/permissions.ts";
-import * as controls from "../../usecases/controls.ts";
+import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
 
@@ -39,7 +39,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
   volume: (it) => handleVolumeModal(it),
   // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
-  loop: (it, player) => answerLoop(it, player, controls.nextLoopMode(player.loop)),
+  loop: (it, player) => answerLoop(it, player, nextLoopMode(player.loop)),
   previous: (it, player) => answerPrevious(it, player),
 };
 // 운영자 설정으로 꺼지는 패널 동작. 꺼져 있으면 없는 버튼과 같다

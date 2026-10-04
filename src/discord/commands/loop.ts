@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import * as controls from "../../usecases/controls.ts";
+import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerLoop } from "../interactions/control-answers.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 
@@ -23,7 +23,7 @@ const exported: GuildCommand = {
     const player = bot.players.get(interaction.guild.id);
     const option = interaction.options.getString("mode");
     // 모드를 안 고르면 반복 버튼처럼 다음 모드로
-    const mode = option ? (option === "off" ? false : option) : controls.nextLoopMode(player?.loop ?? false);
+    const mode = option ? (option === "off" ? false : option) : nextLoopMode(player?.loop ?? false);
     await answerLoop(interaction, player, mode);
   },
 };

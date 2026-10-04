@@ -210,12 +210,6 @@ async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   return done({ mode, track });
 }
 
-/** 반복 버튼의 다음 모드: 끔 → 한곡 → 대기열 → 끔 */
-function nextLoopMode(current: Loop | "off"): Loop {
-  if (current === false || current === "off") return "track";
-  return current === "track" ? "queue" : false;
-}
-
 /** 대기열 섞기 */
 async function shuffle(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
@@ -373,4 +367,4 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
 }
 
 export type { Actor, Refusal };
-export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, removeEntry, move, moveEntry, clear, jump, autoplayBlocked, autoplay, leave };
+export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, shuffle, remove, removeEntry, move, moveEntry, clear, jump, autoplayBlocked, autoplay, leave };
