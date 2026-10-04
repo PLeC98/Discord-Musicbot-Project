@@ -106,7 +106,7 @@ async function load() {
 
   let module;
   try {
-    module = await import("../emoji-list.js");
+    module = await import("../emoji-list.ts");
   } catch {
     // 목록은 따로 받아오므로 못 받아올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
     // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.

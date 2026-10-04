@@ -1,9 +1,10 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import axios from "axios";
-import { useGuildsStore, onGuildNudge } from "./guilds.js";
-import { notifyProblem } from "../composables/toasts.js";
-import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime } from "../utils/playback.js";
+import { useGuildsStore, onGuildNudge } from "./guilds.ts";
+import { notifyProblem } from "../composables/toasts.ts";
+import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime, withReadFields, type PlayerSeen } from "../utils/playback.ts";
+import type { PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";
 
 // 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
@@ -15,11 +16,11 @@ import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
 
-  const data = ref(null); // GET /player 응답(조작 응답이 덮는다)
+  const data = ref<PlayerSeen | null>(null); // GET /player 응답(조작 응답이 덮는다)
   const clock = ref(clockOf(null, 0)); // 진행 시계의 기준
   const now = ref(Date.now());
   // 지금 보고 있는 서버 화면의 서버. 그 화면에서는 바가 숨는다. 라우터는 바 컴포넌트가 읽어 넣는다
-  const page = ref(null);
+  const page = ref<string | null>(null);
 
   // 대상 서버. 동시 음성 참여가 불가능하므로 항상 하나 이하다
   const guildId = computed(() => guilds.guilds.find((g) => g.listening)?.id ?? null);
@@ -39,10 +40,9 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const url = (path = "") => `/api/guilds/${guildId.value}/player${path}?queue=0`;
 
   // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 칸이 없어 그것만 남긴다
-  function apply(next) {
+  function apply(next: PlayerState) {
     if (!accepts(data.value, next)) return;
-    const { botInVoice, userInVoice, sameVoice, hasPlayer, canControl: control, canAdd, canManage, userId } = data.value ?? {};
-    data.value = { botInVoice, userInVoice, sameVoice, hasPlayer, canControl: control, canAdd, canManage, userId, ...next };
+    data.value = withReadFields(data.value, next);
     clock.value = clockOf(next, Date.now());
   }
 
@@ -53,7 +53,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       return;
     }
     try {
-      const res = await axios.get(url());
+      const res = await axios.get<PlayerRead>(url());
       // 응답이 오는 사이에 대상이 바뀌었으면 버린다
       if (guildId.value !== id) return;
       if (accepts(data.value, res.data)) {
@@ -62,20 +62,20 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       }
     } catch (e) {
       // 권한을 잃었거나 봇이 나갔다(답이 왔다). 바를 접는다. 응답이 없거나 늦으면 지금 바를 둔다
-      if (e?.response) data.value = null;
+      if (axios.isAxiosError(e) && e.response) data.value = null;
     }
   }
 
   // 응답을 기다리는 조작. 같은 조작을 겹쳐 보내지 않는다
-  const busy = ref(new Set());
-  async function send(type, body, fallback) {
+  const busy = ref(new Set<string>());
+  async function send(type: string, body: object | undefined, fallback: string) {
     if (!guildId.value || busy.value.has(type)) return;
     busy.value = new Set(busy.value).add(type);
     try {
-      apply((await axios.post(url(`/${type}`), body)).data);
+      apply((await axios.post<PlayerState>(url(`/${type}`), body)).data);
     } catch (e) {
       notifyProblem(e, fallback);
-      refresh(); // 거절되면 서버 상태로 되돌린다
+      void refresh(); // 거절되면 서버 상태로 되돌린다
     } finally {
       const rest = new Set(busy.value);
       rest.delete(type);
@@ -95,46 +95,46 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const skip = () => send("skip", onTrackOf(data.value), "다음 곡으로 넘기지 못했어요.");
   const previous = () => send("previous", onTrackOf(data.value), "이전 곡으로 가지 못했어요.");
 
-  async function setVolume(volume) {
+  async function setVolume(volume: number) {
     if (!guildId.value) return;
     try {
-      apply((await axios.post(url("/volume"), { volume: Number(volume) })).data);
+      apply((await axios.post<PlayerState>(url("/volume"), { volume: Number(volume) })).data);
     } catch (e) {
       notifyProblem(e, "볼륨을 바꾸지 못했어요.");
-      refresh();
+      void refresh();
     }
   }
 
   // 놓은 자리를 먼저 보이고 보낸다. entry 는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
-  function seek(seconds, entry) {
+  function seek(seconds: number, entry: number | null | undefined) {
     clock.value = retime(clock.value, Date.now(), { at: seconds });
     return send("seek", { position: seconds, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
   }
 
   // ── 수명 관리 ───────────────────────────────────────────────────────────────
-  let ticker = null;
-  let offNudge = null;
-  let stopWatch = null;
-  let stopPageWatch = null;
+  let ticker: ReturnType<typeof setInterval> | undefined;
+  let offNudge: (() => boolean) | null = null;
+  let stopWatch: (() => void) | null = null;
+  let stopPageWatch: (() => void) | null = null;
   let started = 0;
 
   function start() {
     if (++started > 1) return;
 
     // 대상 서버가 바뀌면(참가·이동·퇴장) 즉시 다시 읽는다
-    stopWatch = watch(guildId, () => refresh(), { immediate: true });
+    stopWatch = watch(guildId, () => void refresh(), { immediate: true });
 
     // 목록 연결의 신호. 내 대상 서버의 변화만 골라 받는다.
     // guildId 가 null 이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;
       if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다. 둘이 각각 읽으면 요청이 배로 든다
-      if (!changedGuildId || changedGuildId === guildId.value) refresh();
+      if (!changedGuildId || changedGuildId === guildId.value) void refresh();
     });
 
     // 그 화면을 벗어나는 순간 한 번 따라잡는다. 머무는 동안 건너뛴 변화가 있다.
     stopPageWatch = watch(onTargetPage, (on) => {
-      if (!on) refresh();
+      if (!on) void refresh();
     });
 
     // 진행 시계. 위치는 받은 위치 + 지난 시간으로 센다(utils/playback)
@@ -147,7 +147,8 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     stopPageWatch?.();
     offNudge?.();
     clearInterval(ticker);
-    stopWatch = stopPageWatch = offNudge = ticker = null;
+    stopWatch = stopPageWatch = offNudge = null;
+    ticker = undefined;
     data.value = null;
   }
 

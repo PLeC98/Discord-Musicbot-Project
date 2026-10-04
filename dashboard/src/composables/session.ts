@@ -8,4 +8,4 @@ import { reactive } from "vue";
 export const session = reactive({ ended: false, offline: false, streamDown: false });
 
 /** 실시간 연결 · 주기 읽기를 해도 되는지. 탭이 보이고 세션이 살아 있을 때만 */
-export const live = () => !document.hidden && !session.ended;
+export const live = (): boolean => !document.hidden && !session.ended;

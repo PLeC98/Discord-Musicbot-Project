@@ -1,9 +1,9 @@
-// dashboard/src/utils/request.js — 화면 요청 한 곳: CSRF 토큰 · 토큰 거절 뒤 한 번 다시 보내기 · 세션 끝 · 서버에 닿았는지 · 시간 한도
+// dashboard/src/utils/request.ts — 화면 요청 한 곳: CSRF 토큰 · 토큰 거절 뒤 한 번 다시 보내기 · 세션 끝 · 서버에 닿았는지 · 시간 한도
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from "../../../dashboard/node_modules/axios/index.js";
-import { installRequests, failureKind, LIMIT } from "../../../dashboard/src/utils/request.js";
+import { installRequests, failureKind, LIMIT } from "../../../dashboard/src/utils/request.ts";
 import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 

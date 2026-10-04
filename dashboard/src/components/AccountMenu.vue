@@ -35,7 +35,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
-import { useUserStore } from "../stores/user.js";
+import { useUserStore } from "../stores/user.ts";
 
 // rail=true면 사이드바 레일 안. md~lg 구간에서 라벨을 숨기는 반응형 규칙이 붙는다(ServerSidebar와 동일 방식).
 // collapsed는 lg+ 접힘 상태. 드로어에서는 둘 다 꺼진 상태로 쓴다.

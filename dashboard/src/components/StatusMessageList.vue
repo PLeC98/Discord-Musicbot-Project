@@ -46,7 +46,7 @@ import { nextTick, reactive } from "vue";
 import Icon from "./BaseIcon.vue";
 import Twemoji from "./TwemojiImage.vue";
 import EmojiPicker from "./EmojiPicker.vue";
-import { insertAt, caretOf } from "../utils/caret.js";
+import { insertAt, caretOf } from "../utils/caret.ts";
 
 // 배열을 그대로 고친다. 줄마다 갈아끼우면 입력 중에 초점이 튄다
 const list = defineModel({ type: Array, required: true });

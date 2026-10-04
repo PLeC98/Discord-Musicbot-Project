@@ -36,8 +36,8 @@ import { useRouter } from "vue-router";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
-import { session } from "../composables/session.js";
-import { useUserStore } from "../stores/user.js";
+import { session } from "../composables/session.ts";
+import { useUserStore } from "../stores/user.ts";
 
 const user = useUserStore();
 const router = useRouter();

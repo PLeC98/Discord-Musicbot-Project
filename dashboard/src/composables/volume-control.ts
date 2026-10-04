@@ -3,23 +3,22 @@
 // 요청은 한 번에 하나씩, 앞 요청을 보낸 뒤 MIN_GAP_MS 가 지나야 다음을 보낸다. 그사이 움직인 것은
 // 마지막 값만 남긴다. 놓은 뒤 마지막 요청이 끝나면 서버 값을 보여 준다.
 // 서버 값을 바로 묶으면 화면이 다시 그려질 때마다(진행바가 1초마다 그린다) 손잡이가 서버 값으로 튄다.
-import { ref, computed } from "vue";
-import { notifyProblem } from "./toasts.js";
+import { ref, computed, type Ref } from "vue";
+import { notifyProblem } from "./toasts.ts";
 
 const MIN_GAP_MS = 200;
 
 /**
- * @param {import("vue").Ref<number|undefined>} serverVolume 서버가 알려 준 음량
- * @param {(level: number) => Promise<unknown>} send 음량을 보내고 응답을 상태에 반영한다
+ * serverVolume: 서버가 알려 준 음량. send: 음량을 보내고 응답을 상태에 반영한다
  */
-export function useVolumeControl(serverVolume, send) {
-  const draft = ref(null);
-  let pending = null; // 아직 안 보낸 마지막 값
+export function useVolumeControl(serverVolume: Readonly<Ref<number | undefined>>, send: (level: number) => Promise<unknown>) {
+  const draft = ref<number | null>(null);
+  let pending: number | null = null; // 아직 안 보낸 마지막 값
   let busy = false; // 보내는 중이거나 간격을 기다리는 중
   let released = true;
-  let lastSent = null;
+  let lastSent: number | null = null;
 
-  async function pump() {
+  async function pump(): Promise<void> {
     if (busy || pending === null) return;
     const level = pending;
     pending = null;
@@ -38,7 +37,7 @@ export function useVolumeControl(serverVolume, send) {
     if (released) draft.value = null;
   }
 
-  function set(value, final) {
+  function set(value: unknown, final: boolean) {
     const level = Math.round(Number(value));
     if (!Number.isFinite(level)) return;
     released = final;
@@ -49,12 +48,12 @@ export function useVolumeControl(serverVolume, send) {
       return;
     }
     pending = level;
-    pump();
+    void pump();
   }
 
   return {
     shown: computed(() => draft.value ?? serverVolume.value ?? 0),
-    input: (value) => set(value, false),
-    change: (value) => set(value, true),
+    input: (value: unknown) => set(value, false),
+    change: (value: unknown) => set(value, true),
   };
 }

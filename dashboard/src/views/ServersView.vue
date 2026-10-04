@@ -37,7 +37,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted } from "vue";
-import { useGuildsStore } from "../stores/guilds.js";
+import { useGuildsStore } from "../stores/guilds.ts";
 import Icon from "../components/BaseIcon.vue";
 
 // 목록 데이터·SSE·폴링은 사이드바와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)

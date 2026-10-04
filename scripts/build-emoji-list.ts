@@ -23,7 +23,7 @@ import { PROJECT } from "../src/infra/project-paths.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
-const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.js");
+const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.ts");
 
 // 받아 오는 것의 모양. 여기서 읽는 칸만 본다
 const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });
@@ -164,17 +164,23 @@ async function main() {
     "// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어",
     `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
     "",
-    "const RAW = [",
+    "/** 고르기 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */",
+    "type Emoji = { char: string; label: string; search: string };",
+    "type EmojiGroup = { name: string; emoji: Emoji[] };",
+    "",
+    "const RAW: Array<[name: string, rows: string]> = [",
     groups.map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n"),
     "];",
     "",
-    "export const EMOJI_GROUPS = RAW.map(([name, rows]) => ({",
+    "export const EMOJI_GROUPS: EmojiGroup[] = RAW.map(([name, rows]) => ({",
     "  name,",
     '  emoji: rows.split("\\n").map((row) => {',
     '    const [char, label, tags] = row.split("|");',
     "    return { char, label, search: `${label} ${tags}`.toLowerCase() };",
     "  }),",
     "}));",
+    "",
+    "export type { Emoji, EmojiGroup };",
     "",
   ].join("\n");
   fs.writeFileSync(OUT, await prettier.format(source, { ...(await prettier.resolveConfig(OUT)), filepath: OUT }));

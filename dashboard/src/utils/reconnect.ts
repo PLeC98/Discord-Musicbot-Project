@@ -5,7 +5,7 @@
 const STEPS_MS = [2000, 5000, 15000, 30000, 60000];
 
 /** attempt: 연달아 닫힌 횟수(0부터). random 은 시험이 넘긴다 */
-function reopenDelay(attempt, random = Math.random) {
+function reopenDelay(attempt: number, random: () => number = Math.random): number {
   const base = STEPS_MS[Math.min(Math.max(0, attempt), STEPS_MS.length - 1)];
   return Math.round(base * (0.8 + 0.4 * random()));
 }

@@ -39,7 +39,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useUserStore } from "../stores/user.js";
+import { useUserStore } from "../stores/user.ts";
 import Icon from "../components/BaseIcon.vue";
 import axios from "axios";
 import BaseButton from "../components/BaseButton.vue";

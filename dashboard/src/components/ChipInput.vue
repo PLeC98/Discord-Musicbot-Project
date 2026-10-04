@@ -44,7 +44,7 @@
 import { ref, watch, nextTick, useTemplateRef, onUnmounted } from "vue";
 import Icon from "./BaseIcon.vue";
 import { useAnchoredPanel } from "../composables/anchored-panel";
-import { problemText } from "../utils/problem.js";
+import { problemText } from "../utils/problem.ts";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },

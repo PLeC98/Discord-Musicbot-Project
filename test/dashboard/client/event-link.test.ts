@@ -1,8 +1,8 @@
-// dashboard/src/utils/event-link.js — 탭의 실시간 연결: 끊기면 브라우저가 다시 붙고, 닫히면 늘려 가는 간격으로 화면이 다시 연다
+// dashboard/src/utils/event-link.ts — 탭의 실시간 연결: 끊기면 브라우저가 다시 붙고, 닫히면 늘려 가는 간격으로 화면이 다시 연다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventLink } from "../../../dashboard/src/utils/event-link.js";
+import { eventLink } from "../../../dashboard/src/utils/event-link.ts";
 
 const CONNECTING = 0;
 const OPEN = 1;

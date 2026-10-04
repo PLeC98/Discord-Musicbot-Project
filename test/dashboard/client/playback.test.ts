@@ -1,8 +1,8 @@
-// dashboard/src/utils/playback.js — 재생 바와 서버 화면이 같이 쓰는 재생 규칙
+// dashboard/src/utils/playback.ts — 재생 바와 서버 화면이 같이 쓰는 재생 규칙
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, queueSize, reordered, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.js";
+import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, queueSize, reordered, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.ts";
 
 test("받기: 같은 기동이면 차례가 지금 이상일 때만, 기동 표가 크면 받고 작으면 버린다", () => {
   const now = { boot: 200, seq: 10 };

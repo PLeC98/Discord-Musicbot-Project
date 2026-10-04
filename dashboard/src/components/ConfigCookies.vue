@@ -23,8 +23,8 @@
 </template>
 
 <script setup>
-import { problemText } from "../utils/problem.js";
-import { trackUnsaved } from "../composables/unsaved.js";
+import { problemText } from "../utils/problem.ts";
+import { trackUnsaved } from "../composables/unsaved.ts";
 import { ref, reactive, computed, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";

@@ -12,7 +12,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as yamlStore from "../../src/config/yaml-store.ts";
-import { toRows, toMap } from "../../dashboard/src/utils/genre-rows.js";
+import { toRows, toMap } from "../../dashboard/src/utils/genre-rows.ts";
 import sink from "../../src/infra/log/sink.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 

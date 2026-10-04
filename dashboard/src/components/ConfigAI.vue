@@ -486,10 +486,10 @@
 </template>
 
 <script setup>
-import { problemText, problemDetails } from "../utils/problem.js";
-import { trackUnsaved } from "../composables/unsaved.js";
+import { problemText, problemDetails } from "../utils/problem.ts";
+import { trackUnsaved } from "../composables/unsaved.ts";
 import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
-import { LIMIT } from "../utils/request.js";
+import { LIMIT } from "../utils/request.ts";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";

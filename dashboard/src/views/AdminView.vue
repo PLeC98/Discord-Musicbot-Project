@@ -341,14 +341,14 @@
 </template>
 
 <script setup>
-import { problemText } from "../utils/problem.js";
-import { session, live } from "../composables/session.js";
-import { notifyProblem } from "../composables/toasts.js";
-import { LIMIT } from "../utils/request.js";
+import { problemText } from "../utils/problem.ts";
+import { session, live } from "../composables/session.ts";
+import { notifyProblem } from "../composables/toasts.ts";
+import { LIMIT } from "../utils/request.ts";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import { eventLink } from "../utils/event-link.js";
-import { unsaved } from "../composables/unsaved.js";
-import { readStored, writeStored } from "../utils/storage.js";
+import { eventLink } from "../utils/event-link.ts";
+import { unsaved } from "../composables/unsaved.ts";
+import { readStored, writeStored } from "../utils/storage.ts";
 import { onBeforeRouteLeave } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
@@ -360,8 +360,8 @@ import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
 import EmojiPicker from "../components/EmojiPicker.vue";
 import Twemoji from "../components/TwemojiImage.vue";
-import { insertAt, caretOf } from "../utils/caret.js";
-import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
+import { insertAt, caretOf } from "../utils/caret.ts";
+import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다

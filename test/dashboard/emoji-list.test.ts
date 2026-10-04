@@ -9,11 +9,7 @@ import fs from "node:fs";
 import path from "path";
 import YAML from "yaml";
 
-const LIST = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "emoji-list.js");
-// 화면 쪽 모듈이라 타입이 없다. 시험이 읽는 칸만 적는다
-type Emoji = { char: string; label?: string; search: string };
-type EmojiGroup = { name: string; emoji: Emoji[] };
-const list = (): Promise<{ EMOJI_GROUPS: EmojiGroup[]; TWEMOJI_VERSION: string }> => import("file://" + LIST.replace(/\\/g, "/"));
+const list = () => import("../../dashboard/src/emoji-list.ts");
 const groups = () => list().then((m) => m.EMOJI_GROUPS);
 const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e] as const));
 

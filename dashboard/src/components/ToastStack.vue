@@ -17,5 +17,5 @@
 
 <script setup>
 import Icon from "./BaseIcon.vue";
-import { toasts, dismiss } from "../composables/toasts.js";
+import { toasts, dismiss } from "../composables/toasts.ts";
 </script>

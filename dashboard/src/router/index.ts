@@ -1,8 +1,17 @@
-import { createRouter, createWebHistory } from "vue-router";
-import { useUserStore } from "../stores/user.js";
-import { session } from "../composables/session.js";
+import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
+import { useUserStore } from "../stores/user.ts";
+import { session } from "../composables/session.ts";
 
-const routes = [
+declare module "vue-router" {
+  interface RouteMeta {
+    /** 로그인해야 들어간다 */
+    requiresAuth?: boolean;
+    /** 봇 운영자만(실 운영자 기준) */
+    requiresOwner?: boolean;
+  }
+}
+
+const routes: RouteRecordRaw[] = [
   {
     path: "/",
     component: () => import("../views/LoginView.vue"),

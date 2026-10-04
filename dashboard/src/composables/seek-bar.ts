@@ -2,20 +2,23 @@
 // 포인터 이벤트(마우스 · 터치 · 펜)를 막대가 붙잡고(setPointerCapture), 끄는 동안의 값을 들고, 놓으면 보낸다.
 // 끄는 사이 곡이 바뀌면 취소하고 알린다(다음 곡을 옮기지 않게). 브라우저가 끌기를 빼앗으면(pointercancel) 보내지 않는다
 
-import { ref, watch, onUnmounted } from "vue";
-import { seekPosition } from "../utils/playback.js";
-import { notify } from "./toasts.js";
+import { ref, watch, onUnmounted, type Ref } from "vue";
+import { seekPosition } from "../utils/playback.ts";
+import { notify } from "./toasts.ts";
+
+/** 줄 번호(지금 곡). 없으면 null */
+type Entry = number | null | undefined;
 
 /**
  * el: 막대 요소 ref. duration(): 지금 곡 길이(초). enabled(): 잡을 수 있는지. entry(): 지금 곡 줄 번호.
  * send(초, 잡을 때의 줄 번호): 놓은 자리로 보낸다. 거절되면 부른 쪽이 다시 읽어 손잡이를 서버 자리로 돌린다
  */
-export function useSeekBar({ el, duration, enabled, entry, send }) {
+export function useSeekBar({ el, duration, enabled, entry, send }: { el: Readonly<Ref<HTMLElement | null | undefined>>; duration: () => number; enabled: () => boolean; entry: () => Entry; send: (sec: number, from: Entry) => unknown }) {
   const dragging = ref(false);
   const value = ref(0);
-  let held = null; // { bar, pointerId, entry }
+  let held: { bar: HTMLElement; pointerId: number; entry: Entry } | null = null;
 
-  const at = (e) => seekPosition(e.clientX, el.value?.getBoundingClientRect(), duration());
+  const at = (e: PointerEvent) => seekPosition(e.clientX, el.value?.getBoundingClientRect(), duration());
 
   function release() {
     dragging.value = false;
@@ -28,7 +31,7 @@ export function useSeekBar({ el, duration, enabled, entry, send }) {
     if (bar.hasPointerCapture?.(pointerId)) bar.releasePointerCapture(pointerId);
   }
 
-  function onPointerDown(e) {
+  function onPointerDown(e: PointerEvent) {
     const bar = el.value;
     if (!bar || !enabled() || e.button > 0 || held) return;
     held = { bar, pointerId: e.pointerId, entry: entry() };
@@ -40,11 +43,11 @@ export function useSeekBar({ el, duration, enabled, entry, send }) {
     dragging.value = true;
   }
 
-  function onMove(e) {
+  function onMove(e: PointerEvent) {
     value.value = at(e);
   }
 
-  function onUp(e) {
+  function onUp(e: PointerEvent) {
     if (!held) return;
     const sec = at(e);
     const from = held.entry;

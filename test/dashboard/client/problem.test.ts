@@ -1,8 +1,8 @@
-// dashboard/src/utils/problem.js — 화면이 문제 응답을 글로 바꾸는 도우미. 문장은 봇과 같은 안내에서 코드로 고른다
+// dashboard/src/utils/problem.ts — 화면이 문제 응답을 글로 바꾸는 도우미. 문장은 봇과 같은 안내에서 코드로 고른다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { problemDetails, problemNotice, problemText, setReportUrl } from "../../../dashboard/src/utils/problem.js";
+import { problemDetails, problemNotice, problemText, setReportUrl } from "../../../dashboard/src/utils/problem.ts";
 import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 
 const failed = (data: unknown) => ({ response: { data } });

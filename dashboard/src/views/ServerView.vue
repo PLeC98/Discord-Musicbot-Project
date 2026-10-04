@@ -233,12 +233,12 @@
 <script setup>
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
-import { problemText } from "../utils/problem.js";
-import { useGuildsStore, onGuildNudge } from "../stores/guilds.js";
-import { notify, notifyProblem } from "../composables/toasts.js";
-import { LIMIT } from "../utils/request.js";
-import { accepts, canRemove as removeAllowed, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, reordered, retime, skipEnabled } from "../utils/playback.js";
-import { useSeekBar } from "../composables/seek-bar.js";
+import { problemText } from "../utils/problem.ts";
+import { useGuildsStore, onGuildNudge } from "../stores/guilds.ts";
+import { notify, notifyProblem } from "../composables/toasts.ts";
+import { LIMIT } from "../utils/request.ts";
+import { accepts, canRemove as removeAllowed, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, reordered, retime, skipEnabled } from "../utils/playback.ts";
+import { useSeekBar } from "../composables/seek-bar.ts";
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
@@ -247,8 +247,8 @@ import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
 import PlaylistMore from "../components/PlaylistMore.vue";
 import VolumeIcon from "../components/VolumeIcon.vue";
-import { useVolumeControl } from "../composables/volume-control.js";
-import { fmtTime } from "../utils/time.js";
+import { useVolumeControl } from "../composables/volume-control.ts";
+import { formatDuration } from "../../../src/ui/format.ts";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
 const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
@@ -683,7 +683,7 @@ function jumpToHighlight() {
 
 // ── 도우미 ───────────────────────────────────────────────────────────────────
 
-const fmt = fmtTime;
+const fmt = (sec) => formatDuration(sec);
 
 // 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다.
 // 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.

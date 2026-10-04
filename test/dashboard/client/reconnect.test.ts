@@ -1,8 +1,8 @@
-// dashboard/src/utils/reconnect.js — 닫힌 실시간 연결을 다시 열기까지의 간격
+// dashboard/src/utils/reconnect.ts — 닫힌 실시간 연결을 다시 열기까지의 간격
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { reopenDelay } from "../../../dashboard/src/utils/reconnect.js";
+import { reopenDelay } from "../../../dashboard/src/utils/reconnect.ts";
 
 test("닫힐 때마다 2 · 5 · 15 · 30 · 60초로 늘리고 그 뒤로는 60초", () => {
   const middle = () => 0.5; // 흔들지 않은 값

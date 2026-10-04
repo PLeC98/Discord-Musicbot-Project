@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { readStored, writeStored } from "../utils/storage.js";
+import { readStored, writeStored } from "../utils/storage.ts";
 
 // 사이드바 상태. 햄버거 버튼과 사이드바(ServerSidebar.vue)가 공유.
 // 유튜브식 3단계:
@@ -12,7 +12,7 @@ const WIDE = "(min-width: 64rem)"; // Tailwind lg
 export const sidebarCollapsed = ref(readStored(STORAGE_KEY) === "1"); // 넓은 화면 전용 설정
 export const drawerOpen = ref(false); // 좁은/중간 화면 오버레이. 세션 한정, 저장하지 않음
 
-export function toggleSidebar() {
+export function toggleSidebar(): void {
   if (window.matchMedia(WIDE).matches) {
     sidebarCollapsed.value = !sidebarCollapsed.value;
     writeStored(STORAGE_KEY, sidebarCollapsed.value ? "1" : "0");
@@ -21,7 +21,7 @@ export function toggleSidebar() {
   }
 }
 
-export function closeDrawer() {
+export function closeDrawer(): void {
   drawerOpen.value = false;
 }
 

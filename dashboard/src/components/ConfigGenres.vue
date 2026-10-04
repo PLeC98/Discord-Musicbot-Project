@@ -112,8 +112,8 @@
 </template>
 
 <script setup>
-import { problemText, problemDetails } from "../utils/problem.js";
-import { trackUnsaved } from "../composables/unsaved.js";
+import { problemText, problemDetails } from "../utils/problem.ts";
+import { trackUnsaved } from "../composables/unsaved.ts";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -124,7 +124,7 @@ import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
 import { isFolded, toggleFold, genreFoldId, reorderGenres } from "../composables/config-folds";
-import { toRows, toMap, newRow } from "../utils/genre-rows.js";
+import { toRows, toMap, newRow } from "../utils/genre-rows.ts";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";

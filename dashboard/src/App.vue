@@ -46,14 +46,14 @@
 import { computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Icon from "./components/BaseIcon.vue";
-import { useUserStore } from "./stores/user.js";
+import { useUserStore } from "./stores/user.ts";
 import ServerSidebar from "./components/ServerSidebar.vue";
 import NowPlayingBar from "./components/NowPlayingBar.vue";
 import SessionNotice from "./components/SessionNotice.vue";
 import ToastStack from "./components/ToastStack.vue";
-import { useNowPlayingStore } from "./stores/now-playing.js";
-import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebar-state.js";
-import { setReportUrl } from "./utils/problem.js";
+import { useNowPlayingStore } from "./stores/now-playing.ts";
+import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebar-state.ts";
+import { setReportUrl } from "./utils/problem.ts";
 import axios from "axios";
 
 const user = useUserStore();

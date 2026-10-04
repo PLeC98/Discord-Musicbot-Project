@@ -23,13 +23,13 @@
 
         <div class="flex items-center gap-2 w-full">
           <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
-          <span :class="timeText">{{ np.track?.isLive ? "🔴 라이브" : fmtTime(shownTime) }}</span>
+          <span :class="timeText">{{ np.track?.isLive ? "🔴 라이브" : formatDuration(shownTime) }}</span>
           <div ref="trackEl" class="group relative flex flex-1 h-3.5 items-center touch-none before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/12 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" @pointerdown.prevent="seekBar.onPointerDown">
             <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2" :class="seekBar.dragging.value ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
             <div v-if="seekable" class="absolute top-1/2 size-2.5 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2 transition-opacity duration-150" :class="seekBar.dragging.value ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'" :style="{ left: progressPct + '%' }"></div>
           </div>
           <!-- 길이를 모르면(라이브) 양쪽을 다 비워 둔다. 진행바 동그라미는 duration 0이라 이미 빠진다 -->
-          <span :class="timeText">{{ np.duration > 0 ? fmtTime(np.duration) : "--:--" }}</span>
+          <span :class="timeText">{{ np.duration > 0 ? formatDuration(np.duration) : "--:--" }}</span>
         </div>
       </div>
 
@@ -64,12 +64,12 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Icon from "./BaseIcon.vue";
 import VolumeIcon from "./VolumeIcon.vue";
-import { useVolumeControl } from "../composables/volume-control.js";
+import { useVolumeControl } from "../composables/volume-control.ts";
 import TrackArt from "./TrackArt.vue";
-import { useNowPlayingStore } from "../stores/now-playing.js";
-import { fmtTime } from "../utils/time.js";
-import { previousEnabled, skipEnabled } from "../utils/playback.js";
-import { useSeekBar } from "../composables/seek-bar.js";
+import { useNowPlayingStore } from "../stores/now-playing.ts";
+import { formatDuration } from "../../../src/ui/format.ts";
+import { previousEnabled, skipEnabled } from "../utils/playback.ts";
+import { useSeekBar } from "../composables/seek-bar.ts";
 
 const np = useNowPlayingStore();
 // 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)

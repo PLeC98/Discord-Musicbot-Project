@@ -129,8 +129,8 @@
 </template>
 
 <script setup>
-import { problemText } from "../utils/problem.js";
-import { notifyProblem } from "../composables/toasts.js";
+import { problemText } from "../utils/problem.ts";
+import { notifyProblem } from "../composables/toasts.ts";
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";

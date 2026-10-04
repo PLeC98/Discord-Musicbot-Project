@@ -19,5 +19,12 @@ function problemBody(code: Code, params: Params = {}, extra: Extra = {}): Proble
   return { type: `${PROBLEM_PATH}${code}`, code, status: spec.status, title: spec.title, ...values, ...extra };
 }
 
-export { PROBLEM_PATH, problemBody };
+/** 본문에서 그 코드의 값만 다시 꺼낸다(problemBody 의 거꿀). 화면이 문장을 만들 때 쓴다 */
+function paramsOf(body: Pick<ProblemBody, "code"> & Record<string, unknown>): Params {
+  const spec: ProblemSpec = PROBLEMS[body.code];
+  const names: readonly string[] = spec.params ?? [];
+  return Object.fromEntries(names.filter((name) => body[name] !== undefined).map((name) => [name, body[name]])) as Params;
+}
+
+export { PROBLEM_PATH, problemBody, paramsOf };
 export type { FieldProblem, Extra, ProblemBody };
