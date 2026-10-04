@@ -24,9 +24,9 @@
         </div>
         <div class="flex-1 overflow-hidden">
           <div class="text-sm font-semibold mb-0.5 overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
-          <div class="text-[0.78rem] mb-0.5 flex items-center gap-1" :class="g.hasPlayer ? 'text-success' : 'text-muted'">
-            <Icon :name="g.hasPlayer ? 'music' : 'pause'" :size="13" />
-            <span>{{ g.hasPlayer ? "재생 중" : "대기 중" }}</span>
+          <div class="text-[0.78rem] mb-0.5 flex items-center gap-1" :class="stateOf(g).cls">
+            <Icon :name="stateOf(g).icon" :size="13" />
+            <span>{{ stateOf(g).label }}</span>
           </div>
         </div>
         <span class="mb-0.5 text-muted text-[1.2rem] transition-[transform,color] duration-300 ease-spring group-hover:translate-x-1 group-hover:text-[rgba(196,181,253,0.8)]">›</span>
@@ -44,6 +44,15 @@ import Icon from "../components/BaseIcon.vue";
 const store = useGuildsStore();
 const guilds = computed(() => store.guilds);
 const loading = computed(() => store.loading);
+
+// 서버 목록 응답의 상태(state). 봇이 음성 채널 밖 · 곡을 트는 중 · 일시정지 · 음성 채널에 있지만 곡이 없음
+const STATES = {
+  idle: { label: "유휴 상태", icon: "pause", cls: "text-muted" },
+  playing: { label: "재생 중", icon: "music", cls: "text-success" },
+  paused: { label: "일시정지", icon: "pause", cls: "text-warning" },
+  waiting: { label: "대기 중", icon: "headphones", cls: "text-fg-soft" },
+};
+const stateOf = (g) => STATES[g.state] ?? STATES.idle;
 
 onMounted(() => store.subscribe());
 onUnmounted(() => store.unsubscribe());

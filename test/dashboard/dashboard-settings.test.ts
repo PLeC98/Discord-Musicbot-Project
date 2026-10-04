@@ -421,6 +421,35 @@ test("GET guilds: 로그인 때 받은 목록이 아니라 봇이 든 서버 중
   currentMember = plainMember();
 });
 
+// ── GET /api/guilds 의 상태 넷(서버 목록) ──
+
+test("GET guilds: 상태는 유휴(봇이 음성 밖) · 대기 중(곡 없음 · 여는 중) · 재생 중 · 일시정지", async () => {
+  currentMember = plainMember();
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+  const stateNow = async () => ((await req("GET", "/api/guilds")).json.guilds as { state: string }[] | undefined)?.[0]?.state;
+  const withStatus = (status: string | undefined) => fakePlayer({ audioPlayer: { state: { status } } });
+  try {
+    guild.members.me = null;
+    players.set(GUILD_ID, withStatus("playing"));
+    assert.equal(await stateNow(), "idle", "플레이어가 남아 있어도 봇이 음성 밖이면 유휴");
+
+    guild.members.me = { voice: voiceState("v1") };
+    players.delete(GUILD_ID);
+    assert.equal(await stateNow(), "waiting", "참가했지만 곡이 없다");
+    players.set(GUILD_ID, withStatus("idle"));
+    assert.equal(await stateNow(), "waiting", "곡을 여는 중");
+    players.set(GUILD_ID, withStatus("playing"));
+    assert.equal(await stateNow(), "playing");
+    players.set(GUILD_ID, withStatus("paused"));
+    assert.equal(await stateNow(), "paused");
+    players.set(GUILD_ID, withStatus("autopaused"));
+    assert.equal(await stateNow(), "paused", "듣는 연결이 끊겨 멈춘 것도 멈춤");
+  } finally {
+    players.delete(GUILD_ID);
+    guild.members.me = null;
+  }
+});
+
 // ── GET /api/guilds의 listening (전역 재생 바가 대상 서버를 찾는 기준) ──
 
 test("GET guilds: listening — 봇과 같은 채널일 때만 참", async () => {
