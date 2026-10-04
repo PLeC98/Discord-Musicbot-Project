@@ -91,6 +91,7 @@
 
 <script setup>
 import { problemText, problemDetails } from "../utils/problem.js";
+import { trackUnsaved } from "../composables/unsaved.js";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -152,6 +153,7 @@ const fromSpecial = (list) =>
 
 const payload = computed(() => ({ interval: draft.value.interval, messages: fromMessages(messages.value), special: fromSpecial(special.value) }));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
+trackUnsaved("presence", dirty);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 const RANGE = { date: /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, lunar: /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, time: /^([01][0-9]|2[0-3]):[0-5][0-9]$/ };
@@ -194,7 +196,9 @@ const problems = computed(() => {
   return [...found, ...serverProblems.value];
 });
 
+// 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
 watch(payload, () => {
+  if (!dirty.value) return;
   savedAt.value = null;
   serverProblems.value = [];
 });

@@ -7,11 +7,11 @@
 <template>
   <div>
     <BaseCard icon="gear" title="자동재생 전역 설정" class="mb-3">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">장르에 같은 항목을 적으면 그 장르에서만 덮어씁니다. 상한을 비우면 길이 제한이 없습니다.</p>
+      <p class="text-muted text-[0.82rem] mt-1 mb-3">최소 · 최대 길이와 차단어는 장르마다 따로 적을 수 있습니다(장르 칸을 비우면 여기 값). 상한을 비우면 길이 제한이 없습니다.</p>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label class="block">
-          <span :class="labelCls">대기열에 준비해 둘 곡 수</span>
+          <span :class="labelCls">대기열에 준비해 둘 곡 수(전역만)</span>
           <NumberInput v-model="draft.defaults.prefetchCount" :class="inputCls" />
         </label>
         <label class="block">
@@ -78,7 +78,25 @@
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
           <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :genre-index="i" class="mt-2" />
+        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="i" class="mt-2" />
+        <!-- 이 장르만의 값. 비우면 전역 값을 쓴다(utils/genre-rows) -->
+        <div v-show="!isFolded(genreFoldId(i))" class="mt-3 pt-3 border-t border-white/6">
+          <p class="text-muted text-[0.78rem] mb-2">이 장르만의 값 - 비우면 위 전역 값을 씁니다</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span :class="labelCls">최소 길이(초)</span>
+              <NumberInput v-model="row.minDurationSec" :placeholder="`전역 ${draft.defaults.minDurationSec ?? 0}`" :class="inputCls" />
+            </label>
+            <label class="block">
+              <span :class="labelCls">최대 길이(초)</span>
+              <NumberInput v-model="row.maxDurationSec" :placeholder="draft.defaults.maxDurationSec ? `전역 ${draft.defaults.maxDurationSec}` : '전역 제한 없음'" :class="inputCls" />
+            </label>
+          </div>
+          <div class="mt-3">
+            <span :class="labelCls">차단어 - 적으면 전역 차단어 대신 이것만 씁니다</span>
+            <ChipInput v-model="row.blockedKeywords" lowercase placeholder="비우면 전역 차단어" />
+          </div>
+        </div>
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
@@ -95,6 +113,7 @@
 
 <script setup>
 import { problemText, problemDetails } from "../utils/problem.js";
+import { trackUnsaved } from "../composables/unsaved.js";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -127,6 +146,7 @@ const sourceTypesError = ref("");
 
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
+trackUnsaved("config", dirty);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 // 선택기로만 넣으니 여기서 걸릴 일은 없고, 파일을 손으로 고쳐 둔 경우를 잡는다.
@@ -143,13 +163,21 @@ const problems = computed(() => {
   // 숫자만으로 된 이름은 끌어 옮긴 차례가 조용히 어긋난다. 서버도 같은 것을 막는다
   for (const name of names.filter((n) => /^(0|[1-9][0-9]*)$/.test(n))) found.push(`"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년대"처럼 글자를 붙여 주세요.`);
   for (const r of rows.value) {
+    const label = r.name || "이름 없는 장르";
     if (r.name.trim() && !r.sources.length) found.push(`${r.name}: 곡을 가져올 출처가 하나는 있어야 합니다.`);
-    if (r.emoji && !ONE_EMOJI.test(r.emoji)) found.push(`${r.name || "이름 없는 장르"}: 이모지가 아닌 값이 들어 있습니다.`);
+    if (r.maxDurationSec === 0) found.push(`${label}: 최대 길이(초)는 비우거나 0보다 크게 적어 주세요.`);
+    // 비운 칸은 전역 값으로 견준다(서버도 같은 것을 본다)
+    const min = r.minDurationSec ?? draft.value.defaults.minDurationSec;
+    const max = r.maxDurationSec ?? draft.value.defaults.maxDurationSec;
+    if ((r.minDurationSec != null || r.maxDurationSec != null) && min != null && max != null && min > max) found.push(`${label}: 최소 길이(${min}초)가 최대 길이(${max}초)보다 깁니다.`);
+    if (r.emoji && !ONE_EMOJI.test(r.emoji)) found.push(`${label}: 이모지가 아닌 값이 들어 있습니다.`);
   }
   return [...found, ...serverProblems.value];
 });
 
+// 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
 watch(payload, () => {
+  if (!dirty.value) return;
   savedAt.value = null;
   serverProblems.value = [];
 });
@@ -211,6 +239,9 @@ function onDragEnd() {
   draggedIndex.value = null;
   dragOverIndex.value = null;
 }
+
+// 자동완성 후보. 브라우저가 저쪽에 바로 묻지 않고 서버를 거친다(GET /api/admin/source-suggest)
+const suggestFor = async (type, field, term) => (await axios.get("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
 function addRow() {
   rows.value.push(newRow());

@@ -81,7 +81,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import axios from "axios";
+import { windowDepth } from "../../../src/rules/window-depth.ts";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
 import RangeSlider from "./RangeSlider.vue";
@@ -98,6 +98,8 @@ const props = defineProps({
   typesState: { type: String, default: "ready" },
   // 못 받았을 때의 까닭(문제 응답의 글)
   typesError: { type: String, default: "" },
+  // 자동완성 후보를 묻는다: (출처 종류, 칸, 친 말) → [{ value, hint? }]
+  suggest: { type: Function, required: true },
   genreIndex: { type: Number, default: 0 },
 });
 const emit = defineEmits(["update:modelValue"]);
@@ -169,15 +171,11 @@ const shown = (source, i) => fieldsOf(source.type).filter((f) => (!f.deep || isD
 // 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 const hasRange = (source, key) => source[key] != null || source[fieldsOf(source.type).find((f) => f.key === key)?.to] != null;
 
-// 자동완성 후보. 브라우저가 저쪽에 바로 묻지 않고 서버를 거친다(GET /api/admin/source-suggest)
-const suggestFor = async (type, field, term) => (await axios.get("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
+// 자동완성 후보는 부르는 쪽(ConfigGenres)이 서버에 묻는다. 이 컴포넌트는 그리기만 한다
+const suggestFor = (type, field, term) => props.suggest(type, field, term);
 
-// 곡이 많을 때 몇 번째 곡까지 보는지. 셈은 서버와 같다(genreSources 의 windowDepth)
-const filled = (v) => asList(v).some((one) => one != null && String(one).trim() !== "");
-const depthOf = (source) => {
-  const win = spec(source.type).window;
-  return win.narrow.some((key) => filled(source[key])) ? win.narrowDepth : win.depth;
-};
+// 곡이 많을 때 몇 번째 곡까지 보는지. 봇과 같은 셈(rules/window-depth)
+const depthOf = (source) => windowDepth(spec(source.type).window, source);
 
 function write(i, patch) {
   const row = list.value[i];

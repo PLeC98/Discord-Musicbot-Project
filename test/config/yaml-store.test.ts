@@ -193,6 +193,24 @@ test("대시보드 장르 화면의 행을 거쳐 저장해도 장르별 덮어�
   assert.deepEqual(Object.keys(loadGenres().genres.팝), ["emoji", "minDurationSec", "blockedKeywords", "sources"], "칸의 차례도 그대로");
 });
 
+test("장르 화면의 덮어쓰기 칸: 고치면 제자리에서, 비우면 빼고(전역 값), 새로 적으면 끝에", () => {
+  write("genres", ["defaults:", "  minDurationSec: 60", "genres:", "  팝:", "    emoji: 🎤", "    minDurationSec: 30", "    blockedKeywords:", "      - Live", "    sources:", "      - type: keyword", "        keywords:", "          - pop", "  록:", "    sources:", "      - type: keyword", "        keywords:", "          - rock", ""].join("\n"));
+  const rows = toRows(loadGenres().genres);
+  assert.deepEqual([rows[0].minDurationSec, rows[0].maxDurationSec, rows[0].blockedKeywords], [30, null, ["live"]], "차단할 말은 소문자로(제목을 낮춰 견준다)");
+  assert.deepEqual([rows[1].minDurationSec, rows[1].blockedKeywords], [null, []]);
+
+  rows[0].minDurationSec = 45;
+  rows[0].blockedKeywords = [];
+  rows[1].maxDurationSec = 600;
+  yamlStore.save("genres", { defaults: loadGenres().defaults, genres: toMap(rows) });
+
+  const saved = loadGenres().genres;
+  assert.deepEqual(Object.keys(saved.팝), ["emoji", "minDurationSec", "sources"], "비운 차단할 말은 빠지고 나머지는 제자리");
+  assert.equal(saved.팝.minDurationSec, 45);
+  assert.deepEqual(Object.keys(saved.록), ["sources", "maxDurationSec"], "새로 적은 칸은 끝에");
+  assert.equal(saved.록.maxDurationSec, 600);
+});
+
 // 회귀 대상: 값은 그대로 두고 차례만 바꾸면 고칠 것이 없다고 보고 아무것도 쓰지 않았다.
 // 대시보드는 저장이 됐다고 여기고 파일을 다시 읽어, 바꾼 차례가 도로 돌아갔다.
 test("차례만 바꿔도 저장된다 — 주석은 쌍을 따라간다", () => {

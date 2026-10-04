@@ -24,6 +24,7 @@
 
 <script setup>
 import { problemText } from "../utils/problem.js";
+import { trackUnsaved } from "../composables/unsaved.js";
 import { ref, reactive, computed, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -31,6 +32,11 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 
 const input = ref("");
+// 붙여 넣고 저장하지 않은 쿠키도 떠날 때 묻는다
+trackUnsaved(
+  "cookies",
+  computed(() => Boolean(input.value.trim())),
+);
 const saving = ref(false);
 const error = ref("");
 const state = reactive({ source: "none", hasFile: false, inFlight: 0 });

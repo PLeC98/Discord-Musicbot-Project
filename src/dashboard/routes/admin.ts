@@ -407,6 +407,39 @@ adminRouter.put("/ai/prompt", requireOwner, (req, res) => {
   }
 });
 
+// AI 설정(ai.yaml)과 프롬프트(ai-prompt.chatml)를 한 요청으로. 화면의 저장 버튼 하나가 둘을 고친다.
+// 둘 다 검사한 뒤에 쓰고, 둘째(프롬프트) 쓰기가 실패하면 첫째를 되돌린다. 반만 저장되지 않게
+adminRouter.put("/ai/settings", requireOwner, (req, res) => {
+  const data = req.body?.data;
+  const sections = req.body?.sections;
+  if (!data || typeof data !== "object" || !Array.isArray(sections)) return sendProblem(res, "nothing-to-save");
+
+  const problems = [...VALIDATORS.ai(data), ...aiConfig.promptProblems(sections, true)];
+  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
+
+  const before = structuredClone(yamlStore.load("ai"));
+  let saved;
+  try {
+    saved = yamlStore.save("ai", data);
+  } catch (error) {
+    log.error({ sub: "admin" }, `설정 저장 실패(ai): ${messageOf(error)}`);
+    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+  }
+  try {
+    const savedSections = aiConfig.saveAiPrompt(sections);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai.yaml · ai-prompt.chatml. 실행 ${ranBy(req)}`);
+    res.json({ data: saved, sections: savedSections });
+  } catch (error) {
+    try {
+      yamlStore.save("ai", before);
+    } catch (undo) {
+      log.error({ sub: "admin" }, `프롬프트 저장 실패 뒤 ai.yaml 을 되돌리지 못했습니다: ${messageOf(undo)}`);
+    }
+    log.error({ sub: "admin" }, `설정 저장 실패(ai-prompt): ${messageOf(error)}. ai.yaml 은 되돌렸습니다`);
+    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+  }
+});
+
 // 유튜브 쿠키. 연령 제한 영상에만 쓰이고, 유튜브가 브라우저 쪽에서 세션을 돌리면 만료 시각과
 // 무관하게 무효가 된다. 그때마다 서버에 들어가 파일을 갈아 끼우는 대신 여기서 덮어쓴다.
 //

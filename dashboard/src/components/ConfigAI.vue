@@ -431,7 +431,7 @@
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
-          <dd v-if="paid === 'ping'">한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.</dd>
+          <dd v-if="paid === 'ping'">{{ pingText || "확인하는 중…" }}</dd>
           <dd v-else>판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · {{ judgeUsable.length ? `고른 곡 ${judgeUsable.length}개` : "보기 곡 3개" }})</dd>
         </dl>
         <div class="flex gap-2.5 justify-end">
@@ -487,6 +487,8 @@
 
 <script setup>
 import { problemText, problemDetails } from "../utils/problem.js";
+import { trackUnsaved } from "../composables/unsaved.js";
+import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { LIMIT } from "../utils/request.js";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
@@ -567,6 +569,13 @@ const tokenTotal = ref(null);
 const tokenExact = ref(true);
 const tokenError = ref("");
 let tokenTimer = null;
+// 아래 감시가 화면을 만드는 도중에 곧바로(immediate) 부르는 함수들이 읽는 값. 감시보다 먼저 둔다
+let picking = ""; // 지금 칸을 보여 주는 모델
+// 이름은 설정 쪽에 있고 내용은 프롬프트 파일에 있다. 둘을 차례로 짝지어 합친다
+let names = [];
+// 세기 · 칸 읽기는 고치는 대로 다시 묻는다. 늦게 온 앞 물음의 답이 새 답을 덮지 않게 차례를 맞춘다
+let tokensSeq = 0;
+let fieldsSeq = 0;
 const jsonBad = ref({});
 
 function onJson(key, text) {
@@ -661,16 +670,13 @@ const on = computed(() => !!draft.value.provider && draft.value.provider !== "of
 const needsKey = computed(() => !!spec.value?.key);
 
 /**
- * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 프로젝트·리전·모델로 조립한다.
+ * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 봇과 같은 규칙(rules/vertex-url)으로 조립한다.
  *
  * 프로젝트 ID 만 가린다. 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
  */
 const shownEndpoint = computed(() => {
   if (!spec.value?.needsProject) return spec.value?.baseUrl;
-  const location = String(draft.value.location || "").trim() || "global";
-  const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
-  const model = String(draft.value.model || "").trim() || "{모델}";
-  return `https://${host}/v1/projects/[프로젝트 ID]/locations/${location}/publishers/google/models/${model}:generateContent`;
+  return vertexChatUrl(draft.value, "[프로젝트 ID]", String(draft.value.model || "").trim() || "{모델}");
 });
 const keyPlaceholder = computed(() => {
   if (spec.value?.serviceAccount) return hasKey.value ? "저장돼 있습니다. 바꾸려면 새 JSON 을 붙여넣으세요" : '{\n  "type": "service_account",\n  "project_id": "…",\n  "private_key": "-----BEGIN PRIVATE KEY-----\\n…",\n  "client_email": "…@….iam.gserviceaccount.com"\n}';
@@ -832,6 +838,11 @@ const promptPayload = computed(() => sections.value.map((one) => ({ role: one.ro
 // 미리보기·판정 요청처럼 "지금 화면에 있는 것"을 시험하는 곳은 전부 이쪽을 쓴다.
 const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
+// 적어 두고 저장하지 않은 키도 떠날 때 묻는다
+trackUnsaved(
+  "ai",
+  computed(() => dirty.value || Boolean(keyInput.value.trim())),
+);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 const problems = computed(() => {
@@ -859,7 +870,9 @@ const problems = computed(() => {
   return [...found, ...serverProblems.value];
 });
 
+// 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 감시를 깨우므로 저장한 값과 다를 때만
 watch([payload, promptPayload], () => {
+  if (!dirty.value) return;
   savedAt.value = null;
   serverProblems.value = [];
 });
@@ -931,9 +944,6 @@ function onDragEnd() {
 
 // ── 주고받기 ──────────────────────────────────────────────────────────────
 
-// 이름은 설정 쪽에 있고 내용은 프롬프트 파일에 있다. 둘을 차례로 짝지어 합친다
-let names = [];
-
 function apply(data) {
   const { list, prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
@@ -963,7 +973,6 @@ watch(
 );
 
 // 고른 값은 그때그때 모델 칸에 담는다
-let picking = "";
 watch(
   params,
   (now) => {
@@ -982,6 +991,7 @@ watch(
 );
 
 async function countTokens() {
+  const seq = ++tokensSeq;
   if (!sections.value.length) {
     tokenEach.value = [];
     tokenTotal.value = null;
@@ -997,11 +1007,13 @@ async function countTokens() {
       },
       { timeout: LIMIT.none },
     );
+    if (seq !== tokensSeq) return;
     tokenEach.value = data.each;
     tokenTotal.value = data.total;
     tokenExact.value = data.exact;
     tokenError.value = "";
   } catch (error) {
+    if (seq !== tokensSeq) return;
     tokenEach.value = [];
     tokenTotal.value = null;
     tokenError.value = problemText(error, "토큰을 세지 못했습니다.");
@@ -1118,6 +1130,7 @@ async function runJudge() {
 }
 
 async function loadFields() {
+  const seq = ++fieldsSeq;
   const provider = draft.value.provider;
   const model = draft.value.model;
   if (!provider || provider === "off") {
@@ -1126,6 +1139,7 @@ async function loadFields() {
   }
   try {
     const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
+    if (seq !== fieldsSeq) return;
     fieldInfo.value = data;
     if (model !== picking) {
       picking = model;
@@ -1134,6 +1148,7 @@ async function loadFields() {
       jsonBad.value = {};
     }
   } catch (error) {
+    if (seq !== fieldsSeq) return;
     fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
     loadError.value = problemText(error, "모델이 받는 칸을 읽지 못했습니다.");
   }
@@ -1300,8 +1315,10 @@ async function save() {
   saving.value = true;
   serverProblems.value = [];
   try {
-    apply((await axios.put("/api/admin/config/ai", { data: payload.value })).data.data);
-    applyPrompt((await axios.put("/api/admin/ai/prompt", { sections: promptPayload.value })).data.sections);
+    // 설정과 프롬프트를 한 요청으로(둘 중 하나만 저장되지 않게)
+    const { data } = await axios.put("/api/admin/ai/settings", { data: payload.value, sections: promptPayload.value });
+    apply(data.data);
+    applyPrompt(data.sections);
     savedAt.value = Date.now();
   } catch (error) {
     serverProblems.value = problemDetails(error).length ? problemDetails(error) : [problemText(error, "저장하지 못했습니다.")];

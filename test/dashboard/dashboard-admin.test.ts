@@ -611,6 +611,44 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
   assert.equal((await req("PUT", "/api/admin/ai/prompt", {})).status, 400);
 });
 
+// 화면의 저장 버튼 하나가 둘을 고친다. 반만 저장되면 설정과 프롬프트가 어긋난다
+test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 프롬프트 쓰기가 실패하면 설정도 되돌린다", async () => {
+  type Both = { data: { model?: string }; sections: { role: string; text: string }[] };
+  const prompt = [{ role: "user", text: "{{목록}} 판정" }];
+  const ok = await req<Both>("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "한번에" }, sections: prompt });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.data.model, "한번에");
+  assert.deepEqual(ok.json.sections, prompt);
+  const aiFile = () => fs.readFileSync(path.join(CONFIG_DIR, "ai.yaml"), "utf8");
+  assert.match(aiFile(), /model: 한번에/);
+  assert.match(aiFile(), /# 손으로 적은 메모/, "주석은 남는다");
+
+  // 프롬프트가 틀리면 아무것도 쓰지 않는다
+  const bad = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "안-써짐" }, sections: [{ role: "user", text: "목록 없음" }] });
+  assert.equal(bad.status, 400);
+  assert.match(aiFile(), /model: 한번에/);
+
+  // 프롬프트 파일 자리에 폴더가 있어 쓰기가 실패한다: 이미 쓴 설정을 되돌린다
+  const promptFile = path.join(CONFIG_DIR, "ai-prompt.chatml");
+  const kept = fs.readFileSync(promptFile, "utf8");
+  fs.rmSync(promptFile);
+  fs.mkdirSync(promptFile);
+  try {
+    const failed = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "되돌려짐" }, sections: prompt });
+    assert.equal(failed.status, 409);
+    assert.equal((failed.json as { code: string }).code, "config-save-failed");
+    assert.match(aiFile(), /model: 한번에/, "반만 저장되지 않는다");
+  } finally {
+    fs.rmSync(promptFile, { recursive: true });
+    fs.writeFileSync(promptFile, kept);
+  }
+
+  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" } })).status, 400, "프롬프트가 없다");
+  currentUser = { id: "u1" };
+  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" }, sections: prompt })).status, 403);
+  currentUser = { id: "owner", username: "owner" };
+});
+
 // 켜 두었는데 주소가 비면 매번 실패하고 로그만 쌓인다. 저장 전에 막는다.
 test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const ok = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", baseUrl: "", model: "" } });

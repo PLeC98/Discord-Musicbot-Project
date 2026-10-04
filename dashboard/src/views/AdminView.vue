@@ -13,7 +13,7 @@
            버튼의 -mb-px 1px 때문에 모든 해상도에서 세로 스크롤바가 상시로 생긴다. -->
       <div :class="tabScroller">
         <div class="flex gap-1 min-w-max border-b border-white/8">
-          <button v-for="t in TABS" :key="t.id" type="button" :class="[tabBtn, tab === t.id ? tabOn : tabOff]" @click="setTab(t.id)"><Icon :name="t.icon" :size="15" />{{ t.label }}</button>
+          <button v-for="t in TABS" :key="t.id" type="button" :class="[tabBtn, tab === t.id ? tabOn : tabOff]" @click="setTab(t.id)"><Icon :name="t.icon" :size="15" />{{ t.label }}<span v-if="unsaved.has(t.id)" class="size-1.5 rounded-full bg-warning" v-tooltip="'저장하지 않은 변경이 있습니다'"></span></button>
         </div>
       </div>
 
@@ -224,24 +224,24 @@
 
       <div v-show="tab === 'config'">
         <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
-        <ConfigGenres v-if="tab === 'config'" />
+        <ConfigGenres v-if="opened.has('config')" />
 
-        <p v-if="tab === 'config'" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc 및 기여자. <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
+        <p v-if="opened.has('config')" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc 및 기여자. <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
       </div>
 
       <div v-show="tab === 'presence'">
         <!-- 파일(config/status.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
-        <ConfigStatus v-if="tab === 'presence'" />
+        <ConfigStatus v-if="opened.has('presence')" />
       </div>
 
       <div v-show="tab === 'ai'">
         <!-- 파일(config/ai.yaml)로도 고칠 수 있다. API 키는 .env 에 있고 여기로 내려오지 않는다. -->
-        <ConfigAI v-if="tab === 'ai'" />
+        <ConfigAI v-if="opened.has('ai')" />
       </div>
 
       <div v-show="tab === 'cookies'">
         <!-- 파일(config/cookies.txt)로도 고칠 수 있다. 저장된 값은 여기로 내려오지 않는다. -->
-        <ConfigCookies v-if="tab === 'cookies'" />
+        <ConfigCookies v-if="opened.has('cookies')" />
       </div>
 
       <div v-show="tab === 'dev'">
@@ -347,6 +347,8 @@ import { notifyProblem } from "../composables/toasts.js";
 import { LIMIT } from "../utils/request.js";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { eventLink } from "../utils/event-link.js";
+import { unsaved } from "../composables/unsaved.js";
+import { onBeforeRouteLeave } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
@@ -380,10 +382,24 @@ const savedTab = localStorage.getItem(TAB_KEY);
 // 보이는 탭 목록(TABS)이 아니라 전체로 본다. 쿠키 탭은 상태를 받아야 보일지 정해지는데,
 // 여기는 그 전이라 아직 모른다. 못 쓰는 탭에 머물면 상태가 온 뒤에 되돌린다.
 const tab = ref(ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status");
+// 설정 편집기는 처음 연 때 만들고 그 뒤로는 숨기기만 한다. 탭을 옮겨도 저장하지 않은 편집이 남는다
+const opened = ref(new Set([tab.value]));
 
 function setTab(id) {
   tab.value = id;
+  if (!opened.value.has(id)) opened.value = new Set(opened.value).add(id);
   localStorage.setItem(TAB_KEY, id);
+}
+
+// 저장하지 않은 설정이 있으면 페이지를 떠날 때(다른 화면 · 창 닫기 · 새로고침) 묻는다
+const LEAVE_ASK = "저장하지 않은 설정이 있어요. 이 페이지를 떠날까요?";
+onBeforeRouteLeave(() => {
+  if (unsaved.size && !window.confirm(LEAVE_ASK)) return false;
+});
+function onBeforeUnload(e) {
+  if (!unsaved.size) return;
+  e.preventDefault();
+  e.returnValue = "";
 }
 
 // 스크롤바는 사이드바(ServerSidebar navClass)와 같은 토큰을 쓴다. 가로라 w 대신 h.
@@ -823,10 +839,12 @@ onMounted(() => {
   };
   document.addEventListener("visibilitychange", visHandler);
   stopSessionWatch = watch(() => session.ended, visHandler);
+  window.addEventListener("beforeunload", onBeforeUnload);
   if (live()) startPoll();
   syncLogs();
 });
 onUnmounted(() => {
+  window.removeEventListener("beforeunload", onBeforeUnload);
   if (visHandler) {
     document.removeEventListener("visibilitychange", visHandler);
     visHandler = null;
