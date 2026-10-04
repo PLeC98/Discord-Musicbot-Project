@@ -66,10 +66,9 @@ async function retry() {
   try {
     if (!user.fetched) {
       await user.fetchMe();
-      if (user.fetched) {
-        session.offline = false;
-        await router.replace(window.location.pathname + window.location.search + window.location.hash);
-      }
+      if (user.fetched) await router.replace(window.location.pathname + window.location.search + window.location.hash);
+      // 서버 오류(5xx)면 답은 왔지만 여전히 모른다. 띠를 남겨 다시 시도할 수 있게
+      else session.offline = true;
     } else await axios.get("/api/me").catch(() => {});
   } finally {
     checking.value = false;
