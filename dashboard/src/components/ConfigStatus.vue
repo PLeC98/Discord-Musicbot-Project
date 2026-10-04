@@ -100,7 +100,7 @@ import { isFolded, toggleFold, specialFoldId, reorderSpecials } from "../composa
 import { configFileIo, useConfigFile } from "../composables/config-file.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { CONDITIONS, newMessage, newSpecial, toMessages, fromMessages, toSpecial, fromSpecial, type MessageRow, type SpecialRow, type MessageData, type SpecialData } from "../utils/status-rows.ts";
-import { MAX_TEXT } from "../../../src/config/schema/status.ts";
+import { INTERVAL_DEFAULT, statusProblems } from "../../../src/config/schema/status.ts";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
@@ -108,60 +108,23 @@ const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10";
 const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 
-const draft = ref<{ interval: number | null }>({ interval: 60 });
+const draft = ref<{ interval: number | null }>({ interval: INTERVAL_DEFAULT });
 const messages = ref<MessageRow[]>([]);
 const special = ref<SpecialRow[]>([]);
 
 const payload = computed(() => ({ interval: draft.value.interval, messages: fromMessages(messages.value), special: fromSpecial(special.value) }));
 
 function apply(data: Record<string, unknown>) {
-  draft.value = { interval: (data.interval as number | null | undefined) ?? 60 };
+  // 파일에 없으면 봇이 쓰는 기본값을 보인다(손대지 않고 저장해도 동작이 바뀌지 않게)
+  draft.value = { interval: (data.interval as number | null | undefined) ?? INTERVAL_DEFAULT };
   messages.value = toMessages(data.messages as MessageData[] | undefined);
   special.value = toSpecial(data.special as Record<string, SpecialData> | undefined);
 }
 
 const { dirty, saving, savedAt, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", payload: () => payload.value, apply, ...configFileIo("status") });
 
-// 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
-const RANGE = { date: /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, lunar: /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, time: /^([01][0-9]|2[0-3]):[0-5][0-9]$/ };
-
-function messageProblems(list: MessageRow[], where: string) {
-  const found: string[] = [];
-  if (!list.length) found.push(`${where}: 문구가 하나는 있어야 합니다.`);
-  for (const m of list) {
-    if (!m.text.trim()) found.push(`${where}: 빈 문구가 있습니다.`);
-    else if (m.text.length > MAX_TEXT) found.push(`${where}: 문구가 ${MAX_TEXT}자를 넘습니다.`);
-  }
-  return found;
-}
-
-const problems = computed(() => {
-  const found: string[] = [];
-  if (!(Number(draft.value.interval) >= 10)) found.push("간격은 10초 이상이어야 합니다.");
-  found.push(...messageProblems(messages.value, "평소 문구"));
-
-  const names = special.value.map((e) => e.name.trim());
-  if (names.some((n) => !n)) found.push("이름이 빈 항목이 있습니다.");
-  if (new Set(names).size !== names.length) found.push("이름이 겹칩니다.");
-
-  for (const entry of special.value) {
-    const name = entry.name.trim() || "이름 없는 항목";
-    if (["true", "false", "null"].includes(name)) found.push(`"${name}"는 이름으로 쓸 수 없습니다.`);
-    if (/^(0|[1-9][0-9]*)$/.test(name)) found.push(`"${name}": 숫자만으로 된 이름은 차례가 어긋납니다.`);
-
-    const filled = CONDITIONS.filter((c) => entry[c.key]?.trim());
-    if (!filled.length) found.push(`${name}: 양력·음력·시간대 중 하나는 적어야 합니다.`);
-
-    for (const cond of filled) {
-      const parts = entry[cond.key].split("~").map((p) => p.trim());
-      if (parts.length !== 2 || parts.some((p) => !RANGE[cond.key].test(p))) found.push(`${name}의 ${cond.label}: "${cond.placeholder}"처럼 두 자리로 적어야 합니다.`);
-    }
-
-    found.push(...messageProblems(entry.messages, name));
-  }
-
-  return [...found, ...serverProblems.value];
-});
+// 저장할 때 서버가 보는 검사 그대로(schema/status). 저장 버튼을 누르기 전에 알려 준다
+const problems = computed(() => [...statusProblems(payload.value), ...serverProblems.value]);
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 항목을 따라간다 ─────────────────────────
 const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(special, reorderSpecials);

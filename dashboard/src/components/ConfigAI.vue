@@ -286,7 +286,7 @@
         </div>
 
         <p v-if="!sections.length" class="text-muted text-[0.82rem] mb-3">비어 있어 기본 프롬프트를 씁니다.</p>
-        <p v-else-if="!hasListMark" class="text-[0.82rem] text-[#f87171] mb-3">
+        <p v-else-if="!listMarked" class="text-[0.82rem] text-[#f87171] mb-3">
           어느 섹션에도 <code class="text-fg-soft">{{ LIST_MARK }}</code> 이 없습니다.
         </p>
 
@@ -496,8 +496,8 @@ import { useConfigFile } from "../composables/config-file.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { valueOf } from "../utils/dom.ts";
-import { AI_ROLES, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
-import { AI_KEY_ORDER, type AiUnknown } from "../../../src/config/schema/ai.ts";
+import { AI_ROLES, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
+import { AI_KEY_ORDER, aiProblems, type AiUnknown } from "../../../src/config/schema/ai.ts";
 import type { ModelField, ModelGroup } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
 import type { AiFields, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
@@ -733,7 +733,7 @@ const secureOrigin = computed(() => window.isSecureContext);
 // 화면만 조용히 비는 종류의 버그가 된다(SourceEditor 에서 한 번 당했다).
 const savedBaseUrl = ref("");
 const staleCustomUrl = computed(() => !!spec.value?.editable && String(draft.value.baseUrl || "") !== savedBaseUrl.value);
-const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s*\}\}/.test(one.text)));
+const listMarked = computed(() => hasListMark(sections.value));
 
 // 다듬지 않는다. 무엇이 나갈지 그대로 봐야 한다.
 // 보낼 글을 섹션별로. 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
@@ -878,31 +878,8 @@ const promptPayload = computed((): PromptSection[] => sections.value.map((one) =
 // 미리보기·판정 요청처럼 "지금 화면에 있는 것"을 시험하는 곳은 전부 이쪽을 쓴다.
 const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
 
-// 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
-const problems = computed(() => {
-  const found: string[] = [];
-  const d = draft.value;
-
-  if (d.provider && d.provider !== "off") {
-    if (spec.value?.editable) {
-      if (!String(d.baseUrl || "").trim()) found.push("엔드포인트 주소를 적어야 합니다.");
-      else if (!/^https?:\/\//.test(String(d.baseUrl).trim())) found.push("엔드포인트 주소는 http:// 또는 https:// 로 시작해야 합니다.");
-    }
-    if (!String(d.model || "").trim()) found.push("모델 이름을 적어야 합니다.");
-    if (sections.value.length && !hasListMark.value) found.push(`프롬프트 어딘가에 ${LIST_MARK} 이 있어야 합니다.`);
-  }
-
-  if (d.timeoutMs != null && !(Number(d.timeoutMs) >= 1000 && Number(d.timeoutMs) <= 600000)) found.push("타임아웃은 1~600초 사이여야 합니다.");
-  if (d.batchSize != null && !(Number(d.batchSize) >= 1 && Number(d.batchSize) <= 50)) found.push("한 리퀘스트의 곡 수는 1~50 사이여야 합니다.");
-
-  const line = String(listCfg.value.lineFormat || "").trim();
-  if (line && !/\{\{\s*제목\s*\}\}/.test(line)) found.push("줄 형식에 {{제목}} 이 있어야 합니다.");
-  if (sections.value.some((one) => !one.text.trim())) found.push("내용이 빈 섹션이 있습니다.");
-  // ChatML 은 블록 안에 끝 표시가 또 나오면 파일이 깨진다
-  if (sections.value.some((one) => /<\|im_(start|end)\|>/.test(one.text))) found.push("프롬프트에 <|im_start|>·<|im_end|> 를 적을 수 없습니다.");
-
-  return [...found, ...serverProblems.value];
-});
+// 저장할 때 서버가 보는 검사 그대로(schema/ai · schema/ai-prompt). 저장 버튼을 누르기 전에 알려 준다
+const problems = computed(() => [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...serverProblems.value]);
 
 function addSection() {
   sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", name: "", text: "" });

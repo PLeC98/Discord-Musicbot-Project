@@ -139,12 +139,19 @@ function offerView(more: More, room: number) {
   return menuView(moreText.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
 }
 
+/** 이어 넣은 결과의 글. 끝까지 넣었으면 그렇다고, 더 넣을 것이 남았으면 어디까지 넣었는지를 붙인다(디스코드 메뉴와 대시보드가 같이 쓴다) */
+function resultText(kind: Kind, result: MoreResult) {
+  const label = labels.collection(KINDS[kind].collection);
+  const head = moreText.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
+  if (!result.next) return result.remaining > 0 ? head : moreText.finished(head);
+  return moreText.progressed(head, result.total, result.next.offset);
+}
+
 /** 이어 넣은 결과. 더 넣을 것이 있으면 메뉴를 다시 단다 */
 function resultView(state: MoreState, result: MoreResult, room: number) {
-  const label = labels.collection(KINDS[state.kind].collection);
-  const head = moreText.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
-  if (!result.next) return { view: moreView(result.remaining > 0 ? head : moreText.finished(head), null), menu: false };
-  return menuView(moreText.progressed(head, result.total, result.next.offset), result.next, { remaining: result.remaining, room, batch: result.next.batch });
+  const text = resultText(state.kind, result);
+  if (!result.next) return { view: moreView(text, null), menu: false };
+  return menuView(text, result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
 /** 곡 수를 적는 모달. cap 은 남은 자리 */
@@ -207,5 +214,5 @@ async function offerOnChannel(channel: TextBasedChannel | null | undefined, more
   }
 }
 
-export { LIFETIME_MS, LOOKBACK, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, clickError, offerView, resultView, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
+export { LIFETIME_MS, LOOKBACK, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, clickError, offerView, resultText, resultView, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
 export type { MoreResult };

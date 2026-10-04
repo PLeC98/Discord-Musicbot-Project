@@ -23,8 +23,10 @@ type AdminStatus = {
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
-/** 공지 길이 상한(디스코드 임베드 설명 칸). 앞뒤 공백을 뺀 길이로 센다 */
+/** 공지 길이 상한(디스코드 임베드 설명 칸). 앞뒤 공백을 뺀 길이로 센다(announceBody) */
 const ANNOUNCE_MAX = 4096;
+/** 보낼 공지 본문: 앞뒤 공백을 뺀다 */
+const announceBody = (message: string) => message.trim();
 /** 공지의 답. 일부 서버에만 보냈으면 partial */
 type BroadcastReply = { success: true; sent: number; failed: number; total: number; partial: boolean };
 
@@ -68,5 +70,5 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 /** 유튜브 쿠키. 값은 오지 않는다. inFlight 가 0 이 아니면 지금 덮어써도 도는 yt-dlp 가 끝나며 되돌린다 */
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
-export { ANNOUNCE_KINDS, ANNOUNCE_MAX, isAnnounceKind };
+export { ANNOUNCE_KINDS, ANNOUNCE_MAX, announceBody, isAnnounceKind };
 export type { AdminStatus, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };

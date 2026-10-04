@@ -97,7 +97,7 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
 // 검색 결과 한 줄. 검색 결과에 길이가 없으면 상세 정보로 채운다
 // (라이브는 여기서 duration이 늘 0이라 이 갈래를 타고, 상세 정보로 isLive가 확정된다.)
 async function searchTrack(item: YtInfo) {
-  const url = item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null);
+  const url = item.webpage_url || item.url || (item.id ? links.youtubeWatchUrl(String(item.id)) : null);
   if (!url) return null; // 비디오 항목이면 늘 있다(_isVideoEntry)
   const track = { ...trackOf(item, url, item.uploader || item.channel), views: item.view_count, uploadDate: item.upload_date, description: item.description };
   if (track.duration) return track;
@@ -239,7 +239,7 @@ function fragmentsOf(info: YtInfo) {
 
 // 재생목록 한 줄. url 이 없으면 id 가 있다(부르는 쪽이 거른다)
 function playlistTrack(entry: YtInfo) {
-  const track = trackOf(entry, entry.webpage_url || entry.url || `https://www.youtube.com/watch?v=${entry.id}`, entry.uploader || entry.channel || entry.uploader_id);
+  const track = trackOf(entry, entry.webpage_url || entry.url || links.youtubeWatchUrl(String(entry.id)), entry.uploader || entry.channel || entry.uploader_id);
   // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
   // 재생목록 페이지의 제목은 낡을 수 있어서, 이게 없으면 곡이 재생되기 전까지 대기열에
   // 낡은 제목이 그대로 보인다.

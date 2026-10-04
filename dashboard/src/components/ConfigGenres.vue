@@ -126,7 +126,7 @@ import { configFileIo, useConfigFile } from "../composables/config-file.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { problemText } from "../utils/problem.ts";
 import { toRows, toMap, newRow, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
-import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
+import { genreProblems } from "../../../src/config/schema/genres.ts";
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
 import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
@@ -162,31 +162,8 @@ function apply(data: Record<string, unknown>) {
 
 const { dirty, saving, savedAt, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "config", payload: () => payload.value, apply, ...configFileIo("genres") });
 
-// 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
-// 선택기로만 넣으니 여기서 걸릴 일은 없고, 파일을 손으로 고쳐 둔 경우를 잡는다.
-const problems = computed(() => {
-  const found: string[] = [];
-  // 상한은 비우면 제한 없음이다. 0 은 서버가 받지 않는다
-  if (draft.value.defaults.maxDurationSec === 0) found.push("최대 길이(초)는 비우거나 0보다 크게 적어 주세요.");
-  const names = rows.value.map((r) => r.name.trim());
-  if (rows.value.length > SELECT_MAX) found.push(`장르는 ${SELECT_MAX}개까지만 메뉴에 나옵니다.`);
-  if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
-  if (new Set(names).size !== names.length) found.push("이름이 겹칩니다.");
-  if (names.some((name) => ["true", "false", "null"].includes(name))) found.push("true·false·null 은 이름으로 쓸 수 없습니다.");
-  // 숫자만으로 된 이름은 끌어 옮긴 차례가 조용히 어긋난다. 서버도 같은 것을 막는다
-  for (const name of names.filter((n) => /^(0|[1-9][0-9]*)$/.test(n))) found.push(`"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년대"처럼 글자를 붙여 주세요.`);
-  for (const r of rows.value) {
-    const label = r.name || "이름 없는 장르";
-    if (r.name.trim() && !r.sources.length) found.push(`${r.name}: 곡을 가져올 출처가 하나는 있어야 합니다.`);
-    if (r.maxDurationSec === 0) found.push(`${label}: 최대 길이(초)는 비우거나 0보다 크게 적어 주세요.`);
-    // 비운 칸은 전역 값으로 견준다(서버도 같은 것을 본다)
-    const min = r.minDurationSec ?? draft.value.defaults.minDurationSec;
-    const max = r.maxDurationSec ?? draft.value.defaults.maxDurationSec;
-    if ((r.minDurationSec != null || r.maxDurationSec != null) && min != null && max != null && min > max) found.push(`${label}: 최소 길이(${min}초)가 최대 길이(${max}초)보다 깁니다.`);
-    if (r.emoji && !ONE_EMOJI.test(r.emoji)) found.push(`${label}: 이모지가 아닌 값이 들어 있습니다.`);
-  }
-  return [...found, ...serverProblems.value];
-});
+// 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
+const problems = computed(() => [...genreProblems(payload.value), ...serverProblems.value]);
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 장르를 따라간다 ─────────────────────────
 const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(rows, reorderGenres);

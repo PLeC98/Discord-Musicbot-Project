@@ -24,6 +24,7 @@ import { colorOf } from "../../ui/colors.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
+import { youtubeWatchUrl } from "../../rules/links.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -169,7 +170,7 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   const result = await requestPlayback(bot, {
     guild,
     requester: member,
-    query: `https://www.youtube.com/watch?v=${videoId}`,
+    query: youtubeWatchUrl(videoId),
     textChannel: interaction.channel,
     voiceChannel: member.voice.channel ?? null,
     responder,

@@ -3,6 +3,7 @@ import * as GuildSettingsManager from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
 import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
+import { ownTrackDenied } from "../rules/controls.ts";
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
 // 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 src/dashboard/owner.ts.
@@ -87,27 +88,17 @@ function checkSummon(member: GuildMember): PermissionDenied | null {
   return null;
 }
 
-/** 스킵: DJ 계층이거나, 현재 곡의 요청자 본인 (요청자도 재적 규칙은 적용) */
-async function checkSkip(member: GuildMember, player: { currentTrack?: Pick<QueuedTrack, "requestedBy"> | null } | null | undefined) {
-  const controlErr = await checkControl(member);
-  if (!controlErr) return null;
-
-  const requesterId = player?.currentTrack?.requestedBy?.id;
-  if (requesterId && requesterId === member.id) return checkVoice(member);
-
-  return controlErr;
-}
-
-/** 대기열 곡 제거: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 재적 규칙은 적용) */
-async function checkRemoveTrack(member: GuildMember, track: Pick<QueuedTrack, "requestedBy"> | null | undefined) {
-  const controlErr = await checkControl(member);
-  if (!controlErr) return null;
-
+/** 그 곡을 넣은 사람도 하는 조작: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 재적 규칙은 적용. rules/controls) */
+async function checkOwnTrack(member: GuildMember, track: Pick<QueuedTrack, "requestedBy"> | null | undefined) {
   const requesterId = track?.requestedBy?.id;
-  if (requesterId && requesterId === member.id) return checkVoice(member);
-
-  return controlErr;
+  return ownTrackDenied({ control: await checkControl(member), requester: Boolean(requesterId) && requesterId === member.id, voice: () => checkVoice(member) });
 }
+
+/** 스킵: 지금 곡을 넣은 사람도 된다 */
+const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrack, "requestedBy"> | null } | null | undefined) => checkOwnTrack(member, player?.currentTrack);
+
+/** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
+const checkRemoveTrack = checkOwnTrack;
 
 export { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };

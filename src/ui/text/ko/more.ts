@@ -18,8 +18,10 @@ function added({ collection, added, skipped, dropped }: { collection: string; ad
 const finished = (head: string) => `${head} 목록을 끝까지 넣었어요.`;
 /** 이어 넣을 것이 남았다. at 은 넣은 데까지의 자리 */
 const progressed = (head: string, total: number | null, at: number) => `${head} (${fmt(total)}곡 중 ${fmt(at)}곡까지)`;
+/** 대기열이 가득 차 더 넣을 수 없다 */
+const roomFull = () => "대기열이 가득 차 지금은 더 넣을 수 없어요.";
 /** 자리가 없어 메뉴를 띄우지 않는다 */
-const noRoom = (head: string) => `${head}\n대기열이 가득 차 지금은 더 넣을 수 없어요.`;
+const noRoom = (head: string) => `${head}\n${roomFull()}`;
 
 /** 메뉴. remaining 은 남은 곡 수 */
 const menu = (remaining: number) => ({ placeholder: `더 넣기 (남은 ${fmt(remaining)}곡)`, custom: "직접 입력…", stop: "그만 넣기" });
@@ -35,4 +37,4 @@ const countModal = (max: number) => ({ title: "더 넣기", label: `넣을 곡 �
 const fetching = () => "⏳ 곡을 가져오는 중…";
 const fetchingCount = (done: number, want: number) => `⏳ ${done}/${want}곡 가져오는 중…`;
 
-export { offered, added, finished, progressed, noRoom, menu, step, capLabel, countModal, fetching, fetchingCount };
+export { offered, added, finished, progressed, roomFull, noRoom, menu, step, capLabel, countModal, fetching, fetchingCount };

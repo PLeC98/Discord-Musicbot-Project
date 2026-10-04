@@ -70,6 +70,7 @@ import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/public-address.ts";
 import { songTitle } from "./text/ko/labels.ts";
 import { SELECT_MAX } from "../rules/limits.ts";
+import { canGoBack, canGoNext } from "../rules/controls.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
@@ -82,10 +83,9 @@ const LOOP_LOOKS = {
   off: { emoji: "➡️", style: ButtonStyle.Secondary },
 } as const;
 
-// 한곡 반복 = 재시작이라 기록 없어도 활성
-const canGoBack = (p: Controls) => p.previousTracks.length > 0 || p.loop === "track";
-// 한곡 반복은 재시작, 자동재생은 다음 곡을 골라 대기열이 비어도 활성
-const canSkip = (p: Controls) => p.queue.length > 0 || p.loop === "track" || Boolean(p.autoplay);
+// 이전 · 다음 곡 버튼을 켤지(대시보드와 같은 규칙, rules/controls)
+const canBack = (p: Controls) => canGoBack({ history: p.previousTracks.length, loop: p.loop });
+const canSkip = (p: Controls) => canGoNext({ queue: p.queue.length, loop: p.loop, autoplay: p.autoplay });
 // 대기열 화면은 다음 곡만 보인다. 다음 곡이 없으면 대기열 버튼을 끈다
 const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
@@ -622,7 +622,7 @@ class NowPlayingPanel {
       .setCustomId(id("previous"))
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏮️")
-      .setDisabled(disabled || !canGoBack(player));
+      .setDisabled(disabled || !canBack(player));
 
     const pauseButton = new ButtonBuilder()
       .setCustomId(id("pause"))

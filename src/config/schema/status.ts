@@ -9,6 +9,10 @@ const isActivityType = (v: unknown): v is ActivityType => ACTIVITY_TYPES.some((t
 
 const MAX_TEXT = 128; // 디스코드 활동 문구 길이 상한
 
+// 문구를 바꾸는 간격(초). 비우면 기본값(config/status.example.yaml 과 같다), 그보다 짧게는 돌리지 않는다
+const INTERVAL_DEFAULT = 60;
+const INTERVAL_MIN = 10;
+
 // "MM-DD ~ MM-DD" / "HH:MM ~ HH:MM". 비교가 문자열 비교라 두 자리로 적지 않으면
 // 형식이 틀린 게 아니라 "엉뚱한 날에 걸린다". 그래서 모양까지 본다.
 type RangeKind = "date" | "lunar" | "time";
@@ -80,7 +84,7 @@ const special = z
 const statusFile = z.preprocess(
   plain,
   z.object({
-    interval: present((v) => Number(v) >= 10, "interval은 10 이상이어야 합니다(초)."),
+    interval: present((v) => Number(v) >= INTERVAL_MIN, `interval은 ${INTERVAL_MIN} 이상이어야 합니다(초).`),
     messages,
     special,
   }),
@@ -95,5 +99,5 @@ function statusProblems(data: unknown): string[] {
   });
 }
 
-export { statusProblems, ACTIVITY_TYPES, MAX_TEXT, isActivityType };
+export { statusProblems, ACTIVITY_TYPES, MAX_TEXT, INTERVAL_DEFAULT, INTERVAL_MIN, isActivityType };
 export type { ActivityType };

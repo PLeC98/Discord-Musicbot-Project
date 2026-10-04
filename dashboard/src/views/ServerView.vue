@@ -116,14 +116,14 @@
                 </button>
               </div>
 
-              <div v-if="!player.canControl && player.sameVoice" class="mt-2.5 text-muted text-[0.8rem]">DJ 역할이 있어야 재생을 조작할 수 있어요.</div>
+              <div v-if="!player.canControl && player.sameVoice" class="mt-2.5 text-muted text-[0.8rem]">{{ gate("must-dj").body }}</div>
             </div>
           </div>
 
           <!-- 봇이 있는 채널 밖에서는 서버가 조작을 막는다(checkVoice). 버튼을 하나씩 비활성으로 두는 대신
                카드를 통째로 가려 이유를 한 번에 알린다. 모더레이터는 면제라 여기 걸리지 않는다. -->
           <div v-if="channelLocked" class="absolute inset-0 flex items-center justify-center p-3">
-            <span class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[0.85rem] font-semibold text-fg text-center bg-[rgba(12,16,36,0.92)] backdrop-blur-sm border border-white/12 shadow-card"> <Icon name="headphones" :size="17" class="shrink-0 text-[#c4b5fd]" />봇과 같은 음성 채널에 참가해야 조작할 수 있어요 </span>
+            <span class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[0.85rem] font-semibold text-fg text-center bg-[rgba(12,16,36,0.92)] backdrop-blur-sm border border-white/12 shadow-card"> <Icon name="headphones" :size="17" class="shrink-0 text-[#c4b5fd]" />{{ gate("must-be-in-same-voice").title }} </span>
           </div>
         </div>
 
@@ -133,11 +133,11 @@
       <!-- ── 곡 추가 ── -->
       <BaseCard title="곡 추가 - 캐시되지 않은 곡은 추가하는데에 조금 시간이 걸려요." class="mb-3">
         <!-- 1: 사용자도 봇도 음성 채널 밖 -->
-        <div v-if="!player.botInVoice && !player.userInVoice" class="text-muted text-sm">사용자가 음성 채널에 있어야 봇을 음성 채널에 참가시킬 수 있고, 봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 먼저 Discord에서 음성 채널에 참가해 주세요.</div>
+        <div v-if="!player.botInVoice && !player.userInVoice" class="text-muted text-sm">{{ gate("must-be-in-voice").title }} {{ gate("must-be-in-voice").body }}</div>
 
         <!-- 2: 사용자만 음성 채널에 있다 -->
         <div v-else-if="!player.botInVoice && player.userInVoice" class="text-muted text-sm flex items-center gap-3 flex-wrap justify-between">
-          <span>봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 지금 참가중인 채널에 봇을 참가시킬까요?</span>
+          <span>{{ gate("bot-not-in-voice").title }} {{ gate("bot-not-in-voice").body }}</span>
           <BaseButton variant="primary" class="whitespace-nowrap shrink-0" @click="joinBot" :disabled="joining">
             {{ joining ? "참가 중..." : "+ 참가" }}
           </BaseButton>
@@ -149,7 +149,7 @@
         <div v-else-if="!player.hasPlayer" class="text-muted text-sm">봇이 음성 채널에 있지만 재생 상태를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.</div>
 
         <!-- 4: 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
-        <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
+        <div v-else-if="!player.canAdd" class="text-muted text-sm">{{ gate("must-be-in-same-voice").title }} {{ gate("must-be-in-same-voice").body }}</div>
 
         <!-- 5: 봇이 음성 채널에 있고 곡을 넣을 수 있다 → 곡 추가 칸 -->
         <form v-else class="flex gap-2" @submit.prevent="addTrack(false)">
@@ -161,9 +161,9 @@
         </form>
 
         <div v-if="addError" class="mt-2 text-danger text-[0.85rem] whitespace-pre-line">{{ addError }}</div>
-        <div v-else-if="addNotice" class="mt-2 text-warning text-[0.85rem]">{{ addNotice }}</div>
+        <div v-else-if="addNotice" class="mt-2 text-warning text-[0.85rem] whitespace-pre-line">{{ addNotice }}</div>
         <div v-else-if="addInfo" class="mt-2 text-success text-[0.85rem]">{{ addInfo }}</div>
-        <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
+        <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :has-current="Boolean(player.currentTrack)" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
       </BaseCard>
 
       <!-- ── 대기열 ── -->
@@ -233,7 +233,7 @@
 <script setup lang="ts">
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
-import { problemText } from "../utils/problem.ts";
+import { problemText, noticeText } from "../utils/problem.ts";
 import { useGuildsStore, onGuildNudge } from "../stores/guilds.ts";
 import { notify, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
@@ -255,7 +255,9 @@ import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { VOLUME_MAX } from "../../../src/rules/limits.ts";
 import { isPlatform, type Platform } from "../../../src/rules/platforms.ts";
-import { isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
+import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
+import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
+import { loopLabel } from "../../../src/ui/text/ko/panel.ts";
 import { QUEUE_PAGE, modeOf, type AddReply, type MoreReply, type MoreView, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
@@ -449,28 +451,14 @@ async function doStop() {
   if (await send("stop", "stop", undefined, "정지하지 못했어요.")) void refresh();
 }
 
-// 입력이 YouTube 재생목록(list= 포함)인지. "한 곡만 추가" 버튼 노출 조건
-const isPlaylistQuery = computed(() => {
-  const q = addQuery.value.trim();
-  return /(?:youtube\.com|youtu\.be)/i.test(q) && /[?&]list=/i.test(q);
-});
+// 입력이 유튜브 재생목록인지(봇이 읽는 규칙 rules/links). "한 곡만 추가" 버튼 노출 조건
+const isPlaylistQuery = computed(() => isYouTubePlaylist(addQuery.value.trim()));
 
-// "한 곡만 추가"의 실제 요청 payload. 영상 ID가 링크에 노출돼 있으면(watch?v=, youtu.be/ID)
-// 재생목록 조회 없이 링크를 그 영상만 가리키게 절삭(빠름). 그 외(playlist?list=만)는 single=true로 첫 곡.
+// "한 곡만 추가"의 실제 요청 payload. 영상 ID 가 링크에 있으면 재생목록 조회 없이 그 영상만 가리키게 바꾼다(빠름).
+// 그 밖(playlist?list= 만)은 single=true 로 첫 곡
 function singlePayload(raw: string) {
-  try {
-    const u = new URL(raw.trim());
-    if (/(?:^|\.)youtube\.com$/i.test(u.hostname)) {
-      const v = u.searchParams.get("v");
-      if (v) return { query: `https://www.youtube.com/watch?v=${v}`, single: false };
-    } else if (/(?:^|\.)youtu\.be$/i.test(u.hostname)) {
-      const id = u.pathname.replace(/^\/+/, "").split("/")[0];
-      if (id) return { query: `https://www.youtube.com/watch?v=${id}`, single: false };
-    }
-  } catch {
-    /* URL 아님. 원본 그대로 */
-  }
-  return { query: raw.trim(), single: true };
+  const videoId = extractVideoId(raw.trim());
+  return videoId ? { query: youtubeWatchUrl(videoId), single: false } : { query: raw.trim(), single: true };
 }
 
 async function addTrack(single = false) {
@@ -483,13 +471,13 @@ async function addTrack(single = false) {
   try {
     const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
     const res = await axios.post<AddReply>(`/api/guilds/${guildId}/player/queue${qs()}`, payload, { timeout: LIMIT.long });
-    const { dropped = 0, queueLimited = false, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
+    const { dropped: _dropped, queueLimited: _queueLimited, notes, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
     queueMax.value = max;
     more.value = nextMore;
     addQuery.value = "";
-    if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${max}곡)`;
-    else if (queueLimited) addNotice.value = `대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${max}곡)`;
+    // 일부만 넣었으면 디스코드 담은 안내와 같은 경고 줄
+    addNotice.value = notes.join("\n");
   } catch (e) {
     addError.value = problemText(e, "추가에 실패했습니다.");
   } finally {
@@ -505,12 +493,13 @@ async function addMore(count: number) {
   addInfo.value = "";
   try {
     const res = await axios.post<MoreReply>(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count }, { timeout: LIMIT.long });
-    const { added = 0, dropped = 0, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
+    const { added: _added, dropped = 0, note, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
     queueMax.value = max;
     more.value = nextMore;
-    if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${max}곡)`;
-    else addInfo.value = nextMore ? `${added.toLocaleString()}곡을 더 넣었습니다` : `${added.toLocaleString()}곡을 더 넣어 목록을 끝까지 넣었습니다`;
+    // 디스코드 더 넣기 결과와 같은 글. 대기열이 차서 빠진 곡이 있으면 경고로
+    if (dropped > 0) addNotice.value = note;
+    else addInfo.value = note;
   } catch (e) {
     addError.value = problemText(e, "추가에 실패했습니다.");
   } finally {
@@ -625,19 +614,6 @@ const SB_COLOR_VAR: Record<SkipCategory, string> = {
   filler: "tangents",
 };
 
-// 카테고리 → 한국어 라벨 (툴팁용)
-const SB_LABEL: Record<string, string> = {
-  music_offtopic: "음악이 아님",
-  intro: "인트로/무음",
-  outro: "최종 화면",
-  sponsor: "후원이나 협찬",
-  selfpromo: "무대가 홍보",
-  interaction: "상호작용 알림",
-  preview: "미리보기/요약",
-  hook: "후킹/인사말",
-  filler: "잡담/농담",
-};
-
 // SponsorBlock 자동 스킵 구간 → 진행바 상 위치(%) + 카테고리별 공식 색상. 하이라이트 지점도 %로.
 const sponsorMarkers = computed(() => {
   const t = player.value.currentTrack;
@@ -647,7 +623,8 @@ const sponsorMarkers = computed(() => {
     const left = Math.max(0, Math.min(100, (s.start / dur) * 100));
     const right = Math.max(0, Math.min(100, (s.end / dur) * 100));
     const cat = (s.categories && s.categories[0]) || "music_offtopic";
-    const label = (s.categories && s.categories.length ? s.categories : [cat]).map((c) => SB_LABEL[c] || c).join(", ");
+    // 이름은 봇의 것(rules/sponsor-categories, 디스코드 설정 화면과 같다)
+    const label = (s.categories && s.categories.length ? s.categories : [cat]).map(categoryLabel).join(", ");
     return { left, width: Math.max(0.4, right - left), color: `var(--category-${isSkipCategory(cat) ? SB_COLOR_VAR[cat] : "nonmusic"}-color)`, label };
   });
 });
@@ -659,13 +636,12 @@ const highlightMarker = computed(() => {
   return Math.max(0, Math.min(100, (h / dur) * 100));
 });
 
+// 반복 버튼의 툴팁: 지금 모드와 누르면 바뀔 모드. 이름표는 디스코드 패널의 반복 버튼과 같다
 const loopTitle = computed(() => {
-  // 끝이 없는 것은 반복할 수 없다. 왜 못 누르는지 툴팁으로 말해 준다
-  if (player.value.hasLive) return "라이브 방송이 있어 반복을 켤 수 없습니다";
-  const l = player.value.loop;
-  if (l === "track") return "트랙 반복 중 (클릭: 큐 반복)";
-  if (l === "queue") return "큐 반복 중 (클릭: 반복 끄기)";
-  return "반복 끄기 (클릭: 트랙 반복)";
+  // 끝이 없는 것은 반복할 수 없다. 왜 못 누르는지 봇의 거절 문장으로 말해 준다
+  if (player.value.hasLive) return gate("live-no-loop").title;
+  const now = player.value.loop ?? false;
+  return `${loopLabel(modeOf(now))} (누르면 ${loopLabel(modeOf(nextLoopMode(now)))})`;
 });
 
 // 하이라이트로 가기. 누른 때의 곡일 때만
@@ -677,6 +653,9 @@ function jumpToHighlight() {
 }
 
 // ── 도우미 ───────────────────────────────────────────────────────────────────
+
+// 조작이 막힌 까닭. 봇이 디스코드에서 거절할 때와 같은 문장(utils/problem)
+const gate = noticeText;
 
 const fmt = (sec: number) => formatDuration(sec);
 

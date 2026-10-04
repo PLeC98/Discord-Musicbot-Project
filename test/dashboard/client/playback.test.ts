@@ -50,11 +50,12 @@ test("건너뛰기 가능: 권한(조작 또는 지금 곡을 넣은 사람)과 
   assert.equal(queueSize({ queue: [{}, {}] }), 2, "전체 수가 없으면 받은 목록 길이");
 });
 
-test("이전 곡 가능: 조작 권한과 기록, 한곡 반복이면 기록 없이도", () => {
+test("이전 곡 가능: 조작 권한과 기록, 반복 중이면(한 곡 · 대기열) 기록 없이도", () => {
   const base = { canControl: true, currentTrack: {}, hasPrevious: false, loop: false as const };
   assert.equal(previousEnabled(base), false);
   assert.equal(previousEnabled({ ...base, hasPrevious: true }), true);
   assert.equal(previousEnabled({ ...base, loop: "track" }), true);
+  assert.equal(previousEnabled({ ...base, loop: "queue" }), true, "대기열 반복은 대기열이 고리라 끝 곡으로 간다(서버와 같다)");
   assert.equal(previousEnabled({ ...base, hasPrevious: true, canControl: false }), false);
 });
 
@@ -64,6 +65,15 @@ test("빼기 권한: 조작 권한이 있거나 그 곡을 넣은 사람", () =>
   assert.equal(canRemove(s, { requestedBy: { id: "u2" } }), false);
   assert.equal(canRemove(s, { requestedBy: null }), false);
   assert.equal(canRemove({ ...s, canControl: true }, { requestedBy: null }), true);
+});
+
+test("넣은 사람도 재적 규칙은 지킨다: 봇이 음성 채널에 있으면 같은 채널이어야 한다(서버 checkSkip · checkRemoveTrack 과 같다)", () => {
+  const mine = { requestedBy: { id: "u1" } };
+  const s = { canControl: false, userId: "u1", currentTrack: mine };
+  assert.equal(canRemove({ ...s, botInVoice: true, sameVoice: false }, mine), false);
+  assert.equal(canSkip({ ...s, botInVoice: true, sameVoice: false }), false);
+  assert.equal(canRemove({ ...s, botInVoice: true, sameVoice: true }, mine), true);
+  assert.equal(canRemove({ ...s, botInVoice: false, sameVoice: false }, mine), true, "봇이 쉬는 중이면 채널을 보지 않는다");
 });
 
 test("지금 곡일 때만: 줄 번호가 있을 때만 싣는다", () => {

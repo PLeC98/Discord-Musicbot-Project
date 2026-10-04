@@ -7,6 +7,9 @@ type PromptSection = { role: string; text: string };
 // 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
 const AI_ROLES = ["system", "user", "assistant"];
 
+/** 후보 목록이 들어갈 자리({{목록}})가 어느 섹션에든 있는가. 없으면 모델은 무엇을 판정할지 모른다 */
+const hasListMark = (sections: readonly unknown[]) => sections.some((section) => /\{\{\s*목록\s*\}\}/.test(String((section as { text?: unknown } | null)?.text ?? "")));
+
 function promptProblems(prompt: unknown, on: boolean): string[] {
   if (prompt == null) return [];
   if (!Array.isArray(prompt)) return ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."];
@@ -24,10 +27,9 @@ function promptProblems(prompt: unknown, on: boolean): string[] {
   });
 
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다. 켜 두고 이러면 매번 헛돈다.
-  const hasList = prompt.some((section) => /\{\{\s*목록\s*\}\}/.test(String(section?.text ?? "")));
-  if (on && !hasList) problems.push("어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.");
+  if (on && !hasListMark(prompt)) problems.push("어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.");
   return problems;
 }
 
-export { AI_ROLES, promptProblems };
+export { AI_ROLES, hasListMark, promptProblems };
 export type { PromptSection };

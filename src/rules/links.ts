@@ -40,6 +40,9 @@ function isYouTubePlaylist(value: unknown): boolean {
   return hostname === "youtu.be" || parsed.pathname === "/playlist" || parsed.pathname === "/watch";
 }
 
+/** 영상 id 의 보는 주소(한 모양으로 적는다) */
+const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
+
 function extractVideoId(value: unknown): string | null {
   const parsed = parseYouTubeURL(value);
   if (!parsed) return null;
@@ -148,4 +151,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };

@@ -2,11 +2,12 @@
 // 규칙은 읽는 칸만 받는다. 화면은 받은 재생 상태(contract/player 의 PlayerRead)를 그대로 넘긴다
 
 import type { PlayerRead, PlayerState, PlayingView, QueueTrackView } from "../../../src/dashboard/contract/player.ts";
+import { canGoBack, canGoNext, ownTrackDenied } from "../../../src/rules/controls.ts";
 
 /** 규칙이 읽는 곡의 칸 */
 type TrackSeen = Partial<Pick<PlayingView, "entry" | "currentTime" | "duration" | "requestedBy">>;
 /** 규칙이 읽는 재생 상태의 칸 */
-type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal">> & {
+type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "botInVoice" | "sameVoice">> & {
   queue?: TrackSeen[];
   currentTrack?: TrackSeen | null;
 };
@@ -57,20 +58,26 @@ export function retime(clock: Clock, now: number, { at = positionAt(clock, now),
   return { ...clock, at, since: now, running };
 }
 
-/** 그 곡을 넣은 사람인가 */
-const requestedBy = (track: TrackSeen | null | undefined, userId: string | null | undefined) => Boolean(track?.requestedBy?.id) && track?.requestedBy?.id === userId;
+/**
+ * 그 곡을 넣은 사람도 하는 조작(넘기기 · 빼기)을 할 수 있나. 서버(usecases/permissions)와 같은 규칙(rules/controls)에
+ * 받은 상태를 넣는다: 조작 권한(canControl), 재적 규칙(봇이 음성 채널에 없거나 같은 채널이다)
+ */
+function mayTouch(s: StateSeen | null | undefined, track: TrackSeen | null | undefined): boolean {
+  const requester = Boolean(track?.requestedBy?.id) && track?.requestedBy?.id === s?.userId;
+  return ownTrackDenied({ control: s?.canControl ? null : "denied", requester, voice: () => (!s?.botInVoice || s.sameVoice ? null : "denied") }) === null;
+}
 
-/** 건너뛰기 권한: 조작 권한이 있거나 지금 곡을 넣은 사람(서버 checkSkip 과 같은 규칙) */
-export const canSkip = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) || requestedBy(s?.currentTrack, s?.userId);
+/** 건너뛰기 권한: 조작 권한이 있거나 지금 곡을 넣은 사람 */
+export const canSkip = (s: StateSeen | null | undefined): boolean => mayTouch(s, s?.currentTrack);
 
-/** 다음 곡 버튼: 대기열이 비어도 한곡 반복이면 지금 곡을 다시, 자동재생이 켜져 있으면 뽑아 온다 */
-export const skipEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && canSkip(s) && (queueSize(s) > 0 || s?.loop === "track" || Boolean(s?.autoplay));
+/** 대기열 빼기 권한: 조작 권한이 있거나 그 곡을 넣은 사람 */
+export const canRemove = (s: StateSeen | null | undefined, track: TrackSeen | null | undefined): boolean => mayTouch(s, track);
 
-/** 이전 곡 버튼: 한곡 반복 중에는 기록이 없어도 지금 곡을 다시 튼다 */
-export const previousEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && Boolean(s?.canControl) && (Boolean(s?.hasPrevious) || s?.loop === "track");
+/** 다음 곡 버튼(rules/controls 의 canGoNext) */
+export const skipEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && canSkip(s) && canGoNext({ queue: queueSize(s), loop: s?.loop, autoplay: s?.autoplay });
 
-/** 대기열 빼기 권한: 조작 권한이 있거나 그 곡을 넣은 사람(서버 checkRemoveTrack 과 같은 규칙) */
-export const canRemove = (s: StateSeen | null | undefined, track: TrackSeen | null | undefined): boolean => Boolean(s?.canControl) || requestedBy(track, s?.userId);
+/** 이전 곡 버튼(rules/controls 의 canGoBack). 상태는 기록이 있는지만 싣는다 */
+export const previousEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && Boolean(s?.canControl) && canGoBack({ history: s?.hasPrevious ? 1 : 0, loop: s?.loop });
 
 /** 탐색 · 넘기기 · 이전 · 하이라이트를 "지금 곡이 이것일 때만" 하라는 표. 줄 번호가 있을 때만 싣는다 */
 export const onTrackOf = (s: StateSeen | null | undefined): { onTrack?: number } => {

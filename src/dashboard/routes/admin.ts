@@ -14,7 +14,7 @@ import logManager from "../../infra/log/sink.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
-import { ANNOUNCE_MAX, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type AnnounceKind, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, announceBody, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type AnnounceKind, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -131,8 +131,8 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
   // 문자열인지 먼저 본다(객체면 trim 이 던진다)
-  if (typeof message !== "string" || !message.trim()) return sendProblem(res, "announce-empty");
-  const body = message.trim();
+  if (typeof message !== "string" || !announceBody(message)) return sendProblem(res, "announce-empty");
+  const body = announceBody(message);
   if (body.length > ANNOUNCE_MAX) return sendProblem(res, "announce-too-long", { max: ANNOUNCE_MAX, length: body.length });
   if (!isAnnounceKind(type)) return sendProblem(res, "bad-announce-type");
 

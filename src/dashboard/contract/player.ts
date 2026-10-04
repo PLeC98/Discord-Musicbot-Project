@@ -73,14 +73,17 @@ type PlayerRead = PlayerState & VoiceFlags & { hasPlayer: boolean; canControl: b
 /** 대기열 더 보기 */
 type QueuePage = { items: QueueTrackView[]; total: number };
 
-/** 이어 넣기 상태. 넣은 사람은 싣지 않는다. lifetimeMs 는 메뉴 수명, perClick 은 출처가 한 번에 넣게 하는 곡 수 상한(없으면 null) */
-type MoreView = Omit<More, "requesterId"> & { lifetimeMs: number; perClick: number | null };
+/**
+ * 이어 넣기 상태. 넣은 사람은 싣지 않는다. batch 는 한 번에 넣는 묶음, collection 은 출처의 종류(labels.collection 으로 이름을 단다),
+ * lifetimeMs 는 메뉴 수명, perClick 은 출처가 한 번에 넣게 하는 곡 수 상한(없으면 null)
+ */
+type MoreView = Omit<More, "requesterId" | "batch"> & { batch: number; collection: string; lifetimeMs: number; perClick: number | null };
 
-/** 곡 넣기의 답. dropped 는 대기열이 가득 차 못 넣은 곡 수, queueMax 는 대기열 상한(0 이면 없음) */
-type AddReply = PlayerState & { dropped: number; queueLimited: boolean; more: MoreView | null; queueMax: number };
+/** 곡 넣기의 답. dropped 는 대기열이 가득 차 못 넣은 곡 수, queueMax 는 대기열 상한(0 이면 없음), notes 는 디스코드 담은 안내의 경고 줄(일부만 넣었을 때) */
+type AddReply = PlayerState & { dropped: number; queueLimited: boolean; notes: string[]; more: MoreView | null; queueMax: number };
 
-/** 이어 넣기의 답 */
-type MoreReply = PlayerState & { added: number; dropped: number; more: MoreView | null; queueMax: number };
+/** 이어 넣기의 답. note 는 디스코드 더 넣기 결과와 같은 글 */
+type MoreReply = PlayerState & { added: number; dropped: number; note: string; more: MoreView | null; queueMax: number };
 
 export { QUEUE_PAGE, QUEUE_WINDOW_MAX, LOOP_MODES, loopOf, modeOf };
 export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply };

@@ -5,7 +5,7 @@
 // 문장이 "봇 개발자에게 보고해 주세요"를 쓰면 보고할 곳(소스 저장소, /api/bot 의 sourceRepo)을 reportUrl 로 붙인다
 
 import { notice, PLAIN } from "../../../src/ui/text/ko/errors.ts";
-import { isCode, isWebCode } from "../../../src/rules/problems.ts";
+import { isCode, isWebCode, type Code } from "../../../src/rules/problems.ts";
 import type { Notice } from "../../../src/ui/text/notice.ts";
 import { paramsOf, type ProblemBody } from "../../../src/dashboard/contract/problem.ts";
 import { failureKind, replyOf, statusOf, type FailureKind } from "./request.ts";
@@ -25,6 +25,18 @@ const UNANSWERED: Partial<Record<FailureKind, { code: string; severity: Notice["
   offline: { code: "no-connection", severity: "error", title: "봇에 연결할 수 없어요!", body: "봇이 꺼져 있거나 네트워크에 문제가 있어요. 잠시 뒤에 다시 시도해 주세요." },
 };
 
+/** 끝 줄: 오류 코드(와 HTTP 상태) */
+export const codeLineOf = (code: string, status?: number) => (status === undefined ? `오류 코드: ${code}` : `오류 코드: ${code} (HTTP ${status})`);
+
+/** 봇과 같은 안내의 머리 줄 · 본문(꾸밈을 뗀 글). 요청 없이 화면이 먼저 알릴 때(조작이 막힌 까닭 등) */
+export function noticeText(code: Code): { title: string; body: string } {
+  const { title, body } = notice(code, {}, PLAIN);
+  return { title: plain(title), body: body ? plain(body) : "" };
+}
+
+/** 응답 없이 실패한 요청의 머리 줄 */
+export const unansweredTitle = (kind: FailureKind) => UNANSWERED[kind]?.title ?? "";
+
 /** 요청 오류의 문제 응답 본문. 문제 응답이 아니면 undefined */
 function problemOf(error: unknown): Partial<ProblemBody> | undefined {
   const data = replyOf(error);
@@ -43,14 +55,14 @@ export function problemNotice(error: unknown, fallback: string): ProblemNotice {
     const look = { ...PLAIN, developer: () => ((asked = true), PLAIN.developer()) };
     const { title, body, severity } = notice(data.code, paramsOf({ ...data, code: data.code }), look);
     const status = statusOf(error) ?? data.status;
-    const codeLine = isWebCode(data.code) ? `오류 코드: ${data.code} (HTTP ${status})` : "";
+    const codeLine = isWebCode(data.code) ? codeLineOf(data.code, status) : "";
     return { title: plain(title), body: body ? plain(body) : "", detail: typeof data.detail === "string" ? data.detail : "", codeLine, severity, reportUrl: asked ? reportTo : "" };
   }
   const kind = failureKind(error);
   const unanswered = kind ? UNANSWERED[kind] : undefined;
   if (unanswered) {
     const { code, ...rest } = unanswered;
-    return { ...rest, detail: "", codeLine: `오류 코드: ${code}`, reportUrl: "" };
+    return { ...rest, detail: "", codeLine: codeLineOf(code), reportUrl: "" };
   }
   return { title: fallback, body: "", detail: "", codeLine: "", severity: "error", reportUrl: "" };
 }

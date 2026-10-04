@@ -11,7 +11,8 @@ import type { More } from "../../rules/more-choices.ts";
 import { loopOf, type AddReply, type MoreReply, type MoreView, type PlayerRead, type QueuePage } from "../contract/player.ts";
 import { requestPlayback, continueCollection } from "../../usecases/add-tracks.ts";
 import { join } from "../../usecases/join.ts";
-import { validState, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
+import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
+import * as queueText from "../../ui/text/ko/queue.ts";
 import config from "../../config/index.ts";
 import { isOwner } from "../owner.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
@@ -32,11 +33,11 @@ const refuse = (res: Response, { ok: _ok, ...problem }: controls.Refusal) => ref
 
 // 이어 넣기 상태를 화면에. 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
 // perClick: 출처가 한 번에 넣게 하는 곡 수 상한(사운드클라우드 세트 10). 없으면 null
-function moreView(more: More | null | undefined): MoreView | null {
+function moreView(more: (More & { batch: number }) | null | undefined): MoreView | null {
   if (!more) return null;
   const { requesterId: _requesterId, ...shown } = more;
-  const { perClick } = KINDS[more.kind];
-  return { ...shown, lifetimeMs: LIFETIME_MS, perClick: Number.isFinite(perClick) ? perClick : null };
+  const { perClick, collection } = KINDS[more.kind];
+  return { ...shown, collection, lifetimeMs: LIFETIME_MS, perClick: Number.isFinite(perClick) ? perClick : null };
 }
 
 // 대시보드에서 곡을 넣은 사람. 화면에 보이는 이름으로
@@ -315,7 +316,10 @@ function addRoutes(router: Router) {
 
       if (!result.success) return refuseWith(res, addFailure(result));
 
-      res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
+      const dropped = result.dropped || 0;
+      const queueLimited = Boolean(result.queueLimited);
+      const notes = queueText.addedWarnings({ dropped, skipped: 0, queueLimited, max: config.bot.maxQueueSize });
+      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, notes, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
       log.error("대시보드에서 곡 추가 실패:", err);
       sendProblem(res, "add-failed");
@@ -353,7 +357,8 @@ function addRoutes(router: Router) {
       });
       if (!result.success) return refuseWith(res, addFailure(result));
 
-      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
+      const note = resultText(state.kind, { added: result.added, dropped: result.dropped, skipped: result.skipped, total: result.total, remaining: result.remaining, next: result.next });
+      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, note, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
       log.error("대시보드에서 재생목록 더 넣기 실패:", err);
       sendProblem(res, "add-failed");

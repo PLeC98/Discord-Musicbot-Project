@@ -181,9 +181,9 @@
           </div>
 
           <div class="flex items-center justify-between mb-3.5 text-xs">
-            <span v-if="tooLong" class="text-danger">{{ bMsg.length - ANNOUNCE_MAX }}자를 줄여 주세요.</span>
+            <span v-if="tooLong" class="text-danger">{{ bLength - ANNOUNCE_MAX }}자를 줄여 주세요.</span>
             <span v-else></span>
-            <span :class="tooLong ? 'text-danger' : 'text-muted'">{{ bMsg.length.toLocaleString() }} / {{ ANNOUNCE_MAX.toLocaleString() }}</span>
+            <span :class="tooLong ? 'text-danger' : 'text-muted'">{{ bLength.toLocaleString() }} / {{ ANNOUNCE_MAX.toLocaleString() }}</span>
           </div>
 
           <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim() || tooLong">
@@ -365,7 +365,7 @@ import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
 import type { Caret } from "../utils/caret.ts";
 import { latencyGrade, type LatencyGrade } from "../../../src/rules/latency.ts";
 import { LEVELS, KEPT_LINES, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
-import { ANNOUNCE_MAX, type AdminGuilds, type AdminStatus, type AnnounceKind, type BroadcastReply, type RedeployReply, type ResetReply } from "../../../src/dashboard/contract/admin.ts";
+import { ANNOUNCE_MAX, announceBody, type AdminGuilds, type AdminStatus, type AnnounceKind, type BroadcastReply, type RedeployReply, type ResetReply } from "../../../src/dashboard/contract/admin.ts";
 import type { Tier } from "../../../src/dashboard/contract/identity.ts";
 import type { ClientStatus, CookieSource, PotState } from "../../../src/sources/youtube/status-types.ts";
 
@@ -514,7 +514,9 @@ function insertEmoji(char: string) {
     bMsgBox.value?.setSelectionRange(result.caret, result.caret);
   });
 }
-const tooLong = computed(() => bMsg.value.length > ANNOUNCE_MAX);
+// 서버처럼 앞뒤 공백을 뺀 길이로 센다
+const bLength = computed(() => announceBody(bMsg.value).length);
+const tooLong = computed(() => bLength.value > ANNOUNCE_MAX);
 
 // 공지 종류의 이름표. 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
 const TYPE_LABEL: Record<AnnounceKind, string> = { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" };

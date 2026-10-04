@@ -1,6 +1,8 @@
 // youtubeMatch. Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직 + 쿼리 구성.
 // 실제 검색(YouTube.search)은 호출측(probe · youtube/equivalent)이 하고, 결과 병합은 mergeCandidateLists로.
 
+import { youtubeWatchUrl } from "../../rules/links.ts";
+
 /** 채점할 후보(유튜브 검색 결과). rank 는 병합한 순위, listOrder 는 주 쿼리 0 · 보조 1 */
 type Candidate = { id?: string | number | null; url?: string | null; title?: string | null; channel?: string | null; durationSec?: number | null; isLive?: boolean; rank?: number; listOrder?: number };
 /** 찾는 곡 */
@@ -442,7 +444,7 @@ async function searchCandidates(target: Target, search: Search, profile: SearchP
     for (const query of queries.slice(0, p.queries)) {
       try {
         const results = (await search(query, p.perQuery)) || [];
-        lists.push(results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? `https://www.youtube.com/watch?v=${r.id}` : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail })));
+        lists.push(results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail })));
       } catch {
         lists.push([]);
       }

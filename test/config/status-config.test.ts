@@ -15,6 +15,7 @@ import * as statusConfig from "../../src/config/status.ts";
 import type { StatusConfig } from "../../src/config/status.ts";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import { StatusManager } from "../../src/ui/bot-presence.ts";
+import { INTERVAL_DEFAULT } from "../../src/config/schema/status.ts";
 import { ActivityType } from "discord.js";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));
@@ -255,4 +256,10 @@ test("오늘 · 음력 오늘 · 지금은 MM-DD · HH:MM 모양", () => {
 
 test("load 는 설정 로더의 status() 를 부른다", () => {
   assert.equal(new StatusManager({}).load(), statusConfig.status());
+});
+
+// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 예시 파일에 적힌 것과 같다(손대지 않은 파일과 비운 칸이 같게 돈다)
+test("간격의 기본값은 예시 파일의 값과 같다", () => {
+  const example = YAML.parse(fs.readFileSync(path.join(CONFIG, "status.example.yaml"), "utf8")) as { interval?: unknown };
+  assert.equal(example.interval, INTERVAL_DEFAULT);
 });

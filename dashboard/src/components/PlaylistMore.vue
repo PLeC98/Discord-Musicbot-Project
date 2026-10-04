@@ -23,17 +23,17 @@
       </button>
     </div>
 
-    <div v-if="cap === 0" class="mt-3 text-warning text-[0.82rem]">대기열이 가득 차 지금은 더 넣을 수 없어요. 곡이 빠지면 바로 이어서 넣을 수 있어요.</div>
+    <div v-if="cap === 0" class="mt-3 text-warning text-[0.82rem]">{{ moreText.roomFull() }} 곡이 빠지면 바로 이어서 넣을 수 있어요.</div>
 
     <div v-else class="mt-3.5 flex flex-col">
       <div class="flex flex-wrap gap-2 pt-1">
-        <button v-for="n in steps" :key="n" type="button" :class="chip" :disabled="busy" @click="$emit('add', n)">+{{ fmt(n) }}곡</button>
+        <button v-for="n in steps" :key="n" type="button" :class="chip" :disabled="busy" @click="$emit('add', n)">{{ moreText.step(n) }}</button>
         <button type="button" :class="chip" :disabled="busy" @click="$emit('add', cap)">{{ capLabel }}</button>
       </div>
 
       <div class="flex items-center gap-3 pt-1">
         <input v-model.number="amount" type="range" min="1" :max="cap" class="flex-1 h-1 accent-accent cursor-pointer disabled:cursor-not-allowed" :disabled="busy" aria-label="넣을 곡 수" />
-        <input v-model.number="amount" type="text" inputmode="numeric" maxlength="5" class="w-13 bg-white/6 border border-white/9 rounded-[10px] text-fg px-2 py-1.5 text-[0.85rem] text-right tabular-nums outline-none transition-[border-color] duration-200 focus:border-accent/55" :class="!valid && 'border-danger/60'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
+        <input v-model.number="amount" type="text" inputmode="numeric" :maxlength="String(MAX_COUNT).length" class="w-13 bg-white/6 border border-white/9 rounded-[10px] text-fg px-2 py-1.5 text-[0.85rem] text-right tabular-nums outline-none transition-[border-color] duration-200 focus:border-accent/55" :class="!valid && 'border-danger/60'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
         <BaseButton size="sm" type="button" class="px-3! py-2! whitespace-nowrap" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? "넣는 중..." : "추가" }}</BaseButton>
       </div>
 
@@ -49,6 +49,10 @@ import { ref, computed, watch, onBeforeUnmount } from "vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import type { MoreView } from "../../../src/dashboard/contract/player.ts";
+import { MAX_COUNT, moreChoices } from "../../../src/rules/more-choices.ts";
+import { roomWith } from "../../../src/rules/queue-room.ts";
+import { collection } from "../../../src/ui/text/ko/labels.ts";
+import * as moreText from "../../../src/ui/text/ko/more.ts";
 
 // 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
 // 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 고른다.
@@ -58,28 +62,29 @@ const props = withDefaults(
     /** 서버가 준 이어 넣기 상태 */
     more: MoreView;
     queueTotal?: number;
+    /** 지금 곡이 있는지. 없으면 첫 곡은 대기열을 거치지 않고 바로 튼다(자리가 하나 더 있다) */
+    hasCurrent?: boolean;
     /** 대기열 상한. 0이면 상한 없음 */
     queueMax?: number;
     busy?: boolean;
   }>(),
-  { queueTotal: 0, queueMax: 0, busy: false },
+  { queueTotal: 0, hasCurrent: true, queueMax: 0, busy: false },
 );
 const emit = defineEmits<{ add: [count: number]; close: [] }>();
 
 const chip = "px-3 py-1.5 rounded-full text-[0.8rem] font-semibold text-fg bg-white/7 border border-white/10 cursor-pointer tabular-nums " + "transition-[background-color,border-color,scale] duration-150 hover:not-disabled:bg-accent/20 hover:not-disabled:border-accent/40 " + "active:not-disabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed";
 
+// 선택지 · 남은 자리 · 이름표는 디스코드 더 넣기 메뉴와 같은 규칙 · 문장(rules/more-choices · rules/queue-room · ui/text/ko/more)
 const fmt = (n: number) => Number(n).toLocaleString("ko-KR");
-const batch = computed(() => props.more.batch || 50);
-const label = computed(() => (props.more.kind === "spa" ? "앨범" : "재생목록"));
-const room = computed(() => (props.queueMax > 0 ? Math.max(0, props.queueMax - props.queueTotal) : Infinity));
+const batch = computed(() => props.more.batch);
+const label = computed(() => collection(props.more.collection));
+const room = computed(() => roomWith(props.queueTotal, props.hasCurrent, props.queueMax));
 // 출처가 한 번에 넣게 하는 상한(사운드클라우드 세트 10). 없으면 없다
 const perClick = computed(() => props.more.perClick ?? Infinity);
-const cap = computed(() => Math.max(0, Math.min(props.more.remaining, room.value, perClick.value)));
-const capLabel = computed(() => {
-  if (cap.value >= props.more.remaining) return `남은 곡 전부 · ${fmt(cap.value)}곡`;
-  return cap.value === perClick.value ? `+${fmt(cap.value)}곡` : `넣을 수 있는 만큼 · ${fmt(cap.value)}곡`;
-});
-const steps = computed(() => [batch.value, batch.value * 2].filter((n) => n < cap.value));
+const choices = computed(() => moreChoices({ remaining: props.more.remaining, room: room.value, batch: batch.value, perClick: perClick.value }));
+const cap = computed(() => choices.value.cap);
+const steps = computed(() => choices.value.steps);
+const capLabel = computed(() => moreText.capLabel(cap.value, { all: cap.value >= props.more.remaining, perClick: cap.value === perClick.value }));
 const progress = computed(() => Math.min(100, (props.more.offset / Math.max(1, props.more.total)) * 100));
 
 const amount = ref(Math.max(1, Math.min(cap.value, batch.value)));
@@ -90,7 +95,7 @@ const valid = computed(() => Number.isInteger(amount.value) && amount.value >= 1
 
 // ── 수명. 디스코드 메뉴와 같다: 가만두면 사라지고, 이어 넣으면 다시 센다. 넣는 동안은 멈춘다.
 const RING = 2 * Math.PI * 14;
-const lifetime = computed(() => props.more.lifetimeMs || 30000);
+const lifetime = computed(() => props.more.lifetimeMs);
 const timerKey = ref(0);
 const secondsLeft = ref(Math.ceil(lifetime.value / 1000));
 let deadline = 0;

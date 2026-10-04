@@ -13,6 +13,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
+import { canGoBack } from "../rules/controls.ts";
 import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/player.ts";
@@ -109,9 +110,8 @@ async function previous(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack 
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor, undefined, onTrack);
   if (!track) return blocked;
+  if (!canGoBack({ history: player.previousTracks.length, loop: player.loop })) return fail("no-previous");
   const restarted = player._restartsOnPrevious();
-  // 대기열 반복은 대기열이 고리라 기록이 없어도 이전 곡이 있다
-  if (player.previousTracks.length === 0 && !restarted && player.loop !== "queue") return fail("no-previous");
   if (!player.previous()) return fail("switch-failed");
   // 되돌아간 곡은 대기열 맨 앞에 선다(trackState.rewind)
   return done({ restarted, track: restarted ? track : (player.queue[0] ?? track) });
