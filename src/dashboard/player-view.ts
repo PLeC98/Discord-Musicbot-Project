@@ -3,7 +3,7 @@
 import type { Request } from "express";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
-// 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
+// 이름표는 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 

@@ -67,7 +67,7 @@ function processSummary() {
   };
 }
 
-// Bot/Node/System status
+// 봇 · Node · 시스템 상태
 adminRouter.get("/status", requireOwner, (req, res) => {
   const { client, players } = req.app.locals.bot;
   const uptime = process.uptime();
@@ -92,8 +92,7 @@ adminRouter.get("/status", requireOwner, (req, res) => {
       loadAvg: os.loadavg(),
     },
     activePlayers: players.size,
-    // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다.
-    // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
+    // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다
     processes: processSummary(),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
@@ -129,7 +128,7 @@ async function announceChannel(guild: Guild) {
 adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
-  // 문자열인지 먼저 본다. 객체가 오면 message.trim()에서 TypeError가 나 500이 됐다
+  // 문자열인지 먼저 본다(객체면 trim 이 던진다)
   if (typeof message !== "string" || !message.trim()) return sendProblem(res, "announce-empty");
   const body = message.trim();
   if (body.length > ANNOUNCE_MAX) return sendProblem(res, "announce-too-long", { max: ANNOUNCE_MAX, length: body.length });
@@ -159,7 +158,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   return res.json({ success: true, sent, failed, total, partial: failed > 0 });
 });
 
-// List all guilds bot is in
+// 봇이 든 서버 전부
 adminRouter.get("/guilds", requireOwner, (req, res) => {
   const { client, players } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
@@ -175,7 +174,7 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
   res.json({ guilds });
 });
 
-// Force-leave a guild (owner-triggered from dashboard).
+// 서버에서 나가기(운영자가 대시보드에서)
 // 재생 중이면 플레이어를 먼저 정리해 음성 연결/타이머가 남지 않게 한다.
 // guild.leave() 이후에는 서버 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
 adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
@@ -191,7 +190,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" });
     await guild.leave();
 
-    // 해당 서버 페이지를 보던 사용자에게 넛지 → 다음 조회에서 404로 이탈 유도
+    // 그 서버를 보던 화면에 알린다. 다시 읽으면 봇이 없어 404 다
     playerEvents.touched(guild.id);
 
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);
@@ -202,7 +201,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   }
 });
 
-// Re-register slash commands with Discord (owner-triggered from dashboard).
+// 슬래시 명령을 디스코드에 다시 등록(운영자가 대시보드에서)
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
 // 조립(app/main)이 app.locals 로 넘긴다. 대시보드가 app 층을 부르지 않는다
 adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
@@ -232,14 +231,14 @@ adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
 // ── 설정 파일 (config/*.yaml) ─────────────────────────────────────────────
 //
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와 여기. 그래서 통째로 덮어쓰지 않고
-// 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
+// 바뀐 자리만 고친다(yamlStore.save 가 주석 · 빈 줄을 지킨다).
 
 // 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
 const VALIDATORS: Record<string, (data: unknown) => string[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
 // 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
-// 검증·실행과 같은 표에서 나온다(src/autoplaySources). 화면이 목록을 따로 들면 소스를 더할 때
+// 검증·실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
 // 한쪽만 고치게 된다.
 adminRouter.get("/source-types", requireOwner, async (req, res) => {
   // AnimeThemes 연도 범위를 저쪽에 물어 채우므로 비동기다(하루에 한 번만 묻고 캐시한다)
@@ -264,7 +263,7 @@ adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
   }
 });
 
-// AI 보조. 키는 .env 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
+// AI 보조. 키는 config/ai-keys.yaml 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
 adminRouter.get("/ai/state", requireOwner, (req, res) => {

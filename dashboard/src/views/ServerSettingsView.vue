@@ -18,7 +18,7 @@
     </div>
 
     <template v-else>
-      <!-- DJ roles -->
+      <!-- DJ 역할 -->
       <BaseCard icon="headphones" title="DJ 역할" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정하면 재생 제어를 역할 보유자와 모더레이터만 사용할 수 있어요. 지정하지 않으면 모든 유저가 제어할 수 있습니다.</p>
 
@@ -35,7 +35,7 @@
         <div class="text-[0.8rem] mt-2" :class="selectedRoles.length >= 25 ? 'text-warning' : 'text-muted'">선택됨: {{ selectedRoles.length }} / 25</div>
       </BaseCard>
 
-      <!-- Bot channel -->
+      <!-- 봇 전용 채널 -->
       <BaseCard icon="pin" title="봇 전용 채널" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지 발송도 이 채널을 우선합니다.</p>
         <div class="relative">
@@ -83,7 +83,7 @@
         </template>
       </BaseCard>
 
-      <!-- Playlist add batch -->
+      <!-- 재생목록 한 번에 넣을 곡 수 -->
       <BaseCard v-if="s.playlistAdd" icon="list" title="재생목록 한 번에 넣는 곡 수" class="mb-3">
         <p class="text-muted text-sm mb-3.5">긴 재생목록을 넣으면 이만큼만 먼저 들어가고, 남은 곡은 "더 넣기"로 이어 넣을 수 있어요. 더 넣기 메뉴의 선택지도 이 단위로 나옵니다.</p>
 

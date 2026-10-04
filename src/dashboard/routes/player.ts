@@ -58,7 +58,7 @@ function createPlayerRouter() {
 
 // 상태 읽기
 function readRoutes(router: Router) {
-  // Player state
+  // 재생 상태
   router.get("/:guildId/player", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -67,7 +67,7 @@ function readRoutes(router: Router) {
     const userId = signedIn(req).id;
     const voice = voiceFlags(guild, userId);
 
-    // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 getPlayer가 실멤버십으로 확보.
+    // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member 는 openGuild 가 지금 멤버십으로 가져온다.
     let controllable = isOwner(req);
     let addable = controllable;
     if (!controllable && member) {
@@ -128,7 +128,7 @@ function stateAfter(req: Request<{ guildId: string }>) {
 
 // 재생 조작
 function controlRoutes(router: Router) {
-  // Toggle pause / resume
+  // 일시정지 · 다시 재생
   router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -139,7 +139,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // Previous
+  // 이전 곡
   router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -169,7 +169,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // Stop
+  // 정지
   router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -180,7 +180,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // Seek  { position: seconds }
+  // 위치 이동 { position: 초 }
   router.post("/:guildId/player/seek", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -235,7 +235,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // Shuffle
+  // 섞기
   router.post("/:guildId/player/shuffle", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;

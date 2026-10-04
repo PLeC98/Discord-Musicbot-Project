@@ -21,7 +21,7 @@
         <p class="pl-2 text-muted mb-3 text-[0.85rem]">3초마다 자동 갱신 · 탭을 벗어나면 멈춤</p>
         <!-- auto-fill은 중간 폭에서 2/1로 갈라져 빈칸이 남는다. 카드가 4개이므로 2열로 못박아 2/2, 좁으면 1열. -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-3 mb-3">
-          <!-- Bot -->
+          <!-- 봇 -->
           <BaseCard icon="robot" title="봇 상태">
             <div :class="statRow">
               <span>태그</span><span>{{ s.bot.tag }}</span>
@@ -56,7 +56,7 @@
             </div>
           </BaseCard>
 
-          <!-- System -->
+          <!-- 시스템 -->
           <BaseCard icon="desktop" title="시스템">
             <div :class="statRow">
               <span>CPU 코어</span><span>{{ s.system.cpus }} 코어</span>
@@ -120,7 +120,7 @@
       </div>
 
       <div v-show="tab === 'logs'">
-        <!-- Log viewer -->
+        <!-- 로그 보기 -->
         <BaseCard class="mb-3">
           <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
             <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
@@ -161,7 +161,7 @@
       </div>
 
       <div v-show="tab === 'guilds'">
-        <!-- Broadcast -->
+        <!-- 전체 공지 -->
         <BaseCard icon="campaign" title="전체 공지 발송" class="mb-3">
           <p class="text-muted text-sm mb-4">봇이 들어간 모든 서버에 공지 메시지를 보냅니다.</p>
 
@@ -196,7 +196,7 @@
           </div>
         </BaseCard>
 
-        <!-- Guild management -->
+        <!-- 서버 관리 -->
         <BaseCard icon="globe" title="참가 서버 관리" class="mb-3">
           <p class="text-muted text-sm mb-4">봇이 참가 중인 서버 목록입니다. 나가기는 되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.</p>
 
@@ -273,7 +273,7 @@
           <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5 whitespace-pre-line">{{ tierError }}</p>
         </BaseCard>
 
-        <!-- Command redeploy -->
+        <!-- 명령 다시 배포 -->
         <BaseCard icon="repeat" title="슬래시 커맨드 재배포" class="mb-3">
           <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
 
@@ -287,7 +287,7 @@
           </div>
         </BaseCard>
 
-        <!-- Cache reset -->
+        <!-- 캐시 비우기 -->
         <BaseCard icon="trash" title="캐시 초기화">
           <p class="text-muted text-sm mb-4">받아둔 오디오 파일과 조회 기록을 전부 지웁니다. 전용 채널·DJ 역할·SponsorBlock 설정은 남습니다.</p>
 
@@ -303,7 +303,7 @@
       </div>
     </template>
 
-    <!-- Cache reset confirm dialog -->
+    <!-- 캐시 비우기 확인 대화상자 -->
     <div v-if="confirmReset" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="confirmReset = false">
       <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-95 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p class="mb-2 text-[0.95rem] text-fg-soft">캐시를 전부 지울까요?</p>
@@ -320,7 +320,7 @@
       </div>
     </div>
 
-    <!-- Leave confirm dialog -->
+    <!-- 서버 나가기 확인 대화상자 -->
     <div v-if="leaveTarget" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="leaveTarget = null">
       <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-95 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p class="mb-2 text-[0.95rem] text-fg-soft">
@@ -572,7 +572,7 @@ async function broadcast() {
   }
 }
 
-// ── Guild management ─────────────────────────────────────────
+// ── 서버 관리 ─────────────────────────────────────────
 const guilds = ref([]);
 const leaveTarget = ref(null); // 확인 모달에 표시 중인 서버 (null이면 닫힘)
 const leaving = ref(false);
@@ -632,7 +632,7 @@ async function resetCache() {
   }
 }
 
-// ── Command redeploy ─────────────────────────────────────────
+// ── 명령 다시 배포 ─────────────────────────────────────────
 const redeploying = ref(false);
 const redeployResult = ref(null);
 
@@ -650,7 +650,7 @@ async function redeploy() {
   }
 }
 
-// ── Log viewer ──────────────────────────────────────────────
+// ── 로그 보기 ──────────────────────────────────────────────
 const logs = ref([]);
 const catFilter = ref(null);
 const tagFilter = ref(null);
@@ -801,7 +801,7 @@ function closeLogs() {
   sseConnected.value = false;
 }
 
-// ── Lifecycle ────────────────────────────────────────────────
+// ── 수명 ────────────────────────────────────────────────
 // status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
 // 디스코드 rate limit과 무관하고(우리 Express만 친다) 보는 사람이 운영자 한 명이라 주기를
 // 좁혀도 부담이 없다. 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.

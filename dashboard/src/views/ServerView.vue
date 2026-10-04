@@ -20,11 +20,11 @@
     </div>
 
     <template v-else>
-      <!-- ── Now Playing ── -->
+      <!-- ── 지금 재생 중 ── -->
       <BaseCard title="지금 재생 중" class="mb-4 pb-3.75">
         <div v-if="player.currentTrack" class="relative">
           <div :class="channelLocked && 'blur-[5px] saturate-50 pointer-events-none select-none'">
-            <!-- Thumbnail + title/artist -->
+            <!-- 썸네일 · 제목 · 아티스트 -->
             <div class="flex gap-4 items-center mb-4.5 mt-3.5">
               <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
               <!-- 직접 링크는 앨범아트를 알 수 없다. 파일 아이콘으로 대체 -->
@@ -39,7 +39,7 @@
               </div>
             </div>
 
-            <!-- Full-width progress bar -->
+            <!-- 진행 막대(가로 전체) -->
             <div class="flex items-center gap-2 mb-1.5">
               <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
               <span :class="timeText">{{ isLive ? "🔴 라이브" : fmt(displayTime) }}</span>
@@ -56,27 +56,27 @@
               <span :class="timeText">{{ player.currentTrack.duration > 0 ? fmt(player.currentTrack.duration) : "--:--" }}</span>
             </div>
 
-            <!-- Controls -->
+            <!-- 조작 -->
             <div class="flex flex-col gap-2.5">
               <div class="flex items-center gap-1 flex-wrap">
-                <!-- Previous -->
+                <!-- 이전 곡 -->
                 <!-- 한곡 반복 중에는 이전곡/다음곡 = 현재 곡 재시작이라 기록/대기열이 없어도 활성 -->
                 <button :class="iconBtn" @click="previous" v-tooltip="'이전곡'" :disabled="!previousEnabled(player) || isBusy('previous')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
                 </button>
 
-                <!-- Play / Pause -->
+                <!-- 재생 · 일시정지 -->
                 <button :class="iconBtn" @click="togglePause" v-tooltip="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
                   <svg v-if="player.paused" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                   <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
                 </button>
 
-                <!-- Stop -->
+                <!-- 정지 -->
                 <button :class="iconStop" @click="confirmStop" v-tooltip="'정지'" :disabled="!player.canControl || isBusy('stop')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
                 </button>
 
-                <!-- Skip -->
+                <!-- 다음 곡 -->
                 <button :class="iconBtn" @click="skip" v-tooltip="'다음곡'" :disabled="!skipEnabled(player) || isBusy('skip')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
                 </button>
@@ -101,7 +101,7 @@
                   <svg width="17" height="17" viewBox="0 -960 960 960" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M442-480 287-697q-14-20-3.5-41.5T319-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Zm238 0L525-697q-14-20-3.5-41.5T557-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Z" /></svg>
                 </button>
 
-                <!-- Shuffle -->
+                <!-- 섞기 -->
                 <button :class="iconBtn" @click="shuffle" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2 || isBusy('shuffle')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
                 </button>
@@ -130,12 +130,12 @@
         <div v-else class="text-center p-5 text-muted text-[0.9rem] flex items-center justify-center gap-1.5"><Icon name="pause" :size="16" /><span>현재 재생 중인 곡이 없습니다</span></div>
       </BaseCard>
 
-      <!-- ── Add Track ── -->
+      <!-- ── 곡 추가 ── -->
       <BaseCard title="곡 추가 - 캐시되지 않은 곡은 추가하는데에 조금 시간이 걸려요." class="mb-3">
-        <!-- Case 1: both offline -->
+        <!-- 1: 사용자도 봇도 음성 채널 밖 -->
         <div v-if="!player.botInVoice && !player.userInVoice" class="text-muted text-sm">사용자가 음성 채널에 있어야 봇을 음성 채널에 참가시킬 수 있고, 봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 먼저 Discord에서 음성 채널에 참가해 주세요.</div>
 
-        <!-- Case 2: user in voice, bot not -->
+        <!-- 2: 사용자만 음성 채널에 있다 -->
         <div v-else-if="!player.botInVoice && player.userInVoice" class="text-muted text-sm flex items-center gap-3 flex-wrap justify-between">
           <span>봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 지금 참가중인 채널에 봇을 참가시킬까요?</span>
           <BaseButton variant="primary" class="whitespace-nowrap shrink-0" @click="joinBot" :disabled="joining">
@@ -143,15 +143,15 @@
           </BaseButton>
         </div>
 
-        <!-- Case 3: 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우.
+        <!-- 3: 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우.
              폼을 열어봤자 409이므로 잠근다. 되살릴 방법은 아직 모른다(원인 미규명). 참가를 권하지 않는다.
              이 상태에서도 봇이 소리를 내고 있을 수 있어, 새 플레이어를 만들면 그쪽이 끊긴다. -->
         <div v-else-if="!player.hasPlayer" class="text-muted text-sm">봇이 음성 채널에 있지만 재생 상태를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.</div>
 
-        <!-- Case 4: bot in voice, but user elsewhere (모더레이터 제외). 곡 추가는 계층 무관, 재적 규칙만 -->
+        <!-- 4: 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
         <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
 
-        <!-- Case 5: bot in voice + controllable → show add form -->
+        <!-- 5: 봇이 음성 채널에 있고 곡을 넣을 수 있다 → 곡 추가 칸 -->
         <form v-else class="flex gap-2" @submit.prevent="addTrack(false)">
           <input v-model="addQuery" class="flex-1 bg-white/6 border border-white/9 rounded-[10px] text-fg px-3.5 py-2.25 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/8" placeholder="곡 이름, YouTube/Spotify/SoundCloud URL..." :disabled="adding" />
           <BaseButton variant="primary" type="submit" :disabled="adding || !addQuery.trim()">
@@ -166,7 +166,7 @@
         <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
       </BaseCard>
 
-      <!-- ── Queue ── -->
+      <!-- ── 대기열 ── -->
       <BaseCard v-if="player.queue?.length > 0" :title="`대기열 (${(player.queueTotal ?? player.queue.length).toLocaleString()}곡)`">
         <div ref="queueBoxRef" @scroll.passive="onQueueScroll" class="flex flex-col gap-1 max-h-120 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
           <div
@@ -217,7 +217,7 @@
       </BaseCard>
     </template>
 
-    <!-- Stop confirm dialog -->
+    <!-- 정지 확인 대화상자 -->
     <div v-if="showStopConfirm" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="showStopConfirm = false">
       <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-90 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p class="mb-5.5 text-[0.95rem] text-fg-soft">재생을 완전히 중지하고 대기열을 비울까요?</p>
@@ -311,7 +311,7 @@ function setBusy(key, on) {
   busy.value = next;
 }
 
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ── 상태 ──────────────────────────────────────────────────────────────────────
 
 // GET /player 만 싣는 권한 · 음성 칸. 조작 응답(playerState)에는 없어 지금 값을 남긴다
 const EXTRAS = ["botInVoice", "userInVoice", "sameVoice", "hasPlayer", "canControl", "canAdd", "canManage", "userId"];
@@ -389,7 +389,7 @@ function retryLoad() {
   refresh();
 }
 
-// ── Controls ─────────────────────────────────────────────────────────────────
+// ── 조작 ─────────────────────────────────────────────────────────────────
 
 // 응답을 기다리는 조작. 응답의 상태를 넣고, 거절되면 알리고 다시 읽는다
 async function send(key, path, body, fallback) {
@@ -591,7 +591,7 @@ async function onDrop() {
   await send("move", "queue/move-entry", target, "곡을 옮기지 못했어요.");
 }
 
-// ── Computed ──────────────────────────────────────────────────────────────────
+// ── 계산 값 ──────────────────────────────────────────────────────────────────
 
 const isLive = computed(() => !!player.value.currentTrack?.isLive);
 // 길이를 알아야 위치를 옮길 수 있다. 라이브에는 실시간밖에 없어 옮길 자리가 없다.
@@ -681,7 +681,7 @@ function jumpToHighlight() {
   send("highlight", "highlight", onTrackOf(player.value), "하이라이트로 가지 못했어요.");
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── 도우미 ───────────────────────────────────────────────────────────────────
 
 const fmt = fmtTime;
 

@@ -7,8 +7,8 @@ import { isOwner } from "../owner.ts";
 import { sendProblem } from "../problem.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
-// req.params는 스택이 풀리면 복원되므로, 요청 시작 시점의 라우터-상대 URL 첫 세그먼트(=guildId)를
-// 클로저로 잡아 finish에서 사용. (디스코드 쪽 · 내부 변화는 player/events 의 touched 가 알린다)
+// req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 뽑아 finish 에서 쓴다.
+// (디스코드 쪽 · 내부 변화는 player/events 의 touched 가 알린다)
 function nudgeAfterChange(stream: PlayerStream) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "GET") {
