@@ -71,6 +71,7 @@ test("콜백: 코드가 없거나 state 가 안 맞으면 디스코드를 부르
   const discord = fakeDiscord();
   const { go } = await start(discord);
   assert.equal(location(await go("/auth/callback")), "/?error=no_code");
+  assert.equal(location(await go("/auth/callback?error=access_denied&state=x")), "/?error=denied", "승인 화면에서 취소");
   assert.equal(location(await go("/auth/callback?code=c&state=x")), "/?error=auth_failed", "로그인 전");
 
   const state = new URL(location(await go("/auth/login"))).searchParams.get("state");

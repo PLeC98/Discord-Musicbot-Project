@@ -18,7 +18,11 @@
         Discord로 로그인
       </BaseButton>
 
-      <p v-if="error" class="text-danger mt-4 text-[0.9rem]">{{ errorText }}</p>
+      <div v-if="error" class="mt-4 text-[0.85rem]">
+        <p class="text-danger font-semibold">{{ errorText.title }}</p>
+        <p class="text-fg-soft mt-1">{{ errorText.body }}</p>
+        <p class="text-muted text-[0.75rem] mt-1">오류 코드: {{ error }}</p>
+      </div>
     </div>
 
     <!-- 우측 하단의 은은한 소스 공개 링크 (AGPL 13조 고지) -->
@@ -51,12 +55,14 @@ const botName = ref("");
 const sourceRepo = ref(null);
 const projectRepo = ref(null);
 
-const error = computed(() => route.query.error);
-const errorText = computed(() => {
-  if (error.value === "auth_failed") return "인증에 실패했습니다. 다시 시도해주세요.";
-  if (error.value === "no_code") return "인증 코드를 받지 못했습니다.";
-  return "알 수 없는 오류가 발생했습니다.";
-});
+// 로그인 콜백(src/dashboard/routes/auth.ts)이 돌려보낸 까닭
+const LOGIN_ERRORS = {
+  denied: { title: "로그인을 취소했어요.", body: "디스코드 승인 화면에서 취소했어요. 다시 로그인하려면 위 버튼을 눌러 주세요." },
+  no_code: { title: "로그인하지 못했어요!", body: "디스코드에서 인증 코드를 받지 못했어요. 위 버튼으로 다시 로그인해 주세요." },
+  auth_failed: { title: "로그인하지 못했어요!", body: "디스코드 인증을 마치지 못했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." },
+};
+const error = computed(() => (typeof route.query.error === "string" ? route.query.error : ""));
+const errorText = computed(() => LOGIN_ERRORS[error.value] ?? { title: "로그인하지 못했어요!", body: "알 수 없는 오류가 발생했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." });
 
 onMounted(async () => {
   if (user.isLoggedIn) {
@@ -70,7 +76,7 @@ onMounted(async () => {
     sourceRepo.value = res.data.sourceRepo;
     projectRepo.value = res.data.projectRepo;
   } catch {
-    /* 봇 준비 전이면 기본 이모지로 폴백 */
+    // 봇 그림 · 이름은 꾸밈이다. 못 받으면 기본 그림으로 두고, 연결 안 됨은 SessionNotice 의 띠가 알린다
   }
 });
 </script>

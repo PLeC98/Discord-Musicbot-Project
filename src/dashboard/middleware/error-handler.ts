@@ -32,7 +32,7 @@ function isUnavailable(err: unknown) {
 }
 
 // err.message는 절대 내보내지 않는다. "database disk image is malformed"도 내부 정보다.
-// 다만 무엇을 고쳐야 하는지는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
+// 다만 무엇을 고쳐야 하는지는 알려 준다. 형식이 틀렸다(bad-request)고만 돌려주면
 // 내용이 길어서 막힌 사람이 무엇을 줄여야 할지 알 수 없다.
 function classify(err: unknown): Code {
   const e = fieldsOf(err);

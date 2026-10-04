@@ -78,6 +78,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   // OAuth2 콜백
   router.get("/callback", async (req, res) => {
     const { code, state } = req.query;
+    // 디스코드 승인 화면에서 취소했다(RFC 6749 4.1.2.1)
+    if (req.query.error === "access_denied") return res.redirect("/?error=denied");
     if (typeof code !== "string" || !code) return res.redirect("/?error=no_code");
 
     // 로그인 CSRF 를 막으려고 state 를 맞춰 본다(RFC 6749)

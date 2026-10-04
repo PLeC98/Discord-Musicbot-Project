@@ -85,7 +85,7 @@ test("분류: SQLITE_*·I/O 오류는 storage-unavailable(503), 4xx는 bad-reque
 // 내부 사정은 감추되 무엇을 고쳐야 하는지는 알려 준다.
 test("분류: 413·429는 고칠 방법이 드러나는 코드를 준다", () => {
   assert.equal(_internals.classify(Object.assign(new Error("request entity too large"), { status: 413, type: "entity.too.large" })), "payload-too-large");
-  assert.match(notice("payload-too-large").title, /너무 깁니다/);
+  assert.match(notice("payload-too-large").body ?? "", /줄여서/);
   assert.equal(_internals.classify(Object.assign(new Error("x"), { status: 429 })), "too-many-requests");
 });
 
