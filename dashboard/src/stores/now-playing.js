@@ -1,38 +1,50 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import axios from "axios";
-import router from "../router/index.js";
 import { useGuildsStore, onGuildNudge } from "./guilds.js";
 import { notifyProblem } from "../composables/toasts.js";
+import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime } from "../utils/playback.js";
 
 // 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
-// ServerView와 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로(D-4)
-// 같은 서버를 둘이 동시에 조회하는 상황이 생기지 않는다.
+// 서버 화면과 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로
+// 같은 서버를 둘이 동시에 읽는 상황이 생기지 않는다. 규칙은 utils/playback 을 같이 쓴다.
 //
 // 실시간 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
+// 대기열은 보지 않으므로 모든 요청에 ?queue=0 을 싣는다
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
 
-  const data = ref(null); // GET /player 응답
-  const localTime = ref(0); // 갱신 사이를 메우는 진행 위치(초)
-  const scrubbing = ref(false); // 스크럽 중에는 서버 값으로 덮지 않는다
+  const data = ref(null); // GET /player 응답(조작 응답이 덮는다)
+  const clock = ref(clockOf(null, 0)); // 진행 시계의 기준
+  const now = ref(Date.now());
+  // 지금 보고 있는 서버 화면의 서버. 그 화면에서는 바가 숨는다. 라우터는 바 컴포넌트가 읽어 넣는다
+  const page = ref(null);
 
-  // 대상 서버. 동시 음성 참여가 불가능하므로 항상 하나 이하다(§1).
+  // 대상 서버. 동시 음성 참여가 불가능하므로 항상 하나 이하다
   const guildId = computed(() => guilds.guilds.find((g) => g.listening)?.id ?? null);
   const guild = computed(() => guilds.guilds.find((g) => g.id === guildId.value) ?? null);
 
   const track = computed(() => data.value?.currentTrack ?? null);
-  // 그 서버의 화면은 전체화면 역할을 하므로 거기서는 숨긴다(D-4). 다른 서버 화면에서는 뜬다.
-  const onTargetPage = computed(() => !!guildId.value && router.currentRoute.value.params.guildId === guildId.value);
+  const onTargetPage = computed(() => !!guildId.value && page.value === guildId.value);
   // 곡이 없어도 봇과 같은 채널이면 빈 셸로 남긴다. 볼륨은 조작할 수 있고, 재생이 시작될 때
   // 레이아웃이 튀지 않는다. 채널이 다르거나 봇이 없으면(guildId null) 통째로 사라진다.
   const visible = computed(() => !!guildId.value && !onTargetPage.value && !!data.value?.hasPlayer);
 
   const canControl = computed(() => data.value?.canControl ?? false);
-  const canSkip = computed(() => canControl.value || (!!track.value?.requestedBy?.id && track.value.requestedBy.id === data.value?.userId));
+  const canSkip = computed(() => skipAllowed(data.value));
   const duration = computed(() => track.value?.duration ?? 0);
-  const progressPct = computed(() => (duration.value > 0 ? Math.min(100, (localTime.value / duration.value) * 100) : 0));
+  const position = computed(() => positionAt(clock.value, now.value));
+
+  const url = (path = "") => `/api/guilds/${guildId.value}/player${path}?queue=0`;
+
+  // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 칸이 없어 그것만 남긴다
+  function apply(next) {
+    if (!accepts(data.value, next)) return;
+    const { botInVoice, userInVoice, sameVoice, hasPlayer, canControl: control, canAdd, canManage, userId } = data.value ?? {};
+    data.value = { botInVoice, userInVoice, sameVoice, hasPlayer, canControl: control, canAdd, canManage, userId, ...next };
+    clock.value = clockOf(next, Date.now());
+  }
 
   async function refresh() {
     const id = guildId.value;
@@ -41,47 +53,62 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       return;
     }
     try {
-      const res = await axios.get(`/api/guilds/${id}/player`);
+      const res = await axios.get(url());
       // 응답이 오는 사이에 대상이 바뀌었으면 버린다
       if (guildId.value !== id) return;
-      data.value = res.data;
-      if (!scrubbing.value) localTime.value = res.data.currentTrack?.currentTime ?? 0;
+      if (accepts(data.value, res.data)) {
+        data.value = res.data;
+        clock.value = clockOf(res.data, Date.now());
+      }
     } catch (e) {
       // 권한을 잃었거나 봇이 나갔다(답이 왔다). 바를 접는다. 응답이 없거나 늦으면 지금 바를 둔다
       if (e?.response) data.value = null;
     }
   }
 
-  async function action(type) {
-    if (!guildId.value) return;
+  // 응답을 기다리는 조작. 같은 조작을 겹쳐 보내지 않는다
+  const busy = ref(new Set());
+  async function send(type, body, fallback) {
+    if (!guildId.value || busy.value.has(type)) return;
+    busy.value = new Set(busy.value).add(type);
     try {
-      await axios.post(`/api/guilds/${guildId.value}/player/${type}`);
+      apply((await axios.post(url(`/${type}`), body)).data);
     } catch (e) {
-      notifyProblem(e, "조작하지 못했어요.");
+      notifyProblem(e, fallback);
+      refresh(); // 거절되면 서버 상태로 되돌린다
+    } finally {
+      const rest = new Set(busy.value);
+      rest.delete(type);
+      busy.value = rest;
     }
-    refresh(); // 성공이든 거부든 서버 상태로 되돌린다
   }
+
+  // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
+  function togglePause() {
+    if (!data.value || busy.value.has("pause")) return;
+    const paused = !data.value.paused;
+    clock.value = retime(clock.value, Date.now(), { running: Boolean(track.value && data.value.playing && !paused) });
+    data.value = { ...data.value, paused };
+    return send("pause", undefined, "조작하지 못했어요.");
+  }
+  // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 줄 번호를 싣는다
+  const skip = () => send("skip", onTrackOf(data.value), "다음 곡으로 넘기지 못했어요.");
+  const previous = () => send("previous", onTrackOf(data.value), "이전 곡으로 가지 못했어요.");
 
   async function setVolume(volume) {
     if (!guildId.value) return;
     try {
-      const res = await axios.post(`/api/guilds/${guildId.value}/player/volume`, { volume: Number(volume) });
-      if (data.value) data.value = { ...data.value, volume: res.data.volume };
+      apply((await axios.post(url("/volume"), { volume: Number(volume) })).data);
     } catch (e) {
       notifyProblem(e, "볼륨을 바꾸지 못했어요.");
       refresh();
     }
   }
 
-  async function seek(seconds) {
-    if (!guildId.value) return;
-    localTime.value = seconds; // 응답을 기다리는 동안 손잡이가 튀지 않게
-    try {
-      await axios.post(`/api/guilds/${guildId.value}/player/seek`, { position: seconds });
-    } catch (e) {
-      notifyProblem(e, "위치를 옮기지 못했어요.");
-    }
-    refresh();
+  // 놓은 자리를 먼저 보이고 보낸다. entry 는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
+  function seek(seconds, entry) {
+    clock.value = retime(clock.value, Date.now(), { at: seconds });
+    return send("seek", { position: seconds, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
   }
 
   // ── 수명 관리 ───────────────────────────────────────────────────────────────
@@ -97,11 +124,11 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     // 대상 서버가 바뀌면(참가·이동·퇴장) 즉시 다시 읽는다
     stopWatch = watch(guildId, () => refresh(), { immediate: true });
 
-    // 목록 SSE 넛지. 내 대상 서버의 변화만 골라 받는다.
-    // guildId가 null이면(어느 서버인지 모르는 페이로드) 안전하게 갱신한다.
+    // 목록 연결의 신호. 내 대상 서버의 변화만 골라 받는다.
+    // guildId 가 null 이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;
-      if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다. 넛지마다 둘이 각각 조회하면 요청이 배로 든다
+      if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다. 둘이 각각 읽으면 요청이 배로 든다
       if (!changedGuildId || changedGuildId === guildId.value) refresh();
     });
 
@@ -110,12 +137,8 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       if (!on) refresh();
     });
 
-    // 갱신 사이 진행 위치 보간. 재생 중이고 스크럽하지 않을 때만
-    ticker = setInterval(() => {
-      if (!track.value || data.value?.paused || !data.value?.playing || scrubbing.value) return;
-      if (duration.value > 0 && localTime.value >= duration.value) return;
-      localTime.value += 1;
-    }, 1000);
+    // 진행 시계. 위치는 받은 위치 + 지난 시간으로 센다(utils/playback)
+    ticker = setInterval(() => (now.value = Date.now()), 1000);
   }
 
   function stop() {
@@ -128,5 +151,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, localTime, scrubbing, guildId, guild, track, visible, canControl, canSkip, duration, progressPct, refresh, action, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, canSkip, duration, position, busy, refresh, togglePause, skip, previous, setVolume, seek, start, stop };
 });

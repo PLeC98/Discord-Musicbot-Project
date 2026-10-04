@@ -14,6 +14,11 @@
 
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
+    <div v-else-if="loadError" class="flex flex-col items-center gap-3 p-16 text-center">
+      <p class="text-danger text-[0.9rem] whitespace-pre-line">{{ loadError }}</p>
+      <BaseButton variant="ghost" @click="retryLoad">다시 시도</BaseButton>
+    </div>
+
     <template v-else>
       <!-- ── Now Playing ── -->
       <BaseCard title="지금 재생 중" class="mb-4 pb-3.75">
@@ -38,7 +43,7 @@
             <div class="flex items-center gap-2 mb-1.5">
               <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
               <span :class="timeText">{{ isLive ? "🔴 라이브" : fmt(displayTime) }}</span>
-              <div class="group relative flex flex-1 h-4 items-center before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
+              <div class="group relative flex flex-1 h-4 items-center touch-none before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" ref="progressBarRef" @pointerdown.prevent="seekBar.onPointerDown">
                 <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
                 <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상). 호버 시 카테고리 툴팁 -->
                 <!-- mousedown은 부모로 버블링돼 스크럽 시작에 영향 없음 -->
@@ -56,23 +61,23 @@
               <div class="flex items-center gap-1 flex-wrap">
                 <!-- Previous -->
                 <!-- 한곡 반복 중에는 이전곡/다음곡 = 현재 곡 재시작이라 기록/대기열이 없어도 활성 -->
-                <button :class="iconBtn" @click="action('previous')" v-tooltip="'이전곡'" :disabled="!player.canControl || !(player.hasPrevious || player.loop === 'track')">
+                <button :class="iconBtn" @click="previous" v-tooltip="'이전곡'" :disabled="!previousEnabled(player) || isBusy('previous')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
                 </button>
 
                 <!-- Play / Pause -->
-                <button :class="iconBtn" @click="action('pause')" v-tooltip="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
+                <button :class="iconBtn" @click="togglePause" v-tooltip="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
                   <svg v-if="player.paused" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                   <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
                 </button>
 
                 <!-- Stop -->
-                <button :class="iconStop" @click="confirmStop" v-tooltip="'정지'" :disabled="!player.canControl">
+                <button :class="iconStop" @click="confirmStop" v-tooltip="'정지'" :disabled="!player.canControl || isBusy('stop')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
                 </button>
 
                 <!-- Skip -->
-                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || ((player.queueTotal ?? player.queue.length) === 0 && player.loop !== 'track' && !player.autoplay)">
+                <button :class="iconBtn" @click="skip" v-tooltip="'다음곡'" :disabled="!skipEnabled(player) || isBusy('skip')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
                 </button>
 
@@ -92,16 +97,16 @@
                 <div class="flex-1"></div>
 
                 <!-- SponsorBlock 하이라이트 점프 -->
-                <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" v-tooltip="'하이라이트로 점프'" :disabled="!player.canControl">
+                <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" v-tooltip="'하이라이트로 점프'" :disabled="!player.canControl || isBusy('highlight')">
                   <svg width="17" height="17" viewBox="0 -960 960 960" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M442-480 287-697q-14-20-3.5-41.5T319-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Zm238 0L525-697q-14-20-3.5-41.5T557-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Z" /></svg>
                 </button>
 
                 <!-- Shuffle -->
-                <button :class="iconBtn" @click="action('shuffle')" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2">
+                <button :class="iconBtn" @click="shuffle" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2 || isBusy('shuffle')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
                 </button>
                 <!-- Loop (cycles: off → track → queue) -->
-                <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl || player.hasLive">
+                <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl || player.hasLive || isBusy('loop')">
                   <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 2 1 1 1-1v4h1z" />
                   </svg>
@@ -166,14 +171,14 @@
         <div ref="queueBoxRef" @scroll.passive="onQueueScroll" class="flex flex-col gap-1 max-h-120 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
           <div
             v-for="(track, i) in player.queue"
-            :key="i"
+            :key="track.entry ?? `i${i}`"
             class="group/item flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] bg-white/4 border border-transparent mr-1 transition-[background-color,border-color] duration-200 hover:bg-white/7 hover:border-white/8"
             :class="{
               'opacity-35': draggedIndex === i,
               'border-t-2 border-t-accent -mt-px': dragOverIndex === i && draggedIndex !== i,
               'border-b-2 border-b-accent -mb-px': dragOverIndex === player.queue.length && i === player.queue.length - 1,
             }"
-            :draggable="player.canControl"
+            :draggable="player.canControl && !isBusy('move')"
             @dragstart="onDragStart($event, i)"
             @dragover.prevent="onDragOver($event, i)"
             @drop.prevent="onDrop"
@@ -201,7 +206,7 @@
             </div>
             <span v-if="track.autoplay" class="text-muted shrink-0 flex items-center" v-tooltip="'자동재생'"><Icon name="robot" :size="13" /></span>
             <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platformLabel || track.platform"></span>
-            <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" v-tooltip="'제거'" :disabled="!canRemove(track)"><Icon name="close" :size="14" /></button>
+            <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(track)" v-tooltip="'제거'" :disabled="!canRemove(track) || !Number.isInteger(track.entry) || isBusy(`remove:${track.entry}`)"><Icon name="close" :size="14" /></button>
           </div>
 
           <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-3 text-muted text-[0.82rem]">
@@ -227,10 +232,13 @@
 
 <script setup>
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
+import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
 import { problemText } from "../utils/problem.js";
 import { useGuildsStore, onGuildNudge } from "../stores/guilds.js";
-import { notifyProblem } from "../composables/toasts.js";
+import { notify, notifyProblem } from "../composables/toasts.js";
 import { LIMIT } from "../utils/request.js";
+import { accepts, canRemove as removeAllowed, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, reordered, retime, skipEnabled } from "../utils/playback.js";
+import { useSeekBar } from "../composables/seek-bar.js";
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
@@ -256,6 +264,7 @@ const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 c
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
+const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 까닭과 다시 시도를 띄운다
 const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 // 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
@@ -278,26 +287,47 @@ const queueMax = ref(0);
 const joining = ref(false);
 const showStopConfirm = ref(false);
 
-// Drag-and-drop queue reorder state
+// 대기열 끌기
 const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 const isDragging = ref(false);
+// 끄는 동안 받은 서버 대기열. 끄는 그 칸만 미루고(다른 칸은 바로 넣는다) 끌기가 끝나면 넣는다
+let heldQueue = null;
 
-let progressTimer = null;
+// 진행 시계: 받은 위치 + 지난 시간(utils/playback). 1초마다 now 만 바꾼다
+const clock = ref(clockOf(null, 0));
+const now = ref(Date.now());
+let ticker = null;
 let nudgeTimer = null;
-const localTime = ref(0);
 const progressBarRef = ref(null);
-const isScrubbing = ref(false);
-const scrubTime = ref(0);
+
+// 응답을 기다리는 조작(넘기기 · 이전 · 정지 · 섞기 · 빼는 줄 · 옮기기). 그동안 그 버튼을 끈다
+const busy = ref(new Set());
+const isBusy = (key) => busy.value.has(key);
+function setBusy(key, on) {
+  const next = new Set(busy.value);
+  if (on) next.add(key);
+  else next.delete(key);
+  busy.value = next;
+}
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-// Action responses come from playerState() which omits the GET /player extras
-// (botInVoice/userInVoice/canControl/canAdd/canManage/userId). Spread over the previous
-// full-refresh state so those flags never flash off. 명시 목록으로 관리하다 canManage가
-// 빠져 조작 직후 ⚙ 버튼이 증발했던 버그의 재발 방지.
+// GET /player 만 싣는 권한 · 음성 칸. 조작 응답(playerState)에는 없어 지금 값을 남긴다
+const EXTRAS = ["botInVoice", "userInVoice", "sameVoice", "hasPlayer", "canControl", "canAdd", "canManage", "userId"];
+
+// 받은 재생 상태를 넣는다. 늦게 온 옛 상태는 버린다(만든 차례). 재생 상태 칸은 통째로 바꾸고(없어진 칸은 없어진다),
+// GET 만 싣는 칸은 응답에 없으면 지금 값을 남긴다. 대기열을 끄는 동안에는 대기열만 미룬다
 function applyState(data) {
-  player.value = { ...player.value, ...data };
+  if (!accepts(player.value, data)) return;
+  const extras = Object.fromEntries(EXTRAS.filter((key) => !(key in data)).map((key) => [key, player.value[key]]));
+  let next = { ...extras, ...data };
+  if (isDragging.value) {
+    heldQueue = { queue: next.queue, queueTotal: next.queueTotal };
+    next = { ...next, queue: player.value.queue, queueTotal: player.value.queueTotal };
+  }
+  player.value = next;
+  clock.value = clockOf(next, Date.now());
   syncLoaded();
 }
 
@@ -308,7 +338,7 @@ function syncLoaded() {
 
 async function loadMore() {
   const total = player.value.queueTotal ?? 0;
-  if (loadingMore.value || player.value.queue.length >= total) return;
+  if (loadingMore.value || isDragging.value || player.value.queue.length >= total) return;
   loadingMore.value = true;
   try {
     const res = await axios.get(`/api/guilds/${guildId}/player/queue`, { params: { offset: player.value.queue.length, limit: QUEUE_PAGE } });
@@ -332,16 +362,9 @@ function onQueueScroll(e) {
 // 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
 const channelLocked = computed(() => !player.value.canControl && player.value.botInVoice && !player.value.sameVoice);
 
-// 스킵은 DJ 계층이 아니어도 현재 곡의 요청자 본인이면 가능 (서버 checkSkip과 동일 규칙)
-const canSkip = computed(() => player.value.canControl || (!!player.value.currentTrack?.requestedBy?.id && player.value.currentTrack.requestedBy.id === player.value.userId));
-
-// 대기열 제거도 그 곡의 요청자 본인이면 가능 (서버 checkRemoveTrack과 동일 규칙)
-function canRemove(track) {
-  return player.value.canControl || (!!track.requestedBy?.id && track.requestedBy.id === player.value.userId);
-}
+const canRemove = (track) => removeAllowed(player.value, track);
 
 async function refresh() {
-  if (isDragging.value) return; // don't overwrite queue while user is mid-drag
   try {
     const res = await axios.get(`/api/guilds/${guildId}/player${qs()}`);
     // 봇 재적/추가가능 여부가 바뀌면 직전 곡 추가 오류는 더 이상 유효하지 않으므로 정리
@@ -349,24 +372,62 @@ async function refresh() {
     if (addError.value && (res.data.botInVoice !== player.value.botInVoice || res.data.canAdd !== player.value.canAdd)) {
       addError.value = "";
     }
-    player.value = res.data;
-    syncLoaded();
-    localTime.value = res.data.currentTrack?.currentTime ?? 0;
+    applyState(res.data);
+    loadError.value = "";
+  } catch (e) {
+    // 처음 읽기면 화면에 까닭을, 그 뒤면 알림으로(지금 화면은 둔다)
+    if (loading.value) loadError.value = problemText(e, "재생 상태를 읽지 못했어요.");
+    else notifyProblem(e, "재생 상태를 읽지 못했어요.");
   } finally {
     loading.value = false;
   }
 }
 
+function retryLoad() {
+  loading.value = true;
+  loadError.value = "";
+  refresh();
+}
+
 // ── Controls ─────────────────────────────────────────────────────────────────
 
-async function action(type) {
+// 응답을 기다리는 조작. 응답의 상태를 넣고, 거절되면 알리고 다시 읽는다
+async function send(key, path, body, fallback) {
+  if (isBusy(key)) return false;
+  setBusy(key, true);
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/${type}${qs()}`);
-    if (res.data && res.data.playing !== undefined) applyState(res.data);
+    applyState((await axios.post(`/api/guilds/${guildId}/player/${path}${qs()}`, body)).data);
+    return true;
   } catch (e) {
-    notifyProblem(e, "조작하지 못했어요.");
+    notifyProblem(e, fallback);
     refresh();
+    return false;
+  } finally {
+    setBusy(key, false);
   }
+}
+
+// 넘기기 · 이전은 누른 때의 곡일 때만 하게 줄 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
+const skip = () => send("skip", "skip", onTrackOf(player.value), "다음 곡으로 넘기지 못했어요.");
+const previous = () => send("previous", "previous", onTrackOf(player.value), "이전 곡으로 가지 못했어요.");
+const shuffle = () => send("shuffle", "shuffle", undefined, "대기열을 섞지 못했어요.");
+
+// 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
+function togglePause() {
+  if (isBusy("pause")) return;
+  const paused = !player.value.paused;
+  const track = player.value.currentTrack;
+  clock.value = retime(clock.value, Date.now(), { running: Boolean(track && player.value.playing && !paused) });
+  player.value = { ...player.value, paused };
+  send("pause", "pause", undefined, "조작하지 못했어요.");
+}
+
+// 반복도 먼저 바꿔 보인다. 다음 모드는 디스코드 반복 버튼과 같은 순환(rules/loop-cycle)이고, 정할 값은 서버가 돌려준 상태가 정한다
+function cycleLoop() {
+  if (isBusy("loop")) return;
+  const mode = nextLoopMode(player.value.loop ?? false);
+  player.value = { ...player.value, loop: mode };
+  send("loop", "loop", { mode: mode === false ? "off" : mode }, "반복 모드를 바꾸지 못했어요.");
 }
 
 // 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
@@ -382,36 +443,14 @@ const {
   },
 );
 
-async function setLoop(mode) {
-  try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/loop${qs()}`, { mode });
-    if (res.data?.playing !== undefined) applyState(res.data);
-  } catch (e) {
-    notifyProblem(e, "반복 모드를 바꾸지 못했어요.");
-    refresh();
-  }
-}
-
-function cycleLoop() {
-  const cur = player.value.loop;
-  if (!cur || cur === false || cur === "off") setLoop("track");
-  else if (cur === "track") setLoop("queue");
-  else setLoop("off");
-}
-
 function confirmStop() {
   showStopConfirm.value = true;
 }
 
+// 정지는 응답을 기다리고 서버가 돌려준 상태를 쓴다. 봇이 나가 음성 칸도 바뀌므로 한 번 더 읽는다
 async function doStop() {
   showStopConfirm.value = false;
-  try {
-    await axios.post(`/api/guilds/${guildId}/player/stop`);
-    player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, hasLive: false };
-  } catch (e) {
-    notifyProblem(e, "정지하지 못했어요.");
-    refresh();
-  }
+  if (await send("stop", "stop", undefined, "정지하지 못했어요.")) refresh();
 }
 
 // 입력이 YouTube 재생목록(list= 포함)인지. "한 곡만 추가" 버튼 노출 조건
@@ -497,20 +536,24 @@ async function joinBot() {
   }
 }
 
-async function removeTrack(index) {
+// 빼기는 그 줄 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
+async function removeTrack(track) {
+  if (!Number.isInteger(track.entry) || isBusy(`remove:${track.entry}`)) return;
+  setBusy(`remove:${track.entry}`, true);
   try {
-    const res = await axios.delete(`/api/guilds/${guildId}/player/queue/${index}${qs()}`);
-    applyState(res.data);
+    applyState((await axios.delete(`/api/guilds/${guildId}/player/queue/entry/${track.entry}${qs()}`)).data);
   } catch (e) {
     notifyProblem(e, "곡을 빼지 못했어요.");
     refresh();
+  } finally {
+    setBusy(`remove:${track.entry}`, false);
   }
 }
 
-// ── Drag-and-drop queue reorder ───────────────────────────────────────────────
+// ── 대기열 끌어 옮기기 ───────────────────────────────────────────────────────
 
 function onDragStart(e, i) {
-  if (!player.value.canControl) return;
+  if (!player.value.canControl || isBusy("move")) return;
   draggedIndex.value = i;
   isDragging.value = true;
   e.dataTransfer.effectAllowed = "move";
@@ -521,45 +564,52 @@ function onDragOver(e, i) {
   dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
 }
 
+// 끌기가 끝났다(놓음 · 취소). 끄는 동안 미뤄 둔 서버 대기열을 넣는다
 function onDragEnd() {
   draggedIndex.value = null;
   dragOverIndex.value = null;
   isDragging.value = false;
+  if (heldQueue) {
+    player.value = { ...player.value, ...heldQueue };
+    heldQueue = null;
+    syncLoaded();
+  }
 }
 
 async function onDrop() {
   const from = draggedIndex.value;
   const insertAt = dragOverIndex.value;
+  const queue = player.value.queue;
+  const target = from === null || insertAt === null ? "same" : moveTarget(queue, from, insertAt, player.value.queueTotal ?? queue.length);
+  // 놓은 자리는 끄는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 넣기 전에 정한다
   onDragEnd();
-
-  if (from === null || insertAt === null) return;
-
-  // insertAt is the target slot; adjust for the removal of the dragged item
-  const to = insertAt > from ? insertAt - 1 : insertAt;
-  if (from === to) return;
-
-  // Optimistic update. reorder local queue immediately for responsive feel
-  const q = [...player.value.queue];
-  const [moved] = q.splice(from, 1);
-  q.splice(to, 0, moved);
-  player.value = { ...player.value, queue: q };
-
-  try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue/move${qs()}`, { from, to });
-    applyState(res.data);
-  } catch (e) {
-    notifyProblem(e, "곡을 옮기지 못했어요.");
-    await refresh(); // revert to server state on failure
-  }
+  if (target === "same") return;
+  if (target === "partial") return notify({ title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 내려 다 불러온 뒤 맨 끝으로 옮길 수 있어요.", severity: "warning" });
+  if (target === "unknown") return refresh();
+  // 응답을 기다리는 동안 옮긴 차례로 보인다. 거절되면 다시 읽어 서버 차례로 돌린다
+  player.value = { ...player.value, queue: reordered(queue, from, insertAt) };
+  await send("move", "queue/move-entry", target, "곡을 옮기지 못했어요.");
 }
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
-const displayTime = computed(() => (isScrubbing.value ? scrubTime.value : localTime.value));
-
 const isLive = computed(() => !!player.value.currentTrack?.isLive);
 // 길이를 알아야 위치를 옮길 수 있다. 라이브에는 실시간밖에 없어 옮길 자리가 없다.
 const seekable = computed(() => (player.value.currentTrack?.duration ?? 0) > 0 && !isLive.value);
+
+// 탐색 막대(composables/seek-bar). 놓은 자리를 먼저 보이고 보낸다. 거절되면 다시 읽어 손잡이가 서버 자리로 돌아간다
+const seekBar = useSeekBar({
+  el: progressBarRef,
+  duration: () => player.value.currentTrack?.duration ?? 0,
+  enabled: () => seekable.value && player.value.canControl,
+  entry: () => player.value.currentTrack?.entry ?? null,
+  send: (sec, entry) => {
+    clock.value = retime(clock.value, Date.now(), { at: sec });
+    send("seek", "seek", { position: sec, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
+  },
+});
+const isScrubbing = seekBar.dragging;
+const displayTime = computed(() => (isScrubbing.value ? seekBar.value.value : positionAt(clock.value, now.value)));
 
 const progressPct = computed(() => {
   const t = player.value.currentTrack;
@@ -623,59 +673,12 @@ const loopTitle = computed(() => {
   return "반복 끄기 (클릭: 트랙 반복)";
 });
 
-// ── Seek / scrub ─────────────────────────────────────────────────────────────
-
-function getTimeFromPointer(e) {
-  const bar = progressBarRef.value;
-  if (!bar) return 0;
-  const rect = bar.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  return pct * (player.value.currentTrack?.duration ?? 0);
-}
-
-function onScrubStart(e) {
-  if (!seekable.value || !player.value.canControl) return;
-  isScrubbing.value = true;
-  scrubTime.value = getTimeFromPointer(e);
-  document.addEventListener("mousemove", onScrubMove);
-  document.addEventListener("mouseup", onScrubEnd);
-  document.addEventListener("touchmove", onScrubMove, { passive: false });
-  document.addEventListener("touchend", onScrubEnd);
-}
-
-function onScrubMove(e) {
-  if (e.cancelable) e.preventDefault();
-  scrubTime.value = getTimeFromPointer(e);
-}
-
-async function onScrubEnd() {
-  if (!isScrubbing.value) return;
-  isScrubbing.value = false;
-  document.removeEventListener("mousemove", onScrubMove);
-  document.removeEventListener("mouseup", onScrubEnd);
-  document.removeEventListener("touchmove", onScrubMove);
-  document.removeEventListener("touchend", onScrubEnd);
-  const pos = scrubTime.value;
-  localTime.value = pos;
-  try {
-    await axios.post(`/api/guilds/${guildId}/player/seek`, { position: pos });
-  } catch (e) {
-    notifyProblem(e, "위치를 옮기지 못했어요.");
-    refresh();
-  }
-}
-
-async function jumpToHighlight() {
+// 하이라이트로 가기. 누른 때의 곡일 때만
+function jumpToHighlight() {
   const h = player.value.currentTrack?.highlightAt;
   if (h === null || h === undefined) return;
-  localTime.value = h;
-  try {
-    await axios.post(`/api/guilds/${guildId}/player/highlight`);
-  } catch (e) {
-    notifyProblem(e, "하이라이트로 가지 못했어요.");
-    refresh();
-  }
+  clock.value = retime(clock.value, Date.now(), { at: h });
+  send("highlight", "highlight", onTrackOf(player.value), "하이라이트로 가지 못했어요.");
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -715,26 +718,12 @@ onMounted(() => {
     clearTimeout(nudgeTimer);
     nudgeTimer = setTimeout(refresh, 600);
   });
-  // 로컬 진행바 틱(네트워크 아님). 넛지/refresh가 currentTime을 서버 기준으로 재동기화
-  progressTimer = setInterval(() => {
-    const track = player.value.currentTrack;
-    // 실제 재생 중일 때만 전진. playing 없이 currentTrack만 보면, 곡 해석(YouTube 검색) 중
-    // 아직 재생 전인데도 바가 움직여 '유령 재생'처럼 보인다.
-    if (track && player.value.playing && !player.value.paused) {
-      // 길이를 모르는 곡(라이브)은 클램프할 상한이 없다. 그대로 Math.min을 걸면 매초 0으로 되돌아간다
-      const next = localTime.value + 1;
-      localTime.value = track.duration > 0 ? Math.min(next, track.duration) : next;
-    }
-  }, 1000);
+  ticker = setInterval(() => (now.value = Date.now()), 1000);
 });
 onUnmounted(() => {
   offNudge?.();
   guilds.unsubscribe();
-  clearInterval(progressTimer);
+  clearInterval(ticker);
   clearTimeout(nudgeTimer);
-  document.removeEventListener("mousemove", onScrubMove);
-  document.removeEventListener("mouseup", onScrubEnd);
-  document.removeEventListener("touchmove", onScrubMove);
-  document.removeEventListener("touchend", onScrubEnd);
 });
 </script>
