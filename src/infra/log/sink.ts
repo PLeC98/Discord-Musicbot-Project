@@ -7,6 +7,7 @@
 import util from "util";
 import config from "../../config/index.ts";
 import { styleText } from "node:util";
+import { LEVELS, KEPT_LINES, levelNameOf, type LevelName, type WireEntry } from "./levels.ts";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -15,12 +16,8 @@ const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 // 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다). 검사용은 따로.
 const HAS_ANSI = /\x1B\[/;
 
-export type LevelName = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
-
 /** 로그 레코드(pino JSON 부분집합). 바인딩(category · sub · tags · err …)이 같이 실린다 */
 export type LogRecord = { level: number; time: number; msg?: unknown; category?: string; sub?: string; tags?: string[]; [field: string]: unknown };
-/** 대시보드(SSE)로 보내는 한 줄. id 는 이 프로세스 안에서 오르는 줄 번호(다시 붙을 때 이어 받기) */
-type WireEntry = { id: number; ts: number; level: string; text: string; category?: string; sub?: string; tags?: string[] };
 /** 레코드를 받는 곳(파일 등) */
 type Destination = (rec: LogRecord) => void;
 /** 로그 스트림을 받는 HTTP 응답. 여기서 쓰는 것만 */
@@ -34,11 +31,6 @@ type SseClient = {
   flushHeaders(): void;
 };
 
-// pino와 동일한 레벨 체계
-const LEVELS: Record<LevelName, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
-const LEVEL_NAMES: Record<number, LevelName> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-// SSE 와이어 레벨 = 실제 레벨 이름. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 가르지 못한다.
-const WIRE_LEVEL: Record<number, string> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
@@ -104,7 +96,7 @@ class LogManager {
   terminal: (rec: LogRecord) => void;
 
   /** terminal: 터미널에 찍는 함수. 생략하면 _renderTerminal */
-  constructor({ maxLines = 500, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
+  constructor({ maxLines = KEPT_LINES, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
     this.maxLines = maxLines;
     this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
     // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다.
@@ -222,7 +214,7 @@ class LogManager {
   }
 
   _renderTerminal(rec: LogRecord) {
-    const name = LEVEL_NAMES[rec.level] || "info";
+    const name = levelNameOf(rec.level) || "info";
     const paint = (fn: ((text: string) => string) | undefined, text: string) => (this.useColor && fn ? fn(text) : text);
 
     const tag = paint(LEVEL_COLOR[name], name.toUpperCase().padEnd(5));
@@ -244,7 +236,8 @@ class LogManager {
     const entry: WireEntry = {
       id: ++this.lastId,
       ts: rec.time,
-      level: WIRE_LEVEL[rec.level] || "info",
+      // 실제 레벨 이름 그대로. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 가르지 못한다
+      level: levelNameOf(rec.level) || "info",
       text: this._strip(rec.msg),
     };
     if (rec.category) entry.category = rec.category; // 있을 때만
@@ -327,6 +320,6 @@ class LogManager {
 
 const singleton = Object.assign(new LogManager(), {
   LogManager, // 테스트용 클래스(격리 인스턴스 생성)
-  _internals: { LEVELS, LEVEL_NAMES, WIRE_LEVEL, CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
+  _internals: { CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
 });
 export default singleton;

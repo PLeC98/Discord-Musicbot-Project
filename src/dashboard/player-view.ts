@@ -1,16 +1,12 @@
 // 화면에 보내는 플레이어 모양(contract/player)
 
 import type { Request } from "express";
-import type { PlayerState, PlayingView, QueueTrackView } from "./contract/player.ts";
+import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
-
-// 대기열은 앞에서부터 이만큼만 실어 보낸다. 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
-const QUEUE_PAGE = 100;
-const QUEUE_WINDOW_MAX = 1000;
 
 function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
   return {
@@ -92,4 +88,4 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
   };
 }
 
-export { QUEUE_PAGE, QUEUE_WINDOW_MAX, queueTrack, queueWindow, playerState, toInt };
+export { queueTrack, queueWindow, playerState, toInt };

@@ -547,13 +547,24 @@ test("앞 소스가 빈 손이면 다음 소스로 넘어간다", async () => {
 });
 
 test("키가 없는 소스는 아예 후보에서 빠진다", () => {
-  // 키가 필요한 소스는 SPEC에 has()가 있고, 그 결과가 곧 쓸 수 있는지다
+  // 키가 필요한 소스는 SPEC 에 env(키 이름)가 있고, 그 키가 .env 에 있어야 쓸 수 있다(config/source-keys)
   for (const type of sources.TYPES) {
     const need = sources.needsOf(type);
     if (!need) assert.equal(sources.usable(type), true, `${type}는 키가 필요 없으니 늘 쓸 수 있다`);
     else assert.equal(typeof need.env, "string", `${type}는 무엇이 필요한지 말할 수 있어야 한다`);
   }
   assert.equal(sources.usable("없는소스"), false);
+});
+
+test("키가 필요한 소스는 그 키가 있을 때만 쓴다", async () => {
+  await withConfig({ sources: { lastfmKey: null, listenbrainzToken: "token" } }, () => {
+    assert.equal(sources.usable("lastfm"), false);
+    assert.equal(sources.usable("lbradio"), true);
+  });
+  await withConfig({ sources: { lastfmKey: "key", listenbrainzToken: null } }, () => {
+    assert.equal(sources.usable("lastfm"), true);
+    assert.equal(sources.usable("lbradio"), false);
+  });
 });
 
 test("스포티파이 재생목록 소스는 키 없이도 쓴다(재생목록 · 아티스트는 익명 경로)", async () => {

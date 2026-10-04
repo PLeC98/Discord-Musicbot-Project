@@ -14,10 +14,12 @@ import logManager from "../../infra/log/sink.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
+import { ANNOUNCE_MAX, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type AnnounceKind, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
 import * as aiConfig from "../../config/ai.ts";
+import { promptProblems } from "../../config/schema/ai-prompt.ts";
 import * as cookieConfig from "../../config/cookies.ts";
 import * as yamlStore from "../../config/yaml-store.ts";
 import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
@@ -100,17 +102,16 @@ adminRouter.get("/status", requireOwner, (req, res) => {
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
     logLevel: config.logging.level,
-  });
+  } satisfies AdminStatus);
 });
 
 // 전체 서버 공지. 색은 ui/colors 의 뜻으로
-const ANNOUNCE_TYPES: Record<string, { color: HexColorString; emoji: string; title: string }> = {
+const ANNOUNCE_TYPES: Record<AnnounceKind, { color: HexColorString; emoji: string; title: string }> = {
   maintenance: { color: colorOf("warning"), emoji: "🔧", title: "봇 점검 안내" },
   update: { color: colorOf("done"), emoji: "🆕", title: "봇 업데이트 안내" },
   alert: { color: colorOf("error"), emoji: "⚠️", title: "긴급 공지" },
   info: { color: colorOf("notice"), emoji: "ℹ️", title: "공지사항" },
 };
-const ANNOUNCE_MAX = 4096; // 디스코드 embed description 상한
 
 // 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널
 async function announceChannel(guild: Guild) {
@@ -133,7 +134,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   if (typeof message !== "string" || !message.trim()) return sendProblem(res, "announce-empty");
   const body = message.trim();
   if (body.length > ANNOUNCE_MAX) return sendProblem(res, "announce-too-long", { max: ANNOUNCE_MAX, length: body.length });
-  if (typeof type !== "string" || !Object.hasOwn(ANNOUNCE_TYPES, type)) return sendProblem(res, "bad-announce-type");
+  if (!isAnnounceKind(type)) return sendProblem(res, "bad-announce-type");
 
   const { client } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
@@ -156,7 +157,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   // 한 곳도 못 보낸 것을 성공으로 돌려주면 운영자가 보냈다고 믿는다. 일부 실패도 구분해 알린다.
   const total = client.guilds.cache.size;
   if (sent === 0) return sendProblem(res, total === 0 ? "announce-no-guilds" : "announce-failed", {}, { sentCount: sent, failedCount: failed, totalCount: total });
-  return res.json({ success: true, sent, failed, total, partial: failed > 0 });
+  return res.json({ success: true, sent, failed, total, partial: failed > 0 } satisfies BroadcastReply);
 });
 
 // 봇이 든 서버 전부
@@ -172,7 +173,7 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
     hasPlayer: players.has(g.id),
   }));
 
-  res.json({ guilds });
+  res.json({ guilds } satisfies AdminGuilds);
 });
 
 // 서버에서 나가기(운영자가 대시보드에서)
@@ -195,7 +196,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     playerEvents.touched(guild.id);
 
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);
-    res.json({ success: true, name });
+    res.json({ success: true, name } satisfies LeaveReply);
   } catch (error) {
     log.error({ sub: "admin" }, "서버 나가기 실패:", error);
     sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
@@ -210,7 +211,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   if (r.ok) {
     // 개수는 디스코드가 등록을 받고 돌려준 것이다
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 다시 등록했습니다.`);
-    return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
+    return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names } satisfies RedeployReply);
   }
   log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}`);
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
@@ -222,7 +223,7 @@ adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
   try {
     const result = await audioCache.resetCache();
     log.warn({ sub: "admin" }, `대시보드 운영자 패널에서 캐시 초기화: 파일 ${result.removed}개 삭제`);
-    res.json({ success: true, ...result });
+    res.json({ success: true, ...result } satisfies ResetReply);
   } catch (error) {
     log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
     sendProblem(res, "cache-clear-failed", {}, { detail: messageOf(error) });
@@ -243,7 +244,7 @@ const CONFIG_NAMES = Object.keys(VALIDATORS);
 // 한쪽만 고치게 된다.
 adminRouter.get("/source-types", requireOwner, async (req, res) => {
   // AnimeThemes 연도 범위를 저쪽에 물어 채우므로 비동기다(하루에 한 번만 묻고 캐시한다)
-  res.json({ types: await autoplaySources.catalog() });
+  res.json({ types: await autoplaySources.catalog() } satisfies SourceTypes);
 });
 
 // 소스 편집기의 자동완성(VocaDB 계열의 태그 · 가수). 브라우저가 저쪽에 바로 묻지 않고 여기를 거친다.
@@ -257,7 +258,7 @@ adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
   if (what !== "tags" && what !== "artists") return sendProblem(res, "bad-suggest-field");
   if (!term || term.length > SUGGEST_TERM_MAX) return sendProblem(res, "bad-suggest-term", { max: SUGGEST_TERM_MAX });
   try {
-    res.json({ items: await autoplaySources.suggest(type, what, term) });
+    res.json({ items: await autoplaySources.suggest(type, what, term) } satisfies Suggestions);
   } catch (error) {
     log.debug(`자동완성 실패 (${type} ${what}): ${messageOf(error)}`);
     sendProblem(res, "suggest-failed", {}, { detail: messageOf(error) });
@@ -279,7 +280,7 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
     defaultLine: assist.DEFAULT_LINE,
     // 비운 칸이 쓰는 값. 화면이 흐리게 보여 준다(베껴 두지 않는다)
     settingDefaults: assist.DEFAULTS,
-  });
+  } satisfies AiState);
 });
 
 // 키를 고쳐 쓴다. 쓰기 전용이다. 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
@@ -290,7 +291,7 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
  */
 adminRouter.get("/ai/fields", requireOwner, (req, res) => {
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
-  if (!registry) return res.json({ known: false, fields: [], models: [] });
+  if (!registry) return res.json({ known: false, fields: [], models: [] } satisfies AiFields);
 
   const model = String(req.query.model || "");
   res.json({
@@ -299,7 +300,7 @@ adminRouter.get("/ai/fields", requireOwner, (req, res) => {
     groups: model ? models.groupsOf(registry, model) : [],
     // 프로필이 아는 모델들. 목록에 이름표를 입힐 때 쓴다
     models: models.modelsOf(registry),
-  });
+  } satisfies AiFields);
 });
 
 // 앤트로픽에 물은 칸마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 어림한다)
@@ -336,7 +337,7 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
 
   try {
     const { each, by, exact } = await countBodies(cut, String(req.body?.provider || ""), String(req.body?.model || ""));
-    res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact });
+    res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact } satisfies TokensReply);
   } catch (error) {
     sendProblem(res, "token-count-failed", {}, { detail: messageOf(error) });
   }
@@ -360,13 +361,13 @@ adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
   if (!urls.length) return sendProblem(res, "urls-empty");
   if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
 
-  res.json({ candidates: await assist.candidatesFromUrls(urls) });
+  res.json({ candidates: await assist.candidatesFromUrls(urls) } satisfies CandidatesReply);
 });
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
 adminRouter.post("/ai/judge/lines", requireOwner, (req, res) => {
   const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one: { error?: unknown; title?: unknown } | null) => one && !one.error && one.title).slice(0, 20);
-  res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
+  res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) } satisfies LinesReply);
 });
 
 /** 판정 테스트 2. 그 후보들을 실제로 보내 곡별 판정을 받는다. */
@@ -381,7 +382,7 @@ adminRouter.put("/ai/keys", requireOwner, (req, res) => {
 
   try {
     log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
-    res.json({ hasKey: aiConfig.saveAiKeys(keys) });
+    res.json({ hasKey: aiConfig.saveAiKeys(keys) } satisfies KeysReply);
   } catch (error) {
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
@@ -390,7 +391,7 @@ adminRouter.put("/ai/keys", requireOwner, (req, res) => {
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
 // /config/:name 통로를 못 탄다. 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.
 adminRouter.get("/ai/prompt", requireOwner, (req, res) => {
-  res.json({ sections: aiConfig.aiPrompt() });
+  res.json({ sections: aiConfig.aiPrompt() } satisfies PromptReply);
 });
 
 // AI 설정(ai.yaml)과 프롬프트(ai-prompt.chatml)를 한 요청으로. 화면의 저장 버튼 하나가 둘을 고친다.
@@ -400,7 +401,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
   const sections = req.body?.sections;
   if (!data || typeof data !== "object" || !Array.isArray(sections)) return sendProblem(res, "nothing-to-save");
 
-  const problems = [...VALIDATORS.ai(data), ...aiConfig.promptProblems(sections, true)];
+  const problems = [...VALIDATORS.ai(data), ...promptProblems(sections, true)];
   if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
   let before;
@@ -419,7 +420,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
   try {
     const savedSections = aiConfig.saveAiPrompt(sections);
     log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai.yaml · ai-prompt.chatml. 실행 ${ranBy(req)}`);
-    res.json({ data: saved, sections: savedSections });
+    res.json({ data: saved, sections: savedSections } satisfies AiSaved);
   } catch (error) {
     try {
       yamlStore.save("ai", before);
@@ -435,7 +436,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
 // 무관하게 무효가 된다. 그때마다 서버에 들어가 파일을 갈아 끼우는 대신 여기서 덮어쓴다.
 //
 // 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다.
-function cookieState() {
+function cookieState(): CookieState {
   return {
     source: YouTube.statusSnapshot().cookies,
     hasFile: cookieConfig.cookiesReady(),
@@ -483,7 +484,7 @@ adminRouter.get("/config/:name", requireOwner, (req, res) => {
   if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
 
   try {
-    res.json({ name, data: yamlStore.load(name) });
+    res.json({ name, data: yamlStore.load(name) } satisfies ConfigFile);
   } catch (error) {
     // 파일이 없거나 문법이 깨졌다. 화면이 이유를 그대로 보여줄 수 있게 넘긴다
     sendProblem(res, "config-unreadable", {}, { detail: messageOf(error) });
@@ -504,7 +505,7 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
   try {
     const saved = yamlStore.save(name, data);
     log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml. 실행 ${ranBy(req)}`);
-    res.json({ success: true, data: saved });
+    res.json({ success: true, data: saved } satisfies ConfigSaved);
   } catch (error) {
     log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${messageOf(error)}`);
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });

@@ -12,6 +12,10 @@ const loopOf = (mode: unknown): Loop | undefined => (typeof mode === "string" &&
 /** 반복 모드를 보낼 값으로 */
 const modeOf = (loop: Loop): LoopMode => (loop === false ? "off" : loop);
 
+/** 대기열은 앞에서부터 이만큼만 실어 보낸다. 화면이 더 필요하면 ?queue=n 으로 늘려 요청하거나 /player/queue 로 다음 구간을 받는다(한 번에 QUEUE_WINDOW_MAX 까지) */
+const QUEUE_PAGE = 100;
+const QUEUE_WINDOW_MAX = 1000;
+
 /** 곡을 넣은 사람. 화면은 id 로 자기 곡인지만 본다 */
 type RequesterRef = { id: string | null } | null;
 
@@ -78,5 +82,5 @@ type AddReply = PlayerState & { dropped: number; queueLimited: boolean; more: Mo
 /** 이어 넣기의 답 */
 type MoreReply = PlayerState & { added: number; dropped: number; more: MoreView | null; queueMax: number };
 
-export { LOOP_MODES, loopOf, modeOf };
+export { QUEUE_PAGE, QUEUE_WINDOW_MAX, LOOP_MODES, loopOf, modeOf };
 export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply };

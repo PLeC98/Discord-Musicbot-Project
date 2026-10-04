@@ -27,7 +27,8 @@ import type { GenreSource } from "../config/genres.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import type { Candidate } from "./sources/candidate.ts";
 import type { Limits, FilterConfig } from "./filter.ts";
-import type { Judged, AiPick } from "./assist/index.ts";
+import type { AiPick } from "./assist/index.ts";
+import type { Judged } from "./assist/types.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 /** 틀 수 있는 트랙. 대기열에 담는 곡이다 */

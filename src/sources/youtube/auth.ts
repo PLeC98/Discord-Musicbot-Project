@@ -9,6 +9,7 @@ import config from "../../config/index.ts";
 import { baseOptions } from "../ytdlp-options.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
+import type { YoutubeStatus } from "./status-types.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
@@ -93,7 +94,7 @@ function logAuthMode() {
  * 대시보드용. 지금 유튜브에 어떻게 붙고 있고, 어느 경로가 살아 있나.
  * 기동 로그는 시작 시점의 설정만 보여주지만 여기는 실행 중 바뀌는 상태(제외된 경로)를 담는다.
  */
-function statusSnapshot() {
+function statusSnapshot(): YoutubeStatus {
   const snap = playerClients().snapshot();
   const fails = (h: Array<"ok" | "ng"> | undefined) => (h || []).filter((x) => x === "ng").length;
   return {

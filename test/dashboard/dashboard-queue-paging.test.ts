@@ -17,16 +17,12 @@ after(() => store.close());
 import express from "express";
 import type { Server } from "node:http";
 import type { Player } from "../../src/player/player.ts";
-import type { playerState, queueTrack } from "../../src/dashboard/player-view.ts";
+import { QUEUE_PAGE as PAGE, type PlayerRead as PlayerReply, type QueuePage as QueueReply } from "../../src/dashboard/contract/player.ts";
 import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 
-type PlayerReply = ReturnType<typeof playerState>;
-type QueueReply = { items: ReturnType<typeof queueTrack>[]; total: number };
-
 const GUILD_ID = "100";
 const QUEUE_LEN = 257;
-const PAGE = 100; // guilds.ts QUEUE_PAGE
 
 function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };

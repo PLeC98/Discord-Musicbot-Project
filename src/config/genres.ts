@@ -4,6 +4,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 import * as sources from "./schema/genre-sources.ts";
+import { usable } from "./source-keys.ts";
 import { load } from "./yaml-store.ts";
 import { genreProblems } from "./schema/genres.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
@@ -120,7 +121,7 @@ function missingKeys(name: string, genre: Genre) {
   const missing: string[] = [];
   let alive = 0;
   for (const source of list) {
-    if (sources.usable(source?.type)) {
+    if (usable(source?.type)) {
       alive++;
       continue;
     }

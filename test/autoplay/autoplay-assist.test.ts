@@ -21,7 +21,7 @@ import { prepare } from "../../src/autoplay/filter.ts";
 import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
 import { parse as parseYaml } from "yaml";
-import type { PromptSection } from "../../src/config/ai.ts";
+import type { PromptSection } from "../../src/config/schema/ai-prompt.ts";
 
 // 보낸 요청. 우리 코드는 본문을 글로, 헤더를 객체로 보낸다
 type SentInit = { method?: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal };

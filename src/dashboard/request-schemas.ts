@@ -4,9 +4,9 @@
 
 import { z } from "zod";
 import { MAX_COUNT } from "../rules/more-choices.ts";
-import { QUEUE_WINDOW_MAX } from "./player-view.ts";
+import { QUEUE_WINDOW_MAX } from "./contract/player.ts";
 import { isCode, type Code } from "../rules/problems.ts";
-import type { FieldProblem } from "./problem.ts";
+import type { FieldProblem } from "./contract/problem.ts";
 
 // 칸의 자리를 JSON Pointer 로(빈 자리는 본문 전체)
 const pointerOf = (path: PropertyKey[]) => path.map((key) => `/${String(key).replaceAll("~", "~0").replaceAll("/", "~1")}`).join("");

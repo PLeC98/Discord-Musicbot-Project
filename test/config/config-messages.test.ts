@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import * as genreConfig from "../../src/config/genres.ts";
 import * as statusConfig from "../../src/config/status.ts";
 import * as aiConfig from "../../src/config/ai.ts";
+import { promptProblems } from "../../src/config/schema/ai-prompt.ts";
 import * as yamlStore from "../../src/config/yaml-store.ts";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import { PROVIDERS } from "../../src/autoplay/assist/index.ts";
@@ -388,7 +389,7 @@ test("장르 검사: 장르가 25개를 넘는다(디스코드 선택 메뉴 한
 for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input), want));
 for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(statusConfig.validateStatus(input), want));
 for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
-for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(aiConfig.promptProblems(input, on), want));
+for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(promptProblems(input, on), want));
 
 // ── 던지나 경고하나: 부르는 쪽이 정한다 ────────────────────────────────
 

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { problemDetails, problemNotice, problemText, setReportUrl } from "../../../dashboard/src/utils/problem.js";
-import { problemBody } from "../../../src/dashboard/problem.ts";
+import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 
 const failed = (data: unknown) => ({ response: { data } });
 

@@ -3,6 +3,7 @@ import fs from "fs";
 import pkg from "../../package.json" with { type: "json" };
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { LEVEL_NAMES } from "../infra/log/levels.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
@@ -296,8 +297,6 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
   return { config, problems, warnings };
 }
 
-const LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
-
 // 대시보드 · 캐시 · SponsorBlock · 음성 상태 · 스트림 · 로그. 한 함수가 너무 길어 나눴다
 function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
@@ -366,10 +365,10 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
     logging: {
       // 무엇을 기록할 것인가 (터미널·파일·대시보드 전부의 상한).
       // 조사용 로그를 지우지 않고 debug로 내려둔 뒤, 필요할 때만 이걸 낮춰 되살린다.
-      level: envEnum("LOG_LEVEL", "info", LEVELS),
+      level: envEnum("LOG_LEVEL", "info", LEVEL_NAMES),
       // 그중 터미널에 찍을 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
       // 파일·대시보드는 debug를 받고 터미널만 조용하다.
-      consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVELS]),
+      consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVEL_NAMES]),
       // 기본은 끔. 모든 운영자가 파일 로그를 원하지는 않는다. 필요한 사람이 켠다.
       fileEnabled: env("LOG_FILE_ENABLED", "false") === "true",
       file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),

@@ -18,8 +18,9 @@ import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
 import { errorKind, messageOf } from "../../rules/error-kind.ts";
 import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
-import type { PromptSection } from "../../config/ai.ts";
-import type { ModelField } from "../../config/ai-models.ts";
+import type { PromptSection } from "../../config/schema/ai-prompt.ts";
+import type { AiDefaults, AiSettings, Body, Judged, JudgeResult, ListFormat, ModelsCheck, PingCheck, Preview, TestCandidate, TokenCount, Usage, Wire } from "./types.ts";
+import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 
 // 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
@@ -28,41 +29,7 @@ function useFetch(fake: typeof fetch | null) {
   send = fake ?? fetch;
 }
 
-/** 후보 목록 한 줄을 어떻게 적을지(ai.yaml 의 list) */
-type ListFormat = { unknownDuration?: string; unknownText?: string; lineFormat?: string };
-/**
- * ai.yaml 한 벌. 저장된 것이거나 대시보드의 초안이다. 여기서 읽는 칸만.
- * 수 칸은 글자일 수 있어 쓰는 자리에서 Number 로 바꾼다
- */
-type AiSettings = {
-  provider?: string;
-  model?: string;
-  baseUrl?: string;
-  project?: string;
-  location?: string;
-  timeoutMs: number | string;
-  batchSize: number | string;
-  skipConfident: boolean;
-  retries: number | string;
-  totalTimeoutMs: number | string;
-  retryTimeouts: boolean;
-  retryDelayMs: number | string;
-  retryDelayMaxMs: number | string;
-  retryStatus: number[];
-  extra?: string;
-  hideModels?: unknown;
-  list?: ListFormat;
-  /** 모델마다 고른 값 */
-  params?: Record<string, Record<string, unknown>>;
-  prompt?: PromptSection[];
-};
 type Draft = Partial<AiSettings> | null | undefined;
-/** 판정할 후보. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 */
-type Judged = { title?: string | null; durationSec?: number | null; duration?: number | null };
-/** 판정 시험용 후보. 못 읽었으면 error */
-type TestCandidate = Judged & { url?: string; thumbnail?: string | null; channel?: string | null; error?: string };
-type Wire = { role: string; content: string };
-type Body = Record<string, unknown>;
 type Extra = { body: Body; headers: Record<string, string>; drop: string[]; dropHeaders: string[]; problems: string[] };
 type Verdict = { song: boolean; fits: boolean };
 /**
@@ -77,7 +44,6 @@ const retriesIn = (about: About) => (about.pick?.failed ? 0 : undefined);
 const failedIn = (about: About) => {
   if (about.pick) about.pick.failed = true;
 };
-type Usage = { input: number; output: number | null; thoughts: number | null };
 // 저쪽 응답에서 읽는 칸. 규격마다 다른 이름을 한 모양에 모았다. 검사하지 않으므로 모두 없을 수 있다
 type Reply = {
   choices?: Array<{ message?: { content?: string } }>;
@@ -148,7 +114,7 @@ const DEFAULTS = {
   retryDelayMs: 1000,
   retryDelayMaxMs: 16000,
   retryStatus: [408, 409, 429, 500, 502, 503, 504, 529],
-};
+} satisfies AiDefaults;
 
 /**
  * 기본값 위에 설정을 차례로 얹는다. 기본값이 있는 칸을 비워 두면(null · "") 앞의 값을 쓴다.
@@ -608,7 +574,7 @@ const usable = (field: ModelField, value: unknown) => {
  * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
  * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
  */
-async function countTokens(one: AiSettings, messages: Wire[]) {
+async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCount | null> {
   try {
     const spec = specOf(one.provider);
     const by = tokens.tokenizerFor(spec?.registry, one.model);
@@ -929,7 +895,7 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
  * 모델 목록만 받아 온다(`GET {baseUrl}/models`). 추론을 안 돌리므로 토큰이 안 든다.
  * 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있고, 받아 온 목록은 화면의 모델 칸을 채우는 데도 쓴다.
  */
-async function listModels(draft: Draft) {
+async function listModels(draft: Draft): Promise<ModelsCheck> {
   const one = withDefaults(draft);
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
 
@@ -999,7 +965,7 @@ const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주�
  * 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고, 모델이 헛소리를 했을 때
  * "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
  */
-async function ping(draft: Draft) {
+async function ping(draft: Draft): Promise<PingCheck> {
   const one = withDefaults(draft);
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
   if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
@@ -1038,7 +1004,7 @@ const SAMPLE: TestCandidate[] = [{ title: "System Of A Down - Toxicity (Official
  *
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
-async function preview(draft: Draft, genre = "록") {
+async function preview(draft: Draft, genre = "록"): Promise<Preview> {
   const one = withDefaults(draft);
   const request = await buildRequest(one, SAMPLE, genre, { live: false });
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
@@ -1096,21 +1062,6 @@ function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "�
  * 고른 후보들을 실제로 판정시킨다. SAMPLE 이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
-/** 판정 시험의 답. 나간 것 · 온 것 · 곡별 판정 */
-type JudgeResult = {
-  url: string;
-  headers: Record<string, string>;
-  body: Body;
-  messages: Array<Wire & { at: number }>;
-  tokens: Awaited<ReturnType<typeof countTokens>>;
-  problems: string[];
-  status: number | null;
-  response: string;
-  verdicts: Array<{ title?: string | null; url?: string; song: boolean | null; fits: boolean | null }> | null;
-  usage?: Usage | null;
-  tookMs?: number;
-};
-
 async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록"): Promise<JudgeResult> {
   const one = withDefaults(draft);
   // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
@@ -1181,4 +1132,4 @@ function mask(text: unknown): string {
 }
 
 export { DEFAULTS, filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
-export type { AiSettings, Judged, TestCandidate, AiPick };
+export type { AiPick };

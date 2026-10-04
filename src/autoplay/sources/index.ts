@@ -14,7 +14,8 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { SPEC, usable, needsOf, opts, type Field } from "../../config/schema/genre-sources.ts";
+import { SPEC, needsOf, opts, type Field, type SourceTypeView } from "../../config/schema/genre-sources.ts";
+import { usable } from "../../config/source-keys.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -91,7 +92,7 @@ function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | nul
   return {};
 }
 
-async function catalog() {
+async function catalog(): Promise<SourceTypeView[]> {
   // 나란히 부른다. 한쪽이 느리다고 다른 쪽을 기다릴 이유가 없다.
   const [years, anisong] = await Promise.all([animeYearRange(), anisongCatalog()]);
   return TYPES.map((type) => {

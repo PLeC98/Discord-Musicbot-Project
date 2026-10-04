@@ -1,6 +1,5 @@
 // 장르 설정(genres.yaml)의 소스 줄 규격. 종류마다 칸 · 값 목록 · 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
 
-import config from "../index.ts";
 import type { Window } from "../../rules/window-depth.ts";
 
 // 곡 DB 셋. 같은 소프트웨어라 부르는 법이 같다
@@ -27,7 +26,22 @@ type Field = {
   suggest?: "tags" | "artists";
 };
 /** 소스 한 종류의 규격(아래 SPEC 의 설명) */
-type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; has?: () => boolean; fields: Field[]; window?: Window };
+type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; fields: Field[]; window?: Window };
+
+/**
+ * 편집기가 그릴 소스 한 종류(/api/admin/source-types). 규격에 지금 쓸 수 있는지와 저쪽에 물어 채운 값을 더한다.
+ * either 는 "둘 중 하나는 적어야 하는" 칸 묶음, 칸의 histogram 은 슬라이더 옆에 그릴 분포
+ */
+type SourceTypeView = {
+  type: string;
+  label: string;
+  hint: string;
+  usable: boolean;
+  needs: string | null;
+  either: string[][];
+  fields: Array<Field & { required: boolean; histogram?: number[] }>;
+  window: Window | null;
+};
 
 // VocaDB 계열은 깊은 곳을 저쪽이 못 준다(실측은 sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 고른다
 const VOCA_WINDOW: Window = { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 };
@@ -243,7 +257,6 @@ const SPEC: Record<string, SourceSpec> = {
     hint: "태그로 곡 이름을 받아 유튜브에서 찾습니다.",
     need: [["tags"]],
     env: "LASTFM_API_KEY",
-    has: () => !!config.sources?.lastfmKey,
     fields: [f("tags", "list", "태그", { hint: "태그마다 품질 편차가 큽니다. 관련 태그를 여럿 적는 것이 좋습니다" }), f("pages", "number", "가져 올 페이지 수", { deep: true, min: 1, hint: "기본 5" })],
   },
   lbradio: {
@@ -252,7 +265,6 @@ const SPEC: Record<string, SourceSpec> = {
     need: [["tags", "prompt"]],
     enums: { mode: LB_MODES },
     env: "LISTENBRAINZ_TOKEN",
-    has: () => !!config.sources?.listenbrainzToken,
     fields: [f("tags", "list", "태그", { hint: "MusicBrainz 공식 장르명" }), f("mode", "enumList", "모드", { options: opts(LB_MODES), hint: "easy가 마이너한 곡을, hard가 유명한 곡을 줍니다. 여럿 고르면 섞습니다" }), f("prompt", "text", "프롬프트 직접 작성", { deep: true, hint: "예) tag:(jazz,funk)::or, artist:(Miles Davis)" })],
   },
   animethemes: {
@@ -349,12 +361,11 @@ const SPEC: Record<string, SourceSpec> = {
 };
 
 /** 이 타입을 지금 쓸 수 있나. 키가 필요한 소스는 키가 있어야 한다. */
-const usable = (type: string): boolean => (SPEC[type] ? !SPEC[type].has || SPEC[type].has() : false);
 
 /** 이 타입이 무엇을 필요로 하는지(없으면 null). 기동 시 문구를 만들 때 쓴다. */
 const needsOf = (type: string): { env: string; label: string } | null => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);
 
 const TYPES = Object.keys(SPEC);
 
-export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW };
-export type { Site, Option, FieldKind, Field, SourceSpec, Window };
+export { SPEC, TYPES, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW };
+export type { Site, Option, FieldKind, Field, SourceSpec, SourceTypeView, Window };

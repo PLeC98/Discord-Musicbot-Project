@@ -7,14 +7,13 @@
 import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
+import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
 const FILE = path.join(PROJECT.data, "ai-models.json");
 
 // 레지스트리의 모양. 여기서 읽는 칸만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
-// showIf: 다른 칸(key)이 이 값(equals)일 때만 보인다
-type ShowIf = { key?: string; equals?: unknown };
 type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: ShowIf; order?: number };
 type UiGroup = { id: string; label?: string; labelI18n?: { ko?: string }; order?: number };
 type UiSchema = { fields?: UiField[]; groups?: UiGroup[] };
@@ -35,24 +34,6 @@ type Profile = {
 type Snapshot = { fetchedAt?: string; hash?: string; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
 /** 목차(index.json). 버전마다 해시와 파일 위치 */
 type RegistryIndex = { hash?: string; baseProviders?: Array<{ id: string; url: string }>; profiles?: Array<{ id: string; url: string }> };
-
-/** 모델이 받는 칸 하나. 대시보드가 그리고 본문에 넣는다 */
-type ModelField = {
-  key: string;
-  path: string;
-  type?: string;
-  label?: string;
-  enum?: Array<{ value: unknown; label: string }>;
-  min?: number;
-  max?: number;
-  step?: number;
-  default?: unknown;
-  widget?: string;
-  group?: string;
-  visibility?: string;
-  showIf?: ShowIf;
-  order?: number;
-};
 
 // 목록의 값 하나. 값만 적거나 { value, label } 로 적는다
 function optionOf(e: unknown) {
@@ -86,8 +67,8 @@ function load({ reload = false } = {}): Snapshot {
 }
 
 /** 프로바이더 하나가 아는 모델들. 프로필 id 는 `<registry>:<이름>` 이다. */
-function modelsOf(registry: string, snapshot: Snapshot = load()) {
-  const out = [];
+function modelsOf(registry: string, snapshot: Snapshot = load()): ModelSummary[] {
+  const out: ModelSummary[] = [];
   for (const [id, profile] of Object.entries(snapshot.profiles || {})) {
     if (String(id).split(":")[0] !== registry) continue;
     out.push({
@@ -146,11 +127,11 @@ function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()
 }
 
 /** 칸을 담는 묶음. 이름과 차례를 프로필이 정한다. 칸 이름은 영어뿐이고 묶음에만 한국어가 있다. */
-function groupsOf(registry: string, modelId: string, snapshot: Snapshot = load()) {
+function groupsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelGroup[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
   const base = baseOf(snapshot, found.profile);
-  const by = new Map<string, { id: string; label: string; order: number }>();
+  const by = new Map<string, ModelGroup>();
   for (const g of [...(base?.uiSchema?.groups || []), ...(found.profile.uiSchema?.groups || [])]) {
     by.set(g.id, { id: g.id, label: g.labelI18n?.ko || g.label || g.id, order: g.order ?? 99 });
   }
@@ -197,7 +178,7 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
  * 받아서 파일에 쓴다. 해시가 같으면 받지 않는다.
  * 대시보드 갱신 버튼과 `pnpm run update:models` 가 이 길을 같이 쓴다.
  */
-async function refresh({ registries, force = false, timeoutMs = 30000 }: { registries: string[]; force?: boolean; timeoutMs?: number }) {
+async function refresh({ registries, force = false, timeoutMs = 30000 }: { registries: string[]; force?: boolean; timeoutMs?: number }): Promise<RefreshResult> {
   const held = load();
   const index = (await (await fetch(`${RAW}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })).json()) as RegistryIndex;
   if (!force && index.hash && index.hash === held.hash) {
@@ -215,4 +196,4 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
 }
 
 export { RAW, FILE, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas, lostShape };
-export type { Snapshot, Profile, ModelField };
+export type { Snapshot, Profile };
