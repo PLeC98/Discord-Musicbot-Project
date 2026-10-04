@@ -6,6 +6,11 @@
     <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">다시 로그인</BaseButton>
     <BaseButton v-else variant="ghost" size="sm" :disabled="checking" @click="retry">다시 시도</BaseButton>
   </div>
+  <!-- 실시간 연결만 끊겼다. 요청은 되므로 조작은 그대로 쓰고, 화면은 30초마다 다시 읽는다 -->
+  <div v-else-if="session.streamDown" role="status" class="pointer-events-auto flex gap-2.5 items-center rounded-xl px-3.5 py-2 text-[0.8rem] bg-[rgba(12,16,36,0.92)] backdrop-blur-xl border border-warning/35 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
+    <Icon name="spinner" :size="14" class="shrink-0 text-warning animate-spin" />
+    <span class="flex-1 min-w-0 text-fg-soft">실시간 갱신을 다시 잇는 중이에요.</span>
+  </div>
 
   <Teleport to="body">
     <div v-if="session.ended && showDialog" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-400 p-4" @click.self="showDialog = false">

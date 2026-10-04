@@ -228,10 +228,10 @@
 <script setup>
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { problemText } from "../utils/problem.js";
-import { session, live } from "../composables/session.js";
+import { useGuildsStore, onGuildNudge } from "../stores/guilds.js";
 import { notifyProblem } from "../composables/toasts.js";
 import { LIMIT } from "../utils/request.js";
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
@@ -283,9 +283,7 @@ const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 const isDragging = ref(false);
 
-let timer = null;
 let progressTimer = null;
-let eventSource = null;
 let nudgeTimer = null;
 const localTime = ref(0);
 const progressBarRef = ref(null);
@@ -705,54 +703,18 @@ function platformColor(p) {
   return PLATFORM_COLORS[p] || "#8b93a7";
 }
 
-// SSE. 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.
-// 폴링은 SSE가 끊겼을 때만 도는 진짜 폴백(기존엔 SSE 정상 여부와 무관하게 30초마다 /player를 무조건 호출).
-function startFallback() {
-  if (!timer) timer = setInterval(refresh, 30000);
-}
-function stopFallback() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
-}
-function openEvents() {
-  if (eventSource) return;
-  eventSource = new EventSource(`/api/guilds/${guildId}/player/events`, { withCredentials: true });
-  eventSource.onopen = () => {
-    if (timer) refresh(); // 끊긴 동안 놓친 변화 재동기화 후 폴백 중지
-    stopFallback();
-  };
-  eventSource.onmessage = () => {
-    clearTimeout(nudgeTimer);
-    nudgeTimer = setTimeout(refresh, 600); // 연달아 조작하면 넛지도 연달아 온다. 합쳐서 한 번만 다시 읽는다
-  };
-  eventSource.onerror = () => startFallback(); // SSE 끊김 → 폴백 폴링 시작 (재연결 시 onopen에서 중지)
-}
-function closeEvents() {
-  if (eventSource) {
-    eventSource.close();
-    eventSource = null;
-  }
-  stopFallback();
-  clearTimeout(nudgeTimer);
-}
-
-let visHandler = null;
-let stopSessionWatch = null;
+// 실시간 신호는 탭의 목록 연결 하나에서 받는다(stores/guilds). 이 서버의 신호 · 어느 서버인지 모르는 신호(끊긴 뒤 따라잡기 · 끊긴 동안의 주기 읽기)면 다시 읽는다.
+// 연달아 조작하면 신호도 연달아 온다. 합쳐서 한 번만 다시 읽는다
+const guilds = useGuildsStore();
+let offNudge = null;
 onMounted(() => {
   refresh();
-  // 탭이 숨거나 세션이 끝나면 SSE·폴링을 모두 접고, 다시 보이거나 다시 로그인하면 재개 + 즉시 동기화
-  visHandler = () => {
-    if (!live()) closeEvents();
-    else {
-      refresh();
-      openEvents();
-    }
-  };
-  document.addEventListener("visibilitychange", visHandler);
-  stopSessionWatch = watch(() => session.ended, visHandler);
-  if (live()) openEvents();
+  guilds.subscribe();
+  offNudge = onGuildNudge((changed) => {
+    if (changed && changed !== guildId) return;
+    clearTimeout(nudgeTimer);
+    nudgeTimer = setTimeout(refresh, 600);
+  });
   // 로컬 진행바 틱(네트워크 아님). 넛지/refresh가 currentTime을 서버 기준으로 재동기화
   progressTimer = setInterval(() => {
     const track = player.value.currentTrack;
@@ -766,16 +728,9 @@ onMounted(() => {
   }, 1000);
 });
 onUnmounted(() => {
-  if (visHandler) {
-    document.removeEventListener("visibilitychange", visHandler);
-    visHandler = null;
-  }
-  stopSessionWatch?.();
-  clearInterval(timer);
-  timer = null;
+  offNudge?.();
+  guilds.unsubscribe();
   clearInterval(progressTimer);
-  if (eventSource) eventSource.close();
-  eventSource = null;
   clearTimeout(nudgeTimer);
   document.removeEventListener("mousemove", onScrubMove);
   document.removeEventListener("mouseup", onScrubEnd);

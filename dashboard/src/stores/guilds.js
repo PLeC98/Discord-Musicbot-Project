@@ -2,27 +2,31 @@ import { defineStore } from "pinia";
 import axios from "axios";
 import { watch } from "vue";
 import { session, live } from "../composables/session.js";
+import { eventLink } from "../utils/event-link.js";
 
-// SSE/타이머 핸들은 반응성이 필요 없으므로 모듈 스코프에 둔다
-let subscribers = 0;
-
-// 이 연결 하나로 사용자의 모든 상호 서버를 받는다. 세션당 SSE 연결 캡(기본 5)이 있어
-// 다른 화면이 자기 연결을 새로 열면 안 되므로, 넛지를 나눠 쓸 수 있게 열어둔다.
-// 핸들러는 변화가 일어난 guildId를 받는다.
+// 탭 하나에 실시간 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
+// 서버 목록 · 사이드바 · 재생 바 · 서버 화면이 같이 쓴다(연결 상한이 사용자당이라 화면마다 열면 넘친다).
+// 받는 쪽은 바뀐 서버 ID 를 받는다. null 이면 어느 서버인지 모른다(끊긴 동안 놓쳤을 수 있다): 전부 다시 읽는다
 const nudgeHandlers = new Set();
 
 export function onGuildNudge(fn) {
   nudgeHandlers.add(fn);
   return () => nudgeHandlers.delete(fn);
 }
-let timer = null;
-let eventSource = null;
+const nudgeAll = (guildId) => nudgeHandlers.forEach((fn) => fn(guildId));
+
+// 연결 · 타이머 핸들은 반응성이 필요 없으므로 모듈 스코프에 둔다
+let subscribers = 0;
+let link = null;
+let fallbackTimer = null;
 let nudgeTimer = null;
 let visHandler = null;
 let stopSessionWatch = null;
+let missed = false; // 열리지 않은 동안이 있었다. 다시 열리면 놓친 변화를 따라잡는다
 
-// 상호(유저∩봇) 서버 목록. 사이드바와 서버 목록 화면(ServersView)이 공유.
-// 구독 카운팅으로 SSE·폴링을 단일화: 첫 구독자가 연결을 열고, 마지막 구독자가 닫는다.
+const FALLBACK_MS = 30_000;
+
+// 상호(유저∩봇) 서버 목록. 구독 카운팅으로 연결을 하나로: 첫 구독자가 열고, 마지막 구독자가 닫는다.
 export const useGuildsStore = defineStore("guilds", {
   state: () => ({
     guilds: [],
@@ -34,88 +38,92 @@ export const useGuildsStore = defineStore("guilds", {
         const res = await axios.get("/api/guilds");
         this.guilds = res.data.guilds;
       } catch {
-        // 일시적 오류는 무시. 다음 폴링/넛지에서 회복
+        // 지금 목록을 둔다. 까닭은 띠(연결 안 됨 · 세션 끝)가 알리고, 다음 신호 · 주기 읽기에서 회복
       } finally {
         this.loading = false;
       }
     },
 
-    // 재생 상태는 이벤트성 → SSE 넛지로 즉시 갱신(사용자 단위 멀티플렉스).
-    // 목록 구성(어느 서버냐)은 드무니 느린 폴백 폴링으로.
     subscribe() {
       if (++subscribers > 1) return;
       this.refresh();
 
-      // 폴링은 SSE가 끊겼을 때만 도는 진짜 폴백. (기존엔 SSE 정상 여부와 무관하게
-      // 30초마다 /api/guilds를 무조건 호출해 요청이 쌓였음)
+      // 열리지 않은 동안만 30초마다 전부 다시 읽는다
       const startFallback = () => {
-        if (!timer) timer = setInterval(() => this.refresh(), 30000);
+        fallbackTimer ??= setInterval(() => {
+          this.refresh();
+          nudgeAll(null);
+        }, FALLBACK_MS);
       };
       const stopFallback = () => {
-        if (timer) {
-          clearInterval(timer);
-          timer = null;
-        }
+        clearInterval(fallbackTimer);
+        fallbackTimer = null;
       };
 
-      const openStream = () => {
-        if (eventSource) return;
-        eventSource = new EventSource("/api/guilds/events", { withCredentials: true });
-        eventSource.onopen = () => {
-          if (timer) this.refresh(); // 끊긴 동안 놓친 변화 재동기화 후 폴백 중지
-          stopFallback();
-        };
-        eventSource.onmessage = (e) => {
-          // 페이로드: {"t":"changed","g":"<guildId>"}. 구독자별로 관심 서버가 다르므로 그대로 넘긴다
-          let guildId = null;
-          try {
-            guildId = JSON.parse(e.data)?.g ?? null;
-          } catch {
-            // 형식이 바뀌었더라도 "뭔가 바뀜"이라는 신호는 살린다
+      link = eventLink({
+        url: "/api/guilds/events",
+        open: (url) => new EventSource(url, { withCredentials: true }),
+        check: async () => (await axios.get("/api/me")).status === 200,
+        events: {
+          message: (e) => {
+            // 페이로드: {"t":"changed","g":"<guildId>"}
+            let guildId = null;
+            try {
+              guildId = JSON.parse(e.data)?.g ?? null;
+            } catch {
+              // 형식이 바뀌었더라도 "뭔가 바뀜"이라는 신호는 살린다
+            }
+            nudgeAll(guildId);
+            clearTimeout(nudgeTimer);
+            nudgeTimer = setTimeout(() => this.refresh(), 150);
+          },
+        },
+        onState: (state) => {
+          session.streamDown = state !== "open";
+          if (state !== "open") {
+            missed = true;
+            startFallback();
+            return;
           }
-          for (const fn of nudgeHandlers) fn(guildId);
+          stopFallback();
+          if (missed) {
+            missed = false;
+            this.refresh();
+            nudgeAll(null);
+          }
+        },
+      });
 
-          clearTimeout(nudgeTimer);
-          nudgeTimer = setTimeout(() => this.refresh(), 150);
-        };
-        eventSource.onerror = () => startFallback(); // SSE 끊김 → 폴백 폴링 시작 (재연결 시 onopen에서 중지)
-      };
-      const closeStream = () => {
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
+      // 탭이 숨거나 세션이 끝나면 접는다(끝난 세션으로 401 을 거듭 받지 않게). 다시 보이거나 다시 로그인하면 열고 따라잡는다
+      visHandler = () => {
+        if (live()) {
+          link.start();
+          return;
         }
+        link.stop();
         stopFallback();
         clearTimeout(nudgeTimer);
-      };
-
-      // 탭이 숨거나 세션이 끝나면 SSE·폴링을 모두 접는다(끝난 세션으로 30초마다 401 을 받지 않게).
-      // 다시 보이거나 다시 로그인하면 재개 + 즉시 동기화
-      visHandler = () => {
-        if (!live()) closeStream();
-        else {
-          this.refresh();
-          openStream();
-        }
+        session.streamDown = false;
+        missed = true;
       };
       document.addEventListener("visibilitychange", visHandler);
       stopSessionWatch = watch(() => session.ended, visHandler);
-      if (live()) openStream(); // 숨겨진 채 마운트되면 visibilitychange가 이후 처리
+      missed = false;
+      if (live()) link.start();
     },
 
     unsubscribe() {
       if (--subscribers > 0) return;
-      if (visHandler) {
-        document.removeEventListener("visibilitychange", visHandler);
-        visHandler = null;
-      }
+      document.removeEventListener("visibilitychange", visHandler);
+      visHandler = null;
       stopSessionWatch?.();
       stopSessionWatch = null;
-      clearInterval(timer);
-      timer = null; // startFallback의 !timer 가드가 다음 구독에서 정상 동작하도록 초기화
+      link?.stop();
+      link = null;
+      clearInterval(fallbackTimer);
+      fallbackTimer = null;
       clearTimeout(nudgeTimer);
-      if (eventSource) eventSource.close();
-      eventSource = null;
+      session.streamDown = false;
       this.loading = true; // 다음 첫 구독 때 로딩 표시부터 시작
     },
   },

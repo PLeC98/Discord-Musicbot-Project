@@ -346,7 +346,7 @@ import { session, live } from "../composables/session.js";
 import { notifyProblem } from "../composables/toasts.js";
 import { LIMIT } from "../utils/request.js";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import { reopenDelay } from "../utils/reconnect.js";
+import { eventLink } from "../utils/event-link.js";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
@@ -640,12 +640,9 @@ const tagFilter = ref(null);
 const autoScroll = ref(true);
 const sseConnected = ref(false);
 const logPane = ref(null);
-let sse = null;
 // 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
 let lastLogEventId = "";
 let lastLogId = 0;
-let reopenTimer = null;
-let reopenAttempt = 0;
 // 붙을 때 쌓인 줄(최대 500)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 500번 그려 브라우저가 멎는다(약 8초).
 // 한 프레임 동안 모았다가 한 번에 넣는다
 let pendingLogs = [];
@@ -756,47 +753,34 @@ watch(tab, (t) => {
 
 // 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 500줄까지 들고 있다)
 const wantLogs = () => tab.value === "logs" && live();
+// 끊기면 브라우저가 마지막 id 를 실어 다시 붙고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
+const logLink = eventLink({
+  url: () => `/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`,
+  open: (url) => new EventSource(url, { withCredentials: true }),
+  check: async () => (await axios.get("/api/me")).status === 200,
+  onState: (state) => (sseConnected.value = state === "open"),
+  events: {
+    // 봇을 다시 켜 줄 번호가 처음부터다. 지금 목록은 옛 실행의 것이라 비운다
+    reset: () => {
+      logs.value = [];
+      pendingLogs = [];
+      lastLogId = 0;
+    },
+    message: (e) => {
+      const entry = JSON.parse(e.data);
+      lastLogEventId = e.lastEventId || lastLogEventId;
+      if (entry.id <= lastLogId) return; // 이미 받은 줄
+      lastLogId = entry.id;
+      queueLog(entry);
+    },
+  },
+});
 function syncLogs() {
-  if (wantLogs()) openLogs();
+  if (wantLogs()) logLink.start();
   else closeLogs();
 }
-function openLogs() {
-  if (sse || reopenTimer) return;
-  sse = new EventSource(`/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`, { withCredentials: true });
-  sse.onopen = () => {
-    sseConnected.value = true;
-    reopenAttempt = 0;
-  };
-  // 봇을 다시 켜 줄 번호가 처음부터다. 지금 목록은 옛 실행의 것이라 비운다
-  sse.addEventListener("reset", () => {
-    logs.value = [];
-    pendingLogs = [];
-    lastLogId = 0;
-  });
-  sse.onmessage = (e) => {
-    const entry = JSON.parse(e.data);
-    lastLogEventId = e.lastEventId || lastLogEventId;
-    if (entry.id <= lastLogId) return; // 이미 받은 줄
-    lastLogId = entry.id;
-    queueLog(entry);
-  };
-  sse.onerror = () => {
-    sseConnected.value = false;
-    // 200 으로 연 뒤 끊기면 브라우저가 마지막 id 를 실어 스스로 다시 붙는다.
-    // 200 이 아닌 답(상한 · 세션 끝 · 준비 전)이면 닫히고 다시 붙지 않아, 간격을 늘려 가며 화면이 다시 연다
-    if (sse?.readyState !== EventSource.CLOSED) return;
-    sse = null;
-    reopenTimer = setTimeout(() => {
-      reopenTimer = null;
-      if (wantLogs()) openLogs();
-    }, reopenDelay(reopenAttempt++));
-  };
-}
 function closeLogs() {
-  clearTimeout(reopenTimer);
-  reopenTimer = null;
-  if (sse) sse.close();
-  sse = null;
+  logLink.stop();
   sseConnected.value = false;
 }
 

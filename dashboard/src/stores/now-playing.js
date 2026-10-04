@@ -10,8 +10,7 @@ import { notifyProblem } from "../composables/toasts.js";
 // ServerView와 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로(D-4)
 // 같은 서버를 둘이 동시에 조회하는 상황이 생기지 않는다.
 //
-// SSE 연결은 새로 열지 않는다. 세션당 캡(기본 5)이 있어서, 사이드바가 이미 유지 중인
-// 목록 연결의 넛지를 나눠 쓴다(guilds.js onGuildNudge).
+// 실시간 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
 
