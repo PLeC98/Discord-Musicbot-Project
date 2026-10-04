@@ -2,7 +2,8 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW, windowDepth, type Site } from "../../config/schema/genre-sources.ts";
+import { VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW, type Site } from "../../config/schema/genre-sources.ts";
+import { windowDepth } from "../../rules/window-depth.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";

@@ -1,6 +1,7 @@
 // 장르 설정(genres.yaml)의 소스 줄 규격. 종류마다 칸 · 값 목록 · 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
 
 import config from "../index.ts";
+import type { Window } from "../../rules/window-depth.ts";
 
 // 곡 DB 셋. 같은 소프트웨어라 부르는 법이 같다
 type Site = "vocadb" | "utaitedb" | "touhoudb";
@@ -25,19 +26,11 @@ type Field = {
   // list: 치는 동안 사이트에서 후보를 받는다(/api/admin/source-suggest). 아무 말이나 적을 수도 있다
   suggest?: "tags" | "artists";
 };
-/** 곡이 많을 때 고르는 범위. 정렬 순서의 앞 depth 곡에서만 고르고, narrow 의 칸을 채우면 더 앞쪽(narrowDepth)에서 */
-type Window = { depth: number; narrow: string[]; narrowDepth: number };
 /** 소스 한 종류의 규격(아래 SPEC 의 설명) */
 type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; has?: () => boolean; fields: Field[]; window?: Window };
 
 // VocaDB 계열은 깊은 곳을 저쪽이 못 준다(실측은 sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 고른다
 const VOCA_WINDOW: Window = { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 };
-
-/** 이 설정으로 몇 번째 곡까지 보는지. 화면(SourceEditor)도 같은 셈을 한다 */
-function windowDepth(win: Window, source: Record<string, unknown>) {
-  const filled = (v: unknown) => (Array.isArray(v) ? v : [v]).some((one) => one != null && String(one).trim() !== "");
-  return win.narrow.some((key) => filled(source[key])) ? win.narrowDepth : win.depth;
-}
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
 const ANISONG_SONG_TYPES = ["opening", "ending", "insert"];
@@ -363,5 +356,5 @@ const needsOf = (type: string): { env: string; label: string } | null => (SPEC[t
 
 const TYPES = Object.keys(SPEC);
 
-export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW, windowDepth };
+export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW };
 export type { Site, Option, FieldKind, Field, SourceSpec, Window };

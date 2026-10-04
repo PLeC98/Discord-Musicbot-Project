@@ -20,6 +20,7 @@ import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
 import type { PromptSection } from "../../config/ai.ts";
 import type { ModelField } from "../../config/ai-models.ts";
+import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 
 // 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
 let send: typeof fetch = fetch;
@@ -541,7 +542,7 @@ const DIALECTS: Record<string, Dialect> = {
    * 인증도 API 키가 아니라 서비스 계정에서 받은 액세스 토큰이다(googleAuth).
    */
   vertex: {
-    chatUrl: (one) => `${vertexBase(one)}/publishers/google/models/${one.model || ""}:generateContent`,
+    chatUrl: (one) => vertexChatUrl(one, vertexProject(one), one.model || ""),
     // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트·리전이 붙지 않는 쪽이라
     // 생성 주소를 그대로 쓰면 404 다. API 버전이 갈려 있어 차례로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
@@ -564,15 +565,9 @@ const DIALECTS: Record<string, Dialect> = {
   },
 };
 
-// 리전이 global 이면 호스트도 다르다(지역 호스트로 부르면 404 다)
-const vertexLocation = (one: AiSettings) => String(one?.location || "").trim() || "global";
-const vertexHost = (one: AiSettings) => (vertexLocation(one) === "global" ? "aiplatform.googleapis.com" : `${vertexLocation(one)}-aiplatform.googleapis.com`);
-
-function vertexBase(one: AiSettings) {
-  const location = vertexLocation(one);
-  const project = String(one?.project || "").trim() || googleAuth.projectOf(aiConfig.aiKeyOf(one?.provider ?? ""), yamlStore.configDir());
-  return `https://${vertexHost(one)}/v1/projects/${project}/locations/${location}`;
-}
+// 주소 조립은 rules/vertex-url(대시보드가 보여 주는 주소와 같은 규칙). 프로젝트는 설정에 없으면 서비스 계정 키에서
+const vertexProject = (one: AiSettings) => String(one?.project || "").trim() || googleAuth.projectOf(aiConfig.aiKeyOf(one?.provider ?? ""), yamlStore.configDir());
+const vertexBase = (one: AiSettings) => vertexBaseOf(one, vertexProject(one));
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MAX_TOKENS = 1024;
