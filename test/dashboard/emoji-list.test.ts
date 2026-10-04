@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "path";
 import YAML from "yaml";
 
-const LIST = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "emojiList.js");
+const LIST = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "emoji-list.js");
 // 화면 쪽 모듈이라 타입이 없다. 시험이 읽는 칸만 적는다
 type Emoji = { char: string; label?: string; search: string };
 type EmojiGroup = { name: string; emoji: Emoji[] };

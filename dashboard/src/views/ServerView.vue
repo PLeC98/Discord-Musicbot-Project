@@ -236,7 +236,7 @@ import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
 import PlaylistMore from "../components/PlaylistMore.vue";
 import VolumeIcon from "../components/VolumeIcon.vue";
-import { useVolumeControl } from "../composables/volumeControl.js";
+import { useVolumeControl } from "../composables/volume-control.js";
 import { fmtTime } from "../utils/time.js";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
@@ -367,7 +367,7 @@ async function action(type) {
   }
 }
 
-// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volumeControl)
+// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
 const {
   shown: volumeShown,
   input: volumeInput,

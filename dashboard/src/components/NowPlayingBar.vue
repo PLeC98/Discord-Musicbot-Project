@@ -64,13 +64,13 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import Icon from "./BaseIcon.vue";
 import VolumeIcon from "./VolumeIcon.vue";
-import { useVolumeControl } from "../composables/volumeControl.js";
+import { useVolumeControl } from "../composables/volume-control.js";
 import TrackArt from "./TrackArt.vue";
-import { useNowPlayingStore } from "../stores/nowPlaying.js";
+import { useNowPlayingStore } from "../stores/now-playing.js";
 import { fmtTime } from "../utils/time.js";
 
 const np = useNowPlayingStore();
-// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volumeControl)
+// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
 const {
   shown: volumeShown,
   input: volumeInput,

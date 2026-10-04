@@ -73,7 +73,7 @@ import Icon from "./BaseIcon.vue";
 import GuildAvatar from "./GuildAvatar.vue";
 import AccountMenu from "./AccountMenu.vue";
 import { useGuildsStore } from "../stores/guilds.js";
-import { sidebarCollapsed as collapsed, drawerOpen, closeDrawer, toggleSidebar } from "../composables/sidebarState.js";
+import { sidebarCollapsed as collapsed, drawerOpen, closeDrawer, toggleSidebar } from "../composables/sidebar-state.js";
 
 const store = useGuildsStore();
 const route = useRoute();

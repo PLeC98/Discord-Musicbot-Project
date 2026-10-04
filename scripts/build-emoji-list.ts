@@ -23,7 +23,7 @@ import { PROJECT } from "../src/infra/project-paths.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
-const OUT = path.join(PROJECT.root, "dashboard", "src", "emojiList.js");
+const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.js");
 
 // 받아 오는 것의 모양. 여기서 읽는 칸만 본다
 const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });

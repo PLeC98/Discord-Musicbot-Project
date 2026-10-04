@@ -98,7 +98,7 @@ import Icon from "./BaseIcon.vue";
 import SaveDock from "./SaveDock.vue";
 import MessageList from "./StatusMessageList.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, specialFoldId } from "../composables/configFolds";
+import { isFolded, toggleFold, specialFoldId } from "../composables/config-folds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";

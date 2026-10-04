@@ -7,7 +7,7 @@
 
   MultiSelect 와 나누지 않은 이유: 고른 값의 모양(하나 vs 여럿), 고르면 닫는가,
   체크박스가 있는가가 전부 다르다. 합치면 분기가 본문보다 길어진다.
-  공통인 것은 자리 잡기뿐이고 그것은 이미 anchoredPanel 로 나뉘어 있다.
+  공통인 것은 자리 잡기뿐이고 그것은 이미 anchored-panel 로 나뉘어 있다.
 -->
 <template>
   <div ref="root" class="relative">
@@ -37,7 +37,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onBeforeUnmount, watch } from "vue";
-import { useAnchoredPanel } from "../composables/anchoredPanel";
+import { useAnchoredPanel } from "../composables/anchored-panel";
 
 const props = defineProps({
   modelValue: { type: [String, Number], default: "" },

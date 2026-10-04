@@ -89,7 +89,7 @@ import MultiSelect from "./MultiSelect.vue";
 import SingleSelect from "./SingleSelect.vue";
 import TagPicker from "./TagPicker.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen } from "../composables/configFolds";
+import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen } from "../composables/config-folds";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },

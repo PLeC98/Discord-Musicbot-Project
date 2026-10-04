@@ -104,7 +104,7 @@ import SourceEditor from "./SourceEditor.vue";
 import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
-import { isFolded, toggleFold, genreFoldId } from "../composables/configFolds";
+import { isFolded, toggleFold, genreFoldId } from "../composables/config-folds";
 import { toRows, toMap, newRow } from "../utils/genre-rows.js";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";

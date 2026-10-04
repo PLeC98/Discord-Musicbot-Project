@@ -43,8 +43,8 @@ import Icon from "./components/BaseIcon.vue";
 import { useUserStore } from "./stores/user.js";
 import ServerSidebar from "./components/ServerSidebar.vue";
 import NowPlayingBar from "./components/NowPlayingBar.vue";
-import { useNowPlayingStore } from "./stores/nowPlaying.js";
-import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebarState.js";
+import { useNowPlayingStore } from "./stores/now-playing.js";
+import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebar-state.js";
 
 const user = useUserStore();
 const nowPlaying = useNowPlayingStore();

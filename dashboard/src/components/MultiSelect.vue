@@ -30,7 +30,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onBeforeUnmount, watch } from "vue";
-import { useAnchoredPanel } from "../composables/anchoredPanel";
+import { useAnchoredPanel } from "../composables/anchored-panel";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },

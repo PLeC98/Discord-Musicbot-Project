@@ -32,7 +32,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import Icon from "./BaseIcon.vue";
-import { useAnchoredPanel } from "../composables/anchoredPanel";
+import { useAnchoredPanel } from "../composables/anchored-panel";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },

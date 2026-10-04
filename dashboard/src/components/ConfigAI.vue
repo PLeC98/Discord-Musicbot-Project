@@ -494,7 +494,7 @@ import Icon from "./BaseIcon.vue";
 import NumberInput from "./NumberInput.vue";
 import ChipInput from "./ChipInput.vue";
 import SaveDock from "./SaveDock.vue";
-import { isFolded, toggleFold, promptFoldId } from "../composables/configFolds";
+import { isFolded, toggleFold, promptFoldId } from "../composables/config-folds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const selectCls = "appearance-none cursor-pointer pr-9!";
