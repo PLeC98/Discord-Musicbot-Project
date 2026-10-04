@@ -4,10 +4,9 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import type { PlayerStream } from "../player-stream.ts";
 import { isOwner } from "../owner.ts";
-import { openGuild } from "../guild-access.ts";
 import { sendProblem } from "../problem.ts";
 
-// 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.
+// 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
 // req.params는 스택이 풀리면 복원되므로, 요청 시작 시점의 라우터-상대 URL 첫 세그먼트(=guildId)를
 // 클로저로 잡아 finish에서 사용. (디스코드 쪽 · 내부 변화는 player/events 의 touched 가 알린다)
 function nudgeAfterChange(stream: PlayerStream) {
@@ -28,7 +27,7 @@ function nudgeAfterChange(stream: PlayerStream) {
 function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
   const router = express.Router();
 
-  // SSE. 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(볼 수 있는 서버 전체를 한 연결로).
+  // SSE. 화면의 탭 하나가 여는 연결. 사용자 단위 멀티플렉스(볼 수 있는 서버 전체를 한 연결로).
   // 볼 수 있는가는 보낼 때 멤버 캐시로 본다(동기여야 한다. 권한 · 서버 목록과 같은 기댐). 그래서 열 때 봇이 든 서버마다
   // 그 사람을 한 번 가져와 캐시를 채운다(캐시 우선, 없으면 REST). 운영자는 봇이 든 서버 전부
   router.get("/events", requireAuth, async (req, res) => {
@@ -39,14 +38,7 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
     const owner = isOwner(req);
     if (!owner) await Promise.all([...client.guilds.cache.values()].map((guild) => guild.members.fetch(user.id).catch(() => null)));
     const canSee = (guildId: string) => owner || Boolean(client.guilds.cache.get(guildId)?.members.cache.has(user.id));
-    stream.addListClient(res, canSee, user.id);
-  });
-
-  // SSE. 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
-  router.get("/:guildId/player/events", requireAuth, async (req, res) => {
-    const ctx = await openGuild(req, res, req.params.guildId); // 비멤버 403 / 봇 미참여 404
-    if (!ctx) return;
-    stream.addClient(req.params.guildId, res, signedIn(req).id);
+    stream.addClient(res, canSee, user.id);
   });
 
   return router;
@@ -54,7 +46,7 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
 
 /**
  * 봇이 새 서버에 들었다. 그때 캐시에는 봇과 음성 채널에 있는 사람만 들어오므로(GUILD_PRESENCES 인텐트가 없다)
- * 목록 연결을 연 사람들을 그 서버에서 한 번씩 가져와 캐시를 채우고, 목록이 다시 읽게 알린다
+ * 연결을 연 사람들을 그 서버에서 한 번씩 가져와 캐시를 채우고, 화면이 다시 읽게 알린다
  */
 async function botJoinedGuild(stream: PlayerStream, guild: { id: string; members: { fetch(id: string): Promise<unknown> } }) {
   await Promise.all([...stream.listUsers()].map((id) => guild.members.fetch(id).catch(() => null)));

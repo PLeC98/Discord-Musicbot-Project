@@ -49,7 +49,11 @@ function makePlayer(state: string, acts: string[]) {
     guild: { id: "g1" },
     sessionId: "S1",
     currentTrack: track("now") as FakeTrack | null,
-    queue: [track("q1"), track("q2")],
+    // 줄 번호는 track-state 가 들일 때 찍는다. 대시보드는 그것으로 가리킨다
+    queue: [
+      { ...track("q1"), entry: 1 },
+      { ...track("q2"), entry: 2 },
+    ],
     previousTracks: [track("p1")],
     loop: false as string | false,
     paused: false,
@@ -207,8 +211,8 @@ const DASHBOARD: Record<string, { method?: string; route: string; body?: object 
   volume: { route: "volume", body: { volume: 50 } },
   loop: { route: "loop", body: { mode: "track" } },
   shuffle: { route: "shuffle" },
-  remove: { method: "DELETE", route: "queue/0" },
-  move: { route: "queue/move", body: { from: 0, to: 1 } },
+  remove: { method: "DELETE", route: "queue/entry/1" },
+  move: { route: "queue/move-entry", body: { entry: 1, before: null } },
 };
 
 // ── 표 ───────────────────────────────────────────────────────────────

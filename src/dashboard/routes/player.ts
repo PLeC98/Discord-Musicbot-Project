@@ -247,20 +247,9 @@ function controlRoutes(router: Router) {
   });
 }
 
-// 대기열 빼기 · 옮기기. 순번 경로(디스코드와 같은 꼴)와 줄 번호 경로
+// 대기열 빼기 · 옮기기. 순번이 아니라 줄 번호로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove · /move 는 지금 본 번호로 보낸다
 function queueEditRoutes(router: Router) {
-  // Remove track from queue  DELETE /:guildId/player/queue/:index. DJ 계층이거나 그 곡의 요청자 본인
-  router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
-    const ctx = await openGuild(req, res, req.params.guildId);
-    if (!ctx) return;
-    const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
-    if (!r.ok) return refuse(res, r);
-    announce(replies.removed(r.left, dashboardActor(req)));
-    res.json(stateAfter(req));
-  });
-
-  // 줄 번호로 빼기. 화면이 오래돼도 그 곡을 뺀다(순번 경로는 디스코드와 같은 /queue/:index)
+  // 줄 번호로 빼기. DJ 계층이거나 그 곡의 요청자 본인
   router.delete("/:guildId/player/queue/entry/:entry", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -281,18 +270,6 @@ function queueEditRoutes(router: Router) {
     if (!body.ok) return sendProblem(res, body.code);
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.moveEntry(ctx.player, ctx.actor, body.value.entry, body.value.before);
-    if (!r.ok) return refuse(res, r);
-    // 사람은 1부터 센다
-    announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
-    res.json(stateAfter(req));
-  });
-
-  // Move track in queue  { from: number, to: number }
-  router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
-    const ctx = await openGuild(req, res, req.params.guildId);
-    if (!ctx) return;
-    const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.move(ctx.player, ctx.actor, toInt(req.body?.from), toInt(req.body?.to));
     if (!r.ok) return refuse(res, r);
     // 사람은 1부터 센다
     announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));

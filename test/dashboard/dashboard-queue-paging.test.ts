@@ -35,7 +35,7 @@ function makeTrack(title: string) {
 function makePlayer() {
   return fakePlayer({
     currentTrack: makeTrack("현재곡"),
-    queue: Array.from({ length: QUEUE_LEN }, (_, i) => makeTrack(`q${i}`)),
+    queue: Array.from({ length: QUEUE_LEN }, (_, i) => Object.defineProperty(makeTrack(`q${i}`), "entry", { value: i + 1, enumerable: false })),
     previousTracks: [],
     getCurrentTime: () => 0,
     removeFromQueue(i: number) {
@@ -97,7 +97,7 @@ test("?queue=n이면 펼쳐 둔 만큼 돌려준다 — 조작 응답도 같다"
   const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=150`);
   assert.equal(json.queue.length, 150);
 
-  const removed = await get(`/api/guilds/${GUILD_ID}/player/queue/0?queue=150`, "DELETE");
+  const removed = await get(`/api/guilds/${GUILD_ID}/player/queue/entry/1?queue=150`, "DELETE");
   assert.equal(removed.status, 200);
   assert.equal(removed.json.queue.length, 150, "조작 응답이 첫 묶음으로 접히면 화면이 되감긴다");
   assert.equal(removed.json.queueTotal, QUEUE_LEN - 1);

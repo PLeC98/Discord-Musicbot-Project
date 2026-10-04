@@ -46,7 +46,7 @@ const client = {
 const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string }> = [];
 const nudged: string[] = [];
 const stream = fake<PlayerStream>({
-  addListClient: (res: Response, canSee: (guildId: string) => boolean, userId: string) => {
+  addClient: (res: Response, canSee: (guildId: string) => boolean, userId: string) => {
     subscribed.push({ canSee, userId });
     res.end();
   },

@@ -55,6 +55,9 @@ function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
 }
 
+// 줄 번호가 찍힌 곡(track-state 가 들일 때처럼 열거되지 않는 칸)
+const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
+
 function makePlayer() {
   return fakePlayer({
     bindChannels: RealPlayer.prototype.bindChannels,
@@ -62,7 +65,7 @@ function makePlayer() {
     restoreSettings: RealPlayer.prototype.restoreSettings,
     calls: [] as unknown[][],
     currentTrack: makeTrack("현재곡"),
-    queue: [makeTrack("q0"), makeTrack("q1"), makeTrack("q2")],
+    queue: [entered("q0", 1), entered("q1", 2), entered("q2", 3)],
     previousTracks: [],
     volume: 50,
     loop: false,
@@ -194,25 +197,12 @@ test("volume: '50junk'/소수는 400 — 구 parseInt는 50으로 통과", async
   assert.deepEqual(player.calls, [["setVolume", 70]]);
 });
 
-test("queue delete/move: '1junk'·소수 인덱스는 400, 정수만 통과", async () => {
+test("순번으로 빼기 · 옮기기 경로는 없다(줄 번호 경로만)", async () => {
   freshPlayer();
-  const junkDelete = await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1junk`);
-  assert.equal(junkDelete.status, 400);
-
-  const junkMove = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: "0junk", to: 1 });
-  assert.equal(junkMove.status, 400);
-  const floatMove = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0.5, to: 1 });
-  assert.equal(floatMove.status, 400);
+  assert.equal((await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1`)).status, 404);
+  assert.equal((await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 })).status, 404);
+  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/player/events`)).status, 404, "서버 하나 연결도 없다(목록 연결 하나)");
   assert.equal(player.calls.length, 0);
-
-  const okMove = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 });
-  assert.equal(okMove.status, 200);
-  const okDelete = await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1`);
-  assert.equal(okDelete.status, 200);
-  assert.deepEqual(player.calls, [
-    ["moveInQueue", 0, 2],
-    ["removeFromQueue", 1],
-  ]);
 });
 
 test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면으로 알린다. 누가 했나는 (대시보드)", async () => {
@@ -220,14 +210,14 @@ test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면�
   const sent: string[] = [];
   bot.panels = fake<BotContext["panels"]>({ ...panels, panelChannel: async () => ({ send: async (p: { components: Array<{ toJSON(): unknown }> }) => (sent.push(textsOf(p).join("\n")), { id: "m1", delete: async () => {} }) }) });
   try {
-    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 });
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 1, before: null });
     assert.equal(r.status, 200);
     await new Promise(setImmediate);
     assert.equal(sent.length, 1);
     assert.match(sent[0], /^### 🔀 곡의 순서를 옮겼어요\n\*\*\[q0\]/);
     assert.match(sent[0], /📍 기존 순번: 1번째\n📍 현재 순번: 3번째\n-# 👤 변경한 사람 <@owner> \(대시보드\)$/, "사람은 1부터 센다");
 
-    const refused = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 0 });
+    const refused = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 1, before: 2 });
     assert.notEqual(refused.status, 200);
     await new Promise(setImmediate);
     assert.equal(sent.length, 1, "거절한 조작은 알리지 않는다");
@@ -288,8 +278,8 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 차례가 오른
     ["POST", "volume", { volume: 60 }],
     ["POST", "loop", { mode: "track" }],
     ["POST", "shuffle"],
-    ["POST", "queue/move", { from: 0, to: 1 }],
-    ["DELETE", "queue/0"],
+    ["POST", "queue/move-entry", { entry: 1, before: null }],
+    ["DELETE", "queue/entry/1"],
     ["POST", "stop"],
   ];
   const seen: State[] = [];
@@ -307,7 +297,6 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 차례가 오른
 });
 
 // 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 칸과 같게)
-const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 
@@ -405,7 +394,7 @@ test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨�
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
-    await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/0`);
+    await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/1`);
     await new Promise((done) => setTimeout(done, VOLUME_SETTLE_MS + 50));
   } finally {
     off();
@@ -419,7 +408,7 @@ test("본문 없는 요청은 400 으로 답한다(본문을 읽다 던지지 �
     ["seek", "bad-time"],
     ["volume", "bad-volume"],
     ["loop", "bad-loop-mode"],
-    ["queue/move", "bad-position"],
+    ["queue/move-entry", "bad-request"],
   ]) {
     freshPlayer();
     const r = await fetch(`${base}/api/guilds/${GUILD_ID}/player/${action}`, { method: "POST", signal: AbortSignal.timeout(3000) });
