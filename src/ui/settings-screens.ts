@@ -4,6 +4,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, StringSelectMenuBuilder } from "discord.js";
 import { frame } from "./frame.ts";
 import * as settingsText from "./text/ko/settings.ts";
+import { DJ_ROLE_MAX } from "../rules/limits.ts";
 
 /** 머리 줄과 본문 */
 type Card = { title: string; description: string };
@@ -25,7 +26,7 @@ const { save, cancel } = settingsText.buttons();
 /** DJ 역할 고르기 화면. roleIds 는 지금 DJ 역할(서버에 남아 있는 것), 메뉴의 기본값이 된다. 받는 쪽은 src/discord/interactions/dj-role-config-handler */
 function djRoleMenu(roleIds: string[]) {
   const t = settingsText.djRoleMenu(roleIds);
-  const select = new RoleSelectMenuBuilder().setCustomId("djrole:select").setPlaceholder(t.placeholder).setMinValues(0).setMaxValues(25);
+  const select = new RoleSelectMenuBuilder().setCustomId("djrole:select").setPlaceholder(t.placeholder).setMinValues(0).setMaxValues(DJ_ROLE_MAX);
   if (roleIds.length) select.setDefaultRoles(roleIds);
   return shown(t)
     .addActionRowComponents(new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(select))

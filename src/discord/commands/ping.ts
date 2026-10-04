@@ -3,6 +3,10 @@ import type { AnywhereCommand } from "../../app/command-loader.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as infoText from "../../ui/text/ko/info.ts";
 import { LIFETIME, expireSelf } from "../../ui/delivery.ts";
+import { latencyGrade, type LatencyGrade } from "../../rules/latency.ts";
+
+// 응답 시간 등급의 표시
+const MARK: Record<LatencyGrade, string> = { good: "🟢", fair: "🟡", poor: "🔴" };
 
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "moderator" },
@@ -18,8 +22,8 @@ const exported: AnywhereCommand = {
     const wsLatency = Math.round(interaction.client.ws.ping);
     const wsReady = wsLatency >= 0;
 
-    const botStatus = botLatency < 100 ? "🟢" : botLatency < 300 ? "🟡" : "🔴";
-    const wsStatus = !wsReady ? "⚪" : wsLatency < 100 ? "🟢" : wsLatency < 300 ? "🟡" : "🔴";
+    const botStatus = MARK[latencyGrade(botLatency)];
+    const wsStatus = !wsReady ? "⚪" : MARK[latencyGrade(wsLatency)];
 
     const t = infoText.ping({ botMark: botStatus, botMs: botLatency, apiMark: wsStatus, apiMs: wsReady ? wsLatency : null });
     const embed = new EmbedBuilder()

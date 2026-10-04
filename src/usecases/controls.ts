@@ -12,6 +12,7 @@ import * as perm from "./permissions.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { VOLUME_MAX } from "../rules/limits.ts";
 import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/player.ts";
@@ -161,12 +162,12 @@ async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = 
   return seek(player, actor, Math.max(0, Math.floor(at * 1000)), { ...opts, reason: "highlight" });
 }
 
-/** 음량(0 ~ 100 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번, 그때 바뀌었으면 settled(처음 값, 마지막 값)도 */
+/** 음량(0 ~ VOLUME_MAX 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번, 그때 바뀌었으면 settled(처음 값, 마지막 값)도 */
 async function volume(player: MaybePlayer, actor: Actor, level: unknown, { settled }: { settled?: Settled } = {}) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
-  if (!isIndex(level, 101)) return fail("bad-volume");
+  if (!isIndex(level, VOLUME_MAX + 1)) return fail("bad-volume");
   const before = player.volume;
   const applied = player.setVolume(level) ?? level;
   settleVolume(player, before, settled);

@@ -23,6 +23,7 @@ import type { Player } from "../../player/player.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf } from "../../ui/delivery.ts";
+import { VOLUME_MAX } from "../../rules/limits.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -93,7 +94,7 @@ async function handleVolumeModal(interaction: Press) {
 /** 음량을 적는 모달. 받는 쪽은 modalHandler 의 음량 처리 */
 function volumeModal() {
   const t = controlText.volumeModal();
-  const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(3).setPlaceholder("50").setRequired(true);
+  const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 

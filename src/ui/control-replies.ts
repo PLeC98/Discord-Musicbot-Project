@@ -97,7 +97,7 @@ function moved(track: Track, from: number, to: number, by: Actor) {
   return frame({ title: t.title, body: t.body, footer: [`${t.by} ${by}`], divider: true });
 }
 
-/** 음량. before · level 은 0~100 */
+/** 음량. before · level 은 0 ~ VOLUME_MAX(rules/limits) */
 function volumeSet(before: number, level: number, by: Actor) {
   const t = controlText.volumeSet(before, level);
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });

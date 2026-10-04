@@ -15,6 +15,7 @@ import { openGuild } from "../guild-access.ts";
 import { parse, settingsBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
+import { DJ_ROLE_MAX } from "../../rules/limits.ts";
 import type { GuildSettings, Saved } from "../contract/guilds.ts";
 
 /** 검사를 지난 본문. 칸마다 undefined 는 변경 없음 */
@@ -34,8 +35,8 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
 
   if (djRoleIds !== undefined) {
     plan.roles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
-    // 디스코드 /setdjrole GUI(셀렉트 메뉴 최대 25개)와 정합 유지
-    if (plan.roles.length > 25) return { refused: { code: "too-many-dj-roles", max: 25 } };
+    // 디스코드 /setdjrole 의 역할 선택 메뉴와 같은 상한
+    if (plan.roles.length > DJ_ROLE_MAX) return { refused: { code: "too-many-dj-roles", max: DJ_ROLE_MAX } };
   }
 
   if (botChannelId === null || botChannelId === "") plan.channel = null;

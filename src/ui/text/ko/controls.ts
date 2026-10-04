@@ -73,7 +73,7 @@ const loopSet = (mode: string | false) => {
   return { title: `${emoji} 반복 모드를 바꿨어요!`, body: message };
 };
 
-/** 음량. before · level 은 0~100 */
+/** 음량. before · level 은 0 ~ VOLUME_MAX(rules/limits) */
 const volumeSet = (before: number, level: number) => ({ title: "🔊 볼륨을 조절했어요!", body: before === level ? `볼륨이 이미 ${level}%라서 그대로 둘게요.` : `**${before}%** → **${level}%**` });
 /** 음량 입력 창 */
 const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" });

@@ -1,5 +1,6 @@
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
+import { VOLUME_MAX } from "../rules/limits.ts";
 const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = logger.child({ category: "watchdog" });
@@ -792,9 +793,9 @@ class Player {
 
   setVolume(volume: number) {
     // 조작 로그는 부르는 쪽(usecases/controls)이 잇단 변경을 모아 한 줄로 남긴다
-    this.volume = Math.max(0, Math.min(100, volume));
+    this.volume = Math.max(0, Math.min(VOLUME_MAX, volume));
     if (this.resource && this.resource.volume) {
-      this.resource.volume.setVolume(this.volume / 100);
+      this.resource.volume.setVolume(this.volume / 100); // 퍼센트 → 배율
     }
     this.settingsSink?.onSettingsChanged();
     return this.volume;
