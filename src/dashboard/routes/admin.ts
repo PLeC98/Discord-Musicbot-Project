@@ -48,12 +48,7 @@ function botStatus(client: Client, uptime: number) {
     guilds: client.guilds.cache.size,
     ping: client.ws.ping,
     status: client.ws.status,
-    uptime: {
-      days: Math.floor(uptime / 86400),
-      hours: Math.floor((uptime % 86400) / 3600),
-      minutes: Math.floor((uptime % 3600) / 60),
-      seconds: Math.floor(uptime % 60),
-    },
+    uptime: Math.floor(uptime),
   };
 }
 

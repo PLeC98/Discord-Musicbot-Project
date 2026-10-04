@@ -160,10 +160,11 @@ test("requireOwner: 구버전 세션의 isAdmin=true는 인가에 쓰이지 않�
 // ── 상태 / 서버 목록 ─────────────────────────────────────────
 
 test("GET status: 봇/노드/시스템 상태 형태", async () => {
-  const r = await req<{ bot: { tag: string; guilds: number }; activePlayers: number; node: { version: string }; system: { cpus: number }; logLevel: string }>("GET", "/api/admin/status");
+  const r = await req<{ bot: { tag: string; guilds: number; uptime: number }; activePlayers: number; node: { version: string }; system: { cpus: number }; logLevel: string }>("GET", "/api/admin/status");
   assert.equal(r.status, 200);
   assert.equal(r.json.bot.tag, "TestBot#1");
   assert.equal(r.json.bot.guilds, 3);
+  assert.ok(Number.isInteger(r.json.bot.uptime), "업타임은 초(화면이 /system 과 같은 말로 바꾼다)");
   assert.equal(r.json.activePlayers, 1);
   assert.equal(typeof r.json.node.version, "string");
   assert.equal(typeof r.json.system.cpus, "number");

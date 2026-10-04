@@ -364,6 +364,7 @@ import { insertAt, caretOf } from "../utils/caret.ts";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
 import type { Caret } from "../utils/caret.ts";
 import { latencyGrade, type LatencyGrade } from "../../../src/rules/latency.ts";
+import { formatSpan } from "../../../src/ui/format.ts";
 import { LEVELS, KEPT_LINES, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
 import { ANNOUNCE_MAX, announceBody, type AdminGuilds, type AdminStatus, type AnnounceKind, type BroadcastReply, type RedeployReply, type ResetReply } from "../../../src/dashboard/contract/admin.ts";
 import type { Tier } from "../../../src/dashboard/contract/identity.ts";
@@ -460,7 +461,7 @@ function resultMsg(ok: boolean) {
 const loading = ref(true);
 // 처음 받기 전의 모양
 const s = ref<AdminStatus>({
-  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: { days: 0, hours: 0, minutes: 0, seconds: 0 } },
+  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: 0 },
   node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, rss: 0 } },
   system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
   activePlayers: 0,
@@ -529,27 +530,15 @@ function procAgeClass(ms: number) {
   return "text-muted";
 }
 
-function fmtAge(ms: number) {
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}초`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}분 ${sec % 60}초`;
-  return `${Math.floor(min / 60)}시간 ${min % 60}분`;
-}
+// 길이 말은 /system 과 같다(ui/format)
+const SPAN = { withSeconds: true };
+const fmtAge = (ms: number) => formatSpan(ms / 1000, SPAN);
 
 // 핑 색. 기준은 /ping 과 같다(rules/latency)
 const PING_CLASS: Record<LatencyGrade, string> = { good: "text-success", fair: "text-warning", poor: "text-danger" };
 const pingClass = (ms: number) => PING_CLASS[latencyGrade(ms)];
 
-const uptimeStr = computed(() => {
-  const u = s.value.bot.uptime;
-  const parts: string[] = [];
-  if (u.days) parts.push(`${u.days}일`);
-  if (u.hours) parts.push(`${u.hours}시간`);
-  if (u.minutes) parts.push(`${u.minutes}분`);
-  parts.push(`${u.seconds}초`);
-  return parts.join(" ");
-});
+const uptimeStr = computed(() => formatSpan(s.value.bot.uptime, SPAN));
 
 async function fetchStatus() {
   try {

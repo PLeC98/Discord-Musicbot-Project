@@ -7,9 +7,9 @@ import type { ModelField, ModelGroup, ModelSummary } from "../../config/ai-model
 import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
 
-/** 봇 · Node · 시스템 상태. 메모리는 MB, uptime 은 봇이 켜진 뒤의 시간. logLevel 은 서버가 보내고 있는 가장 낮은 레벨 */
+/** 봇 · Node · 시스템 상태. 메모리는 MB, uptime 은 봇이 켜진 뒤의 초. logLevel 은 서버가 보내고 있는 가장 낮은 레벨 */
 type AdminStatus = {
-  bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: { days: number; hours: number; minutes: number; seconds: number } };
+  bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number };
   node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; rss: number } };
   system: { cpus: number; totalMem: number; freeMem: number; loadAvg: number[] };
   activePlayers: number;

@@ -89,7 +89,7 @@ const genres = z.preprocess(
 );
 
 /** 파일의 defaults 에 칸이 없을 때 봇이 쓰는 값. 길이 상한(maxDurationSec)은 비우면 없다. 대시보드도 비운 칸에 이 값을 보인다 */
-const GENRE_DEFAULTS = { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null } as const;
+const GENRE_DEFAULTS = { prefetchCount: 1, minDurationSec: 60, maxDurationSec: null } as const;
 
 const defaults = z.preprocess(
   plain,
@@ -101,7 +101,11 @@ const defaults = z.preprocess(
       blockedKeywords: present(Array.isArray, "blockedKeywords는 목록으로 적어야 합니다."),
     })
     .superRefine((d, ctx) => {
-      if (d.minDurationSec != null && d.maxDurationSec != null && Number(d.minDurationSec) > Number(d.maxDurationSec)) ctx.addIssue({ code: "custom", message: "minDurationSec이 maxDurationSec보다 큽니다." });
+      if (d.maxDurationSec == null) return;
+      const min = d.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
+      if (Number(min) <= Number(d.maxDurationSec)) return;
+      const message = d.minDurationSec == null ? `maxDurationSec(${d.maxDurationSec})이 비운 minDurationSec의 기본값(${min})보다 작습니다.` : "minDurationSec이 maxDurationSec보다 큽니다.";
+      ctx.addIssue({ code: "custom", message });
     }, ALWAYS),
 );
 
@@ -113,7 +117,7 @@ const genresFile = z.preprocess(
     for (const [id, genre] of Object.entries(plain(file.genres))) {
       const own = plain(genre);
       if (own.minDurationSec == null && own.maxDurationSec == null) continue;
-      const min = own.minDurationSec ?? base.minDurationSec;
+      const min = own.minDurationSec ?? base.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       const max = own.maxDurationSec ?? base.maxDurationSec;
       if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${min})이 maxDurationSec(${max})보다 큽니다.` });
     }

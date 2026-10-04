@@ -12,11 +12,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label class="block">
           <span :class="labelCls">대기열에 준비해 둘 곡 수(전역만)</span>
-          <NumberInput v-model="draft.defaults.prefetchCount" :class="inputCls" />
+          <NumberInput v-model="draft.defaults.prefetchCount" :placeholder="`비우면 ${GENRE_DEFAULTS.prefetchCount}`" :class="inputCls" />
         </label>
         <label class="block">
           <span :class="labelCls">최소 길이(초)</span>
-          <NumberInput v-model="draft.defaults.minDurationSec" :class="inputCls" />
+          <NumberInput v-model="draft.defaults.minDurationSec" :placeholder="`비우면 ${GENRE_DEFAULTS.minDurationSec}`" :class="inputCls" />
         </label>
         <label class="block">
           <span :class="labelCls">최대 길이(초)</span>
@@ -85,7 +85,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
               <span :class="labelCls">최소 길이(초)</span>
-              <NumberInput v-model="row.minDurationSec" :placeholder="`전역 ${draft.defaults.minDurationSec ?? 0}`" :class="inputCls" />
+              <NumberInput v-model="row.minDurationSec" :placeholder="`전역 ${draft.defaults.minDurationSec ?? GENRE_DEFAULTS.minDurationSec}`" :class="inputCls" />
             </label>
             <label class="block">
               <span :class="labelCls">최대 길이(초)</span>

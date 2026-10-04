@@ -22,17 +22,22 @@ function formatMs(ms: number) {
 }
 
 /**
- * 길이를 말로. "3일 4시간 5분" · "4시간 5분" · "5분".
- * days: 하루가 넘으면 일로 묶는다(끄면 시간이 24를 넘는다). withSeconds: 하루가 안 되면 초까지 붙인다
+ * 길이를 말로. "3일 4시간 5분" · "1시간 5분" · "45초". 0인 단위는 빼고, 다 0이면 가장 작은 단위로 "0분" · "0초".
+ * days: 하루가 넘으면 일로 묶는다(끄면 시간이 24를 넘는다). withSeconds: 하루가 안 되면 초까지 본다
  */
 function formatSpan(seconds: number, { days = true, withSeconds = false }: { days?: boolean; withSeconds?: boolean } = {}) {
-  const d = days ? Math.floor(seconds / 86400) : 0;
-  const h = Math.floor((seconds - d * 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}일 ${h}시간 ${m}분`;
-  const tail = withSeconds ? ` ${Math.floor(seconds % 60)}초` : "";
-  if (h > 0) return `${h}시간 ${m}분${tail}`;
-  return `${m}분${tail}`;
+  const total = Math.floor(seconds);
+  const d = days ? Math.floor(total / 86400) : 0;
+  const units: Array<[number, string]> = [
+    [d, "일"],
+    [Math.floor((total - d * 86400) / 3600), "시간"],
+    [Math.floor((total % 3600) / 60), "분"],
+  ];
+  const showSeconds = withSeconds && d === 0;
+  if (showSeconds) units.push([total % 60, "초"]);
+  const parts = units.filter(([n]) => n > 0).map(([n, unit]) => `${n}${unit}`);
+  if (parts.length) return parts.join(" ");
+  return showSeconds ? "0초" : "0분";
 }
 
 /** 바이트를 KB · MB · GB 로. gbDigits: GB 의 소수 자릿수 */

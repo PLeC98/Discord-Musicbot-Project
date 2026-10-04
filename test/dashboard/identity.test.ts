@@ -49,6 +49,10 @@ test("/api/me: 로그인 전에는 401, 로그인했으면 그 사람과 운영�
   user = { id: "u2", username: "그림", avatar: "abc" };
   const drawn = await get("/api/me");
   assert.equal(drawn.json.avatarUrl, "https://cdn.discordapp.com/avatars/u2/abc.webp?size=64", "그림 주소는 서버가 만든다");
+
+  user = { id: "u3", username: "움직임", avatar: "a_abc" };
+  const animated = await get("/api/me");
+  assert.equal(animated.json.avatarUrl, "https://cdn.discordapp.com/avatars/u3/a_abc.gif?size=64", "움직이는 그림은 gif 그대로");
 });
 
 test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름 · 그림은 봇이 준비되면", async () => {

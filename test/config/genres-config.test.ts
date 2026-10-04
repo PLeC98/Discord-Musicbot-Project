@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 
 import * as yamlStore from "../../src/config/yaml-store.ts";
 import * as genreConfig from "../../src/config/genres.ts";
+import { GENRE_DEFAULTS } from "../../src/config/schema/genres.ts";
+import YAML from "yaml";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 const write = (name: string, text: string) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
@@ -187,6 +189,21 @@ test("검사: 장르의 실제 길이 범위(기본값 위에 얹은 것)가 뒤
   assert.match(of({ minDurationSec: 900 }), /팝: .*minDurationSec.*900.*maxDurationSec.*600/);
   assert.match(of({ maxDurationSec: 30 }), /팝: .*minDurationSec.*60.*maxDurationSec.*30/);
   assert.equal(of({ minDurationSec: 300 }), "");
+});
+
+// 비운 최소 길이는 기본값(GENRE_DEFAULTS)으로 돈다. 그 값보다 짧은 상한이면 아무 곡도 지나가지 못한다
+test("검사: 최소 길이를 비우면 기본값과 상한을 견준다", () => {
+  const of = (defaults: object, genre: object = {}) => genreConfig.validateGenres({ defaults, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  const min = GENRE_DEFAULTS.minDurationSec;
+  assert.ok(of({ maxDurationSec: 30 }).includes(`maxDurationSec(30)이 비운 minDurationSec의 기본값(${min})보다 작습니다.`));
+  assert.ok(of({}, { maxDurationSec: 30 }).includes(`팝: 이 장르의 minDurationSec(${min})이 maxDurationSec(30)보다 큽니다.`));
+  assert.equal(of({ maxDurationSec: 600 }), "");
+});
+
+// 비운 칸은 손대지 않은 예시 파일과 같게 돈다
+test("기본값은 예시 파일의 defaults 와 같다(상한은 비우면 없다)", () => {
+  const example = YAML.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "config", "genres.example.yaml"), "utf8")) as { defaults: Record<string, unknown> };
+  assert.deepEqual([example.defaults.prefetchCount, example.defaults.minDurationSec], [GENRE_DEFAULTS.prefetchCount, GENRE_DEFAULTS.minDurationSec]);
 });
 
 test("검사: 미리 뽑아 둘 곡 수는 장르마다 둘 수 없다(기본값에만)", () => {
