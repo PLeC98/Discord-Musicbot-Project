@@ -76,6 +76,14 @@ let serial = 0;
 const t = (title = `t${serial++}`): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr: Array<{ title: string | null }>) => arr.map((x) => x.title);
 const memory = (p: Player) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
+// 줄 번호. 저장한 그대로여야 다시 켠 뒤 같은 곡을 가리킨다
+const numbers = (arr: Array<{ entry?: number | null }>) => arr.map((x) => x.entry);
+const memoryNumbers = (p: Player) => ({ current: p.currentTrack?.entry ?? null, queue: numbers(p.queue), history: numbers(p.previousTracks) });
+function storedNumbers(guildId: string) {
+  const s = sessions().load(guildId);
+  if (!s) return { current: null, queue: [], history: [] };
+  return { current: s.current?.entry ?? null, queue: numbers(s.queue), history: numbers(s.history) };
+}
 
 // 세션이 있어야 하는 자리. 없으면 실패
 function loaded(guildId: string) {
@@ -130,6 +138,7 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
   for (let step = 0; step < 1500; step++) {
     (pick(30) === 0 ? rare[pick(rare.length)] : ops[pick(ops.length)])();
     assert.deepEqual(stored(p.guild.id), memory(p), `조작 ${step}번째에서 어긋남`);
+    assert.deepEqual(storedNumbers(p.guild.id), memoryNumbers(p), `조작 ${step}번째에서 줄 번호가 어긋남`);
   }
 });
 
@@ -330,7 +339,7 @@ function makeRestorePlayer(overrides: object = {}) {
 // 세션 표에서 되읽은 것처럼. 곡은 시험이 보는 칸만
 function makeRecord(sessionOverrides: object = {}, current: object | null = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
   return fake<RestoredSession>({
-    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, startOffsetMs: 0, requesterId: null, ...sessionOverrides },
+    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, ...sessionOverrides },
     current,
     queue: [],
     history: [],
@@ -369,6 +378,21 @@ test("복원: 전의 멈춤 사유(혼자 남음 등)는 비운다. 복원한 �
   });
   assert.deepEqual([...p.pauseReasons], []);
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
+});
+
+test("복원: 줄 번호는 저장한 그대로(다시 켜기 전에 화면이 보낸 빼기 · 옮기기도 같은 곡에 닿는다), 열거되지 않는 칸으로", async () => {
+  const record = makeRecord({}, { title: "곡", url: "https://y/1", duration: 100, entry: 41 });
+  Object.assign(record, {
+    queue: [
+      { title: "다음", url: "https://y/2", duration: 100, entry: 42 },
+      { title: "번호 없음", url: "https://y/3", duration: 100, entry: null },
+    ],
+  });
+  const p = await restore(record);
+  assert.equal(p.currentTrack?.entry, 41);
+  assert.equal(p.queue[0].entry, 42);
+  assert.ok(Number.isInteger(p.queue[1].entry) && p.queue[1].entry !== 41 && p.queue[1].entry !== 42, "번호가 없던 곡은 새로 받는다");
+  assert.equal(Object.keys(p.queue[0]).includes("entry"), false, "객체 비교 · JSON 에는 나오지 않는다");
 });
 
 test("복원: 요청자는 id만 되살린다", async () => {

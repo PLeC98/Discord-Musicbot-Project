@@ -13,7 +13,7 @@ const GAP = 1_000_000_000;
 // better-sqlite3는 정수를 JS Number로 준다. 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
 const SEQ_LIMIT = Number.MAX_SAFE_INTEGER - GAP;
 
-const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "added_at"] as const;
+const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry"] as const;
 
 type Slot = "current" | "queue" | "history";
 type LoopMode = "off" | "track" | "queue";
@@ -35,7 +35,8 @@ type TrackIn = {
   live?: boolean | null;
   requestedBy?: { id?: string | null } | null;
   requesterId?: string | null;
-  addedAt?: number | null;
+  /** 대기열 줄 번호(열거되지 않는 칸이라 펼쳐 넘기면 빠진다. 곡 객체를 그대로 넘긴다) */
+  readonly entry?: number;
 };
 
 /** player_sessions 한 줄 */
@@ -48,8 +49,6 @@ type SessionRow = {
   autoplay: string | null;
   paused_manual: number;
   position_ms: number;
-  start_offset_ms: number;
-  requester_id: string | null;
   updated_at: number;
 };
 
@@ -62,8 +61,6 @@ type SessionState = {
   autoplay?: string | null;
   pausedManual?: boolean;
   positionMs?: number;
-  startOffsetMs?: number;
-  requesterId?: string | null;
 };
 
 // 되읽은 트랙 줄. 모양을 보기 전이라 칸은 모른다(슬롯은 표의 CHECK 가 지킨다)
@@ -88,7 +85,7 @@ function toRow(track: TrackIn) {
     platform: orNull(track.platform),
     is_live: track.isLive || track.live ? 1 : 0,
     requester_id: track.requestedBy?.id || orNull(track.requesterId),
-    added_at: track.addedAt || Date.now(),
+    entry: Number.isInteger(track.entry) && (track.entry as number) > 0 ? (track.entry as number) : null,
   };
 }
 
@@ -108,8 +105,8 @@ function fromRow(row: TrackRow) {
     uploader: row.uploader,
     platform: row.platform,
     isLive: Boolean(row.is_live),
-    addedAt: row.added_at,
     requesterId: row.requester_id,
+    entry: row.entry,
   };
 }
 
@@ -122,8 +119,6 @@ function sessionFromRow(row: SessionRow) {
     autoplay: row.autoplay,
     pausedManual: Boolean(row.paused_manual),
     positionMs: row.position_ms,
-    startOffsetMs: row.start_offset_ms,
-    requesterId: row.requester_id,
     updatedAt: row.updated_at,
   };
 }
@@ -135,15 +130,14 @@ function queries(conn: Db) {
     ensure: conn.prepare<[string, number]>("INSERT OR IGNORE INTO player_sessions (guild_id, updated_at) VALUES (?, ?)"),
     upsert: conn.prepare<SessionRow>(`
         INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
-                                     paused_manual, position_ms, start_offset_ms, requester_id, updated_at)
+                                     paused_manual, position_ms, updated_at)
         VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
-                @paused_manual, @position_ms, @start_offset_ms, @requester_id, @updated_at)
+                @paused_manual, @position_ms, @updated_at)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
           volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
-          paused_manual = excluded.paused_manual, position_ms = excluded.position_ms, start_offset_ms = excluded.start_offset_ms,
-          requester_id = excluded.requester_id, updated_at = excluded.updated_at`),
-    position: conn.prepare<[number, number, number, string]>("UPDATE player_sessions SET position_ms = ?, start_offset_ms = ?, updated_at = ? WHERE guild_id = ?"),
+          paused_manual = excluded.paused_manual, position_ms = excluded.position_ms, updated_at = excluded.updated_at`),
+    position: conn.prepare<[number, number, string]>("UPDATE player_sessions SET position_ms = ?, updated_at = ? WHERE guild_id = ?"),
     deleteSession: conn.prepare<[string]>("DELETE FROM player_sessions WHERE guild_id = ?"),
     deleteGuildTracks: conn.prepare<[string]>("DELETE FROM session_tracks WHERE guild_id = ?"),
     insert: conn.prepare<TrackParams & { guild_id: string; slot: Slot; seq: number }>(`INSERT INTO session_tracks (guild_id, slot, seq, ${cols}) VALUES (@guild_id, @slot, @seq, ${params})`),
@@ -232,17 +226,15 @@ class PlayerSessionStore {
       autoplay: s.autoplay || null,
       paused_manual: s.pausedManual ? 1 : 0,
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
-      start_offset_ms: Math.max(0, Math.round(s.startOffsetMs ?? 0)),
-      requester_id: s.requesterId ?? null,
       updated_at: Date.now(),
     });
   }
 
   // 재생 위치만. 활성 플레이어 전부를 한 트랜잭션에
-  savePositions(entries: Array<{ guildId: string; positionMs?: number; startOffsetMs?: number }>) {
+  savePositions(entries: Array<{ guildId: string; positionMs?: number }>) {
     const now = Date.now();
     this._tx(() => {
-      for (const e of entries) this.q.position.run(Math.max(0, Math.round(e.positionMs ?? 0)), Math.max(0, Math.round(e.startOffsetMs ?? 0)), now, e.guildId);
+      for (const e of entries) this.q.position.run(Math.max(0, Math.round(e.positionMs ?? 0)), now, e.guildId);
     });
   }
 

@@ -106,7 +106,6 @@ test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패�
   assert.deepEqual(r, { success: true });
   assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"]]);
   assert.equal(player.currentTrack?.requestedBy, who);
-  assert.equal(typeof player.currentTrack?.addedAt, "number");
 });
 
 test("이미 붙어 있으면 연결하지 않는다", async () => {

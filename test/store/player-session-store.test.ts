@@ -182,7 +182,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 칸 셋과 표시 정보가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 칸 셋과 표시 정보 · 줄 번호가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -198,9 +198,10 @@ test("트랙 필드: 링크 칸 셋과 표시 정보가 저장한 그대로 돌�
     platform: "anisongdb",
     audioSourceKey: "dl:계산하는 값이라 저장하지 않는다",
     live: true,
-    addedAt: 1720000000000,
     requestedBy: { id: "u1", username: "someone" },
   };
+  // 줄 번호는 track-state 가 찍는 열거되지 않는 칸이다
+  Object.defineProperty(track, "entry", { value: 7, enumerable: false });
   store.setCurrent(G, track);
 
   assert.deepEqual(loaded(store).current, {
@@ -217,9 +218,12 @@ test("트랙 필드: 링크 칸 셋과 표시 정보가 저장한 그대로 돌�
     uploader: "채널",
     platform: "anisongdb",
     isLive: true,
-    addedAt: 1720000000000,
     requesterId: "u1",
+    entry: 7,
   });
+  // 번호가 없는 곡(되살린 옛 곡 등)은 빈 칸. 되살릴 때 track-state 가 새로 찍는다
+  store.setCurrent(G, { title: "번호 없음", pageUrl: "https://y/2", requestKey: "https://y/2" });
+  assert.equal(loaded(store).current?.entry, null);
 });
 
 test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
@@ -232,15 +236,12 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
     autoplay: "kpop",
     pausedManual: true,
     positionMs: 12_345.6,
-    startOffsetMs: 1000,
-    requesterId: "u1",
   });
-  store.savePositions([{ guildId: G, positionMs: 99_000, startOffsetMs: 0 }]);
+  store.savePositions([{ guildId: G, positionMs: 99_000 }]);
 
   const { session } = loaded(store);
   assert.equal(session.positionMs, 99_000);
-  assert.equal(session.startOffsetMs, 0);
-  assert.deepEqual({ ...session, positionMs: undefined, startOffsetMs: undefined, updatedAt: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", pausedManual: true, positionMs: undefined, startOffsetMs: undefined, requesterId: "u1", updatedAt: undefined });
+  assert.deepEqual({ ...session, positionMs: undefined, updatedAt: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", pausedManual: true, positionMs: undefined, updatedAt: undefined });
 });
 
 test("반복 모드는 세 값만 받는다", () => {

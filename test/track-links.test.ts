@@ -47,7 +47,7 @@ test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도
   db.pragma("foreign_keys = ON");
   storeDb.createTables(db);
   const store = new PlayerSessionStore(db);
-  store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loopMode: "off", autoplay: "x", pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: "u" });
+  store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loopMode: "off", autoplay: "x", pausedManual: false, positionMs: 0 });
 
   const page = "https://anilist.co/anime/1";
   const toYoutube = { title: "A", artist: "가수", platform: "anisongdb", pageUrl: page, requestKey: "amq:1", audioUrl: watch("v1"), id: "amq:1", addedAt: 1 };

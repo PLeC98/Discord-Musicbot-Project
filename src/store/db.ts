@@ -8,7 +8,7 @@ import { PROJECT } from "../infra/project-paths.ts";
 const DB_PATH = path.join(PROJECT.database, "cache.db");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 type Db = Database.Database;
 
@@ -151,8 +151,6 @@ const SESSION_TABLES = `
     autoplay               TEXT,
     paused_manual          INTEGER NOT NULL DEFAULT 0,
     position_ms            INTEGER NOT NULL DEFAULT 0,
-    start_offset_ms        INTEGER NOT NULL DEFAULT 0,
-    requester_id           TEXT,
     updated_at             INTEGER NOT NULL
   );
 
@@ -173,7 +171,9 @@ const SESSION_TABLES = `
     platform         TEXT,
     is_live          INTEGER NOT NULL DEFAULT 0,
     requester_id     TEXT,
-    added_at         INTEGER NOT NULL,
+    -- 대기열 줄 번호(player/track-state 의 entry). 곡을 가리키는 이름표라 옮겨도 그대로다(seq 는 슬롯 안의 차례라 옮기면 바뀐다).
+    -- 봇을 다시 켜도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 되살릴 때 새로 받는다
+    entry            INTEGER,
     PRIMARY KEY (guild_id, slot, seq)
   );
 `;

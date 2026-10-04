@@ -243,3 +243,12 @@ test("줄 번호: 이미 번호를 가진 곡(저장된 번호로 되살린 곡)
   const p = make({ queue: [kept] });
   assert.equal(p.queue[0].entry, 500);
 });
+
+test("줄 번호: 되살린 번호보다 뒤에서 센다(봇을 다시 켜도 새 곡이 되살린 곡의 번호와 겹치지 않는다)", () => {
+  const p = make();
+  const high = 1_000_000_000;
+  trackState.restore(p, { current: Object.defineProperty(t("되살린 곡"), "entry", { value: high, enumerable: false }) }, { persisted: true });
+  trackState.enqueue(p, [t("새 곡")]);
+  assert.equal(p.currentTrack?.entry, high);
+  assert.ok((p.queue[0].entry ?? 0) > high);
+});

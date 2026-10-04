@@ -478,8 +478,8 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
 });
 
 test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 먼저 답하고, 그 자리를 지우고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
-  sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
-  sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
+  sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
+  sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
 
   const run = async (restore: (this: Player, record: unknown, options?: { announce?: boolean }) => Promise<void>) => {
     h.behavior.restore = restore;

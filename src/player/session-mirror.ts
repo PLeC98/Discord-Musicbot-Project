@@ -31,14 +31,14 @@ const positionSave = repeatingFailure(log, "재생 위치 저장");
 function beat() {
   const store = liveStore();
   if (!store) return;
-  const entries: Array<{ guildId: string; positionMs: number; startOffsetMs: number }> = [];
+  const entries: Array<{ guildId: string; positionMs: number }> = [];
   for (const sp of active) {
     const p = sp.player;
     if (sp.frozen || !p.guild?.id) continue;
     sp.saveRowIfChanged();
     if (!p.currentTrack || p.paused) continue;
     if (sp.dirty) sp.resync(store);
-    entries.push({ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0, startOffsetMs: p.playback?.startOffsetMs || 0 });
+    entries.push({ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0 });
   }
   if (entries.length === 0) return;
   try {
@@ -146,8 +146,8 @@ class SessionPersistence {
       autoplay: p.autoplay || null,
       // 복원하는 건 수동 일시정지뿐이다. 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
+      // 곡 안의 절대 위치(시작 위치를 더한 값)라 되살릴 때 이것만 본다
       positionMs: p.getCurrentTime?.() || 0,
-      startOffsetMs: p.playback?.startOffsetMs || 0,
     };
   }
 
@@ -170,7 +170,7 @@ class SessionPersistence {
 
   // 세션 행에서 위치를 뺀 칸. 위치는 주기 저장이 따로 쓴다
   _rowKey() {
-    const { positionMs: _position, startOffsetMs: _offset, ...row } = this.sessionFields();
+    const { positionMs: _position, ...row } = this.sessionFields();
     return JSON.stringify(row);
   }
 
@@ -232,11 +232,13 @@ class SessionPersistence {
 
   reviveTrack(data: RestoredTrack | null): QueuedTrack | null {
     if (!data) return null;
-    const { requesterId, id, title, duration, platform, artist, album, ...rest } = data;
+    const { requesterId, id, title, duration, platform, artist, album, entry, ...rest } = data;
     // 행은 빈 칸을 null 로 준다. 트랙의 모양으로 맞춘다(없는 칸은 비우고, 꼭 있어야 하는 칸은 빈 값)
     const track: QueuedTrack = { ...rest, id: id ?? undefined, title: title ?? "", duration: duration ?? 0, platform: platform ?? "", artist: artist ?? undefined, album: album ?? undefined };
     // 요청자는 권한 판정과 멘션에 id만 쓰인다
     if (requesterId) track.requestedBy = { id: requesterId };
+    // 줄 번호는 다시 켜기 전과 같게(track-state 가 찍는 것과 같은 열거되지 않는 칸). 없으면 track-state 가 들일 때 새로 찍는다
+    if (entry) Object.defineProperty(track, "entry", { value: entry, enumerable: false });
     return track;
   }
 

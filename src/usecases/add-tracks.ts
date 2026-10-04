@@ -441,7 +441,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
 async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
   const wasPlayingBefore = player.currentTrack !== null;
   const { tracks } = trackData;
-  const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester, addedAt: Date.now() });
+  const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester });
 
   // 쉬던 플레이어면 첫 곡을 틀기 시작하고, 나머지는 대기열에 담는다
   const { start, addition, opened } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);

@@ -27,10 +27,15 @@ const sinkOf = (player: Pick<Tracks, "trackSink">) => player.trackSink;
 
 // 대기열 줄 번호. 곡 객체가 처음 들어올 때 찍는다. 옮기기 · 섞기 · 되감기 · 반복으로 대기열 끝에 돌리기는 같은 객체라 번호가 그대로다.
 // 열거되지 않는 칸이라 복사본({...track})에는 따라가지 않는다. 복사해 넣은 곡은 새 번호를 받아 번호가 겹치지 않는다.
-// 프로세스 안에서만 유일하다(봇을 다시 켜면 처음부터. 화면은 재생 상태의 boot 로 가린다)
+// 세션 저장이 번호를 같이 적고 되살릴 때 그대로 붙여 오므로(store/player-sessions), 이미 번호가 있는 곡을 보면 세는 값을 그 위로 올린다.
+// 그래야 봇을 다시 켜도 같은 곡이 같은 번호이고, 새로 들어오는 곡이 되살린 번호와 겹치지 않는다
 let lastEntry = 0;
 function admit(tracks: Iterable<QueuedTrack | null | undefined>) {
-  for (const track of tracks) if (track && track.entry === undefined) Object.defineProperty(track, "entry", { value: ++lastEntry, enumerable: false });
+  for (const track of tracks) {
+    if (!track) continue;
+    if (track.entry === undefined) Object.defineProperty(track, "entry", { value: ++lastEntry, enumerable: false });
+    else if (track.entry > lastEntry) lastEntry = track.entry;
+  }
 }
 
 function init(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks">) {

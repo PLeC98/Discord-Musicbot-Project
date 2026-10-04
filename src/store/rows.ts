@@ -26,7 +26,7 @@ const SessionTrackRow = z.object({
   platform: maybe(z.string()),
   is_live: z.number().int(),
   requester_id: maybe(z.string()),
-  added_at: z.number(),
+  entry: maybe(z.number().int().positive()),
 });
 
 /** 링크 장부 한 줄 */

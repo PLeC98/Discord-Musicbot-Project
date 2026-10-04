@@ -1133,7 +1133,6 @@ class Player {
       }
 
       picked.requestedBy = this.guild.members.me?.user;
-      picked.addedAt = Date.now();
       picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 가른다
 
       // 어디서 어떻게 왔는지 한 줄. 소스가 여럿이 되면서 "이 곡이 왜 나왔지"를 로그로 되짚을 수
