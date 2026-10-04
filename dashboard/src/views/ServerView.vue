@@ -88,7 +88,7 @@
                       <VolumeIcon :level="volumeShown" :size="17" />
                     </button>
                     <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-44 group-hover/vol:opacity-100 group-focus-within/vol:max-w-44 group-focus-within/vol:opacity-100">
-                      <input type="range" min="0" max="100" step="1" :value="volumeShown" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" class="w-30 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
+                      <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="volumeShown" @input="volumeInput(valueOf($event))" @change="volumeChange(valueOf($event))" class="w-30 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
                       <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ volumeShown }}%</span>
                     </div>
                   </div>
@@ -230,7 +230,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
 import { problemText } from "../utils/problem.ts";
@@ -239,7 +239,10 @@ import { notify, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
 import { accepts, canRemove as removeAllowed, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, retime, skipEnabled } from "../utils/playback.ts";
 import { reordered } from "../utils/reorder.ts";
+import { withReadFields, type PlayerSeen } from "../utils/playback.ts";
+import { valueOf } from "../utils/dom.ts";
 import { useSeekBar } from "../composables/seek-bar.ts";
+import { useBusy } from "../composables/busy.ts";
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
@@ -250,6 +253,10 @@ import PlaylistMore from "../components/PlaylistMore.vue";
 import VolumeIcon from "../components/VolumeIcon.vue";
 import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
+import { VOLUME_MAX } from "../../../src/rules/limits.ts";
+import { isPlatform, type Platform } from "../../../src/rules/platforms.ts";
+import { isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
+import { QUEUE_PAGE, modeOf, type AddReply, type MoreReply, type MoreView, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
 const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
@@ -263,16 +270,16 @@ const iconActive = `${iconBase} text-[#c4b5fd] hover:not-disabled:bg-accent/20 h
 const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer text-[rgba(232,234,246,0.7)] group-hover/vol:text-fg";
 
 const route = useRoute();
-const guildId = route.params.guildId;
+const guildId = String(route.params.guildId);
 const loading = ref(true);
 const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 까닭과 다시 시도를 띄운다
-const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+// 처음 읽기 전의 모양. 봇이 없는 서버와 같다
+const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, canManage: false, userId: "", hasPrevious: false });
 
 // 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
-const QUEUE_PAGE = 100;
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
-const queueBoxRef = ref(null);
+const queueBoxRef = ref<HTMLElement | null>(null);
 // 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다. 안 그러면 목록이 접힌다.
 const qs = () => `?queue=${loadedCount.value}`;
 
@@ -282,47 +289,36 @@ const addError = ref("");
 const addNotice = ref("");
 const addInfo = ref("");
 // 이어 넣을 수 있는 재생목록. 서버가 준 상태를 그대로 되돌려 보낸다
-const more = ref(null);
+const more = ref<MoreView | null>(null);
 const moreBusy = ref(false);
 const queueMax = ref(0);
 const joining = ref(false);
 const showStopConfirm = ref(false);
 
 // 대기열 끌기
-const draggedIndex = ref(null);
-const dragOverIndex = ref(null);
+const draggedIndex = ref<number | null>(null);
+const dragOverIndex = ref<number | null>(null);
 const isDragging = ref(false);
 // 끄는 동안 받은 서버 대기열. 끄는 그 칸만 미루고(다른 칸은 바로 넣는다) 끌기가 끝나면 넣는다
-let heldQueue = null;
+let heldQueue: Pick<PlayerState, "queue" | "queueTotal"> | null = null;
 
 // 진행 시계: 받은 위치 + 지난 시간(utils/playback). 1초마다 now 만 바꾼다
 const clock = ref(clockOf(null, 0));
 const now = ref(Date.now());
-let ticker = null;
-let nudgeTimer = null;
-const progressBarRef = ref(null);
+let ticker: ReturnType<typeof setInterval> | undefined;
+let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
+const progressBarRef = ref<HTMLElement | null>(null);
 
 // 응답을 기다리는 조작(넘기기 · 이전 · 정지 · 섞기 · 빼는 줄 · 옮기기). 그동안 그 버튼을 끈다
-const busy = ref(new Set());
-const isBusy = (key) => busy.value.has(key);
-function setBusy(key, on) {
-  const next = new Set(busy.value);
-  if (on) next.add(key);
-  else next.delete(key);
-  busy.value = next;
-}
+const { isBusy, whileBusy } = useBusy();
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 
-// GET /player 만 싣는 권한 · 음성 칸. 조작 응답(playerState)에는 없어 지금 값을 남긴다
-const EXTRAS = ["botInVoice", "userInVoice", "sameVoice", "hasPlayer", "canControl", "canAdd", "canManage", "userId"];
-
-// 받은 재생 상태를 넣는다. 늦게 온 옛 상태는 버린다(만든 차례). 재생 상태 칸은 통째로 바꾸고(없어진 칸은 없어진다),
-// GET 만 싣는 칸은 응답에 없으면 지금 값을 남긴다. 대기열을 끄는 동안에는 대기열만 미룬다
-function applyState(data) {
+// 받은 재생 상태를 넣는다. 늦게 온 옛 상태는 버린다(만든 차례). 조작 응답에 없는 읽기 전용 칸(권한 · 음성)은 지금 값을 남긴다(utils/playback).
+// 대기열을 끄는 동안에는 대기열만 미룬다
+function applyState(data: PlayerState | PlayerRead) {
   if (!accepts(player.value, data)) return;
-  const extras = Object.fromEntries(EXTRAS.filter((key) => !(key in data)).map((key) => [key, player.value[key]]));
-  let next = { ...extras, ...data };
+  let next = withReadFields(player.value, data);
   if (isDragging.value) {
     heldQueue = { queue: next.queue, queueTotal: next.queueTotal };
     next = { ...next, queue: player.value.queue, queueTotal: player.value.queueTotal };
@@ -342,7 +338,7 @@ async function loadMore() {
   if (loadingMore.value || isDragging.value || player.value.queue.length >= total) return;
   loadingMore.value = true;
   try {
-    const res = await axios.get(`/api/guilds/${guildId}/player/queue`, { params: { offset: player.value.queue.length, limit: QUEUE_PAGE } });
+    const res = await axios.get<QueuePage>(`/api/guilds/${guildId}/player/queue`, { params: { offset: player.value.queue.length, limit: QUEUE_PAGE } });
     // 받는 사이에 큐가 바뀌었을 수 있다. 지금 길이보다 뒤에 있는 것만 이어 붙인다.
     const fresh = (res.data.items || []).filter((t) => t.index >= player.value.queue.length);
     player.value = { ...player.value, queue: [...player.value.queue, ...fresh], queueTotal: res.data.total };
@@ -354,20 +350,20 @@ async function loadMore() {
   }
 }
 
-function onQueueScroll(e) {
-  const el = e.target;
-  if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) loadMore();
+function onQueueScroll(e: Event) {
+  const el = e.target as HTMLElement;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) void loadMore();
 }
 
 // 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다. 카드를 가려 이유를 먼저 보여준다.
 // 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
 const channelLocked = computed(() => !player.value.canControl && player.value.botInVoice && !player.value.sameVoice);
 
-const canRemove = (track) => removeAllowed(player.value, track);
+const canRemove = (track: QueueTrackView) => removeAllowed(player.value, track);
 
 async function refresh() {
   try {
-    const res = await axios.get(`/api/guilds/${guildId}/player${qs()}`);
+    const res = await axios.get<PlayerRead>(`/api/guilds/${guildId}/player${qs()}`);
     // 봇 재적/추가가능 여부가 바뀌면 직전 곡 추가 오류는 더 이상 유효하지 않으므로 정리
     // (봇이 나가 추가 폼이 참가 버튼으로 바뀌는 순간 stale 오류 제거. 새로고침 없이 사라짐)
     if (addError.value && (res.data.botInVoice !== player.value.botInVoice || res.data.canAdd !== player.value.canAdd)) {
@@ -387,25 +383,24 @@ async function refresh() {
 function retryLoad() {
   loading.value = true;
   loadError.value = "";
-  refresh();
+  void refresh();
 }
 
 // ── 조작 ─────────────────────────────────────────────────────────────────
 
 // 응답을 기다리는 조작. 응답의 상태를 넣고, 거절되면 알리고 다시 읽는다
-async function send(key, path, body, fallback) {
-  if (isBusy(key)) return false;
-  setBusy(key, true);
-  try {
-    applyState((await axios.post(`/api/guilds/${guildId}/player/${path}${qs()}`, body)).data);
-    return true;
-  } catch (e) {
-    notifyProblem(e, fallback);
-    refresh();
-    return false;
-  } finally {
-    setBusy(key, false);
-  }
+async function send(key: string, path: string, body: object | undefined, fallback: string): Promise<boolean> {
+  const done = await whileBusy(key, async () => {
+    try {
+      applyState((await axios.post<PlayerState>(`/api/guilds/${guildId}/player/${path}${qs()}`, body)).data);
+      return true;
+    } catch (e) {
+      notifyProblem(e, fallback);
+      void refresh();
+      return false;
+    }
+  });
+  return done === true;
 }
 
 // 넘기기 · 이전은 누른 때의 곡일 때만 하게 줄 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
@@ -420,7 +415,7 @@ function togglePause() {
   const track = player.value.currentTrack;
   clock.value = retime(clock.value, Date.now(), { running: Boolean(track && player.value.playing && !paused) });
   player.value = { ...player.value, paused };
-  send("pause", "pause", undefined, "조작하지 못했어요.");
+  void send("pause", "pause", undefined, "조작하지 못했어요.");
 }
 
 // 반복도 먼저 바꿔 보인다. 다음 모드는 디스코드 반복 버튼과 같은 순환(rules/loop-cycle)이고, 정할 값은 서버가 돌려준 상태가 정한다
@@ -428,7 +423,7 @@ function cycleLoop() {
   if (isBusy("loop")) return;
   const mode = nextLoopMode(player.value.loop ?? false);
   player.value = { ...player.value, loop: mode };
-  send("loop", "loop", { mode: mode === false ? "off" : mode }, "반복 모드를 바꾸지 못했어요.");
+  void send("loop", "loop", { mode: modeOf(mode) }, "반복 모드를 바꾸지 못했어요.");
 }
 
 // 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
@@ -439,7 +434,7 @@ const {
 } = useVolumeControl(
   computed(() => player.value.volume),
   async (level) => {
-    const res = await axios.post(`/api/guilds/${guildId}/player/volume${qs()}`, { volume: level });
+    const res = await axios.post<PlayerState>(`/api/guilds/${guildId}/player/volume${qs()}`, { volume: level });
     if (res.data?.volume !== undefined) applyState(res.data);
   },
 );
@@ -451,7 +446,7 @@ function confirmStop() {
 // 정지는 응답을 기다리고 서버가 돌려준 상태를 쓴다. 봇이 나가 음성 칸도 바뀌므로 한 번 더 읽는다
 async function doStop() {
   showStopConfirm.value = false;
-  if (await send("stop", "stop", undefined, "정지하지 못했어요.")) refresh();
+  if (await send("stop", "stop", undefined, "정지하지 못했어요.")) void refresh();
 }
 
 // 입력이 YouTube 재생목록(list= 포함)인지. "한 곡만 추가" 버튼 노출 조건
@@ -462,7 +457,7 @@ const isPlaylistQuery = computed(() => {
 
 // "한 곡만 추가"의 실제 요청 payload. 영상 ID가 링크에 노출돼 있으면(watch?v=, youtu.be/ID)
 // 재생목록 조회 없이 링크를 그 영상만 가리키게 절삭(빠름). 그 외(playlist?list=만)는 single=true로 첫 곡.
-function singlePayload(raw) {
+function singlePayload(raw: string) {
   try {
     const u = new URL(raw.trim());
     if (/(?:^|\.)youtube\.com$/i.test(u.hostname)) {
@@ -487,7 +482,7 @@ async function addTrack(single = false) {
   more.value = null;
   try {
     const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue${qs()}`, payload, { timeout: LIMIT.long });
+    const res = await axios.post<AddReply>(`/api/guilds/${guildId}/player/queue${qs()}`, payload, { timeout: LIMIT.long });
     const { dropped = 0, queueLimited = false, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
     queueMax.value = max;
@@ -502,14 +497,14 @@ async function addTrack(single = false) {
   }
 }
 
-async function addMore(count) {
+async function addMore(count: number) {
   if (!more.value || moreBusy.value) return;
   moreBusy.value = true;
   addError.value = "";
   addNotice.value = "";
   addInfo.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count }, { timeout: LIMIT.long });
+    const res = await axios.post<MoreReply>(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count }, { timeout: LIMIT.long });
     const { added = 0, dropped = 0, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
     queueMax.value = max;
@@ -528,7 +523,7 @@ async function joinBot() {
   joining.value = true;
   addError.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/join${qs()}`, undefined, { timeout: LIMIT.long });
+    const res = await axios.post<PlayerRead>(`/api/guilds/${guildId}/player/join${qs()}`, undefined, { timeout: LIMIT.long });
     applyState(res.data);
   } catch (e) {
     addError.value = problemText(e, "참가에 실패했습니다.");
@@ -538,30 +533,29 @@ async function joinBot() {
 }
 
 // 빼기는 그 줄 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
-async function removeTrack(track) {
-  if (!Number.isInteger(track.entry) || isBusy(`remove:${track.entry}`)) return;
-  setBusy(`remove:${track.entry}`, true);
-  try {
-    applyState((await axios.delete(`/api/guilds/${guildId}/player/queue/entry/${track.entry}${qs()}`)).data);
-  } catch (e) {
-    notifyProblem(e, "곡을 빼지 못했어요.");
-    refresh();
-  } finally {
-    setBusy(`remove:${track.entry}`, false);
-  }
+async function removeTrack(track: QueueTrackView) {
+  if (!Number.isInteger(track.entry)) return;
+  await whileBusy(`remove:${track.entry}`, async () => {
+    try {
+      applyState((await axios.delete<PlayerState>(`/api/guilds/${guildId}/player/queue/entry/${track.entry}${qs()}`)).data);
+    } catch (e) {
+      notifyProblem(e, "곡을 빼지 못했어요.");
+      void refresh();
+    }
+  });
 }
 
 // ── 대기열 끌어 옮기기 ───────────────────────────────────────────────────────
 
-function onDragStart(e, i) {
+function onDragStart(e: DragEvent, i: number) {
   if (!player.value.canControl || isBusy("move")) return;
   draggedIndex.value = i;
   isDragging.value = true;
-  e.dataTransfer.effectAllowed = "move";
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
 }
 
-function onDragOver(e, i) {
-  const rect = e.currentTarget.getBoundingClientRect();
+function onDragOver(e: DragEvent, i: number) {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
 }
 
@@ -586,7 +580,7 @@ async function onDrop() {
   onDragEnd();
   if (target === "same") return;
   if (target === "partial") return notify({ title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 내려 다 불러온 뒤 맨 끝으로 옮길 수 있어요.", severity: "warning" });
-  if (target === "unknown") return refresh();
+  if (target === "unknown" || from === null || insertAt === null) return refresh();
   // 응답을 기다리는 동안 옮긴 차례로 보인다. 거절되면 다시 읽어 서버 차례로 돌린다
   player.value = { ...player.value, queue: reordered(queue, from, insertAt) };
   await send("move", "queue/move-entry", target, "곡을 옮기지 못했어요.");
@@ -602,11 +596,11 @@ const seekable = computed(() => (player.value.currentTrack?.duration ?? 0) > 0 &
 const seekBar = useSeekBar({
   el: progressBarRef,
   duration: () => player.value.currentTrack?.duration ?? 0,
-  enabled: () => seekable.value && player.value.canControl,
+  enabled: () => seekable.value && Boolean(player.value.canControl),
   entry: () => player.value.currentTrack?.entry ?? null,
   send: (sec, entry) => {
     clock.value = retime(clock.value, Date.now(), { at: sec });
-    send("seek", "seek", { position: sec, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
+    void send("seek", "seek", { position: sec, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
   },
 });
 const isScrubbing = seekBar.dragging;
@@ -619,7 +613,7 @@ const progressPct = computed(() => {
 });
 
 // 카테고리 → SponsorBlock 공식 색상 CSS 변수명 매핑
-const SB_COLOR_VAR = {
+const SB_COLOR_VAR: Record<SkipCategory, string> = {
   sponsor: "sponsor",
   selfpromo: "selfpromo",
   interaction: "interaction_reminder",
@@ -632,7 +626,7 @@ const SB_COLOR_VAR = {
 };
 
 // 카테고리 → 한국어 라벨 (툴팁용)
-const SB_LABEL = {
+const SB_LABEL: Record<string, string> = {
   music_offtopic: "음악이 아님",
   intro: "인트로/무음",
   outro: "최종 화면",
@@ -654,7 +648,7 @@ const sponsorMarkers = computed(() => {
     const right = Math.max(0, Math.min(100, (s.end / dur) * 100));
     const cat = (s.categories && s.categories[0]) || "music_offtopic";
     const label = (s.categories && s.categories.length ? s.categories : [cat]).map((c) => SB_LABEL[c] || c).join(", ");
-    return { left, width: Math.max(0.4, right - left), color: `var(--category-${SB_COLOR_VAR[cat] || "nonmusic"}-color)`, label };
+    return { left, width: Math.max(0.4, right - left), color: `var(--category-${isSkipCategory(cat) ? SB_COLOR_VAR[cat] : "nonmusic"}-color)`, label };
   });
 });
 const highlightMarker = computed(() => {
@@ -679,17 +673,15 @@ function jumpToHighlight() {
   const h = player.value.currentTrack?.highlightAt;
   if (h === null || h === undefined) return;
   clock.value = retime(clock.value, Date.now(), { at: h });
-  send("highlight", "highlight", onTrackOf(player.value), "하이라이트로 가지 못했어요.");
+  void send("highlight", "highlight", onTrackOf(player.value), "하이라이트로 가지 못했어요.");
 }
 
 // ── 도우미 ───────────────────────────────────────────────────────────────────
 
-const fmt = (sec) => formatDuration(sec);
+const fmt = (sec: number) => formatDuration(sec);
 
-// 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다.
-// 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
-// 키는 src/rules/platforms.ts 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
-const PLATFORM_COLORS = {
+// 각 서비스를 대표하는 색. 키는 rules/platforms 의 Platform 이라 하나라도 빠지면 타입 검사가 잡는다(빠지면 회색 점이 되어 어디서 온 곡인지 안 보인다)
+const PLATFORM_COLORS: Record<Platform, string> = {
   youtube: "#ff0000",
   spotify: "#1db954",
   soundcloud: "#ff5500",
@@ -703,16 +695,16 @@ const PLATFORM_COLORS = {
   touhoudb: "#4f2347", // (구) 공식 트위터 프로필 이미지 배경
 };
 
-function platformColor(p) {
-  return PLATFORM_COLORS[p] || "#8b93a7";
+function platformColor(p: string) {
+  return isPlatform(p) ? PLATFORM_COLORS[p] : "#8b93a7";
 }
 
 // 실시간 신호는 탭의 목록 연결 하나에서 받는다(stores/guilds). 이 서버의 신호 · 어느 서버인지 모르는 신호(끊긴 뒤 따라잡기 · 끊긴 동안의 주기 읽기)면 다시 읽는다.
 // 연달아 조작하면 신호도 연달아 온다. 합쳐서 한 번만 다시 읽는다
 const guilds = useGuildsStore();
-let offNudge = null;
+let offNudge: (() => boolean) | null = null;
 onMounted(() => {
-  refresh();
+  void refresh();
   guilds.subscribe();
   offNudge = onGuildNudge((changed) => {
     if (changed && changed !== guildId) return;

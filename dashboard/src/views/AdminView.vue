@@ -152,7 +152,7 @@
             <div v-for="entry in filteredLogs" :key="entry.id" class="flex gap-2 leading-relaxed border-b border-white/3">
               <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
               <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
-              <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
+              <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub || ''), backgroundColor: catColor(entry.category || entry.sub || '') + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
               <span v-for="t in entry.tags" :key="t" class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6">#{{ t }}</span>
               <span class="break-all whitespace-pre-wrap" :class="txtColor(entry.level)">{{ entry.text }}</span>
             </div>
@@ -181,9 +181,9 @@
           </div>
 
           <div class="flex items-center justify-between mb-3.5 text-xs">
-            <span v-if="tooLong" class="text-danger">{{ bMsg.length - BROADCAST_MAX }}자를 줄여 주세요.</span>
+            <span v-if="tooLong" class="text-danger">{{ bMsg.length - ANNOUNCE_MAX }}자를 줄여 주세요.</span>
             <span v-else></span>
-            <span :class="tooLong ? 'text-danger' : 'text-muted'">{{ bMsg.length.toLocaleString() }} / {{ BROADCAST_MAX.toLocaleString() }}</span>
+            <span :class="tooLong ? 'text-danger' : 'text-muted'">{{ bMsg.length.toLocaleString() }} / {{ ANNOUNCE_MAX.toLocaleString() }}</span>
           </div>
 
           <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim() || tooLong">
@@ -340,7 +340,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { problemText } from "../utils/problem.ts";
 import { session, live } from "../composables/session.ts";
 import { notifyProblem } from "../composables/toasts.ts";
@@ -362,11 +362,22 @@ import EmojiPicker from "../components/EmojiPicker.vue";
 import Twemoji from "../components/TwemojiImage.vue";
 import { insertAt, caretOf } from "../utils/caret.ts";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
+import type { Caret } from "../utils/caret.ts";
+import { latencyGrade, type LatencyGrade } from "../../../src/rules/latency.ts";
+import { LEVELS, KEPT_LINES, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
+import { ANNOUNCE_MAX, type AdminGuilds, type AdminStatus, type AnnounceKind, type BroadcastReply, type RedeployReply, type ResetReply } from "../../../src/dashboard/contract/admin.ts";
+import type { Tier } from "../../../src/dashboard/contract/identity.ts";
+import type { ClientStatus, CookieSource, PotState } from "../../../src/sources/youtube/status-types.ts";
+
+/** 요청의 결과. 실패면 까닭의 글 */
+type Outcome<T> = T | { success: false; error: string };
+/** 탭 하나. needsCookieFile 이면 쿠키를 파일로 읽을 때만 보인다 */
+type Tab = { id: string; label: string; icon: string; needsCookieFile?: boolean };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
-const ALL_TABS = [
+const ALL_TABS: Tab[] = [
   { id: "status", label: "봇 상태", icon: "robot" },
   { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
@@ -382,11 +393,11 @@ const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
 // 보이는 탭 목록(TABS)이 아니라 전체로 본다. 쿠키 탭은 상태를 받아야 보일지 정해지는데,
 // 여기는 그 전이라 아직 모른다. 못 쓰는 탭에 머물면 상태가 온 뒤에 되돌린다.
-const tab = ref(ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status");
+const tab = ref(savedTab && ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status");
 // 설정 편집기는 처음 연 때 만들고 그 뒤로는 숨기기만 한다. 탭을 옮겨도 저장하지 않은 편집이 남는다
 const opened = ref(new Set([tab.value]));
 
-function setTab(id) {
+function setTab(id: string) {
   tab.value = id;
   if (!opened.value.has(id)) opened.value = new Set(opened.value).add(id);
   writeStored(TAB_KEY, id);
@@ -397,7 +408,7 @@ const LEAVE_ASK = "저장하지 않은 설정이 있어요. 이 페이지를 떠
 onBeforeRouteLeave(() => {
   if (unsaved.size && !window.confirm(LEAVE_ASK)) return false;
 });
-function onBeforeUnload(e) {
+function onBeforeUnload(e: BeforeUnloadEvent) {
   if (!unsaved.size) return;
   e.preventDefault();
   e.returnValue = "";
@@ -419,7 +430,7 @@ const tierRow = "flex items-start gap-2.5 text-left rounded-xl px-3 py-2.5 curso
 const tierOn = "bg-accent/14 border-accent/45 text-fg";
 const tierOff = "bg-white/4 border-white/8 text-fg-soft hover:not-disabled:bg-white/8";
 
-async function pickTier(tier) {
+async function pickTier(tier: Tier | null) {
   if (switchingTier.value || user.viewAs === tier) return;
   switchingTier.value = true;
   tierError.value = "";
@@ -436,24 +447,26 @@ const statRow = "flex justify-between items-center py-2.5 border-b border-white/
 const cardTitle = "text-[0.7rem] font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-3.5";
 
 // 필터/타입 알약 버튼. active 여부에 따라 색상군을 통째로 교체(같은 속성 유틸리티 중복 회피)
-function typeBtn(active) {
+function typeBtn(active: boolean) {
   const base = "px-4 py-1.5 rounded-[20px] border cursor-pointer text-[0.83rem] font-medium transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-spring hover:-translate-y-px";
   return active ? `${base} border-accent/55 text-[#c4b5fd] bg-accent/16 shadow-[0_0_10px_rgba(124,111,246,0.2)]` : `${base} border-white/9 bg-white/5 text-muted hover:bg-white/9 hover:text-fg`;
 }
 
-function resultMsg(ok) {
+function resultMsg(ok: boolean) {
   const base = "mt-3 px-4 py-2.5 rounded-[10px] text-sm border";
   return ok ? `${base} bg-success/10 text-success border-success/22` : `${base} bg-danger/10 text-danger border-danger/22`;
 }
 
 const loading = ref(true);
-const s = ref({
-  bot: { tag: "", guilds: 0, ping: 0, status: 0, uptime: { days: 0, hours: 0, minutes: 0, seconds: 0 } },
+// 처음 받기 전의 모양
+const s = ref<AdminStatus>({
+  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: { days: 0, hours: 0, minutes: 0, seconds: 0 } },
   node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, rss: 0 } },
   system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
   activePlayers: 0,
   processes: { total: 0, byLabel: [], oldest: [] },
   youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
+  logLevel: "",
 });
 
 // 쿠키 탭은 파일 방식일 때만 쓸모가 있다. 판정 근거가 상태 응답에 이미 실려 오므로 따로 묻지 않는다.
@@ -463,63 +476,58 @@ watch(TABS, (list) => {
   if (!list.some((t) => t.id === tab.value)) setTab("status");
 });
 
-const potLabels = { on: "사용 중", off: "사용 안 함", missing: "켜져 있으나 설치 없음" };
-const cookieLabels = { browser: "브라우저 (연령 제한 전용)", file: "파일 (연령 제한 전용)", none: "없음" };
-const potLabel = (v) => potLabels[v] ?? v;
-const cookieLabel = (v) => cookieLabels[v] ?? v;
+const potLabels: Record<PotState, string> = { on: "사용 중", off: "사용 안 함", missing: "켜져 있으나 설치 없음" };
+const cookieLabels: Record<CookieSource, string> = { browser: "브라우저 (연령 제한 전용)", file: "파일 (연령 제한 전용)", none: "없음" };
+const potLabel = (v: PotState) => potLabels[v] ?? v;
+const cookieLabel = (v: CookieSource) => cookieLabels[v] ?? v;
 
 // 경로 상태: 제외된 것 > 실패가 섞인 것 > 아직 안 써 본 것 > 정상
-function clientLabel(c) {
+function clientLabel(c: ClientStatus) {
   if (c.excluded) return `제외됨 (${c.tried}회 중 ${c.failed}회 실패)`;
   if (!c.tried) return "미사용";
   return c.failed ? `${c.tried}회 중 ${c.failed}회 실패` : `정상 (${c.tried}회)`;
 }
-function clientClass(c) {
+function clientClass(c: ClientStatus) {
   if (c.excluded) return "text-danger";
   if (c.failed) return "text-warning";
   return c.tried ? "text-success" : "text-muted";
 }
 
-const bType = ref("maintenance");
+const bType = ref<AnnounceKind>("maintenance");
 const bMsg = ref("");
 const sending = ref(false);
-const result = ref(null);
+const result = ref<Outcome<BroadcastReply> | null>(null);
 
-// 디스코드 embed description 상한. 서버도 같은 값으로 막지만, 다 쓰고 나서야 막히면 늦다.
-const BROADCAST_MAX = 4096;
-
+// 길이 상한은 서버의 것(contract/admin). 서버도 같은 값으로 막지만, 다 쓰고 나서야 막히면 늦다.
 // 이모지는 커서 자리에 끼워 넣는다. 판을 열면 칸에서 초점이 떠나므로 떠나기 전 자리를 적어 둔다.
-const bMsgBox = ref(null);
-const bCaret = ref(null);
+const bMsgBox = ref<HTMLTextAreaElement | null>(null);
+const bCaret = ref<Caret | null>(null);
 const emojiBtn = "size-7 rounded-lg flex items-center justify-center cursor-pointer opacity-55 transition-[opacity,background-color] duration-150 hover:opacity-100 hover:bg-white/10";
 
-function insertEmoji(char) {
-  const result = insertAt(bMsg.value, char, bCaret.value, BROADCAST_MAX);
+function insertEmoji(char: string) {
+  const result = insertAt(bMsg.value, char, bCaret.value, ANNOUNCE_MAX);
   if (!result) return;
   bMsg.value = result.text;
   bCaret.value = { start: result.caret, end: result.caret };
-  nextTick(() => {
+  void nextTick(() => {
     bMsgBox.value?.focus();
     bMsgBox.value?.setSelectionRange(result.caret, result.caret);
   });
 }
-const tooLong = computed(() => bMsg.value.length > BROADCAST_MAX);
+const tooLong = computed(() => bMsg.value.length > ANNOUNCE_MAX);
 
-const types = [
-  { value: "maintenance", label: "점검" },
-  { value: "update", label: "업데이트" },
-  { value: "alert", label: "긴급" },
-  { value: "info", label: "공지" },
-];
+// 공지 종류의 이름표. 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
+const TYPE_LABEL: Record<AnnounceKind, string> = { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" };
+const types = (Object.entries(TYPE_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label }));
 
 // 재생 ffmpeg는 곡 길이를 넘기지 않아야 한다. 그보다 오래 살아 있으면 정리가 안 된 것.
-function procAgeClass(ms) {
+function procAgeClass(ms: number) {
   if (ms > 30 * 60 * 1000) return "text-danger";
   if (ms > 10 * 60 * 1000) return "text-warning";
   return "text-muted";
 }
 
-function fmtAge(ms) {
+function fmtAge(ms: number) {
   const sec = Math.floor(ms / 1000);
   if (sec < 60) return `${sec}초`;
   const min = Math.floor(sec / 60);
@@ -527,15 +535,13 @@ function fmtAge(ms) {
   return `${Math.floor(min / 60)}시간 ${min % 60}분`;
 }
 
-function pingClass(p) {
-  if (p < 100) return "text-success";
-  if (p < 300) return "text-warning";
-  return "text-danger";
-}
+// 핑 색. 기준은 /ping 과 같다(rules/latency)
+const PING_CLASS: Record<LatencyGrade, string> = { good: "text-success", fair: "text-warning", poor: "text-danger" };
+const pingClass = (ms: number) => PING_CLASS[latencyGrade(ms)];
 
 const uptimeStr = computed(() => {
   const u = s.value.bot.uptime;
-  const parts = [];
+  const parts: string[] = [];
   if (u.days) parts.push(`${u.days}일`);
   if (u.hours) parts.push(`${u.hours}시간`);
   if (u.minutes) parts.push(`${u.minutes}분`);
@@ -545,7 +551,7 @@ const uptimeStr = computed(() => {
 
 async function fetchStatus() {
   try {
-    const res = await axios.get("/api/admin/status");
+    const res = await axios.get<AdminStatus>("/api/admin/status");
     s.value = res.data;
     syncLevelsWithServer(res.data?.logLevel);
     loading.value = false;
@@ -561,7 +567,7 @@ async function broadcast() {
   sending.value = true;
   result.value = null;
   try {
-    const res = await axios.post("/api/admin/broadcast", { message: bMsg.value, type: bType.value }, { timeout: LIMIT.long });
+    const res = await axios.post<BroadcastReply>("/api/admin/broadcast", { message: bMsg.value, type: bType.value }, { timeout: LIMIT.long });
     result.value = res.data;
     if (res.data.success) bMsg.value = "";
   } catch (e) {
@@ -573,14 +579,15 @@ async function broadcast() {
 }
 
 // ── 서버 관리 ─────────────────────────────────────────
-const guilds = ref([]);
-const leaveTarget = ref(null); // 확인 모달에 표시 중인 서버 (null이면 닫힘)
+type AdminGuild = AdminGuilds["guilds"][number];
+const guilds = ref<AdminGuild[]>([]);
+const leaveTarget = ref<AdminGuild | null>(null); // 확인 모달에 표시 중인 서버 (null이면 닫힘)
 const leaving = ref(false);
-const leaveResult = ref(null);
+const leaveResult = ref<Outcome<{ success: true; name: string }> | null>(null);
 
 async function fetchGuilds() {
   try {
-    const res = await axios.get("/api/admin/guilds");
+    const res = await axios.get<AdminGuilds>("/api/admin/guilds");
     guilds.value = res.data.guilds;
   } catch (e) {
     notifyProblem(e, "서버 목록을 읽지 못했습니다.");
@@ -607,11 +614,11 @@ async function leaveGuild() {
 // ── 캐시 초기화 ───────────────────────────────────────────────
 const confirmReset = ref(false);
 const resetting = ref(false);
-const resetResult = ref(null);
+const resetResult = ref<Outcome<ResetReply> | null>(null);
 
 const resetSummary = computed(() => {
   const r = resetResult.value;
-  if (!r) return "";
+  if (!r || !r.success) return "";
   const mb = Math.round((r.freedBytes || 0) / 1024 / 1024);
   const kept = r.kept > 0 ? `, ${r.kept}개는 재생 중이라 남음` : "";
   return `파일 ${r.removed}개 삭제 (${mb}MB)${kept}`;
@@ -622,7 +629,7 @@ async function resetCache() {
   resetting.value = true;
   resetResult.value = null;
   try {
-    const res = await axios.post("/api/admin/reset-cache", undefined, { timeout: LIMIT.long });
+    const res = await axios.post<ResetReply>("/api/admin/reset-cache", undefined, { timeout: LIMIT.long });
     resetResult.value = res.data;
   } catch (e) {
     resetResult.value = { success: false, error: problemText(e, "요청 실패") };
@@ -634,14 +641,14 @@ async function resetCache() {
 
 // ── 명령 다시 배포 ─────────────────────────────────────────
 const redeploying = ref(false);
-const redeployResult = ref(null);
+const redeployResult = ref<Outcome<RedeployReply> | null>(null);
 
 async function redeploy() {
   if (redeploying.value) return;
   redeploying.value = true;
   redeployResult.value = null;
   try {
-    const res = await axios.post("/api/admin/redeploy-commands", undefined, { timeout: LIMIT.long });
+    const res = await axios.post<RedeployReply>("/api/admin/redeploy-commands", undefined, { timeout: LIMIT.long });
     redeployResult.value = res.data;
   } catch (e) {
     redeployResult.value = { success: false, error: problemText(e, "요청 실패") };
@@ -651,20 +658,20 @@ async function redeploy() {
 }
 
 // ── 로그 보기 ──────────────────────────────────────────────
-const logs = ref([]);
-const catFilter = ref(null);
-const tagFilter = ref(null);
+const logs = ref<WireEntry[]>([]);
+const catFilter = ref<string | null>(null);
+const tagFilter = ref<string | null>(null);
 const autoScroll = ref(true);
 const sseConnected = ref(false);
-const logPane = ref(null);
+const logPane = ref<HTMLElement | null>(null);
 // 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
 let lastLogEventId = "";
 let lastLogId = 0;
-// 붙을 때 쌓인 줄(최대 500)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 500번 그려 브라우저가 멎는다(약 8초).
+// 붙을 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
 // 한 프레임 동안 모았다가 한 번에 넣는다
-let pendingLogs = [];
-let flushFrame = null;
-function queueLog(entry) {
+let pendingLogs: WireEntry[] = [];
+let flushFrame: number | null = null;
+function queueLog(entry: WireEntry) {
   pendingLogs.push(entry);
   flushFrame ??= requestAnimationFrame(flushLogs);
 }
@@ -672,13 +679,12 @@ function flushLogs() {
   flushFrame = null;
   const next = logs.value.concat(pendingLogs);
   pendingLogs = [];
-  logs.value = next.length > 500 ? next.slice(-500) : next;
+  logs.value = next.length > KEPT_LINES ? next.slice(-KEPT_LINES) : next;
 }
 
 // 레벨 필터는 다중 토글이다. "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
 // 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
-const LEVEL_ORDER = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
-const logLevels = [
+const logLevels: Array<{ value: LevelName; label: string }> = [
   { value: "debug", label: "DEBUG" },
   { value: "info", label: "INFO" },
   { value: "warn", label: "WARN" },
@@ -689,44 +695,46 @@ const logLevels = [
 // 초기 상태는 서버의 LOG_LEVEL을 따른다. 서버가 debug를 아예 안 보내고 있으면 그 알약이
 // 켜져 있어도 보여줄 것이 없으므로, 꺼진 채로 시작해 "지금 흐르고 있는 것"과 맞춘다.
 // 꺼진 알약도 눌러서 켤 수 있다. 서버 레벨을 낮추면 그때부터 오는 것이 보인다.
-const levelsOn = ref(new Set(["info", "warn", "error", "fatal"]));
+const levelsOn = ref(new Set<LevelName>(["info", "warn", "error", "fatal"]));
 let levelsInitialized = false;
-function syncLevelsWithServer(serverLevel) {
+function syncLevelsWithServer(serverLevel: string | undefined) {
   if (levelsInitialized || !serverLevel) return;
   levelsInitialized = true;
-  const min = LEVEL_ORDER[serverLevel] ?? 30;
-  levelsOn.value = new Set(logLevels.filter((l) => LEVEL_ORDER[l.value] >= min).map((l) => l.value));
+  const min = isLevel(serverLevel) ? LEVELS[serverLevel] : LEVELS.info;
+  levelsOn.value = new Set(logLevels.filter((l) => LEVELS[l.value] >= min).map((l) => l.value));
 }
-function toggleLevel(v) {
+function toggleLevel(v: LevelName) {
   const next = new Set(levelsOn.value); // Set은 제자리 변경으로 반응하지 않는다
   if (next.has(v)) next.delete(v);
   else next.add(v);
   levelsOn.value = next;
 }
 // 와이어의 "trace"는 DEBUG 알약이 담당한다(같은 심각도 칸).
-const levelBucket = (lv) => (LEVEL_ORDER[lv] <= 20 ? "debug" : lv);
+const levelBucket = (lv: LevelName): LevelName => (LEVELS[lv] <= LEVELS.debug ? "debug" : lv);
 
-function lvColor(level) {
+function lvColor(level: string) {
   return (
-    {
-      trace: "text-[#6b7280]",
-      log: "text-[#9ca3af]",
-      debug: "text-[#9ca3af]",
-      info: "text-[#60a5fa]",
-      warn: "text-[#fbbf24]",
-      error: "text-[#f87171]",
-      fatal: "text-[#fca5a5]",
-    }[level] || "text-[#9ca3af]"
+    (
+      {
+        trace: "text-[#6b7280]",
+        log: "text-[#9ca3af]",
+        debug: "text-[#9ca3af]",
+        info: "text-[#60a5fa]",
+        warn: "text-[#fbbf24]",
+        error: "text-[#f87171]",
+        fatal: "text-[#fca5a5]",
+      } as Record<string, string>
+    )[level] || "text-[#9ca3af]"
   );
 }
-function txtColor(level) {
-  return { debug: "text-[#9ca3af]", warn: "text-[#fef3c7]", error: "text-[#fecaca]", fatal: "text-[#fecaca] font-bold" }[level] || "text-[#d1d5db]";
+function txtColor(level: string) {
+  return ({ debug: "text-[#9ca3af]", warn: "text-[#fef3c7]", error: "text-[#fecaca]", fatal: "text-[#fecaca] font-bold" } as Record<string, string>)[level] || "text-[#d1d5db]";
 }
 
 // 카테고리: 지금까지 흘러온 로그에서 실제로 본 것만 필터 알약으로 노출(고정 목록 아님)
-const logCategories = computed(() => [...new Set(logs.value.map((e) => e.category).filter(Boolean))].sort());
+const logCategories = computed(() => [...new Set(logs.value.flatMap((e) => (e.category ? [e.category] : [])))].sort());
 const CAT_PALETTE = ["#f472b6", "#60a5fa", "#34d399", "#fbbf24", "#a78bfa", "#22d3ee", "#fb923c", "#4ade80", "#e879f9", "#38bdf8"];
-function catColor(cat) {
+function catColor(cat: string) {
   let h = 0;
   for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
   return CAT_PALETTE[h % CAT_PALETTE.length];
@@ -737,7 +745,7 @@ const logTags = computed(() => [...new Set(logs.value.flatMap((e) => e.tags || [
 
 const filteredLogs = computed(() => logs.value.filter((e) => levelsOn.value.has(levelBucket(e.level)) && (!catFilter.value || e.category === catFilter.value) && (!tagFilter.value || (e.tags || []).includes(tagFilter.value))));
 
-function fmtTime(ts) {
+function fmtTime(ts: number) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
@@ -748,7 +756,7 @@ function onLogScroll() {
 }
 
 function scrollLogsToEnd() {
-  nextTick(() => {
+  void nextTick(() => {
     if (logPane.value) logPane.value.scrollTop = logPane.value.scrollHeight;
   });
 }
@@ -784,7 +792,7 @@ const logLink = eventLink({
       lastLogId = 0;
     },
     message: (e) => {
-      const entry = JSON.parse(e.data);
+      const entry = JSON.parse(String(e.data)) as WireEntry;
       lastLogEventId = e.lastEventId || lastLogEventId;
       if (entry.id <= lastLogId) return; // 이미 받은 줄
       lastLogId = entry.id;
@@ -809,11 +817,11 @@ function closeLogs() {
 // 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
 // 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
 const POLL_MS = 3000;
-let timer = null;
-let visHandler = null;
+let timer: ReturnType<typeof setInterval> | null = null;
+let visHandler: (() => void) | null = null;
 function poll() {
-  if (tab.value === "status") fetchStatus();
-  else if (tab.value === "guilds") fetchGuilds();
+  if (tab.value === "status") void fetchStatus();
+  else if (tab.value === "guilds") void fetchGuilds();
 }
 function startPoll() {
   if (!timer) timer = setInterval(poll, POLL_MS);
@@ -824,13 +832,13 @@ function stopPoll() {
     timer = null;
   }
 }
-let stopSessionWatch = null;
+let stopSessionWatch: (() => void) | null = null;
 onMounted(() => {
   // 첫 진입만은 탭과 무관하게 둘 다 받는다. 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
-  fetchStatus();
-  fetchGuilds();
+  void fetchStatus();
+  void fetchGuilds();
   // 탭이 숨거나 세션이 끝나면 폴링 · 로그 연결을 접는다
-  visHandler = () => {
+  const onVisibility = () => {
     if (!live()) stopPoll();
     else {
       poll();
@@ -838,8 +846,9 @@ onMounted(() => {
     }
     syncLogs();
   };
-  document.addEventListener("visibilitychange", visHandler);
-  stopSessionWatch = watch(() => session.ended, visHandler);
+  visHandler = onVisibility;
+  document.addEventListener("visibilitychange", onVisibility);
+  stopSessionWatch = watch(() => session.ended, onVisibility);
   window.addEventListener("beforeunload", onBeforeUnload);
   if (live()) startPoll();
   syncLogs();

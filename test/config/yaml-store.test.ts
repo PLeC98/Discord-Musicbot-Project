@@ -12,6 +12,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as yamlStore from "../../src/config/yaml-store.ts";
+import { AI_KEY_ORDER } from "../../src/config/schema/ai.ts";
 import { toRows, toMap } from "../../dashboard/src/utils/genre-rows.ts";
 import sink from "../../src/infra/log/sink.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
@@ -279,12 +280,8 @@ test("저장하면 다음 읽기가 새 값을 가져온다", () => {
 
 // 저장하면 서버가 보낸 차례대로 파일을 줄 세운다. 대시보드가 보내는 차례와 예시 파일이
 // 어긋나면, 새로 깐 사람이 한 번 저장하는 순간 주석과 값이 뒤섞인다.
-test("대시보드가 보내는 키 차례와 ai.example.yaml 의 차례가 같다", () => {
+test("대시보드가 보내는 키 차례(AI_KEY_ORDER)와 ai.example.yaml 의 차례가 같다", () => {
   const root = path.join(import.meta.dirname, "..", "..");
-  const vue = fs.readFileSync(path.join(root, "dashboard/src/components/ConfigAI.vue"), "utf8");
-  const at = vue.indexOf("const KEY_ORDER = [");
-  assert.ok(at > 0, "ConfigAI.vue 에 KEY_ORDER 가 있어야 한다");
-  const sending = JSON.parse(vue.slice(vue.indexOf("[", at), vue.indexOf("]", at) + 1));
 
   const example = fs.readFileSync(path.join(root, "config/ai.example.yaml"), "utf8");
   const inFile = example
@@ -292,7 +289,7 @@ test("대시보드가 보내는 키 차례와 ai.example.yaml 의 차례가 같�
     .filter((line) => /^[a-zA-Z]/.test(line))
     .map((line) => line.slice(0, line.indexOf(":")));
 
-  assert.deepEqual(sending, inFile);
+  assert.deepEqual([...AI_KEY_ORDER], inFile);
 });
 
 // 키 파일(ai-keys)은 소유자만 읽고 쓴다(Windows 는 이 권한 비트를 쓰지 않는다)

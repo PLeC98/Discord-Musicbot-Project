@@ -156,7 +156,7 @@
                 <div v-if="field.enum" class="relative">
                   <select v-model="params[field.key]" :class="[inputCls, selectCls]">
                     <option value="" :class="optionCls">{{ field.default ? `기본값 (${field.default})` : "기본값" }}</option>
-                    <option v-for="opt in field.enum" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
+                    <option v-for="opt in field.enum" :key="String(opt.value)" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
                   </select>
                   <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
                 </div>
@@ -166,12 +166,12 @@
                   <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
                 </label>
 
-                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="inputCls" />
+                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" :model-value="numberParam(field.key)" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="inputCls" @update:model-value="(v) => (params[field.key] = v)" />
 
-                <ChipInput v-else-if="field.type === 'stringArray'" :model-value="params[field.key] || []" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
+                <ChipInput v-else-if="field.type === 'stringArray'" :model-value="listParam(field.key)" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
 
                 <template v-else-if="field.type === 'json'">
-                  <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[inputCls, 'font-mono text-[0.78rem] resize-y']" @input="(e) => onJson(field.key, e.target.value)"></textarea>
+                  <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[inputCls, 'font-mono text-[0.78rem] resize-y']" @input="(e) => onJson(field.key, valueOf(e))"></textarea>
                   <span v-if="jsonBad[field.key]" class="text-danger text-[0.75rem] mt-1 block">JSON 으로 읽지 못했습니다</span>
                 </template>
 
@@ -445,15 +445,9 @@
     <div v-if="shown" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="shown = null">
       <div class="bg-[rgba(12,16,36,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] w-[min(56rem,100%)] max-h-[88vh] overflow-auto p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div class="flex items-center gap-3 mb-4">
-          <div class="text-2xl font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</div>
-          <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
-          <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
-          <span v-if="shown.usage" class="text-muted text-[0.8rem]" v-tooltip="'저쪽이 알려 준 값입니다'">
-            입력 {{ shown.usage.input.toLocaleString("ko-KR") }}
-            <template v-if="shown.usage.output != null"> · 출력 {{ shown.usage.output.toLocaleString("ko-KR") }}</template>
-            <template v-if="shown.usage.thoughts"> · 사고 {{ shown.usage.thoughts.toLocaleString("ko-KR") }}</template>
-          </span>
-          <span v-else-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
+          <div class="text-2xl font-semibold flex-1">리퀘스트 미리보기</div>
+          <span class="text-muted text-[0.8rem]">보내지 않았습니다</span>
+          <span v-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
           <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 
@@ -485,9 +479,8 @@
   </div>
 </template>
 
-<script setup>
-import { problemText, problemDetails } from "../utils/problem.ts";
-import { trackUnsaved } from "../composables/unsaved.ts";
+<script setup lang="ts">
+import { problemText } from "../utils/problem.ts";
 import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { LIMIT } from "../utils/request.ts";
 import { ref, computed, watch, onMounted } from "vue";
@@ -498,7 +491,44 @@ import Icon from "./BaseIcon.vue";
 import NumberInput from "./NumberInput.vue";
 import ChipInput from "./ChipInput.vue";
 import SaveDock from "./SaveDock.vue";
-import { isFolded, toggleFold, promptFoldId } from "../composables/config-folds";
+import { isFolded, toggleFold, promptFoldId, reorderPrompts } from "../composables/config-folds.ts";
+import { useConfigFile } from "../composables/config-file.ts";
+import { useDragReorder } from "../composables/drag-reorder.ts";
+import { readStored, writeStored } from "../utils/storage.ts";
+import { valueOf } from "../utils/dom.ts";
+import { AI_ROLES, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
+import { AI_KEY_ORDER, type AiUnknown } from "../../../src/config/schema/ai.ts";
+import type { ModelField, ModelGroup } from "../../../src/config/ai-model-types.ts";
+import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
+import type { AiFields, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
+import type { RefreshResult } from "../../../src/config/ai-model-types.ts";
+
+/** 편집 중인 ai.yaml. 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
+type Draft = Record<string, unknown> & {
+  provider?: string;
+  model?: string;
+  baseUrl?: string;
+  location?: string;
+  project?: string;
+  extra?: string;
+  hideModels?: string[];
+  retryStatus?: number[] | null;
+  // 수 칸. 비우면 null(서버의 기본값을 쓴다). 손으로 고친 파일에는 글자로 적힌 수가 있을 수 있다
+  timeoutMs?: number | string | null;
+  totalTimeoutMs?: number | string | null;
+  retries?: number | string | null;
+  retryDelayMs?: number | string | null;
+  retryDelayMaxMs?: number | string | null;
+  batchSize?: number | string | null;
+  retryTimeouts?: boolean;
+  skipConfident?: boolean;
+};
+/** 프롬프트 섹션 하나(편집 중). key 는 화면이 붙잡아 두는 번호, name 은 설정 쪽에 실리는 이름 */
+type Section = PromptSection & { key: number; name: string };
+/** 목록 줄 형식(ai.yaml 의 list) */
+type ListCfg = { lineFormat: string; unknownDuration: AiUnknown; unknownText: string };
+/** 확인 결과 한 칸(무료 · 유료 테스트) */
+type Tested = { kind: string; ok: boolean; status: number | null | undefined; tookMs: number; reason?: string; extra?: string; asked?: string; body?: string; raw?: string };
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const selectCls = "appearance-none cursor-pointer pr-9!";
@@ -518,7 +548,7 @@ const LIST_MARK = "{{목록}}";
 const NONE_MARK = "{{none}}";
 const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 
-const ROLES = ["system", "user", "assistant"];
+const ROLES = AI_ROLES;
 
 // 프로바이더 목록은 서버가 준다(주소·키 필요 여부까지). 화면이 베껴 두면 한쪽만 고치게 된다.
 
@@ -530,15 +560,15 @@ const MARKS = [
   { mark: "{{길이초}}", hint: "길이(초)" },
 ];
 
-const UNKNOWN = [
+const UNKNOWN: Array<{ value: AiUnknown; label: string; hint: string }> = [
   { value: "hide", label: "그 칸을 뺀다", hint: '자리표시자가 든 낱말째 빠집니다. 기본 형식이면 "길이=3분"이 통째로 사라집니다.' },
   { value: "text", label: "글자로 적는다", hint: "형식이 일정해 모델이 자리를 헷갈리지 않습니다." },
   { value: "zero", label: "0으로 적는다", hint: "모르는 것을 0분이라고 알려 주는 셈이라 권하지 않습니다." },
 ];
 
-const draft = ref({ provider: "off" });
+const draft = ref<Draft>({ provider: "off" });
 // 모델이 받는 칸. 서버가 프로필(data/ai-models.json)을 보고 알려 준다
-const fieldInfo = ref({ known: false, fields: [], groups: [], models: [] });
+const fieldInfo = ref<AiFields>({ known: false, fields: [], groups: [], models: [] });
 const showAdvanced = ref(false);
 const showHide = ref(false);
 const refreshing = ref(false);
@@ -548,7 +578,7 @@ async function refreshModels() {
   refreshing.value = true;
   refreshNote.value = "";
   try {
-    const { data } = await axios.post("/api/admin/ai/models/refresh", undefined, { timeout: LIMIT.none });
+    const { data } = await axios.post<RefreshResult>("/api/admin/ai/models/refresh", undefined, { timeout: LIMIT.none });
     refreshNote.value = data.changed ? `모델 ${data.count}개로 갱신` : "이미 최신";
     if (data.changed) await loadFields();
   } catch (error) {
@@ -560,25 +590,35 @@ async function refreshModels() {
   }
 }
 // 값은 모델별로 따로 든다. 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
-const allParams = ref({});
-const params = ref({});
-const jsonText = ref({});
+const allParams = ref<Record<string, Record<string, unknown>>>({});
+const params = ref<Record<string, unknown>>({});
+const jsonText = ref<Record<string, string>>({});
 // 토큰은 어림수다. 어느 기준으로 셌는지 같이 밝힌다
-const tokenEach = ref([]);
-const tokenTotal = ref(null);
+const tokenEach = ref<number[]>([]);
+const tokenTotal = ref<number | null>(null);
 const tokenExact = ref(true);
 const tokenError = ref("");
-let tokenTimer = null;
+let tokenTimer: ReturnType<typeof setTimeout> | undefined;
 // 아래 감시가 화면을 만드는 도중에 곧바로(immediate) 부르는 함수들이 읽는 값. 감시보다 먼저 둔다
 let picking = ""; // 지금 칸을 보여 주는 모델
 // 이름은 설정 쪽에 있고 내용은 프롬프트 파일에 있다. 둘을 차례로 짝지어 합친다
-let names = [];
+let names: string[] = [];
 // 세기 · 칸 읽기는 고치는 대로 다시 묻는다. 늦게 온 앞 물음의 답이 새 답을 덮지 않게 차례를 맞춘다
 let tokensSeq = 0;
 let fieldsSeq = 0;
-const jsonBad = ref({});
+const jsonBad = ref<Record<string, boolean>>({});
 
-function onJson(key, text) {
+// 모델 칸의 값. 고른 것은 모양이 정해져 있지 않아(프로필이 정한다) 그리는 칸에 맞춰 읽는다
+function numberParam(key: string): number | string | null {
+  const v = params.value[key];
+  return typeof v === "number" || typeof v === "string" ? v : null;
+}
+const listParam = (key: string): string[] => {
+  const v = params.value[key];
+  return Array.isArray(v) ? v.map(String) : [];
+};
+
+function onJson(key: string, text: string) {
   jsonText.value = { ...jsonText.value, [key]: text };
   if (!text.trim()) {
     params.value = { ...params.value, [key]: undefined };
@@ -592,45 +632,36 @@ function onJson(key, text) {
     jsonBad.value = { ...jsonBad.value, [key]: true };
   }
 }
-const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
-const sections = ref([]);
-const snapshot = ref("");
-const promptSnapshot = ref("");
-const saving = ref(false);
-const savedAt = ref(null);
-const loadError = ref("");
-const serverProblems = ref([]);
+const listCfg = ref<ListCfg>({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
+const sections = ref<Section[]>([]);
 
-const keyPresence = ref({});
+const keyPresence = ref<Record<string, boolean>>({});
 const keyInput = ref("");
 const savingKey = ref(false);
-const paid = ref(null); // "ping" | "judge". 확인 대화상자
+const paid = ref<"ping" | "judge" | null>(null); // 확인 대화상자
 const paidUrl = ref(""); // 그 대화상자에 띄울 진짜 주소. 서버에 물어서 채운다
 const paidUrlError = ref(""); // 못 물어봤으면 까닭. 틀린 주소를 지어 보여 주지 않는다
-const providers = ref([{ value: "off", label: "사용하지 않음" }]);
+const providers = ref<AiState["providers"]>([{ value: "off", label: "사용하지 않음", group: "" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
 // 프로바이더를 바꾸면 모델 칸이 빈다. 사람이 고른 것만 브라우저에 적어 둔다.
 // 저절로 고른 첫 모델까지 적으면 "마지막에 고른 것"이 그것으로 덮인다.
 // 접기 상태와 같은 화면 편의라 설정 파일에 넣지 않는다.
 const PICK_KEY = "configAI.model.picked";
-function rememberedModels() {
+function rememberedModels(): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(PICK_KEY) || "{}");
+    return JSON.parse(readStored(PICK_KEY) || "{}") as Record<string, string>;
   } catch {
     return {};
   }
 }
-function rememberModel(provider, model) {
+// 사생활 보호 모드처럼 못 쓰는 브라우저면 기억을 못 할 뿐이다
+function rememberModel(provider: string | undefined, model: string | undefined) {
   if (!provider || provider === "off" || !model) return;
-  try {
-    localStorage.setItem(PICK_KEY, JSON.stringify({ ...rememberedModels(), [provider]: model }));
-  } catch {
-    // 사생활 보호 모드처럼 못 쓰는 브라우저. 기억을 못 할 뿐이다
-  }
+  writeStored(PICK_KEY, JSON.stringify({ ...rememberedModels(), [provider]: model }));
 }
 
-const models = ref([]);
+const models = ref<string[]>([]);
 // 프로필이 아는 모델은 보기 좋은 이름으로 보여준다. 모르는 것은 원본 ID 그대로.
 // 키로 실제로 쓸 수 있는 것은 /models 만 안다(로컬·신모델은 프로필에 없다).
 const modelChoices = computed(() =>
@@ -642,22 +673,23 @@ const modelChoices = computed(() =>
 const manualModel = ref(false);
 const pinging = ref(false);
 // 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
-const tested = ref(null);
+const tested = ref<Tested | null>(null);
 const showRaw = ref(false);
-const shown = ref(null);
-const defaults = ref({ sections: [], line: "" });
+// 미리보기: 나갈 것을 만들어만 본 것
+const shown = ref<Preview | null>(null);
+const defaults = ref<{ sections: PromptSection[]; line: string }>({ sections: [], line: "" });
 
 let serial = 0;
 
 // 키는 프로바이더마다 따로다(config/ai-keys.yaml). 값은 안 내려오고 있는지 없는지만 온다.
-const hasKey = computed(() => !!keyPresence.value[draft.value.provider]);
+const hasKey = computed(() => !!keyPresence.value[draft.value.provider ?? ""]);
 const keyCls = computed(() => (hasKey.value ? "text-[#4ade80]" : "text-muted"));
 const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
 
 // 로컬 · 클라우드 · 게이트웨이로 묶어 보여 준다. 묶음 없는 것("사용하지 않음")은 맨 위에.
 const ungrouped = computed(() => providers.value.filter((one) => !one.group));
 const grouped = computed(() => {
-  const out = [];
+  const out: Array<{ name: string; items: AiState["providers"] }> = [];
   for (const one of providers.value.filter((x) => x.group)) {
     const found = out.find((g) => g.name === one.group);
     if (found) found.items.push(one);
@@ -703,8 +735,7 @@ const savedBaseUrl = ref("");
 const staleCustomUrl = computed(() => !!spec.value?.editable && String(draft.value.baseUrl || "") !== savedBaseUrl.value);
 const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s*\}\}/.test(one.text)));
 
-// 다듬지 않는다. 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
-// 응답 칸은 실제로 보냈을 때만 있다(미리보기는 만들기만 한다).
+// 다듬지 않는다. 무엇이 나갈지 그대로 봐야 한다.
 // 보낼 글을 섹션별로. 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
 // 이름은 프롬프트 칸에 적어 둔 것을 쓴다.
 // 빈 섹션은 요청에서 빠진다. 서버가 달아 준 `at`(원래 섹션 번호)으로 이름표를 찾아야
@@ -720,13 +751,17 @@ const shownSections = computed(() =>
 const boxes = computed(() => {
   const one = shown.value;
   if (!one) return [];
-  return [{ title: "URL", text: one.url }, { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) }, { title: "요청 본문", text: JSON.stringify(one.body, null, 2) }, ...(one.sent ? [{ title: "응답", text: one.response || "(비어 있음)" }] : [])];
+  return [
+    { title: "URL", text: one.url },
+    { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) },
+    { title: "요청 본문", text: JSON.stringify(one.body, null, 2) },
+  ];
 });
 const showRawRequest = ref(false);
 
 const hideModels = computed({
   get: () => draft.value.hideModels || [],
-  set: (v) => {
+  set: (v: string[]) => {
     draft.value.hideModels = v;
   },
 });
@@ -734,16 +769,19 @@ const hideModels = computed({
 // 추가 파라미터는 한 줄에 하나씩 적는 글이다. 뜯어 읽는 것은 서버가 한다(autoplayAssist)
 const extraText = computed({
   get: () => draft.value.extra || "",
-  set: (v) => {
+  set: (v: string) => {
     draft.value.extra = v;
   },
 });
 
 // 파일은 밀리초로 적히지만 사람에게는 초가 낫다
-const secondsOf = (key, round = true) =>
+const secondsOf = (key: string, round = true) =>
   computed({
-    get: () => (draft.value[key] == null ? null : round ? Math.round(draft.value[key] / 1000) : draft.value[key] / 1000),
-    set: (v) => {
+    get: () => {
+      const ms = draft.value[key];
+      return ms == null ? null : round ? Math.round(Number(ms) / 1000) : Number(ms) / 1000;
+    },
+    set: (v: number | null) => {
       draft.value[key] = v == null ? null : Math.round(v * 1000);
     },
   });
@@ -753,14 +791,17 @@ const delaySec = secondsOf("retryDelayMs", false);
 const delayMaxSec = secondsOf("retryDelayMaxMs", false);
 
 // 비운 칸이 쓰는 값(서버의 기본값). 흐린 글로 보여 준다
-const settingDefaults = ref({});
-const defaultOf = (key) => {
+const settingDefaults = ref<Partial<AiDefaults>>({});
+const defaultOf = (key: keyof AiDefaults) => {
   const value = settingDefaults.value[key];
   return value == null ? "" : Array.isArray(value) ? value.join(" · ") : String(value);
 };
-const defaultSec = (key) => (settingDefaults.value[key] == null ? "" : String(settingDefaults.value[key] / 1000));
+const defaultSec = (key: keyof AiDefaults) => {
+  const ms = settingDefaults.value[key];
+  return ms == null ? "" : String(Number(ms) / 1000);
+};
 // 상태 코드는 수로 적는다. 수가 아닌 것은 버린다. 다 지우면 칸을 비운다(기본값)
-function setRetryStatus(values) {
+function setRetryStatus(values: string[]) {
   const codes = values.map(Number).filter((n) => Number.isInteger(n));
   draft.value.retryStatus = codes.length ? codes : null;
 }
@@ -771,7 +812,7 @@ function setRetryStatus(values) {
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
 // 값을 자르지는 않는다. 다만 얼마까지 받는다고 적혀 있는지는 보여 준다
-function hintOf(field) {
+function hintOf(field: ModelField) {
   const lo = field.min;
   const hi = field.max;
   if (lo === undefined && hi === undefined) return field.path;
@@ -781,42 +822,41 @@ function hintOf(field) {
 
 const paramGroups = computed(() => {
   const all = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
-  const known = fieldInfo.value.groups || [];
-  const by = new Map();
+  const known: ModelGroup[] = fieldInfo.value.groups || [];
+  const by = new Map<string, { id: string; label: string; fields: ModelField[] }>();
   for (const field of all) {
     const id = field.group || "generation";
-    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || id, fields: [] });
-    by.get(id).fields.push(field);
+    const group = by.get(id) ?? { id, label: known.find((g) => g.id === id)?.label || id, fields: [] };
+    by.set(id, group);
+    group.fields.push(field);
   }
   for (const group of by.values()) group.fields.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-  const order = (id) => known.findIndex((g) => g.id === id);
+  const order = (id: string) => known.findIndex((g) => g.id === id);
   return [...by.values()].sort((a, b) => (order(a.id) + 1 || 99) - (order(b.id) + 1 || 99));
 });
 
 // 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼).
 // 가려진 칸은 서버도 안 보낸다(autoplayAssist.withParams). 판정 기준을 같게 둔다.
-function showIfOk(field) {
-  if (!field.showIf) return true;
-  const owner = fieldInfo.value.fields.find((one) => one.key === field.showIf.key);
-  const value = [params.value[field.showIf.key], owner?.default].find((one) => one !== undefined && one !== "");
-  return value === field.showIf.equals;
+function showIfOk(field: ModelField) {
+  const cond = field.showIf;
+  if (!cond) return true;
+  const owner = fieldInfo.value.fields.find((one) => one.key === cond.key);
+  const value = [cond.key ? params.value[cond.key] : undefined, owner?.default].find((one) => one !== undefined && one !== "");
+  return value === cond.equals;
 }
 
 const paramLimits = computed(() => {
   const m = fieldInfo.value.models.find((one) => one.modelId === draft.value.model);
   if (!m?.contextWindowTokens && !m?.maxOutputTokens) return "";
-  const n = (x) => Number(x).toLocaleString("ko-KR");
+  const n = (x: number) => Number(x).toLocaleString("ko-KR");
   return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
 });
 
-// 저장하면 서버가 보낸 차례대로 파일을 줄 세운다(configDataLoader.syncMap).
-// config/ai.example.yaml 과 같은 차례로 보내야 새로 깐 파일이 뒤섞이지 않는다.
-const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
-
+// 저장하면 서버가 보낸 차례대로 파일을 줄 세운다. config/ai.example.yaml 과 같은 차례(schema/ai 의 AI_KEY_ORDER)로 보내야 새로 깐 파일이 뒤섞이지 않는다.
 const payload = computed(() => {
-  const all = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
-  const out = {};
-  for (const key of KEY_ORDER) if (key in all) out[key] = all[key];
+  const all: Record<string, unknown> = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
+  const out: Record<string, unknown> = {};
+  for (const key of AI_KEY_ORDER) if (key in all) out[key] = all[key];
   // 모르는 키는 뒤에 그대로 둔다. 빠뜨리면 저장할 때 파일에서 지워진다
   for (const [key, value] of Object.entries(all)) if (!(key in out)) out[key] = value;
   return out;
@@ -824,29 +864,23 @@ const payload = computed(() => {
 
 // 빈 값은 "고르지 않음"이다(프로필 기본값으로 간다). 빈 모델 칸도 남기지 않는다.
 const cleanParams = computed(() => {
-  const out = {};
+  const out: Record<string, Record<string, unknown>> = {};
   for (const [model, values] of Object.entries(allParams.value)) {
     const kept = Object.fromEntries(Object.entries(values || {}).filter(([, v]) => v !== "" && v !== null && v !== undefined));
     if (Object.keys(kept).length) out[model] = kept;
   }
   return out;
 });
-const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
+const promptPayload = computed((): PromptSection[] => sections.value.map((one) => ({ role: one.role, text: one.text })));
 
 // AI 에 보낼 요청을 만들 때 쓰는 것. 저장용(payload)과 갈리는 자리는 프롬프트 하나다.
 // 프롬프트는 ai-prompt.chatml 에 따로 저장하므로 payload 에는 없고, 요청에는 있어야 한다.
 // 미리보기·판정 요청처럼 "지금 화면에 있는 것"을 시험하는 곳은 전부 이쪽을 쓴다.
 const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
-const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
-// 적어 두고 저장하지 않은 키도 떠날 때 묻는다
-trackUnsaved(
-  "ai",
-  computed(() => dirty.value || Boolean(keyInput.value.trim())),
-);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 const problems = computed(() => {
-  const found = [];
+  const found: string[] = [];
   const d = draft.value;
 
   if (d.provider && d.provider !== "off") {
@@ -870,23 +904,14 @@ const problems = computed(() => {
   return [...found, ...serverProblems.value];
 });
 
-// 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 감시를 깨우므로 저장한 값과 다를 때만
-watch([payload, promptPayload], () => {
-  if (!dirty.value) return;
-  savedAt.value = null;
-  serverProblems.value = [];
-});
-
 function addSection() {
   sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", name: "", text: "" });
 }
 
-// 접힘은 자리로 기억한다. 지우면 그 아래가 한 칸씩 당겨진다
-function removeSection(i) {
+// 접힘은 자리로 기억한다. 지우면 그 아래의 기억이 한 칸씩 당겨진다
+function removeSection(i: number) {
+  reorderPrompts(sections.value.map((_, at) => at).filter((at) => at !== i));
   sections.value.splice(i, 1);
-  for (let at = i; at < sections.value.length + 1; at++) {
-    if (isFolded(promptFoldId(at))) toggleFold(promptFoldId(at));
-  }
 }
 
 function loadDefaults() {
@@ -894,76 +919,56 @@ function loadDefaults() {
 }
 
 // 자리표시자 알약. 줄 형식 칸 끝에 붙인다
-function insertMark(mark) {
+function insertMark(mark: string) {
   listCfg.value.lineFormat = `${listCfg.value.lineFormat || defaults.value.line}${mark}`;
 }
 
-// ── 순서 바꾸기. 장르·상태 설정과 같은 방식 ───────────────────────────────
-const draggedIndex = ref(null);
-const dragOverIndex = ref(null);
-// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다. 손잡이를 누르는 동안만 켠다
-const dragReady = ref(false);
-
-function armDrag() {
-  dragReady.value = true;
-  window.addEventListener("mouseup", () => (dragReady.value = false), { once: true });
-}
-
-function onDragStart(e, i) {
-  // dragstart는 위로 퍼진다. 카드 자신이 끌리기 시작한 것만 받는다
-  if (e.target !== e.currentTarget) return;
-  draggedIndex.value = i;
-  e.dataTransfer.effectAllowed = "move";
-}
-
-function onDragOver(e, i) {
-  if (draggedIndex.value == null) return;
-  e.preventDefault();
-  const rect = e.currentTarget.getBoundingClientRect();
-  dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
-}
-
-function onDrop(e) {
-  if (draggedIndex.value == null) return;
-  e.preventDefault();
-  const from = draggedIndex.value;
-  const to = dragOverIndex.value;
-  if (from != null && to != null) {
-    const [moved] = sections.value.splice(from, 1);
-    // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
-    sections.value.splice(to > from ? to - 1 : to, 0, moved);
-  }
-  onDragEnd();
-}
-
-function onDragEnd() {
-  dragReady.value = false;
-  draggedIndex.value = null;
-  dragOverIndex.value = null;
-}
+// ── 순서 바꾸기. 접어 둔 기억도 그 섹션을 따라간다 ─────────────────────────
+const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(sections, reorderPrompts);
 
 // ── 주고받기 ──────────────────────────────────────────────────────────────
 
-function apply(data) {
-  const { list, prompt, promptNames, params: saved, ...rest } = data || {};
+function apply(data: Record<string, unknown>) {
+  const { list, prompt: _prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
-  allParams.value = { ...(saved || {}) };
+  allParams.value = { ...((saved as Record<string, Record<string, unknown>> | undefined) || {}) };
   // 설정에 저장돼 있는 모델도 사람이 고른 것이다. 기동 직후에도 기억이 비지 않게 둔다
   rememberModel(draft.value.provider, draft.value.model);
   picking = draft.value.model || "";
   params.value = { ...(allParams.value[picking] || {}) };
-  listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
-  names = Array.isArray(promptNames) ? promptNames : [];
+  listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...((list as Partial<ListCfg> | undefined) || {}) };
+  names = Array.isArray(promptNames) ? promptNames.map(String) : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
   savedBaseUrl.value = String(draft.value.baseUrl || ""); // 키를 붙일지 가르는 기준
-  snapshot.value = JSON.stringify(payload.value);
 }
 
-function applyPrompt(list) {
+function applyPrompt(list: PromptSection[] | null | undefined) {
   sections.value = (list || []).map((one, i) => ({ key: ++serial, role: one?.role || "system", name: names[i] || "", text: String(one?.text ?? "") }));
-  promptSnapshot.value = JSON.stringify(promptPayload.value);
-  snapshot.value = JSON.stringify(payload.value); // 이름이 payload 에 실리므로 같이 굳힌다
 }
+
+// 설정(ai.yaml)과 프롬프트(ai-prompt.chatml)는 딴 파일이지만 한 편집기다. 둘을 한 덩어리로 읽고, 한 요청으로 저장한다(둘 중 하나만 저장되지 않게).
+// 이름(promptNames)이 설정 쪽에 실리므로 설정을 넣은 뒤에 프롬프트를 넣는다
+const {
+  dirty,
+  saving,
+  savedAt,
+  loadError,
+  serverProblems,
+  fetch: fetchAll,
+  save,
+  revert,
+} = useConfigFile({
+  tab: "ai",
+  // 적어 두고 저장하지 않은 키도 떠날 때 묻는다
+  alsoUnsaved: () => Boolean(keyInput.value.trim()),
+  payload: () => ({ data: payload.value, sections: promptPayload.value }),
+  apply: (both) => {
+    apply(both.data as Record<string, unknown>);
+    applyPrompt(both.sections as PromptSection[]);
+  },
+  read: async () => ({ data: (await axios.get<ConfigFile>("/api/admin/config/ai")).data.data, sections: (await axios.get<PromptReply>("/api/admin/ai/prompt")).data.sections }),
+  write: async (both) => (await axios.put<AiSaved>("/api/admin/ai/settings", both)).data,
+});
 
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
 watch(
@@ -998,7 +1003,7 @@ async function countTokens() {
     return;
   }
   try {
-    const { data } = await axios.post(
+    const { data } = await axios.post<TokensReply>(
       "/api/admin/ai/tokens",
       {
         provider: draft.value.provider,
@@ -1028,25 +1033,24 @@ const judgeUrls = ref("");
 const judgeGenre = ref("록");
 const judging = ref(false);
 const judgeError = ref("");
-const judgeCands = ref([]);
-const judgeList = ref([]);
-const judgeVerdicts = ref(null);
-const judgeSent = ref(null);
+const judgeCands = ref<TestCandidate[]>([]);
+const judgeList = ref<string[]>([]);
+const judgeVerdicts = ref<Array<NonNullable<JudgeResult["verdicts"]>[number] | null> | null>(null);
+const judgeSent = ref<JudgeResult | null>(null);
 const showJudgeRaw = ref(false);
 const judgeLookedUp = ref("");
 
 const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
-function copy(text) {
-  try {
-    navigator.clipboard.writeText(String(text ?? ""));
-  } catch {
-    // 안전하지 않은 출처처럼 못 쓰는 자리. 복사만 안 될 뿐이다
-  }
+// 안전하지 않은 출처처럼 못 쓰는 자리면 복사만 안 될 뿐이다
+function copy(text: unknown) {
+  navigator.clipboard?.writeText(String(text ?? "")).catch(() => {
+    /* 복사만 안 된다 */
+  });
 }
 
 // 적어 두고 조회를 안 눌렀으면 알려 준다. 그대로 보내면 보기 곡으로 판정한다
 const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeUrls.value.trim() !== judgeLookedUp.value);
-const rendered = (one) => !one.error && one.title;
+const rendered = (one: TestCandidate) => Boolean(!one.error && one.title);
 const judgeUsable = computed(() => (judgeStale.value ? [] : judgeCands.value.filter(rendered)));
 
 const judgeBoxes = computed(() => {
@@ -1063,12 +1067,13 @@ const judgeBoxes = computed(() => {
 });
 
 // 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다. 멀쩡한 것만 세어 맞춘다
-function lineFor(cand) {
+function lineFor(cand: TestCandidate) {
   const at = judgeCands.value.filter(rendered).indexOf(cand);
   return judgeList.value[at] ?? "";
 }
-const verdictOk = (one) => one && one.song && one.fits;
-const verdictText = (one) => (!one ? "?" : one.song && one.fits ? "통과" : !one.song ? "곡 아님" : "장르 다름");
+type Verdict = { song: boolean | null; fits: boolean | null } | null | undefined;
+const verdictOk = (one: Verdict) => Boolean(one && one.song && one.fits);
+const verdictText = (one: Verdict) => (!one ? "?" : one.song && one.fits ? "통과" : !one.song ? "곡 아님" : "장르 다름");
 
 const judgeUrlList = () =>
   judgeUrls.value
@@ -1082,7 +1087,7 @@ async function lookupJudge() {
   judgeVerdicts.value = null;
   judgeSent.value = null;
   try {
-    judgeCands.value = (await axios.post("/api/admin/ai/judge/lookup", { urls: judgeUrlList() }, { timeout: LIMIT.none })).data.candidates;
+    judgeCands.value = (await axios.post<CandidatesReply>("/api/admin/ai/judge/lookup", { urls: judgeUrlList() }, { timeout: LIMIT.none })).data.candidates;
     judgeLookedUp.value = judgeUrls.value.trim();
   } catch (error) {
     judgeError.value = problemText(error, "조회하지 못했습니다.");
@@ -1094,7 +1099,7 @@ async function lookupJudge() {
 // 줄 그리기는 서버 몫이다. 화면이 흉내 내면 실제로 나가는 줄과 어긋난다.
 // 늦게 온 응답이 방금 그린 것을 덮지 않도록 차례를 센다.
 let linesSeq = 0;
-let linesTimer = null;
+let linesTimer: ReturnType<typeof setTimeout> | undefined;
 watch([judgeCands, judgeGenre, () => JSON.stringify(listCfg.value)], () => {
   clearTimeout(linesTimer);
   linesTimer = setTimeout(drawLines, 150);
@@ -1102,10 +1107,13 @@ watch([judgeCands, judgeGenre, () => JSON.stringify(listCfg.value)], () => {
 
 async function drawLines() {
   const usable = judgeCands.value.filter(rendered);
-  if (!usable.length) return (judgeList.value = []);
+  if (!usable.length) {
+    judgeList.value = [];
+    return;
+  }
   const seq = ++linesSeq;
   try {
-    const { data } = await axios.post("/api/admin/ai/judge/lines", { candidates: usable, list: listCfg.value, genre: judgeGenre.value });
+    const { data } = await axios.post<LinesReply>("/api/admin/ai/judge/lines", { candidates: usable, list: listCfg.value, genre: judgeGenre.value });
     if (seq === linesSeq) judgeList.value = data.lines;
   } catch (error) {
     if (seq !== linesSeq) return;
@@ -1119,7 +1127,7 @@ async function runJudge() {
   judgeError.value = "";
   try {
     const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다. 서버가 보기 곡으로 돌린다
-    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: aiRequestDraft() }, { timeout: LIMIT.none });
+    const { data } = await axios.post<JudgeResult>("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: aiRequestDraft() }, { timeout: LIMIT.none });
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
   } catch (error) {
@@ -1138,12 +1146,12 @@ async function loadFields() {
     return;
   }
   try {
-    const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
+    const { data } = await axios.get<AiFields>("/api/admin/ai/fields", { params: { provider, model: model || "" } });
     if (seq !== fieldsSeq) return;
     fieldInfo.value = data;
     if (model !== picking) {
-      picking = model;
-      params.value = { ...(allParams.value[model] || {}) };
+      picking = model ?? "";
+      params.value = { ...(allParams.value[picking] || {}) };
       jsonText.value = {};
       jsonBad.value = {};
     }
@@ -1154,21 +1162,11 @@ async function loadFields() {
   }
 }
 
-async function fetchAll() {
-  loadError.value = "";
-  try {
-    apply((await axios.get("/api/admin/config/ai")).data.data);
-    applyPrompt((await axios.get("/api/admin/ai/prompt")).data.sections);
-  } catch (error) {
-    loadError.value = problemText(error, "설정을 읽지 못했습니다.");
-  }
-}
-
 // 키 유무와 기본 프롬프트. 둘 다 서버가 들고 있다.
 // 화면이 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다.
 async function fetchState() {
   try {
-    const state = (await axios.get("/api/admin/ai/state")).data;
+    const state = (await axios.get<AiState>("/api/admin/ai/state")).data;
     keyPresence.value = state.hasKey || {};
     if (state.providers?.length) providers.value = state.providers;
     pingText.value = state.pingText || "";
@@ -1183,7 +1181,7 @@ async function fetchState() {
 // 만들어만 본다. 아무 데도 안 나간다.
 async function openPreview() {
   try {
-    shown.value = { ...(await axios.post("/api/admin/ai/preview", { data: aiRequestDraft() })).data, sent: false };
+    shown.value = (await axios.post<Preview>("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
   } catch (error) {
     loadError.value = problemText(error, "미리보기를 만들지 못했습니다.");
   }
@@ -1197,7 +1195,7 @@ function onProvider() {
 
   // baseUrl 은 custom 전용이다. 다른 것을 골랐다고 적어 둔 주소를 지우지 않는다
   if (!on.value) return;
-  loadModels({ quiet: true }); // 고르면 알아서 불러온다. 무료라 누르게 할 이유가 없다
+  void loadModels({ quiet: true }); // 고르면 알아서 불러온다. 무료라 누르게 할 이유가 없다
 }
 
 // 무료. 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
@@ -1208,13 +1206,13 @@ async function loadModels({ quiet = false } = {}) {
   if (!quiet) tested.value = null;
 
   try {
-    const got = (await axios.post("/api/admin/ai/models", { data: payload.value }, { timeout: LIMIT.none })).data;
+    const got = (await axios.post<ModelsCheck>("/api/admin/ai/models", { data: payload.value }, { timeout: LIMIT.none })).data;
     models.value = got.models || [];
     // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
     manualModel.value = !models.value.length;
     // 지금 값이 이 프로바이더의 목록에 없으면 기억해 둔 것으로 되돌린다
-    if (!models.value.includes(draft.value.model)) {
-      const remembered = rememberedModels()[draft.value.provider];
+    if (!models.value.includes(draft.value.model ?? "")) {
+      const remembered = rememberedModels()[draft.value.provider ?? ""];
       draft.value.model = models.value.includes(remembered) ? remembered : models.value[0] || "";
     }
     if (quiet && !got.ok) return;
@@ -1240,12 +1238,12 @@ async function loadModels({ quiet = false } = {}) {
 // 확인 대화상자를 열면서 진짜 주소를 받아 온다. 미리보기는 아무 데도 안 보내므로 토큰이 안 든다.
 // 클라이언트가 주소를 흉내 내면 어긋난다(버텍스는 project·location 으로 조립하고,
 // custom 은 끝 슬래시를 떼야 한다). 물어보는 편이 늘 맞다.
-const askPaid = async (which) => {
+const askPaid = async (which: "ping" | "judge") => {
   paid.value = which;
   paidUrl.value = "";
   paidUrlError.value = "";
   try {
-    const { url } = (await axios.post("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
+    const { url } = (await axios.post<Preview>("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
     if (paid.value === which) paidUrl.value = url || "";
   } catch (error) {
     if (paid.value === which) paidUrlError.value = problemText(error, "보낼 곳을 확인하지 못했습니다.");
@@ -1255,15 +1253,15 @@ const askPaid = async (which) => {
 function runPaid() {
   const which = paid.value;
   paid.value = null;
-  if (which === "ping") runPing();
-  else runJudge();
+  if (which === "ping") void runPing();
+  else void runJudge();
 }
 
 // 키는 쓰기 전용이다. payload 에 안 싣는다(미리보기·테스트로 새어 나가면 안 된다)
-async function putKey(value) {
+async function putKey(value: string) {
   savingKey.value = true;
   try {
-    keyPresence.value = (await axios.put("/api/admin/ai/keys", { keys: { [draft.value.provider]: value } })).data.hasKey || {};
+    keyPresence.value = (await axios.put<KeysReply>("/api/admin/ai/keys", { keys: { [draft.value.provider ?? ""]: value } })).data.hasKey || {};
     keyInput.value = "";
   } catch (error) {
     loadError.value = problemText(error, "키를 저장하지 못했습니다.");
@@ -1293,7 +1291,7 @@ async function runPing() {
   tested.value = null;
   showRaw.value = false;
   try {
-    const got = (await axios.post("/api/admin/ai/ping", { data: payload.value }, { timeout: LIMIT.none })).data;
+    const got = (await axios.post<PingCheck>("/api/admin/ai/ping", { data: payload.value }, { timeout: LIMIT.none })).data;
     tested.value = {
       kind: "유료 테스트",
       ok: got.ok,
@@ -1311,31 +1309,10 @@ async function runPing() {
   }
 }
 
-async function save() {
-  saving.value = true;
-  serverProblems.value = [];
-  try {
-    // 설정과 프롬프트를 한 요청으로(둘 중 하나만 저장되지 않게)
-    const { data } = await axios.put("/api/admin/ai/settings", { data: payload.value, sections: promptPayload.value });
-    apply(data.data);
-    applyPrompt(data.sections);
-    savedAt.value = Date.now();
-  } catch (error) {
-    serverProblems.value = problemDetails(error).length ? problemDetails(error) : [problemText(error, "저장하지 못했습니다.")];
-  } finally {
-    saving.value = false;
-  }
-}
-
-function revert() {
-  apply(JSON.parse(snapshot.value));
-  applyPrompt(JSON.parse(promptSnapshot.value));
-}
-
 onMounted(async () => {
   await fetchState();
   await fetchAll();
   // 켜져 있으면 열자마자 채워 둔다. 무료라 물어볼 것이 없다.
-  if (on.value) loadModels({ quiet: true });
+  if (on.value) void loadModels({ quiet: true });
 });
 </script>

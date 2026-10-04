@@ -16,9 +16,9 @@
 
       <div class="flex flex-col items-center min-w-0 w-full pt-1">
         <div class="flex items-center gap-0.5">
-          <button :class="iconBtn" v-tooltip="'이전곡'" :disabled="!previousEnabled(np.data) || np.busy.has('previous')" @click="np.previous()"><Icon name="prev" :size="17" /></button>
+          <button :class="iconBtn" v-tooltip="'이전곡'" :disabled="!previousEnabled(np.data) || np.isBusy('previous')" @click="np.previous()"><Icon name="prev" :size="17" /></button>
           <button :class="iconMain" v-tooltip="np.running ? '일시정지' : '재생'" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play'" :size="19" /></button>
-          <button :class="iconBtn" v-tooltip="'다음곡'" :disabled="!skipEnabled(np.data) || np.busy.has('skip')" @click="np.skip()"><Icon name="skip" :size="17" /></button>
+          <button :class="iconBtn" v-tooltip="'다음곡'" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" @click="np.skip()"><Icon name="skip" :size="17" /></button>
         </div>
 
         <div class="flex items-center gap-2 w-full">
@@ -49,7 +49,7 @@
         </span>
       </button>
       <button :class="iconMain" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play'" :size="19" /></button>
-      <button :class="iconBtn" :disabled="!skipEnabled(np.data) || np.busy.has('skip')" @click="np.skip()"><Icon name="skip" :size="17" /></button>
+      <button :class="iconBtn" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" @click="np.skip()"><Icon name="skip" :size="17" /></button>
     </div>
 
     <div class="md:hidden absolute inset-x-0 bottom-0 h-0.5 bg-white/12">

@@ -4,7 +4,13 @@ import { PROVIDERS } from "./ai-providers.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const PROMPT_FILE = "ai-prompt.chatml";
-const AI_UNKNOWN = ["hide", "text", "zero"];
+// 길이를 모르는 후보를 목록 줄에 어떻게 적나: 그 칸을 뺀다 · 글자로 · 0 으로
+const AI_UNKNOWN = ["hide", "text", "zero"] as const;
+type AiUnknown = (typeof AI_UNKNOWN)[number];
+const isAiUnknown = (v: unknown): v is AiUnknown => AI_UNKNOWN.some((one) => one === v);
+
+// ai.yaml 의 키 차례(config/ai.example.yaml 과 같다). 저장은 받은 차례대로 파일을 줄 세우므로 대시보드가 이 차례로 보낸다
+const AI_KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
 
 // 모델이 받는 수치 칸. 범위를 벗어나거나 수가 아니면 같은 문구
 const between = (key: string, min: number, max: number) =>
@@ -24,7 +30,7 @@ const list = z
         // 제목이 없으면 판정할 거리가 없다
         .refine((f) => !f.trim() || /\{\{\s*제목\s*\}\}/.test(f), { error: "list.lineFormat에 {{제목}} 이 있어야 합니다." })
         .nullish(),
-      unknownDuration: present((v) => typeof v === "string" && AI_UNKNOWN.includes(v), `list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`),
+      unknownDuration: present((v) => isAiUnknown(v), `list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`),
       unknownText: z.string({ error: "list.unknownText는 글로 적어야 합니다." }).nullish(),
     },
     { error: "list는 이름:값 꼴이어야 합니다." },
@@ -88,4 +94,5 @@ function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-export { aiProblems, PROMPT_FILE, AI_UNKNOWN };
+export { aiProblems, PROMPT_FILE, AI_UNKNOWN, AI_KEY_ORDER, isAiUnknown };
+export type { AiUnknown };

@@ -90,15 +90,22 @@ export function reorderSources(genreIndex: number, order: number[]): void {
   }, order);
 }
 
-/** 상태 문구의 특별 문구 카드의 새 차례 */
-export function reorderSpecials(order: number[]): void {
+/** 접기만 기억하는 카드(번호 하나)의 새 차례. prefix 는 카드 종류의 머리 글자 */
+function moveFolded(prefix: string, rebuild: (at: number) => string, order: number[]) {
+  const shape = new RegExp(`^${prefix}(\\d+)$`);
   folded.value = remap(
     folded.value,
     (id) => {
-      const m = /^s(\d+)$/.exec(id);
-      return m && { index: Number(m[1]), rebuild: (at) => specialFoldId(at) };
+      const m = shape.exec(id);
+      return m && { index: Number(m[1]), rebuild };
     },
     order,
   );
   save(STORE_KEY, folded.value);
 }
+
+/** 상태 문구의 특별 문구 카드의 새 차례 */
+export const reorderSpecials = (order: number[]) => moveFolded("s", specialFoldId, order);
+
+/** AI 프롬프트 섹션의 새 차례 */
+export const reorderPrompts = (order: number[]) => moveFolded("p", promptFoldId, order);

@@ -12,6 +12,8 @@ type Data = Record<string, unknown>;
 type Options = {
   /** 저장하지 않은 편집을 알릴 이름(운영자 화면의 탭) */
   tab: string;
+  /** 설정 말고도 저장하지 않은 것이 있는지(적어 두고 저장하지 않은 키 등) */
+  alsoUnsaved?: () => boolean;
   /** 보낼 모양. 바뀌었는지는 마지막으로 받은 것과 견준다 */
   payload: () => unknown;
   /** 받은 것을 편집기에 넣는다 */
@@ -28,7 +30,7 @@ export const configFileIo = (name: string) => ({
   write: async (payload: unknown) => (await axios.put<ConfigSaved>(`/api/admin/config/${name}`, { data: payload })).data.data,
 });
 
-export function useConfigFile({ tab, payload, apply, read, write }: Options) {
+export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write }: Options) {
   const snapshot = ref("");
   const saving = ref(false);
   const savedAt = ref<number | null>(null);
@@ -36,7 +38,10 @@ export function useConfigFile({ tab, payload, apply, read, write }: Options) {
   const serverProblems = ref<string[]>([]);
 
   const dirty = computed(() => JSON.stringify(payload()) !== snapshot.value);
-  trackUnsaved(tab, dirty);
+  trackUnsaved(
+    tab,
+    computed(() => dirty.value || Boolean(alsoUnsaved?.())),
+  );
 
   // 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
   watch(payload, () => {

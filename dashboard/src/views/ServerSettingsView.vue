@@ -66,11 +66,11 @@
             </button>
           </div>
 
-          <!-- 구간 설명 패널 (내용은 SB_DESCRIPTIONS에 작성) -->
+          <!-- 구간 설명 패널. 설명은 서버가 이름과 함께 준다(rules/sponsor-categories) -->
           <div v-if="sbHelpOpen" class="rounded-xl border border-white/7 bg-white/3 p-2.5 mb-1.5 flex flex-col gap-1.5 text-[0.8rem]">
             <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="flex gap-2">
               <span class="text-fg-soft font-medium shrink-0 min-w-24">{{ c.label }}</span>
-              <span class="text-muted">{{ sbDescriptions[c.id] || "" }}</span>
+              <span class="text-muted">{{ c.description }}</span>
             </div>
           </div>
 
@@ -128,7 +128,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { problemText } from "../utils/problem.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { ref, computed, onMounted } from "vue";
@@ -137,36 +137,31 @@ import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import SaveDock from "../components/SaveDock.vue";
 import Icon from "../components/BaseIcon.vue";
+import { valueOf } from "../utils/dom.ts";
+import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
+import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";
+import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
+
+/** 받기 전에는 이름 · SponsorBlock · 재생목록 칸이 없다 */
+type SettingsSeen = Omit<GuildSettings, "guildName" | "sponsorblock" | "playlistAdd"> & { guildName: string | null; sponsorblock: GuildSettings["sponsorblock"] | null; playlistAdd: GuildSettings["playlistAdd"] | null };
 
 const route = useRoute();
-const guildId = route.params.guildId;
+const guildId = String(route.params.guildId);
 
 const loading = ref(true);
-const loadError = ref(null);
-const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null });
+const loadError = ref<string | null>(null);
+const s = ref<SettingsSeen>({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null });
 
 // 편집 폼 상태 (서버 값과 분리. 저장 전까지 반영 안 됨)
-const selectedRoles = ref([]);
-const selectedChannel = ref(null);
+const selectedRoles = ref<string[]>([]);
+const selectedChannel = ref<string | null>(null);
 const roleFilter = ref("");
 const sbEnabled = ref(true);
-const sbCategories = ref([]);
+const sbCategories = ref<string[]>([]);
 const sbHelpOpen = ref(false);
 
-// 각 SponsorBlock 구간 종류 설명. 내용은 여기에 작성 (키 = 카테고리 id)
-const sbDescriptions = {
-  music_offtopic: "이 구간은 뮤직비디오에서만 해당합니다.",
-  intro: "반복되는 애니메이션이나 정적 프레임과 같은 내용을 포함하는 구간",
-  outro: "최종 화면이나 크레딧 내용을 포함하는 구간",
-  sponsor: "유료 광고, 유료 협찬과 같은 직접적인 광고 내용을 포함하는 구간",
-  selfpromo: '"후원이나 협찬 구간"과 유사하지만, 자발적으로 홍보하는 내용을 포함하는 구간',
-  interaction: "좋아요, 구독, 팔로우를 요청하는 구간",
-  preview: "동영상의 뒷부분에서 반복되는 현재 동영상 또는 시리즈의 다른 동영상에 나온 정보를 보여주는 구간",
-  hook: "후속 편에 대한 내용이나, 인사말이 있는 구간",
-  filler: "전반적인 동영상의 주제를 이해하는 데 필요 없는 잡담이나 농담이 포함되는 구간",
-};
 const saving = ref(false);
-const result = ref(null);
+const result = ref<{ success: true } | { success: false; error: string } | null>(null);
 
 const filteredRoles = computed(() => {
   const q = roleFilter.value.trim().toLowerCase();
@@ -181,7 +176,7 @@ const sbDirty = computed(() => {
 
 // 재생목록 한 번에 넣는 곡 수. 기본값(null) 또는 직접 정한 값
 const paUseDefault = ref(true);
-const paCount = ref(null);
+const paCount = ref<number | null>(null);
 const paPresets = computed(() => {
   const pa = s.value.playlistAdd;
   return pa ? [25, 50, 100, 200].filter((n) => n >= pa.min && n <= pa.max && n !== pa.default) : [];
@@ -189,22 +184,28 @@ const paPresets = computed(() => {
 const paValue = computed(() => (paUseDefault.value ? null : paCount.value));
 const paInvalid = computed(() => {
   const pa = s.value.playlistAdd;
-  return Boolean(pa) && !paUseDefault.value && !(Number.isInteger(paCount.value) && paCount.value >= pa.min && paCount.value <= pa.max);
+  if (!pa || paUseDefault.value) return false;
+  const n = paCount.value;
+  return !(n !== null && Number.isInteger(n) && n >= pa.min && n <= pa.max);
 });
 // 대기열 상한이 기본값보다 작으면 서버도 상한으로 자른다. 보이는 값을 맞춘다
-const paClamp = (n) => Math.min(s.value.playlistAdd.max, Math.max(s.value.playlistAdd.min, n));
-const paEffective = computed(() => paClamp(paValue.value ?? s.value.playlistAdd.default));
-const paDirty = computed(() => Boolean(s.value.playlistAdd) && paValue.value !== s.value.playlistAdd.value);
+function paClamp(n: number) {
+  const pa = s.value.playlistAdd;
+  return pa ? Math.min(pa.max, Math.max(pa.min, n)) : n;
+}
+const paEffective = computed(() => paClamp(paValue.value ?? s.value.playlistAdd?.default ?? 0));
+const paDirty = computed(() => Boolean(s.value.playlistAdd) && paValue.value !== s.value.playlistAdd?.value);
 
-function pickPreset(n) {
+function pickPreset(n: number) {
   paUseDefault.value = false;
   paCount.value = n;
 }
 
 // type="number" 를 안 쓴다. 칸 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
-function onPaInput(e) {
-  const raw = e.target.value.replace(/[^0-9]/g, "");
-  if (e.target.value !== raw) e.target.value = raw;
+function onPaInput(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const raw = valueOf(e).replace(/[^0-9]/g, "");
+  if (input.value !== raw) input.value = raw;
   if (raw === "") {
     paUseDefault.value = true;
     paCount.value = null;
@@ -214,7 +215,7 @@ function onPaInput(e) {
   paCount.value = Number(raw);
 }
 
-function chip(active) {
+function chip(active: boolean) {
   const base = "px-3 py-1.5 rounded-full text-[0.85rem] border transition-[background-color,border-color,color] duration-150 disabled:opacity-40 disabled:cursor-not-allowed";
   return active ? `${base} bg-accent/20 border-accent/55 text-fg` : `${base} bg-white/4 border-white/9 text-muted hover:text-fg hover:border-white/18`;
 }
@@ -227,21 +228,21 @@ function syncPaForm() {
 
 const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value || paDirty.value);
 
-function toggleSbCategory(id) {
+function toggleSbCategory(id: string) {
   const i = sbCategories.value.indexOf(id);
   if (i >= 0) sbCategories.value.splice(i, 1);
   else sbCategories.value.push(id);
 }
 
-function resultMsg(ok) {
+function resultMsg(ok: boolean) {
   const base = "mt-3 px-4 py-2.5 rounded-[10px] text-sm border";
   return ok ? `${base} bg-success/10 text-success border-success/22` : `${base} bg-danger/10 text-danger border-danger/22`;
 }
 
-function toggleRole(id) {
+function toggleRole(id: string) {
   const i = selectedRoles.value.indexOf(id);
   if (i >= 0) selectedRoles.value.splice(i, 1);
-  else if (selectedRoles.value.length < 25) selectedRoles.value.push(id); // 디스코드 셀렉트 메뉴 한계와 정합
+  else if (selectedRoles.value.length < DJ_ROLE_MAX) selectedRoles.value.push(id);
 }
 
 function syncSbForm() {
@@ -258,7 +259,7 @@ function revert() {
   result.value = null;
 }
 
-function apply(data) {
+function apply(data: GuildSettings) {
   s.value = data;
   selectedRoles.value = [...data.djRoleIds];
   selectedChannel.value = data.botChannelId;
@@ -268,7 +269,7 @@ function apply(data) {
 
 async function load() {
   try {
-    apply((await axios.get(`/api/guilds/${guildId}/settings`)).data);
+    apply((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
   } catch (e) {
     loadError.value = problemText(e, "설정을 불러오지 못했습니다");
   } finally {
@@ -279,7 +280,7 @@ async function load() {
 // 저장 뒤 서버가 확정한 값(지운 역할 정리 등)으로 맞춘다. 못 읽어도 저장은 됐으니 화면은 두고 알리기만 한다
 async function reload() {
   try {
-    apply((await axios.get(`/api/guilds/${guildId}/settings`)).data);
+    apply((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
   } catch (e) {
     notifyProblem(e, "저장한 설정을 다시 읽지 못했어요.");
   }
@@ -290,12 +291,13 @@ async function save() {
   saving.value = true;
   result.value = null;
   try {
-    await axios.put(`/api/guilds/${guildId}/settings`, {
+    const body: SettingsRequest = {
       djRoleIds: selectedRoles.value,
       botChannelId: selectedChannel.value,
       sponsorblock: { enabled: sbEnabled.value, categories: sbCategories.value },
       ...(s.value.playlistAdd && { playlistAddMax: paValue.value }),
-    });
+    };
+    await axios.put<Saved>(`/api/guilds/${guildId}/settings`, body);
     result.value = { success: true };
     await reload();
   } catch (e) {

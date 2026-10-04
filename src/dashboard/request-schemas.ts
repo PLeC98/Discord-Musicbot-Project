@@ -93,4 +93,8 @@ function settingsBody({ min, max }: { min: number; max: number }) {
   );
 }
 
+/** 서버 설정 저장의 본문(화면이 보내는 모양) */
+type SettingsRequest = z.input<ReturnType<typeof settingsBody>>;
+
 export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, QUERY_MAX_LEN };
+export type { SettingsRequest };

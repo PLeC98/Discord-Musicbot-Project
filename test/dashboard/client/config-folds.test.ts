@@ -1,4 +1,4 @@
-// dashboard/src/composables/config-folds.ts — 접어 둔 장르 · 출처 기억. 지우거나 차례를 바꾸면 기억이 그 카드를 따라간다
+// dashboard/src/composables/config-folds.ts — 접어 둔 장르 · 출처 · 특별 문구 · 프롬프트 섹션 기억. 지우거나 차례를 바꾸면 기억이 그 카드를 따라간다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -33,4 +33,15 @@ test("장르를 끌어 옮기면 기억도 따라가고, 출처를 지우면 그
   folds.toggleFold(s(1, 2));
   folds.reorderSources(0, [0, 2]); // 0번 장르의 1번 출처를 지웠다
   assert.deepEqual([s(0, 1), s(0, 2), s(1, 2)].map(folds.isFolded), [true, false, true], "다른 장르의 출처는 그대로");
+});
+
+test("특별 문구 · 프롬프트 섹션을 끌어 옮기면 접힘 기억이 따라가고 서로 섞이지 않는다", () => {
+  const { specialFoldId: sp, promptFoldId: p } = folds;
+  folds.toggleFold(sp(0));
+  folds.toggleFold(p(1));
+  folds.reorderSpecials([1, 0]); // 두 특별 문구의 자리를 바꿨다
+  folds.reorderPrompts([1, 2, 0]); // 1번 섹션이 맨 앞으로
+  assert.deepEqual([sp(0), sp(1), p(0), p(1)].map(folds.isFolded), [false, true, true, false]);
+  folds.toggleFold(sp(1));
+  folds.toggleFold(p(0));
 });

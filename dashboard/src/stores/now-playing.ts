@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import axios from "axios";
 import { useGuildsStore, onGuildNudge } from "./guilds.ts";
 import { notifyProblem } from "../composables/toasts.ts";
+import { useBusy } from "../composables/busy.ts";
 import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime, withReadFields, type PlayerSeen } from "../utils/playback.ts";
 import type { PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";
 
@@ -69,25 +70,22 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   }
 
   // 응답을 기다리는 조작. 같은 조작을 겹쳐 보내지 않는다
-  const busy = ref(new Set<string>());
+  const { isBusy, whileBusy } = useBusy();
   async function send(type: string, body: object | undefined, fallback: string) {
-    if (!guildId.value || busy.value.has(type)) return;
-    busy.value = new Set(busy.value).add(type);
-    try {
-      apply((await axios.post<PlayerState>(url(`/${type}`), body)).data);
-    } catch (e) {
-      notifyProblem(e, fallback);
-      void refresh(); // 거절되면 서버 상태로 되돌린다
-    } finally {
-      const rest = new Set(busy.value);
-      rest.delete(type);
-      busy.value = rest;
-    }
+    if (!guildId.value) return;
+    await whileBusy(type, async () => {
+      try {
+        apply((await axios.post<PlayerState>(url(`/${type}`), body)).data);
+      } catch (e) {
+        notifyProblem(e, fallback);
+        void refresh(); // 거절되면 서버 상태로 되돌린다
+      }
+    });
   }
 
   // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
   function togglePause() {
-    if (!data.value || busy.value.has("pause")) return;
+    if (!data.value || isBusy("pause")) return;
     const paused = !data.value.paused;
     clock.value = retime(clock.value, Date.now(), { running: Boolean(track.value && data.value.playing && !paused) });
     data.value = { ...data.value, paused };
@@ -154,5 +152,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, busy, refresh, togglePause, skip, previous, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, setVolume, seek, start, stop };
 });

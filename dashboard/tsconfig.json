@@ -4,9 +4,7 @@
   "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
     "lib": ["es2024", "dom", "dom.iterable"],
-    "erasableSyntaxOnly": true,
-    // .vue 의 <script> 가 아직 JS 인 동안만. 모두 lang="ts" 가 되면 걷는다
-    "allowJs": true
+    "erasableSyntaxOnly": true
   },
   "include": ["src/**/*.ts", "src/**/*.vue"]
 }
