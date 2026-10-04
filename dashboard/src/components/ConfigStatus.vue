@@ -78,11 +78,11 @@
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
-        <div v-for="p in problems" :key="p">· {{ p }}</div>
+        <div v-for="p in problems" :key="p" class="whitespace-pre-line">· {{ p }}</div>
       </div>
 
       <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장됨. 다음 회전부터 반영됩니다</p>
-      <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
+      <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ loadError }}</p>
     </BaseCard>
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />

@@ -5,41 +5,13 @@ import router from "./router/index.js";
 import axios from "axios";
 import tooltip from "./directives/tooltip.js";
 import "./style.css";
-import { problemCode } from "./utils/problem.js";
+import { installRequests } from "./utils/request.js";
+import { session } from "./composables/session.js";
 
-axios.defaults.withCredentials = true;
-
-let csrfToken = null;
-let csrfTokenRequest = null;
-const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-
-async function getCsrfToken() {
-  if (csrfToken) return csrfToken;
-  if (!csrfTokenRequest) {
-    csrfTokenRequest = axios
-      .get("/api/csrf-token")
-      .then((response) => {
-        csrfToken = response.data.csrfToken;
-        return csrfToken;
-      })
-      .finally(() => {
-        csrfTokenRequest = null;
-      });
-  }
-  return csrfTokenRequest;
-}
-
-axios.interceptors.request.use(async (request) => {
-  const method = (request.method || "GET").toUpperCase();
-  if (unsafeMethods.has(method)) {
-    request.headers["X-CSRF-Token"] = await getCsrfToken();
-  }
-  return request;
-});
-
-axios.interceptors.response.use(undefined, (error) => {
-  if (problemCode(error) === "bad-csrf-token") csrfToken = null;
-  return Promise.reject(error);
+// 다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다. 옛 토큰은 거절되고 가로채기가 새 토큰으로 다시 보낸다
+installRequests(axios, {
+  onSessionEnd: () => (session.ended = true),
+  onReach: (ok) => (session.offline = !ok),
 });
 
 const app = createApp(App);

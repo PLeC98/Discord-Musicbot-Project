@@ -128,7 +128,7 @@
             · {{ tested.status ? `HTTP ${tested.status}` : "보내지 못함" }} · {{ tested.tookMs }}ms
             <span v-if="tested.extra" class="text-muted">· {{ tested.extra }}</span>
           </p>
-          <p v-if="tested.reason && !tested.status" class="mt-1 text-[0.82rem] text-[#f87171]">{{ tested.reason }}</p>
+          <p v-if="tested.reason && !tested.status" class="mt-1 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ tested.reason }}</p>
           <pre v-if="tested.body" :class="[preCls, 'mt-2']">{{ tested.body }}</pre>
           <button v-if="tested.raw && tested.raw !== tested.body" :class="[addLine, 'mt-2']" @click="showRaw = !showRaw">{{ showRaw ? "원문 접기" : "원문 보기" }}</button>
           <pre v-if="showRaw && tested.raw" :class="[preCls, 'mt-1']">{{ tested.raw }}</pre>
@@ -278,6 +278,7 @@
               <Icon name="terminal" :size="15" />
               <span>판정 프롬프트 ({{ sections.length }})</span>
               <span v-if="tokenTotal != null" class="normal-case tracking-normal font-normal text-muted" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenTotal.toLocaleString("ko-KR") }} 토큰</span>
+              <span v-else-if="tokenError" class="normal-case tracking-normal font-normal text-warning" v-tooltip="tokenError">토큰 수를 세지 못함</span>
             </div>
             <p class="text-muted text-[0.82rem]">섹션마다 역할을 정해 적은 차례대로 보냅니다. 답은 반드시 <code class="text-fg-soft">[{"n":1,"song":true,"fits":false}]</code> 꼴의 JSON 배열이어야 합니다.</p>
           </div>
@@ -378,7 +379,7 @@
 
         <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">작성한 주소를 아직 조회하지 않았습니다. 그대로 전송하면 예제 프리셋을 이용합니다.</p>
 
-        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
+        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2 whitespace-pre-line">{{ judgeError }}</p>
 
         <div v-if="judgeCands.length" class="mt-3">
           <div class="flex items-baseline justify-between mb-1.5">
@@ -412,10 +413,10 @@
     </template>
 
     <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
-      <div v-for="p in problems" :key="p">· {{ p }}</div>
+      <div v-for="p in problems" :key="p" class="whitespace-pre-line">· {{ p }}</div>
     </div>
     <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장 완료. 다음 자동재생부터 반영됩니다</p>
-    <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
+    <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ loadError }}</p>
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
 
@@ -426,7 +427,7 @@
         <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
         <dl class="mb-5 text-[0.82rem] grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt class="text-muted">보낼 곳</dt>
-          <dd class="font-mono break-all">{{ paidUrl || "확인하는 중…" }}</dd>
+          <dd class="font-mono break-all whitespace-pre-line">{{ paidUrl || paidUrlError || "확인하는 중…" }}</dd>
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
@@ -486,6 +487,7 @@
 
 <script setup>
 import { problemText, problemDetails } from "../utils/problem.js";
+import { LIMIT } from "../utils/request.js";
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
@@ -544,11 +546,12 @@ async function refreshModels() {
   refreshing.value = true;
   refreshNote.value = "";
   try {
-    const { data } = await axios.post("/api/admin/ai/models/refresh");
+    const { data } = await axios.post("/api/admin/ai/models/refresh", undefined, { timeout: LIMIT.none });
     refreshNote.value = data.changed ? `모델 ${data.count}개로 갱신` : "이미 최신";
     if (data.changed) await loadFields();
   } catch (error) {
-    refreshNote.value = problemText(error, "받지 못했습니다");
+    refreshNote.value = "받지 못했습니다";
+    loadError.value = problemText(error, "모델 정보를 받지 못했습니다.");
   } finally {
     refreshing.value = false;
     setTimeout(() => (refreshNote.value = ""), 4000);
@@ -562,6 +565,7 @@ const jsonText = ref({});
 const tokenEach = ref([]);
 const tokenTotal = ref(null);
 const tokenExact = ref(true);
+const tokenError = ref("");
 let tokenTimer = null;
 const jsonBad = ref({});
 
@@ -593,6 +597,7 @@ const keyInput = ref("");
 const savingKey = ref(false);
 const paid = ref(null); // "ping" | "judge". 확인 대화상자
 const paidUrl = ref(""); // 그 대화상자에 띄울 진짜 주소. 서버에 물어서 채운다
+const paidUrlError = ref(""); // 못 물어봤으면 까닭. 틀린 주소를 지어 보여 주지 않는다
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
@@ -983,17 +988,23 @@ async function countTokens() {
     return;
   }
   try {
-    const { data } = await axios.post("/api/admin/ai/tokens", {
-      provider: draft.value.provider,
-      model: draft.value.model,
-      texts: sections.value.map((one) => one.text),
-    });
+    const { data } = await axios.post(
+      "/api/admin/ai/tokens",
+      {
+        provider: draft.value.provider,
+        model: draft.value.model,
+        texts: sections.value.map((one) => one.text),
+      },
+      { timeout: LIMIT.none },
+    );
     tokenEach.value = data.each;
     tokenTotal.value = data.total;
     tokenExact.value = data.exact;
-  } catch {
+    tokenError.value = "";
+  } catch (error) {
     tokenEach.value = [];
     tokenTotal.value = null;
+    tokenError.value = problemText(error, "토큰을 세지 못했습니다.");
   }
 }
 
@@ -1059,7 +1070,7 @@ async function lookupJudge() {
   judgeVerdicts.value = null;
   judgeSent.value = null;
   try {
-    judgeCands.value = (await axios.post("/api/admin/ai/judge/lookup", { urls: judgeUrlList() })).data.candidates;
+    judgeCands.value = (await axios.post("/api/admin/ai/judge/lookup", { urls: judgeUrlList() }, { timeout: LIMIT.none })).data.candidates;
     judgeLookedUp.value = judgeUrls.value.trim();
   } catch (error) {
     judgeError.value = problemText(error, "조회하지 못했습니다.");
@@ -1084,8 +1095,10 @@ async function drawLines() {
   try {
     const { data } = await axios.post("/api/admin/ai/judge/lines", { candidates: usable, list: listCfg.value, genre: judgeGenre.value });
     if (seq === linesSeq) judgeList.value = data.lines;
-  } catch {
-    if (seq === linesSeq) judgeList.value = [];
+  } catch (error) {
+    if (seq !== linesSeq) return;
+    judgeList.value = [];
+    judgeError.value = problemText(error, "프롬프트에 적힐 목록을 그리지 못했습니다.");
   }
 }
 
@@ -1094,7 +1107,7 @@ async function runJudge() {
   judgeError.value = "";
   try {
     const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다. 서버가 보기 곡으로 돌린다
-    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: aiRequestDraft() });
+    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: aiRequestDraft() }, { timeout: LIMIT.none });
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
   } catch (error) {
@@ -1120,8 +1133,9 @@ async function loadFields() {
       jsonText.value = {};
       jsonBad.value = {};
     }
-  } catch {
+  } catch (error) {
     fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
+    loadError.value = problemText(error, "모델이 받는 칸을 읽지 못했습니다.");
   }
 }
 
@@ -1145,8 +1159,9 @@ async function fetchState() {
     pingText.value = state.pingText || "";
     defaults.value = { sections: state.defaultSections || [], line: state.defaultLine || "" };
     settingDefaults.value = state.settingDefaults || {};
-  } catch {
+  } catch (error) {
     keyPresence.value = {};
+    loadError.value = problemText(error, "키가 있는지와 기본 프롬프트를 읽지 못했습니다.");
   }
 }
 
@@ -1178,7 +1193,7 @@ async function loadModels({ quiet = false } = {}) {
   if (!quiet) tested.value = null;
 
   try {
-    const got = (await axios.post("/api/admin/ai/models", { data: payload.value })).data;
+    const got = (await axios.post("/api/admin/ai/models", { data: payload.value }, { timeout: LIMIT.none })).data;
     models.value = got.models || [];
     // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
     manualModel.value = !models.value.length;
@@ -1213,11 +1228,12 @@ async function loadModels({ quiet = false } = {}) {
 const askPaid = async (which) => {
   paid.value = which;
   paidUrl.value = "";
+  paidUrlError.value = "";
   try {
     const { url } = (await axios.post("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
     if (paid.value === which) paidUrl.value = url || "";
-  } catch {
-    /* 못 물어봤으면 빈칸으로 둔다. 틀린 주소를 보여주느니 낫다 */
+  } catch (error) {
+    if (paid.value === which) paidUrlError.value = problemText(error, "보낼 곳을 확인하지 못했습니다.");
   }
 };
 
@@ -1262,7 +1278,7 @@ async function runPing() {
   tested.value = null;
   showRaw.value = false;
   try {
-    const got = (await axios.post("/api/admin/ai/ping", { data: payload.value })).data;
+    const got = (await axios.post("/api/admin/ai/ping", { data: payload.value }, { timeout: LIMIT.none })).data;
     tested.value = {
       kind: "유료 테스트",
       ok: got.ok,

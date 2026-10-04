@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import axios from "axios";
+import { session } from "../composables/session.js";
 
 // 권한 수준 오버라이드 계층. 서버 src/dashboard/view-as.ts의 TIERS와 순서·키를 맞춘다.
 // null(해제)은 목록에 넣지 않는다. 선택지가 아니라 "오버라이드 없음" 상태다.
@@ -27,14 +28,33 @@ export const useUserStore = defineStore("user", {
     avatarUrl: (s) => (s.data?.avatar ? `https://cdn.discordapp.com/avatars/${s.data.id}/${s.data.avatar}.webp?size=64` : null),
   },
   actions: {
+    // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 띄우지 않는다).
+    // 그 밖의 실패(응답 없음 · 서버 오류)는 모른다: fetched 를 두지 않아 다음에 다시 묻는다
     async fetchMe() {
       try {
-        const res = await axios.get("/api/me");
+        const res = await axios.get("/api/me", { quietSession: true });
         this.data = res.data;
-      } catch {
-        this.data = null;
-      } finally {
         this.fetched = true;
+      } catch (error) {
+        if (error?.response?.status !== 401) return;
+        this.data = null;
+        this.fetched = true;
+      }
+    },
+
+    // 세션이 끝난 뒤 다시 로그인했는지 본다. 다른 계정으로 들어왔으면 화면 전체가 남의 것이라 새로 연다
+    async resumeSession() {
+      try {
+        const res = await axios.get("/api/me", { quietSession: true });
+        if (this.data && res.data.id !== this.data.id) {
+          window.location.reload();
+          return false;
+        }
+        this.data = res.data;
+        session.ended = false;
+        return true;
+      } catch {
+        return false;
       }
     },
 

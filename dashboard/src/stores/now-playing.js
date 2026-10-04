@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import axios from "axios";
 import router from "../router/index.js";
 import { useGuildsStore, onGuildNudge } from "./guilds.js";
+import { notifyProblem } from "../composables/toasts.js";
 
 // 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
@@ -46,8 +47,9 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       if (guildId.value !== id) return;
       data.value = res.data;
       if (!scrubbing.value) localTime.value = res.data.currentTrack?.currentTime ?? 0;
-    } catch {
-      data.value = null; // 권한을 잃었거나 봇이 나갔다. 바를 접는다
+    } catch (e) {
+      // 권한을 잃었거나 봇이 나갔다(답이 왔다). 바를 접는다. 응답이 없거나 늦으면 지금 바를 둔다
+      if (e?.response) data.value = null;
     }
   }
 
@@ -56,7 +58,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     try {
       await axios.post(`/api/guilds/${guildId.value}/player/${type}`);
     } catch (e) {
-      console.error(type, e.response?.data || e.message);
+      notifyProblem(e, "조작하지 못했어요.");
     }
     refresh(); // 성공이든 거부든 서버 상태로 되돌린다
   }
@@ -67,7 +69,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       const res = await axios.post(`/api/guilds/${guildId.value}/player/volume`, { volume: Number(volume) });
       if (data.value) data.value = { ...data.value, volume: res.data.volume };
     } catch (e) {
-      console.error("volume", e.response?.data || e.message);
+      notifyProblem(e, "볼륨을 바꾸지 못했어요.");
       refresh();
     }
   }
@@ -78,7 +80,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     try {
       await axios.post(`/api/guilds/${guildId.value}/player/seek`, { position: seconds });
     } catch (e) {
-      console.error("seek", e.response?.data || e.message);
+      notifyProblem(e, "위치를 옮기지 못했어요.");
     }
     refresh();
   }

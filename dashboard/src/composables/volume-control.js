@@ -4,6 +4,7 @@
 // 마지막 값만 남긴다. 놓은 뒤 마지막 요청이 끝나면 서버 값을 보여 준다.
 // 서버 값을 바로 묶으면 화면이 다시 그려질 때마다(진행바가 1초마다 그린다) 손잡이가 서버 값으로 튄다.
 import { ref, computed } from "vue";
+import { notifyProblem } from "./toasts.js";
 
 const MIN_GAP_MS = 200;
 
@@ -28,7 +29,7 @@ export function useVolumeControl(serverVolume, send) {
       lastSent = level;
       await send(level);
     } catch (e) {
-      console.error("volume", e.response?.data || e.message);
+      notifyProblem(e, "볼륨을 바꾸지 못했어요.");
     }
     const wait = MIN_GAP_MS - (Date.now() - started);
     if (wait > 0 && pending !== null) await new Promise((done) => setTimeout(done, wait));

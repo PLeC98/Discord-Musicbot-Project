@@ -8,10 +8,11 @@
     <div class="flex items-center gap-2 mt-2">
       <BaseButton :disabled="!input.trim() || saving" @click="save">{{ saving ? "저장 중…" : "저장" }}</BaseButton>
       <button v-if="state.hasFile" :class="iconBtn" :disabled="saving" v-tooltip="'저장된 쿠키 지우기'" @click="clear"><Icon name="trash" :size="15" /></button>
-      <span :class="state.hasFile ? 'text-[0.78rem] text-[#4ade80]' : 'text-[0.78rem] text-muted'">{{ state.hasFile ? "저장됨" : "저장된 쿠키 없음" }}</span>
+      <span v-if="!known" class="text-[0.78rem] text-[#fbbf24]">저장돼 있는지 모름</span>
+      <span v-else :class="state.hasFile ? 'text-[0.78rem] text-[#4ade80]' : 'text-[0.78rem] text-muted'">{{ state.hasFile ? "저장됨" : "저장된 쿠키 없음" }}</span>
     </div>
 
-    <p v-if="error" class="mt-2 text-[0.78rem] text-[#f87171]">{{ error }}</p>
+    <p v-if="error" class="mt-2 text-[0.78rem] text-[#f87171] whitespace-pre-line">{{ error }}</p>
 
     <!-- yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓴다. 그때 갈아 끼우면 옛것으로 되돌아간다 -->
     <p v-if="state.inFlight > 0" class="mt-2 text-[0.78rem] text-[#fbbf24]">지금 연령 제한 영상 {{ state.inFlight }}건이 이 쿠키를 쓰는 중입니다. 그쪽이 끝나면서 방금 저장한 내용을 되돌릴 수 있으니, 잠시 뒤 한 번 더 저장해 주세요.</p>
@@ -33,6 +34,8 @@ const input = ref("");
 const saving = ref(false);
 const error = ref("");
 const state = reactive({ source: "none", hasFile: false, inFlight: 0 });
+// 서버에서 상태를 받았는지. 못 받았으면 "없음"이 아니라 모른다
+const known = ref(false);
 
 const placeholder = computed(() => (state.hasFile ? "저장돼 있습니다. 바꾸려면 새 쿠키를 붙여넣으세요" : "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t…"));
 const secureOrigin = computed(() => window.isSecureContext);
@@ -42,6 +45,7 @@ const iconBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted c
 
 function apply(data) {
   Object.assign(state, data);
+  known.value = true;
 }
 
 async function put(text) {
@@ -63,8 +67,9 @@ const clear = () => put("");
 onMounted(async () => {
   try {
     apply((await axios.get("/api/admin/cookies")).data);
-  } catch {
-    /* 못 읽으면 저장된 것이 없는 것처럼 보인다. 저장은 여전히 된다 */
+  } catch (err) {
+    // 저장은 여전히 된다
+    error.value = problemText(err, "쿠키 상태를 읽지 못했습니다.");
   }
 });
 </script>

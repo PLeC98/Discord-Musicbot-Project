@@ -34,7 +34,7 @@
       </div>
       <!-- 저쪽이 느릴 때가 있다. 묻는 중인지 알 수 있어야 기다린다 -->
       <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[noteCls, 'flex items-center gap-2']" :style="style"><Icon name="spinner" :size="14" class="animate-spin" />후보를 찾는 중입니다</p>
-      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="noteCls" :style="style">후보를 받지 못했습니다. Enter 로 그대로 넣을 수 있습니다</p>
+      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[noteCls, 'whitespace-pre-line']" :style="style">후보를 받지 못했습니다. Enter 로 그대로 넣을 수 있습니다{{ failReason ? `\n${failReason}` : "" }}</p>
       <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="noteCls" :style="style">후보가 없습니다. Enter 로 그대로 넣을 수 있습니다</p>
     </Teleport>
   </div>
@@ -44,6 +44,7 @@
 import { ref, watch, nextTick, useTemplateRef } from "vue";
 import Icon from "./BaseIcon.vue";
 import { useAnchoredPanel } from "../composables/anchored-panel";
+import { problemText } from "../utils/problem.js";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -71,6 +72,7 @@ const open = ref(false);
 const hits = ref([]);
 // 후보 받기: idle(칠 말이 없다) · loading · done · failed
 const state = ref("idle");
+const failReason = ref("");
 // 방향키로 고른 후보. -1 이면 고른 것이 없어 Enter 가 친 말을 그대로 넣는다
 const at = ref(-1);
 const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: 240 });
@@ -96,9 +98,10 @@ watch(entry, (text) => {
     let failed = false;
     try {
       found = await props.suggest(term);
-    } catch {
+    } catch (error) {
       found = []; // 후보를 못 받아도 적는 것은 된다
       failed = true;
+      failReason.value = problemText(error, "");
     }
     if (entry.value.trim() !== term) return;
     hits.value = found.filter((one) => !props.modelValue.includes(one.value));

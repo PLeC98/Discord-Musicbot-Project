@@ -74,7 +74,8 @@ function toggle() {
 async function logout() {
   open.value = false;
   try {
-    await axios.post("/auth/logout");
+    // 세션이 이미 끝났어도 로그인 화면으로 간다. 세션 끝 대화상자를 띄우지 않는다
+    await axios.post("/auth/logout", undefined, { quietSession: true });
   } finally {
     window.location.assign("/");
   }

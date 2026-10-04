@@ -27,7 +27,7 @@
 
         <div :class="scroller">
           <div v-if="loadError" class="px-4 py-8 text-center">
-            <p class="text-[0.82rem] text-[#f87171] mb-3">{{ loadError }}</p>
+            <p class="text-[0.82rem] text-[#f87171] mb-3 whitespace-pre-line">{{ loadError }}</p>
             <button type="button" :class="retryBtn" @click="load">다시 시도</button>
           </div>
           <p v-else-if="!groups.length" class="text-muted text-[0.82rem] text-center py-8">불러오는 중...</p>

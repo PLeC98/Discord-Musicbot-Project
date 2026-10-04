@@ -33,6 +33,12 @@
     </div>
 
     <NowPlayingBar v-if="user.isLoggedIn" />
+
+    <!-- 세션 끝 · 연결 안 됨 띠와 알림. 라우터 화면 밖이라 페이지를 옮겨도 남는다 -->
+    <div class="fixed inset-x-0 mx-auto top-[calc(var(--chrome)+0.75rem)] z-300 flex flex-col gap-2 w-[min(28rem,calc(100vw-2rem))] pointer-events-none">
+      <SessionNotice />
+      <ToastStack />
+    </div>
   </div>
 </template>
 
@@ -43,6 +49,8 @@ import Icon from "./components/BaseIcon.vue";
 import { useUserStore } from "./stores/user.js";
 import ServerSidebar from "./components/ServerSidebar.vue";
 import NowPlayingBar from "./components/NowPlayingBar.vue";
+import SessionNotice from "./components/SessionNotice.vue";
+import ToastStack from "./components/ToastStack.vue";
 import { useNowPlayingStore } from "./stores/now-playing.js";
 import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebar-state.js";
 

@@ -14,7 +14,7 @@
 
     <div v-else-if="loadError" class="text-center px-5 py-15 text-muted">
       <Icon name="warning" :size="48" class="mb-3 text-warning" />
-      <p>{{ loadError }}</p>
+      <p class="whitespace-pre-line">{{ loadError }}</p>
     </div>
 
     <template v-else>
@@ -122,7 +122,7 @@
 
       <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
         <Icon :name="result.success ? 'check' : 'error'" :size="16" />
-        <span>{{ result.success ? "설정이 저장됐습니다" : `저장 실패: ${result.error}` }}</span>
+        <span class="whitespace-pre-line">{{ result.success ? "설정이 저장됐습니다" : `저장 실패: ${result.error}` }}</span>
       </div>
     </template>
   </div>

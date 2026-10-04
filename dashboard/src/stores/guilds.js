@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 import axios from "axios";
+import { watch } from "vue";
+import { session, live } from "../composables/session.js";
 
 // SSE/타이머 핸들은 반응성이 필요 없으므로 모듈 스코프에 둔다
 let subscribers = 0;
@@ -17,6 +19,7 @@ let timer = null;
 let eventSource = null;
 let nudgeTimer = null;
 let visHandler = null;
+let stopSessionWatch = null;
 
 // 상호(유저∩봇) 서버 목록. 사이드바와 서버 목록 화면(ServersView)이 공유.
 // 구독 카운팅으로 SSE·폴링을 단일화: 첫 구독자가 연결을 열고, 마지막 구독자가 닫는다.
@@ -86,16 +89,18 @@ export const useGuildsStore = defineStore("guilds", {
         clearTimeout(nudgeTimer);
       };
 
-      // 탭이 숨으면 SSE·폴링을 모두 접어 백그라운드에서 완전 무음, 다시 보이면 재개 + 즉시 동기화
+      // 탭이 숨거나 세션이 끝나면 SSE·폴링을 모두 접는다(끝난 세션으로 30초마다 401 을 받지 않게).
+      // 다시 보이거나 다시 로그인하면 재개 + 즉시 동기화
       visHandler = () => {
-        if (document.hidden) closeStream();
+        if (!live()) closeStream();
         else {
           this.refresh();
           openStream();
         }
       };
       document.addEventListener("visibilitychange", visHandler);
-      if (!document.hidden) openStream(); // 숨겨진 채 마운트되면 visibilitychange가 이후 처리
+      stopSessionWatch = watch(() => session.ended, visHandler);
+      if (live()) openStream(); // 숨겨진 채 마운트되면 visibilitychange가 이후 처리
     },
 
     unsubscribe() {
@@ -104,6 +109,8 @@ export const useGuildsStore = defineStore("guilds", {
         document.removeEventListener("visibilitychange", visHandler);
         visHandler = null;
       }
+      stopSessionWatch?.();
+      stopSessionWatch = null;
       clearInterval(timer);
       timer = null; // startFallback의 !timer 가드가 다음 구독에서 정상 동작하도록 초기화
       clearTimeout(nudgeTimer);

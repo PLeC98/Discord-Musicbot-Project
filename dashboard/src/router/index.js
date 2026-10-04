@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useUserStore } from "../stores/user.js";
+import { session } from "../composables/session.js";
 
 const routes = [
   {
@@ -41,6 +42,13 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const user = useUserStore();
   if (!user.fetched) await user.fetchMe();
+  // 로그인했는지 모른다(봇에 닿지 않았다). 로그인 화면으로 보내지 않고 머문다. 다시 시도는 SessionNotice
+  if (!user.fetched) {
+    session.offline = true;
+    return false;
+  }
+  // 세션이 끝났으면 옮기기 전에 다시 로그인했는지 본다. 아직이면 머문다(대화상자가 떠 있다)
+  if (session.ended && to.meta.requiresAuth && !(await user.resumeSession())) return false;
 
   if (to.meta.requiresAuth && !user.isLoggedIn) return "/";
   // 실 운영자 기준. 서버의 requireOwner와 같다. 권한 수준 오버라이드로 낮춰도 해제 수단이

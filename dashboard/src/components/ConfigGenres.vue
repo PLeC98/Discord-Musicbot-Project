@@ -78,15 +78,15 @@
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
           <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :genre-index="i" class="mt-2" />
+        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :genre-index="i" class="mt-2" />
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
-        <div v-for="p in problems" :key="p">· {{ p }}</div>
+        <div v-for="p in problems" :key="p" class="whitespace-pre-line">· {{ p }}</div>
       </div>
 
       <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장 완료. 다음 자동재생부터 반영됩니다</p>
-      <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
+      <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ loadError }}</p>
     </BaseCard>
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
@@ -123,6 +123,7 @@ const loadError = ref("");
 const serverProblems = ref([]);
 const sourceTypes = ref([]);
 const sourceTypesState = ref("loading"); // loading · ready · failed. 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
+const sourceTypesError = ref("");
 
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
@@ -240,9 +241,10 @@ async function fetchSourceTypes() {
   try {
     sourceTypes.value = (await axios.get("/api/admin/source-types")).data.types || [];
     sourceTypesState.value = "ready";
-  } catch {
+  } catch (error) {
     sourceTypes.value = [];
     sourceTypesState.value = "failed";
+    sourceTypesError.value = problemText(error, "");
   }
 }
 

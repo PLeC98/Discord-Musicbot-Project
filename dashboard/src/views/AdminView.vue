@@ -192,7 +192,7 @@
 
           <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
             <Icon :name="result.success ? 'check' : 'error'" :size="16" />
-            <span>{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : result.error || "발송하지 못했습니다." }}</span>
+            <span class="whitespace-pre-line">{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : result.error || "발송하지 못했습니다." }}</span>
           </div>
         </BaseCard>
 
@@ -217,7 +217,7 @@
 
           <div v-if="leaveResult" :class="resultMsg(leaveResult.success)" class="flex items-center gap-1.5">
             <Icon :name="leaveResult.success ? 'check' : 'error'" :size="16" />
-            <span>{{ leaveResult.success ? `"${leaveResult.name}" 서버에서 나갔습니다` : `나가기 실패: ${leaveResult.error}` }}</span>
+            <span class="whitespace-pre-line">{{ leaveResult.success ? `"${leaveResult.name}" 서버에서 나갔습니다` : `나가기 실패: ${leaveResult.error}` }}</span>
           </div>
         </BaseCard>
       </div>
@@ -270,7 +270,7 @@
             </button>
           </div>
 
-          <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5">{{ tierError }}</p>
+          <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5 whitespace-pre-line">{{ tierError }}</p>
         </BaseCard>
 
         <!-- Command redeploy -->
@@ -283,7 +283,7 @@
 
           <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
             <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
-            <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
+            <span class="whitespace-pre-line">{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
           </div>
         </BaseCard>
 
@@ -297,7 +297,7 @@
 
           <div v-if="resetResult" :class="resultMsg(resetResult.success)" class="flex items-center gap-1.5">
             <Icon :name="resetResult.success ? 'check' : 'error'" :size="16" />
-            <span>{{ resetResult.success ? resetSummary : `초기화 실패: ${resetResult.error || ""}` }}</span>
+            <span class="whitespace-pre-line">{{ resetResult.success ? resetSummary : `초기화 실패: ${resetResult.error || ""}` }}</span>
           </div>
         </BaseCard>
       </div>
@@ -342,6 +342,9 @@
 
 <script setup>
 import { problemText } from "../utils/problem.js";
+import { session, live } from "../composables/session.js";
+import { notifyProblem } from "../composables/toasts.js";
+import { LIMIT } from "../utils/request.js";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { reopenDelay } from "../utils/reconnect.js";
 import axios from "axios";
@@ -529,7 +532,9 @@ async function fetchStatus() {
     s.value = res.data;
     syncLevelsWithServer(res.data?.logLevel);
     loading.value = false;
-  } catch {
+  } catch (e) {
+    // 3초마다 묻는다. 같은 까닭이면 알림 하나가 남아 있다
+    notifyProblem(e, "봇 상태를 읽지 못했습니다.");
     loading.value = false;
   }
 }
@@ -539,7 +544,7 @@ async function broadcast() {
   sending.value = true;
   result.value = null;
   try {
-    const res = await axios.post("/api/admin/broadcast", { message: bMsg.value, type: bType.value });
+    const res = await axios.post("/api/admin/broadcast", { message: bMsg.value, type: bType.value }, { timeout: LIMIT.long });
     result.value = res.data;
     if (res.data.success) bMsg.value = "";
   } catch (e) {
@@ -560,8 +565,8 @@ async function fetchGuilds() {
   try {
     const res = await axios.get("/api/admin/guilds");
     guilds.value = res.data.guilds;
-  } catch {
-    // 일시 오류는 무시. 다음 폴링에서 회복
+  } catch (e) {
+    notifyProblem(e, "서버 목록을 읽지 못했습니다.");
   }
 }
 
@@ -571,7 +576,7 @@ async function leaveGuild() {
   leaving.value = true;
   leaveResult.value = null;
   try {
-    await axios.post(`/api/admin/guilds/${g.id}/leave`);
+    await axios.post(`/api/admin/guilds/${g.id}/leave`, undefined, { timeout: LIMIT.long });
     leaveResult.value = { success: true, name: g.name };
     await Promise.all([fetchGuilds(), fetchStatus()]);
   } catch (e) {
@@ -600,7 +605,7 @@ async function resetCache() {
   resetting.value = true;
   resetResult.value = null;
   try {
-    const res = await axios.post("/api/admin/reset-cache");
+    const res = await axios.post("/api/admin/reset-cache", undefined, { timeout: LIMIT.long });
     resetResult.value = res.data;
   } catch (e) {
     resetResult.value = { success: false, error: problemText(e, "요청 실패") };
@@ -619,7 +624,7 @@ async function redeploy() {
   redeploying.value = true;
   redeployResult.value = null;
   try {
-    const res = await axios.post("/api/admin/redeploy-commands");
+    const res = await axios.post("/api/admin/redeploy-commands", undefined, { timeout: LIMIT.long });
     redeployResult.value = res.data;
   } catch (e) {
     redeployResult.value = { success: false, error: problemText(e, "요청 실패") };
@@ -750,7 +755,7 @@ watch(tab, (t) => {
 });
 
 // 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 500줄까지 들고 있다)
-const wantLogs = () => tab.value === "logs" && !document.hidden;
+const wantLogs = () => tab.value === "logs" && live();
 function syncLogs() {
   if (wantLogs()) openLogs();
   else closeLogs();
@@ -818,12 +823,14 @@ function stopPoll() {
     timer = null;
   }
 }
+let stopSessionWatch = null;
 onMounted(() => {
   // 첫 진입만은 탭과 무관하게 둘 다 받는다. 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
   fetchStatus();
   fetchGuilds();
+  // 탭이 숨거나 세션이 끝나면 폴링 · 로그 연결을 접는다
   visHandler = () => {
-    if (document.hidden) stopPoll();
+    if (!live()) stopPoll();
     else {
       poll();
       startPoll();
@@ -831,7 +838,8 @@ onMounted(() => {
     syncLogs();
   };
   document.addEventListener("visibilitychange", visHandler);
-  if (!document.hidden) startPoll();
+  stopSessionWatch = watch(() => session.ended, visHandler);
+  if (live()) startPoll();
   syncLogs();
 });
 onUnmounted(() => {
@@ -839,6 +847,7 @@ onUnmounted(() => {
     document.removeEventListener("visibilitychange", visHandler);
     visHandler = null;
   }
+  stopSessionWatch?.();
   stopPoll();
   closeLogs();
 });

@@ -155,7 +155,7 @@
           <BaseButton v-if="isPlaylistQuery" variant="secondary" type="button" :disabled="adding || !addQuery.trim()" @click="addTrack(true)" v-tooltip="'재생목록 첫 곡만 추가'">한 곡만</BaseButton>
         </form>
 
-        <div v-if="addError" class="mt-2 text-danger text-[0.85rem]">{{ addError }}</div>
+        <div v-if="addError" class="mt-2 text-danger text-[0.85rem] whitespace-pre-line">{{ addError }}</div>
         <div v-else-if="addNotice" class="mt-2 text-warning text-[0.85rem]">{{ addNotice }}</div>
         <div v-else-if="addInfo" class="mt-2 text-success text-[0.85rem]">{{ addInfo }}</div>
         <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
@@ -228,7 +228,10 @@
 <script setup>
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { problemText } from "../utils/problem.js";
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { session, live } from "../composables/session.js";
+import { notifyProblem } from "../composables/toasts.js";
+import { LIMIT } from "../utils/request.js";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
@@ -316,7 +319,7 @@ async function loadMore() {
     player.value = { ...player.value, queue: [...player.value.queue, ...fresh], queueTotal: res.data.total };
     syncLoaded();
   } catch (e) {
-    console.error("queue page", e);
+    notifyProblem(e, "대기열을 더 불러오지 못했어요.");
   } finally {
     loadingMore.value = false;
   }
@@ -363,7 +366,8 @@ async function action(type) {
     const res = await axios.post(`/api/guilds/${guildId}/player/${type}${qs()}`);
     if (res.data && res.data.playing !== undefined) applyState(res.data);
   } catch (e) {
-    console.error(type, e.response?.data || e.message);
+    notifyProblem(e, "조작하지 못했어요.");
+    refresh();
   }
 }
 
@@ -385,7 +389,8 @@ async function setLoop(mode) {
     const res = await axios.post(`/api/guilds/${guildId}/player/loop${qs()}`, { mode });
     if (res.data?.playing !== undefined) applyState(res.data);
   } catch (e) {
-    console.error("loop", e);
+    notifyProblem(e, "반복 모드를 바꾸지 못했어요.");
+    refresh();
   }
 }
 
@@ -406,7 +411,8 @@ async function doStop() {
     await axios.post(`/api/guilds/${guildId}/player/stop`);
     player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, hasLive: false };
   } catch (e) {
-    console.error("stop", e);
+    notifyProblem(e, "정지하지 못했어요.");
+    refresh();
   }
 }
 
@@ -443,7 +449,7 @@ async function addTrack(single = false) {
   more.value = null;
   try {
     const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue${qs()}`, payload);
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue${qs()}`, payload, { timeout: LIMIT.long });
     const { dropped = 0, queueLimited = false, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
     queueMax.value = max;
@@ -465,7 +471,7 @@ async function addMore(count) {
   addNotice.value = "";
   addInfo.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count });
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count }, { timeout: LIMIT.long });
     const { added = 0, dropped = 0, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
     queueMax.value = max;
@@ -484,7 +490,7 @@ async function joinBot() {
   joining.value = true;
   addError.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/join${qs()}`);
+    const res = await axios.post(`/api/guilds/${guildId}/player/join${qs()}`, undefined, { timeout: LIMIT.long });
     applyState(res.data);
   } catch (e) {
     addError.value = problemText(e, "참가에 실패했습니다.");
@@ -498,7 +504,8 @@ async function removeTrack(index) {
     const res = await axios.delete(`/api/guilds/${guildId}/player/queue/${index}${qs()}`);
     applyState(res.data);
   } catch (e) {
-    console.error("remove", e);
+    notifyProblem(e, "곡을 빼지 못했어요.");
+    refresh();
   }
 }
 
@@ -543,7 +550,7 @@ async function onDrop() {
     const res = await axios.post(`/api/guilds/${guildId}/player/queue/move${qs()}`, { from, to });
     applyState(res.data);
   } catch (e) {
-    console.error("queue move", e);
+    notifyProblem(e, "곡을 옮기지 못했어요.");
     await refresh(); // revert to server state on failure
   }
 }
@@ -656,7 +663,8 @@ async function onScrubEnd() {
   try {
     await axios.post(`/api/guilds/${guildId}/player/seek`, { position: pos });
   } catch (e) {
-    console.error("seek", e);
+    notifyProblem(e, "위치를 옮기지 못했어요.");
+    refresh();
   }
 }
 
@@ -667,7 +675,8 @@ async function jumpToHighlight() {
   try {
     await axios.post(`/api/guilds/${guildId}/player/highlight`);
   } catch (e) {
-    console.error("highlight", e);
+    notifyProblem(e, "하이라이트로 가지 못했어요.");
+    refresh();
   }
 }
 
@@ -730,18 +739,20 @@ function closeEvents() {
 }
 
 let visHandler = null;
+let stopSessionWatch = null;
 onMounted(() => {
   refresh();
-  // 탭이 숨으면 SSE·폴링을 모두 접어 백그라운드 무음, 다시 보이면 재개 + 즉시 동기화
+  // 탭이 숨거나 세션이 끝나면 SSE·폴링을 모두 접고, 다시 보이거나 다시 로그인하면 재개 + 즉시 동기화
   visHandler = () => {
-    if (document.hidden) closeEvents();
+    if (!live()) closeEvents();
     else {
       refresh();
       openEvents();
     }
   };
   document.addEventListener("visibilitychange", visHandler);
-  if (!document.hidden) openEvents();
+  stopSessionWatch = watch(() => session.ended, visHandler);
+  if (live()) openEvents();
   // 로컬 진행바 틱(네트워크 아님). 넛지/refresh가 currentTime을 서버 기준으로 재동기화
   progressTimer = setInterval(() => {
     const track = player.value.currentTrack;
@@ -759,6 +770,7 @@ onUnmounted(() => {
     document.removeEventListener("visibilitychange", visHandler);
     visHandler = null;
   }
+  stopSessionWatch?.();
   clearInterval(timer);
   timer = null;
   clearInterval(progressTimer);
