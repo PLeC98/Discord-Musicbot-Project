@@ -14,6 +14,7 @@ import { useExampleConfig } from "../helpers/example-config.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { onVoiceStateUpdate } from "../../src/player/voice-presence.ts";
 import * as controls from "../../src/usecases/controls.ts";
+import * as playerEvents from "../../src/player/events.ts";
 
 useExampleConfig();
 beforeEach(() => h.reset());
@@ -134,4 +135,88 @@ test("혼자 남아 시간이 다 되면: 원인=inactivity-timeout, 곡 이름�
   assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=inactivity-timeout']);
   assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
   assert.equal(registered(p), false);
+});
+
+// ── 연달아 넘기기 ──────────────────────────────────────────────────
+// 앞 곡의 끝 처리는 다음 곡을 튼 뒤에도 잠깐(세션 저장 · SQLite 잠금) 이어진다. 그 사이 다음 곡을 넘기면 그 곡의 끝이
+// "겹쳐 들어온 끝"으로 버려져, 아무도 다음 곡을 틀지 않고 멎음 감시(10초)가 실패로 세며 끝냈다(2026-10-04 운영 로그)
+
+// 첫 곡을 틀고 있고 대기열에 캐시된 두 곡이 있는 플레이어
+function threeTracks() {
+  const second = yt("bbbbbbbbbbb", { title: "둘째 곡" });
+  const third = yt("ccccccccccc", { title: "셋째 곡" });
+  h.seedCache("yt:bbbbbbbbbbb", second);
+  h.seedCache("yt:ccccccccccc", third);
+  const p = playingPlayer(yt("aaaaaaaaaaa", { title: "첫 곡" }));
+  p.queue = [second, third];
+  return p;
+}
+
+test("연달아 넘기기: 다음 곡을 트는 사이(세션 저장을 기다리는 사이) 그 곡을 넘겨도 끝을 버리지 않고 이어서 처리한다", async () => {
+  const p = threeTracks();
+  const persist = p.persistence.persistState.bind(p.persistence);
+  p.persistence.persistState = async (reason: string) => {
+    await tick(300); // 잠긴 DB
+    return persist(reason);
+  };
+  try {
+    p.skip();
+    await tick(60);
+    assert.equal(p.currentTrack?.title, "둘째 곡", "둘째 곡이 열렸고 첫 끝 처리는 저장을 기다린다");
+    assert.equal(p.lifecycle.ending, true);
+    p.skip();
+    await tick(800);
+    assert.equal(p.currentTrack?.title, "셋째 곡", "멎음 10초를 기다리지 않는다");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("연달아 넘기기: 미뤄 둔 끝은 그 사이 재생이 바뀌었으면 버린다(지금 곡을 잘못 넘기지 않는다)", async () => {
+  const p = threeTracks();
+  const persist = p.persistence.persistState.bind(p.persistence);
+  let release = () => {};
+  p.persistence.persistState = async (reason: string) => {
+    await new Promise<void>((done) => (release = done));
+    return persist(reason);
+  };
+  try {
+    p.skip();
+    await tick(60);
+    p.skip(); // 둘째 곡의 끝을 미뤄 둔다
+    await tick(20);
+    p.playback = fake({ resource: { playbackDuration: 0, playStream: { destroy() {} }, volume: { setVolume() {} } } }); // 그 사이 재생이 바뀌었다
+    release();
+    await tick(200);
+    assert.equal(p.currentTrack?.title, "둘째 곡", "바뀐 재생을 넘기지 않았다");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("넘긴 뒤의 끝 처리는 패널 고치기(디스코드 메시지 수정)를 기다리지 않는다", async () => {
+  const p = threeTracks();
+  const off = playerEvents.on("refresh", () => tick(300));
+  try {
+    p.skip();
+    await tick(80);
+    assert.equal(p.currentTrack?.title, "둘째 곡");
+    assert.equal(p.lifecycle.ending, false, "끝 처리가 끝났다");
+  } finally {
+    off();
+    h.dispose(p);
+  }
+});
+
+test("연달아 실패해 멈출 때 실패한 곡을 모두 적는다", async () => {
+  const p = threeTracks();
+  const from = sink.buffer.length;
+  try {
+    for (let i = 0; i < 3; i++) await p.onTrackEnd("stuck");
+    const line = sink.buffer.slice(from).find((e) => e.text.includes("연달아 실패해 재생을 멈춥니다"));
+    assert.ok(line, "멈췄다");
+    for (const title of ["첫 곡", "둘째 곡", "셋째 곡"]) assert.ok(line.text.includes(title), `${title}: ${line.text}`);
+  } finally {
+    h.dispose(p);
+  }
 });

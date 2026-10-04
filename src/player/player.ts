@@ -178,6 +178,10 @@ class Player {
   retry: RetryState;
   /** 연달아 실패한 곡 수. 소리를 낸 곡이 끝나면 0 */
   failedTracks: number;
+  /** 연달아 실패한 곡(로그용). 실패 수와 같이 비운다 */
+  failedLabels: string[] = [];
+  /** 끝 처리 중에 끝난 곡(그 처리가 막 튼 다음 곡). 그 처리가 끝나면 이어서 처리한다 */
+  _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 연달아 실패해 멈춰도 글자 채널에 알리지 않는다(세션을 되살리는 /join 이 명령 응답으로 말하는 동안) */
   quietFailures = false;
   /** 곡 담기가 쉬던 플레이어에 첫 곡을 트는 동안. 틀지 못해도 대기열 소진으로 끝내지 않는다(담을 곡이 아직 남았다). 끝은 담기가 맡는다 */
@@ -861,7 +865,12 @@ class Player {
 
   // 곡 끝 처리. 다시 틀기 · 한곡 반복 · 다음 곡 · 자동재생 · 대기열 소진을 가른다
   async onTrackEnd(reason = "idle") {
-    if (!this.lifecycle.beginEnd()) return; // 끝이 겹쳐 들어왔다. 먼저 온 것이 처리한다
+    if (!this.lifecycle.beginEnd()) {
+      // 앞 곡의 끝 처리가 다음 곡을 튼 뒤(세션 저장 등) 아직 끝나지 않았는데 그 다음 곡이 끝났다(연달아 넘기기).
+      // 버리면 아무도 다음 곡을 틀지 않아 멎음 감시가 실패로 센다. 앞 처리가 끝난 뒤 이어서 처리한다
+      if (this.playback) this._laterEnd = { reason, playback: this.playback };
+      return;
+    }
     if (this.lifecycle.phase === "playing") this.lifecycle.to("idle", `곡 끝(${reason})`);
     this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동
 
@@ -871,10 +880,10 @@ class Player {
       const finishedTrack = this.currentTrack;
       this.releaseAudioProtection();
       // 소리를 낸 곡이 끝났으면 연달아 실패한 것이 아니다
-      if ((this.playback?.resource?.playbackDuration ?? 0) >= PROGRESS_MS) this.failedTracks = 0;
+      if ((this.playback?.resource?.playbackDuration ?? 0) >= PROGRESS_MS) this._resetFailures();
       const end = this._describeEnd(finishedTrack, reason);
       // 멎어서 넘기는 곡도 실패로 센다. 멎음 감시가 대기열을 10초마다 한 곡씩 버리지 않게
-      if (reason === "stuck" && this._countFailure()) return await this._stopAfterFailures();
+      if (reason === "stuck" && this._countFailure(finishedTrack)) return await this._stopAfterFailures();
       if (await this._recoverDrop(finishedTrack, end)) return;
 
       if (!finishedTrack) {
@@ -886,7 +895,18 @@ class Player {
     } finally {
       this.lifecycle.finishEnd();
       this._endReason = null;
+      this._runLaterEnd();
     }
+  }
+
+  // 끝 처리 중에 끝난 곡이 아직 지금 재생이고 소리가 멈춰 있으면 그 끝을 처리한다(이미 다음 곡으로 넘어갔으면 버린다)
+  _runLaterEnd() {
+    const later = this._laterEnd;
+    this._laterEnd = null;
+    if (!later || this.lifecycle.disposed || later.playback !== this.playback || this.audioPlayer.state.status !== AudioPlayerStatus.Idle) return;
+    setImmediate(() => {
+      this.onTrackEnd(later.reason).catch((error) => log.error("곡 끝 처리 실패:", error));
+    });
   }
 
   // 어떻게 끝났는지 재고 로그로 남긴다
@@ -959,9 +979,16 @@ class Player {
   }
 
   // 곡 하나가 실패했다. 연달아 한도에 닿았으면 true(부르는 쪽이 _stopAfterFailures 로 멈춘다)
-  _countFailure() {
+  _countFailure(track: QueuedTrack | null = this.currentTrack) {
     this.failedTracks += 1;
+    this.failedLabels.push(this._trackLabel(track));
     return this.failedTracks >= FAILED_TRACKS_LIMIT;
+  }
+
+  // 소리를 낸 곡이 끝났다. 연달아 실패한 것이 아니다
+  _resetFailures() {
+    this.failedTracks = 0;
+    this.failedLabels = [];
   }
 
   /**
@@ -970,8 +997,9 @@ class Player {
    */
   async _stopAfterFailures() {
     const count = this.failedTracks;
-    this.failedTracks = 0; // 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게
-    log.error(`곡 ${count}개가 연달아 실패해 재생을 멈춥니다: ${this._trackLabel()}${this.queue.length ? ` | 대기열 ${this.queue.length}곡은 둡니다` : ""}`);
+    const failed = this.failedLabels.length ? this.failedLabels.join(" · ") : this._trackLabel();
+    this._resetFailures(); // 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게
+    log.error(`곡 ${count}개가 연달아 실패해 재생을 멈춥니다: ${failed}${this.queue.length ? ` | 대기열 ${this.queue.length}곡은 둡니다` : ""}`);
     trackState.setCurrent(this, null);
     this.playback = null;
     this.lastPlaybackPosition = 0;
@@ -1009,7 +1037,8 @@ class Player {
     if (this.queue.length > 0) {
       trackState.shiftNext(this);
       await this.play(0);
-      await playerEvents.refresh(this);
+      // 패널 고치기(디스코드 메시지 수정)는 기다리지 않는다. 연달아 넘기면 요청 제한에 걸려 끝 처리가 그만큼 붙들린다
+      playerEvents.refresh(this).catch((error) => log.warn(`다음 곡 패널 고치기 실패: ${messageOf(error)}`));
       return true;
     }
     return this.autoplay ? this._continueAutoplay(this.autoplay) : false;
