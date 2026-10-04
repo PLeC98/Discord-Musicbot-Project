@@ -20,17 +20,20 @@
   </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Icon from "./BaseIcon.vue";
 
-defineProps({
-  dirty: { type: Boolean, default: false },
-  saving: { type: Boolean, default: false },
-  // 저장을 막아야 할 때(검사에 걸린 값이 있음). 버튼은 두되 누르지 못하게 한다
-  blocked: { type: Boolean, default: false },
-  hint: { type: String, default: "저장되지 않은 변경이 있습니다" },
-});
-defineEmits(["save", "revert"]);
+withDefaults(
+  defineProps<{
+    dirty?: boolean;
+    saving?: boolean;
+    /** 저장을 막아야 할 때(검사에 걸린 값이 있음). 버튼은 두되 누르지 못하게 한다 */
+    blocked?: boolean;
+    hint?: string;
+  }>(),
+  { dirty: false, saving: false, blocked: false, hint: "저장되지 않은 변경이 있습니다" },
+);
+defineEmits<{ save: []; revert: [] }>();
 
 const circle = "size-12 rounded-full flex items-center justify-center cursor-pointer shadow-card transition-[background-color,color,opacity,transform] duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:not-disabled:scale-95";
 const ghost = "bg-[rgba(12,16,36,0.92)] backdrop-blur-sm border border-white/12 text-fg-soft hover:not-disabled:bg-white/10";

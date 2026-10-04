@@ -24,32 +24,37 @@
     <div class="relative h-5 select-none">
       <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-white/10"></div>
       <div class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-accent/70" :style="fill"></div>
-      <input type="range" :min="min" :max="max" :step="step" :value="lo" :class="loOnTop ? 'z-20' : 'z-10'" :aria-label="`${label} 시작`" @input="set(+$event.target.value, hi)" />
-      <input type="range" :min="min" :max="max" :step="step" :value="hi" class="z-10" :aria-label="`${label} 끝`" @input="set(lo, +$event.target.value)" />
+      <input type="range" :min="min" :max="max" :step="step" :value="lo" :class="loOnTop ? 'z-20' : 'z-10'" :aria-label="`${label} 시작`" @input="set(+valueOf($event), hi)" />
+      <input type="range" :min="min" :max="max" :step="step" :value="hi" class="z-10" :aria-label="`${label} 끝`" @input="set(lo, +valueOf($event))" />
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
+import { valueOf } from "../utils/dom.ts";
 
-const props = defineProps({
-  min: { type: Number, default: 0 },
-  max: { type: Number, default: 100 },
-  step: { type: Number, default: 1 },
-  from: { type: Number, default: null },
-  to: { type: Number, default: null },
-  label: { type: String, default: "" },
-  // min 부터 한 칸씩의 개수. 길이가 범위와 달라도 비율로 맞춰 그린다
-  histogram: { type: Array, default: () => [] },
-});
-const emit = defineEmits(["update"]);
+const props = withDefaults(
+  defineProps<{
+    min?: number;
+    max?: number;
+    step?: number;
+    from?: number | null;
+    to?: number | null;
+    label?: string;
+    /** min 부터 한 칸씩의 개수. 길이가 범위와 달라도 비율로 맞춰 그린다 */
+    histogram?: number[];
+  }>(),
+  { min: 0, max: 100, step: 1, from: null, to: null, label: "", histogram: () => [] },
+);
+/** 고른 구간. 전체면 둘 다 null */
+const emit = defineEmits<{ update: [range: { from: number | null; to: number | null }] }>();
 
 const clearBtn = "text-[0.72rem] text-muted cursor-pointer hover:text-fg-soft transition-colors duration-150";
 
 // 설정에 적힌 값이 범위 밖일 수 있다(저쪽 자료가 늘거나 손으로 적었거나).
 // 보이기만 맞춰 두고 값은 건드리지 않는다. 손잡이를 옮길 때 비로소 바뀐다.
-const clamp = (v) => Math.min(props.max, Math.max(props.min, v));
+const clamp = (v: number) => Math.min(props.max, Math.max(props.min, v));
 const lo = computed(() => clamp(props.from ?? props.min));
 const hi = computed(() => Math.max(lo.value, clamp(props.to ?? props.max)));
 
@@ -59,7 +64,7 @@ const text = computed(() => (whole.value ? "전체" : `${lo.value} ~ ${hi.value}
 // 앞쪽 손잡이가 오른쪽 끝에 가면 뒤쪽 손잡이에 깔려 잡히지 않는다
 const loOnTop = computed(() => lo.value > (props.min + props.max) / 2);
 
-const pct = (v) => ((v - props.min) / Math.max(1, props.max - props.min)) * 100;
+const pct = (v: number) => ((v - props.min) / Math.max(1, props.max - props.min)) * 100;
 const fill = computed(() => ({ left: `${pct(lo.value)}%`, right: `${100 - pct(hi.value)}%` }));
 
 // 막대 수. 다섯의 배수로 둔다. 다섯 칸마다 세면 눈짐작이 빠르다.
@@ -75,7 +80,7 @@ const bars = computed(() => {
   const count = Math.max(BARS_STEP, Math.floor(Math.min(BARS_MAX, raw.length) / BARS_STEP) * BARS_STEP);
 
   // 칸 수가 막대 수로 나누어떨어지지 않으므로 막대마다 폭이 조금씩 다르다.
-  const groups = [];
+  const groups: Array<{ sum: number; at: number; end: number }> = [];
   for (let i = 0; i < count; i += 1) {
     const at = Math.floor((i * raw.length) / count);
     const end = Math.max(at + 1, Math.floor(((i + 1) * raw.length) / count));
@@ -100,7 +105,7 @@ const bars = computed(() => {
   });
 });
 
-function set(a, b) {
+function set(a: number, b: number) {
   // 손잡이가 서로를 지나치면 붙여 세운다
   const next = { from: Math.min(a, b), to: Math.max(a, b) };
   emit("update", next.from <= props.min && next.to >= props.max ? { from: null, to: null } : next);

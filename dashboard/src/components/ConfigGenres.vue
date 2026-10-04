@@ -35,11 +35,11 @@
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
             <Icon name="music" :size="15" />
-            <span>장르 ({{ rows.length }}/25)</span>
+            <span>장르 ({{ rows.length }}/{{ SELECT_MAX }})</span>
           </div>
           <p class="text-muted text-[0.82rem]">장르마다 곡을 가져올 출처를 여럿 둘 수 있습니다. 가중치에 따라 골라 쓰고, 곡을 주지 않는 출처가 있으면 다음 출처로 넘어갑니다. 드래그해 순서를 바꿀 수 있습니다.</p>
         </div>
-        <button :class="addBtn" :disabled="rows.length >= 25" v-tooltip="rows.length >= 25 ? '25개까지만 추가할 수 있습니다' : '장르 추가'" @click="addRow"><Icon name="add" :size="18" /></button>
+        <button :class="addBtn" :disabled="rows.length >= SELECT_MAX" v-tooltip="rows.length >= SELECT_MAX ? `${SELECT_MAX}개까지만 추가할 수 있습니다` : '장르 추가'" @click="addRow"><Icon name="add" :size="18" /></button>
       </div>
 
       <div
@@ -111,10 +111,8 @@
   </div>
 </template>
 
-<script setup>
-import { problemText, problemDetails } from "../utils/problem.ts";
-import { trackUnsaved } from "../composables/unsaved.ts";
-import { ref, computed, watch, onMounted } from "vue";
+<script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
@@ -123,8 +121,15 @@ import SourceEditor from "./SourceEditor.vue";
 import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
-import { isFolded, toggleFold, genreFoldId, reorderGenres } from "../composables/config-folds";
-import { toRows, toMap, newRow } from "../utils/genre-rows.ts";
+import { isFolded, toggleFold, genreFoldId, reorderGenres } from "../composables/config-folds.ts";
+import { configFileIo, useConfigFile } from "../composables/config-file.ts";
+import { useDragReorder } from "../composables/drag-reorder.ts";
+import { problemText } from "../utils/problem.ts";
+import { toRows, toMap, newRow, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
+import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
+import { SELECT_MAX } from "../../../src/rules/limits.ts";
+import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
+import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
@@ -133,30 +138,38 @@ const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted
 const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,opacity] duration-150 hover:not-disabled:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed";
 
-const draft = ref({ defaults: {}, genres: {} });
-const rows = ref([]);
-const snapshot = ref("");
-const saving = ref(false);
-const savedAt = ref(null);
-const loadError = ref("");
-const serverProblems = ref([]);
-const sourceTypes = ref([]);
-const sourceTypesState = ref("loading"); // loading · ready · failed. 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
+/** 전역 값(genres.yaml 의 defaults) */
+type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] } & Record<string, unknown>;
+
+const draft = ref<{ defaults: Defaults; genres: Record<string, GenreData> }>({ defaults: { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] }, genres: {} });
+const rows = ref<GenreRow[]>([]);
+const sourceTypes = ref<SourceTypeView[]>([]);
+const sourceTypesState = ref<"loading" | "ready" | "failed">("loading"); // 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
 const sourceTypesError = ref("");
 
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
-const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
-trackUnsaved("config", dirty);
+
+function apply(data: Record<string, unknown>) {
+  // 파일에 칸이 없을 때의 값은 봇이 그때 쓰는 값과 같게(prefetchCount 1 은 player, minDurationSec 0 은 autoplay/filter).
+  // 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
+  const defaults: Defaults = { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null, blockedKeywords: [], ...((data.defaults as Partial<Defaults> | undefined) || {}) };
+  // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다. 대문자로 적어 두면 아무것도 못 거른다
+  defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
+  const genres = (data.genres as Record<string, GenreData> | undefined) || {};
+  draft.value = { defaults, genres };
+  rows.value = toRows(genres);
+}
+
+const { dirty, saving, savedAt, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "config", payload: () => payload.value, apply, ...configFileIo("genres") });
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 // 선택기로만 넣으니 여기서 걸릴 일은 없고, 파일을 손으로 고쳐 둔 경우를 잡는다.
-const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 const problems = computed(() => {
-  const found = [];
+  const found: string[] = [];
   // 상한은 비우면 제한 없음이다. 0 은 서버가 받지 않는다
   if (draft.value.defaults.maxDurationSec === 0) found.push("최대 길이(초)는 비우거나 0보다 크게 적어 주세요.");
   const names = rows.value.map((r) => r.name.trim());
-  if (rows.value.length > 25) found.push("장르는 25개까지만 메뉴에 나옵니다.");
+  if (rows.value.length > SELECT_MAX) found.push(`장르는 ${SELECT_MAX}개까지만 메뉴에 나옵니다.`);
   if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
   if (new Set(names).size !== names.length) found.push("이름이 겹칩니다.");
   if (names.some((name) => ["true", "false", "null"].includes(name))) found.push("true·false·null 은 이름으로 쓸 수 없습니다.");
@@ -175,78 +188,13 @@ const problems = computed(() => {
   return [...found, ...serverProblems.value];
 });
 
-// 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
-watch(payload, () => {
-  if (!dirty.value) return;
-  savedAt.value = null;
-  serverProblems.value = [];
-});
-
-// ── 순서 바꾸기. 대기열 목록과 같은 방식 ─────────────────────────────────
-const draggedIndex = ref(null);
-const dragOverIndex = ref(null);
-
-// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다(브라우저가 카드 드래그로 가로챈다).
-// 그렇다고 dragstart에서 가릴 수도 없다. dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
-// 그래서 손잡이를 누르고 있는 동안에만 draggable을 켠다.
-const dragReady = ref(false);
-
-function armDrag() {
-  dragReady.value = true;
-  // 누르기만 하고 끌지 않은 경우까지 풀어 준다. 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
-  window.addEventListener("mouseup", disarmDrag, { once: true });
-}
-
-function disarmDrag() {
-  dragReady.value = false;
-}
-
-function onDragStart(e, i) {
-  // dragstart는 위로 퍼진다. 칸 안의 글자를 끄는 것도 여기까지 올라온다.
-  // 카드 자신이 끌리기 시작한 것만 받는다(글자 드래그는 target이 그 칸이다).
-  if (e.target !== e.currentTarget) return;
-  draggedIndex.value = i;
-  e.dataTransfer.effectAllowed = "move";
-}
-
-// 카드가 draggable이 아니어도 dragover·drop은 지나가는 모든 드래그에 반응한다.
-// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다. 우리 것만 받는다.
-function ours() {
-  return draggedIndex.value != null;
-}
-
-function onDragOver(e, i) {
-  if (!ours()) return;
-  e.preventDefault(); // 여기에 놓을 수 있다고 알린다
-  const rect = e.currentTarget.getBoundingClientRect();
-  dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
-}
-
-function onDrop(e) {
-  if (!ours()) return;
-  e.preventDefault();
-  const from = draggedIndex.value;
-  const to = dragOverIndex.value;
-  if (from == null || to == null) return;
-  const order = rows.value.map((_, i) => i);
-  const [moved] = rows.value.splice(from, 1);
-  // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
-  rows.value.splice(to > from ? to - 1 : to, 0, moved);
-  order.splice(to > from ? to - 1 : to, 0, ...order.splice(from, 1));
-  reorderGenres(order); // 접어 둔 기억도 그 장르를 따라간다
-  onDragEnd();
-}
-
-function onDragEnd() {
-  disarmDrag();
-  draggedIndex.value = null;
-  dragOverIndex.value = null;
-}
+// ── 순서 바꾸기. 접어 둔 기억도 그 장르를 따라간다 ─────────────────────────
+const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(rows, reorderGenres);
 
 // 자동완성 후보. 브라우저가 저쪽에 바로 묻지 않고 서버를 거친다(GET /api/admin/source-suggest)
-const suggestFor = async (type, field, term) => (await axios.get("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
+const suggestFor = async (type: string, field: string, term: string) => (await axios.get<Suggestions>("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
-function removeRow(i) {
+function removeRow(i: number) {
   reorderGenres(rows.value.map((_, at) => at).filter((at) => at !== i));
   rows.value.splice(i, 1);
 }
@@ -255,32 +203,11 @@ function addRow() {
   rows.value.push(newRow());
 }
 
-function apply(data) {
-  // 파일에 칸이 없을 때의 값은 봇이 그때 쓰는 값과 같게(prefetchCount 1 은 player, minDurationSec 0 은 autoplay/filter).
-  // 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
-  const defaults = { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null, blockedKeywords: [], ...(data.defaults || {}) };
-  // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다. 대문자로 적어 두면 아무것도 못 거른다
-  defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
-  draft.value = { defaults, genres: data.genres || {} };
-  rows.value = toRows(data.genres);
-  snapshot.value = JSON.stringify(payload.value);
-}
-
-async function fetchConfig() {
-  loadError.value = "";
-  try {
-    const res = await axios.get("/api/admin/config/genres");
-    apply(res.data.data);
-  } catch (error) {
-    loadError.value = problemText(error, "설정을 읽지 못했습니다.");
-  }
-}
-
 // 어떤 출처를 쓸 수 있고 무슨 칸을 받는지는 서버가 안다(.env 의 키 유무까지).
 // 못 읽어도 편집은 막지 않는다. 그때는 이미 적혀 있는 것만 보이고 새로 고르지는 못한다.
 async function fetchSourceTypes() {
   try {
-    sourceTypes.value = (await axios.get("/api/admin/source-types")).data.types || [];
+    sourceTypes.value = (await axios.get<SourceTypes>("/api/admin/source-types")).data.types || [];
     sourceTypesState.value = "ready";
   } catch (error) {
     sourceTypes.value = [];
@@ -289,27 +216,8 @@ async function fetchSourceTypes() {
   }
 }
 
-async function save() {
-  saving.value = true;
-  serverProblems.value = [];
-  try {
-    const res = await axios.put("/api/admin/config/genres", { data: payload.value });
-    apply(res.data.data);
-    savedAt.value = Date.now();
-  } catch (error) {
-    serverProblems.value = problemDetails(error).length ? problemDetails(error) : [problemText(error, "저장하지 못했습니다.")];
-  } finally {
-    saving.value = false;
-  }
-}
-
-function revert() {
-  const back = JSON.parse(snapshot.value);
-  apply(back);
-}
-
 onMounted(() => {
-  fetchSourceTypes();
-  fetchConfig();
+  void fetchSourceTypes();
+  void fetch();
 });
 </script>

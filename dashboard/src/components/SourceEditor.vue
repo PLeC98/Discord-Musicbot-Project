@@ -21,18 +21,18 @@
 
         <label class="flex items-center gap-1.5 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
           <span class="text-[0.72rem] text-muted">가중치</span>
-          <NumberInput :model-value="source.weight ?? null" placeholder="1" :class="[inputCls, 'w-16! text-center']" @update:model-value="setField(i, 'weight', $event)" />
+          <NumberInput :model-value="numberAt(source, 'weight')" placeholder="1" :class="[inputCls, 'w-16! text-center']" @update:model-value="setField(i, 'weight', $event)" />
         </label>
 
         <button :class="iconBtn" v-tooltip="'이 출처 삭제'" @click="remove(i)"><Icon name="trash" :size="14" /></button>
       </div>
 
       <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="px-2.5 pb-2.5">
-        <p v-if="spec(source.type)?.hint" class="text-muted text-[0.75rem]">{{ spec(source.type).hint }}</p>
+        <p v-if="spec(source.type)?.hint" class="text-muted text-[0.75rem]">{{ spec(source.type)?.hint }}</p>
         <p v-if="typesState === 'loading'" class="text-muted text-[0.75rem]">출처 종류를 불러오는 중입니다.</p>
         <p v-else-if="typesState === 'failed'" class="text-[0.75rem] text-[#fbbf24] whitespace-pre-line">출처 종류 목록을 받지 못했습니다. 새로 고치면 다시 받습니다.{{ typesError ? `\n${typesError}` : "" }}</p>
         <p v-else-if="!spec(source.type)" class="text-[0.75rem] text-[#f87171]">모르는 종류입니다. 이 봇이 지원하지 않습니다.</p>
-        <p v-else-if="!spec(source.type).usable" class="text-[0.75rem] text-[#fbbf24]">{{ spec(source.type).needs }} 가 .env 에 없어 지금은 쓰이지 않습니다.</p>
+        <p v-else-if="!spec(source.type)?.usable" class="text-[0.75rem] text-[#fbbf24]">{{ spec(source.type)?.needs }} 가 .env 에 없어 지금은 쓰이지 않습니다.</p>
 
         <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-x-2.5 gap-y-3 mt-2.5">
@@ -42,7 +42,7 @@
               {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal ml-1">{{ field.hint }}</span>
             </span>
 
-            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key])" :placeholder="field.suggest ? '치면 후보가 뜹니다. 없는 말은 적고 Enter' : '하나씩 적고 Enter'" :suggest="field.suggest ? (term) => suggestFor(source.type, field.suggest, term) : null" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? '치면 후보가 뜹니다. 없는 말은 적고 Enter' : '하나씩 적고 Enter'" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
             <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
@@ -52,13 +52,13 @@
               <button v-for="opt in field.options" :key="opt.value" type="button" :class="[pillCls, asList(source[field.key]).includes(opt.value) ? pillOn : pillOff]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
             </div>
 
-            <SingleSelect v-else-if="field.kind === 'enum'" :model-value="source[field.key] ?? ''" :options="field.options" :empty-label="field.emptyLabel || '비우기'" @update:model-value="setField(i, field.key, $event || null)" />
+            <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || '비우기'" @update:model-value="setField(i, field.key, $event || null)" />
 
-            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="source[field.key] ?? null" :to="source[field.to] ?? null" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
+            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
 
-            <NumberInput v-else-if="field.kind === 'number'" :model-value="source[field.key] ?? null" :class="inputCls" @update:model-value="setField(i, field.key, $event)" />
+            <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="inputCls" @update:model-value="setField(i, field.key, $event)" />
 
-            <input v-else :value="source[field.key] ?? ''" type="text" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="inputCls" @input="setField(i, field.key, $event.target.value || null)" />
+            <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="inputCls" @input="setField(i, field.key, valueOf($event) || null)" />
           </div>
         </div>
 
@@ -79,7 +79,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { windowDepth } from "../../../src/rules/window-depth.ts";
 import Icon from "./BaseIcon.vue";
@@ -89,20 +89,32 @@ import MultiSelect from "./MultiSelect.vue";
 import SingleSelect from "./SingleSelect.vue";
 import TagPicker from "./TagPicker.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen, reorderSources } from "../composables/config-folds";
+import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen, reorderSources } from "../composables/config-folds.ts";
+import { valueOf } from "../utils/dom.ts";
+import type { OptionValue } from "../utils/options.ts";
+import type { SourceData } from "../utils/genre-rows.ts";
+import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 
-const props = defineProps({
-  modelValue: { type: Array, default: () => [] },
-  types: { type: Array, default: () => [] },
-  // 종류 목록을 받는 중(loading) · 받음(ready) · 못 받음(failed). 받기 전에는 모르는 종류라고 하지 않는다
-  typesState: { type: String, default: "ready" },
-  // 못 받았을 때의 까닭(문제 응답의 글)
-  typesError: { type: String, default: "" },
-  // 자동완성 후보를 묻는다: (출처 종류, 칸, 친 말) → [{ value, hint? }]
-  suggest: { type: Function, required: true },
-  genreIndex: { type: Number, default: 0 },
-});
-const emit = defineEmits(["update:modelValue"]);
+/** 편집기가 그리는 칸 하나(서버가 준 것) */
+type Field = SourceTypeView["fields"][number];
+/** 자동완성 후보 하나 */
+type Suggestion = { value: string; hint?: string };
+
+const props = withDefaults(
+  defineProps<{
+    modelValue?: SourceData[];
+    types?: SourceTypeView[];
+    /** 종류 목록을 받는 중(loading) · 받음(ready) · 못 받음(failed). 받기 전에는 모르는 종류라고 하지 않는다 */
+    typesState?: "loading" | "ready" | "failed";
+    /** 못 받았을 때의 까닭(문제 응답의 글) */
+    typesError?: string;
+    /** 자동완성 후보를 묻는다: (출처 종류, 칸, 친 말) */
+    suggest: (type: string, field: string, term: string) => Promise<Suggestion[]>;
+    genreIndex?: number;
+  }>(),
+  { modelValue: () => [], types: () => [], typesState: "ready", typesError: "", genreIndex: 0 },
+);
+const emit = defineEmits<{ "update:modelValue": [value: SourceData[]] }>();
 
 // color-scheme: 날짜 같은 네이티브 위젯이 밝게 뜨는 것을 막는다
 const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-2 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
@@ -116,24 +128,24 @@ const pillOff = "bg-white/4 border-white/10 text-muted hover:bg-white/8";
 const deepBtn = "mt-2.5 text-[0.75rem] text-muted cursor-pointer hover:text-fg-soft transition-colors duration-150";
 
 // 모바일은 두 칸, 태블릿부터 여섯 칸짜리 격자다.
-const WIDTHS = {
+const WIDTHS: Record<NonNullable<Field["width"]>, string> = {
   narrow: "col-span-1", // 모바일 1/2, 그 위로 1/6
   half: "col-span-1 md:col-span-3", // 늘 반 줄
   halfWide: "col-span-2 md:col-span-3", // 모바일만 한 줄
 };
-const widthCls = (field) => WIDTHS[field.width] || "col-span-2 md:col-span-6";
+const widthCls = (field: Field) => (field.width ? WIDTHS[field.width] : "col-span-2 md:col-span-6");
 
 // 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다. 종류를 바꿔도 같은 행으로 남아야 한다.
 //
 // computed 로 두면 안 된다. get 이 매번 새 배열을 만드니 거기에 splice 해 봐야 set 이 안 불리고,
 // _key 도 렌더마다 새로 붙어 입력칸이 포커스를 잃는다. 그래서 여기 두고 위에서 내려온 것만 맞춘다.
 let serial = 0;
-const list = ref([]);
+const list = ref<SourceData[]>([]);
 
 // watch 가 immediate 로 바로 돌므로 그 전에 있어야 한다. 아래에 두면 TDZ 에 걸리는데,
 // Vue 가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 화면은 멀쩡히 그려지고
-// 목록만 빈 채로 "출처가 하나는 있어야 합니다"가 뜬다. 실제로 그렇게 한 번 당했다.
-const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
+// 목록만 빈 채로 "출처가 하나는 있어야 합니다"가 뜬다.
+const clean = (one: SourceData): SourceData => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
 const push = () => emit("update:modelValue", list.value.map(clean));
 
 watch(
@@ -147,7 +159,7 @@ watch(
   { immediate: true, deep: true },
 );
 
-function remove(i) {
+function remove(i: number) {
   reorderSources(
     props.genreIndex,
     list.value.map((_, at) => at).filter((at) => at !== i),
@@ -156,32 +168,52 @@ function remove(i) {
   push();
 }
 
-const adding = ref("");
+const adding = ref<OptionValue>("");
 
-const spec = (type) => props.types.find((t) => t.type === type) || null;
-const asList = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
+const spec = (type: string | undefined) => props.types.find((t) => t.type === type) || null;
+
+// 칸의 값. 파일에 적힌 것이라 모양을 보고 읽는다
+const asList = (v: unknown): OptionValue[] => (Array.isArray(v) ? v.filter((one): one is OptionValue => typeof one === "string" || typeof one === "number") : v == null || v === "" ? [] : typeof v === "string" || typeof v === "number" ? [v] : []);
+const valueAt = (source: SourceData, key: string): OptionValue | null => {
+  const v = source[key];
+  return typeof v === "string" || typeof v === "number" ? v : null;
+};
+const numberAt = (source: SourceData, key: string): number | string | null => valueAt(source, key);
+const rangeAt = (source: SourceData, key: string | undefined): number | null => {
+  const v = key ? source[key] : null;
+  return typeof v === "number" ? v : null;
+};
 
 // 쓸 수 있는 것만 고르게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다.
 // 안 그러면 select 가 값을 잃고 저장할 때 조용히 바뀐다.
 const addable = computed(() => props.types.filter((t) => t.usable));
-const choosable = (current) => props.types.filter((t) => t.usable || t.type === current);
+const choosable = (current: string | undefined) => props.types.filter((t) => t.usable || t.type === current);
 // 키가 없는 소스도 보이되 왜 못 쓰는지를 적어 둔다. 이미 고른 것이면 남아 있어야 한다
-const typeOptions = (current) => choosable(current).map((t) => ({ value: t.type, label: `${t.label}${t.usable ? "" : " (키 없음)"}` }));
+const typeOptions = (current: string | undefined) => choosable(current).map((t) => ({ value: t.type, label: `${t.label}${t.usable ? "" : " (키 없음)"}` }));
 
-const fieldsOf = (type) => spec(type)?.fields || [];
-const deepCount = (type) => fieldsOf(type).filter((f) => f.deep).length;
+const fieldsOf = (type: string | undefined) => spec(type)?.fields || [];
+const deepCount = (type: string | undefined) => fieldsOf(type).filter((f) => f.deep).length;
 // when 이 있는 칸은 그 칸이 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
-const shown = (source, i) => fieldsOf(source.type).filter((f) => (!f.deep || isDeepOpen(sourceFoldId(props.genreIndex, i))) && (!f.when || hasRange(source, f.when)));
+const shown = (source: SourceData, i: number) => fieldsOf(source.type).filter((f) => (!f.deep || isDeepOpen(sourceFoldId(props.genreIndex, i))) && (!f.when || hasRange(source, f.when)));
 // 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
-const hasRange = (source, key) => source[key] != null || source[fieldsOf(source.type).find((f) => f.key === key)?.to] != null;
+function hasRange(source: SourceData, key: string) {
+  const to = fieldsOf(source.type).find((f) => f.key === key)?.to;
+  return source[key] != null || (to !== undefined && source[to] != null);
+}
 
 // 자동완성 후보는 부르는 쪽(ConfigGenres)이 서버에 묻는다. 이 컴포넌트는 그리기만 한다
-const suggestFor = (type, field, term) => props.suggest(type, field, term);
+function suggestOf(source: SourceData, field: Field) {
+  const what = field.suggest;
+  return what ? (term: string) => props.suggest(source.type ?? "", what, term) : null;
+}
 
 // 곡이 많을 때 몇 번째 곡까지 보는지. 봇과 같은 셈(rules/window-depth)
-const depthOf = (source) => windowDepth(spec(source.type).window, source);
+const depthOf = (source: SourceData) => {
+  const window = spec(source.type)?.window;
+  return window ? windowDepth(window, source) : 0;
+};
 
-function write(i, patch) {
+function write(i: number, patch: Record<string, unknown>) {
   const row = list.value[i];
   for (const [k, v] of Object.entries(patch)) {
     // 비운 칸은 아예 지운다. YAML 에 `minScore: null` 같은 줄을 남기지 않는다
@@ -191,40 +223,37 @@ function write(i, patch) {
   push();
 }
 
-const setField = (i, key, value) => write(i, { [key]: value });
+const setField = (i: number, key: string, value: unknown) => write(i, { [key]: value });
 
 // 구간은 두 칸을 한꺼번에 쓴다(yearFrom·yearTo).
 // 전체로 되돌리면 그 구간에 딸린 칸도 비운다. 화면에서 사라진 값이 설정에 남으면 안 된다.
-function setRange(i, field, range) {
-  const patch = { [field.key]: range.from, [field.to]: range.to };
+function setRange(i: number, field: Field, range: { from: number | null; to: number | null }) {
+  const patch: Record<string, unknown> = { [field.key]: range.from };
+  if (field.to) patch[field.to] = range.to;
   if (range.from == null && range.to == null) {
     for (const dep of fieldsOf(list.value[i].type).filter((one) => one.when === field.key)) patch[dep.key] = null;
   }
   write(i, patch);
 }
 
-function toggle(i, key, opt) {
+function toggle(i: number, key: string, opt: OptionValue) {
   const now = asList(list.value[i][key]);
   const next = now.includes(opt) ? now.filter((x) => x !== opt) : [...now, opt];
   setField(i, key, next.length ? next : null);
 }
 
 // 종류를 바꾸면 그 종류가 안 받는 칸은 버린다. 남겨 두면 저장할 때 검사에 걸린다
-function changeType(i, type) {
-  const keep = new Set(
-    fieldsOf(type)
-      .flatMap((f) => [f.key, f.to])
-      .filter(Boolean),
-  );
+function changeType(i: number, type: OptionValue) {
+  const keep = new Set(fieldsOf(String(type)).flatMap((f) => (f.to ? [f.key, f.to] : [f.key])));
   const old = list.value[i];
   const kept = Object.fromEntries(Object.entries(old).filter(([k]) => keep.has(k) || k === "weight" || k === "_key"));
-  list.value[i] = { ...kept, type };
+  list.value[i] = { ...kept, type: String(type) };
   push();
 }
 
 function add() {
   if (!adding.value) return;
-  list.value.push({ type: adding.value, _key: ++serial });
+  list.value.push({ type: String(adding.value), _key: ++serial });
   adding.value = "";
   push();
 }

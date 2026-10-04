@@ -7,8 +7,8 @@
   </span>
 </template>
 
-<script setup>
-defineProps({
-  guild: { type: Object, required: true },
-});
+<script setup lang="ts">
+import type { GuildRow } from "../../../src/dashboard/contract/guilds.ts";
+
+defineProps<{ guild: Pick<GuildRow, "name" | "icon" | "hasPlayer"> }>();
 </script>

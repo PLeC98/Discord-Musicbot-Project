@@ -29,45 +29,46 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, nextTick } from "vue";
+<script setup lang="ts">
+import { ref, computed, watch } from "vue";
 import Icon from "./BaseIcon.vue";
-import { useAnchoredPanel } from "../composables/anchored-panel";
+import { useAnchoredPanel } from "../composables/anchored-panel.ts";
+import { useListCursor } from "../composables/list-cursor.ts";
+import type { Option, OptionValue } from "../utils/options.ts";
 
-const props = defineProps({
-  modelValue: { type: Array, default: () => [] },
-  options: { type: Array, default: () => [] },
-  placeholder: { type: String, default: "입력하면 후보가 표시됩니다" },
-  limit: { type: Number, default: 8 },
+const props = withDefaults(defineProps<{ modelValue?: OptionValue[] | null; options?: Option[]; placeholder?: string; limit?: number }>(), {
+  modelValue: () => [],
+  options: () => [],
+  placeholder: "입력하면 후보가 표시됩니다",
+  limit: 8,
 });
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();
 
 const boxCls = "flex flex-wrap items-center gap-1.5 bg-white/5 border border-white/9 rounded-xl px-2.5 py-2 transition-[border-color,background-color] duration-200 focus-within:border-accent/55 focus-within:bg-white/7";
 const panelCls = "overflow-auto rounded-lg border border-white/12 bg-[#141833] shadow-[0_12px_32px_rgba(0,0,0,0.5)] py-1";
 const emptyCls = "rounded-lg border border-white/12 bg-[#141833] px-2.5 py-2 text-[0.8rem] text-muted";
 const rowCls = "w-full flex items-center px-2.5 py-1.5 text-[0.82rem] text-fg-soft text-left cursor-pointer transition-colors duration-100 hover:bg-white/8";
 
-const root = ref(null);
-const box = ref(null);
-const field = ref(null);
-const panel = ref(null);
+const root = ref<HTMLElement | null>(null);
+const box = ref<HTMLElement | null>(null);
+const field = ref<HTMLInputElement | null>(null);
+const panel = ref<HTMLElement | null>(null);
 const term = ref("");
 const open = ref(false);
-const at = ref(0);
 
 const PANEL_MAX = 240;
 const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: PANEL_MAX });
 
 const picked = computed(() => props.modelValue || []);
-const labelOf = (value) => props.options.find((one) => one.value === value)?.label || value;
+const labelOf = (value: OptionValue) => props.options.find((one) => one.value === value)?.label || String(value);
 
 // 앞에서 걸리는 것을 먼저 보인다. 아는 말의 첫 글자를 치는 것이 보통이다.
 const hits = computed(() => {
   const want = term.value.trim().toLowerCase();
   if (!want) return [];
   const left = props.options.filter((one) => !picked.value.includes(one.value));
-  const starts = [];
-  const rest = [];
+  const starts: Option[] = [];
+  const rest: Option[] = [];
   for (const one of left) {
     const label = String(one.label).toLowerCase();
     if (label.startsWith(want)) starts.push(one);
@@ -76,16 +77,10 @@ const hits = computed(() => {
   return [...starts, ...rest].slice(0, props.limit);
 });
 
-watch(hits, () => (at.value = 0));
+const { at, move, reset } = useListCursor(panel, () => hits.value.length, 0);
+watch(hits, reset);
 
-// 방향키로 내려간 줄이 잘려 있으면 고를 수가 없다. 눈에 들어오게 밀어 준다.
-watch(at, () => nextTick(() => panel.value?.children?.[at.value]?.scrollIntoView({ block: "nearest" })));
-
-const move = (by) => {
-  if (hits.value.length) at.value = (at.value + by + hits.value.length) % hits.value.length;
-};
-
-function take(opt) {
+function take(opt: Option | undefined) {
   if (!opt) return;
   term.value = "";
   if (picked.value.includes(opt.value)) return;
@@ -93,7 +88,7 @@ function take(opt) {
   field.value?.focus();
 }
 
-const remove = (value) =>
+const remove = (value: OptionValue) =>
   emit(
     "update:modelValue",
     picked.value.filter((one) => one !== value),

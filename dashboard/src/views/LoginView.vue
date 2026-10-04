@@ -36,13 +36,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "../stores/user.ts";
 import Icon from "../components/BaseIcon.vue";
 import axios from "axios";
 import BaseButton from "../components/BaseButton.vue";
+import type { BotInfo, LoginError } from "../../../src/dashboard/contract/identity.ts";
 
 const sourceLink = "text-[0.72rem] text-muted opacity-45 no-underline transition-opacity duration-200 hover:opacity-90 hover:underline";
 
@@ -50,29 +51,30 @@ const route = useRoute();
 const router = useRouter();
 const user = useUserStore();
 
-const botAvatar = ref(null);
+// 못 받으면 비운다(속성을 달지 않는다)
+const botAvatar = ref<string>();
 const botName = ref("");
-const sourceRepo = ref(null);
-const projectRepo = ref(null);
+const sourceRepo = ref<string>();
+const projectRepo = ref<string>();
 
 // 로그인 콜백(src/dashboard/routes/auth.ts)이 돌려보낸 까닭
-const LOGIN_ERRORS = {
+const LOGIN_ERRORS: Record<LoginError, { title: string; body: string }> = {
   denied: { title: "로그인을 취소했어요.", body: "디스코드 승인 화면에서 취소했어요. 다시 로그인하려면 위 버튼을 눌러 주세요." },
   no_code: { title: "로그인하지 못했어요!", body: "디스코드에서 인증 코드를 받지 못했어요. 위 버튼으로 다시 로그인해 주세요." },
   auth_failed: { title: "로그인하지 못했어요!", body: "디스코드 인증을 마치지 못했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." },
 };
 const error = computed(() => (typeof route.query.error === "string" ? route.query.error : ""));
-const errorText = computed(() => LOGIN_ERRORS[error.value] ?? { title: "로그인하지 못했어요!", body: "알 수 없는 오류가 발생했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." });
+const errorText = computed(() => LOGIN_ERRORS[error.value as LoginError] ?? { title: "로그인하지 못했어요!", body: "알 수 없는 오류가 발생했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." });
 
 onMounted(async () => {
   if (user.isLoggedIn) {
-    router.replace("/dashboard");
+    await router.replace("/dashboard");
     return;
   }
   try {
-    const res = await axios.get("/api/bot");
-    botAvatar.value = res.data.avatarUrl;
-    botName.value = res.data.name;
+    const res = await axios.get<BotInfo>("/api/bot");
+    botAvatar.value = res.data.avatarUrl ?? undefined;
+    botName.value = res.data.name ?? "";
     sourceRepo.value = res.data.sourceRepo;
     projectRepo.value = res.data.projectRepo;
   } catch {

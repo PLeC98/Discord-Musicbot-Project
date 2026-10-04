@@ -42,7 +42,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Icon from "./components/BaseIcon.vue";
@@ -55,6 +55,7 @@ import { useNowPlayingStore } from "./stores/now-playing.ts";
 import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebar-state.ts";
 import { setReportUrl } from "./utils/problem.ts";
 import axios from "axios";
+import type { BotInfo } from "../../src/dashboard/contract/identity.ts";
 
 const user = useUserStore();
 const nowPlaying = useNowPlayingStore();
@@ -66,7 +67,7 @@ async function clearViewAs() {
   try {
     await user.setViewAs(null);
   } catch {
-    router.push("/admin");
+    await router.push("/admin");
   }
 }
 
@@ -80,9 +81,11 @@ const railVars = computed(() => {
 // 오류 문장의 "봇 개발자에게 보고" 가 가리킬 곳(소스 저장소). 못 받으면 링크 없이 글만 보인다
 onMounted(() => {
   axios
-    .get("/api/bot", { quietSession: true })
+    .get<BotInfo>("/api/bot", { quietSession: true })
     .then((res) => setReportUrl(res.data.sourceRepo))
-    .catch(() => {});
+    .catch(() => {
+      /* 못 받으면 보고할 곳 없이 글만 보인다 */
+    });
 });
 
 // 페이지 이동 시 오버레이 드로어는 닫는다 (드로어 밖 경로 이동 포함)

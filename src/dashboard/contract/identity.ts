@@ -12,8 +12,13 @@ type Me = { id: string; username: string; globalName: string; avatar: string | n
 /** /api/bot. 로그인 전 화면이 쓰는 봇의 공개 정보. 이름 · 그림은 봇이 준비되기 전이면 null */
 type BotInfo = { name: string | null; avatarUrl: string | null; sourceRepo: string; projectRepo: string };
 
+/** 로그인 콜백이 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=): 승인 화면에서 취소 · 인증 코드가 없음 · 그 밖의 실패 */
+type LoginError = "denied" | "no_code" | "auth_failed";
+/** 로그인 실패로 돌려보낼 주소 */
+const loginFailed = (why: LoginError) => `/?error=${why}`;
+
 /** /api/admin/view-as 의 답 */
 type ViewAsReply = { viewAs: Tier | null };
 
-export { TIERS, isTier };
-export type { Tier, Me, BotInfo, ViewAsReply };
+export { TIERS, isTier, loginFailed };
+export type { Tier, Me, BotInfo, LoginError, ViewAsReply };

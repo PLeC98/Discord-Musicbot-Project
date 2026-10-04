@@ -89,17 +89,18 @@
   </div>
 </template>
 
-<script setup>
-import { problemText, problemDetails } from "../utils/problem.ts";
-import { trackUnsaved } from "../composables/unsaved.ts";
-import { ref, computed, watch, onMounted } from "vue";
-import axios from "axios";
+<script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import SaveDock from "./SaveDock.vue";
 import MessageList from "./StatusMessageList.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, specialFoldId, reorderSpecials } from "../composables/config-folds";
+import { isFolded, toggleFold, specialFoldId, reorderSpecials } from "../composables/config-folds.ts";
+import { configFileIo, useConfigFile } from "../composables/config-file.ts";
+import { useDragReorder } from "../composables/drag-reorder.ts";
+import { CONDITIONS, newMessage, newSpecial, toMessages, fromMessages, toSpecial, fromSpecial, type MessageRow, type SpecialRow, type MessageData, type SpecialData } from "../utils/status-rows.ts";
+import { MAX_TEXT } from "../../../src/config/schema/status.ts";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
@@ -107,59 +108,25 @@ const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10";
 const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 
-const CONDITIONS = [
-  { key: "date", label: "양력", placeholder: "12-24 ~ 12-26" },
-  { key: "lunar", label: "음력", placeholder: "01-01 ~ 01-15" },
-  { key: "time", label: "시간대", placeholder: "22:00 ~ 06:00" },
-];
-const MAX_TEXT = 128;
-
-const draft = ref({ interval: 60 });
-const messages = ref([]);
-const special = ref([]);
-const snapshot = ref("");
-const saving = ref(false);
-const savedAt = ref(null);
-const loadError = ref("");
-const serverProblems = ref([]);
-
-// 편집 중에는 배열로 다룬다. 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
-let serial = 0;
-const newMessage = () => ({ key: ++serial, text: "", type: "" });
-
-// 문구는 그냥 한 줄로 적은 것과 풀어 적은 것이 섞여 있을 수 있다
-const toMessages = (list) => (list || []).map((m) => (typeof m === "string" ? { key: ++serial, text: m, type: "" } : { key: ++serial, text: m?.text || "", type: m?.type || "" }));
-const fromMessages = (list) => list.map((m) => (m.type ? { text: m.text, type: m.type } : m.text));
-
-const toSpecial = (map) =>
-  Object.entries(map || {}).map(([name, e]) => ({
-    key: ++serial,
-    name,
-    date: e?.date || "",
-    lunar: e?.lunar || "",
-    time: e?.time || "",
-    messages: toMessages(e?.messages),
-  }));
-
-const fromSpecial = (list) =>
-  Object.fromEntries(
-    list.map((e) => {
-      const entry = {};
-      for (const cond of CONDITIONS) if (e[cond.key]?.trim()) entry[cond.key] = e[cond.key].trim();
-      entry.messages = fromMessages(e.messages);
-      return [e.name.trim(), entry];
-    }),
-  );
+const draft = ref<{ interval: number | null }>({ interval: 60 });
+const messages = ref<MessageRow[]>([]);
+const special = ref<SpecialRow[]>([]);
 
 const payload = computed(() => ({ interval: draft.value.interval, messages: fromMessages(messages.value), special: fromSpecial(special.value) }));
-const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
-trackUnsaved("presence", dirty);
+
+function apply(data: Record<string, unknown>) {
+  draft.value = { interval: (data.interval as number | null | undefined) ?? 60 };
+  messages.value = toMessages(data.messages as MessageData[] | undefined);
+  special.value = toSpecial(data.special as Record<string, SpecialData> | undefined);
+}
+
+const { dirty, saving, savedAt, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", payload: () => payload.value, apply, ...configFileIo("status") });
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 const RANGE = { date: /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, lunar: /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, time: /^([01][0-9]|2[0-3]):[0-5][0-9]$/ };
 
-function messageProblems(list, where) {
-  const found = [];
+function messageProblems(list: MessageRow[], where: string) {
+  const found: string[] = [];
   if (!list.length) found.push(`${where}: 문구가 하나는 있어야 합니다.`);
   for (const m of list) {
     if (!m.text.trim()) found.push(`${where}: 빈 문구가 있습니다.`);
@@ -169,7 +136,7 @@ function messageProblems(list, where) {
 }
 
 const problems = computed(() => {
-  const found = [];
+  const found: string[] = [];
   if (!(Number(draft.value.interval) >= 10)) found.push("간격은 10초 이상이어야 합니다.");
   found.push(...messageProblems(messages.value, "평소 문구"));
 
@@ -196,115 +163,18 @@ const problems = computed(() => {
   return [...found, ...serverProblems.value];
 });
 
-// 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
-watch(payload, () => {
-  if (!dirty.value) return;
-  savedAt.value = null;
-  serverProblems.value = [];
-});
-
-// ── 순서 바꾸기. 대기열 목록과 같은 방식 ─────────────────────────────────
-const draggedIndex = ref(null);
-const dragOverIndex = ref(null);
-
-// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다(브라우저가 카드 드래그로 가로챈다).
-// 그렇다고 dragstart에서 가릴 수도 없다. dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
-// 그래서 손잡이를 누르고 있는 동안에만 draggable을 켠다.
-const dragReady = ref(false);
-
-function armDrag() {
-  dragReady.value = true;
-  // 누르기만 하고 끌지 않은 경우까지 풀어 준다. 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
-  window.addEventListener("mouseup", disarmDrag, { once: true });
-}
-
-function disarmDrag() {
-  dragReady.value = false;
-}
-
-function onDragStart(e, i) {
-  // dragstart는 위로 퍼진다. 칸 안의 글자를 끄는 것도 여기까지 올라온다.
-  // 카드 자신이 끌리기 시작한 것만 받는다(글자 드래그는 target이 그 칸이다).
-  if (e.target !== e.currentTarget) return;
-  draggedIndex.value = i;
-  e.dataTransfer.effectAllowed = "move";
-}
-
-// 카드가 draggable이 아니어도 dragover·drop은 지나가는 모든 드래그에 반응한다.
-// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다. 우리 것만 받는다.
-function ours() {
-  return draggedIndex.value != null;
-}
-
-function onDragOver(e, i) {
-  if (!ours()) return;
-  e.preventDefault(); // 여기에 놓을 수 있다고 알린다
-  const rect = e.currentTarget.getBoundingClientRect();
-  dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
-}
-
-function onDrop(e) {
-  if (!ours()) return;
-  e.preventDefault();
-  const from = draggedIndex.value;
-  const to = dragOverIndex.value;
-  if (from == null || to == null) return;
-  const [moved] = special.value.splice(from, 1);
-  // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
-  special.value.splice(to > from ? to - 1 : to, 0, moved);
-  onDragEnd();
-}
-
-function onDragEnd() {
-  disarmDrag();
-  draggedIndex.value = null;
-  dragOverIndex.value = null;
-}
+// ── 순서 바꾸기. 접어 둔 기억도 그 항목을 따라간다 ─────────────────────────
+const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(special, reorderSpecials);
 
 function addSpecial() {
-  special.value.push({ key: ++serial, name: "", date: "", lunar: "", time: "", messages: [newMessage()] });
+  special.value.push(newSpecial());
 }
 
 // 접힘은 자리로 기억한다. 지우면 그 아래의 기억이 한 칸씩 당겨진다
-function removeSpecial(i) {
+function removeSpecial(i: number) {
   reorderSpecials(special.value.map((_, at) => at).filter((at) => at !== i));
   special.value.splice(i, 1);
 }
 
-function apply(data) {
-  draft.value = { interval: data.interval ?? 60 };
-  messages.value = toMessages(data.messages);
-  special.value = toSpecial(data.special);
-  snapshot.value = JSON.stringify(payload.value);
-}
-
-async function fetchConfig() {
-  loadError.value = "";
-  try {
-    const res = await axios.get("/api/admin/config/status");
-    apply(res.data.data);
-  } catch (error) {
-    loadError.value = problemText(error, "설정을 읽지 못했습니다.");
-  }
-}
-
-async function save() {
-  saving.value = true;
-  serverProblems.value = [];
-  try {
-    const res = await axios.put("/api/admin/config/status", { data: payload.value });
-    apply(res.data.data);
-    savedAt.value = Date.now();
-  } catch (error) {
-    serverProblems.value = problemDetails(error).length ? problemDetails(error) : [problemText(error, "저장하지 못했습니다.")];
-  } finally {
-    saving.value = false;
-  }
-}
-
-function revert() {
-  apply(JSON.parse(snapshot.value));
-}
-
-onMounted(fetchConfig);
+onMounted(fetch);
 </script>

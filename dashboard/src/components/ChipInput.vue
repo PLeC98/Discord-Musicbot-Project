@@ -40,51 +40,58 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick, useTemplateRef, onUnmounted } from "vue";
 import Icon from "./BaseIcon.vue";
-import { useAnchoredPanel } from "../composables/anchored-panel";
+import { useAnchoredPanel } from "../composables/anchored-panel.ts";
+import { useListCursor } from "../composables/list-cursor.ts";
 import { problemText } from "../utils/problem.ts";
 
-const props = defineProps({
-  modelValue: { type: Array, default: () => [] },
-  placeholder: { type: String, default: "" },
-  // 차단어처럼 대소문자를 가리지 않고 견주는 자리. 적히는 값 자체를 낮춰 둔다
-  lowercase: { type: Boolean, default: false },
-  // (검색어) => Promise<{ value, hint? }[]>. 없으면 후보를 띄우지 않는다
-  suggest: { type: Function, default: null },
-});
-const emit = defineEmits(["update:modelValue"]);
+/** 후보 하나. hint 는 이름 옆에 흐리게 보인다 */
+type Suggestion = { value: string; hint?: string };
+
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string[];
+    placeholder?: string;
+    /** 차단어처럼 대소문자를 가리지 않고 견주는 자리. 적히는 값 자체를 낮춰 둔다 */
+    lowercase?: boolean;
+    /** 검색어로 후보를 받는다. 없으면 후보를 띄우지 않는다 */
+    suggest?: ((term: string) => Promise<Suggestion[]>) | null;
+  }>(),
+  { modelValue: () => [], placeholder: "", lowercase: false, suggest: null },
+);
+const emit = defineEmits<{ "update:modelValue": [value: string[]] }>();
 
 const panelCls = "overflow-auto rounded-lg border border-white/12 bg-[#141833] shadow-[0_12px_32px_rgba(0,0,0,0.5)] py-1";
 const noteCls = "rounded-lg border border-white/12 bg-[#141833] px-2.5 py-2 text-[0.8rem] text-muted";
 const rowCls = "w-full flex items-center px-2.5 py-1.5 text-[0.82rem] text-fg-soft text-left cursor-pointer transition-colors duration-100 hover:bg-white/8";
 
 const entry = ref("");
-const editing = ref(null);
+const editing = ref<number | null>(null);
 const draft = ref("");
 const editBox = useTemplateRef("editBox");
 
-const root = ref(null);
-const box = ref(null);
-const panel = ref(null);
+const root = ref<HTMLElement | null>(null);
+const box = ref<HTMLElement | null>(null);
+const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
-const hits = ref([]);
+const hits = ref<Suggestion[]>([]);
 // 후보 받기: idle(칠 말이 없다) · loading · done · failed
 const state = ref("idle");
 const failReason = ref("");
 // 방향키로 고른 후보. -1 이면 고른 것이 없어 Enter 가 친 말을 그대로 넣는다
-const at = ref(-1);
+const { at, move: moveCursor, reset } = useListCursor(panel, () => hits.value.length, -1);
 const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: 240 });
 
-const normalize = (text) => (props.lowercase ? text.trim().toLowerCase() : text.trim());
+const normalize = (text: string) => (props.lowercase ? text.trim().toLowerCase() : text.trim());
 
 // 치는 동안 매 글자마다 묻지 않는다. 늦게 온 답이 지금 친 말과 다르면 버린다
 const SUGGEST_WAIT_MS = 250;
-let timer = null;
+let timer: ReturnType<typeof setTimeout> | undefined;
 watch(entry, (text) => {
   clearTimeout(timer);
-  at.value = -1;
+  reset();
   const term = text.trim();
   hits.value = [];
   if (!props.suggest || !term) {
@@ -93,11 +100,12 @@ watch(entry, (text) => {
   }
   // 기다리는 동안에도 묻는 중으로 보인다. 치자마자 반응이 있어야 한다
   state.value = "loading";
+  const suggest = props.suggest;
   timer = setTimeout(async () => {
-    let found;
+    let found: Suggestion[];
     let failed = false;
     try {
-      found = await props.suggest(term);
+      found = await suggest(term);
     } catch (error) {
       found = []; // 후보를 못 받아도 적는 것은 된다
       failed = true;
@@ -111,18 +119,14 @@ watch(entry, (text) => {
 // 칸이 사라지면(장르 · 출처를 지움) 기다리던 물음도 보내지 않는다
 onUnmounted(() => clearTimeout(timer));
 
-// 방향키로 내려간 줄이 잘려 있으면 고를 수가 없다. 눈에 들어오게 밀어 준다(TagPicker 와 같다)
-watch(at, () => nextTick(() => panel.value?.children?.[at.value]?.scrollIntoView({ block: "nearest" })));
-
-const move = (by) => {
+// 방향키로 오르내리면 닫혀 있던 목록도 연다
+const move = (by: number) => {
   if (!hits.value.length) return;
   open.value = true;
-  const n = hits.value.length;
-  // 아직 고른 것이 없으면(-1) 위는 마지막 줄, 아래는 첫 줄이다. 그냥 더하면 위가 끝에서 두 번째가 된다
-  at.value = at.value < 0 ? (by > 0 ? 0 : n - 1) : (at.value + by + n) % n;
+  moveCursor(by);
 };
 
-function take(one) {
+function take(one: Suggestion) {
   entry.value = "";
   hits.value = [];
   if (!props.modelValue.includes(one.value)) emit("update:modelValue", [...props.modelValue, one.value]);
@@ -140,14 +144,14 @@ function commit() {
   emit("update:modelValue", [...props.modelValue, value]);
 }
 
-function removeAt(i) {
+function removeAt(i: number) {
   emit(
     "update:modelValue",
     props.modelValue.filter((_, at) => at !== i),
   );
 }
 
-async function startEdit(i) {
+async function startEdit(i: number) {
   editing.value = i;
   draft.value = props.modelValue[i];
   await nextTick();

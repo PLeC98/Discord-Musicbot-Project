@@ -8,7 +8,7 @@
   <div>
     <div v-for="(message, i) in list" :key="message.key" class="flex items-center gap-2 mb-1.5">
       <div class="relative flex-1">
-        <input :ref="(el) => (inputs[message.key] = el)" v-model="message.text" :placeholder="placeholder" :class="[inputCls, 'w-full pr-10!']" :maxlength="MAX_TEXT" @blur="remember(message)" @click="remember(message)" @keyup="remember(message)" @select="remember(message)" />
+        <input :ref="(el) => keep(message.key, el)" v-model="message.text" :placeholder="placeholder" :class="[inputCls, 'w-full pr-10!']" :maxlength="MAX_TEXT" @blur="remember(message)" @click="remember(message)" @keyup="remember(message)" @select="remember(message)" />
         <!-- 디스코드 입력창처럼 칸 오른쪽 끝에. 고른 이모지는 커서 자리에 끼워 넣는다. -->
         <EmojiPicker class="absolute! right-1.5 top-1/2 -translate-y-1/2" @pick="insert(message, $event)">
           <template #default="{ toggle }">
@@ -41,30 +41,33 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { nextTick, reactive } from "vue";
 import Icon from "./BaseIcon.vue";
 import Twemoji from "./TwemojiImage.vue";
 import EmojiPicker from "./EmojiPicker.vue";
-import { insertAt, caretOf } from "../utils/caret.ts";
+import { insertAt, caretOf, type Caret } from "../utils/caret.ts";
+import { MAX_TEXT, type ActivityType } from "../../../src/config/schema/status.ts";
+import type { MessageRow } from "../utils/status-rows.ts";
 
 // 배열을 그대로 고친다. 줄마다 갈아끼우면 입력 중에 초점이 튄다
-const list = defineModel({ type: Array, required: true });
-defineEmits(["add"]);
+const list = defineModel<MessageRow[]>({ required: true });
+defineEmits<{ add: [] }>();
 
-const MAX_TEXT = 128;
 const placeholder = "🎵 /play";
 
-const inputs = reactive({});
-const carets = reactive({});
+const inputs = reactive<Record<number, HTMLInputElement | null>>({});
+const carets = reactive<Record<number, Caret | null>>({});
+// 줄마다의 입력칸. v-for 안의 함수 ref 가 넣는다
+const keep = (key: number, el: unknown) => (inputs[key] = el instanceof HTMLInputElement ? el : null);
 
 // 판을 열면 칸에서 초점이 떠나므로, 떠나기 전 커서 자리를 적어 둔다.
 // 한 번도 만지지 않은 칸은 적어 둔 것이 없어, 넣을 때 글 끝으로 간다.
-function remember(message) {
+function remember(message: MessageRow) {
   carets[message.key] = caretOf(inputs[message.key]);
 }
 
-function insert(message, char) {
+function insert(message: MessageRow, char: string) {
   const result = insertAt(message.text, char, carets[message.key], MAX_TEXT);
   if (!result) return;
   message.text = result.text;
@@ -77,7 +80,7 @@ function insert(message, char) {
   });
 }
 
-function remove(i, message) {
+function remove(i: number, message: MessageRow) {
   delete inputs[message.key];
   delete carets[message.key];
   list.value.splice(i, 1);
@@ -85,14 +88,9 @@ function remove(i, message) {
 
 // "기본"은 파일에 type을 적지 않는다는 뜻이고, 결과는 "듣는 중"과 같다.
 // 그래도 둘을 따로 두는 것은 손으로 `type: Listening`이라 적어 둔 파일을 그대로 돌려놓기 위해서다.
-const TYPES = [
-  { value: "", label: "기본" },
-  { value: "Listening", label: "듣는 중" },
-  { value: "Playing", label: "게임 중" },
-  { value: "Watching", label: "시청 중" },
-  { value: "Competing", label: "경쟁 중" },
-  { value: "Custom", label: "말머리 없음" },
-];
+// 종류는 서버의 것(schema/status 의 ACTIVITY_TYPES). 빠뜨리면 타입 검사가 잡는다
+const TYPE_LABEL: Record<ActivityType | "", string> = { "": "기본", Listening: "듣는 중", Playing: "게임 중", Watching: "시청 중", Competing: "경쟁 중", Custom: "말머리 없음" };
+const TYPES = Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }));
 
 // color-scheme: 네이티브 목록이 밝게 뜨는 것을 막는다(option은 CSS로 못 꾸민다)
 const inputCls = "bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";

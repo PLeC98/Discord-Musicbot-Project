@@ -44,25 +44,31 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from "vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
+import type { MoreView } from "../../../src/dashboard/contract/player.ts";
 
 // 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
 // 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 고른다.
 // 남은 자리는 대기열이 바뀌는 대로 다시 센다(대시보드 이벤트가 queueTotal을 갱신한다).
-const props = defineProps({
-  more: { type: Object, required: true }, // 서버가 준 이어 넣기 상태 { kind, offset, total, remaining, batch, perClick, lifetimeMs, ... }
-  queueTotal: { type: Number, default: 0 },
-  queueMax: { type: Number, default: 0 }, // 0이면 상한 없음
-  busy: { type: Boolean, default: false },
-});
-const emit = defineEmits(["add", "close"]);
+const props = withDefaults(
+  defineProps<{
+    /** 서버가 준 이어 넣기 상태 */
+    more: MoreView;
+    queueTotal?: number;
+    /** 대기열 상한. 0이면 상한 없음 */
+    queueMax?: number;
+    busy?: boolean;
+  }>(),
+  { queueTotal: 0, queueMax: 0, busy: false },
+);
+const emit = defineEmits<{ add: [count: number]; close: [] }>();
 
 const chip = "px-3 py-1.5 rounded-full text-[0.8rem] font-semibold text-fg bg-white/7 border border-white/10 cursor-pointer tabular-nums " + "transition-[background-color,border-color,scale] duration-150 hover:not-disabled:bg-accent/20 hover:not-disabled:border-accent/40 " + "active:not-disabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed";
 
-const fmt = (n) => Number(n).toLocaleString("ko-KR");
+const fmt = (n: number) => Number(n).toLocaleString("ko-KR");
 const batch = computed(() => props.more.batch || 50);
 const label = computed(() => (props.more.kind === "spa" ? "앨범" : "재생목록"));
 const room = computed(() => (props.queueMax > 0 ? Math.max(0, props.queueMax - props.queueTotal) : Infinity));
@@ -89,14 +95,14 @@ const timerKey = ref(0);
 const secondsLeft = ref(Math.ceil(lifetime.value / 1000));
 let deadline = 0;
 let pausedLeft = 0;
-let tick = null;
+let tick: ReturnType<typeof setInterval> | null = null;
 
 function stop() {
-  clearInterval(tick);
+  if (tick !== null) clearInterval(tick);
   tick = null;
 }
 
-function run(ms) {
+function run(ms: number) {
   stop();
   deadline = Date.now() + ms;
   const step = () => {

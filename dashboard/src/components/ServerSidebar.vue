@@ -66,7 +66,7 @@
   </aside>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import Icon from "./BaseIcon.vue";
@@ -83,7 +83,7 @@ const route = useRoute();
 const isHome = computed(() => route.path === "/servers");
 
 // 활성/비활성은 색상군을 통째로 교체 (같은 속성 유틸리티 충돌 회피)
-function itemClass(active) {
+function itemClass(active: boolean) {
   const base = "flex items-center gap-2.5 rounded-xl p-1.5 no-underline transition-[background-color,color] duration-200";
   return active ? `${base} bg-accent/14 text-[#c4b5fd]` : `${base} text-muted hover:bg-white/6 hover:text-fg`;
 }

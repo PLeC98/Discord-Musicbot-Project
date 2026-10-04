@@ -4,26 +4,24 @@
   </component>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 
 // 공용 버튼. 구 .btn/.btn-primary/.btn-danger/.btn-ghost (M3 Expressive).
 // href를 주면 <a>, 아니면 <button>으로 렌더된다. 크기 변형은 size prop으로.
-const props = defineProps({
-  variant: { type: String, default: "primary" }, // primary | secondary | warning | danger | ghost
-  size: { type: String, default: "md" }, // sm | md | lg
-  href: { type: String, default: null },
-});
+type Variant = "primary" | "secondary" | "warning" | "danger" | "ghost";
+type Size = "sm" | "md" | "lg";
+const props = withDefaults(defineProps<{ variant?: Variant; size?: Size; href?: string | null }>(), { variant: "primary", size: "md", href: null });
 
 const base = "inline-flex items-center gap-1.5 rounded-xl cursor-pointer font-semibold tracking-[-0.01em] no-underline " + "transition-[transform,box-shadow] duration-[350ms] ease-spring " + "hover:not-disabled:scale-[1.02] active:not-disabled:scale-[0.96] active:not-disabled:duration-75 " + "disabled:opacity-40 disabled:cursor-not-allowed";
 
-const sizes = {
+const sizes: Record<Size, string> = {
   sm: "px-2.5 py-1 text-[0.8rem]",
   md: "px-5 py-[9px] text-sm",
   lg: "px-6 py-3 text-[0.95rem] rounded-[14px] w-full justify-center",
 };
 
-const variants = {
+const variants: Record<Variant, string> = {
   primary: "text-white bg-linear-135 from-accent to-accent-2 shadow-[0_4px_18px_var(--accent-glow)] hover:not-disabled:shadow-[0_8px_32px_var(--accent-glow),0_0_0_1px_rgba(255,255,255,0.1)]",
   secondary: "text-white bg-linear-135 from-[#2dd4bf] to-[#3b82f6] shadow-[0_4px_18px_rgba(45,212,191,0.32)] hover:not-disabled:shadow-[0_8px_32px_rgba(45,212,191,0.44),0_0_0_1px_rgba(255,255,255,0.1)]",
   // 되돌릴 수는 있지만 값을 치르는 것. 토큰을 태우는 버튼처럼. danger(빨강)까지 갈 일은 아니다.

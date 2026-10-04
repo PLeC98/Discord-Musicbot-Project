@@ -30,7 +30,7 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
@@ -74,7 +74,10 @@ async function retry() {
       if (user.fetched) await router.replace(window.location.pathname + window.location.search + window.location.hash);
       // 서버 오류(5xx)면 답은 왔지만 여전히 모른다. 띠를 남겨 다시 시도할 수 있게
       else session.offline = true;
-    } else await axios.get("/api/me").catch(() => {});
+    } else
+      await axios.get("/api/me").catch(() => {
+        /* 닿았는지만 본다. 닿으면 요청 한 곳이 띠를 걷는다 */
+      });
   } finally {
     checking.value = false;
   }
@@ -82,7 +85,7 @@ async function retry() {
 
 // 다른 창에서 로그인하고 돌아오면 알아서 잇는다
 const onReturn = () => {
-  if (session.ended && !document.hidden) user.resumeSession();
+  if (session.ended && !document.hidden) void user.resumeSession();
 };
 onMounted(() => {
   window.addEventListener("focus", onReturn);

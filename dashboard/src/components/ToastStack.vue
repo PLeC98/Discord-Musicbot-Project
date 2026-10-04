@@ -15,7 +15,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Icon from "./BaseIcon.vue";
 import { toasts, dismiss } from "../composables/toasts.ts";
 </script>

@@ -31,7 +31,7 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
@@ -39,13 +39,10 @@ import { useUserStore } from "../stores/user.ts";
 
 // rail=true면 사이드바 레일 안. md~lg 구간에서 라벨을 숨기는 반응형 규칙이 붙는다(ServerSidebar와 동일 방식).
 // collapsed는 lg+ 접힘 상태. 드로어에서는 둘 다 꺼진 상태로 쓴다.
-const props = defineProps({
-  rail: { type: Boolean, default: false },
-  collapsed: { type: Boolean, default: false },
-});
+const props = withDefaults(defineProps<{ rail?: boolean; collapsed?: boolean }>(), { rail: false, collapsed: false });
 
 const user = useUserStore();
-const triggerEl = ref(null);
+const triggerEl = ref<HTMLElement | null>(null);
 const open = ref(false);
 const pos = ref({ left: "0px", bottom: "0px" });
 
@@ -63,7 +60,8 @@ function toggle() {
     return;
   }
   // 메뉴는 트리거 위로 펼친다. bottom 기준이라 높이를 몰라도 붙는다
-  const r = triggerEl.value.getBoundingClientRect();
+  const r = triggerEl.value?.getBoundingClientRect();
+  if (!r) return;
   pos.value = {
     left: `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - MENU_WIDTH - 8)))}px`,
     bottom: `${Math.round(window.innerHeight - r.top + 6)}px`,
@@ -83,7 +81,7 @@ async function logout() {
 
 // 창 크기가 바뀌면 좌표가 어긋난다. 다시 계산하는 대신 닫는다.
 const onResize = () => (open.value = false);
-const onKey = (e) => {
+const onKey = (e: KeyboardEvent) => {
   if (e.key === "Escape") open.value = false;
 };
 

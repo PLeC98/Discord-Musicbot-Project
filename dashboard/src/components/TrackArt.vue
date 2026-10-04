@@ -7,11 +7,9 @@
   </span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Icon from "./BaseIcon.vue";
+import type { PlayingView } from "../../../src/dashboard/contract/player.ts";
 
-defineProps({
-  track: { type: Object, default: null },
-  sizeClass: { type: String, required: true },
-});
+withDefaults(defineProps<{ track?: Pick<PlayingView, "thumbnail"> | null; sizeClass: string }>(), { track: null });
 </script>

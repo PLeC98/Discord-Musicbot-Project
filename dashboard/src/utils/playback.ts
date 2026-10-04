@@ -103,12 +103,4 @@ export function moveTarget(queue: Array<Pick<QueueTrackView, "entry"> | TrackSee
   return isEntry(before) ? { entry, before } : "unknown";
 }
 
-/** 끌어 놓은 차례대로 바꾼 목록(응답을 기다리는 동안 얹어 보인다) */
-export function reordered<T>(queue: T[], from: number, insertAt: number): T[] {
-  const next = [...queue];
-  const [one] = next.splice(from, 1);
-  next.splice(insertAt > from ? insertAt - 1 : insertAt, 0, one);
-  return next;
-}
-
 export type { TrackSeen, StateSeen, PlayerSeen, Clock, MoveRequest };

@@ -7,15 +7,12 @@
   <input :inputmode="decimal ? 'decimal' : 'numeric'" :value="modelValue ?? ''" @input="onInput" />
 </template>
 
-<script setup>
-const props = defineProps({
-  modelValue: { type: Number, default: null },
-  decimal: { type: Boolean, default: false },
-  negative: { type: Boolean, default: false },
-});
-const emit = defineEmits(["update:modelValue"]);
+<script setup lang="ts">
+// 값은 수다. 손으로 고친 설정 파일에는 글자("30")로 적힌 수가 있을 수 있어 받을 때는 글자도 받아 그대로 보인다
+const props = withDefaults(defineProps<{ modelValue?: number | string | null; decimal?: boolean; negative?: boolean }>(), { modelValue: null, decimal: false, negative: false });
+const emit = defineEmits<{ "update:modelValue": [value: number | null] }>();
 
-function clean(text) {
+function clean(text: string) {
   const sign = props.negative && text.startsWith("-") ? "-" : "";
   const body = text.slice(sign.length).replace(props.decimal ? /[^0-9.]/g : /[^0-9]/g, "");
   // 점은 하나만. 두 번째부터는 버린다
@@ -24,10 +21,11 @@ function clean(text) {
   return sign + one;
 }
 
-function onInput(event) {
-  const only = clean(event.target.value);
+function onInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const only = clean(input.value);
   // 값이 안 바뀌면(1 뒤에 "a" 를 친 경우) Vue 가 다시 그리지 않는다. 지운 글자를 직접 치운다
-  if (event.target.value !== only) event.target.value = only;
+  if (input.value !== only) input.value = only;
   if (only === "") return emit("update:modelValue", null);
   // "0." 이나 "-" 는 아직 치는 중이다. 알리면 되돌아온 값이 점을 지워 더 못 친다
   if (only === "-" || only.endsWith(".")) return;

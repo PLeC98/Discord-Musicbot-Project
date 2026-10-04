@@ -4,6 +4,7 @@ const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import config from "../../config/index.ts";
 import type { SessionUser } from "../express-slots.d.ts";
+import { loginFailed } from "../contract/identity.ts";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
@@ -79,14 +80,14 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   router.get("/callback", async (req, res) => {
     const { code, state } = req.query;
     // 디스코드 승인 화면에서 취소했다(RFC 6749 4.1.2.1)
-    if (req.query.error === "access_denied") return res.redirect("/?error=denied");
-    if (typeof code !== "string" || !code) return res.redirect("/?error=no_code");
+    if (req.query.error === "access_denied") return res.redirect(loginFailed("denied"));
+    if (typeof code !== "string" || !code) return res.redirect(loginFailed("no_code"));
 
     // 로그인 CSRF 를 막으려고 state 를 맞춰 본다(RFC 6749)
     const expectedState = req.session.oauthState;
     delete req.session.oauthState;
     if (!state || !expectedState || state !== expectedState) {
-      return res.redirect("/?error=auth_failed");
+      return res.redirect(loginFailed("auth_failed"));
     }
 
     try {
@@ -125,7 +126,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
       req.session.regenerate((err) => {
         if (err) {
           log.error("세션 재생성 실패:", err);
-          return res.redirect("/?error=auth_failed");
+          return res.redirect(loginFailed("auth_failed"));
         }
         req.session.user = sessionUser;
         req.session.save(() => res.redirect("/dashboard"));
@@ -135,7 +136,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
       // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게
       const what = response ? `상태 코드 ${response.status}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
       log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: ${what}`);
-      res.redirect("/?error=auth_failed");
+      res.redirect(loginFailed("auth_failed"));
     }
   });
 

@@ -3,7 +3,9 @@
 import { NUMERIC_NAME, YAML_WORDS } from "./genres.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
-const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];
+const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"] as const;
+type ActivityType = (typeof ACTIVITY_TYPES)[number];
+const isActivityType = (v: unknown): v is ActivityType => ACTIVITY_TYPES.some((type) => type === v);
 
 const MAX_TEXT = 128; // 디스코드 활동 문구 길이 상한
 
@@ -46,7 +48,7 @@ const message = z.preprocess(
         .refine((text) => !text.trim() || text.length <= MAX_TEXT, { error: (issue) => `{where}: 문구가 ${MAX_TEXT}자를 넘습니다. "${String(issue.input).slice(0, 20)}…"` }),
       // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
       type: present(
-        (type) => typeof type === "string" && ACTIVITY_TYPES.includes(type),
+        (type) => isActivityType(type),
         (issue) => `{where}: "${issue.input}"은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
       ),
     },
@@ -93,4 +95,5 @@ function statusProblems(data: unknown): string[] {
   });
 }
 
-export { statusProblems, ACTIVITY_TYPES };
+export { statusProblems, ACTIVITY_TYPES, MAX_TEXT, isActivityType };
+export type { ActivityType };

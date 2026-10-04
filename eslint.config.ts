@@ -33,15 +33,16 @@ const config: Linter.Config[] = [
     },
   },
 
-  // 봇 본체는 TypeScript. 파서와 권장 규칙(타입 정보 없이 도는 것만). 봇 본체 품질 규칙은 아래에서 건다
-  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts"] })),
+  // 봇과 화면은 TypeScript. 파서와 권장 규칙(타입 정보 없이 도는 것만). 봇 본체 품질 규칙은 아래에서 건다.
+  // .vue 의 파서는 아래 Vue 설정이 vue-eslint-parser 로 덮고 <script> 만 TypeScript 파서에 맡긴다
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts", "**/*.vue"] })),
   {
     files: ["**/*.ts"],
     ignores: ["dashboard/src/**"],
     languageOptions: { globals: globals.nodeBuiltin },
   },
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.vue"],
     rules: {
       // 아래 no-unused-vars 와 같은 기준
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true }],
@@ -106,9 +107,9 @@ const config: Linter.Config[] = [
     },
   },
 
-  // .ts 는 타입을 아는 typescript-eslint 쪽 규칙이 본다(overload · 타입 안의 매개변수 이름을 미사용으로 잡지 않는다)
+  // TypeScript 는 타입을 아는 typescript-eslint 쪽 규칙이 본다(overload · 타입 안의 매개변수 이름을 미사용으로 잡지 않는다)
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.vue"],
     rules: { "no-unused-vars": "off" },
   },
 ];

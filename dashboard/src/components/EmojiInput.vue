@@ -13,13 +13,13 @@
   </EmojiPicker>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Icon from "./BaseIcon.vue";
 import Twemoji from "./TwemojiImage.vue";
 import EmojiPicker from "./EmojiPicker.vue";
 
-defineProps({ modelValue: { type: String, default: "" } });
-defineEmits(["update:modelValue"]);
+withDefaults(defineProps<{ modelValue?: string }>(), { modelValue: "" });
+defineEmits<{ "update:modelValue": [value: string] }>();
 
 const box = "h-[38px] w-[38px] rounded-xl border border-white/9 bg-white/5 text-[1.05rem] leading-none flex items-center justify-center cursor-pointer transition-[background-color,border-color] duration-150 hover:bg-white/8";
 </script>

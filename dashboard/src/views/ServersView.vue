@@ -35,10 +35,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
 import { useGuildsStore } from "../stores/guilds.ts";
 import Icon from "../components/BaseIcon.vue";
+import type { GuildRow, ListState } from "../../../src/dashboard/contract/guilds.ts";
 
 // 목록 데이터·SSE·폴링은 사이드바와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
 const store = useGuildsStore();
@@ -46,13 +47,13 @@ const guilds = computed(() => store.guilds);
 const loading = computed(() => store.loading);
 
 // 서버 목록 응답의 상태(state). 봇이 음성 채널 밖 · 곡을 트는 중 · 일시정지 · 음성 채널에 있지만 곡이 없음
-const STATES = {
+const STATES: Record<ListState, { label: string; icon: string; cls: string }> = {
   idle: { label: "유휴 상태", icon: "pause", cls: "text-muted" },
   playing: { label: "재생 중", icon: "music", cls: "text-success" },
   paused: { label: "일시정지", icon: "pause", cls: "text-warning" },
   waiting: { label: "대기 중", icon: "headphones", cls: "text-fg-soft" },
 };
-const stateOf = (g) => STATES[g.state] ?? STATES.idle;
+const stateOf = (g: GuildRow) => STATES[g.state] ?? STATES.idle;
 
 onMounted(() => store.subscribe());
 onUnmounted(() => store.unsubscribe());

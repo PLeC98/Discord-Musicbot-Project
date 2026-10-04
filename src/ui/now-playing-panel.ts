@@ -69,6 +69,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/public-address.ts";
 import { songTitle } from "./text/ko/labels.ts";
+import { SELECT_MAX } from "../rules/limits.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
@@ -683,7 +684,7 @@ class NowPlayingPanel {
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
 
-    const tracks = player.queue.slice(0, 25);
+    const tracks = player.queue.slice(0, SELECT_MAX);
     const options = tracks.map((track, i) => {
       const label = `${i + 1}. ${songTitle(track.title)}`.slice(0, 100);
       const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));

@@ -19,7 +19,7 @@
         <div class="p-2 border-b border-white/8 relative">
           <!-- v-model을 쓰지 않는다: v-model은 한글·일본어처럼 조합해서 만드는 글자를 다 만들 때까지
                input을 흘려보내서, 한 글자를 완성해도 다음 글자를 치기 전까지 검색이 안 먹는다. -->
-          <input ref="searchBox" :value="query" placeholder="이름 · 디스코드 이름 · 이모지 붙여넣기" :class="searchCls" @input="query = $event.target.value" @keydown.esc="open = false" />
+          <input ref="searchBox" :value="query" placeholder="이름 · 디스코드 이름 · 이모지 붙여넣기" :class="searchCls" @input="query = valueOf($event)" @keydown.esc="open = false" />
           <button v-if="query" type="button" :class="clearBtn" v-tooltip="'검색어 지우기'" @click="clearQuery">
             <Icon name="close" :size="12" />
           </button>
@@ -65,39 +65,40 @@
   </div>
 </template>
 
-<script setup>
-import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef } from "vue";
+<script setup lang="ts">
+import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef, type CSSProperties } from "vue";
 import Icon from "./BaseIcon.vue";
 import Twemoji from "./TwemojiImage.vue";
+import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
+import { readStored, writeStored } from "../utils/storage.ts";
+import { valueOf } from "../utils/dom.ts";
+import type { Emoji, EmojiGroup } from "../emoji-list.ts";
 
-defineProps({
-  // 값을 지울 수 있는 자리(장르 아이콘)에서만 "비우기"를 보여준다
-  clearable: { type: Boolean, default: false },
-});
-const emit = defineEmits(["pick", "clear"]);
+withDefaults(
+  defineProps<{
+    /** 값을 지울 수 있는 자리(장르 아이콘)에서만 "비우기"를 보여준다 */
+    clearable?: boolean;
+  }>(),
+  { clearable: false },
+);
+const emit = defineEmits<{ pick: [char: string]; clear: [] }>();
 
 const open = ref(false);
-const root = useTemplateRef("root");
-const searchBox = ref(null);
-const popoverStyle = ref({});
+const root = useTemplateRef<HTMLElement>("root");
+const searchBox = ref<HTMLInputElement | null>(null);
+const popoverStyle = ref<CSSProperties>({});
 const query = ref("");
-const groups = shallowRef([]);
-const collapsed = ref({});
+const groups = shallowRef<EmojiGroup[]>([]);
+const collapsed = ref<Record<string, boolean>>({});
 const loadError = ref("");
-
-const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
 // 어느 분류를 접어 뒀는지는 브라우저가 기억한다. 못 읽거나 못 쓰는 환경(사생활 보호 창 등)에서도
 // 그냥 다 펼친 채로 동작해야 하므로 실패는 삼킨다.
 const STORE_KEY = "emojiPicker.collapsed";
 
-function toggleGroup(name) {
+function toggleGroup(name: string) {
   collapsed.value[name] = !collapsed.value[name];
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(Object.keys(collapsed.value).filter((k) => collapsed.value[k])));
-  } catch {
-    // 기억하지 못해도 고르는 데는 지장이 없다
-  }
+  writeStored(STORE_KEY, JSON.stringify(Object.keys(collapsed.value).filter((k) => collapsed.value[k])));
 }
 
 async function load() {
@@ -115,9 +116,9 @@ async function load() {
   }
   groups.value = module.EMOJI_GROUPS;
 
-  let saved;
+  let saved: unknown;
   try {
-    saved = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+    saved = JSON.parse(readStored(STORE_KEY) || "[]");
   } catch {
     saved = null; // 못 읽는 환경이면 그냥 다 펼친다
   }
@@ -135,7 +136,7 @@ const results = computed(() => {
   const typed = query.value.trim();
   if (!typed) return null;
 
-  const found = [];
+  const found: Array<Pick<Emoji, "char" | "label">> = [];
   // 붙여넣은 이모지는 목록에 없더라도 고를 수 있어야 한다. 폰트가 모르는 새 이모지일 수도 있다
   if (ONE_EMOJI.test(typed)) found.push({ char: typed, label: typed });
 
@@ -149,7 +150,7 @@ const results = computed(() => {
   return found;
 });
 
-function choose(char) {
+function choose(char: string) {
   emit("pick", char);
   open.value = false;
 }
@@ -174,10 +175,14 @@ function place() {
 
 // 판은 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 버튼을 따라간다.
 // capture로 잡아야 안쪽 스크롤 상자가 움직일 때도 걸린다.
-const listen = (add) => {
-  const fn = add ? window.addEventListener : window.removeEventListener;
-  fn.call(window, "scroll", place, { capture: true, passive: true });
-  fn.call(window, "resize", place);
+const listen = (add: boolean) => {
+  if (add) {
+    window.addEventListener("scroll", place, { capture: true, passive: true });
+    window.addEventListener("resize", place);
+  } else {
+    window.removeEventListener("scroll", place, { capture: true });
+    window.removeEventListener("resize", place);
+  }
 };
 
 watch(open, async (isOpen) => {

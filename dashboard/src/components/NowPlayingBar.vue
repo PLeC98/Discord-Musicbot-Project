@@ -17,7 +17,7 @@
       <div class="flex flex-col items-center min-w-0 w-full pt-1">
         <div class="flex items-center gap-0.5">
           <button :class="iconBtn" v-tooltip="'이전곡'" :disabled="!previousEnabled(np.data) || np.busy.has('previous')" @click="np.previous()"><Icon name="prev" :size="17" /></button>
-          <button :class="iconMain" v-tooltip="np.track && !np.data.paused ? '일시정지' : '재생'" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.track && !np.data.paused ? 'pause' : 'play'" :size="19" /></button>
+          <button :class="iconMain" v-tooltip="np.running ? '일시정지' : '재생'" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play'" :size="19" /></button>
           <button :class="iconBtn" v-tooltip="'다음곡'" :disabled="!skipEnabled(np.data) || np.busy.has('skip')" @click="np.skip()"><Icon name="skip" :size="17" /></button>
         </div>
 
@@ -35,11 +35,11 @@
 
       <div class="flex items-center justify-end gap-2">
         <VolumeIcon :level="volumeShown" :size="17" class="text-muted" />
-        <input type="range" min="0" max="100" step="1" :value="volumeShown" :disabled="!np.canControl" class="w-30 h-1 accent-accent cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40" v-tooltip="`볼륨: ${volumeShown}%`" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" />
+        <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="volumeShown" :disabled="!np.canControl" class="w-30 h-1 accent-accent cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40" v-tooltip="`볼륨: ${volumeShown}%`" @input="volumeInput(valueOf($event))" @change="volumeChange(valueOf($event))" />
       </div>
     </div>
 
-    <!-- ── 모바일 ── 버튼은 둘까지. 진행바는 바 하단에 표시 전용으로 얇게(D-3, D-5) -->
+    <!-- ── 모바일 ── 버튼은 둘까지. 진행바는 바 하단에 표시 전용으로 얇게 -->
     <div class="md:hidden flex h-full items-center gap-2 px-3">
       <button type="button" :class="[metaBtn, 'flex-1']" @click="openServer">
         <TrackArt :track="np.track" size-class="size-10" />
@@ -48,7 +48,7 @@
           <span class="block text-[0.72rem] text-muted truncate">{{ np.track?.artist || np.guild?.name }}</span>
         </span>
       </button>
-      <button :class="iconMain" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.track && !np.data.paused ? 'pause' : 'play'" :size="19" /></button>
+      <button :class="iconMain" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play'" :size="19" /></button>
       <button :class="iconBtn" :disabled="!skipEnabled(np.data) || np.busy.has('skip')" @click="np.skip()"><Icon name="skip" :size="17" /></button>
     </div>
 
@@ -58,7 +58,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -70,6 +70,8 @@ import { useNowPlayingStore } from "../stores/now-playing.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { previousEnabled, skipEnabled } from "../utils/playback.ts";
 import { useSeekBar } from "../composables/seek-bar.ts";
+import { valueOf } from "../utils/dom.ts";
+import { VOLUME_MAX } from "../../../src/rules/limits.ts";
 
 const np = useNowPlayingStore();
 // 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
@@ -83,7 +85,7 @@ const {
 );
 const router = useRouter();
 const route = useRoute();
-const trackEl = ref(null);
+const trackEl = ref<HTMLElement | null>(null);
 
 // 지금 보고 있는 서버 화면. 그 서버를 듣고 있으면 바가 숨는다(저장소는 라우터를 읽지 않는다)
 watch(
@@ -92,12 +94,12 @@ watch(
   { immediate: true },
 );
 
-// 버튼이 아닌 영역을 누르면 곡 링크가 아니라 그 서버 화면으로 간다(D-2. 전체화면 대용).
+// 버튼이 아닌 영역을 누르면 곡 링크가 아니라 그 서버 화면으로 간다(전체화면 대용).
 function openServer() {
-  if (np.guildId) router.push(`/servers/${np.guildId}`);
+  if (np.guildId) void router.push(`/servers/${np.guildId}`);
 }
 
-// 탐색은 데스크탑만. 모바일 진행바는 표시 전용이라 핸들러가 붙지 않는다(D-5).
+// 탐색은 데스크탑만. 모바일 진행바는 표시 전용이라 핸들러가 붙지 않는다.
 const seekable = computed(() => np.canControl && np.duration > 0 && !np.track?.isLive);
 const seekBar = useSeekBar({
   el: trackEl,

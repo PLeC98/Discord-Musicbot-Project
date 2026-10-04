@@ -33,6 +33,8 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const visible = computed(() => !!guildId.value && !onTargetPage.value && !!data.value?.hasPlayer);
 
   const canControl = computed(() => data.value?.canControl ?? false);
+  // 곡이 있고 멈추지 않았다(재생 · 일시정지 버튼이 어느 쪽인지)
+  const running = computed(() => Boolean(track.value && !data.value?.paused));
   const canSkip = computed(() => skipAllowed(data.value));
   const duration = computed(() => track.value?.duration ?? 0);
   const position = computed(() => positionAt(clock.value, now.value));
@@ -152,5 +154,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, page, guildId, guild, track, visible, canControl, canSkip, duration, position, busy, refresh, togglePause, skip, previous, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, busy, refresh, togglePause, skip, previous, setVolume, seek, start, stop };
 });

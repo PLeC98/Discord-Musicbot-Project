@@ -2,6 +2,7 @@
 
 import { SPEC, TYPES } from "./genre-sources.ts";
 import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";
+import { SELECT_MAX } from "../../rules/limits.ts";
 
 // 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 센다.
 // g 플래그가 없어 test()에 상태가 남지 않는다.
@@ -78,8 +79,8 @@ const genres = z.preprocess(
   z.record(z.string(), genre).superRefine((all, ctx) => {
     const ids = Object.keys(all);
     if (ids.length === 0) ctx.addIssue({ code: "custom", message: "장르가 하나도 없습니다." });
-    // 디스코드 선택 메뉴는 25개까지만 받는다. 넘기면 메뉴가 거부된다
-    if (ids.length > 25) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다.` });
+    // 장르 고르기는 디스코드 선택 메뉴 하나다
+    if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여줍니다.` });
     for (const id of ids) {
       if (YAML_WORDS.includes(id)) ctx.addIssue({ code: "custom", message: `"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
       if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 이름은 차례가 어긋납니다. "${id}년대"처럼 글자를 붙여 주세요.` });

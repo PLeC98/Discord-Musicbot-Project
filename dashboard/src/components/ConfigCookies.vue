@@ -22,7 +22,7 @@
   </BaseCard>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { problemText } from "../utils/problem.ts";
 import { trackUnsaved } from "../composables/unsaved.ts";
 import { ref, reactive, computed, onMounted } from "vue";
@@ -30,6 +30,7 @@ import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
+import type { CookieState } from "../../../src/dashboard/contract/admin.ts";
 
 const input = ref("");
 // 붙여 넣고 저장하지 않은 쿠키도 떠날 때 묻는다
@@ -39,7 +40,7 @@ trackUnsaved(
 );
 const saving = ref(false);
 const error = ref("");
-const state = reactive({ source: "none", hasFile: false, inFlight: 0 });
+const state = reactive<CookieState>({ source: "none", hasFile: false, inFlight: 0 });
 // 서버에서 상태를 받았는지. 못 받았으면 "없음"이 아니라 모른다
 const known = ref(false);
 
@@ -49,16 +50,16 @@ const secureOrigin = computed(() => window.isSecureContext);
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const iconBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10 hover:text-fg disabled:opacity-35 disabled:cursor-not-allowed";
 
-function apply(data) {
+function apply(data: CookieState) {
   Object.assign(state, data);
   known.value = true;
 }
 
-async function put(text) {
+async function put(text: string) {
   saving.value = true;
   error.value = "";
   try {
-    apply((await axios.put("/api/admin/cookies", { text })).data);
+    apply((await axios.put<CookieState>("/api/admin/cookies", { text })).data);
     input.value = "";
   } catch (err) {
     error.value = problemText(err, "쿠키를 저장하지 못했습니다.");
@@ -72,7 +73,7 @@ const clear = () => put("");
 
 onMounted(async () => {
   try {
-    apply((await axios.get("/api/admin/cookies")).data);
+    apply((await axios.get<CookieState>("/api/admin/cookies")).data);
   } catch (err) {
     // 저장은 여전히 된다
     error.value = problemText(err, "쿠키 상태를 읽지 못했습니다.");

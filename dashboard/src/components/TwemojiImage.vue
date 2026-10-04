@@ -12,14 +12,11 @@
   <span v-else class="emoji leading-none" :style="{ fontSize: `${size}px` }">{{ char }}</span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import twemoji from "@twemoji/api";
 
-const props = defineProps({
-  char: { type: String, required: true },
-  size: { type: Number, default: 20 },
-});
+const props = withDefaults(defineProps<{ char: string; size?: number }>(), { size: 20 });
 
 const failed = ref(false);
 const tried = ref(0);

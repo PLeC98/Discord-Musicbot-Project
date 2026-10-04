@@ -2,11 +2,11 @@
   <svg :width="size" :height="size" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="inline-block shrink-0 align-[-0.15em]"><path :d="path" /></svg>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 
 // Material Symbols 경로 모음 (24x24, fill=currentColor). 대시보드 이모지 아이콘 대체용.
-const PATHS = {
+const PATHS: Record<string, string> = {
   "audio-file": "M8 20q-.825 0-1.412-.587Q6 18.825 6 18t.588-1.413Q7.175 16 8 16q.213 0 .412.037.2.038.388.113V12h3v2H10v4q0 .825-.588 1.413Q8.825 20 8 20Zm-4 2q-.825 0-1.412-.587Q2 20.825 2 20V4q0-.825.588-1.413Q3.175 2 4 2h9l5 5v13q0 .825-.587 1.413Q16.825 22 16 22Zm8-14V4H4v16h12V8Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z",
   // 도는 표시. animate-spin과 함께 쓴다
@@ -41,10 +41,7 @@ const PATHS = {
   wrench: "M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z",
 };
 
-const props = defineProps({
-  name: { type: String, required: true },
-  size: { type: [Number, String], default: 18 },
-});
+const props = withDefaults(defineProps<{ name: string; size?: number | string }>(), { size: 18 });
 
 const path = computed(() => PATHS[props.name] || "");
 </script>

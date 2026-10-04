@@ -8,8 +8,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 // 글래스모피즘 카드. 구 .card/.card-title. 제목이 특수한 카드는 title 없이 slot 마크업으로 직접.
 import Icon from "./BaseIcon.vue";
-defineProps({ title: { type: String, default: "" }, icon: { type: String, default: "" } });
+withDefaults(defineProps<{ title?: string; icon?: string }>(), { title: "", icon: "" });
 </script>

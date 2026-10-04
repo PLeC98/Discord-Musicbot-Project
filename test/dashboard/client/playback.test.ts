@@ -2,7 +2,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, queueSize, reordered, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.ts";
+import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, queueSize, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.ts";
+import { reordered } from "../../../dashboard/src/utils/reorder.ts";
 
 test("받기: 같은 기동이면 차례가 지금 이상일 때만, 기동 표가 크면 받고 작으면 버린다", () => {
   const now = { boot: 200, seq: 10 };
