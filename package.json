@@ -23,7 +23,7 @@
     "lint:fix": "eslint . --fix",
     "postinstall": "node scripts/setup-config.ts && node scripts/install-ffmpeg.ts && node scripts/update-ytdlp.ts",
     "install:ffmpeg": "node scripts/install-ffmpeg.ts",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p . && tsc -p test/dashboard/client && pnpm --dir dashboard run typecheck"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
@@ -50,14 +50,15 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
-    "@types/node": "^24.13.6",
+    "@types/node": "catalog:",
     "cmu-pronouncing-dictionary": "3.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",
+    "jiti": "^2.7.0",
     "prettier": "^3.9.8",
-    "typescript": "~6.0.3",
+    "typescript": "catalog:",
     "typescript-eslint": "^8.70.1"
   }
 }

@@ -2,10 +2,9 @@
 // 바꾼 뒤 player.trackSink에 알린다. 세션 저장이 메모리를 따라가는 길은 이것 하나다.
 
 import { HISTORY_MAX } from "../rules/history.ts";
+import type { Loop } from "../rules/loop-cycle.ts";
 import type { QueuedTrack } from "./track.ts";
 
-/** 반복. 끄면 false */
-type Loop = false | "track" | "queue";
 /** 바뀐 것을 듣는 쪽(세션 저장) */
 type TrackSink = {
   onSetCurrent(track: QueuedTrack | null): void;
@@ -186,4 +185,4 @@ function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks
 }
 
 export { HISTORY_MAX, roomLeft, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, removeAt, move, shuffle, clearQueue, reset, restore };
-export type { Loop, TrackSink, Tracks };
+export type { TrackSink, Tracks };

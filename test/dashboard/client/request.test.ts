@@ -2,10 +2,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from "../../dashboard/node_modules/axios/index.js";
-import { installRequests, failureKind, LIMIT } from "../../dashboard/src/utils/request.js";
-import { problemBody } from "../../src/dashboard/problem.ts";
-import type { Code } from "../../src/rules/problems.ts";
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from "../../../dashboard/node_modules/axios/index.js";
+import { installRequests, failureKind, LIMIT } from "../../../dashboard/src/utils/request.js";
+import { problemBody } from "../../../src/dashboard/problem.ts";
+import type { Code } from "../../../src/rules/problems.ts";
 
 type Sent = { method: string; url: string; token: string | undefined };
 type Reply = { problem?: Code; data?: unknown; fail?: string };

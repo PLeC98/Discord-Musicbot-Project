@@ -4,7 +4,7 @@ import { frame, noticeFrame } from "./frame.ts";
 import * as errors from "./text/ko/errors.ts";
 import { formatDuration, formatMs } from "./format.ts";
 import * as controlText from "./text/ko/controls.ts";
-import type { Loop } from "../player/track-state.ts";
+import type { Loop } from "../rules/loop-cycle.ts";
 
 type Track = { title: string | null; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */

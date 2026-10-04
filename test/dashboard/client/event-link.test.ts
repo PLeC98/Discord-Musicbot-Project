@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventLink } from "../../dashboard/src/utils/event-link.js";
+import { eventLink } from "../../../dashboard/src/utils/event-link.js";
 
 const CONNECTING = 0;
 const OPEN = 1;

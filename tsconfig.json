@@ -1,5 +1,5 @@
 {
-  // 타입 검사만 한다(빌드 없음). 봇 쪽은 전부 .ts 다.
+  // 봇 쪽 타입 검사만 한다(빌드 없음). 화면은 dashboard/tsconfig.json(vue-tsc)이 본다.
   // TS 6 은 기본값이 여럿 바뀌었다(types · module · target · strict). 기본값에 기대지 않고 전부 적는다.
   "compilerOptions": {
     "noEmit": true,
@@ -18,5 +18,7 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts", "eslint.config.ts"],
+  // 화면 모듈을 부르는 시험은 브라우저 타입이 있어야 해 test/dashboard/client/tsconfig.json 이 본다
+  "exclude": ["test/dashboard/client"]
 }

@@ -2,8 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextLoopMode } from "../../src/rules/loop-cycle.ts";
-import type { Loop } from "../../src/player/track-state.ts";
+import { nextLoopMode, type Loop } from "../../src/rules/loop-cycle.ts";
 
 test("버튼의 다음 모드는 끔 → 한곡 → 대기열 → 끔", () => {
   const modes: Array<Loop | "off"> = [false, "off", "track", "queue"];

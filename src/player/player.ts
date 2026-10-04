@@ -12,7 +12,7 @@ const elog = logger.child({ category: "error" });
 import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
 import type { AudioPlayer, AudioPlayerState, VoiceConnection } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";
-import type { Loop } from "./track-state.ts";
+import type { Loop } from "../rules/loop-cycle.ts";
 import type { WarmerDeps } from "./queue-warmer.ts";
 import type { AudioSplicer } from "../media/audio-splicer.ts";
 import type { Deps as AutoplayDeps } from "../autoplay/route.ts";

@@ -1,0 +1,10 @@
+{
+  // Vite 설정 파일. Node 에서 돈다
+  "extends": "@vue/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": ["node"],
+    "erasableSyntaxOnly": true
+  },
+  "include": ["vite.config.ts"]
+}

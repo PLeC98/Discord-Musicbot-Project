@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 // 브라우저 저장소 흉내(모듈이 불러올 때 읽는다)
 const stored = new Map<string, string>();
 Object.assign(globalThis, { localStorage: { getItem: (k: string) => stored.get(k) ?? null, setItem: (k: string, v: string) => stored.set(k, v) } });
-const folds = await import("../../dashboard/src/composables/config-folds.js");
+const folds = await import("../../../dashboard/src/composables/config-folds.js");
 const { genreFoldId: g, sourceFoldId: s } = folds;
 
 test("장르를 지우면 뒤 장르의 접힘 · 상세 펼침 기억이 한 칸 당겨지고, 지운 장르의 기억은 버린다", () => {

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { Player } from "../../src/player/player.ts";
 import { PlaybackState } from "../../src/player/playback-state.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
-import type { Loop } from "../../src/player/track-state.ts";
+import type { Loop } from "../../src/rules/loop-cycle.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import type { CurrentPlayback } from "../../src/player/current-playback.ts";
 

@@ -19,7 +19,7 @@ import * as pool from "../../src/autoplay/pool.ts";
 import * as sources from "../../src/autoplay/sources/index.ts";
 import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
-import type { Loop } from "../../src/player/track-state.ts";
+import type { Loop } from "../../src/rules/loop-cycle.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
 import { textOf } from "../helpers/cv2.ts";
 

@@ -1,13 +1,15 @@
 // ESLint flat config. 목적은 버그 탐지(미사용 변수·미정의 참조·await 실수 등)
 // 코드 모양은 Prettier 담당 - eslint-config-prettier로 스타일 규칙을 전부 끔
+// ESLint 가 이 파일을 jiti 로 읽는다(타입은 뿌리 tsconfig 가 본다)
 
 import js from "@eslint/js";
 import globals from "globals";
 import pluginVue from "eslint-plugin-vue";
 import prettierConfig from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
+import type { Linter } from "eslint";
 
-export default [
+const config: Linter.Config[] = [
   {
     ignores: [
       "node_modules",
@@ -21,7 +23,7 @@ export default [
 
   js.configs.recommended,
 
-  // 남은 .js(이 설정 파일 · 대시보드 클라이언트) - ESM. require · __dirname 은 없는 이름이다(nodeBuiltin). 클라이언트는 아래에서 브라우저로
+  // 남은 .js(대시보드 클라이언트) - ESM. require · __dirname 은 없는 이름이다(nodeBuiltin). 클라이언트는 아래에서 브라우저로
   {
     files: ["**/*.js"],
     languageOptions: {
@@ -35,7 +37,11 @@ export default [
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts"] })),
   {
     files: ["**/*.ts"],
+    ignores: ["dashboard/src/**"],
     languageOptions: { globals: globals.nodeBuiltin },
+  },
+  {
+    files: ["**/*.ts"],
     rules: {
       // 아래 no-unused-vars 와 같은 기준
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true }],
@@ -45,11 +51,16 @@ export default [
   // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
   ...pluginVue.configs["flat/essential"],
   {
-    files: ["dashboard/src/**/*.{js,vue}"],
+    files: ["dashboard/src/**/*.{js,ts,vue}"],
     languageOptions: {
       sourceType: "module",
       globals: globals.browser,
     },
+  },
+  // .vue 의 <script> 는 TypeScript 파서로 읽는다
+  {
+    files: ["dashboard/src/**/*.vue"],
+    languageOptions: { parserOptions: { parser: tseslint.parser, extraFileExtensions: [".vue"] } },
   },
 
   prettierConfig,
@@ -101,3 +112,5 @@ export default [
     rules: { "no-unused-vars": "off" },
   },
 ];
+
+export default config;

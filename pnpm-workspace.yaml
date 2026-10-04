@@ -12,6 +12,11 @@ minimumReleaseAgeExclude:
 packages:
   - "dashboard"
 
+# 뿌리와 화면이 같은 버전을 쓴다. TypeScript 는 6 에 둔다(vue-tsc 는 TS 7 에서 돌지 못하고 typescript-eslint 는 <6.1 이다)
+catalog:
+  "@types/node": ^24.13.6
+  typescript: ~6.0.3
+
 patchedDependencies:
   "@discordjs/node-pre-gyp@0.4.5": patches/@discordjs__node-pre-gyp@0.4.5.patch
 

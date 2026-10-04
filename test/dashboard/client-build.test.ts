@@ -17,7 +17,7 @@ const WARN_KB = 500;
 
 test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈 · 발음 사전 전체는 없으며, 크기 경고를 낼 조각이 없다", async () => {
   const { build } = (await import(VITE)) as { build: (config: object) => Promise<{ output: Chunk[] } | Array<{ output: Chunk[] }>> };
-  const result = await build({ root: CLIENT, configFile: path.join(CLIENT, "vite.config.js"), logLevel: "silent", build: { write: false } });
+  const result = await build({ root: CLIENT, configFile: path.join(CLIENT, "vite.config.ts"), logLevel: "silent", build: { write: false } });
   const chunks = (Array.isArray(result) ? result : [result]).flatMap((one) => one.output).filter((one) => one.type === "chunk");
 
   assert.deepEqual(

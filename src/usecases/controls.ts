@@ -16,7 +16,7 @@ import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
-import type { Loop } from "../player/track-state.ts";
+import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
 import type { Code, Params, Problem } from "../rules/problems.ts";
 

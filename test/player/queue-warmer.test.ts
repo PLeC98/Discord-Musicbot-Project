@@ -13,7 +13,7 @@ import config from "../../src/config/index.ts";
 import logger from "../../src/infra/log/logger.ts";
 import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
-import type { Loop } from "../../src/player/track-state.ts";
+import type { Loop } from "../../src/rules/loop-cycle.ts";
 
 // 캐시 열쇠는 음원 주소 자리에 둔다. 주입한 keyOf 가 그대로 돌려준다. 열쇠가 아직 없는 곡(스포티파이)은 음원 주소가 없다
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: id, requestKey: `https://y/${id}`, pageUrl: "", platform: "youtube", duration: 0, audioUrl: `yt:${id}`, ...extra });
