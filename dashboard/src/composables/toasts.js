@@ -20,15 +20,15 @@ export function dismiss(id) {
 }
 
 /** 알림 하나. 같은 글이 떠 있으면 새로 쌓지 않고 그것의 시간을 다시 잰다 */
-export function notify({ title, body = "", detail = "", code = null, severity = "error" }) {
-  const same = toasts.find((one) => one.title === title && one.body === body && one.code === code);
+export function notify({ title, body = "", detail = "", codeLine = "", severity = "error" }) {
+  const same = toasts.find((one) => one.title === title && one.body === body && one.codeLine === codeLine);
   if (same) {
     clearTimeout(same.timer);
     same.timer = setTimeout(() => dismiss(same.id), SHOW_MS);
     return;
   }
   const id = nextId++;
-  toasts.push({ id, title, body, detail, code, severity, timer: setTimeout(() => dismiss(id), SHOW_MS) });
+  toasts.push({ id, title, body, detail, codeLine, severity, timer: setTimeout(() => dismiss(id), SHOW_MS) });
   while (toasts.length > MAX) dismiss(toasts[0].id);
 }
 

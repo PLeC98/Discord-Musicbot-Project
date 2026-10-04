@@ -8,10 +8,13 @@ type Params = { max?: number; min?: number; queueCap?: number | null; size?: num
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
 
-const PROBLEMS = {
+// 디스코드와 대시보드가 같이 쓰는 것. 대시보드 화면도 디스코드와 같은 문장만 보인다
+const SHARED = {
   // 요청한 사람이 갖추지 못함
   "must-be-in-voice": { status: 409, title: "Join a voice channel first" },
   "must-be-in-same-voice": { status: 409, title: "Join the bot's voice channel first" },
+  // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join · 대시보드 참가)
+  "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
   "must-dj": { status: 403, title: "DJ role required" },
   "must-moderator": { status: 403, title: "Manage Server permission required" },
   "must-owner": { status: 403, title: "Bot owner only" },
@@ -46,7 +49,6 @@ const PROBLEMS = {
   // 입력이 틀림
   "bad-time": { status: 400, title: "Unreadable time" },
   "bad-volume": { status: 400, title: "Volume out of range" },
-  "bad-loop-mode": { status: 400, title: "Unknown loop mode" },
   "bad-position": { status: 400, title: "No track at that position", params: ["size"] },
   "same-position": { status: 400, title: "Source and target positions are the same" },
   "beyond-end": { status: 400, title: "Position is past the end of the track", params: ["durationMs"] },
@@ -101,7 +103,10 @@ const PROBLEMS = {
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-failed-in-row": { status: 500, title: "Saved tracks failed in a row", params: ["left"] },
   "restore-failed": { status: 500, title: "Could not restore the session" },
+} as const satisfies Record<string, ProblemSpec>;
 
+// 대시보드 HTTP 층에서만 나는 것. 화면은 웹 오류 화면처럼 문장 끝에 코드와 HTTP 상태를 함께 보인다
+const WEB = {
   // 대시보드: 접속 · 권한
   "login-required": { status: 401, title: "Login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
@@ -112,11 +117,12 @@ const PROBLEMS = {
   "guild-not-found": { status: 404, title: "Server not found" },
   "member-not-found": { status: 404, title: "Member not found in the server" },
   "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
-  "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
   "too-many-requests": { status: 429, title: "Too many requests" },
   "too-many-streams": { status: 429, title: "Too many event streams" },
   // 대시보드: 요청 형식
   "bad-request": { status: 400, title: "Malformed request" },
+  // 명령과 버튼은 고를 수 있는 모드만 보낸다
+  "bad-loop-mode": { status: 400, title: "Unknown loop mode" },
   "payload-too-large": { status: 413, title: "Request body is too large" },
   "route-not-found": { status: 404, title: "Route not found" },
   "bad-queue-range": { status: 400, title: "Invalid queue range" },
@@ -153,6 +159,8 @@ const PROBLEMS = {
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
 } as const satisfies Record<string, ProblemSpec>;
 
+const PROBLEMS = { ...SHARED, ...WEB };
+
 type Code = keyof typeof PROBLEMS;
 /** 문제 하나: 코드와 그 문장에 드는 값 */
 type Problem = { code: Code } & Params;
@@ -160,8 +168,11 @@ type Problem = { code: Code } & Params;
 /** 목록에 있는 코드인가 */
 const isCode = (value: string): value is Code => Object.hasOwn(PROBLEMS, value);
 
+/** 대시보드 HTTP 층에서만 나는 코드인가(WEB) */
+const isWebCode = (code: Code): boolean => Object.hasOwn(WEB, code);
+
 /** 코드의 정의 */
 const problemOf = (code: Code): ProblemSpec => PROBLEMS[code];
 
-export { PROBLEMS, problemOf, isCode };
+export { PROBLEMS, problemOf, isCode, isWebCode };
 export type { Code, Params, Param, Problem, ProblemSpec };

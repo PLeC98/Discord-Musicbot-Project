@@ -79,8 +79,6 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 시간 입력(/seek)을 읽지 못했다
   "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽어 들일 수 없는 형식이에요. `1:30`, `3m20s`, `90` 처럼 적어 주세요!"),
   "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", "볼륨은 0에서 100 까지의 숫자로 적어야 해요."),
-  // 대시보드에서만 난다(명령과 버튼은 고를 수 있는 모드만 보낸다)
-  "bad-loop-mode": () => warning("input", "알 수 없는 반복 모드를 요청했어요!", CANNOT_HAPPEN),
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
   "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${durationMs === undefined ? "?" : formatMs(durationMs)})보다 뒤로 이동할 수는 없어요.`),
@@ -168,6 +166,8 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "too-many-streams": () => warning("waiting", "실시간 연결이 너무 많아요!", "이 계정으로 열어 둔 대시보드 탭이 너무 많아요. 쓰지 않는 탭을 닫아 주세요."),
   // 대시보드: 요청 형식
   "bad-request": () => warning("input", "요청을 읽지 못했어요!", `화면이 보낸 요청의 형식이 맞지 않아요. ${STALE_PAGE}`),
+  // 명령과 버튼은 고를 수 있는 모드만 보낸다
+  "bad-loop-mode": () => warning("input", "알 수 없는 반복 모드를 요청했어요!", CANNOT_HAPPEN),
   "payload-too-large": () => warning("input", "보낸 내용이 너무 길어요!", "내용을 줄여서 다시 보내 주세요."),
   "route-not-found": () => warning("notFound", "없는 주소예요!", `화면이 봇에 없는 주소로 요청했어요. ${STALE_PAGE}`),
   "bad-queue-range": () => warning("input", "대기열을 읽지 못했어요!", `요청한 위치나 개수가 맞지 않아요. ${STALE_PAGE}`),

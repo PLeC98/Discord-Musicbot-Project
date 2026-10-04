@@ -19,7 +19,7 @@
           <BaseButton variant="ghost" :disabled="checking" @click="check">로그인했어요</BaseButton>
           <BaseButton variant="primary" @click="openLogin">새 창에서 로그인</BaseButton>
         </div>
-        <p class="mt-4 text-muted text-[0.75rem]">오류 코드: login-required</p>
+        <p class="mt-4 text-muted text-[0.75rem]">오류 코드: login-required (HTTP 401)</p>
       </div>
     </div>
   </Teleport>

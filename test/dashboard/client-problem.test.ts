@@ -7,16 +7,23 @@ import { problemBody } from "../../src/dashboard/problem.ts";
 
 const failed = (data: unknown) => ({ response: { data } });
 
-test("코드의 안내를 머리 줄 · 본문으로 잇고, 문장에 드는 값은 응답의 확장 칸에서 읽는다. 끝 줄은 코드", () => {
-  assert.equal(problemText(failed(problemBody("no-song")), "실패"), "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요.\n오류 코드: no-song");
-  assert.equal(problemText(failed(problemBody("queue-full", { max: 100 })), "실패"), "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 100곡)\n오류 코드: queue-full");
+test("봇 쪽 거절은 디스코드와 같은 문장만(머리 줄 · 본문). 문장에 드는 값은 응답의 확장 칸에서 읽는다", () => {
+  assert.equal(problemText(failed(problemBody("no-song")), "실패"), "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요.");
+  assert.equal(problemText(failed(problemBody("queue-full", { max: 100 })), "실패"), "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 100곡)");
+});
+
+test("웹 쪽 오류(대시보드에서만 나는 코드)는 끝 줄에 코드와 HTTP 상태", () => {
+  const login = { response: { status: 401, data: problemBody("login-required") } };
+  assert.equal(problemText(login, "실패"), "로그인이 필요해요!\n로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요.\n오류 코드: login-required (HTTP 401)");
+  // 응답의 상태가 없으면 본문의 상태
+  assert.match(problemText(failed(problemBody("bad-loop-mode")), "실패"), /\n오류 코드: bad-loop-mode \(HTTP 400\)$/);
+  // 디스코드 /join 도 내는 거절은 봇 쪽이다
+  assert.equal(problemNotice(failed(problemBody("bot-in-other-voice")), "실패").codeLine, "");
 });
 
 test("꾸밈(굵게 · 코드)은 떼고, 운영자용 원문(detail)은 본문 다음 줄에", () => {
-  assert.equal(problemText(failed(problemBody("bad-time")), "실패"), "알 수 없는 시간 형식이에요!\n제가 읽어 들일 수 없는 형식이에요. 1:30, 3m20s, 90 처럼 적어 주세요!\n오류 코드: bad-time");
-  const { detail, code } = problemNotice(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패");
-  assert.equal(detail, "키 이름이 틀렸습니다");
-  assert.equal(code, "config-save-failed");
+  assert.equal(problemText(failed(problemBody("bad-time")), "실패"), "알 수 없는 시간 형식이에요!\n제가 읽어 들일 수 없는 형식이에요. 1:30, 3m20s, 90 처럼 적어 주세요!");
+  assert.equal(problemText(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패"), "설정을 저장하지 못했어요!\n파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요.\n키 이름이 틀렸습니다\n오류 코드: config-save-failed (HTTP 409)");
 });
 
 test("심각한 정도는 안내의 것", () => {
@@ -25,12 +32,12 @@ test("심각한 정도는 안내의 것", () => {
 });
 
 test("응답 없이 실패한 요청은 화면만의 문장과 코드", () => {
-  assert.equal(problemNotice({ code: "ETIMEDOUT" }, "실패").code, "request-timeout");
-  assert.equal(problemNotice({ code: "ERR_NETWORK" }, "실패").code, "no-connection");
+  assert.equal(problemNotice({ code: "ETIMEDOUT" }, "실패").codeLine, "오류 코드: request-timeout");
+  assert.equal(problemNotice({ code: "ERR_NETWORK" }, "실패").codeLine, "오류 코드: no-connection");
   assert.match(problemText({ code: "ETIMEDOUT" }, "실패"), /\n오류 코드: request-timeout$/);
 });
 
-test("문제 응답이 아니거나 모르는 코드면 화면이 준 글(코드 없음)", () => {
+test("문제 응답이 아니거나 모르는 코드면 화면이 준 글(코드 줄 없음)", () => {
   for (const error of [undefined, null, { response: {} }, failed("<html>"), failed({ error: "옛 꼴" }), failed({ code: "no-such-code" }), failed({ code: "toString" }), { code: "ECONNABORTED" }]) assert.equal(problemText(error, "실패"), "실패");
 });
 
