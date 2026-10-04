@@ -6,6 +6,7 @@ const log = logger.child({ category: "player" });
 const wlog = logger.child({ category: "watchdog" });
 import * as YouTube from "../sources/youtube/index.ts";
 import * as genreConfig from "../config/genres.ts";
+import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 const clog = logger.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
@@ -1241,7 +1242,7 @@ class Player {
     if (!this.autoplay || typeof this.autoplay !== "string") return false;
     if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
     if (this.loop === "track") return false; // 한곡 반복이면 다음 곡으로 넘어가지 않는다
-    const want = Number(this._autoplayConfig()?.prefetchCount ?? 1);
+    const want = Number(this._autoplayConfig()?.prefetchCount ?? GENRE_DEFAULTS.prefetchCount);
     return this.queue.length < Math.max(1, want);
   }
 

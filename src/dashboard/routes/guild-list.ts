@@ -10,6 +10,7 @@ import { sendProblem } from "../problem.ts";
 import { soundAttached } from "../../ui/player-status.ts";
 import type { Player } from "../../player/player.ts";
 import type { GuildList, GuildRow, ListState } from "../contract/guilds.ts";
+import { guildIconUrl } from "../images.ts";
 
 function listState(botInVoice: boolean, player: Player | undefined): ListState {
   if (!botInVoice) return "idle";
@@ -36,7 +37,7 @@ function createGuildListRouter() {
         return {
           id: guild.id,
           name: guild.name,
-          icon: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=64` : null,
+          icon: guildIconUrl(guild.id, guild.icon),
           // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다. 봇 운영자(isOwner)와 무관
           canManageGuild: member?.permissions.has(PermissionFlagsBits.ManageGuild) ?? false,
           hasPlayer: players.has(guild.id),

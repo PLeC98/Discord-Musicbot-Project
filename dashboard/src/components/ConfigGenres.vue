@@ -126,7 +126,7 @@ import { configFileIo, useConfigFile } from "../composables/config-file.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { problemText } from "../utils/problem.ts";
 import { toRows, toMap, newRow, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
-import { genreProblems } from "../../../src/config/schema/genres.ts";
+import { genreProblems, GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
 import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
@@ -141,7 +141,7 @@ const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft 
 /** 전역 값(genres.yaml 의 defaults) */
 type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] } & Record<string, unknown>;
 
-const draft = ref<{ defaults: Defaults; genres: Record<string, GenreData> }>({ defaults: { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] }, genres: {} });
+const draft = ref<{ defaults: Defaults; genres: Record<string, GenreData> }>({ defaults: { ...GENRE_DEFAULTS, blockedKeywords: [] }, genres: {} });
 const rows = ref<GenreRow[]>([]);
 const sourceTypes = ref<SourceTypeView[]>([]);
 const sourceTypesState = ref<"loading" | "ready" | "failed">("loading"); // 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
@@ -150,9 +150,8 @@ const sourceTypesError = ref("");
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
 
 function apply(data: Record<string, unknown>) {
-  // 파일에 칸이 없을 때의 값은 봇이 그때 쓰는 값과 같게(prefetchCount 1 은 player, minDurationSec 0 은 autoplay/filter).
-  // 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
-  const defaults: Defaults = { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null, blockedKeywords: [], ...((data.defaults as Partial<Defaults> | undefined) || {}) };
+  // 파일에 칸이 없을 때의 값은 봇이 그때 쓰는 값(schema/genres 의 GENRE_DEFAULTS). 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
+  const defaults: Defaults = { ...GENRE_DEFAULTS, blockedKeywords: [], ...((data.defaults as Partial<Defaults> | undefined) || {}) };
   // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다. 대문자로 적어 두면 아무것도 못 거른다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   const genres = (data.genres as Record<string, GenreData> | undefined) || {};

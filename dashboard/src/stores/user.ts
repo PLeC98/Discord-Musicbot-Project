@@ -28,7 +28,7 @@ export const useUserStore = defineStore("user", {
     viewAs: (s) => s.data?.viewAs ?? null,
     viewAsLabel: (s) => (s.data?.viewAs ? TIER_TEXT[s.data.viewAs].label : null),
     displayName: (s) => s.data?.globalName || s.data?.username || "",
-    avatarUrl: (s) => (s.data?.avatar ? `https://cdn.discordapp.com/avatars/${s.data.id}/${s.data.avatar}.webp?size=64` : null),
+    avatarUrl: (s) => s.data?.avatarUrl ?? null,
   },
   actions: {
     // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 띄우지 않는다).

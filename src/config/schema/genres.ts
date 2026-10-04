@@ -88,6 +88,9 @@ const genres = z.preprocess(
   }, ALWAYS),
 );
 
+/** 파일의 defaults 에 칸이 없을 때 봇이 쓰는 값. 길이 상한(maxDurationSec)은 비우면 없다. 대시보드도 비운 칸에 이 값을 보인다 */
+const GENRE_DEFAULTS = { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null } as const;
+
 const defaults = z.preprocess(
   plain,
   z
@@ -122,4 +125,4 @@ function genreProblems(data: unknown): string[] {
   return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${String(id)}의 ${Number(index) + 1}번째 소스` }));
 }
 
-export { genreProblems, NUMERIC_NAME, ONE_EMOJI, YAML_WORDS };
+export { genreProblems, GENRE_DEFAULTS, NUMERIC_NAME, ONE_EMOJI, YAML_WORDS };

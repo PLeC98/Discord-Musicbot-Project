@@ -14,6 +14,7 @@ import logManager from "../../infra/log/sink.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
+import { guildIconUrl } from "../images.ts";
 import { ANNOUNCE_MAX, announceBody, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type AnnounceKind, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
@@ -168,7 +169,7 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
   const guilds = [...client.guilds.cache.values()].map((g) => ({
     id: g.id,
     name: g.name,
-    icon: g.iconURL({ size: 64 }),
+    icon: guildIconUrl(g.id, g.icon),
     memberCount: g.memberCount,
     hasPlayer: players.has(g.id),
   }));

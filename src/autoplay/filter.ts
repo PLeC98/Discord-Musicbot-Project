@@ -5,6 +5,8 @@
 //
 // 문턱은 짐작이 아니라 실제 후보 표본을 세어 정한 값이다. 근거 없이 흔들지 말 것.
 
+import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
+
 // 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새. 옆의 숫자는 그 표식이 있을 때
 // 실제로 한 곡이었던 비율이다(전체 평균은 82%). 낮을수록 센 표식이다.
 const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
@@ -43,8 +45,8 @@ function prepare(cfg: FilterConfig | null | undefined): Limits {
   }
 
   return {
-    minSec: Number(cfg?.minDurationSec ?? 0),
-    maxSec: cfg?.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec),
+    minSec: Number(cfg?.minDurationSec ?? GENRE_DEFAULTS.minDurationSec),
+    maxSec: cfg?.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec), // 비우면 상한 없음(GENRE_DEFAULTS)
     blocked,
   };
 }
