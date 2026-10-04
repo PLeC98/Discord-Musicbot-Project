@@ -387,24 +387,9 @@ adminRouter.put("/ai/keys", requireOwner, (req, res) => {
 });
 
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
-// /config/:name 통로를 못 탄다. 여기서 따로 받는다.
+// /config/:name 통로를 못 탄다. 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.
 adminRouter.get("/ai/prompt", requireOwner, (req, res) => {
   res.json({ sections: aiConfig.aiPrompt() });
-});
-
-adminRouter.put("/ai/prompt", requireOwner, (req, res) => {
-  const sections = req.body?.sections;
-  if (!Array.isArray(sections)) return sendProblem(res, "nothing-to-save");
-
-  const problems = aiConfig.promptProblems(sections, true);
-  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
-
-  try {
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml. 실행 ${ranBy(req)}`);
-    res.json({ sections: aiConfig.saveAiPrompt(sections) });
-  } catch (error) {
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
-  }
 });
 
 // AI 설정(ai.yaml)과 프롬프트(ai-prompt.chatml)를 한 요청으로. 화면의 저장 버튼 하나가 둘을 고친다.
@@ -417,8 +402,13 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
   const problems = [...VALIDATORS.ai(data), ...aiConfig.promptProblems(sections, true)];
   if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
-  const before = structuredClone(yamlStore.load("ai"));
+  let before;
   let saved;
+  try {
+    before = structuredClone(yamlStore.load("ai"));
+  } catch (error) {
+    return sendProblem(res, "config-unreadable", {}, { detail: messageOf(error) });
+  }
   try {
     saved = yamlStore.save("ai", data);
   } catch (error) {

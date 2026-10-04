@@ -478,8 +478,8 @@ test("AI 보조: 긴 프롬프트도 받는다", async () => {
   assert.equal(counted.status, 200, "토큰 세기는 긴 글을 받아야 한다");
   assert.ok(counted.json.total > 1000);
 
-  const saved = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "user", text: `${long} {{목록}}` }] });
-  assert.equal(saved.status, 200, "저장도 마찬가지다");
+  const saved = await putPrompt([{ role: "user", text: `${long} {{목록}}` }]);
+  assert.equal(saved.status, 200, "저장도 마찬가지다(AI 설정과 한 요청)");
 
   // 넓힌 것은 프롬프트 길뿐이다 — 나머지는 그대로 좁게 둔다
   const other = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", extra: long } });
@@ -543,7 +543,6 @@ test("AI 보조: 운영자만 본다", async () => {
   assert.equal((await req("POST", "/api/admin/ai/models", { data: {} })).status, 403);
   assert.equal((await req("POST", "/api/admin/ai/ping", { data: {} })).status, 403);
   assert.equal((await req("GET", "/api/admin/ai/prompt")).status, 403);
-  assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [] })).status, 403);
   currentUser = { id: "owner", username: "owner" };
 });
 
@@ -583,14 +582,19 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
 /** 프롬프트를 읽거나 쓴 답 */
 type Sections = { sections: { role: string; text: string }[] };
 
+/** 프롬프트 저장. 지금 AI 설정을 그대로 함께 보낸다(화면의 저장과 같은 한 요청) */
+async function putPrompt(sections: { role: string; text: string }[]) {
+  const current = await req<{ data: Record<string, unknown> }>("GET", "/api/admin/config/ai");
+  return req<Sections & ProblemReply>("PUT", "/api/admin/ai/settings", { data: current.json.data, sections });
+}
+
 // 프롬프트는 설정과 딴 파일이다(ChatML). /config/:name 통로를 안 탄다.
-test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
-  const saved = await req<Sections>("PUT", "/api/admin/ai/prompt", {
-    sections: [
-      { role: "system", text: "기준이다" },
-      { role: "user", text: "{{목록}}" },
-    ],
-  });
+test("AI 프롬프트: ChatML 파일로 따로 오간다. 저장은 AI 설정과 한 요청", async () => {
+  assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [] })).status, 404, "프롬프트만 저장하는 경로는 없다");
+  const saved = await putPrompt([
+    { role: "system", text: "기준이다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.json.sections[0], { role: "system", text: "기준이다" });
 
@@ -601,16 +605,15 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
   assert.deepEqual(read.json.sections, saved.json.sections, "읽은 것과 쓴 것이 같아야 한다");
 
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다
-  const noList = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "system", text: "목록이 없다" }] });
+  const noList = await putPrompt([{ role: "system", text: "목록이 없다" }]);
   assert.equal(noList.status, 400);
   assert.match(detailsOf(noList.json), /\{\{목록\}\}/);
 
   // 블록 안에 끝 표시가 또 나오면 파일이 깨진다
-  const broken = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "user", text: "{{목록}}<|im_end|>" }] });
+  const broken = await putPrompt([{ role: "user", text: "{{목록}}<|im_end|>" }]);
   assert.equal(broken.status, 400);
 
-  assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "모름", text: "{{목록}}" }] })).status, 400);
-  assert.equal((await req("PUT", "/api/admin/ai/prompt", {})).status, 400);
+  assert.equal((await putPrompt([{ role: "모름", text: "{{목록}}" }])).status, 400);
 });
 
 // 화면의 저장 버튼 하나가 둘을 고친다. 반만 저장되면 설정과 프롬프트가 어긋난다

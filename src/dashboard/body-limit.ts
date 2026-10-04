@@ -4,7 +4,8 @@
  */
 import express, { type NextFunction, type Request, type Response } from "express";
 
-const PROMPT_PATHS = ["/api/admin/ai/prompt", "/api/admin/ai/tokens", "/api/admin/ai/preview", "/api/admin/ai/judge/run"];
+// 프롬프트를 싣는 경로. 저장은 AI 설정과 한 요청(/ai/settings)이다
+const PROMPT_PATHS = ["/api/admin/ai/settings", "/api/admin/ai/tokens", "/api/admin/ai/preview", "/api/admin/ai/judge/run"];
 
 function bodyLimit() {
   const small = express.json({ limit: "32kb" });
