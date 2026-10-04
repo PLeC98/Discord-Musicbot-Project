@@ -43,11 +43,6 @@ function init(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks">)
   player.previousTracks = [];
 }
 
-// 상한까지 대기열에 더 넣을 수 있는 곡 수. 현재곡은 세지 않는다. max가 0이면 끔.
-function roomLeft(player: Pick<Tracks, "queue">, max: number) {
-  return max > 0 ? Math.max(0, max - player.queue.length) : Infinity;
-}
-
 function setCurrent(player: Pick<Tracks, "currentTrack" | "trackSink">, track: QueuedTrack | null | undefined) {
   admit([track]);
   player.currentTrack = track ?? null;
@@ -184,5 +179,5 @@ function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks
   if (!persisted) sinkOf(player)?.onReplace();
 }
 
-export { HISTORY_MAX, roomLeft, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, removeAt, move, shuffle, clearQueue, reset, restore };
+export { HISTORY_MAX, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, removeAt, move, shuffle, clearQueue, reset, restore };
 export type { TrackSink, Tracks };

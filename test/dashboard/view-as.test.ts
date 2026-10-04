@@ -18,7 +18,8 @@ const { openTempStore, setGuild } = await import("../helpers/temp-store.ts");
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { TIERS, getViewAs, shadowMember } = await import("../../src/dashboard/view-as.ts");
+const { getViewAs, shadowMember } = await import("../../src/dashboard/view-as.ts");
+const { TIERS } = await import("../../src/dashboard/contract/identity.ts");
 const { isOwner, isRealOwner } = await import("../../src/dashboard/owner.ts");
 const { isModerator, isDj, checkVoice, checkControl, checkAdd } = await import("../../src/usecases/permissions.ts");
 

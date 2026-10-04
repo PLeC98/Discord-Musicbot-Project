@@ -6,7 +6,8 @@ import { SET_BATCH as SOUNDCLOUD_BATCH } from "../sources/soundcloud/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
-import * as trackState from "../player/track-state.ts";
+import { roomFor as roomWithin } from "../rules/queue-room.ts";
+import { MAX_COUNT, moreChoices, type Kind, type MoreState, type More } from "../rules/more-choices.ts";
 import * as labels from "../ui/text/ko/labels.ts";
 import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transient-messages.ts";
@@ -23,16 +24,14 @@ import type { Code } from "../rules/problems.ts";
 const LIFETIME_MS = LIFETIME.menu;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
 const LOOKBACK = 5;
-const MAX_COUNT = 10_000;
 const SELECT_PREFIX = "plm";
 const MODAL_PREFIX = "plmm";
 
 const TRACK_ID = /^[A-Za-z0-9_-]{11,22}$/;
 const NUMERIC_ID = /^\d{1,20}$/;
 
-// 이어 받을 수 있는 출처. 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 받을 게 없다.
+// 이어 받을 수 있는 출처(rules/more-choices 의 Kind). 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 받을 게 없다.
 // anchor: 곡 id 모양 · perClick: 한 번에 넣는 곡 수 상한 · lookback: 앵커를 찾으려고 앞에서부터 다시 받는 곡 수 · reads: 한 번에 부르는 구간 수 상한
-type Kind = "ytp" | "spp" | "spa" | "scs" | "scd";
 type KindSpec = { id: RegExp; url: (id: string) => string; collection: string; anchor: RegExp; perClick: number; lookback: number; reads: number };
 const KINDS: Record<Kind, KindSpec> = {
   ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
@@ -47,10 +46,6 @@ const KINDS: Record<Kind, KindSpec> = {
 };
 const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Object.hasOwn(KINDS, kind);
 
-/** 이어 받을 위치. 메뉴의 custom_id 에 싣는다 */
-type MoreState = { kind: Kind; listId: string; offset: number; anchorId: string; insertFirst: boolean; requesterId: string | null };
-/** 띄울 메뉴. 위치에 전체 · 남은 곡 수와 한 번에 넣는 묶음(batch)을 더한다 */
-type More = MoreState & { total: number; remaining: number; batch?: number };
 /** 검사 전의 위치(custom_id · 요청 본문에서 온 것) */
 type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?: unknown; insertFirst?: unknown; requesterId?: unknown };
 /** 이어 넣은 결과. 메뉴를 다시 띄울 때 읽는 칸 */
@@ -112,7 +107,7 @@ function decodeState(customId: unknown) {
 
 // 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더
 function roomFor(player: Pick<Player, "queue" | "currentTrack">) {
-  return trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
+  return roomWithin(player, config.bot.maxQueueSize);
 }
 
 /** 이 링크의 한 번에 넣는 곡 수. 서버 설정(batch)을 출처의 상한으로 자른다(사운드클라우드 세트는 10곡) */
@@ -121,24 +116,11 @@ function batchFor(query: string | null | undefined, batch: number) {
   return soundcloud === "set" || soundcloud === "short" ? Math.min(batch, SOUNDCLOUD_BATCH) : batch;
 }
 
-// 선택지. 한 번에 넣는 묶음 단위로, 남은 곡 · 남은 자리 · 출처의 한 번 상한(perClick) 중 가장 작은 쪽(cap)을 넘지 않게
-function moreChoices({ remaining, room, batch, perClick = Infinity }: { remaining: number; room: number; batch: number; perClick?: number }) {
-  const cap = Math.max(0, Math.min(remaining, room, perClick));
-  return { cap, steps: cap > 0 ? [batch, batch * 2].filter((n) => n < cap) : [] };
-}
-
 // 누른 사람·메시지 나이 확인. 문제가 있으면 그 코드
 function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }): Extract<Code, "more-not-requester" | "more-expired"> | null {
   if (state.requesterId && state.requesterId !== userId) return "more-not-requester";
   if (now - lastTouched > LIFETIME_MS) return "more-expired";
   return null;
-}
-
-function parseCount(raw: unknown) {
-  const text = String(raw ?? "").trim();
-  if (!/^\d{1,5}$/.test(text)) return null;
-  const n = Number(text);
-  return n >= 1 && n <= MAX_COUNT ? n : null;
 }
 
 /** 머리 줄과 곡 수 메뉴. menu 는 메뉴를 달았는지(자리가 없거나 상태가 custom_id 에 안 들어가면 머리 줄만) */
@@ -225,5 +207,5 @@ async function offerOnChannel(channel: TextBasedChannel | null | undefined, more
   }
 }
 
-export { LIFETIME_MS, LOOKBACK, MAX_COUNT, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, moreChoices, clickError, parseCount, offerView, resultView, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
-export type { Kind, MoreState, More, MoreResult };
+export { LIFETIME_MS, LOOKBACK, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, clickError, offerView, resultView, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
+export type { MoreResult };

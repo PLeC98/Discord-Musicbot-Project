@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import config from "../config/index.ts";
 import { sendProblem } from "./problem.ts";
+import type { GuildEvent } from "./contract/guilds.ts";
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
 /** 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다 */
@@ -102,7 +103,7 @@ class PlayerStream {
     // guildId를 함께 보낸다. 한 연결이 여러 서버를 받으므로, 이게 없으면
     // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바 · 서버 화면이 자기 서버만 고르는 근거).
     // 그 서버를 볼 수 있는 구독자에게만 보내 ID 노출 문제는 없다.
-    const payload = `data: {"t":"changed","g":${JSON.stringify(guildId)}}\n\n`;
+    const payload = `data: ${JSON.stringify({ t: "changed", g: guildId } satisfies GuildEvent)}\n\n`;
     for (const sub of this.subs) {
       if (!sub.canSee(guildId)) continue;
       try {

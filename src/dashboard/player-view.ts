@@ -1,6 +1,7 @@
-// 화면에 보내는 플레이어 모양
+// 화면에 보내는 플레이어 모양(contract/player)
 
 import type { Request } from "express";
+import type { PlayerState, PlayingView, QueueTrackView } from "./contract/player.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
@@ -11,7 +12,7 @@ import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 const QUEUE_PAGE = 100;
 const QUEUE_WINDOW_MAX = 1000;
 
-function queueTrack(t: QueuedTrack, i: number) {
+function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
   return {
     index: i,
     // 줄 번호. 빼기 · 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
@@ -42,7 +43,7 @@ function queueWindow(req: Request) {
 }
 
 // 지금 곡
-function playingView(player: Player, track: QueuedTrack) {
+function playingView(player: Player, track: QueuedTrack): PlayingView {
   return {
     // 줄 번호. 넘기기 · 이동이 보던 곡일 때만 하도록 실어 보낸다
     entry: track.entry ?? null,
@@ -67,7 +68,7 @@ function playingView(player: Player, track: QueuedTrack) {
 const BOOT = Date.now();
 let made = 0;
 
-function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE) {
+function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE): PlayerState {
   const order = { boot: BOOT, seq: ++made };
   if (!player) return { ...order, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = playbackStatus(player);

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fetchingView } from "../../src/ui/playlist-more-menu.ts";
 import * as More from "../../src/usecases/playlist-more.ts";
+import type { MoreState } from "../../src/rules/more-choices.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
@@ -13,7 +14,7 @@ test("가져오는 동안: 처음엔 가져오는 중, 진행이 오면 몇 곡�
 });
 
 test("곡 수 모달: 남은 자리 · 출처의 한 번 상한 안에서, 미리 적어 둘 수는 묶음과 그 상한 중 작은 쪽", () => {
-  const state: More.MoreState = { kind: "ytp", listId: "PLabcdefghij", offset: 50, anchorId: "aaaaaaaaaaa", insertFirst: false, requesterId: null };
+  const state: MoreState = { kind: "ytp", listId: "PLabcdefghij", offset: 50, anchorId: "aaaaaaaaaaa", insertFirst: false, requesterId: null };
   const input = (cap: number, batch: number) => {
     const json = More.countModal(state, cap, batch).toJSON() as { components: Array<{ components: Array<{ label: string; placeholder?: string }> }> };
     return json.components[0].components[0];

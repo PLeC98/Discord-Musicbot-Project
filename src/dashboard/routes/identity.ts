@@ -4,6 +4,7 @@ import express from "express";
 import config from "../../config/index.ts";
 import { isOwner, isRealOwner } from "../owner.ts";
 import { getViewAs } from "../view-as.ts";
+import type { BotInfo, Me } from "../contract/identity.ts";
 import { sendProblem } from "../problem.ts";
 
 const identityRouter = express.Router();
@@ -13,7 +14,7 @@ const identityRouter = express.Router();
 // 계속 노출하기 위한 원래 값이다.
 identityRouter.get("/me", (req, res) => {
   if (!req.session.user) return sendProblem(res, "login-required");
-  res.json({ ...req.session.user, isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) });
+  res.json({ ...req.session.user, isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) } satisfies Me);
 });
 
 // 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름 · 그림은 준비 전이면 null
@@ -24,7 +25,7 @@ identityRouter.get("/bot", (req, res) => {
     avatarUrl: botUser?.avatarURL({ size: 256, extension: "webp" }) || null,
     sourceRepo: config.bot.sourceRepo, // AGPL 소스 공개 (개조본 = SOURCE_REPO_URL, 미설정 시 projectRepo)
     projectRepo: config.bot.projectRepo, // 원본 프로젝트 저장소
-  });
+  } satisfies BotInfo);
 });
 
 export { identityRouter };

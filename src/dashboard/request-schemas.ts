@@ -3,7 +3,7 @@
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
 import { z } from "zod";
-import { MAX_COUNT } from "../usecases/playlist-more.ts";
+import { MAX_COUNT } from "../rules/more-choices.ts";
 import { QUEUE_WINDOW_MAX } from "./player-view.ts";
 import { isCode, type Code } from "../rules/problems.ts";
 import type { FieldProblem } from "./problem.ts";

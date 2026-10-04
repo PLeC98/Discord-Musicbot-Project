@@ -4,7 +4,7 @@ import type { RESTAPIPartialCurrentUserGuild } from "discord.js";
 import type { BotContext } from "../app/bot-context.ts";
 import type { deployCommands } from "../app/command-loader.ts";
 import type { Lookup } from "../usecases/add-tracks.ts";
-import type { Tier } from "./view-as.ts";
+import type { Tier } from "./contract/identity.ts";
 
 /** 로그인한 사용자. OAuth 콜백이 세션에 담는다 */
 type SessionUser = { id: string; username: string; globalName: string; avatar: string | null; guilds: RESTAPIPartialCurrentUserGuild[] };

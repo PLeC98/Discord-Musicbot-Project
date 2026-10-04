@@ -7,7 +7,8 @@ import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.ts";
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
-import type { More } from "../../usecases/playlist-more.ts";
+import type { More } from "../../rules/more-choices.ts";
+import { loopOf, type AddReply, type MoreReply, type MoreView, type PlayerRead, type QueuePage } from "../contract/player.ts";
 import { requestPlayback, continueCollection } from "../../usecases/add-tracks.ts";
 import { join } from "../../usecases/join.ts";
 import { validState, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
@@ -29,16 +30,14 @@ import { announcer, dashboardActor, dashboardResponder } from "../discord-notice
 // 조작의 거절(ok: false 와 문제)을 문제 응답으로
 const refuse = (res: Response, { ok: _ok, ...problem }: controls.Refusal) => refuseWith(res, problem);
 
-// 반복 모드  { mode: 'off' | 'track' | 'queue' }
-const LOOP_MODE = new Map<string, false | "track" | "queue">([
-  ["off", false],
-  ["track", "track"],
-  ["queue", "queue"],
-]);
-
 // 이어 넣기 상태를 화면에. 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
 // perClick: 출처가 한 번에 넣게 하는 곡 수 상한(사운드클라우드 세트 10). 없으면 null
-const moreView = (more: More | null | undefined) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS, perClick: Number.isFinite(KINDS[more.kind].perClick) ? KINDS[more.kind].perClick : null } : null);
+function moreView(more: More | null | undefined): MoreView | null {
+  if (!more) return null;
+  const { requesterId: _requesterId, ...shown } = more;
+  const { perClick } = KINDS[more.kind];
+  return { ...shown, lifetimeMs: LIFETIME_MS, perClick: Number.isFinite(perClick) ? perClick : null };
+}
 
 // 대시보드에서 곡을 넣은 사람. 화면에 보이는 이름으로
 function requesterOf<P>(req: Request<P>) {
@@ -80,7 +79,7 @@ function readRoutes(router: Router) {
 
     // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
-    res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId });
+    res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId } satisfies PlayerRead);
   });
 
   // 대기열 더 보기. 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
@@ -93,7 +92,7 @@ function readRoutes(router: Router) {
     if (!window.ok) return sendProblem(res, window.code);
     const { offset, limit } = window.value;
 
-    res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length });
+    res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length } satisfies QueuePage);
   });
 }
 
@@ -117,7 +116,7 @@ function joinRoute(router: Router) {
     const controllable = isOwner(req) || !(await checkControl(member));
     const addable = isOwner(req) || !checkAdd(member);
     const manageable = isOwner(req) || isModerator(member);
-    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, canManage: manageable, userId: member.id });
+    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, canManage: manageable, userId: member.id } satisfies PlayerRead);
   });
 }
 
@@ -229,7 +228,7 @@ function controlRoutes(router: Router) {
     if (!ctx) return;
     // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body?.mode));
+    const r = await controls.loop(ctx.player, ctx.actor, loopOf(req.body?.mode));
     if (!r.ok) return refuse(res, r);
     announce(replies.loopSet(r.mode, dashboardActor(req)));
     res.json(stateAfter(req));
@@ -316,7 +315,7 @@ function addRoutes(router: Router) {
 
       if (!result.success) return refuseWith(res, addFailure(result));
 
-      res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize });
+      res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
       log.error("대시보드에서 곡 추가 실패:", err);
       sendProblem(res, "add-failed");
@@ -354,7 +353,7 @@ function addRoutes(router: Router) {
       });
       if (!result.success) return refuseWith(res, addFailure(result));
 
-      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize });
+      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
       log.error("대시보드에서 재생목록 더 넣기 실패:", err);
       sendProblem(res, "add-failed");

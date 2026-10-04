@@ -15,6 +15,7 @@ import { openGuild } from "../guild-access.ts";
 import { parse, settingsBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
+import type { GuildSettings, Saved } from "../contract/guilds.ts";
 
 /** 검사를 지난 본문. 칸마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
@@ -112,7 +113,7 @@ function createGuildSettingsRouter() {
       ...GuildSettingsManager.playlistAddLimits(),
     };
 
-    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd });
+    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd } satisfies GuildSettings);
   });
 
   // 서버 설정 변경. 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
@@ -140,7 +141,7 @@ function createGuildSettingsRouter() {
 
     const user = signedIn(req);
     log.info(`서버 설정 변경: ${guild.name} (${guild.id}). 실행 ${user.username || user.id}`);
-    res.json({ success: true });
+    res.json({ success: true } satisfies Saved);
   });
 
   return router;

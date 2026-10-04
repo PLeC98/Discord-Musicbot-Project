@@ -1,9 +1,9 @@
-// src/usecases/playlist-more.ts — 재생목록 이어 넣기의 상태(custom_id)·선택지·누를 때 판정
+// src/usecases/playlist-more.ts — 재생목록 이어 넣기의 상태(custom_id)·메뉴·누를 때 판정
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as More from "../../src/usecases/playlist-more.ts";
-import type { More as Offer, MoreState } from "../../src/usecases/playlist-more.ts";
+import type { More as Offer, MoreState } from "../../src/rules/more-choices.ts";
 import { MessageFlags, type RepliableInteraction } from "discord.js";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { post } from "../../src/ui/frame.ts";
@@ -45,12 +45,6 @@ test("custom_id: 되돌리면 같고, 가장 긴 조합도 100자 안이며, 깨
   }
 });
 
-test("선택지: 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽을 넘지 않는다", () => {
-  assert.deepEqual(More.moreChoices({ remaining: 9896, room: 200, batch: 50 }), { cap: 200, steps: [50, 100] });
-  assert.deepEqual(More.moreChoices({ remaining: 70, room: Infinity, batch: 50 }), { cap: 70, steps: [50] });
-  assert.deepEqual(More.moreChoices({ remaining: 70, room: 0, batch: 50 }), { cap: 0, steps: [] });
-});
-
 test("메뉴: 자리가 없으면 메뉴를 붙이지 않고, 있으면 선택지 뒤에 직접 입력", () => {
   const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9946, remaining: 9896 };
   const full = More.offerView(more, 0);
@@ -71,11 +65,6 @@ test("누를 때: 전용 채널 메뉴는 넣은 사람만, 30초가 지나면 �
   assert.equal(More.clickError(mine, { userId: "99999999999999999", lastTouched: now, now }), "more-not-requester");
   assert.equal(More.clickError(stateOf(null), { userId: "a", lastTouched: now - More.LIFETIME_MS - 1, now }), "more-expired");
   assert.equal(More.clickError(mine, { userId: "12345678901234567", lastTouched: now - 1000, now }), null);
-});
-
-test("곡 수 입력: 1 이상의 정수만", () => {
-  assert.equal(More.parseCount(" 120 "), 120);
-  for (const bad of ["0", "-5", "1.5", "abc", "", "123456"]) assert.equal(More.parseCount(bad), null, bad);
 });
 
 test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요청자 기록). 못 고치면 false", async () => {

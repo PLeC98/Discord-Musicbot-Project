@@ -8,7 +8,9 @@ const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import * as trackState from "../player/track-state.ts";
 import * as labels from "../ui/text/ko/labels.ts";
-import { continuation, validState, roomFor, batchFor, KINDS, type More, type MoreState } from "./playlist-more.ts";
+import { continuation, validState, batchFor, KINDS } from "./playlist-more.ts";
+import { roomFor, roomLeft } from "../rules/queue-room.ts";
+import type { More, MoreState } from "../rules/more-choices.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/live-block-reason.ts";
 import { errorKind, messageOf } from "../rules/error-kind.ts";
@@ -195,7 +197,7 @@ async function tracksFor(player: Player | null, request: PlaybackRequest, batch:
 async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
   // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
-  const room = trackState.roomLeft(player ?? { queue: [] }, config.bot.maxQueueSize) + (player?.currentTrack ? 0 : 1);
+  const room = roomFor(player ?? { queue: [], currentTrack: null }, config.bot.maxQueueSize);
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   // 로그의 하위 이름. 입구 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙여 track//play 가 됐다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
@@ -302,7 +304,7 @@ async function continueCollection(bot: Bot, request: CollectionRequest): Promise
   const { guild, state } = request;
   const player = bot.players.get(guild.id);
   if (!player) return { success: false, code: "ended-while-adding" };
-  const want = Math.min(request.count, roomFor(player), KINDS[state.kind].perClick);
+  const want = Math.min(request.count, roomFor(player, config.bot.maxQueueSize), KINDS[state.kind].perClick);
   if (want <= 0) return { success: false, code: "queue-full" };
 
   const { found, cursor, total, skipped } = await gather(request, want);
@@ -530,7 +532,7 @@ async function openPanel(panel: Panel, player: Player, track: QueuedTrack, respo
 
 // 대기열에 넣는다. 상한은 여기서 판정한다. 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
 function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): Addition {
-  const queued = tracks.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
+  const queued = tracks.slice(0, roomLeft(player, config.bot.maxQueueSize));
   const insertFirst = trackData.insertFirst || false;
   if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
   else if (insertFirst) trackState.enqueue(player, queued, { front: true });

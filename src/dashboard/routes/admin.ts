@@ -12,7 +12,8 @@ import { sendProblem } from "../problem.ts";
 import os from "os";
 import logManager from "../../infra/log/sink.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
-import { isTier, getViewAs } from "../view-as.ts";
+import { getViewAs } from "../view-as.ts";
+import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -529,7 +530,7 @@ adminRouter.post("/view-as", requireOwner, (req, res) => {
   else req.session.viewAs = tier;
 
   log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"}. 실행 ${ranBy(req)}`);
-  res.json({ viewAs: getViewAs(req) });
+  res.json({ viewAs: getViewAs(req) } satisfies ViewAsReply);
 });
 
 export { adminRouter };

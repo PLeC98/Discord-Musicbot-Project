@@ -15,7 +15,7 @@ import { continueCollection } from "../../usecases/add-tracks.ts";
 import * as More from "../../usecases/playlist-more.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
-import type { MoreState } from "../../usecases/playlist-more.ts";
+import { MAX_COUNT, parseCount, type MoreState } from "../../rules/more-choices.ts";
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeInstead, noticeSelf, toAll } from "../../ui/delivery.ts";
 
@@ -47,11 +47,11 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
     if (value === "custom") {
       const room = More.roomFor(player);
       if (room <= 0) await refuse(errors.notice("queue-full", { max: config.bot.maxQueueSize }));
-      else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : More.MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
+      else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
       return null;
     }
-    count = More.parseCount(value);
-  } else count = More.parseCount(interaction.fields.getTextInputValue("count"));
+    count = parseCount(value);
+  } else count = parseCount(interaction.fields.getTextInputValue("count"));
   if (!count) await refuse(errors.notice("more-bad-count"));
   return count || null;
 }

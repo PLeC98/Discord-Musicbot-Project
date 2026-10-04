@@ -16,7 +16,7 @@ import { Player } from "../../src/player/player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import type { Collection, LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { CollectionResult, Lookup, PlaybackRequest, TrackData } from "../../src/usecases/add-tracks.ts";
-import type { MoreState } from "../../src/usecases/playlist-more.ts";
+import type { MoreState } from "../../src/rules/more-choices.ts";
 import type { Responder } from "../../src/ui/now-playing-panel.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";

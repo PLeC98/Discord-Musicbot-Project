@@ -9,9 +9,7 @@ import { voiceFlags } from "../guild-access.ts";
 import { sendProblem } from "../problem.ts";
 import { soundAttached } from "../../ui/player-status.ts";
 import type { Player } from "../../player/player.ts";
-
-/** 서버 목록의 상태: 봇이 음성 채널 밖 = idle(유휴 상태), 곡을 트는 중 = playing, 일시정지 = paused, 음성 채널에 있지만 곡이 없다 = waiting(대기 중) */
-type ListState = "idle" | "playing" | "paused" | "waiting";
+import type { GuildList, GuildRow, ListState } from "../contract/guilds.ts";
 
 function listState(botInVoice: boolean, player: Player | undefined): ListState {
   if (!botInVoice) return "idle";
@@ -32,7 +30,7 @@ function createGuildListRouter() {
     const user = signedIn(req);
     const owner = isOwner(req);
     const rows = await Promise.all(
-      [...client.guilds.cache.values()].map(async (guild) => {
+      [...client.guilds.cache.values()].map(async (guild): Promise<GuildRow | null> => {
         const member = await guild.members.fetch(user.id).catch(() => null); // 캐시 우선
         if (!member && !owner) return null;
         return {
@@ -52,7 +50,7 @@ function createGuildListRouter() {
     );
     // 디스코드가 로그인 때 주던 차례(서버 ID 차례)
     const guilds = rows.filter((row) => row !== null).sort((x, y) => (BigInt(x.id) < BigInt(y.id) ? -1 : 1));
-    res.json({ guilds });
+    res.json({ guilds } satisfies GuildList);
   });
 
   return router;

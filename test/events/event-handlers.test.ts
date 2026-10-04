@@ -15,7 +15,7 @@ import { Player } from "../../src/player/player.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import type { Range } from "../../src/sources/lookup.ts";
-import type { MoreState } from "../../src/usecases/playlist-more.ts";
+import type { MoreState } from "../../src/rules/more-choices.ts";
 import { fake, fakeWith, fakeBot } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";

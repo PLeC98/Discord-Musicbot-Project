@@ -1,5 +1,6 @@
 import { PermissionsBitField, PermissionFlagsBits, type GuildMember } from "discord.js";
 import type { Request } from "express";
+import { isTier, type Tier } from "./contract/identity.ts";
 
 /**
  * 권한 수준 오버라이드. 봇 운영자가 낮은 계층의 화면과 동작을 그대로 재현해 보기 위한 점검용.
@@ -8,10 +9,6 @@ import type { Request } from "express";
  *
  * 상향은 구조적으로 불가능하다. 설정은 진짜 운영자만 할 수 있고(requireOwner) 모든 계층이 운영자 이하다.
  */
-
-const TIERS = ["owner", "moderator", "dj", "user"] as const;
-type Tier = (typeof TIERS)[number];
-const isTier = (v: unknown): v is Tier => TIERS.some((t) => t === v);
 
 /** 세션에 걸린 오버라이드 계층. 없거나 알 수 없는 값이면 null(=오버라이드 없음). */
 function getViewAs<P>(req: Request<P>): Tier | null {
@@ -52,5 +49,4 @@ function shadowMember<M extends GuildMember | null, P>(req: Request<P>, member: 
   });
 }
 
-export { TIERS, isTier, getViewAs, shadowMember };
-export type { Tier };
+export { getViewAs, shadowMember };

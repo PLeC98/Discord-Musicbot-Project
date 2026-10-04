@@ -1,0 +1,13 @@
+// 대기열에 더 넣을 수 있는 곡 수. 곡 담기 · 디스코드 "더 넣기" 메뉴 · 대시보드 "더 넣기"가 같이 쓴다
+
+/** 상한까지 대기열에 더 넣을 수 있는 곡 수. 현재곡은 세지 않는다. max 가 0 이면 끔 */
+function roomLeft(player: { queue: readonly unknown[] }, max: number) {
+  return max > 0 ? Math.max(0, max - player.queue.length) : Infinity;
+}
+
+/** 곡 묶음을 넣을 자리. 지금 곡이 없으면 첫 곡은 대기열을 거치지 않고 바로 튼다 */
+function roomFor(player: { queue: readonly unknown[]; currentTrack: unknown }, max: number) {
+  return roomLeft(player, max) + (player.currentTrack ? 0 : 1);
+}
+
+export { roomLeft, roomFor };
