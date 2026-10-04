@@ -73,6 +73,8 @@ function makePlayer() {
     },
     // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신
     // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 갈라야 한다).
+    // 넘기기 · 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
+    async untilSwitched() {},
     async seek(ms: number, reason: string) {
       this.calls.push(["seek", ms, reason]);
     },

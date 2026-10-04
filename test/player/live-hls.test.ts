@@ -209,6 +209,12 @@ const endingPlayer = (overrides = {}) => {
   const played: number[] = [];
   const player = fakePlayer({
     lifecycle: new PlaybackState(),
+    // Object.create 라 클래스 칸 초기값이 없다. 곡 끝 처리가 쓰는 칸을 둔다
+    failedTracks: 0,
+    failedLabels: [],
+    _laterEnd: null,
+    _endScheduled: false,
+    _endWaiters: new Set(),
     sponsorSkipper: { stop() {} },
     previousTracks: [],
     autoplay: false,

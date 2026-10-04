@@ -18,7 +18,7 @@ import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 
-type Reply = ProblemReply & { hasPlayer?: boolean; sameVoice?: boolean; canManage?: boolean };
+type Reply = ProblemReply & { hasPlayer?: boolean; sameVoice?: boolean; canManage?: boolean; currentTrack?: { title: string } | null };
 
 const voice = (id: string) => ({ id, name: id, permissionsFor: () => ({ has: () => true }) });
 let botVoice: string | null = null;
@@ -126,4 +126,30 @@ test("저장한 세션이 있으면 되살린다. 되살리다 오류가 나면 
   } finally {
     behavior.restore = null;
   }
+});
+
+// 이전 곡 응답이 옛 곡을 실어 화면이 신호를 기다렸다. 곡이 바뀐 뒤 답한다
+test("이전 곡: 응답에 되돌아간 곡이 실린다", async () => {
+  await join();
+  const player = players.get("g1")!;
+  const before = tracks.youtube("iiiiiiiiiii", { title: "앞 곡" });
+  h.seedCache("yt:iiiiiiiiiii", before);
+  const now = tracks.youtube("jjjjjjjjjjj", { title: "지금 곡" });
+  h.seedCache("yt:jjjjjjjjjjj", now);
+  player.queue = [now];
+  player.previousTracks = [before];
+  // 진짜 오디오 플레이어처럼 멈추면 Idle 을 낸다
+  const audio = h.fakeAudioOf(player);
+  const stop = audio.stop.bind(audio);
+  audio.stop = () => {
+    const was = audio.state.status;
+    stop();
+    if (was !== h.AudioPlayerStatus.Idle) audio.emit(h.AudioPlayerStatus.Idle);
+    return true;
+  };
+  player.idle.cancelEmpty();
+  await player.play(0).catch(() => undefined);
+  const r = await requestJson<Reply>(base, "POST", "/api/guilds/g1/player/previous", {}, { timeoutMs: 5000 });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.currentTrack?.title, "앞 곡");
 });

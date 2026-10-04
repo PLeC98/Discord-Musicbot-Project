@@ -182,6 +182,10 @@ class Player {
   failedLabels: string[] = [];
   /** 끝 처리 중에 끝난 곡(그 처리가 막 튼 다음 곡). 그 처리가 끝나면 이어서 처리한다 */
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
+  /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 차례에 돈다). untilSwitched 가 본다 */
+  _endScheduled = false;
+  /** 걸린 곡 끝 처리가 끝나기를 기다리는 쪽 */
+  _endWaiters = new Set<() => void>();
   /** 연달아 실패해 멈춰도 글자 채널에 알리지 않는다(세션을 되살리는 /join 이 명령 응답으로 말하는 동안) */
   quietFailures = false;
   /** 곡 담기가 쉬던 플레이어에 첫 곡을 트는 동안. 틀지 못해도 대기열 소진으로 끝내지 않는다(담을 곡이 아직 남았다). 끝은 담기가 맡는다 */
@@ -546,8 +550,31 @@ class Player {
     const reason = this._endReason ?? trigger;
     this._endReason = null;
     // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 멈춤(audioPlayer.stop)은 Idle 을 곧바로 부른다
+    this._scheduleEnd(reason);
+  }
+
+  // 곡 끝 처리를 다음 차례에 건다
+  _scheduleEnd(reason: string) {
+    this._endScheduled = true;
     setImmediate(() => {
       this.onTrackEnd(reason).catch((error) => log.error("곡 끝 처리 실패:", error));
+    });
+  }
+
+  /**
+   * 걸린 곡 끝 처리(넘기기 · 이전 곡 뒤 다음 곡 틀기)가 끝날 때까지. 걸린 처리가 없으면 곧바로.
+   * 다음 곡을 여는 데 오래 걸리면 capMs 까지만 기다린다. 대시보드가 바뀐 곡을 응답에 싣게 한다
+   */
+  untilSwitched(capMs = 2000): Promise<void> {
+    if (!this._endScheduled && !this.lifecycle.ending) return Promise.resolve();
+    return new Promise((done) => {
+      const finish = () => {
+        clearTimeout(cap);
+        this._endWaiters.delete(finish);
+        done();
+      };
+      const cap = setTimeout(finish, capMs);
+      this._endWaiters.add(finish);
     });
   }
 
@@ -865,6 +892,7 @@ class Player {
 
   // 곡 끝 처리. 다시 틀기 · 한곡 반복 · 다음 곡 · 자동재생 · 대기열 소진을 가른다
   async onTrackEnd(reason = "idle") {
+    this._endScheduled = false;
     if (!this.lifecycle.beginEnd()) {
       // 앞 곡의 끝 처리가 다음 곡을 튼 뒤(세션 저장 등) 아직 끝나지 않았는데 그 다음 곡이 끝났다(연달아 넘기기).
       // 버리면 아무도 다음 곡을 틀지 않아 멎음 감시가 실패로 센다. 앞 처리가 끝난 뒤 이어서 처리한다
@@ -893,10 +921,16 @@ class Player {
       if (await this._playNext(finishedTrack, reason)) return;
       await this.finishQueue();
     } finally {
-      this.lifecycle.finishEnd();
-      this._endReason = null;
-      this._runLaterEnd();
+      this._closeEnd();
     }
+  }
+
+  // 끝 처리를 닫는다. 미뤄 둔 끝을 걸고, 더 걸린 끝이 없으면 곡이 바뀌기를 기다리던 쪽을 깨운다
+  _closeEnd() {
+    this.lifecycle.finishEnd();
+    this._endReason = null;
+    this._runLaterEnd();
+    if (!this._endScheduled) for (const wake of [...this._endWaiters]) wake();
   }
 
   // 끝 처리 중에 끝난 곡이 아직 지금 재생이고 소리가 멈춰 있으면 그 끝을 처리한다(이미 다음 곡으로 넘어갔으면 버린다)
@@ -904,9 +938,7 @@ class Player {
     const later = this._laterEnd;
     this._laterEnd = null;
     if (!later || this.lifecycle.disposed || later.playback !== this.playback || this.audioPlayer.state.status !== AudioPlayerStatus.Idle) return;
-    setImmediate(() => {
-      this.onTrackEnd(later.reason).catch((error) => log.error("곡 끝 처리 실패:", error));
-    });
+    this._scheduleEnd(later.reason);
   }
 
   // 어떻게 끝났는지 재고 로그로 남긴다

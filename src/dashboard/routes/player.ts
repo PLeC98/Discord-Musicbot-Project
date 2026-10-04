@@ -148,6 +148,8 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.previous(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
+    // 다음 곡을 튼 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
+    await ctx.player?.untilSwitched();
     announce(replies.previous(r.restarted, r.track));
     res.json(stateAfter(req));
   });
@@ -161,6 +163,8 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.skip(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
+    // 다음 곡을 튼 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
+    await ctx.player?.untilSwitched();
     announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
     res.json(stateAfter(req));
   });

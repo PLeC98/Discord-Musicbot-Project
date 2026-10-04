@@ -220,3 +220,46 @@ test("연달아 실패해 멈출 때 실패한 곡을 모두 적는다", async (
     h.dispose(p);
   }
 });
+
+// ── 곡이 바뀔 때까지 ──────────────────────────────────────────────
+// 대시보드의 이전 곡 응답이 옛 곡을 실어 화면이 신호를 기다렸다(넘기기는 패널 고치기를 기다리는 사이 곡이 바뀌어 새 곡이 실렸다)
+
+test("곡이 바뀔 때까지: 이전 곡 뒤 기다리면 되돌아간 곡이 지금 곡이다. 걸린 끝 처리가 없으면 곧바로", async () => {
+  const before = yt("iiiiiiiiiii", { title: "앞 곡" });
+  h.seedCache("yt:iiiiiiiiiii", before);
+  const p = playingPlayer(yt("jjjjjjjjjjj", { title: "지금 곡" }));
+  p.previousTracks = [before];
+  try {
+    const started = Date.now();
+    await p.untilSwitched();
+    assert.ok(Date.now() - started < 50, "걸린 끝 처리가 없으면 기다리지 않는다");
+
+    p.previous();
+    assert.equal(p.currentTrack?.title, "지금 곡", "멈춘 직후에는 아직 옛 곡");
+    const switching = Date.now();
+    await p.untilSwitched();
+    assert.equal(p.currentTrack?.title, "앞 곡");
+    assert.ok(Date.now() - switching < 500, "곡이 바뀌면 상한을 기다리지 않고 곧바로 풀린다");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("곡이 바뀔 때까지: 다음 곡을 여는 데 오래 걸려도 상한까지만 기다린다", async () => {
+  const p = threeTracks();
+  const persist = p.persistence.persistState.bind(p.persistence);
+  p.persistence.persistState = async (reason: string) => {
+    await tick(1000);
+    return persist(reason);
+  };
+  try {
+    p.skip();
+    const started = Date.now();
+    await p.untilSwitched(100);
+    const waited = Date.now() - started;
+    assert.ok(waited >= 90 && waited < 500, `${waited}ms`);
+  } finally {
+    await tick(1100);
+    h.dispose(p);
+  }
+});
