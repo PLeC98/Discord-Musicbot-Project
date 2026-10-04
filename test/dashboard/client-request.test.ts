@@ -102,10 +102,10 @@ test("토큰을 받다 401 이면 그 요청의 실패다. 보낸 요청의 quie
 });
 
 test("서버에 닿았는지: 응답이 오면(오류 응답 포함) 닿음, 연결이 안 되면 못 닿음, 시간 초과는 알리지 않는다", async () => {
-  const replies: Reply[] = [{ data: {} }, { problem: "no-song" }, { fail: "ERR_NETWORK" }, { fail: "ETIMEDOUT" }];
+  const replies: Reply[] = [{ data: {} }, { problem: "no-song" }, { fail: "ERR_NETWORK" }, { fail: "ETIMEDOUT" }, { problem: "bot-not-ready" }];
   const { http, reach } = harness(() => replies.shift() ?? {});
-  for (let i = 0; i < 4; i++) await http.get("/api/x").catch(() => {});
-  assert.deepEqual(reach, [true, true, false]);
+  for (let i = 0; i < 5; i++) await http.get("/api/x").catch(() => {});
+  assert.deepEqual(reach, [true, true, false, true]);
 });
 
 test("응답 없는 실패의 종류", () => {
@@ -114,5 +114,9 @@ test("응답 없는 실패의 종류", () => {
   assert.equal(failureKind(new AxiosError("a", "ECONNABORTED")), "aborted");
   assert.equal(failureKind(new AxiosError("c", "ERR_CANCELED")), "aborted");
   assert.equal(failureKind({ response: { status: 500 }, code: "ERR_BAD_RESPONSE" }), null);
+  // 봇이 꺼져 앞의 프록시가 답했다(문제 응답이 아니다). 봇이 낸 503(준비 전)은 봇이 답한 것
+  assert.equal(failureKind({ response: { status: 502, data: "<html>Bad Gateway</html>" } }), "offline");
+  assert.equal(failureKind({ response: { status: 504 } }), "offline");
+  assert.equal(failureKind({ response: { status: 503, data: { code: "bot-not-ready" } } }), null);
   assert.equal(failureKind(undefined), null);
 });

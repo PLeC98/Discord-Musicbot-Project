@@ -6,9 +6,13 @@ export const LIMIT = { short: 10_000, long: 120_000, none: 0 };
 
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-/** 응답 없이 실패한 요청의 종류. 시간 한도 · 연결 안 됨 · 화면이 끊음(페이지를 떠남 등) · 그 밖(응답이 있었다) */
+// 봇 앞의 프록시가 봇에 닿지 못했을 때 내는 상태. 봇이 낸 것이면 문제 응답(code)이 실린다
+const GATEWAY = new Set([502, 503, 504]);
+
+/** 봇에게서 답을 못 받은 요청의 종류. 시간 한도 · 연결 안 됨(프록시의 502 · 503 · 504 포함) · 화면이 끊음(페이지를 떠남 등) · 그 밖(봇이 답했다) */
 export function failureKind(error) {
-  if (error?.response) return null;
+  const res = error?.response;
+  if (res) return GATEWAY.has(res.status) && typeof res.data?.code !== "string" ? "offline" : null;
   if (error?.code === "ETIMEDOUT") return "timeout";
   if (error?.code === "ERR_NETWORK") return "offline";
   if (error?.code === "ECONNABORTED" || error?.code === "ERR_CANCELED") return "aborted";
@@ -56,8 +60,8 @@ export function installRequests(http, { onSessionEnd, onReach }) {
       return res;
     },
     (error) => {
-      if (error?.response) onReach(true);
-      else if (failureKind(error) === "offline") onReach(false);
+      if (failureKind(error) === "offline") onReach(false);
+      else if (error?.response) onReach(true);
       const request = error?.config;
       // 토큰은 처리기보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만
       if (error?.response?.data?.code === "bad-csrf-token") {
