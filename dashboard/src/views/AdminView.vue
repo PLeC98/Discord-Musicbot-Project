@@ -149,7 +149,7 @@
           </div>
           <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
             <div v-if="filteredLogs.length === 0" class="text-muted text-center py-10">로그 없음</div>
-            <div v-for="(entry, i) in filteredLogs" :key="i" class="flex gap-2 leading-relaxed border-b border-white/3">
+            <div v-for="entry in filteredLogs" :key="entry.id" class="flex gap-2 leading-relaxed border-b border-white/3">
               <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
               <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
               <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
@@ -641,6 +641,20 @@ let lastLogEventId = "";
 let lastLogId = 0;
 let reopenTimer = null;
 let reopenAttempt = 0;
+// 붙을 때 쌓인 줄(최대 500)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 500번 그려 브라우저가 멎는다(약 8초).
+// 한 프레임 동안 모았다가 한 번에 넣는다
+let pendingLogs = [];
+let flushFrame = null;
+function queueLog(entry) {
+  pendingLogs.push(entry);
+  flushFrame ??= requestAnimationFrame(flushLogs);
+}
+function flushLogs() {
+  flushFrame = null;
+  const next = logs.value.concat(pendingLogs);
+  pendingLogs = [];
+  logs.value = next.length > 500 ? next.slice(-500) : next;
+}
 
 // 레벨 필터는 다중 토글이다. "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
 // 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
@@ -751,6 +765,7 @@ function openLogs() {
   // 봇을 다시 켜 줄 번호가 처음부터다. 지금 목록은 옛 실행의 것이라 비운다
   sse.addEventListener("reset", () => {
     logs.value = [];
+    pendingLogs = [];
     lastLogId = 0;
   });
   sse.onmessage = (e) => {
@@ -758,8 +773,7 @@ function openLogs() {
     lastLogEventId = e.lastEventId || lastLogEventId;
     if (entry.id <= lastLogId) return; // 이미 받은 줄
     lastLogId = entry.id;
-    logs.value.push(entry);
-    if (logs.value.length > 500) logs.value.splice(0, logs.value.length - 500);
+    queueLog(entry);
   };
   sse.onerror = () => {
     sseConnected.value = false;
