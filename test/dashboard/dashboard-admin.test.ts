@@ -267,6 +267,8 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   assert.equal(r.json.sent, 3, "봇 채널 2 + 폴백 채널 1");
   assert.equal(g1.botChannel.sent.length, 1);
   assert.equal(g1.botChannel.sent[0].embeds.length, 1);
+  // 공지 색은 ui/colors 의 뜻: 점검은 경고(노랑)
+  assert.equal((g1.botChannel.sent[0].embeds[0] as { toJSON(): { color?: number } }).toJSON().color, 0xfee75c);
 });
 
 // ── 설정 파일 (config/*.yaml) ────────────────────────────────

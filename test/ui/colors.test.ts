@@ -9,8 +9,8 @@ import { colorOf } from "../../src/ui/colors.ts";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
 
-test("경고 수준마다 디스코드 기본 팔레트의 색. brand 는 운영자가 정한 색을 부를 때 읽는다", () => {
-  assert.deepEqual((["error", "warning", "done"] as const).map(colorOf), ["#ED4245", "#FEE75C", "#57F287"]);
+test("경고 수준마다 디스코드 기본 팔레트의 색, 운영자 공지는 파랑. brand 는 운영자가 정한 색을 부를 때 읽는다", () => {
+  assert.deepEqual((["error", "warning", "done", "notice"] as const).map(colorOf), ["#ED4245", "#FEE75C", "#57F287", "#3498DB"]);
   const saved = config.bot.embedColor;
   try {
     config.bot.embedColor = "#123456";
@@ -30,8 +30,8 @@ function walk(dir: string, out: string[] = []) {
 }
 
 test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻으로 고른다)", () => {
-  // 설정 모듈은 .env 색의 기본값을 적는 자리다. 대시보드 서버(운영자 공지의 색)는 11단계에서 ui/colors 로 모은다
-  const skip = [path.join(ROOT, "src", "config", "index.ts"), path.join(ROOT, "src", "dashboard") + path.sep];
+  // 설정 모듈은 .env 색의 기본값을 적는 자리다
+  const skip = [path.join(ROOT, "src", "config", "index.ts")];
   const files = walk(path.join(ROOT, "src")).filter((f) => !skip.some((s) => f === s || f.startsWith(s)));
   const found = files.filter((f) => !f.endsWith(path.join("ui", "colors.ts"))).flatMap((f) => (fs.readFileSync(f, "utf8").match(/["'`]#[0-9A-Fa-f]{6}["'`]/g) ?? []).map((hex) => `${path.relative(ROOT, f)} ${hex}`));
   assert.deepEqual(found, []);

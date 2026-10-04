@@ -21,6 +21,7 @@ import * as cookieConfig from "../../config/cookies.ts";
 import * as yamlStore from "../../config/yaml-store.ts";
 import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
 import config from "../../config/index.ts";
+import { colorOf } from "../../ui/colors.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import * as audioCache from "../../store/audio-cache.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
@@ -102,12 +103,12 @@ adminRouter.get("/status", requireOwner, (req, res) => {
   });
 });
 
-// 전체 서버 공지
+// 전체 서버 공지. 색은 ui/colors 의 뜻으로
 const ANNOUNCE_TYPES: Record<string, { color: HexColorString; emoji: string; title: string }> = {
-  maintenance: { color: "#FFA500", emoji: "🔧", title: "봇 점검 안내" },
-  update: { color: "#57F287", emoji: "🆕", title: "봇 업데이트 안내" },
-  alert: { color: "#ED4245", emoji: "⚠️", title: "긴급 공지" },
-  info: { color: "#5865F2", emoji: "ℹ️", title: "공지사항" },
+  maintenance: { color: colorOf("warning"), emoji: "🔧", title: "봇 점검 안내" },
+  update: { color: colorOf("done"), emoji: "🆕", title: "봇 업데이트 안내" },
+  alert: { color: colorOf("error"), emoji: "⚠️", title: "긴급 공지" },
+  info: { color: colorOf("notice"), emoji: "ℹ️", title: "공지사항" },
 };
 const ANNOUNCE_MAX = 4096; // 디스코드 embed description 상한
 
