@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, useTemplateRef } from "vue";
+import { ref, watch, nextTick, useTemplateRef, onUnmounted } from "vue";
 import Icon from "./BaseIcon.vue";
 import { useAnchoredPanel } from "../composables/anchored-panel";
 import { problemText } from "../utils/problem.js";
@@ -108,6 +108,8 @@ watch(entry, (text) => {
     state.value = failed ? "failed" : "done";
   }, SUGGEST_WAIT_MS);
 });
+// 칸이 사라지면(장르 · 출처를 지움) 기다리던 물음도 보내지 않는다
+onUnmounted(() => clearTimeout(timer));
 
 // 방향키로 내려간 줄이 잘려 있으면 고를 수가 없다. 눈에 들어오게 밀어 준다(TagPicker 와 같다)
 watch(at, () => nextTick(() => panel.value?.children?.[at.value]?.scrollIntoView({ block: "nearest" })));

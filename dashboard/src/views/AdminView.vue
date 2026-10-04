@@ -348,6 +348,7 @@ import { LIMIT } from "../utils/request.js";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { eventLink } from "../utils/event-link.js";
 import { unsaved } from "../composables/unsaved.js";
+import { readStored, writeStored } from "../utils/storage.js";
 import { onBeforeRouteLeave } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
@@ -378,7 +379,7 @@ const ALL_TABS = [
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
 const TAB_KEY = "admin:tab";
-const savedTab = localStorage.getItem(TAB_KEY);
+const savedTab = readStored(TAB_KEY);
 // 보이는 탭 목록(TABS)이 아니라 전체로 본다. 쿠키 탭은 상태를 받아야 보일지 정해지는데,
 // 여기는 그 전이라 아직 모른다. 못 쓰는 탭에 머물면 상태가 온 뒤에 되돌린다.
 const tab = ref(ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status");
@@ -388,7 +389,7 @@ const opened = ref(new Set([tab.value]));
 function setTab(id) {
   tab.value = id;
   if (!opened.value.has(id)) opened.value = new Set(opened.value).add(id);
-  localStorage.setItem(TAB_KEY, id);
+  writeStored(TAB_KEY, id);
 }
 
 // 저장하지 않은 설정이 있으면 페이지를 떠날 때(다른 화면 · 창 닫기 · 새로고침) 묻는다

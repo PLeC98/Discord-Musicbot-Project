@@ -99,7 +99,7 @@ import Icon from "./BaseIcon.vue";
 import SaveDock from "./SaveDock.vue";
 import MessageList from "./StatusMessageList.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, specialFoldId } from "../composables/config-folds";
+import { isFolded, toggleFold, specialFoldId, reorderSpecials } from "../composables/config-folds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
@@ -265,12 +265,10 @@ function addSpecial() {
   special.value.push({ key: ++serial, name: "", date: "", lunar: "", time: "", messages: [newMessage()] });
 }
 
-// 접힘은 자리로 기억한다. 지우면 그 아래가 한 칸씩 당겨진다
+// 접힘은 자리로 기억한다. 지우면 그 아래의 기억이 한 칸씩 당겨진다
 function removeSpecial(i) {
+  reorderSpecials(special.value.map((_, at) => at).filter((at) => at !== i));
   special.value.splice(i, 1);
-  for (let at = i; at < special.value.length + 1; at++) {
-    if (isFolded(specialFoldId(at))) toggleFold(specialFoldId(at));
-  }
 }
 
 function apply(data) {

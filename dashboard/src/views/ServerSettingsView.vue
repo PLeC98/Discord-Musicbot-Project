@@ -130,6 +130,7 @@
 
 <script setup>
 import { problemText } from "../utils/problem.js";
+import { notifyProblem } from "../composables/toasts.js";
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
@@ -257,18 +258,30 @@ function revert() {
   result.value = null;
 }
 
+function apply(data) {
+  s.value = data;
+  selectedRoles.value = [...data.djRoleIds];
+  selectedChannel.value = data.botChannelId;
+  syncSbForm();
+  syncPaForm();
+}
+
 async function load() {
   try {
-    const res = await axios.get(`/api/guilds/${guildId}/settings`);
-    s.value = res.data;
-    selectedRoles.value = [...res.data.djRoleIds];
-    selectedChannel.value = res.data.botChannelId;
-    syncSbForm();
-    syncPaForm();
+    apply((await axios.get(`/api/guilds/${guildId}/settings`)).data);
   } catch (e) {
     loadError.value = problemText(e, "설정을 불러오지 못했습니다");
   } finally {
     loading.value = false;
+  }
+}
+
+// 저장 뒤 서버가 확정한 값(지운 역할 정리 등)으로 맞춘다. 못 읽어도 저장은 됐으니 화면은 두고 알리기만 한다
+async function reload() {
+  try {
+    apply((await axios.get(`/api/guilds/${guildId}/settings`)).data);
+  } catch (e) {
+    notifyProblem(e, "저장한 설정을 다시 읽지 못했어요.");
   }
 }
 
@@ -284,7 +297,7 @@ async function save() {
       ...(s.value.playlistAdd && { playlistAddMax: paValue.value }),
     });
     result.value = { success: true };
-    await load(); // 서버가 확정한 값(삭제 역할 정리 등)으로 동기화
+    await reload();
   } catch (e) {
     result.value = { success: false, error: problemText(e, "요청 실패") };
   } finally {

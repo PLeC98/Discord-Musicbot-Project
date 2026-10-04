@@ -89,7 +89,7 @@ import MultiSelect from "./MultiSelect.vue";
 import SingleSelect from "./SingleSelect.vue";
 import TagPicker from "./TagPicker.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen } from "../composables/config-folds";
+import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen, reorderSources } from "../composables/config-folds";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -148,6 +148,10 @@ watch(
 );
 
 function remove(i) {
+  reorderSources(
+    props.genreIndex,
+    list.value.map((_, at) => at).filter((at) => at !== i),
+  );
   list.value.splice(i, 1);
   push();
 }

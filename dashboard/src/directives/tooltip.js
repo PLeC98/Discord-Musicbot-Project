@@ -2,6 +2,8 @@
 // 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래)에 중앙 정렬로 표시.
 
 let tipEl = null;
+// 지금 툴팁을 띄운 요소. 다른 요소가 떠나거나 사라질 때 남의 툴팁을 끄지 않게, 떠 있는 글을 고칠 때 그 요소인지 보려고 든다
+let owner = null;
 
 function ensureEl() {
   if (tipEl) return tipEl;
@@ -14,7 +16,8 @@ function ensureEl() {
 
 function show(el) {
   const text = el._ttText;
-  if (!text) return;
+  if (!text) return hide(el);
+  owner = el;
   const t = ensureEl();
   t.textContent = text;
   t.style.display = "block";
@@ -42,8 +45,10 @@ function show(el) {
   });
 }
 
-function hide() {
-  if (!tipEl) return;
+/** el 이 띄운 툴팁이면 끈다 */
+function hide(el) {
+  if (!tipEl || owner !== el) return;
+  owner = null;
   tipEl.style.opacity = "0";
   tipEl.style.display = "none";
 }
@@ -52,7 +57,7 @@ export default {
   mounted(el, binding) {
     el._ttText = binding.value;
     el._ttShow = () => show(el);
-    el._ttHide = hide;
+    el._ttHide = () => hide(el);
     el.addEventListener("mouseenter", el._ttShow);
     el.addEventListener("mouseleave", el._ttHide);
     el.addEventListener("mousedown", el._ttHide); // 클릭/스크럽 시작 시 숨김
@@ -60,7 +65,10 @@ export default {
     el.addEventListener("blur", el._ttHide);
   },
   updated(el, binding) {
+    if (el._ttText === binding.value) return;
     el._ttText = binding.value;
+    // 떠 있는 동안 글이 바뀌었다(볼륨 값 등). 새 글로 다시 띄운다(비면 끈다)
+    if (owner === el) show(el);
   },
   unmounted(el) {
     el.removeEventListener("mouseenter", el._ttShow);
@@ -68,6 +76,6 @@ export default {
     el.removeEventListener("mousedown", el._ttHide);
     el.removeEventListener("focus", el._ttShow);
     el.removeEventListener("blur", el._ttHide);
-    hide();
+    hide(el);
   },
 };

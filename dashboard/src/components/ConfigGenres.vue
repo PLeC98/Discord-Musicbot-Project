@@ -76,7 +76,7 @@
           <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
           <!-- 접어 두면 출처가 아예 안 보인다. 몇 개인지는 접힌 채로도 알려 준다 -->
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
-          <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
+          <button :class="removeBtn" v-tooltip="'삭제'" @click="removeRow(i)"><Icon name="trash" :size="15" /></button>
         </div>
         <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="i" class="mt-2" />
         <!-- 이 장르만의 값. 비우면 전역 값을 쓴다(utils/genre-rows) -->
@@ -123,7 +123,7 @@ import SourceEditor from "./SourceEditor.vue";
 import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
-import { isFolded, toggleFold, genreFoldId } from "../composables/config-folds";
+import { isFolded, toggleFold, genreFoldId, reorderGenres } from "../composables/config-folds";
 import { toRows, toMap, newRow } from "../utils/genre-rows.js";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
@@ -228,9 +228,12 @@ function onDrop(e) {
   const from = draggedIndex.value;
   const to = dragOverIndex.value;
   if (from == null || to == null) return;
+  const order = rows.value.map((_, i) => i);
   const [moved] = rows.value.splice(from, 1);
   // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
   rows.value.splice(to > from ? to - 1 : to, 0, moved);
+  order.splice(to > from ? to - 1 : to, 0, ...order.splice(from, 1));
+  reorderGenres(order); // 접어 둔 기억도 그 장르를 따라간다
   onDragEnd();
 }
 
@@ -243,12 +246,19 @@ function onDragEnd() {
 // 자동완성 후보. 브라우저가 저쪽에 바로 묻지 않고 서버를 거친다(GET /api/admin/source-suggest)
 const suggestFor = async (type, field, term) => (await axios.get("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
+function removeRow(i) {
+  reorderGenres(rows.value.map((_, at) => at).filter((at) => at !== i));
+  rows.value.splice(i, 1);
+}
+
 function addRow() {
   rows.value.push(newRow());
 }
 
 function apply(data) {
-  const defaults = { prefetchCount: 1, minDurationSec: 30, maxDurationSec: null, blockedKeywords: [], ...(data.defaults || {}) };
+  // 파일에 칸이 없을 때의 값은 봇이 그때 쓰는 값과 같게(prefetchCount 1 은 player, minDurationSec 0 은 autoplay/filter).
+  // 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
+  const defaults = { prefetchCount: 1, minDurationSec: 0, maxDurationSec: null, blockedKeywords: [], ...(data.defaults || {}) };
   // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다. 대문자로 적어 두면 아무것도 못 거른다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   draft.value = { defaults, genres: data.genres || {} };

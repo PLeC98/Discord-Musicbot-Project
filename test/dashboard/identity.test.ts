@@ -46,10 +46,11 @@ test("/api/me: 로그인 전에는 401, 로그인했으면 그 사람과 운영�
   assert.deepEqual([owner.json.isOwner, owner.json.isRealOwner], [true, true]);
 });
 
-test("/api/bot: 봇이 준비 전이면 503, 준비되면 이름 · 그림 · 소스 저장소", async () => {
+test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름 · 그림은 봇이 준비되면", async () => {
   botUser = null;
   const early = await get("/api/bot");
-  assert.deepEqual([early.status, early.json.code], [503, "bot-not-ready"]);
+  assert.equal(early.status, 200);
+  assert.deepEqual(early.json, { name: null, avatarUrl: null, sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo }, "준비 전에도 소스 링크에 주소가 있다");
 
   botUser = { username: "봇", avatarURL: () => "https://cdn/avatar.webp" };
   const ready = await get("/api/bot");
