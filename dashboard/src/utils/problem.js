@@ -1,13 +1,18 @@
 // 대시보드 서버의 문제 응답(RFC 9457)을 사람이 읽을 글로. 문장은 봇과 같이 쓰는 안내(src/ui/text/ko/errors.ts)에서 코드로 고른다.
 // 봇 쪽 거절은 디스코드와 같은 문장만. 웹 쪽 오류(대시보드에서만 나는 코드)는 웹 오류 화면처럼 끝 줄에 코드와 HTTP 상태를 함께 적는다.
 // 응답 없이 실패한 요청(시간 한도 · 연결 안 됨)은 화면만의 문장이고 코드를 적는다.
-// 공유 문장의 꾸밈(굵게 · 코드)은 지금 화면이 글자로만 보여서 뗀다
+// 공유 문장의 꾸밈(굵게 · 코드)은 지금 화면이 글자로만 보여서 뗀다.
+// 문장이 "봇 개발자에게 보고해 주세요"를 쓰면 보고할 곳(소스 저장소, /api/bot 의 sourceRepo)을 reportUrl 로 붙인다
 
-import { notice } from "../../../src/ui/text/ko/errors.ts";
+import { notice, PLAIN } from "../../../src/ui/text/ko/errors.ts";
 import { isCode, isWebCode } from "../../../src/rules/problems.ts";
 import { failureKind } from "./request.js";
 
 const plain = (text) => text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1");
+
+// 보고할 곳. 화면이 처음 뜰 때 /api/bot 에서 받아 넣는다(App.vue). 받기 전이면 붙이지 않는다
+let reportTo = "";
+export const setReportUrl = (url) => (reportTo = typeof url === "string" ? url : "");
 
 // 응답 없이 실패한 요청. 키는 request.js 의 failureKind
 const UNANSWERED = {
@@ -22,23 +27,26 @@ const UNANSWERED = {
 export function problemNotice(error, fallback) {
   const data = error?.response?.data;
   if (data && typeof data.code === "string" && isCode(data.code)) {
-    const { title, body, severity } = notice(data.code, data);
+    // 문장이 봇 개발자를 불렀는지 본다. 불렀으면 보고할 곳을 붙인다
+    let asked = false;
+    const look = { ...PLAIN, developer: () => ((asked = true), PLAIN.developer()) };
+    const { title, body, severity } = notice(data.code, data, look);
     const status = error.response.status ?? data.status;
     const codeLine = isWebCode(data.code) ? `오류 코드: ${data.code} (HTTP ${status})` : "";
-    return { title: plain(title), body: body ? plain(body) : "", detail: typeof data.detail === "string" ? data.detail : "", codeLine, severity };
+    return { title: plain(title), body: body ? plain(body) : "", detail: typeof data.detail === "string" ? data.detail : "", codeLine, severity, reportUrl: asked ? reportTo : "" };
   }
   const unanswered = UNANSWERED[failureKind(error)];
   if (unanswered) {
     const { code, ...rest } = unanswered;
-    return { ...rest, detail: "", codeLine: `오류 코드: ${code}` };
+    return { ...rest, detail: "", codeLine: `오류 코드: ${code}`, reportUrl: "" };
   }
-  return { title: fallback, body: "", detail: "", codeLine: "", severity: "error" };
+  return { title: fallback, body: "", detail: "", codeLine: "", severity: "error", reportUrl: "" };
 }
 
 /** problemNotice 를 줄로 이은 글 */
 export function problemText(error, fallback) {
-  const { title, body, detail, codeLine } = problemNotice(error, fallback);
-  return [title, body, detail, codeLine].filter(Boolean).join("\n");
+  const { title, body, detail, codeLine, reportUrl } = problemNotice(error, fallback);
+  return [title, body, detail, reportUrl && `보고할 곳: ${reportUrl}`, codeLine].filter(Boolean).join("\n");
 }
 
 /** 칸별 문제의 운영자용 원문 목록(설정 검사). 없으면 빈 목록 */

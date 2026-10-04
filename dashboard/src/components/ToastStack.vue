@@ -7,6 +7,7 @@
         <div class="font-semibold text-fg">{{ t.title }}</div>
         <div v-if="t.body" class="text-fg-soft">{{ t.body }}</div>
         <div v-if="t.detail" class="text-muted">{{ t.detail }}</div>
+        <a v-if="t.reportUrl" :href="t.reportUrl" target="_blank" rel="noopener" class="text-accent text-[0.78rem] hover:underline">봇 개발자에게 보고하기</a>
         <div v-if="t.codeLine" class="text-muted text-[0.75rem]">{{ t.codeLine }}</div>
       </div>
       <button class="shrink-0 text-muted hover:text-fg cursor-pointer" aria-label="닫기" @click="dismiss(t.id)"><Icon name="close" :size="14" /></button>

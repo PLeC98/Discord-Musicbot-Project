@@ -11,15 +11,18 @@ const error = (topic: Topic, title: string, body?: string) => noticeOf("error", 
 // 사용자가 고칠 수 있거나 지금 상태라 못 했다
 const warning = (topic: Topic, title: string, body?: string) => noticeOf("warning", topic, title, body);
 
-// 대시보드 화면은 보낼 수 없는 값(화면이 고를 수 있는 것만 보낸다). 옛 화면이 바뀐 봇에 보냈을 수도 있다
-const STALE_PAGE = "페이지를 새로 고친 뒤 다시 시도해 보고, 계속되면 봇 개발자에게 보고해 주세요.";
-// 화면도 봇도 보낼 일이 없는 값
-const CANNOT_HAPPEN = "일반적으로는 발생할 수 없는 오류이니, 봇 개발자에게 보고해 주세요.";
-
-/** 그리는 쪽마다 다른 값의 꼴. 디스코드는 채널을 멘션으로 적는다(ui/mentions 의 DISCORD_LOOK) */
-type Look = { channel: (id: string) => string };
+/**
+ * 그리는 쪽마다 다른 값의 꼴. 디스코드는 채널을 멘션으로, 봇 개발자를 저장소 링크로 적는다(ui/mentions 의 DISCORD_LOOK).
+ * 대시보드는 글자로 적고, 보고할 곳은 화면이 따로 붙인다(utils/problem)
+ */
+type Look = { channel: (id: string) => string; developer: () => string };
 /** 꾸밈 없는 꼴(대시보드) */
-const PLAIN: Look = { channel: (id) => `#${id}` };
+const PLAIN: Look = { channel: (id) => `#${id}`, developer: () => "봇 개발자" };
+
+// 대시보드 화면은 보낼 수 없는 값(화면이 고를 수 있는 것만 보낸다). 옛 화면이 바뀐 봇에 보냈을 수도 있다
+const stalePage = (look: Look) => `페이지를 새로 고친 뒤 다시 시도해 보고, 계속되면 ${look.developer()}에게 보고해 주세요.`;
+// 화면도 봇도 보낼 일이 없는 값
+const cannotHappen = (look: Look) => `일반적으로는 발생할 수 없는 오류이니, ${look.developer()}에게 보고해 주세요.`;
 
 const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 요청한 사람이 갖추지 못함
@@ -154,9 +157,9 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 대시보드: 웹 오류 화면처럼 무엇이 안 됐는지 · 왜 · 어떻게 하면 되는지(코드는 화면이 끝 줄에 붙인다). 접속 · 권한
   "login-required": () => warning("permission", "로그인이 필요해요!", "로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요."),
   // 화면이 새 토큰으로 한 번 다시 보내므로 사람에게는 그 뒤에도 거절됐을 때만 보인다
-  "bad-csrf-token": () => warning("stale", "요청을 확인하지 못했어요!", `보안 토큰이 맞지 않아 요청을 받지 않았어요. ${STALE_PAGE}`),
+  "bad-csrf-token": (_, look) => warning("stale", "요청을 확인하지 못했어요!", `보안 토큰이 맞지 않아 요청을 받지 않았어요. ${stalePage(look)}`),
   "no-guild-access": () => warning("permission", "이 서버를 볼 수 없어요!", "봇이 있는 서버 중 내가 멤버인 서버만 볼 수 있어요. 그 서버에서 나갔다면 서버 목록에서도 빠져요."),
-  "bad-tier": () => warning("input", "알 수 없는 권한 수준이에요!", STALE_PAGE),
+  "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
   // 대시보드: 상태
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 골라 주세요."),
@@ -165,24 +168,24 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "too-many-requests": () => warning("waiting", "요청이 너무 많아요!", "짧은 시간에 요청을 많이 보냈어요. 잠시 뒤에 다시 시도해 주세요."),
   "too-many-streams": () => warning("waiting", "실시간 연결이 너무 많아요!", "이 계정으로 열어 둔 대시보드 탭이 너무 많아요. 쓰지 않는 탭을 닫아 주세요."),
   // 대시보드: 요청 형식
-  "bad-request": () => warning("input", "요청을 읽지 못했어요!", `화면이 보낸 요청의 형식이 맞지 않아요. ${STALE_PAGE}`),
+  "bad-request": (_, look) => warning("input", "요청을 읽지 못했어요!", `화면이 보낸 요청의 형식이 맞지 않아요. ${stalePage(look)}`),
   // 명령과 버튼은 고를 수 있는 모드만 보낸다
-  "bad-loop-mode": () => warning("input", "알 수 없는 반복 모드를 요청했어요!", CANNOT_HAPPEN),
+  "bad-loop-mode": (_, look) => warning("input", "알 수 없는 반복 모드를 요청했어요!", cannotHappen(look)),
   "payload-too-large": () => warning("input", "보낸 내용이 너무 길어요!", "내용을 줄여서 다시 보내 주세요."),
-  "route-not-found": () => warning("notFound", "없는 주소예요!", `화면이 봇에 없는 주소로 요청했어요. ${STALE_PAGE}`),
-  "bad-queue-range": () => warning("input", "대기열을 읽지 못했어요!", `요청한 위치나 개수가 맞지 않아요. ${STALE_PAGE}`),
+  "route-not-found": (_, look) => warning("notFound", "없는 주소예요!", `화면이 봇에 없는 주소로 요청했어요. ${stalePage(look)}`),
+  "bad-queue-range": (_, look) => warning("input", "대기열을 읽지 못했어요!", `요청한 위치나 개수가 맞지 않아요. ${stalePage(look)}`),
   "bad-query": ({ max }) => warning("input", "검색어가 올바르지 않아요!", `검색어를 1~${max}자로 적어 주세요.`),
   "bad-more-state": () => warning("input", "더 넣을 목록을 알아보지 못했어요!", "목록 링크를 다시 넣은 뒤에 시도해 주세요."),
-  "bad-settings": () => warning("input", "서버 설정을 읽지 못했어요!", `보낸 설정의 형식이 맞지 않아요. ${STALE_PAGE}`),
-  "bad-sponsorblock": () => warning("input", "SponsorBlock 설정을 읽지 못했어요!", `보낸 설정의 형식이 맞지 않아요. ${STALE_PAGE}`),
-  "bad-sponsor-categories": () => warning("input", "SponsorBlock 구간 종류를 읽지 못했어요!", `보낸 구간 종류의 형식이 맞지 않아요. ${STALE_PAGE}`),
-  "bad-dj-roles": () => warning("input", "DJ 역할을 읽지 못했어요!", `보낸 역할 목록의 형식이 맞지 않아요. ${STALE_PAGE}`),
+  "bad-settings": (_, look) => warning("input", "서버 설정을 읽지 못했어요!", `보낸 설정의 형식이 맞지 않아요. ${stalePage(look)}`),
+  "bad-sponsorblock": (_, look) => warning("input", "SponsorBlock 설정을 읽지 못했어요!", `보낸 설정의 형식이 맞지 않아요. ${stalePage(look)}`),
+  "bad-sponsor-categories": (_, look) => warning("input", "SponsorBlock 구간 종류를 읽지 못했어요!", `보낸 구간 종류의 형식이 맞지 않아요. ${stalePage(look)}`),
+  "bad-dj-roles": (_, look) => warning("input", "DJ 역할을 읽지 못했어요!", `보낸 역할 목록의 형식이 맞지 않아요. ${stalePage(look)}`),
   "too-many-dj-roles": ({ max }) => warning("input", "DJ 역할이 너무 많아요!", `DJ 역할은 ${max}개까지 정할 수 있어요.`),
   "bad-bot-channel": () => warning("input", "전용 채널로 쓸 수 없는 채널이에요!", "봇 전용 채널은 일반 텍스트 채널이어야 해요. 다른 채널을 골라 주세요."),
   // 대시보드: 운영자
   "announce-empty": () => warning("input", "공지 내용이 비어 있어요!", "보낼 내용을 적어 주세요."),
   "announce-too-long": ({ max, length }) => warning("input", "공지가 너무 길어요!", `공지는 ${max}자까지 보낼 수 있어요. (지금 ${length}자)`),
-  "bad-announce-type": () => warning("input", "알 수 없는 공지 종류예요!", STALE_PAGE),
+  "bad-announce-type": (_, look) => warning("input", "알 수 없는 공지 종류예요!", stalePage(look)),
   "announce-no-guilds": () => warning("state", "공지를 보낼 서버가 없어요!", "봇이 들어가 있는 서버가 하나도 없어요."),
   "announce-failed": () => error("failed", "어느 서버에도 보내지 못했어요!", "보낼 수 있는 채널이 없거나 봇에게 메시지를 올릴 권한이 없어요. 서버마다 봇의 권한을 확인해 주세요."),
   "leave-guild-failed": () => error("failed", "서버에서 나가지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 잠시 뒤에 다시 시도해 주세요."),
@@ -191,13 +194,13 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "model-refresh-failed": () => error("failed", "모델 정보를 받지 못했어요!", "모델 정보 저장소에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "cache-clear-failed": () => error("failed", "캐시를 비우지 못했어요!", "파일을 지우거나 데이터베이스를 고치다 실패했어요. 운영자 로그를 확인해 주세요."),
   "token-count-failed": () => error("failed", "토큰 수를 세지 못했어요!", "AI 서비스에 물어보지 못했거나 글이 너무 길어요. 함께 적힌 원문을 확인해 주세요."),
-  "bad-suggest-type": () => warning("input", "자동완성이 없는 출처 종류예요!", STALE_PAGE),
-  "bad-suggest-field": () => warning("input", "자동완성이 없는 칸이에요!", STALE_PAGE),
+  "bad-suggest-type": (_, look) => warning("input", "자동완성이 없는 출처 종류예요!", stalePage(look)),
+  "bad-suggest-field": (_, look) => warning("input", "자동완성이 없는 칸이에요!", stalePage(look)),
   "bad-suggest-term": ({ max }) => warning("input", "검색어가 올바르지 않아요!", `검색어를 1~${max}자로 적어 주세요.`),
   "too-many-items": ({ max }) => warning("input", "한 번에 보낼 수 있는 개수를 넘었어요!", `한 번에 ${max}개까지 보낼 수 있어요.`),
   "urls-empty": () => warning("input", "유튜브 주소가 없어요!", "판정해 볼 곡의 유튜브 주소를 적어 주세요."),
-  "nothing-to-save": () => warning("input", "저장할 내용이 없어요!", `보낸 내용이 비어 있어요. ${STALE_PAGE}`),
-  "config-not-found": () => warning("notFound", "없는 설정이에요!", STALE_PAGE),
+  "nothing-to-save": (_, look) => warning("input", "저장할 내용이 없어요!", `보낸 내용이 비어 있어요. ${stalePage(look)}`),
+  "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 적힌 칸들을 고친 뒤에 다시 저장해 주세요."),
   "config-unreadable": () => error("failed", "설정 파일을 읽지 못했어요!", "파일이 없거나 YAML 문법이 깨졌어요. 함께 적힌 원문을 보고 파일을 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),

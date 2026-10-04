@@ -4,6 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { notice } from "../../../../src/ui/text/ko/errors.ts";
 import { shown } from "../../../helpers/notice.ts";
+import { DISCORD_LOOK } from "../../../../src/ui/mentions.ts";
+import config from "../../../../src/config/index.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
@@ -270,4 +272,10 @@ test("모든 문장", () => {
       "storage-unavailable": "error ❌ 저장소를 쓸 수 없어요!\n데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요.",
     },
   );
+});
+
+test("봇 개발자는 그리는 쪽이 적는다: 대시보드는 글자, 디스코드는 소스 저장소 링크", () => {
+  assert.equal(notice("bad-loop-mode").body, "일반적으로는 발생할 수 없는 오류이니, 봇 개발자에게 보고해 주세요.");
+  assert.equal(notice("bad-loop-mode", {}, DISCORD_LOOK).body, `일반적으로는 발생할 수 없는 오류이니, [봇 개발자](${config.bot.sourceRepo})에게 보고해 주세요.`);
+  assert.match(notice("bad-tier", {}, DISCORD_LOOK).body ?? "", /계속되면 \[봇 개발자\]\(/);
 });

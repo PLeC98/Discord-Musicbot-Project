@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { problemDetails, problemNotice, problemText } from "../../dashboard/src/utils/problem.js";
+import { problemDetails, problemNotice, problemText, setReportUrl } from "../../dashboard/src/utils/problem.js";
 import { problemBody } from "../../src/dashboard/problem.ts";
 
 const failed = (data: unknown) => ({ response: { data } });
@@ -19,6 +19,20 @@ test("웹 쪽 오류(대시보드에서만 나는 코드)는 끝 줄에 코드�
   assert.match(problemText(failed(problemBody("bad-loop-mode")), "실패"), /\n오류 코드: bad-loop-mode \(HTTP 400\)$/);
   // 디스코드 /join 도 내는 거절은 봇 쪽이다
   assert.equal(problemNotice(failed(problemBody("bot-in-other-voice")), "실패").codeLine, "");
+});
+
+test("봇 개발자에게 보고하라는 문장이면 보고할 곳(소스 저장소)을 붙인다. 받기 전이면 붙이지 않는다", () => {
+  const loop = { response: { status: 400, data: problemBody("bad-loop-mode") } };
+  setReportUrl("");
+  assert.equal(problemNotice(loop, "실패").reportUrl, "");
+  setReportUrl("https://example.invalid/repo");
+  try {
+    assert.equal(problemNotice(loop, "실패").reportUrl, "https://example.invalid/repo");
+    assert.equal(problemText(loop, "실패"), "알 수 없는 반복 모드를 요청했어요!\n일반적으로는 발생할 수 없는 오류이니, 봇 개발자에게 보고해 주세요.\n보고할 곳: https://example.invalid/repo\n오류 코드: bad-loop-mode (HTTP 400)");
+    assert.equal(problemNotice(failed(problemBody("no-song")), "실패").reportUrl, "", "보고하라고 하지 않는 문장");
+  } finally {
+    setReportUrl("");
+  }
 });
 
 test("꾸밈(굵게 · 코드)은 떼고, 운영자용 원문(detail)은 본문 다음 줄에", () => {
