@@ -23,16 +23,6 @@ const config: Linter.Config[] = [
 
   js.configs.recommended,
 
-  // 남은 .js(대시보드 클라이언트) - ESM. require · __dirname 은 없는 이름이다(nodeBuiltin). 클라이언트는 아래에서 브라우저로
-  {
-    files: ["**/*.js"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      globals: globals.nodeBuiltin,
-    },
-  },
-
   // 봇과 화면은 TypeScript. 파서와 권장 규칙(타입 정보 없이 도는 것만). 봇 본체 품질 규칙은 아래에서 건다.
   // .vue 의 파서는 아래 Vue 설정이 vue-eslint-parser 로 덮고 <script> 만 TypeScript 파서에 맡긴다
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts", "**/*.vue"] })),
@@ -82,9 +72,9 @@ const config: Linter.Config[] = [
 
   // 봇 쪽 코드의 품질 게이트. 억제 파일은 쓰지 않는다. 넘으면 고치고, 고칠 값이 없을 때만
   // 그 줄에 `// eslint-disable-next-line <규칙> -- 이유` 를 단다.
-  // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다).
+  // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다). 화면 앱에도 같게 건다
   {
-    files: ["src/**/*.ts", "scripts/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
     rules: {
       complexity: ["error", 15],
       "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }],
@@ -96,11 +86,11 @@ const config: Linter.Config[] = [
     },
   },
 
-  // 새어 나가는 약속을 막는다. 기다리지 않는 약속은 경계를 지나거나 bestEffort 로(실패를 받는 곳이 있어야 한다).
-  // 타입 정보가 필요해 봇 쪽 코드에만 건다(시험은 가짜 · 일부러 기다리지 않는 약속이 많다)
+  // 새어 나가는 약속을 막는다. 기다리지 않는 약속은 경계를 지나거나 bestEffort 로(실패를 받는 곳이 있어야 한다). 화면은 void 로 기다리지 않음을 적는다.
+  // 타입 정보가 필요해 봇 · 화면 코드에만 건다(시험은 가짜 · 일부러 기다리지 않는 약속이 많다). 화면 파일은 dashboard/tsconfig.json 이 본다
   {
-    files: ["src/**/*.ts", "scripts/**/*.ts"],
-    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    files: ["src/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname, extraFileExtensions: [".vue"] } },
     rules: {
       "@typescript-eslint/no-floating-promises": ["error", { allowForKnownSafeCalls: [{ from: "file", name: "bestEffort", path: "src/infra/best-effort.ts" }] }],
       "@typescript-eslint/no-misused-promises": "error",

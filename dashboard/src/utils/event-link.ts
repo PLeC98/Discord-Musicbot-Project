@@ -64,19 +64,22 @@ export function eventLink({
     };
   }
 
+  // 다시 열 차례. 로그인이 살아 있으면 열고, 아니면 다음 차례를 건다
+  async function reopen() {
+    timer = undefined;
+    let ok;
+    try {
+      ok = await check();
+    } catch {
+      ok = false;
+    }
+    if (!wanted || source || timer !== undefined) return;
+    if (ok) connect();
+    else reopenLater();
+  }
+
   function reopenLater() {
-    timer = schedule(async () => {
-      timer = undefined;
-      let ok;
-      try {
-        ok = await check();
-      } catch {
-        ok = false;
-      }
-      if (!wanted || source || timer !== undefined) return;
-      if (ok) connect();
-      else reopenLater();
-    }, delay(attempt++));
+    timer = schedule(() => void reopen(), delay(attempt++));
   }
 
   return {

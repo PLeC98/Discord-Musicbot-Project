@@ -73,7 +73,7 @@ function insert(message: MessageRow, char: string) {
   message.text = result.text;
 
   carets[message.key] = { start: result.caret, end: result.caret };
-  nextTick(() => {
+  void nextTick(() => {
     const el = inputs[message.key];
     el?.focus();
     el?.setSelectionRange(result.caret, result.caret);

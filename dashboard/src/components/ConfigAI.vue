@@ -1177,6 +1177,22 @@ function onProvider() {
 
 // 무료. 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
 // quiet: 프로바이더를 고를 때 저절로 도는 것이라 실패를 빨갛게 띄우지 않는다.
+// 받은 모델 목록을 넣는다. 목록을 받았으면 고르는 칸으로 돌아가고(못 받았을 때만 직접 적게 한다),
+// 지금 값이 이 프로바이더의 목록에 없으면 기억해 둔 것으로 되돌린다
+function takeModels(list: string[]) {
+  models.value = list;
+  manualModel.value = !list.length;
+  if (list.includes(draft.value.model ?? "")) return;
+  const remembered = rememberedModels()[draft.value.provider ?? ""];
+  draft.value.model = list.includes(remembered) ? remembered : list[0] || "";
+}
+
+// 무료 테스트의 결과 칸
+function modelsTested(got: ModelsCheck): Tested {
+  const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
+  return { kind: "무료 테스트", ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, extra: got.ok ? `모델 ${models.value.length}개${hidden}` : "", body: got.ok ? "" : got.response, raw: got.response };
+}
+
 async function loadModels({ quiet = false } = {}) {
   loadingModels.value = true;
   showRaw.value = false;
@@ -1184,26 +1200,9 @@ async function loadModels({ quiet = false } = {}) {
 
   try {
     const got = (await axios.post<ModelsCheck>("/api/admin/ai/models", { data: payload.value }, { timeout: LIMIT.none })).data;
-    models.value = got.models || [];
-    // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
-    manualModel.value = !models.value.length;
-    // 지금 값이 이 프로바이더의 목록에 없으면 기억해 둔 것으로 되돌린다
-    if (!models.value.includes(draft.value.model ?? "")) {
-      const remembered = rememberedModels()[draft.value.provider ?? ""];
-      draft.value.model = models.value.includes(remembered) ? remembered : models.value[0] || "";
-    }
+    takeModels(got.models || []);
     if (quiet && !got.ok) return;
-    const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
-    tested.value = {
-      kind: "무료 테스트",
-      ok: got.ok,
-      status: got.status,
-      tookMs: got.tookMs ?? 0,
-      reason: got.reason,
-      extra: got.ok ? `모델 ${models.value.length}개${hidden}` : "",
-      body: got.ok ? "" : got.response,
-      raw: got.response,
-    };
+    tested.value = modelsTested(got);
   } catch (error) {
     if (!quiet) tested.value = { kind: "무료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "불러오지 못했습니다.") };
   } finally {
