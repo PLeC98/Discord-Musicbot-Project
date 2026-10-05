@@ -142,12 +142,12 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.enqueue(p, [t("E")], { front: true });
   trackState.shiftNext(p);
   assert.ok(p.currentTrack);
-  trackState.retire(p, p.currentTrack, { requeue: true });
+  trackState.retire(p, t("F"), { requeue: true }); // 반복 중에 끝난 곡 F: 기록과 대기열 끝 양쪽에(지금 곡 E 와는 다른 곡이라 rewind 가 건너뛰지 않는다)
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
-  trackState.rewind(p); // 큐 반복으로 끝에 들어간 E(3번째)를 빼고 앞으로 — 현재곡 E도 그 뒤에
-  trackState.rewindRing(p); // 대기열 [E, E, C, B, D] 의 맨 끝(D, 4번째)을 앞으로. 기록은 그대로
+  trackState.rewind(p); // 큐 반복으로 끝에 들어간 F(3번째)를 빼고 앞으로 — 현재곡 E 는 그 뒤에
+  trackState.rewindRing(p); // 대기열 [F, E, C, B, D] 의 맨 끝(D, 4번째)을 앞으로. 기록은 그대로
   trackState.shuffle(p);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
@@ -155,7 +155,7 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.rewind(p);
   trackState.restore(p, { current: t("R") }, { persisted: true }); // 저장소에서 읽은 그대로 — 알리지 않는다
 
-  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "E", 3, "E", true], ["onRewind", "D", 4, "E", false], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
+  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "F", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "F", 3, "E", true], ["onRewind", "D", 4, "E", false], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
 
 const song = (title: string) => t(title, { requestKey: `https://y/${title}` });
@@ -175,6 +175,26 @@ test("rewindRing: 대기열 반복의 이전 곡은 대기열 맨 끝 곡이다.
   assert.deepEqual(titles(p.queue), ["A", "B", "C"]);
   assert.deepEqual(titles(p.previousTracks), ["A"]);
   assert.equal(trackState.rewindRing(make({ current: song("B"), queue: [] })), null, "대기열이 비면 꺼낼 곡이 없다");
+});
+
+test("rewind: 대기열 반복에서 이전 곡(고리)을 누른 뒤 반복을 끄고 또 누르면, 기록 끝에 남은 지금 곡을 건너뛰고 그 앞 곡으로 간다 — 곡이 늘지 않는다", () => {
+  const [A, B, C, D] = ["A", "B", "C", "D"].map((x) => song(x));
+  const p = make({ current: A, queue: [B, C, D] });
+  p.loop = "queue";
+  const next = (reason: string) => {
+    if (reason !== "previous") trackState.retire(p, p.currentTrack!, { requeue: p.loop === "queue" });
+    trackState.shiftNext(p);
+  };
+  next("skip");
+  next("skip"); // 지금 C, 기록 A · B
+  trackState.rewindRing(p);
+  next("previous"); // 지금 B(고리로 되돌림), 기록은 그대로 A · B
+  p.loop = false;
+  assert.equal(trackState.rewind(p), A, "기록 끝의 B 는 지금 곡이라 건너뛰고 A");
+  next("previous");
+  assert.equal(p.currentTrack, A);
+  assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
+  assert.deepEqual(titles(p.previousTracks), []);
 });
 
 test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리지 않는다 — 사용자가 일부러 넣은 곡이다", () => {

@@ -8,6 +8,8 @@ declare module "vue-router" {
     requiresAuth?: boolean;
     /** 봇 운영자만(실 운영자 기준) */
     requiresOwner?: boolean;
+    /** 그 서버의 재생 화면이다. 그 서버를 듣고 있으면 재생 바가 숨고 상태는 이 화면이 받는다(같은 서버의 설정 화면은 아니다) */
+    playerPage?: boolean;
   }
 }
 
@@ -29,7 +31,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/servers/:guildId",
     component: () => import("../views/ServerView.vue"),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, playerPage: true },
   },
   {
     path: "/servers/:guildId/settings",

@@ -87,9 +87,10 @@ const router = useRouter();
 const route = useRoute();
 const trackEl = ref<HTMLElement | null>(null);
 
-// 지금 보고 있는 서버 화면. 그 서버를 듣고 있으면 바가 숨는다(저장소는 라우터를 읽지 않는다)
+// 지금 보고 있는 서버의 재생 화면. 그 서버를 듣고 있으면 바가 숨는다(저장소는 라우터를 읽지 않는다).
+// 주소의 서버 ID 만 보면 같은 서버의 설정 화면도 재생 화면으로 여겨, 바가 숨고 상태 갱신도 멈춘다
 watch(
-  () => route.params.guildId,
+  () => (route.meta.playerPage ? route.params.guildId : null),
   (id) => (np.page = typeof id === "string" ? id : null),
   { immediate: true },
 );

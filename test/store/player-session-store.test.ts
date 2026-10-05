@@ -58,8 +58,10 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   trackState.init(p);
   // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
   const onRewind = (track: TrackIn, copy: number, current: TrackIn | null) => store.rewind(G, track, { copy, current });
+  // 통째로 다시 쓰라는 알림(이전곡이 기록 끝의 지금 곡을 건너뛴 때 등)은 실제 거울(session-mirror resync)처럼 그대로 옮겨 쓴다
+  const onReplace = () => store.replaceTracks(G, { current: p.currentTrack, queue: p.queue, history: p.previousTracks });
   const skip = () => {};
-  p.trackSink = { onRewind, onSetCurrent: skip, onEnqueue: skip, onTake: skip, onRetire: skip, onRemoveAt: skip, onMove: skip, onClearQueue: skip, onReset: skip, onReplace: skip };
+  p.trackSink = { onRewind, onSetCurrent: skip, onEnqueue: skip, onTake: skip, onRetire: skip, onRemoveAt: skip, onMove: skip, onClearQueue: skip, onReset: skip, onReplace };
   const pick = rng(20260915);
 
   const ops = [

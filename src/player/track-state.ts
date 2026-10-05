@@ -105,15 +105,27 @@ function retire(player: Pick<Tracks, "previousTracks" | "queue" | "trackSink">, 
 // 이전 곡(기록 끝)을 맨 앞에, 중단된 현재곡을 그 바로 뒤에. 이전 곡이 끝나면 원래 자리부터 이어진다.
 // 대기열 반복이 아닐 때 쓴다(반복이면 rewindRing)
 function rewind(player: Tracks) {
+  // 대기열 반복의 이전 곡(rewindRing)은 기록을 건드리지 않아, 고리로 되돌린 지금 곡이 기록 끝에도 남는다.
+  // 반복을 끈 뒤 이전 곡을 누르면 그 곡(= 지금 곡)이 한 번 더 생기므로 건너뛴다. 같은 객체일 때만(일부러 다시 넣은 같은 곡은 다른 객체다)
+  let stale = false;
+  while (player.currentTrack && player.previousTracks.at(-1) === player.currentTrack) {
+    player.previousTracks.pop();
+    stale = true;
+  }
   const prev = player.previousTracks.pop();
-  if (!prev) return null;
+  if (!prev) {
+    if (stale) sinkOf(player)?.onReplace();
+    return null;
+  }
   // 반복을 끄기 전에 대기열 끝으로 돌아간 사본이 남아 있을 수 있다. 빼지 않으면 곡이 하나 늘어난다
   const copy = player.queue.lastIndexOf(prev);
   if (copy >= 0) player.queue.splice(copy, 1);
   player.queue.unshift(prev);
   const current = player.currentTrack;
   if (current) player.queue.splice(1, 0, current);
-  sinkOf(player)?.onRewind(prev, copy, current, true);
+  // 기록을 하나 더 뺐으면 저장소는 통째로 다시 쓴다(onRewind 는 기록 한 줄만 뺀다)
+  if (stale) sinkOf(player)?.onReplace();
+  else sinkOf(player)?.onRewind(prev, copy, current, true);
   return prev;
 }
 
