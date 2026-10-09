@@ -163,7 +163,6 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 대시보드: 상태
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 골라 주세요."),
-  "member-not-found": () => warning("notFound", "서버에서 내 정보를 찾을 수 없어요!", "그 서버에서 나갔거나 디스코드가 멤버 정보를 주지 않았어요. 잠시 뒤에 다시 시도해 주세요."),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없어요!", "먼저 참가 버튼으로 봇을 음성 채널에 불러 주세요."),
   "too-many-requests": () => warning("waiting", "요청이 너무 많아요!", "짧은 시간에 요청을 많이 보냈어요. 잠시 뒤에 다시 시도해 주세요."),
   "too-many-streams": () => warning("waiting", "실시간 연결이 너무 많아요!", "이 계정으로 열어 둔 대시보드 탭이 너무 많아요. 쓰지 않는 탭을 닫아 주세요."),

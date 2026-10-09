@@ -3,7 +3,6 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import type { PlayerStream } from "../player-stream.ts";
-import { isOwner } from "../owner.ts";
 import { sendProblem } from "../problem.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
@@ -29,15 +28,14 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
 
   // SSE. 화면의 탭 하나가 여는 연결. 사용자 단위 멀티플렉스(볼 수 있는 서버 전체를 한 연결로).
   // 볼 수 있는가는 보낼 때 멤버 캐시로 본다(동기여야 한다. 권한 · 서버 목록과 같은 기댐). 그래서 열 때 봇이 든 서버마다
-  // 그 사람을 한 번 가져와 캐시를 채운다(캐시 우선, 없으면 REST). 운영자는 봇이 든 서버 전부
+  // 그 사람을 한 번 가져와 캐시를 채운다(캐시 우선, 없으면 REST). 운영자도 참가한 서버만
   router.get("/events", requireAuth, async (req, res) => {
     const { client } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    const owner = isOwner(req);
-    if (!owner) await Promise.all([...client.guilds.cache.values()].map((guild) => guild.members.fetch(user.id).catch(() => null)));
-    const canSee = (guildId: string) => owner || Boolean(client.guilds.cache.get(guildId)?.members.cache.has(user.id));
+    await Promise.all([...client.guilds.cache.values()].map((guild) => guild.members.fetch(user.id).catch(() => null)));
+    const canSee = (guildId: string) => Boolean(client.guilds.cache.get(guildId)?.members.cache.has(user.id));
     stream.addClient(res, canSee, user.id);
   });
 

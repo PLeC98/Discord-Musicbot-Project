@@ -10,7 +10,6 @@ import { isModerator } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES, categoryLabel, categoryDescription } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
-import { isOwner } from "../owner.ts";
 import { openGuild } from "../guild-access.ts";
 import { parse, settingsBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
@@ -71,13 +70,13 @@ function createGuildSettingsRouter() {
   // ── Settings endpoints ────────────────────────────────────────────────────────
 
   // 서버 설정 조회. DJ 역할·봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-  // 조회·변경 모두 모더레이터/봇 운영자 전용 (사용자 결정. 일반 멤버는 ⚙ 진입 자체 불가).
+  // 조회·변경 모두 모더레이터 전용 (사용자 결정. 일반 멤버는 ⚙ 진입 자체 불가).
   router.get("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member } = ctx;
 
-    const canEdit = isOwner(req) || (member ? isModerator(member) : false);
+    const canEdit = isModerator(member);
     if (!canEdit) {
       return sendProblem(res, "must-moderator");
     }
@@ -117,14 +116,14 @@ function createGuildSettingsRouter() {
     res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd } satisfies GuildSettings);
   });
 
-  // 서버 설정 변경. 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
+  // 서버 설정 변경. 모더레이터만. /setdjrole·/setchannel과 동일 기준.
   // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    if (!isOwner(req) && !(member && isModerator(member))) {
+    if (!isModerator(member)) {
       return sendProblem(res, "must-moderator");
     }
 

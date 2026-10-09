@@ -1,10 +1,9 @@
-// 서버 목록. 봇이 든 서버 중 지금 멤버인 것(운영자는 전부)
+// 서버 목록. 봇이 든 서버 중 지금 멤버인 것(운영자도 같다)
 
 import express from "express";
 import { PermissionFlagsBits } from "discord.js";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { isOwner } from "../owner.ts";
 import { voiceFlags } from "../guild-access.ts";
 import { sendProblem } from "../problem.ts";
 import { soundAttached } from "../../ui/player-status.ts";
@@ -23,17 +22,16 @@ function listState(botInVoice: boolean, player: Player | undefined): ListState {
 function createGuildListRouter() {
   const router = express.Router();
 
-  // 봇이 든 서버 중 지금 멤버인 곳(운영자는 전부). 로그인 때 받은 서버 목록에 기대지 않아 그 뒤 들어간 서버도 보이고 나간 서버는 빠진다
+  // 봇이 든 서버 중 지금 멤버인 곳. 로그인 때 받은 서버 목록에 기대지 않아 그 뒤 들어간 서버도 보이고 나간 서버는 빠진다
   router.get("/", requireAuth, async (req, res) => {
     const { client, players } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    const owner = isOwner(req);
     const rows = await Promise.all(
       [...client.guilds.cache.values()].map(async (guild): Promise<GuildRow | null> => {
         const member = await guild.members.fetch(user.id).catch(() => null); // 캐시 우선
-        if (!member && !owner) return null;
+        if (!member) return null;
         const player = players.get(guild.id);
         // 지금 곡(서버 카드가 그린다). 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙)
         const track = player && soundAttached(player) ? player.currentTrack : null;
@@ -42,7 +40,7 @@ function createGuildListRouter() {
           name: guild.name,
           icon: guildIconUrl(guild.id, guild.icon),
           // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다. 봇 운영자(isOwner)와 무관
-          canManageGuild: member?.permissions.has(PermissionFlagsBits.ManageGuild) ?? false,
+          canManageGuild: member.permissions.has(PermissionFlagsBits.ManageGuild),
           hasPlayer: players.has(guild.id),
           state: listState(voiceFlags(guild, user.id).botInVoice, player),
           memberCount: guild.memberCount,

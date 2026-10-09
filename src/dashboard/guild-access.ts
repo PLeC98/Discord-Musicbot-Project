@@ -1,14 +1,14 @@
-// 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십(운영자는 면제) · 권한 수준 오버라이드
+// 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십 · 권한 수준 오버라이드.
+// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 자리대로다(ref-dashboard-security "서버 접근")
 
 import type { Guild, GuildMember } from "discord.js";
 import type { Request, Response } from "express";
 import type { Actor } from "../usecases/controls.ts";
 import { signedIn } from "./middleware/require-auth.ts";
-import { isOwner } from "./owner.ts";
 import { shadowMember } from "./view-as.ts";
 import { sendProblem } from "./problem.ts";
 
-/** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null. 운영자가 아니면 actor.member 가 있다 */
+/** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null(멤버가 아니면 no-guild-access) */
 async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   const { bot } = req.app.locals;
   const { client } = bot;
@@ -23,26 +23,23 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
     return null;
   }
 
-  // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단).
-  // 봇 운영자(OWNER_ID)는 멤버십과 무관하게 통과. member는 후속 권한 계산에 재사용.
+  // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   let fetched: GuildMember | null = null;
   try {
     fetched = await guild.members.fetch(signedIn(req).id); // 캐시 우선, 미스 시 REST 1회
   } catch {
-    /* 멤버 아님. 아래에서 운영자만 지나간다 */
+    /* 멤버 아님 */
+  }
+  if (!fetched) {
+    sendProblem(res, "no-guild-access");
+    return null;
   }
 
   // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다. 이 한 곳이면 아래의
   // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
   const member = shadowMember(req, fetched);
-  // 재생 조작을 하는 사람. 운영자면 운영자로, 아니면 그 멤버로
-  let actor: Actor;
-  if (isOwner(req)) actor = { owner: true };
-  else if (member) actor = { member };
-  else {
-    sendProblem(res, "no-guild-access");
-    return null;
-  }
+  // 재생 조작을 하는 사람
+  const actor: Actor = { member };
   return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };
 }
 

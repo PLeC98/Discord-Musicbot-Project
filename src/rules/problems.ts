@@ -115,7 +115,6 @@ const WEB = {
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
   "guild-not-found": { status: 404, title: "Server not found" },
-  "member-not-found": { status: 404, title: "Member not found in the server" },
   "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
   "too-many-requests": { status: 429, title: "Too many requests" },
   "too-many-streams": { status: 429, title: "Too many event streams" },

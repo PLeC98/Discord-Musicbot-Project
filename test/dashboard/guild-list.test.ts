@@ -57,6 +57,12 @@ test("멤버인 서버만, 서버 ID 차례로", async () => {
   );
 });
 
+test("운영자도 멤버인 서버만(참가하지 않은 서버는 보이지 않는다)", async () => {
+  user = { id: "owner", username: "운영자" };
+  assert.deepEqual(await list(), []);
+  user = { id: "u1", username: "사용자" };
+});
+
 test("지금 곡: 소리가 붙어 있을 때만 제목 · 가수 · 그림, 그 밖은 null", async () => {
   players.clear();
   players.set("100", fakePlayer({ currentTrack: track, audioPlayer: { state: { status: AudioPlayerStatus.Playing } } }));

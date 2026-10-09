@@ -178,19 +178,23 @@ test("GET settings: 일반 멤버는 조회도 403 (모더레이터 전용)", as
   assert.equal(r.status, 403);
 });
 
-test("GET settings: 비멤버 403 / 봇 운영자는 비멤버여도 200", async () => {
+test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 모더레이터가 아니면 403(서버 안 우대 없음)", async () => {
   currentMember = null;
   let r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 403);
 
   currentUser = { id: "owner", username: "owner", guilds: [] };
   r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.equal(r.status, 200);
-  assert.equal(r.json.canEdit, true);
+  assert.deepEqual([r.status, r.json.code], [403, "no-guild-access"]);
+
+  currentMember = plainMember();
+  r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+  assert.deepEqual([r.status, r.json.code], [403, "must-moderator"]);
+  currentMember = null;
   currentUser = { id: "u1", username: "tester", guilds: [] };
 });
 
-// guilds.ts의 운영자 우회 분기도 세션 값이 아니라 현재 OWNER_ID로 판정한다
+// 옛 세션에 남은 isAdmin 값으로는 아무것도 지나가지 않는다
 test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 되지 않는다", async () => {
   currentMember = null;
   currentUser = { id: "former-owner", username: "이전 운영자", isAdmin: true, guilds: [] };
@@ -411,11 +415,7 @@ test("GET guilds: 로그인 때 받은 목록이 아니라 봇이 든 서버 중
 
   currentUser = { id: "owner", username: "운영자", guilds: [] };
   r = await req("GET", "/api/guilds");
-  assert.deepEqual(
-    r.json.guilds?.map((g) => [g.id, g.canManageGuild]),
-    [[GUILD_ID, false]],
-    "운영자는 멤버가 아니어도 보인다",
-  );
+  assert.deepEqual(r.json.guilds, [], "운영자도 멤버가 아니면 보이지 않는다");
 
   currentUser = { id: "u1", username: "tester", guilds: [] };
   currentMember = plainMember();
@@ -540,12 +540,12 @@ test("PUT settings: 모양이 틀리면 bad-settings 400 에 칸별 문제(JSON 
 
 // ── POST /player/join ────────────────────────────────────────
 
-// 부르는 사람은 서버를 연 그 멤버다(대역 멤버도 거기서 걸린다). 운영자는 멤버가 아니어도 서버를 열지만 음성에 없으니 부를 수 없다
-test("POST join: 멤버가 아닌 운영자는 member-not-found, 음성 밖의 멤버는 must-be-in-voice", async () => {
+// 부르는 사람은 서버를 연 그 멤버다(대역 멤버도 거기서 걸린다). 운영자도 멤버가 아니면 서버를 열지 못한다
+test("POST join: 멤버가 아닌 운영자는 no-guild-access, 음성 밖의 멤버는 must-be-in-voice", async () => {
   currentMember = null;
   currentUser = { id: "owner", username: "운영자", guilds: [] };
   const owner = await req("POST", `/api/guilds/${GUILD_ID}/player/join`);
-  assert.deepEqual([owner.status, owner.json.code], [404, "member-not-found"]);
+  assert.deepEqual([owner.status, owner.json.code], [403, "no-guild-access"]);
 
   currentMember = plainMember();
   currentUser = { id: "u1", username: "tester", guilds: [] };

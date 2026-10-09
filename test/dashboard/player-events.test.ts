@@ -1,7 +1,7 @@
 // src/dashboard/routes/player-events.ts — 서버 목록의 재생 상태 알림(SSE)을 누가 어느 서버로 받는가.
 //
 // 지키려는 계약: 지금 멤버인 서버의 신호만 받는다. 로그인할 때 받은 서버 목록이나 연결을 연 때의 집합에 기대면,
-// 그 뒤 나간 서버의 재생 상태가 계속 흘러가거나 그 뒤 들어간 서버의 신호가 빠진다. 운영자는 봇이 있는 서버 전부.
+// 그 뒤 나간 서버의 재생 상태가 계속 흘러가거나 그 뒤 들어간 서버의 신호가 빠진다. 운영자도 같다(참가한 서버만).
 // 볼 수 있는지는 보낼 때 멤버 캐시로 묻는다. 그래서 연결을 열 때와 봇이 새 서버에 들 때 캐시를 채운다.
 
 process.env.OWNER_ID = "owner";
@@ -94,12 +94,12 @@ test("연결을 연 뒤 봇이 새 서버에 들면, 연결을 연 사람을 그
   }
 });
 
-test("운영자는 확인 없이 봇이 있는 서버 전부", async () => {
+test("운영자도 참가한 서버만", async () => {
   subscribed.length = 0;
   user = { id: "owner", username: "o", guilds: [] };
   try {
     await requestJson(base, "GET", "/api/guilds/events");
-    assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1", "g2"]);
+    assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1"]);
   } finally {
     user = { id: "u1", username: "u", guilds: [{ id: "g1" }, { id: "g2" }, { id: "gone" }] };
   }

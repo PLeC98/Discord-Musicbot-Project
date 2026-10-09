@@ -69,12 +69,15 @@ test("멤버면 응답을 쓰지 않고 서버 · 플레이어 · 멤버를 돌�
   assert.equal(got?.actor.member, got?.member);
 });
 
-test("운영자는 그 서버 멤버가 아니어도 운영자로 연다", async () => {
-  const { req, res, sent } = setup({ member: false });
-  const got = await withConfig({ dashboard: { ownerId: "u1" } }, () => openGuild(req, res, "g1"));
-  assert.deepEqual(sent, {});
-  assert.deepEqual(got?.actor, { owner: true });
-  assert.equal(got?.member, null);
+test("운영자도 그 서버 멤버가 아니면 열지 못하고, 멤버면 그 멤버로 조작한다(서버 안 우대 없음)", async () => {
+  const outside = setup({ member: false });
+  assert.equal(await withConfig({ dashboard: { ownerId: "u1" } }, () => openGuild(outside.req, outside.res, "g1")), null);
+  assert.deepEqual(codeOf(outside.sent), [403, "no-guild-access"]);
+
+  const inside = setup();
+  const got = await withConfig({ dashboard: { ownerId: "u1" } }, () => openGuild(inside.req, inside.res, "g1"));
+  assert.deepEqual(inside.sent, {});
+  assert.equal(got?.actor.member, got?.member);
 });
 
 test("권한 보기 전환(viewAs)이 걸려 있으면 권한만 바꾼 멤버로 판정한다(운영자도 그 계층의 멤버가 된다)", async () => {

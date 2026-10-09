@@ -4,7 +4,7 @@
 // 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
 //   공통 code: no-song(플레이어나 틀고 있는 곡이 없다) · 권한 판정이 막은 까닭의 코드(must-dj 등)
 //
-// actor: 누가 시켰나. { member } 는 디스코드 멤버, { owner: true } 는 대시보드 운영자(권한 판정을 건너뛴다)
+// actor: 누가 시켰나. 디스코드 멤버(대시보드도 그 서버의 멤버로 조작한다)
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
@@ -22,8 +22,8 @@ import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
 import type { Code, Params, Problem } from "../rules/problems.ts";
 
-/** 누가 시켰나. 디스코드 멤버, 또는 대시보드 운영자(권한 판정을 건너뛴다) */
-type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?: undefined };
+/** 누가 시켰나: 디스코드 멤버 */
+type Actor = { member: GuildMember };
 /** 거절: 문제의 코드와 그 문장에 드는 값(길이 넘침은 durationMs, 자리 틀림은 size, 모르는 장르는 genre) */
 type Refusal = { ok: false } & Problem;
 /** 이 서버에 플레이어가 없을 수 있다 */
@@ -42,7 +42,6 @@ const refresh = (player: Player) => playerEvents.refresh(player).catch((error) =
 
 // 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 부르는 쪽이 먼저 본다
 async function permitted(player: Player, actor: Actor, check: Check = perm.checkControl) {
-  if (actor.owner) return null;
   const permission = await check(actor.member, player);
   return permission ? fail(permission) : null;
 }
@@ -318,7 +317,6 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
  * 장르 메뉴를 띄우기 전에 입구가 본다. 막히면 거절, 지나가면 null
  */
 async function autoplayBlocked(actor: Actor) {
-  if (actor.owner) return null;
   const permission = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
   return permission ? fail(permission) : null;
 }
@@ -351,10 +349,8 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
  * 권한은 플레이어가 없어도 본다
  */
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
-  if (!actor.owner) {
-    const permission = await perm.checkControl(actor.member);
-    if (permission) return fail(permission);
-  }
+  const permission = await perm.checkControl(actor.member);
+  if (permission) return fail(permission);
   const player = players.get(guild.id);
   if (!player) {
     if (!guild.members.me?.voice?.channel) return fail("no-song");

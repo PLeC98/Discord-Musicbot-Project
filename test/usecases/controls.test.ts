@@ -38,7 +38,6 @@ const guild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: { id: "
 const member = ({ mod = true, inVoice = true, id = "u1" } = {}) => fake<GuildMember>({ id, guild, permissions: { has: () => mod }, voice: { channel: inVoice ? { id: "vc1" } : null }, roles: { cache: new Map() } });
 const DJ: Actor = { member: member() };
 const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
-const OWNER: Actor = { owner: true };
 
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: "", requestKey: title, platform: "youtube", duration: 0, ...extra });
 
@@ -87,10 +86,9 @@ function panel() {
   return seen;
 }
 
-test("공통: 플레이어가 없으면 no-song, 권한이 없으면 권한 판정이 막은 까닭의 코드, 운영자는 권한을 건너뛴다", async () => {
+test("공통: 플레이어가 없으면 no-song, 권한이 없으면 권한 판정이 막은 까닭의 코드", async () => {
   assert.deepEqual(await controls.pause(null, DJ), { ok: false, code: "no-song" });
   assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "must-be-in-same-voice" });
-  assert.equal((await controls.pause(fakePlayer(), OWNER)).ok, true);
 });
 
 test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다", async () => {
@@ -340,9 +338,9 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
 
   let disconnected = 0;
   const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });
-  assert.deepEqual(await controls.leave(lingering, OWNER, players), { ok: true, left: "voice-only" });
+  assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only" });
   assert.equal(disconnected, 1);
-  assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), OWNER, players)), "no-song");
+  assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), DJ, players)), "no-song");
 });
 
 test("패널을 못 고쳐도 조작은 된 것이다", async () => {
@@ -352,11 +350,10 @@ test("패널을 못 고쳐도 조작은 된 것이다", async () => {
   assert.equal((await controls.shuffle(fakePlayer(), DJ)).ok, true);
 });
 
-test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 있어야 한다. 운영자는 건너뛴다", async () => {
+test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 있어야 한다", async () => {
   const [genre] = Object.keys(genreConfig.genres().genres);
   assert.deepEqual(await controls.autoplayBlocked(OUTSIDER), { ok: false, code: "must-be-in-same-voice" });
   assert.equal(await controls.autoplayBlocked(DJ), null);
-  assert.equal(await controls.autoplayBlocked(OWNER), null);
 
   // 봇이 쉬는데 부른 사람이 음성에 없으면 소환할 곳이 없다. 플레이어가 있어도 같다
   const idleGuild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: null } } } });

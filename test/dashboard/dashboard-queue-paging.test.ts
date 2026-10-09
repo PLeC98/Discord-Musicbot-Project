@@ -47,9 +47,8 @@ const guild = {
   roles: { cache: new Map() },
   channels: { cache: new Map() },
   members: {
-    fetch: async () => {
-      throw new Error("Unknown Member");
-    },
+    // 그 서버의 모더레이터(재적 · DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
+    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },
 };
