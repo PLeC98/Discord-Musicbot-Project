@@ -19,14 +19,16 @@ identityRouter.get("/me", (req, res) => {
   res.json({ ...user, avatarUrl: avatarUrl(user.id, user.avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) } satisfies Me);
 });
 
-// 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름 · 그림은 준비 전이면 null
+// 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름 · 그림은 준비 전이면 null.
+// 봇 그림은 크게 받는다: 로그인 화면이 배경으로도 깐다(디스코드는 저장된 원본보다 크게 늘리지 않는다). 화면 곳곳이 같은 주소라 한 번 받는다
 identityRouter.get("/bot", (req, res) => {
   const botUser = req.app.locals.bot.client.user;
   res.json({
     name: botUser?.username ?? null,
-    avatarUrl: botUser?.avatarURL({ size: 256, extension: "webp" }) || null,
+    avatarUrl: botUser?.avatarURL({ size: 1024, extension: "webp" }) || null,
     sourceRepo: config.bot.sourceRepo, // AGPL 소스 공개 (개조본 = SOURCE_REPO_URL, 미설정 시 projectRepo)
     projectRepo: config.bot.projectRepo, // 원본 프로젝트 저장소
+    brandColor: config.bot.embedColor,
   } satisfies BotInfo);
 });
 

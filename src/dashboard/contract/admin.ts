@@ -5,6 +5,7 @@ import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 import type { SourceTypeView } from "../../config/schema/genre-sources.ts";
 import type { ModelField, ModelGroup, ModelSummary } from "../../config/ai-model-types.ts";
 import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
+import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
 
 /** 봇 · Node · 시스템 상태. 메모리는 MB, uptime 은 봇이 켜진 뒤의 초. logLevel 은 서버가 보내고 있는 가장 낮은 레벨 */
@@ -61,6 +62,9 @@ type AiFields = { known: boolean; fields: ModelField[]; groups?: ModelGroup[]; m
 /** 칸마다의 본문 토큰. exact 가 아니면 어림 */
 type TokensReply = { each: number[]; total: number; by: string; exact: boolean };
 type CandidatesReply = { candidates: TestCandidate[] };
+
+/** 판정 테스트 · 미리보기에서 조회한 곡이 없을 때 쓰는 보기 곡. 봇(autoplay/assist)과 화면(조회 안 한 주소 안내)이 같은 것을 본다 */
+const AI_SAMPLE_CANDIDATES = SAMPLE_CANDIDATES;
 type LinesReply = { lines: string[] };
 type KeysReply = { hasKey: Record<string, boolean> };
 type PromptReply = { sections: PromptSection[] };
@@ -70,5 +74,5 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 /** 유튜브 쿠키. 값은 오지 않는다. inFlight 가 0 이 아니면 지금 덮어써도 도는 yt-dlp 가 끝나며 되돌린다 */
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
-export { ANNOUNCE_KINDS, ANNOUNCE_MAX, announceBody, isAnnounceKind };
+export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, announceBody, isAnnounceKind };
 export type { AdminStatus, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };

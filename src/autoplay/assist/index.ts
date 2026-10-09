@@ -20,6 +20,7 @@ import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 import type { AiDefaults, AiSettings, Body, Judged, JudgeResult, ListFormat, ModelsCheck, PingCheck, Preview, TestCandidate, TokenCount, Usage, Wire } from "./types.ts";
+import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 
@@ -995,9 +996,6 @@ async function ping(draft: Draft): Promise<PingCheck> {
   }
 }
 
-// 미리보기용 보기 곡. 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
-const SAMPLE: TestCandidate[] = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
-
 /**
  * 저장하기 전의 설정으로 나갈 것을 만들어만 본다. 보내지 않는다.
  * 조립은 봇이 쓰는 코드 그대로다. 화면이 따로 흉내 내면 언젠가 어긋난다.
@@ -1006,7 +1004,7 @@ const SAMPLE: TestCandidate[] = [{ title: "System Of A Down - Toxicity (Official
  */
 async function preview(draft: Draft, genre = "록"): Promise<Preview> {
   const one = withDefaults(draft);
-  const request = await buildRequest(one, SAMPLE, genre, { live: false });
+  const request = await buildRequest(one, SAMPLE_CANDIDATES, genre, { live: false });
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
 }
 
@@ -1059,14 +1057,14 @@ function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "�
 }
 
 /**
- * 고른 후보들을 실제로 판정시킨다. SAMPLE 이 아니라 진짜 곡으로.
+ * 고른 후보들을 실제로 판정시킨다. 보기 곡이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
 async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록"): Promise<JudgeResult> {
   const one = withDefaults(draft);
   // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
-  const usable = picked.length ? picked : SAMPLE;
+  const usable = picked.length ? picked : SAMPLE_CANDIDATES;
 
   const started = Date.now();
   let request: Awaited<ReturnType<typeof buildRequest>>;

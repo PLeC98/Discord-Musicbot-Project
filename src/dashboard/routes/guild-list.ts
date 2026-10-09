@@ -34,6 +34,9 @@ function createGuildListRouter() {
       [...client.guilds.cache.values()].map(async (guild): Promise<GuildRow | null> => {
         const member = await guild.members.fetch(user.id).catch(() => null); // 캐시 우선
         if (!member && !owner) return null;
+        const player = players.get(guild.id);
+        // 지금 곡(서버 카드가 그린다). 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙)
+        const track = player && soundAttached(player) ? player.currentTrack : null;
         return {
           id: guild.id,
           name: guild.name,
@@ -41,11 +44,12 @@ function createGuildListRouter() {
           // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다. 봇 운영자(isOwner)와 무관
           canManageGuild: member?.permissions.has(PermissionFlagsBits.ManageGuild) ?? false,
           hasPlayer: players.has(guild.id),
-          state: listState(voiceFlags(guild, user.id).botInVoice, players.get(guild.id)),
+          state: listState(voiceFlags(guild, user.id).botInVoice, player),
           memberCount: guild.memberCount,
           // 전역 재생 바가 대상 서버를 찾는 기준. 동시 음성 참여는 불가능하므로 참인 서버는 많아야 하나다.
           // 캐시된 음성 상태만 읽으므로 REST 호출이 늘지 않는다.
           listening: voiceFlags(guild, user.id).sameVoice,
+          nowPlaying: track ? { title: track.title ?? null, artist: track.artist ?? null, thumbnail: track.thumbnail ?? null } : null,
         };
       }),
     );
