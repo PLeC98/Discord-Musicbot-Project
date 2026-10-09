@@ -239,13 +239,16 @@ const STATUSES: Case[] = [
 
 const AIS: Case[] = [
   [
-    "모르는 provider · 옛 enabled",
+    "켰는데 모르는 provider",
     {
       provider: "nope",
       enabled: true,
     },
-    [`provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`, "enabled 는 provider 로 바뀌었습니다. off 또는 openai 를 적으세요.", "model을 적어야 합니다."],
+    [`provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`, "model을 적어야 합니다."],
   ],
+  ["켰는데 provider 를 안 골랐다", { enabled: true, provider: "off" }, ["켜려면 provider를 골라야 합니다."]],
+  ["enabled 는 참 · 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 합니다."]],
+  ["꺼 두면 나머지 칸은 따지지 않는다", { enabled: false, provider: "nope", timeoutMs: "x" }, []],
   [
     "custom 에 baseUrl 없음 · model 없음",
     {

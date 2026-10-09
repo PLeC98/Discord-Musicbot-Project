@@ -9,6 +9,8 @@ type ListFormat = { unknownDuration?: string; unknownText?: string; lineFormat?:
  * 수 칸은 글자일 수 있어 쓰는 자리에서 Number 로 바꾼다
  */
 type AiSettings = {
+  /** 켜고 끄기. false 면 부르지 않는다. 없으면 provider 로 판단한다 */
+  enabled?: boolean;
   provider?: string;
   model?: string;
   baseUrl?: string;

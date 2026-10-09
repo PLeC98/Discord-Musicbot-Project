@@ -10,7 +10,7 @@ type AiUnknown = (typeof AI_UNKNOWN)[number];
 const isAiUnknown = (v: unknown): v is AiUnknown => AI_UNKNOWN.some((one) => one === v);
 
 // ai.yaml 의 키 차례(config/ai.example.yaml 과 같다). 저장은 받은 차례대로 파일을 줄 세우므로 대시보드가 이 차례로 보낸다
-const AI_KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
+const AI_KEY_ORDER = ["enabled", "provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
 
 // 모델이 받는 수치 칸. 범위를 벗어나거나 수가 아니면 같은 문구
 const between = (key: string, min: number, max: number) =>
@@ -42,7 +42,8 @@ const aiFile = z.preprocess(
   z
     .looseObject({
       provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`),
-      enabled: gone("enabled 는 provider 로 바뀌었습니다. off 또는 openai 를 적으세요."),
+      // 켜고 끄기. 끄면(false) 고른 프로바이더 · 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
+      enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
       // 온도도 모델이 받는 칸 하나다. params 아래로 옮겼다
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
       timeoutMs: between("timeoutMs", 1000, 600000),
@@ -79,6 +80,7 @@ const aiFile = z.preprocess(
     })
     // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
     .superRefine((data, ctx) => {
+      if (data.enabled === true && (!data.provider || data.provider === "off")) ctx.addIssue({ code: "custom", message: "켜려면 provider를 골라야 합니다." });
       if (!data.provider || data.provider === "off") return;
       // baseUrl 은 custom 일 때만 쓴다. 나머지는 프로바이더에 박힌 주소로 간다(assist/index)
       if (data.provider === "custom") {
@@ -89,10 +91,14 @@ const aiFile = z.preprocess(
     }, ALWAYS),
 );
 
+/** 꺼 두었는지(enabled: false). 꺼 두면 나머지 칸을 따지지 않는다(프롬프트는 파일이 깨지지 않을 만큼만 본다: ai-prompt 의 promptProblems(…, false)) */
+const aiSwitchedOff = (data: unknown) => !!data && typeof data === "object" && (data as { enabled?: unknown }).enabled === false;
+
 /** AI 설정의 문제 목록. 없으면 빈 배열 */
 function aiProblems(data: unknown): string[] {
+  if (aiSwitchedOff(data)) return [];
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-export { aiProblems, PROMPT_FILE, AI_UNKNOWN, AI_KEY_ORDER, isAiUnknown };
+export { aiProblems, aiSwitchedOff, PROMPT_FILE, AI_UNKNOWN, AI_KEY_ORDER, isAiUnknown };
 export type { AiUnknown };

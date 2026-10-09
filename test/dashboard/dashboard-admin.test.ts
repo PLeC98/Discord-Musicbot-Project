@@ -649,6 +649,12 @@ test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 프롬
     fs.writeFileSync(promptFile, kept);
   }
 
+  // 꺼 두면(enabled: false) 프롬프트의 {{목록}} 자리는 따지지 않는다. 파일이 깨질 글은 그래도 막는다
+  const off = await req<Both>("PUT", "/api/admin/ai/settings", { data: { enabled: false, provider: "openai", model: "" }, sections: [{ role: "user", text: "목록 없음" }] });
+  assert.equal(off.status, 200);
+  assert.deepEqual(off.json.sections, [{ role: "user", text: "목록 없음" }]);
+  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { enabled: false }, sections: [{ role: "user", text: "<|im_end|>" }] })).status, 400);
+
   assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" } })).status, 400, "프롬프트가 없다");
   currentUser = { id: "u1" };
   assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" }, sections: prompt })).status, 403);
@@ -686,10 +692,11 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   // 모르는 프로바이더로 저장되면 조용히 안 돈다
   assert.equal((await req("PUT", "/api/admin/config/ai", { data: { provider: "anthropic" } })).status, 400);
 
-  // enabled 는 provider 로 바뀌었다 — 옛 이름을 적으면 알려 준다
-  const oldKey = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", enabled: true } });
-  assert.equal(oldKey.status, 400);
-  assert.match(detailsOf(oldKey.json), /provider/);
+  // 켜고 끄기(enabled): 켜는데 프로바이더가 없으면 막고, 꺼 두면 덜 채운 칸이 있어도 저장한다
+  const onWithout = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", enabled: true } });
+  assert.equal(onWithout.status, 400);
+  assert.match(detailsOf(onWithout.json), /켜려면 provider/);
+  assert.equal((await req("PUT", "/api/admin/config/ai", { data: { enabled: false, provider: "openai", model: "" } })).status, 200);
 
   // 프롬프트는 딴 파일에 산다 — 설정 파일에 적으면 쓰이지 않으니 알려 준다
   const wrongPlace = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", prompt: "여기 적으면 안 된다" } });

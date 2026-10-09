@@ -21,6 +21,7 @@ import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
 import * as aiConfig from "../../config/ai.ts";
 import { promptProblems } from "../../config/schema/ai-prompt.ts";
+import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieConfig from "../../config/cookies.ts";
 import * as yamlStore from "../../config/yaml-store.ts";
 import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
@@ -397,7 +398,9 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
   const sections = req.body?.sections;
   if (!data || typeof data !== "object" || !Array.isArray(sections)) return sendProblem(res, "nothing-to-save");
 
-  const problems = [...VALIDATORS.ai(data), ...promptProblems(sections, true)];
+  // 꺼 두면(enabled: false) ai.yaml 의 나머지 칸은 따지지 않고, 프롬프트는 파일이 깨지지 않을 만큼만 본다
+  const on = !aiSwitchedOff(data);
+  const problems = [...VALIDATORS.ai(data), ...promptProblems(sections, on)];
   if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
   let before;
@@ -414,7 +417,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
     return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
   try {
-    const savedSections = aiConfig.saveAiPrompt(sections);
+    const savedSections = aiConfig.saveAiPrompt(sections, on);
     log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai.yaml · ai-prompt.chatml. 실행 ${ranBy(req)}`);
     res.json({ data: saved, sections: savedSections } satisfies AiSaved);
   } catch (error) {

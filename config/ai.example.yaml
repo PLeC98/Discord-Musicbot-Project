@@ -1,11 +1,15 @@
 # AI 보조 — 자동재생이 찾아온 후보를 모델에게 한 번 더 걸러 달라고 합니다.
 # 곡 하나가 맞는지(믹스·메들리·강의가 아닌지), 요청한 장르가 맞는지를 묻습니다.
 #
-# provider: off 가 기본입니다. 켜 두어도 모델 호출에 실패하면 규칙만으로 고르며, 재생은 안 멈춥니다.
+# 꺼 두는 것이 기본입니다. 켜 두어도 모델 호출에 실패하면 규칙만으로 고르며, 재생은 안 멈춥니다.
 # 키는 config/ai-keys.yaml, 프롬프트는 config/ai-prompt.chatml 에 있습니다.
 
+# 켜고 끄기. false 면 아래에 고른 프로바이더 · 모델은 그대로 두고 부르지 않습니다(아래 칸이 덜 채워져 있어도 됩니다).
+# 이 줄이 없으면 provider 로 판단합니다(off 면 꺼짐).
+enabled: false
+
 # 사용할 프로바이더
-#   off                                        쓰지 않음
+#   off                                        고르지 않음
 #   ollama · lmstudio · vllm · llamacpp        로컬 LLM 플랫폼. 키 필요 없음
 #   openai · anthropic · aistudio · deepseek
 #   mistral · xai · groq · together

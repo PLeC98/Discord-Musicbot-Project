@@ -123,6 +123,17 @@ test("꺼져 있으면 아예 부르지 않는다", async () => {
   assert.equal(calls.length, 0, "요청이 나가면 안 된다");
 });
 
+// 스위치(enabled: false)로 끄면 고른 프로바이더 · 모델은 그대로 두고 부르지만 않는다
+test("enabled: false 면 프로바이더 · 모델이 있어도 부르지 않는다", async () => {
+  useConfig("enabled: false\n" + ON);
+  calls.length = 0;
+  answers("[]");
+
+  const list = [cand("A"), cand("B")];
+  assert.equal(await assist.filter(list, { genre: "록" }), list, "받은 목록 그대로");
+  assert.equal(calls.length, 0, "요청이 나가면 안 된다");
+});
+
 // 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다. 아예 켜지 않는다.
 test("설정이 어긋나면 켜지지 않는다", async () => {
   useConfig("provider: custom\nbaseUrl: \nmodel: \n");

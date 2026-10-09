@@ -96,8 +96,9 @@ function aiPrompt(): PromptSection[] {
   return value;
 }
 
-function saveAiPrompt(sections: unknown): PromptSection[] {
-  const problems = promptProblems(sections, true);
+/** 프롬프트를 쓴다. on: AI 를 켜 두는가(켜 두면 {{목록}} 자리까지 본다. 꺼 두면 파일이 깨지지 않을 만큼만) */
+function saveAiPrompt(sections: unknown, on = true): PromptSection[] {
+  const problems = promptProblems(sections, on);
   if (problems.length) throw Object.assign(new Error(problems[0]), { code: "CONFIG_INVALID", problems });
 
   // 검사를 지났다. 비었거나 섹션 목록이다
