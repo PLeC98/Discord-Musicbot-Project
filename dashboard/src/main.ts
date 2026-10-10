@@ -6,4 +6,4 @@ import symbolsFont from "@fontsource-variable/material-symbols-rounded/files/mat
 const preload = Object.assign(document.createElement("link"), { rel: "preload", as: "font", type: "font/woff2", crossOrigin: "anonymous", href: symbolsFont });
 document.head.append(preload);
 
-createDashboard().app.mount("#app");
+createDashboard().mount("#app");
