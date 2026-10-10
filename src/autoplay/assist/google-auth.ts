@@ -7,8 +7,6 @@
 // 밖으로 나가면 안 된다. 오류 메시지에도, 로그에도, 화면에도.
 // 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞머리만 싣는다.
 
-import fs from "fs";
-import path from "path";
 import crypto from "crypto";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -23,27 +21,17 @@ type Account = { client_email: string; private_key: string; token_uri?: string; 
 const b64url = (input: string) => Buffer.from(input).toString("base64url");
 
 /**
- * 서비스 계정 JSON 을 읽는다. 파일 경로로 적는 것이 보통이고, 통째로 적어도 받는다.
- * @param {string} where 경로 또는 JSON 글
+ * 서비스 계정 JSON 을 읽는다. 내용을 통째로 받는다(비밀 표에 암호화해 둔 것).
+ * 파일 경로는 받지 않는다. 경로만 감추면 private_key 가 디스크에 그대로 남는다
  */
-function readAccount(where: unknown, baseDir?: string): Account {
+function readAccount(where: unknown): Account {
   const raw = String(where || "").trim();
   if (!raw) throw new Error("서비스 계정이 설정돼 있지 않습니다");
-
-  let text = raw;
-  if (!raw.startsWith("{")) {
-    const file = path.isAbsolute(raw) ? raw : path.join(baseDir || process.cwd(), raw);
-    try {
-      text = fs.readFileSync(file, "utf8");
-    } catch {
-      // 경로는 비밀이 아니다. 어디를 봤는지 알려 주지 않으면 고칠 수가 없다.
-      throw new Error(`서비스 계정 파일을 읽지 못했습니다: ${file}`);
-    }
-  }
+  if (!raw.startsWith("{")) throw new Error("서비스 계정은 JSON 내용이어야 합니다(파일 경로는 받지 않습니다. 파일 내용을 붙여넣으세요)");
 
   let account: Partial<Account> | null;
   try {
-    account = JSON.parse(text);
+    account = JSON.parse(raw);
   } catch {
     throw new Error("서비스 계정 JSON 을 읽지 못했습니다(형식이 깨졌습니다)");
   }
@@ -60,8 +48,8 @@ const cache = new Map<string, { token: string; expiresAt: number }>();
  * 액세스 토큰을 받는다. 한 시간짜리라 받아 두고 만료 직전까지 그대로 쓴다.
  * @returns {Promise<string>}
  */
-async function accessToken(where: unknown, { baseDir, timeoutMs = 15000, fetch: send = fetch }: { baseDir?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<string> {
-  const account = readAccount(where, baseDir);
+async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fetch }: { timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<string> {
+  const account = readAccount(where);
 
   const held = cache.get(account.client_email);
   if (held && held.expiresAt - EARLY_MS > Date.now()) return held.token;
@@ -110,9 +98,9 @@ async function accessToken(where: unknown, { baseDir, timeoutMs = 15000, fetch: 
 }
 
 /** 이 서비스 계정의 프로젝트(설정에 안 적었으면 JSON 것을 쓴다). */
-function projectOf(where: unknown, baseDir?: string): string {
+function projectOf(where: unknown): string {
   try {
-    return readAccount(where, baseDir).project_id || "";
+    return readAccount(where).project_id || "";
   } catch {
     return "";
   }

@@ -26,6 +26,8 @@ const autoplaySources = await import("../../src/autoplay/sources/index.ts");
 const { useFetch } = await import("../../src/autoplay/sources/http.ts");
 const assist = await import("../../src/autoplay/assist/index.ts");
 const yamlStore = await import("../../src/config/yaml-store.ts");
+const secrets = await import("../../src/store/secrets.ts");
+const aiKeys = await import("../../src/store/ai-keys.ts");
 const logSink = (await import("../../src/infra/log/sink.ts")).default;
 const config = (await import("../../src/config/index.ts")).default;
 const { BOT_VERSION } = await import("../../src/infra/version.ts");
@@ -309,11 +311,13 @@ before(() => {
   yamlStore._setConfigDir(CONFIG_DIR);
   fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
   fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "provider: off", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
-  // 키는 프로바이더마다 따로 있는 딴 파일이다 — 대시보드로는 값이 나가지 않는다
-  fs.writeFileSync(path.join(CONFIG_DIR, "ai-keys.yaml"), ["openai: sk-test-only", 'groq: ""', ""].join("\n"));
+  // 키는 비밀 표에 프로바이더마다 따로 있다 — 대시보드로는 값이 나가지 않는다
+  secrets._useKey(Buffer.alloc(32, 6).toString("base64"));
+  aiKeys.put("openai", "sk-test-only", assist.keyBinding({ provider: "openai" }));
 });
 
 after(() => {
+  secrets._useKey();
   yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(CONFIG_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
@@ -540,7 +544,7 @@ test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", 
   assert.ok(unknown.json.models.length > 0, "모델 목록은 그대로 준다");
 });
 
-// 키는 .env 에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
+// 키는 비밀 표에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
   const { status, json } = await req<{ hasKey: Record<string, boolean>; defaultSections: unknown; settingDefaults: Record<string, unknown> }>("GET", "/api/admin/ai/state");
   // 비운 칸이 쓰는 값. 화면이 흐리게 보여 준다
@@ -571,8 +575,8 @@ test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
-/** 키를 저장한 답. 값이 아니라 있는지만 */
-type Keys = { hasKey: Record<string, boolean> };
+/** 키를 저장한 답. 값이 아니라 상태만 */
+type Keys = { hasKey: Record<string, boolean>; keyState: Record<string, string> };
 
 // 키는 쓰기 전용이다. 넣을 수는 있어도 되읽을 수는 없다 —
 // 운영자 세션이 털려도 덮어쓰기지 읽기가 아니어야 한다.
@@ -583,8 +587,8 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   assert.equal(saved.json.hasKey.openai, true, "적어 보내지 않은 칸은 그대로 둔다");
   assert.ok(!JSON.stringify(saved.json).includes("sk-groq-새키"), "응답에 값이 실리면 안 된다");
 
-  // 파일에는 들어갔다
-  assert.match(fs.readFileSync(path.join(CONFIG_DIR, "ai-keys.yaml"), "utf8"), /sk-groq-새키/);
+  // 비밀 표에는 들어갔다(평문은 끝 네 글자뿐이라 값으로는 찾지 않는다)
+  assert.equal(aiKeys.stateOf("groq", assist.keyBinding({ provider: "groq" })), "ok");
 
   // 어느 통로로도 값이 돌아나오지 않는다
   const state = await req("GET", "/api/admin/ai/state");
@@ -593,15 +597,51 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   // 빈 값이면 지운다
   assert.equal((await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { groq: "" } })).json.hasKey.groq, false);
 
-  // 모르는 이름으로 칸을 늘리지 않는다
-  const odd = await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { 엉뚱한것: "x" } });
-  assert.equal(odd.status, 200);
-  assert.ok(!("엉뚱한것" in odd.json.hasKey));
+  // 모르는 이름 · 키를 안 쓰는 프로바이더는 받지 않는다
+  assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { 엉뚱한것: "x" } })).status, 400);
+  assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { ollama: "x" } })).status, 400);
 
   assert.equal((await req("PUT", "/api/admin/ai/keys", {})).status, 400);
   currentUser = { id: "u1" };
   assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: {} })).status, 403);
   currentUser = { id: "owner", username: "owner" };
+});
+
+// 키는 화면이 지금 적어 둔 주소 · 리전에 묶인다. 저장된 설정이 다른 곳을 가리키면 "다시 넣어야 함"으로 보인다
+test("AI 키: 버텍스는 JSON 내용만, 묶을 주소가 없으면 거절, 저장된 설정과 다른 곳에 묶였으면 moved", async () => {
+  const account = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----\n" });
+  const asPath = await req<ProblemReply>("PUT", "/api/admin/ai/keys", { keys: { vertex: "C:/keys/sa.json" }, data: { provider: "vertex" } });
+  assert.equal(asPath.status, 400);
+  assert.match(detailsOf(asPath.json), /JSON 내용/);
+
+  const saved = await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { vertex: account }, data: { provider: "vertex", location: "us-central1" } });
+  assert.equal(saved.json.keyState.vertex, "ok", "화면의 리전으로 보면 쓸 수 있다");
+  const state = await req<Keys>("GET", "/api/admin/ai/state");
+  assert.equal(state.json.keyState.vertex, "moved", "저장된 설정(리전을 안 적음 = global)으로는 쓸 수 없다");
+  assert.equal(state.json.hasKey.vertex, false);
+
+  assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { custom: "sk-x-123456789" }, data: { provider: "custom" } })).status, 400, "custom 은 주소가 있어야 묶는다");
+  await req("PUT", "/api/admin/ai/keys", { keys: { vertex: "" } });
+});
+
+// 넣기 · 지우기는 로그인한 지 10분 안이어야 한다(훔친 로그인 쿠키로 키를 갈아 끼우지 못하게)
+test("AI 키: 로그인한 지 오래됐으면 reauth-required", async () => {
+  const app = express();
+  app.use(bodyLimit());
+  app.use((reqq, _res, next) => {
+    reqq.session = fake<typeof reqq.session>({ user: { id: "owner", username: "owner" }, loginAt: Date.now() - 11 * 60_000 });
+    next();
+  });
+  app.use("/api/admin", adminRouter);
+  const late = await listenForFetch(app);
+  try {
+    const res = await requestJson<ProblemReply>(baseUrl(late), "PUT", "/api/admin/ai/keys", { keys: { groq: "sk-groq-늦은키" } });
+    assert.equal(res.status, 403);
+    assert.equal(res.json.code, "reauth-required");
+    assert.equal(aiKeys.stateOf("groq", assist.keyBinding({ provider: "groq" })), "none");
+  } finally {
+    late.close();
+  }
 });
 
 /** 프롬프트를 읽거나 쓴 답 */

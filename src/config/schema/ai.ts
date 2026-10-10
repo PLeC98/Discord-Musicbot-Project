@@ -2,6 +2,7 @@
 
 import { PROVIDERS } from "./ai-providers.ts";
 import { VERTEX_LOCATION } from "../../rules/vertex-url.ts";
+import { setsSecretHeader } from "../../rules/secret-headers.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const PROMPT_FILE = "ai-prompt.chatml";
@@ -59,7 +60,11 @@ const aiFile = z.preprocess(
       retryDelayMaxMs: between("retryDelayMaxMs", 0, 600000),
       retryStatus: present((v) => Array.isArray(v) && v.every((one) => Number.isInteger(one) && one >= 400 && one <= 599), "retryStatus는 400~599 사이 상태 코드 목록이어야 합니다(예: [429, 503])."),
       // 추가 파라미터는 한 줄에 하나씩 적는 글이다(assist/index 의 parseExtra)
-      extra: z.string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." }).nullish(),
+      // 비밀 헤더(Authorization 등)는 적지 못한다. 설정은 평문으로 남고 내보내기에도 실린다. 키는 키 칸에(암호화해 둔다)
+      extra: z
+        .string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." })
+        .refine((v) => !setsSecretHeader(v), "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 칸에 넣으세요(암호화해 둡니다).")
+        .nullish(),
       prompt: gone(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`),
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
       location: z

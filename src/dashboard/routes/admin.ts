@@ -32,6 +32,8 @@ import * as tokens from "../../autoplay/assist/tokens.ts";
 import * as models from "../../config/ai-models.ts";
 import { adminStatus } from "../status/index.ts";
 import { ranBy } from "../ran-by.ts";
+import * as aiKeys from "../../store/ai-keys.ts";
+import { requireRecentLogin } from "../middleware/recent-login.ts";
 
 // 봇 · Node · 시스템 상태(봇 상태 탭)
 adminRouter.get("/status", requireOwner, async (req, res) => {
@@ -190,14 +192,13 @@ adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
   }
 });
 
-// AI 보조. 키는 config/ai-keys.yaml 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
-// 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
+// AI 보조. 키는 비밀 표(store/ai-keys)에 있고 값을 내려보내지 않는다. 상태만 알려 준다.
+// 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 상태뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
 adminRouter.get("/ai/state", requireOwner, (req, res) => {
-  // 키 값은 절대 안 내려간다. 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
-  const keys = aiConfig.aiKeys();
+  // 키 값은 절대 안 내려간다. 프로바이더마다 상태만 알린다(주소는 저장된 설정으로 셈한다)
   res.json({
-    hasKey: Object.fromEntries(Object.keys(assist.PROVIDER_SPECS).map((name) => [name, !!keys[name]])),
+    ...keysReply(aiConfig.ai()),
     // 주소·키 필요 여부는 서버가 안다. 화면이 베껴 두면 한쪽만 고치게 된다
     providers: Object.entries(assist.PROVIDER_SPECS).map(([value, spec]) => ({ value, ...spec })),
     pingText: assist.PING_TEXT,
@@ -230,7 +231,7 @@ adminRouter.get("/ai/fields", requireOwner, (req, res) => {
 
 // 앤트로픽에 물은 칸마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 어림한다)
 async function countByClaude(texts: string[], provider: string, model: string) {
-  const apiKey = aiConfig.aiKeyOf(provider);
+  const apiKey = assist.storedKey({ provider });
   const wrap = tokens.FRAMING.anthropic.perRequest;
   const ask = (one: string) =>
     tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }).then(
@@ -301,17 +302,49 @@ adminRouter.post("/ai/judge/run", requireOwner, async (req, res) => {
   res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록")));
 });
 
-adminRouter.put("/ai/keys", requireOwner, (req, res) => {
-  const keys = req.body?.keys;
-  if (!keys || typeof keys !== "object") return sendProblem(res, "nothing-to-save");
+// 키를 넣고 지운다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 지운다), 돌려주는 것은 상태다.
+// 키는 화면이 지금 적어 둔 설정(data: 주소 · 리전)이 가리키는 곳에 묶는다. 그 설정을 저장해야 쓰인다
+adminRouter.put("/ai/keys", requireOwner, requireRecentLogin, (req, res) => {
+  const keys: unknown = req.body?.keys;
+  const draft = (req.body?.data && typeof req.body.data === "object" ? req.body.data : {}) as Record<string, unknown>;
+  if (!keys || typeof keys !== "object" || !Object.keys(keys).length) return sendProblem(res, "nothing-to-save");
 
+  const problem = Object.entries(keys as Record<string, unknown>)
+    .map(([provider, value]) => aiKeyProblem(provider, value, draft))
+    .find(Boolean);
+  if (problem) return sendProblem(res, "config-invalid", {}, { detail: problem });
   try {
-    log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
-    res.json({ hasKey: aiConfig.saveAiKeys(keys) } satisfies KeysReply);
+    for (const [provider, value] of Object.entries(keys as Record<string, string>)) {
+      if (!value.trim()) aiKeys.remove(provider);
+      else aiKeys.put(provider, value.trim(), assist.keyBinding({ ...draft, provider }));
+    }
   } catch (error) {
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
+  log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
+  res.json(keysReply({ ...draft }) satisfies KeysReply);
 });
+
+// 넣을 수 없는 키면 까닭. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
+function aiKeyProblem(provider: string, value: unknown, draft: Record<string, unknown>) {
+  const spec = assist.PROVIDER_SPECS[provider];
+  if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더입니다`;
+  if (typeof value !== "string") return `${provider}: 키는 글자여야 합니다`;
+  if (!value.trim()) return null;
+  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없습니다. 주소를 먼저 적으세요`;
+  if (spec.serviceAccount && !value.trim().startsWith("{")) return `${spec.label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않습니다)`;
+  return null;
+}
+
+// 프로바이더마다 키 상태. settings 는 주소를 셈할 설정(저장된 것 또는 화면의 초안). 다른 프로바이더는 그 프로바이더의 기본 주소로 본다
+function keysReply(settings: Record<string, unknown>): KeysReply {
+  const keyState = Object.fromEntries(
+    Object.entries(assist.PROVIDER_SPECS)
+      .filter(([, spec]) => spec.key)
+      .map(([provider]) => [provider, aiKeys.stateOf(provider, assist.keyBinding(settings.provider === provider ? settings : { provider }))]),
+  );
+  return { hasKey: Object.fromEntries(Object.entries(keyState).map(([provider, state]) => [provider, state === "ok"])), keyState };
+}
 
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
 // /config/:name 통로를 못 탄다. 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.

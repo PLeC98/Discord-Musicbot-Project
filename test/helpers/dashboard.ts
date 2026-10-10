@@ -3,10 +3,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { fake } from "./fake.ts";
 
-/** 세션에 사용자를 꽂는 미들웨어. 요청마다 user() 를 읽는다(시험이 도중에 바꾼다). null 이면 로그인 전 */
+/** 세션에 사용자를 꽂는 미들웨어. 요청마다 user() 를 읽는다(시험이 도중에 바꾼다). null 이면 로그인 전. 로그인 시각은 방금(위험한 조작도 받는다) */
 function signedInAs(user: () => object | null) {
   return (req: Request, _res: Response, next: NextFunction) => {
-    req.session = fake<Request["session"]>({ user: user() });
+    req.session = fake<Request["session"]>({ user: user(), loginAt: Date.now() });
     next();
   };
 }

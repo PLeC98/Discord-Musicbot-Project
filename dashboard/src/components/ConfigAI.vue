@@ -4,8 +4,9 @@
   설정은 config/ai.yaml, **프롬프트는 config/ai-prompt.chatml** 로 따로 산다.
   둘 다 파일로도 고칠 수 있다. 대시보드는 선택 기능이다.
 
-  키는 쓰기 전용이다. config/ai-keys.yaml 에 프로바이더마다 따로 있고, 넣을 수는 있어도
+  키는 쓰기 전용이다. 프로바이더마다 따로 비밀 표에 암호화해 두고, 넣을 수는 있어도
   화면으로 되읽지는 못한다. 값을 내려보내면 XSS 하나로 새어 나간다.
+  키는 넣을 때 화면에 적힌 주소(custom 의 주소 · 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
 
   미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
@@ -79,6 +80,7 @@
                   <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? TM.saving : TM.save }}</BaseButton>
                   <button v-if="hasKey" type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="savingKey" :aria-label="TM.clearKey" v-tooltip="TM.clearValue" @click="clearKey"><Icon name="delete" :size="20" /></button>
                 </div>
+                <p v-if="keyTrouble" class="text-xs text-(--warn-ink)">{{ keyTrouble === "moved" ? (spec?.serviceAccount ? TM.keyMovedRegion : TM.keyMoved) : TM.keyAgain }}</p>
                 <p v-if="spec?.serviceAccount && keyInput.trim() && !looksLikeAccount" class="text-xs text-(--warn-ink)">{{ TM.accountShape }}</p>
                 <p class="text-xs text-on-surface-variant">{{ spec?.serviceAccount ? TM.accountHint : TM.keyHint }}</p>
                 <p v-if="!secureOrigin" class="text-xs text-(--warn-ink)">{{ TM.insecure }}</p>
@@ -477,7 +479,7 @@ import { AI_ROLES, LIST_MARK, LINE_MARKS, hasListMark, promptProblems, type Prom
 import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, type AiUnknown } from "../../../src/config/schema/ai.ts";
 import type { ModelField, ModelGroup } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
-import type { AiFields, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
+import type { AiFields, AiKeyState, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
 import { AI_SAMPLE_CANDIDATES } from "../../../src/dashboard/contract/admin.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import type { RefreshResult } from "../../../src/config/ai-model-types.ts";
@@ -647,6 +649,7 @@ const listCfg = ref<ListCfg>({ lineFormat: "", unknownDuration: "hide", unknownT
 const sections = ref<Section[]>([]);
 
 const keyPresence = ref<Record<string, boolean>>({});
+const keyStates = ref<Record<string, AiKeyState>>({});
 const keyInput = ref("");
 const savingKey = ref(false);
 const paid = ref<"ping" | "judge" | null>(null); // 확인 대화상자
@@ -692,8 +695,14 @@ const defaults = ref<{ sections: PromptSection[]; line: string }>({ sections: []
 
 let serial = 0;
 
-// 키는 프로바이더마다 따로다(config/ai-keys.yaml). 값은 안 내려오고 있는지 없는지만 온다.
-const hasKey = computed(() => !!keyPresence.value[draft.value.provider ?? ""]);
+// 키는 프로바이더마다 따로다(비밀 표). 값은 안 내려오고 상태만 온다.
+// 저장된 키가 있는가(지금 주소로 쓸 수 없어도 있다. 그때는 keyTrouble 이 까닭을 보인다)
+const hasKey = computed(() => (keyStates.value[draft.value.provider ?? ""] ?? (keyPresence.value[draft.value.provider ?? ""] ? "ok" : "none")) !== "none");
+// 키가 있는데 지금 쓸 수 없는 까닭: moved(주소 · 리전이 바뀜) · again(풀 수 없음). 없거나 쓸 수 있으면 null
+const keyTrouble = computed(() => {
+  const state = keyStates.value[draft.value.provider ?? ""];
+  return state === "moved" || state === "again" ? state : null;
+});
 const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
 
 // 로컬 · 클라우드 · 게이트웨이로 묶어 보여 준다. 묶음 없는 것("사용하지 않음")은 맨 위에.
@@ -962,7 +971,12 @@ const {
     applyPrompt(both.sections as PromptSection[]);
   },
   read: async () => ({ data: (await axios.get<ConfigFile>("/api/admin/config/ai")).data.data, sections: (await axios.get<PromptReply>("/api/admin/ai/prompt")).data.sections }),
-  write: async (both) => (await axios.put<AiSaved>("/api/admin/ai/settings", both)).data,
+  write: async (both) => {
+    const saved = (await axios.put<AiSaved>("/api/admin/ai/settings", both)).data;
+    // 주소 · 리전을 바꿔 저장했으면 묶인 키의 상태도 바뀐다
+    void refreshKeys();
+    return saved;
+  },
 });
 
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
@@ -1157,18 +1171,31 @@ async function loadFields() {
   }
 }
 
+// 키 상태만 다시 받는다(설정을 저장한 뒤)
+async function refreshKeys() {
+  try {
+    const state = (await axios.get<AiState>("/api/admin/ai/state")).data;
+    keyPresence.value = state.hasKey || {};
+    keyStates.value = state.keyState || {};
+  } catch {
+    /* 다음에 탭을 열 때 다시 받는다 */
+  }
+}
+
 // 키 유무와 기본 프롬프트. 둘 다 서버가 들고 있다.
 // 화면이 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다.
 async function fetchState() {
   try {
     const state = (await axios.get<AiState>("/api/admin/ai/state")).data;
     keyPresence.value = state.hasKey || {};
+    keyStates.value = state.keyState || {};
     if (state.providers?.length) providers.value = state.providers;
     pingText.value = state.pingText || "";
     defaults.value = { sections: state.defaultSections || [], line: state.defaultLine || "" };
     settingDefaults.value = state.settingDefaults || {};
   } catch (error) {
     keyPresence.value = {};
+    keyStates.value = {};
     loadError.value = problemText(error, T.failed.state);
   }
 }
@@ -1274,7 +1301,10 @@ function runPaid() {
 async function putKey(value: string) {
   savingKey.value = true;
   try {
-    keyPresence.value = (await axios.put<KeysReply>("/api/admin/ai/keys", { keys: { [draft.value.provider ?? ""]: value } })).data.hasKey || {};
+    // 키는 지금 적힌 주소 · 리전에 묶인다(data). 그 설정을 저장해야 쓰인다
+    const reply = (await axios.put<KeysReply>("/api/admin/ai/keys", { keys: { [draft.value.provider ?? ""]: value }, data: draft.value })).data;
+    keyPresence.value = reply.hasKey || {};
+    keyStates.value = reply.keyState || {};
     keyInput.value = "";
     notifyDone(value ? T.keySaved : T.keyCleared);
   } catch (error) {

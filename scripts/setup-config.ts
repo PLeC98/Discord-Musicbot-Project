@@ -14,7 +14,7 @@ import { setupEnv, madeLine } from "../src/config/env-file.ts";
 
 const CONFIG_DIR = PROJECT.config;
 // 이름 뒤에 확장자가 다른 것도 있다(프롬프트는 ChatML 글 파일이다)
-const NAMES = ["genres", "status", "ai", "ai-keys", "ai-prompt.chatml"];
+const NAMES = ["genres", "status", "ai", "ai-prompt.chatml"];
 
 function setup() {
   // .env 는 config/env-file 이 만든다(기동도 같은 것을 부른다)

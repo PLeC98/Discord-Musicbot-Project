@@ -17,6 +17,8 @@ const isServiceId = (value: unknown): value is ServiceId => typeof value === "st
 type SecretView = { state: "none" | "ok" | "again"; last4: string | null; updatedAt: number | null };
 /** 바깥 서비스 키. 서비스 → 칸 → 상태 */
 type ServiceKeysView = { [S in ServiceId]: { [F in ServiceField<S>]: SecretView } };
+/** AI 키의 상태. none: 없음, ok: 지금 주소에 쓸 수 있음, moved: 주소가 바뀌었음, again: 풀 수 없음(키가 바뀜 · 예전 형식 · 망가짐) */
+type AiKeyState = "none" | "ok" | "moved" | "again";
 /** 연결 시험. missing: 저장된 키가 없다, rejected: 서비스가 키를 거절했다, unreachable: 서비스에 닿지 못했다 */
 type KeyCheck = { ok: true } | { ok: false; reason: "missing" | "rejected" | "unreachable" };
 
@@ -24,4 +26,4 @@ type KeyCheck = { ok: true } | { ok: false; reason: "missing" | "rejected" | "un
 const secretName = (service: ServiceId, field: string) => `service.${service}.${field}`;
 
 export { SERVICE_KEYS, SERVICE_IDS, isServiceId, secretName };
-export type { ServiceId, ServiceField, SecretView, ServiceKeysView, KeyCheck };
+export type { ServiceId, ServiceField, SecretView, ServiceKeysView, KeyCheck, AiKeyState };

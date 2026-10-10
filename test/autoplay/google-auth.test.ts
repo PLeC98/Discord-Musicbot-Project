@@ -20,8 +20,8 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 const { privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 
 const ACCOUNT = { type: "service_account", project_id: "내-프로젝트", client_email: "bot@내-프로젝트.iam.gserviceaccount.com", private_key: privateKey };
-const SA_FILE = path.join(DIR, "vertex-sa.json");
-fs.writeFileSync(SA_FILE, JSON.stringify(ACCOUNT));
+// 서비스 계정은 JSON 내용으로 받는다(비밀 표에 암호화해 둔 것). 파일 경로는 받지 않는다
+const SA_JSON = JSON.stringify(ACCOUNT);
 
 const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
 // 가짜 응답은 여기서 읽는 칸(ok · status · text)만 준다
@@ -40,7 +40,7 @@ test("JWT 로 토큰을 받아 온다", async () => {
   calls.length = 0;
   answers({ access_token: "ya29.토큰", expires_in: 3600 });
 
-  assert.equal(await auth.accessToken(SA_FILE, { fetch: net }), "ya29.토큰");
+  assert.equal(await auth.accessToken(SA_JSON, { fetch: net }), "ya29.토큰");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://oauth2.googleapis.com/token");
 
@@ -63,9 +63,9 @@ test("받아 둔 토큰을 다시 쓴다", async () => {
   calls.length = 0;
   answers({ access_token: "ya29.한번만", expires_in: 3600 });
 
-  await auth.accessToken(SA_FILE, { fetch: net });
-  await auth.accessToken(SA_FILE, { fetch: net });
-  await auth.accessToken(SA_FILE, { fetch: net });
+  await auth.accessToken(SA_JSON, { fetch: net });
+  await auth.accessToken(SA_JSON, { fetch: net });
+  await auth.accessToken(SA_JSON, { fetch: net });
   assert.equal(calls.length, 1, "세 번 불러도 토큰은 한 번만 받는다");
 });
 
@@ -74,8 +74,8 @@ test("곧 만료될 토큰은 새로 받는다", async () => {
   calls.length = 0;
   answers({ access_token: "ya29.곧죽음", expires_in: 30 });
 
-  await auth.accessToken(SA_FILE, { fetch: net });
-  await auth.accessToken(SA_FILE, { fetch: net });
+  await auth.accessToken(SA_JSON, { fetch: net });
+  await auth.accessToken(SA_JSON, { fetch: net });
   assert.equal(calls.length, 2, "만료 직전이면 다시 받는다");
 });
 
@@ -86,8 +86,18 @@ test("JSON 을 통째로 적어도 받는다", async () => {
 });
 
 test("프로젝트는 JSON 에서 끌어온다", () => {
-  assert.equal(auth.projectOf(SA_FILE), "내-프로젝트");
-  assert.equal(auth.projectOf(path.join(DIR, "없는파일.json")), "", "없으면 빈 값 — 던지지 않는다");
+  assert.equal(auth.projectOf(SA_JSON), "내-프로젝트");
+  assert.equal(auth.projectOf(path.join(DIR, "vertex-sa.json")), "", "JSON 이 아니면 빈 값 — 던지지 않는다");
+});
+
+// 경로만 감추면 private_key 가 디스크에 그대로 남는다. 경로는 아예 받지 않는다
+test("파일 경로는 받지 않는다(읽으러 가지 않는다)", async () => {
+  const file = path.join(DIR, "vertex-sa.json");
+  fs.writeFileSync(file, SA_JSON);
+  calls.length = 0;
+  answers({ access_token: "x", expires_in: 3600 });
+  await assert.rejects(() => auth.accessToken(file, { fetch: net }), /JSON 내용이어야 합니다/);
+  assert.equal(calls.length, 0);
 });
 
 // ── 오류에 비밀이 섞이지 않는가 ───────────────────────────────────────────
@@ -95,8 +105,7 @@ test("프로젝트는 JSON 에서 끌어온다", () => {
 test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
   auth._reset();
 
-  const broken = path.join(DIR, "broken-sa.json");
-  fs.writeFileSync(broken, JSON.stringify({ ...ACCOUNT, private_key: "-----BEGIN PRIVATE KEY-----\n망가진키\n-----END PRIVATE KEY-----\n" }));
+  const broken = JSON.stringify({ ...ACCOUNT, private_key: "-----BEGIN PRIVATE KEY-----\n망가진키\n-----END PRIVATE KEY-----\n" });
 
   const said: string[] = [];
   for (const where of [broken, JSON.stringify({ ...ACCOUNT, private_key: undefined }), "{깨진 JSON", path.join(DIR, "없다.json")]) {
@@ -113,7 +122,7 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
   // 저쪽이 거절하면서 우리가 보낸 것을 되비추는 경우까지
   answers(() => ({ ok: false, status: 401, text: async () => "invalid_grant" }));
   await assert.rejects(
-    () => auth.accessToken(SA_FILE, { fetch: net }),
+    () => auth.accessToken(SA_JSON, { fetch: net }),
     (error: Error) => {
       said.push(error.message);
       return /401/.test(error.message);

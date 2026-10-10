@@ -12,6 +12,9 @@ import assert from "node:assert/strict";
 
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yaml-store.ts";
+import * as aiKeys from "../../src/store/ai-keys.ts";
+import * as secrets from "../../src/store/secrets.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
 import * as assist from "../../src/autoplay/assist/index.ts";
 import { fake } from "../helpers/fake.ts";
 import { networkError } from "../helpers/errors.ts";
@@ -51,17 +54,38 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 // 설정을 갈아끼운다. _setConfigDir 가 읽어 둔 것을 버리므로 같은 이름을 몇 번이고 바꿔 쓸 수 있다.
 //
 // 프롬프트는 딴 파일이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
-// 키도 설정 파일에 있다(config/ai-keys.yaml). 프로바이더마다 따로다.
+// 키는 비밀 표에 있다(store/ai-keys). 프로바이더마다 따로고, 넣을 때의 주소에 묶인다
 const KEY = "sk-test-do-not-log";
+const store = openTempStore("musicbot-ai-keys-");
+secrets._useKey(Buffer.alloc(32, 5).toString("base64"));
+after(() => {
+  secrets._useKey();
+  store.close();
+});
 // 버텍스는 키가 아니라 서비스 계정 JSON 을 쓴다 — 진짜 키라야 서명이 통과한다
 import nodecrypto from "node:crypto";
 const { privateKey: PRIVATE_KEY } = nodecrypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
-const SA_PATH = path.join(DIR, "vertex-sa.json").replace(/\\/g, "/");
-fs.writeFileSync(SA_PATH, JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" }));
+const SA_JSON = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" });
+
+// 키를 묶을 설정. 일부러 틀리게 적은 글(겹친 칸 등)도 받는다
+function settingsOf(yaml: string): Record<string, unknown> {
+  try {
+    return (parseYaml(yaml, { uniqueKeys: false }) ?? {}) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+// 키를 넣는다. 묶는 주소는 그 설정이 가리키는 곳(저장된 설정 = 화면에서 키를 넣을 때의 설정)
+function putKeys(settings: Record<string, unknown>) {
+  for (const [provider, value] of Object.entries({ openai: KEY, custom: KEY, anthropic: KEY, aistudio: KEY, vertex: SA_JSON })) {
+    aiKeys.put(provider, value, assist.keyBinding({ ...settings, provider }));
+  }
+}
 
 function useConfig(yaml: string, sections?: PromptSection[]) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\naistudio: ${KEY}\nvertex: ${SA_PATH}\n`);
+  putKeys(settingsOf(yaml));
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
   else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), aiConfig.toChatML(sections));
   yamlStore._setConfigDir(DIR);
@@ -301,31 +325,6 @@ test("재시도까지 모두 실패한 판정마다 warn 한 줄, 성공하면 �
     ],
     "다시 불러 된 판정(D)은 남기지 않는다",
   );
-});
-
-test("키 파일을 못 읽으면 키 없이 가되 까닭을 한 번 알린다(키는 적지 않는다)", () => {
-  useConfig(ON);
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\n  broken: [\n`);
-  yamlStore._setConfigDir(DIR);
-  const from = sink.buffer.length;
-  assert.equal(aiConfig.aiKeyOf("openai"), "");
-  assert.equal(aiConfig.aiKeyOf("openai"), "");
-  const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("ai-keys.yaml 읽기"));
-  assert.equal(lines.length, 1, "두 번 읽어도 한 번");
-  assert.equal(lines[0].level, "error");
-  assert.ok(!lines[0].text.includes(KEY), lines[0].text);
-
-  useConfig(ON); // 고친 파일
-  assert.equal(aiConfig.aiKeyOf("openai"), KEY);
-  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("ai-keys.yaml 읽기: 다시 됩니다")));
-
-  // 파일이 없는 것은 정상이다(로컬 모델만 쓰는 경우)
-  fs.rmSync(path.join(DIR, "ai-keys.yaml"));
-  yamlStore._setConfigDir(DIR);
-  const quiet = sink.buffer.length;
-  assert.equal(aiConfig.aiKeyOf("openai"), "");
-  assert.ok(!sink.buffer.slice(quiet).some((e) => e.text.startsWith("ai-keys.yaml 읽기")));
-  useConfig(ON);
 });
 
 test("다시 해도 같은 답인 것은 다시 부르지 않는다", async () => {
@@ -985,26 +984,6 @@ test("baseUrl 은 custom 일 때만 쓴다", () => {
   assert.equal(assist.PROVIDER_SPECS["ollama-cloud"].key, true);
 });
 
-// 키 칸 이름은 provider 이름과 같아야 한다. 어긋나면 키를 적어 두고도 안 붙어 나간다.
-test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", () => {
-  const example = parseYaml(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "config", "ai-keys.example.yaml"), "utf8"));
-  const slots = Object.keys(example);
-  const needs = assist.PROVIDERS.filter((one) => assist.PROVIDER_SPECS[one].key);
-
-  assert.deepEqual(
-    needs.filter((one) => !slots.includes(one)),
-    [],
-    "키가 필요한데 적을 칸이 없다",
-  );
-  assert.deepEqual(
-    slots.filter((one) => !needs.includes(one)),
-    [],
-    "칸은 있는데 쓰는 곳이 없다",
-  );
-});
-
-// 미리보기·테스트는 저장 안 한 초안을 그대로 받는다. custom 은 주소를 사람이 적으므로,
-// 그 주소로 키까지 붙여 보내면 운영자 세션을 쥔 쪽이 저장도 없이 아무 데로나 키를 흘릴 수 있다.
 test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () => {
   useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
   calls.length = 0;
@@ -1022,6 +1001,35 @@ test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () =
   // 주소가 박힌 프로바이더는 애초에 초안이 주소를 못 바꾼다
   await assist.ping({ provider: "openai", baseUrl: "https://공격자/v1", model: "m" });
   assert.equal(lastCall().url, "https://api.openai.com/v1/chat/completions");
+});
+
+// 저장된 주소를 바꿔도(설정 파일 · 대시보드) 키는 넣을 때의 주소에 묶여 있어 새 주소로 가지 않는다. 다시 넣어야 한다
+test("키는 넣을 때의 주소에 묶인다: 주소를 바꿔 저장해도 새 주소에는 키를 안 붙인다", async () => {
+  useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
+  // 키는 그대로 두고 주소만 바꿔 저장한다
+  fs.writeFileSync(path.join(DIR, "ai.yaml"), "provider: custom\nbaseUrl: https://바뀐곳/v1\nmodel: m\n");
+  yamlStore._setConfigDir(DIR);
+  calls.length = 0;
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
+    return { ok: true, status: 200, text: async () => "{}" };
+  });
+  await assist.ping({ provider: "custom", baseUrl: "https://바뀐곳/v1", model: "m" });
+  assert.ok(!lastCall().init.headers.Authorization, "저장된 주소여도 키가 묶인 곳이 아니면 안 붙인다");
+  assert.equal(aiKeys.stateOf("custom", assist.keyBinding({ provider: "custom", baseUrl: "https://바뀐곳/v1" })), "moved");
+
+  // 버텍스는 리전으로 만든 호스트에 묶인다
+  assert.equal(assist.keyBinding({ provider: "vertex", location: "us-central1" }), "https://us-central1-aiplatform.googleapis.com");
+  assert.equal(assist.keyBinding({ provider: "vertex" }), "https://aiplatform.googleapis.com");
+  useConfig(ON);
+});
+
+test("추가 인자에 비밀 헤더는 적지 못한다(평문 설정 · 내보내기에 남는다). 빼는 줄은 된다", () => {
+  const of = (extra: string) => aiConfig.validateAi({ provider: "openai", extra }).filter((one) => one.includes("extra"));
+  assert.equal(of("header::Authorization=Bearer sk-몰래").length, 1);
+  assert.equal(of("top_p=0.5\nheader::X-Api-Key=abc").length, 1, "대소문자를 가리지 않는다");
+  assert.equal(of("header::Cookie=SID=1").length, 1);
+  assert.deepEqual(of("header::Authorization={{none}}\nheader::X-Title=bot"), []);
 });
 
 // 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다 —
@@ -1188,6 +1196,8 @@ test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () 
     return { ok: true, status: 200, text: async () => '{"publisherModels":[{"name":"publishers/google/models/gemini-3-pro"},{"name":"publishers/google/models/gemini-3-flash"}]}' };
   });
 
+  // 키는 리전으로 만든 호스트에 묶인다. 이 리전으로 넣어 둔다
+  aiKeys.put("vertex", SA_JSON, assist.keyBinding({ provider: "vertex", location: "us-central1" }));
   const got = await assist.listModels({ provider: "vertex", location: "us-central1", project: "p" });
   assert.deepEqual(got.models, ["gemini-3-flash", "gemini-3-pro"], "name 앞의 publishers/google/models/ 를 떼어낸다");
   assert.equal(tried.length, 2);
@@ -1215,9 +1225,7 @@ test("버텍스 리전 기본값은 global", async () => {
 test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", async () => {
   const inline = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "인라인-프로젝트" });
   useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [{ role: "user", text: "{{목록}}" }]);
-  // 다른 칸은 그대로 둔다 — 뒤에 오는 테스트가 같은 파일을 본다
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${JSON.stringify(inline)}\n`);
-  yamlStore._setConfigDir(DIR);
+  aiKeys.put("vertex", inline, assist.keyBinding({ provider: "vertex", location: "us-central1" }));
   googleAuth._reset();
 
   calls.length = 0;
@@ -1482,7 +1490,7 @@ test("판정 요청은 토큰을 세지 않는다(앤트로픽이어도 count_to
 
 test("게이트웨이의 클로드 모델은 앤트로픽에 토큰을 묻지 않는다(그 키가 앤트로픽으로 나가지 않는다)", async () => {
   useConfig("provider: off\n");
-  fs.appendFileSync(path.join(DIR, "ai-keys.yaml"), `openrouter: ${KEY}\n`);
+  aiKeys.put("openrouter", KEY, assist.keyBinding({ provider: "openrouter" }));
   calls.length = 0;
   answers("[]");
   const shown = await assist.preview({ provider: "openrouter", model: "anthropic/claude-fable-5" });

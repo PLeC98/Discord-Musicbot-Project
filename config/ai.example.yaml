@@ -4,7 +4,7 @@
 # 유튜브 주소를 직접 주는 소스(유튜브 재생목록 · VocaDB 류)와 음원을 그대로 트는 곡은 묻지 않습니다.
 #
 # 꺼 두는 것이 기본입니다. 켜 두어도 모델 호출에 실패하면 규칙만으로 고르며, 재생은 안 멈춥니다.
-# 키는 config/ai-keys.yaml, 프롬프트는 config/ai-prompt.chatml 에 있습니다.
+# 키는 대시보드(운영자 패널 → AI 보조 탭)에서 넣습니다(암호화해 저장). 프롬프트는 config/ai-prompt.chatml 에 있습니다.
 
 # 켜고 끄기. false 면 아래에 고른 프로바이더 · 모델은 그대로 두고 부르지 않습니다(아래 칸이 덜 채워져 있어도 됩니다).
 # 이 줄이 없으면 provider 로 판단합니다(off 면 꺼짐).
@@ -22,7 +22,7 @@ enabled: false
 #   custom                                     그 밖의 OpenAI 호환 주소(아래 baseUrl 을 적습니다)
 #
 # 요청 규격(OpenAI · 앤트로픽 · 제미니)은 고른 곳에 맞춰 알아서 골라 씁니다.
-# 키는 config/ai-keys.yaml 의 같은 이름 칸을 씁니다.
+# 키는 프로바이더마다 따로 넣고, 넣을 때의 주소(custom 은 baseUrl, vertex 는 리전)에 묶입니다. 주소를 바꾸면 다시 넣어야 합니다.
 # ollama 와 ollama-cloud 는 다른 곳입니다 — 앞은 내 기기, 뒤는 저쪽 서버입니다.
 provider: off
 
@@ -32,7 +32,7 @@ baseUrl: ""
 
 # 버텍스 전용 옵션:
 #   location  리전. 비우면 global
-#   project   비우면 ai-keys.yaml 에 설정된 서비스 계정 JSON의 project_id 를 씁니다
+#   project   비우면 넣어 둔 서비스 계정 JSON 의 project_id 를 씁니다
 location: ""
 project: ""
 

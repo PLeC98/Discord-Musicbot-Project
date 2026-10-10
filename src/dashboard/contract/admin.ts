@@ -9,7 +9,7 @@ import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
 import type { Job } from "../../infra/process-job.ts";
 import { FIXED_COLORS } from "../../ui/palette.ts";
-import type { KeyCheck, SecretView, ServiceKeysView } from "../../rules/service-keys.ts";
+import type { AiKeyState, KeyCheck, SecretView, ServiceKeysView } from "../../rules/service-keys.ts";
 
 /**
  * 봇 상태 탭(운영자). 3초마다 받는다. 메모리는 MB, 시각은 epoch ms, 시간 길이는 초(uptime) · ms(ageMs).
@@ -115,6 +115,8 @@ type Suggestions = { items: Array<{ value: string; hint?: string }> };
 /** AI 보조의 지금 상태. 키는 값이 아니라 있는지만 온다 */
 type AiState = {
   hasKey: Record<string, boolean>;
+  /** 키 상태(키를 쓰는 프로바이더만). moved: 주소 · 리전이 바뀌어 다시 넣어야 함, again: 풀 수 없음 */
+  keyState: Record<string, AiKeyState>;
   providers: Array<ProviderSpec & { value: string }>;
   pingText: string;
   defaultSections: PromptSection[];
@@ -131,7 +133,7 @@ type CandidatesReply = { candidates: TestCandidate[] };
 /** 판정 테스트 · 미리보기에서 조회한 곡이 없을 때 쓰는 보기 곡. 봇(autoplay/assist)과 화면(조회 안 한 주소 안내)이 같은 것을 본다 */
 const AI_SAMPLE_CANDIDATES = SAMPLE_CANDIDATES;
 type LinesReply = { lines: string[] };
-type KeysReply = { hasKey: Record<string, boolean> };
+type KeysReply = { hasKey: Record<string, boolean>; keyState: Record<string, AiKeyState> };
 type PromptReply = { sections: PromptSection[] };
 /** AI 설정과 프롬프트를 한 번에 저장한 답 */
 type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
@@ -140,4 +142,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState };

@@ -7,7 +7,7 @@
 
 import * as aiConfig from "../../config/ai.ts";
 import * as links from "../../rules/links.ts";
-import * as yamlStore from "../../config/yaml-store.ts";
+import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "./google-auth.ts";
 import * as tokens from "./tokens.ts";
 import * as models from "../../config/ai-models.ts";
@@ -24,6 +24,7 @@ import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 import { httpFor } from "../../infra/http.ts";
+import { isSecretHeader } from "../../rules/secret-headers.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 const http = httpFor("ai");
@@ -156,20 +157,33 @@ function endpointOf(one: Partial<AiSettings> | null | undefined) {
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one: Partial<AiSettings> | null | undefined) => !!specOf(one?.provider)?.key;
 
+/** 키를 묶는 주소. 요청이 실제로 가는 곳이다: 버텍스는 리전으로 만든 호스트, 나머지는 프로바이더 주소(custom 은 적은 주소) */
+function keyBinding(one: Partial<AiSettings> | null | undefined): string {
+  const spec = specOf(one?.provider);
+  if (!spec) return "";
+  if (spec.dialect?.startsWith("vertex")) return `https://${vertexHost(one)}`;
+  return endpointOf(one);
+}
+
 /**
- * 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 안 붙인다.
+ * 키는 프로바이더마다 따로다(비밀 표, store/ai-keys). 로컬에는 안 붙인다.
+ * 키는 넣을 때의 주소에 묶여 있어 지금 주소가 다르면 나오지 않는다(주소를 바꾸면 다시 넣어야 한다).
  *
  * custom은 저장된 주소와 같을 때만 붙인다. 대시보드 미리보기는 저장 안 한 초안을 그대로 받는데,
  * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 흘릴 수 있다.
  */
-async function keyFor(one: Partial<AiSettings>): Promise<string> {
+function storedKey(one: Partial<AiSettings>): string {
   if (!wantsKey(one) || !one.provider) return "";
 
   if (specOf(one.provider)?.editable) {
     const saved = stripTrailingSlash(aiConfig.ai()?.baseUrl);
     if (!saved || endpointOf(one) !== saved) return "";
   }
-  return aiConfig.aiKeyOf(one.provider);
+  return aiKeys.read(one.provider, keyBinding(one));
+}
+
+async function keyFor(one: Partial<AiSettings>): Promise<string> {
+  return storedKey(one);
 }
 
 async function authOf(one: Partial<AiSettings>): Promise<Record<string, string>> {
@@ -519,7 +533,7 @@ const DIALECTS: Record<string, Dialect> = {
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one, { live = true } = {}) => {
       if (!live) return { "Content-Type": "application/json", Authorization: `Bearer ${REDACTED}` };
-      const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider ?? ""), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs), fetch: send });
+      const token = await googleAuth.accessToken(storedKey(one), { timeoutMs: Number(one.timeoutMs), fetch: send });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
     body: geminiBody,
@@ -536,7 +550,7 @@ const DIALECTS: Record<string, Dialect> = {
 };
 
 // 주소 조립은 rules/vertex-url(대시보드가 보여 주는 주소와 같은 규칙). 프로젝트는 설정에 없으면 서비스 계정 키에서
-const vertexProject = (one: AiSettings) => String(one?.project || "").trim() || googleAuth.projectOf(aiConfig.aiKeyOf(one?.provider ?? ""), yamlStore.configDir());
+const vertexProject = (one: AiSettings) => String(one?.project || "").trim() || googleAuth.projectOf(storedKey(one));
 const vertexBase = (one: AiSettings) => vertexBaseOf(one, vertexProject(one));
 
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -1011,14 +1025,13 @@ async function preview(draft: Draft, genre = "록"): Promise<Preview> {
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
 }
 
-// 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
-const SECRET_HEADERS = ["authorization", "x-api-key", "x-goog-api-key", "api-key"];
+// 인증이 실리는 헤더는 규격마다 다르다(rules/secret-headers)
 
 /** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
 function safeHeaders(headers: Record<string, string> | null | undefined) {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers || {})) {
-    if (!SECRET_HEADERS.includes(name.toLowerCase())) {
+    if (!isSecretHeader(name)) {
       out[name] = value;
       continue;
     }
@@ -1114,7 +1127,7 @@ const REDACTED = "[REDACTED_SECRET_KEY]";
 function mask(text: unknown): string {
   let out = String(text);
   // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
-  for (const key of [...Object.values(aiConfig.aiKeys()), ...googleAuth.heldTokens()]) {
+  for (const key of [...aiKeys.allValues(PROVIDERS), ...googleAuth.heldTokens()]) {
     if (!key || key.length <= 8) continue;
     out = out.split(key).join(REDACTED);
 
@@ -1132,5 +1145,5 @@ function mask(text: unknown): string {
   return out;
 }
 
-export { DEFAULTS, filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
+export { DEFAULTS, filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, keyBinding, storedKey, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
 export type { AiPick };
