@@ -110,6 +110,7 @@ import GuildAvatar from "./components/GuildAvatar.vue";
 import { useGuildsStore } from "./stores/guilds.ts";
 import { useUserStore } from "./stores/user.ts";
 import { setReportUrl } from "./utils/problem.ts";
+import { setDocsRepo } from "./composables/docs.ts";
 import { setBrandColor } from "./theme/theme.ts";
 import type { BotInfo } from "../../src/dashboard/contract/identity.ts";
 import { text } from "./text/index.ts";
@@ -158,6 +159,8 @@ onMounted(() => {
     .get<BotInfo>("/api/bot", { quietSession: true })
     .then((res) => {
       setReportUrl(res.data.sourceRepo);
+      // 화면에서 저장소 설명서(docs/)로 가는 링크도 같은 저장소로
+      setDocsRepo(res.data.sourceRepo);
       // 곡이 없을 때의 화면 색은 운영자가 정한 임베드 색에서(theme)
       setBrandColor(res.data.brandColor);
       shell.botAvatar = res.data.avatarUrl;

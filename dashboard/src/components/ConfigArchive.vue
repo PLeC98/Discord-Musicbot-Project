@@ -4,6 +4,7 @@
   <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
   <div>
     <BaseCard icon="download" :title="T.title">
+      <template #actions><DocLink file="docs/settings-data.md" /></template>
       <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
       <div class="flex gap-2 flex-wrap">
         <BaseButton variant="secondary" :disabled="busy" @click="exportNow"><Icon name="download" :size="18" />{{ T.exportButton }}</BaseButton>
@@ -48,6 +49,7 @@
 import { computed, reactive, ref } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
+import DocLink from "./DocLink.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";

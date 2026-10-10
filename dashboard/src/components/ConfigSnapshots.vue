@@ -3,6 +3,7 @@
   <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="history" :title="T.title">
+      <template #actions><DocLink file="docs/settings-data.md" /></template>
       <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
       <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
       <NoticeBox v-if="view?.staged" variant="note" tone="info" icon="history" class="mt-0! mb-3">
@@ -30,6 +31,7 @@
 import { onMounted, ref } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
+import DocLink from "./DocLink.vue";
 import BaseButton from "./BaseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import NoticeBox from "./NoticeBox.vue";

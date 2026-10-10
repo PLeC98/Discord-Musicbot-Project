@@ -14,5 +14,8 @@ const add = "추가";
 const expand = "펼치기";
 const collapse = "접기";
 const clearValue = "비우기";
+/** 저장소 설명서로 가는 단추(카드 머리) */
+const docs = "설명서";
+const docsTip = "봇 저장소의 설명서를 새 탭에서 열어요.";
 
-export { cancel, close, remove, reset, all, noMatch, toServerList, reportToDeveloper, add, expand, collapse, clearValue };
+export { cancel, close, remove, reset, all, noMatch, toServerList, reportToDeveloper, add, expand, collapse, clearValue, docs, docsTip };

@@ -4,6 +4,7 @@
 
     <!-- 파비콘: 크기마다 무엇을 내는지 보이고, 올린 그림을 늘어놓는다. 끌어다 놓아도 된다(여러 장) -->
     <BaseCard icon="tab" :title="T.favicon">
+      <template #actions><DocLink file="docs/favicon.md" /></template>
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.faviconDesc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.faviconTip" /></p>
 
       <!-- 크기마다: 실제 크기 그대로(큰 것은 64 로 줄여) · 어디서 왔는지 -->
@@ -46,6 +47,7 @@ import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { ref, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
+import DocLink from "./DocLink.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
