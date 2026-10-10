@@ -6,7 +6,7 @@
 -->
 <template>
   <EmojiPicker v-slot="{ toggle }" :clearable="!!modelValue" @pick="$emit('update:modelValue', $event)" @clear="$emit('update:modelValue', '')">
-    <button type="button" :class="box" v-tooltip="modelValue ? '이모지 바꾸기' : '이모지 고르기'" @click="toggle">
+    <button type="button" :class="box" v-tooltip="modelValue ? text.fields.emojiChange : text.fields.emojiPick" @click="toggle">
       <Twemoji v-if="modelValue" :char="modelValue" :size="24" />
       <Icon v-else name="add" :size="20" class="text-on-surface-variant" />
     </button>
@@ -17,6 +17,7 @@
 import Icon from "./BaseIcon.vue";
 import Twemoji from "./TwemojiImage.vue";
 import EmojiPicker from "./EmojiPicker.vue";
+import { text } from "../text/index.ts";
 
 withDefaults(defineProps<{ modelValue?: string }>(), { modelValue: "" });
 defineEmits<{ "update:modelValue": [value: string] }>();

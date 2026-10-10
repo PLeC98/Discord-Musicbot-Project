@@ -12,7 +12,7 @@
     <div ref="box" :class="CHIP_FIELD">
       <span v-for="value in picked" :key="value" :class="INPUT_CHIP">
         <span class="truncate min-w-0">{{ labelOf(value) }}</span>
-        <button :class="INPUT_CHIP_CLOSE" aria-label="삭제" v-tooltip="'삭제'" @click="remove(value)"><Icon name="close" :size="18" /></button>
+        <button :class="INPUT_CHIP_CLOSE" :aria-label="text.common.remove" v-tooltip="text.common.remove" @click="remove(value)"><Icon name="close" :size="18" /></button>
       </span>
 
       <input
@@ -36,7 +36,7 @@
           <span class="truncate">{{ opt.label }}</span>
         </button>
       </div>
-      <p v-else-if="open && term.trim()" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">찾는 것이 없어요</p>
+      <p v-else-if="open && term.trim()" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">{{ text.common.noMatch }}</p>
     </Teleport>
   </div>
 </template>
@@ -51,11 +51,12 @@ import Icon from "./BaseIcon.vue";
 import { useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { useListCursor } from "../composables/list-cursor.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
+import { text } from "../text/index.ts";
 
 const props = withDefaults(defineProps<{ modelValue?: OptionValue[] | null; options?: Option[]; placeholder?: string; limit?: number }>(), {
   modelValue: () => [],
   options: () => [],
-  placeholder: "입력하면 후보가 표시돼요",
+  placeholder: text.fields.typeForSuggestions,
   limit: 8,
 });
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();

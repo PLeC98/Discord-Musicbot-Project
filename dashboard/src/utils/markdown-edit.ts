@@ -1,3 +1,5 @@
+import { text as screenText } from "../text/index.ts";
+const LINK_TEXT = screenText.fields.linkText;
 // 공지 입력칸의 서식 도구: 고른 글을 감싸거나(굵게 등) 고른 줄 앞에 기호를 붙인다(제목 · 목록 등). 이미 있으면 뗀다(켜고 끄기)
 
 export type Edit = { text: string; start: number; end: number };
@@ -53,7 +55,7 @@ export function codeBlock(text: string, start: number, end: number): Edit {
 
 /** 링크: 고른 글이 있으면 그 글에, 없으면 "링크 글" 자리에. 주소 칸(https://)을 고른 채로 둔다 */
 export function link(text: string, start: number, end: number): Edit {
-  const label = text.slice(start, end) || "링크 글";
+  const label = text.slice(start, end) || LINK_TEXT;
   const piece = `[${label}](https://)`;
   const urlAt = start + label.length + 3;
   return { text: text.slice(0, start) + piece + text.slice(end), start: urlAt, end: urlAt + "https://".length };

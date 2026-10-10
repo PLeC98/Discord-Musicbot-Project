@@ -13,8 +13,8 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-1">
-      <span class="text-xs text-on-surface-variant nums">{{ text }}</span>
-      <button v-if="from != null || to != null" type="button" :class="clearBtn" @click="emit('update', { from: null, to: null })">초기화</button>
+      <span class="text-xs text-on-surface-variant nums">{{ rangeText }}</span>
+      <button v-if="from != null || to != null" type="button" :class="clearBtn" @click="emit('update', { from: null, to: null })">{{ text.common.reset }}</button>
     </div>
 
     <div v-if="bars.length" class="flex items-end gap-px h-8 mb-1" aria-hidden="true">
@@ -24,8 +24,8 @@
     <div class="relative h-5 select-none">
       <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-secondary-container"></div>
       <div class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary" :style="fill"></div>
-      <input type="range" :min="min" :max="max" :step="step" :value="lo" :class="loOnTop ? 'z-20' : 'z-10'" :aria-label="`${label} 시작`" @input="set(+valueOf($event), hi)" />
-      <input type="range" :min="min" :max="max" :step="step" :value="hi" class="z-10" :aria-label="`${label} 끝`" @input="set(lo, +valueOf($event))" />
+      <input type="range" :min="min" :max="max" :step="step" :value="lo" :class="loOnTop ? 'z-20' : 'z-10'" :aria-label="text.fields.rangeStart(label)" @input="set(+valueOf($event), hi)" />
+      <input type="range" :min="min" :max="max" :step="step" :value="hi" class="z-10" :aria-label="text.fields.rangeEnd(label)" @input="set(lo, +valueOf($event))" />
     </div>
   </div>
 </template>
@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { valueOf } from "../utils/dom.ts";
+import { text } from "../text/index.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -59,7 +60,7 @@ const lo = computed(() => clamp(props.from ?? props.min));
 const hi = computed(() => Math.max(lo.value, clamp(props.to ?? props.max)));
 
 const whole = computed(() => lo.value <= props.min && hi.value >= props.max);
-const text = computed(() => (whole.value ? "전체" : `${lo.value} ~ ${hi.value}`));
+const rangeText = computed(() => (whole.value ? text.common.all : `${lo.value} ~ ${hi.value}`));
 
 // 앞쪽 손잡이가 오른쪽 끝에 가면 뒤쪽 손잡이에 깔려 잡히지 않는다
 const loOnTop = computed(() => lo.value > (props.min + props.max) / 2);

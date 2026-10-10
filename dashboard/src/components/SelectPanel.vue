@@ -10,13 +10,13 @@
     <Teleport to="body">
       <div v-if="open" ref="panel" :class="panelCls" :style="style">
         <div v-if="searchable" class="shrink-0 p-1 border-b border-outline-variant/50">
-          <input ref="box" :value="term" type="text" @input="term = valueOf($event)" :placeholder="`${count}개 중에서 찾기`" :class="searchCls" @keydown.esc.stop="term ? (term = '') : (open = false)" />
+          <input ref="box" :value="term" type="text" @input="term = valueOf($event)" :placeholder="text.fields.searchAmong(count)" :class="searchCls" @keydown.esc.stop="term ? (term = '') : (open = false)" />
         </div>
         <!-- 스크롤바 길은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색칸 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
         <!-- 넘치면 오른쪽 안쪽 여백을 4 - 3 = 1 로(useOverflowing) -->
         <div ref="listEl" class="min-h-0 overflow-auto flex flex-col [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu) [&>button]:rounded-xs [&>button:first-of-type]:rounded-t-md [&>button:last-of-type]:rounded-b-md" :class="[overflowing ? 'py-1 pl-1 pr-px' : 'p-1', !searchable && '[&::-webkit-scrollbar-track]:mt-(--sb-inset-menu)']" :style="{ maxHeight: `${LIST_MAX_REM}rem` }">
           <slot />
-          <p v-if="empty" class="px-4 py-3 text-xs text-on-surface-variant">찾는 것이 없어요</p>
+          <p v-if="empty" class="px-4 py-3 text-xs text-on-surface-variant">{{ text.common.noMatch }}</p>
         </div>
       </div>
     </Teleport>
@@ -31,6 +31,7 @@ import { useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { rem } from "../utils/rem.ts";
 import { valueOf } from "../utils/dom.ts";
+import { text } from "../text/index.ts";
 
 const props = defineProps<{
   /** 닫혀 있을 때 칸에 보일 글 */

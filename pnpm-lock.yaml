@@ -94,6 +94,9 @@ importers:
       '@types/subset-font':
         specifier: ^2.3.0
         version: 2.3.0
+      '@vue/compiler-sfc':
+        specifier: 3.5.43
+        version: 3.5.43
       cmu-pronouncing-dictionary:
         specifier: 3.0.0
         version: 3.0.0

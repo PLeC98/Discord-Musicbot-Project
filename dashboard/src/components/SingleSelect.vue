@@ -17,6 +17,7 @@ import { ref, computed } from "vue";
 import SelectPanel from "./SelectPanel.vue";
 import { filterOptions, type Option, type OptionValue } from "../utils/options.ts";
 import { SELECT_GROUP, SELECT_ROW, SELECT_ROW_ON } from "../utils/select-row.ts";
+import { text } from "../text/index.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -28,7 +29,7 @@ const props = withDefaults(
     searchFrom?: number;
     disabled?: boolean;
   }>(),
-  { modelValue: "", options: () => [], placeholder: "고르기", emptyLabel: "", searchFrom: 12, disabled: false },
+  { modelValue: "", options: () => [], placeholder: text.fields.pick, emptyLabel: "", searchFrom: 12, disabled: false },
 );
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue] }>();
 

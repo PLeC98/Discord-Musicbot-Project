@@ -5,6 +5,7 @@
 // 서버 값을 바로 묶으면 화면이 다시 그려질 때마다(진행바가 1초마다 그린다) 손잡이가 서버 값으로 튄다.
 import { ref, computed, type Ref } from "vue";
 import { notifyProblem } from "./toasts.ts";
+import { text } from "../text/index.ts";
 
 const MIN_GAP_MS = 200;
 
@@ -28,7 +29,7 @@ export function useVolumeControl(serverVolume: Readonly<Ref<number | undefined>>
       lastSent = level;
       await send(level);
     } catch (e) {
-      notifyProblem(e, "볼륨을 바꾸지 못했어요.");
+      notifyProblem(e, text.player.volumeFailed);
     }
     const wait = MIN_GAP_MS - (Date.now() - started);
     if (wait > 0 && pending !== null) await new Promise((done) => setTimeout(done, wait));

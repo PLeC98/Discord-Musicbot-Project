@@ -13,10 +13,10 @@
         </div>
         <div v-if="t.body" class="text-on-surface-variant">{{ t.body }}</div>
         <div v-if="t.detail" class="text-on-surface-variant">{{ t.detail }}</div>
-        <a v-if="t.reportUrl" :href="t.reportUrl" target="_blank" rel="noopener" class="text-primary text-label font-semibold hover:underline">봇 개발자에게 보고하기</a>
+        <a v-if="t.reportUrl" :href="t.reportUrl" target="_blank" rel="noopener" class="text-primary text-label font-semibold hover:underline">{{ text.common.reportToDeveloper }}</a>
         <div v-if="t.codeLine" class="text-on-surface-variant text-label mt-0.5">{{ t.codeLine }}</div>
       </div>
-      <button class="tap state-layer size-8 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant cursor-pointer" aria-label="닫기" @click="dismiss(t.id)"><Icon name="close" :size="20" /></button>
+      <button class="tap state-layer size-8 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant cursor-pointer" :aria-label="text.common.close" @click="dismiss(t.id)"><Icon name="close" :size="20" /></button>
     </div>
   </TransitionGroup>
 </template>
@@ -26,6 +26,7 @@ import { ref } from "vue";
 import Icon from "./BaseIcon.vue";
 import { toasts, dismiss } from "../composables/toasts.ts";
 import { TOAST_LOOK, toastClock } from "../utils/toast-look.ts";
+import { text } from "../text/index.ts";
 
 const LOOK = TOAST_LOOK;
 const clock = toastClock;

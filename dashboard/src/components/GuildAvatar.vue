@@ -7,7 +7,7 @@
     <span v-else class="size-full flex items-center justify-center font-round font-semibold transition-[border-radius,background-color,color] spring" :class="[active ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-secondary-container text-on-secondary-container', textClass]">{{ guild.name[0] }}</span>
     <!-- 바탕은 상태 색: 곡이 걸려 있으면(재생 중 · 일시정지) 초록, 음성 채널에 있지만 곡이 없으면 노랑.
          막대는 재생 중에만. 일시정지 · 대기 중은 기호로(멈춘 막대는 움직임 줄이기의 재생 중과 같아진다) -->
-    <span v-if="status && guild.hasPlayer" v-tooltip="playing ? '재생 중' : paused ? '일시정지' : '음성 채널에서 대기 중'" class="absolute -right-1 -bottom-1 size-4 rounded-full ring-2 ring-surface flex items-center justify-center" :class="playing || paused ? 'bg-(--status-play) text-(--on-status-play)' : 'bg-(--status-wait) text-(--on-status-wait)'">
+    <span v-if="status && guild.hasPlayer" v-tooltip="playing ? T.playing : paused ? T.paused : T.waitingInVoice" class="absolute -right-1 -bottom-1 size-4 rounded-full ring-2 ring-surface flex items-center justify-center" :class="playing || paused ? 'bg-(--status-play) text-(--on-status-play)' : 'bg-(--status-wait) text-(--on-status-wait)'">
       <template v-if="playing">
         <i class="block w-2.25 h-2 bg-current motion-reduce:hidden" :style="mask(eqBars)"></i>
         <!-- 움직임 줄이기: 멈춘 재생 막대 -->
@@ -25,6 +25,8 @@ import { computed } from "vue";
 import Icon from "./BaseIcon.vue";
 import eqBars from "../assets/eq-bars.webp";
 import eqStill from "../assets/eq-still.webp";
+import { text } from "../text/index.ts";
+const T = text.servers;
 
 const props = withDefaults(defineProps<{ guild: Pick<GuildRow, "name" | "icon" | "hasPlayer"> & Partial<Pick<GuildRow, "state">>; active?: boolean; status?: boolean; sizeClass?: string; textClass?: string }>(), {
   active: false,

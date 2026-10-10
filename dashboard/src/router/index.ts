@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
 import { useUserStore } from "../stores/user.ts";
 import { session } from "../composables/session.ts";
+import { text } from "../text/index.ts";
 
 declare module "vue-router" {
   interface RouteMeta {
@@ -53,7 +54,7 @@ const routes: RouteRecordRaw[] = [
     // 없는 주소
     path: "/:pathMatch(.*)*",
     component: () => import("../views/NotFoundView.vue"),
-    meta: { requiresAuth: true, workspace: true, title: "페이지 없음" },
+    meta: { requiresAuth: true, workspace: true, title: text.shell.notFoundTitle },
   },
 ];
 

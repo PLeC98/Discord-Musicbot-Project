@@ -54,6 +54,7 @@
     "@types/fontkit": "^2.0.9",
     "@types/node": "catalog:",
     "@types/subset-font": "^2.3.0",
+    "@vue/compiler-sfc": "3.5.43",
     "cmu-pronouncing-dictionary": "3.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",

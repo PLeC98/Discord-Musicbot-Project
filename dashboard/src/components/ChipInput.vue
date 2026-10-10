@@ -17,7 +17,7 @@
         <template v-else>
           <!-- 긴 값은 줄여 보이므로, 툴팁으로는 전문을 보여준다 -->
           <button class="cursor-text text-left truncate min-w-0" v-tooltip="item" @click="startEdit(i)">{{ item }}</button>
-          <button :class="INPUT_CHIP_CLOSE" aria-label="삭제" v-tooltip="'삭제'" @click="removeAt(i)"><Icon name="close" :size="18" /></button>
+          <button :class="INPUT_CHIP_CLOSE" :aria-label="text.common.remove" v-tooltip="text.common.remove" @click="removeAt(i)"><Icon name="close" :size="18" /></button>
         </template>
       </span>
 
@@ -45,9 +45,9 @@
         </button>
       </div>
       <!-- 저쪽이 느릴 때가 있다. 묻는 중인지 알 수 있어야 기다린다 -->
-      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[CHIP_PANEL_NOTE, 'flex items-center gap-2']" :style="style"><Icon name="progress_activity" :size="14" class="animate-spin" />후보를 찾는 중이에요</p>
-      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[CHIP_PANEL_NOTE, 'whitespace-pre-line']" :style="style">후보를 받지 못했어요. Enter 로 그대로 넣을 수 있어요{{ failReason ? `\n${failReason}` : "" }}</p>
-      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">후보가 없어요. Enter 로 그대로 넣을 수 있어요</p>
+      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[CHIP_PANEL_NOTE, 'flex items-center gap-2']" :style="style"><Icon name="progress_activity" :size="14" class="animate-spin" />{{ text.fields.suggestLoading }}</p>
+      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[CHIP_PANEL_NOTE, 'whitespace-pre-line']" :style="style">{{ text.fields.suggestFailed }}{{ failReason ? `\n${failReason}` : "" }}</p>
+      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">{{ text.fields.suggestNone }}</p>
     </Teleport>
   </div>
 </template>
@@ -61,6 +61,7 @@ import Icon from "./BaseIcon.vue";
 import { useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { useListCursor } from "../composables/list-cursor.ts";
 import { problemText } from "../utils/problem.ts";
+import { text } from "../text/index.ts";
 
 /** 후보 하나. hint 는 이름 옆에 흐리게 보인다 */
 type Suggestion = { value: string; hint?: string };

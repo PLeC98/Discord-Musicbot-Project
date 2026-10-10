@@ -8,7 +8,7 @@
           <h3 class="text-xl font-round font-semibold text-center mb-4">{{ title }}</h3>
           <p class="text-sm text-on-surface-variant text-center mb-6 whitespace-pre-line">{{ body }}</p>
           <div class="flex gap-2 justify-end">
-            <BaseButton variant="ghost" :disabled="busy" @click="open = false">취소</BaseButton>
+            <BaseButton variant="ghost" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
             <BaseButton :variant="tone" :disabled="busy" @click="emit('confirm')">{{ confirmLabel }}</BaseButton>
           </div>
         </div>
@@ -21,6 +21,7 @@
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
 
 /** tone: danger(되돌릴 수 없는 일, 오류 색) · primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다 */
 withDefaults(defineProps<{ icon: IconName; title: string; body: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean }>(), { tone: "danger", busy: false });

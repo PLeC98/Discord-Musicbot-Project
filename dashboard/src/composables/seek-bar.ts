@@ -5,6 +5,7 @@
 import { ref, watch, onUnmounted, type Ref } from "vue";
 import { seekPosition } from "../utils/playback.ts";
 import { notify } from "./toasts.ts";
+import { text } from "../text/index.ts";
 
 /** 줄 번호(지금 곡). 없으면 null */
 type Entry = number | null | undefined;
@@ -58,7 +59,7 @@ export function useSeekBar({ el, duration, enabled, entry, send }: { el: Readonl
   watch(entry, () => {
     if (!held) return;
     release();
-    notify({ title: "곡이 바뀌어 위치 이동을 취소했어요.", severity: "warning" });
+    notify({ title: text.player.seekCancelled, severity: "warning" });
   });
   onUnmounted(release);
 

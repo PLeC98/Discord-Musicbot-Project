@@ -2,7 +2,7 @@
   <!-- 앨범아트 크게 보기. 바깥을 누르거나 Esc 로 닫는다. 어두운 막 위라 글은 모드와 상관없이 흰색 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="open && track?.thumbnail" class="fixed inset-0 z-300 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6 cursor-zoom-out" role="dialog" aria-modal="true" :aria-label="`${songTitle(track.title)} 앨범아트`" @click="open = false">
+      <div v-if="open && track?.thumbnail" class="fixed inset-0 z-300 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6 cursor-zoom-out" role="dialog" aria-modal="true" :aria-label="T.albumArt(songTitle(track.title))" @click="open = false">
         <div class="relative rounded-2xl overflow-hidden bg-surface-container-high shadow-[0_1px_3px_rgb(0_0_0/0.3),0_4px_8px_3px_rgb(0_0_0/0.15)]" :class="box ? 'animate-[art-in_400ms_var(--ease-spring-fast)]' : 'opacity-0 size-40'" :style="box ?? undefined">
           <img :src="large" alt="" class="size-full object-cover" @load="loaded" @error="failed" />
         </div>
@@ -20,6 +20,8 @@ import { computed, ref, watch } from "vue";
 import { onKeyStroke } from "@vueuse/core";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { rem } from "../utils/rem.ts";
+import { text } from "../text/index.ts";
+const T = text.player;
 
 /** zoom: 작은 아트의 위아래 검은 띠를 감추는 배율(theme/art 의 useArtZoom) */
 const props = defineProps<{ track: { thumbnail?: string | null; title: string | null; artist?: string | null } | null | undefined; zoom: number }>();

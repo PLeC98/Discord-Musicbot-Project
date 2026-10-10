@@ -5,7 +5,7 @@
        끝까지 펼치기 전에는 내용도 판을 끈다(스포티파이처럼 목록을 굴리려 하면 판이 먼저 올라온다): 안의 목록은 구르지 않고(반만 보일 때 목록 아래가 화면 밖이라 스크롤바가 밖으로 나갔다),
        위로 끌면 판이 따라오고 끝까지 닿으면 같은 손짓으로 목록이 구른다. 끝까지 펼친 뒤 목록 맨 위에서 아래로 끌면 판이 내려간다. 휠을 내리면 끝까지 펼친다. 입력 · 단추 · 링크 · 순서 바꾸기 손잡이에서 시작한 동작은 그대로 둔다 -->
   <div v-if="shown > 0.01" class="fixed inset-0 z-30 bg-black/40" :class="dragOffset === null && 'transition-opacity duration-300 ease-effects'" :style="{ opacity: shown * 0.9 }" @click="stop = 'peek'"></div>
-  <section class="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="dragOffset === null && 'transition-[translate] duration-500 ease-spring'" :style="{ height: `${full}px`, translate: `0 ${full - visible}px` }" aria-label="대기열">
+  <section class="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="dragOffset === null && 'transition-[translate] duration-500 ease-spring'" :style="{ height: `${full}px`, translate: `0 ${full - visible}px` }" :aria-label="T.queue">
     <header :class="compact ? 'pb-1' : 'pb-2'" class="shrink-0 px-4 touch-none select-none cursor-grab active:cursor-grabbing" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
       <!-- 끌기 손잡이(M3 32×4) -->
       <div class="flex justify-center" :class="compact ? 'pt-2 pb-2' : 'pt-3 pb-3'"><span class="w-8 h-1 rounded-full bg-on-surface-variant/40"></span></div>
@@ -17,7 +17,7 @@
             <slot name="badge" />
           </div>
           <!-- 접혔을 때만: 다음 곡 -->
-          <p v-if="stop === 'peek' && next" class="-mt-0.5 text-xs text-on-surface-variant truncate">다음: {{ next }}</p>
+          <p v-if="stop === 'peek' && next" class="-mt-0.5 text-xs text-on-surface-variant truncate">{{ T.upNext(next) }}</p>
         </div>
         <!-- 조작은 끌기에서 뺀다 -->
         <div class="shrink-0 flex items-center gap-2" @pointerdown.stop><slot name="actions" /></div>
@@ -35,6 +35,8 @@
 import { computed, ref } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
+const T = text.player;
 
 /** compact: 낮은 화면(휴대폰 가로). 머리를 64 로 줄인다 */
 const props = withDefaults(defineProps<{ title: string; icon?: IconName; next?: string; deskHeight: number; compact?: boolean }>(), { icon: "queue_music", next: "", compact: false });

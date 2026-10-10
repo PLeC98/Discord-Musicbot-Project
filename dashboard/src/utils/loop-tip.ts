@@ -3,9 +3,10 @@ import { nextLoopMode, type Loop } from "../../../src/rules/loop-cycle.ts";
 import { modeOf } from "../../../src/dashboard/contract/player.ts";
 import { loopLabel } from "../../../src/ui/text/ko/panel.ts";
 import { noticeText } from "./problem.ts";
+import { text } from "../text/index.ts";
 
 export function loopTip(s: { loop?: Loop; hasLive?: boolean } | null | undefined): string {
   if (s?.hasLive) return noticeText("live-no-loop").title;
   const loop = s?.loop ?? false;
-  return `${loopLabel(modeOf(loop))} (다음: ${loopLabel(modeOf(nextLoopMode(loop)))})`;
+  return text.player.loopTip(loopLabel(modeOf(loop)), loopLabel(modeOf(nextLoopMode(loop))));
 }
