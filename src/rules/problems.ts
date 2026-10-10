@@ -109,6 +109,8 @@ const SHARED = {
 const WEB = {
   // 대시보드: 접속 · 권한
   "login-required": { status: 401, title: "Login required" },
+  // 위험한 조작(비밀값 · 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
+  "reauth-required": { status: 403, title: "Recent login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
   "no-guild-access": { status: 403, title: "No access to this server" },
   "bad-tier": { status: 400, title: "Unknown permission tier" },

@@ -46,6 +46,7 @@ const later = "나중에";
 const loggedIn = "로그인했어요";
 const loginInNewWindow = "새 창에서 로그인";
 const notLoggedInYet = "아직 로그인되지 않았어요. 새 창에서 로그인을 마쳐 주세요.";
+const reauthBody = "새 창에서 로그인을 마친 뒤 이 탭으로 돌아와 다시 저장해 주세요. 고치던 내용은 그대로 남아 있어요.";
 
 // 시계(사이드바)
 const clockLabel = (hh: string, mm: string) => `${hh}시 ${mm}분`;
@@ -53,4 +54,4 @@ const year = (n: number) => `${n}년`;
 const month = (n: number) => `${n}월`;
 const day = (n: number) => `${n}일`;
 
-export { notFoundTitle, notFound, topBar, serverList, serverSettingsSuffix, adminPanel, openMenu, viewingAs, clearViewAs, serverRail, sidebarWidth, sidebarExpand, sidebarCollapse, closeMenu, allServers, brightness, settings, licenses, logout, modeDark, modeLight, modeSystem, inbox, inboxUnread, inboxClear, inboxRemoveOne, inboxEmpty, loginAgain, retry, reconnecting, loginAgainBody, later, loggedIn, loginInNewWindow, notLoggedInYet, clockLabel, year, month, day };
+export { notFoundTitle, notFound, topBar, serverList, serverSettingsSuffix, adminPanel, openMenu, viewingAs, clearViewAs, serverRail, sidebarWidth, sidebarExpand, sidebarCollapse, closeMenu, allServers, brightness, settings, licenses, logout, modeDark, modeLight, modeSystem, inbox, inboxUnread, inboxClear, inboxRemoveOne, inboxEmpty, loginAgain, retry, reconnecting, loginAgainBody, later, loggedIn, loginInNewWindow, notLoggedInYet, reauthBody, clockLabel, year, month, day };

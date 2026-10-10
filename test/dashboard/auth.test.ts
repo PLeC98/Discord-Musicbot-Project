@@ -7,6 +7,7 @@ import express from "express";
 import session from "express-session";
 import type { Server } from "node:http";
 import { createAuthRouter, type DiscordHttp } from "../../src/dashboard/routes/auth.ts";
+import { requireRecentLogin, RECENT_LOGIN_MS } from "../../src/dashboard/middleware/recent-login.ts";
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
 const { listenForFetch } = listen;
@@ -39,6 +40,12 @@ async function start(http: ReturnType<typeof fakeDiscord>) {
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false }));
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
+  // 위험한 조작 자리 · 로그인한 지 오래된 것처럼 만들기(시험만)
+  app.post("/risky", requireRecentLogin, (_req, res) => res.json({ ok: true }));
+  app.post("/age-login", (req, res) => {
+    req.session.loginAt = Date.now() - RECENT_LOGIN_MS - 1;
+    res.status(204).end();
+  });
   const server = await listenForFetch(app);
   servers.push(server);
   const base = listen.baseUrl(server);
@@ -100,6 +107,22 @@ test("콜백: 코드를 토큰으로 바꾸고 사용자 · 서버 목록을 세
 
   const user = await (await go("/me")).json();
   assert.deepEqual(user, { id: "u1", username: "user", globalName: "user", avatar: "av", guilds: [{ id: "g1" }] });
+});
+
+test("위험한 조작: 로그인한 지 10분 안이면 받고, 지났으면 reauth-required(403). 로그인 전이면 login-required", async () => {
+  const { go } = await start(fakeDiscord());
+  assert.equal((await go("/risky", { method: "POST" })).status, 401);
+
+  const login = await go("/auth/login");
+  const state = new URL(location(login)).searchParams.get("state");
+  await go(`/auth/callback?code=abc&state=${state}`);
+  assert.equal((await go("/risky", { method: "POST" })).status, 200, "방금 로그인했다");
+
+  await go("/age-login", { method: "POST" });
+  const late = await go("/risky", { method: "POST" });
+  assert.equal(late.status, 403);
+  assert.equal(((await late.json()) as { code?: string }).code, "reauth-required");
+  assert.equal((await go("/risky", { method: "POST" })).status, 403, "요청이 로그인 시각을 늘리지 않는다");
 });
 
 test("콜백: 디스코드가 실패하면 실패로 돌려보낸다", async () => {

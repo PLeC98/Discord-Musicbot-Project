@@ -12,20 +12,21 @@
     <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
   </div>
 
-  <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘 · 제목 · 설명, 오른쪽 아래 단추. 알림 띠보다 위(z-400) -->
+  <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘 · 제목 · 설명, 오른쪽 아래 단추. 알림 띠보다 위(z-400).
+       세션이 끝났을 때와 위험한 조작에 다시 로그인이 필요할 때(reauth, 세션은 살아 있다) 같은 대화상자를 쓴다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="session.ended && showDialog" class="fixed inset-0 z-400 bg-black/50 flex items-center justify-center p-4" @click.self="showDialog = false">
+      <div v-if="(session.ended || session.reauth) && showDialog" class="fixed inset-0 z-400 bg-black/50 flex items-center justify-center p-4" @click.self="close">
         <div role="dialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 max-w-md w-full text-center animate-[art-in_350ms_var(--ease-spring-fast)]">
           <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="key" :size="24" /></span>
-          <h3 class="mb-4 text-xl font-round font-semibold text-on-surface">{{ loginNotice.title }}</h3>
-          <p class="mb-1 text-sm text-on-surface-variant">{{ loginNotice.body }}</p>
-          <p class="mb-6 text-sm text-on-surface-variant">{{ T.loginAgainBody }}</p>
+          <h3 class="mb-4 text-xl font-round font-semibold text-on-surface">{{ notice.title }}</h3>
+          <p class="mb-1 text-sm text-on-surface-variant">{{ notice.body }}</p>
+          <p class="mb-6 text-sm text-on-surface-variant">{{ session.ended ? T.loginAgainBody : T.reauthBody }}</p>
           <p v-if="note" class="mb-4 text-sm text-tertiary">{{ note }}</p>
-          <p class="-mt-2 mb-6 text-on-surface-variant text-label">{{ codeLineOf("login-required", 401) }}</p>
+          <p class="-mt-2 mb-6 text-on-surface-variant text-label">{{ session.ended ? codeLineOf("login-required", 401) : codeLineOf("reauth-required", 403) }}</p>
           <div class="flex gap-2 justify-end flex-wrap">
-            <BaseButton variant="ghost" @click="showDialog = false">{{ T.later }}</BaseButton>
-            <BaseButton variant="ghost" :disabled="checking" @click="check">{{ T.loggedIn }}</BaseButton>
+            <BaseButton variant="ghost" @click="close">{{ T.later }}</BaseButton>
+            <BaseButton v-if="session.ended" variant="ghost" :disabled="checking" @click="check">{{ T.loggedIn }}</BaseButton>
             <BaseButton variant="primary" @click="openLogin">{{ T.loginInNewWindow }}</BaseButton>
           </div>
         </div>
@@ -35,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
@@ -46,8 +47,9 @@ import { codeLineOf, noticeText, unansweredTitle } from "../utils/problem.ts";
 import { text } from "../text/index.ts";
 const T = text.shell;
 
-// 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required)
+// 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required), 다시 로그인은 reauth-required
 const loginNotice = noticeText("login-required");
+const notice = computed(() => (session.ended ? loginNotice : noticeText("reauth-required")));
 
 const user = useUserStore();
 const router = useRouter();
@@ -55,18 +57,25 @@ const showDialog = ref(false);
 const checking = ref(false);
 const note = ref("");
 
-// 끝났다고 알게 된 때 한 번 띄운다. 닫아도 띠가 남는다
+// 끝났다고 알게 된 때 한 번 띄운다. 닫아도 띠가 남는다. 다시 로그인은 거절당할 때마다 띄운다(띠는 없다)
 watch(
-  () => session.ended,
-  (ended) => {
-    showDialog.value = ended;
+  () => session.ended || session.reauth,
+  (shown) => {
+    showDialog.value = shown;
     note.value = "";
   },
 );
 
+function close() {
+  showDialog.value = false;
+  session.reauth = false;
+}
+
 function openLogin() {
   // 사용자가 누른 때에만 연다(그렇지 않으면 브라우저가 팝업으로 막는다)
   window.open("/auth/login", "_blank");
+  // 다시 로그인은 세션이 살아 있어 확인할 것이 없다. 새 창에서 마친 뒤 돌아와 다시 저장하면 된다
+  if (!session.ended) close();
 }
 
 async function check() {

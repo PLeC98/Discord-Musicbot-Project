@@ -53,9 +53,10 @@ export function failureKind(error: unknown): FailureKind | null {
  * http(axios) 에 가로채기를 건다.
  * onSessionEnd: 401 을 받았을 때. 요청은 그대로 실패한다(부른 쪽이 처리 중을 푼다).
  * 요청에 quietSession 을 주면 401 이어도 부르지 않는다(로그아웃).
+ * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다
  * onReach(ok): 서버에 닿았는지(응답이 왔다 · 연결이 안 됐다). 시간 한도 · 끊음은 알리지 않는다
  */
-export function installRequests(http: AxiosInstance, { onSessionEnd, onReach }: { onSessionEnd: () => void; onReach: (ok: boolean) => void }): void {
+export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach }: { onSessionEnd: () => void; onReauth?: () => void; onReach: (ok: boolean) => void }): void {
   let token: string | null = null;
   let tokenRequest: Promise<string> | null = null;
 
@@ -99,6 +100,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReach }: 
         if (request && !request.csrfRetried) return http.request({ ...request, csrfRetried: true });
       }
       if (response?.status === 401 && !request?.quietSession) onSessionEnd();
+      if (problemCodeOf(response?.data) === "reauth-required") onReauth?.();
       return Promise.reject(error);
     },
   );

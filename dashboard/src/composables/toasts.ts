@@ -4,7 +4,7 @@
 
 import { computed, reactive } from "vue";
 import { problemNotice, type ProblemNotice } from "../utils/problem.ts";
-import { failureKind, statusOf } from "../utils/request.ts";
+import { failureKind, statusOf, problemCodeOf, replyOf } from "../utils/request.ts";
 
 // 됨은 읽을 것이 적어 짧게(M3 스낵바 4초), 실패 · 경고는 까닭을 읽게 길게
 const SHOW_MS = { success: 4000, warning: 6000, error: 6000 };
@@ -73,10 +73,10 @@ export function notifyDone(title: string, body = ""): void {
   notify({ title, body, severity: "success" });
 }
 
-/** 요청 오류의 알림. 세션 끝(401) · 연결 안 됨은 SessionNotice 의 띠가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
+/** 요청 오류의 알림. 세션 끝(401) · 다시 로그인 · 연결 안 됨은 SessionNotice 가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
 export function notifyProblem(error: unknown, fallback: string): void {
   const kind = failureKind(error);
-  if (statusOf(error) === 401 || kind === "aborted" || kind === "offline") return;
+  if (statusOf(error) === 401 || problemCodeOf(replyOf(error)) === "reauth-required" || kind === "aborted" || kind === "offline") return;
   notify(problemNotice(error, fallback));
 }
 

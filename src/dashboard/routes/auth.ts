@@ -142,6 +142,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
           return res.redirect(loginFailed("auth_failed"));
         }
         req.session.user = sessionUser;
+        req.session.loginAt = Date.now();
         req.session.save(() => res.redirect("/dashboard"));
       });
     } catch (error) {

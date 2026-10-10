@@ -15,6 +15,7 @@ function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] 
   // 다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다. 옛 토큰은 거절되고 가로채기가 새 토큰으로 다시 보낸다
   installRequests(axios, {
     onSessionEnd: () => (session.ended = true),
+    onReauth: () => (session.reauth = true),
     onReach: (ok) => (session.offline = !ok),
   });
 

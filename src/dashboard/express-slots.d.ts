@@ -13,6 +13,8 @@ type SessionUser = { id: string; username: string; globalName: string; avatar: s
 declare module "express-session" {
   interface SessionData {
     user: SessionUser;
+    /** 디스코드로 로그인한 때. 세션을 새로 만들 때 한 번 적고 요청마다 갱신하지 않는다(middleware/recent-login) */
+    loginAt: number;
     /** OAuth 요청과 콜백을 잇는 값 */
     oauthState: string;
     csrfToken: string;

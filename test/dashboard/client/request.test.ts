@@ -29,8 +29,9 @@ function harness(route: (req: Sent, sent: Sent[]) => Reply) {
       return { data: reply.data ?? {}, status: 200, statusText: "OK", headers: {}, config };
     },
   });
-  installRequests(http, { onSessionEnd: () => ends.push("end"), onReach: (ok) => reach.push(ok) });
-  return { http, sent, ends, reach };
+  const reauths: string[] = [];
+  installRequests(http, { onSessionEnd: () => ends.push("end"), onReauth: () => reauths.push("reauth"), onReach: (ok) => reach.push(ok) });
+  return { http, sent, ends, reach, reauths };
 }
 
 let issued = 0;
@@ -89,6 +90,13 @@ test("401 이면 세션 끝을 알리고 요청은 그대로 실패한다. quiet
   assert.deepEqual(ends, ["end"]);
   await assert.rejects(http.get("/api/me", { quietSession: true } as AxiosRequestConfig));
   assert.deepEqual(ends, ["end"]);
+});
+
+test("reauth-required 면 다시 로그인을 알린다. 세션 끝이 아니다", async () => {
+  const { http, ends, reauths } = harness((req) => tokenRoute(req) ?? { problem: "reauth-required" });
+  await assert.rejects(http.put("/api/admin/secrets/x"), (error: AxiosError) => error.response?.status === 403);
+  assert.deepEqual(reauths, ["reauth"]);
+  assert.deepEqual(ends, []);
 });
 
 test("토큰을 받다 401 이면 그 요청의 실패다. 보낸 요청의 quietSession 을 따른다", async () => {
