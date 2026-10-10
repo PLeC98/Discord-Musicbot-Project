@@ -1,6 +1,7 @@
 // AI 보조 설정(ai.yaml)의 스키마. 프롬프트(ai-prompt.chatml)는 제 형식이 따로 있어 여기서 보지 않는다.
 
 import { PROVIDERS } from "./ai-providers.ts";
+import { VERTEX_LOCATION } from "../../rules/vertex-url.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const PROMPT_FILE = "ai-prompt.chatml";
@@ -61,7 +62,10 @@ const aiFile = z.preprocess(
       extra: z.string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." }).nullish(),
       prompt: gone(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`),
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
-      location: z.string({ error: "location는 글자로 적어야 합니다." }).nullish(),
+      location: z
+        .string({ error: "location는 글자로 적어야 합니다." })
+        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 합니다(영문 소문자 · 숫자 · -, 예: us-central1 · global).")
+        .nullish(),
       // 모델이 받는 칸의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
       // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(assist/index 의 withParams).
       params: z

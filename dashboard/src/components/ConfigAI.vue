@@ -721,10 +721,11 @@ const needsKey = computed(() => !!spec.value?.key);
  * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 봇과 같은 규칙(rules/vertex-url)으로 조립한다.
  *
  * 프로젝트 ID 만 가린다. 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
+ * 조립은 칸을 인코딩하므로 보일 때는 풀어 쓴다(자리 글 · 한글). 주소를 바꾸는 글자(# / ? @)는 decodeURI 가 풀지 않아 그대로 드러난다
  */
 const shownEndpoint = computed(() => {
   if (!spec.value?.needsProject) return spec.value?.baseUrl;
-  return vertexChatUrl(draft.value, T.endpointProject, String(draft.value.model || "").trim() || T.endpointModel);
+  return decodeURI(vertexChatUrl(draft.value, T.endpointProject, String(draft.value.model || "").trim() || T.endpointModel));
 });
 const keyPlaceholder = computed(() => {
   if (spec.value?.serviceAccount) return hasKey.value ? T.keyPlaceholder.accountSaved : '{\n  "type": "service_account",\n  "project_id": "…",\n  "private_key": "-----BEGIN PRIVATE KEY-----\\n…",\n  "client_email": "…@….iam.gserviceaccount.com"\n}';

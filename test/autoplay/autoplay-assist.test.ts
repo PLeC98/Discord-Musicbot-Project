@@ -1116,7 +1116,8 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
   assert.ok(token, "먼저 서비스 계정으로 토큰을 받는다");
 
   const sent = lastSent();
-  assert.equal(sent.url, "https://us-central1-aiplatform.googleapis.com/v1/projects/json-프로젝트/locations/us-central1/publishers/google/models/gemini-3-pro:generateContent");
+  // 주소 칸은 인코딩해 조립한다(rules/vertex-url). 비교는 풀어서
+  assert.equal(decodeURI(String(sent.url)), "https://us-central1-aiplatform.googleapis.com/v1/projects/json-프로젝트/locations/us-central1/publishers/google/models/gemini-3-pro:generateContent");
   assert.equal(sent.init.headers.Authorization, "Bearer ya29.가짜");
   assert.deepEqual(sent.body.systemInstruction, { parts: [{ text: "기준이다" }] }, "system 은 딴 칸이다");
   assert.equal(sent.body.contents[0].role, "user");
@@ -1228,7 +1229,7 @@ test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", as
 
   await assist.accepts(cand("A"), {});
   // 프로젝트를 안 적었으면 붙여넣은 JSON 의 project_id 를 쓴다
-  assert.match(lastCall().url, /\/projects\/인라인-프로젝트\//);
+  assert.match(decodeURI(String(lastCall().url)), /\/projects\/인라인-프로젝트\//);
   assert.equal(lastCall().init.headers.Authorization, "Bearer ya29.가짜");
 });
 
