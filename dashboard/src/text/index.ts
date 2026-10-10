@@ -10,6 +10,7 @@ import * as dev from "./ko/dev.ts";
 import * as editor from "./ko/editor.ts";
 import * as errors from "./ko/errors.ts";
 import * as fields from "./ko/fields.ts";
+import * as genres from "./ko/genres.ts";
 import * as licenses from "./ko/licenses.ts";
 import * as login from "./ko/login.ts";
 import * as logs from "./ko/logs.ts";
@@ -24,6 +25,6 @@ import * as settings from "./ko/settings.ts";
 import * as shell from "./ko/shell.ts";
 import * as status from "./ko/status.ts";
 
-const text = { admin, appearance, common, cookies, dev, editor, errors, fields, licenses, login, logs, manage, more, player, presence, server, serverSettings, servers, settings, shell, status };
+const text = { admin, appearance, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, server, serverSettings, servers, settings, shell, status };
 
 export { text };

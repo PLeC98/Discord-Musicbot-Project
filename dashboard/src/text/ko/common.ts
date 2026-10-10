@@ -10,4 +10,9 @@ const toServerList = "서버 목록으로";
 /** 오류 알림의 보고 링크 */
 const reportToDeveloper = "봇 개발자에게 보고하기";
 
-export { cancel, close, remove, reset, all, noMatch, toServerList, reportToDeveloper };
+const add = "추가";
+const expand = "펼치기";
+const collapse = "접기";
+const clearValue = "비우기";
+
+export { cancel, close, remove, reset, all, noMatch, toServerList, reportToDeveloper, add, expand, collapse, clearValue };

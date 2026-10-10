@@ -11,7 +11,7 @@
   <div class="flex flex-col gap-2">
     <div v-for="(source, i) in list" :key="source._key" class="rounded-(--r-inner) bg-surface-container-high">
       <div class="flex items-center gap-2 p-2">
-        <button :class="[ICON_BTN, 'size-8']" v-tooltip="isFolded(sourceFoldId(genreIndex, i)) ? '펼치기' : '접기'" @click="toggleFold(sourceFoldId(genreIndex, i))">
+        <button :class="[ICON_BTN, 'size-8']" v-tooltip="isFolded(sourceFoldId(genreIndex, i)) ? text.common.expand : text.common.collapse" @click="toggleFold(sourceFoldId(genreIndex, i))">
           <Icon name="expand_more" :size="20" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(sourceFoldId(genreIndex, i)) }" />
         </button>
 
@@ -19,20 +19,20 @@
           <SingleSelect :model-value="source.type" :options="typeOptions(source.type)" @update:model-value="changeType(i, $event)" />
         </div>
 
-        <label class="flex items-center gap-2 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
-          <span class="text-xs text-on-surface-variant">가중치</span>
+        <label class="flex items-center gap-2 shrink-0" v-tooltip="T.weightTip">
+          <span class="text-xs text-on-surface-variant">{{ T.weight }}</span>
           <NumberInput :model-value="numberAt(source, 'weight')" placeholder="1" :class="[FIELD, 'w-16 px-2 text-center']" @update:model-value="setField(i, 'weight', $event)" />
         </label>
 
-        <button :class="[ICON_BTN, 'size-8 hover:text-error']" aria-label="이 출처 삭제" v-tooltip="'삭제'" @click="remove(i)"><Icon name="delete" :size="20" /></button>
+        <button :class="[ICON_BTN, 'size-8 hover:text-error']" :aria-label="T.remove" v-tooltip="text.common.remove" @click="remove(i)"><Icon name="delete" :size="20" /></button>
       </div>
 
       <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="flex flex-col gap-3 px-3 pb-3">
         <p v-if="spec(source.type)?.hint" class="text-xs text-on-surface-variant">{{ spec(source.type)?.hint }}</p>
-        <p v-if="typesState === 'loading'" class="text-xs text-on-surface-variant">출처 종류를 불러오는 중이에요.</p>
-        <p v-else-if="typesState === 'failed'" class="text-xs text-(--warn-ink) whitespace-pre-line">출처 종류 목록을 받지 못했어요. 새로 고치면 다시 받아요.{{ typesError ? `\n${typesError}` : "" }}</p>
-        <p v-else-if="!spec(source.type)" class="text-xs text-error">모르는 종류예요. 이 봇이 지원하지 않아요.</p>
-        <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">.env 에 {{ spec(source.type)?.needs }} 가 설정되지 않아 해당 출처를 사용하지 않아요.</p>
+        <p v-if="typesState === 'loading'" class="text-xs text-on-surface-variant">{{ T.typesLoading }}</p>
+        <p v-else-if="typesState === 'failed'" class="text-xs text-(--warn-ink) whitespace-pre-line">{{ T.typesFailed }}{{ typesError ? `\n${typesError}` : "" }}</p>
+        <p v-else-if="!spec(source.type)" class="text-xs text-error">{{ T.unknownType }}</p>
+        <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(String(spec(source.type)?.needs)) }}</p>
 
         <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
         <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
@@ -42,7 +42,7 @@
               {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
             </span>
 
-            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? '치면 후보가 떠요. 없는 말은 적고 Enter' : '하나씩 적고 Enter'" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? T.listSuggest : T.listPlain" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
             <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
@@ -52,7 +52,7 @@
               <button v-for="opt in field.options" :key="opt.value" type="button" :aria-pressed="asList(source[field.key]).includes(opt.value)" :class="[FILTER_CHIP, asList(source[field.key]).includes(opt.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
             </div>
 
-            <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || '비우기'" @update:model-value="setField(i, field.key, $event || null)" />
+            <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || text.common.clearValue" @update:model-value="setField(i, field.key, $event || null)" />
 
             <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
 
@@ -63,20 +63,20 @@
         </div>
 
         <div v-if="deepCount(source.type)">
-          <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? "상세 설정 접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}</BaseButton>
+          <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? T.deepClose : T.deepOpen(deepCount(source.type)) }}</BaseButton>
         </div>
-        <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">곡이 너무 많으면 상위 {{ formatNumber(depthOf(source)) }}곡 중에서 골라요.</p>
+        <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">{{ T.window(depthOf(source)) }}</p>
       </div>
     </div>
 
     <!-- 출처 더하기: 종류를 고르고 + (아이콘 버튼 S, 색조 면) -->
     <div class="flex items-center gap-2">
       <div class="flex-1 min-w-0">
-        <SingleSelect v-model="adding" :options="addable.map((t) => ({ value: t.type, label: t.label }))" empty-label="출처 추가…" />
+        <SingleSelect v-model="adding" :options="addable.map((t) => ({ value: t.type, label: t.label }))" :empty-label="T.addPlaceholder" />
       </div>
-      <button type="button" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center cursor-pointer bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!adding" aria-label="출처 추가" v-tooltip="'추가'" @click="add"><Icon name="add" :size="24" /></button>
+      <button type="button" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center cursor-pointer bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!adding" :aria-label="T.add" v-tooltip="text.common.add" @click="add"><Icon name="add" :size="24" /></button>
     </div>
-    <p v-if="!list.length" class="text-xs text-error">출처가 하나는 있어야 해요.</p>
+    <p v-if="!list.length" class="text-xs text-error">{{ T.none }}</p>
   </div>
 </template>
 
@@ -99,7 +99,8 @@ import { valueOf } from "../utils/dom.ts";
 import type { OptionValue } from "../utils/options.ts";
 import type { SourceData } from "../utils/genre-rows.ts";
 import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
-import { formatNumber } from "../utils/locale.ts";
+import { text } from "../text/index.ts";
+const T = text.genres.source;
 
 /** 편집기가 그리는 칸 하나(서버가 준 것) */
 type Field = SourceTypeView["fields"][number];
@@ -186,7 +187,7 @@ const rangeAt = (source: SourceData, key: string | undefined): number | null => 
 const addable = computed(() => props.types.filter((t) => t.usable));
 const choosable = (current: string | undefined) => props.types.filter((t) => t.usable || t.type === current);
 // 키가 없는 소스도 보이되 왜 못 쓰는지를 적어 둔다. 이미 고른 것이면 남아 있어야 한다
-const typeOptions = (current: string | undefined) => choosable(current).map((t) => ({ value: t.type, label: `${t.label}${t.usable ? "" : " (키 없음)"}` }));
+const typeOptions = (current: string | undefined) => choosable(current).map((t) => ({ value: t.type, label: `${t.label}${t.usable ? "" : T.noKey}` }));
 
 const fieldsOf = (type: string | undefined) => spec(type)?.fields || [];
 const deepCount = (type: string | undefined) => fieldsOf(type).filter((f) => f.deep).length;
