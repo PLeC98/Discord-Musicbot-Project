@@ -5,8 +5,6 @@
 //  2. POToken 을 요구한 클라이언트 이름은 경고 본문에 적혀 온다. 우리가 지정한 값이 아니다.
 //     연령 제한 영상에서는 우리가 고르지 않은 web_creator 가 yt-dlp 판단으로 끼어든다.
 
-process.env.COOKIES_SOURCE = "";
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { LogRecord } from "../../src/infra/log/sink.ts";

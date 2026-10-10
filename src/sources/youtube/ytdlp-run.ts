@@ -133,7 +133,7 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
     // 그러면 우리 폴백 루프가 첫 항목에서 끝나 뒤 목록이 통째로 사문화된다. 이건 알려야 한다.
     const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
     if (skipped) {
-      log.warn(`${skipped[1]} 은(는) 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다. .env에서 고쳐 주세요`);
+      log.warn(`${skipped[1]} 은(는) 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다. 설정 탭의 유튜브 클라이언트 차례에서 고쳐 주세요`);
       continue;
     }
     if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {

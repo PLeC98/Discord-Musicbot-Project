@@ -30,8 +30,8 @@ function walk(dir: string, out: string[] = []) {
 }
 
 test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻 · ui/palette 로 고른다)", () => {
-  // 설정 모듈은 .env 색의 기본값을 적는 자리다
-  const skip = [path.join(ROOT, "src", "config", "index.ts")];
+  // 운영 조절값 표는 임베드 색의 기본값을 적는 자리다
+  const skip = [path.join(ROOT, "src", "rules", "tunables.ts")];
   const files = walk(path.join(ROOT, "src")).filter((f) => !skip.some((s) => f === s || f.startsWith(s)));
   const found = files.filter((f) => !f.endsWith(path.join("ui", "palette.ts"))).flatMap((f) => (fs.readFileSync(f, "utf8").match(/["'`]#[0-9A-Fa-f]{6}["'`]/g) ?? []).map((hex) => `${path.relative(ROOT, f)} ${hex}`));
   assert.deepEqual(found, []);

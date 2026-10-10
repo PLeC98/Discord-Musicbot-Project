@@ -9,7 +9,7 @@ import { LIFETIME, toSelf } from "../../ui/delivery.ts";
 // 실제 저장/취소 처리는 src/discord/interactions/sponsor-config-handler.ts (customId: sb:*)
 const exported: GuildCommand = {
   help: { section: "channel", tier: "moderator" },
-  // 봇 전체에서 SponsorBlock 을 껐으면(SPONSORBLOCK_ENABLED=false) 등록하지 않는다
+  // 봇 전체에서 SponsorBlock 을 껐으면(설정 탭의 SponsorBlock 쓰기) 등록하지 않는다
   enabled: () => config.sponsorblock.enabled,
   data: new SlashCommandBuilder().setName("sponsorblock").setDescription("Configure SponsorBlock auto-skip").setDescriptionLocalizations({ ko: "SponsorBlock 기능 설정 패널을 열어요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 

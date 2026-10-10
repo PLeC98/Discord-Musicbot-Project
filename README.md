@@ -19,7 +19,7 @@
 
 - **재생 소스**: YouTube, Spotify, SoundCloud, 직접 오디오 링크
 - **대기열 관리**: 우선 재생, 섞기, 반복, 순서 변경, 건너뛰기, 이전 곡, 일시 정지/재개
-- **긴 재생목록 나눠 넣기**: 재생목록은 한 번에 정해진 곡 수(기본 50, `/setplaylistlimit`로 서버별 지정)만 넣고, 남은 곡은 "더 넣기" 메뉴로 이어 넣음. 대기열 총량은 `.env` `QUEUE_MAX_TRACKS`(기본 250)로 제한
+- **긴 재생목록 나눠 넣기**: 재생목록은 한 번에 정해진 곡 수(기본 50, `/setplaylistlimit`로 서버별 지정)만 넣고, 남은 곡은 "더 넣기" 메뉴로 이어 넣음. 대기열 총량은 설정 탭의 "대기열 곡 수 상한"(기본 250)으로 제한
 - **Components V2 재생 UI**: 진행 바, 컨트롤 버튼, 대기열 점프 셀렉트 메뉴가 달린 now-playing 메시지 (웹훅)
 - **SQLite 오디오 캐시**: 재생한 곡을 로컬 캐싱, 캐시를 활용한 오류 복구·빠른 다회 재생 반응성 등 확보, 재생 빈도·최근성·전체 캐시 용량·디스크 여유 공간 기반 자동 정리
 - **세션 저장/복구**: `/leave`로 대기열·재생 위치를 저장하고 `/join`으로 복구. 봇 재시작 시에도 자동 복구
@@ -113,9 +113,13 @@ pnpm install
 
 Spotify(트랙 · 앨범 링크) · Last.fm · ListenBrainz(자동재생 소스) 키는 `.env` 가 아니라 대시보드의 운영자 패널 → 설정 탭에서 넣습니다. 넣은 값은 `SECRETS_KEY` 로 암호화해 두고 다시 보여 주지 않으며, 저장 여부 · 끝 네 글자 · 연결 시험만 보입니다.
 
+운영 중에 고치는 값(대기열 상한 · 나가기 대기 · 임베드 색 · 음성 상태 문구 · 유튜브 클라이언트 · 쿠키 출처 · POToken 서버 · SponsorBlock · 캐시 · 요청 제한 등)도 같은 설정 탭의 "운영 조절값"에서 고칩니다(`database/settings.db` 에 저장).
+비운 칸은 기본값을 쓰고, 저장하면 바로 적용됩니다. "다시 켜야 적용"이라 표시된 칸(요청 제한 · 실시간 연결 · 유튜브 클라이언트 · POToken 서버 · SponsorBlock 켜기 · 캐시 정리 간격)은 봇을 다시 켜야 적용됩니다.
+옛 `.env` 에 이 이름들이 남아 있으면 쓰지 않고 기동 때 경고합니다.
+
 ### 유튜브 접속 클라이언트 경로 (선택)
 
-`.env`의 `YTDLP_PLAYER_CLIENTS` 옵션으로 유튜브 영상 스트림/다운로드에 사용할 클라이언트를 지정할 수 있습니다.
+운영자 패널 설정 탭의 "유튜브 클라이언트 차례"로 유튜브 영상 스트림/다운로드에 사용할 클라이언트를 지정할 수 있습니다(봇을 다시 켜야 적용).
 지정하지 않으면 yt-dlp의 기본 값을 사용합니다.
 
 여러 클라이언트를 적어 예비를 둘 수 있습니다. 앞에서부터 시도하고 실패하면 다음으로 폴백하며, 자주 실패하는 갈래는 접근이 차단된 클라이언트로 판단하여 해당 실행 세션 중에는 건너뜁니다.
@@ -123,7 +127,7 @@ Spotify(트랙 · 앨범 링크) · Last.fm · ListenBrainz(자동재생 소스)
 예시:
 
 ```
-YTDLP_PLAYER_CLIENTS=web_embedded,mweb,visionos,tv_simply
+web_embedded,mweb,visionos,tv_simply
 ```
 
 #### 클라이언트별 사용 가능 여부
@@ -189,11 +193,11 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 
 받는 버전은 고정된 릴리스 태그입니다. 다른 버전을 쓰려면 `.env`의 `BGUTIL_VERSION`에 태그를 적고 `pnpm run update:bgutil`로 다시 받으세요.
 
-설치한 뒤 `.env`에서 `BGUTIL_ENABLED=true`로 켜야 동작합니다. 켜면 봇 실행 시 POToken 서버(포트 4416)를 함께 띄웁니다. 켜두고 설치를 안 했으면 오류를 남기고 POToken 없이 진행합니다.
+설치한 뒤 운영자 패널 설정 탭의 "POToken 서버 쓰기"를 켜고 봇을 다시 켜야 동작합니다. 켜면 봇 실행 시 POToken 서버(포트 4416)를 함께 띄웁니다. 켜두고 설치를 안 했으면 오류를 남기고 POToken 없이 진행합니다.
 
 ### 쿠키 설정 (연령 제한 영상 전용)
 
-`.env`의 `COOKIES_SOURCE`로 지정 가능합니다.
+운영자 패널 설정 탭의 "쿠키 출처"로 지정합니다.
 
 | 값                                         | 동작                               |
 | ------------------------------------------ | ---------------------------------- |
@@ -210,7 +214,7 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 > ([yt-dlp 문서](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies): 계정 기준 시간당 약 2000영상)
 
 > [!IMPORTANT]
-> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. 브라우저 이름을 먼저 시도해 보고, 문제가 발생하면 `COOKIES_SOURCE=file`을 사용하시기 바랍니다.
+> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. 브라우저 이름을 먼저 시도해 보고, 문제가 발생하면 쿠키 출처를 `file` 로 두고 설정 탭에 붙여넣으시기 바랍니다.
 >
 > 크롬/엣지: [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 >
@@ -371,7 +375,7 @@ YouTube 추출이 갑자기 막히면 하루를 기다리지 말고 `pnpm run up
 > Uses SponsorBlock data licensed under CC BY-NC-SA 4.0 from https://sponsor.ajay.app/.
 
 > [!WARNING]
-> **상업적 이용시 주의**: SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 `.env`에서 `SPONSORBLOCK_ENABLED=false`로 기능을 끄거나 코드를 수정하여 SponsorBlock 기능을 수정/제거해 주세요.
+> **상업적 이용시 주의**: SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 운영자 패널 설정 탭에서 "SponsorBlock 쓰기"를 끄거나 코드를 수정하여 SponsorBlock 기능을 수정/제거해 주세요.
 
 ## 라이선스
 

@@ -26,7 +26,8 @@ import * as serviceKeys from "./ko/service-keys.ts";
 import * as settings from "./ko/settings.ts";
 import * as shell from "./ko/shell.ts";
 import * as status from "./ko/status.ts";
+import * as tunables from "./ko/tunables.ts";
 
-const text = { admin, ai, appearance, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, server, serverSettings, servers, serviceKeys, settings, shell, status };
+const text = { admin, ai, appearance, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, server, serverSettings, servers, serviceKeys, settings, shell, status, tunables };
 
 export { text };

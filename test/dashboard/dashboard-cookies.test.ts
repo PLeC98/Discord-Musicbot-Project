@@ -4,7 +4,6 @@
 // 로그인된 세션 그 자체라 응답에도 로그에도 내용이 남으면 안 된다.
 
 process.env.OWNER_ID = "owner";
-process.env.COOKIES_SOURCE = "file";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import os from "node:os";
@@ -28,6 +27,9 @@ const store = openTempStore("cookie-route-");
 secrets._useKey(Buffer.alloc(32, 9).toString("base64"));
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
 const { adminRouter } = await import("../../src/dashboard/routes/admin.ts");
+// 쿠키 출처는 운영 조절값이다(설정 탭). 이 시험은 file 로 둔다
+const config = (await import("../../src/config/index.ts")).default;
+Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");

@@ -8,6 +8,12 @@ import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 
+// 어떤 명령을 올릴지는 운영 조절값(SponsorBlock 켜기 등)이 정하고, 그 값은 settings.db 에 있다. 봇이 켜져 있어도 건드리지 않게 읽기 전용으로 본다
+const tunables = await import("../src/store/tunables.ts");
+const { PROJECT } = await import("../src/infra/project-paths.ts");
+const path = await import("node:path");
+tunables.loadReadOnly(path.join(PROJECT.database, "settings.db"));
+
 // 명령 목록은 설정 검사를 지난 뒤에 불러온다(src/index.ts 가 본체를 부르는 차례와 같다)
 const { deployCommands, definitions, deployErrorLines } = await import("../src/app/command-loader.ts");
 const commands = definitions();

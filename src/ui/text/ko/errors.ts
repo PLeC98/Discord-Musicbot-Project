@@ -203,6 +203,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "nothing-to-save": (_, look) => warning("input", "저장할 내용이 없어요!", `보낸 내용이 비어 있어요. ${stalePage(look)}`),
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 적힌 칸들을 고친 뒤에 다시 저장해 주세요."),
+  "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "config-unreadable": () => error("failed", "설정 파일을 읽지 못했어요!", "파일이 없거나 YAML 문법이 깨졌어요. 함께 적힌 원문을 보고 파일을 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),

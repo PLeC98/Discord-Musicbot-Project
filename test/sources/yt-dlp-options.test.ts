@@ -1,8 +1,6 @@
 // src/sources/youtube/index.ts getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
 // 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
-// dotenv는 기설정 process.env를 덮지 않으므로 require 전에 세팅한 빈 값이 .env보다 우선.
-
-process.env.COOKIES_SOURCE = "";
+// 쿠키 출처는 운영 조절값(settings.db)이라 .env 와 상관없이 기본값(쓰지 않음)으로 시작한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

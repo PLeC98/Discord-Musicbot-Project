@@ -5,13 +5,16 @@ import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
+import { TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
+// 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널 → 설정 탭)에서 고치십시오.
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // 불러와도 멈추지 않는다. 잘못 적은 값은 문제 목록(problems)에, 기능만 꺼지는 빈 값은 경고 목록(warnings)에
 // 모으고, 기동(src/index.ts)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
+// 운영 조절값(rules/tunables)은 .env 가 아니라 settings.db 의 문서에서 온다. 불러올 때는 기본값이고, 기동이 DB 를 연 뒤
+// 같은 loadConfig 로 다시 셈해 이 객체에 올린다(store/tunables). 그 값이 틀렸으면 기동을 멈추지 않고 그 칸만 기본값(tuneProblems).
 
 const ENV_PATH = PROJECT.env;
 
@@ -30,6 +33,9 @@ function parseSbCategories(raw: string | null) {
     ),
   ];
 }
+
+// 클라이언트 이름 모양. yt-dlp 추출기 인자(youtube:player_client=…)에 그대로 들어가므로 ; 같은 글자가 끼면 인자가 늘어난다
+const CLIENT_NAME = /^[a-z0-9_]+$/;
 
 // yt-dlp 재생 클라이언트 목록. 쉼표 구분, 공백 · 대소문자 정리, 중복은 한 번. 이름이 맞는지는 yt-dlp 가 가린다
 function parseClients(raw: string | null | undefined) {
@@ -77,8 +83,8 @@ const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 // yt-dlp 가 쿠키를 가져올 수 있는 브라우저(--cookies-from-browser, yt-dlp 2026.08.19)
 const COOKIE_BROWSERS = ["brave", "chrome", "chromium", "edge", "firefox", "opera", "safari", "vivaldi", "whale"];
 
-// .env 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다
-function envReaders(source: EnvSource, problems: string[]) {
+// .env · 조절값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(조절값은 tuneProblems 에. 기동을 멈추지 않는다)
+function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
   // .env 의 값. 키가 없거나 공백뿐이면 def
   function env(key: string): string | null;
   function env(key: string, def: string): string;
@@ -94,9 +100,26 @@ function envReaders(source: EnvSource, problems: string[]) {
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
   function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    problems.push(`.env의 ${key} 값이 잘못됐습니다 (${value}): ${reason}. 고친 뒤 다시 실행하세요.`);
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됐습니다 (${value}): ${reason}.`);
+    else problems.push(`.env의 ${key} 값이 잘못됐습니다 (${value}): ${reason}. 고친 뒤 다시 실행하세요.`);
     return def;
   }
+
+  // 참 · 거짓. true · false 만 받는다
+  function envBool(key: string, def: boolean) {
+    const v = env(key);
+    if (v === null) return def;
+    const lower = v.trim().toLowerCase();
+    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true · false 중 하나여야 합니다", def);
+  }
+
+  // 조절값(rules/tunables)을 그 꼴 · 범위 · 기본값으로 읽는다
+  const tuneInt = (key: string) => {
+    const spec = tunable(key);
+    return envInt(key, Number(spec.def), { min: spec.min, max: spec.max });
+  };
+  const tuneBool = (key: string) => envBool(key, tunable(key).def === "true");
+  const tuneText = (key: string) => env(key, tunable(key).def);
 
   function envEnum<T extends string>(key: string, def: T, allowed: readonly T[]): T {
     const v = env(key);
@@ -167,7 +190,13 @@ function envReaders(source: EnvSource, problems: string[]) {
     return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join("·")})이어야 합니다`, "");
   }
 
-  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies, envYtdlpVersion };
+  function envClients(key: string) {
+    const list = parseClients(env(key));
+    const bad = list.filter((name) => !CLIENT_NAME.test(name));
+    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자 · 숫자 · _ 만 쓸 수 있습니다", []) : list;
+  }
+
+  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };
 }
 
 function resolveFromRoot(p: string): string;
@@ -183,15 +212,18 @@ const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as 
 const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
 
 /**
- * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나
+ * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나.
+ * tunables: 운영 조절값(settings.db 의 문서). .env 의 같은 이름은 쓰지 않는다. 그 값의 문제는 tuneProblems 로 따로 낸다
  */
-function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?: boolean } = {}) {
+function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: { envFileFound?: boolean; tunables?: Record<string, string> } = {}) {
   const problems: string[] = [];
   const warnings: string[] = [];
+  const tuneProblems: string[] = [];
   if (!envFileFound) problems.push(".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요.");
 
-  const readers = envReaders(source, problems);
-  const { env, envEnum, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion } = readers;
+  const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
+  const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
+  const { env, envEnum, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envClients, tuneInt, tuneBool } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
@@ -210,7 +242,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
     warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
   }
   // 대시보드(운영자 패널 → 설정 탭)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다
-  const moved = MOVED_TO_DASHBOARD.filter((name) => env(name));
+  const moved = [...MOVED_TO_DASHBOARD, ...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim());
   if (moved.length) warnings.push(`.env 의 ${moved.join(" · ")} 는 이제 쓰지 않습니다. 운영자 패널의 설정 탭에서 넣고 .env 에서 지우세요.`);
 
   // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
@@ -248,15 +280,15 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
 
     bot: {
       defaultVolume: 100,
-      maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", 250), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
+      maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", Number(tunable("QUEUE_MAX_TRACKS").def)), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
       playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(/setplaylistlimit)이 없을 때
-      embedColor: envColor("EMBED_COLOR", "#2743D2"),
+      embedColor: envColor("EMBED_COLOR", tunable("EMBED_COLOR").def as HexColor),
       website: envUrl("WEBSITE"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
       invite: "https://discord.com/oauth2/authorize?client_id=" + env("CLIENT_ID") + "&permissions=8&scope=bot%20applications.commands",
-      leaveDelayQueueEmptyMs: envInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS", 600, { min: 0, max: 86400 }) * 1000,
-      leaveDelayAloneMs: envInt("LEAVE_DELAY_ALONE_SECONDS", 120, { min: 0, max: 86400 }) * 1000,
+      leaveDelayQueueEmptyMs: tuneInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS") * 1000,
+      leaveDelayAloneMs: tuneInt("LEAVE_DELAY_ALONE_SECONDS") * 1000,
     },
 
     // 대기열 미리 받기(player/queue-warmer). 내부 튜닝 상수라 .env 대상이 아니다
@@ -283,12 +315,12 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
 
       // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
       // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/sources/youtube/index.ts).
-      playerClients: parseClients(env("YTDLP_PLAYER_CLIENTS")),
+      playerClients: envClients("YTDLP_PLAYER_CLIENTS"),
       // "최근 window회 중 fails회 실패"면 그 클라이언트를 이번 실행 동안 제외한다.
       // 연속 실패로 세지 않는 이유는 src/sources/youtube/clients.ts 머리말 참조.
-      clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
-      clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
-      clientRetryMs: envInt("YTDLP_CLIENT_RETRY_MINUTES", 60, { min: 0, max: 10080 }) * 60 * 1000,
+      clientWindow: tuneInt("YTDLP_CLIENT_WINDOW"),
+      clientFails: tuneInt("YTDLP_CLIENT_FAILS"),
+      clientRetryMs: tuneInt("YTDLP_CLIENT_RETRY_MINUTES") * 60 * 1000,
 
       // 바이너리 버전(src/sources/ytdlp-binary.ts). 채널의 최신을 따라가거나 버전 하나로 고정한다
       channel: envEnum("YTDLP_CHANNEL", "nightly", YTDLP_CHANNELS),
@@ -301,7 +333,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
     // POToken 공급자(bgutil). 설치돼 있어도 이 값이 true일 때만 띄운다.
     // 쓰지 않을 서버를 상시 띄울 이유가 없다(인증 없는 로컬 HTTP 서버라 표면도 는다).
     bgutil: {
-      enabled: env("BGUTIL_ENABLED", "false") === "true",
+      enabled: tuneBool("BGUTIL_ENABLED"),
       // scripts/install-bgutil.ts 가 체크아웃할 태그
       version: env("BGUTIL_VERSION", BGUTIL_VERSION).trim(),
     },
@@ -309,11 +341,11 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
     ...serviceConfig(readers, dashboardPort),
   };
 
-  return { config, problems, warnings };
+  return { config, problems, warnings, tuneProblems };
 }
 
 // 대시보드 · 캐시 · SponsorBlock · 음성 상태 · 스트림 · 로그. 한 함수가 너무 길어 나눴다
-function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
@@ -329,51 +361,51 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       // API 요청 제한 (src/config/index.ts 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
       // 넉넉히 넘는 값. 도배만 차단.
       rateLimit: {
-        windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60, { min: 1, max: 3600 }) * 1000,
-        apiMax: envInt("RATE_LIMIT_API_MAX", 120, { min: 1, max: 100000 }), // 일반 인증 API (/api/*)
-        queueMax: envInt("RATE_LIMIT_QUEUE_MAX", 20, { min: 1, max: 100000 }), // 곡 추가 (POST /player/queue)
-        authWindowMs: envInt("RATE_LIMIT_AUTH_WINDOW_SEC", 600, { min: 1, max: 86400 }) * 1000,
-        authMax: envInt("RATE_LIMIT_AUTH_MAX", 30, { min: 1, max: 100000 }), // 로그인/OAuth (/auth/*)
+        windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,
+        apiMax: tuneInt("RATE_LIMIT_API_MAX"), // 일반 인증 API (/api/*)
+        queueMax: tuneInt("RATE_LIMIT_QUEUE_MAX"), // 곡 추가 (POST /player/queue)
+        authWindowMs: tuneInt("RATE_LIMIT_AUTH_WINDOW_SEC") * 1000,
+        authMax: tuneInt("RATE_LIMIT_AUTH_MAX"), // 로그인/OAuth (/auth/*)
       },
       // 실시간 갱신(SSE). 플레이어 상태 변화 넛지. 값은 src/config/index.ts 기본값 + .env 오버라이드.
       sse: {
-        heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20, { min: 5, max: 300 }) * 1000, // 유휴 연결 keepalive
-        maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5, { min: 1, max: 100 }), // 사용자당 동시 연결 상한(플레이어 · 로그 스트림이 따로 센다)
-        coalesceMs: envInt("SSE_COALESCE_MS", 300, { min: 0, max: 5000 }), // 서버당 넛지 합치기 창
+        heartbeatMs: tuneInt("SSE_HEARTBEAT_SEC") * 1000, // 유휴 연결 keepalive
+        maxPerUser: tuneInt("SSE_MAX_CONNECTIONS"), // 사용자당 동시 연결 상한(플레이어 · 로그 스트림이 따로 센다)
+        coalesceMs: tuneInt("SSE_COALESCE_MS"), // 서버당 넛지 합치기 창
       },
     },
 
     cache: {
-      maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024, { min: 1, max: 1048576 }) * 1024 * 1024,
-      maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1, max: 1000000 }),
-      minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048, { min: 0, max: 1048576 }) * 1024 * 1024,
-      evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
+      maxSizeBytes: tuneInt("CACHE_MAX_SIZE_MB") * 1024 * 1024,
+      maxFiles: tuneInt("CACHE_MAX_FILES"),
+      minFreeDiskBytes: tuneInt("CACHE_MIN_FREE_DISK_MB") * 1024 * 1024,
+      evictIntervalMs: tuneInt("CACHE_EVICT_INTERVAL_HOURS") * 3600 * 1000,
       // 상한을 넘으면 상한의 이 비율(%)까지 지운다. 여유를 두어 곧바로 다시 넘지 않게
-      evictTargetPercent: envInt("CACHE_EVICT_TARGET_PERCENT", 90, { min: 50, max: 99 }),
+      evictTargetPercent: tuneInt("CACHE_EVICT_TARGET_PERCENT"),
       // 이보다 긴 곡은 캐시하지 않고 스트림으로만 튼다(초). 0 이면 상한 없음
-      maxTrackSec: envInt("CACHE_MAX_TRACK_MINUTES", 60, { min: 0, max: 10080 }) * 60,
+      maxTrackSec: tuneInt("CACHE_MAX_TRACK_MINUTES") * 60,
     },
 
     // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsor-block.ts). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
     // enabled=false 면 API 호출·캐싱이 전부 무동작. 상업적 이용 시 데이터 라이선스(비상업)를 피하는 마스터 스위치.
     sponsorblock: {
-      enabled: env("SPONSORBLOCK_ENABLED", "true") !== "false",
-      apiBase: (env("SPONSORBLOCK_API_BASE", "https://sponsor.ajay.app") || "").replace(/\/+$/, ""),
-      hashPrefixLen: envInt("SPONSORBLOCK_HASH_PREFIX", 5, { min: 4, max: 32 }),
-      timeoutMs: envInt("SPONSORBLOCK_TIMEOUT_MS", 1000, { min: 100, max: 10000 }),
-      // 서버별 미설정 시 기본으로 자동 스킵할 카테고리 (서버별 설정이 오버라이드. 후속 PR)
-      categories: parseSbCategories(env("SPONSORBLOCK_CATEGORIES", "music_offtopic,intro,outro")),
+      enabled: tuneBool("SPONSORBLOCK_ENABLED"),
+      apiBase: envUrl("SPONSORBLOCK_API_BASE", tunable("SPONSORBLOCK_API_BASE").def).replace(/\/+$/, ""),
+      hashPrefixLen: tuneInt("SPONSORBLOCK_HASH_PREFIX"),
+      timeoutMs: tuneInt("SPONSORBLOCK_TIMEOUT_MS"),
+      // 서버별 미설정 시 기본으로 자동 스킵할 카테고리(서버 설정이 이긴다)
+      categories: parseSbCategories(tuneText("SPONSORBLOCK_CATEGORIES")),
     },
 
     voiceStatus: {
-      playingPrefix: env("VOICE_PLAYING_PREFIX", ""),
-      pausedPrefix: env("VOICE_PAUSED_PREFIX", ""),
-      idleText: env("VOICE_IDLE_STATUS", ""),
+      playingPrefix: tuneText("VOICE_PLAYING_PREFIX"),
+      pausedPrefix: tuneText("VOICE_PAUSED_PREFIX"),
+      idleText: tuneText("VOICE_IDLE_STATUS"),
     },
 
     // 재생 스트림 수신. googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/media/chunked-stream.ts).
     stream: {
-      chunkBytes: envInt("STREAM_CHUNK_KB", 1024, { min: 64, max: 65536 }) * 1024,
+      chunkBytes: tuneInt("STREAM_CHUNK_KB") * 1024,
     },
 
     // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다. 사후 분석용.

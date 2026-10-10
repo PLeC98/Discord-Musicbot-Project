@@ -55,12 +55,12 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     // 쓰지 않겠다고 했으면 조용히 넘어간다. 안 쓸 서버가 없다고 떠들어봐야 의미가 없고,
     // 인증 없는 로컬 HTTP 서버를 상시 띄우지 않는 것 자체가 이 토글의 목적이다.
     if (!config.bgutil.enabled) {
-      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 BGUTIL_ENABLED가 false입니다. POToken 서버를 실행하지 않고 진행합니다.");
+      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 설정 탭의 POToken 서버 쓰기가 꺼져 있습니다. POToken 서버를 실행하지 않고 진행합니다.");
       return;
     }
     // 반대로 쓰겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
     if (!installed) {
-      log.error({ sub: "bgutil" }, "BGUTIL_ENABLED가 true로 설정되어 있으나, 설치되어 있지 않습니다! (pnpm run install:bgutil). POToken 없이 진행합니다");
+      log.error({ sub: "bgutil" }, "설정 탭에서 POToken 서버 쓰기를 켰지만 bgutil 이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
       return;
     }
     const child = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });

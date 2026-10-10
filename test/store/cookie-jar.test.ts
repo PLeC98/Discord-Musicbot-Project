@@ -5,8 +5,6 @@
 //  · 붙여넣은 내용을 그대로 둔다(탭 칸 · LF). 평상시에는 붙이지 않는다(연령 제한 폴백 전용)
 //  · 실행마다 따로 파일. yt-dlp 가 고친 쿠키는 되담되, 그사이 새로 넣은 쿠키는 덮지 않는다. 파일은 끝나면 지운다
 
-process.env.COOKIES_SOURCE = "file";
-
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -19,6 +17,8 @@ const secrets = await import("../../src/store/secrets.ts");
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const { _runOnce } = await import("../../src/sources/youtube/ytdlp-run.ts");
 const config = (await import("../../src/config/index.ts")).default;
+// 쿠키 출처는 운영 조절값이다(설정 탭). 이 시험은 file 로 둔다
+Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
 
 const store = openTempStore("cookie-jar-");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-files-"));

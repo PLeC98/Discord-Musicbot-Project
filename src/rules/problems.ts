@@ -157,6 +157,8 @@ const WEB = {
   "nothing-to-save": { status: 400, title: "Nothing was sent" },
   "config-not-found": { status: 404, title: "Unknown config file" },
   "config-invalid": { status: 400, title: "Config has problems" },
+  // 읽은 뒤 다른 탭 · 다른 사람이 먼저 저장했다(저장 번호가 다르다)
+  "config-changed": { status: 409, title: "Config changed since it was read" },
   "config-unreadable": { status: 409, title: "Config file could not be read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },

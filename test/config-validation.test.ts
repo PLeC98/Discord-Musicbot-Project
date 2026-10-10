@@ -17,68 +17,92 @@ const ROOT = path.join(import.meta.dirname, "..");
 // 모양이 맞는 암호화 키(32바이트)
 const KEY = Buffer.alloc(32, 7).toString("base64");
 
-/** 주어진 환경 변수로 설정을 계산한다 — { problems, cfg } */
-function load(env: Record<string, string>, opts?: { envFileFound?: boolean }) {
-  const { config: c, problems, warnings } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
-  return { problems, warnings, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
+/** 주어진 환경 변수(env)와 운영 조절값(tunables, settings.db 의 문서)으로 설정을 계산한다 */
+function load(env: Record<string, string>, opts?: { envFileFound?: boolean; tunables?: Record<string, string> }) {
+  const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
+  return { problems, warnings, tuneProblems, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
+/** 운영 조절값만 준다 */
+const tune = (tunables: Record<string, string>) => load({}, { tunables });
 
 test("숫자 뒤에 글자가 붙으면 문제다 (parseInt가 삼키던 것)", () => {
-  const { problems } = load({ RATE_LIMIT_API_MAX: "120junk" });
-  assert.deepEqual(problems, [".env의 RATE_LIMIT_API_MAX 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다. 고친 뒤 다시 실행하세요."]);
+  assert.deepEqual(load({ DASHBOARD_PORT: "120junk" }).problems, [".env의 DASHBOARD_PORT 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다. 고친 뒤 다시 실행하세요."]);
+  assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다."]);
+});
+
+// 조절값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB 에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 칸만 기본값이다
+test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 칸만 기본값이다", () => {
+  const { problems, tuneProblems, cfg } = tune({ RATE_LIMIT_API_MAX: "0", QUEUE_MAX_TRACKS: "300" });
+  assert.deepEqual(problems, []);
+  assert.equal(tuneProblems.length, 1);
+  assert.deepEqual([cfg.apiMax, cfg.queueMax], [120, 300]);
+});
+
+test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
+  const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
+  assert.equal(cfg.apiMax, 120);
+  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS · RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 설정 탭에서 넣고 .env 에서 지우세요."]);
+  assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 
 test("허용 범위를 벗어나면 문제다 — 조용히 기본값으로 돌지 않는다", () => {
   assert.match(load({ DASHBOARD_PORT: "99999" }).problems.join(), /DASHBOARD_PORT.*65535 이하/);
-  assert.equal(load({ SSE_HEARTBEAT_SEC: "0" }).problems.length, 1, "0초 하트비트 같은 1ms급 타이머도 막는다");
+  assert.equal(tune({ SSE_HEARTBEAT_SEC: "0" }).tuneProblems.length, 1, "0초 하트비트 같은 1ms급 타이머도 막는다");
 });
 
 test("주소 설정은 형식과 스킴을 본다", () => {
-  assert.equal(load({ WEBSITE: "그냥 글자" }).problems.length, 1);
-  assert.equal(load({ WEBSITE: "javascript:alert(1)" }).problems.length, 1, "http·https만");
-  assert.deepEqual(load({ WEBSITE: "https://example.com" }).problems, []);
+  assert.equal(tune({ WEBSITE: "그냥 글자" }).tuneProblems.length, 1);
+  assert.equal(tune({ WEBSITE: "javascript:alert(1)" }).tuneProblems.length, 1, "http·https만");
+  assert.equal(tune({ SPONSORBLOCK_API_BASE: "file:///etc" }).tuneProblems.length, 1, "요청을 보내는 주소도 같다");
+  assert.deepEqual(tune({ WEBSITE: "https://example.com" }).tuneProblems, []);
 });
 
-// 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 기동에서 멈춘다
+// 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 그 칸은 기본 색으로 돈다
 test("임베드 색은 #RRGGBB 만 받는다", () => {
-  assert.deepEqual(load({ EMBED_COLOR: "#2743d2" }).problems, []);
-  for (const bad of ["blue", "#12345", "2743D2", "#GGGGGG"]) assert.equal(load({ EMBED_COLOR: bad }).problems.length, 1, bad);
+  assert.deepEqual(tune({ EMBED_COLOR: "#2743d2" }).tuneProblems, []);
+  for (const bad of ["blue", "#12345", "2743D2", "#GGGGGG"]) assert.equal(tune({ EMBED_COLOR: bad }).tuneProblems.length, 1, bad);
   assert.equal(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1" }).config.bot.embedColor, "#2743D2", "비우면 기본 색");
 });
 
 test("비워 두는 것은 기본값을 쓰겠다는 뜻이라 통과한다", () => {
-  const { problems, cfg } = load({ DASHBOARD_PORT: "", WEBSITE: "", RATE_LIMIT_API_MAX: "  ", QUEUE_MAX_TRACKS: "" });
-  assert.deepEqual(problems, []);
+  const { problems, tuneProblems, cfg } = load({ DASHBOARD_PORT: "" }, { tunables: { WEBSITE: "", RATE_LIMIT_API_MAX: "  ", QUEUE_MAX_TRACKS: "" } });
+  assert.deepEqual([problems, tuneProblems], [[], []]);
   assert.deepEqual(cfg, { port: 33333, apiMax: 120, website: null, queueMax: 250 });
 });
 
 test("대기열 상한은 0(끔)이거나 25 이상이다", () => {
-  assert.match(load({ QUEUE_MAX_TRACKS: "10" }).problems.join(), /QUEUE_MAX_TRACKS/, "사전 캐싱 버퍼보다 작은 대기열은 막는다");
-  assert.equal(load({ QUEUE_MAX_TRACKS: "0" }).cfg.queueMax, 0);
-  assert.equal(load({ QUEUE_MAX_TRACKS: "25" }).cfg.queueMax, 25);
-  assert.equal(load({ QUEUE_MAX_TRACKS: "-1" }).problems.length, 1);
+  assert.match(tune({ QUEUE_MAX_TRACKS: "10" }).tuneProblems.join(), /QUEUE_MAX_TRACKS/, "사전 캐싱 버퍼보다 작은 대기열은 막는다");
+  assert.equal(tune({ QUEUE_MAX_TRACKS: "0" }).cfg.queueMax, 0);
+  assert.equal(tune({ QUEUE_MAX_TRACKS: "25" }).cfg.queueMax, 25);
+  assert.equal(tune({ QUEUE_MAX_TRACKS: "-1" }).tuneProblems.length, 1);
 });
 
 test("범위 안의 값은 그대로 쓴다", () => {
-  const { problems, cfg } = load({ DASHBOARD_PORT: "40000", RATE_LIMIT_API_MAX: "300" });
-  assert.deepEqual(problems, []);
+  const { problems, tuneProblems, cfg } = load({ DASHBOARD_PORT: "40000" }, { tunables: { RATE_LIMIT_API_MAX: "300" } });
+  assert.deepEqual([problems, tuneProblems], [[], []]);
   assert.equal(cfg.port, 40000);
   assert.equal(cfg.apiMax, 300);
 });
 
 // 모르는 브라우저 이름을 yt-dlp 에 넘기면 사용법 오류로 끝나 모든 곡 찾기가 실패했다(none 으로 실측)
 test("쿠키 출처는 file 이거나 yt-dlp 가 받는 브라우저 이름이다(프로필 모양은 그대로 둔다)", () => {
-  assert.match(load({ COOKIES_SOURCE: "none" }).problems.join(), /COOKIES_SOURCE 값이 잘못됐습니다 \(none\): file 또는 브라우저 이름/);
+  assert.match(tune({ COOKIES_SOURCE: "none" }).tuneProblems.join(), /COOKIES_SOURCE 값이 잘못됐습니다 \(none\): file 또는 브라우저 이름/);
   for (const ok of ["file", "FILE", "chrome", "Firefox", "chrome:Profile 1", "chromium+gnomekeyring:Work", "whale"]) {
-    const { problems } = load({ COOKIES_SOURCE: ok });
-    assert.deepEqual(problems, [], ok);
+    assert.deepEqual(tune({ COOKIES_SOURCE: ok }).tuneProblems, [], ok);
   }
-  const { config: c } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", COOKIES_SOURCE: "chrome:Profile 1" });
+  const { config: c } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1" }, { tunables: { COOKIES_SOURCE: "chrome:Profile 1" } });
   assert.equal(c.ytdlp.cookiesFromBrowser, "chrome:Profile 1");
 });
 
+// 클라이언트 이름은 yt-dlp 추출기 인자(youtube:player_client=…)에 그대로 들어간다. ; 가 끼면 인자가 늘어난다
+test("유튜브 클라이언트 이름은 영문 소문자 · 숫자 · _ 만", () => {
+  assert.equal(tune({ YTDLP_PLAYER_CLIENTS: "web;formats=x" }).tuneProblems.length, 1);
+  const { config: c } = loadConfig({}, { tunables: { YTDLP_PLAYER_CLIENTS: "Web_Embedded, tv,web_embedded" } });
+  assert.deepEqual(c.ytdlp.playerClients, ["web_embedded", "tv"]);
+});
+
 test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
-  const { problems } = load({ DASHBOARD_PORT: "x", WEBSITE: "y", LOG_LEVEL: "loud" });
+  const { problems } = load({ DASHBOARD_PORT: "x", DASHBOARD_URL: "y", LOG_LEVEL: "loud" });
   assert.equal(problems.length, 3);
   assert.match(problems[2], /LOG_LEVEL.*trace·debug·info·warn·error·fatal 중 하나/);
 });

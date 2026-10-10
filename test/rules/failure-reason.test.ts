@@ -40,11 +40,11 @@ test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
 test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄에만 붙고 사용자 문장에는 없다", () => {
   const bot = ytdlpError("ERROR: [youtube] abcdefghijk: Sign in to confirm you're not a bot");
   const limited = ytdlpError("ERROR: [youtube] abcdefghijk: HTTP Error 429: Too Many Requests");
-  assert.match(failureReason(bot, false), /^봇 감지 \(운영자: .*COOKIES_SOURCE.*\) \(abcdefghijk\)$/);
-  assert.match(failureReason(limited, false), /^요청 제한 \(운영자: .*COOKIES_SOURCE.*\) \(abcdefghijk\)$/);
+  assert.match(failureReason(bot, false), /^봇 감지 \(운영자: .*쿠키 출처.*\) \(abcdefghijk\)$/);
+  assert.match(failureReason(limited, false), /^요청 제한 \(운영자: .*쿠키 출처.*\) \(abcdefghijk\)$/);
   for (const error of [bot, limited]) {
     const told = plainText(errorMessage(error));
-    assert.doesNotMatch(told, /\.env|COOKIES_SOURCE|bgutil/, told);
+    assert.doesNotMatch(told, /\.env|쿠키 출처|bgutil/, told);
     assert.match(told, /봇 운영자에게 알려주세요/);
   }
 });

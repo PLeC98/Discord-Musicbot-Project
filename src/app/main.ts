@@ -1,5 +1,5 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
-// 로그 → 남은 자식 프로세스 정리 → 종료 처리기 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
+// 로그 → 남은 자식 프로세스 정리 → 종료 처리기 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
 import { Client, GatewayIntentBits, Events, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
@@ -8,6 +8,7 @@ import config from "../config/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
 import * as serviceKeys from "../store/service-keys.ts";
+import * as tunables from "../store/tunables.ts";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
@@ -46,7 +47,7 @@ import { botJoinedGuild } from "../dashboard/routes/player-events.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { failedStartCode } from "./exit-codes.ts";
+import { EXIT, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -81,6 +82,8 @@ function main() {
   const potServer = createPotServer();
   // 종료 처리기는 POToken 서버를 기다리는 동안에도 받는다. 기다리다 끈 것이 기록 없이 끊김으로 세어지지 않게
   const shutdown = installShutdown({ potServer, logFile });
+  // 설정(조절값 · 키)은 DB 에 있다. POToken 서버 · 명령 배포 · 대시보드가 설정을 읽기 전에 연다
+  if (!openSettings({ potServer, logFile })) return;
   deploySlashCommands();
   potServer.start();
   potServer
@@ -91,6 +94,27 @@ function main() {
       log.error("봇 기동 실패:", error);
       stopFailedStart(null, { potServer, logFile }, failedStartCode(error, false));
     });
+}
+
+/**
+ * DB 를 열고 설정을 설정 객체에 올린다. 설정 DB 구조가 맞지 않거나 못 열면 멈춘다(캐시 · 실행 상태 DB 는 구조가 바뀌었으면 새로 만든다).
+ * 내용이 틀린 것(조절값 · 못 푸는 키)은 멈추지 않고 그 칸만 기본값이다. 고칠 대시보드가 떠야 한다
+ */
+function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
+  try {
+    stores.open();
+  } catch (error) {
+    log.error(messageOf(error));
+    stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
+    return false;
+  }
+  tunables.load();
+  serviceKeys.load();
+  aiKeys.warnLegacyFile();
+  // 쿠키는 실행마다 파일로 풀었다 지운다. 꺼지다 남은 것을 치운다
+  cookieJar.sweep();
+  cookieJar.warnLegacyFile();
+  return true;
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -228,15 +252,8 @@ function checkBeforeLogin() {
   ffmpegCapabilities();
   // yt-dlp 도 재생과 같은 ffmpeg 를 쓴다
   ytdlpOptions.useFfmpeg(ffmpegPath);
-  // DB 를 연다. 설정 DB 구조가 맞지 않거나 못 열면 여기서 멈춘다(캐시 · 실행 상태 DB 는 구조가 바뀌었으면 새로 만든다)
-  stopIfThrows(() => stores.open());
+  // 캐시 폴더와 정기 퇴거. DB 는 기동 첫머리에 열었다(openSettings)
   audioCache.initialize();
-  // 바깥 서비스 키(비밀 표)를 설정 객체에 올린다. 장르 키 검사보다 먼저
-  serviceKeys.load();
-  aiKeys.warnLegacyFile();
-  // 쿠키는 실행마다 파일로 풀었다 지운다. 꺼지다 남은 것을 치운다
-  cookieJar.sweep();
-  cookieJar.warnLegacyFile();
   // 음성 채널 상태 중 우리가 쓴 것. 재시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
   voiceChannelStatus.keepIn(voiceStatusStore);
 

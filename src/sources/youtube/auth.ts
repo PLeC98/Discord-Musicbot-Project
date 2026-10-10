@@ -79,7 +79,7 @@ function logAuthMode() {
   // 막지는 않는다. 이 표는 오늘의 유튜브일 뿐이고, 진짜 판정은 실행이 한다.
   const needy = clients.filter((c) => NEEDS_POT.includes(c));
   if (needy.length && !potEnabled()) {
-    log.warn(`${needy.join(", ")} 은(는) POToken이 있어야 제대로 동작합니다. BGUTIL_ENABLED=true로 켜거나 목록에서 빼세요`);
+    log.warn(`${needy.join(", ")} 은(는) POToken이 있어야 제대로 동작합니다. 설정 탭의 "POToken 서버 쓰기"를 켜거나 클라이언트 차례에서 빼세요`);
   }
 
   // 우리가 아는 목록에 없는 이름. 걸러내지 않는다. yt-dlp가 새로 추가한 것일 수 있고,
