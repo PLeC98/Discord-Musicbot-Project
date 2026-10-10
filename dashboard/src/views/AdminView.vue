@@ -98,9 +98,11 @@
           <ConfigAI v-if="opened.has('ai')" />
         </div>
 
-        <div class="admin-page" v-show="tab === 'cookies'">
-          <!-- 파일(config/cookies.txt)로도 고칠 수 있다. 저장된 값은 여기로 내려오지 않는다. -->
-          <ConfigCookies v-if="opened.has('cookies')" />
+        <!-- 자리가 정해지지 않은 설정을 모아 두는 탭. 메뉴를 다시 짤 때 나눈다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
+        <div class="admin-page" v-show="tab === 'settings'">
+          <ConfigServiceKeys v-if="opened.has('settings')" />
+          <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
+          <ConfigCookies v-if="opened.has('settings') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
         </div>
 
         <div class="admin-page" v-show="tab === 'dev'">
@@ -139,6 +141,7 @@ import LiveLogs from "../components/LiveLogs.vue";
 import ConfigPresence from "../components/ConfigPresence.vue";
 import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
+import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { KEPT_LINES, type WireEntry } from "../../../src/infra/log/levels.ts";
@@ -147,9 +150,9 @@ import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.admin;
 
-/** 탭 하나. needsCookieFile 이면 쿠키를 파일로 읽을 때만 보인다 */
+/** 탭 하나 */
 /** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
-type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "outside" | "autoplay" | "dev"; needsCookieFile?: boolean };
+type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "outside" | "autoplay" | "dev" };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
@@ -159,8 +162,8 @@ const ALL_TABS: Tab[] = [
   { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
-  // COOKIES_SOURCE=file 일 때만 나온다. 브라우저 쿠키를 쓰거나 쓰지 않으면 고칠 파일이 없다
-  { id: "cookies", label: T.tabs.cookies, icon: "cookie", group: "outside", needsCookieFile: true },
+  // 자리가 정해지지 않은 설정(서비스 키 · 유튜브 쿠키)을 모아 둔다
+  { id: "settings", label: T.tabs.settings, icon: "settings", group: "outside" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
@@ -171,8 +174,6 @@ const ALL_TABS: Tab[] = [
 ];
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
-// 보이는 탭 목록(TABS)이 아니라 전체로 본다. 쿠키 탭은 상태를 받아야 보일지 정해지는데,
-// 여기는 그 전이라 아직 모른다. 못 쓰는 탭에 머물면 상태가 온 뒤에 되돌린다.
 // 목록 · 상세 편집기의 탭은 고른 줄을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다
 const TAB_PARAM: Record<string, string> = { autoplay: "genre", presence: "presence", ai: "ai" };
 const route = useRoute();
@@ -250,7 +251,7 @@ function closeDetail() {
 // 탭이 바뀌면(누르기 · 뒤로가기) 레일 차례 방향으로 미끄러져 들어온다
 watch(tab, (now, before) => {
   if (!now || !before || now === before) return;
-  const list = TABS.value.map((t) => t.id);
+  const list = ALL_TABS.map((t) => t.id);
   pageDir.value = list.indexOf(now) < list.indexOf(before) ? "up" : "down";
   slide();
 });
@@ -283,9 +284,7 @@ const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
 
-// 쿠키 탭은 파일 방식일 때만 쓸모가 있다. 판정 근거가 상태 응답에 이미 실려 오므로 따로 묻지 않는다.
-const TABS = computed(() => ALL_TABS.filter((t) => !t.needsCookieFile || status.value?.youtube?.cookies === "file"));
-const TAB_GROUPS = computed(() => (["status", "watch", "outside", "autoplay", "dev"] as const).map((g) => TABS.value.filter((t) => t.group === g)).filter((g) => g.length > 0));
+const TAB_GROUPS = (["status", "watch", "outside", "autoplay", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
 
 // 레일의 고른 표시. 고른 칸 아이콘 자리(data-ind)의 높이로 옮긴다. 처음 자리를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
 const railEl = ref<HTMLElement | null>(null);
@@ -312,11 +311,7 @@ function placePill() {
   }
 }
 const railFade = useScrollFade(railEl, () => true);
-watch([tab, TABS, railEl], () => void nextTick(placePill), { flush: "post" });
-// 쓸 수 없게 된 탭에 머물러 있으면 되돌린다. 아무것도 안 그려진 화면을 보게 하지 않는다.
-watch(TABS, (list) => {
-  if (tab.value && !list.some((t) => t.id === tab.value)) void router.replace({ query: { ...route.query, tab: "status" } });
-});
+watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
 async function fetchStatus() {
   try {

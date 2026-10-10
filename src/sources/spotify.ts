@@ -15,6 +15,7 @@ import config from "../config/index.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import { httpFor } from "../infra/http.ts";
+import type { KeyCheck } from "../rules/service-keys.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 const http = httpFor("spotify");
@@ -35,7 +36,8 @@ type SpotifyTrack = { title: string; artist?: string; album: string | null; page
 /** 여러 곡 출처의 한 구간. total 은 모르면 null */
 type Part = { tracks: SpotifyTrack[]; total: number | null; nextOffset: number | null };
 type Range = { offset?: number; limit?: number };
-type Token = { value: string; expiresAt: number };
+/** auth: 받을 때 쓴 키(공식 API). 키가 바뀌면 버린다 */
+type Token = { value: string; expiresAt: number; auth?: string };
 /** 웹플레이어 번들에서 뽑은 익명 상태 */
 type AnonState = { secrets: Array<{ secret: string; version: number }>; hashes: Record<string, string>; clientVersion: string; fetchedAt: number };
 
@@ -196,9 +198,10 @@ const official = {
 
   async _accessToken(): Promise<string> {
     // 운영자 설정이 없는 것이다. 사용자에게는 이 링크를 지금 못 튼다고만 알린다
-    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-unavailable", "Spotify 자격증명 미설정(.env 의 SPOTIFY_CLIENT_ID · SPOTIFY_CLIENT_SECRET)");
-    if (this._token && Date.now() < this._token.expiresAt - 60000) return this._token.value;
+    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-unavailable", "Spotify 키 미설정(운영자 패널의 설정 탭)");
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
+    // 키를 바꿨으면 쥐고 있던 토큰을 버린다(옛 키로 받은 것이다)
+    if (this._token && this._token.auth === auth && Date.now() < this._token.expiresAt - 60000) return this._token.value;
     const r = await send("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ua() },
@@ -208,7 +211,7 @@ const official = {
     // 400 · 401 은 자격증명이 틀린 것이다(운영자 설정). 없을 때와 같이 알린다
     if (!r.ok) throw codedError(r.status === 400 || r.status === 401 ? "spotify-unavailable" : "spotify-failed", `토큰 발급 실패 ${r.status}`);
     const j = (await r.json()) as { access_token: string; expires_in?: number };
-    this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000 };
+    this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000, auth };
     return this._token.value;
   },
 
@@ -473,10 +476,28 @@ function _reset() {
 }
 
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
+/** 저장된 키로 토큰을 받아 본다(운영자 패널의 연결 시험). 쥐고 있는 토큰은 쓰지도 바꾸지도 않는다 */
+async function checkCredentials(): Promise<KeyCheck> {
+  const { clientId, clientSecret } = config.spotify;
+  if (!clientId || !clientSecret) return { ok: false, reason: "missing" };
+  try {
+    const r = await send("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: { Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ua() },
+      body: "grant_type=client_credentials",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (r.ok) return { ok: true };
+    return r.status === 400 || r.status === 401 ? { ok: false, reason: "rejected" } : { ok: false, reason: "unreachable" };
+  } catch {
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
 /** 익명 토큰이 끝나는 때(봇 상태 탭). 받은 적이 없으면 null */
 const anonTokenExpiresAt = () => graphql._anonToken?.expiresAt ?? null;
 
-export { getCollection, anonTokenExpiresAt, _reset, _internals, useFetch };
+export { getCollection, anonTokenExpiresAt, checkCredentials, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };

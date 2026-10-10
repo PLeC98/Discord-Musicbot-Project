@@ -76,5 +76,5 @@ test("길이는 밀리초를 초로. 모를 때 채우는 이름은 버리고 �
 
 test("토큰이 없으면 던진다", () =>
   withConfig({ sources: { listenbrainzToken: "" } }, async () => {
-    await assert.rejects(lbradio(source({ tags: ["rock"] })), /LISTENBRAINZ_TOKEN/);
+    await assert.rejects(lbradio(source({ tags: ["rock"] })), /ListenBrainz 토큰이 없습니다/);
   }));

@@ -19,7 +19,7 @@ const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수로 설정을 계산한다 — { problems, cfg } */
 function load(env: Record<string, string>, opts?: { envFileFound?: boolean }) {
-  const { config: c, problems, warnings } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, SPOTIFY_CLIENT_ID: "a", SPOTIFY_CLIENT_SECRET: "b", ...env }, opts);
+  const { config: c, problems, warnings } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
   return { problems, warnings, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
 
@@ -87,10 +87,16 @@ test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 �
   const bare = loadConfig({ SECRETS_KEY: KEY });
   assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN · CLIENT_ID · CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
   assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
-  assert.equal(bare.warnings.length, 2);
+  assert.equal(bare.warnings.length, 1);
   assert.match(bare.warnings[0], /OWNER_ID/);
-  assert.match(bare.warnings[1], /Spotify/);
   assert.deepEqual(load({ OWNER_ID: "9" }).warnings, []);
+});
+
+test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
+  const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
+  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET · LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 설정 탭에서 넣고 .env 에서 지우세요."]);
+  const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
+  assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
 });
 
 test(".env 가 없으면 그 문제 하나만 알린다", () => {

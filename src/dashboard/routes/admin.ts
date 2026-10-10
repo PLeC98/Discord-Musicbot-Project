@@ -1,7 +1,7 @@
 // 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
-import express, { type Request } from "express";
+import express from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 const adminRouter = express.Router();
@@ -31,12 +31,7 @@ import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
 import * as models from "../../config/ai-models.ts";
 import { adminStatus } from "../status/index.ts";
-
-// 로그에 남기는 실행한 사람
-function ranBy<P>(req: Request<P>) {
-  const user = signedIn(req);
-  return user.username || user.id;
-}
+import { ranBy } from "../ran-by.ts";
 
 // 봇 · Node · 시스템 상태(봇 상태 탭)
 adminRouter.get("/status", requireOwner, async (req, res) => {

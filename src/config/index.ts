@@ -179,6 +179,8 @@ function resolveFromRoot(p: string | null) {
 
 /** 비면 기동을 멈추는 자격증명. 봇 로그인 · 명령 배포 · 대시보드 로그인(OAuth) */
 const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as const;
+// 대시보드로 옮긴 .env 키. 남아 있으면 경고만 한다
+const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
 
 /**
  * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나
@@ -207,9 +209,9 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
   if (!env("OWNER_ID")) {
     warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
   }
-  if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
-    warnings.push("Spotify API 키 미설정. 트랙 · 앨범은 비활성, 재생목록 · 아티스트는 자격증명 없이 동작합니다.");
-  }
+  // 대시보드(운영자 패널 → 설정 탭)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다
+  const moved = MOVED_TO_DASHBOARD.filter((name) => env(name));
+  if (moved.length) warnings.push(`.env 의 ${moved.join(" · ")} 는 이제 쓰지 않습니다. 운영자 패널의 설정 탭에서 넣고 .env 에서 지우세요.`);
 
   // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");
@@ -231,16 +233,17 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
     // 비밀값 암호화 키(base64 32바이트). 응답 · 로그에 내보내지 않는다
     secrets: { key: secretsKey },
 
+    // 바깥 서비스 키. 대시보드에서 넣어 비밀 표에 두고, 기동 · 저장 때 store/service-keys 가 여기에 올린다
     spotify: {
-      clientId: env("SPOTIFY_CLIENT_ID"),
-      clientSecret: env("SPOTIFY_CLIENT_SECRET"),
+      clientId: null as string | null,
+      clientSecret: null as string | null,
     },
 
-    // 자동재생 소스 자격증명. 없으면 그 소스만 못 쓴다. config/genres.yaml에서 어느 장르가
+    // 자동재생 소스 자격증명(위와 같다). 없으면 그 소스만 못 쓴다. config/genres.yaml에서 어느 장르가
     // 그 소스를 쓰는지 보고 기동 때 경고하고, 쓸 소스가 없는 장르는 고를 때 거절한다(src/config/genres.ts).
     sources: {
-      lastfmKey: env("LASTFM_API_KEY"),
-      listenbrainzToken: env("LISTENBRAINZ_TOKEN"),
+      lastfmKey: null as string | null,
+      listenbrainzToken: null as string | null,
     },
 
     bot: {

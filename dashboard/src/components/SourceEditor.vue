@@ -32,7 +32,7 @@
         <p v-if="typesState === 'loading'" class="text-xs text-on-surface-variant">{{ T.typesLoading }}</p>
         <p v-else-if="typesState === 'failed'" class="text-xs text-(--warn-ink) whitespace-pre-line">{{ T.typesFailed }}{{ typesError ? `\n${typesError}` : "" }}</p>
         <p v-else-if="!spec(source.type)" class="text-xs text-error">{{ T.unknownType }}</p>
-        <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(String(spec(source.type)?.needs)) }}</p>
+        <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(spec(source.type)?.label ?? String(source.type)) }}</p>
 
         <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
         <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">

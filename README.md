@@ -76,15 +76,22 @@
 
 ### 설정
 
+#### 1단계
+
 ```bash
 git clone https://github.com/PLeC98/Discord-Musicbot-Project.git
 cd Discord-Musicbot-Project
-pnpm install           # 의존성 · ffmpeg · yt-dlp 를 받고 대시보드 화면까지 빌드, .env 가 없으면 만든다
+pnpm install
 ```
 
-`pnpm install` 은 `.env` 가 없을 때 `.env.example` 을 복사해 만들고, 무작위로 만들 수 있는 비밀(`SECRETS_KEY` · `SESSION_SECRET`)을 채웁니다. 이미 있으면 손대지 않습니다.
+`pnpm install`을 하면 의존성 설치, ffmpeg 설치, yt-dlp 설치, 대시보드 빌드, `.env.example`을 `.env`로 복사 후 랜덤 비밀 키(`SECRETS_KEY` · `SESSION_SECRET`키를 채우는 것까지 전부 진행합니다.
+`.env`가 이미 있다면 의존성 설치만을 진행합니다.
 
-`.env` 에 직접 채울 필수 항목(하나라도 비면 봇이 켜지지 않고 비어 있는 이름을 알려 줍니다). 셋 다 [Discord Developer Portal](https://discord.com/developers/applications)의 애플리케이션에서 받습니다.
+#### 2단계 (필수)
+
+아래 내용들은 `.env`에 직접 채워 넣어야 할 필수 항목입니다.
+(하나라도 없으면 기동을 중단합니다.)
+발급: [Discord Developer Portal](https://discord.com/developers/applications)
 
 | 변수            | 설명                                                               |
 | --------------- | ------------------------------------------------------------------ |
@@ -92,16 +99,18 @@ pnpm install           # 의존성 · ffmpeg · yt-dlp 를 받고 대시보드 �
 | `CLIENT_ID`     | 애플리케이션 ID (OAuth2 → Client ID)                               |
 | `CLIENT_SECRET` | 클라이언트 시크릿 (OAuth2 → Client Secret). 대시보드 로그인에 쓰임 |
 
-`SECRETS_KEY` 도 필수입니다. 대시보드에 저장하는 비밀값(API 키 · 쿠키)을 이 키로 암호화합니다. `pnpm install` 이 채우므로 보통 손댈 일이 없습니다.
-비었거나(옛 `.env` 를 쓰는 경우 등) 모양이 틀리면 봇이 켜지지 않고 만드는 명령을 알려 줍니다. 키를 바꾸면 저장해 둔 비밀값을 풀 수 없어 다시 넣어야 합니다.
+> `SECRETS_KEY`도 필수이지만, `pnpm install`이 채워 넣으므로 손으로 채우지 않아도 됩니다.
+> 비었거나(옛 `.env` 를 쓰는 경우 등) 모양이 틀리면 봇의 기동을 중단하고, 생성하는 방법을 안내합니다.
+> 키가 변경되면 이전 키 값으로 암호화된 데이터는 봇이 복호화 할 수 없어 새로 입력해야 합니다.
 
-자주 쓰는 선택 항목:
+#### `.env`의 주요 항목 (선택)
 
-| 변수                                          | 설명                                                                                   |
-| --------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `OWNER_ID`                                    | 봇 운영자의 Discord 사용자 ID. 대시보드 운영자 패널 · `/system`. 비우면 기동 때 경고   |
-| `GUILD_ID`                                    | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)                |
-| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify 링크 지원용 ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
+| 변수       | 설명                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `OWNER_ID` | 봇 운영자의 Discord 사용자 ID. 대시보드 운영자 패널 · `/system`. 비우면 기동 때 경고 |
+| `GUILD_ID` | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)              |
+
+Spotify(트랙 · 앨범 링크) · Last.fm · ListenBrainz(자동재생 소스) 키는 `.env` 가 아니라 대시보드의 운영자 패널 → 설정 탭에서 넣습니다. 넣은 값은 `SECRETS_KEY` 로 암호화해 두고 다시 보여 주지 않으며, 저장 여부 · 끝 네 글자 · 연결 시험만 보입니다.
 
 ### 유튜브 접속 클라이언트 경로 (선택)
 

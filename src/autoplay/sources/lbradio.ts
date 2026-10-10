@@ -1,7 +1,8 @@
 // ListenBrainz Radio 소스.
 
 import config from "../../config/index.ts";
-import { query, getJson } from "./http.ts";
+import { query, getJson, probe } from "./http.ts";
+import type { KeyCheck } from "../../rules/service-keys.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -16,7 +17,7 @@ const SLOW_MS = 30000;
 // 호출마다 50곡을 새로 짠다. 길이를 준다(병 유형). youtubeMatch의 길이 신호가 켜진다.
 async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const token = config.sources?.listenbrainzToken;
-  if (!token) throw new Error("LISTENBRAINZ_TOKEN이 없습니다");
+  if (!token) throw new Error("ListenBrainz 토큰이 없습니다");
   // 기본은 hard다. 이름과 반대로 hard 쪽이 더 알려진 곡을 준다. 모드는 태그 폭을 바꾼다
   // (easy는 적은 태그만, hard는 비슷한 태그까지 끌어와서 그만큼 큰 아티스트가 섞인다).
   const modes = ([] as string[]).concat(source.mode || "hard");
@@ -58,4 +59,15 @@ const PLACEHOLDER = {
     ),
 };
 
-export { lbradio, PLACEHOLDER, SLOW_MS as LB_TIMEOUT_MS };
+/** 저장된 토큰을 ListenBrainz 에 확인한다(운영자 패널의 연결 시험). 답의 valid 가 참이어야 한다 */
+async function checkListenbrainzToken(): Promise<KeyCheck> {
+  const token = config.sources?.listenbrainzToken;
+  if (!token) return { ok: false, reason: "missing" };
+  const res = await probe("listenbrainz", "https://api.listenbrainz.org/1/validate-token", { Authorization: `Token ${token}` });
+  if (!res) return { ok: false, reason: "unreachable" };
+  const body = (await res.json().catch(() => null)) as { valid?: boolean } | null;
+  if (res.ok && body?.valid === true) return { ok: true };
+  return (res.ok && body?.valid === false) || res.status === 401 ? { ok: false, reason: "rejected" } : { ok: false, reason: "unreachable" };
+}
+
+export { lbradio, checkListenbrainzToken, PLACEHOLDER, SLOW_MS as LB_TIMEOUT_MS };

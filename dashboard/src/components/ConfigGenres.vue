@@ -188,7 +188,7 @@ function rowWarning(row: GenreRow) {
   const lines = row.sources.flatMap((one) => {
     const spec = sourceTypes.value.find((t) => t.type === one.type);
     if (!spec) return [T.problems.unknownType(String(one.type ?? "?"))];
-    if (!spec.usable) return [T.problems.unusable(spec.label, String(spec.needs))];
+    if (!spec.usable) return [T.problems.unusable(spec.label)];
     return [];
   });
   return [...new Set(lines)].join("\n");

@@ -19,7 +19,8 @@ const tabs = {
   guilds: "서버 관리",
   db: "DB 브라우저",
   logs: "실시간 로그",
-  cookies: "쿠키 설정",
+  // 자리가 정해지지 않은 설정을 모아 두는 탭(유튜브 쿠키 · 서비스 키). 메뉴를 다시 짤 때 나눈다
+  settings: "설정",
   presence: "상태 문구",
   appearance: "꾸미기",
   autoplay: "자동재생",

@@ -30,6 +30,15 @@ async function getJson<T = unknown>(service: SourceService, url: string, headers
   return (await res.json()) as T;
 }
 
+/** 키 시험용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크 · 시간 초과) null */
+async function probe(service: SourceService, url: string, headers: Record<string, string> = {}): Promise<Response | null> {
+  try {
+    return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch {
+    return null;
+  }
+}
+
 // getJson의 형제. 필터를 본문으로 받는 API용.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
 // 설정이 조용히 빈손이 되는 이유를 알 수 없다.
@@ -103,5 +112,5 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
   };
 }
 
-export { getJson, postJson, pick, rand, query, remembered, useFetch };
+export { getJson, postJson, probe, pick, rand, query, remembered, useFetch };
 export type { SourceService };

@@ -22,5 +22,8 @@ const loginFailed = (why: LoginError) => `/?error=${why}`;
 /** /api/admin/view-as 의 답 */
 type ViewAsReply = { viewAs: Tier | null };
 
-export { TIERS, isTier, loginFailed };
+/** 위험한 조작(비밀값 · 주소 바꾸기 등)을 받는 로그인 뒤의 시간. 지나면 reauth-required(middleware/recent-login) */
+const RECENT_LOGIN_MS = 10 * 60_000;
+
+export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS };
 export type { Tier, Me, BotInfo, LoginError, ViewAsReply };

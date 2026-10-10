@@ -248,7 +248,7 @@ function vocaFields(site: Site): Field[] {
  *
  *   label  사람에게 보일 이름(기동 경고 문구에 쓴다)
  *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 하나는 있어야 한다"
- *   env    .env에 있어야 하는 이름(없으면 그 소스만 못 쓴다)
+ *   env    있어야 하는 키의 이름(운영자 패널의 설정 탭에서 넣는다. 없으면 그 소스만 못 쓴다, config/source-keys)
  */
 const SPEC: Record<string, SourceSpec> = {
   keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 뽑아 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 뽑아 사용합니다" }), f("blockedKeywords", "list", "차단어 오버라이드", { deep: true, hint: "적으면 이 출처에서는 전역 키워드 검색 차단어 대신 이것을 씁니다. 비우면 전역 값" })] },
@@ -356,7 +356,7 @@ const SPEC: Record<string, SourceSpec> = {
   utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb"), window: VOCA_WINDOW },
   touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있습니다.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
   // 재생목록 · 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
-  spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트. 앨범은 .env 에 SPOTIFY_CLIENT_ID · SPOTIFY_CLIENT_SECRET 가 있어야 합니다" })] },
+  spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트. 앨범은 Spotify 키(운영자 패널의 설정 탭)가 있어야 합니다" })] },
   youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "자동 생성 믹스(list=RD…)는 곡 수에 끝이 없어 사용이 불가능합니다" })] },
 };
 

@@ -1,7 +1,8 @@
 // Last.fm 소스.
 
 import config from "../../config/index.ts";
-import { pick, rand, query, getJson } from "./http.ts";
+import { pick, rand, query, getJson, probe } from "./http.ts";
+import type { KeyCheck } from "../../rules/service-keys.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -12,7 +13,7 @@ type TopTracks = { tracks?: { track?: Array<{ name?: string; url?: string; artis
 // 길이를 안 준다(정 유형). 깊은 쪽이 오히려 알차므로 무작위 쪽을 퍼 올린다.
 async function lastfm(source: GenreSource): Promise<Candidate[]> {
   const key = config.sources?.lastfmKey;
-  if (!key) throw new Error("LASTFM_API_KEY가 없습니다");
+  if (!key) throw new Error("Last.fm 키가 없습니다");
   const tag = pick(source.tags || []);
   if (!tag) return [];
 
@@ -30,4 +31,15 @@ async function lastfm(source: GenreSource): Promise<Candidate[]> {
     .filter((t) => t.artist && t.title);
 }
 
-export { lastfm };
+/** 저장된 키로 Last.fm 에 한 번 묻는다(운영자 패널의 연결 시험). 10: 틀린 키, 26: 막힌 키 */
+async function checkLastfmKey(): Promise<KeyCheck> {
+  const key = config.sources?.lastfmKey;
+  if (!key) return { ok: false, reason: "missing" };
+  const res = await probe("lastfm", `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getInfo", tag: "rock", api_key: key, format: "json" })}`);
+  if (!res) return { ok: false, reason: "unreachable" };
+  const body = (await res.json().catch(() => null)) as { error?: number } | null;
+  if (res.ok && body && !body.error) return { ok: true };
+  return body?.error === 10 || body?.error === 26 || res.status === 403 ? { ok: false, reason: "rejected" } : { ok: false, reason: "unreachable" };
+}
+
+export { lastfm, checkLastfmKey };
