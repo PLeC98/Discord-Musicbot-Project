@@ -8,13 +8,15 @@
     <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 서랍에서 다른 서버로 건너왔어도 나가는 길은 하나).
          자리가 되면(태블릿 · PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 단추) -->
     <Teleport to="#topbar-start" defer>
-      <router-link to="/servers" :class="TOPBAR_TEXT_BTN" aria-label="서버 목록" v-tooltip="isPhone ? '서버 목록' : null"><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">서버 목록</span></router-link>
+      <router-link to="/servers" :class="TOPBAR_TEXT_BTN" :aria-label="text.shell.serverList" v-tooltip="isPhone ? text.shell.serverList : null"
+        ><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">{{ text.shell.serverList }}</span></router-link
+      >
     </Teleport>
     <Teleport to="#topbar-end" defer>
       <span class="hidden lg:flex items-center gap-1 text-xs text-on-surface-variant truncate"
         ><Icon :name="voiceLine.icon" :size="16" :fill="player.sameVoice" :class="player.sameVoice ? 'text-primary' : ''" /><span class="truncate">{{ voiceLine.text }}</span></span
       >
-      <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="'서버 설정'" :class="TOPBAR_BTN" aria-label="서버 설정"><Icon name="tune" /></router-link>
+      <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="T.serverSettings" :class="TOPBAR_BTN" :aria-label="T.serverSettings"><Icon name="tune" /></router-link>
     </Teleport>
 
     <!-- 휴대폰: 글 · 단추 뒤의 받침 막. 곡마다 배경화면 색이 달라 그림 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
@@ -34,8 +36,8 @@
 
     <!-- 서버가 없거나 멤버가 아니면 다시 해도 같다: 서버 목록으로. 그 밖(봇이 답하지 않음 등)은 다시 시도 -->
     <PageError v-else-if="loadError" :icon="loadGone ? 'block' : 'cloud_off'" :text="loadError">
-      <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />서버 목록으로</BaseButton>
-      <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />다시 시도</BaseButton>
+      <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />{{ text.common.toServerList }}</BaseButton>
+      <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />{{ text.shell.retry }}</BaseButton>
     </PageError>
 
     <div v-else class="flex-1 min-h-0" :class="sheetMode ? 'relative flex flex-col' : 'grid content-start md:content-stretch gap-(--gap-in) grid-cols-1 md:grid-rows-[auto_minmax(0,1fr)]'">
@@ -44,7 +46,7 @@
         <div class="relative" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
           <div class="flex items-center gap-4">
             <!-- 아트. 누르면 크게 본다 -->
-            <button v-if="track?.thumbnail" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="'크게 보기'" aria-label="앨범아트 크게 보기" @click="artOpen = true">
+            <button v-if="track?.thumbnail" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
               <img :src="track.thumbnail" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="artZoom > 1 ? { scale: artZoom } : undefined" />
               <span class="absolute right-1 bottom-1 @xl/win:right-2 @xl/win:bottom-2 size-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 transition-opacity effects group-hover/art:opacity-100"><Icon name="open_in_full" :size="16" /></span>
             </button>
@@ -65,8 +67,8 @@
               <div v-if="track" class="font-round font-semibold leading-tight text-on-surface line-clamp-1 @xl/win:line-clamp-2 text-lg @xl/win:text-xl @4xl/win:text-2xl">
                 <a :href="track.url" target="_blank" rel="noopener" class="no-underline hover:underline decoration-2 underline-offset-4">{{ songTitle(track.title) }}</a>
               </div>
-              <div v-else class="font-round font-semibold leading-tight text-on-surface-variant line-clamp-1 text-lg @xl/win:text-xl @4xl/win:text-2xl">재생 중인 곡이 없어요</div>
-              <div class="mt-1.5 text-sm @xl/win:text-base text-on-surface-variant truncate">{{ track ? track.artist || " " : "곡을 넣으면 바로 재생해요." }}</div>
+              <div v-else class="font-round font-semibold leading-tight text-on-surface-variant line-clamp-1 text-lg @xl/win:text-xl @4xl/win:text-2xl">{{ P.nothingPlaying }}</div>
+              <div class="mt-1.5 text-sm @xl/win:text-base text-on-surface-variant truncate">{{ track ? track.artist || " " : T.addToPlay }}</div>
             </div>
 
             <!-- 넓은 창: 조작은 아트 · 제목 오른쪽 -->
@@ -87,7 +89,7 @@
             </div>
             <!-- 좁은 창: 음량은 버튼 하나. 누르면 슬라이더 말풍선 -->
             <div class="@xl/win:hidden relative shrink-0">
-              <button type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeOpen ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="`음량 ${volumeShown}`" :aria-expanded="volumeOpen" :disabled="!player.canControl || !player.hasPlayer" @click="volumeOpen = !volumeOpen"><VolumeIcon :level="volumeShown" :size="24" /></button>
+              <button type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeOpen ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="T.volumeLabel(volumeShown)" :aria-expanded="volumeOpen" :disabled="!player.canControl || !player.hasPlayer" @click="volumeOpen = !volumeOpen"><VolumeIcon :level="volumeShown" :size="24" /></button>
               <template v-if="volumeOpen">
                 <div class="fixed inset-0 z-40" @click="volumeOpen = false"></div>
                 <div class="absolute right-0 bottom-full mb-2 z-50 pane-menu rounded-full h-12 pl-4 pr-3 flex items-center gap-2">
@@ -119,7 +121,7 @@
               class="size-[min(100cqw,100cqh)] rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none"
               :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'"
               :style="artSwipe.style.value"
-              aria-label="앨범아트 크게 보기"
+              :aria-label="T.enlargeArt"
               @pointerdown="artSwipe.down"
               @pointermove="artSwipe.move"
               @pointerup="artSwipe.up"
@@ -142,8 +144,8 @@
               <div class="min-w-0 flex-1">
                 <!-- 길면 뉴스 티커처럼 흘려 돈다 -->
                 <a v-if="track" :href="track.url" target="_blank" rel="noopener" class="block no-underline font-round font-semibold leading-tight text-on-surface" :class="short ? 'text-xl' : 'text-2xl'"><MarqueeText :text="songTitle(track.title)" loop /></a>
-                <div v-else class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">재생 중인 곡이 없어요</div>
-                <MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : '곡을 넣으면 바로 재생해요.'" loop />
+                <div v-else class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">{{ P.nothingPlaying }}</div>
+                <MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop />
               </div>
             </div>
 
@@ -178,7 +180,7 @@
               </div>
               <!-- 넓으면 아이콘만(막대가 늘 있다), 좁으면 펼치는 단추 -->
               <span v-if="volumeInline" class="flex text-on-surface-variant"><VolumeIcon :level="volumeShown" :size="24" /></span>
-              <button v-else type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeExpand ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="`음량 ${volumeShown}`" :aria-expanded="volumeExpand" :disabled="!player.canControl || !player.hasPlayer" @click="volumeExpand ? (volumeExpand = false) : volumeTouched()">
+              <button v-else type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeExpand ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="T.volumeLabel(volumeShown)" :aria-expanded="volumeExpand" :disabled="!player.canControl || !player.hasPlayer" @click="volumeExpand ? (volumeExpand = false) : volumeTouched()">
                 <VolumeIcon :level="volumeShown" :size="24" />
               </button>
               <span class="w-px h-6 bg-outline-variant/60"></span>
@@ -194,9 +196,9 @@
 
       <!-- ── 대기열 ── -->
       <!-- 휴대폰은 같은 내용을 아래 판(QueueSheet)에 담는다 -->
-      <component :is="sheetMode ? QueueSheet : AppWindow" title="대기열" icon="queue_music" v-bind="sheetMode ? { deskHeight: shell.deskHeight, next: nextTitle, compact: short } : { class: 'max-h-[80dvh] md:max-h-none' }">
+      <component :is="sheetMode ? QueueSheet : AppWindow" :title="P.queue" icon="queue_music" v-bind="sheetMode ? { deskHeight: shell.deskHeight, next: nextTitle, compact: short } : { class: 'max-h-[80dvh] md:max-h-none' }">
         <template #badge>
-          <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ formatNumber(player.queueTotal ?? player.queue.length) }}곡</span>
+          <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ T.songs(player.queueTotal ?? player.queue.length) }}</span>
         </template>
         <template #actions>
           <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds) }}</span>
@@ -207,18 +209,18 @@
               class="tap state-layer h-8 px-3 rounded-full flex items-center gap-2 text-xs font-semibold cursor-pointer transition-[background-color,color] effects disabled:opacity-38 disabled:cursor-not-allowed"
               :class="autoplayGenre ? 'bg-tertiary-container text-on-tertiary-container' : 'border border-outline-variant text-on-surface-variant'"
               :disabled="!player.canControl || isBusy('autoplay')"
-              v-tooltip="autoplayGenre ? '자동재생 끄기' : '자동재생 켜기'"
+              v-tooltip="autoplayGenre ? T.autoplayOff : T.autoplayOn"
               @click="autoplayGenre ? setAutoplay(null) : toggleGenreMenu($event)"
             >
               <Icon name="auto_awesome" :size="18" :fill="Boolean(autoplayGenre)" />
-              <span>자동재생</span>
+              <span>{{ T.autoplay }}</span>
               <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenre }}</span>
             </button>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
             <!-- 스크롤바 길은 위아래 32 - 5 = 27 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5 로(useOverflowing) -->
             <!-- 아래에 자리가 없으면(휴대폰 대기열 판이 접혀 화면 아래에 있을 때) 위로 연다 -->
             <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2' : 'top-full mt-2', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
-              <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">어떤 장르를 재생할까요?</div>
+              <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
               <div class="grid grid-cols-2 gap-1">
                 <button v-for="g in genres" :key="g.name" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.name)">
                   <span class="emoji text-lg">{{ g.emoji ?? "" }}</span
@@ -234,7 +236,7 @@
         <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다 -->
         <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
           <div v-for="(item, i) in shownQueue" :key="item.entry ?? `i${i}`" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder>
-            <span class="text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="'끌어서 순서 바꾸기'" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
+            <span class="text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
             <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
             <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
             <div class="flex-1 min-w-0">
@@ -245,20 +247,20 @@
                 <span class="nums shrink-0">· {{ formatDuration(item.duration) }}</span>
               </div>
             </div>
-            <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="'자동재생이 골라 둔 곡'"><Icon name="auto_awesome" :size="16" fill /></span>
-            <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="'빼기'" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
+            <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
+            <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
           </div>
           <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
             <Icon name="progress_activity" :size="20" class="animate-spin text-primary" />
-            {{ formatNumber(player.queueTotal - player.queue.length) }}곡 더
+            {{ T.moreSongs(player.queueTotal - player.queue.length) }}
           </div>
         </div>
-        <div v-else class="flex-1 flex items-center justify-center py-8 text-sm text-on-surface-variant">대기열이 비어 있어요</div>
+        <div v-else class="flex-1 flex items-center justify-center py-8 text-sm text-on-surface-variant">{{ T.queueEmpty }}</div>
       </component>
     </div>
 
     <!-- 정지 확인(M3 대화상자) -->
-    <ConfirmDialog v-model="showStopConfirm" icon="stop_circle" :title="text.server.stopConfirm.title" :body="text.server.stopConfirm.body" confirm-label="정지" @confirm="doStop" />
+    <ConfirmDialog v-model="showStopConfirm" icon="stop_circle" :title="text.server.stopConfirm.title" :body="text.server.stopConfirm.body" :confirm-label="P.stop" @confirm="doStop" />
   </div>
 </template>
 
@@ -310,8 +312,9 @@ import { formatDuration } from "../../../src/ui/format.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
 import { QUEUE_PAGE, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
-import { formatNumber } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
+const P = text.player;
+const T = text.server;
 
 // 음량 단추(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
@@ -386,7 +389,7 @@ async function loadMore() {
     player.value = { ...player.value, queue: [...player.value.queue, ...fresh], queueTotal: res.data.total };
     syncLoaded();
   } catch (e) {
-    notifyProblem(e, "대기열을 더 불러오지 못했어요.");
+    notifyProblem(e, T.failed.queueMore);
   } finally {
     loadingMore.value = false;
   }
@@ -409,9 +412,9 @@ async function refresh() {
   } catch (e) {
     // 처음 읽기면 화면에 까닭을, 그 뒤면 알림으로(지금 화면은 둔다)
     if (loading.value) {
-      loadError.value = problemText(e, "재생 상태를 읽지 못했어요.");
+      loadError.value = problemText(e, T.failed.state);
       loadGone.value = GONE.includes(problemCodeOf(replyOf(e)) ?? "");
-    } else notifyProblem(e, "재생 상태를 읽지 못했어요.");
+    } else notifyProblem(e, T.failed.state);
   } finally {
     loading.value = false;
   }
@@ -441,8 +444,8 @@ async function send(key: string, path: string, body: object | undefined, fallbac
 }
 
 // 넘기기 · 이전은 누른 때의 곡일 때만 하게 줄 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
-const skip = () => send("skip", "skip", onTrackOf(player.value), "다음 곡으로 넘기지 못했어요.");
-const previous = () => send("previous", "previous", onTrackOf(player.value), "이전 곡으로 가지 못했어요.");
+const skip = () => send("skip", "skip", onTrackOf(player.value), P.failed.skip);
+const previous = () => send("previous", "previous", onTrackOf(player.value), P.failed.previous);
 // 휴대폰 앨범아트를 좌우로 밀어 곡 넘기기
 const artSwipeEl = ref<HTMLElement | null>(null);
 const artSwipe = useArtSwipe(artSwipeEl, {
@@ -451,7 +454,7 @@ const artSwipe = useArtSwipe(artSwipeEl, {
   next: skip,
   previous,
 });
-const shuffle = () => send("shuffle", "shuffle", undefined, "대기열을 섞지 못했어요.");
+const shuffle = () => send("shuffle", "shuffle", undefined, P.failed.shuffle);
 
 // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
 function togglePause() {
@@ -460,7 +463,7 @@ function togglePause() {
   const current = player.value.currentTrack;
   clock.value = retime(clock.value, Date.now(), { running: Boolean(current && player.value.playing && !paused) });
   player.value = { ...player.value, paused };
-  void send("pause", "pause", undefined, "조작하지 못했어요.");
+  void send("pause", "pause", undefined, P.failed.pause);
 }
 
 // 반복도 먼저 바꿔 보인다. 다음 모드는 디스코드 반복 버튼과 같은 순환(rules/loop-cycle)이고, 정할 값은 서버가 돌려준 상태가 정한다
@@ -468,7 +471,7 @@ function cycleLoop() {
   if (isBusy("loop")) return;
   const mode = nextLoopMode(player.value.loop ?? false);
   player.value = { ...player.value, loop: mode };
-  void send("loop", "loop", { mode: modeOf(mode) }, "반복 모드를 바꾸지 못했어요.");
+  void send("loop", "loop", { mode: modeOf(mode) }, P.failed.loop);
 }
 
 // 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
@@ -487,7 +490,7 @@ const {
 // 정지는 응답을 기다리고 서버가 돌려준 상태를 쓴다. 봇이 나가 음성 칸도 바뀌므로 한 번 더 읽는다
 async function doStop() {
   showStopConfirm.value = false;
-  if (await send("stop", "stop", undefined, "정지하지 못했어요.")) void refresh();
+  if (await send("stop", "stop", undefined, T.failed.stop)) void refresh();
 }
 
 // 빼기는 그 줄 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
@@ -497,7 +500,7 @@ async function removeTrack(track: QueueTrackView) {
     try {
       applyState((await axios.delete<PlayerState>(`/api/guilds/${guildId}/player/queue/entry/${track.entry}${qs()}`)).data);
     } catch (e) {
-      notifyProblem(e, "곡을 빼지 못했어요.");
+      notifyProblem(e, T.failed.remove);
       void refresh();
     }
   });
@@ -529,11 +532,11 @@ async function moveQueue(from: number, insertAt: number) {
   const target = moveTarget(queue, from, insertAt, player.value.queueTotal ?? queue.length);
   releaseHeld();
   if (target === "same") return;
-  if (target === "partial") return notify({ title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 내려 다 불러온 뒤 맨 끝으로 옮길 수 있어요.", severity: "warning" });
+  if (target === "partial") return notify({ ...T.moveNeedsAll, severity: "warning" });
   if (target === "unknown") return refresh();
   // 응답을 기다리는 동안 옮긴 차례로 보인다. 거절되면 다시 읽어 서버 차례로 돌린다
   player.value = { ...player.value, queue: reordered(queue, from, insertAt) };
-  await send("move", "queue/move-entry", target, "곡을 옮기지 못했어요.");
+  await send("move", "queue/move-entry", target, T.failed.move);
 }
 
 // ── 계산 값 ──────────────────────────────────────────────────────────────────
@@ -550,7 +553,7 @@ const seekBar = useSeekBar({
   entry: () => player.value.currentTrack?.entry ?? null,
   send: (sec, entry) => {
     clock.value = retime(clock.value, Date.now(), { at: sec });
-    void send("seek", "seek", { position: sec, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
+    void send("seek", "seek", { position: sec, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, P.failed.seek);
   },
 });
 const isScrubbing = seekBar.dragging;
@@ -603,7 +606,7 @@ const highlightMarker = computed(() => {
   return Math.max(0, Math.min(100, (h / dur) * 100));
 });
 // 진행 줄(SeekRow): 시간 글 · 막대. 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이라 표식으로 대신한다
-const timeText = computed(() => (!track.value ? "--:--" : isLive.value ? "라이브" : formatDuration(displayTime.value)));
+const timeText = computed(() => (!track.value ? "--:--" : isLive.value ? P.live : formatDuration(displayTime.value)));
 const lengthText = computed(() => (track.value && track.value.duration > 0 ? formatDuration(track.value.duration) : "--:--"));
 const seekView = computed(() => ({ value: track.value ? progressPct.value : 0, rate: progressRate.value, markers: sponsorMarkers.value, highlight: highlightMarker.value, handle: Boolean(track.value) && seekable.value && Boolean(player.value.canControl), dragging: isScrubbing.value }));
 
@@ -612,7 +615,7 @@ function jumpToHighlight() {
   const h = player.value.currentTrack?.highlightAt;
   if (h === null || h === undefined) return;
   clock.value = retime(clock.value, Date.now(), { at: h });
-  void send("highlight", "highlight", onTrackOf(player.value), "하이라이트로 가지 못했어요.");
+  void send("highlight", "highlight", onTrackOf(player.value), T.failed.highlight);
 }
 
 // 아트의 위아래 검은 띠는 키워서 감춘다(theme/art 가 픽셀로 잰다)
@@ -662,9 +665,9 @@ onKeyStroke("Escape", () => (volumeOpen.value = false));
 // 머리 아래 한 줄: 나와 봇의 음성 채널
 const voiceLine = computed((): { icon: IconName; text: string } => {
   const p = player.value;
-  if (p.sameVoice) return { icon: "headphones", text: "봇과 같은 음성 채널에 있어요" };
-  if (p.botInVoice) return { icon: "headset_off", text: p.userInVoice ? "봇이 다른 음성 채널에 있어요" : "봇이 음성 채널에 있어요" };
-  return { icon: "bedtime", text: p.userInVoice ? "봇이 음성 채널 밖에 있어요" : "봇이 쉬고 있어요" };
+  if (p.sameVoice) return { icon: "headphones", text: T.voice.same };
+  if (p.botInVoice) return { icon: "headset_off", text: p.userInVoice ? T.voice.botElsewhere : T.voice.botInVoice };
+  return { icon: "bedtime", text: p.userInVoice ? T.voice.userOutside : T.voice.resting };
 });
 
 // 자동재생: 지금 장르는 재생 상태가 싣는다. 장르 목록은 메뉴를 처음 열 때 받는다(디스코드 장르 메뉴와 같은 것)
@@ -681,7 +684,7 @@ async function toggleGenreMenu(e: MouseEvent) {
       try {
         genres.value = (await axios.get<AutoplayGenres>(`/api/guilds/${guildId}/autoplay/genres`)).data.genres;
       } catch (err) {
-        return notifyProblem(err, "장르 목록을 받지 못했어요.");
+        return notifyProblem(err, T.failed.genres);
       }
     }
   }
@@ -692,7 +695,7 @@ const genreOverflowing = useOverflowing(genreMenuEl);
 // 켜기(장르) · 끄기(null). 응답의 상태를 넣는다
 function setAutoplay(genre: string | null) {
   genreMenu.value = false;
-  void send("autoplay", "autoplay", { genre }, genre ? "자동재생을 켜지 못했어요." : "자동재생을 끄지 못했어요.");
+  void send("autoplay", "autoplay", { genre }, genre ? T.failed.autoplayOn : T.failed.autoplayOff);
 }
 const pickGenre = (name: string) => setAutoplay(name);
 

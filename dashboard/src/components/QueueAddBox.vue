@@ -6,7 +6,7 @@
     >
     <NoticeBox v-else-if="!player.botInVoice && player.userInVoice" variant="gate" class="flex-wrap justify-between">
       <span class="flex items-center gap-3"><Icon name="waving_hand" :size="24" class="shrink-0 text-primary" />{{ noticeText("bot-not-in-voice").title }}</span>
-      <BaseButton variant="primary" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? "부르는 중..." : "봇 부르기" }}</BaseButton>
+      <BaseButton variant="primary" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? T.joining : T.joinBot }}</BaseButton>
     </NoticeBox>
     <!-- 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우. 폼을 열어봤자 409이므로 잠근다 -->
     <NoticeBox v-else-if="!player.hasPlayer" variant="gate" icon="sync_problem" icon-class="text-on-surface-variant">{{ text.server.noPlayerState }}</NoticeBox>
@@ -16,13 +16,13 @@
       <!-- 고르면 캡슐 전체에 후광 -->
       <div class="flex items-center gap-1 h-12 pl-3 pr-1 rounded-full bg-surface-container-highest transition-shadow duration-200 focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]">
         <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
-        <input :value="query" @input="query = valueOf($event)" class="flex-1 min-w-0 h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" placeholder="곡 이름 또는 링크" :disabled="adding" />
-        <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" aria-label="넣기"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
+        <input :value="query" @input="query = valueOf($event)" class="flex-1 min-w-0 h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
+        <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
       </div>
       <!-- 재생목록 링크면 무엇을 넣을지 고른다(이어 붙은 버튼 묶음). 넣기 버튼은 고른 쪽으로 넣는다 -->
       <div v-if="isPlaylistQuery" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-3">
-        <span class="flex items-center gap-1 text-xs text-on-surface-variant"><Icon name="playlist_play" :size="14" />재생목록 링크예요</span>
-        <div class="ml-auto flex gap-0.5" role="radiogroup" aria-label="넣을 곡">
+        <span class="flex items-center gap-1 text-xs text-on-surface-variant"><Icon name="playlist_play" :size="14" />{{ T.playlistLink }}</span>
+        <div class="ml-auto flex gap-0.5" role="radiogroup" :aria-label="T.addWhich">
           <button
             v-for="(opt, i) in playlistModes"
             :key="opt.label"
@@ -59,6 +59,7 @@ import type { PlayerSeen } from "../utils/playback.ts";
 import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
 import type { AddReply, MoreReply, MoreView, PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";
 import { text } from "../text/index.ts";
+const T = text.server;
 
 /** queueWindow: 대기열을 펼쳐 둔 만큼(응답도 그만큼 싣는다. 안 그러면 목록이 접힌다) */
 const props = defineProps<{ guildId: string; player: PlayerSeen; queueWindow: number }>();
@@ -96,8 +97,8 @@ const isPlaylistQuery = computed(() => isYouTubePlaylist(query.value.trim()));
 // 재생목록 링크에서 한 곡만 넣을지. 링크에 영상이 있으면 그 곡, 없으면 첫 곡
 const addSingle = ref(false);
 const playlistModes = computed(() => [
-  { label: "재생목록 전체", single: false },
-  { label: extractVideoId(query.value.trim()) ? "이 곡만" : "첫 곡만", single: true },
+  { label: T.addWholePlaylist, single: false },
+  { label: extractVideoId(query.value.trim()) ? T.addThisOnly : T.addFirstOnly, single: true },
 ]);
 watch(isPlaylistQuery, (isPlaylist) => {
   if (!isPlaylist) addSingle.value = false;
@@ -124,7 +125,7 @@ async function addTrack(single = false) {
     query.value = "";
     warning.value = notes.join("\n");
   } catch (e) {
-    error.value = problemText(e, "추가에 실패했어요.");
+    error.value = problemText(e, T.addFailed);
   } finally {
     adding.value = false;
   }
@@ -144,7 +145,7 @@ async function addMore(count: number) {
     if (dropped > 0) warning.value = note;
     else info.value = note;
   } catch (e) {
-    error.value = problemText(e, "추가에 실패했어요.");
+    error.value = problemText(e, T.addFailed);
   } finally {
     moreBusy.value = false;
   }
@@ -157,7 +158,7 @@ async function joinBot() {
   try {
     emit("state", (await axios.post<PlayerRead>(url("join"), undefined, { timeout: LIMIT.long })).data);
   } catch (e) {
-    error.value = problemText(e, "참가에 실패했어요.");
+    error.value = problemText(e, T.joinFailed);
   } finally {
     joining.value = false;
   }

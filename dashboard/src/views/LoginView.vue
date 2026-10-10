@@ -9,7 +9,7 @@
     <!-- 세 칸 격자(1fr · 가운데 · 1fr): 양옆 섬 폭이 달라도 가운데 섬이 화면 가운데 -->
     <header ref="headerEl" class="relative z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 text-sm font-mono whitespace-nowrap">
       <!-- 왼쪽: 밝기(어두운 · 밝은 · 시스템)를 작업 공간 알약 모양으로. 고른 것은 긴 알약(안에 아이콘), 나머지는 점. 로그인 전에도 바꾸고 저장해 대시보드도 따른다 -->
-      <div :class="[ISLAND, 'justify-self-start px-1.5 gap-0']" role="radiogroup" aria-label="화면 밝기">
+      <div :class="[ISLAND, 'justify-self-start px-1.5 gap-0']" role="radiogroup" :aria-label="text.shell.brightness">
         <button v-for="m in MODE_PILLS" :key="m.mode" type="button" role="radio" :aria-checked="mode === m.mode" :aria-label="m.label" v-tooltip="m.label" class="group/ws h-9 px-1 flex items-center cursor-pointer" @click="setMode(m.mode)">
           <span class="h-4 rounded-full flex items-center justify-center transition-[width,background-color] duration-300 spring" :class="mode === m.mode ? 'w-8 bg-primary text-on-primary' : 'w-2.5 h-2.5! bg-on-surface/25 group-hover/ws:bg-on-surface/50'">
             <Icon v-if="mode === m.mode" :name="m.icon" :size="12" fill />
@@ -48,7 +48,7 @@
         <!-- 입력칸 모양의 로그인 단추. 실패면 테두리가 오류 색으로 바뀌고 한 번 흔들린다(hyprlock 의 fail_color · fail_text) -->
         <a href="/auth/login" class="state-layer relative w-full rounded-full pane flex items-center pr-2 no-underline text-on-surface" :class="[short ? 'mt-3 max-w-56 h-11 gap-2.5 pl-4' : 'mt-4 max-w-56 h-11 md:max-w-72 md:h-13 gap-2.5 md:gap-3 pl-4 md:pl-5', error ? 'fail-shake ring-2 ring-error' : 'term-border']">
           <DiscordMark :size="22" class="shrink-0 text-[#5865F2]" :class="short ? 'w-4.5 h-auto' : 'max-md:w-4.5 max-md:h-auto'" />
-          <span class="flex-1 text-left" :class="short ? 'text-body' : 'text-body md:text-body-lg'">Discord로 로그인</span>
+          <span class="flex-1 text-left" :class="short ? 'text-body' : 'text-body md:text-body-lg'">{{ T.loginWithDiscord }}</span>
           <!-- 오른쪽 끝 화살표: 입력칸이 아니라 누르는 단추로 읽히게(손가락 기기에도 보인다) -->
           <span class="shrink-0 rounded-full bg-primary text-on-primary flex items-center justify-center" :class="short ? 'size-8' : 'size-8 md:size-9'"><Icon name="arrow_forward" :size="20" /></span>
         </a>
@@ -67,7 +67,7 @@
     </main>
 
     <!-- 낮은 화면의 실패: 공용 확인 대화상자. 닫으면 이번에는 다시 띄우지 않는다 -->
-    <ConfirmDialog :model-value="(short || !fit.belowFits) && Boolean(error) && !errorClosed" icon="error" :title="errorText.title" :body="`${errorText.body}\n오류 코드: ${error}`" confirm-label="다시 로그인" tone="primary" @update:model-value="(v) => !v && (errorClosed = true)" @confirm="login" />
+    <ConfirmDialog :model-value="(short || !fit.belowFits) && Boolean(error) && !errorClosed" icon="error" :title="errorText.title" :body="`${errorText.body}\n${text.errors.codeLine(error)}`" :confirm-label="T.loginAgain" tone="primary" @update:model-value="(v) => !v && (errorClosed = true)" @confirm="login" />
 
     <!-- 소스 링크(AGPL 13조 고지): waybar 와 같은 섬 -->
     <footer ref="footerEl" class="relative z-20 mt-auto flex justify-center px-3 pb-3">
@@ -98,6 +98,8 @@ import { SHORT_QUERY } from "../utils/breakpoints.ts";
 import { isModifiedSource } from "../utils/licenses.ts";
 import type { BotInfo, LoginError } from "../../../src/dashboard/contract/identity.ts";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
+const T = text.login;
 
 const NL = "\n";
 const ISLAND = "pane rounded-full h-9 px-4 flex items-center gap-2 text-on-surface";
@@ -118,13 +120,9 @@ const modified = computed(() => isModifiedSource(sourceRepo.value, projectRepo.v
 const online = ref(true);
 
 // 로그인 콜백(src/dashboard/routes/auth.ts)이 돌려보낸 까닭
-const LOGIN_ERRORS: Record<LoginError, { title: string; body: string }> = {
-  denied: { title: "로그인을 취소했어요.", body: "디스코드 권한 승인 과정이 취소됐어요. 대시보드 사용에는 계정의 일부 정보가 필요해요. 다시 시도해 주세요." },
-  no_code: { title: "로그인하지 못했어요!", body: "디스코드에서 로그인 결과를 받지 못했어요. 다시 시도해 주세요." },
-  auth_failed: { title: "로그인하지 못했어요!", body: "디스코드 인증을 마치지 못했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." },
-};
+const LOGIN_ERRORS: Record<LoginError, { title: string; body: string }> = T.errors;
 const error = computed(() => (typeof route.query.error === "string" ? route.query.error : ""));
-const errorText = computed(() => LOGIN_ERRORS[error.value as LoginError] ?? { title: "로그인하지 못했어요!", body: "알 수 없는 오류가 발생했어요. 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요." });
+const errorText = computed(() => LOGIN_ERRORS[error.value as LoginError] ?? T.unknownError);
 
 // 시계: 분이 바뀔 때만 다시 그린다
 const now = ref(new Date());
@@ -141,9 +139,9 @@ const short = useMediaQuery(SHORT_QUERY);
 
 // 위 막대 왼쪽의 밝기 알약(작업 공간 차례처럼)
 const MODE_PILLS: Array<{ mode: Mode; label: string; icon: IconName }> = [
-  { mode: "dark", label: "어두운 화면", icon: "dark_mode" },
-  { mode: "light", label: "밝은 화면", icon: "light_mode" },
-  { mode: "system", label: "시스템 설정 따르기", icon: "contrast" },
+  { mode: "dark", label: T.modeDark, icon: "dark_mode" },
+  { mode: "light", label: T.modeLight, icon: "light_mode" },
+  { mode: "system", label: T.modeSystem, icon: "contrast" },
 ];
 
 // 위 막대 오른쪽의 짧은 날짜("Fri 10/09"). 날짜는 여기에만 둔다. 잠금 화면 결이라 영어로 적는다(utils/locale 의 예외)
