@@ -3,10 +3,10 @@
        로그 칸이 남는 높이를 다 쓰고 그 안에서만 구른다. 아래 여백은 창 여백 + (재생 바 - 바깥 틈): 창 아래 끝이 바탕화면 끝에서 바깥 틈만큼 위라, 로그 칸이 재생 바 위 끝에서 창 여백만큼 떨어진다.
        휴대폰도 같다(위에 있던 탭 줄이 위 막대로 갔다) -->
   <section class="pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
-    <PaneHeader icon="article" title="실시간 로그">
+    <PaneHeader icon="article" :title="T.title">
       <template #actions>
         <span class="flex items-center gap-1 text-xs text-on-surface-variant"
-          ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'"></span>{{ connected ? "연결됨" : "끊김" }} · <span class="nums text-on-surface">{{ formatNumber(shown.length) }}줄</span></span
+          ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'"></span>{{ connected ? T.connected : T.disconnected }} · <span class="nums text-on-surface">{{ T.lines(shown.length) }}</span></span
         >
       </template>
     </PaneHeader>
@@ -18,19 +18,19 @@
     <div class="flex flex-wrap items-center gap-2">
       <!-- 휴대폰은 고르기 칸 둘이 한 줄을 나눠 쓰고 자동 스크롤 · 지우기는 다음 줄 오른쪽 -->
       <div class="flex gap-2 w-full sm:w-auto">
-        <SingleSelect v-model="category" class="flex-1 min-w-0 sm:flex-none sm:w-44" :options="categoryOptions" :search-from="0" empty-label="모든 카테고리" />
-        <SingleSelect v-model="tag" class="flex-1 min-w-0 sm:flex-none sm:w-44" :options="tagOptions" empty-label="모든 태그" />
+        <SingleSelect v-model="category" class="flex-1 min-w-0 sm:flex-none sm:w-44" :options="categoryOptions" :search-from="0" :empty-label="T.allCategories" />
+        <SingleSelect v-model="tag" class="flex-1 min-w-0 sm:flex-none sm:w-44" :options="tagOptions" :empty-label="T.allTags" />
       </div>
       <span class="ml-auto flex items-center gap-2">
-        <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">자동 스크롤<BaseSwitch :model-value="follow" label="자동 스크롤" @update:model-value="setFollow" /></label>
-        <BaseButton variant="ghost" size="sm" @click="emit('clear')"><Icon name="delete_sweep" :size="18" />지우기</BaseButton>
+        <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">{{ T.autoScroll }}<BaseSwitch :model-value="follow" :label="T.autoScroll" @update:model-value="setFollow" /></label>
+        <BaseButton variant="ghost" size="sm" @click="emit('clear')"><Icon name="delete_sweep" :size="18" />{{ T.clear }}</BaseButton>
       </span>
     </div>
 
     <!-- 로그 칸. 넓으면 한 줄(시각 · 레벨 · 카테고리 · 글), 좁으면 시각 · 레벨 · 카테고리를 윗줄에 두고 글은 아랫줄. 글은 낱말 단위로 끊는다.
          바탕은 고르기 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 길을 비운다 -->
     <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
-      <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">표시할 로그가 아직 없어요</p>
+      <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ T.empty }}</p>
       <div v-for="entry in shown" :key="entry.id" class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5 border-b border-outline-variant/20 last:border-b-0">
         <span class="flex items-baseline gap-3 shrink-0">
           <span class="font-mono nums text-on-surface-variant">{{ clock(entry.ts) }}</span>
@@ -55,7 +55,9 @@ import { useOverflowing } from "../composables/overflowing.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
 import { LEVELS, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
-import { formatClock, formatNumber } from "../utils/locale.ts";
+import { formatClock } from "../utils/locale.ts";
+import { text } from "../text/index.ts";
+const T = text.logs;
 
 /** active: 이 탭이 보이는가(숨어 있는 동안은 구를 수 없어 돌아왔을 때 맨 아래로 맞춘다). serverLevel: 봇의 LOG_LEVEL(처음 켜 둘 레벨) */
 const props = defineProps<{ logs: WireEntry[]; connected: boolean; serverLevel?: string; active: boolean }>();

@@ -27,18 +27,10 @@ const NOT_YET = new Set<string>([
   "components/SourceEditor.vue",
   "components/ConfigCookies.vue",
   "views/AdminView.vue",
-  "components/PlaylistMore.vue",
-  "components/SettingsDialog.vue",
   "views/LoginView.vue",
-  "components/LicenseDialog.vue",
-  "views/ServersView.vue",
   "components/PresenceMessageList.vue",
   "components/GenreGlobalForm.vue",
   "components/QueueAddBox.vue",
-  "components/LiveLogs.vue",
-  "utils/licenses.ts",
-  "components/EmojiPicker.vue",
-  "components/SparkChart.vue",
 ]);
 
 const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(vue|ts)$/.test(e.name) ? [path.join(dir, e.name)] : []));

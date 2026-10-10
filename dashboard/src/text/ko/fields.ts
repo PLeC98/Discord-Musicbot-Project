@@ -20,4 +20,12 @@ const mentionUser = "@사용자";
 const mentionRole = "@역할";
 const mentionChannel = "#채널";
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel };
+// 이모지 고르기
+const emojiSearch = "이름 · 디스코드 이름 · 이모지 붙여넣기";
+const emojiSearchClear = "검색어 지우기";
+const emojiLoading = "불러오는 중...";
+const emojiNone = "찾는 이모지가 없어요.";
+const emojiClear = "비우기";
+const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
+
+export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed };

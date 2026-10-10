@@ -7,12 +7,17 @@ import * as common from "./ko/common.ts";
 import * as editor from "./ko/editor.ts";
 import * as errors from "./ko/errors.ts";
 import * as fields from "./ko/fields.ts";
+import * as licenses from "./ko/licenses.ts";
+import * as logs from "./ko/logs.ts";
+import * as more from "./ko/more.ts";
 import * as player from "./ko/player.ts";
 import * as presence from "./ko/presence.ts";
 import * as server from "./ko/server.ts";
 import * as servers from "./ko/servers.ts";
+import * as settings from "./ko/settings.ts";
 import * as shell from "./ko/shell.ts";
+import * as status from "./ko/status.ts";
 
-const text = { admin, common, editor, errors, fields, player, presence, server, servers, shell };
+const text = { admin, common, editor, errors, fields, licenses, logs, more, player, presence, server, servers, settings, shell, status };
 
 export { text };

@@ -19,9 +19,9 @@
       <div v-if="open" :class="panel" :style="popoverStyle">
         <div class="relative shrink-0 p-1 border-b border-outline-variant/50">
           <!-- v-model 을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다 -->
-          <input ref="searchBox" :value="query" placeholder="이름 · 디스코드 이름 · 이모지 붙여넣기" :class="[SEARCH_FIELD, 'w-full', query && 'pr-10']" @input="query = valueOf($event)" @keydown.esc="open = false" />
+          <input ref="searchBox" :value="query" :placeholder="T.emojiSearch" :class="[SEARCH_FIELD, 'w-full', query && 'pr-10']" @input="query = valueOf($event)" @keydown.esc="open = false" />
           <!-- 지우기: 칸 안 오른쪽 끝(아이콘 버튼 XS 32, 칸 40 안에 같은 중심 4) -->
-          <button v-if="query" type="button" class="tap state-layer absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" aria-label="검색어 지우기" v-tooltip="'검색어 지우기'" @click="clearQuery">
+          <button v-if="query" type="button" class="tap state-layer absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.emojiSearchClear" v-tooltip="T.emojiSearchClear" @click="clearQuery">
             <Icon name="close" :size="20" />
           </button>
         </div>
@@ -29,13 +29,13 @@
         <div :class="scroller">
           <div v-if="loadError" class="px-4 py-6 flex flex-col items-center gap-3 text-center">
             <p class="text-sm text-error whitespace-pre-line">{{ loadError }}</p>
-            <BaseButton variant="secondary" size="sm" @click="load">다시 시도</BaseButton>
+            <BaseButton variant="secondary" size="sm" @click="load">{{ text.shell.retry }}</BaseButton>
           </div>
-          <p v-else-if="!groups.length" class="py-6 text-center text-sm text-on-surface-variant">불러오는 중...</p>
+          <p v-else-if="!groups.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiLoading }}</p>
 
           <!-- 찾는 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
           <div v-else-if="results" class="p-1">
-            <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">찾는 이모지가 없어요.</p>
+            <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiNone }}</p>
             <div v-else :class="grid">
               <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
             </div>
@@ -57,7 +57,7 @@
           </section>
         </div>
 
-        <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer hover:text-error" @click="clear">비우기</button>
+        <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer hover:text-error" @click="clear">{{ T.emojiClear }}</button>
       </div>
     </Teleport>
   </div>
@@ -75,6 +75,8 @@ import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { valueOf } from "../utils/dom.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";
+import { text } from "../text/index.ts";
+const T = text.fields;
 
 const props = withDefaults(
   defineProps<{
@@ -113,7 +115,7 @@ async function load() {
   } catch {
     // 목록은 따로 받아오므로 못 받아올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
     // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.
-    loadError.value = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
+    loadError.value = T.emojiLoadFailed;
     return;
   }
   groups.value = module.EMOJI_GROUPS;

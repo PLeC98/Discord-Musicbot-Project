@@ -8,38 +8,38 @@
         <div ref="dialogEl" role="dialog" aria-modal="true" aria-labelledby="license-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
           <div class="flex items-center gap-3 mb-4">
             <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="license" :size="20" /></span>
-            <h3 id="license-title" class="flex-1 text-xl font-round font-semibold">라이선스</h3>
-            <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="닫기" @click="close"><Icon name="close" :size="20" /></button>
+            <h3 id="license-title" class="flex-1 text-xl font-round font-semibold">{{ T.title }}</h3>
+            <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.common.close" @click="close"><Icon name="close" :size="20" /></button>
           </div>
 
-          <div class="text-label font-semibold text-primary mb-2">이 봇</div>
+          <div class="text-label font-semibold text-primary mb-2">{{ T.thisBot }}</div>
           <div class="flex flex-col mb-4">
             <template v-if="sourceRepo">
               <a :href="sourceRepo" target="_blank" rel="noopener" :class="row">
                 <span class="flex-1 min-w-0">
-                  <span class="block text-body font-medium truncate">{{ botName || "이 봇" }}</span>
-                  <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ modified ? "운영 소스 코드 · 수정됨" : "운영 소스 코드" }}</span>
+                  <span class="block text-body font-medium truncate">{{ botName || T.thisBot }}</span>
+                  <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ modified ? T.runningSourceModified : T.runningSource }}</span>
                 </span>
                 <Icon name="open_in_new" :size="20" class="shrink-0 text-on-surface-variant" />
               </a>
               <a v-if="modified" :href="projectRepo" target="_blank" rel="noopener" :class="row">
                 <span class="flex-1 min-w-0">
-                  <span class="block text-body font-medium truncate">원본 프로젝트</span>
-                  <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · 원본 소스 코드</span>
+                  <span class="block text-body font-medium truncate">{{ T.originalProject }}</span>
+                  <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ T.originalSource }}</span>
                 </span>
                 <Icon name="open_in_new" :size="20" class="shrink-0 text-on-surface-variant" />
               </a>
             </template>
             <div v-else :class="row">
               <span class="flex-1 min-w-0">
-                <span class="block text-body font-medium truncate">{{ botName || "이 봇" }}</span>
-                <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · 소스 코드 주소를 불러오지 못했어요</span>
+                <span class="block text-body font-medium truncate">{{ botName || T.thisBot }}</span>
+                <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ T.sourceUnknown }}</span>
               </span>
             </div>
             <a :href="UPSTREAM.url" target="_blank" rel="noopener" :class="row">
               <span class="flex-1 min-w-0">
                 <span class="block text-body font-medium truncate">{{ UPSTREAM.name }}</span>
-                <span class="block text-label text-on-surface-variant">{{ UPSTREAM.license }} · 포크해 온 원본에서 남은 부분</span>
+                <span class="block text-label text-on-surface-variant">{{ UPSTREAM.license }} · {{ T.upstreamPart }}</span>
               </span>
               <Icon name="open_in_new" :size="20" class="shrink-0 text-on-surface-variant" />
             </a>
@@ -74,6 +74,8 @@ import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DATA_FILES, FONTS_AND_ART, LIBRARIES, UPSTREAM, isModifiedSource } from "../utils/licenses.ts";
 import type { BotInfo } from "../../../src/dashboard/contract/identity.ts";
+import { text } from "../text/index.ts";
+const T = text.licenses;
 
 // 내용이 화면보다 길면 구른다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
 const dialogEl = ref<HTMLElement | null>(null);
@@ -84,9 +86,9 @@ const close = () => (open.value = false);
 onKeyStroke("Escape", () => open.value && close());
 
 const GROUPS = [
-  { title: "글꼴 · 그림", items: FONTS_AND_ART },
-  { title: "라이브러리", items: LIBRARIES },
-  { title: "데이터", items: DATA_FILES },
+  { title: T.groupFontsArt, items: FONTS_AND_ART },
+  { title: T.groupLibraries, items: LIBRARIES },
+  { title: T.groupData, items: DATA_FILES },
 ];
 
 // 봇 이름 · 소스 저장소(AGPL 의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다

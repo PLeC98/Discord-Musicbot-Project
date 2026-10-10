@@ -6,12 +6,12 @@
         <div ref="dialogEl" role="dialog" aria-modal="true" aria-labelledby="settings-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
           <div class="flex items-center gap-3 mb-4">
             <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="settings" :size="20" /></span>
-            <h3 id="settings-title" class="flex-1 text-xl font-round font-semibold">설정</h3>
-            <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="닫기" @click="close"><Icon name="close" :size="20" /></button>
+            <h3 id="settings-title" class="flex-1 text-xl font-round font-semibold">{{ T.title }}</h3>
+            <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.common.close" @click="close"><Icon name="close" :size="20" /></button>
           </div>
 
-          <div class="text-label font-semibold text-primary mb-2">화면 밝기</div>
-          <div class="flex gap-0.5 mb-6" role="group" aria-label="화면 밝기">
+          <div class="text-label font-semibold text-primary mb-2">{{ text.shell.brightness }}</div>
+          <div class="flex gap-0.5 mb-6" role="group" :aria-label="text.shell.brightness">
             <button
               v-for="(m, i) in MODE_ITEMS"
               :key="m.mode"
@@ -52,6 +52,8 @@ import { useOverflowing } from "../composables/overflowing.ts";
 import BaseSwitch from "./BaseSwitch.vue";
 import { mode, prefs, setMode, setPref, type Mode, type Prefs } from "../theme/theme.ts";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
+const T = text.settings;
 
 // 내용이 화면보다 길면 구른다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
 const dialogEl = ref<HTMLElement | null>(null);
@@ -62,20 +64,20 @@ const close = () => (open.value = false);
 onKeyStroke("Escape", () => open.value && close());
 
 const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
-  { mode: "dark", label: "어둡게", icon: "dark_mode" },
-  { mode: "light", label: "밝게", icon: "light_mode" },
-  { mode: "system", label: "시스템", icon: "contrast" },
+  { mode: "dark", label: text.shell.modeDark, icon: "dark_mode" },
+  { mode: "light", label: text.shell.modeLight, icon: "light_mode" },
+  { mode: "system", label: text.shell.modeSystem, icon: "contrast" },
 ];
 
 type Row = { key: keyof Prefs; label: string; desc: string; icon: IconName };
 const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
-    title: "테마",
+    title: T.groupTheme,
     rows: [
-      { key: "artColor", label: "앨범아트 색 사용", desc: "재생 중인 곡의 앨범아트로 테마 색을 만들어요.", icon: "palette" },
-      { key: "artWallpaper", label: "앨범아트 배경", desc: "지금 곡의 앨범아트를 흐리게 깔아요.", icon: "wallpaper" },
+      { key: "artColor", ...T.artColor, icon: "palette" },
+      { key: "artWallpaper", ...T.artWallpaper, icon: "wallpaper" },
     ],
   },
-  { title: "화면", rows: [{ key: "clock", label: "시계", desc: "PC 화면의 사이드바에 시계를 표시해요.", icon: "schedule" }] },
+  { title: T.groupScreen, rows: [{ key: "clock", ...T.clock, icon: "schedule" }] },
 ];
 </script>

@@ -22,7 +22,8 @@
       </div>
     </div>
     <div class="flex justify-between mt-1 text-2xs text-on-surface-variant nums">
-      <span>{{ minutes }}분 전</span><span>지금</span>
+      <span>{{ T.minutesAgo(minutes) }}</span
+      ><span>{{ T.now }}</span>
     </div>
   </div>
 </template>
@@ -30,6 +31,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { formatClock, formatNumber } from "../utils/locale.ts";
+import { text } from "../text/index.ts";
+const T = text.status;
 
 const props = defineProps<{
   /** 첫째 줄(굵게 · 면 채움) */
@@ -54,7 +57,7 @@ const y = (v: number) => 40 - (Math.min(props.max, Math.max(0, v)) / props.max) 
 const line = (s: number[]) => `M${s.map((v, i) => `${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" L")}`;
 const area = (s: number[]) => `${line(s)} L100,40 L0,40 Z`;
 // 읽는 사람(화면 낭독기)에게는 그래프 대신 한 줄로
-const summary = computed(() => `최근 ${props.minutes}분, 최저 ${fmt(Math.min(...props.values))}${props.unit}, 최고 ${fmt(Math.max(...props.values))}${props.unit}, 세로축 최대 ${fmt(props.max)}${props.unit}`);
+const summary = computed(() => T.chartSummary({ minutes: props.minutes, min: `${fmt(Math.min(...props.values))}${props.unit}`, max: `${fmt(Math.max(...props.values))}${props.unit}`, axisMax: `${fmt(props.max)}${props.unit}` }));
 const fmt = (v: number) => (v >= 100 || Number.isInteger(v) ? formatNumber(Math.round(v)) : v.toFixed(v < 10 ? 2 : 1));
 
 function onMove(e: PointerEvent) {

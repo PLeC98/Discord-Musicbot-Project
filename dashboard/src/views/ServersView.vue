@@ -4,8 +4,8 @@
     <!-- 바탕화면 둥근 모서리 쪽으로 글을 조금 안쪽으로 민다(위 · 옆 막대의 곡선과 맞춘다. 휴대폰도 위 모서리가 둥글어 같다) -->
     <header class="flex items-center justify-between gap-4 h-12 md:h-(--strip) mb-1 md:mb-0 px-[calc((var(--r-desk)-var(--gap-out))/2)]">
       <div class="flex items-baseline gap-3 min-w-0">
-        <h1 class="text-xl md:text-lg font-semibold">모든 서버</h1>
-        <span class="text-sm text-on-surface-variant nums">{{ guilds.length }}곳</span>
+        <h1 class="text-xl md:text-lg font-semibold">{{ T.title }}</h1>
+        <span class="text-sm text-on-surface-variant nums">{{ T.count(guilds.length) }}</span>
       </div>
       <span class="hidden @2xl/desk:block text-sm text-on-surface-variant truncate">{{ greeting }}</span>
     </header>
@@ -16,8 +16,8 @@
 
     <div v-else-if="guilds.length === 0" class="rounded-(--r-window) bg-surface-container flex flex-col items-center text-center gap-3 px-6 py-16">
       <span class="size-20 rounded-[30%] bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="music_off" :size="40" /></span>
-      <p class="text-xl font-round font-semibold">함께 있는 서버가 없어요</p>
-      <p class="text-sm text-on-surface-variant max-w-sm">봇을 서버에 초대하거나, 봇이 있는 서버에 참여하세요.</p>
+      <p class="text-xl font-round font-semibold">{{ T.empty.title }}</p>
+      <p class="text-sm text-on-surface-variant max-w-sm">{{ T.empty.body }}</p>
     </div>
 
     <div v-else class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
@@ -26,10 +26,10 @@
           <GuildAvatar :guild="g" size-class="size-13" text-class="text-lg" />
           <div class="min-w-0 flex-1">
             <div class="text-base font-semibold truncate">{{ g.name }}</div>
-            <div class="text-xs text-on-surface-variant nums">멤버 {{ formatNumber(g.memberCount) }}명</div>
+            <div class="text-xs text-on-surface-variant nums">{{ T.members(g.memberCount) }}</div>
           </div>
           <!-- 칩은 나와의 관계("듣는 중")만. 서버 상태는 아이콘의 상태 점과 아래 줄이 말한다 -->
-          <span v-if="g.listening" class="h-6 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold inline-flex items-center gap-1 shrink-0"><Icon name="headphones" :size="14" fill />듣는 중</span>
+          <span v-if="g.listening" class="h-6 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold inline-flex items-center gap-1 shrink-0"><Icon name="headphones" :size="14" fill />{{ T.listening }}</span>
         </div>
         <!-- 지금 곡. 없으면 같은 높이로 비워 둔다(카드 높이를 맞춘다) -->
         <div class="flex items-center gap-3 h-14 rounded-(--r-inner) bg-surface-container-high px-2">
@@ -42,7 +42,7 @@
             <!-- 재생 중이면 재생(▶), 일시정지면 일시정지. 누구나 아는 기호라 툴팁은 두지 않는다(▶ 는 눌러 그 서버로 간다는 느낌도 준다) -->
             <Icon :name="g.state === 'paused' ? 'pause' : 'play_arrow'" :size="20" fill class="shrink-0 mr-1" :class="g.state === 'paused' ? 'text-on-surface-variant' : 'text-primary'" />
           </template>
-          <span v-else class="flex items-center gap-1 pl-2 text-xs text-on-surface-variant"><Icon :name="g.hasPlayer ? 'headphones' : 'bedtime'" :size="14" />{{ g.hasPlayer ? "음성 채널에서 대기 중이에요" : "봇이 쉬고 있어요" }}</span>
+          <span v-else class="flex items-center gap-1 pl-2 text-xs text-on-surface-variant"><Icon :name="g.hasPlayer ? 'headphones' : 'bedtime'" :size="14" />{{ g.hasPlayer ? T.waitingInVoiceLong : T.resting }}</span>
         </div>
       </router-link>
     </div>
@@ -57,7 +57,8 @@ import Icon from "../components/BaseIcon.vue";
 import GuildAvatar from "../components/GuildAvatar.vue";
 import TrackArt from "../components/TrackArt.vue";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
-import { formatNumber } from "../utils/locale.ts";
+import { text } from "../text/index.ts";
+const T = text.servers;
 
 // 목록 데이터·SSE·폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
 const store = useGuildsStore();
@@ -68,9 +69,7 @@ const loading = computed(() => store.loading);
 const ordered = computed(() => [...store.guilds].sort((a, b) => Number(b.listening) - Number(a.listening)));
 
 const greeting = computed(() => {
-  const h = new Date().getHours();
-  const when = h < 6 ? "늦은 밤이에요" : h < 12 ? "좋은 아침이에요" : h < 18 ? "좋은 오후예요" : "좋은 저녁이에요";
-  return `${when}, ${user.displayName}님`;
+  return T.greeting(new Date().getHours(), user.displayName);
 });
 
 onMounted(() => store.subscribe());
