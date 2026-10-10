@@ -67,7 +67,7 @@
               <span class="truncate"
                 >{{ T.guilds.playingOnly }} <span class="nums">({{ playingCount }})</span></span
               >
-              <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="playingOnly ? 'accent-on-tertiary-container' : 'accent-(--md-primary)'" :checked="playingOnly" tabindex="-1" />
+              <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="playingOnly ? 'accent-on-tertiary-container' : 'accent-primary'" :checked="playingOnly" tabindex="-1" />
             </button>
           </SelectPanel>
         </div>

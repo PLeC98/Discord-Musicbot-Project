@@ -7,7 +7,7 @@
        배경화면은 화면 전체(틀 밑까지)에 깔고, 틀은 바탕화면 바깥을 덮는 반투명한 막이다(바탕화면의 그림자를 넓게 펴서 둥근 모서리를 따른다).
        --player = 떠 있는 재생 바가 차지하는 높이(화면 아래 여백) -->
   <!-- 휴대폰은 세로 굴리기 · 확대만 브라우저에 맡긴다(가로로 쓸면 서랍이 받는다, composables/drawer-swipe) -->
-  <div v-else class="relative h-dvh flex flex-col overflow-hidden [touch-action:pan-y_pinch-zoom] md:[touch-action:auto]">
+  <div v-else class="relative h-dvh flex flex-col overflow-hidden [touch-action:pan-y_pinch-zoom] md:touch-auto">
     <AppWallpaper />
     <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대 · 세로 막대 위, 폭 전체)에 tertiary 로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
     <div v-if="user.viewAs" role="status" class="relative z-10 shrink-0 h-7 px-4 flex items-center justify-center gap-1.5 text-xs bg-tertiary text-on-tertiary">
@@ -67,7 +67,7 @@
         <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 칸(운영자 레일)이 재생 바 위까지의 높이를 셈한다 -->
         <div ref="deskEl" :style="{ '--desk-h': `${deskHeight}px` }" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
           <!-- 스크롤바 길은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다 -->
-          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:[touch-action:auto] [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
+          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
             <router-view v-slot="{ Component, route: r }">
               <component :is="Component" v-if="r.meta.workspace" :key="r.fullPath" />
               <!-- 그 밖의 화면(서버 설정 · 운영자)은 바탕화면 위에 카드를 놓는다. 쿼리(운영자 패널의 ?genre= 등)만 바뀌면 새로 그리지 않게 경로로 붙잡는다 -->

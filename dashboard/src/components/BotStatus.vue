@@ -111,7 +111,7 @@
                     ><Icon :name="LINK_ICON[line.state]" :size="20" :fill="LINK_ICON_FILLED[line.state]" :class="LINK_TEXT[line.state]" /><span class="truncate" :class="[line.state === 'off' && 'text-on-surface-variant', line.hint && 'underline decoration-dotted underline-offset-2 cursor-help']" v-tooltip="line.hint">{{ line.name }}</span></span
                   >
                   <!-- 설명이 칸보다 길면 잘라 두지 않고 좌우로 흘려 보이고, 그때만 툴팁으로 전체를 -->
-                  <MarqueeText class="min-w-0 text-xs text-on-surface-variant order-last col-span-full pl-7 -mt-1.5 pb-1 @md/card:order-none @md/card:col-auto @md/card:p-0 @md/card:mt-0" :class="!line.detail && '@max-md/card:hidden'" :text="line.detail" tip />
+                  <MarqueeText class="min-w-0 text-xs text-on-surface-variant order-last col-span-full pl-7 -mt-1.5 pb-1 @md/card:order-0 @md/card:col-auto @md/card:p-0 @md/card:mt-0" :class="!line.detail && '@max-md/card:hidden'" :text="line.detail" tip />
                   <span class="text-xs nums text-right text-on-surface-variant whitespace-nowrap" :class="line.whenFull && 'underline decoration-dotted underline-offset-2 cursor-help'" v-tooltip="line.whenFull">{{ line.when || "-" }}</span>
                   <span class="text-xs nums text-right whitespace-nowrap" :class="LINK_TEXT[line.state]">{{ line.value || "-" }}</span>
                 </div>

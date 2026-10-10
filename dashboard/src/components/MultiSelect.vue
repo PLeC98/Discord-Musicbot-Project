@@ -2,7 +2,7 @@
   <SelectPanel v-model:open="open" v-model:term="term" :summary="summary" :muted="!picked.length" :count="options.length" :searchable="searchable" :empty="!shown.length">
     <button v-for="opt in shown" :key="String(opt.value)" type="button" :class="[rowCls, picked.includes(opt.value) ? rowOn : '']" @click="toggle(opt.value)">
       <span class="truncate">{{ opt.label }}</span>
-      <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="picked.includes(opt.value) ? 'accent-on-tertiary-container' : 'accent-(--md-primary)'" :checked="picked.includes(opt.value)" tabindex="-1" />
+      <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="picked.includes(opt.value) ? 'accent-on-tertiary-container' : 'accent-primary'" :checked="picked.includes(opt.value)" tabindex="-1" />
     </button>
   </SelectPanel>
 </template>
