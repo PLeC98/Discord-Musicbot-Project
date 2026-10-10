@@ -4,6 +4,7 @@ import pkg from "../../package.json" with { type: "json" };
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
+import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
@@ -185,7 +186,7 @@ const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as 
 function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?: boolean } = {}) {
   const problems: string[] = [];
   const warnings: string[] = [];
-  if (!envFileFound) problems.push(".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
+  if (!envFileFound) problems.push(".env 파일이 없습니다. pnpm install 을 다시 돌리면 만들어 줍니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요.");
 
   const readers = envReaders(source, problems);
   const { env, envEnum, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion } = readers;
@@ -198,6 +199,11 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
   if (envFileFound && missing.length) {
     problems.push(`비어 있는 필수 값: ${missing.join(" · ")}. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.`);
   }
+  // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키 · 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 못 푼다
+  const secretsKey = env("SECRETS_KEY");
+  const remake = `만들기: ${SECRETS_KEY_COMMAND} 의 출력을 .env 의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 못 풀어 다시 넣어야 합니다.`;
+  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY 가 비어 있습니다(비밀값 암호화 키). ${remake}`);
+  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env 의 SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다. ${remake}`);
   if (!env("OWNER_ID")) {
     warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
   }
@@ -221,6 +227,9 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       clientSecret: env("CLIENT_SECRET"),
       guildId: env("GUILD_ID"),
     },
+
+    // 비밀값 암호화 키(base64 32바이트). 응답 · 로그에 내보내지 않는다
+    secrets: { key: secretsKey },
 
     spotify: {
       clientId: env("SPOTIFY_CLIENT_ID"),

@@ -79,17 +79,21 @@
 ```bash
 git clone https://github.com/PLeC98/Discord-Musicbot-Project.git
 cd Discord-Musicbot-Project
-pnpm install           # 의존성 · ffmpeg · yt-dlp 를 받고 대시보드 화면까지 빌드
-cp .env.example .env   # 이후 .env 편집
+pnpm install           # 의존성 · ffmpeg · yt-dlp 를 받고 대시보드 화면까지 빌드, .env 가 없으면 만든다
 ```
 
-`.env` 필수 항목(하나라도 비면 봇이 켜지지 않고 비어 있는 이름을 알려 줍니다). 셋 다 [Discord Developer Portal](https://discord.com/developers/applications)의 애플리케이션에서 받습니다.
+`pnpm install` 은 `.env` 가 없을 때 `.env.example` 을 복사해 만들고, 무작위로 만들 수 있는 비밀(`SECRETS_KEY` · `SESSION_SECRET`)을 채웁니다. 이미 있으면 손대지 않습니다.
+
+`.env` 에 직접 채울 필수 항목(하나라도 비면 봇이 켜지지 않고 비어 있는 이름을 알려 줍니다). 셋 다 [Discord Developer Portal](https://discord.com/developers/applications)의 애플리케이션에서 받습니다.
 
 | 변수            | 설명                                                               |
 | --------------- | ------------------------------------------------------------------ |
 | `DISCORD_TOKEN` | 봇 토큰 (Bot → Token)                                              |
 | `CLIENT_ID`     | 애플리케이션 ID (OAuth2 → Client ID)                               |
 | `CLIENT_SECRET` | 클라이언트 시크릿 (OAuth2 → Client Secret). 대시보드 로그인에 쓰임 |
+
+`SECRETS_KEY` 도 필수입니다. 대시보드에 저장하는 비밀값(API 키 · 쿠키)을 이 키로 암호화합니다. `pnpm install` 이 채우므로 보통 손댈 일이 없습니다.
+비었거나(옛 `.env` 를 쓰는 경우 등) 모양이 틀리면 봇이 켜지지 않고 만드는 명령을 알려 줍니다. 키를 바꾸면 저장해 둔 비밀값을 풀 수 없어 다시 넣어야 합니다.
 
 자주 쓰는 선택 항목:
 
@@ -301,6 +305,8 @@ pnpm run start    # 일반 실행
 > 그 경우 프록시가 `X-Forwarded-*` 헤더를 넘겨야 쿠키의 Secure 판정과 요청 제한이 제대로 동작합니다.
 
 ### `SESSION_SECRET` 생성 방법 예시
+
+`pnpm install` 이 `.env` 를 만들 때 채웁니다. 손으로 만들려면:
 
 - node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 - 외부 랜덤 문자열 생성기를 사용해도 됩니다.

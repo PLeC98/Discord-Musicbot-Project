@@ -14,10 +14,12 @@ import { loadConfig } from "../src/config/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
+// 모양이 맞는 암호화 키(32바이트)
+const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수로 설정을 계산한다 — { problems, cfg } */
 function load(env: Record<string, string>, opts?: { envFileFound?: boolean }) {
-  const { config: c, problems, warnings } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SPOTIFY_CLIENT_ID: "a", SPOTIFY_CLIENT_SECRET: "b", ...env }, opts);
+  const { config: c, problems, warnings } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, SPOTIFY_CLIENT_ID: "a", SPOTIFY_CLIENT_SECRET: "b", ...env }, opts);
   return { problems, warnings, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
 
@@ -82,9 +84,9 @@ test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
 });
 
 test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 문제(빈 것만 짚는다), 운영자 ID · 기능 한정 키가 없으면 경고", () => {
-  const bare = loadConfig({});
+  const bare = loadConfig({ SECRETS_KEY: KEY });
   assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN · CLIENT_ID · CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
-  assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1" }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
+  assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
   assert.equal(bare.warnings.length, 2);
   assert.match(bare.warnings[0], /OWNER_ID/);
   assert.match(bare.warnings[1], /Spotify/);
@@ -92,7 +94,17 @@ test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 �
 });
 
 test(".env 가 없으면 그 문제 하나만 알린다", () => {
-  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요."]);
+  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. pnpm install 을 다시 돌리면 만들어 줍니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요."]);
+});
+
+test("SECRETS_KEY: 비었거나 32바이트 base64 가 아니면 만드는 명령과 함께 멈춘다", () => {
+  const empty = load({ SECRETS_KEY: "" }).problems;
+  assert.equal(empty.length, 1);
+  assert.match(empty[0], /^SECRETS_KEY 가 비어 있습니다\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 넣어야 합니다\.$/);
+  for (const wrong of ["짧다", Buffer.alloc(16).toString("base64"), `${KEY}x`]) {
+    assert.match(load({ SECRETS_KEY: wrong }).problems.join(), /SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다/, wrong);
+  }
+  assert.deepEqual(load({}).problems, []);
 });
 
 test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내고 설정 값에는 섞이지 않는다", () => {
