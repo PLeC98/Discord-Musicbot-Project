@@ -76,10 +76,9 @@ function writeField<K extends keyof GuildDoc>(guildId: string, key: K, value: Gu
     }
     conn()
       .prepare(
-        `INSERT INTO guild_settings (guild_id, data_json, revision, updated_at) VALUES (?, ?, 1, ?)
+        `INSERT INTO guild_settings (guild_id, data_json, updated_at) VALUES (?, ?, ?)
          ON CONFLICT(guild_id) DO UPDATE SET
              data_json  = excluded.data_json,
-             revision   = guild_settings.revision + 1,
              updated_at = excluded.updated_at`,
       )
       .run(guildId, JSON.stringify(doc), Date.now());

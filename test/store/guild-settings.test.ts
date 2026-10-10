@@ -234,14 +234,6 @@ test("칸 하나의 모양이 틀려도 다른 칸은 읽는다", () => {
   );
 });
 
-test("저장할 때마다 저장 번호가 오른다", () => {
-  const revision = () => settingsDb.get().prepare("SELECT revision FROM guild_settings WHERE guild_id = 'g6'").pluck().get();
-  guildTable.setBotChannel("g6", "c");
-  assert.equal(revision(), 1);
-  guildTable.setDjRoles("g6", ["r"]);
-  assert.equal(revision(), 2);
-});
-
 test("DJ 역할: 미지정 서버는 빈 배열", () => {
   assert.deepEqual(guildTable.getDjRoles("no-such-guild"), []);
 });
