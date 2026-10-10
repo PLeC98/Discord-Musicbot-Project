@@ -271,14 +271,15 @@ pnpm run start    # 일반 실행
 
 ## 대시보드
 
-봇을 켜면 대시보드 서버가 함께 뜹니다(기본 `http://localhost:33333`). 화면은 `pnpm install` 때 빌드됩니다.
+봇을 켜면 대시보드 서버가 함께 뜹니다(기본 `http://localhost:33333`). 화면은 처음 `pnpm install` 때 빌드됩니다.
 
 1. `.env`의 `CLIENT_SECRET`(필수)과 `OWNER_ID`(운영자 패널)를 채웁니다.
 2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에 `{DASHBOARD_URL}/auth/callback`을 추가합니다.
    봇을 켜면 기동 로그에 등록할 주소가 그대로 찍힙니다(기본 `http://localhost:33333/auth/callback`).
 3. 브라우저로 대시보드를 열고 Discord로 로그인합니다.
 
-화면을 고쳤거나 빌드가 지워졌으면 `pnpm run build:dashboard`로 다시 빌드합니다(봇은 다시 켜지 않아도 됩니다).
+업데이트 뒤나 화면을 고쳤을 때는 `pnpm run build:dashboard`로 다시 빌드합니다(봇은 다시 켜지 않아도 됩니다).
+빌드가 화면 소스보다 옛것이면 기동 로그가 경고로 알려 줍니다.
 
 ### 다른 기기에서 접속하기
 
@@ -311,14 +312,14 @@ pnpm run start    # 일반 실행
 
 `git pull`로 코드를 갱신한 뒤, 갱신 내용에 따라:
 
-| 명령                       | 용도                                                                              |
-| -------------------------- | --------------------------------------------------------------------------------- |
-| `pnpm install`             | 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 목표 버전 받기, 대시보드 빌드) |
-| `pnpm run build:dashboard` | 대시보드 화면만 다시 빌드                                                         |
-| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                               |
-| `pnpm run update:ytdlp`    | yt-dlp 를 목표 버전(`.env` 의 채널 · 고정 버전)으로 받기                          |
-| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                              |
-| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                                         |
+| 명령                       | 용도                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm install`             | 의존성 갱신. 의존성이 바뀌었을 때만 `postinstall`(ffmpeg 설치, yt-dlp 목표 버전 받기, 대시보드 빌드)이 돈다 |
+| `pnpm run build:dashboard` | 대시보드 화면 다시 빌드. 업데이트 뒤 화면이 옛것이면 기동 로그가 알려 준다                                  |
+| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                                                         |
+| `pnpm run update:ytdlp`    | yt-dlp 를 목표 버전(`.env` 의 채널 · 고정 버전)으로 받기                                                    |
+| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                                                        |
+| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                                                                   |
 
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.

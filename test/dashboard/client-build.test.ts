@@ -6,19 +6,32 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
+import { BUILD_INPUTS, type BuildInputs } from "../../src/dashboard/client-freshness.ts";
 
 const CLIENT = path.join(import.meta.dirname, "..", "..", "dashboard");
 // vite 는 화면 쪽 의존이다. 화면의 package.json 에서 찾는다
 const VITE = pathToFileURL(createRequire(path.join(CLIENT, "package.json")).resolve("vite")).href;
 
-type Chunk = { type: "chunk" | "asset"; fileName: string; code?: string; isDynamicEntry?: boolean };
+type Chunk = { type: "chunk" | "asset"; fileName: string; code?: string; source?: string | Uint8Array; isDynamicEntry?: boolean };
 // vite 가 크기 경고를 내는 한도(build.chunkSizeWarningLimit 기본, kB)
 const WARN_KB = 500;
 
 test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈 · 발음 사전 전체는 없으며, 크기 경고를 낼 조각이 없다", async () => {
   const { build } = (await import(VITE)) as { build: (config: object) => Promise<{ output: Chunk[] } | Array<{ output: Chunk[] }>> };
   const result = await build({ root: CLIENT, configFile: path.join(CLIENT, "vite.config.ts"), logLevel: "silent", build: { write: false } });
-  const chunks = (Array.isArray(result) ? result : [result]).flatMap((one) => one.output).filter((one) => one.type === "chunk");
+  const output = (Array.isArray(result) ? result : [result]).flatMap((one) => one.output);
+  const chunks = output.filter((one) => one.type === "chunk");
+
+  // 봇이 옛 빌드를 알아보는 목록: 화면 소스와 화면이 부르는 봇 모듈이 들고, 바깥 패키지는 없다
+  const inputs = output.find((one) => one.fileName === BUILD_INPUTS);
+  assert.ok(inputs, "빌드가 소스 목록을 남긴다");
+  const { builtAt, files } = JSON.parse(String(inputs.source)) as BuildInputs;
+  assert.ok(builtAt > 0);
+  assert.ok(files.includes("dashboard/src/main.ts") && files.includes("src/rules/controls.ts"), "화면 소스와 화면이 부르는 봇 모듈");
+  assert.deepEqual(
+    files.filter((file) => file.includes("node_modules") || file.startsWith("..") || file.includes(String.fromCharCode(92))),
+    [],
+  );
 
   assert.deepEqual(
     chunks.filter((one) => /createRequire|node:module/.test(one.code ?? "")).map((one) => one.fileName),
