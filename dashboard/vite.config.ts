@@ -12,15 +12,7 @@ export default defineConfig({
     port: 5173,
     // 공유 모듈과 조사 도우미의 표(data/)가 저장소 뿌리에 있다
     fs: { allow: [root] },
-    proxy: {
-      "/api": {
-        target: "http://localhost:33333",
-        changeOrigin: true,
-      },
-      "/auth": {
-        target: "http://localhost:33333",
-        changeOrigin: true,
-      },
-    },
+    // 봇이 답하는 경로: API · 로그인 · 파비콘과 매니페스트(꾸미기에서 올린 그림)
+    proxy: Object.fromEntries(["/api", "/auth", "/favicon", "/manifest.webmanifest"].map((route) => [route, { target: "http://localhost:33333", changeOrigin: true }])),
   },
 });
