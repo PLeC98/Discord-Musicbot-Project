@@ -58,11 +58,16 @@ type PlayerState = {
   currentTrack: PlayingView | null;
   hasPrevious?: boolean;
   autoplay?: boolean;
+  /** 자동재생 장르(꺼져 있으면 null) */
+  autoplayGenre?: string | null;
   /** 대기열에 라이브가 있다(반복을 켤 수 없다). 대기열 창 밖의 곡도 본다 */
   hasLive: boolean;
   queue: QueueTrackView[];
   queueTotal: number;
 };
+
+/** 자동재생 장르 목록(config/genres.yaml 의 차례). 디스코드 장르 메뉴와 같은 것 */
+type AutoplayGenres = { genres: Array<{ name: string; emoji: string | null }> };
 
 /** 봇 · 나의 음성 채널 */
 type VoiceFlags = { botInVoice: boolean; userInVoice: boolean; sameVoice: boolean };
@@ -86,4 +91,4 @@ type AddReply = PlayerState & { dropped: number; queueLimited: boolean; notes: s
 type MoreReply = PlayerState & { added: number; dropped: number; note: string; more: MoreView | null; queueMax: number };
 
 export { QUEUE_PAGE, QUEUE_WINDOW_MAX, LOOP_MODES, loopOf, modeOf };
-export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply };
+export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply };

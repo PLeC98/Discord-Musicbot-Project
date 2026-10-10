@@ -8,15 +8,17 @@ import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
-import { loopOf, type AddReply, type MoreReply, type MoreView, type PlayerRead, type QueuePage } from "../contract/player.ts";
-import { requestPlayback, continueCollection } from "../../usecases/add-tracks.ts";
+import { loopOf, type AddReply, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage } from "../contract/player.ts";
+import { requestPlayback, continueCollection, ensurePlayer, resolveFallbackTextChannel } from "../../usecases/add-tracks.ts";
+import * as genreConfig from "../../config/genres.ts";
+import { autoplayOn } from "../../ui/genre-menu.ts";
 import { join } from "../../usecases/join.ts";
 import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
 import * as queueText from "../../ui/text/ko/queue.ts";
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState, toInt } from "../player-view.ts";
-import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
+import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as replies from "../../ui/control-replies.ts";
@@ -52,6 +54,7 @@ function createPlayerRouter() {
   controlRoutes(router);
   queueEditRoutes(router);
   addRoutes(router);
+  autoplayRoutes(router);
   return router;
 }
 
@@ -265,6 +268,33 @@ function queueEditRoutes(router: Router) {
     if (!r.ok) return refuse(res, r);
     // 사람은 1부터 센다
     announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
+    res.json(stateAfter(req));
+  });
+}
+
+// 자동재생. 판정과 일은 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
+function autoplayRoutes(router: Router) {
+  // 장르 목록. 디스코드 장르 메뉴와 같은 것(파일이 바뀌면 곧바로)
+  router.get("/:guildId/autoplay/genres", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { genres } = genreConfig.genres();
+    res.json({ genres: Object.entries(genres).map(([name, g]) => ({ name, emoji: g.emoji || null })) } satisfies AutoplayGenres);
+  });
+
+  // 켜기(장르) · 바꾸기 · 끄기(null). 켤 때 플레이어가 없으면 만든다(봇이 쉬면 부른 사람의 음성 채널로). 켠 결과는 패널 채널에도 알린다
+  router.post("/:guildId/player/autoplay", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const body = parse(AutoplayBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
+    const { bot, guild, member } = ctx;
+    const { genre } = body.value;
+    // 새 플레이어의 글자 채널은 곡 넣기와 같다(전용 채널이 있으면 그것)
+    const textChannel = genre && !ctx.player?.textChannel ? await resolveFallbackTextChannel(guild) : null;
+    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create: () => ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null }) });
+    if (!r.ok) return refuse(res, r);
+    if (genre) announcer(bot, bot.players.get(guild.id))(autoplayOn(genre, dashboardActor(req)));
     res.json(stateAfter(req));
   });
 }

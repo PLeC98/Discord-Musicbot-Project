@@ -81,6 +81,7 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
     // 대기열이 비어도 자동재생이 켜져 있으면 넘기기가 된다
     autoplay: Boolean(player.autoplay),
+    autoplayGenre: player.autoplay || null,
     // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
     hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),

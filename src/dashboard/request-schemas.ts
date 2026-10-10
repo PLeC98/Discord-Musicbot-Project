@@ -34,6 +34,10 @@ const SeekBody = z.object({ position: z.coerce.number(BAD_POSITION).min(0, BAD_P
 // 줄 번호로 옮기기 { entry, before }. before 줄 앞으로, null 이면 맨 끝
 const MoveEntryBody = z.object({ entry: Entry, before: Entry.nullable() }, BAD_ENTRY);
 
+// 자동재생 { genre }. 장르 이름이면 켜고(바꾸고) null 이면 끈다. 모르는 장르는 코어가 거절한다(unknown-genre)
+const BAD_GENRE = { error: "bad-request" satisfies Code };
+const AutoplayBody = z.object({ genre: z.string(BAD_GENRE).trim().min(1, BAD_GENRE).max(100, BAD_GENRE).nullable() }, BAD_GENRE);
+
 // 대기열 구간 ?offset=&limit=
 const BAD_OFFSET = { error: "bad-queue-range" satisfies Code };
 const BAD_LIMIT = BAD_OFFSET;
@@ -96,5 +100,5 @@ function settingsBody({ min, max }: { min: number; max: number }) {
 /** 서버 설정 저장의 본문(화면이 보내는 모양) */
 type SettingsRequest = z.input<ReturnType<typeof settingsBody>>;
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, QUERY_MAX_LEN };
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, QUERY_MAX_LEN };
 export type { SettingsRequest };
