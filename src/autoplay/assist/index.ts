@@ -18,7 +18,7 @@ import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
 import { errorKind, messageOf } from "../../rules/error-kind.ts";
 import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
-import type { PromptSection } from "../../config/schema/ai-prompt.ts";
+import { LINE_MARKS, type PromptSection } from "../../config/schema/ai-prompt.ts";
 import type { AiDefaults, AiSettings, Body, Judged, JudgeResult, ListFormat, ModelsCheck, PingCheck, Preview, TestCandidate, TokenCount, Usage, Wire } from "./types.ts";
 import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
@@ -341,6 +341,8 @@ function scalarOf(value: string): unknown {
 }
 
 /** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다. */
+const isLineMark = (name: string): name is (typeof LINE_MARKS)[number] => (LINE_MARKS as readonly string[]).includes(name);
+
 function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | undefined, i: number) {
   const sec = Number(cand.durationSec ?? cand.duration);
   const known = Number.isFinite(sec) && sec > 0;
@@ -348,7 +350,8 @@ function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | 
   const mode = list?.unknownDuration || "hide";
   const unknown = mode === "zero" ? "0" : mode === "text" ? String(list?.unknownText ?? "모름") : null;
 
-  const values: Record<string, string | null> = {
+  // 이름은 화면과 같이 쓰는 LINE_MARKS(config/schema/ai-prompt). 하나라도 빠지면 타입이 짚는다
+  const values: Record<(typeof LINE_MARKS)[number], string | null> = {
     번호: String(i + 1),
     장르: genre || "랜덤",
     제목: String(cand.title ?? ""),
@@ -366,7 +369,7 @@ function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | 
       if (!word.includes("{{")) return word;
       let missing = false;
       const filled = word.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all: string, name: string) => {
-        if (!(name in values)) return all;
+        if (!isLineMark(name)) return all;
         if (values[name] == null) missing = true;
         return values[name] ?? "";
       });

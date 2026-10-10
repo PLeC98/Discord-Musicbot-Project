@@ -7,6 +7,11 @@ type PromptSection = { role: string; text: string };
 // 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
 const AI_ROLES = ["system", "user", "assistant"];
 
+/** 프롬프트에서 후보 목록이 들어갈 자리 */
+const LIST_MARK = "{{목록}}";
+/** 후보 한 줄의 자리표시자 이름(줄 형식에 {{이름}} 으로 적는다. autoplay/assist 가 채운다) */
+const LINE_MARKS = ["번호", "장르", "제목", "길이분", "길이초"] as const;
+
 /** 후보 목록이 들어갈 자리({{목록}})가 어느 섹션에든 있는가. 없으면 모델은 무엇을 판정할지 모른다 */
 const hasListMark = (sections: readonly unknown[]) => sections.some((section) => /\{\{\s*목록\s*\}\}/.test(String((section as { text?: unknown } | null)?.text ?? "")));
 
@@ -31,5 +36,5 @@ function promptProblems(prompt: unknown, on: boolean): string[] {
   return problems;
 }
 
-export { AI_ROLES, hasListMark, promptProblems };
+export { AI_ROLES, LIST_MARK, LINE_MARKS, hasListMark, promptProblems };
 export type { PromptSection };

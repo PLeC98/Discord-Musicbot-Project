@@ -3,6 +3,7 @@
 // 봇과 같은 뜻의 문장(거절 · 오류 · 이름표)은 여기 두지 않고 봇 문장표(src/ui/text/ko/)에서 부른다
 
 import * as admin from "./ko/admin.ts";
+import * as ai from "./ko/ai.ts";
 import * as appearance from "./ko/appearance.ts";
 import * as common from "./ko/common.ts";
 import * as cookies from "./ko/cookies.ts";
@@ -25,6 +26,6 @@ import * as settings from "./ko/settings.ts";
 import * as shell from "./ko/shell.ts";
 import * as status from "./ko/status.ts";
 
-const text = { admin, appearance, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, server, serverSettings, servers, settings, shell, status };
+const text = { admin, ai, appearance, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, server, serverSettings, servers, settings, shell, status };
 
 export { text };
