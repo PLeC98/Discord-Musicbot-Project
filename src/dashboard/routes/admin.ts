@@ -9,13 +9,11 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { signedIn } from "../middleware/require-auth.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { sendProblem } from "../problem.ts";
-import os from "os";
 import logManager from "../../infra/log/sink.ts";
-import * as procRegistry from "../../infra/process-registry.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -24,8 +22,7 @@ import { promptProblems } from "../../config/schema/ai-prompt.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieConfig from "../../config/cookies.ts";
 import * as yamlStore from "../../config/yaml-store.ts";
-import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel } from "discord.js";
-import config from "../../config/index.ts";
+import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import * as audioCache from "../../store/audio-cache.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
@@ -33,9 +30,7 @@ import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
 import * as models from "../../config/ai-models.ts";
-import { vitals } from "../../infra/vitals.ts";
-import { BOT_VERSION } from "../../infra/version.ts";
-import { statusHistory } from "../status-history.ts";
+import { adminStatus } from "../status/index.ts";
 
 // 로그에 남기는 실행한 사람
 function ranBy<P>(req: Request<P>) {
@@ -43,75 +38,9 @@ function ranBy<P>(req: Request<P>) {
   return user.username || user.id;
 }
 
-// 봇 연결 상태. 로그인 전이면 사용자가 없다
-function botStatus(client: Client, uptime: number) {
-  return {
-    tag: client.user?.tag || "Connecting...",
-    id: client.user?.id || null,
-    guilds: client.guilds.cache.size,
-    ping: client.ws.ping,
-    status: client.ws.status,
-    uptime: Math.floor(uptime),
-    startedAt: Math.round(Date.now() - uptime * 1000),
-    version: BOT_VERSION,
-  };
-}
-
-// 자식 프로세스 요약. 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게
-function processSummary() {
-  const all = procRegistry.list();
-  const byLabel: Record<string, number> = {};
-  for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
-  return {
-    total: all.length,
-    byLabel: Object.entries(byLabel)
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-    oldest: all.slice(0, 8),
-  };
-}
-
-// 봇 · Node · 시스템 상태
+// 봇 · Node · 시스템 상태(봇 상태 탭)
 adminRouter.get("/status", requireOwner, (req, res) => {
-  const { client, players } = req.app.locals.bot;
-  const uptime = process.uptime();
-  const mem = process.memoryUsage();
-  const { cpu, loop, heapLimit } = vitals();
-  const cpus = os.cpus();
-
-  res.json({
-    bot: botStatus(client, uptime),
-    node: {
-      version: process.version,
-      platform: process.platform,
-      arch: process.arch,
-      memory: {
-        heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-        heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
-        heapLimit,
-        rss: Math.round(mem.rss / 1024 / 1024),
-      },
-    },
-    system: {
-      cpus: cpus.length,
-      cpuModel: cpus[0]?.model.trim() ?? "",
-      totalMem: Math.round(os.totalmem() / 1024 / 1024),
-      freeMem: Math.round(os.freemem() / 1024 / 1024),
-      loadAvg: os.loadavg(),
-      uptime: Math.floor(os.uptime()),
-    },
-    cpu,
-    loop,
-    activePlayers: players.size,
-    // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다
-    processes: processSummary(),
-    // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
-    youtube: YouTube.statusSnapshot(),
-    history: statusHistory(),
-    // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
-    // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
-    logLevel: config.logging.level,
-  } satisfies AdminStatus);
+  res.json(adminStatus(req.app.locals.bot));
 });
 
 // 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널

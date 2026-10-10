@@ -24,7 +24,7 @@ import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts
 import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter } from "./problem.ts";
 import { limiter, unlimited } from "./rate-limits.ts";
-import { startStatusHistory } from "./status-history.ts";
+import { startStatus } from "./status/index.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 시험이 바꿔 넘긴다 */
@@ -145,8 +145,8 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
 
 function startDashboard(bot: BotContext, { stream, deployCommands }: AppDeps) {
   const app = createApp(bot, { stream, deployCommands });
-  // 봇 상태 탭의 측정 · 최근 15분은 화면을 열기 전부터 모은다
-  startStatusHistory(bot);
+  // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재수립은 화면을 열기 전부터 모은다
+  startStatus(bot);
 
   listen(app, config.dashboard, () => {
     // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다

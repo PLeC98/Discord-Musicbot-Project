@@ -14,7 +14,8 @@ import { FIXED_COLORS } from "../../ui/palette.ts";
  * history 는 서버가 15초마다 모은 최근 15분이라 화면을 늦게 열어도 그래프가 차 있다
  */
 type AdminStatus = {
-  bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number; startedAt: number; version: string };
+  /** reconnects: 봇이 켜진 뒤 디스코드 API 연결이 끊겼다 다시 붙은(재수립) 횟수. retryAttempt: 지금 끊겨 다시 붙으려는 중이면 몇 번째 시도인지, 붙어 있으면 null */
+  bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number; startedAt: number; version: string; reconnects: number; retryAttempt: number | null };
   /** heapLimit: V8 heap 한도(이 값 대비로 판정한다. heapTotal 은 필요에 따라 늘어나는 값이라 한도가 아니다) */
   node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; heapLimit: number; rss: number } };
   /** uptime: 운영체제가 켜진 뒤의 초. loadAvg 는 Windows 에서 늘 0 이라 화면은 쓰지 않는다 */

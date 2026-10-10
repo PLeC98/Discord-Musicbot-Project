@@ -169,6 +169,7 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.ok(Number.isInteger(r.json.bot.uptime), "업타임은 초(화면이 /system 과 같은 말로 바꾼다)");
   assert.ok(Math.abs(r.json.bot.startedAt + r.json.bot.uptime * 1000 - Date.now()) < 5000, "시작 시각 = 지금 - 업타임");
   assert.equal(r.json.bot.version, BOT_VERSION);
+  assert.deepEqual([r.json.bot.reconnects, r.json.bot.retryAttempt], [0, null], "끊긴 적 없음");
   assert.equal(r.json.activePlayers, 1);
   assert.equal(typeof r.json.node.version, "string");
   assert.ok(r.json.node.memory.heapLimit > r.json.node.memory.heapUsed, "heap 한도(MB)");

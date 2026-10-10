@@ -1,10 +1,10 @@
 // 봇 상태 탭의 최근 15분. 측정(infra/vitals)이 15초 칸을 닫을 때마다 한 점을 더한다.
 // 대시보드가 켜질 때 시작하므로 화면을 늦게 열어도 그래프가 차 있다
 
-import { onWindow, startVitals, vitals, WINDOW_MS, type Window } from "../infra/vitals.ts";
-import { playState } from "../ui/player-status.ts";
-import type { BotContext } from "../app/bot-context.ts";
-import type { StatusHistory } from "./contract/admin.ts";
+import { onWindow, startVitals, vitals, WINDOW_MS, type Window } from "../../infra/vitals.ts";
+import { playState } from "../../ui/player-status.ts";
+import type { BotContext } from "../../app/bot-context.ts";
+import type { StatusHistory } from "../contract/admin.ts";
 
 const POINTS = (15 * 60_000) / WINDOW_MS;
 

@@ -461,7 +461,7 @@ function resultMsg(ok: boolean) {
 const loading = ref(true);
 // 처음 받기 전의 모양
 const s = ref<AdminStatus>({
-  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: 0, startedAt: 0, version: "" },
+  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: 0, startedAt: 0, version: "", reconnects: 0, retryAttempt: null },
   node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, heapLimit: 0, rss: 0 } },
   system: { cpus: 0, cpuModel: "", totalMem: 0, freeMem: 0, loadAvg: [], uptime: 0 },
   cpu: { bot: 0, system: 0 },
