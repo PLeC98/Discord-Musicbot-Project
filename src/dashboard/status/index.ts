@@ -11,6 +11,7 @@ import type { BotContext } from "../../app/bot-context.ts";
 import type { AdminStatus } from "../contract/admin.ts";
 import { gateway, watchGateway } from "./gateway.ts";
 import { startStatusHistory, statusHistory } from "./history.ts";
+import { linkRows } from "./links.ts";
 import { playerRows } from "./players.ts";
 import { processSummary, watchProcesses } from "./processes.ts";
 
@@ -49,6 +50,7 @@ async function adminStatus({ client, players }: BotContext, viewerId: string): P
     processes: processSummary(client, players),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
+    links: linkRows(client),
     history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).

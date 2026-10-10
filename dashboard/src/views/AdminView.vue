@@ -470,6 +470,7 @@ const s = ref<AdminStatus>({
   players: { voiceConnections: 0, queued: 0, list: [] },
   processes: { total: 0, byLabel: [], oldest: [] },
   youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
+  links: [],
   history: { stepMs: 0, endAt: 0, playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [] },
   logLevel: "",
 });

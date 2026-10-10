@@ -181,6 +181,7 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.deepEqual(Object.keys(r.json.cpu).sort(), ["bot", "system"]);
   assert.deepEqual(Object.keys(r.json.loop).sort(), ["max", "p99"]);
   assert.equal(r.json.history.stepMs, 15_000);
+  assert.equal(r.json.links[0].id, "discord", "연결 줄");
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
   assert.deepEqual(r.json.players.list, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
   assert.equal(r.json.players.queued, 1);

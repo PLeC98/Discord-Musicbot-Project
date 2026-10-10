@@ -12,6 +12,7 @@ import { FIXED_COLORS } from "../../ui/palette.ts";
 
 /**
  * 봇 상태 탭(운영자). 3초마다 받는다. 메모리는 MB, 시각은 epoch ms, 시간 길이는 초(uptime) · ms(ageMs).
+ * 바깥 서비스(links)는 봇이 실제로 부른 결과로만 매긴다(상태를 보려고 따로 부르지 않는다).
  * history 는 서버가 15초마다 모은 최근 15분이라 화면을 늦게 열어도 그래프가 차 있다
  */
 type AdminStatus = {
@@ -31,6 +32,7 @@ type AdminStatus = {
   /** 자식 프로세스(ffmpeg · yt-dlp · 도우미). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수 */
   processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: ProcessRow[] };
   youtube: YoutubeStatus;
+  links: LinkRow[];
   history: StatusHistory;
   logLevel: string;
 };
@@ -42,6 +44,14 @@ type PlayerRow = { guildId: string; name: string; icon: string | null; member: b
  * stray: 재생 · 다음 곡 일인데 그 서버에 플레이어가 없다(남은 프로세스일 수 있다). memMb: 15초마다 잰 값, 아직 못 쟀으면 null
  */
 type ProcessRow = { pid: number; label: string; ageMs: number; memMb: number | null; guildId: string | null; guildName: string | null; job: Job | null; stray: boolean };
+
+/** idle: 지난 1시간 부르지 않음, off: 쓰는 설정이 없음(키가 없거나 그 출처를 쓰는 장르가 없다) */
+type LinkState = "ok" | "slow" | "fail" | "idle" | "off";
+/**
+ * group: play(소리를 내는 데 쓴다) · youtube · autoplay(다음 곡 고르기). play · youtube 가 실패하면 문제, autoplay 는 주의.
+ * error: 마지막 실패의 짧은 까닭("timeout" · "HTTP 503" 등). note: 줄에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
+ */
+type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: string; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: string | null; note: string | null; hint?: string | null };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[] };
@@ -111,4 +121,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };
