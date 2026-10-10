@@ -28,4 +28,24 @@ const emojiNone = "찾는 이모지가 없어요.";
 const emojiClear = "비우기";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed };
+// 마크다운 서식 도구(디스코드와 같은 단축키는 부르는 쪽이 붙인다)
+const format = {
+  bold: "굵게",
+  italic: "기울임",
+  underline: "밑줄",
+  strike: "취소선",
+  spoiler: "스포일러",
+  h1: "제목 1",
+  h2: "제목 2",
+  h3: "제목 3",
+  small: "작은 글씨",
+  quote: "인용",
+  list: "목록",
+  numbered: "번호 목록",
+  code: "코드",
+  codeBlock: "코드 블록",
+  link: "링크",
+  timestamp: "현재 시간 (시간대 자동 변환)",
+};
+
+export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, format };
