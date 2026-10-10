@@ -156,6 +156,12 @@ const WEB = {
   "config-unreadable": { status: 409, title: "Config file could not be read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
+  // 대시보드: 꾸미기(올린 그림)
+  "bad-image": { status: 400, title: "Not a supported image" },
+  "image-not-square": { status: 400, title: "Image must be square" },
+  "image-too-small": { status: 400, title: "Image is too small", params: ["min"] },
+  "too-many-favicons": { status: 409, title: "Too many favicon images", params: ["max"] },
+  "appearance-save-failed": { status: 500, title: "Could not save the image" },
 } as const satisfies Record<string, ProblemSpec>;
 
 const PROBLEMS = { ...SHARED, ...WEB };

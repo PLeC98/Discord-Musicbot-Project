@@ -17,6 +17,8 @@ const PROJECT = {
   data: path.join(ROOT, "data"),
   /** DB · 실행 기록. 사람이 열어 볼 수 있게 루트에 둔다 */
   database: path.join(ROOT, "database"),
+  /** 대시보드가 쓰는 실행 상태(운영자 패널에서 올린 그림 등). 사람이 건드리지 않는다 */
+  dashboardData: path.join(ROOT, "database", "dashboard"),
   /** 받아 둔 오디오 */
   audioCache: path.join(ROOT, "audio_cache"),
   /** 설치 스크립트가 받는 실행 파일(ffmpeg · yt-dlp) */

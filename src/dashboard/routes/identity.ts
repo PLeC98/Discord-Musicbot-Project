@@ -6,6 +6,7 @@ import { isOwner, isRealOwner } from "../owner.ts";
 import { getViewAs } from "../view-as.ts";
 import type { BotInfo, Me } from "../contract/identity.ts";
 import { avatarUrl } from "../images.ts";
+import { faviconVersion } from "../appearance.ts";
 import { sendProblem } from "../problem.ts";
 
 const identityRouter = express.Router();
@@ -29,6 +30,7 @@ identityRouter.get("/bot", (req, res) => {
     sourceRepo: config.bot.sourceRepo, // AGPL 소스 공개 (개조본 = SOURCE_REPO_URL, 미설정 시 projectRepo)
     projectRepo: config.bot.projectRepo, // 원본 프로젝트 저장소
     brandColor: config.bot.embedColor,
+    faviconVersion: faviconVersion(),
   } satisfies BotInfo);
 });
 

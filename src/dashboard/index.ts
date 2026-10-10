@@ -20,6 +20,7 @@ import { createAuthRouter } from "./routes/auth.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
+import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts";
 import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter } from "./problem.ts";
 import { limiter, unlimited } from "./rate-limits.ts";
@@ -93,6 +94,8 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
+  // 파비콘 · 매니페스트(로그인 없이). 화면 폴백보다 앞에
+  app.use(publicAppearanceRouter);
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
@@ -126,6 +129,7 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   app.use("/auth", createAuthRouter());
 
   // API 라우트
+  app.use("/api/admin/appearance", appearanceRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
 

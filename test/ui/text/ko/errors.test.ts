@@ -138,6 +138,11 @@ test("모든 문장", () => {
       "config-unreadable": shown(notice("config-unreadable")),
       "config-save-failed": shown(notice("config-save-failed")),
       "storage-unavailable": shown(notice("storage-unavailable")),
+      "bad-image": shown(notice("bad-image")),
+      "image-not-square": shown(notice("image-not-square")),
+      "image-too-small": shown(notice("image-too-small", { min: 16 })),
+      "too-many-favicons": shown(notice("too-many-favicons", { max: 8 })),
+      "appearance-save-failed": shown(notice("appearance-save-failed")),
     },
     {
       "must-be-in-voice": "warning 🎧 먼저 음성 채널에 접속해 주세요!\n그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요.",
@@ -268,6 +273,11 @@ test("모든 문장", () => {
       "config-unreadable": "error ❌ 설정 파일을 읽지 못했어요!\n파일이 없거나 YAML 문법이 깨졌어요. 함께 적힌 원문을 보고 파일을 고쳐 주세요.",
       "config-save-failed": "error ❌ 설정을 저장하지 못했어요!\n파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요.",
       "storage-unavailable": "error ❌ 저장소를 쓸 수 없어요!\n데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요.",
+      "bad-image": "warning ✏️ 쓸 수 없는 그림이에요!\npng · webp · jpg · svg 그림만 올릴 수 있어요.",
+      "image-not-square": "warning ✏️ 정사각형 그림만 쓸 수 있어요!\n가로와 세로가 같은 그림을 올려 주세요.",
+      "image-too-small": "warning ✏️ 그림이 너무 작아요!\n한 변이 16px 이상인 그림을 올려 주세요.",
+      "too-many-favicons": "warning ✏️ 파비콘 그림이 너무 많아요!\n8장까지 둘 수 있어요. 쓰지 않는 그림을 지운 뒤에 올려 주세요.",
+      "appearance-save-failed": "error ❌ 그림을 저장하지 못했어요!\n파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요.",
     },
   );
 });

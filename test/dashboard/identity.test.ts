@@ -11,6 +11,7 @@ import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 
 const { identityRouter } = await import("../../src/dashboard/routes/identity.ts");
 const config = (await import("../../src/config/index.ts")).default;
+const { faviconVersion } = await import("../../src/dashboard/appearance.ts");
 
 let user: object | null = null;
 let botUser: object | null = null;
@@ -59,7 +60,7 @@ test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름 · 그림은 봇이
   botUser = null;
   const early = await get("/api/bot");
   assert.equal(early.status, 200);
-  assert.deepEqual(early.json, { name: null, avatarUrl: null, sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo, brandColor: config.bot.embedColor }, "준비 전에도 소스 링크 · 임베드 색이 있다");
+  assert.deepEqual(early.json, { name: null, avatarUrl: null, sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo, brandColor: config.bot.embedColor, faviconVersion: faviconVersion() }, "준비 전에도 소스 링크 · 임베드 색 · 파비콘 버전이 있다");
 
   let asked: object | null = null;
   botUser = {
@@ -71,6 +72,6 @@ test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름 · 그림은 봇이
   };
   const ready = await get("/api/bot");
   assert.equal(ready.status, 200);
-  assert.deepEqual(ready.json, { name: "봇", avatarUrl: "https://cdn/avatar.webp", sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo, brandColor: config.bot.embedColor });
+  assert.deepEqual(ready.json, { name: "봇", avatarUrl: "https://cdn/avatar.webp", sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo, brandColor: config.bot.embedColor, faviconVersion: faviconVersion() });
   assert.deepEqual(asked, { size: 1024, extension: "webp" }, "로그인 화면 배경으로도 쓰는 큰 그림");
 });

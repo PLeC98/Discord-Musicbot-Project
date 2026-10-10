@@ -204,6 +204,12 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "config-unreadable": () => error("failed", "설정 파일을 읽지 못했어요!", "파일이 없거나 YAML 문법이 깨졌어요. 함께 적힌 원문을 보고 파일을 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
+  // 대시보드: 꾸미기(올린 그림)
+  "bad-image": () => warning("input", "쓸 수 없는 그림이에요!", "png · webp · jpg · svg 그림만 올릴 수 있어요."),
+  "image-not-square": () => warning("input", "정사각형 그림만 쓸 수 있어요!", "가로와 세로가 같은 그림을 올려 주세요."),
+  "image-too-small": ({ min }) => warning("input", "그림이 너무 작아요!", `한 변이 ${min}px 이상인 그림을 올려 주세요.`),
+  "too-many-favicons": ({ max }) => warning("input", "파비콘 그림이 너무 많아요!", `${max}장까지 둘 수 있어요. 쓰지 않는 그림을 지운 뒤에 올려 주세요.`),
+  "appearance-save-failed": () => error("failed", "그림을 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
 };
 
 /** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */

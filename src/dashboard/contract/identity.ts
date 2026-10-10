@@ -10,8 +10,9 @@ const isTier = (v: unknown): v is Tier => TIERS.some((t) => t === v);
 type Me = { id: string; username: string; globalName: string; avatar: string | null; avatarUrl: string | null; isOwner: boolean; isRealOwner: boolean; viewAs: Tier | null };
 
 /** /api/bot. 로그인 전 화면이 쓰는 봇의 공개 정보. 이름 · 그림은 봇이 준비되기 전이면 null.
- *  brandColor 는 운영자가 정한 임베드 색(EMBED_COLOR, #RRGGBB). 앨범아트가 없을 때 화면 색 체계의 바탕색이다 */
-type BotInfo = { name: string | null; avatarUrl: string | null; sourceRepo: string; projectRepo: string; brandColor: string };
+ *  brandColor 는 운영자가 정한 임베드 색(EMBED_COLOR, #RRGGBB). 앨범아트가 없을 때 화면 색 체계의 바탕색이다.
+ *  faviconVersion 은 파비콘의 버전(올리거나 지울 때마다 오른다) */
+type BotInfo = { name: string | null; avatarUrl: string | null; sourceRepo: string; projectRepo: string; brandColor: string; faviconVersion: number };
 
 /** 로그인 콜백이 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=): 승인 화면에서 취소 · 인증 코드가 없음 · 그 밖의 실패 */
 type LoginError = "denied" | "no_code" | "auth_failed";
