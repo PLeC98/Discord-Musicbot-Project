@@ -1233,8 +1233,9 @@ class Player {
     const { defaults, genres } = genreConfig.genres();
     const name = this.autoplay;
     const genre = name ? genres[name] : undefined;
-    // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplay/assist)
-    return name && genre ? { ...defaults, ...genre, genreName: name } : null;
+    // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplay/assist).
+    // 차단어는 전역 하나다(장르마다 두지 않는다. 키워드 출처 칸이 덮어쓴다, autoplay/route)
+    return name && genre ? { ...defaults, ...genre, blockedKeywords: defaults.blockedKeywords, genreName: name } : null;
   }
 
   // 미리 뽑아 둘 수 있는 상태인가. 고르기 전과 넣기 직전에 같은 것을 본다.

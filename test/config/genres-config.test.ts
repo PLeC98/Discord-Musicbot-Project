@@ -174,13 +174,12 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
-// 장르마다 기본값의 길이 · 차단할 말을 덮어쓸 수 있다(예시 파일 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다
-test("검사: 장르별 덮어쓰기(길이 · 차단할 말)도 본다", () => {
+// 장르마다 기본값의 길이를 덮어쓸 수 있다(예시 파일 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 차단어는 전역과 키워드 출처 칸에만
+test("검사: 장르별 덮어쓰기(길이)도 본다", () => {
   const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
-  assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800, blockedKeywords: ["live"] }), "");
+  assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800 }), "");
   assert.match(of({ minDurationSec: -1 }), /팝: minDurationSec/);
   assert.match(of({ maxDurationSec: 0 }), /팝: maxDurationSec/);
-  assert.match(of({ blockedKeywords: "live" }), /팝: blockedKeywords/, "글자 하나로 적으면 글자마다 거르게 된다");
   assert.match(genreConfig.validateGenres({ defaults: { blockedKeywords: "live" }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /blockedKeywords/);
 });
 

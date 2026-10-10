@@ -26,6 +26,7 @@
 # type: keyword                        (키 필요 없음)
 #   유튜브에 검색어를 던져 결과를 씁니다. 품질이 가장 낮습니다.
 #   keywords : (필수) 검색어 후보. 뽑을 때마다 무작위로 하나.
+#   blockedKeywords : 이 출처에서만 쓸 차단어. 적으면 아래 전역 blockedKeywords 대신 이것을, 비우면 전역 값을 씁니다.
 #
 # type: lastfm                         (.env 의 LASTFM_API_KEY 필요)
 #   Last.fm 태그로 곡 이름을 받아 유튜브에서 찾습니다.
@@ -158,15 +159,16 @@
 #   url : (필수) 재생목록 주소. 믹스(주소에 list=RD…)는 곡 수에 끝이 없어 사용할 수 없습니다.
 
 # ── 설정 ─────────────────────────────────────────────────────────────────────
-# 전역 기본값. 길이 제한(minDurationSec · maxDurationSec)과 blockedKeywords는 장르에 같은 항목을 적으면 그 장르에서만 덮어씁니다.
+# 전역 기본값. 길이 제한(minDurationSec · maxDurationSec)은 장르에 같은 항목을 적으면 그 장르에서만 덮어씁니다.
 defaults:
   # 미리 뽑아 대기열에 둘 곡 수. 사전 캐싱 수와는 무관합니다. 장르마다 둘 수 없고 여기에만 적습니다.
   prefetchCount: 1
   # 고를 곡의 길이 제한(초). maxDurationSec이 비어 있으면 상한 없음.
   minDurationSec: 60
   maxDurationSec: 3600
-  # 제목에 이 말이 들어가면 고르지 않습니다. 대소문자는 가리지 않습니다.
-  # (유튜브에서 찾아온 곡에만 걸립니다 — 출처가 확실한 소스는 거치지 않습니다.)
+  # 키워드 검색 차단어. 제목에 이 말이 들어가면 고르지 않습니다. 대소문자는 가리지 않습니다.
+  # 키워드 출처(type: keyword)의 검색 결과에만 겁니다. 다른 출처는 곡 이름이 확실해 걸러 낼 것이 없습니다.
+  # 키워드 출처마다 blockedKeywords 를 적으면 그 출처에서는 이것 대신 그것을 씁니다.
   blockedKeywords:
     - best of
     - tutorial
@@ -206,9 +208,9 @@ defaults:
     - mega hits
     - billboard top
     - 플레이리스트
-    - 플리
-    - 믹스
     - 메들리
+    - 믹스셋
+    - mixset
 
 # 선택 메뉴에 나오는 장르들.
 genres:

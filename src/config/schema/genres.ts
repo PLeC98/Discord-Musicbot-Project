@@ -62,10 +62,9 @@ const genre = z.preprocess(
       .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
       .optional(),
     sources: z.array(source, { error: "{id}: 소스(sources)가 하나는 있어야 합니다." }).min(1, { error: "{id}: 소스(sources)가 하나는 있어야 합니다." }),
-    // 기본값의 길이 · 차단할 말은 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile 이 본다
+    // 기본값의 길이는 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile 이 본다(차단어는 키워드 출처 칸이 덮어쓴다)
     minDurationSec: present((v) => Number(v) >= 0, "{id}: minDurationSec은 0 이상이어야 합니다."),
     maxDurationSec: present((v) => Number(v) > 0, "{id}: maxDurationSec은 비우거나 0보다 커야 합니다."),
-    blockedKeywords: present(Array.isArray, "{id}: blockedKeywords는 목록으로 적어야 합니다."),
     // 미리 뽑아 둘 곡 수는 기본값에만 둔다. 재생도 장르와 상관없이 기본값만 본다
     prefetchCount: z
       .unknown()
@@ -98,6 +97,7 @@ const defaults = z.preprocess(
       prefetchCount: present((v) => Number(v) >= 1, "prefetchCount는 1 이상이어야 합니다."),
       minDurationSec: present((v) => Number(v) >= 0, "minDurationSec은 0 이상이어야 합니다."),
       maxDurationSec: present((v) => Number(v) > 0, "maxDurationSec은 비우거나 0보다 커야 합니다."),
+      // 키워드 검색 차단어. 키워드 출처의 후보(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다
       blockedKeywords: present(Array.isArray, "blockedKeywords는 목록으로 적어야 합니다."),
     })
     .superRefine((d, ctx) => {

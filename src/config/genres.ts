@@ -59,7 +59,7 @@ type GenreSource = {
 };
 type Genre = { emoji?: string; sources: GenreSource[] };
 // 수 칸은 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
-type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown };
+type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown; blockedKeywords?: unknown[] };
 type GenresConfig = { defaults: GenreDefaults; genres: Record<string, Genre> };
 
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다

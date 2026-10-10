@@ -251,7 +251,7 @@ function vocaFields(site: Site): Field[] {
  *   env    .env에 있어야 하는 이름(없으면 그 소스만 못 쓴다)
  */
 const SPEC: Record<string, SourceSpec> = {
-  keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 뽑아 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 뽑아 사용합니다" })] },
+  keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 뽑아 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 뽑아 사용합니다" }), f("blockedKeywords", "list", "차단어 오버라이드", { deep: true, hint: "적으면 이 출처에서는 전역 키워드 검색 차단어 대신 이것을 씁니다. 비우면 전역 값" })] },
   lastfm: {
     label: "Last.fm",
     hint: "태그로 곡 이름을 받아 유튜브에서 찾습니다.",

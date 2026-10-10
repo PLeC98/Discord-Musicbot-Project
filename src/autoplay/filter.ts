@@ -27,7 +27,7 @@ const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** 판정에 쓰는 설정. 수 칸은 글자일 수 있다 */
+/** 판정에 쓰는 설정. 수 칸은 글자일 수 있다. blockedKeywords 는 이 출처에 거는 차단어(키워드 출처만, autoplay/route 가 고른다) */
 type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
 type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
 type Verdict = { ok: boolean; reason?: string; detail?: string };

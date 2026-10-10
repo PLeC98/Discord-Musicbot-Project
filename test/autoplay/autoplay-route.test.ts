@@ -308,6 +308,25 @@ test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본
   assert.equal(track.pickedFrom, "keyword");
 });
 
+// 차단어는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다(B-113). 키워드 출처 칸에 적으면 전역 대신 그것
+test("차단어: 키워드 출처에만, 출처 칸이 있으면 전역 대신 그것", async () => {
+  // 출처마다 영상 주소가 있는 후보 하나. 키워드만 검색 결과다(fromSearch)
+  const one = (source: GenreSource, title: string) => [{ title, durationSec: 240, youtubeUrl: `https://www.youtube.com/watch?v=${source.type.slice(0, 3)}${title.length}`, fromSearch: source.type === "keyword", sourceKey: `${source.type}:${title}` }];
+  let title = "";
+  const only: route.Deps = { ...deps, fetch: async (source) => one(source, title) };
+  const cfg = (source: GenreSource) => ({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix"], sources: [source] });
+
+  title = "Song mix";
+  assert.equal(await route.pickTrack(cfg({ type: "keyword", keywords: ["a"] }), [], only), null, "키워드 출처는 전역 차단어에 걸린다");
+  pool._reset();
+  assert.ok(await route.pickTrack(cfg({ type: "youtube", url: "https://www.youtube.com/playlist?list=PL1" }), [], only), "재생목록 출처는 걸지 않는다");
+  pool._reset();
+  assert.ok(await route.pickTrack(cfg({ type: "keyword", keywords: ["a"], blockedKeywords: ["live"] }), [], only), "출처 칸이 있으면 전역(mix)은 안 본다");
+  pool._reset();
+  title = "Song live";
+  assert.equal(await route.pickTrack(cfg({ type: "keyword", keywords: ["a"], blockedKeywords: ["live"] }), [], only), null, "출처 칸의 말에 걸린다");
+});
+
 // AI 보조가 한 번 실패하면 같은 고르기의 나머지 판정은 다시 부르지 않는다. 그러려면 고르기 하나가 같은 것을 넘겨야 한다
 test("고르기 하나의 판정은 모두 같은 고르기 표시를 받고, 고르기마다 새것이다", async () => {
   ytResults = ["v1", "v2", "v3"].map((id) => ({ id, audioUrl: `https://www.youtube.com/watch?v=${id}`, title: `Song ${id}`, artist: "Ch", duration: 240 }));
