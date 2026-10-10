@@ -1,5 +1,5 @@
 // Spotify 소스. 링크 타입별 투트랙 라우팅.
-//   track/album  → 공식 Web API(native fetch, client credentials)
+//   track/album  → 공식 Web API(공유 HTTP 클라이언트, client credentials)
 //   artist       → 공식 API, 실패 시 익명 GraphQL 폴백(정책 축소 대비)
 //   playlist     → 익명 GraphQL 전용(공식은 100곡 상한이라 사실상 불가)
 //
