@@ -4,6 +4,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { ownerOnly } from "../infra/owner-only.ts";
 
 type Db = Database.Database;
 
@@ -48,6 +49,8 @@ class DbFile {
 
     const next = new Database(file);
     try {
+      // -wal · -shm 은 SQLite 가 본체와 같은 권한으로 만든다
+      ownerOnly(file);
       next.pragma("journal_mode = WAL");
       next.pragma(`synchronous = ${this.spec.synchronous}`);
       next.pragma("foreign_keys = ON");

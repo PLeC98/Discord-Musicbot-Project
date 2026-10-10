@@ -3,6 +3,7 @@ import fs from "fs";
 import { Store, type SessionData } from "express-session";
 import Database, { type Statement } from "better-sqlite3";
 import { PROJECT } from "../infra/project-paths.ts";
+import { ownerOnly } from "../infra/owner-only.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../rules/error-kind.ts";
@@ -35,6 +36,7 @@ class SqliteSessionStore extends Store {
     super();
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
+    ownerOnly(dbPath); // 로그인 세션이 든다
     this.db.pragma("journal_mode = WAL");
     this.db.exec(
       `CREATE TABLE IF NOT EXISTS sessions (

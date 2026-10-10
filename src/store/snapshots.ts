@@ -10,6 +10,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { settingsDb, VERSION } from "./settings-db.ts";
+import { ownerOnly } from "../infra/owner-only.ts";
 import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
 
 const KEEP_DAILY = 7;
@@ -27,11 +28,6 @@ const stamp = (at: Date) => `${day(at)}-${pad(at.getHours())}${pad(at.getMinutes
 /** DB 폴더(settings.db 가 있는 곳). 열기 전이면 던진다 */
 const dbDir = () => path.dirname(settingsDb.get().name);
 const backupsOf = (dir: string) => path.join(dir, "backups");
-
-// 봇만 읽게(POSIX). Windows 는 사용자 프로필 아래 폴더 권한에 기댄다
-function ownerOnly(file: string) {
-  if (process.platform !== "win32") fs.chmodSync(file, 0o600);
-}
 
 /** 목록(새것부터). dir 을 주면 그 DB 폴더의 것(열기 전에 부를 때) */
 function list(dir = dbDir()): Snapshot[] {
