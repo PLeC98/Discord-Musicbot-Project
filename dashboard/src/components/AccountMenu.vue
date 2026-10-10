@@ -1,72 +1,127 @@
 <template>
-  <!-- 사이드바 하단 계정 영역. 클릭하면 위로 펼쳐지는 메뉴 (Discord/ChatGPT식) -->
-  <!-- 재생 바와 같은 높이(h-16 = --player)·배경·그림자. 나란히 놓여 한 줄로 이어져 보이게. -->
-  <div class="shrink-0 h-16 flex items-center px-2 border-t border-white/7 bg-[rgba(9,13,26,0.9)] shadow-[0_-8px_32px_rgba(0,0,0,0.45)]">
-    <button ref="triggerEl" type="button" aria-haspopup="menu" :aria-expanded="open" v-tooltip="rail ? user.displayName : null" :class="[triggerBase, open ? 'bg-white/8 text-fg' : 'text-muted hover:bg-white/6 hover:text-fg', iconOnly ? 'justify-center' : rail ? 'max-lg:justify-center' : '']" @click="toggle">
-      <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="size-9 rounded-full shrink-0 border border-white/10" />
-      <span v-else class="size-9 rounded-full shrink-0 border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold text-white flex items-center justify-center">{{ initial }}</span>
-      <template v-if="!iconOnly">
-        <span :class="[rail && 'max-lg:hidden', 'flex-1 min-w-0 text-left text-[0.85rem] font-medium overflow-hidden whitespace-nowrap text-ellipsis']">{{ user.displayName }}</span>
-        <Icon name="unfold" :size="15" :class="[rail && 'max-lg:hidden', 'text-muted']" />
-      </template>
-    </button>
-  </div>
+  <button
+    ref="triggerEl"
+    type="button"
+    aria-haspopup="menu"
+    :aria-expanded="open"
+    v-tooltip="wide || compact ? null : user.displayName"
+    class="state-layer flex items-center cursor-pointer text-on-surface transition-[border-radius,background-color] spring-fast"
+    :class="[wide ? 'w-full p-1.5 pr-3 rounded-full gap-3' : labeled ? 'w-full rounded-full py-1 pl-1.5 pr-3.5 gap-3 -my-1' : 'rounded-full gap-3', open && (wide || labeled) ? 'bg-on-surface/8' : '', !wide && !compact && !labeled ? 'mx-auto' : '']"
+    @click="toggle"
+  >
+    <!-- labeled: 펼친 세로 막대. 캡슐 안 여백은 위아래 4px · 왼쪽 6px(옆을 조금 길게). 위아래 여백만큼 바깥으로 넘쳐(-my-1) 접었을 때와 높이가 같다(시계 · 그림이 움직이지 않는다). 옆에 이름 · 아이디 -->
+    <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="rounded-full shrink-0" :class="compact ? 'size-9' : 'size-12'" />
+    <span v-else class="rounded-full shrink-0 bg-tertiary-container text-on-tertiary-container font-round font-semibold flex items-center justify-center" :class="compact ? 'size-9 text-body' : 'size-12 text-title'">{{ initial }}</span>
+    <span v-if="labeled" class="flex-1 min-w-0 text-left whitespace-nowrap">
+      <span class="block text-sm leading-4.5 font-semibold truncate">{{ user.displayName }}</span>
+      <span v-if="handle" class="block text-xs leading-4 text-on-surface-variant truncate">@{{ handle }}</span>
+    </span>
+    <template v-if="wide">
+      <span class="flex-1 min-w-0 text-left">
+        <span class="block text-body font-medium truncate">{{ user.displayName }}</span>
+        <span v-if="handle" class="block text-label text-on-surface-variant truncate">@{{ handle }}</span>
+      </span>
+      <Icon name="unfold_more" :size="20" class="text-on-surface-variant" />
+    </template>
+  </button>
 
-  <!-- 레일이 폭 전환을 위해 overflow-hidden이라 메뉴를 안에 두면 잘린다. body로 빼고 좌표로 붙인다. -->
+  <!-- 레일이 overflow-hidden 이라 메뉴를 안에 두면 잘린다. body 로 빼고 좌표로 붙인다(트리거가 아래쪽이면 위로, 위쪽이면 아래로).
+       휴대폰은 서랍(App.vue, 막 250 · 서랍 260) 안에서 여므로 그보다 위에 둔다(알림 · 대화상자 300 보다는 아래) -->
   <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-200" @click="open = false" @contextmenu="open = false"></div>
-    <div v-if="open" role="menu" :style="pos" class="fixed z-210 w-56 p-1.5 rounded-2xl bg-[rgba(18,22,42,0.97)] backdrop-blur-2xl backdrop-saturate-[1.6] border border-white/11 shadow-[0_12px_40px_rgba(0,0,0,0.55)] inset-shadow-glass">
-      <div class="px-2.5 pt-1.5 pb-2.5">
-        <div class="text-[0.85rem] font-semibold text-fg overflow-hidden whitespace-nowrap text-ellipsis">{{ user.displayName }}</div>
-        <div v-if="handle" class="text-[0.75rem] text-muted overflow-hidden whitespace-nowrap text-ellipsis">@{{ handle }}</div>
-        <div v-if="user.viewAs" class="mt-1.5 inline-block px-1.5 py-0.5 rounded-md text-[0.7rem] font-semibold bg-[rgba(251,191,36,0.15)] text-[#fcd34d]">{{ user.viewAsLabel }} 권한으로 보는 중</div>
-      </div>
-      <div class="mx-1 mb-1 h-px bg-white/8"></div>
+    <div v-if="open" class="fixed inset-0 z-270" @click="open = false" @contextmenu="open = false"></div>
+    <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">
+      <div v-if="open" role="menu" :style="pos" class="fixed z-280 w-70 p-2 rounded-3xl pane-menu" :class="placeAbove ? 'origin-bottom-left' : 'origin-top-right'">
+        <div class="flex items-center gap-3 px-2 pt-2 pb-3">
+          <span class="size-11 rounded-full shrink-0 bg-tertiary-container text-on-tertiary-container font-round font-semibold text-title flex items-center justify-center">{{ initial }}</span>
+          <div class="min-w-0">
+            <div class="text-title font-semibold truncate">{{ user.displayName }}</div>
+            <div v-if="handle" class="text-label text-on-surface-variant truncate">@{{ handle }}</div>
+          </div>
+        </div>
+        <div v-if="user.viewAs" class="mx-2 mb-2 px-3 py-2 rounded-xl text-label font-semibold bg-tertiary-container text-on-tertiary-container">{{ user.viewAsLabel }} 권한으로 보는 중</div>
 
-      <router-link v-if="user.isOwner" to="/admin" role="menuitem" :class="[item, 'text-fg-soft hover:bg-white/8 hover:text-fg']" @click="open = false"> <Icon name="wrench" :size="16" />운영자 패널 </router-link>
-      <!-- 오버라이드로 isOwner가 꺼지면 위 항목이 사라지므로, 되돌아갈 길을 여기 남긴다 -->
-      <router-link v-if="user.viewAs && user.isRealOwner" to="/admin" role="menuitem" :class="[item, 'text-[#fcd34d] hover:bg-[rgba(251,191,36,0.14)]']" @click="open = false"> <Icon name="wrench" :size="16" />운영자 패널 (오버라이드 중) </router-link>
-      <button type="button" role="menuitem" :class="[item, 'w-full text-[#f87171] hover:bg-[rgba(248,113,113,0.13)]']" @click="logout"><Icon name="logout" :size="16" />로그아웃</button>
-    </div>
+        <div class="px-2 pb-2 pt-1 text-label font-semibold text-on-surface-variant">화면 밝기</div>
+        <!-- 이어 붙은 버튼 묶음(M3E connected button group). 고른 칸은 모서리가 둥글게 바뀐다 -->
+        <div class="flex gap-0.5 px-2 pb-3" role="group" aria-label="화면 밝기">
+          <button
+            v-for="(m, i) in MODE_ITEMS"
+            :key="m.mode"
+            type="button"
+            class="state-layer flex-1 h-10 flex items-center justify-center gap-2 text-label font-semibold cursor-pointer transition-[border-radius,background-color,color] spring-fast"
+            :class="[mode === m.mode ? 'bg-secondary text-on-secondary rounded-xl' : 'bg-surface-highest text-on-surface-variant ' + (i === 0 ? 'rounded-l-xl rounded-r-sm active:rounded-r-xs' : i === MODE_ITEMS.length - 1 ? 'rounded-r-xl rounded-l-sm active:rounded-l-xs' : 'rounded-sm active:rounded-xs')]"
+            @click="setMode(m.mode)"
+          >
+            <Icon :name="m.icon" :size="18" :fill="mode === m.mode" />{{ m.label }}
+          </button>
+        </div>
+
+        <div class="mx-2 mb-2 h-px bg-outline-variant/60"></div>
+        <button type="button" role="menuitem" :class="[item, 'w-full']" @click="openSettings"><Icon name="settings" :size="20" />설정</button>
+        <!-- 권한 보기(오버라이드) 중에도 그대로 둔다(디스코드의 "역할 적용해서 서버 보기"도 서버 설정 메뉴는 그대로다. 오버라이드 중이라는 것은 위 띠가 알린다) -->
+        <router-link v-if="user.isRealOwner" to="/admin" role="menuitem" :class="item" @click="open = false"><Icon name="admin_panel_settings" :size="20" />운영자 패널</router-link>
+        <button type="button" role="menuitem" :class="[item, 'w-full']" @click="openLicense"><Icon name="license" :size="20" />라이선스</button>
+        <button type="button" role="menuitem" :class="[item, 'w-full text-error']" @click="logout"><Icon name="logout" :size="20" />로그아웃</button>
+      </div>
+    </Transition>
   </Teleport>
+  <SettingsDialog v-model="settingsOpen" />
+  <LicenseDialog v-model="licenseOpen" />
 </template>
 
 <script setup lang="ts">
+import { rem } from "../utils/rem.ts";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
+import SettingsDialog from "./SettingsDialog.vue";
+import LicenseDialog from "./LicenseDialog.vue";
 import { useUserStore } from "../stores/user.ts";
+import { mode, setMode, type Mode } from "../theme/theme.ts";
 
-// rail=true면 사이드바 레일 안. md~lg 구간에서 라벨을 숨기는 반응형 규칙이 붙는다(ServerSidebar와 동일 방식).
-// collapsed는 lg+ 접힘 상태. 드로어에서는 둘 다 꺼진 상태로 쓴다.
-const props = withDefaults(defineProps<{ rail?: boolean; collapsed?: boolean }>(), { rail: false, collapsed: false });
+// wide: 펼친 레일(이름까지) / compact: 휴대폰 위 막대(작은 동그라미) / 둘 다 아니면 좁은 레일
+// labeled: 펼친 세로 막대(작은 그림 + 이름 · 아이디)
+const props = withDefaults(defineProps<{ wide?: boolean; compact?: boolean; labeled?: boolean }>(), { wide: false, compact: false, labeled: false });
 
 const user = useUserStore();
 const triggerEl = ref<HTMLElement | null>(null);
 const open = ref(false);
-const pos = ref({ left: "0px", bottom: "0px" });
+const pos = ref<Record<string, string>>({});
+const placeAbove = ref(true);
+const settingsOpen = ref(false);
+const licenseOpen = ref(false);
+const MENU_WIDTH_REM = 17.5; // w-70
 
-const MENU_WIDTH = 224; // w-56
-const iconOnly = computed(() => props.rail && props.collapsed);
+const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: string }> = [
+  { mode: "dark", label: "어둡게", icon: "dark_mode" },
+  { mode: "light", label: "밝게", icon: "light_mode" },
+  { mode: "system", label: "시스템", icon: "contrast" },
+];
+
 const initial = computed(() => user.displayName[0] || "?");
 const handle = computed(() => (user.data?.username !== user.displayName ? user.data?.username : null));
-
-const triggerBase = "w-full flex items-center gap-2.5 rounded-xl p-1.5 cursor-pointer transition-[background-color,color] duration-200";
-const item = "flex items-center gap-2.5 px-2.5 py-2 rounded-xl no-underline cursor-pointer text-[0.85rem] font-medium transition-[background-color,color] duration-200";
+const item = "state-layer flex items-center gap-3 h-10 px-3 rounded-full no-underline cursor-pointer text-body font-medium text-on-surface";
 
 function toggle() {
   if (open.value) {
     open.value = false;
     return;
   }
-  // 메뉴는 트리거 위로 펼친다. bottom 기준이라 높이를 몰라도 붙는다
   const r = triggerEl.value?.getBoundingClientRect();
   if (!r) return;
-  pos.value = {
-    left: `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - MENU_WIDTH - 8)))}px`,
-    bottom: `${Math.round(window.innerHeight - r.top + 6)}px`,
-  };
+  placeAbove.value = r.top > window.innerHeight / 2;
+  const left = Math.round(Math.max(8, Math.min(props.compact && !props.labeled ? r.right - rem(MENU_WIDTH_REM) : r.left, window.innerWidth - rem(MENU_WIDTH_REM) - 8)));
+  pos.value = placeAbove.value ? { left: `${left}px`, bottom: `${Math.round(window.innerHeight - r.top + 8)}px` } : { left: `${left}px`, top: `${Math.round(r.bottom + 8)}px` };
   open.value = true;
+}
+
+function openSettings() {
+  open.value = false;
+  settingsOpen.value = true;
+}
+
+function openLicense() {
+  open.value = false;
+  licenseOpen.value = true;
 }
 
 async function logout() {
@@ -84,7 +139,6 @@ const onResize = () => (open.value = false);
 const onKey = (e: KeyboardEvent) => {
   if (e.key === "Escape") open.value = false;
 };
-
 onMounted(() => {
   window.addEventListener("resize", onResize);
   window.addEventListener("keydown", onKey);

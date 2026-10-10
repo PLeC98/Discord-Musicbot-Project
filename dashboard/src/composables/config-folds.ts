@@ -27,10 +27,8 @@ const save = (key: string, set: Set<string>) => writeStored(key, JSON.stringify(
 const folded = ref(load(STORE_KEY));
 const deepOpen = ref(load(DEEP_KEY));
 
-export const genreFoldId = (i: number) => `g${i}`;
 export const sourceFoldId = (genreIndex: number, i: number) => `g${genreIndex}s${i}`;
 export const promptFoldId = (i: number) => `p${i}`;
-export const specialFoldId = (i: number) => `s${i}`;
 export const isFolded = (id: string) => folded.value.has(id);
 export const isDeepOpen = (id: string) => deepOpen.value.has(id);
 
@@ -103,9 +101,6 @@ function moveFolded(prefix: string, rebuild: (at: number) => string, order: numb
   );
   save(STORE_KEY, folded.value);
 }
-
-/** 상태 문구의 특별 문구 카드의 새 차례 */
-export const reorderSpecials = (order: number[]) => moveFolded("s", specialFoldId, order);
 
 /** AI 프롬프트 섹션의 새 차례 */
 export const reorderPrompts = (order: number[]) => moveFolded("p", promptFoldId, order);

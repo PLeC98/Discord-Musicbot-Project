@@ -7,7 +7,7 @@ import { canGoBack, canGoNext, ownTrackDenied } from "../../../src/rules/control
 /** 규칙이 읽는 곡의 칸 */
 type TrackSeen = Partial<Pick<PlayingView, "entry" | "currentTime" | "duration" | "requestedBy">>;
 /** 규칙이 읽는 재생 상태의 칸 */
-type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "botInVoice" | "sameVoice">> & {
+type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "hasLive" | "botInVoice" | "sameVoice">> & {
   queue?: TrackSeen[];
   currentTrack?: TrackSeen | null;
 };
@@ -29,7 +29,7 @@ export function withReadFields(current: PlayerSeen | null | undefined, next: Pla
 }
 
 /** 대기열 곡 수(받은 창 밖까지) */
-export const queueSize = (s: StateSeen | null | undefined): number => s?.queueTotal ?? s?.queue?.length ?? 0;
+const queueSize = (s: StateSeen | null | undefined): number => s?.queueTotal ?? s?.queue?.length ?? 0;
 
 /**
  * 받은 재생 상태로 바꿀지. 서버는 상태를 만들 때마다 차례(seq)를 올리고 봇을 켤 때마다 기동 표(boot, 켠 시각)가 커진다.
@@ -80,6 +80,11 @@ export const skipEnabled = (s: StateSeen | null | undefined): boolean => Boolean
 export const previousEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && Boolean(s?.canControl) && canGoBack({ history: s?.hasPrevious ? 1 : 0, loop: s?.loop });
 
 /** 탐색 · 넘기기 · 이전 · 하이라이트를 "지금 곡이 이것일 때만" 하라는 표. 줄 번호가 있을 때만 싣는다 */
+/** 반복을 바꿀 수 있는지: 조작할 수 있고 대기열에 라이브가 없을 때(끝이 없는 곡은 반복할 수 없다) */
+export const loopEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) && !s?.hasLive;
+/** 섞을 수 있는지: 조작할 수 있고 대기열에 둘 이상 */
+export const shuffleEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) && queueSize(s) >= 2;
+
 export const onTrackOf = (s: StateSeen | null | undefined): { onTrack?: number } => {
   const entry = s?.currentTrack?.entry;
   return typeof entry === "number" && Number.isInteger(entry) ? { onTrack: entry } : {};

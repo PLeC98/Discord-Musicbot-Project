@@ -9,7 +9,7 @@
 /** 소스 하나(genres.yaml 의 그대로). 칸은 소스 종류마다 다르다(schema/genre-sources 의 SPEC). _key 는 편집 중 행을 붙잡아 두는 번호 */
 type SourceData = Record<string, unknown> & { type?: string; _key?: number };
 /** 장르 하나(genres.yaml 의 그대로). 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
-type GenreData = Record<string, unknown> & { emoji?: string; sources?: SourceData[]; minDurationSec?: number | null; maxDurationSec?: number | null; blockedKeywords?: unknown[] };
+type GenreData = Record<string, unknown> & { emoji?: string; sources?: SourceData[]; minDurationSec?: number | null; maxDurationSec?: number | null };
 
 /** 편집 행. key 는 화면이 행을 붙잡아 두는 번호 */
 type GenreRow = {
@@ -19,15 +19,14 @@ type GenreRow = {
   sources: SourceData[];
   minDurationSec: number | string | null;
   maxDurationSec: number | string | null;
-  blockedKeywords: string[];
   kept: GenreData;
 };
 
 let serial = 0;
 const nextKey = () => ++serial;
 
-/** 장르마다 덮어쓸 수 있는 칸 */
-const OVERRIDES = ["minDurationSec", "maxDurationSec", "blockedKeywords"] as const;
+/** 장르마다 덮어쓸 수 있는 칸(차단어는 키워드 출처 칸이 덮어쓴다) */
+const OVERRIDES = ["minDurationSec", "maxDurationSec"] as const;
 
 const toRows = (genres: Record<string, GenreData> | null | undefined): GenreRow[] =>
   Object.entries(genres || {}).map(([name, g]) => ({
@@ -37,12 +36,11 @@ const toRows = (genres: Record<string, GenreData> | null | undefined): GenreRow[
     sources: (g.sources || []).map((one) => ({ ...one })),
     minDurationSec: g.minDurationSec ?? null,
     maxDurationSec: g.maxDurationSec ?? null,
-    blockedKeywords: Array.isArray(g.blockedKeywords) ? g.blockedKeywords.map((k) => String(k).trim().toLowerCase()) : [],
     kept: g,
   }));
 
 // 새 행. 들고 있을 원래 장르가 없다
-const newRow = (): GenreRow => ({ key: nextKey(), name: "", emoji: "", sources: [], minDurationSec: null, maxDurationSec: null, blockedKeywords: [], kept: {} });
+const newRow = (): GenreRow => ({ key: nextKey(), name: "", emoji: "", sources: [], minDurationSec: null, maxDurationSec: null, kept: {} });
 
 // _key 는 편집 중 행을 붙잡아 두려고 붙인 것이라 저장할 때는 뺀다
 const clean = (one: SourceData): SourceData => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
@@ -50,7 +48,6 @@ const clean = (one: SourceData): SourceData => Object.fromEntries(Object.entries
 // 덮어쓰기 칸의 값. 비었으면 undefined(그 칸을 뺀다)
 function overrideOf(row: GenreRow, key: (typeof OVERRIDES)[number]) {
   const value = row[key];
-  if (key === "blockedKeywords") return Array.isArray(value) && value.length ? value : undefined;
   return value === null || value === undefined || value === "" ? undefined : value;
 }
 
@@ -70,5 +67,5 @@ function toGenre(row: GenreRow): GenreData {
 
 const toMap = (list: GenreRow[]): Record<string, GenreData> => Object.fromEntries(list.map((r) => [r.name.trim(), toGenre(r)]));
 
-export { toRows, toMap, newRow, OVERRIDES };
+export { toRows, toMap, newRow };
 export type { SourceData, GenreData, GenreRow };

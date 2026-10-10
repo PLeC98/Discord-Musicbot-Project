@@ -7,40 +7,55 @@
 -->
 <template>
   <div ref="root">
-    <div ref="box" class="flex flex-wrap items-center gap-1.5 bg-white/5 border border-white/9 rounded-xl px-2.5 py-2 transition-[border-color,background-color] duration-200 focus-within:border-accent/55 focus-within:bg-white/7">
+    <div ref="box" :class="CHIP_FIELD">
       <!-- max-w-full: 긴 값이 들어와도 칩이 상자를 뚫고 나가지 않게 한다(뚫으면 페이지에 가로 스크롤이 생긴다) -->
-      <span v-for="(item, i) in modelValue" :key="`${i}-${item}`" class="inline-flex items-center gap-1 max-w-full min-w-0 bg-white/8 rounded-lg pl-2 pr-1 py-0.5 text-[0.8rem]">
+      <span v-for="(item, i) in modelValue" :key="`${i}-${item}`" :class="INPUT_CHIP">
         <!-- 고치는 중에는 그 자리에서 바로 친다. 지우고 다시 넣게 하면 긴 검색어가 성가시다.
              size 속성은 "0" 글자 너비로 세는 것이라 실제 글자 폭과 어긋나고 상한도 없다.
              field-sizing으로 내용에 맞추되 max-w-full로 묶는다(안 되는 브라우저는 기본 폭으로 남는다). -->
-        <input v-if="editing === i" ref="editBox" v-model="draft" class="bg-transparent border-0 text-fg text-[0.8rem] outline-none font-[inherit] p-0 min-w-16 max-w-full field-sizing-content" @keydown.enter.prevent="commitEdit" @keydown.esc="editing = null" @blur="commitEdit" />
+        <input v-if="editing === i" ref="editBox" :value="draft" @input="draft = valueOf($event)" class="bg-transparent border-0 text-on-surface text-xs outline-none font-[inherit] p-0 min-w-16 max-w-full field-sizing-content" @keydown.enter="composing($event) || ($event.preventDefault(), commitEdit())" @keydown.esc="editing = null" @blur="commitEdit" />
         <template v-else>
           <!-- 긴 값은 줄여 보이므로, 툴팁으로는 전문을 보여준다 -->
           <button class="cursor-text text-left truncate min-w-0" v-tooltip="item" @click="startEdit(i)">{{ item }}</button>
-          <button class="size-4 rounded text-muted cursor-pointer flex items-center justify-center shrink-0 hover:text-danger" v-tooltip="'제거'" @click="removeAt(i)"><Icon name="close" :size="11" /></button>
+          <button :class="INPUT_CHIP_CLOSE" aria-label="삭제" v-tooltip="'삭제'" @click="removeAt(i)"><Icon name="close" :size="18" /></button>
         </template>
       </span>
 
-      <input v-model="entry" :placeholder="modelValue.length ? '' : placeholder" class="flex-1 min-w-32 bg-transparent border-0 text-fg text-[0.85rem] outline-none font-[inherit] py-0.5" @focus="open = true" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="onEnter" @keydown.esc="open = false" @keydown.backspace="onBackspace" @blur="commit" />
+      <input
+        :value="entry"
+        @input="entry = valueOf($event)"
+        :placeholder="modelValue.length ? '' : placeholder"
+        class="flex-1 min-w-32 h-8 px-2 bg-transparent border-0 text-on-surface text-sm outline-none font-[inherit] placeholder:text-on-surface-variant"
+        @focus="open = true"
+        @keydown.down="composing($event) || ($event.preventDefault(), move(1))"
+        @keydown.up="composing($event) || ($event.preventDefault(), move(-1))"
+        @keydown.enter="composing($event) || ($event.preventDefault(), onEnter())"
+        @keydown.esc="open = false"
+        @keydown.backspace="composing($event) || onBackspace()"
+        @blur="commit"
+      />
     </div>
 
     <Teleport to="body">
       <!-- mousedown.prevent: 누르는 순간 입력칸이 blur 되면 치던 말이 먼저 칩이 된다 -->
-      <div v-if="suggest && open && hits.length && state === 'done'" ref="panel" :class="panelCls" :style="style">
-        <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[rowCls, i === at ? 'bg-white/10' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
+      <div v-if="suggest && open && hits.length && state === 'done'" ref="panel" :class="CHIP_PANEL" :style="style">
+        <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
           <span class="truncate">{{ one.value }}</span>
-          <span v-if="one.hint" class="ml-auto pl-2 text-muted text-[0.72rem] shrink-0">{{ one.hint }}</span>
+          <span v-if="one.hint" class="ml-auto pl-2 text-xs text-on-surface-variant shrink-0">{{ one.hint }}</span>
         </button>
       </div>
       <!-- 저쪽이 느릴 때가 있다. 묻는 중인지 알 수 있어야 기다린다 -->
-      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[noteCls, 'flex items-center gap-2']" :style="style"><Icon name="spinner" :size="14" class="animate-spin" />후보를 찾는 중입니다</p>
-      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[noteCls, 'whitespace-pre-line']" :style="style">후보를 받지 못했습니다. Enter 로 그대로 넣을 수 있습니다{{ failReason ? `\n${failReason}` : "" }}</p>
-      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="noteCls" :style="style">후보가 없습니다. Enter 로 그대로 넣을 수 있습니다</p>
+      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[CHIP_PANEL_NOTE, 'flex items-center gap-2']" :style="style"><Icon name="progress_activity" :size="14" class="animate-spin" />후보를 찾는 중이에요</p>
+      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[CHIP_PANEL_NOTE, 'whitespace-pre-line']" :style="style">후보를 받지 못했어요. Enter 로 그대로 넣을 수 있어요{{ failReason ? `\n${failReason}` : "" }}</p>
+      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">후보가 없어요. Enter 로 그대로 넣을 수 있어요</p>
     </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
+import { composing, valueOf } from "../utils/dom.ts";
+import { rem } from "../utils/rem.ts";
+import { CHIP_FIELD, CHIP_PANEL, CHIP_PANEL_NOTE, CHIP_PANEL_ROW, INPUT_CHIP, INPUT_CHIP_CLOSE } from "../utils/field.ts";
 import { ref, watch, nextTick, useTemplateRef, onUnmounted } from "vue";
 import Icon from "./BaseIcon.vue";
 import { useAnchoredPanel } from "../composables/anchored-panel.ts";
@@ -63,10 +78,6 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ "update:modelValue": [value: string[]] }>();
 
-const panelCls = "overflow-auto rounded-lg border border-white/12 bg-[#141833] shadow-[0_12px_32px_rgba(0,0,0,0.5)] py-1";
-const noteCls = "rounded-lg border border-white/12 bg-[#141833] px-2.5 py-2 text-[0.8rem] text-muted";
-const rowCls = "w-full flex items-center px-2.5 py-1.5 text-[0.82rem] text-fg-soft text-left cursor-pointer transition-colors duration-100 hover:bg-white/8";
-
 const entry = ref("");
 const editing = ref<number | null>(null);
 const draft = ref("");
@@ -82,7 +93,7 @@ const state = ref("idle");
 const failReason = ref("");
 // 방향키로 고른 후보. -1 이면 고른 것이 없어 Enter 가 친 말을 그대로 넣는다
 const { at, move: moveCursor, reset } = useListCursor(panel, () => hits.value.length, -1);
-const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: 240 });
+const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: rem(15) });
 
 const normalize = (text: string) => (props.lowercase ? text.trim().toLowerCase() : text.trim());
 

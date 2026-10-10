@@ -7,27 +7,28 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-// 공용 버튼. 구 .btn/.btn-primary/.btn-danger/.btn-ghost (M3 Expressive).
-// href를 주면 <a>, 아니면 <button>으로 렌더된다. 크기 변형은 size prop으로.
+// 공용 버튼(M3 Expressive). 알약 모양이고 누르는 동안 모서리가 줄어든다(모양 바뀜).
+// primary = 채움 · secondary = 색조(tonal) · warning = 셋째 색(값을 치르는 일) · danger = 오류 색 · ghost = 테두리.
+// href를 주면 <a>, 아니면 <button>으로 렌더된다
 type Variant = "primary" | "secondary" | "warning" | "danger" | "ghost";
 type Size = "sm" | "md" | "lg";
+
 const props = withDefaults(defineProps<{ variant?: Variant; size?: Size; href?: string | null }>(), { variant: "primary", size: "md", href: null });
 
-const base = "inline-flex items-center gap-1.5 rounded-xl cursor-pointer font-semibold tracking-[-0.01em] no-underline " + "transition-[transform,box-shadow] duration-[350ms] ease-spring " + "hover:not-disabled:scale-[1.02] active:not-disabled:scale-[0.96] active:not-disabled:duration-75 " + "disabled:opacity-40 disabled:cursor-not-allowed";
+const base = "tap state-layer inline-flex items-center justify-center cursor-pointer font-medium no-underline select-none whitespace-nowrap " + "transition-[border-radius,scale,background-color,color] spring-fast active:not-disabled:rounded-md active:not-disabled:scale-97 " + "disabled:cursor-not-allowed disabled:bg-on-surface/10 disabled:text-on-surface/38 disabled:border-transparent disabled:shadow-none";
 
 const sizes: Record<Size, string> = {
-  sm: "px-2.5 py-1 text-[0.8rem]",
-  md: "px-5 py-[9px] text-sm",
-  lg: "px-6 py-3 text-[0.95rem] rounded-[14px] w-full justify-center",
+  sm: "h-8 px-3 gap-1 rounded-2xl text-xs",
+  md: "h-10 px-4 gap-2 rounded-[1.25rem] text-body",
+  lg: "h-14 px-6 gap-2 rounded-2xl text-title w-full",
 };
 
 const variants: Record<Variant, string> = {
-  primary: "text-white bg-linear-135 from-accent to-accent-2 shadow-[0_4px_18px_var(--accent-glow)] hover:not-disabled:shadow-[0_8px_32px_var(--accent-glow),0_0_0_1px_rgba(255,255,255,0.1)]",
-  secondary: "text-white bg-linear-135 from-[#2dd4bf] to-[#3b82f6] shadow-[0_4px_18px_rgba(45,212,191,0.32)] hover:not-disabled:shadow-[0_8px_32px_rgba(45,212,191,0.44),0_0_0_1px_rgba(255,255,255,0.1)]",
-  // 되돌릴 수는 있지만 값을 치르는 것. 토큰을 태우는 버튼처럼. danger(빨강)까지 갈 일은 아니다.
-  warning: "text-[#241a05] bg-linear-135 from-[#fbbf24] to-[#f97316] shadow-[0_4px_18px_rgba(249,115,22,0.32)] hover:not-disabled:shadow-[0_8px_32px_rgba(249,115,22,0.45),0_0_0_1px_rgba(255,255,255,0.1)]",
-  danger: "text-white bg-linear-135 from-[#f87171] to-[#ef4444] shadow-[0_4px_18px_rgba(248,113,113,0.34)] hover:not-disabled:shadow-[0_8px_32px_rgba(248,113,113,0.45)]",
-  ghost: "text-fg bg-white/6 border border-line hover:not-disabled:bg-white/10",
+  primary: "bg-primary text-on-primary",
+  secondary: "bg-secondary-container text-on-secondary-container",
+  warning: "bg-tertiary-container text-on-tertiary-container",
+  danger: "bg-error text-on-error",
+  ghost: "text-on-surface border border-outline-variant",
 };
 
 const classes = computed(() => `${base} ${sizes[props.size]} ${variants[props.variant]}`);

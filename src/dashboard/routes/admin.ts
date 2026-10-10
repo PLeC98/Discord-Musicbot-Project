@@ -451,7 +451,7 @@ adminRouter.get("/logs/stream", requireOwner, (req, res) => {
   if (!logManager.addClient(res, signedIn(req).id, after)) sendProblem(res, "too-many-streams");
 });
 
-// 권한 수준 오버라이드. { tier: "owner"|"moderator"|"dj"|"user"|null }. null이면 해제.
+// 권한 수준 오버라이드. { tier: "moderator"|"dj"|"user"|null }. null이면 해제.
 // requireOwner가 오버라이드를 무시하므로(실 운영자 기준) 낮춘 뒤에도 여기로 되돌아올 수 있다.
 adminRouter.post("/view-as", requireOwner, (req, res) => {
   const { tier } = req.body || {};

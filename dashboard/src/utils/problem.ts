@@ -37,6 +37,12 @@ export function noticeText(code: Code): { title: string; body: string } {
 /** 응답 없이 실패한 요청의 머리 줄 */
 export const unansweredTitle = (kind: FailureKind) => UNANSWERED[kind]?.title ?? "";
 
+/** 응답 없이 실패한 요청의 알림 전체(알림에 띄우는 모양) */
+export function unansweredNotice(kind: "timeout" | "offline"): ProblemNotice {
+  const { code, ...rest } = UNANSWERED[kind]!;
+  return { ...rest, detail: "", codeLine: codeLineOf(code), reportUrl: "" };
+}
+
 /** 요청 오류의 문제 응답 본문. 문제 응답이 아니면 undefined */
 function problemOf(error: unknown): Partial<ProblemBody> | undefined {
   const data = replyOf(error);
@@ -59,11 +65,7 @@ export function problemNotice(error: unknown, fallback: string): ProblemNotice {
     return { title: plain(title), body: body ? plain(body) : "", detail: typeof data.detail === "string" ? data.detail : "", codeLine, severity, reportUrl: asked ? reportTo : "" };
   }
   const kind = failureKind(error);
-  const unanswered = kind ? UNANSWERED[kind] : undefined;
-  if (unanswered) {
-    const { code, ...rest } = unanswered;
-    return { ...rest, detail: "", codeLine: codeLineOf(code), reportUrl: "" };
-  }
+  if (kind === "timeout" || kind === "offline") return unansweredNotice(kind);
   return { title: fallback, body: "", detail: "", codeLine: "", severity: "error", reportUrl: "" };
 }
 

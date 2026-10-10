@@ -5,7 +5,8 @@ import { useGuildsStore, onGuildNudge } from "./guilds.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { useBusy } from "../composables/busy.ts";
 import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime, withReadFields, type PlayerSeen } from "../utils/playback.ts";
-import type { PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";
+import { modeOf, type PlayerRead, type PlayerState } from "../../../src/dashboard/contract/player.ts";
+import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
 
 // 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
@@ -94,6 +95,14 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 줄 번호를 싣는다
   const skip = () => send("skip", onTrackOf(data.value), "다음 곡으로 넘기지 못했어요.");
   const previous = () => send("previous", onTrackOf(data.value), "이전 곡으로 가지 못했어요.");
+  const shuffle = () => send("shuffle", undefined, "대기열을 섞지 못했어요.");
+  // 반복도 먼저 바꿔 보인다(디스코드 반복 버튼과 같은 순환)
+  function cycleLoop() {
+    if (!data.value || isBusy("loop")) return;
+    const mode = nextLoopMode(data.value.loop ?? false);
+    data.value = { ...data.value, loop: mode };
+    return send("loop", { mode: modeOf(mode) }, "반복 모드를 바꾸지 못했어요.");
+  }
 
   async function setVolume(volume: number) {
     if (!guildId.value) return;
@@ -152,5 +161,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
 });

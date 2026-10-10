@@ -11,479 +11,445 @@
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
 -->
 <template>
-  <div>
-    <BaseCard icon="wrench" title="자동재생 AI 보조" class="mb-3">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">곡 이름만 아는 출처(키워드 · Last.fm)에서 고른 후보를 모델에게 한 번 더 물어봅니다. 주소를 직접 받아오는 출처는 묻지 않습니다. 모델을 못 부르면 규칙으로 넘어가므로 재생이 멈추지는 않습니다.</p>
+  <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 틀, composables/list-detail 의 배치). 목록 머리에 켜고 끄기 스위치 · 무엇을 하는지 한 줄.
+       목록: 모델 · 프롬프트 · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 고른 것은 주소 ?ai=(두 단이면 고른 것이 없을 때 모델) -->
+  <div class="flex flex-col gap-(--gap-in)">
+    <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
+    <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label class="block">
-          <span :class="labelCls">프로바이더</span>
-          <div class="relative">
-            <select v-model="draft.provider" :class="[inputCls, selectCls]" @change="onProvider">
-              <option v-for="one in ungrouped" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
-              <optgroup v-for="group in grouped" :key="group.name" :label="group.name" :class="optionCls">
-                <option v-for="one in group.items" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
-              </optgroup>
-            </select>
-            <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-          </div>
-        </label>
-
-        <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다.
-             버텍스는 아예 없다. 프로젝트·리전·모델로 조립한 것을 보여 준다. -->
-        <label v-if="on" class="block">
-          <span :class="labelCls">엔드포인트 주소</span>
-          <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
-          <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ shownEndpoint }}</p>
-        </label>
-      </div>
-
-      <template v-if="on">
-        <span :class="[labelCls, 'mt-3']">모델</span>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침'" @click="loadModels()">
-            <Icon name="repeat" :size="15" :class="loadingModels ? 'opacity-40' : ''" />
-          </button>
-
-          <div v-if="models.length && !manualModel" class="relative flex-1 min-w-40">
-            <select v-model="draft.model" :class="[inputCls, selectCls]" @change="rememberModel(draft.provider, draft.model)">
-              <option v-for="one in modelChoices" :key="one.id" :value="one.id" :class="optionCls">{{ one.label }}</option>
-            </select>
-            <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-          </div>
-          <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1 min-w-40']" @change="rememberModel(draft.provider, draft.model)" />
-
-          <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : '목록을 못 받았으면 직접 적어야 합니다'">
-            <input v-model="manualModel" type="checkbox" class="size-4 accent-accent shrink-0" :disabled="!models.length" />
-            <span class="text-[0.82rem]" :class="models.length ? '' : 'text-muted'">직접 입력하기</span>
-          </label>
-        </div>
-
-        <div v-if="models.length || hideModels.length" class="mt-3">
-          <button type="button" class="w-full flex items-center justify-between text-left py-1.5 cursor-pointer group" @click="showHide = !showHide">
-            <span class="text-[0.8rem] text-muted group-hover:text-fg-soft transition-colors"
-              >모델 목록에서 가릴 것<span v-if="hideModels.length" class="ml-1.5 text-muted/70">{{ hideModels.length }}</span></span
-            >
-            <svg class="text-muted transition-transform duration-200" :class="showHide ? 'rotate-180' : ''" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-          </button>
-          <div v-if="showHide" class="pt-1 pb-1">
-            <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 제외합니다. <code class="text-fg-soft">*</code> 만 와일드카드 패턴으로 판정하며 대소문자를 가리지 않습니다. 영상·이미지 모델이나 구식 모델을 제외하는 용도입니다.</p>
-            <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
+    <!-- 묶음: 모델(프로바이더 · 주소 · 키 · 모델이 한 카드, 모델 파라미터 · 연결 테스트) · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트) · 고급 설정(부르기 · 재시도) · 리퀘스트 로그 · 사용량 통계(둘 다 자리만) -->
+    <div ref="paneEl" :class="paneClass">
+      <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 안 골랐으면 모델 · 리퀘스트 로그 · 사용량 통계만 -->
+      <BaseCard v-if="showList" icon="campaign" title="AI 보조" :class="listCardClass">
+        <template #actions><BaseSwitch v-model="aiOn" label="AI 보조 켜기" /></template>
+        <!-- 무엇을 하는지 한 줄, 자세한 것은 툴팁 -->
+        <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">자동재생 후보를 LLM을 사용해 재검증해요.<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="'곡 이름만 아는 출처(키워드 · Last.fm)의 후보만 물어요.\n모델을 못 부르면 규칙으로 고르니 재생은 멈추지 않아요.'" /></p>
+        <div class="min-h-0 overflow-y-auto -mx-2 px-2">
+          <div v-for="item in FIXED_ITEMS" :key="item.id" role="button" :tabindex="ALWAYS_OPEN.includes(item.id) || on ? 0 : -1" :class="[LIST_ROW, isOn(item.id) && SELECT_ROW_ON, !ALWAYS_OPEN.includes(item.id) && !on && 'opacity-38 pointer-events-none']" :aria-current="isOn(item.id) ? 'true' : undefined" @click="openItem(item.id)" @keydown.enter="openItem(item.id)">
+            <Icon :name="item.icon" :size="24" class="shrink-0" :class="!isOn(item.id) && 'text-on-surface-variant'" />
+            <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+            <span v-if="item.id === 'model'" class="shrink-0 text-xs" :class="!isOn(item.id) && 'text-on-surface-variant'">{{ on ? providerLabel : "" }}</span>
+            <template v-if="item.id === 'prompt'">
+              <Icon v-if="sections.length && !listMarked" name="error" :size="20" fill class="shrink-0" :class="!isOn(item.id) && 'text-error'" v-tooltip="`어느 섹션에도 ${LIST_MARK} 이 없어요`" />
+            </template>
+            <Icon name="chevron_right" :size="20" class="shrink-0 -mr-1" :class="!isOn(item.id) && 'text-on-surface-variant'" />
           </div>
         </div>
+      </BaseCard>
 
-        <!-- 버텍스는 주소를 이 둘로 조립한다. 모델까지 정해야 주소가 완성되므로 아래에 둔다. -->
-        <div v-if="spec?.needsProject" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'global 도 됩니다. 공개된 값이라 주소에 그대로 보입니다'">리전</span>
-            <input v-model="draft.location" placeholder="global" :class="inputCls" />
-          </label>
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'위 주소에서는 가려 둡니다'">프로젝트 ID</span>
-            <input v-model="draft.project" placeholder="비우면 서비스 계정 JSON 의 project_id" :class="inputCls" />
-          </label>
-        </div>
+      <div v-if="showDetail" class="flex flex-col gap-(--gap-in) min-w-0">
+        <template v-if="view === 'model'">
+          <!-- 모델: 어디로(프로바이더 · 주소 · 키) · 무엇을(모델) 부를지 한 카드에 -->
+          <BaseCard icon="model_training" title="모델">
+            <div class="flex flex-col gap-4">
+              <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL">프로바이더</span>
+                  <SingleSelect :model-value="on ? draft.provider : ''" :options="providerOptions" placeholder="고르기" @update:model-value="pickProvider" />
+                </label>
+                <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. 버텍스는 프로젝트 · 리전 · 모델로 조립한 것을 보여 준다 -->
+                <label v-if="on" class="block min-w-0">
+                  <span :class="FIELD_LABEL">엔드포인트 주소</span>
+                  <input v-if="spec?.editable" :value="draft.baseUrl" placeholder="https://example.com/v1" :class="[FIELD, 'w-full']" @input="draft.baseUrl = valueOf($event)" />
+                  <p v-else class="h-10 flex items-center text-sm font-mono text-on-surface-variant truncate" v-tooltip="shownEndpoint">{{ shownEndpoint }}</p>
+                </label>
+              </div>
 
-        <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다. -->
-        <template v-if="needsKey">
-          <span :class="[labelCls, 'mt-3']">{{ spec?.serviceAccount ? "서비스 계정 JSON" : "API 키" }}</span>
+              <!-- 버텍스는 주소를 이 둘로 조립한다 -->
+              <div v-if="on && spec?.needsProject" class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'global 도 돼요. 공개된 값이라 주소에 그대로 보여요'">리전</span>
+                  <input :value="draft.location" placeholder="global" :class="[FIELD, 'w-full']" @input="draft.location = valueOf($event)" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'위 주소에서는 가려 둬요'">프로젝트 ID</span>
+                  <input :value="draft.project" placeholder="비우면 서비스 계정 JSON 의 project_id" :class="[FIELD, 'w-full']" @input="draft.project = valueOf($event)" />
+                </label>
+              </div>
 
-          <!-- 서비스 계정은 JSON 덩어리다. 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다. 
-               다른 키와 같은 자리에 같은 방식으로 둔다. -->
-          <template v-if="spec?.serviceAccount">
-            <textarea v-model="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'font-mono text-[0.75rem] leading-relaxed resize-y']"></textarea>
-            <div class="flex items-center gap-2 mt-2">
-              <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
-              <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 값 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
-              <span v-if="keyInput.trim() && !looksLikeAccount" class="text-[0.78rem] text-[#fbbf24]">client_email 과 private_key 가 있는 JSON 이어야 합니다.</span>
-            </div>
-          </template>
-
-          <div v-else class="flex items-center gap-2">
-            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'flex-1']" />
-            <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
-            <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 키 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
-          </div>
-
-          <p class="mt-1.5 text-[0.78rem]">
-            <span :class="keyCls">{{ hasKey ? "저장됨" : "저장된 값 없음" }}</span>
-            <span v-if="spec?.serviceAccount" class="text-muted"> · 받은 JSON 을 그대로 붙여넣으세요. 프로젝트를 비우면 그 안의 project_id 를 씁니다.</span>
-            <span v-else class="text-muted"> · 보안을 위해 저장된 값은 출력하지 않습니다. 확인을 원하면 설정 파일을 직접 열어 주세요.</span>
-          </p>
-          <p v-if="!secureOrigin" class="mt-1 text-[0.78rem] text-[#fbbf24]">지금 평문(HTTP)으로 접속 중입니다. 키가 그대로 네트워크를 지나갑니다.</p>
-        </template>
-
-        <p v-if="staleCustomUrl" class="mt-3 text-[0.78rem] text-[#fbbf24]">주소를 고쳤지만 아직 저장하지 않았습니다. 저장 전에는 키를 붙이지 않고 보냅니다.</p>
-
-        <p class="text-muted text-[0.78rem] mt-4 mb-2">무료 테스트는 현재 API 키와 URL로 모델 목록·토큰 수 확인 API만 호출하며, 유료 테스트는 짧은 질문을 실제로 전송합니다.</p>
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? "확인 중…" : "무료 테스트" }}</BaseButton>
-          <BaseButton variant="warning" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
-        </div>
-
-        <!-- 둘 다 테스트 결과다. 나눠 둘 이유가 없어 한 자리에 쓴다. -->
-        <template v-if="tested">
-          <p class="mt-3 text-[0.82rem]" :class="tested.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">
-            <span class="font-semibold">{{ tested.kind }}</span>
-            · {{ tested.status ? `HTTP ${tested.status}` : "보내지 못함" }} · {{ tested.tookMs }}ms
-            <span v-if="tested.extra" class="text-muted">· {{ tested.extra }}</span>
-          </p>
-          <p v-if="tested.reason && !tested.status" class="mt-1 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ tested.reason }}</p>
-          <pre v-if="tested.body" :class="[preCls, 'mt-2']">{{ tested.body }}</pre>
-          <button v-if="tested.raw && tested.raw !== tested.body" :class="[addLine, 'mt-2']" @click="showRaw = !showRaw">{{ showRaw ? "원문 접기" : "원문 보기" }}</button>
-          <pre v-if="showRaw && tested.raw" :class="[preCls, 'mt-1']">{{ tested.raw }}</pre>
-        </template>
-      </template>
-    </BaseCard>
-
-    <template v-if="on">
-      <BaseCard icon="gear" title="모델 설정" class="mb-3">
-        <div v-if="fieldInfo.fields.length" class="flex items-baseline justify-between mb-3">
-          <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }}</span>
-          <span class="flex items-baseline gap-3">
-            <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft" :disabled="refreshing" v-tooltip="'모델 정보를 다시 받습니다'" @click="refreshModels">{{ refreshing ? "받는 중…" : refreshNote || "모델 정보 갱신" }}</button>
-            <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
-          </span>
-        </div>
-
-        <div v-if="paramGroups.length">
-          <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
-            <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">
-              <label v-for="field in group.fields" :key="field.key" class="block">
-                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="hintOf(field)">{{ field.label || field.key }}</span>
-
-                <div v-if="field.enum" class="relative">
-                  <select v-model="params[field.key]" :class="[inputCls, selectCls]">
-                    <option value="" :class="optionCls">{{ field.default ? `기본값 (${field.default})` : "기본값" }}</option>
-                    <option v-for="opt in field.enum" :key="String(opt.value)" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
-                  </select>
-                  <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+              <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다 -->
+              <div v-if="on && needsKey" class="flex flex-col gap-1">
+                <span :class="FIELD_LABEL" class="flex! items-center gap-2"
+                  >{{ spec?.serviceAccount ? "서비스 계정 JSON" : "API 키" }}<span class="inline-flex items-center gap-1 text-xs" :class="hasKey ? 'text-primary' : 'text-on-surface-variant'"><Icon :name="hasKey ? 'check_circle' : 'radio_button_unchecked'" :size="16" :fill="hasKey" />{{ hasKey ? (spec?.serviceAccount ? "저장된 JSON 있음" : "저장된 API 키 있음") : spec?.serviceAccount ? "저장된 JSON 없음" : "저장된 API 키 없음" }}</span></span
+                >
+                <!-- 서비스 계정은 JSON 덩어리다. 다른 키와 같은 자리에 같은 방식으로 둔다 -->
+                <textarea v-if="spec?.serviceAccount" :value="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[AREA, 'font-mono text-xs']" @input="keyInput = valueOf($event)"></textarea>
+                <div class="flex items-center gap-2">
+                  <input v-if="!spec?.serviceAccount" :value="keyInput" type="password" autocomplete="off" :placeholder="keyPlaceholder" :class="[FIELD, 'flex-1 min-w-0']" @input="keyInput = valueOf($event)" />
+                  <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
+                  <button v-if="hasKey" type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="savingKey" aria-label="저장된 키 지우기" v-tooltip="'저장된 값 지우기'" @click="clearKey"><Icon name="delete" :size="20" /></button>
+                </div>
+                <p v-if="spec?.serviceAccount && keyInput.trim() && !looksLikeAccount" class="text-xs text-(--warn-ink)">client_email 과 private_key 가 있는 JSON 이어야 해요.</p>
+                <p class="text-xs text-on-surface-variant">{{ spec?.serviceAccount ? "받은 JSON 을 그대로 붙여넣어요. 프로젝트를 비우면 그 안의 project_id 를 써요." : "저장된 값은 보안을 위해 출력하지 않아요. 확인하려면 설정 파일을 직접 확인해 주세요." }}</p>
+                <p v-if="!secureOrigin" class="text-xs text-(--warn-ink)">지금 평문(HTTP)으로 접속 중이에요. 키가 그대로 네트워크를 지나가요.</p>
+              </div>
+              <p v-if="on && staleCustomUrl" class="text-xs text-(--warn-ink)">주소를 고쳤지만 아직 저장하지 않았어요. 저장 전에는 키를 붙이지 않고 보내요.</p>
+              <template v-if="on">
+                <div>
+                  <span :class="FIELD_LABEL">모델</span>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <SingleSelect v-if="models.length && !manualModel" class="flex-1 min-w-40" :model-value="draft.model ?? ''" :options="modelChoices.map((one) => ({ value: one.id, label: one.label }))" @update:model-value="pickModel" />
+                    <input v-else :value="draft.model" placeholder="모델 이름" :class="[FIELD, 'flex-1 min-w-40']" @input="draft.model = valueOf($event)" @change="rememberModel(draft.provider, draft.model)" />
+                    <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="loadingModels" aria-label="모델 목록 새로고침" v-tooltip="'모델 목록 새로고침'" @click="loadModels()"><Icon name="refresh" :size="20" :class="loadingModels && 'animate-spin'" /></button>
+                    <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : '목록을 못 받았으면 직접 적어야 해요'">
+                      <span class="text-sm" :class="models.length ? 'text-on-surface' : 'text-on-surface-variant'">직접 입력</span>
+                      <BaseSwitch v-model="manualModel" :disabled="!models.length" />
+                    </label>
+                  </div>
                 </div>
 
-                <label v-else-if="field.type === 'boolean'" class="flex items-center gap-2 cursor-pointer h-9">
-                  <input v-model="params[field.key]" type="checkbox" class="size-4 accent-accent shrink-0" />
-                  <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
+                <div v-if="models.length || hideModels.length">
+                  <BaseButton variant="ghost" size="sm" @click="showHide = !showHide"
+                    ><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showHide && 'rotate-180'" />목록에서 모델 숨기기<span v-if="hideModels.length" class="nums">{{ hideModels.length }}</span></BaseButton
+                  >
+                  <div v-if="showHide" class="mt-2 flex flex-col gap-1">
+                    <p class="text-xs text-on-surface-variant">받아 온 목록에서 빼요. <code class="font-mono">*</code> 만 와일드카드로 보고 대소문자는 가리지 않아요. 영상 · 이미지 모델이나 옛 모델을 빼는 데 써요.</p>
+                    <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
+                  </div>
+                </div>
+              </template>
+            </div>
+          </BaseCard>
+
+          <BaseCard v-if="on" icon="tune" title="파라미터 설정">
+            <template v-if="fieldInfo.fields.length" #actions>
+              <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="refreshing" aria-label="모델 정보 갱신" v-tooltip="'모델 정보를 다시 받아요'" @click="refreshModels"><Icon name="refresh" :size="20" :class="refreshing && 'animate-spin'" /></button>
+            </template>
+            <div class="flex flex-col gap-4">
+              <div v-if="fieldInfo.fields.length" class="flex items-center gap-3">
+                <span class="flex-1 min-w-0 truncate text-sm font-semibold text-on-surface">{{ modelName || draft.model }}</span>
+                <label class="flex items-center gap-2 cursor-pointer shrink-0">
+                  <span class="text-sm text-on-surface">고급 파라미터 설정</span>
+                  <BaseSwitch v-model="showAdvanced" />
                 </label>
+              </div>
 
-                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" :model-value="numberParam(field.key)" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="inputCls" @update:model-value="(v) => (params[field.key] = v)" />
+              <section v-for="group in paramGroups" :key="group.id" class="flex flex-col gap-2">
+                <h3 class="text-sm font-semibold text-on-surface">{{ group.label }}</h3>
+                <div class="grid grid-cols-2 @xl/card:grid-cols-3 gap-3">
+                  <label v-for="field in group.fields" :key="field.key" class="block min-w-0">
+                    <span :class="FIELD_LABEL" class="truncate" v-tooltip="hintOf(field)">{{ field.label || field.key }}</span>
+                    <SingleSelect v-if="field.enum" :model-value="enumValue(field.enum, params[field.key])" :options="enumOptions(field.enum)" :empty-label="field.default ? `기본값 (${field.default})` : '기본값'" @update:model-value="params[field.key] = enumPick(field.enum, $event)" />
+                    <span v-else-if="field.type === 'boolean'" class="h-10 flex items-center">
+                      <BaseSwitch :model-value="Boolean(params[field.key])" :label="field.label || field.key" @update:model-value="params[field.key] = $event" />
+                    </span>
+                    <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" :model-value="numberParam(field.key)" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="[FIELD, 'w-full']" @update:model-value="(v) => (params[field.key] = v)" />
+                    <ChipInput v-else-if="field.type === 'stringArray'" :model-value="listParam(field.key)" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
+                    <template v-else-if="field.type === 'json'">
+                      <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[AREA, 'font-mono text-xs']" @input="(e) => onJson(field.key, valueOf(e))"></textarea>
+                      <span v-if="jsonBad[field.key]" class="mt-1 block text-xs text-error">JSON 으로 읽지 못했어요</span>
+                    </template>
+                    <input v-else :value="params[field.key]" :placeholder="String(field.default ?? '')" :class="[FIELD, 'w-full']" @input="params[field.key] = valueOf($event)" />
+                  </label>
+                </div>
+              </section>
+              <p v-if="paramLimits" class="text-xs text-on-surface-variant">{{ paramLimits }}</p>
 
-                <ChipInput v-else-if="field.type === 'stringArray'" :model-value="listParam(field.key)" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
+              <section class="flex flex-col gap-2" :class="paramGroups.length > 0 && 'pt-3 border-t border-outline-variant/40'">
+                <div>
+                  <h3 class="text-sm font-semibold text-on-surface">추가 파라미터</h3>
+                  <p class="mt-1 text-xs text-on-surface-variant">
+                    한 줄에 하나씩. <code class="font-mono">key=value</code> · <code class="font-mono">key=json::{...}</code> · <code class="font-mono">header::Name=value</code> · <code class="font-mono">key={{ NONE_MARK }}</code>
+                  </p>
+                </div>
+                <textarea :value="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[AREA, 'font-mono text-xs']" @input="extraText = valueOf($event)"></textarea>
+              </section>
+            </div>
+          </BaseCard>
 
-                <template v-else-if="field.type === 'json'">
-                  <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[inputCls, 'font-mono text-[0.78rem] resize-y']" @input="(e) => onJson(field.key, valueOf(e))"></textarea>
-                  <span v-if="jsonBad[field.key]" class="text-danger text-[0.75rem] mt-1 block">JSON 으로 읽지 못했습니다</span>
-                </template>
+          <BaseCard v-if="on" icon="network_check" title="연결 테스트">
+            <div class="flex flex-col gap-3">
+              <p class="text-sm text-on-surface-variant">무료 테스트는 설정한 키와 주소로 모델 목록 및 토큰 수 확인만 요청하고, 유료 테스트는 짧은 질문을 실제로 전송해요.</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? "확인 중…" : "무료 테스트" }}</BaseButton>
+                <BaseButton variant="warning" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
+              </div>
+              <!-- 두 테스트의 결과. 한 자리에 쓴다 -->
+              <template v-if="tested">
+                <NoticeBox variant="note" :tone="tested.ok ? 'info' : 'error'" :icon="tested.ok ? 'check_circle' : 'cancel'" :fill="tested.ok" class="mt-0!"
+                  >{{ tested.kind }} · {{ tested.status ? `HTTP ${tested.status}` : "보내지 못함" }} · {{ tested.tookMs }}ms<template v-if="tested.extra"> · {{ tested.extra }}</template
+                  ><template v-if="tested.reason && !tested.status">{{ NL }}{{ tested.reason }}</template></NoticeBox
+                >
+                <pre v-if="tested.body" :class="CODE_BOX">{{ tested.body }}</pre>
+                <div v-if="tested.raw && tested.raw !== tested.body">
+                  <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRaw && 'rotate-180'" />{{ showRaw ? "원문 접기" : "원문 보기" }}</BaseButton>
+                </div>
+                <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
+              </template>
+            </div>
+          </BaseCard>
+        </template>
 
-                <input v-else v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
+        <!-- ── 프롬프트: 후보 목록 형식 · 판정 프롬프트 ── -->
+        <template v-if="view === 'prompt'">
+          <BaseCard icon="format_list_numbered" title="후보 목록">
+            <div class="flex flex-col gap-4">
+              <div class="grid grid-cols-2 @xl/card:grid-cols-3 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'요청을 잘게 쪼개면 느려요.'">요청 하나에 맡길 곡 수</span>
+                  <NumberInput v-model="draft.batchSize" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer self-end h-10" v-tooltip="'채널명, 길이가 일치하면 묻지 않아요.'">
+                  <BaseSwitch v-model="draft.skipConfident" />
+                  <span class="text-sm text-on-surface">확신할 땐 묻지 않기</span>
+                </label>
+              </div>
+
+              <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
+                <div>
+                  <h3 class="text-sm font-semibold text-on-surface">줄 형식</h3>
+                  <p class="mt-1 text-xs text-on-surface-variant">
+                    후보를 한 줄에 어떻게 적을지예요. 이렇게 적은 목록이 프롬프트의 <code class="font-mono">{{ LIST_MARK }}</code> 자리에 들어가요. 업로더 이름은 넣을 수 없어요(Vevo · Radio Mix 같은 이름 때문에 정답률이 떨어졌어요).
+                  </p>
+                </div>
+                <input :value="listCfg.lineFormat" :placeholder="defaults.line" :class="[FIELD, 'w-full font-mono']" @input="listCfg.lineFormat = valueOf($event)" />
+                <div class="flex flex-wrap gap-2">
+                  <button v-for="one in MARKS" :key="one.mark" type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="one.hint" @click="insertMark(one.mark)"><Icon name="add" :size="18" />{{ one.mark }}</button>
+                </div>
+              </section>
+
+              <section class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL">길이를 모르는 후보</span>
+                  <SingleSelect :model-value="listCfg.unknownDuration" :options="UNKNOWN" @update:model-value="listCfg.unknownDuration = $event as AiUnknown" />
+                </label>
+                <label v-if="listCfg.unknownDuration === 'text'" class="block">
+                  <span :class="FIELD_LABEL">대신 적을 글자</span>
+                  <input :value="listCfg.unknownText" placeholder="모름" :class="[FIELD, 'w-full']" @input="listCfg.unknownText = valueOf($event)" />
+                </label>
+                <p class="@md/card:col-span-2 text-xs text-on-surface-variant">{{ UNKNOWN.find((u) => u.value === listCfg.unknownDuration)?.hint }}</p>
+              </section>
+            </div>
+          </BaseCard>
+
+          <BaseCard icon="terminal" title="판정 프롬프트">
+            <template #actions>
+              <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenTotal.toLocaleString("ko-KR") }} 토큰</span>
+              <span v-else-if="tokenError" class="text-xs text-(--warn-ink)" v-tooltip="tokenError">토큰 수를 세지 못함</span>
+              <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="섹션 추가" v-tooltip="'추가'" @click="addSection"><Icon name="add" :size="20" /></button>
+            </template>
+            <div class="flex flex-col gap-3">
+              <p class="text-sm text-on-surface-variant">섹션마다 역할을 정해 적은 차례대로 보내요. 답은 반드시 <code class="font-mono">[{"n":1,"song":true,"fits":false}]</code> 꼴의 JSON 배열이어야 해요.</p>
+              <NoticeBox v-if="!sections.length" variant="note" tone="info" icon="info" class="mt-0!">비어 있어 기본 프롬프트를 써요.</NoticeBox>
+              <NoticeBox v-else-if="!listMarked" variant="note" tone="error" icon="error" class="mt-0!">어느 섹션에도 {{ LIST_MARK }} 이 없어요.</NoticeBox>
+
+              <!-- 섹션 카드: 머리(손잡이 · 접기 · 이름 · 역할 · 지우기), 몸은 프롬프트. 출처 카드와 같은 모양 -->
+              <div v-for="(section, i) in sections" :key="section.key" class="rounded-(--r-inner) bg-surface-container-high" data-reorder>
+                <div class="flex items-center gap-1 @sm/card:gap-2 p-2">
+                  <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing text-outline" v-tooltip="'끌어서 차례 바꾸기'" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
+                  <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="isFolded(promptFoldId(i)) ? '펼치기' : '접기'" v-tooltip="isFolded(promptFoldId(i)) ? '펼치기' : '접기'" @click="toggleFold(promptFoldId(i))"><Icon name="expand_more" :size="20" class="transition-transform duration-150" :class="isFolded(promptFoldId(i)) && '-rotate-90'" /></button>
+                  <input :value="section.name" :placeholder="`섹션 ${i + 1}`" :class="[FIELD, 'flex-1 min-w-0']" v-tooltip="'표기를 위한, 요청에 쓰이지 않는 값이에요.'" @input="section.name = valueOf($event)" />
+                  <SingleSelect :model-value="section.role" class="w-28 @sm/card:w-32 shrink-0" :options="ROLES.map((one) => ({ value: one, label: one }))" v-tooltip="'역할'" @update:model-value="section.role = $event as PromptSection['role']" />
+                  <button type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" aria-label="이 섹션 삭제" v-tooltip="'삭제'" @click="removeSection(i)"><Icon name="delete" :size="20" /></button>
+                </div>
+                <div v-show="!isFolded(promptFoldId(i))" class="flex flex-col gap-1 px-3 pb-3">
+                  <span v-if="tokenEach[i] != null" class="self-end text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenEach[i].toLocaleString("ko-KR") }} 토큰</span>
+                  <textarea :value="section.text" rows="8" :class="[AREA, 'font-mono text-xs']" @input="section.text = valueOf($event)"></textarea>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                <BaseButton variant="ghost" size="sm" @click="loadDefaults"><Icon name="restart_alt" :size="18" />기본값</BaseButton>
+                <BaseButton variant="secondary" size="sm" class="ml-auto" @click="openPreview"><Icon name="visibility" :size="18" />리퀘스트 미리보기</BaseButton>
+              </div>
+            </div>
+          </BaseCard>
+        </template>
+
+        <!-- ── 판정 테스트(프롬프트 화면의 맨 아래: 프롬프트를 깎으면서 쓴다): 진짜 곡으로 시험한다. 링크 조회는 아무것도 보내지 않고, 판정 요청만 실제로 보낸다 ── -->
+
+        <template v-if="view === 'prompt'">
+          <BaseCard icon="fact_check" title="판정 테스트">
+            <div class="flex flex-col gap-4">
+              <div class="flex flex-col @xl/card:flex-row gap-3 items-start">
+                <label class="block flex-1 min-w-0 w-full">
+                  <span :class="FIELD_LABEL">유튜브 주소</span>
+                  <textarea :value="judgeUrls" rows="3" wrap="off" placeholder="https://www.youtube.com/watch?v=... (한 줄에 하나)" :class="[AREA, 'font-mono text-xs']" @input="judgeUrls = valueOf($event)"></textarea>
+                </label>
+                <div class="w-full @xl/card:w-60 @3xl/card:w-72 shrink-0 flex flex-col gap-3">
+                  <label class="block">
+                    <span :class="FIELD_LABEL">장르</span>
+                    <input :value="judgeGenre" placeholder="록" :class="[FIELD, 'w-full']" @input="judgeGenre = valueOf($event)" />
+                  </label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="lookupJudge">{{ judging ? "조회 중…" : "링크 조회" }}</BaseButton>
+                    <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="askPaid('judge')">{{ judging ? "보내는 중…" : "요청 전송" }}</BaseButton>
+                  </div>
+                </div>
+              </div>
+
+              <NoticeBox v-if="judgeStale" variant="note" tone="notice" icon="info" class="mt-0!"
+                ><span class="min-w-0 flex-1"
+                  >작성한 주소를 아직 조회하지 않았어요. 이대로 전송하면 내장된 보기 곡을 사용해요.<span class="mt-2 block rounded-(--r-inner) bg-current/10 px-3 py-2 font-mono text-xs whitespace-pre-wrap">{{ SAMPLE_LINES }}</span></span
+                ></NoticeBox
+              >
+              <NoticeBox v-if="judgeError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ judgeError }}</NoticeBox>
+
+              <section v-if="judgeCands.length" class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                  <h3 class="flex-1 text-sm font-semibold text-on-surface">모델에게 갈 목록</h3>
+                  <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="목록 복사" v-tooltip="'복사'" @click="copy(judgeList.join(NL))"><Icon name="content_copy" :size="20" /></button>
+                </div>
+                <ul class="flex flex-col rounded-(--r-inner) bg-surface-container-highest divide-y divide-outline-variant/40">
+                  <li v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-3 px-3 py-2">
+                    <span v-if="judgeVerdicts" class="shrink-0 w-16 text-xs font-semibold" :class="verdictOk(judgeVerdicts[i]) ? 'text-primary' : 'text-error'">{{ verdictText(judgeVerdicts[i]) }}</span>
+                    <p v-if="cand.error" class="min-w-0 flex-1 text-xs text-error break-all">{{ cand.url }}: {{ cand.error }}</p>
+                    <p v-else class="min-w-0 flex-1 font-mono text-xs text-on-surface break-all">{{ lineFor(cand) }}</p>
+                  </li>
+                </ul>
+              </section>
+
+              <template v-if="judgeSent">
+                <div>
+                  <BaseButton variant="ghost" size="sm" @click="showJudgeRaw = !showJudgeRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showJudgeRaw && 'rotate-180'" />{{ showJudgeRaw ? "요청 기록 접기" : "요청 기록 보기" }}</BaseButton>
+                </div>
+                <div v-if="showJudgeRaw" class="flex flex-col gap-3">
+                  <div v-for="box in judgeBoxes" :key="box.title" class="flex flex-col gap-1">
+                    <div class="flex items-center gap-2">
+                      <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
+                      <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="복사" v-tooltip="'복사'" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+                    </div>
+                    <pre :class="CODE_BOX">{{ box.text }}</pre>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </BaseCard>
+        </template>
+
+        <!-- ── 리퀘스트 로그: 신규 기능이라 2차 17단계에서 검토해 만든다. 지금은 자리만 ── -->
+        <template v-if="view === 'log'">
+          <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
+            <Icon name="history" :size="40" />
+            <p class="text-sm">리퀘스트 로그는 아직 짜지 않았어요</p>
+          </section>
+        </template>
+
+        <!-- ── 사용량 통계: 신규 기능이라 2차 17단계에서 검토해 만든다. 지금은 자리만 ── -->
+        <template v-if="view === 'usage'">
+          <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
+            <Icon name="bar_chart" :size="40" />
+            <p class="text-sm">사용량 통계는 아직 짜지 않았어요</p>
+          </section>
+        </template>
+
+        <!-- ── 고급 설정: 요청 · 재시도 ── -->
+        <template v-if="view === 'advanced'">
+          <BaseCard icon="replay" title="요청 · 재시도">
+            <div class="flex flex-col gap-4">
+              <p class="text-sm text-on-surface-variant">실패하면 설정한 대로 재요청을 하며, 최종 실패 시에는 규칙만을 사용해요. 칸을 비우면 기본값을 사용해요.</p>
+              <div class="grid grid-cols-2 @xl/card:grid-cols-3 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'요청마다 응답을 기다릴 시간'">타임아웃(초)</span>
+                  <NumberInput v-model="timeoutSec" :placeholder="defaultSec('timeoutMs')" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'실패 시 재요청할 최대 횟수\n(0이면 재요청하지 않음)'">실패 시 재요청 횟수</span>
+                  <NumberInput v-model="draft.retries" :placeholder="defaultOf('retries')" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'재시도, 대기 등을 포함한 한 건의 판정에 거는 상한\n(0이면 상한 없음)'">판정 전체 상한(초)</span>
+                  <NumberInput v-model="totalSec" :placeholder="defaultSec('totalTimeoutMs')" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'실패 시 최초 대기\n(회차마다 두 배로 늘려 시도)'">재시도 대기 시간(초)</span>
+                  <NumberInput v-model="delaySec" decimal :placeholder="defaultSec('retryDelayMs')" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="'재요청 대기 시간의 상한\n(서버의 대기 요구에도 적용 · Gemini API 는 30~60초를 요구하는 경우가 있음)'">최대 대기 시간(초)</span>
+                  <NumberInput v-model="delayMaxSec" decimal :placeholder="defaultSec('retryDelayMaxMs')" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer self-end h-10">
+                  <BaseSwitch v-model="draft.retryTimeouts" />
+                  <span class="text-sm text-on-surface">타임아웃 시 재요청</span>
+                </label>
+              </div>
+              <label class="block">
+                <span :class="FIELD_LABEL" v-tooltip="'연결 실패는 적지 않아도 재요청해요.\n400, 401, 403, 404 는 재요청으로 해결할 수 없으니 넣지 마세요.'">재요청할 응답 코드</span>
+                <ChipInput :model-value="(draft.retryStatus ?? []).map(String)" :placeholder="defaultOf('retryStatus')" @update:model-value="setRetryStatus" />
               </label>
             </div>
-          </div>
-
-          <p v-if="paramLimits" class="text-muted text-[0.75rem]">{{ paramLimits }}</p>
-        </div>
-
-        <div class="mt-4">
-          <span :class="labelCls">추가 파라미터</span>
-          <p class="text-muted text-[0.78rem] mb-2">
-            한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
-          </p>
-          <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
-        </div>
-      </BaseCard>
-
-      <BaseCard icon="gear" title="부르기 · 재시도" class="mb-3">
-        <p class="text-muted text-[0.82rem] mb-3">실패하면 설정대로 다시 부르고, 끝내 실패하면 그 판정은 규칙만으로 고릅니다. 비워 두면 흐린 값(기본값)을 씁니다.</p>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'부르기 한 번의 상한. 경량 모델도 30초 넘게 걸리는 일이 흔합니다'">타임아웃(초)</span>
-            <NumberInput v-model="timeoutSec" :placeholder="defaultSec('timeoutMs')" :class="inputCls" />
-          </label>
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'실패 시 다시 부르는 횟수. 0 이면 다시 부르지 않습니다'">재요청 횟수</span>
-            <NumberInput v-model="draft.retries" :placeholder="defaultOf('retries')" :class="inputCls" />
-          </label>
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'재시도와 대기를 합친 판정 하나의 상한. 0 은 상한 없음'">판정 전체 상한(초)</span>
-            <NumberInput v-model="totalSec" :placeholder="defaultSec('totalTimeoutMs')" :class="inputCls" />
-          </label>
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'처음 대기. 그 뒤 두 배씩 늘려 상한까지'">재시도 대기(초)</span>
-            <NumberInput v-model="delaySec" decimal :placeholder="defaultSec('retryDelayMs')" :class="inputCls" />
-          </label>
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'서버가 이보다 길게 기다리라고 하면 다시 부르지 않습니다. 제미니 API 는 30~60초를 요구합니다'">대기 상한(초)</span>
-            <NumberInput v-model="delayMaxSec" decimal :placeholder="defaultSec('retryDelayMaxMs')" :class="inputCls" />
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer self-end pb-2.5">
-            <input v-model="draft.retryTimeouts" type="checkbox" class="size-4 accent-accent shrink-0" />
-            <span class="text-[0.82rem]" v-tooltip="'이미 오래 기다린 뒤라 기본은 끔입니다'">시간 초과도 다시 부르기</span>
-          </label>
-        </div>
-        <label class="block mt-3">
-          <span :class="labelCls" v-tooltip="'연결 실패는 따로 적지 않아도 다시 부릅니다. 400 · 401 · 403 · 404 는 넣지 마세요(다시 불러도 같은 답)'">다시 부를 상태 코드</span>
-          <ChipInput :model-value="(draft.retryStatus ?? []).map(String)" :placeholder="defaultOf('retryStatus')" @update:model-value="setRetryStatus" />
-        </label>
-      </BaseCard>
-
-      <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 pb-4 border-b border-white/8">
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'곡마다 따로 물으면 느립니다'">리퀘스트당 판정을 맡길 곡 수</span>
-            <NumberInput v-model="draft.batchSize" :class="inputCls" />
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer self-end pb-2.5">
-            <input v-model="draft.skipConfident" type="checkbox" class="size-4 accent-accent shrink-0" />
-            <span class="text-[0.82rem]" v-tooltip="'채널 이름이나 길이가 일치하면 생략'">확신할 땐 생략</span>
-          </label>
-        </div>
-
-        <p class="text-muted text-[0.82rem] mb-3">
-          판정할 후보를 줄 마다 어떻게 적을지. 이 설정을 따라 아래 프롬프트의 <code class="text-fg-soft">{{ LIST_MARK }}</code> 자리에 곡 목록이 들어갑니다.
-        </p>
-
-        <label class="block mb-2">
-          <span :class="labelCls">줄 형식</span>
-          <input v-model="listCfg.lineFormat" :placeholder="defaults.line" :class="[inputCls, 'font-mono text-[0.82rem]']" />
-        </label>
-
-        <div class="flex flex-wrap gap-1.5 mb-4">
-          <button v-for="one in MARKS" :key="one.mark" type="button" :class="markBtn" v-tooltip="one.hint" @click="insertMark(one.mark)">{{ one.mark }}</button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label class="block">
-            <span :class="labelCls">길이를 모르는 후보</span>
-            <div class="relative">
-              <select v-model="listCfg.unknownDuration" :class="[inputCls, selectCls]">
-                <option v-for="one in UNKNOWN" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
-              </select>
-              <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-            </div>
-          </label>
-          <label v-if="listCfg.unknownDuration === 'text'" class="block">
-            <span :class="labelCls">대신 적을 글자</span>
-            <input v-model="listCfg.unknownText" placeholder="모름" :class="inputCls" />
-          </label>
-        </div>
-        <p class="text-muted text-[0.78rem] mt-2">{{ UNKNOWN.find((u) => u.value === listCfg.unknownDuration)?.hint }}</p>
-
-        <p class="text-muted text-[0.78rem] mt-3">업로더 이름은 넣을 수 없습니다. 실험 결과, Vevo나 Radio Mix 등의 명칭으로 인해 판정 정답률이 오히려 하락하여 제외하였습니다.</p>
-      </BaseCard>
-
-      <BaseCard class="mb-3">
-        <div class="flex items-start gap-3 mb-3">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
-              <Icon name="terminal" :size="15" />
-              <span>판정 프롬프트 ({{ sections.length }})</span>
-              <span v-if="tokenTotal != null" class="normal-case tracking-normal font-normal text-muted" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenTotal.toLocaleString("ko-KR") }} 토큰</span>
-              <span v-else-if="tokenError" class="normal-case tracking-normal font-normal text-warning" v-tooltip="tokenError">토큰 수를 세지 못함</span>
-            </div>
-            <p class="text-muted text-[0.82rem]">섹션마다 역할을 정해 적은 차례대로 보냅니다. 답은 반드시 <code class="text-fg-soft">[{"n":1,"song":true,"fits":false}]</code> 꼴의 JSON 배열이어야 합니다.</p>
-          </div>
-          <button :class="addBtn" v-tooltip="'섹션 추가'" @click="addSection"><Icon name="add" :size="18" /></button>
-        </div>
-
-        <p v-if="!sections.length" class="text-muted text-[0.82rem] mb-3">비어 있어 기본 프롬프트를 씁니다.</p>
-        <p v-else-if="!listMarked" class="text-[0.82rem] text-[#f87171] mb-3">
-          어느 섹션에도 <code class="text-fg-soft">{{ LIST_MARK }}</code> 이 없습니다.
-        </p>
-
-        <div
-          v-for="(section, i) in sections"
-          :key="section.key"
-          class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3 transition-[border-color,opacity] duration-150"
-          :class="{
-            'opacity-35': draggedIndex === i,
-            'border-t-2 border-t-accent': dragOverIndex === i && draggedIndex !== i,
-            'border-b-2 border-b-accent': dragOverIndex === sections.length && i === sections.length - 1,
-          }"
-          :draggable="dragReady"
-          @dragstart="onDragStart($event, i)"
-          @dragover="onDragOver($event, i)"
-          @drop="onDrop"
-          @dragend="onDragEnd"
-        >
-          <div class="flex items-center gap-2">
-            <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
-              <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-                <circle cx="2" cy="3" r="1.5" />
-                <circle cx="2" cy="8" r="1.5" />
-                <circle cx="2" cy="13" r="1.5" />
-                <circle cx="8" cy="3" r="1.5" />
-                <circle cx="8" cy="8" r="1.5" />
-                <circle cx="8" cy="13" r="1.5" />
-              </svg>
-            </span>
-
-            <button :class="foldBtn" v-tooltip="isFolded(promptFoldId(i)) ? '펼치기' : '접기'" @click="toggleFold(promptFoldId(i))">
-              <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(promptFoldId(i)) }"><path d="M0 0h9L4.5 6z" /></svg>
-            </button>
-
-            <input v-model="section.name" :placeholder="`섹션 ${i + 1}`" :class="[inputCls, 'flex-1']" v-tooltip="'대시보드에서만 쓰이며, 전송되지 않습니다.'" />
-            <span class="text-muted text-[0.75rem] shrink-0 w-12 text-right">{{ section.role }}</span>
-
-            <button :class="removeBtn" v-tooltip="'이 섹션 삭제'" @click="removeSection(i)"><Icon name="trash" :size="15" /></button>
-          </div>
-
-          <div v-show="!isFolded(promptFoldId(i))" class="mt-2">
-            <label class="block mb-2">
-              <span :class="labelCls">역할</span>
-              <div class="relative">
-                <select v-model="section.role" :class="[inputCls, selectCls]">
-                  <option v-for="one in ROLES" :key="one" :value="one" :class="optionCls">{{ one }}</option>
-                </select>
-                <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-              </div>
-            </label>
-
-            <div class="flex items-baseline justify-between">
-              <span :class="labelCls">프롬프트</span>
-              <span v-if="tokenEach[i] != null" class="text-muted text-[0.75rem]" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenEach[i].toLocaleString("ko-KR") }} 토큰</span>
-            </div>
-            <textarea v-model="section.text" rows="8" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <button :class="addLine" @click="loadDefaults">기본값으로</button>
-          <div class="flex items-center gap-2.5 flex-wrap ml-auto">
-            <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
-          </div>
-        </div>
-      </BaseCard>
-
-      <!--
-        판정 테스트. 보기 곡이 아니라 진짜 곡으로 시험한다.
-        링크 조회는 아무것도 보내지 않는다. 판정 요청만 실제로 보낸다.
-      -->
-      <BaseCard icon="check" title="판정 테스트" class="mb-3">
-        <div class="flex flex-col md:flex-row gap-3 items-start">
-          <label class="block flex-1 min-w-0 w-full">
-            <span :class="labelCls">유튜브 주소</span>
-            <textarea v-model="judgeUrls" rows="3" wrap="off" placeholder="https://www.youtube.com/watch?v=... (한 줄에 하나)" :class="[inputCls, 'font-mono text-[0.8rem] leading-relaxed resize-y']"></textarea>
-          </label>
-
-          <div class="w-full md:w-60 lg:w-72 xl:w-88 shrink-0">
-            <label class="block">
-              <span :class="labelCls">장르</span>
-              <input v-model="judgeGenre" placeholder="록" :class="inputCls" />
-            </label>
-            <div class="grid grid-cols-2 gap-2 mt-3">
-              <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="lookupJudge">{{ judging ? "조회 중…" : "링크 조회" }}</BaseButton>
-              <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="askPaid('judge')">{{ judging ? "보내는 중…" : "판정 요청" }}</BaseButton>
-            </div>
-          </div>
-        </div>
-
-        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">작성한 주소를 아직 조회하지 않았습니다. 그대로 전송하면 예제 프리셋을 이용합니다.</p>
-
-        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2 whitespace-pre-line">{{ judgeError }}</p>
-
-        <div v-if="judgeCands.length" class="mt-3">
-          <div class="flex items-baseline justify-between mb-1.5">
-            <span :class="labelCls + ' mb-0'">모델에게 갈 목록</span>
-            <button type="button" :class="copyBtn" @click="copy(judgeList.join(String.fromCharCode(10)))">복사</button>
-          </div>
-          <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
-            <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-16" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
-            <div class="min-w-0 flex-1">
-              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }}: {{ cand.error }}</p>
-              <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <template v-if="judgeSent">
-          <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-3" @click="showJudgeRaw = !showJudgeRaw">
-            {{ showJudgeRaw ? "리퀘스트 로그 접기" : "리퀘스트 로그 보기" }}
-          </button>
-          <div v-if="showJudgeRaw" class="mt-2">
-            <div v-for="box in judgeBoxes" :key="box.title" class="mb-3">
-              <div class="flex items-baseline justify-between mb-1">
-                <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
-                <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
-              </div>
-              <pre :class="preCls">{{ box.text }}</pre>
-            </div>
-          </div>
+          </BaseCard>
         </template>
-      </BaseCard>
-    </template>
-
-    <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
-      <div v-for="p in problems" :key="p" class="whitespace-pre-line">· {{ p }}</div>
-    </div>
-    <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장 완료. 다음 자동재생부터 반영됩니다</p>
-    <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ loadError }}</p>
-
-    <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
-
-    <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
-    <div v-if="paid" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="paid = null">
-      <!-- 주소가 길면 늘어나고 짧으면 줄어든다. 다만 너무 좁아지지는 않게 바닥을 둔다. -->
-      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 w-fit min-w-[min(26rem,90vw)] max-w-[min(60rem,92vw)] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
-        <dl class="mb-5 text-[0.82rem] grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-          <dt class="text-muted">보낼 곳</dt>
-          <dd class="font-mono break-all whitespace-pre-line">{{ paidUrl || paidUrlError || "확인하는 중…" }}</dd>
-          <dt class="text-muted">모델</dt>
-          <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
-          <dt class="text-muted">보낼 것</dt>
-          <dd v-if="paid === 'ping'">{{ pingText || "확인하는 중…" }}</dd>
-          <dd v-else>판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · {{ judgeUsable.length ? `고른 곡 ${judgeUsable.length}개` : "보기 곡 3개" }})</dd>
-        </dl>
-        <div class="flex gap-2.5 justify-end">
-          <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>
-          <BaseButton variant="secondary" @click="runPaid">보내기</BaseButton>
-        </div>
       </div>
     </div>
 
-    <!-- 나간 것과 온 것을 그대로 본다. 다듬지 않는다. -->
-    <div v-if="shown" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="shown = null">
-      <div class="bg-[rgba(12,16,36,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] w-[min(56rem,100%)] max-h-[88vh] overflow-auto p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="text-2xl font-semibold flex-1">리퀘스트 미리보기</div>
-          <span class="text-muted text-[0.8rem]">보내지 않았습니다</span>
-          <span v-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
-          <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
-        </div>
+    <SaveDock tab="ai" :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
 
-        <div v-for="(part, i) in shownSections" :key="i" class="mb-3">
-          <div class="flex items-baseline justify-between mb-1">
-            <span class="text-[0.95rem] font-semibold text-[rgba(196,181,253,0.9)]">{{ part.name }}</span>
-            <span class="flex items-baseline gap-3">
-              <span class="text-[0.72rem] text-muted font-mono">{{ part.role }}</span>
-              <button type="button" :class="copyBtn" @click="copy(part.text)">복사</button>
-            </span>
-          </div>
-          <pre :class="preCls">{{ part.text }}</pre>
-        </div>
-
-        <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-1" @click="showRawRequest = !showRawRequest">
-          {{ showRawRequest ? "날것 접기" : "날것 보기 (URL · 헤더 · 본문)" }}
-        </button>
-        <div v-if="showRawRequest" class="mt-2">
-          <div v-for="box in boxes" :key="box.title" class="mb-3">
-            <div class="flex items-baseline justify-between mb-1">
-              <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
-              <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+    <Teleport to="body">
+      <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다(M3 대화상자, 설정 대화상자와 같은 모양) -->
+      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+        <div v-if="paid" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="paid = null">
+          <div role="dialog" aria-modal="true" aria-labelledby="paid-title" class="w-fit min-w-[min(26rem,100%)] max-w-[min(48rem,100%)] rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="paid" :size="20" /></span>
+              <h3 id="paid-title" class="flex-1 text-xl font-round font-semibold">실제로 보낼까요?</h3>
             </div>
-            <pre :class="preCls">{{ box.text }}</pre>
+            <p class="mb-3 text-body text-on-surface-variant">토큰이 들어요.</p>
+            <dl class="mb-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+              <dt class="text-on-surface-variant">보낼 곳</dt>
+              <dd class="font-mono break-all whitespace-pre-line text-on-surface">{{ paidUrl || paidUrlError || "확인하는 중…" }}</dd>
+              <dt class="text-on-surface-variant">모델</dt>
+              <dd class="font-mono break-all text-on-surface">{{ draft.model || "(비어 있음)" }}</dd>
+              <dt class="text-on-surface-variant">보낼 것</dt>
+              <dd v-if="paid === 'ping'" class="text-on-surface">{{ pingText || "확인하는 중…" }}</dd>
+              <dd v-else class="text-on-surface">판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · {{ judgeUsable.length ? `고른 곡 ${judgeUsable.length}개` : "보기 곡 3개" }})</dd>
+            </dl>
+            <div class="flex gap-2 justify-end">
+              <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>
+              <BaseButton variant="warning" @click="runPaid">보내기</BaseButton>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </Transition>
+
+      <!-- 요청 미리보기: 나간 것과 온 것을 그대로 본다. 다듬지 않는다 -->
+      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+        <div v-if="shown" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="shown = null">
+          <div role="dialog" aria-modal="true" aria-labelledby="preview-title" class="w-[min(56rem,100%)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="size-9 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="visibility" :size="20" /></span>
+              <h3 id="preview-title" class="flex-1 text-xl font-round font-semibold">리퀘스트 미리보기</h3>
+              <span class="text-xs text-on-surface-variant">보내지 않았어요</span>
+              <span v-if="shown.tokens" class="text-xs text-on-surface-variant nums" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
+              <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="닫기" @click="shown = null"><Icon name="close" :size="20" /></button>
+            </div>
+            <div class="flex flex-col gap-3">
+              <div v-for="(part, i) in shownSections" :key="i" class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                  <span class="flex-1 text-sm font-semibold text-on-surface">{{ part.name }}</span>
+                  <span class="text-xs font-mono text-on-surface-variant">{{ part.role }}</span>
+                  <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="복사" v-tooltip="'복사'" @click="copy(part.text)"><Icon name="content_copy" :size="20" /></button>
+                </div>
+                <pre :class="CODE_BOX">{{ part.text }}</pre>
+              </div>
+              <div>
+                <BaseButton variant="ghost" size="sm" @click="showRawRequest = !showRawRequest"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRawRequest && 'rotate-180'" />{{ showRawRequest ? "날것 접기" : "날것 보기 (주소 · 헤더 · 본문)" }}</BaseButton>
+              </div>
+              <div v-if="showRawRequest" class="flex flex-col gap-3">
+                <div v-for="box in boxes" :key="box.title" class="flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
+                    <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
+                    <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="복사" v-tooltip="'복사'" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+                  </div>
+                  <pre :class="CODE_BOX">{{ box.text }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ICON_BTN } from "../utils/icon-button.ts";
 import { problemText } from "../utils/problem.ts";
 import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { LIMIT } from "../utils/request.ts";
 import { ref, computed, watch, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
@@ -491,20 +457,34 @@ import Icon from "./BaseIcon.vue";
 import NumberInput from "./NumberInput.vue";
 import ChipInput from "./ChipInput.vue";
 import SaveDock from "./SaveDock.vue";
+import SingleSelect from "./SingleSelect.vue";
+import NoticeBox from "./NoticeBox.vue";
+import { FIELD, FIELD_LABEL, AREA, CODE_BOX } from "../utils/field.ts";
+import { FILTER_CHIP, FILTER_CHIP_OFF } from "../utils/filter-chip.ts";
+import BaseSwitch from "./BaseSwitch.vue";
+import type { Option, OptionValue } from "../utils/options.ts";
 import { isFolded, toggleFold, promptFoldId, reorderPrompts } from "../composables/config-folds.ts";
 import { useConfigFile } from "../composables/config-file.ts";
+import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
+import { reportSinglePane, useListDetailLayout, LIST_ROW } from "../composables/list-detail.ts";
+import { pushDown } from "../utils/up-nav.ts";
+import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { valueOf } from "../utils/dom.ts";
 import { AI_ROLES, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
-import { AI_KEY_ORDER, aiProblems, type AiUnknown } from "../../../src/config/schema/ai.ts";
+import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, type AiUnknown } from "../../../src/config/schema/ai.ts";
 import type { ModelField, ModelGroup } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
 import type { AiFields, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
+import { AI_SAMPLE_CANDIDATES } from "../../../src/dashboard/contract/admin.ts";
+import { formatDuration } from "../../../src/ui/format.ts";
 import type { RefreshResult } from "../../../src/config/ai-model-types.ts";
 
 /** 편집 중인 ai.yaml. 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
 type Draft = Record<string, unknown> & {
+  /** 켜고 끄기. 끄면 고른 것은 두고 부르지만 않는다(없으면 provider 로 판단: off 면 꺼짐) */
+  enabled?: boolean;
   provider?: string;
   model?: string;
   baseUrl?: string;
@@ -530,18 +510,45 @@ type ListCfg = { lineFormat: string; unknownDuration: AiUnknown; unknownText: st
 /** 확인 결과 한 칸(무료 · 유료 테스트) */
 type Tested = { kind: string; ok: boolean; status: number | null | undefined; tookMs: number; reason?: string; extra?: string; asked?: string; body?: string; raw?: string };
 
-const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
-const selectCls = "appearance-none cursor-pointer pr-9!";
-const arrowCls = "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted";
-const optionCls = "bg-[#141833] text-[#e7e9f3]";
-const labelCls = "block text-[0.8rem] text-muted mb-1.5";
-const preCls = "bg-black/30 border border-white/8 rounded-xl p-3 text-[0.75rem] leading-relaxed font-mono whitespace-pre-wrap break-words max-h-72 overflow-auto text-fg-soft";
-const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
-const foldBtn = "size-7 mb-0.5 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
-const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10";
-const addLine = "flex items-center gap-1.5 text-muted text-[0.82rem] px-2 py-1.5 rounded-lg cursor-pointer transition-colors duration-150 hover:text-fg-soft hover:bg-white/6";
-const iconBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10 hover:text-fg disabled:opacity-35 disabled:cursor-not-allowed";
-const markBtn = "px-2 py-1 rounded-md text-[0.75rem] font-mono border border-white/10 bg-white/4 text-muted cursor-pointer transition-colors duration-150 hover:bg-white/8 hover:text-fg";
+// 아이콘 버튼(XS 32 · 20, 누를 자리 48)
+const NL = String.fromCharCode(10);
+
+const route = useRoute();
+const router = useRouter();
+// 프로바이더를 안 골라도 여는 것
+const ALWAYS_OPEN: readonly string[] = ["model", "log", "usage"];
+
+// ── 목록 · 상세. 주소 ?ai= 에 고른 줄(model · prompt · advanced · log · usage). 두 단이면 고른 것이 없을 때 모델 ──
+const FIXED_ITEMS = [
+  { id: "model", label: "모델", icon: "model_training" },
+  { id: "prompt", label: "프롬프트", icon: "terminal" },
+  { id: "advanced", label: "고급 설정", icon: "settings" },
+  { id: "log", label: "리퀘스트 로그", icon: "history" },
+  { id: "usage", label: "사용량 통계", icon: "bar_chart" },
+] as const;
+const paneEl = ref<HTMLElement | null>(null);
+const { twoPane, listCardClass, paneClass } = useListDetailLayout(paneEl);
+// 한 단이면 운영자 패널 위 막대 ← 로 목록에
+reportSinglePane("ai", () => !twoPane.value);
+const picked = computed<string | null>(() => {
+  const q = route.query.ai;
+  if (typeof q === "string") {
+    if (ALWAYS_OPEN.includes(q) || (on.value && ["prompt", "advanced"].includes(q))) return q;
+  }
+  return twoPane.value ? "model" : null;
+});
+const showList = computed(() => twoPane.value || !picked.value);
+const showDetail = computed(() => !!picked.value);
+const isOn = (id: string) => twoPane.value && picked.value === id;
+/** 보이는 묶음(고른 줄) */
+const view = computed(() => picked.value);
+const providerLabel = computed(() => providerOptions.value.find((one) => one.value === draft.value.provider)?.label ?? draft.value.provider ?? "");
+// 한 단에서 열면 방문 기록을 한 칸 쌓아(뒤로가기 = 목록), 두 단에서 고르면 주소만 바꾼다
+function openItem(id: string) {
+  const query = { ...route.query, ai: id };
+  if (twoPane.value) void router.replace({ query });
+  else void pushDown(router, route, { query });
+}
 
 // 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다. 값으로 둔다
 const LIST_MARK = "{{목록}}";
@@ -554,16 +561,16 @@ const ROLES = AI_ROLES;
 
 const MARKS = [
   { mark: "{{번호}}", hint: "1부터" },
-  { mark: "{{장르}}", hint: "자동재생 장르 이름. 없으면 랜덤" },
-  { mark: "{{제목}}", hint: "영상 제목. 반드시 넣어야 합니다" },
+  { mark: "{{장르}}", hint: "자동재생 장르 이름" },
+  { mark: "{{제목}}", hint: "영상 제목 (필수)" },
   { mark: "{{길이분}}", hint: "길이(분)" },
   { mark: "{{길이초}}", hint: "길이(초)" },
 ];
 
 const UNKNOWN: Array<{ value: AiUnknown; label: string; hint: string }> = [
-  { value: "hide", label: "그 칸을 뺀다", hint: '자리표시자가 든 낱말째 빠집니다. 기본 형식이면 "길이=3분"이 통째로 사라집니다.' },
-  { value: "text", label: "글자로 적는다", hint: "형식이 일정해 모델이 자리를 헷갈리지 않습니다." },
-  { value: "zero", label: "0으로 적는다", hint: "모르는 것을 0분이라고 알려 주는 셈이라 권하지 않습니다." },
+  { value: "hide", label: "그 칸 빼기", hint: '자리표시자가 든 낱말째 빠져요. 기본 형식이면 "길이=3분"이 통째로 사라져요.' },
+  { value: "text", label: "글자로 적기", hint: "형식이 일정해 모델이 자리를 헷갈리지 않아요." },
+  { value: "zero", label: "0으로 적기", hint: "모르는 것을 0분이라고 알려 주는 셈이라 권하지 않아요." },
 ];
 
 const draft = ref<Draft>({ provider: "off" });
@@ -572,21 +579,19 @@ const fieldInfo = ref<AiFields>({ known: false, fields: [], groups: [], models: 
 const showAdvanced = ref(false);
 const showHide = ref(false);
 const refreshing = ref(false);
-const refreshNote = ref("");
 
 async function refreshModels() {
   refreshing.value = true;
-  refreshNote.value = "";
   try {
     const { data } = await axios.post<RefreshResult>("/api/admin/ai/models/refresh", undefined, { timeout: LIMIT.none });
-    refreshNote.value = data.changed ? `모델 ${data.count}개로 갱신` : "이미 최신";
-    if (data.changed) await loadFields();
+    if (data.changed) {
+      notifyDone("모델 정보를 갱신했어요", `모델 ${data.count}개`);
+      await loadFields();
+    } else notifyDone("모델 정보가 이미 최신이에요");
   } catch (error) {
-    refreshNote.value = "받지 못했습니다";
-    loadError.value = problemText(error, "모델 정보를 받지 못했습니다.");
+    notifyProblem(error, "모델 정보를 받지 못했어요.");
   } finally {
     refreshing.value = false;
-    setTimeout(() => (refreshNote.value = ""), 4000);
   }
 }
 // 값은 모델별로 따로 든다. 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
@@ -683,7 +688,6 @@ let serial = 0;
 
 // 키는 프로바이더마다 따로다(config/ai-keys.yaml). 값은 안 내려오고 있는지 없는지만 온다.
 const hasKey = computed(() => !!keyPresence.value[draft.value.provider ?? ""]);
-const keyCls = computed(() => (hasKey.value ? "text-[#4ade80]" : "text-muted"));
 const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
 
 // 로컬 · 클라우드 · 게이트웨이로 묶어 보여 준다. 묶음 없는 것("사용하지 않음")은 맨 위에.
@@ -697,7 +701,13 @@ const grouped = computed(() => {
   }
   return out;
 });
+// 프로바이더를 골랐는지(모델 말고 나머지 칸을 쓸 수 있는지). 실제로 켜졌는지는 aiOn
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
+// 켜고 끄기 스위치. 파일에 enabled 가 없으면 provider 로 판단한다(옛 파일: off 면 꺼짐)
+const aiOn = computed({
+  get: () => draft.value.enabled ?? on.value,
+  set: (v: boolean) => (draft.value.enabled = v),
+});
 // 로컬 모델은 키를 안 받는다. 있으나 마나 한 표시를 띄우지 않는다
 const needsKey = computed(() => !!spec.value?.key);
 
@@ -711,8 +721,8 @@ const shownEndpoint = computed(() => {
   return vertexChatUrl(draft.value, "[프로젝트 ID]", String(draft.value.model || "").trim() || "{모델}");
 });
 const keyPlaceholder = computed(() => {
-  if (spec.value?.serviceAccount) return hasKey.value ? "저장돼 있습니다. 바꾸려면 새 JSON 을 붙여넣으세요" : '{\n  "type": "service_account",\n  "project_id": "…",\n  "private_key": "-----BEGIN PRIVATE KEY-----\\n…",\n  "client_email": "…@….iam.gserviceaccount.com"\n}';
-  return hasKey.value ? "저장 되어 있습니다. 새로 저장하여 수정할 수 있습니다." : "키를 입력하세요";
+  if (spec.value?.serviceAccount) return hasKey.value ? "저장돼 있어요. 바꾸려면 새 JSON 을 붙여넣으세요" : '{\n  "type": "service_account",\n  "project_id": "…",\n  "private_key": "-----BEGIN PRIVATE KEY-----\\n…",\n  "client_email": "…@….iam.gserviceaccount.com"\n}';
+  return hasKey.value ? "저장돼 있어요. 새로 저장하면 바뀌어요." : "키를 입력하세요";
 });
 
 // 붙여넣기 전에 알려 준다. 엉뚱한 것을 저장해 두고 나중에 401 만 보는 것보다 낫다
@@ -879,7 +889,8 @@ const promptPayload = computed((): PromptSection[] => sections.value.map((one) =
 const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/ai · schema/ai-prompt). 저장 버튼을 누르기 전에 알려 준다
-const problems = computed(() => [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...serverProblems.value]);
+// 꺼 두면(enabled: false) 나머지 칸 · 프롬프트를 따지지 않고 그대로 저장한다(틀린 것이 있어도)
+const problems = computed(() => (aiSwitchedOff(payload.value) ? [...serverProblems.value] : [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...serverProblems.value]));
 
 function addSection() {
   sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", name: "", text: "" });
@@ -901,7 +912,7 @@ function insertMark(mark: string) {
 }
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 섹션을 따라간다 ─────────────────────────
-const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(sections, reorderPrompts);
+const { startDrag } = useDragReorder(sections, reorderPrompts);
 
 // ── 주고받기 ──────────────────────────────────────────────────────────────
 
@@ -928,7 +939,6 @@ function applyPrompt(list: PromptSection[] | null | undefined) {
 const {
   dirty,
   saving,
-  savedAt,
   loadError,
   serverProblems,
   fetch: fetchAll,
@@ -936,6 +946,7 @@ const {
   revert,
 } = useConfigFile({
   tab: "ai",
+  savedNote: "다음 자동재생부터 반영돼요",
   // 적어 두고 저장하지 않은 키도 떠날 때 묻는다
   alsoUnsaved: () => Boolean(keyInput.value.trim()),
   payload: () => ({ data: payload.value, sections: promptPayload.value }),
@@ -998,14 +1009,13 @@ async function countTokens() {
     if (seq !== tokensSeq) return;
     tokenEach.value = [];
     tokenTotal.value = null;
-    tokenError.value = problemText(error, "토큰을 세지 못했습니다.");
+    tokenError.value = problemText(error, "토큰을 세지 못했어요.");
   }
 }
 
 // ── 판정 테스트 ────────────────────────────────────────────────────────────
 // 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 보내지 않고,
 // 판정 요청만 실제로 보낸다. 적어만 두고 조회를 안 했으면 보기 곡으로 나간다.
-const NL = String.fromCharCode(10);
 const judgeUrls = ref("");
 const judgeGenre = ref("록");
 const judging = ref(false);
@@ -1017,7 +1027,6 @@ const judgeSent = ref<JudgeResult | null>(null);
 const showJudgeRaw = ref(false);
 const judgeLookedUp = ref("");
 
-const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
 // 안전하지 않은 출처처럼 못 쓰는 자리면 복사만 안 될 뿐이다
 function copy(text: unknown) {
   navigator.clipboard?.writeText(String(text ?? "")).catch(() => {
@@ -1026,6 +1035,8 @@ function copy(text: unknown) {
 }
 
 // 적어 두고 조회를 안 눌렀으면 알려 준다. 그대로 보내면 보기 곡으로 판정한다
+// 조회 안 한 주소를 그대로 보내면 쓰이는 보기 곡(제목 · 길이)
+const SAMPLE_LINES = AI_SAMPLE_CANDIDATES.map((one) => (one.durationSec ? `${one.title} (${formatDuration(one.durationSec)})` : one.title)).join(NL);
 const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeUrls.value.trim() !== judgeLookedUp.value);
 const rendered = (one: TestCandidate) => Boolean(!one.error && one.title);
 const judgeUsable = computed(() => (judgeStale.value ? [] : judgeCands.value.filter(rendered)));
@@ -1067,7 +1078,7 @@ async function lookupJudge() {
     judgeCands.value = (await axios.post<CandidatesReply>("/api/admin/ai/judge/lookup", { urls: judgeUrlList() }, { timeout: LIMIT.none })).data.candidates;
     judgeLookedUp.value = judgeUrls.value.trim();
   } catch (error) {
-    judgeError.value = problemText(error, "조회하지 못했습니다.");
+    judgeError.value = problemText(error, "조회하지 못했어요.");
   } finally {
     judging.value = false;
   }
@@ -1095,7 +1106,7 @@ async function drawLines() {
   } catch (error) {
     if (seq !== linesSeq) return;
     judgeList.value = [];
-    judgeError.value = problemText(error, "프롬프트에 적힐 목록을 그리지 못했습니다.");
+    judgeError.value = problemText(error, "프롬프트에 적힐 목록을 그리지 못했어요.");
   }
 }
 
@@ -1108,7 +1119,7 @@ async function runJudge() {
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
   } catch (error) {
-    judgeError.value = problemText(error, "판정을 받지 못했습니다.");
+    judgeError.value = problemText(error, "판정을 받지 못했어요.");
   } finally {
     judging.value = false;
   }
@@ -1135,7 +1146,7 @@ async function loadFields() {
   } catch (error) {
     if (seq !== fieldsSeq) return;
     fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
-    loadError.value = problemText(error, "모델이 받는 칸을 읽지 못했습니다.");
+    loadError.value = problemText(error, "모델이 받는 칸을 읽지 못했어요.");
   }
 }
 
@@ -1151,7 +1162,7 @@ async function fetchState() {
     settingDefaults.value = state.settingDefaults || {};
   } catch (error) {
     keyPresence.value = {};
-    loadError.value = problemText(error, "키가 있는지와 기본 프롬프트를 읽지 못했습니다.");
+    loadError.value = problemText(error, "키가 있는지와 기본 프롬프트를 읽지 못했어요.");
   }
 }
 
@@ -1160,9 +1171,28 @@ async function openPreview() {
   try {
     shown.value = (await axios.post<Preview>("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
   } catch (error) {
-    loadError.value = problemText(error, "미리보기를 만들지 못했습니다.");
+    loadError.value = problemText(error, "미리보기를 만들지 못했어요.");
   }
 }
+
+// 고르기 칸(SingleSelect)의 선택지와 고른 뒤. 프로바이더는 로컬 · 클라우드 · 게이트웨이로 묶어 보인다(묶음 없는 것은 맨 위)
+// "사용하지 않음"(off)은 빼고 켜고 끄기는 스위치가 맡는다
+const providerOptions = computed<Option[]>(() => [...ungrouped.value.filter((one) => one.value !== "off").map((one) => ({ value: one.value, label: one.label })), ...grouped.value.flatMap((g) => g.items.map((one) => ({ value: one.value, label: one.label, group: g.name })))]);
+function pickProvider(value: OptionValue) {
+  draft.value.provider = String(value);
+  onProvider();
+}
+function pickModel(value: OptionValue) {
+  draft.value.model = String(value);
+  rememberModel(draft.value.provider, draft.value.model);
+}
+// 모델 매개변수의 고르기: 값이 참 · 거짓 · 수일 수도 있어 고르기 칸에는 차례(문자열)로 넘기고 돌려받는다. 비어 있으면 기본값
+const enumOptions = (list: Array<{ value: unknown; label: string }>): Option[] => list.map((one, i) => ({ value: String(i), label: one.label }));
+const enumValue = (list: Array<{ value: unknown }>, value: unknown): OptionValue => {
+  const at = list.findIndex((one) => one.value === value);
+  return at < 0 ? "" : String(at);
+};
+const enumPick = (list: Array<{ value: unknown }>, picked: OptionValue): unknown => (picked === "" ? "" : list[Number(picked)]?.value);
 
 function onProvider() {
   models.value = [];
@@ -1204,7 +1234,7 @@ async function loadModels({ quiet = false } = {}) {
     if (quiet && !got.ok) return;
     tested.value = modelsTested(got);
   } catch (error) {
-    if (!quiet) tested.value = { kind: "무료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "불러오지 못했습니다.") };
+    if (!quiet) tested.value = { kind: "무료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "불러오지 못했어요.") };
   } finally {
     loadingModels.value = false;
   }
@@ -1222,7 +1252,7 @@ const askPaid = async (which: "ping" | "judge") => {
     const { url } = (await axios.post<Preview>("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
     if (paid.value === which) paidUrl.value = url || "";
   } catch (error) {
-    if (paid.value === which) paidUrlError.value = problemText(error, "보낼 곳을 확인하지 못했습니다.");
+    if (paid.value === which) paidUrlError.value = problemText(error, "보낼 곳을 확인하지 못했어요.");
   }
 };
 
@@ -1239,8 +1269,9 @@ async function putKey(value: string) {
   try {
     keyPresence.value = (await axios.put<KeysReply>("/api/admin/ai/keys", { keys: { [draft.value.provider ?? ""]: value } })).data.hasKey || {};
     keyInput.value = "";
+    notifyDone(value ? "키를 저장했어요" : "키를 지웠어요");
   } catch (error) {
-    loadError.value = problemText(error, "키를 저장하지 못했습니다.");
+    notifyProblem(error, value ? "키를 저장하지 못했어요." : "키를 지우지 못했어요.");
   } finally {
     savingKey.value = false;
   }
@@ -1279,7 +1310,7 @@ async function runPing() {
       raw: got.response,
     };
   } catch (error) {
-    tested.value = { kind: "유료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "보내지 못했습니다.") };
+    tested.value = { kind: "유료 테스트", ok: false, status: null, tookMs: 0, reason: problemText(error, "보내지 못했어요.") };
   } finally {
     pinging.value = false;
   }

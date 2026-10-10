@@ -1,13 +1,11 @@
 // 입력칸 아래에 붙여 띄우는 패널의 자리를 잡는다. 드롭다운 목록이 쓴다.
 //
-// 그냥 absolute 로 두면 카드 안에 갇힌다. BaseCard 에 backdrop-blur 가 걸려 있어서
-// 카드가 제 쌓임 맥락을 만들고, 그 안의 z-index 는 아무리 올려도 카드 바깥 형제를
-// 못 넘는다. 아래 고정 재생바에도 깔린다. 그래서 body 로 내보내고(Teleport) 좌표를
-// 직접 준다. fixed 만으로는 안 된다. backdrop-filter 가 걸린 조상은 fixed 의 기준이
-// 되어 버리기 때문이다.
+// 그냥 absolute 로 두면 카드 · 구르는 칸 안에 갇히고, 아래 고정 재생바에도 깔린다.
+// 그래서 body 로 내보내고(Teleport) 좌표를 직접 준다. fixed 만으로는 안 된다.
+// 조상에 transform · filter · backdrop-filter 가 걸리면 그 조상이 fixed 의 기준이 되기 때문이다.
 //
 // 자리를 잡고 나면 세 가지를 더 본다.
-//   아래가 좁으면 위로 뒤집는다. 아래 재생바가 가리는 만큼은 자리가 아니다.
+//   아래가 패널 내용을 다 담지 못하고 위가 더 넓으면 위로 뒤집는다. 아래 재생바가 가리는 만큼은 자리가 아니다.
 //   스크롤과 창 크기 변화를 따라간다. 내부 스크롤 칸도 잡으려면 캡처로 들어야 한다.
 //   칸 자체가 커지면(칩이 늘면) 다시 잰다.
 import { ref, nextTick, watch, onBeforeUnmount, type Ref, type CSSProperties } from "vue";
@@ -29,6 +27,16 @@ function coveredBottom(el: HTMLElement) {
 export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1 }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number }) {
   const style = ref<CSSProperties>({});
   let observer: ResizeObserver | null = null;
+  /** 패널이 줄지 않고 다 보이는 높이. 열 때 한 번 잰다(검색으로 줄이 줄 때 뒤집히지 않게) */
+  let need = maxHeight;
+
+  // 구르는 칸이 줄어 있어도 안의 내용 높이(scrollHeight)로 센다
+  function naturalHeight(box: HTMLElement) {
+    const cs = getComputedStyle(box);
+    let height = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    for (const child of box.children) height += (child as HTMLElement).scrollHeight;
+    return Math.min(maxHeight, height);
+  }
 
   function place() {
     const el = anchor.value;
@@ -37,9 +45,8 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
     const floor = window.innerHeight - coveredBottom(el);
     const below = floor - rect.bottom - gap;
     const above = rect.top - gap;
-    // 아래가 바라는 만큼 안 되고 위가 더 넓을 때만 뒤집는다. 조금 좁다고 매번 뒤집으면
-    // 스크롤할 때 패널이 왔다 갔다 한다.
-    const flip = below < Math.min(maxHeight, 160) && above > below;
+    // 아래가 내용을 다 담지 못하고 위가 더 넓을 때만 뒤집는다. 기준이 내용 높이 하나라 스크롤하며 그 선을 넘을 때 한 번만 바뀐다
+    const flip = below < need && above > below;
 
     style.value = {
       position: "fixed",
@@ -75,8 +82,12 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
     if (now) {
       // 먼저 한 번 잡고 그린다. 자리를 nextTick 으로 미루면 패널이 한 프레임 동안
       // 문서 맨 끝에 그려지고, 그쪽에 초점이 가면 브라우저가 페이지를 바닥까지 내린다.
+      need = maxHeight;
       place();
-      void nextTick(place);
+      void nextTick(() => {
+        if (panel.value) need = naturalHeight(panel.value);
+        place();
+      });
       if (anchor.value && typeof ResizeObserver !== "undefined") {
         observer = new ResizeObserver(place);
         observer.observe(anchor.value);

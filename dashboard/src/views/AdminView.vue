@@ -1,669 +1,356 @@
 <template>
-  <div class="max-w-275 mx-auto px-3 py-4.5">
-    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-4 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">운영자 패널</h1>
+  <!-- 태블릿 · PC: 왼쪽 끝에 탭 레일(M3 내비게이션 레일), 오른쪽에 내용(폭을 다 쓴다).
+       휴대폰: 탭을 고르지 않았으면 탭 고르는 화면(묶음별 목록), 고르면 그 페이지(위 막대에 ← · "운영자 패널 - 탭 이름").
+       고른 탭은 주소 ?tab= 에 두고 옮길 때마다 방문 기록을 쌓는다(뒤로가기 = 앞의 탭, 휴대폰은 고르는 화면) -->
+  <div class="md:pt-(--gap-out) md:flex md:items-start md:gap-(--gap-in)">
+    <Teleport to="#topbar-start" defer>
+      <button v-if="(isPhone && tab) || detailOpen" type="button" :class="TOPBAR_BTN" aria-label="뒤로" @click="goBack"><Icon name="arrow_back" /></button>
+    </Teleport>
 
-    <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
+    <!-- 휴대폰: 탭 고르는 화면 -->
+    <div v-if="isPhone && !tab && !loading" class="flex flex-col gap-(--gap-in)">
+      <section v-for="(group, gi) in TAB_GROUPS" :key="gi" class="pane rounded-(--r-window) p-2">
+        <template v-for="(t, ti) in group" :key="t.id">
+          <!-- 구분선: 아이콘 칸(안쪽 여백 12 + 아이콘 40 + 틈 16)을 비우고 글자 시작부터 -->
+          <div v-if="ti" class="h-px ml-17 mr-3 bg-outline-variant/60" aria-hidden="true"></div>
+          <button type="button" class="tap state-layer w-full flex items-center gap-4 min-h-14 px-3 py-2 rounded-(--r-row) cursor-pointer text-left" @click="setTab(t.id)">
+            <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsaved.has(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="'저장하지 않은 변경이 있어요'"></span></span>
+            <span class="flex-1 min-w-0 text-body font-medium text-on-surface">{{ t.label }}</span>
+            <Icon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+          </button>
+        </template>
+      </section>
+    </div>
+    <!-- 탭 레일. 내용이 길어도 제자리에 붙어 있다. 고른 표시(알약)는 하나를 두고 고른 칸으로 미끄러뜨린다.
+         높이는 바탕화면 위아래 틈 사이 전부(재생 바 노치는 가운데에 떠 있어 레일과 겹치지 않는다).
+         페이지 아래 여백에 든 재생 바 높이만큼은 음수 여백으로 돌려줘 레일 때문에 페이지가 구르지 않게 한다.
+         탭이 많아 넘치면 레일 안에서 구르고 가장자리가 흐려진다 -->
+    <nav v-if="!loading" class="pane hidden md:flex sticky top-(--gap-out) shrink-0 w-(--rail) flex-col overflow-hidden rounded-(--r-window) h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)" aria-label="운영자 패널 탭">
+      <div ref="railEl" class="relative min-h-0 flex flex-col items-stretch gap-1 py-3 overflow-y-auto overscroll-contain scrollbar-none" :style="railFade">
+        <span aria-hidden="true" class="absolute top-0 left-1/2 w-14 h-8 rounded-2xl bg-secondary-container" :class="railReady && 'transition-transform spring'" :style="{ transform: `translate(-50%, ${pillY}px)` }"></span>
+        <template v-for="(group, gi) in TAB_GROUPS" :key="gi">
+          <span v-if="gi > 0" aria-hidden="true" class="shrink-0 h-px mx-5 my-1 bg-outline-variant"></span>
+          <button v-for="t in group" :key="t.id" :ref="(el) => railItem(t.id, el)" type="button" class="group relative shrink-0 flex flex-col items-center gap-1 py-1 cursor-pointer" :aria-current="tab === t.id ? 'page' : undefined" @click="setTab(t.id)">
+            <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors duration-150" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
+              <Icon :name="t.icon" :size="24" :fill="tab === t.id" />
+              <span v-if="unsaved.has(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="'저장하지 않은 변경이 있어요'"></span>
+            </span>
+            <span class="px-1 text-2xs leading-4 text-center" :class="tab === t.id ? 'font-semibold text-on-surface' : 'font-medium text-on-surface-variant'">{{ t.label }}</span>
+          </button>
+        </template>
+      </div>
+    </nav>
 
-    <template v-else>
-      <!-- 탭. 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
+    <!-- 탭을 옮겨 새 페이지가 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 칸을 만들지 않는다).
+         늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그 · 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
+    <!-- 휴대폰의 탭 고르는 화면 동안에도 지우지 않고 숨긴다(저장하지 않은 편집 · 로그 · 스크롤을 지킨다) -->
+    <div v-show="tab" class="@container/content flex-1 min-w-0" :class="sliding && 'overflow-y-clip pb-(--player) -mb-(--player)'" :data-dir="pageDir">
+      <div v-if="loading" class="flex items-center justify-center p-20"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
+
+      <template v-else>
+        <!-- 탭. 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
            v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다.
 
            바깥이 스크롤러, 안쪽 줄이 경계선을 갖는다. 경계선을 스크롤러에 두면 가로 스크롤바가
            그 안쪽(선 위)에 그려진다. overflow-y를 명시하지 않으면 visible이 auto로 바뀌어,
            버튼의 -mb-px 1px 때문에 모든 해상도에서 세로 스크롤바가 상시로 생긴다. -->
-      <div :class="tabScroller">
-        <div class="flex gap-1 min-w-max border-b border-white/8">
-          <button v-for="t in TABS" :key="t.id" type="button" :class="[tabBtn, tab === t.id ? tabOn : tabOff]" @click="setTab(t.id)"><Icon :name="t.icon" :size="15" />{{ t.label }}<span v-if="unsaved.has(t.id)" class="size-1.5 rounded-full bg-warning" v-tooltip="'저장하지 않은 변경이 있습니다'"></span></button>
+        <div class="admin-page" v-show="tab === 'status'">
+          <BotStatus v-if="status" :status="status" :updated-at="statusAt" :stale="statusStale" @open-logs="setTab('logs')" @open-db="setTab('db')" />
         </div>
-      </div>
 
-      <div v-show="tab === 'status'">
-        <p class="pl-2 text-muted mb-3 text-[0.85rem]">3초마다 자동 갱신 · 탭을 벗어나면 멈춤</p>
-        <!-- auto-fill은 중간 폭에서 2/1로 갈라져 빈칸이 남는다. 카드가 4개이므로 2열로 못박아 2/2, 좁으면 1열. -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-3 mb-3">
-          <!-- 봇 -->
-          <BaseCard icon="robot" title="봇 상태">
-            <div :class="statRow">
-              <span>태그</span><span>{{ s.bot.tag }}</span>
-            </div>
-            <div :class="statRow">
-              <span>서버 수</span><strong>{{ s.bot.guilds }}</strong>
-            </div>
-            <div :class="statRow">
-              <span>활성 플레이어</span><strong>{{ s.activePlayers }}</strong>
-            </div>
-            <div :class="statRow">
-              <span>WebSocket 핑</span><span :class="pingClass(s.bot.ping)">{{ s.bot.ping }} ms</span>
-            </div>
-            <div :class="statRow">
-              <span>업타임</span><span>{{ uptimeStr }}</span>
-            </div>
-          </BaseCard>
-
-          <!-- Node.js -->
-          <BaseCard icon="gear" title="Node.js">
-            <div :class="statRow">
-              <span>버전</span><span>{{ s.node.version }}</span>
-            </div>
-            <div :class="statRow">
-              <span>플랫폼</span><span>{{ s.node.platform }} / {{ s.node.arch }}</span>
-            </div>
-            <div :class="statRow">
-              <span>Heap 사용</span><span>{{ s.node.memory.heapUsed }} MB / {{ s.node.memory.heapTotal }} MB</span>
-            </div>
-            <div :class="statRow">
-              <span>RSS</span><span>{{ s.node.memory.rss }} MB</span>
-            </div>
-          </BaseCard>
-
-          <!-- 시스템 -->
-          <BaseCard icon="desktop" title="시스템">
-            <div :class="statRow">
-              <span>CPU 코어</span><span>{{ s.system.cpus }} 코어</span>
-            </div>
-            <div :class="statRow">
-              <span>여유 메모리</span><span>{{ s.system.freeMem }} MB / {{ s.system.totalMem }} MB</span>
-            </div>
-            <div :class="statRow" v-if="s.system.loadAvg">
-              <span>로드 평균</span>
-              <span>{{ s.system.loadAvg.map((n) => n.toFixed(2)).join(" · ") }}</span>
-            </div>
-          </BaseCard>
-
-          <!-- 자식 프로세스. 재생 ffmpeg는 곡이 끝나면 사라져야 한다.
-               오래 남아 있으면 정리 사슬이 끊긴 것이므로 나이를 강조해서 보여준다. -->
-          <BaseCard icon="terminal" title="자식 프로세스">
-            <div :class="statRow">
-              <span>총 개수</span><strong>{{ s.processes.total }}</strong>
-            </div>
-            <div v-for="p in s.processes.byLabel" :key="p.label" :class="statRow">
-              <span>{{ p.label }}</span
-              ><strong>{{ p.count }}</strong>
-            </div>
-            <div v-if="s.processes.total === 0" :class="statRow">
-              <span class="text-muted">떠 있는 프로세스 없음</span>
-            </div>
-            <div v-if="s.processes.oldest.length" class="mt-2">
-              <div v-for="p in s.processes.oldest" :key="p.pid" :class="statRow">
-                <span class="font-mono text-[0.78rem]"
-                  >{{ p.label }}<span class="text-muted"> #{{ p.pid }}</span></span
-                >
-                <span :class="procAgeClass(p.ageMs)">{{ fmtAge(p.ageMs) }}</span>
-              </div>
-            </div>
-          </BaseCard>
-
-          <!-- 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다.
-               기동 로그는 시작 시점의 설정만 보여주므로 도중에 막힌 경로를 알 수 없다. -->
-          <BaseCard icon="globe" title="유튜브 접속 경로">
-            <div :class="statRow">
-              <span>POToken</span><span :class="s.youtube.pot === 'missing' ? 'text-danger' : ''">{{ potLabel(s.youtube.pot) }}</span>
-            </div>
-            <div :class="statRow">
-              <span>쿠키</span><span>{{ cookieLabel(s.youtube.cookies) }}</span>
-            </div>
-            <div :class="statRow">
-              <span>클라이언트 경로</span><span>{{ s.youtube.configured ? `${s.youtube.clients.length}개 지정` : "미지정 (yt-dlp 기본값)" }}</span>
-            </div>
-            <div v-if="s.youtube.configured" class="mt-2">
-              <div v-for="(c, i) in s.youtube.clients" :key="c.name" :class="statRow">
-                <span class="font-mono text-[0.78rem]">
-                  <span class="text-muted">{{ i + 1 }}.</span> {{ c.name }}
-                  <span v-if="c.needsPot" class="text-muted text-[0.7rem]"> POT</span>
-                  <span v-if="!c.known" class="text-warning text-[0.7rem]"> 미확인</span>
-                </span>
-                <span :class="clientClass(c)">{{ clientLabel(c) }}</span>
-              </div>
-            </div>
-          </BaseCard>
+        <div class="admin-page" v-show="tab === 'info'">
+          <BotInfo v-if="status" :status="status" />
         </div>
-      </div>
 
-      <div v-show="tab === 'logs'">
-        <!-- 로그 보기 -->
-        <BaseCard class="mb-3">
-          <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
-            <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
-            <div class="flex gap-1.5 flex-wrap">
-              <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(levelsOn.has(lvl.value))" @click="toggleLevel(lvl.value)">{{ lvl.label }}</button>
-              <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
-                <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
-              </button>
-              <button :class="typeBtn(false)" @click="logs = []">지우기</button>
-            </div>
-          </div>
-          <div v-if="logCategories.length" class="flex gap-1.5 flex-wrap mb-2">
-            <button v-for="cat in logCategories" :key="cat" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :style="catFilter === cat ? { color: catColor(cat), borderColor: catColor(cat) + '88', backgroundColor: catColor(cat) + '22' } : { color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.03)' }" @click="catFilter = catFilter === cat ? null : cat">
-              {{ cat }}
-            </button>
-          </div>
-          <!-- 태그: 카테고리와 같은 규칙(흘러온 것에서 파생). 태그를 단 로그가 없으면 줄 자체가 없다. -->
-          <div v-if="logTags.length" class="flex gap-1.5 flex-wrap mb-2">
-            <button v-for="t in logTags" :key="t" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :class="tagFilter === t ? 'text-fg border-white/35 bg-white/12' : 'text-[rgba(255,255,255,0.5)] border-white/9 bg-white/3'" @click="tagFilter = tagFilter === t ? null : t">#{{ t }}</button>
-          </div>
-          <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
-            <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
-            <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
-            <span v-if="levelsOn.size < logLevels.length" class="text-[#c4b5fd]">{{ [...levelsOn].map((l) => l.toUpperCase()).join(" · ") || "레벨 전부 꺼짐" }}</span>
-            <span class="ml-auto">{{ filteredLogs.length }}줄</span>
-          </div>
-          <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
-            <div v-if="filteredLogs.length === 0" class="text-muted text-center py-10">로그 없음</div>
-            <div v-for="entry in filteredLogs" :key="entry.id" class="flex gap-2 leading-relaxed border-b border-white/3">
-              <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
-              <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
-              <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub || ''), backgroundColor: catColor(entry.category || entry.sub || '') + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
-              <span v-for="t in entry.tags" :key="t" class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6">#{{ t }}</span>
-              <span class="break-all whitespace-pre-wrap" :class="txtColor(entry.level)">{{ entry.text }}</span>
-            </div>
-          </div>
-        </BaseCard>
-      </div>
-
-      <div v-show="tab === 'guilds'">
-        <!-- 전체 공지 -->
-        <BaseCard icon="campaign" title="전체 공지 발송" class="mb-3">
-          <p class="text-muted text-sm mb-4">봇이 들어간 모든 서버에 공지 메시지를 보냅니다.</p>
-
-          <div class="flex gap-2 mb-3.5 flex-wrap">
-            <button v-for="type in types" :key="type.value" :class="typeBtn(bType === type.value)" @click="bType = type.value">{{ type.label }}</button>
-          </div>
-
-          <!-- 이모지 버튼은 오른쪽 위에 둔다. 오른쪽 아래는 크기 조절 손잡이 자리다.
-               글이 그 밑으로 들어가지 않게 pr로 자리를 비워 둔다. -->
-          <div class="relative mb-1.5">
-            <textarea ref="bMsgBox" v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-11 py-3 text-[0.9rem] resize-y outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7" @blur="bCaret = caretOf(bMsgBox)" @click="bCaret = caretOf(bMsgBox)" @keyup="bCaret = caretOf(bMsgBox)" @select="bCaret = caretOf(bMsgBox)"></textarea>
-            <EmojiPicker class="absolute! right-2 top-2.5" @pick="insertEmoji">
-              <template #default="{ toggle }">
-                <button type="button" :class="emojiBtn" v-tooltip="'이모지 넣기'" @click="toggle"><Twemoji char="🙂" :size="17" /></button>
-              </template>
-            </EmojiPicker>
-          </div>
-
-          <div class="flex items-center justify-between mb-3.5 text-xs">
-            <span v-if="tooLong" class="text-danger">{{ bLength - ANNOUNCE_MAX }}자를 줄여 주세요.</span>
-            <span v-else></span>
-            <span :class="tooLong ? 'text-danger' : 'text-muted'">{{ bLength.toLocaleString() }} / {{ ANNOUNCE_MAX.toLocaleString() }}</span>
-          </div>
-
-          <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim() || tooLong">
-            {{ sending ? "발송 중..." : "전체 발송" }}
-          </BaseButton>
-
-          <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
-            <Icon :name="result.success ? 'check' : 'error'" :size="16" />
-            <span class="whitespace-pre-line">{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : result.error || "발송하지 못했습니다." }}</span>
-          </div>
-        </BaseCard>
-
-        <!-- 서버 관리 -->
-        <BaseCard icon="globe" title="참가 서버 관리" class="mb-3">
-          <p class="text-muted text-sm mb-4">봇이 참가 중인 서버 목록입니다. 나가기는 되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.</p>
-
-          <div v-if="guilds.length === 0" class="text-muted text-sm">참가 중인 서버가 없습니다.</div>
-          <div v-else class="flex flex-col max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
-            <div v-for="g in guilds" :key="g.id" class="flex items-center gap-3 py-2.5 pr-2 border-b border-white/7 last:border-b-0 last:pb-0">
-              <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-9 rounded-full border border-white/10 shrink-0" />
-              <div v-else class="size-9 rounded-full border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold flex items-center justify-center shrink-0">{{ g.name[0] }}</div>
-              <div class="flex-1 overflow-hidden">
-                <div class="text-sm font-semibold overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
-                <div class="text-[0.78rem] text-muted">
-                  멤버 {{ g.memberCount }}명<span v-if="g.hasPlayer" class="text-success"> · <Icon name="music" :size="12" class="inline" /> 재생 중</span>
-                </div>
-              </div>
-              <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">나가기</BaseButton>
-            </div>
-          </div>
-
-          <div v-if="leaveResult" :class="resultMsg(leaveResult.success)" class="flex items-center gap-1.5">
-            <Icon :name="leaveResult.success ? 'check' : 'error'" :size="16" />
-            <span class="whitespace-pre-line">{{ leaveResult.success ? `"${leaveResult.name}" 서버에서 나갔습니다` : `나가기 실패: ${leaveResult.error}` }}</span>
-          </div>
-        </BaseCard>
-      </div>
-
-      <div v-show="tab === 'config'">
-        <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
-        <ConfigGenres v-if="opened.has('config')" />
-
-        <p v-if="opened.has('config')" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc 및 기여자. <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
-      </div>
-
-      <div v-show="tab === 'presence'">
-        <!-- 파일(config/status.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
-        <ConfigStatus v-if="opened.has('presence')" />
-      </div>
-
-      <div v-show="tab === 'ai'">
-        <!-- 파일(config/ai.yaml)로도 고칠 수 있다. API 키는 .env 에 있고 여기로 내려오지 않는다. -->
-        <ConfigAI v-if="opened.has('ai')" />
-      </div>
-
-      <div v-show="tab === 'cookies'">
-        <!-- 파일(config/cookies.txt)로도 고칠 수 있다. 저장된 값은 여기로 내려오지 않는다. -->
-        <ConfigCookies v-if="opened.has('cookies')" />
-      </div>
-
-      <div v-show="tab === 'dev'">
-        <!-- 권한 수준 오버라이드. 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
-        <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
-          <p class="text-muted text-[0.82rem] mt-1 mb-3">선택한 계층으로 대시보드를 사용합니다. 화면 표시뿐 아니라 서버가 실제로 허용하는 동작까지 그 계층을 따릅니다. 이 패널은 오버라이드와 무관하게 계속 열 수 있습니다.</p>
-          <div class="flex flex-col gap-1.5">
-            <button type="button" :class="[tierRow, user.viewAs === null ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(null)">
-              <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === null ? 'border-[#c4b5fd]' : 'border-white/25'">
-                <span v-if="user.viewAs === null" class="size-2 rounded-full bg-[#c4b5fd]"></span>
-              </span>
-              <span class="min-w-0">
-                <span class="block text-[0.85rem] font-semibold">오버라이드 하지 않음</span>
-                <span class="block text-[0.78rem] text-muted">평소 상태로 되돌립니다.</span>
-              </span>
-            </button>
-
-            <button v-for="t in VIEW_AS_TIERS" :key="t.id" type="button" :class="[tierRow, user.viewAs === t.id ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(t.id)">
-              <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === t.id ? 'border-[#c4b5fd]' : 'border-white/25'">
-                <span v-if="user.viewAs === t.id" class="size-2 rounded-full bg-[#c4b5fd]"></span>
-              </span>
-              <span class="min-w-0">
-                <span class="block text-[0.85rem] font-semibold">{{ t.label }}</span>
-                <span class="block text-[0.78rem] text-muted">{{ t.desc }}</span>
-              </span>
-            </button>
-          </div>
-
-          <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5 whitespace-pre-line">{{ tierError }}</p>
-        </BaseCard>
-
-        <!-- 명령 다시 배포 -->
-        <BaseCard icon="repeat" title="슬래시 커맨드 재배포" class="mb-3">
-          <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
-
-          <BaseButton variant="primary" @click="redeploy" :disabled="redeploying">
-            {{ redeploying ? "재배포 중..." : "커맨드 재배포" }}
-          </BaseButton>
-
-          <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
-            <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
-            <span class="whitespace-pre-line">{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
-          </div>
-        </BaseCard>
-
-        <!-- 캐시 비우기 -->
-        <BaseCard icon="trash" title="캐시 초기화">
-          <p class="text-muted text-sm mb-4">받아둔 오디오 파일과 조회 기록을 전부 지웁니다. 전용 채널·DJ 역할·SponsorBlock 설정은 남습니다.</p>
-
-          <BaseButton variant="danger" @click="confirmReset = true" :disabled="resetting">
-            {{ resetting ? "초기화 중..." : "캐시 초기화" }}
-          </BaseButton>
-
-          <div v-if="resetResult" :class="resultMsg(resetResult.success)" class="flex items-center gap-1.5">
-            <Icon :name="resetResult.success ? 'check' : 'error'" :size="16" />
-            <span class="whitespace-pre-line">{{ resetResult.success ? resetSummary : `초기화 실패: ${resetResult.error || ""}` }}</span>
-          </div>
-        </BaseCard>
-      </div>
-    </template>
-
-    <!-- 캐시 비우기 확인 대화상자 -->
-    <div v-if="confirmReset" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="confirmReset = false">
-      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-95 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <p class="mb-2 text-[0.95rem] text-fg-soft">캐시를 전부 지울까요?</p>
-        <p class="mb-5.5 text-[0.82rem] text-muted">
-          되돌릴 수 없습니다. 오디오 파일·조회 기록·SponsorBlock 구간 캐시가 사라지고, 다음 재생부터 다시 받습니다.<br />
-          서버 설정(전용 채널·DJ 역할·SponsorBlock)은 그대로 남습니다.
-        </p>
-        <div class="flex gap-2.5 justify-center">
-          <BaseButton variant="ghost" :disabled="resetting" @click="confirmReset = false">취소</BaseButton>
-          <BaseButton variant="danger" :disabled="resetting" @click="resetCache">
-            {{ resetting ? "지우는 중..." : "전부 지우기" }}
-          </BaseButton>
+        <div class="admin-page" v-show="tab === 'logs'">
+          <LiveLogs :logs="logs" :connected="sseConnected" :server-level="status?.logLevel" :active="tab === 'logs'" @clear="logs = []" />
         </div>
-      </div>
+
+        <div class="admin-page" v-show="tab === 'guilds'">
+          <ServerManage :guilds="guilds" @changed="onGuildsChanged" />
+        </div>
+
+        <!-- DB 브라우저: 신규 기능이라 2차 17단계에서 검토해 만든다(지금은 자리만, 저장 공간 카드의 "DB 브라우저" 버튼이 여기로 온다) -->
+        <div class="admin-page" v-show="tab === 'db'">
+          <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
+            <Icon name="database" :size="40" />
+            <p class="text-sm">DB 브라우저는 아직 짜지 않았어요</p>
+          </section>
+        </div>
+
+        <div class="admin-page" v-show="tab === 'autoplay'">
+          <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
+          <ConfigGenres v-if="opened.has('autoplay')" />
+        </div>
+
+        <div class="admin-page" v-show="tab === 'presence'">
+          <!-- 파일(config/status.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
+          <ConfigPresence v-if="opened.has('presence')" />
+        </div>
+
+        <div class="admin-page" v-show="tab === 'appearance'">
+          <!-- 올린 그림은 봇이 사람이 건드리지 않는 저장 자리에 둔다(파일로 넣는 길은 없다) -->
+          <ConfigAppearance v-if="opened.has('appearance')" />
+        </div>
+
+        <div class="admin-page" v-show="tab === 'ai'">
+          <!-- 파일(config/ai.yaml)로도 고칠 수 있다. API 키는 .env 에 있고 여기로 내려오지 않는다. -->
+          <ConfigAI v-if="opened.has('ai')" />
+        </div>
+
+        <div class="admin-page" v-show="tab === 'cookies'">
+          <!-- 파일(config/cookies.txt)로도 고칠 수 있다. 저장된 값은 여기로 내려오지 않는다. -->
+          <ConfigCookies v-if="opened.has('cookies')" />
+        </div>
+
+        <div class="admin-page" v-show="tab === 'dev'">
+          <DevOptions v-if="opened.has('dev')" />
+        </div>
+      </template>
     </div>
 
-    <!-- 서버 나가기 확인 대화상자 -->
-    <div v-if="leaveTarget" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="leaveTarget = null">
-      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-95 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <p class="mb-2 text-[0.95rem] text-fg-soft">
-          <strong class="text-fg">{{ leaveTarget.name }}</strong> 서버에서 나갈까요?
-        </p>
-        <p class="mb-5.5 text-[0.82rem] text-muted">
-          되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.<span v-if="leaveTarget.hasPlayer"><br /><Icon name="music" :size="13" class="inline" /> 이 서버는 현재 재생 중이며, 재생이 중단됩니다.</span>
-        </p>
-        <div class="flex gap-2.5 justify-center">
-          <BaseButton variant="ghost" :disabled="leaving" @click="leaveTarget = null">취소</BaseButton>
-          <BaseButton variant="danger" :disabled="leaving" @click="leaveGuild">
-            {{ leaving ? "나가는 중..." : "나가기" }}
-          </BaseButton>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog :model-value="leaveOpen" icon="edit_off" title="저장하지 않고 떠날까요?" body="고친 설정이 저장되지 않았어요. 떠나면 고친 내용이 사라져요." confirm-label="떠나기" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { problemText } from "../utils/problem.ts";
 import { session, live } from "../composables/session.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { LIMIT } from "../utils/request.ts";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { eventLink } from "../utils/event-link.ts";
 import { unsaved } from "../composables/unsaved.ts";
+import { useScrollFade } from "../composables/scroll-fade.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
-import { onBeforeRouteLeave } from "vue-router";
+import { useMediaQuery } from "@vueuse/core";
+import { shell } from "../shell/shell-state.ts";
+import { TOPBAR_BTN } from "../utils/topbar.ts";
+import { PHONE_QUERY } from "../utils/breakpoints.ts";
+import { singlePane } from "../composables/list-detail.ts";
+import { goUp, pushDown } from "../utils/up-nav.ts";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import axios from "axios";
-import BaseCard from "../components/BaseCard.vue";
-import BaseButton from "../components/BaseButton.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import Icon from "../components/BaseIcon.vue";
 import ConfigGenres from "../components/ConfigGenres.vue";
-import ConfigStatus from "../components/ConfigStatus.vue";
+import BotStatus from "../components/BotStatus.vue";
+import BotInfo from "../components/BotInfo.vue";
+import ServerManage from "../components/ServerManage.vue";
+import LiveLogs from "../components/LiveLogs.vue";
+import ConfigPresence from "../components/ConfigPresence.vue";
 import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
-import EmojiPicker from "../components/EmojiPicker.vue";
-import Twemoji from "../components/TwemojiImage.vue";
-import { insertAt, caretOf } from "../utils/caret.ts";
-import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
-import type { Caret } from "../utils/caret.ts";
-import { latencyGrade, type LatencyGrade } from "../../../src/rules/latency.ts";
-import { formatSpan } from "../../../src/ui/format.ts";
-import { LEVELS, KEPT_LINES, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
-import { ANNOUNCE_MAX, announceBody, type AdminGuilds, type AdminStatus, type AnnounceKind, type BroadcastReply, type RedeployReply, type ResetReply } from "../../../src/dashboard/contract/admin.ts";
-import type { Tier } from "../../../src/dashboard/contract/identity.ts";
-import type { ClientStatus, CookieSource, PotState } from "../../../src/sources/youtube/status-types.ts";
+import ConfigAppearance from "../components/ConfigAppearance.vue";
+import DevOptions from "../components/DevOptions.vue";
+import { KEPT_LINES, type WireEntry } from "../../../src/infra/log/levels.ts";
+import type { AdminGuilds, AdminStatus } from "../../../src/dashboard/contract/admin.ts";
 
-/** 요청의 결과. 실패면 까닭의 글 */
-type Outcome<T> = T | { success: false; error: string };
 /** 탭 하나. needsCookieFile 이면 쿠키를 파일로 읽을 때만 보인다 */
-type Tab = { id: string; label: string; icon: string; needsCookieFile?: boolean };
+/** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
+type Tab = { id: string; label: string; icon: string; group: "status" | "watch" | "outside" | "autoplay" | "dev"; needsCookieFile?: boolean };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
 const ALL_TABS: Tab[] = [
-  { id: "status", label: "봇 상태", icon: "robot" },
-  { id: "logs", label: "실시간 로그", icon: "list" },
-  { id: "guilds", label: "서버 관리", icon: "globe" },
-  { id: "config", label: "자동재생", icon: "music" },
-  // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
-  { id: "presence", label: "상태 문구", icon: "headphones" },
-  { id: "ai", label: "AI 보조", icon: "campaign" },
+  { id: "status", label: "봇 상태", icon: "smart_toy", group: "status" },
+  { id: "guilds", label: "서버 관리", icon: "public", group: "watch" },
+  { id: "db", label: "DB 브라우저", icon: "database", group: "watch" },
+  { id: "logs", label: "실시간 로그", icon: "queue_music", group: "watch" },
   // COOKIES_SOURCE=file 일 때만 나온다. 브라우저 쿠키를 쓰거나 쓰지 않으면 고칠 파일이 없다
-  { id: "cookies", label: "쿠키 설정", icon: "gear", needsCookieFile: true },
-  { id: "dev", label: "개발자", icon: "wrench" },
+  { id: "cookies", label: "쿠키 설정", icon: "cookie", group: "outside", needsCookieFile: true },
+  // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
+  { id: "presence", label: "상태 문구", icon: "headphones", group: "outside" },
+  { id: "appearance", label: "꾸미기", icon: "palette", group: "outside" },
+  { id: "autoplay", label: "자동재생", icon: "music_note", group: "autoplay" },
+  { id: "ai", label: "AI 보조", icon: "campaign", group: "autoplay" },
+  { id: "info", label: "봇 정보", icon: "info", group: "dev" },
+  { id: "dev", label: "개발자 옵션", icon: "build", group: "dev" },
 ];
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
 // 보이는 탭 목록(TABS)이 아니라 전체로 본다. 쿠키 탭은 상태를 받아야 보일지 정해지는데,
 // 여기는 그 전이라 아직 모른다. 못 쓰는 탭에 머물면 상태가 온 뒤에 되돌린다.
-const tab = ref(savedTab && ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status");
+// 목록 · 상세 편집기의 탭은 고른 줄을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다
+const TAB_PARAM: Record<string, string> = { autoplay: "genre", presence: "presence", ai: "ai" };
+const route = useRoute();
+const router = useRouter();
+// 휴대폰(md 아래)은 탭을 안 골랐으면 탭 고르는 화면
+const isPhone = useMediaQuery(PHONE_QUERY);
+// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 고르는 화면 · 태블릿 · PC 는 지난번 탭
+const tab = computed<string | null>(() => {
+  const q = route.query.tab;
+  if (typeof q === "string" && ALL_TABS.some((t) => t.id === q)) return q;
+  const byParam = Object.keys(TAB_PARAM).find((id) => route.query[TAB_PARAM[id]]);
+  if (byParam) return byParam;
+  if (isPhone.value) return null;
+  return savedTab && ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status";
+});
 // 설정 편집기는 처음 연 때 만들고 그 뒤로는 숨기기만 한다. 탭을 옮겨도 저장하지 않은 편집이 남는다
-const opened = ref(new Set([tab.value]));
+const opened = ref(new Set(tab.value ? [tab.value] : []));
+// 휴대폰 위 막대 제목 뒤에 지금 탭
+watch(
+  tab,
+  (id) => {
+    if (id && !opened.value.has(id)) opened.value = new Set(opened.value).add(id);
+    if (id) writeStored(TAB_KEY, id);
+    shell.subtitle = ALL_TABS.find((t) => t.id === id)?.label ?? "";
+  },
+  { immediate: true },
+);
+onUnmounted(() => (shell.subtitle = ""));
 
-function setTab(id: string) {
-  tab.value = id;
-  if (!opened.value.has(id)) opened.value = new Set(opened.value).add(id);
-  writeStored(TAB_KEY, id);
+// 탭을 옮기면 내용이 레일 차례 방향으로 미끄러져 들어온다(아래 탭이면 아래에서 위로). 숨겨 둔 탭이 다시 보일 때 애니메이션이 새로 돈다
+const pageDir = ref<"down" | "up">("down");
+// 미끄러지는 동안(page-in 460ms, style.css). 처음 열 때도 한 번 돈다
+const sliding = ref(true);
+let slideTimer = window.setTimeout(() => (sliding.value = false), 520);
+function slide() {
+  sliding.value = true;
+  clearTimeout(slideTimer);
+  slideTimer = window.setTimeout(() => (sliding.value = false), 520);
 }
 
-// 저장하지 않은 설정이 있으면 페이지를 떠날 때(다른 화면 · 창 닫기 · 새로고침) 묻는다
-const LEAVE_ASK = "저장하지 않은 설정이 있어요. 이 페이지를 떠날까요?";
-onBeforeRouteLeave(() => {
-  if (unsaved.size && !window.confirm(LEAVE_ASK)) return false;
+// 탭을 옮기면 방문 기록을 한 칸 쌓는다. 떠나는 탭의 표식(?genre= 등)은 걷는다(남기면 뒤로가기가 다른 탭에서 그 편집을 되살린다)
+function setTab(id: string) {
+  // 지금 탭을 다시 누르면 그 탭에 처음 온 것처럼(상세를 닫고 목록 · 첫 화면으로)
+  if (id === tab.value) return closeDetail();
+  const query = Object.fromEntries(Object.entries(route.query).filter(([k]) => !Object.values(TAB_PARAM).includes(k) || k === TAB_PARAM[id]));
+  void pushDown(router, route, { query: { ...query, tab: id } });
+}
+// 위 막대 ← (화면 안에 따로 "목록으로"를 두지 않는다): 늘 상위로(utils/up-nav). 상세 표식(?genre= 등)이 있으면 그것을 걷어 목록으로,
+// 없으면 탭을 걷어 고르는 화면으로. 상위가 바로 앞 기록이면 기록을 무르고(기기 뒤로와 같다), 아니면 바꿔치기(화면 크기가 바뀌어 한 단 ↔ 두 단이 뒤집혀도 늘 상위로).
+// 누른 뒤 화면이 바뀔 때까지 다시 누른 것은 무시한다(두 칸 건너뜀 막기)
+let backing = false;
+watch(
+  () => route.fullPath,
+  () => (backing = false),
+);
+function goBack() {
+  if (backing) return;
+  backing = true;
+  // 화면이 안 바뀌는 경우(되돌릴 기록이 없는 등)에도 다시 누를 수 있게
+  window.setTimeout(() => (backing = false), 1000);
+  if (detailParam.value && route.query[detailParam.value]) return closeDetail();
+  const drop = ["tab", ...Object.values(TAB_PARAM)];
+  void goUp(router, { query: Object.fromEntries(Object.entries(route.query).filter(([k]) => !drop.includes(k))) });
+}
+// 지금 탭의 상세 표식(?genre= 등)
+const detailParam = computed(() => (tab.value ? TAB_PARAM[tab.value] : undefined));
+// 한 단으로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 띄운다, composables/list-detail 의 singlePane)
+const detailOpen = computed(() => Boolean(detailParam.value && route.query[detailParam.value] && singlePane[detailParam.value]));
+// 상세를 닫고 목록(첫 화면)으로: 늘 상위로(목록에서 연 상세면 기록을 무르고, 아니면 표식만 걷는다)
+function closeDetail() {
+  const param = detailParam.value;
+  if (!param || !route.query[param]) return;
+  void goUp(router, { query: Object.fromEntries(Object.entries(route.query).filter(([k]) => k !== param)) });
+}
+// 탭이 바뀌면(누르기 · 뒤로가기) 레일 차례 방향으로 미끄러져 들어온다
+watch(tab, (now, before) => {
+  if (!now || !before || now === before) return;
+  const list = TABS.value.map((t) => t.id);
+  pageDir.value = list.indexOf(now) < list.indexOf(before) ? "up" : "down";
+  slide();
 });
+
+// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 우리 확인 대화상자로, 창 닫기 · 새로고침은 브라우저가 묻는다(beforeunload)
+const leaveOpen = ref(false);
+let leaveAnswer: ((go: boolean) => void) | null = null;
+onBeforeRouteLeave(() => {
+  if (!unsaved.size) return;
+  leaveOpen.value = true;
+  return new Promise<boolean>((resolve) => (leaveAnswer = resolve));
+});
+/** 확인 대화상자의 답(떠나기 · 취소 · 바깥 누르기) */
+function answerLeave(go: boolean) {
+  leaveOpen.value = false;
+  leaveAnswer?.(go);
+  leaveAnswer = null;
+}
 function onBeforeUnload(e: BeforeUnloadEvent) {
   if (!unsaved.size) return;
   e.preventDefault();
   e.returnValue = "";
 }
 
-// 스크롤바는 사이드바(ServerSidebar navClass)와 같은 토큰을 쓴다. 가로라 w 대신 h.
-const tabScroller = "mb-4 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[3px]";
-const tabBtn = "flex items-center gap-1.5 shrink-0 px-3.5 py-2 -mb-px border-b-2 cursor-pointer text-[0.85rem] font-semibold transition-[color,border-color] duration-200";
-const tabOn = "text-[#c4b5fd] border-[#c4b5fd]";
-const tabOff = "text-muted border-transparent hover:text-fg";
-
-// ── 권한 수준 오버라이드 ──────────────────────────────────────────────────────
-// 계층을 바꾸면 스토어가 페이지를 다시 읽는다. 서버 목록·플레이어 권한이 통째로 달라지기 때문.
-const user = useUserStore();
-const switchingTier = ref(false);
-const tierError = ref("");
-
-const tierRow = "flex items-start gap-2.5 text-left rounded-xl px-3 py-2.5 cursor-pointer border transition-[background-color,border-color] duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
-const tierOn = "bg-accent/14 border-accent/45 text-fg";
-const tierOff = "bg-white/4 border-white/8 text-fg-soft hover:not-disabled:bg-white/8";
-
-async function pickTier(tier: Tier | null) {
-  if (switchingTier.value || user.viewAs === tier) return;
-  switchingTier.value = true;
-  tierError.value = "";
-  try {
-    await user.setViewAs(tier); // 성공하면 새로고침되므로 아래로 돌아오지 않는다
-  } catch (e) {
-    tierError.value = problemText(e, "권한 수준을 바꾸지 못했습니다");
-    switchingTier.value = false;
-  }
-}
-
-// ── 반복 유틸리티 클래스 ─────────────────────────────────────
-const statRow = "flex justify-between items-center py-2.5 border-b border-white/7 text-sm last:border-b-0 last:pb-0 [&>span:first-child]:text-muted [&>strong]:font-semibold [&>span:last-child]:font-semibold";
-const cardTitle = "text-[0.7rem] font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-3.5";
-
-// 필터/타입 알약 버튼. active 여부에 따라 색상군을 통째로 교체(같은 속성 유틸리티 중복 회피)
-function typeBtn(active: boolean) {
-  const base = "px-4 py-1.5 rounded-[20px] border cursor-pointer text-[0.83rem] font-medium transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-spring hover:-translate-y-px";
-  return active ? `${base} border-accent/55 text-[#c4b5fd] bg-accent/16 shadow-[0_0_10px_rgba(124,111,246,0.2)]` : `${base} border-white/9 bg-white/5 text-muted hover:bg-white/9 hover:text-fg`;
-}
-
-function resultMsg(ok: boolean) {
-  const base = "mt-3 px-4 py-2.5 rounded-[10px] text-sm border";
-  return ok ? `${base} bg-success/10 text-success border-success/22` : `${base} bg-danger/10 text-danger border-danger/22`;
-}
+// ── 봇 상태 ───────────────────────────────────────────────
 
 const loading = ref(true);
-// 처음 받기 전의 모양
-const s = ref<AdminStatus>({
-  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: 0, startedAt: 0, version: "", reconnects: 0, retryAttempt: null },
-  node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, heapLimit: 0, rss: 0 } },
-  system: { cpus: 0, cpuModel: "", totalMem: 0, freeMem: 0, loadAvg: [], uptime: 0 },
-  cpu: { bot: 0, system: 0 },
-  loop: { p99: 0, max: 0 },
-  download: { bytesPerSec: 0, todayBytes: 0, active: 0 },
-  activePlayers: 0,
-  players: { voiceConnections: 0, queued: 0, list: [] },
-  processes: { total: 0, byLabel: [], oldest: [] },
-  youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
-  links: [],
-  recent: { warn: 0, error: 0, lines: [] },
-  env: { discordJs: "", ffmpeg: null, pid: 0, ytdlp: { version: null, autoUpdate: false, checkedAt: null, nextCheckAt: null }, commands: { count: 0, scope: "global" }, dashboardClients: 0 },
-  storage: { cache: { bytes: 0, maxBytes: 0, files: 0, maxFiles: 0, protectedFiles: 0, neverPlayed: 0, failed: 0, lastCleanup: null }, disk: { drive: "", usedBytes: 0, totalBytes: 0, minFreeBytes: 0 }, db: { bytes: 0, drive: "", lookups: 0, sponsorSegments: 0, sessions: 0 } },
-  history: { stepMs: 0, endAt: 0, playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [], downloadBps: [] },
-  logLevel: "",
-});
+// 봇 상태. 받기 전에는 없다. statusAt: 마지막으로 받은 때, statusStale: 마지막 요청이 실패했다(아래 값은 statusAt 의 것)
+const status = ref<AdminStatus | null>(null);
+const statusAt = ref<number | null>(null);
+const statusStale = ref(false);
 
 // 쿠키 탭은 파일 방식일 때만 쓸모가 있다. 판정 근거가 상태 응답에 이미 실려 오므로 따로 묻지 않는다.
-const TABS = computed(() => ALL_TABS.filter((t) => !t.needsCookieFile || s.value?.youtube?.cookies === "file"));
+const TABS = computed(() => ALL_TABS.filter((t) => !t.needsCookieFile || status.value?.youtube?.cookies === "file"));
+const TAB_GROUPS = computed(() => (["status", "watch", "outside", "autoplay", "dev"] as const).map((g) => TABS.value.filter((t) => t.group === g)).filter((g) => g.length > 0));
+
+// 레일의 고른 표시. 고른 칸 아이콘 자리(data-ind)의 높이로 옮긴다. 처음 자리를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
+const railEl = ref<HTMLElement | null>(null);
+const railItems = new Map<string, HTMLElement>();
+const pillY = ref(0);
+const railReady = ref(false);
+function railItem(id: string, el: unknown) {
+  if (el instanceof HTMLElement) railItems.set(id, el);
+  else railItems.delete(id);
+}
+function placePill() {
+  const item = tab.value ? railItems.get(tab.value) : undefined;
+  const ind = item?.querySelector<HTMLElement>("[data-ind]");
+  if (!item || !ind) return;
+  pillY.value = item.offsetTop + ind.offsetTop;
+  if (!railReady.value) requestAnimationFrame(() => (railReady.value = true));
+  // 레일이 굴러 고른 칸이 가려져 있으면 보이게 한다(바탕화면은 건드리지 않게 레일만 굴린다)
+  const rail = railEl.value;
+  if (rail) {
+    const top = item.offsetTop - 12;
+    const bottom = item.offsetTop + item.offsetHeight + 12;
+    if (top < rail.scrollTop) rail.scrollTo({ top, behavior: "smooth" });
+    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: "smooth" });
+  }
+}
+const railFade = useScrollFade(railEl, () => true);
+watch([tab, TABS, railEl], () => void nextTick(placePill), { flush: "post" });
 // 쓸 수 없게 된 탭에 머물러 있으면 되돌린다. 아무것도 안 그려진 화면을 보게 하지 않는다.
 watch(TABS, (list) => {
-  if (!list.some((t) => t.id === tab.value)) setTab("status");
+  if (tab.value && !list.some((t) => t.id === tab.value)) void router.replace({ query: { ...route.query, tab: "status" } });
 });
-
-const potLabels: Record<PotState, string> = { on: "사용 중", off: "사용 안 함", missing: "켜져 있으나 설치 없음" };
-const cookieLabels: Record<CookieSource, string> = { browser: "브라우저 (연령 제한 전용)", file: "파일 (연령 제한 전용)", none: "없음" };
-const potLabel = (v: PotState) => potLabels[v] ?? v;
-const cookieLabel = (v: CookieSource) => cookieLabels[v] ?? v;
-
-// 경로 상태: 제외된 것 > 실패가 섞인 것 > 아직 안 써 본 것 > 정상
-function clientLabel(c: ClientStatus) {
-  if (c.excluded) return `제외됨 (${c.tried}회 중 ${c.failed}회 실패)`;
-  if (!c.tried) return "미사용";
-  return c.failed ? `${c.tried}회 중 ${c.failed}회 실패` : `정상 (${c.tried}회)`;
-}
-function clientClass(c: ClientStatus) {
-  if (c.excluded) return "text-danger";
-  if (c.failed) return "text-warning";
-  return c.tried ? "text-success" : "text-muted";
-}
-
-const bType = ref<AnnounceKind>("maintenance");
-const bMsg = ref("");
-const sending = ref(false);
-const result = ref<Outcome<BroadcastReply> | null>(null);
-
-// 길이 상한은 서버의 것(contract/admin). 서버도 같은 값으로 막지만, 다 쓰고 나서야 막히면 늦다.
-// 이모지는 커서 자리에 끼워 넣는다. 판을 열면 칸에서 초점이 떠나므로 떠나기 전 자리를 적어 둔다.
-const bMsgBox = ref<HTMLTextAreaElement | null>(null);
-const bCaret = ref<Caret | null>(null);
-const emojiBtn = "size-7 rounded-lg flex items-center justify-center cursor-pointer opacity-55 transition-[opacity,background-color] duration-150 hover:opacity-100 hover:bg-white/10";
-
-function insertEmoji(char: string) {
-  const result = insertAt(bMsg.value, char, bCaret.value, ANNOUNCE_MAX);
-  if (!result) return;
-  bMsg.value = result.text;
-  bCaret.value = { start: result.caret, end: result.caret };
-  void nextTick(() => {
-    bMsgBox.value?.focus();
-    bMsgBox.value?.setSelectionRange(result.caret, result.caret);
-  });
-}
-// 서버처럼 앞뒤 공백을 뺀 길이로 센다
-const bLength = computed(() => announceBody(bMsg.value).length);
-const tooLong = computed(() => bLength.value > ANNOUNCE_MAX);
-
-// 공지 종류의 이름표. 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
-const TYPE_LABEL: Record<AnnounceKind, string> = { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" };
-const types = (Object.entries(TYPE_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label }));
-
-// 재생 ffmpeg는 곡 길이를 넘기지 않아야 한다. 그보다 오래 살아 있으면 정리가 안 된 것.
-function procAgeClass(ms: number) {
-  if (ms > 30 * 60 * 1000) return "text-danger";
-  if (ms > 10 * 60 * 1000) return "text-warning";
-  return "text-muted";
-}
-
-// 길이 말은 /system 과 같다(ui/format)
-const SPAN = { withSeconds: true };
-const fmtAge = (ms: number) => formatSpan(ms / 1000, SPAN);
-
-// 핑 색. 기준은 /ping 과 같다(rules/latency)
-const PING_CLASS: Record<LatencyGrade, string> = { good: "text-success", fair: "text-warning", poor: "text-danger" };
-const pingClass = (ms: number) => PING_CLASS[latencyGrade(ms)];
-
-const uptimeStr = computed(() => formatSpan(s.value.bot.uptime, SPAN));
 
 async function fetchStatus() {
   try {
     const res = await axios.get<AdminStatus>("/api/admin/status");
-    s.value = res.data;
-    syncLevelsWithServer(res.data?.logLevel);
+    status.value = res.data;
+    statusAt.value = Date.now();
+    statusStale.value = false;
     loading.value = false;
   } catch (e) {
+    statusStale.value = true;
     // 3초마다 묻는다. 같은 까닭이면 알림 하나가 남아 있다
-    notifyProblem(e, "봇 상태를 읽지 못했습니다.");
+    notifyProblem(e, "봇 상태를 읽지 못했어요.");
     loading.value = false;
-  }
-}
-
-async function broadcast() {
-  if (!bMsg.value.trim() || sending.value) return;
-  sending.value = true;
-  result.value = null;
-  try {
-    const res = await axios.post<BroadcastReply>("/api/admin/broadcast", { message: bMsg.value, type: bType.value }, { timeout: LIMIT.long });
-    result.value = res.data;
-    if (res.data.success) bMsg.value = "";
-  } catch (e) {
-    // 서버가 알려 준 이유를 보여 준다. "발송 실패"만으로는 무엇을 고쳐야 할지 알 수 없다
-    result.value = { success: false, error: problemText(e, "발송하지 못했습니다.") };
-  } finally {
-    sending.value = false;
   }
 }
 
 // ── 서버 관리 ─────────────────────────────────────────
 type AdminGuild = AdminGuilds["guilds"][number];
 const guilds = ref<AdminGuild[]>([]);
-const leaveTarget = ref<AdminGuild | null>(null); // 확인 모달에 표시 중인 서버 (null이면 닫힘)
-const leaving = ref(false);
-const leaveResult = ref<Outcome<{ success: true; name: string }> | null>(null);
 
 async function fetchGuilds() {
   try {
     const res = await axios.get<AdminGuilds>("/api/admin/guilds");
     guilds.value = res.data.guilds;
   } catch (e) {
-    notifyProblem(e, "서버 목록을 읽지 못했습니다.");
+    notifyProblem(e, "서버 목록을 읽지 못했어요.");
   }
 }
 
-async function leaveGuild() {
-  const g = leaveTarget.value;
-  if (!g || leaving.value) return;
-  leaving.value = true;
-  leaveResult.value = null;
-  try {
-    await axios.post(`/api/admin/guilds/${g.id}/leave`, undefined, { timeout: LIMIT.long });
-    leaveResult.value = { success: true, name: g.name };
-    await Promise.all([fetchGuilds(), fetchStatus()]);
-  } catch (e) {
-    leaveResult.value = { success: false, error: problemText(e, "요청 실패") };
-  } finally {
-    leaving.value = false;
-    leaveTarget.value = null;
-  }
-}
-
-// ── 캐시 초기화 ───────────────────────────────────────────────
-const confirmReset = ref(false);
-const resetting = ref(false);
-const resetResult = ref<Outcome<ResetReply> | null>(null);
-
-const resetSummary = computed(() => {
-  const r = resetResult.value;
-  if (!r || !r.success) return "";
-  const mb = Math.round((r.freedBytes || 0) / 1024 / 1024);
-  const kept = r.kept > 0 ? `, ${r.kept}개는 재생 중이라 남음` : "";
-  return `파일 ${r.removed}개 삭제 (${mb}MB)${kept}`;
-});
-
-async function resetCache() {
-  if (resetting.value) return;
-  resetting.value = true;
-  resetResult.value = null;
-  try {
-    const res = await axios.post<ResetReply>("/api/admin/reset-cache", undefined, { timeout: LIMIT.long });
-    resetResult.value = res.data;
-  } catch (e) {
-    resetResult.value = { success: false, error: problemText(e, "요청 실패") };
-  } finally {
-    resetting.value = false;
-    confirmReset.value = false;
-  }
-}
-
-// ── 명령 다시 배포 ─────────────────────────────────────────
-const redeploying = ref(false);
-const redeployResult = ref<Outcome<RedeployReply> | null>(null);
-
-async function redeploy() {
-  if (redeploying.value) return;
-  redeploying.value = true;
-  redeployResult.value = null;
-  try {
-    const res = await axios.post<RedeployReply>("/api/admin/redeploy-commands", undefined, { timeout: LIMIT.long });
-    redeployResult.value = res.data;
-  } catch (e) {
-    redeployResult.value = { success: false, error: problemText(e, "요청 실패") };
-  } finally {
-    redeploying.value = false;
-  }
+// 서버에서 나갔으면 목록과 봇 상태(서버 수 · 플레이어)를 다시 읽는다
+function onGuildsChanged() {
+  void Promise.all([fetchGuilds(), fetchStatus()]);
 }
 
 // ── 로그 보기 ──────────────────────────────────────────────
 const logs = ref<WireEntry[]>([]);
-const catFilter = ref<string | null>(null);
-const tagFilter = ref<string | null>(null);
-const autoScroll = ref(true);
 const sseConnected = ref(false);
-const logPane = ref<HTMLElement | null>(null);
 // 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
 let lastLogEventId = "";
 let lastLogId = 0;
@@ -682,96 +369,7 @@ function flushLogs() {
   logs.value = next.length > KEPT_LINES ? next.slice(-KEPT_LINES) : next;
 }
 
-// 레벨 필터는 다중 토글이다. "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
-// 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
-const logLevels: Array<{ value: LevelName; label: string }> = [
-  { value: "debug", label: "DEBUG" },
-  { value: "info", label: "INFO" },
-  { value: "warn", label: "WARN" },
-  { value: "error", label: "ERROR" },
-  { value: "fatal", label: "FATAL" },
-];
-
-// 초기 상태는 서버의 LOG_LEVEL을 따른다. 서버가 debug를 아예 안 보내고 있으면 그 알약이
-// 켜져 있어도 보여줄 것이 없으므로, 꺼진 채로 시작해 "지금 흐르고 있는 것"과 맞춘다.
-// 꺼진 알약도 눌러서 켤 수 있다. 서버 레벨을 낮추면 그때부터 오는 것이 보인다.
-const levelsOn = ref(new Set<LevelName>(["info", "warn", "error", "fatal"]));
-let levelsInitialized = false;
-function syncLevelsWithServer(serverLevel: string | undefined) {
-  if (levelsInitialized || !serverLevel) return;
-  levelsInitialized = true;
-  const min = isLevel(serverLevel) ? LEVELS[serverLevel] : LEVELS.info;
-  levelsOn.value = new Set(logLevels.filter((l) => LEVELS[l.value] >= min).map((l) => l.value));
-}
-function toggleLevel(v: LevelName) {
-  const next = new Set(levelsOn.value); // Set은 제자리 변경으로 반응하지 않는다
-  if (next.has(v)) next.delete(v);
-  else next.add(v);
-  levelsOn.value = next;
-}
-// 와이어의 "trace"는 DEBUG 알약이 담당한다(같은 심각도 칸).
-const levelBucket = (lv: LevelName): LevelName => (LEVELS[lv] <= LEVELS.debug ? "debug" : lv);
-
-function lvColor(level: string) {
-  return (
-    (
-      {
-        trace: "text-[#6b7280]",
-        log: "text-[#9ca3af]",
-        debug: "text-[#9ca3af]",
-        info: "text-[#60a5fa]",
-        warn: "text-[#fbbf24]",
-        error: "text-[#f87171]",
-        fatal: "text-[#fca5a5]",
-      } as Record<string, string>
-    )[level] || "text-[#9ca3af]"
-  );
-}
-function txtColor(level: string) {
-  return ({ debug: "text-[#9ca3af]", warn: "text-[#fef3c7]", error: "text-[#fecaca]", fatal: "text-[#fecaca] font-bold" } as Record<string, string>)[level] || "text-[#d1d5db]";
-}
-
-// 카테고리: 지금까지 흘러온 로그에서 실제로 본 것만 필터 알약으로 노출(고정 목록 아님)
-const logCategories = computed(() => [...new Set(logs.value.flatMap((e) => (e.category ? [e.category] : [])))].sort());
-const CAT_PALETTE = ["#f472b6", "#60a5fa", "#34d399", "#fbbf24", "#a78bfa", "#22d3ee", "#fb923c", "#4ade80", "#e879f9", "#38bdf8"];
-function catColor(cat: string) {
-  let h = 0;
-  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
-  return CAT_PALETTE[h % CAT_PALETTE.length];
-}
-
-// 태그: 카테고리와 같은 방식으로, 흘러온 로그에서 실제로 본 것만 노출한다(고정 목록 아님)
-const logTags = computed(() => [...new Set(logs.value.flatMap((e) => e.tags || []))].sort());
-
-const filteredLogs = computed(() => logs.value.filter((e) => levelsOn.value.has(levelBucket(e.level)) && (!catFilter.value || e.category === catFilter.value) && (!tagFilter.value || (e.tags || []).includes(tagFilter.value))));
-
-function fmtTime(ts: number) {
-  return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function onLogScroll() {
-  if (!logPane.value) return;
-  const { scrollTop, scrollHeight, clientHeight } = logPane.value;
-  autoScroll.value = scrollHeight - scrollTop - clientHeight < 50;
-}
-
-function scrollLogsToEnd() {
-  void nextTick(() => {
-    if (logPane.value) logPane.value.scrollTop = logPane.value.scrollHeight;
-  });
-}
-
-watch(
-  () => logs.value.length,
-  () => {
-    if (autoScroll.value) scrollLogsToEnd();
-  },
-);
-
-// 다른 탭에 있는 동안 로그 뷰어는 display:none이라 scrollTop 지정이 먹지 않는다(scrollHeight가 0).
-// 그동안 쌓인 만큼은 돌아왔을 때 다시 맞춰준다.
-watch(tab, (t) => {
-  if (t === "logs" && autoScroll.value) scrollLogsToEnd();
+watch(tab, () => {
   poll(); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
   syncLogs();
 });
@@ -820,7 +418,7 @@ const POLL_MS = 3000;
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
 function poll() {
-  if (tab.value === "status") void fetchStatus();
+  if (tab.value === "status" || tab.value === "info") void fetchStatus();
   else if (tab.value === "guilds") void fetchGuilds();
 }
 function startPoll() {

@@ -5,123 +5,116 @@
   그래서 저장은 파일을 통째로 덮지 않고 바뀐 자리만 고치며, 손으로 적은 주석은 그대로 남는다.
 -->
 <template>
-  <div>
-    <BaseCard icon="gear" title="자동재생 전역 설정" class="mb-3">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">최소 · 최대 길이와 차단어는 장르마다 따로 적을 수 있습니다(장르 칸을 비우면 여기 값). 상한을 비우면 길이 제한이 없습니다.</p>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <label class="block">
-          <span :class="labelCls">대기열에 준비해 둘 곡 수(전역만)</span>
-          <NumberInput v-model="draft.defaults.prefetchCount" :placeholder="`비우면 ${GENRE_DEFAULTS.prefetchCount}`" :class="inputCls" />
-        </label>
-        <label class="block">
-          <span :class="labelCls">최소 길이(초)</span>
-          <NumberInput v-model="draft.defaults.minDurationSec" :placeholder="`비우면 ${GENRE_DEFAULTS.minDurationSec}`" :class="inputCls" />
-        </label>
-        <label class="block">
-          <span :class="labelCls">최대 길이(초)</span>
-          <NumberInput v-model="draft.defaults.maxDurationSec" placeholder="제한 없음" :class="inputCls" />
-        </label>
-      </div>
-
-      <div class="mt-4">
-        <span :class="labelCls">차단어 - 제목에 해당 단어가 포함되면 선택하지 않습니다</span>
-        <ChipInput v-model="draft.defaults.blockedKeywords" lowercase placeholder="차단할 말을 적고 Enter" />
-      </div>
-    </BaseCard>
-
-    <BaseCard>
-      <div class="flex items-start gap-3 mb-3">
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
-            <Icon name="music" :size="15" />
-            <span>장르 ({{ rows.length }}/{{ SELECT_MAX }})</span>
+  <!-- 목록(첫 줄 "전역 설정", 그 아래 장르들) · 고른 것의 편집(M3 목록 · 상세). 넓으면(52rem 이상) 두 단, 좁으면 한 단씩:
+       목록에서 누르면 편집이 목록 자리를 넘겨받고, 방문 기록이 한 칸 쌓여 OS · 브라우저의 뒤로가기가 목록으로 돌아온다.
+       고른 것은 주소(?genre=이름, 이름이 비었거나 겹치면 @자리, 전역 설정은 @defaults)에 둬 새로고침 · 저장 뒤에도 다시 찾는다 -->
+  <div class="flex flex-col gap-(--gap-in)">
+    <div ref="paneEl" :class="paneClass">
+      <!-- 장르 목록. 두 단이면 내려도 제자리에 붙어 있고, 길면 그 안에서 구른다 -->
+      <BaseCard v-if="showList" icon="library_music" :title="`자동재생 (${rows.length}/${SELECT_MAX})`" :class="listCardClass">
+        <template #actions>
+          <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="rows.length >= SELECT_MAX" :aria-label="'장르 추가'" v-tooltip="rows.length >= SELECT_MAX ? `${SELECT_MAX}개까지만 둘 수 있어요` : '추가'" @click="addRow"><Icon name="add" :size="20" /></button>
+        </template>
+        <p class="mb-3 text-sm text-on-surface-variant">자동재생에 사용할 장르가 곡을 가져올 출처를 설정해요.</p>
+        <!-- 어느 줄의 것도 아닌 문제(저장할 때 서버가 짚은 것 등) · 읽기 실패. 줄마다의 문제는 그 줄의 오류 아이콘과 편집 칸 맨 위에 -->
+        <NoticeBox v-if="listProblems.length" variant="note" tone="error" icon="error" class="mt-0! mb-3">{{ listProblems.join("\n") }}</NoticeBox>
+        <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0! mb-3">{{ loadError }}</NoticeBox>
+        <div ref="listEl" class="min-h-0 overflow-y-auto -mx-2 px-2" :style="listFade">
+          <!-- 첫 줄: 전역 설정. 누르면 상세 자리에 전역 값(손잡이 자리는 비워 장르 줄과 아이콘 줄을 맞춘다) -->
+          <div role="button" tabindex="0" :class="[LIST_ROW, globalOn && SELECT_ROW_ON]" :aria-current="globalOn ? 'true' : undefined" @click="openGlobal" @keydown.enter="openGlobal">
+            <span class="size-5 shrink-0" />
+            <Icon name="tune" :size="24" class="shrink-0" :class="!globalOn && 'text-on-surface-variant'" />
+            <span class="min-w-0 flex-1 truncate">전역 설정</span>
+            <Icon v-if="globalProblems.length" name="error" :size="20" fill class="shrink-0" :class="!globalOn && 'text-error'" v-tooltip="globalProblems.join('\n')" />
+            <Icon name="chevron_right" :size="20" class="shrink-0 -mr-1" :class="!globalOn && 'text-on-surface-variant'" />
           </div>
-          <p class="text-muted text-[0.82rem]">장르마다 곡을 가져올 출처를 여럿 둘 수 있습니다. 가중치에 따라 골라 쓰고, 곡을 주지 않는 출처가 있으면 다음 출처로 넘어갑니다. 드래그해 순서를 바꿀 수 있습니다.</p>
-        </div>
-        <button :class="addBtn" :disabled="rows.length >= SELECT_MAX" v-tooltip="rows.length >= SELECT_MAX ? `${SELECT_MAX}개까지만 추가할 수 있습니다` : '장르 추가'" @click="addRow"><Icon name="add" :size="18" /></button>
-      </div>
-
-      <div
-        v-for="(row, i) in rows"
-        :key="row.key"
-        class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3 transition-[border-color,opacity] duration-150"
-        :class="{
-          'opacity-35': draggedIndex === i,
-          'border-t-2 border-t-accent': dragOverIndex === i && draggedIndex !== i,
-          'border-b-2 border-b-accent': dragOverIndex === rows.length && i === rows.length - 1,
-        }"
-        :draggable="dragReady"
-        @dragstart="onDragStart($event, i)"
-        @dragover="onDragOver($event, i)"
-        @drop="onDrop"
-        @dragend="onDragEnd"
-      >
-        <!-- 아래 여백은 펼쳐졌을 때만 필요하다. 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
-        <div class="flex items-center gap-2">
-          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-              <circle cx="2" cy="3" r="1.5" />
-              <circle cx="2" cy="8" r="1.5" />
-              <circle cx="2" cy="13" r="1.5" />
-              <circle cx="8" cy="3" r="1.5" />
-              <circle cx="8" cy="8" r="1.5" />
-              <circle cx="8" cy="13" r="1.5" />
-            </svg>
-          </span>
-          <button :class="foldBtn" v-tooltip="isFolded(genreFoldId(i)) ? '펼치기' : '접기'" @click="toggleFold(genreFoldId(i))">
-            <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(genreFoldId(i)) }"><path d="M0 0h9L4.5 6z" /></svg>
-          </button>
-          <EmojiInput v-model="row.emoji" />
-          <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
-          <!-- 접어 두면 출처가 아예 안 보인다. 몇 개인지는 접힌 채로도 알려 준다 -->
-          <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
-          <button :class="removeBtn" v-tooltip="'삭제'" @click="removeRow(i)"><Icon name="trash" :size="15" /></button>
-        </div>
-        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="i" class="mt-2" />
-        <!-- 이 장르만의 값. 비우면 전역 값을 쓴다(utils/genre-rows) -->
-        <div v-show="!isFolded(genreFoldId(i))" class="mt-3 pt-3 border-t border-white/6">
-          <p class="text-muted text-[0.78rem] mb-2">이 장르만의 값 - 비우면 위 전역 값을 씁니다</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label class="block">
-              <span :class="labelCls">최소 길이(초)</span>
-              <NumberInput v-model="row.minDurationSec" :placeholder="`전역 ${draft.defaults.minDurationSec ?? GENRE_DEFAULTS.minDurationSec}`" :class="inputCls" />
-            </label>
-            <label class="block">
-              <span :class="labelCls">최대 길이(초)</span>
-              <NumberInput v-model="row.maxDurationSec" :placeholder="draft.defaults.maxDurationSec ? `전역 ${draft.defaults.maxDurationSec}` : '전역 제한 없음'" :class="inputCls" />
-            </label>
+          <div class="h-px my-1 mx-3 bg-outline-variant/40" />
+          <div v-for="(row, i) in rows" :key="row.key" role="button" tabindex="0" :class="[LIST_ROW, isOn(i) && SELECT_ROW_ON]" :aria-current="isOn(i) ? 'true' : undefined" data-reorder @click="select(i)" @keydown.enter="select(i)">
+            <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing" :class="isOn(i) ? '' : 'text-outline'" v-tooltip="'끌어서 차례 바꾸기'" @pointerdown="startDrag($event, i)" @click.stop><Icon name="drag_indicator" :size="20" /></span>
+            <Twemoji v-if="row.emoji" :char="row.emoji" :size="24" class="shrink-0" />
+            <Icon v-else name="music_note" :size="24" class="shrink-0" :class="!isOn(i) && 'text-on-surface-variant'" />
+            <span class="min-w-0 flex-1 truncate" :class="!row.name.trim() && !isOn(i) && 'text-on-surface-variant'">{{ row.name.trim() || "이름 없음" }}</span>
+            <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등) · 출처 수 · 열린다는 꺾쇠. 아이콘에 올리면 까닭 -->
+            <Icon v-if="rowProblem(row)" name="error" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-error'" v-tooltip="rowProblem(row)" />
+            <Icon v-else-if="rowWarning(row)" name="warning" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-(--warn-ink)'" v-tooltip="rowWarning(row)" />
+            <span class="shrink-0 text-xs nums" :class="!isOn(i) && 'text-on-surface-variant'">출처 {{ row.sources.length }}</span>
+            <Icon name="chevron_right" :size="20" class="shrink-0 -mr-1" :class="!isOn(i) && 'text-on-surface-variant'" />
           </div>
-          <div class="mt-3">
-            <span :class="labelCls">차단어 - 적으면 전역 차단어 대신 이것만 씁니다</span>
-            <ChipInput v-model="row.blockedKeywords" lowercase placeholder="비우면 전역 차단어" />
-          </div>
+          <p v-if="!rows.length" class="py-3 text-sm text-on-surface-variant">장르가 없어요. 오른쪽 위 + 로 더해요</p>
         </div>
-      </div>
+      </BaseCard>
 
-      <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
-        <div v-for="p in problems" :key="p" class="whitespace-pre-line">· {{ p }}</div>
-      </div>
+      <!-- 전역 설정 편집 -->
+      <BaseCard v-if="showGlobal">
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center gap-3 min-h-10">
+            <span class="size-10 shrink-0 rounded-(--r-inner) bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Icon name="tune" :size="24" /></span>
+            <h3 class="flex-1 min-w-0 truncate text-base font-semibold text-on-surface">전역 설정</h3>
+          </div>
+          <NoticeBox v-if="globalProblems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ globalProblems.join("\n") }}</NoticeBox>
+          <GenreGlobalForm v-model="draft.defaults" />
+        </div>
+      </BaseCard>
 
-      <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장 완료. 다음 자동재생부터 반영됩니다</p>
-      <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171] whitespace-pre-line">{{ loadError }}</p>
-    </BaseCard>
+      <!-- 고른 장르 편집 -->
+      <BaseCard v-if="selected">
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center gap-3">
+            <EmojiInput v-model="selected.emoji" />
+            <input :value="selected.name" placeholder="장르 이름" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.name = valueOf($event)" />
+            <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" aria-label="이 장르 삭제" v-tooltip="'삭제'" @click="removeRow(selectedIndex)"><Icon name="delete" :size="20" /></button>
+          </div>
+          <NoticeBox v-if="rowProblems(selected).length" variant="note" tone="error" icon="error" class="mt-0!">{{ rowProblems(selected).join("\n") }}</NoticeBox>
 
-    <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
+          <section class="flex flex-col gap-2">
+            <div>
+              <h3 class="text-sm font-semibold text-on-surface">출처</h3>
+              <p class="mt-1 text-xs text-on-surface-variant">가중치가 높은 출처의 곡을 더 자주 뽑으며, 곡을 받아오지 못하는 출처는 건너뛰어요.</p>
+            </div>
+            <SourceEditor :key="selected.key" v-model="selected.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="selectedIndex" />
+          </section>
+
+          <!-- 전역 설정 오버라이드: 적은 칸만 이 장르에서 전역 값을 대신한다. 비우면 전역 값(utils/genre-rows). 차단어는 키워드 출처마다 둔다(SourceEditor) -->
+          <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
+            <h3 class="text-sm font-semibold text-on-surface">전역 설정 오버라이드</h3>
+            <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
+              <label class="block">
+                <span :class="FIELD_LABEL">최소 길이(초)</span>
+                <NumberInput v-model="selected.minDurationSec" :placeholder="`현재 전역 값 ${draft.defaults.minDurationSec ?? GENRE_DEFAULTS.minDurationSec}`" :class="[FIELD, 'w-full']" />
+              </label>
+              <label class="block">
+                <span :class="FIELD_LABEL">최대 길이(초)</span>
+                <NumberInput v-model="selected.maxDurationSec" :placeholder="draft.defaults.maxDurationSec ? `현재 전역 값 ${draft.defaults.maxDurationSec}` : '전역 제한 없음'" :class="[FIELD, 'w-full']" />
+              </label>
+            </div>
+          </section>
+        </div>
+      </BaseCard>
+    </div>
+
+    <SaveDock tab="autoplay" :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ICON_BTN } from "../utils/icon-button.ts";
+import { valueOf } from "../utils/dom.ts";
 import { ref, computed, onMounted } from "vue";
+import GenreGlobalForm from "./GenreGlobalForm.vue";
+import { useListDetail, LIST_ROW } from "../composables/list-detail.ts";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
-import ChipInput from "./ChipInput.vue";
 import SourceEditor from "./SourceEditor.vue";
 import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
+import NoticeBox from "./NoticeBox.vue";
+import Twemoji from "./TwemojiImage.vue";
+import { FIELD, FIELD_LABEL } from "../utils/field.ts";
+import { SELECT_ROW_ON } from "../utils/select-row.ts";
+import { useScrollFade } from "../composables/scroll-fade.ts";
 import SaveDock from "./SaveDock.vue";
-import { isFolded, toggleFold, genreFoldId, reorderGenres } from "../composables/config-folds.ts";
+import { reorderGenres } from "../composables/config-folds.ts";
 import { configFileIo, useConfigFile } from "../composables/config-file.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { problemText } from "../utils/problem.ts";
@@ -130,13 +123,6 @@ import { genreProblems, GENRE_DEFAULTS } from "../../../src/config/schema/genres
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
 import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
-
-const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
-const labelCls = "block text-[0.8rem] text-muted mb-1.5";
-// 옆 입력칸과 같은 높이로. py-2 + text-[0.9rem] 입력이 38px이다
-const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
-const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
-const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,opacity] duration-150 hover:not-disabled:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed";
 
 /** 전역 값(genres.yaml 의 defaults) */
 type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] } & Record<string, unknown>;
@@ -159,24 +145,63 @@ function apply(data: Record<string, unknown>) {
   rows.value = toRows(genres);
 }
 
-const { dirty, saving, savedAt, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "config", payload: () => payload.value, apply, ...configFileIo("genres") });
+const { dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "autoplay", savedNote: "다음 자동재생부터 반영돼요", payload: () => payload.value, apply, ...configFileIo("genres") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => [...genreProblems(payload.value), ...serverProblems.value]);
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 장르를 따라간다 ─────────────────────────
-const { draggedIndex, dragOverIndex, dragReady, armDrag, onDragStart, onDragOver, onDrop, onDragEnd } = useDragReorder(rows, reorderGenres);
+const { startDrag } = useDragReorder(rows, reorderGenres);
 
 // 자동완성 후보. 브라우저가 저쪽에 바로 묻지 않고 서버를 거친다(GET /api/admin/source-suggest)
 const suggestFor = async (type: string, field: string, term: string) => (await axios.get<Suggestions>("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
+// ── 목록 · 상세(composables/list-detail). 주소는 ?genre= ─────────────────────────
+const paneEl = ref<HTMLElement | null>(null);
+const { listCardClass, paneClass, selectedIndex, selected, showGlobal, showList, isOn, globalOn, select, openGlobal, afterRemove } = useListDetail({ param: "genre", rows, paneEl });
+const listEl = ref<HTMLElement | null>(null);
+// 더 있는 쪽 끝 반 줄(24)을 흐리게
+const listFade = useScrollFade(listEl, () => true, 24);
+
+// 줄마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/genres)를 그 장르 하나에만 돌린 것. 목록 줄의 아이콘(툴팁)과 편집 칸 맨 위에 보인다.
+// 이름이 비었으면 검사에는 "이름 없는 장르"로 넘긴다(빈 이름으로 돌리면 ": 소스…" · "null" 같은 문장이 나온다)
+function rowProblems(row: GenreRow) {
+  const name = row.name.trim();
+  const out: string[] = [];
+  if (!name) out.push("이름이 없어요");
+  else if (rows.value.filter((r) => r.name.trim() === name).length > 1) out.push("같은 이름의 장르가 있어요");
+  out.push(...genreProblems({ defaults: {}, genres: toMap([{ ...row, name: name || "이름 없는 장르" }]) }));
+  return out;
+}
+const rowProblem = (row: GenreRow) => rowProblems(row).join("\n");
+// 전역 설정의 문제: 멀쩡한 장르 하나를 붙여 전역 값만 본다
+const SOUND_GENRE = { sources: [{ type: "keyword", keywords: ["-"] }] };
+const globalProblems = computed(() => genreProblems({ defaults: draft.value.defaults, genres: { "-": SOUND_GENRE } }));
+// 어느 줄의 것도 아닌 문제: 장르가 없음 · 저장할 때 서버가 짚은 것
+const listProblems = computed(() => [...(rows.value.length ? [] : ["장르가 하나도 없어요"]), ...serverProblems.value]);
+
+// 목록에 띄울 경고: 쓰이지 않는 출처(.env 에 키가 없음) · 모르는 종류. 출처 편집기의 안내와 같은 말
+function rowWarning(row: GenreRow) {
+  if (sourceTypesState.value !== "ready") return "";
+  const lines = row.sources.flatMap((one) => {
+    const spec = sourceTypes.value.find((t) => t.type === one.type);
+    if (!spec) return [`${String(one.type ?? "?")}: 모르는 종류예요. 이 봇이 지원하지 않아요.`];
+    if (!spec.usable) return [`출처: ${spec.label}\n.env 에 ${spec.needs} 가 설정되지 않아 해당 출처를 사용하지 않아요.`];
+    return [];
+  });
+  return [...new Set(lines)].join("\n");
+}
+
 function removeRow(i: number) {
+  const wasSelected = i === selectedIndex.value;
   reorderGenres(rows.value.map((_, at) => at).filter((at) => at !== i));
   rows.value.splice(i, 1);
+  afterRemove(i, wasSelected);
 }
 
 function addRow() {
   rows.value.push(newRow());
+  select(rows.value.length - 1);
 }
 
 // 어떤 출처를 쓸 수 있고 무슨 칸을 받는지는 서버가 안다(.env 의 키 유무까지).

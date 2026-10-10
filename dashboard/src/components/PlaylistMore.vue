@@ -1,43 +1,43 @@
 <template>
-  <div class="mt-3 rounded-2xl border border-accent/25 bg-linear-135 from-accent/10 to-accent-2/5 px-4 py-3.5">
+  <div class="mt-3 rounded-3xl bg-primary-container/45 text-on-primary-container px-4 py-4">
     <div class="flex items-start gap-3">
-      <div class="size-9 rounded-xl bg-linear-135 from-accent to-accent-2 flex items-center justify-center shrink-0 text-white shadow-[0_4px_14px_var(--accent-glow)]">
-        <Icon name="list" :size="18" />
+      <div class="size-9 rounded-[30%] bg-primary text-on-primary flex items-center justify-center shrink-0">
+        <Icon name="playlist_play" :size="20" />
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline justify-between gap-2">
-          <span class="text-sm font-semibold text-fg">{{ label }}에 곡이 더 남아 있어요</span>
-          <span class="text-muted text-[0.78rem] tabular-nums whitespace-nowrap">{{ fmt(more.offset) }} / {{ fmt(more.total) }}곡</span>
+          <span class="text-body font-semibold">{{ label }}에 곡이 더 남아 있어요</span>
+          <span class="text-label nums whitespace-nowrap opacity-80">{{ fmt(more.offset) }} / {{ fmt(more.total) }}곡</span>
         </div>
-        <div class="mt-2 h-1.5 rounded-full bg-white/8 overflow-hidden">
-          <div class="h-full rounded-full bg-linear-90 from-accent to-accent-2 transition-[width] duration-500 ease-smooth" :class="busy && 'animate-pulse'" :style="{ width: `${progress}%` }"></div>
+        <div class="mt-2 h-1 rounded-full bg-on-primary-container/15 overflow-hidden">
+          <div class="h-full rounded-full bg-primary transition-[width] duration-500 ease-smooth" :class="busy && 'animate-pulse'" :style="{ width: `${progress}%` }"></div>
         </div>
       </div>
       <!-- 닫기. 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다 -->
-      <button type="button" class="relative size-8 -mr-1 -mt-1 rounded-full flex items-center justify-center shrink-0 text-muted cursor-pointer transition-[background-color,color] duration-150 hover:not-disabled:text-fg hover:not-disabled:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed" :disabled="busy" v-tooltip="busy ? '넣는 중' : `닫기 · ${secondsLeft}초 뒤 사라져요`" aria-label="닫기" @click="$emit('close')">
+      <button type="button" class="tap state-layer size-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-38 disabled:cursor-not-allowed" :disabled="busy" v-tooltip="busy ? '넣는 중' : `닫기 · ${secondsLeft}초 뒤 사라져요`" aria-label="닫기" @click="$emit('close')">
         <svg class="absolute inset-0 -rotate-90 pointer-events-none" viewBox="0 0 32 32" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" class="opacity-15" />
-          <circle :key="timerKey" cx="16" cy="16" r="14" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" :stroke-dasharray="RING" stroke-dashoffset="0" class="ring-drain" :style="{ animationDuration: `${lifetime}ms`, animationPlayState: busy ? 'paused' : 'running' }" />
+          <circle :key="timerKey" cx="16" cy="16" r="14" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" :stroke-dasharray="RING" stroke-dashoffset="0" class="ring-drain" :style="{ animationDuration: `${lifetime}ms`, animationPlayState: busy ? 'paused' : 'running' }" />
         </svg>
-        <Icon name="close" :size="14" />
+        <Icon name="close" :size="20" />
       </button>
     </div>
 
-    <div v-if="cap === 0" class="mt-3 text-warning text-[0.82rem]">{{ moreText.roomFull() }} 곡이 빠지면 바로 이어서 넣을 수 있어요.</div>
+    <div v-if="cap === 0" class="mt-3 text-body">{{ moreText.roomFull() }} 곡이 빠지면 바로 이어서 넣을 수 있어요.</div>
 
-    <div v-else class="mt-3.5 flex flex-col">
-      <div class="flex flex-wrap gap-2 pt-1">
+    <div v-else class="mt-3 flex flex-col">
+      <div class="flex flex-wrap gap-2">
         <button v-for="n in steps" :key="n" type="button" :class="chip" :disabled="busy" @click="$emit('add', n)">{{ moreText.step(n) }}</button>
         <button type="button" :class="chip" :disabled="busy" @click="$emit('add', cap)">{{ capLabel }}</button>
       </div>
 
-      <div class="flex items-center gap-3 pt-1">
-        <input v-model.number="amount" type="range" min="1" :max="cap" class="flex-1 h-1 accent-accent cursor-pointer disabled:cursor-not-allowed" :disabled="busy" aria-label="넣을 곡 수" />
-        <input v-model.number="amount" type="text" inputmode="numeric" :maxlength="String(MAX_COUNT).length" class="w-13 bg-white/6 border border-white/9 rounded-[10px] text-fg px-2 py-1.5 text-[0.85rem] text-right tabular-nums outline-none transition-[border-color] duration-200 focus:border-accent/55" :class="!valid && 'border-danger/60'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
-        <BaseButton size="sm" type="button" class="px-3! py-2! whitespace-nowrap" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? "넣는 중..." : "추가" }}</BaseButton>
+      <div class="flex items-center gap-3 pt-2">
+        <input v-model.number="amount" type="range" min="1" :max="cap" class="m3-slider flex-1" :style="{ '--v': cap > 1 ? (Math.min(Math.max(Number(amount) || 1, 1), cap) - 1) / (cap - 1) : 1 }" :disabled="busy" aria-label="넣을 곡 수" />
+        <input v-model.number="amount" type="text" inputmode="numeric" :maxlength="String(MAX_COUNT).length" class="w-16 h-10 bg-surface-highest/80 rounded-xl text-on-surface px-3 text-body text-right nums outline-none ring-0 focus:ring-2 focus:ring-primary" :class="!valid && 'ring-2 ring-error'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
+        <BaseButton type="button" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? "넣는 중..." : "추가" }}</BaseButton>
       </div>
 
-      <div class="text-muted text-[0.76rem]">
+      <div class="mt-1 text-label opacity-80">
         남은 {{ fmt(more.remaining) }}곡<template v-if="Number.isFinite(room)"> · 대기열에 넣을 수 있는 자리 {{ fmt(room) }}곡</template>
       </div>
     </div>
@@ -72,7 +72,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ add: [count: number]; close: [] }>();
 
-const chip = "px-3 py-1.5 rounded-full text-[0.8rem] font-semibold text-fg bg-white/7 border border-white/10 cursor-pointer tabular-nums " + "transition-[background-color,border-color,scale] duration-150 hover:not-disabled:bg-accent/20 hover:not-disabled:border-accent/40 " + "active:not-disabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed";
+const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface transition-[border-radius,scale] spring-fast active:not-disabled:rounded-3xl active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
 
 // 선택지 · 남은 자리 · 이름표는 디스코드 더 넣기 메뉴와 같은 규칙 · 문장(rules/more-choices · rules/queue-room · ui/text/ko/more)
 const fmt = (n: number) => Number(n).toLocaleString("ko-KR");

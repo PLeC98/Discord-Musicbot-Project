@@ -13,17 +13,17 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-1">
-      <span class="text-[0.78rem] text-fg-soft tabular-nums">{{ text }}</span>
+      <span class="text-xs text-on-surface-variant nums">{{ text }}</span>
       <button v-if="from != null || to != null" type="button" :class="clearBtn" @click="emit('update', { from: null, to: null })">초기화</button>
     </div>
 
-    <div v-if="bars.length" class="flex items-end gap-px h-8 mb-0.5" aria-hidden="true">
-      <div v-for="(bar, i) in bars" :key="i" class="flex-1 rounded-t-[1px] bg-white/10" :style="{ height: `${bar.height}%`, backgroundImage: bar.paint }"></div>
+    <div v-if="bars.length" class="flex items-end gap-px h-8 mb-1" aria-hidden="true">
+      <div v-for="(bar, i) in bars" :key="i" class="flex-1 rounded-t-[1px] bg-on-surface/12" :style="{ height: `${bar.height}%`, backgroundImage: bar.paint }"></div>
     </div>
 
     <div class="relative h-5 select-none">
-      <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-white/10"></div>
-      <div class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-accent/70" :style="fill"></div>
+      <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-secondary-container"></div>
+      <div class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary" :style="fill"></div>
       <input type="range" :min="min" :max="max" :step="step" :value="lo" :class="loOnTop ? 'z-20' : 'z-10'" :aria-label="`${label} 시작`" @input="set(+valueOf($event), hi)" />
       <input type="range" :min="min" :max="max" :step="step" :value="hi" class="z-10" :aria-label="`${label} 끝`" @input="set(lo, +valueOf($event))" />
     </div>
@@ -50,7 +50,7 @@ const props = withDefaults(
 /** 고른 구간. 전체면 둘 다 null */
 const emit = defineEmits<{ update: [range: { from: number | null; to: number | null }] }>();
 
-const clearBtn = "text-[0.72rem] text-muted cursor-pointer hover:text-fg-soft transition-colors duration-150";
+const clearBtn = "text-xs text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors duration-150";
 
 // 설정에 적힌 값이 범위 밖일 수 있다(저쪽 자료가 늘거나 손으로 적었거나).
 // 보이기만 맞춰 두고 값은 건드리지 않는다. 손잡이를 옮길 때 비로소 바뀐다.
@@ -69,8 +69,8 @@ const fill = computed(() => ({ left: `${pct(lo.value)}%`, right: `${100 - pct(hi
 
 // 막대 수. 다섯의 배수로 둔다. 다섯 칸마다 세면 눈짐작이 빠르다.
 // 막대가 너무 많으면 화면에서 1픽셀도 안 되므로 상한을 둔다.
-// 칠하는 색. 배경색 위에 그림으로 얹는 것이라 bg-accent/55 같은 클래스로는 안 된다
-const BAR_ON = "color-mix(in srgb, var(--accent) 55%, transparent)";
+// 칠하는 색. 배경색 위에 그림으로 얹는 것이라 bg-primary/55 같은 클래스로는 안 된다
+const BAR_ON = "color-mix(in srgb, var(--md-primary) 55%, transparent)";
 const BARS_MAX = 50;
 const BARS_STEP = 5;
 
@@ -134,11 +134,11 @@ input[type="range"]::-webkit-slider-thumb {
   pointer-events: auto;
   appearance: none;
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent-hover);
-  border: 2px solid rgba(255, 255, 255, 0.85);
+  width: 4px;
+  height: 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--md-primary);
   cursor: grab;
 }
 
@@ -148,19 +148,21 @@ input[type="range"]::-moz-range-track {
 
 input[type="range"]::-moz-range-thumb {
   pointer-events: auto;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent-hover);
-  border: 2px solid rgba(255, 255, 255, 0.85);
+  width: 4px;
+  height: 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--md-primary);
   cursor: grab;
 }
 
 input[type="range"]:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: 3px solid var(--md-secondary);
+  outline-offset: 2px;
 }
 
 input[type="range"]:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: 3px solid var(--md-secondary);
+  outline-offset: 2px;
 }
 </style>

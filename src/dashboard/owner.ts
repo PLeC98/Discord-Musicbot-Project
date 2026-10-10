@@ -17,13 +17,11 @@ function isRealOwner<P>(req: Request<P>) {
 }
 
 /**
- * 권한 판정용 운영자 여부. 권한 수준 오버라이드(viewAs)가 걸려 있으면 그 계층을 따른다.
+ * 권한 판정용 운영자 여부. 권한 수준 오버라이드(viewAs)가 걸려 있으면 운영자가 아니다(그 계층으로 낮춰 본다).
  * 오버라이드를 켜고 끄는 경로 자체는 isRealOwner를 써야 한다. 아니면 스스로를 잠근다.
  */
 function isOwner<P>(req: Request<P>) {
-  if (!isRealOwner(req)) return false;
-  const tier = getViewAs(req);
-  return !tier || tier === "owner";
+  return isRealOwner(req) && !getViewAs(req);
 }
 
 export { isOwner, isRealOwner };

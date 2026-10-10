@@ -1,143 +1,148 @@
 <template>
-  <div class="max-w-275 mx-auto px-3 py-4.5">
-    <div class="mb-4">
-      <router-link :to="`/servers/${guildId}`" class="text-muted no-underline text-sm px-2.5 py-1.25 rounded-lg inline-flex items-center gap-1 transition-[color,background-color] duration-200 hover:text-fg hover:bg-white/6">← {{ s.guildName || "재생 화면" }}</router-link>
-    </div>
+  <div class="md:pt-(--gap-out)">
+    <!-- 돌아가기는 위 막대 왼쪽 끝으로(서버 이름 - 서버 설정은 위 막대 가운데). 휴대폰은 화살표만 -->
+    <!-- 자동 저장 표시: 위 막대 오른쪽(서버 화면의 설정 단추 자리) -->
+    <Teleport to="#topbar-end" defer>
+      <SaveIndicator :state="saveState" />
+    </Teleport>
+    <Teleport to="#topbar-start" defer>
+      <router-link :to="`/servers/${guildId}`" :class="TOPBAR_TEXT_BTN" aria-label="재생 화면으로"><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">돌아가기</span></router-link>
+    </Teleport>
 
-    <h1 class="pl-2 text-2xl font-extrabold mb-1.5 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">서버 설정</h1>
-    <p class="pl-2 text-muted mb-4.5 text-[0.9rem]">
-      <strong v-if="s.guildName" class="text-fg-soft">{{ s.guildName }}</strong
-      ><template v-else>이</template> 서버에서의 봇 동작을 설정합니다.
-    </p>
+    <div v-if="loading" class="flex items-center justify-center p-20"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
-    <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
-
-    <div v-else-if="loadError" class="text-center px-5 py-15 text-muted">
-      <Icon name="warning" :size="48" class="mb-3 text-warning" />
-      <p class="whitespace-pre-line">{{ loadError }}</p>
-    </div>
+    <!-- 서버가 없거나 멤버가 아니면 다시 해도 같다: 서버 목록으로. 그 밖은 다시 시도 -->
+    <PageError v-else-if="loadError" :icon="loadGone ? 'block' : 'cloud_off'" :text="loadError" class="min-h-96">
+      <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />서버 목록으로</BaseButton>
+      <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />다시 시도</BaseButton>
+    </PageError>
 
     <template v-else>
-      <!-- DJ 역할 -->
-      <BaseCard icon="headphones" title="DJ 역할" class="mb-3">
-        <p class="text-muted text-sm mb-3.5">지정하면 재생 제어를 역할 보유자와 모더레이터만 사용할 수 있어요. 지정하지 않으면 모든 유저가 제어할 수 있습니다.</p>
+      <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 단이 는다(카드 한 장 360 쯤: 768~ 두 단, 1152~ 세 단). 높이를 맞춘 격자가 아니라 단마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
+      <div class="columns-1 @3xl/desk:columns-2 @6xl/desk:columns-3 gap-(--gap-in) *:break-inside-avoid">
+        <!-- 봇 전용 채널 -->
+        <BaseCard icon="keep" title="봇 전용 채널" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">전용 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생되며, 컨트롤 패널과 공지 발송도 이 채널을 우선 사용해요.</p>
+          <SingleSelect :model-value="selectedChannel ?? ''" :options="channelOptions" empty-label="지정 안 함" :disabled="!s.canEdit" @update:model-value="selectedChannel = $event === '' ? null : String($event)" />
+        </BaseCard>
 
-        <input v-model="roleFilter" :disabled="!s.canEdit" placeholder="역할 검색..." class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none mb-2.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40" />
+        <!-- DJ 역할 -->
+        <BaseCard icon="headphones" title="DJ 역할" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">재생 제어를 역할 보유자와 모더레이터로 제한해요. 설정하지 않으면 모든 유저가 제어할 수 있어요.</p>
 
-        <div class="max-h-60 overflow-y-auto rounded-xl border border-white/7 p-1.5 flex flex-col gap-0.5 min-h-60 [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
-          <label v-for="r in filteredRoles" :key="r.id" class="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg text-sm transition-[background-color] duration-150" :class="s.canEdit ? 'cursor-pointer hover:bg-white/5' : 'opacity-60'">
-            <input type="checkbox" class="size-4 accent-accent shrink-0" :checked="selectedRoles.includes(r.id)" :disabled="!s.canEdit" @change="toggleRole(r.id)" />
-            <span class="size-2.5 rounded-full shrink-0" :style="{ backgroundColor: r.color || 'rgba(255,255,255,0.25)' }"></span>
-            <span class="overflow-hidden whitespace-nowrap text-ellipsis">{{ r.name }}</span>
-          </label>
-          <div v-if="filteredRoles.length === 0" class="text-muted text-sm px-2.5 py-2">{{ s.roles.length === 0 ? "이 서버에 지정할 수 있는 역할이 없습니다" : "일치하는 역할이 없습니다" }}</div>
-        </div>
-        <div class="text-[0.8rem] mt-2" :class="selectedRoles.length >= 25 ? 'text-warning' : 'text-muted'">선택됨: {{ selectedRoles.length }} / 25</div>
-      </BaseCard>
+          <input :value="roleFilter" @input="roleFilter = valueOf($event)" :disabled="!s.canEdit" :placeholder="`${s.roles.length}개 중에서 찾기`" :class="[FIELD, 'w-full mb-2 disabled:opacity-38']" />
 
-      <!-- 봇 전용 채널 -->
-      <BaseCard icon="pin" title="봇 전용 채널" class="mb-3">
-        <p class="text-muted text-sm mb-3.5">지정 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지 발송도 이 채널을 우선합니다.</p>
-        <div class="relative">
-          <select v-model="selectedChannel" :disabled="!s.canEdit" class="w-full appearance-none bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-10 py-2.5 text-[0.9rem] outline-none font-[inherit] cursor-pointer scheme-dark transition-[border-color,background-color] duration-200 hover:border-white/15 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed">
-            <option :value="null" style="background-color: #0e1228; color: #e8eaf6">지정 안 함</option>
-            <option v-for="c in s.channels" :key="c.id" :value="c.id" style="background-color: #0e1228; color: #e8eaf6"># {{ c.name }}</option>
-          </select>
-          <svg class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-        </div>
-      </BaseCard>
-
-      <!-- SponsorBlock -->
-      <BaseCard icon="skip" title="SponsorBlock 자동 스킵" class="mb-3">
-        <p class="text-muted text-sm mb-3.5">뮤직비디오의 인트로·최종 화면·음악이 아닌 구간 등을 SponsorBlock 데이터로 자동 건너뜁니다.</p>
-
-        <div v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" class="text-warning text-sm mb-1">봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 서버 설정은 적용되지 않습니다.</div>
-
-        <template v-if="s.sponsorblock">
-          <label class="flex items-center gap-2.5 py-1.5 text-sm" :class="s.canEdit ? 'cursor-pointer' : 'opacity-60'">
-            <input type="checkbox" class="size-4 accent-accent shrink-0" v-model="sbEnabled" :disabled="!s.canEdit" />
-            <span>이 서버에서 자동 스킵 사용</span>
-          </label>
-
-          <div class="flex items-center gap-1.5 mt-2 mb-1.5">
-            <span class="text-muted text-[0.8rem]">건너뛸 구간 종류</span>
-            <button type="button" @click="sbHelpOpen = !sbHelpOpen" class="text-muted hover:text-fg transition-colors" v-tooltip="sbHelpOpen ? '설명 닫기' : '각 구간 설명 보기'" aria-label="각 구간 설명">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" /></svg>
-            </button>
-          </div>
-
-          <!-- 구간 설명 패널. 설명은 서버가 이름과 함께 준다(rules/sponsor-categories) -->
-          <div v-if="sbHelpOpen" class="rounded-xl border border-white/7 bg-white/3 p-2.5 mb-1.5 flex flex-col gap-1.5 text-[0.8rem]">
-            <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="flex gap-2">
-              <span class="text-fg-soft font-medium shrink-0 min-w-24">{{ c.label }}</span>
-              <span class="text-muted">{{ c.description }}</span>
-            </div>
-          </div>
-
-          <div class="rounded-xl border border-white/7 p-1.5 flex flex-col gap-0.5" :class="sbEnabled ? '' : 'opacity-40 pointer-events-none'">
-            <label v-for="c in s.sponsorblock.available" :key="c.id" class="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg text-sm transition-[background-color] duration-150" :class="s.canEdit ? 'cursor-pointer hover:bg-white/5' : 'opacity-60'">
-              <input type="checkbox" class="size-4 accent-accent shrink-0" :checked="sbCategories.includes(c.id)" :disabled="!s.canEdit" @change="toggleSbCategory(c.id)" />
-              <span>{{ c.label }}</span>
+          <!-- 스크롤바 길은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
+          <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
+            <label v-for="r in filteredRoles" :key="r.id" class="shrink-0 flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="s.canEdit ? 'state-layer cursor-pointer' : 'opacity-60'">
+              <input type="checkbox" class="size-4 accent-(--md-primary) shrink-0" :checked="selectedRoles.includes(r.id)" :disabled="!s.canEdit" @change="toggleRole(r.id)" />
+              <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: r.color || 'var(--md-outline)' }"></span>
+              <span class="overflow-hidden whitespace-nowrap text-ellipsis">{{ r.name }}</span>
             </label>
+            <div v-if="filteredRoles.length === 0" class="text-on-surface-variant text-sm px-3 py-3">{{ s.roles.length === 0 ? "이 서버에 지정할 수 있는 역할이 없어요" : "일치하는 역할이 없어요" }}</div>
           </div>
-        </template>
-      </BaseCard>
+          <div class="text-xs mt-1" :class="selectedRoles.length >= 25 ? 'text-(--warn-ink)' : 'text-on-surface-variant'">선택됨: {{ selectedRoles.length }} / 25</div>
+        </BaseCard>
 
-      <!-- 재생목록 한 번에 넣을 곡 수 -->
-      <BaseCard v-if="s.playlistAdd" icon="list" title="재생목록 한 번에 넣는 곡 수" class="mb-3">
-        <p class="text-muted text-sm mb-3.5">긴 재생목록을 넣으면 이만큼만 먼저 들어가고, 남은 곡은 "더 넣기"로 이어 넣을 수 있어요. 더 넣기 메뉴의 선택지도 이 단위로 나옵니다.</p>
+        <!-- SponsorBlock -->
+        <BaseCard icon="skip_next" title="SponsorBlock 자동 스킵" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">뮤직비디오의 인트로, 최종 화면, 음악이 아닌 구간 등을 SponsorBlock 데이터를 사용해 건너뛰어요.</p>
 
-        <div class="flex flex-wrap gap-1.5 mb-3" role="radiogroup" aria-label="곡 수 선택">
-          <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="chip(paUseDefault)">기본값 · {{ paClamp(s.playlistAdd.default) }}곡</button>
-          <button v-for="n in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" :disabled="!s.canEdit" @click="pickPreset(n)" :class="chip(!paUseDefault && paCount === n)">{{ n }}곡</button>
-        </div>
+          <NoticeBox v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" variant="note" tone="notice" icon="warning" class="mt-0! mb-2">봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 서버 설정은 적용되지 않아요.</NoticeBox>
 
-        <label class="flex items-center gap-2.5 text-sm" :class="s.canEdit ? '' : 'opacity-60'">
-          <span class="text-muted">직접 입력</span>
-          <input
-            type="text"
-            inputmode="numeric"
-            :min="s.playlistAdd.min"
-            :max="s.playlistAdd.max"
-            step="1"
-            :value="paUseDefault ? '' : paCount"
-            :placeholder="String(s.playlistAdd.default)"
-            :disabled="!s.canEdit"
-            @input="onPaInput"
-            class="w-28 bg-white/5 border border-white/9 rounded-xl text-fg px-3 py-1.75 text-[0.9rem] outline-none font-[inherit] tabular-nums transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40"
-            :class="paInvalid ? 'border-danger/60' : ''"
-          />
-          <span class="text-muted">곡</span>
-        </label>
-        <div class="text-[0.8rem] mt-2" :class="paInvalid ? 'text-danger' : 'text-muted'">
-          <template v-if="paInvalid">{{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 사이의 정수로 정해 주세요.</template>
-          <template v-else
-            >재생목록을 넣으면 한 번에 <strong class="text-fg-soft">{{ paEffective }}곡</strong>씩 들어가요 · {{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 · 디스코드에서는 <code>/setplaylistlimit</code></template
-          >
-        </div>
-      </BaseCard>
+          <template v-if="s.sponsorblock">
+            <label class="flex items-center justify-between gap-3 py-2 text-sm" :class="s.canEdit ? 'cursor-pointer' : ''">
+              <span>이 서버에서 자동 스킵 사용</span>
+              <BaseSwitch v-model="sbEnabled" :disabled="!s.canEdit" />
+            </label>
 
-      <!-- 저장/되돌리기는 화면 오른쪽 아래에 떠 있다. 설정이 길어 맨 밑까지 스크롤하지 않아도 되게 -->
-      <SaveDock :dirty="dirty && s.canEdit" :saving="saving" :blocked="paInvalid" @save="save" @revert="revert" />
+            <div class="flex items-center gap-1 mt-3 mb-2">
+              <span class="text-on-surface-variant text-xs">건너뛸 구간 종류</span>
+              <button type="button" @click="sbHelpOpen = true" :class="[ICON_BTN, 'size-6']" v-tooltip="'각 구간 설명 보기'" aria-label="각 구간 설명" aria-haspopup="dialog"><Icon name="info" :size="16" /></button>
+            </div>
 
-      <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
-        <Icon :name="result.success ? 'check' : 'error'" :size="16" />
-        <span class="whitespace-pre-line">{{ result.success ? "설정이 저장됐습니다" : `저장 실패: ${result.error}` }}</span>
+            <!-- 구간 설명은 대화상자로 띄운다(카드 안에서 펼치면 단 배치가 흔들린다). 설명은 서버가 이름과 함께 준다(rules/sponsor-categories) -->
+            <Teleport to="body">
+              <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+                <div v-if="sbHelpOpen" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="sbHelpOpen = false">
+                  <div ref="sbHelpEl" role="dialog" aria-modal="true" aria-labelledby="sb-help-title" class="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="sbHelpOverflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
+                    <div class="flex items-center gap-3 mb-4">
+                      <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="skip_next" :size="20" /></span>
+                      <h3 id="sb-help-title" class="flex-1 text-xl font-round font-semibold">건너뛸 구간 종류</h3>
+                      <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="닫기" @click="sbHelpOpen = false"><Icon name="close" :size="20" /></button>
+                    </div>
+                    <dl class="flex flex-col gap-1">
+                      <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
+                        <dt class="text-sm font-semibold">{{ c.label }}</dt>
+                        <dd class="mt-0.5 text-xs text-on-surface-variant">{{ c.description }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+              </Transition>
+            </Teleport>
+
+            <div class="rounded-(--r-inner) border border-outline-variant/50 p-1 flex flex-col" :class="sbEnabled ? '' : 'opacity-38 pointer-events-none'">
+              <label v-for="c in s.sponsorblock.available" :key="c.id" class="flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="s.canEdit ? 'state-layer cursor-pointer' : 'opacity-60'">
+                <input type="checkbox" class="size-4 accent-(--md-primary) shrink-0" :checked="sbCategories.includes(c.id)" :disabled="!s.canEdit" @change="toggleSbCategory(c.id)" />
+                <span>{{ c.label }}</span>
+              </label>
+            </div>
+          </template>
+        </BaseCard>
+
+        <!-- 재생목록 한 번에 넣을 곡 수 -->
+        <BaseCard v-if="s.playlistAdd" icon="queue_music" title="한 번에 넣을 재생목록 곡 수" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">많은 곡이 포함된 재생목록을 한 번에 다 넣지 않고 설정한 곡만큼만 넣어요. 초과된 곡은 이어 넣을 수 있어요.</p>
+
+          <!-- 이어 붙은 버튼 묶음(M3E): 고른 칸은 완전히 둥글게 · 체크. 카드가 좁으면(384 미만, 작은 휴대폰) 칸 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
+          <div class="flex gap-0.5 mb-3" role="radiogroup" aria-label="곡 수 선택">
+            <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">기본값 · </span><span class="@[18rem]/card:hidden">기본 </span>{{ paClamp(s.playlistAdd.default) }}곡</button>
+            <button v-for="(n, i) in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" :disabled="!s.canEdit" @click="pickPreset(n)" :class="[segment(!paUseDefault && paCount === n, i + 1, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="!paUseDefault && paCount === n" name="check" :size="18" />{{ n }}곡</button>
+          </div>
+
+          <label class="flex items-center gap-2 text-sm" :class="s.canEdit ? '' : 'opacity-60'">
+            <span class="text-on-surface-variant">직접 입력</span>
+            <input type="text" inputmode="numeric" :min="s.playlistAdd.min" :max="s.playlistAdd.max" step="1" :value="paUseDefault ? '' : paCount" :placeholder="String(s.playlistAdd.default)" :disabled="!s.canEdit" @input="onPaInput" @focus="typing = true" @blur="typing = false" @keydown.enter="($event.target as HTMLInputElement).blur()" :class="[FIELD, 'w-28 tabular-nums disabled:opacity-38', paInvalid && 'border-error! focus:border-error!']" />
+            <span class="text-on-surface-variant">곡</span>
+          </label>
+          <div class="text-xs mt-1" :class="paInvalid ? 'text-error' : 'text-on-surface-variant'">
+            <template v-if="paInvalid">{{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 사이의 정수로 정해 주세요.</template>
+            <template v-else
+              >재생목록을 넣으면 한 번에 <strong class="font-semibold text-on-surface">{{ paEffective }}곡</strong>씩 들어가요 · {{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 · 디스코드에서는 <code>/setplaylistlimit</code></template
+            >
+          </div>
+        </BaseCard>
       </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ICON_BTN } from "../utils/icon-button.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { ref, computed, onMounted } from "vue";
-import { useRoute } from "vue-router";
+import { TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
-import SaveDock from "../components/SaveDock.vue";
+import BaseButton from "../components/BaseButton.vue";
+import NoticeBox from "../components/NoticeBox.vue";
+import PageError from "../components/PageError.vue";
+import SaveIndicator, { type SaveState } from "../components/SaveIndicator.vue";
+import { FIELD } from "../utils/field.ts";
+import { problemCodeOf, replyOf } from "../utils/request.ts";
+import SingleSelect from "../components/SingleSelect.vue";
+import BaseSwitch from "../components/BaseSwitch.vue";
+import { onKeyStroke } from "@vueuse/core";
+import { useGuildsStore } from "../stores/guilds.ts";
+import { HOLD, NO_ART, releasePageArt, setPageArt } from "../theme/theme.ts";
 import Icon from "../components/BaseIcon.vue";
+import { segment } from "../utils/segment.ts";
 import { valueOf } from "../utils/dom.ts";
+import { koMatch } from "../utils/ko-search.ts";
+import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";
 import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
@@ -145,27 +150,37 @@ import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts"
 /** 받기 전에는 이름 · SponsorBlock · 재생목록 칸이 없다 */
 type SettingsSeen = Omit<GuildSettings, "guildName" | "sponsorblock" | "playlistAdd"> & { guildName: string | null; sponsorblock: GuildSettings["sponsorblock"] | null; playlistAdd: GuildSettings["playlistAdd"] | null };
 
+// 좁은 카드에서 곡 수 칸을 촘촘하게(SE 375 에서 카드 밖으로 넘쳤다)
+const SEG_TIGHT = "@max-sm/card:px-2 @max-sm/card:gap-1";
 const route = useRoute();
+const router = useRouter();
 const guildId = String(route.params.guildId);
 
 const loading = ref(true);
 const loadError = ref<string | null>(null);
+// 읽기 실패가 서버가 없거나 멤버가 아니어서다(다시 해도 같다)
+const loadGone = ref(false);
+const GONE = ["guild-not-found", "no-guild-access"];
 const s = ref<SettingsSeen>({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null });
 
 // 편집 폼 상태 (서버 값과 분리. 저장 전까지 반영 안 됨)
 const selectedRoles = ref<string[]>([]);
 const selectedChannel = ref<string | null>(null);
+const channelOptions = computed(() => s.value.channels.map((c) => ({ value: c.id, label: `# ${c.name}` })));
 const roleFilter = ref("");
 const sbEnabled = ref(true);
 const sbCategories = ref<string[]>([]);
 const sbHelpOpen = ref(false);
+const sbHelpEl = ref<HTMLElement | null>(null);
+const sbHelpOverflowing = useOverflowing(sbHelpEl);
+const roleListEl = ref<HTMLElement | null>(null);
+const roleListOverflowing = useOverflowing(roleListEl);
+onKeyStroke("Escape", () => (sbHelpOpen.value = false));
 
 const saving = ref(false);
-const result = ref<{ success: true } | { success: false; error: string } | null>(null);
 
 const filteredRoles = computed(() => {
-  const q = roleFilter.value.trim().toLowerCase();
-  return q ? s.value.roles.filter((r) => r.name.toLowerCase().includes(q)) : s.value.roles;
+  return roleFilter.value.trim() ? s.value.roles.filter((r) => koMatch(r.name, roleFilter.value)) : s.value.roles;
 });
 
 const sbDirty = computed(() => {
@@ -174,7 +189,7 @@ const sbDirty = computed(() => {
   return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
 });
 
-// 재생목록 한 번에 넣는 곡 수. 기본값(null) 또는 직접 정한 값
+// 한 번에 넣을 재생목록 곡 수. 기본값(null) 또는 직접 정한 값
 const paUseDefault = ref(true);
 const paCount = ref<number | null>(null);
 const paPresets = computed(() => {
@@ -215,11 +230,6 @@ function onPaInput(e: Event) {
   paCount.value = Number(raw);
 }
 
-function chip(active: boolean) {
-  const base = "px-3 py-1.5 rounded-full text-[0.85rem] border transition-[background-color,border-color,color] duration-150 disabled:opacity-40 disabled:cursor-not-allowed";
-  return active ? `${base} bg-accent/20 border-accent/55 text-fg` : `${base} bg-white/4 border-white/9 text-muted hover:text-fg hover:border-white/18`;
-}
-
 function syncPaForm() {
   const v = s.value.playlistAdd?.value ?? null;
   paUseDefault.value = v === null;
@@ -234,11 +244,6 @@ function toggleSbCategory(id: string) {
   else sbCategories.value.push(id);
 }
 
-function resultMsg(ok: boolean) {
-  const base = "mt-3 px-4 py-2.5 rounded-[10px] text-sm border";
-  return ok ? `${base} bg-success/10 text-success border-success/22` : `${base} bg-danger/10 text-danger border-danger/22`;
-}
-
 function toggleRole(id: string) {
   const i = selectedRoles.value.indexOf(id);
   if (i >= 0) selectedRoles.value.splice(i, 1);
@@ -249,14 +254,6 @@ function syncSbForm() {
   const sb = s.value.sponsorblock;
   sbEnabled.value = sb ? sb.enabled : true;
   sbCategories.value = sb ? [...(sb.categories || [])] : [];
-}
-
-function revert() {
-  selectedRoles.value = [...s.value.djRoleIds];
-  selectedChannel.value = s.value.botChannelId;
-  syncSbForm();
-  syncPaForm();
-  result.value = null;
 }
 
 function apply(data: GuildSettings) {
@@ -271,41 +268,92 @@ async function load() {
   try {
     apply((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
   } catch (e) {
-    loadError.value = problemText(e, "설정을 불러오지 못했습니다");
+    loadError.value = problemText(e, "설정을 불러오지 못했어요.");
+    loadGone.value = GONE.includes(problemCodeOf(replyOf(e)) ?? "");
   } finally {
     loading.value = false;
   }
 }
 
-// 저장 뒤 서버가 확정한 값(지운 역할 정리 등)으로 맞춘다. 못 읽어도 저장은 됐으니 화면은 두고 알리기만 한다
-async function reload() {
-  try {
-    apply((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
-  } catch (e) {
-    notifyProblem(e, "저장한 설정을 다시 읽지 못했어요.");
-  }
+function retryLoad() {
+  loading.value = true;
+  loadError.value = null;
+  void load();
 }
 
+// ── 자동 저장 ──
+// 고르면 0.4초 뒤 저장한다. 곡 수 직접 입력은 입력하는 동안(typing) 저장하지 않고 칸을 벗어나거나 Enter 에 저장한다. 범위를 벗어나면 저장하지 않는다(칸 아래 안내).
+// 저장 중에 또 바뀌면 끝난 뒤 한 번 더. 저장한 값은 그대로 기준(s)으로 삼는다(다시 읽으면 그사이 고친 것을 덮는다). 실패는 표시 · 알림으로 알리고 고친 값은 둔다
+const typing = ref(false);
+const saveState = ref<SaveState>("idle");
+let saveTimer = 0;
+let doneTimer = 0;
+let again = false;
+
+function schedule() {
+  clearTimeout(saveTimer);
+  if (!s.value.canEdit || !dirty.value || typing.value || paInvalid.value) return;
+  saveTimer = window.setTimeout(() => void save(), 400);
+}
+watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue], schedule, { deep: true });
+watch(typing, (now) => !now && schedule());
+
 async function save() {
-  if (saving.value) return;
+  clearTimeout(saveTimer);
+  if (saving.value) return void (again = true);
   saving.value = true;
-  result.value = null;
+  clearTimeout(doneTimer);
+  saveState.value = "saving";
+  // 보낸 그대로를 붙잡아 둔다(저장 중에 또 고친 것은 기준에 넣지 않아 다음 저장이 보낸다)
+  const sent = { roles: [...selectedRoles.value], channel: selectedChannel.value, sbOn: sbEnabled.value, sbCats: [...sbCategories.value], pa: paValue.value };
+  const body: SettingsRequest = {
+    djRoleIds: sent.roles,
+    botChannelId: sent.channel,
+    sponsorblock: { enabled: sent.sbOn, categories: sent.sbCats },
+    ...(s.value.playlistAdd && { playlistAddMax: sent.pa }),
+  };
   try {
-    const body: SettingsRequest = {
-      djRoleIds: selectedRoles.value,
-      botChannelId: selectedChannel.value,
-      sponsorblock: { enabled: sbEnabled.value, categories: sbCategories.value },
-      ...(s.value.playlistAdd && { playlistAddMax: paValue.value }),
-    };
+    const began = Date.now();
     await axios.put<Saved>(`/api/guilds/${guildId}/settings`, body);
-    result.value = { success: true };
-    await reload();
+    // 너무 빨리 끝나면 링이 깜빡이고 만다. 도는 모습을 0.6초는 보인다
+    await new Promise((r) => setTimeout(r, Math.max(0, 600 - (Date.now() - began))));
+    const sb = s.value.sponsorblock;
+    const pa = s.value.playlistAdd;
+    s.value = { ...s.value, djRoleIds: sent.roles, botChannelId: sent.channel, sponsorblock: sb && { ...sb, enabled: sent.sbOn, categories: sent.sbCats }, playlistAdd: pa && { ...pa, value: sent.pa } };
+    saveState.value = "done";
   } catch (e) {
-    result.value = { success: false, error: problemText(e, "요청 실패") };
+    saveState.value = "error";
+    notifyProblem(e, "설정을 저장하지 못했어요.");
   } finally {
     saving.value = false;
+    doneTimer = window.setTimeout(() => (saveState.value = "idle"), 1600);
+    if (again) {
+      again = false;
+      schedule();
+    }
   }
 }
 
 onMounted(load);
+
+// 떠날 때 저장할 것이 남았으면(기다리는 중 · 입력 중) 마치고 떠난다. 범위를 벗어난 입력은 버린다
+onBeforeRouteLeave(async () => {
+  typing.value = false;
+  if (s.value.canEdit && dirty.value && !paInvalid.value) await save();
+});
+onUnmounted(() => {
+  clearTimeout(saveTimer);
+  clearTimeout(doneTimer);
+});
+
+// 화면 색 · 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 곡 그림이라 재생 화면에서 들어오면 색이 그대로다).
+// 서버 목록의 지금 곡이라 곡이 바뀌면 따라간다. 목록을 처음 받는 동안은 지금 색을 붙잡는다(주소로 바로 들어온 때)
+const guilds = useGuildsStore();
+const artOwner = Symbol("settings");
+watch(
+  () => (guilds.loading ? HOLD : (guilds.guilds.find((g) => g.id === guildId)?.nowPlaying?.thumbnail ?? NO_ART)),
+  (url) => setPageArt(artOwner, url),
+  { immediate: true },
+);
+onUnmounted(() => releasePageArt(artOwner));
 </script>

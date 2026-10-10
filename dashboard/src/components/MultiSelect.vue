@@ -1,8 +1,8 @@
 <template>
   <SelectPanel v-model:open="open" v-model:term="term" :summary="summary" :muted="!picked.length" :count="options.length" :searchable="searchable" :empty="!shown.length">
-    <button v-for="opt in shown" :key="opt.value" type="button" :class="rowCls" @click="toggle(opt.value)">
+    <button v-for="opt in shown" :key="String(opt.value)" type="button" :class="[rowCls, picked.includes(opt.value) ? rowOn : '']" @click="toggle(opt.value)">
       <span class="truncate">{{ opt.label }}</span>
-      <input type="checkbox" class="size-4 accent-accent shrink-0 pointer-events-none" :checked="picked.includes(opt.value)" tabindex="-1" />
+      <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="picked.includes(opt.value) ? 'accent-on-tertiary-container' : 'accent-(--md-primary)'" :checked="picked.includes(opt.value)" tabindex="-1" />
     </button>
   </SelectPanel>
 </template>
@@ -11,6 +11,7 @@
 import { ref, computed } from "vue";
 import SelectPanel from "./SelectPanel.vue";
 import { filterOptions, type Option, type OptionValue } from "../utils/options.ts";
+import { SELECT_ROW, SELECT_ROW_ON } from "../utils/select-row.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -24,7 +25,9 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();
 
-const rowCls = "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-[0.82rem] text-fg-soft text-left cursor-pointer transition-colors duration-100 hover:bg-white/8";
+const rowCls = `${SELECT_ROW} justify-between gap-2`;
+// 고른 줄: M3E 세로 메뉴의 고른 줄(모서리 12 · tertiary-container)
+const rowOn = SELECT_ROW_ON;
 
 const open = ref(false);
 const term = ref("");

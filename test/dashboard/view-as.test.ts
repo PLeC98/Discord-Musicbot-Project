@@ -45,7 +45,7 @@ test("오버라이드가 없으면 원본을 그대로 돌려준다", () => {
   assert.equal(shadowMember(req(undefined), m), m);
   assert.equal(shadowMember(req(null), m), m);
   assert.equal(shadowMember(req("nonsense"), m), m, "모르는 값은 오버라이드 없음으로 취급");
-  assert.equal(shadowMember(req("owner"), m), m, "운영자 계층은 바꿀 것이 없다");
+  assert.equal(shadowMember(req("owner"), m), m, "운영자는 계층이 아니다(오버라이드 없음)");
 });
 
 test("moderator: 모더레이터로 승격돼 재적 규칙까지 면제된다", async () => {
@@ -110,7 +110,7 @@ test("isOwner는 오버라이드를 따르고, isRealOwner는 따르지 않는�
   }
 
   assert.equal(isOwner(req(undefined)), true);
-  assert.equal(isOwner(req("owner")), true);
+  assert.equal(isOwner(req("owner")), true, "모르는 값은 오버라이드 없음");
 });
 
 test("운영자가 아니면 오버라이드로 권한을 얻을 수 없다", () => {
@@ -122,6 +122,6 @@ test("운영자가 아니면 오버라이드로 권한을 얻을 수 없다", ()
 
 test("getViewAs는 알려진 계층만 통과시킨다", () => {
   for (const tier of TIERS) assert.equal(getViewAs(req(tier)), tier);
-  for (const bad of [undefined, null, "", "admin", "OWNER", 1, {}]) assert.equal(getViewAs(req(bad)), null);
+  for (const bad of [undefined, null, "", "admin", "owner", "OWNER", 1, {}]) assert.equal(getViewAs(req(bad)), null, "운영자는 계층이 아니다");
   assert.equal(getViewAs(fake<Request>({})), null, "세션이 없어도 던지지 않는다");
 });

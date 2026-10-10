@@ -1,35 +1,49 @@
 <template>
-  <div class="max-w-275 mx-auto px-3 py-4.5">
-    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-1.5 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">서버 목록</h1>
-    <p class="pl-2 text-muted mb-4.5 text-[0.9rem]">재생 상태와 재생 목록을 관리할 서버를 선택하고, Discord와 실시간 동기화하세요.</p>
+  <!-- 모든 서버. 서버마다 같은 크기의 카드: 아이콘 · 이름 · 상태, 그 아래 지금 곡 한 줄. 내가 듣는 서버는 맨 앞에 두고 테두리로 가른다 -->
+  <div class="min-h-full px-(--gap-out) pt-2 md:pt-0 pb-[calc(var(--gap-out)+var(--player))]">
+    <!-- 바탕화면 둥근 모서리 쪽으로 글을 조금 안쪽으로 민다(위 · 옆 막대의 곡선과 맞춘다. 휴대폰도 위 모서리가 둥글어 같다) -->
+    <header class="flex items-center justify-between gap-4 h-12 md:h-(--strip) mb-1 md:mb-0 px-[calc((var(--r-desk)-var(--gap-out))/2)]">
+      <div class="flex items-baseline gap-3 min-w-0">
+        <h1 class="text-xl md:text-lg font-semibold">모든 서버</h1>
+        <span class="text-sm text-on-surface-variant nums">{{ guilds.length }}곳</span>
+      </div>
+      <span class="hidden @2xl/desk:block text-sm text-on-surface-variant truncate">{{ greeting }}</span>
+    </header>
 
-    <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
-
-    <div v-else-if="guilds.length === 0" class="text-center px-5 py-15 text-muted">
-      <Icon name="music" :size="48" class="mb-3 text-muted" />
-      <p class="mb-1.5">사용자가 참가한 서버 중에 봇이 함께 있는 서버가 없습니다.</p>
-      <p class="mb-1.5 text-[0.85rem] text-muted">봇을 서버에 초대하거나, 봇이 있는 서버에 참여하세요.</p>
+    <div v-if="loading" class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
+      <div v-for="n in 3" :key="n" class="h-38 rounded-(--r-window) bg-surface-container animate-pulse"></div>
     </div>
 
-    <div v-else class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
-      <router-link
-        v-for="g in guilds"
-        :key="g.id"
-        :to="`/servers/${g.id}`"
-        class="group flex items-center gap-4 rounded-2xl py-2.5 px-4.5 no-underline text-fg bg-[rgba(12,16,36,0.62)] backdrop-blur-[20px] backdrop-saturate-[1.5] border border-white/8 shadow-[0_2px_14px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,transform,box-shadow] duration-300 ease-spring hover:border-accent/45 hover:scale-[1.01] hover:shadow-[0_12px_36px_rgba(0,0,0,0.45),0_0_0_1px_rgba(124,111,246,0.18),inset_0_1px_0_rgba(255,255,255,0.07)]"
-      >
-        <div class="shrink-0">
-          <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-12.5 rounded-full border-2 border-white/10" />
-          <div v-else class="size-12.5 rounded-full border-2 border-white/10 bg-linear-135 from-accent to-accent-2 text-[1.2rem] font-bold flex items-center justify-center">{{ g.name[0] }}</div>
-        </div>
-        <div class="flex-1 overflow-hidden">
-          <div class="text-sm font-semibold mb-0.5 overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
-          <div class="text-[0.78rem] mb-0.5 flex items-center gap-1" :class="stateOf(g).cls">
-            <Icon :name="stateOf(g).icon" :size="13" />
-            <span>{{ stateOf(g).label }}</span>
+    <div v-else-if="guilds.length === 0" class="rounded-(--r-window) bg-surface-container flex flex-col items-center text-center gap-3 px-6 py-16">
+      <span class="size-20 rounded-[30%] bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="music_off" :size="40" /></span>
+      <p class="text-xl font-round font-semibold">함께 있는 서버가 없어요</p>
+      <p class="text-sm text-on-surface-variant max-w-sm">봇을 서버에 초대하거나, 봇이 있는 서버에 참여하세요.</p>
+    </div>
+
+    <div v-else class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
+      <router-link v-for="g in ordered" :key="g.id" :to="`/servers/${g.id}`" class="group state-layer flex flex-col gap-3 rounded-(--r-window) bg-surface-container p-4 no-underline text-on-surface transition-[border-radius] spring hover:rounded-xl" :class="g.listening ? 'ring-2 ring-primary/70' : ''">
+        <div class="flex items-center gap-3">
+          <GuildAvatar :guild="g" size-class="size-13" text-class="text-lg" />
+          <div class="min-w-0 flex-1">
+            <div class="text-base font-semibold truncate">{{ g.name }}</div>
+            <div class="text-xs text-on-surface-variant nums">멤버 {{ g.memberCount.toLocaleString() }}명</div>
           </div>
+          <!-- 칩은 나와의 관계("듣는 중")만. 서버 상태는 아이콘의 상태 점과 아래 줄이 말한다 -->
+          <span v-if="g.listening" class="h-6 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold inline-flex items-center gap-1 shrink-0"><Icon name="headphones" :size="14" fill />듣는 중</span>
         </div>
-        <span class="mb-0.5 text-muted text-[1.2rem] transition-[transform,color] duration-300 ease-spring group-hover:translate-x-1 group-hover:text-[rgba(196,181,253,0.8)]">›</span>
+        <!-- 지금 곡. 없으면 같은 높이로 비워 둔다(카드 높이를 맞춘다) -->
+        <div class="flex items-center gap-3 h-14 rounded-(--r-inner) bg-surface-container-high px-2">
+          <template v-if="g.nowPlaying">
+            <TrackArt :track="g.nowPlaying" size-class="size-10 rounded-sm" :icon-size="20" />
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium truncate">{{ songTitle(g.nowPlaying.title) }}</div>
+              <div class="text-xs text-on-surface-variant truncate">{{ g.nowPlaying.artist }}</div>
+            </div>
+            <!-- 재생 중이면 재생(▶), 일시정지면 일시정지. 누구나 아는 기호라 툴팁은 두지 않는다(▶ 는 눌러 그 서버로 간다는 느낌도 준다) -->
+            <Icon :name="g.state === 'paused' ? 'pause' : 'play_arrow'" :size="20" fill class="shrink-0 mr-1" :class="g.state === 'paused' ? 'text-on-surface-variant' : 'text-primary'" />
+          </template>
+          <span v-else class="flex items-center gap-1 pl-2 text-xs text-on-surface-variant"><Icon :name="g.hasPlayer ? 'headphones' : 'bedtime'" :size="14" />{{ g.hasPlayer ? "음성 채널에서 대기 중이에요" : "봇이 쉬고 있어요" }}</span>
+        </div>
       </router-link>
     </div>
   </div>
@@ -38,22 +52,25 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
 import { useGuildsStore } from "../stores/guilds.ts";
+import { useUserStore } from "../stores/user.ts";
 import Icon from "../components/BaseIcon.vue";
-import type { GuildRow, ListState } from "../../../src/dashboard/contract/guilds.ts";
+import GuildAvatar from "../components/GuildAvatar.vue";
+import TrackArt from "../components/TrackArt.vue";
+import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 
-// 목록 데이터·SSE·폴링은 사이드바와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
+// 목록 데이터·SSE·폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
 const store = useGuildsStore();
+const user = useUserStore();
 const guilds = computed(() => store.guilds);
 const loading = computed(() => store.loading);
+// 내가 듣는 서버를 맨 앞에
+const ordered = computed(() => [...store.guilds].sort((a, b) => Number(b.listening) - Number(a.listening)));
 
-// 서버 목록 응답의 상태(state). 봇이 음성 채널 밖 · 곡을 트는 중 · 일시정지 · 음성 채널에 있지만 곡이 없음
-const STATES: Record<ListState, { label: string; icon: string; cls: string }> = {
-  idle: { label: "유휴 상태", icon: "pause", cls: "text-muted" },
-  playing: { label: "재생 중", icon: "music", cls: "text-success" },
-  paused: { label: "일시정지", icon: "pause", cls: "text-warning" },
-  waiting: { label: "대기 중", icon: "headphones", cls: "text-fg-soft" },
-};
-const stateOf = (g: GuildRow) => STATES[g.state] ?? STATES.idle;
+const greeting = computed(() => {
+  const h = new Date().getHours();
+  const when = h < 6 ? "늦은 밤이에요" : h < 12 ? "좋은 아침이에요" : h < 18 ? "좋은 오후예요" : "좋은 저녁이에요";
+  return `${when}, ${user.displayName}님`;
+});
 
 onMounted(() => store.subscribe());
 onUnmounted(() => store.unsubscribe());

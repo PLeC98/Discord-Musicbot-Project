@@ -1,232 +1,264 @@
 <template>
-  <div class="max-w-275 mx-auto px-3 py-4.5">
-    <div class="mb-4 flex items-center justify-between">
-      <router-link to="/servers" class="text-muted no-underline text-sm px-2.5 py-1.25 rounded-lg inline-flex items-center gap-1 transition-[color,background-color] duration-200 hover:text-fg hover:bg-white/6">← 서버 목록</router-link>
-      <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="'서버 설정'" class="text-muted no-underline text-sm px-2.5 py-1.25 rounded-lg inline-flex items-center gap-1.5 transition-[color,background-color] duration-200 hover:text-fg hover:bg-white/6">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.61 3.61 0 0 1 8.4 12c0-1.98 1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-          />
-        </svg>
-        설정
-      </router-link>
-    </div>
+  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 구른다). 휴대폰은 쌓아서 화면이 구른다.
+       대기열이 한 단 목록이라 넓어도 줄만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
+  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 아래 판(스포티파이식). 판 머리(76)만큼 아래를 비운다.
+       가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 그림이 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔했다 -->
+  <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
+    <!-- 음성 상태 · 설정(태블릿 · PC)은 위 막대 오른쪽 끝으로 보낸다(서버 이름 · 아이콘은 위 막대 가운데). 휴대폰은 아래 한 줄로 -->
+    <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 서랍에서 다른 서버로 건너왔어도 나가는 길은 하나).
+         자리가 되면(태블릿 · PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 단추) -->
+    <Teleport to="#topbar-start" defer>
+      <router-link to="/servers" :class="TOPBAR_TEXT_BTN" aria-label="서버 목록" v-tooltip="isPhone ? '서버 목록' : null"><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">서버 목록</span></router-link>
+    </Teleport>
+    <Teleport to="#topbar-end" defer>
+      <span class="hidden lg:flex items-center gap-1 text-xs text-on-surface-variant truncate"
+        ><Icon :name="voiceLine.icon" :size="16" :fill="player.sameVoice" :class="player.sameVoice ? 'text-primary' : ''" /><span class="truncate">{{ voiceLine.text }}</span></span
+      >
+      <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="'서버 설정'" :class="TOPBAR_BTN" aria-label="서버 설정"><Icon name="tune" /></router-link>
+    </Teleport>
 
-    <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
+    <!-- 휴대폰: 글 · 단추 뒤의 받침 막. 곡마다 배경화면 색이 달라 그림 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
+         좁게 두면 띠처럼 뭉친다 -->
+    <div
+      v-if="sheetMode && !loading && !loadError"
+      class="absolute inset-0 pointer-events-none"
+      :class="
+        short
+          ? 'bg-[linear-gradient(to_right,transparent_0%,color-mix(in_oklab,var(--md-surface)_13%,transparent)_20%,color-mix(in_oklab,var(--md-surface)_33%,transparent)_35%,color-mix(in_oklab,var(--md-surface)_50%,transparent)_50%,color-mix(in_oklab,var(--md-surface)_60%,transparent)_62%)]'
+          : 'bg-[linear-gradient(to_bottom,transparent_35%,color-mix(in_oklab,var(--md-surface)_13%,transparent)_46%,color-mix(in_oklab,var(--md-surface)_33%,transparent)_55%,color-mix(in_oklab,var(--md-surface)_50%,transparent)_64%,color-mix(in_oklab,var(--md-surface)_60%,transparent)_72%)]'
+      "
+      aria-hidden="true"
+    ></div>
 
-    <div v-else-if="loadError" class="flex flex-col items-center gap-3 p-16 text-center">
-      <p class="text-danger text-[0.9rem] whitespace-pre-line">{{ loadError }}</p>
-      <BaseButton variant="ghost" @click="retryLoad">다시 시도</BaseButton>
-    </div>
+    <div v-if="loading" class="flex-1 flex items-center justify-center text-on-surface-variant"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
-    <template v-else>
-      <!-- ── 지금 재생 중 ── -->
-      <BaseCard title="지금 재생 중" class="mb-4 pb-3.75">
-        <div v-if="player.currentTrack" class="relative">
-          <div :class="channelLocked && 'blur-[5px] saturate-50 pointer-events-none select-none'">
-            <!-- 썸네일 · 제목 · 아티스트 -->
-            <div class="flex gap-4 items-center mb-4.5 mt-3.5">
-              <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
-              <!-- 직접 링크는 앨범아트를 알 수 없다. 파일 아이콘으로 대체 -->
-              <div v-else class="h-[15vw] max-h-37.5 aspect-square rounded-xl bg-white/6 flex items-center justify-center shrink-0 text-muted">
-                <Icon name="audio-file" :size="44" />
-              </div>
-              <div class="flex-1 pt-0.5 overflow-hidden">
-                <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="block text-[1.1rem] font-extrabold text-fg no-underline mb-1 overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em] hover:underline">
-                  {{ songTitle(player.currentTrack.title) }}
-                </a>
-                <div class="text-muted text-sm mb-3" v-if="player.currentTrack.artist">{{ player.currentTrack.artist }}</div>
-              </div>
-            </div>
+    <!-- 서버가 없거나 멤버가 아니면 다시 해도 같다: 서버 목록으로. 그 밖(봇이 답하지 않음 등)은 다시 시도 -->
+    <PageError v-else-if="loadError" :icon="loadGone ? 'block' : 'cloud_off'" :text="loadError">
+      <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />서버 목록으로</BaseButton>
+      <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />다시 시도</BaseButton>
+    </PageError>
 
-            <!-- 진행 막대(가로 전체) -->
-            <div class="flex items-center gap-2 mb-1.5">
-              <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
-              <span :class="timeText">{{ isLive ? "🔴 라이브" : fmt(displayTime) }}</span>
-              <div class="group relative flex flex-1 h-4 items-center touch-none before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" ref="progressBarRef" @pointerdown.prevent="seekBar.onPointerDown">
-                <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
-                <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상). 호버 시 카테고리 툴팁 -->
-                <!-- mousedown은 부모로 버블링돼 스크럽 시작에 영향 없음 -->
-                <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm opacity-80 hover:opacity-100 hover:h-1.5" :style="{ left: m.left + '%', width: m.width + '%', backgroundColor: m.color }" v-tooltip="m.label"></div>
-                <!-- 하이라이트 지점 -->
-                <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 rounded" :style="{ left: highlightMarker + '%', backgroundColor: 'var(--category-highlight-color)' }" v-tooltip="'하이라이트'"></div>
-                <!-- 옮길 수 없는 곡(라이브·길이 미상)에는 손잡이를 내지 않는다. 잡을 수 있는 것처럼 보이면 안 된다 -->
-                <div v-if="seekable" class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
-              </div>
-              <span :class="timeText">{{ player.currentTrack.duration > 0 ? fmt(player.currentTrack.duration) : "--:--" }}</span>
-            </div>
+    <div v-else class="flex-1 min-h-0" :class="sheetMode ? 'relative flex flex-col' : 'grid content-start md:content-stretch gap-(--gap-in) grid-cols-1 md:grid-rows-[auto_minmax(0,1fr)]'">
+      <!-- ── 지금 재생: 한 줄 높이의 띠(아트 · 제목 · 조작). 곡이 없어도 같은 줄들을 두어 높이가 같다(자리 표시 · 비활성 조작) ── -->
+      <AppWindow v-if="!sheetMode">
+        <div class="relative" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
+          <div class="flex items-center gap-4">
+            <!-- 아트. 누르면 크게 본다 -->
+            <button v-if="track?.thumbnail" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="'크게 보기'" aria-label="앨범아트 크게 보기" @click="artOpen = true">
+              <img :src="track.thumbnail" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="artZoom > 1 ? { scale: artZoom } : undefined" />
+              <span class="absolute right-1 bottom-1 @xl/win:right-2 @xl/win:bottom-2 size-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 transition-opacity effects group-hover/art:opacity-100"><Icon name="open_in_full" :size="16" /></span>
+            </button>
+            <span v-else class="shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md bg-surface-container-high text-on-surface-variant flex items-center justify-center"><Icon :name="track ? 'audio_file' : 'music_off'" :size="36" /></span>
 
-            <!-- 조작 -->
-            <div class="flex flex-col gap-2.5">
-              <div class="flex items-center gap-1 flex-wrap">
-                <!-- 이전 곡 -->
-                <!-- 한곡 반복 중에는 이전곡/다음곡 = 현재 곡 재시작이라 기록/대기열이 없어도 활성 -->
-                <button :class="iconBtn" @click="previous" v-tooltip="'이전곡'" :disabled="!previousEnabled(player) || isBusy('previous')">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
-                </button>
-
-                <!-- 재생 · 일시정지 -->
-                <button :class="iconBtn" @click="togglePause" v-tooltip="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
-                  <svg v-if="player.paused" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                  <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-                </button>
-
-                <!-- 정지 -->
-                <button :class="iconStop" @click="confirmStop" v-tooltip="'정지'" :disabled="!player.canControl || isBusy('stop')">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
-                </button>
-
-                <!-- 다음 곡 -->
-                <button :class="iconBtn" @click="skip" v-tooltip="'다음곡'" :disabled="!skipEnabled(player) || isBusy('skip')">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-                </button>
-
-                <!-- Volume: capsule hover-expand. 모바일에서는 펼치면 오른쪽 버튼이 밀려 줄이 바뀌므로 처음부터 아랫줄에 둔다 -->
-                <div class="order-last basis-full flex sm:order-0 sm:basis-auto">
-                  <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
-                    <button :class="volBtn" v-tooltip="`볼륨: ${volumeShown}%`">
-                      <VolumeIcon :level="volumeShown" :size="17" />
-                    </button>
-                    <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-44 group-hover/vol:opacity-100 group-focus-within/vol:max-w-44 group-focus-within/vol:opacity-100">
-                      <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="volumeShown" @input="volumeInput(valueOf($event))" @change="volumeChange(valueOf($event))" class="w-30 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
-                      <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ volumeShown }}%</span>
-                    </div>
-                  </div>
+            <div class="min-w-0 flex-1">
+              <!-- 출처 줄 아래와 아티스트 위 간격을 같게(제목이 가운데). 좁은 창의 아트(88)는 이 묶음 높이(출처 32 + 6 + 제목 + 6 + 아티스트)에 맞춘다.
+                   곡이 없으면 이 줄을 숨겨 "재생 중인 곡이 없어요" 두 줄이 아트 높이의 가운데에 온다 -->
+              <div v-if="track" class="flex items-center gap-2 mb-1.5 min-w-0 h-8">
+                <!-- 좁은 창은 하이라이트 · 정지 자리를 지키려고 "내가 넣은 곡"을 뺀다 -->
+                <TrackChips :track="track" :mine="mine" mine-class="hidden! @xl/win:inline-flex!" />
+                <!-- 좁은 창: 하이라이트 · 정지는 이 줄 오른쪽 끝 -->
+                <div class="@xl/win:hidden ml-auto flex items-center gap-2 shrink-0">
+                  <PlayerActions small :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
                 </div>
-
-                <div class="flex-1"></div>
-
-                <!-- SponsorBlock 하이라이트 점프 -->
-                <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" v-tooltip="'하이라이트로 점프'" :disabled="!player.canControl || isBusy('highlight')">
-                  <svg width="17" height="17" viewBox="0 -960 960 960" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M442-480 287-697q-14-20-3.5-41.5T319-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Zm238 0L525-697q-14-20-3.5-41.5T557-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Z" /></svg>
-                </button>
-
-                <!-- 섞기 -->
-                <button :class="iconBtn" @click="shuffle" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2 || isBusy('shuffle')">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
-                </button>
-                <!-- Loop (cycles: off → track → queue) -->
-                <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl || player.hasLive || isBusy('loop')">
-                  <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 2 1 1 1-1v4h1z" />
-                  </svg>
-                  <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-                  </svg>
-                </button>
               </div>
+              <!-- 링크는 글자에만 건다(줄 전체가 눌리지 않게) -->
+              <div v-if="track" class="font-round font-semibold leading-tight text-on-surface line-clamp-1 @xl/win:line-clamp-2 text-lg @xl/win:text-xl @4xl/win:text-2xl">
+                <a :href="track.url" target="_blank" rel="noopener" class="no-underline hover:underline decoration-2 underline-offset-4">{{ songTitle(track.title) }}</a>
+              </div>
+              <div v-else class="font-round font-semibold leading-tight text-on-surface-variant line-clamp-1 text-lg @xl/win:text-xl @4xl/win:text-2xl">재생 중인 곡이 없어요</div>
+              <div class="mt-1.5 text-sm @xl/win:text-base text-on-surface-variant truncate">{{ track ? track.artist || " " : "곡을 넣으면 바로 재생해요." }}</div>
+            </div>
 
-              <div v-if="!player.canControl && player.sameVoice" class="mt-2.5 text-muted text-[0.8rem]">{{ gate("must-dj").body }}</div>
+            <!-- 넓은 창: 조작은 아트 · 제목 오른쪽 -->
+            <div class="hidden @xl/win:block shrink-0">
+              <PlayerControls :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
             </div>
           </div>
 
-          <!-- 봇이 있는 채널 밖에서는 서버가 조작을 막는다(checkVoice). 버튼을 하나씩 비활성으로 두는 대신
-               카드를 통째로 가려 이유를 한 번에 알린다. 모더레이터는 면제라 여기 걸리지 않는다. -->
-          <div v-if="channelLocked" class="absolute inset-0 flex items-center justify-center p-3">
-            <span class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[0.85rem] font-semibold text-fg text-center bg-[rgba(12,16,36,0.92)] backdrop-blur-sm border border-white/12 shadow-card"> <Icon name="headphones" :size="17" class="shrink-0 text-[#c4b5fd]" />{{ gate("must-be-in-same-voice").title }} </span>
+          <!-- 진행 줄. 넓은 창은 끝에 [음량 | 하이라이트 · 정지], 좁은 창은 [음량 버튼] -->
+          <SeekRow class="mt-3" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek">
+            <div class="hidden @xl/win:flex items-center gap-2 shrink-0 pl-2">
+              <div class="flex items-center gap-2 h-10 pl-2 pr-3 rounded-full bg-surface-container-high/60">
+                <span class="flex text-on-surface-variant"><VolumeIcon :level="volumeShown" :size="24" /></span>
+                <VolumeSlider class="w-24 @4xl/win:w-30" :level="volumeShown" :disabled="!player.canControl || !player.hasPlayer" @input="volumeInput" @change="volumeChange" />
+              </div>
+              <span class="w-px h-6 bg-outline-variant/60"></span>
+              <PlayerActions :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
+            </div>
+            <!-- 좁은 창: 음량은 버튼 하나. 누르면 슬라이더 말풍선 -->
+            <div class="@xl/win:hidden relative shrink-0">
+              <button type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeOpen ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="`음량 ${volumeShown}`" :aria-expanded="volumeOpen" :disabled="!player.canControl || !player.hasPlayer" @click="volumeOpen = !volumeOpen"><VolumeIcon :level="volumeShown" :size="24" /></button>
+              <template v-if="volumeOpen">
+                <div class="fixed inset-0 z-40" @click="volumeOpen = false"></div>
+                <div class="absolute right-0 bottom-full mb-2 z-50 pane-menu rounded-full h-12 pl-4 pr-3 flex items-center gap-2">
+                  <VolumeSlider class="w-40" :level="volumeShown" :bubble="false" @input="volumeInput" @change="volumeChange" />
+                  <span class="w-7 text-right text-xs font-semibold nums">{{ volumeShown }}</span>
+                </div>
+              </template>
+            </div>
+          </SeekRow>
+
+          <!-- 좁은 창: 조작 한 줄, 양끝까지 펼친다 -->
+          <PlayerControls class="@xl/win:hidden mt-3" spread :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
+          <div v-if="track && !player.canControl && player.sameVoice" class="mt-3 text-sm text-on-surface-variant flex items-center gap-2"><Icon name="lock" :size="16" />{{ noticeText("must-dj").body }}</div>
+        </div>
+        <VoiceLockOverlay v-if="locked" />
+      </AppWindow>
+
+      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 그림(남는 높이 안의 가장 큰 정사각형) · 표 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 음량 · 정지 · 대기열) ── -->
+      <div v-else class="relative flex-1 min-h-0 flex flex-col">
+        <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(표는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
+        <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
+          <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
+            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 서랍 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
+            <button
+              v-if="track?.thumbnail"
+              ref="artSwipeEl"
+              type="button"
+              data-no-swipe
+              class="size-[min(100cqw,100cqh)] rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none"
+              :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'"
+              :style="artSwipe.style.value"
+              aria-label="앨범아트 크게 보기"
+              @pointerdown="artSwipe.down"
+              @pointermove="artSwipe.move"
+              @pointerup="artSwipe.up"
+              @pointercancel="artSwipe.up"
+              @click="artSwipe.swiped.value || (artOpen = true)"
+            >
+              <img :src="track.thumbnail" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" />
+            </button>
+            <!-- 그림이 없는 곡도 같은 자리에서 밀어 넘긴다 -->
+            <span v-else ref="artSwipeEl" data-no-swipe class="size-[min(100cqw,100cqh)] rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'" :style="artSwipe.style.value" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"
+              ><Icon :name="track ? 'audio_file' : 'music_off'" :size="64"
+            /></span>
+          </div>
+
+          <div :class="short ? 'flex-1 min-w-0 max-w-md flex flex-col justify-center' : 'contents'">
+            <div v-if="!short" class="shrink-0 mt-6 flex items-center gap-2 h-6">
+              <TrackChips v-if="track" :track="track" :mine="mine" />
+            </div>
+            <div class="shrink-0 flex items-center gap-3" :class="!short && 'mt-3'">
+              <div class="min-w-0 flex-1">
+                <!-- 길면 뉴스 티커처럼 흘려 돈다 -->
+                <a v-if="track" :href="track.url" target="_blank" rel="noopener" class="block no-underline font-round font-semibold leading-tight text-on-surface" :class="short ? 'text-xl' : 'text-2xl'"><MarqueeText :text="songTitle(track.title)" loop /></a>
+                <div v-else class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">재생 중인 곡이 없어요</div>
+                <MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : '곡을 넣으면 바로 재생해요.'" loop />
+              </div>
+            </div>
+
+            <!-- 진행: 막대 아래 양 끝에 시간 -->
+            <SeekRow stacked class="shrink-0" :class="short ? 'mt-0.5' : 'mt-1'" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek" />
+
+            <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
+
+            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 자리) · 음량 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 묶음).
+                 음량: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 자리로 막대가 🔊 쪽에서 펼쳐진다
+                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 손잡이를 잡는 동안 말풍선(태블릿 · PC 음량 막대와 같다) -->
+            <div ref="volRowEl" class="shrink-0 flex items-center gap-2" :class="short ? 'mt-1' : 'mt-5'">
+              <div class="relative flex-1 min-w-0 h-10 flex items-center gap-3">
+                <span class="min-w-0 flex items-center gap-1.5 text-xs transition-opacity duration-200" :class="[player.sameVoice ? 'text-primary' : 'text-on-surface-variant', volumeExpand && !volumeInline && 'opacity-0 pointer-events-none']"
+                  ><Icon :name="voiceLine.icon" :size="16" :fill="player.sameVoice" class="shrink-0" /><span class="truncate">{{ voiceLine.text }}</span></span
+                >
+                <div class="flex items-center transition-[clip-path,opacity] duration-300 ease-smooth" :class="volumeInline ? 'ml-auto w-28 shrink-0' : ['absolute inset-y-0 left-1 right-0', volumeExpand ? '[clip-path:inset(-3rem_-1rem_-1rem_-1rem)]' : '[clip-path:inset(-3rem_-1rem_-1rem_100%)] opacity-0 pointer-events-none']">
+                  <VolumeSlider
+                    class="w-full"
+                    :level="volumeShown"
+                    :disabled="!player.canControl || !player.hasPlayer"
+                    @input="
+                      volumeTouched();
+                      volumeInput($event);
+                    "
+                    @change="
+                      volumeTouched();
+                      volumeChange($event);
+                    "
+                  />
+                </div>
+              </div>
+              <!-- 넓으면 아이콘만(막대가 늘 있다), 좁으면 펼치는 단추 -->
+              <span v-if="volumeInline" class="flex text-on-surface-variant"><VolumeIcon :level="volumeShown" :size="24" /></span>
+              <button v-else type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeExpand ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="`음량 ${volumeShown}`" :aria-expanded="volumeExpand" :disabled="!player.canControl || !player.hasPlayer" @click="volumeExpand ? (volumeExpand = false) : volumeTouched()">
+                <VolumeIcon :level="volumeShown" :size="24" />
+              </button>
+              <span class="w-px h-6 bg-outline-variant/60"></span>
+              <PlayerActions :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
+            </div>
+            <div v-if="track && !player.canControl && player.sameVoice" class="shrink-0 mt-2 text-sm text-on-surface-variant flex items-center gap-2"><Icon name="lock" :size="16" />{{ noticeText("must-dj").body }}</div>
           </div>
         </div>
+        <VoiceLockOverlay v-if="locked" />
+      </div>
 
-        <div v-else class="text-center p-5 text-muted text-[0.9rem] flex items-center justify-center gap-1.5"><Icon name="pause" :size="16" /><span>현재 재생 중인 곡이 없습니다</span></div>
-      </BaseCard>
-
-      <!-- ── 곡 추가 ── -->
-      <BaseCard title="곡 추가 - 캐시되지 않은 곡은 추가하는데에 조금 시간이 걸려요." class="mb-3">
-        <!-- 1: 사용자도 봇도 음성 채널 밖 -->
-        <div v-if="!player.botInVoice && !player.userInVoice" class="text-muted text-sm">{{ gate("must-be-in-voice").title }} {{ gate("must-be-in-voice").body }}</div>
-
-        <!-- 2: 사용자만 음성 채널에 있다 -->
-        <div v-else-if="!player.botInVoice && player.userInVoice" class="text-muted text-sm flex items-center gap-3 flex-wrap justify-between">
-          <span>{{ gate("bot-not-in-voice").title }} {{ gate("bot-not-in-voice").body }}</span>
-          <BaseButton variant="primary" class="whitespace-nowrap shrink-0" @click="joinBot" :disabled="joining">
-            {{ joining ? "참가 중..." : "+ 참가" }}
-          </BaseButton>
-        </div>
-
-        <!-- 3: 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우.
-             폼을 열어봤자 409이므로 잠근다. 되살릴 방법은 아직 모른다(원인 미규명). 참가를 권하지 않는다.
-             이 상태에서도 봇이 소리를 내고 있을 수 있어, 새 플레이어를 만들면 그쪽이 끊긴다. -->
-        <div v-else-if="!player.hasPlayer" class="text-muted text-sm">봇이 음성 채널에 있지만 재생 상태를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.</div>
-
-        <!-- 4: 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
-        <div v-else-if="!player.canAdd" class="text-muted text-sm">{{ gate("must-be-in-same-voice").title }} {{ gate("must-be-in-same-voice").body }}</div>
-
-        <!-- 5: 봇이 음성 채널에 있고 곡을 넣을 수 있다 → 곡 추가 칸 -->
-        <form v-else class="flex gap-2" @submit.prevent="addTrack(false)">
-          <input v-model="addQuery" class="flex-1 bg-white/6 border border-white/9 rounded-[10px] text-fg px-3.5 py-2.25 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/8" placeholder="곡 이름, YouTube/Spotify/SoundCloud URL..." :disabled="adding" />
-          <BaseButton variant="primary" type="submit" :disabled="adding || !addQuery.trim()">
-            {{ adding ? "추가 중..." : "+ 추가" }}
-          </BaseButton>
-          <BaseButton v-if="isPlaylistQuery" variant="secondary" type="button" :disabled="adding || !addQuery.trim()" @click="addTrack(true)" v-tooltip="'재생목록 첫 곡만 추가'">한 곡만</BaseButton>
-        </form>
-
-        <div v-if="addError" class="mt-2 text-danger text-[0.85rem] whitespace-pre-line">{{ addError }}</div>
-        <div v-else-if="addNotice" class="mt-2 text-warning text-[0.85rem] whitespace-pre-line">{{ addNotice }}</div>
-        <div v-else-if="addInfo" class="mt-2 text-success text-[0.85rem]">{{ addInfo }}</div>
-        <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :has-current="Boolean(player.currentTrack)" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
-      </BaseCard>
+      <ArtLightbox v-model:open="artOpen" :track="track" :zoom="artZoom" />
 
       <!-- ── 대기열 ── -->
-      <BaseCard v-if="player.queue?.length > 0" :title="`대기열 (${(player.queueTotal ?? player.queue.length).toLocaleString()}곡)`">
-        <div ref="queueBoxRef" @scroll.passive="onQueueScroll" class="flex flex-col gap-1 max-h-120 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
-          <div
-            v-for="(track, i) in player.queue"
-            :key="track.entry ?? `i${i}`"
-            class="group/item flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] bg-white/4 border border-transparent mr-1 transition-[background-color,border-color] duration-200 hover:bg-white/7 hover:border-white/8"
-            :class="{
-              'opacity-35': draggedIndex === i,
-              'border-t-2 border-t-accent -mt-px': dragOverIndex === i && draggedIndex !== i,
-              'border-b-2 border-b-accent -mb-px': dragOverIndex === player.queue.length && i === player.queue.length - 1,
-            }"
-            :draggable="player.canControl && !isBusy('move')"
-            @dragstart="onDragStart($event, i)"
-            @dragover.prevent="onDragOver($event, i)"
-            @drop.prevent="onDrop"
-            @dragend="onDragEnd"
-          >
-            <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 group-hover/item:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'">
-              <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-                <circle cx="2" cy="3" r="1.5" />
-                <circle cx="2" cy="8" r="1.5" />
-                <circle cx="2" cy="13" r="1.5" />
-                <circle cx="8" cy="3" r="1.5" />
-                <circle cx="8" cy="8" r="1.5" />
-                <circle cx="8" cy="13" r="1.5" />
-              </svg>
-            </span>
-            <span class="w-5 text-right text-muted text-[0.8rem] shrink-0 mr-1">{{ i + 1 }}</span>
-            <img v-if="track.thumbnail" :src="track.thumbnail" class="size-9 rounded-md object-cover shrink-0" />
-            <div v-else class="size-9 rounded-md bg-white/6 flex items-center justify-center shrink-0 text-muted"><Icon name="audio-file" :size="18" /></div>
-            <div class="flex-1 overflow-hidden">
-              <div class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap mb-0.5">{{ songTitle(track.title) }}</div>
-              <div class="text-[0.78rem] text-muted">
-                <span v-if="track.artist">{{ track.artist }} &bull; </span>
-                <span>{{ fmt(track.duration) }}</span>
+      <!-- 휴대폰은 같은 내용을 아래 판(QueueSheet)에 담는다 -->
+      <component :is="sheetMode ? QueueSheet : AppWindow" title="대기열" icon="queue_music" v-bind="sheetMode ? { deskHeight: shell.deskHeight, next: nextTitle, compact: short } : { class: 'max-h-[80dvh] md:max-h-none' }">
+        <template #badge>
+          <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ (player.queueTotal ?? player.queue.length).toLocaleString() }}곡</span>
+        </template>
+        <template #actions>
+          <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds) }}</span>
+          <!-- 자동재생 켜기 · 끄기. 꺼져 있으면 장르를 고르고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
+          <div class="relative">
+            <button
+              type="button"
+              class="tap state-layer h-8 px-3 rounded-full flex items-center gap-2 text-xs font-semibold cursor-pointer transition-[background-color,color] effects disabled:opacity-38 disabled:cursor-not-allowed"
+              :class="autoplayGenre ? 'bg-tertiary-container text-on-tertiary-container' : 'border border-outline-variant text-on-surface-variant'"
+              :disabled="!player.canControl || isBusy('autoplay')"
+              v-tooltip="autoplayGenre ? '자동재생 끄기' : '자동재생 켜기'"
+              @click="autoplayGenre ? setAutoplay(null) : toggleGenreMenu($event)"
+            >
+              <Icon name="auto_awesome" :size="18" :fill="Boolean(autoplayGenre)" />
+              <span>자동재생</span>
+              <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenre }}</span>
+            </button>
+            <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
+            <!-- 스크롤바 길은 위아래 32 - 5 = 27 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5 로(useOverflowing) -->
+            <!-- 아래에 자리가 없으면(휴대폰 대기열 판이 접혀 화면 아래에 있을 때) 위로 연다 -->
+            <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2' : 'top-full mt-2', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
+              <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">어떤 장르를 재생할까요?</div>
+              <div class="grid grid-cols-2 gap-1">
+                <button v-for="g in genres" :key="g.name" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.name)">
+                  <span class="emoji text-lg">{{ g.emoji ?? "" }}</span
+                  ><span class="truncate">{{ g.name }}</span>
+                </button>
               </div>
             </div>
-            <span v-if="track.autoplay" class="text-muted shrink-0 flex items-center" v-tooltip="'자동재생'"><Icon name="robot" :size="13" /></span>
-            <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platformLabel || track.platform"></span>
-            <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(track)" v-tooltip="'제거'" :disabled="!canRemove(track) || !Number.isInteger(track.entry) || isBusy(`remove:${track.entry}`)"><Icon name="close" :size="14" /></button>
           </div>
+        </template>
 
-          <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-3 text-muted text-[0.82rem]">
-            <span class="size-3.5 rounded-full border-2 border-white/15 border-t-accent animate-spin"></span>
+        <QueueAddBox :guild-id="guildId" :player="player" :queue-window="loadedCount" @state="applyState" />
+
+        <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다 -->
+        <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
+          <div v-for="(item, i) in shownQueue" :key="item.entry ?? `i${i}`" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder>
+            <span class="text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="'끌어서 순서 바꾸기'" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
+            <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
+            <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
+              <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
+                <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
+                <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
+                <span class="nums shrink-0">· {{ formatDuration(item.duration) }}</span>
+              </div>
+            </div>
+            <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="'자동재생이 골라 둔 곡'"><Icon name="auto_awesome" :size="16" fill /></span>
+            <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="'빼기'" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
+          </div>
+          <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
+            <Icon name="progress_activity" :size="20" class="animate-spin text-primary" />
             {{ (player.queueTotal - player.queue.length).toLocaleString() }}곡 더
           </div>
         </div>
-      </BaseCard>
-    </template>
-
-    <!-- 정지 확인 대화상자 -->
-    <div v-if="showStopConfirm" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="showStopConfirm = false">
-      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-90 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <p class="mb-5.5 text-[0.95rem] text-fg-soft">재생을 완전히 중지하고 대기열을 비울까요?</p>
-        <div class="flex gap-2.5 justify-center">
-          <BaseButton variant="ghost" @click="showStopConfirm = false">취소</BaseButton>
-          <BaseButton variant="danger" @click="doStop">중지</BaseButton>
-        </div>
-      </div>
+        <div v-else class="flex-1 flex items-center justify-center py-8 text-sm text-on-surface-variant">대기열이 비어 있어요</div>
+      </component>
     </div>
+
+    <!-- 정지 확인(M3 대화상자) -->
+    <ConfirmDialog v-model="showStopConfirm" icon="stop_circle" :title="STOP_CONFIRM.title" :body="STOP_CONFIRM.body" confirm-label="정지" @confirm="doStop" />
   </div>
 </template>
 
@@ -236,45 +268,60 @@ import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
 import { problemText, noticeText } from "../utils/problem.ts";
 import { useGuildsStore, onGuildNudge } from "../stores/guilds.ts";
 import { notify, notifyProblem } from "../composables/toasts.ts";
-import { LIMIT } from "../utils/request.ts";
+import { problemCodeOf, replyOf } from "../utils/request.ts";
+import { useScrollFade } from "../composables/scroll-fade.ts";
 import { accepts, canRemove as removeAllowed, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, retime, skipEnabled } from "../utils/playback.ts";
 import { reordered } from "../utils/reorder.ts";
 import { withReadFields, type PlayerSeen } from "../utils/playback.ts";
-import { valueOf } from "../utils/dom.ts";
 import { useSeekBar } from "../composables/seek-bar.ts";
+import { useArtSwipe } from "../composables/art-swipe.ts";
 import { useBusy } from "../composables/busy.ts";
-import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
+import { usePointerReorder } from "../composables/pointer-reorder.ts";
+import { TOPBAR_BTN, TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
+import { PHONE_QUERY, SHORT_QUERY } from "../utils/breakpoints.ts";
+import { useOverflowing } from "../composables/overflowing.ts";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { onKeyStroke, useElementSize, useMediaQuery } from "@vueuse/core";
 import axios from "axios";
-import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
-import PlaylistMore from "../components/PlaylistMore.vue";
 import VolumeIcon from "../components/VolumeIcon.vue";
+import VolumeSlider from "../components/VolumeSlider.vue";
+import AppWindow from "../shell/AppWindow.vue";
+import QueueSheet from "../components/QueueSheet.vue";
+import { shell } from "../shell/shell-state.ts";
+import PageError from "../components/PageError.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
+import { STOP_CONFIRM } from "../utils/notices.ts";
+import TrackArt from "../components/TrackArt.vue";
+import MarqueeText from "../components/MarqueeText.vue";
+import ArtLightbox from "../components/ArtLightbox.vue";
+import PlayerActions from "../components/PlayerActions.vue";
+import PlayerControls from "../components/PlayerControls.vue";
+import QueueAddBox from "../components/QueueAddBox.vue";
+import SeekRow from "../components/SeekRow.vue";
+import TrackChips from "../components/TrackChips.vue";
+import VoiceLockOverlay from "../components/VoiceLockOverlay.vue";
+import { platformColor } from "../utils/platform-color.ts";
+import { HOLD, NO_ART, prefetchArt, releasePageArt, setPageArt, SHIFT_MS } from "../theme/theme.ts";
+import { useArtZoom } from "../theme/art.ts";
 import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
-import { VOLUME_MAX } from "../../../src/rules/limits.ts";
-import { isPlatform, type Platform } from "../../../src/rules/platforms.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
-import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
-import { loopLabel } from "../../../src/ui/text/ko/panel.ts";
-import { QUEUE_PAGE, modeOf, type AddReply, type MoreReply, type MoreView, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
+import { QUEUE_PAGE, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 
-// ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
-const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
-
-// 원형 아이콘 버튼. 상태(기본/정지/활성)별로 색상군을 통째로 정의(같은 속성 유틸리티 중복 회피)
-const iconBase = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-[background-color,color,scale] duration-150 disabled:opacity-25 disabled:cursor-not-allowed active:not-disabled:scale-[0.88] active:not-disabled:duration-75";
-const iconBtn = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-white/11 hover:not-disabled:text-fg active:not-disabled:bg-white/17`;
-const iconStop = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-danger/18 hover:not-disabled:text-[#fca5a5] active:not-disabled:bg-danger/26`;
-const iconActive = `${iconBase} text-[#c4b5fd] hover:not-disabled:bg-accent/20 hover:not-disabled:text-[#ddd6fe] active:not-disabled:bg-white/17`;
-// 볼륨 캡슐 안 버튼. 캡슐이 hover 배경을 담당하므로 버튼 자체는 투명 유지
-const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer text-[rgba(232,234,246,0.7)] group-hover/vol:text-fg";
+// 음량 단추(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
+const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
 const route = useRoute();
+const router = useRouter();
 const guildId = String(route.params.guildId);
 const loading = ref(true);
 const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 까닭과 다시 시도를 띄운다
+// 처음 읽기의 실패가 서버가 없거나 멤버가 아니어서다(다시 해도 같다)
+const loadGone = ref(false);
+const GONE = ["guild-not-found", "no-guild-access"];
 // 처음 읽기 전의 모양. 봇이 없는 서버와 같다
 const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, canManage: false, userId: "", hasPrevious: false });
 
@@ -282,24 +329,14 @@ const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false,
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref<HTMLElement | null>(null);
+// 더 있는 쪽 끝 반 줄(32)을 흐리게(봇 상태 · 서버 관리의 목록과 같다)
+const queueFade = useScrollFade(queueBoxRef, () => true, 32);
 // 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다. 안 그러면 목록이 접힌다.
 const qs = () => `?queue=${loadedCount.value}`;
 
-const addQuery = ref("");
-const adding = ref(false);
-const addError = ref("");
-const addNotice = ref("");
-const addInfo = ref("");
-// 이어 넣을 수 있는 재생목록. 서버가 준 상태를 그대로 되돌려 보낸다
-const more = ref<MoreView | null>(null);
-const moreBusy = ref(false);
-const queueMax = ref(0);
-const joining = ref(false);
 const showStopConfirm = ref(false);
 
-// 대기열 끌기
-const draggedIndex = ref<number | null>(null);
-const dragOverIndex = ref<number | null>(null);
+// 대기열 끌기(손잡이, composables/pointer-reorder). 끄는 동안(isDragging)은 받은 서버 대기열을 미룬다
 const isDragging = ref(false);
 // 끄는 동안 받은 서버 대기열. 끄는 그 칸만 미루고(다른 칸은 바로 넣는다) 끌기가 끝나면 넣는다
 let heldQueue: Pick<PlayerState, "queue" | "queueTotal"> | null = null;
@@ -309,6 +346,7 @@ const clock = ref(clockOf(null, 0));
 const now = ref(Date.now());
 let ticker: ReturnType<typeof setInterval> | undefined;
 let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
+// 진행 막대 칸. 화면마다 SeekRow 가 하나라 누를 때 그 칸을 잡는다(grabSeek)
 const progressBarRef = ref<HTMLElement | null>(null);
 
 // 응답을 기다리는 조작(넘기기 · 이전 · 정지 · 섞기 · 빼는 줄 · 옮기기). 그동안 그 버튼을 끈다
@@ -361,22 +399,17 @@ function onQueueScroll(e: Event) {
 // 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
 const channelLocked = computed(() => !player.value.canControl && player.value.botInVoice && !player.value.sameVoice);
 
-const canRemove = (track: QueueTrackView) => removeAllowed(player.value, track);
-
 async function refresh() {
   try {
     const res = await axios.get<PlayerRead>(`/api/guilds/${guildId}/player${qs()}`);
-    // 봇 재적/추가가능 여부가 바뀌면 직전 곡 추가 오류는 더 이상 유효하지 않으므로 정리
-    // (봇이 나가 추가 폼이 참가 버튼으로 바뀌는 순간 stale 오류 제거. 새로고침 없이 사라짐)
-    if (addError.value && (res.data.botInVoice !== player.value.botInVoice || res.data.canAdd !== player.value.canAdd)) {
-      addError.value = "";
-    }
     applyState(res.data);
     loadError.value = "";
   } catch (e) {
     // 처음 읽기면 화면에 까닭을, 그 뒤면 알림으로(지금 화면은 둔다)
-    if (loading.value) loadError.value = problemText(e, "재생 상태를 읽지 못했어요.");
-    else notifyProblem(e, "재생 상태를 읽지 못했어요.");
+    if (loading.value) {
+      loadError.value = problemText(e, "재생 상태를 읽지 못했어요.");
+      loadGone.value = GONE.includes(problemCodeOf(replyOf(e)) ?? "");
+    } else notifyProblem(e, "재생 상태를 읽지 못했어요.");
   } finally {
     loading.value = false;
   }
@@ -408,14 +441,22 @@ async function send(key: string, path: string, body: object | undefined, fallbac
 // 넘기기 · 이전은 누른 때의 곡일 때만 하게 줄 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
 const skip = () => send("skip", "skip", onTrackOf(player.value), "다음 곡으로 넘기지 못했어요.");
 const previous = () => send("previous", "previous", onTrackOf(player.value), "이전 곡으로 가지 못했어요.");
+// 휴대폰 앨범아트를 좌우로 밀어 곡 넘기기
+const artSwipeEl = ref<HTMLElement | null>(null);
+const artSwipe = useArtSwipe(artSwipeEl, {
+  canNext: () => skipEnabled(player.value) && !isBusy("skip"),
+  canPrevious: () => previousEnabled(player.value) && !isBusy("previous"),
+  next: skip,
+  previous,
+});
 const shuffle = () => send("shuffle", "shuffle", undefined, "대기열을 섞지 못했어요.");
 
 // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
 function togglePause() {
   if (isBusy("pause")) return;
   const paused = !player.value.paused;
-  const track = player.value.currentTrack;
-  clock.value = retime(clock.value, Date.now(), { running: Boolean(track && player.value.playing && !paused) });
+  const current = player.value.currentTrack;
+  clock.value = retime(clock.value, Date.now(), { running: Boolean(current && player.value.playing && !paused) });
   player.value = { ...player.value, paused };
   void send("pause", "pause", undefined, "조작하지 못했어요.");
 }
@@ -441,84 +482,10 @@ const {
   },
 );
 
-function confirmStop() {
-  showStopConfirm.value = true;
-}
-
 // 정지는 응답을 기다리고 서버가 돌려준 상태를 쓴다. 봇이 나가 음성 칸도 바뀌므로 한 번 더 읽는다
 async function doStop() {
   showStopConfirm.value = false;
   if (await send("stop", "stop", undefined, "정지하지 못했어요.")) void refresh();
-}
-
-// 입력이 유튜브 재생목록인지(봇이 읽는 규칙 rules/links). "한 곡만 추가" 버튼 노출 조건
-const isPlaylistQuery = computed(() => isYouTubePlaylist(addQuery.value.trim()));
-
-// "한 곡만 추가"의 실제 요청 payload. 영상 ID 가 링크에 있으면 재생목록 조회 없이 그 영상만 가리키게 바꾼다(빠름).
-// 그 밖(playlist?list= 만)은 single=true 로 첫 곡
-function singlePayload(raw: string) {
-  const videoId = extractVideoId(raw.trim());
-  return videoId ? { query: youtubeWatchUrl(videoId), single: false } : { query: raw.trim(), single: true };
-}
-
-async function addTrack(single = false) {
-  if (!addQuery.value.trim() || adding.value) return;
-  adding.value = true;
-  addError.value = "";
-  addNotice.value = "";
-  addInfo.value = "";
-  more.value = null;
-  try {
-    const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
-    const res = await axios.post<AddReply>(`/api/guilds/${guildId}/player/queue${qs()}`, payload, { timeout: LIMIT.long });
-    const { dropped: _dropped, queueLimited: _queueLimited, notes, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
-    applyState(state);
-    queueMax.value = max;
-    more.value = nextMore;
-    addQuery.value = "";
-    // 일부만 넣었으면 디스코드 담은 안내와 같은 경고 줄
-    addNotice.value = notes.join("\n");
-  } catch (e) {
-    addError.value = problemText(e, "추가에 실패했습니다.");
-  } finally {
-    adding.value = false;
-  }
-}
-
-async function addMore(count: number) {
-  if (!more.value || moreBusy.value) return;
-  moreBusy.value = true;
-  addError.value = "";
-  addNotice.value = "";
-  addInfo.value = "";
-  try {
-    const res = await axios.post<MoreReply>(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count }, { timeout: LIMIT.long });
-    const { added: _added, dropped = 0, note, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
-    applyState(state);
-    queueMax.value = max;
-    more.value = nextMore;
-    // 디스코드 더 넣기 결과와 같은 글. 대기열이 차서 빠진 곡이 있으면 경고로
-    if (dropped > 0) addNotice.value = note;
-    else addInfo.value = note;
-  } catch (e) {
-    addError.value = problemText(e, "추가에 실패했습니다.");
-  } finally {
-    moreBusy.value = false;
-  }
-}
-
-async function joinBot() {
-  if (joining.value) return;
-  joining.value = true;
-  addError.value = "";
-  try {
-    const res = await axios.post<PlayerRead>(`/api/guilds/${guildId}/player/join${qs()}`, undefined, { timeout: LIMIT.long });
-    applyState(res.data);
-  } catch (e) {
-    addError.value = problemText(e, "참가에 실패했습니다.");
-  } finally {
-    joining.value = false;
-  }
 }
 
 // 빼기는 그 줄 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
@@ -536,22 +503,16 @@ async function removeTrack(track: QueueTrackView) {
 
 // ── 대기열 끌어 옮기기 ───────────────────────────────────────────────────────
 
-function onDragStart(e: DragEvent, i: number) {
-  if (!player.value.canControl || isBusy("move")) return;
-  draggedIndex.value = i;
-  isDragging.value = true;
-  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-}
-
-function onDragOver(e: DragEvent, i: number) {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
-}
+const { startDrag } = usePointerReorder({
+  // 놓으면 moveQueue 가 자리를 정하고 미뤄 둔 것을 넣는다. end 는 그 뒤(놓지 않고 끝난 때도)
+  enabled: () => Boolean(player.value.canControl) && !isBusy("move"),
+  start: () => (isDragging.value = true),
+  end: releaseHeld,
+  drop: (from, insertAt) => void moveQueue(from, insertAt),
+});
 
 // 끌기가 끝났다(놓음 · 취소). 끄는 동안 미뤄 둔 서버 대기열을 넣는다
-function onDragEnd() {
-  draggedIndex.value = null;
-  dragOverIndex.value = null;
+function releaseHeld() {
   isDragging.value = false;
   if (heldQueue) {
     player.value = { ...player.value, ...heldQueue };
@@ -560,16 +521,14 @@ function onDragEnd() {
   }
 }
 
-async function onDrop() {
-  const from = draggedIndex.value;
-  const insertAt = dragOverIndex.value;
+// 놓은 자리는 끄는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 넣기 전에 정한다
+async function moveQueue(from: number, insertAt: number) {
   const queue = player.value.queue;
-  const target = from === null || insertAt === null ? "same" : moveTarget(queue, from, insertAt, player.value.queueTotal ?? queue.length);
-  // 놓은 자리는 끄는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 넣기 전에 정한다
-  onDragEnd();
+  const target = moveTarget(queue, from, insertAt, player.value.queueTotal ?? queue.length);
+  releaseHeld();
   if (target === "same") return;
   if (target === "partial") return notify({ title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 내려 다 불러온 뒤 맨 끝으로 옮길 수 있어요.", severity: "warning" });
-  if (target === "unknown" || from === null || insertAt === null) return refresh();
+  if (target === "unknown") return refresh();
   // 응답을 기다리는 동안 옮긴 차례로 보인다. 거절되면 다시 읽어 서버 차례로 돌린다
   player.value = { ...player.value, queue: reordered(queue, from, insertAt) };
   await send("move", "queue/move-entry", target, "곡을 옮기지 못했어요.");
@@ -593,8 +552,14 @@ const seekBar = useSeekBar({
   },
 });
 const isScrubbing = seekBar.dragging;
+function grabSeek(e: PointerEvent) {
+  progressBarRef.value = e.currentTarget as HTMLElement;
+  seekBar.onPointerDown(e);
+}
 const displayTime = computed(() => (isScrubbing.value ? seekBar.value.value : positionAt(clock.value, now.value)));
 
+// 재생 중일 때 진행 막대가 1초에 나아가는 %(막대가 그 사이를 스스로 채운다)
+const progressRate = computed(() => (clock.value.running && seekable.value && !isScrubbing.value ? 100 / (player.value.currentTrack?.duration || 1) : 0));
 const progressPct = computed(() => {
   const t = player.value.currentTrack;
   if (!t?.duration) return 0;
@@ -635,14 +600,10 @@ const highlightMarker = computed(() => {
   if (!dur || h === null || h === undefined) return null;
   return Math.max(0, Math.min(100, (h / dur) * 100));
 });
-
-// 반복 버튼의 툴팁: 지금 모드와 누르면 바뀔 모드. 이름표는 디스코드 패널의 반복 버튼과 같다
-const loopTitle = computed(() => {
-  // 끝이 없는 것은 반복할 수 없다. 왜 못 누르는지 봇의 거절 문장으로 말해 준다
-  if (player.value.hasLive) return gate("live-no-loop").title;
-  const now = player.value.loop ?? false;
-  return `${loopLabel(modeOf(now))} (누르면 ${loopLabel(modeOf(nextLoopMode(now)))})`;
-});
+// 진행 줄(SeekRow): 시간 글 · 막대. 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이라 표식으로 대신한다
+const timeText = computed(() => (!track.value ? "--:--" : isLive.value ? "라이브" : formatDuration(displayTime.value)));
+const lengthText = computed(() => (track.value && track.value.duration > 0 ? formatDuration(track.value.duration) : "--:--"));
+const seekView = computed(() => ({ value: track.value ? progressPct.value : 0, rate: progressRate.value, markers: sponsorMarkers.value, highlight: highlightMarker.value, handle: Boolean(track.value) && seekable.value && Boolean(player.value.canControl), dragging: isScrubbing.value }));
 
 // 하이라이트로 가기. 누른 때의 곡일 때만
 function jumpToHighlight() {
@@ -652,31 +613,124 @@ function jumpToHighlight() {
   void send("highlight", "highlight", onTrackOf(player.value), "하이라이트로 가지 못했어요.");
 }
 
-// ── 도우미 ───────────────────────────────────────────────────────────────────
+// 아트의 위아래 검은 띠는 키워서 감춘다(theme/art 가 픽셀로 잰다)
+const artZoom = useArtZoom(() => player.value.currentTrack?.thumbnail, true);
 
-// 조작이 막힌 까닭. 봇이 디스코드에서 거절할 때와 같은 문장(utils/problem)
-const gate = noticeText;
+const track = computed(() => player.value.currentTrack);
+// 지금 곡을 내가 넣었는지(출처 표의 "내가 넣은 곡")
+const mine = computed(() => track.value?.requestedBy?.id === player.value.userId);
+// 가림막은 곡이 있을 때만. 곡이 없으면 가릴 조작이 없다
+const locked = computed(() => Boolean(track.value) && channelLocked.value);
 
-const fmt = (sec: number) => formatDuration(sec);
+// 휴대폰 음량 말풍선
+const volumeOpen = ref(false);
 
-// 각 서비스를 대표하는 색. 키는 rules/platforms 의 Platform 이라 하나라도 빠지면 타입 검사가 잡는다(빠지면 회색 점이 되어 어디서 온 곡인지 안 보인다)
-const PLATFORM_COLORS: Record<Platform, string> = {
-  youtube: "#ff0000",
-  spotify: "#1db954",
-  soundcloud: "#ff5500",
-  direct: "var(--accent)",
-  lastfm: "#d92323",
-  lbradio: "#eb743b", // ListenBrainz 의 --bs-primary
-  animethemes: "#ffffff", // 로고 배경
-  anisongdb: "#f2a93b", // 사이트 강조색
-  vocadb: "#39c5bb", // 미쿠
-  utaitedb: "#00688f", // 배경에 박아 둔 Ado 로고의 장미
-  touhoudb: "#4f2347", // (구) 공식 트위터 프로필 이미지 배경
-};
-
-function platformColor(p: string) {
-  return isPlatform(p) ? PLATFORM_COLORS[p] : "#8b93a7";
+// 휴대폰 아래 줄의 음량 막대. 줄이 넓으면 늘 펼쳐 두고(volumeInline), 좁으면 누를 때 펼친다(volumeExpand). 손대지 않으면 3초 뒤 · 바깥을 누르면 접는다
+const volRowEl = ref<HTMLElement | null>(null);
+const { width: volRowWidth } = useElementSize(volRowEl);
+const volumeInline = computed(() => volRowWidth.value >= 400);
+const volumeExpand = ref(false);
+let volumeTimer = 0;
+function volumeTouched() {
+  volumeExpand.value = true;
+  clearTimeout(volumeTimer);
+  volumeTimer = window.setTimeout(() => (volumeExpand.value = false), 3000);
 }
+function volumeOutside(e: PointerEvent) {
+  if (volumeExpand.value && !volRowEl.value?.contains(e.target as Node)) volumeExpand.value = false;
+}
+onMounted(() => document.addEventListener("pointerdown", volumeOutside, true));
+onUnmounted(() => {
+  document.removeEventListener("pointerdown", volumeOutside, true);
+  clearTimeout(volumeTimer);
+});
+
+// 앨범아트 크게 보기(ArtLightbox)
+const artOpen = ref(false);
+
+// 휴대폰: 큰 그림 플레이어 + 아래 대기열 판(스포티파이식)
+const isPhone = useMediaQuery(PHONE_QUERY);
+// 낮은 화면(휴대폰 가로): 플레이어를 그림 | 나머지 두 단으로
+const short = useMediaQuery(SHORT_QUERY);
+const sheetMode = computed(() => isPhone.value);
+// 판이 접혔을 때 머리에 보이는 다음 곡
+const nextTitle = computed(() => (player.value.queue[0] ? songTitle(player.value.queue[0].title) : ""));
+onKeyStroke("Escape", () => (volumeOpen.value = false));
+
+// 머리 아래 한 줄: 나와 봇의 음성 채널
+const voiceLine = computed(() => {
+  const p = player.value;
+  if (p.sameVoice) return { icon: "headphones", text: "봇과 같은 음성 채널에 있어요" };
+  if (p.botInVoice) return { icon: "headset_off", text: p.userInVoice ? "봇이 다른 음성 채널에 있어요" : "봇이 음성 채널에 있어요" };
+  return { icon: "bedtime", text: p.userInVoice ? "봇이 음성 채널 밖에 있어요" : "봇이 쉬고 있어요" };
+});
+
+// 자동재생: 지금 장르는 재생 상태가 싣는다. 장르 목록은 메뉴를 처음 열 때 받는다(디스코드 장르 메뉴와 같은 것)
+const autoplayGenre = computed(() => player.value.autoplayGenre ?? null);
+const genres = ref<AutoplayGenres["genres"]>([]);
+const genreMenu = ref(false);
+// 장르 메뉴를 위로 열지(단추 아래 자리가 메뉴 높이 320 + 여유보다 좁으면)
+const genreMenuUp = ref(false);
+async function toggleGenreMenu(e: MouseEvent) {
+  if (!genreMenu.value) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    genreMenuUp.value = window.innerHeight - r.bottom < 340 && r.top > window.innerHeight - r.bottom;
+    if (!genres.value.length) {
+      try {
+        genres.value = (await axios.get<AutoplayGenres>(`/api/guilds/${guildId}/autoplay/genres`)).data.genres;
+      } catch (err) {
+        return notifyProblem(err, "장르 목록을 받지 못했어요.");
+      }
+    }
+  }
+  genreMenu.value = !genreMenu.value;
+}
+const genreMenuEl = ref<HTMLElement | null>(null);
+const genreOverflowing = useOverflowing(genreMenuEl);
+// 켜기(장르) · 끄기(null). 응답의 상태를 넣는다
+function setAutoplay(genre: string | null) {
+  genreMenu.value = false;
+  void send("autoplay", "autoplay", { genre }, genre ? "자동재생을 켜지 못했어요." : "자동재생을 끄지 못했어요.");
+}
+const pickGenre = (name: string) => setAutoplay(name);
+
+// 처음 그릴 때는 화면에 보이는 만큼만 만들고, 나머지는 색이 옮겨 간 뒤 한가할 때 붙인다.
+// 100줄을 한 번에 만들면 한 프레임이 70~100ms 가 되어 색 옮김의 첫걸음이 걸린다(아래쪽 줄은 화면 밖이라 늦게 붙어도 보이지 않는다)
+const FIRST_ROWS = 30;
+const rowLimit = ref(FIRST_ROWS);
+const shownQueue = computed(() => player.value.queue.slice(0, rowLimit.value));
+// 대기열 번호 칸 폭: 보이는 가장 큰 번호의 자릿수(두 자리 이상)만큼. 모든 줄이 같은 폭이라 제목이 나란하다
+const numWidth = computed(() => `${Math.max(2, String(shownQueue.value.length).length) + 0.5}ch`);
+watch(loading, (isLoading) => {
+  if (isLoading) return;
+  setTimeout(() => {
+    const all = () => (rowLimit.value = Infinity);
+    if ("requestIdleCallback" in window) requestIdleCallback(all, { timeout: 1000 });
+    else all();
+  }, SHIFT_MS + 150);
+});
+
+// 대기열 전체 길이. 다 받아 둔 때만(일부만 더하면 틀린 값이 된다)
+const queueSeconds = computed(() => {
+  const p = player.value;
+  if (p.queue.length < (p.queueTotal ?? 0)) return null;
+  return p.queue.reduce((sum, t) => sum + (t.duration || 0), 0);
+});
+
+// 다음 곡의 그림을 미리 읽어 둔다. 곡이 넘어가는 순간 색이 바로 옮겨 간다(theme)
+watch(
+  () => player.value.queue[0]?.thumbnail,
+  (url) => prefetchArt(url),
+  { immediate: true },
+);
+
+// 이 서버의 곡이 화면 색 · 배경화면이 된다(theme). 처음 읽는 동안은 지금 색을 붙잡아 둔다(서버를 옮길 때 다른 색을 들르지 않게)
+const artOwner = Symbol("server");
+watch(
+  () => (loading.value ? HOLD : (player.value.currentTrack?.thumbnail ?? NO_ART)),
+  (url) => setPageArt(artOwner, url),
+  { immediate: true },
+);
 
 // 실시간 신호는 탭의 목록 연결 하나에서 받는다(stores/guilds). 이 서버의 신호 · 어느 서버인지 모르는 신호(끊긴 뒤 따라잡기 · 끊긴 동안의 주기 읽기)면 다시 읽는다.
 // 연달아 조작하면 신호도 연달아 온다. 합쳐서 한 번만 다시 읽는다
@@ -693,6 +747,7 @@ onMounted(() => {
   ticker = setInterval(() => (now.value = Date.now()), 1000);
 });
 onUnmounted(() => {
+  releasePageArt(artOwner);
   offNudge?.();
   guilds.unsubscribe();
   clearInterval(ticker);

@@ -5,6 +5,7 @@ import { ref, computed, watch } from "vue";
 import axios from "axios";
 import { trackUnsaved } from "./unsaved.ts";
 import { problemDetails, problemText } from "../utils/problem.ts";
+import { notifyDone, notifyProblem } from "./toasts.ts";
 import type { ConfigFile, ConfigSaved } from "../../../src/dashboard/contract/admin.ts";
 
 type Data = Record<string, unknown>;
@@ -22,6 +23,8 @@ type Options = {
   read: () => Promise<Data>;
   /** 저장하고 저장된 것을 돌려받는다 */
   write: (payload: unknown) => Promise<Data>;
+  /** 저장했다는 알림의 둘째 줄(언제부터 반영되는지) */
+  savedNote: string;
 };
 
 /** /api/admin/config/<name> 으로 읽고 쓰는 것 */
@@ -30,10 +33,9 @@ export const configFileIo = (name: string) => ({
   write: async (payload: unknown) => (await axios.put<ConfigSaved>(`/api/admin/config/${name}`, { data: payload })).data.data,
 });
 
-export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write }: Options) {
+export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, savedNote }: Options) {
   const snapshot = ref("");
   const saving = ref(false);
-  const savedAt = ref<number | null>(null);
   const loadError = ref("");
   const serverProblems = ref<string[]>([]);
 
@@ -43,11 +45,9 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write }:
     computed(() => dirty.value || Boolean(alsoUnsaved?.())),
   );
 
-  // 고치면 지난 저장 완료 · 서버 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
+  // 고치면 서버가 짚은 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
   watch(payload, () => {
-    if (!dirty.value) return;
-    savedAt.value = null;
-    serverProblems.value = [];
+    if (dirty.value) serverProblems.value = [];
   });
 
   /** 받은 것을 넣고 이것을 기준(저장된 상태)으로 삼는다 */
@@ -61,7 +61,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write }:
     try {
       load(await read());
     } catch (error) {
-      loadError.value = problemText(error, "설정을 읽지 못했습니다.");
+      loadError.value = problemText(error, "설정을 읽지 못했어요.");
     }
   }
 
@@ -70,10 +70,12 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write }:
     serverProblems.value = [];
     try {
       load(await write(payload()));
-      savedAt.value = Date.now();
+      notifyDone("저장했어요", savedNote);
     } catch (error) {
+      // 서버가 칸마다 짚은 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
       const details = problemDetails(error);
-      serverProblems.value = details.length ? details : [problemText(error, "저장하지 못했습니다.")];
+      if (details.length) serverProblems.value = details;
+      else notifyProblem(error, "저장하지 못했어요.");
     } finally {
       saving.value = false;
     }
@@ -82,5 +84,5 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write }:
   /** 마지막으로 받은 것으로 되돌린다 */
   const revert = () => load(JSON.parse(snapshot.value) as Data);
 
-  return { dirty, saving, savedAt, loadError, serverProblems, load, fetch, save, revert };
+  return { dirty, saving, loadError, serverProblems, load, fetch, save, revert };
 }

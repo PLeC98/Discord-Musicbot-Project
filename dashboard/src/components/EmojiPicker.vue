@@ -15,66 +15,68 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
+      <!-- M3E 메뉴 면(고르기 칸 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색칸(둘레 4 · 아래 구분선), 칸은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
       <div v-if="open" :class="panel" :style="popoverStyle">
-        <div class="p-2 border-b border-white/8 relative">
-          <!-- v-model을 쓰지 않는다: v-model은 한글·일본어처럼 조합해서 만드는 글자를 다 만들 때까지
-               input을 흘려보내서, 한 글자를 완성해도 다음 글자를 치기 전까지 검색이 안 먹는다. -->
-          <input ref="searchBox" :value="query" placeholder="이름 · 디스코드 이름 · 이모지 붙여넣기" :class="searchCls" @input="query = valueOf($event)" @keydown.esc="open = false" />
-          <button v-if="query" type="button" :class="clearBtn" v-tooltip="'검색어 지우기'" @click="clearQuery">
-            <Icon name="close" :size="12" />
+        <div class="relative shrink-0 p-1 border-b border-outline-variant/50">
+          <!-- v-model 을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다 -->
+          <input ref="searchBox" :value="query" placeholder="이름 · 디스코드 이름 · 이모지 붙여넣기" :class="[SEARCH_FIELD, 'w-full', query && 'pr-10']" @input="query = valueOf($event)" @keydown.esc="open = false" />
+          <!-- 지우기: 칸 안 오른쪽 끝(아이콘 버튼 XS 32, 칸 40 안에 같은 중심 4) -->
+          <button v-if="query" type="button" class="tap state-layer absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" aria-label="검색어 지우기" v-tooltip="'검색어 지우기'" @click="clearQuery">
+            <Icon name="close" :size="20" />
           </button>
         </div>
 
         <div :class="scroller">
-          <div v-if="loadError" class="px-4 py-8 text-center">
-            <p class="text-[0.82rem] text-[#f87171] mb-3 whitespace-pre-line">{{ loadError }}</p>
-            <button type="button" :class="retryBtn" @click="load">다시 시도</button>
+          <div v-if="loadError" class="px-4 py-6 flex flex-col items-center gap-3 text-center">
+            <p class="text-sm text-error whitespace-pre-line">{{ loadError }}</p>
+            <BaseButton variant="secondary" size="sm" @click="load">다시 시도</BaseButton>
           </div>
-          <p v-else-if="!groups.length" class="text-muted text-[0.82rem] text-center py-8">불러오는 중...</p>
+          <p v-else-if="!groups.length" class="py-6 text-center text-sm text-on-surface-variant">불러오는 중...</p>
 
           <!-- 찾는 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
-          <div v-else-if="results" class="px-2 py-2">
-            <p v-if="!results.length" class="text-muted text-[0.82rem] text-center py-6">찾는 이모지가 없습니다.</p>
+          <div v-else-if="results" class="p-1">
+            <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">찾는 이모지가 없어요.</p>
             <div v-else :class="grid">
-              <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="22" /></button>
+              <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
             </div>
           </div>
 
-          <!-- content-visibility로 화면 밖 분류를 건너뛰게 했다가 걷어냈다: 짐작한 높이와 실제 높이의
-               차이가 소수점으로 남아 붙어 있는 분류 머리 위에 틈이 비쳤다. 그림은 어차피 lazy라
-               화면 밖은 받아오지도 않고, DOM은 어느 쪽이든 다 만들므로 얻는 것도 크지 않았다. -->
+          <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 머리 위에 틈이 비친다.
+               그림은 어차피 lazy 라 화면 밖은 받아오지도 않는다 -->
           <section v-for="group in groups" v-else :key="group.name">
-            <!-- 배경을 판과 같은 색으로 둬야 접히는 자리에 틈이 비치지 않는다 -->
-            <button type="button" :class="header" @click="toggleGroup(group.name)">
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" class="transition-transform duration-150 shrink-0" :class="collapsed[group.name] ? '-rotate-90' : ''">
-                <path d="M0 2h8L4 7z" />
-              </svg>
+            <!-- 분류 머리: 목록의 묶음 이름 모양에 접기 꺾쇠 · 개수. 판과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 칸이 비치지 않는다 -->
+            <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
+              <Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="collapsed[group.name] && '-rotate-90'" />
               <span class="truncate">{{ group.name }}</span>
-              <span class="ml-auto opacity-40 tabular-nums">{{ group.emoji.length }}</span>
+              <span class="ml-auto nums font-normal">{{ group.emoji.length }}</span>
             </button>
 
-            <div v-if="!collapsed[group.name]" :class="[grid, 'px-2 pb-2']">
-              <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="22" /></button>
+            <div v-if="!collapsed[group.name]" :class="[grid, 'px-1 pb-1']">
+              <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
             </div>
           </section>
         </div>
 
-        <button v-if="clearable" type="button" class="w-full border-t border-white/8 text-muted text-[0.8rem] py-2 cursor-pointer hover:text-danger" @click="clear">비우기</button>
+        <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer hover:text-error" @click="clear">비우기</button>
       </div>
     </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
+import { koMatch } from "../utils/ko-search.ts";
 import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef, type CSSProperties } from "vue";
 import Icon from "./BaseIcon.vue";
+import BaseButton from "./BaseButton.vue";
+import { SEARCH_FIELD } from "../utils/field.ts";
+import { rem } from "../utils/rem.ts";
 import Twemoji from "./TwemojiImage.vue";
 import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { valueOf } from "../utils/dom.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /** 값을 지울 수 있는 자리(장르 아이콘)에서만 "비우기"를 보여준다 */
     clearable?: boolean;
@@ -111,7 +113,7 @@ async function load() {
   } catch {
     // 목록은 따로 받아오므로 못 받아올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
     // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.
-    loadError.value = "목록을 불러오지 못했습니다. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
+    loadError.value = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
     return;
   }
   groups.value = module.EMOJI_GROUPS;
@@ -144,7 +146,7 @@ const results = computed(() => {
   for (const group of groups.value) {
     for (const e of group.emoji) {
       if (found.length >= 120) return found; // 다 그려 봐야 눈에 안 들어온다
-      if (e.char !== typed && e.search.includes(needle)) found.push(e);
+      if (e.char !== typed && koMatch(e.search, needle)) found.push(e);
     }
   }
   return found;
@@ -160,16 +162,17 @@ function clear() {
   open.value = false;
 }
 
-// 판을 띄울 자리. 여는 버튼 아래가 화면을 넘치면 위로 올린다.
+// 판을 띄울 자리. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 칸 8개(40) + 둘레 4 · 4, 높이는 검색칸(48 + 선) + 목록(18.75rem) + 비우기(40 + 선)
+const WIDTH_REM = 20.5;
 function place() {
   const rect = root.value?.getBoundingClientRect();
   if (!rect) return;
-  const width = 320;
-  const height = 372;
-  const below = rect.bottom + 6;
-  const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 6) : below;
+  const width = rem(WIDTH_REM);
+  const height = rem(3 + 18.75 + (props.clearable ? 2.5 : 0)) + 2;
+  const below = rect.bottom + 4;
+  const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 4) : below;
   // 정수로 떨어뜨린다. 소수점 좌표에 놓이면 안에서 붙어 있는 분류 머리 위에 1픽셀 틈이 비친다
-  const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+  const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
   popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
 }
 
@@ -200,13 +203,10 @@ watch(open, async (isOpen) => {
 
 onBeforeUnmount(() => listen(false));
 
-const panel = "fixed z-200 rounded-2xl overflow-hidden bg-[rgba(18,22,42,0.97)] backdrop-blur-2xl backdrop-saturate-[1.6] border border-white/11 shadow-[0_12px_40px_rgba(0,0,0,0.55)] inset-shadow-glass";
-const searchCls = "w-full bg-white/5 border border-white/9 rounded-lg text-fg px-3 py-1.5 text-[0.84rem] outline-none font-[inherit] transition-[border-color,background-color] duration-150 focus:border-accent/55 focus:bg-white/7";
-// 스크롤 상자에는 안쪽 여백을 주지 않는다. 여백을 주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다
-const scroller = "h-[300px] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]";
-const header = "sticky top-0 z-10 w-full flex items-center gap-1.5 bg-[rgba(18,22,42,0.97)] px-2.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.7)] cursor-pointer transition-colors duration-150 hover:text-[rgba(196,181,253,0.95)]";
-const clearBtn = "absolute right-4 top-1/2 -translate-y-1/2 size-5 rounded-full flex items-center justify-center text-muted cursor-pointer transition-colors duration-150 hover:bg-white/12 hover:text-fg";
-const retryBtn = "px-3 py-1.5 rounded-lg border border-white/12 bg-white/5 text-fg-soft text-[0.8rem] cursor-pointer transition-colors duration-150 hover:bg-white/10";
-const grid = "grid grid-cols-8 gap-0.5";
-const cell = "size-[34px] rounded-lg text-[1.15rem] leading-none flex items-center justify-center cursor-pointer transition-colors duration-100 hover:bg-white/12";
+const panel = "fixed z-200 flex flex-col overflow-hidden rounded-lg pane-menu bg-surface-container-low!";
+// 스크롤 상자에는 안쪽 여백을 주지 않는다(주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다). 길은 아래 둥근 모서리만 비운다(위는 검색칸 아래 곧은 선)
+const scroller = "h-75 overflow-y-auto overscroll-contain [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu)";
+const header = "state-layer sticky top-0 z-10 w-full h-8 flex items-center gap-1 px-3 bg-surface-container-low text-xs font-semibold text-on-surface-variant cursor-pointer";
+const grid = "grid grid-cols-8";
+const cell = "state-layer size-10 rounded-full flex items-center justify-center cursor-pointer";
 </script>

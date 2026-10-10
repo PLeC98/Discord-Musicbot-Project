@@ -8,81 +8,86 @@
   안 그러면 저장하는 순간 조용히 지워진다.
 -->
 <template>
-  <div>
-    <div v-for="(source, i) in list" :key="source._key" class="border border-white/8 rounded-lg mb-2 bg-black/15">
-      <div class="flex items-center gap-2 p-2.5">
-        <button :class="foldBtn" v-tooltip="isFolded(sourceFoldId(genreIndex, i)) ? '펼치기' : '접기'" @click="toggleFold(sourceFoldId(genreIndex, i))">
-          <svg width="9" height="6" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(sourceFoldId(genreIndex, i)) }"><path d="M0 0h9L4.5 6z" /></svg>
+  <div class="flex flex-col gap-2">
+    <div v-for="(source, i) in list" :key="source._key" class="rounded-(--r-inner) bg-surface-container-high">
+      <div class="flex items-center gap-2 p-2">
+        <button :class="[ICON_BTN, 'size-8']" v-tooltip="isFolded(sourceFoldId(genreIndex, i)) ? '펼치기' : '접기'" @click="toggleFold(sourceFoldId(genreIndex, i))">
+          <Icon name="expand_more" :size="20" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(sourceFoldId(genreIndex, i)) }" />
         </button>
 
         <div class="flex-1 min-w-0">
           <SingleSelect :model-value="source.type" :options="typeOptions(source.type)" @update:model-value="changeType(i, $event)" />
         </div>
 
-        <label class="flex items-center gap-1.5 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
-          <span class="text-[0.72rem] text-muted">가중치</span>
-          <NumberInput :model-value="numberAt(source, 'weight')" placeholder="1" :class="[inputCls, 'w-16! text-center']" @update:model-value="setField(i, 'weight', $event)" />
+        <label class="flex items-center gap-2 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
+          <span class="text-xs text-on-surface-variant">가중치</span>
+          <NumberInput :model-value="numberAt(source, 'weight')" placeholder="1" :class="[FIELD, 'w-16 px-2 text-center']" @update:model-value="setField(i, 'weight', $event)" />
         </label>
 
-        <button :class="iconBtn" v-tooltip="'이 출처 삭제'" @click="remove(i)"><Icon name="trash" :size="14" /></button>
+        <button :class="[ICON_BTN, 'size-8 hover:text-error']" aria-label="이 출처 삭제" v-tooltip="'삭제'" @click="remove(i)"><Icon name="delete" :size="20" /></button>
       </div>
 
-      <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="px-2.5 pb-2.5">
-        <p v-if="spec(source.type)?.hint" class="text-muted text-[0.75rem]">{{ spec(source.type)?.hint }}</p>
-        <p v-if="typesState === 'loading'" class="text-muted text-[0.75rem]">출처 종류를 불러오는 중입니다.</p>
-        <p v-else-if="typesState === 'failed'" class="text-[0.75rem] text-[#fbbf24] whitespace-pre-line">출처 종류 목록을 받지 못했습니다. 새로 고치면 다시 받습니다.{{ typesError ? `\n${typesError}` : "" }}</p>
-        <p v-else-if="!spec(source.type)" class="text-[0.75rem] text-[#f87171]">모르는 종류입니다. 이 봇이 지원하지 않습니다.</p>
-        <p v-else-if="!spec(source.type)?.usable" class="text-[0.75rem] text-[#fbbf24]">{{ spec(source.type)?.needs }} 가 .env 에 없어 지금은 쓰이지 않습니다.</p>
+      <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="flex flex-col gap-3 px-3 pb-3">
+        <p v-if="spec(source.type)?.hint" class="text-xs text-on-surface-variant">{{ spec(source.type)?.hint }}</p>
+        <p v-if="typesState === 'loading'" class="text-xs text-on-surface-variant">출처 종류를 불러오는 중이에요.</p>
+        <p v-else-if="typesState === 'failed'" class="text-xs text-(--warn-ink) whitespace-pre-line">출처 종류 목록을 받지 못했어요. 새로 고치면 다시 받아요.{{ typesError ? `\n${typesError}` : "" }}</p>
+        <p v-else-if="!spec(source.type)" class="text-xs text-error">모르는 종류예요. 이 봇이 지원하지 않아요.</p>
+        <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">.env 에 {{ spec(source.type)?.needs }} 가 설정되지 않아 해당 출처를 사용하지 않아요.</p>
 
         <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-x-2.5 gap-y-3 mt-2.5">
+        <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
           <div v-for="field in shown(source, i)" :key="field.key" class="min-w-0" :class="widthCls(field)">
             <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
             <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
-              {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal ml-1">{{ field.hint }}</span>
+              {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
             </span>
 
-            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? '치면 후보가 뜹니다. 없는 말은 적고 Enter' : '하나씩 적고 Enter'" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? '치면 후보가 떠요. 없는 말은 적고 Enter' : '하나씩 적고 Enter'" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
             <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
             <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-            <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-1.5">
-              <button v-for="opt in field.options" :key="opt.value" type="button" :class="[pillCls, asList(source[field.key]).includes(opt.value) ? pillOn : pillOff]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
+            <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-2">
+              <button v-for="opt in field.options" :key="opt.value" type="button" :aria-pressed="asList(source[field.key]).includes(opt.value)" :class="[FILTER_CHIP, asList(source[field.key]).includes(opt.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
             </div>
 
             <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || '비우기'" @update:model-value="setField(i, field.key, $event || null)" />
 
             <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
 
-            <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="inputCls" @update:model-value="setField(i, field.key, $event)" />
+            <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="[FIELD, 'w-full']" @update:model-value="setField(i, field.key, $event)" />
 
-            <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="inputCls" @input="setField(i, field.key, valueOf($event) || null)" />
+            <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
           </div>
         </div>
 
-        <button v-if="deepCount(source.type)" :class="deepBtn" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))">
-          {{ isDeepOpen(sourceFoldId(genreIndex, i)) ? "접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}
-        </button>
-        <p v-if="spec(source.type)?.window" class="text-muted text-[0.75rem] mt-1.5">곡이 너무 많으면 상위 {{ depthOf(source).toLocaleString("ko-KR") }}곡 중에서 고릅니다.</p>
+        <div v-if="deepCount(source.type)">
+          <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? "상세 설정 접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}</BaseButton>
+        </div>
+        <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">곡이 너무 많으면 상위 {{ depthOf(source).toLocaleString("ko-KR") }}곡 중에서 골라요.</p>
       </div>
     </div>
 
+    <!-- 출처 더하기: 종류를 고르고 + (아이콘 버튼 S, 색조 면) -->
     <div class="flex items-center gap-2">
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
         <SingleSelect v-model="adding" :options="addable.map((t) => ({ value: t.type, label: t.label }))" empty-label="출처 추가…" />
       </div>
-      <button :class="iconBtn" :disabled="!adding" v-tooltip="'추가'" @click="add"><Icon name="add" :size="15" /></button>
+      <button type="button" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center cursor-pointer bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!adding" aria-label="출처 추가" v-tooltip="'추가'" @click="add"><Icon name="add" :size="24" /></button>
     </div>
-    <p v-if="!list.length" class="text-[0.78rem] mt-2 text-[#f87171]">출처가 하나는 있어야 합니다.</p>
+    <p v-if="!list.length" class="text-xs text-error">출처가 하나는 있어야 해요.</p>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ICON_BTN } from "../utils/icon-button.ts";
 import { ref, computed, watch } from "vue";
 import { windowDepth } from "../../../src/rules/window-depth.ts";
 import Icon from "./BaseIcon.vue";
+import BaseButton from "./BaseButton.vue";
+import { FIELD } from "../utils/field.ts";
+import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import ChipInput from "./ChipInput.vue";
 import RangeSlider from "./RangeSlider.vue";
 import MultiSelect from "./MultiSelect.vue";
@@ -116,24 +121,15 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ "update:modelValue": [value: SourceData[]] }>();
 
-// color-scheme: 날짜 같은 네이티브 위젯이 밝게 뜨는 것을 막는다
-const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-2 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
-const fieldLabelCls = "block text-[0.75rem] font-semibold text-fg-soft mb-1";
-// self-stretch: 옆 입력칸과 같은 높이로. 글자 크기를 건드려도 따라온다
-const iconBtn = "self-stretch w-[38px] rounded-lg border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-danger/15 hover:text-danger disabled:opacity-35 disabled:cursor-not-allowed";
-const foldBtn = "size-6 rounded text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
-const pillCls = "px-2 py-1 rounded-md text-[0.75rem] border cursor-pointer transition-colors duration-150";
-const pillOn = "bg-accent/25 border-accent/55 text-fg";
-const pillOff = "bg-white/4 border-white/10 text-muted hover:bg-white/8";
-const deepBtn = "mt-2.5 text-[0.75rem] text-muted cursor-pointer hover:text-fg-soft transition-colors duration-150";
+const fieldLabelCls = "block mb-1 text-xs font-semibold text-on-surface";
 
 // 모바일은 두 칸, 태블릿부터 여섯 칸짜리 격자다.
 const WIDTHS: Record<NonNullable<Field["width"]>, string> = {
   narrow: "col-span-1", // 모바일 1/2, 그 위로 1/6
-  half: "col-span-1 md:col-span-3", // 늘 반 줄
-  halfWide: "col-span-2 md:col-span-3", // 모바일만 한 줄
+  half: "col-span-1 @xl/card:col-span-3", // 늘 반 줄
+  halfWide: "col-span-2 @xl/card:col-span-3", // 모바일만 한 줄
 };
-const widthCls = (field: Field) => (field.width ? WIDTHS[field.width] : "col-span-2 md:col-span-6");
+const widthCls = (field: Field) => (field.width ? WIDTHS[field.width] : "col-span-2 @xl/card:col-span-6");
 
 // 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다. 종류를 바꿔도 같은 행으로 남아야 한다.
 //

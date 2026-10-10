@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, queueSize, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.ts";
+import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.ts";
 import { reordered } from "../../../dashboard/src/utils/reorder.ts";
 
 test("받기: 같은 기동이면 차례가 지금 이상일 때만, 기동 표가 크면 받고 작으면 버린다", () => {
@@ -47,7 +47,7 @@ test("건너뛰기 가능: 권한(조작 또는 지금 곡을 넣은 사람)과 
   assert.equal(canSkip({ ...base, canControl: false }), true, "지금 곡을 넣은 사람");
   assert.equal(canSkip({ ...base, canControl: false, userId: "u2" }), false);
   assert.equal(skipEnabled({ ...base, canControl: false, userId: "u2", queueTotal: 3 }), false);
-  assert.equal(queueSize({ queue: [{}, {}] }), 2, "전체 수가 없으면 받은 목록 길이");
+  assert.equal(skipEnabled({ ...base, queueTotal: undefined, queue: [{}] }), true, "전체 수가 없으면 받은 목록 길이");
 });
 
 test("이전 곡 가능: 조작 권한과 기록, 반복 중이면(한 곡 · 대기열) 기록 없이도", () => {
