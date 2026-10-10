@@ -283,11 +283,9 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 운영자가 아니면 멤버로 곡 추가 권한을 본다
-    if (actor.member) {
-      const err = checkAdd(actor.member);
-      if (err) return sendProblem(res, err);
-    }
+    // 곡 추가 권한(재적 규칙)
+    const err = checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
 
     const body = parse(AddBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code, { max: QUERY_MAX_LEN });
@@ -327,11 +325,9 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 운영자가 아니면 멤버로 곡 추가 권한을 본다
-    if (actor.member) {
-      const err = checkAdd(actor.member);
-      if (err) return sendProblem(res, err);
-    }
+    // 곡 추가 권한(재적 규칙)
+    const err = checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
 
     // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다
     const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });

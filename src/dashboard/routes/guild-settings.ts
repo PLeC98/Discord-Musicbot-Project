@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터와 봇 운영자만
+// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터만(봇 운영자도 그 서버의 자리대로)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
