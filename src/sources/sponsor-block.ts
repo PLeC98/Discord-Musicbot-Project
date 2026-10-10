@@ -14,12 +14,12 @@ import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
+import { httpFor } from "../infra/http.ts";
 
-// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
-let send: typeof fetch = fetch;
-function useFetch(fake: typeof fetch | null) {
-  send = fake ?? fetch;
-}
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+const http = httpFor("sponsorblock");
+const send = http.fetch;
+const useFetch = http.useFetch;
 
 /** 원시 구간 하나(카테고리 전부). 캐시에도 이 모양으로 담는다 */
 type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };

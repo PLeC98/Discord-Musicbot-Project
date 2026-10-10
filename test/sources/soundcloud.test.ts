@@ -7,6 +7,7 @@ import * as SoundCloud from "../../src/sources/soundcloud/index.ts";
 import { trackOf } from "../../src/sources/soundcloud/api.ts";
 import { codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
+import { _reset as resetLinks, linkStatus } from "../../src/infra/link-status.ts";
 
 // yt-dlp 가 줄 것. fail 이면 그 stderr 로 1 을 내고 끝난다(json 이 있으면 stdout 에 함께)
 type Reply = { json?: unknown; fail?: string };
@@ -199,4 +200,22 @@ test("세트 읽기 중 요청 제한(403 · 429)이 섞이면 뺀 곡으로 세
 
 test("곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", () => {
   assert.equal(trackOf({ webpage_url: "https://soundcloud.com/a/b" })?.title, null);
+});
+
+test("연결 기록: 답을 받았으면 성공(없는 곡 · 포맷 없음 포함), 막힘 · 그 밖의 실패는 실패", async () => {
+  resetLinks();
+  respond = () => ({ json: item("ok") });
+  await SoundCloud.find("https://soundcloud.com/artist/ok");
+  respond = () => ({ fail: "ERROR: [soundcloud] 404: HTTP Error 404: Not Found" });
+  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/gone"));
+  respond = () => ({ fail: "ERROR: [soundcloud] HTTP Error 403: Forbidden" });
+  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/blocked"));
+  assert.deepEqual(
+    linkStatus("soundcloud")?.recent.map((one) => [one.ok, one.error]),
+    [
+      [true, null],
+      [true, null],
+      [false, "rate-limited"],
+    ],
+  );
 });

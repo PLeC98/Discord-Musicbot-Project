@@ -13,11 +13,11 @@ const fail = (error: Error) => async (): Promise<Response> => {
 };
 const outcomes = () => linkStatus("lastfm")?.recent.map((one) => [one.ok, one.error]);
 
-test("응답을 받으면 성공(4xx 포함), 5xx · 429 는 실패. 마지막 성공 때를 둔다", async () => {
+test("응답을 받으면 성공(4xx 포함), 5xx · 429 · 401 · 403 은 실패. 마지막 성공 때를 둔다", async () => {
   const http = httpFor("lastfm");
   assert.equal(linkStatus("lastfm"), null, "부르기 전에는 없다");
 
-  for (const status of [200, 404, 503, 429]) {
+  for (const status of [200, 404, 503, 429, 401]) {
     http.useFetch(answer(status));
     assert.equal((await http.fetch("https://example.test/")).status, status, "응답은 그대로 돌려준다");
   }
@@ -26,6 +26,7 @@ test("응답을 받으면 성공(4xx 포함), 5xx · 429 는 실패. 마지막 �
     [true, null],
     [false, "HTTP 503"],
     [false, "HTTP 429"],
+    [false, "HTTP 401"],
   ]);
   const { recent, lastOkAt } = linkStatus("lastfm")!;
   assert.equal(lastOkAt, recent[1].at);

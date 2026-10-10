@@ -23,12 +23,12 @@ import type { AiDefaults, AiSettings, Body, Judged, JudgeResult, ListFormat, Mod
 import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
+import { httpFor } from "../../infra/http.ts";
 
-// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
-let send: typeof fetch = fetch;
-function useFetch(fake: typeof fetch | null) {
-  send = fake ?? fetch;
-}
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+const http = httpFor("ai");
+const send = http.fetch;
+const useFetch = http.useFetch;
 
 type Draft = Partial<AiSettings> | null | undefined;
 type Extra = { body: Body; headers: Record<string, string>; drop: string[]; dropHeaders: string[]; problems: string[] };

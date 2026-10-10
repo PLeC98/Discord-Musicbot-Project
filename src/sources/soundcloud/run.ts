@@ -9,6 +9,7 @@ import { baseOptions } from "../ytdlp-options.ts";
 import { codedError, codeOf } from "../../rules/error-kind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
 import logger from "../../infra/log/logger.ts";
+import { record } from "../../infra/link-status.ts";
 const log = logger.child({ category: "track" });
 
 /**
@@ -71,16 +72,28 @@ function flagsFor(formats: Formats, extra: YtDlpFlags = {}): YtDlpFlags {
   return baseOptions({ extractorArgs: `soundcloud:formats=${FORMATS[formats]}`, ...extra });
 }
 
+// 곡 쪽의 까닭(없는 곡 · 고를 포맷 없음)은 사운드클라우드가 답한 것이라 연결은 성공으로 친다
+const TRACK_SIDE = new Set(["unavailable-contents", "unavailable-playlist", "no-formats"]);
+
 /**
  * yt-dlp 를 한 번 부른다. 실패는 사운드클라우드의 이름을 단 오류로 던진다(원래 오류는 cause).
- * 여러 곡에서 일부만 못 받은 것은 실패가 아니다.
+ * 여러 곡에서 일부만 못 받은 것은 실패가 아니다. 부른 결과는 봇 상태의 연결(infra/link-status)에 남긴다(HTTP 가 아니라 여기서)
  */
 async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl): Promise<unknown> {
-  const once = () => exec(url, flagsFor(formats, extra));
+  let started = 0;
+  const ms = () => Math.round(performance.now() - started);
+  const once = () => {
+    started = performance.now();
+    return exec(url, flagsFor(formats, extra));
+  };
   try {
-    return await (what === "set" ? oneAtATime(once) : once());
+    const out = await (what === "set" ? oneAtATime(once) : once());
+    record("soundcloud", { ok: true, ms: ms() });
+    return out;
   } catch (error) {
     const partial = partialPlaylist(error);
+    const name = partial ? null : nameOf(error, what);
+    record("soundcloud", { ok: Boolean(partial) || TRACK_SIDE.has(name ?? ""), ms: ms(), error: name ?? "error" });
     if (partial) {
       // 곡마다의 까닭(지역 제한 · 포맷 없음 등). 안내는 수만 알리므로 여기 남긴다
       const reasons = [
@@ -93,7 +106,6 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
       log.debug(`사운드클라우드 세트에서 받지 못한 곡의 까닭: ${reasons.join(" / ")}`);
       return partial;
     }
-    const name = nameOf(error, what);
     if (!name) throw error;
     const text = textOf(error);
     throw codedError(name, text.split("\n").find((line) => /^ERROR/.test(line)) || text, { cause: error });

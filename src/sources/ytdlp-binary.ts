@@ -14,6 +14,7 @@ import youtubedl from "youtube-dl-exec";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
+import { httpFor } from "../infra/http.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -82,8 +83,11 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
   });
 }
 
+// 최신 릴리스는 GitHub API 로(공유 HTTP 클라이언트)
+const github = httpFor("github");
+
 async function realLatestTag(channel: Channel) {
-  const res = await fetch(`https://api.github.com/repos/${REPOS[channel]}/releases/latest`, {
+  const res = await github.fetch(`https://api.github.com/repos/${REPOS[channel]}/releases/latest`, {
     headers: { Accept: "application/vnd.github+json", "User-Agent": config.userAgents.bot },
     signal: AbortSignal.timeout(API_TIMEOUT_MS),
   });

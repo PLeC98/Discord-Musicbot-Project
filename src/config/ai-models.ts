@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
+import { httpFor } from "../infra/http.ts";
 import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
@@ -148,7 +149,10 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
 
 /** 저쪽에서 한 버전 받아 온다. 원본 그대로 담되 우리 프로바이더 것만 고른다. */
 // index: 이미 받아 둔 목차(갱신은 해시를 보려고 먼저 받는다). 없으면 여기서 받는다
-async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
+// 모델 목록은 GitHub 에서 받는다(공유 HTTP 클라이언트)
+const github = httpFor("github");
+
+async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = github.fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
   const get = async <T>(at: string): Promise<T> => {
     const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) throw new Error(`레지스트리 ${res.status}: ${at}`);
@@ -180,7 +184,7 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
  */
 async function refresh({ registries, force = false, timeoutMs = 30000 }: { registries: string[]; force?: boolean; timeoutMs?: number }): Promise<RefreshResult> {
   const held = load();
-  const index = (await (await fetch(`${RAW}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })).json()) as RegistryIndex;
+  const index = (await (await github.fetch(`${RAW}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })).json()) as RegistryIndex;
   if (!force && index.hash && index.hash === held.hash) {
     return { changed: false, count: Object.keys(held.profiles || {}).length, fetchedAt: held.fetchedAt };
   }
