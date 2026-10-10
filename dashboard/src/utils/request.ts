@@ -38,6 +38,16 @@ export function problemCodeOf(data: unknown): string | undefined {
   return typeof code === "string" ? code : undefined;
 }
 
+// 파일로 받는 요청(내려받기)은 거절도 Blob 으로 온다. 문제 응답(JSON)이면 풀어 다른 요청과 같게 다룬다. 아니면 그대로
+async function unblobbed(data: unknown): Promise<unknown> {
+  if (!(data instanceof Blob) || !/json/.test(data.type)) return data;
+  try {
+    return JSON.parse(await data.text());
+  } catch {
+    return data;
+  }
+}
+
 /** 봇에게서 답을 못 받은 요청의 종류 */
 export type FailureKind = "timeout" | "offline" | "aborted";
 
@@ -93,8 +103,9 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
       onReach(true);
       return res;
     },
-    (error: unknown) => {
+    async (error: unknown) => {
       const { response, config: request } = failedOf(error);
+      if (response) response.data = await unblobbed(response.data);
       if (failureKind(error) === "offline") onReach(false);
       else if (response) onReach(true);
       // 토큰은 처리기보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만

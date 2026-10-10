@@ -15,6 +15,9 @@ const formatTime = (at: number | Date, options: Intl.DateTimeFormatOptions) => n
 /** 날짜 */
 const formatDate = (at: number | Date, options: Intl.DateTimeFormatOptions) => new Date(at).toLocaleDateString(LOCALE, options);
 
+/** 날짜와 시각(2026년 10월 11일 07:30) */
+const formatDateTime = (at: number | Date) => `${formatDate(at, { year: "numeric", month: "long", day: "numeric" })} ${formatClock(at)}`;
+
 /** 상대 시각("3분 전" · "내일") */
 const relativeTime = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" });
 
@@ -22,4 +25,4 @@ const relativeTime = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" });
 const collator = new Intl.Collator(LOCALE);
 const compareText = (a: string, b: string) => collator.compare(a, b);
 
-export { LOCALE, formatNumber, formatClock, formatTime, formatDate, relativeTime, compareText };
+export { LOCALE, formatNumber, formatClock, formatTime, formatDate, formatDateTime, relativeTime, compareText };

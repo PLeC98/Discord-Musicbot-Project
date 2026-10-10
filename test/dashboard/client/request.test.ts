@@ -8,7 +8,8 @@ import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 
 type Sent = { method: string; url: string; token: string | undefined };
-type Reply = { problem?: Code; data?: unknown; fail?: string };
+/** blob: 문제 응답을 파일로 받는 요청처럼 Blob 으로 */
+type Reply = { problem?: Code; data?: unknown; fail?: string; blob?: boolean };
 
 /** 가짜 서버. route 가 요청마다 답을 고른다. 보낸 요청(토큰 받기 포함)을 차례대로 적는다. signsIn: 다시 로그인을 물으면 마칠지(기본은 그만둔다) */
 function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false }: { signsIn?: boolean } = {}) {
@@ -23,7 +24,8 @@ function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false }:
       if (reply.fail) throw new AxiosError(reply.fail, reply.fail, config);
       if (reply.problem) {
         const data = problemBody(reply.problem);
-        const response = { data, status: data.status, statusText: "", headers: {}, config } as AxiosResponse;
+        const body = reply.blob ? new Blob([JSON.stringify(data)], { type: "application/problem+json" }) : data;
+        const response = { data: body, status: data.status, statusText: "", headers: {}, config } as AxiosResponse;
         throw new AxiosError("문제 응답", "ERR_BAD_REQUEST", config, null, response);
       }
       return { data: reply.data ?? {}, status: 200, statusText: "OK", headers: {}, config };
@@ -101,6 +103,13 @@ test("reauth-required 면 다시 로그인을 묻는다. 그만두면 거절대�
   await assert.rejects(http.put("/api/admin/secrets/x"), (error: AxiosError) => error.response?.status === 403);
   assert.deepEqual(reauths, ["reauth"]);
   assert.deepEqual(ends, []);
+});
+
+// 내려받기는 Blob 으로 받는다. 거절도 Blob 으로 오므로 풀어서 읽어야 다시 로그인을 묻는다
+test("Blob 으로 온 문제 응답도 문제로 읽는다(내려받기의 reauth-required)", async () => {
+  const { http, reauths } = harness((req) => tokenRoute(req) ?? { problem: "reauth-required", blob: true });
+  await assert.rejects(http.get("/api/admin/settings-archive/export", { responseType: "blob" }), (error: AxiosError) => (error.response?.data as { code?: string }).code === "reauth-required");
+  assert.deepEqual(reauths, ["reauth"]);
 });
 
 // 다시 로그인을 마치면 하던 일을 잇는다(부른 쪽은 기다리기만). 새 세션이라 토큰도 새로 받는다

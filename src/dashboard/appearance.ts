@@ -53,7 +53,10 @@ type Refused = Extract<Added, { ok: false }>;
 const refused = (code: Code, params?: Params): Refused => ({ ok: false, code, params });
 
 /** 받은 그림을 본다(형식 · 정사각형 · 크기). 지나가면 저장할 모양: 래스터는 png 로 다시 만들고, svg 는 그려 보아 깨진 것을 거른다 */
-async function inspect(raw: Buffer): Promise<{ ok: true; id: string; vector: boolean; input: Buffer } | Refused> {
+/** 검사를 지난 그림. input 은 저장할 모양(래스터는 png 로 다시 만든 것) */
+type Inspected = { ok: true; id: string; vector: boolean; input: Buffer };
+
+async function inspect(raw: Buffer): Promise<Inspected | Refused> {
   const meta = await sharp(raw)
     .metadata()
     .catch(() => null);
@@ -98,6 +101,36 @@ async function removeFavicon(id: string): Promise<boolean> {
   uploads = list.filter((one) => one.id !== id);
   changed();
   return true;
+}
+
+// ── 내보내기 · 가져오기 ──
+
+/** 올린 그림 파일들(이름은 저장된 그대로: 변.png · svg.svg) */
+async function faviconFiles(): Promise<Array<{ name: string; data: Buffer }>> {
+  return (await sources()).map((one) => ({ name: path.basename(fileOf(one.id)), data: one.input }));
+}
+
+/** 받은 그림 묶음을 본다. 올릴 때와 같은 검사, 같은 변이 둘이면 뒤의 것. 지나가면 저장할 모양 */
+async function checkFavicons(raws: Buffer[]): Promise<{ ok: true; images: Inspected[] } | { ok: false; problems: Refused[] }> {
+  const checked = await Promise.all(raws.map(inspect));
+  const problems = checked.filter((one): one is Refused => !one.ok);
+  if (problems.length) return { ok: false, problems };
+  const images = [...new Map(checked.filter((one): one is Inspected => one.ok).map((one) => [one.id, one])).values()];
+  if (images.length > FAVICON_MAX_UPLOADS) return { ok: false, problems: [refused("too-many-favicons", { max: FAVICON_MAX_UPLOADS })] };
+  return { ok: true, images };
+}
+
+/** 올린 그림을 받은 것으로 통째 바꾼다(가져오기, 검사는 checkFavicons 로 먼저) */
+async function replaceFavicons(images: Inspected[]) {
+  for (const one of await sources()) fs.rmSync(fileOf(one.id), { force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  for (const { id, input } of images) {
+    const file = fileOf(id);
+    fs.writeFileSync(`${file}.tmp`, input);
+    fs.renameSync(`${file}.tmp`, file);
+  }
+  uploads = await Promise.all(images.map(({ id, input, vector }) => sourceOf(id, input, vector)));
+  changed();
 }
 
 // 가장 가까운 그림: 차이가 아니라 배율로 잰다(180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다). svg 가 있으면 늘 그것
@@ -180,5 +213,5 @@ function _useDir(folder: string) {
   changed();
 }
 
-export { addFavicon, removeFavicon, faviconPng, previewPng, appearance, faviconVersion, _useDir };
-export type { Added };
+export { addFavicon, removeFavicon, faviconPng, previewPng, appearance, faviconVersion, faviconFiles, checkFavicons, replaceFavicons, _useDir };
+export type { Added, Inspected };

@@ -76,15 +76,35 @@ function effective(saved: Record<string, string>) {
  * 모르는 이름 · 틀린 값이면 CONFIG_INVALID(problems), 그사이 다른 저장이 있었으면 REVISION_CONFLICT 로 던진다
  */
 function save(values: Record<string, unknown>, revision: number): TunablesView {
+  const problems = problemsOf(values);
+  if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
+  const saved = shape(values);
+  const next = docs.write(DOC, saved, revision);
+  use(saved);
+  return { values: saved, revision: next, pending: pendingOf(saved) };
+}
+
+/** 저장 전 검사(모르는 이름 · 글자가 아닌 값 · .env 와 같은 값 검사). 문제 줄들 */
+function problemsOf(values: Record<string, unknown>): string[] {
   const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key));
   const wrongType = Object.entries(values).filter(([, value]) => typeof value !== "string" && value !== null);
-  const saved = shape(values);
-  const problems = [...unknown.map((key) => `${key}: 모르는 설정입니다.`), ...wrongType.map(([key]) => `${key}: 글자로 보내야 합니다.`), ...root.loadConfig(process.env, { tunables: saved }).tuneProblems];
-  if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
-  const next = docs.write(DOC, saved, revision);
+  return [...unknown.map((key) => `${key}: 모르는 설정입니다.`), ...wrongType.map(([key]) => `${key}: 글자로 보내야 합니다.`), ...root.loadConfig(process.env, { tunables: shape(values) }).tuneProblems];
+}
+
+// 저장한 값을 설정 객체에 올리고 알린다(다시 켜야 먹는 값은 기동 때 값으로)
+function use(saved: Record<string, string>) {
   apply(effective(saved));
   for (const error of tunablesChanged()) log.error(`운영 조절값을 저장했지만 적용하지 못한 곳이 있습니다: ${messageOf(error)}`);
-  return { values: saved, revision: next, pending: pendingOf(saved) };
+}
+
+/** 문서를 바깥(가져오기)이 바꿨다. DB 에서 다시 읽어 저장할 때처럼 올린다 */
+function reload() {
+  use(shape(docs.read(DOC).data));
+}
+
+/** 가져오기가 한 트랜잭션 안에서 쓴다. 검사는 problemsOf 로 먼저. 메모리는 reload 로 */
+function writeRaw(values: Record<string, unknown>) {
+  docs.write(DOC, shape(values), docs.read(DOC).revision);
 }
 
 // 저장했지만 다시 켜야 먹는 이름
@@ -97,4 +117,4 @@ function view(): TunablesView {
   return { values: saved, revision: doc.revision, pending: pendingOf(saved) };
 }
 
-export { load, loadReadOnly, save, view };
+export { load, loadReadOnly, save, view, problemsOf, reload, writeRaw };

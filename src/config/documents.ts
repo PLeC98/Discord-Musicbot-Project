@@ -44,6 +44,11 @@ function attach(next: DocStore) {
   }
 }
 
+/** 붙인 저장소에서 다시 읽는다(가져오기가 DB 를 직접 바꾼 뒤). 붙이지 않았으면 아무것도 안 한다 */
+function reload() {
+  if (store) attach(store);
+}
+
 function docOf(name: DocName): Doc {
   let doc = held.get(name);
   if (!doc) {
@@ -84,5 +89,5 @@ function _use(name?: DocName, data?: unknown) {
   held.set(name, { data: structuredClone(data), revision: revisionOf(name) + 1 });
 }
 
-export { DOC_NAMES, isDocName, attach, get, revisionOf, put, putAll, defaultOf, _use };
+export { DOC_NAMES, isDocName, attach, reload, get, revisionOf, put, putAll, defaultOf, _use };
 export type { DocName, Doc, DocStore, DocPut };

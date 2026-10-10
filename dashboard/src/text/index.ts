@@ -5,6 +5,7 @@
 import * as admin from "./ko/admin.ts";
 import * as ai from "./ko/ai.ts";
 import * as appearance from "./ko/appearance.ts";
+import * as archive from "./ko/archive.ts";
 import * as common from "./ko/common.ts";
 import * as cookies from "./ko/cookies.ts";
 import * as dev from "./ko/dev.ts";
@@ -29,6 +30,6 @@ import * as shell from "./ko/shell.ts";
 import * as status from "./ko/status.ts";
 import * as tunables from "./ko/tunables.ts";
 
-const text = { admin, ai, appearance, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, restart, server, serverSettings, servers, serviceKeys, settings, shell, status, tunables };
+const text = { admin, ai, appearance, archive, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, restart, server, serverSettings, servers, serviceKeys, settings, shell, status, tunables };
 
 export { text };

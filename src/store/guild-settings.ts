@@ -133,6 +133,42 @@ const table = {
   },
 };
 
+// ── 내보내기 · 가져오기 ──
+
+/** 서버마다의 문서 전부(틀린 칸은 뺀 꼴) */
+function allDocs(): Record<string, GuildDoc> {
+  const rows = conn().prepare("SELECT guild_id, data_json FROM guild_settings ORDER BY guild_id").all() as { guild_id: string; data_json: string }[];
+  return Object.fromEntries(rows.map((row) => [row.guild_id, shapeOf(row.guild_id, row.data_json)]).filter(([, doc]) => Object.keys(doc).length));
+}
+
+/** 받은 서버별 설정 묶음의 문제 줄들. 서버 ID 는 숫자, 칸은 아는 것만, 값은 읽을 때와 같은 검사 */
+function docsProblems(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return ["서버별 설정이 서버 ID → 설정 꼴이 아닙니다."];
+  const problems: string[] = [];
+  for (const [guildId, doc] of Object.entries(value)) {
+    if (!/^\d{15,25}$/.test(guildId)) problems.push(`${guildId}: 서버 ID 가 아닙니다.`);
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
+      problems.push(`${guildId}: 설정이 표 꼴이 아닙니다.`);
+      continue;
+    }
+    for (const [key, field] of Object.entries(doc)) {
+      const schema = FIELDS[key as keyof typeof FIELDS];
+      if (!schema) problems.push(`${guildId}.${key}: 모르는 칸입니다.`);
+      else if (!schema.safeParse(field).success) problems.push(`${guildId}.${key}: 값이 틀렸습니다.`);
+    }
+  }
+  return problems;
+}
+
+/** 서버별 설정을 받은 것으로 통째 바꾼다(가져오기, 검사는 docsProblems 로 먼저). 빈 문서는 두지 않는다. 메모리는 부른 쪽이 _reset */
+function replaceAll(docs: Record<string, GuildDoc>) {
+  conn().transaction(() => {
+    conn().prepare("DELETE FROM guild_settings").run();
+    const insert = conn().prepare("INSERT INTO guild_settings (guild_id, data_json) VALUES (?, ?)");
+    for (const [guildId, doc] of Object.entries(docs)) if (Object.keys(doc).length) insert.run(guildId, JSON.stringify(doc));
+  })();
+}
+
 // 서버 · 칸마다 담아 두는 값. 키는 `${guildId}_${칸}`
 type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting };
 
@@ -337,5 +373,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, _reset, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
-export type { SponsorBlockSetting };
+export { table, _reset, allDocs, docsProblems, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export type { SponsorBlockSetting, GuildDoc };

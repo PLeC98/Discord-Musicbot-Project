@@ -5,6 +5,9 @@ import { VERTEX_LOCATION } from "../../rules/vertex-url.ts";
 import { setsSecretHeader } from "../../rules/secret-headers.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
+// 추가 인자에 비밀 헤더를 적었을 때
+const SECRET_HEADER = "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 칸에 넣으세요(암호화해 둡니다).";
+
 // 길이를 모르는 후보를 목록 줄에 어떻게 적나: 그 칸을 뺀다 · 글자로 · 0 으로
 const AI_UNKNOWN = ["hide", "text", "zero"] as const;
 type AiUnknown = (typeof AI_UNKNOWN)[number];
@@ -62,7 +65,7 @@ const aiFile = z.preprocess(
       // 비밀 헤더(Authorization 등)는 적지 못한다. 설정은 평문으로 남고 내보내기에도 실린다. 키는 키 칸에(암호화해 둔다)
       extra: z
         .string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." })
-        .refine((v) => !setsSecretHeader(v), "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 칸에 넣으세요(암호화해 둡니다).")
+        .refine((v) => !setsSecretHeader(v), SECRET_HEADER)
         .nullish(),
       prompt: gone("프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 칸은 쓰이지 않습니다."),
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
@@ -102,9 +105,12 @@ const aiFile = z.preprocess(
 /** 꺼 두었는지(enabled: false). 꺼 두면 나머지 칸을 따지지 않는다(프롬프트는 파일이 깨지지 않을 만큼만 본다: ai-prompt 의 promptProblems(…, false)) */
 const aiSwitchedOff = (data: unknown) => !!data && typeof data === "object" && (data as { enabled?: unknown }).enabled === false;
 
-/** AI 설정의 문제 목록. 없으면 빈 배열 */
+/** AI 설정의 문제 목록. 없으면 빈 배열. 꺼 두었어도 비밀 헤더는 막는다(설정은 평문으로 남고 내보내기에도 실린다) */
 function aiProblems(data: unknown): string[] {
-  if (aiSwitchedOff(data)) return [];
+  if (aiSwitchedOff(data)) {
+    const extra = (data as { extra?: unknown }).extra;
+    return typeof extra === "string" && setsSecretHeader(extra) ? [SECRET_HEADER] : [];
+  }
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 

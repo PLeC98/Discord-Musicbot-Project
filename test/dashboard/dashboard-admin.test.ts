@@ -819,6 +819,10 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   assert.equal(onWithout.status, 400);
   assert.match(detailsOf(onWithout.json), /켜려면 provider/);
   assert.equal((await putDoc("ai", { enabled: false, provider: "openai", model: "" })).status, 200);
+  // 꺼 두었어도 비밀 헤더는 막는다(설정은 평문으로 남고 내보내기에도 실린다)
+  const offSecret = await putDoc("ai", { enabled: false, provider: "openai", extra: "header::Authorization=Bearer sk-몰래" });
+  assert.equal(offSecret.status, 400);
+  assert.match(detailsOf(offSecret.json), /비밀 헤더/);
 
   // 프롬프트는 딴 문서에 산다 — 설정에 적으면 쓰이지 않으니 알려 준다
   const wrongPlace = await putDoc("ai", { provider: "off", prompt: "여기 적으면 안 된다" });
