@@ -10,6 +10,7 @@ import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import * as archive from "../settings-archive.ts";
+import * as snapshots from "../../store/snapshots.ts";
 import { ARCHIVE_MAX_BYTES, isArchiveItem, type ArchiveImported, type ArchiveItem } from "../contract/settings-archive.ts";
 import type { Response } from "express";
 
@@ -52,7 +53,8 @@ settingsArchiveRouter.post("/import", requireRecentLogin, zipBody, async (req, r
     .filter(Boolean);
   if (!Buffer.isBuffer(req.body) || !req.body.length || !items.length || !items.every(isArchiveItem)) return sendProblem(res, "nothing-to-save");
   try {
-    const imported = await archive.apply(req.body, [...new Set(items)] as ArchiveItem[]);
+    // 쓰기 직전에 지금 설정을 스냅숏으로 남긴다(검사에 걸리면 뜨지 않는다)
+    const imported = await archive.apply(req.body, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
     log.warn({ sub: "admin" }, `대시보드에서 설정 가져오기: ${imported.join(" · ")}. 실행 ${ranBy(req)}`);
     res.json({ imported } satisfies ArchiveImported);
   } catch (error) {

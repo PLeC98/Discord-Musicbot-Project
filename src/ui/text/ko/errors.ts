@@ -207,6 +207,8 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   "bad-archive": () => warning("input", "가져올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP 이 아니거나 파일이 깨졌어요. 함께 적힌 원문을 확인해 주세요."),
+  "snapshot-not-found": (_, look) => warning("notFound", "없는 스냅숏이에요!", `오래되어 지워졌을 수 있어요. ${stalePage(look)}`),
+  "snapshot-mismatch": () => warning("state", "되살릴 수 없는 스냅숏이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 뜬 스냅숏이에요. 그 버전의 봇으로 되살려 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   // 대시보드: 꾸미기(올린 그림)
   "bad-image": () => warning("input", "쓸 수 없는 그림이에요!", "png · webp · jpg · svg 그림만 올릴 수 있어요."),

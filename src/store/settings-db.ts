@@ -50,4 +50,4 @@ function createTables(db: Db) {
   `);
 }
 
-export { settingsDb, createTables };
+export { settingsDb, createTables, VERSION };

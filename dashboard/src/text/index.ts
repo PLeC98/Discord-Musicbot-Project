@@ -27,9 +27,10 @@ import * as servers from "./ko/servers.ts";
 import * as serviceKeys from "./ko/service-keys.ts";
 import * as settings from "./ko/settings.ts";
 import * as shell from "./ko/shell.ts";
+import * as snapshots from "./ko/snapshots.ts";
 import * as status from "./ko/status.ts";
 import * as tunables from "./ko/tunables.ts";
 
-const text = { admin, ai, appearance, archive, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, restart, server, serverSettings, servers, serviceKeys, settings, shell, status, tunables };
+const text = { admin, ai, appearance, archive, common, cookies, dev, editor, errors, fields, genres, licenses, login, logs, manage, more, player, presence, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, tunables };
 
 export { text };

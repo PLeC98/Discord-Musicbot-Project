@@ -7,6 +7,7 @@ import logger from "../infra/log/logger.ts";
 import config from "../config/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
+import * as snapshots from "../store/snapshots.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as tunables from "../store/tunables.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
@@ -106,12 +107,17 @@ function main() {
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
+    // 대시보드에서 고른 스냅숏이 걸려 있으면 열기 전에 바꿔 끼운다(지금 것은 backups 에 남는다)
+    const restored = snapshots.applyStaged(PROJECT.database);
+    if (restored) log.warn(`설정 DB 를 스냅숏 ${restored} 로 되살렸습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
     stores.open();
   } catch (error) {
     log.error(messageOf(error));
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 를 되살리려면 봇을 끈 채 database/backups 의 settings-*.db 하나를 database/settings.db 로 복사하세요(같은 SECRETS_KEY 여야 비밀값이 풀립니다)");
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }
+  snapshots.startDaily();
   tunables.load();
   // 로그 스트림의 하트비트는 로그 계층이라 알림을 직접 듣지 않는다(설정 알림이 로그를 부른다)
   onTunablesChanged(() => logSink.syncHeartbeat());

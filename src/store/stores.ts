@@ -27,7 +27,7 @@ const LOST: Map<DbFile, string> = new Map([
 function open(dir = PROJECT.database) {
   try {
     for (const file of FILES) {
-      const opened = file.open(path.join(dir, file.spec.fileName));
+      const opened = openOne(file, dir);
       if (opened.recreated) log.warn(`${file.spec.label} 구조가 바뀌어 새로 만들었습니다 (v${opened.found} → v${file.spec.version}). ${LOST.get(file) ?? ""}`.trim());
     }
   } catch (error) {
@@ -35,6 +35,15 @@ function open(dir = PROJECT.database) {
     throw error;
   }
   log.info({ tags: ["startup"] }, "DB 준비 완료 (설정 · 실행 상태 · 캐시)");
+}
+
+// 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 이름표). 설정 DB 면 기동이 되살리는 법을 알린다
+function openOne(file: DbFile, dir: string) {
+  try {
+    return file.open(path.join(dir, file.spec.fileName));
+  } catch (error) {
+    throw Object.assign(error as Error, { dbFile: file.spec.fileName });
+  }
 }
 
 function close() {

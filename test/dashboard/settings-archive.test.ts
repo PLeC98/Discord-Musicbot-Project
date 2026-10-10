@@ -22,6 +22,7 @@ const settingsDocs = await import("../../src/store/settings-docs.ts");
 const tunables = await import("../../src/store/tunables.ts");
 const guildSettings = await import("../../src/store/guild-settings.ts");
 const appearance = await import("../../src/dashboard/appearance.ts");
+const snapshots = await import("../../src/store/snapshots.ts");
 const { RECENT_LOGIN_MS } = await import("../../src/dashboard/middleware/recent-login.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 
@@ -140,6 +141,10 @@ test("고른 항목만 덮어쓰고 메모리(설정 객체 · 문서 · 서버�
   const res = await send("import?items=tunables,guilds", file);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { imported: ["tunables", "guilds"] });
+  assert.ok(
+    snapshots.list().some((one) => one.kind === "before-import"),
+    "쓰기 전에 스냅숏을 남긴다",
+  );
 
   assert.equal(config.bot.maxQueueSize, 250, "운영 조절값은 기본값(파일에 없던 칸)으로");
   assert.equal(await guildSettings.getBotChannel("123456789012345678"), "111111111111111111");

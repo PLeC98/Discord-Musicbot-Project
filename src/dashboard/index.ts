@@ -25,6 +25,7 @@ import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts
 import { serviceKeysRouter } from "./routes/service-keys.ts";
 import { tunablesRouter } from "./routes/tunables.ts";
 import { settingsArchiveRouter } from "./routes/settings-archive.ts";
+import { snapshotsRouter } from "./routes/snapshots.ts";
 import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter } from "./problem.ts";
 import { limiter, unlimited } from "./rate-limits.ts";
@@ -146,6 +147,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/admin/service-keys", serviceKeysRouter);
   app.use("/api/admin/tunables", tunablesRouter);
   app.use("/api/admin/settings-archive", settingsArchiveRouter);
+  app.use("/api/admin/snapshots", snapshotsRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
 

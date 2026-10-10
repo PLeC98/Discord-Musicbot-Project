@@ -105,6 +105,7 @@
           <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
           <ConfigCookies v-if="opened.has('settings') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
           <ConfigArchive v-if="opened.has('settings')" class="mt-(--gap-in)" />
+          <ConfigSnapshots v-if="opened.has('settings')" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
         </div>
 
         <div class="admin-page" v-show="tab === 'dev'">
@@ -148,6 +149,7 @@ import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
 import ConfigArchive from "../components/ConfigArchive.vue";
+import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
