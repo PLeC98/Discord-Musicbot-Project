@@ -10,7 +10,8 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import type { ButtonInteraction } from "discord.js";
-import * as storeDb from "../../src/store/db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import { Player } from "../../src/player/player.ts";
 import { fake, fakeWith, fakeBot } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
@@ -28,7 +29,8 @@ useExampleConfig();
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
 const errors = await import("../../src/ui/text/ko/errors.ts");
@@ -54,12 +56,13 @@ addTracks.useLookup({
 after(() => {
   addTracks.useLookup(null);
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
 });
 
 const USER = "111111111111111111";

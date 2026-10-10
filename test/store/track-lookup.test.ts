@@ -52,7 +52,7 @@ test("행이 없는 URL은 getVerifiedTitle이 null", () => {
 
 import fs from "node:fs";
 import path from "node:path";
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
 
 function cacheFile(key: string) {
   const file = audioCache.getFilePath(key);
@@ -93,7 +93,7 @@ test("퇴거로 audio_cache 행이 지워져도 장부는 남는다. 다음에 �
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/ev1", pageUrl: "https://open.spotify.com/track/ev1", audioUrl: "https://www.youtube.com/watch?v=evictedvid", platform: "spotify", title: "곡" });
 
   fs.unlinkSync(file);
-  storeDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 줄마다 하는 일
+  cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 줄마다 하는 일
 
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/ev1").hit, false, "파일이 없으니 캐시로는 못 튼다");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/ev1?si=x"), "https://www.youtube.com/watch?v=evictedvid", "검색은 건너뛴다");
@@ -105,7 +105,7 @@ test("음원 주소가 없는 곡은 장부에 적지 않는다(스포티파이�
 });
 
 test("모양이 틀린 장부 줄은 없는 것으로 본다", () => {
-  storeDb.get().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, title_verified, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 1, 1)").run("https://open.spotify.com/track/badrow", "https://open.spotify.com/track/badrow", "", "spotify");
+  cacheDb.get().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, title_verified, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 1, 1)").run("https://open.spotify.com/track/badrow", "https://open.spotify.com/track/badrow", "", "spotify");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/badrow"), null, "빈 음원 주소");
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/badrow").hit, false);
 });

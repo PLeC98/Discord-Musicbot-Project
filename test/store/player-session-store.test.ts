@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import * as trackState from "../../src/player/track-state.ts";
 import { PlayerSessionStore, GAP, SEQ_LIMIT } from "../../src/store/player-sessions.ts";
-import { createTables } from "../../src/store/db.ts";
+import { createTables } from "../../src/store/state-db.ts";
 import type { TrackIn, SessionState } from "../../src/store/player-sessions.ts";
 import type { Tracks } from "../../src/player/track-state.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";

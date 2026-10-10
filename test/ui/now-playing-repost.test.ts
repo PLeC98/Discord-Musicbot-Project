@@ -12,7 +12,7 @@ import type { Client, GuildTextBasedChannel, WebhookClient } from "discord.js";
 import type { Player, PanelMessage } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { PanelStore } from "../../src/ui/panel-location.ts";
-import type { PanelRecord } from "../../src/store/guild-settings.ts";
+import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 
 const BOT_CHANNEL = "chan-1";

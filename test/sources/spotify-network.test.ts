@@ -8,7 +8,8 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import { fake } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
@@ -17,7 +18,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 const externalCaches = await import("../../src/store/external-caches.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
 const Spotify = await import("../../src/sources/spotify.ts");
@@ -56,6 +58,7 @@ after(() => {
   Spotify.useFetch(null);
   Object.assign(config.spotify, savedCreds);
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
@@ -63,7 +66,7 @@ beforeEach(() => {
   requests.length = 0;
   routes = [];
   Spotify._reset();
-  storeDb.get().exec("DELETE FROM spotify_anon;");
+  cacheDb.get().exec("DELETE FROM spotify_anon;");
   Object.assign(config.spotify, { clientId: "cid", clientSecret: "csecret" });
 });
 
@@ -256,7 +259,7 @@ test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아
   assert.equal(next.hashes.queryArtistOverview, "b".repeat(64), "못 찾은 것은 직전 값");
 
   Spotify._reset();
-  storeDb.get().exec("DELETE FROM spotify_anon;");
+  cacheDb.get().exec("DELETE FROM spotify_anon;");
   routes = [...withBundle(onlyPlaylist), ...anonRoutes().slice(2)];
   await assert.rejects(graphql._query("queryArtistOverview", "queryArtistOverview", {}), /queryArtistOverview 해시가 없습니다/);
 });

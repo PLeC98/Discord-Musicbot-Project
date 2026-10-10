@@ -1,4 +1,4 @@
-// src/store/audio-cache.ts · db.ts · infra/disk.ts — 봇 상태 탭의 저장공간: 캐시 수와 상한 · 지키는 파일 · 틀지 않은 파일 · 받기 실패 · 마지막 정리, DB 크기와 줄 수, 드라이브
+// src/store/audio-cache.ts · stores.ts · infra/disk.ts — 봇 상태 탭의 저장공간: 캐시 수와 상한 · 지키는 파일 · 틀지 않은 파일 · 받기 실패 · 마지막 정리, DB 크기와 줄 수, 드라이브
 
 import os from "node:os";
 import path from "node:path";
@@ -6,23 +6,27 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import * as audioCache from "../../src/store/audio-cache.ts";
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
+import { sessions } from "../../src/store/player-sessions.ts";
 import config from "../../src/config/index.ts";
 import { driveOf } from "../../src/infra/disk.ts";
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-storage-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-storage-test-${process.pid}`);
 
 before(() => {
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache.initialize(DB_PATH);
+  fs.rmSync(DB_DIR, { recursive: true, force: true });
+  stores.open(DB_DIR);
+  audioCache.initialize();
 });
 after(() => {
   audioCache.close();
-  for (const file of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) fs.rmSync(file, { force: true });
+  stores.close();
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 test("캐시: 수 · 크기와 상한, 지키는 파일, 한 번도 틀지 않은 파일, 받기 실패 줄. 실제로 지운 정리를 기억한다", async () => {
-  const ins = storeDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, downloaded_at) VALUES (?, ?, ?, ?, ?, ?)");
+  const ins = cacheDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, downloaded_at) VALUES (?, ?, ?, ?, ?, ?)");
   const old = Date.now() - 90 * 86_400_000;
   ins.run("played", "cached", "/nx/played.opus", 3_000_000, 4, Date.now());
   ins.run("guarded", "cached", "/nx/guarded.opus", 2_000_000, 0, old);
@@ -49,11 +53,15 @@ test("캐시: 수 · 크기와 상한, 지키는 파일, 한 번도 틀지 않�
   assert.deepEqual({ ...lastCleanup, at: undefined }, { at: undefined, files: 2, bytes: 4_000_000 });
 });
 
-test("DB: 파일(-wal 포함) 크기와 줄 수", () => {
-  const stats = storeDb.dbStats();
-  assert.equal(path.resolve(stats.file), path.resolve(DB_PATH));
-  assert.ok(stats.bytes > 0);
+test("DB: 파일들(-wal 포함) 크기의 합과 줄 수. 저장된 대기열은 실행 상태 DB 에서 센다", () => {
+  const stats = stores.dbStats();
+  assert.equal(path.resolve(stats.dir), path.resolve(DB_DIR));
+  const each = ["settings.db", "state.db", "cache.db"].map((name) => path.join(DB_DIR, name));
+  const sum = each.reduce((total, file) => total + fs.statSync(file).size + (fs.existsSync(`${file}-wal`) ? fs.statSync(`${file}-wal`).size : 0), 0);
+  assert.equal(stats.bytes, sum);
   assert.deepEqual([stats.lookups, stats.sponsorSegments, stats.sessions], [0, 0, 0]);
+  sessions().append("g-stats", [{ title: "t", pageUrl: "https://y/stats", requestKey: "https://y/stats" }]);
+  assert.equal(stores.dbStats().sessions, 1);
 });
 
 test("드라이브: Windows 는 F: 꼴, 그 밖은 마운트 지점. 같은 드라이브면 이름이 같다. 쓴 양은 크기 안", () => {

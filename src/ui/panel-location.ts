@@ -1,10 +1,10 @@
 // 서버당 하나뿐인 현재 재생 패널의 자리. 어느 채널의 어느 메시지인지 DB에 남긴다.
 // 메모리 참조(player.nowPlayingMessage)는 재생이 끝나거나 재시작하면 없어지므로, 옛 패널을 치우는 기준은 이 기록이다.
 
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as panelRecords from "../store/panel-records.ts";
 import { codeOf } from "../rules/error-kind.ts";
 import type { Guild, GuildBasedChannel, WebhookClient } from "discord.js";
-import type { PanelRecord } from "../store/guild-settings.ts";
+import type { PanelRecord } from "../store/panel-records.ts";
 import type { PanelHook as Hook } from "../player/player.ts";
 
 const UNKNOWN_MESSAGE = 10008;
@@ -14,7 +14,7 @@ const UNKNOWN_WEBHOOK = 10015;
 /** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 지워진 웹훅의 기억을 지운다 */
 type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
 /** 기록 저장소. 시험은 가짜를 준다 */
-type Store = Pick<typeof GuildSettingsManager, "getPanel" | "setPanel">;
+type Store = Pick<typeof panelRecords, "getPanel" | "setPanel">;
 type PanelGuild = Pick<Guild, "id" | "channels">;
 type Payload = Parameters<WebhookClient["editMessage"]>[1];
 
@@ -23,7 +23,7 @@ class PanelLocation {
   store: Store;
   chains = new Map<string, Promise<unknown>>(); // guildId → Promise 꼬리. 기록을 읽고 바꾸는 사이에 다른 게시가 끼지 않게
 
-  constructor(embeds: Embeds, store: Store = GuildSettingsManager) {
+  constructor(embeds: Embeds, store: Store = panelRecords) {
     this.embeds = embeds;
     this.store = store;
   }

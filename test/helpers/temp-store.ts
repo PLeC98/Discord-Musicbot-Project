@@ -1,4 +1,4 @@
-// 저장소를 임시 폴더의 DB 로 연다. 운영 DB 와 audio_cache 를 건드리지 않는다.
+// 저장소를 임시 폴더의 DB 들로 연다. 운영 DB 와 audio_cache 를 건드리지 않는다.
 //
 //   const store = openTempStore("guild-");
 //   after(() => store.close());
@@ -8,18 +8,25 @@ import os from "node:os";
 import path from "node:path";
 import * as audioCache from "../../src/store/audio-cache.ts";
 
-import * as storeDb from "../../src/store/db.ts";
+import * as stores from "../../src/store/stores.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
 import * as settings from "../../src/store/guild-settings.ts";
 
 function openTempStore(prefix = "store-") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   audioCache._setCacheDir(path.join(dir, "audio_cache"));
-  audioCache.initialize(path.join(dir, "cache.db"));
+  stores.open(dir);
+  audioCache.initialize();
   return {
     dir,
-    db: () => storeDb.get(),
+    /** 캐시 DB(받은 곡 · 링크 장부) */
+    db: () => cacheDb.get(),
+    /** 설정 DB(서버별 설정) */
+    settings: () => settingsDb.get(),
     close() {
       audioCache.close();
+      stores.close();
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     },
   };
@@ -46,7 +53,7 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
 
 /** 서버 설정 표가 망가진 동안 fn 을 부른다(표를 치워 두었다가 되돌린다). 표를 부르면 진짜 SQLite 오류가 난다 */
 async function whenSettingsBroken<T>(fn: () => T | Promise<T>): Promise<T> {
-  const db = storeDb.get();
+  const db = settingsDb.get();
   db.exec("ALTER TABLE guild_settings RENAME TO guild_settings_off");
   try {
     return await fn();

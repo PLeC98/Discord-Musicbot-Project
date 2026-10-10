@@ -9,14 +9,16 @@ import os from "node:os";
 import path from "node:path";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 const trackLookup = await import("../../src/store/track-lookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
-import * as storeDb from "../../src/store/db.ts";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import runYtDlp, { useExec, type Exec, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import { plainText } from "../helpers/notice.ts";
@@ -48,13 +50,14 @@ after(() => {
   useExec(null);
   playerClients.order = savedOrder;
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {
   calls.length = 0;
   respond = () => ({});
-  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
 const video = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });

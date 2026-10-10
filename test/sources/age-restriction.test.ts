@@ -7,23 +7,22 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as audioCache from "../../src/store/audio-cache.ts";
+import * as stores from "../../src/store/stores.ts";
 import * as externalCaches from "../../src/store/external-caches.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-agerestrict-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-agerestrict-test-${process.pid}`);
 
 before(() => {
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache.initialize(DB_PATH);
+  fs.rmSync(DB_DIR, { recursive: true, force: true });
+  stores.open(DB_DIR);
+  audioCache.initialize();
 });
 
 after(() => {
   if (audioCache) audioCache.close();
-  try {
-    fs.unlinkSync(DB_PATH);
-  } catch {
-    /* 무시 */
-  }
+  stores.close();
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 test("externalCaches: 연령 제한 videoId 기록/조회 라운드트립", () => {

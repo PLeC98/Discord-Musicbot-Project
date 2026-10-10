@@ -1,85 +1,131 @@
-// src/store/db.ts — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
+// src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 옮기기 코드는 두지 않는다.
+// 캐시 · 실행 상태는 새로 만들고, 설정은 열지 않고 멈춘다(사람이 정한 값을 지우지 않는다).
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { test, after } from "node:test";
+import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
+import * as stores from "../../src/store/stores.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import { stateDb, forgetGuild } from "../../src/store/state-db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
+import * as panelRecords from "../../src/store/panel-records.ts";
+import * as voiceStatus from "../../src/store/voice-status.ts";
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
-const guildTable = (await import("../../src/store/guild-settings.ts")).table;
-const audioCache = await import("../../src/store/audio-cache.ts");
-const storeDb = await import("../../src/store/db.ts");
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
+let serial = 0;
+let dir = root;
+
+beforeEach(() => {
+  stores.close();
+  guildSettings._reset();
+  panelRecords._reset();
+  dir = path.join(root, String(serial++));
+});
 
 after(() => {
-  audioCache.close();
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  stores.close();
+  fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 });
 });
 
-function open(name: string) {
-  audioCache.close();
-  audioCache.initialize(path.join(dir, name));
+// 미리 만들어 둔 옛 파일. 표 하나와 버전 표시만
+function prepare(name: string, version: number, sql: string) {
+  fs.mkdirSync(dir, { recursive: true });
+  const db = new Database(path.join(dir, name));
+  db.exec(sql);
+  db.pragma(`user_version = ${version}`);
+  db.close();
 }
 
-test("새 DB는 현재 버전으로 만들어지고 세션 표를 쓴다", () => {
-  open("fresh.db");
-  assert.equal(storeDb.get().pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
+const versionOf = (db: { get(): Database.Database }) => db.get().pragma("user_version", { simple: true });
+
+test("새 폴더: 세 파일을 각자의 버전으로 만들고 쓴다", () => {
+  stores.open(dir);
+  assert.deepEqual([versionOf(settingsDb), versionOf(stateDb), versionOf(cacheDb)], [settingsDb.spec.version, stateDb.spec.version, cacheDb.spec.version]);
+  for (const name of ["settings.db", "state.db", "cache.db"]) assert.ok(fs.existsSync(path.join(dir, name)), name);
 
   sessions().append("g", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
-  assert.equal(sessions().load("g")?.queue.length, 1);
+  stores.close();
+  stores.open(dir);
+  assert.equal(sessions().load("g")?.queue[0].title, "a", "같은 버전이면 다시 열고 내용이 남아 있다");
 });
 
-test("같은 버전의 DB는 다시 열리고 내용이 남아 있다", () => {
-  open("fresh.db");
-  assert.equal(sessions().load("g")?.queue[0].title, "a");
+test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 묻지 않고 표를 새로 만든다", () => {
+  prepare("cache.db", 5, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY); CREATE TABLE audio_cache (audio_key TEXT PRIMARY KEY); INSERT INTO audio_cache VALUES ('yt:old');");
+  stores.open(dir);
+  assert.equal(versionOf(cacheDb), cacheDb.spec.version);
+  const tables = cacheDb.get().prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all();
+  assert.ok(!tables.includes("guild_settings"), "옛 표는 남기지 않는다");
+  assert.equal(cacheDb.get().prepare("SELECT COUNT(*) FROM audio_cache").pluck().get(), 0);
 });
 
-test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다", () => {
-  const legacy = path.join(dir, "legacy.db");
-  const pre = new Database(legacy);
-  pre.exec("CREATE TABLE player_sessions (guild_id TEXT PRIMARY KEY, state_json TEXT NOT NULL, updated_at INTEGER NOT NULL)");
-  pre.close();
+test("실행 상태 DB 버전이 다르면 새로 만든다. 설정 · 캐시는 그대로", () => {
+  stores.open(dir);
+  guildSettings.table.setBotChannel("g", "c");
+  stores.close();
+  const file = new Database(path.join(dir, "state.db"));
+  file.pragma(`user_version = ${stateDb.spec.version + 1}`);
+  file.close();
 
-  audioCache.close();
+  stores.open(dir);
+  assert.equal(versionOf(stateDb), stateDb.spec.version);
+  assert.equal(guildSettings.table.getBotChannel("g"), "c");
+});
+
+test("설정 DB 버전이 다르면 열지 않고 멈춘다. 파일은 손대지 않고 아무 DB 도 열린 채로 남지 않는다", () => {
+  prepare("settings.db", 99, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY, data_json TEXT NOT NULL); INSERT INTO guild_settings VALUES ('g', '{}');");
   assert.throws(
-    () => audioCache.initialize(legacy),
-    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("지운 뒤 다시 실행"),
+    () => stores.open(dir),
+    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("열지 않습니다"),
   );
-  assert.equal(storeDb.isOpen(), false, "열다 만 상태로 남지 않는다");
-  assert.throws(() => storeDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
+  assert.equal(settingsDb.isOpen() || stateDb.isOpen() || cacheDb.isOpen(), false);
+  assert.throws(() => settingsDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
+  assert.equal(fs.existsSync(path.join(dir, "cache.db")), false, "설정이 막히면 다른 파일을 만들지 않는다");
 
-  const check = new Database(legacy);
-  const made = check.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'session_tracks'").get()?.n;
+  const check = new Database(path.join(dir, "settings.db"));
+  assert.equal(check.prepare("SELECT COUNT(*) FROM guild_settings").pluck().get(), 1);
+  assert.equal(check.pragma("user_version", { simple: true }), 99);
   check.close();
-  assert.equal(made, 0, "맞지 않는 DB에 새 표를 만들지 않는다 — 파일은 손대지 않는다");
 });
 
-test("버전이 다른 DB도 같다", () => {
-  const other = path.join(dir, "other.db");
-  const pre = new Database(other);
-  pre.exec("CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY)");
-  pre.pragma(`user_version = ${storeDb.SCHEMA_VERSION + 1}`);
-  pre.close();
+test("현재 재생 패널 자리: 쓰고 읽고 비운다. 서버 설정과 다른 파일이다", async () => {
+  stores.open(dir);
+  assert.equal(await panelRecords.getPanel("g"), null);
 
-  audioCache.close();
-  assert.throws(() => audioCache.initialize(other), { code: "SCHEMA_MISMATCH" });
+  guildSettings.table.setBotChannel("g", "c-bot");
+  await panelRecords.setPanel("g", "c-bot", "m1");
+  assert.deepEqual(await panelRecords.getPanel("g"), { channelId: "c-bot", messageId: "m1" });
+
+  await panelRecords.setPanel("g", "c-other", "m2");
+  panelRecords._reset();
+  assert.deepEqual(await panelRecords.getPanel("g"), { channelId: "c-other", messageId: "m2" }, "서버당 한 줄을 덮어쓴다");
+  assert.equal(guildSettings.table.getBotChannel("g"), "c-bot");
+
+  await panelRecords.setPanel("g", "c-other", null);
+  panelRecords._reset();
+  assert.equal(await panelRecords.getPanel("g"), null);
 });
 
-test("현재 재생 패널 자리: 쓰고 읽고 비운다 — 같은 행의 서버 설정은 그대로", () => {
-  open("panel.db");
-  assert.equal(guildTable.getPanelRecord("g"), null);
+test("서버에서 나가면 그 서버의 실행 상태만 지운다. 서버 설정 · 다른 서버는 남는다", async () => {
+  stores.open(dir);
+  for (const g of ["gone", "stay"]) {
+    sessions().append(g, [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
+    await panelRecords.setPanel(g, `${g}-text`, `${g}-msg`);
+    voiceStatus.save(`${g}-voice`, "▶️ 곡");
+  }
+  guildSettings.table.setDjRoles("gone", ["r"]);
 
-  guildTable.setBotChannel("g", "c-bot");
-  guildTable.setPanelRecord("g", "c-bot", "m1");
-  assert.deepEqual(guildTable.getPanelRecord("g"), { channelId: "c-bot", messageId: "m1" });
+  forgetGuild("gone", ["gone-text", "gone-voice"]);
+  panelRecords._reset();
 
-  guildTable.setPanelRecord("g", "c-other", "m2");
-  assert.deepEqual(guildTable.getPanelRecord("g"), { channelId: "c-other", messageId: "m2" }, "서버당 한 행을 덮어쓴다");
-  assert.equal(guildTable.getBotChannel("g"), "c-bot");
-
-  guildTable.setPanelRecord("g", "c-other", null);
-  assert.equal(guildTable.getPanelRecord("g"), null);
+  assert.equal(sessions().load("gone"), null);
+  assert.equal(await panelRecords.getPanel("gone"), null);
+  assert.deepEqual(voiceStatus.load(), [["stay-voice", "▶️ 곡"]]);
+  assert.notEqual(sessions().load("stay"), null);
+  assert.deepEqual(guildSettings.table.getDjRoles("gone"), ["r"], "다시 초대하면 그대로 쓴다");
 });

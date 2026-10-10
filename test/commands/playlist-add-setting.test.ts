@@ -22,7 +22,7 @@ const G = "g1";
 const savedQueueMax = config.bot.maxQueueSize;
 
 beforeEach(() => {
-  store.db().exec("DELETE FROM guild_settings");
+  store.settings().exec("DELETE FROM guild_settings");
   GuildSettingsManager._reset();
   config.bot.maxQueueSize = savedQueueMax;
 });

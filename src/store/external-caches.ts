@@ -1,12 +1,12 @@
 // 바깥 서비스의 답을 담아 두는 표. SponsorBlock 구간 · 연령 제한 영상 · 스포티파이 익명 상태
 
-import * as db from "./db.ts";
+import { cacheDb } from "./cache-db.ts";
 
 // JSON 을 담아 둔 한 줄
 type JsonRow = { data_json: string; fetched_at: number };
 
 // 열기 전에 부르면 던진다
-const conn = () => db.get();
+const conn = () => cacheDb.get();
 
 // ── SponsorBlock 세그먼트 캐시 (폴백 전용) ─────────────────────────────────
 

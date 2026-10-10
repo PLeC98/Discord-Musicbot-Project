@@ -14,20 +14,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import * as stores from "../../src/store/stores.ts";
 
 // 동등물 찾기가 링크 장부를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
-const TEST_DB = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}`);
 const audioCache = await import("../../src/store/audio-cache.ts");
-audioCache.initialize(TEST_DB);
+stores.open(DB_DIR);
+audioCache.initialize();
 after(() => {
   audioCache.close();
-  for (const f of [TEST_DB, `${TEST_DB}-wal`, `${TEST_DB}-shm`]) {
-    try {
-      fs.unlinkSync(f);
-    } catch {
-      /* 없으면 무시 */
-    }
-  }
+  stores.close();
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 const YouTube = await import("../../src/sources/youtube/index.ts");

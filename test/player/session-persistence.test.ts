@@ -16,12 +16,13 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
-import * as storeDb from "../../src/store/db.ts";
+import { stateDb } from "../../src/store/state-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import { textOf } from "../helpers/cv2.ts";
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}`);
 const removeDb = () => {
-  for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(DB_PATH + suffix, { force: true });
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 };
 
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -33,11 +34,13 @@ playerEvents.on("notice", playerNotices.sendNotice);
 
 before(() => {
   removeDb();
-  audioCache.initialize(DB_PATH);
+  stores.open(DB_DIR);
+  audioCache.initialize();
 });
 
 after(() => {
   audioCache.close();
+  stores.close();
   removeDb();
 });
 
@@ -145,7 +148,7 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
 test("DB가 메모리와 어긋나 있으면 다음 변경에서 통째로 다시 맞춘다", () => {
   const { p, sp } = makePlayer();
   trackState.enqueue(p, [t("A"), t("B"), t("C")]);
-  storeDb.get().prepare("DELETE FROM session_tracks WHERE guild_id = ? AND slot = 'queue'").run(p.guild.id);
+  stateDb.get().prepare("DELETE FROM session_tracks WHERE guild_id = ? AND slot = 'queue'").run(p.guild.id);
 
   trackState.removeAt(p, 1); // DB에는 지울 행이 없다
   assert.deepEqual(stored(p.guild.id), memory(p));

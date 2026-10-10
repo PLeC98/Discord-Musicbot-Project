@@ -2,7 +2,7 @@
 // 캐시 파일은 두 걸음으로 찾는다. 장부 줄의 음원 주소에서 열쇠를 계산하고, 그 열쇠로 audio_cache 를 본다.
 
 import fs from "fs";
-import * as db from "./db.ts";
+import { cacheDb } from "./cache-db.ts";
 import * as audioCache from "./audio-cache.ts";
 import { canonicalUrl } from "../rules/canonical-url.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
@@ -14,7 +14,7 @@ type CachedTrack = TrackInfo & { audioUrl: string };
 type CacheHit = { hit: false } | { hit: true; track: CachedTrack; audioKey: string; filePath: string };
 
 // 열기 전에 부르면 던진다
-const conn = () => db.get();
+const conn = () => cacheDb.get();
 
 // 읽기
 

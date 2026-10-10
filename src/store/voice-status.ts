@@ -1,9 +1,9 @@
 // 봇이 음성 채널 상태에 마지막으로 쓴 값. 재시작 뒤 채널에 올라와 있는 상태가 우리 것인지 알아볼 때 쓴다
 
-import * as db from "./db.ts";
+import { stateDb } from "./state-db.ts";
 
 // 열기 전에 부르면 던진다
-const conn = () => db.get();
+const conn = () => stateDb.get();
 
 /** 채널마다 마지막으로 쓴 값 [채널 ID, 상태] */
 function load(): Array<[string, string]> {

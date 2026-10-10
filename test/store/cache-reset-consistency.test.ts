@@ -12,24 +12,25 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as trackLookup from "../../src/store/track-lookup.ts";
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-cachereset-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-cachereset-test-${process.pid}`);
 const CACHE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cachereset-"));
 
 before(() => {
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
+  fs.rmSync(DB_DIR, { recursive: true, force: true });
   audioCache._setCacheDir(CACHE_DIR); // 실 캐시 폴더를 건드리지 않는다
-  audioCache.initialize(DB_PATH);
+  stores.open(DB_DIR);
+  audioCache.initialize();
 });
 
 after(() => {
   audioCache.close();
-  try {
-    fs.unlinkSync(DB_PATH);
-  } catch {}
+  stores.close();
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
   fs.rmSync(CACHE_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
@@ -67,14 +68,14 @@ test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지
   assert.ok(fs.existsSync(playing.file), "잠긴 파일은 그대로");
   assert.equal(fs.existsSync(idle.file), false, "나머지 파일은 지워진다");
 
-  const rows = storeDb.get().prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache").all();
+  const rows = cacheDb.get().prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache").all();
   assert.deepEqual(
     rows.map((r) => r.audio_key),
     ["yt:playing"],
     "파일이 남은 곡의 행만 살아남는다",
   );
   assert.equal(audioCache._protectedKeys.has("yt:playing"), true, "살아남은 키는 다시 보호한다");
-  assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 장부는 파일과 따로 살므로 통째로 비운다");
+  assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 장부는 파일과 따로 살므로 통째로 비운다");
 });
 
 test("초기화 뒤에도 재생 중인 곡의 장부 기록이 터지지 않는다 (회귀)", () => {
@@ -92,6 +93,6 @@ test("남길 것이 없으면 전부 비운다", async () => {
   const result = await audioCache.resetCache();
 
   assert.equal(result.kept, 0);
-  assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);
-  assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0);
+  assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);
+  assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0);
 });

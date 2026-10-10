@@ -66,7 +66,8 @@ const calls = {
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
 import { AudioPlayerStatus } from "@discordjs/voice";
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 
 class FakeAudioPlayer extends EventEmitter {
   state: { status: AudioPlayerStatus; resource?: unknown };
@@ -173,7 +174,8 @@ function openFragmentStream(opts: FragmentOptions) {
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 // 설정. 캐시 길이 상한은 시험마다 기본값으로 되돌린다(reset)
 const config = (await import("../../src/config/index.ts")).default;
@@ -437,7 +439,7 @@ function reset() {
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
   // 캐시 길이 상한은 기본값(60분)으로. 시험은 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
   config.cache.maxTrackSec = DEFAULT_MAX_TRACK_SEC;
-  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
 }
@@ -450,8 +452,8 @@ function dispose(player: Player) {
 }
 
 /** 장부에서 한 줄. 없으면 null. */
-const lookupRow = (requestKey: string) => storeDb.get().prepare<[string], LookupRow>("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
-const audioRow = (key: string) => storeDb.get().prepare<[string], AudioRow>("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
+const lookupRow = (requestKey: string) => cacheDb.get().prepare<[string], LookupRow>("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
+const audioRow = (key: string) => cacheDb.get().prepare<[string], AudioRow>("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 
 /** 걸어 둔 타이머의 시간(Node 타이머의 내부 칸). 치운 타이머는 -1 */
 const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | null)?._idleTimeout;

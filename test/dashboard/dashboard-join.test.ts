@@ -9,7 +9,8 @@ import type { Server } from "node:http";
 import express from "express";
 import { PlayerRegistry } from "../../src/player/registry.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
-import * as storeDb from "../../src/store/db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
+import { stateDb } from "../../src/store/state-db.ts";
 import * as tracks from "../helpers/tracks.ts";
 import { fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard.ts";
@@ -59,7 +60,8 @@ after(() => server.close());
 
 beforeEach(() => {
   h.reset();
-  storeDb.get().exec("DELETE FROM guild_settings; DELETE FROM player_sessions;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
+  stateDb.get().exec("DELETE FROM player_sessions;");
   botVoice = null;
   const left = players.get("g1");
   if (left) {

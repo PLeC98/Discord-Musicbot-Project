@@ -10,7 +10,8 @@ import path from "node:path";
 import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags, PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
-import * as storeDb from "../../src/store/db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import { Player } from "../../src/player/player.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
@@ -27,7 +28,8 @@ import type { Notice } from "../../src/ui/text/notice.ts";
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 const errors = await import("../../src/ui/text/ko/errors.ts");
 const settings = await import("../../src/store/guild-settings.ts");
@@ -40,6 +42,9 @@ const panelPin = (await import("../../src/discord/events/panel-pin.ts")).default
 const interactionCreate = (await import("../../src/discord/events/interaction-create.ts")).default;
 
 const channelDelete = (await import("../../src/discord/events/channel-delete.ts")).default;
+const guildDelete = (await import("../../src/discord/events/guild-delete.ts")).default;
+const panelRecords = await import("../../src/store/panel-records.ts");
+const { sessions } = await import("../../src/store/player-sessions.ts");
 
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
@@ -60,12 +65,13 @@ after(() => {
   addTracks.useLookup(null);
   yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
   resolved.length = 0;
   Object.assign(fakeLookup, lookup);
   fakeLookup.resolveQuery = async (query, context, range) => {
@@ -204,7 +210,7 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   await messageHandler.execute(w.bot, message(w, { content: "   " }));
   await messageHandler.execute(w.bot, message(w, { channelId: "other" }));
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
   await messageHandler.execute(w.bot, message(w));
   assert.deepEqual(resolved, []);
 });
@@ -249,6 +255,24 @@ test("전용 채널이 지워지면 설정을 비우고 패널을 옮긴다. 다
   await channelDelete.execute(bot, deleted("bot-channel"));
   assert.equal(await settings.getBotChannel("g1"), null);
   assert.deepEqual(moved, ["g1"]);
+});
+
+test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열 · 패널 자리를 지운다. 서버 설정은 남긴다", async () => {
+  await settings.setBotChannel("g-left", "bot-channel");
+  await panelRecords.setPanel("g-left", "bot-channel", "m1");
+  sessions().append("g-left", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
+  const disposed: Array<{ reason: string; session: string }> = [];
+  const player = { dispose: async (how: { reason: string; session: string }) => void disposed.push(how) };
+  const bot = fakeBot({ players: new Map([["g-left", player]]) });
+  const guild = fake<ClientEvents["guildDelete"][0]>({ id: "g-left", name: "나간 서버", channels: { cache: new Map([["bot-channel", {}]]) } });
+
+  await guildDelete.execute(bot, guild);
+
+  assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove" }]);
+  assert.equal(sessions().load("g-left"), null);
+  assert.equal(await panelRecords.getPanel("g-left"), null);
+  settings._reset();
+  assert.equal(await settings.getBotChannel("g-left"), "bot-channel", "다시 초대하면 그대로 쓴다");
 });
 
 test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다", async () => {

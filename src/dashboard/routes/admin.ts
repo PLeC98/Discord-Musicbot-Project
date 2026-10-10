@@ -147,7 +147,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
 });
 
-// 캐시 초기화. 오디오 파일과 파생 테이블(조회 기록 · SponsorBlock · 연령 제한 · 스포티파이 익명 상태)과 저장된 대기열을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
+// 캐시 초기화. 오디오 파일과 캐시 DB 의 표(조회 기록 · SponsorBlock · 연령 제한 · 스포티파이 익명 상태)를 비운다. 서버 설정 · 저장된 대기열은 다른 DB 라 남는다.
 // 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
 adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
   try {

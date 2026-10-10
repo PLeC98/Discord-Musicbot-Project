@@ -7,7 +7,7 @@ import fs from "fs";
 import config from "../config/index.ts";
 import { md5, audioKeyOf } from "../rules/audio-key-of.ts";
 import { sessions } from "./player-sessions.ts";
-import * as db from "./db.ts";
+import { cacheDb } from "./cache-db.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -22,7 +22,7 @@ const W_SIZE = 0.2;
 // 크기 점수의 기준. opus 128kbps 는 1분에 약 1MB 라 50MB 는 약 50분이다
 const SIZE_REF_BYTES = 50 * 1024 * 1024;
 
-/** audio_cache 한 줄(표는 db.ts) */
+/** audio_cache 한 줄(표는 cache-db.ts) */
 type AudioRow = {
   audio_key: string;
   status: "downloading" | "cached" | "error";
@@ -62,7 +62,7 @@ let evicting: Promise<void> | null = null;
 let lastCleanup: { at: number; files: number; bytes: number } | null = null;
 
 // 열기 전에 부르면 던진다
-const conn = () => db.get();
+const conn = () => cacheDb.get();
 
 /** 캐시 파일이 놓이는 폴더 */
 const cacheDir = () => dir;
@@ -110,13 +110,11 @@ async function removeFile(fp: string): Promise<boolean> {
   }
 }
 
-// DB 를 열고 정기 퇴거를 건다. dbPath 는 시험이 임시 DB 를 넘기는 자리이고 운영은 기본 경로다
-function initialize(dbPath = db.DB_PATH) {
-  if (db.isOpen()) return;
+// 캐시 폴더를 만들고 정기 퇴거를 건다. DB 는 먼저 열어 둔다(store/stores.open)
+function initialize() {
+  cacheDb.get();
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  db.open(dbPath, { cacheDir: dir });
   startPeriodicEviction();
-  log.info({ tags: ["startup"] }, "SQLite 캐시 DB 준비 완료");
 }
 
 /** 오디오 열쇠의 파일 경로. 같은 열쇠는 늘 같은 경로다 */
@@ -219,7 +217,7 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
 
   // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
   setImmediate(() => {
-    if (db.isOpen()) bestEffort(log, evictIfNeeded(), "다운로드 뒤 캐시 비우기");
+    if (cacheDb.isOpen()) bestEffort(log, evictIfNeeded(), "다운로드 뒤 캐시 비우기");
   });
 }
 
@@ -283,11 +281,26 @@ async function onStartup() {
   bestEffort(log, evictIfNeeded(), "기동 캐시 비우기");
 }
 
+// 캐시 DB 의 표를 모두 비운다. survivors: 파일이 잠겨 못 지운 곡이라 audio_cache 에 남길 열쇠
+function wipeTables(survivors: string[]) {
+  const tables = conn().prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[];
+  const holes = survivors.map(() => "?").join(",");
+  conn().transaction(() => {
+    for (const table of tables) {
+      if (table === "audio_cache" && survivors.length)
+        conn()
+          .prepare(`DELETE FROM audio_cache WHERE audio_key NOT IN (${holes})`)
+          .run(...survivors);
+      else conn().prepare(`DELETE FROM "${table}"`).run();
+    }
+  })();
+}
+
 /**
- * 캐시를 초기 상태로 되돌린다. 오디오 파일 전부와 파생 데이터 테이블.
+ * 캐시를 초기 상태로 되돌린다. 오디오 파일 전부와 캐시 DB 의 표 전부.
  *
- * `guild_settings`(전용 채널·DJ 역할·SponsorBlock 설정)는 남긴다. 사용자가 손으로 넣은
- * 유일한 값이라 다시 만들 수 없고, 나머지는 전부 다시 받거나 다시 계산할 수 있다.
+ * 캐시 DB 에는 다시 받거나 다시 찾으면 되는 것만 있어 표 목록을 따로 들지 않고 모두 비운다.
+ * 서버 설정(settings.db)과 저장된 대기열 · 음성 채널 상태(state.db)는 다른 파일이라 남는다.
  *
  * 재생 중인 파일은 열려 있어 지워지지 않을 수 있다(윈도우). 실패해도 멈추지 않고 세어서
  * 돌려준다. 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
@@ -325,19 +338,7 @@ async function resetCache() {
     }
   }
 
-  const survivors = [...keptKeys];
-  const holes = survivors.map(() => "?").join(",");
-  const wipe = conn().transaction(() => {
-    if (survivors.length)
-      conn()
-        .prepare(`DELETE FROM audio_cache WHERE audio_key NOT IN (${holes})`)
-        .run(...survivors);
-    else conn().prepare("DELETE FROM audio_cache").run();
-    for (const t of ["track_lookup", "sponsorblock_cache", "age_restricted", "spotify_anon", "session_tracks", "player_sessions"]) {
-      conn().prepare(`DELETE FROM ${t}`).run();
-    }
-  });
-  wipe();
+  wipeTables([...keptKeys]);
 
   // 보호 집합은 사라진 행을 가리키게 되므로 비우고, 살아남은 것(재생 중)만 다시 건다.
   protectedKeys.clear();
@@ -500,7 +501,7 @@ async function evictOne(row: AudioRow): Promise<"gone" | "protected" | "failed" 
   // 지우는 사이 재생 · 예열이 이 곡을 지키게 됐을 수 있다
   if (liveKeys().has(row.audio_key)) return "protected";
   if (!(await removeFile(row.file_path || getFilePath(row.audio_key)))) return "failed";
-  if (!db.isOpen()) return "closed"; // 끄는 중
+  if (!cacheDb.isOpen()) return "closed"; // 끄는 중
   conn().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run(row.audio_key);
   return "gone";
 }
@@ -628,15 +629,12 @@ function storageStats() {
   };
 }
 
-// 닫기
+// 멈추기. DB 는 store/stores.close 가 닫는다
 
 function close() {
   if (evictInterval) {
     clearInterval(evictInterval);
     evictInterval = null;
-  }
-  if (db.isOpen()) {
-    db.close();
   }
 }
 

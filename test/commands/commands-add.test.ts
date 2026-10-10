@@ -35,7 +35,8 @@ import * as settings from "../../src/store/guild-settings.ts";
 import * as lookup from "../../src/sources/lookup.ts";
 import * as addTracks from "../../src/usecases/add-tracks.ts";
 import * as More from "../../src/usecases/playlist-more.ts";
-import * as storeDb from "../../src/store/db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
+import { stateDb } from "../../src/store/state-db.ts";
 import { useExampleConfig } from "../helpers/example-config.ts";
 import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
@@ -57,7 +58,8 @@ after(() => {
 beforeEach(() => {
   h.reset();
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings; DELETE FROM player_sessions;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
+  stateDb.get().exec("DELETE FROM player_sessions;");
   resolved.length = 0;
   resolveReply = () => ({ success: true, isPlaylist: false, tracks: [tracks.youtube("aaaaaaaaaaa", { title: "곡" })] });
   // 곡 찾기는 가짜. 입구를 거쳐 곡 추가 코어가 부른다

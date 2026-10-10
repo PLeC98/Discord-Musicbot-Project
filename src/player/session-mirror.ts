@@ -1,6 +1,6 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
-import * as db from "../store/db.ts";
+import { stateDb } from "../store/state-db.ts";
 import { sessions } from "../store/player-sessions.ts";
 import * as trackState from "./track-state.ts";
 import config from "../config/index.ts";
@@ -20,7 +20,7 @@ const SETTINGS_SETTLE_MS = 200;
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
-const liveStore = () => (db.isOpen() ? sessions() : null);
+const liveStore = () => (stateDb.isOpen() ? sessions() : null);
 
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
 const active = new Set<SessionPersistence>();

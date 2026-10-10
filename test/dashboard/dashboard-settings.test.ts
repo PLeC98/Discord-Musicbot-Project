@@ -73,7 +73,7 @@ const store = {
 };
 
 // 아무것도 쓰지 않았는지: 이 서버의 설정 행을 전후로 견준다
-const settingsRow = () => temp.db().prepare("SELECT * FROM guild_settings WHERE guild_id = ?").get(GUILD_ID) ?? null;
+const settingsRow = () => temp.settings().prepare("SELECT * FROM guild_settings WHERE guild_id = ?").get(GUILD_ID) ?? null;
 
 import express from "express";
 import { ChannelType, PermissionFlagsBits } from "discord.js";

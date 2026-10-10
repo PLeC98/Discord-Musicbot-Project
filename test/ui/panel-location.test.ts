@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { PanelLocation, type PanelStore } from "../../src/ui/panel-location.ts";
 import type { Guild, GuildBasedChannel } from "discord.js";
 import type { PanelHook } from "../../src/player/player.ts";
-import type { PanelRecord } from "../../src/store/guild-settings.ts";
+import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake } from "../helpers/fake.ts";
 
 function memoryStore(initial: Record<string, PanelRecord> = {}) {

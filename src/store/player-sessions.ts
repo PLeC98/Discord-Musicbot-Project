@@ -3,8 +3,8 @@
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 import { HISTORY_MAX } from "../rules/history.ts";
-import * as db from "./db.ts";
-import type { Db } from "./db.ts";
+import { stateDb } from "./state-db.ts";
+import type { Db } from "./sqlite.ts";
 import { SessionTrackRow, checked } from "./rows.ts";
 import type { SessionTrackRow as TrackRow } from "./rows.ts";
 
@@ -418,10 +418,10 @@ function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {
   return out;
 }
 
-// 열린 캐시 DB 에 붙은 저장소 하나. 다시 열면(테스트의 임시 DB 등) 새로 붙는다. 열기 전에 부르면 db 가 던진다
+// 열린 실행 상태 DB 에 붙은 저장소 하나. 다시 열면(테스트의 임시 DB 등) 새로 붙는다. 열기 전에 부르면 던진다
 let bound: PlayerSessionStore | null = null;
 function sessions(): PlayerSessionStore {
-  const conn = db.get();
+  const conn = stateDb.get();
   if (!bound || bound.db !== conn) bound = new PlayerSessionStore(conn);
   return bound;
 }

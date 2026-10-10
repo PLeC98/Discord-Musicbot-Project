@@ -12,7 +12,9 @@ import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
 import { MessageFlags, PermissionFlagsBits, type Client, type Interaction } from "discord.js";
 
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import { settingsDb } from "../../src/store/settings-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { fake, fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
@@ -27,7 +29,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 const trackLookup = await import("../../src/store/track-lookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
 const errors = await import("../../src/ui/text/ko/errors.ts");
@@ -37,12 +40,14 @@ const interactionCreate = (await import("../../src/discord/events/interaction-cr
 
 after(() => {
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
+  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
 // 보낸 응답. 여기서 보는 칸만
@@ -351,7 +356,7 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
 
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
   const none = interaction();
   await run(await command("setdjrole"), none.it, none.bot);
   assert.match(screenOf(none.log[0][1]).body, /DJ 역할이 없어 \*\*모두\*\*/);
@@ -438,7 +443,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   assert.match(String(save.log.at(-1)?.[2]), /구간: 끔/);
 
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "켬"에서 시작하게
+  settingsDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "켬"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(empty.it));
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });
@@ -452,7 +457,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
 
 test("SponsorBlock 화면: 봇 전체에서 꺼져 있으면 열려 있던 메뉴의 버튼 · 메뉴는 없는 것과 같다(저장하지 않는다)", async () => {
   settings._reset();
-  storeDb.get().exec("DELETE FROM guild_settings;");
+  settingsDb.get().exec("DELETE FROM guild_settings;");
   const saved = config.sponsorblock.enabled;
   config.sponsorblock.enabled = false;
   try {

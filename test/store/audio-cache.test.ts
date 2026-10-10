@@ -1,5 +1,5 @@
 // src/store/audio-cache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
-// initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
+// 임시 폴더에 DB 를 연다(stores.open) — 운영 DB(database/)는 건드리지 않는다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import { table as guildTable } from "../../src/store/guild-settings.ts";
@@ -12,22 +12,23 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import config from "../../src/config/index.ts";
 import sink from "../../src/infra/log/sink.ts";
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}`);
 
 before(() => {
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache.initialize(DB_PATH);
+  fs.rmSync(DB_DIR, { recursive: true, force: true });
+  stores.open(DB_DIR);
+  audioCache.initialize();
 });
 
 after(() => {
   audioCache.close();
-  try {
-    fs.unlinkSync(DB_PATH);
-  } catch {}
+  stores.close();
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // ── 파일 경로 ────────────────────────────────────────────────
@@ -46,7 +47,7 @@ test("getFilePath: 같은 키 → 같은 경로 (결정적), 다른 키 → 다�
 test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근 재생은 생존", async () => {
   const now = Date.now();
   const OLD = now - 90 * 86_400_000; // 90일 전
-  const ins = storeDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
+  const ins = cacheDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
 
   // 생존해야 할 것들: 최근에 자주 재생
   for (let i = 0; i < 8; i++) {
@@ -64,7 +65,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
     await withCacheLimits({ maxFiles: 10 }, () => audioCache.evict());
 
     const remaining = new Set(
-      storeDb
+      cacheDb
         .get()
         .prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache")
         .all()
@@ -81,7 +82,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
 
 // 넘친 정도와 상관없이 20% · 한 번에 50개를 지우면 큰 캐시는 50개 상한에 걸려 상한 바로 밑을 오갔다
 test("evict: 넘친 만큼, 목표선(상한의 90%)까지 지운다. 한 번에 지우는 수의 상한은 없다", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
   for (let i = 0; i < 120; i++) ins.run(`many${i}`, `/nx/many${i}.opus`, 1_000_000, Date.now() - i * 60_000);
@@ -100,7 +101,7 @@ test("evict: 넘친 만큼, 목표선(상한의 90%)까지 지운다. 한 번에
 
 // 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다. 퇴거도 고아 청소처럼 저장된 세션을 본다
 test("evict: 저장된 세션의 곡은 조건이 나빠도 지우지 않는다", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
   const OLD = Date.now() - 90 * 86_400_000;
@@ -123,7 +124,7 @@ test("evict: 저장된 세션의 곡은 조건이 나빠도 지우지 않는다"
 
 // 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다(140곡 대기열 · 상한 100에서 하나도 못 지웠다)
 test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(미리 받기 범위)만 지킨다", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
   const OLD = Date.now() - 90 * 86_400_000;
@@ -154,7 +155,7 @@ test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(미리 받기
 });
 
 test("evict: 지울 수 있는 곡이 없어도 결과 줄을 남긴다", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES ('onlylive', 'cached', '/nx/onlylive.opus', 1000000, 0, NULL, 0)").run();
   audioCache.protect("onlylive");
@@ -170,7 +171,7 @@ test("evict: 지울 수 있는 곡이 없어도 결과 줄을 남긴다", async 
 
 // 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 지우기가 풀릴 때까지 멈춘다. 동기로 지우면 봇 전체가 같이 멈췄다
 test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이번 실행 동안 다시 지우지 않는다", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
   const OLD = Date.now() - 90 * 86_400_000;
@@ -213,7 +214,7 @@ test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이�
 });
 
 test("evictIfNeeded: 넘은 상한을 알리고, 겹쳐 불러도 한 번만 돈다", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
   for (let i = 0; i < 6; i++) ins.run(`n${i}`, `/nx/n${i}.opus`, 1_000_000, Date.now() - i * 60_000);
@@ -240,7 +241,7 @@ test("evictIfNeeded: 넘은 상한을 알리고, 겹쳐 불러도 한 번만 돈
 });
 
 test("onStartup: 퇴거를 기다리지 않는다(복원이 막히지 않게)", async () => {
-  const conn = storeDb.get();
+  const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-startup-"));
   const prevDir = audioCache.cacheDir();
@@ -397,7 +398,7 @@ async function runResetChecks() {
 
   assert.equal(typeof result.removed, "number");
   assert.equal(audioCache._cacheCount(), 0, "audio_cache 비움");
-  assert.equal(sessions().load("g-reset"), null, "세션 비움");
+  assert.notEqual(sessions().load("g-reset"), null, "저장된 대기열은 다른 파일(state.db)이라 남는다");
   assert.equal(externalCaches.isAgeRestricted("reset1"), false, "연령제한 표시 비움");
   assert.equal(trackLookup.resolveFromCache("https://y/reset1").hit, false, "조회 기록 비움");
 
@@ -443,6 +444,7 @@ test("같은 오디오를 다시 받으면 앞선 요청이 남긴 길이를 실
 test("다운로드 기록 직후 닫혀도 예약된 캐시 정리가 DB를 다시 열지 않는다", async () => {
   audioCache.recordDownloadComplete("yt:closed1", audioCache.getFilePath("yt:closed1"), 100, { title: "t" });
   audioCache.close();
+  stores.close();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(storeDb.isOpen(), false, "닫힌 DB를 기본 경로(운영 DB)로 다시 열면 안 된다");
+  assert.equal(cacheDb.isOpen(), false, "닫힌 DB를 기본 경로(운영 DB)로 다시 열면 안 된다");
 });

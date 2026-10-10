@@ -11,7 +11,9 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { canonicalUrl } from "../src/rules/canonical-url.ts";
-import * as storeDb from "../src/store/db.ts";
+import * as stores from "../src/store/stores.ts";
+import { cacheDb } from "../src/store/cache-db.ts";
+import { createTables as createStateTables } from "../src/store/state-db.ts";
 import * as audioCache from "../src/store/audio-cache.ts";
 import * as trackLookup from "../src/store/track-lookup.ts";
 import { PlayerSessionStore } from "../src/store/player-sessions.ts";
@@ -21,11 +23,13 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
 
 before(() => {
   audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-  audioCache.initialize(path.join(TMP, "cache.db"));
+  stores.open(TMP);
+  audioCache.initialize();
 });
 
 after(() => {
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
@@ -45,7 +49,7 @@ const watch = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도 작품 페이지 링크를 지킨다", () => {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
-  storeDb.createTables(db);
+  createStateTables(db);
   const store = new PlayerSessionStore(db);
   store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loopMode: "off", autoplay: "x", pausedManual: false, positionMs: 0 });
 
@@ -118,7 +122,7 @@ test("퇴거가 audio_cache 행을 지워도 링크 장부는 남는다", () => 
 
   // evict() 가 한 줄마다 하는 일 그대로
   fs.unlinkSync(file);
-  storeDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
+  cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
 
   assert.equal(trackLookup.getAudioUrl(spotify), watch("evictcasca"));
   assert.equal(trackLookup.resolveFromCache(spotify).hit, false);

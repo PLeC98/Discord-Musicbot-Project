@@ -10,12 +10,13 @@ import assert from "node:assert/strict";
 import * as GSM from "../../src/store/guild-settings.ts";
 import { table as guildTable } from "../../src/store/guild-settings.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
+import * as stores from "../../src/store/stores.ts";
 import * as externalCaches from "../../src/store/external-caches.ts";
 import * as SponsorBlock from "../../src/sources/sponsor-block.ts";
 import config from "../../src/config/index.ts";
 import { fake } from "../helpers/fake.ts";
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}.db`);
+const DB_DIR = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}`);
 
 // 가짜 fetch 를 걸 자리. 시험마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다.
 // 가짜 응답은 SponsorBlock 이 읽는 칸(status · json)만 가진다. 정하지 않은 시험이 부르면 실패한다
@@ -24,8 +25,9 @@ const unset = (): Promise<Reply> => Promise.reject(new Error("시험이 답을 �
 const net = { fetch: unset };
 
 before(() => {
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache.initialize(DB_PATH);
+  fs.rmSync(DB_DIR, { recursive: true, force: true });
+  stores.open(DB_DIR);
+  audioCache.initialize();
   config.sponsorblock.enabled = true; // 테스트 기준 활성
   SponsorBlock.useFetch(fake<typeof fetch>(() => net.fetch()));
 });
@@ -33,11 +35,8 @@ before(() => {
 after(() => {
   SponsorBlock.useFetch(null);
   if (guildTable) audioCache.close();
-  try {
-    fs.unlinkSync(DB_PATH);
-  } catch {
-    /* 무시 */
-  }
+  stores.close();
+  fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {

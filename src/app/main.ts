@@ -6,6 +6,7 @@ import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../config/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
+import * as stores from "../store/stores.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { Player } from "../player/player.ts";
 import { restoreSavedPlayers, restoreGuild } from "../player/session-restore.ts";
@@ -224,8 +225,9 @@ function checkBeforeLogin() {
   ffmpegCapabilities();
   // yt-dlp 도 재생과 같은 ffmpeg 를 쓴다
   ytdlpOptions.useFfmpeg(ffmpegPath);
-  // 캐시 DB 구조가 이 버전과 맞지 않으면 여기서 멈춘다
-  stopIfThrows(() => audioCache.initialize());
+  // DB 를 연다. 설정 DB 구조가 맞지 않거나 못 열면 여기서 멈춘다(캐시 · 실행 상태 DB 는 구조가 바뀌었으면 새로 만든다)
+  stopIfThrows(() => stores.open());
+  audioCache.initialize();
   // 음성 채널 상태 중 우리가 쓴 것. 재시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
   voiceChannelStatus.keepIn(voiceStatusStore);
 

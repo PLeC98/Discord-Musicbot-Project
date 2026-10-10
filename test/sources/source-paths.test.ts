@@ -10,7 +10,8 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import * as tracks from "../helpers/tracks.ts";
@@ -24,7 +25,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 const trackLookup = await import("../../src/store/track-lookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const Spotify = await import("../../src/sources/spotify.ts");
@@ -34,12 +36,13 @@ const streamUrl = await import("../../src/sources/stream-url.ts");
 const { audioKeyOf } = await import("../../src/rules/audio-key-of.ts");
 
 beforeEach(() => {
-  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
 });
 
 after(() => {
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 

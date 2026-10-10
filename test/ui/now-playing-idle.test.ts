@@ -11,7 +11,7 @@ import { withConfig } from "../helpers/config.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, WebhookClient } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { PanelStore } from "../../src/ui/panel-location.ts";
-import type { PanelRecord } from "../../src/store/guild-settings.ts";
+import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 
 const BOT = "bot-chan";

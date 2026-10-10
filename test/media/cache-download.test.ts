@@ -10,7 +10,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import * as storeDb from "../../src/store/db.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
+import * as stores from "../../src/store/stores.ts";
 import { md5 } from "../../src/rules/audio-key-of.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
@@ -25,7 +26,8 @@ import logger from "../../src/infra/log/logger.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
-audioCache.initialize(path.join(TMP, "cache.db"));
+stores.open(TMP);
+audioCache.initialize();
 
 // 시험이 트랙에 달아 두는 것: 동등물을 찾으면 줄 영상
 type TestTrack = DownloadTrack & { _equivalent?: string };
@@ -112,6 +114,7 @@ const deps: Sources = {
 
 after(() => {
   audioCache.close();
+  stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
@@ -128,14 +131,14 @@ beforeEach(() => {
   ytdlpBehavior = writesFile();
   measuredSec = null;
   measured.length = 0;
-  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
 });
 
 const downloader = () => new TrackDownloader({ guild: { id: "g1" } }, deps);
-const audioRow = (key: string) => storeDb.get().prepare<[string], AudioRow>("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
-const lookupRow = (requestKey: string) => storeDb.get().prepare<[string], LookupRow>("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
+const audioRow = (key: string) => cacheDb.get().prepare<[string], AudioRow>("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
+const lookupRow = (requestKey: string) => cacheDb.get().prepare<[string], LookupRow>("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const leftovers = () => fs.readdirSync(audioCache.cacheDir()).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
 
 const yt = tracks.youtube;
@@ -197,7 +200,7 @@ test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. �
   );
 
   assert.equal(calls.ytdlp.length, 0);
-  assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);
+  assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);
   assert.deepEqual(leftovers(), []);
 });
 
