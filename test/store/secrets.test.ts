@@ -58,6 +58,12 @@ test("다른 SECRETS_KEY 로 잠근 줄은 풀려고 하지 않는다", () => {
   assert.equal(secrets.status("spotify").sameKey, false);
 });
 
+test("예전 형식으로 잠근 줄은 키와 따로 알린다", () => {
+  secrets.put("spotify", VALUE);
+  store.settings().exec("UPDATE secrets SET format = 0");
+  assert.equal(secrets.read("spotify").state, "old-format");
+});
+
 test("상태에는 값이 없고 끝 네 글자 · 바꾼 때 · 묶인 곳만. 짧은 값은 끝 네 글자도 적지 않는다", () => {
   secrets.put("ai", VALUE, AI);
   const status = secrets.status("ai");

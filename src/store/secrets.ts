@@ -23,9 +23,9 @@ const LAST4_MIN_LENGTH = 12;
 type Binding = { provider?: string | null; endpoint?: string | null };
 /**
  * 꺼낸 결과. none: 없음, moved: 묶인 곳(제공자 · 주소)이 지금과 다르다(키를 붙이지 않는다),
- * other-key: 다른 SECRETS_KEY 로 잠갔다, broken: 풀리지 않는다(칸을 바꿨거나 망가졌다). 모두 "다시 넣으세요"
+ * other-key: 다른 SECRETS_KEY 로 잠갔다, old-format: 예전 형식으로 잠갔다, broken: 풀리지 않는다(칸을 바꿨거나 망가졌다). 모두 "다시 넣으세요"
  */
-type Read = { state: "ok"; value: string } | { state: "none" | "moved" | "other-key" | "broken" };
+type Read = { state: "ok"; value: string } | { state: "none" | "moved" | "other-key" | "old-format" | "broken" };
 /** 화면에 보이는 것. 값은 없다 */
 type Status = { saved: boolean; updatedAt: number | null; last4: string | null; sameKey: boolean; provider: string | null; endpoint: string | null };
 
@@ -91,7 +91,8 @@ function read(name: string, binding: Binding = {}): Read {
   const row = conn().prepare("SELECT * FROM secrets WHERE name = ?").get(name) as Row | undefined;
   if (!row) return { state: "none" };
   const { enc, id } = keys();
-  if (row.format !== FORMAT || row.key_id !== id) return { state: "other-key" };
+  if (row.format !== FORMAT) return { state: "old-format" };
+  if (row.key_id !== id) return { state: "other-key" };
   const provider = binding.provider ?? "";
   const endpoint = originOf(binding.endpoint);
   if (row.provider !== provider || row.endpoint !== endpoint) return { state: "moved" };
