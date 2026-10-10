@@ -126,9 +126,15 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
   // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 실시간 연결 · 음량은 뺀다(rate-limits)
-  app.use("/api", limiter(rl.apiMax, { skip: unlimited }));
+  app.use(
+    "/api",
+    limiter(() => rl.apiMax, { skip: unlimited }),
+  );
   // 로그인/OAuth. 세션 전이라 IP 로 센다
-  app.use("/auth", limiter(rl.authMax, { windowMs: rl.authWindowMs, byIp: true }));
+  app.use(
+    "/auth",
+    limiter(() => rl.authMax, { windowOf: () => rl.authWindowMs, byIp: true }),
+  );
 
   // 로그인 관련(/auth/login · /auth/callback · /auth/logout)
   app.use("/auth", createAuthRouter());

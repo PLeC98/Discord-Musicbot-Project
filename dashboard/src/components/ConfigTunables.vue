@@ -1,11 +1,7 @@
 <template>
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <div class="flex items-center gap-2 flex-wrap">
-      <p class="flex-1 min-w-0 text-sm text-on-surface-variant">{{ T.desc }}</p>
-      <BaseButton variant="ghost" :disabled="!dirty || saving" @click="reset">{{ T.reset }}</BaseButton>
-      <BaseButton :disabled="!dirty || saving || !loaded" @click="save">{{ saving ? T.saving : T.save }}</BaseButton>
-    </div>
+    <p class="text-sm text-on-surface-variant">{{ T.desc }}</p>
 
     <BaseCard v-for="group in TUNABLE_GROUPS" :key="group" :icon="T.groups[group].icon" :title="T.groups[group].title">
       <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
@@ -28,6 +24,7 @@
         </label>
       </div>
     </BaseCard>
+    <SaveDock tab="settings" :dirty="dirty && loaded" :saving="saving" @save="save" @revert="reset" />
   </div>
 </template>
 
@@ -35,7 +32,7 @@
 import { computed, ref, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
-import BaseButton from "./BaseButton.vue";
+import SaveDock from "./SaveDock.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";

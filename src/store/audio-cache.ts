@@ -5,6 +5,7 @@ const log = logger.child({ category: "cache" });
 import path from "path";
 import fs from "fs";
 import config from "../config/index.ts";
+import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { md5, audioKeyOf } from "../rules/audio-key-of.ts";
 import { sessions } from "./player-sessions.ts";
 import { cacheDb } from "./cache-db.ts";
@@ -46,6 +47,7 @@ const protectedKeys = new Set<string>(); // 현재 재생 중인 audio_key
 const protectedFiles = new Set<string>(); // 지금 받고 있는 임시 파일 경로. 기동 스윕이 건드리면 안 된다
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
 let evictInterval: NodeJS.Timeout | null = null;
+let evictEveryMs = 0;
 // 캐시 파일이 놓이는 곳. 테스트가 _setCacheDir 로 갈아끼우면 실제 폴더를 건드리지 않는다.
 // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
 let dir = CACHE_DIR;
@@ -555,13 +557,18 @@ function reportEviction({ evicted, failed, guarded, files, size, reached }: { ev
 
 /** 정기 퇴거를 건다(간격은 설정) */
 function startPeriodicEviction() {
-  const cfg = config.cache;
   if (evictInterval) clearInterval(evictInterval);
+  evictEveryMs = config.cache.evictIntervalMs;
   evictInterval = setInterval(() => {
     evictIfNeeded().catch((err: unknown) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", messageOf(err)));
-  }, cfg.evictIntervalMs);
+  }, evictEveryMs);
   evictInterval.unref(); // 프로세스가 끝나는 것을 붙잡지 않는다
 }
+
+// 간격을 바꿔 저장하면 걸려 있던 타이머를 새 간격으로 다시 건다
+onTunablesChanged(() => {
+  if (evictInterval && config.cache.evictIntervalMs !== evictEveryMs) startPeriodicEviction();
+});
 
 // 통계
 

@@ -1,7 +1,7 @@
 // logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import type { LogRecord } from "../../src/infra/log/sink.ts";
 
@@ -296,4 +296,29 @@ test("지난 1시간 경고 · 오류는 줄 버퍼와 따로 둔다(fatal 은 �
       ["error", "치명"],
     ],
   );
+});
+
+// 하트비트는 연결 모두에 타이머 하나. 간격을 바꿔 저장하면 조립이 syncHeartbeat 를 불러 다시 건다
+test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  const sse = config.dashboard.sse;
+  const before = sse.heartbeatMs;
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  try {
+    sse.heartbeatMs = 20_000;
+    const res = fakeRes();
+    lm.addClient(res, "owner");
+    const pings = () => res.writes.filter((w) => w.startsWith(": ping")).length;
+    mock.timers.tick(20_000);
+    assert.equal(pings(), 1);
+
+    sse.heartbeatMs = 5_000;
+    lm.syncHeartbeat();
+    mock.timers.tick(5_000);
+    assert.equal(pings(), 2, "새 간격");
+  } finally {
+    sse.heartbeatMs = before;
+    if (lm._heartbeat) clearInterval(lm._heartbeat);
+    mock.timers.reset();
+  }
 });

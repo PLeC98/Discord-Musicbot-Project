@@ -11,6 +11,7 @@ import * as serviceKeys from "../store/service-keys.ts";
 import * as tunables from "../store/tunables.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
 import * as documents from "../config/documents.ts";
+import { onTunablesChanged } from "../config/tunables-changed.ts";
 import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
@@ -112,6 +113,8 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
     return false;
   }
   tunables.load();
+  // 로그 스트림의 하트비트는 로그 계층이라 알림을 직접 듣지 않는다(설정 알림이 로그를 부른다)
+  onTunablesChanged(() => logSink.syncHeartbeat());
   // 장르 · 상태 문구 · AI 설정 · 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db 에 쓴다
   documents.attach(settingsDocs);
   warnLegacyConfigFiles();

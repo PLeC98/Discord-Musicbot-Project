@@ -95,6 +95,8 @@ class LogManager {
   clients: Set<SseClient>;
   _owners: Map<SseClient, string>;
   _cleanups: WeakMap<SseClient, () => void>;
+  _heartbeat: NodeJS.Timeout | null;
+  _heartbeatMs: number;
   destinations: Destination[];
   earlyRecords: LogRecord[];
   isTTY: boolean;
@@ -116,6 +118,8 @@ class LogManager {
     this.clients = new Set();
     this._owners = new Map(); // res -> 연 사람(상한을 사람마다 센다)
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
+    this._heartbeat = null; // 연결 모두에 한 타이머로 보낸다. 첫 연결 때 건다
+    this._heartbeatMs = 0;
     this.destinations = []; // file(file.ts) 등 레코드를 받는 함수
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
     // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
@@ -279,7 +283,7 @@ class LogManager {
    * 상한을 넘으면 아무것도 쓰지 않고 false(답은 부른 경로가 문제 응답으로 쓴다). 느린 소비자는 record 가 정리한다(쌓인 양을 본다).
    */
   addClient(res: SseClient, userKey: string, after = "") {
-    const { maxPerUser, heartbeatMs } = config.dashboard.sse;
+    const { maxPerUser } = config.dashboard.sse;
     if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) return false;
 
     res.writeHead(200, {
@@ -298,21 +302,10 @@ class LogManager {
       if (!resuming || entry.id > seq) res.write(this._frameOf(entry));
     }
 
-    // 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
-    const ping = setInterval(() => {
-      try {
-        res.write(": ping\n\n");
-      } catch {
-        cleanup();
-      }
-    }, heartbeatMs);
-    if (ping.unref) ping.unref();
-
     let done = false;
     const cleanup = () => {
       if (done) return;
       done = true;
-      clearInterval(ping);
       this.clients.delete(res);
       this._owners.delete(res);
     };
@@ -320,6 +313,7 @@ class LogManager {
     this.clients.add(res);
     this._owners.set(res, userKey);
     this._cleanups.set(res, cleanup);
+    this.syncHeartbeat();
     res.on("close", cleanup);
     res.on("error", cleanup);
     return true;
@@ -330,7 +324,31 @@ class LogManager {
     return `id: ${this.boot}.${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`;
   }
 
-  /** 연결 정리. 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
+  /**
+   * 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
+   * 간격이 바뀌었으면 다시 건다(운영 조절값을 저장하면 조립이 부른다). 아직 연결이 없었으면 걸지 않는다
+   */
+  syncHeartbeat() {
+    const ms = config.dashboard.sse.heartbeatMs;
+    if (!this.clients.size && !this._heartbeat) return;
+    if (this._heartbeat && ms === this._heartbeatMs) return;
+    if (this._heartbeat) clearInterval(this._heartbeat);
+    this._heartbeatMs = ms;
+    this._heartbeat = setInterval(() => this._pingAll(), ms);
+    this._heartbeat.unref?.();
+  }
+
+  _pingAll() {
+    for (const res of [...this.clients]) {
+      try {
+        res.write(": ping\n\n");
+      } catch {
+        this._dropClient(res);
+      }
+    }
+  }
+
+  /** 연결 정리. 쓰기 실패 경로에서도 함께 걷는다. */
   _dropClient(res: SseClient) {
     const cleanup = this._cleanups.get(res);
     if (cleanup) cleanup();

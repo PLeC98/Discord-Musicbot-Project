@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import config from "../config/index.ts";
+import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { sendProblem } from "./problem.ts";
 import type { GuildEvent } from "./contract/guilds.ts";
 
@@ -17,20 +18,35 @@ type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: strin
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 구독 중인가"만 관리.
  */
 class PlayerStream {
-  maxPerUser: number;
-  coalesceMs: number;
+  /** 상한 · 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 먹는다) */
+  options: StreamOptions;
+  heartbeatMs: number;
   subs = new Set<Sub>();
   perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭 · 기기 합산)
   coalesceTimers = new Map<string, NodeJS.Timeout>();
   heartbeat: NodeJS.Timeout;
+  /** 설정 알림 떼기(close 때) */
+  offChanged: (() => void) | null = null;
 
-  constructor({ heartbeatMs, maxPerUser, coalesceMs }: StreamOptions) {
-    this.maxPerUser = maxPerUser;
-    this.coalesceMs = coalesceMs;
-
+  constructor(options: StreamOptions) {
+    this.options = options;
     // 하트비트: 유휴 연결이 프록시 타임아웃으로 끊기지 않게 주기적 주석 전송
-    this.heartbeat = setInterval(() => this._pingAll(), heartbeatMs);
-    this.heartbeat.unref();
+    this.heartbeatMs = options.heartbeatMs;
+    this.heartbeat = this._armHeartbeat();
+  }
+
+  _armHeartbeat() {
+    const timer = setInterval(() => this._pingAll(), this.heartbeatMs);
+    timer.unref();
+    return timer;
+  }
+
+  /** 하트비트 간격이 바뀌었으면 다시 건다 */
+  syncHeartbeat() {
+    if (this.options.heartbeatMs === this.heartbeatMs) return;
+    clearInterval(this.heartbeat);
+    this.heartbeatMs = this.options.heartbeatMs;
+    this.heartbeat = this._armHeartbeat();
   }
 
   _sseHead(res: Response) {
@@ -49,7 +65,7 @@ class PlayerStream {
     // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 셈이 남는다
     if (res.closed) return false;
     const count = this.perKey.get(userKey) || 0;
-    if (count >= this.maxPerUser) {
+    if (count >= this.options.maxPerUser) {
       sendProblem(res, "too-many-streams");
       return false;
     }
@@ -94,7 +110,7 @@ class PlayerStream {
     const t = setTimeout(() => {
       this.coalesceTimers.delete(guildId);
       this._emit(guildId);
-    }, this.coalesceMs);
+    }, this.options.coalesceMs);
     t.unref();
     this.coalesceTimers.set(guildId, t);
   }
@@ -132,15 +148,19 @@ class PlayerStream {
 
   /** 하트비트와 예약한 넛지를 멈춘다 */
   close() {
+    this.offChanged?.();
+    this.offChanged = null;
     clearInterval(this.heartbeat);
     for (const t of this.coalesceTimers.values()) clearTimeout(t);
     this.coalesceTimers.clear();
   }
 }
 
-/** 설정(`SSE_*`)으로 허브를 만든다. 조립이 하나 만들어 플레이어 알림과 대시보드 경로에 나눠 준다 */
+/** 설정(`SSE_*`)으로 허브를 만든다. 조립이 하나 만들어 플레이어 알림과 대시보드 경로에 나눠 준다. 하트비트 간격도 저장하면 바로 먹는다 */
 function createPlayerStream(options: StreamOptions = config.dashboard.sse) {
-  return new PlayerStream(options);
+  const stream = new PlayerStream(options);
+  stream.offChanged = onTunablesChanged(() => stream.syncHeartbeat());
+  return stream;
 }
 
 export { createPlayerStream, PlayerStream };

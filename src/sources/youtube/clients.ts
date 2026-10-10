@@ -110,8 +110,17 @@ class PlayerClients {
   }
 }
 
-// 클라이언트 순번표 한 벌. 설정은 처음 쓸 때 읽는다
+// 클라이언트 순번표 한 벌. 설정은 쓸 때 읽고, 운영 조절값이 바뀌었으면 새로 만든다(그동안의 실패 기록은 처음부터)
 let table: PlayerClients | null = null;
-const playerClients = () => (table ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails, retryMs: config.ytdlp.clientRetryMs }));
+let tableOf = "";
+function playerClients() {
+  const { playerClients: order, clientWindow, clientFails: fails, clientRetryMs: retryMs } = config.ytdlp;
+  const settings = JSON.stringify([order, clientWindow, fails, retryMs]);
+  if (!table || settings !== tableOf) {
+    table = new PlayerClients(order, { window: clientWindow, fails, retryMs });
+    tableOf = settings;
+  }
+  return table;
+}
 
 export { PlayerClients, KNOWN, NEEDS_POT, playerClients };

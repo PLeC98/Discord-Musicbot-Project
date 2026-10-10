@@ -1,12 +1,14 @@
 // 운영 조절값(rules/tunables)을 settings.db 의 "tunables" 문서에서 꺼내 설정 객체에 올린다.
 // 기동 때 한 번(boot), 대시보드에서 저장할 때마다(save). 셈은 .env 와 같은 loadConfig 가 한다(검사 · 단위 · 다듬기가 하나).
+// 저장하면 설정 객체를 고치고 알린다(config/tunables-changed). 기동 때 만들어 둔 제한기 · 타이머가 듣고 다시 만든다.
 // 다시 켜야 먹는 값(restart)은 저장해도 기동 때 값으로 돈다. 저장하자마자 반쯤 먹는 일(띄우지 않은 POToken 서버를 찾는 따위)이 없게.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 객체는 자리마다 덮어쓰므로 받은 이름으로만 읽는다(모듈 맨 위에서 꺼내 두지 않는다)
 import * as root from "../config/index.ts";
-import { codedError } from "../rules/error-kind.ts";
+import { codedError, messageOf } from "../rules/error-kind.ts";
+import { tunablesChanged } from "../config/tunables-changed.ts";
 import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, type TunablesView } from "../rules/tunables.ts";
 import * as docs from "./settings-docs.ts";
 
@@ -81,6 +83,7 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
   const next = docs.write(DOC, saved, revision);
   apply(effective(saved));
+  for (const error of tunablesChanged()) log.error(`운영 조절값을 저장했지만 적용하지 못한 곳이 있습니다: ${messageOf(error)}`);
   return { values: saved, revision: next, pending: pendingOf(saved) };
 }
 

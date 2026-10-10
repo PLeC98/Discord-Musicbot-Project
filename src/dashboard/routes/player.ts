@@ -195,7 +195,7 @@ function controlRoutes(router: Router) {
   });
 
   // Volume  { volume: 0-100 }. 화면은 끄는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
-  const volumeLimiter = limiter(config.dashboard.rateLimit.apiMax);
+  const volumeLimiter = limiter(() => config.dashboard.rateLimit.apiMax);
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -302,7 +302,7 @@ function autoplayRoutes(router: Router) {
 // 곡 추가
 function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
-  const queueLimiter = limiter(config.dashboard.rateLimit.queueMax);
+  const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
   // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {

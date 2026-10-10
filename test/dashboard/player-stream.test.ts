@@ -9,6 +9,7 @@ import type { Response } from "express";
 import { fakeWith } from "../helpers/fake.ts";
 import { createPlayerStream } from "../../src/dashboard/player-stream.ts";
 import config from "../../src/config/index.ts";
+import { tunablesChanged } from "../../src/config/tunables-changed.ts";
 
 const { maxPerUser } = config.dashboard.sse;
 const DashboardEvents = createPlayerStream();
@@ -163,4 +164,33 @@ test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다
     hub.close();
     mock.timers.reset();
   }
+});
+
+// 운영 조절값을 저장하면 바로 먹는다. 상한 · 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
+test("설정 객체를 넘기면 상한 · 하트비트를 다시 켜지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
+  mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const options = { heartbeatMs: 60_000, maxPerUser: 1, coalesceMs: 250 };
+  const hub = createPlayerStream(options);
+  try {
+    const one = makeRes();
+    hub.addClient(one, sees("hG1"), "hU1");
+    const two = makeRes();
+    hub.addClient(two, sees("hG1"), "hU1");
+    assert.equal(hub.subs.size, 1, "상한 1");
+    options.maxPerUser = 2;
+    hub.addClient(makeRes(), sees("hG1"), "hU1");
+    assert.equal(hub.subs.size, 2, "상한은 쓸 때 읽는다");
+
+    const pings = () => one.writes.filter((w) => w.startsWith(": ping")).length;
+    options.heartbeatMs = 10_000;
+    tunablesChanged();
+    mock.timers.tick(10_000);
+    assert.equal(pings(), 1, "바뀐 간격으로 다시 걸었다");
+  } finally {
+    hub.close();
+  }
+  options.heartbeatMs = 5_000;
+  tunablesChanged();
+  assert.equal(hub.heartbeatMs, 10_000, "닫은 허브는 다시 걸지 않는다");
+  mock.timers.reset();
 });

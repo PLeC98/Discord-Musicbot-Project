@@ -1,5 +1,5 @@
 // src/store/tunables.ts · dashboard/routes/tunables.ts — 운영 조절값(설정 탭). settings.db 의 문서에 두고 .env 와 같은 검사로 읽는다.
-// 저장하면 바로 먹고, 다시 켜야 먹는 값은 기동 때 값으로 돈다. DB 에 틀린 값이 있어도 기동은 멈추지 않는다
+// 저장하면 바로 먹고(기동 때 만든 것은 알림을 듣고 다시 만든다), 다시 켜야 먹는 값은 기동 때 값으로 돈다. DB 에 틀린 값이 있어도 기동은 멈추지 않는다
 
 process.env.OWNER_ID = "owner";
 
@@ -18,6 +18,7 @@ const docs = await import("../../src/store/settings-docs.ts");
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
 const { tunablesRouter } = await import("../../src/dashboard/routes/tunables.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
+const { onTunablesChanged } = await import("../../src/config/tunables-changed.ts");
 
 const store = openTempStore("tunables-");
 const app = express();
@@ -52,16 +53,34 @@ test("비어 있으면 기본값으로 돈다. 저장하면 바로 먹고 저장
 });
 
 test("다시 켜야 먹는 값은 저장해도 기동 때 값으로 돌고 pending 으로 알린다", async () => {
-  const before = config.dashboard.rateLimit.apiMax;
-  const saved = await req<View>("PUT", { values: { RATE_LIMIT_API_MAX: "999", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42" }, revision: 0 });
-  assert.deepEqual(saved.json.pending.sort(), ["BGUTIL_ENABLED", "RATE_LIMIT_API_MAX"]);
-  assert.equal(config.dashboard.rateLimit.apiMax, before, "요청 제한은 기동 때 값");
+  const saved = await req<View>("PUT", { values: { SPONSORBLOCK_ENABLED: "false", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42", RATE_LIMIT_API_MAX: "999" }, revision: 0 });
+  assert.deepEqual(saved.json.pending.sort(), ["BGUTIL_ENABLED", "SPONSORBLOCK_ENABLED"]);
   assert.equal(config.bgutil.enabled, false, "띄우지 않은 POToken 서버를 찾지 않게");
-  assert.equal(config.cache.maxFiles, 42, "바로 먹는 값은 먹는다");
+  assert.equal(config.sponsorblock.enabled, true, "등록된 슬래시 명령과 어긋나지 않게");
+  assert.deepEqual([config.cache.maxFiles, config.dashboard.rateLimit.apiMax], [42, 999], "바로 먹는 값은 먹는다");
 
   tunables.load(); // 다시 켰다
-  assert.deepEqual([config.dashboard.rateLimit.apiMax, config.bgutil.enabled], [999, true]);
+  assert.deepEqual([config.sponsorblock.enabled, config.bgutil.enabled], [false, true]);
   assert.deepEqual(tunables.view().pending, []);
+});
+
+// 기동 때 만들어 둔 제한기 · 타이머는 이 알림을 듣고 다시 만든다. 듣는 쪽이 던져도 저장은 끝나고 로그에 남는다
+test("저장하면 바뀌었다고 알리고, 듣는 쪽의 실패는 저장을 막지 않는다", async () => {
+  const heard: number[] = [];
+  const offHeard = onTunablesChanged(() => heard.push(config.dashboard.sse.heartbeatMs));
+  const offBroken = onTunablesChanged(() => {
+    throw new Error("고장");
+  });
+  try {
+    const from = sink.buffer.length;
+    const saved = await req<View>("PUT", { values: { SSE_HEARTBEAT_SEC: "45" }, revision: 0 });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(heard, [45000], "설정 객체를 고친 뒤에 알린다");
+    assert.ok(sink.buffer.slice(from).some((e) => e.level === "error" && e.text.includes("고장")));
+  } finally {
+    offHeard();
+    offBroken();
+  }
 });
 
 test("틀린 값 · 모르는 이름은 칸마다 까닭과 함께 거절하고 아무것도 바꾸지 않는다", async () => {

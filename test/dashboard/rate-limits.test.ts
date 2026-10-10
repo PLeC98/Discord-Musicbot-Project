@@ -4,6 +4,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { limiter, unlimited } from "../../src/dashboard/rate-limits.ts";
+import { tunablesChanged } from "../../src/config/tunables-changed.ts";
 import { signedInAs } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 
@@ -17,7 +18,7 @@ test("로그인한 사람마다 세고, 넘으면 문제 응답 429", async () =
   let who = "u1";
   const app = express();
   app.use(signedInAs(() => ({ id: who })));
-  app.use(limiter(2));
+  app.use(limiter(() => 2));
   app.get("/x", (_req, res) => res.json({ ok: true }));
   const server = await listenForFetch(app);
   after(() => server.close());
@@ -29,4 +30,28 @@ test("로그인한 사람마다 세고, 넘으면 문제 응답 429", async () =
   assert.equal(((await over.json()) as { code: string }).code, "too-many-requests");
   who = "u2";
   assert.equal((await get()).status, 200, "다른 사람은 따로 센다");
+});
+
+// 운영 조절값을 저장하면 바로 먹는다. 한도는 요청마다 읽고, 창 길이가 바뀌면 제한기를 새로 만든다(센 수는 처음부터)
+test("한도 · 창 길이를 바꾸면 다시 켜지 않고 먹는다", async () => {
+  let limit = 1;
+  let windowMs = 60_000;
+  const app = express();
+  app.use(signedInAs(() => ({ id: "u1" })));
+  app.use(limiter(() => limit, { windowOf: () => windowMs }));
+  app.get("/x", (_req, res) => res.json({ ok: true }));
+  const server = await listenForFetch(app);
+  after(() => server.close());
+  const status = async () => (await fetch(`${baseUrl(server)}/x`, { signal: AbortSignal.timeout(3000) })).status;
+
+  assert.deepEqual([await status(), await status()], [200, 429]);
+  limit = 3;
+  assert.equal(await status(), 200, "한도는 요청마다 읽는다");
+  assert.equal(await status(), 429);
+
+  tunablesChanged();
+  assert.equal(await status(), 429, "창 길이가 그대로면 센 수도 그대로");
+  windowMs = 30_000;
+  tunablesChanged();
+  assert.equal(await status(), 200, "창 길이가 바뀌면 새로 센다");
 });
