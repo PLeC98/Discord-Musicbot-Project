@@ -54,7 +54,7 @@ const TYPES = Object.keys(FETCHERS);
 const yearRange = remembered<YearRange>(
   async () => {
     try {
-      const ends = await Promise.all([getJson<AnimePage | null>("https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson<AnimePage | null>("https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
+      const ends = await Promise.all([getJson<AnimePage | null>("animethemes", "https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson<AnimePage | null>("animethemes", "https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
       const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
       return min && max && min <= max ? { min, max } : null;
     } catch (error) {

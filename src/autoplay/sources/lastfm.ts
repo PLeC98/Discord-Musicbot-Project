@@ -18,7 +18,7 @@ async function lastfm(source: GenreSource): Promise<Candidate[]> {
 
   const page = 1 + rand(Math.max(1, Number(source.pages) || 5));
   const url = `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getTopTracks", tag, limit: 1000, page, api_key: key, format: "json" })}`;
-  const list = (await getJson<TopTracks | null>(url))?.tracks?.track || [];
+  const list = (await getJson<TopTracks | null>("lastfm", url))?.tracks?.track || [];
   return list
     .map((t) => ({
       artist: t.artist?.name || "",

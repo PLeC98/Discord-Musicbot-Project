@@ -127,7 +127,7 @@ async function tagId(site: Site, name: string) {
   const known = ids.get(key);
   if (known !== undefined) return known;
   // 별칭 · 대소문자도 풀린다(ロック → rock). 없으면 null
-  const tag = await getJson<Tag>(`https://${VOCA_HOSTS[site]}/api/tags/byName/${encodeURIComponent(name)}`);
+  const tag = await getJson<Tag>(site, `https://${VOCA_HOSTS[site]}/api/tags/byName/${encodeURIComponent(name)}`);
   if (!tag?.id) throw new Error(`${site}에 없는 태그입니다: ${name}`);
   ids.set(key, tag.id);
   return tag.id;
@@ -139,7 +139,7 @@ async function artistId(site: Site, name: string) {
   if (known !== undefined) return known;
   // 칸이 뜻하는 쪽만 찾는다(vocadb 는 보컬, utaitedb 는 우타이테). touhoudb 는 서클 · 작곡가라 거르지 않는다
   const types = VOCA_ARTIST_TYPES[site];
-  const page = await getJson<{ items?: Artist[] } | null>(`https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
+  const page = await getJson<{ items?: Artist[] } | null>(site, `https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
   const found = sameName(page?.items || [], name);
   if (!found?.id) throw new Error(`${site}에서 찾지 못한 이름입니다: ${name}`);
   log.debug(`${site} 이름 풀기: ${name} → ${found.name} (${found.id})`);
@@ -167,12 +167,12 @@ async function suggest(site: Site, what: "tags" | "artists", term: string): Prom
   if (what === "tags") {
     // 앞부분이 맞는 것을 많이 쓰인 순으로. 별칭으로 쳐도 대표 이름이 온다(ロッ → rock).
     // /api/tags/names 는 가운데가 맞는 것까지 가나다순이라 roc 에 rock 이 안 뜬다
-    const page = await getJson<{ items?: Array<{ name?: string; categoryName?: string }> } | null>(`https://${host}/api/tags?${query({ query: term, nameMatchMode: "StartsWith", sort: "UsageCount", maxResults: SUGGEST_MAX })}`, {}, SUGGEST_TIMEOUT_MS);
+    const page = await getJson<{ items?: Array<{ name?: string; categoryName?: string }> } | null>(site, `https://${host}/api/tags?${query({ query: term, nameMatchMode: "StartsWith", sort: "UsageCount", maxResults: SUGGEST_MAX })}`, {}, SUGGEST_TIMEOUT_MS);
     return (page?.items || []).flatMap((one) => (one.name ? [{ value: one.name, ...(one.categoryName ? { hint: one.categoryName } : {}) }] : []));
   }
   // 이름 풀기와 같은 분류로 거른다. 후보에 있는데 풀리지 않으면 안 된다
   const types = VOCA_ARTIST_TYPES[site];
-  const page = await getJson<{ items?: Artist[] } | null>(`https://${host}/api/artists?${query({ query: term, nameMatchMode: "StartsWith", sort: "SongCount", maxResults: SUGGEST_MAX, artistTypes: types?.join(",") })}`, {}, SUGGEST_TIMEOUT_MS);
+  const page = await getJson<{ items?: Artist[] } | null>(site, `https://${host}/api/artists?${query({ query: term, nameMatchMode: "StartsWith", sort: "SongCount", maxResults: SUGGEST_MAX, artistTypes: types?.join(",") })}`, {}, SUGGEST_TIMEOUT_MS);
   return (page?.items || []).flatMap((one) => (one.name ? [{ value: one.name, hint: one.artistType }] : []));
 }
 
@@ -185,7 +185,7 @@ function _forgetIds() {
 // depth: 정렬 순서에서 몇 번째까지만 볼지
 async function vocaWindow(base: string, filters: Record<string, unknown>, type: Site, depth: number): Promise<Candidate[]> {
   // 깊은 곳에서 집으려면 전체 개수를 먼저 알아야 한다
-  const head = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`, {}, VOCA_TIMEOUT_MS);
+  const head = await getJson<SongPage | null>(type, `${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`, {}, VOCA_TIMEOUT_MS);
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
@@ -193,7 +193,7 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
   const span = Math.min(total, depth);
   const start = span > VOCA_PAGE ? rand(span - VOCA_PAGE) : 0;
   // fields=Names로 원어·로마자·영문이 한 번에 온다. 표기를 고를 일이 없다
-  const page = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`, {}, VOCA_TIMEOUT_MS);
+  const page = await getJson<SongPage | null>(type, `${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`, {}, VOCA_TIMEOUT_MS);
 
   return (page?.items || []).flatMap((song) => {
     const one = candidateOf(song, type);

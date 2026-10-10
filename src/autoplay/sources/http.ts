@@ -1,16 +1,22 @@
-// 자동재생 소스가 같이 쓰는 요청 도우미.
+// 자동재생 소스가 같이 쓰는 요청 도우미. 요청은 서비스마다 공유 HTTP 클라이언트(infra/http)를 지나 부른 결과가 남는다
 
 import { setTimeout as sleep } from "node:timers/promises";
 import config from "../../config/index.ts";
+import { httpFor, type HttpClient } from "../../infra/http.ts";
 
 const userAgent = () => config.userAgents.bot;
 
 const TIMEOUT_MS = 15000;
 
-// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
-let send: typeof fetch = fetch;
+/** 자동재생 출처가 부르는 서비스. anilist 는 AnisongDB 곡의 표지 그림 */
+const SOURCE_SERVICES = ["lastfm", "listenbrainz", "animethemes", "anisongdb", "anilist", "vocadb", "utaitedb", "touhoudb"] as const;
+type SourceService = (typeof SOURCE_SERVICES)[number];
+const clients = new Map<SourceService, HttpClient>(SOURCE_SERVICES.map((service) => [service, httpFor(service)]));
+const send = (service: SourceService, url: string, init: RequestInit) => clients.get(service)!.fetch(url, init);
+
+// 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 function useFetch(fake: typeof fetch | null) {
-  send = fake ?? fetch;
+  for (const client of clients.values()) client.useFetch(fake);
 }
 
 const rand = (n: number) => Math.floor(Math.random() * n);
@@ -18,8 +24,8 @@ const rand = (n: number) => Math.floor(Math.random() * n);
 const pick = <T>(list: T[]): T | null => (list.length ? list[rand(list.length)] : null);
 
 // T: 받는 쪽이 읽는 칸만 적은 응답 모양. 검사하지 않으므로 칸은 모두 없을 수 있게 적는다
-async function getJson<T = unknown>(url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
-  const res = await send(url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
+async function getJson<T = unknown>(service: SourceService, url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
+  const res = await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
   return (await res.json()) as T;
 }
@@ -27,8 +33,8 @@ async function getJson<T = unknown>(url: string, headers: Record<string, string>
 // getJson의 형제. 필터를 본문으로 받는 API용.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
 // 설정이 조용히 빈손이 되는 이유를 알 수 없다.
-async function postJson<T = unknown>(url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
-  const res = await send(url, {
+async function postJson<T = unknown>(service: SourceService, url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
+  const res = await send(service, url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": userAgent() },
     body: JSON.stringify(body),
@@ -98,3 +104,4 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
 }
 
 export { getJson, postJson, pick, rand, query, remembered, useFetch };
+export type { SourceService };

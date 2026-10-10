@@ -28,7 +28,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
   if (!prompt) return [];
 
   const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: modes[0] })}`;
-  const list = (await getJson<Radio | null>(url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
+  const list = (await getJson<Radio | null>("listenbrainz", url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
   return list
     .map((t) => ({
       artist: t.creator || "",

@@ -65,7 +65,7 @@ async function themesAtRandom(source: GenreSource): Promise<Theme[]> {
     "filter[type]": source.themeType,
     "filter[sequence]": source.sequence,
   })}`;
-  return (await getJson<{ animethemes?: Theme[] } | null>(url))?.animethemes || [];
+  return (await getJson<{ animethemes?: Theme[] } | null>("animethemes", url))?.animethemes || [];
 }
 
 // 연도·시즌·매체는 animetheme 쪽에서 조용히 무시된다. anime 쪽에 걸어야 듣는다.
@@ -80,7 +80,7 @@ async function themesByAnime(source: GenreSource): Promise<Theme[]> {
     "filter[season]": source.season?.join(","),
     "filter[media_format]": source.mediaFormat?.join(","),
   })}`;
-  const list = (await getJson<{ anime?: Anime[] } | null>(url))?.anime || [];
+  const list = (await getJson<{ anime?: Anime[] } | null>("animethemes", url))?.anime || [];
 
   const { from, to } = seasonRange(source);
   return list.flatMap((anime) => {

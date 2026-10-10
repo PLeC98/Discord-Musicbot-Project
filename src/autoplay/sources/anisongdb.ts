@@ -40,7 +40,7 @@ const CATALOG_RETRY_MS = 10 * 60 * 1000;
 // 저쪽의 통계. 못 받으면 까닭을 남기고 null
 async function loadAnisongStats(): Promise<AnisongStats | null> {
   try {
-    const stats = await getJson<RawStats | null>(`${ANISONG}/database_stats`);
+    const stats = await getJson<RawStats | null>("anisongdb", `${ANISONG}/database_stats`);
     const seasons = Object.keys(stats?.songs_by_season || {});
     const years = seasons.map((one) => Number(String(one).match(/\d{4}/)?.[0])).filter(Boolean);
     // 0칸은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
@@ -146,7 +146,7 @@ async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
   const covers = new Map<number, string>();
   for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
     try {
-      const body = await postJson<Covers | null>(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
+      const body = await postJson<Covers | null>("anilist", ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
       for (const [id, url] of coversIn(body)) covers.set(id, url);
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
@@ -178,7 +178,7 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
   // 500까지 받을 수 있지만 뽑는 것은 3분에 한 곡이라 100이면 풀 TTL을 버틴다.
   // 조건에 맞는 곡이 n보다 적으면 그 전부가 온다.
   const n = Math.min(500, Math.max(1, Number(source.n) || 100));
-  const songs = await postJson<Song[] | null>(`${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
+  const songs = await postJson<Song[] | null>("anisongdb", `${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
 
   // 표지를 묶어 받는 동안 작품 ID 를 곡에 잠깐 싣는다
   const out: Array<Candidate & { _anilist?: number | null }> = [];
