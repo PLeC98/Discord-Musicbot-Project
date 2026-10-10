@@ -178,5 +178,13 @@ const SESSION_TABLES = `
   );
 `;
 
-export { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
+/** 봇 상태 탭: DB 파일(-wal 포함) 크기와 줄 수(곡 찾기 기억 · SponsorBlock 구간 기억 · 저장된 대기열) */
+function dbStats() {
+  const c = get();
+  const sizeOf = (file: string) => (fs.existsSync(file) ? fs.statSync(file).size : 0);
+  const count = (table: string) => (c.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+  return { file: c.name, bytes: sizeOf(c.name) + sizeOf(`${c.name}-wal`), lookups: count("track_lookup"), sponsorSegments: count("sponsorblock_cache"), sessions: count("player_sessions") };
+}
+
+export { open, get, isOpen, close, createTables, dbStats, SCHEMA_VERSION, DB_PATH };
 export type { Db };

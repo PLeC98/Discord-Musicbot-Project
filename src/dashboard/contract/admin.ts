@@ -33,6 +33,7 @@ type AdminStatus = {
   processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: ProcessRow[] };
   youtube: YoutubeStatus;
   links: LinkRow[];
+  storage: StorageView;
   history: StatusHistory;
   logLevel: string;
 };
@@ -52,6 +53,17 @@ type LinkState = "ok" | "slow" | "fail" | "idle" | "off";
  * error: 마지막 실패의 짧은 까닭("timeout" · "HTTP 503" 등). note: 줄에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
  */
 type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: string; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: string | null; note: string | null; hint?: string | null };
+
+/**
+ * 저장공간. cache: protectedFiles 는 지금 곡 · 대기열 앞이라 지우지 않는 파일, neverPlayed 는 받고 한 번도 틀지 않은 파일,
+ * failed 는 받기 실패로 남은 줄(받다 실패 · 받다 멈춤 · 파일이 사라짐, 다시 받으면 풀린다), lastCleanup 은 봇이 켜진 뒤 마지막으로 실제로 지운 정리(없으면 null).
+ * disk: 캐시 폴더의 드라이브. db: drive 가 캐시 드라이브와 같으면 드라이브 막대에 조각으로 들어간다
+ */
+type StorageView = {
+  cache: { bytes: number; maxBytes: number; files: number; maxFiles: number; protectedFiles: number; neverPlayed: number; failed: number; lastCleanup: { at: number; files: number; bytes: number } | null };
+  disk: { drive: string; usedBytes: number; totalBytes: number; minFreeBytes: number };
+  db: { bytes: number; drive: string; lookups: number; sponsorSegments: number; sessions: number };
+};
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[] };
@@ -121,4 +133,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };

@@ -11,6 +11,7 @@ import * as db from "./db.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { driveOf } from "../infra/disk.ts";
 
 const CACHE_DIR = PROJECT.audioCache;
 
@@ -57,6 +58,8 @@ let unlink = fsUnlink;
 const stuckFiles = new Set<string>();
 // 퇴거는 한 번에 하나. 겹치면 같은 행을 두 번 세어 지운다
 let evicting: Promise<void> | null = null;
+/** 봇이 켜진 뒤 마지막으로 실제로 지운 정리: 때 · 지운 파일 수 · 비운 바이트 */
+let lastCleanup: { at: number; files: number; bytes: number } | null = null;
 
 // 열기 전에 부르면 던진다
 const conn = () => db.get();
@@ -445,6 +448,13 @@ async function checkAndEvict() {
   await evict({ totalSize, fileCount, diskFree });
 }
 
+// 지우지 않고 지키는 키: 재생 중인 곡과 각 길드의 대기열 앞부분(메모리 · 저장된 세션 양쪽).
+// 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다.
+// 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다. 앞부분만(미리 받기 범위)
+function guardedKeys() {
+  return new Set([...liveKeys(), ...sessionKeys(sessions().frontAudioUrls(config.preload.ahead))]);
+}
+
 /** 지울 차례. 점수가 높은(지울 만한) 것이 앞이다 */
 function rankForEviction(rows: AudioRow[]) {
   const now = Date.now();
@@ -500,11 +510,8 @@ async function evictOne(row: AudioRow): Promise<"gone" | "protected" | "failed" 
  * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
  */
 async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
-  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분(메모리 · 저장된 세션 양쪽).
-  // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
-  // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다.
-  // 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다. 앞부분만(미리 받기 범위)
-  const live = new Set([...liveKeys(), ...sessionKeys(sessions().frontAudioUrls(config.preload.ahead))]);
+  // 보호 중인 키 제외(guardedKeys). 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다
+  const live = guardedKeys();
   const all = conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[];
   const scored = rankForEviction(all.filter((r) => !live.has(r.audio_key)));
   const guarded = all.length - scored.length;
@@ -517,6 +524,7 @@ async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFr
   const enough = () => size <= cfg.maxSizeBytes * goal && files <= cfg.maxFiles * goal && free >= cfg.minFreeDiskBytes;
   let evicted = 0;
   let failed = 0;
+  let freed = 0;
   for (const row of scored) {
     if (enough()) break;
     const outcome = await evictOne(row);
@@ -529,8 +537,10 @@ async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFr
     size -= bytes;
     files -= 1;
     free += bytes;
+    freed += bytes;
     evicted++;
   }
+  if (evicted) lastCleanup = { at: Date.now(), files: evicted, bytes: freed };
   reportEviction({ evicted, failed, guarded, files, size, reached: enough() });
 }
 
@@ -594,6 +604,30 @@ function getCacheStats() {
   };
 }
 
+/**
+ * 봇 상태 탭의 저장공간. 캐시: 크기 · 파일 수와 상한, 지우지 않고 지키는 파일, 한 번도 틀지 않은 파일,
+ * 받기 실패로 남은 줄(받다 실패 · 받다 멈춤 · 파일이 사라짐, 다시 받으면 풀린다), 마지막 정리. 드라이브: 캐시 폴더가 놓인 곳
+ */
+function storageStats() {
+  const cfg = config.cache;
+  const guarded = guardedKeys();
+  const cachedKeys = conn().prepare("SELECT audio_key FROM audio_cache WHERE status='cached'").pluck().all() as string[];
+  return {
+    cache: {
+      bytes: cacheSize(),
+      maxBytes: cfg.maxSizeBytes,
+      files: cachedKeys.length,
+      maxFiles: cfg.maxFiles,
+      protectedFiles: cachedKeys.filter((key) => guarded.has(key)).length,
+      neverPlayed: countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND (play_count IS NULL OR play_count=0)"),
+      failed: countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='error'"),
+      lastCleanup,
+    },
+    drive: driveOf(dir),
+    minFreeBytes: cfg.minFreeDiskBytes,
+  };
+}
+
 // 닫기
 
 function close() {
@@ -606,5 +640,5 @@ function close() {
   }
 }
 
-export { initialize, getFilePath, protect, unprotect, protectFile, unprotectFile, setQueuedKeys, lookupByAudioKey, recordDownloadStart, recordDownloadComplete, recordError, recordPlayback, getProtectedCacheFiles, onStartup, resetCache, evictIfNeeded, evict, getCacheStats, close, cacheDir, _setCacheDir, _setRemoval, liveKeys as _liveKeys, cleanOrphanFiles as _cleanOrphanFiles, cacheCount as _cacheCount, protectedKeys as _protectedKeys, protectedFiles as _protectedFiles };
+export { storageStats, initialize, getFilePath, protect, unprotect, protectFile, unprotectFile, setQueuedKeys, lookupByAudioKey, recordDownloadStart, recordDownloadComplete, recordError, recordPlayback, getProtectedCacheFiles, onStartup, resetCache, evictIfNeeded, evict, getCacheStats, close, cacheDir, _setCacheDir, _setRemoval, liveKeys as _liveKeys, cleanOrphanFiles as _cleanOrphanFiles, cacheCount as _cacheCount, protectedKeys as _protectedKeys, protectedFiles as _protectedFiles };
 export type { AudioRow, TrackMeta };

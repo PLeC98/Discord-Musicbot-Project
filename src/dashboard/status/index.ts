@@ -1,5 +1,5 @@
 // 봇 상태 탭(/api/admin/status)의 응답. 3초마다 불리므로 비싼 값은 모아 둔 것을 준다.
-// 모으는 것(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리)은 대시보드가 켜질 때 startStatus 로 시작한다
+// 모으는 것(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리 · 저장공간)은 대시보드가 켜질 때 startStatus 로 시작한다
 
 import os from "node:os";
 import type { Client } from "discord.js";
@@ -14,6 +14,7 @@ import { startStatusHistory, statusHistory } from "./history.ts";
 import { linkRows } from "./links.ts";
 import { playerRows } from "./players.ts";
 import { processSummary, watchProcesses } from "./processes.ts";
+import { storageView, watchStorage } from "./storage.ts";
 
 const MB = 1024 * 1024;
 
@@ -51,6 +52,7 @@ async function adminStatus({ client, players }: BotContext, viewerId: string): P
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
     links: linkRows(client),
+    storage: storageView(),
     history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
@@ -58,11 +60,12 @@ async function adminStatus({ client, players }: BotContext, viewerId: string): P
   };
 }
 
-/** 모으기 시작한다(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리) */
+/** 모으기 시작한다(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리 · 저장공간) */
 function startStatus(bot: BotContext) {
   startStatusHistory(bot);
   watchGateway(bot.client);
   watchProcesses();
+  watchStorage();
 }
 
 export { adminStatus, startStatus };
