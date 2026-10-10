@@ -9,17 +9,30 @@ import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
 import { FIXED_COLORS } from "../../ui/palette.ts";
 
-/** 봇 · Node · 시스템 상태. 메모리는 MB, uptime 은 봇이 켜진 뒤의 초. logLevel 은 서버가 보내고 있는 가장 낮은 레벨 */
+/**
+ * 봇 상태 탭(운영자). 3초마다 받는다. 메모리는 MB, 시각은 epoch ms, 시간 길이는 초(uptime) · ms(ageMs).
+ * history 는 서버가 15초마다 모은 최근 15분이라 화면을 늦게 열어도 그래프가 차 있다
+ */
 type AdminStatus = {
-  bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number };
-  node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; rss: number } };
-  system: { cpus: number; totalMem: number; freeMem: number; loadAvg: number[] };
+  bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number; startedAt: number; version: string };
+  /** heapLimit: V8 heap 한도(이 값 대비로 판정한다. heapTotal 은 필요에 따라 늘어나는 값이라 한도가 아니다) */
+  node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; heapLimit: number; rss: number } };
+  /** uptime: 운영체제가 켜진 뒤의 초. loadAvg 는 Windows 에서 늘 0 이라 화면은 쓰지 않는다 */
+  system: { cpus: number; cpuModel: string; totalMem: number; freeMem: number; loadAvg: number[]; uptime: number };
+  /** CPU 사용률(%), 모든 코어를 합쳐 100. 지난 갱신 뒤 쓴 CPU 시간으로 잰다(운영체제와 상관없다) */
+  cpu: { bot: number; system: number };
+  /** 이벤트 루프 지연(ms). 지난 15초의 p99 와 최대 */
+  loop: { p99: number; max: number };
   activePlayers: number;
   /** 자식 프로세스(ffmpeg · yt-dlp). oldest 는 오래된 것부터 몇 개 */
   processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: Array<{ pid: number; label: string; ageMs: number }> };
   youtube: YoutubeStatus;
+  history: StatusHistory;
   logLevel: string;
 };
+
+/** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
+type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[] };
 
 /** 전체 서버 공지의 종류. 화면은 이 키로 이름표를 단다 */
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
@@ -86,4 +99,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };
+export type { AdminStatus, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };

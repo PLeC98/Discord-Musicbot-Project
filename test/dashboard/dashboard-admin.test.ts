@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { Player } from "../../src/player/player.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
+import type { AdminStatus } from "../../src/dashboard/contract/admin.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, detailsOf, type ProblemReply } from "../helpers/dashboard.ts";
 
@@ -26,6 +27,7 @@ const assist = await import("../../src/autoplay/assist/index.ts");
 const yamlStore = await import("../../src/config/yaml-store.ts");
 const logSink = (await import("../../src/infra/log/sink.ts")).default;
 const config = (await import("../../src/config/index.ts")).default;
+const { BOT_VERSION } = await import("../../src/infra/version.ts");
 
 /** 거절 · 확인 답의 칸. 경로마다 읽는 칸이 더 있으면 부를 때 모양을 적는다 */
 type Reply = ProblemReply & { success?: boolean };
@@ -160,14 +162,22 @@ test("requireOwner: 구버전 세션의 isAdmin=true는 인가에 쓰이지 않�
 // ── 상태 / 서버 목록 ─────────────────────────────────────────
 
 test("GET status: 봇/노드/시스템 상태 형태", async () => {
-  const r = await req<{ bot: { tag: string; guilds: number; uptime: number }; activePlayers: number; node: { version: string }; system: { cpus: number }; logLevel: string }>("GET", "/api/admin/status");
+  const r = await req<AdminStatus>("GET", "/api/admin/status");
   assert.equal(r.status, 200);
   assert.equal(r.json.bot.tag, "TestBot#1");
   assert.equal(r.json.bot.guilds, 3);
   assert.ok(Number.isInteger(r.json.bot.uptime), "업타임은 초(화면이 /system 과 같은 말로 바꾼다)");
+  assert.ok(Math.abs(r.json.bot.startedAt + r.json.bot.uptime * 1000 - Date.now()) < 5000, "시작 시각 = 지금 - 업타임");
+  assert.equal(r.json.bot.version, BOT_VERSION);
   assert.equal(r.json.activePlayers, 1);
   assert.equal(typeof r.json.node.version, "string");
+  assert.ok(r.json.node.memory.heapLimit > r.json.node.memory.heapUsed, "heap 한도(MB)");
   assert.equal(typeof r.json.system.cpus, "number");
+  assert.equal(typeof r.json.system.cpuModel, "string");
+  assert.ok(r.json.system.uptime > 0, "운영체제가 켜진 뒤의 초");
+  assert.deepEqual(Object.keys(r.json.cpu).sort(), ["bot", "system"]);
+  assert.deepEqual(Object.keys(r.json.loop).sort(), ["max", "p99"]);
+  assert.equal(r.json.history.stepMs, 15_000);
   // 로그 뷰어의 레벨 토글 초기 상태가 이 값을 따른다 — 없으면 서버가 debug를 안 보내는데도
   // DEBUG 알약이 켜진 채로 시작해, 아무것도 안 나오는 필터가 켜져 있는 것처럼 보인다.
   assert.ok(["trace", "debug", "info", "warn", "error", "fatal"].includes(r.json.logLevel), `logLevel=${r.json.logLevel}`);

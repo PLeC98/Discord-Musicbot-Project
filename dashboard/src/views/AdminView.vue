@@ -461,12 +461,15 @@ function resultMsg(ok: boolean) {
 const loading = ref(true);
 // 처음 받기 전의 모양
 const s = ref<AdminStatus>({
-  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: 0 },
-  node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, rss: 0 } },
-  system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
+  bot: { tag: "", id: null, guilds: 0, ping: 0, status: 0, uptime: 0, startedAt: 0, version: "" },
+  node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, heapLimit: 0, rss: 0 } },
+  system: { cpus: 0, cpuModel: "", totalMem: 0, freeMem: 0, loadAvg: [], uptime: 0 },
+  cpu: { bot: 0, system: 0 },
+  loop: { p99: 0, max: 0 },
   activePlayers: 0,
   processes: { total: 0, byLabel: [], oldest: [] },
   youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
+  history: { stepMs: 0, endAt: 0, playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [] },
   logLevel: "",
 });
 

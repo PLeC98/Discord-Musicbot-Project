@@ -2,11 +2,10 @@
 
 import express from "express";
 import { PermissionFlagsBits } from "discord.js";
-import { AudioPlayerStatus } from "@discordjs/voice";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { voiceFlags } from "../guild-access.ts";
 import { sendProblem } from "../problem.ts";
-import { soundAttached } from "../../ui/player-status.ts";
+import { playState, soundAttached } from "../../ui/player-status.ts";
 import type { Player } from "../../player/player.ts";
 import type { GuildList, GuildRow, ListState } from "../contract/guilds.ts";
 import { guildIconUrl } from "../images.ts";
@@ -14,9 +13,8 @@ import { guildIconUrl } from "../images.ts";
 function listState(botInVoice: boolean, player: Player | undefined): ListState {
   if (!botInVoice) return "idle";
   // 곡을 여는 중이면 아직 곡이 없다(유령 재생을 보이지 않는 대시보드 규칙과 같다)
-  if (!player || !soundAttached(player)) return "waiting";
-  const status = player.audioPlayer?.state?.status;
-  return status === AudioPlayerStatus.Paused || status === AudioPlayerStatus.AutoPaused ? "paused" : "playing";
+  const state = player ? playState(player) : "idle";
+  return state === "idle" ? "waiting" : state;
 }
 
 function createGuildListRouter() {

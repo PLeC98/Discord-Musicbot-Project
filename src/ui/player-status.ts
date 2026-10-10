@@ -17,4 +17,11 @@ function soundAttached(player: Pick<Player, "audioPlayer">) {
   return status !== undefined && status !== AudioPlayerStatus.Idle;
 }
 
-export { playbackStatus, soundAttached };
+/** 소리를 내는가 · 멈췄는가 · 소리가 없는가(곡이 없거나 여는 중) */
+function playState(player: Pick<Player, "audioPlayer">): "playing" | "paused" | "idle" {
+  if (!soundAttached(player)) return "idle";
+  const status = player.audioPlayer?.state?.status;
+  return status === AudioPlayerStatus.Paused || status === AudioPlayerStatus.AutoPaused ? "paused" : "playing";
+}
+
+export { playbackStatus, playState, soundAttached };

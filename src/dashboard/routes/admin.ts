@@ -33,6 +33,9 @@ import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
 import * as models from "../../config/ai-models.ts";
+import { vitals } from "../../infra/vitals.ts";
+import { BOT_VERSION } from "../../infra/version.ts";
+import { statusHistory } from "../status-history.ts";
 
 // 로그에 남기는 실행한 사람
 function ranBy<P>(req: Request<P>) {
@@ -49,6 +52,8 @@ function botStatus(client: Client, uptime: number) {
     ping: client.ws.ping,
     status: client.ws.status,
     uptime: Math.floor(uptime),
+    startedAt: Math.round(Date.now() - uptime * 1000),
+    version: BOT_VERSION,
   };
 }
 
@@ -71,6 +76,8 @@ adminRouter.get("/status", requireOwner, (req, res) => {
   const { client, players } = req.app.locals.bot;
   const uptime = process.uptime();
   const mem = process.memoryUsage();
+  const { cpu, loop, heapLimit } = vitals();
+  const cpus = os.cpus();
 
   res.json({
     bot: botStatus(client, uptime),
@@ -81,20 +88,26 @@ adminRouter.get("/status", requireOwner, (req, res) => {
       memory: {
         heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
         heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+        heapLimit,
         rss: Math.round(mem.rss / 1024 / 1024),
       },
     },
     system: {
-      cpus: os.cpus().length,
+      cpus: cpus.length,
+      cpuModel: cpus[0]?.model.trim() ?? "",
       totalMem: Math.round(os.totalmem() / 1024 / 1024),
       freeMem: Math.round(os.freemem() / 1024 / 1024),
       loadAvg: os.loadavg(),
+      uptime: Math.floor(os.uptime()),
     },
+    cpu,
+    loop,
     activePlayers: players.size,
     // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다
     processes: processSummary(),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
+    history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
     logLevel: config.logging.level,
