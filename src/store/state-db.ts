@@ -24,8 +24,7 @@ function createTables(db: Db) {
       loop_mode              TEXT    NOT NULL DEFAULT 'off' CHECK (loop_mode IN ('off', 'track', 'queue')),
       autoplay               TEXT,
       paused_manual          INTEGER NOT NULL DEFAULT 0,
-      position_ms            INTEGER NOT NULL DEFAULT 0,
-      updated_at             INTEGER NOT NULL
+      position_ms            INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS session_tracks (
@@ -61,8 +60,7 @@ function createTables(db: Db) {
     CREATE TABLE IF NOT EXISTS now_playing_panel (
       guild_id    TEXT PRIMARY KEY,
       channel_id  TEXT,
-      message_id  TEXT NOT NULL,
-      updated_at  INTEGER NOT NULL
+      message_id  TEXT NOT NULL
     );
   `);
 }

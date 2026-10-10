@@ -39,8 +39,6 @@ const LookupRow = z.object({
   display_artist: maybe(z.string()),
   display_thumbnail: maybe(z.string()),
   title_verified: z.number().int(),
-  created_at: z.number(),
-  updated_at: z.number(),
 });
 
 /** 맞으면 그 행, 틀리면 null(한 줄 남긴다) */

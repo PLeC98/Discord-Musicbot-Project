@@ -23,16 +23,14 @@ function createTables(db: Db) {
     -- 저장 번호가 없다: 칸 하나씩 한 트랜잭션으로 고쳐 쓰므로 다른 칸을 덮지 않고, 같은 칸은 나중 저장이 맞다
     CREATE TABLE IF NOT EXISTS guild_settings (
       guild_id    TEXT    PRIMARY KEY,
-      data_json   TEXT    NOT NULL,
-      updated_at  INTEGER NOT NULL
+      data_json   TEXT    NOT NULL
     );
 
     -- 설정 문서. 이름 → JSON + 저장 번호(옛 번호에서 저장하면 거절해 두 탭이 서로 덮지 않게). store/settings-docs
     CREATE TABLE IF NOT EXISTS documents (
       name        TEXT    PRIMARY KEY,
       data_json   TEXT    NOT NULL,
-      revision    INTEGER NOT NULL,
-      updated_at  INTEGER NOT NULL
+      revision    INTEGER NOT NULL
     );
 
     -- 비밀값. 값마다 SECRETS_KEY 로 암호화한다(store/secrets). 평문은 끝 네 글자(last4)뿐이다.

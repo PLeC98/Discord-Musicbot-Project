@@ -33,10 +33,10 @@ function writeOne({ name, data, revision }: Write): number {
   if (now !== revision) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀌었습니다(읽은 번호 ${revision}, 지금 ${now})`);
   conn()
     .prepare(
-      `INSERT INTO documents (name, data_json, revision, updated_at) VALUES (?, ?, ?, ?)
-       ON CONFLICT(name) DO UPDATE SET data_json = excluded.data_json, revision = excluded.revision, updated_at = excluded.updated_at`,
+      `INSERT INTO documents (name, data_json, revision) VALUES (?, ?, ?)
+       ON CONFLICT(name) DO UPDATE SET data_json = excluded.data_json, revision = excluded.revision`,
     )
-    .run(name, JSON.stringify(data), now + 1, Date.now());
+    .run(name, JSON.stringify(data), now + 1);
   return now + 1;
 }
 

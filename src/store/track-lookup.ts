@@ -34,7 +34,7 @@ function resolveFromCache(requestKey: string): CacheHit {
 
   const filePath = cached.file_path || audioCache.getFilePath(audioKey);
   if (!fs.existsSync(filePath)) {
-    conn().prepare(`UPDATE audio_cache SET status = 'error', file_path = NULL, updated_at = ? WHERE audio_key = ?`).run(Date.now(), audioKey);
+    conn().prepare(`UPDATE audio_cache SET status = 'error', file_path = NULL WHERE audio_key = ?`).run(audioKey);
     return { hit: false };
   }
 
@@ -65,15 +65,14 @@ function resolveFromCache(requestKey: string): CacheHit {
  */
 function recordTrackLookup(track: Partial<TrackInfo> | null | undefined, { verified = false } = {}) {
   if (!track?.requestKey || !track.audioUrl) return;
-  const now = Date.now();
   const v = verified ? 1 : 0;
   conn()
     .prepare(
       `
           INSERT INTO track_lookup
               (request_key, page_url, audio_url, platform, display_title, display_artist, display_thumbnail,
-               title_verified, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               title_verified)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(request_key) DO UPDATE SET
               page_url          = excluded.page_url,
               audio_url         = excluded.audio_url,
@@ -83,11 +82,10 @@ function recordTrackLookup(track: Partial<TrackInfo> | null | undefined, { verif
                                        THEN excluded.display_artist ELSE track_lookup.display_artist END,
               display_thumbnail = CASE WHEN excluded.display_thumbnail IS NOT NULL
                                        THEN excluded.display_thumbnail ELSE track_lookup.display_thumbnail END,
-              title_verified    = MAX(track_lookup.title_verified, excluded.title_verified),
-              updated_at        = excluded.updated_at
+              title_verified    = MAX(track_lookup.title_verified, excluded.title_verified)
       `,
     )
-    .run(canonicalUrl(track.requestKey), track.pageUrl || track.requestKey, track.audioUrl, track.platform || "unknown", track.title || null, track.artist || null, track.thumbnail || null, v, now, now);
+    .run(canonicalUrl(track.requestKey), track.pageUrl || track.requestKey, track.audioUrl, track.platform || "unknown", track.title || null, track.artist || null, track.thumbnail || null, v);
 }
 
 /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */

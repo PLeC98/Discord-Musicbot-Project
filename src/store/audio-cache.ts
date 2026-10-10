@@ -38,7 +38,6 @@ type AudioRow = {
   last_played_at: number | null;
   downloaded_at: number | null;
   created_at: number;
-  updated_at: number;
 };
 // 장부에 적을 곡 정보. 여기서 읽는 칸만
 type TrackMeta = { title?: string | null; artist?: string | null; channel?: string | null; duration?: number | null };
@@ -179,19 +178,16 @@ function lookupByAudioKey(audioKey: string): AudioRow | null {
 // 장부 쓰기(audio_cache)
 
 function recordDownloadStart(audioKey: string, track: TrackMeta | null | undefined) {
-  const now = Date.now();
   conn()
     .prepare(
       `
           INSERT INTO audio_cache
-              (audio_key, status, duration_sec, title, channel, created_at, updated_at)
-          VALUES (?, 'downloading', ?, ?, ?, ?, ?)
-          ON CONFLICT(audio_key) DO UPDATE SET
-              status     = 'downloading',
-              updated_at = excluded.updated_at
+              (audio_key, status, duration_sec, title, channel, created_at)
+          VALUES (?, 'downloading', ?, ?, ?, ?)
+          ON CONFLICT(audio_key) DO UPDATE SET status = 'downloading'
       `,
     )
-    .run(audioKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, now, now);
+    .run(audioKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, Date.now());
 }
 
 // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
@@ -210,12 +206,11 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
               duration_sec        = COALESCE(?, duration_sec),
               audio_version       = ?,
               version_checked_at  = ?,
-              downloaded_at       = ?,
-              updated_at          = ?
+              downloaded_at       = ?
           WHERE audio_key = ?
       `,
     )
-    .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, now, audioKey);
+    .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, audioKey);
 
   // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
   setImmediate(() => {
@@ -224,19 +219,18 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
 }
 
 function recordError(audioKey: string) {
-  conn().prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_key = ?`).run(Date.now(), audioKey);
+  conn().prepare(`UPDATE audio_cache SET status = 'error' WHERE audio_key = ?`).run(audioKey);
 }
 
 function recordPlayback(audioKey: string) {
-  const now = Date.now();
   conn()
     .prepare(
       `
-          UPDATE audio_cache SET play_count = play_count + 1, last_played_at = ?, updated_at = ?
+          UPDATE audio_cache SET play_count = play_count + 1, last_played_at = ?
           WHERE audio_key = ?
       `,
     )
-    .run(now, now, audioKey);
+    .run(Date.now(), audioKey);
 }
 
 /**
@@ -261,7 +255,7 @@ function sessionKeys(audioUrls = sessions().liveAudioUrls()) {
 
 async function onStartup() {
   // 지난 실행이 받다가 멈춘 줄은 실패로 돌린다
-  const resetCount = conn().prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
+  const resetCount = conn().prepare("UPDATE audio_cache SET status = 'error' WHERE status = 'downloading'").run().changes;
   if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
   // 받아 둔 줄의 파일이 디스크에 남아 있는지 본다
@@ -270,7 +264,7 @@ async function onStartup() {
   for (const row of cachedRows) {
     const fp = row.file_path || getFilePath(row.audio_key);
     if (!fs.existsSync(fp)) {
-      conn().prepare("UPDATE audio_cache SET status = 'error', file_path = NULL, updated_at = ? WHERE audio_key = ?").run(Date.now(), row.audio_key);
+      conn().prepare("UPDATE audio_cache SET status = 'error', file_path = NULL WHERE audio_key = ?").run(row.audio_key);
       orphanDbCount++;
     }
   }

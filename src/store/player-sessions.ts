@@ -49,7 +49,6 @@ type SessionRow = {
   autoplay: string | null;
   paused_manual: number;
   position_ms: number;
-  updated_at: number;
 };
 
 /** 세션 한 벌(트랙 말고). 저장할 때는 빠진 칸을 기본값으로 */
@@ -119,7 +118,6 @@ function sessionFromRow(row: SessionRow) {
     autoplay: row.autoplay,
     pausedManual: Boolean(row.paused_manual),
     positionMs: row.position_ms,
-    updatedAt: row.updated_at,
   };
 }
 
@@ -127,17 +125,17 @@ function queries(conn: Db) {
   const cols = TRACK_COLUMNS.join(", ");
   const params = TRACK_COLUMNS.map((c) => `@${c}`).join(", ");
   return {
-    ensure: conn.prepare<[string, number]>("INSERT OR IGNORE INTO player_sessions (guild_id, updated_at) VALUES (?, ?)"),
+    ensure: conn.prepare<[string]>("INSERT OR IGNORE INTO player_sessions (guild_id) VALUES (?)"),
     upsert: conn.prepare<SessionRow>(`
         INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
-                                     paused_manual, position_ms, updated_at)
+                                     paused_manual, position_ms)
         VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
-                @paused_manual, @position_ms, @updated_at)
+                @paused_manual, @position_ms)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
           volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
-          paused_manual = excluded.paused_manual, position_ms = excluded.position_ms, updated_at = excluded.updated_at`),
-    position: conn.prepare<[number, number, string]>("UPDATE player_sessions SET position_ms = ?, updated_at = ? WHERE guild_id = ?"),
+          paused_manual = excluded.paused_manual, position_ms = excluded.position_ms`),
+    position: conn.prepare<[number, string]>("UPDATE player_sessions SET position_ms = ? WHERE guild_id = ?"),
     deleteSession: conn.prepare<[string]>("DELETE FROM player_sessions WHERE guild_id = ?"),
     deleteGuildTracks: conn.prepare<[string]>("DELETE FROM session_tracks WHERE guild_id = ?"),
     insert: conn.prepare<TrackParams & { guild_id: string; slot: Slot; seq: number }>(`INSERT INTO session_tracks (guild_id, slot, seq, ${cols}) VALUES (@guild_id, @slot, @seq, ${params})`),
@@ -176,7 +174,7 @@ class PlayerSessionStore {
   }
 
   _ensure(guildId: string) {
-    this.q.ensure.run(guildId, Date.now());
+    this.q.ensure.run(guildId);
   }
 
   _insert(guildId: string, slot: Slot, seq: number, track: TrackIn) {
@@ -226,15 +224,13 @@ class PlayerSessionStore {
       autoplay: s.autoplay || null,
       paused_manual: s.pausedManual ? 1 : 0,
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
-      updated_at: Date.now(),
     });
   }
 
   // 재생 위치만. 활성 플레이어 전부를 한 트랜잭션에
   savePositions(entries: Array<{ guildId: string; positionMs?: number }>) {
-    const now = Date.now();
     this._tx(() => {
-      for (const e of entries) this.q.position.run(Math.max(0, Math.round(e.positionMs ?? 0)), now, e.guildId);
+      for (const e of entries) this.q.position.run(Math.max(0, Math.round(e.positionMs ?? 0)), e.guildId);
     });
   }
 

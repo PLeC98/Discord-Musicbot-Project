@@ -32,8 +32,7 @@ function createTables(db: Db) {
                 play_count          INTEGER NOT NULL DEFAULT 0,
                 last_played_at      INTEGER,
                 downloaded_at       INTEGER,
-                created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+                created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
             -- 링크 장부. "이 요청은 이 음원이다". 파일이 있든 없든 참이라 퇴거해도 남는다.
@@ -48,9 +47,7 @@ function createTables(db: Db) {
                 display_thumbnail   TEXT,
                 -- 제목의 출처: 1=영상 자체에서 확인, 0=재생목록 페이지 등 간접 출처.
                 -- 재생목록이 주는 제목은 낡을 수 있어(같은 영상인데 다르다), 확인된 제목을 덮으면 안 된다.
-                title_verified      INTEGER NOT NULL DEFAULT 0,
-                created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+                title_verified      INTEGER NOT NULL DEFAULT 0
             );
 
             -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용. 라이브 조회 실패 시 사용).

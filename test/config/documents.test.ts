@@ -85,7 +85,7 @@ test("함께 저장: 번호를 안 준 문서는 번호를 보지 않는다. 새
 });
 
 test("DB 에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서로 돈다", () => {
-  store.settings().prepare("INSERT INTO documents (name, data_json, revision, updated_at) VALUES ('status', '{깨짐', 3, 0)").run();
+  store.settings().prepare("INSERT INTO documents (name, data_json, revision) VALUES ('status', '{깨짐', 3)").run();
   documents.attach(settingsDocs);
   assert.deepEqual(documents.get("status"), documents.defaultOf("status"));
   assert.equal(documents.revisionOf("status"), 3, "다음 저장은 번호 3 에 이어서");

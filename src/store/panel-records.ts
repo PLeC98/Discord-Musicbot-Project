@@ -40,13 +40,12 @@ async function setPanel(guildId: string, channelId: string | null, messageId: st
     if (messageId) {
       conn()
         .prepare(
-          `INSERT INTO now_playing_panel (guild_id, channel_id, message_id, updated_at) VALUES (?, ?, ?, ?)
+          `INSERT INTO now_playing_panel (guild_id, channel_id, message_id) VALUES (?, ?, ?)
            ON CONFLICT(guild_id) DO UPDATE SET
                channel_id = excluded.channel_id,
-               message_id = excluded.message_id,
-               updated_at = excluded.updated_at`,
+               message_id = excluded.message_id`,
         )
-        .run(guildId, channelId, messageId, Date.now());
+        .run(guildId, channelId, messageId);
     } else {
       conn().prepare("DELETE FROM now_playing_panel WHERE guild_id = ?").run(guildId);
     }

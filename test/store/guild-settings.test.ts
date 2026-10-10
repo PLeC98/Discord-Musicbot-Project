@@ -212,7 +212,7 @@ test("DJ 역할: 빈 배열 저장 = 미설정과 동일. 빈 문서가 되면 �
 });
 
 test("손상된 문서는 정하지 않은 것으로 (기동 불능 방지)", () => {
-  settingsDb.get().prepare("INSERT INTO guild_settings (guild_id, data_json, updated_at) VALUES ('g3', 'not-json', 0)").run();
+  settingsDb.get().prepare("INSERT INTO guild_settings (guild_id, data_json) VALUES ('g3', 'not-json')").run();
   assert.deepEqual(guildTable.getDjRoles("g3"), []);
   assert.equal(guildTable.getBotChannel("g3"), null);
 });
@@ -220,7 +220,7 @@ test("손상된 문서는 정하지 않은 것으로 (기동 불능 방지)", ()
 test("칸 하나의 모양이 틀려도 다른 칸은 읽는다", () => {
   settingsDb
     .get()
-    .prepare("INSERT INTO guild_settings (guild_id, data_json, updated_at) VALUES ('g5', ?, 0)")
+    .prepare("INSERT INTO guild_settings (guild_id, data_json) VALUES ('g5', ?)")
     .run(JSON.stringify({ djRoleIds: "r1", botChannelId: "c5", playlistAddMax: -3 }));
   const from = sink.buffer.length;
   assert.deepEqual(guildTable.getDjRoles("g5"), []);
