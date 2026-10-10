@@ -21,7 +21,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "postinstall": "node scripts/setup-config.ts && node scripts/install-ffmpeg.ts && node scripts/update-ytdlp.ts",
+    "postinstall": "node scripts/setup-config.ts && node scripts/install-ffmpeg.ts && node scripts/update-ytdlp.ts && pnpm run build:dashboard",
     "install:ffmpeg": "node scripts/install-ffmpeg.ts",
     "typecheck": "tsc -p . && tsc -p test/dashboard/client && pnpm --dir dashboard run typecheck"
   },

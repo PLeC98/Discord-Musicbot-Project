@@ -4,7 +4,7 @@ const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import config from "../../config/index.ts";
 import type { SessionUser } from "../express-slots.d.ts";
-import { loginFailed } from "../contract/identity.ts";
+import { loginFailed, type LoginError } from "../contract/identity.ts";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
@@ -43,6 +43,25 @@ const discordHttp: DiscordHttp = {
 // 요청 실패에서 읽는 칸. 응답이 있으면 상태와 본문, 없으면(시간 초과 · 연결 실패) 이름과 문장
 type Failure = { response?: { status?: number; data?: unknown }; name?: string; message?: string; cause?: { code?: string } };
 const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
+/** 디스코드가 봇의 앱 자격(클라이언트 ID · 시크릿)을 거절한 응답인가 */
+const isBadClient = (response: Failure["response"]) => (response?.data as { error?: unknown } | undefined)?.error === "invalid_client";
+
+/** 콜백에서 디스코드를 부르다 실패했다. 까닭을 남기고 로그인 화면에 보일 까닭을 고른다 */
+function callbackFailure(error: unknown, redirectUri: string): LoginError {
+  const { response, name, message, cause } = failureOf(error);
+  // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다
+  if (isBadClient(response)) {
+    log.error({ status: response?.status }, "OAuth 토큰 교환 거절: CLIENT_SECRET 이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다릅니다");
+    return "bad_client";
+  }
+  // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게
+  const what = response ? `상태 코드 ${response.status}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
+  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, `OAuth 콜백 오류: ${what}`);
+  return "auth_failed";
+}
+
+/** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
+const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
 /**
  * 디스코드 OAuth 로그인 · 로그아웃.
@@ -51,14 +70,8 @@ const failureOf = (error: unknown): Failure => (typeof error === "object" && err
 function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
   const CLIENT_ID = config.discord.clientId;
-  const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 없으면 기동 때 경고. 로그인이 디스코드에서 거절된다
-  const REDIRECT_URI = `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
-
-  // 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
-  // CLIENT_ID는 config에서 필수 검증되므로(없으면 기동 실패) 출력 불필요하고,
-  // 운영자 ID는 봇 운영자의 신원이라 원시 ID를 로그(=운영자 SSE 로그 스트림)에 남기지 않는다.
-  log.debug({ sub: "auth" }, `리디렉션 URI: ${REDIRECT_URI}`);
-  log.debug({ sub: "auth" }, `운영자 ID: ${config.dashboard.ownerId ? "설정됨" : "미설정"}`);
+  const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
+  const REDIRECT_URI = callbackUrl();
 
   // 디스코드 OAuth 로 보낸다
   router.get("/login", (req, res) => {
@@ -132,11 +145,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         req.session.save(() => res.redirect("/dashboard"));
       });
     } catch (error) {
-      const { response, name, message, cause } = failureOf(error);
-      // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게
-      const what = response ? `상태 코드 ${response.status}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
-      log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: ${what}`);
-      res.redirect(loginFailed("auth_failed"));
+      res.redirect(loginFailed(callbackFailure(error, REDIRECT_URI)));
     }
   });
 
@@ -148,5 +157,5 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   return router;
 }
 
-export { createAuthRouter };
+export { createAuthRouter, callbackUrl };
 export type { DiscordHttp };

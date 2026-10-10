@@ -14,8 +14,8 @@ type Me = { id: string; username: string; globalName: string; avatar: string | n
  *  faviconVersion 은 파비콘의 버전(올리거나 지울 때마다 오른다) */
 type BotInfo = { name: string | null; avatarUrl: string | null; sourceRepo: string; projectRepo: string; brandColor: string; faviconVersion: number };
 
-/** 로그인 콜백이 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=): 승인 화면에서 취소 · 인증 코드가 없음 · 그 밖의 실패 */
-type LoginError = "denied" | "no_code" | "auth_failed";
+/** 로그인 콜백이 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=): 승인 화면에서 취소 · 인증 코드가 없음 · 디스코드가 봇의 앱 자격(시크릿)을 거절 · 그 밖의 실패 */
+type LoginError = "denied" | "no_code" | "bad_client" | "auth_failed";
 /** 로그인 실패로 돌려보낼 주소 */
 const loginFailed = (why: LoginError) => `/?error=${why}`;
 

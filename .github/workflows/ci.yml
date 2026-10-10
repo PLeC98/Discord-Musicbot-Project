@@ -52,6 +52,7 @@ jobs:
       - name: Create test environment file
         run: node -e "require('node:fs').writeFileSync('.env', '')"
 
+      # postinstall 이 대시보드 화면도 빌드한다(빌드가 깨지면 여기서 멈춘다)
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -81,6 +82,3 @@ jobs:
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-
-      - name: Build dashboard
-        run: pnpm run build:dashboard

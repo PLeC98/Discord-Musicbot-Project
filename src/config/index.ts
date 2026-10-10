@@ -176,6 +176,9 @@ function resolveFromRoot(p: string | null) {
   return path.isAbsolute(p) ? p : path.resolve(PROJECT.root, p);
 }
 
+/** 비면 기동을 멈추는 자격증명. 봇 로그인 · 명령 배포 · 대시보드 로그인(OAuth) */
+const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as const;
+
 /**
  * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나
  */
@@ -189,12 +192,14 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
+  // CLIENT_SECRET 도 필수다: 대시보드는 늘 같이 뜨고 로그인(OAuth)이 없으면 쓸 수 없다.
   // .env 가 없으면 그 문제 하나만 알린다(나머지는 거기서 따라 나온다).
-  if (envFileFound && (!env("DISCORD_TOKEN") || !env("CLIENT_ID"))) {
-    problems.push("DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다. .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요.");
+  const missing = REQUIRED_CREDENTIALS.filter((name) => !env(name));
+  if (envFileFound && missing.length) {
+    problems.push(`비어 있는 필수 값: ${missing.join(" · ")}. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.`);
   }
-  if (!env("CLIENT_SECRET")) {
-    warnings.push("CLIENT_SECRET 미설정. 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
+  if (!env("OWNER_ID")) {
+    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
   }
   if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
     warnings.push("Spotify API 키 미설정. 트랙 · 앨범은 비활성, 재생목록 · 아티스트는 자격증명 없이 동작합니다.");

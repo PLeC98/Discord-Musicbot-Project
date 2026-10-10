@@ -43,7 +43,7 @@ const get = async (urlPath: string) => {
 
 test("빌드가 없으면 빌드하라고 알리고, 켜 둔 채 빌드하면 다시 켜지 않고 화면을 내준다", async () => {
   const before = await get("/");
-  assert.match(before.body, /not built/);
+  assert.match(before.body, /pnpm run build:dashboard/);
 
   fs.writeFileSync(path.join(dist, "index.html"), "<!doctype html><title>화면</title>");
   fs.mkdirSync(path.join(dist, "assets"), { recursive: true });

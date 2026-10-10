@@ -81,13 +81,14 @@ test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
   assert.match(problems[2], /LOG_LEVEL.*trace·debug·info·warn·error·fatal 중 하나/);
 });
 
-test("자격증명: 봇 토큰이 없으면 문제, 기능 한정 키가 없으면 경고", () => {
+test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 문제(빈 것만 짚는다), 운영자 ID · 기능 한정 키가 없으면 경고", () => {
   const bare = loadConfig({});
-  assert.deepEqual(bare.problems, ["DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다. .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요."]);
+  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN · CLIENT_ID · CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
+  assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1" }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
   assert.equal(bare.warnings.length, 2);
-  assert.match(bare.warnings[0], /CLIENT_SECRET/);
+  assert.match(bare.warnings[0], /OWNER_ID/);
   assert.match(bare.warnings[1], /Spotify/);
-  assert.deepEqual(load({}).warnings, []);
+  assert.deepEqual(load({ OWNER_ID: "9" }).warnings, []);
 });
 
 test(".env 가 없으면 그 문제 하나만 알린다", () => {

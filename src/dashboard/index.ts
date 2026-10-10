@@ -16,7 +16,7 @@ import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
 import { isLoopbackHost, listen } from "./binding.ts";
-import { createAuthRouter } from "./routes/auth.ts";
+import { callbackUrl, createAuthRouter } from "./routes/auth.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
@@ -105,7 +105,7 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   app.use(express.static(clientDist));
   app.get("/{*path}", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
-    if (!fs.existsSync(indexHtml)) return res.send("<h2>Dashboard client not built yet.<br>Run: <code>cd dashboard && pnpm install && pnpm build</code></h2>");
+    if (!fs.existsSync(indexHtml)) return res.send("<h2>대시보드 화면이 빌드되지 않았어요.<br>봇 폴더에서 <code>pnpm run build:dashboard</code> 를 실행한 뒤 새로고침하세요.</h2>");
     res.sendFile(indexHtml);
   });
 
@@ -150,6 +150,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands }: AppDeps) {
   startStatus(bot);
 
   listen(app, config.dashboard, () => {
+    // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
+    log.info(`디스코드 개발자 포털 OAuth2 → Redirects 에 등록할 주소: ${callbackUrl()}`);
     // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
     if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
   });

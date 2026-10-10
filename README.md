@@ -79,16 +79,23 @@
 ```bash
 git clone https://github.com/PLeC98/Discord-Musicbot-Project.git
 cd Discord-Musicbot-Project
-pnpm install
+pnpm install           # 의존성 · ffmpeg · yt-dlp 를 받고 대시보드 화면까지 빌드
 cp .env.example .env   # 이후 .env 편집
 ```
 
-`.env` 필수 항목:
+`.env` 필수 항목(하나라도 비면 봇이 켜지지 않고 비어 있는 이름을 알려 줍니다). 셋 다 [Discord Developer Portal](https://discord.com/developers/applications)의 애플리케이션에서 받습니다.
+
+| 변수            | 설명                                                               |
+| --------------- | ------------------------------------------------------------------ |
+| `DISCORD_TOKEN` | 봇 토큰 (Bot → Token)                                              |
+| `CLIENT_ID`     | 애플리케이션 ID (OAuth2 → Client ID)                               |
+| `CLIENT_SECRET` | 클라이언트 시크릿 (OAuth2 → Client Secret). 대시보드 로그인에 쓰임 |
+
+자주 쓰는 선택 항목:
 
 | 변수                                          | 설명                                                                                   |
 | --------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `DISCORD_TOKEN`                               | 봇 토큰                                                                                |
-| `CLIENT_ID` / `CLIENT_SECRET`                 | Discord 애플리케이션 ID / 시크릿 (시크릿은 대시보드 OAuth용)                           |
+| `OWNER_ID`                                    | 봇 운영자의 Discord 사용자 ID. 대시보드 운영자 패널 · `/system`. 비우면 기동 때 경고   |
 | `GUILD_ID`                                    | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)                |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify 링크 지원용 ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
 
@@ -264,16 +271,14 @@ pnpm run start    # 일반 실행
 
 ## 대시보드
 
-1. `.env`에 대시보드 설정 값들을 본인 환경에 맞게 설정
-2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에
-   `{DASHBOARD_URL}/auth/callback` 추가
-3. 클라이언트 빌드:
+봇을 켜면 대시보드 서버가 함께 뜹니다(기본 `http://localhost:33333`). 화면은 `pnpm install` 때 빌드됩니다.
 
-```bash
-pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm install이 워크스페이스로 이미 설치)
-```
+1. `.env`의 `CLIENT_SECRET`(필수)과 `OWNER_ID`(운영자 패널)를 채웁니다.
+2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에 `{DASHBOARD_URL}/auth/callback`을 추가합니다.
+   봇을 켜면 기동 로그에 등록할 주소가 그대로 찍힙니다(기본 `http://localhost:33333/auth/callback`).
+3. 브라우저로 대시보드를 열고 Discord로 로그인합니다.
 
-4. 봇 실행 시 대시보드 서버가 함께 시작됩니다.
+화면을 고쳤거나 빌드가 지워졌으면 `pnpm run build:dashboard`로 다시 빌드합니다(봇은 다시 켜지 않아도 됩니다).
 
 ### 다른 기기에서 접속하기
 
@@ -306,14 +311,14 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 
 `git pull`로 코드를 갱신한 뒤, 갱신 내용에 따라:
 
-| 명령                       | 용도                                                                    |
-| -------------------------- | ----------------------------------------------------------------------- |
-| `pnpm install`             | 루트 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 목표 버전 받기) |
-| `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                                             |
-| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                     |
-| `pnpm run update:ytdlp`    | yt-dlp 를 목표 버전(`.env` 의 채널 · 고정 버전)으로 받기                |
-| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                    |
-| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                               |
+| 명령                       | 용도                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm install`             | 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 목표 버전 받기, 대시보드 빌드) |
+| `pnpm run build:dashboard` | 대시보드 화면만 다시 빌드                                                         |
+| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                               |
+| `pnpm run update:ytdlp`    | yt-dlp 를 목표 버전(`.env` 의 채널 · 고정 버전)으로 받기                          |
+| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                              |
+| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                                         |
 
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.

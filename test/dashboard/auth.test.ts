@@ -110,6 +110,14 @@ test("콜백: 디스코드가 실패하면 실패로 돌려보낸다", async () 
   assert.equal(await (await go("/me")).json(), null);
 });
 
+test("콜백: 디스코드가 봇의 앱 자격(시크릿)을 거절하면 그 까닭으로 돌려보낸다", async () => {
+  const fail = Object.assign(new Error("bad"), { response: { status: 401, data: { error: "invalid_client" } } });
+  const { go } = await start(fakeDiscord({ fail }));
+  const state = new URL(location(await go("/auth/login"))).searchParams.get("state");
+  assert.equal(location(await go(`/auth/callback?code=abc&state=${state}`)), "/?error=bad_client");
+  assert.equal(await (await go("/me")).json(), null);
+});
+
 test("로그아웃: 세션을 지우고 204", async () => {
   const { go } = await start(fakeDiscord());
   const state = new URL(location(await go("/auth/login"))).searchParams.get("state");
