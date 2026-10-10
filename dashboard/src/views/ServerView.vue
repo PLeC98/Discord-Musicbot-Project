@@ -310,6 +310,7 @@ import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
 import { QUEUE_PAGE, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
+import type { IconName } from "../icons.ts";
 
 // 음량 단추(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
@@ -658,7 +659,7 @@ const nextTitle = computed(() => (player.value.queue[0] ? songTitle(player.value
 onKeyStroke("Escape", () => (volumeOpen.value = false));
 
 // 머리 아래 한 줄: 나와 봇의 음성 채널
-const voiceLine = computed(() => {
+const voiceLine = computed((): { icon: IconName; text: string } => {
   const p = player.value;
   if (p.sameVoice) return { icon: "headphones", text: "봇과 같은 음성 채널에 있어요" };
   if (p.botInVoice) return { icon: "headset_off", text: p.userInVoice ? "봇이 다른 음성 채널에 있어요" : "봇이 음성 채널에 있어요" };

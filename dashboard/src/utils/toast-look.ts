@@ -1,7 +1,8 @@
 // 알림 종류마다의 모양(떠 있는 알림 · 알림함이 같이 쓴다): 됨은 주 색, 경고는 3차 색, 오류는 오류 색
 import type { Severity } from "../composables/toasts.ts";
+import type { IconName } from "../icons.ts";
 
-export const TOAST_LOOK: Record<Severity, { icon: string; badge: string; bar: string; ink: string }> = {
+export const TOAST_LOOK: Record<Severity, { icon: IconName; badge: string; bar: string; ink: string }> = {
   success: { icon: "check_circle", badge: "bg-primary-container text-on-primary-container", bar: "bg-primary", ink: "text-primary" },
   warning: { icon: "warning", badge: "bg-tertiary-container text-on-tertiary-container", bar: "bg-tertiary", ink: "text-tertiary" },
   error: { icon: "error", badge: "bg-error-container text-on-error-container", bar: "bg-error", ink: "text-error" },

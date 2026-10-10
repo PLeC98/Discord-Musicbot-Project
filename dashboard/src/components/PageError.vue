@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import AppWindow from "../shell/AppWindow.vue";
 import Icon from "./BaseIcon.vue";
+import type { IconName } from "../icons.ts";
 
-defineProps<{ icon: string; text: string }>();
+defineProps<{ icon: IconName; text: string }>();
 </script>

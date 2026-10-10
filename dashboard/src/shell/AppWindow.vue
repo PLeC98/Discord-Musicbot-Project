@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 import PaneHeader from "../components/PaneHeader.vue";
+import type { IconName } from "../icons.ts";
 
-withDefaults(defineProps<{ title?: string; icon?: string }>(), { title: "", icon: "" });
+withDefaults(defineProps<{ title?: string; icon?: IconName }>(), { title: "" });
 </script>

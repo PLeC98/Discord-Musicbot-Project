@@ -51,6 +51,7 @@ import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import BaseSwitch from "./BaseSwitch.vue";
 import { mode, prefs, setMode, setPref, type Mode, type Prefs } from "../theme/theme.ts";
+import type { IconName } from "../icons.ts";
 
 // 내용이 화면보다 길면 구른다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
 const dialogEl = ref<HTMLElement | null>(null);
@@ -60,13 +61,13 @@ const open = defineModel<boolean>({ required: true });
 const close = () => (open.value = false);
 onKeyStroke("Escape", () => open.value && close());
 
-const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: string }> = [
+const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
   { mode: "dark", label: "어둡게", icon: "dark_mode" },
   { mode: "light", label: "밝게", icon: "light_mode" },
   { mode: "system", label: "시스템", icon: "contrast" },
 ];
 
-type Row = { key: keyof Prefs; label: string; desc: string; icon: string };
+type Row = { key: keyof Prefs; label: string; desc: string; icon: IconName };
 const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
     title: "테마",

@@ -43,6 +43,7 @@
 import { computed, defineComponent, h } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import type { IconName } from "../icons.ts";
 
 const props = defineProps<{ status: AdminStatus }>();
 
@@ -65,7 +66,7 @@ const Frame = defineComponent({
 /**
  * starship 식 프롬프트(기본 설정처럼 두 줄): 색 칸(사용자@호스트 · 폴더 · 갈래)이 꺾쇠로 이어지고 다음 줄에 ❯ 와 명령. cursor 면 명령 대신 깜박이는 커서
  */
-const PROMPT = [
+const PROMPT: Array<{ icon: IconName; text: string; tone: string; ink: string }> = [
   { icon: "person", text: "operator@musicbot", tone: "bg-primary text-on-primary", ink: "var(--md-primary)" },
   { icon: "folder", text: "~/musicbot", tone: "bg-secondary text-on-secondary", ink: "var(--md-secondary)" },
   { icon: "commit", text: "main", tone: "bg-tertiary text-on-tertiary", ink: "var(--md-tertiary)" },
@@ -119,7 +120,7 @@ const dateTimeText = (ms: number) => {
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}`;
 };
 
-type InfoRow = { icon: string; key: string; value: string; note?: string };
+type InfoRow = { icon: IconName; key: string; value: string; note?: string };
 const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[] }>>(() => {
   const { status } = props;
   const memUsed = status.system.totalMem - status.system.freeMem;

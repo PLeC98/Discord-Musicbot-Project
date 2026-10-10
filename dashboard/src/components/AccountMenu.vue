@@ -77,6 +77,7 @@ import SettingsDialog from "./SettingsDialog.vue";
 import LicenseDialog from "./LicenseDialog.vue";
 import { useUserStore } from "../stores/user.ts";
 import { mode, setMode, type Mode } from "../theme/theme.ts";
+import type { IconName } from "../icons.ts";
 
 // wide: 펼친 레일(이름까지) / compact: 휴대폰 위 막대(작은 동그라미) / 둘 다 아니면 좁은 레일
 // labeled: 펼친 세로 막대(작은 그림 + 이름 · 아이디)
@@ -91,7 +92,7 @@ const settingsOpen = ref(false);
 const licenseOpen = ref(false);
 const MENU_WIDTH_REM = 17.5; // w-70
 
-const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: string }> = [
+const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
   { mode: "dark", label: "어둡게", icon: "dark_mode" },
   { mode: "light", label: "밝게", icon: "light_mode" },
   { mode: "system", label: "시스템", icon: "contrast" },

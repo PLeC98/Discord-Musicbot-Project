@@ -143,10 +143,11 @@ import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { KEPT_LINES, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { AdminGuilds, AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import type { IconName } from "../icons.ts";
 
 /** 탭 하나. needsCookieFile 이면 쿠키를 파일로 읽을 때만 보인다 */
 /** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
-type Tab = { id: string; label: string; icon: string; group: "status" | "watch" | "outside" | "autoplay" | "dev"; needsCookieFile?: boolean };
+type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "outside" | "autoplay" | "dev"; needsCookieFile?: boolean };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다

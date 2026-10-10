@@ -253,6 +253,7 @@ import { koMatch } from "../utils/ko-search.ts";
 import { valueOf } from "../utils/dom.ts";
 import { formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
+import type { IconName } from "../icons.ts";
 
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
@@ -260,7 +261,7 @@ const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 // ── 판정 · 모양 ──
 type Level = "ok" | "warn" | "bad";
 const levelOf = (v: number, warn: number, bad: number): Level => (v >= bad ? "bad" : v >= warn ? "warn" : "ok");
-const LEVEL_ICON: Record<Level, string> = { ok: "check_circle", warn: "warning", bad: "cancel" };
+const LEVEL_ICON: Record<Level, IconName> = { ok: "check_circle", warn: "warning", bad: "cancel" };
 const LEVEL_TEXT: Record<Level, string> = { ok: "", warn: "text-(--warn-ink)", bad: "text-error" };
 const LEVEL_GRAPH: Record<Level, string> = { ok: "text-primary", warn: "text-(--warn-ink)", bad: "text-error" };
 const LEVEL_BAR: Record<Level, string> = { ok: "bg-primary", warn: "bg-(--warn-ink)", bad: "bg-error" };
@@ -375,7 +376,7 @@ const metrics = computed<Metric[]>(() => {
 
 // ── ② 연결 ──
 const LINK_WORD: Record<LinkState, string> = { ok: "정상", slow: "느림", fail: "실패", idle: "대기 중", off: "비활성" };
-const LINK_ICON: Record<LinkState, string> = { ok: "check_circle", slow: "warning", fail: "cancel", idle: "schedule", off: "block" };
+const LINK_ICON: Record<LinkState, IconName> = { ok: "check_circle", slow: "warning", fail: "cancel", idle: "schedule", off: "block" };
 const LINK_ICON_FILLED: Record<LinkState, boolean> = { ok: true, slow: true, fail: true, idle: false, off: false };
 const LINK_TEXT: Record<LinkState, string> = { ok: "text-(--ok-ink)", slow: "text-(--warn-ink)", fail: "text-error", idle: "text-on-surface-variant", off: "text-on-surface-variant" };
 // 칸 너비를 묶음 · 열과 상관없이 고정해 이름 · 마지막 성공 · 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock" 이 들어가게)

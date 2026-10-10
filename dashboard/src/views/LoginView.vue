@@ -97,6 +97,7 @@ import { useMediaQuery } from "@vueuse/core";
 import { SHORT_QUERY } from "../utils/breakpoints.ts";
 import { isModifiedSource } from "../utils/licenses.ts";
 import type { BotInfo, LoginError } from "../../../src/dashboard/contract/identity.ts";
+import type { IconName } from "../icons.ts";
 
 const NL = "\n";
 const ISLAND = "pane rounded-full h-9 px-4 flex items-center gap-2 text-on-surface";
@@ -139,7 +140,7 @@ const clock = computed(() => `${two(now.value.getHours())}:${two(now.value.getMi
 const short = useMediaQuery(SHORT_QUERY);
 
 // 위 막대 왼쪽의 밝기 알약(작업 공간 차례처럼)
-const MODE_PILLS: Array<{ mode: Mode; label: string; icon: string }> = [
+const MODE_PILLS: Array<{ mode: Mode; label: string; icon: IconName }> = [
   { mode: "dark", label: "어두운 화면", icon: "dark_mode" },
   { mode: "light", label: "밝은 화면", icon: "light_mode" },
   { mode: "system", label: "시스템 설정 따르기", icon: "contrast" },

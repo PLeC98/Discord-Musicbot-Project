@@ -20,9 +20,10 @@
 <script setup lang="ts">
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
+import type { IconName } from "../icons.ts";
 
 /** tone: danger(되돌릴 수 없는 일, 오류 색) · primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다 */
-withDefaults(defineProps<{ icon: string; title: string; body: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean }>(), { tone: "danger", busy: false });
+withDefaults(defineProps<{ icon: IconName; title: string; body: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean }>(), { tone: "danger", busy: false });
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ confirm: [] }>();
 </script>

@@ -9,13 +9,14 @@
 @import "@fontsource-variable/google-sans-flex/full.css";
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 
-/* 아이콘 글꼴. 받기 전에는 글자 이름("graphic_eq")이 그대로 보이므로 swap 대신 block 으로 받는 동안 비워 둔다(main.ts 가 미리 받기도 건다) */
+/* 아이콘 글꼴: 화면이 쓰는 기호만 담은 부분 글꼴(icons.ts, scripts/build-icon-font.ts 가 만든다). 기호는 코드포인트로 그린다.
+   받기 전에는 빈 네모가 보이므로 swap 대신 block 으로 받는 동안 비워 둔다(main.ts 가 미리 받기도 건다) */
 @font-face {
   font-family: "Material Symbols Rounded Variable";
   font-style: normal;
   font-display: block;
   font-weight: 100 700;
-  src: url("@fontsource-variable/material-symbols-rounded/files/material-symbols-rounded-latin-fill-normal.woff2") format("woff2-variations");
+  src: url("./assets/material-symbols.woff2") format("woff2-variations");
 }
 
 /* 이모지는 Twemoji 그림(TwemojiImage.vue)으로 그린다. 이 폰트는 그림을 못 받아왔을 때의 대비다

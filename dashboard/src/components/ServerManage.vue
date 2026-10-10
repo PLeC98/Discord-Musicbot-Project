@@ -121,6 +121,7 @@ import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
 import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, type AdminGuilds, type AnnounceKind, type BroadcastReply } from "../../../src/dashboard/contract/admin.ts";
+import type { IconName } from "../icons.ts";
 
 type AdminGuild = AdminGuilds["guilds"][number];
 const props = defineProps<{ guilds: AdminGuild[] }>();
@@ -134,7 +135,7 @@ const FIELD = "block w-full bg-surface-container-highest border border-transpare
 // 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
 const KIND_LABEL: Record<AnnounceKind, string> = { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" };
 // 종류 버튼의 아이콘(보낼 임베드의 이모지와 같은 뜻)
-const KIND_ICON: Record<AnnounceKind, string> = { maintenance: "build", update: "new_releases", alert: "warning", info: "info" };
+const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: "build", update: "new_releases", alert: "warning", info: "info" };
 const KINDS = (Object.entries(KIND_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label, icon: KIND_ICON[value] }));
 const kind = ref<AnnounceKind>("maintenance");
 const message = ref("");
@@ -158,7 +159,7 @@ function revealSpoiler(e: MouseEvent) {
 
 // 서식 도구. 단축키는 디스코드와 같다(굵게 Ctrl+B · 기울임 Ctrl+I · 밑줄 Ctrl+U · 링크 Ctrl+K)
 type Run = (text: string, start: number, end: number) => Edit;
-const tool = (icon: string, label: string, run: Run, key?: string) => ({ icon, label, tip: key ? `${label} (${key})` : label, run });
+const tool = (icon: IconName, label: string, run: Run, key?: string) => ({ icon, label, tip: key ? `${label} (${key})` : label, run });
 const FORMAT_GROUPS = [
   [tool("format_bold", "굵게", (t, a, b) => wrap(t, a, b, "**"), "Ctrl+B"), tool("format_italic", "기울임", (t, a, b) => wrap(t, a, b, "*"), "Ctrl+I"), tool("format_underlined", "밑줄", (t, a, b) => wrap(t, a, b, "__"), "Ctrl+U"), tool("format_strikethrough", "취소선", (t, a, b) => wrap(t, a, b, "~~")), tool("visibility_off", "스포일러", (t, a, b) => wrap(t, a, b, "||"))],
   [tool("format_h1", "제목 1", (t, a, b) => linePrefix(t, a, b, "# ")), tool("format_h2", "제목 2", (t, a, b) => linePrefix(t, a, b, "## ")), tool("format_h3", "제목 3", (t, a, b) => linePrefix(t, a, b, "### ")), tool("text_decrease", "작은 글씨", (t, a, b) => linePrefix(t, a, b, "-# "))],

@@ -34,9 +34,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import Icon from "./BaseIcon.vue";
+import type { IconName } from "../icons.ts";
 
 /** compact: 낮은 화면(휴대폰 가로). 머리를 64 로 줄인다 */
-const props = withDefaults(defineProps<{ title: string; icon?: string; next?: string; deskHeight: number; compact?: boolean }>(), { icon: "queue_music", next: "", compact: false });
+const props = withDefaults(defineProps<{ title: string; icon?: IconName; next?: string; deskHeight: number; compact?: boolean }>(), { icon: "queue_music", next: "", compact: false });
 
 type Stop = "peek" | "half" | "full";
 const stop = ref<Stop>("peek");

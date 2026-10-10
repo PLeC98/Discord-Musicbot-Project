@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@fontsource-variable/google-sans-flex": "^5.3.1",
-    "@fontsource-variable/material-symbols-rounded": "^5.3.8",
     "@material/material-color-utilities": "^0.4.0",
     "@twemoji/api": "^17.0.3",
     "@vueuse/core": "^15.0.0",
@@ -22,6 +21,7 @@
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
+    "@fontsource-variable/material-symbols-rounded": "^5.3.8",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "^6.0.9",
