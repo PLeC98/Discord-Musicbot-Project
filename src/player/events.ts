@@ -21,6 +21,7 @@ type Requester = { id: string; username?: string };
 /** 글자 채널에 알릴 일과 그 세부 */
 type Notices = {
   "autoplay-unknown-genre": { genre: string };
+  "autoplay-genre-unusable": { genre: string; keys: string };
   "autoplay-gave-up": { genre: string };
   "skipped-after-error": { error: unknown };
   "failed-in-row": { count: number; left: number };

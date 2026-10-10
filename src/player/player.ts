@@ -1089,6 +1089,13 @@ class Player {
       this.setAutoplay(false);
       return false;
     }
+    const missing = genreConfig.unusableGenre(genre);
+    if (missing) {
+      log.warn(`자동재생을 종료합니다. 장르 ${genre}: ${missing.join(", ")} 키가 없어 쓸 소스가 없습니다`);
+      playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed);
+      this.setAutoplay(false);
+      return false;
+    }
     this.retry = FRESH;
     // 못 골랐으면 false 로 대기열 소진 흐름으로 떨어진다.
     // 그냥 끝내면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.

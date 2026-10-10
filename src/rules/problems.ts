@@ -4,7 +4,7 @@
 // 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 바깥(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
 
 /** 문장에 드는 값. 이름은 RFC 9457 확장 칸 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
-type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; channelId?: string; length?: number; left?: number };
+type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
 
@@ -53,6 +53,8 @@ const SHARED = {
   "same-position": { status: 400, title: "Source and target positions are the same" },
   "beyond-end": { status: 400, title: "Position is past the end of the track", params: ["durationMs"] },
   "unknown-genre": { status: 400, title: "Unknown genre", params: ["genre"] },
+  // 장르의 소스가 모두 키가 없어 못 쓴다(운영자가 키를 넣어야 한다)
+  "genre-unusable": { status: 503, title: "Genre has no usable source", params: ["genre", "keys"] },
   "playlist-limit-out-of-range": { status: 400, title: "Playlist add limit out of range", params: ["min", "max", "queueCap"] },
   "more-bad-count": { status: 400, title: "Track count must be a positive number" },
   "more-not-requester": { status: 403, title: "Only the requester can add more" },

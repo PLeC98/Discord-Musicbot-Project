@@ -20,6 +20,8 @@ const shown = (notice: Notice): Shown => ({ view: noticeFrame(notice), ms: notic
 const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   // 장르 목록이 바뀌기 전에 저장된 세션 등
   "autoplay-unknown-genre": ({ genre }) => shown(notices.autoplayUnknownGenre(genre)),
+  // 저장된 세션의 장르가 그 사이 쓸 소스를 잃었다(키를 지웠다 등)
+  "autoplay-genre-unusable": ({ genre, keys }) => shown(notices.autoplayGenreUnusable(genre, keys)),
   "autoplay-gave-up": ({ genre }) => shown(notices.autoplayGaveUp(genre)),
   // 곡을 못 틀어 다음 곡으로 넘긴다
   "skipped-after-error": ({ error }) => shown(errorMessage(error)),

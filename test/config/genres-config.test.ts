@@ -232,3 +232,23 @@ test("돌던 중 파일이 틀리면 직전에 맞던 설정으로 돈다(던지
   touch("genres");
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 파일 대신 직전 값");
 });
+
+// 키는 대시보드에서 넣으므로 키가 없다고 기동을 멈추면 넣을 곳도 안 뜬다(2차 16단계 "정한 것" 6)
+test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장르만 못 쓴다. 키를 넣으면 바로 쓴다", async () => {
+  const config = (await import("../../src/config/index.ts")).default;
+  const saved = config.sources.lastfmKey;
+  write("genres", ["defaults: {}", "genres:", "  재즈:", "    sources: [{ type: lastfm, tags: [jazz] }]", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
+  touch("genres");
+  try {
+    config.sources.lastfmKey = null;
+    assert.deepEqual(Object.keys(genreConfig.genres().genres), ["재즈", "팝"]);
+    assert.deepEqual(genreConfig.unusableGenre("재즈"), ["Last.fm"]);
+    assert.equal(genreConfig.unusableGenre("팝"), null);
+    assert.equal(genreConfig.unusableGenre("없는장르"), null, "모르는 장르는 unknown-genre 쪽이 본다");
+
+    config.sources.lastfmKey = "key";
+    assert.equal(genreConfig.unusableGenre("재즈"), null);
+  } finally {
+    config.sources.lastfmKey = saved;
+  }
+});

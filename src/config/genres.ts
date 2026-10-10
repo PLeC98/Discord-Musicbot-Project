@@ -106,14 +106,14 @@ function checkedGenres(): GenresConfig {
 }
 
 /**
- * .env에 키가 없는 소스를 어떻게 다룰까. 부분만 없으면 알리고 남은 것으로 돌고,
- * 쓸 수 있는 게 하나도 안 남으면 기동을 거부한다.
+ * 키가 없는 소스를 어떻게 다룰까. 부분만 없으면 알리고 남은 것으로 돈다.
+ * 쓸 수 있는 소스가 하나도 없으면 그 장르만 못 쓴다: 고르면 키가 없다고 거절한다(unusableGenre).
  *
- * 장르 하나가 삐끗했다고 봇 전체를 못 띄우는 것은 과하지만, 그 장르를 고르면 아무 일도 일어나지
- * 않는 채로 두는 것은 더 나쁘다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
+ * 기동은 멈추지 않는다. 키를 넣을 대시보드도 봇과 함께 뜨기 때문이다(2차 16단계 "정한 것" 6).
+ * 그렇다고 그 장르를 고르면 아무 일도 일어나지 않는 채로 두지 않는다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
  */
-// 그 장르의 소스 중 .env 키가 없어 못 쓰는 것의 키 이름. 쓸 수 있는 소스가 하나도 없으면 던진다
-function missingKeys(name: string, genre: Genre) {
+// 그 장르의 소스 중 키가 없어 못 쓰는 것의 키 이름과 쓸 수 있는 소스 수
+function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
     throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. config/genres.yaml을 확인하세요.`), { code: "CONFIG_INVALID" });
@@ -128,10 +128,15 @@ function missingKeys(name: string, genre: Genre) {
     const need = sources.needsOf(source?.type);
     if (need && !missing.includes(need.label)) missing.push(need.label);
   }
-  if (!alive) {
-    throw Object.assign(new Error(`자동재생 장르 ${name}에 사용되는 소스인 ${missing.join(", ")}의 키가 .env에 없어 재생이 불가능합니다. 설정을 확인하세요.`), { code: "CONFIG_INVALID" });
-  }
-  return missing;
+  return { missing, alive };
+}
+
+/** 이 장르를 지금 못 쓰면 빠진 키 이름들, 쓸 수 있으면 null(모르는 장르도 null. 그쪽은 unknown-genre) */
+function unusableGenre(name: string): string[] | null {
+  const genre = genres().genres[name];
+  if (!genre) return null;
+  const { missing, alive } = keyCheck(name, genre);
+  return alive ? null : missing;
 }
 
 function checkSourceKeys(genres: Record<string, Genre>) {
@@ -139,16 +144,21 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   const grouped = new Map<string, string[]>();
   const lines: string[] = [];
 
+  const dead = new Map<string, string[]>();
+
   for (const [name, genre] of Object.entries(genres)) {
-    const missing = missingKeys(name, genre);
-    if (missing.length) {
-      const key = missing.join(", ");
-      grouped.set(key, [...(grouped.get(key) ?? []), name]);
-    }
+    const { missing, alive } = keyCheck(name, genre);
+    if (!missing.length) continue;
+    const key = missing.join(", ");
+    const into = alive ? grouped : dead;
+    into.set(key, [...(into.get(key) ?? []), name]);
   }
 
   for (const [missing, names] of grouped) {
-    lines.push(`자동재생 장르 ${names.join(", ")}에 사용되는 소스 중 ${missing}의 키가 .env에 존재하지 않습니다. 지정된 다른 소스만을 이용합니다.`);
+    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 씁니다.`);
+  }
+  for (const [missing, names] of dead) {
+    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없습니다. 키를 넣기 전까지 이 장르는 고를 수 없습니다.`);
   }
 
   // 이 함수는 곡을 고를 때마다 불린다(Player._autoplayConfig). 그대로 남기면 같은 경고가
@@ -158,6 +168,6 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   warnedKeys = key;
 }
 
-export { genres, validateGenres };
+export { genres, validateGenres, unusableGenre };
 export const _reset = () => ((lastGood = null), (reported = ""));
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };
