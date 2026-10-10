@@ -1,7 +1,7 @@
-// settings.db 스냅숏. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 풀린다.
+// settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 풀린다.
 //   daily           하루 한 번(기동 때 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
 //   before-import   설정을 가져오기 전 · before-restore 되살려 바꿔 끼우기 전. 둘 합쳐 5개
-// 되살리기: 고른 스냅숏을 settings.restore.db 로 걸어 두면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅숏으로 남기고 바꿔 끼운다(열린 DB 를 갈아 끼우지 않는다).
+// 되살리기: 고른 스냅샷을 settings.restore.db 로 걸어 두면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 바꿔 끼운다(열린 DB 를 갈아 끼우지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -73,13 +73,13 @@ async function take(kind: SnapshotKind, at = new Date()): Promise<string> {
 async function ensureDaily(at = new Date()) {
   if (list().some((one) => one.name === `settings-daily-${day(at)}.db`)) return null;
   const name = await take("daily", at);
-  log.info(`설정 DB 스냅숏을 남겼습니다: ${name}`);
+  log.info(`설정 DB 스냅샷을 남겼습니다: ${name}`);
   return name;
 }
 
 /** 기동 때. 오늘 것을 뜨고 한 시간마다 살핀다(자정을 넘겨 돌아도 하루 한 번) */
 function startDaily() {
-  const check = () => ensureDaily().catch((error: unknown) => log.warn(`설정 DB 스냅숏을 남기지 못했습니다: ${messageOf(error)}`));
+  const check = () => ensureDaily().catch((error: unknown) => log.warn(`설정 DB 스냅샷을 남기지 못했습니다: ${messageOf(error)}`));
   void check();
   timer = setInterval(() => void check(), CHECK_MS);
   timer.unref();
@@ -90,22 +90,22 @@ function stopDaily() {
   timer = null;
 }
 
-// 스냅숏 파일이 이 봇의 settings.db 꼴인지(구조 버전 · 표). 아니면 던진다
+// 스냅샷 파일이 이 봇의 settings.db 꼴인지(구조 버전 · 표). 아니면 던진다
 function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
     const found = db.pragma("user_version", { simple: true }) as number;
-    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", `구조 버전이 다른 스냅숏입니다(v${found}, 봇 v${VERSION}).`);
+    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", `구조 버전이 다른 스냅샷입니다(v${found}, 봇 v${VERSION}).`);
     db.prepare("SELECT COUNT(*) FROM documents").get();
   } finally {
     db.close();
   }
 }
 
-/** 고른 스냅숏을 되살리기로 걸어 둔다(다음 기동에 바꿔 끼운다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
+/** 고른 스냅샷을 되살리기로 걸어 둔다(다음 기동에 바꿔 끼운다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
 function stage(name: string) {
   const dir = dbDir();
-  if (!NAME.test(name) || !list(dir).some((one) => one.name === name)) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅숏입니다: ${name}`);
+  if (!NAME.test(name) || !list(dir).some((one) => one.name === name)) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷입니다: ${name}`);
   const from = path.join(backupsOf(dir), name);
   checkSnapshot(from);
   const to = path.join(dir, STAGED);
@@ -122,7 +122,7 @@ function unstage() {
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
 }
 
-/** 걸어 둔 스냅숏 이름(없으면 null) */
+/** 걸어 둔 스냅샷 이름(없으면 null) */
 function staged(dir = dbDir()): string | null {
   if (!fs.existsSync(path.join(dir, STAGED))) return null;
   try {
@@ -152,8 +152,8 @@ function keepCurrent(dir: string, current: string) {
 }
 
 /**
- * 기동 때 settings.db 를 열기 전에. 걸어 둔 되살리기가 있으면 지금 것을 before-restore 스냅숏으로 남기고 바꿔 끼운다.
- * 바꿔 끼운 스냅숏 이름(없었으면 null)
+ * 기동 때 settings.db 를 열기 전에. 걸어 둔 되살리기가 있으면 지금 것을 before-restore 스냅샷으로 남기고 바꿔 끼운다.
+ * 바꿔 끼운 스냅샷 이름(없었으면 null)
  */
 function applyStaged(dir: string): string | null {
   const from = staged(dir);
@@ -165,7 +165,7 @@ function applyStaged(dir: string): string | null {
     fs.renameSync(path.join(dir, STAGED), current);
   } catch (error) {
     // Windows 에서 다른 프로그램(SQLite 뷰어 등)이 settings.db 를 열어 두면 지우지 못한다. 걸어 둔 것은 남아 다음 기동에 다시 한다
-    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 스냅숏 ${from} 을 끼우지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 켜세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 스냅샷 ${from} 을 끼우지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 켜세요`), { dbFile: "settings.db" });
   }
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
   prune(dir);

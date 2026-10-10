@@ -164,7 +164,7 @@ const WEB = {
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   // 설정 가져오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },
-  // 설정 DB 스냅숏 되살리기: 없는 이름 · 이 봇과 구조가 다른 스냅숏
+  // 설정 DB 스냅샷 되살리기: 없는 이름 · 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },

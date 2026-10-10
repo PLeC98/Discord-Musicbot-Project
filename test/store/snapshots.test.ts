@@ -1,4 +1,4 @@
-// src/store/snapshots.ts — settings.db 스냅숏. 하루 한 번 · 가져오기 · 되살리기 전에 뜨고, 고른 것을 다음 기동에 바꿔 끼운다
+// src/store/snapshots.ts — settings.db 스냅샷. 하루 한 번 · 가져오기 · 되살리기 전에 뜨고, 고른 것을 다음 기동에 바꿔 끼운다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -33,7 +33,7 @@ after(() => {
   store.close();
 });
 
-test("뜬 스냅숏은 그때의 settings.db 다(뒤에 바꾼 것은 들어가지 않는다)", async () => {
+test("뜬 스냅샷은 그때의 settings.db 다(뒤에 바꾼 것은 들어가지 않는다)", async () => {
   settingsDocs.write("status", { messages: ["그때"] }, 0);
   const name = await snapshots.take("before-import", new Date(2026, 9, 11, 7, 30, 5));
   assert.equal(name, "settings-before-import-2026-10-11-073005.db");
@@ -60,7 +60,7 @@ test("매일 것은 하루에 하나 · 7개, 가져오기 · 되살리기 전 �
   assert.equal(snapshots.list().length, before);
 });
 
-test("되살리기: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우고, 바꾸기 전 것은 스냅숏으로 남긴다", async () => {
+test("되살리기: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우고, 바꾸기 전 것은 스냅샷으로 남긴다", async () => {
   settingsDocs.write("status", { messages: ["되살릴 것"] }, 0);
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   settingsDocs.write("status", { messages: ["지금 것"] }, 1);
@@ -94,7 +94,7 @@ test("거두면 바꿔 끼우지 않는다", async () => {
   stores.open(store.dir);
 });
 
-test("없는 이름 · 폴더 밖 이름 · 구조 버전이 다른 스냅숏은 걸지 않는다", async () => {
+test("없는 이름 · 폴더 밖 이름 · 구조 버전이 다른 스냅샷은 걸지 않는다", async () => {
   assert.ok(failsWith("SNAPSHOT_NOT_FOUND", () => snapshots.stage("settings-daily-1999-01-01.db")));
   assert.ok(failsWith("SNAPSHOT_NOT_FOUND", () => snapshots.stage("../settings.db")));
 

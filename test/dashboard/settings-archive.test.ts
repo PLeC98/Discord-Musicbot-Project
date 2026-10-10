@@ -143,7 +143,7 @@ test("고른 항목만 덮어쓰고 메모리(설정 객체 · 문서 · 서버�
   assert.deepEqual(await res.json(), { imported: ["tunables", "guilds"] });
   assert.ok(
     snapshots.list().some((one) => one.kind === "before-import"),
-    "쓰기 전에 스냅숏을 남긴다",
+    "쓰기 전에 스냅샷을 남긴다",
   );
 
   assert.equal(config.bot.maxQueueSize, 250, "운영 조절값은 기본값(파일에 없던 칸)으로");

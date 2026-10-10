@@ -107,9 +107,9 @@ function main() {
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
-    // 대시보드에서 고른 스냅숏이 걸려 있으면 열기 전에 바꿔 끼운다(지금 것은 backups 에 남는다)
+    // 대시보드에서 고른 스냅샷이 걸려 있으면 열기 전에 바꿔 끼운다(지금 것은 backups 에 남는다)
     const restored = snapshots.applyStaged(PROJECT.database);
-    if (restored) log.warn(`설정 DB 를 스냅숏 ${restored} 로 되살렸습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
+    if (restored) log.warn(`설정 DB 를 스냅샷 ${restored} 로 되살렸습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
     stores.open();
   } catch (error) {
     log.error(messageOf(error));

@@ -175,7 +175,7 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<appear
 
 /**
  * 고른 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 까닭")로 아무것도 바꾸지 않는다.
- * before: DB 를 쓰기 바로 앞에 부른다(스냅숏)
+ * before: DB 를 쓰기 바로 앞에 부른다(스냅샷)
  */
 async function apply(buf: Buffer, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveItem[]> {
   const parsed = parse(buf);

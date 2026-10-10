@@ -53,7 +53,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, zipBody, async (req, r
     .filter(Boolean);
   if (!Buffer.isBuffer(req.body) || !req.body.length || !items.length || !items.every(isArchiveItem)) return sendProblem(res, "nothing-to-save");
   try {
-    // 쓰기 직전에 지금 설정을 스냅숏으로 남긴다(검사에 걸리면 뜨지 않는다)
+    // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다)
     const imported = await archive.apply(req.body, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
     log.warn({ sub: "admin" }, `대시보드에서 설정 가져오기: ${imported.join(" · ")}. 실행 ${ranBy(req)}`);
     res.json({ imported } satisfies ArchiveImported);

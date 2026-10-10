@@ -1,4 +1,4 @@
-// src/dashboard/routes/snapshots.ts — 설정 탭의 스냅숏 목록 · 되살리기 걸기 · 거두기
+// src/dashboard/routes/snapshots.ts — 설정 탭의 스냅샷 목록 · 되살리기 걸기 · 거두기
 
 process.env.OWNER_ID = "owner";
 
@@ -47,7 +47,7 @@ test("목록 · 되살리기 걸기 · 거두기", async () => {
   assert.deepEqual([removed.status, removed.json.staged], [200, null]);
 });
 
-test("없는 스냅숏은 404, 이름이 없으면 400", async () => {
+test("없는 스냅샷은 404, 이름이 없으면 400", async () => {
   const missing = await call("POST", "/restore", { name: "settings-daily-1999-01-01.db" });
   assert.deepEqual([missing.status, missing.json.code], [404, "snapshot-not-found"]);
   assert.equal((await call("POST", "/restore", {})).status, 400);
