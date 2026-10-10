@@ -215,6 +215,8 @@ const savedNote = "다음 자동재생부터 반영돼요";
 const boxes = { headers: "요청 헤더", body: "요청 본문", response: "응답", empty: "(비어 있음)" };
 const verdicts = { pass: "통과", notSong: "곡 아님", wrongGenre: "장르 다름" };
 const hiddenCount = (count: number) => `, ${count}개 가림`;
+/** 저쪽에 묻지 못해 받아 둔 목록으로 채웠다 */
+const presetModels = (count: number) => `받아 둔 목록의 모델 ${count}개를 보여 줘요`;
 const failed = {
   tokens: "토큰을 세지 못했어요.",
   lookup: "조회하지 못했어요.",
@@ -228,4 +230,4 @@ const failed = {
   send: "보내지 못했어요.",
 };
 
-export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, logNotYet, usageNotYet, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, unknownWays, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, failed };
+export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, logNotYet, usageNotYet, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, unknownWays, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };

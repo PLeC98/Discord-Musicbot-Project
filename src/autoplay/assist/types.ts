@@ -60,7 +60,8 @@ type JudgeResult = Preview & {
 };
 
 /** 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */
-type ModelsCheck = { ok: boolean; reason?: string; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; response?: string; tookMs?: number };
+/** preset: 저쪽 목록이 아니라 받아 둔 모델 프로필(data/ai-models.json)로 채운 목록이다(저쪽에 묻지 못했다) */
+type ModelsCheck = { ok: boolean; reason?: string; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; preset?: boolean; response?: string; tookMs?: number };
 
 /** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */
 type PingCheck = { ok: boolean; reason?: string; url?: string; headers?: Record<string, string>; body?: Body; status?: number | null; response?: string; answer?: string; tookMs?: number };

@@ -917,6 +917,9 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
   const one = withDefaults(draft);
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
 
+  // 키가 있어야 하는데 없다. 저쪽에 물어 봐야 거절(401)이라 묻지 않고 받아 둔 목록으로 채운다
+  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 저쪽에 묻지 않았습니다." });
+
   const dialect = dialectOf(one);
   const first = dialect.modelsUrl(one);
   if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
@@ -928,20 +931,10 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
   let url = first; // 실패해도 어디를 불렀는지는 알려 줘야 한다(catch 에서 쓴다)
 
   try {
-    const headers = await dialect.headers(one);
-    let res: Response | undefined;
-    let text = "";
-
-    for (const candidate of urls) {
-      url = candidate;
-      res = await send(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
-      text = mask(await res.text());
-      if (res.ok || res.status !== 404) break;
-    }
-
-    if (!res) throw new Error("물을 주소가 없습니다");
+    const asked = await askModels(urls, await dialect.headers(one), one, (tried) => (url = tried));
+    const { res, text } = asked;
     const took = Date.now() - started;
-    if (!res.ok) return { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` };
+    if (!res.ok) return withPreset(one, { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` });
 
     // 모양은 갈래마다 다르다. 못 읽어도 목록만 못 채우고 연결은 된 것이다.
     let all: string[] = [];
@@ -953,11 +946,9 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
 
     // 이름을 코드에 적지 않는다. 대신 안 쓸 것을 설정에서 가린다. 저쪽 목록에는
     // 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
-    const hidden = hideRules(one.hideModels);
-    const models = all.filter((id) => !hidden.some((rule) => rule.test(id))).sort();
-    return { ok: true, url, status: res.status, models, hiddenCount: all.length - models.length, response: text, tookMs: took };
+    return { ok: true, url, status: res.status, ...visibleModels(all, one), response: text, tookMs: took };
   } catch (error) {
-    return { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) };
+    return withPreset(one, { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) });
   }
 }
 
@@ -965,6 +956,34 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
  * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정 파일에 적게 하면
  * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
  */
+// 주소를 차례로 묻는다. 404 면 다음 주소로. at 은 지금 묻는 주소를 알린다(실패해도 어디를 불렀는지 남긴다)
+async function askModels(urls: string[], headers: Record<string, string>, one: AiSettings, at: (url: string) => void) {
+  for (const [i, url] of urls.entries()) {
+    at(url);
+    const res = await send(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const text = mask(await res.text());
+    if (res.ok || res.status !== 404 || i === urls.length - 1) return { res, text };
+  }
+  throw new Error("물을 주소가 없습니다");
+}
+
+// 가릴 것을 뺀 목록과 뺀 수
+function visibleModels(all: string[], one: AiSettings) {
+  const hidden = hideRules(one.hideModels);
+  const models = all.filter((id) => !hidden.some((rule) => rule.test(id))).sort();
+  return { models, hiddenCount: all.length - models.length };
+}
+
+/**
+ * 저쪽에 묻지 못했을 때(키가 없다 · 거절 · 닿지 못함) 받아 둔 모델 프로필(data/ai-models.json)이 아는 모델로 목록을 채운다.
+ * 확인 결과(ok · 까닭)는 그대로 둔다. 연결이 된 것처럼 보이면 안 된다. 프로필이 없는 곳(로컬 · custom)은 채울 것이 없다
+ */
+function withPreset(one: AiSettings, check: ModelsCheck): ModelsCheck {
+  const registry = specOf(one.provider)?.registry;
+  const all = registry ? models.modelsOf(registry).map((model) => model.modelId) : [];
+  return all.length ? { ...check, ...visibleModels(all, one), preset: true } : check;
+}
+
 function hideRules(patterns: unknown) {
   return (Array.isArray(patterns) ? patterns : [])
     .map((one) => String(one ?? "").trim())

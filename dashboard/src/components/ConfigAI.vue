@@ -1254,7 +1254,8 @@ function takeModels(list: string[]) {
 // 무료 테스트의 결과 칸
 function modelsTested(got: ModelsCheck): Tested {
   const hidden = got.hiddenCount ? T.hiddenCount(got.hiddenCount) : "";
-  return { kind: TT.free, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, extra: got.ok ? `${T.modelCount(models.value.length)}${hidden}` : "", body: got.ok ? "" : got.response, raw: got.response };
+  const extra = got.ok ? `${T.modelCount(models.value.length)}${hidden}` : got.preset ? `${T.presetModels(models.value.length)}${hidden}` : "";
+  return { kind: TT.free, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, extra, body: got.ok ? "" : got.response, raw: got.response };
 }
 
 async function loadModels({ quiet = false } = {}) {

@@ -1034,6 +1034,30 @@ test("추가 인자에 비밀 헤더는 적지 못한다(평문 설정 · 내보
 
 // 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다 —
 // 저쪽 목록에는 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
+// 키가 없으면 저쪽은 401 뿐이다. 묻지 않고 받아 둔 모델 프로필(data/ai-models.json)로 목록을 채운다. 연결 확인은 실패로 둔다
+test("모델 목록: 키가 없거나 저쪽이 거절하면 받아 둔 목록으로 채운다(확인 결과는 실패 그대로)", async () => {
+  const preset = (await import("../../src/config/ai-models.ts")).modelsOf("openai").map((one) => one.modelId);
+  assert.ok(preset.length > 0, "받아 둔 프로필에 openai 모델이 있다");
+
+  calls.length = 0;
+  useFetch(async (url, init) => (calls.push({ url, init }), { ok: false, status: 401, text: async () => "no" }));
+  aiKeys.remove("openai");
+  const keyless = await assist.listModels({ provider: "openai", hideModels: [preset[0]] });
+  assert.deepEqual(calls, [], "키 없이는 묻지 않는다");
+  assert.deepEqual([keyless.ok, keyless.preset, keyless.models?.length, keyless.hiddenCount], [false, true, preset.length - 1, 1]);
+  assert.match(String(keyless.reason), /키가 없어/);
+
+  useConfig(ON); // 키를 다시 넣는다
+  const refused = await assist.listModels({ provider: "openai" });
+  assert.equal(calls.length, 1, "키가 있으면 묻는다");
+  assert.deepEqual([refused.ok, refused.status, refused.preset, refused.models?.length], [false, 401, true, preset.length]);
+
+  // 프로필이 없는 곳(custom)은 채울 것이 없다
+  aiKeys.remove("custom");
+  assert.equal((await assist.listModels({ provider: "custom", baseUrl: "http://127.0.0.1:11434/v1" })).models, undefined);
+  useConfig(ON);
+});
+
 test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
   useFetch(async () => ({
     ok: true,
