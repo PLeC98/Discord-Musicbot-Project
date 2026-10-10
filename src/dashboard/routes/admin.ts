@@ -33,6 +33,7 @@ import * as models from "../../config/ai-models.ts";
 import { adminStatus } from "../status/index.ts";
 import { ranBy } from "../ran-by.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
+import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 
 // 봇 · Node · 시스템 상태(봇 상태 탭)
@@ -332,8 +333,19 @@ function aiKeyProblem(provider: string, value: unknown, draft: Record<string, un
   if (typeof value !== "string") return `${provider}: 키는 글자여야 합니다`;
   if (!value.trim()) return null;
   if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없습니다. 주소를 먼저 적으세요`;
-  if (spec.serviceAccount && !value.trim().startsWith("{")) return `${spec.label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않습니다)`;
+  if (spec.serviceAccount) return accountProblem(spec.label, value);
   return null;
+}
+
+// 서비스 계정은 쓸 때 읽는 것(googleAuth.readAccount)과 같은 검사로 저장 전에 본다. 잘못 붙여넣은 것이 쓸 때야 드러나지 않게
+function accountProblem(label: string, value: string) {
+  if (!value.trim().startsWith("{")) return `${label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않습니다)`;
+  try {
+    googleAuth.readAccount(value);
+    return null;
+  } catch (error) {
+    return `${label}: ${messageOf(error)}`;
+  }
 }
 
 // 프로바이더마다 키 상태. settings 는 주소를 셈할 설정(저장된 것 또는 화면의 초안). 다른 프로바이더는 그 프로바이더의 기본 주소로 본다

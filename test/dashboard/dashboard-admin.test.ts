@@ -613,6 +613,9 @@ test("AI 키: 버텍스는 JSON 내용만, 묶을 주소가 없으면 거절, �
   const asPath = await req<ProblemReply>("PUT", "/api/admin/ai/keys", { keys: { vertex: "C:/keys/sa.json" }, data: { provider: "vertex" } });
   assert.equal(asPath.status, 400);
   assert.match(detailsOf(asPath.json), /JSON 내용/);
+  const noKey = await req<ProblemReply>("PUT", "/api/admin/ai/keys", { keys: { vertex: '{"client_email":"bot@p.iam.gserviceaccount.com"}' }, data: { provider: "vertex" } });
+  assert.equal(noKey.status, 400);
+  assert.match(detailsOf(noKey.json), /private_key/, "쓸 때 읽는 것과 같은 검사로 저장 전에 거절한다");
 
   const saved = await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { vertex: account }, data: { provider: "vertex", location: "us-central1" } });
   assert.equal(saved.json.keyState.vertex, "ok", "화면의 리전으로 보면 쓸 수 있다");
