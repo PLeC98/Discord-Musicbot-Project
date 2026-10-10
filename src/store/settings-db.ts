@@ -5,14 +5,16 @@
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
 
+const VERSION = 1;
+
 const settingsDb = new DbFile({
   label: "설정 DB",
   fileName: "settings.db",
-  version: 1,
+  version: VERSION,
   synchronous: "FULL",
   onMismatch: "stop",
   createTables,
-  mismatchHint: (found, file) => `설정 DB 구조가 이 버전과 맞지 않습니다 (DB v${found}, 필요 v1): ${file}. 정해 둔 설정을 지키려고 열지 않습니다. 이 DB 를 만든 버전의 봇으로 되돌리세요.`,
+  mismatchHint: (found, file) => `설정 DB 구조가 이 버전과 맞지 않습니다 (DB v${found}, 필요 v${VERSION}): ${file}. 정해 둔 설정을 지키려고 열지 않습니다. 이 DB 를 만든 버전의 봇으로 되돌리세요.`,
 });
 
 function createTables(db: Db) {
