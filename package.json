@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node src/index.ts",
+    "start": "node scripts/launch.ts",
     "dev": "node scripts/dev.ts",
     "cmddeploy": "node scripts/deploy-commands.ts",
     "install:bgutil": "node scripts/install-bgutil.ts",

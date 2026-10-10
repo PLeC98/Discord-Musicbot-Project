@@ -163,6 +163,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "no-guild-access": () => warning("permission", "이 서버를 볼 수 없어요!", "봇이 있는 서버 중 내가 멤버인 서버만 볼 수 있어요. 그 서버에서 나갔다면 서버 목록에서도 빠져요."),
   "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
   // 대시보드: 상태
+  "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 띄워 줄 실행기 없이 켰어요. 봇 폴더에서 `pnpm start` 로 켜면 대시보드에서 다시 시작할 수 있어요."),
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 골라 주세요."),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없어요!", "먼저 참가 버튼으로 봇을 음성 채널에 불러 주세요."),
@@ -204,8 +205,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 적힌 칸들을 고친 뒤에 다시 저장해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
-  "config-unreadable": () => error("failed", "설정 파일을 읽지 못했어요!", "파일이 없거나 YAML 문법이 깨졌어요. 함께 적힌 원문을 보고 파일을 고쳐 주세요."),
-  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
+  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   // 대시보드: 꾸미기(올린 그림)
   "bad-image": () => warning("input", "쓸 수 없는 그림이에요!", "png · webp · jpg · svg 그림만 올릴 수 있어요."),

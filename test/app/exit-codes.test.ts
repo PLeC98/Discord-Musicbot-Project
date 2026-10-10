@@ -11,5 +11,5 @@ test("기동 전 확인이 멈췄거나 토큰 · 인텐트가 틀리면 설정 
   assert.equal(failedStartCode(Object.assign(new Error("Internal Server Error"), { status: 500 }), false), EXIT.transient);
   assert.equal(failedStartCode(Object.assign(new Error("socket"), { code: "ECONNRESET" }), false), EXIT.transient);
   assert.equal(failedStartCode("문자열", false), EXIT.transient);
-  assert.deepEqual(EXIT, { stopped: 0, globalFlood: 3, transient: 75, badSetup: 78 });
+  assert.deepEqual(EXIT, { stopped: 0, globalFlood: 3, restart: 4, transient: 75, badSetup: 78 });
 });

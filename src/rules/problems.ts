@@ -118,6 +118,8 @@ const WEB = {
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
+  // 실행기 없이 켜서 다시 띄워 줄 쪽이 없다
+  "restart-unavailable": { status: 409, title: "Restart is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },
   "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
   "too-many-requests": { status: 429, title: "Too many requests" },
@@ -159,7 +161,6 @@ const WEB = {
   "config-invalid": { status: 400, title: "Config has problems" },
   // 읽은 뒤 다른 탭 · 다른 사람이 먼저 저장했다(저장 번호가 다르다)
   "config-changed": { status: 409, title: "Config changed since it was read" },
-  "config-unreadable": { status: 409, title: "Config file could not be read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
   // 대시보드: 꾸미기(올린 그림)

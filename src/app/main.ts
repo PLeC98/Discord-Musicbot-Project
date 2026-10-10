@@ -51,7 +51,7 @@ import { botJoinedGuild } from "../dashboard/routes/player-events.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { EXIT, failedStartCode } from "./exit-codes.ts";
+import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -173,7 +173,9 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   const commands = new Map<string, SlashCommand>();
   const bot: BotContext = { client, players, panels, commands };
   const stream = createPlayerStream();
-  startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands });
+  // 다시 시작은 다시 띄워 줄 실행기(pnpm start)가 있을 때만 연다
+  const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
+  startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream);
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {

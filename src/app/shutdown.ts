@@ -1,4 +1,5 @@
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결(채널에는 남는다) · 봇 · 자식 프로세스를 정리한 뒤 나간다.
+// 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 띄운다).
 // 처리기는 기동 맨 앞(POToken 서버를 띄우기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 띄운 것만 내리고 깨끗이 끝났다고 적는다.
 // 기동이 실패했을 때도 띄운 것을 내리고 나간다.
 
@@ -47,12 +48,13 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
-  const gracefulShutdown = async (signal: string) => {
+  // why: 로그 · 연결 정리에 적는 까닭. restart 면 다시 시작 코드로 나간다
+  const gracefulShutdown = async (why: string, restart = false) => {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
     const client = bot?.client ?? null;
-    const reason = `프로세스 종료(${signal})`;
+    const reason = restart ? `다시 시작(${why})` : `프로세스 종료(${why})`;
     if (bot) await savePlayers(bot.players, reason);
 
     // 레지스트리에 없던 연결도 채널에는 남긴 채 정리한다
@@ -65,18 +67,19 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }
     }
-    record.end("shutdown");
-    release(client, { potServer, logFile, killAll }, signal || "shutdown");
-    exit(EXIT.stopped);
+    record.end(restart ? "restart" : "shutdown");
+    release(client, { potServer, logFile, killAll }, why || "shutdown");
+    exit(restart ? EXIT.restart : EXIT.stopped);
   };
 
-  // 종료가 중간에 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다
-  const onSignal = (signal: string) => {
-    gracefulShutdown(signal).catch((error: unknown) => {
+  // 종료가 중간에 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 띄우게 같은 코드로)
+  const stop = (why: string, restart = false) => {
+    gracefulShutdown(why, restart).catch((error: unknown) => {
       log.error("종료 중 오류:", error);
-      exit(EXIT.stopped);
+      exit(restart ? EXIT.restart : EXIT.stopped);
     });
   };
+  const onSignal = (signal: string) => stop(signal);
   proc.on("SIGINT", () => onSignal("SIGINT"));
   proc.on("SIGTERM", () => onSignal("SIGTERM"));
   proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘 · SSH 끊김
@@ -90,6 +93,10 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     /** 봇(클라이언트 · 플레이어)을 붙인다. 이제부터 끄면 세션을 저장하고 연결 · 봇까지 정리한다 */
     attach(next: ShutdownBot) {
       bot = next;
+    },
+    /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 띄운다. by: 누가(로그) */
+    restart(by: string) {
+      stop(by, true);
     },
   };
 }

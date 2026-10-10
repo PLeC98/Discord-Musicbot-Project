@@ -31,7 +31,7 @@ import { startStatus } from "./status/index.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 시험이 바꿔 넘긴다 */
-type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; sessionMiddleware?: RequestHandler; clientDist?: string };
+type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
 // 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
@@ -83,8 +83,8 @@ function createSessionMiddleware() {
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
-// deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼). 조립이 넘긴다
-function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware = createSessionMiddleware(), clientDist = PROJECT.dashboardDist }: AppDeps) {
+// deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼), restart: 봇 다시 시작(실행기로 켰을 때만). 조립이 넘긴다
+function createApp(bot: BotContext, { stream, deployCommands, restart = null, sessionMiddleware = createSessionMiddleware(), clientDist = PROJECT.dashboardDist }: AppDeps) {
   const app = express();
   const { host, url } = config.dashboard;
 
@@ -122,6 +122,7 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   app.locals.bot = bot;
   app.locals.deployCommands = deployCommands;
   app.locals.stream = stream;
+  app.locals.restart = restart;
 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
@@ -155,8 +156,8 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   return app;
 }
 
-function startDashboard(bot: BotContext, { stream, deployCommands }: AppDeps) {
-  const app = createApp(bot, { stream, deployCommands });
+function startDashboard(bot: BotContext, { stream, deployCommands, restart }: AppDeps) {
+  const app = createApp(bot, { stream, deployCommands, restart });
   // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재수립은 화면을 열기 전부터 모은다
   startStatus(bot);
 

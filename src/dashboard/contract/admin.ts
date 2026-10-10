@@ -40,8 +40,11 @@ type AdminStatus = {
   storage: StorageView;
   /** 지난 1시간 로그의 경고 · 오류 수와 가장 최근 몇 가지. 같은 글은 한 줄로 묶어 count 와 마지막 때(ts)를 단다 */
   recent: { warn: number; error: number; lines: Array<{ ts: number; level: "warn" | "error"; text: string; count: number }> };
-  /** ffmpeg · ytdlp.version 은 찾지 못했으면 null. ytdlp.autoUpdate: 스스로 새 버전을 받는가, nextCheckAt: 다음 확인(걸어 두지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수 */
-  env: { discordJs: string; ffmpeg: string | null; pid: number; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
+  /**
+   * ffmpeg · ytdlp.version 은 찾지 못했으면 null. ytdlp.autoUpdate: 스스로 새 버전을 받는가, nextCheckAt: 다음 확인(걸어 두지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수.
+   * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 띄워 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다
+   */
+  env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
   history: StatusHistory;
   logLevel: string;
 };
@@ -103,6 +106,8 @@ type LeaveReply = { success: true; name: string };
 /** 슬래시 명령 다시 등록. scope 는 guild(그 서버에만) · global */
 type RedeployReply = { success: true; count: number; scope: string; guildId: string | null; names: string[] };
 /** 캐시 초기화. kept 는 잠겨 있어(재생 중 등) 남긴 파일 수 */
+/** 다시 시작을 받았다. 답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
+type RestartReply = { restarting: true };
 type ResetReply = { success: true; removed: number; kept: number; freedBytes: number; fileCountBefore: number };
 
 /** 설정 파일(genres · status · ai) 읽기와 저장 */
@@ -144,4 +149,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };

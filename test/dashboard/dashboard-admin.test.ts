@@ -122,12 +122,15 @@ const panels = {
 let currentUser: object | null;
 let server: Server;
 let base: string;
+let adminApp: express.Express;
 
 before(async () => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
+  adminApp = app;
   app.use(bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use(signedInAs(() => currentUser));
+  app.locals.restart = null; // 실행기 없이 켰다(다시 시작 시험이 바꾼다)
   app.locals.bot = fakeBot({ client, players, panels });
   app.locals.stream = fake<PlayerStream>({ subs: new Set([{}, {}]) });
   // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 칸 중 이름만)
@@ -662,6 +665,49 @@ test("AI 키: 로그인한 지 오래됐으면 reauth-required", async () => {
     assert.equal(res.status, 403);
     assert.equal(res.json.code, "reauth-required");
     assert.equal(aiKeys.stateOf("groq", assist.keyBinding({ provider: "groq" })), "none");
+  } finally {
+    late.close();
+  }
+});
+
+// 다시 시작은 실행기가 있을 때만. 답을 보낸 뒤에 내린다(화면이 답을 받아야 기다리기 시작한다)
+test("다시 시작: 실행기 없이 켰으면 409, 있으면 202 를 보낸 뒤 내리고 상태에 알린다", async () => {
+  assert.equal((await req<{ env: { launcher: boolean } }>("GET", "/api/admin/status")).json.env.launcher, false);
+  const none = await req("POST", "/api/admin/restart");
+  assert.deepEqual([none.status, none.json.code], [409, "restart-unavailable"]);
+
+  const asked: string[] = [];
+  adminApp.locals.restart = (by) => void asked.push(by);
+  try {
+    assert.equal((await req<{ env: { launcher: boolean } }>("GET", "/api/admin/status")).json.env.launcher, true);
+    const ok = await req<{ restarting: boolean }>("POST", "/api/admin/restart");
+    assert.deepEqual([ok.status, ok.json.restarting], [202, true]);
+    assert.equal(asked.length, 1);
+    assert.match(asked[0], /owner/, "누가 했는지 로그에 남긴다");
+
+    currentUser = { id: "u1" };
+    assert.equal((await req("POST", "/api/admin/restart")).status, 403);
+    assert.equal(asked.length, 1);
+  } finally {
+    currentUser = { id: "owner", username: "owner" };
+    adminApp.locals.restart = null;
+  }
+});
+
+// 재생이 끊기는 일이라 비밀값과 같이 최근 로그인만
+test("다시 시작: 로그인한 지 오래됐으면 reauth-required", async () => {
+  const asked: string[] = [];
+  const app = express();
+  app.use((reqq, _res, next) => {
+    reqq.session = fake<typeof reqq.session>({ user: { id: "owner", username: "owner" }, loginAt: Date.now() - 11 * 60_000 });
+    next();
+  });
+  app.locals.restart = (by) => void asked.push(by);
+  app.use("/api/admin", adminRouter);
+  const late = await listenForFetch(app);
+  try {
+    const res = await requestJson<ProblemReply>(baseUrl(late), "POST", "/api/admin/restart");
+    assert.deepEqual([res.status, res.json.code, asked.length], [403, "reauth-required", 0]);
   } finally {
     late.close();
   }

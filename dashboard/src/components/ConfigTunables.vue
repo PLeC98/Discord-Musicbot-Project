@@ -2,6 +2,13 @@
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
     <p class="text-sm text-on-surface-variant">{{ T.desc }}</p>
+    <!-- 저장했지만 다시 시작해야 적용되는 값이 있으면 그 자리에서 다시 시작한다 -->
+    <NoticeBox v-if="pending.length" variant="note" tone="info" icon="restart_alt" class="mt-0!">
+      <span class="flex items-center gap-3 flex-wrap"
+        ><span class="flex-1 min-w-0">{{ text.restart.pending(pending.length) }}</span
+        ><BotRestart :available="canRestart"
+      /></span>
+    </NoticeBox>
 
     <BaseCard v-for="group in TUNABLE_GROUPS" :key="group" :icon="T.groups[group].icon" :title="T.groups[group].title">
       <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
@@ -33,6 +40,7 @@ import { computed, ref, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import SaveDock from "./SaveDock.vue";
+import BotRestart from "./BotRestart.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
@@ -45,6 +53,9 @@ import { TUNABLES, TUNABLE_GROUPS, type Tunable, type TunableGroup } from "../..
 import type { TunablesView } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables;
+
+/** canRestart: 실행기로 켰는가(봇 상태의 env.launcher) */
+defineProps<{ canRestart: boolean }>();
 
 const blank = () => Object.fromEntries(TUNABLES.map((one) => [one.key, ""])) as Record<string, string>;
 

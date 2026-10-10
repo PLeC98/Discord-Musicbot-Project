@@ -42,6 +42,18 @@ test("처음 켜면 기록이 없다. 깨끗이 끝낸 뒤에는 끝난 방식�
   assert.equal(m.boot().previous.line, "직전 실행: 깨끗이 끝남 | 가동 3시간 12분");
 });
 
+// 대시보드에서 짧게 여러 번 다시 시작해도 끊김으로 세지 않는다(세션을 되살린다)
+test("다시 시작으로 끝났으면 그렇게 알리고 짧게 끊긴 실행으로 세지 않는다", () => {
+  const m = machine();
+  for (let i = 0; i < 3; i++) {
+    const { record } = m.boot();
+    m.clock.now += MIN;
+    record.end("restart");
+  }
+  const { previous } = m.boot();
+  assert.deepEqual(previous, { line: "직전 실행: 다시 시작함 | 가동 1분", shortStreak: 0, skipRestore: false });
+});
+
 test("끝을 적지 못하고 끊겼으면 마지막으로 살아 있던 때까지를 가동으로 본다", () => {
   const m = machine();
   const { record } = m.boot();

@@ -24,7 +24,7 @@ const fields: Record<string, { label: string; help: string }> = {
   YTDLP_PLAYER_CLIENTS: { label: "유튜브 클라이언트 차례", help: "쉼표로 적어요. 앞에서부터 시도하고 실패하면 뒤로 넘어가요. 비우면 yt-dlp 기본값.\n예: visionos,web_embedded,tv_embedded" },
   YTDLP_CLIENT_WINDOW: { label: "최근 몇 번을 보고 판단할지", help: "클라이언트가 막혔는지 볼 때 최근 몇 번의 결과를 볼지." },
   YTDLP_CLIENT_FAILS: { label: "그중 몇 번 실패하면 건너뛸지", help: "위 횟수 가운데 이만큼 실패하면 그 클라이언트를 한동안 건너뛰어요." },
-  YTDLP_CLIENT_RETRY_MINUTES: { label: "건너뛴 클라이언트를 다시 시험하기까지(분)", help: "0 이면 봇을 다시 켜거나 클라이언트 설정을 저장할 때까지 건너뛰어요." },
+  YTDLP_CLIENT_RETRY_MINUTES: { label: "건너뛴 클라이언트를 다시 시험하기까지(분)", help: "0 이면 봇을 다시 시작하거나 클라이언트 설정을 저장할 때까지 건너뛰어요." },
   COOKIES_SOURCE: { label: "쿠키 출처", help: "연령 제한 영상에만 써요. file 이면 이 탭의 유튜브 쿠키 카드에 넣은 것을,\n브라우저 이름이면 그 브라우저에서 가져와요(brave · chrome · chromium · edge · firefox · opera · safari · vivaldi · whale, chrome:Profile 1 처럼 프로필도). 비우면 쓰지 않아요." },
   BGUTIL_ENABLED: { label: "POToken 서버 쓰기", help: "설치돼 있을 때 켜면 봇과 함께 POToken 서버를 띄워요. mweb · tv_simply 클라이언트에 필요해요." },
   SPONSORBLOCK_ENABLED: { label: "SponsorBlock 쓰기", help: "끄면 조회 · 캐시를 아예 하지 않아요. 상업적으로 쓰면 꺼 두길 권해요(데이터 라이선스가 비상업)." },
@@ -50,15 +50,15 @@ const fields: Record<string, { label: string; help: string }> = {
 };
 
 const title = "운영 조절값";
-const desc = "비운 칸은 기본값을 써요. 저장하면 바로 적용되고, 표시된 칸은 봇을 다시 켜야 적용돼요.";
+const desc = "비운 칸은 기본값을 써요. 저장하면 바로 적용되고, 표시된 칸은 봇을 다시 시작해야 적용돼요.";
 const defaultWith = (value: string) => (value ? `기본값 ${value}` : "기본값: 비움");
-const restartTip = "기동 때 한 번 정하는 값이라 봇을 다시 켜야 적용돼요.";
-const pending = "저장함 · 다시 켜면 적용";
-const restartBadge = "다시 켜야 적용";
+const restartTip = "기동 때 한 번 정하는 값이라 봇을 다시 시작해야 적용돼요.";
+const pending = "저장함 · 다시 시작하면 적용";
+const restartBadge = "다시 시작해야 적용";
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";
-const savedRestart = (count: number) => `${count}칸은 봇을 다시 켜야 적용돼요.`;
+const savedRestart = (count: number) => `${count}칸은 봇을 다시 시작해야 적용돼요.`;
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
 const loadFailed = "운영 조절값을 읽지 못했어요.";
 

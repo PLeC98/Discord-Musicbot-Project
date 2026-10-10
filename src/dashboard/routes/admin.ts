@@ -13,7 +13,7 @@ import logManager from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type RestartReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -38,7 +38,17 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 
 // 봇 · Node · 시스템 상태(봇 상태 탭)
 adminRouter.get("/status", requireOwner, async (req, res) => {
-  res.json(await adminStatus(req.app.locals.bot, signedIn(req).id, req.app.locals.stream));
+  res.json(await adminStatus(req.app.locals.bot, signedIn(req).id, req.app.locals.stream, Boolean(req.app.locals.restart)));
+});
+
+// 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 띄운다(app/launcher). 실행기 없이 켰으면 다시 띄워 줄 쪽이 없어 거절한다.
+// 재생이 잠깐 끊기므로 최근 로그인만. 답을 보낸 뒤에 내린다
+adminRouter.post("/restart", requireOwner, requireRecentLogin, (req, res) => {
+  const restart = req.app.locals.restart;
+  if (!restart) return sendProblem(res, "restart-unavailable");
+  log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작. 실행 ${ranBy(req)}`);
+  res.on("finish", () => restart(ranBy(req)));
+  res.status(202).json({ restarting: true } satisfies RestartReply);
 });
 
 // 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널

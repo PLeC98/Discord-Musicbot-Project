@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
 
-type Ending = "shutdown" | "startup-failed" | "global-flood";
+type Ending = "shutdown" | "restart" | "startup-failed" | "global-flood";
 type Run = { startedAt: number; aliveAt: number; ended: { how: Ending; at: number } | null; shortStreak: number };
 /** 기동이 알게 되는 것 */
 type Previous = { line: string; skipRestore: boolean; shortStreak: number };
@@ -19,7 +19,7 @@ const ALIVE_MS = 30_000; // 살아 있던 시각을 고쳐 적는 간격
 const SHORT_RUN_MS = 10 * 60_000; // 이보다 짧게 끊긴 실행을 센다
 const SKIP_RESTORE_STREAK = 2;
 
-const ENDINGS: Record<Ending, string> = { shutdown: "깨끗이 끝남", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 내림" };
+const ENDINGS: Record<Ending, string> = { shutdown: "깨끗이 끝남", restart: "다시 시작함", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 내림" };
 
 function span(ms: number) {
   const min = Math.floor(ms / 60_000);

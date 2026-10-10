@@ -100,7 +100,7 @@
 
         <!-- 자리가 정해지지 않은 설정을 모아 두는 탭. 메뉴를 다시 짤 때 나눈다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigTunables v-if="opened.has('settings')" class="mb-(--gap-in)" />
+          <ConfigTunables v-if="opened.has('settings')" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigServiceKeys v-if="opened.has('settings')" />
           <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
           <ConfigCookies v-if="opened.has('settings') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />

@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
+import { EXIT } from "../../src/app/exit-codes.ts";
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
 function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean } = {}) {
@@ -51,6 +52,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   };
   const proc = fakeWith<ShutdownBoundary["proc"]>()(Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } }));
   let exits = 0;
+  let handle: ReturnType<typeof installShutdown> | undefined;
   const exited = new Promise((resolve) => {
     const shutdown = installShutdown({
       potServer: { stop: () => steps.push("pot:stop") },
@@ -65,8 +67,10 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       record: { end: (how) => void steps.push(`record:${how}`) },
     });
     if (attach) shutdown.attach(bot);
+    handle = shutdown;
   });
-  return { steps, proc, exited, exits: () => exits };
+  if (!handle) throw new Error("처리기를 걸지 못했다");
+  return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 
 test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 채널에는 남긴 채 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
@@ -112,6 +116,17 @@ test("상태 문구 지우기가 멈춰도 상한만 기다리고 끝낸다", as
   clearTimeout(late);
   assert.equal(outcome, 0, "상한(2초) 근처에서 끝난다");
   assert.ok(steps.includes("voice:g1:stay"));
+});
+
+// 대시보드의 다시 시작. 끄기와 같은 정리를 하고 다시 시작 코드로 나간다(실행기가 다시 띄운다)
+test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 뒤 다시 시작 코드로 나간다. 그사이 신호가 와도 한 번만", async () => {
+  const { steps, proc, exited, exits, shutdown } = setup();
+  shutdown.restart("운영자");
+  proc.emit("SIGINT");
+  assert.equal(await exited, EXIT.restart);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(exits(), 1);
+  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill:운영자", "log:close"]);
 });
 
 test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {

@@ -66,6 +66,7 @@
         <span class="shrink-0 flex items-center gap-1 text-xs text-on-surface-variant" v-tooltip="stale ? T.staleTip : T.freshTip"
           ><span class="size-2 rounded-full" :class="stale ? 'bg-outline' : 'bg-(--ok-ink)'"></span>{{ stale ? T.stale : T.lastUpdate }} <span class="nums text-on-surface">{{ updatedAt ? clock(updatedAt, true) : "" }}</span></span
         >
+        <BotRestart :available="status.env.launcher" />
       </div>
       <!-- 살펴볼 것: 누르면 그 칸으로 가서 잠깐 테두리가 빛난다 -->
       <div v-if="attention.length" class="flex flex-wrap gap-2">
@@ -248,6 +249,7 @@ import { createReusableTemplate, useElementSize } from "@vueuse/core";
 import { RouterLink } from "vue-router";
 import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
+import BotRestart from "./BotRestart.vue";
 import Icon from "./BaseIcon.vue";
 import GuildAvatar from "./GuildAvatar.vue";
 import MarqueeText from "./MarqueeText.vue";

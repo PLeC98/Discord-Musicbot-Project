@@ -37,8 +37,8 @@ function botStatus(client: Client, uptime: number) {
   };
 }
 
-/** viewerId: 보는 운영자(플레이어 줄의 멤버 여부), stream: 대시보드 연결(연결 수) */
-async function adminStatus({ client, players, commands }: BotContext, viewerId: string, stream: Pick<PlayerStream, "subs">): Promise<AdminStatus> {
+/** viewerId: 보는 운영자(플레이어 줄의 멤버 여부), stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가 */
+async function adminStatus({ client, players, commands }: BotContext, viewerId: string, stream: Pick<PlayerStream, "subs">, launcher = false): Promise<AdminStatus> {
   const uptime = process.uptime();
   const mem = process.memoryUsage();
   const { cpu, loop, heapLimit } = vitals();
@@ -59,7 +59,7 @@ async function adminStatus({ client, players, commands }: BotContext, viewerId: 
     links: linkRows(client),
     storage: storageView(),
     recent: recentProblems(),
-    env: envStatus(commands.size, stream.subs.size),
+    env: envStatus(commands.size, stream.subs.size, launcher),
     history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
