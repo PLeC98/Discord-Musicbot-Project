@@ -182,7 +182,7 @@
                   </div>
                 </div>
                 <div class="shrink-0 text-right text-xs nums whitespace-nowrap">
-                  <div class="flex items-center justify-end gap-1 text-on-surface-variant"><Icon name="headphones" :size="14" />{{ player.listeners }}명 · 대기열 {{ player.queued.toLocaleString("ko-KR") }}곡</div>
+                  <div class="flex items-center justify-end gap-1 text-on-surface-variant"><Icon name="headphones" :size="14" />{{ player.listeners }}명 · 대기열 {{ formatNumber(player.queued) }}곡</div>
                   <div :class="player.state !== 'playing' && 'text-on-surface-variant'">{{ player.state === "playing" ? `${formatDuration(player.position)} / ${formatDuration(player.duration)}` : PLAYER_STATE_WORD[player.state] }}</div>
                 </div>
               </component>
@@ -192,7 +192,7 @@
         </div>
         <div class="mt-3 flex items-baseline gap-3 pt-3 border-t border-outline-variant/40 text-xs text-on-surface-variant">
           <span>합계</span>
-          <span class="ml-auto shrink-0 nums">청취자 {{ listenerTotal.toLocaleString("ko-KR") }}명 · 대기열 {{ status.players.queued.toLocaleString("ko-KR") }}곡</span>
+          <span class="ml-auto shrink-0 nums">청취자 {{ formatNumber(listenerTotal) }}명 · 대기열 {{ formatNumber(status.players.queued) }}곡</span>
         </div>
       </BaseCard>
       <!-- 넓을 때(두 단)는 옆 카드(활성 플레이어)의 높이를 따르고 제 높이로 행을 늘리지 않는다(h-0 · min-h-full). 넘치는 줄은 목록 칸 안에서 구른다.
@@ -254,6 +254,7 @@ import { valueOf } from "../utils/dom.ts";
 import { formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
+import { compareText, formatClock, formatNumber } from "../utils/locale.ts";
 
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
@@ -274,7 +275,7 @@ const LEVEL_CHIP: Record<Level, string> = { ok: "", warn: WARN_FILL, bad: "bg-er
 const LIMITS = { ping: [150, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
 // ── 글 ──
-const clock = (ms: number, seconds = false) => new Date(ms).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}), hour12: false });
+const clock = (ms: number, seconds = false) => formatClock(ms, { seconds });
 // 응답 시간(ms). 1초 넘으면 초로
 const latencyText = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v}ms`);
 const toGB = (bytes: number) => bytes / 1024 ** 3;
@@ -506,7 +507,7 @@ const sortedProcesses = computed(() => {
   const order = (a: ProcessRow, b: ProcessRow) => {
     const x = value(a);
     const y = value(b);
-    return typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "ko");
+    return typeof x === "number" && typeof y === "number" ? x - y : compareText(String(x), String(y));
   };
   return [...props.status.processes.oldest].sort((a, b) => (desc ? order(b, a) : order(a, b)));
 });
@@ -524,7 +525,7 @@ const storageBars = computed(() => {
   const diskPct = (disk.usedBytes / disk.totalBytes) * 100;
   return [
     { key: "cache", label: "오디오 캐시", ratio: cache.bytes / cache.maxBytes, text: `${toGB(cache.bytes).toFixed(1)} / ${toGB(cache.maxBytes).toFixed(0)} GB`, level: "ok" as Level },
-    { key: "files", label: "캐시 파일 수", ratio: cache.files / cache.maxFiles, text: `${cache.files.toLocaleString("ko-KR")} / ${cache.maxFiles.toLocaleString("ko-KR")}개`, level: "ok" as Level },
+    { key: "files", label: "캐시 파일 수", ratio: cache.files / cache.maxFiles, text: `${formatNumber(cache.files)} / ${formatNumber(cache.maxFiles)}개`, level: "ok" as Level },
     { key: "drive", label: `드라이브 (${disk.drive})`, ratio: diskPct / 100, text: `${gbText(disk.totalBytes)} 중 ${gbText(disk.totalBytes - disk.usedBytes)} 사용 가능`, level: levelOf(diskPct, ...LIMITS.disk) },
   ];
 });
@@ -533,8 +534,8 @@ const cacheCounts = computed<Array<[string, string]>>(() => {
   const { cache } = props.status.storage;
   return [
     ["재생 중 캐시 보호", `${cache.protectedFiles}개`],
-    ["미재생 캐시 파일", `${cache.neverPlayed.toLocaleString("ko-KR")}개`],
-    ["받기 실패한 캐시 파일", `${cache.failed.toLocaleString("ko-KR")}개`],
+    ["미재생 캐시 파일", `${formatNumber(cache.neverPlayed)}개`],
+    ["받기 실패한 캐시 파일", `${formatNumber(cache.failed)}개`],
   ];
 });
 // 캐시 드라이브 막대의 조각: 오디오 캐시 · DB(같은 드라이브일 때만) · 기타 · 여유 공간 · 최소 여유
@@ -551,7 +552,7 @@ const driveParts = computed(() => {
 });
 const dbRows = computed<Array<[string, string]>>(() => {
   const { db, cache, disk } = props.status.storage;
-  const n = (v: number) => v.toLocaleString("ko-KR");
+  const n = formatNumber;
   // DB 크기는 늘 표에(드라이브가 다르면 드라이브명을 붙인다). 같은 드라이브면 드라이브 막대에도 조각으로 들어간다
   return [
     ["DB 파일", db.drive === disk.drive ? sizeText(db.bytes) : `${sizeText(db.bytes)} (${db.drive})`],

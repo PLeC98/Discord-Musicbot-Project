@@ -1,3 +1,4 @@
+import { formatDate, formatTime, relativeTime } from "./locale.ts";
 // 디스코드 임베드 본문(description)이 그리는 마크다운을 HTML 로 옮긴다(공지 미리보기용).
 // 블록: 코드 블록 ``` · 인용 > · >>>(그 뒤 전부) · 제목 # ## ### · 작은 글씨 -# · 목록 - * · 번호 목록 1.
 // 글 안: 인라인 코드 ` · 굵게 ** · 밑줄 __ · 기울임 * _ · 취소선 ~~ · 스포일러 || · 링크 [글](주소) · 맨 주소 · 시각 <t:초:형식> · 멘션 · 사용자 이모지 · 역슬래시 이스케이프.
@@ -8,8 +9,8 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 // 시각 형식(디스코드 한국어 표기에 가깝게)
 function timestamp(sec: number, style: string): string {
   const d = new Date(sec * 1000);
-  const time = (s: boolean) => d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", ...(s ? { second: "2-digit" } : {}) });
-  const date = (long: boolean, weekday = false) => d.toLocaleDateString("ko-KR", long ? { year: "numeric", month: "long", day: "numeric", ...(weekday ? { weekday: "long" } : {}) } : { year: "numeric", month: "2-digit", day: "2-digit" });
+  const time = (s: boolean) => formatTime(d, { hour: "numeric", minute: "2-digit", ...(s ? { second: "2-digit" } : {}) });
+  const date = (long: boolean, weekday = false) => formatDate(d, long ? { year: "numeric", month: "long", day: "numeric", ...(weekday ? { weekday: "long" } : {}) } : { year: "numeric", month: "2-digit", day: "2-digit" });
   switch (style) {
     case "t":
       return time(false);
@@ -27,7 +28,6 @@ function timestamp(sec: number, style: string): string {
       return `${date(false)} ${time(true)}`;
     case "R": {
       const diff = sec - Date.now() / 1000;
-      const rtf = new Intl.RelativeTimeFormat("ko", { numeric: "auto" });
       const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
         ["year", 31536000],
         ["month", 2592000],
@@ -36,7 +36,7 @@ function timestamp(sec: number, style: string): string {
         ["minute", 60],
         ["second", 1],
       ];
-      for (const [unit, size] of units) if (Math.abs(diff) >= size || unit === "second") return rtf.format(Math.round(diff / size), unit);
+      for (const [unit, size] of units) if (Math.abs(diff) >= size || unit === "second") return relativeTime.format(Math.round(diff / size), unit);
       return "";
     }
     default:

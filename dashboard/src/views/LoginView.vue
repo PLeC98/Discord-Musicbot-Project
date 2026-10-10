@@ -146,7 +146,7 @@ const MODE_PILLS: Array<{ mode: Mode; label: string; icon: IconName }> = [
   { mode: "system", label: "시스템 설정 따르기", icon: "contrast" },
 ];
 
-// 위 막대 오른쪽의 짧은 날짜("Fri 10/09"). 날짜는 여기에만 둔다
+// 위 막대 오른쪽의 짧은 날짜("Fri 10/09"). 날짜는 여기에만 둔다. 잠금 화면 결이라 영어로 적는다(utils/locale 의 예외)
 const shortDate = computed(() => `${now.value.toLocaleDateString("en-US", { weekday: "short" })} ${two(now.value.getMonth() + 1)}/${two(now.value.getDate())}`);
 
 // 애매하게 낮은 화면(낮은 화면 기준보다는 높지만 시계 · 묶음 · 밑 안내 · 아래 섬이 다 들어가지 않는 높이)에서 겹치지 않게.

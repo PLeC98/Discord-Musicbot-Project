@@ -28,8 +28,8 @@
             </EmojiPicker>
           </div>
           <div class="flex items-center justify-between gap-3 text-xs">
-            <span :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ tooLong ? `${(length - ANNOUNCE_MAX).toLocaleString("ko-KR")}자를 줄여 주세요` : "" }}</span>
-            <span class="nums" :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ length.toLocaleString("ko-KR") }} / {{ ANNOUNCE_MAX.toLocaleString("ko-KR") }}</span>
+            <span :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ tooLong ? `${formatNumber(length - ANNOUNCE_MAX)}자를 줄여 주세요` : "" }}</span>
+            <span class="nums" :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ formatNumber(length) }} / {{ formatNumber(ANNOUNCE_MAX) }}</span>
           </div>
         </div>
         <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠 · 이모지 제목 · 본문 · 꼬리말)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
@@ -79,7 +79,7 @@
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-semibold truncate">{{ g.name }}</div>
                 <div class="text-xs text-on-surface-variant nums">
-                  멤버 {{ g.memberCount.toLocaleString("ko-KR") }}명<template v-if="g.hasPlayer"> · <span class="text-(--ok-ink)">재생 중</span></template>
+                  멤버 {{ formatNumber(g.memberCount) }}명<template v-if="g.hasPlayer"> · <span class="text-(--ok-ink)">재생 중</span></template>
                 </div>
               </div>
               <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">나가기</BaseButton>
@@ -122,6 +122,7 @@ import { LIMIT } from "../utils/request.ts";
 import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, type AdminGuilds, type AnnounceKind, type BroadcastReply } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
+import { compareText, formatNumber, formatTime } from "../utils/locale.ts";
 
 type AdminGuild = AdminGuilds["guilds"][number];
 const props = defineProps<{ guilds: AdminGuild[] }>();
@@ -144,7 +145,7 @@ const body = computed(() => announceBody(message.value));
 const length = computed(() => body.value.length);
 // 꼬리말의 시각: 지금 보내면 찍힐 시각을 디스코드 한국어 표기로("오늘 오후 11:15"). 분이 바뀌면 따라간다
 const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
-const sentAt = computed(() => `오늘 ${now.value.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}`);
+const sentAt = computed(() => `오늘 ${formatTime(now.value, { hour: "numeric", minute: "2-digit" })}`);
 // 봇이 보낼 임베드의 모양(계약 ANNOUNCE_STYLE)
 const style = computed(() => ANNOUNCE_STYLE[kind.value]);
 const tooLong = computed(() => length.value > ANNOUNCE_MAX);
@@ -233,13 +234,12 @@ const SORTS: Array<{ value: Sort; label: string }> = [
 const sort = ref<Sort>("name");
 const viewOpen = ref(false);
 const viewSummary = computed(() => [SORTS.find((o) => o.value === sort.value)?.label, playingOnly.value && "재생 중만"].filter(Boolean).join(" · "));
-const byName = new Intl.Collator("ko");
 const shown = computed(() => {
   const list = props.guilds.filter((g) => (!playingOnly.value || g.hasPlayer) && koMatch(g.name, term.value));
-  if (sort.value === "name-desc") return list.sort((a, b) => byName.compare(b.name, a.name));
+  if (sort.value === "name-desc") return list.sort((a, b) => compareText(b.name, a.name));
   if (sort.value === "members-desc") return list.sort((a, b) => b.memberCount - a.memberCount);
   if (sort.value === "members-asc") return list.sort((a, b) => a.memberCount - b.memberCount);
-  return list.sort((a, b) => byName.compare(a.name, b.name));
+  return list.sort((a, b) => compareText(a.name, b.name));
 });
 const listEl = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(listEl);

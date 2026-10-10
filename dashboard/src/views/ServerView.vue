@@ -196,7 +196,7 @@
       <!-- 휴대폰은 같은 내용을 아래 판(QueueSheet)에 담는다 -->
       <component :is="sheetMode ? QueueSheet : AppWindow" title="대기열" icon="queue_music" v-bind="sheetMode ? { deskHeight: shell.deskHeight, next: nextTitle, compact: short } : { class: 'max-h-[80dvh] md:max-h-none' }">
         <template #badge>
-          <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ (player.queueTotal ?? player.queue.length).toLocaleString() }}곡</span>
+          <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ formatNumber(player.queueTotal ?? player.queue.length) }}곡</span>
         </template>
         <template #actions>
           <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds) }}</span>
@@ -250,7 +250,7 @@
           </div>
           <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
             <Icon name="progress_activity" :size="20" class="animate-spin text-primary" />
-            {{ (player.queueTotal - player.queue.length).toLocaleString() }}곡 더
+            {{ formatNumber(player.queueTotal - player.queue.length) }}곡 더
           </div>
         </div>
         <div v-else class="flex-1 flex items-center justify-center py-8 text-sm text-on-surface-variant">대기열이 비어 있어요</div>
@@ -311,6 +311,7 @@ import { formatDuration } from "../../../src/ui/format.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
 import { QUEUE_PAGE, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
+import { formatNumber } from "../utils/locale.ts";
 
 // 음량 단추(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";

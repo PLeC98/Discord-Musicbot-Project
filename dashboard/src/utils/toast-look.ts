@@ -1,6 +1,7 @@
 // 알림 종류마다의 모양(떠 있는 알림 · 알림함이 같이 쓴다): 됨은 주 색, 경고는 3차 색, 오류는 오류 색
 import type { Severity } from "../composables/toasts.ts";
 import type { IconName } from "../icons.ts";
+import { formatClock } from "./locale.ts";
 
 export const TOAST_LOOK: Record<Severity, { icon: IconName; badge: string; bar: string; ink: string }> = {
   success: { icon: "check_circle", badge: "bg-primary-container text-on-primary-container", bar: "bg-primary", ink: "text-primary" },
@@ -9,7 +10,7 @@ export const TOAST_LOOK: Record<Severity, { icon: IconName; badge: string; bar: 
 };
 
 /** 일어난 때(실시간 로그와 같은 24시간 시:분:초) */
-export const toastClock = (ms: number) => new Date(ms).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+export const toastClock = (ms: number) => formatClock(ms, { seconds: true });
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const dayOf = (d: Date) => `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;

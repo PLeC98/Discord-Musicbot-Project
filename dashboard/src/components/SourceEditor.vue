@@ -65,7 +65,7 @@
         <div v-if="deepCount(source.type)">
           <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? "상세 설정 접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}</BaseButton>
         </div>
-        <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">곡이 너무 많으면 상위 {{ depthOf(source).toLocaleString("ko-KR") }}곡 중에서 골라요.</p>
+        <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">곡이 너무 많으면 상위 {{ formatNumber(depthOf(source)) }}곡 중에서 골라요.</p>
       </div>
     </div>
 
@@ -99,6 +99,7 @@ import { valueOf } from "../utils/dom.ts";
 import type { OptionValue } from "../utils/options.ts";
 import type { SourceData } from "../utils/genre-rows.ts";
 import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
+import { formatNumber } from "../utils/locale.ts";
 
 /** 편집기가 그리는 칸 하나(서버가 준 것) */
 type Field = SourceTypeView["fields"][number];

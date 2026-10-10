@@ -26,7 +26,7 @@
           <GuildAvatar :guild="g" size-class="size-13" text-class="text-lg" />
           <div class="min-w-0 flex-1">
             <div class="text-base font-semibold truncate">{{ g.name }}</div>
-            <div class="text-xs text-on-surface-variant nums">멤버 {{ g.memberCount.toLocaleString() }}명</div>
+            <div class="text-xs text-on-surface-variant nums">멤버 {{ formatNumber(g.memberCount) }}명</div>
           </div>
           <!-- 칩은 나와의 관계("듣는 중")만. 서버 상태는 아이콘의 상태 점과 아래 줄이 말한다 -->
           <span v-if="g.listening" class="h-6 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold inline-flex items-center gap-1 shrink-0"><Icon name="headphones" :size="14" fill />듣는 중</span>
@@ -57,6 +57,7 @@ import Icon from "../components/BaseIcon.vue";
 import GuildAvatar from "../components/GuildAvatar.vue";
 import TrackArt from "../components/TrackArt.vue";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
+import { formatNumber } from "../utils/locale.ts";
 
 // 목록 데이터·SSE·폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
 const store = useGuildsStore();

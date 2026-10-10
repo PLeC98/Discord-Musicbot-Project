@@ -21,6 +21,7 @@
 import { computed } from "vue";
 import { useIntervalFn, useNow } from "@vueuse/core";
 import { shell } from "./shell-state.ts";
+import { formatDate } from "../utils/locale.ts";
 
 // 펼쳤을 때의 배율. 한 줄(18)이 두 줄 높이(36)를 채운다
 const BIG = 2;
@@ -37,7 +38,7 @@ const year = computed(() => `${now.value.getFullYear()}년`);
 const month = computed(() => `${now.value.getMonth() + 1}월`);
 const day = computed(() => `${now.value.getDate()}일`);
 const shortDate = computed(() => `${String(now.value.getMonth() + 1).padStart(2, "0")}/${String(now.value.getDate()).padStart(2, "0")}`);
-const weekday = computed(() => now.value.toLocaleDateString("ko-KR", { weekday: "long" }));
+const weekday = computed(() => formatDate(now.value, { weekday: "long" }));
 
 const cell = "absolute top-0 whitespace-nowrap origin-top-left transition-[left,top,scale,opacity] spring";
 

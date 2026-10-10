@@ -224,7 +224,7 @@
 
           <BaseCard icon="terminal" title="판정 프롬프트">
             <template #actions>
-              <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenTotal.toLocaleString("ko-KR") }} 토큰</span>
+              <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : '추산치'">{{ formatNumber(tokenTotal) }} 토큰</span>
               <span v-else-if="tokenError" class="text-xs text-(--warn-ink)" v-tooltip="tokenError">토큰 수를 세지 못함</span>
               <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="섹션 추가" v-tooltip="'추가'" @click="addSection"><Icon name="add" :size="20" /></button>
             </template>
@@ -243,7 +243,7 @@
                   <button type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" aria-label="이 섹션 삭제" v-tooltip="'삭제'" @click="removeSection(i)"><Icon name="delete" :size="20" /></button>
                 </div>
                 <div v-show="!isFolded(promptFoldId(i))" class="flex flex-col gap-1 px-3 pb-3">
-                  <span v-if="tokenEach[i] != null" class="self-end text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenEach[i].toLocaleString("ko-KR") }} 토큰</span>
+                  <span v-if="tokenEach[i] != null" class="self-end text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : '추산치'">{{ formatNumber(tokenEach[i]) }} 토큰</span>
                   <textarea :value="section.text" rows="8" :class="[AREA, 'font-mono text-xs']" @input="section.text = valueOf($event)"></textarea>
                 </div>
               </div>
@@ -411,7 +411,7 @@
               <span class="size-9 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="visibility" :size="20" /></span>
               <h3 id="preview-title" class="flex-1 text-xl font-round font-semibold">리퀘스트 미리보기</h3>
               <span class="text-xs text-on-surface-variant">보내지 않았어요</span>
-              <span v-if="shown.tokens" class="text-xs text-on-surface-variant nums" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
+              <span v-if="shown.tokens" class="text-xs text-on-surface-variant nums" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ formatNumber(shown.tokens.total) }} 토큰</span>
               <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="닫기" @click="shown = null"><Icon name="close" :size="20" /></button>
             </div>
             <div class="flex flex-col gap-3">
@@ -480,6 +480,7 @@ import type { AiFields, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply
 import { AI_SAMPLE_CANDIDATES } from "../../../src/dashboard/contract/admin.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import type { RefreshResult } from "../../../src/config/ai-model-types.ts";
+import { formatNumber } from "../utils/locale.ts";
 
 /** 편집 중인 ai.yaml. 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
 type Draft = Record<string, unknown> & {
@@ -858,7 +859,7 @@ function showIfOk(field: ModelField) {
 const paramLimits = computed(() => {
   const m = fieldInfo.value.models.find((one) => one.modelId === draft.value.model);
   if (!m?.contextWindowTokens && !m?.maxOutputTokens) return "";
-  const n = (x: number) => Number(x).toLocaleString("ko-KR");
+  const n = (x: number) => formatNumber(Number(x));
   return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
 });
 

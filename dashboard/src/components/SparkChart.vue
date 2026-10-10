@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { formatClock, formatNumber } from "../utils/locale.ts";
 
 const props = defineProps<{
   /** 첫째 줄(굵게 · 면 채움) */
@@ -54,7 +55,7 @@ const line = (s: number[]) => `M${s.map((v, i) => `${x(i).toFixed(2)},${y(v).toF
 const area = (s: number[]) => `${line(s)} L100,40 L0,40 Z`;
 // 읽는 사람(화면 낭독기)에게는 그래프 대신 한 줄로
 const summary = computed(() => `최근 ${props.minutes}분, 최저 ${fmt(Math.min(...props.values))}${props.unit}, 최고 ${fmt(Math.max(...props.values))}${props.unit}, 세로축 최대 ${fmt(props.max)}${props.unit}`);
-const fmt = (v: number) => (v >= 100 || Number.isInteger(v) ? Math.round(v).toLocaleString("ko-KR") : v.toFixed(v < 10 ? 2 : 1));
+const fmt = (v: number) => (v >= 100 || Number.isInteger(v) ? formatNumber(Math.round(v)) : v.toFixed(v < 10 ? 2 : 1));
 
 function onMove(e: PointerEvent) {
   const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -62,6 +63,6 @@ function onMove(e: PointerEvent) {
 }
 function timeAt(i: number) {
   const ms = props.now.getTime() - (1 - i / (n.value - 1)) * props.minutes * 60_000;
-  return new Date(ms).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return formatClock(ms);
 }
 </script>

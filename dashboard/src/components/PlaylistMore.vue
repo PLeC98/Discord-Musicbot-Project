@@ -53,6 +53,7 @@ import { MAX_COUNT, moreChoices } from "../../../src/rules/more-choices.ts";
 import { roomWith } from "../../../src/rules/queue-room.ts";
 import { collection } from "../../../src/ui/text/ko/labels.ts";
 import * as moreText from "../../../src/ui/text/ko/more.ts";
+import { formatNumber } from "../utils/locale.ts";
 
 // 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
 // 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 고른다.
@@ -75,7 +76,7 @@ const emit = defineEmits<{ add: [count: number]; close: [] }>();
 const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface transition-[border-radius,scale] spring-fast active:not-disabled:rounded-3xl active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
 
 // 선택지 · 남은 자리 · 이름표는 디스코드 더 넣기 메뉴와 같은 규칙 · 문장(rules/more-choices · rules/queue-room · ui/text/ko/more)
-const fmt = (n: number) => Number(n).toLocaleString("ko-KR");
+const fmt = (n: number) => formatNumber(Number(n));
 const batch = computed(() => props.more.batch);
 const label = computed(() => collection(props.more.collection));
 const room = computed(() => roomWith(props.queueTotal, props.hasCurrent, props.queueMax));

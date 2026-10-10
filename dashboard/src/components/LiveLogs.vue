@@ -6,7 +6,7 @@
     <PaneHeader icon="article" title="실시간 로그">
       <template #actions>
         <span class="flex items-center gap-1 text-xs text-on-surface-variant"
-          ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'"></span>{{ connected ? "연결됨" : "끊김" }} · <span class="nums text-on-surface">{{ shown.length.toLocaleString("ko-KR") }}줄</span></span
+          ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'"></span>{{ connected ? "연결됨" : "끊김" }} · <span class="nums text-on-surface">{{ formatNumber(shown.length) }}줄</span></span
         >
       </template>
     </PaneHeader>
@@ -55,6 +55,7 @@ import { useOverflowing } from "../composables/overflowing.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
 import { LEVELS, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
+import { formatClock, formatNumber } from "../utils/locale.ts";
 
 /** active: 이 탭이 보이는가(숨어 있는 동안은 구를 수 없어 돌아왔을 때 맨 아래로 맞춘다). serverLevel: 봇의 LOG_LEVEL(처음 켜 둘 레벨) */
 const props = defineProps<{ logs: WireEntry[]; connected: boolean; serverLevel?: string; active: boolean }>();
@@ -112,7 +113,7 @@ const catColor = (name: string) => {
 const shown = computed(() => props.logs.filter((e) => levelsOn.value.has(e.level) && (!category.value || e.category === category.value) && (!tag.value || (e.tags ?? []).includes(String(tag.value)))));
 
 // 봇 상태 탭과 같은 24시간 시각
-const clock = (ms: number) => new Date(ms).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+const clock = (ms: number) => formatClock(ms, { seconds: true });
 
 // ── 따라가기 ──
 // 맨 아래에 있으면 새 줄을 따라 내려가고, 위로 굴리면 멈춘다. 따라가기를 켜면 맨 아래로
