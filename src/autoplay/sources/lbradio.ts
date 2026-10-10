@@ -58,4 +58,4 @@ const PLACEHOLDER = {
     ),
 };
 
-export { lbradio, PLACEHOLDER };
+export { lbradio, PLACEHOLDER, SLOW_MS as LB_TIMEOUT_MS };

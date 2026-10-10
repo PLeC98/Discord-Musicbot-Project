@@ -8,6 +8,8 @@ import { ai } from "../../config/ai.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { linkStatus, type Service } from "../../infra/link-status.ts";
+import { LB_TIMEOUT_MS } from "../../autoplay/sources/lbradio.ts";
+import { anonTokenExpiresAt } from "../../sources/spotify.ts";
 import type { LinkRow } from "../contract/admin.ts";
 import { gateway } from "./gateway.ts";
 
@@ -37,35 +39,47 @@ const ROWS: Array<{ id: Service; group: Group; name: string }> = [
 /** 자동재생 출처 서비스가 쓰는 장르 출처 종류 */
 const SOURCE_TYPE: Partial<Record<Service, string>> = { lastfm: "lastfm", listenbrainz: "lbradio", animethemes: "animethemes", anisongdb: "anisongdb", vocadb: "vocadb", utaitedb: "utaitedb", touhoudb: "touhoudb" };
 
-/** 장르들이 쓰는 출처 종류. 장르 설정을 못 읽으면 비어 있다 */
+/** 장르들이 쓰는 출처 종류. 장르 설정을 못 읽으면 null */
 function usedSourceTypes() {
   try {
     return new Set(Object.values(genres().genres).flatMap((genre) => genre.sources.map((source) => source.type)));
   } catch {
-    return new Set<string>();
+    return null;
   }
 }
 
 /** 쓰지 않는 까닭(설정). 쓰면 null */
-function offReason(id: Service, used: Set<string>): string | null {
+function offReason(id: Service, used: Set<string> | null): string | null {
   if (id === "sponsorblock" && !config.sponsorblock.enabled) return "꺼 둠";
   if (id === "ai") return aiSwitchedOff(ai()) ? "꺼 둠" : null;
   if (id === "lastfm" && !config.sources.lastfmKey) return "키 없음";
   if (id === "listenbrainz" && !config.sources.listenbrainzToken) return "토큰 없음";
   const type = SOURCE_TYPE[id];
-  return type && !used.has(type) ? "이 출처를 쓰는 장르가 없음" : null;
+  if (!type) return null;
+  if (!used) return "장르 설정을 읽지 못함";
+  return used.has(type) ? null : "이 출처를 쓰는 장르가 없음";
 }
+
+/** 줄에 늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간 */
+function noteOf(id: Service): string | null {
+  if (id === "ai") return String(ai().model ?? "").trim() || null;
+  const expiresAt = id === "spotify" ? anonTokenExpiresAt() : null;
+  return expiresAt && expiresAt > Date.now() ? `익명 토큰 ${Math.round((expiresAt - Date.now()) / 60_000)}분 남음` : null;
+}
+
+/** 이름에 올리면 보이는 설명(그 서비스를 다루는 방식) */
+const HINT: Partial<Record<Service, string>> = { listenbrainz: `LB Radio · ${LB_TIMEOUT_MS / 1000}초 넘으면 실패` };
 
 /** 부른 결과로 매긴다: 쉼 · 실패(마지막이 실패) · 느림(오래 걸림 · 최근 실패가 잦음) · 정상 */
 function judged(id: Service): Pick<LinkRow, "state" | "latencyMs" | "lastOkAt" | "error" | "note"> {
   const status = linkStatus(id);
   const last = status?.recent.at(-1);
   const lastOkAt = status?.lastOkAt ?? null;
-  if (!status || !last || Date.now() - last.at > IDLE_MS) return { state: "idle", latencyMs: null, lastOkAt, error: null, note: null };
-  if (!last.ok) return { state: "fail", latencyMs: null, lastOkAt, error: last.error, note: null };
+  if (!status || !last || Date.now() - last.at > IDLE_MS) return { state: "idle", latencyMs: null, lastOkAt, error: null, note: noteOf(id) };
+  if (!last.ok) return { state: "fail", latencyMs: null, lastOkAt, error: last.error, note: noteOf(id) };
   const fails = status.recent.filter((one) => !one.ok).length;
   const slow = last.ms > (SLOW_FOR[id] ?? SLOW_MS) || fails >= SHAKY_FAILS;
-  return { state: slow ? "slow" : "ok", latencyMs: last.ms, lastOkAt, error: null, note: fails ? `최근 ${status.recent.length}번 중 ${fails}번 실패` : null };
+  return { state: slow ? "slow" : "ok", latencyMs: last.ms, lastOkAt, error: null, note: fails ? `최근 ${status.recent.length}번 중 ${fails}번 실패` : noteOf(id) };
 }
 
 /** 디스코드: 게이트웨이에 붙어 있으면 정상(지연은 하트비트), 다시 붙는 중이면 실패 */
@@ -90,8 +104,8 @@ function linkRows(client: Client): LinkRow[] {
   const used = usedSourceTypes();
   const rows = ROWS.map(({ id, group, name }): LinkRow => {
     const off = offReason(id, used);
-    if (off) return { id, group, name, state: "off", latencyMs: null, lastOkAt: linkStatus(id)?.lastOkAt ?? null, error: null, note: off };
-    return { id, group, name, ...judged(id) };
+    if (off) return { id, group, name, state: "off", latencyMs: null, lastOkAt: linkStatus(id)?.lastOkAt ?? null, error: null, note: off, hint: HINT[id] ?? null };
+    return { id, group, name, ...judged(id), hint: HINT[id] ?? null };
   });
   return [discordRow(client), ...rows.filter((row) => row.group === "play"), potokenRow(), ...rows.filter((row) => row.group !== "play")];
 }

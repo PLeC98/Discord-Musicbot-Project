@@ -475,5 +475,8 @@ function _reset() {
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-export { getCollection, _reset, _internals, useFetch };
+/** 익명 토큰이 끝나는 때(봇 상태 탭). 받은 적이 없으면 null */
+const anonTokenExpiresAt = () => graphql._anonToken?.expiresAt ?? null;
+
+export { getCollection, anonTokenExpiresAt, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };
