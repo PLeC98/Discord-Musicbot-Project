@@ -56,9 +56,13 @@ test("DB: 파일(-wal 포함) 크기와 줄 수", () => {
   assert.deepEqual([stats.lookups, stats.sponsorSegments, stats.sessions], [0, 0, 0]);
 });
 
-test("드라이브: Windows 는 F: 꼴, 그 밖은 뿌리. 쓴 양은 크기 안", () => {
+test("드라이브: Windows 는 F: 꼴, 그 밖은 마운트 지점. 같은 드라이브면 이름이 같다. 쓴 양은 크기 안", () => {
   const drive = driveOf(os.tmpdir())!;
-  assert.match(drive.drive, process.platform === "win32" ? /^[A-Z]:$/i : /^\/$/);
+  if (process.platform === "win32") assert.match(drive.drive, /^[A-Z]:$/i);
+  else assert.ok(path.isAbsolute(drive.drive) && path.resolve(os.tmpdir()).startsWith(drive.drive), drive.drive);
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "drive-"));
+  assert.equal(driveOf(other)!.drive, drive.drive, "같은 드라이브의 다른 폴더");
+  fs.rmSync(other, { recursive: true });
   assert.ok(drive.usedBytes > 0 && drive.usedBytes <= drive.totalBytes);
   assert.equal(driveOf(path.join(os.tmpdir(), "없는-폴더-xyz")), null);
 });
