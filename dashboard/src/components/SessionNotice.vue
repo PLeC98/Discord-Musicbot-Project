@@ -3,13 +3,13 @@
   <div v-if="session.ended || session.offline" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
     <span class="size-9 shrink-0 rounded-full bg-error-container text-on-error-container flex items-center justify-center"><Icon name="cloud_off" :size="20" /></span>
     <span class="flex-1 min-w-0 text-on-surface font-medium">{{ session.ended ? loginNotice.title : unansweredTitle("offline") }}</span>
-    <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">다시 로그인</BaseButton>
-    <BaseButton v-else variant="ghost" size="sm" :disabled="checking" @click="retry">다시 시도</BaseButton>
+    <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">{{ T.loginAgain }}</BaseButton>
+    <BaseButton v-else variant="ghost" size="sm" :disabled="checking" @click="retry">{{ T.retry }}</BaseButton>
   </div>
   <!-- 실시간 연결만 끊겼다. 요청은 되므로 조작은 그대로 쓰고, 화면은 30초마다 다시 읽는다 -->
   <div v-else-if="session.streamDown" role="status" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-4 py-2 text-body pane-menu">
     <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="progress_activity" :size="20" class="animate-spin" /></span>
-    <span class="flex-1 min-w-0 text-on-surface-variant">실시간 갱신을 다시 잇는 중이에요.</span>
+    <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
   </div>
 
   <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘 · 제목 · 설명, 오른쪽 아래 단추. 알림 띠보다 위(z-400) -->
@@ -20,13 +20,13 @@
           <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="key" :size="24" /></span>
           <h3 class="mb-4 text-xl font-round font-semibold text-on-surface">{{ loginNotice.title }}</h3>
           <p class="mb-1 text-sm text-on-surface-variant">{{ loginNotice.body }}</p>
-          <p class="mb-6 text-sm text-on-surface-variant">새 창에서 다시 로그인한 뒤 이 탭으로 돌아오면 이어서 쓸 수 있어요. 고치던 내용은 그대로 남아 있어요.</p>
+          <p class="mb-6 text-sm text-on-surface-variant">{{ T.loginAgainBody }}</p>
           <p v-if="note" class="mb-4 text-sm text-tertiary">{{ note }}</p>
           <p class="-mt-2 mb-6 text-on-surface-variant text-label">{{ codeLineOf("login-required", 401) }}</p>
           <div class="flex gap-2 justify-end flex-wrap">
-            <BaseButton variant="ghost" @click="showDialog = false">나중에</BaseButton>
-            <BaseButton variant="ghost" :disabled="checking" @click="check">로그인했어요</BaseButton>
-            <BaseButton variant="primary" @click="openLogin">새 창에서 로그인</BaseButton>
+            <BaseButton variant="ghost" @click="showDialog = false">{{ T.later }}</BaseButton>
+            <BaseButton variant="ghost" :disabled="checking" @click="check">{{ T.loggedIn }}</BaseButton>
+            <BaseButton variant="primary" @click="openLogin">{{ T.loginInNewWindow }}</BaseButton>
           </div>
         </div>
       </div>
@@ -43,6 +43,8 @@ import BaseButton from "./BaseButton.vue";
 import { session } from "../composables/session.ts";
 import { useUserStore } from "../stores/user.ts";
 import { codeLineOf, noticeText, unansweredTitle } from "../utils/problem.ts";
+import { text } from "../text/index.ts";
+const T = text.shell;
 
 // 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required)
 const loginNotice = noticeText("login-required");
@@ -69,7 +71,7 @@ function openLogin() {
 
 async function check() {
   checking.value = true;
-  note.value = (await user.resumeSession()) ? "" : "아직 로그인되지 않았어요. 새 창에서 로그인을 마쳐 주세요.";
+  note.value = (await user.resumeSession()) ? "" : T.notLoggedInYet;
   checking.value = false;
 }
 

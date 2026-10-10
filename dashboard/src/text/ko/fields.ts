@@ -15,5 +15,9 @@ const suggestFailed = "후보를 받지 못했어요. Enter 로 그대로 넣을
 const suggestNone = "후보가 없어요. Enter 로 그대로 넣을 수 있어요";
 /** 마크다운 링크를 넣을 때 고른 글이 없으면 그 자리 */
 const linkText = "링크 글";
+/** 마크다운 미리보기에서 멘션 자리(누구인지 모른다) */
+const mentionUser = "@사용자";
+const mentionRole = "@역할";
+const mentionChannel = "#채널";
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText };
+export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel };

@@ -20,12 +20,13 @@ import { computed } from "vue";
 import Icon from "./BaseIcon.vue";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
 
 export type SaveState = "idle" | "saving" | "done" | "error";
 defineProps<{ state: SaveState }>();
 
 const CIRC = 2 * Math.PI * 17;
-const LABEL: Record<SaveState, string> = { idle: "", saving: "저장하는 중", done: "저장했어요", error: "저장하지 못했어요" };
+const LABEL: Record<SaveState, string> = { idle: "", saving: text.editor.saving, done: text.editor.saved, error: text.editor.saveFailed };
 const ICON: Record<SaveState, IconName> = { idle: "save", saving: "save", done: "check", error: "priority_high" };
 // 위 막대 단추처럼 휴대폰 20 · 태블릿 · PC 16(링 안에 들게 한 단계 작게)
 const phone = useMediaQuery(PHONE_QUERY);

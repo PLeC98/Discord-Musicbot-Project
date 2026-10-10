@@ -13,9 +13,9 @@
     <div v-if="user.viewAs" role="status" class="relative z-10 shrink-0 h-7 px-4 flex items-center justify-center gap-1.5 text-xs bg-tertiary text-on-tertiary">
       <Icon name="visibility" :size="16" class="shrink-0" />
       <span class="min-w-0 truncate"
-        ><strong class="font-semibold">{{ user.viewAsLabel }}</strong> 권한으로 보는 중</span
+        ><strong class="font-semibold">{{ user.viewAsLabel }}</strong> {{ T.viewingAs }}</span
       >
-      <button type="button" class="tap state-layer shrink-0 h-5 px-2.5 rounded-full text-xs font-semibold bg-on-tertiary/16 cursor-pointer" @click="clearViewAs">해제</button>
+      <button type="button" class="tap state-layer shrink-0 h-5 px-2.5 rounded-full text-xs font-semibold bg-on-tertiary/16 cursor-pointer" @click="clearViewAs">{{ T.clearViewAs }}</button>
     </div>
 
     <div class="relative flex-1 min-h-0 flex flex-col md:flex-row">
@@ -39,22 +39,24 @@
 
       <div class="flex-1 min-h-0 min-w-0 flex flex-col">
         <!-- 위 막대. 틀의 위쪽 가장자리(휴대폰 48 · 태블릿 · PC 36). 가운데에 보고 있는 서버(서버 화면 · 서버 설정), 모든 서버 화면이면 "서버 목록", 운영자 패널이면 그 이름 -->
-        <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" aria-label="위 막대">
+        <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" :aria-label="T.topBar">
           <div v-if="viewedGuild" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-[60%]">
             <GuildAvatar :guild="viewedGuild" active :status="false" size-class="size-6" text-class="text-2xs" />
-            <span class="text-sm font-semibold truncate">{{ viewedGuild.name }}<span v-if="route.path.endsWith('/settings')" class="ml-1 text-on-surface-variant font-medium">- 서버 설정</span></span>
+            <span class="text-sm font-semibold truncate"
+              >{{ viewedGuild.name }}<span v-if="route.path.endsWith('/settings')" class="ml-1 text-on-surface-variant font-medium">{{ T.serverSettingsSuffix }}</span></span
+            >
           </div>
-          <span v-else-if="route.path === '/servers'" class="text-sm font-semibold">서버 목록</span>
+          <span v-else-if="route.path === '/servers'" class="text-sm font-semibold">{{ T.serverList }}</span>
           <span v-else-if="route.meta.title" class="text-sm font-semibold">{{ route.meta.title }}</span>
           <div v-else-if="route.path === '/admin'" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-none">
             <span class="size-6 rounded-[30%] bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="admin_panel_settings" :size="16" fill /></span>
             <span class="text-sm font-semibold truncate"
-              >운영자 패널<span v-if="shell.subtitle" class="md:hidden ml-1 text-on-surface-variant font-medium">- {{ shell.subtitle }}</span></span
+              >{{ T.adminPanel }}<span v-if="shell.subtitle" class="md:hidden ml-1 text-on-surface-variant font-medium">- {{ shell.subtitle }}</span></span
             >
           </div>
           <!-- 왼쪽 끝 · 오른쪽 끝: 화면이 넣는 자리(서버 설정의 뒤로가기, 서버 화면의 음성 상태 · 설정). 휴대폰은 왼쪽 맨 앞에 서랍 메뉴, 오른쪽 맨 끝은 늘 알림함 -->
           <div class="absolute left-1 inset-y-0 flex items-center gap-1 max-w-[26%] md:max-w-[35%]">
-            <button type="button" :class="TOPBAR_BTN" class="md:hidden" aria-label="메뉴 열기" :aria-expanded="drawerOpen" @click="drawerOpen = true"><Icon name="menu" :size="24" /></button>
+            <button type="button" :class="TOPBAR_BTN" class="md:hidden" :aria-label="T.openMenu" :aria-expanded="drawerOpen" @click="drawerOpen = true"><Icon name="menu" :size="24" /></button>
             <div id="topbar-start" class="flex items-center gap-1 min-w-0"></div>
           </div>
           <div class="absolute right-3 inset-y-0 flex items-center gap-3 max-w-[26%] md:max-w-[35%]">
@@ -110,6 +112,8 @@ import { useUserStore } from "./stores/user.ts";
 import { setReportUrl } from "./utils/problem.ts";
 import { setBrandColor } from "./theme/theme.ts";
 import type { BotInfo } from "../../src/dashboard/contract/identity.ts";
+import { text } from "./text/index.ts";
+const T = text.shell;
 
 const user = useUserStore();
 const np = useNowPlayingStore();

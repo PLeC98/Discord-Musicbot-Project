@@ -3,13 +3,10 @@ import axios from "axios";
 import { session } from "../composables/session.ts";
 import { statusOf } from "../utils/request.ts";
 import { TIERS, type Me, type Tier, type ViewAsReply } from "../../../src/dashboard/contract/identity.ts";
+import { text } from "../text/index.ts";
 
 // 권한 수준 오버라이드 계층의 이름표. 계층과 차례는 서버의 것(contract/identity 의 TIERS)
-const TIER_TEXT: Record<Tier, { label: string; desc: string }> = {
-  moderator: { label: "서버 관리자", desc: "같은 음성 채널에 있지 않아도 조작이 가능해요. (관리, 차단, 추방, 타임아웃 권한 중 하나 보유)" },
-  dj: { label: "DJ", desc: "재생 조작은 되지만 봇과 같은 음성 채널에 있어야 해요." },
-  user: { label: "일반 유저", desc: "DJ 역할을 정한 서버에서는 조작이 막히고 곡 추가만 할 수 있어요." },
-};
+const TIER_TEXT: Record<Tier, { label: string; desc: string }> = text.admin.tiers;
 // null(해제)은 목록에 넣지 않는다. 선택지가 아니라 "오버라이드 없음"(운영자 그대로) 상태다
 export const VIEW_AS_TIERS = TIERS.map((id) => ({ id, ...TIER_TEXT[id] }));
 

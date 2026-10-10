@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { problemDetails, problemNotice, problemText, setReportUrl } from "../../../dashboard/src/utils/problem.ts";
 import { problemBody } from "../../../src/dashboard/contract/problem.ts";
+import { text } from "../../../dashboard/src/text/index.ts";
 
 const failed = (data: unknown) => ({ response: { data } });
 
@@ -46,9 +47,9 @@ test("심각한 정도는 안내의 것", () => {
 });
 
 test("응답 없이 실패한 요청은 화면만의 문장과 코드", () => {
-  assert.equal(problemNotice({ code: "ETIMEDOUT" }, "실패").codeLine, "오류 코드: request-timeout");
-  assert.equal(problemNotice({ code: "ERR_NETWORK" }, "실패").codeLine, "오류 코드: no-connection");
-  assert.match(problemText({ code: "ETIMEDOUT" }, "실패"), /\n오류 코드: request-timeout$/);
+  assert.deepEqual(problemNotice({ code: "ETIMEDOUT" }, "실패"), { severity: "warning", ...text.errors.timeout, detail: "", codeLine: text.errors.codeLine("request-timeout"), reportUrl: "" });
+  assert.equal(problemNotice({ code: "ERR_NETWORK" }, "실패").codeLine, text.errors.codeLine("no-connection"));
+  assert.ok(problemText({ code: "ETIMEDOUT" }, "실패").endsWith(`\n${text.errors.codeLine("request-timeout")}`));
 });
 
 test("문제 응답이 아니거나 모르는 코드면 화면이 준 글(코드 줄 없음)", () => {

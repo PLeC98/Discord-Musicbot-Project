@@ -9,6 +9,7 @@ import { isCode, isWebCode, type Code } from "../../../src/rules/problems.ts";
 import type { Notice } from "../../../src/ui/text/notice.ts";
 import { paramsOf, type ProblemBody } from "../../../src/dashboard/contract/problem.ts";
 import { failureKind, replyOf, statusOf, type FailureKind } from "./request.ts";
+import { text } from "../text/index.ts";
 
 const plain = (text: string) => text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1");
 
@@ -21,12 +22,12 @@ export type ProblemNotice = { title: string; body: string; detail: string; codeL
 
 // 응답 없이 실패한 요청. 키는 request 의 failureKind
 const UNANSWERED: Partial<Record<FailureKind, { code: string; severity: Notice["severity"]; title: string; body: string }>> = {
-  timeout: { code: "request-timeout", severity: "warning", title: "응답이 너무 늦어요!", body: "봇이 정해진 시간 안에 답하지 않았어요. 요청이 처리됐을 수도 있으니 화면을 확인한 뒤 다시 시도해 주세요." },
-  offline: { code: "no-connection", severity: "error", title: "봇에 연결할 수 없어요!", body: "봇이 꺼져 있거나 네트워크에 문제가 있어요. 잠시 뒤에 다시 시도해 주세요." },
+  timeout: { code: "request-timeout", severity: "warning", ...text.errors.timeout },
+  offline: { code: "no-connection", severity: "error", ...text.errors.offline },
 };
 
 /** 끝 줄: 오류 코드(와 HTTP 상태) */
-export const codeLineOf = (code: string, status?: number) => (status === undefined ? `오류 코드: ${code}` : `오류 코드: ${code} (HTTP ${status})`);
+export const codeLineOf = text.errors.codeLine;
 
 /** 봇과 같은 안내의 머리 줄 · 본문(꾸밈을 뗀 글). 요청 없이 화면이 먼저 알릴 때(조작이 막힌 까닭 등) */
 export function noticeText(code: Code): { title: string; body: string } {
@@ -72,7 +73,7 @@ export function problemNotice(error: unknown, fallback: string): ProblemNotice {
 /** problemNotice 를 줄로 이은 글 */
 export function problemText(error: unknown, fallback: string): string {
   const { title, body, detail, codeLine, reportUrl } = problemNotice(error, fallback);
-  return [title, body, detail, reportUrl && `보고할 곳: ${reportUrl}`, codeLine].filter(Boolean).join("\n");
+  return [title, body, detail, reportUrl && text.errors.reportAt(reportUrl), codeLine].filter(Boolean).join("\n");
 }
 
 /** 칸별 문제의 운영자용 원문 목록(설정 검사). 없으면 빈 목록 */

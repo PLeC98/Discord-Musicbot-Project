@@ -9,7 +9,7 @@
       <BaseButton variant="primary" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? "부르는 중..." : "봇 부르기" }}</BaseButton>
     </NoticeBox>
     <!-- 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우. 폼을 열어봤자 409이므로 잠근다 -->
-    <NoticeBox v-else-if="!player.hasPlayer" variant="gate" icon="sync_problem" icon-class="text-on-surface-variant">{{ NO_PLAYER_STATE }}</NoticeBox>
+    <NoticeBox v-else-if="!player.hasPlayer" variant="gate" icon="sync_problem" icon-class="text-on-surface-variant">{{ text.server.noPlayerState }}</NoticeBox>
     <!-- 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
     <NoticeBox v-else-if="!player.canAdd" variant="gate" icon="headphones" icon-class="text-on-surface-variant">{{ noticeText("must-be-in-same-voice").title }}</NoticeBox>
     <form v-else @submit.prevent="addTrack(isPlaylistQuery && addSingle)">
@@ -55,10 +55,10 @@ import PlaylistMore from "./PlaylistMore.vue";
 import { noticeText, problemText } from "../utils/problem.ts";
 import { LIMIT } from "../utils/request.ts";
 import { valueOf } from "../utils/dom.ts";
-import { NO_PLAYER_STATE } from "../utils/notices.ts";
 import type { PlayerSeen } from "../utils/playback.ts";
 import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
 import type { AddReply, MoreReply, MoreView, PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";
+import { text } from "../text/index.ts";
 
 /** queueWindow: 대기열을 펼쳐 둔 만큼(응답도 그만큼 싣는다. 안 그러면 목록이 접힌다) */
 const props = defineProps<{ guildId: string; player: PlayerSeen; queueWindow: number }>();

@@ -7,6 +7,7 @@ import { useBusy } from "../composables/busy.ts";
 import { accepts, canSkip as skipAllowed, clockOf, onTrackOf, positionAt, retime, withReadFields, type PlayerSeen } from "../utils/playback.ts";
 import { modeOf, type PlayerRead, type PlayerState } from "../../../src/dashboard/contract/player.ts";
 import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
+import { text } from "../text/index.ts";
 
 // 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
@@ -90,18 +91,18 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     const paused = !data.value.paused;
     clock.value = retime(clock.value, Date.now(), { running: Boolean(track.value && data.value.playing && !paused) });
     data.value = { ...data.value, paused };
-    return send("pause", undefined, "조작하지 못했어요.");
+    return send("pause", undefined, text.player.failed.pause);
   }
   // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 줄 번호를 싣는다
-  const skip = () => send("skip", onTrackOf(data.value), "다음 곡으로 넘기지 못했어요.");
-  const previous = () => send("previous", onTrackOf(data.value), "이전 곡으로 가지 못했어요.");
-  const shuffle = () => send("shuffle", undefined, "대기열을 섞지 못했어요.");
+  const skip = () => send("skip", onTrackOf(data.value), text.player.failed.skip);
+  const previous = () => send("previous", onTrackOf(data.value), text.player.failed.previous);
+  const shuffle = () => send("shuffle", undefined, text.player.failed.shuffle);
   // 반복도 먼저 바꿔 보인다(디스코드 반복 버튼과 같은 순환)
   function cycleLoop() {
     if (!data.value || isBusy("loop")) return;
     const mode = nextLoopMode(data.value.loop ?? false);
     data.value = { ...data.value, loop: mode };
-    return send("loop", { mode: modeOf(mode) }, "반복 모드를 바꾸지 못했어요.");
+    return send("loop", { mode: modeOf(mode) }, text.player.failed.loop);
   }
 
   async function setVolume(volume: number) {
@@ -109,7 +110,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     try {
       apply((await axios.post<PlayerState>(url("/volume"), { volume: Number(volume) })).data);
     } catch (e) {
-      notifyProblem(e, "볼륨을 바꾸지 못했어요.");
+      notifyProblem(e, text.player.volumeFailed);
       void refresh();
     }
   }
@@ -117,7 +118,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   // 놓은 자리를 먼저 보이고 보낸다. entry 는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
   function seek(seconds: number, entry: number | null | undefined) {
     clock.value = retime(clock.value, Date.now(), { at: seconds });
-    return send("seek", { position: seconds, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, "위치를 옮기지 못했어요.");
+    return send("seek", { position: seconds, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, text.player.failed.seek);
   }
 
   // ── 수명 관리 ───────────────────────────────────────────────────────────────

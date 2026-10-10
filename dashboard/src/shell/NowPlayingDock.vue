@@ -13,24 +13,24 @@
         <span class="dock-film" aria-hidden="true"></span>
         <!-- ── 태블릿 · PC ── -->
         <div class="hidden md:grid items-center gap-2 h-18 pl-2 pr-4 grid-cols-[minmax(0,1.2fr)_auto_minmax(0,0.6fr)] @lg:pr-5 @lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,0.8fr)]">
-          <button type="button" :class="metaBtn" v-tooltip="'이 서버 화면으로'" @click="openServer">
+          <button type="button" :class="metaBtn" v-tooltip="T.openServer" @click="openServer">
             <TrackArt :track="np.track" size-class="size-10 @lg:size-12 rounded-full" :icon-size="24" />
             <span class="min-w-0 text-left">
-              <MarqueeText class="text-sm font-semibold" :class="np.track ? 'text-on-surface' : 'text-on-surface-variant'" :text="np.track ? songTitle(np.track.title) : '재생 중인 곡이 없어요'" />
+              <MarqueeText class="text-sm font-semibold" :class="np.track ? 'text-on-surface' : 'text-on-surface-variant'" :text="np.track ? songTitle(np.track.title) : T.nothingPlaying" />
               <MarqueeText class="text-xs text-on-surface-variant" :text="np.track?.artist || np.guild?.name || ''" />
             </span>
           </button>
           <div class="flex flex-col items-center gap-1 min-w-0">
             <div class="flex items-center gap-1">
-              <button :class="toggleBtn" v-tooltip="'셔플'" :disabled="!shuffleEnabled(np.data) || np.isBusy('shuffle')" @click="np.shuffle()"><Icon name="shuffle" :size="20" /></button>
-              <button :class="iconBtn" v-tooltip="'이전곡'" :disabled="!previousEnabled(np.data) || np.isBusy('previous')" @click="np.previous()"><Icon name="skip_previous" :size="24" fill /></button>
-              <button :class="playBtn" v-tooltip="np.running ? '일시정지' : '재생'" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="24" fill /></button>
-              <button :class="iconBtn" v-tooltip="'다음곡'" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" @click="np.skip()"><Icon name="skip_next" :size="24" fill /></button>
+              <button :class="toggleBtn" v-tooltip="T.shuffle" :disabled="!shuffleEnabled(np.data) || np.isBusy('shuffle')" @click="np.shuffle()"><Icon name="shuffle" :size="20" /></button>
+              <button :class="iconBtn" v-tooltip="T.previous" :disabled="!previousEnabled(np.data) || np.isBusy('previous')" @click="np.previous()"><Icon name="skip_previous" :size="24" fill /></button>
+              <button :class="playBtn" v-tooltip="T.playPause(np.running)" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="24" fill /></button>
+              <button :class="iconBtn" v-tooltip="T.next" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" @click="np.skip()"><Icon name="skip_next" :size="24" fill /></button>
               <button :class="[toggleBtn, np.data?.loop ? TOGGLE_ON : '']" v-tooltip="loopTip(np.data)" :disabled="!loopEnabled(np.data) || np.isBusy('loop')" @click="np.cycleLoop()"><Icon :name="np.data?.loop === 'track' ? 'repeat_one' : 'repeat'" :size="20" /><span v-if="np.data?.loop" :class="TOGGLE_DOT"></span></button>
             </div>
             <div class="flex items-center gap-2 w-full">
               <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
-              <span :class="timeText">{{ np.track?.isLive ? "라이브" : formatDuration(shownTime) }}</span>
+              <span :class="timeText">{{ np.track?.isLive ? T.live : formatDuration(shownTime) }}</span>
               <div ref="trackEl" class="flex-1 flex items-center touch-none" :class="seekable ? 'cursor-pointer' : ''" @pointerdown.prevent="seekBar.onPointerDown">
                 <SeekTrack :value="progressPct" :rate="progressRate" :handle="seekable" :dragging="seekBar.dragging.value" :thick="4" :height="16" />
               </div>
@@ -48,13 +48,13 @@
           <button type="button" :class="[metaBtn, 'flex-1']" @click="openServer">
             <TrackArt :track="np.track" size-class="size-10 rounded-full" :icon-size="20" />
             <span class="min-w-0 text-left">
-              <MarqueeText class="text-sm font-semibold" :class="np.track ? 'text-on-surface' : 'text-on-surface-variant'" :text="np.track ? songTitle(np.track.title) : '재생 중인 곡이 없어요'" />
+              <MarqueeText class="text-sm font-semibold" :class="np.track ? 'text-on-surface' : 'text-on-surface-variant'" :text="np.track ? songTitle(np.track.title) : T.nothingPlaying" />
               <MarqueeText class="text-xs text-on-surface-variant" :text="np.track?.artist || np.guild?.name || ''" />
             </span>
           </button>
           <!-- 휴대폰 단추는 한 단계 작게(36 · 아이콘 20) -->
-          <button :class="[playBtn, 'size-9!']" :disabled="!np.canControl || !np.track" :aria-label="np.running ? '일시정지' : '재생'" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="20" fill /></button>
-          <button :class="[iconBtn, 'size-9!']" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" aria-label="다음곡" @click="np.skip()"><Icon name="skip_next" :size="20" fill /></button>
+          <button :class="[playBtn, 'size-9!']" :disabled="!np.canControl || !np.track" :aria-label="T.playPause(np.running)" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="20" fill /></button>
+          <button :class="[iconBtn, 'size-9!']" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" :aria-label="T.next" @click="np.skip()"><Icon name="skip_next" :size="20" fill /></button>
         </div>
         <div class="md:hidden absolute inset-x-1.5 bottom-1 h-0.5 rounded-full overflow-hidden bg-on-surface/15">
           <div class="h-full rounded-full bg-primary" :style="{ transform: `translateX(${progressPct - 100}%)` }"></div>
@@ -82,6 +82,8 @@ import { loopEnabled, previousEnabled, shuffleEnabled, skipEnabled } from "../ut
 import { loopTip } from "../utils/loop-tip.ts";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
+import { text } from "../text/index.ts";
+const T = text.player;
 
 const np = useNowPlayingStore();
 const router = useRouter();

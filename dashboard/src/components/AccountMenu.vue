@@ -38,11 +38,11 @@
             <div v-if="handle" class="text-label text-on-surface-variant truncate">@{{ handle }}</div>
           </div>
         </div>
-        <div v-if="user.viewAs" class="mx-2 mb-2 px-3 py-2 rounded-xl text-label font-semibold bg-tertiary-container text-on-tertiary-container">{{ user.viewAsLabel }} 권한으로 보는 중</div>
+        <div v-if="user.viewAs" class="mx-2 mb-2 px-3 py-2 rounded-xl text-label font-semibold bg-tertiary-container text-on-tertiary-container">{{ user.viewAsLabel }} {{ T.viewingAs }}</div>
 
-        <div class="px-2 pb-2 pt-1 text-label font-semibold text-on-surface-variant">화면 밝기</div>
+        <div class="px-2 pb-2 pt-1 text-label font-semibold text-on-surface-variant">{{ T.brightness }}</div>
         <!-- 이어 붙은 버튼 묶음(M3E connected button group). 고른 칸은 모서리가 둥글게 바뀐다 -->
-        <div class="flex gap-0.5 px-2 pb-3" role="group" aria-label="화면 밝기">
+        <div class="flex gap-0.5 px-2 pb-3" role="group" :aria-label="T.brightness">
           <button
             v-for="(m, i) in MODE_ITEMS"
             :key="m.mode"
@@ -56,11 +56,11 @@
         </div>
 
         <div class="mx-2 mb-2 h-px bg-outline-variant/60"></div>
-        <button type="button" role="menuitem" :class="[item, 'w-full']" @click="openSettings"><Icon name="settings" :size="20" />설정</button>
+        <button type="button" role="menuitem" :class="[item, 'w-full']" @click="openSettings"><Icon name="settings" :size="20" />{{ T.settings }}</button>
         <!-- 권한 보기(오버라이드) 중에도 그대로 둔다(디스코드의 "역할 적용해서 서버 보기"도 서버 설정 메뉴는 그대로다. 오버라이드 중이라는 것은 위 띠가 알린다) -->
-        <router-link v-if="user.isRealOwner" to="/admin" role="menuitem" :class="item" @click="open = false"><Icon name="admin_panel_settings" :size="20" />운영자 패널</router-link>
-        <button type="button" role="menuitem" :class="[item, 'w-full']" @click="openLicense"><Icon name="license" :size="20" />라이선스</button>
-        <button type="button" role="menuitem" :class="[item, 'w-full text-error']" @click="logout"><Icon name="logout" :size="20" />로그아웃</button>
+        <router-link v-if="user.isRealOwner" to="/admin" role="menuitem" :class="item" @click="open = false"><Icon name="admin_panel_settings" :size="20" />{{ T.adminPanel }}</router-link>
+        <button type="button" role="menuitem" :class="[item, 'w-full']" @click="openLicense"><Icon name="license" :size="20" />{{ T.licenses }}</button>
+        <button type="button" role="menuitem" :class="[item, 'w-full text-error']" @click="logout"><Icon name="logout" :size="20" />{{ T.logout }}</button>
       </div>
     </Transition>
   </Teleport>
@@ -78,6 +78,8 @@ import LicenseDialog from "./LicenseDialog.vue";
 import { useUserStore } from "../stores/user.ts";
 import { mode, setMode, type Mode } from "../theme/theme.ts";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
+const T = text.shell;
 
 // wide: 펼친 레일(이름까지) / compact: 휴대폰 위 막대(작은 동그라미) / 둘 다 아니면 좁은 레일
 // labeled: 펼친 세로 막대(작은 그림 + 이름 · 아이디)
@@ -93,9 +95,9 @@ const licenseOpen = ref(false);
 const MENU_WIDTH_REM = 17.5; // w-70
 
 const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
-  { mode: "dark", label: "어둡게", icon: "dark_mode" },
-  { mode: "light", label: "밝게", icon: "light_mode" },
-  { mode: "system", label: "시스템", icon: "contrast" },
+  { mode: "dark", label: T.modeDark, icon: "dark_mode" },
+  { mode: "light", label: T.modeLight, icon: "light_mode" },
+  { mode: "system", label: T.modeSystem, icon: "contrast" },
 ];
 
 const initial = computed(() => user.displayName[0] || "?");

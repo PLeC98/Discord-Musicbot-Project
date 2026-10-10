@@ -1,4 +1,5 @@
 import { formatDate, formatTime, relativeTime } from "./locale.ts";
+import { text } from "../text/index.ts";
 // 디스코드 임베드 본문(description)이 그리는 마크다운을 HTML 로 옮긴다(공지 미리보기용).
 // 블록: 코드 블록 ``` · 인용 > · >>>(그 뒤 전부) · 제목 # ## ### · 작은 글씨 -# · 목록 - * · 번호 목록 1.
 // 글 안: 인라인 코드 ` · 굵게 ** · 밑줄 __ · 기울임 * _ · 취소선 ~~ · 스포일러 || · 링크 [글](주소) · 맨 주소 · 시각 <t:초:형식> · 멘션 · 사용자 이모지 · 역슬래시 이스케이프.
@@ -57,9 +58,9 @@ function inline(raw: string): string {
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g, (_, pre: string, url: string) => pre + hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${url}</a>`));
   // 시각 · 멘션 · 사용자 이모지(이스케이프된 꺾쇠)
   s = s.replace(/&lt;t:(-?\d+)(?::([tTdDfFsSR]))?&gt;/g, (_, sec: string, style = "f") => hold(`<span class="dmd-time">${esc(timestamp(Number(sec), style))}</span>`));
-  s = s.replace(/&lt;@!?(\d+)&gt;/g, () => hold('<span class="dmd-mention">@사용자</span>'));
-  s = s.replace(/&lt;@&amp;(\d+)&gt;/g, () => hold('<span class="dmd-mention">@역할</span>'));
-  s = s.replace(/&lt;#(\d+)&gt;/g, () => hold('<span class="dmd-mention">#채널</span>'));
+  s = s.replace(/&lt;@!?(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionUser}</span>`));
+  s = s.replace(/&lt;@&amp;(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionRole}</span>`));
+  s = s.replace(/&lt;#(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionChannel}</span>`));
   s = s.replace(/&lt;a?:(\w+):(\d+)&gt;/g, (_, name: string) => hold(`<span class="dmd-emoji">:${name}:</span>`));
   // 굵게 → 밑줄 → 기울임 → 취소선 → 스포일러(겹쳐 쓸 수 있다)
   s = s.replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>");

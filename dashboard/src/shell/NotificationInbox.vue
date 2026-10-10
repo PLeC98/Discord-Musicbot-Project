@@ -2,7 +2,7 @@
   <!-- 알림함: 위 막대 오른쪽 끝의 종. 안 읽은 알림이 있으면 수를 단 배지(M3 큰 배지), 누르면 지금까지 뜬 알림(새 것이 위).
        열면 그때까지 온 것을 읽음으로 친다(열어 둔 동안은 새로 온 줄을 칠해 둔다가, 닫을 때 읽음).
        지우면(줄마다 x · 지우기) 줄이 제자리에서 오른쪽으로 빠진 뒤 그 자리를 접는다(아래 줄이 올라온다). 모두 지우기는 보이는 줄을 아래부터 차례로 -->
-  <button ref="triggerEl" type="button" aria-haspopup="dialog" :aria-expanded="open" :aria-label="unread ? `알림 ${unread}개 안 읽음` : '알림'" v-tooltip="open ? null : '알림'" :class="[TOPBAR_BTN, open && 'bg-on-surface/8']" class="relative" @click="toggle">
+  <button ref="triggerEl" type="button" aria-haspopup="dialog" :aria-expanded="open" :aria-label="unread ? T.inboxUnread(unread) : T.inbox" v-tooltip="open ? null : T.inbox" :class="[TOPBAR_BTN, open && 'bg-on-surface/8']" class="relative" @click="toggle">
     <Icon name="notifications" :fill="unread > 0" />
     <span v-if="unread" class="absolute -top-0.5 left-[calc(50%+2px)] h-4 min-w-4 px-1 rounded-full bg-error text-on-error text-2xs leading-4 font-semibold nums text-center">{{ unread > 99 ? "99+" : unread }}</span>
   </button>
@@ -10,10 +10,10 @@
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-200" @click="close" @contextmenu="close"></div>
     <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">
-      <div v-if="open" role="dialog" aria-label="알림" :style="pos" class="fixed z-210 w-[min(24rem,calc(100vw-1rem))] flex flex-col max-h-[min(36rem,calc(100dvh-5rem))] p-2 rounded-3xl pane-menu origin-top-right">
+      <div v-if="open" role="dialog" :aria-label="T.inbox" :style="pos" class="fixed z-210 w-[min(24rem,calc(100vw-1rem))] flex flex-col max-h-[min(36rem,calc(100dvh-5rem))] p-2 rounded-3xl pane-menu origin-top-right">
         <div class="flex items-center gap-2 pl-3 pr-1 pt-1 pb-2">
-          <span class="flex-1 text-title font-semibold">알림</span>
-          <button type="button" class="tap state-layer h-8 px-3 rounded-full text-label font-semibold cursor-pointer text-primary disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!inbox.length || clearing" @click="clearAll">지우기</button>
+          <span class="flex-1 text-title font-semibold">{{ T.inbox }}</span>
+          <button type="button" class="tap state-layer h-8 px-3 rounded-full text-label font-semibold cursor-pointer text-primary disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!inbox.length || clearing" @click="clearAll">{{ T.inboxClear }}</button>
         </div>
         <TransitionGroup v-if="inbox.length || leaving > 0" ref="listRef" tag="ul" class="min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-1" :class="leaving > 0 && !scrolled && 'overflow-y-hidden!'" :style="listFade" :css="false" @leave="onLeave">
           <li v-for="one in inbox" :key="one.id" :data-id="one.id" class="flex gap-3 items-start pl-3 pr-1 py-2.5 rounded-2xl" :class="seen.has(one.id) ? 'bg-surface-container-highest' : 'bg-secondary-container'">
@@ -25,15 +25,15 @@
               </div>
               <div v-if="one.body" class="text-on-surface-variant">{{ one.body }}</div>
               <div v-if="one.detail" class="text-on-surface-variant">{{ one.detail }}</div>
-              <a v-if="one.reportUrl" :href="one.reportUrl" target="_blank" rel="noopener" class="text-primary text-label font-semibold hover:underline">봇 개발자에게 보고하기</a>
+              <a v-if="one.reportUrl" :href="one.reportUrl" target="_blank" rel="noopener" class="text-primary text-label font-semibold hover:underline">{{ text.common.reportToDeveloper }}</a>
               <div v-if="one.codeLine" class="text-on-surface-variant text-label mt-0.5">{{ one.codeLine }}</div>
             </div>
-            <button type="button" class="tap state-layer size-8 -my-1 shrink-0 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" aria-label="이 알림 지우기" v-tooltip="'지우기'" @click="removeFromInbox(one.id)"><Icon name="close" :size="20" /></button>
+            <button type="button" class="tap state-layer size-8 -my-1 shrink-0 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.inboxRemoveOne" v-tooltip="T.inboxClear" @click="removeFromInbox(one.id)"><Icon name="close" :size="20" /></button>
           </li>
         </TransitionGroup>
         <div v-else class="flex flex-col items-center gap-2 py-8 text-on-surface-variant">
           <Icon name="notifications_off" :size="32" />
-          <span class="text-body">알림 없음</span>
+          <span class="text-body">{{ T.inboxEmpty }}</span>
         </div>
       </div>
     </Transition>
@@ -48,6 +48,8 @@ import { TOPBAR_BTN } from "../utils/topbar.ts";
 import { inbox, unread, markAllRead, removeFromInbox } from "../composables/toasts.ts";
 import { TOAST_LOOK, toastWhen, toastFull } from "../utils/toast-look.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
+import { text } from "../text/index.ts";
+const T = text.shell;
 
 const triggerEl = ref<HTMLElement | null>(null);
 const open = ref(false);

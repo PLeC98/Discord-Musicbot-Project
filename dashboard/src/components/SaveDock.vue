@@ -16,9 +16,9 @@
     <template v-if="!phone && shown">
       <Transition enter-from-class="opacity-0 translate-x-2" leave-to-class="opacity-0 translate-x-2" enter-active-class="transition-[opacity,translate] duration-200 ease-out" leave-active-class="transition-[opacity,translate] duration-150 ease-in">
         <div v-if="dirty && !saving" class="flex items-center gap-1.5">
-          <span class="hidden lg:flex items-center gap-1.5 pr-1 text-xs font-medium" :class="blocked ? 'text-error' : 'text-tertiary'"><span class="size-1.5 rounded-full bg-current"></span>{{ blocked ? "고칠 것이 남아 있어요" : "저장하지 않은 변경" }}</span>
-          <button type="button" :class="[pill, 'text-on-surface']" @click="$emit('revert')"><Icon name="undo" :size="16" />되돌리기</button>
-          <button type="button" :class="[pill, 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? '고칠 것이 남아 있어요' : null" @click="$emit('save')"><Icon name="save" :size="16" />저장</button>
+          <span class="hidden lg:flex items-center gap-1.5 pr-1 text-xs font-medium" :class="blocked ? 'text-error' : 'text-tertiary'"><span class="size-1.5 rounded-full bg-current"></span>{{ blocked ? T.fixFirst : T.unsaved }}</span>
+          <button type="button" :class="[pill, 'text-on-surface']" @click="$emit('revert')"><Icon name="undo" :size="16" />{{ T.revert }}</button>
+          <button type="button" :class="[pill, 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? T.fixFirst : null" @click="$emit('save')"><Icon name="save" :size="16" />{{ T.save }}</button>
         </div>
       </Transition>
       <SaveIndicator :state="indicator" />
@@ -28,10 +28,10 @@
   <!-- 휴대폰: 미니 재생 바 위에 뜨는 막대 -->
   <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.2,0,0,1)]" leave-active-class="transition-[opacity,translate] duration-200 ease-in">
     <div v-if="phone && shown && (dirty || indicator !== 'idle')" class="fixed inset-x-3 z-120 h-14 pl-4 pr-2 rounded-full pane-float flex items-center gap-2" :style="{ bottom: 'calc(var(--player, 0px) + 0.75rem)' }">
-      <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? "저장했어요" : blocked ? "고칠 것이 남아 있어요" : "저장하지 않은 변경이 있어요" }}</span>
+      <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? T.saved : blocked ? T.fixFirst : T.unsavedLong }}</span>
       <template v-if="dirty && !saving">
-        <button type="button" :class="[pillPhone, 'text-on-surface']" @click="$emit('revert')">되돌리기</button>
-        <button type="button" :class="[pillPhone, 'bg-primary text-on-primary']" :disabled="blocked" @click="$emit('save')">저장</button>
+        <button type="button" :class="[pillPhone, 'text-on-surface']" @click="$emit('revert')">{{ T.revert }}</button>
+        <button type="button" :class="[pillPhone, 'bg-primary text-on-primary']" :disabled="blocked" @click="$emit('save')">{{ T.save }}</button>
       </template>
       <SaveIndicator v-else :state="indicator" />
     </div>
@@ -45,6 +45,8 @@ import { useMediaQuery } from "@vueuse/core";
 import Icon from "./BaseIcon.vue";
 import SaveIndicator, { type SaveState } from "./SaveIndicator.vue";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
+import { text } from "../text/index.ts";
+const T = text.editor;
 
 const props = withDefaults(
   defineProps<{

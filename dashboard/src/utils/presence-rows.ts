@@ -2,6 +2,7 @@
 // 문구는 그냥 한 줄로 적은 것(글만)과 풀어 적은 것({ text, type })이 섞여 있을 수 있다
 
 import type { ActivityType } from "../../../src/config/schema/status.ts";
+import { text } from "../text/index.ts";
 
 /** 문구 한 줄. type 이 "" 이면 파일에 종류를 적지 않는다(기본 = 듣는 중) */
 type MessageRow = { key: number; text: string; type: ActivityType | "" };
@@ -15,9 +16,9 @@ type MessageData = string | { text?: string; type?: ActivityType | "" };
 type SpecialData = Partial<Record<ConditionKey, string>> & { messages?: MessageData[] };
 
 const CONDITIONS: Array<{ key: ConditionKey; label: string; placeholder: string }> = [
-  { key: "date", label: "양력", placeholder: "12-24 ~ 12-26" },
-  { key: "lunar", label: "음력", placeholder: "01-01 ~ 01-15" },
-  { key: "time", label: "시간대", placeholder: "22:00 ~ 06:00" },
+  { key: "date", label: text.presence.conditionDate, placeholder: "12-24 ~ 12-26" },
+  { key: "lunar", label: text.presence.conditionLunar, placeholder: "01-01 ~ 01-15" },
+  { key: "time", label: text.presence.conditionTime, placeholder: "22:00 ~ 06:00" },
 ];
 
 let serial = 0;

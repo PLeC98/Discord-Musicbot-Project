@@ -22,7 +22,16 @@ const nothingPlaying = "재생 중인 곡이 없어요";
 const openServer = "이 서버 화면으로";
 const seekCancelled = "곡이 바뀌어 위치 이동을 취소했어요.";
 const volumeFailed = "볼륨을 바꾸지 못했어요.";
+/** 조작이 거절되거나 실패했을 때(봇이 문장을 주지 않은 경우) */
+const failed = {
+  pause: "조작하지 못했어요.",
+  skip: "다음 곡으로 넘기지 못했어요.",
+  previous: "이전 곡으로 가지 못했어요.",
+  shuffle: "대기열을 섞지 못했어요.",
+  loop: "반복 모드를 바꾸지 못했어요.",
+  seek: "위치를 옮기지 못했어요.",
+};
 /** 반복 버튼: 지금 모드와 누르면 바뀔 모드 */
 const loopTip = (now: string, next: string) => `${now} (다음: ${next})`;
 
-export { shuffle, previous, next, play, pause, playPause, stop, highlight, toHighlight, volume, live, queue, mine, albumArt, upNext, nothingPlaying, openServer, seekCancelled, volumeFailed, loopTip };
+export { shuffle, previous, next, play, pause, playPause, stop, highlight, toHighlight, volume, live, queue, mine, albumArt, upNext, nothingPlaying, openServer, seekCancelled, volumeFailed, failed, loopTip };

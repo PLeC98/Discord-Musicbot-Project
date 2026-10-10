@@ -7,6 +7,7 @@ import { trackUnsaved } from "./unsaved.ts";
 import { problemDetails, problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
 import type { ConfigFile, ConfigSaved } from "../../../src/dashboard/contract/admin.ts";
+import { text } from "../text/index.ts";
 
 type Data = Record<string, unknown>;
 
@@ -61,7 +62,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
     try {
       load(await read());
     } catch (error) {
-      loadError.value = problemText(error, "설정을 읽지 못했어요.");
+      loadError.value = problemText(error, text.editor.loadFailed);
     }
   }
 
@@ -70,12 +71,12 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
     serverProblems.value = [];
     try {
       load(await write(payload()));
-      notifyDone("저장했어요", savedNote);
+      notifyDone(text.editor.saved, savedNote);
     } catch (error) {
       // 서버가 칸마다 짚은 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
       const details = problemDetails(error);
       if (details.length) serverProblems.value = details;
-      else notifyProblem(error, "저장하지 못했어요.");
+      else notifyProblem(error, text.editor.saveFailedSentence);
     } finally {
       saving.value = false;
     }

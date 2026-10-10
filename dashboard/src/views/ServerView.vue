@@ -258,7 +258,7 @@
     </div>
 
     <!-- 정지 확인(M3 대화상자) -->
-    <ConfirmDialog v-model="showStopConfirm" icon="stop_circle" :title="STOP_CONFIRM.title" :body="STOP_CONFIRM.body" confirm-label="정지" @confirm="doStop" />
+    <ConfirmDialog v-model="showStopConfirm" icon="stop_circle" :title="text.server.stopConfirm.title" :body="text.server.stopConfirm.body" confirm-label="정지" @confirm="doStop" />
   </div>
 </template>
 
@@ -293,7 +293,6 @@ import QueueSheet from "../components/QueueSheet.vue";
 import { shell } from "../shell/shell-state.ts";
 import PageError from "../components/PageError.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
-import { STOP_CONFIRM } from "../utils/notices.ts";
 import TrackArt from "../components/TrackArt.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import ArtLightbox from "../components/ArtLightbox.vue";
@@ -312,6 +311,7 @@ import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/r
 import { QUEUE_PAGE, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
 import { formatNumber } from "../utils/locale.ts";
+import { text } from "../text/index.ts";
 
 // 음량 단추(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";

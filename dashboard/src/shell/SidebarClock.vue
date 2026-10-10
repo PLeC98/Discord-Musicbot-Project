@@ -2,7 +2,7 @@
   <!-- 세로 막대의 시계. 접으면 시 위에 분(세로), 펼치면 "시:분" 한 줄이 두 배로 커져 같은 높이(36)를 채우고 남는 폭에 날짜.
        시는 아이콘 칸 가운데를 중심으로 제자리에서 커지고, 분은 아래에서 오른쪽으로 미끄러진다.
        글자 크기는 그대로 두고 배율(scale)만 바꾼다: 위치를 숫자 폭 단위로 고정해 두어 크기가 변해도 자리가 흔들리지 않는다 -->
-  <div class="relative h-9 w-full shrink-0 @container font-round font-semibold nums text-[1.0625rem] leading-4.5" :aria-label="`${hh}시 ${mm}분`">
+  <div class="relative h-9 w-full shrink-0 @container font-round font-semibold nums text-[1.0625rem] leading-4.5" :aria-label="T.clockLabel(hh, mm)">
     <span :class="cell" :style="hourAt">{{ hh }}</span>
     <span :class="[cell, open ? 'opacity-100' : 'opacity-0']" :style="colonAt">:</span>
     <span :class="[cell, 'text-on-surface-variant']" :style="minuteAt">{{ mm }}</span>
@@ -22,6 +22,8 @@ import { computed } from "vue";
 import { useIntervalFn, useNow } from "@vueuse/core";
 import { shell } from "./shell-state.ts";
 import { formatDate } from "../utils/locale.ts";
+import { text } from "../text/index.ts";
+const T = text.shell;
 
 // 펼쳤을 때의 배율. 한 줄(18)이 두 줄 높이(36)를 채운다
 const BIG = 2;
@@ -34,9 +36,9 @@ const open = computed(() => shell.sidebarOpen);
 const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 15_000) });
 const hh = computed(() => String(now.value.getHours()).padStart(2, "0"));
 const mm = computed(() => String(now.value.getMinutes()).padStart(2, "0"));
-const year = computed(() => `${now.value.getFullYear()}년`);
-const month = computed(() => `${now.value.getMonth() + 1}월`);
-const day = computed(() => `${now.value.getDate()}일`);
+const year = computed(() => T.year(now.value.getFullYear()));
+const month = computed(() => T.month(now.value.getMonth() + 1));
+const day = computed(() => T.day(now.value.getDate()));
 const shortDate = computed(() => `${String(now.value.getMonth() + 1).padStart(2, "0")}/${String(now.value.getDate()).padStart(2, "0")}`);
 const weekday = computed(() => formatDate(now.value, { weekday: "long" }));
 
