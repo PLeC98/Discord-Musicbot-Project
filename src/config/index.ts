@@ -188,7 +188,7 @@ const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTF
 function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?: boolean } = {}) {
   const problems: string[] = [];
   const warnings: string[] = [];
-  if (!envFileFound) problems.push(".env 파일이 없습니다. pnpm install 을 다시 돌리면 만들어 줍니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요.");
+  if (!envFileFound) problems.push(".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요.");
 
   const readers = envReaders(source, problems);
   const { env, envEnum, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion } = readers;

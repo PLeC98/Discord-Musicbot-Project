@@ -84,8 +84,9 @@ cd Discord-Musicbot-Project
 pnpm install
 ```
 
-`pnpm install`을 하면 의존성 설치, ffmpeg 설치, yt-dlp 설치, 대시보드 빌드, `.env.example`을 `.env`로 복사 후 랜덤 비밀 키(`SECRETS_KEY` · `SESSION_SECRET`키를 채우는 것까지 전부 진행합니다.
-`.env`가 이미 있다면 의존성 설치만을 진행합니다.
+`pnpm install`을 하면 의존성 설치, ffmpeg 설치, yt-dlp 설치, 대시보드 빌드를 하고, `.env`가 없으면 `.env.example`을 `.env`로 복사한 뒤 랜덤 비밀 키(`SECRETS_KEY` · `SESSION_SECRET`)를 채웁니다.
+`.env`가 이미 있다면 `.env`는 건드리지 않고 나머지만 진행합니다.
+의존성이 바뀌지 않았으면 pnpm 이 이 단계를 통째로 건너뛰므로, 봇을 실행할 때도 `.env`가 없으면 같은 방법으로 만들고 채울 값을 알려 준 뒤 멈춥니다.
 
 #### 2단계 (필수)
 

@@ -100,7 +100,7 @@ test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경�
 });
 
 test(".env 가 없으면 그 문제 하나만 알린다", () => {
-  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. pnpm install 을 다시 돌리면 만들어 줍니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요."]);
+  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요."]);
 });
 
 test("SECRETS_KEY: 비었거나 32바이트 base64 가 아니면 만드는 명령과 함께 멈춘다", () => {
