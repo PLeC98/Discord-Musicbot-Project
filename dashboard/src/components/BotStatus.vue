@@ -367,7 +367,8 @@ const LINK_CARD_REM = STORAGE_BESIDE_REM - STORAGE_CARD_REM - 0.75;
 const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });
 
 // ── ③ 지금 ──
-const historyMinutes = computed(() => Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000));
+// 모은 칸이 덮는 시간(분). 봇을 켠 지 1분이 안 됐어도 "0분"이 아니라 1분으로
+const historyMinutes = computed(() => Math.max(1, Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000)));
 type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; series: number[]; second?: number[]; max: number; warn?: number; chartUnit: string; level: Level; word: string; why: string };
 const metrics = computed<Metric[]>(() => {
   const { status } = props;

@@ -8,6 +8,8 @@ const minutesAgo = (minutes: number) => `${minutes}분 전`;
 const now = "지금";
 /** 그래프의 화면 읽기 요약. 값은 단위를 붙여 적은 글 */
 const chartSummary = ({ minutes, min, max, axisMax }: { minutes: number; min: string; max: string; axisMax: string }) => `최근 ${minutes}분, 최저 ${min}, 최고 ${max}, 세로축 최대 ${axisMax}`;
+/** 아직 모은 값이 없을 때(봇을 켠 뒤 첫 15초)의 화면 읽기 요약 */
+const chartEmpty = "아직 모은 값이 없어요";
 
 // 요약
 const allOk = "모두 정상";
@@ -109,6 +111,7 @@ export {
   minutesAgo,
   now,
   chartSummary,
+  chartEmpty,
   allOk,
   needsAttention,
   connecting,
