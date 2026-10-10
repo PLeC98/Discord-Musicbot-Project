@@ -2,10 +2,10 @@
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
     <p class="text-sm text-on-surface-variant">{{ T.desc }}</p>
-    <!-- 저장했지만 다시 시작해야 적용되는 값이 있으면 그 자리에서 다시 시작한다 -->
+    <!-- 저장했지만 다시 시작해야 적용되는 값이 남아 있으면 무엇인지 적고 그 자리에서 다시 시작한다 -->
     <NoticeBox v-if="pending.length" variant="note" tone="info" icon="restart_alt" class="mt-0!">
       <span class="flex items-center gap-3 flex-wrap"
-        ><span class="flex-1 min-w-0">{{ text.restart.pending(pending.length) }}</span
+        ><span class="flex-1 min-w-0">{{ text.restart.pending(namesOf(pending)) }}</span
         ><BotRestart :available="canRestart"
       /></span>
     </NoticeBox>
@@ -31,7 +31,7 @@
         </label>
       </div>
     </BaseCard>
-    <SaveDock tab="settings" :dirty="dirty && loaded" :saving="saving" @save="save" @revert="reset" />
+    <SaveDock tab="settings" :dirty="dirty && loaded" :saving="saving" :restart="canRestart && needsRestart" @save="save()" @save-restart="saveAndRestart" @revert="reset" />
   </div>
 </template>
 
@@ -41,6 +41,7 @@ import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import SaveDock from "./SaveDock.vue";
 import BotRestart from "./BotRestart.vue";
+import { restartNow } from "../composables/bot-restart.ts";
 import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
@@ -57,6 +58,10 @@ const T = text.tunables;
 /** canRestart: 실행기로 켰는가(봇 상태의 env.launcher) */
 defineProps<{ canRestart: boolean }>();
 
+// 칸 이름(화면 이름표). 알림 · 안내에 "몇 칸" 대신 무엇인지 적는다
+const labelOf = (key: string) => T.fields[key]?.label ?? key;
+const namesOf = (keys: string[]) => keys.map(labelOf).join(" · ");
+
 const blank = () => Object.fromEntries(TUNABLES.map((one) => [one.key, ""])) as Record<string, string>;
 
 // 저장된 값(비운 칸은 빈 글) · 고치는 중인 값 · 저장 번호 · 저장했지만 다시 켜야 먹는 이름
@@ -70,7 +75,10 @@ const saving = ref(false);
 
 const byGroup = (group: TunableGroup) => TUNABLES.filter((one) => one.group === group);
 const boolOf = (one: Tunable) => (draft.value[one.key] || one.def) === "true";
-const dirty = computed(() => TUNABLES.some((one) => (draft.value[one.key] ?? "").trim() !== (saved.value[one.key] ?? "")));
+const changed = (one: Tunable) => (draft.value[one.key] ?? "").trim() !== (saved.value[one.key] ?? "");
+const dirty = computed(() => TUNABLES.some(changed));
+// 다시 시작해야 먹는 값을 고쳤거나, 저장해 두고 아직 다시 시작하지 않은 값이 있다
+const needsRestart = computed(() => TUNABLES.some((one) => one.restart && changed(one)) || pending.value.length > 0);
 trackUnsaved("tunables", dirty);
 
 function apply(view: TunablesView) {
@@ -83,18 +91,25 @@ function apply(view: TunablesView) {
 
 const reset = () => (draft.value = { ...saved.value });
 
-async function save() {
+/** 저장. 됐으면 true. restarting 이면 다시 시작해야 먹는다는 안내는 빼고 알린다(곧 다시 시작한다) */
+async function save(restarting = false) {
   saving.value = true;
   try {
     const values = Object.fromEntries(Object.entries(draft.value).filter(([, value]) => value.trim()));
     const view = (await axios.put<TunablesView>("/api/admin/tunables", { values, revision: revision.value })).data;
     apply(view);
-    notifyDone(T.savedDone, view.pending.length ? T.savedRestart(view.pending.length) : "");
+    notifyDone(T.savedDone, view.pending.length && !restarting ? T.savedRestart(namesOf(view.pending)) : "");
+    return true;
   } catch (err) {
     notifyProblem(err, T.saveFailed);
+    return false;
   } finally {
     saving.value = false;
   }
+}
+
+async function saveAndRestart() {
+  if (await save(true)) await restartNow();
 }
 
 onMounted(async () => {

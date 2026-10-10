@@ -112,6 +112,8 @@
       </template>
     </div>
 
+    <!-- 봇 다시 시작 창. 봇 상태 탭 단추 · 설정 탭 저장 막대가 함께 쓴다 -->
+    <BotRestartDialog />
     <ConfirmDialog :model-value="leaveOpen" icon="edit_off" :title="T.leaveConfirm.title" :body="T.leaveConfirm.body" :confirm-label="T.leaveConfirm.confirm" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
 </template>
@@ -144,6 +146,7 @@ import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
+import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { KEPT_LINES, type WireEntry } from "../../../src/infra/log/levels.ts";

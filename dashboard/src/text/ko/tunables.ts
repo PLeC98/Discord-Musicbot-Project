@@ -58,7 +58,8 @@ const restartBadge = "다시 시작해야 적용";
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";
-const savedRestart = (count: number) => `${count}칸은 봇을 다시 시작해야 적용돼요.`;
+/** names: 다시 시작해야 먹는 칸의 이름(· 로 이음) */
+const savedRestart = (names: string) => `봇을 다시 시작해야 적용돼요: ${names}`;
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
 const loadFailed = "운영 조절값을 읽지 못했어요.";
 

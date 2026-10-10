@@ -6,10 +6,13 @@ const unsavedLong = "저장하지 않은 변경이 있어요";
 const fixFirst = "고칠 것이 남아 있어요";
 const revert = "되돌리기";
 const save = "저장";
+const saveRestart = "저장 후 다시 시작";
+/** 휴대폰 막대(자리가 좁다) */
+const saveRestartShort = "저장 · 다시 시작";
 const saving = "저장하는 중";
 const saved = "저장했어요";
 const saveFailed = "저장하지 못했어요";
 const saveFailedSentence = "저장하지 못했어요.";
 const loadFailed = "설정을 읽지 못했어요.";
 
-export { unsaved, unsavedLong, fixFirst, revert, save, saving, saved, saveFailed, saveFailedSentence, loadFailed };
+export { unsaved, unsavedLong, fixFirst, revert, save, saveRestart, saveRestartShort, saving, saved, saveFailed, saveFailedSentence, loadFailed };

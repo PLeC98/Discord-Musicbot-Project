@@ -5,6 +5,7 @@
     저장을 누르면 서버 설정의 자동 저장과 같은 표시(SaveIndicator: 플로피가 돌다 동그라미 체크)로 바뀌었다 사라진다.
   휴대폰: 위 막대 오른쪽에 자리가 없어 디스코드처럼 아래(미니 재생 바 위)에 막대로 띄우고, 떠 있는 동안 그 높이만큼 페이지 아래를 비운다(끝 내용까지 막대 위로 올려 볼 수 있게).
   blocked(검사에 걸린 값): 저장을 막고 "고칠 것이 남아 있어요".
+  restart: 다시 시작해야 먹는 값을 고쳤다. 저장 옆에 "저장 후 다시 시작"을 더 둔다(공유기 설정 화면의 저장 및 재시작처럼)
 
   운영자 패널은 탭 편집기가 함께 떠 있다(v-show). 이 편집기의 탭(tab)이 지금 탭일 때만 나타난다(주소 ?tab=)
 -->
@@ -18,7 +19,8 @@
         <div v-if="dirty && !saving" class="flex items-center gap-1.5">
           <span class="hidden lg:flex items-center gap-1.5 pr-1 text-xs font-medium" :class="blocked ? 'text-error' : 'text-tertiary'"><span class="size-1.5 rounded-full bg-current"></span>{{ blocked ? T.fixFirst : T.unsaved }}</span>
           <button type="button" :class="[pill, 'text-on-surface']" @click="$emit('revert')"><Icon name="undo" :size="16" />{{ T.revert }}</button>
-          <button type="button" :class="[pill, 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? T.fixFirst : null" @click="$emit('save')"><Icon name="save" :size="16" />{{ T.save }}</button>
+          <button type="button" :class="[pill, restart ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? T.fixFirst : null" @click="$emit('save')"><Icon name="save" :size="16" />{{ T.save }}</button>
+          <button v-if="restart" type="button" :class="[pill, 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? T.fixFirst : null" @click="$emit('saveRestart')"><Icon name="restart_alt" :size="16" />{{ T.saveRestart }}</button>
         </div>
       </Transition>
       <SaveIndicator :state="indicator" />
@@ -31,7 +33,8 @@
       <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? T.saved : blocked ? T.fixFirst : T.unsavedLong }}</span>
       <template v-if="dirty && !saving">
         <button type="button" :class="[pillPhone, 'text-on-surface']" @click="$emit('revert')">{{ T.revert }}</button>
-        <button type="button" :class="[pillPhone, 'bg-primary text-on-primary']" :disabled="blocked" @click="$emit('save')">{{ T.save }}</button>
+        <button type="button" :class="[pillPhone, restart ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary text-on-primary']" :disabled="blocked" @click="$emit('save')">{{ T.save }}</button>
+        <button v-if="restart" type="button" :class="[pillPhone, 'bg-primary text-on-primary']" :disabled="blocked" @click="$emit('saveRestart')">{{ T.saveRestartShort }}</button>
       </template>
       <SaveIndicator v-else :state="indicator" />
     </div>
@@ -56,10 +59,12 @@ const props = withDefaults(
     blocked?: boolean;
     /** 이 편집기의 운영자 패널 탭(주소 ?tab=) */
     tab: string;
+    /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 먹는 값을 고쳤다) */
+    restart?: boolean;
   }>(),
-  { dirty: false, saving: false, blocked: false },
+  { dirty: false, saving: false, blocked: false, restart: false },
 );
-defineEmits<{ save: []; revert: [] }>();
+defineEmits<{ save: []; revert: []; saveRestart: [] }>();
 
 const phone = useMediaQuery(PHONE_QUERY);
 // 이 편집기(탭)가 지금 보이는지

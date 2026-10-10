@@ -55,6 +55,10 @@ test("비어 있으면 기본값으로 돈다. 저장하면 바로 먹고 저장
 test("다시 켜야 먹는 값은 저장해도 기동 때 값으로 돌고 pending 으로 알린다", async () => {
   const saved = await req<View>("PUT", { values: { SPONSORBLOCK_ENABLED: "false", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42", RATE_LIMIT_API_MAX: "999" }, revision: 0 });
   assert.deepEqual(saved.json.pending.sort(), ["BGUTIL_ENABLED", "SPONSORBLOCK_ENABLED"]);
+  // 로그는 몇 칸이 아니라 무엇이 어떻게 바뀌었는지
+  const line = sink.buffer.findLast((e) => e.text.includes("운영 조절값 저장"))?.text ?? "";
+  assert.match(line, /BGUTIL_ENABLED 기본값 → "true"\(다시 시작해야 적용\)/);
+  assert.match(line, /CACHE_MAX_FILES 기본값 → "42"(?!\()/);
   assert.equal(config.bgutil.enabled, false, "띄우지 않은 POToken 서버를 찾지 않게");
   assert.equal(config.sponsorblock.enabled, true, "등록된 슬래시 명령과 어긋나지 않게");
   assert.deepEqual([config.cache.maxFiles, config.dashboard.rateLimit.apiMax], [42, 999], "바로 먹는 값은 먹는다");

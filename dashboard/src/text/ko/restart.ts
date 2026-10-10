@@ -9,7 +9,7 @@ const waiting = "다시 시작하는 중이에요. 봇이 다시 뜨면 이 화�
 const timeoutTitle = "봇이 다시 뜨지 않았어요";
 const timeoutBody = "봇을 띄운 터미널이나 로그를 확인해 주세요.";
 const failed = "봇을 다시 시작하지 못했어요.";
-/** 설정 탭: 저장했지만 다시 시작해야 적용되는 값이 있다 */
-const pending = (count: number) => `저장한 값 중 ${count}칸은 봇을 다시 시작해야 적용돼요.`;
+/** 설정 탭: 저장했지만 다시 시작해야 적용되는 값이 있다. names: 칸 이름(· 로 이음) */
+const pending = (names: string) => `저장했지만 봇을 다시 시작해야 적용돼요: ${names}`;
 
 export { button, unavailable, confirmTitle, confirmBody, confirm, waiting, timeoutTitle, timeoutBody, failed, pending };
