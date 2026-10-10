@@ -69,7 +69,7 @@ class DbFile {
     const found = db.pragma("user_version", { simple: true }) as number;
     if (!tables.length || found === this.spec.version) return { recreated: false };
     if (this.spec.onMismatch === "stop") {
-      const message = this.spec.mismatchHint?.(found, file) ?? `${this.spec.label} 구조가 이 버전과 맞지 않습니다 (DB v${found}, 필요 v${this.spec.version}): ${file}`;
+      const message = this.spec.mismatchHint?.(found, file) ?? `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}`;
       throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
     }
     dropAll(db, tables);

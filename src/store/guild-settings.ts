@@ -28,23 +28,34 @@ const FIELDS = {
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
+// 이미 알린 틀린 문서(서버 · 내용). 곡마다 읽는 칸이 있어 같은 문서를 되풀이해 알리지 않는다
+const warned = new Set<string>();
+function warnOnce(guildId: string, raw: string, line: string) {
+  const key = `${guildId}|${raw}`;
+  if (warned.has(key)) return;
+  warned.add(key);
+  log.warn(line);
+}
+
 // 문서를 읽어 칸마다 맞춘다. 틀린 칸은 버리고 한 줄 남긴다
 function shapeOf(guildId: string, raw: string): GuildDoc {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    log.warn(`서버 ${guildId} 설정 문서를 읽지 못해 정하지 않은 것으로 봅니다(JSON 이 아닙니다)`);
+    warnOnce(guildId, raw, `서버 ${guildId} 설정이 JSON 이 아니어서 기본값을 씁니다`);
     return {};
   }
   const source = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
   const doc: Record<string, unknown> = {};
+  const wrong: string[] = [];
   for (const [key, schema] of Object.entries(FIELDS)) {
     if (source[key] === undefined) continue;
     const checked = schema.safeParse(source[key]);
     if (checked.success) doc[key] = checked.data;
-    else log.warn(`서버 ${guildId} 설정의 ${key} 칸 모양이 틀려 정하지 않은 것으로 봅니다`);
+    else wrong.push(key);
   }
+  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값이 틀려 그 값은 기본값을 씁니다`);
   return doc as GuildDoc;
 }
 

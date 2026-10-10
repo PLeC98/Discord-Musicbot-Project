@@ -14,7 +14,7 @@ const exported: ClientEvent<Events.GuildDelete> = {
     await players.get(guild.id)?.dispose({ reason: "서버에서 나감", session: "remove" });
     forgetGuild(guild.id, guild.channels.cache.keys());
     panelRecords.forget(guild.id);
-    log.info(`서버 ${guild.name} (${guild.id}) 에서 나가 그 서버의 저장된 대기열 · 패널 자리를 지웠습니다`);
+    log.info(`서버에서 나갔습니다: ${guild.name} (${guild.id}). 저장된 대기열 · 패널 자리 · 음성 채널 상태를 지웠습니다`);
   },
 };
 export default exported;

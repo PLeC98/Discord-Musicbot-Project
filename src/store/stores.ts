@@ -17,10 +17,10 @@ import { cacheDb } from "./cache-db.ts";
 // 여는 차례. 설정이 깨졌으면 다른 파일을 건드리기 전에 멈춘다
 const FILES: DbFile[] = [settingsDb, stateDb, cacheDb];
 
-// 새로 만들었을 때 잃은 것
+// 새로 만들면 잃는 것. 받아 둔 곡 파일을 몇 개 지웠는지는 기동 정리가 따로 남긴다
 const LOST: Map<DbFile, string> = new Map([
-  [stateDb, "저장된 대기열 · 음성 채널 상태 · 재생 패널 자리를 비웠습니다. 이번 기동은 대기열을 이어 틀지 못합니다"],
-  [cacheDb, "받은 곡 색인 · 링크 장부를 비웠습니다. 색인을 잃은 곡 파일은 기동 정리가 지우고 다음 재생부터 다시 받습니다"],
+  [stateDb, "저장된 대기열 · 패널 자리 · 음성 채널 상태가 사라졌습니다"],
+  [cacheDb, "받아 둔 곡은 모두 다시 받습니다"],
 ]);
 
 /** dir: DB 를 둘 폴더. 운영은 database/, 시험은 임시 폴더. 하나라도 못 열면 연 것을 닫고 던진다 */
@@ -34,7 +34,7 @@ function open(dir = PROJECT.database) {
     close();
     throw error;
   }
-  log.info({ tags: ["startup"] }, "SQLite DB 준비 완료");
+  log.info({ tags: ["startup"] }, "DB 준비 완료 (설정 · 실행 상태 · 캐시)");
 }
 
 function close() {

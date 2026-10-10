@@ -13,6 +13,7 @@ import { settingsDb } from "../../src/store/settings-db.ts";
 import * as panelRecords from "../../src/store/panel-records.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
 const guildTable = (await import("../../src/store/guild-settings.ts")).table;
@@ -221,9 +222,16 @@ test("칸 하나의 모양이 틀려도 다른 칸은 읽는다", () => {
     .get()
     .prepare("INSERT INTO guild_settings (guild_id, data_json, updated_at) VALUES ('g5', ?, 0)")
     .run(JSON.stringify({ djRoleIds: "r1", botChannelId: "c5", playlistAddMax: -3 }));
+  const from = sink.buffer.length;
   assert.deepEqual(guildTable.getDjRoles("g5"), []);
   assert.equal(guildTable.getBotChannel("g5"), "c5");
   assert.equal(guildTable.getPlaylistAddMax("g5"), null);
+  const warned = sink.buffer.slice(from).filter((e) => e.text.startsWith("서버 g5 설정의"));
+  assert.deepEqual(
+    warned.map((e) => e.text),
+    ["서버 g5 설정의 djRoleIds, playlistAddMax 값이 틀려 그 값은 기본값을 씁니다"],
+    "곡마다 읽어도 같은 문서는 한 번만 알린다",
+  );
 });
 
 test("저장할 때마다 저장 번호가 오른다", () => {
