@@ -18,6 +18,7 @@ const serviceKeys = await import("../../src/store/service-keys.ts");
 const aiKeys = await import("../../src/store/ai-keys.ts");
 const cookieJar = await import("../../src/store/cookie-jar.ts");
 const assist = await import("../../src/autoplay/assist/index.ts");
+const sourcesHttp = await import("../../src/autoplay/sources/http.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
@@ -61,6 +62,8 @@ let csrf = "";
 const server = createApp(fakeBot({ client }), { stream: createPlayerStream(), deployCommands: async () => ({ ok: true, skipped: false, count: 0, scope: "global", guildId: null, names: [] }), sessionMiddleware: signedIn }).listen(0, "127.0.0.1");
 
 before(async () => {
+  // 소스 목록 · 자동완성이 바깥(AnimeThemes 등)에 묻지 않게. 이 시험은 바깥 상태에 기대지 않는다
+  sourcesHttp.useFetch(fake<typeof fetch>(async () => Promise.reject(new Error("시험은 바깥에 나가지 않는다"))));
   await new Promise((resolve) => server.once("listening", resolve));
   base = baseUrl(server);
   csrf = ((await (await fetch(`${base}/api/csrf-token`)).json()) as { csrfToken: string }).csrfToken;
@@ -73,6 +76,7 @@ before(async () => {
 after(() => {
   server.close();
   assist.useFetch(null);
+  sourcesHttp.useFetch(null);
   secrets._useKey();
   store.close();
 });
@@ -108,10 +112,10 @@ test("운영자의 모든 읽기 경로 응답에 비밀값이 없다", async ()
   const failed: string[] = [];
   for (const path of paths) {
     const res = await fetch(base + path, { signal: AbortSignal.timeout(10_000) });
-    if (res.status >= 500) failed.push(`${path} ${res.status}`);
+    if (res.status >= 400) failed.push(`${path} ${res.status}`);
     leaksIn(`GET ${path}`, Buffer.from(await res.arrayBuffer()).toString("utf8"));
   }
-  assert.deepEqual(failed, [], "답이 와야 그 답을 본 것이다(서버 오류면 내용을 보지 못한다)");
+  assert.deepEqual(failed, [], "답이 와야 그 답을 본 것이다(거절 · 서버 오류면 내용을 보지 못한다)");
 });
 
 test("서비스 키 · AI 키 상태는 끝 네 글자까지만 보인다", async () => {
