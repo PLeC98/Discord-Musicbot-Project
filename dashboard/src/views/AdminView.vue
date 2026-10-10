@@ -4,7 +4,7 @@
        고른 탭은 주소 ?tab= 에 두고 옮길 때마다 방문 기록을 쌓는다(뒤로가기 = 앞의 탭, 휴대폰은 고르는 화면) -->
   <div class="md:pt-(--gap-out) md:flex md:items-start md:gap-(--gap-in)">
     <Teleport to="#topbar-start" defer>
-      <button v-if="(isPhone && tab) || detailOpen" type="button" :class="TOPBAR_BTN" aria-label="뒤로" @click="goBack"><Icon name="arrow_back" /></button>
+      <button v-if="(isPhone && tab) || detailOpen" type="button" :class="TOPBAR_BTN" :aria-label="T.back" @click="goBack"><Icon name="arrow_back" /></button>
     </Teleport>
 
     <!-- 휴대폰: 탭 고르는 화면 -->
@@ -14,7 +14,7 @@
           <!-- 구분선: 아이콘 칸(안쪽 여백 12 + 아이콘 40 + 틈 16)을 비우고 글자 시작부터 -->
           <div v-if="ti" class="h-px ml-17 mr-3 bg-outline-variant/60" aria-hidden="true"></div>
           <button type="button" class="tap state-layer w-full flex items-center gap-4 min-h-14 px-3 py-2 rounded-(--r-row) cursor-pointer text-left" @click="setTab(t.id)">
-            <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsaved.has(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="'저장하지 않은 변경이 있어요'"></span></span>
+            <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsaved.has(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span></span>
             <span class="flex-1 min-w-0 text-body font-medium text-on-surface">{{ t.label }}</span>
             <Icon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
           </button>
@@ -25,7 +25,7 @@
          높이는 바탕화면 위아래 틈 사이 전부(재생 바 노치는 가운데에 떠 있어 레일과 겹치지 않는다).
          페이지 아래 여백에 든 재생 바 높이만큼은 음수 여백으로 돌려줘 레일 때문에 페이지가 구르지 않게 한다.
          탭이 많아 넘치면 레일 안에서 구르고 가장자리가 흐려진다 -->
-    <nav v-if="!loading" class="pane hidden md:flex sticky top-(--gap-out) shrink-0 w-(--rail) flex-col overflow-hidden rounded-(--r-window) h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)" aria-label="운영자 패널 탭">
+    <nav v-if="!loading" class="pane hidden md:flex sticky top-(--gap-out) shrink-0 w-(--rail) flex-col overflow-hidden rounded-(--r-window) h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)" :aria-label="T.tabsLabel">
       <div ref="railEl" class="relative min-h-0 flex flex-col items-stretch gap-1 py-3 overflow-y-auto overscroll-contain scrollbar-none" :style="railFade">
         <span aria-hidden="true" class="absolute top-0 left-1/2 w-14 h-8 rounded-2xl bg-secondary-container" :class="railReady && 'transition-transform spring'" :style="{ transform: `translate(-50%, ${pillY}px)` }"></span>
         <template v-for="(group, gi) in TAB_GROUPS" :key="gi">
@@ -33,7 +33,7 @@
           <button v-for="t in group" :key="t.id" :ref="(el) => railItem(t.id, el)" type="button" class="group relative shrink-0 flex flex-col items-center gap-1 py-1 cursor-pointer" :aria-current="tab === t.id ? 'page' : undefined" @click="setTab(t.id)">
             <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors duration-150" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
               <Icon :name="t.icon" :size="24" :fill="tab === t.id" />
-              <span v-if="unsaved.has(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="'저장하지 않은 변경이 있어요'"></span>
+              <span v-if="unsaved.has(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span>
             </span>
             <span class="px-1 text-2xs leading-4 text-center" :class="tab === t.id ? 'font-semibold text-on-surface' : 'font-medium text-on-surface-variant'">{{ t.label }}</span>
           </button>
@@ -74,7 +74,7 @@
         <div class="admin-page" v-show="tab === 'db'">
           <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
             <Icon name="database" :size="40" />
-            <p class="text-sm">DB 브라우저는 아직 짜지 않았어요</p>
+            <p class="text-sm">{{ T.dbNotYet }}</p>
           </section>
         </div>
 
@@ -109,7 +109,7 @@
       </template>
     </div>
 
-    <ConfirmDialog :model-value="leaveOpen" icon="edit_off" title="저장하지 않고 떠날까요?" body="고친 설정이 저장되지 않았어요. 떠나면 고친 내용이 사라져요." confirm-label="떠나기" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
+    <ConfirmDialog :model-value="leaveOpen" icon="edit_off" :title="T.leaveConfirm.title" :body="T.leaveConfirm.body" :confirm-label="T.leaveConfirm.confirm" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
 </template>
 
@@ -144,6 +144,8 @@ import DevOptions from "../components/DevOptions.vue";
 import { KEPT_LINES, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { AdminGuilds, AdminStatus } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
+import { text } from "../text/index.ts";
+const T = text.admin;
 
 /** 탭 하나. needsCookieFile 이면 쿠키를 파일로 읽을 때만 보인다 */
 /** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
@@ -153,19 +155,19 @@ type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
 const ALL_TABS: Tab[] = [
-  { id: "status", label: "봇 상태", icon: "smart_toy", group: "status" },
-  { id: "guilds", label: "서버 관리", icon: "public", group: "watch" },
-  { id: "db", label: "DB 브라우저", icon: "database", group: "watch" },
-  { id: "logs", label: "실시간 로그", icon: "queue_music", group: "watch" },
+  { id: "status", label: T.tabs.status, icon: "smart_toy", group: "status" },
+  { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
+  { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
+  { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
   // COOKIES_SOURCE=file 일 때만 나온다. 브라우저 쿠키를 쓰거나 쓰지 않으면 고칠 파일이 없다
-  { id: "cookies", label: "쿠키 설정", icon: "cookie", group: "outside", needsCookieFile: true },
+  { id: "cookies", label: T.tabs.cookies, icon: "cookie", group: "outside", needsCookieFile: true },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
-  { id: "presence", label: "상태 문구", icon: "headphones", group: "outside" },
-  { id: "appearance", label: "꾸미기", icon: "palette", group: "outside" },
-  { id: "autoplay", label: "자동재생", icon: "music_note", group: "autoplay" },
-  { id: "ai", label: "AI 보조", icon: "campaign", group: "autoplay" },
-  { id: "info", label: "봇 정보", icon: "info", group: "dev" },
-  { id: "dev", label: "개발자 옵션", icon: "build", group: "dev" },
+  { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
+  { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
+  { id: "autoplay", label: T.tabs.autoplay, icon: "music_note", group: "autoplay" },
+  { id: "ai", label: T.tabs.ai, icon: "campaign", group: "autoplay" },
+  { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
+  { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
@@ -326,7 +328,7 @@ async function fetchStatus() {
   } catch (e) {
     statusStale.value = true;
     // 3초마다 묻는다. 같은 까닭이면 알림 하나가 남아 있다
-    notifyProblem(e, "봇 상태를 읽지 못했어요.");
+    notifyProblem(e, T.failed.status);
     loading.value = false;
   }
 }
@@ -340,7 +342,7 @@ async function fetchGuilds() {
     const res = await axios.get<AdminGuilds>("/api/admin/guilds");
     guilds.value = res.data.guilds;
   } catch (e) {
-    notifyProblem(e, "서버 목록을 읽지 못했어요.");
+    notifyProblem(e, T.failed.guilds);
   }
 }
 

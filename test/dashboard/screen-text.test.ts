@@ -14,7 +14,7 @@ const HANGUL = /[가-힣ㄱ-ㆎ]/;
 // 문구가 아니라 한글을 다루는 규칙 · 자료(초성 찾기의 자모 표, 이모지 이름)
 const NOT_TEXT = new Set(["utils/ko-search.ts", "emoji-list.ts"]);
 // 아직 문구표로 옮기지 않은 파일(2차 14단계 2-3). 옮기면 여기서 뺀다. 비면 이 목록을 걷는다
-const NOT_YET = new Set<string>(["components/ConfigAI.vue", "components/BotStatus.vue", "components/ServerManage.vue", "views/ServerSettingsView.vue", "components/ConfigGenres.vue", "components/DevOptions.vue", "components/ConfigAppearance.vue", "components/ConfigPresence.vue", "components/SourceEditor.vue", "components/ConfigCookies.vue", "views/AdminView.vue", "components/PresenceMessageList.vue", "components/GenreGlobalForm.vue"]);
+const NOT_YET = new Set<string>(["components/ConfigAI.vue", "components/BotStatus.vue", "components/ServerManage.vue", "components/ConfigGenres.vue", "components/DevOptions.vue", "components/ConfigAppearance.vue", "components/ConfigPresence.vue", "components/SourceEditor.vue", "components/ConfigCookies.vue", "components/PresenceMessageList.vue", "components/GenreGlobalForm.vue"]);
 
 const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(vue|ts)$/.test(e.name) ? [path.join(dir, e.name)] : []));
 

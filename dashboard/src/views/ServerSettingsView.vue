@@ -6,31 +6,33 @@
       <SaveIndicator :state="saveState" />
     </Teleport>
     <Teleport to="#topbar-start" defer>
-      <router-link :to="`/servers/${guildId}`" :class="TOPBAR_TEXT_BTN" aria-label="재생 화면으로"><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">돌아가기</span></router-link>
+      <router-link :to="`/servers/${guildId}`" :class="TOPBAR_TEXT_BTN" :aria-label="T.backToPlayer"
+        ><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">{{ T.back }}</span></router-link
+      >
     </Teleport>
 
     <div v-if="loading" class="flex items-center justify-center p-20"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
     <!-- 서버가 없거나 멤버가 아니면 다시 해도 같다: 서버 목록으로. 그 밖은 다시 시도 -->
     <PageError v-else-if="loadError" :icon="loadGone ? 'block' : 'cloud_off'" :text="loadError" class="min-h-96">
-      <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />서버 목록으로</BaseButton>
-      <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />다시 시도</BaseButton>
+      <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />{{ text.common.toServerList }}</BaseButton>
+      <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />{{ text.shell.retry }}</BaseButton>
     </PageError>
 
     <template v-else>
       <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 단이 는다(카드 한 장 360 쯤: 768~ 두 단, 1152~ 세 단). 높이를 맞춘 격자가 아니라 단마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
       <div class="columns-1 @3xl/desk:columns-2 @6xl/desk:columns-3 gap-(--gap-in) *:break-inside-avoid">
         <!-- 봇 전용 채널 -->
-        <BaseCard icon="keep" title="봇 전용 채널" class="mb-(--gap-in)">
-          <p class="text-on-surface-variant text-sm mb-3">전용 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생되며, 컨트롤 패널과 공지 발송도 이 채널을 우선 사용해요.</p>
-          <SingleSelect :model-value="selectedChannel ?? ''" :options="channelOptions" empty-label="지정 안 함" :disabled="!s.canEdit" @update:model-value="selectedChannel = $event === '' ? null : String($event)" />
+        <BaseCard icon="keep" :title="T.channel.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.channel.desc }}</p>
+          <SingleSelect :model-value="selectedChannel ?? ''" :options="channelOptions" :empty-label="T.channel.none" :disabled="!s.canEdit" @update:model-value="selectedChannel = $event === '' ? null : String($event)" />
         </BaseCard>
 
         <!-- DJ 역할 -->
-        <BaseCard icon="headphones" title="DJ 역할" class="mb-(--gap-in)">
-          <p class="text-on-surface-variant text-sm mb-3">재생 제어를 역할 보유자와 모더레이터로 제한해요. 설정하지 않으면 모든 유저가 제어할 수 있어요.</p>
+        <BaseCard icon="headphones" :title="T.dj.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.dj.desc }}</p>
 
-          <input :value="roleFilter" @input="roleFilter = valueOf($event)" :disabled="!s.canEdit" :placeholder="`${s.roles.length}개 중에서 찾기`" :class="[FIELD, 'w-full mb-2 disabled:opacity-38']" />
+          <input :value="roleFilter" @input="roleFilter = valueOf($event)" :disabled="!s.canEdit" :placeholder="text.fields.searchAmong(s.roles.length)" :class="[FIELD, 'w-full mb-2 disabled:opacity-38']" />
 
           <!-- 스크롤바 길은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
@@ -39,26 +41,26 @@
               <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: r.color || 'var(--md-outline)' }"></span>
               <span class="overflow-hidden whitespace-nowrap text-ellipsis">{{ r.name }}</span>
             </label>
-            <div v-if="filteredRoles.length === 0" class="text-on-surface-variant text-sm px-3 py-3">{{ s.roles.length === 0 ? "이 서버에 지정할 수 있는 역할이 없어요" : "일치하는 역할이 없어요" }}</div>
+            <div v-if="filteredRoles.length === 0" class="text-on-surface-variant text-sm px-3 py-3">{{ s.roles.length === 0 ? T.dj.noRoles : T.dj.noMatch }}</div>
           </div>
-          <div class="text-xs mt-1" :class="selectedRoles.length >= 25 ? 'text-(--warn-ink)' : 'text-on-surface-variant'">선택됨: {{ selectedRoles.length }} / 25</div>
+          <div class="text-xs mt-1" :class="selectedRoles.length >= 25 ? 'text-(--warn-ink)' : 'text-on-surface-variant'">{{ T.dj.picked(selectedRoles.length, 25) }}</div>
         </BaseCard>
 
         <!-- SponsorBlock -->
-        <BaseCard icon="skip_next" title="SponsorBlock 자동 스킵" class="mb-(--gap-in)">
-          <p class="text-on-surface-variant text-sm mb-3">뮤직비디오의 인트로, 최종 화면, 음악이 아닌 구간 등을 SponsorBlock 데이터를 사용해 건너뛰어요.</p>
+        <BaseCard icon="skip_next" :title="T.sponsor.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.sponsor.desc }}</p>
 
-          <NoticeBox v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" variant="note" tone="notice" icon="warning" class="mt-0! mb-2">봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 서버 설정은 적용되지 않아요.</NoticeBox>
+          <NoticeBox v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" variant="note" tone="notice" icon="warning" class="mt-0! mb-2">{{ T.sponsor.masterOff }}</NoticeBox>
 
           <template v-if="s.sponsorblock">
             <label class="flex items-center justify-between gap-3 py-2 text-sm" :class="s.canEdit ? 'cursor-pointer' : ''">
-              <span>이 서버에서 자동 스킵 사용</span>
+              <span>{{ T.sponsor.enable }}</span>
               <BaseSwitch v-model="sbEnabled" :disabled="!s.canEdit" />
             </label>
 
             <div class="flex items-center gap-1 mt-3 mb-2">
-              <span class="text-on-surface-variant text-xs">건너뛸 구간 종류</span>
-              <button type="button" @click="sbHelpOpen = true" :class="[ICON_BTN, 'size-6']" v-tooltip="'각 구간 설명 보기'" aria-label="각 구간 설명" aria-haspopup="dialog"><Icon name="info" :size="16" /></button>
+              <span class="text-on-surface-variant text-xs">{{ T.sponsor.categories }}</span>
+              <button type="button" @click="sbHelpOpen = true" :class="[ICON_BTN, 'size-6']" v-tooltip="T.sponsor.help" :aria-label="T.sponsor.helpLabel" aria-haspopup="dialog"><Icon name="info" :size="16" /></button>
             </div>
 
             <!-- 구간 설명은 대화상자로 띄운다(카드 안에서 펼치면 단 배치가 흔들린다). 설명은 서버가 이름과 함께 준다(rules/sponsor-categories) -->
@@ -68,8 +70,8 @@
                   <div ref="sbHelpEl" role="dialog" aria-modal="true" aria-labelledby="sb-help-title" class="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="sbHelpOverflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
                     <div class="flex items-center gap-3 mb-4">
                       <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="skip_next" :size="20" /></span>
-                      <h3 id="sb-help-title" class="flex-1 text-xl font-round font-semibold">건너뛸 구간 종류</h3>
-                      <button type="button" :class="[ICON_BTN, 'size-8']" aria-label="닫기" @click="sbHelpOpen = false"><Icon name="close" :size="20" /></button>
+                      <h3 id="sb-help-title" class="flex-1 text-xl font-round font-semibold">{{ T.sponsor.categories }}</h3>
+                      <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.common.close" @click="sbHelpOpen = false"><Icon name="close" :size="20" /></button>
                     </div>
                     <dl class="flex flex-col gap-1">
                       <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
@@ -92,24 +94,29 @@
         </BaseCard>
 
         <!-- 재생목록 한 번에 넣을 곡 수 -->
-        <BaseCard v-if="s.playlistAdd" icon="queue_music" title="한 번에 넣을 재생목록 곡 수" class="mb-(--gap-in)">
-          <p class="text-on-surface-variant text-sm mb-3">많은 곡이 포함된 재생목록을 한 번에 다 넣지 않고 설정한 곡만큼만 넣어요. 초과된 곡은 이어 넣을 수 있어요.</p>
+        <BaseCard v-if="s.playlistAdd" icon="queue_music" :title="T.playlistAdd.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.playlistAdd.desc }}</p>
 
           <!-- 이어 붙은 버튼 묶음(M3E): 고른 칸은 완전히 둥글게 · 체크. 카드가 좁으면(384 미만, 작은 휴대폰) 칸 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
-          <div class="flex gap-0.5 mb-3" role="radiogroup" aria-label="곡 수 선택">
-            <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">기본값 · </span><span class="@[18rem]/card:hidden">기본 </span>{{ paClamp(s.playlistAdd.default) }}곡</button>
-            <button v-for="(n, i) in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" :disabled="!s.canEdit" @click="pickPreset(n)" :class="[segment(!paUseDefault && paCount === n, i + 1, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="!paUseDefault && paCount === n" name="check" :size="18" />{{ n }}곡</button>
+          <div class="flex gap-0.5 mb-3" role="radiogroup" :aria-label="T.playlistAdd.choose">
+            <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]">
+              <Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultLong }}</span
+              ><span class="@[18rem]/card:hidden">{{ T.playlistAdd.defaultShort }}</span
+              >{{ T.playlistAdd.songs(paClamp(s.playlistAdd.default)) }}
+            </button>
+            <button v-for="(n, i) in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" :disabled="!s.canEdit" @click="pickPreset(n)" :class="[segment(!paUseDefault && paCount === n, i + 1, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="!paUseDefault && paCount === n" name="check" :size="18" />{{ T.playlistAdd.songs(n) }}</button>
           </div>
 
           <label class="flex items-center gap-2 text-sm" :class="s.canEdit ? '' : 'opacity-60'">
-            <span class="text-on-surface-variant">직접 입력</span>
+            <span class="text-on-surface-variant">{{ T.playlistAdd.custom }}</span>
             <input type="text" inputmode="numeric" :min="s.playlistAdd.min" :max="s.playlistAdd.max" step="1" :value="paUseDefault ? '' : paCount" :placeholder="String(s.playlistAdd.default)" :disabled="!s.canEdit" @input="onPaInput" @focus="typing = true" @blur="typing = false" @keydown.enter="($event.target as HTMLInputElement).blur()" :class="[FIELD, 'w-28 tabular-nums disabled:opacity-38', paInvalid && 'border-error! focus:border-error!']" />
-            <span class="text-on-surface-variant">곡</span>
+            <span class="text-on-surface-variant">{{ T.playlistAdd.unit }}</span>
           </label>
           <div class="text-xs mt-1" :class="paInvalid ? 'text-error' : 'text-on-surface-variant'">
-            <template v-if="paInvalid">{{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 사이의 정수로 정해 주세요.</template>
+            <template v-if="paInvalid">{{ T.playlistAdd.invalid(s.playlistAdd.min, s.playlistAdd.max) }}</template>
             <template v-else
-              >재생목록을 넣으면 한 번에 <strong class="font-semibold text-on-surface">{{ paEffective }}곡</strong>씩 들어가요 · {{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 · 디스코드에서는 <code>/setplaylistlimit</code></template
+              >{{ T.playlistAdd.effectiveBefore }}<strong class="font-semibold text-on-surface">{{ T.playlistAdd.songs(paEffective) }}</strong
+              >{{ T.playlistAdd.effectiveAfter(s.playlistAdd.min, s.playlistAdd.max) }}<code>/setplaylistlimit</code></template
             >
           </div>
         </BaseCard>
@@ -146,6 +153,8 @@ import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";
 import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
+import { text } from "../text/index.ts";
+const T = text.serverSettings;
 
 /** 받기 전에는 이름 · SponsorBlock · 재생목록 칸이 없다 */
 type SettingsSeen = Omit<GuildSettings, "guildName" | "sponsorblock" | "playlistAdd"> & { guildName: string | null; sponsorblock: GuildSettings["sponsorblock"] | null; playlistAdd: GuildSettings["playlistAdd"] | null };
@@ -268,7 +277,7 @@ async function load() {
   try {
     apply((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
   } catch (e) {
-    loadError.value = problemText(e, "설정을 불러오지 못했어요.");
+    loadError.value = problemText(e, T.loadFailed);
     loadGone.value = GONE.includes(problemCodeOf(replyOf(e)) ?? "");
   } finally {
     loading.value = false;
@@ -323,7 +332,7 @@ async function save() {
     saveState.value = "done";
   } catch (e) {
     saveState.value = "error";
-    notifyProblem(e, "설정을 저장하지 못했어요.");
+    notifyProblem(e, T.saveFailed);
   } finally {
     saving.value = false;
     doneTimer = window.setTimeout(() => (saveState.value = "idle"), 1600);
