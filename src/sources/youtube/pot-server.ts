@@ -66,7 +66,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     const child = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });
     proc = child;
     // 등록부가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop() 을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게
-    const release = processRegistry.register(child, "bgutil");
+    const release = processRegistry.register(child, "bgutil", { job: "pot-server" });
     child.stdout?.on("data", (d: Buffer) => relay(d, "out"));
     child.stderr?.on("data", (d: Buffer) => relay(d, "err"));
     child.on("exit", (code) => {

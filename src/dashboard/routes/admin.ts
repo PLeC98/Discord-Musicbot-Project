@@ -39,8 +39,8 @@ function ranBy<P>(req: Request<P>) {
 }
 
 // 봇 · Node · 시스템 상태(봇 상태 탭)
-adminRouter.get("/status", requireOwner, (req, res) => {
-  res.json(adminStatus(req.app.locals.bot));
+adminRouter.get("/status", requireOwner, async (req, res) => {
+  res.json(await adminStatus(req.app.locals.bot, signedIn(req).id));
 });
 
 // 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널

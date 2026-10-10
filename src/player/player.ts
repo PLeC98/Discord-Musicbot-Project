@@ -56,7 +56,7 @@ import { buildFfmpegArgs } from "../media/ffmpeg/args.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
-import { bindToGuild } from "../infra/guild-context.ts";
+import { bindToGuild, inGuild } from "../infra/guild-context.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 
@@ -256,7 +256,8 @@ class Player {
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
     this.settingsSink = this.persistence; // 설정이 바뀐 것도
     this.warmer = this.io.createWarmer(this, {
-      warm: (track) => this.downloader.warm(track),
+      // 다음 곡 미리 받기. 띄운 프로세스가 이 서버의 일로 적히게 문맥을 붙인다(예열 루프는 대시보드 요청에서 시작될 수도 있다)
+      warm: (track) => inGuild(this.guild.id, () => this.downloader.warm(track), "prefetch"),
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
       keyOf: (track) => audioKeyOf(track?.audioUrl),

@@ -1,10 +1,9 @@
 // 봇 상태 탭(/api/admin/status)의 응답. 3초마다 불리므로 비싼 값은 모아 둔 것을 준다.
-// 모으는 것(측정 · 최근 15분 · 게이트웨이)은 대시보드가 켜질 때 startStatus 로 시작한다
+// 모으는 것(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리)은 대시보드가 켜질 때 startStatus 로 시작한다
 
 import os from "node:os";
 import type { Client } from "discord.js";
 import config from "../../config/index.ts";
-import * as procRegistry from "../../infra/process-registry.ts";
 import { vitals } from "../../infra/vitals.ts";
 import { BOT_VERSION } from "../../infra/version.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
@@ -12,6 +11,8 @@ import type { BotContext } from "../../app/bot-context.ts";
 import type { AdminStatus } from "../contract/admin.ts";
 import { gateway, watchGateway } from "./gateway.ts";
 import { startStatusHistory, statusHistory } from "./history.ts";
+import { playerRows } from "./players.ts";
+import { processSummary, watchProcesses } from "./processes.ts";
 
 const MB = 1024 * 1024;
 
@@ -30,21 +31,8 @@ function botStatus(client: Client, uptime: number) {
   };
 }
 
-// 자식 프로세스 요약. 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게
-function processSummary() {
-  const all = procRegistry.list();
-  const byLabel: Record<string, number> = {};
-  for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
-  return {
-    total: all.length,
-    byLabel: Object.entries(byLabel)
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-    oldest: all.slice(0, 8),
-  };
-}
-
-function adminStatus({ client, players }: BotContext): AdminStatus {
+/** viewerId: 보는 운영자(플레이어 줄의 멤버 여부) */
+async function adminStatus({ client, players }: BotContext, viewerId: string): Promise<AdminStatus> {
   const uptime = process.uptime();
   const mem = process.memoryUsage();
   const { cpu, loop, heapLimit } = vitals();
@@ -56,8 +44,9 @@ function adminStatus({ client, players }: BotContext): AdminStatus {
     cpu,
     loop,
     activePlayers: players.size,
-    // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다
-    processes: processSummary(),
+    players: await playerRows(client, players, viewerId),
+    // 자식 프로세스. 오래 살아 있는 항목 · 플레이어 없는 서버의 재생 일이 새는 신호다
+    processes: processSummary(client, players),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
     history: statusHistory(),
@@ -67,10 +56,11 @@ function adminStatus({ client, players }: BotContext): AdminStatus {
   };
 }
 
-/** 모으기 시작한다(측정 · 최근 15분 · 게이트웨이) */
+/** 모으기 시작한다(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리) */
 function startStatus(bot: BotContext) {
   startStatusHistory(bot);
   watchGateway(bot.client);
+  watchProcesses();
 }
 
 export { adminStatus, startStatus };

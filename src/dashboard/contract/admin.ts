@@ -7,6 +7,7 @@ import type { ModelField, ModelGroup, ModelSummary } from "../../config/ai-model
 import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
 import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
+import type { Job } from "../../infra/process-job.ts";
 import { FIXED_COLORS } from "../../ui/palette.ts";
 
 /**
@@ -25,12 +26,22 @@ type AdminStatus = {
   /** 이벤트 루프 지연(ms). 지난 15초의 p99 와 최대 */
   loop: { p99: number; max: number };
   activePlayers: number;
-  /** 자식 프로세스(ffmpeg · yt-dlp). oldest 는 오래된 것부터 몇 개 */
-  processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: Array<{ pid: number; label: string; ageMs: number }> };
+  /** 플레이어. list 는 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기) */
+  players: { voiceConnections: number; queued: number; list: PlayerRow[] };
+  /** 자식 프로세스(ffmpeg · yt-dlp · 도우미). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수 */
+  processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: ProcessRow[] };
   youtube: YoutubeStatus;
   history: StatusHistory;
   logLevel: string;
 };
+
+/** member: 보는 사람(운영자)이 그 서버 멤버인가. 아니면 화면은 그 서버 화면으로 잇지 않는다. queued: 대기열 곡 수(지금 곡은 빼고) */
+type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: "playing" | "paused" | "idle"; title: string | null; artist: string | null; position: number; duration: number; listeners: number; queued: number };
+/**
+ * label: 프로그램(ffmpeg · yt-dlp · node). job: 하는 일, guildId: 그 일을 띄운 서버(봇 도우미 · 서버 밖의 곡 찾기는 null).
+ * stray: 재생 · 다음 곡 일인데 그 서버에 플레이어가 없다(남은 프로세스일 수 있다). memMb: 15초마다 잰 값, 아직 못 쟀으면 null
+ */
+type ProcessRow = { pid: number; label: string; ageMs: number; memMb: number | null; guildId: string | null; guildName: string | null; job: Job | null; stray: boolean };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[] };
@@ -100,4 +111,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };
+export type { AdminStatus, PlayerRow, ProcessRow, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };

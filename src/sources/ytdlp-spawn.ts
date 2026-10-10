@@ -2,6 +2,7 @@ import youtubedl from "youtube-dl-exec";
 import type { Flags } from "youtube-dl-exec";
 import type { SpawnOptions } from "child_process";
 import * as procRegistry from "../infra/process-registry.ts";
+import { currentJob } from "../infra/guild-context.ts";
 import * as errors from "./youtube/errors.ts";
 import { ytdlpBinary } from "./ytdlp-binary.ts";
 
@@ -57,7 +58,8 @@ function execNow(): Exec {
  */
 async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {}): Promise<unknown> {
   const sub = execNow()(url, flags, { ...SPAWN_OPTS, ...opts });
-  const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN });
+  // 일은 문맥에서(다음 곡 미리 받기), 없으면 파일로 받는 것은 재생, 나머지는 곡 찾기
+  const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN, job: currentJob() ?? (flags.output ? "play" : "lookup") });
   let timedOut = false;
   const limit = flags.output
     ? undefined

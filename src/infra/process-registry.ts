@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
+import { currentGuild, currentJob } from "./guild-context.ts";
+import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
@@ -23,7 +25,8 @@ const IS_WIN = process.platform === "win32";
 
 // spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 칸과 띄운 실행 파일
 type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null; spawnfile?: string };
-type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number };
+/** guildId · job: 띄운 문맥의 서버와 일(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 일"로 보인다 */
+type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number; guildId: string | null; job: Job | null };
 /** 기록 파일의 모양. owner: 적은 봇 프로세스(pid · 시작 시각), children: 그때 살아 있던 자식(image: 실행 파일 이름) */
 type Record = { owner: { pid: number; startedAt: number }; children: Array<{ pid: number; label: string; image: string | null; group: boolean; startedAt: number }> };
 
@@ -76,16 +79,17 @@ function install() {
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
  * label 은 로그용 이름, group=true 면 detached 로 띄워 자체 프로세스 그룹을 가진 경우.
+ * 서버 · 일은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
  * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
  */
-function register(child: Tracked | null | undefined, label = "child", { group = false }: { group?: boolean } = {}): () => void {
+function register(child: Tracked | null | undefined, label = "child", { group = false, job }: { group?: boolean; job?: Job } = {}): () => void {
   const pid = child?.pid;
   if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 1 || !child)
     return () => {
       /* 등록하지 않았으니 풀 것도 없다 */
     };
   install();
-  active.set(pid, { pid, label, group, child, startedAt: Date.now() });
+  active.set(pid, { pid, label, group, child, startedAt: Date.now(), guildId: currentGuild(), job: job ?? currentJob() });
   save();
   return () => {
     if (active.delete(pid)) save();
@@ -165,15 +169,15 @@ function size() {
 }
 
 /**
- * 지금 살아 있는 자식 프로세스 목록. 운영자 패널 모니터링용.
+ * 지금 살아 있는 자식 프로세스 목록. 운영자 패널 모니터링용. 오래된 것부터.
  * 오래 살아 있는 항목이 곧 새는 신호다(재생 ffmpeg는 곡 길이를 넘기지 않아야 한다).
- * @returns {Array<{pid:number,label:string,ageMs:number}>} 오래된 것부터
+ * program: 실행 파일 이름(모르면 label)
  */
 function list() {
   const now = Date.now();
   return [...active.values()]
     .filter((e) => _isAlive(e.child))
-    .map((e) => ({ pid: e.pid, label: e.label, ageMs: now - e.startedAt }))
+    .map((e) => ({ pid: e.pid, label: e.label, program: imageOf(e.child.spawnfile) ?? e.label, ageMs: now - e.startedAt, guildId: e.guildId, job: e.job }))
     .sort((a, b) => b.ageMs - a.ageMs);
 }
 

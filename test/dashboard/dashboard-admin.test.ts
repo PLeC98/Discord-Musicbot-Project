@@ -67,7 +67,8 @@ function makeGuild(id: string, name: string, { leaveError = null as Error | null
     leftCount: 0,
     iconURL: () => null,
     systemChannel: null,
-    members: { me: {} },
+    // 운영자는 AlphaGuild 에만 있다(봇 상태의 플레이어 줄)
+    members: { me: {}, fetch: async (userId: string) => (id === "100" ? { id: userId } : Promise.reject(new Error("Unknown Member"))) },
     channels: {
       cache: new Map([[botChannel.id, botChannel]]),
     },
@@ -84,6 +85,7 @@ const g2 = makeGuild("200", "BetaGuild");
 const gStuck = makeGuild("300", "StuckGuild", { leaveError: new Error("Cannot leave") });
 
 const playerG1 = {
+  guild: g1,
   disposed: [] as unknown[],
   queue: [{ title: "q1" }],
   currentTrack: { title: "playing" },
@@ -179,6 +181,10 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.deepEqual(Object.keys(r.json.cpu).sort(), ["bot", "system"]);
   assert.deepEqual(Object.keys(r.json.loop).sort(), ["max", "p99"]);
   assert.equal(r.json.history.stepMs, 15_000);
+  // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
+  assert.deepEqual(r.json.players.list, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
+  assert.equal(r.json.players.queued, 1);
+  assert.deepEqual(r.json.processes, { total: 0, byLabel: [], oldest: [] });
   // 로그 뷰어의 레벨 토글 초기 상태가 이 값을 따른다 — 없으면 서버가 debug를 안 보내는데도
   // DEBUG 알약이 켜진 채로 시작해, 아무것도 안 나오는 필터가 켜져 있는 것처럼 보인다.
   assert.ok(["trace", "debug", "info", "warn", "error", "fatal"].includes(r.json.logLevel), `logLevel=${r.json.logLevel}`);

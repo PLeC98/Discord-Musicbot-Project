@@ -12,6 +12,9 @@ const log = logger.child({ category: "ffmpeg" });
  * 프로세스 종료와 어긋난다.
  */
 
+// 소리를 내는 ffmpeg(playback-input · 무이음 전환)
+const PLAYING = new Set(["stream", "playback", "switch"]);
+
 // SIGKILL/SIGTERM은 스킵·정지·종료에서 우리가 보내는 것이므로 크래시가 아니다.
 const CRASH_SIGNALS = new Set<NodeJS.Signals>(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
 
@@ -26,7 +29,8 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   const child = spawn(bin, args, { windowsHide: true });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
-  const release = procRegistry.register(child, `ffmpeg:${label}`);
+  // 소리를 내는 것은 재생, 받기 · 검사는 띄운 문맥의 일(지금 곡 · 다음 곡)
+  const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
   // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
   let stderrTail = "";

@@ -1,4 +1,4 @@
-// src/dashboard/status/ — 봇 상태 탭이 모으는 것: 최근 15분(15초 칸마다 한 점, 60점까지) · 게이트웨이 재수립
+// src/dashboard/status/ — 봇 상태 탭이 모으는 것: 최근 15분(15초 칸마다 한 점, 60점까지) · 게이트웨이 재수립 · 자식 프로세스
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -9,6 +9,9 @@ import { fakeBot } from "../helpers/fake.ts";
 import { _tick, stopVitals } from "../../src/infra/vitals.ts";
 import { startStatusHistory, statusHistory } from "../../src/dashboard/status/history.ts";
 import { _reset, gateway, watchGateway } from "../../src/dashboard/status/gateway.ts";
+import { processSummary } from "../../src/dashboard/status/processes.ts";
+import { inGuild } from "../../src/infra/guild-context.ts";
+import * as registry from "../../src/infra/process-registry.ts";
 
 after(stopVitals);
 
@@ -69,4 +72,24 @@ test("게이트웨이: 처음 붙은 것은 세지 않고, 끊긴 동안은 몇 
   stop();
   client.emit(Events.ShardReconnecting, 0);
   assert.deepEqual(gateway(), { reconnects: 2, retryAttempt: null }, "끊으면 더 듣지 않는다");
+});
+
+test("자식 프로세스: 프로그램 · 서버 이름 · 일. 재생 · 다음 곡 일인데 그 서버에 플레이어가 없으면 남은 것", () => {
+  let pid = 910_001;
+  const spawn = (file: string, label: string) => registry.register({ pid: pid++, exitCode: null, signalCode: null, spawnfile: file }, label);
+  const releases = [inGuild("g1", () => spawn("ffmpeg", "ffmpeg:playback"), "play"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "prefetch"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "lookup"), spawn("node", "bgutil")];
+  try {
+    const client = { guilds: { cache: new Map([["g1", { name: "하나" }]]) } } as unknown as Client;
+    const { total, byLabel, oldest } = processSummary(client, new Map([["g1", {}]]));
+    assert.equal(total, 4);
+    assert.deepEqual(byLabel, [
+      { label: "yt-dlp", count: 2 },
+      { label: "ffmpeg", count: 1 },
+      { label: "node", count: 1 },
+    ]);
+    const by = Object.fromEntries(oldest.map((p) => [`${p.label}:${p.job}`, [p.guildName, p.stray, p.memMb]]));
+    assert.deepEqual(by, { "ffmpeg:play": ["하나", false, null], "yt-dlp:prefetch": [null, true, null], "yt-dlp:lookup": [null, false, null], "node:null": [null, false, null] });
+  } finally {
+    for (const release of releases) release();
+  }
 });

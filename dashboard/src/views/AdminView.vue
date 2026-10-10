@@ -467,6 +467,7 @@ const s = ref<AdminStatus>({
   cpu: { bot: 0, system: 0 },
   loop: { p99: 0, max: 0 },
   activePlayers: 0,
+  players: { voiceConnections: 0, queued: 0, list: [] },
   processes: { total: 0, byLabel: [], oldest: [] },
   youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
   history: { stepMs: 0, endAt: 0, playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [] },

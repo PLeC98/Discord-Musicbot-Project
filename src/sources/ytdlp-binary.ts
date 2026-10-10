@@ -56,7 +56,7 @@ type Outcome = { kind: "current"; version: string } | { kind: "installed"; from:
 function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> {
   return new Promise((resolve) => {
     const child = spawn(file, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
-    const release = procRegistry.register(child, "yt-dlp 버전 맞추기");
+    const release = procRegistry.register(child, "yt-dlp 버전 맞추기", { job: "ytdlp-update" });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => (stdout += chunk));
