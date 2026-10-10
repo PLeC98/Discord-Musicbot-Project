@@ -26,6 +26,21 @@ function createTables(db: Db) {
       revision    INTEGER NOT NULL DEFAULT 1,
       updated_at  INTEGER NOT NULL
     );
+
+    -- 비밀값. 값마다 SECRETS_KEY 로 암호화한다(store/secrets). 평문은 끝 네 글자(last4)뿐이다.
+    -- key_id: 어느 키로 잠갔나(키의 지문). provider · endpoint: 키를 묶은 곳. 인증 데이터에도 들어가 칸만 바꾸면 풀리지 않는다
+    CREATE TABLE IF NOT EXISTS secrets (
+      name        TEXT    PRIMARY KEY,
+      format      INTEGER NOT NULL,
+      key_id      TEXT    NOT NULL,
+      provider    TEXT    NOT NULL,
+      endpoint    TEXT    NOT NULL,
+      iv          BLOB    NOT NULL,
+      tag         BLOB    NOT NULL,
+      ciphertext  BLOB    NOT NULL,
+      last4       TEXT    NOT NULL,
+      updated_at  INTEGER NOT NULL
+    );
   `);
 }
 
