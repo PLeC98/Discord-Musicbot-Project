@@ -177,11 +177,13 @@ test("오래 켜 두어도 버전이 쌓이지 않는다. 확인할 때마다 �
 });
 
 test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고정이면 걸지 않는다", async (t) => {
-  const { bin } = world();
+  const { bin, w } = world();
   t.after(() => bin.stop());
   await bin.start();
   assert.ok(bin.timer, "하루 뒤 확인");
+  assert.equal(bin.nextAt, w.clock + DAY, "다음 확인 때(봇 상태 탭)");
   bin.stop();
+  assert.equal(bin.nextAt, null);
 
   config.ytdlp.version = "2026.08.19";
   const pinned = world().bin;

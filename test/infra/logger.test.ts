@@ -280,3 +280,20 @@ test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송
   const parsed = JSON.parse(res.writes[0].split("data: ")[1]);
   assert.deepEqual(parsed, { id: 1, ts: 7, level: "error", text: "err" });
 });
+
+test("지난 1시간 경고 · 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
+  const m = new LogManager({ intercept: false, maxLines: 2, terminal: () => {} });
+  const at = Date.now();
+  m.record({ level: 40, time: at - 2 * 60 * 60_000, msg: "두 시간 전" });
+  m.record({ level: 40, time: at - 1000, msg: "경고" });
+  m.record({ level: 60, time: at - 500, msg: "치명" });
+  for (let i = 0; i < 5; i++) m.record({ level: 30, time: at, msg: `info ${i}` });
+  assert.equal(m.buffer.length, 2, "줄 버퍼는 넘쳤다");
+  assert.deepEqual(
+    m.recentProblems(at).map((one) => [one.level, one.text]),
+    [
+      ["warn", "경고"],
+      ["error", "치명"],
+    ],
+  );
+});

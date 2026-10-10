@@ -12,6 +12,8 @@ import { _reset, gateway, watchGateway } from "../../src/dashboard/status/gatewa
 import { processSummary } from "../../src/dashboard/status/processes.ts";
 import { inGuild } from "../../src/infra/guild-context.ts";
 import * as registry from "../../src/infra/process-registry.ts";
+import logSink from "../../src/infra/log/sink.ts";
+import { recentProblems } from "../../src/dashboard/status/env.ts";
 
 after(stopVitals);
 
@@ -92,4 +94,24 @@ test("자식 프로세스: 프로그램 · 서버 이름 · 일. 재생 · 다�
   } finally {
     for (const release of releases) release();
   }
+});
+
+test("최근 경고 · 오류: 같은 글은 한 줄로(횟수 · 마지막 때), 최근 것부터 셋", () => {
+  const before = recentProblems();
+  const at = Date.now();
+  const say = (level: number, msg: string, dt: number) => logSink.record({ level, time: at + dt, msg });
+  say(40, "status 시험: 느림", 1);
+  say(50, "status 시험: 실패", 2);
+  say(40, "status 시험: 느림", 3);
+  say(40, "status 시험: 끝", 4);
+  const { warn, error, lines } = recentProblems();
+  assert.deepEqual([warn - before.warn, error - before.error], [3, 1]);
+  assert.deepEqual(
+    lines.map((one) => [one.level, one.text, one.count, one.ts - at]),
+    [
+      ["warn", "status 시험: 끝", 1, 4],
+      ["warn", "status 시험: 느림", 2, 3],
+      ["error", "status 시험: 실패", 1, 2],
+    ],
+  );
 });

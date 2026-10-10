@@ -108,6 +108,8 @@ class YtdlpBinary {
   // 버전 맞추기는 한 번에 하나(기동 확인과 하루 확인이 겹치지 않게)
   busy: Promise<Outcome> | null = null;
   timer: NodeJS.Timeout | null = null;
+  /** 다음 확인 때(걸어 두지 않았으면 null) */
+  nextAt: number | null = null;
 
   constructor(io: Io = REAL) {
     this.io = io;
@@ -286,18 +288,19 @@ class YtdlpBinary {
 
   _schedule(delayMs: number) {
     this.stop();
-    this.timer = setTimeout(
-      () => {
-        bestEffort(log, this._tick(), "yt-dlp 업데이트 조회");
-      },
-      Math.max(delayMs, 60_000),
-    );
+    const wait = Math.max(delayMs, 60_000);
+    this.nextAt = this.io.now() + wait;
+    this.timer = setTimeout(() => {
+      this.nextAt = null;
+      bestEffort(log, this._tick(), "yt-dlp 업데이트 조회");
+    }, wait);
     this.timer.unref?.();
   }
 
   stop() {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
+    this.nextAt = null;
   }
 }
 

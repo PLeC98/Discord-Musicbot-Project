@@ -5,6 +5,7 @@ import type { BotContext } from "../app/bot-context.ts";
 import type { deployCommands } from "../app/command-loader.ts";
 import type { Lookup } from "../usecases/add-tracks.ts";
 import type { Tier } from "./contract/identity.ts";
+import type { PlayerStream } from "./player-stream.ts";
 
 /** 로그인한 사용자. OAuth 콜백이 세션에 담는다 */
 type SessionUser = { id: string; username: string; globalName: string; avatar: string | null; guilds: RESTAPIPartialCurrentUserGuild[] };
@@ -28,6 +29,8 @@ declare global {
       bot: BotContext;
       /** 슬래시 명령 등록. 조립이 넘긴다 */
       deployCommands: typeof deployCommands;
+      /** 플레이어 실시간 알림(대시보드 연결). 조립이 넘긴다 */
+      stream: PlayerStream;
       /** 곡 찾기. 시험이 가짜를 넘기는 자리. 없으면 진짜 */
       lookup?: Lookup;
     }

@@ -15,6 +15,7 @@ import type { Server } from "node:http";
 import type { Player } from "../../src/player/player.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
 import type { AdminStatus } from "../../src/dashboard/contract/admin.ts";
+import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, detailsOf, type ProblemReply } from "../helpers/dashboard.ts";
 
@@ -125,6 +126,7 @@ before(async () => {
   app.use(bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use(signedInAs(() => currentUser));
   app.locals.bot = fakeBot({ client, players, panels });
+  app.locals.stream = fake<PlayerStream>({ subs: new Set([{}, {}]) });
   // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 칸 중 이름만)
   const put = fake<PutCommands>(async (_route: string, body: { name: string }[]) => body.map((c) => ({ name: c.name })));
   app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });
@@ -183,6 +185,9 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.equal(r.json.history.stepMs, 15_000);
   assert.equal(r.json.links[0].id, "discord", "연결 줄");
   assert.equal(r.json.storage.cache.maxFiles, config.cache.maxFiles, "저장공간");
+  assert.deepEqual([r.json.env.pid, r.json.env.dashboardClients, r.json.env.commands.count], [process.pid, 2, 0], "환경: 대시보드 연결 수 · 켜진 명령 수");
+  assert.deepEqual(Object.keys(r.json.download).sort(), ["active", "bytesPerSec", "todayBytes"]);
+  assert.equal(typeof r.json.recent.warn, "number");
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
   assert.deepEqual(r.json.players.list, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
   assert.equal(r.json.players.queued, 1);

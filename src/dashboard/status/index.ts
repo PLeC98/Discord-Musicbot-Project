@@ -15,6 +15,10 @@ import { linkRows } from "./links.ts";
 import { playerRows } from "./players.ts";
 import { processSummary, watchProcesses } from "./processes.ts";
 import { storageView, watchStorage } from "./storage.ts";
+import { envStatus, recentProblems } from "./env.ts";
+import { downloadMeter } from "../../infra/download-meter.ts";
+import { TrackDownloader } from "../../media/cache-download.ts";
+import type { PlayerStream } from "../player-stream.ts";
 
 const MB = 1024 * 1024;
 
@@ -33,8 +37,8 @@ function botStatus(client: Client, uptime: number) {
   };
 }
 
-/** viewerId: 보는 운영자(플레이어 줄의 멤버 여부) */
-async function adminStatus({ client, players }: BotContext, viewerId: string): Promise<AdminStatus> {
+/** viewerId: 보는 운영자(플레이어 줄의 멤버 여부), stream: 대시보드 연결(연결 수) */
+async function adminStatus({ client, players, commands }: BotContext, viewerId: string, stream: Pick<PlayerStream, "subs">): Promise<AdminStatus> {
   const uptime = process.uptime();
   const mem = process.memoryUsage();
   const { cpu, loop, heapLimit } = vitals();
@@ -45,6 +49,7 @@ async function adminStatus({ client, players }: BotContext, viewerId: string): P
     system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(os.freemem() / MB), loadAvg: os.loadavg(), uptime: Math.floor(os.uptime()) },
     cpu,
     loop,
+    download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
     activePlayers: players.size,
     players: await playerRows(client, players, viewerId),
     // 자식 프로세스. 오래 살아 있는 항목 · 플레이어 없는 서버의 재생 일이 새는 신호다
@@ -53,6 +58,8 @@ async function adminStatus({ client, players }: BotContext, viewerId: string): P
     youtube: YouTube.statusSnapshot(),
     links: linkRows(client),
     storage: storageView(),
+    recent: recentProblems(),
+    env: envStatus(commands.size, stream.subs.size),
     history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).

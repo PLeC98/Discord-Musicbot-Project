@@ -466,13 +466,16 @@ const s = ref<AdminStatus>({
   system: { cpus: 0, cpuModel: "", totalMem: 0, freeMem: 0, loadAvg: [], uptime: 0 },
   cpu: { bot: 0, system: 0 },
   loop: { p99: 0, max: 0 },
+  download: { bytesPerSec: 0, todayBytes: 0, active: 0 },
   activePlayers: 0,
   players: { voiceConnections: 0, queued: 0, list: [] },
   processes: { total: 0, byLabel: [], oldest: [] },
   youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
   links: [],
+  recent: { warn: 0, error: 0, lines: [] },
+  env: { discordJs: "", ffmpeg: null, pid: 0, ytdlp: { version: null, autoUpdate: false, checkedAt: null, nextCheckAt: null }, commands: { count: 0, scope: "global" }, dashboardClients: 0 },
   storage: { cache: { bytes: 0, maxBytes: 0, files: 0, maxFiles: 0, protectedFiles: 0, neverPlayed: 0, failed: 0, lastCleanup: null }, disk: { drive: "", usedBytes: 0, totalBytes: 0, minFreeBytes: 0 }, db: { bytes: 0, drive: "", lookups: 0, sponsorSegments: 0, sessions: 0 } },
-  history: { stepMs: 0, endAt: 0, playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [] },
+  history: { stepMs: 0, endAt: 0, playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [], downloadBps: [] },
   logLevel: "",
 });
 

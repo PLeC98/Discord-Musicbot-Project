@@ -118,6 +118,7 @@ function createApp(bot: BotContext, { stream, deployCommands, sessionMiddleware 
   // 라우트에서 디스코드 클라이언트 · 플레이어 · 패널을 쓸 수 있게
   app.locals.bot = bot;
   app.locals.deployCommands = deployCommands;
+  app.locals.stream = stream;
 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;

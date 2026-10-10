@@ -75,6 +75,15 @@ function resolve(): Resolved {
   throw codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
 }
 
+/** 쓰는 ffmpeg 의 버전(봇 상태 탭). 찾지 못했으면 null */
+function ffmpegVersion(): string | null {
+  try {
+    return resolve().version;
+  } catch {
+    return null;
+  }
+}
+
 /** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
 function ffmpegPath(): string {
   return resolve().path;
@@ -136,6 +145,6 @@ function _reset() {
   caps = null;
 }
 
-export { ffmpegPath, resolve, capabilities, logResolved };
+export { ffmpegPath, ffmpegVersion, resolve, capabilities, logResolved };
 export const _internals = { probe, fromBundle, _reset };
 export type { Capabilities, Resolved };

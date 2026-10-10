@@ -80,10 +80,16 @@ const MSG_PATTERNS = [
   { re: /((?:access_?token|client_?secret|refresh_?token|api_?key)["'`\s:=]{1,4}["'`]?)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
 ];
 
+/** 지난 1시간 경고 · 오류. fatal 은 오류로 */
+type Problem = { ts: number; level: "warn" | "error"; text: string };
+const PROBLEM_WINDOW_MS = 60 * 60_000;
+const MAX_PROBLEMS = 2000;
+
 class LogManager {
   maxLines: number;
   consoleLevel: number;
   buffer: WireEntry[];
+  problems: Problem[];
   lastId: number;
   boot: number;
   clients: Set<SseClient>;
@@ -103,6 +109,7 @@ class LogManager {
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
     this.consoleLevel = 0;
     this.buffer = [];
+    this.problems = [];
     this.lastId = 0;
     // 기동 표. 줄 번호는 다시 켜면 처음부터라, 이어 받을 번호가 이 실행의 것인지 가른다
     this.boot = Date.now();
@@ -144,6 +151,7 @@ class LogManager {
     if (safe.level >= this.consoleLevel) this.terminal(safe);
 
     const entry = this._toWire(safe);
+    if (safe.level >= LEVELS.warn) this._keepProblem(entry);
     this.buffer.push(entry);
     if (this.buffer.length > this.maxLines) this.buffer.shift();
 
@@ -244,6 +252,18 @@ class LogManager {
     if (rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
     if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags; // 교차 태그
     return entry;
+  }
+
+  // 경고 · 오류는 지난 1시간을 따로 둔다(봇 상태 탭). 줄 버퍼는 debug 를 켜면 몇 분 만에 넘친다
+  _keepProblem(entry: WireEntry) {
+    this.problems.push({ ts: entry.ts, level: entry.level === "warn" ? "warn" : "error", text: entry.text });
+    const since = entry.ts - PROBLEM_WINDOW_MS;
+    while (this.problems.length > MAX_PROBLEMS || (this.problems[0] && this.problems[0].ts < since)) this.problems.shift();
+  }
+
+  /** 지난 1시간의 경고 · 오류(오래된 것부터) */
+  recentProblems(now = Date.now()) {
+    return this.problems.filter((one) => now - one.ts <= PROBLEM_WINDOW_MS);
   }
 
   _strip(s: unknown): string {

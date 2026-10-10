@@ -3,13 +3,14 @@
 
 import { onWindow, startVitals, vitals, WINDOW_MS, type Window } from "../../infra/vitals.ts";
 import { playState } from "../../ui/player-status.ts";
+import { downloadMeter } from "../../infra/download-meter.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { StatusHistory } from "../contract/admin.ts";
 
 const POINTS = (15 * 60_000) / WINDOW_MS;
 
 type Series = Exclude<keyof StatusHistory, "stepMs" | "endAt">;
-const history: StatusHistory = { stepMs: WINDOW_MS, endAt: Date.now(), playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [] };
+const history: StatusHistory = { stepMs: WINDOW_MS, endAt: Date.now(), playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [], downloadBps: [] };
 
 function push(series: Series, value: number) {
   const list = history[series];
@@ -17,7 +18,7 @@ function push(series: Series, value: number) {
   if (list.length > POINTS) list.shift();
 }
 
-/** 칸 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU */
+/** 칸 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU · 내려받기 속도 */
 function sample(bot: BotContext, window: Window) {
   const heap = process.memoryUsage().heapUsed;
   const limit = vitals().heapLimit * 1024 * 1024;
@@ -28,6 +29,7 @@ function sample(bot: BotContext, window: Window) {
   push("heapPct", limit ? (heap / limit) * 100 : 0);
   push("cpuBot", window.cpu.bot);
   push("cpuSystem", window.cpu.system);
+  push("downloadBps", downloadMeter().bytesPerSec);
 }
 
 /** 측정을 켜고 칸마다 모은다. 끊는 함수를 돌려준다 */

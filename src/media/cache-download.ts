@@ -31,6 +31,7 @@ type HasAudio = Partial<TrackInfo> | null | undefined;
 import type { AudioStream } from "../sources/direct.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { addDownloaded } from "../infra/download-meter.ts";
 
 // 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
 type Sources = {
@@ -268,6 +269,8 @@ class TrackDownloader {
       const measureStarted = Date.now();
       const measured = await this.deps.measure.durationSec(tempPath);
       const measureMs = Date.now() - measureStarted;
+      // 받은 양(봇 상태 탭의 내려받기). 먼저 끝낸 쪽이 있어 버려도 받은 것은 받은 것이다
+      addDownloaded(fsSync.statSync(tempPath).size);
       const mine = await publish(tempPath, filepath);
       if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${logTitle(track.title)}"`);
 
@@ -423,6 +426,11 @@ class TrackDownloader {
   }
 
   /** 이 경로를 지금 받고 있는가. 서버와 무관하다 */
+  /** 지금 받는 곡 수 */
+  static activeCount(): number {
+    return inFlight.size;
+  }
+
   static isDownloading(filepath: string): boolean {
     return inFlight.has(filepath);
   }
