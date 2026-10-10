@@ -12,7 +12,7 @@ import * as autoplayText from "./text/ko/autoplay.ts";
  * 고른 결과는 src/discord/interactions/modal-handler.ts 의 장르 처리가 받는다. 지금 플레이어(없으면 새로 만든 것)에 걸므로 세션을 싣지 않는다.
  */
 function genreSelect(placeholder: string) {
-  // 장르 정의는 config/genres.yaml 한 곳에서 관리. 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)
+  // 장르 정의는 장르 설정 한 곳에서 관리. 부를 때마다 읽는다(대시보드에서 저장하면 곧바로 반영)
   const { genres } = genreConfig.genres();
 
   return (

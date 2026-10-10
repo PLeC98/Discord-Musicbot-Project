@@ -1,8 +1,7 @@
 <!--
   자동재생 장르 편집기 (운영자 패널).
 
-  이 설정은 파일(config/genres.yaml)로도 고칠 수 있다. 대시보드는 선택 기능이다.
-  그래서 저장은 파일을 통째로 덮지 않고 바뀐 자리만 고치며, 손으로 적은 주석은 그대로 남는다.
+  설정은 settings.db 의 "genres" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
 -->
 <template>
   <!-- 목록(첫 줄 "전역 설정", 그 아래 장르들) · 고른 것의 편집(M3 목록 · 상세). 넓으면(52rem 이상) 두 단, 좁으면 한 단씩:
@@ -126,7 +125,7 @@ import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/a
 import { text } from "../text/index.ts";
 const T = text.genres;
 
-/** 전역 값(genres.yaml 의 defaults) */
+/** 전역 값(장르 설정의 defaults) */
 type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] } & Record<string, unknown>;
 
 const draft = ref<{ defaults: Defaults; genres: Record<string, GenreData> }>({ defaults: { ...GENRE_DEFAULTS, blockedKeywords: [] }, genres: {} });

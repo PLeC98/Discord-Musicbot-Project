@@ -2,27 +2,21 @@
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
 import type { Client } from "discord.js";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDocument } from "../helpers/config-docs.ts";
+import * as documents from "../../src/config/documents.ts";
 
-const dir = useExampleConfig();
 // 장르는 Last.fm · VocaDB 만 쓴다
-fs.writeFileSync(path.join(dir, "genres.yaml"), "defaults:\n  prefetchCount: 1\ngenres:\n  락:\n    sources:\n      - type: lastfm\n        tags: [rock]\n      - type: vocadb\n");
+useDocument("genres", "defaults:\n  prefetchCount: 1\ngenres:\n  락:\n    sources:\n      - type: lastfm\n        tags: [rock]\n      - type: vocadb\n");
 
 const config = (await import("../../src/config/index.ts")).default;
 const { linkRows } = await import("../../src/dashboard/status/links.ts");
 const { _reset, record } = await import("../../src/infra/link-status.ts");
 const { _internals: spotify } = await import("../../src/sources/spotify.ts");
-const genresConfig = await import("../../src/config/genres.ts");
-const yamlStore = await import("../../src/config/yaml-store.ts");
 
-/** 설정 파일을 바꾼다(같은 밀리초 안의 바뀜도 읽게 기억을 비운다) */
-function writeConfig(name: string, text: string) {
-  fs.writeFileSync(path.join(dir, name), text);
-  yamlStore._cache.clear();
-  genresConfig._reset();
+/** 설정 문서를 바꾼다 */
+function writeConfig(name: "genres" | "status" | "ai", text: string) {
+  useDocument(name, text);
 }
 
 const client = { isReady: () => true, ws: { ping: 48 } } as unknown as Client;
@@ -73,9 +67,7 @@ test("디스코드는 게이트웨이, POToken 은 서버 프로세스로 본다
 });
 
 test("늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간, ListenBrainz 는 이름에 올리면 시간 한도", () => {
-  const aiFile = path.join(dir, "ai.yaml");
-  const example = fs.readFileSync(aiFile, "utf8");
-  writeConfig("ai.yaml", ["enabled: true", "provider: ollama", "model: qwen3:8b", ""].join("\n"));
+  writeConfig("ai", ["enabled: true", "provider: ollama", "model: qwen3:8b", ""].join("\n"));
   spotify.graphql._anonToken = { value: "t", expiresAt: Date.now() + 41 * 60_000 + 1000 };
   try {
     assert.deepEqual([rowOf("ai").state, rowOf("ai").note], ["idle", "qwen3:8b"]);
@@ -85,17 +77,16 @@ test("늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시�
     assert.equal(rowOf("listenbrainz").hint, "LB Radio · 30초 넘으면 실패");
   } finally {
     spotify.graphql._anonToken = null;
-    writeConfig("ai.yaml", example);
+    useDocument("ai", documents.defaultOf("ai"));
   }
 });
 
-test("장르 설정을 읽지 못하면 자동재생 출처는 그 까닭으로 쓰지 않음", () => {
-  const file = path.join(dir, "genres.yaml");
-  const good = fs.readFileSync(file, "utf8");
-  writeConfig("genres.yaml", "genres: [깨짐");
+test("장르 설정이 검사를 못 지나면 자동재생 출처는 그 까닭으로 쓰지 않음", () => {
+  const good = documents.get("genres");
+  useDocument("genres", { genres: "깨짐" });
   try {
     assert.deepEqual([rowOf("vocadb").state, rowOf("vocadb").note], ["off", "장르 설정을 읽지 못함"]);
   } finally {
-    writeConfig("genres.yaml", good);
+    useDocument("genres", good);
   }
 });

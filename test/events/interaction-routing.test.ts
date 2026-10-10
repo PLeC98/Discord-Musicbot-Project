@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { Collection, type Interaction } from "discord.js";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { buildGenreMenu, buildAutoplayOffMenu } from "../../src/ui/genre-menu.ts";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import * as tracks from "../helpers/tracks.ts";
@@ -23,7 +23,7 @@ import { routes as playlistMoreHandler } from "../../src/discord/interactions/pl
 import { routes as sponsorConfigHandler } from "../../src/discord/interactions/sponsor-config-handler.ts";
 import { selectOf } from "../helpers/cv2.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 const store = openTempStore("listeners-");
 after(() => store.close());
 

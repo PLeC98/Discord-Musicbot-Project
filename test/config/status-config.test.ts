@@ -1,40 +1,29 @@
-// 상태 문구 설정 — config/status.yaml 과 그것을 읽는 StatusManager.
+// 상태 문구 설정 — settings.db 의 "status" 문서(config/documents)와 그것을 읽는 StatusManager.
 //
 // 이 파일도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
 // 특히 날짜·시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
 
-import os from "node:os";
-import path from "node:path";
-import fs from "node:fs";
-import { test, before, after } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import YAML from "yaml";
 
-import * as yamlStore from "../../src/config/yaml-store.ts";
+import { useDocument, useDefaultDocuments } from "../helpers/config-docs.ts";
+import * as documents from "../../src/config/documents.ts";
 import * as statusConfig from "../../src/config/status.ts";
 import type { StatusConfig } from "../../src/config/status.ts";
-import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
 import { StatusManager } from "../../src/ui/bot-presence.ts";
 import { INTERVAL_DEFAULT } from "../../src/config/schema/status.ts";
 import { ActivityType } from "discord.js";
 
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));
-const CONFIG = path.join(import.meta.dirname, "..", "..", "config");
-
-before(() => yamlStore._setConfigDir(DIR));
-after(() => {
-  yamlStore._setConfigDir(CONFIG);
-  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
-});
+after(() => useDefaultDocuments());
 
 const ok = { messages: ["🎵 /play"] };
 
 // ── 검사 ──────────────────────────────────────────────────────────────────
 
-test("예시 파일은 아무 문제가 없다", () => {
+test("기본 문서는 아무 문제가 없다", () => {
   // 새로 설치한 사람이 곧바로 저장이 막히는 일이 없어야 한다
-  const data = YAML.parse(fs.readFileSync(path.join(CONFIG, "status.example.yaml"), "utf8"));
-  assert.deepEqual(statusConfig.validateStatus(data), []);
+  assert.deepEqual(statusConfig.validateStatus(documents.defaultOf("status")), []);
 });
 
 test("활동 종류 목록은 StatusManager와 같다", () => {
@@ -92,35 +81,26 @@ test("항목 이름 규칙은 장르와 같다", () => {
 
 // ── 읽기 ──────────────────────────────────────────────────────────────────
 
-test("처음 읽을 때 틀렸으면 문제를 한 줄씩 적어 던진다(기동이 멈춘다)", () => {
-  statusConfig._reset();
-  fs.writeFileSync(path.join(DIR, "status.yaml"), "interval: 1\nmessages: []\n");
-  yamlStore._cache.clear();
-
-  assert.throws(
-    () => statusConfig.status(),
-    (e) => codeOf(e) === "CONFIG_INVALID" && messageOf(e) === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
-  );
+// 문서는 DB 에 있고 고칠 대시보드가 떠야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다(2차 16단계 "정한 것" 6)
+test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문구 없이 돈다(던지지 않는다)", () => {
+  const from = sink.buffer.length;
+  useDocument("status", "interval: 1\nmessages: []\n");
+  assert.deepEqual(statusConfig.status(), { messages: [] });
+  const said = sink.buffer.slice(from).find((e) => e.level === "error");
+  assert.ok(said?.text.startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")), said?.text);
 });
 
 test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
   // status()는 회전 주기마다 setInterval 안에서 불린다 — 던지면 타이머에서 잡히지 않는 예외가 된다.
-  statusConfig._reset();
-  const file = path.join(DIR, "status.yaml");
-  const write = (text: string, mtime: number) => {
-    fs.writeFileSync(file, text);
-    fs.utimesSync(file, mtime, mtime);
-  };
-  write("interval: 30\nmessages: [맞는 문구]\n", 1000);
-  yamlStore._cache.clear();
+  useDocument("status", "interval: 30\nmessages: [맞는 문구]\n");
   assert.deepEqual(statusConfig.status().messages, ["맞는 문구"]);
 
-  write("interval: 1\nmessages: []\n", 2000);
+  documents._use("status", { interval: 1, messages: [] });
   const kept = statusConfig.status();
-  assert.equal(kept.interval, 30, "틀린 파일은 쓰지 않는다");
+  assert.equal(kept.interval, 30, "틀린 문서는 쓰지 않는다");
   assert.deepEqual(kept.messages, ["맞는 문구"]);
 
-  write("interval: 60\nmessages: [고친 문구]\n", 3000);
+  documents._use("status", { interval: 60, messages: ["고친 문구"] });
   assert.deepEqual(statusConfig.status().messages, ["고친 문구"]);
 });
 
@@ -258,8 +238,7 @@ test("load 는 설정 로더의 status() 를 부른다", () => {
   assert.equal(new StatusManager({}).load(), statusConfig.status());
 });
 
-// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 예시 파일에 적힌 것과 같다(손대지 않은 파일과 비운 칸이 같게 돈다)
-test("간격의 기본값은 예시 파일의 값과 같다", () => {
-  const example = YAML.parse(fs.readFileSync(path.join(CONFIG, "status.example.yaml"), "utf8")) as { interval?: unknown };
-  assert.equal(example.interval, INTERVAL_DEFAULT);
+// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 칸이 같게 돈다)
+test("간격의 기본값은 기본 문서의 값과 같다", () => {
+  assert.equal((documents.defaultOf("status") as { interval?: unknown }).interval, INTERVAL_DEFAULT);
 });

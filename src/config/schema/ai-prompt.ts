@@ -1,4 +1,4 @@
-// AI 판정 프롬프트(ai-prompt.chatml)의 섹션과 검사. 저장 경로(dashboard)와 화면이 같이 쓴다
+// AI 판정 프롬프트("ai-prompt" 문서)의 섹션과 검사. 저장 경로(dashboard)와 화면이 같이 쓴다
 
 /** 프롬프트 섹션 하나. 역할(system · user · assistant)과 내용 */
 type PromptSection = { role: string; text: string };

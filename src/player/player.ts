@@ -1127,7 +1127,7 @@ class Player {
     if (!this.autoplay || typeof this.autoplay !== "string") return null;
 
     try {
-      // 장르 정의와 기준값은 config/genres.yaml 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
+      // 장르 정의와 기준값은 장르 설정 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
       const cfg = this._autoplayConfig();
       if (!cfg) return null;
 

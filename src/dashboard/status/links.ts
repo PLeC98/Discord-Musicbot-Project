@@ -3,7 +3,7 @@
 
 import type { Client } from "discord.js";
 import config from "../../config/index.ts";
-import { genres } from "../../config/genres.ts";
+import { genres, genresBroken } from "../../config/genres.ts";
 import { ai } from "../../config/ai.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
@@ -39,13 +39,10 @@ const ROWS: Array<{ id: Service; group: Group; name: string }> = [
 /** 자동재생 출처 서비스가 쓰는 장르 출처 종류 */
 const SOURCE_TYPE: Partial<Record<Service, string>> = { lastfm: "lastfm", listenbrainz: "lbradio", animethemes: "animethemes", anisongdb: "anisongdb", vocadb: "vocadb", utaitedb: "utaitedb", touhoudb: "touhoudb" };
 
-/** 장르들이 쓰는 출처 종류. 장르 설정을 못 읽으면 null */
+/** 장르들이 쓰는 출처 종류. 장르 설정이 검사를 못 지나면 null */
 function usedSourceTypes() {
-  try {
-    return new Set(Object.values(genres().genres).flatMap((genre) => genre.sources.map((source) => source.type)));
-  } catch {
-    return null;
-  }
+  if (genresBroken()) return null;
+  return new Set(Object.values(genres().genres).flatMap((genre) => genre.sources.map((source) => source.type)));
 }
 
 /** 쓰지 않는 까닭(설정). 쓰면 null */

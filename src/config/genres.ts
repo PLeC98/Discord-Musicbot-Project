@@ -1,11 +1,11 @@
-// 자동재생 장르 설정(genres.yaml). 읽을 때 모양과 소스 키를 본다.
+// 자동재생 장르 설정(settings.db 의 "genres" 문서, config/documents). 읽을 때 모양과 소스 키를 본다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 import * as sources from "./schema/genre-sources.ts";
 import { usable } from "./source-keys.ts";
-import { load } from "./yaml-store.ts";
+import * as documents from "./documents.ts";
 import { genreProblems } from "./schema/genres.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 
@@ -76,27 +76,39 @@ let warnedKeys = "";
 let lastGood: GenresConfig | null = null;
 let reported = "";
 
-/** 장르 설정. 기동 때 틀렸으면 던지고, 돌던 중에 틀리면 알리고 직전에 맞던 설정을 돌려준다 */
+// 맞는 설정이 한 번도 없었을 때. 장르가 없으니 자동재생을 고를 수 없다
+const EMPTY: GenresConfig = { defaults: {}, genres: {} };
+
+/**
+ * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 때부터 틀림) 빈 설정을 돌려준다.
+ * 기동을 멈추지 않는다. 고칠 대시보드가 떠야 한다(DB 를 바깥에서 고쳤을 때 등, 2차 16단계 "정한 것" 6)
+ */
 function genres(): GenresConfig {
   try {
     lastGood = checkedGenres();
     reported = "";
     return lastGood;
   } catch (error) {
-    if (codeOf(error) !== "CONFIG_INVALID" || !lastGood) throw error;
+    if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   고칠 때까지 직전에 맞던 설정으로 돕니다.`);
+    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 직전에 맞던 설정으로 돕니다." : "고칠 때까지 자동재생 장르가 없습니다. 운영자 패널의 자동재생 탭에서 고치세요."}`);
     reported = message;
-    return lastGood;
+    return lastGood ?? EMPTY;
   }
 }
 
+/** 지금 장르 문서가 검사를 못 지나는가(직전 설정 · 빈 설정으로 도는 중). 봇 상태 탭이 까닭으로 보인다 */
+function genresBroken() {
+  genres();
+  return reported !== "";
+}
+
 function checkedGenres(): GenresConfig {
-  const loaded = load("genres");
+  const loaded = documents.get("genres");
   // 이름 · 숫자 이름 · 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
-    throw Object.assign(new Error(["config/genres.yaml 을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(["자동재생 장르 설정을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
   }
   const data = loaded as Partial<GenresConfig>; // 검사를 지났다
 
@@ -116,7 +128,7 @@ function checkedGenres(): GenresConfig {
 function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
-    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. config/genres.yaml을 확인하세요.`), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. 운영자 패널의 자동재생 탭에서 확인하세요.`), { code: "CONFIG_INVALID" });
   }
   const missing: string[] = [];
   let alive = 0;
@@ -168,6 +180,6 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   warnedKeys = key;
 }
 
-export { genres, validateGenres, unusableGenre };
+export { genres, genresBroken, validateGenres, unusableGenre };
 export const _reset = () => ((lastGood = null), (reported = ""));
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };

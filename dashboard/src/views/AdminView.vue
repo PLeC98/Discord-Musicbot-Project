@@ -79,12 +79,12 @@
         </div>
 
         <div class="admin-page" v-show="tab === 'autoplay'">
-          <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
+          <!-- settings.db 의 "genres" 문서. 저장 번호가 낡았으면 저장을 거절한다 -->
           <ConfigGenres v-if="opened.has('autoplay')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'presence'">
-          <!-- 파일(config/status.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
+          <!-- settings.db 의 "status" 문서 -->
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
@@ -94,7 +94,7 @@
         </div>
 
         <div class="admin-page" v-show="tab === 'ai'">
-          <!-- 파일(config/ai.yaml)로도 고칠 수 있다. API 키는 .env 에 있고 여기로 내려오지 않는다. -->
+          <!-- settings.db 의 "ai" · "ai-prompt" 문서. API 키는 비밀 표에 있고 여기로 내려오지 않는다 -->
           <ConfigAI v-if="opened.has('ai')" />
         </div>
 

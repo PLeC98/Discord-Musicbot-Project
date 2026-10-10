@@ -3,14 +3,14 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { fakeBot, fakePlayer } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 import type { AutoplayGenres, PlayerState } from "../../src/dashboard/contract/player.ts";
 import type { Player } from "../../src/player/player.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 const genreConfig = await import("../../src/config/genres.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");

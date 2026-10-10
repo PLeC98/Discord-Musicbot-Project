@@ -1,4 +1,4 @@
-// 장르 설정(genres.yaml)의 스키마. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 그대로 둔다.
+// 장르 설정("genres" 문서)의 스키마. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 그대로 둔다.
 
 import { SPEC, TYPES } from "./genre-sources.ts";
 import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";

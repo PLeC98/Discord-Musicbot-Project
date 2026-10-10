@@ -1,20 +1,17 @@
-// 설정 파일 검사 문구를 고정한다(config/schema 의 zod 스키마).
+// 설정 문서 검사 문구를 고정한다(config/schema 의 zod 스키마).
 //
 // 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 차례까지 적었다.
-// 여러 문제가 겹치면 칸 검사가 먼저, 교차 검사(이름 · 칸끼리 비교)가 뒤에 나온다. 던질지 경고할지는 부르는 쪽이 정한다(아래 셋째 묶음).
+// 여러 문제가 겹치면 칸 검사가 먼저, 교차 검사(이름 · 칸끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 묶음.
 
-import os from "node:os";
-import path from "node:path";
-import fs from "node:fs";
-import { test, before, after } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as genreConfig from "../../src/config/genres.ts";
 import * as statusConfig from "../../src/config/status.ts";
 import * as aiConfig from "../../src/config/ai.ts";
 import { promptProblems } from "../../src/config/schema/ai-prompt.ts";
-import * as yamlStore from "../../src/config/yaml-store.ts";
-import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
+import { useDocument, useDefaultDocuments } from "../helpers/config-docs.ts";
+import sink from "../../src/infra/log/sink.ts";
 import { PROVIDERS } from "../../src/autoplay/assist/index.ts";
 // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
@@ -288,7 +285,7 @@ const AIS: Case[] = [
       "batchSize는 1~50 사이여야 합니다.",
       "skipConfident는 true 또는 false여야 합니다.",
       "extra는 한 줄에 하나씩 적는 글이어야 합니다.",
-      "프롬프트는 ai-prompt.chatml 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.",
+      "프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 칸은 쓰이지 않습니다.",
       "project는 글자로 적어야 합니다.",
       "location는 글자로 적어야 합니다.",
       "params는 모델 이름 아래에 칸을 적는 표여야 합니다.",
@@ -394,39 +391,28 @@ for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () =>
 for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
 for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(promptProblems(input, on), want));
 
-// ── 던지나 경고하나: 부르는 쪽이 정한다 ────────────────────────────────
+// ── 틀린 문서를 읽으면: 기동을 멈추지 않고 알리고 그 기능만 끈다(2차 16단계 "정한 것" 6) ──────
 
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "config-messages-"));
-const write = (name: string, text: string) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
+after(() => useDefaultDocuments());
 
-before(() => yamlStore._setConfigDir(DIR));
-after(() => {
-  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
+/** 처음 읽을 때(기동) 알린 글 */
+function firstComplaint(read: () => unknown) {
+  const from = sink.buffer.length;
+  read();
+  return sink.buffer.slice(from).find((e) => e.level === "error")?.text ?? "";
+}
+
+test("장르 문서가 검사에 걸리면 알리고 빈 장르로 돈다. 문구는 한 줄씩 들여 쓴다", () => {
+  useDocument("genres", "genres:\n  가요:\n    sources: []\n");
+  assert.ok(firstComplaint(() => assert.deepEqual(genreConfig.genres().genres, {})).startsWith(["자동재생 장르 설정을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n")));
 });
 
-test("장르 파일이 검사에 걸리면 던진다(기동이 멈춰야 한다). 문구는 한 줄씩 들여 쓴다", () => {
-  genreConfig._reset();
-  write("genres", "genres:\n  가요:\n    sources: []\n");
-  assert.throws(
-    () => genreConfig.genres(),
-    (e) => codeOf(e) === "CONFIG_INVALID" && messageOf(e) === ["config/genres.yaml 을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n"),
-  );
+test("상태 문서도 처음부터 검사에 걸리면 알리고 문구 없이 돈다. 문구는 장르와 같은 모양으로 한 줄씩", () => {
+  useDocument("status", "interval: 5\nmessages: []\n");
+  assert.ok(firstComplaint(() => assert.deepEqual(statusConfig.status().messages, [])).startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")));
 });
 
-test("상태 파일도 처음부터 검사에 걸리면 던진다. 문구는 장르와 같은 모양으로 한 줄씩", () => {
-  statusConfig._reset();
-  write("status", "interval: 5\nmessages: []\n");
-  assert.throws(
-    () => statusConfig.status(),
-    (e) => codeOf(e) === "CONFIG_INVALID" && messageOf(e) === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
-  );
-});
-
-test("AI 파일은 검사에 걸리면 끈 채로 돌려주고, 파일이 없으면 꺼진 것으로 본다", () => {
-  write("ai", "provider: custom\n");
+test("AI 문서는 검사에 걸리면 끈 채로 돌려준다", () => {
+  useDocument("ai", "provider: custom\n");
   assert.equal(aiConfig.ai().enabled, false);
-  fs.rmSync(path.join(DIR, "ai.yaml"));
-  yamlStore._cache.clear();
-  assert.deepEqual(aiConfig.ai(), { enabled: false });
 });

@@ -1,17 +1,16 @@
-// AI 보조 설정(ai.yaml)의 스키마. 프롬프트(ai-prompt.chatml)는 제 형식이 따로 있어 여기서 보지 않는다.
+// AI 보조 설정(settings.db 의 "ai" 문서)의 스키마. 프롬프트("ai-prompt" 문서)는 제 형식이 따로 있어 여기서 보지 않는다(schema/ai-prompt).
 
 import { PROVIDERS } from "./ai-providers.ts";
 import { VERTEX_LOCATION } from "../../rules/vertex-url.ts";
 import { setsSecretHeader } from "../../rules/secret-headers.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
-const PROMPT_FILE = "ai-prompt.chatml";
 // 길이를 모르는 후보를 목록 줄에 어떻게 적나: 그 칸을 뺀다 · 글자로 · 0 으로
 const AI_UNKNOWN = ["hide", "text", "zero"] as const;
 type AiUnknown = (typeof AI_UNKNOWN)[number];
 const isAiUnknown = (v: unknown): v is AiUnknown => AI_UNKNOWN.some((one) => one === v);
 
-// ai.yaml 의 키 차례(config/ai.example.yaml 과 같다). 저장은 받은 차례대로 파일을 줄 세우므로 대시보드가 이 차례로 보낸다
+// AI 설정의 키 차례(기본 설정 문서와 같다). 저장은 받은 차례대로 두므로 대시보드가 이 차례로 보낸다(내보내기 글이 읽기 좋게)
 const AI_KEY_ORDER = ["enabled", "provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
 
 // 모델이 받는 수치 칸. 범위를 벗어나거나 수가 아니면 같은 문구
@@ -65,7 +64,7 @@ const aiFile = z.preprocess(
         .string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." })
         .refine((v) => !setsSecretHeader(v), "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 칸에 넣으세요(암호화해 둡니다).")
         .nullish(),
-      prompt: gone(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`),
+      prompt: gone("프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 칸은 쓰이지 않습니다."),
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
       location: z
         .string({ error: "location는 글자로 적어야 합니다." })
@@ -109,5 +108,5 @@ function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-export { aiProblems, aiSwitchedOff, PROMPT_FILE, AI_UNKNOWN, AI_KEY_ORDER, isAiUnknown };
+export { aiProblems, aiSwitchedOff, AI_UNKNOWN, AI_KEY_ORDER, isAiUnknown };
 export type { AiUnknown };

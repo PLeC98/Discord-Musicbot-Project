@@ -25,7 +25,8 @@ const { adminRouter } = await import("../../src/dashboard/routes/admin.ts");
 const autoplaySources = await import("../../src/autoplay/sources/index.ts");
 const { useFetch } = await import("../../src/autoplay/sources/http.ts");
 const assist = await import("../../src/autoplay/assist/index.ts");
-const yamlStore = await import("../../src/config/yaml-store.ts");
+const documents = await import("../../src/config/documents.ts");
+const { useDocument, useDefaultDocuments } = await import("../helpers/config-docs.ts");
 const secrets = await import("../../src/store/secrets.ts");
 const aiKeys = await import("../../src/store/ai-keys.ts");
 const logSink = (await import("../../src/infra/log/sink.ts")).default;
@@ -298,19 +299,29 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   assert.equal((g1.botChannel.sent[0].embeds[0] as { toJSON(): { color?: number } }).toJSON().color, 0xfee75c);
 });
 
-// ── 설정 파일 (config/*.yaml) ────────────────────────────────
+// ── 설정 문서 (장르 · 상태 문구 · AI 설정 · 프롬프트) ────────────────────────────────
 //
 // 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
-// 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
+// 문서는 메모리에만 둔다(저장소를 붙이지 않는다). 함께 쓰기의 트랜잭션은 test/config/documents.test.ts 가 본다.
 
 /** 장르 설정을 읽은 답 */
-type GenresConfig = { data: { genres: Record<string, { sources: { type: string; keywords: string[] }[] }> } };
-const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
+type GenresConfig = { data: { genres: Record<string, { sources: { type: string; keywords: string[] }[] }> }; revision: number };
+
+/** 지금 저장 번호로 문서를 저장한다(화면이 읽은 뒤 저장하는 것과 같다) */
+async function putDoc<T = Reply>(name: string, data: unknown) {
+  const current = await req<{ revision: number }>("GET", `/api/admin/config/${name}`);
+  return req<T & Reply>("PUT", `/api/admin/config/${name}`, { data, revision: current.json.revision });
+}
+
+/** AI 설정과 프롬프트를 지금 저장 번호로 함께 저장한다 */
+async function putAi<T = Reply>(data: unknown, sections?: unknown) {
+  const current = await req<{ revision: number }>("GET", "/api/admin/config/ai");
+  return req<T & Reply>("PUT", "/api/admin/ai/settings", { data, sections, revision: current.json.revision });
+}
 
 before(() => {
-  yamlStore._setConfigDir(CONFIG_DIR);
-  fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
-  fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "provider: off", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
+  useDocument("genres", { defaults: { prefetchCount: 1 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["pop music"] }] } } });
+  useDocument("ai", { provider: "off", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b" });
   // 키는 비밀 표에 프로바이더마다 따로 있다 — 대시보드로는 값이 나가지 않는다
   secrets._useKey(Buffer.alloc(32, 6).toString("base64"));
   aiKeys.put("openai", "sk-test-only", assist.keyBinding({ provider: "openai" }));
@@ -318,53 +329,62 @@ before(() => {
 
 after(() => {
   secrets._useKey();
-  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
-  fs.rmSync(CONFIG_DIR, { recursive: true, force: true, maxRetries: 5 });
+  useDefaultDocuments();
 });
 
 test("설정: 운영자가 아니면 읽지도 쓰지도 못한다", async () => {
   currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/config/genres")).status, 403);
-  assert.equal((await req("PUT", "/api/admin/config/genres", { data: { genres: {} } })).status, 403);
+  assert.equal((await req("PUT", "/api/admin/config/genres", { data: { genres: {} }, revision: 0 })).status, 403);
   currentUser = { id: "owner", username: "owner" };
 });
 
 test("설정: 모르는 이름은 404", async () => {
   assert.equal((await req("GET", "/api/admin/config/secrets")).status, 404);
-  assert.equal((await req("PUT", "/api/admin/config/secrets", { data: {} })).status, 404);
+  assert.equal((await req("PUT", "/api/admin/config/secrets", { data: {}, revision: 0 })).status, 404);
 });
 
-test("설정: 읽으면 현재 값이 온다", async () => {
+test("설정: 읽으면 현재 값과 저장 번호가 온다", async () => {
   const { status, json } = await req<GenresConfig>("GET", "/api/admin/config/genres");
   assert.equal(status, 200);
   assert.deepEqual(json.data.genres.팝.sources, [{ type: "keyword", keywords: ["pop music"] }]);
+  assert.equal(json.revision, documents.revisionOf("genres"));
 });
 
-test("설정: 저장하면 값이 바뀌고 주석은 남는다", async () => {
+test("설정: 저장하면 값이 바뀌고 저장 번호가 오른다", async () => {
   const { json: before } = await req<GenresConfig>("GET", "/api/admin/config/genres");
   before.data.genres.팝.sources[0].keywords = ["pop music", "top pop"];
 
-  const { status } = await req("PUT", "/api/admin/config/genres", { data: before.data });
+  const { status, json } = await req<{ revision: number }>("PUT", "/api/admin/config/genres", { data: before.data, revision: before.revision });
   assert.equal(status, 200);
-
-  const text = fs.readFileSync(path.join(CONFIG_DIR, "genres.yaml"), "utf8");
-  assert.match(text, /top pop/);
-  assert.match(text, /# 손으로 적은 메모/, "대시보드가 저장해도 손으로 적은 주석은 남아야 한다");
+  assert.equal(json.revision, before.revision + 1);
+  assert.deepEqual((documents.get("genres") as GenresConfig["data"]).genres.팝.sources[0].keywords, ["pop music", "top pop"]);
 });
 
-// 깨진 값을 파일에 남기느니 거절한다 — 봇이 그 파일로 돈다.
+// 두 탭 · 두 사람이 같은 문서를 고치면 나중 저장이 앞 저장을 모르고 덮는다. 읽은 번호가 낡았으면 거절한다
+test("설정: 읽은 뒤 그사이 저장됐으면 409 config-changed, 문서는 그대로", async () => {
+  const { json: read } = await req<GenresConfig>("GET", "/api/admin/config/genres");
+  assert.equal((await putDoc("genres", read.data)).status, 200, "다른 탭이 먼저 저장했다");
+  const kept = structuredClone(documents.get("genres"));
+
+  const stale = await req("PUT", "/api/admin/config/genres", { data: read.data, revision: read.revision });
+  assert.deepEqual([stale.status, stale.json.code], [409, "config-changed"]);
+  assert.deepEqual(documents.get("genres"), kept);
+});
+
+// 깨진 값을 남기느니 거절한다 — 봇이 그 설정으로 돈다.
 test("설정: 쓸 수 없는 값은 저장 전에 거절한다", async () => {
+  const kept = structuredClone(documents.get("genres"));
   const bad = { defaults: {}, genres: { true: { sources: [{ type: "keyword", keywords: [] }] } } };
-  const { status, json } = await req("PUT", "/api/admin/config/genres", { data: bad });
+  const { status, json } = await putDoc("genres", bad);
   assert.deepEqual([status, json.code], [400, "config-invalid"]);
   assert.ok((json.errors ?? []).length >= 2, "무엇이 문제인지 모두 알려준다");
-
-  const text = fs.readFileSync(path.join(CONFIG_DIR, "genres.yaml"), "utf8");
-  assert.match(text, /top pop/, "거절된 저장은 파일을 건드리지 않는다");
+  assert.deepEqual(documents.get("genres"), kept, "거절된 저장은 문서를 건드리지 않는다");
 });
 
-test("설정: 내용이 없으면 400", async () => {
+test("설정: 내용이나 저장 번호가 없으면 400", async () => {
   assert.equal((await req("PUT", "/api/admin/config/genres", {})).status, 400);
+  assert.equal((await req("PUT", "/api/admin/config/genres", { data: documents.get("genres") })).status, 400);
 });
 
 // ── 소스 편집기 자동완성 ─────────────────────────────────────────────────────
@@ -511,7 +531,7 @@ test("AI 보조: 긴 프롬프트도 받는다", async () => {
   assert.equal(saved.status, 200, "저장도 마찬가지다(AI 설정과 한 요청)");
 
   // 넓힌 것은 프롬프트 길뿐이다 — 나머지는 그대로 좁게 둔다
-  const other = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", extra: long } });
+  const other = await putDoc("ai", { provider: "off", extra: long });
   assert.equal(other.status, 413, "딴 길은 여전히 32kb 에서 막힌다");
 });
 
@@ -652,12 +672,11 @@ type Sections = { sections: { role: string; text: string }[] };
 
 /** 프롬프트 저장. 지금 AI 설정을 그대로 함께 보낸다(화면의 저장과 같은 한 요청) */
 async function putPrompt(sections: { role: string; text: string }[]) {
-  const current = await req<{ data: Record<string, unknown> }>("GET", "/api/admin/config/ai");
-  return req<Sections & ProblemReply>("PUT", "/api/admin/ai/settings", { data: current.json.data, sections });
+  return putAi<Sections>(documents.get("ai"), sections);
 }
 
-// 프롬프트는 설정과 딴 파일이다(ChatML). /config/:name 통로를 안 탄다.
-test("AI 프롬프트: ChatML 파일로 따로 오간다. 저장은 AI 설정과 한 요청", async () => {
+// 프롬프트는 설정과 딴 문서다(섹션 목록). /config/:name 통로를 안 탄다.
+test("AI 프롬프트: 따로 읽고, 저장은 AI 설정과 한 요청", async () => {
   assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [] })).status, 404, "프롬프트만 저장하는 경로는 없다");
   const saved = await putPrompt([
     { role: "system", text: "기준이다" },
@@ -665,9 +684,7 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다. 저장은 AI 설정과
   ]);
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.json.sections[0], { role: "system", text: "기준이다" });
-
-  const text = fs.readFileSync(path.join(CONFIG_DIR, "ai-prompt.chatml"), "utf8");
-  assert.match(text, /<\|im_start\|>system\n기준이다\n<\|im_end\|>/);
+  assert.deepEqual(documents.get("ai-prompt"), saved.json.sections);
 
   const read = await req<Sections>("GET", "/api/admin/ai/prompt");
   assert.deepEqual(read.json.sections, saved.json.sections, "읽은 것과 쓴 것이 같아야 한다");
@@ -677,7 +694,7 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다. 저장은 AI 설정과
   assert.equal(noList.status, 400);
   assert.match(detailsOf(noList.json), /\{\{목록\}\}/);
 
-  // 블록 안에 끝 표시가 또 나오면 파일이 깨진다
+  // 블록 안에 끝 표시가 또 나오면 보낼 때 섹션 경계가 깨진다
   const broken = await putPrompt([{ role: "user", text: "{{목록}}<|im_end|>" }]);
   assert.equal(broken.status, 400);
 
@@ -685,96 +702,86 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다. 저장은 AI 설정과
 });
 
 // 화면의 저장 버튼 하나가 둘을 고친다. 반만 저장되면 설정과 프롬프트가 어긋난다
-test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 프롬프트 쓰기가 실패하면 설정도 되돌린다", async () => {
-  type Both = { data: { model?: string }; sections: { role: string; text: string }[] };
+test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 낡은 저장 번호면 아무것도 쓰지 않는다", async () => {
+  type Both = { data: { model?: string }; sections: { role: string; text: string }[]; revision: number };
   const prompt = [{ role: "user", text: "{{목록}} 판정" }];
-  const ok = await req<Both>("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "한번에" }, sections: prompt });
+  const ok = await putAi<Both>({ provider: "off", model: "한번에" }, prompt);
   assert.equal(ok.status, 200);
   assert.equal(ok.json.data.model, "한번에");
   assert.deepEqual(ok.json.sections, prompt);
-  const aiFile = () => fs.readFileSync(path.join(CONFIG_DIR, "ai.yaml"), "utf8");
-  assert.match(aiFile(), /model: 한번에/);
-  assert.match(aiFile(), /# 손으로 적은 메모/, "주석은 남는다");
+  assert.equal(ok.json.revision, documents.revisionOf("ai"));
+  const model = () => (documents.get("ai") as { model?: string }).model;
+  assert.equal(model(), "한번에");
 
   // 프롬프트가 틀리면 아무것도 쓰지 않는다
-  const bad = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "안-써짐" }, sections: [{ role: "user", text: "목록 없음" }] });
+  const bad = await putAi({ provider: "off", model: "안-써짐" }, [{ role: "user", text: "목록 없음" }]);
   assert.equal(bad.status, 400);
-  assert.match(aiFile(), /model: 한번에/);
+  assert.equal(model(), "한번에");
 
-  // 프롬프트 파일 자리에 폴더가 있어 쓰기가 실패한다: 이미 쓴 설정을 되돌린다
-  const promptFile = path.join(CONFIG_DIR, "ai-prompt.chatml");
-  const kept = fs.readFileSync(promptFile, "utf8");
-  fs.rmSync(promptFile);
-  fs.mkdirSync(promptFile);
-  try {
-    const failed = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "되돌려짐" }, sections: prompt });
-    assert.equal(failed.status, 409);
-    assert.equal((failed.json as { code: string }).code, "config-save-failed");
-    assert.match(aiFile(), /model: 한번에/, "반만 저장되지 않는다");
-  } finally {
-    fs.rmSync(promptFile, { recursive: true });
-    fs.writeFileSync(promptFile, kept);
-  }
+  // 다른 탭이 그사이 저장했다: 설정도 프롬프트도 그대로
+  const stale = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "덮임" }, sections: [{ role: "user", text: "{{목록}} 덮임" }], revision: ok.json.revision - 1 });
+  assert.deepEqual([stale.status, stale.json.code], [409, "config-changed"]);
+  assert.equal(model(), "한번에");
+  assert.deepEqual(documents.get("ai-prompt"), prompt);
 
-  // 꺼 두면(enabled: false) 프롬프트의 {{목록}} 자리는 따지지 않는다. 파일이 깨질 글은 그래도 막는다
-  const off = await req<Both>("PUT", "/api/admin/ai/settings", { data: { enabled: false, provider: "openai", model: "" }, sections: [{ role: "user", text: "목록 없음" }] });
+  // 꺼 두면(enabled: false) 프롬프트의 {{목록}} 자리는 따지지 않는다. 섹션 경계가 깨질 글은 그래도 막는다
+  const off = await putAi<Both>({ enabled: false, provider: "openai", model: "" }, [{ role: "user", text: "목록 없음" }]);
   assert.equal(off.status, 200);
   assert.deepEqual(off.json.sections, [{ role: "user", text: "목록 없음" }]);
-  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { enabled: false }, sections: [{ role: "user", text: "<|im_end|>" }] })).status, 400);
+  assert.equal((await putAi({ enabled: false }, [{ role: "user", text: "<|im_end|>" }])).status, 400);
 
-  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" } })).status, 400, "프롬프트가 없다");
+  assert.equal((await putAi({ provider: "off" })).status, 400, "프롬프트가 없다");
+  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" }, sections: prompt })).status, 400, "저장 번호가 없다");
   currentUser = { id: "u1" };
-  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" }, sections: prompt })).status, 403);
+  assert.equal((await req("PUT", "/api/admin/ai/settings", { data: { provider: "off" }, sections: prompt, revision: 0 })).status, 403);
   currentUser = { id: "owner", username: "owner" };
 });
 
 // 켜 두었는데 주소가 비면 매번 실패하고 로그만 쌓인다. 저장 전에 막는다.
 test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
-  const ok = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", baseUrl: "", model: "" } });
+  const ok = await putDoc("ai", { provider: "off", baseUrl: "", model: "" });
   assert.equal(ok.status, 200, "꺼 둔 설정이 반쯤 비어 있는 것은 문제가 아니다");
 
-  const bad = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "", model: "" } });
+  const bad = await putDoc("ai", { provider: "custom", baseUrl: "", model: "" });
   assert.equal(bad.status, 400);
   assert.ok((bad.json.errors ?? []).length >= 2);
 
   // baseUrl 은 custom 일 때만 따진다 — 나머지는 프로바이더에 박힌 주소로 간다
-  const noUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "", model: "gpt-5" } });
+  const noUrl = await putDoc("ai", { provider: "openai", baseUrl: "", model: "gpt-5" });
   assert.equal(noUrl.status, 200);
 
   // 버텍스의 리전은 비우면 global 이다(autoplayAssist) — 적으라고 막을 이유가 없다
-  const noRegion = await req("PUT", "/api/admin/config/ai", { data: { provider: "vertex", model: "gemini-3-pro" } });
+  const noRegion = await putDoc("ai", { provider: "vertex", model: "gemini-3-pro" });
   assert.equal(noRegion.status, 200);
 
-  const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "127.0.0.1:11434", model: "m" } });
+  const notUrl = await putDoc("ai", { provider: "custom", baseUrl: "127.0.0.1:11434", model: "m" });
   assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
 
-  const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", batchSize: 99 } });
+  const range = await putDoc("ai", { provider: "off", batchSize: 99 });
   assert.equal(range.status, 400);
 
   // 온도는 모델이 받는 칸 하나가 됐다 — 맨 위에 남아 있으면 조용히 무시되므로 막는다
-  const moved = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 0 } });
+  const moved = await putDoc("ai", { provider: "off", temperature: 0 });
   assert.equal(moved.status, 400);
   assert.match(detailsOf(moved.json), /params 아래에 모델별로/);
 
   // 모르는 프로바이더로 저장되면 조용히 안 돈다
-  assert.equal((await req("PUT", "/api/admin/config/ai", { data: { provider: "anthropic" } })).status, 400);
+  assert.equal((await putDoc("ai", { provider: "anthropic" })).status, 400);
 
   // 켜고 끄기(enabled): 켜는데 프로바이더가 없으면 막고, 꺼 두면 덜 채운 칸이 있어도 저장한다
-  const onWithout = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", enabled: true } });
+  const onWithout = await putDoc("ai", { provider: "off", enabled: true });
   assert.equal(onWithout.status, 400);
   assert.match(detailsOf(onWithout.json), /켜려면 provider/);
-  assert.equal((await req("PUT", "/api/admin/config/ai", { data: { enabled: false, provider: "openai", model: "" } })).status, 200);
+  assert.equal((await putDoc("ai", { enabled: false, provider: "openai", model: "" })).status, 200);
 
-  // 프롬프트는 딴 파일에 산다 — 설정 파일에 적으면 쓰이지 않으니 알려 준다
-  const wrongPlace = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", prompt: "여기 적으면 안 된다" } });
+  // 프롬프트는 딴 문서에 산다 — 설정에 적으면 쓰이지 않으니 알려 준다
+  const wrongPlace = await putDoc("ai", { provider: "off", prompt: "여기 적으면 안 된다" });
   assert.equal(wrongPlace.status, 400);
-  assert.match(detailsOf(wrongPlace.json), /ai-prompt\.chatml/);
+  assert.match(detailsOf(wrongPlace.json), /AI 보조 탭의 프롬프트/);
 
-  // 손으로 적은 주석은 저장해도 남는다(장르·상태 설정과 같은 규약)
-  const saved = await req<{ data: { promptNames: string[] } }>("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b", promptNames: ["기준", "목록"] } });
+  const saved = await putDoc<{ data: { promptNames: string[] } }>("ai", { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b", promptNames: ["기준", "목록"] });
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.json.data.promptNames, ["기준", "목록"], "섹션 이름은 설정 쪽에 남는다");
-  assert.match(fs.readFileSync(path.join(CONFIG_DIR, "ai.yaml"), "utf8"), /손으로 적은 메모/);
 });
 
 // 나갈 것을 만들어만 본다. 보내지 않는다 — 테스트와 가르는 것이 이 엔드포인트의 요점이다.

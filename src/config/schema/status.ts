@@ -1,4 +1,4 @@
-// 봇 활동 문구 설정(status.yaml)의 스키마.
+// 봇 활동 문구 설정("status" 문서)의 스키마.
 
 import { NUMERIC_NAME, YAML_WORDS } from "./genres.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
@@ -9,7 +9,7 @@ const isActivityType = (v: unknown): v is ActivityType => ACTIVITY_TYPES.some((t
 
 const MAX_TEXT = 128; // 디스코드 활동 문구 길이 상한
 
-// 문구를 바꾸는 간격(초). 비우면 기본값(config/status.example.yaml 과 같다), 그보다 짧게는 돌리지 않는다
+// 문구를 바꾸는 간격(초). 비우면 기본값(기본 설정 문서와 같다), 그보다 짧게는 돌리지 않는다
 const INTERVAL_DEFAULT = 60;
 const INTERVAL_MIN = 10;
 

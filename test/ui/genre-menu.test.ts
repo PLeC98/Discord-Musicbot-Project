@@ -8,11 +8,11 @@ import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../src/ui/genre-menu.ts";
 import * as genresModule from "../../src/config/genres.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { headOf, selectOf, separatorsOf, textsOf } from "../helpers/cv2.ts";
 import { post } from "../../src/ui/frame.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 const { genres } = genresModule.genres();
 
 const ids = Object.keys(genres);
@@ -65,13 +65,8 @@ test("두 화면 다 본인에게만 보인다", () => {
 });
 
 test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
-  const fs = await import("node:fs");
-  const os = await import("node:os");
-  const path = await import("node:path");
-  const yamlStore = await import("../../src/config/yaml-store.ts");
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-genre-menu-"));
-  fs.writeFileSync(path.join(dir, "genres.yaml"), ["defaults: {}", "genres:", "  팝:", '    emoji: ""', "    sources: [{ type: keyword, keywords: [pop] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", "  록:", "    emoji: 🤘", "    sources: [{ type: keyword, keywords: [rock] }]", ""].join("\n"));
-  yamlStore._setConfigDir(dir);
+  const { useDocument } = await import("../helpers/config-docs.ts");
+  useDocument("genres", ["defaults: {}", "genres:", "  팝:", '    emoji: ""', "    sources: [{ type: keyword, keywords: [pop] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", "  록:", "    emoji: 🤘", "    sources: [{ type: keyword, keywords: [rock] }]", ""].join("\n"));
   try {
     const menu = menuOf(buildGenreMenu());
     assert.deepEqual(
@@ -83,7 +78,6 @@ test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
       ],
     );
   } finally {
-    yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
-    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+    useDefaultDocuments();
   }
 });

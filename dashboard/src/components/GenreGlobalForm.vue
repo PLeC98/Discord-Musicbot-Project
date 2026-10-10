@@ -1,5 +1,5 @@
 <template>
-  <!-- 자동재생 전역 값(genres.yaml 의 defaults). 장르 편집기 목록의 "전역 설정"을 고르면 상세 자리에 그린다 -->
+  <!-- 자동재생 전역 값(장르 설정의 defaults). 장르 편집기 목록의 "전역 설정"을 고르면 상세 자리에 그린다 -->
   <div class="flex flex-col gap-3">
     <p class="text-sm text-on-surface-variant">{{ T.desc }}</p>
     <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">

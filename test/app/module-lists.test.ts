@@ -6,9 +6,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 const ROOT = path.join(import.meta.dirname, "..", "..");
 const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const { EVENTS } = await import("../../src/discord/events/index.ts");

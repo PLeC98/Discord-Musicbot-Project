@@ -14,9 +14,9 @@ import { PlaybackState } from "../../src/player/playback-state.ts";
 const onTrackEnd = Player.prototype.onTrackEnd;
 
 import { fakePlayer } from "../helpers/fake.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 
 function makeTrack(title: string, duration = 100) {
   return { title, url: `https://y/${title}`, duration };

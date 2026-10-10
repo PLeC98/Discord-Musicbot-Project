@@ -52,7 +52,7 @@ function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [],
     scheduleStatePersist() {},
     // 프로토타입을 잇지 않는 목이므로, 코드가 부르는 헬퍼는 여기 옮겨 붙인다
     _canPrefetchAutoplay: Player.prototype._canPrefetchAutoplay,
-    // 실제 config/genres.yaml 을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
+    // 실제 장르 설정을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
     _autoplayConfig: () => ({ prefetchCount: prefetch }),
     // 뽑기 사이 쉬는 시간. 얼마나 쉬라고 했는지만 적고 기다리지 않는다
     io: {
@@ -105,7 +105,7 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
   }
 });
 
-// 미리 뽑을 곡 수는 config/genres.yaml의 prefetchCount가 정한다(장르가 덮어쓴다).
+// 미리 뽑을 곡 수는 장르 설정의 prefetchCount가 정한다(장르가 덮어쓴다).
 // 기본 1곡만 덮으면 값을 키워도 한 곡만 들어가는 회귀를 놓친다.
 // 회귀 대상: 한 번 불릴 때 한 곡만 넣었다. 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라,
 // prefetchCount 를 키워도 늘 한 곡 앞만 보였다.
@@ -285,7 +285,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
       }),
       pickAutoplayTrack: Player.prototype.pickAutoplayTrack,
       io: { pickAutoplay: route.pickTrack }, // 길 찾기는 진짜(안쪽 경계는 아래 autoplayDeps)
-      // AI 보조는 운영 설정(config/ai.yaml)을 읽어 진짜로 부른다. 여기서는 규칙만 본다
+      // AI 보조는 AI 설정 문서를 읽어 진짜로 부른다. 여기서는 규칙만 본다
       autoplayDeps: { ...route.REAL, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
     });
 

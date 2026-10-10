@@ -15,7 +15,7 @@ import * as stores from "../../src/store/stores.ts";
 import { Player } from "../../src/player/player.ts";
 import { fake, fakeWith, fakeBot } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 import { withConfig } from "../helpers/config.ts";
 import { fakeAdder } from "../helpers/adder.ts";
@@ -24,7 +24,7 @@ import { noticeReply } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
 const audioCache = await import("../../src/store/audio-cache.ts");

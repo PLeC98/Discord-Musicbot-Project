@@ -37,14 +37,14 @@ import * as addTracks from "../../src/usecases/add-tracks.ts";
 import * as More from "../../src/usecases/playlist-more.ts";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import { stateDb } from "../../src/store/state-db.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/control-replies.ts";
 import { DISCORD_LOOK } from "../../src/ui/mentions.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 
 const USER = "111111111111111111";
 const resolved: Array<{ query: string; context?: string | null; range?: Range }> = [];

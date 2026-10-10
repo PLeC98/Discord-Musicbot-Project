@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import type { GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import * as h from "../helpers/player-harness.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 beforeEach(() => h.reset());
 
 const text = { id: "text2", name: "text2" } as unknown as GuildTextBasedChannel;

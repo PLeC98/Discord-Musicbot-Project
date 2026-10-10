@@ -21,7 +21,7 @@ import * as aiConfig from "../../config/ai.ts";
 import { promptProblems } from "../../config/schema/ai-prompt.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieJar from "../../store/cookie-jar.ts";
-import * as yamlStore from "../../config/yaml-store.ts";
+import * as documents from "../../config/documents.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import * as audioCache from "../../store/audio-cache.ts";
@@ -158,10 +158,9 @@ adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
   }
 });
 
-// ── 설정 파일 (config/*.yaml) ─────────────────────────────────────────────
+// ── 설정 문서(장르 · 상태 문구 · AI 설정, settings.db) ──────────────────────
 //
-// 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와 여기. 그래서 통째로 덮어쓰지 않고
-// 바뀐 자리만 고친다(yamlStore.save 가 주석 · 빈 줄을 지킨다).
+// 사람이 손으로 고치는 파일이 아니라 대시보드가 고치는 문서다(config/documents). 저장 번호로 두 탭이 서로 덮지 않게 한다.
 
 // 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
 const VALIDATORS: Record<string, (data: unknown) => string[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
@@ -358,48 +357,35 @@ function keysReply(settings: Record<string, unknown>): KeysReply {
   return { hasKey: Object.fromEntries(Object.entries(keyState).map(([provider, state]) => [provider, state === "ok"])), keyState };
 }
 
-// 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
-// /config/:name 통로를 못 탄다. 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.
+// 프롬프트는 설정과 딴 문서다("ai-prompt", 섹션 목록). 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.
 adminRouter.get("/ai/prompt", requireOwner, (req, res) => {
   res.json({ sections: aiConfig.aiPrompt() } satisfies PromptReply);
 });
 
-// AI 설정(ai.yaml)과 프롬프트(ai-prompt.chatml)를 한 요청으로. 화면의 저장 버튼 하나가 둘을 고친다.
-// 둘 다 검사한 뒤에 쓰고, 둘째(프롬프트) 쓰기가 실패하면 첫째를 되돌린다. 반만 저장되지 않게
+// AI 설정과 프롬프트를 한 요청으로. 화면의 저장 버튼 하나가 둘을 고친다. 둘 다 검사한 뒤에 쓴다.
+// 저장 번호는 AI 설정 문서의 것 하나로 본다(둘은 늘 함께 저장된다)
 adminRouter.put("/ai/settings", requireOwner, (req, res) => {
   const data = req.body?.data;
   const sections = req.body?.sections;
-  if (!data || typeof data !== "object" || !Array.isArray(sections)) return sendProblem(res, "nothing-to-save");
+  const revision: unknown = req.body?.revision;
+  if (!data || typeof data !== "object" || !Array.isArray(sections) || !Number.isInteger(revision)) return sendProblem(res, "nothing-to-save");
 
-  // 꺼 두면(enabled: false) ai.yaml 의 나머지 칸은 따지지 않고, 프롬프트는 파일이 깨지지 않을 만큼만 본다
+  // 꺼 두면(enabled: false) 나머지 칸은 따지지 않고, 프롬프트는 모양이 깨지지 않을 만큼만 본다
   const on = !aiSwitchedOff(data);
   const problems = [...VALIDATORS.ai(data), ...promptProblems(sections, on)];
   if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
-  let before;
-  let saved;
   try {
-    before = structuredClone(yamlStore.load("ai"));
+    // 한 트랜잭션. 프롬프트 쓰기가 실패하면 설정도 쓰이지 않는다
+    const [next] = documents.putAll([
+      { name: "ai", data, revision: revision as number },
+      { name: "ai-prompt", data: sections },
+    ]);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: AI 설정 · 프롬프트(저장 번호 ${next}). 실행 ${ranBy(req)}`);
+    res.json({ data: documents.get("ai") as Record<string, unknown>, sections: aiConfig.aiPrompt(), revision: next } satisfies AiSaved);
   } catch (error) {
-    return sendProblem(res, "config-unreadable", {}, { detail: messageOf(error) });
-  }
-  try {
-    saved = yamlStore.save("ai", data);
-  } catch (error) {
-    log.error({ sub: "admin" }, `설정 저장 실패(ai): ${messageOf(error)}`);
-    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
-  }
-  try {
-    const savedSections = aiConfig.saveAiPrompt(sections, on);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai.yaml · ai-prompt.chatml. 실행 ${ranBy(req)}`);
-    res.json({ data: saved, sections: savedSections } satisfies AiSaved);
-  } catch (error) {
-    try {
-      yamlStore.save("ai", before);
-    } catch (undo) {
-      log.error({ sub: "admin" }, `프롬프트 저장 실패 뒤 ai.yaml 을 되돌리지 못했습니다: ${messageOf(undo)}`);
-    }
-    log.error({ sub: "admin" }, `설정 저장 실패(ai-prompt): ${messageOf(error)}. ai.yaml 은 되돌렸습니다`);
+    if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
+    log.error({ sub: "admin" }, `설정 저장 실패(AI): ${messageOf(error)}`);
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -448,14 +434,8 @@ adminRouter.post("/ai/ping", requireOwner, async (req, res) => {
 
 adminRouter.get("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
-  if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
-
-  try {
-    res.json({ name, data: yamlStore.load(name) } satisfies ConfigFile);
-  } catch (error) {
-    // 파일이 없거나 문법이 깨졌다. 화면이 이유를 그대로 보여줄 수 있게 넘긴다
-    sendProblem(res, "config-unreadable", {}, { detail: messageOf(error) });
-  }
+  if (!CONFIG_NAMES.includes(name) || !documents.isDocName(name)) return sendProblem(res, "config-not-found");
+  res.json({ name, data: documents.get(name) as Record<string, unknown>, revision: documents.revisionOf(name) } satisfies ConfigFile);
 });
 
 adminRouter.put("/config/:name", requireOwner, (req, res) => {
@@ -463,17 +443,19 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
   if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
 
   const data = req.body?.data;
-  if (!data || typeof data !== "object") return sendProblem(res, "nothing-to-save");
+  const revision: unknown = req.body?.revision;
+  if (!data || typeof data !== "object" || !Number.isInteger(revision) || !documents.isDocName(name)) return sendProblem(res, "nothing-to-save");
 
-  // 저장 전에 본다. 깨진 값을 파일에 남기느니 거절한다. 봇이 그 파일로 돌기 때문이다.
+  // 저장 전에 본다. 깨진 값을 남기느니 거절한다. 봇이 그 설정으로 돌기 때문이다.
   const problems = VALIDATORS[name](data);
   if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
 
   try {
-    const saved = yamlStore.save(name, data);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml. 실행 ${ranBy(req)}`);
-    res.json({ success: true, data: saved } satisfies ConfigSaved);
+    const next = documents.put(name, data, revision as number);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}(저장 번호 ${next}). 실행 ${ranBy(req)}`);
+    res.json({ success: true, data: documents.get(name) as Record<string, unknown>, revision: next } satisfies ConfigSaved);
   } catch (error) {
+    if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
     log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${messageOf(error)}`);
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }

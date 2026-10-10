@@ -2,10 +2,10 @@
 
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 
-/** 후보 목록 한 줄을 어떻게 적을지(ai.yaml 의 list) */
+/** 후보 목록 한 줄을 어떻게 적을지(AI 설정의 list) */
 type ListFormat = { unknownDuration?: string; unknownText?: string; lineFormat?: string };
 /**
- * ai.yaml 한 벌. 저장된 것이거나 대시보드의 초안이다. 여기서 읽는 칸만.
+ * AI 설정 한 벌. 저장된 것이거나 대시보드의 초안이다. 여기서 읽는 칸만.
  * 수 칸은 글자일 수 있어 쓰는 자리에서 Number 로 바꾼다
  */
 type AiSettings = {

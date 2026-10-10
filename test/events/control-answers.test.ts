@@ -14,10 +14,10 @@ import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 // 권한 판정이 서버 설정(DJ 역할)을 읽는다
 const store = openTempStore("control-answers-");
 after(() => store.close());

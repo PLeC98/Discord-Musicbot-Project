@@ -28,11 +28,25 @@ type Options = {
   savedNote: string;
 };
 
-/** /api/admin/config/<name> 으로 읽고 쓰는 것 */
-export const configFileIo = (name: string) => ({
-  read: async () => (await axios.get<ConfigFile>(`/api/admin/config/${name}`)).data.data,
-  write: async (payload: unknown) => (await axios.put<ConfigSaved>(`/api/admin/config/${name}`, { data: payload })).data.data,
-});
+/**
+ * /api/admin/config/<name> 으로 읽고 쓰는 것. 읽은 저장 번호를 들고 있다가 저장할 때 돌려보낸다
+ * (그사이 다른 탭 · 다른 사람이 저장했으면 서버가 config-changed 로 거절한다)
+ */
+export const configFileIo = (name: string) => {
+  let revision = 0;
+  return {
+    read: async () => {
+      const got = (await axios.get<ConfigFile>(`/api/admin/config/${name}`)).data;
+      revision = got.revision;
+      return got.data;
+    },
+    write: async (payload: unknown) => {
+      const saved = (await axios.put<ConfigSaved>(`/api/admin/config/${name}`, { data: payload, revision })).data;
+      revision = saved.revision;
+      return saved.data;
+    },
+  };
+};
 
 export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, savedNote }: Options) {
   const snapshot = ref("");

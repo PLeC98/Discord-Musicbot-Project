@@ -6,9 +6,9 @@
 // 장르마다 덮어쓸 수 있는 칸은 셋(최소 · 최대 길이, 차단할 말). 비우면 그 칸을 빼서 전역 값을 쓴다.
 // 재생은 { ...defaults, ...장르 } 로 합치므로 장르의 차단할 말은 전역 목록에 더하지 않고 대신한다
 
-/** 소스 하나(genres.yaml 의 그대로). 칸은 소스 종류마다 다르다(schema/genre-sources 의 SPEC). _key 는 편집 중 행을 붙잡아 두는 번호 */
+/** 소스 하나(장르 문서의 그대로). 칸은 소스 종류마다 다르다(schema/genre-sources 의 SPEC). _key 는 편집 중 행을 붙잡아 두는 번호 */
 type SourceData = Record<string, unknown> & { type?: string; _key?: number };
-/** 장르 하나(genres.yaml 의 그대로). 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
+/** 장르 하나(장르 문서의 그대로). 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
 type GenreData = Record<string, unknown> & { emoji?: string; sources?: SourceData[]; minDurationSec?: number | null; maxDurationSec?: number | null };
 
 /** 편집 행. key 는 화면이 행을 붙잡아 두는 번호 */

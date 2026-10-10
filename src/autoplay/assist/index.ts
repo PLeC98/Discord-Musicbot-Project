@@ -105,7 +105,7 @@ const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 // 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다.
 const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
-// 빠진 칸의 기본값. ai.example.yaml 에 같은 값과 뜻을 적어 둔다
+// 빠진 칸의 기본값. 기본 설정 문서(config/defaults/ai)와 같은 값이다
 const DEFAULTS = {
   timeoutMs: 60000,
   batchSize: 10,
@@ -200,7 +200,7 @@ function settings(): AiSettings | null {
   // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
-  // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml). 설정 파일에는 안 섞는다
+  // 프롬프트는 딴 문서다("ai-prompt"). 설정 문서에는 안 섞는다
   return { ...one, prompt: aiConfig.aiPrompt() };
 }
 

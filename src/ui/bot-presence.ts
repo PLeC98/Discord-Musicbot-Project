@@ -69,8 +69,7 @@ class StatusManager {
   static CALENDAR = CALENDAR;
 
   client: PresenceClient;
-  // 부를 때마다 읽는다. 로더가 mtime을 보고 바뀌었을 때만 실제로 다시 읽는다.
-  // 코드에 박힌 기본값으로 조용히 넘어가지 않는다: 파일이 없으면 로더가 기동을 멈추고 무엇을 할지 알린다.
+  // 부를 때마다 읽는다(메모리의 설정 문서. 대시보드에서 저장하면 다음 회전부터 반영)
   load: () => StatusConfig;
   calendar: Calendar;
   rotationIndex = 0;

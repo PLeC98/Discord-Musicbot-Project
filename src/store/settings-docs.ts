@@ -25,19 +25,27 @@ function read(name: string): Doc {
   return { data: parse(row?.data_json), revision: row?.revision ?? 0 };
 }
 
-/** 저장. revision 은 화면이 읽었을 때의 번호. 다르면 REVISION_CONFLICT 로 던진다. 새 번호를 돌려준다 */
-function write(name: string, data: unknown, revision: number): number {
-  return conn().transaction(() => {
-    const now = read(name).revision;
-    if (now !== revision) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀌었습니다(읽은 번호 ${revision}, 지금 ${now})`);
-    conn()
-      .prepare(
-        `INSERT INTO documents (name, data_json, revision, updated_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(name) DO UPDATE SET data_json = excluded.data_json, revision = excluded.revision, updated_at = excluded.updated_at`,
-      )
-      .run(name, JSON.stringify(data), now + 1, Date.now());
-    return now + 1;
-  })();
+/** 쓸 문서 하나. revision 은 화면이 읽었을 때의 번호 */
+type Write = { name: string; data: unknown; revision: number };
+
+function writeOne({ name, data, revision }: Write): number {
+  const now = read(name).revision;
+  if (now !== revision) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀌었습니다(읽은 번호 ${revision}, 지금 ${now})`);
+  conn()
+    .prepare(
+      `INSERT INTO documents (name, data_json, revision, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(name) DO UPDATE SET data_json = excluded.data_json, revision = excluded.revision, updated_at = excluded.updated_at`,
+    )
+    .run(name, JSON.stringify(data), now + 1, Date.now());
+  return now + 1;
+}
+
+/** 저장. 번호가 지금 번호와 다르면 REVISION_CONFLICT 로 던진다. 새 번호를 돌려준다 */
+const write = (name: string, data: unknown, revision: number): number => writeAll([{ name, data, revision }])[0];
+
+/** 여러 문서를 한 트랜잭션으로. 하나라도 실패하면 아무것도 쓰지 않는다. 새 번호들을 같은 차례로 돌려준다 */
+function writeAll(writes: Write[]): number[] {
+  return conn().transaction(() => writes.map(writeOne))();
 }
 
 /**
@@ -57,5 +65,5 @@ function peek(file: string, name: string): unknown {
   }
 }
 
-export { read, write, peek };
-export type { Doc };
+export { read, write, writeAll, peek };
+export type { Doc, Write };

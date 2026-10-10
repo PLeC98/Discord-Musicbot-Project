@@ -14,11 +14,11 @@ import type { Actor } from "../../src/usecases/controls.ts";
 import { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import * as genreConfig from "../../src/config/genres.ts";
 import { plainText } from "../helpers/notice.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 
 afterEach(() => playerEvents._reset());
 

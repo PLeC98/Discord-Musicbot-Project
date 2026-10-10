@@ -106,8 +106,9 @@ type RedeployReply = { success: true; count: number; scope: string; guildId: str
 type ResetReply = { success: true; removed: number; kept: number; freedBytes: number; fileCountBefore: number };
 
 /** 설정 파일(genres · status · ai) 읽기와 저장 */
-type ConfigFile = { name: string; data: Record<string, unknown> };
-type ConfigSaved = { success: true; data: Record<string, unknown> };
+/** 설정 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
+type ConfigFile = { name: string; data: Record<string, unknown>; revision: number };
+type ConfigSaved = { success: true; data: Record<string, unknown>; revision: number };
 
 type SourceTypes = { types: SourceTypeView[] };
 /** 소스 편집기의 자동완성 */
@@ -137,7 +138,7 @@ type LinesReply = { lines: string[] };
 type KeysReply = { hasKey: Record<string, boolean>; keyState: Record<string, AiKeyState> };
 type PromptReply = { sections: PromptSection[] };
 /** AI 설정과 프롬프트를 한 번에 저장한 답 */
-type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
+type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revision: number };
 
 /** 유튜브 쿠키. 값은 오지 않는다. hasFile: 넣어 둔 쿠키가 있고 풀린다 */
 type CookieState = { source: CookieSource; hasFile: boolean };

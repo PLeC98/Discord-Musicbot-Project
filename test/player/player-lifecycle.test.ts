@@ -24,10 +24,10 @@ import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
 import * as voiceChannelStatus from "../../src/player/voice-channel-status.ts";
 import config from "../../src/config/index.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { textOf } from "../helpers/cv2.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 
 const { calls, behavior, AudioPlayerStatus } = h;
 

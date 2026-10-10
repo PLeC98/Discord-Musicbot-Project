@@ -4,14 +4,11 @@
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
 // (판정 품질 자체는 모델과 프롬프트의 몫이고 notes/research-autoplay-quality.md 에서 쟀다.)
 
-import os from "node:os";
-import fs from "node:fs";
-import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as aiConfig from "../../src/config/ai.ts";
-import * as yamlStore from "../../src/config/yaml-store.ts";
+import { useDocument, useDefaultDocuments } from "../helpers/config-docs.ts";
 import * as aiKeys from "../../src/store/ai-keys.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
@@ -48,12 +45,11 @@ function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<Fa
   assist.useFetch(fake<typeof fetch>(fn));
 }
 
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
-after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
+after(() => useDefaultDocuments());
 
-// 설정을 갈아끼운다. _setConfigDir 가 읽어 둔 것을 버리므로 같은 이름을 몇 번이고 바꿔 쓸 수 있다.
+// 설정을 갈아끼운다(설정 문서 "ai" 를 옛 설정 파일 꼴의 YAML 글로 적는다).
 //
-// 프롬프트는 딴 파일이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
+// 프롬프트는 딴 문서다("ai-prompt") — 설정에는 안 섞는다.
 // 키는 비밀 표에 있다(store/ai-keys). 프로바이더마다 따로고, 넣을 때의 주소에 묶인다
 const KEY = "sk-test-do-not-log";
 const store = openTempStore("musicbot-ai-keys-");
@@ -83,15 +79,14 @@ function putKeys(settings: Record<string, unknown>) {
   }
 }
 
-function useConfig(yaml: string, sections?: PromptSection[]) {
-  fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
-  putKeys(settingsOf(yaml));
-  if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
-  else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), aiConfig.toChatML(sections));
-  yamlStore._setConfigDir(DIR);
+function useConfig(yaml: string, sections: PromptSection[] = []) {
+  const settings = settingsOf(yaml);
+  useDocument("ai", settings);
+  useDocument("ai-prompt", sections);
+  putKeys(settings);
 }
 
-// 설정 폴더를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
+// 설정 문서를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
 useConfig("provider: off\n");
 
 const ON = `provider: custom
@@ -847,26 +842,10 @@ test("추가 파라미터가 params 를 이긴다", async () => {
   assert.equal(lastSent().body.output_config.effort, "max");
 });
 
-// ── 프롬프트 파일(ChatML) ─────────────────────────────────────────────────
+// ── 프롬프트 ─────────────────────────────────────────────────
 
-test("ChatML 로 읽고 쓴다 — 왕복해도 같다", () => {
-  const text = `<|im_start|>system\n기준이다\n여러 줄\n<|im_end|>\n\n<|im_start|>user\n{{목록}}\n<|im_end|>\n`;
-  const parsed = aiConfig.parseChatML(text);
-
-  assert.deepEqual(parsed, [
-    { role: "system", text: "기준이다\n여러 줄" },
-    { role: "user", text: "{{목록}}" },
-  ]);
-  assert.equal(aiConfig.toChatML(parsed), text);
-  assert.deepEqual(aiConfig.parseChatML(aiConfig.toChatML(parsed)), parsed);
-
-  // 블록 바깥의 글은 규격에 자리가 없다
-  assert.deepEqual(aiConfig.parseChatML("앞말\n<|im_start|>user\n하나\n<|im_end|>\n뒷말"), [{ role: "user", text: "하나" }]);
-  assert.deepEqual(aiConfig.parseChatML(""), []);
-});
-
-test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => {
-  useConfig(ON); // 프롬프트 파일을 안 만든다
+test("프롬프트가 비어 있으면 기본 구성으로 돈다", async () => {
+  useConfig(ON); // 프롬프트를 안 적는다
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -1003,12 +982,11 @@ test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () =
   assert.equal(lastCall().url, "https://api.openai.com/v1/chat/completions");
 });
 
-// 저장된 주소를 바꿔도(설정 파일 · 대시보드) 키는 넣을 때의 주소에 묶여 있어 새 주소로 가지 않는다. 다시 넣어야 한다
+// 저장된 주소를 바꿔도 키는 넣을 때의 주소에 묶여 있어 새 주소로 가지 않는다. 다시 넣어야 한다
 test("키는 넣을 때의 주소에 묶인다: 주소를 바꿔 저장해도 새 주소에는 키를 안 붙인다", async () => {
   useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
   // 키는 그대로 두고 주소만 바꿔 저장한다
-  fs.writeFileSync(path.join(DIR, "ai.yaml"), "provider: custom\nbaseUrl: https://바뀐곳/v1\nmodel: m\n");
-  yamlStore._setConfigDir(DIR);
+  useDocument("ai", { provider: "custom", baseUrl: "https://바뀐곳/v1", model: "m" });
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });

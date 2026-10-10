@@ -1,8 +1,7 @@
 <!--
   AI 보조 설정 (운영자 패널).
 
-  설정은 config/ai.yaml, **프롬프트는 config/ai-prompt.chatml** 로 따로 산다.
-  둘 다 파일로도 고칠 수 있다. 대시보드는 선택 기능이다.
+  설정과 **프롬프트**는 settings.db 의 딴 문서("ai" · "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
 
   키는 쓰기 전용이다. 프로바이더마다 따로 비밀 표에 암호화해 두고, 넣을 수는 있어도
   화면으로 되읽지는 못한다. 값을 내려보내면 XSS 하나로 새어 나간다.
@@ -496,7 +495,7 @@ const TP = text.ai.params;
 const TM = text.ai.model;
 const T = text.ai;
 
-/** 편집 중인 ai.yaml. 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
+/** 편집 중인 AI 설정. 화면이 모르는 칸도 들고 있다가 그대로 돌려보낸다 */
 type Draft = Record<string, unknown> & {
   /** 켜고 끄기. 끄면 고른 것은 두고 부르지만 않는다(없으면 provider 로 판단: off 면 꺼짐) */
   enabled?: boolean;
@@ -520,7 +519,7 @@ type Draft = Record<string, unknown> & {
 };
 /** 프롬프트 섹션 하나(편집 중). key 는 화면이 붙잡아 두는 번호, name 은 설정 쪽에 실리는 이름 */
 type Section = PromptSection & { key: number; name: string };
-/** 목록 줄 형식(ai.yaml 의 list) */
+/** 목록 줄 형식(AI 설정의 list) */
 type ListCfg = { lineFormat: string; unknownDuration: AiUnknown; unknownText: string };
 /** 확인 결과 한 칸(무료 · 유료 테스트) */
 type Tested = { kind: string; ok: boolean; status: number | null | undefined; tookMs: number; reason?: string; extra?: string; asked?: string; body?: string; raw?: string };
@@ -878,7 +877,7 @@ const paramLimits = computed(() => {
   return [m.contextWindowTokens ? T.contextTokens(n(m.contextWindowTokens)) : "", m.maxOutputTokens ? T.outputTokens(n(m.maxOutputTokens)) : ""].filter(Boolean).join(" · ");
 });
 
-// 저장하면 서버가 보낸 차례대로 파일을 줄 세운다. config/ai.example.yaml 과 같은 차례(schema/ai 의 AI_KEY_ORDER)로 보내야 새로 깐 파일이 뒤섞이지 않는다.
+// 저장은 보낸 차례대로 둔다. 기본 설정 문서와 같은 차례(schema/ai 의 AI_KEY_ORDER)로 보내 내보내기 글이 읽기 좋게 한다.
 const payload = computed(() => {
   const all: Record<string, unknown> = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
   const out: Record<string, unknown> = {};
@@ -900,7 +899,7 @@ const cleanParams = computed(() => {
 const promptPayload = computed((): PromptSection[] => sections.value.map((one) => ({ role: one.role, text: one.text })));
 
 // AI 에 보낼 요청을 만들 때 쓰는 것. 저장용(payload)과 갈리는 자리는 프롬프트 하나다.
-// 프롬프트는 ai-prompt.chatml 에 따로 저장하므로 payload 에는 없고, 요청에는 있어야 한다.
+// 프롬프트는 딴 문서로 저장하므로 payload 에는 없고, 요청에는 있어야 한다.
 // 미리보기·판정 요청처럼 "지금 화면에 있는 것"을 시험하는 곳은 전부 이쪽을 쓴다.
 const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
 
@@ -950,8 +949,9 @@ function applyPrompt(list: PromptSection[] | null | undefined) {
   sections.value = (list || []).map((one, i) => ({ key: ++serial, role: one?.role || "system", name: names[i] || "", text: String(one?.text ?? "") }));
 }
 
-// 설정(ai.yaml)과 프롬프트(ai-prompt.chatml)는 딴 파일이지만 한 편집기다. 둘을 한 덩어리로 읽고, 한 요청으로 저장한다(둘 중 하나만 저장되지 않게).
-// 이름(promptNames)이 설정 쪽에 실리므로 설정을 넣은 뒤에 프롬프트를 넣는다
+// 설정과 프롬프트는 딴 문서지만 한 편집기다. 둘을 한 덩어리로 읽고, 한 요청으로 저장한다(둘 중 하나만 저장되지 않게).
+// 이름(promptNames)이 설정 쪽에 실리므로 설정을 넣은 뒤에 프롬프트를 넣는다. 저장 번호는 설정 문서의 것을 들고 있다가 돌려보낸다
+let aiRevision = 0;
 const {
   dirty,
   saving,
@@ -970,9 +970,14 @@ const {
     apply(both.data as Record<string, unknown>);
     applyPrompt(both.sections as PromptSection[]);
   },
-  read: async () => ({ data: (await axios.get<ConfigFile>("/api/admin/config/ai")).data.data, sections: (await axios.get<PromptReply>("/api/admin/ai/prompt")).data.sections }),
+  read: async () => {
+    const file = (await axios.get<ConfigFile>("/api/admin/config/ai")).data;
+    aiRevision = file.revision;
+    return { data: file.data, sections: (await axios.get<PromptReply>("/api/admin/ai/prompt")).data.sections };
+  },
   write: async (both) => {
-    const saved = (await axios.put<AiSaved>("/api/admin/ai/settings", both)).data;
+    const saved = (await axios.put<AiSaved>("/api/admin/ai/settings", { ...(both as object), revision: aiRevision })).data;
+    aiRevision = saved.revision;
     // 주소 · 리전을 바꿔 저장했으면 묶인 키의 상태도 바뀐다
     void refreshKeys();
     return saved;

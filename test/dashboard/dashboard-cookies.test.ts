@@ -6,9 +6,6 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
-import os from "node:os";
-import fs from "node:fs";
-import path from "node:path";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
@@ -19,7 +16,6 @@ import { fake } from "../helpers/fake.ts";
 /** 쿠키 경로의 답. 값은 없고 유무만 있다 */
 type CookieReply = { source?: string; hasFile?: boolean; error?: string; code?: string };
 
-const yamlStore = await import("../../src/config/yaml-store.ts");
 const cookieJar = await import("../../src/store/cookie-jar.ts");
 const secrets = await import("../../src/store/secrets.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
@@ -30,7 +26,6 @@ const { adminRouter } = await import("../../src/dashboard/routes/admin.ts");
 // 쿠키 출처는 운영 조절값이다(설정 탭). 이 시험은 file 로 둔다
 const config = (await import("../../src/config/index.ts")).default;
 Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");
 
@@ -39,7 +34,6 @@ let server: Server;
 let base: string;
 
 before(async () => {
-  yamlStore._setConfigDir(DIR);
   currentUser = { id: "owner", username: "owner" };
   const app = express();
   app.use(bodyLimit());
@@ -53,8 +47,6 @@ after(() => {
   server.close();
   secrets._useKey();
   store.close();
-  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => cookieJar.save(""));

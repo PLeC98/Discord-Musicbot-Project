@@ -271,7 +271,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       clientSecret: null as string | null,
     },
 
-    // 자동재생 소스 자격증명(위와 같다). 없으면 그 소스만 못 쓴다. config/genres.yaml에서 어느 장르가
+    // 자동재생 소스 자격증명(위와 같다). 없으면 그 소스만 못 쓴다. 장르 설정에서 어느 장르가
     // 그 소스를 쓰는지 보고 기동 때 경고하고, 쓸 소스가 없는 장르는 고를 때 거절한다(src/config/genres.ts).
     sources: {
       lastfmKey: null as string | null,

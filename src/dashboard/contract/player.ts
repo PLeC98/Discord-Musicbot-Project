@@ -66,7 +66,7 @@ type PlayerState = {
   queueTotal: number;
 };
 
-/** 자동재생 장르 목록(config/genres.yaml 의 차례). 디스코드 장르 메뉴와 같은 것 */
+/** 자동재생 장르 목록(장르 설정의 차례). 디스코드 장르 메뉴와 같은 것 */
 type AutoplayGenres = { genres: Array<{ name: string; emoji: string | null }> };
 
 /** 봇 · 나의 음성 채널 */

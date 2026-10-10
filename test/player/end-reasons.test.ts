@@ -10,13 +10,13 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 import * as h from "../helpers/player-harness.ts";
 import { youtube as yt } from "../helpers/tracks.ts";
-import { useExampleConfig } from "../helpers/example-config.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { onVoiceStateUpdate } from "../../src/player/voice-presence.ts";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 
-useExampleConfig();
+useDefaultDocuments();
 beforeEach(() => h.reset());
 
 const { calls, AudioPlayerStatus } = h;

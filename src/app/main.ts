@@ -9,6 +9,9 @@ import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as tunables from "../store/tunables.ts";
+import * as settingsDocs from "../store/settings-docs.ts";
+import * as documents from "../config/documents.ts";
+import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
@@ -109,12 +112,21 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
     return false;
   }
   tunables.load();
+  // 장르 · 상태 문구 · AI 설정 · 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db 에 쓴다
+  documents.attach(settingsDocs);
+  warnLegacyConfigFiles();
   serviceKeys.load();
   aiKeys.warnLegacyFile();
   // 쿠키는 실행마다 파일로 풀었다 지운다. 꺼지다 남은 것을 치운다
   cookieJar.sweep();
   cookieJar.warnLegacyFile();
   return true;
+}
+
+// 옛 설정 파일(config/*.yaml · ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 지우지도 않는다(보며 옮길 수 있게)
+function warnLegacyConfigFiles() {
+  const left = ["genres.yaml", "status.yaml", "ai.yaml", "ai-prompt.chatml"].filter((name) => fs.existsSync(path.join(PROJECT.config, name)));
+  if (left.length) log.warn(`config/ 의 ${left.join(" · ")} 은 이제 읽지 않습니다. 운영자 패널(자동재생 · 상태 문구 · AI 보조 탭)에서 다시 넣고 이 파일들은 지우세요`);
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -262,12 +274,10 @@ function checkBeforeLogin() {
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 받은 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기");
 
-  // 자동재생 설정을 여기서 한 번 읽는다. 읽는 쪽이 자동재생을 쓸 때뿐이라 그대로 두면
-  // 잘못된 설정이 "켰더니 아무 일도 안 일어난다"로 나타나고, 키가 빠진 소스 경고도
-  // 그때서야 나와 기동 로그에 안 남는다.
-  stopIfThrows(() => genres(), "config/genres.yaml 을 고친 뒤 다시 실행하세요.");
-  // 활동 문구 설정도 여기서 본다. 틀린 채로 뜨면 쓸 설정이 없다(돌던 중에 틀리면 직전 설정으로 돈다)
-  stopIfThrows(() => statusConfig.status(), "config/status.yaml 을 고친 뒤 다시 실행하세요.");
+  // 자동재생 · 활동 문구 설정을 여기서 한 번 읽는다. 읽는 쪽이 쓸 때뿐이라 그대로 두면 틀린 설정 · 키가 빠진 소스 경고가
+  // 그때서야 나와 기동 로그에 안 남는다. 틀렸으면 알리고 그 기능만 끈다(기동은 멈추지 않는다. 고칠 대시보드가 떠야 한다)
+  genres();
+  statusConfig.status();
 }
 
 function stopIfThrows(check: () => unknown, hint: string | null = null) {

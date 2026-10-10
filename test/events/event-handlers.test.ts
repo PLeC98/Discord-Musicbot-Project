@@ -34,7 +34,7 @@ audioCache.initialize();
 const errors = await import("../../src/ui/text/ko/errors.ts");
 const settings = await import("../../src/store/guild-settings.ts");
 const lookup = await import("../../src/sources/lookup.ts");
-const yamlStore = await import("../../src/config/yaml-store.ts");
+const { useDocument, useDefaultDocuments } = await import("../helpers/config-docs.ts");
 const More = await import("../../src/usecases/playlist-more.ts");
 const addTracks = await import("../../src/usecases/add-tracks.ts");
 const messageHandler = (await import("../../src/discord/events/message-handler.ts")).default;
@@ -53,17 +53,13 @@ const OTHER = "222222222222222222";
 const fakeLookup = { ...lookup };
 addTracks.useLookup(fakeLookup);
 const resolved: { query: string; context?: string | null; range?: Range }[] = [];
-const CONFIG_DIR = path.join(TMP, "config");
-
 before(() => {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), "genres:\n  가요:\n    sources:\n      - type: keyword\n        keywords: [가요]\n");
-  yamlStore._setConfigDir(CONFIG_DIR);
+  useDocument("genres", "genres:\n  가요:\n    sources:\n      - type: keyword\n        keywords: [가요]\n");
 });
 
 after(() => {
   addTracks.useLookup(null);
-  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
+  useDefaultDocuments();
   audioCache.close();
   stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });

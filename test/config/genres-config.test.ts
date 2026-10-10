@@ -1,53 +1,41 @@
 // src/config/genres.ts — 장르 설정을 읽을 때 거르는 이름 · 이모지와 저장 전 검사.
 
-import os from "node:os";
-import path from "node:path";
-import fs from "node:fs";
-import { test, before, beforeEach, after } from "node:test";
+import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import * as yamlStore from "../../src/config/yaml-store.ts";
 import * as genreConfig from "../../src/config/genres.ts";
+import * as documents from "../../src/config/documents.ts";
 import { GENRE_DEFAULTS } from "../../src/config/schema/genres.ts";
+import { useDefaultDocuments } from "../helpers/config-docs.ts";
+import sink from "../../src/infra/log/sink.ts";
 import YAML from "yaml";
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
-const write = (name: string, text: string) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
+// 장르 문서를 바꾼다(옛 설정 파일 꼴의 YAML 글로 적는다). 읽어 둔 직전 설정은 그대로 둔다(돌던 중에 바뀐 것처럼)
+const write = (name: "genres", text: string) => documents._use(name, YAML.parse(text));
 
-// 로더는 mtimeMs가 정확히 같으면 캐시를 재사용한다. 테스트가 `Date.now()`로 찍으면 앞 테스트와
-// 같은 밀리초에 들어갈 수 있고, 그러면 새로 쓴 파일 대신 앞 테스트의 결과가 나온다.
-// 부를 때마다 반드시 커지는 값을 쓴다.
-let stamp = Date.now();
-const touch = (name: string) => {
-  stamp += 1000;
-  fs.utimesSync(path.join(DIR, `${name}.yaml`), new Date(stamp), new Date(stamp));
-};
-
-before(() => yamlStore._setConfigDir(DIR));
-// 시험마다 기동한 것처럼 본다. 직전에 맞던 설정이 남아 있으면 틀린 파일에도 던지지 않는다
+// 시험마다 기동한 것처럼 본다. 직전에 맞던 설정이 남아 있으면 틀린 문서에도 그것으로 돈다
 beforeEach(() => genreConfig._reset());
-after(() => {
-  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
-});
+after(() => useDefaultDocuments());
 
-// assert.throws는 오류를 돌려주지 않는다 — 검증기로 받는다.
-const thrown = (fn: () => unknown) => {
-  try {
-    fn();
-  } catch (error) {
-    return error as Error & { code?: string };
-  }
-  throw new Error("던지지 않았습니다");
-};
+/**
+ * 기동 때처럼 읽어 알린 문제. 틀린 문서는 던지지 않고(기동을 멈추지 않는다) 알린 뒤 빈 설정으로 돈다.
+ * fn 을 주면 그것으로 읽는다
+ */
+function complaint(fn: () => unknown = () => genreConfig.genres()) {
+  genreConfig._reset();
+  const from = sink.buffer.length;
+  const got = fn();
+  const line = sink.buffer.slice(from).find((e) => e.level === "error");
+  if (!line) throw new Error("알리지 않았습니다");
+  return { code: "CONFIG_INVALID", message: line.text, got };
+}
 
 // 실측(2026-09-16): 이 라이브러리는 YAML 1.2 core라 no·yes·on·off·y·n이 전부 문자열이다.
 // 값으로 읽히는 것은 true/false/null뿐이고, null 키는 빈 문자열이 된다.
 test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 마찬가지", () => {
   for (const key of ["true", '"true"', "null"]) {
     write("genres", `defaults: {}\ngenres:\n  ${key}:\n    label: 값\n`);
-    touch("genres");
-    const err = thrown(() => genreConfig.genres());
+    const err = complaint();
     assert.equal(err.code, "CONFIG_INVALID", key);
     assert.match(err.message, /쓸 수 없습니다/);
   }
@@ -56,9 +44,8 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
   // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 끌어 옮긴 차례가 조용히 어긋난다.
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
-  touch("genres");
 
-  const err = thrown(() => genreConfig.genres());
+  const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /차례가 어긋납니다/);
 
@@ -67,19 +54,17 @@ test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
 });
 
 test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
-  // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 읽을 때 잡지 않으면
+  // 대시보드는 선택기로만 넣지만 DB 는 바깥에서도 고칠 수 있다. 읽을 때 잡지 않으면
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
   const load = (emoji: string) => {
     write("genres", ["defaults: {}", "genres:", "  팝:", `    emoji: ${emoji}`, "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
-    touch("genres");
     return genreConfig.genres();
   };
 
   assert.equal(load("🇰🇷").genres.팝.emoji, "🇰🇷", "국기처럼 코드포인트가 여럿인 것도 한 글자다");
   assert.equal(load('""').genres.팝.emoji, "", "비워 두는 것은 괜찮다");
 
-  genreConfig._reset(); // 기동 때처럼. 직전 값이 있으면 던지지 않고 그것으로 돈다
-  const err = thrown(() => load("abc"));
+  const err = complaint(() => load("abc"));
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /이모지/);
 });
@@ -87,13 +72,11 @@ test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다"
 test("no·on 같은 말은 그냥 장르 키가 된다 — 따옴표가 필요 없다", () => {
   const src = "    sources: [{ type: keyword, keywords: [a] }]";
   write("genres", ["defaults: {}", "genres:", "  no:", "    label: 노", src, "  on:", "    label: 온", src, ""].join("\n"));
-  touch("genres");
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["no", "on"]);
 });
 
 test("defaults와 genres를 함께 돌려준다", () => {
   write("genres", ["defaults:", "  prefetchCount: 2", "genres:", "  pop:", "    label: 팝", "    sources: [{ type: keyword, keywords: [a] }]", ""].join("\n"));
-  touch("genres");
   const cfg = genreConfig.genres();
   assert.deepEqual(Object.keys(cfg.genres), ["pop"]);
   assert.equal(cfg.defaults.prefetchCount, 2);
@@ -157,7 +140,7 @@ test("검사: weight와 연도 범위도 본다", () => {
 });
 
 test("검사: 이모지 자리에 이모지가 아닌 값이 있으면 걸린다", () => {
-  // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 여기서 막지 않으면
+  // 대시보드는 선택기로만 넣지만 DB 는 바깥에서도 고칠 수 있다. 여기서 막지 않으면
   // 디스코드 선택 메뉴가 원인에서 한참 떨어진 자리에서 거부한다.
   const of = (emoji: string | undefined) => genreConfig.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
 
@@ -174,7 +157,7 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
-// 장르마다 기본값의 길이를 덮어쓸 수 있다(예시 파일 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 차단어는 전역과 키워드 출처 칸에만
+// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 차단어는 전역과 키워드 출처 칸에만
 test("검사: 장르별 덮어쓰기(길이)도 본다", () => {
   const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800 }), "");
@@ -199,9 +182,9 @@ test("검사: 최소 길이를 비우면 기본값과 상한을 견준다", () =
   assert.equal(of({ maxDurationSec: 600 }), "");
 });
 
-// 비운 칸은 손대지 않은 예시 파일과 같게 돈다
-test("기본값은 예시 파일의 defaults 와 같다(상한은 비우면 없다)", () => {
-  const example = YAML.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "config", "genres.example.yaml"), "utf8")) as { defaults: Record<string, unknown> };
+// 비운 칸은 손대지 않은 기본 문서와 같게 돈다
+test("기본값은 기본 문서의 defaults 와 같다(상한은 비우면 없다)", () => {
+  const example = documents.defaultOf("genres") as { defaults: Record<string, unknown> };
   assert.deepEqual([example.defaults.prefetchCount, example.defaults.minDurationSec], [GENRE_DEFAULTS.prefetchCount, GENRE_DEFAULTS.minDurationSec]);
 });
 
@@ -211,26 +194,23 @@ test("검사: 미리 뽑아 둘 곡 수는 장르마다 둘 수 없다(기본값
 });
 
 // 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 켜야 다음 문제가 보이던 것을 없앴다
-test("기동 오류는 문제를 한 번에 모두 나열한다(대시보드 저장 전 검사와 같은 문구)", () => {
+test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장 전 검사와 같은 문구)", () => {
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", "  팝:", "    emoji: abc", "    sources: []", ""].join("\n"));
-  touch("genres");
-  const err = thrown(() => genreConfig.genres());
+  const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
   const lines = err.message.split("\n");
-  assert.equal(lines[0], "config/genres.yaml 을 읽을 수 없습니다:");
+  assert.equal(lines[0], "자동재생 장르 설정을 읽을 수 없습니다:");
   assert.match(err.message, /"80": 숫자만으로 된 이름은/);
   assert.match(err.message, /팝: emoji는 이모지 한 글자여야/);
   assert.match(err.message, /팝: 소스\(sources\)가 하나는 있어야/);
 });
 
-test("돌던 중 파일이 틀리면 직전에 맞던 설정으로 돈다(던지지 않는다)", () => {
+test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(던지지 않는다)", () => {
   write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
-  touch("genres");
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"]);
 
   write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: []", ""].join("\n"));
-  touch("genres");
-  assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 파일 대신 직전 값");
+  assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 문서 대신 직전 값");
 });
 
 // 키는 대시보드에서 넣으므로 키가 없다고 기동을 멈추면 넣을 곳도 안 뜬다(2차 16단계 "정한 것" 6)
@@ -238,7 +218,6 @@ test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장�
   const config = (await import("../../src/config/index.ts")).default;
   const saved = config.sources.lastfmKey;
   write("genres", ["defaults: {}", "genres:", "  재즈:", "    sources: [{ type: lastfm, tags: [jazz] }]", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
-  touch("genres");
   try {
     config.sources.lastfmKey = null;
     assert.deepEqual(Object.keys(genreConfig.genres().genres), ["재즈", "팝"]);
