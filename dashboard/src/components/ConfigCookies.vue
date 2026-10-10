@@ -1,8 +1,6 @@
 <template>
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <!-- yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓴다. 그때 갈아 끼우면 옛것으로 되돌아간다 -->
-    <NoticeBox v-if="state.inFlight > 0" variant="note" tone="notice" icon="warning" class="mt-0!">{{ T.inFlight(state.inFlight) }}</NoticeBox>
 
     <BaseCard icon="cookie" :title="T.title">
       <!-- 있는지 없는지만 안다. 값은 쓰기 전용이라 어느 통로로도 내려오지 않는다 -->
@@ -50,7 +48,7 @@ trackUnsaved(
 );
 const saving = ref(false);
 const loadError = ref("");
-const state = reactive<CookieState>({ source: "none", hasFile: false, inFlight: 0 });
+const state = reactive<CookieState>({ source: "none", hasFile: false });
 // 서버에서 상태를 받았는지. 못 받았으면 "없음"이 아니라 모른다
 const known = ref(false);
 

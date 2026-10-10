@@ -276,8 +276,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
 
     ytdlp: {
       // 쿠키를 어디서 가져오나. 한 칸이다. 브라우저 이름이면 그 브라우저에서 뽑고,
-      // "file"이면 config/cookies.txt를 쓴다(대시보드가 그 파일을 고친다). 비우면 쓰지 않는다.
-      // 경로를 받지 않는 이유: 파일 자리를 고정해야 대시보드가 어디를 고칠지 물을 필요가 없다.
+      // "file"이면 대시보드에 넣은 쿠키를 쓴다(비밀 표에 암호화, 실행마다 파일로 푼다: store/cookie-jar). 비우면 쓰지 않는다.
       cookiesSource: COOKIES_SOURCE,
       cookiesFromBrowser: USE_COOKIE_FILE ? null : COOKIES_SOURCE || null,
       useCookieFile: USE_COOKIE_FILE,

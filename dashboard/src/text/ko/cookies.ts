@@ -6,8 +6,6 @@ const saved = "저장된 쿠키 있음";
 const none = "저장된 쿠키 없음";
 const purpose = "연령 제한 영상을 받을 때만 써요.";
 const purposeTip = "유튜브가 세션을 바꾸면 만료 시각 전에도 무효가 돼요.\n로그에 cookies are no longer valid 가 보이면 새로 붙여넣어 주세요.";
-/** 지금 쓰는 중인 받기가 있어 저장이 되돌려질 수 있을 때. count 는 그 수 */
-const inFlight = (count: number) => `지금 연령 제한 영상 ${count}건이 이 쿠키를 쓰고 있어요. 그쪽이 끝나면서 방금 저장한 내용을 되돌릴 수 있으니, 잠시 뒤 한 번 더 저장해 주세요.`;
 const save = "저장";
 const saving = "저장 중…";
 const clear = "저장된 쿠키 지우기";
@@ -22,4 +20,4 @@ const saveFailed = "쿠키를 저장하지 못했어요.";
 const clearFailed = "쿠키를 지우지 못했어요.";
 const loadFailed = "쿠키 상태를 읽지 못했어요.";
 
-export { title, unknown, saved, none, purpose, purposeTip, inFlight, save, saving, clear, pasteHint, pasteHintTip, insecure, replacePlaceholder, savedDone, clearedDone, saveFailed, clearFailed, loadFailed };
+export { title, unknown, saved, none, purpose, purposeTip, save, saving, clear, pasteHint, pasteHintTip, insecure, replacePlaceholder, savedDone, clearedDone, saveFailed, clearFailed, loadFailed };

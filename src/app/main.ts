@@ -9,6 +9,7 @@ import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as aiKeys from "../store/ai-keys.ts";
+import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { Player } from "../player/player.ts";
 import { restoreSavedPlayers, restoreGuild } from "../player/session-restore.ts";
@@ -233,6 +234,9 @@ function checkBeforeLogin() {
   // 바깥 서비스 키(비밀 표)를 설정 객체에 올린다. 장르 키 검사보다 먼저
   serviceKeys.load();
   aiKeys.warnLegacyFile();
+  // 쿠키는 실행마다 파일로 풀었다 지운다. 꺼지다 남은 것을 치운다
+  cookieJar.sweep();
+  cookieJar.warnLegacyFile();
   // 음성 채널 상태 중 우리가 쓴 것. 재시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
   voiceChannelStatus.keepIn(voiceStatusStore);
 

@@ -9,7 +9,6 @@ import assert from "node:assert/strict";
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const ytdlpOptions = await import("../../src/sources/ytdlp-options.ts");
 const config = (await import("../../src/config/index.ts")).default;
-const { cookiesPath } = await import("../../src/config/cookies.ts");
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 재생 불능 회귀)", () => {
   const opts = YouTube.getYtDlpOptions();
@@ -153,11 +152,11 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
   assert.equal(s.configured, s.clients.length > 0);
 });
 
-test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종류만 알린다", () => {
-  // 대시보드는 운영자 전용이지만, 파일 경로는 알려야 할 이유가 없다.
-  const raw = JSON.stringify(YouTube.statusSnapshot());
-  const cookiePath = cookiesPath();
-  assert.ok(!raw.includes(cookiePath), "쿠키 파일 경로가 응답에 실리면 안 된다");
+test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () => {
+  // 대시보드는 운영자 전용이지만, 쿠키의 자리 · 값은 알려야 할 이유가 없다
+  const snap = YouTube.statusSnapshot();
+  assert.ok(["file", "browser", "none"].includes(snap.cookies));
+  assert.ok(!JSON.stringify(snap).includes("cookie-jar"), "실행 때 푸는 표식이 응답에 실리면 안 된다");
 });
 
 // ── 미디어 주소가 어긋난 실패 ─────────────────────────────────────────────

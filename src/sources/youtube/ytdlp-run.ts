@@ -11,19 +11,12 @@ import type { YtDlpFlags as Flags, RunYtDlp } from "../ytdlp-spawn.ts";
 /** forceCookies 를 받아 yt-dlp 옵션을 만든다(연령 제한이면 쿠키를 붙여 다시 만든다) */
 type BuildOptions = (forceCookies: boolean) => Flags;
 import * as externalCaches from "../../store/external-caches.ts";
+import * as cookieJar from "../../store/cookie-jar.ts";
 import { NEEDS_POT, playerClients } from "./clients.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
-// 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
-// yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓰므로, 도는 중에 갈아 끼우면 옛것으로 되돌아간다.
-let cookieRuns = 0;
-
-/** 쿠키 파일을 쥔 채 도는 yt-dlp 수. 0이 아니면 지금 갈아 끼운 것이 되돌아갈 수 있다 */
-function cookieRunsInFlight() {
-  return cookieRuns;
-}
 
 /**
  * yt-dlp 호출을 연령 제한 폴백과 함께 실행.
@@ -115,15 +108,16 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
  */
 async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl): Promise<unknown> {
   const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
-  // 쿠키 파일이 실제로 넘어간 호출만 센다. 무쿠키 캐싱까지 세면 경고가 거짓이 된다
-  const holdsCookieFile = !!opts.cookies;
-  if (holdsCookieFile) cookieRuns++;
+  // 대시보드에 넣은 쿠키는 이 실행만의 파일로 풀어 넘기고, 끝나면 고친 쿠키를 되담고 지운다(store/cookie-jar)
+  const held = opts.cookies === cookieJar.JAR ? cookieJar.checkout() : null;
+  const sent = opts.cookies === cookieJar.JAR ? { ...opts, cookies: held?.file } : opts;
+  if (sent.cookies === undefined) delete sent.cookies;
   try {
-    const result = await exec(url, opts);
+    const result = await exec(url, sent);
     _inspectWarnings((result as { _stderr?: string } | null)?._stderr, client);
     return result;
   } finally {
-    if (holdsCookieFile) cookieRuns--;
+    if (held) cookieJar.release(held);
   }
 }
 
@@ -157,5 +151,5 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
   }
 }
 
-export { cookieRunsInFlight, runYtDlp, _runWithClients, _runOnce, _inspectWarnings };
+export { runYtDlp, _runWithClients, _runOnce, _inspectWarnings };
 export type { BuildOptions };

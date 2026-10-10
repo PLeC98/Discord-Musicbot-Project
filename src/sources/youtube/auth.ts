@@ -32,7 +32,7 @@ function findPluginRoot(dir: string): string | null {
 }
 const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
-import * as cookieConfig from "../../config/cookies.ts";
+import * as cookieJar from "../../store/cookie-jar.ts";
 
 // 유튜브용 yt-dlp 옵션. 공통(ytdlpOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
@@ -51,8 +51,9 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
   if (forceCookies) {
     if (config.ytdlp.cookiesFromBrowser) {
       options.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
-    } else if (config.ytdlp.useCookieFile && cookieConfig.cookiesReady()) {
-      options.cookies = cookieConfig.cookiesPath();
+    } else if (config.ytdlp.useCookieFile && cookieJar.ready()) {
+      // 실행 때 비밀 표에서 그 실행만의 파일로 푼다(ytdlp-run 의 _runOnce)
+      options.cookies = cookieJar.JAR;
     }
   }
 
@@ -71,7 +72,7 @@ function logAuthMode() {
   const clients = config.ytdlp.playerClients;
   const pot = potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
   // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
-  const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieConfig.cookiesReady() ? "파일(연령 제한 폴백 전용)" : "파일(아직 비어 있음. 대시보드에서 넣으세요)") : "없음";
+  const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 넣은 쿠키(연령 제한 폴백 전용)" : "대시보드에 넣은 쿠키(아직 없음. 설정 탭에서 넣으세요)") : "없음";
   log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
   // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
@@ -113,14 +114,14 @@ function statusSnapshot(): YoutubeStatus {
 }
 
 /**
- * 쿠키(브라우저/파일)를 지금 쓸 수 있는가. 연령 제한 폴백 가능 여부.
+ * 쿠키(브라우저 · 대시보드에 넣은 것)를 지금 쓸 수 있는가. 연령 제한 폴백 가능 여부.
  *
- * 파일 쪽은 기동 시점이 아니라 물어볼 때마다 본다. 대시보드로 갈아 끼우면 봇을 다시 띄우지
- * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮아(연령 제한에서만 불린다) stat 값이 아깝지 않다.
+ * 넣은 쿠키는 기동 시점이 아니라 물어볼 때마다 본다. 대시보드로 갈아 끼우면 봇을 다시 띄우지
+ * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮다(연령 제한에서만 불린다).
  */
 function cookiesConfigured() {
   if (config.ytdlp.cookiesFromBrowser) return true;
-  return config.ytdlp.useCookieFile && cookieConfig.cookiesReady();
+  return config.ytdlp.useCookieFile && cookieJar.ready();
 }
 
 export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };

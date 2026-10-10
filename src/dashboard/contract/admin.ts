@@ -138,8 +138,8 @@ type PromptReply = { sections: PromptSection[] };
 /** AI 설정과 프롬프트를 한 번에 저장한 답 */
 type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 
-/** 유튜브 쿠키. 값은 오지 않는다. inFlight 가 0 이 아니면 지금 덮어써도 도는 yt-dlp 가 끝나며 되돌린다 */
-type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
+/** 유튜브 쿠키. 값은 오지 않는다. hasFile: 넣어 둔 쿠키가 있고 풀린다 */
+type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
 export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState };

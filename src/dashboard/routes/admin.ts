@@ -20,7 +20,7 @@ import * as statusConfig from "../../config/status.ts";
 import * as aiConfig from "../../config/ai.ts";
 import { promptProblems } from "../../config/schema/ai-prompt.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
-import * as cookieConfig from "../../config/cookies.ts";
+import * as cookieJar from "../../store/cookie-jar.ts";
 import * as yamlStore from "../../config/yaml-store.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
@@ -393,28 +393,23 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
 });
 
 // 유튜브 쿠키. 연령 제한 영상에만 쓰이고, 유튜브가 브라우저 쪽에서 세션을 돌리면 만료 시각과
-// 무관하게 무효가 된다. 그때마다 서버에 들어가 파일을 갈아 끼우는 대신 여기서 덮어쓴다.
+// 무관하게 무효가 된다. 그때마다 여기서 덮어쓴다(비밀 표에 암호화, store/cookie-jar).
 //
-// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다.
+// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 넣기 · 지우기는 최근 로그인만
 function cookieState(): CookieState {
-  return {
-    source: YouTube.statusSnapshot().cookies,
-    hasFile: cookieConfig.cookiesReady(),
-    // 0이 아니면 지금 덮어써도 그 yt-dlp 가 끝나면서 옛 내용으로 되돌린다
-    inFlight: YouTube.cookieRunsInFlight(),
-  };
+  return { source: YouTube.statusSnapshot().cookies, hasFile: cookieJar.ready() };
 }
 
 adminRouter.get("/cookies", requireOwner, (req, res) => res.json(cookieState()));
 
-adminRouter.put("/cookies", requireOwner, (req, res) => {
+adminRouter.put("/cookies", requireOwner, requireRecentLogin, (req, res) => {
   const text = req.body?.text;
   if (typeof text !== "string") return sendProblem(res, "nothing-to-save");
 
   try {
     // 내용은 절대 남기지 않는다. 로그인된 세션 그 자체다
     log.warn({ sub: "admin" }, `대시보드에서 유튜브 쿠키 ${text.trim() ? "저장" : "삭제"}. 실행 ${ranBy(req)}`);
-    cookieConfig.saveCookies(text);
+    cookieJar.save(text);
     res.json(cookieState());
   } catch (error) {
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
