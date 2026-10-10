@@ -6,7 +6,7 @@ import { formatNumber } from "../../utils/locale.ts";
 const title = "AI 보조";
 const enable = "AI 보조 켜기";
 const desc = "자동재생 후보를 LLM을 사용해 재검증해요.";
-const descTip = "곡 이름으로 유튜브에서 찾은 후보만 물어요. 유튜브 주소를 직접 주는 출처는 묻지 않아요.\n모델을 못 부르면 규칙으로 고르니 재생은 멈추지 않아요.";
+const descTip = "유튜브 검색으로 고른 후보만 물어요(키워드 검색 · 곡 이름으로 찾기).\n유튜브 주소를 직접 주는 출처(유튜브 재생목록 · VocaDB 등)는 묻지 않아요.\n모델을 못 부르면 규칙으로 고르니 재생은 멈추지 않아요.";
 /** 후보 목록 표시(mark)가 어느 섹션에도 없을 때 */
 const listMarkMissing = (mark: string) => `어느 섹션에도 ${mark} 이 없어요`;
 
