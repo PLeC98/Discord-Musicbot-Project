@@ -1,5 +1,6 @@
 // 봇 다시 시작. 봇 상태 탭의 단추 · 설정 탭 저장 막대의 "저장 후 다시 시작"이 함께 쓴다. 창(BotRestartDialog)은 운영자 패널에 하나.
-// asking: 단추를 눌러 묻는 중, waiting: 봇이 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 답하면 화면을 새로 고친다
+// asking: 단추를 눌러 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
+// waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 답하면 화면을 새로 고친다
 
 import { ref } from "vue";
 import axios from "axios";
@@ -12,7 +13,7 @@ const T = text.restart;
 const WAIT_MS = 120_000;
 const POLL_MS = 1500;
 
-type Phase = "idle" | "asking" | "waiting";
+type Phase = "idle" | "asking" | "starting" | "waiting";
 const phase = ref<Phase>("idle");
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -39,10 +40,11 @@ function askRestart() {
 
 /** 묻지 않고 다시 시작한다(이미 고른 일: 확인 창의 다시 시작 · 저장 후 다시 시작) */
 async function restartNow() {
-  phase.value = "waiting";
+  phase.value = "starting";
   try {
     const before = await pidNow();
     await axios.post<RestartReply>("/api/admin/restart");
+    phase.value = "waiting";
     if (await cameBack(before)) {
       // 새 봇이 새 화면을 줄 수 있다(빌드를 바꾼 뒤 다시 시작했을 때)
       location.reload();

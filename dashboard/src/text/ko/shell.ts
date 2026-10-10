@@ -41,12 +41,17 @@ const inboxEmpty = "알림 없음";
 const loginAgain = "다시 로그인";
 const retry = "다시 시도";
 const reconnecting = "실시간 갱신을 다시 잇는 중이에요.";
-const loginAgainBody = "새 창에서 다시 로그인한 뒤 이 탭으로 돌아오면 이어서 쓸 수 있어요. 고치던 내용은 그대로 남아 있어요.";
+const loginAgainBody = "로그인 창에서 다시 로그인하면 이 탭에서 이어서 쓸 수 있어요. 고치던 내용은 그대로 남아 있어요.";
 const later = "나중에";
 const loggedIn = "로그인했어요";
-const loginInNewWindow = "새 창에서 로그인";
-const notLoggedInYet = "아직 로그인되지 않았어요. 새 창에서 로그인을 마쳐 주세요.";
-const reauthBody = "새 창에서 로그인을 마친 뒤 이 탭으로 돌아와 다시 저장해 주세요. 고치던 내용은 그대로 남아 있어요.";
+const openLoginWindow = "로그인 창 열기";
+/** 로그인 창을 연 뒤 대화상자에 */
+const loginWindowOpen = "로그인 창에서 로그인을 마치면 그 창은 저절로 닫히고 여기서 이어서 해요.";
+/** 로그인 창의 끝(/login-done) */
+const loginDoneTitle = "로그인했어요";
+const loginDoneBody = "원래 탭에서 이어서 해요. 이 창이 닫히지 않으면 직접 닫아 주세요.";
+const notLoggedInYet = "아직 로그인되지 않았어요. 로그인 창에서 로그인을 마쳐 주세요.";
+const reauthBody = "로그인 창에서 다시 로그인하면 하던 일을 이어서 해요. 고치던 내용은 그대로 남아 있어요.";
 
 // 시계(사이드바)
 const clockLabel = (hh: string, mm: string) => `${hh}시 ${mm}분`;
@@ -54,4 +59,48 @@ const year = (n: number) => `${n}년`;
 const month = (n: number) => `${n}월`;
 const day = (n: number) => `${n}일`;
 
-export { notFoundTitle, notFound, topBar, serverList, serverSettingsSuffix, adminPanel, openMenu, viewingAs, clearViewAs, serverRail, sidebarWidth, sidebarExpand, sidebarCollapse, closeMenu, allServers, brightness, settings, licenses, logout, modeDark, modeLight, modeSystem, inbox, inboxUnread, inboxClear, inboxRemoveOne, inboxEmpty, loginAgain, retry, reconnecting, loginAgainBody, later, loggedIn, loginInNewWindow, notLoggedInYet, reauthBody, clockLabel, year, month, day };
+export {
+  notFoundTitle,
+  notFound,
+  topBar,
+  serverList,
+  serverSettingsSuffix,
+  adminPanel,
+  openMenu,
+  viewingAs,
+  clearViewAs,
+  serverRail,
+  sidebarWidth,
+  sidebarExpand,
+  sidebarCollapse,
+  closeMenu,
+  allServers,
+  brightness,
+  settings,
+  licenses,
+  logout,
+  modeDark,
+  modeLight,
+  modeSystem,
+  inbox,
+  inboxUnread,
+  inboxClear,
+  inboxRemoveOne,
+  inboxEmpty,
+  loginAgain,
+  retry,
+  reconnecting,
+  loginAgainBody,
+  later,
+  loggedIn,
+  openLoginWindow,
+  loginWindowOpen,
+  loginDoneTitle,
+  loginDoneBody,
+  notLoggedInYet,
+  reauthBody,
+  clockLabel,
+  year,
+  month,
+  day,
+};

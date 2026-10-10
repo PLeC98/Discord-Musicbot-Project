@@ -51,6 +51,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresOwner: true },
   },
   {
+    // 로그인 창(다시 로그인)이 로그인을 마치고 오는 곳. 원래 탭에 알리고 창을 닫는다
+    path: "/login-done",
+    component: () => import("../views/LoginDoneView.vue"),
+    meta: { requiresAuth: true, bare: true },
+  },
+  {
     // 없는 주소
     path: "/:pathMatch(.*)*",
     component: () => import("../views/NotFoundView.vue"),

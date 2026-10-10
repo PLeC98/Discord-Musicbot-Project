@@ -10,6 +10,8 @@ declare module "axios" {
     quietSession?: boolean;
     /** CSRF 토큰 거절 뒤 다시 보낸 요청(한 번만 다시 보낸다) */
     csrfRetried?: boolean;
+    /** 다시 로그인한 뒤 다시 보낸 요청(한 번만 다시 보낸다) */
+    reauthRetried?: boolean;
   }
 }
 
@@ -53,10 +55,11 @@ export function failureKind(error: unknown): FailureKind | null {
  * http(axios) 에 가로채기를 건다.
  * onSessionEnd: 401 을 받았을 때. 요청은 그대로 실패한다(부른 쪽이 처리 중을 푼다).
  * 요청에 quietSession 을 주면 401 이어도 부르지 않는다(로그아웃).
- * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다
+ * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다.
+ *   다시 로그인을 마치면 true 로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false 면 거절대로 실패한다
  * onReach(ok): 서버에 닿았는지(응답이 왔다 · 연결이 안 됐다). 시간 한도 · 끊음은 알리지 않는다
  */
-export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach }: { onSessionEnd: () => void; onReauth?: () => void; onReach: (ok: boolean) => void }): void {
+export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void }): void {
   let token: string | null = null;
   let tokenRequest: Promise<string> | null = null;
 
@@ -100,8 +103,18 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
         if (request && !request.csrfRetried) return http.request({ ...request, csrfRetried: true });
       }
       if (response?.status === 401 && !request?.quietSession) onSessionEnd();
-      if (problemCodeOf(response?.data) === "reauth-required") onReauth?.();
-      return Promise.reject(error);
+      return afterReauth(problemCodeOf(response?.data), request, error) ?? Promise.reject(error);
     },
   );
+
+  // reauth-required 면 다시 로그인을 마친 뒤 그 요청을 한 번 다시 보낸다(다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다). 해당 없으면 null
+  function afterReauth(code: string | undefined, request: InternalAxiosRequestConfig | undefined, error: unknown) {
+    if (code !== "reauth-required" || !onReauth || !request || request.reauthRetried) return null;
+    const ask = onReauth;
+    return (async () => {
+      if (!(await ask())) throw error;
+      token = null;
+      return http.request({ ...request, reauthRetried: true, csrfRetried: false });
+    })();
+  }
 }

@@ -34,7 +34,7 @@ tunablesRouter.put("/", (req, res) => {
   try {
     const saved = tunables.save(values as Record<string, unknown>, revision as number);
     const changes = changesOf(before, saved.values);
-    log.warn({ sub: "admin" }, `대시보드에서 운영 조절값 저장(저장 번호 ${saved.revision}): ${changes.length ? changes.join(" · ") : "바뀐 값 없음"}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 운영 조절값 저장: ${changes.length ? changes.join(" · ") : "바뀐 값 없음"}. 실행 ${ranBy(req)}`);
     // 쿠키 출처는 바로 먹는다. 지금 무엇으로 유튜브에 붙는지 한 줄 다시 남긴다
     if (config.ytdlp.cookiesSource !== cookiesBefore) YouTube.logAuthMode();
     res.json(saved);

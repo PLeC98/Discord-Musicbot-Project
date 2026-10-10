@@ -109,6 +109,16 @@ test("콜백: 코드를 토큰으로 바꾸고 사용자 · 서버 목록을 세
   assert.deepEqual(user, { id: "u1", username: "user", globalName: "user", avatar: "av", guilds: [{ id: "g1" }] });
 });
 
+// 화면이 연 로그인 창(다시 로그인)은 끝나면 창을 닫는 화면으로. 다음 로그인이 평소 로그인이면 대시보드로
+test("콜백: 로그인 창(popup=1)으로 시작했으면 /login-done 으로 보낸다. 표시는 그 로그인 한 번만", async () => {
+  const { go } = await start(fakeDiscord());
+  let state = new URL(location(await go("/auth/login?popup=1"))).searchParams.get("state");
+  assert.equal(location(await go(`/auth/callback?code=abc&state=${state}`)), "/login-done");
+
+  state = new URL(location(await go("/auth/login"))).searchParams.get("state");
+  assert.equal(location(await go(`/auth/callback?code=abc&state=${state}`)), "/dashboard");
+});
+
 test("위험한 조작: 로그인한 지 10분 안이면 받고, 지났으면 reauth-required(403). 로그인 전이면 login-required", async () => {
   const { go } = await start(fakeDiscord());
   assert.equal((await go("/risky", { method: "POST" })).status, 401);

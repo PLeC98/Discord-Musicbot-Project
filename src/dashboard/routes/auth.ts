@@ -73,10 +73,12 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
 
-  // 디스코드 OAuth 로 보낸다
+  // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다
   router.get("/login", (req, res) => {
     const state = crypto.randomBytes(16).toString("hex");
     req.session.oauthState = state;
+    if (req.query.popup === "1") req.session.oauthPopup = true;
+    else delete req.session.oauthPopup;
     req.session.save(() => {
       const params = new URLSearchParams({
         client_id: CLIENT_ID,
@@ -99,6 +101,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     // 로그인 CSRF 를 막으려고 state 를 맞춰 본다(RFC 6749)
     const expectedState = req.session.oauthState;
     delete req.session.oauthState;
+    const popup = req.session.oauthPopup === true;
+    delete req.session.oauthPopup;
     if (!state || !expectedState || state !== expectedState) {
       return res.redirect(loginFailed("auth_failed"));
     }
@@ -143,7 +147,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         }
         req.session.user = sessionUser;
         req.session.loginAt = Date.now();
-        req.session.save(() => res.redirect("/dashboard"));
+        req.session.save(() => res.redirect(popup ? "/login-done" : "/dashboard"));
       });
     } catch (error) {
       res.redirect(loginFailed(callbackFailure(error, REDIRECT_URI)));

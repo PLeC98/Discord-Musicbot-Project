@@ -27,7 +27,7 @@
           <div class="flex gap-2 justify-end flex-wrap">
             <BaseButton variant="ghost" @click="close">{{ T.later }}</BaseButton>
             <BaseButton v-if="session.ended" variant="ghost" :disabled="checking" @click="check">{{ T.loggedIn }}</BaseButton>
-            <BaseButton variant="primary" @click="openLogin">{{ T.loginInNewWindow }}</BaseButton>
+            <BaseButton variant="primary" @click="openLogin">{{ T.openLoginWindow }}</BaseButton>
           </div>
         </div>
       </div>
@@ -41,7 +41,7 @@ import { useRouter } from "vue-router";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
-import { session } from "../composables/session.ts";
+import { session, openLoginWindow, onSignedIn, endReauth } from "../composables/session.ts";
 import { useUserStore } from "../stores/user.ts";
 import { codeLineOf, noticeText, unansweredTitle } from "../utils/problem.ts";
 import { text } from "../text/index.ts";
@@ -66,16 +66,25 @@ watch(
   },
 );
 
+// 나중에: 다시 로그인을 기다리던 요청은 거절대로 실패한다(세션 끝은 띠가 남는다)
 function close() {
   showDialog.value = false;
-  session.reauth = false;
+  if (session.reauth) endReauth(false);
 }
 
 function openLogin() {
-  // 사용자가 누른 때에만 연다(그렇지 않으면 브라우저가 팝업으로 막는다)
-  window.open("/auth/login", "_blank");
-  // 다시 로그인은 세션이 살아 있어 확인할 것이 없다. 새 창에서 마친 뒤 돌아와 다시 저장하면 된다
-  if (!session.ended) close();
+  // 사용자가 누른 때에만 연다(그렇지 않으면 브라우저가 팝업으로 막는다). 창을 닫지 않고 마치기를 기다린다
+  openLoginWindow();
+  note.value = T.loginWindowOpen;
+}
+
+// 로그인 창이 로그인을 마쳤다. 세션 끝이면 이어 쓰고, 다시 로그인이면 기다리던 요청을 다시 보낸다
+async function signedIn() {
+  if (session.ended) await check();
+  if (session.reauth) {
+    showDialog.value = false;
+    endReauth(true);
+  }
 }
 
 async function check() {
@@ -106,12 +115,15 @@ async function retry() {
 const onReturn = () => {
   if (session.ended && !document.hidden) void user.resumeSession();
 };
+let stopListening: (() => void) | null = null;
 onMounted(() => {
   window.addEventListener("focus", onReturn);
   document.addEventListener("visibilitychange", onReturn);
+  stopListening = onSignedIn(() => void signedIn());
 });
 onUnmounted(() => {
   window.removeEventListener("focus", onReturn);
   document.removeEventListener("visibilitychange", onReturn);
+  stopListening?.();
 });
 </script>

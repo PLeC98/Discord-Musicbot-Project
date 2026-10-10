@@ -391,7 +391,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
       { name: "ai", data, revision: revision as number },
       { name: "ai-prompt", data: sections },
     ]);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: AI 설정 · 프롬프트(저장 번호 ${next}). 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: AI 설정 · 프롬프트. 실행 ${ranBy(req)}`);
     res.json({ data: documents.get("ai") as Record<string, unknown>, sections: aiConfig.aiPrompt(), revision: next } satisfies AiSaved);
   } catch (error) {
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
@@ -462,7 +462,7 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
 
   try {
     const next = documents.put(name, data, revision as number);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}(저장 번호 ${next}). 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}. 실행 ${ranBy(req)}`);
     res.json({ success: true, data: documents.get(name) as Record<string, unknown>, revision: next } satisfies ConfigSaved);
   } catch (error) {
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
