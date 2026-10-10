@@ -7,6 +7,7 @@ import type { ModelField, ModelGroup, ModelSummary } from "../../config/ai-model
 import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
 import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
+import { FIXED_COLORS } from "../../ui/palette.ts";
 
 /** 봇 · Node · 시스템 상태. 메모리는 MB, uptime 은 봇이 켜진 뒤의 초. logLevel 은 서버가 보내고 있는 가장 낮은 레벨 */
 type AdminStatus = {
@@ -24,6 +25,16 @@ type AdminStatus = {
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
+/**
+ * 공지 종류의 모양: 디스코드 임베드의 제목 · 이모지 · 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다.
+ * 색은 경고 수준의 뜻(점검 = 경고, 업데이트 = 완료, 긴급 = 오류, 공지사항 = 공지)
+ */
+const ANNOUNCE_STYLE: Record<AnnounceKind, { emoji: string; title: string; color: `#${string}` }> = {
+  maintenance: { emoji: "🔧", title: "봇 점검 안내", color: FIXED_COLORS.warning },
+  update: { emoji: "🆕", title: "봇 업데이트 안내", color: FIXED_COLORS.done },
+  alert: { emoji: "⚠️", title: "긴급 공지", color: FIXED_COLORS.error },
+  info: { emoji: "ℹ️", title: "공지사항", color: FIXED_COLORS.notice },
+};
 /** 공지 길이 상한(디스코드 임베드 설명 칸). 앞뒤 공백을 뺀 길이로 센다(announceBody) */
 const ANNOUNCE_MAX = 4096;
 /** 보낼 공지 본문: 앞뒤 공백을 뺀다 */
@@ -74,5 +85,5 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[] };
 /** 유튜브 쿠키. 값은 오지 않는다. inFlight 가 0 이 아니면 지금 덮어써도 도는 yt-dlp 가 끝나며 되돌린다 */
 type CookieState = { source: CookieSource; hasFile: boolean; inFlight: number };
 
-export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, announceBody, isAnnounceKind };
+export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
 export type { AdminStatus, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState };

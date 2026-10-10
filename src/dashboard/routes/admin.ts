@@ -15,7 +15,7 @@ import * as procRegistry from "../../infra/process-registry.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, announceBody, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type AnnounceKind, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AdminStatus, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -24,9 +24,8 @@ import { promptProblems } from "../../config/schema/ai-prompt.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieConfig from "../../config/cookies.ts";
 import * as yamlStore from "../../config/yaml-store.ts";
-import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
+import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel } from "discord.js";
 import config from "../../config/index.ts";
-import { colorOf } from "../../ui/colors.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import * as audioCache from "../../store/audio-cache.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
@@ -102,14 +101,6 @@ adminRouter.get("/status", requireOwner, (req, res) => {
   } satisfies AdminStatus);
 });
 
-// 전체 서버 공지. 색은 ui/colors 의 뜻으로
-const ANNOUNCE_TYPES: Record<AnnounceKind, { color: HexColorString; emoji: string; title: string }> = {
-  maintenance: { color: colorOf("warning"), emoji: "🔧", title: "봇 점검 안내" },
-  update: { color: colorOf("done"), emoji: "🆕", title: "봇 업데이트 안내" },
-  alert: { color: colorOf("error"), emoji: "⚠️", title: "긴급 공지" },
-  info: { color: colorOf("notice"), emoji: "ℹ️", title: "공지사항" },
-};
-
 // 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널
 async function announceChannel(guild: Guild) {
   const me = guild.members.me;
@@ -136,7 +127,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   const { client } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
-  const cfg = ANNOUNCE_TYPES[type];
+  const cfg = ANNOUNCE_STYLE[type];
 
   const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(body).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
 

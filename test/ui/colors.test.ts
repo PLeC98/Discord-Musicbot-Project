@@ -1,4 +1,4 @@
-// src/ui/colors.ts — 화면의 색은 경고 수준마다 하나. 색 값은 이 표에만 적는다
+// src/ui/palette.ts · colors.ts — 화면의 색은 경고 수준마다 하나. 색 값은 palette 표에만 적는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -29,10 +29,10 @@ function walk(dir: string, out: string[] = []) {
   return out;
 }
 
-test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻으로 고른다)", () => {
+test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻 · ui/palette 로 고른다)", () => {
   // 설정 모듈은 .env 색의 기본값을 적는 자리다
   const skip = [path.join(ROOT, "src", "config", "index.ts")];
   const files = walk(path.join(ROOT, "src")).filter((f) => !skip.some((s) => f === s || f.startsWith(s)));
-  const found = files.filter((f) => !f.endsWith(path.join("ui", "colors.ts"))).flatMap((f) => (fs.readFileSync(f, "utf8").match(/["'`]#[0-9A-Fa-f]{6}["'`]/g) ?? []).map((hex) => `${path.relative(ROOT, f)} ${hex}`));
+  const found = files.filter((f) => !f.endsWith(path.join("ui", "palette.ts"))).flatMap((f) => (fs.readFileSync(f, "utf8").match(/["'`]#[0-9A-Fa-f]{6}["'`]/g) ?? []).map((hex) => `${path.relative(ROOT, f)} ${hex}`));
   assert.deepEqual(found, []);
 });
