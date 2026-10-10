@@ -152,7 +152,7 @@
 #                             AdditionDate 등록 최신순 · TagUsageCount 태그 많은 순
 #                             SongType 곡 종류순 · Name 이름순
 #
-# type: spotify                           (스포티파이 자격증명 필요)
+# type: spotify                           (재생목록 · 아티스트는 키 필요 없음. 앨범은 .env 의 SPOTIFY_CLIENT_ID · SPOTIFY_CLIENT_SECRET 필요)
 #   url : (필수) 재생목록·앨범·아티스트 주소.
 #
 # type: youtube                           (키 필요 없음)
