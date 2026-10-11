@@ -1,9 +1,9 @@
 <!--
-  색 고르기. 견본 동그라미를 누르면 판이 뜬다. 판: 채도 · 밝기 판, 색상 막대, 고른 색. 값은 #RRGGBB(대문자)로 올린다.
+  색 고르기. 견본 동그라미를 누르면 판이 뜬다. 판: 채도 · 밝기 판, 색상 막대, 값 칸(HEX · RGB · HSV 중 고른 꼴). 값은 #RRGGBB(대문자)로 올린다.
   브라우저의 색 고르기(input type=color)는 브라우저 · 운영체제마다 모양이 달라 쓰지 않는다.
 
-  값을 글로 적는 칸은 부르는 쪽이 따로 둔다. 적다 만 값처럼 색이 아니면 fallback 색으로 보인다.
-  판 안에서는 HSV 를 그대로 들고 있다. #RRGGBB 로는 채도나 밝기가 0 일 때 색상이 사라져,
+  적다 만 값처럼 색이 아니면 fallback 색으로 보인다.
+  판 안에서는 HSV 를 그대로 들고 있다. #RRGGBB · RGB 로는 채도나 밝기가 0 일 때 색상이 사라져,
   검정까지 끌었다 돌아오면 색상이 빨강으로 튄다. 바깥 값이 판의 색과 달라졌을 때만(글로 적었을 때) 다시 읽는다.
 -->
 <template>
@@ -23,9 +23,22 @@
 
           <input type="range" min="0" max="359" step="1" :value="Math.round(hsv.h)" :aria-label="T.colorHue" class="hue" :style="{ '--hue': `hsl(${hsv.h} 100% 50%)` }" @input="set({ h: +valueOf($event) })" />
 
-          <div class="flex items-center gap-3">
-            <span class="size-8 shrink-0 rounded-full border border-outline-variant" :style="{ background: hex }"></span>
-            <span class="font-mono text-sm text-on-surface select-all">{{ hex }}</span>
+          <!-- 값 칸의 꼴: 이어 붙은 버튼 묶음(하나 고르기). 고른 꼴은 브라우저가 기억한다 -->
+          <div class="flex gap-0.5" role="radiogroup" :aria-label="T.colorFormat">
+            <button v-for="(one, i) in FORMATS" :key="one" type="button" role="radio" :aria-checked="format === one" :class="segment(format === one, i, FORMATS.length)" @click="pickFormat(one)">{{ one.toUpperCase() }}</button>
+          </div>
+
+          <!-- 고른 색 견본(40, 칸과 같은 높이) + 값 칸. 칸 밑에 짧은 이름. 수는 화살표로 1, Shift 를 같이 누르면 10 -->
+          <div class="flex items-start gap-2">
+            <span class="size-10 shrink-0 rounded-full border border-outline-variant" :style="{ background: hex }"></span>
+            <label v-if="format === 'hex'" class="flex-1 min-w-0 flex flex-col items-center">
+              <input :value="hex" spellcheck="false" maxlength="7" :aria-label="T.colorHex" :class="[FIELD, 'w-full px-3! text-center font-mono']" @input="typeHex" @change="settleHex" @keydown.enter="settleHex" />
+              <span :class="CHANNEL_NAME">HEX</span>
+            </label>
+            <label v-for="one in channels" v-else :key="one.key" class="flex-1 min-w-0 flex flex-col items-center">
+              <input :value="one.value" inputmode="numeric" maxlength="3" :aria-label="T.colorChannel[one.key]" :class="[FIELD, 'w-full px-1! text-center font-mono']" @input="typeChannel($event, one)" @blur="settleChannel($event, one)" @keydown="stepChannel($event, one)" />
+              <span :class="CHANNEL_NAME">{{ one.key.toUpperCase() }}</span>
+            </label>
           </div>
         </div>
 
@@ -37,10 +50,13 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch, type CSSProperties } from "vue";
-import { hexToHsv, hsvToHex, isHex, type Hsv } from "../utils/color.ts";
+import { hexToHsv, hsvToHex, hsvToRgb, isHex, keepHue, parseHex, rgbToHsv, type Hsv } from "../utils/color.ts";
 import { coveredBottom } from "../composables/anchored-panel.ts";
 import { valueOf } from "../utils/dom.ts";
 import { rem } from "../utils/rem.ts";
+import { FIELD } from "../utils/field.ts";
+import { segment } from "../utils/segment.ts";
+import { readStored, writeStored } from "../utils/storage.ts";
 import { text } from "../text/index.ts";
 const T = text.fields;
 
@@ -71,7 +87,7 @@ const clearable = computed(() => props.modelValue.trim() !== "");
 const hsv = ref<Hsv>(hexToHsv(shown.value));
 const hex = computed(() => hsvToHex(hsv.value));
 watch(shown, (now) => {
-  if (now !== hex.value) hsv.value = hexToHsv(now);
+  if (now !== hex.value) hsv.value = keepHue(hexToHsv(now), hsv.value);
 });
 
 // 판 바탕: 아래로 갈수록 검정, 왼쪽으로 갈수록 흰색, 맨 밑은 지금 색상의 가장 진한 색
@@ -82,7 +98,88 @@ function set(next: Partial<Hsv>) {
   emit("update:modelValue", hex.value);
 }
 
+/** 다른 꼴(HEX · RGB)로 정한 색. 검정 · 무채색이면 지금 색상을 남긴다 */
+function adopt(next: Hsv) {
+  hsv.value = keepHue(next, hsv.value);
+  emit("update:modelValue", hex.value);
+}
+
 const unit = (n: number) => Math.min(1, Math.max(0, n));
+
+// 값 칸의 꼴. 못 읽거나 못 쓰는 환경(사생활 보호 창 등)이면 HEX 로 시작한다
+const FORMATS = ["hex", "rgb", "hsv"] as const;
+type Format = (typeof FORMATS)[number];
+const FORMAT_KEY = "colorPicker.format";
+const stored = readStored(FORMAT_KEY);
+const format = ref<Format>(FORMATS.find((one) => one === stored) ?? "hex");
+function pickFormat(one: Format) {
+  format.value = one;
+  writeStored(FORMAT_KEY, one);
+}
+
+// HEX 칸: 여섯 자리가 되면 바로 받는다(# 은 없어도 된다). 세 자리(#RGB)는 다 쳤을 때(Enter · 칸을 떠날 때) 늘려 받고, 색이 아니면 지금 색으로 되돌린다
+function typeHex(event: Event) {
+  const typed = valueOf(event).trim().replace(/^#/, "");
+  const parsed = typed.length === 6 ? parseHex(typed) : null;
+  if (parsed) adopt(hexToHsv(parsed));
+}
+
+function settleHex(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const parsed = parseHex(input.value);
+  if (parsed && parsed !== hex.value) adopt(hexToHsv(parsed));
+  input.value = hex.value;
+}
+
+// RGB(0~255) · HSV(색상 0~359 · 채도 · 밝기 0~100) 칸
+type ChannelKey = "r" | "g" | "b" | "h" | "s" | "v";
+type Channel = { key: ChannelKey; max: number; value: number };
+const channels = computed<Channel[]>(() => {
+  if (format.value === "rgb") {
+    const rgb = hsvToRgb(hsv.value);
+    return [
+      { key: "r", max: 255, value: rgb.r },
+      { key: "g", max: 255, value: rgb.g },
+      { key: "b", max: 255, value: rgb.b },
+    ];
+  }
+  return [
+    { key: "h", max: 359, value: Math.round(hsv.value.h) },
+    { key: "s", max: 100, value: Math.round(hsv.value.s * 100) },
+    { key: "v", max: 100, value: Math.round(hsv.value.v * 100) },
+  ];
+});
+
+function setChannel(one: Channel, n: number) {
+  const value = Math.min(one.max, Math.max(0, Math.round(n)));
+  if (one.key === "r" || one.key === "g" || one.key === "b") adopt(rgbToHsv({ ...hsvToRgb(hsv.value), [one.key]: value }));
+  else set({ [one.key]: one.key === "h" ? value : value / 100 });
+  return value;
+}
+
+// 숫자만 받고 넘치면 끝값으로. 지운 글자 · 줄인 값은 칸에 바로 되돌린다(값이 같으면 Vue 가 다시 그리지 않는다)
+function typeChannel(event: Event, one: Channel) {
+  const input = event.target as HTMLInputElement;
+  const digits = input.value.replace(/\D/g, "");
+  if (!digits) {
+    input.value = "";
+    return;
+  }
+  input.value = String(setChannel(one, Number(digits)));
+}
+
+// 비운 채 떠나면 지금 값으로
+function settleChannel(event: Event, one: Channel) {
+  const input = event.target as HTMLInputElement;
+  if (!input.value) input.value = String(channels.value.find((now) => now.key === one.key)?.value ?? one.value);
+}
+
+function stepChannel(event: KeyboardEvent, one: Channel) {
+  const dir = event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : 0;
+  if (!dir) return;
+  event.preventDefault();
+  setChannel(one, one.value + dir * (event.shiftKey ? 10 : 1));
+}
 
 function pick(event: PointerEvent) {
   const rect = area.value?.getBoundingClientRect();
@@ -157,6 +254,7 @@ watch(open, async (isOpen) => {
 
 onBeforeUnmount(() => listen(false));
 
+const CHANNEL_NAME = "mt-1 text-2xs text-on-surface-variant";
 const PANEL = "fixed z-200 flex flex-col overflow-hidden rounded-lg pane-menu bg-surface-container-low!";
 </script>
 

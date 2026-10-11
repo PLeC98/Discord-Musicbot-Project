@@ -21,7 +21,7 @@
 
         <label class="flex items-center gap-2 shrink-0" v-tooltip="T.weightTip">
           <span class="text-xs text-on-surface-variant">{{ T.weight }}</span>
-          <NumberInput :model-value="numberAt(source, 'weight')" placeholder="1" :class="[FIELD, 'w-16 px-2 text-center']" @update:model-value="setField(i, 'weight', $event)" />
+          <NumberInput :model-value="numberAt(source, 'weight')" placeholder="1" :class="[FIELD, 'w-16 px-2! text-center']" @update:model-value="setField(i, 'weight', $event)" />
         </label>
 
         <button :class="[ICON_BTN, 'size-8 hover:text-error']" :aria-label="T.remove" v-tooltip="text.common.remove" @click="remove(i)"><Icon name="delete" :size="20" /></button>

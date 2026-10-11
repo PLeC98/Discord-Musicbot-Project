@@ -32,6 +32,10 @@ const colorArea = "채도 · 밝기";
 const colorAreaValue = (saturation: number, brightness: number) => `채도 ${saturation}% · 밝기 ${brightness}%`;
 const colorHue = "색상";
 const colorDefault = "기본 색으로";
+const colorFormat = "값 꼴";
+const colorHex = "HEX 값(#RRGGBB)";
+/** RGB · HSV 칸마다 읽어 줄 이름 */
+const colorChannel = { r: "빨강(0~255)", g: "초록(0~255)", b: "파랑(0~255)", h: "색상(0~359도)", s: "채도(0~100%)", v: "밝기(0~100%)" } as const;
 
 // 마크다운 서식 도구(디스코드와 같은 단축키는 부르는 쪽이 붙인다)
 const format = {
@@ -53,4 +57,4 @@ const format = {
   timestamp: "현재 시간 (시간대 자동 변환)",
 };
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, format };
+export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };
