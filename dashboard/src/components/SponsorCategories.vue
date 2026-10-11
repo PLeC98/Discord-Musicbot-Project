@@ -33,7 +33,7 @@
 
     <div class="rounded-(--r-inner) border border-outline-variant/50 p-1 grid grid-cols-1 @lg/card:grid-cols-2" :class="dimmed ? 'opacity-38 pointer-events-none' : ''">
       <label v-for="c in CATEGORIES" :key="c.id" class="flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="editable ? 'state-layer cursor-pointer' : 'opacity-60'">
-        <input type="checkbox" class="size-4 accent-(--md-primary) shrink-0" :checked="selected.includes(c.id)" :disabled="!editable" @change="emit('toggle', c.id)" />
+        <input type="checkbox" class="size-4 accent-primary shrink-0" :checked="selected.includes(c.id)" :disabled="!editable" @change="emit('toggle', c.id)" />
         <span>{{ c.label }}</span>
       </label>
     </div>

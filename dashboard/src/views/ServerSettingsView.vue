@@ -37,7 +37,7 @@
           <!-- 스크롤바 길은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
             <label v-for="r in filteredRoles" :key="r.id" class="shrink-0 flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="s.canEdit ? 'state-layer cursor-pointer' : 'opacity-60'">
-              <input type="checkbox" class="size-4 accent-(--md-primary) shrink-0" :checked="selectedRoles.includes(r.id)" :disabled="!s.canEdit" @change="toggleRole(r.id)" />
+              <input type="checkbox" class="size-4 accent-primary shrink-0" :checked="selectedRoles.includes(r.id)" :disabled="!s.canEdit" @change="toggleRole(r.id)" />
               <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: r.color || 'var(--md-outline)' }"></span>
               <span class="overflow-hidden whitespace-nowrap text-ellipsis">{{ r.name }}</span>
             </label>
