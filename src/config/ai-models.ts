@@ -1,8 +1,9 @@
 /**
  * 모델 프로필. 어느 모델이 어떤 칸을 받고 그 값이 본문 어디로 가는지.
  *
- * PocketRisu 공개 레지스트리를 `data/ai-models.json` 에 원본 그대로 둔다.
- * (CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry)
+ * PocketRisu 공개 레지스트리를 원본 그대로 둔다(CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry).
+ * 저장소의 `data/ai-models.json` 은 함께 싣는 기본 사본이고, 갱신 단추 · `pnpm run update:models` 가 받은 것은 실행 자리(`database/ai-models.json`)에 쓴다.
+ * 기본 사본은 git 이 추적해 고쳐 두면 `git pull` 이 막힌다. 읽을 때는 둘 중 받은 때(`fetchedAt`)가 새것을 쓴다(저장소가 새 사본을 내보내면 그것이 이긴다).
  */
 import fs from "fs";
 import path from "path";
@@ -11,7 +12,10 @@ import { httpFor } from "../infra/http.ts";
 import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
-const FILE = path.join(PROJECT.data, "ai-models.json");
+/** 저장소에 함께 싣는 기본 사본. 여기에는 쓰지 않는다 */
+const BUNDLED = path.join(PROJECT.data, "ai-models.json");
+/** 받은 사본(실행 자리) */
+const FETCHED = path.join(PROJECT.database, "ai-models.json");
 
 // 레지스트리의 모양. 여기서 읽는 칸만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
@@ -54,17 +58,26 @@ function mergeSchemas(base: SchemaField[] | undefined, extension: SchemaField[] 
 
 let held: Snapshot | null = null;
 
-/** 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
+function readSnapshot(file: string): Snapshot | null {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")) as Snapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** 받은 때가 새것. 받은 때를 모르면 가장 오래된 것으로 본다. 같으면 받은 사본(b) */
+function newerOf(a: Snapshot | null, b: Snapshot | null): Snapshot | null {
+  const at = (one: Snapshot | null) => (one?.fetchedAt ? Date.parse(one.fetchedAt) || 0 : -1);
+  if (!a || !b) return a ?? b;
+  return at(a) > at(b) ? a : b;
+}
+
+/** 기본 사본과 받은 사본 중 새것. 둘 다 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
 function load({ reload = false } = {}): Snapshot {
   if (held && !reload) return held;
-  let snapshot: Snapshot;
-  try {
-    snapshot = JSON.parse(fs.readFileSync(FILE, "utf8")) as Snapshot;
-  } catch {
-    snapshot = { baseProviders: {}, profiles: {} };
-  }
-  held = snapshot;
-  return snapshot;
+  held = newerOf(readSnapshot(BUNDLED), readSnapshot(FETCHED)) ?? { baseProviders: {}, profiles: {} };
+  return held;
 }
 
 /** 프로바이더 하나가 아는 모델들. 프로필 id 는 `<registry>:<이름>` 이다. */
@@ -179,7 +192,7 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 }
 
 /**
- * 받아서 파일에 쓴다. 해시가 같으면 받지 않는다.
+ * 받아서 받은 사본(`database/ai-models.json`)에 쓴다. 해시가 같으면 받지 않는다.
  * 대시보드 갱신 버튼과 `pnpm run update:models` 가 이 길을 같이 쓴다.
  */
 async function refresh({ registries, force = false, timeoutMs = 30000 }: { registries: string[]; force?: boolean; timeoutMs?: number }): Promise<RefreshResult> {
@@ -193,11 +206,11 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
   const lost = lostShape(registries, held, got);
   if (lost.length) throw new Error(`${lost.join(" · ")} 의 모델 칸이 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(FILE, JSON.stringify(got, null, 2) + String.fromCharCode(10));
+  fs.mkdirSync(path.dirname(FETCHED), { recursive: true });
+  fs.writeFileSync(FETCHED, JSON.stringify(got, null, 2) + String.fromCharCode(10));
   load({ reload: true });
   return { changed: true, count: Object.keys(got.profiles).length, fetchedAt: got.fetchedAt };
 }
 
-export { RAW, FILE, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas, lostShape };
+export { RAW, BUNDLED, FETCHED, fetchRegistry, refresh, load, newerOf, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas, lostShape };
 export type { Snapshot, Profile };

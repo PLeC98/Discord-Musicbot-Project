@@ -1,4 +1,4 @@
-// 모델 프로필(data/ai-models.json)에서 대시보드로 나가는 모양. 화면도 부르므로 Node 를 부르지 않는 여기에 둔다
+// 모델 프로필(config/ai-models)에서 대시보드로 나가는 모양. 화면도 부르므로 Node 를 부르지 않는 여기에 둔다
 
 // showIf: 다른 칸(key)이 이 값(equals)일 때만 보인다
 type ShowIf = { key?: string; equals?: unknown };

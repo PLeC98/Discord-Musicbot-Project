@@ -14,7 +14,7 @@ import { PROVIDER_SPECS } from "../src/autoplay/assist/index.ts";
 
   const got = await models.refresh({ registries, force });
   if (!got.changed) return console.log(`바뀐 것이 없습니다. 모델 ${got.count}개 (${got.fetchedAt})`);
-  console.log(`모델 ${got.count}개 → ${path.relative(process.cwd(), models.FILE)}`);
+  console.log(`모델 ${got.count}개 → ${path.relative(process.cwd(), models.FETCHED)}`);
 })().catch((e) => {
   console.error("실패:", e.message);
   process.exit(1);

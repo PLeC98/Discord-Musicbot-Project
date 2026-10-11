@@ -125,3 +125,17 @@ test("갱신 모양 검사: 저장소의 버전은 스스로와 견줘 통과한
   const registries = [...new Set(Object.keys(held.profiles).map((id) => id.split(":")[0]))];
   assert.deepEqual(models.lostShape(registries, held, held), []);
 });
+
+// 받은 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 받은 때가 새것을 쓴다
+test("기본 사본 · 받은 사본 중 받은 때가 새것을 쓴다", () => {
+  const at = (fetchedAt?: string) => ({ fetchedAt, baseProviders: {}, profiles: {} });
+  const bundled = at("2026-10-01T00:00:00.000Z");
+  const fetched = at("2026-10-05T00:00:00.000Z");
+  assert.equal(models.newerOf(bundled, fetched), fetched);
+  assert.equal(models.newerOf(at("2026-10-09T00:00:00.000Z"), fetched)?.fetchedAt, "2026-10-09T00:00:00.000Z", "저장소가 더 새 사본을 내보내면 그것");
+  assert.equal(models.newerOf(bundled, null), bundled, "받은 사본이 없으면 기본 사본");
+  assert.equal(models.newerOf(null, fetched), fetched);
+  assert.equal(models.newerOf(at(), fetched), fetched, "받은 때를 모르면 가장 오래된 것");
+  assert.equal(models.newerOf(null, null), null);
+  assert.ok(models.FETCHED.includes("database") && models.BUNDLED.includes("data"));
+});

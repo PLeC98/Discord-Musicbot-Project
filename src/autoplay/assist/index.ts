@@ -975,7 +975,7 @@ function visibleModels(all: string[], one: AiSettings) {
 }
 
 /**
- * 저쪽에 묻지 못했을 때(키가 없다 · 거절 · 닿지 못함) 받아 둔 모델 프로필(data/ai-models.json)이 아는 모델로 목록을 채운다.
+ * 저쪽에 묻지 못했을 때(키가 없다 · 거절 · 닿지 못함) 받아 둔 모델 프로필(config/ai-models)이 아는 모델로 목록을 채운다.
  * 확인 결과(ok · 까닭)는 그대로 둔다. 연결이 된 것처럼 보이면 안 된다. 프로필이 없는 곳(로컬 · custom)은 채울 것이 없다
  */
 function withPreset(one: AiSettings, check: ModelsCheck): ModelsCheck {

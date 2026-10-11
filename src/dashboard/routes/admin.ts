@@ -222,7 +222,7 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
 // 키를 고쳐 쓴다. 쓰기 전용이다. 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
 // 로그에도 이름만 남긴다.
 /**
- * 그 모델이 받는 칸. 프로필(data/ai-models.json)이 정한다.
+ * 그 모델이 받는 칸. 프로필(config/ai-models)이 정한다.
  * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
  */
 adminRouter.get("/ai/fields", requireOwner, (req, res) => {
