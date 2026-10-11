@@ -4,7 +4,7 @@ import { josa } from "../../../../src/rules/josa.ts";
 
 const favicon = "파비콘";
 const faviconDesc = "브라우저 탭과 홈 화면에 보이는 아이콘이에요.";
-const faviconTip = "큰 그림(512px 이상이나 SVG) 하나면 모든 크기를 채워요.\n작은 크기를 따로 그렸다면 그 크기 그림을 더 올려요. 크기마다 가장 가까운 그림을 써요.\n올린 그림이 없으면 봇 프로필 그림을 써요.";
+const faviconTip = "큰 그림(512px 이상이나 SVG) 하나면 모든 크기를 채워요.\n작은 크기를 따로 그렸다면 그 크기 그림을 더 올려요. 크기마다 꼭 맞는 그림, SVG, 가장 가까운 그림 순으로 써요.\n올린 그림이 없으면 봇 프로필 그림을 써요.";
 const removeOne = "이 그림 지우기";
 const noUploads = "올린 그림이 없어요. 봇 프로필 그림을 쓰고 있어요.";
 const upload = "그림 올리기";

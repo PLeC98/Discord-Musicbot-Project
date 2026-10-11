@@ -202,6 +202,8 @@
   --color-warning: var(--md-warning);
 
   --font-sans: "Google Sans Flex Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  /* 고정폭(숫자 · 주소 칸, 실시간 로그, 코드). 고정폭 글꼴엔 한글이 없어 그대로 두면 윈도우가 한글만 굴림체로 그린다. 한글은 대시보드 글꼴(Pretendard)로 받는다 */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Pretendard Variable", Pretendard, monospace;
   --font-symbols: "Material Symbols Rounded Variable";
   /* 디스코드 미리보기(공지 임베드)용: 디스코드가 한글을 그리는 시스템 글꼴(맥 Apple SD Gothic Neo · 윈도우 맑은 고딕)만 디스코드 순서에서 골라 쓰고, 없으면 대시보드 글꼴로 */
   --font-discord: "Apple SD Gothic Neo", "Malgun Gothic", var(--font-sans);
