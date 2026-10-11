@@ -1,12 +1,18 @@
 <template>
-  <!-- 설정 내보내기 · 불러오기. 카드 셋: 봇 설정만 내보내기(나눠 줄 것) · 암호화된 설정까지 내보내기(서버별 설정 · 키 · 쿠키의 암호문) · 백업 불러오기.
+  <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만(나눠 줄 것) · 암호화된 설정까지(서버별 설정 · 키 · 쿠키의 암호문)) · 백업 불러오기.
        불러오기는 파일을 올려 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 고른 것만 덮어쓴다. 내보내기 · 불러오기는 최근 로그인만.
        .env 까지 담는 전체 백업은 대시보드가 아니라 봇 폴더의 명령(pnpm run backup)이다 -->
   <!-- 뿌리 하나(받은 class 가 카드 묶음에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
   <div class="flex flex-col gap-(--gap-in)">
-    <BaseCard v-for="kind in ARCHIVE_KINDS" :key="kind" icon="download" :title="T.exports[kind].title">
-      <p class="mb-3 text-sm text-on-surface-variant">{{ T.exports[kind].desc }}</p>
-      <BaseButton variant="secondary" :disabled="busy" @click="exportNow(kind)"><Icon name="download" :size="18" />{{ T.exports[kind].button }}</BaseButton>
+    <!-- 안쪽 카드 둘(넓으면 나란히). 설명 길이가 달라도 단추가 같은 줄에 오게 단추는 아래에 붙인다 -->
+    <BaseCard icon="download" :title="T.exportTitle">
+      <div class="grid grid-cols-1 @2xl/card:grid-cols-2 gap-3">
+        <section v-for="kind in ARCHIVE_KINDS" :key="kind" class="flex flex-col rounded-(--r-inner) bg-surface-container-high p-4">
+          <h3 class="mb-1 text-title font-semibold text-on-surface">{{ T.exports[kind].title }}</h3>
+          <p class="mb-3 text-sm text-on-surface-variant">{{ T.exports[kind].desc }}</p>
+          <BaseButton variant="secondary" class="mt-auto self-start" :disabled="busy" @click="exportNow(kind)"><Icon name="download" :size="18" />{{ T.exports[kind].button }}</BaseButton>
+        </section>
+      </div>
     </BaseCard>
     <BaseCard icon="upload" :title="T.importTitle">
       <p class="mb-3 text-sm text-on-surface-variant">{{ T.importDesc }}</p>
