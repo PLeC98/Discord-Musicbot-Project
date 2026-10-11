@@ -280,13 +280,22 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
   }
 });
 
+/** 값표 갱신. 바뀌었으면 true. 못 받아도 모델 프로필 갱신은 그대로 둔다(가진 값표로 계속 센다) */
+async function refreshPrices() {
+  try {
+    return (await prices.refresh()).changed;
+  } catch (error) {
+    log.warn({ sub: "admin" }, `AI 값표를 받지 못했습니다(models.dev): ${messageOf(error)}. 가진 값표로 비용을 셉니다`);
+    return false;
+  }
+}
+
 /** 모델 프로필 · 값표 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
     const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
     const got = await models.refresh({ registries, force: !!req.body?.force });
-    const priced = await prices.refresh();
-    res.json({ ...got, changed: got.changed || priced.changed });
+    res.json({ ...got, changed: got.changed || (await refreshPrices()) });
   } catch (error) {
     sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
   }

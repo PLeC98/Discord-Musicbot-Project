@@ -17,7 +17,9 @@ import { PROVIDER_SPECS } from "../src/autoplay/assist/index.ts";
   if (!got.changed) console.log(`모델 프로필: 바뀐 것이 없습니다. 모델 ${got.count}개 (${got.fetchedAt})`);
   else console.log(`모델 프로필: 모델 ${got.count}개 → ${path.relative(process.cwd(), models.FETCHED)}`);
 
-  const priced = await prices.refresh();
+  // 값표를 못 받아도 모델 프로필은 이미 받았다. 실패는 알리고 끝낸다
+  const priced = await prices.refresh().catch((e: unknown) => console.error(`값표: 받지 못했습니다(${e instanceof Error ? e.message : String(e)}). 가진 값표를 씁니다`));
+  if (!priced) return;
   if (!priced.changed) console.log(`값표: 바뀐 것이 없습니다. 모델 ${priced.count}개 (${priced.fetchedAt})`);
   else console.log(`값표: 모델 ${priced.count}개 → ${path.relative(process.cwd(), prices.FETCHED)}`);
 })().catch((e) => {
