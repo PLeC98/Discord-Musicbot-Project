@@ -25,7 +25,8 @@ import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 import { httpFor } from "../../infra/http.ts";
-import { isSecretHeader } from "../../rules/secret-headers.ts";
+import { REDACTED, mask, safeHeaders } from "./mask.ts";
+import { sendLogged, type Call } from "./request-log.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 const http = httpFor("ai");
@@ -56,11 +57,14 @@ type Reply = {
     prompt_tokens?: number;
     completion_tokens?: number;
     completion_tokens_details?: { reasoning_tokens?: number };
+    prompt_tokens_details?: { cached_tokens?: number };
     input_tokens?: number;
     output_tokens?: number;
     output_tokens_details?: { thinking_tokens?: number };
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
   };
-  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; cachedContentTokenCount?: number };
   data?: Array<{ id?: string }>;
   models?: Array<{ name?: string }>;
   publisherModels?: Array<{ name?: string }>;
@@ -448,7 +452,7 @@ const DIALECTS: Record<string, Dialect> = {
     body: (one, messages) => ({ model: one.model, messages }),
     answerOf: (json) => json?.choices?.[0]?.message?.content || "",
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
-    usageOf: (json) => pickUsage(json?.usage?.prompt_tokens, json?.usage?.completion_tokens, json?.usage?.completion_tokens_details?.reasoning_tokens),
+    usageOf: (json) => pickUsage(json?.usage?.prompt_tokens, json?.usage?.completion_tokens, json?.usage?.completion_tokens_details?.reasoning_tokens, { cached: json?.usage?.prompt_tokens_details?.cached_tokens }),
   },
 
   /**
@@ -479,7 +483,7 @@ const DIALECTS: Record<string, Dialect> = {
     },
     answerOf: (json) => (json?.content || []).map((part) => part?.text || "").join(""),
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
-    usageOf: (json) => pickUsage(json?.usage?.input_tokens, json?.usage?.output_tokens, json?.usage?.output_tokens_details?.thinking_tokens),
+    usageOf: (json) => pickUsage(anthropicInput(json?.usage), json?.usage?.output_tokens, json?.usage?.output_tokens_details?.thinking_tokens, { cached: json?.usage?.cache_read_input_tokens }),
   },
 
   /**
@@ -495,7 +499,7 @@ const DIALECTS: Record<string, Dialect> = {
     },
     body: geminiBody,
     answerOf: geminiAnswer,
-    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false }),
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false, cached: json?.usageMetadata?.cachedContentTokenCount }),
     // { models: [{ name: "models/gemini-3.7-flash" }] }
     modelsOf: (json) =>
       (json?.models || []).map((m) =>
@@ -522,7 +526,7 @@ const DIALECTS: Record<string, Dialect> = {
     },
     body: geminiBody,
     answerOf: geminiAnswer,
-    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false }),
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false, cached: json?.usageMetadata?.cachedContentTokenCount }),
     // { publisherModels: [{ name: "publishers/google/models/gemini-3-pro" }] }
     modelsOf: (json) =>
       (json?.publisherModels || []).map((m) =>
@@ -544,15 +548,21 @@ const ANTHROPIC_MAX_TOKENS = 1024;
  * 응답이 알려 준 실제 토큰 수. 없으면 null. 추산으로 메우지 않는다.
  *
  * 사고 토큰을 어디에 넣는지가 회사마다 다르다(OpenAI·앤트로픽은 출력 안, 제미니는 따로).
- * 출력은 늘 사고까지 합친 값으로 맞춰 둔다. 화면이 규격을 알 필요가 없게.
+ * 출력은 늘 사고까지 합친 값으로 맞춰 둔다. 화면이 규격을 알 필요가 없게. 입력은 캐시에서 읽은 것(cached)까지 합친 값이다
  */
-const pickUsage = (input: unknown, output: unknown, thoughts: unknown, { thoughtsInOutput = true } = {}): Usage | null => {
+const pickUsage = (input: unknown, output: unknown, thoughts: unknown, { thoughtsInOutput = true, cached }: { thoughtsInOutput?: boolean; cached?: unknown } = {}): Usage | null => {
   if (typeof input !== "number") return null;
   const think = typeof thoughts === "number" ? thoughts : null;
   let out = typeof output === "number" ? output : null;
   if (out !== null && think !== null && !thoughtsInOutput) out += think;
-  return { input, output: out, thoughts: think };
+  return { input, output: out, thoughts: think, cached: typeof cached === "number" ? cached : null };
 };
+
+/** 앤트로픽의 입력은 캐시 읽기 · 쓰기를 빼고 센다. 다른 곳처럼 합친 값으로 */
+function anthropicInput(usage: NonNullable<Reply>["usage"]): number | undefined {
+  if (typeof usage?.input_tokens !== "number") return undefined;
+  return usage.input_tokens + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
+}
 
 const dialectOf = (one: Partial<AiSettings> | null | undefined): Dialect => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
@@ -756,22 +766,40 @@ type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reas
 // 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 까닭. 부르기 한 번의 시간 초과와 가른다
 const OVER_TOTAL = new Error("판정 상한");
 
-async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof buildRequest>> & { size: number }, total: AbortSignal | null): Promise<Attempt> {
+/** 리퀘스트 로그에 적을 것: 응답의 토큰 · 2xx 인데 판정을 읽지 못한 까닭 */
+function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "model" | "tokensOf" | "explain"> {
+  return {
+    provider: String(one.provider),
+    model: String(one.model ?? ""),
+    tokensOf: (json) => dialectOf(one).usageOf?.(json as Reply) ?? null,
+    explain: (raw) => {
+      try {
+        return readVerdicts(dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "", size) ? undefined : "판정을 읽지 못함";
+      } catch {
+        return "판정을 읽지 못함(JSON 이 아닌 답)";
+      }
+    },
+  };
+}
+
+/** 부르기 한 번. calls: 판정 하나 안에서 몇 번째 부르기인가(리퀘스트 로그의 시도) */
+async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof buildRequest>> & { size: number }, total: AbortSignal | null, { calls = 1, genre }: { calls?: number; genre?: string } = {}): Promise<Attempt> {
   const perCall = AbortSignal.timeout(Number(one.timeoutMs));
   const signal = total ? AbortSignal.any([perCall, total]) : perCall;
   try {
-    const res = await send(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(request.body), signal });
+    const call: Call = { source: "autoplay", attempt: calls, genre, candidates: request.size, ...judgeCall(one, request.size) };
+    const { res, text: raw } = await sendLogged(send, call, request.url, { method: "POST", headers: request.headers, body: JSON.stringify(request.body), signal });
 
     // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
     // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
     if (!res.ok) {
-      const text = mask(await res.text());
+      const text = mask(raw);
       const { key, detail } = retry.summaryOf(res.status, text);
       const again = one.retryStatus.map(Number).includes(res.status) && !retry.exhausted(text);
       return { ok: false, reason: key, detail, retry: again, adviceMs: retry.adviceMs(res.headers, text) };
     }
 
-    const text = dialectOf(one).answerOf((await res.json()) as Reply) || "";
+    const text = dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "";
     const verdicts = readVerdicts(text, request.size);
     if (verdicts) return { ok: true, verdicts };
     return { ok: false, reason: "판정을 읽지 못함", detail: `답 ${text.length}자: ${text.slice(0, 160)}`, retry: false, unreadable: true };
@@ -811,7 +839,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
     let used = 0;
     let reasked = false;
     for (let calls = 1; ; calls++) {
-      const got = await attempt(limited, request, total?.signal ?? null);
+      const got = await attempt(limited, request, total?.signal ?? null, { calls, genre });
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
@@ -944,9 +972,11 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
 async function askModels(urls: string[], headers: Record<string, string>, one: AiSettings, at: (url: string) => void) {
   for (const [i, url] of urls.entries()) {
     at(url);
-    const res = await send(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
-    const text = mask(await res.text());
-    if (res.ok || res.status !== 404 || i === urls.length - 1) return { res, text };
+    const last = (res: Response) => res.ok || res.status !== 404 || i === urls.length - 1;
+    const call: Call = { source: "models", provider: String(one.provider), model: "", keep: last };
+    const { res, text: raw } = await sendLogged(send, call, url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const text = mask(raw);
+    if (last(res)) return { res, text };
   }
   throw new Error("물을 주소가 없습니다");
 }
@@ -1000,8 +1030,9 @@ async function ping(draft: Draft): Promise<PingCheck> {
   let headers: Record<string, string> = {};
   try {
     headers = headersWith(await dialect.headers(one), extra);
-    const res = await send(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
-    const text = mask(await res.text());
+    const call: Call = { source: "ping", provider: String(one.provider), model: String(one.model ?? ""), tokensOf: (json) => dialect.usageOf?.(json as Reply) ?? null };
+    const { res, text: raw } = await sendLogged(send, call, url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const text = mask(raw);
     const took = Date.now() - started;
 
     let answer = "";
@@ -1026,23 +1057,6 @@ async function preview(draft: Draft, genre = "rock"): Promise<Preview> {
   const one = withDefaults(draft);
   const request = await buildRequest(one, SAMPLE_CANDIDATES, genre, { live: false });
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
-}
-
-// 인증이 실리는 헤더는 규격마다 다르다(rules/secret-headers)
-
-/** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
-function safeHeaders(headers: Record<string, string> | null | undefined) {
-  const out: Record<string, string> = {};
-  for (const [name, value] of Object.entries(headers || {})) {
-    if (!isSecretHeader(name)) {
-      out[name] = value;
-      continue;
-    }
-    // 앞의 낱말(Bearer)은 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
-    const scheme = /^(\w+)\s/.exec(String(value));
-    out[name] = scheme ? `${scheme[1]} ${REDACTED}` : REDACTED;
-  }
-  return out;
 }
 
 /**
@@ -1096,14 +1110,9 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
   const out: JudgeResult = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems, status: null, response: "", verdicts: null };
 
   try {
-    const res = await send(request.url, {
-      method: "POST",
-      headers: request.headers,
-      body: JSON.stringify(request.body),
-      signal: AbortSignal.timeout(Number(one.timeoutMs)),
-    });
+    const call: Call = { source: "judge-test", genre, candidates: usable.length, ...judgeCall(one, usable.length) };
+    const { res, text } = await sendLogged(send, call, request.url, { method: "POST", headers: request.headers, body: JSON.stringify(request.body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
     out.status = res.status;
-    const text = await res.text();
     out.response = mask(text);
     try {
       const json = JSON.parse(text);
@@ -1118,33 +1127,6 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
     out.response = mask(String((error as Error | null)?.message));
   }
   out.tookMs = Date.now() - started;
-  return out;
-}
-
-// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다. 화면에도 로그에도 키가 남으면 안 된다.
-// 무엇이 가려진 것인지 알아볼 수 있게 이름을 붙인다(별표만 있으면 원래 그런 값인 줄 안다).
-const REDACTED = "[REDACTED_SECRET_KEY]";
-
-// 지금 쓰는 프로바이더 것만이 아니라 적혀 있는 키를 모두 가린다.
-// 어느 것이 되비쳐 올지 우리가 정할 수 없고, 넉넉히 가려서 손해 볼 것이 없다.
-function mask(text: unknown): string {
-  let out = String(text);
-  // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
-  for (const key of [...aiKeys.allValues(PROVIDERS), ...googleAuth.heldTokens()]) {
-    if (!key || key.length <= 8) continue;
-    out = out.split(key).join(REDACTED);
-
-    // 서비스 계정은 값 자체가 JSON 덩어리다. 통째로 나오는 일은 없어도 키만 떨어져 나올 수는
-    // 있으므로 안쪽 private_key 도 따로 가린다.
-    if (key.trimStart().startsWith("{")) {
-      try {
-        const inner = JSON.parse(key)?.private_key;
-        if (inner) out = out.split(inner).join(REDACTED);
-      } catch {
-        /* JSON 이 아니면 경로였던 것이다 */
-      }
-    }
-  }
   return out;
 }
 

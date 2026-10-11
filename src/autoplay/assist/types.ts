@@ -43,7 +43,8 @@ type Wire = { role: string; content: string };
 /** 화면에 보이는 메시지. at 은 원래 섹션 번호(이름표용, 저쪽에는 보내지 않는다) */
 type ShownMessage = Wire & { at: number };
 type Body = Record<string, unknown>;
-type Usage = { input: number; output: number | null; thoughts: number | null };
+/** 토큰. input 은 캐시에서 읽은 입력(cached)을 품고, output 은 사고(thoughts)를 품는다 */
+type Usage = { input: number; output: number | null; thoughts: number | null; cached: number | null };
 /** 센 토큰. each 는 메시지마다(저쪽에 물어 셌으면 없다), body 는 감싸는 몫을 뺀 본문 */
 type TokenCount = { total: number; body: number; each?: number[]; by: string; exact: boolean };
 

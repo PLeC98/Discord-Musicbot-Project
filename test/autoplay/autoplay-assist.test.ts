@@ -42,8 +42,10 @@ type SentBody = {
 type FakeResponse = { ok: boolean; status?: number; headers?: Headers; json?: () => Promise<unknown>; text?: () => Promise<string> };
 // 보조가 바깥으로 보내는 요청(모델 · 토큰 셈 · 서비스 계정 토큰)을 이 가짜로 받는다
 function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<FakeResponse>) {
-  assist.useFetch(fake<typeof fetch>(fn));
+  assist.useFetch(fake<typeof fetch>(async (url: string, init: SentInit) => withText(await fn(url, init))));
 }
+// 보조는 본문을 글로 읽는다(리퀘스트 로그가 받은 글을 남긴다). json 만 준 가짜에는 그 글을 붙인다
+const withText = (res: FakeResponse): FakeResponse => (res.text || !res.json ? res : { ...res, text: async () => JSON.stringify(await res.json!()) });
 
 after(() => useDefaultDocuments());
 

@@ -1136,7 +1136,7 @@ class Player {
       const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
       // 길 찾기는 바깥 경계(pickAutoplay)를 지난다. autoplayDeps: 그 안의 소스 · 검색 · 장부 · AI 보조. 테스트만 넘긴다. 없으면 진짜
-      const picked = await this.io.pickAutoplay(cfg, recent, this.autoplayDeps);
+      const picked = await inGuild(this.guild.id, () => this.io.pickAutoplay(cfg, recent, this.autoplayDeps));
       if (!picked) {
         log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못했습니다 (장르 ${this.autoplay})`);
         return null;

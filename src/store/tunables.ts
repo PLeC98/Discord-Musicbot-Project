@@ -33,7 +33,7 @@ function shape(data: unknown): Record<string, string> {
 function apply(values: Record<string, string>) {
   const config = root.default;
   const next = root.loadConfig(process.env, { tunables: values });
-  const { bot, ytdlp, bgutil, sponsorblock, voiceStatus, cache, stream, dashboard } = next.config;
+  const { bot, ytdlp, bgutil, sponsorblock, voiceStatus, cache, stream, dashboard, aiLog } = next.config;
   Object.assign(config.bot, bot);
   Object.assign(config.ytdlp, ytdlp);
   Object.assign(config.bgutil, bgutil);
@@ -43,6 +43,7 @@ function apply(values: Record<string, string>) {
   Object.assign(config.stream, stream);
   Object.assign(config.dashboard.rateLimit, dashboard.rateLimit);
   Object.assign(config.dashboard.sse, dashboard.sse);
+  Object.assign(config.aiLog, aiLog);
   return next.tuneProblems;
 }
 

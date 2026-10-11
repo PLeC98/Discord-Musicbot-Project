@@ -241,11 +241,14 @@ function earliestDay(): string | null {
   return (aiLogDb.get().prepare("SELECT MIN(day) AS day FROM usage").get() as { day: string | null }).day;
 }
 
+/** DB 가 열려 있는가(스크립트 · 시험은 열지 않을 수 있다. 그때는 남기지 않는다) */
+const isOpen = () => aiLogDb.conn !== null;
+
 /** 새 줄을 듣는다. 떼는 함수를 돌려준다 */
 function onRecorded(listener: (entry: AiLogEntry) => void) {
   listeners.add(listener);
   return () => void listeners.delete(listener);
 }
 
-export { KEEP_MIN_ROWS, MAX_FIELD_BYTES, record, rotate, list, one, size, clearRequests, clearUsage, usageSince, earliestDay, onRecorded };
+export { KEEP_MIN_ROWS, MAX_FIELD_BYTES, isOpen, record, rotate, list, one, size, clearRequests, clearUsage, usageSince, earliestDay, onRecorded };
 export type { NewRecord };

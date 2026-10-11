@@ -406,6 +406,12 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       categories: parseSbCategories(tuneText("SPONSORBLOCK_CATEGORIES")),
     },
 
+    // AI 리퀘스트 로그(store/ai-requests). 끄면 사용량 통계도 멈춘다. 용량을 넘으면 오래된 로그부터 지운다
+    aiLog: {
+      enabled: tuneBool("AI_LOG_ENABLED"),
+      maxBytes: tuneInt("AI_LOG_MAX_MB") * 1024 * 1024,
+    },
+
     voiceStatus: {
       playingPrefix: tuneText("VOICE_PLAYING_PREFIX"),
       pausedPrefix: tuneText("VOICE_PAUSED_PREFIX"),
