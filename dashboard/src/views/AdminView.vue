@@ -90,7 +90,7 @@
 
         <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 묶음) · 파비콘. 올린 그림은 봇이 사람이 건드리지 않는 저장 자리에 둔다(파일로 넣는 길은 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
-          <ConfigTunables v-if="opened.has('appearance')" :groups="DISPLAY_GROUPS" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
+          <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
         </div>
 
@@ -99,16 +99,22 @@
           <ConfigAI v-if="opened.has('ai')" />
         </div>
 
-        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도, 표시 묶음은 디스플레이 탭) -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 묶음은 유튜브 탭, 표시 묶음은 디스플레이 탭) -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigTunables v-if="opened.has('settings')" :groups="SETTINGS_GROUPS" tab="settings" desc :can-restart="status?.env.launcher ?? false" />
+          <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" desc :can-restart="status?.env.launcher ?? false" />
         </div>
 
-        <!-- API · 쿠키: 바깥 서비스 키 · 유튜브 쿠키. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
+        <!-- 유튜브: 운영 조절값의 유튜브 · SponsorBlock 묶음과 유튜브 쿠키 -->
+        <div class="admin-page" v-show="tab === 'youtube'">
+          <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false">
+            <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 칸에 고른 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
+            <template #after-youtube><ConfigCookies v-if="cookieFile" /></template>
+          </ConfigTunables>
+        </div>
+
+        <!-- API 키: 바깥 서비스 키. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
         <div class="admin-page" v-show="tab === 'keys'">
           <ConfigServiceKeys v-if="opened.has('keys')" />
-          <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
-          <ConfigCookies v-if="opened.has('keys') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
         </div>
 
         <!-- 백업: 설정 내보내기 · 불러오기 · 스냅샷. 비밀은 암호문 그대로만 오간다 -->
@@ -123,7 +129,7 @@
       </template>
     </div>
 
-    <!-- 봇 다시 시작 창. 봇 상태 탭 단추 · 설정 탭 저장 막대가 함께 쓴다 -->
+    <!-- 봇 다시 시작 창. 봇 상태 탭 단추 · 운영 조절값 저장 막대가 함께 쓴다 -->
     <BotRestartDialog />
     <ConfirmDialog :model-value="leaveOpen" icon="edit_off" :title="T.leaveConfirm.title" :body="T.leaveConfirm.body" :confirm-label="T.leaveConfirm.confirm" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
@@ -157,7 +163,8 @@ import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
-import { DISPLAY_GROUPS, TUNABLE_GROUPS } from "../../../src/rules/tunables.ts";
+import { groupsIn } from "../../../src/rules/tunables.ts";
+import { draft as tunableDraft } from "../composables/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
@@ -182,6 +189,7 @@ const ALL_TABS: Tab[] = [
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
   { id: "settings", label: T.tabs.settings, icon: "settings", group: "outside" },
+  { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "outside" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "outside" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
@@ -192,8 +200,8 @@ const ALL_TABS: Tab[] = [
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
-// 운영 조절값 묶음을 탭에 나눈다. 표시 묶음(임베드 색 · 웹사이트 · 음성 상태)은 디스플레이 탭, 나머지는 설정 탭
-const SETTINGS_GROUPS = TUNABLE_GROUPS.filter((group) => !DISPLAY_GROUPS.includes(group));
+// 유튜브 탭의 쿠키 카드를 띄울지: 쿠키 출처 칸에 고른 값이 파일인가
+const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
 // 목록 · 상세 편집기의 탭은 고른 줄을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다

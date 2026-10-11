@@ -1,4 +1,4 @@
-// 운영 조절값(운영자 패널의 설정 탭). /api/admin/tunables
+// 운영 조절값(운영자 패널의 설정 · 유튜브 · 디스플레이 탭). /api/admin/tunables
 // 값은 settings.db 의 문서에 두고 저장하면 바로 설정 객체에 올린다(다시 켜야 먹는 값은 pending 으로 알린다. store/tunables)
 
 import express from "express";

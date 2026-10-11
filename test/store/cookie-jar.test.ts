@@ -17,7 +17,7 @@ const secrets = await import("../../src/store/secrets.ts");
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const { _runOnce } = await import("../../src/sources/youtube/ytdlp-run.ts");
 const config = (await import("../../src/config/index.ts")).default;
-// 쿠키 출처는 운영 조절값이다(설정 탭). 이 시험은 file 로 둔다
+// 쿠키 출처는 운영 조절값이다(유튜브 탭). 이 시험은 file 로 둔다
 Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
 
 const store = openTempStore("cookie-jar-");

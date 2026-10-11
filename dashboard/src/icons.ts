@@ -120,6 +120,7 @@ const ICONS = {
   shuffle: 0xe043,
   skip_next: 0xe044,
   skip_previous: 0xe045,
+  smart_display: 0xf06a,
   smart_toy: 0xf06c,
   stop: 0xe047,
   stop_circle: 0xef71,

@@ -1,4 +1,4 @@
-// 운영 조절값. 대시보드(운영자 패널 → 설정 탭)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
+// 운영 조절값. 대시보드(운영자 패널의 설정 · 유튜브 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
 // 값은 .env 와 같은 글자로 둔다. 읽는 길(config 의 envReaders)이 하나라 검사 · 단위 바꾸기 · 다듬기가 .env 때와 같다.
 // 화면도 부르므로 Node 없는 모듈이다. 이름표 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
 //
@@ -62,8 +62,10 @@ const TUNABLES: readonly Tunable[] = [
   { key: "SSE_COALESCE_MS", group: "dashboard", kind: "int", def: "300", min: 0, max: 5000 },
 ];
 
-/** 운영자 패널의 디스플레이 탭에 두는 묶음(디스코드에서 봇이 보이는 모습). 나머지 묶음은 설정 탭 */
-const DISPLAY_GROUPS: readonly TunableGroup[] = ["look"];
+/** 묶음을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, 나머지는 설정. 화면은 탭마다 그 묶음만 그린다 */
+type TunableTab = "settings" | "appearance" | "youtube";
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", cache: "settings", stream: "settings", dashboard: "settings" };
+const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
 
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
@@ -78,5 +80,5 @@ function tunable(key: string): Tunable {
 /** 대시보드의 답. values: 저장한 값(비운 칸은 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 켜야 먹는 이름 */
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
-export { TUNABLES, TUNABLE_GROUPS, DISPLAY_GROUPS, TUNABLE_KEYS, RESTART_KEYS, tunable };
-export type { Tunable, TunableGroup, TunableKind, TunablesView };
+export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, groupsIn, tunable };
+export type { Tunable, TunableGroup, TunableKind, TunableTab, TunablesView };

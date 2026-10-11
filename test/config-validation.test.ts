@@ -118,7 +118,7 @@ test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 �
 
 test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
   const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET · LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API · 쿠키 탭에서 넣고 .env 에서 지우세요."]);
+  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET · LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 넣고 .env 에서 지우세요."]);
   const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
   assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
 });

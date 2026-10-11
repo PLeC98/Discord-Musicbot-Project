@@ -108,7 +108,7 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
 // 운영자 설정이 없는 것이다. 없음이 아니다. 사용자에게는 이 링크를 지금 못 튼다고, 까닭은 운영자 로그에
 test("자격증명이 없으면 곡 주소는 요청 없이 spotify-unavailable 로 던진다", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
-  await assert.rejects(Spotify.getCollection("https://open.spotify.com/track/e1"), (e) => codeOf(e) === "spotify-unavailable" && /API · 쿠키 탭/.test(messageOf(e)));
+  await assert.rejects(Spotify.getCollection("https://open.spotify.com/track/e1"), (e) => codeOf(e) === "spotify-unavailable" && /API 키 탭/.test(messageOf(e)));
   assert.equal(requests.length, 0);
 });
 

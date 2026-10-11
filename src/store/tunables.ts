@@ -47,7 +47,7 @@ function apply(values: Record<string, string>) {
 
 // 기동 때 올린다. 틀린 칸은 기동을 멈추지 않고 그 칸만 기본값(DB 를 바깥에서 고쳤을 때 등. 고칠 화면이 떠야 한다)
 function boot(values: Record<string, string>) {
-  for (const line of apply(values)) log.warn(`설정 탭의 ${line} 그 칸은 기본값으로 돕니다. 운영자 패널의 설정 탭에서 고치세요`);
+  for (const line of apply(values)) log.warn(`운영 조절값의 ${line} 그 칸은 기본값으로 돕니다. 운영자 패널에서 고치세요`);
   booted = values;
 }
 

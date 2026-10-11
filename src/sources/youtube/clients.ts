@@ -90,7 +90,7 @@ class PlayerClients {
 
     this.excluded.set(client, this.now());
     const until = this.retryMs > 0 ? `${Math.round(this.retryMs / 60000)}분 동안` : "이번 실행 동안";
-    log.warn(`${client} 를 ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 설정 탭의 유튜브 클라이언트 차례에서 빼는 것을 검토하세요`);
+    log.warn(`${client} 를 ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 유튜브 탭의 클라이언트 차례에서 빼는 것을 검토하세요`);
   }
 
   // 전멸했을 때 한 번만. 매 곡마다 같은 줄을 쌓지 않도록.

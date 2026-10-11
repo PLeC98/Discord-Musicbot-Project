@@ -10,37 +10,41 @@
       /></span>
     </NoticeBox>
 
-    <BaseCard v-for="group in groups" :key="group" :icon="T.groups[group].icon" :title="T.groups[group].title">
-      <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
-      <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
-        <template v-for="one in byGroup(group)" :key="one.key">
-          <!-- 구간 고르기는 체크박스 목록이라 label 로 감싸지 않는다(이름표를 누르면 첫 칸이 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 부품, SponsorBlock 을 끄면 흐리게 -->
-          <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
-          <label v-else class="block min-w-0">
-            <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
-              ><span class="truncate">{{ T.fields[one.key]?.label ?? one.key }}</span
-              ><Icon v-if="T.fields[one.key]?.help" name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.fields[one.key]?.help" /><span v-if="pending.includes(one.key)" class="text-tertiary" v-tooltip="T.restartTip">{{ T.pending }}</span
-              ><span v-else-if="one.restart" class="text-on-surface-variant/70" v-tooltip="T.restartTip">{{ T.restartBadge }}</span></span
-            >
-            <!-- 참 · 거짓은 스위치. 비우면(기본값) 기본값 쪽으로 보인다 -->
-            <span v-if="one.kind === 'bool'" class="flex items-center gap-2 h-10">
-              <BaseSwitch :model-value="boolOf(one)" :label="T.fields[one.key]?.label ?? one.key" @update:model-value="draft[one.key] = $event ? 'true' : 'false'" />
-              <span class="text-sm text-on-surface">{{ boolOf(one) ? T.on : T.off }}</span>
-            </span>
-            <!-- 쿠키 출처: 쓰지 않음 · 파일 · 브라우저 고르기, 그 밖의 꼴(프로필 · 키링 · 컨테이너)은 "기타"를 고르고 아래 칸에 적는다 -->
-            <span v-else-if="one.kind === 'cookies'" class="flex flex-col gap-2">
-              <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
-              <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
-            </span>
-            <!-- 색은 동그라미를 누르면 색 고르기가 뜬다. 글 칸이 앞이라야 이름표를 누를 때 고르기 대신 글 칸으로 간다(보이는 차례는 동그라미가 앞) -->
-            <span v-else class="flex items-center gap-2">
-              <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0', one.kind !== 'text' && 'font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
-              <ColorPicker v-if="one.kind === 'color'" class="order-first" :model-value="draft[one.key]" :fallback="one.def" :label="T.pickColor" @update:model-value="draft[one.key] = $event" />
-            </span>
-          </label>
-        </template>
-      </div>
-    </BaseCard>
+    <template v-for="group in groups" :key="group">
+      <BaseCard :icon="T.groups[group].icon" :title="T.groups[group].title">
+        <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
+        <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
+          <template v-for="one in byGroup(group)" :key="one.key">
+            <!-- 구간 고르기는 체크박스 목록이라 label 로 감싸지 않는다(이름표를 누르면 첫 칸이 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 부품, SponsorBlock 을 끄면 흐리게 -->
+            <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
+            <label v-else class="block min-w-0">
+              <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
+                ><span class="truncate">{{ T.fields[one.key]?.label ?? one.key }}</span
+                ><Icon v-if="T.fields[one.key]?.help" name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.fields[one.key]?.help" /><span v-if="pending.includes(one.key)" class="text-tertiary" v-tooltip="T.restartTip">{{ T.pending }}</span
+                ><span v-else-if="one.restart" class="text-on-surface-variant/70" v-tooltip="T.restartTip">{{ T.restartBadge }}</span></span
+              >
+              <!-- 참 · 거짓은 스위치. 비우면(기본값) 기본값 쪽으로 보인다 -->
+              <span v-if="one.kind === 'bool'" class="flex items-center gap-2 h-10">
+                <BaseSwitch :model-value="boolOf(one)" :label="T.fields[one.key]?.label ?? one.key" @update:model-value="draft[one.key] = $event ? 'true' : 'false'" />
+                <span class="text-sm text-on-surface">{{ boolOf(one) ? T.on : T.off }}</span>
+              </span>
+              <!-- 쿠키 출처: 쓰지 않음 · 파일 · 브라우저 고르기, 그 밖의 꼴(프로필 · 키링 · 컨테이너)은 "기타"를 고르고 아래 칸에 적는다 -->
+              <span v-else-if="one.kind === 'cookies'" class="flex flex-col gap-2">
+                <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
+                <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
+              </span>
+              <!-- 색은 동그라미를 누르면 색 고르기가 뜬다. 글 칸이 앞이라야 이름표를 누를 때 고르기 대신 글 칸으로 간다(보이는 차례는 동그라미가 앞) -->
+              <span v-else class="flex items-center gap-2">
+                <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0', one.kind !== 'text' && 'font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
+                <ColorPicker v-if="one.kind === 'color'" class="order-first" :model-value="draft[one.key]" :fallback="one.def" :label="T.pickColor" @update:model-value="draft[one.key] = $event" />
+              </span>
+            </label>
+          </template>
+        </div>
+      </BaseCard>
+      <!-- 묶음 카드 뒤에 부르는 쪽이 끼우는 자리(유튜브 묶음 뒤의 유튜브 쿠키 카드) -->
+      <slot :name="`after-${group}`" />
+    </template>
     <SaveDock :tab="tab" :dirty="dirty && loaded" :saving="saving" :restart="canRestart && needsRestart" @save="save()" @save-restart="saveAndRestart" @revert="reset" />
   </div>
 </template>

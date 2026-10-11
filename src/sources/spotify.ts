@@ -198,7 +198,7 @@ const official = {
 
   async _accessToken(): Promise<string> {
     // 운영자 설정이 없는 것이다. 사용자에게는 이 링크를 지금 못 튼다고만 알린다
-    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-unavailable", "Spotify 키 미설정(운영자 패널의 API · 쿠키 탭)");
+    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-unavailable", "Spotify 키 미설정(운영자 패널의 API 키 탭)");
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
     // 키를 바꿨으면 쥐고 있던 토큰을 버린다(옛 키로 받은 것이다)
     if (this._token && this._token.auth === auth && Date.now() < this._token.expiresAt - 60000) return this._token.value;

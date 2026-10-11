@@ -85,7 +85,7 @@ function sweep() {
 function warnLegacyFile(configDir = PROJECT.config) {
   const file = path.join(configDir, "cookies.txt");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {
-    log.warn("config/cookies.txt 는 이제 읽지 않습니다. 운영자 패널의 API · 쿠키 탭에서 쿠키를 다시 넣고 이 파일은 지우세요");
+    log.warn("config/cookies.txt 는 이제 읽지 않습니다. 운영자 패널의 유튜브 탭에서 쿠키를 다시 넣고 이 파일은 지우세요");
   }
 }
 

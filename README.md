@@ -275,7 +275,7 @@ YouTube 추출이 갑자기 막히면 하루를 기다리지 말고 `pnpm run up
 음악이 아닌 구간을 [SponsorBlock](https://sponsor.ajay.app/) API로 조회해 재생 중 자동으로 건너뜁니다.
 
 - **캐싱**: 받은 구간 데이터는 SponsorBlock 서버 다운 등으로 조회가 안 될 때를 대비하여 로컬 캐싱합니다. 실시간 조회가 되지 않으면 캐싱된 데이터로 구간을 스킵합니다.
-- **설정**: 기본 활성 카테고리는 비음악 구간·인트로·최종 화면 구간이며, 운영자 패널 설정 탭의 운영 조절값(봇 전역 기본 설정), `/sponsorblock` 명령어 또는 웹 대시보드의 서버 설정(서버별 설정/서버 관리 권한 필요)에서 사용 여부와 건너뛸 카테고리를 조정할 수 있습니다.
+- **설정**: 기본 활성 카테고리는 비음악 구간·인트로·최종 화면 구간이며, 운영자 패널 유튜브 탭의 운영 조절값(봇 전역 기본 설정), `/sponsorblock` 명령어 또는 웹 대시보드의 서버 설정(서버별 설정/서버 관리 권한 필요)에서 사용 여부와 건너뛸 카테고리를 조정할 수 있습니다.
 - **하이라이트**: `/highlight` 명령이나 대시보드 버튼으로 SponsorBlock에 등록된 하이라이트 지점으로 점프할 수 있습니다.
 
 > [!IMPORTANT]
@@ -284,7 +284,7 @@ YouTube 추출이 갑자기 막히면 하루를 기다리지 말고 `pnpm run up
 > Uses SponsorBlock data licensed under CC BY-NC-SA 4.0 from https://sponsor.ajay.app/.
 
 > [!WARNING]
-> **상업적 이용 시 주의**: SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 운영자 패널 설정 탭에서 "SponsorBlock 쓰기"를 끄거나 코드를 수정하여 SponsorBlock 기능을 수정/제거해 주세요.
+> **상업적 이용 시 주의**: SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 운영자 패널 유튜브 탭에서 "SponsorBlock 쓰기"를 끄거나 코드를 수정하여 SponsorBlock 기능을 수정/제거해 주세요.
 
 ## 라이선스
 

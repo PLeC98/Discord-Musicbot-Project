@@ -5,11 +5,11 @@ import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
-import { DISPLAY_GROUPS, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널 → 설정 탭)에서 고치십시오.
+// 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // 불러와도 멈추지 않는다. 잘못 적은 값은 문제 목록(problems)에, 기능만 꺼지는 빈 값은 경고 목록(warnings)에
@@ -209,9 +209,12 @@ const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as 
 // 대시보드로 옮긴 .env 키. 남아 있으면 경고만 한다
 const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
 
-/** 옮긴 값을 넣을 운영자 패널 탭별로: 서비스 키는 API · 쿠키, 운영 조절값의 표시 묶음은 디스플레이, 나머지는 설정 */
+// 운영자 패널 탭 이름(운영 조절값의 묶음이 놓인 탭, rules/tunables 의 GROUP_TAB)
+const TAB_NAMES = { settings: "설정", appearance: "디스플레이", youtube: "유튜브" } as const;
+
+/** 옮긴 값을 넣을 운영자 패널 탭별로: 서비스 키는 API 키, 운영 조절값은 그 묶음의 탭 */
 function groupByTab(names: string[]): Map<string, string[]> {
-  const tabOf = (name: string) => (MOVED_TO_DASHBOARD.includes(name) ? "API · 쿠키" : DISPLAY_GROUPS.includes(tunable(name).group) ? "디스플레이" : "설정");
+  const tabOf = (name: string) => (MOVED_TO_DASHBOARD.includes(name) ? "API 키" : TAB_NAMES[GROUP_TAB[tunable(name).group]]);
   const byTab = new Map<string, string[]>();
   for (const name of names) byTab.set(tabOf(name), [...(byTab.get(tabOf(name)) ?? []), name]);
   return byTab;

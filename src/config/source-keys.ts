@@ -1,4 +1,4 @@
-// 자동재생 소스를 지금 쓸 수 있는가. 키가 필요한 소스는 그 키가 있어야 한다(운영자 패널의 API · 쿠키 탭 → store/service-keys 가 설정 객체에 올린다).
+// 자동재생 소스를 지금 쓸 수 있는가. 키가 필요한 소스는 그 키가 있어야 한다(운영자 패널의 API 키 탭 → store/service-keys 가 설정 객체에 올린다).
 // 소스 표(schema/genre-sources)는 대시보드 화면도 부르므로 설정을 읽지 않고, 키를 읽는 것은 여기서 한다
 
 import config from "./index.ts";
