@@ -73,8 +73,9 @@ type Reply = {
 // 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
 // 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
 // 걸린다. "곡 하나냐 여러 곡이냐"로 묻고 예를 붙이는 지금 모양이 낫다.
-// 영어로 둔다. 장르가 영어 식별자라 지시문이 한국어면 말이 섞이고, 그 조합에서 제미니가 K-POP 곡을 장르가 아니라고 걸렀다
-// (140곡 정답표: 한국어 지시문 + 영어 식별자 92.9%, 영어 97.1%. notes/experiments/s17-prompt-language.mjs)
+// 영어로 둔다. 장르 식별자가 영어라 같은 말로 맞추고, 입력 토큰도 약 9% 적다. 140곡 정답표로 잰 정확도는 한국어 지시문과 흔들림 안이었다
+// (notes/experiments/s17-prompt-language.mjs: 로컬 Gemma 4 E2B 한국어 93.6% · 영어 94.3%, 제미니 3.8 플래시는 같은 조건도 판마다 5%p 까지 흔들렸다).
+// 영어 지시문에 한국어 장르 이름을 넣은 조합은 두 모델 모두 가장 낮았다(90.7% · 92.1%). 그래서 식별자는 영어로 적기를 권한다
 const DEFAULT_PROMPT = `Decide whether each YouTube search result is usable for a Discord music bot's autoplay.
 
 song — Does this video contain **a single song**?
