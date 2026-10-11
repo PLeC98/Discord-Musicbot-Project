@@ -10,6 +10,7 @@ import { codedError } from "../rules/error-kind.ts";
 import genresDefault from "./defaults/genres.ts";
 import statusDefault from "./defaults/status.ts";
 import aiDefault from "./defaults/ai.ts";
+import { upgradeDoc } from "./ai-upgrade.ts";
 
 const DOC_NAMES = ["genres", "status", "ai", "ai-prompt"] as const;
 type DocName = (typeof DOC_NAMES)[number];
@@ -34,19 +35,27 @@ let store: DocStore | null = null;
 
 const isDocName = (name: string): name is DocName => (DOC_NAMES as readonly string[]).includes(name);
 
-/** 저장소를 붙이고 문서를 모두 읽어 올린다. 기동 때 한 번(settings.db 를 연 뒤) */
-function attach(next: DocStore) {
+/**
+ * 저장소를 붙이고 문서를 모두 읽어 올린다. 기동 때 한 번(settings.db 를 연 뒤).
+ * 저장된 AI 문서가 예전 기본값 그대로면 지금 기본값으로 바꿔 저장한다(config/ai-upgrade). 바꾼 문서 이름을 돌려준다
+ */
+function attach(next: DocStore): DocName[] {
   store = next;
   held.clear();
+  const upgraded: DocPut[] = [];
   for (const name of DOC_NAMES) {
     const got = next.read(name);
     held.set(name, got.data == null ? { data: DEFAULTS[name](), revision: got.revision } : got);
+    const up = got.data == null ? null : upgradeDoc(name, got.data);
+    if (up !== null) upgraded.push({ name, data: up });
   }
+  if (upgraded.length) putAll(upgraded);
+  return upgraded.map(({ name }) => name);
 }
 
 /** 붙인 저장소에서 다시 읽는다(가져오기가 DB 를 직접 바꾼 뒤). 붙이지 않았으면 아무것도 안 한다 */
-function reload() {
-  if (store) attach(store);
+function reload(): DocName[] {
+  return store ? attach(store) : [];
 }
 
 function docOf(name: DocName): Doc {

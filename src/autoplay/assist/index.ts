@@ -73,26 +73,28 @@ type Reply = {
 // 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
 // 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
 // 걸린다. "곡 하나냐 여러 곡이냐"로 묻고 예를 붙이는 지금 모양이 낫다.
-const DEFAULT_PROMPT = `유튜브 검색 결과가 디스코드 음악봇의 자동재생에 쓸 만한지 판정한다.
+// 영어로 둔다. 장르가 영어 식별자라 지시문이 한국어면 말이 섞이고, 그 조합에서 제미니가 K-POP 곡을 장르가 아니라고 걸렀다
+// (140곡 정답표: 한국어 지시문 + 영어 식별자 92.9%, 영어 97.1%. notes/experiments/s17-prompt-language.mjs)
+const DEFAULT_PROMPT = `Decide whether each YouTube search result is usable for a Discord music bot's autoplay.
 
-song — 이 영상이 **곡 하나**를 담고 있는가?
-  true : 뮤직비디오 · 공식 오디오 · 라이브 한 곡 · 애니 오프닝 한 곡
-         클래식 교향곡이나 소나타는 20~40분이어도 작품 하나이므로 true
-  false: 여러 곡을 이어 붙인 것(믹스 · 플레이리스트 · 메들리 · 컴필레이션 · 앨범 전곡 · 라디오)
-         음악이 아닌 것(강의 · 리뷰 · 예고편 PV · 랭킹영상 · 동요 모음)
+song — Does this video contain **a single song**?
+  true : a music video · official audio · one live song · one anime opening
+         a classical symphony or sonata is one work even at 20-40 minutes, so true
+  false: several songs joined together (mix · playlist · medley · compilation · full album · radio)
+         not music (lecture · review · trailer PV · ranking video · nursery-rhyme collection)
 
-fits — 요청한 장르가 맞는가?
-  아티스트와 곡을 알고 판단한다. 제목에 장르 이름이 들어 있어도 실제 장르가 다르면 false.
-  장르가 "random"이면 음악이기만 하면 true.
+fits — Does it match the requested genre?
+  Judge by knowing the artist and the song. If the title contains the genre name but the actual genre differs, false.
+  If the genre is "random", true as long as it is music.
 
-예)
-  장르=rock 제목=System Of A Down - Toxicity (Official HD Video) → song=true, fits=true
-  장르=rock 제목=LMFAO - Party Rock Anthem → song=true, fits=false (제목에 rock이 있지만 일렉트로닉이다)
-  장르=pop 제목=Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift → song=false (여러 곡)
-  장르=classical 제목=Beethoven: Symphony No. 7 (41분) → song=true, fits=true (작품 하나)
-  장르=lo-fi 제목=Maroon 5 - Girls Like You → song=true, fits=false (lo-fi 가 아니다)
+Examples
+  genre=rock title=System Of A Down - Toxicity (Official HD Video) → song=true, fits=true
+  genre=rock title=LMFAO - Party Rock Anthem → song=true, fits=false (the title says rock, but it is electronic)
+  genre=pop title=Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift → song=false (several songs)
+  genre=classical title=Beethoven: Symphony No. 7 (41 min) → song=true, fits=true (one work)
+  genre=lo-fi title=Maroon 5 - Girls Like You → song=true, fits=false (not lo-fi)
 
-JSON 배열로만 답한다. 설명하지 않는다.
+Answer only with a JSON array. Do not explain.
 [{"n":1,"song":true,"fits":false}, ...]`;
 
 // 기본 대화 구성. 섹션마다 역할이 따로 있고, {{list}} 자리에 후보가 들어간다.
@@ -105,7 +107,7 @@ const DEFAULT_SECTIONS: PromptSection[] = [
 // 업로더 이름은 일부러 안 넣는다. 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
 // 유튜브의 그 칸은 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
 // 길이를 모르면 "길이=" 구간째 뺀다("0분"이라고 적으면 거짓을 알려 주는 것이고, "길이=" 만 남으면 모델이 더 헷갈린다)
-const DEFAULT_LINE = "{{index}}. 장르={{genre}} {{#if-exist {{duration}}}}길이={{duration::m}}분 {{/}}제목={{title}}";
+const DEFAULT_LINE = "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}";
 
 const ROLES = new Set(["system", "user", "assistant"]);
 // 읽은 형식(줄 형식 · 프롬프트 섹션). 같은 글을 후보마다 다시 읽지 않게
@@ -1008,7 +1010,7 @@ function hideRules(patterns: unknown) {
 const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // 유료 확인에 쓰는 물음. 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
-const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
+const PING_TEXT = "Say hello in one sentence and tell me the value of 17 + 25.";
 
 /**
  * 유료 확인. 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.

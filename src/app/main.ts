@@ -122,7 +122,9 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   // 로그 스트림의 하트비트는 로그 계층이라 알림을 직접 듣지 않는다(설정 알림이 로그를 부른다)
   onTunablesChanged(() => logSink.syncHeartbeat());
   // 장르 · 상태 문구 · AI 설정 · 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db 에 쓴다
-  documents.attach(settingsDocs);
+  // 예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 지금 기본값(영어)으로 바꿔 둔다(config/ai-upgrade)
+  const upgraded = documents.attach(settingsDocs);
+  if (upgraded.length) log.info(`예전 기본값 그대로인 AI 설정을 지금 기본값으로 바꿨습니다: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(" · ")}`);
   warnLegacyConfigFiles();
   serviceKeys.load();
   aiKeys.warnLegacyFile();

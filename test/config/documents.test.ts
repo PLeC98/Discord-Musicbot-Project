@@ -9,6 +9,7 @@ import * as settingsDocs from "../../src/store/settings-docs.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
+import { LEGACY_LINE_FORMATS, LEGACY_PROMPTS } from "../../src/config/legacy-ai-defaults.ts";
 
 const store = openTempStore("documents-");
 beforeEach(() => {
@@ -89,4 +90,43 @@ test("DB 에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서
   documents.attach(settingsDocs);
   assert.deepEqual(documents.get("status"), documents.defaultOf("status"));
   assert.equal(documents.revisionOf("status"), 3, "다음 저장은 번호 3 에 이어서");
+});
+
+test("예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 기동 때 지금 기본값으로 바꿔 저장한다", () => {
+  const legacyLine = LEGACY_LINE_FORMATS[0];
+  documents.putAll([
+    { name: "ai", data: { provider: "vertex", list: { lineFormat: legacyLine, unknownDuration: "hide", unknownText: "모름" } } },
+    {
+      name: "ai-prompt",
+      data: [
+        { role: "system", text: LEGACY_PROMPTS[1] },
+        { role: "user", text: "{{list}}" },
+      ],
+    },
+  ]);
+  documents._use();
+  assert.deepEqual(documents.attach(settingsDocs), ["ai", "ai-prompt"]);
+  const ai = documents.get("ai") as { provider: string; list: Record<string, unknown> };
+  assert.equal(ai.provider, "vertex");
+  assert.deepEqual(ai.list, { lineFormat: (documents.defaultOf("ai") as { list: { lineFormat: string } }).list.lineFormat });
+  assert.deepEqual(documents.get("ai-prompt"), []);
+  // DB 에도 썼다(다음 기동은 바꿀 것이 없다)
+  assert.deepEqual(settingsDocs.read("ai-prompt").data, []);
+  assert.deepEqual(documents.attach(settingsDocs), []);
+});
+
+test("운영자가 고친 줄 형식 · 프롬프트는 그대로 둔다", () => {
+  const mine = "{{index}}. 장르={{genre}} 제목={{title}}";
+  const prompt = [
+    { role: "system", text: `${LEGACY_PROMPTS[1]} 한 줄 더` },
+    { role: "user", text: "{{list}}" },
+  ];
+  documents.putAll([
+    { name: "ai", data: { list: { lineFormat: mine } } },
+    { name: "ai-prompt", data: prompt },
+  ]);
+  documents._use();
+  assert.deepEqual(documents.attach(settingsDocs), []);
+  assert.equal((documents.get("ai") as { list: { lineFormat: string } }).list.lineFormat, mine);
+  assert.deepEqual(documents.get("ai-prompt"), prompt);
 });

@@ -499,7 +499,7 @@ test("설정한 것이 그대로 요청에 실린다", async () => {
   assert.equal(sent.body.temperature, 0.4, "프로필이 없는 프로바이더는 extra 로 적는다");
   assert.equal(sent.body.reasoning_effort, "low");
   assert.equal(sent.body.messages[0].content, "내가 쓴 기준", "프롬프트를 적었으면 그것을 쓴다");
-  assert.match(sent.body.messages[1].content, /장르=록/);
+  assert.match(sent.body.messages[1].content, /genre=록/);
   assert.equal(sent.init.headers.Authorization, `Bearer ${KEY}`);
 });
 
@@ -534,7 +534,7 @@ test("섹션마다 역할을 정해 적은 차례대로 보낸다", async () => 
     ["system", "assistant", "user"],
   );
   assert.equal(sent[0].content, "기준이다");
-  assert.match(sent[2].content, /^아래를 판정해라\n1\. 장르=록 길이=3분 제목=Toxicity/);
+  assert.match(sent[2].content, /^아래를 판정해라\n1\. genre=록 length=3min title=Toxicity/);
 });
 
 test("{{list}} 자리에 후보가 들어간다 — 어느 역할이든", async () => {
@@ -545,7 +545,7 @@ test("{{list}} 자리에 후보가 들어간다 — 어느 역할이든", async 
   await assist.filter([cand("A", 60), cand("B", 120)], { genre: "록" });
   const sent = lastSent().body.messages;
   assert.equal(sent.length, 1, "섹션이 하나면 메시지도 하나다");
-  assert.equal(sent[0].content, "기준. 목록: 1. 장르=록 길이=1분 제목=A\n2. 장르=록 길이=2분 제목=B 끝.");
+  assert.equal(sent[0].content, "기준. 목록: 1. genre=록 length=1min title=A\n2. genre=록 length=2min title=B 끝.");
 });
 
 test("내용이 빈 섹션은 보내지 않는다", async () => {
@@ -583,7 +583,7 @@ test("길이를 모르는 후보 — 구간째 빼거나, 글자로 적거나, 0
     return lastSent().body.messages[0].content;
   };
 
-  assert.equal(await ask(""), "1. 장르=록 제목=이름만 아는 곡", "기본은 길이 구간을 통째로 뺀다");
+  assert.equal(await ask(""), "1. genre=록 title=이름만 아는 곡", "기본은 길이 구간을 통째로 뺀다");
   const withElse = (otherwise: string) => `list:\n  lineFormat: "{{index}}. 장르={{genre}} 길이={{#if-exist {{duration}}}}{{duration::m}}분{{:else}}${otherwise}{{/}} 제목={{title}}"\n`;
   assert.equal(await ask(withElse("모름")), "1. 장르=록 길이=모름 제목=이름만 아는 곡");
   assert.equal(await ask(withElse("0분")), "1. 장르=록 길이=0분 제목=이름만 아는 곡");
@@ -593,7 +593,7 @@ test("길이를 모르는 후보 — 구간째 빼거나, 글자로 적거나, 0
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
   await assist.accepts(cand("Toxicity", 210), { genre: "록" });
-  assert.equal(lastSent().body.messages[1].content, "1. 장르=록 길이=3분 제목=Toxicity");
+  assert.equal(lastSent().body.messages[1].content, "1. genre=록 length=3min title=Toxicity");
 });
 
 // ── 추가 파라미터 ─────────────────────────────────────────────────────────
@@ -880,7 +880,7 @@ test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   const asked = (shown.body as SentBody).messages.at(-1)?.content;
   assert.ok(asked, "목록 섹션이 있어야 한다");
   assert.equal(asked.split("\n").length, 3);
-  assert.match(asked, /^3\. 장르=록 제목=/m, "길이를 모르는 줄은 그 칸이 빠진다");
+  assert.match(asked, /^3\. genre=록 title=/m, "길이를 모르는 줄은 그 칸이 빠진다");
 });
 
 test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다", async () => {
@@ -1134,7 +1134,7 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
   assert.equal(sent.init.headers.Authorization, "Bearer ya29.가짜");
   assert.deepEqual(sent.body.systemInstruction, { parts: [{ text: "기준이다" }] }, "system 은 딴 칸이다");
   assert.equal(sent.body.contents[0].role, "user");
-  assert.ok(sent.body.contents[0].parts[0].text.includes("장르=록"));
+  assert.ok(sent.body.contents[0].parts[0].text.includes("genre=록"));
   assert.ok(!("messages" in sent.body));
 });
 

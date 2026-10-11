@@ -16,7 +16,7 @@ const aiDefault: Record<string, unknown> = {
   batchSize: 10,
   skipConfident: true,
   list: {
-    lineFormat: "{{index}}. 장르={{genre}} {{#if-exist {{duration}}}}길이={{duration::m}}분 {{/}}제목={{title}}",
+    lineFormat: "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}",
   },
   model: "gemma3n:e2b",
   params: {},

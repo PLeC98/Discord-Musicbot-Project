@@ -157,9 +157,11 @@ pnpm install
 | `{{genre}}`                            | 자동재생 장르의 식별자(예: `rock`). 프롬프트 섹션에서도 씁니다                                                                            |
 | `{{title}}`                            | 영상 제목. 꼭 있어야 합니다                                                                                                               |
 | `{{duration}}` · `{{duration::형식}}`  | 길이. 형식 없이 쓰면 `3:05`. 형식 글자는 `h` 시간 · `m` 전체 분 · `mm` 남은 분 두 자리 · `s` 전체 초 · `ss` 남은 초 두 자리. 모르면 빈 값 |
-| `{{#if-exist 값}} … {{:else}} … {{/}}` | 값이 비어 있지 않으면 앞, 비면 `{{:else}}` 뒤. 길이를 모르는 후보를 빼거나 "모름"을 적을 때 씁니다                                        |
+| `{{#if-exist 값}} … {{:else}} … {{/}}` | 값이 비어 있지 않으면 앞, 비면 `{{:else}}` 뒤. 길이를 모르는 후보를 빼거나 `unknown` 을 적을 때 씁니다                                    |
 
-예: `{{index}}. 장르={{genre}} {{#if-exist {{duration}}}}길이={{duration::m}}분 {{/}}제목={{title}}` → `1. 장르=rock 길이=3분 제목=Toxicity`
+예: `{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}` → `1. genre=rock length=3min title=Toxicity`
+
+기본 판정 프롬프트와 줄 형식은 영어입니다. 장르 식별자가 영어라 지시문도 같은 말로 두는 편이 판정이 고릅니다(한국어 지시문에 영어 장르가 섞이면 K-POP 곡을 장르가 아니라고 거르는 일이 있었습니다).
 
 ## 실행
 
