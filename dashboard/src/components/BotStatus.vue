@@ -54,26 +54,31 @@
   <div ref="root" class="flex flex-col gap-(--gap-in)">
     <!-- ① 요약 -->
     <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-3">
-      <div class="flex items-center gap-4">
+      <!-- 좁으면(휴대폰) 마지막 갱신 · 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 칸이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라졌다 -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span class="size-12 shrink-0 rounded-[30%] flex items-center justify-center" :class="LEVEL_BADGE[overallLevel]"><Icon :name="LEVEL_ICON[overallLevel]" :size="24" fill /></span>
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 grow basis-44">
           <div class="font-round text-xl font-semibold">{{ overallLevel === "ok" ? T.allOk : T.needsAttention(attention.length) }}</div>
-          <div class="text-sm text-on-surface-variant truncate">
+          <!-- 좁으면 자르지 않고 접는다(잘리면 작동 시간 · 서버 수가 보이지 않았다) -->
+          <div class="text-sm text-on-surface-variant">
             {{ status.bot.tag }} · <template v-if="status.bot.status !== 0">{{ T.connecting }}</template
             >{{ T.runningFor(formatSpan(status.bot.uptime), status.bot.guilds) }}
           </div>
         </div>
-        <span class="shrink-0 flex items-center gap-1 text-xs text-on-surface-variant" v-tooltip="stale ? T.staleTip : T.freshTip"
-          ><span class="size-2 rounded-full" :class="stale ? 'bg-outline' : 'bg-(--ok-ink)'"></span>{{ stale ? T.stale : T.lastUpdate }} <span class="nums text-on-surface">{{ updatedAt ? clock(updatedAt, true) : "" }}</span></span
-        >
-        <BotRestart :available="status.env.launcher" />
+        <div class="ml-auto shrink-0 flex items-center gap-4">
+          <span class="shrink-0 flex items-center gap-1 text-xs text-on-surface-variant" v-tooltip="stale ? T.staleTip : T.freshTip"
+            ><span class="size-2 rounded-full" :class="stale ? 'bg-outline' : 'bg-(--ok-ink)'"></span>{{ stale ? T.stale : T.lastUpdate }} <span class="nums text-on-surface">{{ updatedAt ? clock(updatedAt, true) : "" }}</span></span
+          >
+          <BotRestart :available="status.env.launcher" />
+        </div>
       </div>
       <!-- 살펴볼 것: 누르면 그 칸으로 가서 잠깐 테두리가 빛난다 -->
       <div v-if="attention.length" class="flex flex-wrap gap-2">
         <button v-for="a in attention" :key="a.name" type="button" class="tap state-layer h-8 px-2 rounded-sm flex items-center gap-2 text-xs font-medium cursor-pointer" :class="LEVEL_CHIP[a.level]" @click="jumpTo(a.at)"><Icon :name="LEVEL_ICON[a.level]" :size="18" fill />{{ a.name }} · {{ a.word }}</button>
       </div>
       <div class="rounded-(--r-inner) bg-surface-container-high px-4 py-3">
-        <div class="flex items-center gap-3 text-xs text-on-surface-variant" :class="status.recent.lines.length ? 'mb-2' : ''">
+        <!-- 좁으면 낱말 단위로 다음 줄에(낱말 안에서 꺾이지 않게) -->
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant whitespace-nowrap" :class="status.recent.lines.length ? 'mb-2' : ''">
           <span>{{ T.recentSummary }}</span>
           <span :class="status.recent.error ? LEVEL_TEXT.bad : ''">{{ T.errors(status.recent.error) }}</span>
           <span :class="status.recent.warn ? LEVEL_TEXT.warn : ''">{{ T.warnings(status.recent.warn) }}</span>
@@ -145,18 +150,34 @@
 
     <!-- ③ 지금: 값 + 최근 15분 흐름 -->
     <div class="grid grid-cols-2 @3xl/content:grid-cols-3 @6xl/content:grid-cols-6 gap-(--gap-in)">
-      <section v-for="m in metrics" :key="m.title" :data-at="m.title" class="pane rounded-(--r-window) px-4 py-3 flex flex-col gap-1">
+      <section v-for="m in metrics" :key="m.title" :data-at="m.title" class="@container/metric pane rounded-(--r-window) px-4 py-3 flex flex-col gap-1">
         <div class="flex items-center gap-1 text-xs text-on-surface-variant">
           <span class="truncate" :class="m.why && 'underline decoration-dotted underline-offset-2 cursor-help'" v-tooltip="m.why || null">{{ m.title }}</span>
           <span v-if="m.level !== 'ok'" class="ml-auto shrink-0 flex items-center gap-1 font-semibold" :class="LEVEL_TEXT[m.level]"><Icon :name="LEVEL_ICON[m.level]" :size="14" fill />{{ m.word }}</span>
         </div>
         <div class="flex items-baseline-last gap-0.5" :class="LEVEL_TEXT[m.level]">
-          <span class="font-round text-3xl font-semibold tracking-tighter nums">{{ m.value }}</span
+          <!-- 좁은 카드(11rem 아래)는 소수를 덜어 자리를 아낀다: 큰 숫자는 정수, 보조 글(이벤트 루프 · heap)은 한 자리 덜 -->
+          <!-- 화면 400px 아래는 큰 숫자를 한 단계 작게(세 자리 숫자 옆에 보조 글이 들어갈 자리) -->
+          <span class="font-round text-3xl max-[400px]:text-2xl font-semibold tracking-tighter nums"
+            ><span :class="WIDE">{{ m.value }}</span
+            ><span :class="NARROW">{{ rounded(m.value) }}</span></span
           ><span class="text-xs" :class="m.level === 'ok' && 'text-on-surface-variant'">{{ m.unit }}</span>
           <!-- 보조 글. subTop 이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 바닥선(last baseline)으로 맞춰, 큰 숫자 · 단위 · 보조 글 아래 줄이 같은 선에 선다 -->
-          <span class="ml-auto min-w-0 flex flex-col items-end text-xs text-on-surface-variant nums"
-            ><span v-if="m.subTop" class="truncate">{{ m.subTop }}</span
-            ><span class="flex items-center gap-1 truncate"><span v-if="m.second" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span>{{ m.sub }}</span></span
+          <!-- 화면 폭 412px 아래(카드 폭이 아니라 화면 폭): subUp 은 보조 글을 숫자 위쪽에(숫자 아래쪽은 단위로 붐빈다), subSwap 은 두 줄의 위아래를 바꾼다 -->
+          <span class="ml-auto min-w-0 flex flex-col items-end text-xs text-on-surface-variant nums" :class="[m.subUp && 'max-[412px]:self-start', m.subSwap && 'max-[412px]:flex-col-reverse']"
+            ><span v-if="m.subTop" class="truncate"
+              ><span :class="m.subTopShort && WIDE">{{ m.subTop }}</span
+              ><span v-if="m.subTopShort" :class="NARROW">{{ m.subTopShort }}</span></span
+            ><span class="flex items-center gap-1 truncate"
+              ><span v-if="m.second" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span><!-- subBreak: 카드가 13rem 아래면(11rem 아래는 subShort 한 줄) " · " 자리에서 두 줄로 --><span v-if="m.subBreak" :class="[WIDE, 'flex items-end gap-x-1 @max-[13rem]/metric:flex-col']"
+                ><span v-for="(part, i) in m.sub.split(' · ')" :key="i" class="flex gap-x-1"><span v-if="i" class="@max-[13rem]/metric:hidden">·</span>{{ part }}</span></span
+              ><!-- subNarrowBreak: 10.5rem 아래에서 두 줄로(연결된 서버 / 수) --><span v-else-if="m.subNarrowBreak" class="@max-[10.5rem]/metric:hidden">{{ m.sub }}</span
+              ><span v-if="m.subNarrowBreak" class="hidden @max-[10.5rem]/metric:flex flex-col items-end"
+                ><span v-for="part in m.subNarrowBreak" :key="part">{{ part }}</span></span
+              ><span v-else-if="!m.subBreak" :class="m.subShort && WIDE">{{ m.sub }}</span><!-- subShort 도 subBreak 면 10.5rem 아래에서 두 줄로 --><span v-if="m.subShort && m.subBreak" class="hidden @max-[11rem]/metric:flex items-end gap-x-1 @max-[10.5rem]/metric:flex-col"
+                ><span v-for="(part, i) in m.subShort.split(' · ')" :key="i" class="flex gap-x-1"><span v-if="i" class="@max-[10.5rem]/metric:hidden">·</span>{{ part }}</span></span
+              ><span v-else-if="m.subShort" :class="NARROW">{{ m.subShort }}</span></span
+            ></span
           >
         </div>
         <SparkChart :values="m.series" :second="m.second" :max="m.max" :warn="m.warn" :unit="m.chartUnit" :minutes="historyMinutes" :now="new Date(status.history.endAt)" :tone="LEVEL_GRAPH[m.level]" />
@@ -371,7 +392,16 @@ const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });
 // ── ③ 지금 ──
 // 모은 칸이 덮는 시간(분). 봇을 켠 지 1분이 안 됐어도 "0분"이 아니라 1분으로
 const historyMinutes = computed(() => Math.max(1, Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000)));
-type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; series: number[]; second?: number[]; max: number; warn?: number; chartUnit: string; level: Level; word: string; why: string };
+// 카드 폭에 따라 하나만 보인다(좁은 카드 11rem 아래)
+const WIDE = "@max-[11rem]/metric:hidden";
+const NARROW = "hidden @max-[11rem]/metric:inline";
+/** MB → GB, 소수 digits 자리 */
+const gb = (mb: number, digits: number) => (mb / 1024).toFixed(digits);
+/** 소수가 있는 값을 정수로(좁은 카드). 소수가 없으면 그대로 */
+const rounded = (value: string) => (/^\d+\.\d+$/.test(value) ? String(Math.round(Number(value))) : value);
+
+/** subShort · subTopShort: 좁은 카드에서 대신 보일 보조 글(소수 한 자리 덜). subBreak: " · " 자리에서 두 줄로(11~13rem 은 sub, 10.5rem 아래는 subShort). subUp: 화면 412px 아래에서 보조 글을 숫자 위쪽에. subSwap: 화면 412px 아래에서 두 줄의 위아래를 바꾼다. subNarrowBreak: 10.5rem 아래에서 sub 대신 보일 두 줄 */
+type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; subShort?: string; subTopShort?: string; subBreak?: boolean; subNarrowBreak?: [string, string]; subUp?: boolean; subSwap?: boolean; series: number[]; second?: number[]; max: number; warn?: number; chartUnit: string; level: Level; word: string; why: string };
 const metrics = computed<Metric[]>(() => {
   const { status } = props;
   const h = status.history;
@@ -379,12 +409,27 @@ const metrics = computed<Metric[]>(() => {
   const playing = status.players.list.filter((p) => p.state === "playing").length;
   const pingAvg = Math.round(h.ping.reduce((a, b) => a + b, 0) / Math.max(1, h.ping.length));
   return [
-    { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), series: h.playing, max: Math.max(1, status.players.list.length), chartUnit: T.metrics.countUnit, level: "ok", word: "", why: "" },
-    { title: T.metrics.ping, value: `${status.bot.ping}`, unit: "ms", sub: T.metrics.pingSub(historyMinutes.value, pingAvg), series: h.ping, max: 300, warn: LIMITS.ping[0], chartUnit: "ms", level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
-    { title: T.metrics.loop, value: `${status.loop.p99}`, unit: "ms", sub: T.metrics.loopSub(status.loop.max), series: h.loopP99, max: 100, warn: LIMITS.loop[0], chartUnit: "ms", level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
-    { title: T.metrics.heap, value: heapPct.toFixed(0), unit: "%", subTop: `RSS ${(status.node.memory.rss / 1024).toFixed(2)} GB`, sub: `${(status.node.memory.heapUsed / 1024).toFixed(2)} / ${(status.node.memory.heapLimit / 1024).toFixed(2)} GB`, series: h.heapPct, max: 100, warn: LIMITS.heap[0], chartUnit: "%", level: levelOf(heapPct, ...LIMITS.heap), word: T.attention.nearLimit, why: "" },
-    { title: T.metrics.cpu, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], chartUnit: "%", level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
-    { title: T.metrics.download, value: toMBps(status.download.bytesPerSec).toFixed(1), unit: "MB/s", subTop: T.metrics.downloadActive(status.download.active), sub: T.metrics.downloadToday(formatBytes(status.download.todayBytes)), series: h.downloadBps.map(toMBps), max: 5, chartUnit: "MB/s", level: "ok", word: "", why: "" },
+    { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), chartUnit: T.metrics.countUnit, level: "ok", word: "", why: "" },
+    { title: T.metrics.ping, value: `${status.bot.ping}`, unit: "ms", sub: T.metrics.pingSub(historyMinutes.value, pingAvg), subUp: true, series: h.ping, max: 300, warn: LIMITS.ping[0], chartUnit: "ms", level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
+    { title: T.metrics.loop, value: `${status.loop.p99}`, unit: "ms", sub: T.metrics.loopSub(status.loop.max), subShort: T.metrics.loopSub(Math.round(status.loop.max)), subBreak: true, series: h.loopP99, max: 100, warn: LIMITS.loop[0], chartUnit: "ms", level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
+    {
+      title: T.metrics.heap,
+      value: heapPct.toFixed(0),
+      unit: "%",
+      subTop: `RSS ${gb(status.node.memory.rss, 2)} GB`,
+      subTopShort: `RSS ${gb(status.node.memory.rss, 1)} GB`,
+      sub: `${gb(status.node.memory.heapUsed, 2)} / ${gb(status.node.memory.heapLimit, 2)} GB`,
+      subShort: `${gb(status.node.memory.heapUsed, 1)} / ${gb(status.node.memory.heapLimit, 1)} GB`,
+      series: h.heapPct,
+      max: 100,
+      warn: LIMITS.heap[0],
+      chartUnit: "%",
+      level: levelOf(heapPct, ...LIMITS.heap),
+      word: T.attention.nearLimit,
+      why: "",
+    },
+    { title: T.metrics.cpu, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), subUp: true, series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], chartUnit: "%", level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
+    { title: T.metrics.download, value: toMBps(status.download.bytesPerSec).toFixed(1), unit: "MB/s", subSwap: true, subTop: T.metrics.downloadActive(status.download.active), sub: T.metrics.downloadToday(formatBytes(status.download.todayBytes)), series: h.downloadBps.map(toMBps), max: 5, chartUnit: "MB/s", level: "ok", word: "", why: "" },
   ];
 });
 

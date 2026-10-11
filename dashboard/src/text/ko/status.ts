@@ -32,6 +32,7 @@ const youtubeClient = (name: string) => `유튜브 ${name}`;
 // 그래프 카드
 const metrics = {
   playing: "재생 중",
+  playingSubLabel: "연결된 서버",
   playingSub: (connected: number) => `연결된 서버 ${connected}`,
   ping: "디스코드 API 핑",
   pingSub: (minutes: number, average: number) => `${minutes}분 평균 ${average}`,
