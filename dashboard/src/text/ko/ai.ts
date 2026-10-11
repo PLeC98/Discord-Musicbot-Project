@@ -218,7 +218,7 @@ const log = {
 // 사용량 통계
 const usage = {
   title: "사용량 통계",
-  desc: "AI 보조 요청의 토큰 · 비용 통계예요. 비용은 공개 값표(models.dev)로 센 추정이에요.",
+  desc: "AI 보조 요청의 토큰 · 비용 통계예요. 비용은 models.dev 의 데이터로 추정한 수치예요.",
   periods: { 7: "7일", 30: "30일", 90: "90일", 0: "전체" } as Record<number, string>,
   sources,
   refresh: "새로고침",
