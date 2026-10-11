@@ -25,14 +25,14 @@
     </header>
     <!-- 내용: 접힌 동안은 숨기고(초점이 가지 않게), 펼치면 남은 높이를 쓴다 -->
     <!-- 아래 여백은 안의 목록이 굴러가는 내용 안에 둔다(여기 두면 스크롤바가 그만큼 위에서 끝난다) -->
-    <div class="flex-1 min-h-0 flex flex-col px-4" :class="stop !== 'full' && 'touch-none [&_.overflow-y-auto]:overflow-hidden'" :inert="stop === 'peek' && dragOffset === null" ref="bodyEl" @pointerdown="bodyDown" @touchstart="touchStart" @touchmove="touchMove" @touchend="touchEnd" @touchcancel="touchEnd" @pointermove="move" @pointerup="up" @pointercancel="up" @wheel="bodyWheel">
+    <div class="flex-1 min-h-0 flex flex-col px-4" :class="stop !== 'full' ? 'touch-none [&_.overflow-y-auto]:overflow-hidden' : '[&_.overflow-y-auto]:overscroll-contain'" :inert="stop === 'peek' && dragOffset === null" ref="bodyEl" @pointerdown="bodyDown" @touchstart="touchStart" @touchmove="touchMove" @touchend="touchEnd" @touchcancel="touchEnd" @pointermove="move" @pointerup="up" @pointercancel="up" @wheel="bodyWheel">
       <slot />
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onUnmounted, ref, watchEffect } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
@@ -53,6 +53,17 @@ const dragOffset = ref<number | null>(null);
 const visible = computed(() => dragOffset.value ?? heights.value[stop.value]);
 /** 펼친 정도(접힘 0 ~ 끝까지 1). 뒤 막의 진하기 */
 const shown = computed(() => Math.min(1, Math.max(0, (visible.value - peek.value) / (full.value - peek.value))));
+
+// 판이 펼쳐져 있는 동안(끄는 중 포함)은 페이지의 당겨서 새로고침을 끈다. 판을 끌어 내리는 손짓이 페이지 끝을 넘겨 새로고침되지 않게.
+// 손짓을 첫 움직임에서 막는 것(touchMove)만으로는 브라우저가 먼저 잡은 손짓을 막지 못할 때가 있다. 접혀 있으면 페이지는 원래대로
+const PAGE = () => [document.documentElement, document.body];
+watchEffect(() => {
+  const hold = shown.value > 0.01 || dragOffset.value !== null;
+  for (const el of PAGE()) el.style.overscrollBehaviorY = hold ? "contain" : "";
+});
+onUnmounted(() => {
+  for (const el of PAGE()) el.style.overscrollBehaviorY = "";
+});
 
 let start: { id: number; y: number; h: number; body: boolean } | null = null;
 let moved = false;
@@ -90,11 +101,16 @@ function settle(h: number, v: number) {
   const order: Stop[] = ["peek", "half", "full"];
   stop.value = v < -0.5 ? order[Math.min(2, order.indexOf(nearest(h, "up")))] : v > 0.5 ? order[Math.max(0, order.indexOf(nearest(h, "down")))] : nearest(h);
 }
-// 내용에서 판 끌기(끝까지 펼치기 전만). 안의 조작에서 시작한 것은 받지 않는다
+// 내용에서 판 끌기(끝까지 펼치기 전만). 안의 조작에서 시작한 것은 받지 않는다.
+// 내용 칸 자신도 펼치기 전에는 touch-none 이라 내용 칸 안쪽만 본다(아니면 어디를 잡든 조작으로 보여 판이 끌리지 않았다)
 const OWN = "input, textarea, select, button, a, [role=slider], .touch-none";
+function ownControl(target: EventTarget | null) {
+  const own = target instanceof Element ? target.closest(OWN) : null;
+  return Boolean(own && own !== bodyEl.value && bodyEl.value?.contains(own));
+}
 function bodyDown(e: PointerEvent) {
   if (e.pointerType !== "mouse" || stop.value === "full" || e.button !== 0) return;
-  if ((e.target as Element).closest(OWN)) return;
+  if (ownControl(e.target)) return;
   start = { id: e.pointerId, y: e.clientY, h: visible.value, body: true };
   moved = false;
   last = { y: e.clientY, t: e.timeStamp, v: 0 };
@@ -102,6 +118,7 @@ function bodyDown(e: PointerEvent) {
 // ── 손가락: 판과 목록을 한 손짓으로 잇는다(스포티파이처럼) ──
 // 끝까지 펼치기 전: 위로 끌면 판이 올라오고, 끝까지 닿은 뒤 남은 움직임은 같은 손짓으로 목록을 굴린다(놓으면 그 빠르기로 관성).
 // 끝까지 펼친 뒤: 목록 맨 위에서 아래로 끌면 목록 대신 판이 내려간다. 그 밖(목록을 굴리던 중 · 위로)은 브라우저가 굴린다.
+// 목록은 끝에 닿아도 바깥(페이지)으로 굴림을 넘기지 않는다(overscroll-contain, 넘기면 당겨서 새로고침이 걸린다).
 // 첫 움직임에서 정하고, 판을 맡으면 그 손짓 내내 브라우저 굴리기를 막는다(touchmove 를 preventDefault)
 const bodyEl = ref<HTMLElement | null>(null);
 const scroller = () => bodyEl.value?.querySelector<HTMLElement>(".overflow-y-auto") ?? null;
@@ -110,7 +127,7 @@ let glide = 0;
 
 function touchStart(e: TouchEvent) {
   cancelAnimationFrame(glide);
-  if (e.touches.length !== 1 || (e.target as Element).closest(OWN)) return void (touch = null);
+  if (e.touches.length !== 1 || ownControl(e.target)) return void (touch = null);
   const y = e.touches[0].clientY;
   touch = { y, h: visible.value, top: scroller()?.scrollTop ?? 0, mode: null, lastY: y, lastT: e.timeStamp, v: 0 };
 }
@@ -127,9 +144,13 @@ function pickMode(t: NonNullable<typeof touch>, y: number) {
   t.top = list?.scrollTop ?? 0;
   return true;
 }
+// 끝까지 펼친 채 목록 맨 위에서 아래로 끄는 손짓은 판이 맡는다. 문턱(6)을 기다리면 브라우저가 먼저 잡아
+// 당겨서 새로고침이 걸리므로(그 뒤로는 막을 수 없다) 첫 움직임부터 막는다
+const pullingDown = (t: NonNullable<typeof touch>, y: number) => stop.value === "full" && y > t.y && (scroller()?.scrollTop ?? 0) <= 0;
 function touchMove(e: TouchEvent) {
   if (!touch || e.touches.length !== 1) return;
   const y = e.touches[0].clientY;
+  if (!touch.mode && pullingDown(touch, y) && e.cancelable) e.preventDefault();
   if (!touch.mode && !pickMode(touch, y)) return;
   if (touch.mode !== "sheet") return;
   if (e.cancelable) e.preventDefault();
