@@ -1,8 +1,8 @@
 // 바깥 서비스마다 봇이 실제로 부른 결과(성공 · 실패 · 걸린 시간). 봇 상태 탭의 "연결"이 이것으로 매긴다(상태를 보려고 따로 부르지 않는다).
 // HTTP 는 infra/http 가 남기고, HTTP 가 아닌 것(yt-dlp 로 부르는 SoundCloud)은 부른 쪽이 record 로 남긴다
 
-/** 부르는 바깥 서비스. anilist · github 는 화면에 줄이 없다(다른 일의 일부: 표지 그림 · 업데이트 확인) */
-const SERVICES = ["spotify", "soundcloud", "sponsorblock", "potoken", "ai", "lastfm", "listenbrainz", "animethemes", "anisongdb", "anilist", "vocadb", "utaitedb", "touhoudb", "github"] as const;
+/** 부르는 바깥 서비스. anilist · github · modelsdev 는 화면에 줄이 없다(다른 일의 일부: 표지 그림 · 업데이트 확인 · AI 값표 받기) */
+const SERVICES = ["spotify", "soundcloud", "sponsorblock", "potoken", "ai", "lastfm", "listenbrainz", "animethemes", "anisongdb", "anilist", "vocadb", "utaitedb", "touhoudb", "github", "modelsdev"] as const;
 type Service = (typeof SERVICES)[number];
 
 /** 한 번 부른 결과. error 는 짧은 까닭("timeout" · "HTTP 503" · 연결 오류 코드) */

@@ -30,6 +30,7 @@ import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
 import * as models from "../../config/ai-models.ts";
+import * as prices from "../../config/ai-prices.ts";
 import { adminStatus } from "../status/index.ts";
 import { ranBy } from "../ran-by.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
@@ -279,11 +280,13 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
   }
 });
 
-/** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
+/** 모델 프로필 · 값표 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
     const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
-    res.json(await models.refresh({ registries, force: !!req.body?.force }));
+    const got = await models.refresh({ registries, force: !!req.body?.force });
+    const priced = await prices.refresh();
+    res.json({ ...got, changed: got.changed || priced.changed });
   } catch (error) {
     sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
   }
