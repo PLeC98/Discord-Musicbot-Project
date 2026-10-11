@@ -65,7 +65,7 @@ test("장르 목록: 설정 파일의 차례로 이름 · 이모지(디스코드
   const { genres } = genreConfig.genres();
   assert.deepEqual(
     json.genres,
-    Object.entries(genres).map(([name, g]) => ({ name, emoji: g.emoji || null })),
+    Object.entries(genres).map(([id, g]) => ({ id, label: g.label?.trim() || id, emoji: g.emoji || null })),
   );
 });
 

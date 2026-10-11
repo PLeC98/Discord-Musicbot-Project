@@ -334,7 +334,7 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
   if (genre !== false) {
     if (!genreConfig.genres().genres[genre]) return fail("unknown-genre", { genre });
     const missing = genreConfig.unusableGenre(genre);
-    if (missing) return fail("genre-unusable", { genre, keys: missing.join(", ") });
+    if (missing) return fail("genre-unusable", { genre: genreConfig.labelOf(genre), keys: missing.join(", ") });
   }
   const target = player ?? (genre === false ? null : create?.());
   if (!target) return fail("no-song");

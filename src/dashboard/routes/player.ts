@@ -279,7 +279,7 @@ function autoplayRoutes(router: Router) {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { genres } = genreConfig.genres();
-    res.json({ genres: Object.entries(genres).map(([name, g]) => ({ name, emoji: g.emoji || null })) } satisfies AutoplayGenres);
+    res.json({ genres: Object.entries(genres).map(([id, g]) => ({ id, label: g.label?.trim() || id, emoji: g.emoji || null })) } satisfies AutoplayGenres);
   });
 
   // 켜기(장르) · 바꾸기 · 끄기(null). 켤 때 플레이어가 없으면 만든다(봇이 쉬면 부른 사람의 음성 채널로). 켠 결과는 패널 채널에도 알린다

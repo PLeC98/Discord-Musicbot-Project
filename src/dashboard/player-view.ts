@@ -6,6 +6,7 @@ import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
+import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 
 function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
@@ -82,6 +83,7 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
     // 대기열이 비어도 자동재생이 켜져 있으면 넘기기가 된다
     autoplay: Boolean(player.autoplay),
     autoplayGenre: player.autoplay || null,
+    autoplayGenreLabel: player.autoplay ? genreConfig.labelOf(player.autoplay) : null,
     // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
     hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),

@@ -214,7 +214,7 @@
             >
               <Icon name="auto_awesome" :size="18" :fill="Boolean(autoplayGenre)" />
               <span>{{ T.autoplay }}</span>
-              <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenre }}</span>
+              <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenreLabel ?? autoplayGenre }}</span>
             </button>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
             <!-- 스크롤바 길은 위아래 32 - 5 = 27 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5 로(useOverflowing) -->
@@ -222,9 +222,9 @@
             <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2' : 'top-full mt-2', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
               <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
               <div class="grid grid-cols-2 gap-1">
-                <button v-for="g in genres" :key="g.name" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.name)">
+                <button v-for="g in genres" :key="g.id" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.id)">
                   <span class="emoji text-lg">{{ g.emoji ?? "" }}</span
-                  ><span class="truncate">{{ g.name }}</span>
+                  ><span class="truncate">{{ g.label }}</span>
                 </button>
               </div>
             </div>
@@ -672,6 +672,7 @@ const voiceLine = computed((): { icon: IconName; text: string } => {
 
 // 자동재생: 지금 장르는 재생 상태가 싣는다. 장르 목록은 메뉴를 처음 열 때 받는다(디스코드 장르 메뉴와 같은 것)
 const autoplayGenre = computed(() => player.value.autoplayGenre ?? null);
+const autoplayGenreLabel = computed(() => player.value.autoplayGenreLabel ?? null);
 const genres = ref<AutoplayGenres["genres"]>([]);
 const genreMenu = ref(false);
 // 장르 메뉴를 위로 열지(단추 아래 자리가 메뉴 높이 320 + 여유보다 좁으면)

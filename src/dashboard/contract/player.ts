@@ -58,8 +58,9 @@ type PlayerState = {
   currentTrack: PlayingView | null;
   hasPrevious?: boolean;
   autoplay?: boolean;
-  /** 자동재생 장르(꺼져 있으면 null) */
+  /** 자동재생 장르의 식별자 · 보여 줄 이름(꺼져 있으면 null) */
   autoplayGenre?: string | null;
+  autoplayGenreLabel?: string | null;
   /** 대기열에 라이브가 있다(반복을 켤 수 없다). 대기열 창 밖의 곡도 본다 */
   hasLive: boolean;
   queue: QueueTrackView[];
@@ -67,7 +68,8 @@ type PlayerState = {
 };
 
 /** 자동재생 장르 목록(장르 설정의 차례). 디스코드 장르 메뉴와 같은 것 */
-type AutoplayGenres = { genres: Array<{ name: string; emoji: string | null }> };
+/** 자동재생 장르. id 는 고를 때 보내는 식별자, label 은 보여 줄 이름 */
+type AutoplayGenres = { genres: Array<{ id: string; label: string; emoji: string | null }> };
 
 /** 봇 · 나의 음성 채널 */
 type VoiceFlags = { botInVoice: boolean; userInVoice: boolean; sameVoice: boolean };

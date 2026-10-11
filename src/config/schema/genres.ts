@@ -12,7 +12,7 @@ const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 // 조용히 어긋난다("재즈 80 팝"이 "80 재즈 팝"이 된다). 차례는 선택 메뉴에 그대로 나오므로 막는다.
 const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 
-// 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
+// 키가 식별자다(주소 · 버튼 id · AI 의 {{genre}}). YAML이 값으로 읽어 버리는 말은 식별자로 쓸 수 없다.
 const YAML_WORDS = ["true", "false", "", "null"];
 
 const filled = (v: unknown) => (Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim());
@@ -52,6 +52,8 @@ const source = z.discriminatedUnion("type", [firstSource, ...restSources], {
 const genre = z.preprocess(
   plain,
   z.object({
+    // 보여 줄 이름(디스코드 메뉴 · 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
+    label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비우지 않은 글(100자까지)이어야 합니다."),
     // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다. 파일을 손으로 고칠 수도 있어서 여기서 막는다.
     emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)), "{id}: emoji는 이모지 한 글자여야 합니다."),
     // 맨 위 keywords:는 읽지 않는다. 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
@@ -81,8 +83,10 @@ const genres = z.preprocess(
     // 장르 고르기는 디스코드 선택 메뉴 하나다
     if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여줍니다.` });
     for (const id of ids) {
-      if (YAML_WORDS.includes(id)) ctx.addIssue({ code: "custom", message: `"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
-      if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 이름은 차례가 어긋납니다. "${id}년대"처럼 글자를 붙여 주세요.` });
+      if (YAML_WORDS.includes(id)) ctx.addIssue({ code: "custom", message: `"${id || "null"}"는 장르 식별자로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
+      if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 식별자는 차례가 어긋납니다. "${id}s"처럼 글자를 붙여 주세요.` });
+      // 디스코드 선택지 값(식별자)은 100자까지
+      if (id.length > 100) ctx.addIssue({ code: "custom", message: `"${id.slice(0, 20)}…": 식별자는 100자까지입니다.` });
     }
   }, ALWAYS),
 );

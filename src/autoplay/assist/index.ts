@@ -79,14 +79,14 @@ song — 이 영상이 **곡 하나**를 담고 있는가?
 
 fits — 요청한 장르가 맞는가?
   아티스트와 곡을 알고 판단한다. 제목에 장르 이름이 들어 있어도 실제 장르가 다르면 false.
-  장르가 "랜덤"이면 음악이기만 하면 true.
+  장르가 "random"이면 음악이기만 하면 true.
 
 예)
-  장르=록 제목=System Of A Down - Toxicity (Official HD Video) → song=true, fits=true
-  장르=록 제목=LMFAO - Party Rock Anthem → song=true, fits=false (제목에 rock이 있지만 일렉트로닉이다)
-  장르=팝 제목=Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift → song=false (여러 곡)
-  장르=클래식 제목=Beethoven: Symphony No. 7 (41분) → song=true, fits=true (작품 하나)
-  장르=로파이 제목=Maroon 5 - Girls Like You → song=true, fits=false (로파이가 아니다)
+  장르=rock 제목=System Of A Down - Toxicity (Official HD Video) → song=true, fits=true
+  장르=rock 제목=LMFAO - Party Rock Anthem → song=true, fits=false (제목에 rock이 있지만 일렉트로닉이다)
+  장르=pop 제목=Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift → song=false (여러 곡)
+  장르=classical 제목=Beethoven: Symphony No. 7 (41분) → song=true, fits=true (작품 하나)
+  장르=lo-fi 제목=Maroon 5 - Girls Like You → song=true, fits=false (lo-fi 가 아니다)
 
 JSON 배열로만 답한다. 설명하지 않는다.
 [{"n":1,"song":true,"fits":false}, ...]`;
@@ -1022,7 +1022,7 @@ async function ping(draft: Draft): Promise<PingCheck> {
  *
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
-async function preview(draft: Draft, genre = "록"): Promise<Preview> {
+async function preview(draft: Draft, genre = "rock"): Promise<Preview> {
   const one = withDefaults(draft);
   const request = await buildRequest(one, SAMPLE_CANDIDATES, genre, { live: false });
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
@@ -1070,7 +1070,7 @@ async function candidatesFromUrls(urls: unknown[] | null | undefined, { timeoutM
 }
 
 /** 그 후보들이 실제로 프롬프트에 어떻게 적히는지. 모델에게 가는 그 줄 그대로다. */
-function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "록") {
+function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "rock") {
   const one = withDefaults(settings(), draft);
   return (cands || []).map((cand, i) => renderLine(one.list, cand, genre, i));
 }
@@ -1079,7 +1079,7 @@ function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "�
  * 고른 후보들을 실제로 판정시킨다. 보기 곡이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
-async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록"): Promise<JudgeResult> {
+async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "rock"): Promise<JudgeResult> {
   const one = withDefaults(draft);
   // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);

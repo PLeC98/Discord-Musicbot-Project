@@ -57,7 +57,8 @@ type GenreSource = {
   maxBpm?: number | string;
   [field: string]: unknown;
 };
-type Genre = { emoji?: string; sources: GenreSource[] };
+/** label: 보여 줄 이름(없으면 식별자 = 키) */
+type Genre = { label?: string; emoji?: string; sources: GenreSource[] };
 // 수 칸은 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
 type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown; blockedKeywords?: unknown[] };
 type GenresConfig = { defaults: GenreDefaults; genres: Record<string, Genre> };
@@ -68,7 +69,7 @@ let warnedKeys = "";
 /**
  * 자동재생 장르 설정. { defaults, genres }.
  *
- * 장르 키는 곧 이름이며 문자열이어야 한다. 이 라이브러리(YAML 1.2)에서 no·yes·on·off는 그냥 문자열이지만,
+ * 장르 키는 식별자(주소 · 버튼 id · AI 의 {{genre}})이고 보여 줄 이름은 label(없으면 키)이다. 키는 문자열이어야 한다. 이 라이브러리(YAML 1.2)에서 no·yes·on·off는 그냥 문자열이지만,
  * `true`/`false`/`null`은 값으로 읽혀 id가 조용히 뒤바뀐다(null 키는 빈 문자열이 된다).
  * 흔한 실수는 아니지만, 조용히 틀리는 종류라 거절하고 무엇을 고칠지 알린다.
  */
@@ -180,6 +181,11 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   warnedKeys = key;
 }
 
-export { genres, genresBroken, validateGenres, unusableGenre };
+/** 보여 줄 이름(디스코드 메뉴 · 알림 · 화면). 없거나 모르는 장르면 식별자 그대로 */
+function labelOf(id: string): string {
+  return genres().genres[id]?.label?.trim() || id;
+}
+
+export { genres, genresBroken, validateGenres, unusableGenre, labelOf };
 export const _reset = () => ((lastGood = null), (reported = ""));
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };

@@ -19,10 +19,10 @@ function genreSelect(placeholder: string) {
     new StringSelectMenuBuilder()
       .setCustomId(customId(AUTOPLAY, "genre"))
       .setPlaceholder(placeholder)
-      // 키가 곧 이름이다. 따로 표시용 이름을 두지 않는다. 이모지는 비워 둘 수 있다
+      // 보이는 것은 이름표, 고른 값은 식별자(이름표를 바꿔도 떠 있던 메뉴가 깨지지 않는다). 이모지는 비워 둘 수 있다
       .addOptions(
-        Object.entries(genres).map(([name, g]) => {
-          const option = new StringSelectMenuOptionBuilder().setLabel(name).setValue(name);
+        Object.entries(genres).map(([id, g]) => {
+          const option = new StringSelectMenuOptionBuilder().setLabel(g.label?.trim() || id).setValue(id);
           return g.emoji ? option.setEmoji(g.emoji) : option;
         }),
       )
@@ -45,9 +45,9 @@ const buildGenreMenu = () => withMenu(autoplayText.pickGenre());
  */
 const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
 
-/** 장르를 골라 켰다(모두에게 보내는 결과). by 는 고른 사람 */
+/** 장르를 골라 켰다(모두에게 보내는 결과). genre 는 식별자, 보이는 것은 이름표. by 는 고른 사람 */
 function autoplayOn(genre: string, by: { toString(): string }) {
-  const t = autoplayText.turnedOn(genre);
+  const t = autoplayText.turnedOn(genreConfig.labelOf(genre));
   return frame({ title: t.title, body: t.description, footer: [`${t.by} ${by}`], divider: true });
 }
 

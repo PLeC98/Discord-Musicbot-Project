@@ -15,7 +15,11 @@ const empty = "장르가 없어요. 오른쪽 위 + 로 더해요";
 const savedNote = "다음 자동재생부터 반영돼요";
 
 // 장르 편집
-const namePlaceholder = "장르 이름";
+const label = "보여 줄 이름";
+const labelPlaceholder = "보여 줄 이름(비우면 식별자)";
+const id = "식별자";
+const idPlaceholder = "영어로 짧게(예: rock)";
+const idTip = "주소 · 디스코드 버튼 · AI 프롬프트의 {{genre}} 에 쓰여요. 프롬프트가 보통 영어라 영어로 짧게 적기를 권해요.\n바꾸면 이 장르로 켜 둔 자동재생은 다시 골라야 해요. 보여 줄 이름은 언제 바꿔도 괜찮아요.";
 const removeGenre = "이 장르 삭제";
 const sources = "출처";
 const sourcesDesc = "가중치가 높은 출처의 곡을 더 자주 뽑으며, 곡을 받아오지 못하는 출처는 건너뛰어요.";
@@ -27,10 +31,10 @@ const noGlobalLimit = "전역 제한 없음";
 
 // 검사
 const problems = {
-  noName: "이름이 없어요",
-  duplicate: "같은 이름의 장르가 있어요",
-  /** 이름이 빈 장르를 검사에 넘길 때 쓰는 이름 */
-  unnamed: "이름 없는 장르",
+  noName: "식별자가 없어요",
+  duplicate: "같은 식별자의 장르가 있어요",
+  /** 식별자가 빈 장르를 검사에 넘길 때 쓰는 이름 */
+  unnamed: "식별자 없는 장르",
   noGenres: "장르가 하나도 없어요",
   unknownType: (type: string) => `${type}: 모르는 종류예요. 이 봇이 지원하지 않아요.`,
   unusable: (label: string) => `출처: ${label}\n${label} 키가 없어 해당 출처를 사용하지 않아요. 운영자 패널의 API 키 탭에서 넣어 주세요.`,
@@ -69,4 +73,4 @@ const defaults = {
   blockedPlaceholder: "차단할 말을 적고 Enter",
 };
 
-export { listTitle, addGenre, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, namePlaceholder, removeGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };
+export { listTitle, addGenre, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, label, labelPlaceholder, id, idPlaceholder, idTip, removeGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };

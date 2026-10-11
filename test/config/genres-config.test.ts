@@ -200,7 +200,7 @@ test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장
   assert.equal(err.code, "CONFIG_INVALID");
   const lines = err.message.split("\n");
   assert.equal(lines[0], "자동재생 장르 설정을 읽을 수 없습니다:");
-  assert.match(err.message, /"80": 숫자만으로 된 이름은/);
+  assert.match(err.message, /"80": 숫자만으로 된 식별자는/);
   assert.match(err.message, /팝: emoji는 이모지 한 글자여야/);
   assert.match(err.message, /팝: 소스\(sources\)가 하나는 있어야/);
 });

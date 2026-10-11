@@ -32,7 +32,7 @@
             <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing" :class="isOn(i) ? '' : 'text-outline'" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)" @click.stop><Icon name="drag_indicator" :size="20" /></span>
             <Twemoji v-if="row.emoji" :char="row.emoji" :size="24" class="shrink-0" />
             <Icon v-else name="music_note" :size="24" class="shrink-0" :class="!isOn(i) && 'text-on-surface-variant'" />
-            <span class="min-w-0 flex-1 truncate" :class="!row.name.trim() && !isOn(i) && 'text-on-surface-variant'">{{ row.name.trim() || T.noName }}</span>
+            <span class="min-w-0 flex-1 truncate" :class="!shownName(row) && !isOn(i) && 'text-on-surface-variant'">{{ shownName(row) || T.noName }}</span>
             <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등) · 출처 수 · 열린다는 꺾쇠. 아이콘에 올리면 까닭 -->
             <Icon v-if="rowProblem(row)" name="error" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-error'" v-tooltip="rowProblem(row)" />
             <Icon v-else-if="rowWarning(row)" name="warning" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-(--warn-ink)'" v-tooltip="rowWarning(row)" />
@@ -60,9 +60,14 @@
         <div class="flex flex-col gap-4">
           <div class="flex items-center gap-3">
             <EmojiInput v-model="selected.emoji" />
-            <input :value="selected.name" :placeholder="T.namePlaceholder" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.name = valueOf($event)" />
+            <input :value="selected.label" :placeholder="selected.name.trim() || T.labelPlaceholder" :aria-label="T.label" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.label = valueOf($event)" />
             <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeGenre" v-tooltip="text.common.remove" @click="removeRow(selectedIndex)"><Icon name="delete" :size="20" /></button>
           </div>
+          <!-- 식별자: 주소 · 디스코드 버튼 · AI 의 {{genre}}. 이름표(위 칸)는 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
+          <label class="block">
+            <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.id }}<Icon name="info" :size="14" class="cursor-help" v-tooltip="T.idTip" /></span>
+            <input :value="selected.name" :placeholder="T.idPlaceholder" spellcheck="false" :class="[FIELD, 'w-full font-mono placeholder:font-sans']" @input="selected.name = valueOf($event)" />
+          </label>
           <NoticeBox v-if="rowProblems(selected).length" variant="note" tone="error" icon="error" class="mt-0!">{{ rowProblems(selected).join("\n") }}</NoticeBox>
 
           <section class="flex flex-col gap-2">
@@ -115,7 +120,7 @@ import { configFileIo, useConfigFile } from "../composables/config-file.ts";
 import { useSaveTarget } from "../composables/save-targets.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { problemText } from "../utils/problem.ts";
-import { toRows, toMap, newRow, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
+import { toRows, toMap, newRow, shownName, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
 import { genreProblems, GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
 import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";

@@ -117,8 +117,8 @@ const judge = {
   title: "판정 테스트",
   urls: "유튜브 주소",
   urlsPlaceholder: "https://www.youtube.com/watch?v=... (한 줄에 하나)",
-  genre: "장르",
-  genrePlaceholder: "록",
+  genre: "장르 식별자",
+  genrePlaceholder: "rock",
   lookup: "링크 조회",
   looking: "조회 중…",
   send: "요청 전송",
@@ -191,7 +191,7 @@ const keyCleared = "키를 지웠어요";
 const keySaveFailed = "키를 저장하지 못했어요.";
 const keyClearFailed = "키를 지우지 못했어요.";
 /** 줄 형식 자리표시자 설명(이름은 봇의 rules/line-format) */
-const markHints: Record<string, string> = { index: "1부터", genre: "자동재생 장르", title: "영상 제목 (필수)", duration: "길이. 형식 없이 쓰면 3:05, {{duration::m}} 처럼 형식을 줄 수 있어요. 모르면 비어요" };
+const markHints: Record<string, string> = { index: "1부터", genre: "자동재생 장르의 식별자(예: rock). 이름표가 아니라 식별자가 가요", title: "영상 제목 (필수)", duration: "길이. 형식 없이 쓰면 3:05, {{duration::m}} 처럼 형식을 줄 수 있어요. 모르면 비어요" };
 const modelsRefreshed = "모델 정보를 갱신했어요";
 const modelCount = (count: number) => `모델 ${count}개`;
 const modelsCurrent = "모델 정보가 이미 최신이에요";

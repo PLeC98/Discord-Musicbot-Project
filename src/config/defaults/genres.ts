@@ -9,7 +9,8 @@ const genresDefault: Record<string, unknown> = {
     blockedKeywords: ["best of", "tutorial", "lesson", "course", "learn", "learning", "podcast", "interview", "speech", "lecture", "review", "unboxing", "reaction", "gameplay", "full movie", "full album", "full episode", "documentary", "how to", "guide", "tips", "tricks", "vlog", "practice", "exercise", "workout", "meditation", "asmr", "audiobook", "compilation", "mix", "メドレー", "ランキング", "top hits", "playlist", "mega hits", "billboard top", "플레이리스트", "메들리", "믹스셋", "mixset"],
   },
   genres: {
-    팝: {
+    pop: {
+      label: "팝",
       emoji: "🎤",
       sources: [
         {
@@ -28,7 +29,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    록: {
+    rock: {
+      label: "록",
       emoji: "🎸",
       sources: [
         {
@@ -47,7 +49,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    힙합: {
+    "hip-hop": {
+      label: "힙합",
       emoji: "🎧",
       sources: [
         {
@@ -66,7 +69,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    일렉트로닉: {
+    electronic: {
+      label: "일렉트로닉",
       emoji: "🎛️",
       sources: [
         {
@@ -85,7 +89,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    재즈: {
+    jazz: {
+      label: "재즈",
       emoji: "🎷",
       sources: [
         {
@@ -104,7 +109,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    클래식: {
+    classical: {
+      label: "클래식",
       emoji: "🎻",
       sources: [
         {
@@ -123,7 +129,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    메탈: {
+    metal: {
+      label: "메탈",
       emoji: "🤘",
       sources: [
         {
@@ -142,7 +149,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    컨트리: {
+    country: {
+      label: "컨트리",
       emoji: "🤠",
       sources: [
         {
@@ -161,7 +169,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    "R&B": {
+    rnb: {
+      label: "R&B",
       emoji: "💃",
       sources: [
         {
@@ -180,7 +189,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    인디: {
+    indie: {
+      label: "인디",
       emoji: "🌿",
       sources: [
         {
@@ -199,7 +209,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    "K-POP": {
+    "k-pop": {
+      label: "K-POP",
       emoji: "🇰🇷",
       sources: [
         {
@@ -218,7 +229,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    애니: {
+    anime: {
+      label: "애니",
       emoji: "🎌",
       sources: [
         {
@@ -245,7 +257,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    보컬로이드: {
+    vocaloid: {
+      label: "보컬로이드",
       emoji: "🎹",
       sources: [
         {
@@ -254,7 +267,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    동방: {
+    touhou: {
+      label: "동방",
       emoji: "⛩️",
       sources: [
         {
@@ -263,7 +277,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    로파이: {
+    "lo-fi": {
+      label: "로파이",
       emoji: "🌙",
       sources: [
         {
@@ -277,7 +292,8 @@ const genresDefault: Record<string, unknown> = {
         },
       ],
     },
-    랜덤: {
+    random: {
+      label: "랜덤",
       emoji: "🎲",
       sources: [
         {

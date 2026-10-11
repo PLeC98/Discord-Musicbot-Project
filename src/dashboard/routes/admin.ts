@@ -303,13 +303,13 @@ adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
 adminRouter.post("/ai/judge/lines", requireOwner, (req, res) => {
   const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one: { error?: unknown; title?: unknown } | null) => one && !one.error && one.title).slice(0, 20);
-  res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) } satisfies LinesReply);
+  res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "rock")) } satisfies LinesReply);
 });
 
 /** 판정 테스트 2. 그 후보들을 실제로 보내 곡별 판정을 받는다. */
 adminRouter.post("/ai/judge/run", requireOwner, async (req, res) => {
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
-  res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록")));
+  res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "rock")));
 });
 
 // 키를 넣고 지운다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 지운다), 돌려주는 것은 상태다.
