@@ -16,7 +16,7 @@ const fields: Record<string, { label: string; help: string }> = {
   QUEUE_MAX_TRACKS: { label: "대기열 곡 수 상한", help: "재생 중인 곡은 빼고 세요. 0 이면 끔, 켜면 25 이상.\n곡이 수천 개면 셔플처럼 대기열 전체를 다시 쓰는 조작 동안 봇 전체가 잠깐 멈출 수 있어요. 1,000곡 안쪽을 권해요." },
   LEAVE_DELAY_QUEUE_EMPTY_SECONDS: { label: "대기열이 비면 나가기까지(초)", help: "대기열을 다 튼 뒤 음성 채널을 나가기까지 기다리는 시간. 0 이면 바로 나가요." },
   LEAVE_DELAY_ALONE_SECONDS: { label: "혼자 남으면 나가기까지(초)", help: "음성 채널에 봇만 남았을 때 나가기까지 기다리는 시간." },
-  EMBED_COLOR: { label: "임베드 색", help: "#RRGGBB 꼴. 대시보드의 기본 색으로도 써요." },
+  EMBED_COLOR: { label: "임베드 색", help: "왼쪽 동그라미를 눌러 고르거나 #RRGGBB 꼴로 적어요. 대시보드의 기본 색으로도 써요." },
   WEBSITE: { label: "봇 웹사이트 주소", help: "비우면 /help 에서 링크를 빼요. http · https 주소만." },
   VOICE_PLAYING_PREFIX: { label: "음성 상태: 재생 중 앞머리", help: "음성 채널 상태에 곡 이름 앞에 붙여요. 예: 📻" },
   VOICE_PAUSED_PREFIX: { label: "음성 상태: 일시정지 앞머리", help: "일시정지 중일 때 곡 이름 앞에 붙여요. 예: ⏸" },
@@ -55,6 +55,7 @@ const defaultWith = (value: string) => (value ? `기본값 ${value}` : "기본�
 const restartTip = "기동 때 한 번 정하는 값이라 봇을 다시 시작해야 적용돼요.";
 const pending = "저장함 · 다시 시작하면 적용";
 const restartBadge = "다시 시작해야 적용";
+const pickColor = "색 고르기";
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";
@@ -63,4 +64,4 @@ const savedRestart = (names: string) => `봇을 다시 시작해야 적용돼요
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
 const loadFailed = "운영 조절값을 읽지 못했어요.";
 
-export { groups, fields, title, desc, defaultWith, restartTip, pending, restartBadge, on, off, savedDone, savedRestart, saveFailed, loadFailed };
+export { groups, fields, title, desc, defaultWith, restartTip, pending, restartBadge, pickColor, on, off, savedDone, savedRestart, saveFailed, loadFailed };
