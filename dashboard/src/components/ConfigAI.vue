@@ -73,7 +73,7 @@
                   >{{ spec?.serviceAccount ? TM.serviceAccount : TM.apiKey }}<span class="inline-flex items-center gap-1 text-xs" :class="hasKey ? 'text-primary' : 'text-on-surface-variant'"><Icon :name="hasKey ? 'check_circle' : 'radio_button_unchecked'" :size="16" :fill="hasKey" />{{ hasKey ? (spec?.serviceAccount ? TM.savedAccount : TM.savedKey) : spec?.serviceAccount ? TM.noAccount : TM.noKey }}</span></span
                 >
                 <!-- 서비스 계정은 JSON 덩어리다. 다른 키와 같은 자리에 같은 방식으로 둔다 -->
-                <textarea v-if="spec?.serviceAccount" :value="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[AREA, 'font-mono text-xs']" @input="keyInput = valueOf($event)"></textarea>
+                <textarea v-if="spec?.serviceAccount" :value="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[AREA, 'font-mono text-xs', hasKey && 'placeholder:font-sans']" @input="keyInput = valueOf($event)"></textarea>
                 <div class="flex items-center gap-2">
                   <input v-if="!spec?.serviceAccount" :value="keyInput" type="password" autocomplete="off" :placeholder="keyPlaceholder" :class="[FIELD, 'flex-1 min-w-0']" @input="keyInput = valueOf($event)" />
                   <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? TM.saving : TM.save }}</BaseButton>

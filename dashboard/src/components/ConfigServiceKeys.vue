@@ -16,7 +16,7 @@
           <span :class="FIELD_LABEL" class="flex items-center gap-2"
             >{{ fieldLabel(id, field) }}<span class="inline-flex items-center gap-1" :class="TONE[stateOf(id, field).state]" v-tooltip="tipOf(id, field)"><Icon :name="ICON[stateOf(id, field).state]" :size="14" :fill="stateOf(id, field).state === 'ok'" />{{ stateText(id, field) }}</span></span
           >
-          <input :value="input[id][field]" type="password" autocomplete="off" spellcheck="false" :placeholder="stateOf(id, field).state === 'none' ? T.placeholderNew : T.placeholderReplace" :class="[FIELD, 'w-full font-mono']" @input="input[id][field] = valueOf($event)" />
+          <input :value="input[id][field]" type="password" autocomplete="off" spellcheck="false" :placeholder="stateOf(id, field).state === 'none' ? T.placeholderNew : T.placeholderReplace" :class="[FIELD, 'w-full font-mono placeholder:font-sans']" @input="input[id][field] = valueOf($event)" />
         </label>
 
         <div class="flex items-center gap-2 flex-wrap">
