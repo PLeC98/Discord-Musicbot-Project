@@ -38,306 +38,13 @@
       </BaseCard>
 
       <div v-if="showDetail" class="flex flex-col gap-(--gap-in) min-w-0">
-        <template v-if="view === 'model'">
-          <!-- 모델: 어디로(프로바이더 · 주소 · 키) · 무엇을(모델) 부를지 한 카드에 -->
-          <BaseCard icon="model_training" :title="TM.title">
-            <div class="flex flex-col gap-4">
-              <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
-                <label class="block">
-                  <span :class="FIELD_LABEL">{{ TM.provider }}</span>
-                  <SingleSelect :model-value="on ? draft.provider : ''" :options="providerOptions" :placeholder="text.fields.pick" @update:model-value="pickProvider" />
-                </label>
-                <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. 버텍스는 프로젝트 · 리전 · 모델로 조립한 것을 보여 준다 -->
-                <label v-if="on" class="block min-w-0">
-                  <span :class="FIELD_LABEL">{{ TM.endpoint }}</span>
-                  <input v-if="spec?.editable" :value="draft.baseUrl" placeholder="https://example.com/v1" :class="[FIELD, 'w-full']" @input="draft.baseUrl = valueOf($event)" />
-                  <p v-else class="h-10 flex items-center text-sm font-mono text-on-surface-variant truncate" v-tooltip="shownEndpoint">{{ shownEndpoint }}</p>
-                </label>
-              </div>
+        <ConfigAIModel v-if="view === 'model'" />
 
-              <!-- 버텍스는 주소를 이 둘로 조립한다 -->
-              <div v-if="on && spec?.needsProject" class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TM.regionTip">{{ TM.region }}</span>
-                  <input :value="draft.location" placeholder="global" :class="[FIELD, 'w-full']" @input="draft.location = valueOf($event)" />
-                </label>
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TM.projectTip">{{ TM.project }}</span>
-                  <input :value="draft.project" :placeholder="TM.projectPlaceholder" :class="[FIELD, 'w-full']" @input="draft.project = valueOf($event)" />
-                </label>
-              </div>
-
-              <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다 -->
-              <div v-if="on && needsKey" class="flex flex-col gap-1">
-                <span :class="FIELD_LABEL" class="flex! items-center gap-2"
-                  >{{ spec?.serviceAccount ? TM.serviceAccount : TM.apiKey }}<span class="inline-flex items-center gap-1 text-xs" :class="hasKey ? 'text-primary' : 'text-on-surface-variant'"><Icon :name="hasKey ? 'check_circle' : 'radio_button_unchecked'" :size="16" :fill="hasKey" />{{ hasKey ? (spec?.serviceAccount ? TM.savedAccount : TM.savedKey) : spec?.serviceAccount ? TM.noAccount : TM.noKey }}</span></span
-                >
-                <!-- 서비스 계정은 JSON 덩어리다. 다른 키와 같은 자리에 같은 방식으로 둔다 -->
-                <textarea v-if="spec?.serviceAccount" :value="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[AREA, 'font-mono text-xs', hasKey && 'placeholder:font-sans']" @input="keyInput = valueOf($event)"></textarea>
-                <div class="flex items-center gap-2">
-                  <input v-if="!spec?.serviceAccount" :value="keyInput" type="password" autocomplete="off" :placeholder="keyPlaceholder" :class="[FIELD, 'flex-1 min-w-0']" @input="keyInput = valueOf($event)" />
-                  <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? TM.saving : TM.save }}</BaseButton>
-                  <button v-if="hasKey" type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="savingKey" :aria-label="TM.clearKey" v-tooltip="TM.clearValue" @click="clearKey"><Icon name="delete" :size="20" /></button>
-                </div>
-                <p v-if="keyTrouble" class="text-xs text-(--warn-ink)">{{ keyTrouble === "moved" ? (spec?.serviceAccount ? TM.keyMovedRegion : TM.keyMoved) : TM.keyAgain }}</p>
-                <p v-if="spec?.serviceAccount && keyInput.trim() && !looksLikeAccount" class="text-xs text-(--warn-ink)">{{ TM.accountShape }}</p>
-                <p class="text-xs text-on-surface-variant">{{ spec?.serviceAccount ? TM.accountHint : TM.keyHint }}</p>
-                <p v-if="!secureOrigin" class="text-xs text-(--warn-ink)">{{ TM.insecure }}</p>
-              </div>
-              <p v-if="on && staleCustomUrl" class="text-xs text-(--warn-ink)">{{ TM.staleUrl }}</p>
-              <template v-if="on">
-                <div>
-                  <span :class="FIELD_LABEL">{{ TM.model }}</span>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <SingleSelect v-if="models.length && !manualModel" class="flex-1 min-w-40" :model-value="draft.model ?? ''" :options="modelChoices.map((one) => ({ value: one.id, label: one.label }))" @update:model-value="pickModel" />
-                    <input v-else :value="draft.model" :placeholder="TM.modelPlaceholder" :class="[FIELD, 'flex-1 min-w-40']" @input="draft.model = valueOf($event)" @change="rememberModel(draft.provider, draft.model)" />
-                    <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="loadingModels" :aria-label="TM.refreshList" v-tooltip="TM.refreshList" @click="loadModels()"><Icon name="refresh" :size="20" :class="loadingModels && 'animate-spin'" /></button>
-                    <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : TM.manualTip">
-                      <span class="text-sm" :class="models.length ? 'text-on-surface' : 'text-on-surface-variant'">{{ TM.manual }}</span>
-                      <BaseSwitch v-model="manualModel" :disabled="!models.length" />
-                    </label>
-                  </div>
-                </div>
-
-                <div v-if="models.length || hideModels.length">
-                  <BaseButton variant="ghost" size="sm" @click="showHide = !showHide"
-                    ><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showHide && 'rotate-180'" />{{ TM.hide }}<span v-if="hideModels.length" class="nums">{{ hideModels.length }}</span></BaseButton
-                  >
-                  <div v-if="showHide" class="mt-2 flex flex-col gap-1">
-                    <p class="text-xs text-on-surface-variant">{{ TM.hideHelpBefore }}<code class="font-mono">*</code>{{ TM.hideHelpAfter }}</p>
-                    <ChipInput v-model="hideModels" lowercase :placeholder="TM.hidePlaceholder" />
-                  </div>
-                </div>
-              </template>
-            </div>
-          </BaseCard>
-
-          <BaseCard v-if="on" icon="tune" :title="TP.title">
-            <template v-if="fieldInfo.fields.length" #actions>
-              <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="refreshing" :aria-label="TP.refresh" v-tooltip="TP.refreshTip" @click="refreshModels"><Icon name="refresh" :size="20" :class="refreshing && 'animate-spin'" /></button>
-            </template>
-            <div class="flex flex-col gap-4">
-              <div v-if="fieldInfo.fields.length" class="flex items-center gap-3">
-                <span class="flex-1 min-w-0 truncate text-sm font-semibold text-on-surface">{{ modelName || draft.model }}</span>
-                <label class="flex items-center gap-2 cursor-pointer shrink-0">
-                  <span class="text-sm text-on-surface">{{ TP.advanced }}</span>
-                  <BaseSwitch v-model="showAdvanced" />
-                </label>
-              </div>
-
-              <section v-for="group in paramGroups" :key="group.id" class="flex flex-col gap-2">
-                <h3 class="text-sm font-semibold text-on-surface">{{ group.label }}</h3>
-                <div class="grid grid-cols-2 @xl/card:grid-cols-3 gap-3">
-                  <label v-for="field in group.fields" :key="field.key" class="block min-w-0">
-                    <span :class="FIELD_LABEL" class="truncate" v-tooltip="hintOf(field)">{{ field.label || field.key }}</span>
-                    <SingleSelect v-if="field.enum" :model-value="enumValue(field.enum, params[field.key])" :options="enumOptions(field.enum)" :empty-label="field.default ? TP.defaultWith(field.default) : TP.default" @update:model-value="params[field.key] = enumPick(field.enum, $event)" />
-                    <span v-else-if="field.type === 'boolean'" class="h-10 flex items-center">
-                      <BaseSwitch :model-value="Boolean(params[field.key])" :label="field.label || field.key" @update:model-value="params[field.key] = $event" />
-                    </span>
-                    <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" :model-value="numberParam(field.key)" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="[FIELD, 'w-full']" @update:model-value="(v) => (params[field.key] = v)" />
-                    <ChipInput v-else-if="field.type === 'stringArray'" :model-value="listParam(field.key)" :placeholder="TP.listPlaceholder" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
-                    <template v-else-if="field.type === 'json'">
-                      <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[AREA, 'font-mono text-xs']" @input="(e) => onJson(field.key, valueOf(e))"></textarea>
-                      <span v-if="jsonBad[field.key]" class="mt-1 block text-xs text-error">{{ TP.badJson }}</span>
-                    </template>
-                    <input v-else :value="params[field.key]" :placeholder="String(field.default ?? '')" :class="[FIELD, 'w-full']" @input="params[field.key] = valueOf($event)" />
-                  </label>
-                </div>
-              </section>
-              <p v-if="paramLimits" class="text-xs text-on-surface-variant">{{ paramLimits }}</p>
-
-              <section class="flex flex-col gap-2" :class="paramGroups.length > 0 && 'pt-3 border-t border-outline-variant/40'">
-                <div>
-                  <h3 class="text-sm font-semibold text-on-surface">{{ TP.extra }}</h3>
-                  <p class="mt-1 text-xs text-on-surface-variant">
-                    {{ TP.extraHelp }}<code class="font-mono">key=value</code> · <code class="font-mono">key=json::{...}</code> · <code class="font-mono">header::Name=value</code> · <code class="font-mono">key={{ NONE_MARK }}</code>
-                  </p>
-                </div>
-                <textarea :value="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[AREA, 'font-mono text-xs']" @input="extraText = valueOf($event)"></textarea>
-              </section>
-            </div>
-          </BaseCard>
-
-          <BaseCard v-if="on" icon="network_check" :title="TT.title">
-            <div class="flex flex-col gap-3">
-              <p class="text-sm text-on-surface-variant">{{ TT.desc }}</p>
-              <div class="flex items-center gap-2 flex-wrap">
-                <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? TT.freeRunning : TT.free }}</BaseButton>
-                <BaseButton variant="warning" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? TT.paidRunning : TT.paid }}</BaseButton>
-              </div>
-              <!-- 두 테스트의 결과. 한 자리에 쓴다 -->
-              <template v-if="tested">
-                <NoticeBox variant="note" :tone="tested.ok ? 'info' : 'error'" :icon="tested.ok ? 'check_circle' : 'cancel'" :fill="tested.ok" class="mt-0!"
-                  >{{ tested.kind }} · {{ tested.status ? `HTTP ${tested.status}` : TT.notSent }} · {{ tested.tookMs }}ms<template v-if="tested.extra"> · {{ tested.extra }}</template
-                  ><template v-if="tested.reason && !tested.status">{{ NL }}{{ tested.reason }}</template></NoticeBox
-                >
-                <pre v-if="tested.body" :class="CODE_BOX">{{ tested.body }}</pre>
-                <div v-if="tested.raw && tested.raw !== tested.body">
-                  <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
-                </div>
-                <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
-              </template>
-            </div>
-          </BaseCard>
-        </template>
-
-        <!-- ── 프롬프트: 후보 목록 형식 · 판정 프롬프트 ── -->
+        <!-- ── 프롬프트: 후보 목록 형식 · 판정 프롬프트 · 판정 테스트(맨 아래: 프롬프트를 깎으면서 쓴다) ── -->
         <template v-if="view === 'prompt'">
-          <BaseCard icon="format_list_numbered" :title="TL.title">
-            <div class="flex flex-col gap-4">
-              <div class="grid grid-cols-2 @xl/card:grid-cols-3 gap-3">
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TL.batchTip">{{ TL.batch }}</span>
-                  <NumberInput v-model="draft.batchSize" :class="[FIELD, 'w-full']" />
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer self-end h-10" v-tooltip="TL.skipConfidentTip">
-                  <BaseSwitch v-model="draft.skipConfident" />
-                  <span class="text-sm text-on-surface">{{ TL.skipConfident }}</span>
-                </label>
-              </div>
-
-              <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
-                <div>
-                  <h3 class="flex items-center gap-1 text-sm font-semibold text-on-surface">
-                    {{ TL.lineFormat }}<button type="button" :class="[ICON_BTN, 'size-6']" v-tooltip="TL.help" :aria-label="TL.help" aria-haspopup="dialog" @click="syntaxOpen = true"><Icon name="info" :size="16" /></button>
-                  </h3>
-                  <p class="mt-1 text-xs text-on-surface-variant">
-                    {{ TL.lineFormatBefore }}<code class="font-mono">{{ LIST_MARK }}</code
-                    >{{ TL.lineFormatAfter }}
-                  </p>
-                </div>
-                <input :value="listCfg.lineFormat" :placeholder="defaults.line" :class="[FIELD, 'w-full font-mono']" @input="listCfg.lineFormat = valueOf($event)" />
-                <!-- 문제는 칸 아래에 그 구간을 짚어 보인다(입력칸 안은 색을 칠할 수 없다): 앞뒤 몇 글자와 틀린 구간 · 몇 번째 글자 · 까닭 -->
-                <ul v-if="lineProblems.length" class="flex flex-col gap-1">
-                  <li v-for="(one, i) in lineProblems" :key="i" class="flex flex-wrap items-baseline gap-x-2 text-xs">
-                    <code class="font-mono text-on-surface-variant"
-                      >{{ one.before }}<mark class="rounded-xs bg-error-container px-0.5 text-on-error-container">{{ one.part || " " }}</mark
-                      >{{ one.after }}</code
-                    >
-                    <span class="text-error">{{ TL.problemAt(one.at + 1) }}: {{ one.message }}</span>
-                  </li>
-                </ul>
-                <div class="flex flex-wrap gap-2">
-                  <button v-for="one in MARKS" :key="one.mark" type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="one.hint" @click="insertMark(one.mark)"><Icon name="add" :size="18" />{{ one.mark }}</button>
-                  <button type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="TL.blockChipTip" @click="insertMark(BLOCK_MARK)"><Icon name="add" :size="18" />{{ TL.blockChip }}</button>
-                </div>
-                <!-- 미리보기: 봇과 같은 해석기로 길이를 아는 줄 · 모르는 줄을 그린다(조회 없이) -->
-                <div class="flex flex-col gap-1">
-                  <span :class="FIELD_LABEL">{{ TL.previewTitle }}</span>
-                  <div v-for="one in linePreview" :key="one.label" class="flex flex-col gap-0.5">
-                    <span class="text-2xs text-on-surface-variant">{{ one.label }}</span>
-                    <pre :class="CODE_BOX">{{ one.line || " " }}</pre>
-                  </div>
-                </div>
-                <InfoDialog v-model="syntaxOpen" icon="format_list_numbered" :title="TL.helpTitle">
-                  <dl class="flex flex-col gap-1">
-                    <div v-for="row in TL.syntax" :key="row.code" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
-                      <dt class="text-sm font-semibold font-mono break-all">{{ row.code }}</dt>
-                      <dd class="mt-0.5 text-xs text-on-surface-variant">{{ row.text }}</dd>
-                    </div>
-                    <div class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
-                      <dt class="text-sm font-semibold">{{ TL.syntaxExampleLabel }}</dt>
-                      <dd class="mt-0.5 text-xs font-mono break-all text-on-surface-variant">{{ TL.syntaxExample }}</dd>
-                    </div>
-                  </dl>
-                </InfoDialog>
-              </section>
-            </div>
-          </BaseCard>
-
-          <BaseCard icon="terminal" :title="TR.title">
-            <template #actions>
-              <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenTotal) }}</span>
-              <span v-else-if="tokenError" class="text-xs text-(--warn-ink)" v-tooltip="tokenError">{{ TR.tokensFailed }}</span>
-              <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TR.addSection" v-tooltip="text.common.add" @click="addSection"><Icon name="add" :size="20" /></button>
-            </template>
-            <div class="flex flex-col gap-3">
-              <p class="text-sm text-on-surface-variant">{{ TR.descBefore }}<code class="font-mono">[{"n":1,"song":true,"fits":false}]</code>{{ TR.descAfter }}</p>
-              <NoticeBox v-if="!sections.length" variant="note" tone="info" icon="info" class="mt-0!">{{ TR.emptyUsesDefault }}</NoticeBox>
-              <NoticeBox v-else-if="!listMarked" variant="note" tone="error" icon="error" class="mt-0!">{{ TR.listMarkMissing(LIST_MARK) }}</NoticeBox>
-
-              <!-- 섹션 카드: 머리(손잡이 · 접기 · 이름 · 역할 · 지우기), 몸은 프롬프트. 출처 카드와 같은 모양 -->
-              <div v-for="(section, i) in sections" :key="section.key" class="rounded-(--r-inner) bg-surface-container-high" data-reorder>
-                <div class="flex items-center gap-1 @sm/card:gap-2 p-2">
-                  <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing text-outline" v-tooltip="TR.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
-                  <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="isFolded(promptFoldId(i)) ? text.common.expand : text.common.collapse" v-tooltip="isFolded(promptFoldId(i)) ? text.common.expand : text.common.collapse" @click="toggleFold(promptFoldId(i))"><Icon name="expand_more" :size="20" class="transition-transform duration-150" :class="isFolded(promptFoldId(i)) && '-rotate-90'" /></button>
-                  <input :value="section.name" :placeholder="TR.sectionName(i + 1)" :class="[FIELD, 'flex-1 min-w-0']" v-tooltip="TR.sectionNameTip" @input="section.name = valueOf($event)" />
-                  <SingleSelect :model-value="section.role" class="w-28 @sm/card:w-32 shrink-0" :options="ROLES.map((one) => ({ value: one, label: one }))" v-tooltip="TR.role" @update:model-value="section.role = $event as PromptSection['role']" />
-                  <button type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :aria-label="TR.removeSection" v-tooltip="text.common.remove" @click="removeSection(i)"><Icon name="delete" :size="20" /></button>
-                </div>
-                <div v-show="!isFolded(promptFoldId(i))" class="flex flex-col gap-1 px-3 pb-3">
-                  <span v-if="tokenEach[i] != null" class="self-end text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenEach[i]) }}</span>
-                  <textarea :value="section.text" rows="8" :class="[AREA, 'font-mono text-xs']" @input="section.text = valueOf($event)"></textarea>
-                </div>
-              </div>
-
-              <div class="flex items-center gap-2 flex-wrap">
-                <BaseButton variant="ghost" size="sm" @click="loadDefaults"><Icon name="restart_alt" :size="18" />{{ TR.defaults }}</BaseButton>
-                <BaseButton variant="secondary" size="sm" class="ml-auto" @click="openPreview"><Icon name="visibility" :size="18" />{{ TR.preview }}</BaseButton>
-              </div>
-            </div>
-          </BaseCard>
-        </template>
-
-        <!-- ── 판정 테스트(프롬프트 화면의 맨 아래: 프롬프트를 깎으면서 쓴다): 진짜 곡으로 시험한다. 링크 조회는 아무것도 보내지 않고, 판정 요청만 실제로 보낸다 ── -->
-
-        <template v-if="view === 'prompt'">
-          <BaseCard icon="fact_check" :title="TJ.title">
-            <div class="flex flex-col gap-4">
-              <div class="flex flex-col @xl/card:flex-row gap-3 items-start">
-                <label class="block flex-1 min-w-0 w-full">
-                  <span :class="FIELD_LABEL">{{ TJ.urls }}</span>
-                  <textarea :value="judgeUrls" rows="3" wrap="off" :placeholder="TJ.urlsPlaceholder" :class="[AREA, 'font-mono text-xs']" @input="judgeUrls = valueOf($event)"></textarea>
-                </label>
-                <div class="w-full @xl/card:w-60 @3xl/card:w-72 shrink-0 flex flex-col gap-3">
-                  <label class="block">
-                    <span :class="FIELD_LABEL">{{ TJ.genre }}</span>
-                    <input :value="judgeGenre" :placeholder="TJ.genrePlaceholder" :class="[FIELD, 'w-full']" @input="judgeGenre = valueOf($event)" />
-                  </label>
-                  <div class="grid grid-cols-2 gap-2">
-                    <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="lookupJudge">{{ judging ? TJ.looking : TJ.lookup }}</BaseButton>
-                    <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="askPaid('judge')">{{ judging ? TJ.sending : TJ.send }}</BaseButton>
-                  </div>
-                </div>
-              </div>
-
-              <NoticeBox v-if="judgeStale" variant="note" tone="notice" icon="info" class="mt-0!"
-                ><span class="min-w-0 flex-1"
-                  >{{ TJ.stale }}<span class="mt-2 block rounded-(--r-inner) bg-current/10 px-3 py-2 font-mono text-xs whitespace-pre-wrap">{{ SAMPLE_LINES }}</span></span
-                ></NoticeBox
-              >
-              <NoticeBox v-if="judgeError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ judgeError }}</NoticeBox>
-
-              <section v-if="judgeCands.length" class="flex flex-col gap-2">
-                <div class="flex items-center gap-2">
-                  <h3 class="flex-1 text-sm font-semibold text-on-surface">{{ TJ.listTitle }}</h3>
-                  <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copyList" v-tooltip="TJ.copy" @click="copy(judgeList.join(NL))"><Icon name="content_copy" :size="20" /></button>
-                </div>
-                <ul class="flex flex-col rounded-(--r-inner) bg-surface-container-highest divide-y divide-outline-variant/40">
-                  <li v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-3 px-3 py-2">
-                    <span v-if="judgeVerdicts" class="shrink-0 w-16 text-xs font-semibold" :class="verdictOk(judgeVerdicts[i]) ? 'text-primary' : 'text-error'">{{ verdictText(judgeVerdicts[i]) }}</span>
-                    <p v-if="cand.error" class="min-w-0 flex-1 text-xs text-error break-all">{{ cand.url }}: {{ cand.error }}</p>
-                    <p v-else class="min-w-0 flex-1 font-mono text-xs text-on-surface break-all">{{ lineFor(cand) }}</p>
-                  </li>
-                </ul>
-              </section>
-
-              <template v-if="judgeSent">
-                <div>
-                  <BaseButton variant="ghost" size="sm" @click="showJudgeRaw = !showJudgeRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showJudgeRaw && 'rotate-180'" />{{ showJudgeRaw ? TJ.rawHide : TJ.rawShow }}</BaseButton>
-                </div>
-                <div v-if="showJudgeRaw" class="flex flex-col gap-3">
-                  <div v-for="box in judgeBoxes" :key="box.title" class="flex flex-col gap-1">
-                    <div class="flex items-center gap-2">
-                      <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
-                      <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
-                    </div>
-                    <pre :class="CODE_BOX">{{ box.text }}</pre>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </BaseCard>
+          <ConfigAIList />
+          <ConfigAIPrompt />
+          <ConfigAIJudge />
         </template>
 
         <!-- ── 리퀘스트 로그: 신규 기능이라 2차 17단계에서 검토해 만든다. 지금은 자리만 ── -->
@@ -357,43 +64,7 @@
         </template>
 
         <!-- ── 고급 설정: 요청 · 재시도 ── -->
-        <template v-if="view === 'advanced'">
-          <BaseCard icon="replay" :title="TA.title">
-            <div class="flex flex-col gap-4">
-              <p class="text-sm text-on-surface-variant">{{ TA.desc }}</p>
-              <div class="grid grid-cols-2 @xl/card:grid-cols-3 gap-3">
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TA.timeoutTip">{{ TA.timeout }}</span>
-                  <NumberInput v-model="timeoutSec" :placeholder="defaultSec('timeoutMs')" :class="[FIELD, 'w-full']" />
-                </label>
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TA.retriesTip">{{ TA.retries }}</span>
-                  <NumberInput v-model="draft.retries" :placeholder="defaultOf('retries')" :class="[FIELD, 'w-full']" />
-                </label>
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TA.totalTip">{{ TA.total }}</span>
-                  <NumberInput v-model="totalSec" :placeholder="defaultSec('totalTimeoutMs')" :class="[FIELD, 'w-full']" />
-                </label>
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TA.delayTip">{{ TA.delay }}</span>
-                  <NumberInput v-model="delaySec" decimal :placeholder="defaultSec('retryDelayMs')" :class="[FIELD, 'w-full']" />
-                </label>
-                <label class="block">
-                  <span :class="FIELD_LABEL" v-tooltip="TA.delayMaxTip">{{ TA.delayMax }}</span>
-                  <NumberInput v-model="delayMaxSec" decimal :placeholder="defaultSec('retryDelayMaxMs')" :class="[FIELD, 'w-full']" />
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer self-end h-10">
-                  <BaseSwitch v-model="draft.retryTimeouts" />
-                  <span class="text-sm text-on-surface">{{ TA.retryTimeouts }}</span>
-                </label>
-              </div>
-              <label class="block">
-                <span :class="FIELD_LABEL" v-tooltip="TA.retryStatusTip">{{ TA.retryStatus }}</span>
-                <ChipInput :model-value="(draft.retryStatus ?? []).map(String)" :placeholder="defaultOf('retryStatus')" @update:model-value="setRetryStatus" />
-              </label>
-            </div>
-          </BaseCard>
-        </template>
+        <ConfigAIAdvanced v-if="view === 'advanced'" />
       </div>
     </div>
 
@@ -471,144 +142,28 @@ import { useRoute, useRouter } from "vue-router";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
-import NumberInput from "./NumberInput.vue";
-import ChipInput from "./ChipInput.vue";
-import SingleSelect from "./SingleSelect.vue";
 import NoticeBox from "./NoticeBox.vue";
-import { FIELD, FIELD_LABEL, AREA, CODE_BOX } from "../utils/field.ts";
-import { FILTER_CHIP, FILTER_CHIP_OFF } from "../utils/filter-chip.ts";
+import { CODE_BOX } from "../utils/field.ts";
 import BaseSwitch from "./BaseSwitch.vue";
-import { isFolded, toggleFold, promptFoldId } from "../composables/config-folds.ts";
 import { reportSinglePane, useListDetailLayout, LIST_ROW } from "../composables/list-detail.ts";
 import { pushDown } from "../utils/up-nav.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
-import { valueOf } from "../utils/dom.ts";
-import { LIST_MARK, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
-import InfoDialog from "./InfoDialog.vue";
+import { LIST_MARK } from "../../../src/config/schema/ai-prompt.ts";
 import { text } from "../text/index.ts";
+import ConfigAIModel from "./ConfigAIModel.vue";
+import ConfigAIList from "./ConfigAIList.vue";
+import ConfigAIPrompt from "./ConfigAIPrompt.vue";
+import ConfigAIJudge from "./ConfigAIJudge.vue";
+import ConfigAIAdvanced from "./ConfigAIAdvanced.vue";
 import { provideAiEditor } from "../composables/ai-editor.ts";
 const TV = text.ai.preview;
 const TD = text.ai.paid;
-const TA = text.ai.advanced;
 const TJ = text.ai.judge;
 const TR = text.ai.prompt;
-const TL = text.ai.list;
-const TT = text.ai.test;
-const TP = text.ai.params;
-const TM = text.ai.model;
 const T = text.ai;
 
 // 상태 · 주고받기는 composables/ai-editor(카드들이 같이 쓴다)
-const {
-  startDrag,
-  loadError,
-  NL,
-  NONE_MARK,
-  EXTRA_SAMPLE,
-  ROLES,
-  MARKS,
-  BLOCK_MARK,
-  syntaxOpen,
-  draft,
-  fieldInfo,
-  showAdvanced,
-  showHide,
-  refreshing,
-  refreshModels,
-  params,
-  jsonText,
-  tokenEach,
-  tokenTotal,
-  tokenExact,
-  tokenError,
-  jsonBad,
-  numberParam,
-  listParam,
-  onJson,
-  listCfg,
-  sections,
-  keyInput,
-  savingKey,
-  paid,
-  paidUrl,
-  paidUrlError,
-  pingText,
-  loadingModels,
-  rememberModel,
-  models,
-  modelChoices,
-  manualModel,
-  pinging,
-  tested,
-  showRaw,
-  shown,
-  defaults,
-  hasKey,
-  keyTrouble,
-  spec,
-  on,
-  aiOn,
-  needsKey,
-  shownEndpoint,
-  keyPlaceholder,
-  looksLikeAccount,
-  secureOrigin,
-  staleCustomUrl,
-  listMarked,
-  shownSections,
-  boxes,
-  showRawRequest,
-  hideModels,
-  extraText,
-  timeoutSec,
-  totalSec,
-  delaySec,
-  delayMaxSec,
-  defaultOf,
-  defaultSec,
-  setRetryStatus,
-  modelName,
-  hintOf,
-  paramGroups,
-  paramLimits,
-  problems,
-  addSection,
-  removeSection,
-  loadDefaults,
-  insertMark,
-  lineProblems,
-  linePreview,
-  judgeUrls,
-  judgeGenre,
-  judging,
-  judgeError,
-  judgeCands,
-  judgeList,
-  judgeVerdicts,
-  judgeSent,
-  showJudgeRaw,
-  copy,
-  SAMPLE_LINES,
-  judgeStale,
-  judgeUsable,
-  judgeBoxes,
-  lineFor,
-  verdictOk,
-  verdictText,
-  lookupJudge,
-  openPreview,
-  providerOptions,
-  pickProvider,
-  pickModel,
-  enumOptions,
-  enumValue,
-  enumPick,
-  loadModels,
-  askPaid,
-  runPaid,
-  saveKey,
-  clearKey,
-} = provideAiEditor();
+const { loadError, NL, draft, sections, paid, paidUrl, paidUrlError, pingText, shown, on, aiOn, listMarked, shownSections, boxes, showRawRequest, problems, copy, judgeUsable, providerOptions, runPaid } = provideAiEditor();
 
 const route = useRoute();
 const router = useRouter();
