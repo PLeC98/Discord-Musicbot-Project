@@ -1,6 +1,6 @@
 // 운영자 패널: API 키 탭의 바깥 서비스 키(Spotify · Last.fm · ListenBrainz)
 
-/** 서비스마다: 제목 · 무엇에 쓰나 · 툴팁 · 키 받는 곳 · 칸 이름 */
+/** 서비스마다: 제목 · 무엇에 쓰나 · 툴팁 · 키 발급 주소 · 칸 이름 */
 const services = {
   spotify: {
     title: "Spotify",
@@ -27,7 +27,7 @@ const services = {
 
 const groupTitle = "서비스 키";
 const groupDesc = "넣은 값은 암호화해 두고 다시 보여 주지 않아요. 넣거나 지우려면 로그인한 지 10분 안이어야 해요.";
-const linkLabel = "키 받는 곳";
+const linkLabel = "키 발급";
 /** 칸의 상태 */
 const state = {
   none: "없음",

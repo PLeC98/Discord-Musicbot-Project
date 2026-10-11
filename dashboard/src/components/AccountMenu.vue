@@ -32,7 +32,9 @@
     <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">
       <div v-if="open" role="menu" :style="pos" class="fixed z-280 w-70 p-2 rounded-3xl pane-menu" :class="placeAbove ? 'origin-bottom-left' : 'origin-top-right'">
         <div class="flex items-center gap-3 px-2 pt-2 pb-3">
-          <span class="size-11 rounded-full shrink-0 bg-tertiary-container text-on-tertiary-container font-round font-semibold text-title flex items-center justify-center">{{ initial }}</span>
+          <!-- 버튼과 같다: 프로필 그림, 없으면 이름 첫 글자 -->
+          <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="size-11 rounded-full shrink-0" />
+          <span v-else class="size-11 rounded-full shrink-0 bg-tertiary-container text-on-tertiary-container font-round font-semibold text-title flex items-center justify-center">{{ initial }}</span>
           <div class="min-w-0">
             <div class="text-title font-semibold truncate">{{ user.displayName }}</div>
             <div v-if="handle" class="text-label text-on-surface-variant truncate">@{{ handle }}</div>
