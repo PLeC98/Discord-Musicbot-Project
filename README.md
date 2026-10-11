@@ -161,7 +161,7 @@ pnpm install
 
 예: `{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}` → `1. genre=rock length=3min title=Toxicity`
 
-기본 판정 프롬프트와 줄 형식은 영어입니다. 장르 식별자가 영어라 같은 말로 맞췄고 입력 토큰도 조금 줄어듭니다. 장르 식별자도 영어로 적기를 권합니다. 시험(140곡)에서 영어 지시문에 한국어 장르 이름을 넣은 조합이 가장 낮게 나왔습니다.
+기본 판정 프롬프트와 줄 형식은 영어입니다. 장르 식별자도 영어로 적기를 권장합니다.
 
 ## 실행
 
