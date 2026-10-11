@@ -40,7 +40,7 @@ const inboxEmpty = "알림 없음";
 // 세션이 끝났거나 연결이 끊겼을 때
 const loginAgain = "다시 로그인";
 const retry = "다시 시도";
-const reconnecting = "실시간 갱신을 다시 잇는 중이에요.";
+const reconnecting = "실시간 갱신(SSE)이 끊어져 다시 연결하는 중이에요.";
 const loginAgainBody = "로그인 창에서 다시 로그인하면 이 탭에서 이어서 쓸 수 있어요. 고치던 내용은 그대로 남아 있어요.";
 const later = "나중에";
 const loggedIn = "로그인했어요";
