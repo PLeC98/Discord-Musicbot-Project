@@ -27,6 +27,11 @@ const emojiLoading = "불러오는 중...";
 const emojiNone = "찾는 이모지가 없어요.";
 const emojiClear = "비우기";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
+const colorArea = "채도 · 밝기";
+/** 채도 · 밝기 판을 읽어 줄 때(퍼센트) */
+const colorAreaValue = (saturation: number, brightness: number) => `채도 ${saturation}% · 밝기 ${brightness}%`;
+const colorHue = "색상";
+const colorDefault = "기본 색으로";
 
 // 마크다운 서식 도구(디스코드와 같은 단축키는 부르는 쪽이 붙인다)
 const format = {
@@ -48,4 +53,4 @@ const format = {
   timestamp: "현재 시간 (시간대 자동 변환)",
 };
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, format };
+export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, format };

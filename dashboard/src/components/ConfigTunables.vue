@@ -24,12 +24,10 @@
             <BaseSwitch :model-value="boolOf(one)" :label="T.fields[one.key]?.label ?? one.key" @update:model-value="draft[one.key] = $event ? 'true' : 'false'" />
             <span class="text-sm text-on-surface">{{ boolOf(one) ? T.on : T.off }}</span>
           </span>
-          <!-- 색은 동그라미를 누르면 브라우저의 색 고르기가 뜬다. 글 칸이 앞이라야 이름표를 누를 때 고르기 대신 글 칸으로 간다(보이는 차례는 동그라미가 앞) -->
+          <!-- 색은 동그라미를 누르면 색 고르기가 뜬다. 글 칸이 앞이라야 이름표를 누를 때 고르기 대신 글 칸으로 간다(보이는 차례는 동그라미가 앞) -->
           <span v-else class="flex items-center gap-2">
             <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0', one.kind !== 'text' && 'font-mono']" @input="draft[one.key] = valueOf($event)" />
-            <span v-if="one.kind === 'color'" class="order-first relative size-6 shrink-0 rounded-full border border-outline-variant cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary" :style="{ background: colorOf(one) }" v-tooltip="T.pickColor">
-              <input type="color" :value="colorOf(one).toLowerCase()" :aria-label="T.pickColor" class="absolute inset-0 size-full opacity-0 cursor-pointer" @input="draft[one.key] = valueOf($event).toUpperCase()" />
-            </span>
+            <ColorPicker v-if="one.kind === 'color'" class="order-first" :model-value="draft[one.key]" :fallback="one.def" :label="T.pickColor" @update:model-value="draft[one.key] = $event" />
           </span>
         </label>
       </div>
@@ -46,6 +44,7 @@ import SaveDock from "./SaveDock.vue";
 import BotRestart from "./BotRestart.vue";
 import { restartNow } from "../composables/bot-restart.ts";
 import BaseSwitch from "./BaseSwitch.vue";
+import ColorPicker from "./ColorPicker.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
@@ -78,11 +77,6 @@ const saving = ref(false);
 
 const byGroup = (group: TunableGroup) => TUNABLES.filter((one) => one.group === group);
 const boolOf = (one: Tunable) => (draft.value[one.key] || one.def) === "true";
-// 적는 중이라 아직 색이 아니면 기본값 색으로 보인다(색 고르기는 #rrggbb 만 받는다)
-const colorOf = (one: Tunable) => {
-  const value = draft.value[one.key]?.trim() ?? "";
-  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : one.def;
-};
 const changed = (one: Tunable) => (draft.value[one.key] ?? "").trim() !== (saved.value[one.key] ?? "");
 const dirty = computed(() => TUNABLES.some(changed));
 // 다시 시작해야 먹는 값을 고쳤거나, 저장해 두고 아직 다시 시작하지 않은 값이 있다

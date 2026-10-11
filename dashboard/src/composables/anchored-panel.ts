@@ -13,7 +13,7 @@ import { ref, nextTick, watch, onBeforeUnmount, type Ref, type CSSProperties } f
 type ElementRef = Readonly<Ref<HTMLElement | null | undefined>>;
 
 // 재생바가 가리는 높이. --player 는 App.vue 가 트리에 얹으므로 칸에서 물려받아 읽는다.
-function coveredBottom(el: HTMLElement) {
+export function coveredBottom(el: HTMLElement) {
   const raw = getComputedStyle(el).getPropertyValue("--player").trim();
   const n = parseFloat(raw);
   if (!n) return 0;
