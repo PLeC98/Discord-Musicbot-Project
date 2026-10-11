@@ -1010,7 +1010,7 @@ function hideRules(patterns: unknown) {
 const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // 유료 확인에 쓰는 물음. 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
-const PING_TEXT = "Say hello in one sentence and tell me the value of 17 + 25.";
+const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
 
 /**
  * 유료 확인. 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
