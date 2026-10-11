@@ -8,6 +8,7 @@ export type LicenseItem = { name: string; license: string; url: string; note?: s
 export const FONTS_AND_ART: LicenseItem[] = [
   { name: "Google Sans Flex", license: "SIL OFL 1.1", url: "https://fonts.google.com/specimen/Google+Sans+Flex" },
   { name: "Pretendard", license: "SIL OFL 1.1", url: "https://github.com/orioncactus/pretendard" },
+  { name: "D2Coding", license: "SIL OFL 1.1", url: "https://github.com/naver/d2codingfont" },
   { name: "Material Symbols Rounded", license: "SIL OFL 1.1", url: "https://fonts.google.com/icons" },
   { name: T.twemojiArt, license: "CC BY 4.0", url: "https://github.com/jdecked/twemoji", note: T.twemojiArtNote },
   { name: T.twemojiFont, license: "SIL OFL 1.1", url: "https://github.com/mrdrogdrog/twemoji-color-font" },

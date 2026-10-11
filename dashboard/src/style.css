@@ -8,6 +8,8 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "@fontsource-variable/google-sans-flex/full.css";
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+/* 고정폭: D2Coding 을 조각내 직접 서빙한다(scripts/build-mono-font.ts) */
+@import "./d2coding.css";
 
 /* 아이콘 글꼴: 화면이 쓰는 기호만 담은 부분 글꼴(icons.ts, scripts/build-icon-font.ts 가 만든다). 기호는 코드포인트로 그린다.
    받기 전에는 빈 네모가 보이므로 swap 대신 block 으로 받는 동안 비워 둔다(main.ts 가 미리 받기도 건다) */
@@ -202,8 +204,9 @@
   --color-warning: var(--md-warning);
 
   --font-sans: "Google Sans Flex Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
-  /* 고정폭(숫자 · 주소 칸, 실시간 로그, 코드). 고정폭 글꼴엔 한글이 없어 그대로 두면 윈도우가 한글만 굴림체로 그린다. 한글은 대시보드 글꼴(Pretendard)로 받는다 */
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Pretendard Variable", Pretendard, monospace;
+  /* 고정폭(숫자 · 주소 칸, 실시간 로그, 코드). D2Coding(직접 서빙)이 라틴 · 한글 · 가나 · KS 한자를 고정폭으로 그린다.
+     없는 글자: 악센트 라틴 · 키릴은 시스템 고정폭 → Pretendard, 드문 한자는 시스템 CJK 글꼴(Pretendard 에는 한자가 없다) */
+  --font-mono: "D2Coding", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Pretendard Variable", Pretendard, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", monospace;
   --font-symbols: "Material Symbols Rounded Variable";
   /* 디스코드 미리보기(공지 임베드)용: 디스코드가 한글을 그리는 시스템 글꼴(맥 Apple SD Gothic Neo · 윈도우 맑은 고딕)만 디스코드 순서에서 골라 쓰고, 없으면 대시보드 글꼴로 */
   --font-discord: "Apple SD Gothic Neo", "Malgun Gothic", var(--font-sans);
