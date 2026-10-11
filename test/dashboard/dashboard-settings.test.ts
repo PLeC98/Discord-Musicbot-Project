@@ -21,7 +21,7 @@ type Reply = ProblemReply & {
   botChannelId?: string | null;
   roles?: { id: string; name: string; color: string | null }[];
   channels?: { id: string; name: string }[];
-  sponsorblock?: { masterEnabled: boolean; available: unknown[] };
+  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd?: unknown;
   canManage?: boolean;
   canControl?: boolean;
@@ -251,13 +251,15 @@ test("PUT settings: SponsorBlock 저장 — 유효 카테고리만 통과", asyn
   assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: ["intro", "outro"] });
 });
 
-test("GET settings: SponsorBlock 유효값·카테고리 목록 포함", async () => {
+// 고를 수 있는 구간 · 이름 · 설명은 화면이 rules/sponsor-categories 를 직접 읽는다
+test("GET settings: SponsorBlock 켬 여부 · 고른 구간", async () => {
   currentMember = modMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
   assert.ok(r.json.sponsorblock);
   assert.equal(typeof r.json.sponsorblock?.masterEnabled, "boolean");
-  assert.ok(Array.isArray(r.json.sponsorblock?.available) && r.json.sponsorblock?.available.length === 9);
+  assert.equal(typeof r.json.sponsorblock?.enabled, "boolean");
+  assert.ok(Array.isArray(r.json.sponsorblock?.categories));
 });
 
 test("PUT settings: 검증 실패 시 아무것도 적용하지 않음 (부분 저장 방지)", async () => {

@@ -13,7 +13,7 @@ type TunableGroup = (typeof TUNABLE_GROUPS)[number];
  * 칸의 꼴. int: 정수(min · max), bool: true · false, text: 글자, color: #RRGGBB, url: http · https 주소,
  * list: 쉼표로 나눈 이름들, cookies: file 또는 브라우저 이름
  */
-type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies";
+type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies" | "categories";
 
 type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean };
 
@@ -37,10 +37,11 @@ const TUNABLES: readonly Tunable[] = [
   { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
   // SponsorBlock
   { key: "SPONSORBLOCK_ENABLED", group: "sponsorblock", kind: "bool", def: "true", restart: true },
-  { key: "SPONSORBLOCK_CATEGORIES", group: "sponsorblock", kind: "list", def: "music_offtopic,intro,outro" },
   { key: "SPONSORBLOCK_API_BASE", group: "sponsorblock", kind: "url", def: "https://sponsor.ajay.app" },
   { key: "SPONSORBLOCK_HASH_PREFIX", group: "sponsorblock", kind: "int", def: "5", min: 4, max: 32 },
   { key: "SPONSORBLOCK_TIMEOUT_MS", group: "sponsorblock", kind: "int", def: "1000", min: 100, max: 10000 },
+  // 화면은 체크박스 목록(카드 폭 전체라 묶음 맨 끝). 쉼표로 이은 구간 id, 하나도 고르지 않으면 NO_CATEGORIES
+  { key: "SPONSORBLOCK_CATEGORIES", group: "sponsorblock", kind: "categories", def: "music_offtopic,intro,outro" },
   // 오디오 캐시
   { key: "CACHE_MAX_SIZE_MB", group: "cache", kind: "int", def: "1024", min: 1, max: 1048576 },
   { key: "CACHE_MAX_FILES", group: "cache", kind: "int", def: "500", min: 1, max: 1000000 },

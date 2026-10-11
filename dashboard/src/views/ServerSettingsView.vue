@@ -58,38 +58,7 @@
               <BaseSwitch v-model="sbEnabled" :disabled="!s.canEdit" />
             </label>
 
-            <div class="flex items-center gap-1 mt-3 mb-2">
-              <span class="text-on-surface-variant text-xs">{{ T.sponsor.categories }}</span>
-              <button type="button" @click="sbHelpOpen = true" :class="[ICON_BTN, 'size-6']" v-tooltip="T.sponsor.help" :aria-label="T.sponsor.helpLabel" aria-haspopup="dialog"><Icon name="info" :size="16" /></button>
-            </div>
-
-            <!-- 구간 설명은 대화상자로 띄운다(카드 안에서 펼치면 단 배치가 흔들린다). 설명은 서버가 이름과 함께 준다(rules/sponsor-categories) -->
-            <Teleport to="body">
-              <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-                <div v-if="sbHelpOpen" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="sbHelpOpen = false">
-                  <div ref="sbHelpEl" role="dialog" aria-modal="true" aria-labelledby="sb-help-title" class="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="sbHelpOverflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
-                    <div class="flex items-center gap-3 mb-4">
-                      <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="skip_next" :size="20" /></span>
-                      <h3 id="sb-help-title" class="flex-1 text-xl font-round font-semibold">{{ T.sponsor.categories }}</h3>
-                      <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.common.close" @click="sbHelpOpen = false"><Icon name="close" :size="20" /></button>
-                    </div>
-                    <dl class="flex flex-col gap-1">
-                      <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
-                        <dt class="text-sm font-semibold">{{ c.label }}</dt>
-                        <dd class="mt-0.5 text-xs text-on-surface-variant">{{ c.description }}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                </div>
-              </Transition>
-            </Teleport>
-
-            <div class="rounded-(--r-inner) border border-outline-variant/50 p-1 flex flex-col" :class="sbEnabled ? '' : 'opacity-38 pointer-events-none'">
-              <label v-for="c in s.sponsorblock.available" :key="c.id" class="flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="s.canEdit ? 'state-layer cursor-pointer' : 'opacity-60'">
-                <input type="checkbox" class="size-4 accent-(--md-primary) shrink-0" :checked="sbCategories.includes(c.id)" :disabled="!s.canEdit" @change="toggleSbCategory(c.id)" />
-                <span>{{ c.label }}</span>
-              </label>
-            </div>
+            <SponsorCategories class="mt-3" :label="T.sponsor.categories" :selected="sbCategories" :editable="s.canEdit" :dimmed="!sbEnabled" @toggle="toggleSbCategory" />
           </template>
         </BaseCard>
 
@@ -126,7 +95,6 @@
 </template>
 
 <script setup lang="ts">
-import { ICON_BTN } from "../utils/icon-button.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
@@ -142,7 +110,7 @@ import { FIELD } from "../utils/field.ts";
 import { problemCodeOf, replyOf } from "../utils/request.ts";
 import SingleSelect from "../components/SingleSelect.vue";
 import BaseSwitch from "../components/BaseSwitch.vue";
-import { onKeyStroke } from "@vueuse/core";
+import SponsorCategories from "../components/SponsorCategories.vue";
 import { useGuildsStore } from "../stores/guilds.ts";
 import { HOLD, NO_ART, releasePageArt, setPageArt } from "../theme/theme.ts";
 import Icon from "../components/BaseIcon.vue";
@@ -179,12 +147,8 @@ const channelOptions = computed(() => s.value.channels.map((c) => ({ value: c.id
 const roleFilter = ref("");
 const sbEnabled = ref(true);
 const sbCategories = ref<string[]>([]);
-const sbHelpOpen = ref(false);
-const sbHelpEl = ref<HTMLElement | null>(null);
-const sbHelpOverflowing = useOverflowing(sbHelpEl);
 const roleListEl = ref<HTMLElement | null>(null);
 const roleListOverflowing = useOverflowing(roleListEl);
-onKeyStroke("Escape", () => (sbHelpOpen.value = false));
 
 const saving = ref(false);
 

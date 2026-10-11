@@ -31,9 +31,12 @@ const CATEGORY_DESCRIPTIONS: Readonly<Record<SkipCategory, string>> = {
   filler: "전반적인 동영상의 주제를 이해하는 데 필요 없는 잡담이나 농담이 포함되는 구간",
 };
 
+// 구간을 하나도 고르지 않았다는 값(운영 조절값). 빈 값은 기본값이라 따로 둔다. 구간 id 가 아니라 읽을 때 걸러져 빈 목록이 된다
+const NO_CATEGORIES = "none";
+
 const isSkipCategory = (id: unknown): id is SkipCategory => CATEGORIES.some((one) => one === id);
 const categoryLabel = (id: string) => (isSkipCategory(id) ? CATEGORY_LABELS[id] : id);
 const categoryDescription = (id: string) => (isSkipCategory(id) ? CATEGORY_DESCRIPTIONS[id] : "");
 
-export { SKIP_CATEGORIES, CATEGORY_LABELS, isSkipCategory, categoryLabel, categoryDescription };
+export { SKIP_CATEGORIES, CATEGORY_LABELS, NO_CATEGORIES, isSkipCategory, categoryLabel, categoryDescription };
 export type { SkipCategory };

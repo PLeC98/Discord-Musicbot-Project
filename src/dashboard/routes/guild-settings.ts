@@ -8,7 +8,7 @@ import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { isModerator } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
-import { SKIP_CATEGORIES, categoryLabel, categoryDescription } from "../../rules/sponsor-categories.ts";
+import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
 import { openGuild } from "../guild-access.ts";
 import { parse, settingsBody } from "../request-schemas.ts";
@@ -103,7 +103,6 @@ function createGuildSettingsRouter() {
       masterEnabled: config.sponsorblock.enabled, // 전역 off면 서버 설정 무의미
       enabled: sbEff.enabled,
       categories: sbEff.categories,
-      available: SKIP_CATEGORIES.map((id) => ({ id, label: categoryLabel(id), description: categoryDescription(id) })),
     };
 
     // 재생목록 한 번에 넣는 곡 수. 저장값(null=기본), 실제 값, 설정할 수 있는 범위

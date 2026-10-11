@@ -21,7 +21,7 @@ type GuildSettings = {
   botChannelId: string | null;
   roles: Array<{ id: string; name: string; color: string | null }>;
   channels: Array<{ id: string; name: string }>;
-  sponsorblock: { masterEnabled: boolean; enabled: boolean; categories: string[]; available: Array<{ id: string; label: string; description: string }> };
+  sponsorblock: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd: { value: number | null; effective: number; min: number; max: number; default: number };
 };
 

@@ -28,7 +28,7 @@ const fields: Record<string, { label: string; help: string }> = {
   COOKIES_SOURCE: { label: "쿠키 출처", help: "연령 제한 영상에만 써요. file 이면 이 탭의 유튜브 쿠키 카드에 넣은 것을,\n브라우저 이름이면 그 브라우저에서 가져와요(brave · chrome · chromium · edge · firefox · opera · safari · vivaldi · whale, chrome:Profile 1 처럼 프로필도). 비우면 쓰지 않아요." },
   BGUTIL_ENABLED: { label: "POToken 서버 쓰기", help: "설치돼 있을 때 켜면 봇과 함께 POToken 서버를 띄워요. mweb · tv_simply 클라이언트에 필요해요." },
   SPONSORBLOCK_ENABLED: { label: "SponsorBlock 쓰기", help: "끄면 조회 · 캐시를 아예 하지 않아요. 상업적으로 쓰면 꺼 두길 권해요(데이터 라이선스가 비상업)." },
-  SPONSORBLOCK_CATEGORIES: { label: "기본으로 건너뛸 구간", help: "서버 설정이 없을 때 쓰는 구간. 쉼표로 적어요.\n고를 수 있는 것: music_offtopic · intro · outro · sponsor · selfpromo · interaction · preview · hook · filler" },
+  SPONSORBLOCK_CATEGORIES: { label: "기본으로 건너뛸 구간(서버 설정이 없을 때)", help: "" },
   SPONSORBLOCK_API_BASE: { label: "API 주소", help: "미러 · 직접 띄운 서버를 쓸 때만 바꿔요." },
   SPONSORBLOCK_HASH_PREFIX: { label: "해시 앞머리 길이", help: "4~32. 짧을수록 어떤 영상을 묻는지 덜 드러나고 응답은 커져요." },
   SPONSORBLOCK_TIMEOUT_MS: { label: "조회 시간 한도(ms)", help: "넘으면 받아 둔 구간을 쓰거나 건너뛰기 없이 틀어요." },
