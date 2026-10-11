@@ -1,4 +1,4 @@
-// 바깥 서비스 키(Spotify · Last.fm · ListenBrainz). 대시보드 설정 탭에서 넣고 비밀 표(store/secrets)에 암호화해 둔다.
+// 바깥 서비스 키(Spotify · Last.fm · ListenBrainz). 대시보드 API · 쿠키 탭에서 넣고 비밀 표(store/secrets)에 암호화해 둔다.
 // 서비스마다 칸 이름. 화면과 봇이 같은 표를 본다(화면도 부르므로 Node 없는 모듈이다)
 
 const SERVICE_KEYS = {

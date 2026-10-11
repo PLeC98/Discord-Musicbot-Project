@@ -1,4 +1,4 @@
-// 설정 내보내기 · 불러오기(운영자 패널 설정 탭). /api/admin/settings-archive
+// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
 // 내보내기는 ZIP 하나: settings.json(사람이 읽는 JSON) + favicon/(올린 그림). 종류는 둘(settings: 봇 설정만, full: 암호화된 설정까지). .env · 세션은 어느 쪽에도 없다.
 // 불러오기는 파일을 올려 미리 보고(preview), 고른 항목만 덮어쓴다(import?items=…)
 

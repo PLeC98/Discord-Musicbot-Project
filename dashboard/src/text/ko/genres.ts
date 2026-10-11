@@ -33,7 +33,7 @@ const problems = {
   unnamed: "이름 없는 장르",
   noGenres: "장르가 하나도 없어요",
   unknownType: (type: string) => `${type}: 모르는 종류예요. 이 봇이 지원하지 않아요.`,
-  unusable: (label: string) => `출처: ${label}\n${label} 키가 없어 해당 출처를 사용하지 않아요. 운영자 패널의 설정 탭에서 넣어 주세요.`,
+  unusable: (label: string) => `출처: ${label}\n${label} 키가 없어 해당 출처를 사용하지 않아요. 운영자 패널의 API · 쿠키 탭에서 넣어 주세요.`,
 };
 
 // 출처 편집
@@ -44,7 +44,7 @@ const source = {
   typesLoading: "출처 종류를 불러오는 중이에요.",
   typesFailed: "출처 종류 목록을 받지 못했어요. 새로 고치면 다시 받아요.",
   unknownType: "모르는 종류예요. 이 봇이 지원하지 않아요.",
-  unusable: (label: string) => `${label} 키가 없어 해당 출처를 사용하지 않아요. 운영자 패널의 설정 탭에서 넣어 주세요.`,
+  unusable: (label: string) => `${label} 키가 없어 해당 출처를 사용하지 않아요. 운영자 패널의 API · 쿠키 탭에서 넣어 주세요.`,
   noKey: " (키 없음)",
   listSuggest: "치면 후보가 떠요. 없는 말은 적고 Enter",
   listPlain: "하나씩 적고 Enter",

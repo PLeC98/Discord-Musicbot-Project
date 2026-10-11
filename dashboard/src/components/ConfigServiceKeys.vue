@@ -71,7 +71,7 @@ const saved = (id: ServiceId) => fieldsOf(id).some((field) => stateOf(id, field)
 
 // 넣고 저장하지 않은 값도 떠날 때 묻는다
 trackUnsaved(
-  "settings:service-keys",
+  "keys:service-keys",
   computed(() => SERVICE_IDS.some(typed)),
 );
 

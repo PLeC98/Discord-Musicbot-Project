@@ -1,4 +1,4 @@
-// src/dashboard/routes/snapshots.ts — 설정 탭의 스냅샷 목록 · 되살리기 걸기 · 거두기
+// src/dashboard/routes/snapshots.ts — 백업 탭의 스냅샷 목록 · 되살리기 걸기 · 거두기
 
 process.env.OWNER_ID = "owner";
 

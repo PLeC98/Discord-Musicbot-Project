@@ -61,6 +61,9 @@ const TUNABLES: readonly Tunable[] = [
   { key: "SSE_COALESCE_MS", group: "dashboard", kind: "int", def: "300", min: 0, max: 5000 },
 ];
 
+/** 운영자 패널의 디스플레이 탭에 두는 묶음(디스코드에서 봇이 보이는 모습). 나머지 묶음은 설정 탭 */
+const DISPLAY_GROUPS: readonly TunableGroup[] = ["look"];
+
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
 
@@ -74,5 +77,5 @@ function tunable(key: string): Tunable {
 /** 대시보드의 답. values: 저장한 값(비운 칸은 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 켜야 먹는 이름 */
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
-export { TUNABLES, TUNABLE_GROUPS, TUNABLE_KEYS, RESTART_KEYS, tunable };
+export { TUNABLES, TUNABLE_GROUPS, DISPLAY_GROUPS, TUNABLE_KEYS, RESTART_KEYS, tunable };
 export type { Tunable, TunableGroup, TunableKind, TunablesView };

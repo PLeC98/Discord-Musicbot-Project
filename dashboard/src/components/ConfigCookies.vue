@@ -43,7 +43,7 @@ const T = text.cookies;
 const input = ref("");
 // 붙여 넣고 저장하지 않은 쿠키도 떠날 때 묻는다
 trackUnsaved(
-  "settings:cookies",
+  "keys:cookies",
   computed(() => Boolean(input.value.trim())),
 );
 const saving = ref(false);

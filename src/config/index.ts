@@ -5,7 +5,7 @@ import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
-import { TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { DISPLAY_GROUPS, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널 → 설정 탭)에서 고치십시오.
@@ -211,6 +211,14 @@ const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as 
 // 대시보드로 옮긴 .env 키. 남아 있으면 경고만 한다
 const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
 
+/** 옮긴 값을 넣을 운영자 패널 탭별로: 서비스 키는 API · 쿠키, 운영 조절값의 표시 묶음은 디스플레이, 나머지는 설정 */
+function groupByTab(names: string[]): Map<string, string[]> {
+  const tabOf = (name: string) => (MOVED_TO_DASHBOARD.includes(name) ? "API · 쿠키" : DISPLAY_GROUPS.includes(tunable(name).group) ? "디스플레이" : "설정");
+  const byTab = new Map<string, string[]>();
+  for (const name of names) byTab.set(tabOf(name), [...(byTab.get(tabOf(name)) ?? []), name]);
+  return byTab;
+}
+
 /**
  * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나.
  * tunables: 운영 조절값(settings.db 의 문서). .env 의 같은 이름은 쓰지 않는다. 그 값의 문제는 tuneProblems 로 따로 낸다
@@ -241,9 +249,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   if (!env("OWNER_ID")) {
     warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
   }
-  // 대시보드(운영자 패널 → 설정 탭)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다
+  // 대시보드(운영자 패널)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다. 넣을 탭마다 알린다
   const moved = [...MOVED_TO_DASHBOARD, ...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim());
-  if (moved.length) warnings.push(`.env 의 ${moved.join(" · ")} 는 이제 쓰지 않습니다. 운영자 패널의 설정 탭에서 넣고 .env 에서 지우세요.`);
+  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env 의 ${names.join(" · ")} 는 이제 쓰지 않습니다. 운영자 패널의 ${tab} 탭에서 넣고 .env 에서 지우세요.`);
 
   // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");

@@ -39,9 +39,9 @@ function load() {
   for (const service of SERVICE_IDS) {
     const states = apply(service);
     if (states.some((state) => state !== "ok" && state !== "none")) {
-      log.warn(`${LABELS[service]} 키를 풀지 못했습니다(SECRETS_KEY 가 바뀌었거나 저장된 값이 망가졌습니다). 운영자 패널의 설정 탭에서 다시 넣으세요`);
+      log.warn(`${LABELS[service]} 키를 풀지 못했습니다(SECRETS_KEY 가 바뀌었거나 저장된 값이 망가졌습니다). 운영자 패널의 API · 쿠키 탭에서 다시 넣으세요`);
     } else if (service === "spotify" && states.includes("none")) {
-      log.warn("Spotify API 키가 없습니다. 트랙 · 앨범 링크는 열지 못하고 재생목록 · 아티스트는 키 없이 엽니다. 운영자 패널의 설정 탭에서 넣으세요");
+      log.warn("Spotify API 키가 없습니다. 트랙 · 앨범 링크는 열지 못하고 재생목록 · 아티스트는 키 없이 엽니다. 운영자 패널의 API · 쿠키 탭에서 넣으세요");
     }
   }
 }

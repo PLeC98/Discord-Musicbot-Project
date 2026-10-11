@@ -1,4 +1,4 @@
-// src/dashboard/routes/service-keys.ts · store/service-keys.ts — 바깥 서비스 키(운영자 패널의 설정 탭).
+// src/dashboard/routes/service-keys.ts · store/service-keys.ts — 바깥 서비스 키(운영자 패널의 API · 쿠키 탭).
 // 운영자만, 넣기 · 지우기는 최근 로그인만. 값은 응답으로 나가지 않고 설정 객체에만 올라간다
 
 process.env.OWNER_ID = "owner";

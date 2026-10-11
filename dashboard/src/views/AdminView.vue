@@ -99,12 +99,16 @@
           <ConfigAI v-if="opened.has('ai')" />
         </div>
 
-        <!-- 자리가 정해지지 않은 설정을 모아 두는 탭. 메뉴를 다시 짤 때 나눈다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도, 표시 묶음은 디스플레이 탭) -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigTunables v-if="opened.has('settings')" :groups="SETTINGS_GROUPS" tab="settings" desc :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
-          <ConfigServiceKeys v-if="opened.has('settings')" />
+          <ConfigTunables v-if="opened.has('settings')" :groups="SETTINGS_GROUPS" tab="settings" desc :can-restart="status?.env.launcher ?? false" />
+        </div>
+
+        <!-- API · 쿠키: 바깥 서비스 키 · 유튜브 쿠키. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
+        <div class="admin-page" v-show="tab === 'keys'">
+          <ConfigServiceKeys v-if="opened.has('keys')" />
           <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
-          <ConfigCookies v-if="opened.has('settings') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
+          <ConfigCookies v-if="opened.has('keys') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
         </div>
 
         <!-- 백업: 설정 내보내기 · 불러오기 · 스냅샷. 비밀은 암호문 그대로만 오간다 -->
@@ -153,7 +157,7 @@ import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
-import { TUNABLE_GROUPS, type TunableGroup } from "../../../src/rules/tunables.ts";
+import { DISPLAY_GROUPS, TUNABLE_GROUPS } from "../../../src/rules/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
@@ -177,8 +181,8 @@ const ALL_TABS: Tab[] = [
   { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
-  // 자리가 정해지지 않은 설정(서비스 키 · 유튜브 쿠키)을 모아 둔다
   { id: "settings", label: T.tabs.settings, icon: "settings", group: "outside" },
+  { id: "keys", label: T.tabs.keys, icon: "key", group: "outside" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
@@ -189,7 +193,6 @@ const ALL_TABS: Tab[] = [
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
 // 운영 조절값 묶음을 탭에 나눈다. 표시 묶음(임베드 색 · 웹사이트 · 음성 상태)은 디스플레이 탭, 나머지는 설정 탭
-const DISPLAY_GROUPS: readonly TunableGroup[] = ["look"];
 const SETTINGS_GROUPS = TUNABLE_GROUPS.filter((group) => !DISPLAY_GROUPS.includes(group));
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);

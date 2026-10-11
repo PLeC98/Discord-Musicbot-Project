@@ -248,7 +248,7 @@ function vocaFields(site: Site): Field[] {
  *
  *   label  사람에게 보일 이름(기동 경고 문구에 쓴다)
  *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 하나는 있어야 한다"
- *   env    있어야 하는 키의 이름(운영자 패널의 설정 탭에서 넣는다. 없으면 그 소스만 못 쓴다, config/source-keys)
+ *   env    있어야 하는 키의 이름(운영자 패널의 API · 쿠키 탭에서 넣는다. 없으면 그 소스만 못 쓴다, config/source-keys)
  */
 const SPEC: Record<string, SourceSpec> = {
   keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 뽑아 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 뽑아 사용합니다" }), f("blockedKeywords", "list", "차단어 오버라이드", { deep: true, hint: "적으면 이 출처에서는 전역 키워드 검색 차단어 대신 이것을 씁니다. 비우면 전역 값" })] },

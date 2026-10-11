@@ -1,4 +1,4 @@
-// 설정 내보내기 · 가져오기(운영자 패널 설정 탭). /api/admin/settings-archive
+// 설정 내보내기 · 가져오기(운영자 패널 백업 탭). /api/admin/settings-archive
 // 내보내기 · 가져오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 갈아 끼우지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
 import express from "express";

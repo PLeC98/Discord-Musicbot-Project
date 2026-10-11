@@ -1,4 +1,4 @@
-// 설정 DB 스냅샷(운영자 패널 설정 탭). /api/admin/snapshots
+// 설정 DB 스냅샷(운영자 패널 백업 탭). /api/admin/snapshots
 // 되살리기는 고른 스냅샷을 걸어 두기만 한다. 바꿔 끼우는 것은 다음 기동(화면이 곧바로 다시 시작한다. 실행기 없이 켰으면 다음에 켤 때)
 
 import express from "express";
