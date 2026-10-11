@@ -96,7 +96,18 @@ test("올리기: 크기마다 꼭 맞는 그림, 없으면 배율로 가장 가�
   assert.ok(fs.existsSync(path.join(DIR, "32.png")) && fs.existsSync(path.join(DIR, "512.png")), "래스터는 png 로 다시 만들어 둔다");
 });
 
-test("svg 가 있으면 모든 크기를 그것으로 그리고, 미리 보기도 그린 png 로만 낸다", async () => {
+// 작은 크기는 손으로 다듬은 그림이 svg 를 줄인 것보다 또렷하다(svg 와 작은 png 를 함께 두는 흔한 꼴)
+test("꼭 맞는 크기의 그림이 svg 보다 먼저고, 나머지 크기는 svg 로 그린다. svg 와 같은 변의 그림은 서로 바꾸지 않는다", async () => {
+  await put(await square(32));
+  await put(SVG, "image/svg+xml");
+  await put(await square(512));
+  const { favicon } = await state();
+  const used = Object.fromEntries(favicon.sizes.map((one) => [one.size, one.upload]));
+  assert.deepEqual([used[32], used[512], used[16], used[180]], ["32", "512", "svg", "svg"]);
+  assert.equal(favicon.uploads.length, 3, "svg 는 크기가 없어 자기 자리 하나다");
+});
+
+test("svg 가 있으면 꼭 맞는 그림이 없는 크기는 그것으로 그리고, 미리 보기도 그린 png 로만 낸다", async () => {
   assert.equal((await put(SVG, "image/svg+xml")).status, 200);
   const { favicon } = await state();
   assert.ok(favicon.sizes.every((one) => one.from === "exact" && one.upload === "svg"));

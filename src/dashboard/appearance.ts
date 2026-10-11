@@ -133,8 +133,12 @@ async function replaceFavicons(images: Inspected[]) {
   changed();
 }
 
-// 가장 가까운 그림: 차이가 아니라 배율로 잰다(180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다). svg 가 있으면 늘 그것
+// 그 크기에 쓸 그림: 꼭 맞는 크기의 그림 > svg > 가장 가까운 그림.
+// 꼭 맞는 그림을 먼저 쓰는 까닭: 16 · 32 처럼 작은 크기는 손으로 다듬은 그림이 svg 를 줄여 그린 것보다 또렷하다(svg 와 작은 png 를 함께 두는 흔한 꼴).
+// 가장 가까운 그림은 차이가 아니라 배율로 잰다(180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
 function nearest(list: Source[], want: number) {
+  const exact = list.find((one) => !one.vector && one.square && one.side === want);
+  if (exact) return exact;
   const vector = list.find((one) => one.vector);
   if (vector) return vector;
   const off = (one: Source) => Math.abs(Math.log(one.side / want));
