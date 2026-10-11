@@ -155,13 +155,21 @@ function applyStaged(dir: string): string | null {
   const from = staged(dir);
   if (!from) return null;
   const current = path.join(dir, "settings.db");
+  // 다른 버전의 봇이 만든 설정 DB 면 끼우지 않는다(끼우면 구조가 맞지 않아 어차피 열지 못한다). 걸어 둔 것은 남는다
+  try {
+    checkSnapshot(path.join(dir, STAGED));
+  } catch (error) {
+    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 ${from} 을 끼우지 않았습니다: ${messageOf(error)} 그 버전의 봇으로 켜거나 database/${STAGED} 를 지우세요`), { dbFile: "settings.db" });
+  }
   try {
     if (fs.existsSync(current)) keepCurrent(dir, current);
     for (const leftover of [current, `${current}-wal`, `${current}-shm`]) fs.rmSync(leftover, { force: true });
     fs.renameSync(path.join(dir, STAGED), current);
+    // 구조를 보느라 열었을 때 남았을 수 있는 곁 파일
+    for (const leftover of [`${STAGED}-wal`, `${STAGED}-shm`]) fs.rmSync(path.join(dir, leftover), { force: true });
   } catch (error) {
     // Windows 에서 다른 프로그램(SQLite 뷰어 등)이 settings.db 를 열어 두면 지우지 못한다. 걸어 둔 것은 남아 다음 기동에 다시 한다
-    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 스냅샷 ${from} 을 끼우지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 켜세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 ${from} 을 끼우지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 켜세요`), { dbFile: "settings.db" });
   }
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
   prune(dir);

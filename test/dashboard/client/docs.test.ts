@@ -8,7 +8,7 @@ test("GitHub · GitLab 은 기본 가지의 파일로 잇는다(끝의 / · .git
   setDocsRepo("https://github.com/PLeC98/Discord-Musicbot-Project.git");
   assert.equal(docUrl("docs/favicon.md"), "https://github.com/PLeC98/Discord-Musicbot-Project/blob/HEAD/docs/favicon.md");
   setDocsRepo("https://gitlab.com/someone/bot/");
-  assert.equal(docUrl("docs/settings-data.md"), "https://gitlab.com/someone/bot/-/blob/HEAD/docs/settings-data.md");
+  assert.equal(docUrl("docs/favicon.md"), "https://gitlab.com/someone/bot/-/blob/HEAD/docs/favicon.md");
 });
 
 test("저장소를 모르거나 꼴을 모르는 곳이면 null(링크를 두지 않는다)", () => {

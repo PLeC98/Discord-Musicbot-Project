@@ -1,16 +1,17 @@
 <template>
-  <!-- 설정 내보내기 · 가져오기. 내보내기는 ZIP 을 내려받고, 가져오기는 파일을 올려 항목마다 지금과 같은지 · 문제를 보고 고른 것만 덮어쓴다.
-       둘 다 최근 로그인만(지났으면 로그인 창을 띄우고 마치면 이어서 한다) -->
-  <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
-  <div>
-    <BaseCard icon="download" :title="T.title">
-      <template #actions><DocLink file="docs/settings-data.md" /></template>
-      <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
-      <div class="flex gap-2 flex-wrap">
-        <BaseButton variant="secondary" :disabled="busy" @click="exportNow"><Icon name="download" :size="18" />{{ T.exportButton }}</BaseButton>
-        <BaseButton variant="secondary" :disabled="busy" @click="fileEl?.click()"><Icon name="upload" :size="18" />{{ T.importButton }}</BaseButton>
-        <input ref="fileEl" type="file" accept=".zip,application/zip" class="hidden" @change="picked" />
-      </div>
+  <!-- 설정 내보내기 · 불러오기. 카드 셋: 봇 설정만 내보내기(나눠 줄 것) · 암호화된 설정까지 내보내기(서버별 설정 · 키 · 쿠키의 암호문) · 백업 불러오기.
+       불러오기는 파일을 올려 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 고른 것만 덮어쓴다. 내보내기 · 불러오기는 최근 로그인만.
+       .env 까지 담는 전체 백업은 대시보드가 아니라 봇 폴더의 명령(pnpm run backup)이다 -->
+  <!-- 뿌리 하나(받은 class 가 카드 묶음에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
+  <div class="flex flex-col gap-(--gap-in)">
+    <BaseCard v-for="kind in ARCHIVE_KINDS" :key="kind" icon="download" :title="T.exports[kind].title">
+      <p class="mb-3 text-sm text-on-surface-variant">{{ T.exports[kind].desc }}</p>
+      <BaseButton variant="secondary" :disabled="busy" @click="exportNow(kind)"><Icon name="download" :size="18" />{{ T.exports[kind].button }}</BaseButton>
+    </BaseCard>
+    <BaseCard icon="upload" :title="T.importTitle">
+      <p class="mb-3 text-sm text-on-surface-variant">{{ T.importDesc }}</p>
+      <BaseButton variant="secondary" :disabled="busy" @click="fileEl?.click()"><Icon name="upload" :size="18" />{{ T.importButton }}</BaseButton>
+      <input ref="fileEl" type="file" accept=".zip,application/zip" class="hidden" @change="picked" />
     </BaseCard>
 
     <Teleport to="body">
@@ -18,7 +19,7 @@
         <div v-if="preview" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
           <div role="dialog" aria-modal="true" aria-labelledby="archive-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
             <h3 id="archive-title" class="text-xl font-round font-semibold mb-1">{{ T.dialogTitle }}</h3>
-            <p v-if="preview.exportedAt" class="text-label text-on-surface-variant mb-3">{{ T.madeAt(formatDateTime(Date.parse(preview.exportedAt)), preview.botVersion) }}</p>
+            <p v-if="preview.exportedAt" class="text-label text-on-surface-variant mb-3">{{ T.madeAt(T.kinds[preview.kind], formatDateTime(Date.parse(preview.exportedAt)), preview.botVersion) }}</p>
             <p class="text-sm text-on-surface-variant mb-4">{{ T.dialogNote }}</p>
             <ul class="flex flex-col gap-1 mb-6">
               <li v-for="row in preview.rows" :key="row.item">
@@ -31,6 +32,10 @@
                 </label>
                 <ul v-if="row.problems.length" class="ml-16 mb-1 text-label text-error list-disc pl-4">
                   <li v-for="line in row.problems" :key="line">{{ line }}</li>
+                </ul>
+                <!-- 가져올 수는 있지만 알아 둘 것: 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇이 보이는 링크)이 바뀐다 · 건너뛰는 값 -->
+                <ul v-if="row.warnings.length && usable(row)" class="ml-16 mb-1 text-label text-(--warn-ink) list-disc pl-4">
+                  <li v-for="line in row.warnings" :key="line">{{ line }}</li>
                 </ul>
               </li>
             </ul>
@@ -49,14 +54,13 @@
 import { computed, reactive, ref } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
-import DocLink from "./DocLink.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";
 import { LIMIT } from "../utils/request.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { ARCHIVE_ITEMS, type ArchiveImported, type ArchiveItem, type ArchivePreview, type ArchiveRow } from "../../../src/dashboard/contract/settings-archive.ts";
+import { ARCHIVE_ITEMS, ARCHIVE_KINDS, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview, type ArchiveRow } from "../../../src/dashboard/contract/settings-archive.ts";
 import { text } from "../text/index.ts";
 const T = text.archive;
 
@@ -88,10 +92,10 @@ function saveAs(blob: Blob, disposition: string | undefined) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-async function exportNow() {
+async function exportNow(kind: ArchiveKind) {
   busy.value = true;
   try {
-    const res = await axios.get<Blob>(`${BASE}/export`, { responseType: "blob", timeout: LIMIT.long });
+    const res = await axios.get<Blob>(`${BASE}/export?kind=${kind}`, { responseType: "blob", timeout: LIMIT.long });
     saveAs(res.data, res.headers["content-disposition"] as string | undefined);
     notifyDone(T.exported);
   } catch (err) {

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/launch.ts",
+    "backup": "node scripts/backup.ts",
     "dev": "node scripts/dev.ts",
     "cmddeploy": "node scripts/deploy-commands.ts",
     "install:bgutil": "node scripts/install-bgutil.ts",

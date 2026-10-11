@@ -92,6 +92,8 @@ const MOUNTS: Array<[string, Router]> = [
 ];
 const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
+// 물음표 뒤가 있어야 답하는 경로
+const QUERY: Record<string, string[]> = { "/api/admin/settings-archive/export": ["?kind=settings", "?kind=full"] };
 
 function getPaths() {
   const out: string[] = [];
@@ -100,7 +102,7 @@ function getPaths() {
       if (!layer.route?.methods.get || typeof layer.route.path !== "string") continue;
       let paths = [`${mount}${layer.route.path === "/" ? "" : layer.route.path}`];
       for (const [param, values] of Object.entries(FILL)) paths = paths.flatMap((one) => (one.includes(param) ? values.map((value) => one.replace(param, value)) : [one]));
-      out.push(...paths.filter((one) => !SKIP.has(one)));
+      out.push(...paths.filter((one) => !SKIP.has(one)).flatMap((one) => (QUERY[one] ?? [""]).map((query) => one + query)));
     }
   }
   return out;
@@ -134,10 +136,13 @@ test("AI 미리보기 · 모델 묻기 · 시험 응답에 키가 없다", async
   }
 });
 
-test("내보내기 파일(ZIP 의 모든 항목)에 비밀값이 없다", async () => {
-  const res = await fetch(`${base}/api/admin/settings-archive/export`);
-  assert.equal(res.status, 200);
-  for (const entry of unzip(Buffer.from(await res.arrayBuffer()))) leaksIn(`내보내기 ${entry.name}`, entry.data.toString("utf8"));
+// 암호화된 설정까지 내보내도 값은 암호문으로만 나간다(끝 네 글자도 담지 않는다)
+test("내보내기 파일(두 종류, ZIP 의 모든 항목)에 비밀값이 없다", async () => {
+  for (const kind of ["settings", "full"]) {
+    const res = await fetch(`${base}/api/admin/settings-archive/export?kind=${kind}`);
+    assert.equal(res.status, 200);
+    for (const entry of unzip(Buffer.from(await res.arrayBuffer()))) leaksIn(`내보내기(${kind}) ${entry.name}`, entry.data.toString("utf8"));
+  }
 });
 
 test("지금까지의 로그(실시간 로그 · 로그 경로가 읽는 버퍼)에 비밀값이 없다", async () => {

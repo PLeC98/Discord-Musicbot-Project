@@ -11,7 +11,7 @@ import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import * as archive from "../settings-archive.ts";
 import * as snapshots from "../../store/snapshots.ts";
-import { ARCHIVE_MAX_BYTES, isArchiveItem, type ArchiveImported, type ArchiveItem } from "../contract/settings-archive.ts";
+import { ARCHIVE_MAX_BYTES, isArchiveItem, isArchiveKind, type ArchiveImported, type ArchiveItem } from "../contract/settings-archive.ts";
 import type { Response } from "express";
 
 const settingsArchiveRouter = express.Router();
@@ -29,11 +29,14 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
+// kind: settings(봇 설정만) · full(암호화된 설정까지)
 settingsArchiveRouter.get("/export", requireRecentLogin, async (req, res) => {
-  const file = await archive.build();
-  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기. 실행 ${ranBy(req)}`);
+  const kind = String(req.query.kind ?? "");
+  if (!isArchiveKind(kind)) return sendProblem(res, "nothing-to-save");
+  const file = await archive.build(kind);
+  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${kind === "full" ? "암호화된 설정까지" : "봇 설정만"}). 실행 ${ranBy(req)}`);
   res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", `attachment; filename="${archive.fileName()}"`);
+  res.setHeader("Content-Disposition", `attachment; filename="${archive.fileName(kind)}"`);
   res.send(file);
 });
 
