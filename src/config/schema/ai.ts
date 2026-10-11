@@ -16,7 +16,7 @@ const SECRET_HEADER = "extra 에 비밀 헤더(Authorization · x-api-key · Coo
 function lineFormatProblems(format: string): Problem[] {
   if (!format.trim()) return [];
   const { nodes, problems } = parseFormat(format, LINE_NAMES);
-  return usesName(nodes, "title") ? problems : [...problems, { at: 0, message: "{{title}} 이 있어야 합니다. 판정할 거리가 제목입니다." }];
+  return usesName(nodes, "title") ? problems : [...problems, { at: 0, end: 0, message: "{{title}} 이 있어야 합니다. 판정할 거리가 제목입니다." }];
 }
 
 // AI 설정의 키 차례(기본 설정 문서와 같다). 저장은 받은 차례대로 두므로 대시보드가 이 차례로 보낸다(내보내기 글이 읽기 좋게)

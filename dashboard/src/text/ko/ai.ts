@@ -89,6 +89,26 @@ const list = {
   /** 줄 형식 설명: 앞 · 목록 자리 표시 · 뒤 */
   lineFormatBefore: "후보를 한 줄에 어떻게 적을지예요. 이렇게 적은 목록이 프롬프트의 ",
   lineFormatAfter: " 자리에 들어가요. 업로더 이름은 넣을 수 없어요(Vevo · Radio Mix 같은 이름 때문에 정답률이 떨어졌어요).",
+  help: "줄 형식 문법 보기",
+  helpTitle: "줄 형식 문법",
+  /** 문법 표: 적는 법 · 뜻 */
+  syntax: [
+    { code: "{{index}}", text: "후보 번호(1부터). 모델이 답할 때 이 번호(n)로 가리켜요" },
+    { code: "{{genre}}", text: "자동재생 장르의 식별자(예: rock). 프롬프트 섹션에서도 써요" },
+    { code: "{{title}}", text: "영상 제목. 꼭 있어야 해요(판정할 거리예요)" },
+    { code: "{{duration}}", text: "길이. 형식 없이 쓰면 3:05. 모르면 비어요" },
+    { code: "{{duration::형식}}", text: "길이를 형식대로. h 시간 · m 전체 분 · mm 남은 분 두 자리 · s 전체 초 · ss 남은 초 두 자리, 그 밖의 글자는 그대로. 예: {{duration::m분 ss초}} → 3분 05초" },
+    { code: "{{#if-exist 값}} … {{:else}} … {{/}}", text: '값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤(없으면 아무것도). 닫기는 {{/if-exist}} 도 돼요. 길이를 모르는 후보를 빼거나 "모름"을 적을 때 써요' },
+  ],
+  syntaxExample: "{{index}}. 장르={{genre}} {{#if-exist {{duration}}}}길이={{duration::m}}분 {{:else}}길이=모름 {{/}}제목={{title}}",
+  syntaxExampleLabel: "예",
+  blockChip: "{{#if-exist …}}",
+  blockChipTip: "길이가 있을 때만 적는 구간을 끝에 붙여요",
+  previewTitle: "미리보기",
+  previewKnown: "길이를 아는 후보",
+  previewUnknown: "길이를 모르는 후보",
+  /** 문제 자리: 몇 번째 글자 */
+  problemAt: (n: number) => `${n}번째 글자`,
 };
 
 // 판정 프롬프트 카드

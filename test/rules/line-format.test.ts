@@ -71,7 +71,7 @@ test("블록 문제는 자리와 함께: 닫히지 않음 · 짝 없는 닫기 �
 
 test("겹친 값 안의 문제 자리도 원래 글 기준", () => {
   const { problems } = parseFormat("ab {{#if-exist {{길이초}}}}x{{/}}", LINE_NAMES);
-  assert.deepEqual(problems, [{ at: 15, message: "{{길이초}} 은 이제 {{duration::s}} 입니다." }]);
+  assert.deepEqual(problems, [{ at: 15, end: 22, message: "{{길이초}} 은 이제 {{duration::s}} 입니다." }], "end 는 그 태그 끝");
 });
 
 test("이름이 어딘가에 있는가(필수 이름 · 목록 자리 검사)", () => {

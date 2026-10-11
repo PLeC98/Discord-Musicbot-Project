@@ -198,16 +198,49 @@
 
               <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
                 <div>
-                  <h3 class="text-sm font-semibold text-on-surface">{{ TL.lineFormat }}</h3>
+                  <h3 class="flex items-center gap-1 text-sm font-semibold text-on-surface">
+                    {{ TL.lineFormat }}<button type="button" :class="[ICON_BTN, 'size-6']" v-tooltip="TL.help" :aria-label="TL.help" aria-haspopup="dialog" @click="syntaxOpen = true"><Icon name="info" :size="16" /></button>
+                  </h3>
                   <p class="mt-1 text-xs text-on-surface-variant">
                     {{ TL.lineFormatBefore }}<code class="font-mono">{{ LIST_MARK }}</code
                     >{{ TL.lineFormatAfter }}
                   </p>
                 </div>
                 <input :value="listCfg.lineFormat" :placeholder="defaults.line" :class="[FIELD, 'w-full font-mono']" @input="listCfg.lineFormat = valueOf($event)" />
+                <!-- 문제는 칸 아래에 그 구간을 짚어 보인다(입력칸 안은 색을 칠할 수 없다): 앞뒤 몇 글자와 틀린 구간 · 몇 번째 글자 · 까닭 -->
+                <ul v-if="lineProblems.length" class="flex flex-col gap-1">
+                  <li v-for="(one, i) in lineProblems" :key="i" class="flex flex-wrap items-baseline gap-x-2 text-xs">
+                    <code class="font-mono text-on-surface-variant"
+                      >{{ one.before }}<mark class="rounded-xs bg-error-container px-0.5 text-on-error-container">{{ one.part || " " }}</mark
+                      >{{ one.after }}</code
+                    >
+                    <span class="text-error">{{ TL.problemAt(one.at + 1) }}: {{ one.message }}</span>
+                  </li>
+                </ul>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="one in MARKS" :key="one.mark" type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="one.hint" @click="insertMark(one.mark)"><Icon name="add" :size="18" />{{ one.mark }}</button>
+                  <button type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="TL.blockChipTip" @click="insertMark(BLOCK_MARK)"><Icon name="add" :size="18" />{{ TL.blockChip }}</button>
                 </div>
+                <!-- 미리보기: 봇과 같은 해석기로 길이를 아는 줄 · 모르는 줄을 그린다(조회 없이) -->
+                <div class="flex flex-col gap-1">
+                  <span :class="FIELD_LABEL">{{ TL.previewTitle }}</span>
+                  <div v-for="one in linePreview" :key="one.label" class="flex flex-col gap-0.5">
+                    <span class="text-2xs text-on-surface-variant">{{ one.label }}</span>
+                    <pre :class="CODE_BOX">{{ one.line || " " }}</pre>
+                  </div>
+                </div>
+                <InfoDialog v-model="syntaxOpen" icon="format_list_numbered" :title="TL.helpTitle">
+                  <dl class="flex flex-col gap-1">
+                    <div v-for="row in TL.syntax" :key="row.code" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
+                      <dt class="text-sm font-semibold font-mono break-all">{{ row.code }}</dt>
+                      <dd class="mt-0.5 text-xs text-on-surface-variant">{{ row.text }}</dd>
+                    </div>
+                    <div class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
+                      <dt class="text-sm font-semibold">{{ TL.syntaxExampleLabel }}</dt>
+                      <dd class="mt-0.5 text-xs font-mono break-all text-on-surface-variant">{{ TL.syntaxExample }}</dd>
+                    </div>
+                  </dl>
+                </InfoDialog>
               </section>
             </div>
           </BaseCard>
@@ -461,8 +494,9 @@ import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { valueOf } from "../utils/dom.ts";
 import { AI_ROLES, LIST_MARK, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
-import { LINE_NAMES } from "../../../src/rules/line-format.ts";
-import { AI_KEY_ORDER, aiProblems, aiSwitchedOff } from "../../../src/config/schema/ai.ts";
+import { LINE_NAMES, formatDuration as lineDuration, parseFormat, renderNodes } from "../../../src/rules/line-format.ts";
+import InfoDialog from "./InfoDialog.vue";
+import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, lineFormatProblems } from "../../../src/config/schema/ai.ts";
 import type { ModelField, ModelGroup } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
 import type { AiFields, AiKeyState, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
@@ -561,6 +595,9 @@ const ROLES = AI_ROLES;
 
 // 줄 형식의 이름(봇과 같이 쓰는 rules/line-format)
 const MARKS = Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] }));
+// 길이가 있을 때만 적는 구간(넣기 칩)
+const BLOCK_MARK = "{{#if-exist {{duration}}}}{{duration}} {{/}}";
+const syntaxOpen = ref(false);
 
 const draft = ref<Draft>({ provider: "off" });
 // 모델이 받는 칸. 서버가 프로필(config/ai-models)을 보고 알려 준다
@@ -911,6 +948,30 @@ function loadDefaults() {
 function insertMark(mark: string) {
   listCfg.value.lineFormat = `${listCfg.value.lineFormat || defaults.value.line}${mark}`;
 }
+
+// ── 줄 형식 안내: 문제 구간 · 미리보기(봇과 같은 해석기 rules/line-format) ──
+// 문제 하나의 앞뒤 몇 글자와 틀린 구간
+const AROUND = 12;
+const lineProblems = computed(() => {
+  const format = listCfg.value.lineFormat;
+  return lineFormatProblems(format).map((one) => {
+    const from = Math.max(0, one.at - AROUND);
+    const to = Math.min(format.length, one.end + AROUND);
+    return { ...one, before: `${from > 0 ? "…" : ""}${format.slice(from, one.at)}`, part: format.slice(one.at, one.end), after: `${format.slice(one.end, to)}${to < format.length ? "…" : ""}` };
+  });
+});
+// 보기 후보 둘: 길이를 아는 것 · 모르는 것. 장르는 판정 테스트에 적은 것
+const PREVIEW_CANDS = [
+  { label: TL.previewKnown, title: "System Of A Down - Toxicity (Official HD Video)", seconds: 223 },
+  { label: TL.previewUnknown, title: "Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift", seconds: null },
+];
+const linePreview = computed(() => {
+  const nodes = parseFormat(listCfg.value.lineFormat || defaults.value.line, LINE_NAMES).nodes;
+  return PREVIEW_CANDS.map((cand, i) => ({
+    label: cand.label,
+    line: renderNodes(nodes, { index: () => String(i + 1), genre: () => judgeGenre.value || TJ.genrePlaceholder, title: () => cand.title, duration: (arg) => lineDuration(cand.seconds, arg) }).trim(),
+  }));
+});
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 섹션을 따라간다 ─────────────────────────
 const { startDrag } = useDragReorder(sections, reorderPrompts);
