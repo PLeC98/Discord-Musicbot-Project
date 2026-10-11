@@ -430,10 +430,14 @@ body {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+/* 파이어폭스는 위의 꾸미기를 읽지 않는다. 표준 둘(얇게 · 색)만 준다(둥근 손잡이 · 가장자리 비우기는 안 된다).
+   base 층에 두어 scrollbar-none 같은 클래스가 이긴다(층 밖에 두면 모든 칸에 이겨 숨긴 스크롤바가 다시 뜬다) */
 @supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+  @layer base {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+    }
   }
 }
 
