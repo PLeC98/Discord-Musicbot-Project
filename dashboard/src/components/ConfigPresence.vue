@@ -36,7 +36,7 @@
             <span class="shrink-0 text-xs nums" :class="!isOn(i) && 'text-on-surface-variant'">{{ T.messageCount(entry.messages.length) }}</span>
             <Icon name="chevron_right" :size="20" class="shrink-0 -mr-1" :class="!isOn(i) && 'text-on-surface-variant'" />
           </div>
-          <p v-if="!special.length" class="px-3 py-3 text-sm text-on-surface-variant">{{ T.empty }}</p>
+          <p v-if="loaded && !special.length" class="px-3 py-3 text-sm text-on-surface-variant">{{ T.empty }}</p>
         </div>
       </BaseCard>
 
@@ -126,10 +126,10 @@ function apply(data: Record<string, unknown>) {
   special.value = toSpecial(data.special as Record<string, SpecialData> | undefined);
 }
 
-const { dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
+const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/status). 저장 버튼을 누르기 전에 알려 준다
-const problems = computed(() => [...statusProblems(payload.value), ...serverProblems.value]);
+const problems = computed(() => (loaded.value ? [...statusProblems(payload.value), ...serverProblems.value] : []));
 // 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
 useSaveTarget({ tab: "presence", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
@@ -166,7 +166,7 @@ function rowProblems(entry: SpecialRow) {
 }
 const rowProblem = (entry: SpecialRow) => rowProblems(entry).join("\n");
 // 기본 문구의 문제(변경 주기 · 평소 문구)
-const globalProblems = computed(() => statusProblems({ interval: draft.value.interval, messages: fromMessages(messages.value), special: null }));
+const globalProblems = computed(() => (loaded.value ? statusProblems({ interval: draft.value.interval, messages: fromMessages(messages.value), special: null }) : []));
 // 어느 줄의 것도 아닌 문제: 저장할 때 서버가 짚은 것
 const listProblems = computed(() => serverProblems.value);
 

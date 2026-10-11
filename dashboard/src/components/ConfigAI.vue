@@ -903,7 +903,11 @@ const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value })
 
 // 저장할 때 서버가 보는 검사 그대로(schema/ai · schema/ai-prompt). 저장 버튼을 누르기 전에 알려 준다
 // 꺼 두면(enabled: false) 나머지 칸 · 프롬프트를 따지지 않고 그대로 저장한다(틀린 것이 있어도)
-const problems = computed(() => (aiSwitchedOff(payload.value) ? [...serverProblems.value] : [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...serverProblems.value]));
+// 받기 전(loaded 는 아래 useConfigFile 이 준다)에는 문제가 없다
+const problems = computed(() => {
+  if (!loaded.value) return [];
+  return aiSwitchedOff(payload.value) ? [...serverProblems.value] : [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...serverProblems.value];
+});
 
 function addSection() {
   sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", name: "", text: "" });
@@ -951,6 +955,7 @@ function applyPrompt(list: PromptSection[] | null | undefined) {
 // 이름(promptNames)이 설정 쪽에 실리므로 설정을 넣은 뒤에 프롬프트를 넣는다. 저장 번호는 설정 문서의 것을 들고 있다가 돌려보낸다
 let aiRevision = 0;
 const {
+  loaded,
   dirty,
   saving,
   loadError,

@@ -50,11 +50,14 @@ export const configFileIo = (name: string) => {
 
 export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, savedNote }: Options) {
   const snapshot = ref("");
+  // 처음 받기 전에는 고친 것도 문제도 없다. 받기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
+  // 저장 막대 · 검사 오류 · 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사 · 빈 목록 안내를 가린다
+  const loaded = ref(false);
   const saving = ref(false);
   const loadError = ref("");
   const serverProblems = ref<string[]>([]);
 
-  const dirty = computed(() => JSON.stringify(payload()) !== snapshot.value);
+  const dirty = computed(() => loaded.value && JSON.stringify(payload()) !== snapshot.value);
   trackUnsaved(
     tab,
     computed(() => dirty.value || Boolean(alsoUnsaved?.())),
@@ -69,6 +72,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
   function load(data: Data) {
     apply(data);
     snapshot.value = JSON.stringify(payload());
+    loaded.value = true;
   }
 
   async function fetch() {
@@ -102,5 +106,5 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
   /** 마지막으로 받은 것으로 되돌린다 */
   const revert = () => load(JSON.parse(snapshot.value) as Data);
 
-  return { dirty, saving, loadError, serverProblems, load, fetch, save, revert };
+  return { loaded, dirty, saving, loadError, serverProblems, load, fetch, save, revert };
 }

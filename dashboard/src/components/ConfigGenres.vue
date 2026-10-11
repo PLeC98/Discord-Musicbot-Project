@@ -39,7 +39,7 @@
             <span class="shrink-0 text-xs nums" :class="!isOn(i) && 'text-on-surface-variant'">{{ T.sourceCount(row.sources.length) }}</span>
             <Icon name="chevron_right" :size="20" class="shrink-0 -mr-1" :class="!isOn(i) && 'text-on-surface-variant'" />
           </div>
-          <p v-if="!rows.length" class="py-3 text-sm text-on-surface-variant">{{ T.empty }}</p>
+          <p v-if="loaded && !rows.length" class="py-3 text-sm text-on-surface-variant">{{ T.empty }}</p>
         </div>
       </BaseCard>
 
@@ -144,10 +144,10 @@ function apply(data: Record<string, unknown>) {
   rows.value = toRows(genres);
 }
 
-const { dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "autoplay", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
+const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "autoplay", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
-const problems = computed(() => [...genreProblems(payload.value), ...serverProblems.value]);
+const problems = computed(() => (loaded.value ? [...genreProblems(payload.value), ...serverProblems.value] : []));
 // 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
 useSaveTarget({ tab: "autoplay", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
@@ -177,9 +177,9 @@ function rowProblems(row: GenreRow) {
 const rowProblem = (row: GenreRow) => rowProblems(row).join("\n");
 // 전역 설정의 문제: 멀쩡한 장르 하나를 붙여 전역 값만 본다
 const SOUND_GENRE = { sources: [{ type: "keyword", keywords: ["-"] }] };
-const globalProblems = computed(() => genreProblems({ defaults: draft.value.defaults, genres: { "-": SOUND_GENRE } }));
+const globalProblems = computed(() => (loaded.value ? genreProblems({ defaults: draft.value.defaults, genres: { "-": SOUND_GENRE } }) : []));
 // 어느 줄의 것도 아닌 문제: 장르가 없음 · 저장할 때 서버가 짚은 것
-const listProblems = computed(() => [...(rows.value.length ? [] : [T.problems.noGenres]), ...serverProblems.value]);
+const listProblems = computed(() => [...(loaded.value && !rows.value.length ? [T.problems.noGenres] : []), ...serverProblems.value]);
 
 // 목록에 띄울 경고: 쓰이지 않는 출처(.env 에 키가 없음) · 모르는 종류. 출처 편집기의 안내와 같은 말
 function rowWarning(row: GenreRow) {
