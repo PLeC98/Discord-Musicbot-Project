@@ -43,8 +43,8 @@ adminRouter.get("/status", requireOwner, async (req, res) => {
 });
 
 // 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 띄운다(app/launcher). 실행기 없이 켰으면 다시 띄워 줄 쪽이 없어 거절한다.
-// 재생이 잠깐 끊기므로 최근 로그인만. 답을 보낸 뒤에 내린다
-adminRouter.post("/restart", requireOwner, requireRecentLogin, (req, res) => {
+// 답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다)
+adminRouter.post("/restart", requireOwner, (req, res) => {
   const restart = req.app.locals.restart;
   if (!restart) return sendProblem(res, "restart-unavailable");
   log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작. 실행 ${ranBy(req)}`);

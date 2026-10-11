@@ -127,15 +127,15 @@ test("다시 로그인을 마치면 그 요청을 새 토큰으로 한 번 다�
     },
     { signsIn: true },
   );
-  const res = await http.post("/api/admin/restart");
+  const res = await http.post("/api/admin/snapshots/restore");
   assert.deepEqual(res.data, { ok: true });
   assert.deepEqual(reauths, ["reauth"]);
-  const posts = sent.filter((one) => one.url === "/api/admin/restart");
+  const posts = sent.filter((one) => one.url === "/api/admin/snapshots/restore");
   assert.equal(posts.length, 2);
   assert.notEqual(posts[0].token, posts[1].token, "새 세션의 토큰");
 
   const stubborn = harness((req) => tokenRoute(req) ?? { problem: "reauth-required" }, { signsIn: true });
-  await assert.rejects(stubborn.http.post("/api/admin/restart"), (error: AxiosError) => error.response?.status === 403);
+  await assert.rejects(stubborn.http.post("/api/admin/snapshots/restore"), (error: AxiosError) => error.response?.status === 403);
   assert.deepEqual(stubborn.reauths, ["reauth"], "한 번만 묻는다");
 });
 

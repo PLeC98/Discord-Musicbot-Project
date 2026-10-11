@@ -694,8 +694,8 @@ test("다시 시작: 실행기 없이 켰으면 409, 있으면 202 를 보낸 �
   }
 });
 
-// 재생이 끊기는 일이라 비밀값과 같이 최근 로그인만
-test("다시 시작: 로그인한 지 오래됐으면 reauth-required", async () => {
+// 비밀값과 달리 최근 로그인을 보지 않는다
+test("다시 시작: 로그인한 지 오래됐어도 된다", async () => {
   const asked: string[] = [];
   const app = express();
   app.use((reqq, _res, next) => {
@@ -707,7 +707,7 @@ test("다시 시작: 로그인한 지 오래됐으면 reauth-required", async ()
   const late = await listenForFetch(app);
   try {
     const res = await requestJson<ProblemReply>(baseUrl(late), "POST", "/api/admin/restart");
-    assert.deepEqual([res.status, res.json.code, asked.length], [403, "reauth-required", 0]);
+    assert.deepEqual([res.status, asked.length], [202, 1]);
   } finally {
     late.close();
   }
