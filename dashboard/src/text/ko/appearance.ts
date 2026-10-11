@@ -1,4 +1,4 @@
-// 운영자 패널: 꾸미기 탭(파비콘)
+// 운영자 패널: 디스플레이 탭의 파비콘 카드
 
 import { josa } from "../../../../src/rules/josa.ts";
 
@@ -26,6 +26,6 @@ const refusedTitle = "올리지 않은 그림이 있어요";
 const uploaded = (count: number) => (count === 1 ? "파비콘 그림을 올렸어요" : `파비콘 그림 ${count}장을 올렸어요`);
 const removed = "파비콘 그림을 지웠어요";
 const removeFailed = "파비콘 그림을 지우지 못했어요.";
-const loadFailed = "꾸미기 상태를 읽지 못했어요.";
+const loadFailed = "파비콘 상태를 읽지 못했어요.";
 
 export { favicon, faviconDesc, faviconTip, removeOne, noUploads, upload, uploadHint, from, refuse, uploadFailed, refusedTitle, uploaded, removed, removeFailed, loadFailed };

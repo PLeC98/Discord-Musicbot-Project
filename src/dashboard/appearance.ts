@@ -1,4 +1,4 @@
-// 꾸미기(파비콘). 운영자가 패널에서 올린 그림을 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고, 크기마다 그려 낸다.
+// 파비콘. 운영자가 패널에서 올린 그림을 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고, 크기마다 그려 낸다.
 // 받은 파일은 그대로 두지 않고 sharp 로 다시 만든다(래스터는 png: 메타데이터가 그대로 나가지 않게. svg 는 그려 보아 깨지지 않았는지 보고, 밖으로는 그린 png 만 낸다).
 // 크기마다 꼭 맞는 정사각형 그림이 있으면 그대로, 없으면 가장 가까운 그림을 늘이거나 줄여서, 하나도 없으면 봇 프로필 그림을 받아 줄여서 낸다
 
@@ -195,7 +195,7 @@ async function previewPng(id: string): Promise<Buffer | null> {
   return render(one, size, `preview:${id}:${size}`);
 }
 
-/** 운영자 패널의 꾸미기 상태. hasAvatar: 봇 프로필 그림을 대신 쓸 수 있는지 */
+/** 운영자 패널의 파비콘 상태. hasAvatar: 봇 프로필 그림을 대신 쓸 수 있는지 */
 async function appearance(hasAvatar: boolean): Promise<Appearance> {
   const list = await sources();
   const sizes: FaviconUse[] = FAVICON_SIZES.map((size) => {

@@ -168,7 +168,7 @@ const WEB = {
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
-  // 대시보드: 꾸미기(올린 그림)
+  // 대시보드: 파비콘(올린 그림)
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },
   "image-too-small": { status: 400, title: "Image is too small", params: ["min"] },

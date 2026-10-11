@@ -14,7 +14,7 @@
           <!-- 구분선: 아이콘 칸(안쪽 여백 12 + 아이콘 40 + 틈 16)을 비우고 글자 시작부터 -->
           <div v-if="ti" class="h-px ml-17 mr-3 bg-outline-variant/60" aria-hidden="true"></div>
           <button type="button" class="tap state-layer w-full flex items-center gap-4 min-h-14 px-3 py-2 rounded-(--r-row) cursor-pointer text-left" @click="setTab(t.id)">
-            <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsaved.has(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span></span>
+            <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsavedIn(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span></span>
             <span class="flex-1 min-w-0 text-body font-medium text-on-surface">{{ t.label }}</span>
             <Icon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
           </button>
@@ -33,7 +33,7 @@
           <button v-for="t in group" :key="t.id" :ref="(el) => railItem(t.id, el)" type="button" class="group relative shrink-0 flex flex-col items-center gap-1 py-1 cursor-pointer" :aria-current="tab === t.id ? 'page' : undefined" @click="setTab(t.id)">
             <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors duration-150" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
               <Icon :name="t.icon" :size="24" :fill="tab === t.id" />
-              <span v-if="unsaved.has(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span>
+              <span v-if="unsavedIn(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span>
             </span>
             <span class="px-1 text-2xs leading-4 text-center" :class="tab === t.id ? 'font-semibold text-on-surface' : 'font-medium text-on-surface-variant'">{{ t.label }}</span>
           </button>
@@ -88,8 +88,9 @@
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 묶음) · 파비콘. 올린 그림은 봇이 사람이 건드리지 않는 저장 자리에 둔다(파일로 넣는 길은 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
-          <!-- 올린 그림은 봇이 사람이 건드리지 않는 저장 자리에 둔다(파일로 넣는 길은 없다) -->
+          <ConfigTunables v-if="opened.has('appearance')" :groups="DISPLAY_GROUPS" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
         </div>
 
@@ -100,7 +101,7 @@
 
         <!-- 자리가 정해지지 않은 설정을 모아 두는 탭. 메뉴를 다시 짤 때 나눈다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigTunables v-if="opened.has('settings')" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
+          <ConfigTunables v-if="opened.has('settings')" :groups="SETTINGS_GROUPS" tab="settings" desc :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigServiceKeys v-if="opened.has('settings')" />
           <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
           <ConfigCookies v-if="opened.has('settings') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
@@ -125,7 +126,7 @@ import { session, live } from "../composables/session.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { eventLink } from "../utils/event-link.ts";
-import { unsaved } from "../composables/unsaved.ts";
+import { unsaved, unsavedIn } from "../composables/unsaved.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { useMediaQuery } from "@vueuse/core";
@@ -148,6 +149,7 @@ import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
+import { TUNABLE_GROUPS, type TunableGroup } from "../../../src/rules/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
@@ -181,6 +183,9 @@ const ALL_TABS: Tab[] = [
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
+// 운영 조절값 묶음을 탭에 나눈다. 표시 묶음(임베드 색 · 웹사이트 · 음성 상태)은 디스플레이 탭, 나머지는 설정 탭
+const DISPLAY_GROUPS: readonly TunableGroup[] = ["look"];
+const SETTINGS_GROUPS = TUNABLE_GROUPS.filter((group) => !DISPLAY_GROUPS.includes(group));
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
 // 목록 · 상세 편집기의 탭은 고른 줄을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다

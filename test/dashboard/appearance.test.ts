@@ -1,4 +1,4 @@
-// src/dashboard/routes/appearance.ts · appearance.ts — 꾸미기: 파비콘을 올리고 지우며, 크기마다 가장 가까운 그림으로(없으면 봇 프로필 그림) 낸다
+// src/dashboard/routes/appearance.ts · appearance.ts — 파비콘을 올리고 지우며, 크기마다 가장 가까운 그림으로(없으면 봇 프로필 그림) 낸다
 
 process.env.OWNER_ID = "owner";
 

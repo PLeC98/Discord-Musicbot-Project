@@ -1,4 +1,4 @@
-// 꾸미기. 바깥에 내는 파비콘 · 웹 앱 매니페스트(로그인 없이, 화면 셸보다 앞)와 운영자 패널의 올리기 · 지우기(/api/admin/appearance)
+// 파비콘. 바깥에 내는 파비콘 · 웹 앱 매니페스트(로그인 없이, 화면 셸보다 앞)와 운영자 패널의 올리기 · 지우기(/api/admin/appearance)
 
 import express, { type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";

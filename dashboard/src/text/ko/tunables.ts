@@ -3,7 +3,7 @@
 /** 묶음마다 제목 · 아이콘 · 설명 */
 const groups = {
   queue: { title: "대기열 · 나가기", icon: "queue_music", desc: "" },
-  look: { title: "표시", icon: "palette", desc: "" },
+  look: { title: "디스코드에서 보이는 모습", icon: "forum", desc: "" },
   youtube: { title: "유튜브", icon: "smart_toy", desc: "" },
   sponsorblock: { title: "SponsorBlock", icon: "fact_check", desc: "비음악 구간을 건너뛰어요. 구간 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0)" },
   cache: { title: "오디오 캐시", icon: "hard_drive", desc: "" },
