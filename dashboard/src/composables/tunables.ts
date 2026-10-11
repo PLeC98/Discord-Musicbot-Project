@@ -7,7 +7,7 @@ import { computed, ref } from "vue";
 import axios from "axios";
 import { addSaveTarget } from "./save-targets.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
-import { RESTART_KEYS, TUNABLES } from "../../../src/rules/tunables.ts";
+import { RESTART_KEYS, TUNABLES, tunableValue } from "../../../src/rules/tunables.ts";
 import type { TunablesView } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables;
@@ -35,7 +35,7 @@ export const labelOf = (key: string) => T.fields[key]?.label ?? key;
 export const namesOf = (keys: string[]) => keys.map(labelOf).join(" · ");
 
 const ALL_KEYS = TUNABLES.map((one) => one.key);
-const changedKey = (key: string) => (draft.value[key] ?? "").trim() !== (saved.value[key] ?? "");
+const changedKey = (key: string) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? "");
 const saving = ref(false);
 
 /** 저장. 됐으면 true. restarting 이면 다시 시작해야 먹는다는 안내는 빼고 알린다(곧 다시 시작한다) */

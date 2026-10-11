@@ -9,7 +9,7 @@ const log = logger.child({ category: "config" });
 import * as root from "../config/index.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { tunablesChanged } from "../config/tunables-changed.ts";
-import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, type TunablesView } from "../rules/tunables.ts";
+import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, tunableValue, type TunablesView } from "../rules/tunables.ts";
 import * as docs from "./settings-docs.ts";
 
 const DOC = "tunables";
@@ -17,13 +17,14 @@ const DOC = "tunables";
 // 기동 때 올린 값. 다시 켜야 먹는 값은 이것으로 돈다
 let booted: Record<string, string> = {};
 
-/** 문서에서 아는 이름 · 글자 값만 남긴다. 빈 글은 기본값이라 뺀다 */
+/** 문서에서 아는 이름 · 글자 값만 남긴다. 빈 글은 기본값이라 뺀다. 공백은 tunableValue 대로(글 칸은 남긴다) */
 function shape(data: unknown): Record<string, string> {
   const source = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const out: Record<string, string> = {};
   for (const { key } of TUNABLES) {
     const value = source[key];
-    if (typeof value === "string" && value.trim()) out[key] = value.trim();
+    const kept = typeof value === "string" ? tunableValue(key, value) : "";
+    if (kept) out[key] = kept;
   }
   return out;
 }

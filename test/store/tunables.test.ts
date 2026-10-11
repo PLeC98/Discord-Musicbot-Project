@@ -52,6 +52,16 @@ test("비어 있으면 기본값으로 돈다. 저장하면 바로 먹고 저장
   assert.deepEqual([config.bot.maxQueueSize, config.bot.embedColor], [500, "#112233"]);
 });
 
+test("글 칸(음성 상태 머리말)은 앞뒤 공백을 남기고, 나머지 칸은 걷는다. 공백뿐이면 기본값", async () => {
+  const { revision } = (await req<View>("GET")).json;
+  const saved = await req<View>("PUT", { values: { VOICE_PLAYING_PREFIX: "📻 ", QUEUE_MAX_TRACKS: " 300 ", VOICE_PAUSED_PREFIX: "   " }, revision });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.values.VOICE_PLAYING_PREFIX, "📻 ");
+  assert.equal(saved.json.values.QUEUE_MAX_TRACKS, "300");
+  assert.equal(saved.json.values.VOICE_PAUSED_PREFIX, undefined);
+  assert.equal(config.voiceStatus.playingPrefix, "📻 ");
+});
+
 test("다시 켜야 먹는 값은 저장해도 기동 때 값으로 돌고 pending 으로 알린다", async () => {
   const saved = await req<View>("PUT", { values: { SPONSORBLOCK_ENABLED: "false", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42", RATE_LIMIT_API_MAX: "999" }, revision: 0 });
   assert.deepEqual(saved.json.pending.sort(), ["BGUTIL_ENABLED", "SPONSORBLOCK_ENABLED"]);

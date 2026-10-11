@@ -64,7 +64,7 @@ import { valueOf } from "../utils/dom.ts";
 import { problemText } from "../utils/problem.ts";
 import { trackUnsaved } from "../composables/unsaved.ts";
 import { attach, draft, labelOf, namesOf, pending, saved } from "../composables/tunables.ts";
-import { TUNABLES, tunable, type Tunable, type TunableGroup } from "../../../src/rules/tunables.ts";
+import { TUNABLES, tunable, tunableValue, type Tunable, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
 import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
 import type { Option } from "../utils/options.ts";
@@ -85,7 +85,7 @@ const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.g
 const keys = computed(() => mine.value.map((one) => one.key));
 const byGroup = (group: TunableGroup) => mine.value.filter((one) => one.group === group);
 const boolOf = (one: Tunable) => (draft.value[one.key] || one.def) === "true";
-const changed = (one: Tunable) => (draft.value[one.key] ?? "").trim() !== (saved.value[one.key] ?? "");
+const changed = (one: Tunable) => tunableValue(one.key, draft.value[one.key] ?? "") !== (saved.value[one.key] ?? "");
 const dirty = computed(() => mine.value.some(changed));
 
 // 쿠키 출처 고르기. 고르기 목록에 없는 값(chrome:Profile 1 같은 꼴)이 들어 있거나 "기타"를 고른 동안은 "기타"와 적는 칸

@@ -70,6 +70,15 @@ const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
 
+/**
+ * 저장할 꼴. 글 칸(text: 음성 상태 머리말 등)은 앞뒤 공백도 값이다("📻 " 뒤에 곡 이름이 붙는다). 나머지는 앞뒤 공백을 걷는다.
+ * 공백뿐이면 빈 값(기본값)이다
+ */
+function tunableValue(key: string, raw: string): string {
+  if (!raw.trim()) return "";
+  return TUNABLES.find((one) => one.key === key)?.kind === "text" ? raw : raw.trim();
+}
+
 /** 이름으로 찾는다. 모르는 이름이면 던진다(코드의 오타다) */
 function tunable(key: string): Tunable {
   const found = TUNABLES.find((one) => one.key === key);
@@ -80,5 +89,5 @@ function tunable(key: string): Tunable {
 /** 대시보드의 답. values: 저장한 값(비운 칸은 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 켜야 먹는 이름 */
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
-export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, groupsIn, tunable };
+export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, groupsIn, tunable, tunableValue };
 export type { Tunable, TunableGroup, TunableKind, TunableTab, TunablesView };

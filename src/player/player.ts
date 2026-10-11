@@ -1318,7 +1318,7 @@ class Player {
     this.autoplay = autoplay;
   }
 
-  /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */
+  /** 지금 곡을 음성 채널 상태에. 일시정지면 그 머리말로 */
   _showTrackInVoiceStatus() {
     if (!this.currentTrack) return;
     const { playingPrefix, pausedPrefix } = config.voiceStatus;
