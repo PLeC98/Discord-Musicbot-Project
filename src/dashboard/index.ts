@@ -82,6 +82,12 @@ function createSessionMiddleware() {
   });
 }
 
+// 빌드한 화면 파일(assets/ 아래)은 이름에 내용 해시가 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴 · 스크립트 · 스타일).
+// index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
+function cacheAssets(res: Response, file: string) {
+  res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
+}
+
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
@@ -107,11 +113,11 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 켜지 않고 보인다
   const indexHtml = path.join(clientDist, "index.html");
-  app.use(express.static(clientDist));
+  app.use(express.static(clientDist, { setHeaders: cacheAssets }));
   app.get("/{*path}", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
     if (!fs.existsSync(indexHtml)) return res.send("<h2>대시보드 화면이 빌드되지 않았어요.<br>봇 폴더에서 <code>pnpm run build:dashboard</code> 를 실행한 뒤 새로고침하세요.</h2>");
-    res.sendFile(indexHtml);
+    res.sendFile(indexHtml, { headers: { "Cache-Control": "no-cache" } });
   });
 
   app.use(bodyLimit());
