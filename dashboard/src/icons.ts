@@ -116,6 +116,7 @@ const ICONS = {
   send: 0xe163,
   sensors: 0xe51e,
   settings: 0xe8b8,
+  settings_backup_restore: 0xe8ba,
   shuffle: 0xe043,
   skip_next: 0xe044,
   skip_previous: 0xe045,

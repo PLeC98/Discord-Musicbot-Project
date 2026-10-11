@@ -1,4 +1,4 @@
-// 설정 내보내기 · 불러오기(운영자 패널 설정 탭). 카드 셋: 봇 설정만 내보내기 · 암호화된 설정까지 내보내기 · 백업 불러오기
+// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). 카드 셋: 봇 설정만 내보내기 · 암호화된 설정까지 내보내기 · 백업 불러오기
 
 import type { ArchiveItem, ArchiveKind } from "../../../../src/dashboard/contract/settings-archive.ts";
 

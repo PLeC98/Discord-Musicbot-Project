@@ -1,4 +1,4 @@
-// 설정 DB 스냅샷(운영자 패널 설정 탭)
+// 설정 DB 스냅샷(운영자 패널 백업 탭)
 
 import type { SnapshotKind } from "../../../../src/rules/snapshots.ts";
 

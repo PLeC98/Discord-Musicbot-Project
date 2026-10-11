@@ -105,8 +105,12 @@
           <ConfigServiceKeys v-if="opened.has('settings')" />
           <!-- 유튜브 쿠키는 쿠키를 파일로 읽을 때만 쓸모가 있다. 판정 근거는 상태 응답에 이미 실려 온다 -->
           <ConfigCookies v-if="opened.has('settings') && status?.youtube?.cookies === 'file'" class="mt-(--gap-in)" />
-          <ConfigArchive v-if="opened.has('settings')" class="mt-(--gap-in)" />
-          <ConfigSnapshots v-if="opened.has('settings')" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
+        </div>
+
+        <!-- 백업: 설정 내보내기 · 불러오기 · 스냅샷. 비밀은 암호문 그대로만 오간다 -->
+        <div class="admin-page" v-show="tab === 'backup'">
+          <ConfigArchive v-if="opened.has('backup')" />
+          <ConfigSnapshots v-if="opened.has('backup')" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
         </div>
 
         <div class="admin-page" v-show="tab === 'dev'">
@@ -163,7 +167,7 @@ const T = text.admin;
 
 /** 탭 하나 */
 /** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
-type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "outside" | "autoplay" | "dev" };
+type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "outside" | "autoplay" | "backup" | "dev" };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
@@ -180,6 +184,7 @@ const ALL_TABS: Tab[] = [
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
   { id: "autoplay", label: T.tabs.autoplay, icon: "music_note", group: "autoplay" },
   { id: "ai", label: T.tabs.ai, icon: "campaign", group: "autoplay" },
+  { id: "backup", label: T.tabs.backup, icon: "settings_backup_restore", group: "backup" },
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
@@ -298,7 +303,7 @@ const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
 
-const TAB_GROUPS = (["status", "watch", "outside", "autoplay", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
+const TAB_GROUPS = (["status", "watch", "outside", "autoplay", "backup", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
 
 // 레일의 고른 표시. 고른 칸 아이콘 자리(data-ind)의 높이로 옮긴다. 처음 자리를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
 const railEl = ref<HTMLElement | null>(null);
