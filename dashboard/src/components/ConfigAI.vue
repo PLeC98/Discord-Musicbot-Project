@@ -1,5 +1,5 @@
 <!--
-  AI 보조 설정 (운영자 패널).
+  AI 보조 설정 (운영자 패널). 여기는 목록 · 상세 틀과 대화상자, 카드는 ConfigAI* 부품, 상태 · 동작은 composables/ai-editor.
 
   설정과 **프롬프트**는 settings.db 의 딴 문서("ai" · "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
 
