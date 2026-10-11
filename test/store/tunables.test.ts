@@ -1,4 +1,4 @@
-// src/store/tunables.ts · dashboard/routes/tunables.ts — 운영 조절값(설정 · 유튜브 · 디스플레이 탭). settings.db 의 문서에 두고 .env 와 같은 검사로 읽는다.
+// src/store/tunables.ts · dashboard/routes/tunables.ts — 운영 조절값(일반 · 유튜브 · 디스플레이 탭). settings.db 의 문서에 두고 .env 와 같은 검사로 읽는다.
 // 저장하면 바로 먹고(기동 때 만든 것은 알림을 듣고 다시 만든다), 다시 켜야 먹는 값은 기동 때 값으로 돈다. DB 에 틀린 값이 있어도 기동은 멈추지 않는다
 
 process.env.OWNER_ID = "owner";

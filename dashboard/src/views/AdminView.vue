@@ -101,7 +101,7 @@
 
         <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 묶음은 유튜브 탭, 표시 묶음은 디스플레이 탭) -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" desc :can-restart="status?.env.launcher ?? false" />
+          <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false" />
         </div>
 
         <!-- 유튜브: 운영 조절값의 유튜브 · SponsorBlock 묶음과 유튜브 쿠키 -->
@@ -127,6 +127,8 @@
           <DevOptions v-if="opened.has('dev')" />
         </div>
       </template>
+      <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장 · 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
+      <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(' · ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
     </div>
 
     <!-- 봇 다시 시작 창. 봇 상태 탭 단추 · 운영 조절값 저장 막대가 함께 쓴다 -->
@@ -163,6 +165,9 @@ import ConfigAI from "../components/ConfigAI.vue";
 import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
+import SaveDock from "../components/SaveDock.vue";
+import { revertAll, saveAll, saveTargets } from "../composables/save-targets.ts";
+import { restartNow } from "../composables/bot-restart.ts";
 import { groupsIn } from "../../../src/rules/tunables.ts";
 import { draft as tunableDraft } from "../composables/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
@@ -188,18 +193,46 @@ const ALL_TABS: Tab[] = [
   { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
-  { id: "settings", label: T.tabs.settings, icon: "settings", group: "outside" },
+  { id: "settings", label: T.tabs.settings, icon: "tune", group: "outside" },
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "outside" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "outside" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
-  { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
+  { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "autoplay", label: T.tabs.autoplay, icon: "music_note", group: "autoplay" },
   { id: "ai", label: T.tabs.ai, icon: "campaign", group: "autoplay" },
   { id: "backup", label: T.tabs.backup, icon: "settings_backup_restore", group: "backup" },
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
+// ── 저장 막대 ─────────────────────────────────────────────────────────────────
+// 고친 편집기를 탭 차례대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다)
+const targets = computed(() => [...saveTargets]);
+const savingAll = ref(false);
+const dockDirty = computed(() => targets.value.some((one) => one.dirty.value));
+const dockSaving = computed(() => savingAll.value || targets.value.some((one) => one.saving.value));
+// 검사에 걸린 값이 있는 탭(고친 편집기만). 하나라도 있으면 막대가 저장을 막는다(일부만 저장하지 않는다)
+const blockedTabs = computed(() => [...new Set(targets.value.filter((one) => one.dirty.value && one.blocked?.value).map((one) => ALL_TABS.find((t) => t.id === one.tab)?.label ?? one.tab))]);
+const dockRestart = computed(() => (status.value?.env.launcher ?? false) && targets.value.some((one) => one.dirty.value && one.restart?.value));
+
+async function saveEverything(restarting = false) {
+  savingAll.value = true;
+  try {
+    const failed = await saveAll(
+      ALL_TABS.map((t) => t.id),
+      restarting,
+    );
+    if (failed) setTab(failed.tab);
+    return !failed;
+  } finally {
+    savingAll.value = false;
+  }
+}
+
+async function saveEverythingAndRestart() {
+  if (await saveEverything(true)) await restartNow();
+}
+
 // 유튜브 탭의 쿠키 카드를 띄울지: 쿠키 출처 칸에 고른 값이 파일인가
 const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
 const TAB_KEY = "admin:tab";
@@ -340,7 +373,8 @@ function placePill() {
     else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: "smooth" });
   }
 }
-const railFade = useScrollFade(railEl, () => true);
+// 레일은 스크롤바가 없어 흐림이 더 굴러간다는 유일한 표시다. 칸 하나(64)만큼 넓게
+const railFade = useScrollFade(railEl, () => true, 64);
 watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
 async function fetchStatus() {

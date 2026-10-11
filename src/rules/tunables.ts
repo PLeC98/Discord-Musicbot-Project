@@ -1,4 +1,4 @@
-// 운영 조절값. 대시보드(운영자 패널의 설정 · 유튜브 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
+// 운영 조절값. 대시보드(운영자 패널의 일반 · 유튜브 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
 // 값은 .env 와 같은 글자로 둔다. 읽는 길(config 의 envReaders)이 하나라 검사 · 단위 바꾸기 · 다듬기가 .env 때와 같다.
 // 화면도 부르므로 Node 없는 모듈이다. 이름표 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
 //

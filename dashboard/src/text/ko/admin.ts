@@ -19,7 +19,7 @@ const tabs = {
   guilds: "서버 관리",
   db: "DB 브라우저",
   logs: "실시간 로그",
-  settings: "설정",
+  settings: "일반",
   youtube: "유튜브",
   keys: "API 키",
   presence: "상태 문구",

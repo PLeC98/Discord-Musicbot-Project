@@ -72,7 +72,7 @@ function logAuthMode() {
   const clients = config.ytdlp.playerClients;
   const pot = potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
   // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
-  const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 넣은 쿠키(연령 제한 폴백 전용)" : "대시보드에 넣은 쿠키(아직 없음. 설정 탭에서 넣으세요)") : "없음";
+  const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 넣은 쿠키(연령 제한 폴백 전용)" : "대시보드에 넣은 쿠키(아직 없음. 유튜브 탭에서 넣으세요)") : "없음";
   log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
   // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.

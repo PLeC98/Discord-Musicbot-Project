@@ -90,8 +90,6 @@
         </div>
       </BaseCard>
     </div>
-
-    <SaveDock tab="autoplay" :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
   </div>
 </template>
 
@@ -112,9 +110,9 @@ import Twemoji from "./TwemojiImage.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
-import SaveDock from "./SaveDock.vue";
 import { reorderGenres } from "../composables/config-folds.ts";
 import { configFileIo, useConfigFile } from "../composables/config-file.ts";
+import { useSaveTarget } from "../composables/save-targets.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { problemText } from "../utils/problem.ts";
 import { toRows, toMap, newRow, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
@@ -150,6 +148,8 @@ const { dirty, saving, loadError, serverProblems, fetch, save, revert } = useCon
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => [...genreProblems(payload.value), ...serverProblems.value]);
+// 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
+useSaveTarget({ tab: "autoplay", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 장르를 따라간다 ─────────────────────────
 const { startDrag } = useDragReorder(rows, reorderGenres);

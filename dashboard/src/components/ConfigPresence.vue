@@ -89,8 +89,6 @@
         </div>
       </BaseCard>
     </div>
-
-    <SaveDock tab="presence" :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
   </div>
 </template>
 
@@ -101,13 +99,13 @@ import { ref, computed, onMounted } from "vue";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
-import SaveDock from "./SaveDock.vue";
 import PresenceMessageList from "./PresenceMessageList.vue";
 import NumberInput from "./NumberInput.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
 import { configFileIo, useConfigFile } from "../composables/config-file.ts";
+import { useSaveTarget } from "../composables/save-targets.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { useListDetail, LIST_ROW } from "../composables/list-detail.ts";
 import { CONDITIONS, newMessage, newSpecial, toMessages, fromMessages, toSpecial, fromSpecial, type MessageRow, type SpecialRow, type MessageData, type SpecialData } from "../utils/presence-rows.ts";
@@ -132,6 +130,8 @@ const { dirty, saving, loadError, serverProblems, fetch, save, revert } = useCon
 
 // 저장할 때 서버가 보는 검사 그대로(schema/status). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => [...statusProblems(payload.value), ...serverProblems.value]);
+// 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
+useSaveTarget({ tab: "presence", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
 // ── 목록 · 상세(composables/list-detail). 주소는 ?presence= ────────────────────
 const paneEl = ref<HTMLElement | null>(null);

@@ -80,17 +80,20 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
     }
   }
 
-  async function save() {
+  /** 저장. 됐으면 true */
+  async function save(): Promise<boolean> {
     saving.value = true;
     serverProblems.value = [];
     try {
       load(await write(payload()));
       notifyDone(text.editor.saved, savedNote);
+      return true;
     } catch (error) {
       // 서버가 칸마다 짚은 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
       const details = problemDetails(error);
       if (details.length) serverProblems.value = details;
       else notifyProblem(error, text.editor.saveFailedSentence);
+      return false;
     } finally {
       saving.value = false;
     }

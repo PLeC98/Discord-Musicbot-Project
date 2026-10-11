@@ -1,7 +1,6 @@
 <template>
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <p v-if="desc" class="text-sm text-on-surface-variant">{{ T.desc }}</p>
     <!-- 저장했지만 다시 시작해야 적용되는 값이 남아 있으면 무엇인지 적고 그 자리에서 다시 시작한다 -->
     <NoticeBox v-if="pendingHere.length" variant="note" tone="info" icon="restart_alt" class="mt-0!">
       <span class="flex items-center gap-3 flex-wrap"
@@ -12,6 +11,7 @@
 
     <template v-for="group in groups" :key="group">
       <BaseCard :icon="T.groups[group].icon" :title="T.groups[group].title">
+        <template v-if="GROUP_DOCS[group]" #actions><DocLink :file="GROUP_DOCS[group]!.file" :label="GROUP_DOCS[group]!.label" /></template>
         <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
         <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
           <template v-for="one in byGroup(group)" :key="one.key">
@@ -45,28 +45,25 @@
       <!-- 묶음 카드 뒤에 부르는 쪽이 끼우는 자리(유튜브 묶음 뒤의 유튜브 쿠키 카드) -->
       <slot :name="`after-${group}`" />
     </template>
-    <SaveDock :tab="tab" :dirty="dirty && loaded" :saving="saving" :restart="canRestart && needsRestart" @save="save()" @save-restart="saveAndRestart" @revert="reset" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BaseCard from "./BaseCard.vue";
-import SaveDock from "./SaveDock.vue";
 import BotRestart from "./BotRestart.vue";
-import { restartNow } from "../composables/bot-restart.ts";
 import BaseSwitch from "./BaseSwitch.vue";
 import ColorPicker from "./ColorPicker.vue";
 import SponsorCategories from "./SponsorCategories.vue";
 import SingleSelect from "./SingleSelect.vue";
+import DocLink from "./DocLink.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { valueOf } from "../utils/dom.ts";
 import { problemText } from "../utils/problem.ts";
 import { trackUnsaved } from "../composables/unsaved.ts";
-import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { attach, draft, loaded, pending, revertKeys, saved, saveKeys } from "../composables/tunables.ts";
+import { attach, draft, labelOf, namesOf, pending, saved } from "../composables/tunables.ts";
 import { TUNABLES, tunable, type Tunable, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
 import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
@@ -75,17 +72,14 @@ import { text } from "../text/index.ts";
 const T = text.tunables;
 
 /**
- * 운영 조절값 카드. 묶음(group)마다 카드 하나, 저장 막대는 이 편집기의 칸만 저장한다(값은 탭끼리 같이 쓴다, composables/tunables).
- * groups: 보일 묶음 · tab: 운영자 패널 탭(저장 막대 · 저장 안 함 표시) · desc: 맨 위 안내(비운 칸은 기본값) · canRestart: 실행기로 켰는가(봇 상태의 env.launcher)
+ * 운영 조절값 카드. 묶음(group)마다 카드 하나. 값은 탭끼리 같이 쓰고 저장 · 되돌리기는 운영자 패널의 저장 막대가 한다(composables/tunables).
+ * groups: 보일 묶음 · tab: 운영자 패널 탭(저장 안 함 표시) · canRestart: 실행기로 켰는가(봇 상태의 env.launcher)
  */
-const props = withDefaults(defineProps<{ groups: readonly TunableGroup[]; tab: string; desc?: boolean; canRestart: boolean }>(), { desc: false });
-
-// 칸 이름(화면 이름표). 알림 · 안내에 "몇 칸" 대신 무엇인지 적는다
-const labelOf = (key: string) => T.fields[key]?.label ?? key;
-const namesOf = (keys: string[]) => keys.map(labelOf).join(" · ");
+const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRestart: boolean }>();
 
 const loadError = ref("");
-const saving = ref(false);
+// 카드 머리의 설명서 단추(저장소의 설명서)
+const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
 const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
@@ -99,6 +93,11 @@ const dirty = computed(() => mine.value.some(changed));
 const COOKIE_OTHER = "(other)";
 const COOKIE_OPTIONS: Option[] = [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }];
 const cookieOther = ref(false);
+// 저장하거나 되돌려 저장된 값으로 돌아오면 고르기로 돌아간다
+watch(
+  () => (draft.value.COOKIES_SOURCE ?? "").trim() === (saved.value.COOKIES_SOURCE ?? ""),
+  (same) => same && (cookieOther.value = false),
+);
 function cookieChoice(one: Tunable) {
   const value = (draft.value[one.key] ?? "").trim();
   if (cookieOther.value) return COOKIE_OTHER;
@@ -125,34 +124,7 @@ function toggleCategory(one: Tunable, id: string) {
   draft.value[one.key] = !next.length ? NO_CATEGORIES : sameAsDefault ? "" : next.join(",");
 }
 const pendingHere = computed(() => pending.value.filter((key) => keys.value.includes(key)));
-// 다시 시작해야 먹는 값을 고쳤거나, 저장해 두고 아직 다시 시작하지 않은 값이 있다
-const needsRestart = computed(() => mine.value.some((one) => one.restart && changed(one)) || pendingHere.value.length > 0);
 trackUnsaved(`${props.tab}:tunables`, dirty);
-
-const reset = () => {
-  revertKeys(keys.value);
-  cookieOther.value = false;
-};
-
-/** 저장. 됐으면 true. restarting 이면 다시 시작해야 먹는다는 안내는 빼고 알린다(곧 다시 시작한다) */
-async function save(restarting = false) {
-  saving.value = true;
-  try {
-    const view = await saveKeys(keys.value);
-    const waiting = view.pending.filter((key) => keys.value.includes(key));
-    notifyDone(T.savedDone, waiting.length && !restarting ? T.savedRestart(namesOf(waiting)) : "");
-    return true;
-  } catch (err) {
-    notifyProblem(err, T.saveFailed);
-    return false;
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function saveAndRestart() {
-  if (await save(true)) await restartNow();
-}
 
 const { ready, detach } = attach();
 onUnmounted(detach);

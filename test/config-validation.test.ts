@@ -41,7 +41,7 @@ test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 칸만
 test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
   const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
   assert.equal(cfg.apiMax, 120);
-  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS · RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 설정 탭에서 넣고 .env 에서 지우세요."]);
+  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS · RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 넣고 .env 에서 지우세요."]);
   assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 

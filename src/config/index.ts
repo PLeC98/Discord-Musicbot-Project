@@ -210,7 +210,7 @@ const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as 
 const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
 
 // 운영자 패널 탭 이름(운영 조절값의 묶음이 놓인 탭, rules/tunables 의 GROUP_TAB)
-const TAB_NAMES = { settings: "설정", appearance: "디스플레이", youtube: "유튜브" } as const;
+const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브" } as const;
 
 /** 옮긴 값을 넣을 운영자 패널 탭별로: 서비스 키는 API 키, 운영 조절값은 그 묶음의 탭 */
 function groupByTab(names: string[]): Map<string, string[]> {

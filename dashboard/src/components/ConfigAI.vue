@@ -376,8 +376,6 @@
       </div>
     </div>
 
-    <SaveDock tab="ai" :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
-
     <Teleport to="body">
       <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다(M3 대화상자, 설정 대화상자와 같은 모양) -->
       <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
@@ -458,7 +456,6 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NumberInput from "./NumberInput.vue";
 import ChipInput from "./ChipInput.vue";
-import SaveDock from "./SaveDock.vue";
 import SingleSelect from "./SingleSelect.vue";
 import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL, AREA, CODE_BOX } from "../utils/field.ts";
@@ -467,6 +464,7 @@ import BaseSwitch from "./BaseSwitch.vue";
 import type { Option, OptionValue } from "../utils/options.ts";
 import { isFolded, toggleFold, promptFoldId, reorderPrompts } from "../composables/config-folds.ts";
 import { useConfigFile } from "../composables/config-file.ts";
+import { useSaveTarget } from "../composables/save-targets.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { reportSinglePane, useListDetailLayout, LIST_ROW } from "../composables/list-detail.ts";
@@ -983,6 +981,8 @@ const {
     return saved;
   },
 });
+// 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
+useSaveTarget({ tab: "ai", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
 watch(

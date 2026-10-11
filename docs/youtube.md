@@ -83,11 +83,11 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 | 고르기                    | 동작                                                                                                         |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | 쓰지 않음                 | 쿠키를 쓰지 않습니다.                                                                                        |
-| 파일                      | 대시보드에 넣은 쿠키를 사용합니다.                                                                           |
+| 쿠키 직접 입력            | 대시보드에 넣은 쿠키를 사용합니다.                                                                           |
 | Chrome · Edge · Firefox … | 그 브라우저에서 가져옵니다.                                                                                  |
 | 기타(직접 입력)           | 브라우저 프로필 등을 yt-dlp 의 꼴(`브라우저[+키링][:프로필][::컨테이너]`)로 적습니다. 예: `chrome:Profile 1` |
 
-파일로 두면 **대시보드 운영자 패널의 유튜브 탭에 유튜브 쿠키 카드가 생깁니다.** 브라우저 확장에서 복사한 내용(Netscape 형식)을 붙여넣어 갈아 끼웁니다. 넣은 쿠키는 `SECRETS_KEY` 로 암호화해 두고, yt-dlp 를 돌릴 때만 그 실행의 임시 파일로 풀었다가 끝나면 지웁니다.
+쿠키 직접 입력으로 두면 **대시보드 운영자 패널의 유튜브 탭에 유튜브 쿠키 카드가 생깁니다.** 브라우저 확장에서 복사한 내용(Netscape 형식)을 붙여넣어 갈아 끼웁니다. 넣은 쿠키는 `SECRETS_KEY` 로 암호화해 두고, yt-dlp 를 돌릴 때만 그 실행의 임시 파일로 풀었다가 끝나면 지웁니다.
 
 > [!CAUTION]
 > **쿠키는 연령 제한 영상에만 사용합니다.**
@@ -96,7 +96,7 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 > ([yt-dlp 문서](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies): 계정 기준 시간당 약 2000영상)
 
 > [!IMPORTANT]
-> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. 브라우저 이름을 먼저 시도해 보고, 문제가 발생하면 쿠키 출처를 `file` 로 두고 설정 탭에 붙여넣으시기 바랍니다.
+> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. 브라우저 이름을 먼저 시도해 보고, 문제가 발생하면 쿠키 출처를 쿠키 직접 입력으로 두고 유튜브 탭의 유튜브 쿠키 카드에 붙여넣으시기 바랍니다.
 >
 > 크롬/엣지: [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 >
