@@ -1,5 +1,5 @@
 <!--
-  AI 보조 · 모델: 어디로(프로바이더 · 주소 · 키) · 무엇을(모델) 부를지 한 카드, 모델 파라미터 · 연결 테스트.
+  AI 보조 · 모델: 어디로(프로바이더 · 주소 · 키) · 무엇을(모델) 부를지 한 카드, 연결 테스트 · 모델 파라미터.
   상태는 composables/ai-editor(ConfigAI 가 내려 준다).
 -->
 <template>
@@ -75,6 +75,28 @@
     </div>
   </BaseCard>
 
+  <BaseCard v-if="on" icon="network_check" :title="TT.title">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-on-surface-variant">{{ TT.desc }}</p>
+      <div class="flex items-center gap-2 flex-wrap">
+        <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? TT.freeRunning : TT.free }}</BaseButton>
+        <BaseButton variant="warning" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? TT.paidRunning : TT.paid }}</BaseButton>
+      </div>
+      <!-- 두 테스트의 결과. 한 자리에 쓴다 -->
+      <template v-if="tested">
+        <NoticeBox variant="note" :tone="tested.ok ? 'info' : 'error'" :icon="tested.ok ? 'check_circle' : 'cancel'" :fill="tested.ok" class="mt-0!"
+          >{{ tested.kind }} · {{ tested.status ? `HTTP ${tested.status}` : TT.notSent }} · {{ tested.tookMs }}ms<template v-if="tested.extra"> · {{ tested.extra }}</template
+          ><template v-if="tested.reason && !tested.status">{{ NL }}{{ tested.reason }}</template></NoticeBox
+        >
+        <pre v-if="tested.body" :class="CODE_BOX">{{ tested.body }}</pre>
+        <div v-if="tested.raw && tested.raw !== tested.body">
+          <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
+        </div>
+        <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
+      </template>
+    </div>
+  </BaseCard>
+
   <BaseCard v-if="on" icon="tune" :title="TP.title">
     <template v-if="fieldInfo.fields.length" #actions>
       <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="refreshing" :aria-label="TP.refresh" v-tooltip="TP.refreshTip" @click="refreshModels"><Icon name="refresh" :size="20" :class="refreshing && 'animate-spin'" /></button>
@@ -118,28 +140,6 @@
         </div>
         <textarea :value="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[AREA, 'font-mono text-xs']" @input="extraText = valueOf($event)"></textarea>
       </section>
-    </div>
-  </BaseCard>
-
-  <BaseCard v-if="on" icon="network_check" :title="TT.title">
-    <div class="flex flex-col gap-3">
-      <p class="text-sm text-on-surface-variant">{{ TT.desc }}</p>
-      <div class="flex items-center gap-2 flex-wrap">
-        <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? TT.freeRunning : TT.free }}</BaseButton>
-        <BaseButton variant="warning" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? TT.paidRunning : TT.paid }}</BaseButton>
-      </div>
-      <!-- 두 테스트의 결과. 한 자리에 쓴다 -->
-      <template v-if="tested">
-        <NoticeBox variant="note" :tone="tested.ok ? 'info' : 'error'" :icon="tested.ok ? 'check_circle' : 'cancel'" :fill="tested.ok" class="mt-0!"
-          >{{ tested.kind }} · {{ tested.status ? `HTTP ${tested.status}` : TT.notSent }} · {{ tested.tookMs }}ms<template v-if="tested.extra"> · {{ tested.extra }}</template
-          ><template v-if="tested.reason && !tested.status">{{ NL }}{{ tested.reason }}</template></NoticeBox
-        >
-        <pre v-if="tested.body" :class="CODE_BOX">{{ tested.body }}</pre>
-        <div v-if="tested.raw && tested.raw !== tested.body">
-          <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
-        </div>
-        <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
-      </template>
     </div>
   </BaseCard>
 </template>

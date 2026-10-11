@@ -17,7 +17,7 @@
     <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
 
-    <!-- 묶음: 모델(프로바이더 · 주소 · 키 · 모델이 한 카드, 모델 파라미터 · 연결 테스트) · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트) · 고급 설정(부르기 · 재시도) · 리퀘스트 로그 · 사용량 통계(둘 다 자리만) -->
+    <!-- 묶음: 모델(프로바이더 · 주소 · 키 · 모델이 한 카드, 연결 테스트 · 모델 파라미터) · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트) · 고급 설정(부르기 · 재시도) · 리퀘스트 로그 · 사용량 통계(둘 다 자리만) -->
     <div ref="paneEl" :class="paneClass">
       <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 안 골랐으면 모델 · 리퀘스트 로그 · 사용량 통계만 -->
       <BaseCard v-if="showList" icon="campaign" :title="T.title" :class="listCardClass">
