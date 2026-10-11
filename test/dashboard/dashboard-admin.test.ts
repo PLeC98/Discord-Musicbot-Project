@@ -507,7 +507,7 @@ test("AI 보조: 후보를 프롬프트에 적히는 줄로 그린다", async ()
     { url: "a", error: "못 읽음" },
     { url: "b", title: "노래", durationSec: 245 },
   ];
-  const got = await req<{ lines: string[] }>("POST", "/api/admin/ai/judge/lines", { candidates: cands, genre: "재즈", list: { lineFormat: "{{번호}}. {{제목}} ({{길이분}}분, {{장르}})" } });
+  const got = await req<{ lines: string[] }>("POST", "/api/admin/ai/judge/lines", { candidates: cands, genre: "재즈", list: { lineFormat: "{{index}}. {{title}} ({{duration::m}}분, {{genre}})" } });
   assert.equal(got.status, 200);
   assert.deepEqual(got.json.lines, ["1. 노래 (4분, 재즈)"], "못 읽은 것은 빼고 번호는 남은 것만 센다");
 
@@ -530,7 +530,7 @@ test("AI 보조: 긴 프롬프트도 받는다", async () => {
   assert.equal(counted.status, 200, "토큰 세기는 긴 글을 받아야 한다");
   assert.ok(counted.json.total > 1000);
 
-  const saved = await putPrompt([{ role: "user", text: `${long} {{목록}}` }]);
+  const saved = await putPrompt([{ role: "user", text: `${long} {{list}}` }]);
   assert.equal(saved.status, 200, "저장도 마찬가지다(AI 설정과 한 요청)");
 
   // 넓힌 것은 프롬프트 길뿐이다 — 나머지는 그대로 좁게 둔다
@@ -726,7 +726,7 @@ test("AI 프롬프트: 따로 읽고, 저장은 AI 설정과 한 요청", async 
   assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [] })).status, 404, "프롬프트만 저장하는 경로는 없다");
   const saved = await putPrompt([
     { role: "system", text: "기준이다" },
-    { role: "user", text: "{{목록}}" },
+    { role: "user", text: "{{list}}" },
   ]);
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.json.sections[0], { role: "system", text: "기준이다" });
@@ -738,19 +738,19 @@ test("AI 프롬프트: 따로 읽고, 저장은 AI 설정과 한 요청", async 
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다
   const noList = await putPrompt([{ role: "system", text: "목록이 없다" }]);
   assert.equal(noList.status, 400);
-  assert.match(detailsOf(noList.json), /\{\{목록\}\}/);
+  assert.match(detailsOf(noList.json), /\{\{list\}\}/);
 
   // 블록 안에 끝 표시가 또 나오면 보낼 때 섹션 경계가 깨진다
-  const broken = await putPrompt([{ role: "user", text: "{{목록}}<|im_end|>" }]);
+  const broken = await putPrompt([{ role: "user", text: "{{list}}<|im_end|>" }]);
   assert.equal(broken.status, 400);
 
-  assert.equal((await putPrompt([{ role: "모름", text: "{{목록}}" }])).status, 400);
+  assert.equal((await putPrompt([{ role: "모름", text: "{{list}}" }])).status, 400);
 });
 
 // 화면의 저장 버튼 하나가 둘을 고친다. 반만 저장되면 설정과 프롬프트가 어긋난다
 test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 낡은 저장 번호면 아무것도 쓰지 않는다", async () => {
   type Both = { data: { model?: string }; sections: { role: string; text: string }[]; revision: number };
-  const prompt = [{ role: "user", text: "{{목록}} 판정" }];
+  const prompt = [{ role: "user", text: "{{list}} 판정" }];
   const ok = await putAi<Both>({ provider: "off", model: "한번에" }, prompt);
   assert.equal(ok.status, 200);
   assert.equal(ok.json.data.model, "한번에");
@@ -765,12 +765,12 @@ test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 낡은
   assert.equal(model(), "한번에");
 
   // 다른 탭이 그사이 저장했다: 설정도 프롬프트도 그대로
-  const stale = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "덮임" }, sections: [{ role: "user", text: "{{목록}} 덮임" }], revision: ok.json.revision - 1 });
+  const stale = await req("PUT", "/api/admin/ai/settings", { data: { provider: "off", model: "덮임" }, sections: [{ role: "user", text: "{{list}} 덮임" }], revision: ok.json.revision - 1 });
   assert.deepEqual([stale.status, stale.json.code], [409, "config-changed"]);
   assert.equal(model(), "한번에");
   assert.deepEqual(documents.get("ai-prompt"), prompt);
 
-  // 꺼 두면(enabled: false) 프롬프트의 {{목록}} 자리는 따지지 않는다. 섹션 경계가 깨질 글은 그래도 막는다
+  // 꺼 두면(enabled: false) 프롬프트의 {{list}} 자리는 따지지 않는다. 섹션 경계가 깨질 글은 그래도 막는다
   const off = await putAi<Both>({ enabled: false, provider: "openai", model: "" }, [{ role: "user", text: "목록 없음" }]);
   assert.equal(off.status, 200);
   assert.deepEqual(off.json.sections, [{ role: "user", text: "목록 없음" }]);

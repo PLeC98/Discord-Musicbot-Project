@@ -16,9 +16,7 @@ const aiDefault: Record<string, unknown> = {
   batchSize: 10,
   skipConfident: true,
   list: {
-    lineFormat: "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제목={{제목}}",
-    unknownDuration: "hide",
-    unknownText: "모름",
+    lineFormat: "{{index}}. 장르={{genre}} {{#if-exist {{duration}}}}길이={{duration::m}}분 {{/}}제목={{title}}",
   },
   model: "gemma3n:e2b",
   params: {},

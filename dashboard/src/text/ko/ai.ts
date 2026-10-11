@@ -89,9 +89,6 @@ const list = {
   /** 줄 형식 설명: 앞 · 목록 자리 표시 · 뒤 */
   lineFormatBefore: "후보를 한 줄에 어떻게 적을지예요. 이렇게 적은 목록이 프롬프트의 ",
   lineFormatAfter: " 자리에 들어가요. 업로더 이름은 넣을 수 없어요(Vevo · Radio Mix 같은 이름 때문에 정답률이 떨어졌어요).",
-  unknownDuration: "길이를 모르는 후보",
-  unknownText: "대신 적을 글자",
-  unknownTextPlaceholder: "모름",
 };
 
 // 판정 프롬프트 카드
@@ -193,14 +190,8 @@ const keySaved = "키를 저장했어요";
 const keyCleared = "키를 지웠어요";
 const keySaveFailed = "키를 저장하지 못했어요.";
 const keyClearFailed = "키를 지우지 못했어요.";
-/** 줄 형식 자리표시자 설명(이름은 봇의 LINE_MARKS) */
-const markHints: Record<string, string> = { 번호: "1부터", 장르: "자동재생 장르 이름", 제목: "영상 제목 (필수)", 길이분: "길이(분)", 길이초: "길이(초)" };
-/** 길이를 모르는 후보를 적는 법 */
-const unknownWays = {
-  hide: { label: "그 칸 빼기", hint: '자리표시자가 든 낱말째 빠져요. 기본 형식이면 "길이=3분"이 통째로 사라져요.' },
-  text: { label: "글자로 적기", hint: "형식이 일정해 모델이 자리를 헷갈리지 않아요." },
-  zero: { label: "0으로 적기", hint: "모르는 것을 0분이라고 알려 주는 셈이라 권하지 않아요." },
-};
+/** 줄 형식 자리표시자 설명(이름은 봇의 rules/line-format) */
+const markHints: Record<string, string> = { index: "1부터", genre: "자동재생 장르", title: "영상 제목 (필수)", duration: "길이. 형식 없이 쓰면 3:05, {{duration::m}} 처럼 형식을 줄 수 있어요. 모르면 비어요" };
 const modelsRefreshed = "모델 정보를 갱신했어요";
 const modelCount = (count: number) => `모델 ${count}개`;
 const modelsCurrent = "모델 정보가 이미 최신이에요";
@@ -230,4 +221,4 @@ const failed = {
   send: "보내지 못했어요.",
 };
 
-export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, logNotYet, usageNotYet, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, unknownWays, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };
+export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, logNotYet, usageNotYet, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };

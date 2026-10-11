@@ -209,18 +209,6 @@
                   <button v-for="one in MARKS" :key="one.mark" type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="one.hint" @click="insertMark(one.mark)"><Icon name="add" :size="18" />{{ one.mark }}</button>
                 </div>
               </section>
-
-              <section class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
-                <label class="block">
-                  <span :class="FIELD_LABEL">{{ TL.unknownDuration }}</span>
-                  <SingleSelect :model-value="listCfg.unknownDuration" :options="UNKNOWN" @update:model-value="listCfg.unknownDuration = $event as AiUnknown" />
-                </label>
-                <label v-if="listCfg.unknownDuration === 'text'" class="block">
-                  <span :class="FIELD_LABEL">{{ TL.unknownText }}</span>
-                  <input :value="listCfg.unknownText" :placeholder="TL.unknownTextPlaceholder" :class="[FIELD, 'w-full']" @input="listCfg.unknownText = valueOf($event)" />
-                </label>
-                <p class="@md/card:col-span-2 text-xs text-on-surface-variant">{{ UNKNOWN.find((u) => u.value === listCfg.unknownDuration)?.hint }}</p>
-              </section>
             </div>
           </BaseCard>
 
@@ -472,8 +460,9 @@ import { pushDown } from "../utils/up-nav.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import { valueOf } from "../utils/dom.ts";
-import { AI_ROLES, LIST_MARK, LINE_MARKS, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
-import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, type AiUnknown } from "../../../src/config/schema/ai.ts";
+import { AI_ROLES, LIST_MARK, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
+import { LINE_NAMES } from "../../../src/rules/line-format.ts";
+import { AI_KEY_ORDER, aiProblems, aiSwitchedOff } from "../../../src/config/schema/ai.ts";
 import type { ModelField, ModelGroup } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
 import type { AiFields, AiKeyState, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
@@ -518,7 +507,7 @@ type Draft = Record<string, unknown> & {
 /** 프롬프트 섹션 하나(편집 중). key 는 화면이 붙잡아 두는 번호, name 은 설정 쪽에 실리는 이름 */
 type Section = PromptSection & { key: number; name: string };
 /** 목록 줄 형식(AI 설정의 list) */
-type ListCfg = { lineFormat: string; unknownDuration: AiUnknown; unknownText: string };
+type ListCfg = { lineFormat: string };
 /** 확인 결과 한 칸(무료 · 유료 테스트) */
 type Tested = { kind: string; ok: boolean; status: number | null | undefined; tookMs: number; reason?: string; extra?: string; asked?: string; body?: string; raw?: string };
 
@@ -570,16 +559,11 @@ const ROLES = AI_ROLES;
 
 // 프로바이더 목록은 서버가 준다(주소·키 필요 여부까지). 화면이 베껴 두면 한쪽만 고치게 된다.
 
-const MARKS = LINE_MARKS.map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] }));
-
-const UNKNOWN: Array<{ value: AiUnknown; label: string; hint: string }> = [
-  { value: "hide", ...T.unknownWays.hide },
-  { value: "text", ...T.unknownWays.text },
-  { value: "zero", ...T.unknownWays.zero },
-];
+// 줄 형식의 이름(봇과 같이 쓰는 rules/line-format)
+const MARKS = Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] }));
 
 const draft = ref<Draft>({ provider: "off" });
-// 모델이 받는 칸. 서버가 프로필(data/ai-models.json)을 보고 알려 준다
+// 모델이 받는 칸. 서버가 프로필(config/ai-models)을 보고 알려 준다
 const fieldInfo = ref<AiFields>({ known: false, fields: [], groups: [], models: [] });
 const showAdvanced = ref(false);
 const showHide = ref(false);
@@ -642,7 +626,7 @@ function onJson(key: string, text: string) {
     jsonBad.value = { ...jsonBad.value, [key]: true };
   }
 }
-const listCfg = ref<ListCfg>({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
+const listCfg = ref<ListCfg>({ lineFormat: "" });
 const sections = ref<Section[]>([]);
 
 const keyPresence = ref<Record<string, boolean>>({});
@@ -941,7 +925,8 @@ function apply(data: Record<string, unknown>) {
   rememberModel(draft.value.provider, draft.value.model);
   picking = draft.value.model || "";
   params.value = { ...(allParams.value[picking] || {}) };
-  listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...((list as Partial<ListCfg> | undefined) || {}) };
+  // 옛 칸(길이를 모르는 후보)은 읽지 않는다. 저장하면 빠진다(이제 줄 형식 안의 {{#if-exist}} 로 정한다)
+  listCfg.value = { lineFormat: String((list as Partial<ListCfg> | undefined)?.lineFormat ?? "") };
   names = Array.isArray(promptNames) ? promptNames.map(String) : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
   savedBaseUrl.value = String(draft.value.baseUrl || ""); // 키를 붙일지 가르는 기준

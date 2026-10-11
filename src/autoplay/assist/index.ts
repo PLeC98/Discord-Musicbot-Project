@@ -18,7 +18,8 @@ import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
 import { errorKind, messageOf } from "../../rules/error-kind.ts";
 import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
-import { LINE_MARKS, type PromptSection } from "../../config/schema/ai-prompt.ts";
+import type { PromptSection } from "../../config/schema/ai-prompt.ts";
+import { LINE_NAMES, PROMPT_NAMES, formatDuration, parseFormat, renderNodes, type Names, type Node } from "../../rules/line-format.ts";
 import type { AiDefaults, AiSettings, Body, Judged, JudgeResult, ListFormat, ModelsCheck, PingCheck, Preview, TestCandidate, TokenCount, Usage, Wire } from "./types.ts";
 import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
@@ -90,21 +91,31 @@ fits — 요청한 장르가 맞는가?
 JSON 배열로만 답한다. 설명하지 않는다.
 [{"n":1,"song":true,"fits":false}, ...]`;
 
-// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{목록}} 자리에 후보가 들어간다.
+// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{list}} 자리에 후보가 들어간다.
 // 이 둘이 곧 예전 모양(system=기준 · user=목록)이라 설정을 안 건드리면 지금까지와 같다.
 const DEFAULT_SECTIONS: PromptSection[] = [
   { role: "system", text: DEFAULT_PROMPT },
-  { role: "user", text: "{{목록}}" },
+  { role: "user", text: "{{list}}" },
 ];
 
 // 업로더 이름은 일부러 안 넣는다. 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
 // 유튜브의 그 칸은 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
-const DEFAULT_LINE = "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제목={{제목}}";
+// 길이를 모르면 "길이=" 구간째 뺀다("0분"이라고 적으면 거짓을 알려 주는 것이고, "길이=" 만 남으면 모델이 더 헷갈린다)
+const DEFAULT_LINE = "{{index}}. 장르={{genre}} {{#if-exist {{duration}}}}길이={{duration::m}}분 {{/}}제목={{title}}";
 
 const ROLES = new Set(["system", "user", "assistant"]);
-const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
-// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다.
-const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
+// 읽은 형식(줄 형식 · 프롬프트 섹션). 같은 글을 후보마다 다시 읽지 않게
+const parsed = new Map<string, Node[]>();
+function nodesOf(text: string, names: Names): Node[] {
+  const key = `${names === LINE_NAMES ? "line" : "prompt"}:${text}`;
+  let nodes = parsed.get(key);
+  if (!nodes) {
+    nodes = parseFormat(text, names).nodes;
+    if (parsed.size > 200) parsed.clear();
+    parsed.set(key, nodes);
+  }
+  return nodes;
+}
 // 빠진 칸의 기본값. 기본 설정 문서(config/defaults/ai)와 같은 값이다
 const DEFAULTS = {
   timeoutMs: 60000,
@@ -354,44 +365,18 @@ function scalarOf(value: string): unknown {
   return Number.isNaN(Number(value)) ? value : Number(value);
 }
 
-/** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다. */
-const isLineMark = (name: string): name is (typeof LINE_MARKS)[number] => (LINE_MARKS as readonly string[]).includes(name);
-
+/**
+ * 후보 한 줄(config/schema 의 검사 · 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.
+ * 모르는 이름은 적힌 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 알 길이 없다. 검사가 짚는다)
+ */
 function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | undefined, i: number) {
-  const sec = Number(cand.durationSec ?? cand.duration);
-  const known = Number.isFinite(sec) && sec > 0;
-  // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다. 기본은 그 칸을 뺀다
-  const mode = list?.unknownDuration || "hide";
-  const unknown = mode === "zero" ? "0" : mode === "text" ? String(list?.unknownText ?? "모름") : null;
-
-  // 이름은 화면과 같이 쓰는 LINE_MARKS(config/schema/ai-prompt). 하나라도 빠지면 타입이 짚는다
-  const values: Record<(typeof LINE_MARKS)[number], string | null> = {
-    번호: String(i + 1),
-    장르: genre || "랜덤",
-    제목: String(cand.title ?? ""),
-    길이분: known ? String(Math.floor(sec / 60)) : unknown,
-    길이초: known ? String(Math.round(sec)) : unknown,
-  };
-
-  // 아는 이름인데 값을 모르면 그 자리표시자가 든 낱말째 뺀다.
-  // "길이=" 만 덩그러니 남으면 모델이 더 헷갈리기 때문이다.
-  //
-  // 모르는 이름은 건드리지 않는다. 오타를 조용히 지워 버리면 왜 사라졌는지 알 길이 없다.
-  return String(list?.lineFormat || DEFAULT_LINE)
-    .split(/(\s+)/)
-    .map((word) => {
-      if (!word.includes("{{")) return word;
-      let missing = false;
-      const filled = word.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all: string, name: string) => {
-        if (!isLineMark(name)) return all;
-        if (values[name] == null) missing = true;
-        return values[name] ?? "";
-      });
-      return missing ? "" : filled;
-    })
-    .join("")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  const seconds = Number(cand.durationSec ?? cand.duration);
+  return renderNodes(nodesOf(String(list?.lineFormat || DEFAULT_LINE), LINE_NAMES), {
+    index: () => String(i + 1),
+    genre: () => genre ?? "",
+    title: () => String(cand.title ?? ""),
+    duration: (arg) => formatDuration(seconds, arg),
+  }).trim();
 }
 
 /** 실제로 보낼 messages. 미리보기도 이것을 쓴다. 화면이 흉내 내면 어긋난다. */
@@ -403,9 +388,8 @@ function buildMessages(one: AiSettings, batch: Judged[], genre: string | undefin
     .map((section, at) => ({
       // 모르는 역할은 system 으로 떨어뜨린다. 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
-      content: String(section?.text ?? "")
-        .replace(LIST_MARK, list)
-        .replace(GENRE_MARK, genre || "랜덤"),
+      // 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다
+      content: renderNodes(nodesOf(String(section?.text ?? ""), PROMPT_NAMES), { list: () => list, genre: () => genre ?? "" }),
       // 빈 섹션은 아래에서 빠진다. 화면이 이름표를 붙일 때 번호로 짝지으면 밀리므로
       // 어느 섹션에서 나왔는지를 달고 나간다.
       at,

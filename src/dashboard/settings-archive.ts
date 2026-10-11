@@ -140,7 +140,7 @@ function guildsRow(json: Partial<ArchiveJson>): ArchiveRow {
   return { item: "guilds", inFile: true, same: stable(json.guilds) === stable(guildSettings.allDocs()), problems: guildSettings.docsProblems(json.guilds), warnings: [], count: Object.keys(json.guilds).length };
 }
 
-/** 문서 하나의 검사. 프롬프트는 AI 를 켠 설정과 함께일 때만 {{목록}} 을 따진다 */
+/** 문서 하나의 검사. 프롬프트는 AI 를 켠 설정과 함께일 때만 {{list}} 를 따진다 */
 function docProblems(item: DocItem, data: unknown, aiDoc: unknown): string[] {
   if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : ["프롬프트가 섹션 목록이 아닙니다."];
   if (!isTable(data)) return ["표 꼴이 아닙니다."];

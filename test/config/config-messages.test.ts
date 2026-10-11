@@ -323,7 +323,8 @@ const AIS: Case[] = [
         unknownText: 1,
       },
     },
-    ["params.m1 은 칸 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat에 {{제목}} 이 있어야 합니다.", "list.unknownDuration은 hide · text · zero 중 하나여야 합니다.", "list.unknownText는 글로 적어야 합니다."],
+    // 옛 칸(unknownDuration · unknownText)은 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
+    ["params.m1 은 칸 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}} · {{genre}} · {{title}} · {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
   ],
   [
     "list.lineFormat 이 글이 아님",
@@ -358,7 +359,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
     ["1번째 섹션: 역할과 내용을 적어야 합니다.", "2번째 섹션: 역할은 system · user · assistant 중 하나여야 합니다.", "2번째 섹션: 내용은 글로 적어야 합니다.", "3번째 섹션: 내용에 <|im_start|>·<|im_end|> 를 적을 수 없습니다."],
   ],
   [
-    "켜 둔 채 {{목록}} 이 없음",
+    "켜 둔 채 {{list}} 이 없음",
     [
       {
         role: "system",
@@ -366,10 +367,10 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
       },
     ],
     true,
-    ["어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다."],
+    ["어딘가에 {{list}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다."],
   ],
   [
-    "꺼 두면 {{목록}} 을 안 따진다",
+    "꺼 두면 {{list}} 을 안 따진다",
     [
       {
         role: "system",

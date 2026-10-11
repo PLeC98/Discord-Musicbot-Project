@@ -59,7 +59,7 @@ test("함께 저장: 하나라도 실패하면 둘 다 쓰지 않는다(메모�
   documents.put("ai", { provider: "off", model: "처음" }, 0);
 
   // 다른 쪽이 그사이 DB 의 프롬프트를 고쳤다: 메모리는 번호 0 으로 알고 써서 DB 에서 걸린다
-  settingsDocs.write("ai-prompt", [{ role: "user", text: "{{목록}} 바깥" }], 0);
+  settingsDocs.write("ai-prompt", [{ role: "user", text: "{{list}} 바깥" }], 0);
   assert.ok(
     conflict(() =>
       documents.putAll([
@@ -75,13 +75,13 @@ test("함께 저장: 하나라도 실패하면 둘 다 쓰지 않는다(메모�
 });
 
 test("함께 저장: 번호를 안 준 문서는 번호를 보지 않는다. 새 번호를 같은 차례로 돌려준다", () => {
-  documents.put("ai-prompt", [{ role: "user", text: "{{목록}}" }], 0);
+  documents.put("ai-prompt", [{ role: "user", text: "{{list}}" }], 0);
   const next = documents.putAll([
     { name: "ai", data: { provider: "off" }, revision: 0 },
-    { name: "ai-prompt", data: [{ role: "user", text: "{{목록}} 새로" }] },
+    { name: "ai-prompt", data: [{ role: "user", text: "{{list}} 새로" }] },
   ]);
   assert.deepEqual(next, [1, 2]);
-  assert.deepEqual(settingsDocs.read("ai-prompt").data, [{ role: "user", text: "{{목록}} 새로" }]);
+  assert.deepEqual(settingsDocs.read("ai-prompt").data, [{ role: "user", text: "{{list}} 새로" }]);
 });
 
 test("DB 에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서로 돈다", () => {

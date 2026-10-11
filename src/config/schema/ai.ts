@@ -4,14 +4,20 @@ import { PROVIDERS } from "./ai-providers.ts";
 import { VERTEX_LOCATION } from "../../rules/vertex-url.ts";
 import { setsSecretHeader } from "../../rules/secret-headers.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
+import { LINE_NAMES, parseFormat, usesName, type Problem } from "../../rules/line-format.ts";
 
 // 추가 인자에 비밀 헤더를 적었을 때
 const SECRET_HEADER = "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 칸에 넣으세요(암호화해 둡니다).";
 
-// 길이를 모르는 후보를 목록 줄에 어떻게 적나: 그 칸을 뺀다 · 글자로 · 0 으로
-const AI_UNKNOWN = ["hide", "text", "zero"] as const;
-type AiUnknown = (typeof AI_UNKNOWN)[number];
-const isAiUnknown = (v: unknown): v is AiUnknown => AI_UNKNOWN.some((one) => one === v);
+/**
+ * 줄 형식의 문제(글자 자리와 함께, 화면이 그 자리를 짚는다). 비우면 기본 형식이라 문제가 없다. 제목이 없으면 판정할 거리가 없다.
+ * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 칸(list.unknownDuration · unknownText)은 읽지 않는다
+ */
+function lineFormatProblems(format: string): Problem[] {
+  if (!format.trim()) return [];
+  const { nodes, problems } = parseFormat(format, LINE_NAMES);
+  return usesName(nodes, "title") ? problems : [...problems, { at: 0, message: "{{title}} 이 있어야 합니다. 판정할 거리가 제목입니다." }];
+}
 
 // AI 설정의 키 차례(기본 설정 문서와 같다). 저장은 받은 차례대로 두므로 대시보드가 이 차례로 보낸다(내보내기 글이 읽기 좋게)
 const AI_KEY_ORDER = ["enabled", "provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
@@ -31,11 +37,10 @@ const list = z
     {
       lineFormat: z
         .string({ error: "list.lineFormat은 글로 적어야 합니다." })
-        // 제목이 없으면 판정할 거리가 없다
-        .refine((f) => !f.trim() || /\{\{\s*제목\s*\}\}/.test(f), { error: "list.lineFormat에 {{제목}} 이 있어야 합니다." })
+        .superRefine((f, ctx) => {
+          for (const one of lineFormatProblems(f)) ctx.addIssue({ code: "custom", message: `list.lineFormat ${one.at + 1}번째 글자: ${one.message}` });
+        })
         .nullish(),
-      unknownDuration: present((v) => isAiUnknown(v), `list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`),
-      unknownText: z.string({ error: "list.unknownText는 글로 적어야 합니다." }).nullish(),
     },
     { error: "list는 이름:값 꼴이어야 합니다." },
   )
@@ -114,5 +119,4 @@ function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-export { aiProblems, aiSwitchedOff, AI_UNKNOWN, AI_KEY_ORDER, isAiUnknown };
-export type { AiUnknown };
+export { aiProblems, aiSwitchedOff, AI_KEY_ORDER, lineFormatProblems };
