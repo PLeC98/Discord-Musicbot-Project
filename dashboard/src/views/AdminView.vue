@@ -183,7 +183,7 @@ const T = text.admin;
 
 /** 탭 하나 */
 /** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
-type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "outside" | "autoplay" | "backup" | "dev" };
+type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "config" | "outside" | "autoplay" | "backup" | "dev" };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
@@ -193,9 +193,9 @@ const ALL_TABS: Tab[] = [
   { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
-  { id: "settings", label: T.tabs.settings, icon: "tune", group: "outside" },
-  { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "outside" },
-  { id: "keys", label: T.tabs.keys, icon: "key", group: "outside" },
+  { id: "settings", label: T.tabs.settings, icon: "tune", group: "config" },
+  { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
+  { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
@@ -347,7 +347,7 @@ const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
 
-const TAB_GROUPS = (["status", "watch", "outside", "autoplay", "backup", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
+const TAB_GROUPS = (["status", "watch", "config", "outside", "autoplay", "backup", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
 
 // 레일의 고른 표시. 고른 칸 아이콘 자리(data-ind)의 높이로 옮긴다. 처음 자리를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
 const railEl = ref<HTMLElement | null>(null);
