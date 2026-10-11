@@ -6,6 +6,7 @@ import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { DISPLAY_GROUPS, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널 → 설정 탭)에서 고치십시오.
@@ -79,9 +80,6 @@ type EnvSource = Record<string, string | undefined>;
 /** #RRGGBB 꼴의 색(디스코드가 받는 모양) */
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
-
-// yt-dlp 가 쿠키를 가져올 수 있는 브라우저(--cookies-from-browser, yt-dlp 2026.08.19)
-const COOKIE_BROWSERS = ["brave", "chrome", "chromium", "edge", "firefox", "opera", "safari", "vivaldi", "whale"];
 
 // .env · 조절값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(조절값은 tuneProblems 에. 기동을 멈추지 않는다)
 function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
@@ -186,7 +184,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
 
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
-    if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.includes(v.split(/[+:]/)[0].toLowerCase())) return v;
+    if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
     return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join("·")})이어야 합니다`, "");
   }
 

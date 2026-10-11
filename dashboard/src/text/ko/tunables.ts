@@ -25,7 +25,7 @@ const fields: Record<string, { label: string; help: string }> = {
   YTDLP_CLIENT_WINDOW: { label: "최근 몇 번을 보고 판단할지", help: "클라이언트가 막혔는지 볼 때 최근 몇 번의 결과를 볼지." },
   YTDLP_CLIENT_FAILS: { label: "그중 몇 번 실패하면 건너뛸지", help: "위 횟수 가운데 이만큼 실패하면 그 클라이언트를 한동안 건너뛰어요." },
   YTDLP_CLIENT_RETRY_MINUTES: { label: "건너뛴 클라이언트를 다시 시험하기까지(분)", help: "0 이면 봇을 다시 시작하거나 클라이언트 설정을 저장할 때까지 건너뛰어요." },
-  COOKIES_SOURCE: { label: "쿠키 출처", help: "연령 제한 영상에만 써요. file 이면 이 탭의 유튜브 쿠키 카드에 넣은 것을,\n브라우저 이름이면 그 브라우저에서 가져와요(brave · chrome · chromium · edge · firefox · opera · safari · vivaldi · whale, chrome:Profile 1 처럼 프로필도). 비우면 쓰지 않아요." },
+  COOKIES_SOURCE: { label: "쿠키 출처", help: "연령 제한 영상에만 써요. 파일이면 API · 쿠키 탭의 유튜브 쿠키 카드에 넣은 것을, 브라우저면 그 브라우저에서 가져와요.\n브라우저 프로필 등을 정하려면 기타를 고르고 yt-dlp 의 꼴로 적어요(chrome:Profile 1 · firefox::컨테이너)." },
   BGUTIL_ENABLED: { label: "POToken 서버 쓰기", help: "설치돼 있을 때 켜면 봇과 함께 POToken 서버를 띄워요. mweb · tv_simply 클라이언트에 필요해요." },
   SPONSORBLOCK_ENABLED: { label: "SponsorBlock 쓰기", help: "끄면 조회 · 캐시를 아예 하지 않아요. 상업적으로 쓰면 꺼 두길 권해요(데이터 라이선스가 비상업)." },
   SPONSORBLOCK_CATEGORIES: { label: "기본으로 건너뛸 구간(서버 설정이 없을 때)", help: "" },
@@ -56,6 +56,8 @@ const restartTip = "기동 때 한 번 정하는 값이라 봇을 다시 시작�
 const pending = "저장함 · 다시 시작하면 적용";
 const restartBadge = "다시 시작해야 적용";
 const pickColor = "색 고르기";
+/** 쿠키 출처 고르기 */
+const cookies = { none: "쓰지 않음", file: "파일(API · 쿠키 탭에 넣은 쿠키)", browsers: "브라우저", otherGroup: "그 밖의 꼴", other: "기타(직접 입력)", otherPlaceholder: "예: chrome:Profile 1" };
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";
@@ -64,4 +66,4 @@ const savedRestart = (names: string) => `봇을 다시 시작해야 적용돼요
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
 const loadFailed = "운영 조절값을 읽지 못했어요.";
 
-export { groups, fields, title, desc, defaultWith, restartTip, pending, restartBadge, pickColor, on, off, savedDone, savedRestart, saveFailed, loadFailed };
+export { groups, fields, title, desc, defaultWith, restartTip, pending, restartBadge, pickColor, cookies, on, off, savedDone, savedRestart, saveFailed, loadFailed };

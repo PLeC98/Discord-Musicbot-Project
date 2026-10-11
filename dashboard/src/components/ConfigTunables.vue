@@ -27,6 +27,11 @@
               <BaseSwitch :model-value="boolOf(one)" :label="T.fields[one.key]?.label ?? one.key" @update:model-value="draft[one.key] = $event ? 'true' : 'false'" />
               <span class="text-sm text-on-surface">{{ boolOf(one) ? T.on : T.off }}</span>
             </span>
+            <!-- 쿠키 출처: 쓰지 않음 · 파일 · 브라우저 고르기, 그 밖의 꼴(프로필 · 키링 · 컨테이너)은 "기타"를 고르고 아래 칸에 적는다 -->
+            <span v-else-if="one.kind === 'cookies'" class="flex flex-col gap-2">
+              <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
+              <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
+            </span>
             <!-- 색은 동그라미를 누르면 색 고르기가 뜬다. 글 칸이 앞이라야 이름표를 누를 때 고르기 대신 글 칸으로 간다(보이는 차례는 동그라미가 앞) -->
             <span v-else class="flex items-center gap-2">
               <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0', one.kind !== 'text' && 'font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
@@ -49,6 +54,7 @@ import { restartNow } from "../composables/bot-restart.ts";
 import BaseSwitch from "./BaseSwitch.vue";
 import ColorPicker from "./ColorPicker.vue";
 import SponsorCategories from "./SponsorCategories.vue";
+import SingleSelect from "./SingleSelect.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
@@ -59,6 +65,8 @@ import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { attach, draft, loaded, pending, revertKeys, saved, saveKeys } from "../composables/tunables.ts";
 import { TUNABLES, tunable, type Tunable, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
+import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
+import type { Option } from "../utils/options.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables;
 
@@ -82,6 +90,23 @@ const boolOf = (one: Tunable) => (draft.value[one.key] || one.def) === "true";
 const changed = (one: Tunable) => (draft.value[one.key] ?? "").trim() !== (saved.value[one.key] ?? "");
 const dirty = computed(() => mine.value.some(changed));
 
+// 쿠키 출처 고르기. 고르기 목록에 없는 값(chrome:Profile 1 같은 꼴)이 들어 있거나 "기타"를 고른 동안은 "기타"와 적는 칸
+// 고르기 목록 안에서만 쓰는 표식(값으로 저장하지 않는다. 브라우저 이름은 괄호로 시작하지 않는다)
+const COOKIE_OTHER = "(other)";
+const COOKIE_OPTIONS: Option[] = [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }];
+const cookieOther = ref(false);
+function cookieChoice(one: Tunable) {
+  const value = (draft.value[one.key] ?? "").trim();
+  if (cookieOther.value) return COOKIE_OTHER;
+  if (!value) return "";
+  return COOKIE_OPTIONS.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
+}
+// "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome 을 chrome:Profile 1 로 고쳐 적기 쉽게)
+function pickCookie(one: Tunable, value: string) {
+  cookieOther.value = value === COOKIE_OTHER;
+  if (!cookieOther.value) draft.value[one.key] = value;
+}
+
 // 구간 고르기(쉼표로 이은 id). 비면 기본값의 구간, NO_CATEGORIES 면 하나도 없음
 const listOf = (raw: string) => raw.split(",").filter((id) => SKIP_CATEGORIES.includes(id));
 function categoriesOf(one: Tunable) {
@@ -100,7 +125,10 @@ const pendingHere = computed(() => pending.value.filter((key) => keys.value.incl
 const needsRestart = computed(() => mine.value.some((one) => one.restart && changed(one)) || pendingHere.value.length > 0);
 trackUnsaved(`${props.tab}:tunables`, dirty);
 
-const reset = () => revertKeys(keys.value);
+const reset = () => {
+  revertKeys(keys.value);
+  cookieOther.value = false;
+};
 
 /** 저장. 됐으면 true. restarting 이면 다시 시작해야 먹는다는 안내는 빼고 알린다(곧 다시 시작한다) */
 async function save(restarting = false) {
