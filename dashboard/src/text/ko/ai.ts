@@ -151,9 +151,122 @@ const judge = {
   rawHide: "요청 기록 접기",
 };
 
-// 자리만 있는 것(2차 18단계 신규 기능)
-const logNotYet = "리퀘스트 로그는 아직 짜지 않았어요";
-const usageNotYet = "사용량 통계는 아직 짜지 않았어요";
+// 리퀘스트 로그 · 사용량 통계가 같이 쓰는 이름
+/** 요청을 보낸 곳(contract/ai-log 의 AI_LOG_SOURCES) */
+const sources = { autoplay: "자동재생 판정", "judge-test": "판정 테스트", ping: "연결 확인", models: "모델 목록" } as const;
+
+// 리퀘스트 로그
+const log = {
+  title: "리퀘스트 로그",
+  desc: "AI 보조가 모델에게 보낸 요청의 본문 · 응답 · 걸린 시간을 기록해요.",
+  filters: "필터",
+  filterActive: (n: number) => (n ? `${n}개 적용됨` : ""),
+  filterClear: "필터 초기화",
+  source: "출처",
+  result: "결과",
+  ok: "성공",
+  failed: "실패",
+  sources,
+  search: "URL · 모델 · 오류로 검색",
+  refresh: "새로고침",
+  clear: "전체 삭제",
+  clearTitle: "리퀘스트 로그를 모두 지울까요?",
+  clearBody: "사용량 통계는 남아요. 지운 로그는 되돌릴 수 없어요.",
+  clearConfirm: "지우기",
+  cleared: "리퀘스트 로그를 지웠어요",
+  clearFailed: "리퀘스트 로그를 지우지 못했어요",
+  count: (shown: number, total: number) => (shown === total ? `${total}건` : `${shown} / ${total}건`),
+  storage: (used: string, max: string) => `저장 용량 ${used} / ${max}`,
+  off: "기록이 꺼져 있어요. 새 요청은 기록하지 않아요(아래 기록 설정).",
+  empty: "기록이 없어요",
+  emptyDesc: "AI 보조가 요청을 보내면 여기에 남아요.",
+  emptyFiltered: "필터에 맞는 기록이 없어요.",
+  loadMore: "더 불러오기",
+  loading: "불러오는 중…",
+  loadFailed: "리퀘스트 로그를 불러오지 못했어요",
+  detailFailed: "이 기록을 불러오지 못했어요",
+  newCount: (n: number) => `새 기록 ${n}건`,
+  live: "실시간",
+  liveOff: "실시간 연결 끊김",
+  /** 상태 칸: 닿기 전에 막힌 요청 */
+  timeout: "시간 초과",
+  unreached: "연결 실패",
+  took: "소요 시간",
+  first: "첫 응답",
+  tokens: "토큰",
+  tokenPair: (input: string, output: string) => `${input} → ${output}`,
+  tokenTip: (cached: string, reasoning: string) => `입력 중 캐시 ${cached} · 출력 중 추론 ${reasoning}`,
+  cost: "비용",
+  costUnknown: "가격 모름",
+  provider: "프로바이더",
+  attempt: "시도",
+  attemptNth: (n: number) => `${n}번째`,
+  retry: (n: number) => `재시도 ${n - 1}`,
+  guild: "서버",
+  genre: "장르",
+  candidates: (n: number) => `후보 ${n}곡`,
+  truncated: "일부 생략됨",
+  url: "URL",
+  headers: "요청 헤더",
+  body: "요청 본문",
+  response: "응답",
+  error: "오류",
+  copy: "복사",
+  copied: "복사했어요",
+};
+
+// 사용량 통계
+const usage = {
+  title: "사용량 통계",
+  desc: "AI 보조 요청의 토큰 · 비용 통계예요. 비용은 공개 값표(models.dev)로 센 추정이에요.",
+  periods: { 7: "7일", 30: "30일", 90: "90일", 0: "전체" } as Record<number, string>,
+  sources,
+  refresh: "새로고침",
+  clear: "통계 삭제",
+  clearTitle: "사용량 통계를 모두 지울까요?",
+  clearBody: "리퀘스트 로그는 남아요. 지운 통계는 되돌릴 수 없어요.",
+  clearConfirm: "지우기",
+  cleared: "사용량 통계를 지웠어요",
+  clearFailed: "사용량 통계를 지우지 못했어요",
+  loadFailed: "사용량 통계를 불러오지 못했어요",
+  empty: "이 기간에는 요청이 없어요",
+  cards: {
+    requests: "요청",
+    failed: (n: string) => `실패 ${n}`,
+    input: "입력 토큰",
+    cached: (n: string) => `캐시 ${n}`,
+    output: "출력 토큰",
+    reasoning: (n: string) => `추론 ${n}`,
+    cost: "비용(추정)",
+    unpriced: (n: string) => `가격 모름 ${n}건`,
+    latency: "평균 응답",
+    p95: (ms: string) => `p95 ${ms}`,
+  },
+  chart: {
+    title: "날짜별",
+    metrics: { tokens: "토큰", requests: "요청", cost: "비용" },
+    series: { input: "입력", cached: "캐시", output: "출력", ok: "성공", failed: "실패", cost: "비용" },
+    /** 막대 하나가 여러 날을 묶었을 때(기간이 길 때) */
+    range: (from: string, to: string) => `${from} ~ ${to}`,
+    peak: (value: string) => `최대 ${value}`,
+  },
+  tables: {
+    byModel: "모델별",
+    bySource: "출처별",
+    byGuild: "서버별",
+    model: "모델",
+    source: "출처",
+    guild: "서버",
+    requests: "요청",
+    input: "입력 토큰",
+    output: "출력 토큰",
+    cached: "캐시 토큰",
+    cost: "비용",
+    avg: "평균 응답",
+    noGuild: "이 기간에 판정한 서버가 없어요",
+    unknown: "가격 모름",
+  },
+};
 
 // 고급 설정 카드
 const advanced = {
@@ -241,4 +354,4 @@ const failed = {
   send: "보내지 못했어요.",
 };
 
-export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, logNotYet, usageNotYet, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };
+export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, log, usage, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };

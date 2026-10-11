@@ -6,7 +6,7 @@
 // 나머지는 저장하면 바로 먹는다. 기동 때 만들어 둔 것(요청 제한기 · 하트비트 · 캐시 정리 타이머 · 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 
 /** 묶음(화면의 카드 차례) */
-const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "cache", "stream", "dashboard"] as const;
+const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "cache", "stream", "dashboard", "ailog"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
@@ -60,11 +60,14 @@ const TUNABLES: readonly Tunable[] = [
   { key: "SSE_HEARTBEAT_SEC", group: "dashboard", kind: "int", def: "20", min: 5, max: 300 },
   { key: "SSE_MAX_CONNECTIONS", group: "dashboard", kind: "int", def: "5", min: 1, max: 100 },
   { key: "SSE_COALESCE_MS", group: "dashboard", kind: "int", def: "300", min: 0, max: 5000 },
+  // AI 리퀘스트 로그(AI 보조 탭의 리퀘스트 로그 화면). 끄면 사용량 통계도 멈춘다. 용량을 넘으면 오래된 로그부터 지운다(통계는 남는다)
+  { key: "AI_LOG_ENABLED", group: "ailog", kind: "bool", def: "true" },
+  { key: "AI_LOG_MAX_MB", group: "ailog", kind: "int", def: "64", min: 1, max: 10240 },
 ];
 
-/** 묶음을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, 나머지는 설정. 화면은 탭마다 그 묶음만 그린다 */
-type TunableTab = "settings" | "appearance" | "youtube";
-const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", cache: "settings", stream: "settings", dashboard: "settings" };
+/** 묶음을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, AI 리퀘스트 로그는 AI 보조, 나머지는 설정. 화면은 탭마다 그 묶음만 그린다 */
+type TunableTab = "settings" | "appearance" | "youtube" | "ai";
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", cache: "settings", stream: "settings", dashboard: "settings", ailog: "ai" };
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
 
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));

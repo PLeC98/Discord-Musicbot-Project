@@ -1,4 +1,4 @@
-// 운영자 패널: 일반 · 유튜브 · 디스플레이 탭의 운영 조절값(옛 .env 의 같은 이름. 칸 목록은 src/rules/tunables.ts)
+// 운영자 패널: 일반 · 유튜브 · 디스플레이 탭(과 AI 보조 탭의 리퀘스트 로그)의 운영 조절값(옛 .env 의 같은 이름. 칸 목록은 src/rules/tunables.ts)
 
 /** 묶음마다 제목 · 아이콘 · 설명 */
 const groups = {
@@ -9,6 +9,7 @@ const groups = {
   cache: { title: "오디오 캐시", icon: "hard_drive", desc: "" },
   stream: { title: "재생 스트림", icon: "graphic_eq", desc: "" },
   dashboard: { title: "대시보드 요청 제한 · 실시간 연결", icon: "dashboard", desc: "" },
+  ailog: { title: "기록 설정", icon: "settings", desc: "" },
 } as const;
 
 /** 칸마다 이름표 · 설명(툴팁) */
@@ -47,6 +48,8 @@ const fields: Record<string, { label: string; help: string }> = {
   SSE_HEARTBEAT_SEC: { label: "실시간 연결 신호 간격(초)", help: "연결이 끊기지 않게 보내는 신호 간격(5~300)." },
   SSE_MAX_CONNECTIONS: { label: "사용자당 실시간 연결 수", help: "탭 · 창마다 하나. 플레이어 화면과 로그를 따로 세요." },
   SSE_COALESCE_MS: { label: "알림 합치기 창(ms)", help: "같은 서버의 바뀜 알림을 이 시간 안에서 하나로 합쳐요." },
+  AI_LOG_ENABLED: { label: "리퀘스트 로그 기록", help: "끄면 새 요청을 기록하지 않아요. 사용량 통계도 함께 멈춰요." },
+  AI_LOG_MAX_MB: { label: "로그 저장 용량(MB)", help: "넘으면 오래된 로그부터 지워요. 사용량 통계는 지우지 않아요." },
 };
 
 const title = "운영 조절값";

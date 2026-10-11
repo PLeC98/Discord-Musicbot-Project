@@ -96,7 +96,7 @@
 
         <div class="admin-page" v-show="tab === 'ai'">
           <!-- settings.db 의 "ai" · "ai-prompt" 문서. API 키는 비밀 표에 있고 여기로 내려오지 않는다 -->
-          <ConfigAI v-if="opened.has('ai')" />
+          <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
         <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 묶음은 유튜브 탭, 표시 묶음은 디스플레이 탭) -->

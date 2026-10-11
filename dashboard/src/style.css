@@ -729,6 +729,14 @@ body {
   --store-free: #3d3938;
   --store-reserve: rgb(208 59 59 / 0.5);
 }
+/* AI 사용량 막대의 계열 색. 테마 역할(primary · secondary · tertiary)은 앨범아트에 따라 서로 비슷해져 쌓은 막대를 못 가른다.
+   저장공간 막대와 같은 검증된 세 색(입력 · 캐시 · 출력), 실패는 빨강. 범례 · 툴팁이 이름을 같이 적는다 */
+:root {
+  --usage-input: #4a86d4;
+  --usage-cached: #d66a3a;
+  --usage-output: #2aa37c;
+  --usage-failed: #d03b3b;
+}
 /* 실시간 로그 레벨 색. 앨범아트 색과 상관없이 고정(밝기마다 따로, 로그 칸 바탕 대비 4.5:1 이상). trace 는 debug 보다 한 단계 덜 또렷하게, fatal 은 error 보다 짙게 */
 @property --log-trace {
   syntax: "<color>";

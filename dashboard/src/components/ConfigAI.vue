@@ -47,21 +47,9 @@
           <ConfigAIJudge />
         </template>
 
-        <!-- ── 리퀘스트 로그: 신규 기능이라 2차 17단계에서 검토해 만든다. 지금은 자리만 ── -->
-        <template v-if="view === 'log'">
-          <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
-            <Icon name="history" :size="40" />
-            <p class="text-sm">{{ text.ai.logNotYet }}</p>
-          </section>
-        </template>
-
-        <!-- ── 사용량 통계: 신규 기능이라 2차 17단계에서 검토해 만든다. 지금은 자리만 ── -->
-        <template v-if="view === 'usage'">
-          <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
-            <Icon name="bar_chart" :size="40" />
-            <p class="text-sm">{{ text.ai.usageNotYet }}</p>
-          </section>
-        </template>
+        <!-- ── 리퀘스트 로그 · 사용량 통계: 탭이 보일 때만 읽는다(로그는 실시간 연결도 그때만) ── -->
+        <ConfigAILog v-if="view === 'log'" :active="active" />
+        <ConfigAIUsage v-if="view === 'usage'" :active="active" />
 
         <!-- ── 고급 설정: 요청 · 재시도 ── -->
         <ConfigAIAdvanced v-if="view === 'advanced'" />
@@ -155,6 +143,8 @@ import ConfigAIList from "./ConfigAIList.vue";
 import ConfigAIPrompt from "./ConfigAIPrompt.vue";
 import ConfigAIJudge from "./ConfigAIJudge.vue";
 import ConfigAIAdvanced from "./ConfigAIAdvanced.vue";
+import ConfigAILog from "./ConfigAILog.vue";
+import ConfigAIUsage from "./ConfigAIUsage.vue";
 import { provideAiEditor } from "../composables/ai-editor.ts";
 const TV = text.ai.preview;
 const TD = text.ai.paid;
@@ -164,6 +154,9 @@ const T = text.ai;
 
 // 상태 · 주고받기는 composables/ai-editor(카드들이 같이 쓴다)
 const { loadError, NL, draft, sections, paid, paidUrl, paidUrlError, pingText, shown, on, aiOn, listMarked, shownSections, boxes, showRawRequest, problems, copy, judgeUsable, providerOptions, runPaid } = provideAiEditor();
+
+/** active: AI 보조 탭이 보이는가(편집기는 탭을 오가도 남아 있다) */
+defineProps<{ active: boolean }>();
 
 const route = useRoute();
 const router = useRouter();
