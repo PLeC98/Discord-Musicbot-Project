@@ -167,6 +167,8 @@ const WEB = {
   // 설정 DB 스냅샷 되살리기: 없는 이름 · 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
+  // AI 리퀘스트 로그: 없는 줄(저장 용량을 넘어 지워졌거나 모두 지웠다)
+  "ai-log-not-found": { status: 404, title: "Request log entry not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
   // 대시보드: 파비콘(올린 그림)
   "bad-image": { status: 400, title: "Not a supported image" },

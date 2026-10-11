@@ -19,6 +19,10 @@ import { isLoopbackHost, listen } from "./binding.ts";
 import { callbackUrl, createAuthRouter } from "./routes/auth.ts";
 import { clientFreshness, freshnessWarning } from "./client-freshness.ts";
 import { adminRouter } from "./routes/admin.ts";
+import { aiLogRouter, withGuildName } from "./routes/ai-log.ts";
+import * as aiLogStream from "./ai-log-stream.ts";
+import * as aiRequests from "../store/ai-requests.ts";
+import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
 import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts";
@@ -154,6 +158,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/admin/tunables", tunablesRouter);
   app.use("/api/admin/settings-archive", settingsArchiveRouter);
   app.use("/api/admin/snapshots", snapshotsRouter);
+  app.use("/api/admin/ai", aiLogRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
 
@@ -170,6 +175,12 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   const app = createApp(bot, { stream, deployCommands, restart });
   // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재수립은 화면을 열기 전부터 모은다
   startStatus(bot);
+  // AI 리퀘스트 로그: 새 기록을 실시간 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
+  aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
+  onTunablesChanged(() => {
+    aiLogStream.syncHeartbeat();
+    if (aiRequests.isOpen()) aiRequests.rotate(config.aiLog.maxBytes);
+  });
 
   listen(app, config.dashboard, () => {
     // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다

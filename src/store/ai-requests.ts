@@ -200,6 +200,12 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   return { entries: rows.map(toEntry), total: count("SELECT COUNT(*) AS n FROM requests"), matched: count(`SELECT COUNT(*) AS n FROM requests ${filter}`, args) };
 }
 
+/** after 보다 뒤의 줄(오래된 것부터, 최근 limit 줄까지). 실시간 연결이 다시 붙을 때 놓친 줄 */
+function since(after: number, limit: number): AiLogEntry[] {
+  const rows = aiLogDb.get().prepare(`SELECT ${SUMMARY_COLUMNS} FROM requests WHERE id > ? ORDER BY id DESC LIMIT ?`).all(after, limit) as RequestRow[];
+  return rows.reverse().map(toEntry);
+}
+
 /** 한 줄의 원문까지. 없으면 null */
 function one(id: number): AiLogDetail | null {
   const row = aiLogDb.get().prepare("SELECT * FROM requests WHERE id = ?").get(id) as Required<RequestRow> | undefined;
@@ -250,5 +256,5 @@ function onRecorded(listener: (entry: AiLogEntry) => void) {
   return () => void listeners.delete(listener);
 }
 
-export { KEEP_MIN_ROWS, MAX_FIELD_BYTES, isOpen, record, rotate, list, one, size, clearRequests, clearUsage, usageSince, earliestDay, onRecorded };
+export { KEEP_MIN_ROWS, MAX_FIELD_BYTES, isOpen, record, rotate, list, since, one, size, clearRequests, clearUsage, usageSince, earliestDay, onRecorded };
 export type { NewRecord };

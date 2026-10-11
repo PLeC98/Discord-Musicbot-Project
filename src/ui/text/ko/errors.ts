@@ -208,6 +208,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   "bad-archive": () => warning("input", "가져올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP 이 아니거나 파일이 깨졌어요. 함께 적힌 원문을 확인해 주세요."),
   "snapshot-not-found": (_, look) => warning("notFound", "없는 스냅샷이에요!", `오래되어 지워졌을 수 있어요. ${stalePage(look)}`),
+  "ai-log-not-found": (_, look) => warning("notFound", "없는 기록이에요!", `저장 용량을 넘어 지워졌거나 모두 지운 기록이에요. ${stalePage(look)}`),
   "snapshot-mismatch": () => warning("state", "되살릴 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 뜬 스냅샷이에요. 그 버전의 봇으로 되살려 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   // 대시보드: 파비콘(올린 그림)
