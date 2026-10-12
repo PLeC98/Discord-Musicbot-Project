@@ -2,7 +2,7 @@
   <!-- 로그인 화면: 리싱한 Hyprland 의 잠금 화면(hyprlock) 결. 봇 정보 탭의 터미널과 같은 재료(활성 창 그라데이션 테두리).
        위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 고르기 · locked · 봇 상태와 짧은 날짜), 가운데 큰 시계 · 고리 두른 봇 그림 · hyprlock 입력칸 모양의 로그인 단추(오른쪽 끝 화살표, Enter 로도),
        아래 가운데에 같은 섬 하나로 소스 링크(AGPL 13조 고지) -->
-  <div ref="rootEl" class="relative min-h-dvh flex flex-col overflow-x-hidden">
+  <div ref="rootEl" data-lock-screen class="relative min-h-dvh flex flex-col overflow-x-hidden">
     <AppWallpaper />
 
     <!-- waybar: 떠 있는 섬 셋 -->

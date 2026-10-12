@@ -363,6 +363,12 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 로그인 화면은 문서 끝에서 튕기지 않는다(iOS 사파리는 굴릴 것이 없어도 문서를 튕겨 고정된 배경화면 밖의 바탕이 드러난다) */
+html:has([data-lock-screen]),
+html:has([data-lock-screen]) body {
+  overscroll-behavior: none;
+}
+
 body {
   font-family: var(--font-sans);
   /* Twemoji가 맨 앞이어야 한다 — OS 이모지 폰트가 앞에 있으면 국기 자리를 먼저 가져가
