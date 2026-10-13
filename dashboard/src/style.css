@@ -555,10 +555,10 @@ body {
   --thumb-h: 0.75rem;
   --gap: 0.25rem;
 }
-/* 작은 슬라이더: 기본(M3E XS) 의 트랙 · 틈 1/2, 손잡이 높이 1/3. 카드 안의 값 조절에 쓴다 */
+/* 작은 슬라이더: 기본(M3E XS) 의 트랙 · 틈 1/2, 손잡이는 얇은 슬라이더와 같은 비율(트랙의 3배). 카드 안의 값 조절에 쓴다 */
 .m3-slider.m3-slider-compact {
   --track: 0.5rem;
-  --thumb-h: calc(2.75rem / 3);
+  --thumb-h: 1.5rem;
   --gap: 0.1875rem;
 }
 .m3-slider:disabled {
