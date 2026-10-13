@@ -31,7 +31,7 @@ const refuse = {
 };
 const refusedTitle = "추가하지 않았어요";
 const uploadFailed = (name: string) => `${name}${josa(name, "을")} 추가하지 못했어요.`;
-const uploaded = (size: number) => `${size}px 파비콘 이미지를 추가했어요`;
+const uploaded = (size: number) => `${size}px 파비콘 이미지를 적용했어요`;
 const cleared = (size: number) => `${size}px 파비콘 이미지를 삭제했어요`;
 const clearFailed = (size: number) => `${size}px 파비콘 이미지를 삭제하지 못했어요.`;
 const loadFailed = "파비콘 상태를 읽지 못했어요.";
@@ -69,7 +69,7 @@ const history = {
   count: (n: number) => `기록 ${n}개`,
   inUse: "사용 중",
   removeOne: "기록에서 삭제",
-  used: (size: number) => `${size}px 파비콘 이미지를 바꿨어요`,
+  used: (size: number) => `${size}px 파비콘 이미지를 적용했어요`,
   useFailed: (size: number) => `${size}px 파비콘 이미지를 바꾸지 못했어요.`,
   removed: (size: number) => `${size}px 파비콘 기록에서 이미지를 삭제했어요`,
   removeFailed: (size: number) => `${size}px 파비콘 기록에서 이미지를 삭제하지 못했어요.`,
