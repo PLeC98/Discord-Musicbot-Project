@@ -49,6 +49,8 @@ const crop = {
 /** 크기별 팝업: 이미지 업로드 · 링크로 추가 · 기록 */
 const slotDialog = {
   title: (size: number) => `${size}px 파비콘`,
+  /** 업로드 · 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
+  maxSize: (bytes: number) => `최대 파일 크기는 ${bytes / 1024 / 1024}MB예요.`,
   fromFile: "이미지 업로드",
   fromFileHint: "png · webp · jpg · svg",
   fromLink: "링크로 추가",

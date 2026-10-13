@@ -6,7 +6,10 @@
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open && entry" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false" @keydown.esc="open = false">
         <div role="dialog" aria-modal="true" :aria-label="D.title(entry.size)" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 animate-[art-in_350ms_var(--ease-spring-fast)]">
-          <h3 class="text-xl font-round font-semibold">{{ D.title(entry.size) }}</h3>
+          <div class="flex flex-col gap-1">
+            <h3 class="text-xl font-round font-semibold">{{ D.title(entry.size) }}</h3>
+            <p class="text-sm text-on-surface-variant">{{ D.maxSize(APPEARANCE_MAX_BYTES) }}</p>
+          </div>
 
           <div class="grid grid-cols-2 gap-2">
             <button type="button" class="tap state-layer flex flex-col items-center gap-1 rounded-2xl bg-surface-container-highest px-3 py-4 cursor-pointer disabled:opacity-38" :disabled="busy" @click="emit('upload')">
@@ -63,7 +66,7 @@ import { ICON_BTN } from "../utils/icon-button.ts";
 import { text } from "../text/index.ts";
 const H = text.appearance.history;
 const D = text.appearance.slotDialog;
-import { FAVICON_HISTORY, type FaviconSlot } from "../../../src/dashboard/contract/appearance.ts";
+import { APPEARANCE_MAX_BYTES, FAVICON_HISTORY, type FaviconSlot } from "../../../src/dashboard/contract/appearance.ts";
 
 /** entry: 보여 줄 크기(바뀌면 그대로 따라간다). busy: 요청 중이라 단추를 막는다 */
 defineProps<{ entry: FaviconSlot | null; busy: boolean }>();
