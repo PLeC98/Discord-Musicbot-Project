@@ -549,6 +549,12 @@ body {
   --gap: 0.375rem;
   --thumb-h: 2.75rem;
 }
+/* 얇은 슬라이더: 트랙 4 · 손잡이 12(음량 막대 · 진행 막대와 같은 굵기). M3E 의 가장 작은 규격(XS)보다 얇다 */
+.m3-slider.m3-slider-thin {
+  --track: 0.25rem;
+  --thumb-h: 0.75rem;
+  --gap: 4px;
+}
 .m3-slider:disabled {
   cursor: not-allowed;
   opacity: 0.38;
