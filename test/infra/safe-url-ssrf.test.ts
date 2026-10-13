@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { PassThrough, Readable } from "node:stream";
-import type { Incoming, LookupFn, Outgoing, RequestDeps } from "../../src/infra/safe-url.ts";
+import type { Accept, Incoming, LookupFn, Outgoing, RequestDeps } from "../../src/infra/safe-url.ts";
 
 type Reply = Incoming;
 const reply = (status: number, headers: Record<string, string> = {}): Reply => ({ status, headers, body: Readable.from([]) });
@@ -181,6 +181,30 @@ test("Content-Length 상한을 넘으면 거부한다", async () => {
 test("getStream도 같은 검증 경로를 지난다", async () => {
   await rejects(getStream("http://127.0.0.1/x.mp3"));
   assert.equal(calls.length, 0);
+});
+
+// getBuffer: 작은 파일을 끝까지 받는다(파비콘 링크로 추가). 받을 것의 조건은 부르는 쪽이 정한다
+const IMAGE: Accept = { contentType: /^image\/png/i, maxBytes: 8, timeoutMs: 1000 };
+const getBuffer = (url: string) => safeUrl.getBuffer(url, IMAGE, deps);
+const body = (status: number, headers: Record<string, string>, chunks: Buffer[]): Reply => ({ status, headers, body: Readable.from(chunks) });
+
+test("getBuffer: 조건에 맞으면 본문을 다 받고, 홉마다의 대기는 부른 쪽의 시간 한도를 쓴다", async () => {
+  responder = () => body(200, { "content-type": "image/png" }, [Buffer.from("abc"), Buffer.from("def")]);
+  assert.equal((await getBuffer("https://1.1.1.1/a.png")).toString(), "abcdef");
+  assert.equal(calls[0].timeoutMs, 1000);
+});
+
+test("getBuffer: 같은 방어를 지나고(내부 주소 · 리다이렉트로 내부), 부른 쪽의 Content-Type · 크기 상한을 지킨다", async () => {
+  await rejects(getBuffer("http://127.0.0.1/a.png"));
+  responder = redirectTo("http://10.0.0.1/a.png");
+  await rejects(getBuffer("https://1.1.1.1/a.png"), /차단된 IP/);
+  responder = () => body(200, { "content-type": "audio/mpeg" }, [Buffer.from("x")]);
+  await rejects(getBuffer("https://1.1.1.1/a.png"), /Content-Type/);
+  responder = () => body(200, { "content-type": "image/png", "content-length": "9" }, [Buffer.from("x")]);
+  await rejects(getBuffer("https://1.1.1.1/a.png"), /최대 크기/);
+  // 길이를 숨겨도 받는 중에 센다
+  responder = () => body(200, { "content-type": "image/png" }, [Buffer.from("12345"), Buffer.from("6789")]);
+  await rejects(getBuffer("https://1.1.1.1/a.png"), /최대 크기/);
 });
 
 // ── 6. 오라클 방지 ───────────────────────────────────────────────────────────

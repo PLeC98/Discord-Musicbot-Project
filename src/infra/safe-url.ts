@@ -1,5 +1,5 @@
 /**
- * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET이 여기를 지난다.
+ * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET과 파비콘의 링크로 추가가 여기를 지난다.
  *
  *  - 스키마 화이트리스트(http/https만)
  *  - 내부·예약 IP 대역 차단 (infra/public-address: 공인 unicast만 통과, IPv4-매핑 언랩)
@@ -7,7 +7,7 @@
  *  - DNS 리바인딩 차단 (해석 1회 → 그 IP로 핀 접속, 소켓 재해석 불가)
  *  - 리다이렉트 홉별 재검증 (http.request 는 따라가지 않는다. 수동 루프, IP-리터럴 리다이렉트까지 검사)
  *  - 프록시 환경 변수를 따르지 않는다 (고정 에이전트는 NODE_USE_ENV_PROXY 에도 프록시를 타지 않는다)
- *  - Content-Type 화이트리스트 + 파일 크기 상한 + 타임아웃
+ *  - Content-Type 화이트리스트 + 파일 크기 상한 + 타임아웃 (부르는 쪽이 Accept 로 정한다, 기본은 직접 링크의 음원)
  *
  * 차단 사유는 서버 로그에만 남기고 사용자에게는 일반화된 오류만 준다.
  * 어느 IP가 막혔는지 알려 주면 봇이 내부망 탐지 도구가 된다.
@@ -40,6 +40,10 @@ type Incoming = { status: number; headers: Record<string, unknown>; body: Readab
 type HttpRequest = (request: Outgoing) => Promise<Incoming>;
 /** 바깥 경계. 생략하면 send 와 dns.lookup */
 type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
+/** 받을 것의 조건: Content-Type · 크기 상한 · 시간 한도(홉마다의 응답 대기, getBuffer 는 받기 전체에도) */
+type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number };
+/** 직접 링크(음원)의 조건 */
+const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
 
 class SsrfError extends Error {
   constructor(message: string) {
@@ -52,9 +56,9 @@ class SsrfError extends Error {
 const isBlockedIp = (ip: string) => !isPublicIp(ip);
 
 /** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략). IP 차단이 주 방어이고 이건 심층방어. */
-function isAllowedContentType(contentType: unknown): boolean {
+function isAllowedContentType(contentType: unknown, allowed = ALLOWED_CONTENT_TYPE): boolean {
   if (!contentType) return true;
-  return ALLOWED_CONTENT_TYPE.test(String(contentType));
+  return allowed.test(String(contentType));
 }
 
 /**
@@ -136,7 +140,7 @@ function send({ method, url, agent, timeoutMs, headers }: Outgoing): Promise<Inc
  * 가드된 요청 + 수동 리다이렉트 루프. 각 홉을 재검증·핀 접속한다.
  * 호출측이 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
  */
-async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}) {
+async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS) {
   let currentUrl = rawUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -145,7 +149,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
 
     let response;
     try {
-      response = await request({ method, url, agent, timeoutMs: method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, headers: { "User-Agent": config.userAgents.browser } });
+      response = await request({ method, url, agent, timeoutMs, headers: { "User-Agent": config.userAgents.browser } });
     } catch (err) {
       agent.destroy();
       throw err;
@@ -179,7 +183,7 @@ function byteCap(maxBytes: number) {
     transform(chunk, _enc, cb) {
       total += chunk.length;
       if (total > maxBytes) {
-        cb(new Error(`직접 링크 파일이 최대 크기(${maxBytes} bytes)를 초과했습니다`));
+        cb(new Error(`받은 파일이 최대 크기(${maxBytes} bytes)를 초과했습니다`));
         return;
       }
       cb(null, chunk);
@@ -188,15 +192,15 @@ function byteCap(maxBytes: number) {
 }
 
 /** 응답 헤더의 Content-Type / Content-Length 심층방어 검사. @throws {SsrfError} */
-function assertResponseAllowed(responseHeaders: object) {
+function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
   const headers = responseHeaders as Record<string, unknown>;
   const ct = headers["content-type"] || "";
-  if (!isAllowedContentType(ct)) {
+  if (!isAllowedContentType(ct, accept.contentType)) {
     throw new SsrfError(`허용되지 않는 Content-Type: ${ct}`);
   }
   const len = headers["content-length"];
-  if (len && Number(len) > MAX_BYTES) {
-    throw new SsrfError(`파일이 최대 크기(${MAX_BYTES} bytes)를 초과: ${len}`);
+  if (len && Number(len) > accept.maxBytes) {
+    throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${len}`);
   }
 }
 
@@ -262,7 +266,31 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
   return capped;
 }
 
-export { SsrfError, head, getStream, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES };
+/**
+ * 가드된 GET 을 끝까지 받아 버퍼로(작은 파일). accept 의 Content-Type · 크기 상한을 지키고, 받기 전체가 timeoutMs 를 넘으면 끊는다. deps 는 head 와 같다. @throws
+ */
+async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
+  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs);
+  const source = response.body;
+  const deadline = setTimeout(() => source.destroy(new Error(`받기가 ${accept.timeoutMs}ms 안에 끝나지 않았습니다`)), accept.timeoutMs);
+  try {
+    assertResponseAllowed(response.headers, accept);
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for await (const chunk of source as AsyncIterable<Buffer>) {
+      total += chunk.length;
+      if (total > accept.maxBytes) throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과했습니다`);
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  } finally {
+    clearTimeout(deadline);
+    source.destroy();
+    agent.destroy();
+  }
+}
+
+export { SsrfError, head, getStream, getBuffer, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES };
 // 시험이 진짜 소켓으로 보는 것
 export const _internals = { send, createPinnedAgent };
-export type { LookupFn, HttpRequest, RequestDeps, Outgoing, Incoming };
+export type { Accept, LookupFn, HttpRequest, RequestDeps, Outgoing, Incoming };
