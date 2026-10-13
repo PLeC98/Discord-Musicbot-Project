@@ -40,6 +40,7 @@ const loadFailed = "파비콘 상태를 읽지 못했어요.";
 const crop = {
   title: "이미지 편집하기",
   reset: "재설정",
+  zoom: "화면 확대",
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 선택한 영역이 쓸 크기보다 작을 때만 */
   tooSmall: (target: number) => `${target}px 보다 작아서 흐릴 수 있어요`,

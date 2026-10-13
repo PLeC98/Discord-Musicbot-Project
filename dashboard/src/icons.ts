@@ -67,6 +67,7 @@ const ICONS = {
   help: 0xe8fd,
   history: 0xe8b3,
   hub: 0xe9f4,
+  image: 0xe3f4,
   info: 0xe88e,
   keep: 0xf027,
   key: 0xe73c,
