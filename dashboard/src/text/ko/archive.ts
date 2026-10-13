@@ -36,10 +36,10 @@ const items: Record<ArchiveItem, string> = {
   "ai-prompt": "AI 프롬프트",
   guilds: "서버별 설정",
   secrets: "API 키 · 쿠키",
-  favicon: "파비콘 그림",
+  favicon: "파비콘",
 };
-/** 서버 · 키 · 그림 수 */
-const counts: Partial<Record<ArchiveItem, (n: number) => string>> = { guilds: (n) => `서버 ${n}곳`, secrets: (n) => `쓸 수 있는 값 ${n}개`, favicon: (n) => `그림 ${n}장` };
+/** 서버 · 키 · 이미지 수 */
+const counts: Partial<Record<ArchiveItem, (n: number) => string>> = { guilds: (n) => `서버 ${n}곳`, secrets: (n) => `쓸 수 있는 값 ${n}개`, favicon: (n) => `이미지 ${n}개` };
 const notInFile = "파일에 없음";
 const same = "지금과 같음";
 const differs = "다름";

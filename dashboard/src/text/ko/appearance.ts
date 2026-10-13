@@ -1,31 +1,78 @@
-// 운영자 패널: 디스플레이 탭의 파비콘 카드
+// 운영자 패널: 디스플레이 탭의 파비콘 카드 · 이미지 편집 · 크기별 팝업(업로드 · 링크 · 기록)
 
 import { josa } from "../../../../src/rules/josa.ts";
+import { formatClock, formatDate } from "../../utils/locale.ts";
 
 const favicon = "파비콘";
 const faviconDesc = "브라우저 탭과 홈 화면에 보이는 아이콘이에요.";
-const faviconTip = "큰 그림(512px 이상이나 SVG) 하나면 모든 크기를 채워요.\n작은 크기를 따로 그렸다면 그 크기 그림을 더 올려요. 크기마다 꼭 맞는 그림, SVG, 가장 가까운 그림 순으로 써요.\n올린 그림이 없으면 봇 프로필 그림을 써요.";
-const removeOne = "이 그림 지우기";
-const noUploads = "올린 그림이 없어요. 봇 프로필 그림을 쓰고 있어요.";
-const upload = "그림 올리기";
-const uploadHint = "png · webp · jpg(정사각형) · svg, 여러 장 · 끌어다 놓기";
+const faviconTip = "비어 있는 크기는 가까운 크기의 이미지를, 하나도 없으면 봇 프로필을 써요.";
+/** 크기마다 쓰이는 곳 */
+const useOf = (size: number) => (size <= 48 ? "브라우저 탭" : size === 180 ? "iOS 홈 화면" : "앱 아이콘");
+const upload = "추가하기";
+const replace = "변경";
+const clearOne = (size: number) => `${size}px 파비콘 이미지 삭제(기록은 남아요)`;
 
-/** 크기마다 그 그림이 어디서 왔는지 */
-const from = { avatar: "봇 프로필", none: "없음", exact: "맞춤", stretched: "늘림", scaled: (side: number) => `${side}에서` };
+/** 이 크기에 내는 것이 어디서 왔는지 */
+const from = {
+  upload: "올린 이미지",
+  scaled: (source: number) => `${source}px 이미지에서`,
+  avatar: "봇 프로필",
+  none: "없음",
+};
+/** 이 크기보다 작은 이미지를 늘려 쓸 때 */
+const blurryTip = "이 크기보다 작은 이미지를 늘려서 흐릴 수 있어요.";
 
 /** 올리기 전에 거른 까닭(화면이 미리 본다). name 은 파일 이름 */
 const refuse = {
   format: (name: string) => `${name}: 이 형식은 올릴 수 없어요.`,
   tooBig: (name: string, max: string) => `${name}: ${max} 보다 큰 파일은 올릴 수 없어요.`,
-  notSquare: (name: string, width: number, height: number) => `${name}: 정사각형 그림만 쓸 수 있어요(${width} × ${height}).`,
-  tooSmall: (name: string, min: number) => `${name}: ${min}px 보다 작은 그림은 쓸 수 없어요.`,
-  unreadable: (name: string) => `${name}: 그림을 읽지 못했어요.`,
+  tooSmall: (name: string, min: number) => `${name}: ${min}px 보다 작은 이미지는 쓸 수 없어요.`,
+  unreadable: (name: string) => `${name}: 이미지를 읽지 못했어요.`,
 };
-const uploadFailed = (name: string) => `${name}${josa(name, "을")} 올리지 못했어요.`;
-const refusedTitle = "올리지 않은 그림이 있어요";
-const uploaded = (count: number) => (count === 1 ? "파비콘 그림을 올렸어요" : `파비콘 그림 ${count}장을 올렸어요`);
-const removed = "파비콘 그림을 지웠어요";
-const removeFailed = "파비콘 그림을 지우지 못했어요.";
+const refusedTitle = "추가하지 않았어요";
+const uploadFailed = (name: string) => `${name}${josa(name, "을")} 추가하지 못했어요.`;
+const uploaded = (size: number) => `${size}px 파비콘 이미지를 추가했어요`;
+const cleared = (size: number) => `${size}px 파비콘 이미지를 삭제했어요`;
+const clearFailed = (size: number) => `${size}px 파비콘 이미지를 삭제하지 못했어요.`;
 const loadFailed = "파비콘 상태를 읽지 못했어요.";
 
-export { favicon, faviconDesc, faviconTip, removeOne, noUploads, upload, uploadHint, from, refuse, uploadFailed, refusedTitle, uploaded, removed, removeFailed, loadFailed };
+/** 이미지 편집 대화상자 */
+const crop = {
+  title: "이미지 편집하기",
+  reset: "재설정",
+  picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
+  /** 선택한 영역이 쓸 크기보다 작을 때만 */
+  tooSmall: (target: number) => `${target}px 보다 작아서 흐릴 수 있어요`,
+  use: "적용하기",
+};
+
+/** 크기별 팝업: 이미지 업로드 · 링크로 추가 · 기록 */
+const slotDialog = {
+  title: (size: number) => `${size}px 파비콘`,
+  fromFile: "이미지 업로드",
+  fromFileHint: "png · webp · jpg · svg",
+  fromLink: "링크로 추가",
+  linkLabel: "이미지 주소",
+  linkPlaceholder: "https://…",
+  linkFetch: "가져오기",
+  linkBad: "http · https 로 시작하는 주소를 넣어 주세요.",
+  linkFailed: "링크에서 이미지를 가져오지 못했어요.",
+};
+
+/** 크기마다의 기록(최근 FAVICON_HISTORY 개, 크기별 팝업 안) */
+const history = {
+  title: "기록",
+  desc: (max: number) => `최근 업로드한 파비콘 ${max}개를 불러와 사용할 수 있어요.`,
+  /** 업로드한 때 */
+  meta: (at: number) => `${formatDate(at, { month: "long", day: "numeric" })} ${formatClock(at)} 업로드`,
+  /** 크기 칸에 보이는 기록 개수 */
+  count: (n: number) => `기록 ${n}개`,
+  inUse: "사용 중",
+  removeOne: "기록에서 삭제",
+  used: (size: number) => `${size}px 파비콘 이미지를 바꿨어요`,
+  useFailed: (size: number) => `${size}px 파비콘 이미지를 바꾸지 못했어요.`,
+  removed: (size: number) => `${size}px 파비콘 기록에서 이미지를 삭제했어요`,
+  removeFailed: (size: number) => `${size}px 파비콘 기록에서 이미지를 삭제하지 못했어요.`,
+};
+
+export { favicon, faviconDesc, faviconTip, useOf, upload, replace, clearOne, from, blurryTip, refuse, refusedTitle, uploadFailed, uploaded, cleared, clearFailed, loadFailed, crop, slotDialog, history };
