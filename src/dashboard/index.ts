@@ -35,6 +35,7 @@ import { problemsRouter } from "./problem.ts";
 import { limiter, unlimited } from "./rate-limits.ts";
 import { startStatus } from "./status/index.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { precompressed } from "./precompressed.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 시험이 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -117,6 +118,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 켜지 않고 보인다
   const indexHtml = path.join(clientDist, "index.html");
+  // 빌드할 때 만들어 둔 압축본(.br · .gz)을 먼저, 없거나 받을 수 없으면 원본
+  app.use(precompressed(clientDist, cacheAssets));
   app.use(express.static(clientDist, { setHeaders: cacheAssets }));
   app.get("/{*path}", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();

@@ -18,6 +18,8 @@ const OUT_DIR = path.join(DASHBOARD, "src", "assets", "google-sans-flex");
 const OUT_CSS = path.join(DASHBOARD, "src", "google-sans-flex.css");
 /** 고정할 축과 값(그 축의 기본값). 화면이 이 축을 움직이게 되면 여기서 빼고 다시 만든다 */
 const PINNED = { wdth: 100, GRAD: 0 };
+// 글자는 하나도 빼지 않는다(keepAllGlyphs). @types/subset-font 가 이 옵션을 아직 적지 않아, 객체를 따로 만들어 넘긴다(패키지 자체는 받는다)
+const OPTIONS = { keepAllGlyphs: true, variationAxes: PINNED, targetFormat: "woff2" as const };
 
 /** 원본 CSS 의 @font-face 하나: 묶음 이름 · 파일 · 글자 범위 · 기울기 범위 */
 type Face = { subset: string; file: string; range: string; style: string };
@@ -47,7 +49,7 @@ async function main() {
   let after = 0;
   for (const face of list) {
     const source = fs.readFileSync(path.join(PACKAGE, "files", face.file));
-    const font = await subsetFont(source, "", { keepAllGlyphs: true, variationAxes: PINNED, targetFormat: "woff2" });
+    const font = await subsetFont(source, "", OPTIONS);
     const name = `${face.subset}.woff2`;
     fs.writeFileSync(path.join(OUT_DIR, name), font);
     before += source.length;

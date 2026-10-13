@@ -1,7 +1,9 @@
-// src/dashboard/index.ts — 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
+// src/dashboard/index.ts · precompressed.ts — 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
 // 봇을 켠 뒤에 화면을 빌드해도 다시 켜지 않고 보인다.
 
 import fs from "node:fs";
+import http from "node:http";
+import zlib from "node:zlib";
 import os from "node:os";
 import path from "node:path";
 import { test, before, after } from "node:test";
@@ -64,4 +66,42 @@ test("빌드 파일(assets/)은 오래 캐시하고 화면 껍데기는 매번 �
   assert.equal(await cacheOf("/assets/font-abc123.woff2"), "public, max-age=31536000, immutable");
   assert.equal(await cacheOf("/"), "no-cache");
   assert.equal(await cacheOf("/servers/123"), "no-cache");
+});
+
+// 빌드할 때 만든 압축본(.br · .gz)이 있으면 받는 쪽이 받을 수 있는 것을 보낸다. 캐시 규칙은 원본과 같다
+test("압축본: br 을 받으면 .br, gzip 만 받으면 .gz, 아무것도 안 받으면 원본. 폴더 밖으로는 나가지 않는다", async () => {
+  const body = "const 화면 = 1;\n".repeat(200);
+  fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
+  fs.writeFileSync(path.join(dist, "assets", "app-zip123.js"), body);
+  fs.writeFileSync(path.join(dist, "assets", "app-zip123.js.br"), zlib.brotliCompressSync(body));
+  fs.writeFileSync(path.join(dist, "assets", "app-zip123.js.gz"), zlib.gzipSync(body));
+  const ask = async (encoding: string | null) => {
+    // fetch 는 압축을 스스로 푼다. 오간 그대로 보려고 node:http 로 묻는다
+    return new Promise<{ status: number; headers: Record<string, unknown>; raw: Buffer }>((resolve, reject) => {
+      const req = http.get(`${base}/assets/app-zip123.js`, { headers: encoding ? { "accept-encoding": encoding } : {} }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, raw: Buffer.concat(chunks) }));
+      });
+      req.on("error", reject);
+    });
+  };
+
+  const br = await ask("gzip, deflate, br");
+  assert.equal(br.headers["content-encoding"], "br");
+  assert.match(String(br.headers["content-type"]), /javascript/);
+  assert.equal(br.headers["vary"], "Accept-Encoding");
+  assert.equal(br.headers["cache-control"], "public, max-age=31536000, immutable");
+  assert.equal(zlib.brotliDecompressSync(br.raw).toString(), body);
+
+  const gz = await ask("gzip");
+  assert.equal(gz.headers["content-encoding"], "gzip");
+  assert.equal(zlib.gunzipSync(gz.raw).toString(), body);
+
+  assert.equal((await ask("br;q=0, gzip")).headers["content-encoding"], "gzip", "q=0 은 받지 않는 것");
+  const plain = await ask(null);
+  assert.equal(plain.headers["content-encoding"], undefined);
+  assert.equal(plain.raw.toString(), body);
+
+  assert.notEqual((await get("/assets/..%2F..%2Fapp-zip123.js")).status, 500, "폴더 밖 주소에서 터지지 않는다");
 });

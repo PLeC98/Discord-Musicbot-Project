@@ -1,5 +1,7 @@
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { defineConfig, type Plugin } from "vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
@@ -26,8 +28,34 @@ function buildInputs(): Plugin {
   };
 }
 
+// 빌드가 끝나면 글자 파일(JS · CSS · HTML · SVG · JSON)마다 압축본(.br · .gz)을 옆에 만든다. 봇이 받는 쪽에 맞춰 골라 보낸다(src/dashboard/precompressed.ts).
+// 1KB 보다 작거나 압축해도 10% 넘게 줄지 않으면 만들지 않는다. 글꼴 · 그림은 이미 압축된 꼴이라 뺀다
+function precompress(): Plugin {
+  let outDir = "";
+  return {
+    name: "precompress",
+    apply: "build",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((one) => (one.isDirectory() ? walk(path.join(dir, one.name)) : [path.join(dir, one.name)]));
+      for (const file of walk(outDir)) {
+        if (!/\.(js|css|html|svg|json)$/.test(file) || path.basename(file).startsWith(".")) continue;
+        const raw = fs.readFileSync(file);
+        if (raw.length < 1024) continue;
+        const packs = [
+          [".br", zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } })],
+          [".gz", zlib.gzipSync(raw, { level: 9 })],
+        ] as const;
+        for (const [ext, packed] of packs) if (packed.length < raw.length * 0.9) fs.writeFileSync(file + ext, packed);
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [vue(), tailwindcss(), buildInputs()],
+  plugins: [vue(), tailwindcss(), buildInputs(), precompress()],
   server: {
     port: 5173,
     // 공유 모듈과 조사 도우미의 표(data/)가 저장소 뿌리에 있다
