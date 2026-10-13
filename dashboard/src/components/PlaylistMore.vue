@@ -32,7 +32,7 @@
       </div>
 
       <div class="flex items-center gap-3 pt-2">
-        <input v-model.number="amount" type="range" min="1" :max="cap" class="m3-slider m3-slider-thin flex-1" :style="{ '--v': cap > 1 ? (Math.min(Math.max(Number(amount) || 1, 1), cap) - 1) / (cap - 1) : 1 }" :disabled="busy" :aria-label="T.amount" />
+        <input v-model.number="amount" type="range" min="1" :max="cap" class="m3-slider m3-slider-compact flex-1" :style="{ '--v': cap > 1 ? (Math.min(Math.max(Number(amount) || 1, 1), cap) - 1) / (cap - 1) : 1 }" :disabled="busy" :aria-label="T.amount" />
         <input v-model.number="amount" type="text" inputmode="numeric" :maxlength="String(MAX_COUNT).length" class="w-16 h-10 bg-surface-highest/80 rounded-xl text-on-surface px-3 text-body text-right nums outline-none ring-0 focus:ring-2 focus:ring-primary" :class="!valid && 'ring-2 ring-error'" :disabled="busy" :aria-label="T.amountInput" @keydown.enter="valid && !busy && $emit('add', amount)" />
         <BaseButton type="button" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? T.addingLong : T.add }}</BaseButton>
       </div>
