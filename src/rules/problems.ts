@@ -170,11 +170,12 @@ const WEB = {
   // AI 리퀘스트 로그: 없는 줄(저장 용량을 넘어 지워졌거나 모두 지웠다)
   "ai-log-not-found": { status: 404, title: "Request log entry not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
-  // 대시보드: 파비콘(올린 그림)
+  // 대시보드: 파비콘(올린 이미지 · 링크로 받는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },
   "image-too-small": { status: 400, title: "Image is too small", params: ["min"] },
-  "too-many-favicons": { status: 409, title: "Too many favicon images", params: ["max"] },
+  // 링크에서 이미지를 받지 못했다(접속 · 내부 주소 · 크기 · 시간). 까닭은 로그에만
+  "image-link-failed": { status: 502, title: "Could not get the image from the link", params: ["max"] },
   "appearance-save-failed": { status: 500, title: "Could not save the image" },
 } as const satisfies Record<string, ProblemSpec>;
 

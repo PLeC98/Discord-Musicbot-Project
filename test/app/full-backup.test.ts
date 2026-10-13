@@ -26,7 +26,10 @@ const faviconDir = path.join(work, "favicon");
 const outDir = path.join(work, "out");
 fs.writeFileSync(envFile, "DISCORD_TOKEN=token-for-test\n");
 fs.mkdirSync(faviconDir);
-fs.writeFileSync(path.join(faviconDir, "32.png"), Buffer.from([1, 2, 3]));
+fs.writeFileSync(path.join(faviconDir, "index.json"), "{}");
+fs.writeFileSync(path.join(faviconDir, "lz0abc12ff.reserve.png"), Buffer.from([1, 2, 3]));
+// 봇이 쓰지 않는 파일은 담지 않는다
+fs.writeFileSync(path.join(faviconDir, "notes.txt"), "x");
 
 // 풀어 덮어쓸 다른 봇 폴더(그 봇의 설정 DB 가 이미 있다)
 function otherBot(version = VERSION) {
@@ -59,7 +62,7 @@ test("켜져 있는 봇에서 만들고(.env · 설정 DB 를 바꿔 끼울 이�
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
     unzip(fs.readFileSync(first.file)).map((one) => one.name),
-    [".env", "database/settings.restore.db", "database/settings.restore.db.json", "database/dashboard/favicon/32.png"],
+    [".env", "database/settings.restore.db", "database/settings.restore.db.json", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png"],
   );
   const second = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, outDir }, new Date(2026, 9, 11, 9, 0));
   assert.deepEqual(second.replaced, [path.basename(first.file)]);

@@ -12,6 +12,7 @@ import Database from "better-sqlite3";
 import { zip } from "../infra/zip.ts";
 import { ownerOnly } from "../infra/owner-only.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { isFaviconFile } from "../dashboard/appearance.ts";
 
 type Paths = { envFile: string; databaseDir: string; faviconDir: string; outDir: string };
 const REAL: Paths = { envFile: PROJECT.env, databaseDir: PROJECT.database, faviconDir: path.join(PROJECT.dashboardData, "favicon"), outDir: path.join(PROJECT.database, "full-backups") };
@@ -39,7 +40,7 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date()) {
   if (!fs.existsSync(settings)) throw Object.assign(new Error(`설정 DB 가 없습니다: ${settings}`), { code: "NO_SETTINGS_DB" });
   const name = `musicbot-full-${stamp(at)}.zip`;
   const hasEnv = fs.existsSync(envFile);
-  const favicons = fs.existsSync(faviconDir) ? fs.readdirSync(faviconDir).filter((one) => /^(\d+\.png|svg\.svg)$/.test(one)) : [];
+  const favicons = fs.existsSync(faviconDir) ? fs.readdirSync(faviconDir).filter(isFaviconFile) : [];
   const file = zip([...(hasEnv ? [{ name: ".env", data: fs.readFileSync(envFile) }] : []), { name: "database/settings.restore.db", data: await settingsCopy(settings) }, { name: "database/settings.restore.db.json", data: Buffer.from(JSON.stringify({ from: `전체 백업 ${name}` })) }, ...favicons.map((one) => ({ name: `database/dashboard/favicon/${one}`, data: fs.readFileSync(path.join(faviconDir, one)) }))]);
 
   fs.mkdirSync(outDir, { recursive: true });

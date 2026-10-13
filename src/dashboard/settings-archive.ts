@@ -1,8 +1,8 @@
-// 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + favicon/(올린 그림 그대로). 계약은 contract/settings-archive.
+// 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 계약은 contract/settings-archive.
 //   settings  봇 설정만: 남에게 나눠 줄 설정. 서버별 설정 · 키가 없고, PC 에 매인 운영 조절값(쿠키 출처 · POToken 쓰기)도 뺀다
 //   full      암호화된 설정까지: settings + 서버별 설정 + 키 · 쿠키의 암호문(같은 SECRETS_KEY 에서만 풀린다. 끝 네 글자는 넣지 않는다)
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
-// 불러오기는 고른 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다). 그림은 DB 뒤에 바꾼다.
+// 불러오기는 고른 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다). 파비콘은 DB 뒤에 바꾼다.
 // 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇이 보이는 링크)이 바뀌면 미리 보기가 짚어 준다.
 
 import crypto from "node:crypto";
@@ -21,7 +21,6 @@ import * as secrets from "../store/secrets.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import { settingsDb } from "../store/settings-db.ts";
 import * as appearance from "./appearance.ts";
-import type { Code } from "../rules/problems.ts";
 import type { ArchiveItem, ArchiveKind, ArchivePreview, ArchiveRow } from "./contract/settings-archive.ts";
 import { ARCHIVE_ITEMS } from "./contract/settings-archive.ts";
 
@@ -50,7 +49,7 @@ type ArchiveJson = {
   guilds?: Record<string, guildSettings.GuildDoc>;
   /** full 만. 암호문 그대로 */
   secrets?: secrets.Sealed[];
-  /** 함께 담은 그림 파일 이름(favicon/ 아래). 비었어도 적는다: 가져오면 그림이 없는 상태가 된다 */
+  /** 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json 과 이미지 png). index.json 이 없으면 파비콘이 없는 파일로 본다(예전 모양 포함) */
   favicons: string[];
 };
 
@@ -70,7 +69,7 @@ function fileName(kind: ArchiveKind, at = new Date()) {
 
 /** 지금 설정을 ZIP 으로 */
 async function build(kind: ArchiveKind): Promise<Buffer> {
-  const favicons = await appearance.faviconFiles();
+  const favicons = appearance.faviconFiles();
   const values = tunables.view().values;
   const json: ArchiveJson = {
     format: FORMAT,
@@ -202,21 +201,28 @@ function secretsRow(json: Partial<ArchiveJson>): ArchiveRow {
   return { item: "secrets", inFile: true, same, problems, warnings, count: usable.length };
 }
 
-// 그림 검사에 걸린 까닭(올리기의 거절 코드)을 한 줄로
-const FAVICON_WHY: Partial<Record<Code, (params: Record<string, unknown>) => string>> = {
-  "bad-image": () => "png · webp · jpg · svg 그림이 아닌 파일이 있습니다.",
-  "image-not-square": () => "정사각형이 아닌 그림이 있습니다.",
-  "image-too-small": ({ min }) => `한 변이 ${String(min)}px 보다 작은 그림이 있습니다.`,
-  "too-many-favicons": ({ max }) => `그림이 ${String(max)}장보다 많습니다.`,
+// 파비콘 검사에 걸린 까닭을 한 줄로
+const FAVICON_WHY: Record<appearance.FaviconFault, string> = {
+  index: "파비콘 목록(index.json)을 읽을 수 없습니다.",
+  missing: "목록에 있는 이미지 파일이 빠져 있습니다.",
+  broken: "망가졌거나 크기가 맞지 않는 이미지가 있습니다.",
 };
 
+/** 파일에 파비콘이 있는지: 목록(index.json)이 함께 담겼어야 한다 */
+const hasFavicons = (parsed: Parsed) => Array.isArray(parsed.json.favicons) && parsed.favicons.some((one) => one.name === "index.json");
+
 async function faviconRow(parsed: Parsed): Promise<ArchiveRow> {
-  if (!Array.isArray(parsed.json.favicons)) return absent("favicon");
-  const checked = await appearance.checkFavicons(parsed.favicons.map((one) => one.data));
-  const problems = checked.ok ? [] : [...new Set(checked.problems.map((one) => FAVICON_WHY[one.code]?.(one.params ?? {}) ?? one.code))];
-  const now = (await appearance.faviconFiles()).map((one) => digest(one.data)).sort();
+  if (!hasFavicons(parsed)) return absent("favicon");
+  const checked = await appearance.checkFavicons(parsed.favicons);
+  const problems = checked.ok ? [] : checked.faults.map((one) => FAVICON_WHY[one]);
+  const now = appearance
+    .faviconFiles()
+    .map((one) => digest(one.data))
+    .sort();
   const theirs = parsed.favicons.map((one) => digest(one.data)).sort();
-  return { item: "favicon", inFile: true, same: stable(now) === stable(theirs), problems, warnings: [], count: parsed.favicons.length };
+  // 이미지마다 보관본이 하나씩이라 그 수가 이미지 수
+  const count = parsed.favicons.filter((one) => one.name.endsWith(".reserve.png")).length;
+  return { item: "favicon", inFile: true, same: stable(now) === stable(theirs), problems, warnings: [], count };
 }
 
 // 프롬프트를 따질 때 볼 AI 설정: 파일의 것을 함께 가져오면 그것, 아니면 지금 것
@@ -245,15 +251,15 @@ async function preview(buf: Buffer): Promise<ArchivePreview> {
 
 const LABEL: Record<ArchiveItem, string> = { tunables: "운영 조절값", genres: "자동재생 장르", status: "활동 문구", ai: "AI 설정", "ai-prompt": "AI 프롬프트", guilds: "서버별 설정", secrets: "키 · 쿠키", favicon: "파비콘" };
 
-// 고른 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 그림
-async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<appearance.Inspected[]> {
+// 고른 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘(고르지 않았으면 null)
+async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<appearance.Prepared | null> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const rows = await Promise.all(items.map((item) => rowFor(item, parsed, aiDoc)));
   const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없습니다."]), ...row.problems].map((line) => `${LABEL[row.item]}: ${line}`));
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
-  if (!items.includes("favicon")) return [];
-  const checked = await appearance.checkFavicons(parsed.favicons.map((one) => one.data));
-  return checked.ok ? checked.images : [];
+  if (!items.includes("favicon")) return null;
+  const checked = await appearance.checkFavicons(parsed.favicons);
+  return checked.ok ? checked.prepared : null;
 }
 
 // DB 에 쓴다(한 트랜잭션). 키 · 쿠키는 풀리는 것만, 파일에 없는 키는 그대로 둔다
@@ -275,7 +281,7 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
  */
 async function apply(buf: Buffer, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveItem[]> {
   const parsed = parse(buf);
-  const images = await checkChosen(parsed, items);
+  const favicons = await checkChosen(parsed, items);
   await before?.();
   const docItems = writeChosen(parsed.json, items);
 
@@ -284,7 +290,7 @@ async function apply(buf: Buffer, items: ArchiveItem[], { before }: { before?: (
   if (items.includes("tunables")) tunables.reload();
   if (items.includes("guilds")) guildSettings._reset();
   if (items.includes("secrets")) serviceKeys.load();
-  if (items.includes("favicon")) await appearance.replaceFavicons(images);
+  if (favicons) appearance.replaceFavicons(favicons);
   return items;
 }
 

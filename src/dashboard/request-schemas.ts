@@ -100,5 +100,13 @@ function settingsBody({ min, max }: { min: number; max: number }) {
 /** 서버 설정 저장의 본문(화면이 보내는 모양) */
 type SettingsRequest = z.input<ReturnType<typeof settingsBody>>;
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, QUERY_MAX_LEN };
+// ── 파비콘 ──
+
+const BAD_FAVICON = { error: "bad-request" satisfies Code };
+// 기록의 그림으로 갈아 끼우기 { id }
+const FaviconUseBody = z.object({ id: z.string(BAD_FAVICON).min(1, BAD_FAVICON).max(64, BAD_FAVICON) }, BAD_FAVICON);
+// 링크로 추가 { url }. http · https 인지 · 내부 주소인지는 infra/safe-url 이 본다
+const FaviconLinkBody = z.object({ url: z.string(BAD_FAVICON).trim().min(1, BAD_FAVICON).max(2048, BAD_FAVICON) }, BAD_FAVICON);
+
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, QUERY_MAX_LEN };
 export type { SettingsRequest };

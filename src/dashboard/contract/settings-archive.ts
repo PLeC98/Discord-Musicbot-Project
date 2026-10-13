@@ -1,5 +1,5 @@
 // 설정 내보내기 · 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
-// 내보내기는 ZIP 하나: settings.json(사람이 읽는 JSON) + favicon/(올린 그림). 종류는 둘(settings: 봇 설정만, full: 암호화된 설정까지). .env · 세션은 어느 쪽에도 없다.
+// 내보내기는 ZIP 하나: settings.json(사람이 읽는 JSON) + favicon/(파비콘 폴더: index.json · 이미지). 종류는 둘(settings: 봇 설정만, full: 암호화된 설정까지). .env · 세션은 어느 쪽에도 없다.
 // 불러오기는 파일을 올려 미리 보고(preview), 고른 항목만 덮어쓴다(import?items=…)
 
 /** settings: 봇 설정만(남에게 나눠 줄 것), full: 서버별 설정 · 키 · 쿠키의 암호문까지 */
@@ -7,7 +7,7 @@ const ARCHIVE_KINDS = ["settings", "full"] as const;
 type ArchiveKind = (typeof ARCHIVE_KINDS)[number];
 const isArchiveKind = (value: string): value is ArchiveKind => (ARCHIVE_KINDS as readonly string[]).includes(value);
 
-/** 가져올 수 있는 항목. 설정 문서 넷 · 운영 조절값 · 서버별 설정 · 키 · 쿠키(암호문) · 파비콘 그림 */
+/** 가져올 수 있는 항목. 설정 문서 넷 · 운영 조절값 · 서버별 설정 · 키 · 쿠키(암호문) · 파비콘 */
 const ARCHIVE_ITEMS = ["tunables", "genres", "status", "ai", "ai-prompt", "guilds", "secrets", "favicon"] as const;
 type ArchiveItem = (typeof ARCHIVE_ITEMS)[number];
 

@@ -1,7 +1,7 @@
 // 오류 · 거절 안내. 코드(rules/problems)마다 문장 하나. 부르는 자리는 코드와 값만 넘긴다.
 // 안내는 무엇에 관한 것인지(topic) · 심각한 정도(severity) · 머리 줄 · 본문이고, 머리 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
 
-import { formatMs } from "../../format.ts";
+import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type Notice, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
 import type { Code, Params } from "../../../rules/problems.ts";
@@ -211,12 +211,12 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "ai-log-not-found": (_, look) => warning("notFound", "없는 기록이에요!", `저장 용량을 넘어 지워졌거나 모두 지운 기록이에요. ${stalePage(look)}`),
   "snapshot-mismatch": () => warning("state", "되살릴 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 뜬 스냅샷이에요. 그 버전의 봇으로 되살려 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  // 대시보드: 파비콘(올린 그림)
-  "bad-image": () => warning("input", "쓸 수 없는 그림이에요!", "png · webp · jpg · svg 그림만 올릴 수 있어요."),
-  "image-not-square": () => warning("input", "정사각형 그림만 쓸 수 있어요!", "가로와 세로가 같은 그림을 올려 주세요."),
-  "image-too-small": ({ min }) => warning("input", "그림이 너무 작아요!", `한 변이 ${min}px 이상인 그림을 올려 주세요.`),
-  "too-many-favicons": ({ max }) => warning("input", "파비콘 그림이 너무 많아요!", `${max}장까지 둘 수 있어요. 쓰지 않는 그림을 지운 뒤에 올려 주세요.`),
-  "appearance-save-failed": () => error("failed", "그림을 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
+  // 대시보드: 파비콘(올린 이미지 · 링크로 받는 이미지)
+  "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png · webp · jpg · svg 이미지만 쓸 수 있어요."),
+  "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
+  "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
+  "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
+  "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
 };
 
 /** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */

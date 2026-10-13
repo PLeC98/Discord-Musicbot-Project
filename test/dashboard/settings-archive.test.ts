@@ -92,10 +92,10 @@ const square = (side: number) =>
     .png()
     .toBuffer();
 
-test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷 · 서버별 설정 · 키 암호문 · 그림 목록)과 favicon/ 그림", async () => {
+test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷 · 서버별 설정 · 키 암호문 · 파비콘 파일 목록)과 favicon/ 파일", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300" }, 0);
   guildSettings.table.setBotChannel("123456789012345678", "222222222222222222");
-  assert.equal((await appearance.addFavicon(await square(32))).ok, true);
+  assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
 
   const file = await exported();
   const json = settingsOf(file);
@@ -104,10 +104,11 @@ test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류
   assert.deepEqual(json.secrets, [], "넣어 둔 키가 없다");
   assert.deepEqual(Object.keys(json.documents as object), ["genres", "status", "ai", "ai-prompt"]);
   assert.deepEqual(json.guilds, { "123456789012345678": { botChannelId: "222222222222222222" } });
-  assert.deepEqual(json.favicons, ["32.png"]);
+  const [image] = appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.history;
+  assert.deepEqual(json.favicons, ["index.json", `${image.id}.png`, `${image.id}.reserve.png`]);
   assert.deepEqual(
     unzip(file).map((one) => one.name),
-    ["settings.json", "favicon/32.png"],
+    ["settings.json", "favicon/index.json", `favicon/${image.id}.png`, `favicon/${image.id}.reserve.png`],
   );
   assert.match(unzip(file)[0].data.toString("utf8"), /\n {2}"format": 1,/, "들여 쓴 JSON");
 });
@@ -209,22 +210,49 @@ test("ZIP 이 아니거나 settings.json 이 없거나 모르는 형식이면 ba
   }
 });
 
-test("파비콘: 내보낸 그림으로 통째 되돌린다. 비어 있던 파일을 가져오면 그림이 없어진다", async () => {
-  await appearance.addFavicon(await square(32));
+const currents = () =>
+  appearance
+    .faviconSlots(false)
+    .slots.filter((one) => one.current)
+    .map((one) => one.size);
+
+test("파비콘: 내보낸 칸 · 기록으로 통째 되돌린다. 비어 있던 파일을 가져오면 파비콘이 없어진다", async () => {
+  await appearance.addFavicon(32, await square(32));
+  const first = await exported();
+  await appearance.addFavicon(32, await square(40));
   const file = await exported();
-  await appearance.addFavicon(await square(64));
-  assert.equal(rowsOf((await preview(file)).json).favicon.same, false);
+  await appearance.addFavicon(48, await square(48));
+  const row = rowsOf((await preview(file)).json).favicon;
+  assert.deepEqual([row.same, row.count], [false, 2], "이미지 수는 기록의 수");
 
   assert.equal((await send("import?items=favicon", file)).status, 200);
-  assert.deepEqual(
-    (await appearance.faviconFiles()).map((one) => one.name),
-    ["32.png"],
-  );
+  assert.deepEqual(currents(), [32]);
+  assert.equal(appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.history.length, 2);
+  assert.equal(rowsOf((await preview(file)).json).favicon.same, true, "가져온 뒤에는 같다");
+  assert.equal(fs.readdirSync(faviconDir).length, 5, "목록 하나 · 이미지마다 둘, 48 의 파일은 치웠다");
 
-  const empty = rewrite(file, (json) => (json.favicons = []));
-  const withoutImages = zip(unzip(empty).filter((one) => !one.name.startsWith("favicon/")));
-  assert.equal((await send("import?items=favicon", withoutImages)).status, 200);
-  assert.deepEqual(await appearance.faviconFiles(), []);
+  appearance.removeFavicon(32, appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.current!);
+  const cleared = zip(unzip(first).map((one) => (one.name === "favicon/index.json" ? { name: one.name, data: Buffer.from('{"slots":{}}') } : one)));
+  assert.equal((await send("import?items=favicon", cleared)).status, 200);
+  assert.deepEqual(currents(), []);
+  assert.deepEqual(
+    appearance.faviconFiles().map((one) => one.name),
+    ["index.json"],
+  );
+});
+
+test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 짚고 가져오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
+  await appearance.addFavicon(32, await square(32));
+  const file = await exported();
+  const missing = zip(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
+  assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있습니다."]);
+  const broken = zip(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
+  assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["망가졌거나 크기가 맞지 않는 이미지가 있습니다."]);
+  assert.notEqual((await send("import?items=favicon", broken)).status, 200);
+  assert.deepEqual(currents(), [32], "가져오지 않았다");
+
+  const old = zip([...unzip(rewrite(file, (json) => (json.favicons = ["32.png"]))).filter((one) => !one.name.startsWith("favicon/")), { name: "favicon/32.png", data: await square(32) }]);
+  assert.equal(rowsOf((await preview(old)).json).favicon.inFile, false);
 });
 
 test("내보내기 · 가져오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
