@@ -6,7 +6,8 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
-@import "@fontsource-variable/google-sans-flex/full.css";
+/* 본문: Google Sans Flex 의 쓰지 않는 축(폭 · 획 두께)을 고정한 판(scripts/build-sans-font.ts) */
+@import "./google-sans-flex.css";
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 /* 고정폭: D2Coding 을 조각내 직접 서빙한다(scripts/build-mono-font.ts) */
 @import "./d2coding.css";
