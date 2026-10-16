@@ -19,6 +19,7 @@ import { parse, BackgroundEditBody, BackgroundEstimateBody, BackgroundLimitsBody
 import type { LoginBackgroundItem, LoginBackgroundState } from "../contract/login-background.ts";
 import * as store from "../login-background/store.ts";
 import * as runner from "../login-background/runner.ts";
+import * as encoders from "../login-background/encoders.ts";
 
 /** 올린 원본을 두는 파일(받기 단계가 읽는다) · 받는 동안의 이름 */
 const SOURCE = "source";
@@ -75,8 +76,8 @@ function stateOf(): LoginBackgroundState {
     limits: index.limits,
     usedBytes: index.items.reduce((sum, one) => sum + one.bytes, 0),
     freeBytes: store.freeBytes(),
-    encoders: [],
-    checking: false,
+    encoders: encoders.encoderList(),
+    checking: encoders.isChecking(),
   };
 }
 
@@ -219,6 +220,12 @@ loginBackgroundRouter.delete("/:id", (req, res) => {
   if (!one) return;
   runner.discard(one.id);
   changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 지웠습니다`);
+});
+
+// 인코더를 다시 시험한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking 으로 답한다
+loginBackgroundRouter.post("/encoders/check", (req, res) => {
+  void encoders.recheck();
+  changed(req, res, "인코더를 다시 시험합니다");
 });
 
 loginBackgroundRouter.put("/options", (req, res) => {
