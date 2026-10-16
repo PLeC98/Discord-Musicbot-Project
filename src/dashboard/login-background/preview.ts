@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { codedError } from "../../rules/error-kind.ts";
-import { runFfmpeg } from "../../media/ffmpeg/job.ts";
+import { ffmpeg } from "./ffmpeg.ts";
 import type { Estimate, Stored } from "./store.ts";
 import * as store from "./store.ts";
 import type { Recounter, StageJob, StageResult } from "./runner.ts";
@@ -105,7 +105,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg 가 덮어쓰지 않는다
   fs.rmSync(part, { force: true });
   const started = Date.now();
-  const run = await runFfmpeg([...["-v", "error", "-progress", "pipe:2", "-nostats", ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", h264, ...(PREVIEW_H264[h264] ?? []), "-g", "60", "-movflags", "+faststart", "-f", "mp4", part], ...(probe ? probeOutput("[e]") : [])], {
+  const run = await ffmpeg([...["-v", "error", "-progress", "pipe:2", "-nostats", ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", h264, ...(PREVIEW_H264[h264] ?? []), "-g", "60", "-movflags", "+faststart", "-f", "mp4", part], ...(probe ? probeOutput("[e]") : [])], {
     signal,
     timeoutMs: limitFor(item.duration),
     onStderrLine: (line) => {
@@ -155,7 +155,7 @@ const recount: Recounter = async ({ item, crop, range, signal }) => {
   const probed = await probeVideo(source, signal);
   const [from, to] = range ?? [0, item.duration];
   const graph = `${sourceFilter(probed, crop)},${scaleTo(fitShort(size.width, size.height, PROBE_SHORT))}[e]`;
-  const run = await runFfmpeg(["-v", "error", "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, timeoutMs: limitFor(to - from) });
+  const run = await ffmpeg(["-v", "error", "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, timeoutMs: limitFor(to - from) });
   if (run.code !== 0) throw codedError("background-failed", `어림을 다시 세지 못했습니다: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   // 이 구간의 초만 새 크롭의 크기로(구간 밖은 앞선 어림 그대로, 넓히면 화면이 다시 세게 한다)
   const scale = upscale(item, probed, crop);

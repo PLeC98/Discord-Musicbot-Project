@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
 import { codedError, messageOf } from "../../rules/error-kind.ts";
-import { runFfmpeg } from "../../media/ffmpeg/job.ts";
+import { ffmpeg } from "./ffmpeg.ts";
 import * as safeUrl from "../../infra/safe-url.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
@@ -98,7 +98,7 @@ function parseInput(stderr: string): Probed | null {
 /** 영상 · 움직이는 그림의 머리를 읽는다. 읽지 못하면 background-bad-source */
 async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
   // 출력 없이 열기만 하면 머리를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
-  const { stderr, aborted } = await runFfmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
+  const { stderr, aborted } = await ffmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
   if (aborted) throw codedError("aborted", "그만뒀습니다");
   const input = parseInput(stderr);
   if (!input) throw badSource(`ffmpeg 가 영상으로 읽지 못했습니다: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
@@ -107,7 +107,7 @@ async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
 
 /** 길이를 적지 않은 입력(움직이는 WebP · APNG): 영상 패킷을 풀지 않고 세어 마지막 장면의 끝 */
 async function countedDuration(file: string, signal: AbortSignal): Promise<number | null> {
-  const { code, stdout } = await runFfmpeg(["-v", "error", ...READ_ARGS, "-i", file, "-map", "0:v:0", "-c", "copy", "-f", "framecrc", "-"], { signal, timeoutMs: INSPECT_MS });
+  const { code, stdout } = await ffmpeg(["-v", "error", ...READ_ARGS, "-i", file, "-map", "0:v:0", "-c", "copy", "-f", "framecrc", "-"], { signal, timeoutMs: INSPECT_MS });
   if (code !== 0) return null;
   const tb = /#tb 0: (\d+)\/(\d+)/.exec(stdout);
   const last = stdout

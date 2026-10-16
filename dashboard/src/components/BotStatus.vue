@@ -534,7 +534,7 @@ const playerFilters = computed(() => {
 const NOT_MEMBER_TIP = T.notMemberTip;
 const ORPHAN_TIP = T.strayTip;
 // 하는 일: 봇 도우미는 이름, 서버의 일은 서버 이름(다음 곡 · 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
-const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate };
+const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "login-background": T.jobs.loginBackground };
 function processJob(p: ProcessRow) {
   const helper = p.job && HELPER_JOB[p.job];
   if (helper) return helper;

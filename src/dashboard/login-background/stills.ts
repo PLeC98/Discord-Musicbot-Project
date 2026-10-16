@@ -8,7 +8,7 @@ import path from "node:path";
 import sharp, { type Sharp } from "sharp";
 import { codedError } from "../../rules/error-kind.ts";
 import { hexOfSeed, SEED_SIDE, seedOfPixels } from "../../rules/art-seed.ts";
-import { runFfmpeg } from "../../media/ffmpeg/job.ts";
+import { ffmpeg } from "./ffmpeg.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { cropped, scaleTo, sourceFilter, squareCrop, stillWidths, TRANSPARENT_FILL } from "./ladder.ts";
@@ -76,7 +76,7 @@ async function croppedImage(item: Readonly<store.Stored>, crop: LoginBackgroundC
 type Frame = { source: string; probed: Probed; at: number; crop: LoginBackgroundCrop; size: { width: number; height: number }; channels: 3 | 4 };
 async function frameAt({ source, probed, at, crop, size, channels }: Frame, signal: AbortSignal): Promise<Buffer> {
   const graph = `${sourceFilter(probed, crop)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
-  const run = await runFfmpeg(["-v", "error", "-ss", at.toFixed(3), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 120_000 });
+  const run = await ffmpeg(["-v", "error", "-ss", at.toFixed(3), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 120_000 });
   if (run.aborted) throw codedError("aborted", "그만뒀습니다");
   const bytes = size.width * size.height * channels;
   if (run.code !== 0 || run.output.length < bytes) throw codedError("background-failed", `장면을 뜨지 못했습니다(${at}초): ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
