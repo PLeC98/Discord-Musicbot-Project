@@ -19,6 +19,7 @@ import type { LoginBackgroundItem, LoginBackgroundState } from "../contract/logi
 import * as store from "../login-background/store.ts";
 import * as runner from "../login-background/runner.ts";
 import * as encoders from "../login-background/encoders.ts";
+import { previewOf } from "../login-background/preview.ts";
 
 /** 올린 파일 이름(보이기만 한다)의 길이 상한 */
 const NAME_MAX = 200;
@@ -145,6 +146,15 @@ loginBackgroundRouter.post("/link", (req, res) => {
   store.create({ kind: youtube ? "video" : "image", from: youtube ? "youtube" : "link", name: url, link: url });
   runner.kick();
   changed(req, res, `링크로 추가했습니다(${url})`);
+});
+
+// 편집 창의 미리보기(영상 480p · 그림). 원본과 함께 지우므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
+loginBackgroundRouter.get("/:id/preview", (req, res) => {
+  const one = itemFor(req, res);
+  if (!one) return;
+  const file = previewOf(one.id);
+  if (!file) return sendProblem(res, "route-not-found");
+  res.sendFile(file, { headers: { "Cache-Control": "private, max-age=31536000, immutable" } });
 });
 
 // 크기 어림 다시 세기(편집 창에서 크롭을 정했을 때)

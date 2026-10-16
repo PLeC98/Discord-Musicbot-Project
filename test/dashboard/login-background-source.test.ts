@@ -83,7 +83,11 @@ test("다른 파일을 읽는 형식 · 그림이 아닌 것 · 너무 작은 �
 
 test("ffmpeg 머리 읽기: 형식 · 길이 · 크기 · 초당 장면 수", () => {
   const stderr = ["Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'a.mp4':", "  Duration: 00:01:02.50, start: 0.000000, bitrate: 2892 kb/s", "  Stream #0:0[0x1](eng): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 3840x2160 [SAR 1:1 DAR 16:9], 40000 kb/s, 59.94 fps, 59.94 tbr, 15360 tbn (default)"].join("\n");
-  assert.deepEqual(parseInput(stderr), { format: "mov,mp4,m4a,3gp,3g2,mj2", duration: 62.5, width: 3840, height: 2160, fps: 59.94 });
+  assert.deepEqual(parseInput(stderr), { format: "mov,mp4,m4a,3gp,3g2,mj2", duration: 62.5, width: 3840, height: 2160, fps: 59.94, alpha: false, hdr: false });
+  // 세워 찍은 휴대폰 영상(90도 돌려 보인다) · HDR(HLG) · 투명이 있는 움짤
+  const phone = `${stderr.replace("yuv420p(tv, bt709, progressive)", "yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67, progressive)")}\n      Display Matrix: rotation of -90.00 degrees`;
+  assert.deepEqual(parseInput(phone), { format: "mov,mp4,m4a,3gp,3g2,mj2", duration: 62.5, width: 2160, height: 3840, fps: 59.94, alpha: false, hdr: true });
+  assert.equal(parseInput("Input #0, gif, from 'a.gif':\n  Duration: 00:00:10.00\n  Stream #0:0: Video: gif, bgra, 854x480, 15 fps, 15 tbr")?.alpha, true);
   assert.equal(parseInput("Input #0, mp3, from 'a.mp3':\n  Stream #0:0: Audio: mp3"), null);
 });
 

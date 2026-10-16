@@ -282,3 +282,11 @@ test("링크로 추가: 유튜브는 고해상도 받기를 더하고, http 가 
   assert.deepEqual([one.from, one.kind, one.stages.includes("highRes")], ["youtube", "video", true]);
   assert.deepEqual(await codeOf(await send("POST", "/link", { url: "file:///etc/passwd" })), [400, "bad-request"]);
 });
+
+test("봇이 켜진 뒤 첫 요청이 링크 추가여도 새 배경의 폴더가 남는다", async () => {
+  // 기록을 아직 읽지 않은 상태(봇이 막 켜졌다)
+  store._useDir(DIR);
+  const res = await send("POST", "/link", { url: "https://example.com/a.png" });
+  const id = ((await res.json()) as LoginBackgroundState).list[0].id;
+  assert.equal(fs.existsSync(path.join(DIR, id)), true);
+});

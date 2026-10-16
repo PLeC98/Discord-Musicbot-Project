@@ -100,7 +100,8 @@ const MOUNTS: Array<[string, Router]> = [
   ["/api/admin/appearance/login-background", loginBackgroundRouter],
   ["/api", identityRouter],
 ];
-const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest"]);
+// 로그인 배경의 미리보기는 그 배경의 영상 · 그림 파일이다(배경이 있어야 답한다)
+const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
 // 물음표 뒤가 있어야 답하는 경로
 const QUERY: Record<string, string[]> = { "/api/admin/settings-archive/export": ["?kind=settings", "?kind=full"] };

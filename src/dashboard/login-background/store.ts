@@ -274,8 +274,10 @@ function create(fields: { kind: Kind; from: From; name: string; link?: string; i
     estimate: null,
     media: { stills: [], color: null, scenes: [], rungs: {} },
   };
+  // 처음 읽을 때 목록에 없는 폴더를 지우므로 먼저 읽고 폴더를 만든다
+  const index = loaded();
   fs.mkdirSync(folderOf(one.id), { recursive: true });
-  loaded().items.unshift(one);
+  index.items.unshift(one);
   return one;
 }
 

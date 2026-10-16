@@ -66,21 +66,43 @@ async function inspectStill(file: string): Promise<Inspected | null> {
   return { kind: "image", width, height, duration: 0, fps: 0 };
 }
 
-/** ffmpeg 가 연 입력의 머리(형식 · 길이 · 첫 영상 줄). 열지 못했으면 null */
-function parseInput(stderr: string): { format: string; duration: number | null; width: number; height: number; fps: number | null } | null {
+/**
+ * ffmpeg 가 연 입력의 머리. 크기는 보이는 크기(90도 돌려 보이는 영상은 가로세로를 바꾼다), alpha 는 투명이 있는 픽셀 형식(움짤),
+ * hdr 은 PQ · HLG 전달 함수(SDR 로 톤 매핑해 굽는다). 열지 못했으면 null
+ */
+type Probed = { format: string; duration: number | null; width: number; height: number; fps: number | null; alpha: boolean; hdr: boolean };
+
+/** 영상 줄의 크기를 보이는 크기로(회전 정보가 90도면 가로세로를 바꾼다) */
+function visibleSize(video: string, stderr: string) {
+  const size = /, (\d{2,5})x(\d{2,5})[ ,[]/.exec(video);
+  const [width, height] = [Number(size?.[1] ?? 0), Number(size?.[2] ?? 0)];
+  const rotation = Number(/rotation of (-?[\d.]+) degrees/.exec(stderr)?.[1] ?? 0);
+  return Math.abs(Math.round(rotation / 90)) % 2 === 1 ? { width: height, height: width } : { width, height };
+}
+function parseInput(stderr: string): Probed | null {
   const format = /Input #0, ([^ ]+), from/.exec(stderr)?.[1];
   const video = /Stream #0:\d+[^\n]*?: Video: [^\n]*/.exec(stderr)?.[0];
   if (!format || !video) return null;
-  const size = /, (\d{2,5})x(\d{2,5})[ ,[]/.exec(video);
   const fps = /, ([\d.]+) fps/.exec(video)?.[1] ?? /, ([\d.]+) tbr/.exec(video)?.[1];
   const time = /Duration: (\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(stderr);
   return {
     format: format.replace(/,$/, ""),
     duration: time ? Number(time[1]) * 3600 + Number(time[2]) * 60 + Number(time[3]) : null,
-    width: Number(size?.[1] ?? 0),
-    height: Number(size?.[2] ?? 0),
+    ...visibleSize(video, stderr),
     fps: fps ? Number(fps) : null,
+    alpha: /\b(yuva\w*|rgba\w*|bgra|argb|abgr|ya\d+\w*|pal8|gbrap\w*)\b/.test(video),
+    hdr: /smpte2084|arib-std-b67/.test(video),
   };
+}
+
+/** 영상 · 움직이는 그림의 머리를 읽는다. 읽지 못하면 background-bad-source */
+async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
+  // 출력 없이 열기만 하면 머리를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
+  const { stderr, aborted } = await runFfmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
+  if (aborted) throw codedError("aborted", "그만뒀습니다");
+  const input = parseInput(stderr);
+  if (!input) throw badSource(`ffmpeg 가 영상으로 읽지 못했습니다: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  return input;
 }
 
 /** 길이를 적지 않은 입력(움직이는 WebP · APNG): 영상 패킷을 풀지 않고 세어 마지막 장면의 끝 */
@@ -100,11 +122,7 @@ async function countedDuration(file: string, signal: AbortSignal): Promise<numbe
 
 /** 영상 · 움직이는 그림 */
 async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspected> {
-  // 출력 없이 열기만 하면 머리를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
-  const { stderr, aborted } = await runFfmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
-  if (aborted) throw codedError("aborted", "그만뒀습니다");
-  const input = parseInput(stderr);
-  if (!input) throw badSource(`ffmpeg 가 영상으로 읽지 못했습니다: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  const input = await probeVideo(file, signal);
   if (!sideOk(input.width) || !sideOk(input.height)) throw badSource(`영상 크기가 범위 밖입니다: ${input.width} × ${input.height}`);
   const fps = input.fps ?? 30;
   if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 장면 수가 범위 밖입니다: ${fps}`);
@@ -141,5 +159,5 @@ async function receive({ item, signal }: StageJob): Promise<StageResult> {
   return inspectSource(file, signal);
 }
 
-export { receive, inspectSource, download, parseInput, READ_ARGS, FORMATS };
-export type { Inspected };
+export { receive, inspectSource, probeVideo, download, parseInput, READ_ARGS, FORMATS };
+export type { Inspected, Probed };
