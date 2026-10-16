@@ -4,12 +4,12 @@
 // 쓸 색이 없으면(흑백 앨범아트 · 무채색 임베드 색) 회색 체계(Monochrome). Tonal Spot 은 무채색에서도 색상을 셈해 엉뚱한 색(검정 → 분홍, 흰색 · 회색 → 청록)을 낸다
 
 import { Hct, MaterialDynamicColors, SchemeMonochrome, SchemeTonalSpot, argbFromHex, hexFromArgb } from "@material/material-color-utilities";
+// 그림에 쓸 만한 색이 없다(art.ts 가 흑백 · 거의 무채색 그림에 준다)
+import { COLORLESS } from "../../../src/rules/art-seed.ts";
 
 /** 운영자 색(임베드 색)을 받기 전 처음의 바탕색 */
 const DEFAULT_SEED = argbFromHex("#1793d1");
 
-/** 그림에 쓸 만한 색이 없다(art.ts 가 흑백 · 거의 무채색 그림에 준다. 라이브러리는 이때 구글 파랑을 준다) */
-const COLORLESS = 0;
 /** 이보다 채도가 낮으면 무채색으로 본다. 앨범아트에서 색을 뽑을 때 버리는 기준(Score.CUTOFF_CHROMA)과 같다 */
 const CHROMA_FLOOR = 5;
 
@@ -25,4 +25,4 @@ function paletteOf(seed: number, dark: boolean): Record<string, string> {
   return out;
 }
 
-export { COLORLESS, DEFAULT_SEED, paletteOf };
+export { DEFAULT_SEED, paletteOf };

@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@material/material-color-utilities':
+      specifier: ^0.4.0
+      version: 0.4.0
     '@types/node':
       specifier: ^24.13.6
       version: 24.13.6
@@ -19,6 +22,7 @@ overrides:
 
 patchedDependencies:
   '@discordjs/node-pre-gyp@0.4.5': fc9a96c76864dc1ae320a2ac2646b5922d9eee06683ebb28534e2232cd25339d
+  '@material/material-color-utilities@0.4.0': 64001191cd06bfecdc3b428821e6a39026cafce3a326a070351bd18e90d3a0f3
 
 importers:
 
@@ -30,6 +34,9 @@ importers:
       '@discordjs/voice':
         specifier: ^0.19.2
         version: 0.19.2(@discordjs/opus@0.10.0(supports-color@7.2.0))(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(ffmpeg-static@5.3.0(supports-color@7.2.0))
+      '@material/material-color-utilities':
+        specifier: 'catalog:'
+        version: 0.4.0(patch_hash=64001191cd06bfecdc3b428821e6a39026cafce3a326a070351bd18e90d3a0f3)
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
@@ -137,8 +144,8 @@ importers:
         specifier: ^5.3.1
         version: 5.3.1
       '@material/material-color-utilities':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: 'catalog:'
+        version: 0.4.0(patch_hash=64001191cd06bfecdc3b428821e6a39026cafce3a326a070351bd18e90d3a0f3)
       '@twemoji/api':
         specifier: ^17.0.3
         version: 17.0.3
@@ -3040,7 +3047,7 @@ snapshots:
 
   '@kikobeats/time-span@1.0.13': {}
 
-  '@material/material-color-utilities@0.4.0': {}
+  '@material/material-color-utilities@0.4.0(patch_hash=64001191cd06bfecdc3b428821e6a39026cafce3a326a070351bd18e90d3a0f3)': {}
 
   '@napi-rs/wasm-runtime@1.1.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
     dependencies:

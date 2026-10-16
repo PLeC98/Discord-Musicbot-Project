@@ -4,12 +4,9 @@
 // 못 읽으면(막힌 곳 · 그림 없음) 색은 null, 배율은 주소로 짐작한 값이다
 
 import { ref, watch, type Ref } from "vue";
-import { QuantizerCelebi, Score } from "@material/material-color-utilities";
-import { COLORLESS } from "./palette.ts";
+import { SEED_SIDE, seedOfPixels } from "../../../src/rules/art-seed.ts";
 import { labToRgb, rgbToLab } from "./oklab.ts";
 
-// 색을 뽑을 때 읽는 크기(40×40). 대표색 하나를 고르는 데는 이 정도면 충분하고, 더 크면 양자화가 프레임을 넘긴다
-const SIDE = 40;
 const MAX_ZOOM = 2;
 const SNAP = 0.08;
 
@@ -105,19 +102,13 @@ const seedOf = (url: string) =>
       if (!img) return null;
       const content = await contentOf(url);
       const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = SIDE;
+      canvas.width = canvas.height = SEED_SIDE;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return null;
       const crop = Math.min(img.naturalWidth, img.naturalHeight * content);
-      ctx.drawImage(img, (img.naturalWidth - crop) / 2, (img.naturalHeight - crop) / 2, crop, crop, 0, 0, SIDE, SIDE);
-      const data = ctx.getImageData(0, 0, SIDE, SIDE).data;
-      const pixels: number[] = [];
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] < 255) continue;
-        pixels.push(((255 << 24) | (data[i] << 16) | (data[i + 1] << 8) | data[i + 2]) >>> 0);
-      }
-      const [best] = Score.score(QuantizerCelebi.quantize(pixels, 64), { desired: 1, filter: true, fallbackColorARGB: COLORLESS });
-      return best ?? null;
+      ctx.drawImage(img, (img.naturalWidth - crop) / 2, (img.naturalHeight - crop) / 2, crop, crop, 0, 0, SEED_SIDE, SEED_SIDE);
+      // 고르는 셈은 봇(로그인 배경의 장면 색)과 같은 것(rules/art-seed)
+      return seedOfPixels(ctx.getImageData(0, 0, SEED_SIDE, SEED_SIDE).data);
     },
     KEEP.small,
   );

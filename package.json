@@ -29,6 +29,7 @@
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.2",
+    "@material/material-color-utilities": "catalog:",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",

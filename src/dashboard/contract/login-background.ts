@@ -62,18 +62,18 @@ type LoginBackgroundStill = { width: number; url: string };
 type LoginBackgroundRung = { width: number; height: number; codecs: string; bandwidth: number; frameRate: number };
 /** 코덱 하나의 HLS 목록(url, 단계는 낮은 것부터). 코덱을 섞은 목록은 두지 않는다 */
 type LoginBackgroundStream = { codec: LoginBackgroundCodec; url: string; rungs: LoginBackgroundRung[] };
-/** 장면 하나. at 은 구운 영상의 처음부터 초, color 는 그 장면의 색(#RRGGBB) */
-type LoginBackgroundScene = { at: number; color: string };
+/** 장면 하나. at 은 구운 영상의 처음부터 초, color 는 그 장면의 색(화면 색 체계의 바탕색 씨앗, #RRGGBB. 쓸 만한 색이 없으면 null = 회색 테마) */
+type LoginBackgroundScene = { at: number; color: string | null };
 /** 로그인 화면에 쓰는 것. 화면에서 거는 값과 지금 배경의 보일 자리 */
 type LoginBackgroundLook = LoginBackgroundOptions & { position: LoginBackgroundPosition };
 /**
  * GET /api/login-background(로그인 전, 캐시하지 않음, ETag). none 이면 봇 프로필 그림 배경.
  * 파일 주소는 /login-background/:id/… 이고 id 는 배경마다 달라: 폭별 그림 · 조각은 1년 immutable, HLS 목록(.m3u8)은 캐시하지 않는다.
  * 굽는 중이면 생긴 것만 싣는다(썸네일 → H.264 → AV1 · VP9). 보고 있는 화면은 받은 그대로 두고 다음 방문부터 더한 것을 쓴다.
- * stills 는 이미지면 그 그림, 영상이면 운영자가 고른 썸네일(첫 화면 · 마지막 폴백). color 는 대표색(#RRGGBB).
+ * stills 는 이미지면 그 그림, 영상이면 운영자가 고른 썸네일(첫 화면 · 마지막 폴백). color 는 대표색(장면 색과 같은 꼴, 없으면 null).
  * 원본 · 기록 목록 · 올린 파일 이름 · 받은 링크는 싣지 않는다
  */
-type LoginBackground = { kind: "none" } | { kind: "image"; id: string; stills: LoginBackgroundStill[]; color: string; look: LoginBackgroundLook } | { kind: "video"; id: string; stills: LoginBackgroundStill[]; color: string; scenes: LoginBackgroundScene[]; streams: LoginBackgroundStream[]; look: LoginBackgroundLook };
+type LoginBackground = { kind: "none" } | { kind: "image"; id: string; stills: LoginBackgroundStill[]; color: string | null; look: LoginBackgroundLook } | { kind: "video"; id: string; stills: LoginBackgroundStill[]; color: string | null; scenes: LoginBackgroundScene[]; streams: LoginBackgroundStream[]; look: LoginBackgroundLook };
 
 // ── 운영자 패널 ──
 

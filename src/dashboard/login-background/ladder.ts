@@ -25,6 +25,14 @@ function fitShort(width: number, height: number, short: number): { width: number
 /** 크롭한 크기 */
 const cropped = (width: number, height: number, crop: LoginBackgroundCrop) => ({ width: Math.round(width * crop.w), height: Math.round(height * crop.h) });
 
+/** 크롭 안 가운데 정사각형의 크롭(색을 뽑을 때: 화면의 앨범아트 색 뽑기처럼 가운데 정사각형에서) */
+function squareCrop(width: number, height: number, crop: LoginBackgroundCrop): LoginBackgroundCrop {
+  const side = Math.min(width * crop.w, height * crop.h);
+  const w = side / width;
+  const h = side / height;
+  return { x: crop.x + (crop.w - w) / 2, y: crop.y + (crop.h - h) / 2, w, h };
+}
+
 /** 정지 그림을 내는 폭: 원본 폭보다 작거나 같은 것, 하나도 없으면 원본 폭 하나 */
 function stillWidths(width: number): number[] {
   const fit = LOGIN_BG_WIDTHS.filter((one) => one <= width);
@@ -49,7 +57,7 @@ function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null): string
   return `[0:v]${chain}`;
 }
 
-/** 크기를 맞추는 필터 한 갈래(lanczos, 4:2:0) */
-const scaleTo = ({ width, height }: { width: number; height: number }) => `scale=${width}:${height}:flags=lanczos,format=yuv420p`;
+/** 크기를 맞추는 필터 한 갈래(lanczos, 픽셀 형식은 굽기면 4:2:0, 장면을 뜰 때는 RGB) */
+const scaleTo = ({ width, height }: { width: number; height: number }, format = "yuv420p") => `scale=${width}:${height}:flags=lanczos,format=${format}`;
 
-export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, stillWidths, rungShorts, sourceFilter, scaleTo };
+export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, squareCrop, stillWidths, rungShorts, sourceFilter, scaleTo };
