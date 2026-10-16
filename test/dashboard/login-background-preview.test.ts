@@ -13,6 +13,7 @@ import * as store from "../../src/dashboard/login-background/store.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
 import { inspectSource, probeVideo } from "../../src/dashboard/login-background/source.ts";
 import { preview, previewOf, recount, perSecondOf } from "../../src/dashboard/login-background/preview.ts";
+import { layoutOf, strip, stripOf } from "../../src/dashboard/login-background/strip.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-preview-"));
 const SAMPLES = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-samples-"));
@@ -90,7 +91,7 @@ test("투명이 있는 GIF · HDR 영상도 미리보기를 만든다", opts, as
   // 투명한 곳은 검정 위에: 반투명한 시험 영상의 밝기가 절반 아래로
   const gif = store.items().find((one) => one.name === "alpha.gif")!;
   const frame = await runFfmpeg(["-v", "error", "-i", previewOf(gif.id)!, "-frames:v", "1", "-vf", "scale=1:1,format=gray", "-f", "rawvideo", "-"]);
-  assert.ok(Buffer.from(frame.stdout, "latin1")[0] < 140, `밝기 ${Buffer.from(frame.stdout, "latin1")[0]}`);
+  assert.ok(frame.output[0] < 140, `밝기 ${frame.output[0]}`);
 });
 
 test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 세트 어림. 크롭하면 넓이만큼", opts, async () => {
@@ -120,4 +121,15 @@ test("다시 세기: 고른 구간의 초만 새 크롭으로 바꾸고 counted 
 test("framecrc 를 초마다 더한다(빈 초는 0)", () => {
   const framecrc = "#tb 0: 1/30\n#media_type 0: video\n0, 0, 0, 1, 100, 0x1\n0, 1, 1, 1, 50, 0x2\n0, 60, 60, 1, 7, 0x3\n";
   assert.deepEqual(perSecondOf(framecrc), [150, 0, 7]);
+});
+
+test("장면 띠: 0.5초 간격(최대 160장)으로 높이 128 장면을 10열 격자 WebP 한 장으로", opts, async () => {
+  const one = await made("clip.mp4");
+  await run(one);
+  const result = await strip({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} });
+  // 3초: 6장 · 0.5초, 16:9 미리보기라 한 칸 228 × 128
+  assert.deepEqual(result.strip, { count: 6, every: 0.5, columns: 10, width: 228, height: 128 });
+  const meta = await sharp(stripOf(one.id)!).metadata();
+  assert.deepEqual([meta.format, meta.width, meta.height], ["webp", 2280, 128]);
+  assert.deepEqual(layoutOf(600, 854, 480), { count: 160, every: 3.75, columns: 10, width: 228, height: 128 });
 });

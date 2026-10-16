@@ -20,6 +20,7 @@ import * as store from "../login-background/store.ts";
 import * as runner from "../login-background/runner.ts";
 import * as encoders from "../login-background/encoders.ts";
 import { previewOf } from "../login-background/preview.ts";
+import { stripOf } from "../login-background/strip.ts";
 
 /** 올린 파일 이름(보이기만 한다)의 길이 상한 */
 const NAME_MAX = 200;
@@ -153,6 +154,15 @@ loginBackgroundRouter.get("/:id/preview", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
   const file = previewOf(one.id);
+  if (!file) return sendProblem(res, "route-not-found");
+  res.sendFile(file, { headers: { "Cache-Control": "private, max-age=31536000, immutable" } });
+});
+
+// 편집 창 시간 막대의 장면 띠(격자 WebP 한 장, 모양은 배경의 strip)
+loginBackgroundRouter.get("/:id/strip", (req, res) => {
+  const one = itemFor(req, res);
+  if (!one) return;
+  const file = stripOf(one.id);
   if (!file) return sendProblem(res, "route-not-found");
   res.sendFile(file, { headers: { "Cache-Control": "private, max-age=31536000, immutable" } });
 });

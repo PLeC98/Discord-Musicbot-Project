@@ -102,7 +102,7 @@ type LoginBackgroundShows = "none" | "thumb" | "partial" | "full";
  * bytes 는 지금 가진 파일 전부, width · height · duration · fps 는 원본(그림은 duration · fps 0).
  * stages 는 이 배경에 해당하는 단계, stage 는 지금 하는 단계(없으면 null) · progress 는 그 단계의 0 ~ 1, done 은 끝난 단계.
  * resumed 는 봇이 다시 켜져 끝난 단계는 두고 이어서 굽는 중. thumb 은 기록 줄에 띄울 가장 작은 정지 그림(아직 없으면 null).
- * strip 은 시간 막대 장면 띠(GET /:id/strip, 한 줄에 count 장, 장면마다 every 초), estimate 는 미리보기 단계가 끝나고 편집을 적용하기 전까지
+ * strip 은 시간 막대 장면 띠(GET /:id/strip 의 WebP 한 장): count 장을 every 초 간격으로(장면은 그 구간의 가운데 즈음), columns 열 격자, 한 칸 width × height. estimate 는 미리보기 단계가 끝나고 편집을 적용하기 전까지
  */
 type LoginBackgroundItem = {
   id: string;
@@ -126,10 +126,12 @@ type LoginBackgroundItem = {
   resumed: boolean;
   shows: LoginBackgroundShows;
   thumb: string | null;
-  strip: { count: number; every: number } | null;
+  strip: LoginBackgroundStrip | null;
   problem: Code | null;
   estimate: LoginBackgroundEstimate | null;
 };
+/** 시간 막대 장면 띠의 모양(LoginBackgroundItem.strip) */
+type LoginBackgroundStrip = { count: number; every: number; columns: number; width: number; height: number };
 /** 기록 · 저장 한도. history 는 지금 배경 말고 남겨 둘 다 구운 기록 수(0 ~ LOGIN_BG_HISTORY_MAX, 0 이면 지금 배경만), maxBytes 는 쓰는 배경과 기록을 합친 크기(0 이면 무제한) */
 type LoginBackgroundLimits = { history: number; maxBytes: number };
 /**
@@ -168,4 +170,4 @@ type LoginBackgroundState = {
 };
 
 export { LOGIN_BG_WIDTHS, LOGIN_BG_CODECS, SEAM_KINDS, SEAM_SECONDS, LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_OPTIONS_DEFAULT, LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ESTIMATE_MARGIN, LOGIN_BG_STAGES, LOGIN_BG_BEFORE_EDIT, LOGIN_BG_ENCODE_STAGES, LOGIN_BG_ID };
-export type { LoginBackgroundCodec, SeamKind, SeamSeconds, LoginBackgroundOptions, LoginBackgroundPosition, LoginBackgroundStill, LoginBackgroundRung, LoginBackgroundStream, LoginBackgroundScene, LoginBackgroundLook, LoginBackground, LoginBackgroundCrop, LoginBackgroundEdit, LoginBackgroundEstimate, LoginBackgroundPhase, LoginBackgroundShows, LoginBackgroundStage, LoginBackgroundItem, LoginBackgroundLimits, LoginBackgroundEncoder, LoginBackgroundState };
+export type { LoginBackgroundCodec, SeamKind, SeamSeconds, LoginBackgroundOptions, LoginBackgroundPosition, LoginBackgroundStill, LoginBackgroundRung, LoginBackgroundStream, LoginBackgroundScene, LoginBackgroundLook, LoginBackground, LoginBackgroundCrop, LoginBackgroundEdit, LoginBackgroundEstimate, LoginBackgroundPhase, LoginBackgroundShows, LoginBackgroundStage, LoginBackgroundItem, LoginBackgroundStrip, LoginBackgroundLimits, LoginBackgroundEncoder, LoginBackgroundState };

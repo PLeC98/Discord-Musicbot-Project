@@ -106,9 +106,9 @@ test("올리면 편집 전 단계를 하고 편집을 기다린다. 편집은 �
   await step(id);
   assert.deepEqual([(await item(id)).width, (await item(id)).duration], [1920, 10]);
   await step(id, { estimate: { perSecond: [1, 2, 3], stillBytes: 10, crop: { x: 0, y: 0, w: 1, h: 1 }, counted: null, encodeRatio: 7.5, rough: false } });
-  await step(id, { strip: { count: 20, every: 0.5 } });
+  await step(id, { strip: { count: 20, every: 0.5, columns: 10, width: 228, height: 128 } });
   one = await item(id);
-  assert.deepEqual([one.phase, one.stage, one.strip, one.estimate?.perSecond, one.estimate?.counting], ["editing", null, { count: 20, every: 0.5 }, [1, 2, 3], false]);
+  assert.deepEqual([one.phase, one.stage, one.strip, one.estimate?.perSecond, one.estimate?.counting], ["editing", null, { count: 20, every: 0.5, columns: 10, width: 228, height: 128 }, [1, 2, 3], false]);
 
   assert.equal((await send("PUT", `/${id}/edit`, EDIT)).status, 200);
   one = await item(id);

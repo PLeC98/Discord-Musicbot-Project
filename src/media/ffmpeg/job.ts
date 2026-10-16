@@ -16,19 +16,19 @@ type FfmpegJob = {
   discardStdout?: boolean;
   onStderrLine?: (line: string) => void;
 };
-/** 끝난 코드(실행하지 못하면 null) · 모은 출력 · 멈춘 까닭 */
-type FfmpegResult = { code: number | null; stdout: string; stderr: string; aborted: boolean; timedOut: boolean };
+/** 끝난 코드(실행하지 못하면 null) · 모은 출력(글 · 바이트 그대로) · 멈춘 까닭 */
+type FfmpegResult = { code: number | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
 function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = false, onStderrLine }: FfmpegJob = {}): Promise<FfmpegResult> {
   return new Promise((resolve) => {
-    if (signal?.aborted) return resolve({ code: null, stdout: "", stderr: "", aborted: true, timedOut: false });
+    if (signal?.aborted) return resolve({ code: null, stdout: "", output: Buffer.alloc(0), stderr: "", aborted: true, timedOut: false });
     let child;
     try {
       child = spawn(ffmpegPath(), ["-hide_banner", "-nostdin", ...args], { windowsHide: true, stdio: [input ? "pipe" : "ignore", "pipe", "pipe"] });
     } catch (error) {
-      return resolve({ code: null, stdout: "", stderr: String(error), aborted: false, timedOut: false });
+      return resolve({ code: null, stdout: "", output: Buffer.alloc(0), stderr: String(error), aborted: false, timedOut: false });
     }
-    let stdout = "";
+    const chunks: Buffer[] = [];
     let stderr = "";
     let partial = "";
     let timedOut = false;
@@ -36,7 +36,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = f
     const timer = timeoutMs ? setTimeout(() => ((timedOut = true), kill()), timeoutMs) : null;
     signal?.addEventListener("abort", kill, { once: true });
     child.stdout?.on("data", (chunk: Buffer) => {
-      if (!discardStdout) stdout += chunk.toString("utf8");
+      if (!discardStdout) chunks.push(chunk);
     });
     child.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString("utf8");
@@ -49,7 +49,8 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = f
     const done = (code: number | null, extra = "") => {
       if (timer) clearTimeout(timer);
       signal?.removeEventListener("abort", kill);
-      resolve({ code, stdout, stderr: stderr + extra, aborted: signal?.aborted ?? false, timedOut });
+      const output = Buffer.concat(chunks);
+      resolve({ code, stdout: output.toString("utf8"), output, stderr: stderr + extra, aborted: signal?.aborted ?? false, timedOut });
     };
     child.on("error", (error) => done(null, String(error)));
     child.on("close", (code) => done(code));

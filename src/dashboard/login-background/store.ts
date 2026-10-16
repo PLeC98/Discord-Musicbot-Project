@@ -32,6 +32,7 @@ import {
   type LoginBackgroundScene,
   type LoginBackgroundShows,
   type LoginBackgroundStage,
+  type LoginBackgroundStrip,
 } from "../contract/login-background.ts";
 
 let dir = path.join(PROJECT.dashboardData, "login-background");
@@ -70,7 +71,7 @@ type Stored = {
   stage: LoginBackgroundStage | null;
   resumed: boolean;
   problem: Code | null;
-  strip: { count: number; every: number } | null;
+  strip: LoginBackgroundStrip | null;
   estimate: Estimate | null;
   media: Media;
 };
