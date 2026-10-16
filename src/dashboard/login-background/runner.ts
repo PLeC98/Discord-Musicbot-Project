@@ -1,11 +1,11 @@
 // 로그인 배경의 단계를 돌린다. 배경마다 다음 단계를 하나씩 단계 실행기(executors)에 맡기고, 굽기(h264 · encode)는 봇 전체에서 한 번에 하나만 한다(먼저 적용한 배경부터).
 // 받기 · 미리보기 · 썸네일 · 정지 그림 · 장면 색은 굽기 차례를 기다리지 않는다(앞 배경을 굽는 동안 적용해도 새 썸네일이 곧 걸린다).
-// 단계가 실패하면 배경을 실패로 남기고(문제 코드, 만든 것은 지운다) 운영자가 다시 올린다. 봇이 다시 켜지면 하던 단계부터 이어서 한다(그 단계의 임시 파일은 실행기가 치운다)
+// 실행기를 아직 달지 않은 단계는 시작하지 않고 기다린다(달면 kick 으로 이어서 한다). 단계가 실패하면 배경을 실패로 남기고(문제 코드, 만든 것은 지운다) 운영자가 다시 올린다. 봇이 다시 켜지면 하던 단계부터 이어서 한다(그 단계의 임시 파일은 실행기가 치운다)
 
 import fs from "node:fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { codeOf, codedError, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { isCode } from "../../rules/problems.ts";
 import { josa } from "../../rules/josa.ts";
 import { LOGIN_BG_ENCODE_STAGES, type LoginBackgroundCrop, type LoginBackgroundStage } from "../contract/login-background.ts";
@@ -65,16 +65,19 @@ function stopCounting(id: string) {
   counting.delete(id);
 }
 
+/** 할 수 있는 단계인가(실행기를 단 단계만 한다. 아직 없는 단계는 기다린다) */
+const canRun = (stage: LoginBackgroundStage | null): stage is LoginBackgroundStage => stage !== null && executors[stage] !== undefined;
+
 /** 할 단계를 시작한다. 굽기는 도는 것이 없을 때 가장 먼저 적용한 배경 하나만 */
 function kick() {
   for (const one of store.items()) {
     const stage = store.nextStage(one);
-    if (stage && !isEncode(stage) && !running.has(one.id)) start(one, stage);
+    if (canRun(stage) && !isEncode(stage) && !running.has(one.id)) start(one, stage);
   }
   if ([...running.values()].some((run) => isEncode(run.stage))) return;
   const waiting = store
     .items()
-    .filter((one) => !running.has(one.id) && isEncode(store.nextStage(one)))
+    .filter((one) => !running.has(one.id) && isEncode(store.nextStage(one)) && canRun(store.nextStage(one)))
     .sort((a, b) => a.appliedAt - b.appliedAt)[0];
   if (waiting) start(waiting, store.nextStage(waiting)!);
 }
@@ -84,10 +87,10 @@ function start(one: store.Stored, stage: LoginBackgroundStage) {
   running.set(one.id, run);
   one.stage = stage;
   store.save();
-  const executor = executors[stage];
+  const executor = executors[stage]!;
   const job: StageJob = { item: one, folder: store.folderOf(one.id), signal: run.controller.signal, progress: (value) => (run.progress = Math.min(1, Math.max(0, value))) };
   void Promise.resolve()
-    .then(() => (executor ? executor(job) : Promise.reject(codedError("background-failed", `단계 실행기가 없습니다: ${stage}`))))
+    .then(() => executor(job))
     .then(
       (result) => finished(one, run, result ?? {}),
       (error: unknown) => failed(one, run, error),

@@ -34,14 +34,15 @@ const gates = new Map<string, { resolve: (value: StageResult) => void; reject: (
 /** 받기 단계가 알아낸 원본(영상 10초) */
 const RECEIVED: StageResult = { kind: "video", width: 1920, height: 1080, duration: 10, fps: 30 };
 
-function useFakeExecutors() {
+/** 가짜 실행기를 단다(skip 단계는 빼고) */
+function useFakeExecutors(skip?: LoginBackgroundStage) {
   const executor =
     (stage: LoginBackgroundStage): Executor =>
     ({ item }) =>
       new Promise((resolve, reject) => {
         gates.set(item.id, { resolve, reject });
       }).then((result) => (stage === "receive" ? { ...RECEIVED, ...(result as StageResult) } : (result as StageResult)));
-  runner.useExecutors(Object.fromEntries(LOGIN_BG_STAGES.map((stage) => [stage, executor(stage)])));
+  runner.useExecutors(Object.fromEntries(LOGIN_BG_STAGES.filter((stage) => stage !== skip).map((stage) => [stage, executor(stage)])));
 }
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -190,6 +191,19 @@ test("단계가 실패하면 실패로 남기고 만든 것을 지운다. 걸려
   await settle();
   const one = await item(b);
   assert.deepEqual([one.phase, one.problem, one.bytes, (await state()).current], ["failed", "background-failed", 0, a]);
+});
+
+test("실행기가 없는 단계는 시작하지 않고 기다린다. 달면 이어서 한다", async () => {
+  runner._reset();
+  useFakeExecutors("thumb");
+  const id = await applied();
+  await settle();
+  let one = await item(id);
+  assert.deepEqual([one.phase, one.stage, one.problem], ["encoding", null, null]);
+  useFakeExecutors();
+  runner.kick();
+  one = await item(id);
+  assert.equal(one.stage, "thumb");
 });
 
 test("봇이 다시 켜지면 하던 단계부터 이어서 한다", async () => {

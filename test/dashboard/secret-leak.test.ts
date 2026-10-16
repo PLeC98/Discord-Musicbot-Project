@@ -7,6 +7,9 @@ process.env.OWNER_ID = "owner";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { NextFunction, Request, Response, Router } from "express";
 
 const { baseUrl } = await import("../helpers/listen.ts");
@@ -28,8 +31,14 @@ const { tunablesRouter } = await import("../../src/dashboard/routes/tunables.ts"
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 const { snapshotsRouter } = await import("../../src/dashboard/routes/snapshots.ts");
 const { identityRouter } = await import("../../src/dashboard/routes/identity.ts");
+const { loginBackgroundRouter } = await import("../../src/dashboard/routes/login-background.ts");
+const loginBackground = await import("../../src/dashboard/login-background/store.ts");
 
 const store = openTempStore("secret-leak-");
+// 로그인 배경 기록은 실제 저장 자리 대신 임시 폴더에서
+const BACKGROUNDS = fs.mkdtempSync(path.join(os.tmpdir(), "secret-leak-bg-"));
+loginBackground._useDir(BACKGROUNDS);
+after(() => fs.rmSync(BACKGROUNDS, { recursive: true, force: true, maxRetries: 5 }));
 secrets._useKey(Buffer.alloc(32, 9).toString("base64"));
 
 // 값마다 다른 글자. 끝 네 글자(화면에 보이는 것)를 뺀 앞부분이 어디에도 없어야 한다
@@ -88,6 +97,7 @@ const MOUNTS: Array<[string, Router]> = [
   ["/api/admin/tunables", tunablesRouter],
   ["/api/admin/settings-archive", settingsArchiveRouter],
   ["/api/admin/snapshots", snapshotsRouter],
+  ["/api/admin/appearance/login-background", loginBackgroundRouter],
   ["/api", identityRouter],
 ];
 const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest"]);
