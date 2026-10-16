@@ -110,11 +110,12 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   if (!probe) return {};
   const seconds = (Date.now() - started) / 1000;
   const estimate: Estimate = {
-    perSecond: toSet(perSecondOf(run.stdout), probed.width, probed.height),
-    stillBytes: stillBytesOf(probed.width, probed.height),
+    // 비율 · 정지 그림은 구울 원본의 크기로(유튜브는 480p 로 재고 고해상도로 굽는다)
+    perSecond: toSet(perSecondOf(run.stdout), item.width, item.height),
+    stillBytes: stillBytesOf(item.width, item.height),
     crop: FULL,
     counted: null,
-    encodeRatio: (seconds / item.duration) * setTime(probed.width, probed.height),
+    encodeRatio: (seconds / item.duration) * setTime(item.width, item.height),
     rough: item.from === "youtube",
   };
   return { estimate };
