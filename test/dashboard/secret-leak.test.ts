@@ -32,6 +32,7 @@ const { settingsArchiveRouter } = await import("../../src/dashboard/routes/setti
 const { snapshotsRouter } = await import("../../src/dashboard/routes/snapshots.ts");
 const { identityRouter } = await import("../../src/dashboard/routes/identity.ts");
 const { loginBackgroundRouter } = await import("../../src/dashboard/routes/login-background.ts");
+const { publicLoginBackgroundRouter } = await import("../../src/dashboard/routes/login-background-public.ts");
 const loginBackground = await import("../../src/dashboard/login-background/store.ts");
 
 const store = openTempStore("secret-leak-");
@@ -98,10 +99,11 @@ const MOUNTS: Array<[string, Router]> = [
   ["/api/admin/settings-archive", settingsArchiveRouter],
   ["/api/admin/snapshots", snapshotsRouter],
   ["/api/admin/appearance/login-background", loginBackgroundRouter],
+  ["", publicLoginBackgroundRouter],
   ["/api", identityRouter],
 ];
-// 로그인 배경의 미리보기 · 장면 띠는 그 배경의 영상 · 그림 파일이다(배경이 있어야 답한다)
-const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip"]);
+// 로그인 배경의 미리보기 · 장면 띠 · 공개 파일(정지 그림 · HLS)은 그 배경의 파일이다(배경이 있어야 답한다)
+const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
 // 물음표 뒤가 있어야 답하는 경로
 const QUERY: Record<string, string[]> = { "/api/admin/settings-archive/export": ["?kind=settings", "?kind=full"] };

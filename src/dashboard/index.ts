@@ -27,6 +27,7 @@ import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
 import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts";
 import { loginBackgroundRouter } from "./routes/login-background.ts";
+import { publicLoginBackgroundRouter } from "./routes/login-background-public.ts";
 import * as loginBackground from "./login-background/runner.ts";
 import { startEncoderCheck } from "./login-background/encoders.ts";
 import { registerStages } from "./login-background/stages.ts";
@@ -117,6 +118,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(problemsRouter);
   // 파비콘 · 매니페스트(로그인 없이). 화면 폴백보다 앞에
   app.use(publicAppearanceRouter);
+  // 로그인 배경의 배경 정보 · 파일(로그인 없이). 화면 폴백보다 앞에
+  app.use(publicLoginBackgroundRouter);
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
