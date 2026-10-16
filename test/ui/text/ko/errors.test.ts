@@ -151,6 +151,8 @@ test("모든 문장", () => {
       "background-not-ready": shown(notice("background-not-ready")),
       "background-no-space": shown(notice("background-no-space", { size: 512 * 1024 * 1024 })),
       "background-failed": shown(notice("background-failed")),
+      "background-bad-source": shown(notice("background-bad-source")),
+      "background-link-failed": shown(notice("background-link-failed")),
     },
     {
       "must-be-in-voice": "warning 🎧 먼저 음성 채널에 접속해 주세요!\n그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요.",
@@ -294,6 +296,8 @@ test("모든 문장", () => {
       "background-not-ready": "warning ⚠️ 아직 만드는 중인 배경이에요!\n다 만든 배경만 기록에서 골라 쓸 수 있어요.",
       "background-no-space": "warning ⚠️ 저장 공간이 모자라요!\n남은 공간이 512.0 MB 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 해 주세요.",
       "background-failed": "error ❌ 배경을 만들지 못했어요!\n봇 로그에 적힌 까닭을 확인하고 다시 올려 주세요.",
+      "background-bad-source": "warning ✏️ 쓸 수 없는 파일이에요!\n이미지 · 영상 · 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요.",
+      "background-link-failed": "warning ✏️ 링크에서 가져오지 못했어요!\n주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.",
     },
   );
 });

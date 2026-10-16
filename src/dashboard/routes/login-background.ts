@@ -3,7 +3,6 @@
 
 import express, { type Request, type Response } from "express";
 import fs from "node:fs";
-import path from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import logger from "../../infra/log/logger.ts";
@@ -21,10 +20,6 @@ import * as store from "../login-background/store.ts";
 import * as runner from "../login-background/runner.ts";
 import * as encoders from "../login-background/encoders.ts";
 
-/** 올린 원본을 두는 파일(받기 단계가 읽는다) · 받는 동안의 이름 */
-const SOURCE = "source";
-/** 디스크를 꽉 채우지 않게 남겨 둘 크기(설정 DB · 로그가 쓸 자리) */
-const SPACE_MARGIN = 256 * 1024 * 1024;
 /** 올린 파일 이름(보이기만 한다)의 길이 상한 */
 const NAME_MAX = 200;
 
@@ -106,13 +101,13 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
       .replace(/[\p{Cc}\p{Cf}]/gu, "")
       .trim()
       .slice(0, NAME_MAX) || "file";
-  const room = store.freeBytes() - SPACE_MARGIN;
+  const room = store.freeBytes() - store.SPACE_MARGIN;
   const length = Number(req.headers["content-length"]);
   if (room <= 0 || (Number.isFinite(length) && length > room)) return sendProblem(res, "background-no-space", { size: Math.max(0, room) });
   const type = String(req.headers["content-type"] ?? "");
   const id = store.reserve();
   const folder = store.folderOf(id);
-  const file = path.join(folder, SOURCE);
+  const file = store.sourceOf(id);
   let written = 0;
   // 받는 동안에도 남은 공간을 넘으면 멈춘다(Content-Length 가 없거나 틀린 요청)
   const guard = new Transform({

@@ -1,0 +1,61 @@
+// 끝까지 돌리는 ffmpeg 일(시험 · 검사 · 굽기). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
+// signal 로 멈추고, timeoutMs 를 넘으면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 굽기의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine
+
+import { spawn } from "node:child_process";
+import { ffmpegPath } from "./path.ts";
+
+/** 남겨 둘 표준 오류의 끝 */
+const STDERR_KEEP = 64 * 1024;
+
+type FfmpegJob = {
+  /** 표준 입력으로 줄 것 */
+  input?: Buffer;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  /** 표준 출력을 모으지 않는다(파일로 쓰는 일) */
+  discardStdout?: boolean;
+  onStderrLine?: (line: string) => void;
+};
+/** 끝난 코드(실행하지 못하면 null) · 모은 출력 · 멈춘 까닭 */
+type FfmpegResult = { code: number | null; stdout: string; stderr: string; aborted: boolean; timedOut: boolean };
+
+function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = false, onStderrLine }: FfmpegJob = {}): Promise<FfmpegResult> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve({ code: null, stdout: "", stderr: "", aborted: true, timedOut: false });
+    let child;
+    try {
+      child = spawn(ffmpegPath(), ["-hide_banner", "-nostdin", ...args], { windowsHide: true, stdio: [input ? "pipe" : "ignore", "pipe", "pipe"] });
+    } catch (error) {
+      return resolve({ code: null, stdout: "", stderr: String(error), aborted: false, timedOut: false });
+    }
+    let stdout = "";
+    let stderr = "";
+    let partial = "";
+    let timedOut = false;
+    const kill = () => child.kill("SIGKILL");
+    const timer = timeoutMs ? setTimeout(() => ((timedOut = true), kill()), timeoutMs) : null;
+    signal?.addEventListener("abort", kill, { once: true });
+    child.stdout?.on("data", (chunk: Buffer) => {
+      if (!discardStdout) stdout += chunk.toString("utf8");
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString("utf8");
+      stderr = (stderr + text).slice(-STDERR_KEEP);
+      if (!onStderrLine) return;
+      const lines = (partial + text).split(/\r\n|\r|\n/);
+      partial = lines.pop() ?? "";
+      for (const line of lines) if (line) onStderrLine(line);
+    });
+    const done = (code: number | null, extra = "") => {
+      if (timer) clearTimeout(timer);
+      signal?.removeEventListener("abort", kill);
+      resolve({ code, stdout, stderr: stderr + extra, aborted: signal?.aborted ?? false, timedOut });
+    };
+    child.on("error", (error) => done(null, String(error)));
+    child.on("close", (code) => done(code));
+    if (input) child.stdin?.end(input);
+  });
+}
+
+export { runFfmpeg };
+export type { FfmpegJob, FfmpegResult };

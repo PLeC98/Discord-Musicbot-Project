@@ -35,6 +35,8 @@ import {
 } from "../contract/login-background.ts";
 
 let dir = path.join(PROJECT.dashboardData, "login-background");
+/** 디스크를 꽉 채우지 않게 남겨 둘 크기(설정 DB · 로그가 쓸 자리). 올리기 · 받기 · 굽기가 이만큼은 남긴다 */
+const SPACE_MARGIN = 256 * 1024 * 1024;
 const INDEX = "index.json";
 
 type Kind = LoginBackgroundItem["kind"];
@@ -169,6 +171,8 @@ const items = () => loaded().items;
 const find = (id: string) => (LOGIN_BG_ID.test(id) ? (items().find((one) => one.id === id) ?? null) : null);
 /** 배경의 폴더 */
 const folderOf = (id: string) => path.join(dir, id);
+/** 올리거나 받은 원본(받기 단계가 읽어 보고, 다 구우면 지운다) */
+const sourceOf = (id: string) => path.join(folderOf(id), "source");
 
 /** 다 구웠나 */
 const isReady = (one: Stored) => one.problem === null && one.edit !== null && one.stages.every((stage) => one.done.includes(stage));
@@ -320,5 +324,5 @@ function _useDir(folder: string) {
   index = null;
 }
 
-export { loaded, save, items, find, folderOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, phaseOf, showsOf, stagesOf, freeBytes, _useDir };
+export { SPACE_MARGIN, loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, phaseOf, showsOf, stagesOf, freeBytes, _useDir };
 export type { Stored, Estimate, Media };

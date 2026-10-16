@@ -244,13 +244,14 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
 
 /**
  * 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws
- * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다)
+ * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다).
+ * accept: 받을 것의 조건(Content-Type · 크기 상한 · 홉마다의 응답 대기). 기본은 음원(직접 링크)
  */
-async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS }: { bodyIdleMs?: number } = {}) {
-  const { response, agent } = await guardedRequest("GET", rawUrl, deps);
+async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK }: { bodyIdleMs?: number; accept?: Accept } = {}) {
+  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs);
   const source = response.body;
   try {
-    assertResponseAllowed(response.headers);
+    assertResponseAllowed(response.headers, accept);
   } catch (err) {
     source.destroy();
     agent.destroy();
@@ -258,7 +259,7 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
   }
 
   // 받는 쪽이 음원의 버전(ETag 등)을 읽는다
-  const capped = Object.assign(byteCap(MAX_BYTES), { headers: response.headers });
+  const capped = Object.assign(byteCap(accept.maxBytes), { headers: response.headers });
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리
   });

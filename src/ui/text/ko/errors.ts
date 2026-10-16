@@ -222,6 +222,8 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "다 만든 배경만 기록에서 골라 쓸 수 있어요."),
   "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 해 주세요.`),
   "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 까닭을 확인하고 다시 올려 주세요."),
+  "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지 · 영상 · 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
+  "background-link-failed": () => warning("input", "링크에서 가져오지 못했어요!", "주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요."),
 };
 
 /** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */

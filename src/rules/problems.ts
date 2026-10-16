@@ -184,6 +184,10 @@ const WEB = {
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
+  // 받은 파일이 쓸 수 있는 그림 · 영상이 아니다(형식 · 해상도 · 길이 · 초당 장면 수)
+  "background-bad-source": { status: 422, title: "Not a usable image or video" },
+  // 링크에서 받지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
+  "background-link-failed": { status: 502, title: "Could not get the file from the link" },
 } as const satisfies Record<string, ProblemSpec>;
 
 const PROBLEMS = { ...SHARED, ...WEB };
