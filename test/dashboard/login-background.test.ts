@@ -290,3 +290,13 @@ test("봇이 켜진 뒤 첫 요청이 링크 추가여도 새 배경의 폴더�
   const id = ((await res.json()) as LoginBackgroundState).list[0].id;
   assert.equal(fs.existsSync(path.join(DIR, id)), true);
 });
+
+test("이어 할 때 원본이 없으면 원본이 없다는 까닭으로 실패한다", async () => {
+  const id = await upload();
+  await stepUntil(id, (one) => one.phase === "editing");
+  fs.rmSync(store.sourceOf(id));
+  assert.equal((await send("PUT", `/${id}/edit`, EDIT)).status, 200);
+  await settle();
+  const one = await item(id);
+  assert.deepEqual([one.phase, one.problem], ["failed", "background-failed"]);
+});

@@ -119,3 +119,19 @@ test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 �
   await enoughMemory(Number.MAX_SAFE_INTEGER, "시험", stopped.signal);
   assert.ok(Date.now() - started < 1000);
 });
+
+test("진행 감시: out_time_us 가 늘면 다시 재고, 멈추면 알린다", async () => {
+  const { progressWatch } = await import("../../src/media/ffmpeg/job.ts");
+  let stalled = 0;
+  const watch = progressWatch(80, () => stalled++);
+  for (let i = 1; i <= 4; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    watch.feed(`out_time_us=${i * 1000}`);
+    // 늘지 않은 값 · 다른 줄은 다시 재지 않는다
+    watch.feed("progress=continue");
+  }
+  assert.equal(stalled, 0);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal(stalled, 1);
+  watch.stop();
+});

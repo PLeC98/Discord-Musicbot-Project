@@ -14,7 +14,7 @@ import { codedError } from "../../rules/error-kind.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundRung } from "../contract/login-background.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
-import { ffmpeg } from "./ffmpeg.ts";
+import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
 import { cropped, FHD, FPS_CAP, fitShort, scaleTo, sourceFilter, UHD } from "./ladder.ts";
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
@@ -23,8 +23,6 @@ import { josa } from "../../rules/josa.ts";
 
 /** H.264 단계의 짧은 변 */
 const H264_SHORT = 720;
-/** 시간 상한: 구간 1초에 40초(서버 7700HQ 에서 4K 한 세트가 1초에 약 20초) + 10분 */
-const limitFor = (seconds: number) => seconds * 40_000 + 600_000;
 
 /** 단계 하나: 코덱 · 짧은 변(폴더 이름) · 크기 · 인코더 옵션 */
 type Plan = { codec: LoginBackgroundCodec; short: number; width: number; height: number; options: string[] };
@@ -80,11 +78,11 @@ async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, plan
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
   const graph = `${sourceFilter(probed, edit.crop)}${split}`;
   const outputs = plans.flatMap((plan, i) => ["-map", `[${labels[i]}]`, ...plan.options, ...hlsOutput(tmp[i])]);
-  const run = await ffmpeg(["-v", "error", "-progress", "pipe:2", "-nostats", "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", store.sourceOf(item.id), "-filter_complex", graph, "-an", "-sn", "-dn", ...outputs], {
+  const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", store.sourceOf(item.id), "-filter_complex", graph, "-an", "-sn", "-dn", ...outputs], {
     signal,
     discardStdout: true,
     bindCores: true,
-    timeoutMs: limitFor(to - from),
+    ...longJob(to - from),
     onStderrLine: (line) => {
       const time = /^out_time_us=(\d+)/.exec(line);
       if (time) progress(Math.min(1, Number(time[1]) / 1e6 / (to - from)));

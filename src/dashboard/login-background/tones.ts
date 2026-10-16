@@ -4,7 +4,7 @@
 
 import { codedError } from "../../rules/error-kind.ts";
 import { hexOfSeed, SEED_SIDE, seedOfPixels } from "../../rules/art-seed.ts";
-import { ffmpeg } from "./ffmpeg.ts";
+import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
 import type { LoginBackgroundScene } from "../contract/login-background.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
@@ -35,10 +35,10 @@ async function tones({ item, signal, progress }: StageJob): Promise<StageResult>
   const small = fitShort(probed.width * edit.crop.w, probed.height * edit.crop.h, DETECT_SHORT);
   const times: number[] = [];
   const graph = `${sourceFilter(probed, edit.crop)},scale=${small.width}:${small.height}:flags=bilinear,select='gt(scene,${THRESHOLD})',showinfo`;
-  const run = await ffmpeg(["-v", "info", "-nostats", "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-f", "null", "-"], {
+  const run = await ffmpeg(["-v", "info", ...PROGRESS_ARGS, "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-f", "null", "-"], {
     signal,
     discardStdout: true,
-    timeoutMs: (to - from) * 5_000 + 120_000,
+    ...longJob(to - from),
     onStderrLine: (line) => {
       const at = /\[Parsed_showinfo[^\]]*\].*?pts_time:\s*([\d.]+)/.exec(line);
       if (at) times.push(Number(at[1]));

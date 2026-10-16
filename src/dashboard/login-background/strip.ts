@@ -38,7 +38,7 @@ async function strip({ item, signal }: StageJob): Promise<StageResult> {
   const layout = layoutOf(item.duration, probed.width, probed.height);
   const rows = Math.ceil(layout.count / COLUMNS);
   const filter = `fps=${layout.count}/${item.duration},scale=${layout.width}:${layout.height}:flags=lanczos,tile=${COLUMNS}x${rows}`;
-  const run = await ffmpeg(["-v", "error", ...READ_ARGS, "-i", preview, "-vf", filter, "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"], { signal, timeoutMs: item.duration * 2_000 + 60_000 });
+  const run = await ffmpeg(["-v", "error", ...READ_ARGS, "-i", preview, "-vf", filter, "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"], { signal, timeoutMs: item.duration * 20_000 + 600_000 });
   if (run.aborted) throw codedError("aborted", "그만뒀습니다");
   const png = run.output;
   if (run.code !== 0 || !png.length) throw codedError("background-failed", `장면 띠를 만들지 못했습니다: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);

@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, codedError, messageOf } from "../../rules/error-kind.ts";
 import { isCode } from "../../rules/problems.ts";
 import { josa } from "../../rules/josa.ts";
 import { LOGIN_BG_ENCODE_STAGES, type LoginBackgroundCrop, type LoginBackgroundStage } from "../contract/login-background.ts";
@@ -25,6 +25,9 @@ let executors: Partial<Record<LoginBackgroundStage, Executor>> = {};
 let recounter: Recounter | null = null;
 /** 다시 세는 중인 배경 */
 const counting = new Map<string, AbortController>();
+
+/** 원본으로 만드는 단계(받기 · 고해상도 받기는 원본을 받고, 장면 띠는 미리보기에서, 마무리는 원본을 지운다) */
+const FROM_SOURCE: readonly LoginBackgroundStage[] = ["preview", "thumb", "stills", "tones", "h264", "encode"];
 
 const isEncode = (stage: LoginBackgroundStage | null) => stage !== null && LOGIN_BG_ENCODE_STAGES.includes(stage);
 
@@ -90,7 +93,11 @@ function start(one: store.Stored, stage: LoginBackgroundStage) {
   const executor = executors[stage]!;
   const job: StageJob = { item: one, folder: store.folderOf(one.id), signal: run.controller.signal, progress: (value) => (run.progress = Math.min(1, Math.max(0, value))) };
   void Promise.resolve()
-    .then(() => executor(job))
+    .then(() => {
+      // 원본으로 만드는 단계인데 원본이 없다(봇 폴더에서 지워졌다): 다시 올리게 한다
+      if (FROM_SOURCE.includes(stage) && !fs.existsSync(store.sourceOf(one.id))) throw codedError("background-failed", "원본이 없습니다. 다시 올려 주세요");
+      return executor(job);
+    })
     .then(
       (result) => finished(one, run, result ?? {}),
       (error: unknown) => failed(one, run, error),

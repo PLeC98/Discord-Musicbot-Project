@@ -1,5 +1,5 @@
 // 끝까지 돌리는 ffmpeg 일(시험 · 검사 · 굽기). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
-// signal 로 멈추고, timeoutMs 를 넘으면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 굽기의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
+// signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 굽기의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
 // 띄운 것은 자식 프로세스 장부에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 굽기용 코어로 묶는다(infra/cpu-affinity)
 
 import { spawn } from "node:child_process";
@@ -16,6 +16,8 @@ type FfmpegJob = {
   input?: Buffer;
   signal?: AbortSignal;
   timeoutMs?: number;
+  /** 진행(-progress 의 out_time_us)이 이만큼 늘지 않으면 끊는다. 느린 기기에서 길게 도는 굽기는 끊지 않고 멈춘 것만 끊는다 */
+  stallMs?: number;
   /** 표준 출력을 모으지 않는다(파일로 쓰는 일) */
   discardStdout?: boolean;
   onStderrLine?: (line: string) => void;
@@ -25,10 +27,26 @@ type FfmpegJob = {
   /** 굽기용 코어로 묶는다 */
   bindCores?: boolean;
 };
+/** 진행 감시: feed 에 표준 오류 줄을 주면 out_time_us 가 늘 때마다 다시 잰다. stallMs 동안 늘지 않으면 onStall */
+function progressWatch(stallMs: number, onStall: () => void) {
+  let last = -1;
+  let timer = setTimeout(onStall, stallMs);
+  return {
+    feed(line: string) {
+      const time = /^out_time_us=(\d+)/.exec(line);
+      if (!time || Number(time[1]) <= last) return;
+      last = Number(time[1]);
+      clearTimeout(timer);
+      timer = setTimeout(onStall, stallMs);
+    },
+    stop: () => clearTimeout(timer),
+  };
+}
+
 /** 끝난 코드(실행하지 못하면 null) · 모은 출력(글 · 바이트 그대로) · 멈춘 까닭 */
 type FfmpegResult = { code: number | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
-function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = false, onStderrLine, label = "job", job, bindCores = false }: FfmpegJob = {}): Promise<FfmpegResult> {
+function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardStdout = false, onStderrLine, label = "job", job, bindCores = false }: FfmpegJob = {}): Promise<FfmpegResult> {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve({ code: null, stdout: "", output: Buffer.alloc(0), stderr: "", aborted: true, timedOut: false });
     let child;
@@ -47,6 +65,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = f
     let timedOut = false;
     const kill = () => child.kill("SIGKILL");
     const timer = timeoutMs ? setTimeout(() => ((timedOut = true), kill()), timeoutMs) : null;
+    const watch = stallMs ? progressWatch(stallMs, () => ((timedOut = true), kill())) : null;
     signal?.addEventListener("abort", kill, { once: true });
     child.stdout?.on("data", (chunk: Buffer) => {
       if (!discardStdout) chunks.push(chunk);
@@ -55,13 +74,18 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = f
       const text = chunk.toString("utf8");
       // -progress 의 "열쇠=값" 줄은 남기지 않는다(실패했을 때 끝 줄이 오류가 아니라 진행으로 채워진다)
       stderr = (stderr + text.replace(/^[a-z_]+=[^\n]*\n?/gm, "")).slice(-STDERR_KEEP);
-      if (!onStderrLine) return;
+      if (!onStderrLine && !watch) return;
       const lines = (partial + text).split(/\r\n|\r|\n/);
       partial = lines.pop() ?? "";
-      for (const line of lines) if (line) onStderrLine(line);
+      for (const line of lines) {
+        if (!line) continue;
+        watch?.feed(line);
+        onStderrLine?.(line);
+      }
     });
     const done = (code: number | null, extra = "") => {
       if (timer) clearTimeout(timer);
+      watch?.stop();
       signal?.removeEventListener("abort", kill);
       release();
       const output = Buffer.concat(chunks);
@@ -73,5 +97,5 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = f
   });
 }
 
-export { runFfmpeg };
+export { runFfmpeg, progressWatch };
 export type { FfmpegJob, FfmpegResult };
