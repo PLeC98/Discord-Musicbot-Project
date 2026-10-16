@@ -18,11 +18,11 @@ import { ffmpeg } from "./ffmpeg.ts";
 import { cropped, FHD, FPS_CAP, fitShort, scaleTo, sourceFilter, UHD } from "./ladder.ts";
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
+import { enoughMemory, NEEDS } from "./memory.ts";
+import { josa } from "../../rules/josa.ts";
 
 /** H.264 단계의 짧은 변 */
 const H264_SHORT = 720;
-/** 나눠 굽기에 필요한 남은 메모리: 4K 가 있으면 서버에서 9.5 ~ 9.9GB(research §11.7 B4s), 1080p 만이면 그보다 훨씬 작다 */
-const SPLIT_MEMORY = { uhd: 11 * 1024 ** 3, fhd: 4 * 1024 ** 3 };
 /** 시간 상한: 구간 1초에 40초(서버 7700HQ 에서 4K 한 세트가 1초에 약 20초) + 10분 */
 const limitFor = (seconds: number) => seconds * 40_000 + 600_000;
 
@@ -157,16 +157,18 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
   const plans = plansFor(codecs, size, fps);
   if (!plans.length) throw codedError("background-failed", `굽는 인코더가 없습니다(${codecs.join(" · ")})`);
   const left = plans.filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
-  const need = left.some((plan) => plan.short >= UHD) ? SPLIT_MEMORY.uhd : SPLIT_MEMORY.fhd;
+  // 나눠 굽기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 굽는다). 4K 가 없으면 1080p 둘 몫
+  const need = left.some((plan) => plan.short >= UHD) ? NEEDS.split : NEEDS.fhd * 2;
   if (left.length > 1 && os.freemem() >= need) {
     const failure = await encodeTogether(item, probed, left, signal, progress);
     if (failure) {
-      log.warn({ sub: "admin" }, `로그인 배경 "${item.name}" 을 나눠 굽다 실패해 인코더를 다시 시험하고 따로 굽습니다: ${failure}`);
+      log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"${josa(item.name, "을")} 나눠 굽다 실패해 인코더를 다시 시험하고 따로 굽습니다: ${failure}`);
       await recheck();
     }
   }
   const rest = plansFor(codecs, size, fps).filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
   for (const [i, plan] of rest.entries()) {
+    await enoughMemory(plan.codec === "h264" ? NEEDS.probe : plan.short >= UHD ? NEEDS.uhd : NEEDS.fhd, `${plan.codec} ${plan.short}p 굽기`, signal);
     const failure = await encodeTogether(item, probed, [plan], signal, (value) => progress((i + value) / rest.length));
     if (failure) throw codedError("background-failed", `${plan.codec} ${plan.short}p 를 굽지 못했습니다: ${failure}`);
   }

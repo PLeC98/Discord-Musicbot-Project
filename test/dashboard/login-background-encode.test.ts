@@ -109,3 +109,13 @@ test("굽기 코어: 논리 코어의 80%, 최소 2개는 비운다(위쪽 코�
   assert.ok(count >= 1 && (total <= 2 || total - count >= 2));
   assert.ok(count <= Math.max(1, Math.floor(total * 0.8)));
 });
+
+test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 않는다", async () => {
+  const { enoughMemory } = await import("../../src/dashboard/login-background/memory.ts");
+  const started = Date.now();
+  await enoughMemory(0, "시험", signal);
+  const stopped = new AbortController();
+  stopped.abort();
+  await enoughMemory(Number.MAX_SAFE_INTEGER, "시험", stopped.signal);
+  assert.ok(Date.now() - started < 1000);
+});
