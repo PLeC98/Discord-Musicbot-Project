@@ -130,7 +130,7 @@ type LoginBackgroundItem = {
   problem: Code | null;
   estimate: LoginBackgroundEstimate | null;
 };
-/** 기록 · 저장 한도. history 는 지금 배경 말고 남겨 둘 다 구운 기록 수(1 ~ LOGIN_BG_HISTORY_MAX), maxBytes 는 쓰는 배경과 기록을 합친 크기(0 이면 무제한) */
+/** 기록 · 저장 한도. history 는 지금 배경 말고 남겨 둘 다 구운 기록 수(0 ~ LOGIN_BG_HISTORY_MAX, 0 이면 지금 배경만), maxBytes 는 쓰는 배경과 기록을 합친 크기(0 이면 무제한) */
 type LoginBackgroundLimits = { history: number; maxBytes: number };
 /**
  * 코덱 하나를 굽는 인코더(봇이 켜질 때 작은 시험으로 고른다). encoder 는 ffmpeg 의 인코더 이름(없으면 null, 그 코덱은 굽지 않는다), hardware 는 GPU 인코더인가,
@@ -143,7 +143,7 @@ type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | n
  * previous 는 로그인 화면에 걸었던 것 중 current 를 빼고 마지막으로 쓴 것(인코딩 취소 때 돌아갈 곳).
  * shows 는 로그인 화면에 지금 걸린 것, list 는 만드는 배경 · 쓰는 배경 · 기록(새것부터). usedBytes 는 list 전부, freeBytes 는 저장 자리 디스크의 남은 크기.
  * encoders 는 코덱마다의 인코더, checking 은 인코더를 시험하는 중.
- * 한도는 굽기를 마칠 때 · 한도를 바꿀 때 지킨다: 다 구운 기록 중 current · previous 를 뺀 것을 마지막으로 쓴 지 오래된 것부터 지운다.
+ * 한도는 굽기를 마칠 때 · 한도를 바꿀 때 지킨다: 다 구운 기록 중 current 를 뺀 것을 마지막으로 쓴 지 오래된 것부터 지운다(previous 는 맨 마지막).
  *
  * POST /upload?name=(본문은 파일 그대로) · POST /link { url } 은 새 배경을 만든다(편집 전 단계가 끝나면 editing).
  * GET /:id/preview 는 편집 창의 미리보기(영상 480p · 그림, 원본과 함께 지운다), GET /:id/strip 은 시간 막대 장면 띠.

@@ -155,7 +155,7 @@ test("굽던 배경을 지우면 기다리던 배경이 이어서 굽는다", as
   assert.equal((await state()).current, c);
 });
 
-test("한도는 다 구운 뒤에 지키고, 지금 · 이전 배경은 남긴다", async () => {
+test("한도는 다 구운 뒤에 지키고, 지금 배경을 뺀 오래된 기록부터 지운다(이전 배경은 맨 마지막)", async () => {
   assert.equal((await send("PUT", "/limits", { history: 1, maxBytes: 0 })).status, 200);
   const a = await ready("A");
   const b = await ready("B");
@@ -170,6 +170,32 @@ test("한도는 다 구운 뒤에 지키고, 지금 · 이전 배경은 남긴�
   // C 가 걸리고 B 가 이전 배경, 가장 오래된 A 를 지운다
   assert.deepEqual(await brief(), { current: c, previous: b, phases: { [c]: "ready", [b]: "ready" } });
   assert.equal(fs.existsSync(path.join(DIR, a)), false);
+});
+
+test("보관 0 이면 지금 배경만 남는다. 최대 용량이 모자라면 이전 배경도 지운다", async () => {
+  assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
+  const a = await ready("A");
+  const b = await ready("B");
+  assert.deepEqual(await brief(), { current: b, previous: null, phases: { [b]: "ready" } });
+  assert.equal(fs.existsSync(path.join(DIR, a)), false);
+
+  // 배경 하나가 1000 바이트(올린 원본): 1500 이면 둘은 들어가지 않는다
+  assert.equal((await send("PUT", "/limits", { history: 5, maxBytes: 1500 })).status, 200);
+  const c = await ready("C");
+  assert.deepEqual(await brief(), { current: c, previous: null, phases: { [c]: "ready" } });
+});
+
+test("이전 배경이 지워진 뒤 인코딩을 취소하면 봇 프로필 그림으로", async () => {
+  const a = await ready("A");
+  const b = await applied("B");
+  await stepUntil(b, (one) => one.stage === "h264");
+  assert.deepEqual([(await state()).current, (await state()).previous], [b, a]);
+  // 굽는 동안 한도를 줄이면 바로 지킨다: 다 구운 기록인 A 를 지운다
+  assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
+  assert.deepEqual([(await state()).current, (await state()).previous], [b, null]);
+  assert.equal((await send("POST", `/${b}/cancel`)).status, 200);
+  const s = await state();
+  assert.deepEqual([s.current, s.shows, s.list.length], [null, "none", 0]);
 });
 
 test("기록으로 갈아 끼우기 · 비우기", async () => {
@@ -230,7 +256,8 @@ test("요청 검사: 크롭 · 구간 · 썸네일 장면 · 영상 길이 · �
     { ...EDIT, range: [2, 30] },
   ];
   for (const body of bad) assert.deepEqual(await codeOf(await send("PUT", `/${id}/edit`, body)), [400, "bad-request"]);
-  assert.deepEqual(await codeOf(await send("PUT", "/limits", { history: 0, maxBytes: 0 })), [400, "bad-request"]);
+  assert.deepEqual(await codeOf(await send("PUT", "/limits", { history: -1, maxBytes: 0 })), [400, "bad-request"]);
+  assert.deepEqual(await codeOf(await send("PUT", "/limits", { history: 51, maxBytes: 0 })), [400, "bad-request"]);
   assert.deepEqual(await codeOf(await send("PUT", "/options", { blur: 0.5, cover: 90, follow: true, seam: { kind: "cut", seconds: 1 } })), [400, "bad-request"]);
   assert.deepEqual(await codeOf(await send("PUT", "/options", { blur: 0.5, cover: 35, follow: true, seam: { kind: "cut", seconds: 3 } })), [400, "bad-request"]);
   const options = { blur: 0.8, cover: 50, follow: false, seam: { kind: "blur", seconds: 2 } };

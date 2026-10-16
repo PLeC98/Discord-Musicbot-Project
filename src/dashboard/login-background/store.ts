@@ -1,7 +1,8 @@
 // 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지 · 지금 배경 · 화면에서 거는 값 · 한도는 같은 자리의 index.json 에 둔다
 // (파비콘과 같은 까닭: 파일과 한 자리라 백업 · 이사 · 불러오기에서 함께 움직인다). 단계를 돌리는 일은 runner.ts 가 하고, 여기는 기록과 그 규칙만 둔다.
 // 규칙: 새 배경은 썸네일이 생기면 로그인 화면에 걸린다(그 전에는 쓰던 배경 그대로). 이전 배경은 걸었던 것 중 지금 배경을 빼고 마지막으로 쓴 것이다.
-// 한도(보관 개수 · 최대 용량)는 다 구운 기록 중 지금 · 이전 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 지워 지킨다
+// 한도(보관 개수 · 최대 용량)는 다 구운 기록 중 지금 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 지워 지킨다(이전 배경은 가장 나중에 쓴 것이라 맨 마지막).
+// 이전 배경의 파일이 지워져도 그것을 보던 화면은 재생이 실패하면 배경 정보를 다시 읽어 지금 배경으로 넘어간다
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -116,7 +117,7 @@ function optionsFrom(raw: unknown): LoginBackgroundOptions {
 function limitsFrom(raw: unknown): LoginBackgroundLimits {
   const one = raw as Partial<LoginBackgroundLimits> | null;
   return {
-    history: isNum(one?.history) && one.history >= 1 && one.history <= LOGIN_BG_HISTORY_MAX ? Math.round(one.history) : LOGIN_BG_LIMITS_DEFAULT.history,
+    history: isNum(one?.history) && one.history >= 0 && one.history <= LOGIN_BG_HISTORY_MAX ? Math.round(one.history) : LOGIN_BG_LIMITS_DEFAULT.history,
     maxBytes: isNum(one?.maxBytes) && one.maxBytes >= 0 ? Math.round(one.maxBytes) : LOGIN_BG_LIMITS_DEFAULT.maxBytes,
   };
 }
@@ -219,9 +220,8 @@ function remove(id: string) {
 /** 한도를 지킨다. 지운 배경의 이름 */
 function enforceLimits(): string[] {
   const state = loaded();
-  const keep = new Set([state.current, previousId()]);
   const victims = items()
-    .filter((one) => isReady(one) && !keep.has(one.id))
+    .filter((one) => isReady(one) && one.id !== state.current)
     .sort((a, b) => a.usedAt - b.usedAt || a.at - b.at);
   const history = () => items().filter((one) => isReady(one) && one.id !== state.current).length;
   const used = () => items().reduce((sum, one) => sum + one.bytes, 0);

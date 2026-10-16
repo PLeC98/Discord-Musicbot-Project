@@ -134,7 +134,7 @@ const BackgroundOptionsBody = z.object(
   BAD_BACKGROUND,
 );
 // 기록 · 저장 한도 { history, maxBytes }
-const BackgroundLimitsBody = z.object({ history: bgNumber(1, LOGIN_BG_HISTORY_MAX).int(BAD_BACKGROUND), maxBytes: bgNumber(0, Number.MAX_SAFE_INTEGER).int(BAD_BACKGROUND) }, BAD_BACKGROUND);
+const BackgroundLimitsBody = z.object({ history: bgNumber(0, LOGIN_BG_HISTORY_MAX).int(BAD_BACKGROUND), maxBytes: bgNumber(0, Number.MAX_SAFE_INTEGER).int(BAD_BACKGROUND) }, BAD_BACKGROUND);
 // 기록의 배경으로 갈아 끼우기 { id }
 const BackgroundUseBody = z.object({ id: z.string(BAD_BACKGROUND).regex(LOGIN_BG_ID, BAD_BACKGROUND) }, BAD_BACKGROUND);
 // 링크로 추가 { url }. 받는 길(safe-url · yt-dlp)이 주소를 본다
