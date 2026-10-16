@@ -7,6 +7,7 @@ import { MAX_COUNT } from "../rules/more-choices.ts";
 import { QUEUE_WINDOW_MAX } from "./contract/player.ts";
 import { isCode, type Code } from "../rules/problems.ts";
 import type { FieldProblem } from "./contract/problem.ts";
+import { LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ID, SEAM_KINDS, SEAM_SECONDS } from "./contract/login-background.ts";
 
 // 칸의 자리를 JSON Pointer 로(빈 자리는 본문 전체)
 const pointerOf = (path: PropertyKey[]) => path.map((key) => `/${String(key).replaceAll("~", "~0").replaceAll("/", "~1")}`).join("");
@@ -108,5 +109,36 @@ const FaviconUseBody = z.object({ id: z.string(BAD_FAVICON).min(1, BAD_FAVICON).
 // 링크로 추가 { url }. http · https 인지 · 내부 주소인지는 infra/safe-url 이 본다
 const FaviconLinkBody = z.object({ url: z.string(BAD_FAVICON).trim().min(1, BAD_FAVICON).max(2048, BAD_FAVICON) }, BAD_FAVICON);
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, QUERY_MAX_LEN };
+// ── 로그인 배경 ──
+
+const BAD_BACKGROUND = { error: "bad-request" satisfies Code };
+const bgNumber = (min: number, max: number) => z.number(BAD_BACKGROUND).min(min, BAD_BACKGROUND).max(max, BAD_BACKGROUND);
+// 원본에서 쓸 사각형(0 ~ 1). 넓이가 있고 원본 밖으로 나가지 않는다(소수 오차는 봐준다)
+const BackgroundCrop = z.object({ x: bgNumber(0, 1), y: bgNumber(0, 1), w: bgNumber(0, 1).positive(BAD_BACKGROUND), h: bgNumber(0, 1).positive(BAD_BACKGROUND) }, BAD_BACKGROUND).refine((crop) => crop.x + crop.w <= 1 + 1e-6 && crop.y + crop.h <= 1 + 1e-6, BAD_BACKGROUND);
+// 쓸 구간(초). 1초 이상(영상 길이 안인지는 경로가 본다)
+const BackgroundRange = z.tuple([bgNumber(0, Number.MAX_SAFE_INTEGER), bgNumber(0, Number.MAX_SAFE_INTEGER)], BAD_BACKGROUND).refine(([from, to]) => to - from >= 1, BAD_BACKGROUND);
+// 편집 적용 { crop, range, thumbAt }. 썸네일 장면은 구간 안
+const BackgroundEditBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable(), thumbAt: bgNumber(0, Number.MAX_SAFE_INTEGER).nullable() }, BAD_BACKGROUND).refine((edit) => edit.thumbAt === null || edit.range === null || (edit.thumbAt >= edit.range[0] && edit.thumbAt <= edit.range[1]), BAD_BACKGROUND);
+// 크기 어림 다시 세기 { crop, range }
+const BackgroundEstimateBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable() }, BAD_BACKGROUND);
+// 보일 자리 { x, y }(%)
+const BackgroundPositionBody = z.object({ x: bgNumber(0, 100), y: bgNumber(0, 100) }, BAD_BACKGROUND);
+// 화면에서 거는 값
+const BackgroundOptionsBody = z.object(
+  {
+    blur: bgNumber(0, LOGIN_BG_BLUR_MAX),
+    cover: bgNumber(0, LOGIN_BG_COVER_MAX),
+    follow: z.boolean(BAD_BACKGROUND),
+    seam: z.object({ kind: z.enum(SEAM_KINDS, BAD_BACKGROUND), seconds: z.literal(SEAM_SECONDS, BAD_BACKGROUND) }, BAD_BACKGROUND),
+  },
+  BAD_BACKGROUND,
+);
+// 기록 · 저장 한도 { history, maxBytes }
+const BackgroundLimitsBody = z.object({ history: bgNumber(1, LOGIN_BG_HISTORY_MAX).int(BAD_BACKGROUND), maxBytes: bgNumber(0, Number.MAX_SAFE_INTEGER).int(BAD_BACKGROUND) }, BAD_BACKGROUND);
+// 기록의 배경으로 갈아 끼우기 { id }
+const BackgroundUseBody = z.object({ id: z.string(BAD_BACKGROUND).regex(LOGIN_BG_ID, BAD_BACKGROUND) }, BAD_BACKGROUND);
+// 링크로 추가 { url }. 받는 길(safe-url · yt-dlp)이 주소를 본다
+const BackgroundLinkBody = z.object({ url: z.string(BAD_BACKGROUND).trim().min(1, BAD_BACKGROUND).max(2048, BAD_BACKGROUND) }, BAD_BACKGROUND);
+
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, QUERY_MAX_LEN };
 export type { SettingsRequest };

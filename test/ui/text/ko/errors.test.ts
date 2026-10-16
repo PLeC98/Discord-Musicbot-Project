@@ -147,6 +147,10 @@ test("모든 문장", () => {
       "image-too-small": shown(notice("image-too-small", { min: 16 })),
       "image-link-failed": shown(notice("image-link-failed", { max: 10 * 1024 * 1024 })),
       "appearance-save-failed": shown(notice("appearance-save-failed")),
+      "background-not-editable": shown(notice("background-not-editable")),
+      "background-not-ready": shown(notice("background-not-ready")),
+      "background-no-space": shown(notice("background-no-space", { size: 512 * 1024 * 1024 })),
+      "background-failed": shown(notice("background-failed")),
     },
     {
       "must-be-in-voice": "warning 🎧 먼저 음성 채널에 접속해 주세요!\n그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요.",
@@ -286,6 +290,10 @@ test("모든 문장", () => {
       "image-too-small": "warning ✏️ 이미지가 너무 작아요!\n한 변이 16px 이상인 이미지를 올려 주세요.",
       "image-link-failed": "warning ✏️ 링크에서 이미지를 가져오지 못했어요!\n주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요. 10.0 MB 보다 큰 이미지는 가져오지 않아요.",
       "appearance-save-failed": "error ❌ 이미지를 저장하지 못했어요!\n파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요.",
+      "background-not-editable": "warning ⚠️ 지금은 편집할 수 없어요!\n편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요.",
+      "background-not-ready": "warning ⚠️ 아직 만드는 중인 배경이에요!\n다 만든 배경만 기록에서 골라 쓸 수 있어요.",
+      "background-no-space": "warning ⚠️ 저장 공간이 모자라요!\n남은 공간이 512.0 MB 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 해 주세요.",
+      "background-failed": "error ❌ 배경을 만들지 못했어요!\n봇 로그에 적힌 까닭을 확인하고 다시 올려 주세요.",
     },
   );
 });

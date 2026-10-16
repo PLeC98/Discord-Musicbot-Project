@@ -217,6 +217,11 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
   "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
   "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
+  // 대시보드: 로그인 배경
+  "background-not-editable": () => warning("state", "지금은 편집할 수 없어요!", "편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요."),
+  "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "다 만든 배경만 기록에서 골라 쓸 수 있어요."),
+  "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 해 주세요.`),
+  "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 까닭을 확인하고 다시 올려 주세요."),
 };
 
 /** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */

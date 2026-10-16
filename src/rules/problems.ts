@@ -177,6 +177,13 @@ const WEB = {
   // 링크에서 이미지를 받지 못했다(접속 · 내부 주소 · 크기 · 시간). 까닭은 로그에만
   "image-link-failed": { status: 502, title: "Could not get the image from the link", params: ["max"] },
   "appearance-save-failed": { status: 500, title: "Could not save the image" },
+  // 대시보드: 로그인 배경. 편집은 편집을 기다리는 배경에 한 번만, 기록으로 갈아 끼우기는 다 만든 배경만
+  "background-not-editable": { status: 409, title: "Background cannot be edited now" },
+  "background-not-ready": { status: 409, title: "Background is not ready" },
+  // 저장 자리 디스크의 남은 크기가 모자라다(size: 남은 크기)
+  "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
+  // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
+  "background-failed": { status: 500, title: "Could not make the background" },
 } as const satisfies Record<string, ProblemSpec>;
 
 const PROBLEMS = { ...SHARED, ...WEB };

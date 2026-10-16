@@ -26,6 +26,8 @@ import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
 import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts";
+import { loginBackgroundRouter } from "./routes/login-background.ts";
+import * as loginBackground from "./login-background/runner.ts";
 import { serviceKeysRouter } from "./routes/service-keys.ts";
 import { tunablesRouter } from "./routes/tunables.ts";
 import { settingsArchiveRouter } from "./routes/settings-archive.ts";
@@ -156,6 +158,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/auth", createAuthRouter());
 
   // API 라우트
+  app.use("/api/admin/appearance/login-background", loginBackgroundRouter);
   app.use("/api/admin/appearance", appearanceRouter);
   app.use("/api/admin/service-keys", serviceKeysRouter);
   app.use("/api/admin/tunables", tunablesRouter);
@@ -178,6 +181,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   const app = createApp(bot, { stream, deployCommands, restart });
   // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재수립은 화면을 열기 전부터 모은다
   startStatus(bot);
+  // 로그인 배경: 봇이 꺼질 때 하던 단계 · 남은 단계를 이어서 한다
+  loginBackground.resume();
   // AI 리퀘스트 로그: 새 기록을 실시간 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
   onTunablesChanged(() => {
