@@ -12,7 +12,7 @@ import type { Estimate, Stored } from "./store.ts";
 import * as store from "./store.ts";
 import type { Recounter, StageJob, StageResult } from "./runner.ts";
 import { encoderFor, encodersReady } from "./encoders.ts";
-import { probeVideo, READ_ARGS } from "./source.ts";
+import { MAX_PIXELS, probeVideo, READ_ARGS } from "./source.ts";
 import { cropped, fitShort, scaleTo, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
 import type { LoginBackgroundCrop } from "../contract/login-background.ts";
 
@@ -65,12 +65,22 @@ const setTime = (width: number, height: number) => (Math.min(width, height) >= U
 const stillPixels = (width: number, height: number) => stillWidths(width).reduce((sum, w) => sum + w * Math.round((height * w) / width), 0);
 const stillBytesOf = (width: number, height: number, perPixel = STILL_BYTES_PER_PIXEL) => Math.round(stillPixels(width, height) * perPixel);
 
+/**
+ * 어림을 잰 크기가 구울 원본보다 작을 때(유튜브: 480p 로 재고 고해상도로 굽는다) 어림 크기 · 시간에 곱할 몫. 1080p 로 줄인 넓이의 비로 어림한다(화소 수에 비례한다고 친다)
+ */
+function upscale(item: Readonly<Stored>, probed: { width: number; height: number }, crop: LoginBackgroundCrop): number {
+  const area = (size: { width: number; height: number }) => size.width * size.height;
+  const real = cropped(item.width, item.height, crop);
+  const measured = cropped(probed.width, probed.height, crop);
+  return Math.max(1, area(fitShort(real.width, real.height, PROBE_SHORT)) / area(fitShort(measured.width, measured.height, PROBE_SHORT)));
+}
+
 /** 어림을 굽는 갈래(AV1 이 SVT-AV1 일 때만, 아니면 어림을 건너뛴다) */
 const probeOutput = (label: string) => ["-map", label, "-c:v", "libsvtav1", "-preset", "12", "-crf", "40", "-g", "60", "-f", "framecrc", "-"];
 const canProbe = () => encoderFor("av1") === "libsvtav1";
 
 async function previewOfImage(item: Readonly<Stored>): Promise<StageResult> {
-  const image = sharp(store.sourceOf(item.id), { limitInputPixels: 200_000_000 }).autoOrient();
+  const image = sharp(store.sourceOf(item.id), { limitInputPixels: MAX_PIXELS }).autoOrient();
   const part = `${previewImage(item.id)}.part`;
   await image.clone().resize({ width: PREVIEW_LONG, height: PREVIEW_LONG, fit: "inside", withoutEnlargement: true }).flatten({ background: TRANSPARENT_FILL }).webp({ quality: 90 }).toFile(part);
   fs.renameSync(part, previewImage(item.id));
@@ -92,6 +102,8 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   const measure = fitShort(probed.width, probed.height, PROBE_SHORT);
   const graph = `${sourceFilter(probed)},split=${probe ? 2 : 1}[a]${probe ? "[b]" : ""};[a]${scaleTo(view)}[p]${probe ? `;[b]${scaleTo(measure)}[e]` : ""}`;
   const part = `${previewVideo(item.id)}.part`;
+  // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg 가 덮어쓰지 않는다
+  fs.rmSync(part, { force: true });
   const started = Date.now();
   const run = await runFfmpeg([...["-v", "error", "-progress", "pipe:2", "-nostats", ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", h264, ...(PREVIEW_H264[h264] ?? []), "-g", "60", "-movflags", "+faststart", "-f", "mp4", part], ...(probe ? probeOutput("[e]") : [])], {
     signal,
@@ -109,13 +121,18 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   fs.renameSync(part, previewVideo(item.id));
   if (!probe) return {};
   const seconds = (Date.now() - started) / 1000;
+  const scale = upscale(item, probed, FULL);
   const estimate: Estimate = {
     // 비율 · 정지 그림은 구울 원본의 크기로(유튜브는 480p 로 재고 고해상도로 굽는다)
-    perSecond: toSet(perSecondOf(run.stdout), item.width, item.height),
+    perSecond: toSet(
+      perSecondOf(run.stdout).map((bytes) => bytes * scale),
+      item.width,
+      item.height,
+    ),
     stillBytes: stillBytesOf(item.width, item.height),
     crop: FULL,
     counted: null,
-    encodeRatio: (seconds / item.duration) * setTime(item.width, item.height),
+    encodeRatio: (seconds / item.duration) * setTime(item.width, item.height) * scale,
     rough: item.from === "youtube",
   };
   return { estimate };
@@ -141,7 +158,12 @@ const recount: Recounter = async ({ item, crop, range, signal }) => {
   const run = await runFfmpeg(["-v", "error", "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, timeoutMs: limitFor(to - from) });
   if (run.code !== 0) throw codedError("background-failed", `어림을 다시 세지 못했습니다: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   // 이 구간의 초만 새 크롭의 크기로(구간 밖은 앞선 어림 그대로, 넓히면 화면이 다시 세게 한다)
-  const counted = toSet(perSecondOf(run.stdout), size.width, size.height);
+  const scale = upscale(item, probed, crop);
+  const counted = toSet(
+    perSecondOf(run.stdout).map((bytes) => bytes * scale),
+    size.width,
+    size.height,
+  );
   const perSecond = [...before.perSecond];
   counted.forEach((bytes, i) => (perSecond[Math.floor(from) + i] = bytes));
   return { ...before, perSecond, crop, counted: [from, to], stillBytes: stillBytesOf(size.width, size.height) };

@@ -133,3 +133,23 @@ test("장면 띠: 0.5초 간격(최대 160장)으로 높이 128 장면을 10열 
   assert.deepEqual([meta.format, meta.width, meta.height], ["webp", 2280, 128]);
   assert.deepEqual(layoutOf(600, 854, 480), { count: 160, every: 3.75, columns: 10, width: 228, height: 128 });
 });
+
+test("이어 하기: 끊긴 미리보기 몫이 남아 있어도 다시 만든다", opts, async () => {
+  const one = await made("clip.mp4");
+  fs.writeFileSync(path.join(store.folderOf(one.id), "preview.mp4.part"), "끊긴 몫");
+  await run(one);
+  assert.match(previewOf(one.id)!, /preview\.mp4$/);
+});
+
+test("유튜브: 480p 로 재고 고해상도로 굽는 어림은 넓이 비만큼 키운다", opts, async () => {
+  if (encoders.encoderFor("av1") !== "libsvtav1") return;
+  const upload = await made("clip.mp4");
+  const asUploaded = (await run(upload)).result.estimate!;
+  const tube = await made("clip.mp4");
+  // 고해상도로 받을 크기(4K)를 적은 유튜브 배경, 원본 자리에는 같은 720p 파일
+  Object.assign(tube, { from: "youtube", width: 3840, height: 2160 });
+  const asYoutube = (await run(tube)).result.estimate!;
+  assert.equal(asYoutube.rough, true);
+  const sum = (list: number[]) => list.reduce((a, b) => a + b, 0);
+  assert.ok(sum(asYoutube.perSecond) > sum(asUploaded.perSecond) * 3, `${sum(asYoutube.perSecond)} > ${sum(asUploaded.perSecond)} × 3`);
+});

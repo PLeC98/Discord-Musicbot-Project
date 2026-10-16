@@ -40,7 +40,8 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, discardStdout = f
     });
     child.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString("utf8");
-      stderr = (stderr + text).slice(-STDERR_KEEP);
+      // -progress 의 "열쇠=값" 줄은 남기지 않는다(실패했을 때 끝 줄이 오류가 아니라 진행으로 채워진다)
+      stderr = (stderr + text.replace(/^[a-z_]+=[^\n]*\n?/gm, "")).slice(-STDERR_KEEP);
       if (!onStderrLine) return;
       const lines = (partial + text).split(/\r\n|\r|\n/);
       partial = lines.pop() ?? "";

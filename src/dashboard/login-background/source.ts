@@ -128,6 +128,8 @@ async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspect
   if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 장면 수가 범위 밖입니다: ${fps}`);
   const duration = input.duration ?? (await countedDuration(file, signal));
   if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없습니다");
+  // 장면이 하나뿐인 것(sharp 가 못 읽은 정지 그림이 영상 틀로 열린 것 등)은 영상이 아니다
+  if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없습니다(${duration}초)`);
   return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps };
 }
 
@@ -159,5 +161,5 @@ async function receive({ item, signal }: StageJob): Promise<StageResult> {
   return inspectSource(file, signal);
 }
 
-export { receive, inspectSource, probeVideo, download, parseInput, READ_ARGS, FORMATS };
+export { receive, inspectSource, probeVideo, download, parseInput, READ_ARGS, FORMATS, MAX_PIXELS };
 export type { Inspected, Probed };

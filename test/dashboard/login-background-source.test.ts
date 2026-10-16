@@ -48,6 +48,8 @@ before(async () => {
   await sharp({ create: { width: 8, height: 8, channels: 3, background: "#000" } })
     .png()
     .toFile(at("tiny.png"));
+  // 장면 하나짜리 영상(sharp 가 못 읽은 정지 그림이 영상 틀로 열린 것과 같다)
+  await make(["-frames:v", "1", "-c:v", "mpeg4", at("one-frame.mp4")]);
   fs.writeFileSync(at("evil.m3u8"), "#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\nfile:///etc/hosts\n#EXT-X-ENDLIST\n");
   fs.writeFileSync(at("text.mp4"), "그냥 글");
 });
@@ -79,6 +81,7 @@ test("다른 파일을 읽는 형식 · 그림이 아닌 것 · 너무 작은 �
   assert.equal(await reject("evil.m3u8"), "background-bad-source");
   assert.equal(await reject("text.mp4"), "background-bad-source");
   assert.equal(await reject("tiny.png"), "background-bad-source");
+  assert.equal(await reject("one-frame.mp4"), "background-bad-source");
 });
 
 test("ffmpeg 머리 읽기: 형식 · 길이 · 크기 · 초당 장면 수", () => {
