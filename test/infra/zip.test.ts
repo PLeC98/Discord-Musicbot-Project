@@ -1,9 +1,13 @@
-// src/infra/zip.ts — 설정 내보내기 · 가져오기의 ZIP. 묶은 것을 그대로 풀고, 믿을 수 없는 파일은 거절한다
+// src/infra/zip.ts — 설정 내보내기 · 가져오기 · 백업의 ZIP. 묶은 것을 그대로 풀고(메모리 · 파일, ZIP64 포함), 믿을 수 없는 파일은 거절한다
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import zlib from "node:zlib";
-import { zip, unzip } from "../../src/infra/zip.ts";
+import { zip, unzip, writeZip, sinkOf, openZip, type ZipInput } from "../../src/infra/zip.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 
 const rejects = (buf: Buffer, options?: Parameters<typeof unzip>[1]) => {
@@ -65,4 +69,75 @@ test("압축 없이 담은 항목 · 폴더 항목 · 끝의 주석이 있어도
     ["dir/a.txt"],
   );
   assert.equal(zlib.crc32(unzip(withComment)[0].data), zlib.crc32(Buffer.from("ab")));
+});
+
+// ── 흘려 쓰기 · 파일 읽기 · ZIP64 ──
+
+const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "zip-stream-"));
+after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
+
+/** 흘려 묶어 파일로 */
+async function written(inputs: ZipInput[], zip64 = false) {
+  const file = path.join(DIR, `${Math.random().toString(36).slice(2)}.zip`);
+  const out = fs.createWriteStream(file);
+  const bytes = await writeZip(inputs, sinkOf(out), { zip64 });
+  await new Promise((resolve) => out.end(resolve));
+  assert.equal(fs.statSync(file).size, bytes);
+  return file;
+}
+const drain = async (stream: NodeJS.ReadableStream) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks);
+};
+
+test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄면 deflate. 파일에서 열어 메모리 · 흘려 읽기", async () => {
+  const media = path.join(DIR, "seg.m4s");
+  fs.writeFileSync(media, crypto.randomBytes(300_000));
+  const text = Buffer.from("가".repeat(5000));
+  for (const zip64 of [false, true]) {
+    const file = await written(
+      [
+        { name: "index.json", data: text },
+        { name: "a/seg-000.m4s", file: media },
+      ],
+      zip64,
+    );
+    const opened = openZip(file);
+    try {
+      assert.deepEqual(
+        opened.entries.map((one) => [one.name, one.method, one.size]),
+        [
+          ["index.json", 8, text.length],
+          ["a/seg-000.m4s", 0, 300_000],
+        ],
+      );
+      assert.deepEqual(opened.read(opened.entries[0], 1_000_000), text);
+      assert.deepEqual(await drain(opened.stream(opened.entries[1])), fs.readFileSync(media));
+      assert.throws(() => opened.read(opened.entries[1], 1000), /너무 큽니다/);
+    } finally {
+      opened.close();
+    }
+    // 메모리 풀기도 같은 목차 읽기(ZIP64 꼴 포함)
+    assert.deepEqual(
+      unzip(fs.readFileSync(file), { maxBytes: 1_000_000 }).map((one) => one.name),
+      ["index.json", "a/seg-000.m4s"],
+    );
+  }
+});
+
+test("흘려 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊는다", async () => {
+  const media = path.join(DIR, "body.bin");
+  fs.writeFileSync(media, Buffer.alloc(50_000, 7));
+  const file = await written([{ name: "body.bin", file: media }]);
+  // 몸통 한가운데를 바꾼다(CRC 가 어긋난다)
+  const buf = fs.readFileSync(file);
+  buf[30 + "body.bin".length + 25_000] ^= 0xff;
+  fs.writeFileSync(file, buf);
+  const opened = openZip(file);
+  try {
+    await assert.rejects(drain(opened.stream(opened.entries[0])), (error: { code?: string }) => error.code === "BAD_ZIP");
+  } finally {
+    opened.close();
+  }
 });
