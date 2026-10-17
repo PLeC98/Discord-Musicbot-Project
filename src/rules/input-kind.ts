@@ -18,3 +18,4 @@ function inputKind(value: unknown): InputKind {
 }
 
 export { inputKind };
+export type { InputKind };
