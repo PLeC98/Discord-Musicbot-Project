@@ -108,10 +108,11 @@ const MOUNTS: Array<[string, Router]> = [
   ["/api", identityRouter],
 ];
 // 로그인 배경의 미리보기 · 장면 띠 · 공개 파일(정지 그림 · HLS)은 그 배경의 파일이다(배경이 있어야 답한다)
-const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
+// 내보내기 내려받기는 한 번 쓰는 표가 있어야 답한다(아래 내보내기 시험이 따로 본다)
+const SKIP = new Set(["/api/admin/settings-archive/download/:ticket", "/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
 // 물음표 뒤가 있어야 답하는 경로
-const QUERY: Record<string, string[]> = { "/api/admin/settings-archive/export": ARCHIVE_KINDS.map((kind) => `?kind=${kind}`) };
+const QUERY: Record<string, string[]> = {};
 
 function getPaths() {
   const out: string[] = [];
@@ -157,7 +158,8 @@ test("AI 미리보기 · 모델 묻기 · 시험 응답에 키가 없다", async
 // 암호화된 설정까지 내보내도 값은 암호문으로만 나간다(끝 네 글자도 담지 않는다)
 test("내보내기 파일(모든 종류, ZIP 의 모든 항목)에 비밀값이 없다", async () => {
   for (const kind of ARCHIVE_KINDS) {
-    const res = await fetch(`${base}/api/admin/settings-archive/export?kind=${kind}`);
+    const ticket = (await (await fetch(`${base}/api/admin/settings-archive/export?kind=${kind}`, { method: "POST", headers: { "X-CSRF-Token": csrf } })).json()) as { url: string };
+    const res = await fetch(base + ticket.url);
     assert.equal(res.status, 200);
     for (const entry of unzip(Buffer.from(await res.arrayBuffer()))) leaksIn(`내보내기(${kind}) ${entry.name}`, entry.data.toString("utf8"));
   }

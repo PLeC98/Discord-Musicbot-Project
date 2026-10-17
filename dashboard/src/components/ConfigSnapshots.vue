@@ -3,7 +3,7 @@
   <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="history" :title="T.title">
-      <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
+      <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.desc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.descTip" /></p>
       <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
       <NoticeBox v-if="view?.staged" variant="note" tone="info" icon="history" class="mt-0! mb-3">
         <span class="flex items-center gap-3 flex-wrap"

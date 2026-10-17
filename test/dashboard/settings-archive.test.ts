@@ -67,7 +67,10 @@ type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; w
 
 /** 내보낸 파일. 기본은 암호화된 설정까지(파비콘 말고 모든 항목이 든다) */
 async function exported(kind: "settings" | "full" | "favicon" = "full") {
-  const res = await fetch(`${base}/export?kind=${kind}`);
+  // 두 걸음: 한 번 쓰는 주소를 받아 그 주소를 내려받는다
+  const ticket = await fetch(`${base}/export?kind=${kind}`, { method: "POST" });
+  assert.equal(ticket.status, 200);
+  const res = await fetch(`${baseUrl(server)}${((await ticket.json()) as { url: string }).url}`);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "application/zip");
   assert.match(res.headers.get("content-disposition") ?? "", new RegExp(`attachment; filename="musicbot-${kind}-\\d{8}-\\d{4}\\.zip"`));
@@ -325,12 +328,18 @@ test("올린 파일: 가져오면 지우고(같은 표로 다시 못 쓴다), �
   assert.deepEqual(fs.readdirSync(uploadDir), [], "봇이 켜질 때 남은 것을 치운다");
 });
 
+test("내려받기 주소는 한 번만 쓴다(다시 열면 404). 모르는 표도 404", async () => {
+  const { url } = (await (await fetch(`${base}/export?kind=settings`, { method: "POST" })).json()) as { url: string };
+  assert.match(url, /^\/api\/admin\/settings-archive\/download\/[0-9a-f]{32}$/);
+  assert.equal((await fetch(`${baseUrl(server)}${url}`)).status, 200);
+  assert.equal((await fetch(`${baseUrl(server)}${url}`)).status, 404);
+  assert.equal((await fetch(`${base}/download/${"0".repeat(32)}`)).status, 404);
+});
+
 test("내보내기 · 가져오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
   const file = await exported();
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
-  assert.equal((await fetch(`${base}/export?kind=settings`)).status, 403);
-  assert.equal((await fetch(`${base}/export?kind=full`)).status, 403);
-  assert.equal((await fetch(`${base}/export?kind=favicon`)).status, 403);
+  for (const kind of ["settings", "full", "favicon", "login-background"]) assert.equal((await fetch(`${base}/export?kind=${kind}`, { method: "POST" })).status, 403);
   assert.equal((await send("import?items=genres", file)).status, 403);
   assert.equal((await preview(file)).status, 200);
 });

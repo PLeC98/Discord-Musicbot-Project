@@ -3,7 +3,9 @@
 import type { SnapshotKind } from "../../../../src/rules/snapshots.ts";
 
 const title = "설정 스냅샷";
-const desc = "설정 DB 를 하루 한 번(7개), 가져오기 · 되살리기 전에(5개) 자동으로 남겨요. 비밀값은 암호문 그대로라 같은 SECRETS_KEY 에서만 풀려요.";
+const desc = "설정을 하루 한 번, 가져오기 · 되살리기 전에 자동으로 남겨요.";
+/** 설명 옆 툴팁 */
+const descTip = "매일 것은 7개, 가져오기 · 되살리기 전 것은 5개까지 남겨요. 키 · 쿠키는 잠긴 그대로라 같은 SECRETS_KEY 에서만 풀려요.";
 const empty = "아직 남긴 스냅샷이 없어요.";
 const kinds: Record<SnapshotKind, string> = { daily: "매일", "before-import": "가져오기 전", "before-restore": "되살리기 전" };
 const restore = "되살리기";
@@ -19,4 +21,4 @@ const stagedDoneBody = "봇을 다시 켜면 바꿔 끼워요.";
 const failed = "되살리기를 걸지 못했어요.";
 const loadFailed = "스냅샷 목록을 읽지 못했어요.";
 
-export { title, desc, empty, kinds, restore, confirmTitle, confirmBody, confirm, staged, unstage, stagedDone, stagedDoneBody, failed, loadFailed };
+export { title, desc, descTip, empty, kinds, restore, confirmTitle, confirmBody, confirm, staged, unstage, stagedDone, stagedDoneBody, failed, loadFailed };

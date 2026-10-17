@@ -105,10 +105,10 @@ test("reauth-required 면 다시 로그인을 묻는다. 그만두면 거절대�
   assert.deepEqual(ends, []);
 });
 
-// 내려받기는 Blob 으로 받는다. 거절도 Blob 으로 오므로 풀어서 읽어야 다시 로그인을 묻는다
-test("Blob 으로 온 문제 응답도 문제로 읽는다(내려받기의 reauth-required)", async () => {
+// 그림을 Blob 으로 받는 요청(파비콘 링크로 추가)은 거절도 Blob 으로 오므로 풀어서 읽어야 다시 로그인을 묻는다
+test("Blob 으로 온 문제 응답도 문제로 읽는다(Blob 으로 받는 요청의 reauth-required)", async () => {
   const { http, reauths } = harness((req) => tokenRoute(req) ?? { problem: "reauth-required", blob: true });
-  await assert.rejects(http.get("/api/admin/settings-archive/export", { responseType: "blob" }), (error: AxiosError) => (error.response?.data as { code?: string }).code === "reauth-required");
+  await assert.rejects(http.post("/api/admin/appearance/favicon/fetch", { url: "https://example.com/a.png" }, { responseType: "blob" }), (error: AxiosError) => (error.response?.data as { code?: string }).code === "reauth-required");
   assert.deepEqual(reauths, ["reauth"]);
 });
 

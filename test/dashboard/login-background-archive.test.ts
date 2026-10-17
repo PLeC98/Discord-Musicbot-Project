@@ -88,7 +88,10 @@ async function made(kind: "image" | "video", name: string) {
 }
 
 async function exported() {
-  const res = await fetch(`${base}/export?kind=login-background`);
+  // 두 걸음: 한 번 쓰는 주소를 받아 그 주소를 내려받는다
+  const ticket = await fetch(`${base}/export?kind=login-background`, { method: "POST" });
+  assert.equal(ticket.status, 200);
+  const res = await fetch(`${baseUrl(server)}${((await ticket.json()) as { url: string }).url}`);
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-disposition") ?? "", /musicbot-login-background-\d{8}-\d{4}\.zip/);
   return Buffer.from(await res.arrayBuffer());

@@ -7,19 +7,27 @@ const exportTitle = "백업 내보내기";
 const exports: Record<ArchiveKind, { title: string; desc: string; button: string }> = {
   settings: {
     title: "봇 설정만",
-    desc: "운영 조절값 · 자동재생 장르 · 활동 문구 · AI 설정 · 프롬프트를 ZIP 하나로 내려받아요. 서버별 설정 · API 키 · 쿠키와 이 PC 에만 맞는 값(쿠키 출처 · POToken)은 빠져요. 다른 봇에 같은 설정을 쓰도록 나눠 줄 때 써요. AI 설정에 직접 적은 주소 · 프롬프트는 들어가요.",
+    desc: "운영 조절값 · 장르 · 활동 문구 · AI 설정 · 프롬프트를 담아요. 다른 봇에 나눠 줄 때 써요.",
     button: "내보내기",
   },
   full: {
     title: "암호화된 설정까지",
-    desc: "봇 설정에 더해 서버별 설정과 API 키 · 쿠키까지 내려받아요. 키 · 쿠키는 이 봇의 SECRETS_KEY 로 잠근 그대로라, 파일이 새도 .env 없이는 풀 수 없어요. 그래도 서버 · 채널과 쓰는 서비스가 보이니 남에게 줄 파일은 아니에요. .env 와 같은 곳에 두지 마세요.",
+    desc: "봇 설정에 서버별 설정 · API 키 · 쿠키까지 담아요. 남에게 주지 마세요.",
     button: "내보내기",
   },
   favicon: { title: "파비콘", desc: "크기별 파비콘과 기록을 담아요.", button: "내보내기" },
-  "login-background": { title: "로그인 배경", desc: "쓰는 배경과 기록을 담아요. 영상이면 수백 MB 가 될 수 있어요.", button: "내보내기" },
+  "login-background": { title: "로그인 배경", desc: "쓰는 배경과 기록을 담아요.", button: "내보내기" },
+};
+/** 제목 옆 툴팁(길어지는 주의) */
+const tips: Record<ArchiveKind | "import", string> = {
+  favicon: "",
+  "login-background": "영상이면 수백 MB 가 될 수 있어요.",
+  settings: "서버별 설정 · API 키 · 쿠키와 이 PC 에만 맞는 값(쿠키 출처 · POToken)은 빠져요. AI 설정에 적은 주소는 들어가요.",
+  full: "키 · 쿠키는 이 봇의 SECRETS_KEY 로 잠겨 .env 없이는 못 풀어요. 그래도 서버 · 채널과 쓰는 서비스가 보이고, .env 와 같은 곳에 두면 풀려요.",
+  import: "키 · 쿠키는 지금 SECRETS_KEY 로 풀리는 것만 가져와요.",
 };
 const importTitle = "백업 불러오기";
-const importDesc = "위에서 내보낸 파일을 올리면 항목마다 지금과 같은지 · 다른지 · 가져올 수 없는지 보여 주고, 고른 항목만 파일의 것으로 덮어써요. 키 · 쿠키는 지금 SECRETS_KEY 로 풀리는 것만 가져와요.";
+const importDesc = "내보낸 파일을 올리면 지금과 비교해 보여 주고, 고른 항목만 덮어써요.";
 const importButton = "파일 고르기";
 const exported = "설정을 내보냈어요";
 const exportFailed = "설정을 내보내지 못했어요.";
@@ -53,4 +61,4 @@ const imported = "설정을 가져왔어요";
 const importedBody = "새 설정으로 화면을 다시 불러와요.";
 const importFailed = "설정을 가져오지 못했어요.";
 
-export { exportTitle, exports, importTitle, importDesc, importButton, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, items, counts, notInFile, same, differs, problem, cancel, apply, imported, importedBody, importFailed };
+export { exportTitle, exports, importTitle, importDesc, importButton, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, items, counts, notInFile, same, differs, problem, cancel, apply, imported, importedBody, importFailed, tips };

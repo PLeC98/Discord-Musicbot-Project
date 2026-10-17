@@ -1,6 +1,7 @@
 // 설정 내보내기 · 가져오기(운영자 패널 백업 탭). /api/admin/settings-archive
 // 내보내기 · 가져오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 갈아 끼우지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
+import crypto from "node:crypto";
 import express from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
@@ -13,7 +14,7 @@ import { sinkOf, writeZip } from "../../infra/zip.ts";
 import * as archive from "../settings-archive.ts";
 import * as uploads from "../archive-uploads.ts";
 import * as snapshots from "../../store/snapshots.ts";
-import { isArchiveItem, isArchiveKind, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
+import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
 
 const settingsArchiveRouter = express.Router();
@@ -30,12 +31,31 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘) · login-background(로그인 배경). 만드는 대로 흘려 보낸다(로그인 배경은 수백 MB)
-settingsArchiveRouter.get("/export", requireRecentLogin, async (req, res) => {
+/** 한 번 쓰는 내려받기 표: 표 → 종류 · 낸 사람 · 지나는 때 */
+const tickets = new Map<string, { kind: ArchiveKind; by: string; until: number }>();
+const TICKET_MS = 60_000;
+const TICKET = /^[0-9a-f]{32}$/;
+
+// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘) · login-background(로그인 배경). 최근 로그인을 보고 한 번 쓰는 내려받기 주소를 준다
+settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");
   if (!isArchiveKind(kind)) return sendProblem(res, "nothing-to-save");
+  const now = Date.now();
+  for (const [key, one] of tickets) if (one.until < now) tickets.delete(key);
+  const ticket = crypto.randomBytes(16).toString("hex");
+  tickets.set(ticket, { kind, by: ranBy(req), until: now + TICKET_MS });
+  res.json({ url: `${req.baseUrl}/download/${ticket}` } satisfies ArchiveDownload);
+});
+
+// 내려받기(표는 한 번만). 만드는 대로 흘려 보낸다(로그인 배경은 수백 MB)
+settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
+  const ticket = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
+  if (ticket) tickets.delete(req.params.ticket);
+  // 없거나 지난 표: 브라우저가 바로 연 주소라 화면 안내 없이 404
+  if (!ticket || ticket.until < Date.now()) return sendProblem(res, "route-not-found");
+  const { kind } = ticket;
   const inputs = archive.build(kind);
-  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${KIND_LABEL[kind]}). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${KIND_LABEL[kind]}). 실행 ${ticket.by}`);
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${archive.fileName(kind)}"`);
   try {

@@ -1,21 +1,21 @@
 <template>
   <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만(나눠 줄 것) · 암호화된 설정까지(서버별 설정 · 키 · 쿠키의 암호문) · 파비콘 · 로그인 배경) · 백업 불러오기.
        불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 고른 것만 덮어쓴다. 내보내기 · 불러오기는 최근 로그인만.
-       .env 까지 담는 전체 백업은 대시보드가 아니라 봇 폴더의 명령(pnpm run backup)이다 -->
+       설명은 짧게, 길어지는 주의는 제목 옆 툴팁으로(2026-10-17 사용자). .env 까지 담는 전체 백업은 대시보드가 아니라 봇 폴더의 명령(pnpm run backup)이다 -->
   <!-- 뿌리 하나(받은 class 가 카드 묶음에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
   <div class="flex flex-col gap-(--gap-in)">
     <!-- 안쪽 카드들(넓으면 둘씩). 설명 길이가 달라도 단추가 같은 줄에 오게 단추는 아래에 붙인다 -->
     <BaseCard icon="download" :title="T.exportTitle">
       <div class="grid grid-cols-1 @2xl/card:grid-cols-2 gap-3">
         <section v-for="kind in ARCHIVE_KINDS" :key="kind" class="flex flex-col rounded-(--r-inner) bg-surface-container-high p-4">
-          <h3 class="mb-1 text-title font-semibold text-on-surface">{{ T.exports[kind].title }}</h3>
+          <h3 class="mb-1 flex items-center gap-1 text-title font-semibold text-on-surface">{{ T.exports[kind].title }}<Icon v-if="T.tips[kind]" name="info" :size="16" class="cursor-help text-on-surface-variant" v-tooltip="T.tips[kind]" /></h3>
           <p class="mb-3 text-sm text-on-surface-variant">{{ T.exports[kind].desc }}</p>
           <BaseButton variant="secondary" class="mt-auto self-start" :disabled="busy" @click="exportNow(kind)"><Icon name="download" :size="18" />{{ T.exports[kind].button }}</BaseButton>
         </section>
       </div>
     </BaseCard>
     <BaseCard icon="upload" :title="T.importTitle">
-      <p class="mb-3 text-sm text-on-surface-variant">{{ T.importDesc }}</p>
+      <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.importDesc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.tips.import" /></p>
       <BaseButton variant="secondary" :disabled="busy" @click="fileEl?.click()"><Icon name="upload" :size="18" />{{ T.importButton }}</BaseButton>
       <input ref="fileEl" type="file" accept=".zip,application/zip" class="hidden" @change="picked" />
     </BaseCard>
@@ -66,7 +66,7 @@ import Icon from "./BaseIcon.vue";
 import { LIMIT } from "../utils/request.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { ARCHIVE_ITEMS, ARCHIVE_KINDS, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview, type ArchiveRow } from "../../../src/dashboard/contract/settings-archive.ts";
+import { ARCHIVE_ITEMS, ARCHIVE_KINDS, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview, type ArchiveRow } from "../../../src/dashboard/contract/settings-archive.ts";
 import { text } from "../text/index.ts";
 const T = text.archive;
 
@@ -88,20 +88,13 @@ function stateOf(row: ArchiveRow) {
   return count ? `${state} · ${count}` : state;
 }
 
-// 받은 이름(Content-Disposition)으로 내려받기
-function saveAs(blob: Blob, disposition: string | undefined) {
-  const name = /filename="([^"]+)"/.exec(disposition ?? "")?.[1] ?? "musicbot-settings.zip";
-  const url = URL.createObjectURL(blob);
-  const link = Object.assign(document.createElement("a"), { href: url, download: name });
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
+// 내려받기는 두 걸음: 최근 로그인을 보고(지났으면 다시 로그인 창) 받은 한 번 쓰는 주소를 브라우저가 바로 내려받는다(수백 MB 인 로그인 배경을 메모리에 들지 않게).
+// 이름은 봇이 보낸 Content-Disposition 대로
 async function exportNow(kind: ArchiveKind) {
   busy.value = true;
   try {
-    const res = await axios.get<Blob>(`${BASE}/export?kind=${kind}`, { responseType: "blob", timeout: LIMIT.long });
-    saveAs(res.data, res.headers["content-disposition"] as string | undefined);
+    const { url } = (await axios.post<ArchiveDownload>(`${BASE}/export?kind=${kind}`)).data;
+    Object.assign(document.createElement("a"), { href: url, download: "" }).click();
     notifyDone(T.exported);
   } catch (err) {
     notifyProblem(err, T.exportFailed);
