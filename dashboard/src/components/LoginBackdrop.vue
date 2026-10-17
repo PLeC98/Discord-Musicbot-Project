@@ -7,7 +7,8 @@
        반복은 브라우저에 맡기고(loop) 끝에 닿기 전 · 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기 · 덮개 색 · 검게 · 흐림)를 걸고 거둔다.
        영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60 을 오가며 장면을 버리지 않게, research §11.8 A9) -->
   <!-- 틀 · 흐리는 층은 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 흐려 모서리 밖까지 번진다) -->
-  <div ref="frameEl" class="absolute inset-0 overflow-hidden rounded-[inherit] bg-black" aria-hidden="true">
+  <!-- 꾸밈 층이다: 안의 효과 층(z-index)이 바깥(로그인 단추 묶음) 위로 올라가지 않게 쌓임을 가두고(isolate), 누르기는 통과시킨다 -->
+  <div ref="frameEl" class="absolute inset-0 isolate overflow-hidden rounded-[inherit] bg-black pointer-events-none" aria-hidden="true">
     <img v-if="still" :src="still.src" :srcset="still.srcset" :sizes="`${Math.max(1, Math.round(frame.width))}px`" alt="" class="absolute inset-0 size-full object-cover" :style="place" draggable="false" />
     <video v-if="codec" :key="codec" ref="videoEl" muted playsinline autoplay loop preload="auto" class="absolute inset-0 size-full object-cover transition-opacity duration-500" :class="started ? 'opacity-100' : 'opacity-0'" :style="place" @playing="onPlaying" @waiting="adapter?.waited()" @stalled="adapter?.waited()" @pause="adapter?.paused(true)" @play="adapter?.paused(false)"></video>
     <canvas ref="freezeEl" class="absolute inset-0 size-full object-cover opacity-0" :style="place"></canvas>
