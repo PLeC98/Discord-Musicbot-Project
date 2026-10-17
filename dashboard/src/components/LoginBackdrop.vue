@@ -116,7 +116,8 @@ async function attach() {
   const stream = props.bg.streams.find((one) => one.codec === now.codec);
   if (!stream) return nextCodec();
   const mine = ++attaching;
-  const got = await playHls(video, stream.url, now.cap, {
+  // 늦게 끝난 것이 같은 영상 칸에 붙지 않게(붙였다 떼면 뒤에 붙인 것까지 떨어진다)
+  const got = await playHls(video, stream.url, now.cap, () => mine === attaching, {
     onStall: () => adapter?.waited(),
     onFatal: ({ load }) => {
       if (mine !== attaching) return;
@@ -128,8 +129,9 @@ async function attach() {
   if (mine === attaching) player = got;
   else got.destroy();
 }
-// 코덱이 바뀌면(영상 칸이 새로 생기면) 목록을 붙이고, 같은 코덱이면 상한만 바꾼다
-watch(videoEl, () => void attach(), { flush: "post" });
+// 영상 칸이 새로 생기거나(코덱이 바뀜) 목록이 바뀌면(다른 배경) 붙인다. 붙이는 곳은 여기 하나(멈춤 감시의 다시 붙이기 말고). 같은 코덱이면 상한만 바꾼다
+const streamUrl = computed(() => (props.bg.kind === "video" && codec.value ? (props.bg.streams.find((one) => one.codec === codec.value)?.url ?? null) : null));
+watch([videoEl, streamUrl], () => void attach(), { flush: "post" });
 watch(
   () => step.value?.cap,
   (cap) => player?.cap(cap ?? null),
@@ -316,11 +318,11 @@ async function begin() {
   lastScene = -2;
   paintScene(-1, FIRST_MS);
   startAdapting();
-  if (videoEl.value) void attach();
 }
-// 다른 배경이 오면 차례부터 다시(흐림의 1080p 상한도 이때 본다. 화면 판에서 흐림을 바꾸는 동안은 다시 정하지 않는다)
+// 다른 배경이 오거나 같은 배경의 목록이 늘면(썸네일 → H.264 → AV1 · VP9, 화면 판) 차례부터 다시. 흐림의 1080p 상한도 이때 본다(흐림을 바꾸는 동안은 다시 정하지 않는다).
+// 로그인 화면은 같은 배경이면 받은 그대로라(다음 방문부터) 여기에 오지 않는다
 watch(
-  () => props.bg.id,
+  () => `${props.bg.id}|${props.bg.kind === "video" ? props.bg.streams.map((one) => one.codec).join(",") : ""}`,
   () => void begin(),
 );
 

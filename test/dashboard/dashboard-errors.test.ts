@@ -174,6 +174,7 @@ test("보안 헤더: 넣기로 한 것만 있고, 넣으면 안 되는 것은 �
 
   assert.match(headers.get("content-security-policy") || "", /default-src 'self'/);
   assert.match(headers.get("content-security-policy") || "", /img-src 'self' data: blob: https:/); // 외부 CDN 썸네일 · 화면이 흐려 만든 배경화면
+  assert.match(headers.get("content-security-policy") || "", /media-src 'self' blob:/); // 로그인 배경 영상(hls.js 가 MediaSource 를 blob: 으로 붙인다)
   assert.match(headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
   assert.equal(headers.get("x-content-type-options"), "nosniff");
   assert.equal(headers.get("x-frame-options"), "DENY");

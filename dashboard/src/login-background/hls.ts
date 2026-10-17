@@ -12,10 +12,21 @@ type HlsPlayer = { cap(short: number | null): void; destroy(): void; info: HlsIn
 const hasMse = () => typeof window.MediaSource !== "undefined" || "ManagedMediaSource" in window;
 const nativeHls = (video: HTMLVideoElement) => video.canPlayType("application/vnd.apple.mpegurl") !== "";
 
-async function playHls(video: HTMLVideoElement, url: string, cap: number | null, events: HlsEvents): Promise<HlsPlayer> {
+/** alive: 불러오는 사이 다른 것으로 바뀌었는지(바뀌었으면 붙이지 않는다) */
+async function playHls(video: HTMLVideoElement, url: string, cap: number | null, alive: () => boolean, events: HlsEvents): Promise<HlsPlayer> {
   const info: HlsInfo = { short: 0, bandwidth: 0 };
   // 가벼운 판: 자막 · 다른 오디오 · DRM 을 뺀 것(영상만인 fMP4 목록이라 쓰지 않는다)
   const { default: Hls } = await import("hls.js/light");
+  if (!alive())
+    return {
+      info,
+      cap() {
+        // 붙이지 않았다
+      },
+      destroy() {
+        // 붙이지 않았다
+      },
+    };
   if (!Hls.isSupported()) {
     video.src = url;
     const onError = () => events.onFatal({ load: true });
@@ -32,7 +43,8 @@ async function playHls(video: HTMLVideoElement, url: string, cap: number | null,
       },
     };
   }
-  const hls = new Hls({ capLevelOnFPSDrop: false, capLevelToPlayerSize: true, startLevel: -1, maxBufferLength: 12 });
+  // 작업자(worker)는 쓰지 않는다: 목록이 fMP4 라 바꿀 것이 없고, 쓰면 CSP 에 worker-src blob: 을 열어야 한다
+  const hls = new Hls({ capLevelOnFPSDrop: false, capLevelToPlayerSize: true, startLevel: -1, maxBufferLength: 12, enableWorker: false });
   const shortOf = (level: { width: number; height: number }) => Math.min(level.width, level.height);
   /** 짧은 변이 cap 이하인 것 중 가장 높은 단계로 상한을 건다(null 이면 화면 크기에 맡긴다) */
   const setCap = (short: number | null) => {

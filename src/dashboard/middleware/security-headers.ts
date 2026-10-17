@@ -10,12 +10,13 @@
 // img-src를 https: 전체로 여는 이유: 썸네일이 유튜브·스포티파이·사운드클라우드·디스코드
 // CDN에서 온다. 호스트 화이트리스트는 플랫폼이 CDN을 바꾸는 순간 이미지를 조용히 깨뜨린다.
 // blob: 은 화면이 앨범아트 · 봇 프사를 흐려 만든 배경화면 그림이다(dashboard/src/theme/art.ts). 빠지면 배경이 비어 보인다.
+// media-src 의 blob: 은 로그인 배경 영상이다: hls.js 가 MediaSource 를 blob: 주소로 영상에 붙인다. 빠지면 영상이 막혀 정지 그림만 보인다.
 //
 // style-src에 'unsafe-inline'이 없는 근거(실측): 빌드 산출물에 인라인 <style>도 style= 속성도
 // 없고, 컴포넌트의 :style 바인딩은 CSSOM(el.style)이라 CSP 대상이 아니다.
 import type { NextFunction, Request, Response } from "express";
 
-const CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data: blob: https:", "connect-src 'self'", "font-src 'self'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "object-src 'none'"].join("; ");
+const CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data: blob: https:", "connect-src 'self'", "media-src 'self' blob:", "font-src 'self'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "object-src 'none'"].join("; ");
 
 function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader("Content-Security-Policy", CSP);
