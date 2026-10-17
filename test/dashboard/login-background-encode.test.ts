@@ -120,6 +120,30 @@ test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 �
   assert.ok(Date.now() - started < 1000);
 });
 
+test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5 까지), 나눠 굽기는 3 · 2 만(들지 않으면 따로)", async () => {
+  const { av1Lp, splitLp, needOf } = await import("../../src/dashboard/login-background/memory.ts");
+  const GB = 1024 ** 3;
+  assert.deepEqual(
+    [64, 8, 7, 5, 4.2, 3].map((free) => av1Lp(true, free * GB)),
+    [5, 4, 4, 2, 1, null],
+  );
+  assert.deepEqual(
+    [64, 2.6, 2, 1.5, 1].map((free) => av1Lp(false, free * GB)),
+    [5, 4, 3, 1, null],
+  );
+  assert.deepEqual(
+    [64, 8.5, 7, 6].map((free) => splitLp(true, free * GB)),
+    [3, 3, 2, null],
+  );
+  assert.deepEqual(
+    [64, 2.9, 2.6, 2].map((free) => splitLp(false, free * GB)),
+    [3, 3, 2, null],
+  );
+  // VP9 · H.264 는 가볍다(AV1 4K 의 몇 분의 일)
+  assert.ok(needOf({ codec: "vp9", uhd: true }) < needOf({ codec: "av1", uhd: true, lp: 1 }));
+  assert.ok(needOf({ codec: "h264" }) < 2 * GB);
+});
+
 test("진행 감시: out_time_us 가 늘면 다시 재고, 멈추면 알린다", async () => {
   const { progressWatch } = await import("../../src/media/ffmpeg/job.ts");
   let stalled = 0;

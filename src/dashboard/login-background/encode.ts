@@ -2,6 +2,7 @@
 // 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 조각)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 굽고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
 // 구간은 원본에서 정확히 자른다(입력 앞 -ss · -to, 다시 굽기라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
 // 굽기 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 굽고, 아니면 단계마다 따로 굽는다(research §11.7 B4 · B4s).
+// AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 고른다(memory.ts, research §11.10).
 // 나눠 굽다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 시험하고 남은 단계를 따로 굽는다.
 // 단계는 임시 폴더(.tmp)에 굽고 끝나면 이름을 바꾼다: 봇이 다시 켜져 이어 할 때는 끝난 단계를 두고 남은 단계만 굽는다
 
@@ -18,7 +19,7 @@ import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
 import { cropped, FHD, FPS_CAP, fitShort, scaleTo, sourceFilter, UHD } from "./ladder.ts";
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
-import { enoughMemory, NEEDS } from "./memory.ts";
+import { AV1_LP_MAX, av1LpFor, enoughMemory, needOf, splitLp } from "./memory.ts";
 import { josa } from "../../rules/josa.ts";
 
 /** H.264 단계의 짧은 변 */
@@ -52,6 +53,9 @@ function plansFor(codecs: LoginBackgroundCodec[], size: { width: number; height:
   });
 }
 
+/** AV1 단계에 병렬 단계를 붙인다 */
+const withLp = (plan: Plan, lp: number) => (plan.codec === "av1" ? { ...plan, options: [...plan.options, "-svtav1-params", `lp=${lp}`] } : plan);
+
 const codecDir = (id: string, codec: LoginBackgroundCodec) => path.join(store.folderOf(id), codec);
 const rungDir = (id: string, plan: Plan) => path.join(codecDir(id, plan.codec), String(plan.short));
 
@@ -63,8 +67,9 @@ const hlsOutput = (dir: string) => {
   return ["-f", "hls", "-hls_time", "2", "-hls_playlist_type", "vod", "-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4", "-hls_segment_filename", at("seg-%03d.m4s"), at("index.m3u8")];
 };
 
-/** 단계들을 한 번 풀어 함께 굽는다(하나면 따로 굽기와 같다). 실패면 ffmpeg 의 까닭 */
-async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, plans: Plan[], signal: AbortSignal, progress: (value: number) => void): Promise<string | null> {
+/** 단계들을 한 번 풀어 함께 굽는다(하나면 따로 굽기와 같다). lp 는 AV1 의 병렬 단계. 실패면 ffmpeg 의 까닭 */
+async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batch: { plans: Plan[]; lp: number }, signal: AbortSignal, progress: (value: number) => void): Promise<string | null> {
+  const plans = batch.plans.map((plan) => withLp(plan, batch.lp));
   const edit = item.edit!;
   const [from, to] = edit.range ?? [0, item.duration];
   const tmp = plans.map((plan) => `${rungDir(item.id, plan)}.tmp`);
@@ -155,10 +160,10 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
   const plans = plansFor(codecs, size, fps);
   if (!plans.length) throw codedError("background-failed", `굽는 인코더가 없습니다(${codecs.join(" · ")})`);
   const left = plans.filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
-  // 나눠 굽기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 굽는다). 4K 가 없으면 1080p 둘 몫
-  const need = left.some((plan) => plan.short >= UHD) ? NEEDS.split : NEEDS.fhd * 2;
-  if (left.length > 1 && os.freemem() >= need) {
-    const failure = await encodeTogether(item, probed, left, signal, progress);
+  // 나눠 굽기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 굽는다)
+  const together = left.length > 1 ? splitLp(left.some((plan) => plan.short >= UHD)) : null;
+  if (together !== null) {
+    const failure = await encodeTogether(item, probed, { plans: left, lp: together }, signal, progress);
     if (failure) {
       log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"${josa(item.name, "을")} 나눠 굽다 실패해 인코더를 다시 시험하고 따로 굽습니다: ${failure}`);
       await recheck();
@@ -166,8 +171,12 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
   }
   const rest = plansFor(codecs, size, fps).filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
   for (const [i, plan] of rest.entries()) {
-    await enoughMemory(plan.codec === "h264" ? NEEDS.probe : plan.short >= UHD ? NEEDS.uhd : NEEDS.fhd, `${plan.codec} ${plan.short}p 굽기`, signal);
-    const failure = await encodeTogether(item, probed, [plan], signal, (value) => progress((i + value) / rest.length));
+    const what = `${plan.codec} ${plan.short}p 굽기`;
+    const uhd = plan.short >= UHD;
+    const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
+    if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
+    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}: 남은 메모리(${(os.freemem() / 1024 ** 3).toFixed(1)}GB)에 맞춰 AV1 병렬 단계를 ${lp} 로 낮춥니다`);
+    const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress((i + value) / rest.length));
     if (failure) throw codedError("background-failed", `${plan.codec} ${plan.short}p 를 굽지 못했습니다: ${failure}`);
   }
   return { media: { ...item.media, rungs: { ...item.media.rungs, ...writeMasters(item, plansFor(LOGIN_BG_CODECS.slice(), size, fps), fps) } } };

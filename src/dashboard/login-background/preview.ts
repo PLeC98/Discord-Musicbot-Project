@@ -12,7 +12,7 @@ import type { Estimate, Stored } from "./store.ts";
 import * as store from "./store.ts";
 import type { Recounter, StageJob, StageResult } from "./runner.ts";
 import { encoderFor, encodersReady } from "./encoders.ts";
-import { enoughMemory, NEEDS } from "./memory.ts";
+import { enoughMemory, needOf } from "./memory.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS } from "./source.ts";
 import { cropped, fitShort, scaleTo, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
 import type { LoginBackgroundCrop } from "../contract/login-background.ts";
@@ -103,7 +103,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg 가 덮어쓰지 않는다
   fs.rmSync(part, { force: true });
   // 어림(AV1 preset 12)은 1.5GB 남짓: 다른 배경을 굽는 중이면 남은 메모리를 기다린다
-  if (probe) await enoughMemory(NEEDS.probe, "크기 어림", signal);
+  if (probe) await enoughMemory(needOf({ codec: "probe" }), "크기 어림", signal);
   const started = Date.now();
   const run = await ffmpeg([...["-v", "error", ...PROGRESS_ARGS, ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", h264, ...(PREVIEW_H264[h264] ?? []), "-g", "60", "-movflags", "+faststart", "-f", "mp4", part], ...(probe ? probeOutput("[e]") : [])], {
     signal,
