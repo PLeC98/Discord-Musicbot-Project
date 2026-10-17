@@ -12,7 +12,7 @@ import { encodeCores } from "../../src/infra/cpu-affinity.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
 import { inspectSource } from "../../src/dashboard/login-background/source.ts";
-import { drop, encode, h264, plansFor } from "../../src/dashboard/login-background/encode.ts";
+import { bakeNow, drop, encode, h264, plansFor } from "../../src/dashboard/login-background/encode.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-encode-"));
 const SAMPLE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-encode-sample-")), "clip.mp4");
@@ -78,7 +78,18 @@ test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열 · 2초 �
 test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", opts, async () => {
   if (!encoders.encoderFor("av1") || !encoders.encoderFor("vp9")) return;
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
-  const first = await encode(job(one));
+  // 굽는 동안 운영자 패널에 보이는 것: 함께 굽는 단계 · AV1 병렬 단계 · 코어
+  const seen: NonNullable<ReturnType<typeof bakeNow>>[] = [];
+  const watch = setInterval(() => {
+    const now = bakeNow();
+    if (now) seen.push(now);
+  }, 20);
+  const first = await encode(job(one)).finally(() => clearInterval(watch));
+  assert.equal(bakeNow(), null, "끝나면 비운다");
+  assert.ok(seen.length > 0);
+  assert.equal(seen[0].id, one.id);
+  assert.ok(seen.every((bake) => bake.rungs.every((rung) => rung.short === 360) && (bake.lp ?? 5) >= 1 && bake.cores.total === os.cpus().length));
+  assert.ok(seen.some((bake) => bake.rungs.some((rung) => rung.codec === "av1") && bake.lp !== null));
   assert.match(first.media!.rungs.av1![0].codecs, /^av01\.0\.\d{2}M\.10$/);
   assert.match(first.media!.rungs.vp9![0].codecs, /^vp09\.00\.\d{2}\.08$/);
   for (const codec of ["av1", "vp9"]) assert.match(fs.readFileSync(at(one, codec, "index.m3u8"), "utf8"), /360\/index\.m3u8/);

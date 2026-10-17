@@ -16,6 +16,7 @@ import type { LoginBackgroundItem, LoginBackgroundState } from "../contract/logi
 import * as store from "../login-background/store.ts";
 import * as runner from "../login-background/runner.ts";
 import * as encoders from "../login-background/encoders.ts";
+import { bakeNow } from "../login-background/encode.ts";
 import { previewOf } from "../login-background/preview.ts";
 import { stripOf } from "../login-background/strip.ts";
 
@@ -69,6 +70,7 @@ function stateOf(): LoginBackgroundState {
     freeBytes: store.freeBytes(),
     encoders: encoders.encoderList(),
     checking: encoders.isChecking(),
+    bake: bakeNow(),
   };
 }
 

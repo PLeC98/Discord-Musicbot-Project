@@ -12,7 +12,8 @@ import path from "node:path";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { codedError } from "../../rules/error-kind.ts";
-import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundRung } from "../contract/login-background.ts";
+import { LOGIN_BG_CODECS, type LoginBackgroundBake, type LoginBackgroundCodec, type LoginBackgroundRung } from "../contract/login-background.ts";
+import { boundCores } from "../../infra/cpu-affinity.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
@@ -53,6 +54,19 @@ function plansFor(codecs: LoginBackgroundCodec[], size: { width: number; height:
   });
 }
 
+/** 지금 도는 굽기(봇 전체에서 하나): 시작한 때 · 구운 영상 초 */
+let baking: (Omit<LoginBackgroundBake, "cores" | "speed"> & { startedAt: number; done: number }) | null = null;
+/** 속도를 내기 전에 기다리는 시간(ffmpeg 를 띄우고 원본을 여는 몫) */
+const SPEED_AFTER_MS = 3_000;
+
+/** 지금 도는 굽기(운영자 패널의 상태) */
+function bakeNow(): LoginBackgroundBake | null {
+  if (!baking) return null;
+  const elapsed = Date.now() - baking.startedAt;
+  const { id, rungs, lp } = baking;
+  return { id, rungs, lp, cores: { bound: boundCores(), total: os.cpus().length }, speed: elapsed >= SPEED_AFTER_MS && baking.done > 0 ? baking.done / (elapsed / 1000) : null };
+}
+
 /** AV1 단계에 병렬 단계를 붙인다 */
 const withLp = (plan: Plan, lp: number) => (plan.codec === "av1" ? { ...plan, options: [...plan.options, "-svtav1-params", `lp=${lp}`] } : plan);
 
@@ -70,6 +84,21 @@ const hlsOutput = (dir: string) => {
 /** 단계들을 한 번 풀어 함께 굽는다(하나면 따로 굽기와 같다). lp 는 AV1 의 병렬 단계. 실패면 ffmpeg 의 까닭 */
 async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batch: { plans: Plan[]; lp: number }, signal: AbortSignal, progress: (value: number) => void): Promise<string | null> {
   const plans = batch.plans.map((plan) => withLp(plan, batch.lp));
+  const [from, to] = item.edit!.range ?? [0, item.duration];
+  const mine = { id: item.id, rungs: plans.map((plan) => ({ codec: plan.codec, short: plan.short })), lp: plans.some((plan) => plan.codec === "av1") ? batch.lp : null, startedAt: Date.now(), done: 0 };
+  baking = mine;
+  try {
+    return await bake(item, probed, plans, signal, (seconds) => {
+      mine.done = seconds;
+      progress(Math.min(1, seconds / (to - from)));
+    });
+  } finally {
+    if (baking === mine) baking = null;
+  }
+}
+
+/** ffmpeg 한 번으로 굽는다. onSeconds 는 구운 영상 초 */
+async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[], signal: AbortSignal, onSeconds: (seconds: number) => void): Promise<string | null> {
   const edit = item.edit!;
   const [from, to] = edit.range ?? [0, item.duration];
   const tmp = plans.map((plan) => `${rungDir(item.id, plan)}.tmp`);
@@ -90,7 +119,7 @@ async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batc
     ...longJob(to - from),
     onStderrLine: (line) => {
       const time = /^out_time_us=(\d+)/.exec(line);
-      if (time) progress(Math.min(1, Number(time[1]) / 1e6 / (to - from)));
+      if (time) onSeconds(Number(time[1]) / 1e6);
     },
   });
   if (run.aborted) throw codedError("aborted", "그만뒀습니다");
@@ -196,4 +225,4 @@ async function drop({ item }: StageJob): Promise<StageResult> {
   return {};
 }
 
-export { h264, encode, drop, plansFor, codecString, rungOf };
+export { h264, encode, drop, plansFor, codecString, rungOf, bakeNow };

@@ -140,11 +140,17 @@ type LoginBackgroundLimits = { history: number; maxBytes: number };
  */
 type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | null; hardware: boolean; why: string | null };
 /**
+ * 지금 도는 굽기 하나(H.264 · 굽기 단계의 ffmpeg, 봇 전체에서 한 번에 하나). id 는 배경, rungs 는 함께 굽는 단계(나눠 굽기면 여럿),
+ * lp 는 AV1 의 병렬 단계(남은 메모리에 맞춰 고른 것, AV1 이 없으면 null), cores 는 묶은 코어 수(묶지 못하는 기기면 null) · 논리 코어 수,
+ * speed 는 실시간의 몇 배(구운 영상 초 ÷ 걸린 초, 시작하고 3초 동안은 null). 메모리 · 루프 지연은 봇 상태 탭이 보인다
+ */
+type LoginBackgroundBake = { id: string; rungs: Array<{ codec: LoginBackgroundCodec; short: number }>; lp: number | null; cores: { bound: number | null; total: number }; speed: number | null };
+/**
  * GET /api/admin/appearance/login-background 와 바꾸는 요청들의 답. 진행은 굽는 동안 이것을 다시 읽어 본다(운영자 패널의 상태 읽기와 같은 주기).
  * current 는 로그인 화면에 쓰는 배경. 새 배경은 썸네일이 생기면 current 가 되고, 그 전에는 쓰던 배경이 그대로다(없으면 봇 프로필 그림 배경).
  * previous 는 로그인 화면에 걸었던 것 중 current 를 빼고 마지막으로 쓴 것(인코딩 취소 때 돌아갈 곳).
  * shows 는 로그인 화면에 지금 걸린 것, list 는 만드는 배경 · 쓰는 배경 · 기록(새것부터). usedBytes 는 list 전부, freeBytes 는 저장 자리 디스크의 남은 크기.
- * encoders 는 코덱마다의 인코더, checking 은 인코더를 시험하는 중.
+ * encoders 는 코덱마다의 인코더, checking 은 인코더를 시험하는 중, bake 는 지금 도는 굽기(없으면 null).
  * 한도는 굽기를 마칠 때 · 한도를 바꿀 때 지킨다: 다 구운 기록 중 current 를 뺀 것을 마지막으로 쓴 지 오래된 것부터 지운다(previous 는 맨 마지막).
  *
  * POST /upload?name=(본문은 파일 그대로) · POST /link { url } 은 새 배경을 만든다(편집 전 단계가 끝나면 editing).
@@ -167,7 +173,32 @@ type LoginBackgroundState = {
   freeBytes: number;
   encoders: LoginBackgroundEncoder[];
   checking: boolean;
+  bake: LoginBackgroundBake | null;
 };
 
 export { LOGIN_BG_WIDTHS, LOGIN_BG_CODECS, SEAM_KINDS, SEAM_SECONDS, LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_OPTIONS_DEFAULT, LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ESTIMATE_MARGIN, LOGIN_BG_STAGES, LOGIN_BG_BEFORE_EDIT, LOGIN_BG_ENCODE_STAGES, LOGIN_BG_ID };
-export type { LoginBackgroundCodec, SeamKind, SeamSeconds, LoginBackgroundOptions, LoginBackgroundPosition, LoginBackgroundStill, LoginBackgroundRung, LoginBackgroundStream, LoginBackgroundScene, LoginBackgroundLook, LoginBackground, LoginBackgroundCrop, LoginBackgroundEdit, LoginBackgroundEstimate, LoginBackgroundPhase, LoginBackgroundShows, LoginBackgroundStage, LoginBackgroundItem, LoginBackgroundStrip, LoginBackgroundLimits, LoginBackgroundEncoder, LoginBackgroundState };
+export type {
+  LoginBackgroundCodec,
+  SeamKind,
+  SeamSeconds,
+  LoginBackgroundOptions,
+  LoginBackgroundPosition,
+  LoginBackgroundStill,
+  LoginBackgroundRung,
+  LoginBackgroundStream,
+  LoginBackgroundScene,
+  LoginBackgroundLook,
+  LoginBackground,
+  LoginBackgroundCrop,
+  LoginBackgroundEdit,
+  LoginBackgroundEstimate,
+  LoginBackgroundPhase,
+  LoginBackgroundShows,
+  LoginBackgroundStage,
+  LoginBackgroundItem,
+  LoginBackgroundStrip,
+  LoginBackgroundLimits,
+  LoginBackgroundEncoder,
+  LoginBackgroundBake,
+  LoginBackgroundState,
+};
