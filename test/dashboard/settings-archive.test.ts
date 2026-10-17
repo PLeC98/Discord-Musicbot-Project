@@ -1,5 +1,5 @@
 // src/dashboard/settings-archive.ts · routes/settings-archive.ts — 설정 내보내기 · 가져오기(ZIP).
-// 내보낸 것을 그대로 되살리고, 고른 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다
+// 내보낸 것을 그대로 되살리고, 고른 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 가져오기는 그 표로
 
 process.env.OWNER_ID = "owner";
 
@@ -25,10 +25,13 @@ const appearance = await import("../../src/dashboard/appearance.ts");
 const snapshots = await import("../../src/store/snapshots.ts");
 const secrets = await import("../../src/store/secrets.ts");
 const { RECENT_LOGIN_MS } = await import("../../src/dashboard/middleware/recent-login.ts");
+const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 
 const store = openTempStore("settings-archive-");
 const faviconDir = fs.mkdtempSync(path.join(os.tmpdir(), "settings-archive-favicon-"));
+const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "settings-archive-upload-"));
+uploads._useDir(uploadDir);
 let loginAt = Date.now();
 const app = express();
 // 로그인한 운영자. 로그인 시각은 시험이 정한다(최근 로그인 시험)
@@ -48,6 +51,7 @@ beforeEach(() => {
   guildSettings._reset();
   appearance._useDir(faviconDir);
   for (const name of fs.readdirSync(faviconDir)) fs.rmSync(path.join(faviconDir, name), { force: true });
+  uploads.sweepUploads();
 });
 after(() => {
   server.close();
@@ -56,22 +60,28 @@ after(() => {
   useDefaultDocuments();
   store.close();
   fs.rmSync(faviconDir, { recursive: true, force: true });
+  fs.rmSync(uploadDir, { recursive: true, force: true });
 });
 
 type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; warnings: string[]; count: number | null };
 
-/** 내보낸 파일. 기본은 암호화된 설정까지(모든 항목이 든다) */
-async function exported(kind: "settings" | "full" = "full") {
+/** 내보낸 파일. 기본은 암호화된 설정까지(파비콘 말고 모든 항목이 든다) */
+async function exported(kind: "settings" | "full" | "favicon" = "full") {
   const res = await fetch(`${base}/export?kind=${kind}`);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "application/zip");
   assert.match(res.headers.get("content-disposition") ?? "", new RegExp(`attachment; filename="musicbot-${kind}-\\d{8}-\\d{4}\\.zip"`));
   return Buffer.from(await res.arrayBuffer());
 }
-const send = (route: string, file: Buffer) => fetch(`${base}/${route}`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
+const upload = (file: Buffer) => fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
 async function preview(file: Buffer) {
-  const res = await send("preview", file);
-  return { status: res.status, json: (await res.json()) as { rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
+  const res = await upload(file);
+  return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
+}
+/** 가져오기: 미리 보기로 올려 받은 표로(route 는 "import?items=…") */
+async function send(route: string, file: Buffer) {
+  const { json } = await preview(file);
+  return fetch(`${base}/${route}${route.includes("?") ? "&" : "?"}token=${json.token}`, { method: "POST" });
 }
 const rowsOf = (json: { rows: Row[] }) => Object.fromEntries(json.rows.map((one) => [one.item, one]));
 const settingsOf = (file: Buffer) =>
@@ -92,7 +102,7 @@ const square = (side: number) =>
     .png()
     .toBuffer();
 
-test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷 · 서버별 설정 · 키 암호문 · 파비콘 파일 목록)과 favicon/ 파일", async () => {
+test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷 · 서버별 설정 · 키 암호문) 하나. 파비콘은 들지 않는다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300" }, 0);
   guildSettings.table.setBotChannel("123456789012345678", "222222222222222222");
   assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
@@ -104,13 +114,32 @@ test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류
   assert.deepEqual(json.secrets, [], "넣어 둔 키가 없다");
   assert.deepEqual(Object.keys(json.documents as object), ["genres", "status", "ai", "ai-prompt"]);
   assert.deepEqual(json.guilds, { "123456789012345678": { botChannelId: "222222222222222222" } });
+  assert.ok(!("favicons" in json));
+  assert.deepEqual(
+    unzip(file).map((one) => one.name),
+    ["settings.json"],
+  );
+  assert.match(unzip(file)[0].data.toString("utf8"), /\n {2}"format": 1,/, "들여 쓴 JSON");
+});
+
+test("파비콘: settings.json(형식 · 종류 · 파일 목록)과 favicon/ 파일. 미리 보기는 파비콘 줄 하나", async () => {
+  assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
+  const file = await exported("favicon");
+  const json = settingsOf(file);
+  assert.deepEqual([json.format, json.kind], [1, "favicon"]);
+  assert.ok(!("tunables" in json) && !("documents" in json));
   const [image] = appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.history;
   assert.deepEqual(json.favicons, ["index.json", `${image.id}.png`, `${image.id}.reserve.png`]);
   assert.deepEqual(
     unzip(file).map((one) => one.name),
     ["settings.json", "favicon/index.json", `favicon/${image.id}.png`, `favicon/${image.id}.reserve.png`],
   );
-  assert.match(unzip(file)[0].data.toString("utf8"), /\n {2}"format": 1,/, "들여 쓴 JSON");
+  const { json: shown } = await preview(file);
+  assert.equal(shown.kind, "favicon");
+  assert.deepEqual(
+    shown.rows.map((one) => [one.item, one.inFile, one.same]),
+    [["favicon", true, true]],
+  );
 });
 
 test("자기 내보내기를 미리 보면 모두 파일에 있고 지금과 같다. 바꾼 뒤에는 바뀐 항목만 다르다", async () => {
@@ -118,7 +147,7 @@ test("자기 내보내기를 미리 보면 모두 파일에 있고 지금과 같
   let rows = rowsOf((await preview(file)).json);
   assert.deepEqual(
     Object.values(rows).map((one) => [one.item, one.inFile, one.same, one.problems.length]),
-    ["tunables", "genres", "status", "ai", "ai-prompt", "guilds", "secrets", "favicon"].map((item) => [item, true, true, 0]),
+    ["tunables", "genres", "status", "ai", "ai-prompt", "guilds", "secrets"].map((item) => [item, true, true, 0]),
   );
 
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
@@ -218,9 +247,9 @@ const currents = () =>
 
 test("파비콘: 내보낸 칸 · 기록으로 통째 되돌린다. 비어 있던 파일을 가져오면 파비콘이 없어진다", async () => {
   await appearance.addFavicon(32, await square(32));
-  const first = await exported();
+  const first = await exported("favicon");
   await appearance.addFavicon(32, await square(40));
-  const file = await exported();
+  const file = await exported("favicon");
   await appearance.addFavicon(48, await square(48));
   const row = rowsOf((await preview(file)).json).favicon;
   assert.deepEqual([row.same, row.count], [false, 2], "이미지 수는 기록의 수");
@@ -243,7 +272,7 @@ test("파비콘: 내보낸 칸 · 기록으로 통째 되돌린다. 비어 있�
 
 test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 짚고 가져오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
   await appearance.addFavicon(32, await square(32));
-  const file = await exported();
+  const file = await exported("favicon");
   const missing = zip(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
   assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있습니다."]);
   const broken = zip(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
@@ -255,11 +284,51 @@ test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 짚고 가
   assert.equal(rowsOf((await preview(old)).json).favicon.inFile, false);
 });
 
+test("예전에 봇 설정과 함께 내보낸 파비콘도 불러온다", async () => {
+  await appearance.addFavicon(32, await square(32));
+  const favicons = unzip(await exported("favicon")).filter((one) => one.name.startsWith("favicon/"));
+  const names = favicons.map((one) => one.name.slice("favicon/".length));
+  const old = zip([...unzip(rewrite(await exported("settings"), (json) => (json.favicons = names))), ...favicons]);
+  appearance.removeFavicon(32, appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.current!);
+
+  const { json } = await preview(old);
+  assert.equal(json.kind, "settings");
+  assert.deepEqual([rowsOf(json).favicon.inFile, rowsOf(json).favicon.same], [true, false]);
+  assert.equal((await send("import?items=favicon", old)).status, 200);
+  assert.deepEqual(currents(), [32]);
+});
+
+test("올린 파일: 가져오면 지우고(같은 표로 다시 못 쓴다), 검사에 걸리면 두고, 닫으면 지운다. 못 읽은 파일은 남기지 않는다", async () => {
+  const file = await exported();
+  const { json } = await preview(file);
+  assert.equal(fs.readdirSync(uploadDir).length, 1);
+  assert.equal((await fetch(`${base}/import?items=env&token=${json.token}`, { method: "POST" })).status, 400);
+  assert.equal(fs.readdirSync(uploadDir).length, 1, "거절해도 다시 고를 수 있게 둔다");
+  assert.equal((await fetch(`${base}/import?items=genres&token=${json.token}`, { method: "POST" })).status, 200);
+  assert.deepEqual(fs.readdirSync(uploadDir), []);
+  const again = await fetch(`${base}/import?items=genres&token=${json.token}`, { method: "POST" });
+  assert.deepEqual([again.status, ((await again.json()) as { code: string }).code], [410, "upload-gone"]);
+
+  const closed = (await preview(file)).json.token;
+  assert.equal((await fetch(`${base}/upload/${closed}`, { method: "DELETE" })).status, 204);
+  assert.deepEqual(fs.readdirSync(uploadDir), []);
+  assert.equal((await fetch(`${base}/import?items=genres&token=${closed}`, { method: "POST" })).status, 410);
+
+  assert.equal((await preview(Buffer.from("그냥 글"))).status, 400);
+  assert.deepEqual(fs.readdirSync(uploadDir), [], "못 읽은 파일");
+  assert.equal((await upload(Buffer.alloc(0))).status, 400, "빈 본문");
+
+  await preview(file);
+  uploads.sweepUploads();
+  assert.deepEqual(fs.readdirSync(uploadDir), [], "봇이 켜질 때 남은 것을 치운다");
+});
+
 test("내보내기 · 가져오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
   const file = await exported();
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
   assert.equal((await fetch(`${base}/export?kind=settings`)).status, 403);
   assert.equal((await fetch(`${base}/export?kind=full`)).status, 403);
+  assert.equal((await fetch(`${base}/export?kind=favicon`)).status, 403);
   assert.equal((await send("import?items=genres", file)).status, 403);
   assert.equal((await preview(file)).status, 200);
 });
@@ -274,7 +343,8 @@ test("봇 설정만: 서버별 설정 · 키 · PC 에 매인 값이 없고, 불
   assert.deepEqual(json.tunables, { QUEUE_MAX_TRACKS: "300" });
   assert.ok(!("guilds" in json) && !("secrets" in json));
   const rows = rowsOf((await preview(file)).json);
-  assert.deepEqual([rows.guilds.inFile, rows.secrets.inFile, rows.tunables.same], [false, false, true], "PC 에 매인 값은 지금 것을 지키니 같다");
+  assert.ok(!("guilds" in rows) && !("secrets" in rows), "그 종류의 항목만 보인다");
+  assert.equal(rows.tunables.same, true, "PC 에 매인 값은 지금 것을 지키니 같다");
 
   tunables.save({ QUEUE_MAX_TRACKS: "77", COOKIES_SOURCE: "chrome" }, tunables.view().revision);
   assert.equal((await send("import?items=tunables", file)).status, 200);

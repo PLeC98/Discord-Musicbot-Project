@@ -156,7 +156,7 @@ async function download(url: string, file: string, room: number, signal: AbortSi
 /** 받기 단계: 링크면 받고, 원본을 읽어 종류 · 크기 · 길이를 적는다 */
 async function receive({ item, signal }: StageJob): Promise<StageResult> {
   const file = store.sourceOf(item.id);
-  if (item.from === "link" && item.link) await download(item.link, file, store.freeBytes() - store.SPACE_MARGIN, signal);
+  if (item.from === "link" && item.link) await download(item.link, file, store.room(), signal);
   if (!fs.existsSync(file)) throw codedError("background-failed", "원본이 없습니다");
   return inspectSource(file, signal);
 }

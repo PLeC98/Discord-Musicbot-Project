@@ -164,6 +164,10 @@ const WEB = {
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   // 설정 가져오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },
+  // 올린 파일을 둘 디스크의 남은 크기가 모자라다(size: 남은 크기)
+  "disk-full": { status: 409, title: "Not enough free disk space", params: ["size"] },
+  // 미리 보기 때 올린 파일이 없다(1시간이 지났거나 봇이 다시 켜졌다)
+  "upload-gone": { status: 410, title: "Uploaded file is gone" },
   // 설정 DB 스냅샷 되살리기: 없는 이름 · 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },

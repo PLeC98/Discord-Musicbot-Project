@@ -24,7 +24,7 @@ const downloaded = (folder: string, base: string) => fs.readdirSync(folder).find
 /** 영상만, 짧은 변 res 이하에서 가장 좋은 것을 folder/base.확장자 로 받는다. 받은 파일과 yt-dlp 가 적은 정보 */
 async function fetchVideo(url: string, folder: string, base: string, res: number, signal: AbortSignal): Promise<{ file: string; info: Info }> {
   for (const name of fs.readdirSync(folder)) if (name.startsWith(`${base}.`)) fs.rmSync(path.join(folder, name), { force: true });
-  const room = store.freeBytes() - store.SPACE_MARGIN;
+  const room = store.room();
   if (room <= 0) throw codedError("background-no-space", "남은 공간이 없습니다");
   // 짧은 변 res 이하에서 가장 좋은 것(-S res:N). 타입 정의에는 한도를 붙인 꼴이 없어 맞춰 넘긴다
   const formatSort = [`res:${res}`] as unknown as YtDlpFlags["formatSort"];

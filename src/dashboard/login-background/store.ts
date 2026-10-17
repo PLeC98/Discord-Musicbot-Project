@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { PROJECT } from "../../infra/project-paths.ts";
-import { freeBytesOf } from "../../infra/disk.ts";
+import { freeBytesOf, roomIn } from "../../infra/disk.ts";
 import { isCode, type Code } from "../../rules/problems.ts";
 import {
   LOGIN_BG_BEFORE_EDIT,
@@ -36,8 +36,6 @@ import {
 } from "../contract/login-background.ts";
 
 let dir = path.join(PROJECT.dashboardData, "login-background");
-/** 디스크를 꽉 채우지 않게 남겨 둘 크기(설정 DB · 로그가 쓸 자리). 올리기 · 받기 · 굽기가 이만큼은 남긴다 */
-const SPACE_MARGIN = 256 * 1024 * 1024;
 const INDEX = "index.json";
 
 type Kind = LoginBackgroundItem["kind"];
@@ -320,6 +318,11 @@ const freeBytes = () => {
   fs.mkdirSync(dir, { recursive: true });
   return freeBytesOf(dir) ?? 0;
 };
+/** 저장 자리에 더 써도 되는 크기(남겨 둘 몫을 뺀다) */
+const room = () => {
+  fs.mkdirSync(dir, { recursive: true });
+  return roomIn(dir);
+};
 
 /** 테스트: 다른 폴더를 쓰고 읽은 기록을 버린다 */
 function _useDir(folder: string) {
@@ -327,5 +330,5 @@ function _useDir(folder: string) {
   index = null;
 }
 
-export { SPACE_MARGIN, loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, phaseOf, showsOf, stagesOf, freeBytes, _useDir };
+export { loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, phaseOf, showsOf, stagesOf, freeBytes, room, _useDir };
 export type { Stored, Estimate, Media };

@@ -3,14 +3,12 @@
 
 import express, { type Request, type Response } from "express";
 import fs from "node:fs";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireOwner } from "../middleware/require-owner.ts";
 import { ranBy } from "../ran-by.ts";
 import { sendProblem } from "../problem.ts";
-import { codeOf, codedError, messageOf } from "../../rules/error-kind.ts";
+import { saveBody } from "../body-to-file.ts";
 import { isHttpLink, isYouTubeURL } from "../../rules/links.ts";
 import { josa } from "../../rules/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
@@ -103,41 +101,25 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
       .replace(/[\p{Cc}\p{Cf}]/gu, "")
       .trim()
       .slice(0, NAME_MAX) || "file";
-  const room = store.freeBytes() - store.SPACE_MARGIN;
-  const length = Number(req.headers["content-length"]);
-  if (room <= 0 || (Number.isFinite(length) && length > room)) return sendProblem(res, "background-no-space", { size: Math.max(0, room) });
+  const room = store.room();
   const type = String(req.headers["content-type"] ?? "");
   const id = store.reserve();
-  const folder = store.folderOf(id);
-  const file = store.sourceOf(id);
-  let written = 0;
-  // 받는 동안에도 남은 공간을 넘으면 멈춘다(Content-Length 가 없거나 틀린 요청)
-  const guard = new Transform({
-    transform(chunk: Buffer, _encoding, done) {
-      written += chunk.length;
-      done(written > room ? codedError("background-no-space", `남은 공간(${formatBytes(room)})을 넘었습니다`) : null, chunk);
-    },
-  });
-  try {
-    await pipeline(req, guard, fs.createWriteStream(`${file}.part`));
-    if (!written) throw codedError("bad-request", "빈 파일입니다");
-    fs.renameSync(`${file}.part`, file);
-  } catch (error) {
-    fs.rmSync(folder, { recursive: true, force: true });
-    if (codeOf(error) === "background-no-space") return sendProblem(res, "background-no-space", { size: Math.max(0, room) });
-    if (codeOf(error) === "bad-request") return sendProblem(res, "bad-request");
+  const saved = await saveBody(req, store.sourceOf(id), room);
+  if (!saved.ok) {
+    fs.rmSync(store.folderOf(id), { recursive: true, force: true });
+    if (saved.why === "no-space") return sendProblem(res, "background-no-space", { size: room });
     // 올리던 사람이 끊었다
-    log.warn({ sub: "admin" }, `로그인 배경 "${name}"${josa(name, "을")} 받다 끊겼습니다: ${messageOf(error)}`);
+    if (saved.why === "aborted") log.warn({ sub: "admin" }, `로그인 배경 "${name}"${josa(name, "을")} 받다 끊겼습니다: ${saved.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
   const one = store.create({ id, kind: type.startsWith("video/") || type === "image/gif" ? "video" : "image", from: "upload", name });
-  one.bytes = written;
+  one.bytes = saved.bytes;
   runner.kick();
-  changed(req, res, `"${name}"${josa(name, "을")} 올렸습니다(${formatBytes(written)})`);
+  changed(req, res, `"${name}"${josa(name, "을")} 올렸습니다(${formatBytes(saved.bytes)})`);
 });
 
-// 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤 고른 구간만), 그 밖은 직접 링크의 그림 · 영상
+// 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤), 그 밖은 직접 링크의 그림 · 영상
 loginBackgroundRouter.post("/link", (req, res) => {
   const body = parse(BackgroundLinkBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);

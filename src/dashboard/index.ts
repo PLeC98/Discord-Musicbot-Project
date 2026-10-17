@@ -34,6 +34,7 @@ import { registerStages } from "./login-background/stages.ts";
 import { serviceKeysRouter } from "./routes/service-keys.ts";
 import { tunablesRouter } from "./routes/tunables.ts";
 import { settingsArchiveRouter } from "./routes/settings-archive.ts";
+import { sweepUploads } from "./archive-uploads.ts";
 import { snapshotsRouter } from "./routes/snapshots.ts";
 import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter } from "./problem.ts";
@@ -190,6 +191,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   startEncoderCheck();
   registerStages();
   loginBackground.resume();
+  // 백업 불러오기: 꺼지기 전에 올려 두고 가져오지 않은 파일을 치운다
+  sweepUploads();
   // AI 리퀘스트 로그: 새 기록을 실시간 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
   onTunablesChanged(() => {
