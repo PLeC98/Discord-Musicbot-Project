@@ -20,9 +20,6 @@ import * as encoders from "../login-background/encoders.ts";
 import { previewOf } from "../login-background/preview.ts";
 import { stripOf } from "../login-background/strip.ts";
 
-/** 올린 파일 이름(보이기만 한다)의 길이 상한 */
-const NAME_MAX = 200;
-
 const loginBackgroundRouter = express.Router();
 loginBackgroundRouter.use(requireOwner);
 
@@ -96,11 +93,7 @@ loginBackgroundRouter.get("/", (_req, res) => {
 
 // 파일 그대로(Content-Type 은 종류를 짐작만 한다, 받기 단계가 원본을 읽어 다시 정한다). ?name= 은 보일 이름
 loginBackgroundRouter.post("/upload", async (req, res) => {
-  const name =
-    String(req.query.name ?? "")
-      .replace(/[\p{Cc}\p{Cf}]/gu, "")
-      .trim()
-      .slice(0, NAME_MAX) || "file";
+  const name = store.cleanName(String(req.query.name ?? "")) || "file";
   const room = store.room();
   const type = String(req.headers["content-type"] ?? "");
   const id = store.reserve();

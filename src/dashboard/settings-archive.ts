@@ -2,13 +2,15 @@
 //   settings  봇 설정만: 남에게 나눠 줄 설정. 서버별 설정 · 키가 없고, PC 에 매인 운영 조절값(쿠키 출처 · POToken 쓰기)도 뺀다
 //   full      암호화된 설정까지: settings + 서버별 설정 + 키 · 쿠키의 암호문(같은 SECRETS_KEY 에서만 풀린다. 끝 네 글자는 넣지 않는다)
 //   favicon   파비콘: 칸 · 기록(봇 설정 묶음에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
-// 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
+//   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
+// 내보내기는 담을 항목을 넘기고 경로가 흘려 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
-// 불러오기는 고른 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다). 파비콘은 DB 뒤에 바꾼다.
+// 불러오기는 고른 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
+// 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 지운다), 파비콘 · 로그인 배경은 DB 뒤에 바꿔 끼운다.
 // 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇이 보이는 링크)이 바뀌면 미리 보기가 짚어 준다.
 
 import crypto from "node:crypto";
-import { zip, openZip } from "../infra/zip.ts";
+import { openZip, type ZipInput } from "../infra/zip.ts";
 import { BOT_VERSION } from "../infra/version.ts";
 import { codedError } from "../rules/error-kind.ts";
 import * as documents from "../config/documents.ts";
@@ -23,6 +25,7 @@ import * as secrets from "../store/secrets.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import { settingsDb } from "../store/settings-db.ts";
 import * as appearance from "./appearance.ts";
+import * as loginBackground from "./login-background/archive.ts";
 import type { ArchiveItem, ArchiveKind, ArchivePreview, ArchiveRow } from "./contract/settings-archive.ts";
 import { ARCHIVE_ITEMS, ARCHIVE_KINDS } from "./contract/settings-archive.ts";
 
@@ -58,8 +61,8 @@ type ArchiveJson = {
   favicons?: string[];
 };
 
-/** 읽은 파일. favicons 는 favicon/ 아래 파일들 */
-type Parsed = { json: Partial<ArchiveJson>; favicons: Array<{ name: string; data: Buffer }> };
+/** 읽은 파일. favicons 는 favicon/ 아래 파일들, file 은 올린 파일(로그인 배경은 거기서 흘려 읽는다) */
+type Parsed = { json: Partial<ArchiveJson>; favicons: Array<{ name: string; data: Buffer }>; file: string };
 
 const badArchive = (why: string) => codedError("BAD_ARCHIVE", why);
 const isTable = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -75,14 +78,15 @@ function fileName(kind: ArchiveKind, at = new Date()) {
 const manifest = (kind: ArchiveKind, rest: Partial<ArchiveJson>): ArchiveJson => ({ format: FORMAT, kind, exportedAt: new Date().toISOString(), botVersion: BOT_VERSION, ...rest });
 const jsonEntry = (json: ArchiveJson) => ({ name: JSON_NAME, data: Buffer.from(`${JSON.stringify(json, null, 2)}\n`) });
 
-/** 지금 설정을 ZIP 으로(그 종류만) */
-async function build(kind: ArchiveKind): Promise<Buffer> {
+/** 지금 설정 중 그 종류를 ZIP 에 담을 항목으로(경로가 흘려 쓴다) */
+function build(kind: ArchiveKind): ZipInput[] {
+  if (kind === "login-background") return [jsonEntry(manifest(kind, {})), ...loginBackground.exportInputs()];
   if (kind === "favicon") {
     const favicons = appearance.faviconFiles();
-    return zip([jsonEntry(manifest(kind, { favicons: favicons.map((one) => one.name) })), ...favicons.map((one) => ({ name: FAVICON_DIR + one.name, data: one.data }))]);
+    return [jsonEntry(manifest(kind, { favicons: favicons.map((one) => one.name) })), ...favicons.map((one) => ({ name: FAVICON_DIR + one.name, data: one.data }))];
   }
   const values = tunables.view().values;
-  return zip([
+  return [
     jsonEntry(
       manifest(kind, {
         tunables: kind === "full" ? values : without(values, MACHINE_KEYS),
@@ -90,7 +94,7 @@ async function build(kind: ArchiveKind): Promise<Buffer> {
         ...(kind === "full" ? { guilds: guildSettings.allDocs(), secrets: secrets.sealedAll() } : {}),
       }),
     ),
-  ]);
+  ];
 }
 
 /** 올린 파일을 읽는다(목차와 settings.json · 파비콘만 메모리로). 이 봇의 내보내기가 아니면 BAD_ARCHIVE(ZIP 자체가 깨졌으면 BAD_ZIP) */
@@ -111,7 +115,7 @@ function parse(file: string): Parsed {
     const faviconEntries = zipped.entries.filter((one) => one.name.startsWith(FAVICON_DIR) && one.name.length > FAVICON_DIR.length);
     if (faviconEntries.reduce((sum, one) => sum + one.size, 0) > FAVICON_MAX_BYTES) throw badArchive("파비콘 파일이 너무 큽니다.");
     const favicons = faviconEntries.map((one) => ({ name: one.name.slice(FAVICON_DIR.length), data: zipped.read(one, FAVICON_MAX_BYTES) }));
-    return { json: json as Partial<ArchiveJson>, favicons };
+    return { json: json as Partial<ArchiveJson>, favicons, file };
   } finally {
     zipped.close();
   }
@@ -252,6 +256,7 @@ async function rowFor(item: ArchiveItem, parsed: Parsed, aiDoc: unknown): Promis
   if (item === "guilds") return guildsRow(parsed.json);
   if (item === "secrets") return secretsRow(parsed.json);
   if (item === "favicon") return faviconRow(parsed);
+  if (item === "login-background") return (await loginBackground.check(parsed.file)).row;
   return docRow(item, parsed.json, aiDoc);
 }
 
@@ -260,8 +265,8 @@ const kindOf = (json: Partial<ArchiveJson>): ArchiveKind => ARCHIVE_KINDS.find((
 /** 그 종류의 항목(예전에 봇 설정과 함께 내보낸 파비콘이 있으면 그것도) */
 function itemsOf(parsed: Parsed): ArchiveItem[] {
   const kind = kindOf(parsed.json);
-  if (kind === "favicon") return ["favicon"];
-  const items = ARCHIVE_ITEMS.filter((item) => item !== "favicon" && (kind === "full" || (item !== "guilds" && item !== "secrets")));
+  if (kind === "favicon" || kind === "login-background") return [kind];
+  const items = ARCHIVE_ITEMS.filter((item) => item !== "favicon" && item !== "login-background" && (kind === "full" || (item !== "guilds" && item !== "secrets")));
   return hasFavicons(parsed) ? [...items, "favicon"] : items;
 }
 
@@ -274,17 +279,17 @@ async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
   return { kind: kindOf(json), exportedAt: typeof json.exportedAt === "string" ? json.exportedAt : null, botVersion: typeof json.botVersion === "string" ? json.botVersion : null, rows };
 }
 
-const LABEL: Record<ArchiveItem, string> = { tunables: "운영 조절값", genres: "자동재생 장르", status: "활동 문구", ai: "AI 설정", "ai-prompt": "AI 프롬프트", guilds: "서버별 설정", secrets: "키 · 쿠키", favicon: "파비콘" };
+const LABEL: Record<ArchiveItem, string> = { tunables: "운영 조절값", genres: "자동재생 장르", status: "활동 문구", ai: "AI 설정", "ai-prompt": "AI 프롬프트", guilds: "서버별 설정", secrets: "키 · 쿠키", favicon: "파비콘", "login-background": "로그인 배경" };
 
-// 고른 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘(고르지 않았으면 null)
-async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<appearance.Prepared | null> {
+// 고른 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘 · 불러올 로그인 배경(고르지 않았으면 null)
+async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
-  const rows = await Promise.all(items.map((item) => rowFor(item, parsed, aiDoc)));
+  const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
+  const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : rowFor(item, parsed, aiDoc))));
   const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없습니다."]), ...row.problems].map((line) => `${LABEL[row.item]}: ${line}`));
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
-  if (!items.includes("favicon")) return null;
-  const checked = await appearance.checkFavicons(parsed.favicons);
-  return checked.ok ? checked.prepared : null;
+  const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
+  return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };
 }
 
 // DB 에 쓴다(한 트랜잭션). 키 · 쿠키는 풀리는 것만, 파일에 없는 키는 그대로 둔다
@@ -306,9 +311,17 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
  */
 async function apply(file: string, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveItem[]> {
   const parsed = parse(file);
-  const favicons = await checkChosen(parsed, items);
-  await before?.();
-  const docItems = writeChosen(parsed.json, items);
+  const { favicons, background } = await checkChosen(parsed, items);
+  // 로그인 배경은 먼저 풀어 둔다(오래 걸리고 디스크가 차면 실패한다. 아직 보이지 않는다)
+  const staged = background ? await loginBackground.stage(file, background) : null;
+  let docItems: DocItem[];
+  try {
+    await before?.();
+    docItems = writeChosen(parsed.json, items);
+  } catch (error) {
+    staged?.abort();
+    throw error;
+  }
 
   // 메모리를 DB 에 맞춘다(설정 문서 · 운영 조절값 · 서버별 설정 · 바깥 서비스 키의 기억)
   if (docItems.length) documents.reload();
@@ -316,6 +329,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   if (items.includes("guilds")) guildSettings._reset();
   if (items.includes("secrets")) serviceKeys.load();
   if (favicons) appearance.replaceFavicons(favicons);
+  staged?.commit();
   return items;
 }
 

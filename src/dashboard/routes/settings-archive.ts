@@ -9,6 +9,7 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { sinkOf, writeZip } from "../../infra/zip.ts";
 import * as archive from "../settings-archive.ts";
 import * as uploads from "../archive-uploads.ts";
 import * as snapshots from "../../store/snapshots.ts";
@@ -18,7 +19,7 @@ import type { Response } from "express";
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
 
-const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", full: "암호화된 설정까지", favicon: "파비콘" };
+const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", full: "암호화된 설정까지", favicon: "파비콘", "login-background": "로그인 배경" };
 
 // 읽지 못한 파일(ZIP 이 깨졌거나 이 봇의 내보내기가 아님)은 그 까닭과 함께 400
 function unreadable(res: Response, error: unknown) {
@@ -29,15 +30,22 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘)
+// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘) · login-background(로그인 배경). 만드는 대로 흘려 보낸다(로그인 배경은 수백 MB)
 settingsArchiveRouter.get("/export", requireRecentLogin, async (req, res) => {
   const kind = String(req.query.kind ?? "");
   if (!isArchiveKind(kind)) return sendProblem(res, "nothing-to-save");
-  const file = await archive.build(kind);
+  const inputs = archive.build(kind);
   log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${KIND_LABEL[kind]}). 실행 ${ranBy(req)}`);
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${archive.fileName(kind)}"`);
-  res.send(file);
+  try {
+    await writeZip(inputs, sinkOf(res));
+    res.end();
+  } catch (error) {
+    // 받던 쪽이 끊었거나 쓰는 동안 파일이 지워졌다(머리를 이미 보냈으니 응답을 끊는다)
+    log.debug({ sub: "admin" }, `설정 내보내기를 보내다 멈췄습니다: ${messageOf(error)}`);
+    res.destroy();
+  }
 });
 
 // 파일 그대로 올린다. 읽을 수 있으면 올린 파일을 두고 그 표(token)와 미리 보기, 못 읽으면 지운다

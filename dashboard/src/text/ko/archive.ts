@@ -1,4 +1,4 @@
-// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). 카드 둘: 백업 내보내기(안에 봇 설정만 · 암호화된 설정까지 · 파비콘) · 백업 불러오기
+// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). 카드 둘: 백업 내보내기(안에 봇 설정만 · 암호화된 설정까지 · 파비콘 · 로그인 배경) · 백업 불러오기
 
 import type { ArchiveItem, ArchiveKind } from "../../../../src/dashboard/contract/settings-archive.ts";
 
@@ -16,6 +16,7 @@ const exports: Record<ArchiveKind, { title: string; desc: string; button: string
     button: "내보내기",
   },
   favicon: { title: "파비콘", desc: "크기별 파비콘과 기록을 담아요.", button: "내보내기" },
+  "login-background": { title: "로그인 배경", desc: "쓰는 배경과 기록을 담아요. 영상이면 수백 MB 가 될 수 있어요.", button: "내보내기" },
 };
 const importTitle = "백업 불러오기";
 const importDesc = "위에서 내보낸 파일을 올리면 항목마다 지금과 같은지 · 다른지 · 가져올 수 없는지 보여 주고, 고른 항목만 파일의 것으로 덮어써요. 키 · 쿠키는 지금 SECRETS_KEY 로 풀리는 것만 가져와요.";
@@ -26,7 +27,7 @@ const previewFailed = "파일을 읽지 못했어요.";
 
 const dialogTitle = "가져올 항목 고르기";
 /** 파일에 적힌 종류 · 만든 때 · 봇 버전 */
-const kinds: Record<ArchiveKind, string> = { settings: "봇 설정만", full: "암호화된 설정까지", favicon: "파비콘" };
+const kinds: Record<ArchiveKind, string> = { settings: "봇 설정만", full: "암호화된 설정까지", favicon: "파비콘", "login-background": "로그인 배경" };
 const madeAt = (kind: string, when: string, version: string | null) => `${kind} · ${when}에 만든 파일${version ? ` · 봇 ${version}` : ""}`;
 const dialogNote = "고른 항목은 파일의 것으로 통째 바뀌고, 지금 값은 '가져오기 전' 스냅샷으로만 되돌릴 수 있어요(최근 5개까지 보관).";
 const items: Record<ArchiveItem, string> = {
@@ -38,9 +39,10 @@ const items: Record<ArchiveItem, string> = {
   guilds: "서버별 설정",
   secrets: "API 키 · 쿠키",
   favicon: "파비콘",
+  "login-background": "로그인 배경",
 };
 /** 서버 · 키 · 이미지 수 */
-const counts: Partial<Record<ArchiveItem, (n: number) => string>> = { guilds: (n) => `서버 ${n}곳`, secrets: (n) => `쓸 수 있는 값 ${n}개`, favicon: (n) => `이미지 ${n}개` };
+const counts: Partial<Record<ArchiveItem, (n: number) => string>> = { guilds: (n) => `서버 ${n}곳`, secrets: (n) => `쓸 수 있는 값 ${n}개`, favicon: (n) => `이미지 ${n}개`, "login-background": (n) => `배경 ${n}개` };
 const notInFile = "파일에 없음";
 const same = "지금과 같음";
 const differs = "다름";

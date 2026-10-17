@@ -5,8 +5,9 @@
 import express, { type Response } from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { LOGIN_BG_CODECS, type LoginBackground, type LoginBackgroundCodec } from "../contract/login-background.ts";
+import { LOGIN_BG_CODECS, type LoginBackground } from "../contract/login-background.ts";
 import * as store from "../login-background/store.ts";
+import { RUNG_FILE, SHORT, STILL_FILE, isCodec } from "../login-background/files.ts";
 
 const publicLoginBackgroundRouter = express.Router();
 
@@ -41,14 +42,9 @@ function sendFile(res: Response, id: string, parts: string[], type: string, cach
   res.sendFile(file, { headers: { "Cache-Control": cache, "Content-Type": type } });
 }
 
-const isCodec = (value: string): value is LoginBackgroundCodec => LOGIN_BG_CODECS.some((codec) => codec === value);
-/** 단계 폴더(짧은 변) · 단계 안의 파일 */
-const SHORT = /^\d{2,4}$/;
-const RUNG_FILE = /^(index\.m3u8|init\.mp4|seg-\d{3,6}\.m4s)$/;
-
 // 정지 그림(폭별)
 publicLoginBackgroundRouter.get("/login-background/:id/:file", (req, res) => {
-  const width = /^still-(\d{2,4})\.webp$/.exec(req.params.file)?.[1];
+  const width = STILL_FILE.exec(req.params.file)?.[1];
   if (!width) return res.status(404).end();
   sendFile(res, req.params.id, [`still-${width}.webp`], "image/webp", FOREVER);
 });

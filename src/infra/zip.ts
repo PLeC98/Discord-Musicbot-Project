@@ -36,10 +36,18 @@ function dosTime(at: Date) {
 /** 받는 곳: 조각을 차례로 받는다(흐름 조절은 받는 곳이) */
 type Sink = (chunk: Buffer) => Promise<void>;
 
-/** 흐름(파일 · 응답)을 받는 곳으로. 버퍼가 차면 비워질 때까지 기다린다 */
+/** 흐름(파일 · 응답)을 받는 곳으로. 버퍼가 차면 비워질 때까지 기다린다. 그 사이 닫히면(내려받던 쪽이 끊었다) 실패로 멈춘다 */
 function sinkOf(out: Writable): Sink {
+  const closed = () => new Error("받는 쪽이 닫혔습니다");
   return async (chunk) => {
-    if (!out.write(chunk)) await once(out, "drain");
+    if (out.destroyed) throw closed();
+    if (out.write(chunk)) return;
+    const stop = new AbortController();
+    try {
+      await Promise.race([once(out, "drain", { signal: stop.signal }), once(out, "close", { signal: stop.signal }).then(() => Promise.reject(closed()))]);
+    } finally {
+      stop.abort();
+    }
   };
 }
 

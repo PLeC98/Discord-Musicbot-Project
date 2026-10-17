@@ -141,3 +141,14 @@ test("흘려 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊�
     opened.close();
   }
 });
+
+test("받는 곳이 비워지기를 기다리는 사이 닫히면(내려받던 쪽이 끊었다) 실패로 멈춘다", async () => {
+  const { Writable } = await import("node:stream");
+  // 받기만 하고 비우지 않는 곳
+  const out = new Writable({ highWaterMark: 1, write: () => {} });
+  const sink = sinkOf(out);
+  const waiting = sink(Buffer.alloc(16));
+  out.destroy();
+  await assert.rejects(waiting, /받는 쪽이 닫혔습니다/);
+  await assert.rejects(sink(Buffer.alloc(1)), /받는 쪽이 닫혔습니다/);
+});

@@ -34,12 +34,17 @@ const { identityRouter } = await import("../../src/dashboard/routes/identity.ts"
 const { loginBackgroundRouter } = await import("../../src/dashboard/routes/login-background.ts");
 const { publicLoginBackgroundRouter } = await import("../../src/dashboard/routes/login-background-public.ts");
 const loginBackground = await import("../../src/dashboard/login-background/store.ts");
+const appearance = await import("../../src/dashboard/appearance.ts");
+const { ARCHIVE_KINDS } = await import("../../src/dashboard/contract/settings-archive.ts");
 
 const store = openTempStore("secret-leak-");
-// 로그인 배경 기록은 실제 저장 자리 대신 임시 폴더에서
+// 로그인 배경 기록 · 파비콘은 실제 저장 자리 대신 임시 폴더에서
 const BACKGROUNDS = fs.mkdtempSync(path.join(os.tmpdir(), "secret-leak-bg-"));
 loginBackground._useDir(BACKGROUNDS);
 after(() => fs.rmSync(BACKGROUNDS, { recursive: true, force: true, maxRetries: 5 }));
+const FAVICONS = fs.mkdtempSync(path.join(os.tmpdir(), "secret-leak-favicon-"));
+appearance._useDir(FAVICONS);
+after(() => fs.rmSync(FAVICONS, { recursive: true, force: true, maxRetries: 5 }));
 secrets._useKey(Buffer.alloc(32, 9).toString("base64"));
 
 // 값마다 다른 글자. 끝 네 글자(화면에 보이는 것)를 뺀 앞부분이 어디에도 없어야 한다
@@ -106,7 +111,7 @@ const MOUNTS: Array<[string, Router]> = [
 const SKIP = new Set(["/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
 // 물음표 뒤가 있어야 답하는 경로
-const QUERY: Record<string, string[]> = { "/api/admin/settings-archive/export": ["?kind=settings", "?kind=full"] };
+const QUERY: Record<string, string[]> = { "/api/admin/settings-archive/export": ARCHIVE_KINDS.map((kind) => `?kind=${kind}`) };
 
 function getPaths() {
   const out: string[] = [];
@@ -150,8 +155,8 @@ test("AI 미리보기 · 모델 묻기 · 시험 응답에 키가 없다", async
 });
 
 // 암호화된 설정까지 내보내도 값은 암호문으로만 나간다(끝 네 글자도 담지 않는다)
-test("내보내기 파일(두 종류, ZIP 의 모든 항목)에 비밀값이 없다", async () => {
-  for (const kind of ["settings", "full"]) {
+test("내보내기 파일(모든 종류, ZIP 의 모든 항목)에 비밀값이 없다", async () => {
+  for (const kind of ARCHIVE_KINDS) {
     const res = await fetch(`${base}/api/admin/settings-archive/export?kind=${kind}`);
     assert.equal(res.status, 200);
     for (const entry of unzip(Buffer.from(await res.arrayBuffer()))) leaksIn(`내보내기(${kind}) ${entry.name}`, entry.data.toString("utf8"));

@@ -81,6 +81,15 @@ let index: Index | null = null;
 const isNum = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const isStage = (value: unknown): value is LoginBackgroundStage => LOGIN_BG_STAGES.some((one) => one === value);
 const ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+/** 보일 이름(올린 파일 이름은 NAME_MAX, 링크는 주소 그대로라 LINK_MAX)의 길이 상한 */
+const NAME_MAX = 200;
+const LINK_MAX = 2048;
+/** 보일 이름: 제어 문자를 빼고 길이를 자른다(보이기만 하고 경로에 쓰지 않는다) */
+const cleanName = (raw: string, max = NAME_MAX) =>
+  raw
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .trim()
+    .slice(0, max);
 /** 맞히기 어려운 배경 id(소문자 · 숫자 24자) */
 const newId = () => Array.from(crypto.randomBytes(24), (byte) => ID_CHARS[byte % ID_CHARS.length]).join("");
 
@@ -324,11 +333,27 @@ const room = () => {
   return roomIn(dir);
 };
 
+/** 기록을 통째로 바꾼다(백업 불러오기: 새 배경의 폴더는 이미 풀어 두었다). 옛 배경의 폴더는 지운다(열린 파일로 못 지운 것은 다음에 켤 때 목록에 없는 폴더로 치운다) */
+function replace(next: Index) {
+  const old = items().map((one) => one.id);
+  index = next;
+  save();
+  const kept = new Set(next.items.map((one) => one.id));
+  for (const id of old) {
+    if (kept.has(id)) continue;
+    try {
+      fs.rmSync(folderOf(id), { recursive: true, force: true });
+    } catch {
+      // 다음에 켤 때 치운다
+    }
+  }
+}
+
 /** 테스트: 다른 폴더를 쓰고 읽은 기록을 버린다 */
 function _useDir(folder: string) {
   dir = folder;
   index = null;
 }
 
-export { loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, phaseOf, showsOf, stagesOf, freeBytes, room, _useDir };
-export type { Stored, Estimate, Media };
+export { loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, replace, phaseOf, showsOf, stagesOf, freeBytes, room, isStored, optionsFrom, limitsFrom, cleanName, newId, NAME_MAX, LINK_MAX, _useDir };
+export type { Stored, Estimate, Media, Index };

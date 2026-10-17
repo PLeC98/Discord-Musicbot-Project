@@ -160,6 +160,14 @@ const isRunning = (id: string) => running.has(id);
 const progressOf = (id: string) => running.get(id)?.progress ?? 0;
 const isCounting = (id: string) => counting.has(id);
 
+/** 도는 단계 · 다시 세기를 모두 멈춘다(백업 불러오기가 기록을 통째로 바꾸기 전). 다시 시작하지 않는다 */
+function stopAll() {
+  for (const run of running.values()) run.controller.abort();
+  running.clear();
+  for (const controller of counting.values()) controller.abort();
+  counting.clear();
+}
+
 /** 봇이 켜질 때: 하던 단계 · 남은 단계를 이어서 한다 */
 function resume() {
   store.loaded();
@@ -168,13 +176,10 @@ function resume() {
 
 /** 테스트: 도는 일을 모두 멈추고 잊는다 */
 function _reset() {
-  for (const run of running.values()) run.controller.abort();
-  running.clear();
-  for (const controller of counting.values()) controller.abort();
-  counting.clear();
+  stopAll();
   executors = {};
   recounter = null;
 }
 
-export { useExecutors, useRecounter, recount, stopCounting, kick, discard, isRunning, progressOf, isCounting, resume, _reset };
+export { useExecutors, useRecounter, recount, stopCounting, kick, discard, isRunning, progressOf, isCounting, stopAll, resume, _reset };
 export type { StageJob, StageResult, Executor, Recounter };
