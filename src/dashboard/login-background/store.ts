@@ -146,19 +146,25 @@ function isStored(value: unknown): value is Stored {
   return known && numbers && stages && isProblem(one.problem) && isPosition(one.position) && Array.isArray(one.media?.stills);
 }
 
-/** 기록. 처음 부를 때 index.json 을 읽고(하던 단계가 있으면 이어서 할 것으로 적고, 목록에 없는 폴더는 지운다), 그 뒤로는 바꿀 때 같이 고친다 */
-function loaded(): Index {
-  if (index) return index;
+/** 저장 자리의 index.json 을 읽기만 한다(쓸 만한 꼴 · 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
+function readIndex(folder = dir): Index {
   let raw: Partial<Index> | null = null;
   try {
-    raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8")) as Partial<Index>;
+    raw = JSON.parse(fs.readFileSync(path.join(folder, INDEX), "utf8")) as Partial<Index>;
   } catch {
     // 아직 없거나 망가졌다: 빈 기록으로
   }
-  const items = (Array.isArray(raw?.items) ? raw.items : []).filter(isStored).filter((one) => fs.existsSync(path.join(dir, one.id)));
-  for (const one of items) if (one.stage) one.resumed = true;
+  const items = (Array.isArray(raw?.items) ? raw.items : []).filter(isStored).filter((one) => fs.existsSync(path.join(folder, one.id)));
   const current = items.some((one) => one.id === raw?.current) ? (raw!.current as string) : null;
-  index = { current, items, options: optionsFrom(raw?.options), limits: limitsFrom(raw?.limits) };
+  return { current, items, options: optionsFrom(raw?.options), limits: limitsFrom(raw?.limits) };
+}
+
+/** 기록. 처음 부를 때 index.json 을 읽고(하던 단계가 있으면 이어서 할 것으로 적고, 목록에 없는 폴더는 지운다), 그 뒤로는 바꿀 때 같이 고친다 */
+function loaded(): Index {
+  if (index) return index;
+  index = readIndex();
+  for (const one of index.items) if (one.stage) one.resumed = true;
+  const { items } = index;
   let names: string[] = [];
   try {
     names = fs.readdirSync(dir);
@@ -363,5 +369,5 @@ function _useDir(folder: string) {
   index = null;
 }
 
-export { loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, replace, removeFolder, phaseOf, showsOf, stagesOf, freeBytes, room, isStored, optionsFrom, limitsFrom, cleanName, newId, NAME_MAX, LINK_MAX, _useDir };
+export { readIndex, loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, replace, removeFolder, phaseOf, showsOf, stagesOf, freeBytes, room, isStored, optionsFrom, limitsFrom, cleanName, newId, NAME_MAX, LINK_MAX, _useDir };
 export type { Stored, Estimate, Media, Index };

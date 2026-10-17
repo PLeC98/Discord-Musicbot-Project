@@ -42,19 +42,21 @@ const isTable = (value: unknown): value is Record<string, unknown> => !!value &&
 // ── 내보내기 ──
 
 /** 내보낼 지금 배경: 지금 배경을 다 만들었으면 그것, 아직 만드는 중이면 그 전에 쓰던 다 만든 배경 */
-function exportedCurrent(ready: store.Stored[]): string | null {
-  const { current } = store.loaded();
+function exportedCurrent(current: string | null, ready: store.Stored[]): string | null {
   if (ready.some((one) => one.id === current)) return current;
   return ready.filter((one) => one.usedAt > 0).sort((a, b) => b.usedAt - a.usedAt)[0]?.id ?? null;
 }
 
-/** 내보낼 항목: index.json(다 만든 배경만) · 그 배경들의 내는 파일(파일째 흘려 담는다) */
-function exportInputs(): ZipInput[] {
-  const state = store.loaded();
+/**
+ * 내보낼 항목: index.json(다 만든 배경만) · 그 배경들의 내는 파일(파일째 흘려 담는다). 만드는 중인 배경은 쓰는 중인 파일이라 담지 않는다.
+ * state · folderOf 는 기록과 배경 폴더(전체 백업 명령은 봇 밖에서 readIndex 로 읽은 것), prefix 는 ZIP 안 이름 앞
+ */
+function exportInputs({ state = store.loaded(), folderOf = store.folderOf, prefix = "" }: { state?: store.Index; folderOf?: (id: string) => string; prefix?: string } = {}): ZipInput[] {
   const ready = state.items.filter(store.isReady);
   const items = ready.map((one) => ({ ...one, stage: null, resumed: false, strip: null, estimate: null }));
-  const json: store.Index = { current: exportedCurrent(ready), items, options: state.options, limits: state.limits };
-  return [{ name: INDEX_NAME, data: Buffer.from(`${JSON.stringify(json, null, 2)}\n`) }, ...ready.flatMap((one) => servedFiles(store.folderOf(one.id)).map((rel) => ({ name: `${DIR}${one.id}/${rel}`, file: path.join(store.folderOf(one.id), ...rel.split("/")) })))];
+  const json: store.Index = { current: exportedCurrent(state.current, ready), items, options: state.options, limits: state.limits };
+  const files = ready.flatMap((one) => servedFiles(folderOf(one.id)).map((rel) => ({ name: `${prefix}${DIR}${one.id}/${rel}`, file: path.join(folderOf(one.id), ...rel.split("/")) })));
+  return [{ name: prefix + INDEX_NAME, data: Buffer.from(`${JSON.stringify(json, null, 2)}\n`) }, ...files];
 }
 
 // ── 기록 한 줄의 꼴 ──
