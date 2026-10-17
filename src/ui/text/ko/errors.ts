@@ -226,6 +226,23 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 까닭을 확인하고 다시 올려 주세요."),
   "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지 · 영상 · 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
   "background-link-failed": () => warning("input", "링크에서 가져오지 못했어요!", "주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요."),
+  // 대시보드: 캐시 DB
+  "bad-filter": () => warning("input", "거르기 식을 읽을 수 없어요!", "식의 꼴을 확인해 주세요. 입력란을 오른쪽 클릭하면 쓸 수 있는 식이 나와요."),
+  "filter-too-long": ({ max }) => warning("input", "거르기 식이 너무 길어요!", `${max}자까지 쓸 수 있어요.`),
+  "regex-too-long": ({ max }) => warning("input", "정규식이 너무 길어요!", `${max}자까지 쓸 수 있어요.`),
+  "unsafe-regex": () => warning("input", "쓸 수 없는 정규식이에요!", "반복 안에 반복이 겹친 식은 너무 오래 걸릴 수 있어 받지 않아요."),
+  "filter-timeout": () => warning("input", "거르는 데 너무 오래 걸렸어요!", "식을 더 단순하게 바꿔 주세요."),
+  "bad-page-range": (_, look) => warning("input", "읽을 줄의 범위가 올바르지 않아요!", stalePage(look)),
+  "too-many-file-deletes": ({ max }) => warning("input", "한 번에 지울 수 있는 파일 수를 넘었어요!", `한 번에 ${max}개까지 지울 수 있어요.`),
+  "not-single-track": () => warning("input", "곡 하나의 링크가 아니에요!", "재생목록 · 앨범 · 짧은 링크가 아닌 곡 하나의 주소를 적어 주세요."),
+  "not-audio-source": () => warning("input", "받을 수 없는 음원이에요!", "유튜브 영상 · 사운드클라우드 곡 · 오디오 파일 주소를 적어 주세요."),
+  "nothing-to-clear": () => warning("state", "지울 자동 결과가 없어요!", "이 요청은 원래 링크를 그대로 써요."),
+  "track-cache-write-failed": () => error("failed", "바뀐 것을 쓰지 못했어요!", "캐시 DB 에 쓰다 실패했어요. 운영자 로그를 확인해 주세요."),
+  // 대시보드: 초기화
+  "reset-name-mismatch": () => warning("input", "봇 이름이 맞지 않아요!", "확인 창에 적힌 봇 이름을 그대로 쳐 주세요."),
+  "reset-already-staged": () => warning("state", "이미 전체 초기화를 걸어 두었어요!", "봇을 다시 켜면 지워요. 거두려면 초기화 카드에서 거두기를 눌러 주세요."),
+  "reset-not-staged": (_, look) => warning("notFound", "걸어 둔 전체 초기화가 없어요!", stalePage(look)),
+  "reset-failed": () => error("failed", "초기화하지 못했어요!", "지우거나 고치다 실패했어요. 운영자 로그를 확인해 주세요."),
 };
 
 /** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */

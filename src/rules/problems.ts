@@ -192,6 +192,27 @@ const WEB = {
   "background-bad-source": { status: 422, title: "Not a usable image or video" },
   // 링크에서 받지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
+  // 대시보드: 캐시 DB. 거르기 식(칸마다 · 아무 칸에서나)과 읽는 구간
+  "bad-filter": { status: 400, title: "Invalid filter expression" },
+  "filter-too-long": { status: 400, title: "Filter expression is too long", params: ["max"] },
+  "regex-too-long": { status: 400, title: "Regular expression is too long", params: ["max"] },
+  // 겹친 반복처럼 오래 걸릴 수 있는 정규식(서버가 재생과 같은 이벤트 루프에서 거른다)
+  "unsafe-regex": { status: 400, title: "Regular expression may run too long" },
+  "filter-timeout": { status: 422, title: "Filtering took too long" },
+  "bad-page-range": { status: 400, title: "Invalid row range" },
+  "too-many-file-deletes": { status: 400, title: "Too many files to delete at once", params: ["max"] },
+  // 정할 요청이 곡 하나의 링크가 아니다(재생목록 · 앨범 · 세트 · 짧은 링크 · 검색어)
+  "not-single-track": { status: 422, title: "Not a single-track link" },
+  // 정할 음원이 받을 수 있는 음원이 아니다(스포티파이 등)
+  "not-audio-source": { status: 422, title: "Not a downloadable audio source" },
+  // 쓰는 음원이 원래 링크 그대로라 지울 자동 결과가 없다
+  "nothing-to-clear": { status: 409, title: "Nothing to clear" },
+  "track-cache-write-failed": { status: 500, title: "Could not write the changes" },
+  // 대시보드: 초기화
+  "reset-name-mismatch": { status: 400, title: "Bot name does not match" },
+  "reset-already-staged": { status: 409, title: "Full reset is already staged" },
+  "reset-not-staged": { status: 404, title: "No full reset is staged" },
+  "reset-failed": { status: 500, title: "Could not reset" },
 } as const satisfies Record<string, ProblemSpec>;
 
 const PROBLEMS = { ...SHARED, ...WEB };
