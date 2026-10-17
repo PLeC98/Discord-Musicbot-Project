@@ -1,6 +1,7 @@
 <template>
   <!-- 디스플레이 탭의 파비콘 카드: 크기마다 올린다. 크기와 다른 이미지는 봇이 그 크기로 다시 만들고, 정사각형이 아니면 이미지 편집 대화상자로 잘라 올린다.
-       추가하기 · 변경은 크기별 팝업(이미지 업로드 · 링크로 추가 · 기록)을 연다. 기록(최근 FAVICON_HISTORY 개)으로 다시 올리지 않고 갈아 끼운다 -->
+       추가하기 · 변경은 크기별 팝업(이미지 업로드 · 링크로 추가 · 기록)을 연다. 기록(최근 FAVICON_HISTORY 개)으로 다시 올리지 않고 갈아 끼운다.
+       그 아래 로그인 배경 카드(LoginBackgroundCard) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
 
@@ -37,6 +38,8 @@
 
     <ImageCropDialog v-model="cropping" :file="cropFile" :aspect="1" :target="cropSize" :max-side="FAVICON_RESERVE_SIDE" @done="onCropped" />
     <FaviconSlotDialog v-model="dialogOpen" :entry="dialogSlot" :busy="busy" @upload="uploadFromDialog" @link="fromLink" @use="useImage" @remove="removeImage" />
+
+    <LoginBackgroundCard />
   </div>
 </template>
 
@@ -55,6 +58,7 @@ import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import ImageCropDialog from "./ImageCropDialog.vue";
 import FaviconSlotDialog from "./FaviconSlotDialog.vue";
+import LoginBackgroundCard from "./LoginBackgroundCard.vue";
 import { APPEARANCE_MAX_BYTES, FAVICON_MIN_SIDE, FAVICON_RESERVE_SIDE, type FaviconSlot, type FaviconSlots } from "../../../src/dashboard/contract/appearance.ts";
 import { text } from "../text/index.ts";
 const T = text.appearance;

@@ -1,9 +1,12 @@
 <template>
   <!-- 로그인 화면: 리싱한 Hyprland 의 잠금 화면(hyprlock) 결. 봇 정보 탭의 터미널과 같은 재료(활성 창 그라데이션 테두리).
        위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 고르기 · locked · 봇 상태와 짧은 날짜), 가운데 큰 시계 · 고리 두른 봇 그림 · hyprlock 입력칸 모양의 로그인 단추(오른쪽 끝 화살표, Enter 로도),
-       아래 가운데에 같은 섬 하나로 소스 링크(AGPL 13조 고지) -->
+       아래 가운데에 같은 섬 하나로 소스 링크(AGPL 13조 고지).
+       배경: 운영자가 정한 로그인 배경(GET /api/login-background)이 있으면 그것(LoginBackdrop, 화면 색도 그 배경의 색), 없으면 봇 그림.
+       preview 면(운영자 패널의 "로그인 화면으로 보기") 배경을 그리지 않는다(부르는 쪽이 고친 값으로 그린다) -->
   <div ref="rootEl" data-lock-screen class="relative min-h-dvh flex flex-col overflow-x-hidden">
-    <AppWallpaper />
+    <AppWallpaper v-if="!preview" />
+    <LoginBackdrop v-if="background" :bg="background" :look="background.look" adaptive paint-theme @stale="loadBackground" />
 
     <!-- waybar: 떠 있는 섬 셋 -->
     <!-- 세 칸 격자(1fr · 가운데 · 1fr): 양옆 섬 폭이 달라도 가운데 섬이 화면 가운데 -->
@@ -89,6 +92,7 @@ import { onKeyStroke, useResizeObserver } from "@vueuse/core";
 import axios from "axios";
 import { useUserStore } from "../stores/user.ts";
 import AppWallpaper from "../components/AppWallpaper.vue";
+import LoginBackdrop from "../components/LoginBackdrop.vue";
 import Icon from "../components/BaseIcon.vue";
 import DiscordMark from "../components/DiscordMark.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -97,6 +101,7 @@ import { useMediaQuery } from "@vueuse/core";
 import { SHORT_QUERY } from "../utils/breakpoints.ts";
 import { isModifiedSource } from "../utils/licenses.ts";
 import type { BotInfo, LoginError } from "../../../src/dashboard/contract/identity.ts";
+import type { LoginBackground } from "../../../src/dashboard/contract/login-background.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.login;
@@ -104,6 +109,9 @@ const T = text.login;
 const NL = "\n";
 const ISLAND = "pane rounded-full h-9 px-4 flex items-center gap-2 text-on-surface";
 const LINK = "text-on-surface no-underline hover:underline";
+
+/** preview: 운영자 패널이 고친 값으로 배경을 따로 그린다(배경 · 봇 그림을 깔지 않는다) */
+const props = withDefaults(defineProps<{ preview?: boolean }>(), { preview: false });
 
 const route = useRoute();
 const router = useRouter();
@@ -192,6 +200,20 @@ watch([short, error], () => nextTick(layout));
 const PAGE_ART = Symbol("login");
 onUnmounted(() => releasePageArt(PAGE_ART));
 
+// 로그인 배경. 없거나 못 받으면 봇 그림 배경(받은 뒤에 깐다)
+const background = ref<Exclude<LoginBackground, { kind: "none" }> | null>(null);
+async function loadBackground() {
+  try {
+    const got = (await axios.get<LoginBackground>("/api/login-background")).data;
+    // 같은 배경이면 그대로 둔다(보고 있는 화면은 받은 그대로, 더한 단계는 다음 방문부터)
+    if (got.kind === "none") background.value = null;
+    else if (got.id !== background.value?.id) background.value = got;
+  } catch {
+    // 꾸밈이다. 못 받으면 봇 그림으로
+  }
+  if (!background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
+}
+
 // 잠금 화면처럼 Enter 로 들어간다
 const login = () => (window.location.href = "/auth/login");
 onKeyStroke("Enter", login);
@@ -205,11 +227,13 @@ onMounted(async () => {
     return;
   }
   tick();
+  const backgroundRead = props.preview ? null : loadBackground();
   try {
     const res = await axios.get<BotInfo>("/api/bot");
     botAvatar.value = res.data.avatarUrl ?? undefined;
-    // 로그인 전에는 들을 곡이 없다: 봇 그림을 배경(쓰임 avatar: 원본 해상도, 옅은 흐림 · 밝기 띠)과 색으로 깐다
-    if (botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
+    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 그림을 배경(쓰임 avatar: 원본 해상도, 옅은 흐림 · 밝기 띠)과 색으로 깐다
+    await backgroundRead;
+    if (!props.preview && !background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
     botName.value = res.data.name ?? "";
     sourceRepo.value = res.data.sourceRepo;
     projectRepo.value = res.data.projectRepo;

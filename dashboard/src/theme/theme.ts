@@ -1,5 +1,6 @@
 // 화면 테마: 밝기(어둡게 · 밝게 · 시스템)와 바탕색. 바탕색은 보고 있는 곡의 앨범아트에서 온다.
-// 서버 화면을 보고 있으면 그 서버의 곡, 아니면 내가 듣는 곡(재생 바), 둘 다 없으면 기본색
+// 서버 화면을 보고 있으면 그 서버의 곡, 아니면 내가 듣는 곡(재생 바), 둘 다 없으면 기본색.
+// 그림 없이 색 씨앗만 받는 화면도 있다(로그인 배경: 봇이 올릴 때 뽑아 둔 대표색 · 장면 색, setPageSeed). 그때는 배경화면을 깔지 않는다(그 화면이 그린다)
 
 import { computed, reactive, ref, watch } from "vue";
 import { argbFromHex } from "@material/material-color-utilities";
@@ -77,22 +78,26 @@ const SHIFT_MS = 700;
  * 배경화면은 같은 때에 바꿔 같은 시간 동안 겹친다
  */
 let painted = false;
-function paint() {
+function paint(ms = SHIFT_MS) {
   const root = document.documentElement;
   const target = paletteOf(seed.value, dark.value);
   if (!painted || reduced.matches) setNow(target);
   // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 첫걸음이 무거운 프레임에 걸리지 않게
-  else requestAnimationFrame(() => requestAnimationFrame(() => blendTo(target, SHIFT_MS)));
+  else requestAnimationFrame(() => requestAnimationFrame(() => blendTo(target, ms)));
   painted = true;
   root.dataset.theme = dark.value ? "dark" : "light";
   root.style.colorScheme = dark.value ? "dark" : "light";
 }
 
+/** 화면이 정한 색 씨앗(#RRGGBB, null 이면 운영자 색)과 옮겨 가는 시간. 있으면 그림 대신 이것을 쓴다 */
+const pageSeed = ref<{ hex: string | null; ms: number } | null>(null);
+
 let asked = 0;
 watch(
-  [wanted, wantedKind, () => prefs.artColor, brandSeed, dark],
-  async ([url, kind, follow, , isDark]) => {
+  [wanted, wantedKind, () => prefs.artColor, brandSeed, dark, pageSeed],
+  async ([url, kind, follow, , isDark, seeded]) => {
     const mine = ++asked;
+    if (seeded) return;
     // 다음 곡은 미리 읽어 두므로(prefetchArt) 대개 바로 나온다. 배경은 모드마다 밝기 띠가 달라 모드가 바뀌면 다시 만든다
     const [found, backdrop] = await Promise.all([url && follow ? seedOf(url) : brandSeed.value, url ? backdropOf(url, isDark, kind) : null]);
     // 늦게 온 옛 그림의 색이 새 색을 덮지 않게. 그림을 못 읽었으면 색은 두고 배경만
@@ -121,6 +126,29 @@ function releasePageArt(owner: symbol) {
   art.page = null;
 }
 
+// 화면이 정한 색 씨앗: 앨범아트 색을 끄면 운영자 색, 배경화면은 깔지 않는다
+watch([pageSeed, () => prefs.artColor, brandSeed, dark], ([seeded, follow]) => {
+  if (!seeded) return;
+  asked++;
+  seed.value = follow && seeded.hex && HEX.test(seeded.hex) ? argbFromHex(seeded.hex) : brandSeed.value;
+  shown.value = null;
+  paint(seeded.ms);
+});
+
+/**
+ * 화면이 그림 없이 색 씨앗을 정한다(로그인 배경). ms 는 옮겨 가는 시간(장면 색은 1초). setPageArt 와 같이 깐 화면이 주인이 되고 주인만 치운다
+ */
+let seedOwner: symbol | null = null;
+function setPageSeed(owner: symbol, hex: string | null, ms = SHIFT_MS) {
+  seedOwner = owner;
+  pageSeed.value = { hex, ms };
+}
+function releasePageSeed(owner: symbol) {
+  if (seedOwner !== owner) return;
+  seedOwner = null;
+  pageSeed.value = null;
+}
+
 /** 곧 틀 곡의 그림을 미리 읽어 색을 뽑고 배경을 흐려 둔다(곡이 바뀌는 순간 바로 옮겨 가게). 브라우저가 한가할 때 한다 */
 const idle: (run: () => void) => void = "requestIdleCallback" in window ? (run) => requestIdleCallback(run, { timeout: 2000 }) : (run) => setTimeout(run, 200);
 function prefetchArt(url: string | null | undefined) {
@@ -132,5 +160,5 @@ function setMode(next: Mode) {
   writeStored(STORAGE_KEY, next);
 }
 
-export { art, dark, HOLD, mode, NO_ART, prefetchArt, prefs, releasePageArt, setBrandColor, setMode, setPageArt, setPref, wallpaper, MODES, SHIFT_MS };
+export { art, dark, HOLD, mode, NO_ART, prefetchArt, prefs, releasePageArt, releasePageSeed, setBrandColor, setMode, setPageArt, setPageSeed, setPref, wallpaper, MODES, SHIFT_MS };
 export type { Mode, Prefs, Wallpaper };
