@@ -4,6 +4,7 @@
 // 읽기는 표 하나의 구간(거르기 · 정렬은 서버가), 쓰기는 조작 목록을 한 번에(모두 검사한 뒤 조작마다 결과), 재생 확인은 바로 하는 일이라 따로 줄에 세운다.
 
 import type { Code } from "../../rules/problems.ts";
+import { FILTER_MAX, REGEX_MAX, type ColumnKind } from "../../rules/track-cache-filter.ts";
 
 const TRACK_CACHE_TABLES = ["requests", "files", "age"] as const;
 type TrackCacheTable = (typeof TRACK_CACHE_TABLES)[number];
@@ -20,13 +21,19 @@ const TRACK_CACHE_COLUMNS = {
   age: ["videoId", "markedAt"],
 } as const satisfies Record<TrackCacheTable, readonly string[]>;
 type TrackCacheColumn<T extends TrackCacheTable = TrackCacheTable> = (typeof TRACK_CACHE_COLUMNS)[T][number];
+/** 칸의 꼴(거르기 식의 값을 이 꼴로 읽는다) */
+const TRACK_CACHE_COLUMN_KINDS: { readonly [T in TrackCacheTable]: Record<TrackCacheColumn<T>, ColumnKind> } = {
+  requests: { requestKey: "text", platform: "text", title: "text", artist: "text", audioUrl: "text", pinnedAt: "time", file: "text", size: "bytes", plays: "count", lastPlayedAt: "time", ageMarkedAt: "time", check: "text" },
+  files: { audioKey: "text", audioUrl: "text", title: "text", channel: "text", status: "text", size: "bytes", duration: "seconds", plays: "count", lastPlayedAt: "time", downloadedAt: "time", requests: "count" },
+  age: { videoId: "text", markedAt: "time" },
+};
 const isTrackCacheColumn = <T extends TrackCacheTable>(table: T, value: unknown): value is TrackCacheColumn<T> => (TRACK_CACHE_COLUMNS[table] as readonly unknown[]).includes(value);
 
 /** 한 번에 읽는 줄 수 · 확인 결과를 한 번에 묻는 음원 키 수 상한 */
 const TRACK_CACHE_PAGE_MAX = 200;
-/** 칸 하나의 거르기 식 · 아무 칸에서나 거르기 · 그 안의 정규식 길이 상한(서버가 음악 재생과 같은 이벤트 루프에서 거른다) */
-const TRACK_CACHE_FILTER_MAX = 200;
-const TRACK_CACHE_REGEX_MAX = 100;
+/** 칸 하나의 거르기 식 · 아무 칸에서나 거르기 · 그 안의 정규식 길이 상한(식을 읽는 rules/track-cache-filter 의 것) */
+const TRACK_CACHE_FILTER_MAX = FILTER_MAX;
+const TRACK_CACHE_REGEX_MAX = REGEX_MAX;
 /** 한 번에 쓰는 조작 · 그중 파일 지우기 상한 */
 const TRACK_CACHE_OPS_MAX = 200;
 const TRACK_CACHE_FILE_DELETES_MAX = 100;
@@ -193,5 +200,5 @@ type TrackCacheRevision = { revision: number; checkRevision: number; checking: s
 /** 확인 결과(GET /api/admin/track-cache/checks?keys=<음원 키>,…, 한 번에 TRACK_CACHE_PAGE_MAX 개까지). 확인 번호가 바뀌었을 때 화면의 줄만 다시 받는다 */
 type TrackCacheChecks = { checks: Record<string, TrackCheck>; checkRevision: number };
 
-export { TRACK_CACHE_TABLES, TRACK_CACHE_COLUMNS, TRACK_CACHE_DEFAULT_SORT, TRACK_CACHE_PAGE_MAX, TRACK_CACHE_FILTER_MAX, TRACK_CACHE_REGEX_MAX, TRACK_CACHE_OPS_MAX, TRACK_CACHE_FILE_DELETES_MAX, TRACK_CACHE_PROBE_MAX, isTrackCacheTable, isTrackCacheColumn, trackCacheSearch };
+export { TRACK_CACHE_TABLES, TRACK_CACHE_COLUMNS, TRACK_CACHE_COLUMN_KINDS, TRACK_CACHE_DEFAULT_SORT, TRACK_CACHE_PAGE_MAX, TRACK_CACHE_FILTER_MAX, TRACK_CACHE_REGEX_MAX, TRACK_CACHE_OPS_MAX, TRACK_CACHE_FILE_DELETES_MAX, TRACK_CACHE_PROBE_MAX, isTrackCacheTable, isTrackCacheColumn, trackCacheSearch };
 export type { TrackCacheTable, TrackCacheColumn, TrackFileStatus, TrackCheck, TrackRequestRow, TrackFileRow, TrackAgeRow, TrackCacheRow, TrackCacheSort, TrackCacheQuery, TrackCachePage, TrackCacheOp, TrackCacheOpName, TrackCacheWrite, TrackFileUse, TrackCacheCurrent, TrackCacheOpResult, TrackCacheWritten, TrackCacheInspect, TrackCacheInspected, TrackCacheProbe, TrackCacheProbeQueued, TrackCacheRevision, TrackCacheChecks };
