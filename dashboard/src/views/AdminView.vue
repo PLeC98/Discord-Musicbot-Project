@@ -70,7 +70,7 @@
           <ServerManage :guilds="guilds" @changed="onGuildsChanged" />
         </div>
 
-        <!-- DB 브라우저: 신규 기능이라 2차 17단계에서 검토해 만든다(지금은 자리만, 저장 공간 카드의 "DB 브라우저" 버튼이 여기로 온다) -->
+        <!-- 캐시 DB: 음원 · 캐시 관리(B-115, 2차 18단계. 지금은 자리만, 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다) -->
         <div class="admin-page" v-show="tab === 'db'">
           <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
             <Icon name="database" :size="40" />
@@ -121,6 +121,7 @@
         <div class="admin-page" v-show="tab === 'backup'">
           <ConfigArchive v-if="opened.has('backup')" />
           <ConfigSnapshots v-if="opened.has('backup')" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
+          <ConfigReset v-if="opened.has('backup')" class="mt-(--gap-in)" />
         </div>
 
         <div class="admin-page" v-show="tab === 'dev'">
@@ -172,6 +173,7 @@ import { groupsIn } from "../../../src/rules/tunables.ts";
 import { draft as tunableDraft } from "../composables/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
+import ConfigReset from "../components/ConfigReset.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
@@ -183,16 +185,13 @@ const T = text.admin;
 
 /** 탭 하나 */
 /** group: 레일에서 선으로(휴대폰 탭 고르는 화면은 창으로) 나누는 묶음. 묶음 이름은 쓰지 않는다 */
-type Tab = { id: string; label: string; icon: IconName; group: "status" | "watch" | "config" | "outside" | "autoplay" | "backup" | "dev" };
+type Tab = { id: string; label: string; icon: IconName; group: "status" | "config" | "outside" | "autoplay" | "watch" | "backup" | "dev" };
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
 const ALL_TABS: Tab[] = [
   { id: "status", label: T.tabs.status, icon: "smart_toy", group: "status" },
-  { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
-  { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
-  { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
   { id: "settings", label: T.tabs.settings, icon: "tune", group: "config" },
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
@@ -201,6 +200,9 @@ const ALL_TABS: Tab[] = [
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "autoplay", label: T.tabs.autoplay, icon: "music_note", group: "autoplay" },
   { id: "ai", label: T.tabs.ai, icon: "campaign", group: "autoplay" },
+  { id: "guilds", label: T.tabs.guilds, icon: "public", group: "watch" },
+  { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
+  { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
   { id: "backup", label: T.tabs.backup, icon: "settings_backup_restore", group: "backup" },
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
@@ -347,7 +349,7 @@ const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
 
-const TAB_GROUPS = (["status", "watch", "config", "outside", "autoplay", "backup", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
+const TAB_GROUPS = (["status", "config", "outside", "autoplay", "watch", "backup", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
 
 // 레일의 고른 표시. 고른 칸 아이콘 자리(data-ind)의 높이로 옮긴다. 처음 자리를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
 const railEl = ref<HTMLElement | null>(null);

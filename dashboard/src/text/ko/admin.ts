@@ -11,13 +11,13 @@ const tiers = {
 const back = "뒤로";
 const tabsLabel = "운영자 패널 탭";
 const unsavedTab = "저장하지 않은 변경이 있어요";
-const dbNotYet = "DB 브라우저는 아직 짜지 않았어요";
+const dbNotYet = "캐시 DB 는 아직 짜지 않았어요";
 const leaveConfirm = { title: "저장하지 않고 떠날까요?", body: "고친 설정이 저장되지 않았어요. 떠나면 고친 내용이 사라져요.", confirm: "떠나기" };
 /** 탭 이름 */
 const tabs = {
   status: "봇 상태",
   guilds: "서버 관리",
-  db: "DB 브라우저",
+  db: "캐시 DB",
   logs: "실시간 로그",
   settings: "일반",
   youtube: "유튜브",
@@ -26,7 +26,7 @@ const tabs = {
   appearance: "디스플레이",
   autoplay: "자동재생",
   ai: "AI 보조",
-  backup: "백업",
+  backup: "백업 · 초기화",
   info: "봇 정보",
   dev: "개발자 옵션",
 };

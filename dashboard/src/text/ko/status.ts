@@ -94,7 +94,7 @@ const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (
 
 // 저장공간
 const storage = "저장공간";
-const dbBrowser = "DB 브라우저";
+const dbBrowser = "캐시 DB";
 const audioCache = "오디오 캐시";
 const cacheFiles = "캐시 파일 수";
 const files = (count: number, max: number) => `${formatNumber(count)} / ${formatNumber(max)}개`;

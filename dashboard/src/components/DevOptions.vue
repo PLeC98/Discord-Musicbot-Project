@@ -1,5 +1,5 @@
 <template>
-  <!-- 권한 적용해서 보기(디스코드의 "역할 적용해서 서버 보기", 서버 판정까지 같이 낮아진다) · 유지 관리(커맨드 재배포 · 캐시 초기화). 넓으면 두 단 -->
+  <!-- 권한 적용해서 보기(디스코드의 "역할 적용해서 서버 보기", 서버 판정까지 같이 낮아진다) · 유지 관리(커맨드 재배포). 넓으면 두 단. 초기화는 백업 · 초기화 탭(ConfigReset) -->
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-(--gap-in) items-start">
     <BaseCard icon="visibility" :title="T.viewAs.title">
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.viewAs.desc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.viewAs.tip" /></p>
@@ -24,18 +24,9 @@
           </div>
           <BaseButton variant="secondary" :disabled="redeploying" @click="redeploy">{{ redeploying ? T.redeploy.running : T.redeploy.run }}</BaseButton>
         </div>
-        <div :class="actionRow" class="border-t border-outline-variant/40">
-          <div class="min-w-0 flex-1 basis-56">
-            <p class="text-sm font-semibold text-on-surface">{{ T.reset.title }}</p>
-            <p class="text-xs text-on-surface-variant">{{ T.reset.desc }}</p>
-          </div>
-          <BaseButton variant="ghost" class="text-error!" :disabled="resetting" @click="confirmReset = true">{{ resetting ? T.reset.running : T.reset.run }}</BaseButton>
-        </div>
       </div>
     </BaseCard>
   </div>
-
-  <ConfirmDialog v-model="confirmReset" icon="delete" :title="T.reset.confirmTitle" :body="T.reset.confirmBody" :confirm-label="T.reset.confirm" :busy="resetting" @confirm="resetCache" />
 </template>
 
 <script setup lang="ts">
@@ -43,13 +34,12 @@ import { ref } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
-import ConfirmDialog from "./ConfirmDialog.vue";
 import Icon from "./BaseIcon.vue";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
-import type { RedeployReply, ResetReply } from "../../../src/dashboard/contract/admin.ts";
+import type { RedeployReply } from "../../../src/dashboard/contract/admin.ts";
 import type { Tier } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 const T = text.dev;
@@ -74,30 +64,6 @@ async function pickTier(tier: Tier | null) {
   } catch (e) {
     notifyProblem(e, T.viewAs.failed);
     switchingTier.value = false;
-  }
-}
-
-// ── 캐시 초기화 ───────────────────────────────────────────────
-const confirmReset = ref(false);
-const resetting = ref(false);
-
-// 지운 것 · 남긴 것(재생 중)
-function resetSummary(r: ResetReply) {
-  const mb = Math.round((r.freedBytes || 0) / 1024 / 1024);
-  return T.reset.summary(r.removed, mb, r.kept);
-}
-
-async function resetCache() {
-  if (resetting.value) return;
-  resetting.value = true;
-  try {
-    const { data } = await axios.post<ResetReply>("/api/admin/reset-cache", undefined, { timeout: LIMIT.long });
-    notifyDone(T.reset.done, resetSummary(data));
-  } catch (e) {
-    notifyProblem(e, T.reset.failed);
-  } finally {
-    resetting.value = false;
-    confirmReset.value = false;
   }
 }
 
