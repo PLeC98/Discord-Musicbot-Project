@@ -1,5 +1,5 @@
 // src/dashboard/settings-archive.ts · routes/settings-archive.ts — 설정 내보내기 · 가져오기(ZIP).
-// 내보낸 것을 그대로 되살리고, 고른 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 가져오기는 그 표로
+// 내보낸 것을 그대로 복원하고, 고른 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 가져오기는 그 표로
 
 process.env.OWNER_ID = "owner";
 
@@ -381,7 +381,7 @@ const KEY = Buffer.alloc(32, 7).toString("base64");
 const OTHER_KEY = Buffer.alloc(32, 8).toString("base64");
 const SECRET = "sk-archive-test-0123456789";
 
-test("키 · 쿠키: 암호문으로 내보내고 같은 SECRETS_KEY 에서 되살린다. 끝 네 글자는 풀어서 다시 센다", async () => {
+test("키 · 쿠키: 암호문으로 내보내고 같은 SECRETS_KEY 에서 복원한다. 끝 네 글자는 풀어서 다시 센다", async () => {
   secrets._useKey(KEY);
   try {
     secrets.put("ai.openai", SECRET, { provider: "openai", endpoint: "https://api.openai.com" });

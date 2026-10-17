@@ -40,21 +40,21 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
   return { guild: null, gone: false };
 }
 
-// 기동 때 저장된 재생 세션을 모두 되살린다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
+// 기동 때 저장된 재생 세션을 모두 복원한다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
 type PlayerClass = typeof Player;
-/** 서버마다의 플레이어. 되살린 플레이어를 여기에 올린다(되살리는 동안 들어온 명령이 같은 플레이어를 보게 먼저 올린다) */
+/** 서버마다의 플레이어. 복원한 플레이어를 여기에 올린다(복원하는 동안 들어온 명령이 같은 플레이어를 보게 먼저 올린다) */
 type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
- * skip: 이번 기동은 되살리지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
- * 돌려주는 것: 저장된 세션이 있던 서버 ID(되살렸든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
+ * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
+ * 돌려주는 것: 저장된 세션이 있던 서버 ID(복원했든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
 async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
   const saved = sessions().loadAll();
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
   if (skip) {
-    log.warn(`짧게 끊긴 실행이 연달아여서 이번에는 저장된 세션 ${saved.length}개를 되살리지 않습니다(세션은 남겨 둡니다): 서버 ID ${touched.join(", ")}`);
+    log.warn(`짧게 끊긴 실행이 연달아여서 이번에는 저장된 세션 ${saved.length}개를 복원하지 않습니다(세션은 남겨 둡니다): 서버 ID ${touched.join(", ")}`);
     return touched;
   }
 
@@ -109,7 +109,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   }
 }
 
-// 되살린 결과를 로그에
+// 복원한 결과를 로그에
 const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
 
 // 저장된 음성 · 글자 채널. 기록이 없거나 그 종류의 채널이 아니면 null
@@ -123,7 +123,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   return null;
 }
 
-/** 서버 하나의 저장된 세션을 되살린다(서버 하나 다시 켜기). 세션이 없으면 아무것도 안 한다 */
+/** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 켜기). 세션이 없으면 아무것도 안 한다 */
 async function restoreGuild(client: Client, players: Registry, PlayerCtor: PlayerClass, guildId: string) {
   const record = sessions().load(guildId);
   if (record) await restoreOne(client, players, PlayerCtor, record);

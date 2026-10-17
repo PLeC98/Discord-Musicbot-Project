@@ -6,7 +6,7 @@ import * as replies from "../../ui/control-replies.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf } from "../../ui/delivery.ts";
 
-// 결과를 알린다. 거절 · "이미 있어요"는 본인에게, 붙었거나 되살린 결과는 모두에게(되살리는 동안의 "불러오는 중" 자리를 지우고)
+// 결과를 알린다. 거절 · "이미 있어요"는 본인에게, 붙었거나 복원한 결과는 모두에게(복원하는 동안의 "불러오는 중" 자리를 지우고)
 async function answer(interaction: ChatInputCommandInteraction<"cached">, result: JoinResult) {
   switch (result.kind) {
     case "refused":
@@ -28,7 +28,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
-    // 저장한 세션을 되살리는 동안 "불러오는 중"을 본인에게 먼저 보낸다
+    // 저장한 세션을 복원하는 동안 "불러오는 중"을 본인에게 먼저 보낸다
     const result = await join(bot, { guild, member, textChannel: channel }, { restoring: () => interaction.reply(reply(replies.restoring())) });
     await answer(interaction, result);
   },

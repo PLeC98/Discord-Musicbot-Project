@@ -76,7 +76,7 @@ class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
-  // 직전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 되살리지 않는다
+  // 직전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 복원하지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
   // 직전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 띄우기 전에
@@ -109,11 +109,11 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   try {
     // 대시보드에서 고른 스냅샷 · 풀어 둔 전체 백업이 걸려 있으면 열기 전에 바꿔 끼운다(지금 것은 backups 에 남는다)
     const restored = snapshots.applyStaged(PROJECT.database);
-    if (restored) log.warn(`설정 DB 를 ${restored} 로 되살렸습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
+    if (restored) log.warn(`설정 DB 를 ${restored} 로 복원했습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
     stores.open();
   } catch (error) {
     log.error(messageOf(error));
-    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 를 되살리려면 봇을 끈 채 database/backups 의 settings-*.db 하나를 database/settings.db 로 복사하세요(같은 SECRETS_KEY 여야 비밀값이 풀립니다)");
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 를 복원하려면 봇을 끈 채 database/backups 의 settings-*.db 하나를 database/settings.db 로 복사하세요(같은 SECRETS_KEY 여야 비밀값이 풀립니다)");
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }

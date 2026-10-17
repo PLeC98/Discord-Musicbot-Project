@@ -60,7 +60,7 @@ test("음량: 바뀌면 이전 → 지금, 같으면 그대로", () => {
   assert.deepEqual(shown(replies.volumeSet(35, 35, by))[0], "### 🔊 볼륨을 조절했어요!\n볼륨이 이미 35%라서 그대로 둘게요.");
 });
 
-test("나가기: 곡이 있었으면 저장한 곡 · 자리 · 대기열과 되살리는 법, 없으면 머리 줄만", () => {
+test("나가기: 곡이 있었으면 저장한 곡 · 자리 · 대기열과 복원하는 법, 없으면 머리 줄만", () => {
   assert.deepEqual(shown(replies.left({ track, positionSec: 75, queue: 2 }, by)), ["### 👋 음성 채널에서 나갔어요\n재생 중이던 곡: **[곡](https://u.test)**\n⏱️ 저장한 위치 `1:15` · 📋 저장한 대기열 2곡\n`/join`으로 이어 들을 수 있어요.", BY]);
   assert.deepEqual(shown(replies.left(null, by)), ["### 👋 음성 채널에서 나갔어요", BY]);
 });

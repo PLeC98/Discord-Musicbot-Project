@@ -188,7 +188,7 @@ class Player {
   _endScheduled = false;
   /** 걸린 곡 끝 처리가 끝나기를 기다리는 쪽 */
   _endWaiters = new Set<() => void>();
-  /** 연달아 실패해 멈춰도 글자 채널에 알리지 않는다(세션을 되살리는 /join 이 명령 응답으로 말하는 동안) */
+  /** 연달아 실패해 멈춰도 글자 채널에 알리지 않는다(세션을 복원하는 /join 이 명령 응답으로 말하는 동안) */
   quietFailures = false;
   /** 곡 담기가 쉬던 플레이어에 첫 곡을 트는 동안. 틀지 못해도 대기열 소진으로 끝내지 않는다(담을 곡이 아직 남았다). 끝은 담기가 맡는다 */
   finishByCaller = false;
@@ -674,7 +674,7 @@ class Player {
    * 이 플레이어를 버린다. 모든 정리(정지 · 나가기 · 강제 퇴장 · 채널 사라짐 · 복구 포기 · 비활성 · 복원 실패 · 교체 · 운영자)가 여기를 지난다.
    * 두 번째 부름은 아무것도 하지 않는다. 버린 뒤 등록부가 스스로 뺀다(disposed 알림).
    * @param o.reason  로그에 남길 원인
-   * @param o.session  remove: 세션을 지운다 · save: 저장해 남긴다(/join 이 되살린다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
+   * @param o.session  remove: 세션을 지운다 · save: 저장해 남긴다(/join 이 복원한다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect · inactivity-timeout · leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 다시 붙는다. 서버 하나 다시 켜기). 기본은 나간다
@@ -1043,7 +1043,7 @@ class Player {
     } catch {
       /* 이미 멈춘 플레이어다 */
     }
-    // 세션을 되살리는 /join 은 이것을 명령 응답으로 말한다(quietFailures)
+    // 세션을 복원하는 /join 은 이것을 명령 응답으로 말한다(quietFailures)
     if (!this.quietFailures) await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
     // 남은 곡이 없으면 보통의 대기열 소진과 같다(세션을 지우고, 나갈 시각을 보이고, 나간다). 곡 담기가 첫 곡을 트는 중이면 담기가 끝낸다
     if (this.queue.length === 0) return this.finishByCaller ? undefined : this.finishQueue();
@@ -1310,7 +1310,7 @@ class Player {
     this.settingsSink?.onSettingsChanged();
   }
 
-  /** 저장된 설정을 되돌린다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
+  /** 저장된 설정을 복원한다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
   restoreSettings({ volume, loop, autoplay }: { volume?: number | null; loop: Loop; autoplay: string | false }) {
     this.pauseReasons = new Set();
     if (typeof volume === "number") this.volume = volume;

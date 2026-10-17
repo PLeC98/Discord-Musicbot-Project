@@ -149,7 +149,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "channel-set-failed": () => error("failed", "채널 지정에 실패했어요.", "채널을 조회하지 못했거나 저장에 실패했어요. 권한 설정을 확인해보고, 잠시 후 시도해도 오류가 발생한다면 봇 운영자에게 알려주세요."),
   "settings-save-failed": () => error("failed", "설정을 저장하지 못했어요.", "데이터베이스나 저장소에 문제가 있어요. 봇 운영자에게 알려주세요."),
   "dj-role-save-failed": () => error("failed", "저장하지 못했어요", "DJ 역할 저장 중에 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
-  // /join 이 저장한 세션을 되살리지 못했다. 다시 틀다 실패하고 남은 곡이 없다 · 연달아 실패해 멈췄다 · 되살리다 오류
+  // /join 이 저장한 세션을 복원하지 못했다. 다시 틀다 실패하고 남은 곡이 없다 · 연달아 실패해 멈췄다 · 복원하다가 오류
   "restore-nothing-left": () => error("failed", "이어 들을 곡을 틀지 못했어요", "저장된 곡을 다시 틀다 실패했고 남은 곡이 없어요. `/play`로 곡을 넣어 주세요."),
   "restore-failed-in-row": ({ left }) => error("failed", "이어 들을 곡들을 연달아 틀지 못했어요", `남은 ${left}곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요.`),
   // 디스코드 /join 과 대시보드 참가 버튼이 같이 쓴다
@@ -211,7 +211,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "upload-gone": () => warning("stale", "올린 파일이 없어졌어요!", "올린 지 1시간이 지났거나 봇이 다시 켜졌어요. 파일을 다시 올려 주세요."),
   "snapshot-not-found": (_, look) => warning("notFound", "없는 스냅샷이에요!", `오래되어 지워졌을 수 있어요. ${stalePage(look)}`),
   "ai-log-not-found": (_, look) => warning("notFound", "없는 기록이에요!", `저장 용량을 넘어 지워졌거나 모두 지운 기록이에요. ${stalePage(look)}`),
-  "snapshot-mismatch": () => warning("state", "되살릴 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 뜬 스냅샷이에요. 그 버전의 봇으로 되살려 주세요."),
+  "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 뜬 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   // 대시보드: 파비콘(올린 이미지 · 링크로 받는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png · webp · jpg · svg 이미지만 쓸 수 있어요."),

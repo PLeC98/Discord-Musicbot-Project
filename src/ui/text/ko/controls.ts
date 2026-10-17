@@ -78,7 +78,7 @@ const volumeSet = (before: number, level: number) => ({ title: "🔊 볼륨을 �
 /** 음량 입력 창 */
 const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" });
 
-/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 자리(at, 적은 것) · 대기열 곡 수와 되살리는 법 */
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 자리(at, 적은 것) · 대기열 곡 수와 복원하는 법 */
 const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
   title: "👋 음성 채널에서 나갔어요",
   body: saved ? [`재생 중이던 곡: ${link(saved.track)}`, `⏱️ 저장한 위치 \`${saved.at}\` · 📋 저장한 대기열 ${saved.queue}곡`, "`/join`으로 이어 들을 수 있어요."].join("\n") : null,
@@ -87,9 +87,9 @@ const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
 /** 음성 채널에 들어오기 */
 const joined = () => ({ title: "✅ 음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." });
 const alreadyJoined = () => ({ title: "✅ 이미 음성 채널에 있어요.", body: "저는 준비됐어요. 언제든지 곡을 넣어 주세요." });
-/** /join 이 저장한 세션을 되살리는 동안 */
+/** /join 이 저장한 세션을 복원하는 동안 */
 const restoring = () => "💾 듣던 곡을 불러오는 중...";
-/** /join 이 저장한 세션을 되살렸다 */
+/** /join 이 저장한 세션을 복원했다 */
 const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지 해 둔 상태였어요. 이어 들으려면 일시정지를 해제해주세요!` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
 export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };

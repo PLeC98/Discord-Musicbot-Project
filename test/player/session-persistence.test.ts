@@ -365,7 +365,7 @@ test("복원: 수동 일시정지 세션은 멈춘 상태로 (L-01 회귀 — �
   assert.ok(p.pauseReasons.has("manual"));
 });
 
-test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 되살린다", async () => {
+test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 복원한다", async () => {
   const p = await restore(makeRecord({ volume: 80, loopMode: "off", autoplay: "rock" }));
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
   assert.equal(p.paused, false);
@@ -398,9 +398,9 @@ test("복원: 줄 번호는 저장한 그대로(다시 켜기 전에 화면이 �
   assert.equal(Object.keys(p.queue[0]).includes("entry"), false, "객체 비교 · JSON 에는 나오지 않는다");
 });
 
-test("복원: 요청자는 id만 되살린다", async () => {
+test("복원: 요청자는 id만 복원한다", async () => {
   const p = await restore(makeRecord());
-  assert.ok(p.currentTrack, "곡을 되살렸다");
+  assert.ok(p.currentTrack, "곡을 복원했다");
   assert.deepEqual(p.currentTrack.requestedBy, { id: "u1" });
   assert.equal("requesterId" in p.currentTrack, false, "저장용 필드를 트랙에 남기지 않는다");
 });
@@ -435,9 +435,9 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   }
 });
 
-// 미리 뽑아 둔 자동재생 곡은 되살리지 않는다 — 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
+// 미리 뽑아 둔 자동재생 곡은 복원하지 않는다 — 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
 // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 행으로 가른다.
-test("복원: 자동재생이 미리 뽑아 둔 곡은 되살리지 않고 DB도 맞춘다", async () => {
+test("복원: 자동재생이 미리 뽑아 둔 곡은 복원하지 않고 DB도 맞춘다", async () => {
   const BOT = "bot1";
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
@@ -452,7 +452,7 @@ test("복원: 자동재생이 미리 뽑아 둔 곡은 되살리지 않고 DB도
 });
 
 // 봇 id를 모르면(클라이언트가 아직 없음) 거르지 않는다 — 사용자 곡을 실수로 버리는 쪽이 더 나쁘다.
-test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", async () => {
+test("복원: 봇 id를 알 수 없으면 대기열을 그대로 복원한다", async () => {
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
   trackState.enqueue(saved, [t("내곡"), { ...t("자동곡"), requestedBy: { id: "bot1" } }]);
@@ -515,7 +515,7 @@ function fakeChannel() {
   };
 }
 
-test("복원 안내: 멈춘 채 되살렸으면 재개됐다고 하지 않는다", async () => {
+test("복원 안내: 멈춘 채 복원했으면 재개됐다고 하지 않는다", async () => {
   const paused = fakeChannel();
   await restore(makeRecord({ pausedManual: true }), (p) => (p.textChannel = fake<GuildTextBasedChannel>(paused)));
   assert.equal(paused.sent.length, 1);
@@ -541,7 +541,7 @@ test("복원: 무엇이 됐나를 돌려준다(이어 틂 · 틀 곡을 열지 �
   assert.equal(await makeRestorePlayer().sp.restoreFromState(null), "empty");
 });
 
-test("복원: announce 를 끄면 글자 채널에 알리지 않고, 되살리는 동안만 연달아 실패 알림을 끈다(/join 이 응답으로 말한다)", async () => {
+test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하는 동안만 연달아 실패 알림을 끈다(/join 이 응답으로 말한다)", async () => {
   const quiet = fakeChannel();
   const seenQuiet: boolean[] = [];
   const { p, sp } = makeRestorePlayer();
@@ -552,8 +552,8 @@ test("복원: announce 를 끄면 글자 채널에 알리지 않고, 되살리�
   });
   assert.equal(await sp.restoreFromState(makeRecord(), { announce: false }), "restored");
   assert.deepEqual(quiet.sent, []);
-  assert.deepEqual(seenQuiet, [true], "되살리는 동안은 끈다");
-  assert.equal(p.quietFailures, false, "되살린 뒤에는 다시 알린다");
+  assert.deepEqual(seenQuiet, [true], "복원하는 동안은 끈다");
+  assert.equal(p.quietFailures, false, "복원한 뒤에는 다시 알린다");
 
   const loud = makeRestorePlayer();
   const seenLoud: boolean[] = [];

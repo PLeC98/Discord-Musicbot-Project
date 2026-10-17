@@ -56,11 +56,11 @@ function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as str
 test("봇이 음성 채널에 남아 있고 플레이어가 없는 서버만 이어받는다: 붙고, 쉬는 문구를 걸고, 틀 게 없음 퇴장을 건다", async () => {
   const restored = guildWith("g2");
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), restored, guildWith("g3", { botIn: null })]);
-  players.set("g2", "세션을 되살린 플레이어");
+  players.set("g2", "세션을 복원한 플레이어");
   await adoptLingeringVoice(client, players, FakePlayer);
   assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", `g1:status:${config.voiceStatus.idleText}`, "g1:empty:곡 없이 대기"]);
   assert.ok(players.has("g1"));
-  assert.equal(players.get("g2"), "세션을 되살린 플레이어");
+  assert.equal(players.get("g2"), "세션을 복원한 플레이어");
   assert.equal(players.has("g3"), false);
 });
 
@@ -77,7 +77,7 @@ test("다시 붙지 못하면 그 서버는 정리하고(세션은 남김) 다�
   assert.ok(steps.includes("g2:connect"));
 });
 
-test("저장된 세션이 있는 서버(이번에 되살리지 않았다)는 이어받지 않고 세션도 건드리지 않는다. /join 이 이어 튼다", async () => {
+test("저장된 세션이 있는 서버(이번에 복원하지 않았다)는 이어받지 않고 세션도 건드리지 않는다. /join 이 이어 튼다", async () => {
   sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
   try {
     const { client, players, steps, FakePlayer } = world([guildWith("g1")]);

@@ -3,7 +3,7 @@
 const button = "다시 시작";
 const unavailable = "실행기 없이 켠 봇이라 여기서 다시 시작할 수 없어요. 봇 폴더에서 pnpm start 로 켜면 쓸 수 있어요.";
 const confirmTitle = "봇을 다시 시작할까요?";
-const confirmBody = "재생이 잠깐 끊겼다가 이어져요. 대기열은 저장했다가 되살려요.";
+const confirmBody = "재생이 잠깐 끊겼다가 이어져요. 대기열은 저장했다가 복원해요.";
 const confirm = "다시 시작";
 const waitingTitle = "봇을 다시 시작하는 중이에요";
 const waiting = "봇이 다시 뜨면 이 화면을 새로 고쳐요. 보통 몇 초, 길면 30초쯤 걸려요.";

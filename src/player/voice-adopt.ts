@@ -16,12 +16,12 @@ const log = logger.child({ category: "voice" });
 // 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
 type PlayerClass = typeof Player;
 
-/** touched: 이번 기동에 세션 복원이 손댄 서버(되살렸거나 못 해서 세션을 지우고 나갔다). 건드리지 않는다 */
+/** touched: 이번 기동에 세션 복원이 손댄 서버(복원했거나 못 해서 세션을 지우고 나갔다). 건드리지 않는다 */
 async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSeats, "has" | "set">, PlayerCtor: PlayerClass, { touched = [] as string[] } = {}) {
   for (const guild of client.guilds.cache.values()) {
     const channel = guild.voiceStates.cache.get(client.user.id)?.channel;
     if (!channel?.isVoiceBased() || players.has(guild.id) || touched.includes(guild.id)) continue;
-    // 저장된 세션이 있는 서버(이번 기동이 되살리지 않았다: 연달아 끊김 · 일시적 조회 실패)는 /join 이 이어 튼다. 붙들면 /join 이 막히고 퇴장 때 세션을 지운다
+    // 저장된 세션이 있는 서버(이번 기동이 복원하지 않았다: 연달아 끊김 · 일시적 조회 실패)는 /join 이 이어 튼다. 붙들면 /join 이 막히고 퇴장 때 세션을 지운다
     if (sessions().load(guild.id)) {
       log.info(`세션이 있어 음성 채널의 봇을 이어받지 않습니다. /join 으로 이어 틉니다: "${channel.name}" (${guild.name})`);
       continue;

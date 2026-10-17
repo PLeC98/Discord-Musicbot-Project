@@ -34,7 +34,7 @@ function registerPending(messageId: string, state: Draft) {
   pending.set(messageId, { enabled: state.enabled, categories: [...state.categories], at: Date.now() });
 }
 
-// 보류가 없으면(봇 재시작 등) 지금 설정에서 되살린다
+// 보류가 없으면(봇 재시작 등) 지금 설정에서 다시 만든다
 async function restoreDraft(messageId: string, guildId: string) {
   const per = await GuildSettingsManager.getSponsorBlock(guildId);
   const eff = GuildSettingsManager.resolveSponsorBlock(guildId);

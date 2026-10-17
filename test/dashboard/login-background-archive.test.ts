@@ -146,7 +146,7 @@ test("자기 내보내기를 미리 보면 같다. 미리 보기 줄은 로그�
   assert.deepEqual([row.item, row.inFile, row.same, row.problems, row.count], ["login-background", true, true, [], 1]);
 });
 
-test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · 화면 값 · 한도를 되살리며, 지금 기록(만드는 중인 것까지)은 지운다", async () => {
+test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · 화면 값 · 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 지운다", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);

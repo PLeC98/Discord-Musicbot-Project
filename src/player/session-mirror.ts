@@ -146,7 +146,7 @@ class SessionPersistence {
       autoplay: p.autoplay || null,
       // 복원하는 건 수동 일시정지뿐이다. 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
-      // 곡 안의 절대 위치(시작 위치를 더한 값)라 되살릴 때 이것만 본다
+      // 곡 안의 절대 위치(시작 위치를 더한 값)라 복원할 때 이것만 본다
       positionMs: p.getCurrentTime?.() || 0,
     };
   }
@@ -243,8 +243,8 @@ class SessionPersistence {
   }
 
   /**
-   * 저장한 세션을 되살려 이어 튼다. 무엇이 됐나: restored 이어 틂 · failed 틀 곡을 열지 못함(남은 곡은 대기열에) · empty 틀 곡이 없음.
-   * announce 를 끄면 글자 채널에 되살렸다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
+   * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂 · failed 틀 곡을 열지 못함(남은 곡은 대기열에) · empty 틀 곡이 없음.
+   * announce 를 끄면 글자 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
    */
   async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "failed" | "empty"> {
     const player = this.player;

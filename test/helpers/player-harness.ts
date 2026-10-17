@@ -233,7 +233,7 @@ class FakePersistence extends SessionPersistence {
   removeSession() {
     calls.persists.push("remove");
   }
-  // 시험이 되살리기를 정했으면 그것으로(결과는 되살린 뒤의 상태로 가른다). 아니면 진짜
+  // 시험이 복원을 정했으면 그것으로(결과는 복원한 뒤의 상태로 가른다). 아니면 진짜
   async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
     if (behavior.restore) {
       await behavior.restore.call(this.player, record, options);
@@ -298,7 +298,7 @@ const behavior: Behavior = {
   fetch: null, // (url, init) → Response 비슷한 것
   chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
   directStream: null, // (url) → Readable
-  restore: null, // function (record) — this 는 플레이어. 세션 되살리기(명령 · 곡 추가의 갈래)
+  restore: null, // function (record) — this 는 플레이어. 세션 복원(명령 · 곡 추가의 갈래)
   autoplay: null, // () → 자동재생이 뽑을 곡. 기본은 못 찾음
   connect: null, // () → 던지면 음성 채널에 붙지 못함
 };

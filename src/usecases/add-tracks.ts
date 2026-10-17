@@ -448,7 +448,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   // 쉬던 플레이어면 첫 곡을 틀기 시작하고, 나머지는 대기열에 담는다
   const { start, addition, opened } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 
-  // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
+  // 첫 곡 실패 + 복구할 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
   // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
   if (start.failure && !opened) {

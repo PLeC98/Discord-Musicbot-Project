@@ -517,7 +517,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 되살린 결과(restoreFromState)로 가른다. 시험의 가짜는 되살린 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
+  // 복원한 결과(restoreFromState)로 가른다. 시험의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
   const nothingLeft = await run(async () => {});
   assert.deepEqual(nothingLeft.shown(), [post(noticeFrame(errors.notice("restore-nothing-left")))]);
 

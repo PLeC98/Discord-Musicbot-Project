@@ -45,7 +45,7 @@ function createTables(db: Db) {
       is_live          INTEGER NOT NULL DEFAULT 0,
       requester_id     TEXT,
       -- 대기열 줄 번호(player/track-state 의 entry). 곡을 가리키는 이름표라 옮겨도 그대로다(seq 는 슬롯 안의 차례라 옮기면 바뀐다).
-      -- 봇을 다시 켜도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 되살릴 때 새로 받는다
+      -- 봇을 다시 켜도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 복원할 때 새로 받는다
       entry            INTEGER,
       PRIMARY KEY (guild_id, slot, seq)
     );

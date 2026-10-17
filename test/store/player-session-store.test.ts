@@ -223,7 +223,7 @@ test("트랙 필드: 링크 칸 셋과 표시 정보 · 줄 번호가 저장한 
     requesterId: "u1",
     entry: 7,
   });
-  // 번호가 없는 곡(되살린 옛 곡 등)은 빈 칸. 되살릴 때 track-state 가 새로 찍는다
+  // 번호가 없는 곡(복원한 옛 곡 등)은 빈 칸. 복원할 때 track-state 가 새로 찍는다
   store.setCurrent(G, { title: "번호 없음", pageUrl: "https://y/2", requestKey: "https://y/2" });
   assert.equal(loaded(store).current?.entry, null);
 });

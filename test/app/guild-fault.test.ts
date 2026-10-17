@@ -1,4 +1,4 @@
-// src/app/guild-fault.ts — 모르는 오류가 난 서버만 다시 켠다(세션 저장 → 채널에 남긴 채 버리기 → 되살리기). 되풀이되면 그 서버만 멈춘다.
+// src/app/guild-fault.ts — 모르는 오류가 난 서버만 다시 켠다(세션 저장 → 채널에 남긴 채 버리기 → 복원). 되풀이되면 그 서버만 멈춘다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +23,7 @@ function world({ track = true } = {}) {
   return { steps, players, clock, fault };
 }
 
-test("곡이 있으면 세션을 저장하고 채널에 남긴 채 버린 뒤 그 서버만 되살린다", async () => {
+test("곡이 있으면 세션을 저장하고 채널에 남긴 채 버린 뒤 그 서버만 복원한다", async () => {
   const { steps, fault } = world();
   await fault("g1", new Error("버그"), "시험");
   assert.deepEqual(steps, ["dispose:save:stay:-:fault", "restore:g1"]);

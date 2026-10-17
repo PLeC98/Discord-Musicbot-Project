@@ -101,7 +101,7 @@ const SHARED = {
   "channel-set-failed": { status: 500, title: "Could not set the bot channel" },
   "settings-save-failed": { status: 500, title: "Could not save settings" },
   "dj-role-save-failed": { status: 500, title: "Could not save the DJ role" },
-  // /join 이 저장한 세션을 되살리지 못했다
+  // /join 이 저장한 세션을 복원하지 못했다
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-failed-in-row": { status: 500, title: "Saved tracks failed in a row", params: ["left"] },
   "restore-failed": { status: 500, title: "Could not restore the session" },
@@ -168,7 +168,7 @@ const WEB = {
   "disk-full": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 미리 보기 때 올린 파일이 없다(1시간이 지났거나 봇이 다시 켜졌다)
   "upload-gone": { status: 410, title: "Uploaded file is gone" },
-  // 설정 DB 스냅샷 되살리기: 없는 이름 · 이 봇과 구조가 다른 스냅샷
+  // 설정 DB 스냅샷 복원: 없는 이름 · 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
   // AI 리퀘스트 로그: 없는 줄(저장 용량을 넘어 지워졌거나 모두 지웠다)

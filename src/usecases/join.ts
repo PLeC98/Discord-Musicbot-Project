@@ -17,13 +17,13 @@ type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextB
 
 /**
  * refused: 부르지 않았다 · already: 이미 그 채널에 있다 · joined: 붙어서 곡을 기다린다 ·
- * restored: 저장한 세션을 되살렸다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡) · restore-error: 되살리다 오류가 나 플레이어를 버렸다
+ * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡) · restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
 type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number } | { kind: "restore-error" };
 
 /**
- * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 되살리고, 없으면 곡을 기다리다 나갈 예약을 건다.
- * restoring 은 세션을 되살리기 시작할 때 부른다(디스코드는 "불러오는 중"을 먼저 답한다).
+ * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
+ * restoring 은 세션 복원을 시작할 때 부른다(디스코드는 "불러오는 중"을 먼저 답한다).
  * 글자 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다
  */
 async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring }: { restoring?: () => Promise<unknown> } = {}): Promise<JoinResult> {
@@ -39,7 +39,7 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   const saved = sessions().load(guild.id);
 
   // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머 · 상태 동기화 · 캐시 퇴거 보호가
-  // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 되살린다
+  // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
   if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep" });
 
   const player = ensurePlayer(bot, { guild, textChannel: textChannel ?? (await resolveFallbackTextChannel(guild)), voiceChannel: channel });
@@ -71,11 +71,11 @@ function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
   return null;
 }
 
-// 저장한 세션을 되살린다. 채널 알림은 내지 않는다(입구가 결과를 알린다)
+// 저장한 세션을 복원한다. 채널 알림은 내지 않는다(입구가 결과를 알린다)
 async function restore(player: Player, saved: RestoredSession): Promise<JoinResult> {
   try {
     const outcome = await player.persistence.restoreFromState(saved, { announce: false });
-    // 재생 중이던 곡이 저장된 세션만 되살리니 틀 곡이 없는 결과(empty)는 나오지 않는다
+    // 재생 중이던 곡이 저장된 세션만 복원하니 틀 곡이 없는 결과(empty)는 나오지 않는다
     return { kind: "restored", player, track: outcome === "restored" ? player.currentTrack : null, left: player.queue.length };
   } catch (error) {
     log.error("세션 복원 실패:", messageOf(error));

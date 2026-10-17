@@ -1,7 +1,7 @@
 // settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 풀린다.
 //   daily           하루 한 번(기동 때 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
-//   before-import   설정을 가져오기 전 · before-restore 되살려 바꿔 끼우기 전. 둘 합쳐 5개
-// 되살리기: 고른 스냅샷을 settings.restore.db 로 걸어 두면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 바꿔 끼운다(열린 DB 를 갈아 끼우지 않는다).
+//   before-import   설정을 가져오기 전 · before-restore 복원해 바꿔 끼우기 전. 둘 합쳐 5개
+// 복원: 고른 스냅샷을 settings.restore.db 로 걸어 두면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 바꿔 끼운다(열린 DB 를 갈아 끼우지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -98,7 +98,7 @@ function checkSnapshot(file: string) {
   }
 }
 
-/** 고른 스냅샷을 되살리기로 걸어 둔다(다음 기동에 바꿔 끼운다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
+/** 고른 스냅샷을 복원으로 걸어 둔다(다음 기동에 바꿔 끼운다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
 function stage(name: string) {
   const dir = dbDir();
   if (!NAME.test(name) || !list(dir).some((one) => one.name === name)) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷입니다: ${name}`);
@@ -111,7 +111,7 @@ function stage(name: string) {
   ownerOnly(to);
 }
 
-/** 걸어 둔 되살리기를 거둔다 */
+/** 걸어 둔 복원을 거둔다 */
 function unstage() {
   const dir = dbDir();
   fs.rmSync(path.join(dir, STAGED), { force: true });
@@ -129,7 +129,7 @@ function staged(dir = dbDir()): string | null {
 }
 
 // 바꿔 끼우기 전의 settings.db 를 before-restore 로 남긴다. 닫힌 파일이라 -wal 을 본체에 접어 넣은 뒤 본체만 복사하면 한 시점의 사본이다.
-// 깨진 파일이라 접지 못해도(되살리기가 가장 필요한 때) 있는 그대로 복사한다
+// 깨진 파일이라 접지 못해도(복원이 가장 필요한 때) 있는 그대로 복사한다
 function keepCurrent(dir: string, current: string) {
   try {
     const db = new Database(current);
@@ -148,7 +148,7 @@ function keepCurrent(dir: string, current: string) {
 }
 
 /**
- * 기동 때 settings.db 를 열기 전에. 걸어 둔 되살리기가 있으면 지금 것을 before-restore 스냅샷으로 남기고 바꿔 끼운다.
+ * 기동 때 settings.db 를 열기 전에. 걸어 둔 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 바꿔 끼운다.
  * 바꿔 끼운 스냅샷 이름(없었으면 null)
  */
 function applyStaged(dir: string): string | null {

@@ -94,7 +94,7 @@ function readRoutes(router: Router) {
   });
 }
 
-// 음성 참가. 판정과 일은 디스코드 /join 과 같다(usecases/join). 붙었거나 되살린 결과는 디스코드의 패널 채널에도 알린다
+// 음성 참가. 판정과 일은 디스코드 /join 과 같다(usecases/join). 붙었거나 복원한 결과는 디스코드의 패널 채널에도 알린다
 function joinRoute(router: Router) {
   router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);

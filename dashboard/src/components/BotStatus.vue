@@ -615,7 +615,7 @@ const dbRows = computed<Array<[string, string]>>(() => {
     [T.db.file, db.drive === disk.drive ? sizeText(db.bytes) : `${sizeText(db.bytes)} (${db.drive})`],
     [T.db.lookups, T.songCount(db.lookups)],
     [T.db.sponsor, T.songCount(db.sponsorSegments)],
-    // 재시작 때 되살릴 세션(player_sessions). 나가며 남긴 것 · 되살리지 않고 남긴 것도 세므로 "활성"을 붙이지 않는다
+    // 재시작 때 복원할 세션(player_sessions). 나가며 남긴 것 · 복원하지 않고 남긴 것도 세므로 "활성"을 붙이지 않는다
     [T.db.sessions, T.count(db.sessions)],
     // 마지막으로 실제로 지운 정리: 언제 · 지운 수 · 비운 용량(정리는 기동 · 정기 간격 · 받은 뒤마다 돌고, 한도를 넘었을 때만 지운다)
     [T.db.lastCleanup, cache.lastCleanup ? T.cleanup(sinceText(cache.lastCleanup.at).short, cache.lastCleanup.files, sizeText(cache.lastCleanup.bytes)) : "-"],

@@ -1,4 +1,4 @@
-// src/app/run-record.ts — 직전 실행이 어떻게 끝났는지를 다음 기동이 안다. 짧게 끊긴 실행이 연달아면 세션을 되살리지 않는다.
+// src/app/run-record.ts — 직전 실행이 어떻게 끝났는지를 다음 기동이 안다. 짧게 끊긴 실행이 연달아면 세션을 복원하지 않는다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -42,7 +42,7 @@ test("처음 켜면 기록이 없다. 깨끗이 끝낸 뒤에는 끝난 방식�
   assert.equal(m.boot().previous.line, "직전 실행: 깨끗이 끝남 | 가동 3시간 12분");
 });
 
-// 대시보드에서 짧게 여러 번 다시 시작해도 끊김으로 세지 않는다(세션을 되살린다)
+// 대시보드에서 짧게 여러 번 다시 시작해도 끊김으로 세지 않는다(세션을 복원한다)
 test("다시 시작으로 끝났으면 그렇게 알리고 짧게 끊긴 실행으로 세지 않는다", () => {
   const m = machine();
   for (let i = 0; i < 3; i++) {
@@ -64,7 +64,7 @@ test("끝을 적지 못하고 끊겼으면 마지막으로 살아 있던 때까�
   assert.equal(previous.skipRestore, false);
 });
 
-test("짧게 끊긴 실행(기록 없이 끊김 · 전역 폭주)이 연달아 두 번이면 세션을 되살리지 않는다. 길게 돌았거나 깨끗이 끝나면 처음부터 센다", () => {
+test("짧게 끊긴 실행(기록 없이 끊김 · 전역 폭주)이 연달아 두 번이면 세션을 복원하지 않는다. 길게 돌았거나 깨끗이 끝나면 처음부터 센다", () => {
   const m = machine();
   let run = m.boot();
   m.cutAfter(run.record, MIN);
@@ -76,7 +76,7 @@ test("짧게 끊긴 실행(기록 없이 끊김 · 전역 폭주)이 연달아 �
   assert.equal(run.previous.skipRestore, true);
   assert.match(run.previous.line, /^직전 실행: 전역 폭주로 내림 \| 가동 1분/);
 
-  m.cutAfter(run.record, SHORT_RUN_MS); // 되살리지 않은 실행은 오래 돌았다
+  m.cutAfter(run.record, SHORT_RUN_MS); // 복원하지 않은 실행은 오래 돌았다
   run = m.boot();
   assert.equal(run.previous.shortStreak, 0, "오래 돈 실행은 세지 않는다");
   m.cutAfter(run.record, MIN);

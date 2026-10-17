@@ -30,7 +30,7 @@ function open(dir = PROJECT.database) {
   log.info({ tags: ["startup"] }, "DB 준비 완료 (설정 · 실행 상태 · 캐시 · AI 리퀘스트 로그)");
 }
 
-// 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 이름표). 설정 DB 면 기동이 되살리는 법을 알린다
+// 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 이름표). 설정 DB 면 기동이 복원하는 법을 알린다
 function openOne(file: DbFile, dir: string) {
   try {
     file.open(path.join(dir, file.spec.fileName));

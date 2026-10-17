@@ -37,7 +37,7 @@ const dialogTitle = "가져올 항목 고르기";
 /** 파일에 적힌 종류 · 만든 때 · 봇 버전 */
 const kinds: Record<ArchiveKind, string> = { settings: "봇 설정만", full: "암호화된 설정까지", favicon: "파비콘", "login-background": "로그인 배경" };
 const madeAt = (kind: string, when: string, version: string | null) => `${kind} · ${when}에 만든 파일${version ? ` · 봇 ${version}` : ""}`;
-const dialogNote = "고른 항목은 파일의 것으로 통째 바뀌고, 지금 값은 '가져오기 전' 스냅샷으로만 되돌릴 수 있어요(최근 5개까지 보관).";
+const dialogNote = "고른 항목은 파일의 것으로 통째 바뀌고, 지금 값은 '가져오기 전' 스냅샷으로만 복원할 수 있어요(최근 5개까지 보관).";
 const items: Record<ArchiveItem, string> = {
   tunables: "운영 조절값",
   genres: "자동재생 장르",

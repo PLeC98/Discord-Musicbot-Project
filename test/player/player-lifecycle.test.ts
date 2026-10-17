@@ -649,7 +649,7 @@ test("버리기는 한 번만 한다. 두 번째 부름은 아무것도 하지 �
   assert.deepEqual(seen, ["end:stop", "webhook:text1"]);
 });
 
-test("버리기(세션 그대로): 저장도 지우지도 않는다. 따로 저장된 세션을 /join 이 되살린다", async () => {
+test("버리기(세션 그대로): 저장도 지우지도 않는다. 따로 저장된 세션을 /join 이 복원한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("bbbbbbbbbbb");
 
@@ -882,7 +882,7 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   assert.equal(leaveTimer, null, "남은 곡이 있으니 나갈 예약을 걸지 않는다(패널이 오지 않을 나갈 시각을 보이지 않게)");
 });
 
-test("세션을 되살리는 동안(quietFailures) 연달아 실패해 멈추면 채널에 알리지 않는다. 패널은 멈춘 모양으로", async () => {
+test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈추면 채널에 알리지 않는다. 패널은 멈춘 모양으로", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   const [a, b, c, d] = ["q1fffffffff", "q2fffffffff", "q3fffffffff", "q4fffffffff"].map((id) => yt(id));

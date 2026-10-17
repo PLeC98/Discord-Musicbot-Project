@@ -1,4 +1,4 @@
-// src/store/snapshots.ts — settings.db 스냅샷. 하루 한 번 · 가져오기 · 되살리기 전에 뜨고, 고른 것을 다음 기동에 바꿔 끼운다
+// src/store/snapshots.ts — settings.db 스냅샷. 하루 한 번 · 가져오기 · 복원 전에 뜨고, 고른 것을 다음 기동에 바꿔 끼운다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -47,7 +47,7 @@ test("뜬 스냅샷은 그때의 settings.db 다(뒤에 바꾼 것은 들어가�
   }
 });
 
-test("매일 것은 하루에 하나 · 7개, 가져오기 · 되살리기 전 것은 합쳐 5개까지 남긴다", async () => {
+test("매일 것은 하루에 하나 · 7개, 가져오기 · 복원 전 것은 합쳐 5개까지 남긴다", async () => {
   for (let day = 1; day <= 9; day++) await snapshots.take("daily", new Date(2026, 9, day));
   for (let n = 0; n < 7; n++) await snapshots.take("before-import", new Date(2026, 9, 11, 8, 0, n));
   const rows = snapshots.list();
@@ -60,8 +60,8 @@ test("매일 것은 하루에 하나 · 7개, 가져오기 · 되살리기 전 �
   assert.equal(snapshots.list().length, before);
 });
 
-test("되살리기: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우고, 바꾸기 전 것은 스냅샷으로 남긴다", async () => {
-  settingsDocs.write("status", { messages: ["되살릴 것"] }, 0);
+test("복원: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우고, 바꾸기 전 것은 스냅샷으로 남긴다", async () => {
+  settingsDocs.write("status", { messages: ["복원할 것"] }, 0);
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   settingsDocs.write("status", { messages: ["지금 것"] }, 1);
 
@@ -73,7 +73,7 @@ test("되살리기: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우�
   assert.equal(snapshots.applyStaged(store.dir), name);
   assert.equal(snapshots.applyStaged(store.dir), null, "한 번만");
   stores.open(store.dir);
-  assert.deepEqual(read("status"), { messages: ["되살릴 것"] });
+  assert.deepEqual(read("status"), { messages: ["복원할 것"] });
   const kept = snapshots.list().find((one) => one.kind === "before-restore");
   assert.ok(kept, "바꾸기 전 것");
   const db = new Database(path.join(backups, kept.name), { readonly: true });

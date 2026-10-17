@@ -119,13 +119,13 @@ function alreadyJoined() {
   return frame({ title: t.title, body: t.body });
 }
 
-/** /join 이 저장한 세션을 되살리는 동안 · 되살렸다 */
+/** /join 이 저장한 세션을 복원하는 동안 · 복원했다 */
 const restoring = () => frame({ body: controlText.restoring() });
 function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ title: t.title, body: t.body });
 }
-/** 되살린 결과. 이어 튼 곡이 있으면 그 곡, 없으면 까닭(남은 곡이 있으면 연달아 실패해 멈춘 것) */
+/** 복원한 결과. 이어 튼 곡이 있으면 그 곡, 없으면 까닭(남은 곡이 있으면 연달아 실패해 멈춘 것) */
 function restoreResult(track: Track | null, isPaused: boolean, left: number) {
   if (track) return restored(track, isPaused);
   return noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"));

@@ -9,7 +9,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { LookupRow, checked } from "./rows.ts";
 import type { TrackInfo } from "../player/track.ts";
 
-/** 받아 둔 파일로 되살린 트랙. 여기 칸은 장부와 캐시에서 온다 */
+/** 받아 둔 파일로 만든 트랙. 여기 칸은 장부와 캐시에서 온다 */
 type CachedTrack = TrackInfo & { audioUrl: string };
 type CacheHit = { hit: false } | { hit: true; track: CachedTrack; audioKey: string; filePath: string };
 
@@ -43,7 +43,7 @@ function resolveFromCache(requestKey: string): CacheHit {
     requestKey: row.request_key,
     audioUrl: row.audio_url,
     platform: row.platform,
-    // 행의 빈 칸은 곡 모양으로(세션 되살리기와 같다)
+    // 행의 빈 칸은 곡 모양으로(세션 복원과 같다)
     title: row.display_title || cached.title || null,
     artist: row.display_artist || cached.channel || undefined,
     thumbnail: row.display_thumbnail,

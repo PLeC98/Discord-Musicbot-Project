@@ -105,7 +105,7 @@ test("구조 버전이 다른 봇이 만든 백업이면 바꿔 끼우지 않고
     error = caught;
   }
   assert.equal(codeOf(error), "RESTORE_FAILED");
-  assert.equal((error as { dbFile?: string }).dbFile, "settings.db", "기동이 되살리는 법을 함께 알린다");
+  assert.equal((error as { dbFile?: string }).dbFile, "settings.db", "기동이 복원하는 법을 함께 알린다");
   assert.ok(fs.existsSync(staged));
   assert.deepEqual(statusIn(path.join(bot, "database", "settings.db")), { messages: ["그 봇의 것"] });
 });

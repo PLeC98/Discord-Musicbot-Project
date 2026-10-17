@@ -1,4 +1,4 @@
-// usecases/add-tracks 의 곡 담기(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 되살리기 · 대기열 상한 · 넣을 자리 · 안내를 본다.
+// usecases/add-tracks 의 곡 담기(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 복구 · 대기열 상한 · 넣을 자리 · 안내를 본다.
 // 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결 · 재생과 패널 만들기만 가짜다.
 
 import { test, mock } from "node:test";
@@ -151,7 +151,7 @@ test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 �
   }
 });
 
-test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀어 되살린다", async () => {
+test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀어 복구한다", async () => {
   const { add, player, calls, sent } = setup({ plays: [{ ok: false }, { ok: true }] });
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
@@ -173,7 +173,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
   }
 });
 
-test("되살리기도 실패하면 첫 곡의 실패를 돌려준다", async () => {
+test("복구도 실패하면 첫 곡의 실패를 돌려준다", async () => {
   const { add } = setup({ plays: [{ ok: false, code: "live-ended" }, { ok: false }] });
   assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("cannot-start")) });
 });
