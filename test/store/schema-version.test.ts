@@ -1,5 +1,5 @@
-// src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 옮기기 코드는 두지 않는다.
-// 캐시 · 실행 상태는 새로 만들고, 설정은 열지 않고 멈춘다(사람이 정한 값을 지우지 않는다).
+// src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 옮기기 코드도, 저절로 새로 만들기도 두지 않는다.
+// 어느 파일이든 열지 않고 멈춘다. 캐시 · 실행 상태는 지우고 다시 켜라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import os from "node:os";
@@ -55,16 +55,30 @@ test("새 폴더: 세 파일을 각자의 버전으로 만들고 쓴다", () => 
   assert.equal(sessions().load("g")?.queue[0].title, "a", "같은 버전이면 다시 열고 내용이 남아 있다");
 });
 
-test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 묻지 않고 표를 새로 만든다", () => {
+// 지우고 다시 켜는 것(운영자가 할 일)
+const remove = (name: string) => {
+  for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(path.join(dir, name + suffix), { force: true });
+};
+
+test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 열지 않고 멈춘다. 파일은 손대지 않고, 지운 뒤 다시 켜면 새로 만든다", () => {
   prepare("cache.db", 5, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY); CREATE TABLE audio_cache (audio_key TEXT PRIMARY KEY); INSERT INTO audio_cache VALUES ('yt:old');");
+  assert.throws(
+    () => stores.open(dir),
+    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("지운 뒤 다시 켜면") && messageOf(error).includes("링크 장부"),
+  );
+  assert.equal(settingsDb.isOpen() || stateDb.isOpen() || cacheDb.isOpen(), false, "하나라도 못 열면 연 것을 닫는다");
+  const check = new Database(path.join(dir, "cache.db"));
+  assert.equal(check.prepare("SELECT COUNT(*) FROM audio_cache").pluck().get(), 1, "옛 표를 지우지 않는다");
+  assert.equal(check.pragma("user_version", { simple: true }), 5);
+  check.close();
+
+  remove("cache.db");
   stores.open(dir);
   assert.equal(versionOf(cacheDb), cacheDb.spec.version);
-  const tables = cacheDb.get().prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all();
-  assert.ok(!tables.includes("guild_settings"), "옛 표는 남기지 않는다");
   assert.equal(cacheDb.get().prepare("SELECT COUNT(*) FROM audio_cache").pluck().get(), 0);
 });
 
-test("실행 상태 DB 버전이 다르면 새로 만든다. 설정 · 캐시는 그대로", () => {
+test("실행 상태 DB 버전이 다르면 멈추고, 지운 뒤 다시 켜면 새로 만든다. 설정은 그대로", () => {
   stores.open(dir);
   guildSettings.table.setBotChannel("g", "c");
   stores.close();
@@ -72,6 +86,11 @@ test("실행 상태 DB 버전이 다르면 새로 만든다. 설정 · 캐시는
   file.pragma(`user_version = ${stateDb.spec.version + 1}`);
   file.close();
 
+  assert.throws(
+    () => stores.open(dir),
+    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("저장된 대기열"),
+  );
+  remove("state.db");
   stores.open(dir);
   assert.equal(versionOf(stateDb), stateDb.spec.version);
   assert.equal(guildSettings.table.getBotChannel("g"), "c");

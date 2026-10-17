@@ -1,5 +1,5 @@
 // 캐시 DB(cache.db). 다시 받거나 다시 찾으면 되살아나는 것만 담는다: 받은 곡 색인 · 링크 장부 · 바깥 서비스의 답.
-// 구조 버전이 바뀌면 묻지 않고 표를 새로 만든다. 색인을 잃은 곡 파일은 기동 정리(audioCache.onStartup)가 지운다.
+// 구조 버전이 맞지 않으면 열지 않고 멈춘다(지우고 다시 켜라고 안내한다). 지운 뒤 색인을 잃은 곡 파일은 기동 정리(audioCache.onStartup)가 지운다.
 // 캐시 초기화는 이 파일의 표를 모두 비운다(audioCache.resetCache). 사람이 정한 값 · 실행 상태는 여기 두지 않는다.
 
 import { DbFile } from "./sqlite.ts";
@@ -11,7 +11,7 @@ const cacheDb = new DbFile({
   // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다
   version: 6,
   synchronous: "NORMAL",
-  onMismatch: "recreate",
+  onMismatch: { lost: "받은 곡 색인 · 링크 장부 · SponsorBlock · 연령 제한 기억이 사라지고, 받아 둔 곡 파일은 켤 때 정리가 지운 뒤 다음 재생부터 다시 받습니다." },
   createTables,
 });
 

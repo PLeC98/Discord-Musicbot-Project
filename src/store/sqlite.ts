@@ -9,11 +9,11 @@ import { ownerOnly } from "../infra/owner-only.ts";
 type Db = Database.Database;
 
 /**
- * 구조 버전이 맞지 않을 때.
- * recreate: 표를 모두 지우고 새로 만든다(다시 만들 수 있는 것만 담은 파일).
- * stop: 열지 않고 던진다(사람이 정한 값을 담은 파일. 지우지 않는다)
+ * 구조 버전이 맞지 않을 때의 안내. 어느 파일이든 열지 않고 멈춘다(옮기기 코드도, 저절로 지우고 새로 만들기도 두지 않는다).
+ * lost: 지워도 되는 파일. 지우면 무엇을 잃는지(안내는 "이 파일을 지우고 다시 켜라")
+ * hint: 지우면 안 되는 파일의 안내(설정 DB)
  */
-type OnMismatch = "recreate" | "stop";
+type OnMismatch = { lost: string } | { hint: (found: number, file: string) => string };
 
 type DbSpec = {
   /** 로그 · 오류에 쓰는 이름 */
@@ -27,12 +27,7 @@ type DbSpec = {
   onMismatch: OnMismatch;
   /** 표 만들기. 이미 있으면 그대로 둔다 */
   createTables(db: Db): void;
-  /** 버전이 맞지 않아 열지 않을 때의 안내(stop 일 때) */
-  mismatchHint?: (found: number, file: string) => string;
 };
-
-/** 열고 난 결과. recreated: 버전이 맞지 않아 표를 새로 만들었다(found 는 그때 읽은 버전) */
-type Opened = { recreated: false } | { recreated: true; found: number };
 
 class DbFile {
   readonly spec: DbSpec;
@@ -42,9 +37,9 @@ class DbFile {
     this.spec = spec;
   }
 
-  /** 이미 열었으면 그대로. 버전이 맞지 않으면 spec.onMismatch 대로 */
-  open(file: string): Opened {
-    if (this.conn) return { recreated: false };
+  /** 이미 열었으면 그대로. 버전이 맞지 않으면 spec.onMismatch 의 안내로 던진다 */
+  open(file: string) {
+    if (this.conn) return;
     fs.mkdirSync(path.dirname(file), { recursive: true });
 
     const next = new Database(file);
@@ -55,28 +50,24 @@ class DbFile {
       next.pragma(`synchronous = ${this.spec.synchronous}`);
       next.pragma("foreign_keys = ON");
       next.pragma("busy_timeout = 5000");
-      const opened = this.settle(next, file);
+      this.settle(next, file);
       this.spec.createTables(next);
       next.pragma(`user_version = ${this.spec.version}`);
       this.conn = next;
-      return opened;
     } catch (error) {
       next.close();
       throw error;
     }
   }
 
-  // 표가 있는데 버전이 다르면 지우거나 멈춘다. 표가 없으면 새 파일이다
-  settle(db: Db, file: string): Opened {
+  // 표가 있는데 버전이 다르면 멈춘다(파일은 손대지 않는다). 표가 없으면 새 파일이다
+  settle(db: Db, file: string) {
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[];
     const found = db.pragma("user_version", { simple: true }) as number;
-    if (!tables.length || found === this.spec.version) return { recreated: false };
-    if (this.spec.onMismatch === "stop") {
-      const message = this.spec.mismatchHint?.(found, file) ?? `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}`;
-      throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
-    }
-    dropAll(db, tables);
-    return { recreated: true, found };
+    if (!tables.length || found === this.spec.version) return;
+    const rule = this.spec.onMismatch;
+    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 끄고 이 파일(같은 이름의 -wal · -shm 포함)을 지운 뒤 다시 켜면 새로 만듭니다. 지우면 ${rule.lost}`;
+    throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
   }
 
   get(): Db {
@@ -95,18 +86,6 @@ class DbFile {
   }
 }
 
-// 외래 키를 잠시 끄고 모든 표를 지운다(지우는 차례에 걸리지 않게). 색인은 표와 함께 사라진다
-function dropAll(db: Db, tables: string[]) {
-  db.pragma("foreign_keys = OFF");
-  try {
-    db.transaction(() => {
-      for (const table of tables) db.exec(`DROP TABLE IF EXISTS "${table.replaceAll('"', '""')}"`);
-    })();
-  } finally {
-    db.pragma("foreign_keys = ON");
-  }
-}
-
 /** 파일과 -wal 의 크기 합. 없으면 0 */
 function fileBytes(file: string) {
   const sizeOf = (target: string) => (fs.existsSync(target) ? fs.statSync(target).size : 0);
@@ -114,4 +93,4 @@ function fileBytes(file: string) {
 }
 
 export { DbFile, fileBytes };
-export type { Db, DbSpec, Opened };
+export type { Db, DbSpec };

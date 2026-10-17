@@ -1,5 +1,5 @@
 // 실행 상태 DB(state.db). 봇을 다시 켰을 때 이어 가려고 남기는 것: 저장된 대기열(재생 세션) · 음성 채널 상태 · 재생 패널 자리.
-// 캐시 초기화와 무관하다. 구조 버전이 바뀌면 경고하고 새로 만든다(그 기동은 대기열을 이어 틀지 못한다).
+// 캐시 초기화와 무관하다. 구조 버전이 맞지 않으면 열지 않고 멈춘다(지우고 다시 켜라고 안내한다).
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
@@ -9,7 +9,7 @@ const stateDb = new DbFile({
   fileName: "state.db",
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: "recreate",
+  onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 자리가 사라집니다." },
   createTables,
 });
 

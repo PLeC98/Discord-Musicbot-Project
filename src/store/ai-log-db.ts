@@ -1,7 +1,7 @@
 // AI 리퀘스트 로그 DB(ai-requests.db). AI 보조가 모델과 주고받은 것(requests)과 그 가벼운 통계(usage)를 둔다.
 // requests 는 원문까지 담아 무겁다. 저장 용량(AI_LOG_MAX_MB)을 넘으면 오래된 것부터 지운다(store/ai-requests).
 // usage 는 한 줄 백 바이트 남짓이고 지우지 않는다(로그를 지워도 통계는 남는다). 백업 · 내보내기에는 싣지 않는다(설정이 아니다).
-// 구조 버전이 바뀌면 표를 새로 만든다(로그 · 통계를 잃을 뿐 봇은 돈다). 표를 더하기만 하면 버전을 올리지 않는다.
+// 구조 버전이 맞지 않으면 열지 않고 멈춘다(지우고 다시 켜라고 안내한다). 표를 더하기만 하면 버전을 올리지 않는다.
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
@@ -11,7 +11,7 @@ const aiLogDb = new DbFile({
   fileName: "ai-requests.db",
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: "recreate",
+  onMismatch: { lost: "AI 리퀘스트 로그 · 사용량 통계가 사라집니다." },
   createTables,
 });
 
