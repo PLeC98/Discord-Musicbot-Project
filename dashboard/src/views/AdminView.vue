@@ -70,12 +70,9 @@
           <ServerManage :guilds="guilds" @changed="onGuildsChanged" />
         </div>
 
-        <!-- 캐시 DB: 음원 · 캐시 관리(B-115, 2차 18단계. 지금은 자리만, 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다) -->
+        <!-- 캐시 DB: 음원 · 캐시 관리(B-115). 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다 -->
         <div class="admin-page" v-show="tab === 'db'">
-          <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col items-center justify-center gap-3 min-h-60 text-center text-on-surface-variant">
-            <Icon name="database" :size="40" />
-            <p class="text-sm">{{ T.dbNotYet }}</p>
-          </section>
+          <CacheDb v-if="opened.has('db')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'autoplay'">
@@ -174,6 +171,7 @@ import { draft as tunableDraft } from "../composables/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import ConfigReset from "../components/ConfigReset.vue";
+import CacheDb from "../components/CacheDb.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
