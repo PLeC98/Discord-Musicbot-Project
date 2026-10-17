@@ -37,6 +37,8 @@ type ResetOverview = {
   display: { favicons: number; backgrounds: number };
   /** 봇 전체 초기화에서 쳐야 할 이름(대시보드가 보이는 봇 이름과 같다) */
   botName: string;
+  /** 실행기(pnpm start)로 켰는가. 봇 전체 초기화가 곧바로 다시 시작해 지우는지(true), 다음에 켤 때 지우는지(false) 확인 창이 가른다 */
+  launcher: boolean;
   /** 봇 전체 초기화가 걸려 있다(다음 기동에 지운다). 거두기는 DELETE /api/admin/reset/staged(걸려 있지 않으면 reset-not-staged, 답은 이 모양) */
   staged: boolean;
   /** 걸어 둔 복원. 봇 전체 초기화를 누르면 거두므로 확인 창이 알린다 */

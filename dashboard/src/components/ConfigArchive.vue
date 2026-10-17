@@ -39,7 +39,7 @@
                 <ul v-if="row.problems.length" class="ml-16 mb-1 text-label text-error list-disc pl-4">
                   <li v-for="line in row.problems" :key="line">{{ line }}</li>
                 </ul>
-                <!-- 가져올 수는 있지만 알아 둘 것: 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇이 보이는 링크)이 바뀐다 · 건너뛰는 값 -->
+                <!-- 가져올 수는 있지만 알아 둘 것: 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇 웹사이트 주소)이 바뀐다 · 건너뛰는 값 -->
                 <ul v-if="row.warnings.length && usable(row)" class="ml-16 mb-1 text-label text-(--warn-ink) list-disc pl-4">
                   <li v-for="line in row.warnings" :key="line">{{ line }}</li>
                 </ul>

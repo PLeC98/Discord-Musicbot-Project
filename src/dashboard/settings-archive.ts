@@ -7,7 +7,7 @@
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
 // 불러오기는 고른 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
 // 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 지운다), 파비콘 · 로그인 배경은 DB 뒤에 바꿔 끼운다.
-// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇이 보이는 링크)이 바뀌면 미리 보기가 짚어 준다.
+// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇 웹사이트 주소)이 바뀌면 미리 보기가 짚어 준다.
 
 import crypto from "node:crypto";
 import { openZip, type ZipInput } from "../infra/zip.ts";
@@ -151,7 +151,7 @@ function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (!value) return absent("tunables");
   const before = tunables.view().values.WEBSITE ?? "";
   const after = typeof value.WEBSITE === "string" ? value.WEBSITE : "";
-  const warnings = after !== before ? [after ? `봇이 보이는 링크가 바뀌어요: ${after}` : "봇이 보이던 링크가 없어져요."] : [];
+  const warnings = after !== before ? [after ? `봇 웹사이트 주소가 바뀌어요: ${after}` : "봇 웹사이트 주소가 비워져요."] : [];
   return { item: "tunables", inFile: true, same: stable(value) === stable(tunables.view().values), problems: tunables.problemsOf(value), warnings, count: null };
 }
 

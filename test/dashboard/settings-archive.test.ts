@@ -362,7 +362,7 @@ test("봇 설정만: 서버별 설정 · 키 · PC 에 매인 값이 없고, 불
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "chrome" }, "남의 파일이 쿠키 출처를 정하지 못한다");
 });
 
-// 남이 준 파일로 모르고 들이지 않게: AI 요청이 가는 곳 · 봇이 보이는 링크
+// 남이 준 파일로 모르고 들이지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
 test("바깥으로 나가는 값이 바뀌면 미리 보기가 짚어 준다", async () => {
   const file = rewrite(await exported("settings"), (json) => {
     (json.tunables as Record<string, string>).WEBSITE = "https://phish.example";
