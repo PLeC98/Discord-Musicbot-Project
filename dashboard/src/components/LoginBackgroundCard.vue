@@ -166,10 +166,11 @@
   <BackgroundSourceDialog v-model="sourceOpen" :state="state" :busy="busy" :pending="pending" :uploading="uploading" @upload="pickFile" @link="fromLink" @use="useBg" @remove="removeBg" />
   <BackgroundEditDialog v-model="editOpen" :bg="editing" :state="state" @done="applyEdit" @recount="recount" />
 
-  <!-- 로그인 화면으로 보기: 지금 쓰는 배경(고친 값) 위에 실제 로그인 화면. 그동안은 그 배경의 색을 화면 색으로 칠한다 -->
+  <!-- 로그인 화면으로 보기: 지금 쓰는 배경(고친 값, 없으면 화면 판처럼 봇 그림) 위에 실제 로그인 화면. 그동안은 그 배경의 색을 화면 색으로 칠한다 -->
   <Teleport to="body">
-    <div v-if="loginOpen" class="fixed inset-0 z-400">
+    <div v-if="loginOpen" class="fixed inset-0 z-400 bg-surface">
       <LoginBackdrop v-if="shown" :bg="shown" :look="look" paint-theme />
+      <img v-else-if="avatar" :src="avatar" alt="" class="absolute inset-0 size-full object-cover" />
       <div class="relative z-10 h-full overflow-auto"><LoginView preview /></div>
       <BaseButton class="fixed z-20 right-4 top-4" variant="secondary" @click="loginOpen = false">{{ C.closeLogin }}</BaseButton>
     </div>

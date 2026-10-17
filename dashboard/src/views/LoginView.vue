@@ -49,7 +49,8 @@
         <p class="font-semibold" :class="short ? 'mt-3 text-title-lg' : 'mt-4 text-title-lg md:text-[1.5rem]'">{{ botName || "MusicBot" }}</p>
 
         <!-- 입력칸 모양의 로그인 단추. 실패면 테두리가 오류 색으로 바뀌고 한 번 흔들린다(hyprlock 의 fail_color · fail_text) -->
-        <a href="/auth/login" class="state-layer relative w-full rounded-full pane flex items-center pr-2 no-underline text-on-surface" :class="[short ? 'mt-3 max-w-56 h-11 gap-2.5 pl-4' : 'mt-4 max-w-56 h-11 md:max-w-72 md:h-13 gap-2.5 md:gap-3 pl-4 md:pl-5', error ? 'fail-shake ring-2 ring-error' : 'term-border']">
+        <!-- 미리 보기(preview)는 모양만: 눌러도 로그인하러 가지 않는다 -->
+        <a :href="preview ? undefined : '/auth/login'" class="state-layer relative w-full rounded-full pane flex items-center pr-2 no-underline text-on-surface" :class="[short ? 'mt-3 max-w-56 h-11 gap-2.5 pl-4' : 'mt-4 max-w-56 h-11 md:max-w-72 md:h-13 gap-2.5 md:gap-3 pl-4 md:pl-5', error ? 'fail-shake ring-2 ring-error' : 'term-border']">
           <DiscordMark :size="22" class="shrink-0 text-[#5865F2]" :class="short ? 'w-4.5 h-auto' : 'max-md:w-4.5 max-md:h-auto'" />
           <span class="flex-1 text-left" :class="short ? 'text-body' : 'text-body md:text-body-lg'">{{ T.loginWithDiscord }}</span>
           <!-- 오른쪽 끝 화살표: 입력칸이 아니라 누르는 단추로 읽히게(손가락 기기에도 보인다) -->
@@ -216,13 +217,14 @@ async function loadBackground() {
 
 // 잠금 화면처럼 Enter 로 들어간다
 const login = () => (window.location.href = "/auth/login");
-onKeyStroke("Enter", login);
+// 미리 보기는 운영자 패널 위에 띄운 것이라 Enter 로 로그인하러 가지 않는다
+onKeyStroke("Enter", () => !props.preview && login());
 // 낮은 화면의 실패 대화상자를 닫았다
 const errorClosed = ref(false);
 
 onMounted(async () => {
-  // 틀 없이 연 미리 보기(meta.bare)는 로그인했어도 둔다
-  if (user.isLoggedIn && !route.meta.bare) {
+  // 틀 없이 연 미리 보기(meta.bare) · 운영자 패널 위에 띄운 미리 보기(preview)는 로그인했어도 둔다
+  if (user.isLoggedIn && !route.meta.bare && !props.preview) {
     await router.replace("/dashboard");
     return;
   }

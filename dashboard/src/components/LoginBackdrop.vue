@@ -250,11 +250,11 @@ watch(
 // ── 주사율 붙잡기 · 화면 숨김 ──
 
 const visible = ref(!document.hidden);
-const holding = computed(() => started.value && Boolean(codec.value) && visible.value && !reducedMotion.matches);
+const holding = computed(() => started.value && Boolean(codec.value) && visible.value && inView.value && !reducedMotion.matches);
 function onVisibility() {
   visible.value = !document.hidden;
   adapter?.hidden(document.hidden);
-  if (!document.hidden && videoEl.value?.paused)
+  if (!document.hidden && inView.value && videoEl.value?.paused)
     void videoEl.value.play().catch(() => {
       // 자동 재생이 막혔다(정지 그림이 그대로 보인다)
     });
@@ -287,7 +287,7 @@ let guardTime = -1;
 function startGuard() {
   guard = window.setInterval(() => {
     const video = codec.value ? videoEl.value : null;
-    if (!video || document.hidden || !started.value) return;
+    if (!video || document.hidden || !inView.value || !started.value) return;
     stuckFor = video.currentTime === guardTime ? stuckFor + 2 : 0;
     guardTime = video.currentTime;
     if (stuckFor === 0) tries = 0;
@@ -323,6 +323,19 @@ watch(
   () => void begin(),
 );
 
+// 틀이 보이지 않으면(운영자 패널의 다른 탭 · 접힌 곳) 영상을 멈춘다. 로그인 화면은 늘 보인다
+const inView = ref(true);
+let seen: IntersectionObserver | null = null;
+watch(inView, (on) => {
+  const video = videoEl.value;
+  if (!video) return;
+  if (!on) video.pause();
+  else if (!document.hidden)
+    void video.play().catch(() => {
+      // 자동 재생이 막혔다(정지 그림이 그대로 보인다)
+    });
+});
+
 let observer: ResizeObserver | null = null;
 onMounted(() => {
   observer = new ResizeObserver(([entry]) => {
@@ -330,6 +343,8 @@ onMounted(() => {
     frame.height = entry.contentRect.height;
   });
   if (frameEl.value) observer.observe(frameEl.value);
+  seen = new IntersectionObserver(([entry]) => (inView.value = entry.isIntersecting));
+  if (frameEl.value) seen.observe(frameEl.value);
   document.addEventListener("visibilitychange", onVisibility);
   startGuard();
   void begin();
@@ -338,6 +353,7 @@ onBeforeUnmount(() => {
   watching++;
   attaching++;
   observer?.disconnect();
+  seen?.disconnect();
   document.removeEventListener("visibilitychange", onVisibility);
   clearInterval(guard);
   adapter?.stop();
