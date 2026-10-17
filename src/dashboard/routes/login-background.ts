@@ -2,7 +2,6 @@
 // 올리기는 본문을 그대로 배경 폴더에 흘려 쓴다(고정 상한 없이 남은 저장 공간으로만 막는다). 단계는 login-background/runner 가 돌린다
 
 import express, { type Request, type Response } from "express";
-import fs from "node:fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireOwner } from "../middleware/require-owner.ts";
@@ -99,7 +98,7 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
   const id = store.reserve();
   const saved = await saveBody(req, store.sourceOf(id), room);
   if (!saved.ok) {
-    fs.rmSync(store.folderOf(id), { recursive: true, force: true });
+    store.removeFolder(id);
     if (saved.why === "no-space") return sendProblem(res, "background-no-space", { size: room });
     // 올리던 사람이 끊었다
     if (saved.why === "aborted") log.warn({ sub: "admin" }, `로그인 배경 "${name}"${josa(name, "을")} 받다 끊겼습니다: ${saved.detail}`);

@@ -10,6 +10,7 @@ import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
 import { openZip, type ZipInput, type ZipItem } from "../../infra/zip.ts";
 import { formatBytes } from "../../ui/format.ts";
+import { isHttpLink } from "../../rules/links.ts";
 import { BackgroundEditBody, BackgroundPositionBody } from "../request-schemas.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundRung, type LoginBackgroundScene } from "../contract/login-background.ts";
 import type { ArchiveRow } from "../contract/settings-archive.ts";
@@ -108,7 +109,8 @@ function itemFrom(raw: unknown): store.Stored | null {
     kind: raw.kind,
     from: raw.from,
     name: store.cleanName(raw.name, store.LINK_MAX) || "file",
-    link: typeof raw.link === "string" ? raw.link.slice(0, store.LINK_MAX) : null,
+    // 링크로 받은 주소(만들 때와 같은 검사)
+    link: typeof raw.link === "string" && raw.link.length <= store.LINK_MAX && isHttpLink(raw.link) ? raw.link : null,
     at: raw.at,
     usedAt: raw.usedAt,
     appliedAt: raw.appliedAt,
@@ -300,13 +302,13 @@ async function stage(file: string, plan: Plan): Promise<{ commit: () => void; ab
   const ids = new Map(plan.index.items.map((one) => [one.id, store.newId()]));
   const made: string[] = [];
   const abort = () => {
-    for (const folder of made) fs.rmSync(folder, { recursive: true, force: true });
+    for (const id of made) store.removeFolder(id);
   };
   const zipped = openZip(file);
   try {
     for (const one of plan.index.items) {
       const folder = store.folderOf(ids.get(one.id)!);
-      made.push(folder);
+      made.push(ids.get(one.id)!);
       for (const entry of plan.files.get(one.id)!) {
         const to = path.join(folder, ...entry.name.slice(`${DIR}${one.id}/`.length).split("/"));
         fs.mkdirSync(path.dirname(to), { recursive: true });

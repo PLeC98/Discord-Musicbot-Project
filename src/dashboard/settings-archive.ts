@@ -43,6 +43,8 @@ const MACHINE_KEYS: readonly string[] = ["COOKIES_SOURCE", "BGUTIL_ENABLED"];
 type DocItem = Extract<ArchiveItem, documents.DocName>;
 const DOC_ITEMS: readonly DocItem[] = ["genres", "status", "ai", "ai-prompt"];
 const isDocItem = (item: ArchiveItem): item is DocItem => (DOC_ITEMS as readonly string[]).includes(item);
+/** 설정 DB 가 아니라 저장 자리의 파일인 항목 */
+const FILE_ITEMS: readonly ArchiveItem[] = ["favicon", "login-background"];
 
 /** settings.json 의 꼴. 읽을 때는 칸마다 따로 본다(빠진 칸은 그 항목이 파일에 없는 것) */
 type ArchiveJson = {
@@ -316,7 +318,8 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   const staged = background ? await loginBackground.stage(file, background) : null;
   let docItems: DocItem[];
   try {
-    await before?.();
+    // 스냅샷은 설정 DB 의 것이라 DB 항목을 가져올 때만(파비콘 · 로그인 배경만이면 뜨지 않는다. 가져오기 전 스냅샷은 몇 개만 남는다)
+    if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
     docItems = writeChosen(parsed.json, items);
   } catch (error) {
     staged?.abort();

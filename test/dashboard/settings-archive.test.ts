@@ -254,7 +254,9 @@ test("파비콘: 내보낸 칸 · 기록으로 통째 되돌린다. 비어 있�
   const row = rowsOf((await preview(file)).json).favicon;
   assert.deepEqual([row.same, row.count], [false, 2], "이미지 수는 기록의 수");
 
+  const snapshotCount = snapshots.list().length;
   assert.equal((await send("import?items=favicon", file)).status, 200);
+  assert.equal(snapshots.list().length, snapshotCount, "설정 DB 항목이 없으면 스냅샷을 뜨지 않는다");
   assert.deepEqual(currents(), [32]);
   assert.equal(appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.history.length, 2);
   assert.equal(rowsOf((await preview(file)).json).favicon.same, true, "가져온 뒤에는 같다");

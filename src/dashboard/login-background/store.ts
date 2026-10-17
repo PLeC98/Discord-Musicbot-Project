@@ -220,12 +220,27 @@ function showIfLatest(one: Stored) {
   if (!now || one.appliedAt >= now.appliedAt) show(one.id);
 }
 
+/**
+ * 배경 폴더를 지운다. 멈춘 굽기의 ffmpeg 가 아직 파일을 쥐고 있으면(Windows) 뒤에서 잠시 다시 지우고,
+ * 그래도 안 되면 다음에 켤 때 목록에 없는 폴더로 치운다
+ */
+function removeFolder(id: string) {
+  const folder = folderOf(id);
+  try {
+    fs.rmSync(folder, { recursive: true, force: true });
+  } catch {
+    fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }).catch(() => {
+      // 다음에 켤 때 치운다
+    });
+  }
+}
+
 /** 배경 하나를 기록에서 뺀다(폴더째 지운다). 걸려 있던 배경이면 이전 배경으로 */
 function remove(id: string) {
   const state = loaded();
   const back = state.current === id ? previousId() : undefined;
   state.items = state.items.filter((one) => one.id !== id);
-  fs.rmSync(folderOf(id), { recursive: true, force: true });
+  removeFolder(id);
   if (back !== undefined) show(back);
 }
 
@@ -333,20 +348,13 @@ const room = () => {
   return roomIn(dir);
 };
 
-/** 기록을 통째로 바꾼다(백업 불러오기: 새 배경의 폴더는 이미 풀어 두었다). 옛 배경의 폴더는 지운다(열린 파일로 못 지운 것은 다음에 켤 때 목록에 없는 폴더로 치운다) */
+/** 기록을 통째로 바꾼다(백업 불러오기: 새 배경의 폴더는 이미 풀어 두었다). 옛 배경의 폴더는 지운다 */
 function replace(next: Index) {
   const old = items().map((one) => one.id);
   index = next;
   save();
   const kept = new Set(next.items.map((one) => one.id));
-  for (const id of old) {
-    if (kept.has(id)) continue;
-    try {
-      fs.rmSync(folderOf(id), { recursive: true, force: true });
-    } catch {
-      // 다음에 켤 때 치운다
-    }
-  }
+  for (const id of old) if (!kept.has(id)) removeFolder(id);
 }
 
 /** 테스트: 다른 폴더를 쓰고 읽은 기록을 버린다 */
@@ -355,5 +363,5 @@ function _useDir(folder: string) {
   index = null;
 }
 
-export { loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, replace, phaseOf, showsOf, stagesOf, freeBytes, room, isStored, optionsFrom, limitsFrom, cleanName, newId, NAME_MAX, LINK_MAX, _useDir };
+export { loaded, save, items, find, folderOf, sourceOf, folderBytes, isReady, canShow, nextStage, previousId, show, showIfLatest, remove, enforceLimits, reserve, create, replace, removeFolder, phaseOf, showsOf, stagesOf, freeBytes, room, isStored, optionsFrom, limitsFrom, cleanName, newId, NAME_MAX, LINK_MAX, _useDir };
 export type { Stored, Estimate, Media, Index };

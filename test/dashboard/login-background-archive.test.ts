@@ -149,6 +149,8 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · �
   store.show(video.id);
   store.loaded().options = { ...store.loaded().options, blur: 1.2 };
   store.loaded().limits = { history: 3, maxBytes: 0 };
+  image.link = "javascript:alert(1)";
+  video.link = "https://example.com/clip.mp4";
   store.save();
   const file = await exported();
 
@@ -175,6 +177,11 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · �
   assert.ok(
     now.every((one) => ![image.id, video.id, ...oldIds].includes(one.id)),
     "새 id",
+  );
+  assert.deepEqual(
+    now.map((one) => one.link),
+    ["https://example.com/clip.mp4", null],
+    "링크는 http · https 만",
   );
   for (const id of oldIds) assert.equal(fs.existsSync(store.folderOf(id)), false, "옛 배경의 폴더는 지운다");
   const shown = store.find(store.loaded().current!)!;
