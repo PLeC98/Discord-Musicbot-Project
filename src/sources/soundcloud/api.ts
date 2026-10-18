@@ -1,6 +1,7 @@
 // 사운드클라우드 곡 · 세트 · 스트림. 모두 yt-dlp 가 읽는다(run.ts).
 
 import { readInfo } from "../ytdlp-info.ts";
+import { artOf } from "../../rules/track-art.ts";
 import { canonicalUrl } from "../../rules/canonical-url.ts";
 import { codedError, codeOf } from "../../rules/error-kind.ts";
 import youtubedl from "../ytdlp-spawn.ts";
@@ -38,7 +39,8 @@ function trackOf(item: YtInfo): ScTrack | null {
     title: item.title || item.fulltitle || null,
     artist: item.uploader || undefined,
     duration: item.duration || 0,
-    thumbnail: item.thumbnail || item.thumbnails?.[0]?.url || null,
+    // thumbnail 은 올린 원본(3000×3000까지), thumbnails[0] 은 16×16. 500×500 으로(rules/track-art)
+    thumbnail: artOf(item.thumbnail || item.thumbnails?.at(-1)?.url),
     platform: "soundcloud",
     id: idOf(item.id),
     pageUrl: link,

@@ -1,6 +1,7 @@
 // 화면에 보내는 플레이어 모양(contract/player)
 
 import type { Request } from "express";
+import { artOf } from "../rules/track-art.ts";
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
@@ -17,7 +18,7 @@ function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
     title: t.title,
     artist: t.artist,
     duration: t.duration,
-    thumbnail: t.thumbnail,
+    thumbnail: artOf(t.thumbnail),
     platform: t.platform,
     platformLabel: labelOf(t.platform),
     autoplay: Boolean(t.autoplay), // 자동재생이 미리 선택해 둔 곡. 화면에서 사용자 곡과 구분한다
@@ -47,7 +48,7 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
     title: track.title,
     artist: track.artist,
     duration: track.duration,
-    thumbnail: track.thumbnail,
+    thumbnail: artOf(track.thumbnail),
     url: track.pageUrl,
     platform: track.platform,
     platformLabel: labelOf(track.platform),

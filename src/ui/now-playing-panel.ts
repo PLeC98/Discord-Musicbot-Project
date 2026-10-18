@@ -44,11 +44,14 @@ const isRestTimeout = (error: unknown) => error instanceof Error && error.name =
 // 패널 메시지가 있는 채널. 웹훅으로 올린 것은 API 모양이다
 const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message.channelId : message.channel_id);
 
-/** 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을 붙이고, 재생 화면으로 되돌릴 때 뗀다 */
+/**
+ * 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을, 그림이 없는 곡은 음표 썸네일을 첨부한다.
+ * attachments: [] 는 붙어 있던 첨부를 떼고 files 만 남긴다(고칠 때 첨부를 보내지 않으면 붙어 있던 것이 그대로 남는다)
+ */
 type Payload = {
   components: Array<ContainerBuilder | ActionRowBuilder<StringSelectMenuBuilder>>;
   flags: MessageFlags.IsComponentsV2;
-  files?: Array<ReturnType<typeof blankThumbnail.file>>;
+  files?: Array<{ attachment: Buffer; name: string }>;
   attachments?: [];
 };
 /** 끝난 패널의 문구 */
@@ -63,6 +66,8 @@ import { isTransient, scheduleDelete } from "./transient-messages.ts";
 import { LIFETIME } from "./delivery.ts";
 import { panelId, IDLE_SESSION } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
+import * as noArtThumbnail from "./no-art-thumbnail.ts";
+import { artOf } from "../rules/track-art.ts";
 import { jumpDescription } from "./queue-display.ts";
 import { PanelLocation, type PanelStore } from "./panel-location.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -131,6 +136,7 @@ class NowPlayingPanel {
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
+  noArtAttached = new Set<string>(); // 지금 패널 메시지에 음표 썸네일(그림 없는 곡)을 첨부해 둔 guildId
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -223,7 +229,7 @@ class NowPlayingPanel {
    * (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
    */
   async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
-    return this._sendPanel(channel, await this._playingPayload(player, track));
+    return this._sendPanel(channel, await this._playingPayload(player, track, true));
   }
 
   // 기억해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 기억을 지우고 새로 만들어 한 번 더 보낸다
@@ -246,10 +252,27 @@ class NowPlayingPanel {
     }
   }
 
-  async _playingPayload(player: Player, track: QueuedTrack): Promise<Payload> {
+  /**
+   * 재생 중 패널 내용. 그림이 없는 곡의 음표 썸네일은 패널 메시지에 한 번만 올린다(5초 갱신마다 다시 올리지 않는다):
+   * 새로 올리는 패널(fresh) · 그 첨부가 없는 패널이면 올리고, 그림이 있는 곡으로 바뀌면 뗀다
+   */
+  async _playingPayload(player: Player, track: QueuedTrack, fresh = false): Promise<Payload> {
     const container = await this.createNowPlayingContainer(player, track);
     const jumpToRow = await this.createJumpToRow(player);
-    return { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
+    const payload: Payload = { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
+    const guildId = player.guild?.id ?? "";
+    const attached = !fresh && this.noArtAttached.has(guildId);
+    if (!artOf(track.thumbnail)) {
+      if (!attached) {
+        payload.files = [await noArtThumbnail.file(colorOf("brand"))];
+        payload.attachments = [];
+      }
+      this.noArtAttached.add(guildId);
+    } else {
+      if (attached) payload.attachments = [];
+      this.noArtAttached.delete(guildId);
+    }
+    return payload;
   }
 
   /** 이 서버의 전용 채널. 설정돼 있고 찾을 수 있을 때만 */
@@ -271,7 +294,7 @@ class NowPlayingPanel {
     const record = await this.location.store.getPanel(player.guild.id);
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
     // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
-    const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track)), attachments: [] });
+    const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track, true)), attachments: [] });
     return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
@@ -364,15 +387,13 @@ class NowPlayingPanel {
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
 
-    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
-    // 직접 링크는 썸네일이 없으므로(임의 URL이라 앨범아트를 알 수 없다) 텍스트만 넣는다.
-    const titleComponent = track.thumbnail ? new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(track.thumbnail)) : null;
+    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 그림이 없는 곡(직접 링크 등)은 음표 썸네일(_playingPayload 가 첨부한다)
+    const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(artOf(track.thumbnail) ?? noArtThumbnail.url));
 
     const statusParts = statusOf(player);
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
-    if (titleComponent) container.addSectionComponents(titleComponent);
-    else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
+    container.addSectionComponents(titleComponent);
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(bar));
 
     if (statusParts.length > 0) {
@@ -407,6 +428,8 @@ class NowPlayingPanel {
       else if ("edit" in panel) await panel.edit(payload);
       this.editFailures.get(player.guild.id)?.ok();
     } catch (error) {
+      // 첨부가 실렸는지 모르니 다음에 다시 올린다
+      this.noArtAttached.delete(player.guild.id);
       await this._onEditFailed(player, error);
     }
   }
@@ -477,7 +500,8 @@ class NowPlayingPanel {
     const link = dashboardLink();
     if (link) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link}`));
 
-    return { components: [container], files: [blankThumbnail.file()] };
+    // 붙어 있던 첨부(그림 없는 곡의 음표 썸네일)는 떼고 투명 썸네일만
+    return { components: [container], files: [blankThumbnail.file()], attachments: [] as [] };
   }
 
   /**

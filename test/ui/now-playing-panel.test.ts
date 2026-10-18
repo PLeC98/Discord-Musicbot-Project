@@ -34,6 +34,23 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
   }
 });
 
+test("그림이 없는 곡은 음표 썸네일: 패널 메시지에 한 번만 올리고(5초 갱신마다 다시 올리지 않는다) 그림이 있는 곡으로 바뀌면 뗀다", async () => {
+  const mem = newManager();
+  const player = fakePlayer({ guild: { id: "g-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const bare: QueuedTrack = { title: "파일", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct", thumbnail: null };
+  const art: QueuedTrack = { ...bare, title: "영상", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" };
+  const shape = (payload: { files?: Array<{ name: string }>; attachments?: [] }) => [payload.files?.map((one) => one.name) ?? null, payload.attachments ?? null];
+
+  const sent = await mem._playingPayload(player, bare, true);
+  assert.deepEqual(shape(sent), [["no-art.png"], []], "새 패널: 올린다");
+  assert.ok(JSON.stringify(sent.components[0].toJSON()).includes("attachment://no-art.png"));
+  assert.deepEqual(shape(await mem._playingPayload(player, bare)), [null, null], "같은 패널의 갱신: 다시 올리지 않는다");
+  const swapped = await mem._playingPayload(player, art);
+  assert.deepEqual(shape(swapped), [null, []], "그림이 있는 곡: 뗀다");
+  assert.ok(JSON.stringify(swapped.components[0].toJSON()).includes("https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg"), "그림은 rules/track-art 로");
+  assert.deepEqual(shape(await mem._playingPayload(player, bare)), [["no-art.png"], []], "다시 그림 없는 곡: 올린다");
+});
+
 test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {
   const mem = newManager();
   const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });

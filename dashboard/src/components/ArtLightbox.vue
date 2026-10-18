@@ -20,25 +20,24 @@ import { computed, ref, watch } from "vue";
 import { onKeyStroke } from "@vueuse/core";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { rem } from "../utils/rem.ts";
+import { artOf } from "../../../src/rules/track-art.ts";
+import type { Content } from "../theme/art.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
 
-/** zoom: 작은 아트의 위아래 검은 띠를 감추는 배율(theme/art 의 useArtZoom) */
-const props = defineProps<{ track: { thumbnail?: string | null; title: string | null; artist?: string | null } | null | undefined; zoom: number }>();
+/** content: 띠를 뺀 내용의 비율(theme/art 의 useArtContent). 큰 그림도 같은 틀이라 같은 비율로 뺀다 */
+const props = defineProps<{ track: { thumbnail?: string | null; title: string | null; artist?: string | null } | null | undefined; content: Content }>();
 const open = defineModel<boolean>("open", { required: true });
 
 onKeyStroke("Escape", () => (open.value = false));
 
-// 유튜브는 큰 썸네일(띠 없는 16:9)을 먼저 써 보고, 없으면(작은 대체 그림이 온다) 지금 그림으로
-const YT_SMALL = /^(https:\/\/i\.ytimg\.com\/vi\/[^/]+\/)(hq|sd|mq)?default\.jpg$/;
+// 큰 그림이 따로 있으면(유튜브 maxresdefault, rules/track-art) 먼저 써 보고, 없으면(작은 대체 그림이 온다) 지금 그림으로
 const wideFailed = ref(false);
-const wide = computed(() => !wideFailed.value && YT_SMALL.test(props.track?.thumbnail ?? ""));
-const large = computed(() => {
-  const url = props.track?.thumbnail ?? "";
-  return wide.value ? url.replace(YT_SMALL, "$1maxresdefault.jpg") : url;
-});
+const big = computed(() => artOf(props.track?.thumbnail, "large") ?? "");
+const wide = computed(() => !wideFailed.value && big.value !== (props.track?.thumbnail ?? ""));
+const large = computed(() => (wide.value ? big.value : (props.track?.thumbnail ?? "")));
 
-// 그림 크기를 받은 뒤 원래 비율로 표시한다(위아래 검은 띠는 뺀다). 긴 변은 28rem(448) 까지, 그림 원래 크기의 1.5배까지만 키운다
+// 그림 크기를 받은 뒤 원래 비율로 표시한다(네 방향 검은 띠는 뺀다: 틀을 내용의 비율로 두고 가운데를 채운다). 긴 변은 28rem(448) 까지, 그림 원래 크기의 1.5배까지만 키운다
 const MAX_REM = 28;
 const size = ref<{ w: number; h: number } | null>(null);
 watch(
@@ -59,7 +58,7 @@ function failed() {
 const box = computed(() => {
   const s = size.value;
   if (!s) return null;
-  const aspect = s.w / (wide.value ? s.h : s.h / props.zoom);
+  const aspect = (s.w * props.content.w) / (s.h * props.content.h);
   const cap = Math.min(rem(MAX_REM) * Math.min(1, aspect), s.w * 1.5);
   return { aspectRatio: String(aspect), width: `min(${Math.round(cap)}px, 90vw, calc(65dvh * ${aspect.toFixed(4)}))` };
 });

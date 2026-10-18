@@ -17,7 +17,10 @@ const guessZoom = (url: string | null | undefined) => (url && /ytimg\.com\/vi(_w
 // 기억에는 상한을 둔다(오래 켜 두면 곡이 수백 곡 넘어간다). 최근에 쓴 것부터 남기고 오래된 것을 놓는다.
 // 원본 그림은 디코딩된 채로 들고 있어 무겁다(480×360 이면 0.7MB, 큰 그림이면 몇 MB): 색 추출 · 배경을 만든 뒤에는 거의 다시 쓰지 않으므로 몇 장만
 const images = new Map<string, Promise<HTMLImageElement | null>>();
-const contents = new Map<string, Promise<number>>();
+/** 띠를 뺀 내용의 폭 · 높이 비율(0 ~ 1) */
+type Content = { w: number; h: number };
+const FULL: Content = { w: 1, h: 1 };
+const contents = new Map<string, Promise<Content>>();
 const seeds = new Map<string, Promise<number | null>>();
 const KEEP = { images: 8, small: 64, backdrops: 24 };
 
@@ -55,30 +58,37 @@ const imageOf = (url: string) =>
     KEEP.images,
   );
 
-/** 위아래 검은 띠를 뺀 내용의 높이 비율(0~1). 행마다 밝기를 보고 어두운 행이 이어지는 데까지를 띠로 본다 */
-function measure(img: HTMLImageElement): number {
-  const w = 48;
-  const h = Math.max(8, Math.round((w * img.naturalHeight) / img.naturalWidth));
+/**
+ * 검은 띠를 뺀 내용의 폭 · 높이 비율. 위아래(16:9 에 든 4:3 · 시네마 비율)와 양옆(16:9 썸네일에 든 4:3 옛 영상 · 세로 영상 · 정사각형 앨범아트)을
+ * 행 · 열마다 밝기를 보고 어두운 줄이 이어지는 데까지 띠로 본다
+ */
+function measure(img: HTMLImageElement): Content {
+  const side = 48;
+  const wide = img.naturalWidth >= img.naturalHeight;
+  const w = wide ? side : Math.max(8, Math.round((side * img.naturalWidth) / img.naturalHeight));
+  const h = wide ? Math.max(8, Math.round((side * img.naturalHeight) / img.naturalWidth)) : side;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return 1;
+  if (!ctx) return FULL;
   ctx.drawImage(img, 0, 0, w, h);
   const data = ctx.getImageData(0, 0, w, h).data;
-  const dark = (row: number) => {
-    let max = 0;
-    for (let x = 0; x < w; x++) {
-      const i = (row * w + x) * 4;
-      max = Math.max(max, data[i], data[i + 1], data[i + 2]);
-    }
-    return max < 28;
+  const bright = (x: number, y: number) => {
+    const i = (y * w + x) * 4;
+    return Math.max(data[i], data[i + 1], data[i + 2]);
   };
-  let top = 0;
-  while (top < h / 2 && dark(top)) top++;
-  let bottom = h - 1;
-  while (bottom > h / 2 && dark(bottom)) bottom--;
-  return Math.max(0.3, (bottom - top + 1) / h);
+  const darkRow = (y: number) => Array.from({ length: w }, (_, x) => bright(x, y)).every((v) => v < 28);
+  const darkColumn = (x: number) => Array.from({ length: h }, (_, y) => bright(x, y)).every((v) => v < 28);
+  /** 양 끝에서 어두운 줄을 세어 남는 비율(절반 넘게 어두우면 띠가 아니라 어두운 그림이다) */
+  const span = (count: number, dark: (i: number) => boolean) => {
+    let start = 0;
+    while (start < count / 2 && dark(start)) start++;
+    let end = count - 1;
+    while (end > count / 2 && dark(end)) end--;
+    return Math.max(0.3, (end - start + 1) / count);
+  };
+  return { w: span(w, darkColumn), h: span(h, darkRow) };
 }
 
 const contentOf = (url: string) =>
@@ -87,7 +97,7 @@ const contentOf = (url: string) =>
     url,
     async () => {
       const img = await imageOf(url);
-      return img ? measure(img) : 1;
+      return img ? measure(img) : FULL;
     },
     KEEP.small,
   );
@@ -105,7 +115,7 @@ const seedOf = (url: string) =>
       canvas.width = canvas.height = SEED_SIDE;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return null;
-      const crop = Math.min(img.naturalWidth, img.naturalHeight * content);
+      const crop = Math.min(img.naturalWidth * content.w, img.naturalHeight * content.h);
       ctx.drawImage(img, (img.naturalWidth - crop) / 2, (img.naturalHeight - crop) / 2, crop, crop, 0, 0, SEED_SIDE, SEED_SIDE);
       // 선택하는 셈은 봇(로그인 배경의 장면 색)과 같은 것(rules/art-seed)
       return seedOfPixels(ctx.getImageData(0, 0, SEED_SIDE, SEED_SIDE).data);
@@ -167,11 +177,12 @@ function intoBand(data: Uint8ClampedArray, band: Band, mix = 1) {
 async function bakeBackdrop(url: string, dark: boolean, look: BakeLook): Promise<string | null> {
   const img = await imageOf(url);
   if (!img) return null;
-  const content = look.crop ? await contentOf(url) : 1;
-  const srcH = img.naturalHeight * content;
-  const w = look.upTo ? Math.min(look.width, img.naturalWidth) : look.width;
+  const content = look.crop ? await contentOf(url) : FULL;
+  const srcW = img.naturalWidth * content.w;
+  const srcH = img.naturalHeight * content.h;
+  const w = look.upTo ? Math.min(look.width, Math.round(srcW)) : look.width;
   const blur = look.blur * w;
-  const h = Math.max(1, Math.round((w * srcH) / img.naturalWidth));
+  const h = Math.max(1, Math.round((w * srcH) / srcW));
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -180,7 +191,7 @@ async function bakeBackdrop(url: string, dark: boolean, look: BakeLook): Promise
   ctx.filter = `blur(${blur}px) saturate(${look.saturate})`;
   // 가장자리가 투명하게 번지지 않게 흐림 폭만큼 넘치게 그린다
   const pad = blur * 2;
-  ctx.drawImage(img, 0, (img.naturalHeight - srcH) / 2, img.naturalWidth, srcH, -pad, -pad, w + pad * 2, h + pad * 2);
+  ctx.drawImage(img, (img.naturalWidth - srcW) / 2, (img.naturalHeight - srcH) / 2, srcW, srcH, -pad, -pad, w + pad * 2, h + pad * 2);
   try {
     const pixels = ctx.getImageData(0, 0, w, h);
     if (look.band > 0) intoBand(pixels.data, dark ? look.range.dark : look.range.light, look.band);
@@ -203,9 +214,25 @@ const backdropOf = (url: string, dark: boolean, kind: BackdropKind = "song") =>
     (gone) => void gone.then((blob) => blob && URL.revokeObjectURL(blob)),
   );
 
+/** 띠를 뺀 내용의 비율을 픽셀로 잰다(바뀌기 전까지는 FULL). 크게 보기가 원래 비율로 띠만 빼고 보일 때 */
+function useArtContent(url: () => string | null | undefined): Ref<Content> {
+  const content = ref<Content>(FULL);
+  watch(
+    url,
+    async (now) => {
+      content.value = FULL;
+      if (!now) return;
+      const measured = await contentOf(now);
+      if (url() === now) content.value = measured;
+    },
+    { immediate: true },
+  );
+  return content;
+}
+
 /**
  * 아트를 정사각형으로 채우는 배율(띠를 뺀다). measured 가 아니면 주소로 짐작만 한다(작은 아트 · 목록은 픽셀을 읽지 않는다).
- * measured 면 픽셀로 띠를 재서 바꾼다(최대 2배)
+ * measured 면 픽셀로 네 방향 띠를 재서, 가운데 정사각형이 내용 안에 들게 키운다(최대 2배)
  */
 function useArtZoom(url: () => string | null | undefined, measured = false): Ref<number> {
   const zoom = ref(guessZoom(url()));
@@ -218,7 +245,9 @@ function useArtZoom(url: () => string | null | undefined, measured = false): Ref
       if (!img || url() !== now) return;
       const content = await contentOf(now);
       if (url() !== now) return;
-      const measuredZoom = Math.min(MAX_ZOOM, img.naturalWidth >= img.naturalHeight ? 1 / content : 1);
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      const inner = Math.min(img.naturalWidth * content.w, img.naturalHeight * content.h);
+      const measuredZoom = Math.min(MAX_ZOOM, Math.max(1, side / inner));
       // 잰 값은 행 단위라 조금 모자라 검은 띠가 한 행 남는다. 주소로 아는 값(4:3 썸네일의 16:9 = 4/3)에 가까우면 그 값을 쓴다
       const guessed = guessZoom(now);
       zoom.value = Math.abs(measuredZoom - guessed) < SNAP ? guessed : measuredZoom;
@@ -228,5 +257,5 @@ function useArtZoom(url: () => string | null | undefined, measured = false): Ref
   return zoom;
 }
 
-export { BACKDROP_LOOKS, backdropOf, bakeBackdrop, seedOf, useArtZoom };
-export type { BackdropKind, BakeLook };
+export { BACKDROP_LOOKS, backdropOf, bakeBackdrop, seedOf, useArtContent, useArtZoom };
+export type { BackdropKind, BakeLook, Content };

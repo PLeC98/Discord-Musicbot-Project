@@ -2,6 +2,7 @@
 // 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 헤더 줄의 이모지를, 얼마나 심각한지(severity)로 색을 정한다
 
 import { ContainerBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
+import { artOf } from "../rules/track-art.ts";
 import { colorOf, type Meaning } from "./colors.ts";
 import type { Notice, Topic } from "./text/notice.ts";
 
@@ -30,7 +31,8 @@ function frame({ title, body, footer = [], divider = false, thumbnail, color = "
   const head = [title ? `### ${title}` : null, body].filter(Boolean).join("\n");
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf(color)));
   const text = new TextDisplayBuilder().setContent(head);
-  if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
+  const art = artOf(thumbnail);
+  if (art) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text).setThumbnailAccessory(new ThumbnailBuilder().setURL(art)));
   else container.addTextDisplayComponents(text);
   const small = footer.filter((line): line is string => Boolean(line)).map((line) => `-# ${line}`);
   if (small.length && divider) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));

@@ -192,7 +192,7 @@
         <VoiceLockOverlay v-if="locked" />
       </div>
 
-      <ArtLightbox v-model:open="artOpen" :track="track" :zoom="artZoom" />
+      <ArtLightbox v-model:open="artOpen" :track="track" :content="artContent" />
 
       <!-- ── 대기열 ── -->
       <!-- 휴대폰은 같은 내용을 바텀 시트(QueueSheet)에 담는다 -->
@@ -306,7 +306,7 @@ import TrackChips from "../components/TrackChips.vue";
 import VoiceLockOverlay from "../components/VoiceLockOverlay.vue";
 import { platformColor } from "../utils/platform-color.ts";
 import { HOLD, NO_ART, prefetchArt, releasePageArt, setPageArt, SHIFT_MS } from "../theme/theme.ts";
-import { useArtZoom } from "../theme/art.ts";
+import { useArtContent, useArtZoom } from "../theme/art.ts";
 import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
@@ -620,6 +620,7 @@ function jumpToHighlight() {
 
 // 아트의 위아래 검은 띠는 키워서 감춘다(theme/art 가 픽셀로 잰다)
 const artZoom = useArtZoom(() => player.value.currentTrack?.thumbnail, true);
+const artContent = useArtContent(() => player.value.currentTrack?.thumbnail);
 
 const track = computed(() => player.value.currentTrack);
 // 지금 곡을 내가 넣었는지(출처 배지의 "내가 넣은 곡")

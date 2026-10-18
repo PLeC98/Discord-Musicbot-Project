@@ -295,11 +295,15 @@ test("소스가 표지를 안 주면 영상 썸네일을 쓴다", async () => {
   assert.equal(track.thumbnail, "https://i.ytimg.com/vi/v1/hq.jpg");
 });
 
-test("소스가 표지를 주면 그쪽이 이긴다", async () => {
-  ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/v1/hq.jpg" }];
+test("그림은 소리를 따라간다: 영상으로 틀면 소스가 표지를 줘도 영상 그림(영상 id 로 만든다), 소스의 음원으로 틀면 소스의 표지", async () => {
+  ytResults = [{ id: "abcdefghijk", audioUrl: "https://www.youtube.com/watch?v=abcdefghijk", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" }];
+  const viaVideo = await resolved({ artist: "Artist", title: "Song", durationSec: 240, thumbnail: "https://vocadb.net/cover.jpg", sourceKey: "vd:1" }, LIMITS);
+  assert.equal(viaVideo.thumbnail, "https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg");
 
-  const track = await resolved({ artist: "Artist", title: "Song", durationSec: 240, thumbnail: "https://vocadb.net/cover.jpg", sourceKey: "vd:1" }, LIMITS);
-  assert.equal(track.thumbnail, "https://vocadb.net/cover.jpg");
+  // 유튜브에서 못 찾으면 소스의 음원으로 튼다
+  ytResults = [];
+  const viaAudio = await resolved({ artist: "Artist", title: "Song", audioUrl: "https://a.animethemes.moe/Song-OP1.ogg", thumbnail: "https://s4.anilist.co/poster.jpg", sourceKey: "at:1", sourceUrl: "https://animethemes.moe/anime/x" }, LIMITS);
+  assert.equal(viaAudio.thumbnail, "https://s4.anilist.co/poster.jpg");
 });
 
 test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본다", async () => {

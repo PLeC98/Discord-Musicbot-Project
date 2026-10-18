@@ -12,6 +12,7 @@
 //
 
 import * as autoplayFilter from "./filter.ts";
+import { artOf, youtubeArt } from "../rules/track-art.ts";
 import * as links from "../rules/links.ts";
 import { canonicalUrl } from "../rules/canonical-url.ts";
 import { candidateKind } from "../rules/candidate-kind.ts";
@@ -171,9 +172,16 @@ function fromYouTube(video: Video, cand: Candidate): PickedTrack {
     audioUrl: videoUrl,
     platform: sourced ? cand.platform || "youtube" : "youtube",
     duration: Number(video.durationSec || video.duration) || 0,
-    thumbnail: cand.thumbnail || video.thumbnail || null,
+    // 그림은 소리를 따라간다: 영상으로 트니 그 영상의 그림(출처의 포스터 · 작은 PV 그림보다 앞, 영상 그림이 없을 때만 출처 것)
+    thumbnail: artOfVideo(video) || cand.thumbnail || null,
     id: videoIdOf(video),
   };
+}
+
+/** 영상의 그림(영상 id 로 만들고, id 를 모르면 받은 그림) */
+function artOfVideo(video: Video): string | null {
+  const id = videoIdOf(video);
+  return typeof id === "string" && /^[\w-]{11}$/.test(id) ? youtubeArt(id) : artOf(video.thumbnail);
 }
 
 /**

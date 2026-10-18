@@ -1,6 +1,7 @@
 // 서버 목록. 봇이 든 서버 중 지금 멤버인 것(운영자도 같다)
 
 import express from "express";
+import { artOf } from "../../rules/track-art.ts";
 import { PermissionFlagsBits } from "discord.js";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { voiceFlags } from "../guild-access.ts";
@@ -45,7 +46,7 @@ function createGuildListRouter() {
           // 전역 재생 바가 대상 서버를 찾는 기준. 동시 음성 참여는 불가능하므로 참인 서버는 많아야 하나다.
           // 캐시된 음성 상태만 읽으므로 REST 호출이 늘지 않는다.
           listening: voiceFlags(guild, user.id).sameVoice,
-          nowPlaying: track ? { title: track.title ?? null, artist: track.artist ?? null, thumbnail: track.thumbnail ?? null } : null,
+          nowPlaying: track ? { title: track.title ?? null, artist: track.artist ?? null, thumbnail: artOf(track.thumbnail) } : null,
         };
       }),
     );

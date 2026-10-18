@@ -1,6 +1,7 @@
 // 유튜브 검색 · 정보 · 스트림 · 재생목록.
 
 import logger from "../../infra/log/logger.ts";
+import { artOf, youtubeArt } from "../../rules/track-art.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 import { codedError } from "../../rules/error-kind.ts";
@@ -86,7 +87,8 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
     requestKey: link,
     audioUrl: link,
     duration: item.duration || 0,
-    thumbnail: item.thumbnail || item.thumbnails?.[0]?.url,
+    // 검색 결과의 thumbnails 는 작은 것부터라 [0] 은 168×94. 영상 id 로 만든다(rules/track-art)
+    thumbnail: typeof item.id === "string" && /^[\w-]{11}$/.test(item.id) ? youtubeArt(item.id) : artOf(item.thumbnail || item.thumbnails?.at(-1)?.url),
     platform: "youtube",
     id: idOf(item.id),
     isLive: _detectLive(item),
