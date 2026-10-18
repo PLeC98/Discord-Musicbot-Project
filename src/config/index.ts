@@ -372,7 +372,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       rateLimit: {
         windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,
         apiMax: tuneInt("RATE_LIMIT_API_MAX"), // 일반 인증 API (/api/*)
-        queueMax: tuneInt("RATE_LIMIT_QUEUE_MAX"), // 곡 추가 (POST /player/queue)
+        queueMax: tuneInt("RATE_LIMIT_QUEUE_MAX"), // 곡 추가 (POST /player/queue) · 캐시 DB 재생 테스트(POST /admin/track-cache/probe). 둘 다 yt-dlp 를 실행한다
         authWindowMs: tuneInt("RATE_LIMIT_AUTH_WINDOW_SEC") * 1000,
         authMax: tuneInt("RATE_LIMIT_AUTH_MAX"), // 로그인/OAuth (/auth/*)
       },

@@ -30,6 +30,7 @@ const { serviceKeysRouter } = await import("../../src/dashboard/routes/service-k
 const { tunablesRouter } = await import("../../src/dashboard/routes/tunables.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 const { snapshotsRouter } = await import("../../src/dashboard/routes/snapshots.ts");
+const { trackCacheRouter } = await import("../../src/dashboard/routes/track-cache.ts");
 const { identityRouter } = await import("../../src/dashboard/routes/identity.ts");
 const { loginBackgroundRouter } = await import("../../src/dashboard/routes/login-background.ts");
 const { publicLoginBackgroundRouter } = await import("../../src/dashboard/routes/login-background-public.ts");
@@ -103,6 +104,7 @@ const MOUNTS: Array<[string, Router]> = [
   ["/api/admin/tunables", tunablesRouter],
   ["/api/admin/settings-archive", settingsArchiveRouter],
   ["/api/admin/snapshots", snapshotsRouter],
+  ["/api/admin/track-cache", trackCacheRouter],
   ["/api/admin/appearance/login-background", loginBackgroundRouter],
   ["", publicLoginBackgroundRouter],
   ["/api", identityRouter],
@@ -112,7 +114,7 @@ const MOUNTS: Array<[string, Router]> = [
 const SKIP = new Set(["/api/admin/settings-archive/download/:ticket", "/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
 // 물음표 뒤가 있어야 답하는 경로
-const QUERY: Record<string, string[]> = {};
+const QUERY: Record<string, string[]> = { "/api/admin/track-cache": ["?table=requests", "?table=files", "?table=age"] };
 
 function getPaths() {
   const out: string[] = [];

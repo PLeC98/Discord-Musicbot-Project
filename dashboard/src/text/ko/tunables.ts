@@ -42,7 +42,7 @@ const fields: Record<string, { label: string; help: string }> = {
   STREAM_CHUNK_KB: { label: "청크 크기(KB)", help: "유튜브 스트림을 나눠 받는 크기. 1024KB 면 약 1분 분량. 권장 256~4096." },
   RATE_LIMIT_WINDOW_SEC: { label: "요청을 세는 구간(초)", help: "아래 두 값을 세는 구간." },
   RATE_LIMIT_API_MAX: { label: "구간당 일반 요청 수", help: "실시간 갱신 연결은 세지 않아요. 정상 사용에서 걸리면 늘리세요." },
-  RATE_LIMIT_QUEUE_MAX: { label: "구간당 곡 추가 요청 수", help: "곡 추가는 yt-dlp 를 실행하므로 따로 제한해요." },
+  RATE_LIMIT_QUEUE_MAX: { label: "구간당 곡 추가 · 재생 테스트 요청 수", help: "둘 다 yt-dlp 를 실행하므로 따로 제한해요." },
   RATE_LIMIT_AUTH_WINDOW_SEC: { label: "로그인 시도를 세는 구간(초)", help: "" },
   RATE_LIMIT_AUTH_MAX: { label: "그 구간당 로그인 요청 수", help: "" },
   SSE_HEARTBEAT_SEC: { label: "실시간 연결 신호 간격(초)", help: "연결이 끊기지 않게 보내는 신호 간격(5~300)." },

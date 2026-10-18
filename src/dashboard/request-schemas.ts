@@ -140,5 +140,22 @@ const BackgroundUseBody = z.object({ id: z.string(BAD_BACKGROUND).regex(LOGIN_BG
 // 링크로 추가 { url }. 다운로드하는 쪽(safe-url · yt-dlp)이 주소를 본다
 const BackgroundLinkBody = z.object({ url: z.string(BAD_BACKGROUND).trim().min(1, BAD_BACKGROUND).max(2048, BAD_BACKGROUND) }, BAD_BACKGROUND);
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, QUERY_MAX_LEN };
+// ── 캐시 DB ──
+
+// 조작의 모양만 본다. 주소가 쓸 수 있는지 · 개수 상한 · 지울 것이 있는지는 dashboard/track-cache 가 조작 번호와 함께 본다
+const BAD_TRACK_CACHE = { error: "bad-request" satisfies Code };
+const tcText = (max: number) => z.string(BAD_TRACK_CACHE).min(1, BAD_TRACK_CACHE).max(max, BAD_TRACK_CACHE);
+const tcUrl = tcText(2048);
+const tcTime = z.number(BAD_TRACK_CACHE).int(BAD_TRACK_CACHE).min(0, BAD_TRACK_CACHE);
+const tcOp = <O extends string, T extends z.ZodRawShape>(op: O, shape: T) => z.object({ op: z.literal(op, BAD_TRACK_CACHE), ...shape }, BAD_TRACK_CACHE);
+const TrackCacheOpBody = z.discriminatedUnion(
+  "op",
+  [tcOp("pin", { requestKey: tcUrl, audioUrl: tcUrl, expect: tcUrl.nullable() }), tcOp("unpin", { requestKey: tcUrl, expect: tcUrl }), tcOp("clearResult", { requestKey: tcUrl, expect: tcUrl }), tcOp("deleteRequest", { requestKey: tcUrl, expect: z.object({ ledgerAudioUrl: tcUrl.nullable(), pinned: tcUrl.nullable() }, BAD_TRACK_CACHE) }), tcOp("deleteFile", { audioKey: tcText(2048), expect: tcTime.nullable() }), tcOp("clearAge", { videoId: tcText(64), expect: tcTime })],
+  BAD_TRACK_CACHE,
+);
+const TrackCacheWriteBody = z.object({ ops: z.array(TrackCacheOpBody, BAD_TRACK_CACHE) }, BAD_TRACK_CACHE);
+const TrackCacheInspectBody = z.object({ requestKey: tcUrl.optional(), audioUrl: tcUrl.optional() }, BAD_TRACK_CACHE);
+const TrackCacheProbeBody = z.object({ audioUrls: z.array(tcUrl, BAD_TRACK_CACHE) }, BAD_TRACK_CACHE);
+
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, QUERY_MAX_LEN };
 export type { SettingsRequest };
