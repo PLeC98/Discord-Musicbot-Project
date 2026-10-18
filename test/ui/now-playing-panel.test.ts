@@ -9,6 +9,10 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tempStore from "../helpers/temp-store.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
+import { _internals as discordArt } from "../../src/ui/discord-art.ts";
+
+// 큰 그림 확인은 네트워크로 나가지 않게: 모든 영상에 큰 그림이 있다고 답한다
+discordArt.useHead(async () => ({ ok: true, status: 200 }));
 
 const newManager = () => new NowPlayingPanel(fake<Client>({}), new Map());
 
@@ -47,7 +51,7 @@ test("그림이 없는 곡은 음표 썸네일: 패널 메시지에 한 번만 �
   assert.deepEqual(shape(await mem._playingPayload(player, bare)), [null, null], "같은 패널의 갱신: 다시 올리지 않는다");
   const swapped = await mem._playingPayload(player, art);
   assert.deepEqual(shape(swapped), [null, []], "그림이 있는 곡: 뗀다");
-  assert.ok(JSON.stringify(swapped.components[0].toJSON()).includes("https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg"), "그림은 rules/track-art 로");
+  assert.ok(JSON.stringify(swapped.components[0].toJSON()).includes("https://i.ytimg.com/vi/abcdefghijk/maxresdefault.jpg"), "그림은 큰 것으로(ui/discord-art)");
   assert.deepEqual(shape(await mem._playingPayload(player, bare)), [["no-art.png"], []], "다시 그림 없는 곡: 올린다");
 });
 

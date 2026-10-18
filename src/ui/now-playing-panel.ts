@@ -67,6 +67,7 @@ import { LIFETIME } from "./delivery.ts";
 import { panelId, IDLE_SESSION } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
+import * as discordArt from "./discord-art.ts";
 import { artOf } from "../rules/track-art.ts";
 import { jumpDescription } from "./queue-display.ts";
 import { PanelLocation, type PanelStore } from "./panel-location.ts";
@@ -387,8 +388,10 @@ class NowPlayingPanel {
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
 
-    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 그림이 없는 곡(직접 링크 등)은 음표 썸네일(_playingPayload 가 첨부한다)
-    const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(artOf(track.thumbnail) ?? noArtThumbnail.url));
+    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 그림이 없는 곡(직접 링크 등)은 음표 썸네일(_playingPayload 가 첨부한다).
+    // 디스코드는 눌러서 크게 보여 주므로 큰 그림을 건다(곡마다 처음 한 번 있는지 물어 본다)
+    await discordArt.prepare(track.thumbnail);
+    const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(discordArt.urlOf(track.thumbnail) ?? noArtThumbnail.url));
 
     const statusParts = statusOf(player);
 
