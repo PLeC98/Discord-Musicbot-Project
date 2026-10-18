@@ -6,7 +6,7 @@ const loadFailed = "설정을 불러오지 못했어요.";
 const saveFailed = "설정을 저장하지 못했어요.";
 
 /** 봇 전용 채널 */
-const channel = { title: "봇 전용 채널", desc: "전용 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생되며, 컨트롤 패널과 공지 발송도 이 채널을 우선 사용해요.", none: "지정 안 함" };
+const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", none: "지정 안 함" };
 
 /** DJ 역할. 고를 수 있는 수는 max */
 const dj = {

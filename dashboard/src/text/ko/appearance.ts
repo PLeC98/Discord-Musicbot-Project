@@ -15,7 +15,7 @@ const clearOne = (size: number) => `${size}px 파비콘 이미지 삭제(기록�
 /** 이 크기에 내는 것이 어디서 왔는지 */
 const from = {
   upload: "업로드한 이미지",
-  scaled: (source: number) => `${source}px 이미지에서`,
+  scaled: (source: number) => `${source}px 이미지에서 축소`,
   avatar: "봇 프로필",
   none: "없음",
 };

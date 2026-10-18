@@ -19,7 +19,7 @@ const QUEUE_WINDOW_MAX = 1000;
 /** 곡을 넣은 사람. 화면은 id 로 자기 곡인지만 본다 */
 type RequesterRef = { id: string | null } | null;
 
-/** 대기열의 한 곡. entry 는 줄 번호(빼기 · 옮기기가 가리키는 것), index 는 지금 순번 */
+/** 대기열의 한 곡. entry 는 대기열 ID(빼기 · 옮기기가 가리키는 것), index 는 지금 순번 */
 type QueueTrackView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail" | "platform"> & {
   index: number;
   entry: number | null;

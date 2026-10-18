@@ -1,5 +1,5 @@
 <template>
-  <!-- 틀에 붙은 막대. 태블릿 · PC 는 왼쪽 세로, 휴대폰은 위 막대의 메뉴로 여는 서랍(drawer, 늘 펼친 모양). 가로(vertical 아님)는 지금 쓰지 않는다.
+  <!-- 틀에 붙은 막대. 태블릿 · PC 는 왼쪽 세로, 휴대폰은 위 막대의 메뉴로 여는 사이드 드로어(drawer, 늘 펼친 모양). 가로(vertical 아님)는 지금 쓰지 않는다.
        서버 아이콘은 동그라미이고, 선택한 서버는 둥근 네모로 바뀌며 막대 가장자리에 표시가 선다(올리면 작게 튀어나온다).
        세로 막대는 맨 위(위 막대 높이)에 펼치기 버튼이 있고, 펼치면 아이콘 옆에 서버 이름이 나온다. 아이콘은 막대 폭(--bar)의 영역에 그대로 있어 펼쳐도 움직이지 않는다 -->
   <nav class="shrink-0 flex text-on-surface" :class="vertical ? ['relative flex-col pb-3 gap-3 overflow-hidden', resizing ? '' : 'transition-[width] spring', open ? '' : 'w-(--bar)'] : 'flex-row items-center h-(--bar) px-2 gap-2'" :style="vertical && !drawer && open ? { width: `${shell.sidebarWidth}px` } : undefined" :aria-label="T.serverRail">
@@ -62,7 +62,7 @@ import { useScrollFade } from "../composables/scroll-fade.ts";
 import { text } from "../text/index.ts";
 const T = text.shell;
 
-// drawer: 휴대폰의 서랍(늘 펼친 모양, 폭 조절 없음, 접기 버튼이 닫기)
+// drawer: 휴대폰의 사이드 드로어(늘 펼친 모양, 폭 조절 없음, 접기 버튼이 닫기)
 const props = withDefaults(defineProps<{ vertical?: boolean; drawer?: boolean }>(), { vertical: false, drawer: false });
 const emit = defineEmits<{ close: [] }>();
 const open = computed(() => props.drawer || shell.sidebarOpen);

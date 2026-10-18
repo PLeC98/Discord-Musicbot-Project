@@ -1,5 +1,5 @@
 <!--
-  이모지 선택 판. 무엇을 눌러 여는지와, 선택한 것을 어디에 넣는지는 부르는 쪽이 정한다.
+  이모지 목록 영역. 무엇을 눌러 여는지와, 선택한 것을 어디에 넣는지는 부르는 쪽이 정한다.
   (장르 아이콘은 값을 교체하고, 상태 문구는 커서 위치에 끼워 넣는다.)
 
   검색창에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다. 붙여넣은 것이 목록에 없더라도
@@ -44,7 +44,7 @@
           <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
                그림은 어차피 lazy 라 화면 밖은 불러오지도 않는다 -->
           <section v-for="group in groups" v-else :key="group.name">
-            <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠 · 개수. 판과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
+            <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠 · 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
             <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
               <Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="collapsed[group.name] && '-rotate-90'" />
               <span class="truncate">{{ group.name }}</span>

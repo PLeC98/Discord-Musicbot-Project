@@ -22,7 +22,7 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; valu
 
 // ── 재생 ──
 
-// 대기열 줄 번호(track-state 가 찍는다). 화면은 받은 그대로 돌려보낸다
+// 대기열 ID(track-state 가 찍는다). 화면은 받은 그대로 돌려보낸다
 const BAD_ENTRY = { error: "bad-request" satisfies Code };
 const Entry = z.number(BAD_ENTRY).int(BAD_ENTRY).positive(BAD_ENTRY);
 // 지금 곡이 이 줄일 때만(넘기기 · 이전 · 하이라이트). 없으면 확인하지 않는다
@@ -32,7 +32,7 @@ const OnTrackBody = z.object({ onTrack: Entry.optional() }, BAD_ENTRY);
 const BAD_POSITION = { error: "bad-time" satisfies Code };
 const SeekBody = z.object({ position: z.coerce.number(BAD_POSITION).min(0, BAD_POSITION), onTrack: Entry.optional() }, BAD_POSITION);
 
-// 줄 번호로 옮기기 { entry, before }. before 줄 앞으로, null 이면 맨 끝
+// 대기열 ID로 옮기기 { entry, before }. before 곡 앞으로, null 이면 맨 끝
 const MoveEntryBody = z.object({ entry: Entry, before: Entry.nullable() }, BAD_ENTRY);
 
 // 자동재생 { genre }. 장르 이름이면 켜고(바꾸고) null 이면 끈다. 모르는 장르는 코어가 거절한다(unknown-genre)

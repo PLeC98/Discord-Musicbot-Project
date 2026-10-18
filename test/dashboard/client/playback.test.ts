@@ -76,7 +76,7 @@ test("넣은 사람도 재적 규칙은 지킨다: 봇이 음성 채널에 있�
   assert.equal(canRemove({ ...s, botInVoice: false, sameVoice: false }, mine), true, "봇이 쉬는 중이면 채널을 보지 않는다");
 });
 
-test("지금 곡일 때만: 줄 번호가 있을 때만 싣는다", () => {
+test("지금 곡일 때만: 대기열 ID가 있을 때만 싣는다", () => {
   assert.deepEqual(onTrackOf({ currentTrack: { entry: 7 } }), { onTrack: 7 });
   assert.deepEqual(onTrackOf({ currentTrack: { entry: null } }), {});
   assert.deepEqual(onTrackOf({ currentTrack: null }), {});

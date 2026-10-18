@@ -1,8 +1,8 @@
 <template>
   <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background 의 상태 하나를 읽고 바꾸는 요청들도 그것으로 답한다.
-       화면 판: 지금 쓰는 배경을 선택한 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 영역의 값을 저장 전에도 바로 보인다). 썸네일 전 새 배경은 아직 판에 없다(로그인 화면도 그렇다).
+       미리보기 화면: 지금 쓰는 배경을 선택한 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 영역의 값을 저장 전에도 바로 보인다). 썸네일 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
        아래: 로그인 화면에 지금 걸린 것 · 처리 중인 배경의 진행 · 그만두기 · 변경 · 편집 · 삭제 · 로그인 화면으로 보기.
-       넓으면 화면 판 영역(가운데 정렬) 오른쪽에 같은 높이의 옵션 영역: 좌우 · 상하(보일 위치) · 블러(화면 폭의 %) · 배경 불투명도(= 100 - 오버레이 진하기) · 몰입형 테마 색상 · 반복 전환 효과(영상).
+       넓으면 미리보기 화면 영역(가운데 정렬) 오른쪽에 같은 높이의 옵션 영역: 좌우 · 상하(보일 위치) · 블러(화면 폭의 %) · 배경 불투명도(= 100 - 오버레이 진하기) · 몰입형 테마 색상 · 반복 전환 효과(영상).
        옵션 · 고급 설정은 운영자 패널의 저장 막대(SaveDock, composables/save-targets)로 저장 · 되돌린다. 접는 고급 설정: 보존 개수 · 최대 용량 · 인코딩 환경(코덱마다 쓰는 인코더 · 꺼진 까닭 · 지금 인코딩).
        만드는 동안은 운영자 패널의 상태 읽기와 같이 3초마다 다시 읽는다(화면이 숨으면 멈춘다). 로그인 배경 백업은 백업 탭(파비콘과 따로) -->
   <BaseCard icon="wallpaper" :title="C.title">
@@ -12,15 +12,15 @@
     <p class="mb-3 text-sm text-on-surface-variant">{{ C.desc }}</p>
 
     <div class="flex flex-col gap-3">
-      <!-- 넓으면 왼쪽에 화면 판 영역, 오른쪽에 옵션 영역(두 영역 높이를 맞춘다). 그 아래 상태 · 버튼. 좁으면 순서대로 -->
+      <!-- 넓으면 왼쪽에 미리보기 화면 영역, 오른쪽에 옵션 영역(두 영역 높이를 맞춘다). 그 아래 상태 · 버튼. 좁으면 순서대로 -->
       <div class="grid gap-4 lg:grid-cols-[minmax(0,38rem)_minmax(16rem,1fr)]">
-        <!-- 화면 판 영역: 위에 화면 비율(버튼마다 툴팁으로 그 비율의 기기), 판은 영역 가운데 -->
+        <!-- 미리보기 화면 영역: 위에 화면 비율(버튼마다 툴팁으로 그 비율의 기기), 미리보기 화면은 영역 가운데 -->
         <div class="flex flex-col gap-3 min-w-0 rounded-2xl bg-surface-container p-4">
           <div class="flex flex-wrap justify-center gap-1">
             <button v-for="one in RATIOS" :key="one.label" type="button" class="tap state-layer h-8 px-3 rounded-full text-xs font-semibold nums cursor-pointer" :class="ratio === one ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-highest'" v-tooltip="C.ratioDevices[one.label]" @click="ratio = one">{{ one.label }}</button>
           </div>
           <label class="flex items-center justify-center gap-2 text-xs"> <BaseSwitch v-model="silhouette" :label="C.silhouette" />{{ C.silhouette }} </label>
-          <!-- 화면 판: 높이 PANE_REM 기준, 넓은 비율은 영역 폭에 맞춰 줄인다 -->
+          <!-- 미리보기 화면: 높이 PANE_REM 기준, 넓은 비율은 영역 폭에 맞춰 줄인다 -->
           <div class="flex flex-1 items-center justify-center">
             <div class="relative overflow-hidden rounded-2xl outline outline-outline-variant select-none bg-black" :style="{ aspectRatio: `${ratio.w} / ${ratio.h}`, width: `min(100%, ${(PANE_REM * ratio.w) / ratio.h}rem)` }">
               <LoginBackdrop v-if="shown" :bg="shown" :look="look" />
@@ -310,7 +310,7 @@ const draft = reactive({ position: { x: 50, y: 50 }, look: copyLook(LOGIN_BG_OPT
 const saved = computed(() => ({ position: cur.value?.position ?? { x: 50, y: 50 }, look: state.value?.options ?? LOGIN_BG_OPTIONS_DEFAULT }));
 const sameLook = (a: LoginBackgroundOptions, b: LoginBackgroundOptions) => a.blur === b.blur && a.cover === b.cover && a.follow === b.follow && a.seam.kind === b.seam.kind && a.seam.seconds === b.seam.seconds;
 const dirty = computed(() => draft.position.x !== saved.value.position.x || draft.position.y !== saved.value.position.y || !sameLook(draft.look, saved.value.look));
-/** 화면 판 · 로그인 화면으로 보기에 그릴 값: 고친 화면 값 · 보일 위치 */
+/** 미리보기 화면 · 로그인 화면으로 보기에 그릴 값: 고친 화면 값 · 보일 위치 */
 const look = computed<LoginBackgroundLook>(() => ({ ...draft.look, position: { ...draft.position } }));
 function revert() {
   draft.position = { ...saved.value.position };

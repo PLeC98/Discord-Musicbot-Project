@@ -97,7 +97,7 @@
 
     <!-- ② 연결: 봇이 실제로 부른 결과(따로 찔러 보지 않는다). 최근에 안 쓴 곳은 "대기 중", 쓰는 설정이 없는 곳은 "비활성" -->
     <!-- 내용 영역이 넓으면(STORAGE_BESIDE_REM 이상) 연결 카드 옆에 저장공간 카드를 붙인다(높이는 연결 카드에 맞춘다). 좁으면 저장공간은 아래쪽 왼쪽 단에.
-         붙은 뒤로 더 넓어지면 둘이 문턱에서의 폭 비율대로 같이 늘어난다(flex 늘림 = 기준 폭) -->
+         붙은 뒤로 더 넓어지면 둘이 임계값에서의 폭 비율대로 같이 늘어난다(flex 늘림 = 기준 폭) -->
     <div class="flex gap-(--gap-in) items-stretch">
       <BaseCard icon="hub" :title="T.links" data-at="links" class="flex-1 min-w-0" :style="storageBeside ? flexFromBase(LINK_CARD_REM) : undefined">
         <!-- 왼쪽 열에 재생 · 유튜브(소리를 내는 데 쓰는 것), 오른쪽 열에 자동재생 -->
@@ -384,7 +384,7 @@ const STORAGE_BESIDE_REM = 84;
 const [DefineStorage, ReuseStorage] = createReusableTemplate();
 const { width: rootWidth } = useElementSize(root);
 const storageBeside = computed(() => rootWidth.value >= rem(STORAGE_BESIDE_REM));
-// 문턱에서의 폭: 저장공간 22rem, 연결은 나머지(사이 틈 --gap-in 0.75rem). 늘림을 기준 폭과 같게 두면 넓어질수록 그 비율대로 함께 커진다
+// 임계값에서의 폭: 저장공간 22rem, 연결은 나머지(사이 틈 --gap-in 0.75rem). 늘림을 기준 폭과 같게 두면 넓어질수록 그 비율대로 함께 커진다
 const STORAGE_CARD_REM = 22;
 const LINK_CARD_REM = STORAGE_BESIDE_REM - STORAGE_CARD_REM - 0.75;
 const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });

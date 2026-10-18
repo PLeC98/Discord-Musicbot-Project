@@ -1,11 +1,11 @@
 <template>
   <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
        대기열이 한 단 목록이라 넓어도 행만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
-  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 아래 판(스포티파이식). 판 헤더(76)만큼 아래를 비운다.
+  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 바텀 시트(스포티파이식). 시트 헤더(76)만큼 아래를 비운다.
        가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 그림이 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔했다 -->
   <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
     <!-- 음성 상태 · 설정(태블릿 · PC)은 위 막대 오른쪽 끝으로 보낸다(서버 이름 · 아이콘은 위 막대 가운데). 휴대폰은 아래 한 줄로 -->
-    <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 서랍에서 다른 서버로 건너왔어도 나가는 길은 하나).
+    <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 사이드 드로어에서 다른 서버로 건너왔어도 나가는 길은 하나).
          공간이 되면(태블릿 · PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 버튼) -->
     <Teleport to="#topbar-start" defer>
       <router-link to="/servers" :class="TOPBAR_TEXT_BTN" :aria-label="text.shell.serverList" v-tooltip="isPhone ? text.shell.serverList : null"
@@ -112,7 +112,7 @@
         <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
-            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 서랍 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
+            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
             <button
               v-if="track?.thumbnail"
               ref="artSwipeEl"
@@ -195,7 +195,7 @@
       <ArtLightbox v-model:open="artOpen" :track="track" :zoom="artZoom" />
 
       <!-- ── 대기열 ── -->
-      <!-- 휴대폰은 같은 내용을 아래 판(QueueSheet)에 담는다 -->
+      <!-- 휴대폰은 같은 내용을 바텀 시트(QueueSheet)에 담는다 -->
       <component :is="sheetMode ? QueueSheet : AppWindow" :title="P.queue" icon="queue_music" v-bind="sheetMode ? { deskHeight: shell.deskHeight, next: nextTitle, compact: short } : { class: 'max-h-[80dvh] md:max-h-none' }">
         <template #badge>
           <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ T.songs(player.queueTotal ?? player.queue.length) }}</span>
@@ -653,7 +653,7 @@ onUnmounted(() => {
 // 앨범아트 크게 보기(ArtLightbox)
 const artOpen = ref(false);
 
-// 휴대폰: 큰 그림 플레이어 + 아래 대기열 판(스포티파이식)
+// 휴대폰: 큰 그림 플레이어 + 대기열 바텀 시트(스포티파이식)
 const isPhone = useMediaQuery(PHONE_QUERY);
 // 낮은 화면(휴대폰 가로): 플레이어를 그림 | 나머지 두 단으로
 const short = useMediaQuery(SHORT_QUERY);

@@ -1,5 +1,5 @@
 <template>
-  <!-- 휴대폰 서버 화면(스포티파이식)의 대기열 판(M3 아래 판, bottom sheet). 화면 아래에 늘 헤더가 보이고(접힘) 끌어 올리면 반 · 끝까지.
+  <!-- 휴대폰 서버 화면(스포티파이식)의 대기열 바텀 시트(M3 bottom sheet). 화면 아래에 늘 헤더가 보이고(접힘) 끌어 올리면 반 · 끝까지.
        헤더(핸들 · 제목 · 곡 수 · 조작)를 끌거나 누른다. 누르면 접힘 ↔ 반. 반 이상이면 뒤를 어둡게 하고 뒤를 누르면 접힌다.
        끄는 동안 손가락을 따라오고, 놓으면 빠르기 · 가까운 단계로 간다. 높이는 바탕화면 높이(--desk-h)에서 잰다.
        끝까지 펼치기 전에는 내용도 판을 끈다(스포티파이처럼 목록을 스크롤하려 하면 판이 먼저 올라온다): 안의 목록은 스크롤되지 않고(반만 보일 때 목록 아래가 화면 밖이라 스크롤바가 밖으로 나갔다),
@@ -101,7 +101,7 @@ function settle(h: number, v: number) {
   const order: Stop[] = ["peek", "half", "full"];
   stop.value = v < -0.5 ? order[Math.min(2, order.indexOf(nearest(h, "up")))] : v > 0.5 ? order[Math.max(0, order.indexOf(nearest(h, "down")))] : nearest(h);
 }
-// 내용에서 판 끌기(끝까지 펼치기 전만). 안의 조작에서 시작한 것은 받지 않는다.
+// 내용에서 시트 끌기(끝까지 펼치기 전만). 안의 조작에서 시작한 것은 받지 않는다.
 // 내용 영역 자신도 펼치기 전에는 touch-none 이라 내용 영역 안쪽만 본다(아니면 어디를 잡든 조작으로 보여 판이 끌리지 않았다)
 const OWN = "input, textarea, select, button, a, [role=slider], .touch-none";
 function ownControl(target: EventTarget | null) {
@@ -115,7 +115,7 @@ function bodyDown(e: PointerEvent) {
   moved = false;
   last = { y: e.clientY, t: e.timeStamp, v: 0 };
 }
-// ── 손가락: 판과 목록을 한 손짓으로 잇는다(스포티파이처럼) ──
+// ── 손가락: 시트와 목록을 한 손짓으로 잇는다(스포티파이처럼) ──
 // 끝까지 펼치기 전: 위로 끌면 판이 올라오고, 끝까지 닿은 뒤 남은 움직임은 같은 손짓으로 목록을 스크롤한다(놓으면 그 빠르기로 관성).
 // 끝까지 펼친 뒤: 목록 맨 위에서 아래로 끌면 목록 대신 판이 내려간다. 그 밖(목록을 스크롤하던 중 · 위로)은 브라우저가 스크롤한다.
 // 목록은 끝에 닿아도 바깥(페이지)으로 스크롤을 넘기지 않는다(overscroll-contain, 넘기면 당겨서 새로고침이 걸린다).
@@ -131,20 +131,20 @@ function touchStart(e: TouchEvent) {
   const y = e.touches[0].clientY;
   touch = { y, h: visible.value, top: scroller()?.scrollTop ?? 0, mode: null, lastY: y, lastT: e.timeStamp, v: 0 };
 }
-// 처음 움직인 쪽으로 누가 맡을지 정한다: 판(sheet) 또는 목록 스크롤(native). 아직 문턱 안이면 false
+// 처음 움직인 쪽으로 누가 맡을지 정한다: 시트(sheet) 또는 목록 스크롤(native). 아직 임계값 안이면 false
 function pickMode(t: NonNullable<typeof touch>, y: number) {
   const dy = y - t.y;
   if (Math.abs(dy) < 6) return false;
   const list = scroller();
   const atTop = !list || list.scrollTop <= 0;
   t.mode = stop.value !== "full" || (atTop && dy > 0) ? "sheet" : "native";
-  // 판을 맡은 곳에서 다시 잰다(움직임 문턱만큼 튀지 않게)
+  // 시트를 맡은 곳에서 다시 잰다(움직임 임계값만큼 튀지 않게)
   t.y = y;
   t.h = visible.value;
   t.top = list?.scrollTop ?? 0;
   return true;
 }
-// 끝까지 펼친 채 목록 맨 위에서 아래로 끄는 손짓은 판이 맡는다. 문턱(6)을 기다리면 브라우저가 먼저 잡아
+// 끝까지 펼친 채 목록 맨 위에서 아래로 끄는 손짓은 시트가 맡는다. 임계값(6)을 기다리면 브라우저가 먼저 잡아
 // 당겨서 새로고침이 걸리므로(그 뒤로는 막을 수 없다) 첫 움직임부터 막는다
 const pullingDown = (t: NonNullable<typeof touch>, y: number) => stop.value === "full" && y > t.y && (scroller()?.scrollTop ?? 0) <= 0;
 function touchMove(e: TouchEvent) {

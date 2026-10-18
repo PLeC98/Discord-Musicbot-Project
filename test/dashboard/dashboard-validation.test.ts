@@ -55,7 +55,7 @@ function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
 }
 
-// 줄 번호가 찍힌 곡(track-state 가 가져올 때처럼 열거되지 않는 필드)
+// 대기열 ID가 찍힌 곡(track-state 가 가져올 때처럼 열거되지 않는 필드)
 const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
 
 function makePlayer() {
@@ -197,7 +197,7 @@ test("volume: '50junk'/소수는 400 — 구 parseInt는 50으로 통과", async
   assert.deepEqual(player.calls, [["setVolume", 70]]);
 });
 
-test("순번으로 빼기 · 옮기기 경로는 없다(줄 번호 경로만)", async () => {
+test("순번으로 빼기 · 옮기기 경로는 없다(대기열 ID 경로만)", async () => {
   freshPlayer();
   assert.equal((await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1`)).status, 404);
   assert.equal((await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 })).status, 404);
@@ -296,11 +296,11 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
   assert.equal(seen.at(-1)?.currentTrack, null, "정지 뒤에는 플레이어가 없다");
 });
 
-// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
+// 대기열 ID를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 
-test("줄 번호: 상태에 싣고, 빼기 · 옮기기는 그 줄을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
+test("대기열 ID: 상태에 싣고, 빼기 · 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
   const p = freshPlayer();
   Object.assign(p, { currentTrack: entered("현재곡", 10), queue: [entered("새 곡", 14), entered("q0", 11), entered("q1", 12), entered("q2", 13)] });
   Object.assign(p, {

@@ -18,7 +18,7 @@ const channelSet = (channel: string) => ({
 /** DJ 역할 선택 화면. roleIds 는 지금 DJ 역할(없으면 모두가 조작) */
 const djRoleMenu = (roleIds: string[]) => ({
   title: "🎧 DJ 역할",
-  description: [roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요.", "", "아래 메뉴에서 DJ로 지정할 역할을 선택한 뒤 **저장**을 누르세요. (여러 역할을 지정할 수 있어요)", "아무 역할도 선택하지 않으면 모두가 DJ 권한을 가져요.", "서버 관리자들(서버 관리, 추방, 차단, 타임아웃 권한을 가진 사람)은 설정과 상관없이 항상 조작할 수 있어요."].join("\n"),
+  description: [roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요.", "", "아래 메뉴에서 DJ로 지정할 역할을 선택한 뒤 **저장**을 누르세요. (여러 역할을 지정할 수 있어요)", "아무 역할도 선택하지 않으면 모두가 DJ 권한을 가져요.", "서버 관리자는 설정과 상관없이 항상 조작할 수 있어요."].join("\n"),
   placeholder: "DJ로 지정할 역할 선택",
 });
 const djRoleCancelled = () => ({ title: "🎧 DJ 역할 설정을 취소했어요", description: "변경 사항은 반영하지 않았어요." });

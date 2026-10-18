@@ -237,7 +237,7 @@ class SessionPersistence {
     const track: QueuedTrack = { ...rest, id: id ?? undefined, title: title ?? "", duration: duration ?? 0, platform: platform ?? "", artist: artist ?? undefined, album: album ?? undefined };
     // 요청자는 권한 판정과 멘션에 id만 쓰인다
     if (requesterId) track.requestedBy = { id: requesterId };
-    // 줄 번호는 다시 시작하기 전과 같게(track-state 가 찍는 것과 같은 열거되지 않는 필드). 없으면 track-state 가 추가할 때 새로 찍는다
+    // 대기열 ID는 다시 시작하기 전과 같게(track-state 가 찍는 것과 같은 열거되지 않는 필드). 없으면 track-state 가 추가할 때 새로 찍는다
     if (entry) Object.defineProperty(track, "entry", { value: entry, enumerable: false });
     return track;
   }

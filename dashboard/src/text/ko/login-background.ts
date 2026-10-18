@@ -27,7 +27,7 @@ const card = {
   loginThumb: "썸네일을 적용했어요. 영상을 준비 중이에요.",
   loginPartial: "저화질 영상을 적용했어요. 고화질 영상을 준비 중이에요.",
   stage,
-  queued: "순서대로 인코딩 중이에요.",
+  queued: "인코딩 대기 중이에요.",
   resumed: "중단된 인코딩을 이어서 하고 있어요.",
   /** 편집을 마치기 전(받기 · 프리뷰 · 스프라이트 · 편집 대기) · 편집을 적용한 뒤(인코딩 · 대기) */
   cancelEdit: "편집 취소",
@@ -89,7 +89,7 @@ const advanced = {
   codec: { av1: "AV1", vp9: "VP9", h264: "H.264" } satisfies Record<LoginBackgroundCodec, string>,
   encoderName: { libsvtav1: "SVT-AV1", "libvpx-vp9": "libvpx", libopenh264: "OpenH264", h264_nvenc: "NVENC", h264_qsv: "QuickSync", h264_amf: "AMF", h264_vaapi: "VAAPI" } as Record<string, string>,
   use: (name: string, hardware: boolean) => `${name} · ${hardware ? "GPU" : "CPU"}`,
-  noEncoder: "만들 수 없어요",
+  noEncoder: "사용할 수 있는 인코더가 없어요",
   checking: "확인하는 중…",
   recheck: "다시 확인",
   /** 지금 굽는 것: 단계 · AV1 병렬 단계 · 묶은 코어 · 속도(실시간의 몇 배) */

@@ -73,7 +73,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "stale-session": () => warning("stale", "만료된 버튼이에요!", '새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, "현재 재생 중" 패널을 새로 불러와서 사용해 주세요!'),
   // 곡으로 건너뛰기 메뉴에서 선택한 곡이 대기열에 없다(메뉴를 연 뒤 대기열이 바뀌었다)
   "jump-target-gone": () => warning("stale", "선택한 곡이 대기열에 없어요!", "메뉴를 연 뒤에 대기열이 바뀌었어요. 다시 선택해 주세요."),
-  // 대시보드: 선택한 곡(줄 번호)이 그 사이 대기열에서 빠졌다
+  // 대시보드: 선택한 곡(대기열 ID)이 그 사이 대기열에서 빠졌다
   "entry-gone": () => warning("stale", "그 곡이 대기열에 없어요!", "그 사이 대기열이 바뀌었어요. 목록을 확인하고 다시 시도해 주세요."),
   // 대시보드: 조작한 사이 지금 곡이 바뀌었다(넘기기 · 이동이 다음 곡에 가지 않게 거절한다)
   "track-changed": () => warning("stale", "곡이 바뀌었어요!", "그 사이 지금 곡이 바뀌었어요. 화면을 확인하고 다시 시도해 주세요."),
@@ -94,7 +94,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "more-not-requester-close": () => warning("permission", "목록을 넣은 사람만 닫을 수 있어요."),
   // 대상이나 처리기가 없음
   // 실행 목록에 없는 명령(꺼진 기능이 디스코드에 아직 남아 있다)
-  "unknown-command": () => warning("stale", "사용할 수 없는 명령어예요!", "비활성화되었거나 변경 혹은 삭제된 명령어예요. 디스코드를 재시작해 보고, 여전히 해당 명령어가 보인다면 봇 운영자에게 알려주세요."),
+  "unknown-command": () => warning("stale", "사용할 수 없는 명령어예요!", "비활성화되었거나 변경된 명령어예요. 디스코드를 다시 시작해도 보이면 봇 운영자에게 알려 주세요."),
   // 버튼 · 메뉴를 받을 처리기가 없다. 봇을 고치기 전에 올린 메시지의 것이 대개 이렇다(custom_id 모양이 바뀌었다). 꺼진 기능의 버튼 · 메뉴도 이렇다
   "unknown-interaction": () => warning("stale", "만료되었거나 알 수 없는 버튼이에요.", "새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, 명령을 다시 실행하거나 패널을 새로 불러와서 사용해 주세요!"),
   "more-unknown-menu": () => warning("stale", "알 수 없는 메뉴예요."),
@@ -118,13 +118,13 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "geo-blocked": () => warning("blocked", "지역 제한 콘텐츠예요!", "이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요."),
   // skipped 는 받을 수 없어 뺀 곡 수
   "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요."),
-  "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간의 곡들이 재생할 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
+  "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간에는 재생할 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
   // 바깥 실패
   // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operator-hints). 사용자는 설정을 만질 수 없다
   "yt-bot-check": () => error("failed", "유튜브가 요청을 차단했어요!", "잠시 후에 재시도해 보고, 계속 동일한 문제가 발생하면 봇 운영자에게 알려주세요."),
   "network-error": () => error("failed", "연결 오류가 발생했어요!", "해당 플랫폼에 연결하지 못했어요. 보통은 일시적인 오류이니 잠시 뒤에 다시 시도해 보세요. 오류가 계속되면 봇 운영자에게 알려주세요."),
   "stream-failed": () => error("failed", "오디오를 받아오지 못했어요!", "링크에 성공적으로 접속했지만 정상적으로 재생 가능한 음원을 가져오지 못했어요. 다시 시도하거나 다른 버전을 넣어 주세요."),
-  "voice-failed": () => error("voice", "음성 채널에 들어가지 못했어요!", "디스코드 서버의 문제나 채널 인원 제한, 봇의 네트워크 문제 등이 원인일 수 있어요. 잠시 후에 다시 시도해 보고, 동일한 오류가 반복되면 서버 관리자에게 알려주세요. 그래도 해결되지 않으면 봇 운영자에게 보고해 주세요."),
+  "voice-failed": () => error("voice", "음성 채널에 들어가지 못했어요!", "채널 인원 제한이나 네트워크 문제일 수 있어요. 잠시 후 다시 시도해 보고, 계속되면 서버 관리자에게 알려 주세요."),
   // 운영자 설정 · 잠시 못 함
   "rate-limited": () => error("failed", "요청이 너무 많아요...!", "해당 플랫폼이 제 요청을 차단했어요. 몇 분 뒤에 다시 해 보고, 계속되거나 자주 발생하면 봇 운영자에게 알려주세요."),
   // 운영자 설정이 없다. 까닭은 운영자 로그에만
@@ -191,11 +191,11 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "announce-no-guilds": () => warning("state", "공지를 보낼 서버가 없어요!", "봇이 들어가 있는 서버가 하나도 없어요."),
   "announce-failed": () => error("failed", "어느 서버에도 보내지 못했어요!", "보낼 수 있는 채널이 없거나 봇에게 메시지를 올릴 권한이 없어요. 서버마다 봇의 권한을 확인해 주세요."),
   "leave-guild-failed": () => error("failed", "서버에서 나가지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 잠시 뒤에 다시 시도해 주세요."),
-  "deploy-failed": () => error("failed", "명령어를 배포하지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 함께 적힌 원문을 확인해 주세요."),
+  "deploy-failed": () => error("failed", "명령어를 배포하지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 아래 오류 내용을 확인해 주세요."),
   "suggest-failed": () => error("failed", "자동완성 후보를 받지 못했어요!", "그 출처에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "model-refresh-failed": () => error("failed", "모델 정보를 받지 못했어요!", "모델 정보 저장소에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "cache-clear-failed": () => error("failed", "캐시를 비우지 못했어요!", "파일을 삭제하거나 데이터베이스를 수정하다 실패했어요. 운영자 로그를 확인해 주세요."),
-  "token-count-failed": () => error("failed", "토큰 수를 세지 못했어요!", "AI 서비스에 요청하지 못했거나 글이 너무 길어요. 함께 적힌 원문을 확인해 주세요."),
+  "token-count-failed": () => error("failed", "토큰 수를 세지 못했어요!", "AI 서비스에 요청하지 못했거나 글이 너무 길어요. 아래 오류 내용을 확인해 주세요."),
   "bad-suggest-type": (_, look) => warning("input", "자동완성이 없는 출처 종류예요!", stalePage(look)),
   "bad-suggest-field": (_, look) => warning("input", "자동완성이 없는 입력란이에요!", stalePage(look)),
   "bad-suggest-term": ({ max }) => warning("input", "검색어가 올바르지 않아요!", `검색어를 1~${max}자로 적어 주세요.`),
@@ -205,8 +205,8 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 표시된 입력란을 고친 뒤에 다시 저장해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
-  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
-  "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP 이 아니거나 파일이 깨졌어요. 함께 적힌 원문을 확인해 주세요."),
+  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
+  "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP 이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
   "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.`),
   "upload-gone": () => warning("stale", "올린 파일이 없어졌어요!", "올린 지 1시간이 지났거나 봇이 다시 시작됐어요. 파일을 다시 올려 주세요."),
   "snapshot-not-found": (_, look) => warning("notFound", "없는 스냅샷이에요!", `오래되어 지워졌을 수 있어요. ${stalePage(look)}`),
@@ -218,7 +218,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
   "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
-  "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일을 저장하다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
+  "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일을 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
   // 대시보드: 로그인 배경
   "background-not-editable": () => warning("state", "지금은 편집할 수 없어요!", "편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요."),
   "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "완성된 배경만 기록에서 선택할 수 있어요."),

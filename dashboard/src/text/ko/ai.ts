@@ -88,7 +88,7 @@ const list = {
   lineFormat: "줄 형식",
   /** 줄 형식 설명: 앞 · 목록 자리 표시 · 뒤 */
   lineFormatBefore: "후보 하나를 한 줄로 적는 형식이에요. 이렇게 만든 목록이 프롬프트의 ",
-  lineFormatAfter: " 위치에 들어가요. 업로더 이름은 넣을 수 없어요(Vevo · Radio Mix 같은 이름 때문에 정답률이 떨어졌어요).",
+  lineFormatAfter: " 위치에 들어가요. 업로더 이름은 넣을 수 없어요(정답률이 떨어져요).",
   help: "줄 형식 문법 보기",
   helpTitle: "줄 형식 문법",
   /** 문법 표: 적는 법 · 뜻 */
@@ -97,7 +97,7 @@ const list = {
     { code: "{{genre}}", text: "자동재생 장르의 식별자(예: rock). 프롬프트 섹션에서도 써요" },
     { code: "{{title}}", text: "영상 제목. 필수예요(판정 대상이에요)" },
     { code: "{{duration}}", text: "길이. 형식 없이 쓰면 3:05. 모르면 빈 값이에요" },
-    { code: "{{duration::형식}}", text: "길이를 형식대로. h 시간 · m 전체 분 · mm 남은 분 두 자리 · s 전체 초 · ss 남은 초 두 자리, 그 밖의 글자는 그대로. 예: {{duration::m분 ss초}} → 3분 05초" },
+    { code: "{{duration::형식}}", text: "길이를 형식대로. 예: {{duration::m분 ss초}} → 3분 05초 (h · m · mm · s · ss)" },
     { code: "{{#if-exist 값}} … {{:else}} … {{/}}", text: "값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤({{:else}} 가 없으면 아무것도 적지 않아요). 닫기는 {{/if-exist}} 도 돼요. 길이를 모르는 후보를 빼거나 unknown 을 적을 때 써요" },
   ],
   syntaxExample: "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{:else}}length=unknown {{/}}title={{title}}",

@@ -79,7 +79,7 @@ let serial = 0;
 const t = (title = `t${serial++}`): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr: Array<{ title: string | null }>) => arr.map((x) => x.title);
 const memory = (p: Player) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
-// 줄 번호. 저장한 그대로여야 다시 시작한 뒤 같은 곡을 가리킨다
+// 대기열 ID. 저장한 그대로여야 다시 시작한 뒤 같은 곡을 가리킨다
 const numbers = (arr: Array<{ entry?: number | null }>) => arr.map((x) => x.entry);
 const memoryNumbers = (p: Player) => ({ current: p.currentTrack?.entry ?? null, queue: numbers(p.queue), history: numbers(p.previousTracks) });
 function storedNumbers(guildId: string) {
@@ -141,7 +141,7 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
   for (let step = 0; step < 1500; step++) {
     (pick(30) === 0 ? rare[pick(rare.length)] : ops[pick(ops.length)])();
     assert.deepEqual(stored(p.guild.id), memory(p), `조작 ${step}번째에서 어긋남`);
-    assert.deepEqual(storedNumbers(p.guild.id), memoryNumbers(p), `조작 ${step}번째에서 줄 번호가 어긋남`);
+    assert.deepEqual(storedNumbers(p.guild.id), memoryNumbers(p), `조작 ${step}번째에서 대기열 ID가 어긋남`);
   }
 });
 
@@ -383,7 +383,7 @@ test("복원: 전의 멈춤 사유(혼자 남음 등)는 비운다. 복원한 �
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
 });
 
-test("복원: 줄 번호는 저장한 그대로(다시 시작하기 전에 화면이 보낸 빼기 · 옮기기도 같은 곡에 닿는다), 열거되지 않는 필드로", async () => {
+test("복원: 대기열 ID는 저장한 그대로(다시 시작하기 전에 화면이 보낸 빼기 · 옮기기도 같은 곡에 닿는다), 열거되지 않는 필드로", async () => {
   const record = makeRecord({}, { title: "곡", url: "https://y/1", duration: 100, entry: 41 });
   Object.assign(record, {
     queue: [

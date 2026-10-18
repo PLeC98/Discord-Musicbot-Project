@@ -50,7 +50,7 @@ async function permitted(player: Player, actor: Actor, check: Check = perm.check
 const isIndex = (i: unknown, size: number): i is number => typeof i === "number" && Number.isInteger(i) && i >= 0 && i < size;
 
 // 권한을 보고 틀고 있는 곡을 잡는다. 막히면 거절, 지나가면 그 곡.
-// onTrack(줄 번호)을 주면 지금 곡이 그 곡일 때만 지난다. 대시보드가 보던 곡이 그 사이 넘어갔으면 다음 곡에 조작이 가지 않게 거절한다
+// onTrack(대기열 ID)을 주면 지금 곡이 그 곡일 때만 지난다. 대시보드가 보던 곡이 그 사이 넘어갔으면 다음 곡에 조작이 가지 않게 거절한다
 async function permittedTrack(player: Player, actor: Actor, check?: Check, onTrack?: number) {
   const blocked = await permitted(player, actor, check);
   if (blocked) return { blocked };
@@ -60,7 +60,7 @@ async function permittedTrack(player: Player, actor: Actor, check?: Check, onTra
   return { track };
 }
 
-/** 지금 곡이 이 줄 번호의 곡일 때만(대시보드). 없으면 확인하지 않는다 */
+/** 지금 곡이 이 대기열 ID의 곡일 때만(대시보드). 없으면 확인하지 않는다 */
 type OnTrack = { onTrack?: number };
 
 /** 멈춤 · 재개를 뒤집는다 */
@@ -249,7 +249,7 @@ async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknow
   return done({ track, from, to });
 }
 
-/** 줄 번호로 한 곡 빼기(대시보드). 보던 화면이 오래돼도 그 곡을 뺀다. 그 사이 빠졌으면 거절 */
+/** 대기열 ID로 한 곡 빼기(대시보드). 보던 화면이 오래돼도 그 곡을 뺀다. 그 사이 빠졌으면 거절 */
 async function removeEntry(player: MaybePlayer, actor: Actor, entry: number) {
   if (!player) return fail("no-song");
   const at = () => player.queue.findIndex((t) => t.entry === entry);
@@ -265,7 +265,7 @@ async function removeEntry(player: MaybePlayer, actor: Actor, entry: number) {
   return done({ track, left: player.queue.length });
 }
 
-/** 줄 번호로 옮기기(대시보드). entry 를 before 앞에, before 가 null 이면 맨 끝으로. 그 사이 빠졌으면 거절 */
+/** 대기열 ID로 옮기기(대시보드). entry 를 before 앞에, before 가 null 이면 맨 끝으로. 그 사이 빠졌으면 거절 */
 async function moveEntry(player: MaybePlayer, actor: Actor, entry: number, before: number | null) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);

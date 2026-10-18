@@ -242,9 +242,9 @@ function controlRoutes(router: Router) {
   });
 }
 
-// 대기열 빼기 · 옮기기. 순번이 아니라 줄 번호로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove · /move 는 지금 본 번호로 보낸다
+// 대기열 빼기 · 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove · /move 는 지금 본 번호로 보낸다
 function queueEditRoutes(router: Router) {
-  // 줄 번호로 빼기. DJ 계층이거나 그 곡의 요청자 본인
+  // 대기열 ID로 빼기. DJ 계층이거나 그 곡의 요청자 본인
   router.delete("/:guildId/player/queue/entry/:entry", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -257,7 +257,7 @@ function queueEditRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // 줄 번호로 옮기기 { entry, before }. entry 줄을 before 줄 앞으로, before 가 null 이면 맨 끝
+  // 대기열 ID로 옮기기 { entry, before }. entry 곡을 before 곡 앞으로, before 가 null 이면 맨 끝
   router.post("/:guildId/player/queue/move-entry", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;

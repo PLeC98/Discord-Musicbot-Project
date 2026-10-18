@@ -184,7 +184,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 필드 셋과 표시 정보 · 줄 번호가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 필드 셋과 표시 정보 · 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -202,7 +202,7 @@ test("트랙 필드: 링크 필드 셋과 표시 정보 · 줄 번호가 저장�
     live: true,
     requestedBy: { id: "u1", username: "someone" },
   };
-  // 줄 번호는 track-state 가 찍는 열거되지 않는 필드다
+  // 대기열 ID는 track-state 가 찍는 열거되지 않는 필드다
   Object.defineProperty(track, "entry", { value: 7, enumerable: false });
   store.setCurrent(G, track);
 

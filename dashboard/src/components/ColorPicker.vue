@@ -1,9 +1,9 @@
 <!--
-  색 선택. 견본 동그라미를 누르면 판이 열린다. 판: 채도 · 밝기 판, 색상 막대, 값 입력란(HEX · RGB · HSV 중 선택한 형식). 값은 #RRGGBB(대문자)로 올린다.
+  색 선택. 견본 동그라미를 누르면 색 선택 창이 열린다. 창: 색 선택 영역(채도 · 밝기), 색상 막대, 값 입력란(HEX · RGB · HSV 중 선택한 형식). 값은 #RRGGBB(대문자)로 올린다.
   브라우저의 색 선택(input type=color)은 브라우저 · 운영체제마다 모양이 달라 쓰지 않는다.
 
   입력하다 만 값처럼 색이 아니면 fallback 색으로 보인다.
-  판 안에서는 HSV 를 그대로 들고 있다. #RRGGBB · RGB 로는 채도나 밝기가 0 일 때 색상이 사라져,
+  창 안에서는 HSV 를 그대로 들고 있다. #RRGGBB · RGB 로는 채도나 밝기가 0 일 때 색상이 사라져,
   검정까지 끌었다 돌아오면 색상이 빨강으로 튄다. 바깥 값이 판의 색과 달라졌을 때만(글로 입력했을 때) 다시 읽는다.
 -->
 <template>
@@ -16,7 +16,7 @@
       <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low · 모서리 16. 안쪽 둘레 12, 맨 아래 기본 색으로(40 + 선) -->
       <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle" @keydown.esc.stop="close">
         <div class="flex flex-col gap-3 p-3">
-          <!-- 채도(가로) · 밝기(세로) 판. 화살표로 1%, Shift 를 같이 누르면 10% -->
+          <!-- 채도(가로) · 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
           <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
             <span class="pointer-events-none absolute size-5 -translate-1/2 rounded-full border-2 border-white ring-1 ring-black/30 shadow-md" :style="{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }"></span>
           </div>
@@ -90,7 +90,7 @@ watch(shown, (now) => {
   if (now !== hex.value) hsv.value = keepHue(hexToHsv(now), hsv.value);
 });
 
-// 판 바탕: 아래로 갈수록 검정, 왼쪽으로 갈수록 흰색, 맨 밑은 지금 색상의 가장 진한 색
+// 색 선택 영역 바탕: 아래로 갈수록 검정, 왼쪽으로 갈수록 흰색, 맨 밑은 지금 색상의 가장 진한 색
 const areaPaint = computed(() => `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${hsv.value.h} 100% 50%)`);
 
 function set(next: Partial<Hsv>) {

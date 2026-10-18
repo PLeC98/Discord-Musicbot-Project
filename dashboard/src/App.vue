@@ -2,11 +2,11 @@
   <!-- 로그인 전(잠금 화면)은 세션 틀 없이. 틀 없이 여는 화면(meta.bare)도 -->
   <router-view v-if="!user.isLoggedIn || route.meta.bare" />
 
-  <!-- 막대가 있는 쪽에만 틀(frame)이 있다(PC · 태블릿은 왼쪽 세로 막대 + 위 막대, 휴대폰은 위 막대만. 세로 막대는 위 막대의 메뉴 버튼으로 여는 서랍).
+  <!-- 막대가 있는 쪽에만 틀(frame)이 있다(PC · 태블릿은 왼쪽 세로 막대 + 위 막대, 휴대폰은 위 막대만. 세로 막대는 위 막대의 메뉴 버튼으로 여는 사이드 드로어).
        바탕화면(desk)은 나머지 가장자리에 붙고 막대 쪽 모서리만 둥글다(휴대폰은 위 둘, 태블릿 · PC 는 왼쪽 위 · 오른쪽 위 · 왼쪽 아래). 바탕화면만 스크롤되고 틀 · 막대 · 재생 바는 제자리.
        배경화면은 화면 전체(틀 밑까지)에 깔고, 틀은 바탕화면 바깥을 덮는 반투명한 막이다(바탕화면의 그림자를 넓게 펴서 둥근 모서리를 따른다).
        --player = 떠 있는 재생 바가 차지하는 높이(화면 아래 여백) -->
-  <!-- 휴대폰은 세로 스크롤 · 확대만 브라우저에 맡긴다(가로로 쓸면 서랍이 받는다, composables/drawer-swipe) -->
+  <!-- 휴대폰은 세로 스크롤 · 확대만 브라우저에 맡긴다(가로로 쓸면 사이드 드로어가 받는다, composables/drawer-swipe) -->
   <div v-else class="relative h-dvh flex flex-col overflow-hidden [touch-action:pan-y_pinch-zoom] md:touch-auto">
     <AppWallpaper />
     <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대 · 세로 막대 위, 폭 전체)에 tertiary 로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
@@ -20,10 +20,10 @@
 
     <div class="relative flex-1 min-h-0 flex flex-col md:flex-row">
       <SessionBar vertical class="relative z-10 hidden md:flex" />
-      <!-- 휴대폰: 세로 막대를 서랍으로(모달 서랍, 지메일처럼 화면 일부를 덮는다). 위 막대의 메뉴 버튼 · 오른쪽으로 쓸기로 열고, 바깥 · Esc · 왼쪽으로 쓸기 · 화면을 옮기면 닫힌다(composables/drawer-swipe).
+      <!-- 휴대폰: 세로 막대를 사이드 드로어로(모달 사이드 드로어, 지메일처럼 화면 일부를 덮는다). 위 막대의 메뉴 버튼 · 오른쪽으로 쓸기로 열고, 바깥 · Esc · 왼쪽으로 쓸기 · 화면을 옮기면 닫힌다(composables/drawer-swipe).
            모양은 화면 끝에 붙어 위아래를 꽉 채우는 면이라 각지게. 움직임은 M3E: 들어올 때 공간 스프링(살짝 넘쳤다 돌아온다. 넘친 만큼 왼쪽이 비지 않게 같은 색 그림자를 왼쪽에 깐다),
            나갈 때 가속(emphasized accelerate) 짧게. 뒤 막은 효과 스프링으로 넘치지 않게. 끄는 동안은 손가락을 따라오고 움직임을 끈다.
-           휴대폰에서는 늘 붙여 두고 화면 밖으로 밀어 둔다(닫힌 동안은 inert). 서랍 컴포넌트 자체의 폭 움직임과 섞이지 않게 바깥 상자가 움직인다 -->
+           휴대폰에서는 늘 붙여 두고 화면 밖으로 밀어 둔다(닫힌 동안은 inert). 사이드 드로어 컴포넌트 자체의 폭 움직임과 섞이지 않게 바깥 상자가 움직인다 -->
       <template v-if="isPhone">
         <div class="fixed inset-0 z-250 bg-black/40" :class="[drawerDrag === null && (drawerOpen ? 'transition-opacity duration-300 ease-effects' : 'transition-opacity duration-200 ease-in'), drawerShown === 0 && 'pointer-events-none']" :style="{ opacity: drawerShown }" @click="drawerOpen = false"></div>
         <div
@@ -54,7 +54,7 @@
               >{{ T.adminPanel }}<span v-if="shell.subtitle" class="md:hidden ml-1 text-on-surface-variant font-medium">- {{ shell.subtitle }}</span></span
             >
           </div>
-          <!-- 왼쪽 끝 · 오른쪽 끝: 화면이 넣는 슬롯(서버 설정의 뒤로가기, 서버 화면의 음성 상태 · 설정). 휴대폰은 왼쪽 맨 앞에 서랍 메뉴, 오른쪽 맨 끝은 늘 알림함 -->
+          <!-- 왼쪽 끝 · 오른쪽 끝: 화면이 넣는 슬롯(서버 설정의 뒤로가기, 서버 화면의 음성 상태 · 설정). 휴대폰은 왼쪽 맨 앞에 사이드 드로어 메뉴, 오른쪽 맨 끝은 늘 알림함 -->
           <div class="absolute left-1 inset-y-0 flex items-center gap-1 max-w-[26%] md:max-w-[35%]">
             <button type="button" :class="TOPBAR_BTN" class="md:hidden" :aria-label="T.openMenu" :aria-expanded="drawerOpen" @click="drawerOpen = true"><Icon name="menu" :size="24" /></button>
             <div id="topbar-start" class="flex items-center gap-1 min-w-0"></div>
@@ -123,12 +123,12 @@ const deskHeight = ref(0);
 useResizeObserver(deskEl, ([entry]) => (deskHeight.value = shell.deskHeight = entry.contentRect.height));
 const router = useRouter();
 const route = useRoute();
-// 휴대폰의 세로 막대 서랍. 화면을 옮기면(서버를 선택하면) 닫는다
+// 휴대폰의 세로 막대 사이드 드로어. 화면을 옮기면(서버를 선택하면) 닫는다
 const drawerOpen = ref(false);
 const drawerEl = ref<HTMLElement | null>(null);
 const isPhone = useMediaQuery(PHONE_QUERY);
 const { drag: drawerDrag } = useDrawerSwipe(drawerOpen, drawerEl, () => isPhone.value);
-// 서랍이 열린 정도(끄는 동안은 손가락, 아니면 열림 · 닫힘)
+// 사이드 드로어가 열린 정도(끄는 동안은 손가락, 아니면 열림 · 닫힘)
 const drawerShown = computed(() => drawerDrag.value ?? (drawerOpen.value ? 1 : 0));
 watch(isPhone, (phone) => !phone && (drawerOpen.value = false));
 watch(

@@ -246,7 +246,7 @@ test("옮기기: 두 곡 미만 · 범위 밖 · 같은 위치 거절", async ()
   assert.deepEqual(p.calls, ["move:1->0"]);
 });
 
-// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
+// 대기열 ID를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
 const entered = (title: string, entry: number, extra: Partial<QueuedTrack> = {}) => Object.defineProperty(track(title, extra), "entry", { value: entry, enumerable: false });
 
 test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰기 · 이전 · 이동 · 처음부터 · 하이라이트를 하지 않는다", async () => {
@@ -273,7 +273,7 @@ test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰�
   assert.deepEqual(p.calls, ["skip", "seek:30000:highlight"]);
 });
 
-test("줄 번호로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 사이 빠졌으면 entry-gone, 권한은 그 곡을 보고", async () => {
+test("대기열 ID로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 사이 빠졌으면 entry-gone, 권한은 그 곡을 보고", async () => {
   const p = fakePlayer({ queue: [entered("새로 들어온 곡", 9), entered("a", 1), entered("b", 2)] });
   assert.equal(accepted(await controls.removeEntry(p, DJ, 2)).track?.title, "b");
   assert.deepEqual(p.calls, ["remove:2"]);
@@ -291,7 +291,7 @@ test("줄 번호로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 �
   assert.equal(accepted(await controls.removeEntry(mine, requester, 2)).track?.title, "내 곡");
 });
 
-test("줄 번호로 옮기기: 그 줄 앞으로(null 이면 맨 끝). 그 사이 빠졌으면 entry-gone, 제자리면 same-position", async () => {
+test("대기열 ID로 옮기기: 그 곡 앞으로(null 이면 맨 끝). 그 사이 빠졌으면 entry-gone, 제자리면 same-position", async () => {
   const queue = () => [entered("a", 1), entered("b", 2), entered("c", 3)];
   const titles = (p: ReturnType<typeof fakePlayer>) => p.queue.map((t: QueuedTrack) => t.title).join("");
   const front = fakePlayer({ queue: queue() });

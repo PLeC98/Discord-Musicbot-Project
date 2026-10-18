@@ -49,7 +49,7 @@ function makePlayer(state: string, acts: string[]) {
     guild: { id: "g1" },
     sessionId: "S1",
     currentTrack: track("now") as FakeTrack | null,
-    // 줄 번호는 track-state 가 추가할 때 찍는다. 대시보드는 그것으로 가리킨다
+    // 대기열 ID는 track-state 가 추가할 때 찍는다. 대시보드는 그것으로 가리킨다
     queue: [
       { ...track("q1"), entry: 1 },
       { ...track("q2"), entry: 2 },

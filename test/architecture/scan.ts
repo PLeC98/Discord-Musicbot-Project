@@ -20,7 +20,7 @@ import ts from "typescript";
 const ROOT = path.join(import.meta.dirname, "..", "..");
 
 // 왼쪽이 오른쪽을 부를 수 있다
-const LAYERS = ["app", "입구", "usecases", "ui", "player", "autoplay", "media", "sources", "store", "config", "rules", "infra"];
+const LAYERS = ["app", "진입점", "usecases", "ui", "player", "autoplay", "media", "sources", "store", "config", "rules", "infra"];
 
 const posix = (p: string) => p.split(path.sep).join("/");
 
@@ -43,7 +43,7 @@ const isRootConfig = (rel: string) => rel === "src/config/index.ts";
 function layerOf(rel: string) {
   if (isRootIndex(rel)) return "app";
   if (isRootConfig(rel)) return "config";
-  if (/^src\/(discord|dashboard)\//.test(rel)) return "입구";
+  if (/^src\/(discord|dashboard)\//.test(rel)) return "진입점";
   const m = /^src\/([^/]+)\//.exec(rel);
   return m ? m[1] : null;
 }

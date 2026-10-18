@@ -17,7 +17,7 @@ const shell = reactive({
   sidebarWidth: Number.isFinite(storedWidth) && storedWidth > 0 ? clampWidth(storedWidth) : SIDEBAR_WIDTH.initial,
   /** 휴대폰 위 막대 제목 뒤에 " - 이것"(화면이 정한다, 없으면 빈 글) */
   subtitle: "",
-  /** 바탕화면 높이(px). App 이 잰다. 화면 아래에 붙는 판(휴대폰 대기열 판)이 높이를 셈한다 */
+  /** 바탕화면 높이(px). App 이 잰다. 화면 아래에 붙는 시트(휴대폰 대기열 바텀 시트)가 높이를 셈한다 */
   deskHeight: 0,
   /** 봇 프로필 그림(App 이 /api/bot 에서 불러온다). 없거나 못 불러오면 null, 모든 서버 아이콘이 기호로 */
   botAvatar: null as string | null,

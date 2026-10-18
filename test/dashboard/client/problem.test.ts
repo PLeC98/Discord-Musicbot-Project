@@ -38,7 +38,7 @@ test("봇 개발자에게 보고하라는 문장이면 보고할 곳(소스 저�
 
 test("꾸밈(굵게 · 코드)은 떼고, 운영자용 원문(detail)은 본문 다음 줄에", () => {
   assert.equal(problemText(failed(problemBody("bad-time")), "실패"), "알 수 없는 시간 형식이에요!\n제가 읽을 수 없는 형식이에요. 1:30, 3m20s, 90 처럼 적어 주세요!");
-  assert.equal(problemText(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패"), "설정을 저장하지 못했어요!\n설정 DB 에 저장하다 실패했어요. 함께 적힌 원문을 확인해 주세요.\n키 이름이 틀렸습니다\n오류 코드: config-save-failed (HTTP 409)");
+  assert.equal(problemText(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패"), "설정을 저장하지 못했어요!\n설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요.\n키 이름이 틀렸습니다\n오류 코드: config-save-failed (HTTP 409)");
 });
 
 test("심각한 정도는 안내의 것", () => {

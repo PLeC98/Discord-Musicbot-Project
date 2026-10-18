@@ -26,7 +26,7 @@
   </button>
 
   <!-- 레일이 overflow-hidden 이라 메뉴를 안에 두면 잘린다. body 로 빼고 좌표로 붙인다(트리거가 아래쪽이면 위로, 위쪽이면 아래로).
-       휴대폰은 서랍(App.vue, 막 250 · 서랍 260) 안에서 여므로 그보다 위에 둔다(알림 · 대화상자 300 보다는 아래) -->
+       휴대폰은 사이드 드로어(App.vue, 막 250 · 사이드 드로어 260) 안에서 여므로 그보다 위에 둔다(알림 · 대화상자 300 보다는 아래) -->
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-270" @click="open = false" @contextmenu="open = false"></div>
     <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">

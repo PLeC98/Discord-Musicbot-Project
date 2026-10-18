@@ -26,7 +26,7 @@ const warnings = (count: number) => `경고 ${count}`;
 const openLogs = "실시간 로그 열기";
 const repeated = (count: number, lastAt: string) => `지난 1시간 ${count}번 · 마지막 ${lastAt}`;
 /** 요약 칩의 말(그 값이 어떤지) */
-const attention = { high: "높음", lagging: "밀림", nearLimit: "한도 가까움", skipped: "건너뜀", failingOften: "잦은 실패", nearlyFull: "거의 가득 참", stray: "잔류 프로세스" };
+const attention = { high: "높음", lagging: "높음", nearLimit: "한도 가까움", skipped: "건너뜀", failingOften: "잦은 실패", nearlyFull: "거의 가득 참", stray: "잔류 프로세스" };
 const youtubeClient = (name: string) => `유튜브 ${name}`;
 
 // 그래프 카드

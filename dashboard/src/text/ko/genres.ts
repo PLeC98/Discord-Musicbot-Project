@@ -19,7 +19,7 @@ const label = "표시 이름";
 const labelPlaceholder = "표시 이름(비우면 식별자)";
 const id = "식별자";
 const idPlaceholder = "영어로 짧게(예: rock)";
-const idTip = "봇 내부 경로 판단, AI 판정 프롬프트의 {{genre}} 에 쓰여요. 기본 탑재 프롬프트 기준으로 영어로 작성하는 걸 권장해요(예: k-pop, lo-fi).\n이 값을 바꾸는 시점에 해당 장르를 재생 중이라면, 그 서버는 자동재생 장르를 다시 선택해야 해요. 표시되는 이름은 언제 수정해도 상관없어요.";
+const idTip = "봇 내부 구분과 AI 판정 프롬프트의 {{genre}} 에 쓰여요. 영어로 작성하길 권장해요(예: k-pop, lo-fi).\n재생 중인 장르의 식별자를 바꾸면 그 서버는 장르를 다시 선택해야 해요.";
 const removeGenre = "이 장르 삭제";
 const sources = "출처";
 const sourcesDesc = "가중치가 높은 출처의 곡을 더 자주 선택하며, 곡을 가져오지 못하는 출처는 건너뛰어요.";
@@ -69,7 +69,7 @@ const defaults = {
   maxTip: "비우면 제한 없음",
   noLimit: "제한 없음",
   blocked: "키워드 검색 차단어",
-  blockedTip: "키워드에만 적용되고, 유튜브에서 찾아낸 곡 제목에 키워드가 있으면 그 곡을 제외해요.\n(대소문자 무관, 영문은 단어 단위 · 한글 · 일본어는 포함 여부로 매칭)",
+  blockedTip: "키워드 출처에만 적용돼요. 찾은 곡 제목에 이 말이 있으면 제외해요.\n(대소문자 무관, 영문은 단어 단위 · 한글 · 일본어는 포함 여부로 매칭)",
   blockedPlaceholder: "차단할 키워드를 입력하고 Enter",
 };
 

@@ -1,5 +1,5 @@
 <template>
-  <!-- 로그인 화면의 실루엣(운영자 패널의 화면 판). 실제 LoginView 의 배치를 그 기기의 CSS 크기(vw × vh)로 그린 뒤 틀에 맞춰 줄인다.
+  <!-- 로그인 화면의 실루엣(운영자 패널의 미리보기 화면). 실제 LoginView 의 배치를 그 기기의 CSS 크기(vw × vh)로 그린 뒤 틀에 맞춰 줄인다.
        위 막대 섬 셋(가운데 "locked" 는 폭 768 이상) · 화면 높이 18% 의 시계 · 정가운데에서 3% 올린 그림 · 이름 · 로그인 버튼 그룹 · Enter 안내(마우스 기기) · 아래 소스 섬.
        크기는 LoginView 의 클래스 값(md 768 기준으로 두 벌). 낮은 화면(높이 512 이하)의 모양은 그리지 않는다 -->
   <div ref="hostEl" class="absolute inset-0 pointer-events-none overflow-hidden">
