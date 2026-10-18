@@ -646,6 +646,17 @@ test("유튜브 곡은 스트림 응답의 제목으로 고치고 링크 데이�
   assert.equal(row?.title_verified, 1);
 });
 
+test("직접 지정한 음원으로 트는 유튜브 곡은 음원 쪽 제목으로 고치지 않는다(곡 정보는 요청의 것)", async () => {
+  const track = yt("ttttttttttt", { title: "요청의 제목", audioFoundBy: "pinned" });
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  behavior.stream = () => ({ url: "https://media.test/t", duration: 100, title: "지정한 음원의 제목" });
+
+  await playOnce(p);
+
+  assert.equal(p.currentTrack.title, "요청의 제목");
+});
+
 // ── 앞뒤 ───────────────────────────────────────────────────────────────
 
 test("현재 곡이 없으면 대기열에서 꺼낸다", async () => {

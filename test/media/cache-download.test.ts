@@ -175,6 +175,14 @@ test("유튜브: yt-dlp 로 임시 파일에 다운로드해 최종 경로로 �
   assert.deepEqual(leftovers(), [], "info.json 과 임시 파일을 남기지 않는다");
 });
 
+test("직접 지정한 음원으로 받는 유튜브 곡은 제목을 고치지 않는다", async () => {
+  const track = { ...yt("ppppppppppp"), title: "요청의 제목", audioFoundBy: "pinned" as const };
+
+  await downloader().downloadTrack(track);
+
+  assert.equal(track.title, "요청의 제목");
+});
+
 test("스포티파이: 동등물을 찾아 그 영상으로 다운로드하고 제목은 고치지 않는다", async () => {
   const track = { title: "스포티파이 곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200, _equivalent: "https://www.youtube.com/watch?v=bbbbbbbbbbb" };
 

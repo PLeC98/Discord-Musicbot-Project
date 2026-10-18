@@ -107,9 +107,9 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 // 스트림을 가져왔다면 그 응답에 영상 자체의 제목이 실려 있으므로 왕복 없이 고칠 수 있다.
 // (캐시로 재생하는 곡은 여기를 지나지 않는다. 그쪽은 다운로드할 때 고친다.)
 // 스포티파이 곡은 제외한다: 유튜브 동등물의 제목은 다른 문자열이고, 사용자가 넣은 것은
-// 스포티파이 곡이므로 표시는 그쪽이 맞다.
+// 스포티파이 곡이므로 표시는 그쪽이 맞다. 직접 지정한 음원으로 트는 곡도 제외한다(곡 정보는 요청의 것이다).
 function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
-  if (track.platform !== "youtube" || !streamInfo?.title) return false;
+  if (track.platform !== "youtube" || track.audioFoundBy === "pinned" || !streamInfo?.title) return false;
   if (streamInfo.title !== track.title) {
     log.debug(`제목 교정: "${logTitle(track.title)}" → "${streamInfo.title}"`);
     track.title = streamInfo.title;

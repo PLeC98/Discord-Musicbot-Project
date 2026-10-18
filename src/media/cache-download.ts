@@ -118,8 +118,9 @@ const LINGER_LOG_MS = 5_000;
 
 // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
 // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
+// 직접 지정한 음원으로 받은 곡도 교정하지 않는다(곡 정보는 요청의 것, 음원은 다른 곡일 수 있다)
 function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
-  if (!verifiedTitle || (track.platform !== "youtube" && track.platform !== "direct") || verifiedTitle === track.title) return;
+  if (!verifiedTitle || (track.platform !== "youtube" && track.platform !== "direct") || track.audioFoundBy === "pinned" || verifiedTitle === track.title) return;
   log.debug(`제목 교정: "${logTitle(track.title)}" → "${verifiedTitle}"`);
   track.title = verifiedTitle;
 }
