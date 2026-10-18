@@ -8,6 +8,7 @@ import config from "../config/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
 import * as snapshots from "../store/snapshots.ts";
+import * as fullReset from "../store/full-reset.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as tunables from "../store/tunables.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
@@ -102,11 +103,13 @@ function main() {
 }
 
 /**
- * DB 를 열고 설정을 설정 객체에 올린다. 설정 DB 구조가 맞지 않거나 못 열면 멈춘다(캐시 · 실행 상태 DB 는 구조가 바뀌었으면 새로 만든다).
+ * DB 를 열고 설정을 설정 객체에 올린다. 어느 DB 든 구조가 맞지 않거나 못 열면 멈춘다(무엇을 하면 되는지 안내한다).
  * 내용이 틀린 것(조절값 · 못 푸는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
+    // 대시보드에서 봇 전체 초기화를 예약했으면 열기 전에 지운다(스냅샷 · .env · 로그 · 이번 실행의 기록은 남는다)
+    if (fullReset.applyRequested()) log.warn("봇 전체 초기화: DB · 캐시 파일 · 디스플레이 파일을 지웠습니다. 설정 스냅샷은 database/backups 에 남았습니다");
     // 대시보드에서 선택한 스냅샷 · 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups 에 남는다)
     const restored = snapshots.applyStaged(PROJECT.database);
     if (restored) log.warn(`설정 DB 를 ${restored} 로 복원했습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);

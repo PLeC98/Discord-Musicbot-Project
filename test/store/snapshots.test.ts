@@ -47,10 +47,12 @@ test("뜬 스냅샷은 그때의 settings.db 다(뒤에 바꾼 것은 들어가�
   }
 });
 
-test("매일 것은 하루에 하나 · 7개, 가져오기 · 복원 전 것은 합쳐 5개까지 남긴다", async () => {
+test("매일 것은 하루에 하나 · 7개, 가져오기 · 복원 · 초기화 전 것은 합쳐 5개까지 남긴다", async () => {
   for (let day = 1; day <= 9; day++) await snapshots.take("daily", new Date(2026, 9, day));
-  for (let n = 0; n < 7; n++) await snapshots.take("before-import", new Date(2026, 9, 11, 8, 0, n));
+  for (let n = 0; n < 4; n++) await snapshots.take("before-import", new Date(2026, 9, 11, 8, 0, n));
+  for (let n = 4; n < 7; n++) await snapshots.take("before-reset", new Date(2026, 9, 11, 8, 0, n));
   const rows = snapshots.list();
+  assert.equal(rows.filter((one) => one.kind === "before-reset").length, 3, "초기화 전 것도 목록에 든다");
   assert.equal(rows.filter((one) => one.kind === "daily").length, snapshots.KEEP_DAILY);
   assert.equal(rows.filter((one) => one.kind !== "daily").length, snapshots.KEEP_OTHERS);
   assert.ok(!rows.some((one) => one.name === "settings-daily-2026-10-01.db"), "오래된 것부터 지운다");
