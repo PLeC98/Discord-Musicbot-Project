@@ -10,8 +10,8 @@ const UNKNOWN_DRIVE = { drive: "?", usedBytes: 0, totalBytes: 0 };
 
 function measure(): StorageView {
   const { cache, drive, minFreeBytes } = audioCache.storageStats();
-  const { dir, bytes, lookups, sponsorSegments, sessions } = dbStats();
-  return { cache, disk: { ...(drive ?? UNKNOWN_DRIVE), minFreeBytes }, db: { bytes, drive: driveOf(dir)?.drive ?? "?", lookups, sponsorSegments, sessions } };
+  const { dir, bytes, lookups, pins, sponsorSegments, sessions } = dbStats();
+  return { cache, disk: { ...(drive ?? UNKNOWN_DRIVE), minFreeBytes }, db: { bytes, drive: driveOf(dir)?.drive ?? "?", lookups, pins, sponsorSegments, sessions } };
 }
 
 let last: StorageView | null = null;

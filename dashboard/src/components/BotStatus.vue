@@ -614,6 +614,7 @@ const dbRows = computed<Array<[string, string]>>(() => {
   return [
     [T.db.file, db.drive === disk.drive ? sizeText(db.bytes) : `${sizeText(db.bytes)} (${db.drive})`],
     [T.db.lookups, T.songCount(db.lookups)],
+    [T.db.pins, T.songCount(db.pins)],
     [T.db.sponsor, T.songCount(db.sponsorSegments)],
     // 재시작 때 복원할 세션(player_sessions). 나가며 남긴 것 · 복원하지 않고 남긴 것도 세므로 "활성"을 붙이지 않는다
     [T.db.sessions, T.count(db.sessions)],

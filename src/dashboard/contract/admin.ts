@@ -73,7 +73,7 @@ type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: strin
 type StorageView = {
   cache: { bytes: number; maxBytes: number; files: number; maxFiles: number; protectedFiles: number; neverPlayed: number; failed: number; lastCleanup: { at: number; files: number; bytes: number } | null };
   disk: { drive: string; usedBytes: number; totalBytes: number; minFreeBytes: number };
-  db: { bytes: number; drive: string; lookups: number; sponsorSegments: number; sessions: number };
+  db: { bytes: number; drive: string; lookups: number; pins: number; sponsorSegments: number; sessions: number };
 };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */

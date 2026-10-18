@@ -43,7 +43,7 @@ function close() {
   for (const file of FILES) file.close();
 }
 
-/** 봇 상태 탭: DB 파일 크기 합(-wal 포함) · 그 폴더 · 행 수(오디오 링크 데이터 · SponsorBlock 구간 · 저장된 대기열) */
+/** 봇 상태 탭: DB 파일 크기 합(-wal 포함) · 그 폴더 · 행 수(오디오 링크 데이터 · 직접 지정한 음원 · SponsorBlock 구간 · 저장된 대기열) */
 function dbStats() {
   const count = (file: DbFile, table: string) => (file.get().prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
   const files = FILES.map((file) => file.get().name);
@@ -51,6 +51,7 @@ function dbStats() {
     dir: path.dirname(cacheDb.get().name),
     bytes: files.reduce((sum, file) => sum + fileBytes(file), 0),
     lookups: count(cacheDb, "track_lookup"),
+    pins: count(cacheDb, "pinned_sources"),
     sponsorSegments: count(cacheDb, "sponsorblock_cache"),
     sessions: count(stateDb, "player_sessions"),
   };
