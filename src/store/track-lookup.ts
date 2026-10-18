@@ -42,6 +42,8 @@ function resolveFromCache(requestKey: string): CacheHit {
     pageUrl: row.page_url,
     requestKey: row.request_key,
     audioUrl: row.audio_url,
+    // 음원이 요청 그대로면 given, 다르면 링크 데이터가 기억하는 자동 결과(스포티파이 링크). 죽었으면 다시 찾는다
+    audioFoundBy: audioKeyOf(row.audio_url) === audioKeyOf(row.request_key) ? "given" : "ledger",
     platform: row.platform,
     // 행의 빈 열은 곡 모양으로(세션 복원과 같다)
     title: row.display_title || cached.title || null,
@@ -54,18 +56,48 @@ function resolveFromCache(requestKey: string): CacheHit {
 
 // 쓰기(track_lookup)
 
+// 표시 열을 고치는 규칙. 확인된 제목은 확인된 제목으로만 덮는다(아래 recordTrackLookup)
+const DISPLAY_SET = `
+              display_title     = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
+                                       THEN excluded.display_title ELSE track_lookup.display_title END,
+              display_artist    = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
+                                       THEN excluded.display_artist ELSE track_lookup.display_artist END,
+              display_thumbnail = CASE WHEN excluded.display_thumbnail IS NOT NULL
+                                       THEN excluded.display_thumbnail ELSE track_lookup.display_thumbnail END,
+              title_verified    = MAX(track_lookup.title_verified, excluded.title_verified)`;
+
 /**
- * "이 요청은 이 음원이다"와 표시용 메타데이터 기록. 음원 주소가 정해진 곡만 적는다.
+ * "이 요청은 이 음원이다"와 표시용 메타데이터 기록. 음원 주소가 정해진 곡만 적는다. 곡이 음원을 어떻게 알았나(audioFoundBy)로 가른다:
+ *   pinned  쓰지 않는다. 지정을 해제하면 자동 결과로 돌아가야 한다
+ *   ledger  행을 새로 만들지 않는다. 행의 음원이 곡의 음원과 같을 때만 표시 열을 고친다. 그새 새로 찾았거나(다른 음원) 운영자가 지웠으면(행 없음)
+ *           옛 곡이 그 결과를 되살리지 않는다
+ *   그 밖   넣거나 바꾼다. 음원이 요청과 다르면(자동으로 찾은 결과) 넣은 뒤 그 곡을 ledger 로 표시한다. 다음에 다시 틀거나 저장 세션에서 돌아와도 위 규칙을 따른다
  *
  * `verified`는 "제목을 영상 자체에서 확인했는가"다. 재생목록 페이지가 주는 제목은 같은 영상인데도
  * 다를 수 있어(실측: 같은 영상인데 재생목록은 앞에 전각 공백이 붙은 축약 제목을, 영상 자체는
  * 정식 제목을 준다), 그걸로 확인된
  * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 확인된 제목은 확인된
- * 제목으로만 갱신한다. 음원 주소와 보여 줄 링크는 출처와 무관하게 항상 갱신한다.
+ * 제목으로만 갱신한다.
  */
 function recordTrackLookup(track: Partial<TrackInfo> | null | undefined, { verified = false } = {}) {
-  if (!track?.requestKey || !track.audioUrl) return;
-  const v = verified ? 1 : 0;
+  if (!track?.requestKey || !track.audioUrl || track.audioFoundBy === "pinned") return;
+  const values = [canonicalUrl(track.requestKey), track.pageUrl || track.requestKey, track.audioUrl, track.platform || "unknown", track.title || null, track.artist || null, track.thumbnail || null, verified ? 1 : 0];
+  if (track.audioFoundBy === "ledger") {
+    // 행이 있고 음원이 같을 때만 표시 열을 고친다. 아니면 아무것도 하지 않는다
+    conn()
+      .prepare(
+        `
+          UPDATE track_lookup SET
+              display_title     = CASE WHEN @verified = 1 OR title_verified = 0 THEN @title ELSE display_title END,
+              display_artist    = CASE WHEN @verified = 1 OR title_verified = 0 THEN @artist ELSE display_artist END,
+              display_thumbnail = COALESCE(@thumbnail, display_thumbnail),
+              title_verified    = MAX(title_verified, @verified)
+          WHERE request_key = @key AND audio_url = @audio
+      `,
+      )
+      .run({ key: values[0], audio: track.audioUrl, title: values[4], artist: values[5], thumbnail: values[6], verified: values[7] });
+    return;
+  }
   conn()
     .prepare(
       `
@@ -75,17 +107,11 @@ function recordTrackLookup(track: Partial<TrackInfo> | null | undefined, { verif
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(request_key) DO UPDATE SET
               page_url          = excluded.page_url,
-              audio_url         = excluded.audio_url,
-              display_title     = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
-                                       THEN excluded.display_title ELSE track_lookup.display_title END,
-              display_artist    = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
-                                       THEN excluded.display_artist ELSE track_lookup.display_artist END,
-              display_thumbnail = CASE WHEN excluded.display_thumbnail IS NOT NULL
-                                       THEN excluded.display_thumbnail ELSE track_lookup.display_thumbnail END,
-              title_verified    = MAX(track_lookup.title_verified, excluded.title_verified)
+              audio_url         = excluded.audio_url,${DISPLAY_SET}
       `,
     )
-    .run(canonicalUrl(track.requestKey), track.pageUrl || track.requestKey, track.audioUrl, track.platform || "unknown", track.title || null, track.artist || null, track.thumbnail || null, v);
+    .run(...values);
+  if (audioKeyOf(track.audioUrl) !== audioKeyOf(track.requestKey)) track.audioFoundBy = "ledger";
 }
 
 /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */

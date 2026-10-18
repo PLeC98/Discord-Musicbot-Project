@@ -136,3 +136,62 @@ test("캐시한 음원의 길이: 음원 주소로, 주소가 없으면(스포�
   trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: yt, platform: "spotify", title: "곡" });
   assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), 181.37);
 });
+
+// ── 링크 데이터를 쓰는 규칙(음원을 어떻게 알았나로 가른다) ──────────────────────
+// 운영자가 지운 자동 결과를 반복 대기열 · 저장 세션의 옛 곡이 되살리지 않고, 직접 지정한 음원은 링크 데이터를 건드리지 않는다
+
+const ROW = (requestKey: string) => ({ requestKey, pageUrl: requestKey, platform: "spotify", title: "곡", artist: "가수" });
+
+test("직접 지정한 음원으로 튼 곡은 링크 데이터를 쓰지 않는다(해제하면 자동 결과로 돌아간다)", () => {
+  const sp = "https://open.spotify.com/track/pinnedwrite";
+  trackLookup.recordTrackLookup({ ...ROW(sp), audioUrl: "https://www.youtube.com/watch?v=autoresult1" });
+  trackLookup.recordTrackLookup({ ...ROW(sp), audioUrl: "https://soundcloud.com/pinned/one", audioFoundBy: "pinned" });
+  assert.equal(trackLookup.getAudioUrl(sp), "https://www.youtube.com/watch?v=autoresult1");
+});
+
+test("자동으로 찾은 결과는 넣은 뒤 그 곡을 ledger 로 표시한다. 요청 그대로인 곡은 표시하지 않는다", () => {
+  const found = { ...ROW("https://open.spotify.com/track/markledger"), audioUrl: "https://www.youtube.com/watch?v=markledger1", audioFoundBy: "search" as const };
+  trackLookup.recordTrackLookup(found);
+  assert.equal(found.audioFoundBy, "ledger");
+  assert.equal(trackLookup.getAudioUrl(found.requestKey), found.audioUrl);
+
+  const given = { requestKey: "https://www.youtube.com/watch?v=givenvideo1", pageUrl: "https://www.youtube.com/watch?v=givenvideo1", audioUrl: "https://www.youtube.com/watch?v=givenvideo1", platform: "youtube", title: "곡", audioFoundBy: "given" as const };
+  trackLookup.recordTrackLookup(given);
+  assert.equal(given.audioFoundBy, "given");
+});
+
+test("링크 데이터에서 온 곡은 행을 새로 만들지 않고, 음원이 같을 때만 표시 열을 고친다", () => {
+  const sp = "https://open.spotify.com/track/ledgerupdate";
+  const old = { ...ROW(sp), audioUrl: "https://www.youtube.com/watch?v=ledgerold01", audioFoundBy: "ledger" as const };
+
+  trackLookup.recordTrackLookup(old);
+  assert.equal(trackLookup.getAudioUrl(sp), null, "운영자가 지웠으면(행 없음) 옛 곡이 되살리지 않는다");
+
+  trackLookup.recordTrackLookup({ ...ROW(sp), audioUrl: "https://www.youtube.com/watch?v=ledgernew01" }); // 그새 새로 찾았다
+  trackLookup.recordTrackLookup({ ...old, title: "옛 곡의 제목" }, { verified: true });
+  assert.equal(trackLookup.getAudioUrl(sp), "https://www.youtube.com/watch?v=ledgernew01", "새로 찾은 음원을 옛 음원으로 덮지 않는다");
+  assert.equal(trackLookup.getVerifiedTitle(sp), null, "다른 음원의 행은 표시 열도 고치지 않는다");
+
+  trackLookup.recordTrackLookup({ ...ROW(sp), audioUrl: "https://www.youtube.com/watch?v=ledgernew01", title: "확인된 제목", audioFoundBy: "ledger" }, { verified: true });
+  assert.equal(trackLookup.getVerifiedTitle(sp), "확인된 제목", "음원이 같으면 표시 열을 고친다");
+});
+
+test("자동 결과를 지운 뒤 같은 곡 객체를 다시 틀어도 그 결과가 되살아나지 않는다", () => {
+  const track = { ...ROW("https://open.spotify.com/track/noresurrect"), audioUrl: "https://www.youtube.com/watch?v=noresurrect", audioFoundBy: "search" as const };
+  trackLookup.recordTrackLookup(track); // 처음 틀 때 넣고 ledger 가 된다
+  trackLookup.removeResolution(track.requestKey); // 운영자가 자동 검색 결과를 지웠다
+  trackLookup.recordTrackLookup(track); // 반복 대기열로 다시 틀었다
+  assert.equal(trackLookup.getAudioUrl(track.requestKey), null);
+});
+
+test("캐시 찾기로 만든 곡은 음원이 요청 그대로면 given, 다르면 ledger", () => {
+  cacheFile("yt:foundbyhit");
+  trackLookup.recordTrackLookup({ ...ROW("https://open.spotify.com/track/foundbyhit"), audioUrl: "https://www.youtube.com/watch?v=foundbyhit" });
+  const spotify = trackLookup.resolveFromCache("https://open.spotify.com/track/foundbyhit");
+  assert.equal(spotify.hit && spotify.track.audioFoundBy, "ledger");
+
+  const yt = "https://www.youtube.com/watch?v=foundbyhit";
+  trackLookup.recordTrackLookup({ requestKey: yt, pageUrl: yt, audioUrl: yt, platform: "youtube", title: "곡" });
+  const video = trackLookup.resolveFromCache(yt);
+  assert.equal(video.hit && video.track.audioFoundBy, "given");
+});
