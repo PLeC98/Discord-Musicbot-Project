@@ -50,7 +50,7 @@ test("동등물: 1차 전부와 2차 전부를 6개씩 묻는다. 1차에 답이
 test("자동재생: 1차 앞 둘을 6개씩 묻고, 1차에 답이 없을 때만 2차 앞 둘을 묻는다", async () => {
   for (const primaryHits of [false, true]) {
     const { asked, search } = searcher(primaryHits);
-    const deps: route.Deps = { ...route.REAL, search, known: () => null, assist: { filter: async (c) => c, accepts: async () => true } };
+    const deps: route.Deps = { ...route.REAL, search, known: () => null, pinned: () => null, assist: { filter: async (c) => c, accepts: async () => true } };
     await route.resolve({ artist: TARGET.artist, title: TARGET.title, durationSec: TARGET.durationSec, sourceKey: "lf:1" }, LIMITS, undefined, deps);
     const expected = primaryHits ? primary.slice(0, 2) : [...primary.slice(0, 2), ...secondary.slice(0, 2)];
     assert.deepEqual(

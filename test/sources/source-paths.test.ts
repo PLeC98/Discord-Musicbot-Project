@@ -32,11 +32,12 @@ const YouTube = await import("../../src/sources/youtube/index.ts");
 const Spotify = await import("../../src/sources/spotify.ts");
 const equivalent = await import("../../src/sources/youtube/equivalent.ts");
 const lookup = await import("../../src/sources/lookup.ts");
+const pinnedSources = await import("../../src/store/pinned-sources.ts");
 const streamUrl = await import("../../src/sources/stream-url.ts");
 const { audioKeyOf } = await import("../../src/rules/audio-key-of.ts");
 
 beforeEach(() => {
-  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache; DELETE FROM pinned_sources;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
 });
 
@@ -256,6 +257,65 @@ test("캐시 지름길: 캐시 파일이 있는 곡은 조회 없이 링크 데�
   scAsked.length = 0;
   const set = await lookup.resolveQuery(setUrl, undefined, undefined, { soundcloud: soundcloud("set") });
   assert.deepEqual([set.isPlaylist, scAsked.length], [true, 1]);
+});
+
+// ── 직접 지정한 음원 ──────────────────────────────────────────────────
+// 운영자가 캐시 DB 에서 지정한 음원이 링크 데이터 · 원래 링크보다 앞선다. 곡 정보는 요청의 것이다
+
+test("지정한 음원: 링크 데이터가 표시 정보를 기억하면 조회 없이 그 정보와 지정한 음원으로 곡을 만든다", async () => {
+  const url = "https://www.youtube.com/watch?v=pinlookup01";
+  trackLookup.recordTrackLookup({ requestKey: url, pageUrl: url, audioUrl: url, platform: "youtube", title: "원래 제목", artist: "원래 가수" });
+  pinnedSources.setPin(url, "https://soundcloud.com/pinned/track");
+  const noLookup = { youtube: { ...YouTube, search: async () => assert.fail("조회하면 안 된다") } };
+
+  const got = await lookup.resolveQuery("https://youtu.be/pinlookup01?si=share", undefined, undefined, noLookup);
+
+  const t = got.tracks?.[0];
+  assert.deepEqual([got.success, got.isPlaylist, t?.title, t?.requestKey, t?.audioUrl, t?.audioFoundBy, t?.isLive], [true, false, "원래 제목", url, "https://soundcloud.com/pinned/track", "pinned", false]);
+});
+
+test("지정한 음원: 원래 영상이 죽었어도 지정한 음원에서 읽은 제목으로 곡을 만든다. 요청 키 · 링크 · 출처는 원래 요청의 것", async () => {
+  const url = "https://www.youtube.com/watch?v=pindead0001";
+  pinnedSources.setPin(url, "https://soundcloud.com/alive/song");
+  const dead = { youtube: { ...YouTube, search: async () => [] }, soundcloud: { find: async (scUrl: string) => ({ kind: "track" as const, track: { ...scTrack(scUrl), title: "살아 있는 음원의 제목" } }) } };
+
+  const got = await lookup.resolveQuery(url, undefined, undefined, dead);
+
+  const t = got.tracks?.[0];
+  assert.deepEqual([t?.title, t?.requestKey, t?.pageUrl, t?.platform, t?.audioUrl, t?.audioFoundBy], ["살아 있는 음원의 제목", url, url, "youtube", "https://soundcloud.com/alive/song", "pinned"]);
+});
+
+test("지정한 음원: 재생목록 주소는 지정 하나로 바뀌지 않는다(캐시 지름길과 같은 규칙)", async () => {
+  const video = "https://www.youtube.com/watch?v=pinlist0001";
+  pinnedSources.setPin(video, "https://soundcloud.com/pinned/x");
+  let playlistAsked = false;
+  const listed = {
+    youtube: {
+      getPlaylist: async () => {
+        playlistAsked = true;
+        return { tracks: [found("목록의 곡")], total: 1, nextOffset: null };
+      },
+      search: async () => [],
+    },
+  };
+  const got = await lookup.resolveQuery(`${video}&list=PLx`, undefined, undefined, listed);
+  assert.equal(playlistAsked, true);
+  assert.equal(got.isPlaylist, true);
+});
+
+test("동등물: 지정한 음원이 있으면 검색 · 링크 데이터보다 먼저 쓰고, 다시 찾을 때(skipPin)는 건너뛴다", async () => {
+  const sp = "https://open.spotify.com/track/pinequiv01";
+  trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: "https://www.youtube.com/watch?v=ledgerequiv", platform: "spotify", title: "곡" });
+  pinnedSources.setPin(sp, "https://soundcloud.com/pinned/equiv");
+  const search = async () => assert.fail("검색하면 안 된다");
+
+  const pinned: Seeking = { title: "곡", requestKey: sp, platform: "spotify", duration: 200 };
+  assert.equal(await equivalent.findYouTubeEquivalent(pinned, { search }), "https://soundcloud.com/pinned/equiv");
+  assert.equal(pinned.audioFoundBy, "pinned");
+
+  const skipping: Seeking = { title: "곡", requestKey: sp, platform: "spotify", duration: 200 };
+  assert.equal(await equivalent.findYouTubeEquivalent(skipping, { search, skipPin: true }), "https://www.youtube.com/watch?v=ledgerequiv");
+  assert.equal(skipping.audioFoundBy, "ledger");
 });
 
 // ── 동등물 찾기 · 재검색 ──────────────────────────────────────────────

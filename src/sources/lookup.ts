@@ -7,6 +7,8 @@ import * as Spotify from "./spotify.ts";
 import * as SoundCloud from "./soundcloud/index.ts";
 import * as DirectLink from "./direct.ts";
 import * as trackLookup from "../store/track-lookup.ts";
+import * as pinnedSources from "../store/pinned-sources.ts";
+import type { Pin } from "../store/pinned-sources.ts";
 import { errorKind, messageOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
@@ -154,12 +156,37 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
 async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const soundcloud = links.parseSoundCloudURL(query);
   const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query) || (soundcloud !== null && soundcloud !== "track");
+  // 운영자가 직접 지정한 음원이 링크 데이터 · 원래 링크보다 앞선다. 원래 영상이 죽었어도 곡을 만든다.
+  // 같은 skipCache 를 따른다(canonicalUrl 이 watch?v=X&list=Y 를 영상 하나로 줄여 재생목록이 지정 하나로 바뀌지 않게)
+  const pin = skipCache ? null : pinnedSources.getPin(query);
+  if (pin) return { success: true, isPlaylist: false, tracks: [await pinnedTrack(query, pin, context, sources)] };
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit) {
     log.debug(`캐시 히트(조회 · 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
   return getTrackData(query, context, range, sources);
+}
+
+/**
+ * 직접 지정한 음원으로 곡을 만든다. 곡 정보(요청 키 · 제목 · 아티스트)는 요청의 것이다: 링크 데이터가 기억하는 표시 정보, 없으면 원래 링크를 읽고,
+ * 그것도 못 읽으면(원래 영상이 죽었다) 지정한 음원에서 읽은 제목. 음원 주소 · 길이 · 라이브 표시는 applyPin 이 정한다
+ */
+async function pinnedTrack(query: string, pin: Pin, context: string | null | undefined, sources: Partial<Sources>): Promise<FoundTrack> {
+  const known = trackLookup.displayOf(query);
+  let track: FoundTrack | null = known ? { ...known, duration: 0 } : null;
+  if (!track) {
+    const original = await getTrackData(query, context, {}, sources);
+    track = original.success ? original.tracks[0] : null;
+  }
+  if (!track) {
+    const audio = await getTrackData(pin.audioUrl, context, {}, sources);
+    const from = audio.success ? audio.tracks[0] : null;
+    track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: detectPlatform(query), duration: 0 };
+  }
+  pinnedSources.applyPin(track, pin);
+  log.debug(`직접 지정한 음원(조회 생략): "${logTitle(track.title)}" → ${track.audioUrl}`);
+  return track;
 }
 
 export { detectPlatform, isUnsupportedLink, getTrackData, getCollection, resolveQuery };

@@ -2,6 +2,7 @@
 
 import * as YouTube from "./index.ts";
 import * as trackLookup from "../../store/track-lookup.ts";
+import * as pinnedSources from "../../store/pinned-sources.ts";
 import * as links from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
@@ -21,8 +22,15 @@ type Search = (query: string, limit: number) => Promise<Array<{ id?: string | nu
  * 설정하고 그 주소를 반환, 실패 시 null. 이미 음원 주소가 있으면 그대로 돌려준다.
  */
 // search: 유튜브 검색 함수. 생략하면 진짜
-async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.search(query, limit) }: { search?: Search } = {}): Promise<string | null> {
+// skipPin: 직접 지정한 음원을 붙이지 않는다(죽은 지정 음원을 건너뛰고 다시 찾을 때. 아니면 죽은 것을 다시 붙인다)
+async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.search(query, limit), skipPin = false }: { search?: Search; skipPin?: boolean } = {}): Promise<string | null> {
   if (track.audioUrl) return track.audioUrl;
+
+  // 운영자가 직접 지정한 음원이 먼저다(유튜브가 아니어도 된다: 사운드클라우드 · 직접 링크)
+  if (!skipPin && pinnedSources.applyPin(track)) {
+    log.debug(`직접 지정한 음원(검색 생략): "${logTitle(track.title)}" → ${track.audioUrl}`);
+    return track.audioUrl ?? null;
+  }
 
   // Tier-1: 링크 데이터에 이 요청의 영상이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
   // 그 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
@@ -30,7 +38,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
   if (known && links.isYouTubeURL(known)) {
     track.audioUrl = known;
     track.audioFoundBy = "ledger"; // 소비 시 unavailable이면 재검색 트리거
-    log.debug(`유튜브 동등물(매핑 재사용, 검색 생략): "${logTitle(track.title)}" → ${known}`);
+    log.debug(`유튜브 동등물(링크 데이터 재사용, 검색 생략): "${logTitle(track.title)}" → ${known}`);
     return known;
   }
 

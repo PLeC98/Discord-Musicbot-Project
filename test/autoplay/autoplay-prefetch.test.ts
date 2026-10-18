@@ -286,7 +286,8 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 구�
       pickAutoplayTrack: Player.prototype.pickAutoplayTrack,
       io: { pickAutoplay: route.pickTrack }, // 길 찾기는 진짜(안쪽 경계는 아래 autoplayDeps)
       // AI 보조는 AI 설정 문서를 읽어 진짜로 부른다. 여기서는 규칙만 본다
-      autoplayDeps: { ...route.REAL, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
+      // 직접 지정한 음원은 없다(이 테스트는 캐시 DB 를 열지 않는다)
+      autoplayDeps: { ...route.REAL, pinned: () => null, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
     });
 
     // 후보가 둘인데 하나가 걸리므로 남는 것은 하나뿐이다.

@@ -21,6 +21,8 @@ import * as match from "../sources/youtube/match.ts";
 import * as aiAssist from "./assist/index.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as trackLookup from "../store/track-lookup.ts";
+import * as pinnedSources from "../store/pinned-sources.ts";
+import type { Pin } from "../store/pinned-sources.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import type { GenreSource } from "../config/genres.ts";
@@ -51,6 +53,8 @@ type Search = (query: string, limit: number) => Promise<Array<{ id?: string | nu
 type Deps = {
   search: Search;
   known(requestKey: string): { audioUrl: string; durationSec?: number | null } | null;
+  /** 운영자가 직접 지정한 음원. 생략하면 없음 */
+  pinned?(requestKey: string): Pin | null;
   fetch(source: GenreSource): Promise<Candidate[]>;
   assist: Assist;
 };
@@ -198,6 +202,7 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
 // 바깥 경계. 테스트는 이것을 넘겨 진짜 소스 · 검색 · 링크 데이터 · AI 보조를 부르지 않는다
 const REAL: Deps = {
   search: (query, limit) => YouTube.search(query, limit),
+  pinned: (requestKey) => pinnedSources.getPin(requestKey),
   // 링크 데이터가 아는 음원 주소. 캐시 파일이 있으면 그 길이도(후보가 길이를 안 주는 소스가 있다)
   known(requestKey) {
     const hit = trackLookup.resolveFromCache(requestKey);
@@ -280,6 +285,10 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
   const kind = candidateKind(cand);
   const { assist } = deps;
 
+  // 0) 운영자가 직접 지정한 음원. 링크 데이터 음원처럼 필터링(길이 · AI 보조)을 다시 하지 않는다(운영자가 선택한 것이다)
+  const pinned = fromPin(cand, deps.pinned?.(requestKeyOf(cand)) ?? null);
+  if (pinned) return pinned;
+
   // 1) 유튜브 주소를 직접 받은 것. 검색을 안 했으니 제목을 못 믿는다
   if (kind === "youtube") return fromGivenVideo(cand, limits, genre, assist, pick);
 
@@ -303,6 +312,14 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
   if (cand.audioUrl) return fromAudio({ ...cand, audioUrl: cand.audioUrl });
 
   return null;
+}
+
+/** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원 · 길이는 applyPin 이 정한다. 지정이 없으면 null */
+function fromPin(cand: Candidate, pin: Pin | null): PickedTrack | null {
+  if (!pin) return null;
+  const track = links.isYouTubeURL(pin.audioUrl) ? fromYouTube({ url: pin.audioUrl }, cand) : fromAudio({ ...cand, audioUrl: pin.audioUrl });
+  pinnedSources.applyPin(track, pin);
+  return track;
 }
 
 /**

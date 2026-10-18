@@ -2,6 +2,7 @@ import { Player } from "../player/player.ts";
 import * as songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as trackLookup from "../store/track-lookup.ts";
+import * as pinnedSources from "../store/pinned-sources.ts";
 import { silentResponder } from "./responders.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -191,7 +192,11 @@ async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = n
 // 플레이어가 아직 없으면(곡을 찾은 뒤에 만든다) 빈 대기열로 센다
 async function tracksFor(player: Player | null, request: PlaybackRequest, batch: number): Promise<Found | Refused> {
   const found = request.tracks ? { isPlaylist: request.tracks.length > 1, collection: request.collection ?? null, tracks: request.tracks } : await search(player, request.query, request, batch);
-  return isRefused(found) ? found : withoutBlocked(found, request.ffmpegReady);
+  if (isRefused(found)) return found;
+  // 운영자가 직접 지정한 음원을 붙인다(재생목록 · 검색 결과 · 더 넣기 · 대시보드 · /search 의 곡들. 링크 하나의 요청은 곡 찾기가 이미 붙였다).
+  // 막힌 것 필터링 · 라이브 검사보다 먼저: 라이브 · 예정 방송인 원래 영상도 지정한 음원이 있으면 막히지 않는다
+  for (const track of found.tracks) pinnedSources.applyPin(track);
+  return withoutBlocked(found, request.ffmpegReady);
 }
 
 async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {

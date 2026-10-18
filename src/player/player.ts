@@ -77,6 +77,8 @@ type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "
 
 // 끊긴 라이브를 다시 열었는데 라이브가 아니다(방송이 끝나 다시보기가 됐다)
 const endedLive = (liveReopen: boolean, transport: { live: boolean }) => liveReopen && !transport.live;
+// 자동재생 선택 줄에 적을 소리의 출처(음원 주소의 종류로)
+const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
 type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
@@ -1146,7 +1148,7 @@ class Player {
       // 있어야 한다. 재생·종료 쪽에는 출처가 찍히는데 정작 선택하는 곳에 없었다.
       // platform 으로는 구분하지 못한다. 음원을 직접 트는 곡도 platform 은 출처 이름(anisongdb 등)이다.
       // 소리가 어디서 오는지는 음원 주소가 구분한다.
-      const how = `${inputKind(picked.audioUrl) === "direct" ? "음원 직접" : `유튜브 ${picked.audioUrl}`}${picked.audioFoundBy === "ledger" ? " (매핑 재사용, 검색 생략)" : ""}`;
+      const how = picked.audioFoundBy === "pinned" ? `직접 지정한 음원 ${picked.audioUrl}` : `${AUDIO_FROM[inputKind(picked.audioUrl)] ?? "유튜브"}${inputKind(picked.audioUrl) === "direct" ? "" : ` ${picked.audioUrl}`}${picked.audioFoundBy === "ledger" ? " (링크 데이터 재사용, 검색 생략)" : ""}`;
       clog.info(`자동재생 선택: "${logTitle(picked.title)}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {

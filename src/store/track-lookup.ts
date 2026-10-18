@@ -114,6 +114,12 @@ function recordTrackLookup(track: Partial<TrackInfo> | null | undefined, { verif
   if (audioKeyOf(track.audioUrl) !== audioKeyOf(track.requestKey)) track.audioFoundBy = "ledger";
 }
 
+/** 링크 데이터가 기억하는 이 요청의 표시 정보(직접 지정한 음원으로 곡을 만들 때 원래 링크를 다시 읽지 않으려고). 없으면 null */
+function displayOf(requestKey: string): Pick<TrackInfo, "title" | "artist" | "thumbnail" | "pageUrl" | "requestKey" | "platform"> | null {
+  const row = rowOf(requestKey);
+  return row ? { title: row.display_title, artist: row.display_artist ?? undefined, thumbnail: row.display_thumbnail, pageUrl: row.page_url, requestKey: row.request_key, platform: row.platform } : null;
+}
+
 /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */
 function getVerifiedTitle(requestKey: string): string | null {
   const row = rowOf(requestKey);
@@ -144,5 +150,5 @@ function removeResolution(requestKey: string) {
   conn().prepare("DELETE FROM track_lookup WHERE request_key = ?").run(canonicalUrl(requestKey));
 }
 
-export { resolveFromCache, recordTrackLookup, getVerifiedTitle, getAudioUrl, knownAudioLength, removeResolution };
+export { resolveFromCache, recordTrackLookup, displayOf, getVerifiedTitle, getAudioUrl, knownAudioLength, removeResolution };
 export type { CachedTrack, CacheHit };

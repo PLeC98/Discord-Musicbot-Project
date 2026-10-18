@@ -225,6 +225,27 @@ test("ffmpeg 가 라이브 분기를 열 수 없으면 방송 중인 라이브�
   assert.equal(bot.embedCalls.length, 0);
 });
 
+test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 영상이 시작 전 방송이어도 막지 않는다", async () => {
+  const pinnedSources = await import("../../src/store/pinned-sources.ts");
+  pinnedSources.setPin("https://x/곧 시작하는 원곡", "https://soundcloud.com/pinned/upcoming");
+  mockResolve = () => ({ success: true, isPlaylist: true, tracks: [track("곧 시작하는 원곡", { isLive: true, liveStatus: "is_upcoming" }), track("그냥 곡")] });
+  const bot = makeBot();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://x/list", source: "/play" }));
+
+  assert.equal(result.success, true);
+  const sent = bot.embedCalls[0].trackData.tracks;
+  assert.deepEqual(
+    sent.map((t) => [t.title, t.audioUrl ?? null, t.audioFoundBy ?? null, t.isLive ?? null]),
+    [
+      ["곧 시작하는 원곡", "https://soundcloud.com/pinned/upcoming", "pinned", false],
+      ["그냥 곡", null, null, null],
+    ],
+  );
+  pinnedSources.removePin("https://x/곧 시작하는 원곡");
+});
+
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
 // 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
 test("시작 전 방송은 거절하고 이유를 알린다", async () => {

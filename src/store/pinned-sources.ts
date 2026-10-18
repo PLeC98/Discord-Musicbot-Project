@@ -2,7 +2,10 @@
 // 메모리에 따로 올리지 않고 표를 바로 읽는다(키 하나 조회라 가볍고, 같은 값을 두 벌 두지 않는다). 캐시 초기화가 건너뛴다(cache-db 의 KEPT_ON_RESET).
 
 import { cacheDb } from "./cache-db.ts";
+import * as audioCache from "./audio-cache.ts";
 import { canonicalUrl } from "../rules/canonical-url.ts";
+import { audioKeyOf } from "../rules/audio-key-of.ts";
+import type { AudioFoundBy } from "../rules/audio-found-by.ts";
 
 /** 직접 지정한 음원 하나. requestKey 는 다듬은 요청 키(canonicalUrl) */
 type Pin = { requestKey: string; audioUrl: string; pinnedAt: number };
@@ -36,10 +39,33 @@ function allPins(): Pin[] {
     .map((row) => pinOf(row)!);
 }
 
+/** 직접 지정한 음원을 붙일 곡. 여기서 읽고 쓰는 필드만(트랙 · 스포티파이 동등물 찾기의 곡 · 자동재생 곡) */
+type PinTarget = { requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; isLive?: unknown; liveStatus?: unknown; duration?: unknown; durationSource?: unknown };
+
+/**
+ * 곡에 직접 지정한 음원을 붙인다: 음원 주소를 바꾸고 pinned 로 표시한다. 붙였으면 true. 이미 붙은 곡 · 지정이 없는 곡은 그대로(false).
+ * 지정한 음원은 라이브가 아니므로(지정할 때 막는다) 라이브 표시를 끈다. 원래 곡의 길이는 다른 음원의 것이라 버리고,
+ * 그 음원을 다운로드해 둔 파일이 있으면 그 길이를, 없으면 모름으로 둔다(틀 때 안다).
+ * @param pin  이미 읽은 지정(자동재생은 바깥 경계로 받는다). 생략하면 곡의 요청 키로 읽는다
+ */
+function applyPin(track: PinTarget, pin: Pin | null = track.audioFoundBy === "pinned" ? null : getPin(track.requestKey)): boolean {
+  if (track.audioFoundBy === "pinned" || !pin) return false;
+  track.audioUrl = pin.audioUrl;
+  track.audioFoundBy = "pinned";
+  track.isLive = false;
+  track.liveStatus = null;
+  const key = audioKeyOf(pin.audioUrl);
+  const cached = key ? audioCache.lookupByAudioKey(key) : null;
+  const seconds = cached?.status === "cached" && cached.duration_sec ? cached.duration_sec : 0;
+  track.duration = seconds;
+  track.durationSource = seconds ? "measured" : "unknown";
+  return true;
+}
+
 /** 직접 지정한 음원 수(저장 공간 카드 · 초기화 카드) */
 function pinCount(): number {
   return conn().prepare("SELECT COUNT(*) FROM pinned_sources").pluck().get() as number;
 }
 
-export { getPin, setPin, removePin, allPins, pinCount };
-export type { Pin };
+export { getPin, setPin, removePin, allPins, pinCount, applyPin };
+export type { Pin, PinTarget };
