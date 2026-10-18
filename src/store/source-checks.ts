@@ -33,5 +33,14 @@ function allChecks(): Map<string, Check> {
   );
 }
 
-export { recordCheck, getCheck, allChecks };
+/** 이 음원들의 결과. 결과가 없는 키는 빠진다 */
+function checksOf(audioKeys: readonly string[]): Map<string, Check> {
+  if (!audioKeys.length) return new Map();
+  const rows = conn()
+    .prepare<string[], CheckRow>(`SELECT * FROM source_checks WHERE audio_key IN (${audioKeys.map(() => "?").join(",")})`)
+    .all(...audioKeys);
+  return new Map(rows.map((row) => [row.audio_key, toCheck(row)!]));
+}
+
+export { recordCheck, getCheck, allChecks, checksOf };
 export type { Check };

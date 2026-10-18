@@ -331,5 +331,5 @@ function inspect(body: TrackCacheInspect): TrackCacheInspected {
   return out;
 }
 
-export { queryOf, read, write, inspect };
+export { queryOf, read, write, inspect, checkOf };
 export type { Refusal };
