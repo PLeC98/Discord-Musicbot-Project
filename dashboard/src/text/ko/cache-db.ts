@@ -106,6 +106,8 @@ const values = {
 /** 셀 툴팁: 값만으로는 알 수 없는 것에만(재생 불가 까닭 · 저장 실패 까닭) */
 const tips = {
   checkFailed: (reason: string, when: string) => `${reason} (${when} 테스트)`,
+  /** 지정한 음원이 라이브: 라이브는 지정할 수 없어 틀 때 원래 요청으로 다시 찾는다 */
+  pinnedLive: "라이브는 지정할 수 없어요. 틀 때 원래 요청으로 다시 찾아요",
 };
 
 /** 격자 아래 상태 줄에 잠깐 보이는 안내 */
@@ -115,6 +117,7 @@ const hints = {
   cantClearRow: "행을 삭제하려면 행 번호를 선택한 뒤 Delete 를 눌러 주세요",
   noClipboard: "이 주소에서는 메뉴로 붙여넣을 수 없어요. Ctrl+V 를 눌러 주세요",
   copied: (rows: number) => `${rows}행 복사했어요`,
+  copiedText: "복사했어요",
   loadingAll: "모든 행을 불러오는 중…",
   tooMany: (max: number) => `한 번에 ${max}행까지 삭제할 수 있어요`,
   nothingToUndo: "되돌릴 변경이 없어요",

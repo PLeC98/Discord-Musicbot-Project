@@ -2,7 +2,7 @@
 // 그 경로는 곡의 audioFoundBy 에 따라 링크 데이터를 고치거나 다시 찾고, 직접 링크는 아무것도 열지 않는다.
 //   유튜브 · 사운드클라우드  각 출처의 getStream(yt-dlp. 자식 프로세스 레지스트리에는 곡 찾기로 든다)
 //   직접 링크               SafeUrl 의 GET 을 받자마자 끊는다(HEAD 를 막는 서버도 연다. 리다이렉트마다 내부 주소를 막는다)
-// 라이브(인터넷 라디오 포함)는 지정할 수 없어 실패(live)로 둔다.
+// 라이브(인터넷 라디오 포함)는 지정할 수 없어 실패(live)로 둔다(지정하면 틀 때 건너뛴다).
 
 import type { Readable } from "stream";
 import * as YouTube from "./youtube/index.ts";

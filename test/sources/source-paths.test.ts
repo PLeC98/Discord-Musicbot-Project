@@ -416,6 +416,7 @@ test("사라졌다는 판정: 확실히 사라진 것만(일시 오류 · 연령
   assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: networkError("ECONNRESET") })), null);
   assert.equal(deadSourceCode(codedError("rate-limited", "HTTP Error 403")), null);
   assert.equal(deadSourceCode(new Error("ERROR: Sign in to confirm your age")), null, "연령 제한은 사라진 것이 아니다");
+  assert.equal(deadSourceCode(codedError("pinned-live", "라이브")), "live", "라이브는 지정할 수 없다");
 });
 
 // 사운드클라우드 지정이 404 로 죽는다
@@ -451,6 +452,28 @@ test("스트림: 스포티파이 곡의 지정이 사라졌으면 지정을 건�
 
   const orphan: Seeking = { title: "곡", platform: "anisongdb", requestKey: "amq:noledger", audioUrl: "https://soundcloud.com/gone/four", audioFoundBy: "pinned" };
   await assert.rejects(streamUrl.getStream(orphan, { youtube, soundcloud: deadSoundCloud, equivalent }), /404/, "링크 데이터도 없으면 원래 오류(자동재생이 다음 후보를 선택한다)");
+});
+
+test("스트림: 지정한 음원이 라이브(방송 중 · 시작 전 · 인터넷 라디오)면 사라진 것과 같이 원래 링크로, 결과는 live", async () => {
+  const { getCheck } = await import("../../src/store/source-checks.ts");
+  for (const liveStatus of ["is_live", "is_upcoming"]) {
+    const url = `https://www.youtube.com/watch?v=pinlive${liveStatus === "is_live" ? "0001" : "0002"}`;
+    const pinned = "https://www.youtube.com/watch?v=livestream01";
+    const youtube = { ...YouTube, getStream: async (u: string) => ({ url: `${u}#stream`, liveStatus: u === pinned ? liveStatus : null }) };
+    const track: Seeking = { title: "곡", platform: "youtube", requestKey: url, audioUrl: pinned, audioFoundBy: "pinned" };
+    assert.equal((await streamUrl.getStream(track, { youtube, equivalent })).url, `${url}#stream`, liveStatus);
+    assert.deepEqual(getCheck("yt:livestream01"), { ok: false, code: "live", at: getCheck("yt:livestream01")!.at });
+  }
+  const radio = "https://radio.example.com/stream.mp3";
+  const direct = { getInfo: async (u: string) => [{ isLive: u === radio }] };
+  const youtube = { ...YouTube, getStream: async (u: string) => ({ url: `${u}#stream` }) };
+  const req = "https://www.youtube.com/watch?v=pinradio001";
+  const track: Seeking = { title: "곡", platform: "youtube", requestKey: req, audioUrl: radio, audioFoundBy: "pinned" };
+  assert.equal((await streamUrl.getStream(track, { youtube, direct, equivalent })).url, `${req}#stream`);
+  // 지정하지 않은 라이브는 그대로 라이브로 튼다
+  const live: Seeking = { title: "곡", platform: "youtube", requestKey: req, audioUrl: req, audioFoundBy: "given" };
+  const yt = { ...YouTube, getStream: async (u: string) => ({ url: `${u}#stream`, liveStatus: "is_live" }) };
+  assert.equal((await streamUrl.getStream(live, { youtube: yt, direct, equivalent })).liveStatus, "is_live");
 });
 
 test("스트림: 지정한 음원의 일시 오류는 지정을 건너뛰지 않는다", async () => {

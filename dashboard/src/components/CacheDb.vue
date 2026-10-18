@@ -666,12 +666,14 @@ function cellClass(r: number, c: string) {
   if (isDeleted(r)) return "text-on-surface-variant";
   return failing(row, c) ? "text-error" : "text-on-surface";
 }
-// 빨갛게 보일 셀: 재생 테스트 실패(라이브는 빼고)와 그 음원 · 다운로드 실패
+// 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 틀 때 건너뛴다)
+const checkFailed = (one: TrackRequestRow) => !!one.check && !one.check.ok && (one.check.code !== "live" || one.pinnedAt !== null);
+// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원 · 다운로드 실패
 function failing(row: AnyRow, c: string): boolean {
   if (table.value === "files") return c === "status" && (row as TrackFileRow).status === "error";
   if (table.value !== "requests") return false;
   const one = row as TrackRequestRow;
-  if (c === "check" || c === "audioUrl") return !!one.check && !one.check.ok && one.check.code !== "live";
+  if (c === "check" || c === "audioUrl") return checkFailed(one);
   return c === "file" && one.file === "error";
 }
 function rowHeadClass(r: number) {
@@ -685,8 +687,9 @@ function tipOf(r: number, c: string): string {
   const failure = failureOf(row, c);
   if (failure) return failure;
   if (table.value === "requests" && c === "check") {
-    const check = (row as TrackRequestRow).check;
-    if (check && !check.ok && check.code !== "live") return T.tips.checkFailed(noticeText(check.code).title, stamp(check.at));
+    const one = row as TrackRequestRow;
+    const check = one.check;
+    if (check && !check.ok && checkFailed(one)) return T.tips.checkFailed(check.code === "live" ? T.tips.pinnedLive : noticeText(check.code).title, stamp(check.at));
   }
   return "";
 }
@@ -816,6 +819,8 @@ const isLink = (value: string) => /^https?:\/\//.test(value.trim());
 // ── 복사 · 붙여넣기: 브라우저의 copy · paste 이벤트로(보안 연결이 아닌 주소에서도 된다) ─────
 
 let copyHeaders = false;
+/** 메뉴가 부른 복사의 글(열 이름 등). 있으면 셀 대신 이것을 넣는다 */
+let copyPlain: string | null = null;
 function copyText(withHeaders: boolean): { text: string; rows: number } | null {
   const cells = selectedCells();
   if (!cells.length && !rowSel.size) return null;
@@ -828,6 +833,12 @@ function copyText(withHeaders: boolean): { text: string; rows: number } | null {
 const gridFocused = () => document.activeElement === scroller.value;
 function onCopy(event: ClipboardEvent) {
   if (!gridFocused()) return;
+  if (copyPlain !== null) {
+    event.preventDefault();
+    event.clipboardData?.setData("text/plain", copyPlain);
+    copyPlain = null;
+    return say(T.hints.copiedText);
+  }
   const got = copyText(copyHeaders);
   copyHeaders = false;
   if (!got) return;
@@ -840,6 +851,13 @@ function copy(withHeaders: boolean) {
   scroller.value?.focus({ preventScroll: true });
   copyHeaders = withHeaders;
   document.execCommand("copy");
+}
+/** 메뉴의 글 복사(열 이름): 셀 복사와 같은 길(클립보드 API 는 보안 연결에서만 있다) */
+function copyPlainText(value: string) {
+  scroller.value?.focus({ preventScroll: true });
+  copyPlain = value;
+  document.execCommand("copy");
+  copyPlain = null;
 }
 function pasteText(text: string) {
   const cells = selectedCells();
@@ -984,7 +1002,7 @@ function openHeaderMenu(event: MouseEvent, c: string, i: number) {
       { label: T.headerMenu.freeze, run: () => ((layout.value.frozen = i + 1), saveLayouts()) },
       { label: T.headerMenu.unfreeze, off: !layout.value.frozen, run: () => ((layout.value.frozen = 0), saveLayouts()) },
       "-",
-      { label: T.headerMenu.copyName, run: () => void navigator.clipboard?.writeText(T.columns[c]) },
+      { label: T.headerMenu.copyName, run: () => copyPlainText(T.columns[c]) },
     ],
     false,
   );

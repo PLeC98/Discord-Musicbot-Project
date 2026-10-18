@@ -3,6 +3,7 @@
 //   유튜브        영상이 내려갔다 · 비공개(isVideoUnavailableError, 연령 제한은 뺀다)
 //   사운드클라우드 404(unavailable-contents) · 미리듣기만 열린 곡(sc-preview-only)
 //   직접 링크     404 · 410. 직접 링크는 모든 실패를 direct-unavailable 하나로 묶으므로 원인의 HTTP 상태로 가린다
+//   라이브        지정한 음원이 라이브(pinned-live: 라이브는 지정할 수 없다. 결과는 "live")
 
 import { isVideoUnavailableError } from "./youtube/errors.ts";
 import { codeOf } from "../rules/error-kind.ts";
@@ -11,6 +12,7 @@ import { codeOf } from "../rules/error-kind.ts";
 function deadSourceCode(error: unknown): string | null {
   if (isVideoUnavailableError(error)) return "unavailable-contents";
   const code = codeOf(error);
+  if (code === "pinned-live") return "live";
   if (code === "unavailable-contents" || code === "sc-preview-only") return code;
   if (code === "direct-unavailable") {
     const cause = (error as { cause?: unknown } | null)?.cause;

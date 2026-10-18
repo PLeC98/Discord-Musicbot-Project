@@ -362,6 +362,11 @@ class TrackDownloader {
   // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
   async _fetchDirect(downloadUrl: string, tempPath: string, track: DownloadTrack): Promise<Fetched> {
     const audioStream = await this.deps.direct.getStream(downloadUrl);
+    // 인터넷 라디오(icy-* 헤더)는 끝이 없어 받지 않는다. 담을 때 라이브로 적어 여기 오지 않지만, 직접 지정한 음원은 그 검사를 거치지 않는다
+    if (Object.keys(audioStream.headers ?? {}).some((name) => name.toLowerCase().startsWith("icy-"))) {
+      audioStream.destroy();
+      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", `끝이 없는 인터넷 라디오라 캐시하지 않습니다: ${downloadUrl}`);
+    }
     const audioVersion = versionOf.fromHeaders(audioStream.headers);
 
     // 일단 다운로드해 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을

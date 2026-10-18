@@ -6,6 +6,7 @@ import { inputKind } from "../rules/input-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import * as SoundCloud from "./soundcloud/index.ts";
+import * as DirectLink from "./direct.ts";
 import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
@@ -33,10 +34,11 @@ type StreamInfo = {
 // 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
+type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
 /** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다) */
-type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; equivalent: Equivalent; canPlayHls: boolean };
-const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equivalent: equivalentModule, canPlayHls: true };
+type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean };
+const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
@@ -46,12 +48,23 @@ const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equi
 async function getStream(track: Seeking & { platform?: string | null }, options: Partial<StreamOptions> = {}) {
   const opts = { ...DEFAULTS, ...options };
   try {
-    return await streamOf(track, opts);
+    const stream = await streamOf(track, opts);
+    // 라이브는 지정할 수 없다: 지정한 음원이 라이브면 사라진 것과 같이 다룬다(나중에 라이브가 되는 예약 방송도 있어 지정할 때가 아니라 틀 때 본다)
+    if (track.audioFoundBy === "pinned" && (await pinnedLive(track.audioUrl, stream, opts.direct))) throw codedError("pinned-live", `직접 지정한 음원이 라이브입니다: ${track.audioUrl}`);
+    return stream;
   } catch (error) {
     // 직접 지정한 음원이 사라졌으면 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더(sources/pinned-fallback)
     if (await leaveDeadPin(track, error, opts.equivalent)) return await streamOf(track, opts);
     throw error;
   }
+}
+
+/** 지정한 음원이 라이브인가: 유튜브는 스트림 답(방송 중 · 시작 전), 직접 링크는 인터넷 라디오 헤더(HEAD) */
+async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInfo, direct: DirectInfo): Promise<boolean> {
+  if (stream.liveStatus === "is_live" || stream.liveStatus === "is_upcoming") return true;
+  if (!audioUrl || inputKind(audioUrl) !== "direct") return false;
+  const [info] = await direct.getInfo(audioUrl);
+  return info?.isLive === true;
 }
 
 async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls }: StreamOptions) {

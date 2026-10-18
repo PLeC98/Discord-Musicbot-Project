@@ -449,6 +449,18 @@ test("직접 지정한 음원이 사라졌으면 지정을 건너뛰고 원래 �
   audioCache.unprotect("g-pindead");
 });
 
+test("직접 지정한 음원이 인터넷 라디오면 받지 않고(끝이 없다) 지정을 건너뛰어 원래 링크로 다운로드한다", async () => {
+  ytdlpBehavior = writesFile();
+  const radio = { ...deps, direct: { getStream: async (url: string) => (url.includes("radio.test") ? Object.assign(Readable.from([Buffer.from("endless")]), { headers: { "icy-name": "라디오" } }) : deps.direct.getStream(url)) } };
+  const track: DownloadTrack = { ...yt("origradio01"), audioUrl: "https://radio.test/live.mp3", audioFoundBy: "pinned" };
+
+  const file = await new TrackDownloader({ guild: { id: "g-radio" }, currentTrack: null }, radio).downloadTrack(track);
+
+  assert.equal(file, audioCache.getFilePath("yt:origradio01"));
+  assert.deepEqual([track.audioUrl, track.audioFoundBy], ["https://www.youtube.com/watch?v=origradio01", "given"]);
+  assert.equal(calls.convert.length, 0, "라디오는 받지 않았다");
+});
+
 test("새로 검색한 영상(링크 데이터에서 온 것이 아님)이 내려갔으면 다시 찾지 않는다", async () => {
   ytdlpBehavior = () => {
     throw new Error("ERROR: Video unavailable");

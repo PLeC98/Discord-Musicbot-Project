@@ -40,6 +40,8 @@ const SHARED = {
   "live-no-seek": { status: 409, title: "Cannot seek a live stream" },
   "live-no-loop": { status: 409, title: "Cannot loop with a live stream" },
   "live-upcoming": { status: 409, title: "Live stream has not started" },
+  // 직접 지정한 음원이 라이브다(지정할 수 없다). 그 재생은 지정을 건너뛰고 다시 찾고, 찾지 못했을 때만 보인다
+  "pinned-live": { status: 409, title: "Pinned source is a live stream" },
   // 그 사이 사라짐
   "stale-session": { status: 410, title: "Panel is from an earlier session" },
   "jump-target-gone": { status: 410, title: "Selected track left the queue" },
