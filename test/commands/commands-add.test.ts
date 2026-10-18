@@ -57,7 +57,7 @@ after(() => {
 
 beforeEach(() => {
   h.reset();
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
   stateDb.get().exec("DELETE FROM player_sessions;");
   resolved.length = 0;

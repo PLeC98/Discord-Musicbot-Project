@@ -326,6 +326,18 @@ function replaceFavicons({ slots: next, files }: Prepared) {
   changed();
 }
 
+/** 올린 파비콘 그림 수(크기마다의 기록, 초기화 카드) */
+function faviconCount(): number {
+  return [...loaded().values()].reduce((sum, slot) => sum + slot.history.length, 0);
+}
+
+/** 파비콘을 모두 비운다(디스플레이 설정 초기화). 지운 그림 수 */
+function clearFavicons(): number {
+  const removed = faviconCount();
+  replaceFavicons({ slots: slotsFrom(null, () => false), files: new Map() });
+  return removed;
+}
+
 /** 테스트: 저장 폴더를 바꾸고 읽어 둔 것을 비운다 */
 function _useDir(folder: string) {
   dir = folder;
@@ -334,5 +346,5 @@ function _useDir(folder: string) {
   changed();
 }
 
-export { addFavicon, useFavicon, clearFavicon, removeFavicon, faviconPng, previewPng, faviconSlots, faviconVersion, isFaviconFile, faviconFiles, checkFavicons, replaceFavicons, _useDir };
+export { addFavicon, useFavicon, clearFavicon, removeFavicon, faviconPng, previewPng, faviconSlots, faviconVersion, isFaviconFile, faviconFiles, checkFavicons, replaceFavicons, faviconCount, clearFavicons, _useDir };
 export type { Added, FaviconFault, Prepared };

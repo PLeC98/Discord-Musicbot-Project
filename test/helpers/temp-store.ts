@@ -48,7 +48,7 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
   }
   if (playlistAddMax !== undefined) settings.table.setPlaylistAddMax(guildId, playlistAddMax);
   if (sponsorBlock !== undefined) settings.table.setGuildSponsorBlock(guildId, sponsorBlock);
-  settings._reset();
+  settings.forgetCache();
 }
 
 /** 서버 설정 표가 망가진 동안 fn 을 부른다(표를 치워 두었다가 되돌린다). 표를 부르면 진짜 SQLite 오류가 난다 */

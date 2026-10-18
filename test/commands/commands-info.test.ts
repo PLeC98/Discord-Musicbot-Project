@@ -45,7 +45,7 @@ after(() => {
 });
 
 beforeEach(() => {
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
   cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
@@ -316,7 +316,7 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
 test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 채널을 안 주면 지금 채널", async () => {
   const { it, log, seen, bot } = interaction({ channelId: "c5" });
   await run(await command("setchannel"), it, bot);
-  settings._reset();
+  settings.forgetCache();
   assert.equal(await settings.getBotChannel("g1"), "c5");
   assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["✅ 전용 채널 설정됨", true]);
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2], "모두에게 보인다");
@@ -324,7 +324,7 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
 
   const other = interaction({ options: { channel: { id: "c6", toString: () => "<#c6>" } } });
   await run(await command("setchannel"), other.it, other.bot);
-  settings._reset();
+  settings.forgetCache();
   assert.equal(await settings.getBotChannel("g1"), "c6");
 });
 
@@ -332,7 +332,7 @@ test("/setchannel remove: 삭제하고 패널을 옮긴 뒤 안내. 저장 실�
   await settings.setBotChannel("g1", "c5");
   const { it, log, seen, bot } = interaction({ options: { action: "remove" } });
   await run(await command("setchannel"), it, bot);
-  settings._reset();
+  settings.forgetCache();
   assert.equal(await settings.getBotChannel("g1"), null);
   assert.deepEqual(seen, ["movePanel"]);
   assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["🔧 전용 채널 해제됨", true], "해제도 설정을 바꾼 것이라 완료 색");
@@ -355,7 +355,7 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
   assert.deepEqual(screen.buttons, ["djrole:save", "djrole:cancel"]);
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
 
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
   const none = interaction();
   await run(await command("setdjrole"), none.it, none.bot);
@@ -422,7 +422,7 @@ test("SponsorBlock 화면: 선택하고 저장하면 모르는 구간은 빼고 
 
   const save = sbInteraction({ customId: "sb:save", messageId: "m-save" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(save.it));
-  settings._reset();
+  settings.forgetCache();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
   assert.deepEqual(
     save.log.map(([name]) => name),
@@ -442,7 +442,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   await interactionCreate.execute(fakeBot(), fake<Interaction>(save.it));
   assert.match(String(save.log.at(-1)?.[2]), /구간: 끔/);
 
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 삭제해, 새 보류가 "켬"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(empty.it));
@@ -456,7 +456,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
 });
 
 test("SponsorBlock 화면: 봇 전체에서 꺼져 있으면 열려 있던 메뉴의 버튼 · 메뉴는 없는 것과 같다(저장하지 않는다)", async () => {
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
   const saved = config.sponsorblock.enabled;
   config.sponsorblock.enabled = false;
@@ -466,7 +466,7 @@ test("SponsorBlock 화면: 봇 전체에서 꺼져 있으면 열려 있던 메�
       await interactionCreate.execute(fakeBot(), fake<Interaction>(it.it));
       assert.deepEqual(it.log, [["reply", noticeReply(errors.notice("unknown-interaction"))]], customId);
     }
-    settings._reset();
+    settings.forgetCache();
     assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });
   } finally {
     config.sponsorblock.enabled = saved;

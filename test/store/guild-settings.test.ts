@@ -25,7 +25,7 @@ const settings = await import("../../src/store/guild-settings.ts");
 const config = (await import("../../src/config/index.ts")).default;
 
 beforeEach(() => {
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
 });
 
@@ -36,7 +36,7 @@ after(() => {
 });
 
 // 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다
-const fresh = () => settings._reset();
+const fresh = () => settings.forgetCache();
 
 // DB 를 잠깐 닫는다. 표를 부르면 던진다(DB_NOT_OPEN)
 // 표가 망가진 동안(읽기 · 쓰기가 SQLite 오류로 실패한다)

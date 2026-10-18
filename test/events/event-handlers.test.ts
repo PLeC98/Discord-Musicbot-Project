@@ -66,7 +66,7 @@ after(() => {
 });
 
 beforeEach(() => {
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
   resolved.length = 0;
   Object.assign(fakeLookup, lookup);
@@ -205,7 +205,7 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   await messageHandler.execute(w.bot, message(w, { bot: true }));
   await messageHandler.execute(w.bot, message(w, { content: "   " }));
   await messageHandler.execute(w.bot, message(w, { channelId: "other" }));
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
   await messageHandler.execute(w.bot, message(w));
   assert.deepEqual(resolved, []);
@@ -267,7 +267,7 @@ test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 �
   assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove" }]);
   assert.equal(sessions().load("g-left"), null);
   assert.equal(await panelRecords.getPanel("g-left"), null);
-  settings._reset();
+  settings.forgetCache();
   assert.equal(await settings.getBotChannel("g-left"), "bot-channel", "다시 초대하면 그대로 쓴다");
 });
 

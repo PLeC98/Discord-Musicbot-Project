@@ -48,6 +48,16 @@ function writeAll(writes: Write[]): number[] {
   return conn().transaction(() => writes.map(writeOne))();
 }
 
+/** 문서를 모두 삭제한다(봇 설정 초기화: 읽는 쪽이 기본값을 쓴다. 기본값을 써 넣으면 그 버전의 기본값이 굳는다). 메모리는 부른 쪽이 다시 읽는다 */
+function removeAll(): number {
+  return conn().prepare("DELETE FROM documents").run().changes;
+}
+
+/** 저장된 문서 이름(초기화 카드) */
+function names(): string[] {
+  return conn().prepare("SELECT name FROM documents").pluck().all() as string[];
+}
+
 /**
  * 봇이 켜지지 않은 채(명령 배포 스크립트) 문서 하나를 읽는다. 읽기 전용으로 열고 바로 닫는다(파일을 만들지 않고 구조도 건드리지 않는다).
  * 파일이 없거나 문서가 없으면 null
@@ -65,5 +75,5 @@ function peek(file: string, name: string): unknown {
   }
 }
 
-export { read, write, writeAll, peek };
+export { read, write, writeAll, removeAll, names, peek };
 export type { Doc, Write };

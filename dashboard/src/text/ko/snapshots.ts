@@ -7,7 +7,7 @@ const desc = "하루 한 번, 그리고 백업 불러오기 · 복원 전에 설
 /** 설명 옆 툴팁 */
 const descTip = "일일 백업은 7개, 나머지는 5개까지 보관해요. API 키 · 쿠키는 암호화된 채로 저장돼 같은 SECRETS_KEY 에서만 복원돼요.";
 const empty = "아직 저장된 스냅샷이 없어요.";
-const kinds: Record<SnapshotKind, string> = { daily: "일일 백업", "before-import": "불러오기 전", "before-restore": "복원 전" };
+const kinds: Record<SnapshotKind, string> = { daily: "일일 백업", "before-import": "불러오기 전", "before-restore": "복원 전", "before-reset": "초기화 전" };
 const restore = "복원";
 const confirmTitle = "이 스냅샷으로 복원할까요?";
 /** 고른 스냅샷의 때 · 지금 실행기 여부에 따라 */

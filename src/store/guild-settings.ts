@@ -160,7 +160,12 @@ function docsProblems(value: unknown): string[] {
   return problems;
 }
 
-/** 서버별 설정을 받은 것으로 통째 바꾼다(가져오기, 검사는 docsProblems 로 먼저). 빈 문서는 두지 않는다. 메모리는 부른 쪽이 _reset */
+/** 설정이 있는 서버 수(초기화 카드) */
+function guildCount(): number {
+  return conn().prepare("SELECT COUNT(*) FROM guild_settings").pluck().get() as number;
+}
+
+/** 서버별 설정을 받은 것으로 통째 바꾼다(가져오기, 검사는 docsProblems 로 먼저). 빈 문서는 두지 않는다. 메모리는 부른 쪽이 forgetCache */
 function replaceAll(docs: Record<string, GuildDoc>) {
   conn().transaction(() => {
     conn().prepare("DELETE FROM guild_settings").run();
@@ -174,8 +179,8 @@ type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: numbe
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
-// 테스트 시임. 읽어 둔 것을 버린다(임시 DB 에 바로 쓴 뒤 등)
-function _reset() {
+/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(가져오기 · 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
+function forgetCache() {
   cache.clear();
 }
 
@@ -373,5 +378,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, _reset, allDocs, docsProblems, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, forgetCache, guildCount, allDocs, docsProblems, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
 export type { SponsorBlockSetting, GuildDoc };

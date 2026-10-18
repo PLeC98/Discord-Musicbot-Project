@@ -329,7 +329,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   // 메모리를 DB 에 맞춘다(설정 문서 · 운영 조절값 · 서버별 설정 · 바깥 서비스 키의 기억)
   if (docItems.length) documents.reload();
   if (items.includes("tunables")) tunables.reload();
-  if (items.includes("guilds")) guildSettings._reset();
+  if (items.includes("guilds")) guildSettings.forgetCache();
   if (items.includes("secrets")) serviceKeys.load();
   if (favicons) appearance.replaceFavicons(favicons);
   staged?.commit();

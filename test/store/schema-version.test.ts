@@ -23,7 +23,7 @@ let dir = root;
 
 beforeEach(() => {
   stores.close();
-  guildSettings._reset();
+  guildSettings.forgetCache();
   panelRecords._reset();
   dir = path.join(root, String(serial++));
 });

@@ -112,6 +112,16 @@ function remove(name: string) {
   return conn().prepare("DELETE FROM secrets WHERE name = ?").run(name).changes > 0;
 }
 
+/** 모두 삭제한다(봇 설정 초기화). 삭제한 수 */
+function removeAll(): number {
+  return conn().prepare("DELETE FROM secrets").run().changes;
+}
+
+/** 저장된 비밀값 수(초기화 카드) */
+function count(): number {
+  return conn().prepare("SELECT COUNT(*) FROM secrets").pluck().get() as number;
+}
+
 /** 화면용. 풀지 않는다 */
 function status(name: string): Status {
   const row = conn().prepare("SELECT key_id, provider, endpoint, last4, updated_at FROM secrets WHERE name = ?").get(name) as Pick<Row, "key_id" | "provider" | "endpoint" | "last4" | "updated_at"> | undefined;
@@ -187,5 +197,5 @@ function _useKey(raw: string | null = null) {
   keyOverride = raw;
 }
 
-export { put, read, remove, status, originOf, sealedAll, openSealed, adoptOpened, _useKey };
+export { put, read, remove, removeAll, count, status, originOf, sealedAll, openSealed, adoptOpened, _useKey };
 export type { Binding, Read, Status, Sealed, Opened, Row as SecretRow };

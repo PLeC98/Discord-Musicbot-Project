@@ -61,7 +61,7 @@ after(() => {
 });
 
 beforeEach(() => {
-  settings._reset();
+  settings.forgetCache();
   settingsDb.get().exec("DELETE FROM guild_settings;");
 });
 

@@ -1,6 +1,6 @@
 // settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 풀린다.
 //   daily           하루 한 번(기동 때 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
-//   before-import   설정을 가져오기 전 · before-restore 복원으로 교체하기 전. 둘 합쳐 5개
+//   before-import   설정을 가져오기 전 · before-restore 복원으로 교체하기 전 · before-reset 초기화하기 전. 셋 합쳐 5개
 // 복원: 선택한 스냅샷을 settings.restore.db 로 예약하면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 교체한다(열린 DB 를 교체하지 않는다).
 
 import fs from "fs";
@@ -16,7 +16,7 @@ import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
 const KEEP_DAILY = 7;
 const KEEP_OTHERS = 5;
 const CHECK_MS = 60 * 60_000;
-const NAME = /^settings-(daily|before-import|before-restore)-[0-9-]+\.db$/;
+const NAME = /^settings-(daily|before-import|before-restore|before-reset)-[0-9-]+\.db$/;
 const STAGED = "settings.restore.db";
 
 let timer: NodeJS.Timeout | null = null;

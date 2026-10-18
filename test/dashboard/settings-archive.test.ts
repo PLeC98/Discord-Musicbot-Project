@@ -48,7 +48,7 @@ beforeEach(() => {
   store.settings().exec("DELETE FROM documents; DELETE FROM guild_settings;");
   documents.attach(settingsDocs);
   tunables.load();
-  guildSettings._reset();
+  guildSettings.forgetCache();
   appearance._useDir(faviconDir);
   for (const name of fs.readdirSync(faviconDir)) fs.rmSync(path.join(faviconDir, name), { force: true });
   uploads.sweepUploads();
