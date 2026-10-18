@@ -161,10 +161,35 @@ function clearResult(requestKey: string, expect: string): Guarded<string> {
   return current === null ? GONE : changedTo(current);
 }
 
+/** 들여오는 링크 데이터 행(오디오 캐시 불러오기) */
+type MergeRow = { requestKey: string; pageUrl: string; audioUrl: string; platform: string; title: string | null; artist: string | null; thumbnail: string | null; titleVerified: boolean };
+
+/**
+ * 오디오 캐시 불러오기: 링크 데이터를 합친다. 이 봇에 없는 요청만 넣고, 있으면 이 봇의 행을 둔다(더 새 결과).
+ * 음원이 같으면 표시 열만 recordTrackLookup 의 규칙으로(확인된 제목을 앞세운다). 새로 넣은 수
+ */
+function mergeRows(rows: MergeRow[]): number {
+  const has = conn().prepare("SELECT 1 FROM track_lookup WHERE request_key = ?").pluck();
+  const upsert = conn().prepare(`
+          INSERT INTO track_lookup (request_key, page_url, audio_url, platform, display_title, display_artist, display_thumbnail, title_verified)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(request_key) DO UPDATE SET${DISPLAY_SET}
+          WHERE track_lookup.audio_url = excluded.audio_url`);
+  return conn().transaction(() => {
+    let added = 0;
+    for (const row of rows) {
+      const key = canonicalUrl(row.requestKey);
+      if (!has.get(key)) added++;
+      upsert.run(key, row.pageUrl, row.audioUrl, row.platform, row.title, row.artist, row.thumbnail, row.titleVerified ? 1 : 0);
+    }
+    return added;
+  })();
+}
+
 /** 죽은 음원을 가리키는 행 삭제. 링크 데이터에서 가져온 영상이 내려간 경우 재검색 전에 호출. */
 function removeResolution(requestKey: string) {
   conn().prepare("DELETE FROM track_lookup WHERE request_key = ?").run(canonicalUrl(requestKey));
 }
 
-export { resolveFromCache, recordTrackLookup, displayOf, getVerifiedTitle, getAudioUrl, knownAudioLength, allRows, clearResult, removeResolution };
-export type { CachedTrack, CacheHit };
+export { resolveFromCache, recordTrackLookup, displayOf, getVerifiedTitle, getAudioUrl, knownAudioLength, allRows, mergeRows, clearResult, removeResolution };
+export type { CachedTrack, CacheHit, MergeRow };

@@ -126,6 +126,24 @@ test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄�
   }
 });
 
+test("흘려 쓰기: 사라진 optional 파일은 건너뛰고, build 는 앞에서 담은 이름들로 쓸 때 만든다", async () => {
+  const kept = path.join(DIR, "kept.opus");
+  fs.writeFileSync(kept, "있음");
+  const gone = path.join(DIR, "gone.opus");
+  const file = await written([
+    { name: "files/kept.opus", file: kept, optional: true },
+    { name: "files/gone.opus", file: gone, optional: true },
+    { name: "rows.json", build: (names) => Buffer.from(JSON.stringify([...names])) },
+  ]);
+  const entries = unzip(fs.readFileSync(file));
+  assert.deepEqual(
+    entries.map((one) => one.name),
+    ["files/kept.opus", "rows.json"],
+  );
+  assert.deepEqual(JSON.parse(entries[1].data.toString("utf8")), ["files/kept.opus"]);
+  await assert.rejects(written([{ name: "files/gone.opus", file: gone }]), { code: "ENOENT" }, "optional 이 아니면 그대로 실패");
+});
+
 test("흘려 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊는다", async () => {
   const media = path.join(DIR, "body.bin");
   fs.writeFileSync(media, Buffer.alloc(50_000, 7));

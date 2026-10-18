@@ -34,6 +34,28 @@ function setSponsorSegments(videoId: string | null | undefined, segments: unknow
     .run(videoId, JSON.stringify(segments), Date.now());
 }
 
+/** SponsorBlock 구간 전부(오디오 캐시 내보내기). data 는 담아 둔 원시 JSON 문자열 그대로 */
+function allSponsorSegments(): Array<{ videoId: string; data: string; fetchedAt: number }> {
+  return (conn().prepare("SELECT video_id, data_json, fetched_at FROM sponsorblock_cache").all() as Array<{ video_id: string; data_json: string; fetched_at: number }>).map((row) => ({ videoId: row.video_id, data: row.data_json, fetchedAt: row.fetched_at }));
+}
+
+/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 새로 넣은 수 */
+function mergeSponsorSegments(rows: Array<{ videoId: string; data: string; fetchedAt: number }>): number {
+  const has = conn().prepare("SELECT 1 FROM sponsorblock_cache WHERE video_id = ?").pluck();
+  const upsert = conn().prepare(
+    `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at) VALUES (?, ?, ?)
+     ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at WHERE excluded.fetched_at > sponsorblock_cache.fetched_at`,
+  );
+  return conn().transaction(() => {
+    let added = 0;
+    for (const row of rows) {
+      if (!has.get(row.videoId)) added++;
+      upsert.run(row.videoId, row.data, row.fetchedAt);
+    }
+    return added;
+  })();
+}
+
 // ── 연령 제한 videoId 레지스트리 ───────────────────────────────────────────
 
 /** videoId를 연령 제한으로 기록 (재조회 시 쿠키 폴백 직행 + 퇴거 잔존용) */
@@ -60,6 +82,20 @@ function clearAgeRestricted(videoId: string, expect: number): Guarded<number> {
   return current === undefined ? GONE : changedTo(current);
 }
 
+/** 오디오 캐시 불러오기: 연령 제한 기록을 합친다(표시한 때는 먼저 표시한 쪽). 새로 넣은 수 */
+function mergeAgeRestricted(rows: Array<{ videoId: string; markedAt: number }>): number {
+  const insert = conn().prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES (?, ?) ON CONFLICT(video_id) DO UPDATE SET marked_at = MIN(age_restricted.marked_at, excluded.marked_at)");
+  const has = conn().prepare("SELECT 1 FROM age_restricted WHERE video_id = ?").pluck();
+  return conn().transaction(() => {
+    let added = 0;
+    for (const row of rows) {
+      if (!has.get(row.videoId)) added++;
+      insert.run(row.videoId, row.markedAt);
+    }
+    return added;
+  })();
+}
+
 // Spotify 익명 웹플레이어 상태 (secret/해시/clientVersion). 자가치유 캐시
 
 /** 저장된 익명 상태 반환 (없으면 null). `{ ...data, fetchedAt }` */
@@ -78,4 +114,4 @@ function setSpotifyAnonState(data: unknown) {
   conn().prepare("INSERT INTO spotify_anon (id, data_json, fetched_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at").run(JSON.stringify(data), Date.now());
 }
 
-export { getSponsorSegments, setSponsorSegments, markAgeRestricted, isAgeRestricted, allAgeRestricted, clearAgeRestricted, getSpotifyAnonState, setSpotifyAnonState };
+export { getSponsorSegments, setSponsorSegments, allSponsorSegments, mergeSponsorSegments, markAgeRestricted, isAgeRestricted, allAgeRestricted, clearAgeRestricted, mergeAgeRestricted, getSpotifyAnonState, setSpotifyAnonState };

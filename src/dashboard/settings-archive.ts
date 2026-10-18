@@ -3,6 +3,7 @@
 //             예전의 암호화된 설정까지(full) 파일은 모르는 종류라 이것으로 읽힌다(서버별 설정 · 키는 불러오지 않는다)
 //   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
+//   audio-cache  오디오 캐시: 캐시 파일 · 링크 데이터 · 직접 지정한 음원 · 연령 제한 · SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다
 // 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
 // 불러오기는 선택한 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
@@ -24,6 +25,7 @@ import * as settingsDocs from "../store/settings-docs.ts";
 import { settingsDb } from "../store/settings-db.ts";
 import * as appearance from "./appearance.ts";
 import * as loginBackground from "./login-background/archive.ts";
+import * as audioArchive from "./audio-cache-archive.ts";
 import type { ArchiveImported, ArchiveItem, ArchiveKind, ArchivePreview, ArchiveRow } from "./contract/settings-archive.ts";
 import { ARCHIVE_ITEMS, ARCHIVE_KINDS } from "./contract/settings-archive.ts";
 
@@ -42,8 +44,8 @@ const POTOKEN_KEY = "BGUTIL_ENABLED";
 type DocItem = Extract<ArchiveItem, documents.DocName>;
 const DOC_ITEMS: readonly DocItem[] = ["genres", "status", "ai", "ai-prompt"];
 const isDocItem = (item: ArchiveItem): item is DocItem => (DOC_ITEMS as readonly string[]).includes(item);
-/** 설정 DB 가 아니라 저장 위치의 파일인 항목 */
-const FILE_ITEMS: readonly ArchiveItem[] = ["favicon", "login-background"];
+/** 설정 DB 가 아니라 저장 위치의 파일 · 캐시 DB 인 항목(스냅샷을 뜨지 않는다) */
+const FILE_ITEMS: readonly ArchiveItem[] = ["favicon", "login-background", ...audioArchive.AUDIO_ITEMS];
 
 /** settings.json 의 형식. 읽을 때는 필드마다 따로 본다(빠진 필드는 그 항목이 파일에 없는 것) */
 type ArchiveJson = {
@@ -74,14 +76,23 @@ function fileName(kind: ArchiveKind, at = new Date()) {
 const manifest = (kind: ArchiveKind, rest: Partial<ArchiveJson>): ArchiveJson => ({ format: FORMAT, kind, exportedAt: new Date().toISOString(), botVersion: BOT_VERSION, ...rest });
 const jsonEntry = (json: ArchiveJson) => ({ name: JSON_NAME, data: Buffer.from(`${JSON.stringify(json, null, 2)}\n`) });
 
-/** 지금 설정 중 그 종류를 ZIP 에 담을 항목으로(경로가 스트리밍으로 쓴다) */
-function build(kind: ArchiveKind): ZipInput[] {
-  if (kind === "login-background") return [jsonEntry(manifest(kind, {})), ...loginBackground.exportInputs()];
+const KEEP_NOTHING = () => undefined;
+
+/**
+ * 지금 설정 중 그 종류를 ZIP 에 담을 항목으로(경로가 스트리밍으로 쓴다). release 는 다 보냈거나 끊겼을 때 부른다(오디오 캐시가 담을 파일을 지키는 것을 푼다)
+ * @param withFiles  오디오 캐시: 캐시 파일까지(아니면 행 목록만)
+ */
+function build(kind: ArchiveKind, { withFiles = true }: { withFiles?: boolean } = {}): { inputs: ZipInput[]; release: () => void } {
+  if (kind === "audio-cache") {
+    const audio = audioArchive.exportInputs({ withFiles });
+    return { inputs: [jsonEntry(manifest(kind, {})), ...audio.inputs], release: audio.release };
+  }
+  if (kind === "login-background") return { inputs: [jsonEntry(manifest(kind, {})), ...loginBackground.exportInputs()], release: KEEP_NOTHING };
   if (kind === "favicon") {
     const favicons = appearance.faviconFiles();
-    return [jsonEntry(manifest(kind, { favicons: favicons.map((one) => one.name) })), ...favicons.map((one) => ({ name: FAVICON_DIR + one.name, data: one.data }))];
+    return { inputs: [jsonEntry(manifest(kind, { favicons: favicons.map((one) => one.name) })), ...favicons.map((one) => ({ name: FAVICON_DIR + one.name, data: one.data }))], release: KEEP_NOTHING };
   }
-  return [jsonEntry(manifest(kind, { tunables: tunables.view().values, documents: Object.fromEntries(DOC_ITEMS.map((name) => [name, documents.get(name)])) }))];
+  return { inputs: [jsonEntry(manifest(kind, { tunables: tunables.view().values, documents: Object.fromEntries(DOC_ITEMS.map((name) => [name, documents.get(name)])) }))], release: KEEP_NOTHING };
 }
 
 /** 올린 파일을 읽는다(목차와 settings.json · 파비콘만 메모리로). 이 봇의 내보내기가 아니면 BAD_ARCHIVE(ZIP 자체가 깨졌으면 BAD_ZIP) */
@@ -216,6 +227,7 @@ async function rowFor(item: ArchiveItem, parsed: Parsed, aiDoc: unknown): Promis
   if (item === "tunables") return tunablesRow(parsed.json);
   if (item === "favicon") return faviconRow(parsed);
   if (item === "login-background") return (await loginBackground.check(parsed.file)).row;
+  if (!isDocItem(item)) return absent(item);
   return docRow(item, parsed.json, aiDoc);
 }
 
@@ -224,6 +236,7 @@ const kindOf = (json: Partial<ArchiveJson>): ArchiveKind => ARCHIVE_KINDS.find((
 /** 그 종류의 항목(예전에 봇 설정과 함께 내보낸 파비콘이 있으면 그것도) */
 function itemsOf(parsed: Parsed): ArchiveItem[] {
   const kind = kindOf(parsed.json);
+  if (kind === "audio-cache") return [...audioArchive.AUDIO_ITEMS];
   if (kind === "favicon" || kind === "login-background") return [kind];
   const items = ARCHIVE_ITEMS.filter((item) => !FILE_ITEMS.includes(item));
   return hasFavicons(parsed) ? [...items, "favicon"] : items;
@@ -233,18 +246,35 @@ function itemsOf(parsed: Parsed): ArchiveItem[] {
 async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
   const parsed = parse(file);
   const { json } = parsed;
+  const head = { kind: kindOf(json), exportedAt: typeof json.exportedAt === "string" ? json.exportedAt : null, botVersion: typeof json.botVersion === "string" ? json.botVersion : null };
+  if (head.kind === "audio-cache") return { ...head, rows: audioArchive.previewRows(audioArchive.readBundle(file)), room: audioArchive.roomForCache() };
   const aiDoc = aiDocFor(json, true);
-  const rows = await Promise.all(itemsOf(parsed).map((item) => rowFor(item, parsed, aiDoc)));
-  return { kind: kindOf(json), exportedAt: typeof json.exportedAt === "string" ? json.exportedAt : null, botVersion: typeof json.botVersion === "string" ? json.botVersion : null, rows };
+  return { ...head, rows: await Promise.all(itemsOf(parsed).map((item) => rowFor(item, parsed, aiDoc))) };
 }
 
-const LABEL: Record<ArchiveItem, string> = { tunables: "운영 조절값", genres: "자동재생 장르", status: "활동 문구", ai: "AI 설정", "ai-prompt": "AI 프롬프트", favicon: "파비콘", "login-background": "로그인 배경" };
+const LABEL: Record<ArchiveItem, string> = {
+  tunables: "운영 조절값",
+  genres: "자동재생 장르",
+  status: "활동 문구",
+  ai: "AI 설정",
+  "ai-prompt": "AI 프롬프트",
+  favicon: "파비콘",
+  "login-background": "로그인 배경",
+  "audio-files": "캐시 파일",
+  "audio-ledger": "자동 검색 결과",
+  "audio-pins": "직접 지정한 음원",
+  "audio-age": "연령 제한 기록",
+  "audio-sponsorblock": "SponsorBlock 구간",
+};
 
 // 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘 · 불러올 로그인 배경(선택하지 않았으면 null)
 async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
-  const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : rowFor(item, parsed, aiDoc))));
+  // 오디오 캐시 항목은 오디오 캐시 파일에만 있다(행 목록이 없는 파일이면 읽기가 BAD_ARCHIVE)
+  const audioRows = items.some(audioArchive.isAudioItem) ? (kindOf(parsed.json) === "audio-cache" ? audioArchive.previewRows(audioArchive.readBundle(parsed.file)) : []) : [];
+  const audioRow = (item: ArchiveItem) => audioRows.find((one) => one.item === item) ?? { item, inFile: false, same: false, problems: [], warnings: [], count: null };
+  const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : audioArchive.isAudioItem(item) ? audioRow(item) : rowFor(item, parsed, aiDoc))));
   const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없습니다."]), ...row.problems].map((line) => `${LABEL[row.item]}: ${line}`));
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
   const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
@@ -288,7 +318,8 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   if (items.includes("tunables")) tunables.reload();
   if (favicons) appearance.replaceFavicons(favicons);
   staged?.commit();
-  return importedOf(items, cookiesBefore);
+  const added = items.some(audioArchive.isAudioItem) ? await audioArchive.applyBundle(file, items) : null;
+  return { ...importedOf(items, cookiesBefore), ...(added ? { added } : {}) };
 }
 
 // 가져온 뒤 알릴 것: 다시 시작해야 적용되는 값 · 바뀐 쿠키 출처(꺼졌거나 그대로면 null)
@@ -299,4 +330,5 @@ function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImporte
 }
 
 export { build, parse, preview, apply, fileName };
+export { exportProblem } from "./audio-cache-archive.ts";
 export type { ArchiveJson };

@@ -20,7 +20,7 @@ import type { Response } from "express";
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
 
-const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경" };
+const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경", "audio-cache": "오디오 캐시" };
 
 // 읽지 못한 파일(ZIP 이 깨졌거나 이 봇의 내보내기가 아님)은 그 까닭과 함께 400
 function unreadable(res: Response, error: unknown) {
@@ -31,19 +31,23 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류 · 낸 사람 · 지나는 때 */
-const tickets = new Map<string, { kind: ArchiveKind; by: string; until: number }>();
+/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류 · 캐시 파일까지(오디오 캐시) · 낸 사람 · 지나는 때 */
+const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
-// kind: settings(봇 설정만) · favicon(파비콘) · login-background(로그인 배경). 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다
+// kind: settings(봇 설정만) · favicon(파비콘) · login-background(로그인 배경) · audio-cache(오디오 캐시, files=0 이면 캐시 파일 없이).
+// 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다. 담을 수 없으면(캐시 파일이 너무 많다) 여기서 거절한다(다운로드 주소는 브라우저가 바로 열어 화면이 알릴 수 없다)
 settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");
   if (!isArchiveKind(kind)) return sendProblem(res, "nothing-to-save");
+  const withFiles = req.query.files !== "0";
+  const problem = kind === "audio-cache" ? archive.exportProblem(withFiles) : null;
+  if (problem) return sendProblem(res, problem.code, { max: problem.max });
   const now = Date.now();
   for (const [key, one] of tickets) if (one.until < now) tickets.delete(key);
   const ticket = crypto.randomBytes(16).toString("hex");
-  tickets.set(ticket, { kind, by: ranBy(req), until: now + TICKET_MS });
+  tickets.set(ticket, { kind, withFiles, by: ranBy(req), until: now + TICKET_MS });
   res.json({ url: `${req.baseUrl}/download/${ticket}` } satisfies ArchiveDownload);
 });
 
@@ -53,9 +57,11 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
   if (ticket) tickets.delete(req.params.ticket);
   // 없거나 지난 티켓: 브라우저가 바로 연 주소라 화면 안내 없이 404
   if (!ticket || ticket.until < Date.now()) return sendProblem(res, "route-not-found");
-  const { kind } = ticket;
-  const inputs = archive.build(kind);
-  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${KIND_LABEL[kind]}). 실행 ${ticket.by}`);
+  const { kind, withFiles } = ticket;
+  const { inputs, release } = archive.build(kind, { withFiles });
+  // 다 보냈거나 받던 쪽이 끊었을 때 담을 파일의 지킴을 푼다
+  res.once("close", release);
+  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${KIND_LABEL[kind]}${kind === "audio-cache" && !withFiles ? ", 캐시 파일 제외" : ""}). 실행 ${ticket.by}`);
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${archive.fileName(kind)}"`);
   try {
@@ -65,6 +71,8 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
     // 받던 쪽이 끊었거나 쓰는 동안 파일이 삭제됐다(헤더를 이미 보냈으니 응답을 끊는다)
     log.debug({ sub: "admin" }, `설정 내보내기를 보내다 멈췄습니다: ${messageOf(error)}`);
     res.destroy();
+  } finally {
+    release();
   }
 });
 

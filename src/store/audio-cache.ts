@@ -47,6 +47,8 @@ type TrackMeta = { title?: string | null; artist?: string | null; channel?: stri
 const protectedKeys = new Map<string, string>();
 const protectedFiles = new Set<string>(); // 지금 다운로드 중인 파일 경로(임시 파일 · 옮긴 뒤 기록 전의 최종 파일). 정리가 건드리면 안 된다
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
+// 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC · 담기) 그동안 퇴거 · 삭제 · 초기화가 지우지 않게 한다
+const exportingKeys = new Set<Set<string>>();
 let evictInterval: NodeJS.Timeout | null = null;
 let evictEveryMs = 0;
 // 캐시 파일이 놓이는 곳. 테스트가 _setCacheDir 로 교체하면 실제 폴더를 건드리지 않는다.
@@ -192,11 +194,18 @@ function setQueuedKeys(guildId: string | null | undefined, keys: Array<string | 
   else queuedKeys.set(guildId, set);
 }
 
-/** 재생 중 + 모든 길드의 대기열. 퇴거에서 제외할 키 전부 */
+/** 재생 중 + 모든 길드의 대기열 + 내보내는 중. 퇴거에서 제외할 키 전부 */
 function liveKeys() {
   const keys = new Set(protectedKeys.values());
-  for (const set of queuedKeys.values()) for (const k of set) keys.add(k);
+  for (const set of [...queuedKeys.values(), ...exportingKeys]) for (const k of set) keys.add(k);
   return keys;
+}
+
+/** 내보내는 동안 이 파일들을 지킨다. 푸는 함수를 돌려준다(여러 번 불러도 된다). 내보내기가 겹치면 각자 지킨다 */
+function holdForExport(audioKeys: Iterable<string>): () => void {
+  const held = new Set(audioKeys);
+  exportingKeys.add(held);
+  return () => void exportingKeys.delete(held);
 }
 
 /** 오디오 키로 캐시 파일 기록 한 행을 그대로 읽는다 */
@@ -464,6 +473,52 @@ function cacheCount(): number {
   return countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached'");
 }
 
+/** 다운로드해 둔 캐시 파일의 크기 합 · 수(오디오 캐시 불러오기가 상한까지 남은 몫을 센다) */
+const cacheUsage = () => ({ bytes: cacheSize(), files: cacheCount() });
+
+/** 들여오는 캐시 파일 하나의 행(다른 봇이 내보낸 것) */
+type AdoptRow = { audioKey: string; title: string | null; channel: string | null; durationSec: number | null; sizeBytes: number; plays: number; lastPlayedAt: number | null; downloadedAt: number | null; audioVersion: string | null };
+
+/**
+ * 오디오 캐시 불러오기: 임시 파일로 받아 둔 캐시 파일을 이 봇의 자리로 옮기고 행을 적는다(정리 잠금 안). 옮겼으면 true.
+ * 그새 이 봇이 같은 곡을 받았거나 받는 중이면 임시 파일을 지우고 false. 경로는 키에서 계산한다(받은 이름을 쓰지 않는다)
+ */
+function adoptFile(row: AdoptRow, tempPath: string): Promise<boolean> {
+  return underCleanupLock(async () => {
+    const existing = lookupByAudioKey(row.audioKey);
+    if (existing && existing.status !== "error") {
+      await fs.promises.rm(tempPath, { force: true });
+      return false;
+    }
+    const filePath = getFilePath(row.audioKey);
+    protectFile(filePath);
+    try {
+      await fs.promises.rename(tempPath, filePath);
+      conn()
+        .prepare(
+          `INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, duration_sec, title, channel, audio_version, play_count, last_played_at, downloaded_at, created_at)
+           VALUES (@key, 'cached', @path, @size, @duration, @title, @channel, @version, @plays, @last, @downloaded, @now)
+           ON CONFLICT(audio_key) DO UPDATE SET status = 'cached', file_path = excluded.file_path, file_size_bytes = excluded.file_size_bytes, duration_sec = excluded.duration_sec,
+               title = excluded.title, channel = excluded.channel, audio_version = excluded.audio_version, play_count = MAX(audio_cache.play_count, excluded.play_count),
+               last_played_at = MAX(COALESCE(audio_cache.last_played_at, 0), COALESCE(excluded.last_played_at, 0)), downloaded_at = excluded.downloaded_at`,
+        )
+        .run({ key: row.audioKey, path: filePath, size: fs.statSync(filePath).size, duration: row.durationSec, title: row.title, channel: row.channel, version: row.audioVersion, plays: row.plays, last: row.lastPlayedAt, downloaded: row.downloadedAt ?? Date.now(), now: Date.now() });
+    } finally {
+      unprotectFile(filePath);
+    }
+    return true;
+  });
+}
+
+/** 이미 있는 캐시 파일의 재생 수 · 마지막 재생을 큰 쪽으로(불러온 파일의 기록). 고쳤으면 true */
+function mergePlays(audioKey: string, plays: number, lastPlayedAt: number | null): boolean {
+  return (
+    conn()
+      .prepare("UPDATE audio_cache SET play_count = MAX(play_count, ?), last_played_at = MAX(COALESCE(last_played_at, 0), ?) WHERE audio_key = ? AND status = 'cached' AND (play_count < ? OR COALESCE(last_played_at, 0) < ?)")
+      .run(plays, lastPlayedAt ?? 0, audioKey, plays, lastPlayedAt ?? 0).changes > 0
+  );
+}
+
 // 수 하나를 내는 질의(열 이름은 n)
 function countOf(sql: string): number {
   return (conn().prepare(sql).get() as { n: number }).n;
@@ -508,17 +563,21 @@ function guardedKeys() {
   return new Set([...liveKeys(), ...sessionKeys(sessions().frontAudioUrls(config.preload.ahead))]);
 }
 
-/** 삭제 순서. 점수가 높은(삭제할 만한) 것이 앞이다 */
-function rankForEviction(rows: AudioRow[]) {
+/**
+ * 삭제 순서. 점수가 높은(삭제할 만한) 것이 앞이다. 오디오 캐시 불러오기는 들여올 행을 이것으로 줄 세워 점수가 낮은 것부터 상한까지 가져온다
+ * @param moreAge  연령 제한으로 함께 볼 영상 id(불러오는 파일의 연령 제한)
+ */
+function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "last_played_at" | "downloaded_at" | "created_at" | "file_size_bytes">>(rows: T[], moreAge: Iterable<string> = []) {
   const now = Date.now();
 
   // 연령 제한 영상은 재취득이 느리고 쿠키가 필요하므로 퇴거에서 더 오래 잔존시킨다(점수↓).
-  const ageSet = new Set(
-    conn()
+  const ageSet = new Set([
+    ...conn()
       .prepare("SELECT video_id FROM age_restricted")
       .all()
       .map((r) => (r as { video_id: string }).video_id),
-  );
+    ...moreAge,
+  ]);
 
   return rows
     .map((r) => {
@@ -614,8 +673,8 @@ async function evictLocked({ totalSize = cacheSize(), fileCount = cacheCount(), 
   reportEviction({ evicted, failed, guarded, files, size, reached: enough() });
 }
 
-/** 쓰는 중이라 삭제하지 않은 까닭: 재생 중 · 대기열 앞 · 저장된 대기열 앞 */
-type CacheUse = "playing" | "queued" | "saved-session";
+/** 쓰는 중이라 삭제하지 않은 까닭: 재생 중 · 대기열 앞 · 저장된 대기열 앞 · 내보내는 중 */
+type CacheUse = "playing" | "queued" | "saved-session" | "exporting";
 /**
  * 캐시 파일 하나 삭제의 결과. changed: 화면이 본 다운로드 시각과 지금이 다르다(current 는 지금 값) · gone: 행이 없다 ·
  * in-use: 쓰는 중 · downloading: 다운로드 중 · failed: 파일을 삭제하지 못했다(다른 프로그램이 쥐고 있다)
@@ -627,6 +686,7 @@ function useOf(audioKey: string): CacheUse | null {
   if ([...protectedKeys.values()].includes(audioKey)) return "playing";
   for (const set of queuedKeys.values()) if (set.has(audioKey)) return "queued";
   if (sessionKeys(sessions().frontAudioUrls(config.preload.ahead)).has(audioKey)) return "saved-session";
+  for (const set of exportingKeys) if (set.has(audioKey)) return "exporting";
   return null;
 }
 
@@ -756,6 +816,11 @@ export {
   protectFile,
   unprotectFile,
   setQueuedKeys,
+  holdForExport,
+  cacheUsage,
+  adoptFile,
+  mergePlays,
+  rankForEviction,
   lookupByAudioKey,
   allRows,
   recordDownloadStart,
@@ -780,4 +845,4 @@ export {
   protectedKeys as _protectedKeys,
   protectedFiles as _protectedFiles,
 };
-export type { AudioRow, TrackMeta, CacheUse, RemoveResult, ResetResult };
+export type { AudioRow, TrackMeta, CacheUse, RemoveResult, ResetResult, AdoptRow };

@@ -166,6 +166,8 @@ const WEB = {
   "bad-archive": { status: 400, title: "Not a settings archive" },
   // 올린 파일을 둘 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "disk-full": { status: 409, title: "Not enough free disk space", params: ["size"] },
+  // 오디오 캐시 내보내기: 캐시 파일이 ZIP 하나에 담는 상한(max)보다 많다
+  "archive-too-many-files": { status: 422, title: "Too many cache files for one archive", params: ["max"] },
   // 미리 보기 때 올린 파일이 없다(1시간이 지났거나 봇이 다시 시작됐다)
   "upload-gone": { status: 410, title: "Uploaded file is gone" },
   // 설정 DB 스냅샷 복원: 없는 이름 · 이 봇과 구조가 다른 스냅샷

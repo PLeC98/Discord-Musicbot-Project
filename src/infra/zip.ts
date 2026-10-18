@@ -11,8 +11,11 @@ import zlib from "node:zlib";
 
 /** 항목 하나. name 은 / 로 나눈 경로 */
 type ZipEntry = { name: string; data: Buffer };
-/** 쓸 항목: 바이트 그대로 또는 파일(스트림으로 담는다) */
-type ZipInput = ZipEntry | { name: string; file: string };
+/**
+ * 쓸 항목: 바이트 그대로 · 파일(스트림으로 담는다. optional 이면 그사이 사라진 파일은 건너뛴다) ·
+ * 쓸 때 만드는 바이트(build 는 앞에서 담은 이름들을 받는다. 마지막에 두면 실제로 담은 것만 적는 목록을 만든다)
+ */
+type ZipInput = ZipEntry | { name: string; file: string; optional?: boolean } | { name: string; build: (written: ReadonlySet<string>) => Buffer };
 
 const SIG = { local: 0x04034b50, central: 0x02014b50, end: 0x06054b50, end64: 0x06064b50, locator64: 0x07064b50 } as const;
 const UTF8 = 1 << 11;
@@ -184,18 +187,22 @@ async function writeZip(inputs: ZipInput[], sink: Sink, { at = new Date(), zip64
     await sink(chunk);
     offset += chunk.length;
   };
+  const written = new Set<string>();
   for (const input of inputs) {
-    const body = "data" in input ? dataBody(input.data) : await fileBody(input.file);
+    if ("file" in input && input.optional && !fs.existsSync(input.file)) continue;
+    const data = "data" in input ? input.data : "build" in input ? input.build(written) : null;
+    const body = data ? dataBody(data) : await fileBody((input as { file: string }).file);
     const { local, central } = headersOf(input.name, body, offset, when, zip64);
     centrals.push(central);
     await put(local);
-    if ("data" in input) await put((body as Body & { body: Buffer }).body);
-    else for await (const chunk of fs.createReadStream(input.file)) await put(chunk as Buffer);
+    if (data) await put((body as Body & { body: Buffer }).body);
+    else for await (const chunk of fs.createReadStream((input as { file: string }).file)) await put(chunk as Buffer);
+    written.add(input.name);
   }
   const directoryAt = offset;
   const directory = Buffer.concat(centrals);
   await put(directory);
-  await put(endOf(inputs.length, directoryAt, directory.length, zip64));
+  await put(endOf(centrals.length, directoryAt, directory.length, zip64));
   return offset;
 }
 

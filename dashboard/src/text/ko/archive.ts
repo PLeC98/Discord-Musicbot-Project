@@ -12,13 +12,15 @@ const exports: Record<ArchiveKind, { title: string; desc: string; button: string
   },
   favicon: { title: "파비콘", desc: "크기별 파비콘과 기록을 담아요.", button: "내보내기" },
   "login-background": { title: "로그인 배경", desc: "쓰는 배경과 기록을 담아요.", button: "내보내기" },
+  "audio-cache": { title: "오디오 캐시", desc: "캐시 파일 · 자동 검색 결과 · 직접 지정한 음원 · 연령 제한 기록", button: "내보내기" },
 };
 /** 제목 옆 툴팁(길어지는 주의) */
 const tips: Record<ArchiveKind | "import", string> = {
   favicon: "",
   "login-background": "영상이면 수백 MB 가 될 수 있어요.",
   settings: "API 키 · 쿠키 · 서버별 설정은 빠져요.",
-  import: "",
+  "audio-cache": "곡이 많으면 수백 MB ~ 수 GB 가 될 수 있어요.",
+  import: "오디오 캐시는 지금 캐시에 합쳐요.",
 };
 const importTitle = "백업 불러오기";
 const importDesc = "내보낸 파일을 올리면 지금과 비교해 보여 주고, 고른 항목만 덮어써요.";
@@ -29,7 +31,7 @@ const previewFailed = "파일을 읽지 못했어요.";
 
 const dialogTitle = "가져올 항목 고르기";
 /** 파일에 적힌 종류 · 만든 때 · 봇 버전 */
-const kinds: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경" };
+const kinds: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경", "audio-cache": "오디오 캐시" };
 const madeAt = (kind: string, when: string, version: string | null) => `${kind} · ${when}에 만든 파일${version ? ` · 봇 ${version}` : ""}`;
 const dialogNote = "고른 항목은 파일의 것으로 통째 바뀌고, 지금 값은 '가져오기 전' 스냅샷으로만 복원할 수 있어요(최근 5개까지 보관).";
 const items: Record<ArchiveItem, string> = {
@@ -40,6 +42,11 @@ const items: Record<ArchiveItem, string> = {
   "ai-prompt": "AI 프롬프트",
   favicon: "파비콘",
   "login-background": "로그인 배경",
+  "audio-files": "캐시 파일",
+  "audio-ledger": "자동 검색 결과",
+  "audio-pins": "직접 지정한 음원",
+  "audio-age": "연령 제한 기록",
+  "audio-sponsorblock": "SponsorBlock 구간",
 };
 /** 이미지 · 배경 수 */
 const counts: Partial<Record<ArchiveItem, (n: number) => string>> = { favicon: (n) => `이미지 ${n}개`, "login-background": (n) => `배경 ${n}개` };
