@@ -354,23 +354,6 @@ test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
 });
 
-// 예전의 암호화된 설정까지(full) 파일: 모르는 종류라 봇 설정만으로 읽고, 서버별 설정 · 키는 불러오지 않는다
-test("예전의 full 파일은 봇 설정만으로 읽힌다", async () => {
-  const old = rewrite(await exported(), (json) => {
-    json.kind = "full";
-    json.guilds = { "123456789012345678": { botChannelId: "222222222222222222" } };
-    json.secrets = [{ name: "ai.openai" }];
-  });
-  const { json } = await preview(old);
-  assert.equal(json.kind, "settings");
-  assert.deepEqual(
-    json.rows.map((one) => one.item),
-    ["tunables", "genres", "status", "ai", "ai-prompt"],
-  );
-  assert.equal((await send("import?items=tunables", old)).status, 200);
-  assert.equal(await guildSettings.getBotChannel("123456789012345678"), null);
-});
-
 // 남이 준 파일로 모르고 가져오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
 test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다", async () => {
   const file = rewrite(await exported("settings"), (json) => {

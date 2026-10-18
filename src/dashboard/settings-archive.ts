@@ -1,6 +1,5 @@
 // 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 계약은 contract/settings-archive.
 //   settings  봇 설정만: 운영 조절값(PC 에 매인 쿠키 출처 · POToken 쓰기도) · 장르 · 활동 문구 · AI 설정 · 프롬프트. 서버별 설정 · 키 · 쿠키는 없다(설정 스냅샷 · 명령 전체 백업에 든다).
-//             예전의 암호화된 설정까지(full) 파일은 모르는 종류라 이것으로 읽힌다(서버별 설정 · 키는 불러오지 않는다)
 //   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
 //   audio-cache  오디오 캐시: 캐시 파일 · 링크 데이터 · 직접 지정한 음원 · 연령 제한 · SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다

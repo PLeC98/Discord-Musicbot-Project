@@ -1,6 +1,7 @@
 // 봇 전체 초기화(휴대폰의 기기 전체 초기화). DB 연결이 열려 있어 켜진 채 지우지 않는다: 대시보드가 마커(database/reset.request)를 걸고 다시 시작하면,
 // 다음 기동이 DB 를 열기 전(main 의 openSettings 첫머리, 스냅샷 복원보다 앞)에 마커를 보고 지운다. 사람이 누른 것만이고 구조 버전 멈춤과 무관하다.
-// 남기는 것: .env · vendor/ · logs/(DB 폴더 밖) · 설정 스냅샷(database/backups) · 이번 실행이 이미 쓰는 실행 기록(run-state.json · child-processes.json).
+// 남기는 것: .env · vendor/ · logs/(DB 폴더 밖) · 설정 스냅샷(database/backups) · 명령 전체 백업(database/full-backups, 봇이 읽지 않는 사람의 백업) ·
+// 이번 실행이 이미 쓰는 실행 기록(run-state.json · child-processes.json).
 // 그 밖의 DB 폴더 안과 캐시 폴더 안은 모두 지운다(새로 생기는 파일도 따로 적지 않아도 지운다). 마커는 다 지운 뒤 마지막에 지운다(막히면 다음 기동이 이어서 지운다).
 
 import fs from "fs";
@@ -11,7 +12,7 @@ import { settingsDb } from "./settings-db.ts";
 
 const MARKER = "reset.request";
 /** DB 폴더에서 남기는 것 */
-const KEEP = new Set(["backups", "run-state.json", "child-processes.json", MARKER]);
+const KEEP = new Set(["backups", "full-backups", "run-state.json", "child-processes.json", MARKER]);
 
 type Dirs = { database: string; audioCache: string };
 const REAL: Dirs = { database: PROJECT.database, audioCache: PROJECT.audioCache };

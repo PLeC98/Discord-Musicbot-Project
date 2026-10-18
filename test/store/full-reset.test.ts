@@ -1,4 +1,4 @@
-// src/store/full-reset.ts — 봇 전체 초기화. 마커가 있을 때만, DB 폴더에서 설정 스냅샷 · 이번 실행의 기록을 뺀 전부와 캐시 폴더 안을 지우고 마커를 마지막에 지운다.
+// src/store/full-reset.ts — 봇 전체 초기화. 마커가 있을 때만, DB 폴더에서 설정 스냅샷 · 명령 전체 백업 · 이번 실행의 기록을 뺀 전부와 캐시 폴더 안을 지우고 마커를 마지막에 지운다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -18,8 +18,8 @@ function layout() {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, "x");
   };
-  for (const rel of ["database/settings.db", "database/settings.db-wal", "database/state.db", "database/cache.db", "database/ai-requests.db", "database/sessions.db", "database/deployed-commands.json", "database/settings.restore.db", "database/dashboard/favicon/index.json", "database/tmp/upload.zip", "database/full-backups/backup.zip", "database/새로 생긴 파일.json"]) put(rel);
-  for (const rel of ["database/backups/settings-daily-2026-10-18.db", "database/run-state.json", "database/child-processes.json", "audio_cache/track_a.opus", "audio_cache/track_b.tmp-1.opus", ".env", "logs/bot.log", "vendor/bin/ffmpeg"]) put(rel);
+  for (const rel of ["database/settings.db", "database/settings.db-wal", "database/state.db", "database/cache.db", "database/ai-requests.db", "database/sessions.db", "database/deployed-commands.json", "database/settings.restore.db", "database/dashboard/favicon/index.json", "database/tmp/upload.zip", "database/새로 생긴 파일.json"]) put(rel);
+  for (const rel of ["database/backups/settings-daily-2026-10-18.db", "database/full-backups/backup.zip", "database/run-state.json", "database/child-processes.json", "audio_cache/track_a.opus", "audio_cache/track_b.tmp-1.opus", ".env", "logs/bot.log", "vendor/bin/ffmpeg"]) put(rel);
   return dirs;
 }
 const left = (dir: string) => fs.readdirSync(dir).sort();
@@ -31,14 +31,14 @@ test("예약하지 않았으면 아무것도 지우지 않는다", () => {
   assert.deepEqual(left(dirs.database), before);
 });
 
-test("예약했으면 스냅샷 · 이번 실행의 기록을 뺀 DB 폴더와 캐시 폴더 안을 지우고, 마커도 지운다", () => {
+test("예약했으면 스냅샷 · 명령 전체 백업 · 이번 실행의 기록을 뺀 DB 폴더와 캐시 폴더 안을 지우고, 마커도 지운다", () => {
   const dirs = layout();
   fullReset.request(dirs.database);
   assert.equal(fullReset.requested(dirs.database), true);
 
   assert.equal(fullReset.applyRequested(dirs), true);
 
-  assert.deepEqual(left(dirs.database), ["backups", "child-processes.json", "run-state.json"]);
+  assert.deepEqual(left(dirs.database), ["backups", "child-processes.json", "full-backups", "run-state.json"]);
   assert.deepEqual(left(path.join(dirs.database, "backups")), ["settings-daily-2026-10-18.db"]);
   assert.deepEqual(left(dirs.audioCache), []);
   for (const kept of [".env", "logs/bot.log", "vendor/bin/ffmpeg"]) assert.ok(fs.existsSync(path.join(ROOT, kept)), kept);
