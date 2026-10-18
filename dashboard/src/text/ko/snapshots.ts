@@ -3,7 +3,7 @@
 import type { SnapshotKind } from "../../../../src/rules/snapshots.ts";
 
 const title = "설정 스냅샷";
-const desc = "하루 한 번, 그리고 백업 불러오기 · 복원 전에 설정을 자동으로 저장해요.";
+const desc = "하루 한 번, 그리고 백업 불러오기 · 복원 · 초기화 전에 설정을 자동으로 저장해요.";
 /** 설명 옆 툴팁 */
 const descTip = "일일 백업은 7개, 나머지는 5개까지 보관해요. API 키 · 쿠키는 암호화된 채로 저장돼 같은 SECRETS_KEY 에서만 복원돼요.";
 const empty = "아직 저장된 스냅샷이 없어요.";
