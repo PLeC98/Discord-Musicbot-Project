@@ -2,14 +2,14 @@
 //   넘침 안전망   음원 길이를 아는 곡의 위치가 길이를 한참 넘기면 멈춰 다음 곡으로 넘긴다. 끝을 알리지 못하는 입력의 마지막 그물
 //   버퍼링 감시   재생이 시작되지 않은 채 입력도 없이 멈춘 경우. 멈춰 같은 곡을 다시 시도하게 한다
 //   멎음 감시     오디오가 Idle 이 됐는데 곡 끝 처리가 곡을 넘기지 못한 경우. 다음 곡으로 넘긴다
-// 곡이 끝났는지는 여기서 가르지 않는다. Idle 때 입력 쪽 사실로 가른다(rules/end-verdict).
+// 곡이 끝났는지는 여기서 판정하지 않는다. Idle 때 입력 쪽 사실로 판정한다(rules/end-verdict).
 
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const wlog = logger.child({ category: "watchdog" });
 import type { Player } from "./player.ts";
 
-/** 감시가 읽고 멈추는 플레이어 칸 */
+/** 감시가 읽고 멈추는 플레이어 필드 */
 type WatchHost = Pick<Player, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback" | "lifecycle" | "isRecovering" | "onTrackEnd">;
 
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
@@ -47,7 +47,7 @@ class PlaybackWatch {
 
   checkOverflow(): void {
     const player = this.player;
-    // 트는 음원의 길이를 모르면(라이브 · 받기 전의 직접 링크) 넘었는지 가를 수 없다. 표시 길이는 쓰지 않는다
+    // 트는 음원의 길이를 모르면(라이브 · 다운로드 전의 직접 링크) 넘었는지 판정할 수 없다. 표시 길이는 쓰지 않는다
     const lengthMs = player.isLive ? null : (player.playback?.lengthMs ?? null);
     if (!lengthMs) return;
     const at = player.getCurrentTime();

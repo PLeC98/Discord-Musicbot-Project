@@ -1,4 +1,4 @@
-// 봇 상태 탭의 플레이어 줄: 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기)
+// 봇 상태 탭의 플레이어 행: 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기)
 
 import { getVoiceConnections } from "@discordjs/voice";
 import type { Client } from "discord.js";

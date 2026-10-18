@@ -1,8 +1,8 @@
 <!--
-  이모지 한 글자만 담는 칸 (장르 아이콘).
+  이모지 한 글자만 담는 입력란 (장르 아이콘).
 
-  고르는 판 자체는 EmojiPicker가 갖는다. 여기서는 무엇을 눌러 여는지와,
-  고른 것을 어떻게 다룰지(갈아끼우기·비우기)만 정한다.
+  선택 판 자체는 EmojiPicker가 갖는다. 여기서는 무엇을 눌러 여는지와,
+  선택한 것을 어떻게 다룰지(교체·비우기)만 정한다.
 -->
 <template>
   <EmojiPicker v-slot="{ toggle }" :clearable="!!modelValue" @pick="$emit('update:modelValue', $event)" @clear="$emit('update:modelValue', '')">

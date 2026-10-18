@@ -79,8 +79,8 @@ test("tik 은 특수 토큰 글자를 글자 그대로 센다", async () => {
 
 // tik 은 공백 없는 긴 글에서 느리다. 세는 동안에도 이쪽 타이머는 돌아야 한다
 test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
-  await tokens.count("a", "tik"); // 스레드와 표를 먼저 띄운다
-  // 타이머 사이의 가장 긴 틈을 잰다. 이 스레드에서 세면 틈이 세는 시간 전체가 된다(횟수로 재면 다른 시험이 함께 돌 때 흔들린다)
+  await tokens.count("a", "tik"); // 스레드와 표를 먼저 준비한다
+  // 타이머 사이의 가장 긴 틈을 잰다. 이 스레드에서 세면 틈이 세는 시간 전체가 된다(횟수로 재면 다른 테스트가 함께 돌 때 흔들린다)
   let last = performance.now();
   let widest = 0;
   const ticking = setInterval(() => {
@@ -93,11 +93,11 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
   clearInterval(ticking);
   widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
   const took = performance.now() - started;
-  assert.ok(took > 200, `느린 글이어야 시험이 된다(${Math.round(took)}ms)`);
+  assert.ok(took > 200, `느린 글이어야 테스트가 된다(${Math.round(took)}ms)`);
   assert.ok(widest < took * 0.5, `타이머 틈이 ${Math.round(widest)}ms 까지 벌어졌다(세기 ${Math.round(took)}ms)`);
 });
 
-test("상한을 넘기면 실패로 답하고 다음 세기는 새로 띄운 스레드가 한다", async () => {
+test("상한을 넘기면 실패로 답하고 다음 세기는 새로 시작한 스레드가 한다", async () => {
   await assert.rejects(tokens.countAll(["가".repeat(16000)], "tik", { timeoutMs: 100 }), /넘겼습니다/);
   assert.deepEqual(await tokens.countAll(["a", "hello world"], "tik"), [
     { tokens: 1, by: "tik", exact: true },
@@ -133,7 +133,7 @@ test("토크나이저는 프로필이 정한다", () => {
   assert.equal(tokens.tokenizerFor("vertex-gemini-native", "gemini-3.7-flash"), "gemma");
 });
 
-test("앤트로픽에 물을 때 system 글은 system 칸에 한 번만 싣는다", async () => {
+test("앤트로픽에 물을 때 system 글은 system 필드에 한 번만 싣는다", async () => {
   let sent: { system?: string; messages: Array<{ role: string; content: string }> } | null = null;
   const fake = (async (_url: string, init: { body: string }) => {
     sent = JSON.parse(init.body);

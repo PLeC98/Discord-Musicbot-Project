@@ -22,7 +22,7 @@ const data = (over = {}) => ({ isPlaylist: true, total: 120, nextOffset: 50, tra
 // 누른 사람만 다른 위치
 const stateOf = (requesterId: string | null): MoreState => ({ kind: "spp", listId: PL, offset: 0, anchorId: TRACK, insertFirst: false, requesterId });
 
-test("continuation: 이어 받을 수 있는 목록일 때만 상태를 만든다", () => {
+test("continuation: 이어 불러올 수 있는 목록일 때만 상태를 만든다", () => {
   assert.deepEqual(More.continuation(`https://open.spotify.com/playlist/${PL}`, data()), { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 120, remaining: 70 });
   assert.equal(More.continuation(`https://open.spotify.com/album/${PL}`, data())?.kind, "spa");
   assert.equal(More.continuation("https://www.youtube.com/playlist?list=PL0123456789abcdefghij0123456789ab", data({ tracks: [{ id: "dQw4w9WgXcQ" }] }))?.kind, "ytp");
@@ -70,7 +70,7 @@ test("누를 때: 전용 채널 메뉴는 넣은 사람만, 30초가 지나면 �
 test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요청자 기록). 못 고치면 false", async () => {
   const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9945, remaining: 9895, batch: 50 };
   const player = fakePlayer({ queue: [] });
-  // 보낸 메뉴. 여기서 보는 칸만
+  // 보낸 메뉴. 여기서 보는 필드만
   type Sent = { flags?: unknown; components: Array<{ toJSON(): unknown }> };
   const edited: Sent[] = [];
   const interaction = (editReply: (p: Sent) => Promise<unknown>) => fake<RepliableInteraction>({ user: { id: "12345678901234567" }, editReply, deleteReply: async () => {} });
@@ -94,8 +94,8 @@ test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요
   assert.equal(await More.offerOnInteraction(gone, more, player), false);
 });
 
-// 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id 로 이어 받고, 한 번에 10곡까지(곡마다 요청이 들어 IP 가 막히지 않게)
-test("사운드클라우드 세트: 숫자 id 로 이어 받고, 서버 설정과 상관없이 한 번에 10곡", () => {
+// 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id 로 이어 불러오고, 한 번에 10곡까지(곡마다 요청이 들어 IP 가 막히지 않게)
+test("사운드클라우드 세트: 숫자 id 로 이어 불러오고, 서버 설정과 상관없이 한 번에 10곡", () => {
   const set = { isPlaylist: true, collectionId: "2284916349", total: 41, nextOffset: 10, tracks: [{ id: "2227247837" }] };
   const more = More.continuation("https://soundcloud.com/chillhopdotcom/sets/best-of-essentials-fall", set);
   assert.deepEqual(more && { kind: more.kind, listId: more.listId, anchorId: more.anchorId, remaining: more.remaining }, { kind: "scs", listId: "2284916349", anchorId: "2227247837", remaining: 31 });
@@ -129,8 +129,8 @@ test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더
   assert.match(textsOf(post(result.view))[0], /7곡을 더 넣었어요\. 재생할 수 없는 3곡\(미리듣기 · 지역 제한 등\)은 제외했어요\./);
 });
 
-// 사운드클라우드가 만든 믹스는 숫자 id 가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 받는다
-test("사운드클라우드 믹스: 주소의 이름으로 이어 받고, 이름의 ':'는 custom_id 를 깨지 않게 싣는다", () => {
+// 사운드클라우드가 만든 믹스는 숫자 id 가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 불러온다
+test("사운드클라우드 믹스: 주소의 이름으로 이어 불러오고, 이름의 ':'는 custom_id 를 깨지 않게 싣는다", () => {
   const mix = { isPlaylist: true, collectionId: "soundcloud:system-playlists:trending-by-genre:indie", total: 50, nextOffset: 10, tracks: [{ id: "2227247837" }] };
   const more = More.continuation("https://soundcloud.com/discover/sets/trending-by-genre:indie?si=abc", mix);
   assert.deepEqual(more && { kind: more.kind, listId: more.listId }, { kind: "scd", listId: "trending-by-genre~indie" });

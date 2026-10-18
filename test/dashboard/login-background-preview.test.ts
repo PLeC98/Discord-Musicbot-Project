@@ -48,7 +48,7 @@ before(async () => {
     .toFile(sample("still.png"));
 });
 
-/** 원본을 올린 것처럼 기록을 만들고 받기 결과를 적는다 */
+/** 원본을 올린 것처럼 기록을 만들고 다운로드 결과를 적는다 */
 async function made(name: string) {
   const one = store.create({ kind: "video", from: "upload", name });
   fs.copyFileSync(sample(name), store.sourceOf(one.id));
@@ -88,7 +88,7 @@ test("투명이 있는 GIF · HDR 영상도 미리보기를 만든다", opts, as
     const probed = await probeVideo(previewOf(one.id)!, signal);
     assert.deepEqual([probed.alpha, probed.hdr], [false, false], name);
   }
-  // 투명한 곳은 검정 위에: 반투명한 시험 영상의 밝기가 절반 아래로
+  // 투명한 곳은 검정 위에: 반투명한 테스트 영상의 밝기가 절반 아래로
   const gif = store.items().find((one) => one.name === "alpha.gif")!;
   const frame = await runFfmpeg(["-v", "error", "-i", previewOf(gif.id)!, "-frames:v", "1", "-vf", "scale=1:1,format=gray", "-f", "rawvideo", "-"]);
   assert.ok(frame.output[0] < 140, `밝기 ${frame.output[0]}`);
@@ -107,7 +107,7 @@ test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 �
   assert.ok(half.stillBytes < one.estimate.stillBytes, `${half.stillBytes} < ${one.estimate.stillBytes}`);
 });
 
-test("다시 세기: 고른 구간의 초만 새 크롭으로 바꾸고 counted 에 적는다", opts, async () => {
+test("다시 세기: 선택한 구간의 초만 새 크롭으로 바꾸고 counted 에 적는다", opts, async () => {
   if (encoders.encoderFor("av1") !== "libsvtav1") return;
   const one = await made("clip.mp4");
   one.estimate = (await run(one)).result.estimate!;
@@ -127,7 +127,7 @@ test("장면 띠: 0.5초 간격(최대 160장)으로 높이 128 장면을 10열 
   const one = await made("clip.mp4");
   await run(one);
   const result = await strip({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} });
-  // 3초: 6장 · 0.5초, 16:9 미리보기라 한 칸 228 × 128
+  // 3초: 6장 · 0.5초, 16:9 미리보기라 셀 하나 228 × 128
   assert.deepEqual(result.strip, { count: 6, every: 0.5, columns: 10, width: 228, height: 128 });
   const meta = await sharp(stripOf(one.id)!).metadata();
   assert.deepEqual([meta.format, meta.width, meta.height], ["webp", 2280, 128]);
@@ -146,7 +146,7 @@ test("유튜브: 480p 로 재고 고해상도로 굽는 어림은 넓이 비만�
   const upload = await made("clip.mp4");
   const asUploaded = (await run(upload)).result.estimate!;
   const tube = await made("clip.mp4");
-  // 고해상도로 받을 크기(4K)를 적은 유튜브 배경, 원본 자리에는 같은 720p 파일
+  // 고해상도로 다운로드할 크기(4K)를 적은 유튜브 배경, 원본 경로에는 같은 720p 파일
   Object.assign(tube, { from: "youtube", width: 3840, height: 2160 });
   const asYoutube = (await run(tube)).result.estimate!;
   assert.equal(asYoutube.rough, true);

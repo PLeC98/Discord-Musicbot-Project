@@ -9,12 +9,12 @@ type PromptSection = { role: string; text: string };
 // 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
 const AI_ROLES = ["system", "user", "assistant"];
 
-/** 프롬프트에서 후보 목록이 들어갈 자리 */
+/** 프롬프트에서 후보 목록이 들어갈 위치 */
 const LIST_MARK = "{{list}}";
 
 const textOf = (section: unknown) => String((section as { text?: unknown } | null)?.text ?? "");
 
-/** 후보 목록이 들어갈 자리({{list}})가 어느 섹션에든 있는가(블록 안 포함). 없으면 모델은 무엇을 판정할지 모른다 */
+/** 후보 목록이 들어갈 위치({{list}})가 어느 섹션에든 있는가(블록 안 포함). 없으면 모델은 무엇을 판정할지 모른다 */
 const hasListMark = (sections: readonly unknown[]) => sections.some((section) => usesName(parseFormat(textOf(section), PROMPT_NAMES).nodes, "list"));
 
 function promptProblems(prompt: unknown, on: boolean): string[] {
@@ -35,7 +35,7 @@ function promptProblems(prompt: unknown, on: boolean): string[] {
   });
 
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다. 켜 두고 이러면 매번 헛돈다.
-  if (on && !hasListMark(prompt)) problems.push(`어딘가에 ${LIST_MARK} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.`);
+  if (on && !hasListMark(prompt)) problems.push(`어딘가에 ${LIST_MARK} 이 있어야 합니다. 그 위치에 판정할 후보가 들어갑니다.`);
   return problems;
 }
 

@@ -1,9 +1,9 @@
-// src/sources/stream-url.ts — 재생용 스트림을 어디서 가져올지 고르는 자리. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
+// src/sources/stream-url.ts — 재생용 스트림을 어디서 가져올지 고르는 곳. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
 //
 // 회귀 대상: 자동재생 소스가 늘면서 platform 값이 vocadb·lastfm·lbradio·touhoudb 같은 것이
 // 되었는데, 이 스위치는 youtube/spotify/soundcloud/direct만 알고 나머지를 던졌다.
 //   ERROR 지원되지 않는 플랫폼: vocadb
-// 캐시에 받아 둔 곡은 파일로 재생돼서 멀쩡했고, 안 받아 둔 곡만 죽었다 —
+// 캐시에 다운로드해 둔 곡은 파일로 재생돼서 멀쩡했고, 다운로드하지 않은 곡만 죽었다 —
 // 그래서 "두 곡은 되다가 갑자기 안 되는" 모양으로 나타났다.
 
 import { test } from "node:test";

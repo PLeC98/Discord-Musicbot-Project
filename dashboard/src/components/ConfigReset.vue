@@ -1,6 +1,6 @@
 <template>
-  <!-- 초기화(운영자 패널 백업 · 초기화 탭). 줄마다 이름 · 설명, 오른쪽에 하기. 좁으면 단추가 아래로. 지금은 캐시 초기화 하나 -->
-  <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게) -->
+  <!-- 초기화(운영자 패널 백업 · 초기화 탭). 항목마다 이름 · 설명, 오른쪽에 하기. 좁으면 버튼이 아래로. 지금은 캐시 초기화 하나 -->
+  <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="delete_sweep" :title="T.title">
       <div class="flex flex-col">
@@ -30,14 +30,14 @@ import type { ResetReply } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.reset;
 
-// 한 줄
+// 한 항목
 const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0";
 
 // ── 캐시 초기화 ───────────────────────────────────────────────
 const confirmReset = ref(false);
 const resetting = ref(false);
 
-// 지운 것 · 남긴 것(재생 중)
+// 삭제한 것 · 남긴 것(재생 중)
 function resetSummary(r: ResetReply) {
   const mb = Math.round((r.freedBytes || 0) / 1024 / 1024);
   return T.cache.summary(r.removed, mb, r.kept);

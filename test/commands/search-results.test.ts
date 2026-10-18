@@ -1,5 +1,5 @@
-// src/discord/commands/search.ts 의 결과 화면 + src/discord/interactions/button-handler.ts 의 고르기. 버튼이 자기 영상 ID 를 싣는다.
-// 같은 사람이 다시 검색해도 앞 메시지의 버튼은 앞 검색의 영상을 고른다(버튼 밖에 기억해 둔 것이 없다)
+// src/discord/commands/search.ts 의 결과 화면 + src/discord/interactions/button-handler.ts 의 선택. 버튼이 자기 영상 ID 를 싣는다.
+// 같은 사람이 다시 검색해도 앞 메시지의 버튼은 앞 검색의 영상을 선택한다(버튼 밖에 기억해 둔 것이 없다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ const pickIds = (shown: Shown) =>
     .map((b) => b.data.custom_id)
     .filter((id) => partsOf(id).action === "pick");
 
-test("다시 검색해도 앞 메시지의 1번은 앞 검색의 영상을 고른다", async () => {
+test("다시 검색해도 앞 메시지의 1번은 앞 검색의 영상을 선택한다", async () => {
   const first = await menuOf([tracks.youtube("aaaaaaaaaaa")]);
   const second = await menuOf([tracks.youtube("bbbbbbbbbbb")]);
   assert.deepEqual(pickIds(first), ["search:pick:u1:1:aaaaaaaaaaa"]);

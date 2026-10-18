@@ -1,4 +1,4 @@
-// src/dashboard/status/ — 봇 상태 탭이 모으는 것: 최근 15분(15초 칸마다 한 점, 60점까지) · 게이트웨이 재수립 · 자식 프로세스
+// src/dashboard/status/ — 봇 상태 탭이 모으는 것: 최근 15분(15초 구간마다 한 점, 60점까지) · 게이트웨이 재수립 · 자식 프로세스
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ const closeWindows = (n: number) => {
   for (let i = 0; i < n * 5; i++) _tick();
 };
 
-test("최근 15분: 칸마다 한 점. 소리를 내는 플레이어 수(멈춤 · 곡 없음은 빼고) · 디스코드 지연 · heap 사용률", () => {
+test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈춤 · 곡 없음은 빼고) · 디스코드 지연 · heap 사용률", () => {
   startStatusHistory(bot);
   const before = Date.now();
   closeWindows(1);

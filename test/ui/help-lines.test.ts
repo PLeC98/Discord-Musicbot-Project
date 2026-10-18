@@ -1,4 +1,4 @@
-// src/ui/help-lines.ts — /help 의 명령 줄을 명령 정의와 명령 모듈의 help(묶음 · 권한)에서 만든다.
+// src/ui/help-lines.ts — /help 의 명령 줄을 명령 정의와 명령 모듈의 help(섹션 · 권한)에서 만든다.
 // 실제 명령 목록으로 만든 줄을 적어 둔다(명령 · 설명 · 옵션 이름 · 권한을 바꾸면 여기도 바뀐다)
 
 import { test } from "node:test";
@@ -30,7 +30,7 @@ const EXPECTED = [
   },
   {
     name: "📡 채널 & 세션",
-    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setdjrole`: DJ 역할을 설정해요 (복수 선택 가능) 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/sponsorblock`: SponsorBlock 기능 설정 패널을 열어요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 띄워요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
+    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setdjrole`: DJ 역할을 설정해요 (복수 선택 가능) 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/sponsorblock`: SponsorBlock 기능 설정 패널을 열어요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
   },
   {
     name: "📊 봇 정보",
@@ -42,7 +42,7 @@ const EXPECTED = [
   },
 ];
 
-test("명령 정의에서 만든 /help 의 줄(묶음 · 차례 · 권한 표시)", () => {
+test("명령 정의에서 만든 /help 의 줄(섹션 · 순서 · 권한 표시)", () => {
   const sections = withConfig({ sponsorblock: { enabled: true } }, sectionsNow);
   assert.deepEqual(sections, EXPECTED);
 });

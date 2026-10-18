@@ -1,5 +1,5 @@
 /* D2Coding 1.4.0(NAVER, SIL OFL 1.1, assets/d2coding/OFL.txt). 대시보드의 고정폭 글꼴(style.css 의 --font-mono).
-   손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 조각내 만든다. 화면에 나온 글자의 조각만 받는다 */
+   손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 조각내 만든다. 화면에 나온 글자의 조각만 다운로드한다 */
 @font-face {
   font-family: "D2Coding";
   font-style: normal;

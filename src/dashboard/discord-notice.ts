@@ -1,4 +1,4 @@
-// 대시보드에서 한 조작의 결과를 패널이 있는 채널에 디스코드 조작과 같은 화면으로 보낸다. 바닥 줄은 "요청한 사람 @사람 (대시보드)".
+// 대시보드에서 한 조작의 결과를 패널이 있는 채널에 디스코드 조작과 같은 화면으로 보낸다. 푸터는 "요청한 사람 @사람 (대시보드)".
 // 알리지 못해도 조작의 HTTP 응답은 그대로다(남기기만 한다)
 
 import type { ContainerBuilder } from "discord.js";
@@ -18,7 +18,7 @@ import { signedIn } from "./middleware/require-auth.ts";
 
 type Channel = Awaited<ReturnType<NowPlayingPanel["panelChannel"]>> | null;
 
-/** 바닥 줄에 적는 사람. 대시보드에 로그인한 사람(봇 운영자도 디스코드 계정이다) */
+/** 푸터에 적는 사람. 대시보드에 로그인한 사람(봇 운영자도 디스코드 계정이다) */
 const dashboardActor = (req: Request) => controlText.viaDashboard(`<@${signedIn(req).id}>`);
 
 // 패널 채널을 찾는다. 못 찾으면 null(알리지 않는다)
@@ -44,14 +44,14 @@ function announcer(bot: Pick<BotContext, "panels">, player: Player | null | unde
   };
 }
 
-/** 곡 넣기. 담은 안내를 패널 채널에 보낸다. 플레이어의 글자 채널은 코어가 곡을 넣으며 정하므로 보낼 때 찾는다 */
+/** 곡 넣기. 담은 안내를 패널 채널에 보낸다. 플레이어의 텍스트 채널은 코어가 곡을 넣으며 정하므로 보낼 때 찾는다 */
 function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId: string): Responder {
   return {
     async notifyQueued(view: ContainerBuilder) {
       await sendTo(channelOf(bot, bot.players.get(guildId)), view, LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 넣기 안내 실패:", error));
     },
     async dismissPlaceholder() {
-      /* 자리표시자를 띄우지 않았다 */
+      /* 자리표시자를 표시하지 않았다 */
     },
   };
 }

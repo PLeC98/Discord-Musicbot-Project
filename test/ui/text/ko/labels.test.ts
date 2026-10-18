@@ -1,4 +1,4 @@
-// src/ui/text/ko/labels.ts — 이름표를 모두 적어 둔다. 고치면 여기도 같이 고친다
+// src/ui/text/ko/labels.ts — 라벨을 모두 적어 둔다. 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

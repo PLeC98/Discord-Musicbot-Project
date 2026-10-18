@@ -1,4 +1,4 @@
-// 봇 상태 탭의 저장공간: 오디오 캐시 · 캐시 드라이브 · DB. 줄 수를 세고 드라이브를 읽으므로 15초 칸마다 모아 둔다
+// 봇 상태 탭의 저장공간: 오디오 캐시 · 캐시 드라이브 · DB. 행 수를 세고 드라이브를 읽으므로 15초 구간마다 모아 둔다
 
 import * as audioCache from "../../store/audio-cache.ts";
 import { dbStats } from "../../store/stores.ts";
@@ -16,7 +16,7 @@ function measure(): StorageView {
 
 let last: StorageView | null = null;
 
-/** 칸마다 잰다. 끊는 함수를 돌려준다 */
+/** 구간마다 잰다. 끊는 함수를 돌려준다 */
 function watchStorage() {
   return onWindow(() => {
     last = measure();

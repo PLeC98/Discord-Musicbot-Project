@@ -1,5 +1,5 @@
-// src/discord/events/interaction-create.ts — 상호작용 입구. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 처리기 표로 고른다.
-// 처리가 던지면 한 번 남기고 알린다. 종류를 가를 수 있는 오류는 그 문장, 자리표시자를 선언한 처리기는 그 자리에.
+// src/discord/events/interaction-create.ts — 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 처리기 표로 선택한다.
+// 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 처리기는 그 자리표시자에.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -98,13 +98,13 @@ test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으�
   assert.equal(answered.sent[0][0], "followUp");
 });
 
-test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답 자리를 지우고 본인에게만 알린다", async () => {
+test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답을 삭제하고 본인에게만 알린다", async () => {
   const { it, sent, bot } = interaction({ commands: { play: failing(new Error("x")) }, deferred: true });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(sent, [["deleteReply"], ["followUp", noticeReply(errors.notice("command-failed"))]]);
 });
 
-test("종류를 가를 수 있는 오류(네트워크 등)는 그 종류의 문장으로 알린다", async () => {
+test("종류를 구분할 수 있는 오류(네트워크 등)는 그 종류의 문장으로 알린다", async () => {
   const { it, sent, bot } = interaction({ commands: { play: failing(networkError()) } });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(sent[0][1], noticeReply(errors.notice("network-error")));
@@ -114,7 +114,7 @@ test("종류를 가를 수 있는 오류(네트워크 등)는 그 종류의 문�
   assert.deepEqual(pressed.sent[0][1], noticeReply(errors.notice("network-error")));
 });
 
-test("자리표시자를 띄운 처리기가 선언했으면 그 자리에 알린다", async () => {
+test("자리표시자를 표시한 처리기가 선언했으면 그 자리표시자에 알린다", async () => {
   const placeholder = {
     execute: async (i: object) => {
       showFailureWith(i, async (notice) => sent.push(["shown", notice]));

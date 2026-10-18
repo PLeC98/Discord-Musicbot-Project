@@ -63,10 +63,10 @@ function canWrite(channelId: string | null | undefined) {
   return now === "" || now === ours.get(channelId);
 }
 
-// 게이트웨이 패킷에서 여기서 읽는 칸만
+// 게이트웨이 패킷에서 여기서 읽는 필드만
 type Packet = { t?: unknown; d?: { id?: string; status?: unknown; channels?: Array<{ id?: string; type?: number; status?: unknown } | null> } | null };
 
-/** 봇이 받는 모든 게이트웨이 패킷에서 상태 정보만 골라 담는다. */
+/** 봇이 받는 모든 게이트웨이 패킷에서 상태 정보만 필터링해 담는다. */
 function consumePacket(packet: Packet | null | undefined) {
   if (!packet || typeof packet.t !== "string") return;
 

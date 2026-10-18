@@ -1,4 +1,4 @@
-// src/player/voice-link.ts — 음성 연결 상태 기계. 전이 표(notes/ref-voice-link.md)의 줄마다 시험 하나.
+// src/player/voice-link.ts — 음성 연결 상태 기계. 전이 표(notes/ref-voice-link.md)의 행마다 테스트 하나.
 // 음성 라이브러리의 joinVoiceChannel · entersState 는 가짜로 넘기고, 연결의 전이는 가짜 연결에 stateChange 를 쏘아 흉내 낸다.
 
 import { test, beforeEach, afterEach } from "node:test";
@@ -49,7 +49,7 @@ class FakeConnection extends EventEmitter {
 }
 
 const joins: FakeConnection[] = [];
-// 붙기(entersState Ready)의 결과. 시험이 바꾼다: true 면 붙고, false 면 곧바로 던지고(네트워크 오류), "timeout" 이면 제한 시간이 지난 것(AbortError)
+// 붙기(entersState Ready)의 결과. 테스트가 바꾼다: true 면 붙고, false 면 곧바로 던지고(네트워크 오류), "timeout" 이면 제한 시간이 지난 것(AbortError)
 let joinWorks: Array<boolean | "timeout"> = [];
 const lib = fake<VoiceLib>({
   joinVoiceChannel: () => {
@@ -76,7 +76,7 @@ async function until(ok: () => boolean, what: string, limitMs = 1000) {
   }
 }
 
-// 시험마다 만든 연결. 끝나면 정리해 남은 기다림 · 복구가 다음 시험에 끼어들지 않게 한다
+// 테스트마다 만든 연결. 끝나면 정리해 남은 기다림 · 복구가 다음 테스트에 끼어들지 않게 한다
 const links: VoiceLink[] = [];
 
 beforeEach(() => {
@@ -87,7 +87,7 @@ afterEach(() => {
   for (const link of links.splice(0)) link.stop();
 });
 
-// 플레이어 가짜와 음성 연결. 시험은 steps 로 무엇을 불렀는지 본다
+// 플레이어 가짜와 음성 연결. 테스트는 steps 로 무엇을 불렀는지 본다
 // fetchAs: 디스코드에 채널을 물었을 때의 답(기본: 캐시에 있으면 있다). 오류면 던진다
 // atDiscord: 디스코드에 봇의 음성 채널을 물었을 때의 답(기본: 캐시와 같다). 오류면 던진다
 function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined } = {}) {

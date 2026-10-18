@@ -116,7 +116,7 @@ function joinRoute(router: Router) {
   });
 }
 
-// 조작 뒤의 재생 상태. 모든 조작이 같은 모양으로 답한다. 조작이 플레이어를 버렸을 수 있어(정지) 등록부에서 다시 찾는다
+// 조작 뒤의 재생 상태. 모든 조작이 같은 모양으로 답한다. 조작이 플레이어를 버렸을 수 있어(정지) 레지스트리에서 다시 찾는다
 function stateAfter(req: Request<{ guildId: string }>) {
   return playerState(req.app.locals.bot.players.get(req.params.guildId), queueWindow(req));
 }
@@ -290,7 +290,7 @@ function autoplayRoutes(router: Router) {
     if (!body.ok) return sendProblem(res, body.code);
     const { bot, guild, member } = ctx;
     const { genre } = body.value;
-    // 새 플레이어의 글자 채널은 곡 넣기와 같다(전용 채널이 있으면 그것)
+    // 새 플레이어의 텍스트 채널은 곡 넣기와 같다(전용 채널이 있으면 그것)
     const textChannel = genre && !ctx.player?.textChannel ? await resolveFallbackTextChannel(guild) : null;
     const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create: () => ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null }) });
     if (!r.ok) return refuse(res, r);
@@ -331,7 +331,7 @@ function addRoutes(router: Router) {
         single,
         source: "대시보드",
         responder: dashboardResponder(bot, guildId),
-        lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
+        lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
       });
 
       if (!result.success) return refuseWith(res, addFailure(result));

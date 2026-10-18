@@ -13,9 +13,9 @@ const SNAP = 0.08;
 /** 주소만 보고 짐작한 배율(픽셀을 읽기 전). 유튜브 4:3 썸네일은 16:9 영상이 가운데 3/4 에 있다 */
 const guessZoom = (url: string | null | undefined) => (url && /ytimg\.com\/vi(_webp)?\/[^/]+\/(hq|sd)?default\.(jpg|webp)/.test(url) ? 4 / 3 : 1);
 
-// 그림 읽기 · 띠 재기 · 색 뽑기를 따로 기억한다. 색 뽑기(양자화)는 무거워 정말 필요한 그림만 한다.
+// 그림 읽기 · 띠 재기 · 색 추출을 따로 기억한다. 색 추출(양자화)은 무거워 정말 필요한 그림만 한다.
 // 기억에는 상한을 둔다(오래 켜 두면 곡이 수백 곡 넘어간다). 최근에 쓴 것부터 남기고 오래된 것을 놓는다.
-// 원본 그림은 디코딩된 채로 들고 있어 무겁다(480×360 이면 0.7MB, 큰 그림이면 몇 MB): 색 뽑기 · 배경을 만든 뒤에는 거의 다시 쓰지 않으므로 몇 장만
+// 원본 그림은 디코딩된 채로 들고 있어 무겁다(480×360 이면 0.7MB, 큰 그림이면 몇 MB): 색 추출 · 배경을 만든 뒤에는 거의 다시 쓰지 않으므로 몇 장만
 const images = new Map<string, Promise<HTMLImageElement | null>>();
 const contents = new Map<string, Promise<number>>();
 const seeds = new Map<string, Promise<number | null>>();
@@ -24,7 +24,7 @@ const KEEP = { images: 8, small: 64, backdrops: 24 };
 function remember<T>(map: Map<string, Promise<T>>, key: string, make: () => Promise<T>, keep: number, drop?: (gone: Promise<T>) => void): Promise<T> {
   let found = map.get(key);
   if (found) {
-    // 최근에 쓴 것을 뒤로(Map 은 넣은 차례를 지킨다)
+    // 최근에 쓴 것을 뒤로(Map 은 넣은 순서를 지킨다)
     map.delete(key);
     map.set(key, found);
     return found;
@@ -55,7 +55,7 @@ const imageOf = (url: string) =>
     KEEP.images,
   );
 
-/** 위아래 검은 띠를 뺀 내용의 높이 비율(0~1). 줄마다 밝기를 보고 어두운 줄이 이어지는 데까지를 띠로 본다 */
+/** 위아래 검은 띠를 뺀 내용의 높이 비율(0~1). 행마다 밝기를 보고 어두운 행이 이어지는 데까지를 띠로 본다 */
 function measure(img: HTMLImageElement): number {
   const w = 48;
   const h = Math.max(8, Math.round((w * img.naturalHeight) / img.naturalWidth));
@@ -92,7 +92,7 @@ const contentOf = (url: string) =>
     KEEP.small,
   );
 
-/** 그림 주소의 대표색(ARGB). 띠를 뺀 가운데 정사각형에서 뽑는다. 못 읽으면 null, 쓸 만한 색이 없는 그림(흑백 · 거의 무채색)이면 COLORLESS(회색 테마) */
+/** 그림 주소의 대표색(ARGB). 띠를 뺀 가운데 정사각형에서 추출한다. 못 읽으면 null, 쓸 만한 색이 없는 그림(흑백 · 거의 무채색)이면 COLORLESS(회색 테마) */
 const seedOf = (url: string) =>
   remember(
     seeds,
@@ -107,13 +107,13 @@ const seedOf = (url: string) =>
       if (!ctx) return null;
       const crop = Math.min(img.naturalWidth, img.naturalHeight * content);
       ctx.drawImage(img, (img.naturalWidth - crop) / 2, (img.naturalHeight - crop) / 2, crop, crop, 0, 0, SEED_SIDE, SEED_SIDE);
-      // 고르는 셈은 봇(로그인 배경의 장면 색)과 같은 것(rules/art-seed)
+      // 선택하는 셈은 봇(로그인 배경의 장면 색)과 같은 것(rules/art-seed)
       return seedOfPixels(ctx.getImageData(0, 0, SEED_SIDE, SEED_SIDE).data);
     },
     KEEP.small,
   );
 
-// 배경화면용으로 미리 흐린 그림. 큰 겹을 CSS 로 흐리면 두 겹이 엇갈려 번지는 동안 매 프레임 두 겹을 다시 흐린다(무겁다).
+// 배경화면용으로 미리 흐린 그림. 큰 레이어를 CSS 로 흐리면 두 레이어가 엇갈려 번지는 동안 매 프레임 두 레이어를 다시 흐린다(무겁다).
 // 한 번 만들어 두면 겹침은 다 된 그림 두 장을 섞기만 한다. 정한 폭으로 줄인 뒤 흐린다: 흐림은 그 폭 대비 비율이라 원본 해상도 · 화면 크기와 무관하게 같은 정도로 번진다.
 // 밝기는 모드에 맞는 띠로 옮긴다(OKLab L, 색조는 그대로): 하얀 그림이 어두운 모드에서 글자와 부딪히거나, 까만 그림이 밝은 모드에서 그러지 않게.
 // 그림의 쓰임마다 값이 다르다(BACKDROP_LOOKS)
@@ -139,10 +139,10 @@ const NO_CAP = 1;
 const BAND = { dark: { lo: 0.16, hi: 0.36, chroma: 0.1 }, light: { lo: 0.86, hi: 0.95, chroma: 0.07 } };
 const BACKDROP_LOOKS = {
   // 지금 곡의 앨범아트(배경은 들러리). 아주 작게(64 폭) 만들어 브라우저가 늘리며 부드럽게 번지게 하고, 흐림은 살짝(1px) 준다
-  // (2026-10-09 사용자가 배경 실험 페이지에서 고른 값. 192 폭은 늘렸을 때 압축 자국이 네모나게 보였다)
+  // (2026-10-09 사용자가 배경 실험 페이지에서 선택한 값. 192 폭은 늘렸을 때 압축 자국이 네모나게 보였다)
   song: { width: 64, upTo: false, blur: 1 / 64, saturate: 1.6, band: 1, range: BAND, quality: 0.92, crop: true },
   // 로그인 화면의 봇 프사(배경이 시계 · 버튼과 함께 주인공). 받은 그대로의 해상도로 그림을 살리고(768 폭 상한: 네 자리 폭부터 만드는 시간이 확 는다),
-  // 흐림은 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다). 2026-10-10 사용자가 배경 실험 페이지에서 고른 값
+  // 흐림은 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다). 2026-10-10 사용자가 배경 실험 페이지에서 선택한 값
   avatar: { width: 768, upTo: true, blur: 0.005, saturate: 1, band: 0.5, range: { dark: { lo: 0.2, hi: 0.45, chroma: NO_CAP }, light: { lo: 0.8, hi: 0.95, chroma: NO_CAP } }, quality: 0.99, crop: false },
 } satisfies Record<string, BakeLook>;
 type BackdropKind = keyof typeof BACKDROP_LOOKS;
@@ -219,7 +219,7 @@ function useArtZoom(url: () => string | null | undefined, measured = false): Ref
       const content = await contentOf(now);
       if (url() !== now) return;
       const measuredZoom = Math.min(MAX_ZOOM, img.naturalWidth >= img.naturalHeight ? 1 / content : 1);
-      // 잰 값은 줄 단위라 조금 모자라 검은 띠가 한 줄 남는다. 주소로 아는 값(4:3 썸네일의 16:9 = 4/3)에 가까우면 그 값을 쓴다
+      // 잰 값은 행 단위라 조금 모자라 검은 띠가 한 행 남는다. 주소로 아는 값(4:3 썸네일의 16:9 = 4/3)에 가까우면 그 값을 쓴다
       const guessed = guessZoom(now);
       zoom.value = Math.abs(measuredZoom - guessed) < SNAP ? guessed : measuredZoom;
     },

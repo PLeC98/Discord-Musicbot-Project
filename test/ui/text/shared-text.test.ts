@@ -1,5 +1,5 @@
 // 봇과 대시보드(브라우저)가 같이 쓰는 오류 · 거절 안내(src/ui/text/ko/errors.ts).
-// 부르는 모듈을 따라가며 discord.js · Node 내장 모듈 · 바깥 패키지가 없는지, 문장에 디스코드에서만 읽히는 꼴이 없는지 본다
+// 부르는 모듈을 따라가며 discord.js · Node 내장 모듈 · 바깥 패키지가 없는지, 문장에 디스코드에서만 읽히는 형식이 없는지 본다
 // (공유 문장의 꾸밈은 굵게 · 코드 두 가지)
 
 import { test } from "node:test";
@@ -35,11 +35,11 @@ function graph() {
 
 test("공유 안내가 부르는 모듈에는 discord.js · Node 내장 모듈 · 바깥 패키지가 없다", () => {
   const { seen, outside } = graph();
-  assert.ok(seen.has("src/rules/josa.ts") && seen.has("src/rules/english-final.ts"), "따라가기가 조사 도우미까지 닿는다");
+  assert.ok(seen.has("src/rules/josa.ts") && seen.has("src/rules/english-final.ts"), "따라가기가 조사 헬퍼까지 닿는다");
   assert.deepEqual(outside, []);
 });
 
-test("공유 문장에는 디스코드에서만 읽히는 꼴(멘션 · 머리글 · 작은 글씨 · 링크 · 가림 · 취소선)이 없다", () => {
+test("공유 문장에는 디스코드에서만 읽히는 형식(멘션 · 헤더 · 작은 글씨 · 링크 · 가림 · 취소선)이 없다", () => {
   const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2 };
   for (const [code, spec] of Object.entries(PROBLEMS) as Array<[Code, (typeof PROBLEMS)[Code]]>) {
     const params = Object.fromEntries(("params" in spec ? spec.params : []).map((name) => [name, SAMPLE[name]]));

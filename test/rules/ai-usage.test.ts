@@ -12,7 +12,7 @@ test("날 더하기는 달 · 해를 넘는다", () => {
   assert.equal(firstDay(0, "2026-10-11", null), "2026-10-11");
 });
 
-test("묶음: 실패 · 가격 모름을 세고, 응답 시간은 성공한 것만(p95 는 올림 자리)", () => {
+test("버킷: 실패 · 가격 모름을 세고, 응답 시간은 성공한 것만(p95 는 올림 자리)", () => {
   // 성공 10건(100 ~ 1000ms): p95 는 ceil(9.5) = 10번째 = 1000, 평균 550. 실패한 99999ms 는 세지 않는다
   const rows = [...Array.from({ length: 9 }, (_, i) => row({ tookMs: (i + 1) * 100 })), row({ tookMs: 1000, costUsd: null }), row({ ok: false, tookMs: 99999 })];
   const got = bucketOf(rows);

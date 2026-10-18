@@ -1,4 +1,4 @@
-// src/store/track-lookup.ts — 링크 장부의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
+// src/store/track-lookup.ts — 오디오 링크 데이터의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -40,7 +40,7 @@ test("음원 주소는 출처와 무관하게 항상 갱신된다", () => {
   const url = "https://www.youtube.com/watch?v=remap";
   trackLookup.recordTrackLookup({ requestKey: url, pageUrl: url, audioUrl: "https://www.youtube.com/watch?v=old", platform: "youtube", title: "제목" }, { verified: true });
   trackLookup.recordTrackLookup({ requestKey: url, pageUrl: url, audioUrl: "https://www.youtube.com/watch?v=new", platform: "youtube", title: "낡은 제목" });
-  assert.equal(trackLookup.getAudioUrl(url), "https://www.youtube.com/watch?v=new", "재검색 결과가 장부를 갱신해야 한다");
+  assert.equal(trackLookup.getAudioUrl(url), "https://www.youtube.com/watch?v=new", "재검색 결과가 링크 데이터를 갱신해야 한다");
   assert.equal(trackLookup.getVerifiedTitle(url), "제목", "제목은 지켜진다");
 });
 
@@ -63,7 +63,7 @@ function cacheFile(key: string) {
   return file;
 }
 
-test("캐시 찾기: 장부의 음원 주소에서 열쇠를 계산해 audio_cache 를 본다. 링크 칸 셋이 그대로 돌아온다", () => {
+test("캐시 찾기: 링크 데이터의 음원 주소에서 키를 계산해 audio_cache 를 본다. 링크 필드 셋이 그대로 돌아온다", () => {
   const file = cacheFile("yt:twostepvid");
   trackLookup.recordTrackLookup({ requestKey: "amq:77", pageUrl: "https://anilist.co/anime/77", audioUrl: "https://www.youtube.com/watch?v=twostepvid", platform: "anisongdb", title: "곡", artist: "가수" });
 
@@ -72,10 +72,10 @@ test("캐시 찾기: 장부의 음원 주소에서 열쇠를 계산해 audio_cac
   assert.equal(hit.filePath, file);
   assert.equal(hit.audioKey, "yt:twostepvid");
   assert.deepEqual([hit.track.pageUrl, hit.track.requestKey, hit.track.audioUrl], ["https://anilist.co/anime/77", "amq:77", "https://www.youtube.com/watch?v=twostepvid"]);
-  assert.equal(hit.track.title, "곡", "장부의 표시 이름이 앞선다");
+  assert.equal(hit.track.title, "곡", "링크 데이터의 표시 이름이 앞선다");
 });
 
-test("캐시 찾기: 장부와 캐시 모두 제목이 없으면 제목을 비워 둔다(null)", () => {
+test("캐시 찾기: 링크 데이터와 캐시 모두 제목이 없으면 제목을 비워 둔다(null)", () => {
   const file = audioCache.getFilePath("yt:untitled01");
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, "opus");
@@ -88,7 +88,7 @@ test("캐시 찾기: 장부와 캐시 모두 제목이 없으면 제목을 비�
   assert.equal(hit.track.title, null);
 });
 
-test("퇴거로 audio_cache 행이 지워져도 장부는 남는다. 다음에 받으면 같은 음원을 쓴다", () => {
+test("퇴거로 audio_cache 행이 삭제돼도 링크 데이터는 남는다. 다음에 다운로드하면 같은 음원을 쓴다", () => {
   const file = cacheFile("yt:evictedvid");
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/ev1", pageUrl: "https://open.spotify.com/track/ev1", audioUrl: "https://www.youtube.com/watch?v=evictedvid", platform: "spotify", title: "곡" });
 
@@ -99,18 +99,18 @@ test("퇴거로 audio_cache 행이 지워져도 장부는 남는다. 다음에 �
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/ev1?si=x"), "https://www.youtube.com/watch?v=evictedvid", "검색은 건너뛴다");
 });
 
-test("음원 주소가 없는 곡은 장부에 적지 않는다(스포티파이가 영상을 찾기 전)", () => {
+test("음원 주소가 없는 곡은 링크 데이터에 적지 않는다(스포티파이가 영상을 찾기 전)", () => {
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/noaudio", pageUrl: "https://open.spotify.com/track/noaudio", platform: "spotify", title: "곡" });
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/noaudio"), null);
 });
 
-test("모양이 틀린 장부 줄은 없는 것으로 본다", () => {
+test("모양이 틀린 링크 데이터 행은 없는 것으로 본다", () => {
   cacheDb.get().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, title_verified) VALUES (?, ?, ?, ?, 0)").run("https://open.spotify.com/track/badrow", "https://open.spotify.com/track/badrow", "", "spotify");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/badrow"), null, "빈 음원 주소");
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/badrow").hit, false);
 });
 
-test("자동재생이 보는 장부(route.REAL.known): 받아 둔 파일이 있으면 길이까지, 없으면 음원 주소만", () => {
+test("자동재생이 보는 링크 데이터(route.REAL.known): 캐시 파일이 있으면 길이까지, 없으면 음원 주소만", () => {
   const { known } = route.REAL;
   cacheFile("yt:knowncache");
   trackLookup.recordTrackLookup({ requestKey: "amq:801", pageUrl: "https://anilist.co/anime/8", audioUrl: "https://www.youtube.com/watch?v=knowncache", platform: "anisongdb", title: "곡" });
@@ -121,18 +121,18 @@ test("자동재생이 보는 장부(route.REAL.known): 받아 둔 파일이 있�
   assert.equal(known("amq:803"), null);
 });
 
-// ── 받아 둔 음원의 길이 ───────────────────────────────────────
+// ── 캐시한 음원의 길이 ───────────────────────────────────────
 
-test("받아 둔 음원의 길이: 음원 주소로, 주소가 없으면(스포티파이) 장부가 기억하는 음원으로 찾는다. 다 받은 것만", () => {
+test("캐시한 음원의 길이: 음원 주소로, 주소가 없으면(스포티파이) 링크 데이터가 기억하는 음원으로 찾는다. 다운로드가 끝난 것만", () => {
   const yt = "https://www.youtube.com/watch?v=lenlenlen01";
   const sp = "https://open.spotify.com/track/lensp1";
   audioCache.recordDownloadStart("yt:lenlenlen01", { title: "곡", duration: 180 });
-  assert.equal(trackLookup.knownAudioLength({ audioUrl: yt }), null, "받는 중이면 모른다(행의 길이는 곡이 준 값이다)");
+  assert.equal(trackLookup.knownAudioLength({ audioUrl: yt }), null, "다운로드 중이면 모른다(행의 길이는 곡이 준 값이다)");
 
   audioCache.recordDownloadComplete("yt:lenlenlen01", audioCache.getFilePath("yt:lenlenlen01"), 1, { title: "곡" }, { durationSec: 181.37 });
   assert.equal(trackLookup.knownAudioLength({ audioUrl: yt }), 181.37);
 
-  assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), null, "장부에 없으면 모른다");
+  assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), null, "링크 데이터에 없으면 모른다");
   trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: yt, platform: "spotify", title: "곡" });
   assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), 181.37);
 });

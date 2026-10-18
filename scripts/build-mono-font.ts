@@ -1,10 +1,10 @@
 // 대시보드 고정폭 글꼴(D2Coding)을 조각내 만든다. 손으로 실행한다. postinstall 이나 빌드에 걸려 있지 않다. 결과물은 저장소에 넣는다.
-//   node scripts/build-mono-font.ts               공식 저장소(naver/d2codingfont)의 최신 릴리스를 받아 만든다
-//   node scripts/build-mono-font.ts <릴리스 zip>  받아 둔 공식 릴리스 zip 으로 만든다
+//   node scripts/build-mono-font.ts               공식 저장소(naver/d2codingfont)의 최신 릴리스를 다운로드해 만든다
+//   node scripts/build-mono-font.ts <릴리스 zip>  다운로드해 둔 공식 릴리스 zip 으로 만든다
 //
-// 원본 TTF 는 굵기마다 4MB 남짓이고 공식 릴리스에는 웹 글꼴이 없다. 화면에 나온 글자의 조각만 받도록 woff2 조각으로 나눈다.
+// 원본 TTF 는 굵기마다 4MB 남짓이고 공식 릴리스에는 웹 글꼴이 없다. 화면에 나온 글자의 조각만 다운로드하도록 woff2 조각으로 나눈다.
 // 조각 경계: 한글 · 라틴은 Pretendard 의 dynamic subset 조각을 그대로 빌린다(자주 쓰는 글자끼리 묶여 있어 한 화면의 한글이 적은 조각으로 끝난다).
-// 그 밖의 글자(한자 · 가나 일부 등)는 코드 차례로 묶는다. 결과: dashboard/src/assets/d2coding/(조각 · OFL.txt) · dashboard/src/d2coding.css(@font-face)
+// 그 밖의 글자(한자 · 가나 일부 등)는 코드 순서로 묶는다. 결과: dashboard/src/assets/d2coding/(조각 · OFL.txt) · dashboard/src/d2coding.css(@font-face)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +32,7 @@ async function releaseZip(): Promise<Buffer> {
   const latest = (await (await fetch(RELEASES, { headers: { Accept: "application/vnd.github+json" } })).json()) as { tag_name: string; assets: Array<{ name: string; browser_download_url: string }> };
   const asset = latest.assets.find((one) => one.name.endsWith(".zip"));
   if (!asset) throw new Error(`릴리스 ${latest.tag_name} 에 zip 이 없습니다`);
-  console.log(`받는 중: ${asset.name}`);
+  console.log(`다운로드 중: ${asset.name}`);
   return Buffer.from(await (await fetch(asset.browser_download_url)).arrayBuffer());
 }
 
@@ -60,7 +60,7 @@ function rangeOf(cps: number[]): string {
   return parts.join(", ");
 }
 
-/** 조각들: Pretendard 의 조각 경계로 나누고, 남은 글자는 코드 차례로 REST_CHUNK 씩 */
+/** 조각들: Pretendard 의 조각 경계로 나누고, 남은 글자는 코드 순서로 REST_CHUNK 씩 */
 function chunksOf(charset: Set<number>): number[][] {
   const css = fs.readFileSync(PRETENDARD_CSS, "utf8");
   const taken = new Set<number>();
@@ -104,7 +104,7 @@ async function main() {
   }
 
   const body = `/* D2Coding ${version}(NAVER, SIL OFL 1.1, assets/d2coding/OFL.txt). 대시보드의 고정폭 글꼴(style.css 의 --font-mono).
-   손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 조각내 만든다. 화면에 나온 글자의 조각만 받는다 */
+   손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 조각내 만든다. 화면에 나온 글자의 조각만 다운로드한다 */
 ${faces.join("\n")}
 `;
   const options = (await prettier.resolveConfig(OUT_CSS)) ?? {};

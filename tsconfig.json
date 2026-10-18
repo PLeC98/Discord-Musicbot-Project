@@ -19,6 +19,6 @@
     "verbatimModuleSyntax": true
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts", "eslint.config.ts"],
-  // 화면 모듈을 부르는 시험은 브라우저 타입이 있어야 해 test/dashboard/client/tsconfig.json 이 본다
+  // 화면 모듈을 부르는 테스트는 브라우저 타입이 있어야 해 test/dashboard/client/tsconfig.json 이 본다
   "exclude": ["test/dashboard/client"]
 }

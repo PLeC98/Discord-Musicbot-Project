@@ -119,7 +119,7 @@ function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other"
   return "other";
 }
 
-// ── 직접 링크(확장자로 가린다) ──
+// ── 직접 링크(확장자로 구분한다) ──
 
 const DIRECT_AUDIO_FORMATS = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".opus", ".webm", ".mp4", ".mkv", ".avi", ".mov"];
 
@@ -140,7 +140,7 @@ function isDirectAudioLink(url: unknown): boolean {
 
 // ── 링크인가 ──
 
-/** http · https 주소인가. 링크가 아닌 글(검색어)과 가른다 */
+/** http · https 주소인가. 링크가 아닌 텍스트(검색어)와 구분한다 */
 function isHttpLink(value: unknown): boolean {
   if (typeof value !== "string") return false;
   try {

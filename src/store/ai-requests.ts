@@ -1,15 +1,15 @@
 // AI 리퀘스트 로그 · 사용량 통계 읽기와 쓰기(ai-requests.db, store/ai-log-db).
-// 쓰기 하나가 로그(requests)와 통계(usage) 한 줄씩을 함께 쓴다. 칸 하나가 너무 크면 앞뒤를 남기고 자른다(모델 목록 응답은 수백 KB 다).
-// 로그는 저장 용량을 넘으면 오래된 것부터 지운다(최근 KEEP_MIN_ROWS 줄은 크기와 무관하게 남긴다). 통계는 지우지 않는다.
-// 새 줄은 듣는 쪽(대시보드의 실시간 연결)에 알린다.
+// 쓰기 하나가 로그(requests)와 통계(usage) 한 행씩을 함께 쓴다. 열 하나가 너무 크면 앞뒤를 남기고 자른다(모델 목록 응답은 수백 KB 다).
+// 로그는 저장 용량을 넘으면 오래된 것부터 삭제한다(최근 KEEP_MIN_ROWS 행은 크기와 무관하게 남긴다). 통계는 삭제하지 않는다.
+// 새 행은 듣는 쪽(대시보드의 실시간 연결)에 알린다.
 
 import { aiLogDb } from "./ai-log-db.ts";
 import { dayKey, type UsageRow } from "../rules/ai-usage.ts";
 import type { AiLogDetail, AiLogEntry, AiLogQuery, AiLogSource } from "../dashboard/contract/ai-log.ts";
 
-/** 저장 용량과 무관하게 남기는 최근 줄 수 */
+/** 저장 용량과 무관하게 남기는 최근 행 수 */
 const KEEP_MIN_ROWS = 50;
-/** 칸 하나의 상한(바이트). 넘으면 앞뒤를 남기고 가운데를 줄인다 */
+/** 열 하나의 상한(바이트). 넘으면 앞뒤를 남기고 가운데를 줄인다 */
 const MAX_FIELD_BYTES = 512 * 1024;
 /** 이만큼 쓸 때마다 저장 용량을 맞춘다(쓸 때마다 세면 큰 표에서 무겁다) */
 const ROTATE_EVERY = 20;
@@ -97,7 +97,7 @@ function toEntry(row: RequestRow): AiLogEntry {
 
 const orNull = <T>(value: T | undefined): T | null => value ?? null;
 
-/** 원문 칸: 큰 칸은 자르고 크기를 센다 */
+/** 원문 열: 큰 열은 자르고 크기를 센다 */
 function textColumns(one: NewRecord) {
   const headers = cap(one.requestHeaders);
   const body = cap(one.requestBody);
@@ -107,12 +107,12 @@ function textColumns(one: NewRecord) {
   return { truncated: truncated ? 1 : 0, size_bytes: size, request_headers: headers.text, request_body: body.text, response: response.text };
 }
 
-/** 토큰 칸. 못 읽었으면 모두 NULL */
+/** 토큰 열. 못 읽었으면 모두 NULL */
 function tokenColumns(t: NewRecord["tokens"]) {
   return { input_tokens: orNull(t?.input), output_tokens: orNull(t?.output), cached_tokens: orNull(t?.cached), reasoning_tokens: orNull(t?.reasoning) };
 }
 
-/** 쓸 줄(표의 칸 이름) */
+/** 쓸 행(표의 열 이름) */
 function rowOf(one: NewRecord) {
   return {
     at: one.at,
@@ -138,7 +138,7 @@ function rowOf(one: NewRecord) {
   };
 }
 
-/** 한 줄을 쓰고(로그 · 통계) 듣는 쪽에 알린다. 쓴 줄을 돌려준다 */
+/** 한 행을 쓰고(로그 · 통계) 듣는 쪽에 알린다. 쓴 행을 돌려준다 */
 function record(one: NewRecord, { maxBytes }: { maxBytes: number }): AiLogEntry {
   const row = rowOf(one);
   const t = one.tokens;
@@ -162,7 +162,7 @@ function record(one: NewRecord, { maxBytes }: { maxBytes: number }): AiLogEntry 
   return entry;
 }
 
-/** 저장 용량에 맞춘다: 최근 것부터 크기를 더해 넘는 줄을 지운다(최근 KEEP_MIN_ROWS 줄은 남긴다) */
+/** 저장 용량에 맞춘다: 최근 것부터 크기를 더해 넘는 행을 삭제한다(최근 KEEP_MIN_ROWS 행은 남긴다) */
 function rotate(maxBytes: number) {
   writtenSinceRotate = 0;
   const db = aiLogDb.get();
@@ -177,7 +177,7 @@ function rotate(maxBytes: number) {
   return gone;
 }
 
-/** 거르기에 맞는 줄을 최근 것부터(before 보다 작은 id). total: 남은 전부, matched: 맞는 것 */
+/** 필터에 맞는 행을 최근 것부터(before 보다 작은 id). total: 남은 전부, matched: 맞는 것 */
 function list(query: AiLogQuery, { before, limit }: { before?: number; limit: number }): { entries: AiLogEntry[]; total: number; matched: number } {
   const where: string[] = [];
   const args: Record<string, unknown> = {};
@@ -188,7 +188,7 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   if (query.result) where.push(query.result === "ok" ? "ok = 1" : "ok = 0");
   const q = query.q.trim();
   if (q) {
-    // 대소문자를 가리지 않는다(화면의 실시간 거르기 aiLogMatches 와 같다). % · _ 는 글자 그대로
+    // 대소문자를 가리지 않는다(화면의 실시간 필터 aiLogMatches 와 같다). % · _ 는 글자 그대로
     where.push("(instr(lower(url), @q) > 0 OR instr(lower(model), @q) > 0 OR instr(lower(name), @q) > 0 OR instr(lower(coalesce(error, '')), @q) > 0)");
     args.q = q.toLowerCase();
   }
@@ -200,40 +200,40 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   return { entries: rows.map(toEntry), total: count("SELECT COUNT(*) AS n FROM requests"), matched: count(`SELECT COUNT(*) AS n FROM requests ${filter}`, args) };
 }
 
-/** after 보다 뒤의 줄(오래된 것부터, 최근 limit 줄까지). 실시간 연결이 다시 붙을 때 놓친 줄 */
+/** after 보다 뒤의 행(오래된 것부터, 최근 limit 행까지). 실시간 연결이 다시 붙을 때 놓친 행 */
 function since(after: number, limit: number): AiLogEntry[] {
   const rows = aiLogDb.get().prepare(`SELECT ${SUMMARY_COLUMNS} FROM requests WHERE id > ? ORDER BY id DESC LIMIT ?`).all(after, limit) as RequestRow[];
   return rows.reverse().map(toEntry);
 }
 
-/** 한 줄의 원문까지. 없으면 null */
+/** 한 행의 원문까지. 없으면 null */
 function one(id: number): AiLogDetail | null {
   const row = aiLogDb.get().prepare("SELECT * FROM requests WHERE id = ?").get(id) as Required<RequestRow> | undefined;
   if (!row) return null;
   return { ...toEntry(row), requestHeaders: row.request_headers, requestBody: row.request_body, response: row.response };
 }
 
-/** 남은 줄 수 · 크기 */
+/** 남은 행 수 · 크기 */
 function size(): { count: number; bytes: number } {
   const row = aiLogDb.get().prepare("SELECT COUNT(*) AS count, COALESCE(SUM(size_bytes), 0) AS bytes FROM requests").get() as { count: number; bytes: number };
   return row;
 }
 
-/** 로그를 모두 지운다(통계는 남는다) */
+/** 로그를 모두 삭제한다(통계는 남는다) */
 function clearRequests() {
   const db = aiLogDb.get();
   db.prepare("DELETE FROM requests").run();
   db.pragma("incremental_vacuum");
 }
 
-/** 통계를 모두 지운다(로그는 남는다) */
+/** 통계를 모두 삭제한다(로그는 남는다) */
 function clearUsage() {
   const db = aiLogDb.get();
   db.prepare("DELETE FROM usage").run();
   db.pragma("incremental_vacuum");
 }
 
-/** from 날부터의 통계 줄(출처가 있으면 그것만) */
+/** from 날짜부터의 통계 행(출처가 있으면 그것만) */
 function usageSince(from: string, sources: readonly AiLogSource[]): UsageRow[] {
   const where = ["day >= @from", ...(sources.length ? [`source IN (${sources.map((_, i) => `@s${i}`).join(", ")})`] : [])].join(" AND ");
   const args: Record<string, unknown> = { from };
@@ -242,15 +242,15 @@ function usageSince(from: string, sources: readonly AiLogSource[]): UsageRow[] {
   return rows.map((row) => ({ day: row.day, source: row.source, provider: row.provider, model: row.model, name: row.name, guildId: row.guild_id, ok: row.ok === 1, tookMs: row.took_ms, input: row.input_tokens, output: row.output_tokens, cached: row.cached_tokens, reasoning: row.reasoning_tokens, costUsd: row.cost_usd }));
 }
 
-/** 가장 이른 통계의 날. 없으면 null */
+/** 가장 이른 통계의 날짜. 없으면 null */
 function earliestDay(): string | null {
   return (aiLogDb.get().prepare("SELECT MIN(day) AS day FROM usage").get() as { day: string | null }).day;
 }
 
-/** DB 가 열려 있는가(스크립트 · 시험은 열지 않을 수 있다. 그때는 남기지 않는다) */
+/** DB 가 열려 있는가(스크립트 · 테스트는 열지 않을 수 있다. 그때는 남기지 않는다) */
 const isOpen = () => aiLogDb.conn !== null;
 
-/** 새 줄을 듣는다. 떼는 함수를 돌려준다 */
+/** 새 행을 듣는다. 해제 함수를 돌려준다 */
 function onRecorded(listener: (entry: AiLogEntry) => void) {
   listeners.add(listener);
   return () => void listeners.delete(listener);

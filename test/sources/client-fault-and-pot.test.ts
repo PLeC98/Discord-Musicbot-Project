@@ -3,7 +3,7 @@
 //  1. yt-dlp 가 건너뛴 클라이언트를 실패로 세면 안 된다. 돌아 본 적이 없기 때문이다.
 //     연령 제한 영상 몇 편이면 주력 경로가 세션 내내 제외되고, 그때부터 평상시 재생까지 죽었다.
 //  2. POToken 을 요구한 클라이언트 이름은 경고 본문에 적혀 온다. 우리가 지정한 값이 아니다.
-//     연령 제한 영상에서는 우리가 고르지 않은 web_creator 가 yt-dlp 판단으로 끼어든다.
+//     연령 제한 영상에서는 우리가 선택하지 않은 web_creator 가 yt-dlp 판단으로 끼어든다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -24,7 +24,7 @@ const POT_LINE = "WARNING: [youtube] hc0ZDaAZQT0: web_creator client https forma
 
 const err = (stderr: string) => Object.assign(new Error(stderr), { stderr });
 
-/** _inspectWarnings 가 남긴 레코드를 받아 온다(로그의 듣는 자리에 잠깐 붙는다) */
+/** _inspectWarnings 가 남긴 레코드를 받아 온다(로그 리스너에 잠깐 붙는다) */
 function capture(line: string, client: string | null) {
   const records: LogRecord[] = [];
   const listen = (r: LogRecord) => records.push(r);

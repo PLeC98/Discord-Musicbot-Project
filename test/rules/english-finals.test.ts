@@ -23,7 +23,7 @@ function withWholeDictionary(word: string): Final {
   return spellingFinal(lower);
 }
 
-// 조사 도우미가 묻는 꼴: 소문자 · 첫 글자만 대문자 · 다섯 글자 이하는 모두 대문자(약어)
+// 조사 헬퍼가 묻는 형태: 소문자 · 첫 글자만 대문자 · 다섯 글자 이하는 모두 대문자(약어)
 const formsOf = (word: string) => [word, word[0].toUpperCase() + word.slice(1), ...(word.length <= 5 ? [word.toUpperCase()] : [])];
 
 test("사전의 모든 낱말에서 표의 답이 사전 전체의 답과 같다", () => {

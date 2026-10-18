@@ -47,7 +47,7 @@ test("폴더 밖 경로 · 깨진 내용 · ZIP 이 아닌 것은 거절한다",
   assert.ok(rejects(broken));
 });
 
-// 다른 프로그램이 만든 ZIP 의 흔한 꼴: 압축 없이 담은 항목 · 폴더 항목 · 끝 주석
+// 다른 프로그램이 만든 ZIP 의 흔한 형식: 압축 없이 담은 항목 · 폴더 항목 · 끝 주석
 // Windows PowerShell 5.1 의 Compress-Archive 는 경로를 \ 로 나눈다(사용자가 풀었다 다시 묶은 파일)
 test("\\ 로 나눈 경로는 / 로 읽는다", () => {
   assert.deepEqual(
@@ -118,7 +118,7 @@ test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄�
     } finally {
       opened.close();
     }
-    // 메모리 풀기도 같은 목차 읽기(ZIP64 꼴 포함)
+    // 메모리 풀기도 같은 목차 읽기(ZIP64 형식 포함)
     assert.deepEqual(
       unzip(fs.readFileSync(file), { maxBytes: 1_000_000 }).map((one) => one.name),
       ["index.json", "a/seg-000.m4s"],
@@ -142,7 +142,7 @@ test("흘려 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊�
   }
 });
 
-test("받는 곳이 비워지기를 기다리는 사이 닫히면(내려받던 쪽이 끊었다) 실패로 멈춘다", async () => {
+test("받는 곳이 비워지기를 기다리는 사이 닫히면(다운로드하던 쪽이 끊었다) 실패로 멈춘다", async () => {
   const { Writable } = await import("node:stream");
   // 받기만 하고 비우지 않는 곳
   const out = new Writable({ highWaterMark: 1, write: () => {} });

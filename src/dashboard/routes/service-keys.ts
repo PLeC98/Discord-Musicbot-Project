@@ -1,6 +1,6 @@
 // 바깥 서비스 키(운영자 패널의 API 키 탭). /api/admin/service-keys
 // 값은 쓰기만 한다. 어느 응답으로도 내려가지 않고 상태(저장 여부 · 끝 네 글자 · 바꾼 때)만 간다.
-// 넣기 · 지우기는 로그인한 지 10분 안이어야 한다(middleware/recent-login). 연결 시험은 저장된 키를 그 서비스에만 보내므로 묻지 않는다
+// 입력 · 삭제는 로그인한 지 10분 안이어야 한다(middleware/recent-login). 연결 테스트는 저장된 키를 그 서비스에만 보내므로 묻지 않는다
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";

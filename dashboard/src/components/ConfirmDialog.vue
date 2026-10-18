@@ -23,7 +23,7 @@ import Icon from "./BaseIcon.vue";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 
-/** tone: danger(되돌릴 수 없는 일, 오류 색) · primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다. actions: false 면 단추 없이 알리기만(바깥을 눌러도 닫지 않는다) */
+/** tone: danger(되돌릴 수 없는 일, 오류 색) · primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다. actions: false 면 버튼 없이 알리기만(바깥을 눌러도 닫지 않는다) */
 withDefaults(defineProps<{ icon: IconName; title: string; body: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean; actions?: boolean }>(), { tone: "danger", busy: false, actions: true });
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ confirm: [] }>();

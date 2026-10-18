@@ -24,7 +24,7 @@ const props = withDefaults(
     modelValue?: OptionValue | null;
     options?: Option[];
     placeholder?: string;
-    /** 있으면 목록 맨 위에 "비우기" 줄이 선다. 비울 수 없는 칸에서는 넘기지 않는다 */
+    /** 있으면 목록 맨 위에 "비우기" 항목이 선다. 비울 수 없는 항목에서는 넘기지 않는다 */
     emptyLabel?: string;
     searchFrom?: number;
     disabled?: boolean;

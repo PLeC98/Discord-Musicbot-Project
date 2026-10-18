@@ -2,7 +2,7 @@
 
 /** POToken: 켜짐 · 설정은 켰는데 서버가 없음 · 꺼짐 */
 type PotState = "on" | "missing" | "off";
-/** 쿠키를 어디서 읽나: 브라우저 · 파일 · 안 씀 */
+/** 쿠키를 어디서 읽나: 브라우저 · 파일 · 사용 안 함 */
 type CookieSource = "browser" | "file" | "none";
 
 /** 플레이어 클라이언트 하나. excluded 는 실행 중 실패로 뺀 것, tried · failed 는 최근 시도 수 */

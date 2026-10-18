@@ -15,6 +15,6 @@ export function writeStored(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // 기억하지 못해도 고르는 데는 지장이 없다
+    // 기억하지 못해도 선택하는 데는 지장이 없다
   }
 }

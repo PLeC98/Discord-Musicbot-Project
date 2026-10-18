@@ -24,7 +24,7 @@ type QueueTrackView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbna
   index: number;
   entry: number | null;
   platformLabel: string;
-  /** 자동재생이 미리 뽑아 둔 곡 */
+  /** 자동재생이 미리 선택해 둔 곡 */
   autoplay: boolean;
   requestedBy: RequesterRef;
 };
@@ -45,8 +45,8 @@ type PlayingView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail"
 };
 
 /**
- * 재생 상태. 조작은 모두 이 모양으로 답한다. boot · seq 는 만든 차례(늦게 온 옛 응답이 새 상태를 덮지 않게).
- * 플레이어가 없으면 음량 · 반복 · 기록 · 자동재생 칸이 없다
+ * 재생 상태. 조작은 모두 이 모양으로 답한다. boot · seq 는 만든 순서(늦게 온 옛 응답이 새 상태를 덮지 않게).
+ * 플레이어가 없으면 음량 · 반복 · 기록 · 자동재생 필드가 없다
  */
 type PlayerState = {
   boot: number;
@@ -67,8 +67,8 @@ type PlayerState = {
   queueTotal: number;
 };
 
-/** 자동재생 장르 목록(장르 설정의 차례). 디스코드 장르 메뉴와 같은 것 */
-/** 자동재생 장르. id 는 고를 때 보내는 식별자, label 은 보여 줄 이름 */
+/** 자동재생 장르 목록(장르 설정의 순서). 디스코드 장르 메뉴와 같은 것 */
+/** 자동재생 장르. id 는 선택할 때 보내는 식별자, label 은 보여 줄 이름 */
 type AutoplayGenres = { genres: Array<{ id: string; label: string; emoji: string | null }> };
 
 /** 봇 · 나의 음성 채널 */
@@ -81,7 +81,7 @@ type PlayerRead = PlayerState & VoiceFlags & { hasPlayer: boolean; canControl: b
 type QueuePage = { items: QueueTrackView[]; total: number };
 
 /**
- * 이어 넣기 상태. 넣은 사람은 싣지 않는다. batch 는 한 번에 넣는 묶음, collection 은 출처의 종류(labels.collection 으로 이름을 단다),
+ * 이어 넣기 상태. 넣은 사람은 싣지 않는다. batch 는 한 번에 넣는 배치, collection 은 출처의 종류(labels.collection 으로 이름을 단다),
  * lifetimeMs 는 메뉴 수명, perClick 은 출처가 한 번에 넣게 하는 곡 수 상한(없으면 null)
  */
 type MoreView = Omit<More, "requesterId" | "batch"> & { batch: number; collection: string; lifetimeMs: number; perClick: number | null };

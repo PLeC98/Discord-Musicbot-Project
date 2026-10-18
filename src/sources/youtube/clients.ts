@@ -4,7 +4,7 @@
 //
 // "죽은 것 같은"인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가 갈리는 것을 확인함.
 // (유튜브의 SABR 적용이 세션·영상 단위로 굴러가기 때문)
-// 그래서 확정 판정이 불가능하므로 최근 N회 중 M회 실패라는 빈도로만 다루고, 제외한 것도 시간이 지나면 다시 시험함.
+// 그래서 확정 판정이 불가능하므로 최근 N회 중 M회 실패라는 빈도로만 다루고, 제외한 것도 시간이 지나면 다시 테스트함.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
@@ -12,13 +12,13 @@ import config from "../../config/index.ts";
 
 // 2026-09-11 기준, yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.
-// 이걸로 거르면 yt-dlp가 나중에 추가하는 클라이언트를 우리가 막게 됨.
+// 이걸로 필터링하면 yt-dlp가 나중에 추가하는 클라이언트를 우리가 막게 됨.
 const KNOWN = ["web", "web_safari", "web_embedded", "web_music", "web_creator", "mweb", "android", "android_vr", "ios", "tv", "tv_simply", "tv_downgraded", "visionos"];
 
 // POToken이 있어야 제대로 되는 것
 // 유튜브가 바꾸면 이 표가 먼저 틀려지므로, 판단의 최종 근거는 실행 중 관측값
 //
-// web_creator는 우리가 고르는 값이 아니다. 연령 제한 영상에서 yt-dlp가 알아서 끼워 넣는다.
+// web_creator는 우리가 선택하는 값이 아니다. 연령 제한 영상에서 yt-dlp가 알아서 끼워 넣는다.
 // POToken 없이 부르면 오디오 전용 포맷을 통째로 버리고 360p 통짜 하나만 남긴다(2026-09-22 실측).
 // 정상 동작이므로 경고가 아니라 debug로 흘려야 한다.
 const NEEDS_POT = ["mweb", "tv_simply", "web_creator"];
@@ -38,7 +38,7 @@ class PlayerClients {
    *                           (호출부가 yt-dlp 기본값으로 1회 호출하고 끝낸다)
    * @param {number} window    최근 몇 회를 보고 판정할지
    * @param {number} fails     그중 몇 회가 실패면 제외할지
-   * @param {number} retryMs   제외한 뒤 다시 시험하기까지. 0 이면 실행 내내 제외
+   * @param {number} retryMs   제외한 뒤 다시 테스트하기까지. 0 이면 실행 내내 제외
    */
   constructor(order: string[] = [], { window = 5, fails = 3, retryMs = 0, now = Date.now }: { window?: number; fails?: number; retryMs?: number; now?: () => number } = {}) {
     this.order = order;
@@ -64,7 +64,7 @@ class PlayerClients {
         this.excluded.delete(client);
         this.history.delete(client);
         this.exhaustedLogged = false;
-        log.info(`${client} 를 다시 시험합니다 (제외한 지 ${Math.round((this.now() - at) / 60000)}분)`);
+        log.info(`${client} 를 다시 테스트합니다 (제외한 지 ${Math.round((this.now() - at) / 60000)}분)`);
       }
     }
     return this.order.filter((c) => !this.excluded.has(c));
@@ -90,7 +90,7 @@ class PlayerClients {
 
     this.excluded.set(client, this.now());
     const until = this.retryMs > 0 ? `${Math.round(this.retryMs / 60000)}분 동안` : "이번 실행 동안";
-    log.warn(`${client} 를 ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 유튜브 탭의 클라이언트 차례에서 빼는 것을 검토하세요`);
+    log.warn(`${client} 를 ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 유튜브 탭의 "유튜브 클라이언트 순서"에서 빼는 것을 검토하세요`);
   }
 
   // 전멸했을 때 한 번만. 매 곡마다 같은 줄을 쌓지 않도록.

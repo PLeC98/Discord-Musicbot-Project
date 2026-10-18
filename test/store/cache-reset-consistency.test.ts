@@ -1,9 +1,9 @@
 // src/store/audio-cache.ts — 캐시 초기화와 재생 중인 곡.
 //
-// 회귀 대상: 초기화가 DB를 먼저 통째로 비우고 파일을 지웠다. 재생 중인 파일은 잠겨서 남는데
+// 회귀 대상: 초기화가 DB를 먼저 통째로 비우고 파일을 삭제했다. 재생 중인 파일은 잠겨서 남는데
 // 행은 사라지므로, 다음 재생이 "이미 캐시됨"으로 판단해 다운로더(=audio_cache 행을 만드는 곳)를
 // 건너뛰고, 그 뒤의 recordTrackLookup이 부모 없는 자식을 넣으려다 FOREIGN KEY로 터졌다.
-// 재생은 방금 시작한 소리가 catch에서 멈춰 "봇이 고장난" 것처럼 보였다. 장부는 이제 외래 키가 없지만,
+// 재생은 방금 시작한 소리가 catch에서 멈춰 "봇이 고장난" 것처럼 보였다. 링크 데이터는 이제 외래 키가 없지만,
 // 파일이 남은 곡의 행을 남기는 것은 그대로 지킨다.
 
 import os from "node:os";
@@ -45,11 +45,11 @@ function seedTrack(key: string, title: string) {
   return { track, file };
 }
 
-test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다", async () => {
+test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다", async () => {
   const playing = seedTrack("yt:playing", "재생중인곡");
   const idle = seedTrack("yt:idle", "그냥캐시된곡");
 
-  // 재생 중이라 잠긴 파일을 흉내 낸다 — Windows에서 실제로 unlink가 던지는 자리다.
+  // 재생 중이라 잠긴 파일을 흉내 낸다 — Windows에서 실제로 unlink가 던지는 위치다.
   audioCache._setRemoval({
     unlink: async (target) => {
       if (path.resolve(target) === path.resolve(playing.file)) throw Object.assign(new Error("EBUSY"), { code: "EBUSY" });
@@ -75,10 +75,10 @@ test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지
     "파일이 남은 곡의 행만 살아남는다",
   );
   assert.equal(audioCache._protectedKeys.has("yt:playing"), true, "살아남은 키는 다시 보호한다");
-  assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 장부는 파일과 따로 살므로 통째로 비운다");
+  assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 데이터는 파일과 따로 살므로 통째로 비운다");
 });
 
-test("초기화 뒤에도 재생 중인 곡의 장부 기록이 터지지 않는다 (회귀)", () => {
+test("초기화 뒤에도 재생 중인 곡의 링크 데이터 기록이 터지지 않는다 (회귀)", () => {
   // 위 테스트가 남긴 상태 그대로 — 재생 경로가 곡을 계속 틀며 기록을 남기는 순간이다.
   assert.doesNotThrow(() => {
     audioCache.recordPlayback("yt:playing");

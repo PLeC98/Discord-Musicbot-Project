@@ -1,10 +1,10 @@
 <template>
   <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만(나눠 줄 것) · 암호화된 설정까지(서버별 설정 · 키 · 쿠키의 암호문) · 파비콘 · 로그인 배경) · 백업 불러오기.
-       불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 고른 것만 덮어쓴다. 내보내기 · 불러오기는 최근 로그인만.
+       불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 선택한 것만 덮어쓴다. 내보내기 · 불러오기는 최근 로그인만.
        설명은 짧게, 길어지는 주의는 제목 옆 툴팁으로(2026-10-17 사용자). .env 까지 담는 전체 백업은 대시보드가 아니라 봇 폴더의 명령(pnpm run backup)이다 -->
-  <!-- 뿌리 하나(받은 class 가 카드 묶음에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
+  <!-- 루트 하나(받은 class 가 카드 그룹에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
   <div class="flex flex-col gap-(--gap-in)">
-    <!-- 안쪽 카드들(넓으면 둘씩). 설명 길이가 달라도 단추가 같은 줄에 오게 단추는 아래에 붙인다 -->
+    <!-- 안쪽 카드들(넓으면 둘씩). 설명 길이가 달라도 버튼이 같은 줄에 오게 버튼은 아래에 붙인다 -->
     <BaseCard icon="download" :title="T.exportTitle">
       <div class="grid grid-cols-1 @2xl/card:grid-cols-2 gap-3">
         <section v-for="kind in ARCHIVE_KINDS" :key="kind" class="flex flex-col rounded-(--r-inner) bg-surface-container-high p-4">
@@ -77,7 +77,7 @@ const applying = ref(false);
 const preview = ref<ArchivePreview | null>(null);
 const chosen = reactive(Object.fromEntries(ARCHIVE_ITEMS.map((item) => [item, false])) as Record<ArchiveItem, boolean>);
 
-// 가져올 수 있는 줄: 파일에 있고 검사를 지났고 지금과 다르다
+// 가져올 수 있는 행: 파일에 있고 검사를 지났고 지금과 다르다
 const usable = (row: ArchiveRow) => row.inFile && !row.problems.length && !row.same;
 const picks = computed(() => ARCHIVE_ITEMS.filter((item) => chosen[item]));
 
@@ -88,7 +88,7 @@ function stateOf(row: ArchiveRow) {
   return count ? `${state} · ${count}` : state;
 }
 
-// 내려받기는 두 걸음: 최근 로그인을 보고(지났으면 다시 로그인 창) 받은 한 번 쓰는 주소를 브라우저가 바로 내려받는다(수백 MB 인 로그인 배경을 메모리에 들지 않게).
+// 다운로드는 두 단계: 최근 로그인을 보고(지났으면 다시 로그인 창) 받은 한 번 쓰는 주소를 브라우저가 바로 다운로드한다(수백 MB 인 로그인 배경을 메모리에 들지 않게).
 // 이름은 봇이 보낸 Content-Disposition 대로
 async function exportNow(kind: ArchiveKind) {
   busy.value = true;
@@ -106,14 +106,14 @@ async function exportNow(kind: ArchiveKind) {
 async function picked(event: Event) {
   const input = event.target as HTMLInputElement;
   const one = input.files?.[0] ?? null;
-  input.value = ""; // 같은 파일을 다시 골라도 바뀜으로 받게
+  input.value = ""; // 같은 파일을 다시 선택해도 바뀜으로 받게
   if (!one) return;
   busy.value = true;
   try {
     // 파일은 여기서 한 번만 올린다. 가져오기는 받은 표(token)로
     const res = await axios.request<ArchivePreview>({ method: "POST", url: `${BASE}/preview`, headers: { "Content-Type": "application/zip" }, timeout: LIMIT.long, data: one });
     preview.value = res.data;
-    // 가져올 수 있는 것은 처음부터 골라 둔다
+    // 가져올 수 있는 것은 처음부터 선택해 둔다
     for (const row of res.data.rows) chosen[row.item] = usable(row);
   } catch (err) {
     notifyProblem(err, T.previewFailed);
@@ -122,11 +122,11 @@ async function picked(event: Event) {
   }
 }
 
-// 닫으면 올린 파일을 지운다
+// 닫으면 올린 파일을 삭제한다
 function close() {
   if (applying.value || !preview.value) return;
   void axios.delete(`${BASE}/upload/${preview.value.token}`).catch(() => {
-    /* 봇이 1시간 뒤에 지운다 */
+    /* 봇이 1시간 뒤에 삭제한다 */
   });
   preview.value = null;
 }

@@ -63,7 +63,7 @@ test("DJ 역할: 저장 · 읽기 · 지우기. 미설정은 빈 배열", async 
   assert.deepEqual(await settings.getDjRoles("g1"), []);
 });
 
-test("패널 자리(실행 상태 DB): 저장하면 { channelId, messageId }, messageId 가 null 이면 비운다", async () => {
+test("패널 위치(실행 상태 DB): 저장하면 { channelId, messageId }, messageId 가 null 이면 비운다", async () => {
   assert.equal(await panelRecords.getPanel("g1"), null);
   await panelRecords.setPanel("g1", "c1", "m1");
   panelRecords._reset();
@@ -116,7 +116,7 @@ test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", ()
   assert.equal(settings.resolvePlaylistAddMax("g-unopened"), 7);
 });
 
-test("SponsorBlock: 부분 갱신. 준 칸만 바꾸고 null 은 상속으로 되돌린다", async () => {
+test("SponsorBlock: 부분 갱신. 준 필드만 바꾸고 null 은 상속으로 되돌린다", async () => {
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });
   await settings.setSponsorBlock("g1", { enabled: false });
   await settings.setSponsorBlock("g1", { categories: ["intro"] });
@@ -188,7 +188,7 @@ test("DB 를 열기 전에 부르면 기본값으로 삼키지 않고 던진다"
   }
 });
 
-// ── 표(guildTable)를 직접: 메모리 캐시 없이 한 칸씩 ─────────────
+// ── 표(guildTable)를 직접: 메모리 캐시 없이 한 필드씩 ─────────────
 
 // ── 서버 설정 문서: DJ 역할 라운드트립 ───────────────────────
 
@@ -203,7 +203,7 @@ test("DJ 역할: 복수 저장/조회/해제", () => {
   assert.deepEqual(guildTable.getDjRoles("g1"), []);
 });
 
-test("DJ 역할: 빈 배열 저장 = 미설정과 동일. 빈 문서가 되면 줄을 지운다", () => {
+test("DJ 역할: 빈 배열 저장 = 미설정과 동일. 빈 문서가 되면 행을 삭제한다", () => {
   guildTable.setDjRoles("g2", ["r"]);
   guildTable.setDjRoles("g2", []);
   assert.deepEqual(guildTable.getDjRoles("g2"), []);
@@ -217,7 +217,7 @@ test("손상된 문서는 정하지 않은 것으로 (기동 불능 방지)", ()
   assert.equal(guildTable.getBotChannel("g3"), null);
 });
 
-test("칸 하나의 모양이 틀려도 다른 칸은 읽는다", () => {
+test("필드 하나의 모양이 틀려도 다른 필드는 읽는다", () => {
   settingsDb
     .get()
     .prepare("INSERT INTO guild_settings (guild_id, data_json) VALUES ('g5', ?)")

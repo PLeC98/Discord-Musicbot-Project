@@ -1,4 +1,4 @@
-// src/dashboard/routes/appearance.ts · appearance.ts — 크기 칸마다 파비콘을 올리고 갈아 끼우고 지우며, 빈 칸은 가장 가까운 칸의 보관본으로(없으면 봇 프로필 그림) 낸다
+// src/dashboard/routes/appearance.ts · appearance.ts — 크기 슬롯마다 파비콘을 올리고 교체하고 삭제하며, 빈 슬롯은 가장 가까운 슬롯의 보관본으로(없으면 봇 프로필 그림) 낸다
 
 process.env.OWNER_ID = "owner";
 
@@ -30,7 +30,7 @@ const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" heig
 let user: object | null = { id: "owner", username: "운영자" };
 let avatarServed = 0;
 const app = express();
-// 봇 프로필 그림 자리(디스코드 CDN 대신)
+// 봇 프로필 그림 위치(디스코드 CDN 대신)
 app.get("/avatar.png", async (_req, res) => {
   avatarServed++;
   res.type("png").send(await square(512));
@@ -75,7 +75,7 @@ beforeEach(() => {
 test("올린 그림이 없으면 봇 프로필 그림을 줄여 낸다. 매니페스트는 봇 이름 · 아이콘 셋", async () => {
   assert.deepEqual(await iconSize(32), ["png", 32, 32]);
   assert.deepEqual(await iconSize(180), ["png", 180, 180]);
-  assert.equal(avatarServed, 1, "프로필 그림은 한 번만 받는다");
+  assert.equal(avatarServed, 1, "프로필 그림은 한 번만 다운로드한다");
   assert.ok((await state()).slots.every((one) => one.from === "avatar" && one.current === null));
 
   const manifest = (await (await fetch(`${base}/manifest.webmanifest`)).json()) as { name: string; display: string; icons: Array<{ src: string }> };
@@ -88,7 +88,7 @@ test("올린 그림이 없으면 봇 프로필 그림을 줄여 낸다. 매니�
   assert.equal((await fetch(`${base}/favicon/64`)).status, 404, "쓰지 않는 크기");
 });
 
-test("올리기: 그 칸 크기로 다시 만들고, 빈 칸은 배율로 가장 가까운 칸의 보관본을 줄이거나 늘려 쓴다", async () => {
+test("올리기: 그 슬롯 크기로 다시 만들고, 빈 슬롯은 배율로 가장 가까운 슬롯의 보관본을 줄이거나 늘려 쓴다", async () => {
   const before = store.faviconVersion();
   assert.equal((await put(32, await square(64))).status, 200);
   assert.equal((await put(512, await square(1024, "webp", 1024, true), "image/webp")).status, 200);
@@ -107,7 +107,7 @@ test("올리기: 그 칸 크기로 다시 만들고, 빈 칸은 배율로 가장
   assert.deepEqual([await iconPixel(16), await iconPixel(180)], ["red", "blue"]);
 });
 
-test("svg 는 그 칸 크기로 그려 두고(정사각형이 아니면 투명 여백), 받은 svg 를 그대로 내지 않는다", async () => {
+test("svg 는 그 슬롯 크기로 그려 두고(정사각형이 아니면 투명 여백), 받은 svg 를 그대로 내지 않는다", async () => {
   assert.equal((await put(180, SVG, "image/svg+xml")).status, 200);
   const wide = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="#36c"/></svg>');
   assert.equal((await put(16, wide, "image/svg+xml")).status, 200);
@@ -118,7 +118,7 @@ test("svg 는 그 칸 크기로 그려 두고(정사각형이 아니면 투명 �
   assert.equal((await slot(512)).sourceSide, 512, "svg 의 보관본은 512 로 그린다");
 });
 
-test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파일은 지운다. 갈아 끼우기 · 비우기(기록은 남는다) · 기록에서 지우기", async () => {
+test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파일은 삭제한다. 교체 · 비우기(기록은 남는다) · 기록에서 삭제", async () => {
   for (let i = 0; i <= FAVICON_HISTORY; i++) assert.equal((await put(32, await square(32 + i))).status, 200);
   const full = await slot(32);
   assert.equal(full.history.length, FAVICON_HISTORY);
@@ -127,13 +127,13 @@ test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파
     [38, 37, 36, 35, 34, 33],
     "새것부터, 가장 옛것(32)은 밀려났다",
   );
-  assert.equal(fs.readdirSync(DIR).filter((name) => name.endsWith(".png")).length, FAVICON_HISTORY * 2, "넘친 그림의 파일도 지웠다");
+  assert.equal(fs.readdirSync(DIR).filter((name) => name.endsWith(".png")).length, FAVICON_HISTORY * 2, "넘친 그림의 파일도 삭제했다");
 
   const older = full.history[3].id;
   const preview = await fetch(`${A}/32/history/${older}`);
   assert.equal(preview.headers.get("content-type"), "image/png");
   assert.equal((await sharp(Buffer.from(await preview.arrayBuffer())).metadata()).width, 32);
-  assert.equal((await fetch(`${A}/48/history/${older}`)).status, 404, "다른 칸의 기록으로는 볼 수 없다");
+  assert.equal((await fetch(`${A}/48/history/${older}`)).status, 404, "다른 슬롯의 기록으로는 볼 수 없다");
 
   const used = (await (await send("PUT", `${A}/32/current`, { id: older })).json()) as FaviconSlots;
   assert.equal(used.slots.find((one) => one.size === 32)!.current, older);
@@ -143,17 +143,17 @@ test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파
   assert.equal((await send("DELETE", `${A}/32`)).status, 200);
   assert.equal((await slot(32)).current, null);
   assert.equal((await slot(32)).history.length, FAVICON_HISTORY, "비워도 기록은 남는다");
-  assert.deepEqual(await codeOf(await send("DELETE", `${A}/32`)), [404, "route-not-found"], "이미 빈 칸");
+  assert.deepEqual(await codeOf(await send("DELETE", `${A}/32`)), [404, "route-not-found"], "이미 빈 슬롯");
 
   await send("PUT", `${A}/32/current`, { id: older });
   assert.equal((await send("DELETE", `${A}/32/history/${older}`)).status, 200);
   const after = await slot(32);
-  assert.equal(after.current, null, "쓰던 그림을 지우면 칸도 빈다");
+  assert.equal(after.current, null, "쓰던 그림을 삭제하면 슬롯도 빈다");
   assert.ok(!after.history.some((one) => one.id === older));
   assert.ok(!fs.existsSync(path.join(DIR, `${older}.png`)) && !fs.existsSync(path.join(DIR, `${older}.reserve.png`)));
 });
 
-test("다시 켜도(폴더를 다시 읽어도) 남아 있고, 목록에 없는 파일은 치운다", async () => {
+test("다시 시작해도(폴더를 다시 읽어도) 남아 있고, 목록에 없는 파일은 치운다", async () => {
   await put(48, await square(48));
   await put(256, await square(256, "jpeg"), "image/jpeg");
   fs.writeFileSync(path.join(DIR, "zzzzzzzzzz.png"), "남은 조각");

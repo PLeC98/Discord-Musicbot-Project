@@ -58,7 +58,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   trackState.init(p);
   // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
   const onRewind = (track: TrackIn, copy: number, current: TrackIn | null) => store.rewind(G, track, { copy, current });
-  // 통째로 다시 쓰라는 알림(이전곡이 기록 끝의 지금 곡을 건너뛴 때 등)은 실제 거울(session-mirror resync)처럼 그대로 옮겨 쓴다
+  // 통째로 다시 쓰라는 알림(이전곡이 기록 끝의 지금 곡을 건너뛴 때 등)은 실제 미러(session-mirror resync)처럼 그대로 옮겨 쓴다
   const onReplace = () => store.replaceTracks(G, { current: p.currentTrack, queue: p.queue, history: p.previousTracks });
   const skip = () => {};
   p.trackSink = { onRewind, onSetCurrent: skip, onEnqueue: skip, onTake: skip, onRetire: skip, onRemoveAt: skip, onMove: skip, onClearQueue: skip, onReset: skip, onReplace };
@@ -137,7 +137,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   }
 });
 
-test("같은 자리에 계속 끼우면 간격이 닳는다 — 재번호 후에도 순서가 맞다", () => {
+test("같은 위치에 계속 끼우면 간격이 닳는다 — 재번호 후에도 순서가 맞다", () => {
   const { store } = open();
   const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
@@ -152,7 +152,7 @@ test("같은 자리에 계속 끼우면 간격이 닳는다 — 재번호 후에
     return real(...args);
   };
 
-  // 마지막 곡을 1번 자리로 — 매번 맨 앞 곡 바로 뒤의 간격이 반으로 준다
+  // 마지막 곡을 1번 위치로 — 매번 맨 앞 곡 바로 뒤의 간격이 반으로 준다
   for (let i = 0; i < 40; i++) {
     trackState.move(p, 2, 1);
     store.move(G, 2, 1);
@@ -184,7 +184,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 칸 셋과 표시 정보 · 줄 번호가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 필드 셋과 표시 정보 · 줄 번호가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -202,7 +202,7 @@ test("트랙 필드: 링크 칸 셋과 표시 정보 · 줄 번호가 저장한 
     live: true,
     requestedBy: { id: "u1", username: "someone" },
   };
-  // 줄 번호는 track-state 가 찍는 열거되지 않는 칸이다
+  // 줄 번호는 track-state 가 찍는 열거되지 않는 필드다
   Object.defineProperty(track, "entry", { value: 7, enumerable: false });
   store.setCurrent(G, track);
 
@@ -212,7 +212,7 @@ test("트랙 필드: 링크 칸 셋과 표시 정보 · 줄 번호가 저장한 
     pageUrl: "https://anilist.co/anime/1",
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
-    audioFoundBy: "ledger", // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 장부에서 온 것과 같은 처지다
+    audioFoundBy: "ledger", // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 링크 데이터에서 온 것과 같은 처지다
     duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",
@@ -223,7 +223,7 @@ test("트랙 필드: 링크 칸 셋과 표시 정보 · 줄 번호가 저장한 
     requesterId: "u1",
     entry: 7,
   });
-  // 번호가 없는 곡(복원한 옛 곡 등)은 빈 칸. 복원할 때 track-state 가 새로 찍는다
+  // 번호가 없는 곡(복원한 옛 곡 등)은 빈 값. 복원할 때 track-state 가 새로 찍는다
   store.setCurrent(G, { title: "번호 없음", pageUrl: "https://y/2", requestKey: "https://y/2" });
   assert.equal(loaded(store).current?.entry, null);
 });
@@ -252,7 +252,7 @@ test("반복 모드는 세 값만 받는다", () => {
   assert.throws(() => store.saveSession(G, bad), /CHECK/);
 });
 
-test("세션을 지우면 그 길드의 트랙도 사라지고 다른 길드는 남는다", () => {
+test("세션을 삭제하면 그 길드의 트랙도 사라지고 다른 길드는 남는다", () => {
   const { store } = open();
   store.append(G, [t("A")]);
   store.append("g2", [t("B")]);
@@ -292,7 +292,7 @@ test("loadAll: 트랙이 없는 세션도 빈 목록으로 돌아온다", () => 
   assert.deepEqual(titles(all[G].queue), ["A"]);
 });
 
-test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 지운다 — 남은 곡의 자리가 메모리와 맞는다", () => {
+test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다 — 남은 곡의 위치가 메모리와 맞는다", () => {
   const { db, store } = open();
   store.append(G, [t("A"), t("B"), t("C")]);
   db.prepare("UPDATE session_tracks SET request_key = NULL WHERE title = 'B'").run(); // 손으로 고쳤거나 옛 코드가 남긴 행

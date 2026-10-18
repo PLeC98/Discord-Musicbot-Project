@@ -43,7 +43,7 @@ function writeOne({ name, data, revision }: Write): number {
 /** 저장. 번호가 지금 번호와 다르면 REVISION_CONFLICT 로 던진다. 새 번호를 돌려준다 */
 const write = (name: string, data: unknown, revision: number): number => writeAll([{ name, data, revision }])[0];
 
-/** 여러 문서를 한 트랜잭션으로. 하나라도 실패하면 아무것도 쓰지 않는다. 새 번호들을 같은 차례로 돌려준다 */
+/** 여러 문서를 한 트랜잭션으로. 하나라도 실패하면 아무것도 쓰지 않는다. 새 번호들을 같은 순서로 돌려준다 */
 function writeAll(writes: Write[]): number[] {
   return conn().transaction(() => writes.map(writeOne))();
 }

@@ -73,7 +73,7 @@ async function handleQueue(interaction: Press, player: Player) {
   await toSelf(interaction, selfOnly(queueView(queueInfo)), LIFETIME.screen);
 }
 
-// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 지우고 그렇다고 알린다
+// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 삭제하고 그렇다고 알린다
 async function handleQueuePage(interaction: Press, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
@@ -92,7 +92,7 @@ async function handleVolumeModal(interaction: Press) {
   await interaction.showModal(volumeModal());
 }
 
-/** 음량을 적는 모달. 받는 쪽은 modalHandler 의 음량 처리 */
+/** 음량을 입력하는 모달. 받는 쪽은 modalHandler 의 음량 처리 */
 function volumeModal() {
   const t = controlText.volumeModal();
   const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);
@@ -130,7 +130,7 @@ async function handleSystemRefresh(interaction: Press, { players }: BotContext) 
   return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
-// 검색 결과 고르기 · 취소. 검색한 사람만 누를 수 있다. 고른 영상은 다시 찾는다(받아 둔 곡이면 캐시에서)
+// 검색 결과 선택 · 취소. 검색한 사람만 누를 수 있다. 선택한 영상은 다시 찾는다(다운로드해 둔 곡이면 캐시에서)
 async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   const { member, guild } = interaction;
   const { action, rest } = partsOf(interaction.customId);
@@ -140,7 +140,7 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
     return await noticeSelf(interaction, errors.notice("search-owner-only"));
   }
 
-  // 취소는 결과 화면(본인)을 바로 지운다
+  // 취소는 결과 화면(본인)을 바로 삭제한다
   if (action === "cancel") {
     await interaction.deferUpdate();
     return await interaction.deleteReply();
@@ -157,13 +157,13 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   const processingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("brand")).setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
-  // 여기서부터 던지면 "처리 중" 자리를 지우고 본인에게만 알린다(검색 메시지는 임베드라 안내로 고칠 수 없다)
+  // 여기서부터 던지면 "처리 중" 자리표시자를 삭제하고 본인에게만 알린다(검색 메시지는 임베드라 안내로 고칠 수 없다)
   showFailureWith(interaction, (notice) => noticeInstead(interaction, notice));
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
   const responder = channelResponder(interaction.channel, () =>
     interaction.deleteReply().catch(() => {
-      /* 이미 지워졌다 */
+      /* 이미 삭제됐다 */
     }),
   );
 
@@ -178,11 +178,11 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   });
   if (!result.success) return await noticeInstead(interaction, addFailureMessage(result));
 
-  // "곡을 추가하는 중" 자리(본인)를 치운다. 담은 안내 · 패널은 채널에 따로 갔다
+  // "곡을 추가하는 중" 자리표시자(본인)를 치운다. 담은 안내 · 패널은 채널에 따로 갔다
   await responder.dismissPlaceholder();
 }
 
-// custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
+// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
 const routes: Route[] = [
   route("button", customId(SEARCH, ""), handleSearchInteraction),

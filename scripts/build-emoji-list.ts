@@ -1,13 +1,13 @@
-// 대시보드 이모지 고르기 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
+// 대시보드 이모지 선택 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.ts
 //
 // 목록의 원본은 scripts/data/discord-emoji-picker.md 다. 분류와 순서를 디스코드 선택기에서
-// 그대로 옮겨 적은 파일이라, 고르는 사람이 디스코드에서 보던 자리에서 찾을 수 있다.
+// 그대로 옮겨 적은 파일이라, 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
-//   · 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 꼴로 붙는다.
+//   · 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
 //   · 한국어 이름·검색어. emojibase에서 가져온다.
 //
-// 그리고 Twemoji에 그림 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 칸만 깨져 보인다.
+// 그리고 Twemoji에 그림 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
 
 import fs from "fs";
@@ -25,7 +25,7 @@ const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5d
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
 const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.ts");
 
-// 받아 오는 것의 모양. 여기서 읽는 칸만 본다
+// 받아 오는 것의 모양. 여기서 읽는 필드만 본다
 const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });
 const Gist = z.record(z.string(), z.string());
 const Compact = z.array(z.object({ hexcode: z.string(), unicode: z.string(), label: z.string().optional(), tags: z.array(z.string()).optional() }));
@@ -48,12 +48,12 @@ const iconIds = (char: string) => {
   return strict === loose ? [strict] : [strict, loose];
 };
 
-// 출처마다 VS16과 ZWJ를 붙이기도 빼기도 한다. 뺀 꼴을 열쇠로 삼아 짝을 찾는다.
+// 출처마다 VS16과 ZWJ를 붙이기도 빼기도 한다. 뺀 형태를 키로 삼아 짝을 찾는다.
 // 특히 지스트는 ZWJ를 흘려서 :woman_police_officer:를 1F46E 2640(= 두 글자)으로 준다.
-// emojibase 쪽 표기가 표준이므로 그쪽으로 바로잡는다. 이 열쇠로는 겹치는 항목이 없다.
+// emojibase 쪽 표기가 표준이므로 그쪽으로 바로잡는다. 이 키로는 겹치는 항목이 없다.
 const key = (s: string) => [...s].filter((c) => c !== "️" && c !== "‍").join("");
 
-// 저장 검사와 같은 잣대. 고를 수는 있는데 저장이 안 되는 칸을 만들지 않는다
+// 저장 검사와 같은 잣대. 선택할 수는 있는데 저장이 안 되는 항목을 만들지 않는다
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 // 군더더기 VS16만 뗀다(ZWJ는 두어야 조합이 유지된다)
 const bare = (s: string) => [...s].filter((c) => c !== "️").join("");
@@ -110,15 +110,15 @@ function rowOf(group: string, code: string, charOfCode: Map<string, string>, kor
 
   const info = korean.get(key(found));
   // 표준 표기로 바로잡는다. emojibase는 ⌚처럼 이미 그림으로 보이는 글자에도 VS16을 붙여 주는데,
-  // 그 꼴은 RGI가 아니라 저장 검사(/^\p{RGI_Emoji}$/v)가 거부한다. 고를 수는 있는데 저장은
-  // 안 되는 칸이 생기므로, 통과하는 쪽을 골라 담는다.
+  // 그 형태는 RGI가 아니라 저장 검사(/^\p{RGI_Emoji}$/v)가 거부한다. 선택할 수는 있는데 저장은
+  // 안 되는 항목이 생기므로, 통과하는 쪽을 선택해 담는다.
   const standard = info?.unicode || found;
   const char = [standard, bare(standard)].find((c) => ONE_EMOJI.test(c));
   if (!char) return { dropped: `${group}:${code} (RGI 아님)` };
 
   const label = clean(info?.label) || code.replace(/_/g, " ");
   const tags = clean([...new Set(info?.tags || [])].join(" "));
-  // 단축명은 콜론째로 담는다. 디스코드에서 복사하면 ":thinking:" 꼴로 딸려오는데,
+  // 단축명은 콜론째로 담는다. 디스코드에서 복사하면 ":thinking:" 형식으로 딸려오는데,
   // 부분 일치로 찾으므로 콜론이 있으면 "thinking"도 ":thinking:"도 걸린다.
   const line = [char, label, `${tags} :${code}:`.trim()].join("|");
   return { line, noAsset: iconIds(char).some((id) => assets.has(id)) ? undefined : `${group}:${code} ${char}` };
@@ -161,10 +161,10 @@ async function main() {
     `// 그림: twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
     "//",
     "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
-    "// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어",
+    "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
     `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
     "",
-    "/** 고르기 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */",
+    "/** 선택 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */",
     "type Emoji = { char: string; label: string; search: string };",
     "type EmojiGroup = { name: string; emoji: Emoji[] };",
     "",

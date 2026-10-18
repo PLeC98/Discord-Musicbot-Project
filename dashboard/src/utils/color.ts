@@ -1,4 +1,4 @@
-// 색 고르기(ColorPicker)의 계산. #RRGGBB ↔ RGB(0~255) ↔ HSV(색상 h 0~360 · 채도 s 0~1 · 밝기 v 0~1)
+// 색 선택(ColorPicker)의 계산. #RRGGBB ↔ RGB(0~255) ↔ HSV(색상 h 0~360 · 채도 s 0~1 · 밝기 v 0~1)
 
 export type Rgb = { r: number; g: number; b: number };
 export type Hsv = { h: number; s: number; v: number };
@@ -6,7 +6,7 @@ export type Hsv = { h: number; s: number; v: number };
 const HEX = /^#[0-9a-fA-F]{6}$/;
 export const isHex = (value: string) => HEX.test(value);
 
-/** 적은 글을 #RRGGBB(대문자)로. # 은 없어도 되고 세 자리(#RGB)는 늘린다. 색이 아니면 null */
+/** 입력한 글을 #RRGGBB(대문자)로. # 은 없어도 되고 세 자리(#RGB)는 늘린다. 색이 아니면 null */
 export function parseHex(typed: string): string | null {
   const body = typed.trim().replace(/^#/, "");
   if (/^[0-9a-fA-F]{3}$/.test(body)) return `#${[...body].map((c) => c + c).join("")}`.toUpperCase();
@@ -48,7 +48,7 @@ export const hexToHsv = (hex: string) => rgbToHsv(hexToRgb(hex));
 /** HSV → #RRGGBB(대문자) */
 export const hsvToHex = (hsv: Hsv) => rgbToHex(hsvToRgb(hsv));
 
-/** 새 색의 HSV. 검정이면 지금 색상 · 채도를, 무채색이면 지금 색상을 남긴다(판의 손잡이가 튀지 않게) */
+/** 새 색의 HSV. 검정이면 지금 색상 · 채도를, 무채색이면 지금 색상을 남긴다(판의 핸들이 튀지 않게) */
 export function keepHue(next: Hsv, now: Hsv): Hsv {
   if (!next.v) return { h: now.h, s: now.s, v: 0 };
   if (!next.s) return { ...next, h: now.h };

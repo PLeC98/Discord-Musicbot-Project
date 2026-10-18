@@ -1,5 +1,5 @@
 <template>
-  <!-- 안내 상자. gate: 할 수 없는 까닭(곡 넣기 칸 자리에 선다, 바탕 surface-container-high, 입력칸과 같은 높이 48 이상이라 바뀌어도 아래가 튀지 않는다), note: 해 본 결과(칸 아래, 색은 tone). 글은 slot -->
+  <!-- 안내 상자. gate: 할 수 없는 까닭(곡 넣기 입력란 위치에 선다, 바탕 surface-container-high, 입력란과 같은 높이 48 이상이라 바뀌어도 아래가 튀지 않는다), note: 해 본 결과(입력란 아래, 색은 tone). 글은 slot -->
   <div :class="variant === 'gate' ? GATE : [NOTE, TONE[tone]]">
     <Icon v-if="icon" :name="icon" :size="variant === 'gate' ? 24 : 20" :fill="fill" :class="['shrink-0', iconClass]" />
     <slot />

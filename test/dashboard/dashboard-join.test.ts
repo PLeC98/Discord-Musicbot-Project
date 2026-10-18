@@ -1,5 +1,5 @@
 // src/dashboard/routes/player.ts 의 봇 부르기 — 디스코드 /join 과 같은 판정과 일(usecases/join)을 HTTP 로 옮기는지.
-// 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 일은 /join 시험(commands-add)이 본다.
+// 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 일은 /join 테스트(commands-add)가 본다.
 
 import * as h from "../helpers/player-harness.ts";
 const { behavior } = h; // 하네스의 가짜 설정
@@ -76,7 +76,7 @@ test("부르면 /join 과 같이 붙고, 사람이 채널에 있어도 곡 없�
   const r = await join();
   assert.equal(r.status, 200);
   assert.equal(r.json.hasPlayer, true);
-  assert.equal(r.json.canManage, false, "설정 화면 진입 여부도 GET /player 와 같은 칸으로");
+  assert.equal(r.json.canManage, false, "설정 화면 진입 여부도 GET /player 와 같은 필드로");
   const player = players.get("g1");
   assert.ok(player?.connection, "붙었다");
   assert.ok(player.idle.emptyTimer, "곡 없이 대기");

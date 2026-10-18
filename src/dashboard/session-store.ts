@@ -9,7 +9,7 @@ const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../rules/error-kind.ts";
 
 // express-session의 기본 MemoryStore 대체:
-// 재시작 시 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
+// 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
 // 캐시 DB와 같은 better-sqlite3 사용, 파일은 분리(database/sessions.db).
 const DB_PATH = path.join(PROJECT.database, "sessions.db");
 
@@ -80,13 +80,13 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  // 읽을 수 없는 행은 없는 세션으로 보고 지운다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500 이 된다
+  // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500 이 된다
   _parse(sid: string, data: string): SessionData | null {
     try {
       return JSON.parse(data);
     } catch (error) {
       this._destroyStmt.run(sid);
-      log.warn(`읽을 수 없는 로그인 세션 하나를 지웠습니다(그 사용자는 다시 로그인합니다): ${messageOf(error)}`);
+      log.warn(`읽을 수 없는 로그인 세션 하나를 삭제했습니다(그 사용자는 다시 로그인합니다): ${messageOf(error)}`);
       return null;
     }
   }

@@ -44,7 +44,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
 
   const url = (path = "") => `/api/guilds/${guildId.value}/player${path}?queue=0`;
 
-  // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 칸이 없어 그것만 남긴다
+  // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 필드가 없어 그것만 남긴다
   function apply(next: PlayerState) {
     if (!accepts(data.value, next)) return;
     data.value = withReadFields(data.value, next);
@@ -93,7 +93,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = { ...data.value, paused };
     return send("pause", undefined, text.player.failed.pause);
   }
-  // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 줄 번호를 싣는다
+  // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 항목 번호를 싣는다
   const skip = () => send("skip", onTrackOf(data.value), text.player.failed.skip);
   const previous = () => send("previous", onTrackOf(data.value), text.player.failed.previous);
   const shuffle = () => send("shuffle", undefined, text.player.failed.shuffle);
@@ -115,7 +115,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     }
   }
 
-  // 놓은 자리를 먼저 보이고 보낸다. entry 는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
+  // 놓은 위치를 먼저 보이고 보낸다. entry 는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
   function seek(seconds: number, entry: number | null | undefined) {
     clock.value = retime(clock.value, Date.now(), { at: seconds });
     return send("seek", { position: seconds, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, text.player.failed.seek);
@@ -134,7 +134,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     // 대상 서버가 바뀌면(참가·이동·퇴장) 즉시 다시 읽는다
     stopWatch = watch(guildId, () => void refresh(), { immediate: true });
 
-    // 목록 연결의 신호. 내 대상 서버의 변화만 골라 받는다.
+    // 목록 연결의 신호. 내 대상 서버의 변화만 필터링해 받는다.
     // guildId 가 null 이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;

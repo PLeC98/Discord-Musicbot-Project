@@ -28,12 +28,12 @@ type AdminStatus = {
   cpu: { bot: number; system: number };
   /** 이벤트 루프 지연(ms). 지난 15초의 p99 와 최대 */
   loop: { p99: number; max: number };
-  /** 곡 받기(캐시). bytesPerSec 은 지난 15초에 마친 양의 평균, todayBytes 는 오늘(봇 기계의 자정부터), active 는 지금 받는 곡 수 */
+  /** 곡 다운로드(캐시). bytesPerSec 은 지난 15초에 마친 양의 평균, todayBytes 는 오늘(봇 기계의 자정부터), active 는 지금 다운로드하는 곡 수 */
   download: { bytesPerSec: number; todayBytes: number; active: number };
   activePlayers: number;
   /** 플레이어. list 는 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기) */
   players: { voiceConnections: number; queued: number; list: PlayerRow[] };
-  /** 자식 프로세스(ffmpeg · yt-dlp · 도우미). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수 */
+  /** 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수 */
   processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: ProcessRow[] };
   youtube: YoutubeStatus;
   links: LinkRow[];
@@ -41,8 +41,8 @@ type AdminStatus = {
   /** 지난 1시간 로그의 경고 · 오류 수와 가장 최근 몇 가지. 같은 글은 한 줄로 묶어 count 와 마지막 때(ts)를 단다 */
   recent: { warn: number; error: number; lines: Array<{ ts: number; level: "warn" | "error"; text: string; count: number }> };
   /**
-   * ffmpeg · ytdlp.version 은 찾지 못했으면 null. ytdlp.autoUpdate: 스스로 새 버전을 받는가, nextCheckAt: 다음 확인(걸어 두지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수.
-   * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 띄워 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다
+   * ffmpeg · ytdlp.version 은 찾지 못했으면 null. ytdlp.autoUpdate: 스스로 새 버전을 다운로드하는가, nextCheckAt: 다음 확인(예약하지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수.
+   * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 실행해 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다
    */
   env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
   history: StatusHistory;
@@ -52,7 +52,7 @@ type AdminStatus = {
 /** member: 보는 사람(운영자)이 그 서버 멤버인가. 아니면 화면은 그 서버 화면으로 잇지 않는다. queued: 대기열 곡 수(지금 곡은 빼고) */
 type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: "playing" | "paused" | "idle"; title: string | null; artist: string | null; position: number; duration: number; listeners: number; queued: number };
 /**
- * label: 프로그램(ffmpeg · yt-dlp · node). job: 하는 일, guildId: 그 일을 띄운 서버(봇 도우미 · 서버 밖의 곡 찾기는 null).
+ * label: 프로그램(ffmpeg · yt-dlp · node). job: 하는 일, guildId: 그 일을 실행한 서버(봇 헬퍼 · 서버 밖의 곡 찾기는 null).
  * stray: 재생 · 다음 곡 일인데 그 서버에 플레이어가 없다(남은 프로세스일 수 있다). memMb: 15초마다 잰 값, 아직 못 쟀으면 null
  */
 type ProcessRow = { pid: number; label: string; ageMs: number; memMb: number | null; guildId: string | null; guildName: string | null; job: Job | null; stray: boolean };
@@ -60,14 +60,14 @@ type ProcessRow = { pid: number; label: string; ageMs: number; memMb: number | n
 /** idle: 지난 1시간 부르지 않음, off: 쓰는 설정이 없음(키가 없거나 그 출처를 쓰는 장르가 없다) */
 type LinkState = "ok" | "slow" | "fail" | "idle" | "off";
 /**
- * group: play(소리를 내는 데 쓴다) · youtube · autoplay(다음 곡 고르기). play · youtube 가 실패하면 문제, autoplay 는 주의.
- * error: 마지막 실패의 짧은 까닭("timeout" · "HTTP 503" 등). note: 줄에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
+ * group: play(소리를 내는 데 쓴다) · youtube · autoplay(다음 곡 선택). play · youtube 가 실패하면 문제, autoplay 는 주의.
+ * error: 마지막 실패의 짧은 까닭("timeout" · "HTTP 503" 등). note: 행에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
  */
 type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: string; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: string | null; note: string | null; hint?: string | null };
 
 /**
- * 저장공간. cache: protectedFiles 는 지금 곡 · 대기열 앞이라 지우지 않는 파일, neverPlayed 는 받고 한 번도 틀지 않은 파일,
- * failed 는 받기 실패로 남은 줄(받다 실패 · 받다 멈춤 · 파일이 사라짐, 다시 받으면 풀린다), lastCleanup 은 봇이 켜진 뒤 마지막으로 실제로 지운 정리(없으면 null).
+ * 저장공간. cache: protectedFiles 는 지금 곡 · 대기열 앞이라 삭제하지 않는 파일, neverPlayed 는 다운로드하고 한 번도 틀지 않은 파일,
+ * failed 는 다운로드 실패로 남은 행(다운로드 실패 · 다운로드 멈춤 · 파일이 사라짐, 다시 다운로드하면 풀린다), lastCleanup 은 봇이 켜진 뒤 마지막으로 실제로 삭제한 정리(없으면 null).
  * disk: 캐시 폴더의 드라이브. db: drive 가 캐시 드라이브와 같으면 드라이브 막대에 조각으로 들어간다
  */
 type StorageView = {
@@ -79,7 +79,7 @@ type StorageView = {
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[] };
 
-/** 전체 서버 공지의 종류. 화면은 이 키로 이름표를 단다 */
+/** 전체 서버 공지의 종류. 화면은 이 키로 라벨을 단다 */
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
@@ -93,7 +93,7 @@ const ANNOUNCE_STYLE: Record<AnnounceKind, { emoji: string; title: string; color
   alert: { emoji: "⚠️", title: "긴급 공지", color: FIXED_COLORS.error },
   info: { emoji: "ℹ️", title: "공지사항", color: FIXED_COLORS.notice },
 };
-/** 공지 길이 상한(디스코드 임베드 설명 칸). 앞뒤 공백을 뺀 길이로 센다(announceBody) */
+/** 공지 길이 상한(디스코드 임베드 설명 필드). 앞뒤 공백을 뺀 길이로 센다(announceBody) */
 const ANNOUNCE_MAX = 4096;
 /** 보낼 공지 본문: 앞뒤 공백을 뺀다 */
 const announceBody = (message: string) => message.trim();
@@ -122,18 +122,18 @@ type Suggestions = { items: Array<{ value: string; hint?: string }> };
 /** AI 보조의 지금 상태. 키는 값이 아니라 있는지만 온다 */
 type AiState = {
   hasKey: Record<string, boolean>;
-  /** 키 상태(키를 쓰는 프로바이더만). moved: 주소 · 리전이 바뀌어 다시 넣어야 함, again: 풀 수 없음 */
+  /** 키 상태(키를 쓰는 프로바이더만). moved: 주소 · 리전이 바뀌어 다시 입력해야 함, again: 풀 수 없음 */
   keyState: Record<string, AiKeyState>;
   providers: Array<ProviderSpec & { value: string }>;
   pingText: string;
   defaultSections: PromptSection[];
   defaultLine: string;
-  /** 비운 칸이 쓰는 값 */
+  /** 비운 입력란이 쓰는 값 */
   settingDefaults: AiDefaults;
 };
-/** 그 모델이 받는 칸. 프로필이 모르는 프로바이더면 known 이 false 이고 칸 묶음이 없다 */
+/** 그 모델이 받는 필드. 프로필이 모르는 프로바이더면 known 이 false 이고 필드 그룹이 없다 */
 type AiFields = { known: boolean; fields: ModelField[]; groups?: ModelGroup[]; models: ModelSummary[] };
-/** 칸마다의 본문 토큰. exact 가 아니면 어림 */
+/** 입력란마다의 본문 토큰. exact 가 아니면 어림 */
 type TokensReply = { each: number[]; total: number; by: string; exact: boolean };
 type CandidatesReply = { candidates: TestCandidate[] };
 

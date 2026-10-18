@@ -84,7 +84,7 @@ function start(withNames: Decorate) {
   offRecorded ??= requests.onRecorded(broadcast);
 }
 
-/** 연결을 모두 닫고 듣기를 멈춘다(대시보드를 닫을 때 · 시험) */
+/** 연결을 모두 닫고 듣기를 멈춘다(대시보드를 닫을 때 · 테스트) */
 function stop() {
   for (const res of clients.keys()) res.end();
   clients.clear();

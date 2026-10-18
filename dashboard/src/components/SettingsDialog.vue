@@ -55,7 +55,7 @@ import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.settings;
 
-// 내용이 화면보다 길면 구른다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
+// 내용이 화면보다 길면 스크롤된다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
 const dialogEl = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(dialogEl);
 

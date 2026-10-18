@@ -1,9 +1,9 @@
 /**
- * 모델 프로필. 어느 모델이 어떤 칸을 받고 그 값이 본문 어디로 가는지.
+ * 모델 프로필. 어느 모델이 어떤 필드를 받고 그 값이 본문 어디로 가는지.
  *
  * PocketRisu 공개 레지스트리를 원본 그대로 둔다(CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry).
- * 저장소의 `data/ai-models.json` 은 함께 싣는 기본 사본이고, 갱신 단추 · `pnpm run update:models` 가 받은 것은 실행 자리(`database/ai-models.json`)에 쓴다.
- * 기본 사본은 git 이 추적해 고쳐 두면 `git pull` 이 막힌다. 읽을 때는 둘 중 받은 때(`fetchedAt`)가 새것을 쓴다(저장소가 새 사본을 내보내면 그것이 이긴다).
+ * 저장소의 `data/ai-models.json` 은 함께 싣는 기본 사본이고, 갱신 버튼 · `pnpm run update:models` 가 다운로드한 것은 실행 위치(`database/ai-models.json`)에 쓴다.
+ * 기본 사본은 git 이 추적해 고쳐 두면 `git pull` 이 막힌다. 읽을 때는 둘 중 다운로드한 때(`fetchedAt`)가 새것을 쓴다(저장소가 새 사본을 내보내면 그것이 이긴다).
  */
 import fs from "fs";
 import path from "path";
@@ -14,10 +14,10 @@ import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
 /** 저장소에 함께 싣는 기본 사본. 여기에는 쓰지 않는다 */
 const BUNDLED = path.join(PROJECT.data, "ai-models.json");
-/** 받은 사본(실행 자리) */
+/** 다운로드한 사본(실행 위치) */
 const FETCHED = path.join(PROJECT.database, "ai-models.json");
 
-// 레지스트리의 모양. 여기서 읽는 칸만
+// 레지스트리의 모양. 여기서 읽는 필드만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
 type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: ShowIf; order?: number };
 type UiGroup = { id: string; label?: string; labelI18n?: { ko?: string }; order?: number };
@@ -49,7 +49,7 @@ function optionOf(e: unknown) {
 
 /**
  * 프로필은 base-provider 를 상속한다. 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
- * 베이스에 있다. 합치지 않으면 추론 칸이 통째로 빈다. 키가 겹치면 프로필이 이긴다.
+ * 베이스에 있다. 합치지 않으면 추론 필드가 통째로 빈다. 키가 겹치면 프로필이 이긴다.
  */
 function mergeSchemas(base: SchemaField[] | undefined, extension: SchemaField[] | undefined): SchemaField[] {
   const override = new Set((extension || []).map((f) => f?.key));
@@ -66,14 +66,14 @@ function readSnapshot(file: string): Snapshot | null {
   }
 }
 
-/** 받은 때가 새것. 받은 때를 모르면 가장 오래된 것으로 본다. 같으면 받은 사본(b) */
+/** 다운로드한 때가 새것. 다운로드한 때를 모르면 가장 오래된 것으로 본다. 같으면 다운로드한 사본(b) */
 function newerOf(a: Snapshot | null, b: Snapshot | null): Snapshot | null {
   const at = (one: Snapshot | null) => (one?.fetchedAt ? Date.parse(one.fetchedAt) || 0 : -1);
   if (!a || !b) return a ?? b;
   return at(a) > at(b) ? a : b;
 }
 
-/** 기본 사본과 받은 사본 중 새것. 둘 다 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
+/** 기본 사본과 다운로드한 사본 중 새것. 둘 다 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
 function load({ reload = false } = {}): Snapshot {
   if (held && !reload) return held;
   held = newerOf(readSnapshot(BUNDLED), readSnapshot(FETCHED)) ?? { baseProviders: {}, profiles: {} };
@@ -109,7 +109,7 @@ function profileOf(registry: string, modelId: string, snapshot: Snapshot = load(
 // 프로필이 상속하는 베이스
 const baseOf = (snapshot: Snapshot, profile: Profile) => (profile.providerBaseId ? snapshot.baseProviders?.[profile.providerBaseId] : undefined);
 
-/** 그 모델이 받는 칸들. 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
+/** 그 모델이 받는 필드들. 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
 function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelField[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
@@ -140,7 +140,7 @@ function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()
     .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
-/** 칸을 담는 묶음. 이름과 차례를 프로필이 정한다. 칸 이름은 영어뿐이고 묶음에만 한국어가 있다. */
+/** 필드를 담는 그룹. 이름과 순서를 프로필이 정한다. 필드 이름은 영어뿐이고 그룹에만 한국어가 있다. */
 function groupsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelGroup[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
@@ -160,9 +160,9 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
   return { ...(base?.defaultBody || {}), ...(found.profile.defaults || {}) };
 }
 
-/** 저쪽에서 한 버전 받아 온다. 원본 그대로 담되 우리 프로바이더 것만 고른다. */
-// index: 이미 받아 둔 목차(갱신은 해시를 보려고 먼저 받는다). 없으면 여기서 받는다
-// 모델 목록은 GitHub 에서 받는다(공유 HTTP 클라이언트)
+/** 저쪽에서 한 버전 다운로드한다. 원본 그대로 담되 우리 프로바이더 것만 선택한다. */
+// index: 이미 다운로드해 둔 목차(갱신은 해시를 보려고 먼저 다운로드한다). 없으면 여기서 다운로드한다
+// 모델 목록은 GitHub 에서 다운로드한다(공유 HTTP 클라이언트)
 const github = httpFor("github");
 
 async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = github.fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
@@ -183,8 +183,8 @@ async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImp
   return out;
 }
 
-// 저쪽이 모양을 바꾸면 칸이 통째로 빈 채로 저장될 수 있다. 모델 이름이 아니라 모양으로 본다(저쪽이 옛 모델을 빼도 멀쩡하다):
-// 지금 가진 버전에서 칸이 있던 레지스트리가 새 버전에서 칸을 통째로 잃으면 쓰지 않는다. 가진 버전이 없으면 칸이 하나라도 있어야 한다
+// 저쪽이 모양을 바꾸면 필드가 통째로 빈 채로 저장될 수 있다. 모델 이름이 아니라 모양으로 본다(저쪽이 옛 모델을 빼도 멀쩡하다):
+// 지금 가진 버전에서 필드가 있던 레지스트리가 새 버전에서 필드를 통째로 잃으면 쓰지 않는다. 가진 버전이 없으면 필드가 하나라도 있어야 한다
 function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[] {
   const fields = (registry: string, snapshot: Snapshot) => modelsOf(registry, snapshot).reduce((n, m) => n + fieldsOf(registry, m.modelId, snapshot).length, 0);
   if (!Object.keys(held.profiles || {}).length) return registries.some((r) => fields(r, got) > 0) ? [] : registries;
@@ -192,7 +192,7 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 }
 
 /**
- * 받아서 받은 사본(`database/ai-models.json`)에 쓴다. 해시가 같으면 받지 않는다.
+ * 다운로드해서 사본(`database/ai-models.json`)에 쓴다. 해시가 같으면 다운로드하지 않는다.
  * 대시보드 갱신 버튼과 `pnpm run update:models` 가 이 길을 같이 쓴다.
  */
 async function refresh({ registries, force = false, timeoutMs = 30000 }: { registries: string[]; force?: boolean; timeoutMs?: number }): Promise<RefreshResult> {
@@ -204,7 +204,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
 
   const got = await fetchRegistry(registries, { timeoutMs, index });
   const lost = lostShape(registries, held, got);
-  if (lost.length) throw new Error(`${lost.join(" · ")} 의 모델 칸이 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
+  if (lost.length) throw new Error(`${lost.join(" · ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 
   fs.mkdirSync(path.dirname(FETCHED), { recursive: true });
   fs.writeFileSync(FETCHED, JSON.stringify(got, null, 2) + String.fromCharCode(10));

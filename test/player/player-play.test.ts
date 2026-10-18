@@ -3,7 +3,7 @@
 // 옳고 그름을 따지는 테스트가 아니다. 리팩터링이 play() 를 다섯 함수로 나눌 때 **무엇이 바뀌었는지**
 // 드러나게 하려는 것이다. 여기 적힌 동작이 이상해 보여도 고치지 말고, 고칠 때는 이 테스트를 같이 고친다.
 //
-// 갈래마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 띄웠나, 캐시 장부에 무엇을 적었나, 끝난 뒤 플레이어 상태.
+// 분기마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 실행했나, 오디오 캐시에 무엇을 적었나, 끝난 뒤 플레이어 상태.
 
 import * as h from "../helpers/player-harness.ts";
 import sink from "../../src/infra/log/sink.ts";
@@ -30,7 +30,7 @@ const tracks = await import("../helpers/tracks.ts");
 const yt = tracks.youtube;
 const argsOf = (child: FakeChild) => child.args.join(" ");
 
-// SponsorBlock 답. 구간만 시험이 정한다
+// SponsorBlock 답. 구간만 테스트가 정한다
 const segments = (skipSegments: SkipSegment[]): Segments => ({ skipSegments, highlightAt: null, source: "live" });
 
 // 캐시 전환을 물으면 곡을 적고 전환을 예약했다고 답하는 플레이어
@@ -42,7 +42,7 @@ class SwitchAsked extends h.Player {
   }
 }
 
-// 한 시험이 끝나면 타이머를 남기지 않는다
+// 한 테스트가 끝나면 타이머를 남기지 않는다
 async function playOnce(player: Player, seekMs = 0) {
   try {
     return await player.play(seekMs);
@@ -66,11 +66,11 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
   assert.equal(calls.spawns.length, 1);
   assert.equal(calls.spawns[0].label, "playback");
   assert.match(argsOf(calls.spawns[0]), new RegExp(`-i ${file.replace(/[\\.]/g, "\\$&")}`));
-  assert.equal(calls.downloads.length, 0, "이미 있으니 받지 않는다");
+  assert.equal(calls.downloads.length, 0, "이미 있으니 다운로드하지 않는다");
   assert.equal(calls.fetches.length, 0);
   assert.equal(h.fakeAudioOf(p).played.length, 1);
-  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "파일 갈래는 스플라이서를 끼우지 않는다");
-  // 캐시에 적힌 길이는 받아 둔 음원을 잰 값이다. 보이던 값(180)과 2초 넘게 다르니 표시도 바꾼다
+  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "파일 분기는 스플라이서를 끼우지 않는다");
+  // 캐시에 적힌 길이는 캐시된 음원을 잰 값이다. 보이던 값(180)과 2초 넘게 다르니 표시도 바꾼다
   assert.equal(p.currentTrack.duration, 201);
   assert.equal(p.playback?.lengthMs, 201_000, "곡 끝 판정은 이 음원의 길이를 본다");
   assert.equal(p.lifecycle.phase, "playing");
@@ -87,7 +87,7 @@ test("재생 단계: 틀지 못하면 idle 로 돌아오고, 정지하면 dispos
   assert.equal(p.lifecycle.phase, "disposed");
 });
 
-test("캐시에서 틀어도 장부에 재생을 적는다", async () => {
+test("캐시에서 틀어도 오디오 캐시에 재생을 적는다", async () => {
   const track = yt("bbbbbbbbbbb");
   h.seedCache("yt:bbbbbbbbbbb", track);
   const p = h.makePlayer();
@@ -98,7 +98,7 @@ test("캐시에서 틀어도 장부에 재생을 적는다", async () => {
   assert.equal(h.audioRow("yt:bbbbbbbbbbb")?.play_count, 1);
   const row = h.lookupRow(track.requestKey);
   assert.equal(row?.audio_url, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
-  assert.equal(row?.title_verified, 0, "캐시 갈래는 영상 제목을 못 받아 확인 안 됨으로 적는다");
+  assert.equal(row?.title_verified, 0, "캐시 분기는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
 
 test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구) 재생 횟수를 세지 않는다. 새로 틀면 센다", async () => {
@@ -119,7 +119,7 @@ test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구
   }
 });
 
-test("받아 둔 파일은 열쇠 자리에서만 찾는다. 다른 자리의 파일은 쓰지 않고 스트림으로 튼다", async () => {
+test("캐시 파일은 키 경로에서만 찾는다. 다른 경로의 파일은 쓰지 않고 스트림으로 튼다", async () => {
   const track = yt("ccccccccccc");
   const other = h.writeCacheFile("yt:다른-자리");
   const p = h.makePlayer();
@@ -147,7 +147,7 @@ test("캐시로 튼 곡은 퇴거에서 보호한다", async () => {
 
 // ── 스트림으로 튼다 ────────────────────────────────────────────────────
 
-test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시를 받는다", async () => {
+test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시를 다운로드한다", async () => {
   const track = yt("eeeeeeeeeee");
   const p = h.makePlayer();
   p.currentTrack = track;
@@ -162,13 +162,13 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
   assert.equal(calls.spawns.length, 1);
   assert.equal(calls.spawns[0].label, "stream");
   assert.ok(calls.spawns[0].args.includes("pipe:0"));
-  assert.equal(calls.downloads.length, 1, "재생과 나란히 캐시를 받는다");
-  assert.ok(calls.resources[0].input instanceof AudioSplicer, "스트림 갈래는 무지연 전환을 위해 스플라이서를 끼운다");
+  assert.equal(calls.downloads.length, 1, "재생과 나란히 캐시를 다운로드한다");
+  assert.ok(calls.resources[0].input instanceof AudioSplicer, "스트림 분기는 무지연 전환을 위해 스플라이서를 끼운다");
   assert.equal(p.currentTrack.duration, 180, "보이던 길이를 지킨다(스트림이 준 길이도 출처가 준 값이다)");
   assert.equal(p.playback?.lengthMs, 190_000, "곡 끝 판정은 트는 음원의 길이(스트림이 준 값)를 본다");
 });
 
-test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 받지 않는다. 길이는 스트림이 알려 준 것을 본다", async () => {
+test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 다운로드하지 않는다. 길이는 스트림이 알려 준 것을 본다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("lllllllllll");
   behavior.stream = () => ({ url: "https://media.test/long", duration: 2 * 3600 });
@@ -178,7 +178,7 @@ test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 받지 
   assert.equal(r.ok, true);
   assert.equal(calls.fetches.length, 1);
   assert.equal(calls.downloads.length, 0, "기본 상한 60분");
-  assert.ok(calls.resources[0].input instanceof AudioSplicer, "받기 없이도 스트림 갈래로 연다");
+  assert.ok(calls.resources[0].input instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
 });
 
 test("헤더를 안 준 스트림은 브라우저 User-Agent 로 받는다", async () => {
@@ -292,7 +292,7 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
-test("직접 링크는 응답이 크기를 알릴 때만 나란히 받는다. 크기를 모르는 응답은 스트림으로만 튼다", async () => {
+test("직접 링크는 응답이 크기를 알릴 때만 나란히 다운로드한다. 크기를 모르는 응답은 스트림으로만 튼다", async () => {
   for (const [headers, downloads] of [
     [{ "content-length": "4096" }, 1],
     [{}, 0],
@@ -311,7 +311,7 @@ test("직접 링크는 응답이 크기를 알릴 때만 나란히 받는다. �
   }
 });
 
-test("직접 링크가 열리지 않으면 그때 받기를 시작해 기다린다", async () => {
+test("직접 링크가 열리지 않으면 그때 다운로드를 시작해 기다린다", async () => {
   const p = h.makePlayer();
   const track = tracks.direct("https://files.test/c.mp3");
   p.currentTrack = track;
@@ -324,10 +324,10 @@ test("직접 링크가 열리지 않으면 그때 받기를 시작해 기다린�
   const r = await playOnce(p);
 
   assert.equal(r.ok, false);
-  assert.equal(calls.downloads.length, 1, "받아서 틀 길을 연다");
+  assert.equal(calls.downloads.length, 1, "다운로드해서 틀 길을 연다");
 });
 
-test("인터넷 라디오는 라이브로 튼다. 받아 두지 않고, 끝나면 방송이 끝난 것으로 본다", async () => {
+test("인터넷 라디오는 라이브로 튼다. 다운로드해 두지 않고, 끝나면 방송이 끝난 것으로 본다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://radio.test/live.mp3", { isLive: true, liveStatus: "is_live" });
   behavior.stream = () => ({ url: "https://radio.test/live.mp3", platform: "direct", liveStatus: "is_live" });
@@ -350,7 +350,7 @@ test("출처 이름을 platform 에 쓰는 음원 곡도 서술자가 direct 면
   assert.deepEqual(calls.directStreams, ["https://nawdist.test/a.mp3"]);
 });
 
-test("스트림이 실패해도 그사이 캐시가 다 받아졌으면 파일로 넘어간다", async () => {
+test("스트림이 실패해도 그사이 캐시 다운로드가 끝났으면 파일로 넘어간다", async () => {
   const track = yt("hhhhhhhhhhh");
   const p = h.makePlayer();
   p.currentTrack = track;
@@ -364,10 +364,10 @@ test("스트림이 실패해도 그사이 캐시가 다 받아졌으면 파일�
   const r = await playOnce(p);
 
   assert.equal(r.ok, true);
-  assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 띄우지 않고 파일만");
+  assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 실행하지 않고 파일만");
   assert.equal(calls.spawns[0].label, "playback");
   assert.ok(
-    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 받은 캐시로 틉니다")),
+    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 다운로드한 캐시로 틉니다")),
     "넘어간 것을 남긴다(조용히 넘어가면 스트림 쪽 결함이 가려진다)",
   );
 });
@@ -390,7 +390,7 @@ test("스트림도 캐시도 안 되면 실패를 돌려주고 멈춘다", async
   assert.ok(h.fakeAudioOf(p).stops >= 1, "말하는 중 상태를 푼다");
 });
 
-test("캐시하지 않는 곡은 스트림이 안 열리면 기다릴 받기가 없어 그 오류로 실패한다", async () => {
+test("캐시하지 않는 곡은 스트림이 안 열리면 기다릴 다운로드가 없어 그 오류로 실패한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("mmmmmmmmmmm");
   behavior.stream = () => ({ url: "https://media.test/long2", duration: 2 * 3600 });
@@ -406,7 +406,7 @@ test("캐시하지 않는 곡은 스트림이 안 열리면 기다릴 받기가 
   assert.equal(calls.downloads.length, 0);
 });
 
-test("스트림 주소를 못 받으면 실패", async () => {
+test("스트림 주소를 못 불러오면 실패", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("jjjjjjjjjjj");
   behavior.stream = () => {
@@ -421,7 +421,7 @@ test("스트림 주소를 못 받으면 실패", async () => {
 
 // ── HLS · 라이브 ───────────────────────────────────────────────────────
 
-test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 받는다", async () => {
+test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 다운로드한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("kkkkkkkkkkk");
   behavior.stream = () => ({ url: "https://hls.test/v.m3u8", protocol: "m3u8_native", liveStatus: "was_live", duration: 300 });
@@ -437,10 +437,10 @@ test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 받�
   assert.equal(calls.downloads.length, 1);
   assert.equal(p.playback?.live, false);
   assert.equal(p.isLive, false);
-  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 갈래는 스플라이서를 끼우지 않는다");
+  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 분기는 스플라이서를 끼우지 않는다");
 });
 
-test("라이브는 위치 0 으로 열고, 캐시를 안 받는다", async () => {
+test("라이브는 위치 0 으로 열고, 캐시를 다운로드하지 않는다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("lllllllllll");
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
@@ -449,7 +449,7 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받는다", async () =>
   h.dispose(p);
 
   assert.ok(!calls.spawns[0].args.includes("-ss"), "라이브에는 옮길 자리가 없다");
-  assert.equal(calls.downloads.length, 0, "끝이 없어 받기 시작하면 파일이 무한히 분다");
+  assert.equal(calls.downloads.length, 0, "끝이 없어 다운로드를 시작하면 파일이 무한히 분다");
   assert.equal(p.playback?.live, true);
   assert.equal(p.isLive, true, "재생 시점의 답을 따른다");
   assert.equal(p.currentTrack.isLive, undefined, "트랙은 담을 때의 답 그대로");
@@ -497,7 +497,7 @@ test("스포티파이: 동등물을 찾아 그 영상의 캐시가 있으면 파
   assert.equal(calls.spawns[0].label, "playback");
   assert.equal(p.currentTrack.audioUrl, "https://www.youtube.com/watch?v=nnnnnnnnnnn");
   const row = h.lookupRow("https://open.spotify.com/track/sp1");
-  assert.equal(row?.audio_url, "https://www.youtube.com/watch?v=nnnnnnnnnnn", "스포티파이 곡 → 영상 을 장부에 적는다");
+  assert.equal(row?.audio_url, "https://www.youtube.com/watch?v=nnnnnnnnnnn", "스포티파이 곡 → 영상 을 링크 데이터에 적는다");
 });
 
 test("스포티파이: 영상 id 를 몰라 동등물을 먼저 찾고 SponsorBlock 을 묻는다. 구간은 이번 재생에 둔다", async () => {
@@ -564,11 +564,11 @@ test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼
   }
 });
 
-test("받아 둔 파일로 이어 틀면 직전 주소를 따지지 않는다. 만료를 모르는 주소는 그렇게 남긴다", async (t) => {
+test("캐시 파일로 이어 틀면 직전 주소를 따지지 않는다. 만료를 모르는 주소는 그렇게 남긴다", async (t) => {
   const track = yt("pc1cccccccc");
   const p = h.makePlayer();
   p.currentTrack = track;
-  // 캐시하지 않는 긴 곡(나란히 받는 중인 파일은 캐시로 치지 않으므로)
+  // 캐시하지 않는 긴 곡(나란히 다운로드 중인 파일은 캐시로 치지 않으므로)
   behavior.stream = () => ({ url: "https://files.test/no-expire.mp3", duration: 2 * 3600 });
   await p.play(0);
   const lines = () => sink.buffer.slice(from).map((e) => e.text);
@@ -589,7 +589,7 @@ test("받아 둔 파일로 이어 틀면 직전 주소를 따지지 않는다. �
   assert.ok(!lines().some((l) => l.startsWith("직전 스트림 주소")), "파일로 트는데 주소 이야기를 남기지 않는다");
 });
 
-test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 받는다", async () => {
+test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 불러온다", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const p = h.makePlayer();
   behavior.stream = (t) => ({ url: `https://rr1.googlevideo.com/videoplayback?id=${t.id}&expire=${expire}`, duration: 300 });
@@ -616,7 +616,7 @@ test("새로 트는 곡의 첫 SponsorBlock 구간이 인트로면 그 끝에서
   assert.equal(args[args.indexOf("-ss") + 1], "12.500");
 });
 
-test("유튜브 곡은 스트림 응답의 제목으로 고치고 장부에 확인됨으로 적는다", async () => {
+test("유튜브 곡은 스트림 응답의 제목으로 고치고 링크 데이터에 확인됨으로 적는다", async () => {
   const track = yt("rrrrrrrrrrr", { title: "재생목록이 준 옛 제목" });
   const p = h.makePlayer();
   p.currentTrack = track;
@@ -813,7 +813,7 @@ test("스트림이 복구 불가로 끊기면 캐시 전환을 걸고 ffmpeg 입
 
 const tick = () => new Promise((done) => setImmediate(done));
 
-test("파이프 갈래: 입력 스트림이 깨지면 입력을 닫은 ffmpeg 가 0 으로 끝나도 깨진 것으로 적는다", async () => {
+test("파이프 분기: 입력 스트림이 깨지면 입력을 닫은 ffmpeg 가 0 으로 끝나도 깨진 것으로 적는다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("z5zzzzzzzzz");
   behavior.stream = () => ({ url: "https://media.test/e", duration: 100 });
@@ -829,7 +829,7 @@ test("파이프 갈래: 입력 스트림이 깨지면 입력을 닫은 ffmpeg �
   assert.match(p.playback?.input?.broken ?? "", /입력 스트림 오류/);
 });
 
-test("파이프 갈래: 청크 스트림이 전체 크기를 다 받지 못하고 끝나면 깨진 것, 다 받고 끝나면 온전하다", async () => {
+test("파이프 분기: 청크 스트림이 전체 크기를 다 받지 못하고 끝나면 깨진 것, 다 받고 끝나면 온전하다", async () => {
   for (const [received, broken] of [
     [1000, true],
     [4096, false],
@@ -850,7 +850,7 @@ test("파이프 갈래: 청크 스트림이 전체 크기를 다 받지 못하�
   }
 });
 
-test("파일 · 주소 갈래도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
+test("파일 · 주소 분기도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
   const cachedTrack = yt("z7zzzzzzzzz");
   h.seedCache("yt:z7zzzzzzzzz", cachedTrack);
   const p = h.makePlayer();
@@ -870,7 +870,7 @@ test("파일 · 주소 갈래도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨
   assert.match(q.playback?.input?.broken ?? "", /종료 코드 1/);
 });
 
-test("연 입력의 갈래를 적는다. 청크 스트림은 끊겼을 때 남길 상태(이어받는 중인가)를 준다", async () => {
+test("연 입력의 종류를 적는다. 청크 스트림은 끊겼을 때 남길 상태(이어받는 중인가)를 준다", async () => {
   const kinds: Array<[string, () => void]> = [
     ["청크", () => (behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?clen=4096", duration: 100 }))],
     ["단일 GET", () => (behavior.stream = () => ({ url: "https://media.test/e", duration: 100 }))],
@@ -924,7 +924,7 @@ test("캐시에 적힌 길이가 보이던 값과 2초 안이면 표시는 그�
   assert.equal(p.playback?.lengthMs, 180_400);
 });
 
-test("받기 전에 길이를 몰랐던 곡(직접 링크)은 나란히 받기가 끝나면 음원 길이를 알고 패널을 고친다", async () => {
+test("다운로드 전에 길이를 몰랐던 곡(직접 링크)은 나란히 다운로드가 끝나면 음원 길이를 알고 패널을 고친다", async () => {
   const p = h.makePlayer();
   const seen = recordPanel({ player: p });
   const track = tracks.direct("https://files.test/len.mp3", { durationSource: "unknown" });
@@ -935,7 +935,7 @@ test("받기 전에 길이를 몰랐던 곡(직접 링크)은 나란히 받기�
   behavior.download = (t) =>
     new Promise((done) => {
       finish = () => {
-        // 진짜 받기처럼 캐시에 잰 길이를 적고 표시를 채운다
+        // 진짜 다운로드처럼 캐시에 잰 길이를 적고 표시를 채운다
         const key = `dl:${md5("https://files.test/len.mp3")}`;
         const file = h.writeCacheFile(key);
         audioCache.recordDownloadComplete(key, file, 4, t, { durationSec: 123.4 });
@@ -945,7 +945,7 @@ test("받기 전에 길이를 몰랐던 곡(직접 링크)은 나란히 받기�
     });
 
   await playOnce(p);
-  assert.equal(p.playback?.lengthMs, null, "받기 전에는 모른다");
+  assert.equal(p.playback?.lengthMs, null, "다운로드 전에는 모른다");
   finish();
   for (let i = 0; i < 10; i++) await new Promise((done) => setImmediate(done));
   seen.stop();

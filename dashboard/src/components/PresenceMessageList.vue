@@ -1,16 +1,16 @@
 <!--
-  상태 문구 줄 목록. 기본 문구와 기간·시간대 문구가 같은 모양이라 함께 쓴다.
+  상태 문구 행 목록. 기본 문구와 기간·시간대 문구가 같은 모양이라 함께 쓴다.
 
   활동 종류는 대부분 건드릴 일이 없어 "기본"을 두면 파일에도 적히지 않는다.
-  파일에서는 그런 줄이 `- 🎵 /play` 한 줄로 남는다.
+  파일에서는 그런 항목이 `- 🎵 /play` 한 줄로 남는다.
 -->
 <template>
-  <!-- 줄: 문구 칸(오른쪽 안에 이모지, 디스코드 입력창처럼) · 활동 종류 · 지우기. 아래에 문구 추가 -->
+  <!-- 행: 문구 입력란(오른쪽 안에 이모지, 디스코드 입력창처럼) · 활동 종류 · 삭제. 아래에 문구 추가 -->
   <div class="flex flex-col gap-2">
     <div v-for="(message, i) in list" :key="message.key" class="flex items-center gap-2">
       <div class="relative flex-1 min-w-0">
         <input :ref="(el) => keep(message.key, el)" :value="message.text" :placeholder="placeholder" :class="[FIELD, 'w-full pr-11']" :maxlength="MAX_TEXT" @input="message.text = valueOf($event)" @blur="remember(message)" @click="remember(message)" @keyup="remember(message)" @select="remember(message)" />
-        <!-- 고른 이모지는 커서 자리에 끼워 넣는다 -->
+        <!-- 선택한 이모지는 커서 위치에 끼워 넣는다 -->
         <EmojiPicker class="absolute! right-1 top-1" @pick="insert(message, $event)">
           <template #default="{ toggle }">
             <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.insertEmoji" v-tooltip="T.insertEmoji" @click="toggle"><Twemoji char="🙂" :size="20" /></button>
@@ -45,7 +45,7 @@ import type { MessageRow } from "../utils/presence-rows.ts";
 import { text } from "../text/index.ts";
 const T = text.presence;
 
-// 배열을 그대로 고친다. 줄마다 갈아끼우면 입력 중에 초점이 튄다
+// 배열을 그대로 고친다. 행마다 교체하면 입력 중에 포커스가 튄다
 const list = defineModel<MessageRow[]>({ required: true });
 defineEmits<{ add: [] }>();
 
@@ -53,11 +53,11 @@ const placeholder = "🎵 /play";
 
 const inputs = reactive<Record<number, HTMLInputElement | null>>({});
 const carets = reactive<Record<number, Caret | null>>({});
-// 줄마다의 입력칸. v-for 안의 함수 ref 가 넣는다
+// 행마다의 입력란. v-for 안의 함수 ref 가 넣는다
 const keep = (key: number, el: unknown) => (inputs[key] = el instanceof HTMLInputElement ? el : null);
 
-// 판을 열면 칸에서 초점이 떠나므로, 떠나기 전 커서 자리를 적어 둔다.
-// 한 번도 만지지 않은 칸은 적어 둔 것이 없어, 넣을 때 글 끝으로 간다.
+// 판을 열면 입력란에서 포커스가 떠나므로, 떠나기 전 커서 위치를 적어 둔다.
+// 한 번도 만지지 않은 입력란은 적어 둔 것이 없어, 넣을 때 글 끝으로 간다.
 function remember(message: MessageRow) {
   carets[message.key] = caretOf(inputs[message.key]);
 }
@@ -85,7 +85,7 @@ function remove(i: number, message: MessageRow) {
 // 그래도 둘을 따로 두는 것은 손으로 `type: Listening`이라 적어 둔 파일을 그대로 돌려놓기 위해서다.
 // 종류는 서버의 것(schema/status 의 ACTIVITY_TYPES). 빠뜨리면 타입 검사가 잡는다
 const TYPE_LABEL: Record<ActivityType | "", string> = T.activityTypes;
-// "기본"(빈 값)은 고르기 칸의 빈 줄(empty-label)이 맡는다
+// "기본"(빈 값)은 드롭다운의 빈 항목(empty-label)이 맡는다
 const TYPES = Object.entries(TYPE_LABEL)
   .filter(([value]) => value)
   .map(([value, label]) => ({ value, label }));

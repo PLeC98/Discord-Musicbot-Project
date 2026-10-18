@@ -1,4 +1,4 @@
-// dashboard/src/utils/color.ts — 색 고르기의 #RRGGBB ↔ RGB ↔ HSV
+// dashboard/src/utils/color.ts — 색 선택의 #RRGGBB ↔ RGB ↔ HSV
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,12 +23,12 @@ test("채도나 밝기가 0 이면 색상과 무관하게 같은 색", () => {
   assert.equal(hsvToHex({ h: 359.9, s: 1, v: 1 }), "#FF0000", "끝은 빨강으로 돈다");
 });
 
-test("#RRGGBB 꼴만 색으로 본다", () => {
+test("#RRGGBB 형식만 색으로 본다", () => {
   assert.ok(isHex("#2743d2"));
   for (const bad of ["", "2743D2", "#2743D", "#2743D2F", "#GGGGGG", " #2743D2"]) assert.equal(isHex(bad), false, bad);
 });
 
-test("적은 HEX: # 은 없어도 되고 세 자리는 늘린다, 대문자로", () => {
+test("입력한 HEX: # 은 없어도 되고 세 자리는 늘린다, 대문자로", () => {
   assert.equal(parseHex("#2743d2"), "#2743D2");
   assert.equal(parseHex(" 2743d2 "), "#2743D2");
   assert.equal(parseHex("#f0a"), "#FF00AA");

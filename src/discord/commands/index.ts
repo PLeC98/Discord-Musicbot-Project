@@ -1,4 +1,4 @@
-// 슬래시 명령 전부. 새 명령은 여기에 더한다(app/command-loader 가 이 목록으로 등록 · 배포한다). 폴더의 파일과 같은지는 시험(test/app/moduleLists)이 본다
+// 슬래시 명령 전부. 새 명령은 여기에 더한다(app/command-loader 가 이 목록으로 등록 · 배포한다). 폴더의 파일과 같은지는 테스트(test/app/moduleLists)가 본다
 
 import autoplay from "./autoplay.ts";
 import cachestatus from "./cachestatus.ts";
@@ -33,7 +33,7 @@ import system from "./system.ts";
 import volume from "./volume.ts";
 import type { SlashCommand } from "../../app/command-loader.ts";
 
-// 차례가 곧 /help 의 차례다(묶음 안에서 위에서 아래로)
+// 순서가 곧 /help 의 순서다(그룹 안에서 위에서 아래로)
 const COMMANDS: readonly SlashCommand[] = [play, playfirst, pause, stop, skip, previous, replay, seek, highlight, queue, clear, remove, move, shuffle, loop, autoplay, volume, search, nowplaying, join, leave, setchannel, setdjrole, setplaylistlimit, sponsorblock, dashboard, ping, system, cachestatus, license, help];
 
 export { COMMANDS };

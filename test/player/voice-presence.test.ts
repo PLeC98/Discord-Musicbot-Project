@@ -1,5 +1,5 @@
 // src/player/voice-presence.ts — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 사라짐 · 채널 이동 · 음소거 · 혼자 남음).
-// 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 가른다. 가짜 서버 · 플레이어로 무엇을 불렀는지만 본다.
+// 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 구분한다. 가짜 서버 · 플레이어로 무엇을 불렀는지만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -58,13 +58,13 @@ test("플레이어가 없는 서버는 아무것도 안 한다", async () => {
   assert.deepEqual(calls, []);
 });
 
-test("봇이 음성에서 쫓겨나면 세션을 지우고 끝난 패널(disconnected)로 버린다", async () => {
+test("봇이 음성에서 쫓겨나면 세션을 삭제하고 끝난 패널(disconnected)로 버린다", async () => {
   const { client, calls, state, players } = setup();
   await onVoiceStateUpdate(client, players, state(BOT, "vc1"), state(BOT, null));
   assert.deepEqual(calls, ["dispose:봇이 음성에서 강제 퇴장됨:remove:disconnected"]);
 });
 
-test("봇이 있던 채널이 지워져 빠졌으면 강제 퇴장이 아니라 채널 사라짐으로 버린다", async () => {
+test("봇이 있던 채널이 삭제돼 빠졌으면 강제 퇴장이 아니라 채널 사라짐으로 버린다", async () => {
   const { client, calls, state, players } = setup({ channelExists: false });
   await onVoiceStateUpdate(client, players, state(BOT, "vc1"), state(BOT, null));
   assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:disconnected"]);
@@ -120,7 +120,7 @@ test("사람이 돌아오면 혼자 남음을 풀고, 그걸로 멈춰 있었으
   assert.deepEqual(busy.calls, ["cancelAlone:true"]);
 });
 
-test("봇의 채널이 사라졌으면 세션을 지우고 버린다", async () => {
+test("봇의 채널이 사라졌으면 세션을 삭제하고 버린다", async () => {
   const { client, calls, state, players } = setup({ channelExists: false });
   await onVoiceStateUpdate(client, players, state("u0", "vc1"), state("u0", null));
   assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:disconnected"]);

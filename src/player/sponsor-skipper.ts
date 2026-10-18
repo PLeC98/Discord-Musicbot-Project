@@ -6,7 +6,7 @@ import type { SkipSegment } from "../sources/sponsor-block.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 
-/** 구간을 넘기며 읽고 부르는 플레이어 칸 */
+/** 구간을 넘기며 읽고 부르는 플레이어 필드 */
 type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor" | "playback">;
 type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
 

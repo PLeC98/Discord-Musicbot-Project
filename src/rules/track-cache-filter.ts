@@ -1,20 +1,20 @@
-// 캐시 DB 의 거르기 식(DB Browser for SQLite 의 칸 거르기 문법)을 읽고 견준다. 봇(읽기 경로)과 화면(입력란 미리 보기)이 같이 쓴다. Node 를 부르지 않는다.
+// 캐시 DB 의 필터 식(DB Browser for SQLite 의 열 필터 문법)을 읽고 비교한다. 봇(읽기 경로)과 화면(입력란 미리 보기)이 같이 쓴다. Node 를 부르지 않는다.
 // 식: 그냥 쓰면 포함(대소문자 무시, % 는 아무 글자들) · =값 · <>값 · >값 <값 >=값 <=값 · 값~값(사이) · /정규식/(\/ 로 / 를 쓴다) · ='' (빔) · <>'' (빔 아님).
-// 칸의 꼴에 따라 값을 읽는다: 크기는 10MB 같은 단위(없으면 바이트), 때는 2026-10-17 · 2026-10-17 12:30 같은 날짜(이 기기의 시간대), 길이는 3:30 같은 분:초(없으면 초).
+// 열의 형식에 따라 값을 읽는다: 크기는 10MB 같은 단위(없으면 바이트), 시각은 2026-10-17 · 2026-10-17 12:30 같은 날짜(이 기기의 시간대), 길이는 3:30 같은 분:초(없으면 초).
 // 날짜 하나는 그날 하루다: =날짜 는 그날 안, >날짜 는 그날 뒤, >=날짜 는 그날부터, <날짜 는 그날 전, <=날짜 는 그날까지.
-// 정규식은 서버가 음악 재생과 같은 이벤트 루프에서 돌리므로 길이 상한을 두고, 반복 안에 반복이 겹친 꼴(오래 걸릴 수 있다)은 받지 않는다.
+// 정규식은 서버가 음악 재생과 같은 이벤트 루프에서 돌리므로 길이 상한을 두고, 반복 안에 반복이 겹친 형태(오래 걸릴 수 있다)는 받지 않는다.
 
 import type { Code } from "./problems.ts";
 
-/** 칸 하나의 거르기 식 · 아무 칸에서나 거르기 · 그 안의 정규식 길이 상한 */
+/** 열 하나의 필터 식 · 아무 열에서나 필터 · 그 안의 정규식 길이 상한 */
 const FILTER_MAX = 200;
 const REGEX_MAX = 100;
 
-/** 칸의 꼴. text: 글자 · bytes: 크기 · time: 때(ms) · count: 개수 · seconds: 길이(초) */
+/** 열의 형식. text: 문자열 · bytes: 크기 · time: 시각(ms) · count: 개수 · seconds: 길이(초) */
 type ColumnKind = "text" | "bytes" | "time" | "count" | "seconds";
 
 type Cmp = ">" | "<" | ">=" | "<=";
-/** 읽은 식. 값은 칸의 꼴로 읽은 것(글자 칸은 글자, 그 밖은 수). 날짜는 그날의 처음 · 끝(ms) */
+/** 읽은 식. 값은 열의 형식으로 읽은 것(문자열 열은 문자열, 그 밖은 수). 날짜는 그날의 처음 · 끝(ms) */
 type Filter = { kind: "contains"; pattern: RegExp } | { kind: "equals"; value: string | number; until?: number } | { kind: "not-equals"; value: string | number; until?: number } | { kind: "compare"; op: Cmp; value: number } | { kind: "between"; low: number; high: number } | { kind: "regex"; pattern: RegExp } | { kind: "empty" } | { kind: "not-empty" };
 
 type Problem = { ok: false; code: Code; max?: number };
@@ -26,10 +26,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// 반복(+ * ? {n,})으로 끝나는 묶음 뒤에 또 반복이 붙은 꼴: (a+)+ · (a*)* · (\w+){2,} 처럼 되짚기가 크게 늘 수 있다
+// 반복(+ * ? {n,})으로 끝나는 그룹 뒤에 또 반복이 붙은 형태: (a+)+ · (a*)* · (\w+){2,} 처럼 백트래킹이 크게 늘 수 있다
 const NESTED_REPEAT = /\((?:[^()\\]|\\.)*(?:[+*]|\{\d+,\d*\})\)(?:[+*]|\{\d+,\d*\})/;
 
-/** 값 하나를 그 칸의 꼴로. 때는 그날(또는 그 분)의 처음과 끝. 읽을 수 없으면 null */
+/** 값 하나를 그 열의 형식으로. 시각은 그날(또는 그 분)의 처음과 끝. 읽을 수 없으면 null */
 function readValue(kind: ColumnKind, raw: string): { value: number; until?: number } | null {
   const text = raw.trim();
   if (kind === "bytes") {
@@ -63,7 +63,7 @@ function regexOf(source: string): Parsed {
   }
 }
 
-// =값 · <>값. 글자 칸은 글자 그대로, 그 밖은 그 꼴로 읽은 수(날짜면 그날 안)
+// =값 · <>값. 문자열 열은 문자열 그대로, 그 밖은 그 형식으로 읽은 수(날짜면 그날 안)
 function equality(kind: ColumnKind, raw: string, negate: boolean): Parsed {
   if (raw === "''") return { ok: true, filter: { kind: negate ? "not-empty" : "empty" } };
   if (kind === "text") return { ok: true, filter: { kind: negate ? "not-equals" : "equals", value: raw } };
@@ -81,7 +81,7 @@ function comparison(kind: ColumnKind, op: Cmp, raw: string): Parsed {
   return { ok: true, filter: { kind: "compare", op, value } };
 }
 
-/** 칸 하나의 식을 읽는다. 빈 식은 null(거르지 않음) */
+/** 열 하나의 식을 읽는다. 빈 식은 null(필터링하지 않음) */
 function parseFilter(kind: ColumnKind, input: string): Parsed | null {
   const expr = input.trim();
   if (!expr) return null;
@@ -102,7 +102,7 @@ function parseFilter(kind: ColumnKind, input: string): Parsed | null {
   return { ok: true, filter: { kind: "contains", pattern: new RegExp(expr.split("%").map(escape).join(".*"), "i") } };
 }
 
-// = 의 견줌: 글자는 그대로, 날짜는 그날 안, 수는 같은 수
+// = 의 비교: 문자열은 그대로, 날짜는 그날 안, 수는 같은 수
 function sameAs(filter: Extract<Filter, { kind: "equals" | "not-equals" }>, value: string | number) {
   if (typeof filter.value === "string") return String(value) === filter.value;
   const n = Number(value);
@@ -111,7 +111,7 @@ function sameAs(filter: Extract<Filter, { kind: "equals" | "not-equals" }>, valu
 
 const COMPARE: Record<Cmp, (n: number, value: number) => boolean> = { ">": (n, v) => n > v, "<": (n, v) => n < v, ">=": (n, v) => n >= v, "<=": (n, v) => n <= v };
 
-/** 값이 식에 맞나. 값이 없으면(null · 빈 글) 빔 · 빔 아님 · 같지 않음만 맞을 수 있다 */
+/** 값이 식에 맞나. 값이 없으면(null · 빈 문자열) 빔 · 빔 아님 · 같지 않음만 맞을 수 있다 */
 function matchFilter(filter: Filter, value: string | number | null): boolean {
   const empty = value === null || value === "";
   if (filter.kind === "empty") return empty;
@@ -124,7 +124,7 @@ function matchFilter(filter: Filter, value: string | number | null): boolean {
   return COMPARE[filter.op](Number(value), filter.value);
 }
 
-/** 아무 칸에서나: 낱말마다 어느 칸에든 들어간 줄(대소문자 무시). 빈 글은 null */
+/** 아무 열에서나: 낱말마다 어느 열에든 들어간 행(대소문자 무시). 빈 문자열은 null */
 function parseWords(input: string): Words | null {
   const text = input.trim();
   if (!text) return null;

@@ -12,7 +12,7 @@ import { fake, fakeBot } from "../helpers/fake.ts";
 
 type Sent = { components: Array<{ toJSON(): unknown }> };
 
-// 패널 채널을 찾은 횟수와 보낸 것 · 지운 것을 적는 가짜
+// 패널 채널을 찾은 횟수와 보낸 것 · 삭제한 것을 적는 가짜
 function world(found = true) {
   const sent: string[] = [];
   const deleted: string[] = [];
@@ -43,7 +43,7 @@ test("누가 했나: 로그인한 사람의 멘션 뒤에 (대시보드)", () =>
   assert.equal(dashboardActor(fake<Request>({ session: { user: { id: "u1" } } })), "<@u1> (대시보드)");
 });
 
-test("조작 안내: 패널 채널에 보내고 수명 뒤 지운다. 채널은 알리기 전에 찾아 둔다(정지 뒤에는 플레이어가 없다)", async (t) => {
+test("조작 안내: 패널 채널에 보내고 수명 뒤 삭제한다. 채널은 알리기 전에 찾아 둔다(정지 뒤에는 플레이어가 없다)", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const w = world();
   const announce = announcer(w.bot, w.player);

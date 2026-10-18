@@ -1,5 +1,5 @@
-// SQLite 파일 하나를 여는 틀. 설정 · 실행 상태 · 캐시가 각자 이것으로 자기 파일을 정한다(stores.ts 가 함께 연다).
-// 불러와도 열리지 않는다. 열기 전에 get() 을 부르면 던진다(시험 · 스크립트가 실제 DB 를 건드리지 않게).
+// SQLite 파일 하나를 여는 래퍼. 설정 · 실행 상태 · 캐시가 각자 이것으로 자기 파일을 정한다(stores.ts 가 함께 연다).
+// 불러와도 열리지 않는다. 열기 전에 get() 을 부르면 던진다(테스트 · 스크립트가 실제 DB 를 건드리지 않게).
 
 import Database from "better-sqlite3";
 import path from "path";
@@ -9,9 +9,9 @@ import { ownerOnly } from "../infra/owner-only.ts";
 type Db = Database.Database;
 
 /**
- * 구조 버전이 맞지 않을 때의 안내. 어느 파일이든 열지 않고 멈춘다(옮기기 코드도, 저절로 지우고 새로 만들기도 두지 않는다).
- * lost: 지워도 되는 파일. 지우면 무엇을 잃는지(안내는 "이 파일을 지우고 다시 켜라")
- * hint: 지우면 안 되는 파일의 안내(설정 DB)
+ * 구조 버전이 맞지 않을 때의 안내. 어느 파일이든 열지 않고 멈춘다(옮기기 코드도, 저절로 삭제하고 새로 만들기도 두지 않는다).
+ * lost: 삭제해도 되는 파일. 삭제하면 무엇을 잃는지(안내는 "이 파일을 삭제하고 다시 시작하라")
+ * hint: 삭제하면 안 되는 파일의 안내(설정 DB)
  */
 type OnMismatch = { lost: string } | { hint: (found: number, file: string) => string };
 
@@ -66,7 +66,7 @@ class DbFile {
     const found = db.pragma("user_version", { simple: true }) as number;
     if (!tables.length || found === this.spec.version) return;
     const rule = this.spec.onMismatch;
-    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 끄고 이 파일(같은 이름의 -wal · -shm 포함)을 지운 뒤 다시 켜면 새로 만듭니다. 지우면 ${rule.lost}`;
+    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 종료하고 이 파일(같은 이름의 -wal · -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듭니다. 삭제하면 ${rule.lost}`;
     throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
   }
 

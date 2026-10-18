@@ -1,8 +1,8 @@
 <template>
   <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background 의 상태 하나를 읽고 바꾸는 요청들도 그것으로 답한다.
-       화면 판: 지금 쓰는 배경을 고른 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 칸의 값을 저장 전에도 바로 보인다). 썸네일 전 새 배경은 아직 판에 없다(로그인 화면도 그렇다).
+       화면 판: 지금 쓰는 배경을 선택한 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 영역의 값을 저장 전에도 바로 보인다). 썸네일 전 새 배경은 아직 판에 없다(로그인 화면도 그렇다).
        아래: 로그인 화면에 지금 걸린 것 · 처리 중인 배경의 진행 · 그만두기 · 변경 · 편집 · 삭제 · 로그인 화면으로 보기.
-       넓으면 화면 판 칸(가운데 정렬) 오른쪽에 같은 높이의 옵션 칸: 좌우 · 상하(보일 자리) · 블러(화면 폭의 %) · 배경 불투명도(= 100 - 덮개 진하기) · 몰입형 테마 색상 · 반복 전환 효과(영상).
+       넓으면 화면 판 영역(가운데 정렬) 오른쪽에 같은 높이의 옵션 영역: 좌우 · 상하(보일 위치) · 블러(화면 폭의 %) · 배경 불투명도(= 100 - 오버레이 진하기) · 몰입형 테마 색상 · 반복 전환 효과(영상).
        옵션 · 고급 설정은 운영자 패널의 저장 막대(SaveDock, composables/save-targets)로 저장 · 되돌린다. 접는 고급 설정: 보존 개수 · 최대 용량 · 인코딩 환경(코덱마다 쓰는 인코더 · 꺼진 까닭 · 지금 인코딩).
        만드는 동안은 운영자 패널의 상태 읽기와 같이 3초마다 다시 읽는다(화면이 숨으면 멈춘다). 로그인 배경 백업은 백업 탭(파비콘과 따로) -->
   <BaseCard icon="wallpaper" :title="C.title">
@@ -12,15 +12,15 @@
     <p class="mb-3 text-sm text-on-surface-variant">{{ C.desc }}</p>
 
     <div class="flex flex-col gap-3">
-      <!-- 넓으면 왼쪽에 화면 판 칸, 오른쪽에 옵션 칸(두 칸 높이를 맞춘다). 그 아래 상태 · 단추. 좁으면 차례로 -->
+      <!-- 넓으면 왼쪽에 화면 판 영역, 오른쪽에 옵션 영역(두 영역 높이를 맞춘다). 그 아래 상태 · 버튼. 좁으면 순서대로 -->
       <div class="grid gap-4 lg:grid-cols-[minmax(0,38rem)_minmax(16rem,1fr)]">
-        <!-- 화면 판 칸: 위에 화면 비율(단추마다 툴팁으로 그 비율의 기기), 판은 칸 가운데 -->
+        <!-- 화면 판 영역: 위에 화면 비율(버튼마다 툴팁으로 그 비율의 기기), 판은 영역 가운데 -->
         <div class="flex flex-col gap-3 min-w-0 rounded-2xl bg-surface-container p-4">
           <div class="flex flex-wrap justify-center gap-1">
             <button v-for="one in RATIOS" :key="one.label" type="button" class="tap state-layer h-8 px-3 rounded-full text-xs font-semibold nums cursor-pointer" :class="ratio === one ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-highest'" v-tooltip="C.ratioDevices[one.label]" @click="ratio = one">{{ one.label }}</button>
           </div>
           <label class="flex items-center justify-center gap-2 text-xs"> <BaseSwitch v-model="silhouette" :label="C.silhouette" />{{ C.silhouette }} </label>
-          <!-- 화면 판: 높이 PANE_REM 기준, 넓은 비율은 칸 폭에 맞춰 줄인다 -->
+          <!-- 화면 판: 높이 PANE_REM 기준, 넓은 비율은 영역 폭에 맞춰 줄인다 -->
           <div class="flex flex-1 items-center justify-center">
             <div class="relative overflow-hidden rounded-2xl outline outline-outline-variant select-none bg-black" :style="{ aspectRatio: `${ratio.w} / ${ratio.h}`, width: `min(100%, ${(PANE_REM * ratio.w) / ratio.h}rem)` }">
               <LoginBackdrop v-if="shown" :bg="shown" :look="look" />
@@ -30,7 +30,7 @@
           </div>
         </div>
 
-        <!-- 옵션 칸: 화면에서 거는 것(CSS, 다시 만들지 않는다). 바꾼 값은 화면 판에 바로 보이고, 저장을 눌러야 봇에 간다 -->
+        <!-- 옵션 영역: 화면에서 거는 것(CSS, 다시 만들지 않는다). 바꾼 값은 화면 판에 바로 보이고, 저장을 눌러야 봇에 간다 -->
         <div v-if="state" class="flex flex-col gap-4 rounded-2xl bg-surface-container p-4">
           <label v-for="axis in AXES" :key="axis.key" class="flex flex-col gap-1 text-sm">
             <span class="flex justify-between"
@@ -58,12 +58,12 @@
               <span class="flex flex-1 items-center gap-1">{{ C.immersive }}<Icon name="info" :size="16" class="cursor-help text-on-surface-variant" v-tooltip="C.immersiveTip" /></span>
               <BaseSwitch v-model="draft.look.follow" :label="C.immersive" />
             </label>
-            <!-- 반복 전환 효과: 효과 고르기(목록) · 길이(한 덩어리 단추, 없음이면 꺼짐) 한 줄 -->
+            <!-- 반복 전환 효과: 효과 선택(목록) · 길이(버튼 그룹, 없음이면 꺼짐) 한 줄 -->
             <div class="flex flex-col gap-2 text-sm">
               <span class="flex items-center gap-1">{{ C.seam }}<Icon name="info" :size="16" class="cursor-help text-on-surface-variant" v-tooltip="C.seamTip" /></span>
               <div class="flex items-center gap-2">
                 <SingleSelect class="flex-1 min-w-0" :model-value="draft.look.seam.kind" :options="SEAM_OPTIONS" @update:model-value="pickSeam" />
-                <!-- 이어 붙은 버튼 묶음(M3E connected button group, 계정 메뉴의 밝기와 같은 꼴). 고른 칸은 모서리가 둥글게 바뀐다. 없음이면 꺼진다 -->
+                <!-- 이어 붙은 버튼 그룹(M3E connected button group, 계정 메뉴의 밝기와 같은 형태). 선택한 버튼은 모서리가 둥글게 바뀐다. 없음이면 꺼진다 -->
                 <div class="flex shrink-0 gap-0.5" role="group" :aria-label="C.seamLength" :class="draft.look.seam.kind === 'cut' && 'opacity-38'">
                   <button
                     v-for="(sec, i) in SEAM_SECONDS"
@@ -81,7 +81,7 @@
               </div>
             </div>
           </template>
-          <!-- 아래: 위치 초기화(보일 자리만 가운데로) · 초기화(옵션 전부를 처음 값으로). 저장 · 되돌리기는 저장 막대 -->
+          <!-- 아래: 위치 초기화(보일 위치만 가운데로) · 초기화(옵션 전부를 처음 값으로). 저장 · 되돌리기는 저장 막대 -->
           <div class="mt-auto flex justify-end gap-2">
             <BaseButton size="sm" variant="ghost" :disabled="busy || !cur || centered" @click="resetPosition">{{ C.resetPosition }}</BaseButton>
             <BaseButton size="sm" variant="ghost" :disabled="busy || isDefault" @click="resetOptions">{{ C.resetOptions }}</BaseButton>
@@ -115,7 +115,7 @@
         <button v-if="cur" type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="busy" :aria-label="C.clear" v-tooltip="C.clear" @click="clear"><Icon name="delete" :size="18" /></button>
       </div>
 
-      <!-- 고급 설정(접힘): 기록 보관 개수 · 최대 용량(쓰는 양 막대) · 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 까닭, 지금 인코딩). 다른 고급 설정(AI)과 같은 꼴: 이름표에 툴팁 · 공용 숫자 칸 · 빈칸이면 기본값 -->
+      <!-- 고급 설정(접힘): 기록 보관 개수 · 최대 용량(쓰는 양 막대) · 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 까닭, 지금 인코딩). 다른 고급 설정(AI)과 같은 형태: 라벨에 툴팁 · 공용 숫자 입력란 · 빈칸이면 기본값 -->
       <details v-if="state" class="group/adv rounded-(--r-inner) bg-surface-container text-sm">
         <summary class="flex cursor-pointer list-none items-center gap-1 px-4 py-3 font-semibold"><Icon name="expand_more" :size="20" class="transition-transform group-open/adv:rotate-180" />{{ A.title }}</summary>
         <div class="flex flex-col gap-5 px-4 pb-4">
@@ -151,7 +151,7 @@
                 <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ one.why }}</span>
               </li>
             </ul>
-            <!-- 지금 인코딩: 함께 굽는 단계 · AV1 병렬 단계(남은 메모리에 맞춰 고른 것) · 묶은 코어 · 속도. 메모리 · 이벤트 루프 지연은 봇 상태 탭 -->
+            <!-- 지금 인코딩: 함께 굽는 단계 · AV1 병렬 단계(남은 메모리에 맞춰 정한 것) · 묶은 코어 · 속도. 메모리 · 이벤트 루프 지연은 봇 상태 탭 -->
             <span v-if="bakeLine" class="flex items-baseline gap-2 text-xs nums"
               ><span class="shrink-0 font-semibold" v-tooltip="A.bakeTip">{{ A.bakeTitle }}</span
               ><span class="text-on-surface-variant">{{ bakeLine }}</span></span
@@ -209,12 +209,12 @@ const API = "/api/admin/appearance/login-background";
 const POLL_MS = 3000;
 /** 다시 세는 동안은 더 자주 */
 const COUNT_POLL_MS = 1000;
-/** 배경 불투명도 슬라이더의 아래(= 100 - 덮개 진하기 상한) */
+/** 배경 불투명도 슬라이더의 아래(= 100 - 오버레이 진하기 상한) */
 const OPACITY_MIN = 100 - LOGIN_BG_COVER_MAX;
 const SEAM_OPTIONS = SEAM_KINDS.map((kind) => ({ value: kind, label: C.seamKinds[kind] }));
-/** 화면 판의 높이(rem). 넓은 비율은 칸 폭에 맞춰 줄인다 */
+/** 화면 판의 높이(rem). 넓은 비율은 영역 폭에 맞춰 줄인다 */
 const PANE_REM = 20;
-/** 보일 자리 슬라이더 */
+/** 보일 위치 슬라이더 */
 const AXES = [
   { key: "x" as const, label: C.positionX },
   { key: "y" as const, label: C.positionY },
@@ -243,7 +243,7 @@ const loginOpen = ref(false);
 const editingId = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const avatar = ref<string | null>(null);
-/** 받기를 시작한 배경. 미리보기가 생기면(편집 전 단계가 끝나면) 편집 창을 연다 */
+/** 가져오기를 시작한 배경. 미리보기가 생기면(편집 전 단계가 끝나면) 편집 창을 연다 */
 const pendingEdit = ref<string | null>(null);
 /** 올리는 중인 파일(봇이 받기 전까지 팝업이 올린 양을 보인다) */
 const uploading = ref<{ name: string; progress: number } | null>(null);
@@ -257,7 +257,7 @@ const work = computed(() => state.value?.list.find((bg) => bg.phase === "prepari
 /** 마지막으로 올린 배경이 실패했으면 그것(까닭을 보인다) */
 const failed = computed(() => (state.value?.list[0]?.phase === "failed" ? state.value.list[0] : null));
 const failedWhy = computed(() => (failed.value?.problem ? noticeText(failed.value.problem).body : ""));
-/** 편집을 적용한 뒤(인코딩 중 · 차례 기다림)인지. 아니면 편집을 마치기 전(받기 · 프리뷰 · 스프라이트 · 편집 대기) */
+/** 편집을 적용한 뒤(인코딩 중 · 차례 기다림)인지. 아니면 편집을 마치기 전(가져오기 · 프리뷰 · 스프라이트 · 편집 대기) */
 const encoding = computed(() => work.value?.phase === "queued" || work.value?.phase === "encoding");
 /** 만드는 진행: 지금 하는 쪽(편집 전 · 적용 뒤) 단계들 안에서 */
 const overall = computed(() => {
@@ -302,15 +302,15 @@ const bakeLine = computed(() => {
   return A.bake(`${codecs} ${shorts}`, bake.lp, A.cores(bake.cores.bound, bake.cores.total), bake.speed);
 });
 
-// ── 옵션 칸의 고친 값(저장 전) ──
+// ── 옵션 영역의 고친 값(저장 전) ──
 
 const copyLook = (look: LoginBackgroundOptions): LoginBackgroundOptions => ({ ...look, seam: { ...look.seam } });
-/** 고친 값: 지금 배경의 보일 자리 · 화면에서 거는 것 */
+/** 고친 값: 지금 배경의 보일 위치 · 화면에서 거는 것 */
 const draft = reactive({ position: { x: 50, y: 50 }, look: copyLook(LOGIN_BG_OPTIONS_DEFAULT) });
 const saved = computed(() => ({ position: cur.value?.position ?? { x: 50, y: 50 }, look: state.value?.options ?? LOGIN_BG_OPTIONS_DEFAULT }));
 const sameLook = (a: LoginBackgroundOptions, b: LoginBackgroundOptions) => a.blur === b.blur && a.cover === b.cover && a.follow === b.follow && a.seam.kind === b.seam.kind && a.seam.seconds === b.seam.seconds;
 const dirty = computed(() => draft.position.x !== saved.value.position.x || draft.position.y !== saved.value.position.y || !sameLook(draft.look, saved.value.look));
-/** 화면 판 · 로그인 화면으로 보기에 그릴 값: 고친 화면 값 · 보일 자리 */
+/** 화면 판 · 로그인 화면으로 보기에 그릴 값: 고친 화면 값 · 보일 위치 */
 const look = computed<LoginBackgroundLook>(() => ({ ...draft.look, position: { ...draft.position } }));
 function revert() {
   draft.position = { ...saved.value.position };
@@ -325,10 +325,10 @@ async function loadShown() {
     const got = (await axios.get<LoginBackground>("/api/login-background")).data;
     shown.value = got.kind === "none" ? null : got;
   } catch {
-    // 꾸밈이다. 못 받으면 봇 그림으로
+    // 꾸밈이다. 못 불러오면 봇 그림으로
   }
 }
-// 지금 배경 · 걸 수 있는 것(썸네일 → 저화질 → 다)이 바뀌면 다시 받는다
+// 지금 배경 · 걸 수 있는 것(썸네일 → 저화질 → 다)이 바뀌면 다시 불러온다
 watch(
   () => `${state.value?.current}|${state.value?.shows}`,
   () => void loadShown(),
@@ -339,7 +339,7 @@ watch(
 /** 한도의 처음 값(빈칸이면 이것) */
 const DEFAULT_LIMITS = { history: LOGIN_BG_LIMITS_DEFAULT.history, gb: LOGIN_BG_LIMITS_DEFAULT.maxBytes / 1024 ** 3 };
 const limitsDraft = reactive<{ history: number | null; gb: number | null }>({ history: null, gb: null });
-/** 고친 칸이 비었으면 처음 값 */
+/** 고친 입력란이 비었으면 처음 값 */
 const limitsWanted = computed(() => ({ history: limitsDraft.history ?? DEFAULT_LIMITS.history, maxBytes: Math.round((limitsDraft.gb ?? DEFAULT_LIMITS.gb) * 1024 ** 3) }));
 const limitsDirty = computed(() => !!state.value && (limitsWanted.value.history !== state.value.limits.history || limitsWanted.value.maxBytes !== state.value.limits.maxBytes));
 function revertLimits() {
@@ -362,7 +362,7 @@ function apply(next: LoginBackgroundState) {
     openEdit(waiting);
     pendingEdit.value = null;
   }
-  // 받다 실패했으면 기다리지 않는다(팝업 · 카드가 까닭을 보인다)
+  // 가져오다 실패했으면 기다리지 않는다(팝업 · 카드가 까닭을 보인다)
   if (waiting?.phase === "failed") pendingEdit.value = null;
 }
 const load = async () => apply((await axios.get<LoginBackgroundState>(API)).data);
@@ -460,7 +460,7 @@ const recheck = () => run(async () => apply((await axios.post<LoginBackgroundSta
 
 const savingOptions = ref(false);
 const savingLimits = ref(false);
-/** 저장: 보일 자리(지금 배경) · 화면에서 거는 것 */
+/** 저장: 보일 위치(지금 배경) · 화면에서 거는 것 */
 async function saveOptions() {
   savingOptions.value = true;
   try {
@@ -510,20 +510,20 @@ function pickSeam(value: string | number) {
   const kind = SEAM_KINDS.find((one): one is SeamKind => one === value);
   if (kind) draft.look.seam.kind = kind;
 }
-/** 보일 자리가 가운데인지 */
+/** 보일 위치가 가운데인지 */
 const centered = computed(() => draft.position.x === 50 && draft.position.y === 50);
 const isDefault = computed(() => sameLook(draft.look, LOGIN_BG_OPTIONS_DEFAULT) && centered.value);
-/** 보일 자리만 가운데로(저장은 저장 단추로) */
+/** 보일 위치만 가운데로(저장은 저장 버튼으로) */
 function resetPosition() {
   draft.position = { x: 50, y: 50 };
 }
-/** 옵션을 처음 값으로(저장은 저장 단추로) */
+/** 옵션을 처음 값으로(저장은 저장 버튼으로) */
 function resetOptions() {
   resetPosition();
   draft.look = copyLook(LOGIN_BG_OPTIONS_DEFAULT);
 }
 
-// 만드는 중 · 받기를 기다리는 중 · 인코더를 시험하는 중이면 3초마다 다시 읽는다(화면이 숨으면 건너뛴다). 편집을 기다리는 동안은 바뀌는 것이 없다
+// 만드는 중 · 가져오기를 기다리는 중 · 인코더를 테스트하는 중이면 3초마다 다시 읽는다(화면이 숨으면 건너뛴다). 편집을 기다리는 동안은 바뀌는 것이 없다
 let timer = 0;
 const polling = computed(() => Boolean(work.value && work.value.phase !== "editing") || pendingEdit.value !== null || Boolean(state.value?.checking));
 watch(polling, (on) => {

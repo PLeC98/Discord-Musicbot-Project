@@ -14,7 +14,7 @@ import type { HelpEntry } from "../../ui/help-lines.ts";
 import type { GuildMember } from "discord.js";
 import { noticeMs, noticeSelf, replaceSelf } from "../../ui/delivery.ts";
 
-/** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름 · 설명 · 권한 · 넣을 자리만 다르다 */
+/** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름 · 설명 · 권한 · 넣을 위치만 다르다 */
 type PlayOptions = {
   name: string;
   description: string;
@@ -50,9 +50,9 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       const permErr = await permission(member);
       if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
-      // "검색 중" 은 본인에게만. 처음부터 Components V2 로 응답해야 이 자리를 안내 · 메뉴로 고칠 수 있다
+      // "검색 중" 은 본인에게만. 처음부터 Components V2 로 응답해야 이 자리표시자를 안내 · 메뉴로 고칠 수 있다
       await interaction.reply(reply(frame({ body: searchText.searching(query) })));
-      // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
+      // 여기서부터 던지면 "검색 중" 자리표시자를 오류로 바꾼다
       showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 
       const result = await requestPlayback(bot, {
@@ -70,10 +70,10 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
         const failed = addFailureMessage(result);
         return await replaceSelf(interaction, noticeFrame(failed), noticeMs(failed));
       }
-      // 담은 안내는 모두에게 따로 갔다. "검색 중" 자리는 더 넣기 메뉴로 고치거나 지운다
+      // 담은 안내는 모두에게 따로 갔다. "검색 중" 자리표시자는 더 넣기 메뉴로 고치거나 삭제한다
       if (result.more && (await offerOnInteraction(interaction, result.more, result.player))) return;
       await interaction.deleteReply().catch(() => {
-        /* 이미 지워졌다 */
+        /* 이미 삭제됐다 */
       });
     },
   };

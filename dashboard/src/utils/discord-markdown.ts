@@ -74,7 +74,7 @@ function inline(raw: string): string {
 
 type Block = { kind: "p" | "h1" | "h2" | "h3" | "sub" | "quote" | "ul" | "ol" | "code"; lines: string[] };
 
-// 줄 머리 → 칸 종류와 떼어 낼 머리 길이(위에서부터 처음 맞는 것, 맞는 것이 없으면 문단)
+// 줄 접두어 → 블록 종류와 떼어 낼 접두어 길이(위에서부터 처음 맞는 것, 맞는 것이 없으면 문단)
 const LINE_KINDS: Array<{ head: RegExp; kind: Block["kind"]; cut: number }> = [
   { head: /^>( |$)/, kind: "quote", cut: 2 },
   { head: /^### /, kind: "h3", cut: 4 },
@@ -85,7 +85,7 @@ const LINE_KINDS: Array<{ head: RegExp; kind: Block["kind"]; cut: number }> = [
   { head: /^\s*\d+\. /, kind: "ol", cut: 0 },
 ];
 
-/** i 번째 줄에서 여는 코드 칸. 같은 줄에서 닫히면 그 줄만, 아니면 닫는 ``` 까지(여는 줄의 나머지가 낱말 하나면 언어 이름). 닫지 않았으면 null */
+/** i 번째 줄에서 여는 코드 블록. 같은 줄에서 닫히면 그 줄만, 아니면 닫는 ``` 까지(여는 줄의 나머지가 낱말 하나면 언어 이름). 닫지 않았으면 null */
 function codeBlock(lines: string[], i: number): { block: Block; end: number } | null {
   const rest = lines[i].slice(3);
   const close = rest.indexOf("```");

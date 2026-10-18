@@ -19,7 +19,7 @@ const shell = reactive({
   subtitle: "",
   /** 바탕화면 높이(px). App 이 잰다. 화면 아래에 붙는 판(휴대폰 대기열 판)이 높이를 셈한다 */
   deskHeight: 0,
-  /** 봇 프로필 그림(App 이 /api/bot 에서 받는다). 없거나 못 받으면 null, 모든 서버 아이콘이 기호로 */
+  /** 봇 프로필 그림(App 이 /api/bot 에서 불러온다). 없거나 못 불러오면 null, 모든 서버 아이콘이 기호로 */
   botAvatar: null as string | null,
 });
 

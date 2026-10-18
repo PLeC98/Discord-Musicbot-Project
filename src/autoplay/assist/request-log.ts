@@ -1,7 +1,7 @@
 // AI 리퀘스트 로그에 남기며 보낸다. AI 보조가 모델과 주고받는 곳(자동재생 판정 · 판정 테스트 · 연결 확인 · 모델 목록)이 모두 이것을 지난다.
 // 보내고, 본문 첫 조각이 온 때를 재고, 본문을 글로 다 읽은 뒤 기록하고 { res, text } 를 돌려준다(본문은 이미 읽었으니 부른 쪽은 text 를 쓴다).
 // 기록은 저장할 때 키를 가린다(assist/mask: 헤더 값 · 주소 · 본문 · 응답). 비용은 그때의 값표로 센다(config/ai-prices).
-// 기록이 꺼져 있거나(AI_LOG_ENABLED) DB 가 열려 있지 않으면(스크립트 · 시험) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
+// 기록이 꺼져 있거나(AI_LOG_ENABLED) DB 가 열려 있지 않으면(스크립트 · 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
 
 import config from "../../config/index.ts";
 import * as requests from "../../store/ai-requests.ts";
@@ -35,7 +35,7 @@ type Call = {
 // 기록 실패는 한 번만 알린다(요청마다 경고가 쏟아지지 않게). 다시 되면 또 알릴 수 있게 푼다
 let warned = false;
 
-/** 본문을 글로 읽으며 첫 조각이 온 때를 잰다. 흐름이 없는 응답(시험의 가짜)은 그냥 읽는다 */
+/** 본문을 글로 읽으며 첫 조각이 온 때를 잰다. 흐름이 없는 응답(테스트의 가짜)은 그냥 읽는다 */
 async function readTimed(res: Response, started: number): Promise<{ text: string; firstMs: number | null }> {
   if (!res.body) return { text: await res.text(), firstMs: null };
   const reader = res.body.getReader();

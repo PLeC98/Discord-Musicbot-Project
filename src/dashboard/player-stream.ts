@@ -18,7 +18,7 @@ type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: strin
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 구독 중인가"만 관리.
  */
 class PlayerStream {
-  /** 상한 · 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 먹는다) */
+  /** 상한 · 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 적용된다) */
   options: StreamOptions;
   heartbeatMs: number;
   subs = new Set<Sub>();
@@ -117,7 +117,7 @@ class PlayerStream {
 
   _emit(guildId: string) {
     // guildId를 함께 보낸다. 한 연결이 여러 서버를 받으므로, 이게 없으면
-    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바 · 서버 화면이 자기 서버만 고르는 근거).
+    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바 · 서버 화면이 자기 서버만 선택하는 근거).
     // 그 서버를 볼 수 있는 구독자에게만 보내 ID 노출 문제는 없다.
     const payload = `data: ${JSON.stringify({ t: "changed", g: guildId } satisfies GuildEvent)}\n\n`;
     for (const sub of this.subs) {
@@ -156,7 +156,7 @@ class PlayerStream {
   }
 }
 
-/** 설정(`SSE_*`)으로 허브를 만든다. 조립이 하나 만들어 플레이어 알림과 대시보드 경로에 나눠 준다. 하트비트 간격도 저장하면 바로 먹는다 */
+/** 설정(`SSE_*`)으로 허브를 만든다. 조립이 하나 만들어 플레이어 알림과 대시보드 경로에 나눠 준다. 하트비트 간격도 저장하면 바로 적용된다 */
 function createPlayerStream(options: StreamOptions = config.dashboard.sse) {
   const stream = new PlayerStream(options);
   stream.offChanged = onTunablesChanged(() => stream.syncHeartbeat());

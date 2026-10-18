@@ -2,7 +2,7 @@
 //
 // 요청은 한 번에 하나씩, 앞 요청을 보낸 뒤 MIN_GAP_MS 가 지나야 다음을 보낸다. 그사이 움직인 것은
 // 마지막 값만 남긴다. 놓은 뒤 마지막 요청이 끝나면 서버 값을 보여 준다.
-// 서버 값을 바로 묶으면 화면이 다시 그려질 때마다(진행바가 1초마다 그린다) 손잡이가 서버 값으로 튄다.
+// 서버 값을 바로 묶으면 화면이 다시 그려질 때마다(진행바가 1초마다 그린다) 핸들이 서버 값으로 튄다.
 import { ref, computed, type Ref } from "vue";
 import { notifyProblem } from "./toasts.ts";
 import { text } from "../text/index.ts";

@@ -11,7 +11,7 @@ function load(): Array<[string, string]> {
   return rows.map((r) => [r.channel_id, r.status]);
 }
 
-// 비웠으면 지운다. 빈 상태는 누구든 쓸 수 있어 기억할 까닭이 없다
+// 비웠으면 삭제한다. 빈 상태는 누구든 쓸 수 있어 기억할 까닭이 없다
 function save(channelId: string, status: string) {
   if (!status) {
     conn().prepare("DELETE FROM voice_status WHERE channel_id = ?").run(channelId);

@@ -4,7 +4,7 @@ import type { Request } from "express";
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
-// 이름표는 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
+// 라벨은 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
 import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
@@ -20,7 +20,7 @@ function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
     thumbnail: t.thumbnail,
     platform: t.platform,
     platformLabel: labelOf(t.platform),
-    autoplay: Boolean(t.autoplay), // 자동재생이 미리 뽑아 둔 곡. 화면에서 사용자 곡과 가른다
+    autoplay: Boolean(t.autoplay), // 자동재생이 미리 선택해 둔 곡. 화면에서 사용자 곡과 구분한다
     requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
   };
 }
@@ -60,8 +60,8 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
   };
 }
 
-// 만든 차례. 화면이 늦게 온 옛 응답으로 새 상태를 덮지 않게 상태를 만들 때마다 오른다. 서버는 한 줄로 돌아
-// 나중에 만든 상태가 그 전의 변경을 모두 담는다. boot 는 봇을 다시 켜면 바뀌어 차례가 처음부터임을 알린다
+// 만든 순서. 화면이 늦게 온 옛 응답으로 새 상태를 덮지 않게 상태를 만들 때마다 오른다. 서버는 단일 스레드로 돌아
+// 나중에 만든 상태가 그 전의 변경을 모두 담는다. boot 는 봇을 다시 시작하면 바뀌어 순서가 처음부터임을 알린다
 const BOOT = Date.now();
 let made = 0;
 

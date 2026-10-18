@@ -24,7 +24,7 @@ function sweepPending() {
   }
 }
 
-/** 설정 화면. 처음 띄울 때는 본인에게만(reply), 고칠 때는 그대로(post) */
+/** 설정 화면. 처음 표시할 때는 본인에게만(reply), 고칠 때는 그대로(post) */
 function sponsorConfigView({ enabled, categories }: Draft) {
   const chosen = new Set(categories);
   return screens.sponsorMenu({ enabled, options: SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: chosen.has(id) })) });
@@ -34,7 +34,7 @@ function registerPending(messageId: string, state: Draft) {
   pending.set(messageId, { enabled: state.enabled, categories: [...state.categories], at: Date.now() });
 }
 
-// 보류가 없으면(봇 재시작 등) 지금 설정에서 다시 만든다
+// 보류가 없으면(봇 다시 시작 등) 지금 설정에서 다시 만든다
 async function restoreDraft(messageId: string, guildId: string) {
   const per = await GuildSettingsManager.getSponsorBlock(guildId);
   const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
@@ -43,7 +43,7 @@ async function restoreDraft(messageId: string, guildId: string) {
   return state;
 }
 
-// 저장하고 무엇을 저장했는지 한 줄로. 모르는 카테고리는 걸러 낸다
+// 저장하고 무엇을 저장했는지 한 줄로. 모르는 카테고리는 필터링한다
 async function saveDraft(guildId: string, state: Draft) {
   const valid = new Set(SKIP_CATEGORIES);
   const categories = [...new Set(state.categories.filter((c) => valid.has(c)))];

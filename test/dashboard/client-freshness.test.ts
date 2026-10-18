@@ -26,7 +26,7 @@ test("빌드가 없으면 missing, 빌드 정보가 없으면 unknown", () => {
   assert.deepEqual(clientFreshness(dist, root), { state: "unknown" }, "읽지 못하면 모름");
 });
 
-test("빌드 뒤 고쳐지거나 사라진 화면 소스만 짚는다. 목록에 없는 봇 코드는 보지 않는다", () => {
+test("빌드 뒤 고쳐지거나 사라진 화면 소스만 가리킨다. 목록에 없는 봇 코드는 보지 않는다", () => {
   const builtAt = Date.UTC(2026, 9, 10, 12);
   write("dashboard/dist/index.html");
   write("dashboard/src/App.vue");

@@ -1,7 +1,7 @@
 import { text } from "../text/index.ts";
 const T = text.licenses.items;
 // 라이선스 대화상자(LicenseDialog)의 목록: 화면이 내보내는 글꼴 · 그림 · 라이브러리, 봇이 함께 배포하는 데이터(data/, 고지는 data/NOTICE). 라이선스는 각 패키지의 package.json 에 적힌 것.
-// 빌드할 때만 쓰는 도구(Vite · TypeScript 등)는 화면에 실리지 않아 넣지 않는다. 의존성을 더하거나 빼면 여기도 고친다
+// 빌드할 때만 쓰는 도구(Vite · TypeScript 등)는 화면에 실리지 않아 넣지 않는다. 의존성을 추가하거나 빼면 여기도 고친다
 
 export type LicenseItem = { name: string; license: string; url: string; note?: string };
 
@@ -25,7 +25,7 @@ export const LIBRARIES: LicenseItem[] = [
   { name: "Material Color Utilities", license: "Apache 2.0", url: "https://github.com/material-foundation/material-color-utilities" },
 ];
 
-// 저장소 주소 견주기: 끝의 / · .git, 대소문자, http(s):// · www. 는 무시한다(같은 저장소를 적는 흔한 다른 꼴)
+// 저장소 주소 견주기: 끝의 / · .git, 대소문자, http(s):// · www. 는 무시한다(같은 저장소를 적는 흔한 다른 형식)
 const repoKey = (url: string) =>
   url
     .trim()
@@ -35,7 +35,7 @@ const repoKey = (url: string) =>
     .replace(/\.git$/, "")
     .replace(/\/+$/, "");
 
-/** 운영자가 고친 소스를 원본과 다른 곳에 공개했나(SOURCE_REPO_URL 을 원본과 다르게 정함). 둘 중 하나라도 모르면 아니다 */
+/** 운영자가 고친 소스를 원본과 다른 곳에 공개했나(SOURCE_REPO_URL 을 원본과 다르게 지정함). 둘 중 하나라도 모르면 아니다 */
 export const isModifiedSource = (sourceRepo?: string, projectRepo?: string) => Boolean(sourceRepo && projectRepo && repoKey(sourceRepo) !== repoKey(projectRepo));
 
 /** 봇이 함께 배포하는 서드파티 데이터(data/). data/NOTICE 와 같은 것을 적는다 */

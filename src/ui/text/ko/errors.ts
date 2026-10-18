@@ -1,5 +1,5 @@
-// 오류 · 거절 안내. 코드(rules/problems)마다 문장 하나. 부르는 자리는 코드와 값만 넘긴다.
-// 안내는 무엇에 관한 것인지(topic) · 심각한 정도(severity) · 머리 줄 · 본문이고, 머리 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
+// 오류 · 거절 안내. 코드(rules/problems)마다 문장 하나. 부르는 쪽은 코드와 값만 넘긴다.
+// 안내는 무엇에 관한 것인지(topic) · 심각한 정도(severity) · 헤더 줄 · 본문이고, 헤더 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
 
 import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type Notice, type Topic } from "../notice.ts";
@@ -12,14 +12,14 @@ const error = (topic: Topic, title: string, body?: string) => noticeOf("error", 
 const warning = (topic: Topic, title: string, body?: string) => noticeOf("warning", topic, title, body);
 
 /**
- * 그리는 쪽마다 다른 값의 꼴. 디스코드는 채널을 멘션으로, 봇 개발자를 저장소 링크로 적는다(ui/mentions 의 DISCORD_LOOK).
+ * 그리는 쪽마다 다른 값의 형식. 디스코드는 채널을 멘션으로, 봇 개발자를 저장소 링크로 적는다(ui/mentions 의 DISCORD_LOOK).
  * 대시보드는 글자로 적고, 보고할 곳은 화면이 따로 붙인다(utils/problem)
  */
 type Look = { channel: (id: string) => string; developer: () => string };
-/** 꾸밈 없는 꼴(대시보드) */
+/** 꾸밈 없는 형식(대시보드) */
 const PLAIN: Look = { channel: (id) => `#${id}`, developer: () => "봇 개발자" };
 
-// 대시보드 화면은 보낼 수 없는 값(화면이 고를 수 있는 것만 보낸다). 옛 화면이 바뀐 봇에 보냈을 수도 있다
+// 대시보드 화면은 보낼 수 없는 값(화면이 선택할 수 있는 것만 보낸다). 옛 화면이 바뀐 봇에 보냈을 수도 있다
 const stalePage = (look: Look) => `페이지를 새로고침한 뒤 다시 시도해 보고, 계속되면 ${look.developer()}에게 보고해 주세요.`;
 // 화면도 봇도 보낼 일이 없는 값
 const cannotHappen = (look: Look) => `일반적으로는 발생할 수 없는 오류이니, ${look.developer()}에게 보고해 주세요.`;
@@ -46,7 +46,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 봇에게 디스코드 권한이 없음
   // 봇이 그 음성 채널에 들어가거나 말할 권한이 없다. 디스코드가 음성 채널 상태를 권한 없음으로 거절해도 이것이다
   "permission-voice": () => error("permission", "제게 권한이 없어요.", "봇이 그 음성 채널에 접속하거나 말할 권한이 없어요."),
-  // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅) · 그 밖(rules/error-kind 가 거절된 요청의 주소로 가른다)
+  // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅) · 그 밖(rules/error-kind 가 거절된 요청의 주소로 구분한다)
   "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
   "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해 달라고 해 주세요."),
   // 지금 상태로는 못 함
@@ -69,11 +69,11 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "live-no-loop": () => warning("live", "라이브 방송은 반복 모드를 지원하지 않아요!", "라이브 방송이 재생중이거나 대기열에 있을 때는 반복 모드를 설정할 수 없어요. 해당 곡을 빼고 시도해 주세요."),
   "live-upcoming": () => warning("live", "아직 시작되지 않은 라이브예요!", "예정된 라이브는 재생할 수 없어요. 라이브가 시작된 뒤에 다시 요청해 주세요!"),
   // 그 사이 사라짐
-  // 지난 재생의 패널 버튼 · 메뉴(정지 뒤 다시 틀었거나 봇이 다시 켜졌다)
+  // 지난 재생의 패널 버튼 · 메뉴(정지 뒤 다시 틀었거나 봇이 다시 시작됐다)
   "stale-session": () => warning("stale", "만료된 버튼이에요!", '새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, "현재 재생 중" 패널을 새로 불러와서 사용해 주세요!'),
-  // 곡으로 건너뛰기 메뉴에서 고른 곡이 대기열에 없다(메뉴를 연 뒤 대기열이 바뀌었다)
+  // 곡으로 건너뛰기 메뉴에서 선택한 곡이 대기열에 없다(메뉴를 연 뒤 대기열이 바뀌었다)
   "jump-target-gone": () => warning("stale", "선택한 곡이 대기열에 없어요!", "메뉴를 연 뒤에 대기열이 바뀌었어요. 다시 선택해 주세요."),
-  // 대시보드: 고른 곡(줄 번호)이 그 사이 대기열에서 빠졌다
+  // 대시보드: 선택한 곡(줄 번호)이 그 사이 대기열에서 빠졌다
   "entry-gone": () => warning("stale", "그 곡이 대기열에 없어요!", "그 사이 대기열이 바뀌었어요. 목록을 확인하고 다시 시도해 주세요."),
   // 대시보드: 조작한 사이 지금 곡이 바뀌었다(넘기기 · 이동이 다음 곡에 가지 않게 거절한다)
   "track-changed": () => warning("stale", "곡이 바뀌었어요!", "그 사이 지금 곡이 바뀌었어요. 화면을 확인하고 다시 시도해 주세요."),
@@ -111,7 +111,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "direct-unavailable": () => warning("link", "재생할 수 없는 링크예요!", "해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요."),
   "unavailable-contents": () => warning("blocked", "접근할 수 없거나 존재하지 않는 영상이에요!", "비공개이거나 삭제된 콘텐츠는 틀 수 없어요."),
   "unavailable-playlist": () => warning("blocked", "접근할 수 없거나 존재하지 않는 재생 목록이에요!", "비공개이거나 삭제된 재생 목록은 재생할 수 없어요."),
-  // 운영자가 쿠키를 일부러 안 걸어 둔 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
+  // 운영자가 쿠키를 일부러 설정하지 않은 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
   "yt-age-no-cookies": () => warning("blocked", "연령 제한 영상은 틀 수 없어요!", "제한되지 않은 곡을 틀어주세요."),
   // 사운드클라우드 Go+ · 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
   "sc-preview-only": () => warning("blocked", "미리듣기만 가능한 곡이라 틀 수 없어요.", "다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요."),
@@ -136,7 +136,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "still-starting": () => warning("waiting", "잠시만 기다려 주세요...!", "아직 재생을 준비하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   // 봇 안쪽 실패
   "unknown-error": () => error("failed", "예상치 못한 오류예요!", "잠시 후 재시도해 보세요. 오류가 계속되면 봇 운영자에게 알려 주세요."),
-  // 명령 처리기가 던졌는데 종류를 가를 수 없다
+  // 명령 처리기가 던졌는데 종류를 구분할 수 없다
   "command-failed": () => error("failed", "예상치 못한 오류예요!", "명령어 처리 중 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
   // 버튼 · 메뉴의 처리가 던졌다(전용 채널 입력 포함)
   "processing-failed": () => error("failed", "예상치 못한 오류예요!", "처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
@@ -171,7 +171,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "too-many-streams": () => warning("waiting", "실시간 연결이 너무 많아요!", "이 계정으로 열어 둔 대시보드 탭이 너무 많아요. 쓰지 않는 탭을 닫아 주세요."),
   // 대시보드: 요청 형식
   "bad-request": (_, look) => warning("input", "요청을 읽지 못했어요!", `화면이 보낸 요청의 형식이 맞지 않아요. ${stalePage(look)}`),
-  // 명령과 버튼은 고를 수 있는 모드만 보낸다
+  // 명령과 버튼은 선택할 수 있는 모드만 보낸다
   "bad-loop-mode": (_, look) => warning("input", "알 수 없는 반복 모드를 요청했어요!", cannotHappen(look)),
   "payload-too-large": () => warning("input", "보낸 내용이 너무 길어요!", "내용을 줄여서 다시 보내 주세요."),
   "route-not-found": (_, look) => warning("notFound", "없는 주소예요!", `화면이 봇에 없는 주소로 요청했어요. ${stalePage(look)}`),
@@ -213,7 +213,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "ai-log-not-found": (_, look) => warning("notFound", "없는 기록이에요!", `저장 용량을 넘어 지워졌거나 모두 지운 기록이에요. ${stalePage(look)}`),
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  // 대시보드: 파비콘(올린 이미지 · 링크로 받는 이미지)
+  // 대시보드: 파비콘(업로드한 이미지 · 링크로 다운로드하는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png · webp · jpg · svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
@@ -245,7 +245,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };
 
-/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 꼴 */
+/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 형식 */
 const notice = (code: Code, params: Params = {}, look: Look = PLAIN): Notice => ({ code, ...TEXT[code](params, look) });
 
 export { notice, PLAIN };

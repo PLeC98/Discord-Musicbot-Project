@@ -19,7 +19,7 @@ const props = withDefaults(
     modelValue?: OptionValue[] | null;
     options?: Option[];
     placeholder?: string;
-    /** 이보다 많으면 검색칸을 띄운다. 몇 개뿐인 칸에 검색칸이 붙으면 거추장스럽다 */
+    /** 이보다 많으면 검색창을 표시한다. 몇 개뿐인 드롭다운에 검색창이 붙으면 거추장스럽다 */
     searchFrom?: number;
   }>(),
   { modelValue: () => [], options: () => [], placeholder: text.common.all, searchFrom: 12 },
@@ -27,7 +27,7 @@ const props = withDefaults(
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();
 
 const rowCls = `${SELECT_ROW} justify-between gap-2`;
-// 고른 줄: M3E 세로 메뉴의 고른 줄(모서리 12 · tertiary-container)
+// 선택한 항목: M3E 세로 메뉴의 선택한 항목(모서리 12 · tertiary-container)
 const rowOn = SELECT_ROW_ON;
 
 const open = ref(false);
@@ -35,7 +35,7 @@ const term = ref("");
 
 const picked = computed(() => props.modelValue || []);
 const searchable = computed(() => props.options.length > props.searchFrom);
-// 고른 것은 검색어와 무관하게 남긴다. 걸러 낸 뒤에 체크를 풀 수 없으면 답답하다
+// 선택한 것은 검색어와 무관하게 남긴다. 필터링한 뒤에 체크를 풀 수 없으면 답답하다
 const shown = computed(() => filterOptions(props.options, term.value, (value) => picked.value.includes(value)));
 
 const labelOf = (value: OptionValue) => props.options.find((one) => one.value === value)?.label || String(value);

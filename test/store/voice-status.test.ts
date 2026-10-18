@@ -8,7 +8,7 @@ import * as voiceStatus from "../../src/store/voice-status.ts";
 const store = openTempStore("voice-status-");
 after(() => store.close());
 
-test("채널마다 마지막 값만 남기고, 비우면 지운다", () => {
+test("채널마다 마지막 값만 남기고, 비우면 삭제한다", () => {
   voiceStatus.save("c1", "▶️ 첫 곡");
   voiceStatus.save("c1", "▶️ 둘째 곡");
   voiceStatus.save("c2", "💤 쉬는 중");

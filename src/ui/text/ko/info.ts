@@ -1,4 +1,4 @@
-// 정보 화면(/system · /cachestatus · /ping · /license · /nowplaying)의 글자. 값은 부르는 쪽이 말로 적어 넘긴다
+// 정보 화면(/system · /cachestatus · /ping · /license · /nowplaying)의 문구. 값은 부르는 쪽이 말로 적어 넘긴다
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
@@ -22,7 +22,7 @@ type SystemValues = {
   platform: string;
   pid: number;
 };
-/** /system. 칸마다 { name, value } */
+/** /system. 필드마다 { name, value } */
 const system = (v: SystemValues) => ({
   title: "🖥️ 시스템 상태",
   uptime: { name: "⏱️ 업타임", value: [`**봇:** ${v.botUptime}`, `**OS:** ${v.osUptime}`].join("\n") },
@@ -70,7 +70,7 @@ const cacheBlank = () => ({ noData: "데이터 없음", untitled: "제목 없음
 const hours = (n: number) => `${n}시간`;
 /** 재생 순위 한 줄. length 는 곡 길이를 적은 것 */
 const topLine = (rank: number, title: string, plays: number, length: string) => `\`${rank}.\` **${title}**: ${plays}회 (${length})`;
-/** 최근 받은 곡 한 줄 */
+/** 최근 캐시 파일 한 줄 */
 const recentLine = (title: string, date: string) => `**${title}** (${date})`;
 
 /** /ping. mark 는 빠르기를 색으로 적은 것, apiMs 는 아직 잴 수 없으면 null */
@@ -95,7 +95,7 @@ const license = (lines: string[]) => ({
   footer: "GNU AGPL-3.0-or-later • MIT",
 });
 
-/** /nowplaying. 칸 이름표 */
+/** /nowplaying. 필드 라벨 */
 const nowPlaying = () => ({ title: "🎵 현재 재생 중", artist: "🎤 아티스트", album: "💿 앨범", platform: "🌐 출처", progress: "⏱️ 진행", requester: "👤 요청자", status: "📊 상태" });
 /** /nowplaying 의 상태 줄 */
 function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {

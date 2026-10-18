@@ -1,5 +1,5 @@
 // usecases/add-tracks 의 곡 담기(queueTracks)는 서버마다 한 번에 하나다. 앞 작업의 꼬리에 잇는다.
-// 틀고 있는 플레이어에 담으면 담은 뒤 응답 매체(notifyQueued)로 알린다. 그 자리를 시험이 붙잡아 끝나는 때를 정한다.
+// 틀고 있는 플레이어에 담으면 담은 뒤 응답 매체(notifyQueued)로 알린다. 그 지점을 테스트가 붙잡아 끝나는 때를 정한다.
 // 회귀 대상: "기다렸다가 등록"하면 앞 작업의 정리가 뒤 작업의 항목을 지워 둘이 함께 돈다
 
 import { test } from "node:test";
@@ -22,10 +22,10 @@ function deferred() {
 // 작업 이름. 첫 곡의 제목에 싣는다
 const job = (id: string): TrackData => ({ tracks: [{ id, title: id, pageUrl: "", requestKey: id, platform: "youtube", duration: 0 }] });
 
-// 시험마다 다른 서버 id. 줄은 모듈에 남으므로, 한 시험이 붙잡은 채 실패해도 다음 시험을 막지 않게
+// 테스트마다 다른 서버 id. 줄은 모듈에 남으므로, 한 테스트가 붙잡은 채 실패해도 다음 테스트를 막지 않게
 let worlds = 0;
 
-// 서버마다 틀고 있는 플레이어. 담기는 진짜로 하고, 알리는 자리에서 붙잡는다
+// 서버마다 틀고 있는 플레이어. 담기는 진짜로 하고, 알리는 곳에서 붙잡는다
 function world(guildIds = ["g1"]) {
   const idOf = (name: string) => `${name}#${worlds}`;
   worlds++;

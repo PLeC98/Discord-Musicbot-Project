@@ -11,7 +11,7 @@ const ALLOWED_MENTIONS = { parse: [], repliedUser: false };
 // 마스크드 링크 라벨 안에는 쓰지 말 것. 거기서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
 const escapeMd = (text: unknown) => escapeMarkdown(String(text ?? ""), { maskedLink: true });
 
-// 오류 · 거절 안내(ui/text/ko/errors)의 값을 디스코드 꼴로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env 의 SOURCE_REPO_URL, 없으면 원본)
+// 오류 · 거절 안내(ui/text/ko/errors)의 값을 디스코드 형식으로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env 의 SOURCE_REPO_URL, 없으면 원본)
 const DISCORD_LOOK: Look = { channel: (id) => `<#${id}>`, developer: () => `[봇 개발자](${config.bot.sourceRepo})` };
 
 export { ALLOWED_MENTIONS, escapeMd, DISCORD_LOOK };

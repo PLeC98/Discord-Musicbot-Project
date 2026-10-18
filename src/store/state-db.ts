@@ -1,5 +1,5 @@
-// 실행 상태 DB(state.db). 봇을 다시 켰을 때 이어 가려고 남기는 것: 저장된 대기열(재생 세션) · 음성 채널 상태 · 재생 패널 자리.
-// 캐시 초기화와 무관하다. 구조 버전이 맞지 않으면 열지 않고 멈춘다(지우고 다시 켜라고 안내한다).
+// 실행 상태 DB(state.db). 봇을 다시 시작했을 때 이어 가려고 남기는 것: 저장된 대기열(재생 세션) · 음성 채널 상태 · 재생 패널 위치.
+// 캐시 초기화와 무관하다. 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다).
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
@@ -9,7 +9,7 @@ const stateDb = new DbFile({
   fileName: "state.db",
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 자리가 사라집니다." },
+  onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 위치가 사라집니다." },
   createTables,
 });
 
@@ -44,8 +44,8 @@ function createTables(db: Db) {
       platform         TEXT,
       is_live          INTEGER NOT NULL DEFAULT 0,
       requester_id     TEXT,
-      -- 대기열 줄 번호(player/track-state 의 entry). 곡을 가리키는 이름표라 옮겨도 그대로다(seq 는 슬롯 안의 차례라 옮기면 바뀐다).
-      -- 봇을 다시 켜도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 복원할 때 새로 받는다
+      -- 대기열 항목 번호(player/track-state 의 entry). 곡을 가리키는 라벨이라 옮겨도 그대로다(seq 는 슬롯 안의 순서라 옮기면 바뀐다).
+      -- 봇을 다시 시작해도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 복원할 때 새로 받는다
       entry            INTEGER,
       PRIMARY KEY (guild_id, slot, seq)
     );
@@ -56,7 +56,7 @@ function createTables(db: Db) {
       status      TEXT NOT NULL
     );
 
-    -- 서버당 하나뿐인 현재 재생 패널의 자리. 옛 패널을 치우는 기준(ui/panel-location)
+    -- 서버당 하나뿐인 현재 재생 패널의 위치. 옛 패널을 치우는 기준(ui/panel-location)
     CREATE TABLE IF NOT EXISTS now_playing_panel (
       guild_id    TEXT PRIMARY KEY,
       channel_id  TEXT,
@@ -65,7 +65,7 @@ function createTables(db: Db) {
   `);
 }
 
-/** 봇이 서버에서 나갔다. 그 서버의 실행 상태를 모두 지운다. channelIds: 그 서버의 채널(음성 채널 상태는 채널로 적는다) */
+/** 봇이 서버에서 나갔다. 그 서버의 실행 상태를 모두 삭제한다. channelIds: 그 서버의 채널(음성 채널 상태는 채널로 적는다) */
 function forgetGuild(guildId: string, channelIds: Iterable<string>) {
   const db = stateDb.get();
   const dropStatus = db.prepare("DELETE FROM voice_status WHERE channel_id = ?");

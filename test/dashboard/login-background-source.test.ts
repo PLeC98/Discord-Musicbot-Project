@@ -1,4 +1,4 @@
-// src/dashboard/login-background/source.ts — 로그인 배경 원본을 읽어 보고(정지 그림은 sharp, 움직이는 것은 ffmpeg), 링크에서 받는다.
+// src/dashboard/login-background/source.ts — 로그인 배경 원본을 읽어 보고(정지 그림은 sharp, 움직이는 것은 ffmpeg), 링크에서 다운로드한다.
 // 표본은 실제 ffmpeg 로 만든다(없으면 건너뛴다). 다른 파일을 읽는 형식(HLS 목록)은 막히고, 터무니없는 크기는 거절한다
 
 import { test, before, after } from "node:test";
@@ -84,7 +84,7 @@ test("다른 파일을 읽는 형식 · 그림이 아닌 것 · 너무 작은 �
   assert.equal(await reject("one-frame.mp4"), "background-bad-source");
 });
 
-test("ffmpeg 머리 읽기: 형식 · 길이 · 크기 · 초당 장면 수", () => {
+test("ffmpeg 헤더 읽기: 형식 · 길이 · 크기 · 초당 장면 수", () => {
   const stderr = ["Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'a.mp4':", "  Duration: 00:01:02.50, start: 0.000000, bitrate: 2892 kb/s", "  Stream #0:0[0x1](eng): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 3840x2160 [SAR 1:1 DAR 16:9], 40000 kb/s, 59.94 fps, 59.94 tbr, 15360 tbn (default)"].join("\n");
   assert.deepEqual(parseInput(stderr), { format: "mov,mp4,m4a,3gp,3g2,mj2", duration: 62.5, width: 3840, height: 2160, fps: 59.94, alpha: false, hdr: false });
   // 세워 찍은 휴대폰 영상(90도 돌려 보인다) · HDR(HLG) · 투명이 있는 움짤
@@ -100,7 +100,7 @@ const fakeDeps = (headers: Record<string, string>, body: Buffer): RequestDeps =>
   request: async () => ({ status: 200, headers, body: Readable.from([body]) }),
 });
 
-test("링크 받기: 그림을 받아 쓰고, 남은 공간을 넘거나 그림 · 영상이 아니면 거절한다", async () => {
+test("링크 다운로드: 그림을 다운로드해 쓰고, 남은 공간을 넘거나 그림 · 영상이 아니면 거절한다", async () => {
   const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: "#fff" } })
     .png()
     .toBuffer();

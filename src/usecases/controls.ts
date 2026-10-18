@@ -1,5 +1,5 @@
-// 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
-// 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 차례로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
+// 재생 조작 코어. 진입점(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
+// 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 순서로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
 // 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
 //   공통 code: no-song(플레이어나 틀고 있는 곡이 없다) · 권한 판정이 막은 까닭의 코드(must-dj 등)
@@ -24,7 +24,7 @@ import type { Code, Params, Problem } from "../rules/problems.ts";
 
 /** 누가 시켰나: 디스코드 멤버 */
 type Actor = { member: GuildMember };
-/** 거절: 문제의 코드와 그 문장에 드는 값(길이 넘침은 durationMs, 자리 틀림은 size, 모르는 장르는 genre) */
+/** 거절: 문제의 코드와 그 문장에 드는 값(길이 넘침은 durationMs, 위치 틀림은 size, 모르는 장르는 genre) */
 type Refusal = { ok: false } & Problem;
 /** 이 서버에 플레이어가 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
@@ -46,7 +46,7 @@ async function permitted(player: Player, actor: Actor, check: Check = perm.check
   return permission ? fail(permission) : null;
 }
 
-// 수는 입구가 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
+// 수는 진입점이 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
 const isIndex = (i: unknown, size: number): i is number => typeof i === "number" && Number.isInteger(i) && i >= 0 && i < size;
 
 // 권한을 보고 틀고 있는 곡을 잡는다. 막히면 거절, 지나가면 그 곡.
@@ -80,7 +80,7 @@ async function pause(player: MaybePlayer, actor: Actor) {
 
 /**
  * 지금 곡을 건너뛴다. 한곡 반복 중이면 처음부터 다시(restarted).
- * 대기열이 비었으면 거절한다. 자동재생이 켜져 있으면 다음 곡을 자동재생이 고르므로 넘긴다
+ * 대기열이 비었으면 거절한다. 자동재생이 켜져 있으면 다음 곡을 자동재생이 선택하므로 넘긴다
  */
 async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}) {
   if (!player) return fail("no-song");
@@ -92,7 +92,7 @@ async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}
   return done({ track, restarted });
 }
 
-/** 멈추고 대기열을 비우고 나간다. 세션도 지운다 */
+/** 멈추고 대기열을 비우고 나간다. 세션도 삭제한다 */
 async function stop(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -139,7 +139,7 @@ async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "s
 type SeekOptions = { reason?: string; onAccepted?: () => unknown } & OnTrack;
 
 function seekBlocked(player: Player) {
-  // 라이브에는 실시간밖에 없다. 옮길 자리가 없다
+  // 라이브에는 실시간밖에 없다. 옮길 위치가 없다
   if (player.isLive) return fail("live-no-seek");
   // 여는 중에는 옮길 곡이 아직 자리 잡지 않았다
   if (player.isPlayStarting) return fail("still-starting");
@@ -197,7 +197,7 @@ function settleVolume(player: Player, before: number, settled: Settled | undefin
 
 const isLoop = (mode: unknown): mode is Loop => mode === false || mode === "track" || mode === "queue";
 
-/** 반복 모드. mode: false(끔) · "track" · "queue". 입구가 받은 값 그대로 온다 */
+/** 반복 모드. mode: false(끔) · "track" · "queue". 진입점이 받은 값 그대로 온다 */
 async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
@@ -229,7 +229,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, player.queue[index]));
   if (blocked) return blocked;
   const track = player.removeFromQueue(index);
-  if (!track) return fail("bad-position", { size: player.queue.length }); // 위에서 본 자리라 늘 있다
+  if (!track) return fail("bad-position", { size: player.queue.length }); // 위에서 본 위치라 늘 있다
   await refresh(player);
   return done({ track, left: player.queue.length });
 }
@@ -257,7 +257,7 @@ async function removeEntry(player: MaybePlayer, actor: Actor, entry: number) {
   if (!found) return fail("entry-gone");
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, found));
   if (blocked) return blocked;
-  // 권한을 기다린 사이 자리가 바뀌었을 수 있어 다시 찾는다
+  // 권한을 기다린 사이 위치가 바뀌었을 수 있어 다시 찾는다
   const index = at();
   if (index < 0) return fail("entry-gone");
   const track = player.removeFromQueue(index);
@@ -276,7 +276,7 @@ async function moveEntry(player: MaybePlayer, actor: Actor, entry: number, befor
   const from = indexOf(entry);
   const anchor = before === null ? size : indexOf(before);
   if (from < 0 || anchor < 0) return fail("entry-gone");
-  // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
+  // 앞에서 빼면 뒤쪽 위치가 하나씩 당겨진다
   const to = from < anchor ? anchor - 1 : anchor;
   if (from === to) return fail("same-position");
   const track = player.queue[from];
@@ -314,19 +314,19 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
 
 /**
  * 자동재생을 시킬 수 있나. 재생 조작이라 DJ 계층, 봇이 쉬면 소환할 수 있어야 한다(켜면 그 자리에서 붙는다).
- * 장르 메뉴를 띄우기 전에 입구가 본다. 막히면 거절, 지나가면 null
+ * 장르 메뉴를 표시하기 전에 진입점이 본다. 막히면 거절, 지나가면 null
  */
 async function autoplayBlocked(actor: Actor) {
   const permission = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
   return permission ? fail(permission) : null;
 }
 
-/** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 뽑기 전에 부른다(응답) */
+/** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
 type AutoplayOptions = { create?: () => Player; onAccepted?: () => unknown };
 
 /**
- * 자동재생. genre 로 켜고 false 로 끈다. 플레이어는 켤 때만 만든다(장르를 고른 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
- * 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 뽑아 튼다(started). 틀고 있으면 지금 곡이 끝난 뒤에 이어진다
+ * 자동재생. genre 로 켜고 false 로 끈다. 플레이어는 켤 때만 만든다(장르를 선택한 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
+ * 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 선택해 튼다(started). 틀고 있으면 지금 곡이 끝난 뒤에 이어진다
  */
 async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false, { create, onAccepted }: AutoplayOptions = {}) {
   const blocked = await autoplayBlocked(actor);

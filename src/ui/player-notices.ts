@@ -1,4 +1,4 @@
-// 플레이어가 알린 일(notice)을 그 서버의 글자 채널에 응답 틀(ui/frame)로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
+// 플레이어가 알린 일(notice)을 그 서버의 텍스트 채널에 응답 템플릿(ui/frame)로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
 import type { ContainerBuilder } from "discord.js";
 import { errorMessage } from "./error-messages.ts";
@@ -21,8 +21,8 @@ const shown = (notice: Notice): Shown => ({ view: noticeFrame(notice), ms: notic
 const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   // 장르 목록이 바뀌기 전에 저장된 세션 등
   "autoplay-unknown-genre": ({ genre }) => shown(notices.autoplayUnknownGenre(genre)),
-  // 저장된 세션의 장르가 그 사이 쓸 소스를 잃었다(키를 지웠다 등)
-  // 장르는 식별자로 온다. 보이는 것은 이름표(모르는 장르는 이름표가 없어 위는 식별자 그대로)
+  // 저장된 세션의 장르가 그 사이 쓸 소스를 잃었다(키를 삭제했다 등)
+  // 장르는 식별자로 온다. 보이는 것은 라벨(모르는 장르는 라벨이 없어 위는 식별자 그대로)
   "autoplay-genre-unusable": ({ genre, keys }) => shown(notices.autoplayGenreUnusable(labelOf(genre), keys)),
   "autoplay-gave-up": ({ genre }) => shown(notices.autoplayGaveUp(labelOf(genre))),
   // 곡을 못 틀어 다음 곡으로 넘긴다

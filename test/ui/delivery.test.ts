@@ -11,7 +11,7 @@ import { fake } from "../helpers/fake.ts";
 
 type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean; denied?: boolean };
 
-// 부른 차례를 적는 상호작용. 보낸 것은 flags 로 본인 · 모두를 가른다
+// 부른 순서를 적는 상호작용. 보낸 것은 flags 로 본인 · 모두를 구분한다
 function asked({ replied = false, deferred = false, command = true, component = false, channel = true, denied = false }: Over = {}) {
   const calls: string[] = [];
   const visible = (p: { flags?: unknown }) => ([p.flags].flat().includes(MessageFlags.Ephemeral) ? "self" : "all");
@@ -85,7 +85,7 @@ test("본인: 지우지 않는 수명(null)과 토큰보다 긴 수명은 예약
   assert.ok(LIFETIME.screen < TOKEN_MS, "읽는 화면도 토큰이 살아 있을 때 지운다");
 });
 
-test("안내: 미뤄 둔 명령은 그 자리를 지우고 후속 메시지로, 그 후속 메시지를 수준대로 지운다", async (t) => {
+test("안내: 미뤄 둔 명령은 자리표시자를 지우고 후속 메시지로, 그 후속 메시지를 수준대로 지운다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const a = asked({ deferred: true });
   await noticeSelf(a.real, notice("command-failed"));
@@ -101,7 +101,7 @@ test("안내: 미뤄 둔 명령은 그 자리를 지우고 후속 메시지로, 
   assert.deepEqual(lifetimesOf(b.it), [10_000]);
 });
 
-test("안내로 바꿔 넣기: 아직 답하지 않은 버튼은 먼저 받아 버튼이 달린 메시지를 지운다", async () => {
+test("안내로 교체: 아직 답하지 않은 버튼은 먼저 받아 버튼이 달린 메시지를 지운다", async () => {
   const a = asked({ command: false, component: true });
   await noticeInstead(a.real, notice("queue-empty"));
   assert.deepEqual(a.calls, ["deferUpdate", "delete", "followUp:self"]);
@@ -129,7 +129,7 @@ test("모두: 아직 답하지 않았으면 공개 응답으로 보내고 수명
   assert.deepEqual(a.calls, ["reply:all", "delete"]);
 });
 
-test("모두: 본인 자리표시자를 띄웠으면 지우고 채널에 새로, 채널에 쓸 수 없으면 공개 후속 메시지", async (t) => {
+test("모두: 본인 자리표시자를 표시했으면 지우고 채널에 새로, 채널에 쓸 수 없으면 공개 후속 메시지", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const a = asked({ replied: true });
   await toAll(a.real, view(), 15_000);

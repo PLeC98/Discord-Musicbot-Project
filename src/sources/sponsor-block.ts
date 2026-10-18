@@ -16,7 +16,7 @@ import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { httpFor } from "../infra/http.ts";
 
-// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 const http = httpFor("sponsorblock");
 const send = http.fetch;
 const useFetch = http.useFetch;
@@ -29,7 +29,7 @@ type Source = "live" | "cache" | "none" | "disabled";
 type Fetched = { raw: RawSegment[] | null; source: Source };
 /** 곡에 걸 구간 · 하이라이트 */
 type Segments = { skipSegments: SkipSegment[]; highlightAt: number | null; source: Source };
-// API 응답(해시 앞자리에 걸린 영상들). 여기서 읽는 칸만
+// API 응답(해시 앞자리에 걸린 영상들). 여기서 읽는 필드만
 type ApiVideo = { hash?: string; videoID?: string; segments?: Array<{ category: string; actionType: string; segment?: unknown; votes?: number; locked?: unknown }> };
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -39,10 +39,10 @@ const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
 
 // 영상 id 로 기억한 조회 결과(DB 캐시 앞의 메모리 기억). 같은 곡을 다시 틀 때 묻지 않는다.
-// 서버마다 카테고리가 달라 거르기 전의 원시 구간을 기억한다.
+// 서버마다 카테고리가 달라 필터링 전의 원시 구간을 기억한다.
 const remembered = new Map<string, { at: number; none: boolean; promise: Promise<Fetched> }>();
 const REMEMBER_MAX = 500;
-const RETRY_NONE_MS = 10 * 60_000; // 못 받은 것은 이만큼 지나 다시 묻는다
+const RETRY_NONE_MS = 10 * 60_000; // 못 불러온 것은 이만큼 지나 다시 묻는다
 
 // 겹치거나 맞닿은 skip 구간을 합집합으로 병합. 기여한 카테고리는 union으로 보존
 function mergeIntervals(segs: Array<{ start: number; end: number; category: string }>): SkipSegment[] {
@@ -157,7 +157,7 @@ function _trackVideoId(track: { audioUrl?: string | null; [field: string]: unkno
 }
 
 /**
- * 곡의 구간 · 하이라이트를 서버별 설정으로 거른 것. 재생 근접(미리 받기) · 재생 직전에 부른다.
+ * 곡의 구간 · 하이라이트를 서버별 설정으로 필터링한 것. 재생 근접(미리 다운로드) · 재생 직전에 부른다.
  * 조회는 영상 id 로 기억해 두고 다시 묻지 않는다. 겹쳐 불러도 한 번만 묻는다.
  * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. 예외를 던지지 않는다.
  * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}

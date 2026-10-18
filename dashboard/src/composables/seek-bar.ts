@@ -7,12 +7,12 @@ import { seekPosition } from "../utils/playback.ts";
 import { notify } from "./toasts.ts";
 import { text } from "../text/index.ts";
 
-/** 줄 번호(지금 곡). 없으면 null */
+/** 항목 번호(지금 곡). 없으면 null */
 type Entry = number | null | undefined;
 
 /**
- * el: 막대 요소 ref. duration(): 지금 곡 길이(초). enabled(): 잡을 수 있는지. entry(): 지금 곡 줄 번호.
- * send(초, 잡을 때의 줄 번호): 놓은 자리로 보낸다. 거절되면 부른 쪽이 다시 읽어 손잡이를 서버 자리로 돌린다
+ * el: 막대 요소 ref. duration(): 지금 곡 길이(초). enabled(): 잡을 수 있는지. entry(): 지금 곡 항목 번호.
+ * send(초, 잡을 때의 항목 번호): 놓은 위치로 보낸다. 거절되면 부른 쪽이 다시 읽어 핸들을 서버 위치로 돌린다
  */
 export function useSeekBar({ el, duration, enabled, entry, send }: { el: Readonly<Ref<HTMLElement | null | undefined>>; duration: () => number; enabled: () => boolean; entry: () => Entry; send: (sec: number, from: Entry) => unknown }) {
   const dragging = ref(false);

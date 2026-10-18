@@ -1,4 +1,4 @@
-// 곡의 출처(서비스)를 대표하는 색. 서버 화면의 출처 표 · 대기열 줄의 점이 쓴다
+// 곡의 출처(서비스)를 대표하는 색. 서버 화면의 출처 배지 · 대기열 행의 점이 쓴다
 
 import { isPlatform, type Platform } from "../../../src/rules/platforms.ts";
 

@@ -1,5 +1,5 @@
 // 설정 내보내기 · 가져오기(운영자 패널 백업 탭). /api/admin/settings-archive
-// 내보내기 · 가져오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 갈아 끼우지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
+// 내보내기 · 가져오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
 import crypto from "node:crypto";
 import express from "express";
@@ -31,12 +31,12 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 내려받기 표: 표 → 종류 · 낸 사람 · 지나는 때 */
+/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류 · 낸 사람 · 지나는 때 */
 const tickets = new Map<string, { kind: ArchiveKind; by: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
-// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘) · login-background(로그인 배경). 최근 로그인을 보고 한 번 쓰는 내려받기 주소를 준다
+// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘) · login-background(로그인 배경). 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다
 settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");
   if (!isArchiveKind(kind)) return sendProblem(res, "nothing-to-save");
@@ -47,11 +47,11 @@ settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   res.json({ url: `${req.baseUrl}/download/${ticket}` } satisfies ArchiveDownload);
 });
 
-// 내려받기(표는 한 번만). 만드는 대로 흘려 보낸다(로그인 배경은 수백 MB)
+// 다운로드(티켓은 한 번만). 만드는 대로 스트리밍한다(로그인 배경은 수백 MB)
 settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
   const ticket = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
   if (ticket) tickets.delete(req.params.ticket);
-  // 없거나 지난 표: 브라우저가 바로 연 주소라 화면 안내 없이 404
+  // 없거나 지난 티켓: 브라우저가 바로 연 주소라 화면 안내 없이 404
   if (!ticket || ticket.until < Date.now()) return sendProblem(res, "route-not-found");
   const { kind } = ticket;
   const inputs = archive.build(kind);
@@ -62,20 +62,20 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
     await writeZip(inputs, sinkOf(res));
     res.end();
   } catch (error) {
-    // 받던 쪽이 끊었거나 쓰는 동안 파일이 지워졌다(머리를 이미 보냈으니 응답을 끊는다)
+    // 받던 쪽이 끊었거나 쓰는 동안 파일이 삭제됐다(헤더를 이미 보냈으니 응답을 끊는다)
     log.debug({ sub: "admin" }, `설정 내보내기를 보내다 멈췄습니다: ${messageOf(error)}`);
     res.destroy();
   }
 });
 
-// 파일 그대로 올린다. 읽을 수 있으면 올린 파일을 두고 그 표(token)와 미리 보기, 못 읽으면 지운다
+// 파일 그대로 올린다. 읽을 수 있으면 올린 파일을 두고 그 토큰(token)과 미리 보기, 못 읽으면 삭제한다
 settingsArchiveRouter.post("/preview", async (req, res) => {
   const got = await uploads.receive(req);
   if (!got.ok) {
     if (got.why === "no-space") return sendProblem(res, "disk-full", { size: got.room });
     if (got.why === "empty") return sendProblem(res, "nothing-to-save");
     // 올리던 사람이 끊었다
-    if (got.why === "aborted") log.warn({ sub: "admin" }, `설정 불러오기 파일을 받다 끊겼습니다: ${got.detail}`);
+    if (got.why === "aborted") log.warn({ sub: "admin" }, `설정 불러오기 파일 업로드가 중간에 끊겼습니다: ${got.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
@@ -87,7 +87,7 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
   }
 });
 
-// token: 미리 보기의 표, items: 덮어쓸 항목(쉼표로). 가져오면 올린 파일을 지운다(검사에 걸리면 다시 고를 수 있게 둔다)
+// token: 미리 보기의 토큰, items: 덮어쓸 항목(쉼표로). 가져오면 올린 파일을 삭제한다(검사에 걸리면 다시 선택할 수 있게 둔다)
 settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   const token = String(req.query.token ?? "");
   const items = String(req.query.items ?? "")
@@ -110,7 +110,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   }
 });
 
-// 불러오기 창을 닫았다: 올린 파일을 지운다
+// 불러오기 창을 닫았다: 올린 파일을 삭제한다
 settingsArchiveRouter.delete("/upload/:token", (req, res) => {
   uploads.drop(req.params.token);
   res.status(204).end();

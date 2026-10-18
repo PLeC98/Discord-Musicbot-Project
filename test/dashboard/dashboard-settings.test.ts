@@ -13,7 +13,7 @@ import type { Player } from "../../src/player/player.ts";
 import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 
-/** 이 시험이 읽는 답의 칸(서버 설정 · 플레이어 · 서버 목록) */
+/** 이 테스트가 읽는 답의 필드(서버 설정 · 플레이어 · 서버 목록) */
 type Reply = ProblemReply & {
   canEdit?: boolean;
   guildName?: string;
@@ -251,8 +251,8 @@ test("PUT settings: SponsorBlock 저장 — 유효 카테고리만 통과", asyn
   assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: ["intro", "outro"] });
 });
 
-// 고를 수 있는 구간 · 이름 · 설명은 화면이 rules/sponsor-categories 를 직접 읽는다
-test("GET settings: SponsorBlock 켬 여부 · 고른 구간", async () => {
+// 선택할 수 있는 구간 · 이름 · 설명은 화면이 rules/sponsor-categories 를 직접 읽는다
+test("GET settings: SponsorBlock 켬 여부 · 선택한 구간", async () => {
   currentMember = modMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
@@ -520,7 +520,7 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   currentMember = plainMember();
 });
 
-test("PUT settings: 모양이 틀리면 bad-settings 400 에 칸별 문제(JSON Pointer · 코드), 아무것도 반영하지 않는다", async () => {
+test("PUT settings: 모양이 틀리면 bad-settings 400 에 필드별 문제(JSON Pointer · 코드), 아무것도 반영하지 않는다", async () => {
   currentMember = modMember();
   const rowBefore = settingsRow();
   const cases: Array<[unknown, string, string]> = [

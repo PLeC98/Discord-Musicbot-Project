@@ -1,4 +1,4 @@
-// src/usecases/controls.ts — 재생 조작 코어. 전제 조건을 같은 차례로 보고, 조작하고, 패널에 알린다.
+// src/usecases/controls.ts — 재생 조작 코어. 전제 조건을 같은 순서로 보고, 조작하고, 패널에 알린다.
 // 플레이어는 부른 것을 적는 가짜. 권한은 진짜 판정에 가짜 멤버를 넘긴다(모더레이터는 통과, 봇과 다른 곳에 있으면 거절).
 
 import { test, after, afterEach } from "node:test";
@@ -128,7 +128,7 @@ test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처�
   assert.equal((await controls.skip(mine, requester)).ok, true);
 });
 
-test("정지: 세션을 지우고 끝난 패널(stop)로 버린다. 등록부 빼기는 버림이 한다", async () => {
+test("정지: 세션을 삭제하고 끝난 패널(stop)로 버린다. 레지스트리 빼기는 버림이 한다", async () => {
   const p = fakePlayer();
   const r = await controls.stop(p, DJ);
   assert.deepEqual(r, { ok: true, track: p.currentTrack, cleared: 2 });
@@ -136,7 +136,7 @@ test("정지: 세션을 지우고 끝난 패널(stop)로 버린다. 등록부 �
 });
 
 test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복 · 대기열 반복은 허용). 되돌아간 곡을 싣는다", async () => {
-  // 이전 곡으로 가면 그 곡이 대기열 맨 앞에 선다(trackState.rewind). 가짜는 그 자리를 미리 채워 둔다
+  // 이전 곡으로 가면 그 곡이 대기열 맨 앞에 선다(trackState.rewind). 가짜는 그 위치를 미리 채워 둔다
   const now = track("지금");
   const back = track("전");
   const rewound = (over: object) => fakePlayer({ currentTrack: now, queue: [back, track("a")], ...over });
@@ -161,7 +161,7 @@ test("위치 이동: 라이브 · 여는 중은 거절. 받아들이면 onAccept
   assert.deepEqual(replayed.calls, ["seek:0:replay"]);
 });
 
-test("하이라이트: 지점이 없으면 거절, 있으면 그 자리로(원인 highlight)", async () => {
+test("하이라이트: 지점이 없으면 거절, 있으면 그 위치로(원인 highlight)", async () => {
   assert.equal(codeOf(await controls.highlight(fakePlayer(), DJ)), "no-highlight");
   assert.equal(codeOf(await controls.highlight(fakePlayer({ isLive: true, sponsor: { highlightAt: 3 } }), DJ)), "live-no-seek");
   const p = fakePlayer({ sponsor: { highlightAt: 42.5 } });
@@ -237,7 +237,7 @@ test("빼기: 빈 대기열 · 범위 밖 거절, 권한은 그 곡을 보고(�
   assert.equal(accepted(await controls.remove(p, requester, 1)).track?.title, "내 곡");
 });
 
-test("옮기기: 두 곡 미만 · 범위 밖 · 같은 자리 거절", async () => {
+test("옮기기: 두 곡 미만 · 범위 밖 · 같은 위치 거절", async () => {
   assert.equal(codeOf(await controls.move(fakePlayer({ queue: [track("a")] }), DJ, 0, 0)), "too-few-to-move");
   assert.equal(codeOf(await controls.move(fakePlayer(), DJ, 0, 2)), "bad-position");
   assert.equal(codeOf(await controls.move(fakePlayer(), DJ, 1, 1)), "same-position");
@@ -246,7 +246,7 @@ test("옮기기: 두 곡 미만 · 범위 밖 · 같은 자리 거절", async ()
   assert.deepEqual(p.calls, ["move:1->0"]);
 });
 
-// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 칸과 같게)
+// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
 const entered = (title: string, entry: number, extra: Partial<QueuedTrack> = {}) => Object.defineProperty(track(title, extra), "entry", { value: entry, enumerable: false });
 
 test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰기 · 이전 · 이동 · 처음부터 · 하이라이트를 하지 않는다", async () => {
@@ -373,7 +373,7 @@ test("자동재생 끄기: 플레이어가 없으면 거절. 끄고 응답한 �
   assert.deepEqual(seen, ["refresh"]);
 });
 
-test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면 그때 만들고, 틀고 있지 않으면 응답한 뒤 첫 곡을 뽑는다", async () => {
+test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면 그때 만들고, 틀고 있지 않으면 응답한 뒤 첫 곡을 선택한다", async () => {
   const [genre] = Object.keys(genreConfig.genres().genres);
   const seen = panel();
   assert.deepEqual(await controls.autoplay(null, DJ, "없는장르", { create: () => assert.fail("거절하면 만들지 않는다") }), { ok: false, code: "unknown-genre", genre: "없는장르" });
@@ -385,7 +385,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(r, { ok: true, genre, started: true });
   assert.deepEqual(order, ["create", `set:${genre}`, "answer", "first"]);
 
-  // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 뽑지 않고 패널만 고친다
+  // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 선택하지 않고 패널만 고친다
   const playing = fakePlayer({ setAutoplay: () => {}, handleAutoplay: async () => assert.fail("뽑지 않는다") });
   assert.deepEqual(await controls.autoplay(playing, DJ, genre, { create: () => assert.fail("있으면 만들지 않는다") }), { ok: true, genre, started: false });
   assert.deepEqual(seen, ["refresh"]);

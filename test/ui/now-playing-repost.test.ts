@@ -24,7 +24,7 @@ const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
 
 type Sent = { message: PanelMessage; webhook: WebhookClient | null };
 
-// 웹훅은 시험의 가짜로. 보내기를 시험이 정하면(sendAs) 그것으로
+// 웹훅은 테스트의 가짜로. 보내기를 테스트가 정하면(sendAs) 그것으로
 class TestPanels extends NowPlayingPanel {
   webhook: WebhookClient;
   sendAs: (() => Promise<Sent>) | null = null;
@@ -41,9 +41,9 @@ class TestPanels extends NowPlayingPanel {
   }
 }
 
-// 시험이 조종하는 것: 보내기 · 고치기 실패, 보내기 직전에 할 일
+// 테스트가 조종하는 것: 보내기 · 고치기 실패, 보내기 직전에 할 일
 type State = { sendError?: Error | null; editError?: Error | null; onSend?: () => unknown };
-// 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 칸
+// 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 필드
 type Cached = { id: string; createdTimestamp: number };
 
 // 웹훅으로 보내고 편집하는 실사용 경로. state로 호출 내역과 실패를 조종한다.
@@ -68,7 +68,7 @@ function makeSetup(state: State = {}) {
     },
   });
 
-  // 패널 자리 기록은 메모리로 — 실제 DB를 열지 않는다
+  // 패널 위치 기록은 메모리로 — 실제 DB를 열지 않는다
   const records = new Map<string, PanelRecord | null>([["g1", { channelId: BOT_CHANNEL, messageId: "100" }]]);
   const panelStore: PanelStore = {
     getPanel: async (g) => records.get(g) ?? null,
@@ -120,10 +120,10 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);
 });
 
-test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채널이 지워진 것, 있으면 메시지가 지워진 것", async () => {
+test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채널이 삭제된 것, 있으면 메시지가 삭제된 것", async () => {
   for (const [cached, reason] of [
-    [true, "메시지가 지워짐"],
-    [false, "패널이 있던 채널이 지워짐"],
+    [true, "메시지가 삭제됨"],
+    [false, "패널이 있던 채널이 삭제됨"],
   ] as const) {
     const { mem, player } = makeSetup({ editError: gone() });
     player.nowPlayingMessage = { id: "100", channel_id: "panel-chan" };
@@ -137,7 +137,7 @@ test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채�
   }
 });
 
-test("패널의 글자 채널이 지워졌으면(10003) 다시 올리지 않고 패널을 놓는다. 재생은 그대로", async () => {
+test("패널의 텍스트 채널이 지워졌으면(10003) 다시 올리지 않고 패널을 놓는다. 재생은 그대로", async () => {
   const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
   await mem.updatePlaying(player);
   assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
@@ -182,7 +182,7 @@ test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 
   assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
 });
 
-test("다시 올리려는데 글자 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
+test("다시 올리려는데 텍스트 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
   const { mem, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
   const from = sink.buffer.length;
   await mem.updatePlaying(player);

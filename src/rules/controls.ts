@@ -5,7 +5,7 @@ import type { Loop } from "./loop-cycle.ts";
 /** 이전 곡: 기록이 있거나 반복 중이면 된다(한 곡 반복은 지금 곡을 처음부터, 대기열 반복은 대기열이 고리라 끝 곡으로) */
 const canGoBack = ({ history, loop }: { history: number; loop: Loop | undefined }) => history > 0 || (loop !== undefined && loop !== false);
 
-/** 다음 곡: 대기열이 있거나, 한 곡 반복(지금 곡을 처음부터) · 자동재생(골라 온다. 켜 둔 장르가 있으면 참)이면 된다 */
+/** 다음 곡: 대기열이 있거나, 한 곡 반복(지금 곡을 처음부터) · 자동재생(선택해 온다. 켜 둔 장르가 있으면 참)이면 된다 */
 const canGoNext = ({ queue, loop, autoplay }: { queue: number; loop: Loop | undefined; autoplay: unknown }) => queue > 0 || loop === "track" || Boolean(autoplay);
 
 /**

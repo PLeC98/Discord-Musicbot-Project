@@ -1,5 +1,5 @@
 // 설정 문제를 찍고, 있으면 멈춘다. config 는 불러와도 멈추지 않고 목록만 내므로, 기동과 명령 배포 스크립트가
-// 첫 줄에서 이것을 부른다. out: warn · error 를 가진 것(로거나 console). exit: 멈추는 법(시험이 넘긴다)
+// 첫 줄에서 이것을 부른다. out: warn · error 를 가진 것(로거나 console). exit: 멈추는 법(테스트가 넘긴다)
 import { EXIT } from "./exit-codes.ts";
 
 type Checked = { warnings: string[]; problems: string[] };

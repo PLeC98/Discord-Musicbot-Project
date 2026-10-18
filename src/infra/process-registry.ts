@@ -9,10 +9,10 @@ const log = logger.child({ category: "proc" });
 const IS_WIN = process.platform === "win32";
 
 /**
- * yt-dlp / ffmpeg 프로세스 등록부. 봇이 내려갈 때 자손까지 함께 죽인다.
+ * yt-dlp / ffmpeg 프로세스 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
  *
  * yt-dlp가 다운로드를 ffmpeg에 넘기므로 ffmpeg는 손자 프로세스다. 그냥 두면 봇을 내려도 남아서
- * 파일을 물고 방송을 계속 받아쓴다. Windows는 `taskkill /T`로, POSIX는 detached로 띄운
+ * 파일을 물고 방송을 계속 받아쓴다. Windows는 `taskkill /T`로, POSIX는 detached로 실행한
  * 프로세스 그룹(-pid)에 시그널을 보내 정리한다. exit 훅에서도 돌아야 해서 전부 동기로 구현한다.
  *
  * 시그널 전에 두 가지를 확인한다. 빠뜨리면 무관한 프로세스를 죽인다.
@@ -20,12 +20,12 @@ const IS_WIN = process.platform === "win32";
  *  2. 이미 종료한 자식은 건너뛴다. OS가 PID를 재사용한다.
  *
  * 기동이 persistTo 로 기록 파일을 켜면 등록 · 해제마다 지금 목록을 적는다. 강제 종료 · 충돌로 이 정리를 못 하고 나가면
- * 다음 기동이 그 파일로 남은 자식을 찾아 내린다(infra/leftover-children).
+ * 다음 기동이 그 파일로 남은 자식을 찾아 종료한다(infra/leftover-children).
  */
 
-// spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 칸과 띄운 실행 파일
+// spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 필드와 실행한 실행 파일
 type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null; spawnfile?: string };
-/** guildId · job: 띄운 문맥의 서버와 일(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 일"로 보인다 */
+/** guildId · job: 실행한 문맥의 서버와 일(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 일"로 보인다 */
 type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number; guildId: string | null; job: Job | null };
 /** 기록 파일의 모양. owner: 적은 봇 프로세스(pid · 시작 시각), children: 그때 살아 있던 자식(image: 실행 파일 이름) */
 type Record = { owner: { pid: number; startedAt: number }; children: Array<{ pid: number; label: string; image: string | null; group: boolean; startedAt: number }> };
@@ -59,7 +59,7 @@ function save() {
   }
 }
 
-/** 기록 파일을 켠다. 기동이 남은 자식을 정리한 뒤 한 번 부른다(시험 · 스크립트는 켜지 않는다) */
+/** 기록 파일을 켠다. 기동이 남은 자식을 정리한 뒤 한 번 부른다(테스트 · 스크립트는 켜지 않는다) */
 function persistTo(file: string) {
   recordFile = file;
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -78,7 +78,7 @@ function install() {
 
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
- * label 은 로그용 이름, group=true 면 detached 로 띄워 자체 프로세스 그룹을 가진 경우.
+ * label 은 로그용 이름, group=true 면 detached 로 실행해 자체 프로세스 그룹을 가진 경우.
  * 서버 · 일은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
  * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
  */
@@ -113,13 +113,13 @@ function killTree(entry: Entry): boolean {
   if (!_isAlive(child)) return false; // PID 재사용된 남의 프로세스 보호
 
   if (IS_WIN) {
-    // /T = 자손 포함, /F = 강제. yt-dlp가 띄운 ffmpeg는 이 경로에서만 잡힌다.
+    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다.
     spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
     return true;
   }
 
   try {
-    // detached로 띄웠으면 그룹 전체(-pid). 손자 ffmpeg까지 같이 죽는다.
+    // detached로 실행했으면 그룹 전체(-pid). 손자 ffmpeg까지 같이 죽는다.
     process.kill(group ? -pid : pid, "SIGKILL");
   } catch {
     // ESRCH(이미 종료) 또는 그룹이 없는 경우. 직접 pid로 한 번 더.
@@ -132,7 +132,7 @@ function killTree(entry: Entry): boolean {
   return true;
 }
 
-/** 등록한 자식 하나를 트리째 내린다(시간 한도를 넘긴 것 등). 등록돼 있지 않거나 이미 끝났으면 false */
+/** 등록한 자식 하나를 트리째 종료한다(시간 한도를 넘긴 것 등). 등록돼 있지 않거나 이미 끝났으면 false */
 function kill(child: Tracked): boolean {
   const entry = typeof child.pid === "number" ? active.get(child.pid) : undefined;
   if (!entry || entry.child !== child) return false;

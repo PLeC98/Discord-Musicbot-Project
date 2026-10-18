@@ -70,7 +70,7 @@ test("상태와 무관한 패킷은 무시한다", () => {
   assert.equal(vcs._internals.current.size, 0);
 });
 
-// ── 재시작을 건너서 ─────────────────────────────────────────────────
+// ── 다시 시작을 건너서 ─────────────────────────────────────────────────
 
 // 저장소 대신 쓰는 가짜. 남긴 값을 들고 있다
 function keeperWith(entries: Array<[string, string]>, { fails = false } = {}) {
@@ -86,7 +86,7 @@ function keeperWith(entries: Array<[string, string]>, { fails = false } = {}) {
   };
 }
 
-test("재시작 전에 우리가 쓴 상태가 그대로 올라와 있으면 계속 우리 것", () => {
+test("다시 시작 전에 우리가 쓴 상태가 그대로 올라와 있으면 계속 우리 것", () => {
   reset();
   vcs.keepIn(keeperWith([[CH, "▶️ 노래 제목"]]));
   vcs.consumePacket({ t: "GUILD_CREATE", d: { channels: [{ id: CH, type: 2, status: "▶️ 노래 제목" }] } });

@@ -1,4 +1,4 @@
-// 봇 부르기. 디스코드 /join 과 대시보드 "봇 부르기"가 같이 쓴다. 판정과 일은 여기서, 결과를 어떻게 알릴지는 입구가 정한다
+// 봇 부르기. 디스코드 /join 과 대시보드 "봇 부르기"가 같이 쓴다. 판정과 일은 여기서, 결과를 어떻게 알릴지는 진입점이 정한다
 
 import { PermissionFlagsBits, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -24,7 +24,7 @@ type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voic
 /**
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
  * restoring 은 세션 복원을 시작할 때 부른다(디스코드는 "불러오는 중"을 먼저 답한다).
- * 글자 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다
+ * 텍스트 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다
  */
 async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring }: { restoring?: () => Promise<unknown> } = {}): Promise<JoinResult> {
   const channel = member.voice.channel;
@@ -71,7 +71,7 @@ function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
   return null;
 }
 
-// 저장한 세션을 복원한다. 채널 알림은 내지 않는다(입구가 결과를 알린다)
+// 저장한 세션을 복원한다. 채널 알림은 내지 않는다(진입점이 결과를 알린다)
 async function restore(player: Player, saved: RestoredSession): Promise<JoinResult> {
   try {
     const outcome = await player.persistence.restoreFromState(saved, { announce: false });

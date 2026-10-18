@@ -1,7 +1,7 @@
 // 서버와 화면이 주고받는 모양: 누구인가(/api/me · /api/bot)와 권한 수준 오버라이드.
 // contract/ 는 서버 경로가 이 모양으로 답하고 화면이 타입으로 받는 곳이다. 브라우저도 부르므로 Node 를 부르지 않는다
 
-/** 권한 수준 오버라이드의 계층. 높은 쪽부터(화면이 이 차례로 그린다) */
+/** 권한 수준 오버라이드의 계층. 높은 쪽부터(화면이 이 순서로 그린다) */
 const TIERS = ["moderator", "dj", "user"] as const;
 type Tier = (typeof TIERS)[number];
 const isTier = (v: unknown): v is Tier => TIERS.some((t) => t === v);

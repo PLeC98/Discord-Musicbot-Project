@@ -45,7 +45,7 @@ beforeEach(() => {
   responder = () => reply(200, AUDIO);
 });
 
-// 세 번째 인자는 실패했을 때 어느 입력이었는지 읽으려고 붙인 이름표다
+// 세 번째 인자는 실패했을 때 어느 입력이었는지 읽으려고 붙인 라벨이다
 const rejects = (p: Promise<unknown>, re?: RegExp | null, _label?: string) => assert.rejects(p, (e) => e instanceof SsrfError && (!re || re.test(e.message)));
 
 // ── 1. IP 우회 표기 ──────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ test("getStream도 같은 검증 경로를 지난다", async () => {
   assert.equal(calls.length, 0);
 });
 
-// getBuffer: 작은 파일을 끝까지 받는다(파비콘 링크로 추가). 받을 것의 조건은 부르는 쪽이 정한다
+// getBuffer: 작은 파일을 끝까지 다운로드한다(파비콘 링크로 추가). 다운로드할 것의 조건은 부르는 쪽이 정한다
 const IMAGE: Accept = { contentType: /^image\/png/i, maxBytes: 8, timeoutMs: 1000 };
 const getBuffer = (url: string) => safeUrl.getBuffer(url, IMAGE, deps);
 const body = (status: number, headers: Record<string, string>, chunks: Buffer[]): Reply => ({ status, headers, body: Readable.from(chunks) });
@@ -211,7 +211,7 @@ test("getBuffer: 같은 방어를 지나고(내부 주소 · 리다이렉트로 
 
 test("차단 사유에 내부 주소가 담기지만 SsrfError로만 던진다 (호출측이 일반화)", async () => {
   // DirectLink가 사용자에게는 일반 문구만 노출한다. 여기서는 진단을 위해 상세를 담되,
-  // 타입으로 구분 가능해야 호출측이 안전하게 걸러낼 수 있다.
+  // 타입으로 구분 가능해야 호출측이 안전하게 필터링할 수 있다.
   await assert.rejects(head("http://169.254.169.254/x.mp3"), (e) => {
     assert.ok(e instanceof SsrfError);
     assert.equal(e.name, "SsrfError");
@@ -309,7 +309,7 @@ test("본문 무응답: 받는 쪽이 받으려는데 한도만큼 안 오면 �
   assert.match(errors[0]?.message ?? "", /본문이 6000ms 동안 오지 않습니다/);
 });
 
-// Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 띄울 때 읽으므로 자식으로 본다.
+// Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 실행할 때 읽으므로 자식으로 본다.
 // 프록시를 타면 목적지를 프록시가 다시 풀어 고정 접속이 무의미해진다
 test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 프록시를 타지 않는다", async () => {
   const { server, url } = await localServer((_req, res) => res.writeHead(200, AUDIO).end("직접"));
@@ -321,7 +321,7 @@ test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 �
       console.log("PROBE " + r.status + " " + body);`;
     const env = { ...process.env, NODE_USE_ENV_PROXY: "1", HTTP_PROXY: "http://127.0.0.1:9", http_proxy: "http://127.0.0.1:9", NO_PROXY: "", no_proxy: "" };
     const child = await new Promise<{ stdout: string }>((done) => {
-      // spawnSync 은 이 프로세스의 서버를 막으므로 비동기로 띄운다
+      // spawnSync 은 이 프로세스의 서버를 막으므로 비동기로 실행한다
       const c = spawn(process.execPath, ["--input-type=module", "-e", probe], { env });
       let stdout = "";
       c.stdout.on("data", (d) => (stdout += d));

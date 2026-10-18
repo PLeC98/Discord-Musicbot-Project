@@ -9,7 +9,7 @@ import type { ChildRecord } from "../../src/infra/process-registry.ts";
 const T = 1_790_000_000_000;
 const SELF = { pid: 500, ppid: 400 };
 
-// 기록 파일 하나와 OS 가 아는 프로세스들. 내린 것 · 지운 것 · 물어본 pid 를 적는다
+// 기록 파일 하나와 OS 가 아는 프로세스들. 내린 것 · 삭제한 것 · 물어본 pid 를 적는다
 function world(record: ChildRecord | string | null, running: SeenProcess[]) {
   const killed: string[] = [];
   const asked: number[][] = [];
@@ -33,27 +33,27 @@ test("기록이 없으면 아무것도 하지 않는다(OS 에 묻지도 않는�
   assert.deepEqual(w.asked, []);
 });
 
-test("깨끗이 끝나 남은 자식이 없으면 기록만 지운다(OS 에 묻지 않는다)", () => {
+test("깨끗이 끝나 남은 자식이 없으면 기록만 삭제한다(OS 에 묻지 않는다)", () => {
   const w = world({ owner, children: [] }, []);
   assert.deepEqual(w.run(), []);
   assert.deepEqual(w.asked, []);
   assert.equal(w.removed(), true);
 });
 
-test("기록을 읽지 못하면 지우고 넘어간다", () => {
+test("기록을 읽지 못하면 삭제하고 넘어간다", () => {
   const w = world("{깨짐", []);
   assert.deepEqual(w.run(), []);
   assert.equal(w.removed(), true);
 });
 
-test("살아 있고 이름 · 시작 시각이 기록과 맞는 자식만 트리째 내리고 기록을 지운다", () => {
+test("살아 있고 이름 · 시작 시각이 기록과 맞는 자식만 트리째 내리고 기록을 삭제한다", () => {
   const w = world({ owner, children: [child(11, "bgutil", "node"), child(12, "ffmpeg:재생", "ffmpeg"), child(13, "yt-dlp", "yt-dlp", T + 9000, true), child(14, "yt-dlp", "yt-dlp")] }, [
     { pid: 11, image: "node", startedAt: T + 5300 },
     { pid: 12, image: "ffmpeg", startedAt: T + 4000 },
     { pid: 13, image: "yt-dlp", startedAt: T + 9100 },
   ]);
   assert.deepEqual(w.run(), ["bgutil#11", "ffmpeg:재생#12", "yt-dlp#13"]);
-  assert.deepEqual(w.killed, ["11", "12", "13:group"], "끝난 것(14)은 두고, 그룹으로 띄운 것은 그룹째");
+  assert.deepEqual(w.killed, ["11", "12", "13:group"], "끝난 것(14)은 두고, 그룹으로 실행한 것은 그룹째");
   assert.equal(w.removed(), true);
 });
 

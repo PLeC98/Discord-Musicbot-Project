@@ -1,7 +1,7 @@
 // play() 의 단계. play() 는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playback-input).
 //   prepareStart   틀 곡과 시작 위치. 대기열에서 꺼내고 음성 채널에 붙고, 새로 트는 곡이면 인트로 끝을 시작 위치로
-//   resolveSource  소리를 어디서 받나. 받아 둔 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
-//   commitPlaying  연 소리를 튼다. SponsorBlock · 음량 · 캐시 보호 · 장부 · 멈춤 사유 · 위치 재개 정보 · 감시와 저장
+//   resolveSource  소리를 어디서 받나. 캐시 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
+//   commitPlaying  연 소리를 튼다. SponsorBlock · 음량 · 캐시 보호 · 재생 기록 · 멈춤 사유 · 위치 재개 정보 · 감시와 저장
 // 플레이어의 상태를 읽고 쓰므로 플레이어를 받는다.
 
 import logger from "../infra/log/logger.ts";
@@ -67,25 +67,25 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
 }
 
 /**
- * 소리를 어디서 받나. 받아 둔 파일이 있으면 yt-dlp 를 부르지 않는다.
+ * 소리를 어디서 받나. 캐시 파일이 있으면 yt-dlp 를 부르지 않는다.
  * 음원 주소가 정해졌으니 SponsorBlock 조회도 여기서 시작해 둔다(여는 동안 나란히 묻는다).
  * @param previousResume  직전 재생이 남긴 위치 재개 정보
  */
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
-  // 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
+  // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = TrackDownloader.findCacheFile(track);
-  // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다. 받아 둔 파일로 틀면 주소가 필요 없다
+  // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
   let streamInfo: StreamInfo | null = startMs > 0 && !cacheFile ? resumeStream(track, previousResume, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
-    // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 열쇠가 정해지므로
+    // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 키가 정해지므로
     // 캐시 파일을 한 번 더 보고, 있으면 스트림을 받지 않는다
     if (!track.audioUrl) {
       const ytUrl = await player.io.findEquivalent(track);
       if (!ytUrl) throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
       cacheFile = TrackDownloader.findCacheFile(track);
     }
-    // 어느 사이트에서 받을지는 sources/stream-url 한 곳에서 가른다
+    // 어느 사이트에서 받을지는 sources/stream-url 한 곳에서 분기한다
     if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok });
   }
 
@@ -100,7 +100,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 
 // 재생목록으로 담은 곡은 재생목록 페이지가 준 제목을 쓰고 있는데, 같은 영상인데도 다를 수 있다.
 // 스트림을 가져왔다면 그 응답에 영상 자체의 제목이 실려 있으므로 왕복 없이 고칠 수 있다.
-// (캐시로 재생하는 곡은 여기를 지나지 않는다. 그쪽은 받을 때 고친다.)
+// (캐시로 재생하는 곡은 여기를 지나지 않는다. 그쪽은 다운로드할 때 고친다.)
 // 스포티파이 곡은 제외한다: 유튜브 동등물의 제목은 다른 문자열이고, 사용자가 넣은 것은
 // 스포티파이 곡이므로 표시는 그쪽이 맞다.
 function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
@@ -114,7 +114,7 @@ function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
 
 // 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 담길 때 방송 중이었어도 그사이 끝나
 // 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록 · 믹스).
-// 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 받지 않는다. 모르면 null
+// 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 다운로드하지 않는다. 모르면 null
 function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   if (streamInfo && "liveStatus" in streamInfo) return streamInfo.liveStatus === "is_live";
   return cacheFile ? false : null;
@@ -173,7 +173,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   const durationSec = audioDurationSec(track, streamInfo, pb.cacheFile);
   pb.lengthMs = durationSec ? durationSec * 1000 : null;
-  // 표시는 처음 보인 값을 지킨다. 캐시 기록은 받아 둔 음원을 잰 값, 스트림 정보는 출처가 준 값이다
+  // 표시는 처음 보인 값을 지킨다. 캐시 기록은 다운로드해 둔 음원을 잰 값, 스트림 정보는 출처가 준 값이다
   const shown = shownDuration(track, durationSec, pb.cacheFile ? "measured" : "provided");
   if (shown) Object.assign(track, shown);
   log.info(`재생: ${logTitle(track.title)} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
@@ -181,7 +181,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   const audioKey = audioKeyOf(track.audioUrl);
   protectAudio(player, audioKey);
   player.audioPlayer.play(resource);
-  // 라이브는 받아 두지 않으므로 적을 것이 없다.
+  // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
   if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified, { countPlay: !continued });
 
   if (player.pauseReasons.size > 0) {
@@ -192,15 +192,15 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   pb.resume = resumeInfo(track, streamInfo);
 
-  // 끝을 알리지 못하는 입력의 마지막 그물. 곡 끝은 Idle 때 가른다
+  // 끝을 알리지 못하는 입력의 마지막 그물. 곡 끝은 Idle 때 판정한다
   player.watch.startOverflow();
 
   player.persistence.startStateSync();
   player.warmer.start();
   await player.persistence.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
 
-  // 다음 자동재생 곡을 미리 뽑아 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
-  player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${messageOf(error)}`));
+  // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
+  player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 선택 실패: ${messageOf(error)}`));
 }
 
 // 재생 중인 곡을 퇴거 대상에서 보호한다(해제는 releaseAudioProtection)
@@ -222,7 +222,7 @@ function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boole
     if (countPlay) audioCache.recordPlayback(audioKey);
     trackLookup.recordTrackLookup(track, { verified: titleVerified });
   } catch (error) {
-    log.warn(`캐시 장부 기록 실패(재생은 계속): ${messageOf(error)}`);
+    log.warn(`오디오 캐시 기록 실패(재생은 계속): ${messageOf(error)}`);
   }
 }
 

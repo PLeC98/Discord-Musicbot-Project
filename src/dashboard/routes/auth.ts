@@ -18,7 +18,7 @@ type DiscordHttp = {
   post<T>(url: string, body: URLSearchParams, init?: { headers?: Record<string, string> }): Promise<Reply<T>>;
   get<T>(url: string, init?: { headers?: Record<string, string> }): Promise<Reply<T>>;
 };
-/** 여기서 읽는 칸만 */
+/** 여기서 읽는 필드만 */
 type TokenReply = { access_token: string; token_type: string };
 type UserReply = { id: string; username: string; global_name: string | null; avatar: string | null };
 
@@ -29,7 +29,7 @@ async function call<T>(url: string, init: RequestInit): Promise<Reply<T>> {
   try {
     data = JSON.parse(text);
   } catch {
-    // JSON 이 아니면 글 그대로
+    // JSON 이 아니면 텍스트 그대로
   }
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { response: { status: res.status, data } });
   return { data: data as T };
@@ -40,13 +40,13 @@ const discordHttp: DiscordHttp = {
   get: (url, { headers } = {}) => call(url, { headers }),
 };
 
-// 요청 실패에서 읽는 칸. 응답이 있으면 상태와 본문, 없으면(시간 초과 · 연결 실패) 이름과 문장
+// 요청 실패에서 읽는 필드. 응답이 있으면 상태와 본문, 없으면(시간 초과 · 연결 실패) 이름과 문장
 type Failure = { response?: { status?: number; data?: unknown }; name?: string; message?: string; cause?: { code?: string } };
 const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
 /** 디스코드가 봇의 앱 자격(클라이언트 ID · 시크릿)을 거절한 응답인가 */
 const isBadClient = (response: Failure["response"]) => (response?.data as { error?: unknown } | undefined)?.error === "invalid_client";
 
-/** 콜백에서 디스코드를 부르다 실패했다. 까닭을 남기고 로그인 화면에 보일 까닭을 고른다 */
+/** 콜백에서 디스코드를 부르다 실패했다. 까닭을 남기고 로그인 화면에 보일 까닭을 선택한다 */
 function callbackFailure(error: unknown, redirectUri: string): LoginError {
   const { response, name, message, cause } = failureOf(error);
   // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다

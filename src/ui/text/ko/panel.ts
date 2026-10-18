@@ -1,12 +1,12 @@
-// 재생 패널(지금 곡 · 끝난 패널)의 글자
+// 재생 패널(지금 곡 · 끝난 패널)의 문구
 
-/** 재생 패널의 머리 */
+/** 재생 패널의 헤더 */
 const playingTitle = () => "🎵 현재 재생 중";
 
-// 반복 버튼의 이름표
+// 반복 버튼의 라벨
 const LOOP_LABEL = { track: "한 곡 반복", queue: "대기열 반복", off: "반복 꺼짐" } as const;
 const loopLabel = (mode: keyof typeof LOOP_LABEL) => LOOP_LABEL[mode];
-/** 이름표가 붙은 버튼 */
+/** 라벨이 붙은 버튼 */
 const buttons = () => ({ queue: "대기열", autoplay: "자동재생" });
 /** 곡으로 건너뛰기 메뉴 */
 const jumpPlaceholder = () => "⏭ 이 곡 먼저 재생하기";

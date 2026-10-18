@@ -1,5 +1,5 @@
 // src/infra/process-registry.ts 의 기록 파일. 기동이 켜면 등록 · 해제 · 모두 내리기마다 지금 살아 있는 자식을 적는다(다음 기동이 남은 것을 정리한다).
-// 켜기 전에는 쓰지 않는다. 이 파일은 프로세스마다 따로 돌아 등록부의 켜짐이 다른 시험에 새지 않는다
+// 켜기 전에는 쓰지 않는다. 이 파일은 프로세스마다 따로 돌아 레지스트리의 켜짐이 다른 테스트에 새지 않는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

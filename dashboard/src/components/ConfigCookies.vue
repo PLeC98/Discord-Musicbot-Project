@@ -7,7 +7,7 @@
       <template #actions>
         <span class="inline-flex items-center gap-1 text-xs" :class="state.hasFile ? 'text-primary' : 'text-on-surface-variant'"><Icon :name="!known ? 'help' : state.hasFile ? 'check_circle' : 'radio_button_unchecked'" :size="16" :fill="known && state.hasFile" />{{ !known ? T.unknown : state.hasFile ? T.saved : T.none }}</span>
       </template>
-      <!-- 무엇에 쓰는지 한 줄, 언제 갈아 끼우는지는 툴팁 -->
+      <!-- 무엇에 쓰는지 한 줄, 언제 교체하는지는 툴팁 -->
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.purpose }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.purposeTip" /></p>
 
       <div class="flex flex-col gap-2">
@@ -49,7 +49,7 @@ trackUnsaved(
 const saving = ref(false);
 const loadError = ref("");
 const state = reactive<CookieState>({ source: "none", hasFile: false });
-// 서버에서 상태를 받았는지. 못 받았으면 "없음"이 아니라 모른다
+// 서버에서 상태를 불러왔는지. 못 불러왔으면 "없음"이 아니라 모른다
 const known = ref(false);
 
 const placeholder = computed(() => (state.hasFile ? T.replacePlaceholder : "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t…"));

@@ -1,9 +1,9 @@
-// 재생 조작 세 입구(슬래시 명령 · 패널 버튼 · 대시보드)가 지금 무엇을 거절하고 무엇을 허용하나(구조 리팩터링 0단계).
+// 재생 조작 세 진입점(슬래시 명령 · 패널 버튼 · 대시보드)이 지금 무엇을 거절하고 무엇을 허용하나(구조 리팩터링 0단계).
 //
-// 같은 조작의 전제 조건이 입구마다 다르다. 6단계가 전제 조건을 코어 한 곳으로 모으면 이 표의 몇 칸이 바뀐다.
-// 그때 바뀌는 칸을 이 표에서 고치고, 무엇이 바뀌었는지는 그 커밋이 적는다.
+// 같은 조작의 전제 조건이 진입점마다 다르다. 6단계가 전제 조건을 코어 한 곳으로 모으면 이 표의 몇 셀이 바뀐다.
+// 그때 바뀌는 셀을 이 표에서 고치고, 무엇이 바뀌었는지는 그 커밋이 적는다.
 //
-// 칸의 값은 입구가 플레이어에 대고 부른 메서드 이름이다. 아무것도 안 불렀으면 x, 버튼이 모달만 띄웠으면 modal.
+// 셀의 값은 진입점이 플레이어에 대고 부른 메서드 이름이다. 아무것도 안 불렀으면 x, 버튼이 모달만 열었으면 modal.
 // 답장 문구는 보지 않는다. 문구는 6단계에서 ui/ 로 옮겨 가며 바뀐다.
 
 process.env.OWNER_ID = "owner";
@@ -19,7 +19,7 @@ import { command, run } from "./helpers/commands.ts";
 import { signedInAs } from "./helpers/dashboard.ts";
 
 // 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.ts 가 본다.
-// 봇이 음성에 없어 재적 규칙은 늘 통과한다. "denied" 칸만 서버에 DJ 역할을 걸어, 그 역할이 없는 이 멤버를 막는다
+// 봇이 음성에 없어 재적 규칙은 늘 통과한다. "denied" 셀만 서버에 DJ 역할을 걸어, 그 역할이 없는 이 멤버를 막는다
 const { openTempStore, setGuild } = await import("./helpers/temp-store.ts");
 const store = openTempStore("control-entrances-");
 after(() => store.close());
@@ -49,7 +49,7 @@ function makePlayer(state: string, acts: string[]) {
     guild: { id: "g1" },
     sessionId: "S1",
     currentTrack: track("now") as FakeTrack | null,
-    // 줄 번호는 track-state 가 들일 때 찍는다. 대시보드는 그것으로 가리킨다
+    // 줄 번호는 track-state 가 추가할 때 찍는다. 대시보드는 그것으로 가리킨다
     queue: [
       { ...track("q1"), entry: 1 },
       { ...track("q2"), entry: 2 },
@@ -111,7 +111,7 @@ const client = {
 const players = new Map<string, Player>();
 const bot = fakeBot({ client, players, panels: { updatePlaying: async () => {}, drawEndedPanel: async () => {}, panelChannel: async () => null } });
 
-// 한 칸을 세운다. 부른 메서드를 모을 곳을 돌려준다
+// 한 셀을 세운다. 부른 메서드를 모을 곳을 돌려준다
 function arrange(state: string) {
   const acts: string[] = [];
   players.clear();
@@ -122,7 +122,7 @@ function arrange(state: string) {
 
 const outcome = (acts: string[], extra: string[] = []) => (acts.length ? acts.join("+") : extra.includes("modal") ? "modal" : "x");
 
-// ── 입구 셋 ───────────────────────────────────────────────────────────
+// ── 진입점 셋 ───────────────────────────────────────────────────────────
 
 function fakeInteraction({ customId = null as string | null, options = {} as Record<string, string | number> } = {}) {
   const shown: string[] = [];
@@ -217,7 +217,7 @@ const DASHBOARD: Record<string, { method?: string; route: string; body?: object 
 
 // ── 표 ───────────────────────────────────────────────────────────────
 //
-/** 입구: 명령 · 버튼 · 대시보드 */
+/** 진입점: 명령 · 버튼 · 대시보드 */
 type Entrance = "C" | "B" | "D";
 const ENTRANCES: Entrance[] = ["C", "B", "D"];
 
@@ -308,7 +308,7 @@ for (const [op, row] of Object.entries(TABLE)) {
     if (!line) continue;
     test(`${op} · ${NAME[key]}`, async () => {
       const expected = line.split(" ");
-      assert.equal(expected.length, STATES.length, "표의 칸 수");
+      assert.equal(expected.length, STATES.length, "표의 열 수");
       const actual: string[] = [];
       for (const state of STATES) actual.push(await ENTRANCE[key](op, state));
       assert.deepEqual(Object.fromEntries(STATES.map((s, i) => [s, actual[i]])), Object.fromEntries(STATES.map((s, i) => [s, expected[i]])));

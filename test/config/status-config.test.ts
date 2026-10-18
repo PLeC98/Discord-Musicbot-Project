@@ -75,13 +75,13 @@ test("조건이 하나도 없는 항목은 걸린다", () => {
 });
 
 test("항목 이름 규칙은 장르와 같다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /차례가 어긋납니다/);
+  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋납니다/);
   assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
 });
 
 // ── 읽기 ──────────────────────────────────────────────────────────────────
 
-// 문서는 DB 에 있고 고칠 대시보드가 떠야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다(2차 16단계 "정한 것" 6)
+// 문서는 DB 에 있고 고칠 대시보드가 실행돼야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다(2차 16단계 "정한 것" 6)
 test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문구 없이 돈다(던지지 않는다)", () => {
   const from = sink.buffer.length;
   useDocument("status", "interval: 1\nmessages: []\n");
@@ -104,14 +104,14 @@ test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈
   assert.deepEqual(statusConfig.status().messages, ["고친 문구"]);
 });
 
-// ── 고르기 ────────────────────────────────────────────────────────────────
+// ── 선택 ────────────────────────────────────────────────────────────────
 
-// 오늘이 언제인지를 정해 조건을 시험한다
+// 오늘이 언제인지를 정해 조건을 테스트한다
 function managerAt({ date = "06-15", lunar = "05-10", time = "12:00" }) {
   return new StatusManager({}, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
 }
 
-// 고른 문구의 글자. 못 고르면 실패
+// 선택한 문구의 글자. 선택하지 못하면 실패
 function textOf(manager: StatusManager, config: StatusConfig) {
   const entry = manager.getCurrentEntry(config);
   assert.ok(entry, "고른 문구가 있다");
@@ -156,7 +156,7 @@ test("조건을 둘 이상 적으면 전부 맞아야 한다", () => {
   assert.equal(textOf(managerAt({ date: "12-23", time: "21:00" }), config), "평소", "날짜가 안 맞으면 안 쓴다");
 });
 
-test("문구는 차례로 돌아간다", () => {
+test("문구는 순서대로 돌아간다", () => {
   const manager = managerAt({ time: "23:30" });
   const picked = [0, 1, 2].map((i) => {
     manager.rotationIndex = i;
@@ -172,7 +172,7 @@ test("풀어 적은 문구의 종류가 그대로 온다", () => {
 
 // ── 걸기 ──────────────────────────────────────────────────────────────────
 
-// 건 활동. 여기서 보는 칸만
+// 건 활동. 여기서 보는 필드만
 type Activity = { name: string; type: number };
 
 function presenceClient() {
@@ -238,7 +238,7 @@ test("load 는 설정 로더의 status() 를 부른다", () => {
   assert.equal(new StatusManager({}).load(), statusConfig.status());
 });
 
-// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 칸이 같게 돈다)
+// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)
 test("간격의 기본값은 기본 문서의 값과 같다", () => {
   assert.equal((documents.defaultOf("status") as { interval?: unknown }).interval, INTERVAL_DEFAULT);
 });

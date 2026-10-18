@@ -4,7 +4,7 @@
 type Exiting = { once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 
 class InputHealth {
-  kind: string; // 입력 갈래(로그용). 파일 · HLS · 청크 · 직접 링크 등
+  kind: string; // 입력 구분(로그용). 파일 · HLS · 청크 · 직접 링크 등
   broken: string | null = null; // 처음 깨진 까닭. 온전하면 null
   exitCode: number | null = null; // ffmpeg 종료 코드. 신호로 죽었으면 -1, 아직 살아 있으면 null
   detail: () => string | null = () => null; // 끊겼을 때 남길 입력 상태(청크 스트림이 이어받는 중이었나 등)

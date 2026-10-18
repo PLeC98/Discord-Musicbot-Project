@@ -1,6 +1,6 @@
 <!--
-  AI 보조 · 사용량 통계: 기간(7 · 30 · 90일 · 전체) · 출처 거르기, 합계 칸 다섯(요청 · 입력 · 출력 · 비용 · 응답 시간), 날짜별 막대(UsageChart), 모델별 · 출처별 · 서버별 표.
-  통계는 리퀘스트 로그와 따로 남는다(로그를 지워도 줄지 않는다). 비용은 기록할 때의 값표로 센 추정이고 값표에 없는 모델은 "가격 모름"으로 따로 센다.
+  AI 보조 · 사용량 통계: 기간(7 · 30 · 90일 · 전체) · 출처 필터, 합계 항목 다섯(요청 · 입력 · 출력 · 비용 · 응답 시간), 날짜별 막대(UsageChart), 모델별 · 출처별 · 서버별 표.
+  통계는 리퀘스트 로그와 따로 남는다(로그를 삭제해도 줄지 않는다). 비용은 기록할 때의 가격표로 센 추정이고 가격표에 없는 모델은 "가격 모름"으로 따로 센다.
   상태는 composables/ai-usage, 모양은 contract/ai-log.
 -->
 <template>
@@ -38,7 +38,7 @@
           <UsageChart v-else :daily="report.daily" :metric="metric" />
         </section>
 
-        <!-- 표 셋. 좁으면 표 안에서 옆으로 구른다 -->
+        <!-- 표 셋. 좁으면 표 안에서 옆으로 스크롤된다 -->
         <section v-for="table in tables" :key="table.title" class="flex flex-col gap-2">
           <h3 class="text-sm font-semibold text-on-surface">{{ table.title }}</h3>
           <p v-if="!table.rows.length" class="text-xs text-on-surface-variant">{{ table.empty }}</p>
@@ -93,7 +93,7 @@ const asking = ref(false);
 const metric = ref<"tokens" | "requests" | "cost">("tokens");
 const { period, sources, report, loading, loadError, clearing, load, toggleSource, clearAll } = useAiUsage(() => props.active);
 
-/** 비용 칸: 값을 아는 것의 합. 가격 모름이 섞였으면 "+" 를 붙이고, 전부 가격 모름이면 그렇게 적는다 */
+/** 비용 셀: 값을 아는 것의 합. 가격 모름이 섞였으면 "+" 를 붙이고, 전부 가격 모름이면 그렇게 적는다 */
 const costText = (one: AiUsageBucket) => (one.unpriced && one.unpriced === one.requests ? TT.unknown : `${formatUsd(one.costUsd)}${one.unpriced ? "+" : ""}`);
 
 const tiles = computed(() => {

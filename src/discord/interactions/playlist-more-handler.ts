@@ -30,7 +30,7 @@ const closed = () => {
 
 const refuser = (interaction: MoreInteraction) => (notice: Notice) => noticeSelf(interaction, notice).catch(closed);
 
-// 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
+// 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 삭제한다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {
   if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)(errors.notice("more-not-requester-close"));
   More.clearExpiry(interaction.message.id);
@@ -38,7 +38,7 @@ async function stop(interaction: StringSelectMenuInteraction<"cached">, state: M
   return interaction.deleteReply().catch(closed);
 }
 
-// 넣을 곡 수. 직접 입력을 고르면 모달을 띄우고, 받을 수 없는 값이면 거절한다(둘 다 null)
+// 넣을 곡 수. 직접 입력을 선택하면 모달을 열고, 받을 수 없는 값이면 거절한다(둘 다 null)
 async function countOf(interaction: MoreInteraction, state: MoreState, player: Player): Promise<number | null> {
   const refuse = refuser(interaction);
   let count: number | null;
@@ -90,12 +90,12 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     outcome = { failed: errorMessage(error) };
   }
 
-  // 실패면 메뉴를 지우고 본인에게만 알린다
+  // 실패면 메뉴를 삭제하고 본인에게만 알린다
   if ("failed" in outcome) {
     await noticeInstead(interaction, outcome.failed).catch(closed);
     return;
   }
-  // 결과는 모두에게. 본인 메뉴(/play)면 지우고 채널에 새로, 채널의 메뉴(전용 채널)면 그 자리를 고친다
+  // 결과는 모두에게. 본인 메뉴(/play)면 삭제하고 채널에 새로, 채널의 메뉴(전용 채널)면 그 메시지를 고친다
   if (message?.flags.has(MessageFlags.Ephemeral)) return toAll(interaction, outcome.view, LIFETIME.glance).catch(closed);
   await interaction.editReply(post(outcome.view)).catch(closed);
   if (message) More.expireLater(message.id, () => interaction.deleteReply(), LIFETIME.glance);

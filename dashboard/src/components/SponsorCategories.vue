@@ -1,5 +1,5 @@
 <!--
-  SponsorBlock 에서 건너뛸 구간 고르기: 이름표(정보 단추를 누르면 구간마다 설명 창) + 체크박스 목록.
+  SponsorBlock 에서 건너뛸 구간 선택: 라벨(정보 버튼을 누르면 구간마다 설명 창) + 체크박스 목록.
   서버 설정의 SponsorBlock 카드와 운영 조절값의 "기본으로 건너뛸 구간"이 같이 쓴다. 설명은 rules/sponsor-categories.
   목록은 카드가 넓으면(32rem 이상) 두 단.
 -->
@@ -10,7 +10,7 @@
       <button type="button" :class="[ICON_BTN, 'size-6']" v-tooltip="T.help" :aria-label="T.helpLabel" aria-haspopup="dialog" @click="helpOpen = true"><Icon name="info" :size="16" /></button>
     </div>
 
-    <!-- 구간 설명은 대화상자로 띄운다(카드 안에서 펼치면 단 배치가 흔들린다) -->
+    <!-- 구간 설명은 대화상자로 연다(카드 안에서 펼치면 단 배치가 흔들린다) -->
     <InfoDialog v-model="helpOpen" icon="skip_next" :title="T.categories">
       <dl class="flex flex-col gap-1">
         <div v-for="c in CATEGORIES" :key="c.id" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
@@ -38,7 +38,7 @@ import { SKIP_CATEGORIES, categoryDescription, categoryLabel } from "../../../sr
 import { text } from "../text/index.ts";
 const T = text.serverSettings.sponsor;
 
-/** label: 목록 이름표 · selected: 고른 구간 id · editable: 고칠 수 있는가 · dimmed: 흐리게(서버에서 자동 스킵을 껐을 때) */
+/** label: 목록 라벨 · selected: 선택한 구간 id · editable: 고칠 수 있는가 · dimmed: 흐리게(서버에서 자동 스킵을 껐을 때) */
 withDefaults(defineProps<{ label: string; selected: readonly string[]; editable?: boolean; dimmed?: boolean }>(), { editable: true, dimmed: false });
 const emit = defineEmits<{ toggle: [id: string] }>();
 

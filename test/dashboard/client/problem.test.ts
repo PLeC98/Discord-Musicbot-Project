@@ -1,4 +1,4 @@
-// dashboard/src/utils/problem.ts — 화면이 문제 응답을 글로 바꾸는 도우미. 문장은 봇과 같은 안내에서 코드로 고른다
+// dashboard/src/utils/problem.ts — 화면이 문제 응답을 글로 바꾸는 헬퍼. 문장은 봇과 같은 안내에서 코드로 선택한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import { text } from "../../../dashboard/src/text/index.ts";
 
 const failed = (data: unknown) => ({ response: { data } });
 
-test("봇 쪽 거절은 디스코드와 같은 문장만(머리 줄 · 본문). 문장에 드는 값은 응답의 확장 칸에서 읽는다", () => {
+test("봇 쪽 거절은 디스코드와 같은 문장만(헤더 줄 · 본문). 문장에 드는 값은 응답의 확장 필드에서 읽는다", () => {
   assert.equal(problemText(failed(problemBody("no-song")), "실패"), "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요.");
   assert.equal(problemText(failed(problemBody("queue-full", { max: 100 })), "실패"), "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 100곡)");
 });
@@ -56,7 +56,7 @@ test("문제 응답이 아니거나 모르는 코드면 화면이 준 글(코드
   for (const error of [undefined, null, { response: {} }, failed("<html>"), failed({ error: "옛 꼴" }), failed({ code: "no-such-code" }), failed({ code: "toString" }), { code: "ECONNABORTED" }]) assert.equal(problemText(error, "실패"), "실패");
 });
 
-test("칸별 원문 목록", () => {
+test("필드별 원문 목록", () => {
   assert.deepEqual(
     problemDetails(
       failed(

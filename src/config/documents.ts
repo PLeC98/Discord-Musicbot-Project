@@ -2,7 +2,7 @@
 //
 // 설정 계층은 DB(store)를 부를 수 없다. 그래서 여기는 메모리에 문서를 들고 있고, 기동 때 앱 조립이 저장소를 붙인다(attach).
 // 붙이면 그때 한 번 읽어 올리고, 저장(put)하면 저장소에 쓰고 메모리를 바꾼다. 쓰는 곳은 읽을 때마다 DB 를 보지 않는다.
-// 붙이지 않으면(시험 · 스크립트) 기본값(config/defaults)으로 돌고 저장은 메모리에만 남는다.
+// 붙이지 않으면(테스트 · 스크립트) 기본값(config/defaults)으로 돌고 저장은 메모리에만 남는다.
 //
 // 문서마다 저장 번호가 있다. 읽은 번호와 지금 번호가 다르면 저장을 거절한다(두 탭 · 두 사람이 서로 덮지 않게).
 
@@ -74,7 +74,7 @@ const revisionOf = (name: DocName) => docOf(name).revision;
 /** 저장. revision 은 읽었을 때의 번호. 다르면 REVISION_CONFLICT. 새 번호를 돌려준다 */
 const put = (name: DocName, data: unknown, revision: number): number => putAll([{ name, data, revision }])[0];
 
-/** 여러 문서를 함께 저장한다. 하나라도 번호가 다르거나 쓰기가 실패하면 아무것도 바꾸지 않는다. 새 번호들을 같은 차례로 */
+/** 여러 문서를 함께 저장한다. 하나라도 번호가 다르거나 쓰기가 실패하면 아무것도 바꾸지 않는다. 새 번호들을 같은 순서로 */
 function putAll(puts: DocPut[]): number[] {
   const nows = puts.map(({ name }) => revisionOf(name));
   puts.forEach(({ name, revision }, i) => {
@@ -88,7 +88,7 @@ function putAll(puts: DocPut[]): number[] {
 /** 기본값(새로 설치했을 때의 문서) */
 const defaultOf = (name: DocName) => DEFAULTS[name]();
 
-// 시험 시임. 문서를 바로 넣는다(번호 · 저장소를 거치지 않는다). 인자 없이 부르면 모두 기본값으로
+// 테스트 시임. 문서를 바로 넣는다(번호 · 저장소를 거치지 않는다). 인자 없이 부르면 모두 기본값으로
 function _use(name?: DocName, data?: unknown) {
   if (!name) {
     store = null;

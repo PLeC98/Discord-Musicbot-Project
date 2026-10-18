@@ -14,7 +14,7 @@
       </div>
     </BaseCard>
 
-    <!-- 줄마다 이름 · 설명, 오른쪽에 하기. 좁으면 단추가 아래로 -->
+    <!-- 항목마다 이름 · 설명, 오른쪽에 하기. 좁으면 버튼이 아래로 -->
     <BaseCard icon="build" :title="T.maintenance">
       <div class="flex flex-col">
         <div :class="actionRow">
@@ -48,12 +48,12 @@ const T = text.dev;
 // 계층을 바꾸면 스토어가 페이지를 다시 읽는다. 서버 목록·플레이어 권한이 통째로 달라지기 때문.
 const user = useUserStore();
 const switchingTier = ref(false);
-// 맨 위는 오버라이드 안 함(null). 고르는 계층이 아니라 평소 상태다
+// 맨 위는 오버라이드 안 함(null). 선택하는 계층이 아니라 평소 상태다
 const TIER_ROWS: { id: Tier | null; label: string; desc: string }[] = [{ id: null, ...T.viewAs.none }, ...VIEW_AS_TIERS];
 
-// 라디오 줄(고른 줄은 목록 · 상세의 고른 줄과 같은 색)
+// 라디오 항목(선택한 항목은 목록 · 상세의 선택한 항목과 같은 색)
 const tierRow = "state-layer w-full flex items-start gap-3 text-left rounded-(--r-inner) px-3 py-2.5 text-on-surface cursor-pointer transition-[background-color,border-radius] duration-150 disabled:cursor-not-allowed disabled:opacity-38";
-// 유지 관리 카드의 한 줄
+// 유지 관리 카드의 한 항목
 const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0";
 
 async function pickTier(tier: Tier | null) {

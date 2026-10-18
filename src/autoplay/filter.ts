@@ -1,4 +1,4 @@
-// 자동재생 후보를 걸러내는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
+// 자동재생 후보를 필터링하는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
 //
 // 따로 빼 둔 이유: 실제 재생과 실측 도구가 같은 코드를 지나야 잰 것이 뜻을 갖는다.
 // 도구가 로직을 베끼면 규칙을 고칠 때마다 어긋나고, 그러면 "무엇이 나아졌는지"를 말할 수 없다.
@@ -27,7 +27,7 @@ const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** 판정에 쓰는 설정. 수 칸은 글자일 수 있다. blockedKeywords 는 이 출처에 거는 차단어(키워드 출처만, autoplay/route 가 고른다) */
+/** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords 는 이 출처에 거는 차단어(키워드 출처만, autoplay/route 가 선택한다) */
 type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
 type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
 type Verdict = { ok: boolean; reason?: string; detail?: string };

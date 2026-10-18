@@ -1,5 +1,5 @@
 // Material Symbols Rounded 기호: 이름 → 코드포인트. 화면이 쓰는 기호만 두고, 아이콘 글꼴(assets/material-symbols.woff2)도 이것만 담는다.
-// 손으로 고치지 않는다: node scripts/build-icon-font.ts 가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 지우고 실행)
+// 손으로 고치지 않는다: node scripts/build-icon-font.ts 가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 삭제하고 실행)
 
 const ICONS = {
   add: 0xe145,

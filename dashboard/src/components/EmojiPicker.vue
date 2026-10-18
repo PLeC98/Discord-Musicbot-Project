@@ -1,11 +1,11 @@
 <!--
-  이모지 고르는 판. 무엇을 눌러 여는지와, 고른 것을 어디에 넣는지는 부르는 쪽이 정한다.
-  (장르 아이콘은 값을 갈아끼우고, 상태 문구는 커서 자리에 끼워 넣는다.)
+  이모지 선택 판. 무엇을 눌러 여는지와, 선택한 것을 어디에 넣는지는 부르는 쪽이 정한다.
+  (장르 아이콘은 값을 교체하고, 상태 문구는 커서 위치에 끼워 넣는다.)
 
-  검색칸에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다. 붙여넣은 것이 목록에 없더라도
-  이모지 한 글자이기만 하면 고를 수 있게 맨 앞에 내놓는다.
+  검색창에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다. 붙여넣은 것이 목록에 없더라도
+  이모지 한 글자이기만 하면 선택할 수 있게 맨 앞에 내놓는다.
 
-  분류와 순서는 디스코드 선택기 그대로다. 목록(1900여 개)은 처음 열 때 따로 받아온다
+  분류와 순서는 디스코드 선택기 그대로다. 목록(1900여 개)은 처음 열 때 따로 불러온다
  대시보드를 열 때마다 들고 다닐 것이 아니다.
 -->
 <template>
@@ -15,12 +15,12 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
-      <!-- M3E 메뉴 면(고르기 칸 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색칸(둘레 4 · 아래 구분선), 칸은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
+      <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색창(둘레 4 · 아래 구분선), 셀은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
       <div v-if="open" :class="panel" :style="popoverStyle">
         <div class="relative shrink-0 p-1 border-b border-outline-variant/50">
           <!-- v-model 을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다 -->
           <input ref="searchBox" :value="query" :placeholder="T.emojiSearch" :class="[SEARCH_FIELD, 'w-full', query && 'pr-10']" @input="query = valueOf($event)" @keydown.esc="open = false" />
-          <!-- 지우기: 칸 안 오른쪽 끝(아이콘 버튼 XS 32, 칸 40 안에 같은 중심 4) -->
+          <!-- 지우기: 검색창 안 오른쪽 끝(아이콘 버튼 XS 32, 검색창 40 안에 같은 중심 4) -->
           <button v-if="query" type="button" class="tap state-layer absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.emojiSearchClear" v-tooltip="T.emojiSearchClear" @click="clearQuery">
             <Icon name="close" :size="20" />
           </button>
@@ -41,10 +41,10 @@
             </div>
           </div>
 
-          <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 머리 위에 틈이 비친다.
-               그림은 어차피 lazy 라 화면 밖은 받아오지도 않는다 -->
+          <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
+               그림은 어차피 lazy 라 화면 밖은 불러오지도 않는다 -->
           <section v-for="group in groups" v-else :key="group.name">
-            <!-- 분류 머리: 목록의 묶음 이름 모양에 접기 꺾쇠 · 개수. 판과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 칸이 비치지 않는다 -->
+            <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠 · 개수. 판과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
             <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
               <Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="collapsed[group.name] && '-rotate-90'" />
               <span class="truncate">{{ group.name }}</span>
@@ -80,7 +80,7 @@ const T = text.fields;
 
 const props = withDefaults(
   defineProps<{
-    /** 값을 지울 수 있는 자리(장르 아이콘)에서만 "비우기"를 보여준다 */
+    /** 값을 비울 수 있는 곳(장르 아이콘)에서만 "비우기"를 보여준다 */
     clearable?: boolean;
   }>(),
   { clearable: false },
@@ -113,7 +113,7 @@ async function load() {
   try {
     module = await import("../emoji-list.ts");
   } catch {
-    // 목록은 따로 받아오므로 못 받아올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
+    // 목록은 따로 불러오므로 못 불러올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
     // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.
     loadError.value = T.emojiLoadFailed;
     return;
@@ -141,7 +141,7 @@ const results = computed(() => {
   if (!typed) return null;
 
   const found: Array<Pick<Emoji, "char" | "label">> = [];
-  // 붙여넣은 이모지는 목록에 없더라도 고를 수 있어야 한다. 폰트가 모르는 새 이모지일 수도 있다
+  // 붙여넣은 이모지는 목록에 없더라도 선택할 수 있어야 한다. 폰트가 모르는 새 이모지일 수도 있다
   if (ONE_EMOJI.test(typed)) found.push({ char: typed, label: typed });
 
   const needle = typed.toLowerCase();
@@ -164,7 +164,7 @@ function clear() {
   open.value = false;
 }
 
-// 판을 띄울 자리. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 칸 8개(40) + 둘레 4 · 4, 높이는 검색칸(48 + 선) + 목록(18.75rem) + 비우기(40 + 선)
+// 판을 표시할 위치. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 셀 8개(40) + 둘레 4 · 4, 높이는 검색창(48 + 선) + 목록(18.75rem) + 비우기(40 + 선)
 const WIDTH_REM = 20.5;
 function place() {
   const rect = root.value?.getBoundingClientRect();
@@ -173,7 +173,7 @@ function place() {
   const height = rem(3 + 18.75 + (props.clearable ? 2.5 : 0)) + 2;
   const below = rect.bottom + 4;
   const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 4) : below;
-  // 정수로 떨어뜨린다. 소수점 좌표에 놓이면 안에서 붙어 있는 분류 머리 위에 1픽셀 틈이 비친다
+  // 정수로 떨어뜨린다. 소수점 좌표에 놓이면 안에서 붙어 있는 분류 헤더 위에 1픽셀 틈이 비친다
   const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
   popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
 }
@@ -206,7 +206,7 @@ watch(open, async (isOpen) => {
 onBeforeUnmount(() => listen(false));
 
 const panel = "fixed z-200 flex flex-col overflow-hidden rounded-lg pane-menu bg-surface-container-low!";
-// 스크롤 상자에는 안쪽 여백을 주지 않는다(주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다). 길은 아래 둥근 모서리만 비운다(위는 검색칸 아래 곧은 선)
+// 스크롤 상자에는 안쪽 여백을 주지 않는다(주면 붙어 있는 분류 헤더가 그만큼 내려와 틈이 생긴다). 트랙은 아래 둥근 모서리만 비운다(위는 검색창 아래 곧은 선)
 const scroller = "h-75 overflow-y-auto overscroll-contain [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu)";
 const header = "state-layer sticky top-0 z-10 w-full h-8 flex items-center gap-1 px-3 bg-surface-container-low text-xs font-semibold text-on-surface-variant cursor-pointer";
 const grid = "grid grid-cols-8";

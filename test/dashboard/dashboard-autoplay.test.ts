@@ -59,7 +59,7 @@ const server = await listenForFetch(app);
 after(() => server.close());
 const req = <T>(method: string, path: string, body?: unknown) => requestJson<T>(baseUrl(server), method, path, body);
 
-test("장르 목록: 설정 파일의 차례로 이름 · 이모지(디스코드 장르 메뉴와 같은 것)", async () => {
+test("장르 목록: 설정 파일의 순서로 이름 · 이모지(디스코드 장르 메뉴와 같은 것)", async () => {
   const { status, json } = await req<AutoplayGenres>("GET", `/api/guilds/${GUILD_ID}/autoplay/genres`);
   assert.equal(status, 200);
   const { genres } = genreConfig.genres();

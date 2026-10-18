@@ -6,7 +6,7 @@ import type { KeyCheck } from "../../rules/service-keys.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// 여기서 읽는 칸만
+// 여기서 읽는 필드만
 type TopTracks = { tracks?: { track?: Array<{ name?: string; url?: string; artist?: { name?: string } }> } };
 
 // ── lastfm ────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ async function lastfm(source: GenreSource): Promise<Candidate[]> {
     .filter((t) => t.artist && t.title);
 }
 
-/** 저장된 키로 Last.fm 에 한 번 묻는다(운영자 패널의 연결 시험). 10: 틀린 키, 26: 막힌 키 */
+/** 저장된 키로 Last.fm 에 한 번 묻는다(운영자 패널의 연결 테스트). 10: 틀린 키, 26: 막힌 키 */
 async function checkLastfmKey(): Promise<KeyCheck> {
   const key = config.sources?.lastfmKey;
   if (!key) return { ok: false, reason: "missing" };

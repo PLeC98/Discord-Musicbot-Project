@@ -1,7 +1,7 @@
-// src/player/session-restore.ts — 부팅 시 저장 세션의 길드 확보.
+// src/player/session-restore.ts — 기동 시 저장 세션의 길드 확보.
 //
 // 회귀 대상 1: 구 코드는 `guilds.fetch().catch(() => null)`로 거부를 삼켜 바깥 catch의
-// `retries--`가 도달 불가였다. 길드 하나가 계속 실패하면 1초 간격 무한 루프 = 부팅 정지.
+// `retries--`가 도달 불가였다. 길드 하나가 계속 실패하면 1초 간격 무한 루프 = 기동 정지.
 // 회귀 대상 2: 일시적 조회 실패에도 저장 세션을 삭제했다.
 
 import { test, after } from "node:test";
@@ -68,7 +68,7 @@ test("길드가 실제로 사라졌을 때만 gone — 재시도 없이 즉시",
   }
 });
 
-test("네트워크·레이트리밋 실패는 세션을 지우지 않는다", async () => {
+test("네트워크·레이트리밋 실패는 세션을 삭제하지 않는다", async () => {
   for (const err of [new Error("getaddrinfo ENOTFOUND"), Object.assign(new Error("429 Too Many Requests"), { status: 429 }), Object.assign(new Error("500 Internal Server Error"), { status: 500 })]) {
     const client = makeClient(() => {
       throw err;
@@ -144,13 +144,13 @@ function fakePlayerClass({ restoreFails = false } = {}) {
       this.calls.push(`dispose:${o.reason}:${o.session}`);
     }
   }
-  // 플레이어를 만드는 자리에 넘긴다. 복원이 부르는 것(persistence.restoreFromState · dispose)만 갖췄다
+  // 플레이어를 만드는 곳에 넘긴다. 복원이 부르는 것(persistence.restoreFromState · dispose)만 갖췄다
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 
 type PlayerClass = Parameters<typeof restoreSavedPlayers>[2];
 
-// 서버들을 아는 클라이언트와 빈 등록부
+// 서버들을 아는 클라이언트와 빈 레지스트리
 function clientWith(guilds: Guild[], fetch: (id: string) => Promise<unknown> = async () => null) {
   const players = new Map<string, Player>();
   return { client: fake<Client>({ guilds: { cache: new Map(guilds.map((g) => [g.id, g])), fetch } }), players };
@@ -188,7 +188,7 @@ test("복원하지 않기(짧게 끊긴 실행이 연달아): 플레이어를 �
   sessions().removeSession("r9");
 });
 
-test("복원: 저장 상태를 복원하지 못하면 플레이어를 세션 지움으로 버린다(등록부 빼기 · 세션 지우기는 버림이 한다)", async () => {
+test("복원: 저장 상태를 복원하지 못하면 플레이어를 세션 삭제로 버린다(레지스트리 빼기 · 세션 삭제는 버림이 한다)", async () => {
   saved("r2");
   const { client, players } = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
@@ -199,7 +199,7 @@ test("복원: 저장 상태를 복원하지 못하면 플레이어를 세션 지
   sessions().removeSession("r2");
 });
 
-test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 지운다", async () => {
+test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 삭제한다", async () => {
   saved("r3", { voice: null });
   saved("r4", { voice: "tc1", text: "vc1" }); // 서로 바뀐 종류
   const { client, players } = clientWith([guildWith("r3"), guildWith("r4")]);
@@ -211,7 +211,7 @@ test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 �
   assert.deepEqual(remaining(), []);
 });
 
-test("복원: 서버가 사라졌으면 세션을 지우고, 잠깐 못 받은 것이면 남긴다", async () => {
+test("복원: 서버가 사라졌으면 세션을 삭제하고, 잠깐 못 불러온 것이면 남긴다", async () => {
   saved("gone1");
   saved("flaky1");
   const { client, players } = clientWith([], async (id) => {
@@ -244,7 +244,7 @@ test("복원: 기다리는 사이 그 서버에서 재생이 시작됐으면 건
   await restoreSavedPlayers(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
-  assert.equal(players.get("r5"), live, "지금 도는 플레이어를 바꿔 끼우지 않는다");
+  assert.equal(players.get("r5"), live, "지금 도는 플레이어를 교체하지 않는다");
   assert.deepEqual(remaining(), ["r5"], "세션 기록도 그 플레이어의 것이다");
   sessions().removeSession("r5");
 });

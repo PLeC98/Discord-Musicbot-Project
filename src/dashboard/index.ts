@@ -43,11 +43,11 @@ import { startStatus } from "./status/index.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
 
-/** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 시험이 바꿔 넘긴다 */
+/** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
-// 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
+// 보안은 유지되지만(추측 불가) 다시 시작할 때마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
 function resolveSessionSecret() {
   if (config.dashboard.sessionSecret) {
     if (config.dashboard.sessionSecret.length < 32) {
@@ -55,12 +55,12 @@ function resolveSessionSecret() {
     }
     return config.dashboard.sessionSecret;
   }
-  log.warn("SESSION_SECRET이 없어 랜덤 값을 사용합니다. 봇을 재시작할 때마다 대시보드 로그인이 전부 풀립니다.");
+  log.warn("SESSION_SECRET이 없어 랜덤 값을 사용합니다. 봇을 다시 시작할 때마다 대시보드 로그인이 전부 풀립니다.");
   return crypto.randomBytes(32).toString("hex");
 }
 
 // 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
-// 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 그물.
+// 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 안전망.
 function plaintextAccessWarner(host: string): RequestHandler {
   if (isLoopbackHost(host)) return (_req, _res, next) => next();
 
@@ -74,7 +74,7 @@ function plaintextAccessWarner(host: string): RequestHandler {
   };
 }
 
-// 로그인 세션. SQLite 영속 스토어라 재시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
+// 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
 // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조)
 function createSessionMiddleware() {
   return session({
@@ -85,7 +85,7 @@ function createSessionMiddleware() {
     cookie: {
       httpOnly: true,
       // "auto" 는 Secure 를 실제 연결에 맞춘다. HTTPS 로 서비스하면(믿는 프록시 경유) 붙고,
-      // 그냥 http://localhost 면 빠져서 로컬 시험이 그대로 된다.
+      // 그냥 http://localhost 면 빠져서 로컬 테스트가 그대로 된다.
       secure: "auto",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -100,7 +100,7 @@ function cacheAssets(res: Response, file: string) {
 }
 
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
-// 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
+// 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 열어 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼), restart: 봇 다시 시작(실행기로 켰을 때만). 조립이 넘긴다
 function createApp(bot: BotContext, { stream, deployCommands, restart = null, sessionMiddleware = createSessionMiddleware(), clientDist = PROJECT.dashboardDist }: AppDeps) {
@@ -124,7 +124,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
-  // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 켜지 않고 보인다
+  // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 시작하지 않고 보인다
   const indexHtml = path.join(clientDist, "index.html");
   // 빌드할 때 만들어 둔 압축본(.br · .gz)을 먼저, 없거나 받을 수 없으면 원본
   app.use(precompressed(clientDist, cacheAssets));
@@ -187,7 +187,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   const app = createApp(bot, { stream, deployCommands, restart });
   // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재수립은 화면을 열기 전부터 모은다
   startStatus(bot);
-  // 로그인 배경: 쓸 수 있는 인코더를 뒤에서 시험하고, 봇이 꺼질 때 하던 단계 · 남은 단계를 이어서 한다
+  // 로그인 배경: 쓸 수 있는 인코더를 뒤에서 테스트하고, 봇이 꺼질 때 하던 단계 · 남은 단계를 이어서 한다
   startEncoderCheck();
   registerStages();
   loginBackground.resume();

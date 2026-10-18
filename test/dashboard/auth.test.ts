@@ -40,7 +40,7 @@ async function start(http: ReturnType<typeof fakeDiscord>) {
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false }));
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
-  // 위험한 조작 자리 · 로그인한 지 오래된 것처럼 만들기(시험만)
+  // 위험한 조작 경로 · 로그인한 지 오래된 것처럼 만들기(테스트만)
   app.post("/risky", requireRecentLogin, (_req, res) => res.json({ ok: true }));
   app.post("/age-login", (req, res) => {
     req.session.loginAt = Date.now() - RECENT_LOGIN_MS - 1;
@@ -151,7 +151,7 @@ test("콜백: 디스코드가 봇의 앱 자격(시크릿)을 거절하면 그 �
   assert.equal(await (await go("/me")).json(), null);
 });
 
-test("로그아웃: 세션을 지우고 204", async () => {
+test("로그아웃: 세션을 삭제하고 204", async () => {
   const { go } = await start(fakeDiscord());
   const state = new URL(location(await go("/auth/login"))).searchParams.get("state");
   await go(`/auth/callback?code=abc&state=${state}`);

@@ -24,7 +24,7 @@ import { inputKind } from "../rules/input-kind.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { TrackInfo } from "../player/track.ts";
 
-/** 받는 곡. 제목과 요청 열쇠 말고는 없을 수 있다. 담은 곡(TrackInfo)이 그대로 맞는다 */
+/** 다운로드하는 곡. 제목과 요청 키 말고는 없을 수 있다. 담은 곡(TrackInfo)이 그대로 맞는다 */
 type DownloadTrack = Pick<TrackInfo, "title" | "requestKey"> & Partial<TrackInfo>;
 /** 음원 주소만 보는 판정 */
 type HasAudio = Partial<TrackInfo> | null | undefined;
@@ -33,7 +33,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { addDownloaded } from "../infra/download-meter.ts";
 
-// 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
+// 다운로드에 부르는 소스와 변환에서 여기서 부르는 필드만
 type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
   soundcloud: Pick<typeof SoundCloud, "download">;
@@ -43,20 +43,20 @@ type Sources = {
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
   equivalent: { findYouTubeEquivalent(track: DownloadTrack): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
 };
-/** 받는 쪽 플레이어에서 읽는 칸 */
+/** 다운로드하는 쪽 플레이어에서 읽는 필드 */
 type Owner = { guild: { id: string } };
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
  *
  * 진행 중인 다운로드는 프로세스 전역으로 모은다(inFlight). 재생 경로와 예열뿐 아니라 서버끼리도 같은 맵을 봐야
- * 같은 곡을 두 번 받지 않는다. 캐시 파일 경로는 서버와 무관한 전역 경로다.
+ * 같은 곡을 두 번 다운로드하지 않는다. 캐시 파일 경로는 서버와 무관한 전역 경로다.
  *
  * Map<최종 경로, Promise<최종 경로>>. 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 파일 존재 폴링이 필요 없다.
  *
- * 받는 동안에는 자기 임시 파일에만 쓰고 끝난 뒤 최종 경로로 옮긴다. 그래야 같은 곡이 어찌어찌 겹쳐도
- * 서로의 작업 파일에 쓰지 않고, 실패 정리가 남의 파일을 지우지 않는다.
+ * 다운로드하는 동안에는 자기 임시 파일에만 쓰고 끝난 뒤 최종 경로로 옮긴다. 그래야 같은 곡이 어찌어찌 겹쳐도
+ * 서로의 작업 파일에 쓰지 않고, 실패 정리가 남의 파일을 삭제하지 않는다.
  */
-const inFlight = new Map<string, Promise<string>>(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역. 서버가 달라도 같은 곡은 한 번만 받는다.
+const inFlight = new Map<string, Promise<string>>(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역. 서버가 달라도 같은 곡은 한 번만 다운로드한다.
 
 /**
  * 이 트랙은 음원을 남에게서 빌려 와야 하는가. 음원 주소가 없는 곡, 곧 영상을 아직 못 찾은 스포티파이 곡뿐이다.
@@ -75,7 +75,7 @@ function tempPathFor(filepath: string): string {
   return path.join(path.dirname(filepath), `${stem}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}.opus`);
 }
 
-/** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 지운다. 남이 받는 중인 파일은 건드리지 않는다 */
+/** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 삭제한다. 남이 다운로드 중인 파일은 건드리지 않는다 */
 function cleanTemp(tempPath: string): number {
   const dir = path.dirname(tempPath);
   const stem = path.basename(tempPath, ".opus");
@@ -99,22 +99,22 @@ function cleanTemp(tempPath: string): number {
 }
 
 /**
- * 다 받은 임시 파일을 최종 경로로 올린다. 그 사이 다른 쪽이 먼저 끝냈으면 내 것을 버린다.
+ * 다운로드가 끝난 임시 파일을 최종 경로로 올린다. 그 사이 다른 쪽이 먼저 끝냈으면 내 것을 버린다.
  *
  * 올리기 전에 최종 경로를 보호한다. 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
- * 그 순간 기동 스윕이 돌면 고아로 보고 지운다. 푸는 것은 받기가 끝날 때(_performDownload의 finally).
+ * 그 순간 기동 스윕이 돌면 고아로 보고 삭제한다. 푸는 것은 다운로드가 끝날 때(_performDownload의 finally).
  */
 /**
- * 받은 것. verifiedTitle: 영상 자체의 제목(유튜브만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
- * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 받은 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audio-version.ts)
+ * 다운로드한 것. verifiedTitle: 영상 자체의 제목(유튜브만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
+ * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 다운로드한 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audio-version.ts)
  */
-// how: 어떻게 받았나(로그 한 줄). 걸린 시간 · 포맷 · 옮겼나 구웠나
+// how: 어떻게 다운로드했나(로그 한 줄). 걸린 시간 · 포맷 · 옮겼나 구웠나
 type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
 
 const secs = (ms: number) => (ms / 1000).toFixed(1);
-// 받은 포맷(로그용). info.json 의 칸
+// 다운로드한 포맷(로그용). info.json 의 필드
 const formatOf = (info: { format_id?: string | null; protocol?: string | null; acodec?: string | null } | null | undefined) => ({ formatId: info?.format_id ?? null, protocol: info?.protocol ?? null, acodec: info?.acodec ?? null });
-// yt-dlp 가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(받기 · 굽기와 따로 걸린 시간)
+// yt-dlp 가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(다운로드 · 굽기와 따로 걸린 시간)
 const LINGER_LOG_MS = 5_000;
 
 // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
@@ -129,8 +129,8 @@ function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
 async function ensureNotEmpty(tempPath: string) {
   const stats = await fs.stat(tempPath);
   if (stats.size > 0) return;
-  await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 지우기");
-  throw codedError("stream-failed", "받은 파일이 비어 있습니다");
+  await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 삭제");
+  throw codedError("stream-failed", "다운로드한 파일이 비어 있습니다");
 }
 
 // 완료된 다운로드를 DB에 남긴다. 못 남겨도 파일은 이미 올라갔다. 기록 없는 파일은 기동 정리가 치운다
@@ -146,7 +146,7 @@ function record(audioKey: string, filepath: string, track: DownloadTrack, { veri
 
 async function publish(tempPath: string, filepath: string): Promise<boolean> {
   if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
-    await bestEffort(log, fs.unlink(tempPath), "받던 임시 파일 지우기");
+    await bestEffort(log, fs.unlink(tempPath), "다운로드하던 임시 파일 삭제");
     return false;
   }
   audioCache.protectFile(filepath);
@@ -154,12 +154,12 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
   return true;
 }
 
-// 받는 데 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
+// 다운로드에 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
 const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
-// 조각으로 받는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 받나. 조각이 아닌 포맷에는 걸리지 않는다.
-// 실측(2026-09-30): 유튜브는 넷 이상이면 조각 170 ~ 320 즈음부터 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 받아도).
-// 조각 2338개 하나씩 약 2.2분 · 둘씩 55초. 사운드클라우드는 여덟까지 막히지 않고, 아무도 받지 않은 곡은 하나씩 223KiB/s · 넷씩 734KiB/s
+// 조각으로 다운로드하는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 조각이 아닌 포맷에는 걸리지 않는다.
+// 실측(2026-09-30): 유튜브는 넷 이상이면 조각 170 ~ 320 즈음부터 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도).
+// 조각 2338개 하나씩 약 2.2분 · 둘씩 55초. 사운드클라우드는 여덟까지 막히지 않고, 아무도 다운로드하지 않은 곡은 하나씩 223KiB/s · 넷씩 734KiB/s
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
 class TrackDownloader {
   player: Owner;
@@ -171,7 +171,7 @@ class TrackDownloader {
   }
 
   /**
-   * 트랙의 캐시 파일 경로 산출. 음원 주소가 아직 없으면(스포티파이 미해석) 요청 열쇠를 해시한다.
+   * 트랙의 캐시 파일 경로 산출. 음원 주소가 아직 없으면(스포티파이 미해석) 요청 키를 해시한다.
    */
   trackFilePath(track: DownloadTrack): string {
     return audioCache.getFilePath(audioKeyOf(track.audioUrl) || track.requestKey);
@@ -181,13 +181,13 @@ class TrackDownloader {
    * 오디오 스트림을 로컬 파일로 다운로드합니다.
    * YouTube, Spotify, SoundCloud, DirectLink를 지원합니다.
    *
-   * 받기 전에 음원 주소부터 정한다. 캐시 열쇠가 곧 파일 경로인데, 스포티파이는 유튜브 동등물을 찾아야
-   * 열쇠가 정해진다. 그 검색을 받는 도중에 하면 파일이 요청 열쇠 자리에 저장되고 DB 행도 안 남아,
-   * 열쇠가 생긴 다음 번에 같은 곡을 또 받는다.
+   * 다운로드 전에 음원 주소부터 정한다. 캐시 키가 곧 파일 경로인데, 스포티파이는 유튜브 동등물을 찾아야
+   * 키가 정해진다. 그 검색을 다운로드 도중에 하면 파일이 요청 키 경로에 저장되고 DB 행도 안 남아,
+   * 키가 생긴 다음 번에 같은 곡을 또 다운로드한다.
    */
   async downloadTrack(track: DownloadTrack): Promise<string> {
-    // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
-    // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
+    // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 다운로드한다(검색·캐시는 youtube/equivalent 한 곳에서).
+    // 자동재생이 출처에서 가져온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
     // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
     if (needsBorrowedAudio(track)) {
       const found = await this.deps.equivalent.findYouTubeEquivalent(track).catch((error: unknown) => {
@@ -232,7 +232,7 @@ class TrackDownloader {
     }
   }
 
-  // 받기 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 받기 · 사전 캐싱)은 그 결과만 debug 로 남긴다
+  // 다운로드 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 다운로드 · 사전 캐싱)은 그 결과만 debug 로 남긴다
   _failed(track: DownloadTrack, error: unknown) {
     log.error(`캐시 다운로드 실패 ("${logTitle(track.title)}"):`, YouTube.briefError(error));
     return error;
@@ -241,38 +241,38 @@ class TrackDownloader {
   async _performDownload(track: DownloadTrack, filepath: string): Promise<string> {
     const player = this.player;
     const audioKey = audioKeyOf(track.audioUrl);
-    const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
-    audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
+    const tempPath = tempPathFor(filepath); // 다운로드가 끝난 뒤 최종 경로로 옮긴다
+    audioCache.protectFile(tempPath); // 기동 스윕이 다운로드 중인 파일을 고아로 보고 삭제하지 않게
 
     try {
       if (audioKey) audioCache.recordDownloadStart(audioKey, track);
       // 빌려 오는 곡은 downloadTrack 이 먼저 채웠다
       const downloadUrl = track.audioUrl;
-      if (!downloadUrl) throw new Error("음원 주소가 없어 받을 수 없습니다");
+      if (!downloadUrl) throw new Error("음원 주소가 없어 다운로드할 수 없습니다");
 
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
-      await bestEffort(log, this.deps.sponsor.forTrack(track, player.guild.id), "SponsorBlock 구간 미리 받기");
+      await bestEffort(log, this.deps.sponsor.forTrack(track, player.guild.id), "SponsorBlock 구간 미리 불러오기");
 
       // ⚠️ 라이브 스트림은 캐시 다운로드 대상이 아니다. 끝이 없어서 yt-dlp가 ffmpeg를 외부 다운로더로
-      //    띄운 뒤 무한히 파일을 불린다. 재생(스트리밍)은 정상 진행되므로 여기서만 끊는다.
+      //    실행한 뒤 무한히 파일을 불린다. 재생(스트리밍)은 정상 진행되므로 여기서만 끊는다.
       if (track.isLive) {
         throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
       }
 
-      // yt-dlp가 받아 오는 것들: 유튜브 영상(스포티파이 · 자동재생 곡이 찾아 둔 것 포함)과 사운드클라우드.
-      // 남는 것은 직접 링크뿐이다. 곡이 어디서 왔는지가 아니라 음원 주소가 가른다.
+      // yt-dlp가 다운로드하는 것들: 유튜브 영상(스포티파이 · 자동재생 곡이 찾아 둔 것 포함)과 사운드클라우드.
+      // 남는 것은 직접 링크뿐이다. 곡이 어디서 왔는지가 아니라 음원 주소가 구분한다.
       const got = inputKind(downloadUrl) !== "direct" ? await this._fetchWithYtDlp(downloadUrl, tempPath) : await this._fetchDirect(downloadUrl, tempPath, track);
 
       await ensureNotEmpty(tempPath);
-      // 음원 길이는 만든 .opus 를 재서 소수까지 적는다. 출처가 준 정수나 원본 머리의 값보다 이 파일이 정본이다
+      // 음원 길이는 만든 .opus 를 재서 소수까지 적는다. 출처가 준 정수나 원본 헤더의 값보다 이 파일이 정본이다
       const measureStarted = Date.now();
       const measured = await this.deps.measure.durationSec(tempPath);
       const measureMs = Date.now() - measureStarted;
-      // 받은 양(봇 상태 탭의 내려받기). 먼저 끝낸 쪽이 있어 버려도 받은 것은 받은 것이다
+      // 다운로드한 양(봇 상태 탭의 다운로드). 먼저 끝낸 쪽이 있어 버려도 다운로드한 것은 다운로드한 것이다
       addDownloaded(fsSync.statSync(tempPath).size);
       const mine = await publish(tempPath, filepath);
-      if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${logTitle(track.title)}"`);
+      if (!mine) log.debug(`다른 쪽이 먼저 다운로드해 둔 캐시를 쓴다: "${logTitle(track.title)}"`);
 
       correctTitle(track, got.verifiedTitle);
       const shown = shownDuration(track, measured, "measured");
@@ -280,16 +280,16 @@ class TrackDownloader {
 
       if (audioKey) record(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
-      // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
+      // 예열이 앞으로 여러 곡을 미리 다운로드하므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
-      // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 가를 근거다
+      // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
       log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.
-      // (같은 곡의 부스러기를 전부 훑으면 다른 쪽이 받는 중인 작업 파일을 지운다.)
+      // (같은 곡의 부스러기를 전부 훑으면 다른 쪽이 다운로드 중인 작업 파일을 삭제한다.)
       // 그리고 recordDownloadStart로 'downloading'이 된 DB 행을 'error'로 되돌린다.
-      // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
+      // (없으면 다음 기동의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
       try {
         const removed = cleanTemp(tempPath);
         if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${logTitle(track.title)}`);
@@ -304,12 +304,12 @@ class TrackDownloader {
     }
   }
 
-  // yt-dlp 로 받는다. 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
+  // yt-dlp 로 다운로드한다. 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
   // 조립하므로 우리가 손댈 것이 없다.
   async _fetchWithYtDlp(downloadUrl: string, tempPath: string): Promise<Fetched> {
     const flags = {
       output: tempPath,
-      // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
+      // 이 다운로드에 곁들여 메타데이터를 파일로 다운로드한다. 왕복이 늘지 않는다.
       // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
       // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
       // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
@@ -317,12 +317,12 @@ class TrackDownloader {
       format: "bestaudio/best",
       preferFreeFormats: true,
       // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
-      // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
+      // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 실행되지 않는다.
       matchFilter: "!is_live",
       // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
       // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
       // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
-      // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
+      // 목표 비트레이트는 직접 링크 분기와 같은 곳에서 가져온다. 숫자가 어긋나지 않게.
       postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
       extractAudio: true,
       audioFormat: "opus",
@@ -340,7 +340,7 @@ class TrackDownloader {
     }
     const ended = Date.now();
     const info = this._takeInfoJson(tempPath);
-    // 받은 포맷과 옮겼나 구웠나(yt-dlp 의 ExtractAudio 는 Opus 면 옮기고 아니면 굽는다)
+    // 다운로드한 포맷과 옮겼나 구웠나(yt-dlp 의 ExtractAudio 는 Opus 면 옮기고 아니면 굽는다)
     const codec = info.acodec?.split(".")[0] ?? "?";
     const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
     const lingerMs = ended - fsSync.statSync(tempPath).mtimeMs;
@@ -354,7 +354,7 @@ class TrackDownloader {
     const audioStream = await this.deps.direct.getStream(downloadUrl);
     const audioVersion = versionOf.fromHeaders(audioStream.headers);
 
-    // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
+    // 일단 다운로드해 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
     // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
     const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
     audioCache.protectFile(rawPath);
@@ -365,7 +365,7 @@ class TrackDownloader {
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
       // 옮겼나 구웠나는 변환이 제 줄에 남긴다
-      const how = `받기 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
+      const how = `다운로드 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
 
       // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 비어 있을 때만 채운다
       if (made.artist && !track.artist) track.artist = made.artist;
@@ -404,29 +404,29 @@ class TrackDownloader {
         try {
           fsSync.unlinkSync(p);
         } catch {
-          /* 남아도 부팅 스윕이 치운다 */
+          /* 남아도 기동 스윕이 치운다 */
         }
       }
     }
     return { title: null, durationSec: null, version: null };
   }
 
-  /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */
+  /** 캐시 파일이 이미 준비돼 있는가. "다운로드할 필요가 없다"의 유일한 근거다. */
   isCached(track: HasAudio): boolean {
     return TrackDownloader.findCacheFile(track) !== null;
   }
 
   /**
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
-   * 이미 받았는지, 받는 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
+   * 이미 다운로드했는지, 다운로드 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
    */
   async warm(track: DownloadTrack | null | undefined): Promise<void> {
     if (!track || !track.requestKey) return;
     await this.downloadTrack(track);
   }
 
-  /** 이 경로를 지금 받고 있는가. 서버와 무관하다 */
-  /** 지금 받는 곡 수 */
+  /** 이 경로를 지금 다운로드하고 있는가. 서버와 무관하다 */
+  /** 지금 다운로드 중인 곡 수 */
   static activeCount(): number {
     return inFlight.size;
   }
@@ -435,15 +435,15 @@ class TrackDownloader {
     return inFlight.has(filepath);
   }
 
-  /** 받는 중이면 그 promise, 아니면 null */
+  /** 다운로드 중이면 그 promise, 아니면 null */
   static waitFor(filepath: string): Promise<string> | null {
     return inFlight.get(filepath) ?? null;
   }
 
   /**
-   * 이 곡의 캐시 파일. 다 받아 둔 것만 돌려준다(열쇠 자리에 있고, 비어 있지 않고, 받는 중이 아님). 없으면 null.
-   * 받기는 임시 파일에 쓰고 끝나면 옮기므로 열쇠 자리에 있으면 다 받은 것이다. 받는 중 확인은 그래도 한 번 더 본다.
-   * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 열쇠도 없어 null 이다.
+   * 이 곡의 캐시 파일. 다운로드가 끝난 것만 돌려준다(키 경로에 있고, 비어 있지 않고, 다운로드 중이 아님). 없으면 null.
+   * 다운로드는 임시 파일에 쓰고 끝나면 옮기므로 키 경로에 있으면 다운로드가 끝난 것이다. 다운로드 중 확인은 그래도 한 번 더 본다.
+   * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 키도 없어 null 이다.
    */
   static findCacheFile(track: HasAudio): string | null {
     const key = audioKeyOf(track?.audioUrl);

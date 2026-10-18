@@ -1,4 +1,4 @@
-// src/rules/vertex-url.ts — 버텍스 AI 주소. 리전 · 프로젝트 · 모델 칸이 요청을 다른 호스트로 보내지 못하는지
+// src/rules/vertex-url.ts — 버텍스 AI 주소. 리전 · 프로젝트 · 모델 필드가 요청을 다른 호스트로 보내지 못하는지
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -18,7 +18,7 @@ const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "titl
 type Slot = "current" | "queue" | "history";
 type LoopMode = "off" | "track" | "queue";
 
-/** 저장할 곡. 대기열의 곡에 되읽은 곡의 칸(requesterId · uploader)이 섞여 온다. 여기서 읽는 칸만 */
+/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId · uploader)가 섞여 온다. 여기서 읽는 필드만 */
 type TrackIn = {
   id?: string | null;
   pageUrl?: string | null;
@@ -35,11 +35,11 @@ type TrackIn = {
   live?: boolean | null;
   requestedBy?: { id?: string | null } | null;
   requesterId?: string | null;
-  /** 대기열 줄 번호(열거되지 않는 칸이라 펼쳐 넘기면 빠진다. 곡 객체를 그대로 넘긴다) */
+  /** 대기열 항목 번호(열거되지 않는 필드라 펼쳐 넘기면 빠진다. 곡 객체를 그대로 넘긴다) */
   readonly entry?: number;
 };
 
-/** player_sessions 한 줄 */
+/** player_sessions 한 행 */
 type SessionRow = {
   guild_id: string;
   voice_channel_id: string | null;
@@ -51,7 +51,7 @@ type SessionRow = {
   position_ms: number;
 };
 
-/** 세션 한 벌(트랙 말고). 저장할 때는 빠진 칸을 기본값으로 */
+/** 세션 한 벌(트랙 말고). 저장할 때는 빠진 필드를 기본값으로 */
 type SessionState = {
   voiceChannelId?: string | null;
   textChannelId?: string | null;
@@ -62,7 +62,7 @@ type SessionState = {
   positionMs?: number;
 };
 
-// 되읽은 트랙 줄. 모양을 보기 전이라 칸은 모른다(슬롯은 표의 CHECK 가 지킨다)
+// 되읽은 트랙 행. 모양을 보기 전이라 열은 모른다(슬롯은 표의 CHECK 가 지킨다)
 type RawTrackRow = { guild_id: string; slot: Slot; seq: number; [column: string]: unknown };
 type TrackParams = ReturnType<typeof toRow>;
 
@@ -95,7 +95,7 @@ function fromRow(row: TrackRow) {
     pageUrl: row.page_url,
     requestKey: row.request_key,
     audioUrl: row.audio_url ?? undefined,
-    // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 장부에서 온 것과 같은 처지다(내려갔으면 다시 찾는다)
+    // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 링크 데이터에서 온 것과 같은 처지다(내려갔으면 다시 찾는다)
     audioFoundBy: row.audio_url ? (row.audio_url === row.request_key ? ("given" as const) : ("ledger" as const)) : undefined,
     duration: row.duration_sec,
     thumbnail: row.thumbnail,
@@ -186,7 +186,7 @@ class PlayerSessionStore {
     const rows = this.q.slotRows.all(guildId, slot);
     this.q.deleteSlot.run(guildId, slot);
     rows.forEach((row, i) => {
-      // 같은 표의 칸을 그대로 옮긴다
+      // 같은 표의 열을 그대로 옮긴다
       const columns = Object.fromEntries(TRACK_COLUMNS.map((c) => [c, row[c]])) as TrackParams;
       this.q.insert.run({ guild_id: row.guild_id, slot: row.slot, seq: i * GAP, ...columns });
     });
@@ -325,7 +325,7 @@ class PlayerSessionStore {
   }
 
   // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
-  // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 지운다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy 만 옮긴다
+  // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 삭제한다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy 만 옮긴다
   rewind(guildId: string, track: TrackIn, { copy = -1, current = null, fromHistory = true }: { copy?: number; current?: TrackIn | null; fromHistory?: boolean } = {}): boolean {
     return this._tx(() => {
       const last = fromHistory ? this.q.lastRowid.get(guildId, "history") : null;
@@ -385,18 +385,18 @@ class PlayerSessionStore {
     return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...this._group(byGuild.get(s.guild_id) || []) }));
   }
 
-  // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 받으면 된다)
+  // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 다운로드하면 된다)
   liveAudioUrls(): string[] {
     return this.q.liveRefs.all().map((r) => r.audio_url);
   }
 
-  // 퇴거가 지켜야 할 곡의 음원 주소. 서버마다 현재곡과 대기열 앞 `ahead` 곡(미리 받기가 곧 받을 곳)
+  // 퇴거가 지켜야 할 곡의 음원 주소. 서버마다 현재곡과 대기열 앞 `ahead` 곡(곧 미리 다운로드할 곡)
   frontAudioUrls(ahead: number): string[] {
     return this.q.frontRefs.all(ahead).map((r) => r.audio_url);
   }
 }
 
-// 모양이 틀린 행은 버리고 DB 에서도 지운다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
+// 모양이 틀린 행은 버리고 DB 에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
 type RestoredTrack = ReturnType<typeof fromRow>;
 
 function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {

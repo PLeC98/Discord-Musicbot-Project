@@ -10,7 +10,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { tooLongToCache } from "../media/cache-download.ts";
 import { logTitle } from "../infra/log/title.ts";
 
-/** 예열이 읽는 플레이어 칸. 뺀 자리를 메울 때 자동재생을 부른다 */
+/** 예열이 읽는 플레이어 필드. 뺀 슬롯을 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
 /** 협력자. 간격 셋은 생략하면 설정값 */
 type WarmerDeps = {
@@ -32,7 +32,7 @@ type WarmerDeps = {
  * 큐 조작이 늘어도 여기를 고칠 필요가 없다.
  *
  * 앞 N곡의 서명이 연속 두 틱 같을 때만 움직인다. 셔플하는 동안에는 매 틱 목표가 바뀌어서
- * 곧 쓸모없어질 곡을 계속 받게 된다. 조작이 멎기를 기다렸다가 한 번만 움직인다.
+ * 곧 쓸모없어질 곡을 계속 다운로드하게 된다. 조작이 멎기를 기다렸다가 한 번만 움직인다.
  *
  * 예열 루프는 하나뿐이고 매 반복마다 목표를 다시 계산한다. 그래서 세대를 셀 필요가 없고,
  * 루프가 하나라는 사실만으로 동시 다운로드가 1로 묶인다.
@@ -69,7 +69,7 @@ class QueueWarmer {
 
     // 한 곡을 캐시에 올린다. 실패는 던진다.
     this.warm = deps.warm;
-    // 캐시 파일이 이미 있는가 / 지금 받는 중인가. 이 둘만이 "받을 필요가 없다"의 근거다.
+    // 캐시 파일이 이미 있는가 / 지금 다운로드 중인가. 이 둘만이 "다운로드할 필요가 없다"의 근거다.
     this.isCached = deps.isCached;
     this.isBusy = deps.isBusy;
     // 트랙 → 캐시 키(없을 수 있다: 아직 유튜브 동등물을 못 찾은 스포티파이 트랙)
@@ -104,7 +104,7 @@ class QueueWarmer {
       clearTimeout(this._sleepTimer);
       this._sleepTimer = null;
     }
-    // 쉬던 약속을 풀어야 루프가 멈춤을 보고 끝난다. 타이머만 지우면 루프가 돌던 채로 남아 다시 켜도 돌지 않는다
+    // 쉬던 약속을 풀어야 루프가 멈춤을 보고 끝난다. 타이머만 지우면 루프가 돌던 채로 남아 다시 시작해도 돌지 않는다
     this._wake?.();
     this._lastSeen = null;
     this._applied = null;
@@ -126,7 +126,7 @@ class QueueWarmer {
     this._applied = signature;
     this._failed = new Set();
 
-    // 보호를 먼저 건다. 예열이 끝나기 전에 퇴거가 돌아 방금 받은 파일을 가져가면 안 된다.
+    // 보호를 먼저 건다. 예열이 끝나기 전에 퇴거가 돌아 방금 다운로드한 파일을 가져가면 안 된다.
     // 아직 캐시가 없는 키까지 넣는다. 해당 행이 없으면 퇴거 쪽에서 무해하게 무시된다.
     const guildId = this.player.guild?.id;
     if (guildId) {
@@ -141,10 +141,10 @@ class QueueWarmer {
   }
 
   /**
-   * 내려간 영상을 고른 자동재생 곡을 대기열에서 빼고 다른 곡으로 채운다.
+   * 내려간 영상을 선택한 자동재생 곡을 대기열에서 빼고 다른 곡으로 채운다.
    *
    * 소스 DB(VocaDB·LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
-   * 않으면 다음 뽑기에서 같은 것을 또 고른다.
+   * 않으면 다음 선택에서 같은 것을 또 선택한다.
    *
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
    */
@@ -156,18 +156,18 @@ class QueueWarmer {
 
     autoplayRoute.markDead(track);
     trackState.removeAt(this.player, index);
-    log.info(`자동재생 곡을 뺍니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 고릅니다`);
+    log.info(`자동재생 곡을 뺍니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 선택합니다`);
 
-    // 뺀 자리를 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
-    if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 자리의 자동재생 곡 뽑기");
+    // 뺀 슬롯을 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
+    if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 슬롯의 자동재생 곡 선택");
     return true;
   }
 
   /**
    * 예열 대상. 대기열 앞 N곡.
    *
-   * 현재 곡은 제외한다(재생 경로가 이미 받고 있다). 라이브는 끝이 없어, 너무 긴 곡은 비용이 커 캐시 대상이 아니다.
-   * 한곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 받아둘 이유가 없다.
+   * 현재 곡은 제외한다(재생 경로가 이미 다운로드하고 있다). 라이브는 끝이 없어, 너무 긴 곡은 비용이 커 캐시 대상이 아니다.
+   * 한곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 다운로드해 둘 이유가 없다.
    */
   targets() {
     if (this.player.loop === "track") return [];
@@ -184,7 +184,7 @@ class QueueWarmer {
    * 대기열 앞부분의 지문. 순서가 바뀌면 달라져야 하므로 이어붙인다.
    * 현재 곡도 넣는다. 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전곡)가 있다.
    *
-   * 캐시 키가 아니라 요청 열쇠를 쓴다. 키는 스포티파이 트랙에서 받는 도중에 정해지므로, 키로 지문을
+   * 캐시 키가 아니라 요청 키를 쓴다. 캐시 키는 스포티파이 트랙에서 받는 도중에 정해지므로, 키로 지문을
    * 만들면 곡을 하나 받을 때마다 대기열이 바뀐 것처럼 보여 루프가 매번 끊긴다. 여기서 봐야
    * 하는 것은 대기열이 바뀌었는가지 해석이 얼마나 진행됐는가가 아니다.
    */
@@ -195,7 +195,7 @@ class QueueWarmer {
     return parts.join("\n");
   }
 
-  /** 아직 받지 않았고 받는 중도 아닌 첫 목표. 없으면 null. */
+  /** 아직 다운로드하지 않았고 다운로드 중도 아닌 첫 목표. 없으면 null. */
   nextTarget() {
     for (const track of this.targets()) {
       if (this.isCached(track) || this.isBusy(track) || this._failed.has(track)) continue;
@@ -217,20 +217,20 @@ class QueueWarmer {
         if (!track) return;
 
         try {
-          // 예열은 조용히 도는 배경 작업이라, 이게 없으면 "왜 지금 이 곡을 받고 있나"를
+          // 예열은 조용히 도는 배경 작업이라, 이게 없으면 "왜 지금 이 곡을 다운로드하고 있나"를
           // 사후에 알 방법이 없다. 다운로드 완료는 track 카테고리가 따로 남긴다.
           log.debug(`사전 캐싱: "${logTitle(track.title)}" | 대상 ${this.targets().length}곡`);
           await this.warm(track);
         } catch (err) {
           // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생 차례에 스트림도 실패해
-          // 대기열이 빈 채로 멈춘다. 우리가 고른 곡이니 사용자에게 알릴 일이 아니라
-          // 조용히 빼고 다른 곡을 고르는 것이 맞다.
+          // 대기열이 빈 채로 멈춘다. 우리가 선택한 곡이니 사용자에게 알릴 일이 아니라
+          // 조용히 빼고 다른 곡을 선택하는 것이 맞다.
           if (track.autoplay && this._dropDeadAutoplay(track, err)) continue;
 
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
-          // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
-          // 까닭은 받기가 남겼다(캐시 다운로드 실패 줄)
-          log.debug(`사전 캐싱 실패, 재생할 때 다시 받습니다: "${logTitle(track.title)}"`);
+          // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 다운로드한다.
+          // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
+          log.debug(`사전 캐싱 실패, 재생할 때 다시 다운로드합니다: "${logTitle(track.title)}"`);
           this._failed.add(track);
         }
 

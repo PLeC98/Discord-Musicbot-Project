@@ -6,7 +6,7 @@ import { fake, fakeWith } from "../helpers/fake.ts";
 
 type Body = { csrfToken?: string; code?: string };
 
-// 응답은 보낸 상태 · 헤더 · 본문을 모은다. 본문은 시험만 읽는 칸이라 이름을 달리한다
+// 응답은 보낸 상태 · 헤더 · 본문을 모은다. 본문은 테스트만 읽는 필드라 이름을 달리한다
 function response() {
   return fakeWith<Response>()({
     statusCode: 200,

@@ -17,9 +17,9 @@ const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
 
-// 고른 결과는 버튼이 싣는다(요청자 · 번호 · 영상 ID). 처리는 src/discord/interactions/button-handler 의 검색 처리
+// 선택한 결과는 버튼이 싣는다(요청자 · 번호 · 영상 ID). 처리는 src/discord/interactions/button-handler 의 검색 처리
 async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "editReply" | "user">, results: TrackInfo[], query: string) {
-  // 버튼이 영상 ID 를 싣는다. 검색 결과는 늘 ID 가 있지만 없는 것은 고를 수 없으니 뺀다
+  // 버튼이 영상 ID 를 싣는다. 검색 결과는 늘 ID 가 있지만 없는 것은 선택할 수 없으니 뺀다
   const shown = results.flatMap((track) => (track.id ? [{ track, videoId: track.id }] : [])).slice(0, MAX_RESULTS);
 
   const t = searchText.results(query, shown.length);
@@ -50,7 +50,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
   await interaction.editReply({ embeds: [embed], components });
 }
 
-/** 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다) */
+/** 유튜브 검색. 생략하면 진짜(테스트가 가짜를 넘긴다) */
 type SearchDeps = { search?: (query: string, limit: number) => Promise<TrackInfo[]> };
 
 const exported: GuildCommand & { execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, deps?: SearchDeps): unknown } = {
@@ -76,11 +76,11 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     const query = interaction.options.getString("query", true);
     const member = interaction.member;
 
-    // 검색 뒤 고르기는 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
+    // 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
-    // 검색이 던지면(네트워크 · 봇 감지 등) 입구가 남기고 이 답 자리에 그 종류로 알린다
+    // 검색이 던지면(네트워크 · 봇 감지 등) 진입점이 남기고 이 답 메시지에 그 종류로 알린다
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const results = await search(query, MAX_RESULTS);

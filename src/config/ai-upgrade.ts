@@ -1,7 +1,7 @@
 // 저장된 AI 설정 · 프롬프트가 예전 기본값 그대로면 지금 기본값으로 바꾼다. 기동 때 문서를 올리며(config/documents 의 attach) 한 번 본다.
 // 글자까지 같을 때만 바꾼다(운영자가 고친 적이 없다). 고친 것은 그대로 둔다. 예전 기본값은 config/legacy-ai-defaults.
-//   ai         줄 형식(list.lineFormat)이 예전 기본값이면 지금 기본값으로. 이제 읽지 않는 옛 칸(unknownDuration · unknownText)은 뺀다
-//   ai-prompt  예전 기본 구성(판정 기준 + 목록 자리)이면 비운다(비어 있으면 코드에 든 지금 기본 구성을 쓴다)
+//   ai         줄 형식(list.lineFormat)이 예전 기본값이면 지금 기본값으로. 이제 읽지 않는 옛 필드(unknownDuration · unknownText)은 뺀다
+//   ai-prompt  예전 기본 구성(판정 기준 + 목록 위치)이면 비운다(비어 있으면 코드에 든 지금 기본 구성을 쓴다)
 
 import aiDefault from "./defaults/ai.ts";
 import { LEGACY_LINE_FORMATS, LEGACY_LIST_MARKS, LEGACY_PROMPTS } from "./legacy-ai-defaults.ts";

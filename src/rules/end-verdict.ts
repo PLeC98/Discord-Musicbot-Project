@@ -1,4 +1,4 @@
-// 곡이 멈췄을 때 끝난 것인가 끊긴 것인가. 길이가 아니라 입력 쪽 사실로 가른다. 길이는 되감기를 막는 데만 쓴다.
+// 곡이 멈췄을 때 끝난 것인가 끊긴 것인가. 길이가 아니라 입력 쪽 사실로 구분한다. 길이는 되감기를 막는 데만 쓴다.
 //
 // 위에서부터 먼저 걸리는 것:
 //   우리가 멈춤            그 까닭대로(깨진 재생을 멈춘 까닭이면 끊김, 그 밖은 끝)
@@ -10,7 +10,7 @@
 
 type EndFacts = {
   reason: string; // 멈춘 까닭. 저절로 멈췄으면 "idle"
-  live: boolean; // 라이브를 주소 갈래로 틀었다
+  live: boolean; // 라이브를 주소 경로로 틀었다
   streamEnded: boolean; // 재생 스트림이 끝까지 읽혔다(playStream.readableEnded)
   broken: string | null; // 입력 깨짐 표시
   exitCode: number | null; // 지금 소스 ffmpeg 의 종료 코드. 아직 살아 있으면 null

@@ -1,8 +1,8 @@
 // 로그인 배경 백업(설정 내보내기의 login-background 종류). ZIP 의 login-background/ 아래에 index.json(다 만든 배경 · 지금 배경 · 화면 값 · 한도)과
-// 배경마다 내는 파일(files.ts 의 꼴)을 저장 자리 그대로 담는다. 만드는 중 · 실패한 배경은 담지 않는다.
-// 불러오기는 통째로 바꾼다(2026-10-17 사용자): 파일의 배경을 새 id 로 저장 자리에 먼저 풀고(기록에 없는 폴더라 아직 보이지 않고, 도중에 꺼지면 다음에 켤 때 치운다),
-// 도는 단계를 멈춘 뒤 기록을 바꾸고 옛 배경을 지운다. 로그인 화면은 옛 배경의 파일을 못 받으면 배경 정보를 다시 읽는다.
-// 남이 준 파일일 수 있어 꼴만 받는다: 기록은 다 만든 배경의 꼴, 파일은 기록에 있는 배경의 내는 파일, 목록(.m3u8)은 그 폴더 안의 파일만 가리키고, 정지 그림은 적힌 폭의 WebP
+// 배경마다 내는 파일(files.ts 의 형식)을 저장 위치 그대로 담는다. 만드는 중 · 실패한 배경은 담지 않는다.
+// 불러오기는 통째로 바꾼다(2026-10-17 사용자): 파일의 배경을 새 id 로 저장 위치에 먼저 풀고(기록에 없는 폴더라 아직 보이지 않고, 도중에 꺼지면 다음에 켤 때 치운다),
+// 도는 단계를 멈춘 뒤 기록을 바꾸고 옛 배경을 삭제한다. 로그인 화면은 옛 배경의 파일을 못 받으면 배경 정보를 다시 읽는다.
+// 남이 준 파일일 수 있어 형식만 받는다: 기록은 다 만든 배경의 형식, 파일은 기록에 있는 배경의 내는 파일, 목록(.m3u8)은 그 폴더 안의 파일만 가리키고, 정지 그림은 적힌 폭의 WebP
 
 import fs from "node:fs";
 import path from "node:path";
@@ -29,7 +29,7 @@ const CODECS = /^[A-Za-z0-9.]+(,[A-Za-z0-9.]+)*$/;
 /** 목록이 가리킬 수 있는 것: 코덱 목록은 단계 목록, 단계 목록은 조각 */
 const RUNG_LINE = /^(\d{2,4})\/index\.m3u8$/;
 const SEGMENT_LINE = /^seg-\d{3,6}\.m4s$/;
-/** 단계 목록이 init 을 가리키는 줄(이 꼴만 주소를 받는다) */
+/** 단계 목록이 init 을 가리키는 줄(이 형식만 주소를 받는다) */
 const MAP_LINE = '#EXT-X-MAP:URI="init.mp4"';
 
 type Zipped = ReturnType<typeof openZip>;
@@ -48,7 +48,7 @@ function exportedCurrent(current: string | null, ready: store.Stored[]): string 
 }
 
 /**
- * 내보낼 항목: index.json(다 만든 배경만) · 그 배경들의 내는 파일(파일째 흘려 담는다). 만드는 중인 배경은 쓰는 중인 파일이라 담지 않는다.
+ * 내보낼 항목: index.json(다 만든 배경만) · 그 배경들의 내는 파일(파일째 스트리밍으로 담는다). 만드는 중인 배경은 쓰는 중인 파일이라 담지 않는다.
  * state · folderOf 는 기록과 배경 폴더(전체 백업 명령은 봇 밖에서 readIndex 로 읽은 것), prefix 는 ZIP 안 이름 앞
  */
 function exportInputs({ state = store.loaded(), folderOf = store.folderOf, prefix = "" }: { state?: store.Index; folderOf?: (id: string) => string; prefix?: string } = {}): ZipInput[] {
@@ -59,7 +59,7 @@ function exportInputs({ state = store.loaded(), folderOf = store.folderOf, prefi
   return [{ name: prefix + INDEX_NAME, data: Buffer.from(`${JSON.stringify(json, null, 2)}\n`) }, ...files];
 }
 
-// ── 기록 한 줄의 꼴 ──
+// ── 기록 한 줄의 형식 ──
 
 function rungFrom(raw: unknown): LoginBackgroundRung | null {
   if (!isTable(raw)) return null;
@@ -88,7 +88,7 @@ function rungsFrom(raw: unknown): store.Media["rungs"] | null {
   return rungs;
 }
 
-/** 구운 것의 꼴(공개 응답에 그대로 나간다). 그림은 HLS 가 없고, 영상은 코덱 하나 이상 */
+/** 인코딩한 것의 형식(공개 응답에 그대로 나간다). 그림은 HLS 가 없고, 영상은 코덱 하나 이상 */
 function mediaFrom(raw: unknown, kind: store.Stored["kind"]): store.Media | null {
   if (!isTable(raw) || !Array.isArray(raw.stills) || !raw.stills.length || !raw.stills.every((width) => Number.isInteger(width) && STILL_FILE.test(`still-${width}.webp`))) return null;
   const scenes = Array.isArray(raw.scenes) ? raw.scenes.map(sceneFrom) : [null];
@@ -97,7 +97,7 @@ function mediaFrom(raw: unknown, kind: store.Stored["kind"]): store.Media | null
   return { stills: [...new Set(raw.stills as number[])], color: raw.color, scenes: scenes as LoginBackgroundScene[], rungs };
 }
 
-/** 파일의 기록 한 줄을 다 만든 배경의 기록으로(꼴이 틀리면 null). 단계는 그 배경이 하는 단계를 모두 마친 것으로, 크기는 푼 뒤에 다시 잰다 */
+/** 파일의 기록 한 줄을 다 만든 배경의 기록으로(형식이 틀리면 null). 단계는 그 배경이 하는 단계를 모두 마친 것으로, 크기는 푼 뒤에 다시 잰다 */
 function itemFrom(raw: unknown): store.Stored | null {
   if (!store.isStored(raw)) return null;
   const edit = BackgroundEditBody.safeParse(raw.edit);
@@ -143,7 +143,7 @@ function playlistTargets(text: string, line: RegExp, allowMap: boolean): string[
     const one = raw.trim();
     if (!one) continue;
     if (one.startsWith("#")) {
-      // 주소를 적는 꼴(URI=)은 init 을 가리키는 줄만
+      // 주소를 적는 형식(URI=)은 init 을 가리키는 줄만
       if (one.includes("URI=") && !(allowMap && one === MAP_LINE)) return null;
       continue;
     }
@@ -187,7 +187,7 @@ function streamsProblem(one: store.Stored, { has, read }: Files): string | null 
   return null;
 }
 
-/** 배경 하나의 파일이 다 있고 꼴이 맞는지. 문제 한 줄(없으면 null) */
+/** 배경 하나의 파일이 다 있고 형식이 맞는지. 문제 한 줄(없으면 null) */
 async function itemProblem(zipped: Zipped, one: store.Stored, entries: ZipItem[]): Promise<string | null> {
   const prefix = `${DIR}${one.id}/`;
   const byName = new Map(entries.map((entry) => [entry.name.slice(prefix.length), entry]));
@@ -204,9 +204,9 @@ function indexFrom(zipped: Zipped, entry: ZipItem): { index: store.Index } | { p
   } catch {
     return { problem: "배경 기록(index.json)을 읽을 수 없습니다." };
   }
-  if (!isTable(json) || !Array.isArray(json.items)) return { problem: "배경 기록(index.json)이 표 꼴이 아닙니다." };
+  if (!isTable(json) || !Array.isArray(json.items)) return { problem: "배경 기록(index.json)이 객체 형식이 아닙니다." };
   const items = json.items.map(itemFrom);
-  if (items.some((one) => one === null)) return { problem: "다 만든 배경의 꼴이 아닌 기록이 있습니다." };
+  if (items.some((one) => one === null)) return { problem: "다 만든 배경의 형식이 아닌 기록이 있습니다." };
   const ids = (items as store.Stored[]).map((one) => one.id);
   if (new Set(ids).size !== ids.length) return { problem: "같은 배경이 두 번 적혀 있습니다." };
   const current = typeof json.current === "string" && ids.includes(json.current) ? json.current : null;
@@ -280,7 +280,7 @@ function sameAsNow(plan: Plan): boolean {
 function warningsFor(plan: Plan): string[] {
   const now = store.items();
   const making = now.filter((one) => !store.isReady(one) && one.problem === null).length;
-  return [...(now.length ? [`지금 배경 ${now.length}개를 모두 지우고 파일의 배경으로 바꿔요.`] : []), ...(making ? [`만들고 있는 배경 ${making}개도 멈추고 지워요.`] : []), ...(plan.index.items.length ? [] : ["파일에 배경이 없어 로그인 화면이 봇 프로필 그림으로 돌아가요."])];
+  return [...(now.length ? [`지금 배경 ${now.length}개를 모두 삭제하고 파일의 배경으로 바꿔요.`] : []), ...(making ? [`만들고 있는 배경 ${making}개도 멈추고 삭제해요.`] : []), ...(plan.index.items.length ? [] : ["파일에 배경이 없어 로그인 화면이 봇 프로필 이미지로 돌아가요."])];
 }
 
 /** 미리 보기 한 줄과 불러올 것(검사에 걸리면 plan 이 null) */
@@ -297,9 +297,9 @@ async function check(file: string): Promise<{ row: ArchiveRow; plan: Plan | null
   }
 }
 
-/** 파일의 배경을 새 id 로 저장 자리에 푼다(아직 기록에 없어 보이지 않는다). commit 은 기록을 바꾸고, abort 는 푼 것을 지운다 */
+/** 파일의 배경을 새 id 로 저장 위치에 푼다(아직 기록에 없어 보이지 않는다). commit 은 기록을 바꾸고, abort 는 푼 것을 삭제한다 */
 async function stage(file: string, plan: Plan): Promise<{ commit: () => void; abort: () => void }> {
-  // 처음 읽을 때 목록에 없는 폴더를 지우므로 먼저 읽어 둔다
+  // 처음 읽을 때 목록에 없는 폴더를 삭제하므로 먼저 읽어 둔다
   store.loaded();
   const ids = new Map(plan.index.items.map((one) => [one.id, store.newId()]));
   const made: string[] = [];

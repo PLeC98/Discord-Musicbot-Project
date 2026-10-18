@@ -3,8 +3,8 @@ import assert from "node:assert";
 import * as models from "../../src/config/ai-models.ts";
 
 // 프로필은 base-provider 를 상속한다. 버텍스 프로필은 schema 가 비어 있고 알맹이가 베이스에 있다 —
-// 합치지 않으면 추론 칸이 통째로 빈다.
-test("base-provider 를 상속해 칸을 합친다", () => {
+// 합치지 않으면 추론 필드가 통째로 빈다.
+test("base-provider 를 상속해 필드를 합친다", () => {
   const snapshot = {
     baseProviders: {
       p: {
@@ -22,7 +22,7 @@ test("base-provider 를 상속해 칸을 합친다", () => {
   assert.equal(models.fieldsOf("p", "m", snapshot)[1].path, "cfg.thinkingConfig.thinkingLevel");
 });
 
-test("본문으로 가는 칸을 프로필이 적힌 차례대로 낸다", () => {
+test("본문으로 가는 필드를 프로필이 적힌 순서대로 낸다", () => {
   const snapshot = {
     baseProviders: {
       p: {
@@ -54,8 +54,8 @@ test("키가 겹치면 프로필이 이긴다", () => {
   );
 });
 
-// 본문으로 안 가는 칸(인증·쿼리)과 숨긴 칸은 화면에 낼 것이 아니다.
-test("본문으로 가는 칸만, 숨긴 것은 빼고", () => {
+// 본문으로 안 가는 필드(인증·쿼리)와 숨긴 필드는 화면에 낼 것이 아니다.
+test("본문으로 가는 필드만, 숨긴 것은 빼고", () => {
   const snapshot = {
     baseProviders: { p: { requestSchema: [{ key: "apiKey", mapsTo: { target: "auth", path: "apiKey" } }], uiSchema: { fields: [{ key: "topK", visibility: "hidden" }] } } },
     profiles: {
@@ -92,8 +92,8 @@ test("모르는 모델은 빈 손으로 — 던지지 않는다", () => {
   assert.equal(models.profileOf("p", "없는모델", snapshot), null);
 });
 
-// 실제로 받아 둔 파일이 쓸 만한지. 저쪽 모양이 바뀌면 여기서 걸린다.
-test("받아 둔 파일에 현행 모델의 추론 칸이 있다", () => {
+// 실제로 다운로드해 둔 파일이 쓸 만한지. 저쪽 모양이 바뀌면 여기서 걸린다.
+test("다운로드해 둔 파일에 현행 모델의 추론 필드가 있다", () => {
   const snapshot = models.load();
   assert.ok(Object.keys(snapshot.profiles).length > 100, "프로필이 실려 있다");
 
@@ -102,21 +102,21 @@ test("받아 둔 파일에 현행 모델의 추론 칸이 있다", () => {
   assert.ok(hasKey("vertex-gemini-native", "gemini-3.7-flash", "thinkingLevel"), "버텍스는 베이스에서 상속받는다");
   assert.ok(hasKey("openai", "gpt-6-astra", "reasoning_effort"));
 
-  // 한 세대 차이로 값 집합이 갈린다 — Astra 는 none 을 안 받는다
+  // 한 세대 차이로 값 집합이 달라진다 — Astra 는 none 을 안 받는다
   const astra = models.fieldsOf("openai", "gpt-6-astra", snapshot).find((f) => f.key === "reasoning_effort");
   assert.ok(astra?.enum, "값 목록이 있다");
   assert.ok(!astra.enum.some((e) => e.value === "none"));
 });
 
 // 회귀 대상: 모양 검사가 모델 이름 셋(claude-opus-5 · gemini-3.7-flash · gpt-5.5)에 묶여, 저쪽이 옛 모델을 빼면 멀쩡해도 갱신을 거부했다
-test("갱신 모양 검사: 모델 이름이 아니라 칸이 통째로 비었는지로 본다", () => {
+test("갱신 모양 검사: 모델 이름이 아니라 필드가 통째로 비었는지로 본다", () => {
   const field = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
   const snap = (profiles: Record<string, { modelId: string; schema: unknown[] }>) => ({ baseProviders: {}, profiles }) as Parameters<typeof models.lostShape>[1];
   const held = snap({ "a:old": { modelId: "old", schema: [field] }, "b:x": { modelId: "x", schema: [] } });
 
-  assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [field] } })), [], "옛 모델이 빠지고 새 모델이 와도 된다. 칸이 없던 b 는 보지 않는다");
-  assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "칸이 있던 a 가 통째로 비면 거부");
-  assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "가진 버전이 없으면 칸이 하나라도 있어야 한다");
+  assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [field] } })), [], "옛 모델이 빠지고 새 모델이 와도 된다. 필드가 없던 b 는 보지 않는다");
+  assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "필드가 있던 a 가 통째로 비면 거부");
+  assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "가진 버전이 없으면 필드가 하나라도 있어야 한다");
   assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [field] } })), []);
 });
 
@@ -126,8 +126,8 @@ test("갱신 모양 검사: 저장소의 버전은 스스로와 견줘 통과한
   assert.deepEqual(models.lostShape(registries, held, held), []);
 });
 
-// 받은 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 받은 때가 새것을 쓴다
-test("기본 사본 · 받은 사본 중 받은 때가 새것을 쓴다", () => {
+// 다운로드한 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 다운로드한 때가 새것을 쓴다
+test("기본 사본 · 다운로드한 사본 중 다운로드한 때가 새것을 쓴다", () => {
   const at = (fetchedAt?: string) => ({ fetchedAt, baseProviders: {}, profiles: {} });
   const bundled = at("2026-10-01T00:00:00.000Z");
   const fetched = at("2026-10-05T00:00:00.000Z");

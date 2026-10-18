@@ -49,7 +49,7 @@ const server = await listenForFetch(app);
 after(() => server.close());
 const list = async () => (await requestJson<GuildList>(baseUrl(server), "GET", "/api/guilds")).json.guilds;
 
-test("멤버인 서버만, 서버 ID 차례로", async () => {
+test("멤버인 서버만, 서버 ID 순서로", async () => {
   user = { id: "u1", username: "사용자" };
   assert.deepEqual(
     (await list()).map((g) => g.id),

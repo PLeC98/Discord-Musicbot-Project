@@ -16,19 +16,19 @@ function codedError(code: string, message: string, options?: { cause?: unknown }
   return Object.assign(new Error(message, options), { code });
 }
 
-/** 오류가 달고 온 이름(code). 글자도 수도 온다(디스코드 API 는 수) */
+/** 오류가 달고 온 이름(code). 문자열도 숫자도 온다(디스코드 API 는 숫자) */
 function codeOf(error: unknown): string | number | undefined {
   const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
   return typeof code === "string" || typeof code === "number" ? code : undefined;
 }
 
-/** 알릴 오류 글. 글이 없으면 fallback(주지 않으면 값을 그대로 글로) */
+/** 알릴 오류 메시지. 메시지가 없으면 fallback(주지 않으면 값을 그대로 문자열로) */
 function messageOf(error: unknown, fallback = String(error)): string {
   const message = error && typeof error === "object" && "message" in error ? error.message : undefined;
   return (typeof message === "string" && message) || fallback;
 }
 
-// 디스코드가 권한 없음으로 거절한 요청. 거절된 요청의 주소로 가른다: 음성 채널 상태는 음성, 메시지 · 고정 · 웹훅은 글, 그 밖.
+// 디스코드가 권한 없음으로 거절한 요청. 거절된 요청의 주소로 구분한다: 음성 채널 상태는 음성, 메시지 · 고정 · 웹훅은 글, 그 밖.
 // 음성 채널 접속은 게이트웨이로 가 이 번호를 받지 않는다(접속 전에 권한을 본다. usecases/permissions)
 function permissionKind(one: object) {
   const url = "url" in one && typeof one.url === "string" ? one.url : "";

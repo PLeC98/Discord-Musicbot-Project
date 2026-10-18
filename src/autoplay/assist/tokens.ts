@@ -37,9 +37,9 @@ const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
 
 // ── 세는 스레드 ────────────────────────────────────────────────────────────
 // 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어(1.6만 자 2.5초)
-// 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 띄우고 계속 쓴다(표를 다시 읽지 않게).
+// 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 시작하고 계속 쓴다(표를 다시 읽지 않게).
 
-// 맡긴 일 하나의 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 띄운다
+// 맡긴 일 하나의 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 시작한다
 const COUNT_TIMEOUT_MS = 10_000;
 
 type Waiting = { resolve: (counted: Counted[]) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
@@ -58,7 +58,7 @@ function spawn() {
     else job.reject(new Error(error || "토큰을 세지 못했습니다"));
   });
   one.on("error", (error) => {
-    log.warn(`토큰 세는 스레드가 멈췄습니다(${error.message}). 다음 세기에 다시 띄웁니다`);
+    log.warn(`토큰 세는 스레드가 멈췄습니다(${error.message}). 다음 세기에 다시 시작합니다`);
     stop(one, error);
   });
   one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));
@@ -89,7 +89,7 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
-      log.warn(`토큰 세기가 ${timeoutMs / 1000}초를 넘겨 멈춥니다(${tokenizer} · ${chars}자). 다음 세기에 다시 띄웁니다`);
+      log.warn(`토큰 세기가 ${timeoutMs / 1000}초를 넘겨 멈춥니다(${tokenizer} · ${chars}자). 다음 세기에 다시 시작합니다`);
       stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });
@@ -113,7 +113,7 @@ function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | u
 
 /**
  * 요청 하나가 몇 토큰인지. 메시지를 감싸는 몫까지 더한 값.
- * 본문만 세려면 `count` 를 쓴다(프롬프트 칸이 그렇게 쓴다).
+ * 본문만 세려면 `count` 를 쓴다(프롬프트 입력란이 그렇게 쓴다).
  */
 async function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
   const wrap = FRAMING[dialect] || FRAMING.openai;
@@ -131,7 +131,7 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
-  // system 은 본문 맨 위 칸 하나로. 역할을 바꾸기 전에 갈라야 user 로 한 번 더 들어가지 않는다
+  // system 은 본문 맨 위 필드 하나로. 역할을 바꾸기 전에 분리해야 user 로 한 번 더 들어가지 않는다
   const all = messages || [];
   const body: { model: string; messages: Array<{ role: string; content: string }>; system?: string } = {
     model,

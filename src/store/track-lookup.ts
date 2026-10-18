@@ -1,5 +1,5 @@
-// 링크 장부(track_lookup). 요청 열쇠 → 보여 줄 링크 · 음원 주소 · 표시 정보.
-// 캐시 파일은 두 걸음으로 찾는다. 장부 줄의 음원 주소에서 열쇠를 계산하고, 그 열쇠로 audio_cache 를 본다.
+// 오디오 링크 데이터(track_lookup). 요청 키 → 보여 줄 링크 · 음원 주소 · 표시 정보.
+// 캐시 파일은 두 걸음으로 찾는다. 링크 데이터 행의 음원 주소에서 키를 계산하고, 그 키로 audio_cache 를 본다.
 
 import fs from "fs";
 import { cacheDb } from "./cache-db.ts";
@@ -9,7 +9,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { LookupRow, checked } from "./rows.ts";
 import type { TrackInfo } from "../player/track.ts";
 
-/** 받아 둔 파일로 만든 트랙. 여기 칸은 장부와 캐시에서 온다 */
+/** 캐시 파일로 만든 트랙. 여기 필드는 링크 데이터와 캐시에서 온다 */
 type CachedTrack = TrackInfo & { audioUrl: string };
 type CacheHit = { hit: false } | { hit: true; track: CachedTrack; audioKey: string; filePath: string };
 
@@ -19,11 +19,11 @@ const conn = () => cacheDb.get();
 // 읽기
 
 function rowOf(requestKey: string) {
-  return checked(LookupRow, conn().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)), "링크 장부");
+  return checked(LookupRow, conn().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)), "링크 데이터");
 }
 
 /**
- * 요청을 받아 둔 파일과 곡 정보로 바꾼다. 사용자가 넣은 링크면 다듬어서 찾는다.
+ * 요청을 캐시 파일과 곡 정보로 바꾼다. 사용자가 입력한 링크면 다듬어서 찾는다.
  * 없으면 { hit: false }, 있으면 { hit: true, track, audioKey, filePath }
  */
 function resolveFromCache(requestKey: string): CacheHit {
@@ -43,7 +43,7 @@ function resolveFromCache(requestKey: string): CacheHit {
     requestKey: row.request_key,
     audioUrl: row.audio_url,
     platform: row.platform,
-    // 행의 빈 칸은 곡 모양으로(세션 복원과 같다)
+    // 행의 빈 열은 곡 모양으로(세션 복원과 같다)
     title: row.display_title || cached.title || null,
     artist: row.display_artist || cached.channel || undefined,
     thumbnail: row.display_thumbnail,
@@ -96,15 +96,15 @@ function getVerifiedTitle(requestKey: string): string | null {
 
 /**
  * 이 요청의 음원 주소만 조회 (파일 검증 없음). 유튜브 재검색 스킵용(Tier-1).
- * resolveFromCache와 달리 오디오 파일 존재를 요구하지 않는다. 파일이 퇴거됐어도 장부는 남는다.
+ * resolveFromCache와 달리 오디오 파일 존재를 요구하지 않는다. 파일이 퇴거됐어도 링크 데이터는 남는다.
  */
 function getAudioUrl(requestKey: string): string | null {
   return rowOf(requestKey)?.audio_url ?? null;
 }
 
 /**
- * 이 곡의 음원을 받아 둔 적이 있으면 그 음원을 잰 길이(초). 없으면 null.
- * 음원 주소가 있으면 그것으로, 없으면(영상을 아직 못 찾은 스포티파이 곡) 장부가 기억하는 음원 주소로 찾는다
+ * 이 곡의 음원을 다운로드해 둔 적이 있으면 그 음원을 잰 길이(초). 없으면 null.
+ * 음원 주소가 있으면 그것으로, 없으면(영상을 아직 못 찾은 스포티파이 곡) 링크 데이터가 기억하는 음원 주소로 찾는다
  */
 function knownAudioLength(track: Partial<Pick<TrackInfo, "audioUrl" | "requestKey">>): number | null {
   const audioUrl = track.audioUrl || (track.requestKey ? rowOf(track.requestKey)?.audio_url : null);
@@ -113,7 +113,7 @@ function knownAudioLength(track: Partial<Pick<TrackInfo, "audioUrl" | "requestKe
   return cached?.status === "cached" && cached.duration_sec && cached.duration_sec > 0 ? cached.duration_sec : null;
 }
 
-/** 죽은 음원을 가리키는 줄 삭제. 장부에서 가져온 영상이 내려간 경우 재검색 전에 호출. */
+/** 죽은 음원을 가리키는 행 삭제. 링크 데이터에서 가져온 영상이 내려간 경우 재검색 전에 호출. */
 function removeResolution(requestKey: string) {
   conn().prepare("DELETE FROM track_lookup WHERE request_key = ?").run(canonicalUrl(requestKey));
 }

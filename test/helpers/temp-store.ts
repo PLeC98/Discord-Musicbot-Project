@@ -20,7 +20,7 @@ function openTempStore(prefix = "store-") {
   audioCache.initialize();
   return {
     dir,
-    /** 캐시 DB(받은 곡 · 링크 장부) */
+    /** 캐시 DB(캐시 파일 · 링크 데이터) */
     db: () => cacheDb.get(),
     /** 설정 DB(서버별 설정) */
     settings: () => settingsDb.get(),
@@ -32,7 +32,7 @@ function openTempStore(prefix = "store-") {
   };
 }
 
-// 서버 설정을 표에 바로 쓰고 메모리 캐시를 비운다. 준 칸만 쓴다
+// 서버 설정을 표에 바로 쓰고 메모리 캐시를 비운다. 준 필드만 쓴다
 type GuildPatch = {
   djRoles?: Parameters<typeof settings.table.setDjRoles>[1];
   botChannel?: string | null;

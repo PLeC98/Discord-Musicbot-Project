@@ -1,5 +1,5 @@
-// 다 만든 배경의 폴더에 남는 파일의 꼴: 정지 그림(still-<폭>.webp) · 코덱마다 목록(<코덱>/index.m3u8) · 단계마다 목록 · init · 조각(<코덱>/<짧은 변>/…).
-// 공개 경로가 내는 파일이고, 백업이 담고 받는 파일이다(받은 글을 경로로 그대로 쓰지 않게 이 꼴만)
+// 다 만든 배경의 폴더에 남는 파일의 형식: 정지 그림(still-<폭>.webp) · 코덱마다 목록(<코덱>/index.m3u8) · 단계마다 목록 · init · 조각(<코덱>/<짧은 변>/…).
+// 공개 경로가 내는 파일이고, 백업이 담고 받는 파일이다(받은 문자열을 경로로 그대로 쓰지 않게 이 형식만)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -13,7 +13,7 @@ const PLAYLIST = "index.m3u8";
 
 const isCodec = (value: string): value is LoginBackgroundCodec => LOGIN_BG_CODECS.some((codec) => codec === value);
 
-/** 배경 폴더 안의 경로(/ 로 나눈 조각)가 내는 파일의 꼴인가 */
+/** 배경 폴더 안의 경로(/ 로 나눈 조각)가 내는 파일의 형식인가 */
 function isServed(parts: string[]): boolean {
   if (parts.length === 1) return STILL_FILE.test(parts[0]);
   if (parts.length === 2) return isCodec(parts[0]) && parts[1] === PLAYLIST;

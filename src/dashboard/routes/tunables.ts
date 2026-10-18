@@ -1,5 +1,5 @@
 // 운영 조절값(운영자 패널의 일반 · 유튜브 · 디스플레이 탭). /api/admin/tunables
-// 값은 settings.db 의 문서에 두고 저장하면 바로 설정 객체에 올린다(다시 켜야 먹는 값은 pending 으로 알린다. store/tunables)
+// 값은 settings.db 의 문서에 두고 저장하면 바로 설정 객체에 올린다(다시 시작해야 적용되는 값은 pending 으로 알린다. store/tunables)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -18,7 +18,7 @@ tunablesRouter.use(requireOwner);
 
 tunablesRouter.get("/", (_req, res) => res.json(tunables.view()));
 
-// 바뀐 칸을 "이름 이전 → 이후"로. 빈 값은 기본값이다. 다시 시작해야 먹는 칸은 그렇다고 단다
+// 바뀐 필드를 "이름 이전 → 이후"로. 빈 값은 기본값이다. 다시 시작해야 적용되는 필드는 그렇다고 단다
 function changesOf(before: Record<string, string>, after: Record<string, string>) {
   const shown = (value: string | undefined) => (value === undefined ? "기본값" : JSON.stringify(value));
   return TUNABLES.filter(({ key }) => before[key] !== after[key]).map(({ key }) => `${key} ${shown(before[key])} → ${shown(after[key])}${RESTART_KEYS.has(key) ? "(다시 시작해야 적용)" : ""}`);
@@ -35,7 +35,7 @@ tunablesRouter.put("/", (req, res) => {
     const saved = tunables.save(values as Record<string, unknown>, revision as number);
     const changes = changesOf(before, saved.values);
     log.warn({ sub: "admin" }, `대시보드에서 운영 조절값 저장: ${changes.length ? changes.join(" · ") : "바뀐 값 없음"}. 실행 ${ranBy(req)}`);
-    // 쿠키 출처는 바로 먹는다. 지금 무엇으로 유튜브에 붙는지 한 줄 다시 남긴다
+    // 쿠키 출처는 바로 적용된다. 지금 무엇으로 유튜브에 붙는지 한 줄 다시 남긴다
     if (config.ytdlp.cookiesSource !== cookiesBefore) YouTube.logAuthMode();
     res.json(saved);
   } catch (error) {

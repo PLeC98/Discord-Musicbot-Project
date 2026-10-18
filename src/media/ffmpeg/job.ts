@@ -1,6 +1,6 @@
-// 끝까지 돌리는 ffmpeg 일(시험 · 검사 · 굽기). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
+// 끝까지 돌리는 ffmpeg 일(테스트 · 검사 · 굽기). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
 // signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 굽기의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
-// 띄운 것은 자식 프로세스 장부에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 굽기용 코어로 묶는다(infra/cpu-affinity)
+// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 굽기용 코어로 묶는다(infra/cpu-affinity)
 
 import { spawn } from "node:child_process";
 import { ffmpegPath } from "./path.ts";
@@ -21,7 +21,7 @@ type FfmpegJob = {
   /** 표준 출력을 모으지 않는다(파일로 쓰는 일) */
   discardStdout?: boolean;
   onStderrLine?: (line: string) => void;
-  /** 장부에 적을 이름(ffmpeg:<label>)과 하는 일 */
+  /** 레지스트리에 적을 이름(ffmpeg:<label>)과 하는 일 */
   label?: string;
   job?: Job;
   /** 굽기용 코어로 묶는다 */
@@ -72,7 +72,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
     });
     child.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString("utf8");
-      // -progress 의 "열쇠=값" 줄은 남기지 않는다(실패했을 때 끝 줄이 오류가 아니라 진행으로 채워진다)
+      // -progress 의 "키=값" 줄은 남기지 않는다(실패했을 때 끝 줄이 오류가 아니라 진행으로 채워진다)
       stderr = (stderr + text.replace(/^[a-z_]+=[^\n]*\n?/gm, "")).slice(-STDERR_KEEP);
       if (!onStderrLine && !watch) return;
       const lines = (partial + text).split(/\r\n|\r|\n/);

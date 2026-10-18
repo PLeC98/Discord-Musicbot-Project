@@ -1,6 +1,6 @@
-// 로그인 배경의 원본: 링크에서 받고(직접 링크는 infra/safe-url), 무엇인지 읽어 본다(받기 단계). 올린 파일의 Content-Type 은 믿지 않는다.
+// 로그인 배경의 원본: 링크에서 다운로드하고(직접 링크는 infra/safe-url), 무엇인지 읽어 본다(다운로드 단계). 올린 파일의 Content-Type 은 믿지 않는다.
 // 정지 그림은 sharp 로 읽고(픽셀 수 상한), 움직이는 것(영상 · 움짤)은 ffmpeg 로 읽는다. ffmpeg 에는 늘 READ_ARGS 를 붙인다:
-// 재생 목록 · 이어 붙이기 목록처럼 다른 파일 · 주소를 읽는 형식을 막고(형식 거르기) 파일 말고는 열지 않는다(프로토콜 거르기).
+// 재생 목록 · 이어 붙이기 목록처럼 다른 파일 · 주소를 읽는 형식을 막고(형식 필터링) 파일 말고는 열지 않는다(프로토콜 필터링).
 // 터무니없는 값(작은 파일이 거대한 해상도를 적은 것 등)은 여기서 막는다
 
 import fs from "node:fs";
@@ -18,7 +18,7 @@ const FORMATS = ["mov", "matroska", "avi", "flv", "mpegts", "mpeg", "ogg", "asf"
 const READ_ARGS = ["-protocol_whitelist", "file", "-format_whitelist", FORMATS.join(",")];
 /** sharp 로 읽는 정지 그림 형식 */
 const STILL_FORMATS = ["jpeg", "png", "webp", "gif", "avif", "heif", "tiff"];
-/** 받는 크기 · 길이 · 초당 장면 수의 범위 */
+/** 받는 크기 · 길이 · 초당 프레임 수의 범위 */
 const MIN_SIDE = 16;
 const MAX_SIDE = 16384;
 const MAX_FPS = 240;
@@ -26,11 +26,11 @@ const MAX_FPS = 240;
 const MAX_PIXELS = 200_000_000;
 /** 원본을 읽는 시간 상한 */
 const INSPECT_MS = 60_000;
-/** 링크에서 받을 것: 그림 · 영상(Content-Type 이 없으면 받아서 읽어 본다), 홉마다의 응답 대기 */
+/** 링크에서 다운로드할 것: 그림 · 영상(Content-Type 이 없으면 다운로드해서 읽어 본다), 홉마다의 응답 대기 */
 const LINK_TYPES = /^\s*(image\/|video\/|application\/octet-stream|binary\/octet-stream)/i;
 const LINK_HOP_MS = 15_000;
 
-// libvips 가 연 파일을 캐시에 쥐고 있으면 Windows 에서 배경 폴더를 지우지 못한다(EPERM). 파일 핸들 캐시만 끈다(연산 캐시는 그대로)
+// libvips 가 연 파일을 캐시에 쥐고 있으면 Windows 에서 배경 폴더를 삭제하지 못한다(EPERM). 파일 핸들 캐시만 끈다(연산 캐시는 그대로)
 sharp.cache({ files: 0 });
 
 /** 원본을 읽은 것 */
@@ -39,7 +39,7 @@ type Inspected = Required<Pick<StageResult, "kind" | "width" | "height" | "durat
 const badSource = (why: string) => codedError("background-bad-source", why);
 const sideOk = (side: number) => Number.isFinite(side) && side >= MIN_SIDE && side <= MAX_SIDE;
 
-/** PNG 가 움직이는 것(APNG)인지: 그림 자료(IDAT) 앞에 acTL 덩어리가 있다. sharp 는 APNG 를 한 장으로 읽는다 */
+/** PNG 가 움직이는 것(APNG)인지: 그림 자료(IDAT) 앞에 acTL 청크가 있다. sharp 는 APNG 를 한 장으로 읽는다 */
 function isApng(file: string): boolean {
   const head = Buffer.alloc(64 * 1024);
   const fd = fs.openSync(file, "r");
@@ -67,12 +67,12 @@ async function inspectStill(file: string): Promise<Inspected | null> {
 }
 
 /**
- * ffmpeg 가 연 입력의 머리. 크기는 보이는 크기(90도 돌려 보이는 영상은 가로세로를 바꾼다), alpha 는 투명이 있는 픽셀 형식(움짤),
- * hdr 은 PQ · HLG 전달 함수(SDR 로 톤 매핑해 굽는다). 열지 못했으면 null
+ * ffmpeg 가 연 입력의 헤더. 크기는 보이는 크기(90도 돌려 보이는 영상은 가로세로를 바꾼다), alpha 는 투명이 있는 픽셀 형식(움짤),
+ * hdr 은 PQ · HLG 전달 함수(SDR 로 톤 매핑해 인코딩한다). 열지 못했으면 null
  */
 type Probed = { format: string; duration: number | null; width: number; height: number; fps: number | null; alpha: boolean; hdr: boolean };
 
-/** 영상 줄의 크기를 보이는 크기로(회전 정보가 90도면 가로세로를 바꾼다) */
+/** 영상 스트림의 크기를 보이는 크기로(회전 정보가 90도면 가로세로를 바꾼다) */
 function visibleSize(video: string, stderr: string) {
   const size = /, (\d{2,5})x(\d{2,5})[ ,[]/.exec(video);
   const [width, height] = [Number(size?.[1] ?? 0), Number(size?.[2] ?? 0)];
@@ -95,9 +95,9 @@ function parseInput(stderr: string): Probed | null {
   };
 }
 
-/** 영상 · 움직이는 그림의 머리를 읽는다. 읽지 못하면 background-bad-source */
+/** 영상 · 움직이는 그림의 헤더를 읽는다. 읽지 못하면 background-bad-source */
 async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
-  // 출력 없이 열기만 하면 머리를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
+  // 출력 없이 열기만 하면 헤더를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
   const { stderr, aborted } = await ffmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
   if (aborted) throw codedError("aborted", "그만뒀습니다");
   const input = parseInput(stderr);
@@ -125,10 +125,10 @@ async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspect
   const input = await probeVideo(file, signal);
   if (!sideOk(input.width) || !sideOk(input.height)) throw badSource(`영상 크기가 범위 밖입니다: ${input.width} × ${input.height}`);
   const fps = input.fps ?? 30;
-  if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 장면 수가 범위 밖입니다: ${fps}`);
+  if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 프레임 수가 범위 밖입니다: ${fps}`);
   const duration = input.duration ?? (await countedDuration(file, signal));
   if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없습니다");
-  // 장면이 하나뿐인 것(sharp 가 못 읽은 정지 그림이 영상 틀로 열린 것 등)은 영상이 아니다
+  // 장면이 하나뿐인 것(sharp 가 못 읽은 정지 그림이 영상 형식으로 열린 것 등)은 영상이 아니다
   if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없습니다(${duration}초)`);
   return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps };
 }
@@ -138,7 +138,7 @@ async function inspectSource(file: string, signal: AbortSignal): Promise<Inspect
   return (await inspectStill(file)) ?? (await inspectMoving(file, signal));
 }
 
-/** 링크의 그림 · 영상을 받는다(내부 주소 · 리다이렉트 · 형식은 safe-url 이 막는다). room 을 넘으면 background-no-space */
+/** 링크의 그림 · 영상을 다운로드한다(내부 주소 · 리다이렉트 · 형식은 safe-url 이 막는다). room 을 넘으면 background-no-space */
 async function download(url: string, file: string, room: number, signal: AbortSignal, deps?: safeUrl.RequestDeps) {
   const part = `${file}.part`;
   try {
@@ -149,11 +149,11 @@ async function download(url: string, file: string, room: number, signal: AbortSi
     fs.rmSync(part, { force: true });
     if (signal.aborted) throw error;
     if (/최대 크기/.test(messageOf(error))) throw codedError("background-no-space", `남은 공간을 넘는 파일입니다: ${messageOf(error)}`, { cause: error });
-    throw codedError("background-link-failed", `링크에서 받지 못했습니다: ${messageOf(error)}`, { cause: error });
+    throw codedError("background-link-failed", `링크에서 다운로드하지 못했습니다: ${messageOf(error)}`, { cause: error });
   }
 }
 
-/** 받기 단계: 링크면 받고, 원본을 읽어 종류 · 크기 · 길이를 적는다 */
+/** 다운로드 단계: 링크면 다운로드하고, 원본을 읽어 종류 · 크기 · 길이를 적는다 */
 async function receive({ item, signal }: StageJob): Promise<StageResult> {
   const file = store.sourceOf(item.id);
   if (item.from === "link" && item.link) await download(item.link, file, store.room(), signal);

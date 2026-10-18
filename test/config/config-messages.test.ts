@@ -1,7 +1,7 @@
 // 설정 문서 검사 문구를 고정한다(config/schema 의 zod 스키마).
 //
-// 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 차례까지 적었다.
-// 여러 문제가 겹치면 칸 검사가 먼저, 교차 검사(이름 · 칸끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 묶음.
+// 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 순서까지 적었다.
+// 여러 문제가 겹치면 필드 검사가 먼저, 교차 검사(이름 · 필드끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 그룹.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -52,7 +52,7 @@ const GENRES: Case[] = [
         },
       },
     },
-    ["가요: emoji는 이모지 한 글자여야 합니다.", '"80": 숫자만으로 된 식별자는 차례가 어긋납니다. "80s"처럼 글자를 붙여 주세요.', '"true"는 장르 식별자로 쓸 수 없습니다(YAML이 값으로 읽습니다).'],
+    ["가요: emoji는 이모지 한 글자여야 합니다.", '"80": 숫자만으로 된 식별자는 순서가 어긋납니다. "80s"처럼 글자를 붙여 주세요.', '"true"는 장르 식별자로 쓸 수 없습니다(YAML이 값으로 읽습니다).'],
   ],
   [
     "맨 위 keywords · 소스 없음",
@@ -66,7 +66,7 @@ const GENRES: Case[] = [
     ["옛모양: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]", "옛모양: 소스(sources)가 하나는 있어야 합니다."],
   ],
   [
-    "소스 칸 문제",
+    "소스 필드 문제",
     {
       genres: {
         소스: {
@@ -228,7 +228,7 @@ const STATUSES: Case[] = [
       '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다',
       "숫자의 date: 글자로 적어야 합니다",
       "숫자: 문구가 하나는 있어야 합니다.",
-      '"2026": 숫자만으로 된 이름은 차례가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.',
+      '"2026": 숫자만으로 된 이름은 순서가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.',
       '"true"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).',
     ],
   ],
@@ -243,9 +243,9 @@ const AIS: Case[] = [
     },
     [`provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`, "model을 적어야 합니다."],
   ],
-  ["켰는데 provider 를 안 골랐다", { enabled: true, provider: "off" }, ["켜려면 provider를 골라야 합니다."]],
+  ["켰는데 provider 를 선택하지 않았다", { enabled: true, provider: "off" }, ["켜려면 provider를 선택해야 합니다."]],
   ["enabled 는 참 · 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 합니다."]],
-  ["꺼 두면 나머지 칸은 따지지 않는다", { enabled: false, provider: "nope", timeoutMs: "x" }, []],
+  ["꺼 두면 나머지 필드는 따지지 않는다", { enabled: false, provider: "nope", timeoutMs: "x" }, []],
   [
     "custom 에 baseUrl 없음 · model 없음",
     {
@@ -263,7 +263,7 @@ const AIS: Case[] = [
     ["baseUrl은 http:// 또는 https:// 로 시작해야 합니다."],
   ],
   [
-    "칸 모양",
+    "필드 모양",
     {
       provider: "off",
       temperature: 1,
@@ -285,17 +285,17 @@ const AIS: Case[] = [
       "batchSize는 1~50 사이여야 합니다.",
       "skipConfident는 true 또는 false여야 합니다.",
       "extra는 한 줄에 하나씩 적는 글이어야 합니다.",
-      "프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 칸은 쓰이지 않습니다.",
+      "프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 필드는 쓰이지 않습니다.",
       "project는 글자로 적어야 합니다.",
       "location는 글자로 적어야 합니다.",
-      "params는 모델 이름 아래에 칸을 적는 표여야 합니다.",
+      "params는 모델 이름 아래에 필드를 적는 표여야 합니다.",
       'hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).',
       "promptNames는 글자 목록이어야 합니다.",
-      "list는 이름:값 꼴이어야 합니다.",
+      "list는 이름:값 형식이어야 합니다.",
     ],
   ],
   [
-    "재시도 칸 모양",
+    "재시도 필드 모양",
     {
       provider: "off",
       retries: 11,
@@ -308,7 +308,7 @@ const AIS: Case[] = [
     ["retries는 0~10 사이여야 합니다.", "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 합니다.", "retryTimeouts는 true 또는 false여야 합니다.", "retryDelayMs는 0~60000 사이여야 합니다.", "retryDelayMaxMs는 0~600000 사이여야 합니다.", "retryStatus는 400~599 사이 상태 코드 목록이어야 합니다(예: [429, 503])."],
   ],
   [
-    "params 안쪽 · list 칸",
+    "params 안쪽 · list 필드",
     {
       provider: "off",
       params: {
@@ -323,8 +323,8 @@ const AIS: Case[] = [
         unknownText: 1,
       },
     },
-    // 옛 칸(unknownDuration · unknownText)은 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
-    ["params.m1 은 칸 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}} · {{genre}} · {{title}} · {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
+    // 옛 필드(unknownDuration · unknownText)은 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
+    ["params.m1 은 필드 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}} · {{genre}} · {{title}} · {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
   ],
   [
     "list.lineFormat 이 글이 아님",
@@ -367,7 +367,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
       },
     ],
     true,
-    ["어딘가에 {{list}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다."],
+    ["어딘가에 {{list}} 이 있어야 합니다. 그 위치에 판정할 후보가 들어갑니다."],
   ],
   [
     "꺼 두면 {{list}} 을 안 따진다",

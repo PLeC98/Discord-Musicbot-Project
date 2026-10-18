@@ -1,7 +1,7 @@
-// 로그인 배경의 미리보기 단계: 편집 창이 띄울 미리보기와 세트 크기 어림(research §11.7).
-// 영상은 원본을 한 번 풀어 둘로 나눠 480p H.264 미리보기를 쓰고, 같은 장면을 1080p AV1 preset 12 crf 40 으로 구워 버리며 패킷 크기만 받는다(framecrc, 디스크를 쓰지 않는다).
+// 로그인 배경의 미리보기 단계: 편집 창이 표시할 미리보기와 세트 크기 어림(research §11.7).
+// 영상은 원본을 한 번 풀어 둘로 나눠 480p H.264 미리보기를 쓰고, 같은 장면을 1080p AV1 preset 12 crf 40 으로 인코딩해 버리며 패킷 크기만 받는다(framecrc, 디스크를 쓰지 않는다).
 // 초마다의 크기에 미리 잰 세트 비율을 곱해 둔다(영상 다섯 중 넷이 ±2%, 하나 -20%). 크롭을 정하면 그 크롭 · 구간만 다시 센다(recount).
-// 그림은 긴 변 1280 WebP 미리보기와, 가장 작은 폭을 실제로 구워 넓이 비율로 늘린 정지 그림 세트의 어림
+// 그림은 긴 변 1280 WebP 미리보기와, 가장 작은 폭을 실제로 인코딩해 넓이 비율로 늘린 정지 그림 세트의 어림
 
 import fs from "node:fs";
 import path from "node:path";
@@ -24,13 +24,13 @@ const PROBE_SHORT = 1080;
 const PREVIEW_LONG = 1280;
 /** 세트(AV1 · VP9 단계)의 크기 / 어림의 크기. 4K 까지 · 1080p 만(영상 다섯의 중앙값 9.53 · 3.09, research §11.7) */
 const SET_RATIO = { full: 9.5, fhd: 3.1 };
-/** 세트를 굽는 시간 / 어림 시간. 영상 둘로 잰 거친 값에서 한 번 풀어 나누기(21 ~ 23% 빠름)를 뺐다 */
+/** 세트를 인코딩하는 시간 / 어림 시간. 영상 둘로 잰 거친 값에서 한 번 풀어 나누기(21 ~ 23% 빠름)를 뺐다 */
 const SET_TIME = { full: 20, fhd: 7 };
 /** H.264 720p 단계(2.5Mbps 고정)의 초당 크기 */
 const H264_BYTES_PER_SECOND = 2_500_000 / 8;
 /** 영상 썸네일 세트의 어림(품질 95 WebP 의 화소당 크기, research §11.7 이미지 품질) */
 const STILL_BYTES_PER_PIXEL = 0.12;
-/** H.264 미리보기의 인코더별 옵션(굽기의 720p 와 같은 방식) */
+/** H.264 미리보기의 인코더별 옵션(인코딩의 720p 와 같은 방식) */
 const PREVIEW_H264: Record<string, string[]> = {
   h264_nvenc: ["-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "2"],
   libopenh264: ["-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51"],
@@ -64,7 +64,7 @@ const stillPixels = (width: number, height: number) => stillWidths(width).reduce
 const stillBytesOf = (width: number, height: number, perPixel = STILL_BYTES_PER_PIXEL) => Math.round(stillPixels(width, height) * perPixel);
 
 /**
- * 어림을 잰 크기가 구울 원본보다 작을 때(유튜브: 480p 로 재고 고해상도로 굽는다) 어림 크기 · 시간에 곱할 몫. 1080p 로 줄인 넓이의 비로 어림한다(화소 수에 비례한다고 친다)
+ * 어림을 잰 크기가 인코딩할 원본보다 작을 때(유튜브: 480p 로 재고 고해상도로 인코딩한다) 어림 크기 · 시간에 곱할 몫. 1080p 로 줄인 넓이의 비로 어림한다(화소 수에 비례한다고 친다)
  */
 function upscale(item: Readonly<Stored>, probed: { width: number; height: number }, crop: LoginBackgroundCrop): number {
   const area = (size: { width: number; height: number }) => size.width * size.height;
@@ -73,7 +73,7 @@ function upscale(item: Readonly<Stored>, probed: { width: number; height: number
   return Math.max(1, area(fitShort(real.width, real.height, PROBE_SHORT)) / area(fitShort(measured.width, measured.height, PROBE_SHORT)));
 }
 
-/** 어림을 굽는 갈래(AV1 이 SVT-AV1 일 때만, 아니면 어림을 건너뛴다) */
+/** 어림을 인코딩하는 분기(AV1 이 SVT-AV1 일 때만, 아니면 어림을 건너뛴다) */
 const probeOutput = (label: string) => ["-map", label, "-c:v", "libsvtav1", "-preset", "12", "-crf", "40", "-g", "60", "-f", "framecrc", "-"];
 const canProbe = () => encoderFor("av1") === "libsvtav1";
 
@@ -82,7 +82,7 @@ async function previewOfImage(item: Readonly<Stored>): Promise<StageResult> {
   const part = `${previewImage(item.id)}.part`;
   await image.clone().resize({ width: PREVIEW_LONG, height: PREVIEW_LONG, fit: "inside", withoutEnlargement: true }).flatten({ background: TRANSPARENT_FILL }).webp({ quality: 90 }).toFile(part);
   fs.renameSync(part, previewImage(item.id));
-  // 가장 작은 폭을 실제 품질로 구워 화소당 크기를 재고, 나머지 폭은 넓이로 늘린다
+  // 가장 작은 폭을 실제 품질로 인코딩해 화소당 크기를 재고, 나머지 폭은 넓이로 늘린다
   const first = stillWidths(item.width)[0];
   const sample = await image.clone().resize({ width: first }).flatten({ background: TRANSPARENT_FILL }).webp({ quality: 95 }).toBuffer();
   const perPixel = sample.length / (first * Math.round((item.height * first) / item.width));
@@ -102,7 +102,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   const part = `${previewVideo(item.id)}.part`;
   // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg 가 덮어쓰지 않는다
   fs.rmSync(part, { force: true });
-  // 어림(AV1 preset 12)은 1.5GB 남짓: 다른 배경을 굽는 중이면 남은 메모리를 기다린다
+  // 어림(AV1 preset 12)은 1.5GB 남짓: 다른 배경을 인코딩하는 중이면 남은 메모리를 기다린다
   if (probe) await enoughMemory(needOf({ codec: "probe" }), "크기 어림", signal);
   const started = Date.now();
   const run = await ffmpeg([...["-v", "error", ...PROGRESS_ARGS, ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", h264, ...(PREVIEW_H264[h264] ?? []), "-g", "60", "-movflags", "+faststart", "-f", "mp4", part], ...(probe ? probeOutput("[e]") : [])], {
@@ -123,7 +123,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   const seconds = (Date.now() - started) / 1000;
   const scale = upscale(item, probed, FULL);
   const estimate: Estimate = {
-    // 비율 · 정지 그림은 구울 원본의 크기로(유튜브는 480p 로 재고 고해상도로 굽는다)
+    // 비율 · 정지 그림은 인코딩할 원본의 크기로(유튜브는 480p 로 재고 고해상도로 인코딩한다)
     perSecond: toSet(
       perSecondOf(run.stdout).map((bytes) => bytes * scale),
       item.width,
@@ -143,7 +143,7 @@ async function preview({ item, signal, progress }: StageJob): Promise<StageResul
   return item.kind === "image" ? previewOfImage(item) : previewOfVideo(item, signal, progress);
 }
 
-/** 크기 어림 다시 세기: 그 크롭 · 구간만 구워 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 셈) */
+/** 크기 어림 다시 세기: 그 크롭 · 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 셈) */
 const recount: Recounter = async ({ item, crop, range, signal }) => {
   const before = item.estimate;
   if (!before) throw codedError("background-failed", "어림이 없습니다");

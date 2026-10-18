@@ -8,10 +8,10 @@
 // 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환 · 방향 위반은 프로젝트 모듈에서만 생긴다.
 // 글자가 아닌 경로(명령 · 이벤트 불러오기)는 따로 목록으로 둔다.
 // config 꺼내 두기: 루트 src/config/index.ts 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
-// 모듈 바꿔 끼우기: 테스트의 require.cache.
-// 메서드 바꿔 끼우기: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = … · x[k] = … · x.prototype.m = 무엇이든) mock.method 로 덮거나,
-// 받은 객체의 속성을 갈아 끼우는 도우미(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
-// 테스트 도우미(test/…)가 내준 이름의 칸에 바로 넣는 것(하네스의 가짜 설정)은 세지 않는다. 도우미를 거친 제품 값(h.X.m = …)은 센다.
+// 모듈 교체: 테스트의 require.cache.
+// 메서드 교체: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = … · x[k] = … · x.prototype.m = 무엇이든) mock.method 로 덮거나,
+// 받은 객체의 속성을 교체하는 헬퍼(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
+// 테스트 헬퍼(test/…)가 내준 이름의 필드에 바로 넣는 것(하네스의 가짜 설정)은 세지 않는다. 헬퍼를 거친 제품 값(h.X.m = …)은 센다.
 
 import fs from "fs";
 import path from "path";
@@ -136,14 +136,14 @@ function scanSource(rel: string) {
   return { rel, layer: layerOf(rel), deps, unseen, lazy, captures };
 }
 
-// 테스트 한 파일: require.cache · 메서드 바꿔 끼우기
+// 테스트 한 파일: require.cache · 메서드 교체
 function scanTest(rel: string) {
   const { sf, line } = parse(rel);
   let requireCache = 0;
   const swaps: number[] = [];
   const project = new Set<string>(); // 프로젝트 모듈에서 온 이름
-  const configs = new Set<string>(); // 그중 루트 config. 값을 바꾸는 창구(withConfig)는 바꿔 끼우기가 아니다
-  // 그중 테스트 도우미(test/…)가 내준 것. 도우미의 가짜 설정(behavior.stream = …)은 제품 모듈을 덮는 것이 아니다
+  const configs = new Set<string>(); // 그중 루트 config. 값을 바꾸는 창구(withConfig)는 교체가 아니다
+  // 그중 테스트 헬퍼(test/…)가 내준 것. 헬퍼의 가짜 설정(behavior.stream = …)은 제품 모듈을 덮는 것이 아니다
   const fixtures = new Set<string>();
 
   const fromProject = (e: ts.Expression | undefined): boolean => {
@@ -190,7 +190,7 @@ function scanTest(rel: string) {
   };
   collect(sf);
 
-  // 첫 매개변수의 속성을 갈아 끼우는 도우미(function swap(obj, key, fn) { obj[key] = fn } 꼴)
+  // 첫 매개변수의 속성을 교체하는 헬퍼(function swap(obj, key, fn) { obj[key] = fn } 형식)
   const swappers = new Set<string>();
   const findSwappers = (n: ts.Node) => {
     const fn = ts.isFunctionDeclaration(n) ? n : ts.isVariableDeclaration(n) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) ? n.initializer : null;
@@ -212,9 +212,9 @@ function scanTest(rel: string) {
   const visit = (n: ts.Node) => {
     if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "require" && n.name.text === "cache") requireCache++;
     const isFn = (e: ts.Node | undefined) => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
-    const fixtureSlot = (left: ts.PropertyAccessExpression | ts.ElementAccessExpression) => ts.isIdentifier(left.expression) && fixtures.has(left.expression.text); // 도우미가 내준 이름의 칸에 바로 넣기
+    const fixtureSlot = (left: ts.PropertyAccessExpression | ts.ElementAccessExpression) => ts.isIdentifier(left.expression) && fixtures.has(left.expression.text); // 헬퍼가 내준 이름의 필드에 바로 넣기
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isPropertyAccessExpression(n.left) || ts.isElementAccessExpression(n.left)) && isFn(n.right) && project.has(rootName(n.left) ?? "") && !fixtureSlot(n.left)) swaps.push(line(n));
-    // prototype 에 넣는 것은 무엇이든(변수에 담아 둔 함수로 갈아 끼우는 것까지)
+    // prototype 에 넣는 것은 무엇이든(변수에 담아 둔 함수로 교체하는 것까지)
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(n.left) && ts.isPropertyAccessExpression(n.left.expression) && n.left.expression.name.text === "prototype" && project.has(rootName(n.left) ?? "")) swaps.push(line(n));
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && swappers.has(n.expression.text) && n.arguments[0] && project.has(rootName(n.arguments[0]) ?? "") && !configs.has(rootName(n.arguments[0]) ?? "")) swaps.push(line(n));
     if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "method" && /(^|\.)mock$/.test(n.expression.expression.getText(sf)) && project.has(rootName(n.arguments[0] ?? n) ?? "")) swaps.push(line(n));
@@ -222,8 +222,8 @@ function scanTest(rel: string) {
   };
   visit(sf);
 
-  // 첫 시험을 등록한 뒤 맨 위에서 기다리는 줄. 기다리는 동안 앞 시험이 끝나면 맨 위 after() 가 먼저 돌아
-  // 뒤에 등록되는 시험이 닫힌 서버 · 저장소를 만난다(앞 시험만 걸러 돌리면 늘 그렇다)
+  // 첫 테스트를 등록한 뒤 맨 위에서 기다리는 줄. 기다리는 동안 앞 테스트가 끝나면 맨 위 after() 가 먼저 돌아
+  // 뒤에 등록되는 테스트가 닫힌 서버 · 저장소를 만난다(앞 테스트만 필터링해 돌리면 늘 그렇다)
   const lateAwaits: number[] = [];
   const awaits = (n: ts.Node): boolean => ts.isAwaitExpression(n) || (ts.isForOfStatement(n) && !!n.awaitModifier) || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => awaits(c) || undefined));
   // 줄 안 어디서든(for 로 여럿 등록하는 것까지) test(…) 를 부르면 등록한 것이다. 함수 안은 그 함수가 불릴 때라 보지 않는다
@@ -236,7 +236,7 @@ function scanTest(rel: string) {
   return { rel, requireCache, swaps, lateAwaits };
 }
 
-// 순환: 강하게 이어진 덩어리(Tarjan) 안의 선
+// 순환: 강한 연결 요소(Tarjan) 안의 선
 function cycleEdges(graph: Map<string, Set<string>>) {
   let index = 0;
   const idx = new Map<string, number>();
@@ -305,7 +305,7 @@ function scan() {
     requireCache: perFile(tests, (f) => f.requireCache),
     methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
     lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
-    // 실행 중 경로를 파일 자리에서 세는 파일(import.meta.dirname, 주석은 뺀다)
+    // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)
     dirnameUse: sources.map((f) => f.rel).filter((rel) => /import\.meta\.dirname/.test(fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\/\/.*$/gm, ""))),
     // 어느 줄인가(진단용. 기준선은 파일만 본다)
     methodSwapLines: Object.fromEntries(tests.filter((f) => f.swaps.length).map((f) => [f.rel, f.swaps])),
@@ -320,6 +320,6 @@ if (import.meta.main) {
   console.log(`파일 ${r.files} · 층 모름 ${r.unknownLayer.length} · 글자가 아닌 부름 ${r.unseen.length}`);
   console.log(`방향 위반 ${r.direction.length} · 순환 선 ${r.cycles.length}`);
   console.log(`지연 부름 ${total(r.lazyRequire)}(${Object.keys(r.lazyRequire).length}개 파일) · config 꺼내 두기 ${total(r.configCapture)}(${Object.keys(r.configCapture).length}개 파일)`);
-  console.log(`require.cache ${total(r.requireCache)}(${Object.keys(r.requireCache).length}개 파일) · 메서드 바꿔 끼우기 ${r.methodSwap.length}개 파일`);
+  console.log(`require.cache ${total(r.requireCache)}(${Object.keys(r.requireCache).length}개 파일) · 메서드 교체 ${r.methodSwap.length}개 파일`);
   if (process.argv[2] === "--json") console.log(JSON.stringify(r, null, 2));
 }

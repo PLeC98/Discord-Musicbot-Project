@@ -1,6 +1,6 @@
-// src/ui/queue-display.ts — 대기열을 보여 주는 자리들의 공통 생김새.
+// src/ui/queue-display.ts — 대기열을 보여 주는 곳들의 공통 생김새.
 //
-// `/queue`와 대기열 버튼이 거의 같은 임베드를 각자 만들고 있었다(한쪽만 고치면 표시가 갈린다).
+// `/queue`와 대기열 버튼이 거의 같은 임베드를 각자 만들고 있었다(한쪽만 고치면 표시가 달라진다).
 // 줄 만드는 일을 이 모듈로 모았으므로, 규칙은 여기서 잠근다.
 
 import { test } from "node:test";
@@ -35,12 +35,12 @@ test("점프 설명: 아티스트 | 길이 | 요청자 이름", () => {
   assert.equal(jumpDescription(song({ autoplay: true })), `가수 | 1:40 | ${AUTOPLAY_MARK}`);
 });
 
-test("점프 설명: 라이브는 길이 자리에 🔴LIVE", () => {
+test("점프 설명: 라이브는 길이 위치에 🔴LIVE", () => {
   assert.equal(jumpDescription(song({ isLive: true, duration: 0, requestedBy: { id: "u1", username: "PLeC" } })), "가수 | 🔴LIVE | PLeC");
   assert.equal(jumpDescription(song({ artist: undefined, isLive: true, duration: 0 })), "🔴LIVE");
 });
 
-// 복원된 곡은 세션에 id만 남아 이름을 모른다 — 멘션을 날것으로 보이느니 적지 않는다.
+// 복원된 곡은 세션에 id만 남아 이름을 모른다 — 멘션을 원본 그대로 보이느니 적지 않는다.
 test("점프 설명: 이름을 모르면 요청자를 적지 않는다", () => {
   assert.equal(jumpDescription(song({ requestedBy: { id: "u1" } })), "가수 | 1:40");
 });

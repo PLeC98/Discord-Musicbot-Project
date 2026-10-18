@@ -1,8 +1,8 @@
-// yt-dlp 문장을 가르는 두 쓰임을 한 표로 본다.
+// yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
 //
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(classify)는 그 이름으로 정해진다.
-// 재시도 · 폴백(YouTube.is*Error)은 같은 문장을 따로 가른다. 두 쓰임이 같은 문장을 같은 뜻으로 가르는지 이 표가 본다.
-// "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 가르던 것이다.
+// 재시도 · 폴백(YouTube.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
+// "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 구분하던 것이다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ import { ytDlpError } from "../helpers/errors.ts";
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;
 const F = false;
-// 문장, 분류, 판별 칸(내려감 · 연령 제한 · 클라이언트 탓 · 낡은 주소 · 건너뛴 클라이언트)
+// 문장, 분류, 판별 열(내려감 · 연령 제한 · 클라이언트 탓 · 낡은 주소 · 건너뛴 클라이언트)
 type Row = [msg: string, kind: string, gone: boolean, age: boolean, fault: boolean, stale: boolean, skipped: boolean];
 const TABLE: Row[] = [
   // 영상이 없는 경우
@@ -25,7 +25,7 @@ const TABLE: Row[] = [
   // 연령 제한 · 봇 감지 · 쿠키
   ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-no-cookies", F, T, F, F, F], // 고친 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
   ["ERROR: Sign in to confirm you're not a bot", "yt-bot-check", F, F, F, F, F],
-  ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 가르지 않는다
+  ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 구분하지 않는다
   ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
   // 클라이언트 · 포맷
   ["ERROR: Requested format is not available", "unknown-error", F, F, T, F, F],
@@ -47,12 +47,12 @@ const TABLE: Row[] = [
 // ytdlpSpawn 이 내는 모양: 글은 그대로, 이름은 codeOf
 const shaped = ytDlpError;
 
-test("오류 분류 표: yt-dlp 가 단 이름으로 가른 종류와 판별 칸", () => {
+test("오류 분류 표: yt-dlp 가 단 이름으로 구분한 종류와 판별 열", () => {
   const actual = TABLE.map(([msg]) => {
     const e = new Error(msg);
     return [msg, errorKind(shaped(msg)), YouTube.isVideoUnavailableError(e), YouTube.isAgeRestrictedError(e), YouTube.isClientFault(e), YouTube.isStaleMediaError(e), YouTube.isSkippedClientError(e)];
   });
-  assert.deepEqual(actual, TABLE); // 한 번에 비교해 어긋난 칸을 전부 보인다
+  assert.deepEqual(actual, TABLE); // 한 번에 비교해 어긋난 셀을 전부 보인다
 });
 
 test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는 message 만 본다", () => {
@@ -61,7 +61,7 @@ test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는
   assert.equal(errorKind(e), "unknown-error");
 });
 
-// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(예전에는 낱말로 갈라 프로그램 버그가 엉뚱한 종류가 됐다)
+// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(예전에는 낱말로 구분해 프로그램 버그가 엉뚱한 종류가 됐다)
 test("classify 는 이름이 없으면 unknown. 문자열과 빈 값도 받는다", () => {
   for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
     assert.equal(errorKind(new Error(msg)), "unknown-error", msg);
@@ -71,7 +71,7 @@ test("classify 는 이름이 없으면 unknown. 문자열과 빈 값도 받는�
   assert.equal(errorKind(undefined), "unknown-error");
 });
 
-// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 칸과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지 · 지역 차단 ·
+// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 열과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지 · 지역 차단 ·
 // 요청 제한 · 네트워크 · ffmpeg)도 여기서 붙는다. yt-dlp 가 쓰지 않는 문장(우리 코드 · 프로그램 버그)에는 이름이 없다
 test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
   const CODES: Record<string, string | null> = {
@@ -133,7 +133,7 @@ test("errorKind 는 이름(code)이 있으면 글보다 먼저 본다", () => {
   assert.equal(errorKind(Object.assign(new Error("fetch failed"), { code: "ECONNRESET" })), "network-error", "모르는 이름이면 글로 가른다");
 });
 
-test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코드 번호 차례로 이름을 본다", () => {
+test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코드 번호 순서로 이름을 본다", () => {
   // 글에 기대지 않는다: 글만 보면 unknown 인 것들
   const quiet = (code: string | number) => Object.assign(new Error("무언가"), { code });
   assert.equal(errorKind(codedError("stream-failed", "무언가")), "stream-failed");
@@ -143,7 +143,7 @@ test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코�
   assert.equal(errorKind(new Error("익명 상태를 얻지 못했습니다", { cause: new TypeError("fetch failed", { cause: quiet("ECONNREFUSED") }) })), "network-error");
   assert.equal(errorKind(Object.assign(new Error("무언가"), { name: "TimeoutError" })), "network-error", "AbortSignal.timeout");
   assert.equal(errorKind(Object.assign(new Error("무언가"), { name: "AbortError" })), "unknown-error", "음성 연결 기다림이 끝난 것은 네트워크가 아니다");
-  // 디스코드의 권한 거절은 거절된 요청의 주소로 가른다
+  // 디스코드의 권한 거절은 거절된 요청의 주소로 구분한다
   const refused = (code: number, url?: string) => Object.assign(new Error("Missing Permissions"), { code, url });
   assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/channels/123/voice-status")), "permission-voice");
   assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/channels/123/messages")), "permission-text");

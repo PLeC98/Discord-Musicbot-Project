@@ -1,5 +1,5 @@
 // 음성 연결 한 가닥. 라이브러리의 연결 전이와 게이트웨이가 알린 봇의 음성 상태를 한 곳에서 받아 다음 상태와 할 일을 정한다.
-// 상태 · 전이 표와 정한 것은 notes/ref-voice-link.md. 복구 · 강제 퇴장 · 채널 사라짐 · 이동 · 서버 음소거를 여기서만 가른다.
+// 상태 · 전이 표와 정한 것은 notes/ref-voice-link.md. 복구 · 강제 퇴장 · 채널 사라짐 · 이동 · 서버 음소거를 여기서만 구분한다.
 
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState, type VoiceConnection, type VoiceConnectionState } from "@discordjs/voice";
 import type { VoiceBasedChannel, VoiceState } from "discord.js";
@@ -13,7 +13,7 @@ const log = logger.child({ category: "voice" });
 
 /** 음성 라이브러리에서 부르는 것 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
-/** 연결을 맡으며 읽고 바꾸는 플레이어 칸 */
+/** 연결을 맡으며 읽고 바꾸는 플레이어 필드 */
 type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "pauseFor" | "resumeFor" | "movedVoiceStatus">;
 type LinkState = "idle" | "joining" | "ready" | "waiting" | "recovering" | "closed";
 /** 게이트웨이의 봇 음성 상태에서 일어난 일. 화면 · 혼자 남음은 부른 쪽이 맞춘다 */
@@ -34,7 +34,7 @@ const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되�
 const guildName = (p: VoiceHost) => p.guild?.name ?? p.guild?.id;
 const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id ?? "?";
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
-// 빠짐 · 사라짐으로 버릴 때(세션 지움)
+// 빠짐 · 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
 
@@ -49,14 +49,14 @@ class VoiceLink {
   waitCloseCode: number | null = null;
   recoveryAttempts = 0;
   maxRecoveryAttempts = 5;
-  // 기다리는 시간. 시험이 줄인다
+  // 기다리는 시간. 테스트가 줄인다
   waitStartMs = 5000; // 끊긴 뒤 라이브러리가 다시 붙기 시작하기까지(Signalling · Connecting)
   waitReadyMs = 20_000; // 다시 붙기 시작한 뒤 Ready 까지
   recoveryRetryDelayMs = 3000; // 복구 시도 사이
   attemptSpanMs = RECOVER_READY_MS + 3000; // 복구 시도 하나가 쓰는 시간의 하한(곧바로 실패해도 이만큼 뒤에 다음 시도)
   lastMove: { from: string; to: string; at: number } | null = null;
   lastBounceFix: number | null = null;
-  /** 라이브러리가 고치지 않고 내보낸 마지막 참가 요청(어댑터가 알린다). 되돌림을 사람의 이동과 가른다 */
+  /** 라이브러리가 고치지 않고 내보낸 마지막 참가 요청(어댑터가 알린다). 되돌림을 사람의 이동과 구분한다 */
   lastPlainJoin: { channelId: string; at: number } | null = null;
   /** 답 없는 참가를 풀려고 스스로 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
   selfLeave: string | null = null;
@@ -340,7 +340,7 @@ class VoiceLink {
     return connection.state.status === VoiceConnectionStatus.Connecting;
   }
 
-  // 서버에 아직 있는 음성 채널. 지워졌으면 없다
+  // 서버에 아직 있는 음성 채널. 삭제됐으면 없다
   _liveChannel() {
     const channelId = this.player.voiceChannel?.id;
     return channelId ? this.player.guild.channels.cache.get(channelId) : null;
@@ -354,7 +354,7 @@ class VoiceLink {
 
   // ── 게이트웨이: 봇 자신의 음성 상태 ──
 
-  /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 가른다 */
+  /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 구분한다 */
   onBotState(oldState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress">, newState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress" | "channel">): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
@@ -415,12 +415,12 @@ class VoiceLink {
     }
   }
 
-  /** 봇이 음성에서 쫓겨났다. 세션을 지우고 끝난 패널로 버린다 */
+  /** 봇이 음성에서 쫓겨났다. 세션을 삭제하고 끝난 패널로 버린다 */
   forcedOut() {
     this._end(FORCED_OUT);
   }
 
-  /** 봇의 음성 채널이 사라졌다. 세션을 지우고 버린다 */
+  /** 봇의 음성 채널이 사라졌다. 세션을 삭제하고 버린다 */
   channelGone() {
     this._end(CHANNEL_GONE);
   }

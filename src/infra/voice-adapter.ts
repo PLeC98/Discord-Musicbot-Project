@@ -8,7 +8,7 @@
 
 import type { DiscordGatewayAdapterCreator } from "@discordjs/voice";
 
-// 게이트웨이로 보내는 것. 여기서 보는 칸만
+// 게이트웨이로 보내는 것. 여기서 보는 필드만
 type GatewayPayload = { op?: number; d?: { channel_id?: string | null; [field: string]: unknown } };
 
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 이동 · 나가기

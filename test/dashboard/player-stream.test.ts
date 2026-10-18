@@ -94,7 +94,7 @@ test("연결 캡: 초과분은 429, 정리 후 재접속 가능", () => {
   DashboardEvents.addClient(over, sees("evG5"), "evU4");
   assert.equal(over.statusCode, 429, "캡 초과 거부");
 
-  held[0].emit("close"); // 한 자리 반환
+  held[0].emit("close"); // 슬롯 하나 반환
   const retry = makeRes();
   DashboardEvents.addClient(retry, sees("evG5"), "evU4");
   assert.notEqual(retry.statusCode, 429, "정리 후 재접속 허용");
@@ -105,7 +105,7 @@ test("연결 캡: 초과분은 429, 정리 후 재접속 가능", () => {
 });
 
 // 한 연결이 여러 서버를 받는다. 어느 서버의 변화인지 없으면 전부 다시 조회해야 하고,
-// 재생 바 · 서버 화면이 자기 서버만 골라낼 수 없다.
+// 재생 바 · 서버 화면이 자기 서버만 필터링할 수 없다.
 test("넛지 페이로드에 guildId가 실린다", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG9", "evG8"), "evU9");
@@ -167,7 +167,7 @@ test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다
 });
 
 // 운영 조절값을 저장하면 바로 먹는다. 상한 · 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
-test("설정 객체를 넘기면 상한 · 하트비트를 다시 켜지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
+test("설정 객체를 넘기면 상한 · 하트비트를 다시 시작하지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const options = { heartbeatMs: 60_000, maxPerUser: 1, coalesceMs: 250 };
   const hub = createPlayerStream(options);

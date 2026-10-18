@@ -1,4 +1,4 @@
-// 반복 버튼의 툴팁: 지금 모드와 누르면 바뀔 모드(이름표는 디스코드 패널의 반복 버튼과 같다). 라이브가 있으면 못 누르는 까닭
+// 반복 버튼의 툴팁: 지금 모드와 누르면 바뀔 모드(라벨은 디스코드 패널의 반복 버튼과 같다). 라이브가 있으면 못 누르는 까닭
 import { nextLoopMode, type Loop } from "../../../src/rules/loop-cycle.ts";
 import { modeOf } from "../../../src/dashboard/contract/player.ts";
 import { loopLabel } from "../../../src/ui/text/ko/panel.ts";

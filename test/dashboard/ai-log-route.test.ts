@@ -1,4 +1,4 @@
-// src/dashboard/routes/ai-log.ts · ai-log-stream.ts — AI 리퀘스트 로그 목록 · 한 줄 · 지우기 · 사용량 통계 · 실시간 연결
+// src/dashboard/routes/ai-log.ts · ai-log-stream.ts — AI 리퀘스트 로그 목록 · 한 줄 · 삭제 · 사용량 통계 · 실시간 연결
 
 process.env.OWNER_ID = "owner";
 
@@ -44,7 +44,7 @@ const get = async <T>(route: string) => {
   return { status: res.status, json: (await res.json()) as T };
 };
 
-test("목록: 서버 이름을 붙이고, 거르기 · 쪽 넘기기 · 저장 상태를 준다", async () => {
+test("목록: 서버 이름을 붙이고, 필터 · 페이지 넘기기 · 저장 상태를 준다", async () => {
   requests.clearRequests();
   add();
   add({ source: "models", model: "", name: "", guildId: undefined, ok: false, status: 503, error: "HTTP 503" });
@@ -68,7 +68,7 @@ test("한 줄: 원문까지, 없는 줄은 404", async () => {
   assert.deepEqual([missing.status, missing.json.code], [404, "ai-log-not-found"]);
 });
 
-test("로그를 지워도 통계는 남는다. 통계: 기간 · 출처 · 서버 이름", async () => {
+test("로그를 삭제해도 통계는 남는다. 통계: 기간 · 출처 · 서버 이름", async () => {
   requests.clearRequests();
   requests.clearUsage();
   add();

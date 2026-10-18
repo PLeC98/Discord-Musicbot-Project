@@ -1,20 +1,20 @@
 <template>
   <!-- 로그인 배경 하나를 틀(부모 크기)에 그린다. 로그인 화면과 운영자 패널의 화면 판(로그인 화면으로 보기)이 같이 쓴다.
-       파일은 봇이 크롭 · 구간을 적용해 구운 것이라 꽉 채우고(object-fit cover) 보일 자리만 고른다. 정지 그림은 폭별 그림에서 틀 폭 × 배율에 맞는 것.
-       영상은 HLS(코덱마다 목록 하나). 고르는 규칙 · 내리기는 login-background/pick, 능동 조절은 adapt(adaptive 일 때만, 로그인 화면).
-       흐림은 덮개(backdrop-filter, 틀 폭의 %), 덮개는 화면 색을 진하기만큼. 장면 색은 장면이 바뀔 때만 1초 동안 넘어간다:
-       paintTheme 이면 화면 색 시스템(theme.ts setPageSeed)을 칠하고(효과 full), 아니면 · 효과 cover 면 덮개 색만 넘긴다.
-       반복은 브라우저에 맡기고(loop) 끝에 닿기 전 · 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기 · 덮개 색 · 검게 · 흐림)를 걸고 거둔다.
+       파일은 봇이 크롭 · 구간을 적용해 구운 것이라 꽉 채우고(object-fit cover) 보일 위치만 정한다. 정지 그림은 폭별 그림에서 틀 폭 × 배율에 맞는 것.
+       영상은 HLS(코덱마다 목록 하나). 선택 규칙 · 내리기는 login-background/pick, 능동 조절은 adapt(adaptive 일 때만, 로그인 화면).
+       흐림은 오버레이(backdrop-filter, 틀 폭의 %), 오버레이는 화면 색을 진하기만큼. 장면 색은 장면이 바뀔 때만 1초 동안 넘어간다:
+       paintTheme 이면 화면 색 시스템(theme.ts setPageSeed)을 칠하고(효과 full), 아니면 · 효과 cover 면 오버레이 색만 넘긴다.
+       반복은 브라우저에 맡기고(loop) 끝에 닿기 전 · 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기 · 오버레이 색 · 검게 · 흐림)를 적용하고 해제한다.
        영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60 을 오가며 장면을 버리지 않게, research §11.8 A9) -->
-  <!-- 틀 · 흐리는 층은 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 흐려 모서리 밖까지 번진다) -->
-  <!-- 꾸밈 층이다: 안의 효과 층(z-index)이 바깥(로그인 단추 묶음) 위로 올라가지 않게 쌓임을 가두고(isolate), 누르기는 통과시킨다 -->
+  <!-- 틀 · 흐리는 레이어는 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 흐려 모서리 밖까지 번진다) -->
+  <!-- 꾸밈 레이어다: 안의 효과 레이어(z-index)가 바깥(로그인 버튼 그룹) 위로 올라가지 않게 쌓임을 가두고(isolate), 누르기는 통과시킨다 -->
   <div ref="frameEl" class="absolute inset-0 isolate overflow-hidden rounded-[inherit] bg-black pointer-events-none" aria-hidden="true">
     <img v-if="still" :src="still.src" :srcset="still.srcset" :sizes="`${Math.max(1, Math.round(frame.width))}px`" alt="" class="absolute inset-0 size-full object-cover" :style="place" draggable="false" />
     <video v-if="codec" :key="codec" ref="videoEl" muted playsinline autoplay loop preload="auto" class="absolute inset-0 size-full object-cover transition-opacity duration-500" :class="started ? 'opacity-100' : 'opacity-0'" :style="place" @playing="onPlaying" @waiting="adapter?.waited()" @stalled="adapter?.waited()" @pause="adapter?.paused(true)" @play="adapter?.paused(false)"></video>
     <canvas ref="freezeEl" class="absolute inset-0 size-full object-cover opacity-0" :style="place"></canvas>
     <div ref="pulseEl" class="absolute inset-0 rounded-[inherit] opacity-0" :style="{ backdropFilter: `blur(${frame.width * 0.03}px)` }"></div>
     <div class="absolute inset-0 rounded-[inherit]" :style="{ backgroundColor: `color-mix(in srgb, var(--md-surface) ${look.cover}%, transparent)`, backdropFilter: blurPx ? `blur(${blurPx}px)` : undefined }"></div>
-    <!-- 덮개 색만 넘길 때: 두 장을 겹쳐 위 장의 불투명도만 바꾼다(브라우저가 페이지를 다시 계산하지 않고 합성만 한다) -->
+    <!-- 오버레이 색만 넘길 때: 두 장을 겹쳐 위 장의 불투명도만 바꾼다(브라우저가 페이지를 다시 계산하지 않고 합성만 한다) -->
     <div v-for="(sheet, i) in sheets" :key="i" class="absolute inset-0 rounded-[inherit] will-change-[opacity]" :style="{ backgroundColor: sheet.color ? `color-mix(in srgb, ${sheet.color} ${look.cover}%, transparent)` : 'transparent', opacity: sheet.on ? 1 : 0, zIndex: sheet.top ? 1 : 0, transition: sheet.ms ? `opacity ${sheet.ms}ms linear` : 'none' }"></div>
     <div ref="dipEl" class="absolute inset-0 z-2 rounded-[inherit] opacity-0" :style="{ backgroundColor: look.seam.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
     <span v-if="holding" class="hold-tick absolute left-0 top-0 z-3 size-px"></span>
@@ -33,9 +33,9 @@ import { dark, releasePageSeed, setPageSeed } from "../theme/theme.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 
 type Shown = Exclude<LoginBackground, { kind: "none" }>;
-/** bg: 그릴 배경, look: 화면 값과 보일 자리, adaptive: 능동 조절(로그인 화면), paintTheme: 화면 색 시스템을 칠한다(로그인 화면) */
+/** bg: 그릴 배경, look: 화면 값과 보일 위치, adaptive: 능동 조절(로그인 화면), paintTheme: 화면 색 시스템을 칠한다(로그인 화면) */
 const props = withDefaults(defineProps<{ bg: Shown; look: LoginBackgroundLook; adaptive?: boolean; paintTheme?: boolean }>(), { adaptive: false, paintTheme: false });
-/** stale: 파일을 못 받았다(배경이 바뀌었을 수 있다. 부모가 배경 정보를 다시 읽는다) */
+/** stale: 파일을 못 불러왔다(배경이 바뀌었을 수 있다. 부모가 배경 정보를 다시 읽는다) */
 const emit = defineEmits<{ stale: [] }>();
 
 /** 장면 색이 넘어가는 시간 · 처음 색 */
@@ -43,7 +43,7 @@ const SCENE_MS = 1000;
 const FIRST_MS = 700;
 /** 멈춘 장면 겹치기를 뜨는 때(끝에서 몇 장면 앞) */
 const FREEZE_FRAMES = 1.5;
-/** 기억한 칸(다음 방문의 시작점). 배경 · 내려갈 차례가 같을 때만 쓴다 */
+/** 기억한 단계(다음 방문의 시작점). 배경 · 내려갈 순서가 같을 때만 쓴다 */
 const STEP_KEY = "login-bg:step";
 
 const frameEl = ref<HTMLElement | null>(null);
@@ -57,14 +57,14 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const place = computed(() => ({ objectPosition: `${props.look.position.x}% ${props.look.position.y}%` }));
 /** 흐림(px): 화면 폭의 % 라 틀 폭에 곱한다(작은 틀에서는 그만큼 작게) */
 const blurPx = computed(() => (frame.width * props.look.blur) / 100);
-/** 정지 그림: 폭별 그림(작은 것부터). 틀 폭 × 배율에 맞는 것은 브라우저가 고른다 */
+/** 정지 그림: 폭별 그림(작은 것부터). 틀 폭 × 배율에 맞는 것은 브라우저가 선택한다 */
 const still = computed(() => {
   const stills = [...props.bg.stills].sort((a, b) => a.width - b.width);
   if (!stills.length) return null;
   return { src: stills[stills.length - 1].url, srcset: stills.map((one) => `${one.url} ${one.width}w`).join(", ") };
 });
 
-// ── 내려갈 차례 · 지금 칸 ──
+// ── 내려갈 순서 · 지금 단계 ──
 
 const ladder = shallowRef<Step[]>([]);
 const index = ref(0);
@@ -94,7 +94,7 @@ async function plan() {
   index.value = props.adaptive ? Math.min(recall() ?? 0, ladder.value.length - 1) : 0;
 }
 
-/** 다른 코덱의 첫 칸(그 코덱을 못 틀 때). 없으면 정지 그림 */
+/** 다른 코덱의 첫 단계(그 코덱을 못 틀 때). 없으면 정지 그림 */
 function nextCodec() {
   const now = codec.value;
   const at = ladder.value.findIndex((one, i) => i > index.value && one.codec !== now);
@@ -116,12 +116,12 @@ async function attach() {
   const stream = props.bg.streams.find((one) => one.codec === now.codec);
   if (!stream) return nextCodec();
   const mine = ++attaching;
-  // 늦게 끝난 것이 같은 영상 칸에 붙지 않게(붙였다 떼면 뒤에 붙인 것까지 떨어진다)
+  // 늦게 끝난 것이 같은 영상 단계에 붙지 않게(붙였다 떼면 뒤에 붙인 것까지 떨어진다)
   const got = await playHls(video, stream.url, now.cap, () => mine === attaching, {
     onStall: () => adapter?.waited(),
     onFatal: ({ load }) => {
       if (mine !== attaching) return;
-      // 받기 오류면 배경이 바뀌었을 수 있다(부모가 다시 읽는다). 그동안 · 같은 배경이면 다음 코덱, 다 실패하면 정지 그림
+      // 불러오기 오류면 배경이 바뀌었을 수 있다(부모가 다시 읽는다). 그동안 · 같은 배경이면 다음 코덱, 다 실패하면 정지 그림
       if (load) emit("stale");
       nextCodec();
     },
@@ -129,7 +129,7 @@ async function attach() {
   if (mine === attaching) player = got;
   else got.destroy();
 }
-// 영상 칸이 새로 생기거나(코덱이 바뀜) 목록이 바뀌면(다른 배경) 붙인다. 붙이는 곳은 여기 하나(멈춤 감시의 다시 붙이기 말고). 같은 코덱이면 상한만 바꾼다
+// 영상 단계가 새로 생기거나(코덱이 바뀜) 목록이 바뀌면(다른 배경) 붙인다. 붙이는 곳은 여기 하나(멈춤 감시의 다시 붙이기 말고). 같은 코덱이면 상한만 바꾼다
 const streamUrl = computed(() => (props.bg.kind === "video" && codec.value ? (props.bg.streams.find((one) => one.codec === codec.value)?.url ?? null) : null));
 watch([videoEl, streamUrl], () => void attach(), { flush: "post" });
 watch(
@@ -142,7 +142,7 @@ watch(
 const OWNER = Symbol("login-backdrop");
 const sheets = reactive([0, 1].map(() => ({ color: "", on: false, top: false, ms: 0 })));
 let topSheet = 0;
-/** 덮개 색만 넘긴다(위 장을 바꿔 그 장의 불투명도를 올린다) */
+/** 오버레이 색만 넘긴다(위 장을 바꿔 그 장의 불투명도를 올린다) */
 function coverTo(hex: string | null, ms: number) {
   const surface = hex ? paletteOf(argbFromHex(hex), dark.value)["--md-surface"] : "";
   topSheet = 1 - topSheet;
@@ -157,7 +157,7 @@ const clearCover = () => sheets.forEach((one) => Object.assign(one, { color: "",
 const scenes = computed(() => (props.bg.kind === "video" ? props.bg.scenes : []));
 const sceneAt = (t: number) => scenes.value.reduce((found, scene, i) => (t >= scene.at ? i : found), -1);
 const colorAt = (i: number) => (i >= 0 ? (scenes.value[i]?.color ?? props.bg.color) : props.bg.color);
-/** 이 칸의 효과로 칠하는 법: 화면 전체(테마) · 덮개만 · 고정. 영상 따라 색 바꾸기를 끄면 고정 */
+/** 이 단계의 효과로 칠하는 법: 화면 전체(테마) · 오버레이만 · 고정. 영상 따라 색 바꾸기를 끄면 고정 */
 const effect = computed(() => (props.look.follow && codec.value ? (step.value?.effect ?? "fixed") : "fixed"));
 let lastScene = -2;
 function paintScene(i: number, ms: number) {
@@ -215,7 +215,7 @@ function follow() {
     }
   };
   const at = (t: number) => {
-    // 처음으로 돌아갔다: 건 효과를 거둔다
+    // 처음으로 돌아갔다: 건 효과를 해제한다
     if (t + 0.5 < lastTime && armed) release(props.look.seam.seconds * 1000);
     lastTime = t;
     const i = sceneAt(t);
@@ -259,7 +259,7 @@ function onVisibility() {
   adapter?.hidden(document.hidden);
   if (!document.hidden && inView.value && videoEl.value?.paused)
     void videoEl.value.play().catch(() => {
-      // 자동 재생이 막혔다(정지 그림이 그대로 보인다)
+      // 자동재생이 막혔다(정지 그림이 그대로 보인다)
     });
 }
 
@@ -282,7 +282,7 @@ function startAdapting() {
     fps: rungs[0]?.frameRate ?? 30,
   });
 }
-// 보이는 동안 재생 위치가 6초 그대로면 다시 틀고, 다음에도 그대로면 그 자리부터 다시 붙인다
+// 보이는 동안 재생 위치가 6초 그대로면 다시 틀고, 다음에도 그대로면 그 위치부터 다시 붙인다
 let guard = 0;
 let stuckFor = 0;
 let tries = 0;
@@ -319,8 +319,8 @@ async function begin() {
   paintScene(-1, FIRST_MS);
   startAdapting();
 }
-// 다른 배경이 오거나 같은 배경의 목록이 늘면(썸네일 → H.264 → AV1 · VP9, 화면 판) 차례부터 다시. 흐림의 1080p 상한도 이때 본다(흐림을 바꾸는 동안은 다시 정하지 않는다).
-// 로그인 화면은 같은 배경이면 받은 그대로라(다음 방문부터) 여기에 오지 않는다
+// 다른 배경이 오거나 같은 배경의 목록이 늘면(썸네일 → H.264 → AV1 · VP9, 화면 판) 순서를 처음부터 다시. 흐림의 1080p 상한도 이때 본다(흐림을 바꾸는 동안은 다시 정하지 않는다).
+// 로그인 화면은 같은 배경이면 불러온 그대로라(다음 방문부터) 여기에 오지 않는다
 watch(
   () => `${props.bg.id}|${props.bg.kind === "video" ? props.bg.streams.map((one) => one.codec).join(",") : ""}`,
   () => void begin(),
@@ -335,7 +335,7 @@ watch(inView, (on) => {
   if (!on) video.pause();
   else if (!document.hidden)
     void video.play().catch(() => {
-      // 자동 재생이 막혔다(정지 그림이 그대로 보인다)
+      // 자동재생이 막혔다(정지 그림이 그대로 보인다)
     });
 });
 

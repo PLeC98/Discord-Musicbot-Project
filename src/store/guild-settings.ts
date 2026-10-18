@@ -5,7 +5,7 @@ import { settingsDb } from "./settings-db.ts";
 import config from "../config/index.ts";
 import { codeOf } from "../rules/error-kind.ts";
 
-// 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다
+// 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
 
 /** 서버별 SponsorBlock 설정. null 은 전역을 따른다 */
@@ -19,7 +19,7 @@ function unlessNotOpen(error: unknown) {
   if (codeOf(error) === "DB_NOT_OPEN") throw error;
 }
 
-// 서버 설정 문서. 칸마다 따로 본다: 한 칸이 틀렸다고 다른 칸까지 버리지 않는다(틀린 칸은 정하지 않은 것으로)
+// 서버 설정 문서. 필드마다 따로 본다: 한 필드가 틀렸다고 다른 필드까지 버리지 않는다(틀린 필드는 지정하지 않은 것으로)
 const FIELDS = {
   botChannelId: z.string().min(1),
   djRoleIds: z.array(z.string().min(1)).min(1),
@@ -28,7 +28,7 @@ const FIELDS = {
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
-// 이미 알린 틀린 문서(서버 · 내용). 곡마다 읽는 칸이 있어 같은 문서를 되풀이해 알리지 않는다
+// 이미 알린 틀린 문서(서버 · 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
 const warned = new Set<string>();
 function warnOnce(guildId: string, raw: string, line: string) {
   const key = `${guildId}|${raw}`;
@@ -37,7 +37,7 @@ function warnOnce(guildId: string, raw: string, line: string) {
   log.warn(line);
 }
 
-// 문서를 읽어 칸마다 맞춘다. 틀린 칸은 버리고 한 줄 남긴다
+// 문서를 읽어 필드마다 맞춘다. 틀린 필드는 버리고 한 줄 남긴다
 function shapeOf(guildId: string, raw: string): GuildDoc {
   let parsed: unknown;
   try {
@@ -64,7 +64,7 @@ function readDoc(guildId: string): GuildDoc {
   return row ? shapeOf(guildId, row.data_json) : {};
 }
 
-// 한 칸을 바꿔 쓴다. 읽고 쓰는 사이에 다른 쓰기가 끼지 않게 한 트랜잭션. 빈 문서가 되면 줄을 지운다
+// 한 필드를 바꿔 쓴다. 읽고 쓰는 사이에 다른 쓰기가 끼지 않게 한 트랜잭션. 빈 문서가 되면 행을 삭제한다
 function writeField<K extends keyof GuildDoc>(guildId: string, key: K, value: GuildDoc[K] | undefined) {
   conn().transaction(() => {
     const doc = readDoc(guildId);
@@ -83,7 +83,7 @@ function writeField<K extends keyof GuildDoc>(guildId: string, key: K, value: Gu
   })();
 }
 
-// 서버 설정 문서를 한 칸씩 읽고 쓴다. 아래 함수들이 메모리 캐시를 얹는다
+// 서버 설정 문서를 한 필드씩 읽고 쓴다. 아래 함수들이 메모리 캐시를 얹는다
 const table = {
   getBotChannel(guildId: string): string | null {
     return readDoc(guildId).botChannelId ?? null;
@@ -135,25 +135,25 @@ const table = {
 
 // ── 내보내기 · 가져오기 ──
 
-/** 서버마다의 문서 전부(틀린 칸은 뺀 꼴) */
+/** 서버마다의 문서 전부(틀린 필드는 뺀 형태) */
 function allDocs(): Record<string, GuildDoc> {
   const rows = conn().prepare("SELECT guild_id, data_json FROM guild_settings ORDER BY guild_id").all() as { guild_id: string; data_json: string }[];
   return Object.fromEntries(rows.map((row) => [row.guild_id, shapeOf(row.guild_id, row.data_json)]).filter(([, doc]) => Object.keys(doc).length));
 }
 
-/** 받은 서버별 설정 묶음의 문제 줄들. 서버 ID 는 숫자, 칸은 아는 것만, 값은 읽을 때와 같은 검사 */
+/** 받은 서버별 설정의 문제 줄들. 서버 ID 는 숫자, 필드는 아는 것만, 값은 읽을 때와 같은 검사 */
 function docsProblems(value: unknown): string[] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return ["서버별 설정이 서버 ID → 설정 꼴이 아닙니다."];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return ["서버별 설정이 서버 ID → 설정 형식이 아닙니다."];
   const problems: string[] = [];
   for (const [guildId, doc] of Object.entries(value)) {
     if (!/^\d{15,25}$/.test(guildId)) problems.push(`${guildId}: 서버 ID 가 아닙니다.`);
     if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
-      problems.push(`${guildId}: 설정이 표 꼴이 아닙니다.`);
+      problems.push(`${guildId}: 설정이 객체 형식이 아닙니다.`);
       continue;
     }
     for (const [key, field] of Object.entries(doc)) {
       const schema = FIELDS[key as keyof typeof FIELDS];
-      if (!schema) problems.push(`${guildId}.${key}: 모르는 칸입니다.`);
+      if (!schema) problems.push(`${guildId}.${key}: 모르는 필드입니다.`);
       else if (!schema.safeParse(field).success) problems.push(`${guildId}.${key}: 값이 틀렸습니다.`);
     }
   }
@@ -169,7 +169,7 @@ function replaceAll(docs: Record<string, GuildDoc>) {
   })();
 }
 
-// 서버 · 칸마다 담아 두는 값. 키는 `${guildId}_${칸}`
+// 서버 · 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
 type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting };
 
 const cache = new Map<string, Cached[keyof Cached]>();
@@ -261,7 +261,7 @@ async function clearDjRoles(guildId: string) {
 }
 
 // ── 재생목록 한 번에 넣는 곡 수 ─────────────────────────────────────────────
-// 첫 묶음과 "더 넣기" 선택지 단위를 정한다. 더 넣기 자체는 대기열 상한만 본다.
+// 첫 배치와 "더 넣기" 선택지 단위를 정한다. 더 넣기 자체는 대기열 상한만 본다.
 
 /** 설정할 수 있는 범위와 기본값 */
 function playlistAddLimits() {

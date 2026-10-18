@@ -1,6 +1,6 @@
 // 화면 오른쪽 위의 작은 알림. 저장 · 보내기 같은 조작의 결과(됨 · 실패)와 거절된 까닭을 몇 초 보여 준다.
 // 뜬 알림은 알림함(위 막대 오른쪽 끝의 종)에도 남는다. 페이지를 새로 열면 비는 이 탭만의 기록이다
-// 어느 칸이 틀렸는지 짚는 검사(장르 이름 겹침, 곡 주소 형식 등)는 그 칸 옆에 두고 여기로 보내지 않는다
+// 어느 입력란이 틀렸는지 표시하는 검사(장르 이름 겹침, 곡 주소 형식 등)는 그 입력란 옆에 두고 여기로 보내지 않는다
 
 import { computed, reactive } from "vue";
 import { problemNotice, type ProblemNotice } from "../utils/problem.ts";
@@ -20,12 +20,12 @@ type Toast = Omit<ProblemNotice, "severity"> & { severity: Severity; id: number;
 export const toasts = reactive<Toast[]>([]);
 let nextId = 1;
 
-/** 알림함의 한 줄. 떠 있는 알림이 사라져도 남는다. 새 것이 맨 위 */
+/** 알림함의 한 항목. 떠 있는 알림이 사라져도 남는다. 새 것이 맨 위 */
 type InboxItem = Omit<Toast, "timer" | "ms" | "round"> & { read: boolean };
 export const inbox = reactive<InboxItem[]>([]);
 export const unread = computed(() => inbox.filter((one) => !one.read).length);
 
-// 알림함에 넣는다. 같은 알림이 다시 왔으면 그 줄을 맨 위로 올리고 다시 안 읽음으로
+// 알림함에 넣는다. 같은 알림이 다시 왔으면 그 항목을 맨 위로 올리고 다시 안 읽음으로
 function keep({ id, title, body, detail, codeLine, severity, reportUrl, at }: Toast) {
   const old = inbox.findIndex((one) => one.id === id);
   if (old >= 0) inbox.splice(old, 1);

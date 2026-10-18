@@ -1,5 +1,5 @@
-// 봇 상태 탭의 자식 프로세스(ffmpeg · yt-dlp · 도우미): 어느 서버의 무슨 일인지와 메모리.
-// 메모리는 프로그램을 띄워 읽으므로 15초 칸마다 한 번 재 둔다
+// 봇 상태 탭의 자식 프로세스(ffmpeg · yt-dlp · 헬퍼): 어느 서버의 무슨 일인지와 메모리.
+// 메모리는 프로그램을 실행해 읽으므로 15초 구간마다 한 번 재 둔다
 
 import type { Client } from "discord.js";
 import * as procRegistry from "../../infra/process-registry.ts";
@@ -20,7 +20,7 @@ async function measure() {
   }
 }
 
-/** 칸마다 메모리를 잰다. 끊는 함수를 돌려준다 */
+/** 구간마다 메모리를 잰다. 끊는 함수를 돌려준다 */
 function watchProcesses() {
   return onWindow(() => void measure());
 }
@@ -50,7 +50,7 @@ function processSummary(client: Client, players: { has(guildId: string): boolean
   };
 }
 
-/** 시험: 잰 값을 바로 채운다 */
+/** 테스트: 잰 값을 바로 채운다 */
 const _measure = measure;
 
 export { watchProcesses, processSummary, _measure };

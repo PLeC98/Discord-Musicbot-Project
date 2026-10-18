@@ -1,7 +1,7 @@
 // 테스트가 한 번도 돌지 않던 이벤트 넷의 지금 동작을 고정한다(구조 리팩터링 0-B).
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler · 자동재생 장르는 src/discord/interactions/autoplay).
 //
-// 6단계가 입구를 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 바꿔 끼우지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
+// 6단계가 진입점을 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 교체하지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(봇 문맥의 panels)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
 
 import fs from "node:fs";
@@ -49,7 +49,7 @@ const { sessions } = await import("../../src/store/player-sessions.ts");
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
 
-// 곡 찾기 가짜. 곡 추가 코어에 넘기고, 시험마다 진짜로 되돌린 뒤 필요한 칸만 바꾼다
+// 곡 찾기 가짜. 곡 추가 코어에 넘기고, 테스트마다 진짜로 되돌린 뒤 필요한 필드만 바꾼다
 const fakeLookup = { ...lookup };
 addTracks.useLookup(fakeLookup);
 const resolved: { query: string; context?: string | null; range?: Range }[] = [];
@@ -147,10 +147,10 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
   return { guild, member, client, bot, player, seen, handled };
 }
 
-// 채널 하나. 보낸 것과 지운 것을 모은다
+// 채널 하나. 보낸 것과 삭제한 것을 모은다
 type Payload = { content?: string; components?: Array<{ searching?: string; toJSON?(): unknown }> };
 
-// 안내가 보인 글자(Components V2 의 글자 칸들)
+// 안내가 보인 글자(Components V2 의 글자 컴포넌트들)
 const said = (notice: Notice) => textsOf(noticeReply(notice)).join("\n");
 const textOf = (payload: Payload) => textsOf(payload as { components: Array<{ toJSON(): unknown }> }).join("\n");
 type Sent = { id: string; payload: Payload; deleted: boolean; delete(): Promise<boolean> };
@@ -211,7 +211,7 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   assert.deepEqual(resolved, []);
 });
 
-test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 지우고(곧바로 지우면 보낸 사람 앱에 유령으로 남는다), 검색 중 자리표시자를 CV2 로 보내고, 코어에 전용채널로 넘긴다", async () => {
+test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제하고(곧바로 삭제하면 보낸 사람 앱에 유령으로 남는다), 검색 중 자리표시자를 CV2 로 보내고, 코어에 전용채널로 넘긴다", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const w = world();
@@ -236,7 +236,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 지우�
   }
 });
 
-test("전용 채널이 지워지면 설정을 비우고 패널을 옮긴다. 다른 채널 · DM 이 지워진 것은 보지 않는다", async () => {
+test("전용 채널이 삭제되면 설정을 비우고 패널을 옮긴다. 다른 채널 · DM 이 삭제된 것은 보지 않는다", async () => {
   await settings.setBotChannel("g1", "bot-channel");
   const moved: string[] = [];
   const bot = fakeBot({ panels: { onBotChannelChanged: async (g: { id: string }) => moved.push(g.id) } });
@@ -253,7 +253,7 @@ test("전용 채널이 지워지면 설정을 비우고 패널을 옮긴다. 다
   assert.deepEqual(moved, ["g1"]);
 });
 
-test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열 · 패널 자리를 지운다. 서버 설정은 남긴다", async () => {
+test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열 · 패널 위치를 삭제한다. 서버 설정은 남긴다", async () => {
   await settings.setBotChannel("g-left", "bot-channel");
   await panelRecords.setPanel("g-left", "bot-channel", "m1");
   sessions().append("g-left", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
@@ -279,7 +279,7 @@ test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다",
   assert.equal(textOf(msg.sent[0].payload), `🔍 **${"가".repeat(60)}…** 검색 중...`);
 });
 
-test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 경고 수명(10초) 뒤 지운다", async () => {
+test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 경고 수명(10초) 뒤 삭제한다", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const w = world({ botVoice: "v1", userVoice: null });
@@ -364,7 +364,7 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
   }
 });
 
-test("전용 채널: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 띄운다", async () => {
+test("전용 채널: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 표시한다", async () => {
   const w = world();
   await settings.setBotChannel("g1", "bot-channel");
   fakeLookup.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [youtube("bbbbbbbbbbb", { title: "첫 곡" })] });
@@ -393,7 +393,7 @@ const state = (extra: Partial<MoreState> = {}): MoreState => ({ kind: "ytp", lis
 type Entry = [string] | [string, string | undefined];
 type Menu = StringSelectMenuInteraction<"cached"> | ModalSubmitInteraction<"cached">;
 type Shown = { content?: string; embeds?: { data: { title?: string } }[]; components?: Array<{ toJSON(): unknown }> };
-// 응답이 보인 글자: 글자 메시지면 그 글자, Components V2 면 글자 칸들, 임베드면 제목
+// 응답이 보인 글자: 글자 메시지면 그 글자, Components V2 면 글자 컴포넌트들, 임베드면 제목
 const shown = (p: Shown) => p.content ?? (p.components ? textsOf(p).join("\n") : p.embeds?.[0]?.data?.title);
 
 // 메뉴 메시지 id 는 따로 돌려준다(모달 상호작용은 메시지가 없을 수 있다)
@@ -436,7 +436,7 @@ test("더 넣기: 모르는 상태는 거절한다", async () => {
   assert.deepEqual(log, [["reply", said(errors.notice("more-unknown-menu"))]]);
 });
 
-test("더 넣기: 그만 넣기는 넣은 사람만. 넣은 사람이 누르면 바로 지운다", async () => {
+test("더 넣기: 그만 넣기는 넣은 사람만. 넣은 사람이 누르면 바로 삭제한다", async () => {
   const w = world();
   const other = moreInteraction(w, { select: "stop", userId: OTHER });
   await interactionCreate.execute(other.bot, other.it);
@@ -465,7 +465,7 @@ test("더 넣기: 시간이 지난 메뉴 · 권한 · 플레이어 없음은 �
   assert.deepEqual(none.log, [["reply", said(errors.notice("no-song"))]]);
 });
 
-test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거절", async () => {
+test("더 넣기: 직접 입력은 모달을 연다. 숫자가 아니면 거절", async () => {
   const w = world();
   const custom = moreInteraction(w, { select: "custom" });
   await interactionCreate.execute(custom.bot, custom.it);
@@ -477,7 +477,7 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
   assert.deepEqual(bad.log, [["reply", said(errors.notice("more-bad-count"))]]);
 });
 
-test("더 넣기: 고른 수만큼 이어 받아 넣고, 채널의 메뉴는 결과로 고치고 본인 메뉴는 지우고 결과를 모두에게", async () => {
+test("더 넣기: 선택한 수만큼 이어 받아 넣고, 채널의 메뉴는 결과로 고치고 본인 메뉴는 삭제하고 결과를 모두에게", async () => {
   const w = world();
   const asked: { url: string; range?: Range }[] = [];
   fakeLookup.getCollection = async (url, range) => {
@@ -551,7 +551,7 @@ test("모달: 모르는 모달은 알린다", async () => {
   assert.deepEqual(unknown.log, [["reply", said(errors.notice("unknown-interaction"))]]);
 });
 
-test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
+test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
   const w = world();
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.bot, pick.it);
@@ -590,7 +590,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   }
 });
 
-test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
+test("대기열 점프: 선택한 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
   const w = world();
   const [a, b, c] = [{ title: "A" }, { title: "B" }, { title: "C", pageUrl: "https://c.test" }];
   w.player.queue = [a, b, c];

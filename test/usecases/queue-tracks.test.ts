@@ -1,4 +1,4 @@
-// usecases/add-tracks 의 곡 담기(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 복구 · 대기열 상한 · 넣을 자리 · 안내를 본다.
+// usecases/add-tracks 의 곡 담기(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 복구 · 대기열 상한 · 넣을 위치 · 안내를 본다.
 // 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결 · 재생과 패널 만들기만 가짜다.
 
 import { test, mock } from "node:test";
@@ -20,7 +20,7 @@ import { textOf } from "../helpers/cv2.ts";
 import { addedView } from "../../src/ui/added-notice.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 
-// 실패 결과에 입구가 보일 문장을 붙여 본다
+// 실패 결과에 진입점이 보일 문장을 붙여 본다
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
@@ -45,11 +45,11 @@ class RecordingPanels extends NowPlayingPanel {
   }
 }
 
-// 글 채널에 보낸 안내. 지웠는지 본다
+// 글 채널에 보낸 안내. 삭제했는지 본다
 type Sent = { id: string; content: string; deleted: boolean; delete(): Promise<unknown> };
 type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean; connects?: boolean };
 
-// 연결 · 재생 결과를 시험마다 정하는 가짜 플레이어
+// 연결 · 재생 결과를 테스트마다 정하는 가짜 플레이어
 function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false, connects = true }: Setup = {}) {
   const calls: unknown[] = [];
   const sent: Sent[] = [];
@@ -208,7 +208,7 @@ test("틀고 있으면 대기열에 넣고 응답 매체로 알린다. 패널이
   assert.deepEqual(notices, ["### ✅ 곡을 추가했어요!\n**곡 a**를 대기열에 넣었어요."]);
 });
 
-test("넣을 자리: 맨 앞 · 특정 곡 뒤 · 기본은 자동재생이 뽑아 둔 곡 앞", async () => {
+test("넣을 위치: 맨 앞 · 특정 곡 뒤 · 기본은 자동재생이 선택해 둔 곡 앞", async () => {
   const auto = track("auto", { autoplay: true });
   const front = setup({ current: track("now"), queue: [track("q1"), auto] });
   await front.add({ insertFirst: true, tracks: [track("a")] }, who, front.responder);
@@ -249,12 +249,12 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
   }
 });
 
-test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인다", () => {
+test("자리가 모자라 덜 불러왔으면(queueLimited) 그렇다고 덧붙인다", () => {
   assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n대기열이 가득 차서 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
-// 사운드클라우드 세트는 받을 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
-test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
+// 사운드클라우드 세트는 불러올 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
+test("출처가 불러올 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
   assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기 · 지역 제한 등)");
 
   const { add: live, notices, responder } = setup({ current: track("now") });

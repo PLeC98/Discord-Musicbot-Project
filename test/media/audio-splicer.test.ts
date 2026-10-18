@@ -1,4 +1,4 @@
-// src/media/audio-splicer.ts — 재생을 끊지 않고 소스를 갈아끼우는 스트림
+// src/media/audio-splicer.ts — 재생을 끊지 않고 소스를 교체하는 스트림
 //
 // 지키는 것: 전환 전후로 한 바이트도 새지 않고, 지정한 지점에서 갈아타며,
 // 크로스페이드 구간 밖은 원본과 완전히 같다. 소스가 끝나면 이 스트림도 끝난다
@@ -277,7 +277,7 @@ test("전환을 마친 뒤 옛 소스가 오류를 내도 재생이 죽지 않�
   sp.planSwitch(nxt, 100);
   await new Promise((r) => setTimeout(r, 20));
 
-  // 핸들러를 떼기만 하면 듣는 사람이 없어져 uncaughtException이 된다 — 흡수기로 갈아끼워야 한다
+  // 핸들러를 떼기만 하면 듣는 사람이 없어져 uncaughtException이 된다 — 흡수기로 교체해야 한다
   assert.ok(src.listenerCount("error") > 0, "흡수기가 남아 있다");
   src.emit("error", new Error("늦게 터진 옛 소스")); // 던지지 않아야 한다
   await new Promise((r) => setTimeout(r, 10));

@@ -1,7 +1,7 @@
 // src/usecases/add-tracks.ts — 곡 추가 경로의 단일 코어.
 //
 // 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서
-// 코어가 둘로 갈려 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.
+// 코어가 둘로 나뉘어 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -32,9 +32,9 @@ const store = openTempStore("play-request-");
 after(() => store.close());
 setGuild("g1", { playlistAddMax: 50 });
 
-// 시험마다 정하는 조회 · 모음 답
-let mockResolve: (query: string) => LookupResult = () => assert.fail("시험이 조회 답을 정하지 않았다");
-let mockCollection: (range: Range) => Collection = () => assert.fail("시험이 모음 답을 정하지 않았다");
+// 테스트마다 정하는 조회 · 모음 답
+let mockResolve: (query: string) => LookupResult = () => assert.fail("테스트가 조회 답을 정하지 않았다");
+let mockCollection: (range: Range) => Collection = () => assert.fail("테스트가 모음 답을 정하지 않았다");
 const resolverCalls: Array<{ query: string; context?: string | null; range?: Range }> = [];
 const collectionCalls: Array<{ url: string; range?: Range }> = [];
 // 조회 가짜. 곡 추가 코어에 lookup 으로 넘긴다
@@ -199,7 +199,7 @@ function baseArgs(bot: TestBot, guild: Guild, extra: Extra): PlaybackRequest {
   return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
-// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 더 이상 입구에서 막지 않는다.
+// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 더 이상 진입점에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const bot = makeBot();
@@ -213,7 +213,7 @@ test("방송 중인 라이브는 통과시킨다", async () => {
   assert.equal(resolverCalls.at(-1)?.context, "play.resolveQuery");
 });
 
-test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
+test("ffmpeg 가 라이브 분기를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const bot = makeBot();
   const guild = makeGuild();
@@ -240,7 +240,7 @@ test("시작 전 방송은 거절하고 이유를 알린다", async () => {
 });
 
 // 재생목록에 시작 전 방송이 섞여 있으면 그것만 빼고 나머지는 넣는다.
-test("재생목록의 시작 전 방송만 걸러내고 나머지는 넣는다", async () => {
+test("재생목록의 시작 전 방송만 필터링하고 나머지는 넣는다", async () => {
   mockResolve = () => ({
     success: true,
     isPlaylist: true,
@@ -305,7 +305,7 @@ test("tracks 경로: 이미 해석된 트랙은 해석기를 거치지 않는다
   assert.equal(bot.embedCalls[0].trackData.tracks[0].title, "선택곡");
 });
 
-test("받아 둔 음원이 있는 곡은 담을 때부터 그 음원을 잰 길이를 보인다(스포티파이는 장부가 기억하는 음원으로)", async () => {
+test("캐시 파일이 있는 곡은 담을 때부터 그 음원을 잰 길이를 보인다(스포티파이는 링크 데이터가 기억하는 음원으로)", async () => {
   const audioCache = await import("../../src/store/audio-cache.ts");
   const trackLookup = await import("../../src/store/track-lookup.ts");
   const yt = "https://www.youtube.com/watch?v=lenreq00001";
@@ -321,7 +321,7 @@ test("받아 둔 음원이 있는 곡은 담을 때부터 그 음원을 잰 길�
 
   const [a, b] = bot.embedCalls[0].trackData.tracks;
   assert.deepEqual({ duration: a.duration, durationSource: a.durationSource }, { duration: 213.4, durationSource: "measured" });
-  assert.deepEqual({ duration: b.duration, durationSource: b.durationSource }, { duration: 190, durationSource: undefined }, "받아 둔 음원이 없으면 출처가 준 길이");
+  assert.deepEqual({ duration: b.duration, durationSource: b.durationSource }, { duration: 190, durationSource: undefined }, "다운로드해 둔 음원이 없으면 출처가 준 길이");
 });
 
 test("두 경로가 같은 결과 모양을 낸다", async () => {
@@ -382,7 +382,7 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   assert.equal(bot.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
-test("곡 찾기가 던졌으면 그 까닭과 오류 종류를 넘긴다(입구가 종류로 알린다)", async () => {
+test("곡 찾기가 던졌으면 그 까닭과 오류 종류를 넘긴다(진입점이 종류로 알린다)", async () => {
   mockResolve = () => ({ success: false, code: "lookup-failed", error: networkError() });
   const bot = makeBot();
   const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "끊긴 곡" }));
@@ -398,7 +398,7 @@ test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대�
   assert.equal(result.success ? null : result.code, "unsupported-link");
   assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
 
-  // 받을 수 없어 뺀 곡 수도 넘겨 안내에 쓴다
+  // 불러올 수 없어 뺀 곡 수도 넘겨 안내에 쓴다
   mockResolve = () => ({ success: false, code: "nothing-playable", skipped: 4 });
   const none = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://soundcloud.com/a/sets/b" }));
   assert.deepEqual(none, { success: false, code: "nothing-playable", skipped: 4 });
@@ -438,7 +438,7 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
   await responder.notifyQueued(frame({ body: "x" })); // 무동작이므로 던지지 않는다
 });
 
-// ── 로그: 누가 무엇을 찾아 무엇이 골라졌나 ─────────────────────
+// ── 로그: 누가 무엇을 찾아 무엇이 선택됐나 ─────────────────────
 
 // 곡 요청 줄들. 담기(queueTracks)를 부른 때의 로그 길이도 적는다
 async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { success: true }) {
@@ -452,7 +452,7 @@ async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { 
   return { lines: lines.map((e) => `${e.level} ${e.text}`), debug: all.filter((e) => e.level === "debug").map((e) => e.text), requestBeforeHandling: handledAt < 0 || sink.buffer.indexOf(lines[0]) < handledAt };
 }
 
-test("로그: 검색어와 고른 곡을 틀거나 넣기 전에 info 한 줄로 남긴다. 검색어로 찾았으면 고른 곡의 주소를 붙인다", async () => {
+test("로그: 검색어와 선택한 곡을 틀거나 넣기 전에 info 한 줄로 남긴다. 검색어로 찾았으면 선택한 곡의 주소를 붙인다", async () => {
   mockResolve = () => ok("곡A");
   const { lines, requestBeforeHandling } = await requestLines({ query: "rick rolling" });
   assert.deepEqual(lines, ['info 곡 요청: /play | carl | "rick rolling" → "곡A" (https://x/곡A)']);
@@ -465,7 +465,7 @@ test("로그: 검색어와 고른 곡을 틀거나 넣기 전에 info 한 줄로
   assert.match(listed.lines[0], /^info 곡 요청: \/play \| carl \| "https:\/\/x\/list" → .*2곡 \(첫 곡 "A"\) \| 맨 앞$/);
 });
 
-test("로그: 이미 찾은 곡(더 넣기)은 검색어 없이 고른 곡과 주소를 싣는다", async () => {
+test("로그: 이미 찾은 곡(더 넣기)은 검색어 없이 선택한 곡과 주소를 싣는다", async () => {
   const { lines } = await requestLines({ source: "더 넣기", tracks: [track("곡B")] });
   assert.deepEqual(lines, ['info 곡 요청: 더 넣기 | carl → "곡B" (https://x/곡B)']);
 });
@@ -540,7 +540,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   assert.equal(playerOf(bot).textChannel, given);
 });
 
-// ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
+// ── 불러올 곡 수 (해석기에 넘기는 어림값) ──────────────────────
 
 async function withLimits(queueMax: number, playlistMax: number, fn: () => Promise<void>) {
   const saved = config.bot.maxQueueSize;
@@ -565,22 +565,22 @@ async function requestWith({ queued = 0, playing = false, single = false, resolv
   return { limit: resolverCalls.at(-1)?.range?.limit, trackData: bot.embedCalls[0]?.trackData };
 }
 
-test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽", () =>
+test("불러올 곡 수: 한 번에 넣는 배치와 남은 자리 중 작은 쪽", () =>
   withLimits(30, 50, async () => {
     assert.equal((await requestWith({ playing: true })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
-    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 셈하지만, 묶음이 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
+    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 셈하지만, 배치가 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
     assert.equal((await requestWith({ playing: false })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
     assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
   }));
 
-test("받을 곡 수: 상한이 꺼져 있으면 묶음 크기", () =>
+test("불러올 곡 수: 상한이 꺼져 있으면 배치 크기", () =>
   withLimits(0, 50, async () => {
     assert.equal((await requestWith({ playing: true, queued: 400 })).limit, 50);
   }));
 
-test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLimited", () =>
+test("자리가 모자라 덜 불러왔고 뒤에 곡이 더 있을 때만 queueLimited", () =>
   withLimits(30, 50, async () => {
     const five = () => ({ ...ok("1", "2", "3", "4", "5"), total: 80 });
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData?.queueLimited, true);
@@ -597,7 +597,7 @@ test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLim
 const SP = "37i9dQZF1E3aglU7q0y10F";
 const idOf = (i: number) => `t${String(i).padStart(21, "0")}`; // 22자 트랙 ID
 
-// 원본 목록 — shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 자리)
+// 원본 목록 — shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 위치)
 function listSource(size: number, { shift = 0 } = {}) {
   return ({ offset = 0, limit = 0 }: Range): Collection => {
     const tracks: TrackInfo[] = [];
@@ -655,7 +655,7 @@ test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준�
     );
   }));
 
-test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없으면 받지도 않는다", () =>
+test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없으면 불러오지도 않는다", () =>
   withLimits(30, 50, async () => {
     const some = await continueWith({ state: stateAt(50), count: 100, queued: 25 });
     assert.equal(some.added?.tracks.length, 5);
@@ -665,7 +665,7 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
     assert.equal(collectionCalls.length, 0);
   }));
 
-test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 받을 수 없는 곡뿐이다(뺀 곡 수) · 받은 곡이 없다", () =>
+test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 불러올 수 없는 곡뿐이다(뺀 곡 수) · 불러온 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const bot = makeBot();
     assert.deepEqual(await continueCollection(bot, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "ended-while-adding" });
@@ -678,7 +678,7 @@ test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 받�
     assert.deepEqual(empty.result, { success: false, code: "more-nothing-found" });
   }));
 
-test("이어 넣기: 다음 묶음을 못 받으면 모은 곡까지만 넣고, 첫 묶음부터 못 받으면 그 까닭을 던진다", () =>
+test("이어 넣기: 다음 배치를 못 불러오면 모은 곡까지만 넣고, 첫 배치부터 못 불러오면 그 까닭을 던진다", () =>
   withLimits(0, 50, async () => {
     const gone = codedError("unavailable-playlist", "목록이 사라졌다");
     const whole = listSource(1000);
@@ -701,7 +701,7 @@ test("이어 넣기: 다음 묶음을 못 받으면 모은 곡까지만 넣고, 
     );
   }));
 
-test("이어 넣기: 여러 묶음으로 받으며 진행을 알린다", () =>
+test("이어 넣기: 여러 배치로 불러오며 진행을 알린다", () =>
   withLimits(0, 50, async () => {
     const { progress, added } = await continueWith({ state: stateAt(50), count: 250, size: 1000 });
     assert.equal(collectionCalls.length, 3);
@@ -731,8 +731,8 @@ test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣
     assert.equal(back.added?.insertAfterId, undefined);
   }));
 
-// 사운드클라우드 세트는 곡마다 요청이 들어 IP 가 막힐 수 있다. 한 번 누르면 한 구간(10곡)만, 앞을 다시 받지 않고,
-// 받을 수 없는 곡이 섞여 모자라도 더 읽지 않는다
+// 사운드클라우드 세트는 곡마다 요청이 들어 IP 가 막힐 수 있다. 한 번 누르면 한 구간(10곡)만, 앞을 다시 불러오지 않고,
+// 불러올 수 없는 곡이 섞여 모자라도 더 읽지 않는다
 test("이어 넣기(사운드클라우드 세트): 한 구간만 읽고, 뺀 곡을 센다", () =>
   withLimits(250, 50, async () => {
     const scSet = ({ offset = 0, limit = 0 }: Range): Collection => {
@@ -752,7 +752,7 @@ test("이어 넣기(사운드클라우드 세트): 한 구간만 읽고, 뺀 곡
     assert.deepEqual({ added: done.added, skipped: done.skipped, offset: done.next?.offset, batch: done.next?.batch }, { added: 7, skipped: 3, offset: 20, batch: 10 });
   }));
 
-test("재생목록을 넣으면 이어 받을 상태를 결과에 싣는다", async () => {
+test("재생목록을 넣으면 이어 불러올 상태를 결과에 싣는다", async () => {
   mockResolve = () => ({ ...ok("1", "2"), collection: "playlist", total: 120, nextOffset: 2, tracks: [track("1"), { ...track("2"), id: idOf(1) }] });
   const bot = makeBot();
   const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: `https://open.spotify.com/playlist/${SP}` }));

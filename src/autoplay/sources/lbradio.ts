@@ -6,7 +6,7 @@ import type { KeyCheck } from "../../rules/service-keys.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// 여기서 읽는 칸만
+// 여기서 읽는 필드만
 type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: string; title?: string; duration?: number; identifier?: string[] }> } } } };
 
 // LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).
@@ -43,10 +43,10 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
     .filter((t) => t.artist && t.title && !PLACEHOLDER.test(t.artist) && !PLACEHOLDER.test(t.title));
 }
 
-// MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 자리를 채운다.
+// MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 빈 값을 채운다.
 // 그대로 두면 그걸 유튜브에 검색하게 된다(250곡 중 1곡꼴).
 //
-// 대괄호로 싸였다고 다 거르면 안 된다. `[Alexandros]`는 실존하는 일본 록밴드다.
+// 대괄호로 싸였다고 다 필터링하면 안 된다. `[Alexandros]`는 실존하는 일본 록밴드다.
 // 그래서 정해진 목록만 본다. https://musicbrainz.org/doc/Style/Unknown_and_untitled
 const PLACEHOLDERS = new Set(["[no artist]", "[unknown]", "[anonymous]", "[nobody]", "[traditional]", "[data]", "[dialogue]", "[silence]", "[untitled]"].map((s) => s.toLowerCase()));
 
@@ -59,7 +59,7 @@ const PLACEHOLDER = {
     ),
 };
 
-/** 저장된 토큰을 ListenBrainz 에 확인한다(운영자 패널의 연결 시험). 답의 valid 가 참이어야 한다 */
+/** 저장된 토큰을 ListenBrainz 에 확인한다(운영자 패널의 연결 테스트). 답의 valid 가 참이어야 한다 */
 async function checkListenbrainzToken(): Promise<KeyCheck> {
   const token = config.sources?.listenbrainzToken;
   if (!token) return { ok: false, reason: "missing" };

@@ -55,7 +55,7 @@ test("옛 한글 이름은 새 이름을 알려 주고, 모르는 이름은 그�
   assert.equal(renderNodes(nodes, line(60)), "{{번호}}. {{길이분}}분 {{titel}} {{제목}}", "고치기 전까지는 보이게 둔다");
 });
 
-test("블록 문제는 자리와 함께: 닫히지 않음 · 짝 없는 닫기 · else 둘 · 모르는 블록 · 볼 값 없음", () => {
+test("블록 문제는 위치와 함께: 닫히지 않음 · 짝 없는 닫기 · else 둘 · 모르는 블록 · 볼 값 없음", () => {
   const messages = (format: string) => parseFormat(format, LINE_NAMES).problems.map((one) => [one.at, one.message.split(".")[0]]);
   assert.deepEqual(messages("a {{#if-exist {{duration}}}}b"), [[2, "#if-exist 블록을 닫는 {{/}} 가 없습니다"]]);
   assert.deepEqual(messages("a{{/}}"), [[1, "닫을 블록이 없는데 {{/}} 가 있습니다"]]);
@@ -64,17 +64,17 @@ test("블록 문제는 자리와 함께: 닫히지 않음 · 짝 없는 닫기 �
     [0, "모르는 블록 {{#if {{genre}}}}"],
     [18, "닫을 블록이 없는데 {{/}} 가 있습니다"],
   ]);
-  assert.deepEqual(messages("{{#if-exist}}a{{/}}"), [[0, "#if-exist 뒤에 볼 값을 적어야 합니다"]]);
+  assert.deepEqual(messages("{{#if-exist}}a{{/}}"), [[0, "#if-exist 뒤에 볼 값을 입력해야 합니다"]]);
   assert.deepEqual(messages("{{title"), [[0, "{{ 를 닫는 }} 가 없습니다"]]);
   assert.deepEqual(messages("{{title::x}}"), [[0, "{{title}} 은 :: 뒤의 값을 받지 않습니다"]]);
 });
 
-test("겹친 값 안의 문제 자리도 원래 글 기준", () => {
+test("겹친 값 안의 문제 위치도 원래 글 기준", () => {
   const { problems } = parseFormat("ab {{#if-exist {{길이초}}}}x{{/}}", LINE_NAMES);
   assert.deepEqual(problems, [{ at: 15, end: 22, message: "{{길이초}} 은 이제 {{duration::s}} 입니다." }], "end 는 그 태그 끝");
 });
 
-test("이름이 어딘가에 있는가(필수 이름 · 목록 자리 검사)", () => {
+test("이름이 어딘가에 있는가(필수 이름 · 목록 위치 검사)", () => {
   assert.ok(usesName(parseFormat("{{#if-exist {{genre}}}}{{title}}{{/}}", LINE_NAMES).nodes, "title"));
   assert.ok(!usesName(parseFormat("{{index}}", LINE_NAMES).nodes, "title"));
   assert.ok(usesName(parseFormat("후보:\n{{list}}", PROMPT_NAMES).nodes, "list"));

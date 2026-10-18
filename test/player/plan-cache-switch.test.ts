@@ -4,7 +4,7 @@
 // 이미 끝난 재생에 손을 대게 된다. 그럴 땐 아무것도 안 해야 기존 경로(Idle → play(위치))가 받는다.
 //
 // 프로토타입 호출 — 실 오디오·음성 연결 없이 판정만 검증한다(playback-loop.test.ts와 같은 방식).
-// 캐시 파일은 곡의 열쇠 자리(임시 폴더)에 진짜로 둔다.
+// 캐시 파일은 곡의 키 경로(임시 폴더)에 진짜로 둔다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -47,7 +47,7 @@ function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 500
   };
 }
 
-// 캐시 파일을 여는 디코더(ffmpeg)는 띄우지 않는다. 출력 자리만 있는 가짜
+// 캐시 파일을 여는 디코더(ffmpeg)는 실행하지 않는다. 출력 필드만 있는 가짜
 const fakeFfmpeg = () => ({ stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true, once() {}, on() {} });
 
 function fakePlayer({ track, startOffsetMs = 0 }: { track?: QueuedTrack; startOffsetMs?: number } = {}) {

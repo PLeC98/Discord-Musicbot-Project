@@ -94,7 +94,7 @@ function loadGemma(): Map<string, number> | false {
   return gemma;
 }
 
-// 붙일 짝 하나. left · right 는 처음 글자 자리(왼쪽이 먼저인 차례를 지킨다)
+// 붙일 짝 하나. left · right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
 type Pair = { score: number; left: number; right: number; joined: string };
 // 점수가 높은 것, 같으면 왼쪽이 먼저
 const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score && a.left < b.left);
@@ -109,7 +109,7 @@ function countGemma(text: string, rank: Map<string, number>) {
   const n = parts.length;
   const prev = Array.from({ length: n }, (_, i) => i - 1);
   const next = Array.from({ length: n }, (_, i) => (i + 1 < n ? i + 1 : -1));
-  const gone = new Uint8Array(n); // 왼쪽 조각에 붙어 사라진 자리
+  const gone = new Uint8Array(n); // 왼쪽 조각에 붙어 사라진 위치
   const heap: Pair[] = [];
   const push = (pair: Pair) => {
     heap.push(pair);

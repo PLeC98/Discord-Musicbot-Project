@@ -1,5 +1,5 @@
 // 재생 조작이 된 뒤의 응답 문장. 명령과 패널 버튼이 같은 조작을 하면 같은 함수를 부른다.
-// 머리 줄과 본문이 있는 응답은 { title, body } 로 돌려준다(ui/control-replies 가 그리고, 누가 했나 줄을 붙인다)
+// 헤더 줄과 본문이 있는 응답은 { title, body } 로 돌려준다(ui/control-replies 가 그리고, 누가 했나 줄을 붙인다)
 
 import { josa } from "../../../rules/josa.ts";
 import { songTitle } from "./labels.ts";
@@ -7,10 +7,10 @@ import { songTitle } from "./labels.ts";
 type Linked = { title: string | null; pageUrl: string };
 
 const link = (track: Linked) => `**[${songTitle(track.title)}](${track.pageUrl})**`;
-// 곡 링크 뒤에 목적격 조사(보이는 제목의 끝소리로 고른다)
+// 곡 링크 뒤에 목적격 조사(보이는 제목의 끝소리로 정한다)
 const linkObject = (track: Linked) => `${link(track)}${josa(songTitle(track.title), "을")}`;
 
-/** 누가 했나 줄의 이름표 */
+/** 누가 했나 줄의 라벨 */
 const requestedBy = () => "👤 요청한 사람";
 /** 대시보드에서 한 조작의 누가 했나(사람 멘션 뒤에 붙인다) */
 const viaDashboard = (who: string) => `${who} (대시보드)`;
@@ -54,7 +54,7 @@ const cleared = (count: number) => ({ title: "🗑️ 대기열을 비웠어요!
 /** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
 const removed = (left: number) => ({ title: "🗑️ 선택한 곡을 삭제했어요!", body: `대기열에 ${left}곡이 남았어요.` });
 
-/** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
+/** 대기열 순서 바꾸기. from · to 는 사람이 센 위치(1부터) */
 const moved = (track: Linked, from: number, to: number) => ({
   title: "🔀 곡의 순서를 바꿨어요",
   body: `${link(track)}\n📍 기존 순번: ${from}번째\n📍 현재 순번: ${to}번째`,
@@ -78,7 +78,7 @@ const volumeSet = (before: number, level: number) => ({ title: "🔊 볼륨을 �
 /** 음량 입력 창 */
 const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" });
 
-/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 자리(at, 적은 것) · 대기열 곡 수와 복원하는 법 */
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(at, 적은 것) · 대기열 곡 수와 복원하는 법 */
 const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
   title: "👋 음성 채널에서 나갔어요",
   body: saved ? [`재생 중이던 곡: ${link(saved.track)}`, `⏱️ 저장한 위치 \`${saved.at}\` · 📋 저장한 대기열 ${saved.queue}곡`, "`/join`으로 이어 들을 수 있어요."].join("\n") : null,

@@ -1,13 +1,13 @@
 // 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 계약은 contract/settings-archive.
 //   settings  봇 설정만: 남에게 나눠 줄 설정. 서버별 설정 · 키가 없고, PC 에 매인 운영 조절값(쿠키 출처 · POToken 쓰기)도 뺀다
 //   full      암호화된 설정까지: settings + 서버별 설정 + 키 · 쿠키의 암호문(같은 SECRETS_KEY 에서만 풀린다. 끝 네 글자는 넣지 않는다)
-//   favicon   파비콘: 칸 · 기록(봇 설정 묶음에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
+//   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
-// 내보내기는 담을 항목을 넘기고 경로가 흘려 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
+// 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
-// 불러오기는 고른 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
-// 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 지운다), 파비콘 · 로그인 배경은 DB 뒤에 바꿔 끼운다.
-// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇 웹사이트 주소)이 바뀌면 미리 보기가 짚어 준다.
+// 불러오기는 선택한 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
+// 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 삭제한다), 파비콘 · 로그인 배경은 DB 뒤에 교체한다.
+// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇 웹사이트 주소)이 바뀌면 미리 보기가 표시해 준다.
 
 import crypto from "node:crypto";
 import { openZip, type ZipInput } from "../infra/zip.ts";
@@ -34,7 +34,7 @@ const JSON_NAME = "settings.json";
 const FAVICON_DIR = "favicon/";
 // settings.json 하나의 상한. 설정 문서는 크지 않다(장르 수십 개 · 프롬프트 몇 KB). 쿠키 암호문이 들면 조금 커진다
 const JSON_MAX_BYTES = 4 * 1024 * 1024;
-// 파비콘 파일을 모두 합친 상한(칸 일곱 × 기록 여섯 × png 두 장 남짓)
+// 파비콘 파일을 모두 합친 상한(슬롯 일곱 × 기록 여섯 × png 두 장 남짓)
 const FAVICON_MAX_BYTES = 64 * 1024 * 1024;
 // 그 PC 에만 맞는 운영 조절값. 봇 설정만 내보내기에서 빼고, 그 파일을 불러올 때는 지금 값을 지킨다
 // (쿠키 출처를 남이 정하면 봇이 이 PC 의 브라우저 쿠키를 읽는다. POToken 은 설치 여부에 매인다)
@@ -43,10 +43,10 @@ const MACHINE_KEYS: readonly string[] = ["COOKIES_SOURCE", "BGUTIL_ENABLED"];
 type DocItem = Extract<ArchiveItem, documents.DocName>;
 const DOC_ITEMS: readonly DocItem[] = ["genres", "status", "ai", "ai-prompt"];
 const isDocItem = (item: ArchiveItem): item is DocItem => (DOC_ITEMS as readonly string[]).includes(item);
-/** 설정 DB 가 아니라 저장 자리의 파일인 항목 */
+/** 설정 DB 가 아니라 저장 위치의 파일인 항목 */
 const FILE_ITEMS: readonly ArchiveItem[] = ["favicon", "login-background"];
 
-/** settings.json 의 꼴. 읽을 때는 칸마다 따로 본다(빠진 칸은 그 항목이 파일에 없는 것) */
+/** settings.json 의 형식. 읽을 때는 필드마다 따로 본다(빠진 필드는 그 항목이 파일에 없는 것) */
 type ArchiveJson = {
   format: number;
   kind: ArchiveKind;
@@ -63,7 +63,7 @@ type ArchiveJson = {
   favicons?: string[];
 };
 
-/** 읽은 파일. favicons 는 favicon/ 아래 파일들, file 은 올린 파일(로그인 배경은 거기서 흘려 읽는다) */
+/** 읽은 파일. favicons 는 favicon/ 아래 파일들, file 은 올린 파일(로그인 배경은 거기서 스트리밍으로 읽는다) */
 type Parsed = { json: Partial<ArchiveJson>; favicons: Array<{ name: string; data: Buffer }>; file: string };
 
 const badArchive = (why: string) => codedError("BAD_ARCHIVE", why);
@@ -71,7 +71,7 @@ const isTable = (value: unknown): value is Record<string, unknown> => !!value &&
 const digest = (data: Buffer) => crypto.createHash("sha256").update(data).digest("hex");
 const without = (values: Record<string, string>, keys: readonly string[]) => Object.fromEntries(Object.entries(values).filter(([key]) => !keys.includes(key)));
 
-/** 내려받을 파일 이름(종류 · 만든 때) */
+/** 다운로드할 파일 이름(종류 · 만든 때) */
 function fileName(kind: ArchiveKind, at = new Date()) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `musicbot-${kind}-${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}.zip`;
@@ -80,7 +80,7 @@ function fileName(kind: ArchiveKind, at = new Date()) {
 const manifest = (kind: ArchiveKind, rest: Partial<ArchiveJson>): ArchiveJson => ({ format: FORMAT, kind, exportedAt: new Date().toISOString(), botVersion: BOT_VERSION, ...rest });
 const jsonEntry = (json: ArchiveJson) => ({ name: JSON_NAME, data: Buffer.from(`${JSON.stringify(json, null, 2)}\n`) });
 
-/** 지금 설정 중 그 종류를 ZIP 에 담을 항목으로(경로가 흘려 쓴다) */
+/** 지금 설정 중 그 종류를 ZIP 에 담을 항목으로(경로가 스트리밍으로 쓴다) */
 function build(kind: ArchiveKind): ZipInput[] {
   if (kind === "login-background") return [jsonEntry(manifest(kind, {})), ...loginBackground.exportInputs()];
   if (kind === "favicon") {
@@ -112,7 +112,7 @@ function parse(file: string): Parsed {
     } catch {
       throw badArchive(`${JSON_NAME} 이 JSON 이 아닙니다.`);
     }
-    if (!isTable(json)) throw badArchive(`${JSON_NAME} 이 표 꼴이 아닙니다.`);
+    if (!isTable(json)) throw badArchive(`${JSON_NAME} 이 객체 형식이 아닙니다.`);
     if (json.format !== FORMAT) throw badArchive(`모르는 형식입니다(format ${String(json.format)}). 이 봇이 읽는 형식은 ${FORMAT} 입니다.`);
     const faviconEntries = zipped.entries.filter((one) => one.name.startsWith(FAVICON_DIR) && one.name.length > FAVICON_DIR.length);
     if (faviconEntries.reduce((sum, one) => sum + one.size, 0) > FAVICON_MAX_BYTES) throw badArchive("파비콘 파일이 너무 큽니다.");
@@ -123,7 +123,7 @@ function parse(file: string): Parsed {
   }
 }
 
-// 같은지 볼 때 칸 차례에 흔들리지 않게 키를 정렬해 글로
+// 같은지 볼 때 필드 순서에 흔들리지 않게 키를 정렬해 문자열로
 function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
   if (value && typeof value === "object")
@@ -163,7 +163,7 @@ function guildsRow(json: Partial<ArchiveJson>): ArchiveRow {
 /** 문서 하나의 검사. 프롬프트는 AI 를 켠 설정과 함께일 때만 {{list}} 를 따진다 */
 function docProblems(item: DocItem, data: unknown, aiDoc: unknown): string[] {
   if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : ["프롬프트가 섹션 목록이 아닙니다."];
-  if (!isTable(data)) return ["표 꼴이 아닙니다."];
+  if (!isTable(data)) return ["객체 형식이 아닙니다."];
   return { genres: genreProblems, status: statusProblems, ai: aiProblems }[item](data);
 }
 
@@ -180,7 +180,7 @@ function aiTarget(doc: unknown) {
 
 const linksIn = (value: unknown) => new Set(JSON.stringify(value ?? null).match(/https?:\/\/[^\s"'\\]+/g) ?? []);
 
-/** 바깥으로 나가는 값이 바뀌는지(남이 준 파일로 모르고 들이지 않게) */
+/** 바깥으로 나가는 값이 바뀌는지(남이 준 파일로 모르고 가져오지 않게) */
 function docWarnings(item: DocItem, value: unknown): string[] {
   if (item === "ai") {
     const before = aiTarget(documents.get("ai"));
@@ -211,7 +211,7 @@ function secretsOf(json: Partial<ArchiveJson>) {
 
 function secretsRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (!Array.isArray(json.secrets)) return absent("secrets");
-  // 넣어 둔 키가 하나도 없던 봇의 파일: 가져올 것이 없다
+  // 입력해 둔 키가 하나도 없던 봇의 파일: 가져올 것이 없다
   if (!json.secrets.length) return { item: "secrets", inFile: true, same: true, problems: [], warnings: [], count: 0 };
   const { usable, refused } = secretsOf(json);
   const otherKey = refused.filter((one) => !one.ok && one.why === "other-key").length;
@@ -283,7 +283,7 @@ async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
 
 const LABEL: Record<ArchiveItem, string> = { tunables: "운영 조절값", genres: "자동재생 장르", status: "활동 문구", ai: "AI 설정", "ai-prompt": "AI 프롬프트", guilds: "서버별 설정", secrets: "키 · 쿠키", favicon: "파비콘", "login-background": "로그인 배경" };
 
-// 고른 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘 · 불러올 로그인 배경(고르지 않았으면 null)
+// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘 · 불러올 로그인 배경(선택하지 않았으면 null)
 async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
@@ -308,7 +308,7 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
 }
 
 /**
- * 고른 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 까닭")로 아무것도 바꾸지 않는다.
+ * 선택한 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 까닭")로 아무것도 바꾸지 않는다.
  * before: DB 를 쓰기 바로 앞에 부른다(스냅샷)
  */
 async function apply(file: string, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveItem[]> {

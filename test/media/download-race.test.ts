@@ -1,7 +1,7 @@
-// src/media/cache-download.ts — 같은 곡을 두 서버가 동시에 받는 경쟁 (백로그 B-23)
+// src/media/cache-download.ts — 같은 곡을 두 서버가 동시에 다운로드하는 경쟁 (백로그 B-23)
 //
 // 회귀 대상: 진행 중 다운로드 맵이 Player마다 따로였다. 서버가 다르면 같은 전역 캐시 경로에
-// yt-dlp/ffmpeg가 둘 다 쓰고, 한쪽의 실패 정리가 다른 쪽 작업 파일을 지웠다.
+// yt-dlp/ffmpeg가 둘 다 쓰고, 한쪽의 실패 정리가 다른 쪽 작업 파일을 삭제했다.
 
 import os from "node:os";
 import path from "node:path";
@@ -22,7 +22,7 @@ const track = { requestKey: "https://www.youtube.com/watch?v=aaaaaaaaaaa", audio
 
 type OnDownload = (track: DownloadTrack, file: string) => Promise<void>;
 
-// 같은 파일을 받고, 받는 일은 onDownload 가 대신한다
+// 같은 파일을 다운로드하고, 다운로드는 onDownload 가 대신한다
 class RaceDownloader extends TrackDownloader {
   onDownload: OnDownload;
 
@@ -45,7 +45,7 @@ function makeDownloader({ onDownload }: { onDownload: OnDownload }) {
   return new RaceDownloader(onDownload);
 }
 
-test("같은 곡을 서버 둘이 동시에 받으면 실제 다운로드는 한 번뿐", async () => {
+test("같은 곡을 서버 둘이 동시에 다운로드하면 실제 다운로드는 한 번뿐", async () => {
   let started = 0;
   let release = () => {};
   const gate = new Promise<void>((resolve) => (release = resolve));
@@ -54,7 +54,7 @@ test("같은 곡을 서버 둘이 동시에 받으면 실제 다운로드는 한
     await gate;
   };
 
-  // 서버가 다르면 플레이어도 다르다 — 그래도 같은 파일이면 한 번만 받아야 한다
+  // 서버가 다르면 플레이어도 다르다 — 그래도 같은 파일이면 한 번만 다운로드해야 한다
   const first = makeDownloader({ onDownload }).downloadTrack(track);
   const second = makeDownloader({ onDownload }).downloadTrack(track);
   await new Promise((resolve) => setImmediate(resolve));
@@ -93,7 +93,7 @@ test("임시 경로: 같은 폴더·.opus·부를 때마다 다르다", () => {
   }
 });
 
-test("실패 정리는 내 임시 파일과 그 부스러기만 — 남이 받는 중인 파일은 두고 간다", () => {
+test("실패 정리는 내 임시 파일과 그 부스러기만 — 남이 다운로드 중인 파일은 두고 간다", () => {
   const mine = tempPathFor(finalPath);
   const theirs = tempPathFor(finalPath);
   const stem = path.basename(mine, ".opus");
@@ -125,7 +125,7 @@ test("게시: 최종 경로로 옮긴다 — 먼저 끝난 쪽이 있으면 내 
   assert.equal(await publish(mine, finalPath), true);
   assert.equal(fs.existsSync(mine), false);
   assert.equal(fs.readFileSync(finalPath, "utf8"), "내 파일");
-  // 옮긴 직후에는 DB에 아직 없다 — 그 사이 기동 스윕이 돌아도 지우지 않게 보호가 걸려 있어야 한다
+  // 옮긴 직후에는 DB에 아직 없다 — 그 사이 기동 스윕이 돌아도 삭제하지 않게 보호가 걸려 있어야 한다
   assert.equal(audioCache._protectedFiles.has(path.resolve(finalPath)), true);
   audioCache.unprotectFile(finalPath);
 

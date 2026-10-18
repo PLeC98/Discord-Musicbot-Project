@@ -1,4 +1,4 @@
-// 재생 조작의 응답 화면(응답 틀 ui/frame). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다
+// 재생 조작의 응답 화면(응답 템플릿 ui/frame). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다
 
 import { frame, noticeFrame } from "./frame.ts";
 import * as errors from "./text/ko/errors.ts";
@@ -31,7 +31,7 @@ function previous(restarted: boolean, track: Track) {
   return frame({ title: t.title, body: t.body });
 }
 
-/** 곡으로 건너뛰기 메뉴에서 골랐다 */
+/** 곡으로 건너뛰기 메뉴에서 선택했다 */
 function jumped(track: Track) {
   const t = controlText.jumped(track);
   return frame({ title: t.title, body: t.body });
@@ -91,7 +91,7 @@ function removed(left: number, by: Actor) {
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
+/** 대기열 순서 바꾸기. from · to 는 사람이 센 위치(1부터) */
 function moved(track: Track, from: number, to: number, by: Actor) {
   const t = controlText.moved(track, from, to);
   return frame({ title: t.title, body: t.body, footer: [`${t.by} ${by}`], divider: true });
@@ -103,7 +103,7 @@ function volumeSet(before: number, level: number, by: Actor) {
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 자리(초) · 대기열 곡 수 */
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(초) · 대기열 곡 수 */
 function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor) {
   const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue });
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });

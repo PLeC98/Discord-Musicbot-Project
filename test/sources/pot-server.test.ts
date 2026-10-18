@@ -1,5 +1,5 @@
-// src/sources/youtube/pot-server.ts — bgutil POToken 서버를 띄우고 지키기.
-// 프로세스 띄우기 · 설치 확인 · HTTP 는 가짜를 넘긴다.
+// src/sources/youtube/pot-server.ts — bgutil POToken 서버를 실행하고 지키기.
+// 프로세스 실행 · 설치 확인 · HTTP 는 가짜를 넘긴다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,7 +17,7 @@ test("토큰은 로그에 남기지 않는다", () => {
   assert.equal(scrubBgutilLine("서버 시작"), "서버 시작");
 });
 
-// 띄운 프로세스 대신. 무엇으로 띄웠고 무엇을 받았는지 남긴다
+// 실행한 프로세스 대신. 무엇으로 실행했고 무엇을 받았는지 남긴다
 type FakeProc = EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; killed: NodeJS.Signals | null | undefined; kill(sig?: NodeJS.Signals): unknown };
 
 function fakeSpawn() {
@@ -30,7 +30,7 @@ function fakeSpawn() {
   return { spawn, spawned };
 }
 
-test("꺼져 있으면 설치돼 있어도 띄우지 않고, 준비를 기다리지 않는다", async () => {
+test("꺼져 있으면 설치돼 있어도 실행하지 않고, 준비를 기다리지 않는다", async () => {
   const { spawn, spawned } = fakeSpawn();
   const server = createPotServer({ spawn, exists: () => true });
   await withConfig({ bgutil: { enabled: false } }, async () => {
@@ -38,16 +38,16 @@ test("꺼져 있으면 설치돼 있어도 띄우지 않고, 준비를 기다리
     assert.equal(await server.waitReady(10), true);
   });
   assert.equal(spawned.length, 0);
-  server.stop(); // 띄운 것이 없어도 된다
+  server.stop(); // 실행한 것이 없어도 된다
 });
 
-test("켜져 있어도 설치돼 있지 않으면 띄우지 않는다", async () => {
+test("켜져 있어도 설치돼 있지 않으면 실행하지 않는다", async () => {
   const { spawn, spawned } = fakeSpawn();
   await withConfig({ bgutil: { enabled: true } }, () => createPotServer({ spawn, exists: () => false }).start());
   assert.equal(spawned.length, 0);
 });
 
-test("켜져 있고 설치돼 있으면 서버 폴더에서 띄우고, /ping 이 답하면 준비된 것이다", async () => {
+test("켜져 있고 설치돼 있으면 서버 폴더에서 실행하고, /ping 이 답하면 준비된 것이다", async () => {
   const { spawn, spawned } = fakeSpawn();
   const pings: string[] = [];
   let up = 0;
@@ -81,7 +81,7 @@ test("준비가 시간 안에 안 되면 기다림을 접는다(봇은 POToken �
   server.stop();
 });
 
-test("비정상 종료면 5초 뒤 다시 띄우고, 내린 뒤의 종료는 다시 띄우지 않는다", async (t) => {
+test("비정상 종료면 5초 뒤 다시 실행하고, 내린 뒤의 종료는 다시 실행하지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { spawn, spawned } = fakeSpawn();
   const server = createPotServer({ spawn, exists: () => true });
@@ -134,11 +134,11 @@ test("서버 출력은 토큰을 가려 흘린다(오류 줄도 멈추지 않는
   assert.match(lines[0].text, /Generated IntegrityToken: \[REDACTED\]/);
 });
 
-// 치명적 종료는 stop() 을 부르지 않는다. 등록부가 프로세스가 끝날 때 함께 내리게 등록해 둔다
-test("띄운 서버를 프로세스 등록부에 올리고, 끝나면 내린다", async () => {
+// 치명적 종료는 stop() 을 부르지 않는다. 레지스트리가 프로세스가 끝날 때 함께 내리게 등록해 둔다
+test("실행한 서버를 프로세스 레지스트리에 올리고, 끝나면 내린다", async () => {
   const procRegistry = await import("../../src/infra/process-registry.ts");
   const { spawn: base, spawned } = fakeSpawn();
-  // 등록부는 pid 가 있는 것만 받는다. 실제로 없는 번호를 쓰고, 시험 안에서 반드시 끝낸다
+  // 레지스트리는 pid 가 있는 것만 받는다. 실제로 없는 번호를 쓰고, 테스트 안에서 반드시 끝낸다
   const spawn = (cmd: string, args: string[], opts: { cwd: string }) => Object.assign(base(cmd, args, opts), { pid: 2_000_000_001, exitCode: null, signalCode: null });
   const server = createPotServer({ spawn, exists: () => true });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());

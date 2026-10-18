@@ -27,7 +27,7 @@ function callSites(src: string, name: string) {
 
 test("Spotify의 모든 요청에 중단 신호가 붙어 있다", () => {
   const src = read("src/sources/spotify.ts");
-  // 요청은 모두 바깥 경계(send)로 나간다. fetch 를 바로 부르면 시험이 넘긴 가짜도 마감 검사도 비껴간다
+  // 요청은 모두 바깥 경계(send)로 나간다. fetch 를 바로 부르면 테스트가 넘긴 가짜도 마감 검사도 비껴간다
   assert.deepEqual(callSites(src, "fetch"), [], "fetch 를 바로 부르는 곳");
   const calls = callSites(src, "send");
   assert.ok(calls.length >= 8, `호출부를 찾지 못했다 (${calls.length}개)`);

@@ -1,4 +1,4 @@
-// src/ui/player-notices.ts — 플레이어가 알린 일을 응답 틀로 채널에 보낸다. 안내는 그 경고 수준의 색, 복원은 기본 색
+// src/ui/player-notices.ts — 플레이어가 알린 일을 응답 템플릿으로 채널에 보낸다. 안내는 그 경고 수준의 색, 복원은 기본 색
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -19,7 +19,7 @@ function channel() {
 }
 const accentOf = (p: Sent) => (p.components[0].toJSON() as { accent_color?: number }).accent_color;
 
-test("연달아 실패는 오류 색 · 머리 줄 · 남은 곡 줄, 채널 메시지(Components V2)로", async () => {
+test("연달아 실패는 오류 색 · 헤더 줄 · 남은 곡 줄, 채널 메시지(Components V2)로", async () => {
   const { player, sent } = channel();
   await sendNotice(player, "failed-in-row", { count: 3, left: 2 });
   assert.deepEqual(textsOf(sent[0]), ["### ❌ 곡 3개 재생에 연달아 실패해서 재생을 중단했어요.\n남은 2곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요."]);
@@ -45,7 +45,7 @@ test("안내는 그 수준의 수명 뒤 지운다: 연달아 실패(오류) 15�
   }
 });
 
-test("자동재생 안내는 경고 색, 복원 안내는 머리 줄 · 본문을 기본 색으로", async () => {
+test("자동재생 안내는 경고 색, 복원 안내는 헤더 줄 · 본문을 기본 색으로", async () => {
   const { player, sent } = channel();
   await sendNotice(player, "autoplay-gave-up", { genre: "jazz" });
   assert.equal(accentOf(sent[0]), resolveColor("#FEE75C"));

@@ -1,12 +1,12 @@
-// 후보 줄 형식 · 프롬프트의 자리표시자. RisuAI 의 CBS 틀을 따르되 필요한 것만 둔다. 봇(autoplay/assist)과 대시보드(미리보기 · 검사)가 같이 부른다.
+// 후보 줄 형식 · 프롬프트의 자리표시자. RisuAI 의 CBS 템플릿을 따르되 필요한 것만 둔다. 봇(autoplay/assist)과 대시보드(미리보기 · 검사)가 같이 부른다.
 //
 //   {{이름}} · {{이름::인자}}                       값으로 바뀐다. 모르는 이름은 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 모른다)
 //   {{#if-exist 값}} … {{:else}} … {{/}}          값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤(없으면 아무것도). 닫기는 {{/if-exist}} 도. 겹쳐 쓸 수 있다
 //
-// 참 · 거짓을 가르는 if 는 두지 않는다. 값이 모두 글자(번호 · 장르 · 제목 · 길이)라 "있나 없나"만 가린다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
-// 검사는 문제마다 글자 자리(at 부터 end 앞까지, 0부터)를 함께 돌려준다(화면이 그 구간을 짚는다).
+// 참 · 거짓을 구분하는 if 는 두지 않는다. 값이 모두 문자열(번호 · 장르 · 제목 · 길이)이라 "있나 없나"만 구분한다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
+// 검사는 문제마다 글자 위치(at 부터 end 앞까지, 0부터)를 함께 돌려준다(화면이 그 구간을 표시한다).
 
-/** 문제 하나. at 부터 end 앞까지가 그 자리(태그 하나 · 닫히지 않은 블록의 여는 태그) */
+/** 문제 하나. at 부터 end 앞까지가 그 위치(태그 하나 · 닫히지 않은 블록의 여는 태그) */
 type Problem = { at: number; end: number; message: string };
 
 type Node = { kind: "text"; text: string } | { kind: "mark"; name: string; arg: string | null; raw: string; at: number } | { kind: "exist"; test: Node[]; then: Node[]; otherwise: Node[]; at: number; end: number };
@@ -19,7 +19,7 @@ type Names = Record<string, { arg: boolean }>;
 
 /** 후보 한 줄의 이름 */
 const LINE_NAMES: Names = { index: { arg: false }, genre: { arg: false }, title: { arg: false }, duration: { arg: true } };
-/** 프롬프트 섹션의 이름(목록 자리 · 장르는 한 요청에 하나라 프롬프트에서도 쓴다) */
+/** 프롬프트 섹션의 이름(목록 위치 · 장르는 한 요청에 하나라 프롬프트에서도 쓴다) */
 const PROMPT_NAMES: Names = { list: { arg: false }, genre: { arg: false } };
 
 /** 옛 한글 이름 → 새 이름(남아 있으면 검사가 알린다) */
@@ -36,7 +36,7 @@ const OPEN = "{{";
 const CLOSE = "}}";
 const EXIST = "#if-exist";
 
-/** at 에서 시작한 {{ 의 짝 }} 자리(겹친 {{ }} 를 센다). 없으면 -1 */
+/** at 에서 시작한 {{ 의 짝 }} 위치(겹친 {{ }} 를 센다). 없으면 -1 */
 function closingOf(text: string, at: number): number {
   let depth = 0;
   for (let i = at; i < text.length - 1; i++) {
@@ -54,7 +54,7 @@ function closingOf(text: string, at: number): number {
 
 type Frame = { node: Extract<Node, { kind: "exist" }>; inElse: boolean };
 
-/** 글을 읽어 마디로. offset: 이 글이 원래 글의 어디서 시작하나(겹친 값의 문제 자리를 원래 글 기준으로) */
+/** 텍스트를 읽어 노드로. offset: 이 텍스트가 원래 텍스트의 어디서 시작하나(겹친 값의 문제 위치를 원래 텍스트 기준으로) */
 function parseAt(text: string, names: Names, offset: number, problems: Problem[]): Node[] {
   const root: Node[] = [];
   const stack: Frame[] = [];
@@ -110,7 +110,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
   function openExist(inner: string, at: number, end: number, innerStart: number) {
     const from = inner.indexOf(EXIST) + EXIST.length;
     const testText = inner.slice(from);
-    if (!testText.trim()) problems.push({ at, end, message: `${EXIST} 뒤에 볼 값을 적어야 합니다. 예: {{${EXIST} {{duration}}}}` });
+    if (!testText.trim()) problems.push({ at, end, message: `${EXIST} 뒤에 볼 값을 입력해야 합니다. 예: {{${EXIST} {{duration}}}}` });
     const node: Extract<Node, { kind: "exist" }> = { kind: "exist", test: parseAt(testText, names, offset + innerStart + from, problems), then: [], otherwise: [], at, end };
     here().push(node);
     stack.push({ node, inElse: false });
@@ -138,14 +138,14 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
   }
 }
 
-/** 글을 읽는다. 문제는 글자 자리(0부터)와 함께 */
+/** 텍스트를 읽는다. 문제는 글자 위치(0부터)와 함께 */
 function parseFormat(text: string, names: Names): { nodes: Node[]; problems: Problem[] } {
   const problems: Problem[] = [];
   const nodes = parseAt(text, names, 0, problems);
   return { nodes, problems: problems.sort((a, b) => a.at - b.at) };
 }
 
-/** 마디를 값으로 채운다. 모르는 이름은 적힌 그대로 */
+/** 노드를 값으로 채운다. 모르는 이름은 적힌 그대로 */
 function renderNodes(nodes: Node[], values: Values): string {
   return nodes
     .map((node) => {
@@ -162,7 +162,7 @@ function usesName(nodes: Node[], name: string): boolean {
 }
 
 /**
- * 길이(초)를 형식대로. 모르면(0 이하 · 수가 아님) 빈 글. 형식 글자: h 시간 · m 전체 분 · mm 남은 분 두 자리 · s 전체 초 · ss 남은 초 두 자리,
+ * 길이(초)를 형식대로. 모르면(0 이하 · 수가 아님) 빈 문자열. 형식 글자: h 시간 · m 전체 분 · mm 남은 분 두 자리 · s 전체 초 · ss 남은 초 두 자리,
  * 그 밖의 글자는 그대로. 형식이 없으면 m:ss(예: 3:05)
  */
 function formatDuration(seconds: number | null | undefined, format: string | null): string {

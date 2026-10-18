@@ -12,7 +12,7 @@ import * as store from "./store.ts";
 import { previewOf } from "./preview.ts";
 import { probeVideo, READ_ARGS } from "./source.ts";
 
-/** 장면 간격의 하한(초) · 장면 수 상한 · 격자 열 수 · 한 칸 높이(화면 띠 64px 의 두 배) */
+/** 장면 간격의 하한(초) · 장면 수 상한 · 격자 열 수 · 한 셀 높이(화면 띠 64px 의 두 배) */
 const EVERY_MIN = 0.5;
 const MAX_COUNT = 160;
 const COLUMNS = 10;
@@ -24,7 +24,7 @@ const stripOf = (id: string) => {
   return fs.existsSync(file) ? file : null;
 };
 
-/** 장면 수 · 간격 · 칸 크기 */
+/** 장면 수 · 간격 · 셀 크기 */
 function layoutOf(duration: number, width: number, height: number): LoginBackgroundStrip {
   const count = Math.min(MAX_COUNT, Math.max(2, Math.ceil(duration / EVERY_MIN)));
   return { count, every: duration / count, columns: COLUMNS, width: Math.max(2, Math.round((HEIGHT * width) / height / 2) * 2), height: HEIGHT };

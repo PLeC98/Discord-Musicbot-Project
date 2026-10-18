@@ -1,16 +1,16 @@
 <template>
   <!-- 봇 상태 탭. 괜찮은가(요약) → 무엇에 기대는가(연결, 높이가 거의 고정이라 위에) → 지금 어떤가(흐름) → 무엇을 하는가(플레이어 · 프로세스, 흐름과 자주 같이 보고 서버 수만큼 길어져 아래에) → 어디에 쌓이는가(저장공간). 잘 안 바뀌는 환경 · 버전은 봇 정보 탭(BotInfo).
        상태는 색 + 모양(✓ 동그라미 · ! 세모 · ✕ 동그라미) + 낱말로 알린다. 화면 글은 짧게, 까닭은 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
-  <!-- 저장공간 카드는 폭에 따라 두 자리 중 하나에 놓인다. 한 번 정의해 두고 부른다(VueUse createReusableTemplate) -->
+  <!-- 저장공간 카드는 폭에 따라 두 위치 중 하나에 놓인다. 한 번 정의해 두고 부른다(VueUse createReusableTemplate) -->
   <DefineStorage>
     <BaseCard icon="hard_drive" :title="T.storage" data-at="storage">
-      <!-- 카드 높이를 늘리지 않게 머리 오른쪽에. 작은 색조 버튼(높이 32, 머리 줄 40 안) -->
+      <!-- 카드 높이를 늘리지 않게 헤더 오른쪽에. 작은 색조 버튼(높이 32, 헤더 줄 40 안) -->
       <template #actions
         ><BaseButton variant="secondary" size="sm" class="gap-0!" @click="emit('openDb')">{{ T.dbBrowser }}<Icon name="chevron_right" :size="18" class="-mr-1.5" /></BaseButton
       ></template>
       <div class="flex flex-col gap-3">
-        <!-- 막대는 늘 쓴 만큼. 캐시는 한도까지 채우고 오래 안 들은 곡부터 지우므로 차 있는 것이 정상(경고하지 않는다).
-             차례는 오디오 캐시 · 캐시 파일 수 · 구분선 · 드라이브(오디오 캐시 · 기타 · 여유 공간 · 최소 여유로 나눈다) -->
+        <!-- 막대는 늘 쓴 만큼. 캐시는 한도까지 채우고 오래 안 들은 곡부터 삭제하므로 차 있는 것이 정상(경고하지 않는다).
+             순서는 오디오 캐시 · 캐시 파일 수 · 구분선 · 드라이브(오디오 캐시 · 기타 · 여유 공간 · 최소 여유로 나눈다) -->
         <!-- 드라이브 막대 위에 구분선 -->
         <div v-for="bar in storageBars" :key="bar.key" :class="bar.key === 'drive' && 'pt-3 border-t border-outline-variant/40'">
           <div class="flex items-baseline gap-2 text-sm">
@@ -32,7 +32,7 @@
             <div class="h-full rounded-full" :class="bar.level === 'ok' ? 'bg-(--store-cache)' : LEVEL_BAR[bar.level]" :style="{ width: `${Math.max(2, bar.ratio * 100)}%` }"></div>
           </div>
           <!-- 캐시 수: 오디오 캐시 · 캐시 파일 수 아래, 드라이브 구분선 위에 -->
-          <!-- 이름 · 수 줄은 카드 아래 DB 표와 같은 모양. 표는 줄마다 따로 폭을 잡는다(긴 값 하나가 모든 줄의 이름 칸을 좁혀 이름이 접히지 않게, 이름은 접지 않고 값이 넘치면 자른다) -->
+          <!-- 이름 · 수 행은 카드 아래 DB 표와 같은 모양. 표는 행마다 따로 폭을 잡는다(긴 값 하나가 모든 행의 이름 셀을 좁혀 이름이 접히지 않게, 이름은 접지 않고 값이 넘치면 자른다) -->
           <div v-if="bar.key === 'files'" class="mt-3">
             <dl class="flex flex-col gap-1 text-sm">
               <div v-for="[k, v] in cacheCounts" :key="k" class="flex items-baseline justify-between gap-3">
@@ -54,7 +54,7 @@
   <div ref="root" class="flex flex-col gap-(--gap-in)">
     <!-- ① 요약 -->
     <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-3">
-      <!-- 좁으면(휴대폰) 마지막 갱신 · 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 칸이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라졌다 -->
+      <!-- 좁으면(휴대폰) 마지막 갱신 · 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 영역이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라졌다 -->
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span class="size-12 shrink-0 rounded-[30%] flex items-center justify-center" :class="LEVEL_BADGE[overallLevel]"><Icon :name="LEVEL_ICON[overallLevel]" :size="24" fill /></span>
         <div class="min-w-0 grow basis-44">
@@ -72,7 +72,7 @@
           <BotRestart :available="status.env.launcher" />
         </div>
       </div>
-      <!-- 살펴볼 것: 누르면 그 칸으로 가서 잠깐 테두리가 빛난다 -->
+      <!-- 살펴볼 것: 누르면 그 항목으로 가서 잠깐 테두리가 빛난다 -->
       <div v-if="attention.length" class="flex flex-wrap gap-2">
         <button v-for="a in attention" :key="a.name" type="button" class="tap state-layer h-8 px-2 rounded-sm flex items-center gap-2 text-xs font-medium cursor-pointer" :class="LEVEL_CHIP[a.level]" @click="jumpTo(a.at)"><Icon :name="LEVEL_ICON[a.level]" :size="18" fill />{{ a.name }} · {{ a.word }}</button>
       </div>
@@ -96,7 +96,7 @@
     </section>
 
     <!-- ② 연결: 봇이 실제로 부른 결과(따로 찔러 보지 않는다). 최근에 안 쓴 곳은 "대기 중", 쓰는 설정이 없는 곳은 "비활성" -->
-    <!-- 내용 칸이 넓으면(STORAGE_BESIDE_REM 이상) 연결 카드 옆에 저장공간 카드를 붙인다(높이는 연결 카드에 맞춘다). 좁으면 저장공간은 아래쪽 왼쪽 단에.
+    <!-- 내용 영역이 넓으면(STORAGE_BESIDE_REM 이상) 연결 카드 옆에 저장공간 카드를 붙인다(높이는 연결 카드에 맞춘다). 좁으면 저장공간은 아래쪽 왼쪽 단에.
          붙은 뒤로 더 넓어지면 둘이 문턱에서의 폭 비율대로 같이 늘어난다(flex 늘림 = 기준 폭) -->
     <div class="flex gap-(--gap-in) items-stretch">
       <BaseCard icon="hub" :title="T.links" data-at="links" class="flex-1 min-w-0" :style="storageBeside ? flexFromBase(LINK_CARD_REM) : undefined">
@@ -104,8 +104,8 @@
         <div class="grid grid-cols-1 @3xl/card:grid-cols-2 gap-x-10 gap-y-4">
           <div v-for="(col, ci) in linkColumns" :key="ci" class="flex flex-col gap-4">
             <div v-for="group in col" :key="group.title">
-              <!-- 칸: 이름 · 무엇(설명 · 모델 · 방식) · 마지막 성공 · 응답(실패면 오류). 쓰지 않는 곳도 같은 칸(설명에 그 사실, 숫자 칸은 -).
-                   좁은 카드(448 미만, 휴대폰)는 설명 칸이 남지 않아 줄마다 두 줄: 위에 이름 · 마지막 성공 · 응답, 아래에 설명(이름 글자 자리부터). 머리 · 줄이 저마다 같은 세 칸 격자 -->
+              <!-- 열: 이름 · 무엇(설명 · 모델 · 방식) · 마지막 성공 · 응답(실패면 오류). 쓰지 않는 곳도 같은 열(설명에 그 사실, 숫자 열은 -).
+                   좁은 카드(448 미만, 휴대폰)는 설명 열이 남지 않아 행마다 두 줄: 위에 이름 · 마지막 성공 · 응답, 아래에 설명(이름 글자 위치부터). 헤더 · 행이 저마다 같은 세 열 격자 -->
               <div :class="LINK_GRID" class="items-center text-sm">
                 <span class="contents text-xs text-on-surface-variant" :class="LINK_NARROW"
                   ><span class="@md/card:col-span-2 pb-1">{{ group.title }}</span
@@ -116,14 +116,14 @@
                   <span class="flex items-center gap-2 h-8 min-w-0"
                     ><Icon :name="LINK_ICON[line.state]" :size="20" :fill="LINK_ICON_FILLED[line.state]" :class="LINK_TEXT[line.state]" /><span class="truncate" :class="[line.state === 'off' && 'text-on-surface-variant', line.hint && 'underline decoration-dotted underline-offset-2 cursor-help']" v-tooltip="line.hint">{{ line.name }}</span></span
                   >
-                  <!-- 설명이 칸보다 길면 잘라 두지 않고 좌우로 흘려 보이고, 그때만 툴팁으로 전체를 -->
+                  <!-- 설명이 셀보다 길면 잘라 두지 않고 좌우로 흘려 보이고, 그때만 툴팁으로 전체를 -->
                   <MarqueeText class="min-w-0 text-xs text-on-surface-variant order-last col-span-full pl-7 -mt-1.5 pb-1 @md/card:order-0 @md/card:col-auto @md/card:p-0 @md/card:mt-0" :class="!line.detail && '@max-md/card:hidden'" :text="line.detail" tip />
                   <span class="text-xs nums text-right text-on-surface-variant whitespace-nowrap" :class="line.whenFull && 'underline decoration-dotted underline-offset-2 cursor-help'" v-tooltip="line.whenFull">{{ line.when || "-" }}</span>
                   <span class="text-xs nums text-right whitespace-nowrap" :class="LINK_TEXT[line.state]">{{ line.value || "-" }}</span>
                 </div>
               </div>
-              <!-- 유튜브 클라이언트(설정한 차례대로 시도): 유튜브의 하위라 테두리 상자로 묶는다. 제목 · 칸 머리는 윗선 위에 걸치고(윗선을 조각으로 그어 반투명 바탕에서도 글자 밑으로 선이 지나지 않게),
-                   이름 칸은 바깥 이름 칸에서 상자 여백 · 테두리만큼 줄여 막대가 바깥 설명 칸과 같은 자리에서 시작한다 -->
+              <!-- 유튜브 클라이언트(설정한 순서대로 시도): 유튜브의 하위라 테두리 상자로 묶는다. 제목 · 열 헤더는 윗선 위에 걸치고(윗선을 조각으로 그어 반투명 바탕에서도 글자 밑으로 선이 지나지 않게),
+                   이름 열은 바깥 이름 열에서 상자 여백 · 테두리만큼 줄여 막대가 바깥 설명 열과 같은 위치에서 시작한다 -->
               <div v-if="group.youtube" class="mt-3">
                 <div class="flex items-center h-5 text-xs text-on-surface-variant">
                   <span :class="[CLIENT_BOX_EDGE, 'w-3 border-l rounded-tl-sm']"></span><span class="px-1">{{ T.clients }}</span
@@ -156,8 +156,8 @@
           <span v-if="m.level !== 'ok'" class="ml-auto shrink-0 flex items-center gap-1 font-semibold" :class="LEVEL_TEXT[m.level]"><Icon :name="LEVEL_ICON[m.level]" :size="14" fill />{{ m.word }}</span>
         </div>
         <div class="flex items-baseline-last gap-0.5" :class="LEVEL_TEXT[m.level]">
-          <!-- 좁은 카드(11rem 아래)는 소수를 덜어 자리를 아낀다: 큰 숫자는 정수, 보조 글(이벤트 루프 · heap)은 한 자리 덜 -->
-          <!-- 화면 400px 아래는 큰 숫자를 한 단계 작게(세 자리 숫자 옆에 보조 글이 들어갈 자리) -->
+          <!-- 좁은 카드(11rem 아래)는 소수를 덜어 공간을 아낀다: 큰 숫자는 정수, 보조 글(이벤트 루프 · heap)은 한 자리 덜 -->
+          <!-- 화면 400px 아래는 큰 숫자를 한 단계 작게(세 자리 숫자 옆에 보조 글이 들어갈 공간) -->
           <span class="font-round text-3xl max-[400px]:text-2xl font-semibold tracking-tighter nums"
             ><span :class="WIDE">{{ m.value }}</span
             ><span :class="NARROW">{{ rounded(m.value) }}</span></span
@@ -169,7 +169,7 @@
               ><span :class="m.subTopShort && WIDE">{{ m.subTop }}</span
               ><span v-if="m.subTopShort" :class="NARROW">{{ m.subTopShort }}</span></span
             ><span class="flex items-center gap-1 truncate"
-              ><span v-if="m.second" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span><!-- subBreak: 카드가 13rem 아래면(11rem 아래는 subShort 한 줄) " · " 자리에서 두 줄로 --><span v-if="m.subBreak" :class="[WIDE, 'flex items-end gap-x-1 @max-[13rem]/metric:flex-col']"
+              ><span v-if="m.second" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span><!-- subBreak: 카드가 13rem 아래면(11rem 아래는 subShort 한 줄) " · " 위치에서 두 줄로 --><span v-if="m.subBreak" :class="[WIDE, 'flex items-end gap-x-1 @max-[13rem]/metric:flex-col']"
                 ><span v-for="(part, i) in m.sub.split(' · ')" :key="i" class="flex gap-x-1"><span v-if="i" class="@max-[13rem]/metric:hidden">·</span>{{ part }}</span></span
               ><!-- subNarrowBreak: 10.5rem 아래에서 두 줄로(연결된 서버 / 수) --><span v-else-if="m.subNarrowBreak" class="@max-[10.5rem]/metric:hidden">{{ m.sub }}</span
               ><span v-if="m.subNarrowBreak" class="hidden @max-[10.5rem]/metric:flex flex-col items-end"
@@ -185,17 +185,17 @@
     </div>
 
     <!-- ④ 하는 일 · ⑤ 쌓이는 곳: 두 단 격자. 첫 행에 활성 플레이어 · 자식 프로세스(같은 행이라 높이가 같다), 둘째 행 왼쪽에 저장공간(넓을 때는 연결 카드 옆으로 간다).
-         한 단이 되면 DOM 차례 그대로 1 2 3 -->
+         한 단이 되면 DOM 순서 그대로 1 2 3 -->
     <div class="grid grid-cols-1 @4xl/content:grid-cols-2 gap-(--gap-in)">
       <BaseCard ref="playerCardEl" icon="graphic_eq" :title="T.playersTitle(status.players.voiceConnections)">
-        <!-- 상태 거르기: M3 필터 칩(여럿 켜기). 오른쪽 끝에 찾기. 연결된 서버 수는 카드 제목에, 청취자 · 대기열 합계는 카드 맨 아래(자식 프로세스 합계와 같은 모양) -->
+        <!-- 상태 필터: M3 필터 칩(여럿 켜기). 오른쪽 끝에 찾기. 연결된 서버 수는 카드 제목에, 청취자 · 대기열 합계는 카드 맨 아래(자식 프로세스 합계와 같은 모양) -->
         <div class="flex flex-wrap items-center gap-2 mb-2">
           <button v-for="f in playerFilters" :key="f.key" type="button" :aria-pressed="f.on" :class="[FILTER_CHIP, f.on ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="f.toggle()">
             {{ f.label }}<span class="nums font-semibold">{{ f.count }}</span>
           </button>
           <input :value="playerTerm" :placeholder="T.search" :class="SEARCH_FIELD" class="ml-auto flex-1 min-w-28 max-w-48" @input="playerTerm = valueOf($event)" />
         </div>
-        <!-- 목록 칸은 서버 10.5줄(한 단일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 구른다는 것이 보인다). 넘치면 칸 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게 -->
+        <!-- 목록 영역은 서버 10.5줄(한 단일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 스크롤된다는 것이 보인다). 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게 -->
         <div ref="playerListEl" class="h-78 @4xl/content:h-126 overflow-y-auto -ml-2" :class="playerListOverflowing ? '-mr-4' : '-mr-2'" :style="playerFade">
           <ul v-if="shownPlayers.length" class="flex flex-col">
             <li v-for="player in shownPlayers" :key="player.guildId">
@@ -225,19 +225,19 @@
           <span class="ml-auto shrink-0 nums">{{ T.playersTotal(listenerTotal, status.players.queued) }}</span>
         </div>
       </BaseCard>
-      <!-- 넓을 때(두 단)는 옆 카드(활성 플레이어)의 높이를 따르고 제 높이로 행을 늘리지 않는다(h-0 · min-h-full). 넘치는 줄은 목록 칸 안에서 구른다.
-           한 단일 때는 카드 높이를 활성 플레이어 카드와 같게(잰 높이 --player-card-h). 칸 머리는 구르지 않게 따로 두고, 줄과 같은 고정 열 폭으로 맞춘다 -->
+      <!-- 넓을 때(두 단)는 옆 카드(활성 플레이어)의 높이를 따르고 제 높이로 행을 늘리지 않는다(h-0 · min-h-full). 넘치는 행은 목록 영역 안에서 스크롤된다.
+           한 단일 때는 카드 높이를 활성 플레이어 카드와 같게(잰 높이 --player-card-h). 열 헤더는 스크롤되지 않게 따로 두고, 행과 같은 고정 열 폭으로 맞춘다 -->
       <BaseCard icon="terminal" :title="T.processes" data-at="processes" class="flex flex-col h-(--player-card-h) @4xl/content:h-0 @4xl/content:min-h-full" :style="{ '--player-card-h': `${playerCardHeight}px` }">
         <template v-if="status.processes.oldest.length">
-          <!-- 칸 머리를 누르면 그 칸으로 줄을 세운다(다시 누르면 거꾸로). 세운 칸은 글자를 진하게 하고 화살표를 붙인다(오른쪽 맞춤 칸은 화살표가 앞) -->
-          <!-- 좁은 카드(448 미만)는 PID · 작동 시간 칸을 머리에서 빼고 줄 아래에 작게 둔다(하는 일 칸이 남지 않았다) -->
+          <!-- 열 헤더를 누르면 그 열로 행을 정렬한다(다시 누르면 거꾸로). 정렬한 열은 글자를 진하게 하고 화살표를 붙인다(오른쪽 맞춤 열은 화살표가 앞) -->
+          <!-- 좁은 카드(448 미만)는 PID · 작동 시간 열을 헤더에서 빼고 행 아래에 작게 둔다(하는 일 열이 남지 않았다) -->
           <div :class="PROCESS_GRID" class="pb-1 text-xs text-on-surface-variant">
             <button v-for="c in PROCESS_COLUMNS" :key="c.key" type="button" class="flex items-center gap-1 min-w-0 cursor-pointer hover:text-on-surface" :class="[c.right && 'justify-end', processSort.key === c.key && 'text-on-surface font-semibold', (c.key === 'pid' || c.key === 'age') && '@max-md/card:hidden']" :aria-label="T.sortBy(c.label)" @click="sortProcessesBy(c.key)">
               <Icon v-if="c.right && processSort.key === c.key" :name="processSort.desc ? 'arrow_downward' : 'arrow_upward'" :size="14" /><span class="truncate">{{ c.label }}</span
               ><Icon v-if="!c.right && processSort.key === c.key" :name="processSort.desc ? 'arrow_downward' : 'arrow_upward'" :size="14" />
             </button>
           </div>
-          <!-- 넘치면 칸 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(플레이어 목록과 같다). 늘린 만큼 안쪽 여백으로 줄을 칸 머리 열에 맞춘다 -->
+          <!-- 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(플레이어 목록과 같다). 늘린 만큼 안쪽 여백으로 행을 열 헤더에 맞춘다 -->
           <div ref="processListEl" class="flex-1 min-h-0 overflow-y-auto mb-3" :class="processListOverflowing && '-mr-4 pr-1.5'" :style="processFade">
             <div v-for="p in sortedProcesses" :key="p.pid" :class="PROCESS_GRID" class="py-1.5 @md/card:h-8 @md/card:py-0 text-sm">
               <span class="hidden @md/card:block font-mono text-xs nums">{{ p.pid }}</span>
@@ -325,7 +325,7 @@ const gbText = (bytes: number) => {
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
 
-// 살펴볼 것을 누르면 그 칸으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 띄운다: 두께 3 · 바깥 간격 2 · secondary,
+// 살펴볼 것을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3 · 바깥 간격 2 · secondary,
 // 나타날 때 600ms(long4) 중 1/4 은 0 → 8 로 두꺼워지고 3/4 은 3 으로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
 // (포커스 링은 포커스를 잃으면 바로 사라진다. 사라지는 움직임은 규격에 없어 RING.exitMs · exitEasing 으로 정했다)
 const root = ref<HTMLElement | null>(null);
@@ -341,7 +341,7 @@ function jumpTo(at: string) {
   const scroller = el.closest<HTMLElement>(".overflow-y-auto");
   const before = scroller?.scrollTop ?? 0;
   el.scrollIntoView({ behavior: "smooth", block: "center" });
-  // 굴러가면 멎을 때까지 기다린다(이미 보이는 자리라 안 구르면 바로)
+  // 스크롤되면 멎을 때까지 기다린다(이미 보이는 위치라 스크롤되지 않으면 바로)
   let timer = 0;
   const start = () => {
     cancelPendingRing?.();
@@ -378,7 +378,7 @@ function playRing(el: HTMLElement) {
   );
 }
 
-// 저장공간 카드 자리: 내용 칸이 STORAGE_BESIDE_REM 이상이면 연결 카드 옆(연결 카드 두 단이 설명을 덜 자르고 남는 폭).
+// 저장공간 카드 위치: 내용 영역이 STORAGE_BESIDE_REM 이상이면 연결 카드 옆(연결 카드 두 단이 설명을 덜 자르고 남는 폭).
 // rem 이라 브라우저 기본 글자 크기를 키우면 기준도 같이 커진다(다른 배치 기준인 컨테이너 쿼리와 같다)
 const STORAGE_BESIDE_REM = 84;
 const [DefineStorage, ReuseStorage] = createReusableTemplate();
@@ -390,7 +390,7 @@ const LINK_CARD_REM = STORAGE_BESIDE_REM - STORAGE_CARD_REM - 0.75;
 const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });
 
 // ── ③ 지금 ──
-// 모은 칸이 덮는 시간(분). 봇을 켠 지 1분이 안 됐어도 "0분"이 아니라 1분으로
+// 모은 구간이 덮는 시간(분). 봇을 켠 지 1분이 안 됐어도 "0분"이 아니라 1분으로
 const historyMinutes = computed(() => Math.max(1, Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000)));
 // 카드 폭에 따라 하나만 보인다(좁은 카드 11rem 아래)
 const WIDE = "@max-[11rem]/metric:hidden";
@@ -400,7 +400,7 @@ const gb = (mb: number, digits: number) => (mb / 1024).toFixed(digits);
 /** 소수가 있는 값을 정수로(좁은 카드). 소수가 없으면 그대로 */
 const rounded = (value: string) => (/^\d+\.\d+$/.test(value) ? String(Math.round(Number(value))) : value);
 
-/** subShort · subTopShort: 좁은 카드에서 대신 보일 보조 글(소수 한 자리 덜). subBreak: " · " 자리에서 두 줄로(11~13rem 은 sub, 10.5rem 아래는 subShort). subUp: 화면 412px 아래에서 보조 글을 숫자 위쪽에. subSwap: 화면 412px 아래에서 두 줄의 위아래를 바꾼다. subNarrowBreak: 10.5rem 아래에서 sub 대신 보일 두 줄 */
+/** subShort · subTopShort: 좁은 카드에서 대신 보일 보조 글(소수 한 자리 덜). subBreak: " · " 위치에서 두 줄로(11~13rem 은 sub, 10.5rem 아래는 subShort). subUp: 화면 412px 아래에서 보조 글을 숫자 위쪽에. subSwap: 화면 412px 아래에서 두 줄의 위아래를 바꾼다. subNarrowBreak: 10.5rem 아래에서 sub 대신 보일 두 줄 */
 type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; subShort?: string; subTopShort?: string; subBreak?: boolean; subNarrowBreak?: [string, string]; subUp?: boolean; subSwap?: boolean; series: number[]; second?: number[]; max: number; warn?: number; chartUnit: string; level: Level; word: string; why: string };
 const metrics = computed<Metric[]>(() => {
   const { status } = props;
@@ -438,18 +438,18 @@ const LINK_WORD: Record<LinkState, string> = T.linkWords;
 const LINK_ICON: Record<LinkState, IconName> = { ok: "check_circle", slow: "warning", fail: "cancel", idle: "schedule", off: "block" };
 const LINK_ICON_FILLED: Record<LinkState, boolean> = { ok: true, slow: true, fail: true, idle: false, off: false };
 const LINK_TEXT: Record<LinkState, string> = { ok: "text-(--ok-ink)", slow: "text-(--warn-ink)", fail: "text-error", idle: "text-on-surface-variant", off: "text-on-surface-variant" };
-// 칸 너비를 묶음 · 열과 상관없이 고정해 이름 · 마지막 성공 · 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock" 이 들어가게)
-/** 클라이언트 상자의 윗선 조각: 줄 가운데 높이에서 시작해 아래로 이어진다 */
+// 셀 너비를 그룹 · 열과 상관없이 고정해 이름 · 마지막 성공 · 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock" 이 들어가게)
+/** 클라이언트 상자의 윗선 조각: 행 가운데 높이에서 시작해 아래로 이어진다 */
 const CLIENT_BOX_EDGE = "self-end h-2.5 border-t border-outline-variant/60";
 const LINK_GRID = "grid grid-cols-1 @md/card:grid-cols-[8.5rem_minmax(0,1fr)_6.5rem_3.5rem] gap-x-3";
-// 좁은 카드: 머리 · 줄마다 제 격자(이름 | 마지막 성공 | 응답, 설명은 아래 줄). 넓으면 contents 로 바깥 네 칸 격자에 그대로 든다
+// 좁은 카드: 헤더 · 행마다 제 격자(이름 | 마지막 성공 | 응답, 설명은 아래 줄). 넓으면 contents 로 바깥 네 열 격자에 그대로 든다
 const LINK_NARROW = "grid grid-cols-[minmax(0,1fr)_6.5rem_3.5rem] items-center gap-x-3 @md/card:contents";
 const COOKIE_WORD = T.cookieSources;
 /** whenFull: "마지막 성공"을 줄여 보였을 때(약 …)만 전체 길이 */
 type LinkLine = { name: string; state: LinkState; detail: string; when: string; whenFull?: string | null; value: string; hint?: string | null };
 /**
- * 지난 때를 큰 단위 둘까지만 "2시간 8분 전" 꼴로(0인 단위는 뺀다). 그 아래 단위가 남으면 앞에 "약"을 붙이고 전체("2시간 8분 13초 전")는 full 로.
- * 칸 너비가 "약 23시간 59분 전"까지만 받으면 되게 하려는 것
+ * 지난 때를 큰 단위 둘까지만 "2시간 8분 전" 형식으로(0인 단위는 뺀다). 그 아래 단위가 남으면 앞에 "약"을 붙이고 전체("2시간 8분 13초 전")는 full 로.
+ * 셀 너비가 "약 23시간 59분 전"까지만 받으면 되게 하려는 것
  */
 function sinceText(at: number): { short: string; full: string | null } {
   const elapsedSec = Math.floor((Date.now() - at) / 1000);
@@ -470,13 +470,13 @@ function sinceText(at: number): { short: string; full: string | null } {
   const short = T.ago(say(units.slice(top, top + 2)));
   return cut ? { short: T.about(short), full: T.ago(say(units)) } : { short, full: null };
 }
-// 마지막 성공 · 응답 칸이 비면 화면이 "-" 를 넣는다(설명 칸은 비워 둔다)
+// 마지막 성공 · 응답 셀이 비면 화면이 "-" 를 넣는다(설명 셀은 비워 둔다)
 function toLinkLine(c: LinkRow): LinkLine {
   if (c.state === "off") return { name: c.name, state: c.state, detail: T.unused, when: "", value: "" };
   if (c.id === "discord") return { ...measuredLinkLine(c), detail: discordDetail() };
   return measuredLinkLine(c);
 }
-/** 디스코드 API 줄의 설명: 끊겨 있으면 몇 번째 시도인지, 붙어 있으면 켜진 뒤 재수립 횟수(0 이면 비운다) */
+/** 디스코드 API 행의 설명: 끊겨 있으면 몇 번째 시도인지, 붙어 있으면 켜진 뒤 재수립 횟수(0 이면 비운다) */
 function discordDetail() {
   const { reconnects, retryAttempt } = props.status.bot;
   if (retryAttempt !== null) return T.retrying(retryAttempt);
@@ -533,7 +533,7 @@ const playerFilters = computed(() => {
 });
 const NOT_MEMBER_TIP = T.notMemberTip;
 const ORPHAN_TIP = T.strayTip;
-// 하는 일: 봇 도우미는 이름, 서버의 일은 서버 이름(다음 곡 · 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
+// 하는 일: 봇 헬퍼는 이름, 서버의 일은 서버 이름(다음 곡 · 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
 const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "login-background": T.jobs.loginBackground };
 function processJob(p: ProcessRow) {
   const helper = p.job && HELPER_JOB[p.job];
@@ -542,9 +542,9 @@ function processJob(p: ProcessRow) {
   const task = p.job === "prefetch" ? T.jobs.prefetch : p.job === "lookup" ? T.jobs.lookup : null;
   return [guild, task].filter(Boolean).join(" · ") || T.jobs.none;
 }
-// 칸 머리와 줄이 따로라 열 폭을 고정한다: PID 5자리 · 프로그램(yt-dlp) · 하는 일 · 작동 시간(2:58:33) · 메모리(52 MB)
+// 열 헤더와 행이 따로라 열 폭을 고정한다: PID 5자리 · 프로그램(yt-dlp) · 하는 일 · 작동 시간(2:58:33) · 메모리(52 MB)
 const PROCESS_GRID = "grid grid-cols-[4rem_minmax(0,1fr)_3.5rem] @md/card:grid-cols-[3rem_4rem_minmax(0,1fr)_4rem_3.5rem] items-center gap-x-3";
-// 정렬: 처음은 작동 시간이 긴 차례(서버가 주는 차례). 다른 칸을 처음 누르면 수는 큰 것부터, 글은 가나다 차례
+// 정렬: 처음은 작동 시간이 긴 순서(서버가 주는 순서). 다른 열을 처음 누르면 수는 큰 것부터, 글은 가나다 순서
 type ProcessSortKey = "pid" | "label" | "job" | "age" | "mem";
 const PROCESS_COLUMNS: Array<{ key: ProcessSortKey; label: string; right?: boolean; numeric?: boolean }> = [
   { key: "pid", label: T.columns.pid, numeric: true },
@@ -587,7 +587,7 @@ const storageBars = computed(() => {
     { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(gbText(disk.totalBytes), gbText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
   ];
 });
-// 재생 중 캐시 보호: 지금 트는 곡의 캐시 파일(지우지 않는다). 미재생 캐시 파일: 캐시에 받아 뒀는데 재생 횟수가 0 인 파일(미리 받았다가 건너뛴 곡 등). 받기 실패한 캐시 파일: 받다 실패 · 받다 멈춤 · 파일이 사라진 캐시 줄(다시 받으면 풀린다)
+// 재생 중 캐시 보호: 지금 트는 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패 · 다운로드 멈춤 · 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
 const cacheCounts = computed<Array<[string, string]>>(() => {
   const { cache } = props.status.storage;
   return [
@@ -617,12 +617,12 @@ const dbRows = computed<Array<[string, string]>>(() => {
     [T.db.sponsor, T.songCount(db.sponsorSegments)],
     // 재시작 때 복원할 세션(player_sessions). 나가며 남긴 것 · 복원하지 않고 남긴 것도 세므로 "활성"을 붙이지 않는다
     [T.db.sessions, T.count(db.sessions)],
-    // 마지막으로 실제로 지운 정리: 언제 · 지운 수 · 비운 용량(정리는 기동 · 정기 간격 · 받은 뒤마다 돌고, 한도를 넘었을 때만 지운다)
+    // 마지막으로 실제로 삭제한 정리: 언제 · 삭제한 수 · 비운 용량(정리는 시작 · 정기 간격 · 다운로드 뒤마다 돌고, 한도를 넘었을 때만 삭제한다)
     [T.db.lastCleanup, cache.lastCleanup ? T.cleanup(sinceText(cache.lastCleanup.at).short, cache.lastCleanup.files, sizeText(cache.lastCleanup.bytes)) : "-"],
   ];
 });
 
-// ── ① 요약: 위 값들 중 주의 · 문제인 것(at: 누르면 갈 칸). 가장 나쁜 것이 전체 상태 ──
+// ── ① 요약: 위 값들 중 주의 · 문제인 것(at: 누르면 갈 항목). 가장 나쁜 것이 전체 상태 ──
 const linkLevel = (state: LinkState, critical: boolean): Level => (state === "fail" ? (critical ? "bad" : "warn") : state === "slow" ? "warn" : "ok");
 const attention = computed(() => [
   ...metrics.value.filter((m) => m.level !== "ok").map((m) => ({ name: m.title, word: m.word, level: m.level, at: m.title })),

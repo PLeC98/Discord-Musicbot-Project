@@ -1,8 +1,8 @@
-// 파비콘. 운영자가 패널에서 크기 칸마다 올린 그림을 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고 낸다.
-// 받은 파일은 그대로 두지 않고 sharp 로 다시 만든다: 칸 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg · 메타데이터가 그대로 나가지 않게).
-// 칸마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 갈아 끼운다. 무엇이 있는지(칸마다 지금 그림 · 기록)는 같은 폴더의 index.json:
+// 파비콘. 운영자가 패널에서 크기 슬롯마다 올린 그림을 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고 낸다.
+// 올린 파일은 그대로 두지 않고 sharp 로 다시 만든다: 슬롯 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg · 메타데이터가 그대로 나가지 않게).
+// 슬롯마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 교체한다. 무엇이 있는지(슬롯마다 지금 그림 · 기록)는 같은 폴더의 index.json:
 // 그림과 한 폴더라 백업 · 이사 · 불러오기에서 함께 움직인다(설정 DB 스냅샷을 복원해도 그림과 어긋나지 않는다).
-// 그 크기를 낼 때: 그 칸의 지금 그림 > 배율로 가장 가까운 칸의 보관본을 줄이거나 늘림 > 봇 프로필 그림을 줄임
+// 그 크기를 낼 때: 그 슬롯의 지금 그림 > 배율로 가장 가까운 슬롯의 보관본을 줄이거나 늘림 > 봇 프로필 그림을 줄임
 
 import crypto from "crypto";
 import fs from "fs";
@@ -18,21 +18,21 @@ const INDEX = "index.json";
 const RASTERS = ["png", "webp", "jpeg"];
 /** 그림 id(파일 이름에 그대로 쓴다) */
 const ID = /^[a-z0-9]{8,24}$/;
-/** 이 폴더에서 봇이 쓰는 파일: 목록 · 칸 크기 png · 보관본 png */
+/** 이 폴더에서 봇이 쓰는 파일: 목록 · 슬롯 크기 png · 보관본 png */
 const FILE = /^(index\.json|[a-z0-9]{8,24}(\.reserve)?\.png)$/;
 
 /** 저장한 그림 하나. reserveSide 는 보관본의 변 */
 type Stored = FaviconImage & { reserveSide: number };
-/** 칸 하나: 새것부터의 기록과 지금 쓰는 그림 */
+/** 슬롯 하나: 새것부터의 기록과 지금 쓰는 그림 */
 type Slot = { current: string | null; history: Stored[] };
-/** index.json 의 꼴(칸 크기 → 칸) */
+/** index.json 의 형식(슬롯 크기 → 슬롯) */
 type Index = { slots: Record<string, Slot> };
 /** 올리기의 답: 됐거나, 거절(문제 코드 · 그 값) */
 type Added = { ok: true } | { ok: false; code: Code; params?: Params };
 type Refused = Extract<Added, { ok: false }>;
 
 let slots: Map<number, Slot> | null = null;
-/** 바뀔 때마다 오른다. 화면이 파비콘 주소에 붙여 열린 탭의 아이콘을 바꿔 끼운다 */
+/** 바뀔 때마다 오른다. 화면이 파비콘 주소에 붙여 열린 탭의 아이콘을 교체한다 */
 let version = Date.now();
 const renders = new Map<string, Buffer>();
 let avatar: { url: string; input: Buffer | null } | null = null;
@@ -43,19 +43,19 @@ const reserveOf = (id: string) => path.join(dir, `${id}.reserve.png`);
 const newId = () => `${Date.now().toString(36)}${crypto.randomBytes(3).toString("hex")}`;
 const isNum = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-/** 쓰다 끊겨도 반쪽 파일이 남지 않게 옆에 쓰고 바꿔 끼운다 */
+/** 쓰다 끊겨도 반쪽 파일이 남지 않게 옆에 쓰고 교체한다 */
 function writeAtomic(file: string, data: Buffer | string) {
   fs.writeFileSync(`${file}.tmp`, data);
   fs.renameSync(`${file}.tmp`, file);
 }
 
-/** 기록 한 줄이 쓸 만한 꼴인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
+/** 기록 한 줄이 쓸 만한 형식인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
 function isStored(value: unknown): value is Stored {
   const one = value as Partial<Stored> | null;
   return !!one && typeof one.id === "string" && ID.test(one.id) && isNum(one.bytes) && isNum(one.width) && isNum(one.height) && typeof one.vector === "boolean" && isNum(one.at) && isNum(one.reserveSide) && one.reserveSide > 0 && one.reserveSide <= FAVICON_RESERVE_SIDE;
 }
 
-/** index.json 을 칸으로 읽는다. 모르는 크기 · 꼴이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 그림이 기록에 없으면 빈 칸. has: 그 id 의 파일이 다 있는지 */
+/** index.json 을 슬롯으로 읽는다. 모르는 크기 · 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 그림이 기록에 없으면 빈 슬롯. has: 그 id 의 파일이 다 있는지 */
 function slotsFrom(raw: unknown, has: (id: string) => boolean): Map<number, Slot> {
   const table = (raw as Partial<Index> | null)?.slots;
   return new Map(
@@ -73,7 +73,7 @@ function slotsFrom(raw: unknown, has: (id: string) => boolean): Map<number, Slot
 
 const indexOf = (map: Map<number, Slot>): Index => ({ slots: Object.fromEntries([...map].map(([size, slot]) => [String(size), slot])) });
 
-/** 칸들. 처음 부를 때 폴더에서 읽고(목록에 없는 파일은 지운다), 그 뒤로는 바꿀 때 같이 고친다(사람이 건드리지 않는 자리라) */
+/** 슬롯들. 처음 부를 때 폴더에서 읽고(목록에 없는 파일은 삭제한다), 그 뒤로는 바꿀 때 같이 고친다(사람이 건드리지 않는 위치라) */
 function loaded(): Map<number, Slot> {
   if (slots) return slots;
   let names: string[] = [];
@@ -86,7 +86,7 @@ function loaded(): Map<number, Slot> {
   try {
     raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8"));
   } catch {
-    // 목록이 없거나 망가졌다: 빈 칸으로
+    // 목록이 없거나 망가졌다: 빈 슬롯으로
   }
   const present = new Set(names);
   slots = slotsFrom(raw, (id) => present.has(`${id}.png`) && present.has(`${id}.reserve.png`));
@@ -138,7 +138,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
   }
 }
 
-/** 그 크기에 그림을 올린다(정사각형 png · webp · jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 그림으로 쓰고, 기록을 넘친 옛 그림은 지운다 */
+/** 그 크기에 그림을 올린다(정사각형 png · webp · jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 그림으로 쓰고, 기록을 넘친 옛 그림은 삭제한다 */
 async function addFavicon(size: number, raw: Buffer): Promise<Added> {
   const checked = await inspect(raw, size);
   if (!checked.ok) return checked;
@@ -161,7 +161,7 @@ function dropFiles(id: string) {
   fs.rmSync(reserveOf(id), { force: true });
 }
 
-/** 기록의 그림으로 갈아 끼운다. 기록에 없으면 false */
+/** 기록의 그림으로 교체한다. 기록에 없으면 false */
 function useFavicon(size: number, id: string): boolean {
   const map = loaded();
   const slot = map.get(size)!;
@@ -172,7 +172,7 @@ function useFavicon(size: number, id: string): boolean {
   return true;
 }
 
-/** 칸을 비운다(기록은 남긴다). 비어 있었으면 false */
+/** 슬롯을 비운다(기록은 남긴다). 비어 있었으면 false */
 function clearFavicon(size: number): boolean {
   const map = loaded();
   const slot = map.get(size)!;
@@ -183,7 +183,7 @@ function clearFavicon(size: number): boolean {
   return true;
 }
 
-/** 기록에서 지운다(지금 쓰는 그림이면 칸도 빈다). 기록에 없으면 false */
+/** 기록에서 삭제한다(지금 쓰는 그림이면 슬롯도 빈다). 기록에 없으면 false */
 function removeFavicon(size: number, id: string): boolean {
   const map = loaded();
   const slot = map.get(size)!;
@@ -195,7 +195,7 @@ function removeFavicon(size: number, id: string): boolean {
   return true;
 }
 
-// 빈 칸이 빌려 쓸 칸: 지금 그림이 있는 칸 중 배율로 가장 가까운 칸(차이가 아니라 배율: 180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
+// 빈 슬롯이 빌려 쓸 슬롯: 지금 그림이 있는 슬롯 중 배율로 가장 가까운 슬롯(차이가 아니라 배율: 180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
 function nearestSlot(size: number): number | null {
   const off = (side: number) => Math.abs(Math.log(side / size));
   let best: number | null = null;
@@ -213,7 +213,7 @@ async function cached(key: string, make: () => Promise<Buffer>): Promise<Buffer>
 
 const resized = (input: Buffer, size: number) => sharp(input).resize(size, size, { fit: "cover" }).png().toBuffer();
 
-/** 봇 프로필 그림(받은 것을 기억한다, 주소가 바뀌면 다시 받는다). 없거나 못 받으면 null */
+/** 봇 프로필 그림(다운로드한 것을 기억한다, 주소가 바뀌면 다시 다운로드한다). 없거나 다운로드하지 못하면 null */
 async function avatarInput(url: string | null): Promise<Buffer | null> {
   if (!url) return null;
   if (avatar?.url === url) return avatar.input;
@@ -229,7 +229,7 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
   return input;
 }
 
-/** 그 크기의 파비콘(png). 그 칸의 그림 > 가까운 칸의 보관본 > 봇 프로필 그림(avatarUrl). 셋 다 없으면 null */
+/** 그 크기의 파비콘(png). 그 슬롯의 그림 > 가까운 슬롯의 보관본 > 봇 프로필 그림(avatarUrl). 셋 다 없으면 null */
 async function faviconPng(size: number, avatarUrl: string | null): Promise<Buffer | null> {
   const own = currentOf(size);
   if (own) return cached(`own:${own.id}`, async () => fs.readFileSync(pngOf(own.id)));
@@ -242,7 +242,7 @@ async function faviconPng(size: number, avatarUrl: string | null): Promise<Buffe
   return input && cached(`avatar:${avatarUrl}:${size}`, () => resized(input, size));
 }
 
-/** 기록의 그림을 칸 크기로(미리 보기). 없으면 null */
+/** 기록의 그림을 슬롯 크기로(미리 보기). 없으면 null */
 function previewPng(size: number, id: string): Buffer | null {
   if (!slotOf(size).history.some((one) => one.id === id)) return null;
   return fs.readFileSync(pngOf(id));
@@ -269,16 +269,16 @@ const faviconVersion = () => version;
 /** 이 폴더에서 봇이 쓰는 파일인지(전체 백업이 담을 것) */
 const isFaviconFile = (name: string) => FILE.test(name);
 
-/** 저장한 파일들: index.json 과 그림마다 칸 크기 png · 보관본 png(이름은 저장된 그대로) */
+/** 저장한 파일들: index.json 과 그림마다 슬롯 크기 png · 보관본 png(이름은 저장된 그대로) */
 function faviconFiles(): Array<{ name: string; data: Buffer }> {
   const map = loaded();
   const images = [...map.values()].flatMap((slot) => slot.history);
   return [{ name: INDEX, data: Buffer.from(`${JSON.stringify(indexOf(map), null, 2)}\n`) }, ...images.flatMap((one) => [`${one.id}.png`, `${one.id}.reserve.png`].map((name) => ({ name, data: fs.readFileSync(path.join(dir, name)) })))];
 }
 
-/** 검사를 지나 저장할 모양: 칸들과 파일(다시 만든 png) */
+/** 검사를 지나 저장할 모양: 슬롯들과 파일(다시 만든 png) */
 type Prepared = { slots: Map<number, Slot>; files: Map<string, Buffer> };
-/** 받은 파일 묶음이 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음 · 목록에 있는 그림 파일이 없음 · 그림이 망가졌거나 크기가 맞지 않음 */
+/** 가져온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음 · 목록에 있는 그림 파일이 없음 · 그림이 망가졌거나 크기가 맞지 않음 */
 type FaviconFault = "index" | "missing" | "broken";
 
 /** 그림 하나를 본다: png 로 읽히고 정사각형 side 인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */
@@ -293,7 +293,7 @@ async function remade(data: Buffer | undefined, side: number): Promise<Buffer | 
   }
 }
 
-/** 받은 파일 묶음(내보내기의 favicon/ 아래)을 본다. 목록의 그림마다 두 파일이 있고 크기가 맞아야 한다. 지나가면 저장할 모양 */
+/** 가져온 파일들(내보내기의 favicon/ 아래)을 본다. 목록의 그림마다 두 파일이 있고 크기가 맞아야 한다. 지나가면 저장할 모양 */
 async function checkFavicons(files: Array<{ name: string; data: Buffer }>): Promise<{ ok: true; prepared: Prepared } | { ok: false; faults: FaviconFault[] }> {
   const byName = new Map(files.map((one) => [one.name, one.data]));
   let raw: unknown;
@@ -315,7 +315,7 @@ async function checkFavicons(files: Array<{ name: string; data: Buffer }>): Prom
   return faults.size ? { ok: false, faults: [...faults] } : { ok: true, prepared: { slots: map, files: out } };
 }
 
-/** 칸들을 받은 것으로 통째 바꾼다(가져오기, 검사는 checkFavicons 로 먼저) */
+/** 슬롯들을 가져온 것으로 통째 바꾼다(가져오기, 검사는 checkFavicons 로 먼저) */
 function replaceFavicons({ slots: next, files }: Prepared) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, data] of files) writeAtomic(path.join(dir, name), data);
@@ -326,7 +326,7 @@ function replaceFavicons({ slots: next, files }: Prepared) {
   changed();
 }
 
-/** 시험: 저장 폴더를 바꾸고 읽어 둔 것을 비운다 */
+/** 테스트: 저장 폴더를 바꾸고 읽어 둔 것을 비운다 */
 function _useDir(folder: string) {
   dir = folder;
   slots = null;

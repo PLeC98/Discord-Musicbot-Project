@@ -8,10 +8,10 @@ import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 
 type Sent = { method: string; url: string; token: string | undefined };
-/** blob: 문제 응답을 파일로 받는 요청처럼 Blob 으로 */
+/** blob: 문제 응답을 파일로 다운로드하는 요청처럼 Blob 으로 */
 type Reply = { problem?: Code; data?: unknown; fail?: string; blob?: boolean };
 
-/** 가짜 서버. route 가 요청마다 답을 고른다. 보낸 요청(토큰 받기 포함)을 차례대로 적는다. signsIn: 다시 로그인을 물으면 마칠지(기본은 그만둔다) */
+/** 가짜 서버. route 가 요청마다 답을 선택한다. 보낸 요청(토큰 받기 포함)을 순서대로 적는다. signsIn: 다시 로그인을 물으면 마칠지(기본은 그만둔다) */
 function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false }: { signsIn?: boolean } = {}) {
   const sent: Sent[] = [];
   const ends: string[] = [];

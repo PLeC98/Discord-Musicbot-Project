@@ -32,7 +32,7 @@ class PlayerRegistry extends Collection<string, Player> {
   }
 }
 
-/** 등록부를 읽거나 올리기만 하는 쪽이 받는 모양. 조립은 등록부를, 시험은 Map 을 넘긴다 */
+/** 레지스트리를 읽거나 올리기만 하는 쪽이 받는 모양. 조립은 레지스트리를, 테스트는 Map 을 넘긴다 */
 type PlayerSeats = { get(guildId: string): Player | undefined; has(guildId: string): boolean; set(guildId: string, player: Player): unknown };
 
 export { PlayerRegistry };

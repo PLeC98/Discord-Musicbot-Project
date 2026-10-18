@@ -1,4 +1,4 @@
-// src/media/fragment-stream.ts — 조각 목록으로만 주는 소리(유튜브 post_live)를 차례로 받아 흘린다.
+// src/media/fragment-stream.ts — 조각 목록으로만 주는 오디오(유튜브 post_live)를 순서대로 받아 흘린다.
 // 요청은 가짜다. 조각 번호를 본문에 싣는다
 
 import { test } from "node:test";
@@ -31,7 +31,7 @@ async function readAll(stream: NodeJS.ReadableStream) {
   return text;
 }
 
-test("처음부터 차례로 흘리고 마지막 조각 뒤에 끝난다. 조각 주소는 base 뒤 &sq=번호", async () => {
+test("처음부터 순서대로 흘리고 마지막 조각 뒤에 끝난다. 조각 주소는 base 뒤 &sq=번호", async () => {
   const { impl, asked } = fakeFetch();
   const s = createFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [] });
   assert.equal(await readAll(s), "조각 0|조각 1|조각 2|");

@@ -13,14 +13,14 @@ import * as ffmpegPathModule from "../../src/media/ffmpeg/path.ts";
 const { resolve, ffmpegPath, logResolved } = ffmpegPathModule;
 const { probe, _reset } = ffmpegPathModule._internals;
 
-test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 뽑아낸다", () => {
+test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 추출한다", () => {
   const info = resolve();
   assert.ok(info.path, "경로가 있어야 함");
   assert.ok(info.version && info.version !== "unknown", `버전 파싱: ${info.version}`);
   assert.ok(["FFMPEG_PATH", "번들", "PATH"].includes(info.source), `출처: ${info.source}`);
 });
 
-test("resolve: 결과를 캐시한다 — 매 호출마다 프로세스를 띄우지 않는다", () => {
+test("resolve: 결과를 캐시한다 — 매 호출마다 프로세스를 실행하지 않는다", () => {
   assert.equal(resolve(), resolve(), "동일 객체를 돌려줘야 함");
   assert.equal(ffmpegPath(), resolve().path);
 });
@@ -49,7 +49,7 @@ test("_reset 후에도 같은 바이너리로 다시 해석된다 (캐시 초기
   assert.equal(resolve().path, before);
 });
 
-test("번들 ffmpeg 는 저장소 뿌리의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
+test("번들 ffmpeg 는 저장소 루트의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
   const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
   const expected = path.join(import.meta.dirname, "..", "..", "vendor", "bin", exe);
   assert.equal(ffmpegPathModule._internals.fromBundle(), fs.existsSync(expected) ? expected : null);

@@ -1,12 +1,12 @@
 // 요청 한 곳. 화면의 모든 axios 요청이 이 가로채기를 거친다: CSRF 토큰 · 토큰 거절 뒤 한 번 다시 보내기 · 세션 끝 · 시간 한도
 // 시간 한도는 종류별이다. 기본은 조작 · 읽기 · 저장(10초), 부르기 · 곡 넣기 · 더 넣기와 운영자의 오래 걸리는 일은 120초,
-// 바깥 AI 를 부르는 운영자 시험은 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
+// 바깥 AI 를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
 
 import type { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
 declare module "axios" {
   interface AxiosRequestConfig {
-    /** 401 이어도 세션 끝으로 돌리지 않는다(로그인을 묻는 요청 · 로그아웃) */
+    /** 401 이어도 세션 끝으로 돌리지 않는다(로그인 여부를 확인하는 요청 · 로그아웃) */
     quietSession?: boolean;
     /** CSRF 토큰 거절 뒤 다시 보낸 요청(한 번만 다시 보낸다) */
     csrfRetried?: boolean;
@@ -22,7 +22,7 @@ const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 // 봇 앞의 프록시가 봇에 닿지 못했을 때 내는 상태. 봇이 낸 것이면 문제 응답(code)이 실린다
 const GATEWAY = new Set([502, 503, 504]);
 
-/** 요청 오류에서 읽는 칸. axios 오류가 아닌 것이 와도 읽을 수 있는 것만 읽는다 */
+/** 요청 오류에서 읽는 필드. axios 오류가 아닌 것이 와도 읽을 수 있는 것만 읽는다 */
 type Failed = { response?: { status?: number; data?: unknown }; code?: string; config?: InternalAxiosRequestConfig };
 const failedOf = (error: unknown): Failed => (error && typeof error === "object" ? (error as Failed) : {});
 
@@ -38,7 +38,7 @@ export function problemCodeOf(data: unknown): string | undefined {
   return typeof code === "string" ? code : undefined;
 }
 
-// 파일로 받는 요청(내려받기)은 거절도 Blob 으로 온다. 문제 응답(JSON)이면 풀어 다른 요청과 같게 다룬다. 아니면 그대로
+// 파일로 받는 요청(다운로드)은 거절도 Blob 으로 온다. 문제 응답(JSON)이면 풀어 다른 요청과 같게 다룬다. 아니면 그대로
 async function unblobbed(data: unknown): Promise<unknown> {
   if (!(data instanceof Blob) || !/json/.test(data.type)) return data;
   try {
@@ -75,7 +75,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
 
   http.defaults.withCredentials = true;
   http.defaults.timeout = LIMIT.short;
-  // 시간 한도를 연결 끊김(ECONNABORTED)과 가르려고 ETIMEDOUT 으로 받는다
+  // 시간 한도를 연결 끊김(ECONNABORTED)과 구분하려고 ETIMEDOUT 으로 받는다
   http.defaults.transitional = { ...http.defaults.transitional, clarifyTimeoutError: true };
 
   function csrfToken(): Promise<string> {

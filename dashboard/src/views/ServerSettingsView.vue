@@ -1,7 +1,7 @@
 <template>
   <div class="md:pt-(--gap-out)">
     <!-- 돌아가기는 위 막대 왼쪽 끝으로(서버 이름 - 서버 설정은 위 막대 가운데). 휴대폰은 화살표만 -->
-    <!-- 자동 저장 표시: 위 막대 오른쪽(서버 화면의 설정 단추 자리) -->
+    <!-- 자동 저장 표시: 위 막대 오른쪽(서버 화면의 설정 버튼 위치) -->
     <Teleport to="#topbar-end" defer>
       <SaveIndicator :state="saveState" />
     </Teleport>
@@ -34,7 +34,7 @@
 
           <input :value="roleFilter" @input="roleFilter = valueOf($event)" :disabled="!s.canEdit" :placeholder="text.fields.searchAmong(s.roles.length)" :class="[FIELD, 'w-full mb-2 disabled:opacity-38']" />
 
-          <!-- 스크롤바 길은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
+          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
             <label v-for="r in filteredRoles" :key="r.id" class="shrink-0 flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="s.canEdit ? 'state-layer cursor-pointer' : 'opacity-60'">
               <input type="checkbox" class="size-4 accent-primary shrink-0" :checked="selectedRoles.includes(r.id)" :disabled="!s.canEdit" @change="toggleRole(r.id)" />
@@ -66,7 +66,7 @@
         <BaseCard v-if="s.playlistAdd" icon="queue_music" :title="T.playlistAdd.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.playlistAdd.desc }}</p>
 
-          <!-- 이어 붙은 버튼 묶음(M3E): 고른 칸은 완전히 둥글게 · 체크. 카드가 좁으면(384 미만, 작은 휴대폰) 칸 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
+          <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게 · 체크. 카드가 좁으면(384 미만, 작은 휴대폰) 버튼 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
           <div class="flex gap-0.5 mb-3" role="radiogroup" :aria-label="T.playlistAdd.choose">
             <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]">
               <Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultLong }}</span
@@ -124,10 +124,10 @@ import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts"
 import { text } from "../text/index.ts";
 const T = text.serverSettings;
 
-/** 받기 전에는 이름 · SponsorBlock · 재생목록 칸이 없다 */
+/** 불러오기 전에는 이름 · SponsorBlock · 재생목록 필드가 없다 */
 type SettingsSeen = Omit<GuildSettings, "guildName" | "sponsorblock" | "playlistAdd"> & { guildName: string | null; sponsorblock: GuildSettings["sponsorblock"] | null; playlistAdd: GuildSettings["playlistAdd"] | null };
 
-// 좁은 카드에서 곡 수 칸을 촘촘하게(SE 375 에서 카드 밖으로 넘쳤다)
+// 좁은 카드에서 곡 수 입력란을 촘촘하게(SE 375 에서 카드 밖으로 넘쳤다)
 const SEG_TIGHT = "@max-sm/card:px-2 @max-sm/card:gap-1";
 const route = useRoute();
 const router = useRouter();
@@ -162,7 +162,7 @@ const sbDirty = computed(() => {
   return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
 });
 
-// 한 번에 넣을 재생목록 곡 수. 기본값(null) 또는 직접 정한 값
+// 한 번에 넣을 재생목록 곡 수. 기본값(null) 또는 직접 지정한 값
 const paUseDefault = ref(true);
 const paCount = ref<number | null>(null);
 const paPresets = computed(() => {
@@ -189,7 +189,7 @@ function pickPreset(n: number) {
   paCount.value = n;
 }
 
-// type="number" 를 안 쓴다. 칸 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
+// type="number" 를 안 쓴다. 입력란 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
 function onPaInput(e: Event) {
   const input = e.target as HTMLInputElement;
   const raw = valueOf(e).replace(/[^0-9]/g, "");
@@ -255,7 +255,7 @@ function retryLoad() {
 }
 
 // ── 자동 저장 ──
-// 고르면 0.4초 뒤 저장한다. 곡 수 직접 입력은 입력하는 동안(typing) 저장하지 않고 칸을 벗어나거나 Enter 에 저장한다. 범위를 벗어나면 저장하지 않는다(칸 아래 안내).
+// 선택하면 0.4초 뒤 저장한다. 곡 수 직접 입력은 입력하는 동안(typing) 저장하지 않고 입력란을 벗어나거나 Enter 에 저장한다. 범위를 벗어나면 저장하지 않는다(입력란 아래 안내).
 // 저장 중에 또 바뀌면 끝난 뒤 한 번 더. 저장한 값은 그대로 기준(s)으로 삼는다(다시 읽으면 그사이 고친 것을 덮는다). 실패는 표시 · 알림으로 알리고 고친 값은 둔다
 const typing = ref(false);
 const saveState = ref<SaveState>("idle");
@@ -320,7 +320,7 @@ onUnmounted(() => {
 });
 
 // 화면 색 · 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 곡 그림이라 재생 화면에서 들어오면 색이 그대로다).
-// 서버 목록의 지금 곡이라 곡이 바뀌면 따라간다. 목록을 처음 받는 동안은 지금 색을 붙잡는다(주소로 바로 들어온 때)
+// 서버 목록의 지금 곡이라 곡이 바뀌면 따라간다. 목록을 처음 불러오는 동안은 지금 색을 붙잡는다(주소로 바로 들어온 때)
 const guilds = useGuildsStore();
 const artOwner = Symbol("settings");
 watch(

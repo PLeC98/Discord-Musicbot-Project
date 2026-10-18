@@ -1,4 +1,4 @@
-// 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
+// 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 불러온다.
 
 import * as YouTube from "./youtube/index.ts";
 import type { TrackInfo } from "../player/track.ts";
@@ -15,16 +15,16 @@ import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
 const log = logger.child({ category: "track" });
 
-/** 소스가 찾은 곡. 소스마다 칸이 더 있다. 트랙 모델(player/track)의 TrackInfo 에 맞추는 것은 player 를 TS 로 옮길 때 */
+/** 소스가 찾은 곡. 소스마다 필드가 더 있다. 트랙 모델(player/track)의 TrackInfo 에 맞추는 것은 player 를 TS 로 옮길 때 */
 type FoundTrack = TrackInfo;
-/** 여러 곡 출처에서 받을 구간 */
+/** 여러 곡 출처에서 불러올 구간 */
 type Range = { offset?: number; limit?: number };
-/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 칸이 빠질 수 있다. total 은 모르면 null, skipped 는 받을 수 없어 뺀 곡 수 */
+/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 필드가 빠질 수 있다. total 은 모르면 null, skipped 는 받을 수 없어 뺀 곡 수 */
 type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number };
 /** 찾은 결과. 못 찾았으면 그 까닭(code), 던졌으면 그 오류(error) */
-// 두 갈래가 서로의 칸을 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
-// collectionId: 이어 받을 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
-/** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/error-messages 가 고른다 */
+// 두 경우가 서로의 필드를 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
+// collectionId: 이어 불러올 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
+/** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/error-messages 가 선택한다 */
 type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "sc-unsupported" | "nothing-playable";
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; skipped?: number; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
@@ -55,13 +55,13 @@ function isUnsupportedLink(query: string): boolean {
 // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, code, error? }
 //   code: no-song-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/error-messages 로 만든다
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
-// range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
+// range: 여러 곡 출처에서 불러올 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
 /** 찾은 곡들과 그 출처. 한 곡이면 collection · total · nextOffset 이 null */
 type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; collectionId?: string | null; total: number | null; nextOffset: number | null; skipped?: number };
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
-// 유튜브. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 받을 때 그 영상 하나로 간다.
-// 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 받으면 그 까닭을 그대로 던진다
+// 유튜브. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 불러올 때 그 영상 하나로 간다.
+// 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 불러오면 그 까닭을 그대로 던진다
 async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
   if (links.isYouTubePlaylist(query)) {
     const video = links.extractVideoId(query);
@@ -70,7 +70,7 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
       list = await youtube.getPlaylist(query, range);
     } catch (error) {
       if (!video) throw error;
-      log.warn(`재생목록을 받지 못해 영상 하나로 갑니다: ${messageOf(error).split("\n")[0]}`);
+      log.warn(`재생목록을 불러오지 못해 영상 하나로 갑니다: ${messageOf(error).split("\n")[0]}`);
       return single(await youtube.search(query, 1));
     }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
@@ -91,7 +91,7 @@ async function fromSpotify(query: string, range: Range, spotify: Sources["spotif
 }
 
 // 사운드클라우드 링크(곡 · 세트 · 짧은 링크). 세트는 한 구간만(출처가 10곡으로 자른다), 받을 수 없는 곡은 빼고 센다.
-// 비밀 공유 세트는 숫자 id 만으로 다시 부를 수 없어 이어 받기를 권하지 않는다
+// 비밀 공유 세트는 숫자 id 만으로 다시 부를 수 없어 이어 불러오기를 권하지 않는다
 async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["soundcloud"]): Promise<Found> {
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
@@ -116,7 +116,7 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
   if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "sc-unsupported" };
   try {
     const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources });
-    // 받은 구간에 틀 수 있는 곡이 하나도 없는 세트는 뺀 까닭(nothing-playable)과 뺀 곡 수를 알린다
+    // 불러온 구간에 틀 수 있는 곡이 하나도 없는 세트는 뺀 까닭(nothing-playable)과 뺀 곡 수를 알린다
     if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable", skipped: found.skipped } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
   } catch (error) {
@@ -127,7 +127,7 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
   }
 }
 
-// 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 받으면 검색으로 넘어가지 않고 던진다
+// 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 불러오면 검색으로 넘어가지 않고 던진다
 // (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다. 그건 없음이다).
 async function getCollection(url: string, range?: Range, sources: Partial<Sources> = {}): Promise<Collection> {
   const { youtube, spotify, soundcloud } = { ...REAL, ...sources };

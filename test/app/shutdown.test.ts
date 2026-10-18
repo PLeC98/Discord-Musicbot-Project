@@ -80,7 +80,7 @@ test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를
   assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
 });
 
-test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 띄운 것만 내리고 깨끗이 끝났다고 적는다", async () => {
+test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다", async () => {
   const { steps, proc, exited } = setup({ attach: false });
   proc.emit("SIGINT");
   assert.equal(await exited, 0);
@@ -118,7 +118,7 @@ test("상태 문구 지우기가 멈춰도 상한만 기다리고 끝낸다", as
   assert.ok(steps.includes("voice:g1:stay"));
 });
 
-// 대시보드의 다시 시작. 끄기와 같은 정리를 하고 다시 시작 코드로 나간다(실행기가 다시 띄운다)
+// 대시보드의 다시 시작. 끄기와 같은 정리를 하고 다시 시작 코드로 나간다(실행기가 다시 실행한다)
 test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 뒤 다시 시작 코드로 나간다. 그사이 신호가 와도 한 번만", async () => {
   const { steps, proc, exited, exits, shutdown } = setup();
   shutdown.restart("운영자");

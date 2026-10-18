@@ -6,7 +6,7 @@ import { operatorHint } from "./operator-hints.ts";
 
 // 로그에 적을 이름. 문장이 넓게 걸리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 잃는다
 const LABELS: Record<string, string> = {
-  "yt-age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 넣어 주세요",
+  "yt-age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 입력해 주세요",
   "yt-bot-check": "봇 감지",
   "unavailable-contents": "없거나 비공개 · 삭제된 곡",
   "unavailable-playlist": "없거나 비공개인 재생목록",
@@ -36,7 +36,7 @@ function causeOf(error: unknown, text: string) {
   return line === firstLine(text) ? "" : ` (${line})`;
 }
 
-/** cookiesConfigured: 쿠키를 걸어 두었나. 연령 제한이 쿠키가 없어서인지 쿠키로도 안 되는지를 가른다 */
+/** cookiesConfigured: 쿠키를 설정해 두었나. 연령 제한이 쿠키가 없어서인지 쿠키로도 안 되는지를 구분한다 */
 function failureReason(error: unknown, cookiesConfigured: boolean): string {
   const kind = errorKind(error);
   const text = messageOf(error);

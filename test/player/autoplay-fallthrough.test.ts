@@ -1,4 +1,4 @@
-// src/player/player.ts — 자동재생이 곡을 못 고른 뒤의 상태.
+// src/player/player.ts — 자동재생이 곡을 선택하지 못한 뒤의 상태.
 //
 // 회귀 대상: handleAutoplay가 후보를 하나도 못 찾으면 아무 말 없이 return했고, onTrackEnd는
 // 그 결과와 무관하게 곧바로 return했다. 그래서 대기열 소진 처리(현재곡 비우기·종료 패널·퇴장 예약)가
@@ -82,7 +82,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
   });
 }
 
-test("자동재생이 곡을 못 고르면 대기열 소진 흐름으로 떨어진다 (회귀: 좀비 상태)", async () => {
+test("자동재생이 곡을 선택하지 못하면 대기열 소진 흐름으로 떨어진다 (회귀: 좀비 상태)", async () => {
   const p = makePlayer({ autoplay: "lo-fi", picked: false });
 
   await onTrackEnd.call(p, "idle");
@@ -94,7 +94,7 @@ test("자동재생이 곡을 못 고르면 대기열 소진 흐름으로 떨어�
   assert.equal(p.autoplay, "lo-fi", "한 번 못 찾았다고 장르를 꺼버리면 안 된다 — 다음 곡에서 다시 시도한다");
 });
 
-test("자동재생이 곡을 고르면 종료 흐름을 타지 않는다", async () => {
+test("자동재생이 곡을 선택하면 종료 흐름을 타지 않는다", async () => {
   const p = makePlayer({ autoplay: "pop", picked: true });
 
   await onTrackEnd.call(p, "idle");

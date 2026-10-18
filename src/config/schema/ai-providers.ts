@@ -4,7 +4,7 @@
  * 어디에 물을지. 모델 이름은 적지 않는다. 적어 두면 저쪽에서 새 모델이 나올 때마다 고쳐야 하므로,
  * 주소만 알고 있다가 목록을 그때그때 물어본다.
  *
- * 대부분 OpenAI 호환이라 코드가 하나다. 규격이 진짜로 다른 곳은 `dialect`로 갈래를 내고,
+ * 대부분 OpenAI 호환이라 코드가 하나다. 규격이 진짜로 다른 곳은 `dialect`로 분기하고,
  * 차이는 DIALECTS 한 곳에만 둔다.
  *
  *   key            키를 받는가(로컬은 안 받는다)
@@ -13,7 +13,7 @@
  *   registry       모델 레지스트리의 이름
  *   prices         값표(models.dev)의 프로바이더 이름. 없으면 값을 모른다(키가 없는 로컬은 0)
  *   serviceAccount 키 대신 서비스 계정 JSON(needsProject: 프로젝트도 적는다)
- *   headers        그곳이 더 바라는 헤더(OpenAI 호환 갈래)
+ *   headers        그곳이 더 바라는 헤더(OpenAI 호환 분기)
  */
 type ProviderSpec = { label: string; group: string; baseUrl?: string; key?: boolean; editable?: boolean; dialect?: string; registry?: string; prices?: string; serviceAccount?: boolean; needsProject?: boolean; headers?: Record<string, string> };
 
@@ -47,7 +47,7 @@ const PROVIDER_SPECS: Record<string, ProviderSpec> = {
   llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이", registry: "llmgateway", prices: "llmgateway" },
   neuralwatt: { label: "Neuralwatt", baseUrl: "https://api.neuralwatt.com/v1", key: true, group: "게이트웨이", registry: "neuralwatt", prices: "neuralwatt" },
 
-  // 주소를 직접 적는 유일한 자리. 여기 없는 곳도, 위의 주소가 바뀌었을 때도 이것으로 간다.
+  // 주소를 직접 적는 유일한 곳. 여기 없는 곳도, 위의 주소가 바뀌었을 때도 이것으로 간다.
   custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true, editable: true, group: "직접" },
 };
 

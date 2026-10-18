@@ -33,7 +33,7 @@ const logSink = (await import("../../src/infra/log/sink.ts")).default;
 const config = (await import("../../src/config/index.ts")).default;
 const { BOT_VERSION } = await import("../../src/infra/version.ts");
 
-/** 거절 · 확인 답의 칸. 경로마다 읽는 칸이 더 있으면 부를 때 모양을 적는다 */
+/** 거절 · 확인 답의 필드. 경로마다 읽는 필드가 더 있으면 부를 때 모양을 적는다 */
 type Reply = ProblemReply & { success?: boolean };
 
 // 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로
@@ -130,10 +130,10 @@ before(async () => {
   adminApp = app;
   app.use(bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use(signedInAs(() => currentUser));
-  app.locals.restart = null; // 실행기 없이 켰다(다시 시작 시험이 바꾼다)
+  app.locals.restart = null; // 실행기 없이 켰다(다시 시작 테스트가 바꾼다)
   app.locals.bot = fakeBot({ client, players, panels });
   app.locals.stream = fake<PlayerStream>({ subs: new Set([{}, {}]) });
-  // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 칸 중 이름만)
+  // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 필드 중 이름만)
   const put = fake<PutCommands>(async (_route: string, body: { name: string }[]) => body.map((c) => ({ name: c.name })));
   app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });
   app.use("/api/admin", adminRouter);
@@ -217,7 +217,7 @@ test("GET guilds: 참가 서버 목록 + 재생 여부", async () => {
 
 // ── 서버 나가기 ──────────────────────────────────────────────
 
-test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 지움 · 끝난 패널) 나간다", async () => {
+test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 삭제 · 끝난 패널) 나간다", async () => {
   const r = await req<{ name: string }>("POST", "/api/admin/guilds/100/leave");
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
@@ -304,7 +304,7 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 
 // ── 설정 문서 (장르 · 상태 문구 · AI 설정 · 프롬프트) ────────────────────────────────
 //
-// 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
+// 봇 전체 동작을 바꾸는 경로다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 문서는 메모리에만 둔다(저장소를 붙이지 않는다). 함께 쓰기의 트랜잭션은 test/config/documents.test.ts 가 본다.
 
 /** 장르 설정을 읽은 답 */
@@ -392,7 +392,7 @@ test("설정: 내용이나 저장 번호가 없으면 400", async () => {
 
 // ── 소스 편집기 자동완성 ─────────────────────────────────────────────────────
 
-test("자동완성: 받을 수 있는 종류 · 칸 · 검색어만 저쪽에 묻고, 저쪽이 실패하면 502", async () => {
+test("자동완성: 받을 수 있는 종류 · 필드 · 검색어만 저쪽에 묻고, 저쪽이 실패하면 502", async () => {
   const asked: URL[] = [];
   let down = false;
   useFetch(
@@ -405,7 +405,7 @@ test("자동완성: 받을 수 있는 종류 · 칸 · 검색어만 저쪽에 �
   try {
     const ask = (q: string) => req<{ items?: unknown[]; error?: string }>("GET", `/api/admin/source-suggest?${q}`);
     assert.equal((await ask("type=lastfm&field=tags&q=a")).status, 400, "VocaDB 계열만");
-    assert.equal((await ask("type=vocadb&field=songTypes&q=a")).status, 400, "태그 · 가수 칸만");
+    assert.equal((await ask("type=vocadb&field=songTypes&q=a")).status, 400, "태그 · 가수 필드만");
     assert.equal((await ask("type=vocadb&field=tags&q=%20%20")).status, 400, "빈 검색어");
     assert.equal((await ask(`type=vocadb&field=tags&q=${"a".repeat(101)}`)).status, 400, "너무 긴 검색어");
     assert.equal(asked.length, 0, "막은 요청은 저쪽에 가지 않는다");
@@ -443,25 +443,25 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   assert.equal(byType.lbradio.label, "ListenBrainz Radio");
   assert.equal(byType.vocadb.label, "VocaDB");
 
-  // 곡이 많을 때 고르는 범위. 화면이 "상위 n곡 중에서"를 채운 칸에 따라 셈한다
+  // 곡이 많을 때 선택하는 범위. 화면이 "상위 n곡 중에서"를 채운 필드에 따라 셈한다
   assert.deepEqual(byType.vocadb.window, { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 });
   assert.equal(byType.keyword.window, null);
-  // 치는 동안 후보를 받는 칸. 화면이 이걸 보고 자동완성을 켠다
+  // 입력하는 동안 후보를 받는 필드. 화면이 이걸 보고 자동완성을 켠다
   assert.equal(fieldOf("vocadb", "artists").suggest, "artists");
   assert.equal(fieldOf("vocadb", "excludeTags").suggest, "tags");
 
-  // 키가 필요한 것은 무엇이 필요한지 밝힌다(화면이 "키 없음"을 띄운다)
+  // 키가 필요한 것은 무엇이 필요한지 밝힌다(화면이 "키 없음"을 표시한다)
   assert.equal(byType.lbradio.needs, "LISTENBRAINZ_TOKEN");
   assert.equal(byType.keyword.needs, null, "키워드는 키가 필요 없다");
   assert.equal(typeof byType.keyword.usable, "boolean");
 
-  // 필수 칸은 need 에서 끌어온다 — 화면이 따로 적지 않는다
+  // 필수 필드는 need 에서 끌어온다 — 화면이 따로 적지 않는다
   assert.equal(fieldOf("keyword", "keywords").required, true);
   assert.equal(fieldOf("youtube", "url").required, true);
   // "둘 중 하나"는 따로 알려 준다
   assert.deepEqual(byType.lbradio.either, [["tags", "prompt"]]);
 
-  // 고를 값이 정해진 칸은 목록을 같이 준다 — 보일 말과 API 값이 다를 수 있어 짝으로 준다
+  // 선택할 값이 정해진 필드는 목록을 같이 준다 — 보일 말과 API 값이 다를 수 있어 짝으로 준다
   const media = fieldOf("animethemes", "mediaFormat");
   assert.equal(media.kind, "enumList");
   assert.ok(
@@ -476,7 +476,7 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   );
   (season.options ?? []).forEach((one, i) => assert.ok(one.label.startsWith(`${i + 1}분기`), `${one.value} → ${one.label}`));
 
-  // 구간 슬라이더는 고를 수 있는 양 끝을 서버가 알려 준다 — 화면이 올해로 어림잡지 않는다
+  // 구간 슬라이더는 선택할 수 있는 양 끝을 서버가 알려 준다 — 화면이 올해로 어림잡지 않는다
   const year = fieldOf("animethemes", "yearFrom");
   assert.equal(year.kind, "range");
   assert.equal(year.to, "yearTo");
@@ -491,7 +491,7 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // ── AI 보조 ───────────────────────────────────────────────────────────────
 
-// 판정 테스트는 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 안 보낸다.
+// 판정 테스트는 보기 곡이 아니라 진짜 곡으로 테스트한다. 링크 조회는 아무것도 안 보낸다.
 test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
   const bad = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
   assert.equal(bad.status, 200);
@@ -515,7 +515,7 @@ test("AI 보조: 후보를 프롬프트에 적히는 줄로 그린다", async ()
 });
 
 // 조회를 안 하고 눌러도 무엇이 나가는지는 보여야 한다 — 보기 곡으로 돌린다.
-test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", async () => {
+test("AI 보조: 선택한 후보가 없으면 보기 곡으로 판정한다", async () => {
   const got = await req<{ body: unknown }>("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }], data: { provider: "off" } });
   assert.equal(got.status, 200);
   assert.ok(got.json.body, "요청은 만들어진다");
@@ -538,11 +538,11 @@ test("AI 보조: 긴 프롬프트도 받는다", async () => {
   assert.equal(other.status, 413, "딴 길은 여전히 32kb 에서 막힌다");
 });
 
-/** 그 모델이 받는 칸을 물은 답 */
+/** 그 모델이 받는 필드를 물은 답 */
 type ModelFields = { known: boolean; fields: { key: string; path: string; widget: string; enum: { value: string }[] }[]; models: unknown[] };
 
 // 값이 본문 어디로 가는지는 모델 프로필이 안다 — 화면이 베껴 두면 한쪽만 고치게 된다.
-test("AI 보조: 그 모델이 받는 칸을 알려 준다", async () => {
+test("AI 보조: 그 모델이 받는 필드를 알려 준다", async () => {
   const { status, json } = await req<ModelFields>("GET", "/api/admin/ai/fields?provider=anthropic&model=claude-opus-5");
   assert.equal(status, 200);
   assert.equal(json.known, true);
@@ -567,10 +567,10 @@ test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", 
   assert.ok(unknown.json.models.length > 0, "모델 목록은 그대로 준다");
 });
 
-// 키는 비밀 표에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
+// 키는 비밀 표에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 곳이다.
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
   const { status, json } = await req<{ hasKey: Record<string, boolean>; defaultSections: unknown; settingDefaults: Record<string, unknown> }>("GET", "/api/admin/ai/state");
-  // 비운 칸이 쓰는 값. 화면이 흐리게 보여 준다
+  // 비운 입력란이 쓰는 값. 화면이 흐리게 보여 준다
   assert.equal(json.settingDefaults.retries, 2);
   assert.deepEqual(json.settingDefaults.retryStatus, [408, 409, 429, 500, 502, 503, 504, 529]);
   assert.equal(status, 200);
@@ -607,7 +607,7 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   const saved = await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { groq: "sk-groq-새키" } });
   assert.equal(saved.status, 200);
   assert.equal(saved.json.hasKey.groq, true);
-  assert.equal(saved.json.hasKey.openai, true, "적어 보내지 않은 칸은 그대로 둔다");
+  assert.equal(saved.json.hasKey.openai, true, "적어 보내지 않은 필드는 그대로 둔다");
   assert.ok(!JSON.stringify(saved.json).includes("sk-groq-새키"), "응답에 값이 실리면 안 된다");
 
   // 비밀 표에는 들어갔다(평문은 끝 네 글자뿐이라 값으로는 찾지 않는다)
@@ -617,7 +617,7 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   const state = await req("GET", "/api/admin/ai/state");
   assert.ok(!JSON.stringify(state.json).includes("sk-groq-새키"));
 
-  // 빈 값이면 지운다
+  // 빈 값이면 삭제한다
   assert.equal((await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { groq: "" } })).json.hasKey.groq, false);
 
   // 모르는 이름 · 키를 안 쓰는 프로바이더는 받지 않는다
@@ -630,7 +630,7 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
-// 키는 화면이 지금 적어 둔 주소 · 리전에 묶인다. 저장된 설정이 다른 곳을 가리키면 "다시 넣어야 함"으로 보인다
+// 키는 화면이 지금 입력해 둔 주소 · 리전에 묶인다. 저장된 설정이 다른 곳을 가리키면 "다시 넣어야 함"으로 보인다
 test("AI 키: 버텍스는 JSON 내용만, 묶을 주소가 없으면 거절, 저장된 설정과 다른 곳에 묶였으면 moved", async () => {
   const account = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----\n" });
   const asPath = await req<ProblemReply>("PUT", "/api/admin/ai/keys", { keys: { vertex: "C:/keys/sa.json" }, data: { provider: "vertex" } });
@@ -650,7 +650,7 @@ test("AI 키: 버텍스는 JSON 내용만, 묶을 주소가 없으면 거절, �
   await req("PUT", "/api/admin/ai/keys", { keys: { vertex: "" } });
 });
 
-// 넣기 · 지우기는 로그인한 지 10분 안이어야 한다(훔친 로그인 쿠키로 키를 갈아 끼우지 못하게)
+// 넣기 · 삭제는 로그인한 지 10분 안이어야 한다(훔친 로그인 쿠키로 키를 교체하지 못하게)
 test("AI 키: 로그인한 지 오래됐으면 reauth-required", async () => {
   const app = express();
   app.use(bodyLimit());
@@ -770,7 +770,7 @@ test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 낡은
   assert.equal(model(), "한번에");
   assert.deepEqual(documents.get("ai-prompt"), prompt);
 
-  // 꺼 두면(enabled: false) 프롬프트의 {{list}} 자리는 따지지 않는다. 섹션 경계가 깨질 글은 그래도 막는다
+  // 꺼 두면(enabled: false) 프롬프트의 {{list}} 자리표시자는 따지지 않는다. 섹션 경계가 깨질 글은 그래도 막는다
   const off = await putAi<Both>({ enabled: false, provider: "openai", model: "" }, [{ role: "user", text: "목록 없음" }]);
   assert.equal(off.status, 200);
   assert.deepEqual(off.json.sections, [{ role: "user", text: "목록 없음" }]);
@@ -796,7 +796,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const noUrl = await putDoc("ai", { provider: "openai", baseUrl: "", model: "gpt-5" });
   assert.equal(noUrl.status, 200);
 
-  // 버텍스의 리전은 비우면 global 이다(autoplayAssist) — 적으라고 막을 이유가 없다
+  // 버텍스의 리전은 비우면 global 이다(autoplayAssist) — 입력하라고 막을 이유가 없다
   const noRegion = await putDoc("ai", { provider: "vertex", model: "gemini-3-pro" });
   assert.equal(noRegion.status, 200);
 
@@ -806,7 +806,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const range = await putDoc("ai", { provider: "off", batchSize: 99 });
   assert.equal(range.status, 400);
 
-  // 온도는 모델이 받는 칸 하나가 됐다 — 맨 위에 남아 있으면 조용히 무시되므로 막는다
+  // 온도는 모델이 받는 필드 하나가 됐다 — 맨 위에 남아 있으면 조용히 무시되므로 막는다
   const moved = await putDoc("ai", { provider: "off", temperature: 0 });
   assert.equal(moved.status, 400);
   assert.match(detailsOf(moved.json), /params 아래에 모델별로/);
@@ -814,7 +814,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   // 모르는 프로바이더로 저장되면 조용히 안 돈다
   assert.equal((await putDoc("ai", { provider: "anthropic" })).status, 400);
 
-  // 켜고 끄기(enabled): 켜는데 프로바이더가 없으면 막고, 꺼 두면 덜 채운 칸이 있어도 저장한다
+  // 켜고 끄기(enabled): 켜는데 프로바이더가 없으면 막고, 꺼 두면 덜 채운 필드가 있어도 저장한다
   const onWithout = await putDoc("ai", { provider: "off", enabled: true });
   assert.equal(onWithout.status, 400);
   assert.match(detailsOf(onWithout.json), /켜려면 provider/);
@@ -834,8 +834,8 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   assert.deepEqual(saved.json.data.promptNames, ["기준", "목록"], "섹션 이름은 설정 쪽에 남는다");
 });
 
-// 나갈 것을 만들어만 본다. 보내지 않는다 — 테스트와 가르는 것이 이 엔드포인트의 요점이다.
-test("AI 미리보기: 응답 칸이 없다", async () => {
+// 나갈 것을 만들어만 본다. 보내지 않는다 — 테스트와 구분하는 것이 이 엔드포인트의 요점이다.
+test("AI 미리보기: 응답 필드가 없다", async () => {
   const { status, json } = await req<{ url: string; body: { messages: unknown } }>("POST", "/api/admin/ai/preview", { data: { provider: "custom", baseUrl: "http://127.0.0.1:1/v1", model: "m" } });
   assert.equal(status, 200);
   assert.equal(json.url, "http://127.0.0.1:1/v1/chat/completions");
@@ -856,7 +856,7 @@ test("소스 종류: 운영자만 볼 수 있다", async () => {
 
 // ── 실시간 로그(SSE) ──────────────────────────────────────────
 
-// 연결을 열어 첫 묶음만 읽고 닫는다
+// 연결을 열어 첫 청크만 읽고 닫는다
 async function firstChunk(urlPath: string, headers: Record<string, string> = {}) {
   const ctl = new AbortController();
   const res = await fetch(base + urlPath, { headers, signal: ctl.signal });

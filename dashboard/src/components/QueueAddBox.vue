@@ -13,13 +13,13 @@
     <!-- 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
     <NoticeBox v-else-if="!player.canAdd" variant="gate" icon="headphones" icon-class="text-on-surface-variant">{{ noticeText("must-be-in-same-voice").title }}</NoticeBox>
     <form v-else @submit.prevent="addTrack(isPlaylistQuery && addSingle)">
-      <!-- 고르면 캡슐 전체에 후광 -->
+      <!-- 선택하면 캡슐 전체에 후광 -->
       <div class="flex items-center gap-1 h-12 pl-3 pr-1 rounded-full bg-surface-container-highest transition-shadow duration-200 focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]">
         <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
         <input :value="query" @input="query = valueOf($event)" class="flex-1 min-w-0 h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
         <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
       </div>
-      <!-- 재생목록 링크면 무엇을 넣을지 고른다(이어 붙은 버튼 묶음). 넣기 버튼은 고른 쪽으로 넣는다 -->
+      <!-- 재생목록 링크면 무엇을 넣을지 선택한다(이어 붙은 버튼 그룹). 넣기 버튼은 선택한 쪽으로 넣는다 -->
       <div v-if="isPlaylistQuery" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-3">
         <span class="flex items-center gap-1 text-xs text-on-surface-variant"><Icon name="playlist_play" :size="14" />{{ T.playlistLink }}</span>
         <div class="ml-auto flex gap-0.5" role="radiogroup" :aria-label="T.addWhich">
@@ -86,7 +86,7 @@ function clearResult() {
   info.value = "";
 }
 
-// 봇 재적 · 넣을 수 있는지가 바뀌면 직전 실패는 더 맞지 않는다(봇이 나가 넣기 칸이 부르기 단추로 바뀌는 순간 등)
+// 봇 재적 · 넣을 수 있는지가 바뀌면 직전 실패는 더 맞지 않는다(봇이 나가 넣기 입력란이 부르기 버튼으로 바뀌는 순간 등)
 watch(
   () => [props.player.botInVoice, props.player.canAdd],
   () => (error.value = ""),

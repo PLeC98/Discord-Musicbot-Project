@@ -12,7 +12,7 @@ const STALL_MS = 10_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 요청 함수에서 여기서 부르고 읽는 칸만. 기본은 전역 fetch
+// 요청 함수에서 여기서 부르고 읽는 필드만. 기본은 전역 fetch
 type RangeResponse = {
   status: number;
   headers: { get?(name: string): string | null };
@@ -284,7 +284,7 @@ class ChunkedReader {
     }
   }
 
-  // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 기존 fetch와 같은 자리에서 실패를 잡도록.
+  // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 기존 fetch와 같은 곳에서 실패를 잡도록.
   prime() {
     if (!this.ready) {
       this.ready = new Promise<void>((resolve, reject) => {

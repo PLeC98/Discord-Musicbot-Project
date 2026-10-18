@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { holdingAdapterCreator, HOLD_MS } from "../../src/infra/voice-adapter.ts";
 
 type VoiceState = Parameters<DiscordGatewayAdapterLibraryMethods["onVoiceStateUpdate"]>[0];
-// 게이트웨이로 보낸 것. 여기서 보는 칸만
+// 게이트웨이로 보낸 것. 여기서 보는 필드만
 type Payload = { op: number; d: { channel_id: string | null } };
 
 // 디스코드 쪽 어댑터 대신. 보낸 것을 적고, 게이트웨이 알림을 흘려 넣을 수 있게 한다
@@ -28,7 +28,7 @@ function setup(t: TestContext) {
     onVoiceServerUpdate() {},
     destroy() {},
   });
-  // 알림은 봇의 채널만 본다. 나머지 칸은 비운다
+  // 알림은 봇의 채널만 본다. 나머지 필드는 비운다
   const state = (channelId: string, extra = {}) => gateway!.onVoiceStateUpdate({ channel_id: channelId, ...extra } as VoiceState);
   return { adapter, sent, seen, state, rewrites, sends, destroyed: () => destroyed };
 }

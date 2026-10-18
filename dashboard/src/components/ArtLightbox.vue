@@ -29,7 +29,7 @@ const open = defineModel<boolean>("open", { required: true });
 
 onKeyStroke("Escape", () => (open.value = false));
 
-// 유튜브는 큰 썸네일(띠 없는 16:9)을 먼저 써 보고, 없으면(작은 자리 그림이 온다) 지금 그림으로
+// 유튜브는 큰 썸네일(띠 없는 16:9)을 먼저 써 보고, 없으면(작은 대체 그림이 온다) 지금 그림으로
 const YT_SMALL = /^(https:\/\/i\.ytimg\.com\/vi\/[^/]+\/)(hq|sd|mq)?default\.jpg$/;
 const wideFailed = ref(false);
 const wide = computed(() => !wideFailed.value && YT_SMALL.test(props.track?.thumbnail ?? ""));
@@ -38,7 +38,7 @@ const large = computed(() => {
   return wide.value ? url.replace(YT_SMALL, "$1maxresdefault.jpg") : url;
 });
 
-// 그림 크기를 받은 뒤 원래 비율로 띄운다(위아래 검은 띠는 뺀다). 긴 변은 28rem(448) 까지, 그림 원래 크기의 1.5배까지만 키운다
+// 그림 크기를 받은 뒤 원래 비율로 표시한다(위아래 검은 띠는 뺀다). 긴 변은 28rem(448) 까지, 그림 원래 크기의 1.5배까지만 키운다
 const MAX_REM = 28;
 const size = ref<{ w: number; h: number } | null>(null);
 watch(
@@ -48,7 +48,7 @@ watch(
 watch(large, () => (size.value = null));
 function loaded(e: Event) {
   const img = e.target as HTMLImageElement;
-  // 유튜브는 큰 썸네일이 없으면 작은 자리 그림(120×90)을 준다
+  // 유튜브는 큰 썸네일이 없으면 작은 대체 그림(120×90)을 준다
   if (wide.value && img.naturalWidth < 200) wideFailed.value = true;
   else size.value = { w: img.naturalWidth, h: img.naturalHeight };
 }

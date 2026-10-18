@@ -1,28 +1,28 @@
 // v-tooltip="text". 네이티브 title 대신 커스텀 디자인 툴팁.
-// 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래) 4 떨어진 자리에 중앙 정렬로 표시(M3 일반 툴팁, 꼬리 없음).
+// 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래) 4 떨어진 위치에 중앙 정렬로 표시(M3 일반 툴팁, 꼬리 없음).
 //
-// 마우스: 올리면 뜨고 떠나거나 누르면 꺼진다. 키보드: 초점이 오면 뜬다. 어디든 구르면 꺼진다.
+// 마우스: 올리면 뜨고 떠나거나 누르면 꺼진다. 키보드: 포커스가 오면 뜬다. 어디든 스크롤되면 꺼진다.
 // 터치 · 펜: 톡 치면 브라우저가 마우스 흉내(올림 → 누름)를 연달아 보내 떴다가 바로 꺼지므로, 그 흉내는 받지 않고 따로 다룬다.
-//   누르는 기능이 없는 것(도움말 아이콘 · 이름표)은 톡 치면 켜고 끄고, 단추 · 링크처럼 누르면 동작하는 것은 길게 누르면 뜬다(M3 모바일 툴팁.
+//   누르는 기능이 없는 것(도움말 아이콘 · 라벨)은 톡 치면 켜고 끄고, 버튼 · 링크처럼 누르면 동작하는 것은 길게 누르면 뜬다(M3 모바일 툴팁.
 //   이때 손을 떼며 오는 누름은 막는다: 툴팁을 보려던 것이지 누르려던 것이 아니다). 다른 곳을 치면 꺼진다.
 
 import type { Directive } from "vue";
 
-/** 요소마다 든 것: 띄울 글과 붙인 처리기 */
+/** 요소마다 든 것: 표시할 글과 붙인 처리기 */
 type Held = { text: string | null | undefined; show: () => void; hide: () => void; down: (e: PointerEvent) => void; up: (e: PointerEvent) => void; cancel: () => void; click: (e: MouseEvent) => void };
 const held = new WeakMap<HTMLElement, Held>();
 
 const LONG_PRESS_MS = 500;
 const MOUSE_AFTER_TOUCH_MS = 800; // 터치 뒤 브라우저가 흉내 내는 마우스 신호를 무시하는 시간
-// 누르면 동작하는 것(이것 안이면 톡 쳐도 툴팁을 띄우지 않고 길게 눌러야 뜬다). 이름표(label)는 칸에 초점을 줄 뿐이라 넣지 않는다
+// 누르면 동작하는 것(이것 안이면 톡 쳐도 툴팁을 표시하지 않고 길게 눌러야 뜬다). 라벨(label)은 입력란에 포커스를 줄 뿐이라 넣지 않는다
 const PRESSABLE = "button, a, input, select, textarea, [role=button], [role=switch], [role=radio], [role=menuitem], [role=option], [draggable=true]";
 
 let tipEl: HTMLDivElement | null = null;
-// 지금 툴팁을 띄운 요소. 다른 요소가 떠나거나 사라질 때 남의 툴팁을 끄지 않게, 떠 있는 글을 고칠 때 그 요소인지 보려고 든다
+// 지금 툴팁을 표시한 요소. 다른 요소가 떠나거나 사라질 때 남의 툴팁을 끄지 않게, 떠 있는 글을 고칠 때 그 요소인지 보려고 든다
 let owner: HTMLElement | null = null;
 let lastTouch = 0;
 let pressTimer = 0;
-// 길게 눌러 툴팁을 띄웠다: 손을 떼며 오는 누름(click)을 한 번 막는다
+// 길게 눌러 툴팁을 표시했다: 손을 떼며 오는 누름(click)을 한 번 막는다
 let swallowClick: HTMLElement | null = null;
 let pressStart: { x: number; y: number } | null = null;
 
@@ -32,11 +32,11 @@ function ensureEl() {
   tipEl.className = "app-tooltip";
   tipEl.setAttribute("role", "tooltip");
   document.body.appendChild(tipEl);
-  // 터치로 띄운 툴팁은 다른 곳을 치면 끈다
+  // 터치로 표시한 툴팁은 다른 곳을 치면 끈다
   document.addEventListener("pointerdown", (e) => {
     if (e.pointerType !== "mouse" && owner && !owner.contains(e.target as Node)) hide(owner);
   });
-  // 어디든 구르면 끈다. 툴팁은 화면에 고정된 자리라 대상만 굴러가 떨어져 남는다(M3 툴팁도 굴리면 사라진다)
+  // 어디든 스크롤되면 끈다. 툴팁은 화면에 고정된 위치라 대상만 스크롤되어 떨어져 남는다(M3 툴팁도 스크롤하면 사라진다)
   window.addEventListener("scroll", () => owner && hide(owner), { capture: true, passive: true });
   return tipEl;
 }
@@ -65,7 +65,7 @@ function show(el: HTMLElement) {
   });
 }
 
-/** el 이 띄운 툴팁이면 끈다 */
+/** el 이 표시한 툴팁이면 끈다 */
 function hide(el: HTMLElement) {
   if (!tipEl || owner !== el) return;
   owner = null;
@@ -102,7 +102,7 @@ const tooltip: Directive<HTMLElement, string | null | undefined> = {
         clearTimeout(pressTimer);
         const moved = pressStart && Math.hypot(e.clientX - pressStart.x, e.clientY - pressStart.y) > 10;
         pressStart = null;
-        // 누르는 기능이 없는 것은 톡 치면 켜고 끈다(굴리느라 움직였으면 아니다)
+        // 누르는 기능이 없는 것은 톡 치면 켜고 끈다(스크롤하느라 움직였으면 아니다)
         if (!moved && !el.closest(PRESSABLE)) {
           if (owner === el) hide(el);
           else show(el);
@@ -131,7 +131,7 @@ const tooltip: Directive<HTMLElement, string | null | undefined> = {
     const one = held.get(el);
     if (!one || one.text === binding.value) return;
     one.text = binding.value;
-    // 떠 있는 동안 글이 바뀌었다(볼륨 값 등). 새 글로 다시 띄운다(비면 끈다)
+    // 떠 있는 동안 글이 바뀌었다(볼륨 값 등). 새 글로 다시 표시한다(비면 끈다)
     if (owner === el) show(el);
   },
   unmounted(el) {

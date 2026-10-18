@@ -19,7 +19,7 @@ function normalizeDashboardOrigin(value: string) {
 /**
  * 허용 출처는 대시보드 주소 하나뿐이다.
  *
- * Vite 개발 서버(5173)는 `pnpm run dev`로 띄웠을 때만 허용
+ * Vite 개발 서버(5173)는 `pnpm run dev`로 실행했을 때만 허용
  */
 function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { allowDevOrigin?: boolean } = {}) {
   const allowedOrigins = new Set([normalizeDashboardOrigin(dashboardUrl)]);

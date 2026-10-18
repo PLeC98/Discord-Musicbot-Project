@@ -33,7 +33,7 @@ const opts = { skip: BIN ? false : "ffmpeg 바이너리 없음" };
 const signal = new AbortController().signal;
 const sample = (name: string) => path.join(SAMPLES, name);
 
-/** PNG 의 IHDR 뒤에 덩어리 하나를 끼운다 */
+/** PNG 의 IHDR 뒤에 청크 하나를 끼운다 */
 function withChunk(png: Buffer, type: string, data: Buffer): Buffer {
   const head = Buffer.alloc(8);
   head.writeUInt32BE(data.length);
@@ -118,7 +118,7 @@ test("그림: 감마만 적힌 PNG 는 sRGB 로 다시 적어 브라우저에서
   assert.ok(Math.abs((await pixel(stillFile(plain.id, 1280)))[0] - 20) <= 2);
 });
 
-test("영상: 썸네일은 고른 장면(크롭), 대표색은 구간의 장면을 모아서", opts, async () => {
+test("영상: 썸네일은 선택한 장면(크롭), 대표색은 구간의 장면을 모아서", opts, async () => {
   const one = await applied("cuts.mp4", { crop: { x: 0.25, y: 0, w: 0.5, h: 1 }, range: [0, 6], thumbAt: 3 });
   const result = await thumb(job(one));
   // 960 × 1080 으로 잘라 가장 작은 폭(원본 폭 960)
@@ -138,6 +138,6 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
   assert.equal(new Set(scenes.map((one) => one.color)).size, 3);
 });
 
-test("장면 바뀜 고르기: 처음 · 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
+test("장면 바뀜 선택: 처음 · 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
   assert.deepEqual(cutsOf([0.2, 1.5, 2.0, 2.4, 3.7, 9.8], 10), [1.5, 3.7]);
 });

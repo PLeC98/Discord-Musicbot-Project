@@ -1,10 +1,10 @@
-// dashboard/src/composables/save-targets.ts — 운영자 패널의 저장 막대 하나가 고친 편집기를 탭 차례로 저장 · 되돌린다
+// dashboard/src/composables/save-targets.ts — 운영자 패널의 저장 막대 하나가 고친 편집기를 탭 순서로 저장 · 되돌린다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { addSaveTarget, revertAll, saveAll, saveTargets } from "../../../dashboard/src/composables/save-targets.ts";
 
-// 편집기의 ref 흉내(목록은 .value 만 읽는다). vue 는 화면 쪽 패키지라 시험에서 부르지 않는다
+// 편집기의 ref 흉내(목록은 .value 만 읽는다). vue 는 화면 쪽 패키지라 테스트에서 부르지 않는다
 const flag = (value: boolean) => ({ value }) as never;
 
 /** 가짜 편집기. 저장 · 되돌리기를 log 에 적는다 */
@@ -23,7 +23,7 @@ function editor(tab: string, log: string[], { dirty = true, ok = true } = {}) {
 
 const ORDER = ["settings", "youtube", "presence", "autoplay", "ai"];
 
-test("고친 편집기만 탭 차례로 저장한다(올린 차례와 무관). 다시 시작이면 그렇게 알린다", async () => {
+test("고친 편집기만 탭 순서로 저장한다(올린 순서와 무관). 다시 시작이면 그렇게 알린다", async () => {
   const log: string[] = [];
   const off = [editor("ai", log), editor("settings", log), editor("presence", log, { dirty: false }), editor("youtube", log)];
   assert.equal(await saveAll(ORDER, true), null);

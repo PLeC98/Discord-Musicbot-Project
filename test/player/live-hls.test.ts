@@ -1,8 +1,8 @@
 // 라이브(HLS) 재생 경로의 불변식.
 //
-// HLS는 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열리는 형식이라, 이 갈래만 ffmpeg에
+// HLS는 "다운로드한 바이트"가 아니라 "가져올 주소"를 줘야 열리는 형식이라, 이 분기만 ffmpeg에
 // URL을 넘긴다. 나머지 스트리밍이 그 길로 새면 httpHeaders가 빠지고 폴백을 건너뛴다.
-// 그리고 라이브에는 길이가 없어서, 길이를 전제하던 자리들(탐색·반복)이 전부 걸린다.
+// 그리고 라이브에는 길이가 없어서, 길이를 전제하던 곳들(탐색·반복)이 전부 걸린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -27,11 +27,11 @@ test("능력 확인: 우리가 깔아 주는 빌드는 https와 hls를 갖췄다
   assert.equal(typeof caps.dash, "boolean", "DASH 조각 목록을 여는지도 가린다");
 });
 
-test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 띄우지 않는다", () => {
+test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 실행하지 않는다", () => {
   assert.equal(capabilities(), capabilities(), "동일 객체를 돌려줘야 함");
 });
 
-test("liveStatusOf: 방송 중과 시작 전을 가른다", () => {
+test("liveStatusOf: 방송 중과 시작 전을 구분한다", () => {
   // _detectLive는 둘 다 참이라 "라이브 계열인가"만 답한다. 재생은 이 둘을 다르게 다뤄야 한다.
   assert.equal(YouTube.liveStatusOf({ live_status: "is_live" }), "is_live");
   assert.equal(YouTube.liveStatusOf({ live_status: "is_upcoming" }), "is_upcoming");
@@ -60,7 +60,7 @@ test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () =>
   assert.equal(YouTube.titleOf(null), null);
 });
 
-test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를 비운다", () => {
+test("진행바: 라이브는 경과 시간 위치에 표식을 넣고 길이를 비운다", () => {
   const { progressBar } = progressBars;
   const live = progressBar(65, 0, { live: true });
   assert.match(live, /LIVE/, "라이브임을 알려야 한다");
@@ -74,7 +74,7 @@ test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를
   assert.match(normal, /3:20/);
   assert.match(normal, /●/);
 
-  // 길이를 모르면(받기 전의 직접 링크) 길이 자리를 비운다. 0:00 은 길이가 0 인 곡으로 읽힌다
+  // 길이를 모르면(다운로드 전의 직접 링크) 길이 위치를 비운다. 0:00 은 길이가 0 인 곡으로 읽힌다
   assert.match(progressBar(65, 0), /^`1:05` ●▬+ `--:--`$/);
 });
 
@@ -124,18 +124,18 @@ test("URL 입력 + 오프셋: -ss는 -i 앞(입력측). 재생목록은 탐색 �
   assert.equal(args[idx(args, "-ss") + 1], "30.000");
 });
 
-test("URL을 주지 않으면 갈래가 바뀌지 않는다. 파이프가 기본이다", () => {
+test("URL을 주지 않으면 분기가 바뀌지 않는다. 파이프가 기본이다", () => {
   for (const opts of [{}, { seekMs: 5000 }, { url: null }, { url: "" }]) {
     const args = buildFfmpegArgs(opts);
     assert.equal(args[idx(args, "-i") + 1], "pipe:0", JSON.stringify(opts));
   }
   // 둘을 같이 주면 URL이 이긴다. 다만 "캐시가 있으면 캐시로 튼다"를 정하는 것은 여기가 아니라
-  // _play 쪽이다(파일이 잡혀 있으면 URL 갈래를 아예 타지 않는다).
+  // _play 쪽이다(파일이 잡혀 있으면 URL 분기를 아예 타지 않는다).
   const withFile = buildFfmpegArgs({ file: "/cache/x.opus", url: "https://x/index.m3u8" });
   assert.equal(withFile[idx(withFile, "-i") + 1], "https://x/index.m3u8");
 });
 
-// 아래는 길이를 전제하던 자리들. 라이브에는 길이가 없다.
+// 아래는 길이를 전제하던 곳들. 라이브에는 길이가 없다.
 
 const fakePlayer = (overrides = {}) => {
   const player = Object.create(Player.prototype);
@@ -183,7 +183,7 @@ test("반복: 라이브가 들어오면 걸려 있던 반복을 푼다", () => {
   assert.equal(player.releaseLoopForLive(), false, "이미 꺼져 있으면 할 일이 없다");
 });
 
-test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 않는다", async () => {
+test("탐색: 라이브에는 옮길 위치가 없다. 재생을 다시 걸지 않는다", async () => {
   let played = 0;
   const player = fakePlayer({
     currentTrack: { isLive: true },
@@ -202,14 +202,14 @@ test("_reset 후에도 능력 확인이 다시 선다", () => {
   assert.equal(caps.ok, true);
 });
 
-// 라이브가 끊겼을 때 무엇을 하는가. 길이가 없어 "일찍 끝났다"로 가를 수 없으므로 ffmpeg의
-// 종료 코드로 가른다. 0이면 방송이 끝난 것, 그 밖은 사고다.
+// 라이브가 끊겼을 때 무엇을 하는가. 길이가 없어 "일찍 끝났다"로 구분할 수 없으므로 ffmpeg의
+// 종료 코드로 구분한다. 0이면 방송이 끝난 것, 그 밖은 사고다.
 
 const endingPlayer = (overrides = {}) => {
   const played: number[] = [];
   const player = fakePlayer({
     lifecycle: new PlaybackState(),
-    // Object.create 라 클래스 칸 초기값이 없다. 곡 끝 처리가 쓰는 칸을 둔다
+    // Object.create 라 클래스 필드 초기값이 없다. 곡 끝 처리가 쓰는 필드를 둔다
     failedTracks: 0,
     failedLabels: [],
     _laterEnd: null,
@@ -243,7 +243,7 @@ test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것이니 �
 });
 
 test("라이브 종료: 사고로 끊기면 같은 곡을 위치 0으로 다시 연다", async () => {
-  // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"다. 만료된 주소로는 몇 번을 붙어도 실패한다.
+  // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 불러온다"다. 만료된 주소로는 몇 번을 붙어도 실패한다.
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, input: { exitCode: 1 }, resource: { playbackDuration: 30_000 } } });
@@ -279,7 +279,7 @@ test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", asy
   assert.deepEqual(player.played, [0]);
 });
 
-test("끝난 방송(was_live)은 재연결 대상이 아니다. 라이브 갈래를 타지 않았다", async () => {
+test("끝난 방송(was_live)은 재연결 대상이 아니다. 라이브 분기를 타지 않았다", async () => {
   // 대기열에 담길 때는 방송 중이었지만 재생 시점에는 다시보기였다. 길이가 있으니 평범한 곡이다.
   // 이때 재연결로 들어가면 정상 종료마다 몇 초씩 멈춘 뒤에야 다음 곡으로 넘어간다.
   const finished = { title: "끝난 방송", isLive: true, duration: 3600 };

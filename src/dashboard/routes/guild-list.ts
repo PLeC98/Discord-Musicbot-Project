@@ -49,7 +49,7 @@ function createGuildListRouter() {
         };
       }),
     );
-    // 디스코드가 로그인 때 주던 차례(서버 ID 차례)
+    // 디스코드가 로그인 때 주던 순서(서버 ID 순서)
     const guilds = rows.filter((row) => row !== null).sort((x, y) => (BigInt(x.id) < BigInt(y.id) ? -1 : 1));
     res.json({ guilds } satisfies GuildList);
   });

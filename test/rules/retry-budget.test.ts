@@ -6,7 +6,7 @@ import { countDrop, FRESH } from "../../src/rules/retry-budget.ts";
 
 const GOING = 30_000; // 5초는 넘고 60초는 못 간 재생
 
-// 같은 곡이 progress 들로 차례로 끊겼을 때 매번 다시 열었나
+// 같은 곡이 progress 들로 순서대로 끊겼을 때 매번 다시 열었나
 function run(progress: number[], live = false) {
   let state = FRESH;
   return progress.map((ms) => {

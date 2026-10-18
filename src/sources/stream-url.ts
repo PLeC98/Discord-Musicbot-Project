@@ -1,4 +1,4 @@
-// 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 가른다.
+// 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 구분한다.
 
 import { codedError } from "../rules/error-kind.ts";
 import * as YouTube from "./youtube/index.ts";
@@ -11,7 +11,7 @@ import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 // 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
-/** 스트림 서술자. 재생 쪽이 읽는 칸만 적는다. 소스마다 칸이 더 있다 */
+/** 스트림 서술자. 재생 쪽이 읽는 필드만 적는다. 소스마다 필드가 더 있다 */
 type StreamInfo = {
   url: string;
   protocol?: string | null;
@@ -54,7 +54,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
       try {
         return await youtube.getStream(audioUrl);
       } catch (err) {
-        // 장부에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
+        // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);

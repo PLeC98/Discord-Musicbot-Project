@@ -26,7 +26,7 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
   assert.equal(opts.addHeader, undefined);
 });
 
-test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 칸이 없다", () => {
+test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 필드가 없다", () => {
   assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, undefined);
   ytdlpOptions.useFfmpeg(() => "/opt/ffmpeg/bin/ffmpeg");
   try {
@@ -38,7 +38,7 @@ test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너�
 });
 
 // 공통 층은 어느 출처에나 붙는 것만. 유튜브 전용(JS 런타임 · 플러그인 · 쿠키)은 유튜브가 얹는다
-test("공통 옵션은 재시도뿐이고 유튜브 전용 칸이 없다. 경고를 끄지 않는다", () => {
+test("공통 옵션은 재시도뿐이고 유튜브 전용 필드가 없다. 경고를 끄지 않는다", () => {
   const base = ytdlpOptions.baseOptions({ dumpSingleJson: true });
   assert.deepEqual(base, { retries: 3, fragmentRetries: 3, dumpSingleJson: true });
   const youtube = YouTube.getYtDlpOptions();
@@ -94,8 +94,8 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
 
 // 스위치 값을 주변 환경에서 읽어 오면 안 된다. 개발자의 .env가 BGUTIL_ENABLED=true면
 // "끄면 안 넘긴다"가 확인되지 않은 채 실패로만 떴다. 두 방향을 직접 세워서 본다.
-// potEnabled()는 부를 때마다 config를 보므로 값을 갈아 끼우면 그대로 듣는다.
-test("BGUTIL_ENABLED가 pluginDirs 전달을 가른다", (t) => {
+// potEnabled()는 부를 때마다 config를 보므로 값을 교체하면 그대로 듣는다.
+test("BGUTIL_ENABLED가 pluginDirs 전달을 정한다", (t) => {
   const { BGUTIL_AVAILABLE } = YouTube._internals;
   const restore = config.bgutil.enabled;
   t.after(() => {
@@ -114,8 +114,8 @@ test("BGUTIL_ENABLED가 pluginDirs 전달을 가른다", (t) => {
 });
 
 // ── 실패 분류 ────────────────────────────────────────────────────────────────
-// 클라이언트를 바꿔서 나아질 실패와, 바꿔봐야 소용없는 실패를 가른다.
-// 잘못 가르면 멀쩡한 클라이언트가 제외되거나(영상 문제를 클라 탓으로), 헛돈다.
+// 클라이언트를 바꿔서 나아질 실패와, 바꿔봐야 소용없는 실패를 구분한다.
+// 잘못 구분하면 멀쩡한 클라이언트가 제외되거나(영상 문제를 클라 탓으로), 헛돈다.
 
 const clientFaults = ["ERROR: [youtube] abc: Requested format is not available. Use --list-formats", "WARNING: Only images are available for download", "mweb client https formats require a GVS PO Token which was not provided", "ERROR: [youtube] abc: No video formats found!"];
 
@@ -151,7 +151,7 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
 });
 
 test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () => {
-  // 대시보드는 운영자 전용이지만, 쿠키의 자리 · 값은 알려야 할 이유가 없다
+  // 대시보드는 운영자 전용이지만, 쿠키의 경로 · 값은 알려야 할 이유가 없다
   const snap = YouTube.statusSnapshot();
   assert.ok(["file", "browser", "none"].includes(snap.cookies));
   assert.ok(!JSON.stringify(snap).includes("cookie-jar"), "실행 때 푸는 표식이 응답에 실리면 안 된다");
@@ -162,7 +162,7 @@ test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () =
 // 회귀 대상: 자동재생이 고른 곡이 `HTTP Error 403: Forbidden`으로 실패했는데, 같은 영상을
 // 몇 분 뒤 직접 틀면 멀쩡히 재생됐다. 영상 문제가 아니라 서명된 미디어 주소의 문제라
 // 다시 받으면 풀린다. 그런데 이 오류가 어디에도 걸리지 않아 한 번에 실패로 끝났다.
-test("내려받다 막힌 것과 영상이 없어진 것을 가른다", () => {
+test("다운로드하다 막힌 것과 영상이 없어진 것을 구분한다", () => {
   const err = (msg: string) => ({ stderr: msg });
 
   for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {

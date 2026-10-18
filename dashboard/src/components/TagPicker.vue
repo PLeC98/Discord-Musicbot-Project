@@ -1,11 +1,11 @@
 <!--
-  정해진 목록에서 여럿 고른다. 고른 것은 칩으로 남고, 치면 후보가 뜬다.
+  정해진 목록에서 여럿 선택한다. 선택한 것은 칩으로 남고, 입력하면 후보가 뜬다.
 
-  MultiSelect 로도 고를 수 있지만 항목이 수백 개인 칸에는 맞지 않는다. 무엇이 있는지
-  모르는 상태에서 목록을 훑어야 하고, 고른 것이 요약 한 줄로 접혀 보이지 않는다.
-  여기서는 아는 말을 쳐서 찾고, 고른 것은 전부 눈에 남는다.
+  MultiSelect 로도 선택할 수 있지만 항목이 수백 개인 곳에는 맞지 않는다. 무엇이 있는지
+  모르는 상태에서 목록을 훑어야 하고, 선택한 것이 요약 한 줄로 접혀 보이지 않는다.
+  여기서는 아는 말을 입력해서 찾고, 선택한 것은 전부 눈에 남는다.
 
-  ChipInput 과 달리 아무 말이나 넣을 수 없다. 목록에 없는 값은 저쪽이 거절하기 때문이다.
+  ChipInput 과 달리 아무 말이나 추가할 수 없다. 목록에 없는 값은 저쪽이 거절하기 때문이다.
 -->
 <template>
   <div ref="root">
@@ -74,7 +74,7 @@ const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: 
 const picked = computed(() => props.modelValue || []);
 const labelOf = (value: OptionValue) => props.options.find((one) => one.value === value)?.label || String(value);
 
-// 앞에서 걸리는 것을 먼저 보인다. 아는 말의 첫 글자를 치는 것이 보통이다.
+// 앞에서 걸리는 것을 먼저 보인다. 아는 말의 첫 글자를 입력하는 것이 보통이다.
 const hits = computed(() => {
   const want = term.value.trim();
   if (!want) return [];
@@ -106,7 +106,7 @@ const remove = (value: OptionValue) =>
     picked.value.filter((one) => one !== value),
   );
 
-// 빈 칸에서 Backspace면 마지막 칩을 지운다. 칩 UI의 관습이다.
+// 빈 입력란에서 Backspace면 마지막 칩을 삭제한다. 칩 UI의 관습이다.
 function onBackspace() {
   if (term.value !== "" || !picked.value.length) return;
   emit("update:modelValue", picked.value.slice(0, -1));

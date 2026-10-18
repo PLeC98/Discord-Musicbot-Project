@@ -1,23 +1,23 @@
 <template>
   <!-- 서버 관리 탭. 넓으면 두 단(왼쪽 전체 공지 · 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
   <div class="grid grid-cols-1 @4xl/content:grid-cols-2 items-start gap-(--gap-in)">
-    <!-- 카드 안 간격(design.md 간격 기준): 덩어리 사이 12, 입력칸 → 글자 수 4, 이름표 → 미리보기 8 -->
+    <!-- 카드 안 간격(design.md 간격 기준): 블록 사이 12, 입력란 → 글자 수 4, 라벨 → 미리보기 8 -->
     <BaseCard icon="campaign" :title="T.announce.title">
       <div class="flex flex-col gap-3">
         <p class="text-sm text-on-surface-variant">{{ T.announce.desc }}</p>
-        <!-- 공지 종류: 이어 붙은 버튼 묶음(하나 고르기). 종류마다 아이콘, 고르면 체크(M3). 좁은 카드(384 미만)는 칸 안 여백을 줄이고, 아주 좁으면(320 미만) 고르지 않은 칸의 아이콘을 뺀다 -->
+        <!-- 공지 종류: 이어 붙은 버튼 그룹(하나 선택). 종류마다 아이콘, 선택하면 체크(M3). 좁은 카드(384 미만)는 버튼 안 여백을 줄이고, 아주 좁으면(320 미만) 선택하지 않은 버튼의 아이콘을 뺀다 -->
         <div class="flex gap-0.5" role="radiogroup" :aria-label="T.announce.kind">
           <button v-for="(k, i) in KINDS" :key="k.value" type="button" role="radio" :aria-checked="kind === k.value" :class="[segment(kind === k.value, i, KINDS.length), '@max-sm/card:px-2 @max-sm/card:gap-1']" @click="kind = k.value"><Icon :name="kind === k.value ? 'check' : k.icon" :size="18" :class="kind !== k.value && '@max-xs/card:hidden!'" />{{ k.label }}</button>
         </div>
-        <!-- 서식 도구줄(디스코드 임베드가 그리는 마크다운). 누르면 고른 글을 감싸거나 고른 줄 앞에 기호를 붙인다(이미 있으면 뗀다).
-             누르는 동안 입력칸의 선택이 풀리지 않게 mousedown 을 막는다 -->
+        <!-- 서식 도구줄(디스코드 임베드가 그리는 마크다운). 누르면 선택한 글을 감싸거나 선택한 줄 앞에 기호를 붙인다(이미 있으면 뗀다).
+             누르는 동안 입력란의 선택이 풀리지 않게 mousedown 을 막는다 -->
         <div class="flex flex-wrap items-center gap-1 -ml-1" role="toolbar" :aria-label="T.announce.toolbar">
           <template v-for="(group, gi) in FORMAT_GROUPS" :key="gi">
             <span v-if="gi" class="w-px h-5 mx-1 bg-outline-variant" aria-hidden="true"></span>
             <button v-for="f in group" :key="f.icon" type="button" :class="[ICON_BTN, 'size-8']" :aria-label="f.label" v-tooltip="f.tip" @mousedown.prevent @click="format(f.run)"><Icon :name="f.icon" :size="20" /></button>
           </template>
         </div>
-        <!-- 다른 입력칸과 같은 채운 칸. 이모지 버튼은 오른쪽 위(오른쪽 아래는 크기 조절 손잡이 자리) -->
+        <!-- 다른 입력란과 같은 채운 입력란. 이모지 버튼은 오른쪽 위(오른쪽 아래는 크기 조절 핸들 위치) -->
         <div class="flex flex-col gap-1">
           <div class="relative">
             <textarea ref="box" :value="message" :placeholder="T.announce.placeholder" rows="5" :class="[FIELD, tooLong ? 'border-error!' : '']" @blur="caret = caretOf(box)" @click="caret = caretOf(box)" @keyup="caret = caretOf(box)" @select="caret = caretOf(box)" @keydown="onFormatKey" @input="message = valueOf($event)"></textarea>
@@ -32,7 +32,7 @@
             <span class="nums" :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ formatNumber(length) }} / {{ formatNumber(ANNOUNCE_MAX) }}</span>
           </div>
         </div>
-        <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠 · 이모지 제목 · 본문 · 꼬리말)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
+        <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠 · 이모지 제목 · 본문 · 푸터)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
         <div class="flex flex-col gap-2">
           <p class="text-xs text-on-surface-variant">{{ T.announce.preview }}</p>
           <div class="flex rounded-(--r-inner) bg-surface-container-highest overflow-hidden font-discord">
@@ -58,7 +58,7 @@
         <p class="text-sm text-on-surface-variant">{{ T.guilds.desc }}</p>
         <div class="flex flex-wrap items-center gap-2">
           <input :value="term" :placeholder="T.guilds.search(guilds.length)" @input="term = valueOf($event)" :class="SEARCH_FIELD" class="flex-1 min-w-40" />
-          <!-- 정렬 · 거르기: 고르기 칸 모양의 드롭다운 하나에(닫혀 있으면 고른 것을 줄여 보인다). 고를 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
+          <!-- 정렬 · 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
           <SelectPanel v-model:open="viewOpen" :summary="viewSummary" :muted="false" :count="0" :searchable="false" :empty="false" :rows="7" class="w-52 shrink-0">
             <p :class="SELECT_GROUP">{{ T.guilds.sort }}</p>
             <button v-for="o in SORTS" :key="o.value" type="button" role="menuitemradio" :aria-checked="sort === o.value" :class="[SELECT_ROW, sort === o.value && SELECT_ROW_ON]" @click="sort = o.value">{{ o.label }}</button>
@@ -71,7 +71,7 @@
             </button>
           </SelectPanel>
         </div>
-        <!-- 목록 칸은 서버 7.5줄(한 단일 때 6.5줄) 높이로 고정하고 넘치면 구른다. 넘치면 칸 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다) -->
+        <!-- 목록 영역은 서버 7.5줄(한 단일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다) -->
         <div ref="listEl" class="h-91 @4xl/content:h-105 overflow-y-auto -ml-2" :class="overflowing ? '-mr-4' : '-mr-2'" :style="listFade">
           <ul v-if="shown.length" class="flex flex-col">
             <li v-for="g in shown" :key="g.id" class="flex items-center gap-3 h-14 px-2 rounded-(--r-row)">
@@ -135,7 +135,7 @@ const props = defineProps<{ guilds: AdminGuild[] }>();
 /** changed: 서버에서 나갔다(목록 · 봇 상태를 다시 읽는다) */
 const emit = defineEmits<{ changed: [] }>();
 
-// 다른 입력칸과 같은 채운 칸(모서리 12, 고르면 테두리 primary)
+// 다른 입력란과 같은 채운 입력란(모서리 12, 포커스하면 테두리 primary)
 const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] duration-150 focus:border-primary placeholder:text-on-surface-variant";
 
 // ── 전체 공지 ──
@@ -149,7 +149,7 @@ const message = ref("");
 // 서버처럼 앞뒤 공백을 뺀 길이로 센다. 길이 상한은 서버의 것(서버도 막지만 다 쓰고 나서야 막히면 늦다)
 const body = computed(() => announceBody(message.value));
 const length = computed(() => body.value.length);
-// 꼬리말의 시각: 지금 보내면 찍힐 시각을 디스코드 한국어 표기로("오늘 오후 11:15"). 분이 바뀌면 따라간다
+// 푸터의 시각: 지금 보내면 찍힐 시각을 디스코드 한국어 표기로("오늘 오후 11:15"). 분이 바뀌면 따라간다
 const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
 const sentAt = computed(() => T.announce.today(formatTime(now.value, { hour: "numeric", minute: "2-digit" })));
 // 봇이 보낼 임베드의 모양(계약 ANNOUNCE_STYLE)
@@ -193,7 +193,7 @@ function onFormatKey(e: KeyboardEvent) {
   format(run);
 }
 
-// 이모지는 커서 자리에 끼워 넣는다. 판을 열면 칸에서 초점이 떠나므로 떠나기 전 자리를 적어 둔다
+// 이모지는 커서 위치에 끼워 넣는다. 판을 열면 입력란에서 포커스가 떠나므로 떠나기 전 위치를 적어 둔다
 const box = ref<HTMLTextAreaElement | null>(null);
 const caret = ref<Caret | null>(null);
 function insertEmoji(char: string) {
@@ -229,7 +229,7 @@ async function send() {
 const term = ref("");
 const playingOnly = ref(false);
 const playingCount = computed(() => props.guilds.filter((g) => g.hasPlayer).length);
-// 정렬: 이름(기본) · 이름 역순 · 멤버 수. 봇이 넘겨주는 차례는 디스코드에서 받은 차례라 기준이 없어 쓰지 않는다
+// 정렬: 이름(기본) · 이름 역순 · 멤버 수. 봇이 넘겨주는 순서는 디스코드에서 받은 순서라 기준이 없어 쓰지 않는다
 type Sort = "name" | "name-desc" | "members-desc" | "members-asc";
 const SORTS: Array<{ value: Sort; label: string }> = [
   { value: "name", label: T.guilds.sorts.name },

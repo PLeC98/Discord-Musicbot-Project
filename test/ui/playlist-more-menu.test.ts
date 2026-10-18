@@ -13,7 +13,7 @@ test("가져오는 동안: 처음엔 가져오는 중, 진행이 오면 몇 곡�
   assert.deepEqual(textsOf(post(fetchingView({ done: 3, want: 10 }))), ["⏳ 3/10곡 가져오는 중…"]);
 });
 
-test("곡 수 모달: 남은 자리 · 출처의 한 번 상한 안에서, 미리 적어 둘 수는 묶음과 그 상한 중 작은 쪽", () => {
+test("곡 수 모달: 남은 슬롯 · 출처의 한 번 상한 안에서, 미리 적어 둘 수는 배치와 그 상한 중 작은 쪽", () => {
   const state: MoreState = { kind: "ytp", listId: "PLabcdefghij", offset: 50, anchorId: "aaaaaaaaaaa", insertFirst: false, requesterId: null };
   const input = (cap: number, batch: number) => {
     const json = More.countModal(state, cap, batch).toJSON() as { components: Array<{ components: Array<{ label: string; placeholder?: string }> }> };

@@ -57,7 +57,7 @@ function offReason(id: Service, used: Set<string> | null): string | null {
   return used.has(type) ? null : "이 출처를 쓰는 장르가 없음";
 }
 
-/** 줄에 늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간 */
+/** 행에 늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간 */
 function noteOf(id: Service): string | null {
   if (id === "ai") return String(ai().model ?? "").trim() || null;
   const expiresAt = id === "spotify" ? anonTokenExpiresAt() : null;

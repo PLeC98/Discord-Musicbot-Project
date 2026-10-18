@@ -38,27 +38,27 @@ test("주소 · 제공자가 바뀌면 키를 내주지 않는다", () => {
   assert.equal(secrets.read("ai").state, "moved", "묶인 키를 묶지 않은 것으로 꺼내지 못한다");
 });
 
-test("DB 의 묶인 주소 칸만 바꾸면 풀리지 않는다(인증 데이터)", () => {
+test("DB 의 묶인 주소 열만 바꾸면 풀리지 않는다(인증 데이터)", () => {
   secrets.put("ai", VALUE, AI);
   store.settings().prepare("UPDATE secrets SET endpoint = 'https://evil.example' WHERE name = 'ai'").run();
   assert.equal(secrets.read("ai", { ...AI, endpoint: "https://evil.example" }).state, "broken");
 });
 
-test("암호문을 다른 이름의 줄로 옮기면 풀리지 않는다", () => {
+test("암호문을 다른 이름의 행으로 옮기면 풀리지 않는다", () => {
   secrets.put("spotify", VALUE);
   secrets.put("lastfm", "another-value-1234");
   store.settings().exec("UPDATE secrets SET (iv, tag, ciphertext) = (SELECT iv, tag, ciphertext FROM secrets WHERE name = 'spotify') WHERE name = 'lastfm'");
   assert.equal(secrets.read("lastfm").state, "broken");
 });
 
-test("다른 SECRETS_KEY 로 잠근 줄은 풀려고 하지 않는다", () => {
+test("다른 SECRETS_KEY 로 잠근 행은 풀려고 하지 않는다", () => {
   secrets.put("spotify", VALUE);
   secrets._useKey(OTHER_KEY);
   assert.equal(secrets.read("spotify").state, "other-key");
   assert.equal(secrets.status("spotify").sameKey, false);
 });
 
-test("예전 형식으로 잠근 줄은 키와 따로 알린다", () => {
+test("예전 형식으로 잠근 행은 키와 따로 알린다", () => {
   secrets.put("spotify", VALUE);
   store.settings().exec("UPDATE secrets SET format = 0");
   assert.equal(secrets.read("spotify").state, "old-format");
@@ -83,7 +83,7 @@ test("DB 파일에 평문이 남지 않는다", () => {
   }
 });
 
-test("지우기 · 빈 값과 너무 큰 값은 받지 않는다 · 키가 없으면 던진다", () => {
+test("삭제 · 빈 값과 너무 큰 값은 받지 않는다 · 키가 없으면 던진다", () => {
   secrets.put("ai", VALUE, AI);
   assert.equal(secrets.remove("ai"), true);
   assert.equal(secrets.remove("ai"), false);

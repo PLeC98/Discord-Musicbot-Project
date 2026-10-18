@@ -1,5 +1,5 @@
 // src/dashboard/index.ts · precompressed.ts — 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
-// 봇을 켠 뒤에 화면을 빌드해도 다시 켜지 않고 보인다.
+// 봇을 켠 뒤에 화면을 빌드해도 다시 시작하지 않고 보인다.
 
 import fs from "node:fs";
 import http from "node:http";
@@ -31,7 +31,7 @@ const noSession = (req: Request, _res: Response, next: NextFunction) => {
 let server: Server;
 let base: string;
 before(async () => {
-  const deployCommands = () => assert.fail("이 시험은 명령을 등록하지 않는다");
+  const deployCommands = () => assert.fail("이 테스트는 명령을 등록하지 않는다");
   server = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: noSession, clientDist: dist }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   base = baseUrl(server);
@@ -43,7 +43,7 @@ const get = async (urlPath: string) => {
   return { status: res.status, body: await res.text() };
 };
 
-test("빌드가 없으면 빌드하라고 알리고, 켜 둔 채 빌드하면 다시 켜지 않고 화면을 내준다", async () => {
+test("빌드가 없으면 빌드하라고 알리고, 켜 둔 채 빌드하면 다시 시작하지 않고 화면을 내준다", async () => {
   const before = await get("/");
   assert.match(before.body, /pnpm run build:dashboard/);
 

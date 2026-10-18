@@ -1,7 +1,7 @@
-// 버튼 처리기의 나머지 갈래를 고정한다(구조 리팩터링 0-B). 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
+// 버튼 처리기의 나머지 분기를 고정한다(구조 리팩터링 0-B). 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
 // 여기서는 검색 결과 버튼 · 도움말 · 시스템 새로고침 · 자동재생 버튼 · 대기열 버튼 · 옛 세션 · 모르는 버튼 · 조작이 실패했을 때를 본다.
 //
-// 6단계가 이 파일을 customId 앞머리별 처리기 표로 바꾼다. 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜(서버 설정은 임시 DB),
+// 6단계가 이 파일을 customId 접두사별 처리기 표로 바꾼다. 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜(서버 설정은 임시 DB),
 // 화면 관리자만 가짜다.
 
 import fs from "node:fs";
@@ -34,7 +34,7 @@ audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
 const errors = await import("../../src/ui/text/ko/errors.ts");
-// 안내 응답의 머리 줄
+// 안내 응답의 헤더 줄
 const said = (notice: Notice) => headOf(noticeReply(notice));
 const settings = await import("../../src/store/guild-settings.ts");
 const playerEvents = await import("../../src/player/events.ts");
@@ -43,7 +43,7 @@ const addTracks = await import("../../src/usecases/add-tracks.ts");
 const { LIFETIME, lifetimesOf } = await import("../../src/ui/delivery.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 
-// 검색 결과 고르기는 영상을 다시 찾는다. 찾은 주소를 적고 "결과 1" 을 돌려준다
+// 검색 결과 선택은 영상을 다시 찾는다. 찾은 주소를 적고 "결과 1" 을 돌려준다
 const asked: string[] = [];
 addTracks.useLookup({
   resolveQuery: async (query: string) => {
@@ -161,7 +161,7 @@ function press(w: World, customId: string, extra: object = {}) {
   return { it, log, bot: w.bot };
 }
 
-// ── 앞머리로 가르기 ───────────────────────────────────────────────────
+// ── 접두사로 분기 ───────────────────────────────────────────────────
 
 test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린다, 처리 중 던지면 일반 오류", async () => {
   const w = world();
@@ -214,7 +214,7 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
   const skip = press(w, "panel:skip:S1");
   await interactionCreate.execute(skip.bot, skip.it);
   assert.deepEqual(skip.log, [["reply", "### ⏭️ 곡을 건너뛰었어요!"]]);
-  // 한 곡 반복이면 건너뛰지 않고 처음부터 다시 튼다. 머리 줄 없이 그 안내만
+  // 한 곡 반복이면 건너뛰지 않고 처음부터 다시 튼다. 헤더 줄 없이 그 안내만
   w.player.loop = "track";
   const again = press(w, "panel:skip:S1");
   await interactionCreate.execute(again.bot, again.it);
@@ -267,7 +267,7 @@ test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정�
   assert.deepEqual(lifetimesOf(it), [LIFETIME.result], "조작 결과의 수명");
 });
 
-test("하이라이트 버튼: 옮기는 중을 본인에게 먼저 보내고, 그 자리를 지우고 결과는 모두에게. 없으면 조용히 넘긴다", async () => {
+test("하이라이트 버튼: 옮기는 중을 본인에게 먼저 보내고, 그 메시지를 삭제하고 결과는 모두에게. 없으면 조용히 넘긴다", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", duration: 300 };
   const p = w.player as typeof w.player & { sponsor?: { highlightAt: number | null }; seek?: () => Promise<void>; isLive?: boolean; isPlayStarting?: boolean };
@@ -297,13 +297,13 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 쪽 10곡, 넘치면 넘기기 버튼(◀ ▶)
+// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(◀ ▶)
 type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
 type QueueRow = { components: Array<{ data: { custom_id?: string; label?: string; disabled?: boolean } }> };
 type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };
 const buttonsOf = (p: QueuePayload) => p.components.flatMap((row) => row.components.map((c) => [c.data.label, c.data.custom_id, !!c.data.disabled]));
 
-test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 쪽과 넘기기 버튼", async () => {
+test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 페이지와 넘기기 버튼", async () => {
   const w = world();
   const empty = press(w, "panel:queue:S1");
   await interactionCreate.execute(empty.bot, empty.it);
@@ -350,7 +350,7 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
     ["▶", "queue:page:3", true],
   ]);
 
-  // 그사이 곡이 줄어 쪽이 없어졌으면 끝 쪽으로
+  // 그사이 곡이 줄어 페이지가 없어졌으면 끝 페이지로
   w.player.queue = w.player.queue.slice(0, 3);
   await interactionCreate.execute(w.bot, press(w, "queue:page:2", { update: async (p: QueuePayload) => updates.push(p) }).it);
   assert.equal(updates[1].embeds[0].data.footer.text, "모두 3곡");
@@ -366,7 +366,7 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
 
 // ── 자동재생 버튼 ─────────────────────────────────────────────────────
 
-test("자동재생 버튼: 플레이어가 없어도 받는다. 켜져 있으면 끄고 다시 고르기 메뉴, 꺼져 있으면 장르 메뉴", async () => {
+test("자동재생 버튼: 플레이어가 없어도 받는다. 켜져 있으면 끄고 다시 선택 메뉴, 꺼져 있으면 장르 메뉴", async () => {
   const on = world();
   on.player.autoplay = "가요";
   const a = press(on, "panel:autoplay:S1");
@@ -383,7 +383,7 @@ test("자동재생 버튼: 플레이어가 없어도 받는다. 켜져 있으면
   assert.deepEqual(lifetimesOf(b.it), [LIFETIME.menu], "장르 메뉴도 메뉴 수명 뒤 지운다");
 });
 
-test("자동재생 버튼: 플레이어가 없으면 만들지 않고 장르 메뉴만 띄운다(고른 뒤에 만든다)", async () => {
+test("자동재생 버튼: 플레이어가 없으면 만들지 않고 장르 메뉴만 표시한다(선택한 뒤에 만든다)", async () => {
   const none = world({ player: false });
   const { it, log, bot } = press(none, "panel:autoplay:idle");
   await interactionCreate.execute(bot, it);
@@ -401,8 +401,8 @@ test("자동재생 버튼: 옛 세션의 패널 버튼은 거절하고 자동재
   assert.deepEqual(w.seen, []);
 });
 
-// /join 뒤 · 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 자리 idle)이다
-test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 통한다. 꺼져 있으면 장르 메뉴, 켜져 있으면 끄고 다시 고르기 메뉴", async () => {
+// /join 뒤 · 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 슬롯 idle)이다
+test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 통한다. 꺼져 있으면 장르 메뉴, 켜져 있으면 끄고 다시 선택 메뉴", async () => {
   const off = world();
   const a = press(off, "panel:autoplay:idle");
   await interactionCreate.execute(a.bot, a.it);
@@ -463,7 +463,7 @@ test("시스템 새로고침: 봇 운영자만", async () => {
 
 const PICK = `search:pick:${USER}:1:aaaaaaaaaaa`;
 
-test("검색 버튼: 고르기는 곡 추가와 같은 검사. 봇이 음성에 있으면 재적 규칙, 쉬면 소환할 수 있어야 한다", async () => {
+test("검색 버튼: 선택은 곡 추가와 같은 검사. 봇이 음성에 있으면 재적 규칙, 쉬면 소환할 수 있어야 한다", async () => {
   const other = world({ userVoice: "v2" });
   const a = press(other, PICK);
   await interactionCreate.execute(a.bot, a.it);
@@ -482,7 +482,7 @@ test("검색 버튼: 고르기는 곡 추가와 같은 검사. 봇이 음성에 
   assert.deepEqual(denied.seen, []);
 });
 
-test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 되고 결과 화면을 바로 지운다", async () => {
+test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 되고 결과 화면을 바로 삭제한다", async () => {
   const w = world();
   const others = press(w, "search:pick:someone:1:aaaaaaaaaaa");
   await interactionCreate.execute(others.bot, others.it);
@@ -504,7 +504,7 @@ test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 �
   assert.deepEqual(cancel.log, [["deferUpdate"], ["deleteReply"]]);
 });
 
-test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {
+test("검색 버튼: 선택한 영상을 주소로 다시 찾아 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {
   const w = world();
   asked.length = 0;
   const from = sink.buffer.length;
@@ -519,7 +519,7 @@ test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기�
   assert.deepEqual(log, [["deferUpdate"], ["editReply", "🔄 넣는 중..."], ["deleteReply"]]);
 });
 
-test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류. 검색 메시지를 지우고 본인에게만", async () => {
+test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류. 검색 메시지를 삭제하고 본인에게만", async () => {
   const failed = world({ handle: async () => ({ success: false, message: "대기열이 가득 찼습니다" }) });
   const a = press(failed, PICK);
   await interactionCreate.execute(a.bot, a.it);

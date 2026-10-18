@@ -14,7 +14,7 @@ import { openTempStore } from "../helpers/temp-store.ts";
 const store = openTempStore("match-callers-");
 after(() => store.close());
 
-// TV 판은 1차 검색어가 넷이라 "전부"와 "앞 둘"이 갈린다
+// TV 버전은 1차 검색어가 넷이라 "전부"와 "앞 둘"이 나뉜다
 const TARGET = { artist: "A feat. B", title: "Song (TV Size)", durationSec: 240 };
 const { primary, secondary } = buildSearchQueries(TARGET);
 const HIT = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "A - Song (TV Size)", artist: "A", duration: 240 }];

@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그 화면의 상태: 거르기 · 쪽 넘기기(앞 쪽 마지막 id 뒤로) · 펼친 줄의 원문 · 실시간 새 기록 · 전체 삭제.
+// AI 리퀘스트 로그 화면의 상태: 필터 · 페이지 넘기기(앞 페이지 마지막 id 뒤로) · 펼친 줄의 원문 · 실시간 새 기록 · 전체 삭제.
 // 실시간 연결은 화면이 보일 때만 연다(active). 새 기록은 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙이고, 아니면 모아 두었다가 알약을 누르면 붙인다(읽는 줄이 밀리지 않게).
 
 import { computed, onScopeDispose, reactive, ref, watch } from "vue";
@@ -10,10 +10,10 @@ import { AI_LOG_PAGE, aiLogMatches, type AiLogDetail, type AiLogEntry, type AiLo
 import { text } from "../text/index.ts";
 const T = text.ai.log;
 
-/** 펼친 줄의 원문: 받는 중 · 못 받음 · 받은 것 */
+/** 펼친 줄의 원문: 불러오는 중 · 못 불러옴 · 불러온 것 */
 type Detail = AiLogDetail | "loading" | "error";
 
-/** 찾는 말은 칠 때마다 묻지 않고 잠깐 멈추면 묻는다 */
+/** 찾는 말은 입력할 때마다 요청하지 않고 잠깐 멈추면 요청한다 */
 const SEARCH_WAIT_MS = 300;
 
 function queryString(query: AiLogQuery, before?: number) {
@@ -25,7 +25,7 @@ function queryString(query: AiLogQuery, before?: number) {
   return params.toString();
 }
 
-/** 목록 · 거르기 · 쪽 넘기기 */
+/** 목록 · 필터 · 페이지 넘기기 */
 function listState() {
   const entries = ref<AiLogEntry[]>([]);
   const total = ref(0);
@@ -35,7 +35,7 @@ function listState() {
   const loadError = ref("");
   const query = reactive<AiLogQuery>({ sources: [], result: "", q: "" });
   const more = computed(() => entries.value.length < matched.value);
-  // 늦게 온 앞 물음의 답이 새 거르기의 답을 덮지 않게 차례를 센다
+  // 늦게 온 앞 요청의 답이 새 필터의 답을 덮지 않게 순서를 센다
   let seq = 0;
 
   function take(page: AiLogPage, append: boolean) {
@@ -74,7 +74,7 @@ function listState() {
 }
 type List = ReturnType<typeof listState>;
 
-/** 펼친 줄과 그 원문(펼칠 때 받는다) */
+/** 펼친 줄과 그 원문(펼칠 때 불러온다) */
 function detailState() {
   const open = ref(new Set<number>());
   const details = ref<Record<number, Detail>>({});

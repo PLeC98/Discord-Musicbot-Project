@@ -1,9 +1,9 @@
-// src/media/convert.ts: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
+// src/media/convert.ts: 다운로드한 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
-// 회귀 대상: 직접 링크 갈래가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
+// 회귀 대상: 직접 링크 분기가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
 // 이미 Opus 186~329k 인데 그걸 128k 로 다시 구워 저장했다(2026-09-21 실측).
 //
-// 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus 로 다시 쓸지 재는 자리에만 걸리고,
+// 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus 로 다시 쓸지 재는 곳에만 걸리고,
 // 변환 목표는 소스 비트레이트와 무관하다. mp3 128k 와 Opus 128k 는 같은 값이 아니므로
 // 코덱을 넘나들며 숫자를 비교하면 안 된다.
 
@@ -106,7 +106,7 @@ test("인자: 출력은 언제나 opus 컨테이너이고 -vn 이 붙는다", ()
   }
 });
 
-test("yt-dlp 갈래도 같은 목표 비트레이트를 쓴다. 숫자가 두 군데에 적히지 않게", () => {
+test("yt-dlp 분기도 같은 목표 비트레이트를 쓴다. 숫자가 두 군데에 적히지 않게", () => {
   assert.equal(audioConvert.ytdlpPostprocessorArgs(), `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`);
 });
 
@@ -130,7 +130,7 @@ test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus 
 `);
   assert.equal(info.codec, "opus");
   assert.equal(info.bitrateKbps, 323);
-  assert.equal(info.durationSec, 90.06, "머리의 100분의 1초까지");
+  assert.equal(info.durationSec, 90.06, "헤더의 100분의 1초까지");
 });
 
 // 컨테이너 값을 오디오로 읽으면 멀쩡한 opus 를 상한까지 다시 굽는다.
@@ -161,7 +161,7 @@ test("probe 파싱: 읽을 것이 없으면 전부 null", () => {
   }
 });
 
-// 2026-09-27 실측: ffmpeg 가 태그를 단 mp3 를 열 때의 머리. 출력 쪽에도 같은 칸이 되풀이된다
+// 2026-09-27 실측: ffmpeg 가 태그를 단 mp3 를 열 때의 헤더. 출력 쪽에도 같은 필드가 되풀이된다
 test("probe 파싱: 입력 파일의 태그(제목 · 가수)를 읽는다. 값 안의 콜론은 그대로", () => {
   const info = parseProbeOutput(`Input #0, mp3, from 'tagged.mp3':
   Metadata:

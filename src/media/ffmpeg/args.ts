@@ -4,7 +4,7 @@ import { capabilities } from "./path.ts";
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.
 const SEG_MAX_RETRY = 5;
-// 주소 갈래에서 읽기가 이만큼(µs) 멈추면 연결을 끊고 다시 붙는다. 기본(0)은 끝없이 기다린다.
+// 주소 분기에서 읽기가 이만큼(µs) 멈추면 연결을 끊고 다시 붙는다. 기본(0)은 끝없이 기다린다.
 // 플레이어가 공급 부족을 버티는 10초(Player 의 MAX_MISSED_FRAMES)보다 먼저 결론 내게 둔다. HLS 는 세그먼트 요청에도 물려준다
 const RW_TIMEOUT_US = 6_000_000;
 
@@ -22,7 +22,7 @@ type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; s
  * URL을 주는 것은 목록에 한한다. 나머지를 URL로 열면 yt-dlp가 준 httpHeaders가 빠지고,
  * 스트리밍 실패 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
  *
- * caps: ffmpeg 능력(주소 갈래만 본다). 생략하면 진짜. hls: 주소가 HLS 재생목록인가(세그먼트 재시도는 HLS 옵션이다)
+ * caps: ffmpeg 능력(주소 분기만 본다). 생략하면 진짜. hls: 주소가 HLS 재생목록인가(세그먼트 재시도는 HLS 옵션이다)
  */
 function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps = null }: ArgsOptions = {}): string[] {
   const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];

@@ -1,6 +1,6 @@
-// src/sources/ytdlp-spawn.ts — 정보만 읽는 부름의 시간 한도. 멈춘 yt-dlp 가 곡 넣기를 끝없이 붙잡지 않게 한도에서 트리째 내린다.
-// 내려받기(output 이 있는 부름)는 곡 길이만큼 걸리므로 한도를 걸지 않는다.
-// yt-dlp 대신 말이 없는 진짜 자식 프로세스를 띄운다(내리는 길이 진짜여야 한다).
+// src/sources/ytdlp-spawn.ts — 정보만 읽는 호출의 시간 한도. 멈춘 yt-dlp 가 곡 넣기를 끝없이 붙잡지 않게 한도에서 트리째 내린다.
+// 다운로드(output 이 있는 호출)는 곡 길이만큼 걸리므로 한도를 걸지 않는다.
+// yt-dlp 대신 말이 없는 진짜 자식 프로세스를 실행한다(내리는 길이 진짜여야 한다).
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +35,7 @@ afterEach(() => {
   useInfoTimeout(null);
 });
 
-test("정보만 읽는 부름은 한도가 지나면 자식을 내리고 연결 오류로 실패한다(다른 클라이언트로 다시 묻지 않게)", { timeout: 10_000 }, async () => {
+test("정보만 읽는 호출은 한도가 지나면 자식을 내리고 연결 오류로 실패한다(다른 클라이언트로 다시 묻지 않게)", { timeout: 10_000 }, async () => {
   useExec(silent);
   useInfoTimeout(300);
   const before = registry.size();
@@ -51,12 +51,12 @@ test("정보만 읽는 부름은 한도가 지나면 자식을 내리고 연결 
   assert.equal(registry.size(), before);
 });
 
-test("내려받기(output)에는 한도를 걸지 않는다", { timeout: 10_000 }, async () => {
+test("다운로드(output)에는 한도를 걸지 않는다", { timeout: 10_000 }, async () => {
   useExec(silent);
   useInfoTimeout(300);
   const pending = run("https://youtu.be/x", { output: "x.opus" }).catch(() => "끝남");
   await new Promise((done) => setTimeout(done, 700));
-  assert.equal(alive(child?.pid), true, "한도가 지나도 받는 중이다");
+  assert.equal(alive(child?.pid), true, "한도가 지나도 다운로드 중이다");
   child?.kill("SIGKILL");
   assert.equal(await pending, "끝남");
 });

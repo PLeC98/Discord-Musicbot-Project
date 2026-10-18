@@ -1,4 +1,4 @@
-// 로그인 배경의 크기 셈: 정지 그림 폭 · 영상 단계 · 짧은 변을 맞춘 크기 · 원본을 고르게 만드는 필터. 미리보기 · 어림 · 굽기가 같이 쓴다.
+// 로그인 배경의 크기 계산: 정지 그림 폭 · 영상 단계 · 짧은 변을 맞춘 크기 · 원본을 고르게 만드는 필터. 미리보기 · 어림 · 인코딩이 같이 쓴다.
 // 영상 단계의 1080p · 4K 는 짧은 변 1080 · 2160 이다(세로 영상은 1080 × 1920 등). 원본보다 큰 단계는 만들지 않고, 원본이 1080p 보다 작으면 원본 크기 하나
 
 import { LOGIN_BG_WIDTHS, type LoginBackgroundCrop } from "../contract/login-background.ts";
@@ -7,7 +7,7 @@ import type { Probed } from "./source.ts";
 /** 영상 단계의 짧은 변 */
 const FHD = 1080;
 const UHD = 2160;
-/** 영상의 초당 장면 수 상한 */
+/** 영상의 초당 프레임 수 상한 */
 const FPS_CAP = 30;
 
 /** 투명한 곳을 채우는 검정(투명은 지원하지 않는다). 그림은 sharp 의 flatten, 영상은 sourceFilter 의 color=black */
@@ -25,7 +25,7 @@ function fitShort(width: number, height: number, short: number): { width: number
 /** 크롭한 크기 */
 const cropped = (width: number, height: number, crop: LoginBackgroundCrop) => ({ width: Math.round(width * crop.w), height: Math.round(height * crop.h) });
 
-/** 크롭 안 가운데 정사각형의 크롭(색을 뽑을 때: 화면의 앨범아트 색 뽑기처럼 가운데 정사각형에서) */
+/** 크롭 안 가운데 정사각형의 크롭(색을 추출할 때: 화면의 앨범아트 색 추출처럼 가운데 정사각형에서) */
 function squareCrop(width: number, height: number, crop: LoginBackgroundCrop): LoginBackgroundCrop {
   const side = Math.min(width * crop.w, height * crop.h);
   const w = side / width;
@@ -44,7 +44,7 @@ const rungShorts = (width: number, height: number) => (Math.min(width, height) >
 
 /**
  * 원본을 고르게 만드는 필터(처음 [0:v] 에 이어 붙인다): 투명은 검정 위에 얹고(투명은 지원하지 않는다), HDR 은 SDR 로 톤 매핑하고,
- * 초당 장면 수를 30 이하로, 크롭이 있으면 자른다. 크기 맞추기 · 픽셀 형식은 부르는 쪽이 갈래마다 붙인다
+ * 초당 프레임 수를 30 이하로, 크롭이 있으면 자른다. 크기 맞추기 · 픽셀 형식은 부르는 쪽이 분기마다 붙인다
  */
 function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null): string {
   const steps: string[] = [];
@@ -57,7 +57,7 @@ function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null): string
   return `[0:v]${chain}`;
 }
 
-/** 크기를 맞추는 필터 한 갈래(lanczos, 픽셀 형식은 굽기면 4:2:0, 장면을 뜰 때는 RGB) */
+/** 크기를 맞추는 필터 분기 하나(lanczos, 픽셀 형식은 인코딩이면 4:2:0, 장면을 뜰 때는 RGB) */
 const scaleTo = ({ width, height }: { width: number; height: number }, format = "yuv420p") => `scale=${width}:${height}:flags=lanczos,format=${format}`;
 
 export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, squareCrop, stillWidths, rungShorts, sourceFilter, scaleTo };

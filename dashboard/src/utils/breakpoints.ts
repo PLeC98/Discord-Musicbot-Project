@@ -1,4 +1,4 @@
-// 화면 크기 갈림(JS 쪽). style.css 의 md · max-md 와 같은 기준이다: 휴대폰 = 폭 720 미만이거나 높이 512 이하(휴대폰 가로)
+// 화면 크기 구분(JS 쪽). style.css 의 md · max-md 와 같은 기준이다: 휴대폰 = 폭 720 미만이거나 높이 512 이하(휴대폰 가로)
 
 /** 휴대폰(틀은 위 막대 + 서랍, 배치는 휴대폰 것) */
 export const PHONE_QUERY = "(max-width: 44.98rem), (max-height: 32rem)";

@@ -1,4 +1,4 @@
-// 버튼 · 메뉴 · 모달 처리기 하나의 자리. 상호작용 종류와 custom_id 앞머리로 고른다(src/discord/events/interaction-create).
+// 버튼 · 메뉴 · 모달 처리기 하나의 라우트. 상호작용 종류와 custom_id 접두사로 선택한다(src/discord/events/interaction-create).
 
 import type { BotContext } from "../../app/bot-context.ts";
 import type { ButtonInteraction, Interaction, ModalSubmitInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction } from "discord.js";
@@ -27,7 +27,7 @@ function componentOf(interaction: Interaction): { kind: Kind; interaction: ByKin
   return null;
 }
 
-/** 맞는 처리기. 앞머리가 여럿 맞으면 가장 긴 것(더 좁은 것)이 받는다. 그 처리기가 꺼져 있으면 더 넓은 것으로 넘기지 않고 없음 */
+/** 맞는 처리기. 접두사가 여럿 맞으면 가장 긴 것(더 좁은 것)이 받는다. 그 처리기가 꺼져 있으면 더 넓은 것으로 넘기지 않고 없음 */
 function routeOf(routes: readonly Route[], kind: Kind, customId: string): Route | null {
   let best: Route | null = null;
   for (const r of routes) if (r.kind === kind && customId.startsWith(r.prefix) && (!best || r.prefix.length > best.prefix.length)) best = r;

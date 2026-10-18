@@ -1,4 +1,4 @@
-// src/player/session-mirror.ts — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
+// src/player/session-mirror.ts — 트랙 변경을 DB로 옮기는 미러, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 import { sessions, type RestoredSession } from "../../src/store/player-sessions.ts";
@@ -45,7 +45,7 @@ after(() => {
 });
 
 let guildSerial = 0;
-// 가짜 플레이어. 시험이 재생 위치(position)와 부른 것(calls)을 정하고 본다
+// 가짜 플레이어. 테스트가 재생 위치(position)와 부른 것(calls)을 정하고 본다
 function makePlayer(overrides: object = {}) {
   const p = fakePlayer({
     bindChannels: Player.prototype.bindChannels,
@@ -79,7 +79,7 @@ let serial = 0;
 const t = (title = `t${serial++}`): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr: Array<{ title: string | null }>) => arr.map((x) => x.title);
 const memory = (p: Player) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
-// 줄 번호. 저장한 그대로여야 다시 켠 뒤 같은 곡을 가리킨다
+// 줄 번호. 저장한 그대로여야 다시 시작한 뒤 같은 곡을 가리킨다
 const numbers = (arr: Array<{ entry?: number | null }>) => arr.map((x) => x.entry);
 const memoryNumbers = (p: Player) => ({ current: p.currentTrack?.entry ?? null, queue: numbers(p.queue), history: numbers(p.previousTracks) });
 function storedNumbers(guildId: string) {
@@ -88,7 +88,7 @@ function storedNumbers(guildId: string) {
   return { current: s.current?.entry ?? null, queue: numbers(s.queue), history: numbers(s.history) };
 }
 
-// 세션이 있어야 하는 자리. 없으면 실패
+// 세션이 있어야 하는 곳. 없으면 실패
 function loaded(guildId: string) {
   const s = sessions().load(guildId);
   assert.ok(s, "세션이 있다");
@@ -109,7 +109,7 @@ function rng(seed: number) {
   };
 }
 
-// ── 거울 ──
+// ── 미러 ──
 
 test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 1500회", () => {
   const { p } = makePlayer();
@@ -150,7 +150,7 @@ test("DB가 메모리와 어긋나 있으면 다음 변경에서 통째로 다�
   trackState.enqueue(p, [t("A"), t("B"), t("C")]);
   stateDb.get().prepare("DELETE FROM session_tracks WHERE guild_id = ? AND slot = 'queue'").run(p.guild.id);
 
-  trackState.removeAt(p, 1); // DB에는 지울 행이 없다
+  trackState.removeAt(p, 1); // DB에는 삭제할 행이 없다
   assert.deepEqual(stored(p.guild.id), memory(p));
   assert.equal(sp.dirty, false);
 });
@@ -174,7 +174,7 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
 });
 
-// 알림을 빠뜨린 길은 주기 저장(beat)이 잡는다. 세션 행 칸이 지난 저장과 다르면 쓴다
+// 알림을 빠뜨린 길은 주기 저장(beat)이 잡는다. 세션 행의 열이 지난 저장과 다르면 쓴다
 test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위치만 바뀌었으면 다시 쓰지 않는다. 곡이 없으면 쓰지 않는다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
@@ -189,7 +189,7 @@ test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위�
   sp.startStateSync();
   try {
     SessionPersistence._beat();
-    assert.equal(writes, 0, "바뀐 칸이 없다");
+    assert.equal(writes, 0, "바뀐 필드가 없다");
 
     p.lastPlaybackPosition = 90_000; // 위치만
     SessionPersistence._beat();
@@ -215,8 +215,8 @@ test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위�
   }
 });
 
-// 설정이 바뀌면 플레이어가 알리고, 거울이 잠깐(0.2초) 모았다가 한 번 쓴다
-test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰지 않는다. 동기화를 멈추면 걸린 쓰기도 버린다", async () => {
+// 설정이 바뀌면 플레이어가 알리고, 미러가 잠깐(0.2초) 모았다가 한 번 쓴다
+test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰지 않는다. 동기화를 멈추면 대기 중인 쓰기도 버린다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
   await sp.persistState("play");
@@ -238,7 +238,7 @@ test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰�
 
     sp.onSettingsChanged();
     await settle();
-    assert.equal(writes, 1, "바뀐 칸이 없다");
+    assert.equal(writes, 1, "바뀐 필드가 없다");
 
     p.loop = "track";
     sp.onSettingsChanged();
@@ -292,7 +292,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남�
   assert.equal(session.pausedManual, true);
 });
 
-test("곡도 대기열도 없으면 세션을 지운다", async () => {
+test("곡도 대기열도 없으면 세션을 삭제한다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("x"));
   await sp.persistState();
@@ -339,7 +339,7 @@ function makeRestorePlayer(overrides: object = {}) {
   return { p, sp };
 }
 
-// 세션 표에서 되읽은 것처럼. 곡은 시험이 보는 칸만
+// 세션 표에서 되읽은 것처럼. 곡은 테스트가 보는 필드만
 function makeRecord(sessionOverrides: object = {}, current: object | null = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
   return fake<RestoredSession>({
     session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, ...sessionOverrides },
@@ -383,7 +383,7 @@ test("복원: 전의 멈춤 사유(혼자 남음 등)는 비운다. 복원한 �
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
 });
 
-test("복원: 줄 번호는 저장한 그대로(다시 켜기 전에 화면이 보낸 빼기 · 옮기기도 같은 곡에 닿는다), 열거되지 않는 칸으로", async () => {
+test("복원: 줄 번호는 저장한 그대로(다시 시작하기 전에 화면이 보낸 빼기 · 옮기기도 같은 곡에 닿는다), 열거되지 않는 필드로", async () => {
   const record = makeRecord({}, { title: "곡", url: "https://y/1", duration: 100, entry: 41 });
   Object.assign(record, {
     queue: [
@@ -435,9 +435,9 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   }
 });
 
-// 미리 뽑아 둔 자동재생 곡은 복원하지 않는다 — 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
-// 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 행으로 가른다.
-test("복원: 자동재생이 미리 뽑아 둔 곡은 복원하지 않고 DB도 맞춘다", async () => {
+// 미리 선택해 둔 자동재생 곡은 복원하지 않는다 — 사용자가 선택한 곡만 세션에 남는 것이 자연스럽고,
+// 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 선택된다. 요청자가 봇인 행으로 구분한다.
+test("복원: 자동재생이 미리 선택해 둔 곡은 복원하지 않고 DB도 맞춘다", async () => {
   const BOT = "bot1";
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
@@ -448,10 +448,10 @@ test("복원: 자동재생이 미리 뽑아 둔 곡은 복원하지 않고 DB도
   await sp.restoreFromState(record);
 
   assert.deepEqual(titles(p.queue), ["내곡1", "내곡2"]);
-  assert.deepEqual(stored(p.guild.id), memory(p), "걸러낸 뒤 DB를 맞추지 않으면 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
+  assert.deepEqual(stored(p.guild.id), memory(p), "필터링한 뒤 DB를 맞추지 않으면 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
 });
 
-// 봇 id를 모르면(클라이언트가 아직 없음) 거르지 않는다 — 사용자 곡을 실수로 버리는 쪽이 더 나쁘다.
+// 봇 id를 모르면(클라이언트가 아직 없음) 필터링하지 않는다 — 사용자 곡을 실수로 버리는 쪽이 더 나쁘다.
 test("복원: 봇 id를 알 수 없으면 대기열을 그대로 복원한다", async () => {
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
@@ -565,7 +565,7 @@ test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하�
   assert.deepEqual(seenLoud, [false]);
 });
 
-test("복원 안내는 잠시 뒤 지운다", async () => {
+test("복원 안내는 잠시 뒤 삭제한다", async () => {
   const { AUTO_DELETE_MS } = transientMessages;
   mock.timers.enable({ apis: ["setTimeout"] });
   try {

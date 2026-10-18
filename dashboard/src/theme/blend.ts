@@ -20,9 +20,9 @@ const labToHex = ([L, A, B]: Lab) =>
 const ease = (t: number) => 1 - (1 - t) ** 3;
 
 let frame = 0;
-// 옮기는 동안 :root 에 붙는 표시. 색 넘김 효과가 걸린 요소(버튼 등)가 매 프레임 새 넘김을 시작해 뒤처졌다가 끝에 튀지 않게 넘김을 끈다(style.css)
+// 옮기는 동안 :root 에 붙는 표시. 색 트랜지션이 걸린 요소(버튼 등)가 매 프레임 새 트랜지션을 시작해 뒤처졌다가 끝에 튀지 않게 트랜지션을 끈다(style.css)
 const SHIFTING = "shifting";
-// 30Hz 한 칸(33.3ms)보다 조금 짧게. 60Hz 화면에서 프레임 시각이 흔들려도 두 프레임에 한 번씩 고르게 바뀌게
+// 30Hz 한 주기(33.3ms)보다 조금 짧게. 60Hz 화면에서 프레임 시각이 흔들려도 두 프레임에 한 번씩 고르게 바뀌게
 const MIN_STEP_MS = 32;
 
 /** 지금 깔린 색에서 target 으로 duration 동안 옮긴다. 진행 중이면 그 자리에서 이어 간다 */
@@ -42,7 +42,7 @@ export function blendTo(target: Record<string, string>, duration: number) {
   const step = (time: number) => {
     // 프레임 시각은 그 프레임이 시작된 때라 start 보다 앞설 수 있다. 0 아래로 내려가면 첫 프레임이 반대쪽으로 튄다
     const t = Math.min(1, Math.max(0, (time - start) / duration));
-    // 색을 바꾸면 화면 전체를 다시 그린다. 120 · 144Hz 화면에서도 1초에 30번까지만 바꾼다(0.7초 동안 21걸음, 느린 색 변화라 눈에 띄지 않는다)
+    // 색을 바꾸면 화면 전체를 다시 그린다. 120 · 144Hz 화면에서도 1초에 30번까지만 바꾼다(0.7초 동안 21단계, 느린 색 변화라 눈에 띄지 않는다)
     if (t < 1 && time - last < MIN_STEP_MS) {
       frame = requestAnimationFrame(step);
       return;

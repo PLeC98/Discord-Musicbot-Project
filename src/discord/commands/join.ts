@@ -6,7 +6,7 @@ import * as replies from "../../ui/control-replies.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf } from "../../ui/delivery.ts";
 
-// 결과를 알린다. 거절 · "이미 있어요"는 본인에게, 붙었거나 복원한 결과는 모두에게(복원하는 동안의 "불러오는 중" 자리를 지우고)
+// 결과를 알린다. 거절 · "이미 있어요"는 본인에게, 붙었거나 복원한 결과는 모두에게(복원하는 동안의 "불러오는 중" 자리표시자를 삭제하고)
 async function answer(interaction: ChatInputCommandInteraction<"cached">, result: JoinResult) {
   switch (result.kind) {
     case "refused":

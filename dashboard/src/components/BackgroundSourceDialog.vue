@@ -1,6 +1,6 @@
 <template>
-  <!-- 로그인 배경의 변경 팝업. 파비콘의 크기별 팝업과 같은 꼴: 남은 저장 공간 · 파일 업로드 · 링크로 추가 · 기록.
-       기록은 줄을 누르면 그 배경으로 바꾸고(다 만든 것만, 다시 만들지 않는다), 줄 안 오른쪽 끝에서 지운다. 처리 중인 배경은 하는 일을, 실패한 배경은 까닭(툴팁)을 함께 보인다 -->
+  <!-- 로그인 배경의 변경 팝업. 파비콘의 크기별 팝업과 같은 형태: 남은 저장 공간 · 파일 업로드 · 링크로 추가 · 기록.
+       기록은 행을 누르면 그 배경으로 바꾸고(다 만든 것만, 다시 만들지 않는다), 행 안 오른쪽 끝에서 삭제한다. 처리 중인 배경은 하는 일을, 실패한 배경은 까닭(툴팁)을 함께 보인다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open && state" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false" @keydown.esc="open = false">
@@ -10,7 +10,7 @@
             <p class="text-sm text-on-surface-variant nums">{{ S.free(formatBytes(state.freeBytes)) }}</p>
           </div>
 
-          <!-- 단추 칸 자리: 받는 중이면 같은 자리 · 같은 높이에 진행(파일 이름 · 진행 막대 · 지금 하는 일 한 줄 · %)을 겹쳐 그린다(팝업 높이가 그대로).
+          <!-- 버튼 영역: 가져오는 중이면 같은 위치 · 같은 높이에 진행(파일 이름 · 진행 막대 · 지금 하는 일 한 줄 · %)을 겹쳐 그린다(팝업 높이가 그대로).
                미리보기가 생기면 카드가 이 팝업을 닫고 편집 창을 연다 -->
           <div class="grid grid-cols-[minmax(0,1fr)]">
             <section v-if="steps.length" class="[grid-area:1/1] min-w-0 flex flex-col justify-center gap-2 rounded-2xl bg-surface-container px-4" aria-live="polite">
@@ -91,7 +91,7 @@ import { formatBytes } from "../../../src/ui/format.ts";
 const C = text.loginBackground.card;
 const S = text.loginBackground.source;
 
-/** pending: 받는 중인 배경(편집 전 단계를 보인다). uploading: 봇이 받기 전, 올리는 중인 파일과 올린 몫(0 ~ 1) */
+/** pending: 가져오는 중인 배경(편집 전 단계를 보인다). uploading: 봇이 받기 전, 올리는 중인 파일과 올린 몫(0 ~ 1) */
 const props = defineProps<{ state: LoginBackgroundState | null; busy: boolean; pending: LoginBackgroundItem | null; uploading: { name: string; progress: number } | null }>();
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ upload: []; link: [url: string]; use: [id: string]; remove: [id: string] }>();
@@ -104,7 +104,7 @@ const steps = computed(() => {
   return bg.stages.filter((one) => LOGIN_BG_BEFORE_EDIT.includes(one)).map((one) => (bg.done.includes(one) ? 1 : bg.stage === one ? bg.progress : 0));
 });
 const overall = computed(() => (steps.value.length ? steps.value.reduce((sum, one) => sum + one, 0) / steps.value.length : 0));
-/** 다 구운 배경(기록에서 갈아 끼울 수 있다) */
+/** 다 구운 배경(기록에서 교체할 수 있다) */
 const readyOf = (bg: LoginBackgroundItem) => bg.phase === "ready";
 /** 실패한 까닭(봇 문장표의 문제 코드 안내) */
 const problemOf = (bg: LoginBackgroundItem) => (bg.problem ? noticeText(bg.problem).title : "");

@@ -1,5 +1,5 @@
-// 슬래시 명령을 시험에서 부른다. 명령은 봇과 같은 목록(src/discord/commands/index)에서 이름으로 찾고(처음 부를 때 한 번 불러온다),
-// 가짜 상호작용 · 봇 문맥은 명령이 읽는 칸만 채운 것을 진짜 타입으로 본다.
+// 슬래시 명령을 테스트에서 부른다. 명령은 봇과 같은 목록(src/discord/commands/index)에서 이름으로 찾고(처음 부를 때 한 번 불러온다),
+// 가짜 상호작용 · 봇 문맥은 명령이 읽는 필드만 채운 것을 진짜 타입으로 본다.
 
 import assert from "node:assert/strict";
 import type { ChatInputCommandInteraction, Interaction } from "discord.js";
@@ -18,15 +18,15 @@ async function command(name: string) {
   return found;
 }
 
-/** 명령을 가짜 상호작용 · 봇 문맥으로 부른다. 종류 메서드(isChatInputCommand 등)는 시험이 정하지 않았으면 명령 것으로 채운다 */
+/** 명령을 가짜 상호작용 · 봇 문맥으로 부른다. 종류 메서드(isChatInputCommand 등)는 테스트가 정하지 않았으면 명령 것으로 채운다 */
 function run(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) {
   for (const [key, value] of Object.entries(interactionKind("command"))) if (!(key in interaction)) Object.assign(interaction, { [key]: value });
   return c.execute(fake<ChatInputCommandInteraction<"cached">>(interaction), bot);
 }
 
 /**
- * 명령을 상호작용 입구(src/discord/events/interaction-create)로 부른다. 명령이 던진 것을 입구가 남기고 알리는 모습을 볼 때.
- * 가짜 상호작용에 입구가 읽는 칸(종류 · 명령 이름)을, 봇 문맥의 명령 목록에 이 명령을 채운다
+ * 명령을 상호작용 진입점(src/discord/events/interaction-create)으로 부른다. 명령이 던진 것을 진입점이 남기고 알리는 모습을 볼 때.
+ * 가짜 상호작용에 진입점이 읽는 필드(종류 · 명령 이름)을, 봇 문맥의 명령 목록에 이 명령을 채운다
  */
 async function runViaEntrance(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) {
   const { default: entrance } = await import("../../src/discord/events/interaction-create.ts");

@@ -1,5 +1,5 @@
-// dashboard 빌드(파일은 쓰지 않는다). 봇과 같이 쓰는 안내가 브라우저 번들에 들어가고, 조사 도우미는 발음 사전 전체가 아니라 작은 표(data/english-finals.json)를
-// 싣는지 본다. 공유 모듈을 고치면 봇 시험이 다 지나도 화면 번들이 깨질 수 있어 여기서 잡는다
+// dashboard 빌드(파일은 쓰지 않는다). 봇과 같이 쓰는 안내가 브라우저 번들에 들어가고, 조사 헬퍼는 발음 사전 전체가 아니라 작은 표(data/english-finals.json)를
+// 싣는지 본다. 공유 모듈을 고치면 봇 테스트가 다 지나도 화면 번들이 깨질 수 있어 여기서 잡는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ type Chunk = { type: "chunk" | "asset"; fileName: string; code?: string; source?
 // vite 가 크기 경고를 내는 한도(build.chunkSizeWarningLimit 기본, kB)
 const WARN_KB = 500;
 
-test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈 · 발음 사전 전체는 없으며, 크기 경고를 낼 조각이 없다", async () => {
+test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈 · 발음 사전 전체는 없으며, 크기 경고를 낼 청크가 없다", async () => {
   const { build } = (await import(VITE)) as { build: (config: object) => Promise<{ output: Chunk[] } | Array<{ output: Chunk[] }>> };
   const result = await build({ root: CLIENT, configFile: path.join(CLIENT, "vite.config.ts"), logLevel: "silent", build: { write: false } });
   const output = (Array.isArray(result) ? result : [result]).flatMap((one) => one.output);

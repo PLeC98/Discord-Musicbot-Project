@@ -58,7 +58,7 @@ const unused = "현재 사용되지 않는 출처";
 const retrying = (attempt: number) => `연결 재시도 중 (${attempt}회차)`;
 const reconnected = (count: number) => `재연결 ${count}회`;
 const cookies = "쿠키";
-const noCookies = "쿠키를 쓰지 않음";
+const noCookies = "쿠키 사용 안 함";
 const cookieSources = { file: "파일", browser: "브라우저", none: "" };
 const clients = "클라이언트 (설정 순서)";
 const clientsRate = "성공/시도";

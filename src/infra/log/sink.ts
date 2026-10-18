@@ -2,7 +2,7 @@
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
-// 생산자는 두 갈래: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
+// 생산자는 두 경로: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 import util from "util";
 import config from "../../config/index.ts";
@@ -32,7 +32,7 @@ type SseClient = {
 };
 
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
-// info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
+// info 레벨을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
 // 로그 스트림에 보내지 못하고 쌓인 양이 이만큼을 넘으면 읽지 않는 소비자로 보고 끊는다.
 // 붙을 때 쌓인 줄(500줄 약 100KB)을 보내는 동안 write 가 false 를 돌려주는 것은 정상이라 그것만으로는 끊지 않는다
@@ -62,9 +62,9 @@ const TEXT_COLOR: Record<LevelName, (text: string) => string> = {
   fatal: style(["red", "bold"]),
 };
 
-// 카테고리 배지 색. 이름 해시로 고른다(대시보드 뷰어의 catColor와 같은 방식).
-// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 가르는 편이
-// 이모지로 가르는 것보다 확실하고, cmd에서 깨지지도 않는다.
+// 카테고리 배지 색. 이름 해시로 정한다(대시보드 뷰어의 catColor와 같은 방식).
+// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 구분하는 편이
+// 이모지로 구분하는 것보다 확실하고, cmd에서 깨지지도 않는다.
 const CAT_COLORS = (["magenta", "blue", "green", "yellow", "cyan", "redBright", "blueBright", "greenBright"] as const).map(style);
 function catColor(name: string) {
   let h = 0;
@@ -113,7 +113,7 @@ class LogManager {
     this.buffer = [];
     this.problems = [];
     this.lastId = 0;
-    // 기동 표. 줄 번호는 다시 켜면 처음부터라, 이어 받을 번호가 이 실행의 것인지 가른다
+    // 기동 시각. 줄 번호는 다시 시작하면 처음부터라, 이어 받을 번호가 이 실행의 것인지 구분한다
     this.boot = Date.now();
     this.clients = new Set();
     this._owners = new Map(); // res -> 연 사람(상한을 사람마다 센다)
@@ -149,7 +149,7 @@ class LogManager {
     }
   }
 
-  // facade와 브리지가 공통으로 부르는 입구.
+  // facade와 브리지가 공통으로 부르는 진입점.
   record(rec: LogRecord) {
     const safe = this._redact(rec);
     if (safe.level >= this.consoleLevel) this.terminal(safe);
@@ -277,7 +277,7 @@ class LogManager {
   /**
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
    * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
-   * after: 화면이 마지막으로 받은 줄의 SSE id("기동표.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 켬)
+   * after: 화면이 마지막으로 받은 줄의 SSE id("기동시각.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 시작함)
    * reset 을 먼저 보내고 전부. 없으면(처음 연결) 전부.
    *
    * 상한을 넘으면 아무것도 쓰지 않고 false(답은 부른 경로가 문제 응답으로 쓴다). 느린 소비자는 record 가 정리한다(쌓인 양을 본다).
@@ -348,7 +348,7 @@ class LogManager {
     }
   }
 
-  /** 연결 정리. 쓰기 실패 경로에서도 함께 걷는다. */
+  /** 연결 정리. 쓰기 실패 경로에서도 함께 제거한다. */
   _dropClient(res: SseClient) {
     const cleanup = this._cleanups.get(res);
     if (cleanup) cleanup();

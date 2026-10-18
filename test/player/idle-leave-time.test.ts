@@ -27,7 +27,7 @@ afterEach(() => {
   cleanups = [];
 });
 
-// 알린 시각을 모은다. 타이머는 시험이 끝나면 거둔다(길게 잡아 터지지 않는다)
+// 알린 시각을 모은다. 타이머는 테스트가 끝나면 취소한다(길게 잡아 터지지 않는다)
 function watch(idle: InstanceType<typeof IdleLeave>) {
   const told: Array<number | null> = [];
   const off = playerEvents.on("leaving", (_p, at) => told.push(at));
@@ -65,7 +65,7 @@ test("혼자 남음이 대기열 소진보다 늦으면 대기열 소진 시각 
     assert.ok(near(told[0], start + EMPTY_MS));
   }));
 
-test("대기열이 끝나 스스로 거둘 때와 재생 중일 때는 알리지 않는다", () =>
+test("대기열이 끝나 스스로 취소할 때와 재생 중일 때는 알리지 않는다", () =>
   withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const idle = new IdleLeave(player());
     const told = watch(idle);

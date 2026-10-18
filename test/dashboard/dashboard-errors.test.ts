@@ -4,7 +4,7 @@
 // 회귀 대상: 세션 스토어가 죽었을 때 (1) 브라우저에 전체 스택 트레이스가 찍히던 것,
 // (2) 정적 자산까지 세션 뒤에 있어 앱 껍데기조차 못 뜨고 백지가 되던 것.
 //
-// 실 앱(createApp)을 임의 포트에 띄운다 — 순서 자체가 검증 대상이라 축소판으로는 의미가 없다.
+// 실 앱(createApp)을 임의 포트에 실행한다 — 순서 자체가 검증 대상이라 축소판으로는 의미가 없다.
 // 세션 미들웨어만 "저장장치가 죽은 상태"로 넘긴다.
 
 import fs from "node:fs";
@@ -51,7 +51,7 @@ let server: Server;
 let base: string;
 
 before(async () => {
-  const deployCommands = () => assert.fail("이 시험은 명령을 등록하지 않는다");
+  const deployCommands = () => assert.fail("이 테스트는 명령을 등록하지 않는다");
   server = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   base = baseUrl(server);
@@ -196,7 +196,7 @@ test("등록되지 않은 /api 경로는 HTML이 아니라 문제 응답 404", a
     const res = await req("/api/definitely-not-a-route");
     assert.equal(res.status, 404);
     assert.match(res.headers.get("content-type") || "", /application\/problem\+json/);
-    // 클라이언트가 code 로 문장을 고른다
+    // 클라이언트가 code 로 문장을 선택한다
     assert.equal(JSON.parse(res.body).code, "route-not-found");
   } finally {
     storeBroken = true;

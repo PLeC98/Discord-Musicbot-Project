@@ -12,7 +12,7 @@ const STALL_MS = 10_000; // 조각 하나를 받는 데 이보다 오래 걸리�
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 요청 함수에서 여기서 부르고 읽는 칸만. 기본은 전역 fetch
+// 요청 함수에서 여기서 부르고 읽는 필드만. 기본은 전역 fetch
 type FragmentResponse = { ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer> };
 type FragmentFetch = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<FragmentResponse>;
 /** 조각 목록. 조각 번호의 주소는 base 뒤에 `&sq=번호` */

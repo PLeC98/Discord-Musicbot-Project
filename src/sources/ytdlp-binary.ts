@@ -1,11 +1,11 @@
-// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 띄우는 곳(ytdlpSpawn)은 지금 버전의 경로를 묻는다.
+// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 실행하는 곳(ytdlpSpawn)은 지금 버전의 경로를 묻는다.
 //
-// 새 버전은 지금 버전의 복사본 위에서 yt-dlp 의 자체 업데이트(--update-to 채널@태그. 받은 파일의 SHA-256 을 검사한다)로 받고,
-// 받은 버전이 목표와 같을 때만 바꿔 끼운다. 바꿔 끼우기는 가리키는 경로만 바꾸므로 이미 돌고 있는 yt-dlp 는 옛 버전으로 끝까지 돈다.
-// 처음 한 번은 youtube-dl-exec 가 설치 때 받은 것을 옮겨 온다. 그 자리는 npm install 이 stable 로 다시 덮어 쓰지 않는다.
+// 새 버전은 지금 버전의 복사본 위에서 yt-dlp 의 자체 업데이트(--update-to 채널@태그. 다운로드한 파일의 SHA-256 을 검사한다)로 다운로드하고,
+// 다운로드한 버전이 목표와 같을 때만 교체한다. 교체는 가리키는 경로만 바꾸므로 이미 돌고 있는 yt-dlp 는 옛 버전으로 끝까지 돈다.
+// 처음 한 번은 youtube-dl-exec 가 설치 때 다운로드한 것을 옮겨 온다. 그 경로는 npm install 이 stable 로 다시 덮어 쓰지 않는다.
 //
 // 목표 버전: .env 의 YTDLP_VERSION(고정) 이 있으면 그 버전, 없으면 YTDLP_CHANNEL 의 최신(GitHub 릴리스). 최신은 하루 한 번 본다.
-// 새 버전을 보았을 때 할 일은 YTDLP_UPDATE(auto 받아서 바꿔 끼운다 · notify 알린다 · off 보지 않는다).
+// 새 버전을 보았을 때 할 일은 YTDLP_UPDATE(auto 다운로드해 교체한다 · notify 알린다 · off 보지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -29,18 +29,18 @@ const REPOS: Record<Channel, string> = { stable: "yt-dlp/yt-dlp", nightly: "yt-d
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 확인이 실패하면 이만큼 뒤에 다시 본다(하루를 통째로 기다리지 않는다)
 const RETRY_MS = 60 * 60 * 1000;
-const UPDATE_TIMEOUT_MS = 180_000; // 바이너리 20MB 안팎을 받는다
-const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으로 뜬다
+const UPDATE_TIMEOUT_MS = 180_000; // 바이너리 20MB 안팎을 다운로드한다
+const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으로 실행된다
 const API_TIMEOUT_MS = 15_000;
 
-// youtube-dl-exec 가 설치 때 받은 바이너리(라이브러리가 내보내지만 타입에는 없다)
+// youtube-dl-exec 가 설치 때 다운로드한 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
 
-/** vendor/bin/yt-dlp/state.json. 지금 버전 · 직전 버전 · 최신을 마지막으로 본 때 · 받아 봤지만 목표가 아니었던 태그 */
+/** vendor/bin/yt-dlp/state.json. 지금 버전 · 직전 버전 · 최신을 마지막으로 본 때 · 다운로드해 봤지만 목표가 아니었던 태그 */
 type State = { version: string; previous: string | null; lastChecked: number; capped: string | null };
 /** 바이너리를 한 번 부른 결과 */
 type Ran = { status: number | null; stdout: string; stderr: string };
-/** 바깥 경계. 시험은 가짜를 넘긴다 */
+/** 바깥 경계. 테스트는 가짜를 넘긴다 */
 type Io = {
   /** 버전마다 폴더를 둘 곳 */
   dir: string;
@@ -99,7 +99,7 @@ async function realLatestTag(channel: Channel) {
 
 const REAL: Io = { dir: path.join(PROJECT.bin, "yt-dlp"), seed: YOUTUBE_DL_PATH, run: realRun, latestTag: realLatestTag, now: () => Date.now() };
 
-// 실패한 부름을 한 줄로. yt-dlp 는 마지막 줄에 까닭(ERROR: …)을 적는다
+// 실패한 호출을 한 줄로. yt-dlp 는 마지막 줄에 까닭(ERROR: …)을 적는다
 const reasonOf = (ran: Ran) => ran.stderr.trim().split(/\r?\n/).at(-1)?.trim() || `종료 코드 ${ran.status ?? "없음"}`;
 
 class YtdlpBinary {
@@ -108,7 +108,7 @@ class YtdlpBinary {
   // 버전 맞추기는 한 번에 하나(기동 확인과 하루 확인이 겹치지 않게)
   busy: Promise<Outcome> | null = null;
   timer: NodeJS.Timeout | null = null;
-  /** 다음 확인 때(걸어 두지 않았으면 null) */
+  /** 다음 확인 때(예약하지 않았으면 null) */
   nextAt: number | null = null;
 
   constructor(io: Io = REAL) {
@@ -143,7 +143,7 @@ class YtdlpBinary {
     this.state = state;
   }
 
-  /** 지금 버전의 경로. 아직 옮겨 오지 않았으면 설치 때 받은 것 */
+  /** 지금 버전의 경로. 아직 옮겨 오지 않았으면 설치 때 다운로드한 것 */
   path() {
     this.state ??= this._read();
     return this.state ? this.fileOf(this.state.version) : this.io.seed;
@@ -156,7 +156,7 @@ class YtdlpBinary {
     return version;
   }
 
-  /** 관리하는 바이너리를 갖춘다. 없으면 설치 때 받은 것을 옮겨 온다(네트워크를 쓰지 않는다) */
+  /** 관리하는 바이너리를 갖춘다. 없으면 설치 때 다운로드한 것을 옮겨 온다(네트워크를 쓰지 않는다) */
   async prepare(): Promise<{ version: string; seeded: boolean }> {
     this.state = this._read();
     if (this.state) return { version: this.state.version, seeded: false };
@@ -177,8 +177,8 @@ class YtdlpBinary {
   }
 
   /**
-   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치 · update:ytdlp)이다: 하루 한 번 · YTDLP_UPDATE · 받아 봤던 태그를 보지 않고 받는다.
-   * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp 가 받은 버전을 이어받는다). 알릴 것이 없으면 null
+   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치 · update:ytdlp)이다: 하루 한 번 · YTDLP_UPDATE · 다운로드해 봤던 태그를 보지 않고 다운로드한다.
+   * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp 가 다운로드한 버전을 이어받는다). 알릴 것이 없으면 null
    */
   async check({ force = false } = {}): Promise<Outcome | null> {
     const { channel, version: pin, update: mode } = config.ytdlp;
@@ -202,13 +202,13 @@ class YtdlpBinary {
   async _install(target: string, channel: Channel): Promise<Outcome> {
     const current = this.state!.version;
     const swap = (to: string) => this._write({ ...this.state!, version: to, previous: current, capped: null });
-    // 받아 둔 버전(직전 버전으로 되돌리기 등)이면 받지 않고 바꿔 끼운다. 어느 채널에서 받은 버전인지는 모른다
+    // 다운로드해 둔 버전(직전 버전으로 되돌리기 등)이면 다운로드하지 않고 교체한다. 어느 채널에서 다운로드한 버전인지는 모른다
     if (fs.existsSync(this.fileOf(target)) && (await this._version(this.fileOf(target)).catch(() => null)) === target) {
       swap(target);
       return { kind: "reused", from: current, to: target };
     }
 
-    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 받기를 지우지 않게). 남은 것은 봇 기동 때의 정리가 지운다
+    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 다운로드를 삭제하지 않게). 남은 것은 봇 기동 때의 정리가 삭제한다
     const staging = path.join(this.io.dir, `.staging-${process.pid}`);
     const file = path.join(staging, path.basename(this.io.seed));
     try {
@@ -218,7 +218,7 @@ class YtdlpBinary {
       const ran = await this.io.run(file, ["--update-to", `${channel}@${target}`], UPDATE_TIMEOUT_MS);
       if (ran.status !== 0) return { kind: "failed", current, target, reason: reasonOf(ran), channel };
       const got = await this._version(file);
-      // 이 환경에서 받을 수 있는 버전에 상한이 있으면(yt-dlp 의 _update_spec) 목표가 아닌 버전이 온다. 같은 태그를 날마다 다시 받지 않는다
+      // 이 환경에서 다운로드할 수 있는 버전에 상한이 있으면(yt-dlp 의 _update_spec) 목표가 아닌 버전이 온다. 같은 태그를 날마다 다시 다운로드하지 않는다
       if (got !== target) {
         this._write({ ...this.state!, capped: target });
         return { kind: "capped", current, target, got, channel };
@@ -232,15 +232,15 @@ class YtdlpBinary {
       try {
         fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
       } catch {
-        // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 못 지운다. 다음 받기나 봇 기동 때의 정리가 지운다
+        // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 삭제하지 못한다. 다음 다운로드나 봇 기동 때의 정리가 삭제한다
       }
     }
   }
 
   /**
-   * 지금 버전 · 직전 버전이 아닌 폴더를 지운다. 봇만 부른다: 기동 때와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
-   * 봇은 디스크의 기록을 막 읽은 뒤라 제가 쓰는 버전이 지금 버전이다. update:ytdlp 는 돌고 있는 봇이 아직 쓰는 버전을 지울 수 있어 부르지 않는다.
-   * 옛 버전으로 아직 돌고 있어 못 지운 것(Windows)은 다음에 지운다
+   * 지금 버전 · 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 때와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
+   * 봇은 디스크의 기록을 막 읽은 뒤라 제가 쓰는 버전이 지금 버전이다. update:ytdlp 는 돌고 있는 봇이 아직 쓰는 버전을 삭제할 수 있어 부르지 않는다.
+   * 옛 버전으로 아직 돌고 있어 삭제하지 못한 것(Windows)은 다음에 삭제한다
    */
   cleanup() {
     const keep = new Set([this.state?.version, this.state?.previous].filter(Boolean));
@@ -262,7 +262,7 @@ class YtdlpBinary {
     try {
       const { version, seeded } = await this.prepare();
       this.cleanup();
-      log.info(`yt-dlp ${version} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${seeded ? " | 설치 때 받은 것을 옮겨 옴" : ""}`);
+      log.info(`yt-dlp ${version} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${seeded ? " | 설치 때 다운로드한 것을 옮겨 옴" : ""}`);
     } catch (error) {
       log.warn(`yt-dlp 버전을 갖추지 못했습니다: ${messageOf(error)} | 쓰는 경로=${this.path()}`);
       return;
@@ -271,7 +271,7 @@ class YtdlpBinary {
     await this._tick();
   }
 
-  // 기동 때와 하루 한 번. 새 버전을 보고 버전을 정리한 뒤 다음 확인을 건다
+  // 기동 때와 하루 한 번. 새 버전을 보고 버전을 정리한 뒤 다음 확인을 예약한다
   async _tick() {
     let failed = false;
     try {
@@ -322,7 +322,7 @@ function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
     case "available":
       return { level: "info", line: `yt-dlp에 업데이트가 있습니다: ${outcome.from} → ${outcome.to} (${outcome.channel}). (업데이트: pnpm run update:ytdlp)` };
     case "capped":
-      return { level: "warn", line: `yt-dlp 업데이트 불가. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 받을 수 있는 최고 버전은 ${outcome.got}` };
+      return { level: "warn", line: `yt-dlp 업데이트 불가. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 다운로드할 수 있는 최고 버전은 ${outcome.got}` };
     case "failed":
       return { level: "warn", line: `yt-dlp 업데이트 실패. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - ${outcome.reason}` };
   }

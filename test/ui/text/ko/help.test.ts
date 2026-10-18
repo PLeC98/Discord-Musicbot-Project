@@ -1,4 +1,4 @@
-// src/ui/text/ko/help.ts — /help 화면의 글자(묶음 이름 · 권한 표시 · 지원 플랫폼 · 머리 · 통계 · 링크)를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/help.ts — /help 화면의 글자(섹션 이름 · 권한 표시 · 지원 플랫폼 · 헤더 · 통계 · 링크)를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

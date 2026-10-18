@@ -35,7 +35,7 @@ test("독립 WebhookClient도 멘션을 막는다 (봇 Client 옵션을 상속�
   const webhook = new WebhookClient({ id: "1", token: "t" }, { allowedMentions: ALLOWED_MENTIONS });
   assert.deepEqual(webhook.options.allowedMentions, ALLOWED_MENTIONS);
 
-  // 보낼 본문(API 모양). 여기서 보는 칸만
+  // 보낼 본문(API 모양). 여기서 보는 필드만
   const body = MessagePayload.create(webhook, { content: EVIL_MENTION }).resolveBody().body as { allowed_mentions?: { parse?: string[] } } | null;
   assert.deepEqual(body?.allowed_mentions?.parse, [], "전송 payload까지 반영되어야 한다");
 });
@@ -73,7 +73,7 @@ test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않
   assert.ok(msg.includes("여기를 클릭"), "제목 텍스트 자체는 보여준다");
 });
 
-// now-playing 제목은 마스크드 링크의 "라벨" 자리라 이스케이프하지 않는다.
+// now-playing 제목은 마스크드 링크의 "라벨" 위치라 이스케이프하지 않는다.
 // 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다(실측).
 // 라벨 밖으로 탈출해 다른 URL을 거는 것도 불가능함을 확인했다 — 라벨이 깨지면
 // 디스코드가 링크 자체를 만들지 않는다.

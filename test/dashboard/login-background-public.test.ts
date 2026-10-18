@@ -1,5 +1,5 @@
 // src/dashboard/routes/login-background-public.ts — 로그인 화면이 받는 배경 정보와 그 파일(로그인 없이).
-// 배경 정보는 지금 배경이 걸 것(썸네일)을 가졌을 때만, 파일은 기록에 있는 배경의 정해진 꼴만(원본 · 미리보기 · 경로 거슬러 오르기는 404). 캐시 머리 · 종류 · 304
+// 배경 정보는 지금 배경이 걸 것(썸네일)을 가졌을 때만, 파일은 기록에 있는 배경의 정해진 형식만(원본 · 미리보기 · 경로 거슬러 오르기는 404). 캐시 헤더 · 종류 · 304
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -59,7 +59,7 @@ test("지금 배경이 없거나 걸 것(썸네일)이 없으면 none", async ()
   assert.deepEqual(await info(), { kind: "none" });
 });
 
-test("그림: 폭별 그림(작은 것부터) · 대표색 · 화면 값과 보일 자리. 원본 · 기록 · 이름은 싣지 않는다", async () => {
+test("그림: 폭별 그림(작은 것부터) · 대표색 · 화면 값과 보일 위치. 원본 · 기록 · 이름은 싣지 않는다", async () => {
   const one = made("image");
   store.show(one.id);
   const got = await info();
@@ -87,7 +87,7 @@ test("영상: 구운 코덱의 목록과 단계 · 장면 색(없으면 null)", 
   assert.deepEqual(got.scenes, one.media.scenes);
 });
 
-test("파일: 종류와 캐시(그림 · init · 조각은 1년 immutable, 목록은 no-cache). 기록의 배경도 낸다", async () => {
+test("파일: 종류와 캐시(그림 · init · 세그먼트는 1년 immutable, 목록은 no-cache). 기록의 배경도 낸다", async () => {
   const old = made("video");
   const now = made("image");
   store.show(now.id);
@@ -102,7 +102,7 @@ test("파일: 종류와 캐시(그림 · init · 조각은 1년 immutable, 목�
   assert.deepEqual(await head(`/login-background/${old.id}/h264/720/seg-000.m4s`), [200, "video/iso.segment", "public, max-age=31536000, immutable"]);
 });
 
-test("원본 · 미리보기 · 모르는 id · 꼴이 틀린 이름 · 경로 거슬러 오르기는 404", async () => {
+test("원본 · 미리보기 · 모르는 id · 형식이 틀린 이름 · 경로 거슬러 오르기는 404", async () => {
   const one = made("video");
   const missing = [`/login-background/${one.id}/source`, `/login-background/${one.id}/preview.mp4`, `/login-background/${one.id}/still-1280.png`, `/login-background/abcdefghijklmnopqrstuvwx/still-1280.webp`, `/login-background/${one.id}/opus/index.m3u8`, `/login-background/${one.id}/h264/720/source`, `/login-background/${one.id}/h264/..%2F..%2Fsource/index.m3u8`, `/login-background/..%2F${one.id}/still-1280.webp`, `/login-background/${one.id}/h264/720/..%2F..%2Fsource`];
   for (const url of missing) assert.equal((await fetch(`${base}${url}`)).status, 404, url);
@@ -115,7 +115,7 @@ test("배경 정보는 캐시하지 않고 ETag 로 304", async () => {
   assert.equal(first.headers.get("cache-control"), "no-cache");
   const etag = first.headers.get("etag")!;
   assert.ok(etag);
-  // fetch 는 If-None-Match 를 붙이면 Cache-Control: no-cache 도 실어 서버가 새로 준다(규격). 브라우저가 스스로 다시 확인하는 것처럼 머리만 보낸다
+  // fetch 는 If-None-Match 를 붙이면 Cache-Control: no-cache 도 실어 서버가 새로 준다(규격). 브라우저가 스스로 다시 확인하는 것처럼 헤더만 보낸다
   const status = await new Promise<number>((resolve) => http.get(`${base}/api/login-background`, { headers: { "if-none-match": etag } }, (res) => (res.resume(), resolve(res.statusCode ?? 0))));
   assert.equal(status, 304);
 });

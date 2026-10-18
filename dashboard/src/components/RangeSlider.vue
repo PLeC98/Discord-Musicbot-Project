@@ -4,11 +4,11 @@
   양 끝까지 벌리면 "구간 없음"이다. 그때는 null 을 올려 설정에서 아예 뺀다.
   슬라이더로는 빈 값을 나타낼 수 없으니, 끝까지 벌린 상태를 그 뜻으로 삼는다.
 
-  range 입력 둘을 겹쳐 쓴다. 겹친 채로 두면 아래 칸을 못 잡으므로 손잡이만 눌리게 하고(pointer-events),
-  둘이 한자리에 모였을 때는 앞쪽 손잡이를 위로 올린다.
+  range 입력 둘을 겹쳐 쓴다. 겹친 채로 두면 아래 슬라이더를 못 잡으므로 핸들만 눌리게 하고(pointer-events),
+  둘이 한자리에 모였을 때는 앞쪽 핸들을 위로 올린다.
 
-  histogram 을 주면 막대로 그린다. 값이 고르게 퍼져 있지 않은 칸에서는 이것이 있어야
-  사용자가 고른 구간에 후보가 몇 곡이나 남는지 짐작할 수 있다.
+  histogram 을 주면 막대로 그린다. 값이 고르게 퍼져 있지 않은 항목에서는 이것이 있어야
+  사용자가 선택한 구간에 후보가 몇 곡이나 남는지 짐작할 수 있다.
 -->
 <template>
   <div>
@@ -48,13 +48,13 @@ const props = withDefaults(
   }>(),
   { min: 0, max: 100, step: 1, from: null, to: null, label: "", histogram: () => [] },
 );
-/** 고른 구간. 전체면 둘 다 null */
+/** 선택한 구간. 전체면 둘 다 null */
 const emit = defineEmits<{ update: [range: { from: number | null; to: number | null }] }>();
 
 const clearBtn = "text-xs text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors duration-150";
 
 // 설정에 적힌 값이 범위 밖일 수 있다(저쪽 자료가 늘거나 손으로 적었거나).
-// 보이기만 맞춰 두고 값은 건드리지 않는다. 손잡이를 옮길 때 비로소 바뀐다.
+// 보이기만 맞춰 두고 값은 건드리지 않는다. 핸들을 옮길 때 비로소 바뀐다.
 const clamp = (v: number) => Math.min(props.max, Math.max(props.min, v));
 const lo = computed(() => clamp(props.from ?? props.min));
 const hi = computed(() => Math.max(lo.value, clamp(props.to ?? props.max)));
@@ -62,7 +62,7 @@ const hi = computed(() => Math.max(lo.value, clamp(props.to ?? props.max)));
 const whole = computed(() => lo.value <= props.min && hi.value >= props.max);
 const rangeText = computed(() => (whole.value ? text.common.all : `${lo.value} ~ ${hi.value}`));
 
-// 앞쪽 손잡이가 오른쪽 끝에 가면 뒤쪽 손잡이에 깔려 잡히지 않는다
+// 앞쪽 핸들이 오른쪽 끝에 가면 뒤쪽 핸들에 깔려 잡히지 않는다
 const loOnTop = computed(() => lo.value > (props.min + props.max) / 2);
 
 const pct = (v: number) => ((v - props.min) / Math.max(1, props.max - props.min)) * 100;
@@ -90,7 +90,7 @@ const bars = computed(() => {
 
   // 한 칸이 압도적으로 크면 나머지가 다 납작해진다. 제곱근으로 눌러 모양이 보이게 한다
   const top = Math.max(...groups.map((g) => Math.sqrt(g.sum)));
-  // 고른 구간을 칸 번호로 옮긴 것. 끝은 포함이라 1 을 더한다
+  // 선택한 구간을 칸 번호로 옮긴 것. 끝은 포함이라 1 을 더한다
   const pickFrom = lo.value - props.min;
   const pickTo = hi.value - props.min + 1;
 
@@ -107,14 +107,14 @@ const bars = computed(() => {
 });
 
 function set(a: number, b: number) {
-  // 손잡이가 서로를 지나치면 붙여 세운다
+  // 핸들이 서로를 지나치면 붙여 세운다
   const next = { from: Math.min(a, b), to: Math.max(a, b) };
   emit("update", next.from <= props.min && next.to >= props.max ? { from: null, to: null } : next);
 }
 </script>
 
 <style scoped>
-/* 겹쳐 놓은 두 칸. 칸 전체가 아니라 손잡이만 눌려야 아래 칸도 잡을 수 있다 */
+/* 겹쳐 놓은 두 슬라이더. 슬라이더 전체가 아니라 핸들만 눌려야 아래 슬라이더도 잡을 수 있다 */
 input[type="range"] {
   position: absolute;
   inset: 0;

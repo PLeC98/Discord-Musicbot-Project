@@ -39,7 +39,7 @@ function watchGateway(client: Client) {
 /** reconnects: 재수립 횟수. retryAttempt: 끊겨 다시 붙으려는 중이면 몇 번째 시도, 붙어 있으면 null */
 const gateway = () => ({ reconnects, retryAttempt: attempt || null });
 
-/** 시험: 센 값을 비운다 */
+/** 테스트: 센 값을 비운다 */
 function _reset() {
   reconnects = attempt = 0;
 }

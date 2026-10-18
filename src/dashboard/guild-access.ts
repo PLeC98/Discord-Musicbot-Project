@@ -1,5 +1,5 @@
 // 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십 · 권한 수준 오버라이드.
-// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 자리대로다(ref-dashboard-security "서버 접근")
+// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 권한대로다(ref-dashboard-security "서버 접근")
 
 import type { Guild, GuildMember } from "discord.js";
 import type { Request, Response } from "express";

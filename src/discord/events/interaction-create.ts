@@ -1,4 +1,4 @@
-// 상호작용 입구 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼 · 메뉴 · 모달은 종류와 custom_id 앞머리로 처리기를 고른다(discord/interactions/).
+// 상호작용 진입점 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼 · 메뉴 · 모달은 종류와 custom_id 접두사로 처리기를 선택한다(discord/interactions/).
 // 처리가 던지면 여기서 한 번 남기고 알린다(명령 · 처리기는 제 catch 를 두지 않는다). 응답의 대상 · 수명은 ui/delivery 가 정한다.
 
 import { Events, type ChatInputCommandInteraction, type Interaction, type RepliableInteraction } from "discord.js";
@@ -17,9 +17,9 @@ import type { ClientEvent } from "../../app/main.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 
 /**
- * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 가를 수 있는 오류(네트워크 · 봇 감지 등)는
- * 그 문장으로, 아니면 fallback. 자리표시자를 띄운 처리기가 선언했으면 그 자리에(ui/failure-notice), 미뤄 둔 명령이면
- * 그 답 자리에, 아니면 본인에게만(이미 답했으면 이어서).
+ * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크 · 봇 감지 등)는
+ * 그 문장으로, 아니면 fallback. 자리표시자를 표시한 처리기가 선언했으면 그 자리표시자에(ui/failure-notice), 미뤄 둔 명령이면
+ * 그 답 메시지에, 아니면 본인에게만(이미 답했으면 이어서).
  * 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류라 알리지 않는다
  */
 async function failed(interaction: RepliableInteraction, what: string, error: unknown, fallback: Notice) {
@@ -34,7 +34,7 @@ async function failed(interaction: RepliableInteraction, what: string, error: un
 function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknown> {
   const show = failureShow(interaction);
   if (show) return show(notice);
-  // 미뤄 둔 명령은 그 자리를 지우고, 이미 답했으면 후속 메시지로
+  // 미뤄 둔 명령은 그 답 메시지를 삭제하고, 이미 답했으면 후속 메시지로
   return noticeSelf(interaction, notice);
 }
 
@@ -71,7 +71,7 @@ async function runComponent(bot: BotContext, input: Interaction, routes: readonl
   }
 }
 
-/** 상호작용 하나를 맡는다. routes 는 시험이 가짜 표를 넘기는 자리 */
+/** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯 */
 async function route(bot: BotContext, interaction: Interaction, routes: readonly Route[] = ROUTES) {
   if (interaction.isChatInputCommand()) return runCommand(bot, interaction);
   return runComponent(bot, interaction, routes);

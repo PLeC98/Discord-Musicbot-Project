@@ -8,14 +8,14 @@ import * as run from "./run.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
 
-/** 세트에서 한 번에 받는 곡 수. 곡마다 요청이 들어(3) 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 받고 나머지는 "더 넣기"로 */
+/** 세트에서 한 번에 불러오는 곡 수. 곡마다 요청이 들어(3) 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 불러오고 나머지는 "더 넣기"로 */
 const SET_BATCH = 10;
 
 // 제목이 없는 곡은 없다시피 해 표시 문구로 채운다. 가수(올린 사람)는 비워 둔다
 
-/** 찾은 곡. 트랙 모델(player/track)의 TrackInfo 와 같은 칸 */
+/** 찾은 곡. 트랙 모델(player/track)의 TrackInfo 와 같은 필드 */
 type ScTrack = { title: string | null; artist?: string; duration: number; thumbnail?: string | null; platform: "soundcloud"; id?: string; pageUrl: string; requestKey: string; audioUrl: string };
-/** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 받을 때 부를 숫자 id, skipped 는 받을 수 없어 뺀 곡 수(미리듣기 · 지역 제한 등) */
+/** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 불러올 때 부를 숫자 id, skipped 는 받을 수 없어 뺀 곡 수(미리듣기 · 지역 제한 등) */
 type ScSet = { title: string | null; setId: string | null; tracks: ScTrack[]; total: number | null; nextOffset: number; skipped: number };
 /** 곡 찾기가 받는 것. 짧은 링크는 풀어 봐야 곡인지 세트인지 안다 */
 type Found = { kind: "track"; track: ScTrack } | ({ kind: "set" } & ScSet);
@@ -30,7 +30,7 @@ const previewOnly = (item: YtInfo) => {
   return ids.length > 0 && ids.every((id) => /_preview$/.test(id));
 };
 
-// yt-dlp 가 준 곡 하나 → 트랙. 링크는 곡 페이지(짧은 링크 · API 주소로 들어와도 같은 곡이면 같은 열쇠)
+// yt-dlp 가 준 곡 하나 → 트랙. 링크는 곡 페이지(짧은 링크 · API 주소로 들어와도 같은 곡이면 같은 키)
 function trackOf(item: YtInfo): ScTrack | null {
   if (!item.webpage_url) return null;
   const link = canonicalUrl(item.webpage_url);
@@ -67,7 +67,7 @@ function setOf(info: YtInfo, offset: number): ScSet {
 }
 
 /**
- * 곡 찾기. 곡 링크면 그 곡, 세트 링크면 offset 부터 한 구간(SET_BATCH 를 넘지 않는다). 짧은 링크는 yt-dlp 가 푼 결과로 가른다.
+ * 곡 찾기. 곡 링크면 그 곡, 세트 링크면 offset 부터 한 구간(SET_BATCH 를 넘지 않는다). 짧은 링크는 yt-dlp 가 푼 결과로 구분한다.
  * 곡(과 곡인지 모르는 짧은 링크)은 mp3 까지 물어 미리듣기를 까닭으로 알리고, 세트는 AAC 만 물어 요청을 줄인다(미리듣기도 받을 수 없는 곡으로 센다).
  * 실패는 이름을 단 오류로 던진다(없는 곡 · 세트, 지역 차단, 미리듣기, 요청 제한, 네트워크)
  */
@@ -79,7 +79,7 @@ async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track"
   return { kind: "track", track: oneTrack(info) };
 }
 
-// 고른 포맷의 정보. AAC 가 없는 곡은 mp3 까지 물어 한 번 더
+// 선택한 포맷의 정보. AAC 가 없는 곡은 mp3 까지 물어 한 번 더
 async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
   const ask = (formats: run.Formats) => run.read(url, formats, "track", { format: "bestaudio/best" }, exec);
   try {
@@ -93,7 +93,7 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
 
 /**
  * 재생용 스트림 서술자. AAC(HLS)를 묻고, HLS 를 못 여는 ffmpeg 면 mp3 를 묻는다.
- * AAC 가 없는 곡은 mp3 까지 물어 한 번 더 본다. 미리듣기 조각이 골리면 틀지 않는다. 탐색은 ffmpeg 가 한다.
+ * AAC 가 없는 곡은 mp3 까지 물어 한 번 더 본다. 미리듣기 조각이 선택되면 틀지 않는다. 탐색은 ffmpeg 가 한다.
  */
 async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: boolean } = {}, exec: RunYtDlp = youtubedl) {
   const info = readInfo(await streamInfo(url, canPlayHls, exec));
@@ -110,8 +110,8 @@ async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: bool
 }
 
 /**
- * 캐시로 받는다(extra 는 받을 파일 · 변환 옵션). AAC 를 받고, AAC 가 없는 곡은 mp3 까지 물어 미리듣기 조각이 아닌 것을 받는다.
- * 미리듣기만 열린 곡은 받을 것이 없어 "포맷 없음"으로 실패한다
+ * 캐시로 다운로드한다(extra 는 다운로드할 파일 · 변환 옵션). AAC 를 다운로드하고, AAC 가 없는 곡은 mp3 까지 물어 미리듣기 조각이 아닌 것을 다운로드한다.
+ * 미리듣기만 열린 곡은 다운로드할 것이 없어 "포맷 없음"으로 실패한다
  */
 async function download(url: string, extra: YtDlpFlags, exec: RunYtDlp = youtubedl) {
   try {

@@ -88,7 +88,7 @@ async function made(kind: "image" | "video", name: string) {
 }
 
 async function exported() {
-  // 두 걸음: 한 번 쓰는 주소를 받아 그 주소를 내려받는다
+  // 두 단계: 한 번 쓰는 주소를 받아 그 주소에서 다운로드한다
   const ticket = await fetch(`${base}/export?kind=login-background`, { method: "POST" });
   assert.equal(ticket.status, 200);
   const res = await fetch(`${baseUrl(server)}${((await ticket.json()) as { url: string }).url}`);
@@ -146,7 +146,7 @@ test("자기 내보내기를 미리 보면 같다. 미리 보기 줄은 로그�
   assert.deepEqual([row.item, row.inFile, row.same, row.problems, row.count], ["login-background", true, true, [], 1]);
 });
 
-test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · 화면 값 · 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 지운다", async () => {
+test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · 화면 값 · 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);
@@ -168,7 +168,7 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · �
 
   const { row } = await preview(file);
   assert.deepEqual([row.same, row.problems], [false, []]);
-  assert.deepEqual(row.warnings, ["지금 배경 2개를 모두 지우고 파일의 배경으로 바꿔요.", "만들고 있는 배경 1개도 멈추고 지워요."]);
+  assert.deepEqual(row.warnings, ["지금 배경 2개를 모두 삭제하고 파일의 배경으로 바꿔요.", "만들고 있는 배경 1개도 멈추고 삭제해요."]);
 
   const res = await imported(file);
   assert.equal(res.status, 200);
@@ -221,11 +221,11 @@ test("남이 준 파일: 모르는 파일 · 기록에 없는 배경 · 빠진 �
   const index = indexOf(file);
   index.items[0].done = ["receive"];
   const unfinished = rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
-  assert.match((await preview(unfinished)).row.problems.join(), /다 만든 배경의 꼴이 아닌 기록/);
+  assert.match((await preview(unfinished)).row.problems.join(), /다 만든 배경의 형식이 아닌 기록/);
   index.items[0].done = [...one.stages];
   index.items[0].media.color = "url(https://evil.example)";
   const colored = rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
-  assert.match((await preview(colored)).row.problems.join(), /다 만든 배경의 꼴이 아닌 기록/);
+  assert.match((await preview(colored)).row.problems.join(), /다 만든 배경의 형식이 아닌 기록/);
 
   assert.deepEqual(
     store.items().map((one) => one.id),
@@ -242,12 +242,12 @@ test("배경이 없는 파일을 불러오면 기록이 비고 로그인 화면�
   store.show(one.id);
   store.save();
   const { row } = await preview(file);
-  assert.deepEqual([row.count, row.warnings.at(-1)], [0, "파일에 배경이 없어 로그인 화면이 봇 프로필 그림으로 돌아가요."]);
+  assert.deepEqual([row.count, row.warnings.at(-1)], [0, "파일에 배경이 없어 로그인 화면이 봇 프로필 이미지로 돌아가요."]);
   assert.equal((await imported(file)).status, 200);
   assert.deepEqual([store.items(), publicOf()], [[], { kind: "none" }]);
 });
 
-test("풀다 실패하면(내용이 깨졌다) 푼 것을 지우고 지금 기록은 그대로", async () => {
+test("풀다 실패하면(내용이 깨졌다) 푼 것을 삭제하고 지금 기록은 그대로", async () => {
   const one = await made("video", "영상");
   store.show(one.id);
   store.save();

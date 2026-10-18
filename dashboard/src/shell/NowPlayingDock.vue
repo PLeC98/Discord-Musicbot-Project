@@ -1,9 +1,9 @@
 <template>
   <!-- 늘 뜨는 재생 바. 내가 있는 음성 채널에 봇이 있고 재생 중일 때만, 그 서버 화면이 아닐 때 뜬다(그 화면이 전체화면 역할).
-       바탕화면 아래 가장자리에서 틀 색으로 자라 올라온 노치이고(양옆이 오목하게 가장자리와 이어진다, 휴대폰은 아래 막대와 한 덩어리),
+       바탕화면 아래 가장자리에서 틀 색으로 자라 올라온 노치이고(양옆이 오목하게 가장자리와 이어진다, 휴대폰은 아래 막대와 하나),
        모양은 기존 재생 바 그대로: 곡 · [이전 · 재생 · 다음 / 진행] · 음량. 내용은 노치 밑으로 지나간다.
        태블릿 · PC 는 양옆을 바깥 틈 + 레일 + 창 사이 틈만큼 비운다. 오목 모서리(28 = 창 16 + 틈 12)가 레일 아래 모서리(16)와 같은 중심이 되어, 레일이 오목한 곳에 틈 12 로 끼워진다.
-       노치가 32rem 보다 좁으면 안쪽을 줄인다(버튼 칸은 버튼 폭만, 시간 글자를 숨기고 아트를 줄인다). 그래도 24rem 밑으로는 줄이지 않는다.
+       노치가 32rem 보다 좁으면 안쪽을 줄인다(버튼 영역은 버튼 폭만, 시간 글자를 숨기고 아트를 줄인다). 그래도 24rem 밑으로는 줄이지 않는다.
        그보다 좁은 화면(사이드바를 펼친 좁은 창 등)에서는 노치가 레일 아래쪽에 겹친다 -->
   <Transition enter-from-class="translate-y-full" leave-to-class="translate-y-full" enter-active-class="transition-[translate] spring" leave-active-class="transition-[translate] duration-200">
     <div v-if="np.visible" class="absolute inset-x-0 bottom-0 z-30 flex justify-center pointer-events-none">
@@ -52,7 +52,7 @@
               <MarqueeText class="text-xs text-on-surface-variant" :text="np.track?.artist || np.guild?.name || ''" />
             </span>
           </button>
-          <!-- 휴대폰 단추는 한 단계 작게(36 · 아이콘 20) -->
+          <!-- 휴대폰 버튼은 한 단계 작게(36 · 아이콘 20) -->
           <button :class="[playBtn, 'size-9!']" :disabled="!np.canControl || !np.track" :aria-label="T.playPause(np.running)" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="20" fill /></button>
           <button :class="[iconBtn, 'size-9!']" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" :aria-label="T.next" @click="np.skip()"><Icon name="skip_next" :size="20" fill /></button>
         </div>

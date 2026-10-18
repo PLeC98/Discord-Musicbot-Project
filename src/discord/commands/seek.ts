@@ -4,14 +4,14 @@ import * as errors from "../../ui/text/ko/errors.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 
-/** 시간 글자를 밀리초로. "120"(초) · "1:20" · "1:20:55" · "3m20s" · "1m 50s" · "1h20m30s" 꼴을 읽고, 못 읽으면 null */
+/** 시간 문자열을 밀리초로. "120"(초) · "1:20" · "1:20:55" · "3m20s" · "1m 50s" · "1h20m30s" 형식을 읽고, 못 읽으면 null */
 function parseTimeInput(input: string) {
   const str = input.trim();
 
   // 숫자만이면 초
   if (/^\d+$/.test(str)) return parseInt(str) * 1000;
 
-  // 쌍점 꼴: [h:]m:ss
+  // 콜론 형식: [h:]m:ss
   const colonMatch = str.match(/^(?:(\d+):)?(\d+):(\d{1,2})$/);
   if (colonMatch) {
     const h = parseInt(colonMatch[1] || "0");
@@ -20,7 +20,7 @@ function parseTimeInput(input: string) {
     return (h * 3600 + m * 60 + s) * 1000;
   }
 
-  // h · m · s 꼴: 1h20m30s · 3m20s · 45s
+  // h · m · s 형식: 1h20m30s · 3m20s · 45s
   const hMatch = str.match(/(\d+)\s*h/i);
   const mMatch = str.match(/(\d+)\s*m(?!s)/i);
   const sMatch = str.match(/(\d+)\s*s/i);

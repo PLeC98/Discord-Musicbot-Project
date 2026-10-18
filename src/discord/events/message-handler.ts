@@ -14,7 +14,7 @@ import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
 import { noticeMs } from "../../ui/delivery.ts";
 
-const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지
+const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 
 const exported: ClientEvent<Events.MessageCreate> = {
   name: Events.MessageCreate,
@@ -44,8 +44,8 @@ const exported: ClientEvent<Events.MessageCreate> = {
       return;
     }
 
-    // 채널을 깔끔하게 유지하기 위해 사용자 메시지를 지운다. 곧바로 지우면 보낸 사람의 디스코드 앱이 보냄 확인을 받기 전에 지워져
-    // 지울 수도 없는 유령 메시지로 남는다(앱을 다시 켜야 사라진다). 잠깐 뒤에 지운다
+    // 채널을 깔끔하게 유지하기 위해 사용자 메시지를 삭제한다. 곧바로 삭제하면 보낸 사람의 디스코드 앱이 보냄 확인을 받기 전에 삭제되어
+    // 삭제할 수도 없는 유령 메시지로 남는다(앱을 다시 시작해야 사라진다). 잠깐 뒤에 삭제한다
     scheduleDelete(message, USER_MESSAGE_DELETE_MS);
 
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
@@ -54,7 +54,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     const responder = channelResponder(message.channel, () =>
       loadingMsg.delete().catch(() => {
-        /* 이미 지워졌다 */
+        /* 이미 삭제됐다 */
       }),
     );
 

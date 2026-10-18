@@ -4,7 +4,7 @@ import { query, getJson } from "./http.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// 여기서 읽는 칸만
+// 여기서 읽는 필드만
 type Video = { overlap?: string; audio?: { link?: string } };
 type Song = { id?: number; title?: string; artists?: Array<{ name?: string }> };
 type Anime = { name?: string; slug?: string; year?: number; season?: string; images?: Array<{ facet?: string; link?: string }>; animethemes?: Theme[] };
@@ -69,7 +69,7 @@ async function themesAtRandom(source: GenreSource): Promise<Theme[]> {
 }
 
 // 연도·시즌·매체는 animetheme 쪽에서 조용히 무시된다. anime 쪽에 걸어야 듣는다.
-// 시즌은 범위 문법이 없어 연도로만 자르고 양끝 시즌은 우리가 걸러낸다.
+// 시즌은 범위 문법이 없어 연도로만 자르고 양끝 시즌은 우리가 필터링한다.
 async function themesByAnime(source: GenreSource): Promise<Theme[]> {
   const url = `https://api.animethemes.moe/anime?${query({
     sort: "random",

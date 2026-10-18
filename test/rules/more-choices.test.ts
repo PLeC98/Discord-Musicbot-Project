@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { moreChoices, parseCount } from "../../src/rules/more-choices.ts";
 
-test("선택지: 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽을 넘지 않는다", () => {
+test("선택지: 배치 단위로, 남은 곡과 남은 슬롯 중 작은 쪽을 넘지 않는다", () => {
   assert.deepEqual(moreChoices({ remaining: 9896, room: 200, batch: 50 }), { cap: 200, steps: [50, 100] });
   assert.deepEqual(moreChoices({ remaining: 70, room: Infinity, batch: 50 }), { cap: 70, steps: [50] });
   assert.deepEqual(moreChoices({ remaining: 70, room: 0, batch: 50 }), { cap: 0, steps: [] });

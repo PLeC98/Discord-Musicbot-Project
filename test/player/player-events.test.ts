@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import * as playerEvents from "../../src/player/events.ts";
 import { fakePlayer } from "../helpers/fake.ts";
 
-// 알림 창구는 플레이어를 건네기만 한다. 가짜는 어느 플레이어인지만 가른다
+// 알림 창구는 플레이어를 건네기만 한다. 가짜는 어느 플레이어인지만 구분한다
 const player = (id = "") => fakePlayer({ sessionId: id });
 
 afterEach(() => playerEvents._reset());

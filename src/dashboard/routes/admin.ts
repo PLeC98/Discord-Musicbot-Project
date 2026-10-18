@@ -42,7 +42,7 @@ adminRouter.get("/status", requireOwner, async (req, res) => {
   res.json(await adminStatus(req.app.locals.bot, signedIn(req).id, req.app.locals.stream, Boolean(req.app.locals.restart)));
 });
 
-// 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 띄운다(app/launcher). 실행기 없이 켰으면 다시 띄워 줄 쪽이 없어 거절한다.
+// 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 실행한다(app/launcher). 실행기 없이 켰으면 다시 실행해 줄 쪽이 없어 거절한다.
 // 답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다)
 adminRouter.post("/restart", requireOwner, (req, res) => {
   const restart = req.app.locals.restart;
@@ -52,7 +52,7 @@ adminRouter.post("/restart", requireOwner, (req, res) => {
   res.status(202).json({ restarting: true } satisfies RestartReply);
 });
 
-// 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널
+// 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 텍스트 채널
 async function announceChannel(guild: Guild) {
   const me = guild.members.me;
   const writable = (c: GuildBasedChannel | null | undefined) => (c && c.isTextBased() && !c.isThread() && me && c.permissionsFor(me)?.has("SendMessages") ? c : null);
@@ -156,7 +156,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
 });
 
-// 캐시 초기화. 오디오 파일과 캐시 DB 의 표(조회 기록 · SponsorBlock · 연령 제한 · 스포티파이 익명 상태)를 비운다. 서버 설정 · 저장된 대기열은 다른 DB 라 남는다.
+// 캐시 초기화. 오디오 파일과 캐시 DB 의 표(링크 데이터 · SponsorBlock · 연령 제한 · 스포티파이 익명 상태)를 비운다. 서버 설정 · 저장된 대기열은 다른 DB 라 남는다.
 // 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
 adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
   try {
@@ -177,7 +177,7 @@ adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
 const VALIDATORS: Record<string, (data: unknown) => string[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
-// 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
+// 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 필드를 받고, 지금 쓸 수 있는가.
 // 검증·실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
 // 한쪽만 고치게 된다.
 adminRouter.get("/source-types", requireOwner, async (req, res) => {
@@ -207,7 +207,7 @@ adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 상태뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
 adminRouter.get("/ai/state", requireOwner, (req, res) => {
-  // 키 값은 절대 안 내려간다. 프로바이더마다 상태만 알린다(주소는 저장된 설정으로 셈한다)
+  // 키 값은 절대 안 내려간다. 프로바이더마다 상태만 알린다(주소는 저장된 설정으로 계산한다)
   res.json({
     ...keysReply(aiConfig.ai()),
     // 주소·키 필요 여부는 서버가 안다. 화면이 베껴 두면 한쪽만 고치게 된다
@@ -215,15 +215,15 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
     pingText: assist.PING_TEXT,
     defaultSections: assist.DEFAULT_SECTIONS,
     defaultLine: assist.DEFAULT_LINE,
-    // 비운 칸이 쓰는 값. 화면이 흐리게 보여 준다(베껴 두지 않는다)
+    // 비운 입력란이 쓰는 값. 화면이 흐리게 보여 준다(베껴 두지 않는다)
     settingDefaults: assist.DEFAULTS,
   } satisfies AiState);
 });
 
-// 키를 고쳐 쓴다. 쓰기 전용이다. 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
+// 키를 고쳐 쓴다. 쓰기 전용이다. 적어 보낸 필드만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
 // 로그에도 이름만 남긴다.
 /**
- * 그 모델이 받는 칸. 프로필(config/ai-models)이 정한다.
+ * 그 모델이 받는 필드. 프로필(config/ai-models)이 정한다.
  * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
  */
 adminRouter.get("/ai/fields", requireOwner, (req, res) => {
@@ -235,12 +235,12 @@ adminRouter.get("/ai/fields", requireOwner, (req, res) => {
     known: !!models.profileOf(registry, model),
     fields: model ? models.fieldsOf(registry, model) : [],
     groups: model ? models.groupsOf(registry, model) : [],
-    // 프로필이 아는 모델들. 목록에 이름표를 입힐 때 쓴다
+    // 프로필이 아는 모델들. 목록에 라벨을 입힐 때 쓴다
     models: models.modelsOf(registry),
   } satisfies AiFields);
 });
 
-// 앤트로픽에 물은 칸마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 어림한다)
+// 앤트로픽에 물은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 어림한다)
 async function countByClaude(texts: string[], provider: string, model: string) {
   const apiKey = assist.storedKey({ provider });
   const wrap = tokens.FRAMING.anthropic.perRequest;
@@ -253,7 +253,7 @@ async function countByClaude(texts: string[], provider: string, model: string) {
   return each.every((one): one is number => one !== null) ? each : null;
 }
 
-// 칸마다의 본문 토큰. 클로드는 저쪽에 묻고, 못 받으면 tik 로 어림한다
+// 입력란마다의 본문 토큰. 클로드는 저쪽에 묻고, 못 받으면 tik 로 어림한다
 async function countBodies(texts: string[], provider: string, model: string) {
   const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
   const exact = by === "claude" ? await countByClaude(texts, provider, model) : null;
@@ -263,7 +263,7 @@ async function countBodies(texts: string[], provider: string, model: string) {
 }
 
 /**
- * 프롬프트 칸이 적는 동안 세어 보는 곳. 본문만 센다(감싸는 몫은 미리보기에서 본다).
+ * 프롬프트 입력란에 적는 동안 세어 보는 곳. 본문만 센다(감싸는 몫은 미리보기에서 본다).
  * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
  * 세기가 상한에 걸리면(공백 없는 아주 긴 글) 503 으로 답한다
  */
@@ -280,17 +280,17 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
   }
 });
 
-/** 값표 갱신. 바뀌었으면 true. 못 받아도 모델 프로필 갱신은 그대로 둔다(가진 값표로 계속 센다) */
+/** 값표 갱신. 바뀌었으면 true. 못 불러와도 모델 프로필 갱신은 그대로 둔다(가진 값표로 계속 센다) */
 async function refreshPrices() {
   try {
     return (await prices.refresh()).changed;
   } catch (error) {
-    log.warn({ sub: "admin" }, `AI 값표를 받지 못했습니다(models.dev): ${messageOf(error)}. 가진 값표로 비용을 셉니다`);
+    log.warn({ sub: "admin" }, `AI 값표를 불러오지 못했습니다(models.dev): ${messageOf(error)}. 가진 값표로 비용을 셉니다`);
     return false;
   }
 }
 
-/** 모델 프로필 · 값표 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
+/** 모델 프로필 · 값표 갱신. 해시가 같으면 불러오지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
     const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
@@ -324,7 +324,7 @@ adminRouter.post("/ai/judge/run", requireOwner, async (req, res) => {
   res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "rock")));
 });
 
-// 키를 넣고 지운다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 지운다), 돌려주는 것은 상태다.
+// 키를 입력하고 삭제한다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 삭제한다), 돌려주는 것은 상태다.
 // 키는 화면이 지금 적어 둔 설정(data: 주소 · 리전)이 가리키는 곳에 묶는다. 그 설정을 저장해야 쓰인다
 adminRouter.put("/ai/keys", requireOwner, requireRecentLogin, (req, res) => {
   const keys: unknown = req.body?.keys;
@@ -347,13 +347,13 @@ adminRouter.put("/ai/keys", requireOwner, requireRecentLogin, (req, res) => {
   res.json(keysReply({ ...draft }) satisfies KeysReply);
 });
 
-// 넣을 수 없는 키면 까닭. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
+// 입력할 수 없는 키면 까닭. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
 function aiKeyProblem(provider: string, value: unknown, draft: Record<string, unknown>) {
   const spec = assist.PROVIDER_SPECS[provider];
   if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더입니다`;
-  if (typeof value !== "string") return `${provider}: 키는 글자여야 합니다`;
+  if (typeof value !== "string") return `${provider}: 키는 문자열이어야 합니다`;
   if (!value.trim()) return null;
-  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없습니다. 주소를 먼저 적으세요`;
+  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없습니다. 주소를 먼저 입력하세요`;
   if (spec.serviceAccount) return accountProblem(spec.label, value);
   return null;
 }
@@ -369,7 +369,7 @@ function accountProblem(label: string, value: string) {
   }
 }
 
-// 프로바이더마다 키 상태. settings 는 주소를 셈할 설정(저장된 것 또는 화면의 초안). 다른 프로바이더는 그 프로바이더의 기본 주소로 본다
+// 프로바이더마다 키 상태. settings 는 주소를 계산할 설정(저장된 것 또는 화면의 초안). 다른 프로바이더는 그 프로바이더의 기본 주소로 본다
 function keysReply(settings: Record<string, unknown>): KeysReply {
   const keyState = Object.fromEntries(
     Object.entries(assist.PROVIDER_SPECS)
@@ -392,7 +392,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
   const revision: unknown = req.body?.revision;
   if (!data || typeof data !== "object" || !Array.isArray(sections) || !Number.isInteger(revision)) return sendProblem(res, "nothing-to-save");
 
-  // 꺼 두면(enabled: false) 나머지 칸은 따지지 않고, 프롬프트는 모양이 깨지지 않을 만큼만 본다
+  // 꺼 두면(enabled: false) 나머지 필드는 따지지 않고, 프롬프트는 모양이 깨지지 않을 만큼만 본다
   const on = !aiSwitchedOff(data);
   const problems = [...VALIDATORS.ai(data), ...promptProblems(sections, on)];
   if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
@@ -415,7 +415,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
 // 유튜브 쿠키. 연령 제한 영상에만 쓰이고, 유튜브가 브라우저 쪽에서 세션을 돌리면 만료 시각과
 // 무관하게 무효가 된다. 그때마다 여기서 덮어쓴다(비밀 표에 암호화, store/cookie-jar).
 //
-// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 넣기 · 지우기는 최근 로그인만
+// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 입력 · 삭제는 최근 로그인만
 function cookieState(): CookieState {
   return { source: YouTube.statusSnapshot().cookies, hasFile: cookieJar.ready() };
 }
@@ -443,8 +443,8 @@ adminRouter.post("/ai/preview", requireOwner, async (req, res) => {
   res.json(await assist.preview(data));
 });
 
-// 무료 확인. 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
-// 화면의 모델 고르는 칸도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
+// 무료 확인. 모델 목록만 불러온다. 추론을 안 돌리니 토큰이 안 든다.
+// 화면의 모델 선택 입력란도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
 adminRouter.post("/ai/models", requireOwner, async (req, res) => {
   res.json(await assist.listModels(req.body?.data || {}));
 });

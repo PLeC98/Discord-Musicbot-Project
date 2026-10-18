@@ -1,4 +1,4 @@
-// 서버 설정 화면(/setchannel · /setdjrole · /setplaylistlimit · /sponsorblock)의 글자
+// 서버 설정 화면(/setchannel · /setdjrole · /setplaylistlimit · /sponsorblock)의 문구
 
 const roleMentions = (roleIds: string[]) => roleIds.map((id) => `<@&${id}>`).join(" ");
 
@@ -15,7 +15,7 @@ const channelSet = (channel: string) => ({
   inputsValue: "• 지원하는 플랫폼 링크 (유튜브, 스포티파이, 사운드클라우드)\n• 재생 가능한 미디어 링크\n• 곡 이름이나 아티스트 이름 등의 검색어",
 });
 
-/** DJ 역할 고르기 화면. roleIds 는 지금 DJ 역할(없으면 모두가 조작) */
+/** DJ 역할 선택 화면. roleIds 는 지금 DJ 역할(없으면 모두가 조작) */
 const djRoleMenu = (roleIds: string[]) => ({
   title: "🎧 DJ 역할",
   description: [roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요.", "", "아래 메뉴에서 DJ로 지정할 역할을 선택한 뒤 **저장**을 누르세요. (여러 역할을 지정할 수 있어요)", "아무 역할도 선택하지 않으면 모두가 DJ 권한을 가져요.", "서버 관리자들(서버 관리, 추방, 차단, 타임아웃 권한을 가진 사람)은 설정과 상관없이 항상 조작할 수 있어요."].join("\n"),
@@ -37,7 +37,7 @@ const sponsorMenu = (enabled: boolean) => ({
   placeholder: "건너뛸 구간 종류 선택",
   toggle: enabled ? "켜짐 (끄기)" : "꺼짐 (켜기)",
 });
-/** 저장한 구간을 한 줄로. categories 는 구간 종류의 이름표 */
+/** 저장한 구간을 한 줄로. categories 는 구간 종류의 라벨 */
 const sponsorSummary = (enabled: boolean, categories: string[]) => {
   if (!enabled) return onOff(false);
   return categories.length ? categories.join(", ") : "선택한 구간 없음 (건너뛰지 않아요)";

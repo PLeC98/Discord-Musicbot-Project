@@ -118,7 +118,7 @@ test("_tick: 아웃트로 → skip('sponsorblock') (스킵 버튼과 동일 처�
   assert.equal(p._calls.play.length, 0);
 });
 
-test("_tick: 곡 끝 구간은 표시 길이가 아니라 트는 음원의 길이로 가른다", async () => {
+test("_tick: 곡 끝 구간은 표시 길이가 아니라 트는 음원의 길이로 구분한다", async () => {
   // 표시는 스포티파이 길이 230초, 트는 음원은 250초. 230~240 구간은 곡 끝이 아니라 중간이다
   const p = Object.assign(fakePlayer({ curSec: 231, duration: 230 }), { playback: { lengthMs: 250_000 } });
   const sk = new SponsorSkipper(p);

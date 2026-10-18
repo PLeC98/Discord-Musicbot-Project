@@ -1,6 +1,6 @@
 // Spotify 의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다(구조 리팩터링 0-B).
 //
-// 2a 가 URL 지식을 떼어 내고, 3 이 트랙 칸을 바꾸고, 5 가 익명 상태를 저장하는 곳을 옮긴다. fetch 만 가짜로 두고
+// 2a 가 URL 지식을 떼어 내고, 3 이 트랙 필드를 바꾸고, 5 가 익명 상태를 저장하는 곳을 옮긴다. fetch 만 가짜로 두고
 // 토큰 발급 · 재사용 · 상태 추출 · 저장 · 재시도를 적어 둔다. 익명 상태는 진짜 저장소(externalCaches, 임시 DB)에 남는다.
 
 import fs from "node:fs";
@@ -26,11 +26,11 @@ const Spotify = await import("../../src/sources/spotify.ts");
 const { graphql, deriveKey, totp } = Spotify._internals;
 
 const savedCreds = { ...config.spotify };
-// 보낸 요청. 여기서 보는 칸만
+// 보낸 요청. 여기서 보는 필드만
 type Init = { method?: string; headers?: Record<string, string>; body?: string };
 const requests: Array<{ url: string; init: Init }> = [];
 
-// Response 는 Set-Cookie 를 걸러 내므로 필요한 것만 가진 가짜를 쓴다
+// Response 는 Set-Cookie 를 필터링하므로 필요한 것만 가진 가짜를 쓴다
 const reply = (body: unknown, { status = 200, cookies = [] as string[] } = {}) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -42,7 +42,7 @@ const reply = (body: unknown, { status = 200, cookies = [] as string[] } = {}) =
 type Route = (url: string, init: Init) => ReturnType<typeof reply> | undefined;
 let routes: Route[] = [];
 
-// 가짜 응답은 스포티파이 모듈이 읽는 칸만 가진다
+// 가짜 응답은 스포티파이 모듈이 읽는 필드만 가진다
 Spotify.useFetch(
   fake<typeof fetch>(async (url: string | URL, init: Init = {}) => {
     requests.push({ url: String(url), init });
@@ -50,7 +50,7 @@ Spotify.useFetch(
       const r = route(String(url), init);
       if (r) return r;
     }
-    throw new Error(`시험이 정하지 않은 요청: ${url}`);
+    throw new Error(`테스트가 정하지 않은 요청: ${url}`);
   }),
 );
 
@@ -118,7 +118,7 @@ test("자격증명이 틀려 토큰을 못 받으면(401) 역시 spotify-unavail
 });
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
-  // GraphQL 질의는 가짜로 넘긴다(익명 토큰 · 상태는 아래 시험들이 본다)
+  // GraphQL 질의는 가짜로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
   const query = async (op: string, _hash: string, vars: Record<string, unknown>) => {
     assert.equal(op, "queryArtistOverview");
     assert.equal(vars.uri, "spotify:artist:ar1");
@@ -173,7 +173,7 @@ const anonRoutes = ({ tokenStatus = [200] } = {}): Route[] => {
   ];
 };
 
-test("익명 상태: 홈 · 번들에서 판 · secret · 해시를 뽑아 DB 에 남기고, 다음에는 메모리에서", async () => {
+test("익명 상태: 홈 · 번들에서 버전 · secret · 해시를 뽑아 DB 에 남기고, 다음에는 메모리에서", async () => {
   routes = anonRoutes();
 
   const state = await graphql._ensureState(false);
@@ -189,9 +189,9 @@ test("익명 상태: 홈 · 번들에서 판 · secret · 해시를 뽑아 DB �
   await graphql._ensureState(false);
   assert.equal(requests.length, before, "12시간 안에는 다시 안 받는다");
 
-  Spotify._reset(); // 프로세스를 다시 띄운 것처럼
+  Spotify._reset(); // 프로세스를 다시 시작한 것처럼
   await graphql._ensureState(false);
-  assert.equal(requests.length, before, "프로세스를 다시 띄워도 DB 에 남은 것이 새것이면 그것을 쓴다");
+  assert.equal(requests.length, before, "프로세스를 다시 실행해도 DB 에 남은 것이 새것이면 그것을 쓴다");
 });
 
 const down = (): Route[] => [
@@ -207,7 +207,7 @@ test("익명 상태: 뽑기가 실패하면 저장값, 그것도 없으면 던�
 
   routes = anonRoutes();
   await graphql._ensureState(false);
-  Spotify._reset(); // 프로세스를 다시 띄운 것처럼. 저장값은 DB 에만
+  Spotify._reset(); // 프로세스를 다시 시작한 것처럼. 저장값은 DB 에만
   routes = down();
   const state = await graphql._ensureState(true);
   assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB 에 남은 값");
@@ -295,7 +295,7 @@ test("익명 토큰: 그 밖의 실패는 그대로 던진다", async () => {
   await assert.rejects(graphql._token(), /익명 토큰 500/);
 });
 
-test("GraphQL 질의: 파트너 머리와 저장된 해시로 보낸다. 해시가 만료됐으면 다시 뽑아 한 번 더", async () => {
+test("GraphQL 질의: 파트너 헤더와 저장된 해시로 보낸다. 해시가 만료됐으면 다시 뽑아 한 번 더", async () => {
   let attempts = 0;
   routes = [
     ...anonRoutes(),
@@ -327,8 +327,8 @@ test("GraphQL 질의: 다른 오류와 JSON 이 아닌 응답은 던진다", asy
   await assert.rejects(graphql._query("fetchPlaylist", "fetchPlaylist", {}), /GraphQL 응답 파싱 실패 502/);
 });
 
-// 회귀 대상: 가수가 없으면 "알 수 없는 아티스트"를 칸에 넣어, 자동재생 거르기를 지나 매칭 검색어가 됐다
-test("가수가 없는 곡은 가수 칸을 비워 둔다(표시 문구는 그릴 때)", () => {
+// 회귀 대상: 가수가 없으면 "알 수 없는 아티스트"를 필드에 넣어, 자동재생 필터를 지나 매칭 검색어가 됐다
+test("가수가 없는 곡은 가수 필드를 비워 둔다(표시 문구는 그릴 때)", () => {
   const { normApiTrack } = Spotify._internals;
   const t = normApiTrack({ id: "x", name: "곡", artists: [], duration_ms: 1000, album: { name: "앨범", images: [] }, external_urls: { spotify: "https://open.spotify.com/track/x" } });
   assert.equal(t?.artist, undefined);

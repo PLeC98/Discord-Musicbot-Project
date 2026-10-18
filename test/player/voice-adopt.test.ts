@@ -90,7 +90,7 @@ test("저장된 세션이 있는 서버(이번에 복원하지 않았다)는 이
   }
 });
 
-test("이번 기동에 세션 복원이 손댄 서버(복원하다 실패해 세션을 지우고 나감)는 캐시에 봇이 남아 보여도 이어받지 않는다", async () => {
+test("이번 기동에 세션 복원이 손댄 서버(복원하다 실패해 세션을 삭제하고 나감)는 캐시에 봇이 남아 보여도 이어받지 않는다", async () => {
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")]);
   await adoptLingeringVoice(client, players, FakePlayer, { touched: ["g1"] });
   assert.ok(!steps.some((s) => s.startsWith("g1:")));

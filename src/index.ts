@@ -10,7 +10,7 @@ import { EXIT } from "./app/exit-codes.ts";
 
 configCheck.stopOnConfigProblems(loadedConfig, logger.child({ category: "config" }));
 
-// 본체를 불러오다 던지면(명령 · 이벤트 파일이 깨졌다) 로그인하지 않고 멈춘다. 고치기 전에는 다시 켜도 같은 실패다
+// 본체를 불러오다 던지면(명령 · 이벤트 파일이 깨졌다) 로그인하지 않고 멈춘다. 고치기 전에는 다시 시작해도 같은 실패다
 let main: () => void;
 try {
   ({ main } = await import("./app/main.ts"));

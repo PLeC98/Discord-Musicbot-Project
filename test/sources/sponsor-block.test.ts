@@ -18,10 +18,10 @@ import { fake } from "../helpers/fake.ts";
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}`);
 
-// 가짜 fetch 를 걸 자리. 시험마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다.
-// 가짜 응답은 SponsorBlock 이 읽는 칸(status · json)만 가진다. 정하지 않은 시험이 부르면 실패한다
+// 가짜 fetch 를 걸 위치. 테스트마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다.
+// 가짜 응답은 SponsorBlock 이 읽는 필드(status · json)만 가진다. 정하지 않은 테스트가 부르면 실패한다
 type Reply = { status: number; json(): Promise<unknown> };
-const unset = (): Promise<Reply> => Promise.reject(new Error("시험이 답을 정하지 않았다"));
+const unset = (): Promise<Reply> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
 const net = { fetch: unset };
 
 before(() => {
@@ -255,7 +255,7 @@ test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
 
 // ── forTrack (곡 글루) ─────────────────────────────────────────────────────────
 
-test("forTrack: 서버 설정으로 거른 구간을 돌려주고, 영상 id 로 기억해 다시 묻지 않는다", async () => {
+test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 id 로 기억해 다시 묻지 않는다", async () => {
   SponsorBlock._forget();
   stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
   const track = { platform: "youtube", id: "ytVid1", audioUrl: "https://youtu.be/ytVid1" };

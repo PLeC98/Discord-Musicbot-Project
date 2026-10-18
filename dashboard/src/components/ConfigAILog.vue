@@ -1,6 +1,6 @@
 <!--
   AI 보조 · 리퀘스트 로그: AI 보조가 모델에게 보낸 요청 하나가 한 줄(재시도는 따로). 상태는 composables/ai-log, 모양은 contract/ai-log.
-  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 찾기 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문) · 기록 설정(운영 조절값 ailog 묶음).
+  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 찾기 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문) · 기록 설정(운영 조절값 ailog 그룹).
   새 기록은 실시간으로 온다: 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙고, 아니면 "새 기록 n건" 알약을 누르면 붙는다.
 -->
 <template>
@@ -43,7 +43,7 @@
         {{ T.count(entries.length, matched) }}<template v-if="storage"> · {{ T.storage(formatBytes(storage.bytes), formatBytes(storage.maxBytes)) }}</template>
       </p>
 
-      <!-- 목록. 맨 위 표지가 보이면 새 기록을 바로 붙인다 -->
+      <!-- 목록. 맨 위 마커가 보이면 새 기록을 바로 붙인다 -->
       <div class="relative flex flex-col rounded-(--r-inner) border border-outline-variant/40 overflow-hidden">
         <div ref="topMark" class="h-px -mb-px"></div>
         <button v-if="fresh.length" type="button" class="tap sticky top-2 z-10 self-center -mb-8 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-on-primary text-xs font-medium shadow-md" @click="showFresh"><Icon name="arrow_upward" :size="16" />{{ T.newCount(fresh.length) }}</button>
@@ -63,7 +63,7 @@
             <Icon name="expand_more" :size="18" class="shrink-0 text-on-surface-variant transition-transform duration-150" :class="open.has(entry.id) && 'rotate-180'" />
           </button>
 
-          <!-- 펼친 줄: 요약 한 줄과 원문 칸(원문은 펼칠 때 받는다) -->
+          <!-- 펼친 줄: 요약 한 줄과 원문 영역(원문은 펼칠 때 불러온다) -->
           <div v-if="open.has(entry.id)" class="flex flex-col gap-3 px-3 pt-1 pb-3 bg-surface-container-low/60">
             <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
               <span v-for="one in factsOf(entry)" :key="one.label"
@@ -142,7 +142,7 @@ function factsOf(entry: AiLogEntry) {
   return out;
 }
 
-/** 원문 칸: URL · 오류는 목록에 있고, 헤더 · 본문 · 응답은 받은 뒤에 */
+/** 원문 영역: URL · 오류는 목록에 있고, 헤더 · 본문 · 응답은 불러온 뒤에 */
 function boxesOf(entry: AiLogEntry) {
   const out: Array<{ title: string; text: string; error?: boolean }> = [{ title: T.url, text: entry.url }];
   if (entry.error) out.push({ title: T.error, text: entry.error, error: true });
@@ -151,7 +151,7 @@ function boxesOf(entry: AiLogEntry) {
   return [...out, { title: T.headers, text: prettyJson(one.requestHeaders) }, { title: T.body, text: prettyJson(one.requestBody) }, { title: T.response, text: prettyJson(one.response) }];
 }
 
-// 안전하지 않은 출처처럼 못 쓰는 자리면 복사만 안 될 뿐이다
+// 안전하지 않은 출처처럼 못 쓰는 환경이면 복사만 안 될 뿐이다
 function copy(value: string) {
   navigator.clipboard
     ?.writeText(value)

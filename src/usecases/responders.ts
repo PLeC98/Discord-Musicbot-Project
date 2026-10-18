@@ -15,7 +15,7 @@ import { LIFETIME, postNew } from "../ui/delivery.ts";
  * (대시보드)을 표현할 수 없다.
  *
  *   notifyQueued(view)     담은 안내(ui/added-notice 의 화면)를 표시한다
- *   dismissPlaceholder()   진입점이 띄운 "검색 중…" 자리표시자를 정리한다 (멱등)
+ *   dismissPlaceholder()   진입점이 표시한 "검색 중…" 자리표시자를 정리한다 (멱등)
  *
  * 둘 다 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.
  * 실패 경로에서는 코어가 dismissPlaceholder를 부르지 않는다. 진입점이 자리표시자에 오류를 덮어쓸 수 있게.
@@ -37,8 +37,8 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
 
 /**
  * 슬래시 명령. 자리표시자("검색 중")는 본인에게만 보이는 응답이라 채널에 남지 않는다. 담은 안내는 모두에게 새로 보내고
- * (채널에 쓸 수 없으면 공개 후속 메시지), 자리표시자는 명령이 끝낼 때 치운다(더 넣기 메뉴로 고치거나 지운다).
- * 자리표시자 없이 부른 명령(/dashboard)은 조용히 확인만 하고 지운다
+ * (채널에 쓸 수 없으면 공개 후속 메시지), 자리표시자는 명령이 끝낼 때 치운다(더 넣기 메뉴로 고치거나 삭제한다).
+ * 자리표시자 없이 부른 명령(/dashboard)은 조용히 확인만 하고 삭제한다
  */
 function interactionResponder(interaction: RepliableInteraction): Responder {
   const dismiss = onceDismiss(async () => {
@@ -63,7 +63,7 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
 /**
  * 텍스트 채널. 전용 채널과 검색 선택.
  * 자리표시자가 별도 메시지라 안내로 덮어쓸 수 없다 → 안내 전에 먼저 치운다.
- * onDismiss는 진입점이 자기 자리표시자를 지우는 방법을 넘긴다.
+ * onDismiss는 진입점이 자기 자리표시자를 삭제하는 방법을 넘긴다.
  */
 function channelResponder(channel: GuildTextBasedChannel | null | undefined, onDismiss: (() => unknown) | null = null): Responder {
   const dismiss = onceDismiss(onDismiss);
@@ -89,7 +89,7 @@ const silentResponder: Responder = {
     /* 알릴 곳이 없다. 결과는 호출자가 HTTP 응답으로 */
   },
   async dismissPlaceholder() {
-    /* 자리표시자를 띄우지 않았다 */
+    /* 자리표시자를 표시하지 않았다 */
   },
 };
 

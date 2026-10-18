@@ -62,11 +62,11 @@ const log = logger.child({ category: "core" });
 type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
 type Shutdown = ReturnType<typeof installShutdown>;
-// 등록부가 적는 자식 프로세스 기록. 다음 기동이 남은 것을 정리한다
+// 레지스트리가 적는 자식 프로세스 기록. 다음 기동이 남은 것을 정리한다
 const CHILDREN_FILE = path.join(PROJECT.database, "child-processes.json");
 /** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(bot: BotContext, ...args: ClientEvents[K]): unknown };
-/** 이벤트 목록(src/discord/events/index)의 한 칸. 이벤트마다 인자가 다르다 */
+/** 이벤트 목록(src/discord/events/index)의 한 항목. 이벤트마다 인자가 다르다 */
 type AnyClientEvent = { [K in keyof ClientEvents]: ClientEvent<K> }[keyof ClientEvents];
 /** 등록할 때 보는 모양. 인자는 이름이 정한다 */
 type EventModule = { name: keyof ClientEvents; once?: boolean; execute(bot: BotContext, ...args: unknown[]): unknown };
@@ -79,7 +79,7 @@ function main() {
   // 직전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 복원하지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
-  // 직전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 띄우기 전에
+  // 직전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 실행하기 전에
   sweepLeftoverChildren(CHILDREN_FILE);
   procRegistry.persistTo(CHILDREN_FILE);
 
@@ -95,7 +95,7 @@ function main() {
     .waitReady()
     .then(() => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore }))
     .catch((error: unknown) => {
-      // 클라이언트를 만들기 전에 던졌다. 띄운 것을 내리고 나간다
+      // 클라이언트를 만들기 전에 던졌다. 실행한 것을 내리고 나간다
       log.error("봇 기동 실패:", error);
       stopFailedStart(null, { potServer, logFile }, failedStartCode(error, false));
     });
@@ -103,11 +103,11 @@ function main() {
 
 /**
  * DB 를 열고 설정을 설정 객체에 올린다. 설정 DB 구조가 맞지 않거나 못 열면 멈춘다(캐시 · 실행 상태 DB 는 구조가 바뀌었으면 새로 만든다).
- * 내용이 틀린 것(조절값 · 못 푸는 키)은 멈추지 않고 그 칸만 기본값이다. 고칠 대시보드가 떠야 한다
+ * 내용이 틀린 것(조절값 · 못 푸는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
-    // 대시보드에서 고른 스냅샷 · 풀어 둔 전체 백업이 걸려 있으면 열기 전에 바꿔 끼운다(지금 것은 backups 에 남는다)
+    // 대시보드에서 선택한 스냅샷 · 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups 에 남는다)
     const restored = snapshots.applyStaged(PROJECT.database);
     if (restored) log.warn(`설정 DB 를 ${restored} 로 복원했습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
     stores.open();
@@ -128,16 +128,16 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   warnLegacyConfigFiles();
   serviceKeys.load();
   aiKeys.warnLegacyFile();
-  // 쿠키는 실행마다 파일로 풀었다 지운다. 꺼지다 남은 것을 치운다
+  // 쿠키는 실행마다 파일로 풀었다 삭제한다. 꺼지다 남은 것을 치운다
   cookieJar.sweep();
   cookieJar.warnLegacyFile();
   return true;
 }
 
-// 옛 설정 파일(config/*.yaml · ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 지우지도 않는다(보며 옮길 수 있게)
+// 옛 설정 파일(config/*.yaml · ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 삭제하지도 않는다(보며 옮길 수 있게)
 function warnLegacyConfigFiles() {
   const left = ["genres.yaml", "status.yaml", "ai.yaml", "ai-prompt.chatml"].filter((name) => fs.existsSync(path.join(PROJECT.config, name)));
-  if (left.length) log.warn(`config/ 의 ${left.join(" · ")} 은 이제 읽지 않습니다. 운영자 패널(자동재생 · 상태 문구 · AI 보조 탭)에서 다시 넣고 이 파일들은 지우세요`);
+  if (left.length) log.warn(`config/ 의 ${left.join(" · ")} 은 이제 읽지 않습니다. 운영자 패널(자동재생 · 상태 문구 · AI 보조 탭)에서 다시 입력하고 이 파일들은 삭제하세요`);
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -175,13 +175,13 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
     allowedMentions: ALLOWED_MENTIONS,
   });
   const players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
-  players.followDisposals(); // 버려진 플레이어는 등록부가 스스로 뺀다
+  players.followDisposals(); // 버려진 플레이어는 레지스트리가 스스로 뺀다
   const panels = new NowPlayingPanel(client, players);
   // 명령은 기동 확인 뒤 init 이 채운다
   const commands = new Map<string, SlashCommand>();
   const bot: BotContext = { client, players, panels, commands };
   const stream = createPlayerStream();
-  // 다시 시작은 다시 띄워 줄 실행기(pnpm start)가 있을 때만 연다
+  // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream);
@@ -190,7 +190,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
   });
 
-  // 서버 하나 다시 켜기. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
+  // 서버 하나 다시 시작. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
   const onFault: OnFault = (error, guildId, where) => {
     if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
@@ -208,7 +208,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
     Events.VoiceStateUpdate,
     guarded("음성 상태", (oldState: VoiceState, newState: VoiceState) => onVoiceStateUpdate(client, players, oldState, newState), onFault),
   );
-  // 새어 나온 오류 · 거부 · 예외를 가려 표적 복구하거나 안전 종료한다
+  // 새어 나온 오류 · 거부 · 예외를 구분해 표적 복구하거나 안전 종료한다
   installErrorHandlers(client, { players, fault });
 
   // 실패는 init 이 받아 기동 실패로 내린다
@@ -231,8 +231,8 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
 
-  // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(받다 만 행 · 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
-  // 이번 실행이 받기 시작한 행까지 받다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
+  // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행 · 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
+  // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
   const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
@@ -243,7 +243,7 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
 }
 
-// 기동 시 오디오 캐시 정리(중단된 받기 · 고아 파일 · 퇴거)
+// 기동 시 오디오 캐시 정리(중단된 다운로드 · 고아 파일 · 퇴거)
 async function cleanupAudioCache() {
   try {
     await audioCache.onStartup();
@@ -279,12 +279,12 @@ function checkBeforeLogin() {
   ytdlpOptions.useFfmpeg(ffmpegPath);
   // 캐시 폴더와 정기 퇴거. DB 는 기동 첫머리에 열었다(openSettings)
   audioCache.initialize();
-  // 음성 채널 상태 중 우리가 쓴 것. 재시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
+  // 음성 채널 상태 중 우리가 쓴 것. 다시 시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
   voiceChannelStatus.keepIn(voiceStatusStore);
 
   // 지금 무엇으로 유튜브에 붙는지 한 줄. 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 걸 몰랐다.
   YouTube.logAuthMode();
-  // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 받은 것으로 돈다)
+  // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기");
 
   // 자동재생 · 활동 문구 설정을 여기서 한 번 읽는다. 읽는 쪽이 쓸 때뿐이라 그대로 두면 틀린 설정 · 키가 빠진 소스 경고가

@@ -16,7 +16,7 @@ const HEARTBEAT_MS = 5000;
 // 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(음량을 연달아 바꾸는 따위)
 const SETTINGS_SETTLE_MS = 200;
 
-// 저장한 직후 메모리를 비우는 경로다. 거울을 붙인 채 비우면 방금 저장한 트랙이 DB에서 지워진다.
+// 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 트랙이 DB에서 삭제된다.
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
@@ -54,7 +54,7 @@ class SessionPersistence {
   player: Player;
   frozen: boolean;
   dirty: boolean;
-  /** 지난번에 쓴 세션 행(위치 뺀 칸). 설정 알림과 주기 저장이 이것과 비교한다 */
+  /** 지난번에 쓴 세션 행(위치 뺀 열). 설정 알림과 주기 저장이 이것과 비교한다 */
   lastRow: string | null;
   settingsTimer: NodeJS.Timeout | null = null;
 
@@ -66,7 +66,7 @@ class SessionPersistence {
     this.lastRow = null;
   }
 
-  // ── 트랙 거울 (trackState가 부른다) ──
+  // ── 트랙 미러 (trackState가 부른다) ──
 
   _mirror(write: (store: PlayerSessionStore, guildId: string) => boolean | void) {
     const guildId = this.player.guild?.id;
@@ -161,14 +161,14 @@ class SessionPersistence {
     this.settingsTimer.unref?.();
   }
 
-  /** 세션 행 칸(음량 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
+  /** 세션 행 열(음량 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
   saveRowIfChanged() {
     const p = this.player;
     if (!p.currentTrack && p.queue.length === 0) return;
     if (this._rowKey() !== this.lastRow) bestEffort(log, this.persistState("changed"), "세션 저장");
   }
 
-  // 세션 행에서 위치를 뺀 칸. 위치는 주기 저장이 따로 쓴다
+  // 세션 행에서 위치를 뺀 열. 위치는 주기 저장이 따로 쓴다
   _rowKey() {
     const { positionMs: _position, ...row } = this.sessionFields();
     return JSON.stringify(row);
@@ -233,18 +233,18 @@ class SessionPersistence {
   reviveTrack(data: RestoredTrack | null): QueuedTrack | null {
     if (!data) return null;
     const { requesterId, id, title, duration, platform, artist, album, entry, ...rest } = data;
-    // 행은 빈 칸을 null 로 준다. 트랙의 모양으로 맞춘다(없는 칸은 비우고, 꼭 있어야 하는 칸은 빈 값)
+    // 행은 빈 열을 null 로 준다. 트랙의 모양으로 맞춘다(없는 필드는 비우고, 꼭 있어야 하는 필드는 빈 값)
     const track: QueuedTrack = { ...rest, id: id ?? undefined, title: title ?? "", duration: duration ?? 0, platform: platform ?? "", artist: artist ?? undefined, album: album ?? undefined };
     // 요청자는 권한 판정과 멘션에 id만 쓰인다
     if (requesterId) track.requestedBy = { id: requesterId };
-    // 줄 번호는 다시 켜기 전과 같게(track-state 가 찍는 것과 같은 열거되지 않는 칸). 없으면 track-state 가 들일 때 새로 찍는다
+    // 줄 번호는 다시 시작하기 전과 같게(track-state 가 찍는 것과 같은 열거되지 않는 필드). 없으면 track-state 가 추가할 때 새로 찍는다
     if (entry) Object.defineProperty(track, "entry", { value: entry, enumerable: false });
     return track;
   }
 
   /**
    * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂 · failed 틀 곡을 열지 못함(남은 곡은 대기열에) · empty 틀 곡이 없음.
-   * announce 를 끄면 글자 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
+   * announce 를 끄면 텍스트 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
    */
   async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "failed" | "empty"> {
     const player = this.player;
@@ -291,8 +291,8 @@ class SessionPersistence {
   // 저장된 트랙을 메모리에 올린다
   _restoreTracks(record: RestoredSession, guildId: string) {
     const player = this.player;
-    // 미리 뽑아 둔 자동재생 곡은 복원하지 않는다. 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
-    // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 것으로 가른다.
+    // 미리 선택해 둔 자동재생 곡은 복원하지 않는다. 사용자가 선택한 곡만 세션에 남는 것이 자연스럽고,
+    // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 선택된다. 요청자가 봇인 것으로 구분한다.
     const botId = player.guild?.client?.user?.id || null;
     const queueRows = botId ? record.queue.filter((t) => t.requesterId !== botId) : record.queue;
     const droppedAutoplay = record.queue.length - queueRows.length;
@@ -309,7 +309,7 @@ class SessionPersistence {
         queue: (cut ? queueRows.slice(0, max) : queueRows).flatMap((t) => this.reviveTrack(t) ?? []),
         history: record.history.flatMap((t) => this.reviveTrack(t) ?? []),
       },
-      // 잘랐거나 걸러냈으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
+      // 잘랐거나 필터링했으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
       { persisted: !cut && droppedAutoplay === 0 },
     );
 
@@ -328,7 +328,7 @@ class SessionPersistence {
     }
   }
 
-  // 패널을 다시 세운다. announce 면 이어 튼다고 글자 채널에 알린다
+  // 패널을 다시 세운다. announce 면 이어 튼다고 텍스트 채널에 알린다
   async _announceRestored(resumeMs: number, announce: boolean) {
     const player = this.player;
     if (player.textChannel) {

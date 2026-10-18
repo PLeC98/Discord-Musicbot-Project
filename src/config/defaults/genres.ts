@@ -1,5 +1,5 @@
-// 자동재생 장르 기본값. settings.db 에 "genres" 문서가 없을 때(새로 설치 · 지움) 이것으로 시작한다(config/documents).
-// 칸의 뜻은 대시보드 자동재생 탭의 툴팁 · README 에 있다. 검사는 config/schema/genres(시험이 이 값이 검사를 지나는지 본다)
+// 자동재생 장르 기본값. settings.db 에 "genres" 문서가 없을 때(새로 설치 · 삭제) 이것으로 시작한다(config/documents).
+// 필드의 뜻은 대시보드 자동재생 탭의 툴팁 · README 에 있다. 검사는 config/schema/genres(테스트가 이 값이 검사를 지나는지 본다)
 
 const genresDefault: Record<string, unknown> = {
   defaults: {

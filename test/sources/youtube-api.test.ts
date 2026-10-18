@@ -1,8 +1,8 @@
 // YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다(구조 리팩터링 0-B).
 //
-// 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 판(lmt)을 읽고, 7 이 파일을 쪼갠다.
-// 모듈을 통째로 바꿔 끼우지 않고 yt-dlp 를 띄우는 exec 하나만 가짜로 넘긴다(useExec). 그래서 src/sources/ytdlp-spawn.ts 의 응답 · 오류 모양
-// 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 시험마다 비워 설정과 무관하게 한 번에 부르게 한다.
+// 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 버전(lmt)을 읽고, 7 이 파일을 쪼갠다.
+// 모듈을 통째로 교체하지 않고 yt-dlp 를 실행하는 exec 하나만 가짜로 넘긴다(useExec). 그래서 src/sources/ytdlp-spawn.ts 의 응답 · 오류 모양
+// 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 테스트마다 비워 설정과 무관하게 한 번에 부르게 한다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -79,7 +79,7 @@ test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않�
 
 // ── 검색 ──────────────────────────────────────────────────────────────
 
-test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(채널 · 재생목록)을 거른다", async () => {
+test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(채널 · 재생목록)을 필터링한다", async () => {
   respond = () => ({
     entries: [video("aaaaaaaaaaa"), { id: "UCxxxxxxxxxxxxxxxxxxxxxx", url: "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx", title: "채널" }, video("bbbbbbbbbbb")],
   });
@@ -124,7 +124,7 @@ test("검색: 결과가 없으면 빈 배열, 실패하면 이름을 단 채로 
 
 // ── 정보 ──────────────────────────────────────────────────────────────
 
-test("정보: 칸을 옮겨 담고 포맷 목록을 붙인다. 라이브는 조회 시각이 빠진 원제를 쓴다", async () => {
+test("정보: 필드를 옮겨 담고 포맷 목록을 붙인다. 라이브는 조회 시각이 빠진 원제를 쓴다", async () => {
   respond = () => video("eeeeeeeeeee", { formats: [{ format_id: "251" }], live_status: "is_live", fulltitle: "원제", title: "원제 2026-09-23 12:00" });
 
   const t = await YouTube.getInfo("https://www.youtube.com/watch?v=eeeeeeeeeee");
@@ -143,7 +143,7 @@ test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없�
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), /Some other failure/);
 });
 
-// 회귀 대상: 비공개 · 연령 제한 영상 링크를 넣으면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
+// 회귀 대상: 비공개 · 연령 제한 영상 링크를 입력하면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
 test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "unavailable-contents");

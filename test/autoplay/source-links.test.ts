@@ -7,7 +7,7 @@ import { _reset, linkStatus } from "../../src/infra/link-status.ts";
 
 after(() => useFetch(null));
 
-test("부른 서비스 이름으로 남고, 시험의 가짜 전송은 출처 서비스 모두에 든다", async () => {
+test("부른 서비스 이름으로 남고, 테스트의 가짜 전송은 출처 서비스 모두에 든다", async () => {
   _reset();
   useFetch(async (input) => new Response(JSON.stringify({ url: String(input) }), { status: String(input).includes("down") ? 503 : 200 }));
   assert.deepEqual(await getJson("vocadb", "https://vocadb.net/api/songs"), { url: "https://vocadb.net/api/songs" });

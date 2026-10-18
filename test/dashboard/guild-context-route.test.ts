@@ -1,4 +1,4 @@
-// src/dashboard/routes/guilds.ts — 서버 하나의 경로는 그 서버의 문맥에서 돈다(띄운 프로세스 · 새어 나온 오류가 그 서버로 간다)
+// src/dashboard/routes/guilds.ts — 서버 하나의 경로는 그 서버의 문맥에서 돈다(실행한 프로세스 · 새어 나온 오류가 그 서버로 간다)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

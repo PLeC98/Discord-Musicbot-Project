@@ -7,7 +7,7 @@ import type { Tracks, TrackSink } from "../../src/player/track-state.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 
-// 곡 가짜. 요청 열쇠는 비워 둔다(큐 반복의 사본 찾기가 열쇠를 볼 때만 준다)
+// 곡 가짜. 요청 키는 비워 둔다(큐 반복의 사본 찾기가 키를 볼 때만 준다)
 const t = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: "", requestKey: "", ...extra });
 const titles = (arr: QueuedTrack[]) => arr.map((x) => x.title);
 
@@ -19,7 +19,7 @@ function make({ current = null, queue = [], history = [] }: { current?: QueuedTr
 }
 
 test("init: 비어 있다", () => {
-  const p = fake<Pick<Tracks, "currentTrack" | "queue" | "previousTracks">>({}); // init 이 칸을 채운다
+  const p = fake<Pick<Tracks, "currentTrack" | "queue" | "previousTracks">>({}); // init 이 필드를 채운다
   trackState.init(p);
   assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [] });
 });
@@ -237,7 +237,7 @@ test("줄 번호: 옮기기 · 섞기 · 되감기 · 반복으로 끝에 돌리
   assert.deepEqual(new Set([...p.queue, first].map((x) => x.entry)), new Set([ea, eb]));
 
   const copy = { ...a };
-  assert.equal(copy.entry, undefined, "복사본에는 번호가 따라가지 않는다(열거되지 않는 칸)");
+  assert.equal(copy.entry, undefined, "복사본에는 번호가 따라가지 않는다(열거되지 않는 필드)");
   trackState.enqueue(p, [copy]);
   assert.ok(copy.entry !== undefined && copy.entry !== ea);
   assert.deepEqual(Object.keys(copy).includes("entry"), false, "객체 비교 · JSON 에는 나오지 않는다");
@@ -257,7 +257,7 @@ test("줄 번호: 이미 번호를 가진 곡(저장된 번호로 복원한 곡)
   assert.equal(p.queue[0].entry, 500);
 });
 
-test("줄 번호: 복원한 번호보다 뒤에서 센다(봇을 다시 켜도 새 곡이 복원한 곡의 번호와 겹치지 않는다)", () => {
+test("줄 번호: 복원한 번호보다 뒤에서 센다(봇을 다시 시작해도 새 곡이 복원한 곡의 번호와 겹치지 않는다)", () => {
   const p = make();
   const high = 1_000_000_000;
   trackState.restore(p, { current: Object.defineProperty(t("복원한 곡"), "entry", { value: high, enumerable: false }) }, { persisted: true });

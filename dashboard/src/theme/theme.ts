@@ -1,6 +1,6 @@
 // 화면 테마: 밝기(어둡게 · 밝게 · 시스템)와 바탕색. 바탕색은 보고 있는 곡의 앨범아트에서 온다.
 // 서버 화면을 보고 있으면 그 서버의 곡, 아니면 내가 듣는 곡(재생 바), 둘 다 없으면 기본색.
-// 그림 없이 색 씨앗만 받는 화면도 있다(로그인 배경: 봇이 올릴 때 뽑아 둔 대표색 · 장면 색, setPageSeed). 그때는 배경화면을 깔지 않는다(그 화면이 그린다)
+// 그림 없이 색 씨앗만 받는 화면도 있다(로그인 배경: 봇이 올릴 때 추출해 둔 대표색 · 장면 색, setPageSeed). 그때는 배경화면을 깔지 않는다(그 화면이 그린다)
 
 import { computed, reactive, ref, watch } from "vue";
 import { argbFromHex } from "@material/material-color-utilities";
@@ -34,13 +34,13 @@ function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
 }
 
 /**
- * 앨범아트의 자리. page 가 앞선다. page 가 HOLD 면 서버 화면을 여는 중이라 지금 색을 붙잡아 둔다(옮겨 가는 길에 다른 색을 들르지 않게).
+ * 앨범아트의 슬롯. page 가 앞선다. page 가 HOLD 면 서버 화면을 여는 중이라 지금 색을 붙잡아 둔다(옮겨 가는 길에 다른 색을 들르지 않게).
  * page 가 NO_ART 면 그 화면의 서버에 곡이 없다: 듣는 곡으로 내려가지 않고 운영자 색(brandSeed)을 쓴다. null 은 "화면이 정하지 않음"이라 듣는 곡을 쓴다
  */
 const HOLD = Symbol("hold");
 const NO_ART = Symbol("no-art");
 const art = reactive({ page: null as string | null | typeof HOLD | typeof NO_ART, pageKind: "song" as BackdropKind, listening: null as string | null });
-/** 색을 뽑을 그림. null 이면 운영자 색 */
+/** 색을 추출할 그림. null 이면 운영자 색 */
 const wanted = computed((previous?: string | null) => {
   if (art.page === HOLD) return previous ?? null;
   if (art.page === NO_ART) return null;
@@ -48,14 +48,14 @@ const wanted = computed((previous?: string | null) => {
 });
 /** 그 그림의 쓰임(배경화면 값이 다르다). 화면이 깐 그림이면 화면이 정한 쓰임, 듣는 곡이면 song */
 const wantedKind = computed((): BackdropKind => (typeof art.page === "string" ? art.pageKind : "song"));
-/** 배경화면에 깔린 그림. 색과 같은 때에 바뀐다(그림을 읽고 색을 뽑은 뒤). baked 면 미리 흐린 그림(art.ts backdropOf), 아니면 CSS 로 흐린다. kind 는 그림의 쓰임 */
+/** 배경화면에 깔린 그림. 색과 같은 때에 바뀐다(그림을 읽고 색을 추출한 뒤). baked 면 미리 흐린 그림(art.ts backdropOf), 아니면 CSS 로 흐린다. kind 는 그림의 쓰임 */
 type Wallpaper = { src: string; baked: boolean; kind: BackdropKind };
 const shown = ref<Wallpaper | null>(null);
 const wallpaper = computed(() => (prefs.artWallpaper ? shown.value : null));
 
 /**
- * 앨범아트가 없을 때(곡이 없음 · 앨범아트 색 사용을 끔)의 바탕색. 운영자가 정한 임베드 색(EMBED_COLOR, /api/bot 의 brandColor).
- * 받기 전에는 지난번에 받은 색(이 브라우저에 기억), 그것도 없으면 기본색
+ * 앨범아트가 없을 때(곡이 없음 · 앨범아트 색 사용을 끔)의 바탕색. 운영자가 지정한 임베드 색(EMBED_COLOR, /api/bot 의 brandColor).
+ * 불러오기 전에는 지난번에 불러온 색(이 브라우저에 기억), 그것도 없으면 기본색
  */
 const BRAND_KEY = "theme:brand";
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -82,7 +82,7 @@ function paint(ms = SHIFT_MS) {
   const root = document.documentElement;
   const target = paletteOf(seed.value, dark.value);
   if (!painted || reduced.matches) setNow(target);
-  // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 첫걸음이 무거운 프레임에 걸리지 않게
+  // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 첫 단계가 무거운 프레임에 걸리지 않게
   else requestAnimationFrame(() => requestAnimationFrame(() => blendTo(target, ms)));
   painted = true;
   root.dataset.theme = dark.value ? "dark" : "light";
@@ -110,7 +110,7 @@ watch(
 );
 
 /**
- * 화면이 자기 그림을 깐다(art.page). 쓰임(kind)으로 배경화면 값을 고른다(로그인 화면의 봇 프사는 avatar).
+ * 화면이 자기 그림을 깐다(art.page). 쓰임(kind)으로 배경화면 값을 선택한다(로그인 화면의 봇 프사는 avatar).
  * 깐 화면이 주인이 되고, 치울 때는 주인만 치운다.
  * 화면이 바뀌면 새 화면이 먼저 깔고 옛 화면의 정리(onUnmounted)가 뒤에 돈다. 아무나 치우면 새 화면이 깐 것을 지운다
  */
@@ -149,7 +149,7 @@ function releasePageSeed(owner: symbol) {
   pageSeed.value = null;
 }
 
-/** 곧 틀 곡의 그림을 미리 읽어 색을 뽑고 배경을 흐려 둔다(곡이 바뀌는 순간 바로 옮겨 가게). 브라우저가 한가할 때 한다 */
+/** 곧 틀 곡의 그림을 미리 읽어 색을 추출하고 배경을 흐려 둔다(곡이 바뀌는 순간 바로 옮겨 가게). 브라우저가 한가할 때 한다 */
 const idle: (run: () => void) => void = "requestIdleCallback" in window ? (run) => requestIdleCallback(run, { timeout: 2000 }) : (run) => setTimeout(run, 200);
 function prefetchArt(url: string | null | undefined) {
   if (url) idle(() => void Promise.all([seedOf(url), backdropOf(url, dark.value)]));

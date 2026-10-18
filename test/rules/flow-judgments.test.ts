@@ -26,7 +26,7 @@ test("liveBlockReason: 라이브가 아니면 null, 예정이면 upcoming, ffmpe
   assert.equal(liveBlockReason({ isLive: false }, ready(false)), null);
   assert.equal(liveBlockReason(null, ready(false)), null);
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_upcoming" }, ready(true)), "live-upcoming");
-  assert.equal(asked, 0, "라이브로 트는 곡이 아니면 ffmpeg 를 띄워 보지 않는다");
+  assert.equal(asked, 0, "라이브로 트는 곡이 아니면 ffmpeg 를 실행해 보지 않는다");
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live" }, ready(false)), "live-no-ffmpeg");
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live" }, ready(true)), null);
   assert.equal(asked, 2);

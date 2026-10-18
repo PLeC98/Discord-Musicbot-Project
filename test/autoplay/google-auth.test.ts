@@ -24,10 +24,10 @@ const ACCOUNT = { type: "service_account", project_id: "내-프로젝트", clien
 const SA_JSON = JSON.stringify(ACCOUNT);
 
 const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
-// 가짜 응답은 여기서 읽는 칸(ok · status · text)만 준다
+// 가짜 응답은 여기서 읽는 필드(ok · status · text)만 준다
 type FakeReply = { ok: boolean; status: number; text: () => Promise<string> };
 // 토큰 요청을 받는 가짜. answers 로 답을 정하고 accessToken 에 넘긴다
-let net: typeof fetch = () => Promise.reject(new Error("시험이 답을 정하지 않았다"));
+let net: typeof fetch = () => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
 function answers(reply: object | (() => FakeReply)) {
   net = fake<typeof fetch>(async (url: string, init?: RequestInit) => {
     calls.push({ url, init, body: String(init?.body) });
@@ -79,7 +79,7 @@ test("곧 만료될 토큰은 새로 받는다", async () => {
   assert.equal(calls.length, 2, "만료 직전이면 다시 받는다");
 });
 
-test("JSON 을 통째로 적어도 받는다", async () => {
+test("JSON 을 통째로 입력해도 받는다", async () => {
   auth._reset();
   answers({ access_token: "ya29.인라인", expires_in: 3600 });
   assert.equal(await auth.accessToken(JSON.stringify(ACCOUNT), { fetch: net }), "ya29.인라인");

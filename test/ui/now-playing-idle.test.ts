@@ -1,4 +1,4 @@
-// 전용 채널의 패널 — 끝난 패널 자리를 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
+// 전용 채널의 패널 — 끝난 패널을 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
 // 전용 채널이 있으면 패널은 늘 그 채널에 둔다.
 
 import { test, beforeEach, after } from "node:test";
@@ -21,11 +21,11 @@ after(() => store.close());
 const setBotChannel = (id: string | null) => tempStore.setGuild("g1", { botChannel: id });
 beforeEach(() => setBotChannel(BOT));
 
-// 보내고 고친 패널 내용. 여기서 보는 칸만
+// 보내고 고친 패널 내용. 여기서 보는 필드만
 type Payload = { components: Array<{ toJSON?(): unknown }>; files?: Array<{ name: string }>; attachments?: unknown[] };
 type Posted = { channel: string; payload: Payload; id: string };
 type Calls = { sent: Posted[]; edited: Posted[]; deleted: string[]; editError?: Error };
-// 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 칸
+// 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 필드
 type Cached = { id: string; createdTimestamp: number };
 
 function makeChannel(id: string, calls: Calls) {
@@ -87,7 +87,7 @@ function setup({ record = null }: { record?: PanelRecord | null } = {}) {
     },
   };
   const mem = new TestPanels(client, players, calls, panelStore);
-  // 패널을 둘 채널. 가짜 채널을 글 채널로 본다
+  // 패널을 둘 채널. 가짜 채널을 텍스트 채널로 본다
   const text = (id: string) => {
     const channel = channels.get(id);
     assert.ok(channel, `${id} 채널이 있다`);
@@ -125,7 +125,7 @@ async function play(mem: NowPlayingPanel, player: Player) {
   }
 }
 
-test("전용 채널: 끝난 패널이 맨 아래면 그 자리를 재생 화면으로 고친다 — 새로 올리지 않는다", async () => {
+test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화면으로 고친다 — 새로 올리지 않는다", async () => {
   const { mem, guild, calls, records, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text(BOT));
 

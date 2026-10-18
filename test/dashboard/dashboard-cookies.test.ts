@@ -23,7 +23,7 @@ const store = openTempStore("cookie-route-");
 secrets._useKey(Buffer.alloc(32, 9).toString("base64"));
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
 const { adminRouter } = await import("../../src/dashboard/routes/admin.ts");
-// 쿠키 출처는 운영 조절값이다(유튜브 탭). 이 시험은 file 로 둔다
+// 쿠키 출처는 운영 조절값이다(유튜브 탭). 이 테스트는 file 로 둔다
 const config = (await import("../../src/config/index.ts")).default;
 Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
 
@@ -87,7 +87,7 @@ test("저장된 쿠키는 어느 응답으로도 돌아나가지 않는다", asy
   }
 });
 
-test("빈 글을 보내면 지운다", async () => {
+test("빈 글을 보내면 삭제한다", async () => {
   await req("PUT", "/api/admin/cookies", { text: SAMPLE });
   const cleared = await req("PUT", "/api/admin/cookies", { text: "" });
   assert.equal(cleared.status, 200);
@@ -110,8 +110,8 @@ test("붙여넣은 그대로 들어간다(실행 때 푼 파일로 본다)", asy
   if (held) cookieJar.release(held);
 });
 
-// 쿠키는 로그인된 세션 그 자체다. 훔친 로그인 쿠키로 갈아 끼우지 못하게 최근 로그인만 받는다
-test("넣기 · 지우기는 로그인한 지 10분 안이어야 한다", async () => {
+// 쿠키는 로그인된 세션 그 자체다. 훔친 로그인 쿠키로 교체하지 못하게 최근 로그인만 받는다
+test("넣기 · 삭제는 로그인한 지 10분 안이어야 한다", async () => {
   const app = express();
   app.use(bodyLimit());
   app.use((r, _res, next) => {

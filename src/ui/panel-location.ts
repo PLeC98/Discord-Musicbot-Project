@@ -1,4 +1,4 @@
-// 서버당 하나뿐인 현재 재생 패널의 자리. 어느 채널의 어느 메시지인지 DB에 남긴다.
+// 서버당 하나뿐인 현재 재생 패널의 위치. 어느 채널의 어느 메시지인지 DB에 남긴다.
 // 메모리 참조(player.nowPlayingMessage)는 재생이 끝나거나 재시작하면 없어지므로, 옛 패널을 치우는 기준은 이 기록이다.
 
 import * as panelRecords from "../store/panel-records.ts";
@@ -11,9 +11,9 @@ const UNKNOWN_MESSAGE = 10008;
 const UNKNOWN_WEBHOOK = 10015;
 
 /** 웹훅을 다시 찾는 쪽(NowPlayingPanel) */
-/** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 지워진 웹훅의 기억을 지운다 */
+/** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 삭제된 웹훅의 기억을 지운다 */
 type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
-/** 기록 저장소. 시험은 가짜를 준다 */
+/** 기록 저장소. 테스트는 가짜를 준다 */
 type Store = Pick<typeof panelRecords, "getPanel" | "setPanel">;
 type PanelGuild = Pick<Guild, "id" | "channels">;
 type Payload = Parameters<WebhookClient["editMessage"]>[1];
@@ -40,7 +40,7 @@ class PanelLocation {
     });
   }
 
-  /** 방금 올린 메시지를 이 서버의 패널로 삼는다. 기록돼 있던 옛 패널은 지운다. */
+  /** 방금 올린 메시지를 이 서버의 패널로 삼는다. 기록돼 있던 옛 패널은 삭제한다. */
   commit(guild: PanelGuild | null | undefined, channel: GuildBasedChannel | null | undefined, message: { id: string } | null | undefined, webhook: Hook | null = null) {
     if (!guild?.id || !channel?.id || !message?.id) return Promise.resolve();
     return this._serial(guild.id, async () => {
@@ -63,15 +63,15 @@ class PanelLocation {
         await webhook.editMessage(record.messageId, payload);
         return { channel, webhook, messageId: record.messageId };
       } catch (error) {
-        if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 지워졌다. 다음 게시가 새로 올린다
-        // 웹훅이 지워졌다. 기억을 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 지운다)
+        if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 삭제됐다. 다음 게시가 새로 올린다
+        // 웹훅이 삭제됐다. 기억을 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 삭제한다)
         if (codeOf(error) === UNKNOWN_WEBHOOK) this.embeds.deleteWebhookCache(channel.id);
         return null;
       }
     });
   }
 
-  /** 패널을 지우고 기록을 비운다. 전용 채널을 풀었을 때 */
+  /** 패널을 삭제하고 기록을 비운다. 전용 채널을 풀었을 때 */
   remove(guild: PanelGuild | null | undefined) {
     if (!guild?.id) return Promise.resolve();
     return this._serial(guild.id, async () => {
@@ -87,7 +87,7 @@ class PanelLocation {
     return guild.channels?.cache?.get(channelId) ?? (await guild.channels?.fetch?.(channelId).catch(() => null)) ?? null;
   }
 
-  // 웹훅으로 지우면 권한이 필요 없다. 웹훅이 없어졌거나 일반 메시지로 보냈으면 채널 권한으로. 안 되면 둔다.
+  // 웹훅으로 삭제하면 권한이 필요 없다. 웹훅이 없어졌거나 일반 메시지로 보냈으면 채널 권한으로. 안 되면 둔다.
   async _delete(guild: PanelGuild, { channelId, messageId }: PanelRecord, hint: { channel?: GuildBasedChannel; webhook?: Hook | null }) {
     const sameChannel = hint.channel?.id === channelId;
     const channel = sameChannel ? hint.channel : await this._channel(guild, channelId);
@@ -100,7 +100,7 @@ class PanelLocation {
     }
     if ("messages" in channel)
       await Promise.resolve(channel.messages.delete(messageId)).catch(() => {
-        /* 이미 지워졌거나 지울 권한이 없다. 옛 패널이 남을 뿐이다 */
+        /* 이미 삭제됐거나 삭제할 권한이 없다. 옛 패널이 남을 뿐이다 */
       });
   }
 }

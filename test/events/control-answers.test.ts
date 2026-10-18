@@ -1,5 +1,5 @@
 // src/discord/interactions/control-answers.ts — 음량은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
-// 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 자리를 안내로 바꾼다
+// 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 메시지를 안내로 바꾼다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -61,7 +61,7 @@ function player(over: object = {}) {
 const CV2 = [MessageFlags.IsComponentsV2];
 const MINE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral];
 
-test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로 옮긴 뒤 그 자리를 지우고 결과는 모두에게 새로", async () => {
+test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로 옮긴 뒤 그 메시지를 삭제하고 결과는 모두에게 새로", async () => {
   const { it, log } = asked();
   const { p, seeks } = player();
   await answerReplay(it, p);
@@ -104,7 +104,7 @@ test("음량: 바꾼 결과를 모두에게. 명령과 패널의 입력 창이 �
   for (const file of ["src/discord/commands/volume.ts", "src/discord/interactions/modal-handler.ts"]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), /answerVolume\(/, file);
 });
 
-test("받아들인 뒤에 던지면 하는 중 자리를 안내로 바꾼다", async () => {
+test("받아들인 뒤에 던지면 하는 중 메시지를 안내로 바꾼다", async () => {
   const { it, log } = asked();
   const { p } = player({
     seek: async () => {

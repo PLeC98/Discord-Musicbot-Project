@@ -25,7 +25,7 @@ type SlashCommand = GuildCommand | AnywhereCommand;
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
 const HASH_PATH = path.join(PROJECT.database, "deployed-commands.json");
 
-/** 켜진 명령. 배포하는 것과 실행 목록에 올리는 것이 이 집합이다(꺼진 기능은 입구가 없다) */
+/** 켜진 명령. 배포하는 것과 실행 목록에 올리는 것이 이 집합이다(꺼진 기능은 진입점이 없다) */
 function enabledCommands() {
   return COMMANDS.filter((command) => command.enabled?.() ?? true);
 }
@@ -66,7 +66,7 @@ const putCommands: PutCommands = async (route, body) => (await new REST().setTok
 type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
 
 // 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(지문이 같으면) 건너뛰고, 대시보드의 다시 등록 · 수동 스크립트는 force 로 늘 등록한다.
-// hashPath · put 은 시험이 넘기는 자리(임시 파일이라 운영 지문을 건드리지 않고, 실제로 등록하지 않는다)
+// hashPath · put 은 테스트가 넘기는 슬롯(임시 파일이라 운영 지문을 건드리지 않고, 실제로 등록하지 않는다)
 async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;

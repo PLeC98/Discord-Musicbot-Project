@@ -48,7 +48,7 @@ useDefaultDocuments();
 
 const USER = "111111111111111111";
 const resolved: Array<{ query: string; context?: string | null; range?: Range }> = [];
-let resolveReply: (query: string) => LookupResult = () => assert.fail("시험이 조회 답을 정한다");
+let resolveReply: (query: string) => LookupResult = () => assert.fail("테스트가 조회 답을 정한다");
 
 after(() => {
   addTracks.useLookup(null);
@@ -62,7 +62,7 @@ beforeEach(() => {
   stateDb.get().exec("DELETE FROM player_sessions;");
   resolved.length = 0;
   resolveReply = () => ({ success: true, isPlaylist: false, tracks: [tracks.youtube("aaaaaaaaaaa", { title: "곡" })] });
-  // 곡 찾기는 가짜. 입구를 거쳐 곡 추가 코어가 부른다
+  // 곡 찾기는 가짜. 진입점을 거쳐 곡 추가 코어가 부른다
   addTracks.useLookup({
     ...lookup,
     resolveQuery: async (query: string, context?: string | null, range?: Range) => {
@@ -108,7 +108,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     deleteWebhookCache: () => {},
   };
   const client = fakeWith<Client<true>>()({ user: { id: "bot" }, guilds: { fetch: async () => null } });
-  // 운영처럼 진짜 등록부. 버려진 플레이어는 알림을 듣고 스스로 뺀다
+  // 운영처럼 진짜 레지스트리. 버려진 플레이어는 알림을 듣고 스스로 뺀다
   const players = new PlayerRegistry();
   players.followDisposals();
   const bot = fakeBot({ client, players, panels: embeds });
@@ -118,7 +118,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     return handle(trackData);
   });
   Object.assign(guild, { client });
-  // 이미 있는 플레이어(가짜). 시험이 칸을 바꿔 본다
+  // 이미 있는 플레이어(가짜). 테스트가 필드를 바꿔 본다
   const existing = fakePlayer({
     bindChannels: Player.prototype.bindChannels,
     movePanel: Player.prototype.movePanel,
@@ -142,7 +142,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
 }
 type World = ReturnType<typeof world>;
 
-// 보낸 응답. 여기서 보는 칸만
+// 보낸 응답. 여기서 보는 필드만
 type Sent = {
   content?: string;
   flags?: unknown;
@@ -225,7 +225,7 @@ test("/play: 검색 중 자리표시자를 본인에게 CV2 로 먼저 답하고
   assert.equal(w.handled[0].who?.username, "사용자");
 });
 
-test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 입구가 그 오류의 문장으로 바꾼다", async () => {
+test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 진입점이 그 오류의 문장으로 바꾼다", async () => {
   const w = world();
   resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -241,7 +241,7 @@ test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던
   assert.deepEqual(lastSent(thrown.log), post(noticeFrame(errors.notice("network-error"))));
 });
 
-test("/play: 답하기 전에 던지면 입구가 본인에게만 알린다", async () => {
+test("/play: 답하기 전에 던지면 진입점이 본인에게만 알린다", async () => {
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   it.options.getString = () => {
@@ -251,7 +251,7 @@ test("/play: 답하기 전에 던지면 입구가 본인에게만 알린다", as
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("command-failed"))]]);
 });
 
-test("/play: 재생목록이 더 남았으면 검색 중 자리(본인)를 더 넣기 메뉴로 고친다. 없으면 그 자리를 지운다", async () => {
+test("/play: 재생목록이 더 남았으면 검색 중 자리표시자(본인)를 더 넣기 메뉴로 고친다. 없으면 그 자리표시자를 삭제한다", async () => {
   const w = world();
   resolveReply = () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [tracks.youtube("bbbbbbbbbbb", { title: "첫 곡" })] });
   const { it, log, sentOnChannel } = interaction(w, { options: { query: "https://www.youtube.com/playlist?list=PLabcdefghij" } });
@@ -281,7 +281,7 @@ test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 �
   assert.equal(w.handled[0].handle.insertFirst, true);
 });
 
-test("/play 와 /playfirst 는 같은 길이다. 넣을 자리와 입구 이름만 다르다", async () => {
+test("/play 와 /playfirst 는 같은 길이다. 넣을 위치와 진입점 이름만 다르다", async () => {
   const through = async (name: string) => {
     const w = world({ roles: ["dj"] });
     resolved.length = 0;
@@ -297,7 +297,7 @@ test("/play 와 /playfirst 는 같은 길이다. 넣을 자리와 입구 이름�
   assert.deepEqual(first.log, play.log, "답하는 모양도 같다");
 });
 
-test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
+test("/playfirst: 실패 · 오류 분기는 /play 와 같다", async () => {
   const w = world({ roles: ["dj"] });
   resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -377,7 +377,7 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   assert.deepEqual(none.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.notice("no-search-results"))]], "미뤄 둔 자리를 지우고 본인에게만");
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
 
-  // 검색이 던지면 입구가 남기고, 미뤄 둔 답 자리를 지운 뒤 본인에게만 그 종류의 안내로 알린다
+  // 검색이 던지면 진입점이 남기고, 미뤄 둔 답을 삭제한 뒤 본인에게만 그 종류의 안내로 알린다
   const offline = async () => {
     throw networkError();
   };
@@ -462,7 +462,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
 test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴 채 버리고 새것으로 바꾼다", async () => {
   const w = world();
   const calls: string[] = [];
-  // 진짜처럼 버림을 알린다. 등록부 빼기는 실제 경로(알림)로
+  // 진짜처럼 버림을 알린다. 레지스트리에서 빼기는 실제 경로(알림)로
   const dispose = async (o: { session: string }) => {
     calls.push(`dispose:${o.session}`);
     playerEvents.disposed(w.player, "replaced");
@@ -479,7 +479,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   h.dispose(replaced);
 });
 
-test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 먼저 답하고, 그 자리를 지우고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
+test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 먼저 답하고, 그 메시지를 삭제하고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
 
@@ -517,7 +517,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 복원한 결과(restoreFromState)로 가른다. 시험의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
+  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
   const nothingLeft = await run(async () => {});
   assert.deepEqual(nothingLeft.shown(), [post(noticeFrame(errors.notice("restore-nothing-left")))]);
 
@@ -535,7 +535,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
 
 // ── /autoplay ─────────────────────────────────────────────────────────
 
-test("/autoplay: 켜져 있으면 끄고 다시 고르기 메뉴를, 꺼져 있으면 장르 메뉴를", async () => {
+test("/autoplay: 켜져 있으면 끄고 다시 선택 메뉴를, 꺼져 있으면 장르 메뉴를", async () => {
   const on = world();
   on.player.autoplay = "가요";
   const a = interaction(on);
@@ -550,7 +550,7 @@ test("/autoplay: 켜져 있으면 끄고 다시 고르기 메뉴를, 꺼져 있�
   assert.match(JSON.stringify(b.log[0][1]), /autoplay:genre/);
 });
 
-test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어야 한다. 플레이어가 없으면 만들지 않고 메뉴만 띄운다", async () => {
+test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어야 한다. 플레이어가 없으면 만들지 않고 메뉴만 표시한다", async () => {
   await settings.setDjRoles("g1", ["dj"]);
   const denied = world();
   const d = interaction(denied);
@@ -569,7 +569,7 @@ test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어�
   assert.match(JSON.stringify(f.log[0][1]), /"autoplay:genre"/);
 });
 
-test("/autoplay 장르 선택: 플레이어가 없으면 고른 그때 만들어 장르를 걸고 첫 곡을 뽑아 튼다", async () => {
+test("/autoplay 장르 선택: 플레이어가 없으면 선택한 그때 만들어 장르를 걸고 첫 곡을 선택해 튼다", async () => {
   const fresh = world({ player: null, roles: ["dj"] });
   const [genre] = Object.keys(genreConfig.genres().genres); // 지금 설정에 있는 장르
   behavior.autoplay = () => tracks.youtube("apapapapapa", { title: "뽑은 곡" });

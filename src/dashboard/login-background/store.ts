@@ -1,8 +1,8 @@
-// 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지 · 지금 배경 · 화면에서 거는 값 · 한도는 같은 자리의 index.json 에 둔다
-// (파비콘과 같은 까닭: 파일과 한 자리라 백업 · 이사 · 불러오기에서 함께 움직인다). 단계를 돌리는 일은 runner.ts 가 하고, 여기는 기록과 그 규칙만 둔다.
+// 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지 · 지금 배경 · 화면에서 거는 값 · 한도는 같은 위치의 index.json 에 둔다
+// (파비콘과 같은 까닭: 파일과 한 위치라 백업 · 이사 · 불러오기에서 함께 움직인다). 단계를 돌리는 일은 runner.ts 가 하고, 여기는 기록과 그 규칙만 둔다.
 // 규칙: 새 배경은 썸네일이 생기면 로그인 화면에 걸린다(그 전에는 쓰던 배경 그대로). 이전 배경은 걸었던 것 중 지금 배경을 빼고 마지막으로 쓴 것이다.
-// 한도(보관 개수 · 최대 용량)는 다 구운 기록 중 지금 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 지워 지킨다(이전 배경은 가장 나중에 쓴 것이라 맨 마지막).
-// 이전 배경의 파일이 지워져도 그것을 보던 화면은 재생이 실패하면 배경 정보를 다시 읽어 지금 배경으로 넘어간다
+// 한도(보관 개수 · 최대 용량)는 다 인코딩한 기록 중 지금 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 삭제해 지킨다(이전 배경은 가장 나중에 쓴 것이라 맨 마지막).
+// 이전 배경의 파일이 삭제돼도 그것을 보던 화면은 재생이 실패하면 배경 정보를 다시 읽어 지금 배경으로 넘어간다
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -40,13 +40,13 @@ const INDEX = "index.json";
 
 type Kind = LoginBackgroundItem["kind"];
 type From = LoginBackgroundItem["from"];
-/** 크기 어림의 기록(편집을 적용하면 지운다) */
+/** 크기 어림의 기록(편집을 적용하면 삭제한다) */
 type Estimate = { perSecond: number[]; stillBytes: number; crop: LoginBackgroundCrop; counted: [number, number] | null; encodeRatio: number; rough: boolean };
-/** 구운 것: 정지 그림 폭 · 대표색 · 장면 색 · 코덱마다의 HLS 단계(공개 응답이 쓴다) */
+/** 인코딩한 것: 정지 그림 폭 · 대표색 · 장면 색 · 코덱마다의 HLS 단계(공개 응답이 쓴다) */
 type Media = { stills: number[]; color: string | null; scenes: LoginBackgroundScene[]; rungs: Partial<Record<LoginBackgroundCodec, LoginBackgroundRung[]>> };
 /**
- * 배경 하나의 기록. link 는 링크로 받을 때의 주소(받기 단계가 쓴다), appliedAt 은 편집을 적용한 때(0 이면 아직),
- * stage 는 하던 단계(봇이 다시 켜지면 이어서 한다), resumed 는 다시 켜져 이어서 하는 중
+ * 배경 하나의 기록. link 는 링크로 다운로드할 때의 주소(다운로드 단계가 쓴다), appliedAt 은 편집을 적용한 때(0 이면 아직),
+ * stage 는 하던 단계(봇이 다시 시작하면 이어서 한다), resumed 는 다시 시작해 이어서 하는 중
  */
 type Stored = {
   id: string;
@@ -73,7 +73,7 @@ type Stored = {
   estimate: Estimate | null;
   media: Media;
 };
-/** index.json 의 꼴 */
+/** index.json 의 형식 */
 type Index = { current: string | null; items: Stored[]; options: LoginBackgroundOptions; limits: LoginBackgroundLimits };
 
 let index: Index | null = null;
@@ -93,7 +93,7 @@ const cleanName = (raw: string, max = NAME_MAX) =>
 /** 맞히기 어려운 배경 id(소문자 · 숫자 24자) */
 const newId = () => Array.from(crypto.randomBytes(24), (byte) => ID_CHARS[byte % ID_CHARS.length]).join("");
 
-/** 이 배경이 하는 단계. 받기 · 미리보기 · 썸네일 · 정지 그림 · 마무리는 모두, 장면 띠 · 장면 색 · 굽기는 영상만, 고해상도 받기는 유튜브만 */
+/** 이 배경이 하는 단계. 다운로드 · 미리보기 · 썸네일 · 정지 그림 · 마무리는 모두, 장면 띠 · 장면 색 · 인코딩은 영상만, 고해상도 다운로드는 유튜브만 */
 function stagesOf(kind: Kind, from: From): LoginBackgroundStage[] {
   return LOGIN_BG_STAGES.filter((stage) => {
     if (stage === "highRes") return from === "youtube";
@@ -102,13 +102,13 @@ function stagesOf(kind: Kind, from: From): LoginBackgroundStage[] {
   });
 }
 
-/** 쓰다 끊겨도 반쪽 파일이 남지 않게 옆에 쓰고 바꿔 끼운다 */
+/** 쓰다 끊겨도 반쪽 파일이 남지 않게 옆에 쓰고 교체한다 */
 function writeAtomic(file: string, data: string) {
   fs.writeFileSync(`${file}.tmp`, data);
   fs.renameSync(`${file}.tmp`, file);
 }
 
-/** 값이 이 꼴인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다). 못 쓰는 칸은 처음 값으로 */
+/** 값이 이 형식인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다). 못 쓰는 필드는 처음 값으로 */
 function optionsFrom(raw: unknown): LoginBackgroundOptions {
   const one = raw as Partial<LoginBackgroundOptions> | null;
   const seam = one?.seam as Partial<LoginBackgroundOptions["seam"]> | undefined;
@@ -136,7 +136,7 @@ const isStageList = (value: unknown) => Array.isArray(value) && value.every(isSt
 const isProblem = (value: unknown) => value === null || (typeof value === "string" && isCode(value));
 const isPosition = (value: unknown) => isNum((value as Partial<LoginBackgroundPosition> | null)?.x) && isNum((value as Partial<LoginBackgroundPosition> | null)?.y);
 
-/** 기록 한 줄이 쓸 만한 꼴인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
+/** 기록 한 줄이 쓸 만한 형식인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
 function isStored(value: unknown): value is Stored {
   const one = value as Partial<Stored> | null;
   if (!one || typeof one.id !== "string" || !LOGIN_BG_ID.test(one.id) || typeof one.name !== "string") return false;
@@ -146,7 +146,7 @@ function isStored(value: unknown): value is Stored {
   return known && numbers && stages && isProblem(one.problem) && isPosition(one.position) && Array.isArray(one.media?.stills);
 }
 
-/** 저장 자리의 index.json 을 읽기만 한다(쓸 만한 꼴 · 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
+/** 저장 위치의 index.json 을 읽기만 한다(쓸 만한 형식 · 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
 function readIndex(folder = dir): Index {
   let raw: Partial<Index> | null = null;
   try {
@@ -159,7 +159,7 @@ function readIndex(folder = dir): Index {
   return { current, items, options: optionsFrom(raw?.options), limits: limitsFrom(raw?.limits) };
 }
 
-/** 기록. 처음 부를 때 index.json 을 읽고(하던 단계가 있으면 이어서 할 것으로 적고, 목록에 없는 폴더는 지운다), 그 뒤로는 바꿀 때 같이 고친다 */
+/** 기록. 처음 부를 때 index.json 을 읽고(하던 단계가 있으면 이어서 할 것으로 적고, 목록에 없는 폴더는 삭제한다), 그 뒤로는 바꿀 때 같이 고친다 */
 function loaded(): Index {
   if (index) return index;
   index = readIndex();
@@ -185,10 +185,10 @@ const items = () => loaded().items;
 const find = (id: string) => (LOGIN_BG_ID.test(id) ? (items().find((one) => one.id === id) ?? null) : null);
 /** 배경의 폴더 */
 const folderOf = (id: string) => path.join(dir, id);
-/** 올리거나 받은 원본(받기 단계가 읽어 보고, 다 구우면 지운다) */
+/** 올리거나 다운로드한 원본(다운로드 단계가 읽어 보고, 다 인코딩하면 삭제한다) */
 const sourceOf = (id: string) => path.join(folderOf(id), "source");
 
-/** 다 구웠나 */
+/** 다 인코딩했나 */
 const isReady = (one: Stored) => one.problem === null && one.edit !== null && one.stages.every((stage) => one.done.includes(stage));
 /** 로그인 화면에 걸 수 있는 것이 있나(썸네일) */
 const canShow = (one: Stored) => one.problem === null && one.done.includes("thumb");
@@ -227,7 +227,7 @@ function showIfLatest(one: Stored) {
 }
 
 /**
- * 배경 폴더를 지운다. 멈춘 굽기의 ffmpeg 가 아직 파일을 쥐고 있으면(Windows) 뒤에서 잠시 다시 지우고,
+ * 배경 폴더를 삭제한다. 멈춘 인코딩의 ffmpeg 가 아직 파일을 쥐고 있으면(Windows) 뒤에서 잠시 다시 삭제하고,
  * 그래도 안 되면 다음에 켤 때 목록에 없는 폴더로 치운다
  */
 function removeFolder(id: string) {
@@ -241,7 +241,7 @@ function removeFolder(id: string) {
   }
 }
 
-/** 배경 하나를 기록에서 뺀다(폴더째 지운다). 걸려 있던 배경이면 이전 배경으로 */
+/** 배경 하나를 기록에서 뺀다(폴더째 삭제한다). 걸려 있던 배경이면 이전 배경으로 */
 function remove(id: string) {
   const state = loaded();
   const back = state.current === id ? previousId() : undefined;
@@ -250,7 +250,7 @@ function remove(id: string) {
   if (back !== undefined) show(back);
 }
 
-/** 한도를 지킨다. 지운 배경의 이름 */
+/** 한도를 지킨다. 삭제한 배경의 이름 */
 function enforceLimits(): string[] {
   const state = loaded();
   const victims = items()
@@ -267,16 +267,16 @@ function enforceLimits(): string[] {
   return removed;
 }
 
-/** 새 배경의 폴더를 먼저 잡는다(올리는 동안은 기록에 없어 단계가 시작되지 않는다. 끊기면 지우고, 봇이 꺼지면 다음에 읽을 때 지운다) */
+/** 새 배경의 폴더를 먼저 잡는다(올리는 동안은 기록에 없어 단계가 시작되지 않는다. 끊기면 삭제하고, 봇이 꺼지면 다음에 읽을 때 삭제한다) */
 function reserve(): string {
-  // 처음 읽을 때 목록에 없는 폴더를 지우므로 먼저 읽어 둔다
+  // 처음 읽을 때 목록에 없는 폴더를 삭제하므로 먼저 읽어 둔다
   loaded();
   const id = newId();
   fs.mkdirSync(folderOf(id), { recursive: true });
   return id;
 }
 
-/** 새 배경의 기록(폴더가 없으면 만든다). 종류는 받기 단계가 원본을 읽고 다시 정한다 */
+/** 새 배경의 기록(폴더가 없으면 만든다). 종류는 다운로드 단계가 원본을 읽고 다시 정한다 */
 function create(fields: { kind: Kind; from: From; name: string; link?: string; id?: string }): Stored {
   const one: Stored = {
     id: fields.id ?? newId(),
@@ -303,7 +303,7 @@ function create(fields: { kind: Kind; from: From; name: string; link?: string; i
     estimate: null,
     media: { stills: [], color: null, scenes: [], rungs: {} },
   };
-  // 처음 읽을 때 목록에 없는 폴더를 지우므로 먼저 읽고 폴더를 만든다
+  // 처음 읽을 때 목록에 없는 폴더를 삭제하므로 먼저 읽고 폴더를 만든다
   const index = loaded();
   fs.mkdirSync(folderOf(one.id), { recursive: true });
   index.items.unshift(one);
@@ -348,13 +348,13 @@ const freeBytes = () => {
   fs.mkdirSync(dir, { recursive: true });
   return freeBytesOf(dir) ?? 0;
 };
-/** 저장 자리에 더 써도 되는 크기(남겨 둘 몫을 뺀다) */
+/** 저장 위치에 더 써도 되는 크기(남겨 둘 몫을 뺀다) */
 const room = () => {
   fs.mkdirSync(dir, { recursive: true });
   return roomIn(dir);
 };
 
-/** 기록을 통째로 바꾼다(백업 불러오기: 새 배경의 폴더는 이미 풀어 두었다). 옛 배경의 폴더는 지운다 */
+/** 기록을 통째로 바꾼다(백업 불러오기: 새 배경의 폴더는 이미 풀어 두었다). 옛 배경의 폴더는 삭제한다 */
 function replace(next: Index) {
   const old = items().map((one) => one.id);
   index = next;

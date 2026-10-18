@@ -1,4 +1,4 @@
-// src/store/snapshots.ts — settings.db 스냅샷. 하루 한 번 · 가져오기 · 복원 전에 뜨고, 고른 것을 다음 기동에 바꿔 끼운다
+// src/store/snapshots.ts — settings.db 스냅샷. 하루 한 번 · 가져오기 · 복원 전에 뜨고, 선택한 것을 다음 기동에 교체한다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -60,14 +60,14 @@ test("매일 것은 하루에 하나 · 7개, 가져오기 · 복원 전 것은 
   assert.equal(snapshots.list().length, before);
 });
 
-test("복원: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우고, 바꾸기 전 것은 스냅샷으로 남긴다", async () => {
+test("복원: 예약하면 다음 기동이 열기 전에 교체하고, 바꾸기 전 것은 스냅샷으로 남긴다", async () => {
   settingsDocs.write("status", { messages: ["복원할 것"] }, 0);
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   settingsDocs.write("status", { messages: ["지금 것"] }, 1);
 
   snapshots.stage(name);
   assert.equal(snapshots.staged(), name);
-  assert.deepEqual(read("status"), { messages: ["지금 것"] }, "걸어 두기만 한다");
+  assert.deepEqual(read("status"), { messages: ["지금 것"] }, "예약만 한다");
 
   stores.close();
   assert.equal(snapshots.applyStaged(store.dir), name);
@@ -84,7 +84,7 @@ test("복원: 걸어 두면 다음 기동이 열기 전에 바꿔 끼우고, 바
   }
 });
 
-test("거두면 바꿔 끼우지 않는다", async () => {
+test("예약을 취소하면 교체하지 않는다", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   snapshots.stage(name);
   snapshots.unstage();
@@ -94,7 +94,7 @@ test("거두면 바꿔 끼우지 않는다", async () => {
   stores.open(store.dir);
 });
 
-test("없는 이름 · 폴더 밖 이름 · 구조 버전이 다른 스냅샷은 걸지 않는다", async () => {
+test("없는 이름 · 폴더 밖 이름 · 구조 버전이 다른 스냅샷은 예약하지 않는다", async () => {
   assert.ok(failsWith("SNAPSHOT_NOT_FOUND", () => snapshots.stage("settings-daily-1999-01-01.db")));
   assert.ok(failsWith("SNAPSHOT_NOT_FOUND", () => snapshots.stage("../settings.db")));
 

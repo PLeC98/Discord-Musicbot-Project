@@ -21,7 +21,7 @@ const log = logger.child({ category: "dashboard" });
 // (언마운트된 볼륨의 SQLite는 파일이 멀쩡해도 SQLITE_CORRUPT를 던진다.)
 const UNAVAILABLE_CODES = new Set(["EIO", "ENOENT", "EACCES", "ENOSPC", "EBUSY", "ENXIO", "EROFS"]);
 
-// 던져진 값에서 읽는 칸. 오류 객체가 아니면 빈 것으로 본다
+// 던져진 값에서 읽는 필드. 오류 객체가 아니면 빈 것으로 본다
 type Thrown = { code?: unknown; status?: unknown; statusCode?: unknown; type?: unknown; name?: unknown; stack?: unknown; message?: unknown };
 const fieldsOf = (err: unknown): Thrown => (typeof err === "object" && err !== null ? err : {});
 

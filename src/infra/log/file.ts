@@ -1,7 +1,7 @@
 // NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
 // 파일 로직을 facade(src/infra/log/logger.ts)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
-// 같은 자리에 transport가 앉으므로 호출부가 그대로 살아남는다.
+// 같은 위치에 transport가 앉으므로 호출부가 그대로 살아남는다.
 //
 // 한 줄에 레코드 하나. 가공은 ANSI 제거뿐이다(색은 터미널 사정이고, 파일에 남으면 grep이 깨진다).
 // 로그는 한 파일에 모은다. 분석하려고 파일 여러 개를 여는 것은 손해다.
@@ -62,8 +62,8 @@ function stripAnsi(s: unknown): unknown {
  * 두 설정은 서로 다른 축이고, 각각의 0은 "그 축에 제한 없음"을 뜻한다.
  *
  *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(개수 설정은 의미 없음)
- *   keep     = 0  → 회전은 하되 오래된 것을 지우지 않는다. 파일이 계속 쌓인다
- *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 지운다
+ *   keep     = 0  → 회전은 하되 오래된 것을 삭제하지 않는다. 파일이 계속 쌓인다
+ *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 삭제한다
  *
  * 분리된 파일에는 분리한 시각이 붙는다 (bot-2026-09-10T14-23-05.123.log).
  *
@@ -73,7 +73,7 @@ function stripAnsi(s: unknown): unknown {
 const RETRY_MS = 30_000;
 
 // notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다
-// retryMs · now: 다시 열어 보는 간격과 시계(시험이 넘긴다)
+// retryMs · now: 다시 열어 보는 간격과 시계(테스트가 넘긴다)
 function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line), retryMs = RETRY_MS, now = Date.now }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown; retryMs?: number; now?: () => number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
   let fd: number | null = null;
   let size = 0;
@@ -143,7 +143,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     }
   }
 
-  // keep을 넘는 오래된 파일 삭제. keep=0이면 제한이 없으므로 아무것도 지우지 않는다.
+  // keep을 넘는 오래된 파일 삭제. keep=0이면 제한이 없으므로 아무것도 삭제하지 않는다.
   function prune() {
     if (keep <= 0) return;
     const old = rotatedFiles();
@@ -151,7 +151,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
       } catch {
-        /* 지우지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다 */
+        /* 삭제하지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다 */
       }
     }
   }

@@ -49,7 +49,7 @@ test("YouTube URL 형태별 인식 — /live/ 포함", () => {
     assert.equal(links.extractVideoId(url), id, url);
   }
 
-  // 같은 영상이면 어느 형태로 넣어도 같은 캐시 키로 접힌다 — /live/도 예외가 아니다
+  // 같은 영상이면 어느 형태로 입력해도 같은 캐시 키로 접힌다 — /live/도 예외가 아니다
   assert.equal(canonicalUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
 });
 
@@ -78,8 +78,8 @@ test("cache normalization only canonicalizes genuine YouTube URLs", () => {
   assert.equal(canonicalUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 });
 
-// 유튜브가 아닌 사이트도 같다. 주소 글자를 검색어로 쓰면 엉뚱한 곡이 나오고, 장부가 맞으면 엉뚱한 캐시 곡이 나온다
-test("모르는 사이트의 링크도 거절하고, 캐시 장부를 보지 않는다", async () => {
+// 유튜브가 아닌 사이트도 같다. 주소 글자를 검색어로 쓰면 엉뚱한 곡이 나오고, 링크 데이터가 맞으면 엉뚱한 캐시 파일이 나온다
+test("모르는 사이트의 링크도 거절하고, 링크 데이터를 보지 않는다", async () => {
   for (const url of ["https://anilist.co/anime/21827", "https://chzzk.naver.com/live/abc", "http://example.com/page"]) {
     assert.equal(lookup.isUnsupportedLink(url), true, url);
     const result = await lookup.resolveQuery(url, "test");

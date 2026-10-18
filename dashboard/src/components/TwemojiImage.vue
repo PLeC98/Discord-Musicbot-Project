@@ -4,8 +4,8 @@
   폰트로 그리지 않는 이유: 웹폰트로 쓸 수 있는 Twemoji(twemoji-colr-font)는 COLRv0이라 원본 SVG와
   모양이 조금 다르고 Twemoji 15.0에서 멈춰 있어, 그 뒤에 늘어난 이모지가 두부로 보였다.
 
-  그림을 못 받아오면(CDN이 막혔거나 아직 없는 이모지) 글자로 되돌린다. 그때 쓰는 .emoji 글꼴이
-  그 대비다. @font-face는 실제로 이 자리가 그려질 때만 내려받으므로 평소에는 값이 들지 않는다.
+  그림을 못 불러오면(CDN이 막혔거나 아직 없는 이모지) 글자로 되돌린다. 그때 쓰는 .emoji 글꼴이
+  그 대비다. @font-face는 실제로 이 요소가 그려질 때만 다운로드하므로 평소에는 값이 들지 않는다.
 -->
 <template>
   <img v-if="!failed" :src="url" :alt="char" :width="size" :height="size" class="inline-block select-none" draggable="false" loading="lazy" decoding="async" @error="next" />

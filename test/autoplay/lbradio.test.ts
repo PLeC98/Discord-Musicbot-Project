@@ -42,7 +42,7 @@ test("모드를 섞으면 프롬프트 안에서 원소마다 적고, mode 파�
     assert.equal(calls[0].auth, "Token tok");
   }));
 
-test("모드를 안 적으면 hard. 프롬프트를 직접 적으면 그것을 쓴다", () =>
+test("모드를 입력하지 않으면 hard. 프롬프트를 직접 입력하면 그것을 쓴다", () =>
   withToken(async () => {
     const calls = serve([]);
     await lbradio(source({ tags: ["jazz"] }));

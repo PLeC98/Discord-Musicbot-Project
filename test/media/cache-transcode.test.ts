@@ -1,7 +1,7 @@
 // src/media/cache-download.ts — 캐시 변환 옵션.
 //
 // 회귀 대상: `postprocessorArgs` 가 코덱을 못 박고 있었다. yt-dlp 의 ExtractAudio 는 소스 코덱을
-// 보고 `-acodec copy`(이미 Opus) 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이
+// 보고 `-acodec copy`(이미 Opus) 또는 `-acodec libopus`(그 밖)를 스스로 선택하는데, 우리 값이
 // 그 뒤에 붙어 ffmpeg 에서 이겨 버렸다. 그래서 유튜브 251(Opus)까지 매번 다시 인코딩됐다.
 // 상류에서 내려온 뒤 아무도 다시 보지 않은 설정이다.
 //
@@ -20,7 +20,7 @@ import type { Sources } from "../../src/media/cache-download.ts";
 // exec 가 쓰는 인자 변환. 모듈에 있지만 타입 선언에는 빠져 있다
 const { args: toArgv } = youtubedl as typeof youtubedl & { args(flags: YtDlpFlags): string[] };
 
-/** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. 받기 전에 캐시 행을 적으므로 임시 DB 를 연다 */
+/** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 다운로드하지는 않는다. 다운로드 전에 캐시 행을 적으므로 임시 DB 를 연다 */
 async function captureOptions(): Promise<YtDlpFlags | undefined> {
   const store = openTempStore("cache-transcode-");
   const seen: { options?: YtDlpFlags } = {};
@@ -40,7 +40,7 @@ async function captureOptions(): Promise<YtDlpFlags | undefined> {
   return seen.options;
 }
 
-test("캐시 변환은 코덱을 못 박지 않는다 — yt-dlp 가 소스를 보고 고른다", async () => {
+test("캐시 변환은 코덱을 못 박지 않는다 — yt-dlp 가 소스를 보고 선택한다", async () => {
   const options = await captureOptions();
   assert.ok(options, "옵션을 가로채지 못했습니다");
 

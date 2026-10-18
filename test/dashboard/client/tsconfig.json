@@ -1,6 +1,6 @@
 {
-  // 화면 모듈을 부르는 시험. 시험은 Node 에서 돌고 화면 모듈은 브라우저 타입(DOM)을 쓴다.
-  // 서버 시험은 뿌리 tsconfig 가 본다(DOM 이 들어오면 fetch 가 브라우저 타입이 되어 봇 코드가 어긋난다)
+  // 화면 모듈을 부르는 테스트. 테스트는 Node 에서 돌고 화면 모듈은 브라우저 타입(DOM)을 쓴다.
+  // 서버 테스트는 루트 tsconfig 가 본다(DOM 이 들어오면 fetch 가 브라우저 타입이 되어 봇 코드가 어긋난다)
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "lib": ["es2024", "dom", "dom.iterable"]

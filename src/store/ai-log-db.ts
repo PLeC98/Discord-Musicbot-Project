@@ -1,7 +1,7 @@
 // AI 리퀘스트 로그 DB(ai-requests.db). AI 보조가 모델과 주고받은 것(requests)과 그 가벼운 통계(usage)를 둔다.
-// requests 는 원문까지 담아 무겁다. 저장 용량(AI_LOG_MAX_MB)을 넘으면 오래된 것부터 지운다(store/ai-requests).
-// usage 는 한 줄 백 바이트 남짓이고 지우지 않는다(로그를 지워도 통계는 남는다). 백업 · 내보내기에는 싣지 않는다(설정이 아니다).
-// 구조 버전이 맞지 않으면 열지 않고 멈춘다(지우고 다시 켜라고 안내한다). 표를 더하기만 하면 버전을 올리지 않는다.
+// requests 는 원문까지 담아 무겁다. 저장 용량(AI_LOG_MAX_MB)을 넘으면 오래된 것부터 삭제한다(store/ai-requests).
+// usage 는 한 행 백 바이트 남짓이고 삭제하지 않는다(로그를 삭제해도 통계는 남는다). 백업 · 내보내기에는 싣지 않는다(설정이 아니다).
+// 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다). 표를 더하기만 하면 버전을 올리지 않는다.
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
@@ -16,10 +16,10 @@ const aiLogDb = new DbFile({
 });
 
 function createTables(db: Db) {
-  // 지운 자리를 파일에서 돌려준다(로그는 돌려 지우므로 그대로 두면 파일이 늘기만 한다). 표가 없을 때만 먹는다
+  // 삭제한 공간을 파일에서 돌려준다(로그는 계속 순환 삭제하므로 그대로 두면 파일이 늘기만 한다). 표가 없을 때만 적용된다
   db.pragma("auto_vacuum = INCREMENTAL");
   db.exec(`
-            -- 주고받은 것 하나. 키는 쓰기 전에 가렸다. 토큰 칸이 NULL 이면 못 읽었다. cost_usd 가 NULL 이면 가격 모름
+            -- 주고받은 것 하나. 키는 쓰기 전에 가렸다. 토큰 열이 NULL 이면 못 읽었다. cost_usd 가 NULL 이면 가격 모름
             CREATE TABLE IF NOT EXISTS requests (
                 id                INTEGER PRIMARY KEY AUTOINCREMENT,
                 at                INTEGER NOT NULL,
@@ -51,7 +51,7 @@ function createTables(db: Db) {
                 response          TEXT NOT NULL
             );
 
-            -- 통계 한 줄(requests 와 같은 요청, 원문 없이). day 는 봇 시간대의 YYYY-MM-DD
+            -- 통계 한 행(requests 와 같은 요청, 원문 없이). day 는 봇 시간대의 YYYY-MM-DD
             CREATE TABLE IF NOT EXISTS usage (
                 id                INTEGER PRIMARY KEY AUTOINCREMENT,
                 at                INTEGER NOT NULL,

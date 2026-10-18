@@ -18,7 +18,7 @@ async function buildHelpEmbed(client: Client<true>, { players, commands }: Pick<
 
   const intro = helpText.intro();
   const embed = new EmbedBuilder().setTitle(intro.title).setDescription(intro.description).setColor(colorOf("brand")).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
-  // 명령 줄은 실행 목록(켜진 명령만, 등록 목록의 차례)에서 만든다
+  // 명령 줄은 실행 목록(켜진 명령만, 등록 목록의 순서)에서 만든다
   const defined = [...commands.values()].map((command) => ({ defined: command.data.toJSON(), help: command.help }));
   for (const { name, lines } of helpSections(defined)) embed.addFields({ name, value: lines.join("\n"), inline: false });
   const stats = helpText.stats({ guilds, users, active: activeServers, uptime: formatSpan(process.uptime()) });

@@ -37,7 +37,7 @@ function toMessage(item: ActivityMessage): Message | null {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** 오늘(MM-DD) · 음력 오늘 · 지금(HH:MM). 시험은 정한 날을 준다 */
+/** 오늘(MM-DD) · 음력 오늘 · 지금(HH:MM). 테스트는 지정한 날을 준다 */
 type Calendar = { today(): string; todayLunar(): string; now(): string };
 const CALENDAR: Calendar = {
   today() {

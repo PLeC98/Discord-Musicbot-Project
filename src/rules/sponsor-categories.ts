@@ -2,7 +2,7 @@
 
 const CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"] as const;
 type SkipCategory = (typeof CATEGORIES)[number];
-// 설정 · 저장값은 글자로 와서 견주므로 글자 목록으로도 둔다
+// 설정 · 저장값은 문자열로 와서 비교하므로 문자열 목록으로도 둔다
 const SKIP_CATEGORIES: readonly string[] = CATEGORIES;
 
 // 화면에 보일 이름. SponsorBlock 확장 프로그램의 한국어 번역을 그대로 쓴다(무대가 = 대가 없는)
@@ -31,7 +31,7 @@ const CATEGORY_DESCRIPTIONS: Readonly<Record<SkipCategory, string>> = {
   filler: "전반적인 동영상의 주제를 이해하는 데 필요 없는 잡담이나 농담이 포함되는 구간",
 };
 
-// 구간을 하나도 고르지 않았다는 값(운영 조절값). 빈 값은 기본값이라 따로 둔다. 구간 id 가 아니라 읽을 때 걸러져 빈 목록이 된다
+// 구간을 하나도 선택하지 않았다는 값(운영 조절값). 빈 값은 기본값이라 따로 둔다. 구간 id 가 아니라 읽을 때 필터링돼 빈 목록이 된다
 const NO_CATEGORIES = "none";
 
 const isSkipCategory = (id: unknown): id is SkipCategory => CATEGORIES.some((one) => one === id);

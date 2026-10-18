@@ -1,5 +1,5 @@
-// 로그인 배경을 굽는 인코더. 봇이 켜질 때마다 코덱마다 후보를 작은 시험으로 돌려 쓸 수 있는 첫 것을 고른다(뒤에서, 봇 시작을 막지 않는다. 이 PC 에서 1초 안쪽).
-// 기록해 두지 않는다: 기기가 바뀌었는지 알아보는 비용(Windows 의 장치 정보 읽기)이 시험의 절반쯤이고, 드라이버 · 라이브러리만 바뀌어도 늘 맞는다. 굽다 인코더가 실패하면 다시 시험한다(recheck).
+// 로그인 배경을 인코딩하는 인코더. 봇이 켜질 때마다 코덱마다 후보를 작은 테스트로 돌려 쓸 수 있는 첫 것을 선택한다(뒤에서, 봇 시작을 막지 않는다. 이 PC 에서 1초 안쪽).
+// 기록해 두지 않는다: 기기가 바뀌었는지 알아보는 비용(Windows 의 장치 정보 읽기)이 테스트의 절반쯤이고, 드라이버 · 라이브러리만 바뀌어도 늘 맞는다. 인코딩하다 인코더가 실패하면 다시 테스트한다(recheck).
 // 후보는 같은 화질이 되는 값을 재 둔 인코더만이다(research §11.6 · §11.7): AV1 은 SVT-AV1, VP9 은 libvpx, H.264 는 NVENC → OpenH264. 하드웨어 AV1 · VP9 은 값을 재면 더한다
 
 import logger from "../../infra/log/logger.ts";
@@ -8,7 +8,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import { readsAnimatedWebp, tryEncoder } from "../../media/ffmpeg/trial.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundEncoder } from "../contract/login-background.ts";
 
-/** 후보 하나. options 는 시험에 거는 옵션(실제 굽기의 핵심만: 10비트 · 비트레이트 방식 등, 거기서 실패하면 굽기도 실패한다) */
+/** 후보 하나. options 는 테스트에 거는 옵션(실제 인코딩의 핵심만: 10비트 · 비트레이트 방식 등, 거기서 실패하면 인코딩도 실패한다) */
 type Candidate = { encoder: string; hardware: boolean; options: string[] };
 const CANDIDATES: Record<LoginBackgroundCodec, Candidate[]> = {
   av1: [{ encoder: "libsvtav1", hardware: false, options: ["-preset", "12", "-pix_fmt", "yuv420p10le"] }],
@@ -25,7 +25,7 @@ let encoders: LoginBackgroundEncoder[] = [];
 let animatedWebp = false;
 let running: Promise<void> | null = null;
 
-/** 코덱 하나: 후보를 차례로 시험해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 까닭을 남긴다 */
+/** 코덱 하나: 후보를 순서대로 테스트해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 까닭을 남긴다 */
 async function pick(codec: LoginBackgroundCodec): Promise<LoginBackgroundEncoder> {
   let why: string | null = null;
   for (const candidate of CANDIDATES[codec]) {
@@ -45,31 +45,31 @@ async function check() {
   for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${one.why}`);
 }
 
-/** 시험한다(이미 하는 중이면 그것을 기다린다) */
+/** 테스트한다(이미 하는 중이면 그것을 기다린다) */
 function run(): Promise<void> {
   running ??= check()
-    .catch((error: unknown) => log.error(`로그인 배경 인코더 시험이 실패했습니다: ${messageOf(error)}`))
+    .catch((error: unknown) => log.error(`로그인 배경 인코더 테스트가 실패했습니다: ${messageOf(error)}`))
     .finally(() => (running = null));
   return running;
 }
 
-/** 봇이 켜질 때: 뒤에서 시험한다 */
+/** 봇이 켜질 때: 뒤에서 테스트한다 */
 function startEncoderCheck() {
   void run();
 }
-/** 다시 시험한다(굽다 인코더가 실패했을 때 · 운영자가 손으로) */
+/** 다시 테스트한다(인코딩하다 인코더가 실패했을 때 · 운영자가 손으로) */
 const recheck = () => run();
-/** 시험이 끝날 때까지 기다린다(굽기 전에) */
+/** 테스트가 끝날 때까지 기다린다(인코딩 전에) */
 const encodersReady = async () => {
   if (running) await running;
 };
 const encoderList = () => encoders;
 const isChecking = () => running !== null;
-/** 그 코덱을 굽는 인코더(없으면 null) */
+/** 그 코덱으로 인코딩하는 인코더(없으면 null) */
 const encoderFor = (codec: LoginBackgroundCodec) => encoders.find((one) => one.codec === codec)?.encoder ?? null;
 const canReadAnimatedWebp = () => animatedWebp;
 
-/** 테스트: 고른 것을 잊는다 */
+/** 테스트: 선택한 것을 잊는다 */
 function _reset() {
   encoders = [];
   animatedWebp = false;

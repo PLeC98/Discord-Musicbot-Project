@@ -81,6 +81,6 @@ test("모든 문장", () => {
   );
 });
 
-test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자를 보고 고른다", () => {
+test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자를 보고 선택한다", () => {
   assert.deepEqual(controls.paused(true, { title: null, pageUrl: "https://example.com/v" }), { title: "⏸️ 일시정지했어요!", body: "**[알 수 없는 곡](https://example.com/v)**을 일시정지했어요." });
 });

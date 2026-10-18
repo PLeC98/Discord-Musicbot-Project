@@ -13,7 +13,7 @@ function newSecretsKey() {
   return crypto.randomBytes(SECRETS_KEY_BYTES).toString("base64");
 }
 
-/** base64 로 적은 32바이트인가. 다시 적었을 때 같은 글자여야 한다(잘린 값 · 다른 글자가 섞인 값을 걸러낸다) */
+/** base64 로 적은 32바이트인가. 다시 적었을 때 같은 문자열이어야 한다(잘린 값 · 다른 글자가 섞인 값을 막는다) */
 function isSecretsKey(value: string) {
   const text = value.trim();
   const bytes = Buffer.from(text, "base64");

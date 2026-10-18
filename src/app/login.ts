@@ -27,7 +27,7 @@ async function waitForGateway(client: LoginClient, waits: number[], wait: (ms: n
     } catch (error) {
       if (error && typeof error === "object" && "status" in error && error.status === 401) throw codedError("TokenInvalid", "디스코드 토큰이 틀렸습니다", { cause: error });
       if (failedStartCode(error, false) === EXIT.badSetup || attempt >= waits.length) throw error;
-      log.warn(`디스코드 게이트웨이 정보를 받지 못했습니다: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 다시 묻습니다 (${attempt + 1}/${waits.length})`);
+      log.warn(`디스코드 게이트웨이 정보를 불러오지 못했습니다: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 다시 묻습니다 (${attempt + 1}/${waits.length})`);
       await wait(waits[attempt]);
     }
   }

@@ -1,4 +1,4 @@
-// src/ui/control-replies.ts — 조작 결과 화면. 머리 줄 · 본문 · 작은 글씨의 누가 했나 줄, 처음부터는 곡에 썸네일이 있으면 머리 옆(일시정지 · 건너뛰기 · 반복은 붙이지 않는다)
+// src/ui/control-replies.ts — 조작 결과 화면. 헤더 줄 · 본문 · 작은 글씨의 누가 했나 줄, 처음부터는 곡에 썸네일이 있으면 헤더 옆(일시정지 · 건너뛰기 · 반복은 붙이지 않는다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -47,7 +47,7 @@ test("비우기 · 빼기: 곡 수와 누가 했나", () => {
   assert.deepEqual(shown(replies.removed(4, by)), ["### 🗑️ 선택한 곡을 삭제했어요!\n대기열에 4곡이 남았어요.", BY]);
 });
 
-test("순서: 옮기기 전 · 뒤 자리와 누가", () => {
+test("순서: 옮기기 전 · 뒤 위치와 누가", () => {
   const moved = post(replies.moved(track, 3, 1, by));
   assert.deepEqual(textsOf(moved), ["### 🔀 곡의 순서를 바꿨어요\n**[곡](https://u.test)**\n📍 기존 순번: 3번째\n📍 현재 순번: 1번째", "-# 👤 변경한 사람 <@1>"]);
   assert.equal(separatorsOf(moved), 1, "변경한 사람 줄 위에 구분선");
@@ -60,7 +60,7 @@ test("음량: 바뀌면 이전 → 지금, 같으면 그대로", () => {
   assert.deepEqual(shown(replies.volumeSet(35, 35, by))[0], "### 🔊 볼륨을 조절했어요!\n볼륨이 이미 35%라서 그대로 둘게요.");
 });
 
-test("나가기: 곡이 있었으면 저장한 곡 · 자리 · 대기열과 복원하는 법, 없으면 머리 줄만", () => {
+test("나가기: 곡이 있었으면 저장한 곡 · 위치 · 대기열과 복원하는 법, 없으면 헤더 줄만", () => {
   assert.deepEqual(shown(replies.left({ track, positionSec: 75, queue: 2 }, by)), ["### 👋 음성 채널에서 나갔어요\n재생 중이던 곡: **[곡](https://u.test)**\n⏱️ 저장한 위치 `1:15` · 📋 저장한 대기열 2곡\n`/join`으로 이어 들을 수 있어요.", BY]);
   assert.deepEqual(shown(replies.left(null, by)), ["### 👋 음성 채널에서 나갔어요", BY]);
 });

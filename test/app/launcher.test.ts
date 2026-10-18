@@ -1,4 +1,4 @@
-// src/app/launcher.ts — 실행기. 다시 시작 코드일 때만 다시 띄우고, 신호는 넘기고 기다린다(바깥 감시 pm2 · systemd · 도커와 겹쳐도 어긋나지 않게).
+// src/app/launcher.ts — 실행기. 다시 시작 코드일 때만 다시 실행하고, 신호는 넘기고 기다린다(바깥 감시 pm2 · systemd · 도커와 겹쳐도 어긋나지 않게).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -29,7 +29,7 @@ function setup(platform: NodeJS.Platform = "linux") {
   return { children, exits, said, proc };
 }
 
-test("봇에 실행기 표시를 넘겨 띄우고, 다시 시작 코드로 끝나면 다시 띄운다", () => {
+test("봇에 실행기 표시를 넘겨 실행하고, 다시 시작 코드로 끝나면 다시 실행한다", () => {
   const { children, exits } = setup();
   assert.equal(children.length, 1);
   assert.deepEqual([children[0].env?.[LAUNCHER_ENV], children[0].env?.KEEP], ["1", "1"], "환경은 물려주고 표시를 더한다");
@@ -38,7 +38,7 @@ test("봇에 실행기 표시를 넘겨 띄우고, 다시 시작 코드로 끝�
   assert.deepEqual(exits, []);
 });
 
-// 크래시 · 기동 실패는 바깥 감시가 정한 대로(다시 띄우기 · 간격 · 횟수 한도). 실행기가 몰래 되살리지 않는다
+// 크래시 · 기동 실패는 바깥 감시가 정한 대로(다시 실행 · 간격 · 횟수 한도). 실행기가 몰래 되살리지 않는다
 test("다른 코드로 끝나면 같은 코드로 끝난다. 신호로 끝났으면 128 + 번호", () => {
   for (const code of [EXIT.stopped, EXIT.globalFlood, EXIT.transient, EXIT.badSetup, 1]) {
     const { children, exits } = setup();
@@ -50,7 +50,7 @@ test("다른 코드로 끝나면 같은 코드로 끝난다. 신호로 끝났으
   assert.deepEqual(exits, [137]);
 });
 
-test("받은 신호는 봇에 넘기고, 그 뒤에는 다시 시작 코드여도 다시 띄우지 않는다", () => {
+test("받은 신호는 봇에 넘기고, 그 뒤에는 다시 시작 코드여도 다시 실행하지 않는다", () => {
   const { children, exits, proc } = setup();
   proc.emit("SIGTERM");
   assert.deepEqual(children[0].killed, ["SIGTERM"]);
@@ -68,7 +68,7 @@ test("Windows 에서는 신호를 넘기지 않고 봇이 끝나기를 기다린
   assert.deepEqual(exits, [EXIT.stopped]);
 });
 
-test("봇을 띄우지 못하면 알리고 1 로 끝난다", () => {
+test("봇을 실행하지 못하면 알리고 1 로 끝난다", () => {
   const { children, exits, said } = setup();
   children[0].emit("error", new Error("ENOENT"));
   assert.deepEqual(exits, [1]);

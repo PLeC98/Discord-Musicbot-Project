@@ -13,8 +13,8 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 const validateGenres = genreProblems;
 
 /**
- * 소스 한 줄. type 말고 어떤 칸이 있는지는 종류마다 다르다(genreSources 의 SPEC).
- * 검사는 필요한 칸과 고를 값만 본다. 목록 칸은 편집기가 배열로 쓰고, 수 칸은 글자로 적어도 통과해 읽는 쪽이 Number 로 바꾼다
+ * 소스 한 줄. type 말고 어떤 필드가 있는지는 종류마다 다르다(genreSources 의 SPEC).
+ * 검사는 필요한 필드와 선택할 값만 본다. 목록 필드는 편집기가 배열로 쓰고, 수 필드는 글자로 적어도 통과해 읽는 쪽이 Number 로 바꾼다
  */
 type GenreSource = {
   type: string;
@@ -59,11 +59,11 @@ type GenreSource = {
 };
 /** label: 보여 줄 이름(없으면 식별자 = 키) */
 type Genre = { label?: string; emoji?: string; sources: GenreSource[] };
-// 수 칸은 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
+// 수 필드는 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
 type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown; blockedKeywords?: unknown[] };
 type GenresConfig = { defaults: GenreDefaults; genres: Record<string, Genre> };
 
-// 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다
+// 같은 말을 되풀이하지 않는다. genres()는 곡을 선택할 때마다 불린다
 let warnedKeys = "";
 
 /**
@@ -77,12 +77,12 @@ let warnedKeys = "";
 let lastGood: GenresConfig | null = null;
 let reported = "";
 
-// 맞는 설정이 한 번도 없었을 때. 장르가 없으니 자동재생을 고를 수 없다
+// 맞는 설정이 한 번도 없었을 때. 장르가 없으니 자동재생을 선택할 수 없다
 const EMPTY: GenresConfig = { defaults: {}, genres: {} };
 
 /**
  * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 때부터 틀림) 빈 설정을 돌려준다.
- * 기동을 멈추지 않는다. 고칠 대시보드가 떠야 한다(DB 를 바깥에서 고쳤을 때 등, 2차 16단계 "정한 것" 6)
+ * 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다(DB 를 바깥에서 고쳤을 때 등, 2차 16단계 "정한 것" 6)
  */
 function genres(): GenresConfig {
   try {
@@ -120,10 +120,10 @@ function checkedGenres(): GenresConfig {
 
 /**
  * 키가 없는 소스를 어떻게 다룰까. 부분만 없으면 알리고 남은 것으로 돈다.
- * 쓸 수 있는 소스가 하나도 없으면 그 장르만 못 쓴다: 고르면 키가 없다고 거절한다(unusableGenre).
+ * 쓸 수 있는 소스가 하나도 없으면 그 장르만 못 쓴다: 선택하면 키가 없다고 거절한다(unusableGenre).
  *
- * 기동은 멈추지 않는다. 키를 넣을 대시보드도 봇과 함께 뜨기 때문이다(2차 16단계 "정한 것" 6).
- * 그렇다고 그 장르를 고르면 아무 일도 일어나지 않는 채로 두지 않는다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
+ * 기동은 멈추지 않는다. 키를 입력할 대시보드도 봇과 함께 실행되기 때문이다(2차 16단계 "정한 것" 6).
+ * 그렇다고 그 장르를 선택하면 아무 일도 일어나지 않는 채로 두지 않는다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
  */
 // 그 장르의 소스 중 키가 없어 못 쓰는 것의 키 이름과 쓸 수 있는 소스 수
 function keyCheck(name: string, genre: Genre) {
@@ -171,11 +171,11 @@ function checkSourceKeys(genres: Record<string, Genre>) {
     lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 씁니다.`);
   }
   for (const [missing, names] of dead) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없습니다. 키를 넣기 전까지 이 장르는 고를 수 없습니다.`);
+    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없습니다. 키를 입력하기 전까지 이 장르는 선택할 수 없습니다.`);
   }
 
-  // 이 함수는 곡을 고를 때마다 불린다(Player._autoplayConfig). 그대로 남기면 같은 경고가
-  // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다. status()가 쓰는 것과 같은 손이다.
+  // 이 함수는 곡을 선택할 때마다 불린다(Player._autoplayConfig). 그대로 남기면 같은 경고가
+  // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다. status()가 쓰는 것과 같은 방식이다.
   const key = lines.join("|");
   if (lines.length && key !== warnedKeys) for (const line of lines) log.warn(line);
   warnedKeys = key;

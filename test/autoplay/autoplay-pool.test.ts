@@ -59,11 +59,11 @@ test("설정이 다르면 풀도 다르다 — 같은 소스라도 태그가 다
   assert.equal(pool.stats().length, 2);
 });
 
-test("키 차례가 달라도 같은 설정이면 같은 풀이다", () => {
+test("키 순서가 달라도 같은 설정이면 같은 풀이다", () => {
   assert.equal(pool.keyOf({ type: "lastfm", tags: ["pop"] }), pool.keyOf({ tags: ["pop"], type: "lastfm" }));
 });
 
-test("weight는 풀을 가르지 않는다 — 고를 확률일 뿐 내용이 아니다", () => {
+test("weight는 풀을 나누지 않는다 — 고를 확률일 뿐 내용이 아니다", () => {
   assert.equal(pool.keyOf({ type: "lastfm", tags: ["pop"], weight: 1 }), pool.keyOf({ type: "lastfm", tags: ["pop"], weight: 9 }));
 });
 

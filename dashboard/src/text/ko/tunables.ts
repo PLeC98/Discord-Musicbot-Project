@@ -22,13 +22,13 @@ const fields: Record<string, { label: string; help: string }> = {
   VOICE_PLAYING_PREFIX: { label: "음성 상태: 재생 중 접두어", help: "음성 채널 상태에 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: 📻 " },
   VOICE_PAUSED_PREFIX: { label: "음성 상태: 일시정지 접두어", help: "일시정지 중일 때 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: ⏸ " },
   VOICE_IDLE_STATUS: { label: "음성 상태: 대기 중 문구", help: "재생할 곡이 없을 때 음성 채널 상태에 표시해요." },
-  YTDLP_PLAYER_CLIENTS: { label: "유튜브 클라이언트 차례", help: "쉼표로 구분해 입력해요. 앞에서부터 시도하고 실패하면 뒤로 넘어가요. 비우면 yt-dlp 기본값.\n예: visionos,web_embedded,tv_embedded" },
+  YTDLP_PLAYER_CLIENTS: { label: "유튜브 클라이언트 순서", help: "쉼표로 구분해 입력해요. 앞에서부터 시도하고 실패하면 뒤로 넘어가요. 비우면 yt-dlp 기본값.\n예: visionos,web_embedded,tv_embedded" },
   YTDLP_CLIENT_WINDOW: { label: "최근 몇 번을 보고 판단할지", help: "클라이언트가 막혔는지 볼 때 최근 몇 번의 결과를 볼지." },
   YTDLP_CLIENT_FAILS: { label: "그중 몇 번 실패하면 건너뛸지", help: "위 횟수 가운데 이만큼 실패하면 그 클라이언트를 한동안 건너뛰어요." },
-  YTDLP_CLIENT_RETRY_MINUTES: { label: "건너뛴 클라이언트를 다시 시험하기까지(분)", help: "0 이면 봇을 다시 시작하거나 클라이언트 설정을 저장할 때까지 건너뛰어요." },
+  YTDLP_CLIENT_RETRY_MINUTES: { label: "건너뛴 클라이언트를 다시 테스트하기까지(분)", help: "0 이면 봇을 다시 시작하거나 클라이언트 설정을 저장할 때까지 건너뛰어요." },
   COOKIES_SOURCE: { label: "쿠키 출처", help: "연령 제한 영상에만 써요. 쿠키 직접 입력이면 아래 유튜브 쿠키 카드에 입력한 쿠키를, 브라우저면 그 브라우저에서 가져와요.\n브라우저 프로필 등을 지정하려면 기타를 선택하고 yt-dlp 형식으로 입력해요(chrome:Profile 1 · firefox::컨테이너)." },
-  BGUTIL_ENABLED: { label: "POToken 서버 쓰기", help: "설치돼 있을 때 켜면 봇과 함께 POToken 서버를 실행해요. mweb · tv_simply 클라이언트에 필요해요." },
-  SPONSORBLOCK_ENABLED: { label: "SponsorBlock 쓰기", help: "끄면 조회 · 캐시를 아예 하지 않아요. 상업적으로 쓰면 꺼 두길 권해요(데이터 라이선스가 비상업)." },
+  BGUTIL_ENABLED: { label: "POToken 서버 사용", help: "설치돼 있을 때 켜면 봇과 함께 POToken 서버를 실행해요. mweb · tv_simply 클라이언트에 필요해요." },
+  SPONSORBLOCK_ENABLED: { label: "SponsorBlock 사용", help: "끄면 조회 · 캐시를 아예 하지 않아요. 상업적으로 쓰면 꺼 두길 권해요(데이터 라이선스가 비상업)." },
   SPONSORBLOCK_CATEGORIES: { label: "기본으로 건너뛸 구간(서버 설정이 없을 때)", help: "" },
   SPONSORBLOCK_API_BASE: { label: "API 주소", help: "미러 · 직접 실행한 서버를 쓸 때만 바꿔요." },
   SPONSORBLOCK_HASH_PREFIX: { label: "해시 접두어 길이", help: "4~32. 짧을수록 어떤 영상을 조회하는지 덜 드러나고 응답은 커져요." },
@@ -61,7 +61,7 @@ const pickColor = "색 선택";
 /** 유튜브 카드 머리의 설명서 단추 */
 const youtubeDoc = "클라이언트 설명";
 /** 쿠키 출처 고르기 */
-const cookies = { none: "쓰지 않음", file: "쿠키 직접 입력", browsers: "브라우저", otherGroup: "기타 형식", other: "기타(직접 입력)", otherPlaceholder: "예: chrome:Profile 1" };
+const cookies = { none: "사용 안 함", file: "쿠키 직접 입력", browsers: "브라우저", otherGroup: "기타 형식", other: "기타(직접 입력)", otherPlaceholder: "예: chrome:Profile 1" };
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";

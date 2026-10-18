@@ -1,7 +1,7 @@
 <!--
-  숫자 칸. type="number" 를 쓰지 않는다. 칸 위에서 휠을 굴리면 값이 바뀌기 때문이다.
-  평범한 입력칸으로 두고 숫자만 받는다. 소수·음수는 받을 칸에서만 켠다
-  (온도 0.4 · top_p 0.9 · penalty -2 처럼 프로필이 그렇게 적어 둔 칸).
+  숫자 입력란. type="number" 를 쓰지 않는다. 입력란 위에서 휠을 굴리면 값이 바뀌기 때문이다.
+  평범한 입력란으로 두고 숫자만 받는다. 소수·음수는 받을 입력란에서만 켠다
+  (온도 0.4 · top_p 0.9 · penalty -2 처럼 프로필이 그렇게 적어 둔 필드).
 -->
 <template>
   <input :inputmode="decimal ? 'decimal' : 'numeric'" :value="modelValue ?? ''" @input="onInput" />
@@ -24,10 +24,10 @@ function clean(text: string) {
 function onInput(event: Event) {
   const input = event.target as HTMLInputElement;
   const only = clean(input.value);
-  // 값이 안 바뀌면(1 뒤에 "a" 를 친 경우) Vue 가 다시 그리지 않는다. 지운 글자를 직접 치운다
+  // 값이 안 바뀌면(1 뒤에 "a" 를 입력한 경우) Vue 가 다시 그리지 않는다. 지운 글자를 직접 치운다
   if (input.value !== only) input.value = only;
   if (only === "") return emit("update:modelValue", null);
-  // "0." 이나 "-" 는 아직 치는 중이다. 알리면 되돌아온 값이 점을 지워 더 못 친다
+  // "0." 이나 "-" 는 아직 입력하는 중이다. 알리면 되돌아온 값이 점을 지워 더 입력하지 못한다
   if (only === "-" || only.endsWith(".")) return;
   emit("update:modelValue", Number(only));
 }

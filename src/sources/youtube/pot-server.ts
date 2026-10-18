@@ -1,5 +1,5 @@
-// bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 띄우고 지킨다.
-// 조립(app/main)이 하나 만들어 기동 때 띄우고 종료 때 내린다.
+// bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 실행하고 지킨다.
+// 조립(app/main)이 하나 만들어 기동 때 실행하고 종료 때 내린다.
 
 import childProcess from "child_process";
 import fs from "fs";
@@ -13,9 +13,9 @@ import { PROJECT } from "../../infra/project-paths.ts";
 const SERVER_DIR = path.join(PROJECT.bgutil, "server");
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");
 const PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
-const RESTART_MS = 5000; // 비정상 종료 뒤 다시 띄우기까지
+const RESTART_MS = 5000; // 비정상 종료 뒤 다시 실행하기까지
 
-// 띄운 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
+// 실행한 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
 type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
 type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; kill(signal?: NodeJS.Signals): unknown };
 type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["ignore", "pipe", "pipe"] }) => PotProcess;
@@ -29,7 +29,7 @@ function scrubBgutilLine(line: unknown): string {
     .replace(/((?:poToken|integrityToken)"?\s*[:=]\s*"?)[A-Za-z0-9._~+/=-]{8,}/gi, "$1[REDACTED]");
 }
 
-// 남의 프로세스라 레벨을 직접 붙일 수 없다. 스트림(stdout/stderr)과 문구로 가른다.
+// 남의 프로세스라 레벨을 직접 붙일 수 없다. 스트림(stdout/stderr)과 문구로 구분한다.
 // bgutil의 stdout은 전량 요청 단위 상세(POT 생성·챌린지)라 debug로 내린다. 수명주기(시작·준비
 // 완료·비정상 종료)는 아래 우리 코드가 따로 남기므로 여기서 info로 올릴 것이 없다.
 function relay(chunk: Buffer | string, stream: "out" | "err") {
@@ -52,20 +52,20 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     if (stopping) return;
     const installed = exists(ENTRY);
 
-    // 쓰지 않겠다고 했으면 조용히 넘어간다. 안 쓸 서버가 없다고 떠들어봐야 의미가 없고,
-    // 인증 없는 로컬 HTTP 서버를 상시 띄우지 않는 것 자체가 이 토글의 목적이다.
+    // 사용하지 않겠다고 했으면 조용히 넘어간다. 안 쓸 서버가 없다고 떠들어봐야 의미가 없고,
+    // 인증 없는 로컬 HTTP 서버를 상시 실행하지 않는 것 자체가 이 토글의 목적이다.
     if (!config.bgutil.enabled) {
-      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 쓰기가 꺼져 있습니다. POToken 서버를 실행하지 않고 진행합니다.");
+      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있습니다. POToken 서버를 실행하지 않고 진행합니다.");
       return;
     }
-    // 반대로 쓰겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
+    // 반대로 사용하겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
     if (!installed) {
-      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 쓰기를 켰지만 bgutil 이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
+      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil 이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
       return;
     }
     const child = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });
     proc = child;
-    // 등록부가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop() 을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게
+    // 레지스트리가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop() 을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게
     const release = processRegistry.register(child, "bgutil", { job: "pot-server" });
     child.stdout?.on("data", (d: Buffer) => relay(d, "out"));
     child.stderr?.on("data", (d: Buffer) => relay(d, "err"));
@@ -87,7 +87,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     }
   }
 
-  // /ping 에 응답할 때까지 기다린다(최대 timeoutMs). 띄운 것이 없으면 바로 통과, 시간을 넘기면 경고만
+  // /ping 에 응답할 때까지 기다린다(최대 timeoutMs). 실행한 것이 없으면 바로 통과, 시간을 넘기면 경고만
   async function waitReady(timeoutMs = 30000) {
     if (!proc) return true;
     const deadline = Date.now() + timeoutMs;

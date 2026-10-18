@@ -32,11 +32,11 @@ import type { Player, PanelMessage } from "../player/player.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
-// 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
+// 편집 대상이 사라진 경우. 사용자가 메시지를 삭제했거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;
 const UNKNOWN_WEBHOOK = 10015;
 const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(error) === UNKNOWN_WEBHOOK;
-// 패널을 올린 글자 채널이 지워졌다. 다시 올릴 곳이 없다
+// 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없다
 const UNKNOWN_CHANNEL = 10003;
 // 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
 const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
@@ -53,10 +53,10 @@ type Payload = {
 };
 /** 끝난 패널의 문구 */
 type IdleView = { reason: string; leavesAt?: number | null };
-/** 조작 버튼을 그릴 때 읽는 칸. 끝난 패널은 플레이어 없이 그린다 */
+/** 조작 버튼을 그릴 때 읽는 필드. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<Player, "sponsor">>;
 
-// 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
+// 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 삭제되므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
@@ -73,7 +73,7 @@ import { SELECT_MAX } from "../rules/limits.ts";
 import { canGoBack, canGoNext } from "../rules/controls.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
-// 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
+// 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 필드에 달고 나간다.
 const IDLE_CONTROLS: Controls = { sessionId: IDLE_SESSION, previousTracks: [], queue: [], loop: false, paused: false, autoplay: false };
 
 // 반복 버튼의 모양
@@ -89,7 +89,7 @@ const canSkip = (p: Controls) => canGoNext({ queue: p.queue.length, loop: p.loop
 // 대기열 화면은 다음 곡만 보인다. 다음 곡이 없으면 대기열 버튼을 끈다
 const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
-// 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
+// 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행바의 경과 시간 위치에 있다(buildProgressBar). 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
   if (player.paused) {
@@ -132,7 +132,7 @@ class NowPlayingPanel {
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
 
-  // panelStore: 패널 자리 기록. 시험은 메모리 가짜를 준다
+  // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
     this.client = client;
     this.players = players;
@@ -167,13 +167,13 @@ class NowPlayingPanel {
       this.webhookCache.set(channel.id, client);
       return client;
     } catch (error) {
-      // 채널이 지워졌다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
+      // 채널이 삭제됐다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
       if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
       return null;
     }
   }
 
-  /** 재생목록을 넣어 첫 곡이 시작된 뒤 남은 곡을 담았다고 알린다. 잠깐 보이고 지운다 */
+  /** 재생목록을 넣어 첫 곡이 시작된 뒤 남은 곡을 담았다고 알린다. 잠깐 보이고 삭제한다 */
   async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
@@ -198,13 +198,13 @@ class NowPlayingPanel {
 
     this.idleViews.delete(player.guild.id);
 
-    // 전용 채널 맨 아래의 끝난 패널은 그 자리를 재생 화면으로 고친다. 아니면 새로 올리고 지난 패널을 치운다.
+    // 전용 채널 맨 아래의 끝난 패널은 그 패널을 재생 화면으로 고친다. 아니면 새로 올리고 지난 패널을 치운다.
     const reused = reuse ? await this._reuseIdlePanel(player, channel, track) : null;
     const { message, webhook } = reused ?? (await this._sendNowPlaying(player, track, channel));
     player.nowPlayingWebhook = webhook;
     if (!reused) await this.location.commit(player.guild, channel, message, webhook);
 
-    // 진입점이 띄운 "검색 중…" 자리표시자 제거. 채널에 중복/정지 메시지를 남기지 않는다
+    // 진입점이 표시한 "검색 중…" 자리표시자 제거. 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
 
     player.nowPlayingMessage = message;
@@ -226,7 +226,7 @@ class NowPlayingPanel {
     return this._sendPanel(channel, await this._playingPayload(player, track));
   }
 
-  // 기억해 둔 웹훅이 디스코드에서 지워졌으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 지웠다) 기억을 지우고 새로 만들어 한 번 더 보낸다
+  // 기억해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 기억을 지우고 새로 만들어 한 번 더 보낸다
   async _sendPanel(channel: GuildTextBasedChannel, payload: Payload, retried = false): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
     const webhook = await this.getOrCreateWebhook(channel);
     if (!webhook) return { message: await channel.send(payload), webhook: null };
@@ -275,23 +275,23 @@ class NowPlayingPanel {
     return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
-  /** 현재 재생 메시지를 지웁니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
+  /** 현재 재생 메시지를 삭제합니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
   async _removeNowPlaying(channel: GuildTextBasedChannel, webhook: WebhookClient | null, messageId: string | undefined) {
     if (!messageId) return;
     try {
       if (webhook) await webhook.deleteMessage(messageId);
       else await channel.messages.delete(messageId);
     } catch {
-      /* 이미 지워졌거나 지울 권한이 없음 */
+      /* 이미 삭제됐거나 삭제할 권한이 없음 */
     }
   }
 
   /**
    * 현재 재생 메시지를 채널 맨 아래에 다시 올립니다 (기존 것은 제거).
-   * 사용자가 지웠을 때의 자가 복구와, 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 씁니다.
+   * 사용자가 삭제했을 때의 자가 복구와, 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 씁니다.
    *
    * 서버당 한 번만. 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
-   * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 지운다.
+   * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 삭제한다.
    */
   async _repostNowPlaying(player: Player, reason: string) {
     const guildId = player.guild?.id;
@@ -343,7 +343,7 @@ class NowPlayingPanel {
     if (!messageId || !("messages" in channel) || !channel.messages?.cache) return false;
 
     const cutoff = now - PIN_SETTLE_MS;
-    // 스스로 지워질 봇 메시지(더 넣기 메뉴 등)는 세지 않는다. 조작 중에 위치가 바뀌면 거슬린다
+    // 스스로 삭제될 봇 메시지(더 넣기 메뉴 등)는 세지 않는다. 조작 중에 위치가 바뀌면 거슬린다
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
@@ -421,7 +421,7 @@ class NowPlayingPanel {
         player.nowPlayingWebhook = null;
       }
       const channelId = player.nowPlayingMessage ? channelIdOf(player.nowPlayingMessage) : null;
-      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 지워짐" : "메시지가 지워짐");
+      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 삭제됨" : "메시지가 삭제됨");
       return;
     }
     const where = player.guild.name ?? player.guild.id;
@@ -451,9 +451,9 @@ class NowPlayingPanel {
     return failure;
   }
 
-  // 패널을 올린 글자 채널이 지워졌다. 다시 올릴 곳이 없어 패널을 놓는다
+  // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없어 패널을 놓는다
   _dropPanel(player: Player) {
-    log.info(`패널을 올린 글자 채널이 사라져 패널을 놓습니다 (${player.guild.name ?? player.guild.id}). 재생은 이어집니다`);
+    log.info(`패널을 올린 텍스트 채널이 사라져 패널을 놓습니다 (${player.guild.name ?? player.guild.id}). 재생은 이어집니다`);
     this.stopProgressUpdate(player.guild.id);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -461,7 +461,7 @@ class NowPlayingPanel {
   }
 
   /**
-   * 끝난 패널. 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 자리는 투명 이미지로 채워 줄 구성을 맞춘다.
+   * 끝난 패널. 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 슬롯은 투명 이미지로 채워 줄 구성을 맞춘다.
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
    * reason: queue-end(음성에 잠시 남음) | failures(곡이 연달아 실패해 멈춤. 대기열이 남으면 음성에 남는다) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
    */
@@ -524,7 +524,7 @@ class NowPlayingPanel {
       else if (live && "edit" in live) await live.edit(payload);
       else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
-      // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
+      // 이미 삭제된 패널을 못 바꿨다는 것은 알릴 일이 아니다
       if (errorKind(error) === "network-error") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
       else if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
     }
@@ -593,7 +593,7 @@ class NowPlayingPanel {
   }
 
   /**
-   * 기동 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
+   * 시작할 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
    * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
    */
   async restorePanels() {
@@ -679,7 +679,7 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 대기열이 비었거나 재생 이름표가 없으면 null
+   * 대기열이 비었거나 재생 라벨이 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
@@ -721,7 +721,7 @@ class NowPlayingPanel {
     try {
       await this._tickProgress(player);
     } catch (error) {
-      // 고치기 실패는 _onEditFailed 가 가른다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
+      // 고치기 실패는 _onEditFailed 가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
       log.error(`진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (${player.guild.name ?? guildId}):`, error);
       this.stopProgressUpdate(guildId);
       return;

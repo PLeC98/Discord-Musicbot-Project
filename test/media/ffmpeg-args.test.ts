@@ -4,7 +4,7 @@
 // 스트리밍 실패 폴백을 건너뛰며, 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 됐다.
 // pipe 입력에서 `-ss`를 `-i` 앞에 두면 출력이 잘리는 것도 함께 고정한다.
 //
-// URL 입력은 HLS 갈래에만 있다(live-hls.test.ts). 여기서 고정하는 것은 그 갈래를 부르지 않은
+// URL 입력은 HLS 분기에만 있다(live-hls.test.ts). 여기서 고정하는 것은 그 분기를 부르지 않은
 // 모든 경우가 여전히 pipe 로 간다는 것이다.
 
 import { test } from "node:test";
@@ -32,7 +32,7 @@ test("HLS 주소는 세그먼트를 건너뛴 줄을 보려고 warning 까지 �
   assert.equal(level(build({})), "error");
 });
 
-test("주소 갈래는 읽기가 6초 멈추면 다시 붙는다(-rw_timeout, -i 앞). 파일 · 파이프 갈래에는 없다", () => {
+test("주소 분기는 읽기가 6초 멈추면 다시 붙는다(-rw_timeout, -i 앞). 파일 · 파이프 분기에는 없다", () => {
   for (const args of [build({ url: "https://x/a.m3u8", caps: { segMaxRetry: true } }), build({ url: "https://x/a.mpd", hls: false, caps: { segMaxRetry: true } })]) {
     assert.equal(args[idx(args, "-rw_timeout") + 1], "6000000");
     assert.ok(idx(args, "-rw_timeout") < idx(args, "-i"), "입력 옵션이다");

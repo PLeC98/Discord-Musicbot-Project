@@ -1,5 +1,5 @@
-// src/media/ffmpeg/process.ts probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
-// 직접 링크는 받기 전에 길이를 모르고, 이 값이 표시 · 진행바 · 캐시의 duration_sec 을 채운다.
+// src/media/ffmpeg/process.ts probeDurationSec — 다운로드한 파일에서 실제 재생 길이를 읽는다.
+// 직접 링크는 다운로드 전에 길이를 모르고, 이 값이 표시 · 진행바 · 캐시의 duration_sec 을 채운다.
 
 import os from "node:os";
 import path from "node:path";
@@ -26,7 +26,7 @@ const SECONDS = 7;
 
 before((t, done) => {
   if (opts.skip || !BIN) return done();
-  // 길이를 아는 톤을 만든다. -q:a 0 = VBR 최고품질(크기로는 길이를 가를 수 없는 조건)
+  // 길이를 아는 톤을 만든다. -q:a 0 = VBR 최고품질(크기로는 길이를 알 수 없는 조건)
   const p = spawn(BIN, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `sine=frequency=440:duration=${SECONDS}`, "-c:a", "libmp3lame", "-q:a", "0", "-y", TONE], { windowsHide: true });
   p.on("exit", () => done());
   p.on("error", () => done());

@@ -15,7 +15,7 @@
         <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
         <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
           <template v-for="one in byGroup(group)" :key="one.key">
-            <!-- 구간 고르기는 체크박스 목록이라 label 로 감싸지 않는다(이름표를 누르면 첫 칸이 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 부품, SponsorBlock 을 끄면 흐리게 -->
+            <!-- 구간 선택은 체크박스 목록이라 label 로 감싸지 않는다(라벨을 누르면 첫 체크박스가 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 컴포넌트, SponsorBlock 을 끄면 흐리게 -->
             <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
             <label v-else class="block min-w-0">
               <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
@@ -28,12 +28,12 @@
                 <BaseSwitch :model-value="boolOf(one)" :label="T.fields[one.key]?.label ?? one.key" @update:model-value="draft[one.key] = $event ? 'true' : 'false'" />
                 <span class="text-sm text-on-surface">{{ boolOf(one) ? T.on : T.off }}</span>
               </span>
-              <!-- 쿠키 출처: 쓰지 않음 · 파일 · 브라우저 고르기, 그 밖의 꼴(프로필 · 키링 · 컨테이너)은 "기타"를 고르고 아래 칸에 적는다 -->
+              <!-- 쿠키 출처: 쓰지 않음 · 파일 · 브라우저 선택, 그 밖의 형식(프로필 · 키링 · 컨테이너)은 "기타"를 선택하고 아래 입력란에 입력한다 -->
               <span v-else-if="one.kind === 'cookies'" class="flex flex-col gap-2">
                 <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
                 <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
               </span>
-              <!-- 색은 동그라미를 누르면 색 고르기가 뜬다. 글 칸이 앞이라야 이름표를 누를 때 고르기 대신 글 칸으로 간다(보이는 차례는 동그라미가 앞) -->
+              <!-- 색은 동그라미를 누르면 색 선택이 열린다. 글 입력란이 앞이라야 라벨을 누를 때 색 선택 대신 글 입력란으로 간다(보이는 순서는 동그라미가 앞) -->
               <span v-else class="flex items-center gap-2">
                 <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0', one.kind !== 'text' && 'font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
                 <ColorPicker v-if="one.kind === 'color'" class="order-first" :model-value="draft[one.key]" :fallback="one.def" :label="T.pickColor" @update:model-value="draft[one.key] = $event" />
@@ -42,7 +42,7 @@
           </template>
         </div>
       </BaseCard>
-      <!-- 묶음 카드 뒤에 부르는 쪽이 끼우는 자리(유튜브 묶음 뒤의 유튜브 쿠키 카드) -->
+      <!-- 그룹 카드 뒤에 부르는 쪽이 끼우는 슬롯(유튜브 그룹 뒤의 유튜브 쿠키 카드) -->
       <slot :name="`after-${group}`" />
     </template>
   </div>
@@ -72,13 +72,13 @@ import { text } from "../text/index.ts";
 const T = text.tunables;
 
 /**
- * 운영 조절값 카드. 묶음(group)마다 카드 하나. 값은 탭끼리 같이 쓰고 저장 · 되돌리기는 운영자 패널의 저장 막대가 한다(composables/tunables).
- * groups: 보일 묶음 · tab: 운영자 패널 탭(저장 안 함 표시) · canRestart: 실행기로 켰는가(봇 상태의 env.launcher)
+ * 운영 조절값 카드. 그룹(group)마다 카드 하나. 값은 탭끼리 같이 쓰고 저장 · 되돌리기는 운영자 패널의 저장 막대가 한다(composables/tunables).
+ * groups: 보일 그룹 · tab: 운영자 패널 탭(저장 안 함 표시) · canRestart: 실행기로 시작했는가(봇 상태의 env.launcher)
  */
 const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRestart: boolean }>();
 
 const loadError = ref("");
-// 카드 머리의 설명서 단추(저장소의 설명서)
+// 카드 헤더의 설명서 버튼(저장소의 설명서)
 const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
 const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
@@ -88,12 +88,12 @@ const boolOf = (one: Tunable) => (draft.value[one.key] || one.def) === "true";
 const changed = (one: Tunable) => tunableValue(one.key, draft.value[one.key] ?? "") !== (saved.value[one.key] ?? "");
 const dirty = computed(() => mine.value.some(changed));
 
-// 쿠키 출처 고르기. 고르기 목록에 없는 값(chrome:Profile 1 같은 꼴)이 들어 있거나 "기타"를 고른 동안은 "기타"와 적는 칸
-// 고르기 목록 안에서만 쓰는 표식(값으로 저장하지 않는다. 브라우저 이름은 괄호로 시작하지 않는다)
+// 쿠키 출처 선택. 선택 목록에 없는 값(chrome:Profile 1 같은 형식)이 들어 있거나 "기타"를 선택한 동안은 "기타"와 입력란
+// 선택 목록 안에서만 쓰는 표식(값으로 저장하지 않는다. 브라우저 이름은 괄호로 시작하지 않는다)
 const COOKIE_OTHER = "(other)";
 const COOKIE_OPTIONS: Option[] = [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }];
 const cookieOther = ref(false);
-// 저장하거나 되돌려 저장된 값으로 돌아오면 고르기로 돌아간다
+// 저장하거나 되돌려 저장된 값으로 돌아오면 선택 목록으로 돌아간다
 watch(
   () => (draft.value.COOKIES_SOURCE ?? "").trim() === (saved.value.COOKIES_SOURCE ?? ""),
   (same) => same && (cookieOther.value = false),
@@ -104,19 +104,19 @@ function cookieChoice(one: Tunable) {
   if (!value) return "";
   return COOKIE_OPTIONS.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
 }
-// "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome 을 chrome:Profile 1 로 고쳐 적기 쉽게)
+// "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome 을 chrome:Profile 1 로 고쳐 입력하기 쉽게)
 function pickCookie(one: Tunable, value: string) {
   cookieOther.value = value === COOKIE_OTHER;
   if (!cookieOther.value) draft.value[one.key] = value;
 }
 
-// 구간 고르기(쉼표로 이은 id). 비면 기본값의 구간, NO_CATEGORIES 면 하나도 없음
+// 구간 선택(쉼표로 이은 id). 비면 기본값의 구간, NO_CATEGORIES 면 하나도 없음
 const listOf = (raw: string) => raw.split(",").filter((id) => SKIP_CATEGORIES.includes(id));
 function categoriesOf(one: Tunable) {
   const raw = (draft.value[one.key] ?? "").trim();
   return raw === NO_CATEGORIES ? [] : listOf(raw || one.def);
 }
-// 고른 차례는 목록 차례로. 기본값과 같으면 비운다(기본값을 따른다), 다 끄면 NO_CATEGORIES
+// 선택한 순서는 목록 순서로. 기본값과 같으면 비운다(기본값을 따른다), 다 끄면 NO_CATEGORIES
 function toggleCategory(one: Tunable, id: string) {
   const now = categoriesOf(one);
   const next = SKIP_CATEGORIES.filter((each) => (each === id ? !now.includes(each) : now.includes(each)));

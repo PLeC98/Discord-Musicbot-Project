@@ -1,12 +1,12 @@
 <template>
-  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 구른다). 휴대폰은 쌓아서 화면이 구른다.
-       대기열이 한 단 목록이라 넓어도 줄만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
-  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 아래 판(스포티파이식). 판 머리(76)만큼 아래를 비운다.
+  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
+       대기열이 한 단 목록이라 넓어도 행만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
+  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 아래 판(스포티파이식). 판 헤더(76)만큼 아래를 비운다.
        가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 그림이 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔했다 -->
   <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
     <!-- 음성 상태 · 설정(태블릿 · PC)은 위 막대 오른쪽 끝으로 보낸다(서버 이름 · 아이콘은 위 막대 가운데). 휴대폰은 아래 한 줄로 -->
     <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 서랍에서 다른 서버로 건너왔어도 나가는 길은 하나).
-         자리가 되면(태블릿 · PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 단추) -->
+         공간이 되면(태블릿 · PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 버튼) -->
     <Teleport to="#topbar-start" defer>
       <router-link to="/servers" :class="TOPBAR_TEXT_BTN" :aria-label="text.shell.serverList" v-tooltip="isPhone ? text.shell.serverList : null"
         ><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">{{ text.shell.serverList }}</span></router-link
@@ -19,7 +19,7 @@
       <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="T.serverSettings" :class="TOPBAR_BTN" :aria-label="T.serverSettings"><Icon name="tune" /></router-link>
     </Teleport>
 
-    <!-- 휴대폰: 글 · 단추 뒤의 받침 막. 곡마다 배경화면 색이 달라 그림 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
+    <!-- 휴대폰: 글 · 버튼 뒤의 받침 막. 곡마다 배경화면 색이 달라 그림 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
          좁게 두면 띠처럼 뭉친다 -->
     <div
       v-if="sheetMode && !loading && !loadError"
@@ -41,7 +41,7 @@
     </PageError>
 
     <div v-else class="flex-1 min-h-0" :class="sheetMode ? 'relative flex flex-col' : 'grid content-start md:content-stretch gap-(--gap-in) grid-cols-1 md:grid-rows-[auto_minmax(0,1fr)]'">
-      <!-- ── 지금 재생: 한 줄 높이의 띠(아트 · 제목 · 조작). 곡이 없어도 같은 줄들을 두어 높이가 같다(자리 표시 · 비활성 조작) ── -->
+      <!-- ── 지금 재생: 한 줄 높이의 띠(아트 · 제목 · 조작). 곡이 없어도 같은 줄들을 두어 높이가 같다(플레이스홀더 · 비활성 조작) ── -->
       <AppWindow v-if="!sheetMode">
         <div class="relative" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
           <div class="flex items-center gap-4">
@@ -53,10 +53,10 @@
             <span v-else class="shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md bg-surface-container-high text-on-surface-variant flex items-center justify-center"><Icon :name="track ? 'audio_file' : 'music_off'" :size="36" /></span>
 
             <div class="min-w-0 flex-1">
-              <!-- 출처 줄 아래와 아티스트 위 간격을 같게(제목이 가운데). 좁은 창의 아트(88)는 이 묶음 높이(출처 32 + 6 + 제목 + 6 + 아티스트)에 맞춘다.
+              <!-- 출처 줄 아래와 아티스트 위 간격을 같게(제목이 가운데). 좁은 창의 아트(88)는 이 그룹 높이(출처 32 + 6 + 제목 + 6 + 아티스트)에 맞춘다.
                    곡이 없으면 이 줄을 숨겨 "재생 중인 곡이 없어요" 두 줄이 아트 높이의 가운데에 온다 -->
               <div v-if="track" class="flex items-center gap-2 mb-1.5 min-w-0 h-8">
-                <!-- 좁은 창은 하이라이트 · 정지 자리를 지키려고 "내가 넣은 곡"을 뺀다 -->
+                <!-- 좁은 창은 하이라이트 · 정지 공간을 지키려고 "내가 넣은 곡"을 뺀다 -->
                 <TrackChips :track="track" :mine="mine" mine-class="hidden! @xl/win:inline-flex!" />
                 <!-- 좁은 창: 하이라이트 · 정지는 이 줄 오른쪽 끝 -->
                 <div class="@xl/win:hidden ml-auto flex items-center gap-2 shrink-0">
@@ -107,9 +107,9 @@
         <VoiceLockOverlay v-if="locked" />
       </AppWindow>
 
-      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 그림(남는 높이 안의 가장 큰 정사각형) · 표 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 음량 · 정지 · 대기열) ── -->
+      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 그림(남는 높이 안의 가장 큰 정사각형) · 배지 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 음량 · 정지 · 대기열) ── -->
       <div v-else class="relative flex-1 min-h-0 flex flex-col">
-        <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(표는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
+        <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
             <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 서랍 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
@@ -130,7 +130,7 @@
             >
               <img :src="track.thumbnail" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" />
             </button>
-            <!-- 그림이 없는 곡도 같은 자리에서 밀어 넘긴다 -->
+            <!-- 그림이 없는 곡도 같은 위치에서 밀어 넘긴다 -->
             <span v-else ref="artSwipeEl" data-no-swipe class="size-[min(100cqw,100cqh)] rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'" :style="artSwipe.style.value" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"
               ><Icon :name="track ? 'audio_file' : 'music_off'" :size="64"
             /></span>
@@ -154,9 +154,9 @@
 
             <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
 
-            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 자리) · 음량 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 묶음).
-                 음량: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 자리로 막대가 🔊 쪽에서 펼쳐진다
-                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 손잡이를 잡는 동안 말풍선(태블릿 · PC 음량 막대와 같다) -->
+            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치) · 음량 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 그룹).
+                 음량: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다
+                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿 · PC 음량 막대와 같다) -->
             <div ref="volRowEl" class="shrink-0 flex items-center gap-2" :class="short ? 'mt-1' : 'mt-5'">
               <div class="relative flex-1 min-w-0 h-10 flex items-center gap-3">
                 <span class="min-w-0 flex items-center gap-1.5 text-xs transition-opacity duration-200" :class="[player.sameVoice ? 'text-primary' : 'text-on-surface-variant', volumeExpand && !volumeInline && 'opacity-0 pointer-events-none']"
@@ -178,7 +178,7 @@
                   />
                 </div>
               </div>
-              <!-- 넓으면 아이콘만(막대가 늘 있다), 좁으면 펼치는 단추 -->
+              <!-- 넓으면 아이콘만(막대가 늘 있다), 좁으면 펼치는 버튼 -->
               <span v-if="volumeInline" class="flex text-on-surface-variant"><VolumeIcon :level="volumeShown" :size="24" /></span>
               <button v-else type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeExpand ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="T.volumeLabel(volumeShown)" :aria-expanded="volumeExpand" :disabled="!player.canControl || !player.hasPlayer" @click="volumeExpand ? (volumeExpand = false) : volumeTouched()">
                 <VolumeIcon :level="volumeShown" :size="24" />
@@ -202,7 +202,7 @@
         </template>
         <template #actions>
           <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds) }}</span>
-          <!-- 자동재생 켜기 · 끄기. 꺼져 있으면 장르를 고르고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
+          <!-- 자동재생 켜기 · 끄기. 꺼져 있으면 장르를 선택하고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
           <div class="relative">
             <button
               type="button"
@@ -217,8 +217,8 @@
               <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenreLabel ?? autoplayGenre }}</span>
             </button>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
-            <!-- 스크롤바 길은 위아래 32 - 5 = 27 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5 로(useOverflowing) -->
-            <!-- 아래에 자리가 없으면(휴대폰 대기열 판이 접혀 화면 아래에 있을 때) 위로 연다 -->
+            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5 로(useOverflowing) -->
+            <!-- 아래에 공간이 없으면(휴대폰 대기열 판이 접혀 화면 아래에 있을 때) 위로 연다 -->
             <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2' : 'top-full mt-2', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
               <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
               <div class="grid grid-cols-2 gap-1">
@@ -316,21 +316,21 @@ import { text } from "../text/index.ts";
 const P = text.player;
 const T = text.server;
 
-// 음량 단추(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
+// 음량 버튼(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
 const route = useRoute();
 const router = useRouter();
 const guildId = String(route.params.guildId);
 const loading = ref(true);
-const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 까닭과 다시 시도를 띄운다
+const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 까닭과 다시 시도를 표시한다
 // 처음 읽기의 실패가 서버가 없거나 멤버가 아니어서다(다시 해도 같다)
 const loadGone = ref(false);
 const GONE = ["guild-not-found", "no-guild-access"];
 // 처음 읽기 전의 모양. 봇이 없는 서버와 같다
 const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, canManage: false, userId: "", hasPrevious: false });
 
-// 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
+// 대기열은 앞에서부터 한 페이지씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref<HTMLElement | null>(null);
@@ -341,9 +341,9 @@ const qs = () => `?queue=${loadedCount.value}`;
 
 const showStopConfirm = ref(false);
 
-// 대기열 끌기(손잡이, composables/pointer-reorder). 끄는 동안(isDragging)은 받은 서버 대기열을 미룬다
+// 대기열 끌기(핸들, composables/pointer-reorder). 끄는 동안(isDragging)은 받은 서버 대기열을 미룬다
 const isDragging = ref(false);
-// 끄는 동안 받은 서버 대기열. 끄는 그 칸만 미루고(다른 칸은 바로 넣는다) 끌기가 끝나면 넣는다
+// 끄는 동안 받은 서버 대기열. 끄는 그 필드만 미루고(다른 필드는 바로 넣는다) 끌기가 끝나면 넣는다
 let heldQueue: Pick<PlayerState, "queue" | "queueTotal"> | null = null;
 
 // 진행 시계: 받은 위치 + 지난 시간(utils/playback). 1초마다 now 만 바꾼다
@@ -351,15 +351,15 @@ const clock = ref(clockOf(null, 0));
 const now = ref(Date.now());
 let ticker: ReturnType<typeof setInterval> | undefined;
 let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
-// 진행 막대 칸. 화면마다 SeekRow 가 하나라 누를 때 그 칸을 잡는다(grabSeek)
+// 진행 막대 요소. 화면마다 SeekRow 가 하나라 누를 때 그 요소를 잡는다(grabSeek)
 const progressBarRef = ref<HTMLElement | null>(null);
 
-// 응답을 기다리는 조작(넘기기 · 이전 · 정지 · 섞기 · 빼는 줄 · 옮기기). 그동안 그 버튼을 끈다
+// 응답을 기다리는 조작(넘기기 · 이전 · 정지 · 섞기 · 빼는 항목 · 옮기기). 그동안 그 버튼을 끈다
 const { isBusy, whileBusy } = useBusy();
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 
-// 받은 재생 상태를 넣는다. 늦게 온 옛 상태는 버린다(만든 차례). 조작 응답에 없는 읽기 전용 칸(권한 · 음성)은 지금 값을 남긴다(utils/playback).
+// 받은 재생 상태를 넣는다. 늦게 온 옛 상태는 버린다(만든 순서). 조작 응답에 없는 읽기 전용 필드(권한 · 음성)는 지금 값을 남긴다(utils/playback).
 // 대기열을 끄는 동안에는 대기열만 미룬다
 function applyState(data: PlayerState | PlayerRead) {
   if (!accepts(player.value, data)) return;
@@ -443,7 +443,7 @@ async function send(key: string, path: string, body: object | undefined, fallbac
   return done === true;
 }
 
-// 넘기기 · 이전은 누른 때의 곡일 때만 하게 줄 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
+// 넘기기 · 이전은 누른 때의 곡일 때만 하게 항목 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
 const skip = () => send("skip", "skip", onTrackOf(player.value), P.failed.skip);
 const previous = () => send("previous", "previous", onTrackOf(player.value), P.failed.previous);
 // 휴대폰 앨범아트를 좌우로 밀어 곡 넘기기
@@ -487,13 +487,13 @@ const {
   },
 );
 
-// 정지는 응답을 기다리고 서버가 돌려준 상태를 쓴다. 봇이 나가 음성 칸도 바뀌므로 한 번 더 읽는다
+// 정지는 응답을 기다리고 서버가 돌려준 상태를 쓴다. 봇이 나가 음성 필드도 바뀌므로 한 번 더 읽는다
 async function doStop() {
   showStopConfirm.value = false;
   if (await send("stop", "stop", undefined, T.failed.stop)) void refresh();
 }
 
-// 빼기는 그 줄 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
+// 빼기는 그 항목 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
 async function removeTrack(track: QueueTrackView) {
   if (!Number.isInteger(track.entry)) return;
   await whileBusy(`remove:${track.entry}`, async () => {
@@ -509,7 +509,7 @@ async function removeTrack(track: QueueTrackView) {
 // ── 대기열 끌어 옮기기 ───────────────────────────────────────────────────────
 
 const { startDrag } = usePointerReorder({
-  // 놓으면 moveQueue 가 자리를 정하고 미뤄 둔 것을 넣는다. end 는 그 뒤(놓지 않고 끝난 때도)
+  // 놓으면 moveQueue 가 위치를 정하고 미뤄 둔 것을 넣는다. end 는 그 뒤(놓지 않고 끝난 때도)
   enabled: () => Boolean(player.value.canControl) && !isBusy("move"),
   start: () => (isDragging.value = true),
   end: releaseHeld,
@@ -526,7 +526,7 @@ function releaseHeld() {
   }
 }
 
-// 놓은 자리는 끄는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 넣기 전에 정한다
+// 놓은 위치는 끄는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 넣기 전에 정한다
 async function moveQueue(from: number, insertAt: number) {
   const queue = player.value.queue;
   const target = moveTarget(queue, from, insertAt, player.value.queueTotal ?? queue.length);
@@ -534,7 +534,7 @@ async function moveQueue(from: number, insertAt: number) {
   if (target === "same") return;
   if (target === "partial") return notify({ ...T.moveNeedsAll, severity: "warning" });
   if (target === "unknown") return refresh();
-  // 응답을 기다리는 동안 옮긴 차례로 보인다. 거절되면 다시 읽어 서버 차례로 돌린다
+  // 응답을 기다리는 동안 옮긴 순서로 보인다. 거절되면 다시 읽어 서버 순서로 돌린다
   player.value = { ...player.value, queue: reordered(queue, from, insertAt) };
   await send("move", "queue/move-entry", target, T.failed.move);
 }
@@ -542,10 +542,10 @@ async function moveQueue(from: number, insertAt: number) {
 // ── 계산 값 ──────────────────────────────────────────────────────────────────
 
 const isLive = computed(() => !!player.value.currentTrack?.isLive);
-// 길이를 알아야 위치를 옮길 수 있다. 라이브에는 실시간밖에 없어 옮길 자리가 없다.
+// 길이를 알아야 위치를 옮길 수 있다. 라이브에는 실시간밖에 없어 옮길 위치가 없다.
 const seekable = computed(() => (player.value.currentTrack?.duration ?? 0) > 0 && !isLive.value);
 
-// 탐색 막대(composables/seek-bar). 놓은 자리를 먼저 보이고 보낸다. 거절되면 다시 읽어 손잡이가 서버 자리로 돌아간다
+// 탐색 막대(composables/seek-bar). 놓은 위치를 먼저 보이고 보낸다. 거절되면 다시 읽어 핸들이 서버 위치로 돌아간다
 const seekBar = useSeekBar({
   el: progressBarRef,
   duration: () => player.value.currentTrack?.duration ?? 0,
@@ -622,7 +622,7 @@ function jumpToHighlight() {
 const artZoom = useArtZoom(() => player.value.currentTrack?.thumbnail, true);
 
 const track = computed(() => player.value.currentTrack);
-// 지금 곡을 내가 넣었는지(출처 표의 "내가 넣은 곡")
+// 지금 곡을 내가 넣었는지(출처 배지의 "내가 넣은 곡")
 const mine = computed(() => track.value?.requestedBy?.id === player.value.userId);
 // 가림막은 곡이 있을 때만. 곡이 없으면 가릴 조작이 없다
 const locked = computed(() => Boolean(track.value) && channelLocked.value);
@@ -658,11 +658,11 @@ const isPhone = useMediaQuery(PHONE_QUERY);
 // 낮은 화면(휴대폰 가로): 플레이어를 그림 | 나머지 두 단으로
 const short = useMediaQuery(SHORT_QUERY);
 const sheetMode = computed(() => isPhone.value);
-// 판이 접혔을 때 머리에 보이는 다음 곡
+// 판이 접혔을 때 헤더에 보이는 다음 곡
 const nextTitle = computed(() => (player.value.queue[0] ? songTitle(player.value.queue[0].title) : ""));
 onKeyStroke("Escape", () => (volumeOpen.value = false));
 
-// 머리 아래 한 줄: 나와 봇의 음성 채널
+// 헤더 아래 한 줄: 나와 봇의 음성 채널
 const voiceLine = computed((): { icon: IconName; text: string } => {
   const p = player.value;
   if (p.sameVoice) return { icon: "headphones", text: T.voice.same };
@@ -670,12 +670,12 @@ const voiceLine = computed((): { icon: IconName; text: string } => {
   return { icon: "bedtime", text: p.userInVoice ? T.voice.userOutside : T.voice.resting };
 });
 
-// 자동재생: 지금 장르는 재생 상태가 싣는다. 장르 목록은 메뉴를 처음 열 때 받는다(디스코드 장르 메뉴와 같은 것)
+// 자동재생: 지금 장르는 재생 상태가 싣는다. 장르 목록은 메뉴를 처음 열 때 불러온다(디스코드 장르 메뉴와 같은 것)
 const autoplayGenre = computed(() => player.value.autoplayGenre ?? null);
 const autoplayGenreLabel = computed(() => player.value.autoplayGenreLabel ?? null);
 const genres = ref<AutoplayGenres["genres"]>([]);
 const genreMenu = ref(false);
-// 장르 메뉴를 위로 열지(단추 아래 자리가 메뉴 높이 320 + 여유보다 좁으면)
+// 장르 메뉴를 위로 열지(버튼 아래 공간이 메뉴 높이 320 + 여유보다 좁으면)
 const genreMenuUp = ref(false);
 async function toggleGenreMenu(e: MouseEvent) {
   if (!genreMenu.value) {
@@ -701,11 +701,11 @@ function setAutoplay(genre: string | null) {
 const pickGenre = (name: string) => setAutoplay(name);
 
 // 처음 그릴 때는 화면에 보이는 만큼만 만들고, 나머지는 색이 옮겨 간 뒤 한가할 때 붙인다.
-// 100줄을 한 번에 만들면 한 프레임이 70~100ms 가 되어 색 옮김의 첫걸음이 걸린다(아래쪽 줄은 화면 밖이라 늦게 붙어도 보이지 않는다)
+// 100행을 한 번에 만들면 한 프레임이 70~100ms 가 되어 색 옮김의 첫 단계가 걸린다(아래쪽 행은 화면 밖이라 늦게 붙어도 보이지 않는다)
 const FIRST_ROWS = 30;
 const rowLimit = ref(FIRST_ROWS);
 const shownQueue = computed(() => player.value.queue.slice(0, rowLimit.value));
-// 대기열 번호 칸 폭: 보이는 가장 큰 번호의 자릿수(두 자리 이상)만큼. 모든 줄이 같은 폭이라 제목이 나란하다
+// 대기열 번호 열 폭: 보이는 가장 큰 번호의 자릿수(두 자리 이상)만큼. 모든 행이 같은 폭이라 제목이 나란하다
 const numWidth = computed(() => `${Math.max(2, String(shownQueue.value.length).length) + 0.5}ch`);
 watch(loading, (isLoading) => {
   if (isLoading) return;
@@ -716,7 +716,7 @@ watch(loading, (isLoading) => {
   }, SHIFT_MS + 150);
 });
 
-// 대기열 전체 길이. 다 받아 둔 때만(일부만 더하면 틀린 값이 된다)
+// 대기열 전체 길이. 다 불러온 때만(일부만 더하면 틀린 값이 된다)
 const queueSeconds = computed(() => {
   const p = player.value;
   if (p.queue.length < (p.queueTotal ?? 0)) return null;

@@ -4,8 +4,8 @@
   설정은 settings.db 의 "status" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
 -->
 <template>
-  <!-- 목록(첫 줄 "기본 문구", 그 아래 기간 · 시간대 문구. 위에 있는 것이 먼저 맞는다) · 고른 것의 편집(M3 목록 · 상세, composables/list-detail).
-       고른 것은 주소 ?presence=이름(기본 문구는 @defaults) -->
+  <!-- 목록(첫 항목 "기본 문구", 그 아래 기간 · 시간대 문구. 위에 있는 것이 먼저 맞는다) · 선택한 것의 편집(M3 목록 · 상세, composables/list-detail).
+       선택한 것은 주소 ?presence=이름(기본 문구는 @defaults) -->
   <div class="flex flex-col gap-(--gap-in)">
     <div ref="paneEl" :class="paneClass">
       <BaseCard v-if="showList" icon="headphones" :title="T.title" :class="listCardClass">
@@ -13,11 +13,11 @@
           <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.addSpecial" v-tooltip="text.common.add" @click="addSpecial"><Icon name="add" :size="20" /></button>
         </template>
         <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
-        <!-- 어느 줄의 것도 아닌 문제(저장할 때 서버가 짚은 것 등) · 읽기 실패. 줄마다의 문제는 그 줄의 오류 아이콘과 편집 칸 맨 위에 -->
+        <!-- 어느 항목의 것도 아닌 문제(저장할 때 서버가 가리킨 것 등) · 읽기 실패. 항목마다의 문제는 그 항목의 오류 아이콘과 편집 영역 맨 위에 -->
         <NoticeBox v-if="listProblems.length" variant="note" tone="error" icon="error" class="mt-0! mb-3">{{ listProblems.join("\n") }}</NoticeBox>
         <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0! mb-3">{{ loadError }}</NoticeBox>
         <div ref="listEl" class="min-h-0 overflow-y-auto -mx-2 px-2" :style="listFade">
-          <!-- 첫 줄: 기본 문구(변경 주기 · 평소 문구). 손잡이 자리는 비워 아래 줄과 아이콘을 맞춘다 -->
+          <!-- 첫 항목: 기본 문구(변경 주기 · 평소 문구). 핸들 공간은 비워 아래 항목과 아이콘을 맞춘다 -->
           <div role="button" tabindex="0" :class="[LIST_ROW, globalOn && SELECT_ROW_ON]" :aria-current="globalOn ? 'true' : undefined" @click="openGlobal" @keydown.enter="openGlobal">
             <span class="size-5 shrink-0" />
             <Icon name="chat" :size="24" class="shrink-0" :class="!globalOn && 'text-on-surface-variant'" />
@@ -143,7 +143,7 @@ const listFade = useScrollFade(listEl, () => true, 24);
 // ── 순서 바꾸기 ─────────────────────────
 const { startDrag } = useDragReorder(special);
 
-// 조건 종류의 아이콘: 양력 · 음력 · 시간대(여럿이면 이 차례로 앞의 것)
+// 조건 종류의 아이콘: 양력 · 음력 · 시간대(여럿이면 이 순서로 앞의 것)
 const CONDITION_ICON = { date: "calendar_month", lunar: "bedtime", time: "schedule" } as const;
 function conditionIcon(entry: SpecialRow) {
   const first = CONDITIONS.find((c) => entry[c.key].trim());
@@ -154,7 +154,7 @@ const conditionText = (entry: SpecialRow) =>
     .map((c) => `${c.label} ${entry[c.key].trim()}`)
     .join("\n");
 
-// 줄마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/status)를 그 항목 하나에만 돌린 것. 목록 줄의 아이콘(툴팁)과 편집 칸 맨 위에 보인다.
+// 항목마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/status)를 그 항목 하나에만 돌린 것. 목록 항목의 아이콘(툴팁)과 편집 영역 맨 위에 보인다.
 // 이름이 비었으면 검사에는 "이름 없는 항목"으로 넘긴다(빈 이름으로 돌리면 ": 빈 문구…" · "null" 같은 문장이 나온다)
 function rowProblems(entry: SpecialRow) {
   const name = entry.name.trim();
@@ -167,7 +167,7 @@ function rowProblems(entry: SpecialRow) {
 const rowProblem = (entry: SpecialRow) => rowProblems(entry).join("\n");
 // 기본 문구의 문제(변경 주기 · 평소 문구)
 const globalProblems = computed(() => (loaded.value ? statusProblems({ interval: draft.value.interval, messages: fromMessages(messages.value), special: null }) : []));
-// 어느 줄의 것도 아닌 문제: 저장할 때 서버가 짚은 것
+// 어느 항목의 것도 아닌 문제: 저장할 때 서버가 가리킨 것
 const listProblems = computed(() => serverProblems.value);
 
 function addSpecial() {

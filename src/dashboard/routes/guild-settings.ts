@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터만(봇 운영자도 그 서버의 자리대로)
+// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터만(봇 운영자도 그 서버의 권한대로)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -17,12 +17,12 @@ import type { Problem } from "../../rules/problems.ts";
 import { DJ_ROLE_MAX } from "../../rules/limits.ts";
 import type { GuildSettings, Saved } from "../contract/guilds.ts";
 
-/** 검사를 지난 본문. 칸마다 undefined 는 변경 없음 */
+/** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
 /** 반영할 것. undefined 는 변경 없음, null 은 해제 */
 type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null };
 
-// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 걸러 내고, 받을 수 없는 값이면 그 문제
+// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 필터링하고, 받을 수 없는 값이면 그 문제
 function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax }: SettingsBody): SettingsPlan | { refused: Problem } {
   const plan: SettingsPlan = { playlistAdd: playlistAddMax };
 
@@ -128,7 +128,7 @@ function createGuildSettingsRouter() {
 
     const limits = GuildSettingsManager.playlistAddLimits();
     const body = parse(settingsBody(limits), req.body ?? {});
-    // 칸별 문제. 재생목록 곡 수는 범위를 같이 싣는다
+    // 필드별 문제. 재생목록 곡 수는 범위를 같이 싣는다
     if (!body.ok) return sendProblem(res, "bad-settings", {}, { errors: body.errors.map((one) => (one.code === "playlist-limit-out-of-range" ? { ...one, min: limits.min, max: limits.max } : one)) });
 
     const plan = planSettings(guild, body.value);

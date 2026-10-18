@@ -13,7 +13,7 @@ test("보이던 길이는 출처가 준 값으로 바꾸지 않는다", () => {
   assert.equal(shownDuration({ duration: 180 }, 190, "provided"), null);
 });
 
-test("받아 둔 음원을 잰 값이 2초 넘게 다를 때만 바꾼다", () => {
+test("캐시한 음원을 잰 값이 2초 넘게 다를 때만 바꾼다", () => {
   assert.equal(shownDuration({ duration: 180 }, 182, "measured"), null, "2초는 그대로");
   assert.equal(shownDuration({ duration: 180 }, 178, "measured"), null);
   assert.deepEqual(shownDuration({ duration: 180 }, 182.01, "measured"), { duration: 182.01, durationSource: "measured" });

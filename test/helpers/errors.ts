@@ -1,4 +1,4 @@
-// 실제와 같은 모양의 오류. 종류는 글이 아니라 이름(code)으로 가르므로 가짜도 이름을 단다.
+// 실제와 같은 모양의 오류. 종류는 글이 아니라 이름(code)으로 구분하므로 가짜도 이름을 단다.
 
 import * as YouTube from "../../src/sources/youtube/index.ts";
 

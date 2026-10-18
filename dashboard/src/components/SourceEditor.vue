@@ -1,11 +1,11 @@
 <!--
   장르 하나의 곡 출처 목록 편집기.
 
-  무슨 종류가 있고 어떤 칸을 받는지는 서버가 준다(GET /api/admin/source-types → autoplaySources.catalog).
-  화면이 목록을 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다.
+  무슨 종류가 있고 어떤 필드를 받는지는 서버가 준다(GET /api/admin/source-types → autoplaySources.catalog).
+  화면이 목록을 따로 들고 있으면 소스를 추가할 때 한쪽만 고치게 된다.
 
-  .env 에 키가 없는 종류는 **고르는 칸에서 숨긴다.** 다만 이미 설정에 적혀 있으면 그대로 보인다. 
-  안 그러면 저장하는 순간 조용히 지워진다.
+  .env 에 키가 없는 종류는 **드롭다운에서 숨긴다.** 다만 이미 설정에 적혀 있으면 그대로 보인다. 
+  안 그러면 저장하는 순간 조용히 삭제된다.
 -->
 <template>
   <div class="flex flex-col gap-2">
@@ -34,10 +34,10 @@
         <p v-else-if="!spec(source.type)" class="text-xs text-error">{{ T.unknownType }}</p>
         <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(spec(source.type)?.label ?? String(source.type)) }}</p>
 
-        <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
+        <!-- 입력란 너비는 서버가 정한다(width). 짧은 입력란이 한 줄을 다 먹을 이유가 없다 -->
         <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
           <div v-for="field in shown(source, i)" :key="field.key" class="min-w-0" :class="widthCls(field)">
-            <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
+            <!-- 1/6 너비 입력란은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
             <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
               {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
             </span>
@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <!-- 출처 더하기: 종류를 고르고 + (아이콘 버튼 S, 색조 면) -->
+    <!-- 출처 추가: 종류를 선택하고 + (아이콘 버튼 S, 색조 면) -->
     <div class="flex items-center gap-2">
       <div class="flex-1 min-w-0">
         <SingleSelect v-model="adding" :options="addable.map((t) => ({ value: t.type, label: t.label }))" :empty-label="T.addPlaceholder" />
@@ -102,7 +102,7 @@ import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts
 import { text } from "../text/index.ts";
 const T = text.genres.source;
 
-/** 편집기가 그리는 칸 하나(서버가 준 것) */
+/** 편집기가 그리는 필드 하나(서버가 준 것) */
 type Field = SourceTypeView["fields"][number];
 /** 자동완성 후보 하나 */
 type Suggestion = { value: string; hint?: string };
@@ -111,11 +111,11 @@ const props = withDefaults(
   defineProps<{
     modelValue?: SourceData[];
     types?: SourceTypeView[];
-    /** 종류 목록을 받는 중(loading) · 받음(ready) · 못 받음(failed). 받기 전에는 모르는 종류라고 하지 않는다 */
+    /** 종류 목록을 불러오는 중(loading) · 불러옴(ready) · 못 불러옴(failed). 불러오기 전에는 모르는 종류라고 하지 않는다 */
     typesState?: "loading" | "ready" | "failed";
     /** 못 받았을 때의 까닭(문제 응답의 글) */
     typesError?: string;
-    /** 자동완성 후보를 묻는다: (출처 종류, 칸, 친 말) */
+    /** 자동완성 후보를 요청한다: (출처 종류, 필드, 입력한 말) */
     suggest: (type: string, field: string, term: string) => Promise<Suggestion[]>;
     genreIndex?: number;
   }>(),
@@ -125,7 +125,7 @@ const emit = defineEmits<{ "update:modelValue": [value: SourceData[]] }>();
 
 const fieldLabelCls = "block mb-1 text-xs font-semibold text-on-surface";
 
-// 모바일은 두 칸, 태블릿부터 여섯 칸짜리 격자다.
+// 모바일은 두 열, 태블릿부터 여섯 열짜리 격자다.
 const WIDTHS: Record<NonNullable<Field["width"]>, string> = {
   narrow: "col-span-1", // 모바일 1/2, 그 위로 1/6
   half: "col-span-1 @xl/card:col-span-3", // 늘 반 줄
@@ -136,7 +136,7 @@ const widthCls = (field: Field) => (field.width ? WIDTHS[field.width] : "col-spa
 // 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다. 종류를 바꿔도 같은 행으로 남아야 한다.
 //
 // computed 로 두면 안 된다. get 이 매번 새 배열을 만드니 거기에 splice 해 봐야 set 이 안 불리고,
-// _key 도 렌더마다 새로 붙어 입력칸이 포커스를 잃는다. 그래서 여기 두고 위에서 내려온 것만 맞춘다.
+// _key 도 렌더마다 새로 붙어 입력란이 포커스를 잃는다. 그래서 여기 두고 위에서 내려온 것만 맞춘다.
 let serial = 0;
 const list = ref<SourceData[]>([]);
 
@@ -150,7 +150,7 @@ watch(
   () => props.modelValue,
   (next) => {
     const incoming = next || [];
-    // 우리가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key 가 갈린다
+    // 우리가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key 가 바뀐다
     if (JSON.stringify(incoming.map(clean)) === JSON.stringify(list.value.map(clean))) return;
     list.value = incoming.map((one) => ({ ...one, _key: ++serial }));
   },
@@ -170,7 +170,7 @@ const adding = ref<OptionValue>("");
 
 const spec = (type: string | undefined) => props.types.find((t) => t.type === type) || null;
 
-// 칸의 값. 파일에 적힌 것이라 모양을 보고 읽는다
+// 필드의 값. 파일에 적힌 것이라 모양을 보고 읽는다
 const asList = (v: unknown): OptionValue[] => (Array.isArray(v) ? v.filter((one): one is OptionValue => typeof one === "string" || typeof one === "number") : v == null || v === "" ? [] : typeof v === "string" || typeof v === "number" ? [v] : []);
 const valueAt = (source: SourceData, key: string): OptionValue | null => {
   const v = source[key];
@@ -182,24 +182,24 @@ const rangeAt = (source: SourceData, key: string | undefined): number | null => 
   return typeof v === "number" ? v : null;
 };
 
-// 쓸 수 있는 것만 고르게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다.
+// 쓸 수 있는 것만 선택하게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다.
 // 안 그러면 select 가 값을 잃고 저장할 때 조용히 바뀐다.
 const addable = computed(() => props.types.filter((t) => t.usable));
 const choosable = (current: string | undefined) => props.types.filter((t) => t.usable || t.type === current);
-// 키가 없는 소스도 보이되 왜 못 쓰는지를 적어 둔다. 이미 고른 것이면 남아 있어야 한다
+// 키가 없는 소스도 보이되 왜 못 쓰는지를 적어 둔다. 이미 선택한 것이면 남아 있어야 한다
 const typeOptions = (current: string | undefined) => choosable(current).map((t) => ({ value: t.type, label: `${t.label}${t.usable ? "" : T.noKey}` }));
 
 const fieldsOf = (type: string | undefined) => spec(type)?.fields || [];
 const deepCount = (type: string | undefined) => fieldsOf(type).filter((f) => f.deep).length;
-// when 이 있는 칸은 그 칸이 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
+// when 이 있는 필드는 그 필드가 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
 const shown = (source: SourceData, i: number) => fieldsOf(source.type).filter((f) => (!f.deep || isDeepOpen(sourceFoldId(props.genreIndex, i))) && (!f.when || hasRange(source, f.when)));
-// 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
+// 구간은 두 필드로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 function hasRange(source: SourceData, key: string) {
   const to = fieldsOf(source.type).find((f) => f.key === key)?.to;
   return source[key] != null || (to !== undefined && source[to] != null);
 }
 
-// 자동완성 후보는 부르는 쪽(ConfigGenres)이 서버에 묻는다. 이 컴포넌트는 그리기만 한다
+// 자동완성 후보는 부르는 쪽(ConfigGenres)이 서버에 요청한다. 이 컴포넌트는 그리기만 한다
 function suggestOf(source: SourceData, field: Field) {
   const what = field.suggest;
   return what ? (term: string) => props.suggest(source.type ?? "", what, term) : null;
@@ -214,7 +214,7 @@ const depthOf = (source: SourceData) => {
 function write(i: number, patch: Record<string, unknown>) {
   const row = list.value[i];
   for (const [k, v] of Object.entries(patch)) {
-    // 비운 칸은 아예 지운다. YAML 에 `minScore: null` 같은 줄을 남기지 않는다
+    // 비운 필드는 아예 삭제한다. YAML 에 `minScore: null` 같은 줄을 남기지 않는다
     if (v == null) delete row[k];
     else row[k] = v;
   }
@@ -223,8 +223,8 @@ function write(i: number, patch: Record<string, unknown>) {
 
 const setField = (i: number, key: string, value: unknown) => write(i, { [key]: value });
 
-// 구간은 두 칸을 한꺼번에 쓴다(yearFrom·yearTo).
-// 전체로 되돌리면 그 구간에 딸린 칸도 비운다. 화면에서 사라진 값이 설정에 남으면 안 된다.
+// 구간은 두 필드를 한꺼번에 쓴다(yearFrom·yearTo).
+// 전체로 되돌리면 그 구간에 딸린 필드도 비운다. 화면에서 사라진 값이 설정에 남으면 안 된다.
 function setRange(i: number, field: Field, range: { from: number | null; to: number | null }) {
   const patch: Record<string, unknown> = { [field.key]: range.from };
   if (field.to) patch[field.to] = range.to;
@@ -240,7 +240,7 @@ function toggle(i: number, key: string, opt: OptionValue) {
   setField(i, key, next.length ? next : null);
 }
 
-// 종류를 바꾸면 그 종류가 안 받는 칸은 버린다. 남겨 두면 저장할 때 검사에 걸린다
+// 종류를 바꾸면 그 종류가 안 받는 필드는 버린다. 남겨 두면 저장할 때 검사에 걸린다
 function changeType(i: number, type: OptionValue) {
   const keep = new Set(fieldsOf(String(type)).flatMap((f) => (f.to ? [f.key, f.to] : [f.key])));
   const old = list.value[i];

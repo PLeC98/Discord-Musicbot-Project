@@ -1,5 +1,5 @@
 // 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
-// yt-dlp 는 띄우는 exec 만(useExec), 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
+// yt-dlp 는 실행하는 exec 만(useExec), 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
 
 import { Readable } from "node:stream";
 import * as links from "../../src/rules/links.ts";
@@ -107,7 +107,7 @@ test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 �
   }
 });
 
-test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 본다. 길이는 받기 전에는 모른다(크기로 어림하지 않는다)", async () => {
+test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 본다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
   const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", net);
@@ -143,7 +143,7 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
   assert.equal(plainText(told), "재생할 수 없는 링크예요!\n해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요.");
 });
 
-test("직접 링크: icy-* 머리가 있으면 인터넷 라디오라 라이브로 담는다(길이를 추정하지 않는다)", async () => {
+test("직접 링크: icy-* 헤더가 있으면 인터넷 라디오라 라이브로 담는다(길이를 추정하지 않는다)", async () => {
   // 끝없는 방송인데도 큰 가짜 크기를 붙이는 서버가 있다
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "54000000", "icy-name": "라디오", "icy-br": "128" } });
   const [t] = await DirectLink.getInfo("https://radio.test/live.mp3", net);

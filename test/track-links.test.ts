@@ -1,7 +1,7 @@
-// 트랙의 링크 칸 셋(pageUrl · requestKey · audioUrl)과 링크 장부.
+// 트랙의 링크 필드 셋(pageUrl · requestKey · audioUrl)과 오디오 링크 데이터.
 //
-// 한 칸(url)이 보여 줄 링크 · 장부 열쇠 · 음원 주소를 다 하던 때 여기서 틀린 답을 고정해 두었고(리팩터링 0단계),
-// 3단계가 칸을 가르면서 답을 바꿨다. 남은 것은 그 틀린 답이 다시 나오지 않게 하는 테스트다.
+// 한 필드(url)가 보여 줄 링크 · 링크 데이터 키 · 음원 주소를 다 하던 때 여기서 틀린 답을 고정해 두었고(리팩터링 0단계),
+// 3단계가 필드를 분리하면서 답을 바꿨다. 남은 것은 그 틀린 답이 다시 나오지 않게 하는 테스트다.
 
 import fs from "node:fs";
 import * as links from "../src/rules/links.ts";
@@ -33,7 +33,7 @@ after(() => {
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
-// 받아 둔 곡 하나. 파일과 audio_cache 행을 같이 만든다
+// 캐시 파일 하나. 파일과 audio_cache 행을 같이 만든다
 function seed(key: string, track: audioCache.TrackMeta) {
   const file = audioCache.getFilePath(key);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -45,7 +45,7 @@ function seed(key: string, track: audioCache.TrackMeta) {
 
 const watch = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 
-// 전에는 음원으로 떨어진 곡의 작품 페이지(webUrl)를 저장할 칸이 없어 복원 뒤 링크가 음원 파일로 바뀌었다
+// 전에는 음원으로 떨어진 곡의 작품 페이지(webUrl)를 저장할 필드가 없어 복원 뒤 링크가 음원 파일로 바뀌었다
 test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도 작품 페이지 링크를 지킨다", () => {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
@@ -70,13 +70,13 @@ test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음�
   const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
   assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null });
 
-  // 음원 주소 자리에 페이지가 들어가면 받을 수 없다. 그래서 페이지는 제 칸에만 둔다
+  // 음원 주소 필드에 페이지가 들어가면 다운로드할 수 없다. 그래서 페이지는 제 필드에만 둔다
   await assert.rejects(streamUrl.getStream({ ...track, audioUrl: track.pageUrl }), /지원되지 않는 음원 주소/);
   assert.equal(links.isDirectAudioLink(track.pageUrl), false);
 });
 
-// 전에는 장부 열쇠가 작품 페이지라, 같은 작품의 OP 와 ED 가 한 줄을 두고 서로 덮었다(「Fatal」 링크를 넣으면 「Burning」)
-test("장부: 같은 작품의 두 곡은 요청 열쇠가 달라 따로 산다. 작품 페이지는 열쇠가 아니다", () => {
+// 전에는 링크 데이터 키가 작품 페이지라, 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮었다(「Fatal」 링크를 넣으면 「Burning」)
+test("링크 데이터: 같은 작품의 두 곡은 요청 키가 달라 따로 산다. 작품 페이지는 키가 아니다", () => {
   const page = "https://anilist.co/anime/150672";
   const fatal = { title: "Fatal", artist: "GEMN", platform: "anisongdb", pageUrl: page, requestKey: "amq:9001", audioUrl: watch("fatalfatal1") };
   const burning = { title: "Burning", artist: "Hitsujibungaku", platform: "anisongdb", pageUrl: page, requestKey: "amq:9002", audioUrl: watch("burningburn") };
@@ -95,7 +95,7 @@ test("장부: 같은 작품의 두 곡은 요청 열쇠가 달라 따로 산다.
   assert.equal(trackLookup.resolveFromCache(page).hit, false);
 });
 
-test("장부 조회 앞의 링크 다듬기: 공유 링크가 장부의 깨끗한 주소와 맞는다", () => {
+test("링크 데이터 조회 앞의 링크 다듬기: 공유 링크가 링크 데이터의 깨끗한 주소와 맞는다", () => {
   const cases = [
     ["https://youtu.be/Lsv4wg9YU8Y?si=AbCdEf", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
     ["https://www.youtube.com/watch?v=Lsv4wg9YU8Y&list=PLxyz&index=3", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
@@ -109,18 +109,18 @@ test("장부 조회 앞의 링크 다듬기: 공유 링크가 장부의 깨끗�
   const clean = "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj";
   seed("yt:spotifyshar", { title: "곡" });
   trackLookup.recordTrackLookup({ requestKey: clean, pageUrl: clean, audioUrl: watch("spotifyshar"), platform: "spotify", title: "곡", artist: "가수" });
-  assert.equal(trackLookup.getAudioUrl(`${clean}?si=0a1b2c`), watch("spotifyshar"), "공유 링크도 장부와 맞는다");
+  assert.equal(trackLookup.getAudioUrl(`${clean}?si=0a1b2c`), watch("spotifyshar"), "공유 링크도 링크 데이터와 맞는다");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=x"), watch("spotifyshar"), "지역 경로가 붙어도");
-  assert.equal(trackLookup.resolveFromCache(`${clean}?si=0a1b2c`).hit, true, "받아 둔 파일로 바로 튼다");
+  assert.equal(trackLookup.resolveFromCache(`${clean}?si=0a1b2c`).hit, true, "다운로드해 둔 파일로 바로 튼다");
 });
 
-// 전에는 외래 키 연쇄 삭제 때문에 퇴거가 장부까지 지웠다. "퇴거돼도 알려준다"는 주석과 반대였다
-test("퇴거가 audio_cache 행을 지워도 링크 장부는 남는다", () => {
+// 전에는 외래 키 연쇄 삭제 때문에 퇴거가 링크 데이터까지 삭제했다. "퇴거돼도 알려준다"는 주석과 반대였다
+test("퇴거가 audio_cache 행을 삭제해도 링크 데이터는 남는다", () => {
   const spotify = "https://open.spotify.com/track/evictcascade";
   const file = seed("yt:evictcasca", { title: "곡" });
   trackLookup.recordTrackLookup({ requestKey: spotify, pageUrl: spotify, audioUrl: watch("evictcasca"), platform: "spotify", title: "곡", artist: "가수" });
 
-  // evict() 가 한 줄마다 하는 일 그대로
+  // evict() 가 한 행마다 하는 일 그대로
   fs.unlinkSync(file);
   cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
 

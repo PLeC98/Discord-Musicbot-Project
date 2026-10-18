@@ -78,7 +78,7 @@ after(() => server.close());
 
 const get = <T = PlayerReply>(urlPath: string, method = "GET") => requestJson<T>(base, method, urlPath, undefined, { timeoutMs: 3000 });
 
-test("기본 응답은 한 묶음만 싣고 총 개수를 따로 알린다", async () => {
+test("기본 응답은 한 구간만 싣고 총 개수를 따로 알린다", async () => {
   const { status, json } = await get(`/api/guilds/${GUILD_ID}/player`);
   assert.equal(status, 200);
   assert.equal(json.queue.length, PAGE);

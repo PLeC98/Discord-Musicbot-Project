@@ -5,14 +5,14 @@ import assert from "node:assert/strict";
 import config from "../src/config/index.ts";
 import { withConfig } from "./helpers/config.ts";
 
-test("준 칸만 바꾸고 끝나면 되돌린다. 안쪽 객체는 합친다", () => {
+test("준 필드만 바꾸고 끝나면 되돌린다. 안쪽 객체는 합친다", () => {
   const before = structuredClone(config.bot);
   const seen = withConfig({ bot: { maxQueueSize: 3 } }, () => ({ max: config.bot.maxQueueSize, other: config.bot.leaveDelayAloneMs }));
   assert.deepEqual(seen, { max: 3, other: before.leaveDelayAloneMs });
   assert.deepEqual(config.bot, before);
 });
 
-test("비동기 시험도 끝난 뒤에 되돌린다", async () => {
+test("비동기 테스트도 끝난 뒤에 되돌린다", async () => {
   const before = config.bot.maxQueueSize;
   await withConfig({ bot: { maxQueueSize: 7 } }, async () => {
     await new Promise(setImmediate);
@@ -37,7 +37,7 @@ test("던져도 되돌린다(동기 · 비동기)", async () => {
   assert.equal(config.sponsorblock.enabled, before);
 });
 
-test("없던 칸은 끝나면 지운다. 배열은 통째로 바꾼다", () => {
+test("없던 필드는 끝나면 삭제한다. 배열은 통째로 바꾼다", () => {
   const cats = config.sponsorblock.categories;
   withConfig({ bot: { __probe: 1 }, sponsorblock: { categories: ["intro"] } }, () => {
     assert.equal(Reflect.get(config.bot, "__probe"), 1);

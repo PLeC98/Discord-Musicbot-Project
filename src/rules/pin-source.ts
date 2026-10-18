@@ -1,6 +1,6 @@
-// 판정: 캐시 DB 에서 정할 음원 · 새 줄의 원래 링크가 쓸 수 있는 주소인가, 저장할 꼴은. 보는 것은 주소 글자뿐이다(통신하지 않는다. 재생되는지는 재생 확인).
-// 정할 음원: 받을 수 있는 곡 하나(유튜브 영상 · 사운드클라우드 곡 · 직접 링크 오디오). 스포티파이는 받을 수 없고, 사운드클라우드 짧은 링크는 열쇠가 풀린 주소와 달라진다.
-// 원래 링크: 장부 · 곡 찾기가 쓰는 곡 하나의 링크. 재생목록 · 앨범 · 세트 · 짧은 링크 · 검색어는 정한 음원이 무엇을 가리키는지 정해지지 않는다(재생목록 주소는 영상 하나로 줄어든다).
+// 판정: 캐시 DB 에서 지정할 음원 · 새 행의 원래 링크가 쓸 수 있는 주소인가, 저장할 형식은. 보는 것은 주소 문자열뿐이다(통신하지 않는다. 재생되는지는 재생 확인).
+// 지정할 음원: 다운로드할 수 있는 곡 하나(유튜브 영상 · 사운드클라우드 곡 · 직접 링크 오디오). 스포티파이는 다운로드할 수 없고, 사운드클라우드 짧은 링크는 키가 풀린 주소와 달라진다.
+// 원래 링크: 링크 데이터 · 곡 찾기가 쓰는 곡 하나의 링크. 재생목록 · 앨범 · 세트 · 짧은 링크 · 검색어는 지정한 음원이 무엇을 가리키는지 정해지지 않는다(재생목록 주소는 영상 하나로 줄어든다).
 
 import type { Code } from "./problems.ts";
 import { audioKeyOf } from "./audio-key-of.ts";
@@ -14,14 +14,14 @@ type PinRequest = { ok: true; canonical: string; platform: InputKind } | Refused
 
 const refused = (code: Code): Refused => ({ ok: false, code });
 
-// 사운드클라우드는 곡 하나만. 짧은 링크는 풀어야 곡인지 알고 열쇠도 달라진다
+// 사운드클라우드는 곡 하나만. 짧은 링크는 풀어야 곡인지 알고 키도 달라진다
 function soundCloudTrack(url: string): Code | null {
   const shape = parseSoundCloudURL(url);
   if (shape === "track") return null;
   return shape === "short" ? "sc-unsupported" : "not-single-track";
 }
 
-/** 정할 음원. 유튜브는 영상 하나의 보는 주소로(재생목록 칸은 버린다), 그 밖은 canonicalUrl */
+/** 지정할 음원. 유튜브는 영상 하나의 보는 주소로(재생목록 파라미터는 버린다), 그 밖은 canonicalUrl */
 function checkPinAudio(input: string): PinAudio {
   const url = input.trim();
   const kind = inputKind(url);
@@ -48,7 +48,7 @@ function notSingle(kind: InputKind, url: string): Code | null {
   return null;
 }
 
-/** 새 줄의 원래 링크. 장부의 열쇠와 같은 꼴(canonicalUrl)로 */
+/** 새 행의 원래 링크. 링크 데이터의 키와 같은 형식(canonicalUrl)으로 */
 function checkPinRequest(input: string): PinRequest {
   const url = input.trim();
   const platform = inputKind(url);

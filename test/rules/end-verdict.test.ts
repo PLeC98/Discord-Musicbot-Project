@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { endVerdict, type EndFacts } from "../../src/rules/end-verdict.ts";
 
-// 온전히 끝난 VOD 가 기준. 시험마다 한 칸씩 바꾼다
+// 온전히 끝난 VOD 가 기준. 테스트마다 한 필드씩 바꾼다
 const facts = (over: Partial<EndFacts> = {}): EndFacts => ({
   reason: "idle",
   live: false,

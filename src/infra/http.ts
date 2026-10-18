@@ -1,4 +1,4 @@
-// 바깥 서비스로 나가는 HTTP 요청은 모두 이 클라이언트를 지난다. 서비스마다 부른 결과를 infra/link-status 에 남긴다.
+// 외부 서비스로 나가는 HTTP 요청은 모두 이 클라이언트를 지난다. 서비스마다 부른 결과를 infra/link-status 에 남긴다.
 // 응답을 받으면 성공(4xx 는 요청의 문제라 성공으로 친다). 5xx · 429 · 401 · 403(키 · 권한이 막혀 쓸 수 없다) · 연결 실패 · 시간 초과는 실패.
 // 부른 쪽이 스스로 끊은 것(AbortError)은 서비스의 일이 아니라 남기지 않는다
 
@@ -17,7 +17,7 @@ function reasonOf(error: unknown) {
   return typeof code === "string" ? code : error.name;
 }
 
-/** service 로 부르는 클라이언트. useFetch 는 시험이 가짜 전송을 넣는 자리(null 이면 진짜 fetch) */
+/** service 로 부르는 클라이언트. useFetch 는 테스트가 가짜 전송을 넣는 곳(null 이면 진짜 fetch) */
 function httpFor(service: Service) {
   let transport: Fetch | null = null;
 

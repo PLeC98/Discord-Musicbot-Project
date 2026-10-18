@@ -1,5 +1,5 @@
-// 캐시 DB(cache.db). 다시 받거나 다시 찾으면 되살아나는 것만 담는다: 받은 곡 색인 · 링크 장부 · 바깥 서비스의 답.
-// 구조 버전이 맞지 않으면 열지 않고 멈춘다(지우고 다시 켜라고 안내한다). 지운 뒤 색인을 잃은 곡 파일은 기동 정리(audioCache.onStartup)가 지운다.
+// 캐시 DB(cache.db). 다시 다운로드하거나 다시 찾으면 되살아나는 것만 담는다: 캐시 파일 기록 · 오디오 링크 데이터 · 외부 서비스의 응답.
+// 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다). 삭제한 뒤 기록을 잃은 캐시 파일은 기동 정리(audioCache.onStartup)가 삭제한다.
 // 캐시 초기화는 이 파일의 표를 모두 비운다(audioCache.resetCache). 사람이 정한 값 · 실행 상태는 여기 두지 않는다.
 
 import { DbFile } from "./sqlite.ts";
@@ -11,13 +11,13 @@ const cacheDb = new DbFile({
   // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다
   version: 6,
   synchronous: "NORMAL",
-  onMismatch: { lost: "받은 곡 색인 · 링크 장부 · SponsorBlock · 연령 제한 기억이 사라지고, 받아 둔 곡 파일은 켤 때 정리가 지운 뒤 다음 재생부터 다시 받습니다." },
+  onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
   createTables,
 });
 
 function createTables(db: Db) {
   db.exec(`
-            -- 받아 둔 소리 하나. 열쇠는 audioKeyOf(음원 주소)다(yt:<id> · sc:<경로> · dl:<md5>).
+            -- 캐시 파일 하나. 키는 audioKeyOf(음원 주소)다(yt:<id> · sc:<경로> · dl:<md5>).
             -- audio_version: 원본의 버전(유튜브 lmt, 직접 링크 ETag 등). 같은 주소에서 음원이 바뀐 것을 알아볼 값
             CREATE TABLE IF NOT EXISTS audio_cache (
                 audio_key           TEXT PRIMARY KEY,
@@ -35,8 +35,8 @@ function createTables(db: Db) {
                 created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
-            -- 링크 장부. "이 요청은 이 음원이다". 파일이 있든 없든 참이라 퇴거해도 남는다.
-            -- 캐시 열쇠는 적지 않는다. 쓸 때 audioKeyOf(audio_url) 로 계산한다
+            -- 오디오 링크 데이터. "이 요청은 이 음원이다". 파일이 있든 없든 참이라 퇴거해도 남는다.
+            -- 캐시 키는 저장하지 않는다. 쓸 때 audioKeyOf(audio_url) 로 계산한다
             CREATE TABLE IF NOT EXISTS track_lookup (
                 request_key         TEXT PRIMARY KEY,
                 page_url            TEXT NOT NULL,

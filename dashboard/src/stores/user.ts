@@ -5,7 +5,7 @@ import { statusOf } from "../utils/request.ts";
 import { TIERS, type Me, type Tier, type ViewAsReply } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 
-// 권한 수준 오버라이드 계층의 이름표. 계층과 차례는 서버의 것(contract/identity 의 TIERS)
+// 권한 수준 오버라이드 계층의 라벨. 계층과 순서는 서버의 것(contract/identity 의 TIERS)
 const TIER_TEXT: Record<Tier, { label: string; desc: string }> = text.admin.tiers;
 // null(해제)은 목록에 넣지 않는다. 선택지가 아니라 "오버라이드 없음"(운영자 그대로) 상태다
 export const VIEW_AS_TIERS = TIERS.map((id) => ({ id, ...TIER_TEXT[id] }));
@@ -27,8 +27,8 @@ export const useUserStore = defineStore("user", {
     avatarUrl: (s) => s.data?.avatarUrl ?? null,
   },
   actions: {
-    // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 띄우지 않는다).
-    // 그 밖의 실패(응답 없음 · 서버 오류)는 모른다: fetched 를 두지 않아 다음에 다시 묻는다
+    // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 열지 않는다).
+    // 그 밖의 실패(응답 없음 · 서버 오류)는 모른다: fetched 를 두지 않아 다음에 다시 요청한다
     async fetchMe() {
       try {
         const res = await axios.get<Me>("/api/me", { quietSession: true });

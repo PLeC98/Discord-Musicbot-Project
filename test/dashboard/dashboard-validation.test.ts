@@ -18,7 +18,7 @@ import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
-/** 이 시험이 읽는 답의 칸 */
+/** 이 테스트가 읽는 답의 필드 */
 type Reply = { error?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; notes?: string[] };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
@@ -55,7 +55,7 @@ function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
 }
 
-// 줄 번호가 찍힌 곡(track-state 가 들일 때처럼 열거되지 않는 칸)
+// 줄 번호가 찍힌 곡(track-state 가 가져올 때처럼 열거되지 않는 필드)
 const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
 
 function makePlayer() {
@@ -75,7 +75,7 @@ function makePlayer() {
       this.calls.push(["play", ms]);
     },
     // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신
-    // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 갈라야 한다).
+    // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 구분해야 한다).
     // 넘기기 · 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
     async untilSwitched() {},
     async seek(ms: number, reason: string) {
@@ -248,11 +248,11 @@ test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 �
   }
 });
 
-// 화면이 받은 상태를 만든 차례로 가려 늦게 온 옛 응답이 새 상태를 덮지 않게 한다
+// 화면이 받은 상태를 만든 순서로 구분해 늦게 온 옛 응답이 새 상태를 덮지 않게 한다
 type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; canManage?: boolean };
 const stateReq = (method: string, urlPath: string, body?: unknown) => requestJson<State>(base, method, urlPath, body, { timeoutMs: 3000 });
 
-test("조작은 모두 같은 재생 상태로 답하고 만든 차례가 오른다. 정지 뒤에는 빈 상태", async () => {
+test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른다. 정지 뒤에는 빈 상태", async () => {
   const p = freshPlayer();
   Object.assign(p, {
     paused: false,
@@ -296,7 +296,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 차례가 오른
   assert.equal(seen.at(-1)?.currentTrack, null, "정지 뒤에는 플레이어가 없다");
 });
 
-// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 칸과 같게)
+// 줄 번호를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 

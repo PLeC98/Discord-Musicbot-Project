@@ -37,7 +37,7 @@ function botStatus(client: Client, uptime: number) {
   };
 }
 
-/** viewerId: 보는 운영자(플레이어 줄의 멤버 여부), stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가 */
+/** viewerId: 보는 운영자(플레이어 행의 멤버 여부), stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가 */
 async function adminStatus({ client, players, commands }: BotContext, viewerId: string, stream: Pick<PlayerStream, "subs">, launcher = false): Promise<AdminStatus> {
   const uptime = process.uptime();
   const mem = process.memoryUsage();

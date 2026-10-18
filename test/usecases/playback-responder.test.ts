@@ -1,7 +1,7 @@
 // src/usecases/responders.ts — 곡 추가 결과를 알리는 매체별 어댑터.
 //
 // 회귀 대상: 코어가 표현할 수 있는 출력이 "상호작용 응답" 아니면 "텍스트 채널"뿐이라
-// 대시보드가 별도 경로로 갈라져 나갔던 문제. silentResponder가 그 세 번째 경우다.
+// 대시보드가 별도 경로로 분기했던 문제. silentResponder가 그 세 번째 경우다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
 import { frame, post } from "../../src/ui/frame.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 
-// 보낸 것. 여기서 보는 칸만
+// 보낸 것. 여기서 보는 필드만
 type Payload = { flags?: unknown; components?: unknown[]; content?: string };
 type Call = [name: string, payload?: Payload];
 
@@ -77,7 +77,7 @@ test("안내 실패가 재생을 망가뜨리지 않는다 — 던지지 않는�
 
 // ── silentResponder ──────────────────────────────────────────
 
-test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대시보드가 갈라졌던 이유)", async () => {
+test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대시보드가 분기했던 이유)", async () => {
   const channel = fakeChannel();
   const interaction = fakeInteraction();
 
@@ -129,7 +129,7 @@ test("채널: 안내를 CV2 메시지로 보낸다", async () => {
   assert.deepEqual(channel.calls, [["send", post(view)]]);
 });
 
-test("상호작용: 아직 응답 전이면 reply로 확인만 하고 지운다", async () => {
+test("상호작용: 아직 응답 전이면 reply로 확인만 하고 삭제한다", async () => {
   const interaction = fakeInteraction({ deferred: false, replied: false });
   await interactionResponder(interaction).dismissPlaceholder();
   assert.deepEqual(

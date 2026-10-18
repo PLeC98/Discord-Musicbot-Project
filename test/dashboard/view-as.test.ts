@@ -1,7 +1,7 @@
 // src/dashboard/view-as.ts — 권한 수준 오버라이드.
 //
 // 핵심 계약 두 가지:
-//  1) 판정 로직(src/usecases/permissions.ts)은 그대로 두고 입력(권한·역할)만 갈아끼운다 → UI와 서버 강제가 함께 따라온다.
+//  1) 판정 로직(src/usecases/permissions.ts)은 그대로 두고 입력(권한·역할)만 교체한다 → UI와 서버 강제가 함께 따라온다.
 //  2) 낮춰도 스스로를 잠그지 않는다 — requireOwner는 실 운영자 기준(isRealOwner)이라 해제 경로가 남는다.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다.
@@ -23,7 +23,7 @@ const { TIERS } = await import("../../src/dashboard/contract/identity.ts");
 const { isOwner, isRealOwner } = await import("../../src/dashboard/owner.ts");
 const { isModerator, isDj, checkVoice, checkControl, checkAdd } = await import("../../src/usecases/permissions.ts");
 
-// 세션의 오버라이드 칸에는 무엇이든 들어올 수 있다고 본다(모르는 값 · 글자가 아닌 값)
+// 세션의 오버라이드 필드에는 무엇이든 들어올 수 있다고 본다(모르는 값 · 글자가 아닌 값)
 const req = (tier: unknown, userId = "owner") => fake<Request>({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });
 
 // 실 GuildMember를 흉내내되 permissions/roles를 프로토타입 쪽 getter가 아닌 own 프로퍼티로 둔다.

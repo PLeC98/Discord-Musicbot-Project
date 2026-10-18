@@ -1,5 +1,5 @@
 // src/dashboard/routes/login-background.ts · login-background/store.ts · runner.ts — 로그인 배경의 상태 기계.
-// 단계 실행기는 시험이 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저 · 굽기 차례 · 이전 배경 · 한도 · 막는 전이 · 실패 · 이어 하기를 본다
+// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저 · 굽기 순서 · 이전 배경 · 한도 · 막는 전이 · 실패 · 이어 하기를 본다
 
 process.env.OWNER_ID = "owner";
 
@@ -29,9 +29,9 @@ const server = await listenForFetch(app);
 after(() => server.close());
 const A = `${baseUrl(server)}/api/admin/appearance/login-background`;
 
-/** 도는 단계마다 끝낼 손잡이. 실패를 넣으면 그 단계가 실패한다 */
+/** 도는 단계마다 끝낼 핸들. 실패를 넣으면 그 단계가 실패한다 */
 const gates = new Map<string, { resolve: (value: StageResult) => void; reject: (error: Error) => void }>();
-/** 받기 단계가 알아낸 원본(영상 10초) */
+/** 다운로드 단계가 알아낸 원본(영상 10초) */
 const RECEIVED: StageResult = { kind: "video", width: 1920, height: 1080, duration: 10, fps: 30 };
 
 /** 가짜 실행기를 단다(skip 단계는 빼고) */
@@ -120,7 +120,7 @@ test("올리면 편집 전 단계를 하고 편집을 기다린다. 편집은 �
   assert.deepEqual([s.current, s.shows, s.list[0].thumb], [id, "thumb", `/login-background/${id}/still-1280.webp`]);
 });
 
-test("앞 배경을 굽는 동안 적용한 배경은 썸네일까지 하고 굽기 차례를 기다린다. 취소하면 걸려 있던 앞 배경으로", async () => {
+test("앞 배경을 굽는 동안 적용한 배경은 썸네일까지 하고 굽기 순서를 기다린다. 취소하면 걸려 있던 앞 배경으로", async () => {
   const a = await ready("A");
   const b = await applied("B");
   // B 는 썸네일 전: A 가 그대로
@@ -132,7 +132,7 @@ test("앞 배경을 굽는 동안 적용한 배경은 썸네일까지 하고 굽
   await stepUntil(c, (one) => one.phase === "queued");
   let s = await state();
   assert.deepEqual([s.current, s.previous, s.list.find((one) => one.id === c)!.stage], [c, b, null]);
-  // 다 만들지 않은 배경은 기록에서 고를 수 없다
+  // 다 만들지 않은 배경은 기록에서 선택할 수 없다
   assert.deepEqual(await codeOf(await send("PUT", "/current", { id: c })), [409, "background-not-ready"]);
 
   assert.equal((await send("POST", `/${c}/cancel`)).status, 200);
@@ -143,7 +143,7 @@ test("앞 배경을 굽는 동안 적용한 배경은 썸네일까지 하고 굽
   assert.equal((await state()).shows, "full");
 });
 
-test("굽던 배경을 지우면 기다리던 배경이 이어서 굽는다", async () => {
+test("굽던 배경을 삭제하면 기다리던 배경이 이어서 굽는다", async () => {
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "h264");
   const c = await applied("C");
@@ -155,24 +155,24 @@ test("굽던 배경을 지우면 기다리던 배경이 이어서 굽는다", as
   assert.equal((await state()).current, c);
 });
 
-test("한도는 다 구운 뒤에 지키고, 지금 배경을 뺀 오래된 기록부터 지운다(이전 배경은 맨 마지막)", async () => {
+test("한도는 다 구운 뒤에 지키고, 지금 배경을 뺀 오래된 기록부터 삭제한다(이전 배경은 맨 마지막)", async () => {
   assert.equal((await send("PUT", "/limits", { history: 1, maxBytes: 0 })).status, 200);
   const a = await ready("A");
   const b = await ready("B");
   // 기록(지금 배경 말고)이 하나라 아직 그대로
   assert.deepEqual(await brief(), { current: b, previous: a, phases: { [b]: "ready", [a]: "ready" } });
-  // 올리기만 하고 편집 전이면 지우지 않는다
+  // 올리기만 하고 편집 전이면 삭제하지 않는다
   const c = await upload("C");
   assert.equal((await state()).list.length, 3);
   await stepUntil(c, (one) => one.phase === "editing");
   assert.equal((await send("PUT", `/${c}/edit`, EDIT)).status, 200);
   await stepUntil(c, (one) => one.phase === "ready");
-  // C 가 걸리고 B 가 이전 배경, 가장 오래된 A 를 지운다
+  // C 가 걸리고 B 가 이전 배경, 가장 오래된 A 를 삭제한다
   assert.deepEqual(await brief(), { current: c, previous: b, phases: { [c]: "ready", [b]: "ready" } });
   assert.equal(fs.existsSync(path.join(DIR, a)), false);
 });
 
-test("보관 0 이면 지금 배경만 남는다. 최대 용량이 모자라면 이전 배경도 지운다", async () => {
+test("보관 0 이면 지금 배경만 남는다. 최대 용량이 모자라면 이전 배경도 삭제한다", async () => {
   assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
   const a = await ready("A");
   const b = await ready("B");
@@ -185,12 +185,12 @@ test("보관 0 이면 지금 배경만 남는다. 최대 용량이 모자라면 
   assert.deepEqual(await brief(), { current: c, previous: null, phases: { [c]: "ready" } });
 });
 
-test("이전 배경이 지워진 뒤 인코딩을 취소하면 봇 프로필 그림으로", async () => {
+test("이전 배경이 삭제된 뒤 인코딩을 취소하면 봇 프로필 그림으로", async () => {
   const a = await ready("A");
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "h264");
   assert.deepEqual([(await state()).current, (await state()).previous], [b, a]);
-  // 굽는 동안 한도를 줄이면 바로 지킨다: 다 구운 기록인 A 를 지운다
+  // 굽는 동안 한도를 줄이면 바로 지킨다: 다 구운 기록인 A 를 삭제한다
   assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
   assert.deepEqual([(await state()).current, (await state()).previous], [b, null]);
   assert.equal((await send("POST", `/${b}/cancel`)).status, 200);
@@ -198,7 +198,7 @@ test("이전 배경이 지워진 뒤 인코딩을 취소하면 봇 프로필 그
   assert.deepEqual([s.current, s.shows, s.list.length], [null, "none", 0]);
 });
 
-test("기록으로 갈아 끼우기 · 비우기", async () => {
+test("기록으로 교체 · 비우기", async () => {
   const a = await ready("A");
   const b = await ready("B");
   assert.equal((await send("PUT", "/current", { id: a })).status, 200);
@@ -208,7 +208,7 @@ test("기록으로 갈아 끼우기 · 비우기", async () => {
   assert.deepEqual([s.current, s.shows, s.list.length], [null, "none", 2]);
 });
 
-test("단계가 실패하면 실패로 남기고 만든 것을 지운다. 걸려 있던 배경이면 이전 배경으로", async () => {
+test("단계가 실패하면 실패로 남기고 만든 것을 삭제한다. 걸려 있던 배경이면 이전 배경으로", async () => {
   const a = await ready("A");
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "h264");
@@ -232,7 +232,7 @@ test("실행기가 없는 단계는 시작하지 않고 기다린다. 달면 이
   assert.equal(one.stage, "thumb");
 });
 
-test("봇이 다시 켜지면 하던 단계부터 이어서 한다", async () => {
+test("봇이 다시 시작하면 하던 단계부터 이어서 한다", async () => {
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "encode");
   // 봇이 꺼진 것처럼: 도는 일을 잊고 기록을 다시 읽는다
@@ -276,7 +276,7 @@ test("올린 파일 이름은 제어 문자를 빼고 자른다. 빈 파일은 �
   assert.equal((await state()).list.length, 1);
 });
 
-test("링크로 추가: 유튜브는 고해상도 받기를 더하고, http 가 아니면 받지 않는다", async () => {
+test("링크로 추가: 유튜브는 고해상도 다운로드를 더하고, http 가 아니면 받지 않는다", async () => {
   const res = await send("POST", "/link", { url: "https://youtu.be/dQw4w9WgXcQ" });
   const one = ((await res.json()) as LoginBackgroundState).list[0];
   assert.deepEqual([one.from, one.kind, one.stages.includes("highRes")], ["youtube", "video", true]);

@@ -1,4 +1,4 @@
-// 테스트용 트랙. 소스가 만드는 모양 그대로 링크 칸 셋(pageUrl · requestKey · audioUrl)을 채운다.
+// 테스트용 트랙. 소스가 만드는 모양 그대로 링크 필드 셋(pageUrl · requestKey · audioUrl)을 채운다.
 // 스포티파이는 영상을 찾기 전이라 audioUrl 이 없다.
 
 import type { QueuedTrack } from "../../src/player/track.ts";

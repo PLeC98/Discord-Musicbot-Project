@@ -1,12 +1,12 @@
-// 손잡이를 눌러 끌어 목록의 차례를 바꾼다(마우스 · 터치 · 펜 모두, 포인터 이벤트).
+// 핸들을 눌러 끌어 목록의 순서를 바꾼다(마우스 · 터치 · 펜 모두, 포인터 이벤트).
 // 브라우저 기본 끌어 놓기(HTML5 drag and drop)는 터치에서 기기마다 되기도 안 되기도 하고(크롬 모바일 시뮬레이션은 아예 시작되지 않는다),
-// 손잡이로만 시작하게 하려면 mousedown 으로 켜 둬야 하는데 터치는 그 신호가 손을 뗀 뒤에 온다. 그래서 포인터 이벤트로 직접 셈한다.
+// 핸들로만 시작하게 하려면 mousedown 으로 켜 둬야 하는데 터치는 그 신호가 손을 뗀 뒤에 온다. 그래서 포인터 이벤트로 직접 셈한다.
 //
-// 모양은 안드로이드 앱들의 방식(M3 목록의 dragged 상태): 끄는 줄이 들려(그림자 Level 4 · 모서리 16 · 상태 레이어 16%) 손가락을 따라오고,
-// 다른 줄은 미끄러지며 자리를 비켜 준다. 넣을 자리를 줄로 긋지 않는다. 놓으면 목록을 바꾸고 그린 위치를 걷는다(이미 그 자리라 튀지 않는다).
+// 모양은 안드로이드 앱들의 방식(M3 목록의 dragged 상태): 끄는 항목이 들려(그림자 Level 4 · 모서리 16 · 상태 레이어 16%) 손가락을 따라오고,
+// 다른 항목은 미끄러지며 자리를 비켜 준다. 넣을 위치를 선으로 긋지 않는다. 놓으면 목록을 바꾸고 그린 위치를 제거한다(이미 그 위치라 튀지 않는다).
 //
-// 줄마다 data-reorder 를 단다(같은 부모 아래의 형제끼리 차례를 본다). 손잡이에는 touch-none 을 줘 끄는 손가락이 화면을 굴리지 않게 한다.
-// 끄는 동안 목록(구르는 가장 가까운 조상) 위아래 끝 48px 안에 들면 그쪽으로 저절로 굴린다(아래 끝은 떠 있는 재생 바가 덮으면 그 윗선).
+// 항목마다 data-reorder 를 단다(같은 부모 아래의 형제끼리 순서를 본다). 핸들에는 touch-none 을 줘 끄는 손가락이 화면을 스크롤하지 않게 한다.
+// 끄는 동안 목록(스크롤되는 가장 가까운 조상) 위아래 끝 48px 안에 들면 그쪽으로 자동으로 스크롤한다(아래 끝은 떠 있는 재생 바가 덮으면 그 윗선).
 
 import { ref } from "vue";
 
@@ -21,10 +21,10 @@ type Options = {
   drop: (from: number, to: number) => void;
 };
 
-const EDGE = 48; // 저절로 굴리기 시작하는 끝 거리
-const SPEED = 14; // 한 프레임에 굴리는 최대 거리
-const SLIDE = "transform 200ms cubic-bezier(0.2, 0, 0, 1)"; // 비켜서는 줄(M3 standard)
-// 들린 줄: M3 elevation Level 4 그림자 · 모서리 large · dragged 상태 레이어(on-surface 16%)
+const EDGE = 48; // 자동 스크롤을 시작하는 끝 거리
+const SPEED = 14; // 한 프레임에 스크롤하는 최대 거리
+const SLIDE = "transform 200ms cubic-bezier(0.2, 0, 0, 1)"; // 비켜서는 항목(M3 standard)
+// 들린 항목: M3 elevation Level 4 그림자 · 모서리 large · dragged 상태 레이어(on-surface 16%)
 const LIFTED: Partial<CSSStyleDeclaration> = {
   position: "relative",
   zIndex: "10",
@@ -34,7 +34,7 @@ const LIFTED: Partial<CSSStyleDeclaration> = {
   transition: "none",
 };
 
-// 끄는 동안 저절로 굴릴 칸. data-reorder-scroller 를 단 칸은 지금 손으로 못 굴리게 막혀 있어도(휴대폰 대기열 판을 반만 열었을 때) 굴린다
+// 끄는 동안 자동으로 스크롤할 영역. data-reorder-scroller 를 단 영역은 지금 손으로 스크롤하지 못하게 막혀 있어도(휴대폰 대기열 판을 반만 열었을 때) 스크롤한다
 function scrollerOf(el: HTMLElement | null): HTMLElement | null {
   for (let p = el; p; p = p.parentElement) {
     if (p.hasAttribute("data-reorder-scroller") && p.scrollHeight > p.clientHeight) return p;
@@ -49,12 +49,12 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
 
   let rows: HTMLElement[] = [];
   let scroller: HTMLElement | null = null;
-  // 줄마다 끌기 시작 때의 위 · 높이(굴린 거리를 빼 목록 기준으로)
+  // 항목마다 끌기 시작 때의 위 · 높이(스크롤한 거리를 빼 목록 기준으로)
   let tops: number[] = [];
   let heights: number[] = [];
-  let shift = 0; // 비켜서는 줄이 움직이는 거리(들린 줄 높이 + 줄 사이)
+  let shift = 0; // 비켜서는 항목이 움직이는 거리(들린 항목 높이 + 항목 사이)
   let from = 0;
-  let pos = 0; // 들린 줄이 지금 갈 자리(새 목록에서의 번호)
+  let pos = 0; // 들린 항목이 지금 갈 위치(새 목록에서의 번호)
   let startY = 0;
   let startScroll = 0;
   let lastY = 0;
@@ -62,7 +62,7 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
 
   const scrolled = () => (scroller ? scroller.scrollTop : 0) - startScroll;
 
-  // 들린 줄을 손가락에 붙이고, 그 가운데가 넘어선 줄들을 비켜 세운다
+  // 들린 항목을 손가락에 붙이고, 그 가운데가 넘어선 항목들을 비켜 세운다
   function layout() {
     const dy = lastY - startY + scrolled();
     rows[from].style.transform = `translateY(${dy}px)`;
@@ -78,7 +78,7 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
     });
   }
 
-  // 끝에 가까우면 굴리고, 굴린 만큼 다시 그린다
+  // 끝에 가까우면 스크롤하고, 스크롤한 만큼 다시 그린다
   function tick() {
     if (draggedIndex.value == null) return;
     if (scroller) {
@@ -108,7 +108,7 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
     window.removeEventListener("pointercancel", onCancel);
     const moved = rows;
     const target = pos;
-    // 그린 위치를 한 번에 걷는다(움직임 없이). 목록을 바꾸면 줄이 이미 그 자리에 있다
+    // 그린 위치를 한 번에 제거한다(움직임 없이). 목록을 바꾸면 항목이 이미 그 위치에 있다
     for (const row of moved) {
       row.style.transition = "none";
       row.style.transform = "";
@@ -125,12 +125,12 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
   const onUp = () => finish(true);
   const onCancel = () => finish(false);
 
-  /** 손잡이의 pointerdown 에 단다 */
+  /** 핸들의 pointerdown 에 단다 */
   function startDrag(e: PointerEvent, i: number) {
     if (draggedIndex.value != null || (e.pointerType === "mouse" && e.button !== 0) || (enabled && !enabled())) return;
     const row = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-reorder]");
     if (!row?.parentElement) return;
-    e.preventDefault(); // 글자 고르기 · 화면 굴리기를 막는다
+    e.preventDefault(); // 글자 선택 · 화면 스크롤을 막는다
     rows = [...row.parentElement.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.hasAttribute("data-reorder"));
     scroller = scrollerOf(row.parentElement);
     startScroll = scroller ? scroller.scrollTop : 0;
@@ -138,7 +138,7 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
     tops = rects.map((r) => r.top);
     heights = rects.map((r) => r.height);
     from = pos = i;
-    // 줄 사이: 들린 줄과 이웃 줄의 틈(이웃이 없으면 0)
+    // 항목 사이: 들린 항목과 이웃 항목의 틈(이웃이 없으면 0)
     const gap = i + 1 < rects.length ? rects[i + 1].top - rects[i].bottom : i > 0 ? rects[i].top - rects[i - 1].bottom : 0;
     shift = heights[i] + Math.max(0, gap);
     rows.forEach((r, at) => (at === i ? Object.assign(r.style, LIFTED) : (r.style.transition = SLIDE)));

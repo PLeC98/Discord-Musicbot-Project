@@ -1,5 +1,5 @@
 // pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장·렌더·배포는 sink(LogManager)가 한다.
-// 나중에 pino를 넣으면 이 파일만 갈아끼운다.
+// 나중에 pino를 넣으면 이 파일만 교체한다.
 //
 //   logger.warn({ guildId }, "무언가 %s", x);
 //   const yt = logger.child({ category: "youtube" });
@@ -28,7 +28,7 @@ export interface Logger extends Record<LevelName, LogFn> {
 // pino 호환 인자 → sink 레코드로 정규화.
 function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: unknown[]): LogRecord & { msg: string } {
   let merge: Record<string, unknown> | null = null;
-  let msg: string; // 아래 if/else-if/else 세 갈래가 모두 할당(exhaustive)
+  let msg: string; // 아래 if/else-if/else 세 분기가 모두 할당(exhaustive)
 
   if (args.length && args[0] instanceof Error) {
     // logger.error(err) / logger.error(err, "msg", ...)

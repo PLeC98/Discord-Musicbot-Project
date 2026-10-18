@@ -1,10 +1,10 @@
-// 로그인 배경의 굽기: H.264 단계(720p 하나, 먼저 따로) · 굽기 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 지우기). 굽는 값은 research §11.6(B8, 2026-10-15 사용자).
-// 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 조각)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 굽고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
-// 구간은 원본에서 정확히 자른다(입력 앞 -ss · -to, 다시 굽기라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
-// 굽기 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 굽고, 아니면 단계마다 따로 굽는다(research §11.7 B4 · B4s).
-// AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 고른다(memory.ts, research §11.10).
-// 나눠 굽다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 시험하고 남은 단계를 따로 굽는다.
-// 단계는 임시 폴더(.tmp)에 굽고 끝나면 이름을 바꾼다: 봇이 다시 켜져 이어 할 때는 끝난 단계를 두고 남은 단계만 굽는다
+// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로) · 인코딩 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 삭제). 인코딩 값은 research §11.6(B8, 2026-10-15 사용자).
+// 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 조각)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
+// 구간은 원본에서 정확히 자른다(입력 앞 -ss · -to, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
+// 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(research §11.7 B4 · B4s).
+// AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts, research §11.10).
+// 나눠 인코딩하다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 테스트하고 남은 단계를 따로 인코딩한다.
+// 단계는 임시 폴더(.tmp)에 인코딩하고 끝나면 이름을 바꾼다: 봇이 다시 시작해 이어 할 때는 끝난 단계를 두고 남은 단계만 인코딩한다
 
 import fs from "node:fs";
 import os from "node:os";
@@ -29,7 +29,7 @@ const H264_SHORT = 720;
 /** 단계 하나: 코덱 · 짧은 변(폴더 이름) · 크기 · 인코더 옵션 */
 type Plan = { codec: LoginBackgroundCodec; short: number; width: number; height: number; options: string[] };
 
-/** 인코더 옵션(키프레임 간격 g 는 출력 초당 장면 수의 2배) */
+/** 인코더 옵션(키프레임 간격 g 는 출력 초당 프레임 수의 2배) */
 function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number, g: number): string[] {
   const gop = ["-g", String(g)];
   if (codec === "av1") return ["-c:v", "libsvtav1", "-preset", "6", "-crf", short >= UHD ? "32" : "30", "-maxrate", short >= UHD ? "25000k" : "10000k", "-pix_fmt", "yuv420p10le", ...gop];
@@ -54,12 +54,12 @@ function plansFor(codecs: LoginBackgroundCodec[], size: { width: number; height:
   });
 }
 
-/** 지금 도는 굽기(봇 전체에서 하나): 시작한 때 · 구운 영상 초 */
+/** 지금 도는 인코딩(봇 전체에서 하나): 시작한 때 · 인코딩한 영상 초 */
 let baking: (Omit<LoginBackgroundBake, "cores" | "speed"> & { startedAt: number; done: number }) | null = null;
-/** 속도를 내기 전에 기다리는 시간(ffmpeg 를 띄우고 원본을 여는 몫) */
+/** 속도를 내기 전에 기다리는 시간(ffmpeg 를 실행하고 원본을 여는 몫) */
 const SPEED_AFTER_MS = 3_000;
 
-/** 지금 도는 굽기(운영자 패널의 상태) */
+/** 지금 도는 인코딩(운영자 패널의 상태) */
 function bakeNow(): LoginBackgroundBake | null {
   if (!baking) return null;
   const elapsed = Date.now() - baking.startedAt;
@@ -74,14 +74,14 @@ const codecDir = (id: string, codec: LoginBackgroundCodec) => path.join(store.fo
 const rungDir = (id: string, plan: Plan) => path.join(codecDir(id, plan.codec), String(plan.short));
 
 /**
- * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 가려, Windows 의 \ 경로면 init 조각을 작업 폴더에 쓴다
+ * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 init 조각을 작업 폴더에 쓴다
  */
 const hlsOutput = (dir: string) => {
   const at = (name: string) => path.join(dir, name).replaceAll("\\", "/");
   return ["-f", "hls", "-hls_time", "2", "-hls_playlist_type", "vod", "-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4", "-hls_segment_filename", at("seg-%03d.m4s"), at("index.m3u8")];
 };
 
-/** 단계들을 한 번 풀어 함께 굽는다(하나면 따로 굽기와 같다). lp 는 AV1 의 병렬 단계. 실패면 ffmpeg 의 까닭 */
+/** 단계들을 한 번 풀어 함께 인코딩한다(하나면 따로 인코딩하는 것과 같다). lp 는 AV1 의 병렬 단계. 실패면 ffmpeg 의 까닭 */
 async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batch: { plans: Plan[]; lp: number }, signal: AbortSignal, progress: (value: number) => void): Promise<string | null> {
   const plans = batch.plans.map((plan) => withLp(plan, batch.lp));
   const [from, to] = item.edit!.range ?? [0, item.duration];
@@ -97,7 +97,7 @@ async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batc
   }
 }
 
-/** ffmpeg 한 번으로 굽는다. onSeconds 는 구운 영상 초 */
+/** ffmpeg 한 번으로 인코딩한다. onSeconds 는 인코딩한 영상 초 */
 async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[], signal: AbortSignal, onSeconds: (seconds: number) => void): Promise<string | null> {
   const edit = item.edit!;
   const [from, to] = edit.range ?? [0, item.duration];
@@ -134,7 +134,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
   return null;
 }
 
-/** init 조각의 설정 상자에서 코덱 문자열(RFC 6381) */
+/** init 조각의 설정 박스에서 코덱 문자열(RFC 6381) */
 function codecString(init: Buffer): string {
   const box = (name: string) => {
     const at = init.indexOf(Buffer.from(name, "latin1"));
@@ -153,7 +153,7 @@ function codecString(init: Buffer): string {
   throw codedError("background-failed", "init 조각에서 코덱을 읽지 못했습니다");
 }
 
-/** 구운 단계의 목록 값: 2초 최대(조각마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */
+/** 인코딩한 단계의 목록 값: 2초 최대(조각마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */
 function rungOf(dir: string, plan: Plan, fps: number): LoginBackgroundRung & { average: number } {
   const playlist = fs.readFileSync(path.join(dir, "index.m3u8"), "utf8");
   const segments = [...playlist.matchAll(/#EXTINF:([\d.]+),\s*\n([^\n#]+)/g)].map((m) => ({ seconds: Number(m[1]), bytes: fs.statSync(path.join(dir, m[2].trim())).size }));
@@ -180,43 +180,43 @@ function writeMasters(item: Readonly<store.Stored>, plans: Plan[], fps: number):
   return rungs;
 }
 
-/** 이 단계들을 굽는다(끝난 것은 건너뛴다). 나눠 굽기가 실패하면 인코더를 다시 시험하고 남은 것을 따로 */
+/** 이 단계들을 인코딩한다(끝난 것은 건너뛴다). 나눠 인코딩하기가 실패하면 인코더를 다시 테스트하고 남은 것을 따로 */
 async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBackgroundCodec[]): Promise<StageResult> {
   await encodersReady();
   const probed = await probeVideo(store.sourceOf(item.id), signal);
   const size = cropped(probed.width, probed.height, item.edit!.crop);
   const fps = probed.fps ?? FPS_CAP;
   const plans = plansFor(codecs, size, fps);
-  if (!plans.length) throw codedError("background-failed", `굽는 인코더가 없습니다(${codecs.join(" · ")})`);
+  if (!plans.length) throw codedError("background-failed", `인코딩할 인코더가 없습니다(${codecs.join(" · ")})`);
   const left = plans.filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
-  // 나눠 굽기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 굽는다)
+  // 나눠 인코딩하기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 인코딩한다)
   const together = left.length > 1 ? splitLp(left.some((plan) => plan.short >= UHD)) : null;
   if (together !== null) {
     const failure = await encodeTogether(item, probed, { plans: left, lp: together }, signal, progress);
     if (failure) {
-      log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"${josa(item.name, "을")} 나눠 굽다 실패해 인코더를 다시 시험하고 따로 굽습니다: ${failure}`);
+      log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"${josa(item.name, "을")} 나눠 인코딩하다 실패해 인코더를 다시 테스트하고 따로 인코딩합니다: ${failure}`);
       await recheck();
     }
   }
   const rest = plansFor(codecs, size, fps).filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
   for (const [i, plan] of rest.entries()) {
-    const what = `${plan.codec} ${plan.short}p 굽기`;
+    const what = `${plan.codec} ${plan.short}p 인코딩`;
     const uhd = plan.short >= UHD;
     const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
     if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
     if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}: 남은 메모리(${(os.freemem() / 1024 ** 3).toFixed(1)}GB)에 맞춰 AV1 병렬 단계를 ${lp} 로 낮춥니다`);
     const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress((i + value) / rest.length));
-    if (failure) throw codedError("background-failed", `${plan.codec} ${plan.short}p 를 굽지 못했습니다: ${failure}`);
+    if (failure) throw codedError("background-failed", `${plan.codec} ${plan.short}p 를 인코딩하지 못했습니다: ${failure}`);
   }
   return { media: { ...item.media, rungs: { ...item.media.rungs, ...writeMasters(item, plansFor(LOGIN_BG_CODECS.slice(), size, fps), fps) } } };
 }
 
 /** H.264 단계(720p 하나, 먼저 따로: 로그인 화면이 저화질 영상으로 바뀐다) */
 const h264 = (job: StageJob) => encodePlans(job, ["h264"]);
-/** 굽기 단계(AV1 · VP9) */
+/** 인코딩 단계(AV1 · VP9) */
 const encode = (job: StageJob) => encodePlans(job, ["av1", "vp9"]);
 
-/** 마무리 단계: 원본 · 편집 창의 미리보기 · 장면 띠 · 받다 남은 것을 지운다(구운 것과 정지 그림만 남는다) */
+/** 마무리 단계: 원본 · 편집 창의 미리보기 · 장면 띠 · 다운로드하다 남은 것을 삭제한다(인코딩한 것과 정지 그림만 남는다) */
 async function drop({ item }: StageJob): Promise<StageResult> {
   const folder = store.folderOf(item.id);
   for (const name of fs.readdirSync(folder)) {

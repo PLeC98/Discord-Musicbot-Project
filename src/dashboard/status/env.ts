@@ -15,7 +15,7 @@ function envStatus(commandCount: number, dashboardClients: number, launcher: boo
     ffmpeg: ffmpegVersion(),
     pid: process.pid,
     launcher,
-    // 스스로 새 버전을 받는가(알리기만 하는 notify · 버전 고정은 아니다). 다음 확인은 알리기만 해도 있다
+    // 스스로 새 버전을 다운로드하는가(알리기만 하는 notify · 버전 고정은 아니다). 다음 확인은 알리기만 해도 있다
     ytdlp: { version: state?.version ?? null, autoUpdate: config.ytdlp.update === "auto" && !config.ytdlp.version, checkedAt: state?.lastChecked || null, nextCheckAt: ytdlpBinary.nextAt },
     commands: { count: commandCount, scope: config.discord.guildId ? "guild" : "global" },
     dashboardClients,

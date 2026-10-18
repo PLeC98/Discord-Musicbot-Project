@@ -1,9 +1,9 @@
 // 문제(오류 · 거절) 코드 목록. 디스코드 안내와 대시보드 HTTP 오류(RFC 9457)가 같은 코드를 쓴다.
 // 코드 하나에 뜻 하나. 코드를 바꾸면 받는 쪽이 깨지니 새 뜻은 새 코드로. 문장에 드는 값은 params 에 이름을 적는다.
 // HTTP 상태: 400 입력이 틀림 · 403 요청한 사람에게 권한이 없음 · 404 대상이나 처리기가 없음 · 409 지금 상태로는 못 함 ·
-// 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 바깥(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
+// 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 외부(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
 
-/** 문장에 드는 값. 이름은 RFC 9457 확장 칸 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
+/** 문장에 드는 값. 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
 type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
@@ -53,7 +53,7 @@ const SHARED = {
   "same-position": { status: 400, title: "Source and target positions are the same" },
   "beyond-end": { status: 400, title: "Position is past the end of the track", params: ["durationMs"] },
   "unknown-genre": { status: 400, title: "Unknown genre", params: ["genre"] },
-  // 장르의 소스가 모두 키가 없어 못 쓴다(운영자가 키를 넣어야 한다)
+  // 장르의 소스가 모두 키가 없어 못 쓴다(운영자가 키를 입력해야 한다)
   "genre-unusable": { status: 503, title: "Genre has no usable source", params: ["genre", "keys"] },
   "playlist-limit-out-of-range": { status: 400, title: "Playlist add limit out of range", params: ["min", "max", "queueCap"] },
   "more-bad-count": { status: 400, title: "Track count must be a positive number" },
@@ -79,7 +79,7 @@ const SHARED = {
   "geo-blocked": { status: 422, title: "Region-blocked content" },
   "nothing-playable": { status: 422, title: "No playable tracks", params: ["skipped"] },
   "more-nothing-playable": { status: 422, title: "No playable tracks in that range", params: ["skipped"] },
-  // 바깥 실패
+  // 외부 실패
   "yt-bot-check": { status: 502, title: "YouTube blocked the request" },
   "network-error": { status: 502, title: "Could not reach the platform" },
   "stream-failed": { status: 502, title: "Could not fetch audio" },
@@ -118,7 +118,7 @@ const WEB = {
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
-  // 실행기 없이 켜서 다시 띄워 줄 쪽이 없다
+  // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },
   "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
@@ -126,7 +126,7 @@ const WEB = {
   "too-many-streams": { status: 429, title: "Too many event streams" },
   // 대시보드: 요청 형식
   "bad-request": { status: 400, title: "Malformed request" },
-  // 명령과 버튼은 고를 수 있는 모드만 보낸다
+  // 명령과 버튼은 선택할 수 있는 모드만 보낸다
   "bad-loop-mode": { status: 400, title: "Unknown loop mode" },
   "payload-too-large": { status: 413, title: "Request body is too large" },
   "route-not-found": { status: 404, title: "Route not found" },
@@ -166,46 +166,46 @@ const WEB = {
   "bad-archive": { status: 400, title: "Not a settings archive" },
   // 올린 파일을 둘 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "disk-full": { status: 409, title: "Not enough free disk space", params: ["size"] },
-  // 미리 보기 때 올린 파일이 없다(1시간이 지났거나 봇이 다시 켜졌다)
+  // 미리 보기 때 올린 파일이 없다(1시간이 지났거나 봇이 다시 시작됐다)
   "upload-gone": { status: 410, title: "Uploaded file is gone" },
   // 설정 DB 스냅샷 복원: 없는 이름 · 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
-  // AI 리퀘스트 로그: 없는 줄(저장 용량을 넘어 지워졌거나 모두 지웠다)
+  // AI 리퀘스트 로그: 없는 행(저장 용량을 넘어 삭제됐거나 모두 삭제했다)
   "ai-log-not-found": { status: 404, title: "Request log entry not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
-  // 대시보드: 파비콘(올린 이미지 · 링크로 받는 이미지)
+  // 대시보드: 파비콘(올린 이미지 · 링크로 다운로드하는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },
   "image-too-small": { status: 400, title: "Image is too small", params: ["min"] },
-  // 링크에서 이미지를 받지 못했다(접속 · 내부 주소 · 크기 · 시간). 까닭은 로그에만
+  // 링크에서 이미지를 다운로드하지 못했다(접속 · 내부 주소 · 크기 · 시간). 까닭은 로그에만
   "image-link-failed": { status: 502, title: "Could not get the image from the link", params: ["max"] },
   "appearance-save-failed": { status: 500, title: "Could not save the image" },
-  // 대시보드: 로그인 배경. 편집은 편집을 기다리는 배경에 한 번만, 기록으로 갈아 끼우기는 다 만든 배경만
+  // 대시보드: 로그인 배경. 편집은 편집을 기다리는 배경에 한 번만, 기록으로 교체하기는 다 만든 배경만
   "background-not-editable": { status: 409, title: "Background cannot be edited now" },
   "background-not-ready": { status: 409, title: "Background is not ready" },
-  // 저장 자리 디스크의 남은 크기가 모자라다(size: 남은 크기)
+  // 저장 위치 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
-  // 받은 파일이 쓸 수 있는 그림 · 영상이 아니다(형식 · 해상도 · 길이 · 초당 장면 수)
+  // 가져온 파일이 쓸 수 있는 그림 · 영상이 아니다(형식 · 해상도 · 길이 · 초당 장면 수)
   "background-bad-source": { status: 422, title: "Not a usable image or video" },
-  // 링크에서 받지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
+  // 링크에서 다운로드하지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
-  // 대시보드: 캐시 DB. 거르기 식(칸마다 · 아무 칸에서나)과 읽는 구간
+  // 대시보드: 캐시 DB. 필터 식(열마다 · 아무 열에서나)과 읽는 구간
   "bad-filter": { status: 400, title: "Invalid filter expression" },
   "filter-too-long": { status: 400, title: "Filter expression is too long", params: ["max"] },
   "regex-too-long": { status: 400, title: "Regular expression is too long", params: ["max"] },
-  // 겹친 반복처럼 오래 걸릴 수 있는 정규식(서버가 재생과 같은 이벤트 루프에서 거른다)
+  // 겹친 반복처럼 오래 걸릴 수 있는 정규식(서버가 재생과 같은 이벤트 루프에서 필터링한다)
   "unsafe-regex": { status: 400, title: "Regular expression may run too long" },
   "filter-timeout": { status: 422, title: "Filtering took too long" },
   "bad-page-range": { status: 400, title: "Invalid row range" },
   "too-many-file-deletes": { status: 400, title: "Too many files to delete at once", params: ["max"] },
-  // 정할 요청이 곡 하나의 링크가 아니다(재생목록 · 앨범 · 세트 · 짧은 링크 · 검색어)
+  // 지정할 요청이 곡 하나의 링크가 아니다(재생목록 · 앨범 · 세트 · 짧은 링크 · 검색어)
   "not-single-track": { status: 422, title: "Not a single-track link" },
-  // 정할 음원이 받을 수 있는 음원이 아니다(스포티파이 등)
+  // 지정할 음원이 다운로드할 수 있는 음원이 아니다(스포티파이 등)
   "not-audio-source": { status: 422, title: "Not a downloadable audio source" },
-  // 쓰는 음원이 원래 링크 그대로라 지울 자동 결과가 없다
+  // 쓰는 음원이 원래 링크 그대로라 삭제할 자동 검색 결과가 없다
   "nothing-to-clear": { status: 409, title: "Nothing to clear" },
   "track-cache-write-failed": { status: 500, title: "Could not write the changes" },
   // 대시보드: 초기화

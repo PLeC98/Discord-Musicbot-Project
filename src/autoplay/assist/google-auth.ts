@@ -5,7 +5,7 @@
 //
 // 이 파일이 다루는 것은 이 기능에서 가장 값비싼 비밀이다. private_key 는 어떤 경로로도
 // 밖으로 나가면 안 된다. 오류 메시지에도, 로그에도, 화면에도.
-// 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞머리만 싣는다.
+// 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞부분만 싣는다.
 
 import crypto from "crypto";
 
@@ -15,7 +15,7 @@ const LIFETIME_SEC = 3600;
 // 만료 직전에 쓰면 요청이 가는 사이에 죽는다. 조금 일찍 새로 받는다.
 const EARLY_MS = 60_000;
 
-/** 서비스 계정 JSON 에서 읽는 칸 */
+/** 서비스 계정 JSON 에서 읽는 필드 */
 type Account = { client_email: string; private_key: string; token_uri?: string; project_id?: string };
 
 const b64url = (input: string) => Buffer.from(input).toString("base64url");

@@ -6,7 +6,7 @@ import type { PlayerStream } from "../player-stream.ts";
 import { sendProblem } from "../problem.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
-// req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 뽑아 finish 에서 쓴다.
+// req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 추출해 finish 에서 쓴다.
 // (디스코드 쪽 · 내부 변화는 player/events 의 touched 가 알린다)
 function nudgeAfterChange(stream: PlayerStream) {
   return (req: Request, res: Response, next: NextFunction) => {

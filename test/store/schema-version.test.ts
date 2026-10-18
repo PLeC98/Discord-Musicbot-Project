@@ -1,5 +1,5 @@
 // src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 옮기기 코드도, 저절로 새로 만들기도 두지 않는다.
-// 어느 파일이든 열지 않고 멈춘다. 캐시 · 실행 상태는 지우고 다시 켜라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
+// 어느 파일이든 열지 않고 멈춘다. 캐시 · 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import os from "node:os";
@@ -55,20 +55,20 @@ test("새 폴더: 세 파일을 각자의 버전으로 만들고 쓴다", () => 
   assert.equal(sessions().load("g")?.queue[0].title, "a", "같은 버전이면 다시 열고 내용이 남아 있다");
 });
 
-// 지우고 다시 켜는 것(운영자가 할 일)
+// 삭제하고 다시 시작하는 것(운영자가 할 일)
 const remove = (name: string) => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(path.join(dir, name + suffix), { force: true });
 };
 
-test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 열지 않고 멈춘다. 파일은 손대지 않고, 지운 뒤 다시 켜면 새로 만든다", () => {
+test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 열지 않고 멈춘다. 파일은 손대지 않고, 삭제한 뒤 다시 시작하면 새로 만든다", () => {
   prepare("cache.db", 5, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY); CREATE TABLE audio_cache (audio_key TEXT PRIMARY KEY); INSERT INTO audio_cache VALUES ('yt:old');");
   assert.throws(
     () => stores.open(dir),
-    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("지운 뒤 다시 켜면") && messageOf(error).includes("링크 장부"),
+    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("삭제한 뒤 다시 시작하면") && messageOf(error).includes("링크 데이터"),
   );
   assert.equal(settingsDb.isOpen() || stateDb.isOpen() || cacheDb.isOpen(), false, "하나라도 못 열면 연 것을 닫는다");
   const check = new Database(path.join(dir, "cache.db"));
-  assert.equal(check.prepare("SELECT COUNT(*) FROM audio_cache").pluck().get(), 1, "옛 표를 지우지 않는다");
+  assert.equal(check.prepare("SELECT COUNT(*) FROM audio_cache").pluck().get(), 1, "옛 표를 삭제하지 않는다");
   assert.equal(check.pragma("user_version", { simple: true }), 5);
   check.close();
 
@@ -78,7 +78,7 @@ test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 열지 않고 
   assert.equal(cacheDb.get().prepare("SELECT COUNT(*) FROM audio_cache").pluck().get(), 0);
 });
 
-test("실행 상태 DB 버전이 다르면 멈추고, 지운 뒤 다시 켜면 새로 만든다. 설정은 그대로", () => {
+test("실행 상태 DB 버전이 다르면 멈추고, 삭제한 뒤 다시 시작하면 새로 만든다. 설정은 그대로", () => {
   stores.open(dir);
   guildSettings.table.setBotChannel("g", "c");
   stores.close();
@@ -112,7 +112,7 @@ test("설정 DB 버전이 다르면 열지 않고 멈춘다. 파일은 손대지
   check.close();
 });
 
-test("현재 재생 패널 자리: 쓰고 읽고 비운다. 서버 설정과 다른 파일이다", async () => {
+test("현재 재생 패널 위치: 쓰고 읽고 비운다. 서버 설정과 다른 파일이다", async () => {
   stores.open(dir);
   assert.equal(await panelRecords.getPanel("g"), null);
 
@@ -130,7 +130,7 @@ test("현재 재생 패널 자리: 쓰고 읽고 비운다. 서버 설정과 다
   assert.equal(await panelRecords.getPanel("g"), null);
 });
 
-test("서버에서 나가면 그 서버의 실행 상태만 지운다. 서버 설정 · 다른 서버는 남는다", async () => {
+test("서버에서 나가면 그 서버의 실행 상태만 삭제한다. 서버 설정 · 다른 서버는 남는다", async () => {
   stores.open(dir);
   for (const g of ["gone", "stay"]) {
     sessions().append(g, [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);

@@ -1,7 +1,7 @@
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결(채널에는 남는다) · 봇 · 자식 프로세스를 정리한 뒤 나간다.
-// 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 띄운다).
-// 처리기는 기동 맨 앞(POToken 서버를 띄우기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 띄운 것만 내리고 깨끗이 끝났다고 적는다.
-// 기동이 실패했을 때도 띄운 것을 내리고 나간다.
+// 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 실행한다).
+// 처리기는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
+// 기동이 실패했을 때도 실행한 것을 내리고 나간다.
 
 import readline from "readline";
 import { getVoiceConnections } from "@discordjs/voice";
@@ -12,7 +12,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import { EXIT, type ExitCode } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 
-// 바깥 경계. 시험은 가짜를 넘긴다
+// 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
   proc: Pick<NodeJS.Process, "on" | "platform" | "stdin" | "stdout">;
   /** 음성 라이브러리가 들고 있는 연결 */
@@ -72,7 +72,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     exit(restart ? EXIT.restart : EXIT.stopped);
   };
 
-  // 종료가 중간에 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 띄우게 같은 코드로)
+  // 종료가 중간에 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 실행하게 같은 코드로)
   const stop = (why: string, restart = false) => {
     gracefulShutdown(why, restart).catch((error: unknown) => {
       log.error("종료 중 오류:", error);
@@ -94,7 +94,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     attach(next: ShutdownBot) {
       bot = next;
     },
-    /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 띄운다. by: 누가(로그) */
+    /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 실행한다. by: 누가(로그) */
     restart(by: string) {
       stop(by, true);
     },
@@ -110,7 +110,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   }
   await Promise.all(saves);
 
-  // 음성 채널에는 남는다(짧은 재시작이면 나갔다 들어오지 않고 이어 튼다). 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 상태 문구만 지운다
+  // 음성 채널에는 남는다(곧바로 다시 시작하면 나갔다 들어오지 않고 이어 튼다). 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 상태 문구만 지운다
   const clears = [];
   for (const [, player] of players) if (player) clears.push(player.updateVoiceStatus("").catch((error: unknown) => log.warn(`음성 채널 상태 지우기 실패: ${messageOf(error)}`)));
   let cap: NodeJS.Timeout | undefined;
@@ -121,7 +121,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   for (const [, player] of players) player?.voice.release(reason);
 }
 
-/** 기동이 실패했다. 띄운 것을 내리고 잠시 뒤 code(설정 · 토큰이 틀림 또는 일시적 실패)로 나간다 */
+/** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정 · 토큰이 틀림 또는 일시적 실패)로 나간다 */
 function stopFailedStart(client: { destroy(): unknown } | null, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
   const { killAll, exit, record } = { ...REAL, ...boundary };
   record.end("startup-failed");
@@ -129,7 +129,7 @@ function stopFailedStart(client: { destroy(): unknown } | null, { potServer, log
   setTimeout(() => exit(code), graceMs);
 }
 
-// 봇이 띄운 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일
+// 봇이 실행한 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일
 function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">, reason: string) {
   client?.destroy();
   potServer.stop();

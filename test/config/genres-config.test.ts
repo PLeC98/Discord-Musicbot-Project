@@ -1,4 +1,4 @@
-// src/config/genres.ts — 장르 설정을 읽을 때 거르는 이름 · 이모지와 저장 전 검사.
+// src/config/genres.ts — 장르 설정을 읽을 때 필터링하는 이름 · 이모지와 저장 전 검사.
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -10,10 +10,10 @@ import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import sink from "../../src/infra/log/sink.ts";
 import YAML from "yaml";
 
-// 장르 문서를 바꾼다(옛 설정 파일 꼴의 YAML 글로 적는다). 읽어 둔 직전 설정은 그대로 둔다(돌던 중에 바뀐 것처럼)
+// 장르 문서를 바꾼다(옛 설정 파일 형식의 YAML 글로 적는다). 읽어 둔 직전 설정은 그대로 둔다(돌던 중에 바뀐 것처럼)
 const write = (name: "genres", text: string) => documents._use(name, YAML.parse(text));
 
-// 시험마다 기동한 것처럼 본다. 직전에 맞던 설정이 남아 있으면 틀린 문서에도 그것으로 돈다
+// 테스트마다 기동한 것처럼 본다. 직전에 맞던 설정이 남아 있으면 틀린 문서에도 그것으로 돈다
 beforeEach(() => genreConfig._reset());
 after(() => useDefaultDocuments());
 
@@ -42,20 +42,20 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
 });
 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
-  // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 끌어 옮긴 차례가 조용히 어긋난다.
+  // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 드래그해서 옮긴 순서가 조용히 어긋난다.
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
 
   const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
-  assert.match(err.message, /차례가 어긋납니다/);
+  assert.match(err.message, /순서가 어긋납니다/);
 
-  assert.match(genreConfig.validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /차례가 어긋납니다/);
+  assert.match(genreConfig.validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /순서가 어긋납니다/);
   assert.deepEqual(genreConfig.validateGenres({ genres: { "80년대": { sources: [{ type: "keyword", keywords: ["a"] }] } } }), [], "글자가 붙으면 괜찮다");
 });
 
-test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
-  // 대시보드는 선택기로만 넣지만 DB 는 바깥에서도 고칠 수 있다. 읽을 때 잡지 않으면
-  // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
+test("emoji 필드에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
+  // 대시보드는 선택기로만 입력하지만 DB 는 바깥에서도 고칠 수 있다. 읽을 때 잡지 않으면
+  // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 위치에서 죽는다.
   const load = (emoji: string) => {
     write("genres", ["defaults: {}", "genres:", "  팝:", `    emoji: ${emoji}`, "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
     return genreConfig.genres();
@@ -116,8 +116,8 @@ test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
   assert.match(problems, /sources: 로 옮겨/);
 });
 
-// 값이 정해져 있는 칸은 오타를 여기서 잡는다. 안 잡으면 저쪽이 422를 주고 그 소스가 조용히
-// 빈손이 되어, 설정은 멀쩡해 보이는데 그 소스만 안 쓰이는 꼴이 된다.
+// 값이 정해져 있는 필드는 오타를 여기서 잡는다. 안 잡으면 저쪽이 422를 주고 그 소스가 조용히
+// 빈손이 되어, 설정은 멀쩡해 보이는데 그 소스만 안 쓰이는 상황이 된다.
 test("검사: 정해진 값이 아닌 것은 무엇을 쓸 수 있는지 알려 준다", () => {
   const of = (source: unknown) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
 
@@ -139,9 +139,9 @@ test("검사: weight와 연도 범위도 본다", () => {
   assert.match(of({ type: "vocadb", minScore: -1 }), /minScore/);
 });
 
-test("검사: 이모지 자리에 이모지가 아닌 값이 있으면 걸린다", () => {
-  // 대시보드는 선택기로만 넣지만 DB 는 바깥에서도 고칠 수 있다. 여기서 막지 않으면
-  // 디스코드 선택 메뉴가 원인에서 한참 떨어진 자리에서 거부한다.
+test("검사: 이모지 필드에 이모지가 아닌 값이 있으면 걸린다", () => {
+  // 대시보드는 선택기로만 입력하지만 DB 는 바깥에서도 고칠 수 있다. 여기서 막지 않으면
+  // 디스코드 선택 메뉴가 원인에서 한참 떨어진 위치에서 거부한다.
   const of = (emoji: string | undefined) => genreConfig.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
 
   assert.deepEqual(of("🇰🇷"), [], "국기처럼 코드포인트가 여럿인 것도 한 글자다");
@@ -157,7 +157,7 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
-// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 차단어는 전역과 키워드 출처 칸에만
+// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 차단어는 전역과 키워드 출처 필드에만
 test("검사: 장르별 덮어쓰기(길이)도 본다", () => {
   const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800 }), "");
@@ -182,18 +182,18 @@ test("검사: 최소 길이를 비우면 기본값과 상한을 견준다", () =
   assert.equal(of({ maxDurationSec: 600 }), "");
 });
 
-// 비운 칸은 손대지 않은 기본 문서와 같게 돈다
+// 비운 필드는 손대지 않은 기본 문서와 같게 돈다
 test("기본값은 기본 문서의 defaults 와 같다(상한은 비우면 없다)", () => {
   const example = documents.defaultOf("genres") as { defaults: Record<string, unknown> };
   assert.deepEqual([example.defaults.prefetchCount, example.defaults.minDurationSec], [GENRE_DEFAULTS.prefetchCount, GENRE_DEFAULTS.minDurationSec]);
 });
 
-test("검사: 미리 뽑아 둘 곡 수는 장르마다 둘 수 없다(기본값에만)", () => {
+test("검사: 미리 선택해 둘 곡 수는 장르마다 둘 수 없다(기본값에만)", () => {
   const problems = genreConfig.validateGenres({ genres: { 팝: { prefetchCount: 2, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.match(problems, /팝: prefetchCount.*defaults/);
 });
 
-// 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 켜야 다음 문제가 보이던 것을 없앴다
+// 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 시작해야 다음 문제가 보이던 것을 없앴다
 test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장 전 검사와 같은 문구)", () => {
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", "  팝:", "    emoji: abc", "    sources: []", ""].join("\n"));
   const err = complaint();
@@ -213,8 +213,8 @@ test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(던지
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 문서 대신 직전 값");
 });
 
-// 키는 대시보드에서 넣으므로 키가 없다고 기동을 멈추면 넣을 곳도 안 뜬다(2차 16단계 "정한 것" 6)
-test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장르만 못 쓴다. 키를 넣으면 바로 쓴다", async () => {
+// 키는 대시보드에서 입력하므로 키가 없다고 기동을 멈추면 입력할 곳도 안 뜬다(2차 16단계 "정한 것" 6)
+test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장르만 못 쓴다. 키를 입력하면 바로 쓴다", async () => {
   const config = (await import("../../src/config/index.ts")).default;
   const saved = config.sources.lastfmKey;
   write("genres", ["defaults: {}", "genres:", "  재즈:", "    sources: [{ type: lastfm, tags: [jazz] }]", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));

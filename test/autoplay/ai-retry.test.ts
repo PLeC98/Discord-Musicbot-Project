@@ -3,7 +3,7 @@ import assert from "node:assert";
 import * as retry from "../../src/autoplay/assist/retry.ts";
 
 test("거절 까닭의 key 는 상태 코드와 오류 이름만, 문구는 detail 로", () => {
-  // 규격마다 이름 칸이 다르다(Google status · Anthropic type · OpenAI code)
+  // 규격마다 이름 필드가 다르다(Google status · Anthropic type · OpenAI code)
   assert.deepEqual(retry.summaryOf(429, '{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'), {
     key: "HTTP 429 RESOURCE_EXHAUSTED",
     detail: "Resource has been exhausted (e.g. check quota).",
@@ -14,7 +14,7 @@ test("거절 까닭의 key 는 상태 코드와 오류 이름만, 문구는 deta
   assert.deepEqual(retry.summaryOf(502, "<html>\n Bad   Gateway </html>"), { key: "HTTP 502", detail: "<html> Bad Gateway </html>" });
 });
 
-test("다시 해도 소용없는 한도 소진을 가린다", () => {
+test("다시 해도 소용없는 한도 소진을 구분한다", () => {
   assert.equal(retry.exhausted('{"error":{"type":"insufficient_quota"}}'), true);
   assert.equal(retry.exhausted("enforced_spend_limit_reached"), true);
   assert.equal(retry.exhausted('{"error":{"status":"RESOURCE_EXHAUSTED"}}'), false, "구글의 이름은 경합과 한도 소진이 같아 가르지 않는다");

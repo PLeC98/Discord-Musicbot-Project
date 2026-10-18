@@ -8,7 +8,7 @@ const log = logger.child({ category: "cache" });
 const text = z.string().min(1);
 const maybe = <T extends z.ZodType>(schema: T) => schema.nullable();
 
-/** 세션 표의 트랙 한 줄. 되읽을 때 이 스키마로 검사한 뒤 QueuedTrack 으로 바꾼다. 음원 주소는 스포티파이가 영상을 찾기 전이면 없다 */
+/** 세션 표의 트랙 한 행. 되읽을 때 이 스키마로 검사한 뒤 QueuedTrack 으로 바꾼다. 음원 주소는 스포티파이가 영상을 찾기 전이면 없다 */
 const SessionTrackRow = z.object({
   guild_id: text,
   slot: z.enum(["current", "queue", "history"]),
@@ -29,7 +29,7 @@ const SessionTrackRow = z.object({
   entry: maybe(z.number().int().positive()),
 });
 
-/** 링크 장부 한 줄 */
+/** 오디오 링크 데이터 한 행 */
 const LookupRow = z.object({
   request_key: text,
   page_url: text,

@@ -59,9 +59,9 @@ const fieldLabel = (id: ServiceId, field: string) => (T.services[id].fields as R
 
 const view = ref<ServiceKeysView | null>(null);
 const loadError = ref("");
-// 서비스마다 칸에 넣은 값(저장 전). 저장하면 비운다
+// 서비스마다 입력란에 입력한 값(저장 전). 저장하면 비운다
 const input = reactive(Object.fromEntries(SERVICE_IDS.map((id) => [id, Object.fromEntries(fieldsOf(id).map((field) => [field, ""]))])) as Record<ServiceId, Record<string, string>>);
-// 서비스마다 하는 일(저장 · 시험 · 지우기), 마지막 연결 시험 결과
+// 서비스마다 하는 일(저장 · 테스트 · 삭제), 마지막 연결 테스트 결과
 const busy = reactive(Object.fromEntries(SERVICE_IDS.map((id) => [id, null])) as Record<ServiceId, "save" | "test" | "clear" | null>);
 const checked = reactive(Object.fromEntries(SERVICE_IDS.map((id) => [id, null])) as Record<ServiceId, KeyCheck | null>);
 
@@ -69,7 +69,7 @@ const typed = (id: ServiceId) => Object.values(input[id]).some((value) => value.
 const stateOf = (id: ServiceId, field: string): SecretView => (view.value?.[id] as Record<string, SecretView> | undefined)?.[field] ?? NONE;
 const saved = (id: ServiceId) => fieldsOf(id).some((field) => stateOf(id, field).state !== "none");
 
-// 넣고 저장하지 않은 값도 떠날 때 묻는다
+// 입력하고 저장하지 않은 값도 떠날 때 묻는다
 trackUnsaved(
   "keys:service-keys",
   computed(() => SERVICE_IDS.some(typed)),

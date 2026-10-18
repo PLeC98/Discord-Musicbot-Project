@@ -1,5 +1,5 @@
 <!--
-  AI 보조 · 판정 프롬프트: 섹션(역할 · 이름 · 글)을 차례대로 보낸다. 토큰 어림수 · 리퀘스트 미리보기.
+  AI 보조 · 판정 프롬프트: 섹션(역할 · 이름 · 글)을 순서대로 보낸다. 토큰 어림수 · 리퀘스트 미리보기.
   상태는 composables/ai-editor(ConfigAI 가 내려 준다).
 -->
 <template>
@@ -14,7 +14,7 @@
       <NoticeBox v-if="!sections.length" variant="note" tone="info" icon="info" class="mt-0!">{{ TR.emptyUsesDefault }}</NoticeBox>
       <NoticeBox v-else-if="!listMarked" variant="note" tone="error" icon="error" class="mt-0!">{{ TR.listMarkMissing(LIST_MARK) }}</NoticeBox>
 
-      <!-- 섹션 카드: 머리(손잡이 · 접기 · 이름 · 역할 · 지우기), 몸은 프롬프트. 출처 카드와 같은 모양 -->
+      <!-- 섹션 카드: 헤더(핸들 · 접기 · 이름 · 역할 · 삭제), 몸은 프롬프트. 출처 카드와 같은 모양 -->
       <div v-for="(section, i) in sections" :key="section.key" class="rounded-(--r-inner) bg-surface-container-high" data-reorder>
         <div class="flex items-center gap-1 @sm/card:gap-2 p-2">
           <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing text-outline" v-tooltip="TR.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>

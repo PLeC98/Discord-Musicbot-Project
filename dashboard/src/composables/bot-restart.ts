@@ -1,6 +1,6 @@
-// 봇 다시 시작. 봇 상태 탭의 단추 · 운영 조절값 저장 막대의 "저장 후 다시 시작"이 함께 쓴다. 창(BotRestartDialog)은 운영자 패널에 하나.
-// asking: 단추를 눌러 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
-// waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 답하면 화면을 새로 고친다
+// 봇 다시 시작. 봇 상태 탭의 버튼 · 운영 조절값 저장 막대의 "저장 후 다시 시작"이 함께 쓴다. 창(BotRestartDialog)은 운영자 패널에 하나.
+// asking: 버튼을 눌러 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
+// waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 답하면 화면을 새로고침한다
 
 import { ref } from "vue";
 import axios from "axios";
@@ -9,7 +9,7 @@ import type { AdminStatus, RestartReply } from "../../../src/dashboard/contract/
 import { text } from "../text/index.ts";
 const T = text.restart;
 
-// 다시 뜨기를 기다리는 상한과 묻는 간격. 기동은 보통 몇 초, POToken 서버가 늦으면 30초 남짓
+// 다시 뜨기를 기다리는 상한과 확인 간격. 기동은 보통 몇 초, POToken 서버가 늦으면 30초 남짓
 const WAIT_MS = 120_000;
 const POLL_MS = 1500;
 
@@ -33,12 +33,12 @@ async function cameBack(before: number) {
   return false;
 }
 
-/** 묻는 창을 연다 */
+/** 확인 창을 연다 */
 function askRestart() {
   if (phase.value === "idle") phase.value = "asking";
 }
 
-/** 묻지 않고 다시 시작한다(이미 고른 일: 확인 창의 다시 시작 · 저장 후 다시 시작) */
+/** 묻지 않고 다시 시작한다(이미 선택한 일: 확인 창의 다시 시작 · 저장 후 다시 시작) */
 async function restartNow() {
   phase.value = "starting";
   try {
@@ -57,7 +57,7 @@ async function restartNow() {
   phase.value = "idle";
 }
 
-/** 묻는 창을 닫는다. 기다리는 중에는 닫지 않는다 */
+/** 확인 창을 닫는다. 기다리는 중에는 닫지 않는다 */
 function cancelRestart() {
   if (phase.value === "asking") phase.value = "idle";
 }

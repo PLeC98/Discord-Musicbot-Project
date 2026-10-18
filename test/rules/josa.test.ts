@@ -1,10 +1,10 @@
-// src/rules/josa.ts — 앞말의 끝소리를 보고 조사를 고른다. 모르면 괄호 꼴
+// src/rules/josa.ts — 앞말의 끝소리를 보고 조사를 선택한다. 모르면 괄호 형태
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { josa, finalOf } from "../../src/rules/josa.ts";
 
-// 낱말마다 [을/를 고른 것] 을 적어 둔다
+// 낱말마다 [을/를 선택한 것] 을 적어 둔다
 const picks = (words: string[], particle: Parameters<typeof josa>[1] = "을") => words.map((w) => `${w}${josa(w, particle)}`);
 
 test("네 조사: 받침 있음 · 없음 · 모름. 으로는 ㄹ 받침 뒤에서 로", () => {
@@ -81,8 +81,8 @@ test("가나: ん 은 ㄴ, っ 는 ㅅ, 장음 · 작은 가나 · 그 밖은 �
   assert.equal(josa("ドラえもん", "으로"), "으로");
 });
 
-test("한자: 일본어 읽기가 모두 같은 쪽으로 끝나면 안다. 갈리면 괄호 꼴, 々 는 앞 한자", () => {
-  // 花(カ · はな) · 愛(アイ · あい …)는 모두 모음, 千(セン · ち) · 恋(レン · こい) · 雲(ウン · くも)은 갈린다
+test("한자: 일본어 읽기가 모두 같은 쪽으로 끝나면 안다. 나뉘면 괄호 형태, 々 는 앞 한자", () => {
+  // 花(カ · はな) · 愛(アイ · あい …)는 모두 모음, 千(セン · ち) · 恋(レン · こい) · 雲(ウン · くも)은 나뉜다
   assert.deepEqual([finalOf("夜桜"), finalOf("花"), finalOf("愛"), finalOf("千"), finalOf("恋"), finalOf("雲"), finalOf("時々"), finalOf("坂本龍一"), finalOf("吨")], ["none", "none", "none", null, null, null, "none", "none", "final"]);
   assert.deepEqual([josa("千", "을"), josa("吨", "을")], ["을(를)", "을"]);
 });

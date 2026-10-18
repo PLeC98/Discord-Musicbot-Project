@@ -1,7 +1,7 @@
 // src/player/queue-warmer.ts — 대기열 앞부분을 캐시에 올린 상태로 유지하는 계약
 //
-// 핵심은 "언제 움직이지 않는가"다. 조작이 진행 중일 때 받기 시작하면 곧 쓸모없어질 곡을
-// 계속 받게 되고(곡당 2~5초라 틱 하나로 끝나지도 않는다), 그게 이 모듈을 만든 이유의 절반이다.
+// 핵심은 "언제 움직이지 않는가"다. 조작이 진행 중일 때 다운로드를 시작하면 곧 쓸모없어질 곡을
+// 계속 다운로드하게 되고(곡당 2~5초라 틱 하나로 끝나지도 않는다), 그게 이 모듈을 만든 이유의 절반이다.
 //
 // 협력자는 전부 주입 — 실 파일·네트워크 없이 판정만 검증한다.
 
@@ -15,7 +15,7 @@ import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/rules/loop-cycle.ts";
 
-// 캐시 열쇠는 음원 주소 자리에 둔다. 주입한 keyOf 가 그대로 돌려준다. 열쇠가 아직 없는 곡(스포티파이)은 음원 주소가 없다
+// 캐시 키는 음원 주소 필드에 둔다. 주입한 keyOf 가 그대로 돌려준다. 키가 아직 없는 곡(스포티파이)은 음원 주소가 없다
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: id, requestKey: `https://y/${id}`, pageUrl: "", platform: "youtube", duration: 0, audioUrl: `yt:${id}`, ...extra });
 
 type Options = {
@@ -72,7 +72,7 @@ test("서명이 매 틱 바뀌는 동안에는 한 곡도 시작하지 않는다
     await settle();
   }
 
-  assert.deepEqual(warmed, [], "조작이 멎기 전에는 아무것도 받지 않는다");
+  assert.deepEqual(warmed, [], "조작이 멎기 전에는 아무것도 다운로드하지 않는다");
 });
 
 test("조작이 멎으면 다음 틱에 움직인다 (연속 두 틱 동일)", async () => {
@@ -99,7 +99,7 @@ test("같은 서명으로는 두 번 돌지 않는다", async () => {
 
 // ── 목표 선정 ────────────────────────────────────────────────
 
-test("앞 N곡만 받는다", async () => {
+test("앞 N곡만 다운로드한다", async () => {
   const queue = ["a", "b", "c", "d", "e", "f", "g"].map((id) => track(id));
   const { warmer, warmed } = makeWarmer({ queue });
 
@@ -110,7 +110,7 @@ test("앞 N곡만 받는다", async () => {
   assert.deepEqual(warmed, ["yt:a", "yt:b", "yt:c", "yt:d", "yt:e"], "6번째부터는 대상이 아니다");
 });
 
-test("이미 캐시됐거나 받는 중인 곡은 건너뛴다", async () => {
+test("이미 캐시됐거나 다운로드 중인 곡은 건너뛴다", async () => {
   const { warmer, warmed } = makeWarmer({
     queue: [track("a"), track("b"), track("c")],
     cached: new Set(["yt:a"]),
@@ -134,8 +134,8 @@ test("라이브 스트림은 대상이 아니다 (끝이 없어 캐시할 수 �
   assert.deepEqual(warmed, ["yt:b"]);
 });
 
-test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 곡은 받는다", async () => {
-  // 기본 상한 60분으로 본다. 시험은 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
+test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 곡은 다운로드한다", async () => {
+  // 기본 상한 60분으로 본다. 테스트는 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
   const saved = config.cache.maxTrackSec;
   config.cache.maxTrackSec = 3600;
   try {
@@ -144,13 +144,13 @@ test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 �
     for (let i = 0; i < 4; i++) warmer.tick();
     await settle();
 
-    assert.deepEqual(warmed, ["yt:edge", "yt:unknown"], "딱 60분은 받는다");
+    assert.deepEqual(warmed, ["yt:edge", "yt:unknown"], "딱 60분은 다운로드한다");
   } finally {
     config.cache.maxTrackSec = saved;
   }
 });
 
-test("캐시 길이 상한이 0 이면 긴 곡도 받는다", async () => {
+test("캐시 길이 상한이 0 이면 긴 곡도 다운로드한다", async () => {
   const saved = config.cache.maxTrackSec;
   config.cache.maxTrackSec = 0;
   try {
@@ -174,7 +174,7 @@ test("한곡 반복 중에는 예열하지 않는다 (다음 곡이 현재 곡�
   assert.deepEqual(warmed, []);
 });
 
-test("현재 곡은 대상이 아니다 (재생 경로가 이미 받고 있다)", async () => {
+test("현재 곡은 대상이 아니다 (재생 경로가 이미 다운로드하고 있다)", async () => {
   const { warmer, warmed } = makeWarmer({ currentTrack: track("now"), queue: [track("a")] });
 
   warmer.tick();
@@ -244,7 +244,7 @@ test("실패한 곡을 무한히 재시도하지 않는다", async () => {
 
   assert.equal(warmed.filter((k) => k === "yt:bad").length, 1, "이번 서명에서는 한 번만 시도한다");
   assert.ok(warmed.includes("yt:ok"), "실패가 나머지를 막지 않는다");
-  // 까닭은 받기가 error 로 남긴다. 여기서는 결과만 debug 로(두 줄이 되지 않게)
+  // 까닭은 다운로드가 error 로 남긴다. 여기서는 결과만 debug 로(두 줄이 되지 않게)
   const lines = sink.buffer.filter((e) => e.text.includes("사전 캐싱 실패"));
   assert.ok(lines.length > 0 && lines.every((e) => e.level === "debug"), JSON.stringify(lines.map((e) => e.level)));
 });
@@ -316,7 +316,7 @@ test("stop()은 보호를 비우고 더 이상 움직이지 않는다", async ()
   warmer.tick();
   warmer.tick();
   await settle();
-  assert.deepEqual(warmed, [], "정지 후에는 틱이 들어와도 받지 않는다");
+  assert.deepEqual(warmed, [], "정지 후에는 틱이 들어와도 다운로드하지 않는다");
 });
 
 // ── 서명 ─────────────────────────────────────────────────────
@@ -340,20 +340,20 @@ test("대기열이 같아도 현재 곡이 바뀌면 서명이 달라진다 (이
 });
 
 // ── 늦게 정해지는 캐시 키 (스포티파이) ───────────────────────
-// 실사용 회귀: 스포티파이 재생목록에서 2번째 곡부터 전부 두 번씩 받았다.
+// 실사용 회귀: 스포티파이 재생목록에서 2번째 곡부터 전부 두 번씩 다운로드했다.
 // 키가 곧 파일 경로인데 그 키가 다운로드 '안'에서 정해져, 첫 번째는 URL 해시 경로로 저장되고
-// 키가 생긴 다음 틱에는 키 경로가 비어 있어 또 받았다.
+// 키가 생긴 다음 틱에는 키 경로가 비어 있어 또 다운로드했다.
 
 test("키가 늦게 정해져도 지문은 흔들리지 않는다", () => {
   const spotify = track("s", { requestKey: "https://open.spotify.com/track/x", audioUrl: undefined });
   const { warmer } = makeWarmer({ queue: [spotify] });
 
   const before = warmer.signature();
-  spotify.audioUrl = "yt:resolved"; // 받는 도중에 동등물이 정해졌다
+  spotify.audioUrl = "yt:resolved"; // 다운로드 도중에 동등물이 정해졌다
   assert.equal(warmer.signature(), before, "대기열은 그대로이므로 지문도 그대로여야 한다");
 });
 
-test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
+test("키가 정해지면 다음 틱에 다시 다운로드하지 않는다", async () => {
   const spotify = track("s", { requestKey: "https://open.spotify.com/track/x", audioUrl: undefined });
   const cached = new Set<string | undefined>();
   const warmed: string[] = [];
@@ -364,12 +364,12 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
     gapMs: 0,
     intervalMs: 1000,
     keyOf: (t) => t?.audioUrl || null,
-    // 파일 경로는 키에서 나온다 — 키가 없으면 요청 열쇠 해시로 갈라진다(실제 trackFilePath와 같은 규칙)
+    // 파일 경로는 키에서 나온다 — 키가 없으면 요청 키 해시로 분기한다(실제 trackFilePath와 같은 규칙)
     isCached: (t) => cached.has(t.audioUrl || t.requestKey),
     isBusy: () => false,
     warm: async (t) => {
       warmed.push(t.requestKey);
-      t.audioUrl = "yt:resolved"; // warm이 받기 전에 키를 확정한다
+      t.audioUrl = "yt:resolved"; // warm이 다운로드하기 전에 키를 확정한다
       cached.add(t.audioUrl);
     },
     setProtection: () => {},
@@ -383,15 +383,15 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
   warmer.tick();
   await settle();
 
-  assert.deepEqual(warmed, ["https://open.spotify.com/track/x"], "두 번 받지 않는다");
+  assert.deepEqual(warmed, ["https://open.spotify.com/track/x"], "두 번 다운로드하지 않는다");
 });
 
-// ── 내려간 영상을 고른 자동재생 곡 ────────────────────────────────────────
+// ── 내려간 영상을 선택한 자동재생 곡 ────────────────────────────────────────
 
-// 회귀 대상: 자동재생이 이미 내려간 영상을 고르면 예열이 실패하고, 그 곡이 대기열에 남아
-// 재생 차례에 스트림도 실패한다. 대기열이 비어 버려 봇이 그대로 멈췄다.
-// 우리가 고른 곡이니 사용자에게 알릴 일이 아니라, 조용히 빼고 다른 곡을 고른다.
-test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 고른다", async () => {
+// 회귀 대상: 자동재생이 이미 내려간 영상을 선택하면 예열이 실패하고, 그 곡이 대기열에 남아
+// 재생 순서가 오면 스트림도 실패한다. 대기열이 비어 버려 봇이 그대로 멈췄다.
+// 우리가 선택한 곡이니 사용자에게 알릴 일이 아니라, 조용히 빼고 다른 곡을 선택한다.
+test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 선택한다", async () => {
   const gone = track("dead", { autoplay: true, audioUrl: "https://www.youtube.com/watch?v=BYlcTa9SQXs" });
   // yt-dlp가 내는 것과 같은 모양의 오류
   const warm = async () => {
@@ -427,15 +427,15 @@ test("사용자가 넣은 곡은 빼지 않는다 — 없어졌다는 것을 알
   assert.equal(player.queue.includes(mine), true);
 });
 
-// ── 멈추고 다시 켜기 ──────────────────────────────────────────
+// ── 멈추고 다시 시작 ──────────────────────────────────────────
 
-test("곡 사이에 쉬는 도중 멈추면 루프가 끝나고, 다시 켜면 이어 받는다", async () => {
+test("곡 사이에 쉬는 도중 멈추면 루프가 끝나고, 다시 시작하면 이어 다운로드한다", async () => {
   const warmed: Array<string | undefined> = [];
   const cached = new Set<string | undefined>();
   const player: WarmerHost = { queue: [track("a"), track("b")], currentTrack: null, loop: false, guild: { id: "g1" } };
   const warmer = new QueueWarmer(player, {
     ahead: 5,
-    gapMs: 60_000, // 곡 사이 쉬기. 멈추지 않으면 시험 동안 깨지 않는다
+    gapMs: 60_000, // 곡 사이 쉬기. 멈추지 않으면 테스트 동안 깨지 않는다
     intervalMs: 1000,
     keyOf: (t) => t?.audioUrl || null,
     isCached: (t) => cached.has(t.audioUrl),
@@ -450,7 +450,7 @@ test("곡 사이에 쉬는 도중 멈추면 루프가 끝나고, 다시 켜면 �
   warmer.tick();
   warmer.tick();
   await settle();
-  assert.deepEqual(warmed, ["yt:a"], "첫 곡을 받고 쉬는 중");
+  assert.deepEqual(warmed, ["yt:a"], "첫 곡을 다운로드하고 쉬는 중");
 
   warmer.stop();
   await settle();
@@ -461,5 +461,5 @@ test("곡 사이에 쉬는 도중 멈추면 루프가 끝나고, 다시 켜면 �
   warmer.tick();
   await settle();
   warmer.stop();
-  assert.deepEqual(warmed, ["yt:a", "yt:b"], "다시 켜면 남은 곡을 받는다");
+  assert.deepEqual(warmed, ["yt:a", "yt:b"], "다시 켜면 남은 곡을 다운로드한다");
 });

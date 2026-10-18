@@ -29,7 +29,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   const child = spawn(bin, args, { windowsHide: true });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
-  // 소리를 내는 것은 재생, 받기 · 검사는 띄운 문맥의 일(지금 곡 · 다음 곡)
+  // 소리를 내는 것은 재생, 다운로드 · 검사는 실행한 문맥의 일(지금 곡 · 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
   // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
@@ -74,7 +74,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
     if (signal !== null && CRASH_SIGNALS.has(signal)) {
       log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
     } else if (closedByUs) {
-      // 종료 코드는 남긴다. 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 가른다.
+      // 종료 코드는 남긴다. 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 구분한다.
       log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${code ?? signal})`);
     } else if (code !== 0 && code !== null) {
       log.warn(`ffmpeg(${label}) 종료 코드 ${code}${detail}`);
@@ -87,8 +87,8 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
 type ProbeInfo = { durationSec: number | null; codec: string | null; bitrateKbps: number | null; title: string | null; artist: string | null };
 
 /**
- * ffmpeg가 파일을 열어 내놓는 안내문에서 우리가 쓰는 세 가지를 뽑는다.
- * 파싱만 한다. 프로세스를 띄우지 않으므로 테스트가 실물 파일 없이 고정할 수 있다.
+ * ffmpeg가 파일을 열어 내놓는 안내문에서 우리가 쓰는 세 가지를 추출한다.
+ * 파싱만 한다. 프로세스를 실행하지 않으므로 테스트가 실물 파일 없이 고정할 수 있다.
  *
  * 비트레이트는 스트림 줄에 적힌 값이 있으면 그쪽을 쓴다. `Duration:` 줄의 값은 컨테이너 전체지만
  * 오디오 전용 파일에서는 둘이 거의 같고 스트림 줄에 없는 형식도 많아 폴백으로 쓴다.
@@ -97,7 +97,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
   const out: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null, title: null, artist: null };
   const str = String(text || "");
 
-  // 입력 파일의 태그. 입력 머리(Input #0)부터 길이 줄 앞까지의 Metadata 칸만 본다(출력 쪽에도 같은 칸이 되풀이된다)
+  // 입력 파일의 태그. 입력 헤더(Input #0)부터 길이 줄 앞까지의 Metadata 블록만 본다(출력 쪽에도 같은 블록이 되풀이된다)
   const head = str.slice(Math.max(0, str.indexOf("Input #0")), str.indexOf("Duration:") >= 0 ? str.indexOf("Duration:") : undefined);
   const tag = (name: string) => head.match(new RegExp(`^\\s+${name}\\s*: (.+)$`, "mi"))?.[1].trim() || null;
   out.title = tag("title");
@@ -106,7 +106,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
   const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
   if (dur) {
     const sec = Number(dur[1]) * 3600 + Number(dur[2]) * 60 + parseFloat(dur[3]);
-    // 머리는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이 · 표시가 이 값을 쓴다)
+    // 헤더는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이 · 표시가 이 값을 쓴다)
     if (Number.isFinite(sec) && sec > 0) out.durationSec = Math.round(sec * 100) / 100;
   }
 
@@ -155,7 +155,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
 
 /**
  * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
- * 파일 크기로 어림한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 받아 둔 파일을 재서 얻는다.
+ * 파일 크기로 어림한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
  */
 async function probeDurationSec(file: string): Promise<number | null> {
   return (await probeAudio(file)).durationSec;

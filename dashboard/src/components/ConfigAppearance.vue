@@ -1,6 +1,6 @@
 <template>
   <!-- 디스플레이 탭의 파비콘 카드: 크기마다 올린다. 크기와 다른 이미지는 봇이 그 크기로 다시 만들고, 정사각형이 아니면 이미지 편집 대화상자로 잘라 올린다.
-       추가하기 · 변경은 크기별 팝업(이미지 업로드 · 링크로 추가 · 기록)을 연다. 기록(최근 FAVICON_HISTORY 개)으로 다시 올리지 않고 갈아 끼운다.
+       추가하기 · 변경은 크기별 팝업(이미지 업로드 · 링크로 추가 · 기록)을 연다. 기록(최근 FAVICON_HISTORY 개)으로 다시 올리지 않고 교체한다.
        그 아래 로그인 배경 카드(LoginBackgroundCard) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
@@ -9,8 +9,8 @@
       <template #actions><DocLink file="docs/favicon.md" /></template>
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.faviconDesc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.faviconTip" /></p>
 
-      <!-- 크기 칸: 쓰이는 곳 · 지금 내는 이미지(칸 폭의 미리 보기 판, 이미지는 실제 크기, 큰 것은 128 로 줄여) · 어디서 왔는지 · 기록 개수(이미지를 지워도 기록이 있으면 보인다) · 추가하기(변경) · 삭제.
-           칸에 끌어다 놓아도 된다. 남는 폭은 칸들이 나눠 갖는다 -->
+      <!-- 크기 슬롯: 쓰이는 곳 · 지금 내는 이미지(슬롯 폭의 미리 보기 판, 이미지는 실제 크기, 큰 것은 128 로 줄여) · 어디서 왔는지 · 기록 개수(이미지를 삭제해도 기록이 있으면 보인다) · 추가하기(변경) · 삭제.
+           슬롯에 끌어다 놓아도 된다. 남는 폭은 슬롯들이 나눠 갖는다 -->
       <div class="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2">
         <div v-for="slot in state?.slots ?? []" :key="slot.size" class="flex flex-col items-center gap-2 rounded-2xl bg-surface-container px-3 py-4 transition-[outline-color] outline-2 outline-dashed" :class="over === slot.size ? 'outline-primary' : 'outline-transparent'" @dragover.prevent="over = slot.size" @dragleave="over = null" @drop.prevent="onDrop($event, slot.size)">
           <span class="text-base font-semibold nums">{{ slot.size }}px</span>
@@ -69,10 +69,10 @@ const API = "/api/admin/appearance/favicon";
 const state = ref<FaviconSlots | null>(null);
 const loadError = ref("");
 const busy = ref(false);
-/** 끌어다 놓는 중인 칸 */
+/** 끌어다 놓는 중인 슬롯 */
 const over = ref<number | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
-/** 파일을 고르는 칸 */
+/** 파일을 선택하는 슬롯 */
 let pickingFor = 0;
 const cropping = ref(false);
 const cropFile = ref<File | null>(null);
@@ -95,7 +95,7 @@ function blurry(slot: FaviconSlot) {
   return slot.from === "scaled" && (slot.sourceSide ?? 0) < slot.size;
 }
 
-/** 바뀐 상태를 받는다. 파비콘이 바뀌었으면 열린 탭의 아이콘도 바꿔 끼운다 */
+/** 바뀐 상태를 받는다. 파비콘이 바뀌었으면 열린 탭의 아이콘도 교체한다 */
 function apply(next: FaviconSlots) {
   if (state.value && state.value.version !== next.version) refreshFavicon(next.version);
   state.value = next;
@@ -111,7 +111,7 @@ async function run(job: () => Promise<void>) {
   }
 }
 
-/** 올리기 전에 화면에서 거른다(서버도 다시 본다). 까닭이 있으면 그 글. 래스터면 크기도 돌려준다 */
+/** 올리기 전에 화면에서 필터링한다(서버도 다시 본다). 까닭이 있으면 그 글. 래스터면 크기도 돌려준다 */
 async function check(file: File): Promise<{ why: string; width: number; height: number }> {
   const no = (why: string) => ({ why, width: 0, height: 0 });
   if (!TYPES.includes(file.type)) return no(T.refuse.format(file.name));
@@ -126,7 +126,7 @@ async function check(file: File): Promise<{ why: string; width: number; height: 
   }
 }
 
-/** 그 크기에 추가한다. 정사각형이 아니면 이미지 편집 대화상자를 먼저 띄운다 */
+/** 그 크기에 추가한다. 정사각형이 아니면 이미지 편집 대화상자를 먼저 연다 */
 async function choose(size: number, file: File) {
   const { why, width, height } = await check(file);
   if (why) return notify({ title: T.refusedTitle, body: why, severity: "warning" });
@@ -153,7 +153,7 @@ function onCropped(blob: Blob) {
   void run(() => send(cropSize.value, new File([blob], `${name}.png`, { type: "image/png" })));
 }
 
-/** 팝업의 이미지 업로드: 팝업을 닫고 파일을 고른다(같은 누름 안에서 열어야 브라우저가 파일 창을 띄운다) */
+/** 팝업의 이미지 업로드: 팝업을 닫고 파일을 선택한다(같은 누름 안에서 열어야 브라우저가 파일 창을 연다) */
 function uploadFromDialog() {
   if (dialogFor.value === null) return;
   pickingFor = dialogFor.value;
@@ -161,7 +161,7 @@ function uploadFromDialog() {
   fileInput.value?.click();
 }
 
-/** 팝업의 링크로 추가: 봇이 대신 받아 넘긴 이미지를 업로드와 같은 길로(정사각형이 아니면 편집 대화상자) */
+/** 팝업의 링크로 추가: 봇이 대신 다운로드해 넘긴 이미지를 업로드와 같은 길로(정사각형이 아니면 편집 대화상자) */
 function fromLink(url: string) {
   const size = dialogFor.value;
   if (size === null) return;
@@ -204,7 +204,7 @@ const clear = (size: number) =>
     }
   });
 
-/** 기록의 이미지로 갈아 끼운다 */
+/** 기록의 이미지로 교체한다 */
 const useImage = (id: string) => {
   const size = dialogFor.value;
   if (size === null) return;

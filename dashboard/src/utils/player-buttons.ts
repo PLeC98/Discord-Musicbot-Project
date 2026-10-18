@@ -1,4 +1,4 @@
-// 재생 조작 버튼의 모양(서버 화면 · 재생 바가 같이 쓴다). 모양은 스포티파이를 따른다: 바탕 없는 글리프, 올리면 밝아지고 누르면 살짝 눌린다. 누를 자리 48(tap)
+// 재생 조작 버튼의 모양(서버 화면 · 재생 바가 같이 쓴다). 모양은 스포티파이를 따른다: 바탕 없는 글리프, 올리면 밝아지고 누르면 살짝 눌린다. 누를 영역 48(tap)
 
 /** 바탕 */
 export const CTL_BTN = "tap shrink-0 flex items-center justify-center cursor-pointer transition-[color,scale] duration-150 active:not-disabled:scale-95 disabled:opacity-38 disabled:cursor-not-allowed";

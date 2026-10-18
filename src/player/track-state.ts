@@ -18,16 +18,16 @@ type TrackSink = {
   onReset(history: boolean): void;
   onReplace(): void;
 };
-/** 곡 상태를 가진 쪽. 플레이어가 그대로 맞는다. 함수마다 쓰는 칸만 받는다 */
+/** 곡 상태를 가진 쪽. 플레이어가 그대로 맞는다. 함수마다 쓰는 필드만 받는다 */
 type Tracks = { currentTrack: QueuedTrack | null; queue: QueuedTrack[]; previousTracks: QueuedTrack[]; loop: Loop; trackSink?: TrackSink | null };
 type Queue = Pick<Tracks, "queue" | "trackSink">;
 
 const sinkOf = (player: Pick<Tracks, "trackSink">) => player.trackSink;
 
 // 대기열 줄 번호. 곡 객체가 처음 들어올 때 찍는다. 옮기기 · 섞기 · 되감기 · 반복으로 대기열 끝에 돌리기는 같은 객체라 번호가 그대로다.
-// 열거되지 않는 칸이라 복사본({...track})에는 따라가지 않는다. 복사해 넣은 곡은 새 번호를 받아 번호가 겹치지 않는다.
+// 열거되지 않는 필드라 복사본({...track})에는 따라가지 않는다. 복사해 넣은 곡은 새 번호를 받아 번호가 겹치지 않는다.
 // 세션 저장이 번호를 같이 적고 복원할 때 그대로 붙여 오므로(store/player-sessions), 이미 번호가 있는 곡을 보면 세는 값을 그 위로 올린다.
-// 그래야 봇을 다시 켜도 같은 곡이 같은 번호이고, 새로 들어오는 곡이 복원한 번호와 겹치지 않는다
+// 그래야 봇을 다시 시작해도 같은 곡이 같은 번호이고, 새로 들어오는 곡이 복원한 번호와 겹치지 않는다
 let lastEntry = 0;
 function admit(tracks: Iterable<QueuedTrack | null | undefined>) {
   for (const track of tracks) {
@@ -57,8 +57,8 @@ function enqueue(player: Queue, tracks: QueuedTrack[], { front = false }: { fron
   sinkOf(player)?.onEnqueue(tracks, front);
 }
 
-// 사용자가 넣은 곡은 자동재생이 미리 뽑아 둔 곡보다 앞에 선다.
-// 미리 뽑기가 켜지면 대기열이 비어 있지 않은 것이 기본이라, 그냥 뒤에 붙이면 사용자 곡이 뒤로 밀린다.
+// 사용자가 넣은 곡은 자동재생이 미리 선택해 둔 곡보다 앞에 선다.
+// 미리 선택이 켜지면 대기열이 비어 있지 않은 것이 기본이라, 그냥 뒤에 붙이면 사용자 곡이 뒤로 밀린다.
 function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   if (tracks.length === 0) return;
   const at = player.queue.findIndex((t) => t?.autoplay);
@@ -68,7 +68,7 @@ function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   sinkOf(player)?.onReplace();
 }
 
-// 자동재생이 미리 뽑아 둔 곡만 걷는다. 사용자가 넣은 곡은 그대로 둔다. 반환: 걷어낸 수
+// 자동재생이 미리 선택해 둔 곡만 제거한다. 사용자가 넣은 곡은 그대로 둔다. 반환: 제거한 수
 function dropAutoplay(player: Queue) {
   const before = player.queue.length;
   player.queue = player.queue.filter((t) => !t?.autoplay);
@@ -102,7 +102,7 @@ function retire(player: Pick<Tracks, "previousTracks" | "queue" | "trackSink">, 
   sinkOf(player)?.onRetire(track, requeue);
 }
 
-// 이전 곡(기록 끝)을 맨 앞에, 중단된 현재곡을 그 바로 뒤에. 이전 곡이 끝나면 원래 자리부터 이어진다.
+// 이전 곡(기록 끝)을 맨 앞에, 중단된 현재곡을 그 바로 뒤에. 이전 곡이 끝나면 원래 위치부터 이어진다.
 // 대기열 반복이 아닐 때 쓴다(반복이면 rewindRing)
 function rewind(player: Tracks) {
   // 대기열 반복의 이전 곡(rewindRing)은 기록을 건드리지 않아, 고리로 되돌린 지금 곡이 기록 끝에도 남는다.
@@ -123,7 +123,7 @@ function rewind(player: Tracks) {
   player.queue.unshift(prev);
   const current = player.currentTrack;
   if (current) player.queue.splice(1, 0, current);
-  // 기록을 하나 더 뺐으면 저장소는 통째로 다시 쓴다(onRewind 는 기록 한 줄만 뺀다)
+  // 기록을 하나 더 뺐으면 저장소는 통째로 다시 쓴다(onRewind 는 기록 한 행만 뺀다)
   if (stale) sinkOf(player)?.onReplace();
   else sinkOf(player)?.onRewind(prev, copy, current, true);
   return prev;
@@ -157,7 +157,7 @@ function move(player: Queue, from: number, to: number) {
   return track;
 }
 
-// random: [0, 1) 수를 주는 것. 시험이 정해진 수열을 넘긴다
+// random: [0, 1) 수를 주는 것. 테스트가 정해진 수열을 넘긴다
 function shuffle(player: Queue, random: () => number = Math.random) {
   const q = player.queue;
   for (let i = q.length - 1; i > 0; i--) {

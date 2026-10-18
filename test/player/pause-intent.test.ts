@@ -1,6 +1,6 @@
 // src/player/player.ts — 일시정지 의도가 버퍼링을 넘어 살아남는가.
 // @discordjs/voice의 pause()는 재생 중일 때만 받는다. play(resource) 직후는 버퍼링이라, 그때 건 일시정지가
-// 조용히 무시되고 곡이 재생됐다(재시작 복원에서 재현).
+// 조용히 무시되고 곡이 재생됐다(다시 시작 뒤 복원에서 재현).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -53,11 +53,11 @@ function makePlayer(status: string) {
     _onAudioState: Player.prototype._onAudioState,
   });
   Player.prototype.setupEvents.call(p);
-  // 가짜 오디오 플레이어의 상태를 옮기는 손잡이
+  // 가짜 오디오 플레이어의 상태를 옮기는 핸들
   return Object.assign(p, { audio });
 }
 
-test("버퍼링 중에 건 일시정지는 재생으로 넘어오는 순간 걸린다 — 재시작 복원 회귀", () => {
+test("버퍼링 중에 건 일시정지는 재생으로 넘어오는 순간 걸린다 — 다시 시작 뒤 복원 회귀", () => {
   const p = makePlayer("buffering");
   assert.equal(p.pauseFor("manual"), true, "의도는 받았다고 알린다 — 일시정지 버튼이 이 값으로 응답한다");
   assert.equal(p.paused, true);

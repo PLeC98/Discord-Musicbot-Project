@@ -1,10 +1,10 @@
 // 자식 프로세스마다의 메모리(MB). Windows 는 작업 집합(tasklist), 그 밖은 RSS(ps).
-// 프로그램을 하나 띄워 읽으므로 비싸다. 봇 상태 탭은 15초마다 모아 둔 값을 준다
+// 프로그램을 하나 실행해 읽으므로 비싸다. 봇 상태 탭은 15초마다 모아 둔 값을 준다
 
 import { execFile } from "node:child_process";
 
 const IS_WIN = process.platform === "win32";
-// 바쁜 기계에서는 tasklist 가 몇 초씩 걸린다. 칸마다 하나만 돌므로 넉넉히
+// 바쁜 기계에서는 tasklist 가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
 const TIMEOUT_MS = 30_000;
 
 function run(file: string, args: string[]): Promise<string> {

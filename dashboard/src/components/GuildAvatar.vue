@@ -1,6 +1,6 @@
 <template>
-  <!-- 서버 아이콘. 고른 서버는 동그라미에서 둥근 네모로 모양이 바뀐다(Hyprland 작업 공간 알약처럼). 봇이 음성 채널에 있으면 오른쪽 아래에 상태 표시.
-       재생 중의 막대는 그림(18×16, 2배 해상도)을 모양 틀(mask)로 써 색은 상태 색을 따른다. 요소로 그리면 1.5px 간격이 화면 배율에 따라 들쭉날쭉해진다.
+  <!-- 서버 아이콘. 선택한 서버는 동그라미에서 둥근 네모로 모양이 바뀐다(Hyprland 작업 공간 알약처럼). 봇이 음성 채널에 있으면 오른쪽 아래에 상태 표시.
+       재생 중의 막대는 그림(18×16, 2배 해상도)을 마스크(mask)로 써 색은 상태 색을 따른다. 요소로 그리면 1.5px 간격이 화면 배율에 따라 들쭉날쭉해진다.
        재생 중 움직이는 그림(14 프레임/초)은 제 프레임이 바뀔 때만 다시 그린다(CSS 애니메이션은 매 프레임). 같은 그림은 모든 아이콘이 한 시계로 돈다 -->
   <span class="relative shrink-0 inline-flex" :class="sizeClass">
     <img v-if="guild.icon" :src="guild.icon" :alt="guild.name" class="size-full object-cover transition-[border-radius] spring" :class="active ? 'rounded-[32%]' : 'rounded-[50%]'" />

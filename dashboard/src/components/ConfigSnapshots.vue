@@ -1,6 +1,6 @@
 <template>
-  <!-- 설정 DB 스냅샷. 고르면 걸어 두고 다시 시작해 바꿔 끼운다(실행기 없이 켰으면 다음에 켤 때). 복원은 최근 로그인만 -->
-  <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게) -->
+  <!-- 설정 DB 스냅샷. 선택하면 예약하고 다시 시작해 교체한다(실행기 없이 실행했으면 다음에 시작할 때). 복원은 최근 로그인만 -->
+  <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="history" :title="T.title">
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.desc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.descTip" /></p>
@@ -43,7 +43,7 @@ import type { Snapshot, SnapshotsView } from "../../../src/rules/snapshots.ts";
 import { text } from "../text/index.ts";
 const T = text.snapshots;
 
-/** canRestart: 실행기로 켰는가(봇 상태의 env.launcher). 아니면 걸어 두기만 한다 */
+/** canRestart: 실행기로 시작했는가(봇 상태의 env.launcher). 아니면 예약만 한다 */
 const props = defineProps<{ canRestart: boolean }>();
 
 const BASE = "/api/admin/snapshots";
@@ -67,7 +67,7 @@ async function restore() {
   try {
     view.value = (await axios.post<SnapshotsView>(`${BASE}/restore`, { name: asking.value.name })).data;
     asking.value = null;
-    // 실행기가 있으면 곧바로 다시 시작해 바꿔 끼운다(다시 뜨면 화면을 새로 고친다)
+    // 실행기가 있으면 곧바로 다시 시작해 교체한다(다시 뜨면 화면을 새로고침한다)
     if (props.canRestart) await restartNow();
     else notifyDone(T.stagedDone, T.stagedDoneBody);
   } catch (err) {

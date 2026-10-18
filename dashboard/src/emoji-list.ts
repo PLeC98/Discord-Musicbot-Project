@@ -4,10 +4,10 @@
 // 그림: twemoji@17.0.3. 전부 실제로 있는 파일인지 대조했다
 //
 // 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.
-// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어
+// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어
 export const TWEMOJI_VERSION = "17.0.3";
 
-/** 고르기 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */
+/** 선택 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */
 type Emoji = { char: string; label: string; search: string };
 type EmojiGroup = { name: string; emoji: Emoji[] };
 

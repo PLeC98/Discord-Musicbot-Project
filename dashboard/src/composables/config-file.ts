@@ -1,4 +1,4 @@
-// 설정 파일 편집기 하나의 주고받기: 읽기 · 저장 · 되돌리기 · 저장하지 않은 편집 · 서버가 짚은 문제.
+// 설정 파일 편집기 하나의 주고받기: 읽기 · 저장 · 되돌리기 · 저장하지 않은 편집 · 서버가 가리킨 문제.
 // 장르 · 상태 문구 · AI 설정 편집기가 같이 쓴다. 화면에 그릴 모양으로 바꾸는 것(apply)과 보낼 모양(payload)은 편집기가 정한다
 
 import { ref, computed, watch } from "vue";
@@ -14,7 +14,7 @@ type Data = Record<string, unknown>;
 type Options = {
   /** 저장하지 않은 편집을 알릴 이름(운영자 화면의 탭) */
   tab: string;
-  /** 설정 말고도 저장하지 않은 것이 있는지(적어 두고 저장하지 않은 키 등) */
+  /** 설정 말고도 저장하지 않은 것이 있는지(입력해 두고 저장하지 않은 키 등) */
   alsoUnsaved?: () => boolean;
   /** 보낼 모양. 바뀌었는지는 마지막으로 받은 것과 견준다 */
   payload: () => unknown;
@@ -50,7 +50,7 @@ export const configFileIo = (name: string) => {
 
 export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, savedNote }: Options) {
   const snapshot = ref("");
-  // 처음 받기 전에는 고친 것도 문제도 없다. 받기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
+  // 처음 불러오기 전에는 고친 것도 문제도 없다. 불러오기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
   // 저장 막대 · 검사 오류 · 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사 · 빈 목록 안내를 가린다
   const loaded = ref(false);
   const saving = ref(false);
@@ -63,7 +63,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
     computed(() => dirty.value || Boolean(alsoUnsaved?.())),
   );
 
-  // 고치면 서버가 짚은 문제를 걷는다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
+  // 고치면 서버가 가리킨 문제를 제거한다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
   watch(payload, () => {
     if (dirty.value) serverProblems.value = [];
   });
@@ -93,7 +93,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
       notifyDone(text.editor.saved, savedNote);
       return true;
     } catch (error) {
-      // 서버가 칸마다 짚은 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
+      // 서버가 필드마다 가리킨 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
       const details = problemDetails(error);
       if (details.length) serverProblems.value = details;
       else notifyProblem(error, text.editor.saveFailedSentence);

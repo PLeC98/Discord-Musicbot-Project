@@ -15,10 +15,10 @@ const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownGuild, RESTJSONEr
 const sleep = (ms: number) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve());
 
 /**
- * 저장 세션을 복원할 길드를 확보한다. 부팅 직후에는 캐시가 덜 차 있을 수 있어 REST로 재시도한다.
+ * 저장 세션을 복원할 길드를 확보한다. 기동 직후에는 캐시가 덜 차 있을 수 있어 REST로 재시도한다.
  *
  * `gone`은 길드가 실제로 사라졌을 때만 참이다. 네트워크 오류·5xx·레이트리밋 같은 일시적
- *   실패는 거짓. 세션을 지우지 않고 다음 기동에서 다시 시도한다.
+ *   실패는 거짓. 세션을 삭제하지 않고 다음 기동에서 다시 시도한다.
  */
 async function resolveGuildForRestore(client: Client, guildId: string, { attempts = ATTEMPTS, delayMs = RETRY_DELAY_MS } = {}): Promise<{ guild: Guild | null; gone: boolean }> {
   const cached = client.guilds.cache.get(guildId);
@@ -36,7 +36,7 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
     }
   }
 
-  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패. 세션을 지우지 않고 다음 기동에서 다시 시도합니다: ${lastError ? messageOf(lastError) : "길드를 받지 못함"}`);
+  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패. 세션을 삭제하지 않고 다음 기동에서 다시 시도합니다: ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
   return { guild: null, gone: false };
 }
 
@@ -112,7 +112,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
 // 복원한 결과를 로그에
 const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
 
-// 저장된 음성 · 글자 채널. 기록이 없거나 그 종류의 채널이 아니면 null
+// 저장된 음성 · 텍스트 채널. 기록이 없거나 그 종류의 채널이 아니면 null
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {
   if (!voiceChannelId || !textChannelId) return null;
   const find = async (id: string) => guild.channels.cache.get(id) || (await guild.channels.fetch(id).catch(() => null));
@@ -123,7 +123,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   return null;
 }
 
-/** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 켜기). 세션이 없으면 아무것도 안 한다 */
+/** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 시작). 세션이 없으면 아무것도 안 한다 */
 async function restoreGuild(client: Client, players: Registry, PlayerCtor: PlayerClass, guildId: string) {
   const record = sessions().load(guildId);
   if (record) await restoreOne(client, players, PlayerCtor, record);

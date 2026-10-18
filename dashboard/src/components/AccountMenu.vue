@@ -43,7 +43,7 @@
         <div v-if="user.viewAs" class="mx-2 mb-2 px-3 py-2 rounded-xl text-label font-semibold bg-tertiary-container text-on-tertiary-container">{{ user.viewAsLabel }} {{ T.viewingAs }}</div>
 
         <div class="px-2 pb-2 pt-1 text-label font-semibold text-on-surface-variant">{{ T.brightness }}</div>
-        <!-- 이어 붙은 버튼 묶음(M3E connected button group). 고른 칸은 모서리가 둥글게 바뀐다 -->
+        <!-- 이어 붙은 버튼 그룹(M3E connected button group). 선택한 버튼은 모서리가 둥글게 바뀐다 -->
         <div class="flex gap-0.5 px-2 pb-3" role="group" :aria-label="T.brightness">
           <button
             v-for="(m, i) in MODE_ITEMS"
@@ -132,7 +132,7 @@ function openLicense() {
 async function logout() {
   open.value = false;
   try {
-    // 세션이 이미 끝났어도 로그인 화면으로 간다. 세션 끝 대화상자를 띄우지 않는다
+    // 세션이 이미 끝났어도 로그인 화면으로 간다. 세션 끝 대화상자를 열지 않는다
     await axios.post("/auth/logout", undefined, { quietSession: true });
   } finally {
     window.location.assign("/");

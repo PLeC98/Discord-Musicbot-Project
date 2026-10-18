@@ -13,7 +13,7 @@ import type { StreamInfo } from "../../src/sources/stream-url.ts";
 
 // ── 넘침 안전망 ──────────────────────────────────────────────
 
-// 멈춘 까닭(플레이어 안 칸)
+// 멈춘 까닭(플레이어 안 필드)
 const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;
 
 function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, isLive = false } = {}) {
@@ -76,7 +76,7 @@ test("넘침 안전망: 5초마다 본다. 멈추면 더 보지 않는다", (t) 
 // 재생목록으로 담은 스포티파이 곡은 스포티파이 길이를 들고 오는데, 실제 오디오는 수 초 짧을 수 있다.
 // 그 차이로 멀쩡한 종료가 조기 종료로 판정되고 SponsorBlock 곡 끝 구간이 파일 끝으로 건너뛰기가 됐다.
 
-// 캐시 기록은 임시 DB 에 적었다가 지운다
+// 캐시 기록은 임시 DB 에 적었다가 삭제한다
 const store = tempStore.openTempStore("track-completion-");
 after(() => store.close());
 

@@ -2,8 +2,8 @@
 //
 // 회귀 시나리오: 제목이 기호뿐인 Spotify 트랙("''''''")의 YouTube 동등물로
 // 어린이 애니메이션 "라이브 방송"이 선택됐다. 라이브는 duration이 0이라 길이 신호가 죽고,
-// 후보에서 걸러지지도 않아 우승했다. 그 뒤 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를
-// 외부 다운로더로 띄우는데 방송이 끝나지 않으니 파일이 무한히 커지고, 봇을 죽여도 ffmpeg가 남았다.
+// 후보에서 필터링되지도 않아 우승했다. 그 뒤 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를
+// 외부 다운로더로 실행하는데 방송이 끝나지 않으니 파일이 무한히 커지고, 봇을 죽여도 ffmpeg가 남았다.
 //
 // 방어선 3중: (1) 매칭 후보에서 라이브 제외 (2) track.isLive면 다운로드 미시작 (3) yt-dlp --match-filter "!is_live"
 
@@ -14,7 +14,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import * as stores from "../../src/store/stores.ts";
 
-// 동등물 찾기가 링크 장부를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
+// 동등물 찾기가 링크 데이터를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
 const DB_DIR = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}`);
 const audioCache = await import("../../src/store/audio-cache.ts");
 stores.open(DB_DIR);
@@ -35,7 +35,7 @@ test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ live_status: "is_live" }), true);
   assert.equal(YouTube._detectLive({ live_status: "is_upcoming" }), true);
 
-  // 종료된 라이브(was_live)와 후처리 중(post_live)은 길이가 확정된 일반 영상 — 받아도 된다.
+  // 종료된 라이브(was_live)와 후처리 중(post_live)은 길이가 확정된 일반 영상 — 다운로드해도 된다.
   assert.equal(YouTube._detectLive({ live_status: "was_live" }), false);
   assert.equal(YouTube._detectLive({ live_status: "post_live" }), false);
   assert.equal(YouTube._detectLive({ live_status: "not_live" }), false);

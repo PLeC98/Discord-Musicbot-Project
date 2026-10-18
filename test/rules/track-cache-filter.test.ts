@@ -1,4 +1,4 @@
-// src/rules/track-cache-filter.ts — 캐시 DB 의 거르기 식(DB Browser for SQLite 문법)을 읽고 견준다
+// src/rules/track-cache-filter.ts — 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 견준다
 import test from "node:test";
 import assert from "node:assert";
 import { FILTER_MAX, REGEX_MAX, matchFilter, matchWords, parseFilter, parseWords, readValue, type ColumnKind } from "../../src/rules/track-cache-filter.ts";
@@ -10,7 +10,7 @@ function pick(kind: ColumnKind, expr: string, values: Array<string | number | nu
   return values.filter((value) => matchFilter(parsed.filter, value));
 }
 
-test("빈 식은 거르지 않는다", () => {
+test("빈 식은 필터링하지 않는다", () => {
   assert.equal(parseFilter("text", "   "), null);
   assert.equal(parseWords(""), null);
 });
@@ -21,7 +21,7 @@ test("그냥 쓰면 포함(대소문자 무시) · % 는 아무 글자들 · 다
   assert.deepEqual(pick("text", "a.b", ["a.b", "axb"]), ["a.b"]);
 });
 
-test("= · <> 는 글자 칸에서 그대로 견주고, ='' · <>'' 는 빔 · 빔 아님", () => {
+test("= · <> 는 글자 열에서 그대로 견주고, ='' · <>'' 는 빔 · 빔 아님", () => {
   assert.deepEqual(pick("text", "=youtube", ["youtube", "YouTube", "youtube2"]), ["youtube"]);
   assert.deepEqual(pick("text", "<>youtube", ["youtube", "spotify", null]), ["spotify", null]);
   assert.deepEqual(pick("text", "=''", ["", null, "a"]), ["", null]);
@@ -57,7 +57,7 @@ test("날짜 하나는 그날 하루: = 은 그날 안, > 는 그날 뒤, >= 는
   assert.deepEqual(pick("time", ">=2026-10-17 12:00", all), [night, after]);
 });
 
-test("수 칸에 읽을 수 없는 값 · 글자 칸에 크기 견주기는 bad-filter", () => {
+test("수 열에 읽을 수 없는 값 · 글자 열에 크기 견주기는 bad-filter", () => {
   assert.deepEqual(parseFilter("count", ">many"), { ok: false, code: "bad-filter" });
   assert.deepEqual(parseFilter("text", ">3"), { ok: false, code: "bad-filter" });
   assert.deepEqual(parseFilter("time", "2026-13-40~x"), { ok: false, code: "bad-filter" });
@@ -80,7 +80,7 @@ test("식 길이 상한", () => {
   assert.deepEqual(parseWords("x".repeat(FILTER_MAX + 1)), { ok: false, code: "filter-too-long", max: FILTER_MAX });
 });
 
-test("아무 칸에서나: 낱말마다 어느 칸에든 들어간 줄", () => {
+test("모든 열에서: 낱말마다 어느 열에든 들어간 행", () => {
   const words = parseWords("yoasobi  idol");
   assert.ok(words?.ok);
   assert.equal(matchWords(words.words, ["YOASOBI", "Idol (アイドル)", null]), true);

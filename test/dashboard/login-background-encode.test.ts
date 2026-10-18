@@ -1,5 +1,5 @@
 // src/dashboard/login-background/encode.ts — H.264 · AV1 · VP9 를 HLS(fMP4)로 굽고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 굽는다(없으면 건너뛴다)
-// 단계 크기 셈(4K · 세로 · 작은 원본) · 구간과 크롭 · 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다) · 마무리(원본 지우기) · 코어 셈
+// 단계 크기 셈(4K · 세로 · 작은 원본) · 구간과 크롭 · 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다) · 마무리(원본 삭제) · 코어 셈
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -93,7 +93,7 @@ test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 �
   assert.match(first.media!.rungs.av1![0].codecs, /^av01\.0\.\d{2}M\.10$/);
   assert.match(first.media!.rungs.vp9![0].codecs, /^vp09\.00\.\d{2}\.08$/);
   for (const codec of ["av1", "vp9"]) assert.match(fs.readFileSync(at(one, codec, "index.m3u8"), "utf8"), /360\/index\.m3u8/);
-  // 이어 하기: VP9 를 지우고 끊긴 임시 폴더를 둔 채 다시
+  // 이어 하기: VP9 를 삭제하고 끊긴 임시 폴더를 둔 채 다시
   const av1Mtime = fs.statSync(at(one, "av1", "360", "index.m3u8")).mtimeMs;
   fs.rmSync(at(one, "vp9", "360"), { recursive: true });
   fs.mkdirSync(at(one, "vp9", "360.tmp"), { recursive: true });
@@ -106,7 +106,7 @@ test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 �
   assert.deepEqual(Object.keys(again.media!.rungs).sort(), ["av1", "vp9"]);
 });
 
-test("마무리: 원본 · 미리보기 · 장면 띠는 지우고 구운 것 · 정지 그림은 남긴다", opts, async () => {
+test("마무리: 원본 · 미리보기 · 장면 띠는 삭제하고 구운 것 · 정지 그림은 남긴다", opts, async () => {
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
   for (const name of ["preview.mp4", "strip.webp", "still-640.webp", "download.info.json"]) fs.writeFileSync(at(one, name), "x");
   await h264(job(one));

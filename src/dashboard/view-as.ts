@@ -5,7 +5,7 @@ import { isTier, type Tier } from "./contract/identity.ts";
 /**
  * 권한 수준 오버라이드. 봇 운영자가 낮은 계층의 화면과 동작을 그대로 재현해 보기 위한 점검용.
  * 디스코드의 "역할 적용해서 서버 보기"와 같은 발상으로, 판정 로직(src/usecases/permissions.ts)은 건드리지 않고
- * 입력(권한 비트·보유 역할)만 갈아끼운다. 그래야 UI 표시와 서버 강제가 같이 따라온다.
+ * 입력(권한 비트·보유 역할)만 교체한다. 그래야 UI 표시와 서버 강제가 같이 따라온다.
  *
  * 상향은 구조적으로 불가능하다. 설정은 진짜 운영자만 할 수 있고(requireOwner) 모든 계층이 운영자 이하다.
  */
@@ -32,7 +32,7 @@ const SPEC: Partial<Record<Tier, { permissions: PermissionsBitField; roles: { ca
 };
 
 /**
- * 오버라이드가 걸려 있으면 권한·역할만 바꿔 끼운 대역 멤버를 돌려준다 (아니면 원본 그대로).
+ * 오버라이드가 걸려 있으면 권한·역할만 교체한 대역 멤버를 돌려준다 (아니면 원본 그대로).
  *
  * Object.create로 원본을 프로토타입에 두므로 id·guild·voice 등 나머지는 그대로 동작한다.
  * voice는 guild.voiceStates.cache를 읽는 getter라 프로토타입 체인으로 이어지고, 음성 재적은

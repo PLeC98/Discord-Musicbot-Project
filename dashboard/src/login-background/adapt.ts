@@ -1,9 +1,9 @@
-// 로그인 배경의 능동 조절(정함: 계획서 18단계 "고르는 규칙 · 능동 조절", research §11.8). 값은 목업(gallery/adaptive-bg.ts)의 것이고 A8(A32 에서 앱을 자주 오가며)에서 다듬는다.
+// 로그인 배경의 능동 조절(결정: 계획서 18단계 "고르는 규칙 · 능동 조절", research §11.8). 값은 목업(gallery/adaptive-bg.ts)의 것이고 A8(A32 에서 앱을 자주 오가며)에서 다듬는다.
 // 재기: 4초 창마다 영상이 화면에 낸 장면(requestVideoFrameCallback 의 presentedFrames) · 버린 장면을 잰다. 화면 주사율은 보지 않는다(크롬은 영상만 바뀌는 화면이면 주사율을 영상에 맞춰 내린다).
 //      성능은 최근 세 창(약 12초)을 합쳐 본다: 낸 장면이 초당 장면 수의 85% 아래거나 버린 장면이 2% 넘으면 나쁨. 한 창에서 버린 장면이 10% 넘으면 바로 내린다.
 //      화면 숨김 · 멈춤 · 기다림이 낀 창은 성능으로 치지 않고, 돌아오거나 다시 재생된 뒤 5초는 재지 않으며 그동안의 기다림은 통신으로 치지 않는다.
-// 조절: 나쁨이면 한 칸 내리고, 좋음이 60초 이어지면 한 칸 올려 시험한다. 올린 뒤 두 창 안에 나쁨이면 되돌리고 다음 시험까지 두 배로 기다린다(최대 8분).
-//      30초 버틴 칸을 기기에 기억해 다음 방문의 시작점으로만 쓴다.
+// 조절: 나쁨이면 한 단계 내리고, 좋음이 60초 이어지면 한 단계 올려 테스트한다. 올린 뒤 두 창 안에 나쁨이면 되돌리고 다음 테스트까지 두 배로 기다린다(최대 8분).
+//      30초 버틴 단계를 기기에 기억해 다음 방문의 시작점으로만 쓴다.
 // 통신: VP9 · AV1 목록에는 1080p 아래가 없어 hls.js 가 더 내릴 곳이 없으니, 받아 둔 영상이 바닥난 기다림(되감는 순간 빼고)이 30초에 세 번이고
 //      hls.js 의 통신 어림이 지금 단계 2초 최대의 1.3배에 못 미치면 H.264 720p 로 옮긴다
 
@@ -18,17 +18,17 @@ type Adapter = {
   stop(): void;
 };
 type AdapterDeps = {
-  /** 지금 영상(정지 그림 칸이면 null) */
+  /** 지금 영상(정지 그림 단계면 null) */
   video: () => HTMLVideoElement | null;
-  /** 지금 칸 · 칸 수 · H.264 칸(없으면 -1) */
+  /** 지금 단계 · 단계 수 · H.264 단계(없으면 -1) */
   index: () => number;
   count: number;
   h264At: number;
-  /** 그 칸으로 */
+  /** 그 단계로 */
   go: (index: number) => void;
   /** 지금 단계의 2초 최대와 hls.js 의 통신 어림(bps, 모르면 0) */
   network: () => { peak: number; bandwidth: number };
-  /** 30초 버틴 칸 */
+  /** 30초 버틴 단계 */
   remember: (index: number) => void;
   /** 영상의 초당 장면 수 */
   fps: number;
@@ -40,7 +40,7 @@ const UP = { first: 60_000, max: 480_000, settle: 30_000 };
 const NET = { window: 30_000, count: 3, ahead: 0.5, headroom: 1.3 };
 const RESUME_GRACE = 5000;
 const RECENT = 3;
-/** 칸을 바꾼 뒤 재지 않는 시간(새 단계를 받아 처음 그리는 동안) */
+/** 단계를 바꾼 뒤 재지 않는 시간(새 단계를 받아 처음 그리는 동안) */
 const ENTER_GRACE = 2000;
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -105,7 +105,7 @@ function startAdapter(deps: AdapterDeps): Adapter {
     enteredAt = performance.now();
     goodSince = enteredAt;
   };
-  // 통신이 못 따라가면 H.264 720p 로. 올려 시험하던 중이면 되돌림으로 치고 다음 시험을 미룬다
+  // 통신이 못 따라가면 H.264 720p 로. 올려 테스트하던 중이면 되돌림으로 치고 다음 테스트를 미룬다
   const network = () => {
     const now = performance.now();
     waitTimes = waitTimes.filter((t) => now - t < NET.window);
@@ -122,7 +122,7 @@ function startAdapter(deps: AdapterDeps): Adapter {
     return true;
   };
 
-  /** 잰 창 하나로 정한다. 칸을 옮겼으면 참 */
+  /** 잰 창 하나로 정한다. 단계를 옮겼으면 참 */
   const decide = (at: number, got: Window) => {
     const now = performance.now();
     recent = [...recent.slice(-(RECENT - 1)), got];
@@ -130,7 +130,7 @@ function startAdapter(deps: AdapterDeps): Adapter {
     const severe = got.decoded > 0 && got.dropped / got.decoded > LIMIT.severe;
     if (!good) goodSince = now;
     const last = deps.count - 1;
-    // 올려 시험하는 중에 나쁨이면 되돌리고 다음 시험을 미룬다
+    // 올려 테스트하는 중에 나쁨이면 되돌리고 다음 테스트를 미룬다
     if (probation > 0) {
       probation--;
       if (!good && recent.length >= 2) {
@@ -155,7 +155,7 @@ function startAdapter(deps: AdapterDeps): Adapter {
     }
     return false;
   };
-  /** 지금은 재지 않는다(정지 그림 · 숨김 · 멈춤 · 칸을 바꾼 직후 · 돌아온 직후) */
+  /** 지금은 재지 않는다(정지 그림 · 숨김 · 멈춤 · 단계를 바꾼 직후 · 돌아온 직후) */
   const resting = (video: HTMLVideoElement | null): video is null => {
     const now = performance.now();
     return !video || document.hidden || video.paused || now - enteredAt < ENTER_GRACE || now - resumedAt < RESUME_GRACE;

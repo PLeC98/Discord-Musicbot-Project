@@ -1,5 +1,5 @@
 <template>
-  <!-- 자동재생 전역 값(장르 설정의 defaults). 장르 편집기 목록의 "전역 설정"을 고르면 상세 자리에 그린다 -->
+  <!-- 자동재생 전역 값(장르 설정의 defaults). 장르 편집기 목록의 "전역 설정"을 선택하면 상세 영역에 그린다 -->
   <div class="flex flex-col gap-3">
     <p class="text-sm text-on-surface-variant">{{ T.desc }}</p>
     <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">
@@ -33,7 +33,7 @@ import { GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
 import { text } from "../text/index.ts";
 const T = text.genres.defaults;
 
-/** 전역 값. 칸을 바로 고친다(부모의 draft.defaults) */
+/** 전역 값. 필드를 바로 고친다(부모의 draft.defaults) */
 type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] };
 const defaults = defineModel<Defaults>({ required: true });
 </script>

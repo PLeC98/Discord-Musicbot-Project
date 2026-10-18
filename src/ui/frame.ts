@@ -1,5 +1,5 @@
-// 응답 틀. 머리 줄 · 본문 · 작은 글씨의 꼬리 줄을 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 머리 칸 옆에 붙인다.
-// 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 머리 줄의 이모지를, 얼마나 심각한지(severity)로 색을 고른다
+// 응답 템플릿. 헤더 줄 · 본문 · 작은 글씨의 푸터를 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 헤더 옆에 붙인다.
+// 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 헤더 줄의 이모지를, 얼마나 심각한지(severity)로 색을 정한다
 
 import { ContainerBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import { colorOf, type Meaning } from "./colors.ts";
@@ -22,10 +22,10 @@ const EMOJI = {
   state: "⚠️", // 그 밖에 지금 상태라 못 함 · 일부만 됨
 } as const satisfies Record<Topic, string>;
 
-/** 화면의 칸. footer 는 작은 글씨 줄들(비면 건너뛴다), divider 면 그 위에 구분선 */
+/** 화면의 필드. footer 는 작은 글씨 줄들(비면 건너뛴다), divider 면 그 위에 구분선 */
 type Look = { title?: string; body?: string | null; footer?: Array<string | null>; divider?: boolean; thumbnail?: string | null; color?: Meaning };
 
-// 머리 줄 · 본문을 한 덩이로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 글자만 둔다
+// 헤더 줄 · 본문을 한 블록으로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 텍스트만 둔다
 function frame({ title, body, footer = [], divider = false, thumbnail, color = "brand" }: Look) {
   const head = [title ? `### ${title}` : null, body].filter(Boolean).join("\n");
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf(color)));

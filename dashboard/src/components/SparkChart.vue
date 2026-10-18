@@ -11,7 +11,7 @@
         <line x1="0" x2="100" y1="2" y2="2" class="stroke-outline-variant" stroke-opacity="0.5" stroke-width="1" vector-effect="non-scaling-stroke" />
         <line x1="0" x2="100" y1="40" y2="40" class="stroke-outline-variant" stroke-width="1" vector-effect="non-scaling-stroke" />
         <line v-if="warn !== undefined" x1="0" x2="100" :y1="y(warn)" :y2="y(warn)" class="stroke-(--warn-ink)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
-        <!-- 봇을 막 켜 모은 값이 없으면 선을 긋지 않는다 -->
+        <!-- 봇을 막 시작해 모은 값이 없으면 선을 긋지 않는다 -->
         <template v-for="(s, i) in n ? all : []" :key="i">
           <path v-if="i === 0" :d="area(s)" class="fill-current opacity-15" :class="tone" />
           <path :d="line(s)" fill="none" stroke="currentColor" :stroke-width="i === 0 ? 1.5 : 1" :stroke-opacity="i === 0 ? 1 : 0.55" vector-effect="non-scaling-stroke" stroke-linejoin="round" :class="tone" />
@@ -53,7 +53,7 @@ const props = defineProps<{
 const hover = ref<number | null>(null);
 const all = computed(() => (props.second ? [props.values, props.second] : [props.values]));
 const n = computed(() => props.values.length);
-/** 점의 가로 위치(0~100). 점이 하나뿐이면(봇을 켠 뒤 첫 칸) 오른쪽 끝 */
+/** 점의 가로 위치(0~100). 점이 하나뿐이면(봇을 시작한 뒤 첫 샘플) 오른쪽 끝 */
 const x = (i: number, count = n.value) => (count > 1 ? (i / (count - 1)) * 100 : 100);
 const y = (v: number) => 40 - (Math.min(props.max, Math.max(0, v)) / props.max) * 38;
 // 점이 하나뿐이면 그 값으로 가로질러 긋는다(점 하나로는 선이 보이지 않는다)

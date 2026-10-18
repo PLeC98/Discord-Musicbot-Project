@@ -1,7 +1,7 @@
 // src/ui/genre-menu.ts — 자동재생 장르 선택 화면.
 //
 // 회귀 대상: 켜기(버튼)와 끄기·명령이 각자 화면을 만들던 시절, 명령 쪽만 영문 키를 보여줬다.
-// 두 화면이 한 빌더를 지나는지 잠가 둔다. 고른 값은 식별자(키), 보이는 것은 이름표(label, 없으면 식별자).
+// 두 화면이 한 빌더를 지나는지 잠가 둔다. 선택한 값은 식별자(키), 보이는 것은 라벨(label, 없으면 식별자).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +35,7 @@ test("켜기·끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () 
     assert.deepEqual(
       menu.options.map((o) => o.label),
       ids.map((id) => genres[id].label?.trim() || id),
-      "보이는 것은 이름표 — 고른 값(식별자)과 따로다",
+      "보이는 것은 라벨 — 선택한 값(식별자)과 따로다",
     );
   }
 
@@ -47,12 +47,12 @@ test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
   assert.ok(ids.length <= 25, `장르 ${ids.length}개 — 25개를 넘으면 메뉴가 거부된다`);
 });
 
-test("끄기 화면: 이미 꺼졌음을 알리고 다시 고를 기회를 준다", () => {
+test("끄기 화면: 이미 꺼졌음을 알리고 다시 선택할 기회를 준다", () => {
   const off = buildAutoplayOffMenu();
   assert.match(headOf(off) ?? "", /자동재생을 껐어요/);
 });
 
-test("켠 결과: 고른 장르와 누가 켰는지, 그 줄 위에 구분선", () => {
+test("켠 결과: 선택한 장르와 누가 켰는지, 그 줄 위에 구분선", () => {
   const on = post(autoplayOn("가요", "<@1>"));
   assert.deepEqual(textsOf(on), ["### 🎲 자동재생을 시작할게요!\n**가요** 장르로 켰어요. 직접 넣어둔 대기열이 끝나면 자동재생 곡들이 나와요.", "-# 👤 요청한 사람 <@1>"]);
   assert.equal(separatorsOf(on), 1);

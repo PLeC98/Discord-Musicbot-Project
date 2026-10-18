@@ -1,16 +1,16 @@
 // 운영 조절값. 대시보드(운영자 패널의 일반 · 유튜브 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
 // 값은 .env 와 같은 글자로 둔다. 읽는 길(config 의 envReaders)이 하나라 검사 · 단위 바꾸기 · 다듬기가 .env 때와 같다.
-// 화면도 부르므로 Node 없는 모듈이다. 이름표 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
+// 화면도 부르므로 Node 없는 모듈이다. 라벨 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
 //
-// restart: 기동 때 한 번 잡는 값. 저장해도 다시 켜기 전까지는 기동 때 값으로 돈다(반쯤 먹는 일이 없게. store/tunables).
-// 나머지는 저장하면 바로 먹는다. 기동 때 만들어 둔 것(요청 제한기 · 하트비트 · 캐시 정리 타이머 · 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
+// restart: 기동 때 한 번 잡는 값. 저장해도 다시 시작하기 전까지는 기동 때 값으로 돈다(반쯤 적용되는 일이 없게. store/tunables).
+// 나머지는 저장하면 바로 적용된다. 기동 때 만들어 둔 것(요청 제한기 · 하트비트 · 캐시 정리 타이머 · 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 
-/** 묶음(화면의 카드 차례) */
+/** 그룹(화면의 카드 순서) */
 const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "cache", "stream", "dashboard", "ailog"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
- * 칸의 꼴. int: 정수(min · max), bool: true · false, text: 글자, color: #RRGGBB, url: http · https 주소,
+ * 필드의 형식. int: 정수(min · max), bool: true · false, text: 문자열, color: #RRGGBB, url: http · https 주소,
  * list: 쉼표로 나눈 이름들, cookies: file 또는 브라우저 이름
  */
 type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies" | "categories";
@@ -40,7 +40,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "SPONSORBLOCK_API_BASE", group: "sponsorblock", kind: "url", def: "https://sponsor.ajay.app" },
   { key: "SPONSORBLOCK_HASH_PREFIX", group: "sponsorblock", kind: "int", def: "5", min: 4, max: 32 },
   { key: "SPONSORBLOCK_TIMEOUT_MS", group: "sponsorblock", kind: "int", def: "1000", min: 100, max: 10000 },
-  // 화면은 체크박스 목록(카드 폭 전체라 묶음 맨 끝). 쉼표로 이은 구간 id, 하나도 고르지 않으면 NO_CATEGORIES
+  // 화면은 체크박스 목록(카드 폭 전체라 그룹 맨 끝). 쉼표로 이은 구간 id, 하나도 선택하지 않으면 NO_CATEGORIES
   { key: "SPONSORBLOCK_CATEGORIES", group: "sponsorblock", kind: "categories", def: "music_offtopic,intro,outro" },
   // 오디오 캐시
   { key: "CACHE_MAX_SIZE_MB", group: "cache", kind: "int", def: "1024", min: 1, max: 1048576 },
@@ -60,12 +60,12 @@ const TUNABLES: readonly Tunable[] = [
   { key: "SSE_HEARTBEAT_SEC", group: "dashboard", kind: "int", def: "20", min: 5, max: 300 },
   { key: "SSE_MAX_CONNECTIONS", group: "dashboard", kind: "int", def: "5", min: 1, max: 100 },
   { key: "SSE_COALESCE_MS", group: "dashboard", kind: "int", def: "300", min: 0, max: 5000 },
-  // AI 리퀘스트 로그(AI 보조 탭의 리퀘스트 로그 화면). 끄면 사용량 통계도 멈춘다. 용량을 넘으면 오래된 로그부터 지운다(통계는 남는다)
+  // AI 리퀘스트 로그(AI 보조 탭의 리퀘스트 로그 화면). 끄면 사용량 통계도 멈춘다. 용량을 넘으면 오래된 로그부터 삭제한다(통계는 남는다)
   { key: "AI_LOG_ENABLED", group: "ailog", kind: "bool", def: "true" },
   { key: "AI_LOG_MAX_MB", group: "ailog", kind: "int", def: "64", min: 1, max: 10240 },
 ];
 
-/** 묶음을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, AI 리퀘스트 로그는 AI 보조, 나머지는 설정. 화면은 탭마다 그 묶음만 그린다 */
+/** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, AI 리퀘스트 로그는 AI 보조, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
 type TunableTab = "settings" | "appearance" | "youtube" | "ai";
 const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", cache: "settings", stream: "settings", dashboard: "settings", ailog: "ai" };
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
@@ -74,7 +74,7 @@ const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key)
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
 
 /**
- * 저장할 꼴. 글 칸(text: 음성 상태 머리말 등)은 앞뒤 공백도 값이다("📻 " 뒤에 곡 이름이 붙는다). 나머지는 앞뒤 공백을 걷는다.
+ * 저장할 형식. 텍스트 필드(text: 음성 상태 접두어 등)는 앞뒤 공백도 값이다("📻 " 뒤에 곡 이름이 붙는다). 나머지는 앞뒤 공백을 제거한다.
  * 공백뿐이면 빈 값(기본값)이다
  */
 function tunableValue(key: string, raw: string): string {
@@ -89,7 +89,7 @@ function tunable(key: string): Tunable {
   return found;
 }
 
-/** 대시보드의 답. values: 저장한 값(비운 칸은 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 켜야 먹는 이름 */
+/** 대시보드의 답. values: 저장한 값(비운 필드는 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 시작해야 적용되는 이름 */
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
 export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, groupsIn, tunable, tunableValue };

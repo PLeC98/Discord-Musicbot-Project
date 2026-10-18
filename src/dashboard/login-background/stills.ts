@@ -1,7 +1,7 @@
 // 로그인 배경의 정지 그림: 썸네일 단계(가장 작은 폭 하나와 대표색, 로그인 화면이 이것부터 건다)와 정지 그림 단계(나머지 폭). WebP 품질 95(2026-10-17 사용자).
-// 그림은 원본을 EXIF 방향대로 돌려 자르고, 영상은 운영자가 고른 썸네일 장면(없으면 구간 시작)을 떠서 자른다.
+// 그림은 원본을 EXIF 방향대로 돌려 자르고, 영상은 운영자가 선택한 썸네일 장면(없으면 구간 시작)을 떠서 자른다.
 // 색은 sRGB 로 적는다: ICC 프로필은 sharp 가 바꾸고, PNG 의 gAMA(sRGB · ICC 표시 없이 감마만 적힌 것)는 브라우저처럼 그 감마를 풀어 sRGB 로 다시 적는다(sharp 는 gAMA 를 보지 않는다).
-// 영상에서 뜬 장면은 ffmpeg 에서 RGB 그대로 받는다(PNG 로 받으면 ffmpeg 가 gAMA 를 적어 어둡게 보인다). 대표색은 rules/art-seed(화면과 같은 셈)
+// 영상에서 뜬 장면은 ffmpeg 에서 RGB 그대로 받는다(PNG 로 받으면 ffmpeg 가 gAMA 를 적어 어둡게 보인다). 대표색은 rules/art-seed(화면과 같은 계산)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -24,7 +24,7 @@ const COLOR_FRAMES = 20;
 /** 정지 그림 파일(공개 주소 /login-background/:id/still-<폭>.webp) */
 const stillFile = (id: string, width: number) => path.join(store.folderOf(id), `still-${width}.webp`);
 
-/** PNG 의 gAMA(1/감마, 없거나 sRGB · ICC 표시가 있으면 null). 그림 자료(IDAT) 앞의 덩어리만 본다 */
+/** PNG 의 gAMA(1/감마, 없거나 sRGB · ICC 표시가 있으면 null). 그림 자료(IDAT) 앞의 청크만 본다 */
 function pngGamma(file: string): number | null {
   const head = Buffer.alloc(64 * 1024);
   const fd = fs.openSync(file, "r");
@@ -65,7 +65,7 @@ async function withLut(image: Sharp, lut: Uint8Array | null): Promise<Sharp> {
 /** 그림 배경: 돌리고 자르고 투명은 검정으로 채운 원본(폭을 줄이기 전), 그 크기와 감마 표 */
 async function croppedImage(item: Readonly<store.Stored>, crop: LoginBackgroundCrop) {
   const file = store.sourceOf(item.id);
-  // 돌린 크기는 받기 단계가 적은 것(item.width · height)
+  // 돌린 크기는 다운로드 단계가 적은 것(item.width · height)
   const area = { left: Math.round(item.width * crop.x), top: Math.round(item.height * crop.y), ...cropped(item.width, item.height, crop) };
   const image = sharp(file, { limitInputPixels: MAX_PIXELS }).autoOrient().extract(area).flatten({ background: TRANSPARENT_FILL });
   const gamma = pngGamma(file);
@@ -83,7 +83,7 @@ async function frameAt({ source, probed, at, crop, size, channels }: Frame, sign
   return run.output.subarray(0, bytes);
 }
 
-/** 영상 배경: 썸네일 장면(고른 장면, 없으면 구간 시작)을 자른 크기 그대로 */
+/** 영상 배경: 썸네일 장면(선택한 장면, 없으면 구간 시작)을 자른 크기 그대로 */
 async function thumbFrame(item: Readonly<store.Stored>, signal: AbortSignal) {
   const edit = item.edit!;
   const source = store.sourceOf(item.id);

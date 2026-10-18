@@ -1,4 +1,4 @@
-// 자동재생 입구: /autoplay 와 패널의 자동재생 버튼이 같은 절차(answerAutoplay)를 쓰고, 장르 메뉴에서 고른 것을 받는다.
+// 자동재생 진입점: /autoplay 와 패널의 자동재생 버튼이 같은 절차(answerAutoplay)를 쓰고, 장르 메뉴에서 선택한 것을 받는다.
 // 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
 import { type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
@@ -14,8 +14,8 @@ import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf } from "../../ui/delivery.ts";
 
 /**
- * 켜져 있으면 끄고 메뉴가 떠 있는 동안 장르를 다시 고를 기회를 준다(고르면 변경, 두면 종료).
- * 꺼져 있으면 장르 메뉴를 띄운다. 플레이어가 없어도 띄운다(고른 뒤에 만든다)
+ * 켜져 있으면 끄고 메뉴가 떠 있는 동안 장르를 다시 선택할 기회를 준다(선택하면 변경, 두면 종료).
+ * 꺼져 있으면 장르 메뉴를 표시한다. 플레이어가 없어도 표시한다(선택한 뒤에 만든다)
  */
 async function answerAutoplay(interaction: RepliableInteraction<"cached">, player: Player | undefined) {
   const actor = { member: interaction.member };
@@ -38,7 +38,7 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { 
   return answerAutoplay(interaction, player);
 }
 
-// 장르 메뉴에서 골랐다. 메뉴(본인)를 지우고 켠 결과는 모두에게
+// 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];
@@ -53,7 +53,7 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
   if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 }
 
-// 앞머리가 재생 패널 버튼(panel:)보다 좁아 자동재생 버튼은 여기로 온다
+// 접두사가 재생 패널 버튼(panel:)보다 좁아 자동재생 버튼은 여기로 온다
 const routes: Route[] = [route("button", customId(PANEL, "autoplay", ""), handleAutoplayButton), route("select", customId(AUTOPLAY, "genre"), handleAutoplayGenre)];
 
 export { routes, answerAutoplay, handleAutoplayButton, handleAutoplayGenre };

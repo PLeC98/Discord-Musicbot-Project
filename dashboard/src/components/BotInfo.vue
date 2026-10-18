@@ -1,9 +1,9 @@
 <template>
-  <!-- 봇 정보 탭: 리싱한 Arch(Hyprland) 데스크톱의 터미널에서 fastfetch 를 띄운 모습(이 탭만 M3E 가 아니라 터미널 결).
-       창은 Hyprland 활성 창처럼 그라데이션 테두리, 맨 위 starship 식 프롬프트, 왼쪽 두 색 로고, 오른쪽에 제목이 윗선에 걸친 바깥 상자 안에 묶음 상자들(묶음마다 색),
-       줄은 "아이콘 키 │ 값", 아래에 터미널 16색 띠, 끝에 다음 프롬프트와 깜박이는 커서. 간격은 글자 칸 격자(가로 1ch · 세로 한 줄 24)에 맞춘다.
+  <!-- 봇 정보 탭: 리싱한 Arch(Hyprland) 데스크톱의 터미널에서 fastfetch 를 실행한 모습(이 탭만 M3E 가 아니라 터미널 스타일).
+       창은 Hyprland 활성 창처럼 그라데이션 테두리, 맨 위 starship 식 프롬프트, 왼쪽 두 색 로고, 오른쪽에 제목이 윗선에 걸친 바깥 상자 안에 그룹 상자들(그룹마다 색),
+       줄은 "아이콘 키 │ 값", 아래에 터미널 16색 띠, 끝에 다음 프롬프트와 깜박이는 커서. 간격은 글자 셀 격자(가로 1ch · 세로 한 줄 24)에 맞춘다.
        창은 내용이 짧아도 바탕화면 아래 끝까지 채운다(재생 바는 그 위에 겹친다. 페이지 아래 여백의 재생 바 몫은 음수 여백으로 돌려준다).
-       내용이 길어 구르게 되면 끝까지 굴렸을 때 마지막 줄이 재생 바 위 끝에서 창 여백만큼 떨어지도록 안쪽 아래 여백에 (재생 바 - 바깥 틈)을 더한다.
+       내용이 길어 스크롤되면 끝까지 스크롤했을 때 마지막 줄이 재생 바 위 끝에서 창 여백만큼 떨어지도록 안쪽 아래 여백에 (재생 바 - 바깥 틈)을 더한다.
        잘 안 바뀌는 신원 · 버전 · 환경만 둔다(지금 상태는 봇 상태 탭). 키는 fastfetch 처럼 영어, 한글이 든 값(봇 이름)만 보통 글꼴 -->
   <section class="term-border pane relative rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] font-mono text-sm leading-6 text-on-surface min-h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)">
     <Prompt command="fastfetch" />
@@ -26,7 +26,7 @@
             </Frame>
           </div>
         </Frame>
-        <!-- 터미널 16색 띠(fastfetch 의 colors 모듈, ███ 석 칸씩): 윗줄 보통 8색, 아랫줄 밝은 8색. 색은 지금 테마의 역할에서. 글자 █ 는 글꼴마다 칸 사이가 비어 줄무늬가 지므로 칸만 한 면으로 -->
+        <!-- 터미널 16색 띠(fastfetch 의 colors 모듈, ███ 세 셀씩): 윗줄 보통 8색, 아랫줄 밝은 8색. 색은 지금 테마의 역할에서. 글자 █ 는 글꼴마다 셀 사이가 비어 줄무늬가 지므로 셀만 한 면으로 -->
         <div class="mt-6 w-max">
           <div v-for="(row, i) in ANSI" :key="i" class="flex">
             <span v-for="c in row" :key="c" class="inline-block w-[3ch] h-6" :style="{ background: c }"></span>
@@ -64,7 +64,7 @@ const Frame = defineComponent({
 });
 
 /**
- * starship 식 프롬프트(기본 설정처럼 두 줄): 색 칸(사용자@호스트 · 폴더 · 갈래)이 꺾쇠로 이어지고 다음 줄에 ❯ 와 명령. cursor 면 명령 대신 깜박이는 커서
+ * starship 식 프롬프트(기본 설정처럼 두 줄): 색 블록(사용자@호스트 · 폴더 · 브랜치)이 꺾쇠로 이어지고 다음 줄에 ❯ 와 명령. cursor 면 명령 대신 깜박이는 커서
  */
 const PROMPT: Array<{ icon: IconName; text: string; tone: string; ink: string }> = [
   { icon: "person", text: "operator@musicbot", tone: "bg-primary text-on-primary", ink: "var(--md-primary)" },
@@ -77,9 +77,9 @@ const Prompt = defineComponent({
     return () =>
       h("div", { class: "flex flex-wrap items-center min-h-6 w-max max-w-full gap-y-1" }, [
         ...PROMPT.flatMap((seg, i) => [
-          // 좁은 내용 칸(576 미만, 휴대폰)은 첫 칸(사용자@호스트) 말고는 글을 빼고 아이콘만(조각이 줄바꿈 없이 이어져 창 밖으로 넘쳤다)
+          // 좁은 내용 영역(576 미만, 휴대폰)은 첫 블록(사용자@호스트) 말고는 글을 빼고 아이콘만(조각이 줄바꿈 없이 이어져 창 밖으로 넘쳤다)
           h("span", { class: ["flex items-center gap-[1ch] h-6 pl-[1ch] pr-[0.5ch] whitespace-nowrap font-semibold", i > 0 && "@max-xl/content:gap-0", seg.tone, i === 0 && "rounded-l-full"] }, [h(Icon, { name: seg.icon, size: 14 }), h("span", { class: i > 0 ? "@max-xl/content:hidden" : undefined }, seg.text)]),
-          // 꺾쇠: 이 칸 색의 세모를 다음 칸 색(마지막은 투명) 위에
+          // 꺾쇠: 이 블록 색의 세모를 다음 블록 색(마지막은 투명) 위에
           h("span", { class: "h-6", style: { background: PROMPT[i + 1]?.ink ?? "transparent" } }, [h("span", { class: "block h-6 w-[1ch]", style: { background: seg.ink, clipPath: "polygon(0 0, 100% 50%, 0 100%)" } })]),
         ]),
         // starship 기본처럼 ❯ 와 명령은 다음 줄

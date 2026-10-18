@@ -1,5 +1,5 @@
 // src/dashboard/routes/service-keys.ts · store/service-keys.ts — 바깥 서비스 키(운영자 패널의 API 키 탭).
-// 운영자만, 넣기 · 지우기는 최근 로그인만. 값은 응답으로 나가지 않고 설정 객체에만 올라간다
+// 운영자만, 넣기 · 삭제는 최근 로그인만. 값은 응답으로 나가지 않고 설정 객체에만 올라간다
 
 process.env.OWNER_ID = "owner";
 
@@ -57,7 +57,7 @@ beforeEach(() => {
 const req = <T>(method: string, path: string, body?: unknown) => requestJson<T>(base, method, `/api/admin/service-keys${path}`, body);
 type View = Record<string, Record<string, { state: string; last4: string | null; updatedAt: number | null }>>;
 
-test("운영자만 들어온다. 넣기 · 지우기는 로그인한 지 10분 안이어야 한다", async () => {
+test("운영자만 들어온다. 넣기 · 삭제는 로그인한 지 10분 안이어야 한다", async () => {
   session = { user: null };
   assert.equal((await req("GET", "")).status, 401);
   session = { user: { id: "u1" }, loginAt: Date.now() };
@@ -79,7 +79,7 @@ test("넣으면 설정 객체에 올라가고 응답에는 끝 네 글자 · 바
   assert.ok(!JSON.stringify(res.json).includes(SECRET.slice(0, -4)));
   assert.deepEqual([config.spotify.clientId, config.spotify.clientSecret], ["client-id-abcdef", SECRET]);
 
-  // 한 칸만 바꾸면 다른 칸은 그대로
+  // 한 필드만 바꾸면 다른 필드는 그대로
   await req("PUT", "/spotify", { values: { clientId: "client-id-other", clientSecret: "" } });
   assert.deepEqual([config.spotify.clientId, config.spotify.clientSecret], ["client-id-other", SECRET]);
 
@@ -88,7 +88,7 @@ test("넣으면 설정 객체에 올라가고 응답에는 끝 네 글자 · 바
   assert.deepEqual([config.spotify.clientId, config.spotify.clientSecret], [null, null]);
 });
 
-test("모르는 서비스 · 칸, 넣을 값이 없으면 거절한다", async () => {
+test("모르는 서비스 · 필드, 넣을 값이 없으면 거절한다", async () => {
   assert.equal((await req("PUT", "/nope", { values: { token: "x" } })).status, 400);
   assert.equal((await req("PUT", "/lastfm", { values: { token: "x" } })).status, 400);
   assert.equal((await req("PUT", "/lastfm", { values: { apiKey: "  " } })).status, 400);
@@ -110,7 +110,7 @@ test("기동 때 꺼내 올린다. 다른 SECRETS_KEY 로 잠근 값은 올리�
   }
 });
 
-test("연결 시험: 저장된 키로 그 서비스에만 묻는다. 없음 · 거절 · 성공", async () => {
+test("연결 테스트: 저장된 키로 그 서비스에만 묻는다. 없음 · 거절 · 성공", async () => {
   assert.deepEqual((await req("POST", "/spotify/test")).json, { ok: false, reason: "missing" });
 
   const sent: string[] = [];

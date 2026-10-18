@@ -1,5 +1,5 @@
 <template>
-  <!-- 자리는 App.vue 가 잡는다(화면 오른쪽 위, 라우터 화면 밖이라 페이지를 옮겨도 남는다).
+  <!-- 위치는 App.vue 가 잡는다(화면 오른쪽 위, 라우터 화면 밖이라 페이지를 옮겨도 남는다).
        새 알림은 맨 위로 위에서 내려오고(나머지는 아래로 밀린다), 사라질 때는 오른쪽으로 빠진다. 끌어서(마우스 · 터치) 오른쪽으로 밀어 치운다 -->
   <TransitionGroup tag="div" class="contents" aria-live="polite" enter-from-class="opacity-0 -translate-y-full" enter-active-class="transition-[opacity,translate] duration-300 spring-fast motion-reduce:transition-none" leave-active-class="absolute! inset-x-0 transition-[opacity,translate] duration-200 ease-in motion-reduce:transition-none" leave-to-class="opacity-0! translate-x-[calc(100%+var(--gap-out))]!" move-class="transition-transform duration-300 spring-fast" @after-leave="onLeft">
     <div v-for="t in toasts" :key="t.id" role="status" class="pointer-events-auto relative overflow-hidden flex gap-3 items-start rounded-xl pl-3 pr-2 py-3 text-body pane-menu touch-pan-y select-none cursor-grab active:cursor-grabbing transition-[opacity,translate] duration-200 ease-out" :style="styleOf(t.id)" @pointerdown="onDown($event, t.id)" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp">
@@ -33,7 +33,7 @@ const clock = toastClock;
 
 // ── 밀어 치우기(마우스 · 터치 · 펜) ──
 // 폭의 30% 를 넘기거나 빠르게 튕기면(0.5px/ms 이상, 16px 이상) 치운다. 못 미치면 제자리로 돌아간다.
-// 치운 알림은 끌던 자리에서 오른쪽으로 마저 빠지도록 사라질 때까지 위치를 쥐고 있는다(after-leave 에서 놓는다)
+// 치운 알림은 끌던 위치에서 오른쪽으로 마저 빠지도록 사라질 때까지 위치를 쥐고 있는다(after-leave 에서 놓는다)
 type Drag = { id: number; startX: number; dx: number; width: number; lastX: number; lastT: number; speed: number; live: boolean };
 const drag = ref<Drag | null>(null);
 

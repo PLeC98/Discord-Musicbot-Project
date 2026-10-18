@@ -1,6 +1,6 @@
 // src/sources/youtube/clients.ts — 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
 // 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가
-// 갈려서(2026-09-11 실측) 성공이 섞이면 연속 카운터가 계속 리셋된다.
+// 달라서(2026-09-11 실측) 성공이 섞이면 연속 카운터가 계속 리셋된다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -72,7 +72,7 @@ test("쉼표 목록을 파싱하고 공백·대소문자를 정리한다", () =>
 });
 
 test("모르는 이름도 그대로 넘긴다 — 유효성은 yt-dlp가 판단한다", () => {
-  // 아는 이름 목록을 우리가 들고 거르면 yt-dlp가 새로 추가한 클라이언트를 우리가 막게 된다.
+  // 아는 이름 목록을 우리가 들고 필터링하면 yt-dlp가 새로 추가한 클라이언트를 우리가 막게 된다.
   // 대신 기동 로그(YouTube.logAuthMode)와 yt-dlp 자신의 경고로 알린다.
   assert.deepEqual(parseClients("visionos,vision_os"), ["visionos", "vision_os"]);
 });
@@ -105,7 +105,7 @@ test("제외한 지 retryMs 가 지나면 기록을 비우고 다시 순서에 �
   now = 59_999;
   assert.deepEqual(pc.list(), ["web_embedded"], "아직 이르다");
   now = 60_000;
-  assert.deepEqual(pc.list(), ["visionos", "web_embedded"], "다시 시험한다");
+  assert.deepEqual(pc.list(), ["visionos", "web_embedded"], "다시 테스트한다");
   pc.record("visionos", false);
   assert.deepEqual(pc.list(), ["visionos", "web_embedded"], "옛 실패는 잊었다. 창이 다시 차야 판정한다");
 

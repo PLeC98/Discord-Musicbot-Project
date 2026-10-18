@@ -30,8 +30,8 @@ test("숫자 뒤에 글자가 붙으면 문제다 (parseInt가 삼키던 것)", 
   assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다."]);
 });
 
-// 조절값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB 에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 칸만 기본값이다
-test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 칸만 기본값이다", () => {
+// 조절값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB 에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 필드만 기본값이다
+test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 필드만 기본값이다", () => {
   const { problems, tuneProblems, cfg } = tune({ RATE_LIMIT_API_MAX: "0", QUEUE_MAX_TRACKS: "300" });
   assert.deepEqual(problems, []);
   assert.equal(tuneProblems.length, 1);
@@ -41,7 +41,7 @@ test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 칸만
 test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
   const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
   assert.equal(cfg.apiMax, 120);
-  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS · RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 넣고 .env 에서 지우세요."]);
+  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS · RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 입력하고 .env 에서 삭제하세요."]);
   assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 
@@ -57,7 +57,7 @@ test("주소 설정은 형식과 스킴을 본다", () => {
   assert.deepEqual(tune({ WEBSITE: "https://example.com" }).tuneProblems, []);
 });
 
-// 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 그 칸은 기본 색으로 돈다
+// 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 그 필드는 기본 색으로 돈다
 test("임베드 색은 #RRGGBB 만 받는다", () => {
   assert.deepEqual(tune({ EMBED_COLOR: "#2743d2" }).tuneProblems, []);
   for (const bad of ["blue", "#12345", "2743D2", "#GGGGGG"]) assert.equal(tune({ EMBED_COLOR: bad }).tuneProblems.length, 1, bad);
@@ -107,7 +107,7 @@ test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
   assert.match(problems[2], /LOG_LEVEL.*trace·debug·info·warn·error·fatal 중 하나/);
 });
 
-test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 문제(빈 것만 짚는다), 운영자 ID · 기능 한정 키가 없으면 경고", () => {
+test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID · 기능 한정 키가 없으면 경고", () => {
   const bare = loadConfig({ SECRETS_KEY: KEY });
   assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN · CLIENT_ID · CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
   assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
@@ -118,7 +118,7 @@ test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 �
 
 test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
   const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET · LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 넣고 .env 에서 지우세요."]);
+  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET · LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 입력하고 .env 에서 삭제하세요."]);
   const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
   assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
 });
@@ -130,7 +130,7 @@ test(".env 가 없으면 그 문제 하나만 알린다", () => {
 test("SECRETS_KEY: 비었거나 32바이트 base64 가 아니면 만드는 명령과 함께 멈춘다", () => {
   const empty = load({ SECRETS_KEY: "" }).problems;
   assert.equal(empty.length, 1);
-  assert.match(empty[0], /^SECRETS_KEY 가 비어 있습니다\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 넣어야 합니다\.$/);
+  assert.match(empty[0], /^SECRETS_KEY 가 비어 있습니다\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 입력해야 합니다\.$/);
   for (const wrong of ["짧다", Buffer.alloc(16).toString("base64"), `${KEY}x`]) {
     assert.match(load({ SECRETS_KEY: wrong }).problems.join(), /SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다/, wrong);
   }

@@ -31,7 +31,7 @@ jobs:
       NODE_ENV: test
       DISCORD_TOKEN: ci-placeholder
       CLIENT_ID: "000000000000000000"
-      # 비밀값 암호화 키 자리(32바이트 0). 시험이 쓰는 모양만 맞춘다
+      # 비밀값 암호화 키의 임시 값(32바이트 0). 테스트가 쓰는 모양만 맞춘다
       SECRETS_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
     steps:

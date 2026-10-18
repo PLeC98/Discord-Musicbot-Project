@@ -1,7 +1,7 @@
 // src/autoplay/sources/animethemes.ts — AnimeThemes 소스.
 //
 // 지키려는 계약:
-//  · 대사가 얹힌 판본(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 판본이 있으면 그것을 쓴다
+//  · 대사가 얹힌 버전(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다
 //  · 같은 곡이 여러 작품 · 시즌의 주제가일 수 있다. 겹침은 song.id 로 막는다
 //  · 연도 · 시즌 조건은 anime 쪽에 걸고, 양끝 시즌은 받은 뒤 우리가 자른다
 //  · 종류(OP · ED)와 순번이 맞는 주제가만
@@ -38,7 +38,7 @@ const theme = (songId: number, title: string, videos: Array<ReturnType<typeof vi
   ...extra,
 });
 
-test("대사가 얹힌 판본만 있으면 버리고, 깨끗한 판본이 있으면 그것을 쓴다", async () => {
+test("대사가 얹힌 버전만 있으면 버리고, 깨끗한 버전이 있으면 그것을 쓴다", async () => {
   serve(() => ({
     animethemes: [theme(1, "대사만 있음", [video("Over", "https://a/1-over.ogg")]), theme(2, "섞여 있음", [video("Transition", "https://a/2-trans.ogg"), video("None", "https://a/2-clean.ogg")]), theme(3, "판본 정보 없음", [])],
   }));
@@ -106,7 +106,7 @@ test("연도를 걸면 작품 쪽에 묻고, 양끝 시즌 밖의 작품은 우�
   );
 });
 
-test("양끝 시즌을 안 적으면 그해 처음부터 끝까지", async () => {
+test("양끝 시즌을 입력하지 않으면 그해 처음부터 끝까지", async () => {
   serve(() => ({
     anime: [
       { year: 2020, season: "Winter", animethemes: [theme(1, "처음", [video("None", "https://a/1.ogg")])] },

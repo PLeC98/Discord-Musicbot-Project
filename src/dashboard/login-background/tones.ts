@@ -1,6 +1,6 @@
-// 로그인 배경의 장면 색 단계(영상만): 몰입형 테마 색상이 장면이 바뀔 때만 넘어가도록(2026-10-15 사용자) 장면 바뀜과 장면마다의 색을 미리 뽑는다.
-// 장면 바뀜은 자른 구간을 작게(짧은 변 270) 풀어 ffmpeg scene 0.3 을 넘는 곳, 1초 안에 거듭 바뀐 것과 처음 · 끝 0.5초 안은 하나로 본다(데모 /gallery/tint 와 같은 셈).
-// 장면마다 바뀐 뒤 0.4초의 장면(바뀌는 중인 장면을 피한다)의 가운데 정사각형을 40×40 으로 떠 대표색을 고른다(rules/art-seed, 화면의 앨범아트와 같은 셈)
+// 로그인 배경의 장면 색 단계(영상만): 몰입형 테마 색상이 장면이 바뀔 때만 넘어가도록(2026-10-15 사용자) 장면 바뀜과 장면마다의 색을 미리 추출한다.
+// 장면 바뀜은 자른 구간을 작게(짧은 변 270) 풀어 ffmpeg scene 0.3 을 넘는 곳, 1초 안에 거듭 바뀐 것과 처음 · 끝 0.5초 안은 하나로 본다(데모 /gallery/tint 와 같은 계산).
+// 장면마다 바뀐 뒤 0.4초의 장면(바뀌는 중인 장면을 피한다)의 가운데 정사각형을 40×40 으로 떠 대표색을 선택한다(rules/art-seed, 화면의 앨범아트와 같은 계산)
 
 import { codedError } from "../../rules/error-kind.ts";
 import { hexOfSeed, SEED_SIDE, seedOfPixels } from "../../rules/art-seed.ts";
@@ -19,7 +19,7 @@ const EDGE = 0.5;
 const SETTLE = 0.4;
 const DETECT_SHORT = 270;
 
-/** 장면 바뀜 시각(구간 처음부터 초)을 고른다: 처음 · 끝 EDGE 안과 앞 바뀜에서 MERGE 안은 뺀다 */
+/** 장면 바뀜 시각(구간 처음부터 초)을 선택한다: 처음 · 끝 EDGE 안과 앞 바뀜에서 MERGE 안은 뺀다 */
 function cutsOf(times: number[], length: number): number[] {
   const cuts: number[] = [];
   for (const t of times) if (t > EDGE && t < length - EDGE && (!cuts.length || t - cuts[cuts.length - 1] > MERGE)) cuts.push(t);

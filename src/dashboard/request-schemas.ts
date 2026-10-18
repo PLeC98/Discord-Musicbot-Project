@@ -1,4 +1,4 @@
-// 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다. 오류 자리에는 문장 대신 문제 코드(rules/problems)를 적는다.
+// 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다. 오류 메시지에는 문장 대신 문제 코드(rules/problems)를 적는다.
 // 재생 조작의 값(볼륨 · 반복 모드 · 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
@@ -9,10 +9,10 @@ import { isCode, type Code } from "../rules/problems.ts";
 import type { FieldProblem } from "./contract/problem.ts";
 import { LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ID, SEAM_KINDS, SEAM_SECONDS } from "./contract/login-background.ts";
 
-// 칸의 자리를 JSON Pointer 로(빈 자리는 본문 전체)
+// 필드의 위치를 JSON Pointer 로(빈 위치는 본문 전체)
 const pointerOf = (path: PropertyKey[]) => path.map((key) => `/${String(key).replaceAll("~", "~0").replaceAll("/", "~1")}`).join("");
 
-/** 검사 → { ok: true, value } | { ok: false, code: 첫 문제의 코드, errors: 칸별 문제 }. 코드를 적지 않은 검사에 걸리면 bad-request */
+/** 검사 → { ok: true, value } | { ok: false, code: 첫 문제의 코드, errors: 필드별 문제 }. 코드를 적지 않은 검사에 걸리면 bad-request */
 function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; value: z.output<T> } | { ok: false; code: Code; errors: FieldProblem[] } {
   const result = schema.safeParse(input);
   if (result.success) return { ok: true, value: result.data };
@@ -70,7 +70,7 @@ const MoreCount = z.number().int().min(1).max(MAX_COUNT);
 
 // ── 서버 설정 ──
 
-// 없는 칸은 바꾸지 않는다. null 은 기본값으로 되돌린다(전용 채널 · 재생목록 곡 수). 차례는 문제를 알리는 차례다
+// 없는 필드는 바꾸지 않는다. null 은 기본값으로 되돌린다(전용 채널 · 재생목록 곡 수). 순서는 문제를 알리는 순서다
 function settingsBody({ min, max }: { min: number; max: number }) {
   const BAD_PLAYLIST_ADD = { error: "playlist-limit-out-of-range" satisfies Code };
   const BAD_CATEGORIES = { error: "bad-sponsor-categories" satisfies Code };
@@ -104,7 +104,7 @@ type SettingsRequest = z.input<ReturnType<typeof settingsBody>>;
 // ── 파비콘 ──
 
 const BAD_FAVICON = { error: "bad-request" satisfies Code };
-// 기록의 그림으로 갈아 끼우기 { id }
+// 기록의 그림으로 교체 { id }
 const FaviconUseBody = z.object({ id: z.string(BAD_FAVICON).min(1, BAD_FAVICON).max(64, BAD_FAVICON) }, BAD_FAVICON);
 // 링크로 추가 { url }. http · https 인지 · 내부 주소인지는 infra/safe-url 이 본다
 const FaviconLinkBody = z.object({ url: z.string(BAD_FAVICON).trim().min(1, BAD_FAVICON).max(2048, BAD_FAVICON) }, BAD_FAVICON);
@@ -121,7 +121,7 @@ const BackgroundRange = z.tuple([bgNumber(0, Number.MAX_SAFE_INTEGER), bgNumber(
 const BackgroundEditBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable(), thumbAt: bgNumber(0, Number.MAX_SAFE_INTEGER).nullable() }, BAD_BACKGROUND).refine((edit) => edit.thumbAt === null || edit.range === null || (edit.thumbAt >= edit.range[0] && edit.thumbAt <= edit.range[1]), BAD_BACKGROUND);
 // 크기 어림 다시 세기 { crop, range }
 const BackgroundEstimateBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable() }, BAD_BACKGROUND);
-// 보일 자리 { x, y }(%)
+// 보일 위치 { x, y }(%)
 const BackgroundPositionBody = z.object({ x: bgNumber(0, 100), y: bgNumber(0, 100) }, BAD_BACKGROUND);
 // 화면에서 거는 값
 const BackgroundOptionsBody = z.object(
@@ -135,9 +135,9 @@ const BackgroundOptionsBody = z.object(
 );
 // 기록 · 저장 한도 { history, maxBytes }
 const BackgroundLimitsBody = z.object({ history: bgNumber(0, LOGIN_BG_HISTORY_MAX).int(BAD_BACKGROUND), maxBytes: bgNumber(0, Number.MAX_SAFE_INTEGER).int(BAD_BACKGROUND) }, BAD_BACKGROUND);
-// 기록의 배경으로 갈아 끼우기 { id }
+// 기록의 배경으로 교체 { id }
 const BackgroundUseBody = z.object({ id: z.string(BAD_BACKGROUND).regex(LOGIN_BG_ID, BAD_BACKGROUND) }, BAD_BACKGROUND);
-// 링크로 추가 { url }. 받는 길(safe-url · yt-dlp)이 주소를 본다
+// 링크로 추가 { url }. 다운로드하는 쪽(safe-url · yt-dlp)이 주소를 본다
 const BackgroundLinkBody = z.object({ url: z.string(BAD_BACKGROUND).trim().min(1, BAD_BACKGROUND).max(2048, BAD_BACKGROUND) }, BAD_BACKGROUND);
 
 export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, QUERY_MAX_LEN };

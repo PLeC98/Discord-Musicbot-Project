@@ -1,5 +1,5 @@
 <template>
-  <!-- 칸보다 긴 글은 천천히 흘려 보여 준다. 기본은 좌우로 오가고, loop 면 뉴스 티커처럼 한 방향으로 흐르며 같은 글 사본이 간격(3em)을 두고 뒤따라 이어진다(스포티파이 재생 화면).
+  <!-- 영역보다 긴 글은 천천히 흘려 보여 준다. 기본은 좌우로 오가고, loop 면 뉴스 티커처럼 한 방향으로 흐르며 같은 글 사본이 간격(3em)을 두고 뒤따라 이어진다(스포티파이 재생 화면).
        짧으면 그대로, 움직임 줄이기를 켰으면 "…" 로 자른다.
        양끝을 FADE 만큼 흐리게 지우되, 겉을 그만큼 바깥으로 넓혀(음수 여백) 멈춰 있는 글의 첫 글자는 흐려지지 않게 한다 -->
   <!-- tip: 넘칠 때(흐르거나 "…" 로 잘릴 때)만 전체 글을 툴팁으로 -->
@@ -31,7 +31,7 @@ const box = ref<HTMLElement | null>(null);
 const line = ref<HTMLElement | null>(null);
 const track = ref<HTMLElement | null>(null);
 const moving = ref(false);
-/** 칸보다 긴가(움직임 줄이기로 흐르지 않을 때도) */
+/** 영역보다 긴가(움직임 줄이기로 흐르지 않을 때도) */
 const cut = ref(false);
 const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 let run: Animation | null = null;
@@ -53,7 +53,7 @@ function measure() {
   moving.value = cut.value && !reduced.value;
   if (!moving.value) return;
   if (props.loop) {
-    // 첫 글과 간격만큼 옮기면 사본이 처음 자리에 와서, 처음으로 돌아가도 이어져 보인다. 처음에만 쉰다
+    // 첫 글과 간격만큼 옮기면 사본이 처음 위치에 와서, 처음으로 돌아가도 이어져 보인다. 처음에만 쉰다
     const gap = parseFloat(getComputedStyle(text).fontSize) * 3;
     const shift = text.scrollWidth + gap;
     const travel = (shift / rem(LOOP_SPEED_REM)) * 1000;

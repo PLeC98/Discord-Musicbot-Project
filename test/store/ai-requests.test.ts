@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그 · 사용량 통계 저장: 쓰기 · 거르기 · 쪽 넘기기 · 저장 용량 맞추기 · 지우기 · 칸 자르기
+// AI 리퀘스트 로그 · 사용량 통계 저장: 쓰기 · 필터 · 페이지 넘기기 · 저장 용량 맞추기 · 삭제 · 필드 자르기
 
 import test, { after } from "node:test";
 import assert from "node:assert";
@@ -36,7 +36,7 @@ const BASE: NewRecord = {
 const BIG = 1024 * 1024 * 1024;
 const add = (patch: Partial<NewRecord> = {}) => requests.record({ ...BASE, ...patch }, { maxBytes: BIG });
 
-test("쓴 줄은 목록 · 한 줄 읽기로 돌아오고, 듣는 쪽에 알린다", () => {
+test("쓴 행은 목록 · 한 행 읽기로 돌아오고, 듣는 쪽에 알린다", () => {
   requests.clearRequests();
   const heard: number[] = [];
   const off = requests.onRecorded((entry) => heard.push(entry.id));
@@ -50,7 +50,7 @@ test("쓴 줄은 목록 · 한 줄 읽기로 돌아오고, 듣는 쪽에 알린�
   assert.equal(requests.list({ sources: [], result: "", q: "" }, { limit: 50 }).entries[0].id, entry.id);
 });
 
-test("거르기: 출처 · 결과 · 찾는 말(대소문자 무시, 이름까지) · 최근 것부터 쪽 넘기기", () => {
+test("필터: 출처 · 결과 · 찾는 말(대소문자 무시, 이름까지) · 최근 것부터 페이지 넘기기", () => {
   requests.clearRequests();
   add({ source: "models", model: "", name: "", url: "https://api.openai.com/v1/models", tokens: null });
   add({ ok: false, status: 429, error: "Too Many Requests" });
@@ -70,7 +70,7 @@ test("거르기: 출처 · 결과 · 찾는 말(대소문자 무시, 이름까�
   assert.equal(next.entries[0].source, "models");
 });
 
-test("저장 용량을 넘으면 오래된 로그부터 지우되 최근 줄은 남기고, 통계는 지우지 않는다", () => {
+test("저장 용량을 넘으면 오래된 로그부터 삭제하되 최근 행은 남기고, 통계는 삭제하지 않는다", () => {
   requests.clearRequests();
   requests.clearUsage();
   const body = "x".repeat(2000);
@@ -94,7 +94,7 @@ test("로그를 지워도 통계는 남고, 통계를 지워도 로그는 남는
   assert.equal(requests.earliestDay(), null);
 });
 
-test("너무 큰 칸은 앞뒤를 남기고 잘라 잘림을 적는다", () => {
+test("너무 큰 필드는 앞뒤를 남기고 잘라 잘림을 적는다", () => {
   requests.clearRequests();
   const huge = `${"a".repeat(requests.MAX_FIELD_BYTES)}끝`;
   const entry = add({ response: huge });
@@ -106,7 +106,7 @@ test("너무 큰 칸은 앞뒤를 남기고 잘라 잘림을 적는다", () => {
   assert.ok(entry.bytes < requests.MAX_FIELD_BYTES + 1000);
 });
 
-test("통계 줄: 출처로 거르고 토큰을 못 읽은 요청은 0 으로 센다", () => {
+test("통계 행: 출처로 필터링하고 토큰을 못 읽은 요청은 0 으로 센다", () => {
   requests.clearUsage();
   add();
   add({ source: "models", tokens: null, costUsd: 0 });

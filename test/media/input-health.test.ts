@@ -1,4 +1,4 @@
-// src/media/input-health.ts — 소리 입력 하나가 온전히 끝났는지 적는 것
+// src/media/input-health.ts — 오디오 입력 하나가 온전히 끝났는지 적는 것
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

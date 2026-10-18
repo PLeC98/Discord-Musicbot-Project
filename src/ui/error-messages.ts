@@ -5,13 +5,13 @@ import * as errors from "./text/ko/errors.ts";
 import config from "../config/index.ts";
 import { isCode, type Code, type Problem } from "../rules/problems.ts";
 
-// 곡을 찾거나 담지 못한 결과. 여기서 읽는 칸만. code 는 문제 목록의 코드이거나 흐름의 코드(lookup-failed · play-failed · play-threw 등),
+// 곡을 찾거나 담지 못한 결과. 여기서 읽는 필드만. code 는 문제 목록의 코드이거나 흐름의 코드(lookup-failed · play-failed · play-threw 등),
 // kind 는 오류로 못 했을 때 그 오류의 종류, skipped 는 받을 수 없어 뺀 곡 수
 type AddFailure = { code: string; kind?: Code; skipped?: number };
 // 오류로 못 한 까닭. 오류 종류를 모르면 unknown-error 의 안내다
 const THROWN = new Set(["lookup-failed", "play-threw"]);
 
-/** 오류 → 사용자에게 보일 안내. 종류는 rules/error-kind 가 가른다 */
+/** 오류 → 사용자에게 보일 안내. 종류는 rules/error-kind 가 구분한다 */
 function errorMessage(error: unknown) {
   return errors.notice(errorKind(error));
 }

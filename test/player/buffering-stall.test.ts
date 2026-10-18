@@ -10,7 +10,7 @@ import { fake } from "../helpers/fake.ts";
 
 type Options = { status?: AudioPlayerStatus; inputAt?: number | null; reason?: string | null; since?: number };
 
-// 멈춘 까닭(플레이어 안 칸)
+// 멈춘 까닭(플레이어 안 필드)
 const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;
 
 function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reason = null }: Options = {}) {

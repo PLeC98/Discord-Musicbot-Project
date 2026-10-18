@@ -41,7 +41,7 @@ test("classify: null/빈 입력은 unknown", () => {
   assert.equal(errorKind(""), "unknown-error");
 });
 
-test("getMessage: 모든 범주가 머리 줄이 있는 안내를 돌려준다", () => {
+test("getMessage: 모든 범주가 헤더 줄이 있는 안내를 돌려준다", () => {
   for (const [error] of CASES) {
     const out = errorMessage(error);
     assert.ok(out.title.length > 0, out.topic);

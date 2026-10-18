@@ -12,7 +12,7 @@
     <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
   </div>
 
-  <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘 · 제목 · 설명, 오른쪽 아래 단추. 알림 띠보다 위(z-400).
+  <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘 · 제목 · 설명, 오른쪽 아래 버튼. 알림 띠보다 위(z-400).
        세션이 끝났을 때와 위험한 조작에 다시 로그인이 필요할 때(reauth, 세션은 살아 있다) 같은 대화상자를 쓴다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
@@ -57,7 +57,7 @@ const showDialog = ref(false);
 const checking = ref(false);
 const note = ref("");
 
-// 끝났다고 알게 된 때 한 번 띄운다. 닫아도 띠가 남는다. 다시 로그인은 거절당할 때마다 띄운다(띠는 없다)
+// 끝났다고 알게 된 때 한 번 연다. 닫아도 띠가 남는다. 다시 로그인은 거절당할 때마다 연다(띠는 없다)
 watch(
   () => session.ended || session.reauth,
   (shown) => {
@@ -93,7 +93,7 @@ async function check() {
   checking.value = false;
 }
 
-// 연결 안 됨: 로그인했는지도 모르던 처음이면 다시 묻고 가려던 곳으로, 그 뒤라면 한 번 닿아 본다(닿으면 띠가 걷힌다)
+// 연결 안 됨: 로그인했는지도 모르던 처음이면 다시 묻고 가려던 곳으로, 그 뒤라면 한 번 닿아 본다(닿으면 띠가 사라진다)
 async function retry() {
   checking.value = true;
   try {
@@ -104,7 +104,7 @@ async function retry() {
       else session.offline = true;
     } else
       await axios.get("/api/me").catch(() => {
-        /* 닿았는지만 본다. 닿으면 요청 한 곳이 띠를 걷는다 */
+        /* 닿았는지만 본다. 닿으면 요청 한 곳이 띠를 제거한다 */
       });
   } finally {
     checking.value = false;

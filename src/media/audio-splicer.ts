@@ -1,4 +1,4 @@
-// 재생을 끊지 않고 오디오 소스를 갈아끼우는 스트림.
+// 재생을 끊지 않고 오디오 소스를 교체하는 스트림.
 //
 // ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
 // 이음매는 등출력(cos/sin) 크로스페이드로 덮는다. 선형으로 섞으면 교차점에서 -6dB 딥이 생긴다.
@@ -72,7 +72,7 @@ class AudioSplicer extends Readable {
 
   /**
    * atMs 지점에서 next로 갈아탄다. next는 그 지점의 오디오를 내놓도록 이미 맞춰져 있어야 한다
-   * (캐시 파일을 그 위치로 seek해 띄운 ffmpeg 등). 이미 지난 지점이면 즉시 전환한다.
+   * (캐시 파일을 그 위치로 seek해 실행한 ffmpeg 등). 이미 지난 지점이면 즉시 전환한다.
    * @returns {boolean} 예약 성공 여부
    */
   planSwitch(next: Readable, atMs: number): boolean {
@@ -228,8 +228,8 @@ class AudioSplicer extends Readable {
     // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
     // 트랙 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
     // 버린 소스의 오류는 이제 이 재생과 무관하다. 그런데 핸들러를 그냥 떼면 듣는 사람이
-    // 없어져 uncaughtException이 되므로, 떼는 게 아니라 흡수기로 갈아끼운다.
-    // 안 갈아끼우면 이 파괴가 방금 성공한 전환을 도로 죽인다.
+    // 없어져 uncaughtException이 되므로, 떼는 게 아니라 흡수기로 교체한다.
+    // 교체하지 않으면 이 파괴가 방금 성공한 전환을 도로 죽인다.
     this._discard(old);
     this.emit("switched", this.emittedMs);
   }
@@ -267,7 +267,7 @@ class AudioSplicer extends Readable {
     cb(err);
   }
 
-  // 더 쓰지 않을 소스를 손에서 놓는다. 오류 핸들러를 흡수기로 갈아끼운 뒤 파괴한다.
+  // 더 쓰지 않을 소스를 손에서 놓는다. 오류 핸들러를 흡수기로 교체한 뒤 파괴한다.
   // 그냥 떼면 듣는 사람이 없어 uncaughtException, 그냥 두면 이 파괴가 우리를 죽인다.
   _discard(s: Readable | null) {
     if (!s) return;

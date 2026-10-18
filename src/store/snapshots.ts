@@ -1,7 +1,7 @@
 // settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 풀린다.
 //   daily           하루 한 번(기동 때 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
-//   before-import   설정을 가져오기 전 · before-restore 복원해 바꿔 끼우기 전. 둘 합쳐 5개
-// 복원: 고른 스냅샷을 settings.restore.db 로 걸어 두면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 바꿔 끼운다(열린 DB 를 갈아 끼우지 않는다).
+//   before-import   설정을 가져오기 전 · before-restore 복원으로 교체하기 전. 둘 합쳐 5개
+// 복원: 선택한 스냅샷을 settings.restore.db 로 예약하면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 교체한다(열린 DB 를 교체하지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -46,7 +46,7 @@ function list(dir = dbDir()): Snapshot[] {
     .sort((a, b) => b.at - a.at || b.name.localeCompare(a.name));
 }
 
-// 오래된 것을 지운다(매일 것 · 그 밖의 것 따로)
+// 오래된 것을 삭제한다(매일 것 · 그 밖의 것 따로)
 function prune(dir: string) {
   const all = list(dir);
   const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
@@ -86,7 +86,7 @@ function stopDaily() {
   timer = null;
 }
 
-// 스냅샷 파일이 이 봇의 settings.db 꼴인지(구조 버전 · 표). 아니면 던진다
+// 스냅샷 파일이 이 봇의 settings.db 형식인지(구조 버전 · 표). 아니면 던진다
 function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
@@ -98,7 +98,7 @@ function checkSnapshot(file: string) {
   }
 }
 
-/** 고른 스냅샷을 복원으로 걸어 둔다(다음 기동에 바꿔 끼운다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
+/** 선택한 스냅샷을 복원으로 예약한다(다음 기동에 교체한다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
 function stage(name: string) {
   const dir = dbDir();
   if (!NAME.test(name) || !list(dir).some((one) => one.name === name)) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷입니다: ${name}`);
@@ -111,14 +111,14 @@ function stage(name: string) {
   ownerOnly(to);
 }
 
-/** 걸어 둔 복원을 거둔다 */
+/** 복원 예약을 취소한다 */
 function unstage() {
   const dir = dbDir();
   fs.rmSync(path.join(dir, STAGED), { force: true });
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
 }
 
-/** 걸어 둔 스냅샷 이름(없으면 null) */
+/** 예약한 스냅샷 이름(없으면 null) */
 function staged(dir = dbDir()): string | null {
   if (!fs.existsSync(path.join(dir, STAGED))) return null;
   try {
@@ -128,7 +128,7 @@ function staged(dir = dbDir()): string | null {
   }
 }
 
-// 바꿔 끼우기 전의 settings.db 를 before-restore 로 남긴다. 닫힌 파일이라 -wal 을 본체에 접어 넣은 뒤 본체만 복사하면 한 시점의 사본이다.
+// 교체하기 전의 settings.db 를 before-restore 로 남긴다. 닫힌 파일이라 -wal 을 본체에 접어 넣은 뒤 본체만 복사하면 한 시점의 사본이다.
 // 깨진 파일이라 접지 못해도(복원이 가장 필요한 때) 있는 그대로 복사한다
 function keepCurrent(dir: string, current: string) {
   try {
@@ -139,7 +139,7 @@ function keepCurrent(dir: string, current: string) {
       db.close();
     }
   } catch (error) {
-    log.warn(`바꿔 끼울 설정 DB 를 정리하지 못해 있는 그대로 남깁니다: ${messageOf(error)}`);
+    log.warn(`교체할 설정 DB 를 정리하지 못해 있는 그대로 남깁니다: ${messageOf(error)}`);
   }
   fs.mkdirSync(backupsOf(dir), { recursive: true });
   const kept = path.join(backupsOf(dir), `settings-before-restore-${stamp(new Date())}.db`);
@@ -148,18 +148,18 @@ function keepCurrent(dir: string, current: string) {
 }
 
 /**
- * 기동 때 settings.db 를 열기 전에. 걸어 둔 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 바꿔 끼운다.
- * 바꿔 끼운 스냅샷 이름(없었으면 null)
+ * 기동 때 settings.db 를 열기 전에. 예약한 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 교체한다.
+ * 교체한 스냅샷 이름(없었으면 null)
  */
 function applyStaged(dir: string): string | null {
   const from = staged(dir);
   if (!from) return null;
   const current = path.join(dir, "settings.db");
-  // 다른 버전의 봇이 만든 설정 DB 면 끼우지 않는다(끼우면 구조가 맞지 않아 어차피 열지 못한다). 걸어 둔 것은 남는다
+  // 다른 버전의 봇이 만든 설정 DB 면 교체하지 않는다(교체하면 구조가 맞지 않아 어차피 열지 못한다). 예약은 남는다
   try {
     checkSnapshot(path.join(dir, STAGED));
   } catch (error) {
-    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 ${from} 을 끼우지 않았습니다: ${messageOf(error)} 그 버전의 봇으로 켜거나 database/${STAGED} 를 지우세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 을 교체하지 않았습니다: ${messageOf(error)} 그 버전의 봇으로 시작하거나 database/${STAGED} 를 삭제하세요`), { dbFile: "settings.db" });
   }
   try {
     if (fs.existsSync(current)) keepCurrent(dir, current);
@@ -168,8 +168,8 @@ function applyStaged(dir: string): string | null {
     // 구조를 보느라 열었을 때 남았을 수 있는 곁 파일
     for (const leftover of [`${STAGED}-wal`, `${STAGED}-shm`]) fs.rmSync(path.join(dir, leftover), { force: true });
   } catch (error) {
-    // Windows 에서 다른 프로그램(SQLite 뷰어 등)이 settings.db 를 열어 두면 지우지 못한다. 걸어 둔 것은 남아 다음 기동에 다시 한다
-    throw Object.assign(codedError("RESTORE_FAILED", `걸어 둔 ${from} 을 끼우지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 켜세요`), { dbFile: "settings.db" });
+    // Windows 에서 다른 프로그램(SQLite 뷰어 등)이 settings.db 를 열어 두면 삭제하지 못한다. 예약은 남아 다음 기동에 다시 한다
+    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 을 교체하지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 시작하세요`), { dbFile: "settings.db" });
   }
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
   prune(dir);

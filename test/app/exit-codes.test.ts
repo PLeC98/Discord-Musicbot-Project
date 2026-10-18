@@ -1,4 +1,4 @@
-// src/app/exit-codes.ts — 기동 실패의 종료 코드. 고치기 전에는 다시 켜도 같은 실패(78)와 잠시 뒤 다시 켜면 되는 실패(75)를 가른다.
+// src/app/exit-codes.ts — 기동 실패의 종료 코드. 고치기 전에는 다시 시작해도 같은 실패(78)와 잠시 뒤 다시 시작하면 되는 실패(75)를 구분한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

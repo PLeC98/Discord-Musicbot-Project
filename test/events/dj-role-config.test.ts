@@ -99,7 +99,7 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
   assert.equal(screenOf(save.sentWith).done, true);
 });
 
-test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 지우고 본인에게만 알린다", async () => {
+test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 삭제하고 본인에게만 알린다", async () => {
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1"], messageId: "mF" });
   await interactionCreate.execute(fakeBot(), select);
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mF" });
@@ -130,7 +130,7 @@ test("전부 해제하고 저장: 모두가 조작", async () => {
   assert.equal(screenOf(save.sentWith).done, true, "해제도 설정을 바꾼 것이라 완료 색");
 });
 
-test("선택~저장 사이 삭제된 역할은 걸러서 저장", async () => {
+test("선택~저장 사이 삭제된 역할은 필터링해 저장", async () => {
   const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1", "deleted"], messageId: "mD" });
   await interactionCreate.execute(fakeBot(), select);
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mD" });

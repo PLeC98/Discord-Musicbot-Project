@@ -19,7 +19,7 @@ const FRESH: RetryState = { used: 0, stalled: 0 };
  * 끊김 하나를 센다.
  * @param state  이 곡에서 지금까지
  * @param progressMs  끊긴 재생이 실제로 낸 길이
- * @param live  라이브를 주소 갈래로 틀었다
+ * @param live  라이브를 주소 경로로 틀었다
  */
 function countDrop(state: RetryState, progressMs: number, live: boolean): RetryStep {
   const base = progressMs >= REFILL_MS ? FRESH : state;

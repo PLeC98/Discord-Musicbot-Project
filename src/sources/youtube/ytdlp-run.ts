@@ -104,11 +104,11 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
 /**
  * 한 번 호출 + 경고 훑기.
  * 호출부가 extractorArgs를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다.
- * 클라이언트를 하나씩만 넘기는 이유는 _runWithClients 머리말 참조.
+ * 클라이언트를 하나씩만 넘기는 이유는 _runWithClients 의 주석 참조.
  */
 async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl): Promise<unknown> {
   const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
-  // 대시보드에 넣은 쿠키는 이 실행만의 파일로 풀어 넘기고, 끝나면 고친 쿠키를 되담고 지운다(store/cookie-jar)
+  // 대시보드에 입력한 쿠키는 이 실행만의 파일로 풀어 넘기고, 끝나면 고친 쿠키를 되담고 삭제한다(store/cookie-jar)
   const held = opts.cookies === cookieJar.JAR ? cookieJar.checkout() : null;
   const sent = opts.cookies === cookieJar.JAR ? { ...opts, cookies: held?.file } : opts;
   if (sent.cookies === undefined) delete sent.cookies;
@@ -133,12 +133,12 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
     // 그러면 우리 폴백 루프가 첫 항목에서 끝나 뒤 목록이 통째로 사문화된다. 이건 알려야 한다.
     const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
     if (skipped) {
-      log.warn(`${skipped[1]} 은(는) 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다. 유튜브 탭의 클라이언트 차례에서 고쳐 주세요`);
+      log.warn(`${skipped[1]} 은(는) 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다. 유튜브 탭의 "유튜브 클라이언트 순서"에서 고쳐 주세요`);
       continue;
     }
     if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {
       // 요구한 클라이언트 이름은 경고 본문에 적혀 온다("web_creator client https formats require...").
-      // 우리가 지정한 값을 쓰면 안 된다. 연령 제한 영상에서는 우리가 고르지 않은 web_creator 가
+      // 우리가 지정한 값을 쓰면 안 된다. 연령 제한 영상에서는 우리가 선택하지 않은 web_creator 가
       // yt-dlp 판단으로 끼어들기 때문에, 지정값으로 찍으면 엉뚱한 이름이 남는다.
       const named = line.match(/\b([a-z][\w-]*) client\b/i);
       const asked = named ? named[1] : client;

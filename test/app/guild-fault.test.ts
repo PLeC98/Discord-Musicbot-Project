@@ -1,4 +1,4 @@
-// src/app/guild-fault.ts — 모르는 오류가 난 서버만 다시 켠다(세션 저장 → 채널에 남긴 채 버리기 → 복원). 되풀이되면 그 서버만 멈춘다.
+// src/app/guild-fault.ts — 모르는 오류가 난 서버만 다시 시작한다(세션 저장 → 채널에 남긴 채 버리기 → 복원). 되풀이되면 그 서버만 멈춘다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { fakePlayer } from "../helpers/fake.ts";
 
 type Players = Parameters<typeof createGuildFaults>[0]["players"];
 
-// 등록부와 플레이어 가짜. 시험은 steps 로 무엇을 불렀는지 본다
+// 레지스트리와 플레이어 가짜. 테스트는 steps 로 무엇을 불렀는지 본다
 function world({ track = true } = {}) {
   const steps: string[] = [];
   const player = {
@@ -39,7 +39,7 @@ test("플레이어가 없으면(명령 · 화면 쪽) 로그만. 지킬 곡이 �
   assert.deepEqual(idle.steps, ["dispose:remove:leave:-:fault"]);
 });
 
-test(`같은 서버에서 ${WINDOW_MS / 60_000}분 안에 ${MAX_RESETS}번을 넘으면 세션을 지우고 그 서버만 멈춘다. 시간이 지나면 다시 센다`, async () => {
+test(`같은 서버에서 ${WINDOW_MS / 60_000}분 안에 ${MAX_RESETS}번을 넘으면 세션을 삭제하고 그 서버만 멈춘다. 시간이 지나면 다시 센다`, async () => {
   const { steps, fault, clock } = world();
   for (let i = 0; i < MAX_RESETS; i++) await fault("g1", new Error("버그"), "시험");
   steps.length = 0;
@@ -52,7 +52,7 @@ test(`같은 서버에서 ${WINDOW_MS / 60_000}분 안에 ${MAX_RESETS}번을 �
   assert.deepEqual(steps, ["dispose:save:stay:-:fault", "restore:g1"]);
 });
 
-test("다시 켜는 중에 같은 서버에서 난 오류는 그 다시 켜기가 맡는다", async () => {
+test("다시 시작하는 중에 같은 서버에서 난 오류는 그 다시 시작이 맡는다", async () => {
   const steps: string[] = [];
   const releases: Array<() => void> = [];
   const player = {

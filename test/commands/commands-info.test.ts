@@ -1,7 +1,7 @@
 // 표시 · 설정 명령과 SponsorBlock 설정 화면의 지금 동작을 고정한다(구조 리팩터링 0-B).
 // /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setdjrole · /sponsorblock, 그리고 sponsorConfigHandler.
 //
-// 6단계가 표시 명령을 ui/ 의 같은 조각으로, 설정 명령을 store/guild-settings 로 돌린다. 문구 전부가 아니라 "무엇을 골라 담았나 ·
+// 6단계가 표시 명령을 ui/ 의 같은 조각으로, 설정 명령을 store/guild-settings 로 돌린다. 문구 전부가 아니라 "무엇을 선택해 담았나 ·
 // 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
 
 import fs from "node:fs";
@@ -50,7 +50,7 @@ beforeEach(() => {
   cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
-// 보낸 응답. 여기서 보는 칸만
+// 보낸 응답. 여기서 보는 필드만
 type Sent = {
   content?: string;
   flags?: unknown;
@@ -60,7 +60,7 @@ type Sent = {
 type Logged = [name: string, payload: Sent];
 
 const fieldsOf = (payload: Sent) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
-// /nowplaying 의 작은 글씨 줄. 칸 이름 → 값
+// /nowplaying 의 작은 글씨 줄. 필드 이름 → 값
 const NOW = infoText.nowPlaying();
 function nowLines(payload: unknown) {
   const lines = textOf(payload)
@@ -149,7 +149,7 @@ test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상�
   assert.equal(headOf(log[0][1] as never), "### 🎵 현재 재생 중");
 });
 
-test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 입구가 알린다", async () => {
+test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 진입점이 알린다", async () => {
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.bot);
   const f = nowLines(paused.log[0][1]);
@@ -189,17 +189,17 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.notice("queue-empty")));
 });
 
-// 대기열은 본문(description)에 싣는다. 칸(field)에 나눠 실으면 칸마다 이름 줄이 생겨 빈 여백이 끼었다
+// 대기열은 본문(description)에 싣는다. 필드(field)에 나눠 실으면 필드마다 이름 줄이 생겨 빈 여백이 끼었다
 const descriptionOf = (payload: Sent) => String(payload.embeds[0].data.description ?? "");
 
-test("/queue: 다음 곡만 쪽마다 나눠 보인다. 없는 쪽은 마지막 쪽으로", async () => {
+test("/queue: 다음 곡만 페이지마다 나눠 보인다. 없는 페이지는 마지막 페이지로", async () => {
   const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
   const first = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue) });
   await run(await command("queue"), first.it, first.bot);
   const p1 = first.log[0][1];
   assert.match(descriptionOf(p1), /^`1\.` \*\*\[곡1\]\(u0\)\*\*/);
   assert.doesNotMatch(descriptionOf(p1), /지금/, "지금 곡은 재생 패널이 보인다");
-  assert.equal(p1.embeds[0].data.fields, undefined, "칸을 쓰지 않는다");
+  assert.equal(p1.embeds[0].data.fields, undefined, "필드를 쓰지 않는다");
   assert.equal(p1.embeds[0].data.footer?.text, "모두 25곡 • 1/3 페이지");
   assert.deepEqual(lifetimesOf(first.it), [LIFETIME.screen], "읽는 화면의 수명");
 
@@ -210,7 +210,7 @@ test("/queue: 다음 곡만 쪽마다 나눠 보인다. 없는 쪽은 마지막 
   assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3 페이지");
 });
 
-// 링크가 붙은 긴 유튜브 제목 열 줄이면 칸 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).
+// 링크가 붙은 긴 유튜브 제목 열 줄이면 필드 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).
 // 본문은 4096자지만 서명된 직접 링크 · 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
 test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
   const who = { id: "151864213755789312" };
@@ -228,7 +228,7 @@ test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어
 
 // ── /help · /system ───────────────────────────────────────────────────
 
-test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", async () => {
+test("/help: 명령 그룹과 통계를 담고 새로고침 버튼을 단다", async () => {
   const { it, log, bot } = interaction({ player: { any: 1 } });
   await run(await command("help"), it, bot);
   const f = fieldsOf(log[0][1]);
@@ -253,7 +253,7 @@ test("/help: 모든 명령을 적는다", async () => {
   );
 });
 
-test("/help: 만들다 던지면 입구가 알린다", async () => {
+test("/help: 만들다 던지면 진입점이 알린다", async () => {
   const { it, log, client, bot } = interaction();
   client.user.displayAvatarURL = () => {
     throw new Error("x");
@@ -328,7 +328,7 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
   assert.equal(await settings.getBotChannel("g1"), "c6");
 });
 
-test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패는 본인에게만", async () => {
+test("/setchannel remove: 삭제하고 패널을 옮긴 뒤 안내. 저장 실패는 본인에게만", async () => {
   await settings.setBotChannel("g1", "c5");
   const { it, log, seen, bot } = interaction({ options: { action: "remove" } });
   await run(await command("setchannel"), it, bot);
@@ -365,7 +365,7 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
 // ── /sponsorblock 과 설정 화면 ────────────────────────────────────────
 
 function sbInteraction({ customId, values = [], messageId = "reply-msg", manage = true }: { customId: string; values?: string[]; messageId?: string; manage?: boolean }) {
-  // 받은 것. 이름 다음에 보는 칸
+  // 받은 것. 이름 다음에 보는 필드
   const log: Array<[string, ...Array<string | number | null | Sent>]> = [];
   const it = {
     customId,
@@ -397,7 +397,7 @@ function sbInteraction({ customId, values = [], messageId = "reply-msg", manage 
   return { it, log };
 }
 
-test("/sponsorblock: 지금 설정으로 화면을 띄우고 보류 상태를 메시지 id 로 남긴다", async () => {
+test("/sponsorblock: 지금 설정으로 화면을 표시하고 보류 상태를 메시지 id 로 남긴다", async () => {
   const { it, log, bot } = interaction();
   await run(await command("sponsorblock"), it, bot);
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
@@ -415,7 +415,7 @@ test("SponsorBlock 화면: 서버 관리 권한이 필요하다", async () => {
   assert.deepEqual(denied.log, [["reply", noticeReply(errors.notice("must-moderator"))]]);
 });
 
-test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저장한다. 보류가 없으면 지금 설정에서 시작한다", async () => {
+test("SponsorBlock 화면: 선택하고 저장하면 모르는 구간은 빼고 저장한다. 보류가 없으면 지금 설정에서 시작한다", async () => {
   const pick = sbInteraction({ customId: "sb:cats", values: ["intro", "nope", "intro", "outro"], messageId: "m-save" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(pick.it));
   assert.deepEqual(pick.log, [["deferUpdate"]]);
@@ -443,7 +443,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   assert.match(String(save.log.at(-1)?.[2]), /구간: 끔/);
 
   settings._reset();
-  settingsDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "켬"에서 시작하게
+  settingsDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 삭제해, 새 보류가 "켬"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(empty.it));
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });

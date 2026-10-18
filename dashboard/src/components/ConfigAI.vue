@@ -1,25 +1,25 @@
 <!--
-  AI 보조 설정 (운영자 패널). 여기는 목록 · 상세 틀과 대화상자, 카드는 ConfigAI* 부품, 상태 · 동작은 composables/ai-editor.
+  AI 보조 설정 (운영자 패널). 여기는 목록 · 상세 레이아웃과 대화상자, 카드는 ConfigAI* 컴포넌트, 상태 · 동작은 composables/ai-editor.
 
   설정과 **프롬프트**는 settings.db 의 딴 문서("ai" · "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
 
-  키는 쓰기 전용이다. 프로바이더마다 따로 비밀 표에 암호화해 두고, 넣을 수는 있어도
+  키는 쓰기 전용이다. 프로바이더마다 따로 비밀 테이블에 암호화해 두고, 입력할 수는 있어도
   화면으로 되읽지는 못한다. 값을 내려보내면 XSS 하나로 새어 나간다.
-  키는 넣을 때 화면에 적힌 주소(custom 의 주소 · 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
+  키는 입력할 때 화면에 입력된 주소(custom 의 주소 · 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
 
   미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
 -->
 <template>
-  <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 틀, composables/list-detail 의 배치). 목록 머리에 켜고 끄기 스위치 · 무엇을 하는지 한 줄.
-       목록: 모델 · 프롬프트 · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 고른 것은 주소 ?ai=(두 단이면 고른 것이 없을 때 모델) -->
+  <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 목록 헤더에 켜고 끄기 스위치 · 무엇을 하는지 한 줄.
+       목록: 모델 · 프롬프트 · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 선택한 것은 주소 ?ai=(두 단이면 선택한 것이 없을 때 모델) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
 
-    <!-- 묶음: 모델(프로바이더 · 주소 · 키 · 모델이 한 카드, 연결 테스트 · 모델 파라미터) · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트) · 고급 설정(부르기 · 재시도) · 리퀘스트 로그 · 사용량 통계(둘 다 자리만) -->
+    <!-- 그룹: 모델(프로바이더 · 주소 · 키 · 모델이 한 카드, 연결 테스트 · 모델 파라미터) · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트) · 고급 설정(부르기 · 재시도) · 리퀘스트 로그 · 사용량 통계(둘 다 플레이스홀더만) -->
     <div ref="paneEl" :class="paneClass">
-      <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 안 골랐으면 모델 · 리퀘스트 로그 · 사용량 통계만 -->
+      <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 선택하지 않았으면 모델 · 리퀘스트 로그 · 사용량 통계만 -->
       <BaseCard v-if="showList" icon="campaign" :title="T.title" :class="listCardClass">
         <template #actions><BaseSwitch v-model="aiOn" :label="T.enable" /></template>
         <!-- 무엇을 하는지 한 줄, 자세한 것은 툴팁 -->
@@ -160,10 +160,10 @@ defineProps<{ active: boolean }>();
 
 const route = useRoute();
 const router = useRouter();
-// 프로바이더를 안 골라도 여는 것
+// 프로바이더를 선택하지 않아도 여는 것
 const ALWAYS_OPEN: readonly string[] = ["model", "log", "usage"];
 
-// ── 목록 · 상세. 주소 ?ai= 에 고른 줄(model · prompt · advanced · log · usage). 두 단이면 고른 것이 없을 때 모델 ──
+// ── 목록 · 상세. 주소 ?ai= 에 선택한 항목(model · prompt · advanced · log · usage). 두 단이면 선택한 것이 없을 때 모델 ──
 const FIXED_ITEMS = [
   { id: "model", label: T.items.model, icon: "model_training" },
   { id: "prompt", label: T.items.prompt, icon: "terminal" },
@@ -185,10 +185,10 @@ const picked = computed<string | null>(() => {
 const showList = computed(() => twoPane.value || !picked.value);
 const showDetail = computed(() => !!picked.value);
 const isOn = (id: string) => twoPane.value && picked.value === id;
-/** 보이는 묶음(고른 줄) */
+/** 보이는 그룹(선택한 항목) */
 const view = computed(() => picked.value);
 const providerLabel = computed(() => providerOptions.value.find((one) => one.value === draft.value.provider)?.label ?? draft.value.provider ?? "");
-// 한 단에서 열면 방문 기록을 한 칸 쌓아(뒤로가기 = 목록), 두 단에서 고르면 주소만 바꾼다
+// 한 단에서 열면 방문 기록을 하나 쌓아(뒤로가기 = 목록), 두 단에서 선택하면 주소만 바꾼다
 function openItem(id: string) {
   const query = { ...route.query, ai: id };
   if (twoPane.value) void router.replace({ query });

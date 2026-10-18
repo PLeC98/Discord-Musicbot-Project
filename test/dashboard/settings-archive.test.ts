@@ -1,5 +1,5 @@
 // src/dashboard/settings-archive.ts · routes/settings-archive.ts — 설정 내보내기 · 가져오기(ZIP).
-// 내보낸 것을 그대로 복원하고, 고른 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 가져오기는 그 표로
+// 내보낸 것을 그대로 복원하고, 선택한 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 가져오기는 그 티켓으로
 
 process.env.OWNER_ID = "owner";
 
@@ -34,7 +34,7 @@ const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "settings-archive-upload
 uploads._useDir(uploadDir);
 let loginAt = Date.now();
 const app = express();
-// 로그인한 운영자. 로그인 시각은 시험이 정한다(최근 로그인 시험)
+// 로그인한 운영자. 로그인 시각은 테스트가 정한다(최근 로그인 테스트)
 app.use((req, _res, next) => {
   req.session = fake<typeof req.session>({ user: { id: "owner", username: "owner" }, loginAt });
   next();
@@ -67,7 +67,7 @@ type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; w
 
 /** 내보낸 파일. 기본은 암호화된 설정까지(파비콘 말고 모든 항목이 든다) */
 async function exported(kind: "settings" | "full" | "favicon" = "full") {
-  // 두 걸음: 한 번 쓰는 주소를 받아 그 주소를 내려받는다
+  // 두 단계: 한 번 쓰는 주소를 받아 그 주소에서 다운로드한다
   const ticket = await fetch(`${base}/export?kind=${kind}`, { method: "POST" });
   assert.equal(ticket.status, 200);
   const res = await fetch(`${baseUrl(server)}${((await ticket.json()) as { url: string }).url}`);
@@ -81,7 +81,7 @@ async function preview(file: Buffer) {
   const res = await upload(file);
   return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
 }
-/** 가져오기: 미리 보기로 올려 받은 표로(route 는 "import?items=…") */
+/** 가져오기: 미리 보기로 올려 받은 티켓으로(route 는 "import?items=…") */
 async function send(route: string, file: Buffer) {
   const { json } = await preview(file);
   return fetch(`${base}/${route}${route.includes("?") ? "&" : "?"}token=${json.token}`, { method: "POST" });
@@ -164,7 +164,7 @@ test("자기 내보내기를 미리 보면 모두 파일에 있고 지금과 같
   );
 });
 
-test("고른 항목만 덮어쓰고 메모리(설정 객체 · 문서 · 서버별 설정)까지 맞춘다. 고르지 않은 것은 그대로", async () => {
+test("선택한 항목만 덮어쓰고 메모리(설정 객체 · 문서 · 서버별 설정)까지 맞춘다. 선택하지 않은 것은 그대로", async () => {
   guildSettings.table.setBotChannel("123456789012345678", "111111111111111111");
   const file = await exported();
 
@@ -182,7 +182,7 @@ test("고른 항목만 덮어쓰고 메모리(설정 객체 · 문서 · 서버�
     "쓰기 전에 스냅샷을 남긴다",
   );
 
-  assert.equal(config.bot.maxQueueSize, 250, "운영 조절값은 기본값(파일에 없던 칸)으로");
+  assert.equal(config.bot.maxQueueSize, 250, "운영 조절값은 기본값(파일에 없던 필드)으로");
   assert.equal(await guildSettings.getBotChannel("123456789012345678"), "111111111111111111");
   assert.deepEqual(await guildSettings.getDjRoles("876543210987654321"), [], "파일에 없던 서버의 설정은 지운다");
   assert.deepEqual((documents.get("status") as { messages: string[] }).messages, ["바뀐 문구"], "고르지 않은 문서는 그대로");
@@ -197,7 +197,7 @@ test("문서를 가져오면 저장 번호가 올라 열어 둔 편집기는 낡
   assert.equal(settingsDocs.read("genres").revision, before + 1);
 });
 
-test("고른 항목 하나라도 검사에 걸리면 400 으로 까닭을 모두 알리고 아무것도 바꾸지 않는다", async () => {
+test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모두 알리고 아무것도 바꾸지 않는다", async () => {
   const file = rewrite(await exported(), (json) => {
     (json.documents as Record<string, unknown>).status = { interval: 1, messages: [] };
     json.tunables = { QUEUE_MAX_TRACKS: "abc" };
@@ -216,7 +216,7 @@ test("고른 항목 하나라도 검사에 걸리면 400 으로 까닭을 모두
   assert.equal(await guildSettings.getBotChannel("123456789012345678"), "999999999999999999", "검사를 지난 항목도 쓰지 않는다");
 });
 
-// 평문으로 남는 칸에 비밀 헤더를 적어 들여오지 못한다(저장 때와 같은 검사)
+// 평문으로 남는 필드에 비밀 헤더를 적어 가져오지 못한다(저장 때와 같은 검사)
 test("AI 설정의 추가 인자에 비밀 헤더가 있으면 꺼 두었어도 가져오지 않는다", async () => {
   const file = rewrite(await exported(), (json) => {
     (json.documents as Record<string, unknown>).ai = { enabled: true, provider: "openai", model: "m", extra: "header::Authorization=Bearer sk-몰래" };
@@ -248,7 +248,7 @@ const currents = () =>
     .slots.filter((one) => one.current)
     .map((one) => one.size);
 
-test("파비콘: 내보낸 칸 · 기록으로 통째 되돌린다. 비어 있던 파일을 가져오면 파비콘이 없어진다", async () => {
+test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 있던 파일을 가져오면 파비콘이 없어진다", async () => {
   await appearance.addFavicon(32, await square(32));
   const first = await exported("favicon");
   await appearance.addFavicon(32, await square(40));
@@ -275,7 +275,7 @@ test("파비콘: 내보낸 칸 · 기록으로 통째 되돌린다. 비어 있�
   );
 });
 
-test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 짚고 가져오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
+test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하고 가져오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
   await appearance.addFavicon(32, await square(32));
   const file = await exported("favicon");
   const missing = zip(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
@@ -303,7 +303,7 @@ test("예전에 봇 설정과 함께 내보낸 파비콘도 불러온다", async
   assert.deepEqual(currents(), [32]);
 });
 
-test("올린 파일: 가져오면 지우고(같은 표로 다시 못 쓴다), 검사에 걸리면 두고, 닫으면 지운다. 못 읽은 파일은 남기지 않는다", async () => {
+test("올린 파일: 가져오면 삭제하고(같은 티켓으로 다시 못 쓴다), 검사에 걸리면 두고, 닫으면 삭제한다. 못 읽은 파일은 남기지 않는다", async () => {
   const file = await exported();
   const { json } = await preview(file);
   assert.equal(fs.readdirSync(uploadDir).length, 1);
@@ -328,7 +328,7 @@ test("올린 파일: 가져오면 지우고(같은 표로 다시 못 쓴다), �
   assert.deepEqual(fs.readdirSync(uploadDir), [], "봇이 켜질 때 남은 것을 치운다");
 });
 
-test("내려받기 주소는 한 번만 쓴다(다시 열면 404). 모르는 표도 404", async () => {
+test("다운로드 주소는 한 번만 쓴다(다시 열면 404). 모르는 티켓도 404", async () => {
   const { url } = (await (await fetch(`${base}/export?kind=settings`, { method: "POST" })).json()) as { url: string };
   assert.match(url, /^\/api\/admin\/settings-archive\/download\/[0-9a-f]{32}$/);
   assert.equal((await fetch(`${baseUrl(server)}${url}`)).status, 200);
@@ -362,8 +362,8 @@ test("봇 설정만: 서버별 설정 · 키 · PC 에 매인 값이 없고, 불
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "chrome" }, "남의 파일이 쿠키 출처를 정하지 못한다");
 });
 
-// 남이 준 파일로 모르고 들이지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
-test("바깥으로 나가는 값이 바뀌면 미리 보기가 짚어 준다", async () => {
+// 남이 준 파일로 모르고 가져오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
+test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다", async () => {
   const file = rewrite(await exported("settings"), (json) => {
     (json.tunables as Record<string, string>).WEBSITE = "https://phish.example";
     const docs = json.documents as Record<string, unknown>;

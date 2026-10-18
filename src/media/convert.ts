@@ -7,7 +7,7 @@ import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type Conve
 type Converted = ConvertPlan & { durationSec: number | null; title: string | null; artist: string | null };
 
 /**
- * yt-dlp 갈래도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다.
+ * yt-dlp 분기도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다.
  * `--postprocessor-args` 의 `이름:인자` 한 줄이다. youtube-dl-exec 는 객체 값을 인자로 바꾸지 않고 버린다.
  * `ffmpeg:` 는 출력 파일 앞에 붙는다.
  */
@@ -21,9 +21,9 @@ function argsFor(plan: Pick<ConvertPlan, "action" | "bitrateKbps">, srcFile: str
 }
 
 /**
- * 받아 둔 파일을 캐시용 `.opus` 로 만든다. 실패하면 던진다.
+ * 다운로드해 둔 파일을 캐시용 `.opus` 로 만든다. 실패하면 던진다.
  *
- * @param {string} srcFile  받아 둔 원본(확장자 무관)
+ * @param {string} srcFile  다운로드해 둔 원본(확장자 무관)
  * @param {string} outFile  만들 `.opus` 경로
  */
 async function toCacheOpus(srcFile: string, outFile: string): Promise<Converted> {

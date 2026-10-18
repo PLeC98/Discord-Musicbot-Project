@@ -10,7 +10,7 @@ import { logTitle } from "../../infra/log/title.ts";
 
 /** 동등물을 찾을 곡. 찾으면 audioUrl · audioFoundBy 를 적는다 */
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: "given" | "ledger" | "search"; [field: string]: unknown };
-/** 유튜브 검색. 여기서 읽는 칸만 */
+/** 유튜브 검색. 여기서 읽는 필드만 */
 type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean }> | null | undefined>;
 
 /**
@@ -23,7 +23,7 @@ type Search = (query: string, limit: number) => Promise<Array<{ id?: string | nu
 async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.search(query, limit) }: { search?: Search } = {}): Promise<string | null> {
   if (track.audioUrl) return track.audioUrl;
 
-  // Tier-1: 장부에 이 요청의 영상이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
+  // Tier-1: 링크 데이터에 이 요청의 영상이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
   // 그 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
   const known = track.requestKey && trackLookup.getAudioUrl(track.requestKey);
   if (known && links.isYouTubeURL(known)) {
@@ -48,8 +48,8 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 }
 
 /**
- * 장부에서 가져온 유튜브 영상이 내려간 경우: 그 줄을 지우고 새로 검색한다.
- * 재검색 결과는 장부에서 온 것이 아니므로(audioFoundBy "search"), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
+ * 링크 데이터에서 가져온 유튜브 영상이 내려간 경우: 그 행을 삭제하고 새로 검색한다.
+ * 재검색 결과는 링크 데이터에서 온 것이 아니므로(audioFoundBy "search"), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
  */
 async function reresolveYouTube(track: Seeking, deps?: { search?: Search }): Promise<string | null> {
   if (track.requestKey) trackLookup.removeResolution(track.requestKey);

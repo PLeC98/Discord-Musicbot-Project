@@ -1,10 +1,10 @@
-// 로그인 배경의 HLS 재생. 코덱 하나의 목록을 틀고, 해상도는 hls.js 가 화면 크기 × 배율(capLevelToPlayerSize) · 통신으로 고른다. 우리는 짧은 변 상한만 건다.
+// 로그인 배경의 HLS 재생. 코덱 하나의 목록을 틀고, 해상도는 hls.js 가 화면 크기 × 배율(capLevelToPlayerSize) · 통신으로 선택한다. 우리는 짧은 변 상한만 건다.
 // 버린 장면으로 내리기는 우리 조절(adapt.ts)이 맡는다(hls.js 의 capLevelOnFPSDrop 은 5초에 20% 넘게 버려야 내리고 그 재생 내내 그대로라 끈다).
 // hls.js 는 영상 배경일 때만 불러온다. MSE 가 없고 HLS 를 바로 트는 브라우저는 브라우저에 맡긴다(상한을 걸 수 없다)
 
 /** 지금 단계의 짧은 변 · 통신 어림(bps) */
 type HlsInfo = { short: number; bandwidth: number };
-/** fatal: 멈추는 오류(목록 · 조각을 못 받음 · 풀지 못함). 받기 오류면 load 가 참(배경이 바뀌었을 수 있다) */
+/** fatal: 멈추는 오류(목록 · 세그먼트를 못 받음 · 풀지 못함). 불러오기 오류면 load 가 참(배경이 바뀌었을 수 있다) */
 type HlsEvents = { onFatal: (failure: { load: boolean }) => void; onStall: () => void };
 type HlsPlayer = { cap(short: number | null): void; destroy(): void; info: HlsInfo };
 
@@ -15,7 +15,7 @@ const nativeHls = (video: HTMLVideoElement) => video.canPlayType("application/vn
 /** alive: 불러오는 사이 다른 것으로 바뀌었는지(바뀌었으면 붙이지 않는다) */
 async function playHls(video: HTMLVideoElement, url: string, cap: number | null, alive: () => boolean, events: HlsEvents): Promise<HlsPlayer> {
   const info: HlsInfo = { short: 0, bandwidth: 0 };
-  // 가벼운 판: 자막 · 다른 오디오 · DRM 을 뺀 것(영상만인 fMP4 목록이라 쓰지 않는다)
+  // 가벼운 빌드: 자막 · 다른 오디오 · DRM 을 뺀 것(영상만인 fMP4 목록이라 쓰지 않는다)
   const { default: Hls } = await import("hls.js/light");
   if (!alive())
     return {

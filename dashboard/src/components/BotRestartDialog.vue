@@ -1,5 +1,5 @@
 <template>
-  <!-- 봇 다시 시작 창(운영자 패널에 하나). 단추를 누르면 묻고, 봇이 받은 뒤에는 단추 없이 다시 뜨기를 기다린다(저장 후 다시 시작은 묻지 않고 바로 기다리기) -->
+  <!-- 봇 다시 시작 창(운영자 패널에 하나). 버튼을 누르면 묻고, 봇이 받은 뒤에는 버튼 없이 다시 뜨기를 기다린다(저장 후 다시 시작은 묻지 않고 바로 기다리기) -->
   <ConfirmDialog v-model="open" icon="restart_alt" tone="primary" :title="waiting ? T.waitingTitle : T.confirmTitle" :body="waiting ? T.waiting : T.confirmBody" :confirm-label="T.confirm" :actions="!waiting" @confirm="restartNow" />
 </template>
 

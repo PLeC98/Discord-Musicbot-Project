@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-/** 빌드가 남기는 것. files 는 저장소 뿌리에서의 상대 경로(/ 구분) */
+/** 빌드가 남기는 것. files 는 저장소 루트에서의 상대 경로(/ 구분) */
 type BuildInputs = { builtAt: number; files: string[] };
 type Freshness = { state: "fresh" } | { state: "missing" } | { state: "unknown" } | { state: "stale"; changed: string[] };
 
@@ -29,7 +29,7 @@ function readInputs(file: string): BuildInputs | null {
   }
 }
 
-/** dist: 빌드한 화면 폴더, root: 저장소 뿌리 */
+/** dist: 빌드한 화면 폴더, root: 저장소 루트 */
 function clientFreshness(dist: string, root: string): Freshness {
   if (!fs.existsSync(path.join(dist, "index.html"))) return { state: "missing" };
   const inputs = readInputs(path.join(dist, BUILD_INPUTS));
@@ -41,7 +41,7 @@ function clientFreshness(dist: string, root: string): Freshness {
   return changed.length ? { state: "stale", changed } : { state: "fresh" };
 }
 
-const REBUILD = "pnpm run build:dashboard 로 빌드하세요(봇은 다시 켜지 않아도 됩니다)";
+const REBUILD = "pnpm run build:dashboard 로 빌드하세요(봇은 다시 시작하지 않아도 됩니다)";
 const SHOWN = 3;
 
 /** 운영자에게 남길 경고. 새것이면 null */

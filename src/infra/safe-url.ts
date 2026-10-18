@@ -36,11 +36,11 @@ type LookupFn = (host: string, options: { all: true; verbatim: boolean }) => Pro
 type Outgoing = { method: "HEAD" | "GET"; url: URL; agent: http.Agent; timeoutMs: number; headers: Record<string, string> };
 /** 응답. 본문은 스트림이고 다 쓰거나 부숴야 한다 */
 type Incoming = { status: number; headers: Record<string, unknown>; body: Readable };
-/** 요청 함수. 시험이 가짜를 넘긴다 */
+/** 요청 함수. 테스트가 가짜를 넘긴다 */
 type HttpRequest = (request: Outgoing) => Promise<Incoming>;
-/** 바깥 경계. 생략하면 send 와 dns.lookup */
+/** 외부 경계. 생략하면 send 와 dns.lookup */
 type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
-/** 받을 것의 조건: Content-Type · 크기 상한 · 시간 한도(홉마다의 응답 대기, getBuffer 는 받기 전체에도) */
+/** 받을 것의 조건: Content-Type · 크기 상한 · 시간 한도(홉마다의 응답 대기, getBuffer 는 다운로드 전체에도) */
 type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number };
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
@@ -183,7 +183,7 @@ function byteCap(maxBytes: number) {
     transform(chunk, _enc, cb) {
       total += chunk.length;
       if (total > maxBytes) {
-        cb(new Error(`받은 파일이 최대 크기(${maxBytes} bytes)를 초과했습니다`));
+        cb(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과했습니다`));
         return;
       }
       cb(null, chunk);
@@ -206,7 +206,7 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
 
 /**
  * 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws
- * deps: { request, lookup } 바깥 경계. 생략하면 send 와 dns.lookup
+ * deps: { request, lookup } 외부 경계. 생략하면 send 와 dns.lookup
  */
 async function head(rawUrl: string, deps: RequestDeps = {}) {
   const { response, agent } = await guardedRequest("HEAD", rawUrl, deps);
@@ -268,12 +268,12 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
 }
 
 /**
- * 가드된 GET 을 끝까지 받아 버퍼로(작은 파일). accept 의 Content-Type · 크기 상한을 지키고, 받기 전체가 timeoutMs 를 넘으면 끊는다. deps 는 head 와 같다. @throws
+ * 가드된 GET 을 끝까지 받아 버퍼로(작은 파일). accept 의 Content-Type · 크기 상한을 지키고, 다운로드 전체가 timeoutMs 를 넘으면 끊는다. deps 는 head 와 같다. @throws
  */
 async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
   const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs);
   const source = response.body;
-  const deadline = setTimeout(() => source.destroy(new Error(`받기가 ${accept.timeoutMs}ms 안에 끝나지 않았습니다`)), accept.timeoutMs);
+  const deadline = setTimeout(() => source.destroy(new Error(`다운로드가 ${accept.timeoutMs}ms 안에 끝나지 않았습니다`)), accept.timeoutMs);
   try {
     assertResponseAllowed(response.headers, accept);
     const chunks: Buffer[] = [];
@@ -292,6 +292,6 @@ async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {})
 }
 
 export { SsrfError, head, getStream, getBuffer, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES };
-// 시험이 진짜 소켓으로 보는 것
+// 테스트가 진짜 소켓으로 보는 것
 export const _internals = { send, createPinnedAgent };
 export type { Accept, LookupFn, HttpRequest, RequestDeps, Outgoing, Incoming };

@@ -1,6 +1,6 @@
 // AI 리퀘스트 로그 · 사용량 통계(/api/admin/ai/logs · /api/admin/ai/usage). 운영자만. 모양은 contract/ai-log.
 // 목록은 최근 것부터 쪽으로(before 보다 작은 id), 원문은 펼칠 때 한 줄씩. 새 기록은 실시간 연결로 온다(dashboard/ai-log-stream).
-// 통계는 기간(7 · 30 · 90일 · 전체) 안의 통계 줄을 셈한다(rules/ai-usage). 로그를 지워도 통계는 남는다.
+// 통계는 기간(7 · 30 · 90일 · 전체) 안의 통계 행을 집계한다(rules/ai-usage). 로그를 삭제해도 통계는 남는다.
 
 import express, { type Request } from "express";
 import config from "../../config/index.ts";
@@ -41,7 +41,7 @@ function queryOf(req: Request): AiLogQuery {
   return { sources: sourcesOf(req.query.sources), result: result === "ok" || result === "failed" ? result : "", q: String(req.query.q ?? "").slice(0, 200) };
 }
 
-/** 받은 수 글. 정수가 아니면 null */
+/** 받은 숫자 문자열. 정수가 아니면 null */
 function intOf(raw: unknown): number | null {
   const n = Number(raw);
   return raw !== undefined && Number.isInteger(n) ? n : null;

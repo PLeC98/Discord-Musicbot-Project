@@ -8,7 +8,7 @@ const CONNECTING = 0;
 const OPEN = 1;
 const CLOSED = 2;
 
-/** 가짜 EventSource. 연 것을 차례로 적는다 */
+/** 가짜 EventSource. 연 것을 순서대로 적는다 */
 class FakeSource {
   readyState = CONNECTING;
   onopen: (() => void) | null = null;
@@ -42,7 +42,7 @@ class FakeSource {
   }
 }
 
-/** 가짜 시계: 걸린 일을 적어 두고 시험이 하나씩 돌린다 */
+/** 가짜 시계: 걸린 일을 적어 두고 테스트가 하나씩 돌린다 */
 function harness({ checks = [] as boolean[] } = {}) {
   const sources: FakeSource[] = [];
   const states: string[] = [];
@@ -147,7 +147,7 @@ test("멈추면 닫고, 기다리던 다시 열기도 하지 않는다. 다시 �
   assert.equal(h.sources[1].closed, true);
 });
 
-test("이미 열렸거나 다시 열 차례를 기다리면 start 가 겹쳐 열지 않는다", () => {
+test("이미 열렸거나 다시 열 때를 기다리면 start 가 겹쳐 열지 않는다", () => {
   const h = harness();
   h.link.start();
   h.link.start();

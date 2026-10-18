@@ -1,4 +1,4 @@
-// src/infra/vitals.ts · version.ts — 봇 상태 탭의 측정: CPU 사용률 · 이벤트 루프 지연(15초 칸) · heap 한도, 돌고 있는 버전
+// src/infra/vitals.ts · version.ts — 봇 상태 탭의 측정: CPU 사용률 · 이벤트 루프 지연(15초 구간) · heap 한도, 돌고 있는 버전
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ const busy = (ms: number) => {
   while (performance.now() < until);
 };
 
-test("다섯 번 잴 때마다 15초 칸을 닫고 알린다: 그 칸의 CPU 평균 · 루프 지연 p99 와 최대", async () => {
+test("다섯 번 잴 때마다 15초 구간을 닫고 알린다: 그 구간의 CPU 평균 · 루프 지연 p99 와 최대", async () => {
   startVitals();
   const windows: Window[] = [];
   onWindow((window) => windows.push(window));
@@ -26,7 +26,7 @@ test("다섯 번 잴 때마다 15초 칸을 닫고 알린다: 그 칸의 CPU 평
     await nextTurn();
     _tick();
   }
-  assert.equal(windows.length, 0, "아직 칸이 열려 있다");
+  assert.equal(windows.length, 0, "아직 구간이 열려 있다");
   _tick();
   assert.equal(windows.length, 1);
 
@@ -35,7 +35,7 @@ test("다섯 번 잴 때마다 15초 칸을 닫고 알린다: 그 칸의 CPU 평
   assert.ok(loop.p99 > 0 && loop.p99 <= loop.max);
   assert.ok(cpu.bot > 0 && cpu.bot <= 100, `봇 CPU ${cpu.bot}`);
   assert.ok(cpu.system >= 0 && cpu.system <= 100);
-  assert.deepEqual(vitals().loop, loop, "지금 값의 루프 지연은 닫은 칸");
+  assert.deepEqual(vitals().loop, loop, "지금 값의 루프 지연은 닫은 구간");
 });
 
 test("heap 한도는 MB, 측정을 켜기 전에는 0", () => {

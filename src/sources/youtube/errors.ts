@@ -1,4 +1,4 @@
-// yt-dlp 오류를 가른다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
+// yt-dlp 오류를 구분한다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
 
 // 오류에서 읽을 글. yt-dlp 오류는 stderr 에, 나머지는 message 에 담긴다
 function textOf(error: unknown): string {
@@ -37,7 +37,7 @@ function isAgeRestrictedError(error: unknown) {
 }
 
 /**
- * 걸어 둔 쿠키를 유튜브가 받지 않았는가. yt-dlp 는 이것을 WARNING 으로만 적고 ERROR 에는 연령 확인 요구만 적는다.
+ * 붙인 쿠키를 유튜브가 받지 않았는가. yt-dlp 는 이것을 WARNING 으로만 적고 ERROR 에는 연령 확인 요구만 적는다.
  * 브라우저에서 그 계정을 계속 쓰면 세션이 갱신되며 내보낸 쿠키가 무효가 된다(만료 시각과 무관)
  */
 function isCookiesInvalidError(error: unknown) {
@@ -86,7 +86,7 @@ function isClientFault(error: unknown) {
 }
 
 /**
- * 포맷 주소를 받아 놓고 내려받다가 막힌 것인가.
+ * 포맷 주소를 받아 놓고 다운로드하다가 막힌 것인가.
  *
  * 유튜브가 발급한 미디어 주소를 그 CDN이 거절하는 일이 간헐적으로 있다. yt-dlp 자신이 같은
  * 주소로 세 번 재시도해도(retries:3) 계속 403인데, 주소를 새로 받으면 풀린다. 주소 자체가
@@ -104,8 +104,8 @@ function isStaleMediaError(error: unknown) {
   return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
 }
 
-// yt-dlp 가 적는 문장으로만 가르는 것. 우리가 고칠 수 없는 문장이라 여기서 읽는다.
-// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 가르지 않는다(영상 ID 에 429 가 들 수 있다)
+// yt-dlp 가 적는 문장으로만 구분하는 것. 우리가 고칠 수 없는 문장이라 여기서 읽는다.
+// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
 const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
 const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded/i;
@@ -116,12 +116,12 @@ const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
 
 /**
  * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlpSpawn)이 실패할 때 한 번 붙인다. 모르면 null.
- * 연령 제한 → 지역 차단 → 영상 없음 차례다. 요청 제한(429)은 주소 어긋남보다 앞이다
+ * 연령 제한 → 지역 차단 → 영상 없음 순서다. 요청 제한(429)은 주소 어긋남보다 앞이다
  * (다시 받을지는 ytdlpRun 이 isStaleMediaError 로 따로 본다).
  */
 function codeOf(error: unknown) {
   const msg = textOf(error);
-  // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 넣으면 풀린다
+  // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 입력하면 풀린다
   if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "yt-age-cookies-invalid";
   if (isAgeRestrictedError(error)) return "yt-age-no-cookies";
   // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다

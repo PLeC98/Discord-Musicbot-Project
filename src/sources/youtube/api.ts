@@ -21,7 +21,7 @@ type Item = YtInfo | null | undefined;
 
 /**
  * yt-dlp 응답이 "지금 진행 중이거나 예정된 라이브"인지 판별.
- * 라이브는 끝이 없어 캐시 다운로드가 무한히 커지고(yt-dlp가 ffmpeg를 외부 다운로더로 띄운다),
+ * 라이브는 끝이 없어 캐시 다운로드가 무한히 커지고(yt-dlp가 ffmpeg를 외부 다운로더로 실행한다),
  * Spotify 동등물 후보로서는 언제나 오답이다. flat 검색 항목/상세 정보 양쪽에 같은 필드가 온다.
  */
 function _detectLive(item: Item): boolean {
@@ -30,7 +30,7 @@ function _detectLive(item: Item): boolean {
 }
 
 /**
- * 라이브의 종류를 가린다. `_detectLive`는 "라이브 계열인가"만 보지만,
+ * 라이브의 종류를 구분한다. `_detectLive`는 "라이브 계열인가"만 보지만,
  * 재생은 방송 중(is_live)과 시작 전(is_upcoming)을 다르게 다뤄야 한다. 틀 것이 없는 쪽은 거절한다.
  * @returns {"is_live"|"is_upcoming"|null}
  */
@@ -42,7 +42,7 @@ function liveStatusOf(item: Item): "is_live" | "is_upcoming" | null {
   return null;
 }
 
-// 곡의 id 칸은 글자다. yt-dlp 는 수로 줄 때도 있다
+// 곡의 id 필드는 글자다. yt-dlp 는 수로 줄 때도 있다
 const idOf = (id: unknown) => (id == null ? undefined : String(id));
 
 /**
@@ -76,7 +76,7 @@ function _isVideoEntry(item: Item): item is YtInfo {
 
 // 제목 · 가수(올린 사람)가 없으면 비워 둔다(제목은 null). 그리는 곳이 "알 수 없는 곡"으로 적고, 표시 문구가 매칭 검색어 · 중복 판정에 들어가지 않는다
 
-// yt-dlp 가 준 영상 하나 → 트랙의 공통 칸. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원)
+// yt-dlp 가 준 영상 하나 → 트랙의 공통 필드. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원)
 function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
   const link = canonicalUrl(url);
   return {
@@ -95,7 +95,7 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
 }
 
 // 검색 결과 한 줄. 검색 결과에 길이가 없으면 상세 정보로 채운다
-// (라이브는 여기서 duration이 늘 0이라 이 갈래를 타고, 상세 정보로 isLive가 확정된다.)
+// (라이브는 여기서 duration이 늘 0이라 이 분기를 타고, 상세 정보로 isLive가 확정된다.)
 async function searchTrack(item: YtInfo) {
   const url = item.webpage_url || item.url || (item.id ? links.youtubeWatchUrl(String(item.id)) : null);
   if (!url) return null; // 비디오 항목이면 늘 있다(_isVideoEntry)
@@ -215,12 +215,12 @@ async function getStream(url: string, { exec }: { exec?: RunYtDlp } = {}) {
     httpHeaders: info.http_headers || {},
     isLive: _detectLive(info),
     liveStatus: liveStatusOf(info),
-    // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
-    // 줘야 하는 형식이라 파이프로 먹일 수 없다. 재생 쪽이 이 값으로 갈래를 고른다.
+    // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "다운로드해 둔 바이트"가 아니라 "다운로드할 주소"를
+    // 줘야 하는 형식이라 파이프로 먹일 수 없다. 재생 쪽이 이 값으로 분기한다.
     protocol: info.protocol || null,
     // 앞 광고가 붙은 응답이면 광고가 끝나는 시각. 그 전에는 본편 요청이 403 일 수 있다(yt-dlp 가 광고 길이로 매긴다)
     availableAt: info.available_at ?? null,
-    // 조각 목록으로만 주는 포맷이면 조각 주소의 모양. 재생 쪽이 조각을 차례로 받는다(media/fragment-stream)
+    // 조각 목록으로만 주는 포맷이면 조각 주소의 모양. 재생 쪽이 조각을 순서대로 다운로드한다(media/fragment-stream)
     fragments: fragmentsOf(info),
   };
 }
@@ -237,7 +237,7 @@ function fragmentsOf(info: YtInfo) {
   return { base, count: list.length };
 }
 
-// 재생목록 한 줄. url 이 없으면 id 가 있다(부르는 쪽이 거른다)
+// 재생목록 한 줄. url 이 없으면 id 가 있다(부르는 쪽이 필터링한다)
 function playlistTrack(entry: YtInfo) {
   const track = trackOf(entry, entry.webpage_url || entry.url || links.youtubeWatchUrl(String(entry.id)), entry.uploader || entry.channel || entry.uploader_id);
   // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
@@ -252,9 +252,9 @@ function playlistTrack(entry: YtInfo) {
   return track;
 }
 
-// offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
-// 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 받기 등). 목록을 받지 못한 것(없는 · 비공개 목록, 네트워크)은 던진다
+// offset부터 limit개만 불러온다. 유튜브는 시작점까지 순서대로 넘겨 가야 해서 비용이 끝 위치에 비례한다.
+// 총 곡 수(playlist_count)는 구간만 불러와도 오지만, 믹스(RD…)는 끝이 없어 null이다.
+// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는 · 비공개 목록, 네트워크)은 던진다
 async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
   const info = readInfo(
     await exec(

@@ -1,7 +1,7 @@
 <template>
   <!-- 라이선스(M3 대화상자, 설정 대화상자와 같은 모양): 이 봇(AGPL · 소스 코드 링크) · 포크해 온 원본(MIT) · 화면이 내보내는 글꼴 · 그림 · 라이브러리 · 봇이 함께 배포하는 데이터(data/).
-       이 봇의 소스는 로그인 화면과 같은 기준: 운영자가 고친 소스(SOURCE_REPO_URL)가 원본 프로젝트와 다르면 둘 다, 같으면 하나. 주소를 못 받으면 링크 없이 알린다.
-       줄을 누르면 그 저장소 · 누리집을 새 창으로 연다 -->
+       이 봇의 소스는 로그인 화면과 같은 기준: 운영자가 고친 소스(SOURCE_REPO_URL)가 원본 프로젝트와 다르면 둘 다, 같으면 하나. 주소를 못 불러오면 링크 없이 알린다.
+       행을 누르면 그 저장소 · 웹사이트를 새 창으로 연다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
@@ -77,7 +77,7 @@ import type { BotInfo } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 const T = text.licenses;
 
-// 내용이 화면보다 길면 구른다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
+// 내용이 화면보다 길면 스크롤된다. 넘칠 때 오른쪽 여백을 3 줄여 막대까지가 왼쪽 여백과 같게
 const dialogEl = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(dialogEl);
 
@@ -105,10 +105,10 @@ watch(open, async (isOpen) => {
     sourceRepo.value = data.sourceRepo;
     projectRepo.value = data.projectRepo;
   } catch {
-    // 못 읽으면 이름 없이, 소스 줄은 링크 없이 못 불러왔다고 알린다(다음에 열 때 다시 읽는다)
+    // 못 읽으면 이름 없이, 소스 행은 링크 없이 못 불러왔다고 알린다(다음에 열 때 다시 읽는다)
   }
 });
 
-// 설정 대화상자의 줄과 같은 모양(높이 56 이상, 누르면 새 창)
+// 설정 대화상자의 항목과 같은 모양(높이 56 이상, 누르면 새 창)
 const row = "state-layer -mx-3 px-3 py-2 min-h-14 rounded-2xl flex items-center gap-4 no-underline text-on-surface";
 </script>

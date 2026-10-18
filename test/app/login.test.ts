@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { loginWithRetry } from "../../src/app/login.ts";
 import { EXIT, failedStartCode } from "../../src/app/exit-codes.ts";
 
-// 게이트웨이 정보 요청의 결과를 차례로 낸다. 로그인은 부른 것만 센다
+// 게이트웨이 정보 요청의 결과를 순서대로 낸다. 로그인은 부른 것만 센다
 function client(gateway: Array<Error | object>, { loginFails = false } = {}) {
   const steps: string[] = [];
   return {

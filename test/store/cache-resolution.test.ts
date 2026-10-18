@@ -25,10 +25,10 @@ after(() => {
   fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
-test("getAudioUrl: 장부 줄만 있으면 파일이 없어도 음원 주소를 돌려준다", () => {
+test("getAudioUrl: 링크 데이터 행만 있으면 파일이 없어도 음원 주소를 돌려준다", () => {
   const spUrl = "https://open.spotify.com/track/abc123";
   assert.equal(trackLookup.getAudioUrl(spUrl), null); // 없음
-  // audio_cache 행도 파일도 없이 장부만 적는다. 장부는 캐시와 따로 산다
+  // audio_cache 행도 파일도 없이 링크 데이터만 적는다. 링크 데이터는 캐시와 따로 산다
   trackLookup.recordTrackLookup({ requestKey: spUrl, pageUrl: spUrl, audioUrl: "https://www.youtube.com/watch?v=vidAAA", platform: "spotify", title: "t", artist: "a" });
   assert.equal(trackLookup.getAudioUrl(spUrl), "https://www.youtube.com/watch?v=vidAAA"); // 파일 없이도 히트
 });
@@ -62,7 +62,7 @@ test("YouTube.isVideoUnavailableError: 일시적/연령/봇 오류는 false (재
 // 쿠키가 죽었을 때 실제로 오는 stderr. 원인(WARNING)과 결과(ERROR)가 나뉘어 적히는데,
 // 원인 쪽 "no longer valid" 가 삭제 판정의 "no longer available" 과 한 단어 차이다.
 // 여기서 true 가 되면 멀쩡히 살아 있는 영상이 내려간 것으로 분류되고, 자동재생은 그 판정으로
-// 곡을 영구히 버린다(markDead). 쿠키를 갈아 끼워도 되살아나지 않는다.
+// 곡을 영구히 버린다(markDead). 쿠키를 교체해도 되살아나지 않는다.
 test("YouTube.isVideoUnavailableError: 쿠키 무효 + 연령 제한은 삭제가 아니다", () => {
   const stderr = ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.", "ERROR: [youtube] EahYs-8tTjQ: Sign in to confirm your age. Use --cookies-from-browser or --cookies for the authentication."].join("\n");
   const error = Object.assign(new Error("Command failed"), { stderr });

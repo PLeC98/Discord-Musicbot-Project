@@ -1,4 +1,4 @@
-// src/autoplayFilter — 자동재생 후보를 걸러내는 규칙.
+// src/autoplayFilter — 자동재생 후보를 필터링하는 규칙.
 //
 // 문턱은 짐작이 아니라 후보 840개를 세어 정했다(notes/research-autoplay-quality.md).
 // 그래서 여기 적는 것은 "왜 이 값인가"가 아니라 "이 성질이 깨지면 안 된다"이다.
@@ -27,7 +27,7 @@ test("길이 범위 밖은 떨어진다", () => {
 
 // 회귀 대상: 판정이 단순 포함이라 "mix"가 "remix"를 죽였다. 리믹스는 멀쩡한 곡이고 흔하다.
 // 설정에 " mix"처럼 공백을 넣어 두는 것으로는 못 고친다 — 대시보드가 앞뒤 공백을 뗀다.
-test("차단어는 낱말 경계로 견준다 — mix가 remix를 죽이지 않는다", () => {
+test("차단어는 단어 경계로 비교한다 — mix가 remix를 죽이지 않는다", () => {
   assert.equal(judge("BTS - MIC Drop (Steve Aoki Remix) Official MV").ok, true);
   assert.equal(judge("Clarity (BUNT. Remix)").ok, true);
 
@@ -35,13 +35,13 @@ test("차단어는 낱말 경계로 견준다 — mix가 remix를 죽이지 않�
   assert.equal(judge("coffee & beats jazzy japan lofi mix").detail, "mix");
 });
 
-test("한국어·일본어 차단어는 낱말 경계 없이 본다", () => {
+test("한국어·일본어 차단어는 단어 경계 없이 본다", () => {
   // \b는 한글 앞뒤에서 뜻대로 동작하지 않는다 — 그때는 그냥 포함 여부를 본다
   assert.equal(judge("봄노래 메들리 모음").detail, "메들리");
   assert.equal(judge("2026 春アニメ メドレー", 240, { blockedKeywords: ["メドレー"] }).detail, "メドレー");
 });
 
-test("차단어는 대소문자를 가리지 않는다", () => {
+test("차단어는 대소문자를 구분하지 않는다", () => {
   assert.equal(judge("Best Playlist Ever").detail, "playlist");
 });
 
@@ -69,7 +69,7 @@ test("곡 표식이 있으면 생김새 규칙을 면제한다", () => {
   assert.equal(judge("A, B, C, D - Song (ft E)").ok, true);
 });
 
-test("fat · fet 같은 낱말은 곡 표식이 아니다", () => {
+test("fat · fet 같은 단어는 곡 표식이 아니다", () => {
   // 생김새 규칙(이모지)에만 걸리는 제목. fat 을 표식으로 보면 면제돼 지나간다
   assert.equal(judge("Fat Cat 🌊🔥").reason, "믹스 생김새");
 });

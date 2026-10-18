@@ -1,4 +1,4 @@
-// 대기열에 담은 안내와 대기열 화면의 글자
+// 대기열에 담은 안내와 대기열 화면의 문구
 
 import { songTitle } from "./labels.ts";
 import { escapeMd } from "../../mentions.ts";
@@ -18,10 +18,10 @@ function added({ tracks, collection, total, first }: { tracks: Array<{ title?: s
   return { title, body: `**${escapeMd(name)}**${josa(name, "을")} ${where} 넣었어요.` };
 }
 
-/** 일부만 담았을 때(경고 줄이 있을 때) 담은 안내의 머리 줄을 갈음한다 */
+/** 일부만 담았을 때(경고 줄이 있을 때) 담은 안내의 헤더 줄을 대신한다 */
 const partlyAdded = () => "⚠️ 일부 곡을 추가했어요!";
 
-/** 담은 안내 밑의 경고 줄들. skipped 출처가 받을 수 없어 뺀 곡 수, dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 받음 */
+/** 담은 안내 밑의 경고 줄들. skipped 출처가 받을 수 없어 뺀 곡 수, dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 불러옴 */
 function addedWarnings({ dropped, skipped, queueLimited, max }: { dropped: number; skipped: number; queueLimited: boolean; max: number }) {
   const lines: string[] = [];
   if (skipped > 0) lines.push(`재생할 수 없는 ${skipped}곡은 제외됐어요. (미리듣기 · 지역 제한 등)`);
@@ -30,7 +30,7 @@ function addedWarnings({ dropped, skipped, queueLimited, max }: { dropped: numbe
   return lines;
 }
 
-/** 대기열 화면. count 는 다음 곡 수, 쪽이 둘 이상이면 몇 쪽인지 */
+/** 대기열 화면. count 는 다음 곡 수, 페이지가 둘 이상이면 몇 페이지인지 */
 const view = ({ count, page, pages }: { count: number; page: number; pages: number }) => ({
   title: "📝 재생 대기열",
   footer: `모두 ${count}곡${pages > 1 ? ` • ${page}/${pages} 페이지` : ""}`,

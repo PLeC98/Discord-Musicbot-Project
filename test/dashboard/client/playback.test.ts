@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { accepts, canRemove, canSkip, clockOf, moveTarget, onTrackOf, positionAt, previousEnabled, retime, seekPosition, skipEnabled } from "../../../dashboard/src/utils/playback.ts";
 import { reordered } from "../../../dashboard/src/utils/reorder.ts";
 
-test("받기: 같은 기동이면 차례가 지금 이상일 때만, 기동 표가 크면 받고 작으면 버린다", () => {
+test("받기: 같은 기동이면 순서가 지금 이상일 때만, 기동 표가 크면 받고 작으면 버린다", () => {
   const now = { boot: 200, seq: 10 };
   assert.equal(accepts(now, { boot: 200, seq: 11 }), true);
   assert.equal(accepts(now, { boot: 200, seq: 10 }), true);
@@ -29,7 +29,7 @@ test("진행 계산: 받은 위치 + 지난 시간, 멈췄거나 곡이 없으�
   assert.equal(positionAt(clockOf(playing, 5000), 1000), 30);
 });
 
-test("다시 재기: 멈추면 그 자리에 서고, 옮기면 옮긴 자리부터 흐른다", () => {
+test("다시 재기: 멈추면 그 위치에 서고, 옮기면 옮긴 위치부터 흐른다", () => {
   const clock = clockOf({ playing: true, paused: false, currentTrack: { currentTime: 30, duration: 100 } }, 1000);
   const held = retime(clock, 6000, { running: false });
   assert.equal(positionAt(held, 20_000), 35);
@@ -103,7 +103,7 @@ test("옮기기 요청: 놓은 틈 뒤의 줄 앞으로, 끝이면 맨 끝(받�
   assert.equal(moveTarget([{ entry: 1 }, { entry: null }, { entry: 3 }], 2, 1, 3), "unknown", "앞에 둘 줄의 번호가 없다");
 });
 
-test("얹어 보이는 목록: 놓은 틈으로 옮긴 차례", () => {
+test("얹어 보이는 목록: 놓은 틈으로 옮긴 순서", () => {
   assert.deepEqual(reordered(["a", "b", "c", "d"], 0, 2), ["b", "a", "c", "d"]);
   assert.deepEqual(reordered(["a", "b", "c", "d"], 3, 0), ["d", "a", "b", "c"]);
   assert.deepEqual(reordered(["a", "b", "c", "d"], 1, 4), ["a", "c", "d", "b"]);

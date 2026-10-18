@@ -1,5 +1,5 @@
 /* Google Sans Flex 5.3.1(Google, SIL OFL 1.1, assets/google-sans-flex/OFL.txt). 대시보드의 본문 글꼴(style.css 의 --font-sans).
-   scripts/build-sans-font.ts 가 만든다: 폭 · 획 두께 축을 기본값에 고정하고 글자는 모두 남긴 판. 손으로 고치지 않는다 */
+   scripts/build-sans-font.ts 가 만든다: 폭 · 획 두께 축을 기본값에 고정하고 글자는 모두 남긴 버전. 손으로 고치지 않는다 */
 @font-face {
   font-family: "Google Sans Flex Variable";
   font-style: oblique 0deg 10deg;

@@ -1,9 +1,9 @@
-// 지연 정리 타이머와 등록부. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 등록부는 같은 플레이어일 때만 뺀다.
+// 지연 정리 타이머와 레지스트리. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 레지스트리는 같은 플레이어일 때만 뺀다.
 //
 // 회귀 대상 (2026-09-08 실서버 관측): 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약되는데
-// 이전 것을 지우지 않아 쌓였다. 그중 하나가 뒤늦게 깨어나면 자기(이미 비워진 구 플레이어)
-// 기준으로 조건을 통과하고는 길드 키로 등록부에서 지웠다. 그 사이 새 플레이어가
-// 등록돼 재생 중이면 그것이 지워진다. 소리는 나는데 /nowplaying·대시보드는 "재생 중 없음"이 된다.
+// 이전 것을 취소하지 않아 쌓였다. 그중 하나가 뒤늦게 깨어나면 자기(이미 비워진 구 플레이어)
+// 기준으로 조건을 통과하고는 길드 키로 레지스트리에서 삭제했다. 그 사이 새 플레이어가
+// 등록돼 재생 중이면 그것이 삭제된다. 소리는 나는데 /nowplaying·대시보드는 "재생 중 없음"이 된다.
 
 import { test, before, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ const logger = (await import("../../src/infra/log/logger.ts")).default;
 const onTrackEnd = Player.prototype.onTrackEnd;
 
 const GUILD = "g1";
-const DELAY = 30; // 실 타이머를 그대로 쓰되 대기 시간만 줄인다 (전역 setTimeout을 갈아끼우면 러너가 멈춘다)
+const DELAY = 30; // 실 타이머를 그대로 쓰되 대기 시간만 줄인다 (전역 setTimeout을 교체하면 러너가 멈춘다)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let savedDelay = 0;
@@ -78,7 +78,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
     async play() {},
     async updateVoiceStatus() {},
     audioPlayer: { stop() {} },
-    // 진짜 dispose 처럼 버린 단계로 옮기고 알린다(등록부는 알림을 듣고 뺀다)
+    // 진짜 dispose 처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
     async dispose({ reason }: { reason: string }) {
       if (this.lifecycle.disposed) return;
       this.disposeCalls.push(reason);
@@ -90,14 +90,14 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
   return p;
 }
 
-// 버려진 플레이어를 스스로 빼는 등록부(운영과 같다). 시험이 끝나면 알림 듣기를 뗀다
+// 버려진 플레이어를 스스로 빼는 레지스트리(운영과 같다). 테스트가 끝나면 알림 듣기를 뗀다
 function registry(t: TestContext) {
   const players = new PlayerRegistry();
   t.after(players.followDisposals());
   return players;
 }
 
-test("버려진 플레이어의 늦은 대기열 소진 타이머는 아무것도 하지 않는다. 새 플레이어는 등록부에 남는다", async (t) => {
+test("버려진 플레이어의 늦은 대기열 소진 타이머는 아무것도 하지 않는다. 새 플레이어는 레지스트리에 남는다", async (t) => {
   const players = registry(t);
   const stale = makePlayer();
   players.set(GUILD, stale);
@@ -114,7 +114,7 @@ test("버려진 플레이어의 늦은 대기열 소진 타이머는 아무것�
   assert.deepEqual(stale.disposeCalls, [], "버려진 플레이어를 다시 버리지 않는다(쥔 음성 연결이 새 플레이어의 것일 수 있다)");
 });
 
-test("늦게 버려진 옛 플레이어는 등록부의 새 플레이어를 빼지 않는다. 등록부는 같은 플레이어일 때만 뺀다", async (t) => {
+test("늦게 버려진 옛 플레이어는 레지스트리의 새 플레이어를 빼지 않는다. 레지스트리는 같은 플레이어일 때만 뺀다", async (t) => {
   const players = registry(t);
   const stale = makePlayer();
   players.set(GUILD, stale);
@@ -128,13 +128,13 @@ test("늦게 버려진 옛 플레이어는 등록부의 새 플레이어를 빼�
   assert.equal(players.has(GUILD), false);
 });
 
-test("등록부의 해제 줄은 버린 까닭을 남긴다. 빼지 않은 옛 플레이어는 줄이 없다", async (t) => {
+test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은 옛 플레이어는 줄이 없다", async (t) => {
   const players = registry(t);
   const stale = makePlayer();
   players.set(GUILD, stale);
   const fresh = makePlayer();
   players.set(GUILD, fresh);
-  const level = logger.level; // 등록부 줄은 debug
+  const level = logger.level; // 레지스트리 줄은 debug
   logger.level = "debug";
   t.after(() => (logger.level = level));
   const from = sink.buffer.length;
@@ -152,7 +152,7 @@ test("등록부의 해제 줄은 버린 까닭을 남긴다. 빼지 않은 옛 �
   );
 });
 
-test("현행 플레이어의 타이머는 버리고, 등록부에서 빠진다", async (t) => {
+test("현행 플레이어의 타이머는 버리고, 레지스트리에서 빠진다", async (t) => {
   const players = registry(t);
   const p = makePlayer();
   players.set(GUILD, p);
@@ -194,7 +194,7 @@ test("타이머는 쌓이지 않는다. 새로 예약하면 이전 것을 취소
   const p = makePlayer();
   players.set(GUILD, p);
 
-  // 이전 트랙이 남긴 타이머를 흉내낸다. 취소되지 않으면 이게 깨어나 남의 플레이어를 지운다.
+  // 이전 트랙이 남긴 타이머를 흉내낸다. 취소되지 않으면 이게 깨어나 남의 플레이어를 삭제한다.
   let stalefired = false;
   p.idle.emptyTimer = setTimeout(() => {
     stalefired = true;

@@ -1,8 +1,8 @@
-// 직전 실행이 남긴 자식 프로세스(POToken 서버 · ffmpeg · yt-dlp)를 기동 때 내린다.
+// 직전 실행이 남긴 자식 프로세스(POToken 서버 · ffmpeg · yt-dlp)를 기동 때 종료한다.
 // 정리는 종료 처리기와 exit 훅이 하지만, 창을 그냥 닫거나 강제로 끄거나 네이티브 충돌로 죽으면 그 둘이 돌지 않는다.
-// 남은 POToken 서버가 4416 을 쥐면 새 서버가 떠지지 않으므로 POToken 서버를 띄우기 전에 부른다.
+// 남은 POToken 서버가 4416 을 쥐면 새 서버가 실행되지 않으므로 POToken 서버를 실행하기 전에 부른다.
 //
-// 등록부(infra/process-registry)가 적어 둔 기록 파일을 읽어, 지금도 살아 있고 실행 파일 이름과 시작 시각이 기록과 맞는 것만 트리째 내린다.
+// 레지스트리(infra/process-registry)가 적어 둔 기록 파일을 읽어, 지금도 살아 있고 실행 파일 이름과 시작 시각이 기록과 맞는 것만 트리째 종료한다.
 // OS 가 pid 를 다른 프로그램에 다시 줬으면 이름이나 시작 시각이 달라 건드리지 않는다. 기록을 적은 봇이 아직 돌고 있으면(봇이 둘) 아무것도 하지 않는다.
 
 import { spawnSync } from "node:child_process";
@@ -12,19 +12,19 @@ import type { ChildRecord } from "./process-registry.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
-// 기록의 시작 시각과 OS 가 아는 시작 시각의 허용 차(등록은 띄운 직후라 보통 1초 안이다)
+// 기록의 시작 시각과 OS 가 아는 시작 시각의 허용 차(등록은 실행 직후라 보통 1초 안이다)
 const START_SLACK_MS = 10_000;
 
 /** OS 가 아는 프로세스. image: 실행 파일 이름(경로 · .exe 를 뗀 소문자) */
 type Seen = { pid: number; image: string; startedAt: number };
 
-/** 바깥 경계. 생략하면 진짜 */
+/** 외부 경계. 생략하면 진짜 */
 type Boundary = {
   read(file: string): string | null;
   remove(file: string): void;
   /** 이 pid 들 가운데 살아 있는 것 */
   processes(pids: number[]): Seen[];
-  /** 트리째 강제로 내린다. group: POSIX 에서 자체 프로세스 그룹으로 띄웠다 */
+  /** 트리째 강제로 종료한다. group: POSIX 에서 자체 프로세스 그룹으로 실행했다 */
   killTree(pid: number, group: boolean): void;
   self: { pid: number; ppid: number };
 };
@@ -94,20 +94,20 @@ function parse(text: string | null): ChildRecord | null {
   try {
     return JSON.parse(text) as ChildRecord;
   } catch {
-    log.debug("자식 프로세스 기록을 읽지 못해 지웁니다");
+    log.debug("자식 프로세스 기록을 읽지 못해 삭제합니다");
     return null;
   }
 }
 
 /**
- * 기록 파일의 남은 자식을 내리고 파일을 지운다. 돌려주는 것은 내린 자식의 이름표(label#pid).
+ * 기록 파일의 남은 자식을 종료하고 파일을 삭제한다. 돌려주는 것은 종료한 자식의 라벨(label#pid).
  * 기록을 적은 봇이 아직 돌고 있으면 건드리지 않는다(null)
  */
 function sweepLeftoverChildren(file: string, boundary: Partial<Boundary> = {}): string[] | null {
   const { read, remove, processes, killTree, self } = { ...REAL, ...boundary };
   const record = parse(read(file));
   const children = (record?.children ?? []).filter((c) => Number.isInteger(c.pid) && c.pid > 1 && c.pid !== self.pid && c.pid !== self.ppid);
-  // 깨끗이 끝났으면 비어 있다. OS 에 묻지 않는다(Windows 는 묻는 데 1초쯤 든다). 기록이 없거나 읽지 못했으면 지우고 넘어간다
+  // 깨끗이 끝났으면 비어 있다. OS 에 묻지 않는다(Windows 는 묻는 데 1초쯤 든다). 기록이 없거나 읽지 못했으면 삭제하고 넘어간다
   if (!record || children.length === 0) {
     remove(file);
     return [];
@@ -117,13 +117,13 @@ function sweepLeftoverChildren(file: string, boundary: Partial<Boundary> = {}): 
   const alive = new Map(processes([...children.map((c) => c.pid), ...(owner ? [owner.pid] : [])]).map((p) => [p.pid, p]));
 
   if (owner && matches(alive.get(owner.pid), "node", owner.startedAt)) {
-    log.warn(`기록을 적은 봇 프로세스(pid ${owner.pid})가 아직 돌고 있어 남은 자식 프로세스 정리를 건너뜁니다. 봇이 둘 떠 있는지 보세요`);
+    log.warn(`기록을 적은 봇 프로세스(pid ${owner.pid})가 아직 돌고 있어 남은 자식 프로세스 정리를 건너뜁니다. 봇이 둘 실행 중인지 보세요`);
     return null;
   }
 
   const killed = children.filter((child) => mine(child, alive.get(child.pid))).map((child) => (killTree(child.pid, child.group), `${child.label}#${child.pid}`));
   remove(file);
-  if (killed.length) log.warn(`직전 실행이 남긴 자식 프로세스 ${killed.length}개를 내렸습니다: ${killed.join(", ")}`);
+  if (killed.length) log.warn(`직전 실행이 남긴 자식 프로세스 ${killed.length}개를 종료했습니다: ${killed.join(", ")}`);
   return killed;
 }
 

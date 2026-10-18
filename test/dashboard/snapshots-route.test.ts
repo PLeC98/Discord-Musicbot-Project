@@ -1,4 +1,4 @@
-// src/dashboard/routes/snapshots.ts — 백업 탭의 스냅샷 목록 · 복원 걸기 · 거두기
+// src/dashboard/routes/snapshots.ts — 백업 탭의 스냅샷 목록 · 복원 예약 · 예약 취소
 
 process.env.OWNER_ID = "owner";
 
@@ -36,7 +36,7 @@ const call = async (method: string, route: string, body?: unknown) => {
   return { status: res.status, json: (await res.json()) as View };
 };
 
-test("목록 · 복원 걸기 · 거두기", async () => {
+test("목록 · 복원 예약 · 예약 취소", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   const listed = await call("GET", "/");
   assert.deepEqual([listed.status, listed.json.rows.map((one) => one.name), listed.json.staged], [200, [name], null]);
@@ -53,7 +53,7 @@ test("없는 스냅샷은 404, 이름이 없으면 400", async () => {
   assert.equal((await call("POST", "/restore", {})).status, 400);
 });
 
-test("복원을 거는 것은 최근 로그인만", async () => {
+test("복원을 예약하는 것은 최근 로그인만", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 9));
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
   try {

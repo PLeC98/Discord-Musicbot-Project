@@ -111,7 +111,7 @@ test("maxBytes=0이면 분리하지 않고 한 파일에 계속 쓴다", () => {
   assert.equal(rotated(dir).length, 0, "분리본이 생기면 안 된다");
 });
 
-test("keep=0이면 분리는 하되 오래된 것을 지우지 않는다", () => {
+test("keep=0이면 분리는 하되 오래된 것을 삭제하지 않는다", () => {
   const dir = tmpdir();
   const file = path.join(dir, "bot.log");
   const dest = createFileDestination({ file, maxBytes: 50, keep: 0 });

@@ -57,14 +57,14 @@ import { text } from "../text/index.ts";
 const T = text.more;
 
 // 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
-// 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 고른다.
-// 남은 자리는 대기열이 바뀌는 대로 다시 센다(대시보드 이벤트가 queueTotal을 갱신한다).
+// 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 선택한다.
+// 남은 공간은 대기열이 바뀌는 대로 다시 센다(대시보드 이벤트가 queueTotal을 갱신한다).
 const props = withDefaults(
   defineProps<{
     /** 서버가 준 이어 넣기 상태 */
     more: MoreView;
     queueTotal?: number;
-    /** 지금 곡이 있는지. 없으면 첫 곡은 대기열을 거치지 않고 바로 튼다(자리가 하나 더 있다) */
+    /** 지금 곡이 있는지. 없으면 첫 곡은 대기열을 거치지 않고 바로 튼다(공간이 하나 더 있다) */
     hasCurrent?: boolean;
     /** 대기열 상한. 0이면 상한 없음 */
     queueMax?: number;
@@ -74,7 +74,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ add: [count: number]; close: [] }>();
 
-// 선택지 · 남은 자리 · 이름표는 디스코드 더 넣기 메뉴와 같은 규칙 · 문장(rules/more-choices · rules/queue-room · ui/text/ko/more)
+// 선택지 · 남은 공간 · 라벨은 디스코드 더 넣기 메뉴와 같은 규칙 · 문장(rules/more-choices · rules/queue-room · ui/text/ko/more)
 const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface transition-[border-radius,scale] spring-fast active:not-disabled:rounded-3xl active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
 
 const batch = computed(() => props.more.batch);
@@ -137,7 +137,7 @@ watch(
       pausedLeft = Math.max(0, deadline - Date.now());
       stop();
     } else if (tick === null) {
-      run(pausedLeft || lifetime.value); // 실패해서 상태가 그대로면 멈춘 자리부터 이어 센다
+      run(pausedLeft || lifetime.value); // 실패해서 상태가 그대로면 멈춘 시점부터 이어 센다
     }
   },
 );

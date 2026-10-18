@@ -1,4 +1,4 @@
-// src/app/resilience.ts — 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 켜고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
+// src/app/resilience.ts — 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 시작하고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -67,7 +67,7 @@ test("안전 종료: 플레이어 없음도 exit 호출", () => {
 
 // ── 새어 나온 오류 처리기 ──
 
-// 처리기를 건 클라이언트 · 프로세스. 서버 하나 다시 켜기(faults)와 나가기(exits)를 센다
+// 처리기를 건 클라이언트 · 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
 function installed() {
   const faults: string[] = [];
   const exits: number[] = [];
@@ -82,7 +82,7 @@ function installed() {
   return { client, proc, faults, exits };
 }
 
-test("아는 디스코드 오류는 로그만: 다시 켜지도 내리지도 않고 폭주로 세지 않는다", () => {
+test("아는 디스코드 오류는 로그만: 다시 시작하지도 내리지도 않고 폭주로 세지 않는다", () => {
   const { client, proc, faults, exits } = installed();
   for (let i = 0; i <= FLOOD_MAX; i++) {
     client.emit("error", { code: 50013, message: "Missing Permissions" });
@@ -93,7 +93,7 @@ test("아는 디스코드 오류는 로그만: 다시 켜지도 내리지도 않
   assert.deepEqual(exits, []);
 });
 
-test("서버 문맥 안에서 새어 나온 오류는 그 서버만 다시 켠다. 몇 번이 와도 봇 전체를 내리지 않는다(그 서버의 되풀이는 guildFault 가 막는다)", () => {
+test("서버 문맥 안에서 새어 나온 오류는 그 서버만 다시 시작한다. 몇 번이 와도 봇 전체를 내리지 않는다(그 서버의 되풀이는 guildFault 가 막는다)", () => {
   const { proc, faults, exits } = installed();
   for (let i = 0; i <= FLOOD_MAX; i++) inGuild("g1", () => proc.emit("uncaughtException", new Error("버그")));
   inGuild("g2", () => proc.emit("unhandledRejection", new Error("버그")));

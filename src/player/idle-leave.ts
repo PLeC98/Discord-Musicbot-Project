@@ -47,7 +47,7 @@ class IdleLeave {
     this.announce();
   }
 
-  /** 혼자 남음 타이머를 거둔다. shouldResume 이면 "혼자" 멈춤도 풀고, 아니면 그 사유만 지운다(재생은 그대로) */
+  /** 혼자 남음 타이머를 취소한다. shouldResume 이면 "혼자" 멈춤도 풀고, 아니면 그 사유만 지운다(재생은 그대로) */
   // 혼자 남은 채 기다린 시간이 지났다. 그사이 사람이 돌아왔으면 풀고, 아니면 나간다
   async _aloneExpired() {
     const player = this.player;
@@ -74,7 +74,7 @@ class IdleLeave {
       clearTimeout(this.aloneTimer);
       this.aloneTimer = null;
       this.aloneAt = null;
-      // 사람이 돌아와 거둔 것만 알린다. 대기열이 끝나 거두는 쪽(shouldResume 이 거짓)은 곧 끝난 패널을 새로 그린다
+      // 사람이 돌아와 취소한 것만 알린다. 대기열이 끝나 취소하는 쪽(shouldResume 이 거짓)은 곧 끝난 패널을 새로 그린다
       if (shouldResume) this.announce();
       // 여기가 "정리 예약이 취소된다"는 상태 변화가 실제로 일어나는 지점이다.
       // 예약을 건 타이머 콜백 안에도 같은 로그가 있었는데, 사람이 돌아오면 음성 상태 이벤트가
@@ -122,7 +122,7 @@ class IdleLeave {
     bestEffort(log, playerEvents.leaving(this.player, this.leavesAt()), "끝난 패널의 나갈 시각 고치기");
   }
 
-  /** 두 타이머를 모두 거둔다. "혼자" 멈춤 사유도 지운다(플레이어를 버릴 때) */
+  /** 두 타이머를 모두 취소한다. "혼자" 멈춤 사유도 지운다(플레이어를 버릴 때) */
   stop() {
     this.cancelAlone(false);
     this.cancelEmpty();

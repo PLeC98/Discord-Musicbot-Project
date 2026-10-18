@@ -1,13 +1,13 @@
 <template>
-  <!-- 로그인 배경 편집 창. 그림이나 영상에서 쓸 영역(비율 자유)을 고르고, 영상이면 쓸 구간과 썸네일 장면을 고른다.
+  <!-- 로그인 배경 편집 창. 그림이나 영상에서 쓸 영역(비율 자유)을 선택하고, 영상이면 쓸 구간과 썸네일 장면을 선택한다.
        자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 썸네일 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
-       틀은 안을 끌면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 손잡이는 그림 밖으로 나와도 보인다.
-       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 굴린다(틀 바깥을 끌어도 옮겨진다).
+       틀은 안을 끌면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 핸들은 그림 밖으로 나와도 보인다.
+       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 끌어도 옮겨진다).
        시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 썸네일 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고, 끄면 구간 끝에서 멈춘다.
-       보는 창의 높이는 편집 창의 나머지(제목 · 확대 · 시간 막대 · 단추)를 뺀 남는 높이에 맞춘다(창 크기를 바꾸면 다시).
-       띄우는 것은 봇이 받을 때 만든 미리보기(GET …/:id/preview, 영상 480p · 그림), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
-       예상 저장 공간: 원본을 받을 때 센 초마다의 세트 크기를 고른 구간만큼 더한다(구간을 바꾸면 바로). 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다(세는 중).
-       최대 용량을 넘을 것 같으면(어림을 넉넉히 1.3배) 지울 수 있는 오래된 기록 수를 알린다(막지 않는다, 구운 뒤 실제 크기로 지킨다) -->
+       보는 창의 높이는 편집 창의 나머지(제목 · 확대 · 시간 막대 · 버튼)를 뺀 남는 높이에 맞춘다(창 크기를 바꾸면 다시).
+       표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상 480p · 그림), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
+       예상 저장 공간: 원본을 가져올 때 센 초마다의 세트 크기를 선택한 구간만큼 더한다(구간을 바꾸면 바로). 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다(세는 중).
+       최대 용량을 넘을 것 같으면(어림을 넉넉히 1.3배) 삭제할 수 있는 오래된 기록 수를 알린다(막지 않는다, 구운 뒤 실제 크기로 지킨다) -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open && bg" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @keydown.esc="open = false">
@@ -15,7 +15,7 @@
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
           <!-- 보는 창: 편집 창 폭 전체 · 처음 맞춘 높이. 그 폭을 재서 그림을 맞추고(틀을 그리는 배율이 실제 그림 크기와 같아야 한다),
-               그림이 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 굴린다. 둘레의 틈에 그림 가장자리의 손잡이가 들어간다 -->
+               그림이 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다. 둘레의 틈에 그림 가장자리의 핸들이 들어간다 -->
           <div ref="viewportEl" class="w-full shrink-0" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
             <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
               <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
@@ -30,7 +30,7 @@
               </div>
             </div>
           </div>
-          <!-- 화면 확대: 작은 그림 · 슬라이더 · 큰 그림(디스코드의 이미지 편집과 같은 꼴), 가운데 -->
+          <!-- 화면 확대: 작은 그림 · 슬라이더 · 큰 그림(디스코드의 이미지 편집과 같은 형태), 가운데 -->
           <div class="flex items-center justify-center gap-3 text-on-surface-variant">
             <Icon name="image" :size="16" aria-hidden="true" />
             <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
@@ -75,18 +75,18 @@ const open = defineModel<boolean>({ required: true });
 /** recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";
-/** 구간을 바꾼 뒤 다시 세기를 묻기까지(끄는 동안은 묻지 않는다) */
+/** 구간을 바꾼 뒤 다시 세기를 요청하기까지(끄는 동안은 요청하지 않는다) */
 const RECOUNT_AFTER_MS = 600;
 
 type Corner = "nw" | "ne" | "sw" | "se";
 const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
 /** 틀의 가장 작은 변(원본 px) */
 const MIN_SIDE = 64;
-/** 보는 창 둘레의 틈(px). 그림 가장자리의 손잡이(반지름 8)와 넓게 잡히는 범위(8)가 들어가 스크롤이 생기지 않게 */
+/** 보는 창 둘레의 틈(px). 그림 가장자리의 핸들(반지름 8)과 넓게 잡히는 범위(8)가 들어가 스크롤이 생기지 않게 */
 const EDGE = 16;
 /** 화면 확대의 상한(배) */
 const MAX_ZOOM = 5;
-/** 처음 고르는 구간의 길이(초, 영상이 더 짧으면 전체) */
+/** 처음 선택하는 구간의 길이(초, 영상이 더 짧으면 전체) */
 const FIRST_RANGE = 30;
 
 const src = computed(() => (props.bg ? `${API}/${props.bg.id}/preview` : ""));
@@ -97,7 +97,7 @@ const view = reactive({ width: 640, height: 360 });
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
 const duration = ref(0);
 const range = ref<[number, number]>([0, 0]);
-/** 썸네일 장면은 구간 안으로(구간 밖 장면은 굽지 않고, 유튜브는 고른 구간만 받는다) */
+/** 썸네일 장면은 구간 안으로(구간 밖 장면은 굽지 않고, 유튜브는 선택한 구간만 다운로드한다) */
 const clampToRange = (t: number) => Math.min(range.value[1], Math.max(range.value[0], t));
 watch(range, () => {
   if (thumbAt.value !== null) thumbAt.value = clampToRange(thumbAt.value);
@@ -115,13 +115,13 @@ const fps = computed(() => props.bg?.fps || 30);
 const zoomStep = ref(0);
 const zoom = computed(() => Math.pow(MAX_ZOOM, zoomStep.value / 100));
 const scale = computed(() => (natural.width ? (view.width * zoom.value) / natural.width : 1));
-/** 미리보기 화소 → 원본 화소(선택한 영역을 원본 해상도로 보인다) */
+/** 미리보기 픽셀 → 원본 픽셀(선택한 영역을 원본 해상도로 보인다) */
 const originalScale = computed(() => (natural.width && props.bg?.width ? props.bg.width / natural.width : 1));
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
 
 /** 어림을 잰 구간 안인지(처음은 전체) */
 const inCounted = (counted: [number, number] | null) => !counted || (range.value[0] >= counted[0] - 0.5 && range.value[1] <= counted[1] + 0.5);
-/** 예상 저장 공간(바이트, 세는 중이면 null): 영상은 고른 구간의 초마다 크기를 더하고, 그림은 정지 그림 세트 */
+/** 예상 저장 공간(바이트, 세는 중이면 null): 영상은 선택한 구간의 초마다 크기를 더하고, 그림은 정지 그림 세트 */
 const estimateBytes = computed(() => {
   const est = props.bg?.estimate;
   if (!est || est.counting || keyOf(est.crop) !== cropKey.value) return null;
@@ -138,7 +138,7 @@ const encodeMinutes = computed(() => {
   if (props.bg?.kind !== "video" || !est) return null;
   return ((range.value[1] - range.value[0]) * est.encodeRatio) / 60;
 });
-/** 최대 용량을 넘을 것 같으면: 지울 수 있는 오래된 기록 수(지금 쓰는 것 · 이 배경은 빼고, 마지막으로 쓴 지 오래된 것부터) */
+/** 최대 용량을 넘을 것 같으면: 삭제할 수 있는 오래된 기록 수(지금 쓰는 것 · 이 배경은 빼고, 마지막으로 쓴 지 오래된 것부터) */
 const evictText = computed(() => {
   const st = props.state;
   const est = estimateBytes.value;
@@ -147,7 +147,7 @@ const evictText = computed(() => {
   if (need > st.limits.maxBytes) return T.overAlone;
   let over = st.usedBytes + need - st.limits.maxBytes;
   if (over <= 0) return "";
-  // 지울 수 있는 것: 다 구운 기록 전부(지금 배경은 새 배경이 걸리면 이전 배경이 되어 맨 마지막)
+  // 삭제할 수 있는 것: 다 구운 기록 전부(지금 배경은 새 배경이 걸리면 이전 배경이 되어 맨 마지막)
   const victims = st.list.filter((bg) => bg.phase === "ready" && bg.id !== props.bg?.id).sort((a, b) => Number(a.id === st.current) - Number(b.id === st.current) || a.usedAt - b.usedAt);
   let n = 0;
   for (const bg of victims) {
@@ -157,7 +157,7 @@ const evictText = computed(() => {
   }
   return n ? T.evict(n) : T.overAlone;
 });
-/** 지금 틀(0 ~ 1)과 그 열쇠(어림을 센 크롭과 같은지 본다) */
+/** 지금 틀(0 ~ 1)과 그 키(어림을 센 크롭과 같은지 본다) */
 const cropNow = (): LoginBackgroundCrop => (natural.width ? { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height } : { x: 0, y: 0, w: 1, h: 1 });
 const keyOf = (crop: LoginBackgroundCrop) => [crop.x, crop.y, crop.w, crop.h].map((v) => v.toFixed(3)).join(",");
 const cropKey = ref(keyOf({ x: 0, y: 0, w: 1, h: 1 }));
@@ -214,7 +214,7 @@ function onMeta(event: Event) {
 }
 
 /**
- * 보는 창의 크기: 칸 폭 안 · 남는 높이 안에서 그림 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
+ * 보는 창의 크기: 영역 폭 안 · 남는 높이 안에서 그림 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
  * first 를 주면 그 높이를 상한으로(처음 그릴 때, 나머지를 재기 전)
  */
 function fit(first?: number) {
@@ -241,7 +241,7 @@ watch(open, (on) => {
 
 // ── 영상: 재생 · 구간 ──
 
-/** 그 자리로(영상 안으로 자른다). 구간 밖으로도 갈 수 있다(재생은 구간 안에서 돈다) */
+/** 그 위치로(영상 안으로 자른다). 구간 밖으로도 갈 수 있다(재생은 구간 안에서 돈다) */
 function seek(t: number) {
   const at = Math.min(Math.max(0, t), duration.value);
   now.value = at;
@@ -282,11 +282,11 @@ async function onEnded() {
   follow();
 }
 function onTime() {
-  // 멈춰 있을 때 찾아간 자리(재생 중은 follow 가 맡는다). 구간 손잡이 장면을 보이는 동안은 재생 위치가 아니다
+  // 멈춰 있을 때 찾아간 위치(재생 중은 follow 가 맡는다). 구간 핸들 장면을 보이는 동안은 재생 위치가 아니다
   if (videoEl.value?.paused && !peeking) now.value = videoEl.value.currentTime;
 }
 
-/** 구간 손잡이를 끄는 동안: 재생 위치(now)는 그대로 두고 화면만 그 장면(재생 중이면 잠시 멈춘다). 놓으면 재생 위치로 돌아가 이어서 */
+/** 구간 핸들을 끄는 동안: 재생 위치(now)는 그대로 두고 화면만 그 장면(재생 중이면 잠시 멈춘다). 놓으면 재생 위치로 돌아가 이어서 */
 let peeking: { wasPlaying: boolean } | null = null;
 function peek(t: number) {
   const el = videoEl.value;
@@ -326,7 +326,7 @@ async function togglePlay() {
 // ── 틀: 안을 끌면 옮기고, 모서리는 반대 모서리를 붙잡고 비율 자유로 ──
 
 let drag: { mode: "move" | Corner; px: number; py: number; from: { x: number; y: number; w: number; h: number } } | null = null;
-// 확대해도 보는 창의 가운데가 그림의 같은 곳에 남게(굴릴 수 있는 폭 · 높이에 대한 비율로)
+// 확대해도 보는 창의 가운데가 그림의 같은 곳에 남게(스크롤할 수 있는 폭 · 높이에 대한 비율로)
 watch(zoom, async () => {
   const el = viewportEl.value;
   if (!el) return;

@@ -1,4 +1,4 @@
-// 자동재생 소스가 같이 쓰는 요청 도우미. 요청은 서비스마다 공유 HTTP 클라이언트(infra/http)를 지나 부른 결과가 남는다
+// 자동재생 소스가 같이 쓰는 요청 헬퍼. 요청은 서비스마다 공유 HTTP 클라이언트(infra/http)를 지나 부른 결과가 남는다
 
 import { setTimeout as sleep } from "node:timers/promises";
 import config from "../../config/index.ts";
@@ -14,7 +14,7 @@ type SourceService = (typeof SOURCE_SERVICES)[number];
 const clients = new Map<SourceService, HttpClient>(SOURCE_SERVICES.map((service) => [service, httpFor(service)]));
 const send = (service: SourceService, url: string, init: RequestInit) => clients.get(service)!.fetch(url, init);
 
-// 시험은 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+// 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 function useFetch(fake: typeof fetch | null) {
   for (const client of clients.values()) client.useFetch(fake);
 }
@@ -23,14 +23,14 @@ const rand = (n: number) => Math.floor(Math.random() * n);
 
 const pick = <T>(list: T[]): T | null => (list.length ? list[rand(list.length)] : null);
 
-// T: 받는 쪽이 읽는 칸만 적은 응답 모양. 검사하지 않으므로 칸은 모두 없을 수 있게 적는다
+// T: 받는 쪽이 읽는 필드만 적은 응답 모양. 검사하지 않으므로 필드는 모두 없을 수 있게 적는다
 async function getJson<T = unknown>(service: SourceService, url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
   const res = await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
   return (await res.json()) as T;
 }
 
-/** 키 시험용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크 · 시간 초과) null */
+/** 키 테스트용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크 · 시간 초과) null */
 async function probe(service: SourceService, url: string, headers: Record<string, string> = {}): Promise<Response | null> {
   try {
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -70,11 +70,11 @@ function query(params: Record<string, unknown>): string {
 }
 
 /**
- * 저쪽에서 받아 기억해 두는 값(화면의 칸을 채우는 목록 · 범위).
+ * 저쪽에서 불러와 기억해 두는 값(화면의 입력란을 채우는 목록 · 범위).
  *
- * load() 는 값을 돌려주거나, 못 받았으면 스스로 까닭을 남기고 null 을 돌려준다.
+ * load() 는 값을 돌려주거나, 못 불러왔으면 스스로 까닭을 남기고 null 을 돌려준다.
  * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 묻되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.
- * 받기는 뒤에서 마저 한다. 못 받았으면 retryMs 동안 다시 묻지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
+ * 불러오기는 뒤에서 마저 한다. 못 불러왔으면 retryMs 동안 다시 묻지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
  */
 function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }: { ttlMs: number; retryMs: number; waitMs: number }) {
   let value: T | null = null;

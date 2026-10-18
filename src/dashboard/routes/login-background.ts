@@ -1,5 +1,5 @@
 // 로그인 배경(운영자 패널). /api/admin/appearance/login-background. 상태 하나(LoginBackgroundState)를 읽고, 바꾸는 요청들도 그것으로 답한다.
-// 올리기는 본문을 그대로 배경 폴더에 흘려 쓴다(고정 상한 없이 남은 저장 공간으로만 막는다). 단계는 login-background/runner 가 돌린다
+// 올리기는 본문을 그대로 배경 폴더에 스트리밍으로 쓴다(고정 상한 없이 남은 저장 공간으로만 막는다). 단계는 login-background/runner 가 돌린다
 
 import express, { type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
@@ -23,7 +23,7 @@ import { stripOf } from "../login-background/strip.ts";
 const loginBackgroundRouter = express.Router();
 loginBackgroundRouter.use(requireOwner);
 
-/** 기록 줄에 띄울 가장 작은 정지 그림(공개 파일) */
+/** 기록 줄에 표시할 가장 작은 정지 그림(공개 파일) */
 const thumbOf = (one: store.Stored) => (one.media.stills.length ? `/login-background/${one.id}/still-${Math.min(...one.media.stills)}.webp` : null);
 
 function itemOf(one: store.Stored): LoginBackgroundItem {
@@ -92,7 +92,7 @@ loginBackgroundRouter.get("/", (_req, res) => {
   reply(res);
 });
 
-// 파일 그대로(Content-Type 은 종류를 짐작만 한다, 받기 단계가 원본을 읽어 다시 정한다). ?name= 은 보일 이름
+// 파일 그대로(Content-Type 은 종류를 짐작만 한다, 다운로드 단계가 원본을 읽어 다시 정한다). ?name= 은 보일 이름
 loginBackgroundRouter.post("/upload", async (req, res) => {
   const name = store.cleanName(String(req.query.name ?? "")) || "file";
   const room = store.room();
@@ -103,7 +103,7 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
     store.removeFolder(id);
     if (saved.why === "no-space") return sendProblem(res, "background-no-space", { size: room });
     // 올리던 사람이 끊었다
-    if (saved.why === "aborted") log.warn({ sub: "admin" }, `로그인 배경 "${name}"${josa(name, "을")} 받다 끊겼습니다: ${saved.detail}`);
+    if (saved.why === "aborted") log.warn({ sub: "admin" }, `로그인 배경 "${name}" 업로드가 중간에 끊겼습니다: ${saved.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
@@ -125,7 +125,7 @@ loginBackgroundRouter.post("/link", (req, res) => {
   changed(req, res, `링크로 추가했습니다(${url})`);
 });
 
-// 편집 창의 미리보기(영상 480p · 그림). 원본과 함께 지우므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
+// 편집 창의 미리보기(영상 480p · 그림). 원본과 함께 삭제하므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
 loginBackgroundRouter.get("/:id/preview", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
@@ -178,7 +178,7 @@ loginBackgroundRouter.put("/:id/position", (req, res) => {
   const body = parse(BackgroundPositionBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
   one.position = body.value;
-  changed(req, res, `"${one.name}" 의 보일 자리를 ${body.value.x}% · ${body.value.y}% 로 바꿨습니다`);
+  changed(req, res, `"${one.name}" 의 보일 위치를 ${body.value.x}% · ${body.value.y}% 로 바꿨습니다`);
 });
 
 // 편집 취소 · 인코딩 취소: 배경을 버리고, 걸려 있던 배경이면 이전 배경으로
@@ -205,18 +205,18 @@ loginBackgroundRouter.delete("/current", (req, res) => {
   changed(req, res, "배경을 비웠습니다");
 });
 
-// 기록에서 지우기. 만드는 중이면 취소와 같다
+// 기록에서 삭제. 만드는 중이면 취소와 같다
 loginBackgroundRouter.delete("/:id", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
   runner.discard(one.id);
-  changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 지웠습니다`);
+  changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 삭제했습니다`);
 });
 
-// 인코더를 다시 시험한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking 으로 답한다
+// 인코더를 다시 테스트한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking 으로 답한다
 loginBackgroundRouter.post("/encoders/check", (req, res) => {
   void encoders.recheck();
-  changed(req, res, "인코더를 다시 시험합니다");
+  changed(req, res, "인코더를 다시 테스트합니다");
 });
 
 loginBackgroundRouter.put("/options", (req, res) => {
@@ -224,7 +224,7 @@ loginBackgroundRouter.put("/options", (req, res) => {
   if (!body.ok) return sendProblem(res, body.code);
   const options = body.value;
   store.loaded().options = options;
-  changed(req, res, `화면 값을 바꿨습니다(흐림 ${options.blur}% · 덮개 ${options.cover}% · 테마 색 ${options.follow ? "켬" : "끔"} · 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
+  changed(req, res, `화면 값을 바꿨습니다(블러 ${options.blur}% · 오버레이 ${options.cover}% · 테마 색 ${options.follow ? "켬" : "끔"} · 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
 });
 
 // 한도를 바꾸면 바로 지킨다
@@ -234,7 +234,7 @@ loginBackgroundRouter.put("/limits", (req, res) => {
   const limits = body.value;
   store.loaded().limits = limits;
   const removed = store.enforceLimits();
-  changed(req, res, `한도를 바꿨습니다(보관 ${limits.history}개 · 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 지움: ${removed.join(", ")}` : ""}`);
+  changed(req, res, `한도를 바꿨습니다(보관 ${limits.history}개 · 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 삭제: ${removed.join(", ")}` : ""}`);
 });
 
 export { loginBackgroundRouter };

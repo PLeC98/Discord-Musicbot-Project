@@ -1,5 +1,5 @@
 // src/dashboard/session-store.ts — SQLite 세션 스토어
-// 회귀 대상: MemoryStore의 재시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
+// 회귀 대상: MemoryStore의 다시 시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -30,7 +30,7 @@ after(() => {
 
 const getAsync = (store: SqliteSessionStore, sid: string) => new Promise<SessionData | null | undefined>((res, rej) => store.get(sid, (e, s) => (e ? rej(e) : res(s))));
 
-// 저장소가 받는 모양 그대로(JSON 으로 오가 만료는 글자다). 사용자는 시험이 보는 칸만
+// 저장소가 받는 모양 그대로(JSON 으로 오가 만료는 글자다). 사용자는 테스트가 보는 필드만
 function makeSession(user: object, expiresInMs = 60_000) {
   return fake<SessionData>({ cookie: { expires: new Date(Date.now() + expiresInMs).toISOString() }, user });
 }
@@ -45,7 +45,7 @@ test("set/get 라운드트립: 세션 객체 보존", async () => {
   assert.equal(await getAsync(store, "sid-없음"), null);
 });
 
-test("읽을 수 없는 세션 행은 없는 세션으로 보고 지운다(오류로 넘기면 그 쿠키의 요청이 모두 500 이 된다)", async () => {
+test("읽을 수 없는 세션 행은 없는 세션으로 보고 삭제한다(오류로 넘기면 그 쿠키의 요청이 모두 500 이 된다)", async () => {
   const store = makeStore("broken.db");
   store.set("sid1", makeSession({ id: "u1" }));
   store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run("{깨짐", "sid1");
@@ -55,11 +55,11 @@ test("읽을 수 없는 세션 행은 없는 세션으로 보고 지운다(오�
   assert.equal(left.n, 0);
 });
 
-test("재시작 생존: 같은 DB 파일을 다시 열어도 세션 유지 (MemoryStore 회귀)", async () => {
+test("다시 시작 생존: 같은 DB 파일을 다시 열어도 세션 유지 (MemoryStore 회귀)", async () => {
   const dbPath = path.join(tmpDir, "restart.db");
   const first = new SqliteSessionStore({ dbPath });
   first.set("sid1", makeSession({ id: "u1" }));
-  first.close(); // 봇 재시작 시뮬레이션
+  first.close(); // 봇 다시 시작 시뮬레이션
 
   const second = new SqliteSessionStore({ dbPath });
   stores.push(second);

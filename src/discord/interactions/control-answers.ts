@@ -1,4 +1,4 @@
-// 재생 조작의 입구: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
+// 재생 조작의 진입점: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
 // 권한 · 재적 · 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
 
 import type { ContainerBuilder, RepliableInteraction } from "discord.js";
@@ -48,14 +48,14 @@ async function answerShuffle(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.shuffled(r.count, interaction.member), LIFETIME.result);
 }
 
-/** 음량. level 은 명령이 받은 수이거나 입력 창에 적은 값(맞는 값인지는 controls 가 본다) */
+/** 음량. level 은 명령이 받은 수이거나 입력 창에 입력한 값(맞는 값인지는 controls 가 본다) */
 async function answerVolume(interaction: Asked, player: MaybePlayer, level: unknown) {
   const r = await controls.volume(player, { member: interaction.member }, level);
   if (!r.ok) return refuse(interaction, r);
   return toAll(interaction, replies.volumeSet(r.before, r.level, interaction.member), LIFETIME.result);
 }
 
-/** 반복 모드. mode 는 명령이 고른 값이거나 버튼의 다음 모드(맞는 값인지는 controls 가 본다) */
+/** 반복 모드. mode 는 명령이 선택한 값이거나 버튼의 다음 모드(맞는 값인지는 controls 가 본다) */
 async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown) {
   const r = await controls.loop(player, { member: interaction.member }, mode);
   if (!r.ok) return refuse(interaction, r);
@@ -64,7 +64,7 @@ async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown
 
 /**
  * 시간이 걸리는 조작(곡을 다시 연다)을 받아들였다. 곧바로 "하는 중" 을 본인에게 보내고, 결과는 모두에게 새로 보낸다(ui/delivery).
- * 그 뒤에 던지면 "하는 중" 자리를 오류로 바꾼다
+ * 그 뒤에 던지면 "하는 중" 자리표시자를 오류로 바꾼다
  */
 const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () => {
   await interaction.reply(reply(working));

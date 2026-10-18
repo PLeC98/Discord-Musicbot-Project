@@ -1,10 +1,10 @@
 <template>
-  <!-- 배경 편집 창의 시간 막대(2026-10-13 사용자, 프리미어 · 베가스 결). 영상은 편집 창이 쥐고, 이것은 시각 · 구간 · 썸네일을 보이고 바꾸자고 알린다.
+  <!-- 배경 편집 창의 시간 막대(2026-10-13 사용자, 프리미어 · 베가스 스타일). 영상은 편집 창이 쥐고, 이것은 시각 · 구간 · 썸네일을 보이고 바꾸자고 알린다.
        위: 지금 시각(시:분:초;프레임) · 10초 전 · 1프레임 전 · 재생/일시정지 · 1프레임 뒤 · 10초 뒤 · 썸네일 설정.
-       가운데: 시간 눈금(확대에 맞춰 간격이 바뀐다)에 재생 위치 · 썸네일 마커, 마커에서 띠 아래까지 줄. 띠는 일정 간격으로 뜬 장면을 깔고, 구간 밖은 어둡게, 양 끝 손잡이로 구간.
-       눈금이나 띠를 누르거나 끌면 그 자리로. 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 썸네일 시각(누르면 그 자리로).
-       장면은 봇이 받을 때 만든 장면 띠(GET …/:id/strip, 격자 WebP 한 장)를 칸마다 잘라 깐다. 띠가 아직 없으면 빈 띠 -->
-  <!-- 키로 다루려고 초점을 받는다. 공통 초점 테두리(3px) 대신 시간 막대 칸에 가는 1px 테두리로 초점을 보인다(2026-10-13 사용자) -->
+       가운데: 시간 눈금(확대에 맞춰 간격이 바뀐다)에 재생 위치 · 썸네일 마커, 마커에서 띠 아래까지 줄. 띠는 일정 간격으로 뜬 장면을 깔고, 구간 밖은 어둡게, 양 끝 핸들로 구간.
+       눈금이나 띠를 누르거나 끌면 그 위치로. 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 썸네일 시각(누르면 그 위치로).
+       장면은 봇이 가져올 때 만든 장면 띠(GET …/:id/strip, 격자 WebP 한 장)를 셀마다 잘라 깐다. 띠가 아직 없으면 빈 띠 -->
+  <!-- 키로 다루려고 포커스를 받는다. 공통 포커스 테두리(3px) 대신 시간 막대 영역에 가는 1px 테두리로 포커스를 보인다(2026-10-13 사용자) -->
   <div class="group/tl flex flex-col gap-2 select-none outline-none focus-visible:outline-none" tabindex="0" @keydown="onKey">
     <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
       <span class="flex items-center gap-2">
@@ -25,9 +25,9 @@
       <BaseButton size="sm" variant="secondary" class="justify-self-end" @click="emit('thumb')">{{ T.useAsThumb }}</BaseButton>
     </div>
 
-    <!-- 가로 스크롤 자리를 늘 비워 둔다(확대해서 스크롤바가 생겨도 창 높이가 그대로) -->
+    <!-- 가로 스크롤 공간을 늘 비워 둔다(확대해서 스크롤바가 생겨도 창 높이가 그대로) -->
     <div ref="scrollEl" class="overflow-x-scroll overflow-y-hidden rounded-lg bg-surface-container-highest outline outline-1 outline-transparent transition-[outline-color] duration-150 group-focus/tl:outline-primary" :style="SCROLLBAR" @scroll="scrollLeft = ($event.target as HTMLElement).scrollLeft">
-      <!-- 시간 0 · 끝은 양옆 PAD 안쪽. 그 바깥은 구간 손잡이 · 마커 머리가 들어갈 빈 자리(넘치는 것은 잘라 스크롤이 생기지 않게) -->
+      <!-- 시간 0 · 끝은 양옆 PAD 안쪽. 그 바깥은 구간 핸들 · 마커 머리가 들어갈 빈 공간(넘치는 것은 잘라 스크롤이 생기지 않게) -->
       <div ref="contentEl" class="relative overflow-hidden cursor-ew-resize touch-none" :style="{ width: `${contentWidth}px` }" @pointerdown="scrubStart">
         <!-- 시간 눈금 -->
         <div class="relative h-7 border-b border-outline-variant">
@@ -47,7 +47,7 @@
             <span class="absolute inset-y-0 left-0 bg-black/65 pointer-events-none" :style="{ width: `${x(range[0]) - PAD}px` }"></span>
             <span class="absolute inset-y-0 right-0 bg-black/65 pointer-events-none" :style="{ left: `${x(range[1]) - PAD}px` }"></span>
           </div>
-          <!-- 구간 틀: 손잡이가 구간 바깥에 붙는다(손잡이 안쪽 끝이 구간 끝) -->
+          <!-- 구간 틀: 핸들이 구간 바깥에 붙는다(핸들 안쪽 끝이 구간 끝) -->
           <span class="absolute inset-y-0 rounded-md border-y-2 border-primary pointer-events-none" :style="{ left: `${x(range[0]) - HANDLE_W}px`, width: `${x(range[1]) - x(range[0]) + HANDLE_W * 2}px` }"></span>
           <span v-for="side in [0, 1] as const" :key="side" class="absolute inset-y-0 bg-primary cursor-ew-resize flex items-center justify-center" :class="side ? 'rounded-r-md' : 'rounded-l-md'" :style="{ left: `${side ? x(range[1]) : x(range[0]) - HANDLE_W}px`, width: `${HANDLE_W}px` }" :aria-label="side ? T.end : T.start" v-tooltip="side ? T.end : T.start" @pointerdown.stop="rangeStart($event, side)"><span class="h-5 w-0.5 rounded-full bg-on-primary/70"></span></span>
         </div>
@@ -57,7 +57,7 @@
       </div>
     </div>
 
-    <!-- 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 썸네일 시각(누르면 그 자리로) · 구간 길이 -->
+    <!-- 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 썸네일 시각(누르면 그 위치로) · 구간 길이 -->
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs nums">
       <label class="flex items-center gap-2">
         <span class="text-on-surface-variant">{{ T.zoom }}</span>
@@ -85,14 +85,14 @@ const T = text.loginBackground.timeline;
 
 /** strip: 장면 띠(주소와 모양, 없으면 빈 띠). aspect: 가로 ÷ 세로. now · range · thumbAt 은 초 */
 const props = defineProps<{ strip: { url: string; shape: LoginBackgroundStrip } | null; duration: number; fps: number; aspect: number; now: number; playing: boolean; range: [number, number]; thumbAt: number | null; loop: boolean }>();
-/** peek: 구간 손잡이를 끄는 동안 그 장면만 보여 달라(재생 위치는 그대로), peekEnd: 놓았으니 재생 위치로 돌아가 달라 */
+/** peek: 구간 핸들을 끄는 동안 그 장면만 보여 달라(재생 위치는 그대로), peekEnd: 놓았으니 재생 위치로 돌아가 달라 */
 const emit = defineEmits<{ seek: [t: number]; peek: [t: number]; peekEnd: []; toggle: []; range: [range: [number, number]]; thumb: []; loop: [] }>();
 
-/** 시간 막대의 가로 스크롤바는 다른 곳보다 굵게(끌어서 옮기기 쉽게, 2026-10-13 사용자). 손잡이는 가장자리 3px 를 비운 나머지 */
+/** 시간 막대의 가로 스크롤바는 다른 곳보다 굵게(끌어서 옮기기 쉽게, 2026-10-13 사용자). 핸들은 가장자리 3px 를 비운 나머지 */
 const SCROLLBAR = { "--sb-size": "1rem", scrollbarWidth: "auto" as const };
-/** 구간 손잡이의 폭(px) */
+/** 구간 핸들의 폭(px) */
 const HANDLE_W = 12;
-/** 시간 0 · 끝 바깥의 빈 자리(px): 구간이 끝까지 닿아도 바깥에 붙는 손잡이 · 마커 머리가 들어간다 */
+/** 시간 0 · 끝 바깥의 빈 공간(px): 구간이 끝까지 닿아도 바깥에 붙는 핸들 · 마커 머리가 들어간다 */
 const PAD = HANDLE_W;
 /** 띠의 높이(px) */
 const BAR_H = 64;
@@ -144,7 +144,7 @@ const ticks = computed(() => {
   return out;
 });
 
-/** 보이는 만큼의 장면 칸: 칸 가운데 시각의 장면을 띠 그림에서 잘라(배경 위치) 깐다 */
+/** 보이는 만큼의 장면 셀: 셀 가운데 시각의 장면을 띠 그림에서 잘라(배경 위치) 깐다 */
 const tiles = computed(() => {
   const strip = props.strip;
   if (!strip || !strip.shape.count || !props.duration) return [];
@@ -171,7 +171,7 @@ const points = computed(() => [{ label: T.start, t: props.range[0], dot: "bg-pri
 
 // ── 누르기 · 끌기 ──
 
-/** 누른 자리의 시각(자르지 않음) · 영상 안으로 자른 것 */
+/** 누른 위치의 시각(자르지 않음) · 영상 안으로 자른 것 */
 const rawTimeAt = (clientX: number) => (clientX - contentEl.value!.getBoundingClientRect().left - PAD) / pxPerSec.value;
 const timeAt = (clientX: number) => Math.min(Math.max(0, rawTimeAt(clientX)), props.duration);
 function scrubStart(e: PointerEvent) {
@@ -181,11 +181,11 @@ function scrubStart(e: PointerEvent) {
   el.onpointermove = (m) => emit("seek", timeAt(m.clientX));
   el.onpointerup = el.onpointercancel = () => (el.onpointermove = el.onpointerup = el.onpointercancel = null);
 }
-/** 구간 손잡이: 서로 1초 안으로는 붙지 않는다. 끄는 동안 재생 위치는 그대로 두고 화면만 손잡이 장면을 보이고, 놓으면 재생 위치로 돌아간다 */
+/** 구간 핸들: 서로 1초 안으로는 붙지 않는다. 끄는 동안 재생 위치는 그대로 두고 화면만 핸들 장면을 보이고, 놓으면 재생 위치로 돌아간다 */
 function rangeStart(e: PointerEvent, side: 0 | 1) {
   const el = e.currentTarget as HTMLElement;
   el.setPointerCapture(e.pointerId);
-  // 손잡이는 구간 바깥에 붙어 있어 누른 자리와 구간 끝이 다르다. 그 차이를 기억해 잡자마자 튀지 않게
+  // 핸들은 구간 바깥에 붙어 있어 누른 위치와 구간 끝이 다르다. 그 차이를 기억해 잡자마자 튀지 않게
   const grab = rawTimeAt(e.clientX) - props.range[side];
   emit("peek", props.range[side]);
   el.onpointermove = (m) => {
@@ -224,7 +224,7 @@ function onKey(e: KeyboardEvent) {
   e.preventDefault();
 }
 
-// 확대해도 재생 위치가 화면의 같은 자리에 남게, 재생 위치가 화면 밖으로 나가면 따라간다
+// 확대해도 재생 위치가 화면의 같은 위치에 남게, 재생 위치가 화면 밖으로 나가면 따라간다
 watch(zoom, async (next, prev) => {
   const el = scrollEl.value;
   if (!el || !props.duration) return;

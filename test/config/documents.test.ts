@@ -75,7 +75,7 @@ test("함께 저장: 하나라도 실패하면 둘 다 쓰지 않는다(메모�
   assert.deepEqual(documents.get("ai-prompt"), []);
 });
 
-test("함께 저장: 번호를 안 준 문서는 번호를 보지 않는다. 새 번호를 같은 차례로 돌려준다", () => {
+test("함께 저장: 번호를 안 준 문서는 번호를 보지 않는다. 새 번호를 같은 순서로 돌려준다", () => {
   documents.put("ai-prompt", [{ role: "user", text: "{{list}}" }], 0);
   const next = documents.putAll([
     { name: "ai", data: { provider: "off" }, revision: 0 },

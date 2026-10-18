@@ -15,10 +15,10 @@ const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are
 // yt-dlp 를 실행하는 곳이 붙이는 모양(message = stderr, code = 이름)
 const ytdlpError = ytDlpError;
 
-test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 가른다. 영상 id 를 붙인다", () => {
+test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id 를 붙인다", () => {
   assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한 · 쿠키 없음 (hc0ZDaAZQT0)");
   assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한 · 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
-  assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한 · 쿠키가 무효. 쿠키를 다시 넣어 주세요 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한 · 쿠키가 무효. 쿠키를 다시 입력해 주세요 (hc0ZDaAZQT0)");
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {

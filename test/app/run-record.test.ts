@@ -13,7 +13,7 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-// 한 파일을 두고 기동 · 끝을 되풀이한다. clock 은 시험이 옮긴다
+// 한 파일을 두고 기동 · 끝을 되풀이한다. clock 은 테스트가 옮긴다
 function machine() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "run-record-"));
   dirs.push(dir);
@@ -58,7 +58,7 @@ test("끝을 적지 못하고 끊겼으면 마지막으로 살아 있던 때까�
   const m = machine();
   const { record } = m.boot();
   m.cutAfter(record, 2 * MIN);
-  m.clock.now += 5 * 60 * MIN; // 사람이 한참 뒤에 다시 켰다
+  m.clock.now += 5 * 60 * MIN; // 사람이 한참 뒤에 다시 시작했다
   const { previous } = m.boot();
   assert.equal(previous.line, "직전 실행: 기록 없이 끊김 | 가동 2분(마지막으로 살아 있던 때까지) | 짧게 끊긴 실행 1번 연달아");
   assert.equal(previous.skipRestore, false);

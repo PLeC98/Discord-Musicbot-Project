@@ -21,7 +21,7 @@ type Capabilities = { https: boolean; hls: boolean; dash: boolean; segMaxRetry: 
 let resolved: Resolved | null = null;
 let caps: Capabilities | null = null;
 
-/** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 뽑는다. 아니면 null. */
+/** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 추출한다. 아니면 null. */
 function probe(candidate: string | null | undefined): string | null {
   if (!candidate) return null;
   try {
@@ -34,7 +34,7 @@ function probe(candidate: string | null | undefined): string | null {
   }
 }
 
-/** scripts/install-ffmpeg.ts가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
+/** scripts/install-ffmpeg.ts가 다운로드해 두는 위치. 미지원 플랫폼에서는 없다. */
 function fromBundle(): string | null {
   const p = path.join(PROJECT.bin, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   return fs.existsSync(p) ? p : null;
@@ -72,7 +72,7 @@ function resolve(): Resolved {
     }
   }
 
-  throw codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
+  throw codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
 }
 
 /** 쓰는 ffmpeg 의 버전(봇 상태 탭). 찾지 못했으면 null */
@@ -126,7 +126,7 @@ function capabilities(): Capabilities {
 
   caps = { https, hls, dash, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
-    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
+    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 다운로드한 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
   }
   return caps;
 }

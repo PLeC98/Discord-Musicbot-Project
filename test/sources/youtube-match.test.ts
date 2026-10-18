@@ -93,7 +93,7 @@ test("버전·재배포가 걸린 후보에는 high를 주지 않는다", () => 
   assert.equal(clean.confidence, "high");
 });
 
-test("아티스트 쪼개기: feat · ft · with 는 낱말일 때만 가른다", () => {
+test("아티스트 쪼개기: feat · ft · with 는 단어일 때만 나눈다", () => {
   assert.deepEqual(I.splitArtists("Daft Punk"), ["daft punk"]);
   assert.deepEqual(I.splitArtists("Drift"), ["drift"]);
   assert.deepEqual(I.splitArtists("Within Temptation"), ["within temptation"]);
@@ -111,8 +111,8 @@ test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝
   assert.equal(I.detectVersionKind("Video Killed the Radio Star on TV"), null, "끝의 TV 만으로는 버전이 아니다");
 });
 
-// 회귀 대상: 공백 뒤의 맨 낱말도 받아 "Love on TV - Live" 를 TV 판으로 봤다
-test("버전 표기: 공백 뒤의 낱말은 수식어가 붙어야 버전이다. 괄호 · 대시로 연 표시는 낱말만으로도", () => {
+// 회귀 대상: 공백 뒤의 맨 단어도 받아 "Love on TV - Live" 를 TV 버전으로 봤다
+test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다. 괄호 · 대시로 연 표시는 단어만으로도", () => {
   assert.equal(I.detectVersionKind("Love on TV - Live"), null);
   assert.equal(I.detectVersionKind("Life is Short - Live"), null);
   assert.equal(I.detectVersionKind("Idol TV size - Anime"), "tv");

@@ -1,4 +1,4 @@
-// src/ui/now-playing-panel.ts — 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 담기의 줄 세우기는 test/usecases/queueTracksOrder.
+// src/ui/now-playing-panel.ts — 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 담기의 순서는 test/usecases/queueTracksOrder.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -64,14 +64,14 @@ function panelPlayer(over: object = {}) {
     ...over,
   });
 }
-// 컨테이너 JSON 에서 보는 칸
+// 컨테이너 JSON 에서 보는 필드
 type Json = { components: Array<{ type: number; components?: Array<{ disabled?: boolean; custom_id?: string }>; accessory?: { media: { url: string } } }> };
 const shape = (json: Json) => json.components.map((c) => c.type);
 const buttonsOf = (json: Json) => json.components.filter((c) => c.type === 1).flatMap((row) => row.components ?? []);
 // 빌더를 JSON 으로
 const jsonOf = (builder: { toJSON(): unknown }) => builder.toJSON() as Json;
 
-// 대시보드 주소를 정해 두고 부른다. 시험은 로컬 .env 를 읽으므로 주소가 링크를 가르는 시험은 값을 정한다
+// 대시보드 주소를 정해 두고 부른다. 테스트는 로컬 .env 를 읽으므로 주소에 따라 링크가 달라지는 테스트는 값을 정한다
 async function withDashboardUrl<T>(url: string, run: () => Promise<T>) {
   const saved = config.dashboard.url;
   config.dashboard.url = url;
@@ -82,7 +82,7 @@ async function withDashboardUrl<T>(url: string, run: () => Promise<T>) {
   }
 }
 
-test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리고, 썸네일 자리는 첨부한 투명 이미지다", async () => {
+test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리고, 썸네일은 첨부한 투명 이미지다", async () => {
   const mem = newManager();
   const player = panelPlayer();
   const { playing, components, files } = await withDashboardUrl("https://music.example.com", async () => ({
@@ -168,7 +168,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
     for (const [botChannel, expectNotice] of cases) {
       tempStore.setGuild("g1", { botChannel });
       const mem = newManager();
-      // 패널을 고친 내용. 여기서 보는 칸만
+      // 패널을 고친 내용. 여기서 보는 필드만
       const edits: Array<{ id: string; payload: { components: Array<{ toJSON(): unknown }>; files: Array<{ name: string }> } }> = [];
       const sent: unknown[] = [];
       const player = panelPlayer({

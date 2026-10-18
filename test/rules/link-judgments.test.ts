@@ -46,11 +46,11 @@ test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으
   assert.equal(canonicalUrl(null), null, "글자가 아니면 그대로 돌려준다");
 });
 
-test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 열쇠 모양", () => {
+test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk&list=RDx", "yt:abcdefghijk"],
     ["https://youtu.be/abcdefghijk?si=x", "yt:abcdefghijk"],
-    ["https://www.youtube.com/playlist?list=PLx", null], // 영상이 아니면 열쇠가 없다
+    ["https://www.youtube.com/playlist?list=PLx", null], // 영상이 아니면 키가 없다
     ["https://soundcloud.com/artist/track?in=a/sets/b", "sc:artist/track"],
     ["https://m.soundcloud.com/artist/track", "sc:artist/track"],
     ["https://on.soundcloud.com/AbCd", "sc:on.soundcloud.com/AbCd"],

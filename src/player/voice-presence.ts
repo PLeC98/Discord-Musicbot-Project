@@ -18,7 +18,7 @@ async function onVoiceStateUpdate(client: Client, players: Pick<PlayerSeats, "ge
 
   const botId = guild.members.me?.id ?? client.user?.id;
   if (oldState.id === botId || newState.id === botId) {
-    // 봇 자신의 음성 상태(빠짐 · 옮겨짐 · 서버 음소거)는 음성 연결이 가른다
+    // 봇 자신의 음성 상태(빠짐 · 옮겨짐 · 서버 음소거)는 음성 연결이 구분한다
     const change = player.voice.onBotState(oldState, newState);
     if (change.left) return;
     // 옮겨진 곳에서는 혼자 남음을 새로 본다(아래 사람 수 보기가 다시 건다)

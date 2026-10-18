@@ -6,7 +6,7 @@ import { reopenDelay } from "./reconnect.ts";
 
 const CLOSED = 2; // EventSource.CLOSED
 
-/** 이 모듈이 쓰는 EventSource 의 부분(시험은 가짜를 넘긴다) */
+/** 이 모듈이 쓰는 EventSource 의 부분(테스트는 가짜를 넘긴다) */
 type Source = { readyState: number; onopen: ((event: Event) => void) | null; onerror: ((event: Event) => void) | null; addEventListener(name: string, fn: (event: MessageEvent) => void): void; close(): void };
 /** 열림 · 브라우저가 다시 붙는 중 · 닫혀 화면이 다시 열 차례를 기다림 */
 type LinkState = "open" | "retrying" | "down";
@@ -22,12 +22,12 @@ type LinkOptions = {
   /** 다시 열어도 되는지(로그인이 살아 있는지) */
   check?: () => Promise<boolean>;
   delay?: (attempt: number) => number;
-  /** 다시 열 차례를 건다. 돌려준 것은 cancel 에 그대로 넘긴다 */
+  /** 다시 열 차례를 예약한다. 돌려준 것은 cancel 에 그대로 넘긴다 */
   schedule?: (fn: () => void, ms: number) => unknown;
   cancel?: (timer: unknown) => void;
 };
 
-/** schedule · cancel · delay 는 시험이 바꾼다 */
+/** schedule · cancel · delay 는 테스트가 바꾼다 */
 export function eventLink({
   url,
   open,
@@ -64,7 +64,7 @@ export function eventLink({
     };
   }
 
-  // 다시 열 차례. 로그인이 살아 있으면 열고, 아니면 다음 차례를 건다
+  // 다시 열 차례. 로그인이 살아 있으면 열고, 아니면 다음 차례를 예약한다
   async function reopen() {
     timer = undefined;
     let ok;

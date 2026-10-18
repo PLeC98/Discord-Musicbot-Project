@@ -1,4 +1,4 @@
-// src/infra/process-registry.ts · guild-context.ts · process-memory.ts — 자식 프로세스가 어느 서버의 무슨 일인지(띄운 문맥에서), 메모리
+// src/infra/process-registry.ts · guild-context.ts · process-memory.ts — 자식 프로세스가 어느 서버의 무슨 일인지(실행한 문맥에서), 메모리
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +23,7 @@ const register = (...args: Parameters<typeof registry.register>) => {
 };
 const row = (pid: number) => registry.list().find((one) => one.pid === pid);
 
-test("띄운 문맥의 서버와 일을 적는다. 일을 주면 문맥보다 앞서고, 문맥 밖이면 둘 다 null", () => {
+test("실행한 문맥의 서버와 일을 적는다. 일을 주면 문맥보다 앞서고, 문맥 밖이면 둘 다 null", () => {
   const warm = inGuild("g1", () => register(child("C:\\bin\\yt-dlp.exe"), "yt-dlp"), "prefetch");
   const play = inGuild("g1", () => register(child("/usr/bin/ffmpeg"), "ffmpeg:playback", { job: "play" }), "prefetch");
   const helper = register(child(process.execPath), "bgutil", { job: "pot-server" });

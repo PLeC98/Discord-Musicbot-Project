@@ -13,7 +13,7 @@ declare module "vue-router" {
     playerPage?: boolean;
     /** 화면이 스스로 바탕화면을 채운다(창 배치를 갖는다). 아니면 창 하나 안에 넣는다 */
     workspace?: boolean;
-    /** 위 막대 가운데에 띄울 이름(서버 화면 · 운영자 패널처럼 따로 그리는 화면 말고) */
+    /** 위 막대 가운데에 표시할 이름(서버 화면 · 운영자 패널처럼 따로 그리는 화면 말고) */
     title?: string;
     /** 로그인했어도 틀 없이 화면만. 이 앱의 라우트는 쓰지 않고, 미리 보기처럼 개발 도구가 더하는 라우트가 쓴다(app.ts 의 createDashboard 의 extraRoutes) */
     bare?: boolean;
