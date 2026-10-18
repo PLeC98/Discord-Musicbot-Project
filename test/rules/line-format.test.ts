@@ -16,7 +16,7 @@ const render = (format: string, values: Values) => {
   return renderNodes(nodes, values);
 };
 
-test("계획서의 예: 길이를 알면 길이, 모르면 그 구간째 빠진다", () => {
+test("길이를 알면 길이, 모르면 그 구간째 빠진다", () => {
   const format = "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m:ss}} {{/}}title={{title}}";
   assert.equal(render(format, line(185)), "3. genre=k-pop length=3:05 title=NewJeans - Ditto");
   assert.equal(render(format, line(null)), "3. genre=k-pop title=NewJeans - Ditto");

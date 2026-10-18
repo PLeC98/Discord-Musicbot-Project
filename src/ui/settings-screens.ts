@@ -1,5 +1,5 @@
 // 서버 설정 화면(/setchannel · /setdjrole · /sponsorblock · /setplaylistlimit)과 그 결과. 응답 템플릿(ui/frame)로 그린다.
-// 서버 설정을 바꿔 저장한 결과는 완료 색, 설정 화면 · 취소 · 지금 값은 기본 색(notes text-frames 2절)
+// 서버 설정을 바꿔 저장한 결과는 완료 색, 설정 화면 · 취소 · 지금 값은 기본 색
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, StringSelectMenuBuilder } from "discord.js";
 import { frame } from "./frame.ts";

@@ -1,8 +1,8 @@
-// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로) · 인코딩 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 삭제). 인코딩 값은 research §11.6(B8, 2026-10-15 사용자).
+// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로) · 인코딩 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 삭제). 인코딩 값은 테스트 영상으로 화질 · 크기 · 시간을 재서 정했다(2026-10-15 사용자).
 // 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 조각)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
 // 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss · -to, 움직이는 그림은 필터에서. ladder 의 seekArgs · sourceFilter, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
-// 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(research §11.7 B4 · B4s).
-// AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts, research §11.10).
+// 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(나누면 빠르지만 메모리가 더 든다).
+// AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts).
 // 나눠 인코딩하다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 테스트하고 남은 단계를 따로 인코딩한다.
 // 단계는 임시 폴더(.tmp)에 인코딩하고 끝나면 이름을 바꾼다: 봇이 다시 시작해 이어 할 때는 끝난 단계를 두고 남은 단계만 인코딩한다
 
@@ -34,7 +34,7 @@ function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number,
   const gop = ["-g", String(g)];
   if (codec === "av1") return ["-c:v", "libsvtav1", "-preset", "6", "-crf", short >= UHD ? "32" : "30", "-maxrate", short >= UHD ? "25000k" : "10000k", "-pix_fmt", "yuv420p10le", ...gop];
   if (codec === "vp9") return ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34", "-deadline", "good", "-cpu-used", "4", "-row-mt", "1", "-tile-columns", short >= UHD ? "3" : "2", "-auto-alt-ref", "1", "-lag-in-frames", "25", "-pix_fmt", "yuv420p", ...gop];
-  // H.264: NVENC 는 VBR 2.2M(research §11.7), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(hls.js 가 반복으로 되감을 때 bufferSeekOverHole 을 냈다, /gallery/seam)
+  // H.264: NVENC 는 VBR 2.2M(OpenH264 2.5M 과 크기가 같고 화질이 높다), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(hls.js 가 반복으로 되감을 때 bufferSeekOverHole 을 냈다)
   if (encoder === "h264_nvenc") return ["-c:v", "h264_nvenc", "-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
   return ["-c:v", "libopenh264", "-profile:v", "high", "-coder", "cabac", "-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51", "-pix_fmt", "yuv420p", ...gop];
 }
@@ -107,7 +107,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
     fs.mkdirSync(dir, { recursive: true });
   }
   const labels = plans.map((_, i) => `o${i}`);
-  // AV1 은 10비트로 줄인다(8비트는 어두운 면에 얼룩이 생겼다, research §11.6)
+  // AV1 은 10비트로 줄인다(8비트는 어두운 면에 얼룩이 생겼다)
   const format = (plan: Plan) => (plan.codec === "av1" ? "yuv420p10le" : "yuv420p");
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
   const graph = `${sourceFilter(probed, edit.crop, { from, to })}${split}`;

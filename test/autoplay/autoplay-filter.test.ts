@@ -1,6 +1,6 @@
 // src/autoplayFilter — 자동재생 후보를 필터링하는 규칙.
 //
-// 문턱은 짐작이 아니라 후보 840개를 세어 정했다(notes/research-autoplay-quality.md).
+// 문턱은 짐작이 아니라 후보 840개를 세어 정했다.
 // 그래서 여기 적는 것은 "왜 이 값인가"가 아니라 "이 성질이 깨지면 안 된다"이다.
 
 import { test } from "node:test";

@@ -70,7 +70,7 @@
           <ServerManage :guilds="guilds" @changed="onGuildsChanged" />
         </div>
 
-        <!-- 캐시 DB: 음원 · 캐시 관리(B-115). 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다 -->
+        <!-- 캐시 DB. 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다 -->
         <div class="admin-page" v-show="tab === 'db'">
           <CacheDb v-if="opened.has('db')" ref="cacheDbEl" />
         </div>

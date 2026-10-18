@@ -36,7 +36,7 @@ test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
   assert.equal(failureReason("그냥 글자", false), "그냥 글자");
 });
 
-// 사용자는 설정을 만질 수 없다. 사용자 문장에는 무엇이 안 됐는지만, 고치는 법은 운영자 로그에(계획서 #24)
+// 사용자는 설정을 만질 수 없다. 사용자 문장에는 무엇이 안 됐는지만, 고치는 법은 운영자 로그에
 test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄에만 붙고 사용자 문장에는 없다", () => {
   const bot = ytdlpError("ERROR: [youtube] abcdefghijk: Sign in to confirm you're not a bot");
   const limited = ytdlpError("ERROR: [youtube] abcdefghijk: HTTP Error 429: Too Many Requests");

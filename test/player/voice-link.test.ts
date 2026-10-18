@@ -1,4 +1,4 @@
-// src/player/voice-link.ts — 음성 연결 상태 기계. 전이 표(notes/ref-voice-link.md)의 행마다 테스트 하나.
+// src/player/voice-link.ts — 음성 연결 상태 기계. 전이 표의 행마다 테스트 하나.
 // 음성 라이브러리의 joinVoiceChannel · entersState 는 가짜로 넘기고, 연결의 전이는 가짜 연결에 stateChange 를 쏘아 흉내 낸다.
 
 import { test, beforeEach, afterEach } from "node:test";
@@ -181,7 +181,7 @@ test("끊김: 다시 붙기 시작했으면(Signalling · Connecting) Ready 까�
   assert.equal(link.state, "ready");
 });
 
-test("끊김이 연달아 와도 기다림은 하나다(B-85)", async () => {
+test("끊김이 연달아 와도 기다림은 하나다", async () => {
   const { link, conn } = await ready();
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.EndpointRemoved });
   const timer = link.waitTimer;
@@ -329,7 +329,7 @@ test("복구는 한 번에 하나. 복구 중에 또 부르면 아무것도 안 
   assert.equal(link.state, "ready");
 });
 
-test("다섯 번 모두 실패하면 세션을 저장하고 버린다(B-18 안 E)", async () => {
+test("다섯 번 모두 실패하면 세션을 저장하고 버린다", async () => {
   const { link, steps } = await ready();
   joinWorks = [false, false, false, false, false];
   link.recover("시험");

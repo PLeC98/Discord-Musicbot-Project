@@ -5,7 +5,7 @@
        흐림은 오버레이(backdrop-filter, 틀 폭의 %), 오버레이는 화면 색을 진하기만큼. 장면 색은 장면이 바뀔 때만 1초 동안 넘어간다:
        paintTheme 이면 화면 색 시스템(theme.ts setPageSeed)을 칠하고(효과 full), 아니면 · 효과 cover 면 오버레이 색만 넘긴다.
        반복은 브라우저에 맡기고(loop) 끝에 닿기 전 · 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기 · 오버레이 색 · 검게 · 흐림)를 적용하고 해제한다.
-       영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60 을 오가며 장면을 버리지 않게, research §11.8 A9) -->
+       영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60 을 오가며 장면을 버리지 않게) -->
   <!-- 틀 · 흐리는 레이어는 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 흐려 모서리 밖까지 번진다) -->
   <!-- 꾸밈 레이어다: 안의 효과 레이어(z-index)가 바깥(로그인 버튼 그룹) 위로 올라가지 않게 쌓임을 가두고(isolate), 누르기는 통과시킨다 -->
   <div ref="frameEl" class="absolute inset-0 isolate overflow-hidden rounded-[inherit] bg-black pointer-events-none" aria-hidden="true">

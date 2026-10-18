@@ -308,7 +308,7 @@ test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본
   assert.equal(track.pickedFrom, "keyword");
 });
 
-// 차단어는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다(B-113). 키워드 출처 필드에 입력하면 전역 대신 그것
+// 차단어는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다. 키워드 출처 필드에 입력하면 전역 대신 그것
 test("차단어: 키워드 출처에만, 출처 필드가 있으면 전역 대신 그것", async () => {
   // 출처마다 영상 주소가 있는 후보 하나. 키워드만 검색 결과다(fromSearch)
   const one = (source: GenreSource, title: string) => [{ title, durationSec: 240, youtubeUrl: `https://www.youtube.com/watch?v=${source.type.slice(0, 3)}${title.length}`, fromSearch: source.type === "keyword", sourceKey: `${source.type}:${title}` }];

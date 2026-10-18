@@ -1,6 +1,6 @@
 // 로그인 배경을 인코딩하는 인코더. 봇이 켜질 때마다 코덱마다 후보를 작은 테스트로 돌려 쓸 수 있는 첫 것을 선택한다(뒤에서, 봇 시작을 막지 않는다. 이 PC 에서 1초 안쪽).
 // 기록해 두지 않는다: 기기가 바뀌었는지 알아보는 비용(Windows 의 장치 정보 읽기)이 테스트의 절반쯤이고, 드라이버 · 라이브러리만 바뀌어도 늘 맞는다. 인코딩하다 인코더가 실패하면 다시 테스트한다(recheck).
-// 후보는 같은 화질이 되는 값을 재 둔 인코더만이다(research §11.6 · §11.7): AV1 은 SVT-AV1, VP9 은 libvpx, H.264 는 NVENC → OpenH264. 하드웨어 AV1 · VP9 은 값을 재면 더한다
+// 후보는 같은 화질이 되는 값을 재 둔 인코더만이다: AV1 은 SVT-AV1, VP9 은 libvpx, H.264 는 NVENC → OpenH264. 하드웨어 AV1 · VP9 은 값을 재면 더한다
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });

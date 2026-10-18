@@ -1,5 +1,5 @@
 // 음성 연결 한 가닥. 라이브러리의 연결 전이와 게이트웨이가 알린 봇의 음성 상태를 한 곳에서 받아 다음 상태와 할 일을 정한다.
-// 상태 · 전이 표와 정한 것은 notes/ref-voice-link.md. 복구 · 강제 퇴장 · 채널 사라짐 · 이동 · 서버 음소거를 여기서만 구분한다.
+// 복구 · 강제 퇴장 · 채널 사라짐 · 이동 · 서버 음소거를 여기서만 구분한다.
 
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState, type VoiceConnection, type VoiceConnectionState } from "@discordjs/voice";
 import type { VoiceBasedChannel, VoiceState } from "discord.js";

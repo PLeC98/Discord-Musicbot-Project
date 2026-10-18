@@ -1,4 +1,4 @@
-// 자동재생 미리 뽑기(B-50) — src/player/player.ts · src/player/track-state.ts
+// 자동재생 미리 뽑기 — src/player/player.ts · src/player/track-state.ts
 //
 // 곡이 끝난 뒤에야 검색을 시작하면 그만큼 소리가 빈다. 곡이 시작될 때 다음 곡을 미리 대기열에 둬야
 // QueueWarmer가 평소처럼 다운로드해 두고 전환이 즉시가 된다.

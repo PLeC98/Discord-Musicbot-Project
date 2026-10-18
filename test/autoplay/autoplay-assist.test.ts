@@ -2,7 +2,7 @@
 //
 // 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
-// (판정 품질 자체는 모델과 프롬프트의 몫이고 notes/research-autoplay-quality.md 에서 쟀다.)
+// (판정 품질 자체는 모델과 프롬프트의 몫이다.)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
