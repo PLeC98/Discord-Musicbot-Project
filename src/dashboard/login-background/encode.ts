@@ -1,6 +1,6 @@
 // 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로) · 인코딩 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 삭제). 인코딩 값은 research §11.6(B8, 2026-10-15 사용자).
 // 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 조각)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
-// 구간은 원본에서 정확히 자른다(입력 앞 -ss · -to, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
+// 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss · -to, 움직이는 그림은 필터에서. ladder 의 seekArgs · sourceFilter, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
 // 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(research §11.7 B4 · B4s).
 // AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts, research §11.10).
 // 나눠 인코딩하다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 테스트하고 남은 단계를 따로 인코딩한다.
@@ -17,7 +17,7 @@ import { boundCores } from "../../infra/cpu-affinity.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
-import { cropped, FHD, FPS_CAP, fitShort, scaleTo, sourceFilter, UHD } from "./ladder.ts";
+import { cropped, FHD, FPS_CAP, fitShort, frameRate, scaleTo, seekArgs, sourceFilter, UHD } from "./ladder.ts";
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
 import { AV1_LP_MAX, av1LpFor, enoughMemory, needOf, splitLp } from "./memory.ts";
@@ -110,9 +110,9 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
   // AV1 은 10비트로 줄인다(8비트는 어두운 면에 얼룩이 생겼다, research §11.6)
   const format = (plan: Plan) => (plan.codec === "av1" ? "yuv420p10le" : "yuv420p");
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
-  const graph = `${sourceFilter(probed, edit.crop)}${split}`;
+  const graph = `${sourceFilter(probed, edit.crop, { from, to })}${split}`;
   const outputs = plans.flatMap((plan, i) => ["-map", `[${labels[i]}]`, ...plan.options, ...hlsOutput(tmp[i])]);
-  const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", store.sourceOf(item.id), "-filter_complex", graph, "-an", "-sn", "-dn", ...outputs], {
+  const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, ...seekArgs(probed, { from, to }), ...READ_ARGS, "-i", store.sourceOf(item.id), "-filter_complex", graph, "-an", "-sn", "-dn", ...outputs], {
     signal,
     discardStdout: true,
     bindCores: true,
@@ -185,7 +185,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
   await encodersReady();
   const probed = await probeVideo(store.sourceOf(item.id), signal);
   const size = cropped(probed.width, probed.height, item.edit!.crop);
-  const fps = probed.fps ?? FPS_CAP;
+  const fps = frameRate(probed);
   const plans = plansFor(codecs, size, fps);
   if (!plans.length) throw codedError("background-failed", `인코딩할 인코더가 없습니다(${codecs.join(" · ")})`);
   const left = plans.filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));

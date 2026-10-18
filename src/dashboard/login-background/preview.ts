@@ -14,7 +14,7 @@ import type { Recounter, StageJob, StageResult } from "./runner.ts";
 import { encoderFor, encodersReady } from "./encoders.ts";
 import { enoughMemory, needOf } from "./memory.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS } from "./source.ts";
-import { cropped, fitShort, scaleTo, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
+import { cropped, fitShort, scaleTo, seekArgs, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
 import type { LoginBackgroundCrop } from "../contract/login-background.ts";
 
 /** 미리보기 · 어림의 짧은 변 */
@@ -154,8 +154,8 @@ const recount: Recounter = async ({ item, crop, range, signal }) => {
   const source = store.sourceOf(item.id);
   const probed = await probeVideo(source, signal);
   const [from, to] = range ?? [0, item.duration];
-  const graph = `${sourceFilter(probed, crop)},${scaleTo(fitShort(size.width, size.height, PROBE_SHORT))}[e]`;
-  const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, ...longJob(to - from) });
+  const graph = `${sourceFilter(probed, crop, { from, to })},${scaleTo(fitShort(size.width, size.height, PROBE_SHORT))}[e]`;
+  const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, ...seekArgs(probed, { from, to }), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, ...longJob(to - from) });
   if (run.code !== 0) throw codedError("background-failed", `어림을 다시 세지 못했습니다: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   // 이 구간의 초만 새 크롭의 크기로(구간 밖은 앞선 어림 그대로, 넓히면 화면이 다시 세게 한다)
   const scale = upscale(item, probed, crop);

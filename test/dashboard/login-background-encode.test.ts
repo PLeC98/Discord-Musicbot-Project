@@ -16,6 +16,8 @@ import { bakeNow, drop, encode, h264, plansFor } from "../../src/dashboard/login
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-encode-"));
 const SAMPLE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-encode-sample-")), "clip.mp4");
+/** 움직이는 WebP: 같은 색 2초가 장면 하나로 적힌 세 장면(투명 채널이 있다) */
+const ANIMATED = path.join(path.dirname(SAMPLE), "cuts.webp");
 after(() => {
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
   fs.rmSync(path.dirname(SAMPLE), { recursive: true, force: true, maxRetries: 5 });
@@ -36,11 +38,13 @@ before(async () => {
   encoders.startEncoderCheck();
   await encoders.encodersReady();
   await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=60", "-t", "3", "-c:v", "mpeg4", "-q:v", "4", SAMPLE]);
+  const cuts = ["d02020", "081860", "40e060"].flatMap((color) => ["-f", "lavfi", "-i", `color=c=0x${color}:s=320x180:r=10:d=2`]);
+  await runFfmpeg(["-v", "error", "-y", ...cuts, "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1[v]", "-map", "[v]", "-c:v", "libwebp_anim", "-loop", "0", ANIMATED]);
 });
 
-async function applied(edit: store.Stored["edit"]) {
-  const one = store.create({ kind: "video", from: "upload", name: "clip.mp4" });
-  fs.copyFileSync(SAMPLE, store.sourceOf(one.id));
+async function applied(edit: store.Stored["edit"], sample = SAMPLE) {
+  const one = store.create({ kind: "video", from: "upload", name: path.basename(sample) });
+  fs.copyFileSync(sample, store.sourceOf(one.id));
   Object.assign(one, await inspectSource(store.sourceOf(one.id), signal), { edit });
   return one;
 }
@@ -104,6 +108,17 @@ test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 �
   assert.equal(fs.existsSync(at(one, "vp9", "360.tmp")), false);
   assert.ok(fs.existsSync(at(one, "vp9", "360", "index.m3u8")));
   assert.deepEqual(Object.keys(again.media!.rungs).sort(), ["av1", "vp9"]);
+});
+
+test("움직이는 그림: 30fps 로 고르게 펴 구간대로 굽는다(입력 앞 -ss 로 찾아가지 않는다)", opts, async () => {
+  const one = await applied({ crop: FULL, range: [1, 5], thumbAt: null }, ANIMATED);
+  assert.equal(one.fps, 30);
+  const [rung] = (await h264(job(one))).media!.rungs.h264!;
+  assert.equal(rung.frameRate, 30);
+  assert.ok(Math.abs(seconds(at(one, "h264", "180", "index.m3u8")) - 4) < 0.1);
+  if (!encoders.encoderFor("vp9")) return;
+  await encode(job(one));
+  assert.ok(Math.abs(seconds(at(one, "vp9", "180", "index.m3u8")) - 4) < 0.1);
 });
 
 test("마무리: 원본 · 미리보기 · 장면 띠는 삭제하고 구운 것 · 정지 그림은 남긴다", opts, async () => {

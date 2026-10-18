@@ -8,7 +8,7 @@ import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
 import type { LoginBackgroundScene } from "../contract/login-background.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
-import { fitShort, sourceFilter, squareCrop } from "./ladder.ts";
+import { fitShort, seekArgs, sourceFilter, squareCrop } from "./ladder.ts";
 import { probeVideo, READ_ARGS } from "./source.ts";
 import { frameAt } from "./stills.ts";
 
@@ -34,8 +34,8 @@ async function tones({ item, signal, progress }: StageJob): Promise<StageResult>
   const probed = await probeVideo(source, signal);
   const small = fitShort(probed.width * edit.crop.w, probed.height * edit.crop.h, DETECT_SHORT);
   const times: number[] = [];
-  const graph = `${sourceFilter(probed, edit.crop)},scale=${small.width}:${small.height}:flags=bilinear,select='gt(scene,${THRESHOLD})',showinfo`;
-  const run = await ffmpeg(["-v", "info", ...PROGRESS_ARGS, "-ss", String(from), "-to", String(to), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-f", "null", "-"], {
+  const graph = `${sourceFilter(probed, edit.crop, { from, to })},scale=${small.width}:${small.height}:flags=bilinear,select='gt(scene,${THRESHOLD})',showinfo`;
+  const run = await ffmpeg(["-v", "info", ...PROGRESS_ARGS, ...seekArgs(probed, { from, to }), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-f", "null", "-"], {
     signal,
     discardStdout: true,
     ...longJob(to - from),

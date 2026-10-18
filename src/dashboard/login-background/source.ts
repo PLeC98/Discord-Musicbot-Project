@@ -11,6 +11,7 @@ import { ffmpeg } from "./ffmpeg.ts";
 import * as safeUrl from "../../infra/safe-url.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
+import { frameRate, stacked } from "./ladder.ts";
 
 /** ffmpeg 가 읽어도 되는 형식(영상 컨테이너와 움직이는 그림). 다른 파일 · 주소를 읽는 형식(hls · concat · image2 등)은 뺀다 */
 const FORMATS = ["mov", "matroska", "avi", "flv", "mpegts", "mpeg", "ogg", "asf", "gif", "webp_anim", "apng"];
@@ -130,7 +131,8 @@ async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspect
   if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없습니다");
   // 장면이 하나뿐인 것(sharp 가 못 읽은 정지 그림이 영상 형식으로 열린 것 등)은 영상이 아니다
   if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없습니다(${duration}초)`);
-  return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps };
+  // 움직이는 그림은 고르게 편 초당 프레임 수(편집 창의 미리보기 · 한 프레임 이동이 그것)
+  return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps: stacked(input) ? frameRate(input) : fps };
 }
 
 /** 원본이 무엇인지. 쓸 수 없으면 background-bad-source 를 던진다 */

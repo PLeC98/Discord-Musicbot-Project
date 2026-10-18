@@ -11,7 +11,7 @@ import { hexOfSeed, SEED_SIDE, seedOfPixels } from "../../rules/art-seed.ts";
 import { ffmpeg } from "./ffmpeg.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
-import { cropped, scaleTo, sourceFilter, squareCrop, stillWidths, TRANSPARENT_FILL } from "./ladder.ts";
+import { cropped, scaleTo, seekArgs, sourceFilter, squareCrop, stillWidths, TRANSPARENT_FILL } from "./ladder.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import type { LoginBackgroundCrop } from "../contract/login-background.ts";
 
@@ -75,8 +75,9 @@ async function croppedImage(item: Readonly<store.Stored>, crop: LoginBackgroundC
 /** 영상의 한 장면(RGB 또는 RGBA)을 그 크기로 뜬다 */
 type Frame = { source: string; probed: Probed; at: number; crop: LoginBackgroundCrop; size: { width: number; height: number }; channels: 3 | 4 };
 async function frameAt({ source, probed, at, crop, size, channels }: Frame, signal: AbortSignal): Promise<Buffer> {
-  const graph = `${sourceFilter(probed, crop)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
-  const run = await ffmpeg(["-v", "error", "-ss", at.toFixed(3), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 600_000 });
+  const span = { from: Number(at.toFixed(3)), to: null };
+  const graph = `${sourceFilter(probed, crop, span)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
+  const run = await ffmpeg(["-v", "error", ...seekArgs(probed, span), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 600_000 });
   if (run.aborted) throw codedError("aborted", "그만뒀습니다");
   const bytes = size.width * size.height * channels;
   if (run.code !== 0 || run.output.length < bytes) throw codedError("background-failed", `장면을 뜨지 못했습니다(${at}초): ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);

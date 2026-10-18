@@ -62,7 +62,12 @@ before(async () => {
   fs.writeFileSync(sample("gamma-srgb.png"), withChunk(withChunk(dark, "gAMA", gamma(45455)), "sRGB", Buffer.from([0])));
   if (!BIN) return;
   // 빨강 → 어두운 파랑 → 밝은 초록, 2초씩(장면 바뀜 둘. scene 점수는 밝기 차이를 크게 보므로 밝기가 다른 색으로)
-  await runFfmpeg([...["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0xd02020:s=1920x1080:r=30:d=2", "-f", "lavfi", "-i", "color=c=0x081860:s=1920x1080:r=30:d=2", "-f", "lavfi", "-i", "color=c=0x40e060:s=1920x1080:r=30:d=2"], ...["-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1[v]", "-map", "[v]", "-c:v", "mpeg4", "-q:v", "3", sample("cuts.mp4")]]);
+  const cuts = (size: string, rate: number) => [0xd02020, 0x081860, 0x40e060].flatMap((color) => ["-f", "lavfi", "-i", `color=c=0x${color.toString(16).padStart(6, "0")}:s=${size}:r=${rate}:d=2`]);
+  const joined = ["-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1[v]", "-map", "[v]"];
+  await runFfmpeg(["-v", "error", "-y", ...cuts("1920x1080", 30), ...joined, "-c:v", "mpeg4", "-q:v", "3", sample("cuts.mp4")]);
+  // 같은 장면의 움직이는 그림(장면을 앞 장면 위에 그리는 형식, 투명 채널이 있다)
+  await runFfmpeg(["-v", "error", "-y", ...cuts("320x180", 10), ...joined, "-c:v", "libwebp_anim", "-loop", "0", sample("cuts.webp")]);
+  await runFfmpeg(["-v", "error", "-y", ...cuts("320x180", 10), ...joined, "-f", "apng", "-plays", "0", sample("cuts.png")]);
 });
 
 /** 원본을 올리고 편집을 적용한 것처럼 */
@@ -137,6 +142,23 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
   assert.ok(Math.abs(scenes[1].at - 1) < 0.1 && Math.abs(scenes[2].at - 3) < 0.1, JSON.stringify(scenes));
   assert.equal(new Set(scenes.map((one) => one.color)).size, 3);
 });
+
+// 움직이는 WebP · APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
+for (const name of ["cuts.webp", "cuts.png"]) {
+  test(`움직이는 그림(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, opts, async () => {
+    const one = await applied(name, { crop: FULL, range: [1, 6], thumbAt: 3 });
+    assert.equal(one.kind, "video");
+    const shot = await thumb(job(one));
+    const [r, g, b] = await pixel(stillFile(one.id, shot.media!.stills[0]));
+    assert.ok(b > r && b > g, `3초는 파랑 장면: ${r},${g},${b}`);
+    const started = Date.now();
+    const scenes = (await tones(job(one))).media!.scenes;
+    assert.ok(Date.now() - started < 20_000, `장면 색이 오래 걸림: ${Date.now() - started}ms`);
+    assert.equal(scenes.length, 3, JSON.stringify(scenes));
+    assert.ok(Math.abs(scenes[1].at - 1) < 0.15 && Math.abs(scenes[2].at - 3) < 0.15, JSON.stringify(scenes));
+    assert.equal(new Set(scenes.map((scene) => scene.color)).size, 3);
+  });
+}
 
 test("장면 바뀜 선택: 처음 · 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
   assert.deepEqual(cutsOf([0.2, 1.5, 2.0, 2.4, 3.7, 9.8], 10), [1.5, 3.7]);
