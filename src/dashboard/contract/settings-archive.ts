@@ -7,8 +7,8 @@
 // 불러오기는 파일을 한 번 올려 미리 보고(POST /preview, 올린 파일의 토큰 token), 선택한 항목만 그 토큰으로 가져온다(POST /import?token=…&items=…).
 // 올린 파일은 가져오거나 닫거나(DELETE /upload/:token) 1시간이 지나면 삭제한다. 올리는 크기에 고정 상한은 없고 남은 공간으로만 막는다
 
-/** settings: 봇 설정만 · favicon: 파비콘(슬롯 · 기록) · login-background: 로그인 배경(다 만든 배경 · 화면 값 · 한도) · audio-cache: 오디오 캐시 */
-const ARCHIVE_KINDS = ["settings", "favicon", "login-background", "audio-cache"] as const;
+/** settings: 봇 설정만 · audio-cache: 오디오 캐시 · favicon: 파비콘(슬롯 · 기록) · login-background: 로그인 배경(다 만든 배경 · 화면 값 · 한도). 화면의 내보내기 카드 순서 */
+const ARCHIVE_KINDS = ["settings", "audio-cache", "favicon", "login-background"] as const;
 type ArchiveKind = (typeof ARCHIVE_KINDS)[number];
 const isArchiveKind = (value: string): value is ArchiveKind => (ARCHIVE_KINDS as readonly string[]).includes(value);
 
