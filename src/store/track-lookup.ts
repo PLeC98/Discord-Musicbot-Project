@@ -7,6 +7,7 @@ import * as audioCache from "./audio-cache.ts";
 import { canonicalUrl } from "../rules/canonical-url.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { LookupRow, checked } from "./rows.ts";
+import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
 import type { TrackInfo } from "../player/track.ts";
 
 /** 캐시 파일로 만든 트랙. 여기 필드는 링크 데이터와 캐시에서 온다 */
@@ -145,10 +146,25 @@ function knownAudioLength(track: Partial<Pick<TrackInfo, "audioUrl" | "requestKe
   return cached?.status === "cached" && cached.duration_sec && cached.duration_sec > 0 ? cached.duration_sec : null;
 }
 
+/** 링크 데이터 행 전부(캐시 DB 화면의 읽기). 모양이 틀린 행은 뺀다 */
+function allRows(): LookupRow[] {
+  return conn()
+    .prepare("SELECT * FROM track_lookup")
+    .all()
+    .flatMap((row) => checked(LookupRow, row, "링크 데이터") ?? []);
+}
+
+/** 자동 검색 결과 삭제(캐시 DB 화면). 행의 음원이 본 값일 때만 삭제한다. 다음에 그 요청을 틀면 다시 찾는다 */
+function clearResult(requestKey: string, expect: string): Guarded<string> {
+  if (conn().prepare("DELETE FROM track_lookup WHERE request_key = ? AND audio_url = ?").run(canonicalUrl(requestKey), expect).changes) return DONE;
+  const current = getAudioUrl(requestKey);
+  return current === null ? GONE : changedTo(current);
+}
+
 /** 죽은 음원을 가리키는 행 삭제. 링크 데이터에서 가져온 영상이 내려간 경우 재검색 전에 호출. */
 function removeResolution(requestKey: string) {
   conn().prepare("DELETE FROM track_lookup WHERE request_key = ?").run(canonicalUrl(requestKey));
 }
 
-export { resolveFromCache, recordTrackLookup, displayOf, getVerifiedTitle, getAudioUrl, knownAudioLength, removeResolution };
+export { resolveFromCache, recordTrackLookup, displayOf, getVerifiedTitle, getAudioUrl, knownAudioLength, allRows, clearResult, removeResolution };
 export type { CachedTrack, CacheHit };

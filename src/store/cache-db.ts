@@ -94,9 +94,27 @@ function createTables(db: Db) {
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
         `);
+  createRevisionTriggers(db);
+}
+
+// 바뀜 번호: 캐시 DB 화면의 표를 이루는 표마다 쓰면 오른다. rows 는 링크 데이터 · 직접 지정한 음원 · 캐시 파일 · 연령 제한, checks 는 재생 테스트 결과
+// (운영자가 누른 재생 테스트가 "새 변경 사항이 있어요" 알약을 표시하지 않게 따로). 쓰는 곳마다 올리지 않고 트리거가 센다(새로 쓰는 곳이 빠지지 않게).
+// 연결마다의 임시 표 · 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master 의 표만 비워 이것은 남는다
+const REVISION_OF: Record<string, "rows" | "checks"> = { track_lookup: "rows", pinned_sources: "rows", audio_cache: "rows", age_restricted: "rows", source_checks: "checks" };
+
+function createRevisionTriggers(db: Db) {
+  db.exec("CREATE TEMP TABLE IF NOT EXISTS cache_revision (name TEXT PRIMARY KEY, n INTEGER NOT NULL); INSERT OR IGNORE INTO cache_revision VALUES ('rows', 1), ('checks', 1);");
+  for (const [table, name] of Object.entries(REVISION_OF)) for (const event of ["INSERT", "UPDATE", "DELETE"]) db.exec(`CREATE TEMP TRIGGER IF NOT EXISTS revision_${table}_${event.toLowerCase()} AFTER ${event} ON main.${table} BEGIN UPDATE cache_revision SET n = n + 1 WHERE name = '${name}'; END;`);
+}
+
+/** 지금 바뀜 번호(캐시 DB 화면). revision: 표의 행 · checkRevision: 재생 테스트 결과 */
+function cacheRevision(): { revision: number; checkRevision: number } {
+  const rows = cacheDb.get().prepare("SELECT name, n FROM cache_revision").all() as Array<{ name: string; n: number }>;
+  const of = (name: string) => rows.find((row) => row.name === name)?.n ?? 1;
+  return { revision: of("rows"), checkRevision: of("checks") };
 }
 
 /** 캐시 초기화가 비우지 않는 표 */
 const KEPT_ON_RESET: readonly string[] = ["pinned_sources"];
 
-export { cacheDb, createTables, KEPT_ON_RESET };
+export { cacheDb, createTables, cacheRevision, KEPT_ON_RESET };

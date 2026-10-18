@@ -23,5 +23,15 @@ function getCheck(audioKey: string): Check | null {
   return toCheck(conn().prepare<[string], CheckRow>("SELECT * FROM source_checks WHERE audio_key = ?").get(audioKey));
 }
 
-export { recordCheck, getCheck };
+/** 결과 전부. 키는 음원 키(캐시 DB 화면의 읽기) */
+function allChecks(): Map<string, Check> {
+  return new Map(
+    conn()
+      .prepare<[], CheckRow>("SELECT * FROM source_checks")
+      .all()
+      .map((row) => [row.audio_key, toCheck(row)!]),
+  );
+}
+
+export { recordCheck, getCheck, allChecks };
 export type { Check };

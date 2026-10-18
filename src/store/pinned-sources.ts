@@ -3,6 +3,8 @@
 
 import { cacheDb } from "./cache-db.ts";
 import * as audioCache from "./audio-cache.ts";
+import * as trackLookup from "./track-lookup.ts";
+import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
 import { canonicalUrl } from "../rules/canonical-url.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { AudioFoundBy } from "../rules/audio-found-by.ts";
@@ -26,9 +28,36 @@ function setPin(requestKey: string, audioUrl: string, pinnedAt = Date.now()) {
   conn().prepare("INSERT INTO pinned_sources (request_key, audio_url, pinned_at) VALUES (?, ?, ?) ON CONFLICT(request_key) DO UPDATE SET audio_url = excluded.audio_url, pinned_at = excluded.pinned_at").run(canonicalUrl(requestKey), audioUrl, pinnedAt);
 }
 
-/** 지정을 해제한다. 해제했으면 true */
-function removePin(requestKey: string): boolean {
-  return conn().prepare("DELETE FROM pinned_sources WHERE request_key = ?").run(canonicalUrl(requestKey)).changes > 0;
+const currentOf = (requestKey: string) => getPin(requestKey)?.audioUrl ?? null;
+
+/**
+ * 직접 지정한다(캐시 DB 화면). 지금 지정이 본 값(expect, 없었으면 null)일 때만 쓴다. 바뀌었으면 지금 지정(없으면 null)을 돌려준다.
+ * 값 검사(rules/pin-source)는 부르는 쪽이 한다
+ */
+function repin(requestKey: string, audioUrl: string, expect: string | null, pinnedAt = Date.now()): Guarded<string | null> {
+  const key = canonicalUrl(requestKey);
+  const run = expect === null ? conn().prepare("INSERT INTO pinned_sources (request_key, audio_url, pinned_at) VALUES (?, ?, ?) ON CONFLICT(request_key) DO NOTHING").run(key, audioUrl, pinnedAt) : conn().prepare("UPDATE pinned_sources SET audio_url = ?, pinned_at = ? WHERE request_key = ? AND audio_url = ?").run(audioUrl, pinnedAt, key, expect);
+  return run.changes ? DONE : changedTo(currentOf(key));
+}
+
+/** 지정을 해제한다(캐시 DB 화면). 지금 지정이 본 값일 때만 */
+function unpin(requestKey: string, expect: string): Guarded<string> {
+  if (conn().prepare("DELETE FROM pinned_sources WHERE request_key = ? AND audio_url = ?").run(canonicalUrl(requestKey), expect).changes) return DONE;
+  const current = currentOf(requestKey);
+  return current === null ? GONE : changedTo(current);
+}
+
+/** 요청 하나를 지운다(캐시 DB 화면): 링크 데이터 행과 직접 지정한 음원. 둘 다 본 값일 때만 한 번에 */
+type RequestExpect = { ledgerAudioUrl: string | null; pinned: string | null };
+function deleteRequest(requestKey: string, expect: RequestExpect): Guarded<RequestExpect> {
+  return conn().transaction((): Guarded<RequestExpect> => {
+    const current = { ledgerAudioUrl: trackLookup.getAudioUrl(requestKey), pinned: currentOf(requestKey) };
+    if (current.ledgerAudioUrl === null && current.pinned === null) return GONE;
+    if (current.ledgerAudioUrl !== expect.ledgerAudioUrl || current.pinned !== expect.pinned) return changedTo(current);
+    trackLookup.removeResolution(requestKey);
+    conn().prepare("DELETE FROM pinned_sources WHERE request_key = ?").run(canonicalUrl(requestKey));
+    return DONE;
+  })();
 }
 
 /** 직접 지정한 음원 전부(캐시 DB 읽기 · 내보내기) */
@@ -67,5 +96,5 @@ function pinCount(): number {
   return conn().prepare("SELECT COUNT(*) FROM pinned_sources").pluck().get() as number;
 }
 
-export { getPin, setPin, removePin, allPins, pinCount, applyPin };
-export type { Pin, PinTarget };
+export { getPin, setPin, repin, unpin, deleteRequest, allPins, pinCount, applyPin };
+export type { Pin, PinTarget, RequestExpect };

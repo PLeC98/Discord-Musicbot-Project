@@ -205,7 +205,7 @@ const WEB = {
   "not-single-track": { status: 422, title: "Not a single-track link" },
   // 지정할 음원이 다운로드할 수 있는 음원이 아니다(스포티파이 등)
   "not-audio-source": { status: 422, title: "Not a downloadable audio source" },
-  // 쓰는 음원이 원래 링크 그대로라 삭제할 자동 검색 결과가 없다
+  // 링크 데이터의 음원이 원래 링크 그대로라 삭제할 자동 검색 결과가 없다
   "nothing-to-clear": { status: 409, title: "Nothing to clear" },
   "track-cache-write-failed": { status: 500, title: "Could not write the changes" },
   // 대시보드: 초기화

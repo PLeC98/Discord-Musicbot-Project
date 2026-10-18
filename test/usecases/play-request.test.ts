@@ -243,7 +243,7 @@ test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 �
       ["그냥 곡", null, null, null],
     ],
   );
-  pinnedSources.removePin("https://x/곧 시작하는 원곡");
+  pinnedSources.unpin("https://x/곧 시작하는 원곡", "https://soundcloud.com/pinned/upcoming");
 });
 
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.

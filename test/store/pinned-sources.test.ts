@@ -39,11 +39,11 @@ test("요청 키는 다듬어서 적고 찾는다(공유 링크 여럿이 한 �
   pins.setPin("amq:41043", "https://www.youtube.com/watch?v=ccccccccccc", 300);
   assert.deepEqual(pins.getPin("amq:41043"), { requestKey: "amq:41043", audioUrl: "https://www.youtube.com/watch?v=ccccccccccc", pinnedAt: 300 }, "다시 지정하면 바꾼다");
 
-  assert.equal(pins.removePin("amq:41043"), true);
-  assert.equal(pins.removePin("amq:41043"), false, "없는 것을 해제하면 false");
+  assert.deepEqual(pins.unpin("amq:41043", "https://www.youtube.com/watch?v=ccccccccccc"), { ok: true });
+  assert.deepEqual(pins.unpin("amq:41043", "https://www.youtube.com/watch?v=ccccccccccc"), { ok: false, code: "gone" }, "없는 것을 해제하면 gone");
   assert.equal(pins.getPin("amq:41043"), null);
   assert.equal(pins.getPin(null), null);
-  pins.removePin("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+  pins.unpin("https://www.youtube.com/watch?v=aaaaaaaaaaa", "https://soundcloud.com/a/b");
 });
 
 test("캐시 초기화는 직접 지정한 음원을 남기고 재생 테스트 결과는 비운다", async () => {
@@ -54,7 +54,7 @@ test("캐시 초기화는 직접 지정한 음원을 남기고 재생 테스트 
 
   assert.equal(pins.getPin("https://www.youtube.com/watch?v=ddddddddddd")?.audioUrl, "https://soundcloud.com/c/d");
   assert.equal(cacheDb.get().prepare("SELECT COUNT(*) FROM source_checks").pluck().get(), 0);
-  pins.removePin("https://www.youtube.com/watch?v=ddddddddddd");
+  pins.unpin("https://www.youtube.com/watch?v=ddddddddddd", "https://soundcloud.com/c/d");
 });
 
 test("캐시 DB 를 삭제하라는 멈춤 안내는 직접 지정한 음원도 사라진다고 말한다", () => {

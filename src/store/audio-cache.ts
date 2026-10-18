@@ -203,6 +203,11 @@ function lookupByAudioKey(audioKey: string): AudioRow | null {
   return (conn().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) as AudioRow | undefined) || null;
 }
 
+/** 캐시 파일 기록 전부(캐시 DB 화면의 읽기) */
+function allRows(): AudioRow[] {
+  return conn().prepare("SELECT * FROM audio_cache").all() as AudioRow[];
+}
+
 // 캐시 파일 기록 쓰기(audio_cache)
 
 function recordDownloadStart(audioKey: string, track: TrackMeta | null | undefined) {
@@ -734,6 +739,7 @@ export {
   unprotectFile,
   setQueuedKeys,
   lookupByAudioKey,
+  allRows,
   recordDownloadStart,
   recordDownloadComplete,
   recordError,

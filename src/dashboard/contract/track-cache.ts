@@ -65,7 +65,7 @@ type TrackRequestRow = {
   ledgerAudioUrl: string | null;
   /** 지정한 때. 지정하지 않았으면 null(지정했으면 audioUrl 이 직접 지정한 음원이다) */
   pinnedAt: number | null;
-  /** 쓰는 음원이 원래 링크 그대로다(음원 키가 같다). 자동 검색 결과 삭제가 막히는 행 */
+  /** 쓰는 음원이 원래 링크 그대로다(음원 키가 같다). 지정하지 않은 행이면 자동 검색 결과가 없어 삭제가 막힌다 */
   sameAsRequest: boolean;
   /** 쓰는 음원의 음원 키(yt: · sc: · dl:). 키를 계산할 수 없는 주소면 null */
   audioKey: string | null;
@@ -128,7 +128,7 @@ type TrackCacheQuery<T extends TrackCacheTable = TrackCacheTable> = {
 }[T];
 
 /**
- * 읽은 구간. total: 그 표의 전부 · matched: 필터에 맞는 것. revision 은 이 표들을 쓰는 함수가 올리는 리비전 번호(다르면 화면이 "봇이 바꾼 줄이 있어요" 알약),
+ * 읽은 구간. total: 그 표의 전부 · matched: 필터에 맞는 것. revision 은 이 표들에 쓰면 오르는 리비전 번호(다르면 화면이 "새 변경 사항이 있어요" 알약),
  * checkRevision 은 재생 확인 결과의 번호(운영자가 누른 확인은 알약을 표시하지 않게 따로)
  */
 type TrackCachePage<T extends TrackCacheTable = TrackCacheTable> = {
