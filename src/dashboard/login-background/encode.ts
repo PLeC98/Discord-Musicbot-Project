@@ -26,8 +26,9 @@ import { josa } from "../../rules/josa.ts";
 /** H.264 단계의 짧은 변 */
 const H264_SHORT = 720;
 
-/** 단계 하나: 코덱 · 짧은 변(폴더 이름) · 크기 · 인코더 옵션 */
-type Plan = { codec: LoginBackgroundCodec; short: number; width: number; height: number; options: string[] };
+/** 단계 하나: 코덱 · 짧은 변(폴더 이름) · 크기 · 인코더와 그 옵션 */
+type Shape = { codec: LoginBackgroundCodec; short: number; width: number; height: number };
+type Plan = Shape & { encoder: string; options: string[] };
 
 /** 인코더 옵션(키프레임 간격 g 는 출력 초당 프레임 수의 2배) */
 function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number, g: number): string[] {
@@ -39,18 +40,23 @@ function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number,
   return ["-c:v", "libopenh264", "-profile:v", "high", "-coder", "cabac", "-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51", "-pix_fmt", "yuv420p", ...gop];
 }
 
-/** 원본(자른 크기)에서 이 코덱의 단계들. AV1 · VP9 는 1080p 와 4K(원본 짧은 변이 2160 이상일 때만, 1080p 보다 작으면 원본 크기 하나), H.264 는 720p */
-function plansFor(codecs: LoginBackgroundCodec[], size: { width: number; height: number }, fps: number): Plan[] {
-  const g = Math.round(Math.min(fps, FPS_CAP) * 2);
+/** 원본(자른 크기)에서 이 코덱의 단계 크기들. AV1 · VP9 는 1080p 와 4K(원본 짧은 변이 2160 이상일 때만, 1080p 보다 작으면 원본 크기 하나), H.264 는 720p */
+function shapesFor(codecs: readonly LoginBackgroundCodec[], size: { width: number; height: number }): Shape[] {
   return codecs.flatMap((codec) => {
-    const encoder = encoderFor(codec);
-    if (!encoder) return [];
     const shorts = codec === "h264" ? [H264_SHORT] : Math.min(size.width, size.height) >= UHD ? [FHD, UHD] : [FHD];
     return shorts.map((target) => {
       const out = fitShort(size.width, size.height, target);
-      const short = Math.min(out.width, out.height);
-      return { codec, short, ...out, options: optionsFor(codec, encoder, short, g) };
+      return { codec, short: Math.min(out.width, out.height), ...out };
     });
+  });
+}
+
+/** 지금 쓸 수 있는 인코더로 인코딩할 단계들(인코더가 없는 코덱은 빠진다) */
+function plansFor(codecs: readonly LoginBackgroundCodec[], size: { width: number; height: number }, fps: number): Plan[] {
+  const g = Math.round(Math.min(fps, FPS_CAP) * 2);
+  return shapesFor(codecs, size).flatMap((shape) => {
+    const encoder = encoderFor(shape.codec);
+    return encoder ? [{ ...shape, encoder, options: optionsFor(shape.codec, encoder, shape.short, g) }] : [];
   });
 }
 
@@ -71,7 +77,9 @@ function bakeNow(): LoginBackgroundBake | null {
 const withLp = (plan: Plan, lp: number) => (plan.codec === "av1" ? { ...plan, options: [...plan.options, "-svtav1-params", `lp=${lp}`] } : plan);
 
 const codecDir = (id: string, codec: LoginBackgroundCodec) => path.join(store.folderOf(id), codec);
-const rungDir = (id: string, plan: Plan) => path.join(codecDir(id, plan.codec), String(plan.short));
+const rungDir = (id: string, plan: Shape) => path.join(codecDir(id, plan.codec), String(plan.short));
+/** 다 인코딩한 단계인가(목록이 있다) */
+const made = (id: string, plan: Shape) => fs.existsSync(path.join(rungDir(id, plan), "index.m3u8"));
 
 /**
  * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 init 조각을 작업 폴더에 쓴다
@@ -154,7 +162,7 @@ function codecString(init: Buffer): string {
 }
 
 /** 인코딩한 단계의 목록 값: 2초 최대(조각마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */
-function rungOf(dir: string, plan: Plan, fps: number): LoginBackgroundRung & { average: number } {
+function rungOf(dir: string, plan: Shape, fps: number): LoginBackgroundRung & { average: number } {
   const playlist = fs.readFileSync(path.join(dir, "index.m3u8"), "utf8");
   const segments = [...playlist.matchAll(/#EXTINF:([\d.]+),\s*\n([^\n#]+)/g)].map((m) => ({ seconds: Number(m[1]), bytes: fs.statSync(path.join(dir, m[2].trim())).size }));
   const full = segments.filter((one) => one.seconds >= 1);
@@ -164,13 +172,13 @@ function rungOf(dir: string, plan: Plan, fps: number): LoginBackgroundRung & { a
   return { width: plan.width, height: plan.height, codecs: codecString(fs.readFileSync(path.join(dir, "init.mp4"))), bandwidth: Math.round(Math.max(...rates)), frameRate: Math.min(fps, FPS_CAP), average: Math.round((bytes * 8) / Math.max(seconds, 0.001)) };
 }
 
-/** 코덱마다의 목록을 다시 쓴다(있는 단계만, 낮은 것부터). 단계 값은 media.rungs 에 */
-function writeMasters(item: Readonly<store.Stored>, plans: Plan[], fps: number): store.Media["rungs"] {
+/** 코덱마다의 목록을 다시 쓴다(인코딩해 둔 단계만, 낮은 것부터. 그 뒤 인코더가 빠졌어도 만든 것은 쓴다). 단계 값은 media.rungs 에 */
+function writeMasters(item: Readonly<store.Stored>, shapes: Shape[], fps: number): store.Media["rungs"] {
   const rungs: store.Media["rungs"] = {};
   for (const codec of LOGIN_BG_CODECS) {
-    const made = plans.filter((plan) => plan.codec === codec && fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8"))).sort((a, b) => a.short - b.short);
-    if (!made.length) continue;
-    const values = made.map((plan) => ({ plan, rung: rungOf(rungDir(item.id, plan), plan, fps) }));
+    const done = shapes.filter((plan) => plan.codec === codec && made(item.id, plan)).sort((a, b) => a.short - b.short);
+    if (!done.length) continue;
+    const values = done.map((plan) => ({ plan, rung: rungOf(rungDir(item.id, plan), plan, fps) }));
     const lines = ["#EXTM3U", "#EXT-X-VERSION:7", "#EXT-X-INDEPENDENT-SEGMENTS", ...values.flatMap(({ plan, rung }) => [`#EXT-X-STREAM-INF:BANDWIDTH=${rung.bandwidth},AVERAGE-BANDWIDTH=${rung.average},CODECS="${rung.codecs}",RESOLUTION=${rung.width}x${rung.height},FRAME-RATE=${rung.frameRate.toFixed(3)}`, `${plan.short}/index.m3u8`])];
     const file = path.join(codecDir(item.id, codec), "index.m3u8");
     fs.writeFileSync(`${file}.tmp`, `${lines.join("\n")}\n`);
@@ -180,15 +188,20 @@ function writeMasters(item: Readonly<store.Stored>, plans: Plan[], fps: number):
   return rungs;
 }
 
-/** 이 단계들을 인코딩한다(끝난 것은 건너뛴다). 나눠 인코딩하기가 실패하면 인코더를 다시 테스트하고 남은 것을 따로 */
+/**
+ * 이 단계들을 인코딩한다(끝난 것은 건너뛴다). 안 되는 것만 끄고 나머지는 이어 간다:
+ * 나눠 인코딩하기가 실패하면 인코더를 다시 테스트하고 남은 것을 따로. 따로 인코딩하다 실패해도 다시 테스트해서, 다른 인코더가 선택되면 그것으로,
+ * 쓸 인코더가 없어졌으면 그 코덱은 빼고 이어 간다. 같은 인코더가 다시 선택되면 인코더 탓이 아니라(원본 등) 실패로 둔다.
+ * 인코더가 하나도 없으면 이 단계는 아무것도 만들지 않고 끝난다(로그인 화면은 남은 코덱 · 정지 그림으로)
+ */
 async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBackgroundCodec[]): Promise<StageResult> {
   await encodersReady();
   const probed = await probeVideo(store.sourceOf(item.id), signal);
   const size = cropped(probed.width, probed.height, item.edit!.crop);
   const fps = frameRate(probed);
-  const plans = plansFor(codecs, size, fps);
-  if (!plans.length) throw codedError("background-failed", `인코딩할 인코더가 없습니다(${codecs.join(" · ")})`);
-  const left = plans.filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
+  const missing = codecs.filter((codec) => !encoderFor(codec));
+  if (missing.length) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}": ${missing.join(" · ")} 인코더가 없어 그 코덱은 만들지 않습니다`);
+  const left = plansFor(codecs, size, fps).filter((plan) => !made(item.id, plan));
   // 나눠 인코딩하기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 인코딩한다)
   const together = left.length > 1 ? splitLp(left.some((plan) => plan.short >= UHD)) : null;
   if (together !== null) {
@@ -198,17 +211,32 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
       await recheck();
     }
   }
-  const rest = plansFor(codecs, size, fps).filter((plan) => !fs.existsSync(path.join(rungDir(item.id, plan), "index.m3u8")));
-  for (const [i, plan] of rest.entries()) {
+  const total = Math.max(1, plansFor(codecs, size, fps).filter((plan) => !made(item.id, plan)).length);
+  let finished = 0;
+  // 이번에 실패한 인코더(다시 테스트에서 오락가락해도 같은 것으로 되돌아가지 않게)
+  const failedNow = new Set<string>();
+  for (;;) {
+    const plan = plansFor(codecs, size, fps).find((one) => !made(item.id, one));
+    if (!plan) break;
     const what = `${plan.codec} ${plan.short}p 인코딩`;
     const uhd = plan.short >= UHD;
     const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
     if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
     if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}: 남은 메모리(${(os.freemem() / 1024 ** 3).toFixed(1)}GB)에 맞춰 AV1 병렬 단계를 ${lp} 로 낮춥니다`);
-    const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress((i + value) / rest.length));
-    if (failure) throw codedError("background-failed", `${plan.codec} ${plan.short}p 를 인코딩하지 못했습니다: ${failure}`);
+    const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress(Math.min(1, (finished + value) / total)));
+    if (!failure) {
+      finished++;
+      continue;
+    }
+    // 디스크가 찼으면 인코더 탓이 아니다
+    if (store.room() <= 0) throw codedError("background-no-space", `${what} 중 저장 공간이 찼습니다: ${failure}`);
+    failedNow.add(plan.encoder);
+    await recheck();
+    const next = encoderFor(plan.codec);
+    if (next !== null && failedNow.has(next)) throw codedError("background-failed", `${what}을 ${next} 로 하지 못했습니다(인코더 테스트는 지납니다): ${failure}`);
+    log.warn({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}이 ${plan.encoder} 에서 실패해 인코더를 다시 테스트했습니다(${failure}). ${next ? `${next} 로 다시 인코딩합니다` : `${plan.codec} 는 쓸 수 있는 인코더가 없어 빼고 이어 갑니다`}`);
   }
-  return { media: { ...item.media, rungs: { ...item.media.rungs, ...writeMasters(item, plansFor(LOGIN_BG_CODECS.slice(), size, fps), fps) } } };
+  return { media: { ...item.media, rungs: { ...item.media.rungs, ...writeMasters(item, shapesFor(LOGIN_BG_CODECS, size), fps) } } };
 }
 
 /** H.264 단계(720p 하나, 먼저 따로: 로그인 화면이 저화질 영상으로 바뀐다) */

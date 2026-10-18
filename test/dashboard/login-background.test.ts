@@ -120,6 +120,18 @@ test("올리면 편집 전 단계를 하고 편집을 기다린다. 편집은 �
   assert.deepEqual([s.current, s.shows, s.list[0].thumb], [id, "thumb", `/login-background/${id}/still-1280.webp`]);
 });
 
+test("편집 적용: 어림이 남은 저장 공간보다 크면 막는다(같은 크롭 · 잰 구간의 어림만 본다)", async () => {
+  const id = await upload();
+  await step(id);
+  const huge = Number.MAX_SAFE_INTEGER / 100;
+  await step(id, { estimate: { perSecond: Array(10).fill(huge), stillBytes: 10, crop: { x: 0, y: 0, w: 1, h: 1 }, counted: null, encodeRatio: 7.5, rough: false } });
+  await step(id);
+  assert.deepEqual(await codeOf(await send("PUT", `/${id}/edit`, EDIT)), [409, "background-no-space"]);
+  assert.equal((await item(id)).phase, "editing");
+  // 다른 크롭의 어림은 그 크롭의 크기가 아니라 막지 않는다(남은 공간이 있는지만)
+  assert.equal((await send("PUT", `/${id}/edit`, { ...EDIT, crop: { x: 0, y: 0, w: 0.5, h: 1 } })).status, 200);
+});
+
 test("앞 배경을 굽는 동안 적용한 배경은 썸네일까지 하고 굽기 순서를 기다린다. 취소하면 걸려 있던 앞 배경으로", async () => {
   const a = await ready("A");
   const b = await applied("B");

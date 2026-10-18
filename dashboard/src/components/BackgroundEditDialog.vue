@@ -50,15 +50,16 @@
           <p class="text-xs text-on-surface-variant nums">
             {{ T.picked(Math.round(sel.w * originalScale), Math.round(sel.h * originalScale)) }}<template v-if="bg.kind === 'video' && thumbAt === null"> · {{ T.thumbHint }}</template>
           </p>
-          <p class="text-xs nums" :class="evictText ? 'text-tertiary' : 'text-on-surface-variant'">
-            {{ estimateBytes === null ? T.counting : T.estimate(formatBytes(estimateBytes)) }}<template v-if="encodeMinutes !== null"> · {{ T.encodeTime(encodeMinutes) }}</template
+          <p class="text-xs nums" :class="noSpace ? 'text-error' : evictText ? 'text-tertiary' : 'text-on-surface-variant'">
+            {{ !bg.estimate ? T.noEstimate : estimateBytes === null ? T.counting : T.estimate(formatBytes(estimateBytes)) }}<template v-if="encodeMinutes !== null"> · {{ T.encodeTime(encodeMinutes) }}</template
             ><template v-if="bg.estimate?.rough"> · {{ T.rough }}</template
-            ><template v-if="evictText"> · {{ evictText }}</template>
+            ><template v-if="noSpace && state"> · {{ T.noSpace(formatBytes(state.freeBytes)) }}</template
+            ><template v-else-if="evictText"> · {{ evictText }}</template>
           </p>
           <div class="flex gap-2 justify-end">
             <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="reset(false)">{{ T.reset }}</BaseButton>
             <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
-            <BaseButton :disabled="!natural.width" @click="finish">{{ T.use }}</BaseButton>
+            <BaseButton :disabled="!natural.width || noSpace" @click="finish">{{ T.use }}</BaseButton>
           </div>
         </div>
       </div>
@@ -76,6 +77,7 @@ import { LOGIN_BG_ESTIMATE_MARGIN as ESTIMATE_MARGIN, type LoginBackgroundCrop, 
 import BackgroundTimeline from "./BackgroundTimeline.vue";
 import SeamPicker from "./SeamPicker.vue";
 import { useSeam } from "../login-background/seam.ts";
+import { cropKeyOf, estimatedBytes, inCounted } from "../../../src/rules/background-estimate.ts";
 const T = text.loginBackground.edit;
 
 /** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다). seam: 카드의 반복 전환 효과(편집 창에서 고르는 효과의 처음 값) */
@@ -134,19 +136,10 @@ const scale = computed(() => (natural.width ? (view.width * zoom.value) / natura
 const originalScale = computed(() => (natural.width && props.bg?.width ? props.bg.width / natural.width : 1));
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
 
-/** 어림을 잰 구간 안인지(처음은 전체) */
-const inCounted = (counted: [number, number] | null) => !counted || (range.value[0] >= counted[0] - 0.5 && range.value[1] <= counted[1] + 0.5);
-/** 예상 저장 공간(바이트, 세는 중이면 null): 영상은 선택한 구간의 초마다 크기를 더하고, 그림은 정지 그림 세트 */
-const estimateBytes = computed(() => {
-  const est = props.bg?.estimate;
-  if (!est || est.counting || keyOf(est.crop) !== cropKey.value) return null;
-  if (props.bg?.kind !== "video") return est.stillBytes;
-  if (!inCounted(est.counted)) return null;
-  const [from, to] = range.value;
-  let sum = 0;
-  for (let s = Math.floor(from); s < Math.ceil(to); s++) sum += (est.perSecond[s] ?? 0) * (Math.min(to, s + 1) - Math.max(from, s));
-  return Math.round(sum);
-});
+/** 예상 저장 공간(바이트, 세는 중이면 null). 편집 적용의 남은 공간 검사와 같은 셈(rules/background-estimate) */
+const estimateBytes = computed(() => estimatedBytes(props.bg?.estimate ?? null, cropKey.value, rangeNow()));
+/** 남은 저장 공간보다 크면 적용할 수 없다(봇도 같은 셈으로 막는다) */
+const noSpace = computed(() => !!props.state && estimateBytes.value !== null && estimateBytes.value > props.state.freeBytes);
 /** 예상 인코딩 시간(분, 영상만): 이 기기에서 잰 굽는 속도 × 구간 길이 */
 const encodeMinutes = computed(() => {
   const est = props.bg?.estimate;
@@ -174,15 +167,14 @@ const evictText = computed(() => {
 });
 /** 지금 틀(0 ~ 1)과 그 키(어림을 센 크롭과 같은지 본다) */
 const cropNow = (): LoginBackgroundCrop => (natural.width ? { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height } : { x: 0, y: 0, w: 1, h: 1 });
-const keyOf = (crop: LoginBackgroundCrop) => [crop.x, crop.y, crop.w, crop.h].map((v) => v.toFixed(3)).join(",");
-const cropKey = ref(keyOf({ x: 0, y: 0, w: 1, h: 1 }));
+const cropKey = ref(cropKeyOf({ x: 0, y: 0, w: 1, h: 1 }));
 const rangeNow = (): [number, number] | null => (props.bg?.kind === "video" ? range.value : null);
 /** 크롭을 정했다: 어림을 잰 크롭과 다르면 그 크롭 · 구간으로 다시 센다 */
 function cropSettled() {
   const crop = cropNow();
-  cropKey.value = keyOf(crop);
+  cropKey.value = cropKeyOf(crop);
   const est = props.bg?.estimate;
-  if (props.bg && est && keyOf(est.crop) !== cropKey.value) emit("recount", props.bg.id, crop, rangeNow());
+  if (props.bg && est && cropKeyOf(est.crop) !== cropKey.value) emit("recount", props.bg.id, crop, rangeNow());
 }
 // 구간을 잰 범위 밖으로 넓혔으면(끄기를 멈춘 뒤) 그 구간을 다시 센다
 let recountTimer = 0;
@@ -190,7 +182,7 @@ watch(range, () => {
   clearTimeout(recountTimer);
   recountTimer = window.setTimeout(() => {
     const est = props.bg?.estimate;
-    if (open.value && props.bg && est && !est.counting && !inCounted(est.counted)) emit("recount", props.bg.id, cropNow(), rangeNow());
+    if (open.value && props.bg && est && !est.counting && !inCounted(est.counted, range.value)) emit("recount", props.bg.id, cropNow(), rangeNow());
   }, RECOUNT_AFTER_MS);
 });
 
@@ -424,7 +416,7 @@ function finish() {
 watch(open, async (on) => {
   if (!on) return;
   seamPick.value = { ...props.seam };
-  cropKey.value = keyOf(props.bg?.estimate?.crop ?? { x: 0, y: 0, w: 1, h: 1 });
+  cropKey.value = cropKeyOf(props.bg?.estimate?.crop ?? { x: 0, y: 0, w: 1, h: 1 });
   await nextTick();
   const el = videoEl.value;
   if (el && el.readyState >= 1) onMeta({ target: el } as unknown as Event);

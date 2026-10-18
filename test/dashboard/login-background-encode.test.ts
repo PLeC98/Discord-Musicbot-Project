@@ -121,6 +121,19 @@ test("움직이는 그림: 30fps 로 고르게 펴 구간대로 굽는다(입력
   assert.ok(Math.abs(seconds(at(one, "vp9", "180", "index.m3u8")) - 4) < 0.1);
 });
 
+test("인코더가 없는 코덱은 만들지 않고 단계는 끝난다(로그인 화면은 남은 코덱 · 정지 그림으로)", opts, async () => {
+  const one = await applied({ crop: FULL, range: [0, 2], thumbAt: null });
+  encoders._reset();
+  try {
+    const result = await h264(job(one));
+    assert.equal(result.media!.rungs.h264, undefined);
+    assert.equal(fs.existsSync(at(one, "h264")), false);
+  } finally {
+    encoders.startEncoderCheck();
+    await encoders.encodersReady();
+  }
+});
+
 test("마무리: 원본 · 미리보기 · 장면 띠는 삭제하고 구운 것 · 정지 그림은 남긴다", opts, async () => {
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
   for (const name of ["preview.mp4", "strip.webp", "still-640.webp", "download.info.json"]) fs.writeFileSync(at(one, name), "x");

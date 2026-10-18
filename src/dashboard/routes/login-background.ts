@@ -19,6 +19,7 @@ import * as encoders from "../login-background/encoders.ts";
 import { bakeNow } from "../login-background/encode.ts";
 import { previewOf } from "../login-background/preview.ts";
 import { stripOf } from "../login-background/strip.ts";
+import { cropKeyOf, estimatedBytes } from "../../rules/background-estimate.ts";
 
 const loginBackgroundRouter = express.Router();
 loginBackgroundRouter.use(requireOwner);
@@ -164,6 +165,10 @@ loginBackgroundRouter.put("/:id/edit", (req, res) => {
   const { crop, range, thumbAt } = body.value;
   const video = one.kind === "video";
   if (video && range && range[1] > one.duration + 0.5) return sendProblem(res, "bad-request");
+  // 남은 공간보다 클 어림이면 막는다(편집 창과 같은 셈. 어림이 없으면 남은 공간이 있는지만)
+  const room = store.room();
+  const need = estimatedBytes(one.estimate, cropKeyOf(crop), video ? range : null) ?? 0;
+  if (room <= 0 || need > room) return sendProblem(res, "background-no-space", { size: Math.max(0, room) });
   one.edit = { crop, range: video ? range : null, thumbAt: video ? thumbAt : null };
   one.appliedAt = Date.now();
   one.estimate = null;
