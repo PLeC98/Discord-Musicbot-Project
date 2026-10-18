@@ -1,6 +1,6 @@
 <template>
   <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background 의 상태 하나를 읽고 바꾸는 요청들도 그것으로 답한다.
-       미리보기 화면: 지금 쓰는 배경을 선택한 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 영역의 값을 저장 전에도 바로 보인다). 썸네일 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
+       미리보기 화면: 지금 쓰는 배경을 선택한 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 영역의 값을 저장 전에도 바로 보인다). 정지 화면 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
        아래: 로그인 화면에 지금 걸린 것 · 처리 중인 배경의 진행 · 그만두기 · 변경 · 편집 · 삭제 · 로그인 화면으로 보기.
        넓으면 미리보기 화면 영역(가운데 정렬) 오른쪽에 같은 높이의 옵션 영역: 좌우 · 상하(보일 위치) · 블러(화면 폭의 %) · 배경 불투명도(= 100 - 오버레이 진하기) · 몰입형 테마 색상 · 반복 전환 효과(영상).
        옵션 · 고급 설정은 운영자 패널의 저장 막대(SaveDock, composables/save-targets)로 저장 · 되돌린다. 접는 고급 설정: 보존 개수 · 최대 용량 · 인코딩 환경(코덱마다 쓰는 인코더 · 꺼진 까닭 · 지금 인코딩).
@@ -58,28 +58,7 @@
               <span class="flex flex-1 items-center gap-1">{{ C.immersive }}<Icon name="info" :size="16" class="cursor-help text-on-surface-variant" v-tooltip="C.immersiveTip" /></span>
               <BaseSwitch v-model="draft.look.follow" :label="C.immersive" />
             </label>
-            <!-- 반복 전환 효과: 효과 선택(목록) · 길이(버튼 그룹, 없음이면 꺼짐) 한 줄 -->
-            <div class="flex flex-col gap-2 text-sm">
-              <span>{{ C.seam }}</span>
-              <div class="flex items-center gap-2">
-                <SingleSelect class="flex-1 min-w-0" :model-value="draft.look.seam.kind" :options="SEAM_OPTIONS" @update:model-value="pickSeam" />
-                <!-- 이어 붙은 버튼 그룹(M3E connected button group, 계정 메뉴의 밝기와 같은 형태). 선택한 버튼은 모서리가 둥글게 바뀐다. 없음이면 꺼진다 -->
-                <div class="flex shrink-0 gap-0.5" role="group" :aria-label="C.seamLength" :class="draft.look.seam.kind === 'cut' && 'opacity-38'">
-                  <button
-                    v-for="(sec, i) in SEAM_SECONDS"
-                    :key="sec"
-                    type="button"
-                    class="state-layer h-10 px-3 flex items-center justify-center text-label font-semibold nums cursor-pointer disabled:cursor-default transition-[border-radius,background-color,color] spring-fast"
-                    :class="[draft.look.seam.seconds === sec && draft.look.seam.kind !== 'cut' ? 'bg-secondary text-on-secondary rounded-xl' : 'bg-surface-highest text-on-surface-variant ' + (i === 0 ? 'rounded-l-xl rounded-r-sm active:rounded-r-xs' : i === SEAM_SECONDS.length - 1 ? 'rounded-r-xl rounded-l-sm active:rounded-l-xs' : 'rounded-sm active:rounded-xs')]"
-                    :aria-pressed="draft.look.seam.seconds === sec"
-                    :disabled="draft.look.seam.kind === 'cut'"
-                    @click="draft.look.seam.seconds = sec"
-                  >
-                    {{ C.seamSeconds(sec) }}
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SeamPicker v-model="draft.look.seam" />
           </template>
           <!-- 아래: 위치 초기화(보일 위치만 가운데로) · 초기화(옵션 전부를 처음 값으로). 저장 · 되돌리기는 저장 막대 -->
           <div class="mt-auto flex justify-end gap-2">
@@ -183,7 +162,7 @@ import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
-import SingleSelect from "./SingleSelect.vue";
+import SeamPicker from "./SeamPicker.vue";
 import NumberInput from "./NumberInput.vue";
 import Icon from "./BaseIcon.vue";
 import LoginBackdrop from "./LoginBackdrop.vue";
@@ -198,7 +177,7 @@ import { noticeText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { useSaveTarget } from "../composables/save-targets.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
-import { LOGIN_BG_BEFORE_EDIT, LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_OPTIONS_DEFAULT, SEAM_KINDS, SEAM_SECONDS, type LoginBackground, type LoginBackgroundCrop, type LoginBackgroundEdit, type LoginBackgroundItem, type LoginBackgroundLook, type LoginBackgroundOptions, type LoginBackgroundState, type SeamKind } from "../../../src/dashboard/contract/login-background.ts";
+import { LOGIN_BG_BEFORE_EDIT, LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_OPTIONS_DEFAULT, type LoginBackground, type LoginBackgroundCrop, type LoginBackgroundEdit, type LoginBackgroundItem, type LoginBackgroundLook, type LoginBackgroundOptions, type LoginBackgroundState } from "../../../src/dashboard/contract/login-background.ts";
 import { text } from "../text/index.ts";
 const C = text.loginBackground.card;
 const A = text.loginBackground.advanced;
@@ -211,7 +190,6 @@ const POLL_MS = 3000;
 const COUNT_POLL_MS = 1000;
 /** 배경 불투명도 슬라이더의 아래(= 100 - 오버레이 진하기 상한) */
 const OPACITY_MIN = 100 - LOGIN_BG_COVER_MAX;
-const SEAM_OPTIONS = SEAM_KINDS.map((kind) => ({ value: kind, label: C.seamKinds[kind] }));
 /** 화면 판의 높이(rem). 넓은 비율은 영역 폭에 맞춰 줄인다 */
 const PANE_REM = 20;
 /** 보일 위치 슬라이더 */
@@ -267,7 +245,7 @@ const overall = computed(() => {
   const steps = bg.stages.filter((one) => LOGIN_BG_BEFORE_EDIT.includes(one) === before);
   return steps.length ? steps.reduce((sum, one) => sum + (bg.done.includes(one) ? 1 : bg.stage === one ? bg.progress : 0), 0) / steps.length : 0;
 });
-/** 로그인 화면 줄: 새 배경을 만드는 동안만(다 만들면 말하지 않는다). 썸네일 전에는 지금 배경 그대로, 썸네일이 생기면 새 배경으로 넘어간다 */
+/** 로그인 화면 줄: 새 배경을 만드는 동안만(다 만들면 말하지 않는다). 정지 화면 전에는 지금 배경 그대로, 정지 화면이 생기면 새 배경으로 넘어간다 */
 const loginLine = computed(() => {
   const bg = work.value;
   if (bg && encoding.value) {
@@ -328,7 +306,7 @@ async function loadShown() {
     // 꾸밈이다. 못 불러오면 봇 그림으로
   }
 }
-// 지금 배경 · 걸 수 있는 것(썸네일 → 저화질 → 다)이 바뀌면 다시 불러온다
+// 지금 배경 · 걸 수 있는 것(정지 화면 → 저화질 → 다)이 바뀌면 다시 불러온다
 watch(
   () => `${state.value?.current}|${state.value?.shows}`,
   () => void loadShown(),
@@ -438,11 +416,16 @@ const clear = () =>
     notifyDone(N.cleared);
   });
 
-function applyEdit(edit: LoginBackgroundEdit) {
+/** 편집 적용: 편집 창에서 고른 반복 전환 효과는 화면 값으로 저장한다(카드에서 나중에 바꿀 수 있다). 저장 전에 고친 다른 화면 값은 그대로 둔다 */
+function applyEdit(edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]) {
   const id = editingId.value;
   if (!id) return;
   void run(async () => {
     apply((await axios.put<LoginBackgroundState>(`${API}/${id}/edit`, edit)).data);
+    const savedSeam = state.value?.options.seam;
+    if (state.value && (savedSeam?.kind !== seam.kind || savedSeam.seconds !== seam.seconds)) apply((await axios.put<LoginBackgroundState>(`${API}/options`, { ...copyLook(state.value.options), seam })).data);
+    draft.look.seam = { ...seam };
+    void loadShown();
     notifyDone(N.applied);
   });
 }
@@ -506,10 +489,6 @@ function recount(id: string, crop: LoginBackgroundCrop, range: [number, number] 
 }
 let countTimer = 0;
 
-function pickSeam(value: string | number) {
-  const kind = SEAM_KINDS.find((one): one is SeamKind => one === value);
-  if (kind) draft.look.seam.kind = kind;
-}
 /** 보일 위치가 가운데인지 */
 const centered = computed(() => draft.position.x === 50 && draft.position.y === 50);
 const isDefault = computed(() => sameLook(draft.look, LOGIN_BG_OPTIONS_DEFAULT) && centered.value);

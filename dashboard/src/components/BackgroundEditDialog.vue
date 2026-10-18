@@ -1,9 +1,10 @@
 <template>
-  <!-- 로그인 배경 편집 창. 그림이나 영상에서 쓸 영역(비율 자유)을 선택하고, 영상이면 쓸 구간과 썸네일 장면을 선택한다.
-       자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 썸네일 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
+  <!-- 로그인 배경 편집 창. 그림이나 영상에서 쓸 영역(비율 자유)을 선택하고, 영상이면 쓸 구간과 정지 화면 장면을 선택한다.
+       자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
        틀은 안을 끌면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 핸들은 그림 밖으로 나와도 보인다.
        아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 끌어도 옮겨진다).
-       시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 썸네일 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고(카드에서 선택한 반복 전환 효과를 적용한다), 끄면 구간 끝에서 멈춘다.
+       시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 정지 화면 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고(아래에서 고른 반복 전환 효과를 적용한다), 끄면 구간 끝에서 멈춘다.
+       반복 전환 효과는 카드의 화면 값에서 시작하고, 적용하면 카드의 화면 값도 그 효과로 바뀐다(카드에서 나중에 바꿀 수 있다).
        보는 창의 높이는 편집 창의 나머지(제목 · 확대 · 시간 막대 · 버튼)를 뺀 남는 높이에 맞춘다(창 크기를 바꾸면 다시).
        표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상 480p · 그림), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
        예상 저장 공간: 원본을 가져올 때 센 초마다의 세트 크기를 선택한 구간만큼 더한다(구간을 바꾸면 바로). 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다(세는 중).
@@ -25,7 +26,7 @@
                   <template v-if="bg.kind === 'video'">
                     <canvas ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
                     <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
-                    <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seam.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
+                    <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seamPick.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
                   </template>
                   <div v-if="natural.width" class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
                 </div>
@@ -44,6 +45,7 @@
 
           <!-- 시간 막대(영상만) -->
           <BackgroundTimeline v-if="bg.kind === 'video' && duration" :strip="strip" :duration="duration" :fps="bg.fps || 30" :aspect="natural.width / natural.height" :now="now" :playing="playing" :range="range" :thumb-at="thumbAt" :loop="loop" @loop="loop = !loop" @seek="seek" @peek="peek" @peek-end="peekEnd" @toggle="togglePlay" @range="range = $event" @thumb="thumbAt = clampToRange(now)" />
+          <SeamPicker v-if="bg.kind === 'video'" v-model="seamPick" class="sm:max-w-md" />
 
           <p class="text-xs text-on-surface-variant nums">
             {{ T.picked(Math.round(sel.w * originalScale), Math.round(sel.h * originalScale)) }}<template v-if="bg.kind === 'video' && thumbAt === null"> · {{ T.thumbHint }}</template>
@@ -72,14 +74,15 @@ import { text } from "../text/index.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
 import { LOGIN_BG_ESTIMATE_MARGIN as ESTIMATE_MARGIN, type LoginBackgroundCrop, type LoginBackgroundEdit, type LoginBackgroundItem, type LoginBackgroundOptions, type LoginBackgroundState } from "../../../src/dashboard/contract/login-background.ts";
 import BackgroundTimeline from "./BackgroundTimeline.vue";
+import SeamPicker from "./SeamPicker.vue";
 import { useSeam } from "../login-background/seam.ts";
 const T = text.loginBackground.edit;
 
-/** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다). seam: 구간 반복에 적용할 반복 전환 효과 */
+/** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다). seam: 카드의 반복 전환 효과(편집 창에서 고르는 효과의 처음 값) */
 const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
 const open = defineModel<boolean>({ required: true });
-/** recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
-const emit = defineEmits<{ done: [edit: LoginBackgroundEdit]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
+/** done: 편집과 고른 반복 전환 효과. recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
+const emit = defineEmits<{ done: [edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";
 /** 구간을 바꾼 뒤 다시 세기를 요청하기까지(끄는 동안은 요청하지 않는다) */
 const RECOUNT_AFTER_MS = 600;
@@ -101,13 +104,15 @@ const videoEl = ref<HTMLVideoElement | null>(null);
 const freezeEl = ref<HTMLCanvasElement | null>(null);
 const pulseEl = ref<HTMLElement | null>(null);
 const dipEl = ref<HTMLElement | null>(null);
-const seamFx = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => props.seam);
+/** 고른 반복 전환 효과(열 때 카드의 것으로) */
+const seamPick = ref<LoginBackgroundOptions["seam"]>({ ...props.seam });
+const seamFx = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => seamPick.value);
 const natural = reactive({ width: 0, height: 0 });
 const view = reactive({ width: 640, height: 360 });
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
 const duration = ref(0);
 const range = ref<[number, number]>([0, 0]);
-/** 썸네일 장면은 구간 안으로(구간 밖 장면은 굽지 않고, 유튜브는 선택한 구간만 다운로드한다) */
+/** 정지 화면 장면은 구간 안으로(구간 밖 장면은 굽지 않고, 유튜브는 선택한 구간만 다운로드한다) */
 const clampToRange = (t: number) => Math.min(range.value[1], Math.max(range.value[0], t));
 watch(range, () => {
   if (thumbAt.value !== null) thumbAt.value = clampToRange(thumbAt.value);
@@ -189,7 +194,7 @@ watch(range, () => {
   }, RECOUNT_AFTER_MS);
 });
 
-/** 틀 · 구간 · 썸네일을 처음으로(편집한 적이 있으면 그것으로) */
+/** 틀 · 구간 · 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
 function reset(fromEdit = false) {
   const saved = fromEdit ? props.bg?.edit : null;
   const c = saved?.crop ?? { x: 0, y: 0, w: 1, h: 1 };
@@ -273,7 +278,7 @@ function follow() {
   else requestAnimationFrame(() => (tick(el.currentTime), follow()));
 }
 // 반복을 끄거나 구간 · 효과가 바뀌면 건 효과를 바로 치운다
-watch([loop, range, () => props.seam.kind, () => props.seam.seconds], () => seamFx.release(0));
+watch([loop, range, seamPick], () => seamFx.release(0));
 /** 구간 끝: 반복이면 처음으로, 아니면 멈춘다 */
 function atEnd(el: HTMLVideoElement) {
   if (loop.value) {
@@ -403,17 +408,22 @@ function moveTo(e: PointerEvent) {
 
 function finish() {
   videoEl.value?.pause();
-  emit("done", {
-    crop: { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height },
-    range: props.bg?.kind === "video" ? range.value : null,
-    thumbAt: props.bg?.kind === "video" ? (thumbAt.value ?? range.value[0]) : null,
-  });
+  emit(
+    "done",
+    {
+      crop: { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height },
+      range: props.bg?.kind === "video" ? range.value : null,
+      thumbAt: props.bg?.kind === "video" ? (thumbAt.value ?? range.value[0]) : null,
+    },
+    { ...seamPick.value },
+  );
   open.value = false;
 }
 
 // 열 때 영상이 이미 읽혀 있으면(같은 주소) 메타데이터 이벤트가 다시 오지 않으므로 직접 맞춘다
 watch(open, async (on) => {
   if (!on) return;
+  seamPick.value = { ...props.seam };
   cropKey.value = keyOf(props.bg?.estimate?.crop ?? { x: 0, y: 0, w: 1, h: 1 });
   await nextTick();
   const el = videoEl.value;

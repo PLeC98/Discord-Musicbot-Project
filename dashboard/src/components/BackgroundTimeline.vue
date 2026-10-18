@@ -1,8 +1,8 @@
 <template>
-  <!-- 배경 편집 창의 시간 막대(2026-10-13 사용자, 프리미어 · 베가스 스타일). 영상은 편집 창이 쥐고, 이것은 시각 · 구간 · 썸네일을 보이고 바꾸자고 알린다.
-       위: 지금 시각(시:분:초;프레임) · 10초 전 · 1프레임 전 · 재생/일시정지 · 1프레임 뒤 · 10초 뒤 · 썸네일 설정.
-       가운데: 시간 눈금(확대에 맞춰 간격이 바뀐다)에 재생 위치 · 썸네일 마커, 마커에서 띠 아래까지 줄. 띠는 일정 간격으로 뜬 장면을 깔고, 구간 밖은 어둡게, 양 끝 핸들로 구간.
-       눈금이나 띠를 누르거나 끌면 그 위치로. 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 썸네일 시각(누르면 그 위치로).
+  <!-- 배경 편집 창의 시간 막대(2026-10-13 사용자, 프리미어 · 베가스 스타일). 영상은 편집 창이 쥐고, 이것은 시각 · 구간 · 정지 화면을 보이고 바꾸자고 알린다.
+       위: 지금 시각(시:분:초;프레임) · 10초 전 · 1프레임 전 · 재생/일시정지 · 1프레임 뒤 · 10초 뒤 · 정지 화면 설정.
+       가운데: 시간 눈금(확대에 맞춰 간격이 바뀐다)에 재생 위치 · 정지 화면 마커, 마커에서 띠 아래까지 줄. 띠는 일정 간격으로 뜬 장면을 깔고, 구간 밖은 어둡게, 양 끝 핸들로 구간.
+       눈금이나 띠를 누르거나 끌면 그 위치로. 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 정지 화면 시각(누르면 그 위치로).
        장면은 봇이 가져올 때 만든 장면 띠(GET …/:id/strip, 격자 WebP 한 장)를 셀마다 잘라 깐다. 띠가 아직 없으면 빈 띠 -->
   <!-- 키로 다루려고 포커스를 받는다. 공통 포커스 테두리(3px) 대신 시간 막대 영역에 가는 1px 테두리로 포커스를 보인다(2026-10-13 사용자) -->
   <div class="group/tl flex flex-col gap-2 select-none outline-none focus-visible:outline-none" tabindex="0" @keydown="onKey">
@@ -35,7 +35,7 @@
             <span class="absolute bottom-0 w-px bg-on-surface-variant/60" :class="tick.major ? 'h-3' : 'h-1.5'" :style="{ left: `${x(tick.t)}px` }"></span>
             <span v-if="tick.major" class="absolute top-0.5 ml-1 text-2xs font-mono text-on-surface-variant whitespace-nowrap" :style="{ left: `${x(tick.t)}px` }">{{ tick.label }}</span>
           </template>
-          <!-- 썸네일 마커(◆) · 재생 위치 마커(▼) -->
+          <!-- 정지 화면 마커(◆) · 재생 위치 마커(▼) -->
           <span v-if="thumbAt !== null" class="absolute bottom-0.5 size-3 -ml-1.5 rotate-45 bg-tertiary cursor-pointer" :style="{ left: `${x(thumbAt)}px` }" v-tooltip="T.thumbMark" @pointerdown.stop="emit('seek', thumbAt)"></span>
           <span class="absolute bottom-0 -ml-2 w-4 h-3 bg-primary [clip-path:polygon(0_0,100%_0,100%_45%,50%_100%,0_45%)] pointer-events-none" :style="{ left: `${x(now)}px` }"></span>
         </div>
@@ -57,7 +57,7 @@
       </div>
     </div>
 
-    <!-- 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 썸네일 시각(누르면 그 위치로) · 구간 길이 -->
+    <!-- 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 정지 화면 시각(누르면 그 위치로) · 구간 길이 -->
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs nums">
       <label class="flex items-center gap-2">
         <span class="text-on-surface-variant">{{ T.zoom }}</span>
