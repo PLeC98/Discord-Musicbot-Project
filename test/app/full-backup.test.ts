@@ -1,6 +1,8 @@
 // src/app/full-backup.ts — 명령 전체 백업(.env · 설정 DB · 파비콘 · 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
 
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import { test, after } from "node:test";
@@ -13,6 +15,10 @@ import * as settingsDocs from "../../src/store/settings-docs.ts";
 import * as snapshots from "../../src/store/snapshots.ts";
 import { createTables, VERSION } from "../../src/store/settings-db.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
+import * as audioCache from "../../src/store/audio-cache.ts";
+import * as trackLookup from "../../src/store/track-lookup.ts";
+import { AUDIO_CACHE_PARTS } from "../../src/rules/audio-cache-parts.ts";
+import { applyStagedAudio } from "../../src/dashboard/settings-archive.ts";
 
 const store = openTempStore("full-backup-");
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "full-backup-work-"));
@@ -64,7 +70,7 @@ test("켜져 있는 봇에서 만들고(.env · 설정 DB 를 교체할 이름�
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
     unzip(fs.readFileSync(first.file)).map((one) => one.name),
-    [".env", "database/settings.restore.db", "database/settings.restore.db.json", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png"],
+    [".env", "database/settings.restore.db", "database/settings.restore.db.json", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png"],
   );
   const second = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 11, 9, 0));
   assert.deepEqual(second.replaced, [path.basename(first.file)]);
@@ -152,4 +158,53 @@ test("로그인 배경: 다 만든 배경과 기록을 저장 경로 그대로 �
   assert.equal(loginBackground.loaded().current, ready.id);
   assert.ok(!fs.existsSync(loginBackground.folderOf(old.id)), "그 봇에 있던 배경은 치운다");
   loginBackground._useDir(path.join(work, "unused-background"));
+});
+
+test("오디오 캐시 번들: 기본은 캐시 파일 없이, withAudio 면 캐시 파일까지. 풀어 둔 번들은 다음 기동이 합치고 삭제한다", async () => {
+  await audioCache.resetCache(AUDIO_CACHE_PARTS);
+  fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
+  const cached = audioCache.getFilePath("yt:fullbackup1");
+  fs.writeFileSync(cached, Buffer.alloc(200, 1));
+  audioCache.recordDownloadStart("yt:fullbackup1", { title: "곡" });
+  audioCache.recordDownloadComplete("yt:fullbackup1", cached, 200, { title: "곡" });
+  trackLookup.recordTrackLookup({ requestKey: "https://y/full", pageUrl: "https://y/full", audioUrl: "https://www.youtube.com/watch?v=fullbackup1", platform: "youtube", title: "곡" });
+
+  const bare = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir });
+  assert.equal(bare.audioFiles, 0);
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(), { withAudio: true });
+  assert.equal(made.audioFiles, 1);
+
+  // 풀어 둔 번들을 다음 기동이 합친다(비운 캐시에)
+  const bundle = unzip(fs.readFileSync(made.file), { maxBytes: 10_000_000 }).find((one) => one.name === "database/audio-cache.restore.zip")!;
+  await audioCache.resetCache(AUDIO_CACHE_PARTS);
+  fs.writeFileSync(path.join(store.dir, "audio-cache.restore.zip"), bundle.data);
+  const done = await applyStagedAudio(store.dir);
+  assert.deepEqual([done?.added?.["audio-files"], done?.added?.["audio-ledger"]], [1, 1]);
+  assert.equal(audioCache.lookupByAudioKey("yt:fullbackup1")?.status, "cached");
+  assert.equal(fs.existsSync(path.join(store.dir, "audio-cache.restore.zip")), false, "합친 뒤 삭제한다");
+  assert.equal(await applyStagedAudio(store.dir), null, "없으면 null");
+
+  // 읽을 수 없는 번들은 삭제하고 던진다(매번 다시 하지 않게)
+  fs.writeFileSync(path.join(store.dir, "audio-cache.restore.zip"), "깨진 것");
+  await assert.rejects(applyStagedAudio(store.dir), { code: "BAD_ZIP" });
+  assert.equal(fs.existsSync(path.join(store.dir, "audio-cache.restore.zip")), false);
+});
+
+// 명령(pnpm run backup)은 봇과 다른 프로세스라 캐시 DB 를 열지 않은 채 부른다: cache.db 의 한 시점 사본을 열어 읽는다
+test("다른 프로세스에서 만들면 cache.db 사본을 열어 번들을 만든다", async () => {
+  const folder = fs.mkdtempSync(path.join(work, "cli-"));
+  for (const name of ["settings.db", "cache.db"]) {
+    const db = new Database(path.join(store.dir, name), { readonly: true });
+    await db.backup(path.join(folder, name));
+    db.close();
+  }
+  const out = path.join(folder, "out");
+  const result = path.join(folder, "result.json");
+  const code = `import fs from "node:fs";
+import { makeFullBackup } from ${JSON.stringify(pathToFileURL(path.resolve("src/app/full-backup.ts")).href)};
+fs.writeFileSync(${JSON.stringify(result)}, JSON.stringify(await makeFullBackup(${JSON.stringify({ envFile, databaseDir: folder, faviconDir, backgroundDir, outDir: out })})));`;
+  execFileSync(process.execPath, ["--input-type=module", "-e", code], { env: { ...process.env, LOG_FILE: path.join(folder, "bot.log") } });
+  const made = JSON.parse(fs.readFileSync(result, "utf8")) as { file: string; audioFiles: number | null };
+  assert.equal(made.audioFiles, 0);
+  assert.ok(unzip(fs.readFileSync(made.file), { maxBytes: 10_000_000 }).some((one) => one.name === "database/audio-cache.restore.zip"));
 });

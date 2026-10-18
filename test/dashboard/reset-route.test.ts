@@ -3,6 +3,8 @@
 
 process.env.OWNER_ID = "owner";
 
+import fs from "node:fs";
+import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
@@ -71,12 +73,16 @@ test("오디오 캐시: 선택이 비면 400, 선택한 것만 지운다", async
 test("봇 전체: 이름이 다르면 거절, 맞으면 예약한 복원을 취소하고 스냅샷을 남겨 예약한다(실행기 없이 켰으면 다시 시작하지 않는다)", async () => {
   const staged = await snapshots.take("daily", new Date(2026, 9, 1));
   snapshots.stage(staged);
+  const bundle = path.join(store.dir, "audio-cache.restore.zip");
+  fs.writeFileSync(bundle, "명령 전체 백업의 오디오 캐시");
+  assert.deepEqual((await call("GET")).json.restore, { snapshot: staged, audioCache: true });
   assert.equal((await call("POST", { kind: "all", confirmName: "다른 봇" })).json.code, "reset-name-mismatch");
   assert.equal(fullReset.requested(), false);
 
   const done = await call("POST", { kind: "all", confirmName: "테스트 봇" });
   assert.equal(done.status, 200);
-  assert.deepEqual([done.json.restarting, done.json.unstaged], [false, { snapshot: staged, audioCache: false }]);
+  assert.deepEqual([done.json.restarting, done.json.unstaged], [false, { snapshot: staged, audioCache: true }]);
+  assert.equal(fs.existsSync(bundle), false, "남기면 초기화한 봇에 옛 캐시가 들어온다");
   assert.match(String(done.json.snapshot), /^settings-before-reset-/);
   assert.deepEqual([fullReset.requested(), snapshots.staged()], [true, null]);
   assert.equal((await call("GET")).json.staged, true);

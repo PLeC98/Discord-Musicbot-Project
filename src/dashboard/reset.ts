@@ -2,6 +2,8 @@
 // 설정이 바뀌는 줄(봇 설정 · 서버별 설정)은 바꾸기 전에 설정 스냅샷(before-reset)을 남긴다.
 // 계약이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
 
+import fs from "node:fs";
+import path from "node:path";
 import * as audioCache from "../store/audio-cache.ts";
 import { settingsDb } from "../store/settings-db.ts";
 import { rowCounts } from "../store/cache-db.ts";
@@ -17,6 +19,7 @@ import * as appearance from "./appearance.ts";
 import * as backgroundStore from "./login-background/store.ts";
 import * as backgroundRunner from "./login-background/runner.ts";
 import { LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_OPTIONS_DEFAULT } from "./contract/login-background.ts";
+import { STAGED_AUDIO } from "./settings-archive.ts";
 import type { ResetOverview, StagedRestore } from "./contract/reset.ts";
 import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
@@ -79,8 +82,10 @@ function resetDisplay(by: string) {
   return { favicons, backgrounds };
 }
 
-// 예약한 복원. 명령 전체 백업의 오디오 캐시 복원은 아직 없다(B-122 가 더한다)
-const stagedRestore = (): StagedRestore => ({ snapshot: snapshots.staged(), audioCache: false });
+// 명령 전체 백업이 풀어 둔 오디오 캐시 번들(열린 설정 DB 의 폴더 안)
+const stagedAudioFile = () => path.join(path.dirname(settingsDb.get().name), STAGED_AUDIO);
+// 예약한 복원: 설정 스냅샷 · 명령 전체 백업의 오디오 캐시
+const stagedRestore = (): StagedRestore => ({ snapshot: snapshots.staged(), audioCache: fs.existsSync(stagedAudioFile()) });
 
 /**
  * 카드가 줄마다 보이는 지금 양
@@ -109,9 +114,10 @@ function overview(botName: string, launcher: boolean): ResetOverview {
 async function stageFullReset(by: string, restarting: boolean) {
   const unstaged = stagedRestore();
   snapshots.unstage();
+  fs.rmSync(stagedAudioFile(), { force: true });
   const snapshot = await snapshots.take("before-reset");
   fullReset.request();
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot} 은 취소` : ""}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot} 은 취소` : ""}${unstaged.audioCache ? ", 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
   return { snapshot, unstaged };
 }
 

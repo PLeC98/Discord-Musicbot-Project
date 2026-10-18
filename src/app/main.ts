@@ -9,6 +9,8 @@ import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
 import * as snapshots from "../store/snapshots.ts";
 import * as fullReset from "../store/full-reset.ts";
+import * as archive from "../dashboard/settings-archive.ts";
+import type { ArchiveItem } from "../dashboard/contract/settings-archive.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as tunables from "../store/tunables.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
@@ -94,6 +96,7 @@ function main() {
   potServer.start();
   potServer
     .waitReady()
+    .then(() => restoreAudioCache())
     .then(() => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore }))
     .catch((error: unknown) => {
       // 클라이언트를 만들기 전에 던졌다. 실행한 것을 내리고 나간다
@@ -135,6 +138,16 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   cookieJar.sweep();
   cookieJar.warnLegacyFile();
   return true;
+}
+
+// 명령 전체 백업의 오디오 캐시 번들을 합친다(캐시 상한이 운영 값으로 올라온 뒤, 정기 퇴거 · 기동 정리 · 대시보드보다 먼저). 실패해도 기동은 이어 간다
+async function restoreAudioCache() {
+  try {
+    const done = await archive.applyStagedAudio(PROJECT.database);
+    if (done) log.info(`명령 전체 백업의 오디오 캐시를 합쳤습니다: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(" · ") || "새로 가져온 것 없음"}`);
+  } catch (error) {
+    log.warn(`명령 전체 백업의 오디오 캐시를 합치지 못했습니다: ${messageOf(error)}`);
+  }
 }
 
 // 옛 설정 파일(config/*.yaml · ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 삭제하지도 않는다(보며 옮길 수 있게)

@@ -12,6 +12,8 @@
 // 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 답이 알린다(화면이 다시 시작 창 · 유튜브 탭 안내를 연다).
 
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { openZip, type ZipInput } from "../infra/zip.ts";
 import { BOT_VERSION } from "../infra/version.ts";
 import { codedError } from "../rules/error-kind.ts";
@@ -252,7 +254,8 @@ async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
   return { ...head, rows: await Promise.all(itemsOf(parsed).map((item) => rowFor(item, parsed, aiDoc))) };
 }
 
-const LABEL: Record<ArchiveItem, string> = {
+/** 항목 이름(검사 문제 · 로그) */
+const ITEM_LABELS: Record<ArchiveItem, string> = {
   tunables: "운영 조절값",
   genres: "자동재생 장르",
   status: "활동 문구",
@@ -275,7 +278,7 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   const audioRows = items.some(audioArchive.isAudioItem) ? (kindOf(parsed.json) === "audio-cache" ? audioArchive.previewRows(audioArchive.readBundle(parsed.file)) : []) : [];
   const audioRow = (item: ArchiveItem) => audioRows.find((one) => one.item === item) ?? { item, inFile: false, same: false, problems: [], warnings: [], count: null };
   const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : audioArchive.isAudioItem(item) ? audioRow(item) : rowFor(item, parsed, aiDoc))));
-  const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없습니다."]), ...row.problems].map((line) => `${LABEL[row.item]}: ${line}`));
+  const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없습니다."]), ...row.problems].map((line) => `${ITEM_LABELS[row.item]}: ${line}`));
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
   const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };
@@ -329,6 +332,30 @@ function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImporte
   return { imported: items, restart: items.includes("tunables") && after.pending.length > 0, cookiesSource: cookies && cookies !== cookiesBefore ? cookies : null };
 }
 
-export { build, parse, preview, apply, fileName };
+/** 명령 전체 백업이 풀어 둔 오디오 캐시 번들의 이름(DB 폴더 안). 다음 기동이 합친 뒤 삭제한다 */
+const STAGED_AUDIO = "audio-cache.restore.zip";
+
+/**
+ * 기동 때(설정을 올린 뒤 · 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 가져오고 삭제한다.
+ * 번들이 없으면 null. 읽을 수 없는 번들(ZIP 이 깨졌거나 오디오 캐시가 아님)은 삭제하고 던진다(매번 다시 하지 않게). 그 밖의 실패는 번들을 남기고 던진다(다음 기동이 다시 한다)
+ */
+async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {
+  const file = path.join(dir, STAGED_AUDIO);
+  if (!fs.existsSync(file)) return null;
+  try {
+    const shown = await preview(file);
+    if (shown.kind !== "audio-cache") throw codedError("BAD_ARCHIVE", "오디오 캐시 번들이 아닙니다");
+    const items = shown.rows.filter((row) => row.inFile).map((row) => row.item);
+    const done = items.length ? await apply(file, items) : { imported: [], restart: false, cookiesSource: null };
+    fs.rmSync(file, { force: true });
+    return done;
+  } catch (error) {
+    const code = (error as { code?: unknown }).code;
+    if (code === "BAD_ZIP" || code === "BAD_ARCHIVE") fs.rmSync(file, { force: true });
+    throw error;
+  }
+}
+
+export { build, parse, preview, apply, applyStagedAudio, fileName, STAGED_AUDIO, ITEM_LABELS };
 export { exportProblem } from "./audio-cache-archive.ts";
 export type { ArchiveJson };
