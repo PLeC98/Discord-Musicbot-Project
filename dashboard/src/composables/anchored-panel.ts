@@ -20,6 +20,17 @@ export function coveredBottom(el: HTMLElement) {
   return raw.endsWith("rem") ? n * parseFloat(getComputedStyle(document.documentElement).fontSize) : n;
 }
 
+/** 패널의 쌓임 순서: 기준 요소가 든 층(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 층이 없으면 PANEL_Z */
+const PANEL_Z = 160;
+function layerAbove(el: HTMLElement) {
+  let top = PANEL_Z - 1;
+  for (let at: HTMLElement | null = el; at; at = at.parentElement) {
+    const z = parseInt(getComputedStyle(at).zIndex, 10);
+    if (Number.isFinite(z)) top = Math.max(top, z);
+  }
+  return top + 1;
+}
+
 /**
  * root: 입력란을 감싼 겉(바깥 누름 판정의 기준) · anchor: 기준이 될 요소(입력란 또는 버튼) · panel: 표시할 패널(바깥 누름 판정에 같이 쓴다)
  * open: 열림 상태(바깥을 누르면 여기를 내린다) · maxHeight: 패널이 바랄 최대 높이(px) · gap: 기준 요소와 패널 사이 간격(px, 음수면 테두리를 겹친다)
@@ -53,7 +64,7 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
       left: `${rect.left}px`,
       width: `${rect.width}px`,
       maxHeight: `${Math.max(80, Math.min(maxHeight, flip ? above : below))}px`,
-      zIndex: 160,
+      zIndex: layerAbove(el),
       ...(flip ? { bottom: `${window.innerHeight - rect.top + gap}px` } : { top: `${rect.bottom + gap}px` }),
     };
   }
