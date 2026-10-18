@@ -1,5 +1,5 @@
 // 초기화(운영자 패널 백업 · 초기화 탭의 초기화 카드). /api/admin/reset. 모양은 contract/reset, 일은 dashboard/reset.
-// 여러 항목을 되돌릴 수 없이 한꺼번에 지우므로 모두 최근 로그인을 본다. 봇 전체 초기화는 봇 이름을 그대로 입력해야 받는다.
+// 여러 항목을 되돌릴 수 없이 한꺼번에 지우므로 지우는 것(초기화 · 예약 취소)은 최근 로그인을 본다. 양을 읽는 것은 보지 않는다(탭을 열면 읽는다). 봇 전체 초기화는 봇 이름을 그대로 입력해야 받는다.
 
 import express, { type Request } from "express";
 import logger from "../../infra/log/logger.ts";
@@ -15,7 +15,7 @@ import * as fullReset from "../../store/full-reset.ts";
 import type { ResetDone, ResetOverview } from "../contract/reset.ts";
 
 const resetRouter = express.Router();
-resetRouter.use(requireOwner, requireRecentLogin);
+resetRouter.use(requireOwner);
 
 // 대시보드가 보이는 봇 이름(identity 의 /api/bot 과 같다). 준비 전이면 빈 문자열(봇 전체 초기화를 받지 않는다)
 const botNameOf = (req: Request) => (req.app.locals.bot.client.user?.username as string | undefined) ?? "";
@@ -24,7 +24,7 @@ const overviewOf = (req: Request): ResetOverview => reset.overview(botNameOf(req
 
 resetRouter.get("/", (req, res) => res.json(overviewOf(req)));
 
-resetRouter.post("/", async (req, res) => {
+resetRouter.post("/", requireRecentLogin, async (req, res) => {
   const body = parse(ResetBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code, {}, { errors: body.errors });
   const request = body.value;
@@ -55,7 +55,7 @@ resetRouter.post("/", async (req, res) => {
   res.json(done);
 });
 
-resetRouter.delete("/staged", (req, res) => {
+resetRouter.delete("/staged", requireRecentLogin, (req, res) => {
   if (!reset.cancelFullReset(ranBy(req))) return sendProblem(res, "reset-not-staged");
   res.json(overviewOf(req));
 });

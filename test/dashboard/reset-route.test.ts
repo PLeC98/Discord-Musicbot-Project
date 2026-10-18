@@ -44,10 +44,11 @@ const call = async (method: string, body?: unknown) => {
   return { status: res.status, json: (await res.json()) as Json };
 };
 
-test("모두 최근 로그인을 본다", async () => {
+test("지우는 것은 최근 로그인만, 양을 읽는 것은 아니어도 된다", async () => {
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
   try {
-    for (const [method, body] of [["GET"], ["POST", { kind: "display" }], ["DELETE"]] as const) assert.equal((await call(method, body)).json.code, "reauth-required", method);
+    for (const [method, body] of [["POST", { kind: "display" }], ["DELETE"]] as const) assert.equal((await call(method, body)).json.code, "reauth-required", method);
+    assert.equal((await call("GET")).status, 200, "탭을 열면 읽는다");
   } finally {
     loginAt = Date.now();
   }
