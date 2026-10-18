@@ -3,7 +3,7 @@
 
 import type { TrackCacheTable, TrackFileUse } from "../../../../src/dashboard/contract/track-cache.ts";
 
-const tables: Record<TrackCacheTable, string> = { requests: "요청", files: "캐시 파일", age: "연령 제한" };
+const tables: Record<TrackCacheTable, string> = { requests: "링크 데이터", files: "캐시 파일", age: "연령 제한" };
 const tableLabel = "테이블";
 
 /** 열 이름 */
@@ -14,7 +14,7 @@ const columns: Record<string, string> = {
   artist: "아티스트",
   audioUrl: "재생 음원",
   pinnedAt: "지정 시각",
-  file: "캐시 파일",
+  file: "파일 상태",
   size: "크기",
   plays: "재생 수",
   lastPlayedAt: "마지막 재생",
@@ -44,7 +44,7 @@ const tools = {
   clearFilter: "필터 지우기",
   clearSort: "정렬 해제",
   newRow: "새 행: 아직 재생한 적 없는 요청에 음원을 미리 지정해요",
-  newRowOff: "새 행은 요청 테이블에서만 추가할 수 있어요",
+  newRowOff: "새 행은 링크 데이터 테이블에서만 추가할 수 있어요",
   deleteRows: "선택한 행 삭제",
   probe: "재생 테스트",
   probeTip: "선택한 행의 음원이 지금 재생되는지 확인해요. 저장과 상관없이 바로 실행돼요",
