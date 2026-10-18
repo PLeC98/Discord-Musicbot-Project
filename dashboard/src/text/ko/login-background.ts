@@ -47,7 +47,6 @@ const card = {
   immersive: "몰입형 테마 색상",
   immersiveTip: "영상의 장면이 바뀔 때 테마 색을 그 장면의 색으로 바꿔요.",
   seam: "반복 전환 효과",
-  seamTip: "영상이 끝에서 처음으로 돌아갈 때 적용하는 효과예요. 끝과 처음 장면이 다를 때 덜 튀어 보여요.",
   seamKinds: { cut: "없음", freeze: "마지막 프레임 겹치기", cover: "페이드(테마 색)", black: "페이드(검정)", blur: "블러 전환" },
   seamSeconds: (s: number) => `${s}초`,
   seamLength: "효과 길이",

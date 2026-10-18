@@ -60,7 +60,7 @@
             </label>
             <!-- 반복 전환 효과: 효과 선택(목록) · 길이(버튼 그룹, 없음이면 꺼짐) 한 줄 -->
             <div class="flex flex-col gap-2 text-sm">
-              <span class="flex items-center gap-1">{{ C.seam }}<Icon name="info" :size="16" class="cursor-help text-on-surface-variant" v-tooltip="C.seamTip" /></span>
+              <span>{{ C.seam }}</span>
               <div class="flex items-center gap-2">
                 <SingleSelect class="flex-1 min-w-0" :model-value="draft.look.seam.kind" :options="SEAM_OPTIONS" @update:model-value="pickSeam" />
                 <!-- 이어 붙은 버튼 그룹(M3E connected button group, 계정 메뉴의 밝기와 같은 형태). 선택한 버튼은 모서리가 둥글게 바뀐다. 없음이면 꺼진다 -->

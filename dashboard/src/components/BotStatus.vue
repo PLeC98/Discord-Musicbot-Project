@@ -305,7 +305,8 @@ const LEVEL_BADGE: Record<Level, string> = { ok: "bg-primary-container text-on-p
 const LEVEL_CHIP: Record<Level, string> = { ok: "", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 
 /** 기준(주의 · 문제). 핑 ms, 루프 지연 ms, heap · CPU · 디스크 % */
-const LIMITS = { ping: [150, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
+// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200 이 보통이고 멀쩡해도 200 중후반이 자주 뜬다
+const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
 // ── 글 ──
 const clock = (ms: number, seconds = false) => formatClock(ms, { seconds });

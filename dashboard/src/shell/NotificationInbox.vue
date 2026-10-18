@@ -1,7 +1,8 @@
 <template>
   <!-- 알림함: 위 막대 오른쪽 끝의 종. 안 읽은 알림이 있으면 수를 단 배지(M3 큰 배지), 누르면 지금까지 뜬 알림(새 것이 위).
        열면 그때까지 온 것을 읽음으로 친다(열어 둔 동안은 새로 온 항목을 칠해 두었다가, 닫을 때 읽음).
-       지우면(항목마다 x · 지우기) 항목이 제자리에서 오른쪽으로 빠진 뒤 그 공간을 접는다(아래 항목이 올라온다). 모두 지우기는 보이는 항목을 아래부터 차례로 -->
+       지우면(항목마다 x · 지우기) 항목이 제자리에서 오른쪽으로 빠진 뒤 그 공간을 접는다(아래 항목이 올라온다). 모두 지우기는 보이는 항목을 아래부터 차례로.
+       다 지우면 목록이 "알림 없음" 높이(h-32)에서 멈추고 그 자리에 "알림 없음"이 나타난다(목록이 접혔다가 다시 늘어나지 않게) -->
   <button ref="triggerEl" type="button" aria-haspopup="dialog" :aria-expanded="open" :aria-label="unread ? T.inboxUnread(unread) : T.inbox" v-tooltip="open ? null : T.inbox" :class="[TOPBAR_BTN, open && 'bg-on-surface/8']" class="relative" @click="toggle">
     <Icon name="notifications" :fill="unread > 0" />
     <span v-if="unread" class="absolute -top-0.5 left-[calc(50%+2px)] h-4 min-w-4 px-1 rounded-full bg-error text-on-error text-2xs leading-4 font-semibold nums text-center">{{ unread > 99 ? "99+" : unread }}</span>
@@ -15,7 +16,7 @@
           <span class="flex-1 text-title font-semibold">{{ T.inbox }}</span>
           <button type="button" class="tap state-layer h-8 px-3 rounded-full text-label font-semibold cursor-pointer text-primary disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!inbox.length || clearing" @click="clearAll">{{ T.inboxClear }}</button>
         </div>
-        <TransitionGroup v-if="inbox.length || leaving > 0" ref="listRef" tag="ul" class="min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-1" :class="leaving > 0 && !scrolled && 'overflow-y-hidden!'" :style="listFade" :css="false" @leave="onLeave">
+        <TransitionGroup v-if="inbox.length || leaving > 0" ref="listRef" tag="ul" class="overflow-y-auto overflow-x-hidden flex flex-col gap-1 transition-[min-height] duration-200 ease-smooth" :class="[inbox.length ? 'min-h-0' : 'min-h-32', leaving > 0 && !scrolled && 'overflow-y-hidden!']" :style="listFade" :css="false" @leave="onLeave">
           <li v-for="one in inbox" :key="one.id" :data-id="one.id" class="flex gap-3 items-start pl-3 pr-1 py-2.5 rounded-2xl" :class="seen.has(one.id) ? 'bg-surface-container-highest' : 'bg-secondary-container'">
             <Icon :name="TOAST_LOOK[one.severity].icon" :size="20" fill class="shrink-0 mt-0.5" :class="TOAST_LOOK[one.severity].ink" />
             <div class="flex-1 min-w-0 whitespace-pre-line text-body">
@@ -31,10 +32,12 @@
             <button type="button" class="tap state-layer size-8 -my-1 shrink-0 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.inboxRemoveOne" v-tooltip="T.inboxClear" @click="removeFromInbox(one.id)"><Icon name="close" :size="20" /></button>
           </li>
         </TransitionGroup>
-        <div v-else class="flex flex-col items-center gap-2 py-8 text-on-surface-variant">
-          <Icon name="notifications_off" :size="32" />
-          <span class="text-body">{{ T.inboxEmpty }}</span>
-        </div>
+        <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200">
+          <div v-if="!inbox.length && !leaving" class="h-32 flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+            <Icon name="notifications_off" :size="32" />
+            <span class="text-body">{{ T.inboxEmpty }}</span>
+          </div>
+        </Transition>
       </div>
     </Transition>
   </Teleport>
