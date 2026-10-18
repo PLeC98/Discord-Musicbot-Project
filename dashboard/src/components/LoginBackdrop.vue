@@ -28,6 +28,7 @@ import type { LoginBackground, LoginBackgroundLook } from "../../../src/dashboar
 import { blurCapped, judge, ladderOf, neededShort, rungsOf, type Step, type Verdict, type Rung } from "../login-background/pick.ts";
 import { startAdapter, type Adapter } from "../login-background/adapt.ts";
 import { hasMse, nativeHls, playHls, type HlsPlayer } from "../login-background/hls.ts";
+import { useSeam } from "../login-background/seam.ts";
 import { paletteOf } from "../theme/palette.ts";
 import { dark, releasePageSeed, setPageSeed } from "../theme/theme.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
@@ -41,8 +42,6 @@ const emit = defineEmits<{ stale: [] }>();
 /** 장면 색이 넘어가는 시간 · 처음 색 */
 const SCENE_MS = 1000;
 const FIRST_MS = 700;
-/** 멈춘 장면 겹치기를 뜨는 때(끝에서 몇 장면 앞) */
-const FREEZE_FRAMES = 1.5;
 /** 기억한 단계(다음 방문의 시작점). 배경 · 내려갈 순서가 같을 때만 쓴다 */
 const STEP_KEY = "login-bg:step";
 
@@ -174,20 +173,7 @@ watch(effect, () => {
 
 // ── 재생 위치를 장면마다 본다: 장면 바뀜 · 반복 전환 효과 ──
 
-/** 불투명도를 ms 동안 to 로(0 이면 바로) */
-function fade(el: HTMLElement | null, to: number, ms: number) {
-  if (!el) return;
-  el.style.transition = ms ? `opacity ${ms}ms linear` : "none";
-  if (!ms) void el.offsetWidth;
-  el.style.opacity = String(to);
-}
-let armed = false;
-function release(ms: number) {
-  fade(freezeEl.value, 0, ms);
-  fade(pulseEl.value, 0, ms / 2);
-  fade(dipEl.value, 0, ms / 2);
-  armed = false;
-}
+const seam = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => props.look.seam);
 let watching = 0;
 let lastTime = 0;
 function follow() {
@@ -195,35 +181,16 @@ function follow() {
   if (!video) return;
   const mine = ++watching;
   const fps = props.bg.kind === "video" ? (props.bg.streams[0]?.rungs[0]?.frameRate ?? 30) : 30;
-  /** 끝에 닿기 전에 전환 효과를 건다 */
-  const arm = (t: number, end: number) => {
-    const { kind, seconds } = props.look.seam;
-    if (kind === "freeze" && t >= end - FREEZE_FRAMES / fps) {
-      const canvas = freezeEl.value;
-      if (!canvas || !video.videoWidth) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext("2d")?.drawImage(video, 0, 0);
-      fade(canvas, 1, 0);
-      armed = true;
-      return;
-    }
-    const layer = kind === "blur" ? pulseEl.value : kind === "cover" || kind === "black" ? dipEl.value : null;
-    if (layer && t >= end - seconds / 2) {
-      fade(layer, 1, (seconds * 1000) / 2);
-      armed = true;
-    }
-  };
   const at = (t: number) => {
     // 처음으로 돌아갔다: 건 효과를 해제한다
-    if (t + 0.5 < lastTime && armed) release(props.look.seam.seconds * 1000);
+    if (t + 0.5 < lastTime) seam.restarted();
     lastTime = t;
     const i = sceneAt(t);
     if (i !== lastScene) {
       if (lastScene !== -2) paintScene(i, SCENE_MS);
       lastScene = i;
     }
-    if (Number.isFinite(video.duration) && !armed) arm(t, video.duration);
+    if (Number.isFinite(video.duration)) seam.near(t, video.duration, fps);
   };
   const next = () => {
     if (mine !== watching || video.paused) return;
@@ -247,7 +214,7 @@ function onPlaying() {
 // 효과 종류 · 길이를 바꾸거나 다른 배경이 오면 남은 효과를 바로 치운다
 watch(
   () => [props.look.seam.kind, props.look.seam.seconds, props.bg.id],
-  () => release(0),
+  () => seam.release(0),
 );
 
 // ── 주사율 붙잡기 · 화면 숨김 ──
@@ -312,7 +279,7 @@ function startGuard() {
 
 async function begin() {
   watching++;
-  release(0);
+  seam.release(0);
   clearCover();
   await plan();
   lastScene = -2;

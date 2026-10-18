@@ -3,7 +3,7 @@
        자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 썸네일 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
        틀은 안을 끌면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 핸들은 그림 밖으로 나와도 보인다.
        아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 끌어도 옮겨진다).
-       시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 썸네일 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고, 끄면 구간 끝에서 멈춘다.
+       시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 썸네일 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고(카드에서 선택한 반복 전환 효과를 적용한다), 끄면 구간 끝에서 멈춘다.
        보는 창의 높이는 편집 창의 나머지(제목 · 확대 · 시간 막대 · 버튼)를 뺀 남는 높이에 맞춘다(창 크기를 바꾸면 다시).
        표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상 480p · 그림), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
        예상 저장 공간: 원본을 가져올 때 센 초마다의 세트 크기를 선택한 구간만큼 더한다(구간을 바꾸면 바로). 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다(세는 중).
@@ -22,6 +22,11 @@
                 <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
                   <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
                   <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
+                  <template v-if="bg.kind === 'video'">
+                    <canvas ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
+                    <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
+                    <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seam.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
+                  </template>
                   <div v-if="natural.width" class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
                 </div>
                 <div v-if="natural.width" class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
@@ -65,12 +70,13 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
-import { LOGIN_BG_ESTIMATE_MARGIN as ESTIMATE_MARGIN, type LoginBackgroundCrop, type LoginBackgroundEdit, type LoginBackgroundItem, type LoginBackgroundState } from "../../../src/dashboard/contract/login-background.ts";
+import { LOGIN_BG_ESTIMATE_MARGIN as ESTIMATE_MARGIN, type LoginBackgroundCrop, type LoginBackgroundEdit, type LoginBackgroundItem, type LoginBackgroundOptions, type LoginBackgroundState } from "../../../src/dashboard/contract/login-background.ts";
 import BackgroundTimeline from "./BackgroundTimeline.vue";
+import { useSeam } from "../login-background/seam.ts";
 const T = text.loginBackground.edit;
 
-/** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다) */
-const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null }>();
+/** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다). seam: 구간 반복에 적용할 반복 전환 효과 */
+const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
 const open = defineModel<boolean>({ required: true });
 /** recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
@@ -92,6 +98,10 @@ const FIRST_RANGE = 30;
 const src = computed(() => (props.bg ? `${API}/${props.bg.id}/preview` : ""));
 const strip = computed(() => (props.bg?.strip ? { url: `${API}/${props.bg.id}/strip`, shape: props.bg.strip } : null));
 const videoEl = ref<HTMLVideoElement | null>(null);
+const freezeEl = ref<HTMLCanvasElement | null>(null);
+const pulseEl = ref<HTMLElement | null>(null);
+const dipEl = ref<HTMLElement | null>(null);
+const seamFx = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => props.seam);
 const natural = reactive({ width: 0, height: 0 });
 const view = reactive({ width: 640, height: 360 });
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
@@ -235,6 +245,7 @@ watch(open, (on) => {
 watch(open, (on) => {
   if (on) return;
   videoEl.value?.pause();
+  seamFx.release(0);
   playing.value = false;
   natural.width = natural.height = 0;
 });
@@ -243,6 +254,7 @@ watch(open, (on) => {
 
 /** 그 위치로(영상 안으로 자른다). 구간 밖으로도 갈 수 있다(재생은 구간 안에서 돈다) */
 function seek(t: number) {
+  seamFx.release(0);
   const at = Math.min(Math.max(0, t), duration.value);
   now.value = at;
   if (videoEl.value) videoEl.value.currentTime = at;
@@ -254,15 +266,19 @@ function follow() {
   // 끝 장면은 구간 끝보다 반 장면쯤 앞에 있다(구간 끝이 영상 끝이면 영상 끝에 닿지 않고 멈춘다): 반 장면 앞에서 처음으로
   const tick = (t: number) => {
     now.value = t;
+    if (loop.value) seamFx.near(t, range.value[1], fps.value);
     if (t >= range.value[1] - 0.5 / fps.value && t < range.value[1] + 0.5) atEnd(el);
   };
   if (typeof el.requestVideoFrameCallback === "function") el.requestVideoFrameCallback((_, meta) => (tick(meta.mediaTime), follow()));
   else requestAnimationFrame(() => (tick(el.currentTime), follow()));
 }
+// 반복을 끄거나 구간 · 효과가 바뀌면 건 효과를 바로 치운다
+watch([loop, range, () => props.seam.kind, () => props.seam.seconds], () => seamFx.release(0));
 /** 구간 끝: 반복이면 처음으로, 아니면 멈춘다 */
 function atEnd(el: HTMLVideoElement) {
   if (loop.value) {
     el.currentTime = range.value[0];
+    seamFx.restarted();
     return;
   }
   el.pause();
@@ -277,6 +293,7 @@ async function onEnded() {
     return;
   }
   el.currentTime = range.value[0];
+  seamFx.restarted();
   await el.play();
   playing.value = true;
   follow();
@@ -294,6 +311,7 @@ function peek(t: number) {
   if (!peeking) {
     peeking = { wasPlaying: !el.paused };
     el.pause();
+    seamFx.release(0);
   }
   el.currentTime = Math.min(Math.max(0, t), duration.value);
 }
@@ -318,6 +336,7 @@ async function togglePlay() {
     follow();
   } else {
     el.pause();
+    seamFx.release(0);
     playing.value = false;
     now.value = el.currentTime;
   }

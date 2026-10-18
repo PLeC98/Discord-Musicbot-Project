@@ -97,7 +97,7 @@
           <span v-else-if="work.phase === 'queued'" class="text-on-surface-variant">{{ C.queued }}</span>
           <template v-else-if="work.stage">
             <span class="flex items-baseline gap-2 text-on-surface-variant nums"
-              ><span class="truncate">{{ C.stage[work.stage] }}</span
+              ><span class="truncate">{{ C.stageOf(work.stage, work.from) }}</span
               ><span class="ml-auto shrink-0">{{ Math.round(overall * 100) }}%</span></span
             >
             <span class="h-1.5 w-full rounded-full bg-surface-container-highest overflow-hidden"><span class="block h-full bg-primary transition-[width] duration-500" :style="{ width: `${overall * 100}%` }"></span></span>
@@ -164,7 +164,7 @@
   </BaseCard>
 
   <BackgroundSourceDialog v-model="sourceOpen" :state="state" :busy="busy" :pending="pending" :uploading="uploading" @upload="pickFile" @link="fromLink" @use="useBg" @remove="removeBg" />
-  <BackgroundEditDialog v-model="editOpen" :bg="editing" :state="state" @done="applyEdit" @recount="recount" />
+  <BackgroundEditDialog v-model="editOpen" :bg="editing" :state="state" :seam="draft.look.seam" @done="applyEdit" @recount="recount" />
 
   <!-- 로그인 화면으로 보기: 지금 쓰는 배경(고친 값, 없으면 화면 판처럼 봇 그림) 위에 실제 로그인 화면. 그동안은 그 배경의 색을 화면 색으로 칠한다 -->
   <Teleport to="body">

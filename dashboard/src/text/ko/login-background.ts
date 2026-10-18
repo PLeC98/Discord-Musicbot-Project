@@ -1,14 +1,13 @@
 // 운영자 패널: 디스플레이 탭의 로그인 배경 카드 · 변경 팝업 · 편집 창 · 시간 막대
 
-import type { LoginBackgroundCodec, LoginBackgroundStage } from "../../../../src/dashboard/contract/login-background.ts";
+import type { LoginBackgroundCodec, LoginBackgroundItem, LoginBackgroundStage } from "../../../../src/dashboard/contract/login-background.ts";
 import { josa } from "../../../../src/rules/josa.ts";
 
-/** 만드는 단계(운영자에게 보이는 말) */
-const stage: Record<LoginBackgroundStage, string> = {
-  receive: "영상 다운로드 중",
+/** 만드는 단계(운영자에게 보이는 말). 다운로드 단계는 가져온 곳마다(올린 것은 이미 받아 확인만 한다) */
+const stage: Record<Exclude<LoginBackgroundStage, "receive">, string> = {
   preview: "프리뷰 준비 중",
   strip: "스프라이트 준비 중",
-  highRes: "영상 다운로드 중",
+  highRes: "고화질 영상 다운로드 중",
   thumb: "썸네일 제작 중",
   stills: "이미지 변환 중",
   tones: "장면 색 추출 중",
@@ -16,6 +15,8 @@ const stage: Record<LoginBackgroundStage, string> = {
   encode: "인코딩 중(3/4)",
   drop: "마무리하는 중",
 };
+const receive: Record<LoginBackgroundItem["from"], string> = { upload: "파일 확인 중", link: "다운로드 중", youtube: "영상 다운로드 중" };
+const stageOf = (now: LoginBackgroundStage, from: LoginBackgroundItem["from"]) => (now === "receive" ? receive[from] : stage[now]);
 
 /** 카드 */
 const card = {
@@ -26,7 +27,7 @@ const card = {
   loginMaking: "새 배경을 만드는 중이에요.",
   loginThumb: "썸네일을 적용했어요. 영상을 준비 중이에요.",
   loginPartial: "저화질 영상을 적용했어요. 고화질 영상을 준비 중이에요.",
-  stage,
+  stageOf,
   queued: "인코딩 대기 중이에요.",
   resumed: "중단된 인코딩을 이어서 하고 있어요.",
   /** 편집을 마치기 전(받기 · 프리뷰 · 스프라이트 · 편집 대기) · 편집을 적용한 뒤(인코딩 · 대기) */
@@ -110,7 +111,6 @@ const source = {
   linkPlaceholder: "https://…",
   linkFetch: "가져오기",
   linkBad: "http · https 로 시작하는 주소를 입력해 주세요.",
-  uploadStep: "원본 다운로드",
   uploading: "업로드 중",
   queued: "인코딩 대기",
   preparing: "편집 창 불러오는 중",

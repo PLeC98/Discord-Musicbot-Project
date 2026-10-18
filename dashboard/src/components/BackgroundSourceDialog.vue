@@ -59,7 +59,7 @@
                       >{{ S.kind[one.kind] }} · {{ S.from[one.from]
                       }}<template v-if="one.phase === 'failed'">
                         · <span class="text-error" v-tooltip="problemOf(one)">{{ S.failed }}</span></template
-                      ><template v-else-if="one.stage !== null"> · {{ C.stage[one.stage] }}</template
+                      ><template v-else-if="one.stage !== null"> · {{ C.stageOf(one.stage, one.from) }}</template
                       ><template v-else-if="one.phase === 'queued'"> · {{ S.queued }}</template></span
                     >
                   </span>
@@ -111,8 +111,8 @@ const problemOf = (bg: LoginBackgroundItem) => (bg.problem ? noticeText(bg.probl
 /** 지금 하는 일 한 줄(올리는 중 · 그 단계의 "…하는 중" 말) */
 const nowText = computed(() => {
   if (props.uploading) return S.uploading;
-  const now = props.pending?.stage;
-  return now ? C.stage[now] : S.preparing;
+  const bg = props.pending;
+  return bg?.stage ? C.stageOf(bg.stage, bg.from) : S.preparing;
 });
 
 const linking = ref(false);
