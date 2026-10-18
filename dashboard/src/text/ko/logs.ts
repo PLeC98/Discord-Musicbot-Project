@@ -11,5 +11,6 @@ const allTags = "모든 태그";
 const autoScroll = "자동 스크롤";
 const clear = "지우기";
 const empty = "표시할 로그가 아직 없어요";
+const search = "로그에서 찾기";
 
-export { title, connected, disconnected, lines, allCategories, allTags, autoScroll, clear, empty };
+export { title, connected, disconnected, lines, allCategories, allTags, autoScroll, clear, empty, search };

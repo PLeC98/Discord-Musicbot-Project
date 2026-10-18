@@ -21,6 +21,8 @@
         <SingleSelect v-model="category" class="flex-1 min-w-0 sm:flex-none sm:w-44" :options="categoryOptions" :search-from="0" :empty-label="T.allCategories" />
         <SingleSelect v-model="tag" class="flex-1 min-w-0 sm:flex-none sm:w-44" :options="tagOptions" :empty-label="T.allTags" />
       </div>
+      <!-- 글자 찾기: 받아 둔 줄의 글 · 카테고리 · 태그에서(한국어 찾기) -->
+      <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" class="w-full sm:w-auto sm:flex-1 sm:min-w-40 sm:max-w-72" />
       <span class="ml-auto flex items-center gap-2">
         <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">{{ T.autoScroll }}<BaseSwitch :model-value="follow" :label="T.autoScroll" @update:model-value="setFollow" /></label>
         <BaseButton variant="ghost" size="sm" @click="emit('clear')"><Icon name="delete_sweep" :size="18" />{{ T.clear }}</BaseButton>
@@ -30,7 +32,7 @@
     <!-- 로그 영역. 넓으면 한 줄(시각 · 레벨 · 카테고리 · 글), 좁으면 시각 · 레벨 · 카테고리를 윗줄에 두고 글은 아랫줄. 글은 낱말 단위로 끊는다.
          바탕은 드롭다운 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 트랙을 비운다 -->
     <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
-      <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ T.empty }}</p>
+      <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ logs.length ? text.common.noMatch : T.empty }}</p>
       <div v-for="entry in shown" :key="entry.id" class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5 border-b border-outline-variant/20 last:border-b-0">
         <span class="flex items-baseline gap-3 shrink-0">
           <span class="font-mono nums text-on-surface-variant">{{ clock(entry.ts) }}</span>
@@ -50,9 +52,12 @@ import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import PaneHeader from "./PaneHeader.vue";
 import SingleSelect from "./SingleSelect.vue";
+import SearchInput from "./SearchInput.vue";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
+import { SEARCH_FIELD } from "../utils/field.ts";
+import { koMatch } from "../../../src/rules/ko-search.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
 import { LEVELS, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
 import { formatClock } from "../utils/locale.ts";
@@ -112,7 +117,10 @@ const catColor = (name: string) => {
   return `var(--log-cat-${(h % 8) + 1})`;
 };
 
-const shown = computed(() => props.logs.filter((e) => levelsOn.value.has(e.level) && (!category.value || e.category === category.value) && (!tag.value || (e.tags ?? []).includes(String(tag.value)))));
+// 글자 찾기: 글 · 카테고리 · 태그(한국어는 조합 중인 글자 · 초성으로도)
+const term = ref("");
+const matchesTerm = (e: WireEntry) => !term.value.trim() || [e.text, e.category ?? "", e.sub ?? "", ...(e.tags ?? [])].some((one) => koMatch(one, term.value));
+const shown = computed(() => props.logs.filter((e) => levelsOn.value.has(e.level) && (!category.value || e.category === category.value) && (!tag.value || (e.tags ?? []).includes(String(tag.value))) && matchesTerm(e)));
 
 // 봇 상태 탭과 같은 24시간 시각
 const clock = (ms: number) => formatClock(ms, { seconds: true });
