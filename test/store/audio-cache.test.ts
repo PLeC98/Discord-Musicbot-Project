@@ -443,12 +443,14 @@ test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로
   await withTempCacheDir(async (dir: string) => {
     const temp = path.join(dir, "track_0123456789abcdef0123456789abcdef.tmp-1-ab.opus");
     fs.writeFileSync(temp, "다운로드 중");
+    fs.writeFileSync(`${temp}.part`, "yt-dlp 가 쓰는 중"); // 다운로드하는 동안 임시 파일 옆에 생기는 부스러기
     audioCache.protectFile(temp);
     audioCache.recordDownloadStart("yt:downloading", { title: "t" });
     try {
       await audioCache.resetCache();
 
       assert.equal(fs.existsSync(temp), true, "임시 파일은 고아가 아니다");
+      assert.equal(fs.existsSync(`${temp}.part`), true, "그 부스러기도 다운로드 중이다");
       assert.equal(audioCache.lookupByAudioKey("yt:downloading")?.status, "downloading", "행이 남아야 끝날 때 고칠 곳이 있다");
       audioCache.recordDownloadComplete("yt:downloading", audioCache.getFilePath("yt:downloading"), 10, { title: "t" });
       assert.equal(audioCache._cacheCount(), 1, "완료가 행을 찾는다(크기 셈 · 퇴거에서 빠지지 않는다)");

@@ -160,6 +160,22 @@ function unprotectFile(filepath: string | null | undefined) {
 }
 
 /**
+ * 이 이름이 임시 파일(.opus)이나 그 부스러기인가. yt-dlp 는 다운로드하는 동안 임시 파일 옆에 .part · 조각 · info.json 을 둔다.
+ * 다운로드가 자기 부스러기를 치울 때와 초기화가 다운로드 중인 파일을 건너뛸 때 같은 규칙을 쓴다
+ */
+function isTempPiece(name: string, tempName: string) {
+  return name === tempName || name.startsWith(`${tempName.replace(/\.opus$/, "")}.`);
+}
+
+// 다운로드 중인 파일(보호 파일)이거나 그 부스러기인가
+function inDownload(target: string) {
+  if (protectedFiles.has(target)) return true;
+  const name = path.basename(target);
+  for (const file of protectedFiles) if (path.dirname(file) === path.dirname(target) && isTempPiece(name, path.basename(file))) return true;
+  return false;
+}
+
+/**
  * 길드의 대기열 보호 집합을 통째로 교체한다.
  *
  * 추가·삭제를 개별로 추적하지 않는 것이 요점이다. 대기열이 바뀔 때마다 전체를 다시 계산해
@@ -346,11 +362,11 @@ async function resetLocked() {
     }
   }
 
-  // DB가 모르는 파일까지 치운다(고아). 다운로드 중인 임시 파일은 건너뛴다
+  // DB가 모르는 파일까지 치운다(고아). 다운로드 중인 임시 파일과 그 부스러기는 건너뛴다
   if (fs.existsSync(dir)) {
     for (const file of fs.readdirSync(dir)) {
       const target = path.resolve(path.join(dir, file));
-      if (keptPaths.has(target)) continue;
+      if (keptPaths.has(target) || inDownload(target)) continue;
       if (await removeFile(target)) removed++;
       else kept++;
     }
@@ -725,6 +741,7 @@ export {
   onStartup,
   resetCache,
   removeCached,
+  isTempPiece,
   evictIfNeeded,
   evict,
   getCacheStats,

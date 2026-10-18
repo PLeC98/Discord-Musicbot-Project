@@ -78,7 +78,6 @@ function tempPathFor(filepath: string): string {
 /** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 삭제한다. 남이 다운로드 중인 파일은 건드리지 않는다 */
 function cleanTemp(tempPath: string): number {
   const dir = path.dirname(tempPath);
-  const stem = path.basename(tempPath, ".opus");
   let removed = 0;
   let names: string[];
   try {
@@ -87,7 +86,7 @@ function cleanTemp(tempPath: string): number {
     return 0;
   }
   for (const name of names) {
-    if (name !== path.basename(tempPath) && !name.startsWith(`${stem}.`)) continue;
+    if (!audioCache.isTempPiece(name, path.basename(tempPath))) continue;
     try {
       fsSync.unlinkSync(path.join(dir, name));
       removed++;

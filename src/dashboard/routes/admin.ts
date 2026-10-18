@@ -157,7 +157,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
 });
 
 // 캐시 초기화. 오디오 파일과 캐시 DB 의 표(링크 데이터 · SponsorBlock · 연령 제한 · 스포티파이 익명 상태)를 비운다. 서버 설정 · 저장된 대기열은 다른 DB 라 남는다.
-// 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
+// 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중 · 대기열 앞 · 다운로드 중인 파일은 남기고, 재생은 끊기지 않는다.
 adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
   try {
     const result = await audioCache.resetCache();
