@@ -36,6 +36,11 @@ import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 
+// 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 묻는다: 오래됐으면 reauth-required 로 로그인 창을 먼저 띄우고, 확인 창은 로그인을 마친 뒤에 연다
+adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
+  res.status(204).end();
+});
+
 // 봇 · Node · 시스템 상태(봇 상태 탭)
 adminRouter.get("/status", requireOwner, async (req, res) => {
   res.json(await adminStatus(req.app.locals.bot, signedIn(req).id, req.app.locals.stream, Boolean(req.app.locals.restart)));

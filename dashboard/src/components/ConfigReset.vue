@@ -16,7 +16,7 @@
             <p class="text-sm font-semibold" :class="kind === 'all' ? 'text-error' : 'text-on-surface'">{{ T.rows[kind].title }}</p>
             <p class="text-xs text-on-surface-variant">{{ T.rows[kind].desc }}</p>
           </div>
-          <BaseButton variant="ghost" class="text-error!" :disabled="busy || (kind === 'all' && view?.staged)" @click="ask(kind)">{{ busy && asking === kind ? T.running : T.run }}</BaseButton>
+          <BaseButton variant="ghost" class="text-error!" :disabled="busy || (kind === 'all' && view?.staged)" @click="void ask(kind)">{{ busy && asking === kind ? T.running : T.run }}</BaseButton>
         </div>
       </div>
     </BaseCard>
@@ -65,6 +65,7 @@ import { text } from "../text/index.ts";
 import NoticeBox from "./NoticeBox.vue";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { askRestart, currentPid, waitRestart } from "../composables/bot-restart.ts";
+import { ensureRecentLogin } from "../composables/session.ts";
 import { LIMIT } from "../utils/request.ts";
 import { FIELD } from "../utils/field.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
@@ -92,7 +93,9 @@ async function load() {
 }
 onMounted(load);
 
-function ask(kind: ResetKind) {
+async function ask(kind: ResetKind) {
+  // 로그인한 지 오래됐으면 로그인 창을 먼저(그만두면 확인 창을 열지 않는다)
+  if (!(await ensureRecentLogin())) return;
   asking.value = kind;
   typed.value = "";
   for (const part of AUDIO_CACHE_PARTS) parts[part] = AUDIO_CACHE_PARTS_DEFAULT.includes(part);

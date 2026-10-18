@@ -670,6 +670,24 @@ test("AI 키: 로그인한 지 오래됐으면 reauth-required", async () => {
   }
 });
 
+// 화면이 위험한 조작의 확인 창을 열기 전에 묻는다: 최근이면 204, 오래됐으면 reauth-required(로그인 창을 먼저 띄운다)
+test("최근 로그인 묻기: 최근이면 204, 오래됐으면 reauth-required", async () => {
+  assert.equal((await fetch(`${base}/api/admin/recent-login`)).status, 204);
+  const app = express();
+  app.use((reqq, _res, next) => {
+    reqq.session = fake<typeof reqq.session>({ user: { id: "owner", username: "owner" }, loginAt: Date.now() - 11 * 60_000 });
+    next();
+  });
+  app.use("/api/admin", adminRouter);
+  const late = await listenForFetch(app);
+  try {
+    const res = await requestJson<ProblemReply>(baseUrl(late), "GET", "/api/admin/recent-login");
+    assert.deepEqual([res.status, res.json.code], [403, "reauth-required"]);
+  } finally {
+    late.close();
+  }
+});
+
 // 다시 시작은 실행기가 있을 때만. 답을 보낸 뒤에 내린다(화면이 답을 받아야 기다리기 시작한다)
 test("다시 시작: 실행기 없이 켰으면 409, 있으면 202 를 보낸 뒤 내리고 상태에 알린다", async () => {
   assert.equal((await req<{ env: { launcher: boolean } }>("GET", "/api/admin/status")).json.env.launcher, false);

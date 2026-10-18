@@ -5,6 +5,7 @@
 // streamDown: 탭의 실시간 연결(stores/guilds)이 열려 있지 않다. 다시 잇는 동안은 30초마다 전부 다시 읽는다
 
 import { reactive } from "vue";
+import axios from "axios";
 
 export const session = reactive({ ended: false, reauth: false, offline: false, streamDown: false });
 
@@ -54,6 +55,19 @@ export function endReauth(signedIn: boolean): void {
   const waiters = reauthWaiters;
   reauthWaiters = [];
   for (const resolve of waiters) resolve(signedIn);
+}
+
+/**
+ * 최근 로그인이어야 하는 조작(초기화 · 복원 · 불러오기)의 확인 창을 열기 전에. 로그인한 지 오래됐으면 로그인 창을 먼저 연다(요청 한 곳의 다시 로그인 흐름).
+ * 이어 가도 되면 true. 다시 로그인을 그만뒀거나 봇에 닿지 못하면 false(확인 창을 열지 않는다)
+ */
+export async function ensureRecentLogin(): Promise<boolean> {
+  try {
+    await axios.get("/api/admin/recent-login");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** 실시간 연결 · 주기 읽기를 해도 되는지. 탭이 보이고 세션이 살아 있을 때만 */

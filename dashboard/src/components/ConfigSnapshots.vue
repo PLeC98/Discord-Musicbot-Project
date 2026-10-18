@@ -18,7 +18,7 @@
             <span class="block text-body font-medium">{{ formatDateTime(row.at) }}</span>
             <span class="block text-label text-on-surface-variant">{{ T.kinds[row.kind] }} · {{ formatBytes(row.bytes) }}</span>
           </span>
-          <BaseButton variant="ghost" size="sm" :disabled="busy" @click="asking = row"><Icon name="undo" :size="18" />{{ T.restore }}</BaseButton>
+          <BaseButton variant="ghost" size="sm" :disabled="busy" @click="void ask(row)"><Icon name="undo" :size="18" />{{ T.restore }}</BaseButton>
         </li>
       </ul>
     </BaseCard>
@@ -39,6 +39,7 @@ import { formatBytes } from "../../../src/ui/format.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { restartNow } from "../composables/bot-restart.ts";
+import { ensureRecentLogin } from "../composables/session.ts";
 import type { Snapshot, SnapshotsView } from "../../../src/rules/snapshots.ts";
 import { text } from "../text/index.ts";
 const T = text.snapshots;
@@ -51,6 +52,10 @@ const view = ref<SnapshotsView | null>(null);
 const loadError = ref("");
 const busy = ref(false);
 const asking = ref<Snapshot | null>(null);
+// 로그인한 지 오래됐으면 로그인 창을 먼저(그만두면 확인 창을 열지 않는다)
+async function ask(row: Snapshot) {
+  if (await ensureRecentLogin()) asking.value = row;
+}
 
 async function load() {
   try {

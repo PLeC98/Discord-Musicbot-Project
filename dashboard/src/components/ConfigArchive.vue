@@ -74,6 +74,7 @@ import { LIMIT } from "../utils/request.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { askRestart } from "../composables/bot-restart.ts";
+import { ensureRecentLogin } from "../composables/session.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
 import { ARCHIVE_ITEMS, ARCHIVE_KINDS, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview, type ArchiveRow } from "../../../src/dashboard/contract/settings-archive.ts";
 import { text } from "../text/index.ts";
@@ -122,7 +123,8 @@ async function picked(event: Event) {
   const input = event.target as HTMLInputElement;
   const one = input.files?.[0] ?? null;
   input.value = "";
-  if (!one) return;
+  // 가져오기는 최근 로그인만. 오래됐으면 로그인 창을 먼저(그만두면 올리지 않고 선택 창도 열지 않는다)
+  if (!one || !(await ensureRecentLogin())) return;
   busy.value = true;
   try {
     const res = await axios.request<ArchivePreview>({ method: "POST", url: `${BASE}/preview`, headers: { "Content-Type": "application/zip" }, timeout: LIMIT.long, data: one });
