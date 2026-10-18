@@ -20,7 +20,7 @@ import type { Response } from "express";
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
 
-const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", full: "암호화된 설정까지", favicon: "파비콘", "login-background": "로그인 배경" };
+const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경" };
 
 // 읽지 못한 파일(ZIP 이 깨졌거나 이 봇의 내보내기가 아님)은 그 까닭과 함께 400
 function unreadable(res: Response, error: unknown) {
@@ -36,7 +36,7 @@ const tickets = new Map<string, { kind: ArchiveKind; by: string; until: number }
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
-// kind: settings(봇 설정만) · full(암호화된 설정까지) · favicon(파비콘) · login-background(로그인 배경). 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다
+// kind: settings(봇 설정만) · favicon(파비콘) · login-background(로그인 배경). 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다
 settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");
   if (!isArchiveKind(kind)) return sendProblem(res, "nothing-to-save");
@@ -100,8 +100,8 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 가져올 때만)
     const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
     uploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 가져오기: ${imported.join(" · ")}. 실행 ${ranBy(req)}`);
-    res.json({ imported } satisfies ArchiveImported);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 가져오기: ${imported.imported.join(" · ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
+    res.json(imported satisfies ArchiveImported);
   } catch (error) {
     if (unreadable(res, error)) return;
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });

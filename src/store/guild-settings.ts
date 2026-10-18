@@ -133,39 +133,12 @@ const table = {
   },
 };
 
-// ── 내보내기 · 가져오기 ──
-
-/** 서버마다의 문서 전부(틀린 필드는 뺀 형태) */
-function allDocs(): Record<string, GuildDoc> {
-  const rows = conn().prepare("SELECT guild_id, data_json FROM guild_settings ORDER BY guild_id").all() as { guild_id: string; data_json: string }[];
-  return Object.fromEntries(rows.map((row) => [row.guild_id, shapeOf(row.guild_id, row.data_json)]).filter(([, doc]) => Object.keys(doc).length));
-}
-
-/** 받은 서버별 설정의 문제 줄들. 서버 ID 는 숫자, 필드는 아는 것만, 값은 읽을 때와 같은 검사 */
-function docsProblems(value: unknown): string[] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return ["서버별 설정이 서버 ID → 설정 형식이 아닙니다."];
-  const problems: string[] = [];
-  for (const [guildId, doc] of Object.entries(value)) {
-    if (!/^\d{15,25}$/.test(guildId)) problems.push(`${guildId}: 서버 ID 가 아닙니다.`);
-    if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
-      problems.push(`${guildId}: 설정이 객체 형식이 아닙니다.`);
-      continue;
-    }
-    for (const [key, field] of Object.entries(doc)) {
-      const schema = FIELDS[key as keyof typeof FIELDS];
-      if (!schema) problems.push(`${guildId}.${key}: 모르는 필드입니다.`);
-      else if (!schema.safeParse(field).success) problems.push(`${guildId}.${key}: 값이 틀렸습니다.`);
-    }
-  }
-  return problems;
-}
-
 /** 설정이 있는 서버 수(초기화 카드) */
 function guildCount(): number {
   return conn().prepare("SELECT COUNT(*) FROM guild_settings").pluck().get() as number;
 }
 
-/** 서버별 설정을 받은 것으로 통째 바꾼다(가져오기, 검사는 docsProblems 로 먼저). 빈 문서는 두지 않는다. 메모리는 부른 쪽이 forgetCache */
+/** 서버별 설정을 받은 것으로 통째 바꾼다(서버별 설정 초기화). 빈 문서는 두지 않는다. 메모리는 부른 쪽이 forgetCache */
 function replaceAll(docs: Record<string, GuildDoc>) {
   conn().transaction(() => {
     conn().prepare("DELETE FROM guild_settings").run();
@@ -378,5 +351,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, forgetCache, guildCount, allDocs, docsProblems, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
 export type { SponsorBlockSetting, GuildDoc };

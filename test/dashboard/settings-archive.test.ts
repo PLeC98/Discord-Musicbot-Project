@@ -23,7 +23,6 @@ const tunables = await import("../../src/store/tunables.ts");
 const guildSettings = await import("../../src/store/guild-settings.ts");
 const appearance = await import("../../src/dashboard/appearance.ts");
 const snapshots = await import("../../src/store/snapshots.ts");
-const secrets = await import("../../src/store/secrets.ts");
 const { RECENT_LOGIN_MS } = await import("../../src/dashboard/middleware/recent-login.ts");
 const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
@@ -65,8 +64,8 @@ after(() => {
 
 type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; warnings: string[]; count: number | null };
 
-/** 내보낸 파일. 기본은 암호화된 설정까지(파비콘 말고 모든 항목이 든다) */
-async function exported(kind: "settings" | "full" | "favicon" = "full") {
+/** 내보낸 파일. 기본은 봇 설정만 */
+async function exported(kind: "settings" | "favicon" = "settings") {
   // 두 단계: 한 번 쓰는 주소를 받아 그 주소에서 다운로드한다
   const ticket = await fetch(`${base}/export?kind=${kind}`, { method: "POST" });
   assert.equal(ticket.status, 200);
@@ -105,19 +104,17 @@ const square = (side: number) =>
     .png()
     .toBuffer();
 
-test("암호화된 설정까지: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷 · 서버별 설정 · 키 암호문) 하나. 파비콘은 들지 않는다", async () => {
+test("봇 설정만: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷) 하나. 서버별 설정 · 키 · 파비콘은 들지 않는다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300" }, 0);
   guildSettings.table.setBotChannel("123456789012345678", "222222222222222222");
   assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
 
   const file = await exported();
   const json = settingsOf(file);
-  assert.deepEqual([json.format, json.kind], [1, "full"]);
+  assert.deepEqual([json.format, json.kind], [1, "settings"]);
   assert.deepEqual(json.tunables, { QUEUE_MAX_TRACKS: "300" });
-  assert.deepEqual(json.secrets, [], "넣어 둔 키가 없다");
   assert.deepEqual(Object.keys(json.documents as object), ["genres", "status", "ai", "ai-prompt"]);
-  assert.deepEqual(json.guilds, { "123456789012345678": { botChannelId: "222222222222222222" } });
-  assert.ok(!("favicons" in json));
+  assert.ok(!("guilds" in json) && !("secrets" in json) && !("favicons" in json));
   assert.deepEqual(
     unzip(file).map((one) => one.name),
     ["settings.json"],
@@ -150,7 +147,7 @@ test("자기 내보내기를 미리 보면 모두 파일에 있고 지금과 같
   let rows = rowsOf((await preview(file)).json);
   assert.deepEqual(
     Object.values(rows).map((one) => [one.item, one.inFile, one.same, one.problems.length]),
-    ["tunables", "genres", "status", "ai", "ai-prompt", "guilds", "secrets"].map((item) => [item, true, true, 0]),
+    ["tunables", "genres", "status", "ai", "ai-prompt"].map((item) => [item, true, true, 0]),
   );
 
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
@@ -164,27 +161,24 @@ test("자기 내보내기를 미리 보면 모두 파일에 있고 지금과 같
   );
 });
 
-test("선택한 항목만 덮어쓰고 메모리(설정 객체 · 문서 · 서버별 설정)까지 맞춘다. 선택하지 않은 것은 그대로", async () => {
-  guildSettings.table.setBotChannel("123456789012345678", "111111111111111111");
+test("선택한 항목만 덮어쓰고 메모리(설정 객체 · 문서)까지 맞춘다. 선택하지 않은 것 · 서버별 설정은 그대로", async () => {
   const file = await exported();
 
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
   documents.put("status", { interval: 30, messages: ["바뀐 문구"] }, documents.revisionOf("status"));
   guildSettings.table.setBotChannel("123456789012345678", "999999999999999999");
-  guildSettings.table.setDjRoles("876543210987654321", ["333333333333333333"]);
   const statusRevision = documents.revisionOf("status");
 
-  const res = await send("import?items=tunables,guilds", file);
+  const res = await send("import?items=tunables", file);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { imported: ["tunables", "guilds"] });
+  assert.deepEqual(await res.json(), { imported: ["tunables"], restart: false, cookiesSource: null });
   assert.ok(
     snapshots.list().some((one) => one.kind === "before-import"),
     "쓰기 전에 스냅샷을 남긴다",
   );
 
   assert.equal(config.bot.maxQueueSize, 250, "운영 조절값은 기본값(파일에 없던 필드)으로");
-  assert.equal(await guildSettings.getBotChannel("123456789012345678"), "111111111111111111");
-  assert.deepEqual(await guildSettings.getDjRoles("876543210987654321"), [], "파일에 없던 서버의 설정은 지운다");
+  assert.equal(await guildSettings.getBotChannel("123456789012345678"), "999999999999999999", "서버별 설정은 백업에 없다");
   assert.deepEqual((documents.get("status") as { messages: string[] }).messages, ["바뀐 문구"], "고르지 않은 문서는 그대로");
   assert.equal(documents.revisionOf("status"), statusRevision);
 });
@@ -206,14 +200,14 @@ test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모
   assert.ok(rows.status.problems.length && rows.tunables.problems.length, "미리 보기도 까닭을 보인다");
 
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
-  guildSettings.table.setBotChannel("123456789012345678", "999999999999999999");
-  const res = await send("import?items=guilds,status,tunables", file);
+  const genresRevision = documents.revisionOf("genres");
+  const res = await send("import?items=genres,status,tunables", file);
   const json = (await res.json()) as { code: string; errors: { detail: string }[] };
   assert.deepEqual([res.status, json.code], [400, "config-invalid"]);
   assert.ok(json.errors.some((one) => one.detail.startsWith("활동 문구:")));
   assert.ok(json.errors.some((one) => one.detail.startsWith("운영 조절값:")));
   assert.equal(config.bot.maxQueueSize, 77);
-  assert.equal(await guildSettings.getBotChannel("123456789012345678"), "999999999999999999", "검사를 지난 항목도 쓰지 않는다");
+  assert.equal(documents.revisionOf("genres"), genresRevision, "검사를 지난 항목도 쓰지 않는다");
 });
 
 // 평문으로 남는 필드에 비밀 헤더를 적어 가져오지 못한다(저장 때와 같은 검사)
@@ -227,9 +221,10 @@ test("AI 설정의 추가 인자에 비밀 헤더가 있으면 꺼 두었어도 
 });
 
 test("파일에 없는 항목 · 모르는 항목 · 빈 목록은 거절한다", async () => {
-  const file = rewrite(await exported(), (json) => delete json.guilds);
-  assert.equal(rowsOf((await preview(file)).json).guilds.inFile, false);
-  assert.equal((await send("import?items=guilds", file)).status, 400);
+  const file = rewrite(await exported(), (json) => delete (json.documents as Record<string, unknown>).genres);
+  assert.equal(rowsOf((await preview(file)).json).genres.inFile, false);
+  assert.equal((await send("import?items=genres", file)).status, 400);
+  assert.equal((await send("import?items=guilds", file)).status, 400, "없어진 항목");
   assert.equal((await send("import?items=env", file)).status, 400);
   assert.equal((await send("import", file)).status, 400);
 });
@@ -339,27 +334,41 @@ test("다운로드 주소는 한 번만 쓴다(다시 열면 404). 모르는 티
 test("내보내기 · 가져오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
   const file = await exported();
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
-  for (const kind of ["settings", "full", "favicon", "login-background"]) assert.equal((await fetch(`${base}/export?kind=${kind}`, { method: "POST" })).status, 403);
+  for (const kind of ["settings", "favicon", "login-background"]) assert.equal((await fetch(`${base}/export?kind=${kind}`, { method: "POST" })).status, 403);
   assert.equal((await send("import?items=genres", file)).status, 403);
   assert.equal((await preview(file)).status, 200);
 });
 
-// 남에게 나눠 줄 파일: 서버별 설정 · 키가 없고, 이 PC 에만 맞는 값(쿠키 출처 · POToken)도 빠진다
-test("봇 설정만: 서버별 설정 · 키 · PC 에 매인 값이 없고, 불러와도 PC 에 매인 지금 값은 지킨다", async () => {
+// PC 에 매인 값(쿠키 출처 · POToken)도 담고 불러온다. 바뀌면 미리 보기가 알리고, 불러온 뒤 답이 다시 시작 · 쿠키 출처를 알린다
+test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지 · 바뀐 쿠키 출처를 답한다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" }, 0);
-  guildSettings.table.setBotChannel("123456789012345678", "222222222222222222");
-  const file = await exported("settings");
-  const json = settingsOf(file);
-  assert.equal(json.kind, "settings");
-  assert.deepEqual(json.tunables, { QUEUE_MAX_TRACKS: "300" });
-  assert.ok(!("guilds" in json) && !("secrets" in json));
-  const rows = rowsOf((await preview(file)).json);
-  assert.ok(!("guilds" in rows) && !("secrets" in rows), "그 종류의 항목만 보인다");
-  assert.equal(rows.tunables.same, true, "PC 에 매인 값은 지금 것을 지키니 같다");
+  const file = await exported();
+  assert.deepEqual(settingsOf(file).tunables, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
 
-  tunables.save({ QUEUE_MAX_TRACKS: "77", COOKIES_SOURCE: "chrome" }, tunables.view().revision);
-  assert.equal((await send("import?items=tunables", file)).status, 200);
-  assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "chrome" }, "남의 파일이 쿠키 출처를 정하지 못한다");
+  tunables.save({ QUEUE_MAX_TRACKS: "77" }, tunables.view().revision);
+  const rows = rowsOf((await preview(file)).json);
+  assert.deepEqual(rows.tunables.warnings, ["쿠키 출처가 바뀌어요: 쓰지 않음 → firefox", "POToken 사용이 바뀌어요(다시 시작해야 적용돼요)"]);
+
+  const res = await send("import?items=tunables", file);
+  assert.deepEqual(await res.json(), { imported: ["tunables"], restart: true, cookiesSource: "firefox" }, "기동 때 POToken 은 꺼져 있었다");
+  assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
+});
+
+// 예전의 암호화된 설정까지(full) 파일: 모르는 종류라 봇 설정만으로 읽고, 서버별 설정 · 키는 불러오지 않는다
+test("예전의 full 파일은 봇 설정만으로 읽힌다", async () => {
+  const old = rewrite(await exported(), (json) => {
+    json.kind = "full";
+    json.guilds = { "123456789012345678": { botChannelId: "222222222222222222" } };
+    json.secrets = [{ name: "ai.openai" }];
+  });
+  const { json } = await preview(old);
+  assert.equal(json.kind, "settings");
+  assert.deepEqual(
+    json.rows.map((one) => one.item),
+    ["tunables", "genres", "status", "ai", "ai-prompt"],
+  );
+  assert.equal((await send("import?items=tunables", old)).status, 200);
+  assert.equal(await guildSettings.getBotChannel("123456789012345678"), null);
 });
 
 // 남이 준 파일로 모르고 가져오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
@@ -375,60 +384,4 @@ test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다"
   assert.match(rows.ai.warnings.join(), /evil\.example/);
   assert.match(rows.status.warnings.join(), /phish\.example\/free/);
   assert.deepEqual(rows.genres.warnings, []);
-});
-
-const KEY = Buffer.alloc(32, 7).toString("base64");
-const OTHER_KEY = Buffer.alloc(32, 8).toString("base64");
-const SECRET = "sk-archive-test-0123456789";
-
-test("키 · 쿠키: 암호문으로 내보내고 같은 SECRETS_KEY 에서 복원한다. 끝 네 글자는 풀어서 다시 센다", async () => {
-  secrets._useKey(KEY);
-  try {
-    secrets.put("ai.openai", SECRET, { provider: "openai", endpoint: "https://api.openai.com" });
-    const file = await exported("full");
-    const sealed = (settingsOf(file).secrets as Array<Record<string, unknown>>)[0];
-    assert.equal(sealed.name, "ai.openai");
-    assert.ok(!("last4" in sealed), "끝 네 글자는 담지 않는다");
-    assert.ok(!JSON.stringify(settingsOf(file)).includes(SECRET.slice(0, -4)), "값은 암호문으로만");
-
-    secrets.remove("ai.openai");
-    const rows = rowsOf((await preview(file)).json);
-    assert.deepEqual([rows.secrets.count, rows.secrets.same, rows.secrets.problems], [1, false, []]);
-    assert.equal((await send("import?items=secrets", file)).status, 200);
-    assert.deepEqual(secrets.read("ai.openai", { provider: "openai", endpoint: "https://api.openai.com" }), { state: "ok", value: SECRET });
-    assert.equal(secrets.status("ai.openai").last4, SECRET.slice(-4));
-  } finally {
-    secrets.remove("ai.openai");
-    secrets._useKey();
-  }
-});
-
-test("키 · 쿠키: 다른 SECRETS_KEY 로 잠근 값 · 바꾼 암호문 · 꾸민 끝 네 글자는 받지 않는다", async () => {
-  secrets._useKey(OTHER_KEY);
-  let file: Buffer;
-  try {
-    secrets.put("ai.openai", SECRET, { provider: "openai", endpoint: "https://api.openai.com" });
-    file = await exported("full");
-  } finally {
-    secrets.remove("ai.openai");
-  }
-  secrets._useKey(KEY);
-  try {
-    const rows = rowsOf((await preview(file)).json);
-    assert.match(rows.secrets.problems.join(), /다른 키로 잠근 값 1개/);
-    assert.equal((await send("import?items=secrets", file)).status, 400);
-
-    // 같은 키로 잠갔지만 주소를 공격자 서버로 바꾸거나 암호문을 건드렸다: 인증 데이터가 맞지 않아 풀리지 않는다
-    secrets.put("ai.openai", SECRET, { provider: "openai", endpoint: "https://api.openai.com" });
-    const good = await exported("full");
-    secrets.remove("ai.openai");
-    const moved = rewrite(good, (json) => ((json.secrets as Array<Record<string, unknown>>)[0].endpoint = "https://evil.example"));
-    assert.equal((await send("import?items=secrets", moved)).status, 400);
-    const forged = rewrite(good, (json) => ((json.secrets as Array<Record<string, unknown>>)[0].last4 = "XXXX"));
-    assert.equal((await send("import?items=secrets", forged)).status, 200);
-    assert.equal(secrets.status("ai.openai").last4, SECRET.slice(-4), "파일의 끝 네 글자를 믿지 않는다");
-  } finally {
-    secrets.remove("ai.openai");
-    secrets._useKey();
-  }
 });

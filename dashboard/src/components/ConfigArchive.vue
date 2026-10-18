@@ -1,5 +1,5 @@
 <template>
-  <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만(나눠 줄 것) · 암호화된 설정까지(서버별 설정 · 키 · 쿠키의 암호문) · 파비콘 · 로그인 배경) · 백업 불러오기.
+  <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만 · 파비콘 · 로그인 배경) · 백업 불러오기.
        불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 선택한 것만 덮어쓴다. 내보내기 · 불러오기는 최근 로그인만.
        설명은 짧게, 길어지는 주의는 제목 옆 툴팁으로(2026-10-17 사용자). .env 까지 담는 전체 백업은 대시보드가 아니라 봇 폴더의 명령(pnpm run backup)이다 -->
   <!-- 루트 하나(받은 class 가 카드 그룹에 붙게). 미리 보기 창은 body 로 옮겨 그린다 -->
@@ -15,7 +15,7 @@
       </div>
     </BaseCard>
     <BaseCard icon="upload" :title="T.importTitle">
-      <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.importDesc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.tips.import" /></p>
+      <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.importDesc }}<Icon v-if="T.tips.import" name="info" :size="16" class="cursor-help" v-tooltip="T.tips.import" /></p>
       <BaseButton variant="secondary" :disabled="busy" @click="fileEl?.click()"><Icon name="upload" :size="18" />{{ T.importButton }}</BaseButton>
       <input ref="fileEl" type="file" accept=".zip,application/zip" class="hidden" @change="picked" />
     </BaseCard>

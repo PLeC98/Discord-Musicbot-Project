@@ -6,13 +6,13 @@
 // 불러오기는 파일을 한 번 올려 미리 보고(POST /preview, 올린 파일의 토큰 token), 선택한 항목만 그 토큰으로 덮어쓴다(POST /import?token=…&items=…).
 // 올린 파일은 가져오거나 닫거나(DELETE /upload/:token) 1시간이 지나면 삭제한다. 올리는 크기에 고정 상한은 없고 남은 공간으로만 막는다
 
-/** settings: 봇 설정만(남에게 나눠 줄 것), full: 서버별 설정 · 키 · 쿠키의 암호문까지, favicon: 파비콘(슬롯 · 기록), login-background: 로그인 배경(다 만든 배경 · 화면 값 · 한도) */
-const ARCHIVE_KINDS = ["settings", "full", "favicon", "login-background"] as const;
+/** settings: 봇 설정만(서버별 설정 · 키 · 쿠키는 없다), favicon: 파비콘(슬롯 · 기록), login-background: 로그인 배경(다 만든 배경 · 화면 값 · 한도) */
+const ARCHIVE_KINDS = ["settings", "favicon", "login-background"] as const;
 type ArchiveKind = (typeof ARCHIVE_KINDS)[number];
 const isArchiveKind = (value: string): value is ArchiveKind => (ARCHIVE_KINDS as readonly string[]).includes(value);
 
-/** 가져올 수 있는 항목. 설정 문서 넷 · 운영 조절값 · 서버별 설정 · 키 · 쿠키(암호문) · 파비콘 · 로그인 배경 */
-const ARCHIVE_ITEMS = ["tunables", "genres", "status", "ai", "ai-prompt", "guilds", "secrets", "favicon", "login-background"] as const;
+/** 가져올 수 있는 항목. 설정 문서 넷 · 운영 조절값 · 파비콘 · 로그인 배경 */
+const ARCHIVE_ITEMS = ["tunables", "genres", "status", "ai", "ai-prompt", "favicon", "login-background"] as const;
 type ArchiveItem = (typeof ARCHIVE_ITEMS)[number];
 
 const isArchiveItem = (value: string): value is ArchiveItem => (ARCHIVE_ITEMS as readonly string[]).includes(value);
@@ -26,8 +26,11 @@ type ArchiveRow = { item: ArchiveItem; inFile: boolean; same: boolean; problems:
 type ArchivePreview = { token: string; kind: ArchiveKind; exportedAt: string | null; botVersion: string | null; rows: ArchiveRow[] };
 /** 내보내기의 답. url 은 한 번 쓰는 다운로드 주소(1분 안에) */
 type ArchiveDownload = { url: string };
-/** 가져오기의 답. 덮어쓴 항목 */
-type ArchiveImported = { imported: ArchiveItem[] };
+/**
+ * 가져오기의 답. imported: 덮어쓴 항목 · restart: 다시 시작해야 먹는 값(POToken · SponsorBlock)이 바뀌었다(화면이 "지금 다시 시작 · 나중에" 창을 연다) ·
+ * cookiesSource: 쿠키 출처가 바뀌었으면 새 값("file" 은 쿠키 직접 입력, 그 밖은 브라우저 이름. 꺼졌거나 그대로면 null)
+ */
+type ArchiveImported = { imported: ArchiveItem[]; restart: boolean; cookiesSource: string | null };
 
 export { ARCHIVE_KINDS, ARCHIVE_ITEMS, isArchiveKind, isArchiveItem };
 export type { ArchiveKind, ArchiveItem, ArchiveRow, ArchivePreview, ArchiveDownload, ArchiveImported };
