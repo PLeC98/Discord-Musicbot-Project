@@ -154,6 +154,7 @@ test("모든 문장", () => {
       "background-failed": shown(notice("background-failed")),
       "background-bad-source": shown(notice("background-bad-source")),
       "background-link-failed": shown(notice("background-link-failed")),
+      "background-no-video-encoder": shown(notice("background-no-video-encoder")),
     },
     {
       "must-be-in-voice": "warning 🎧 먼저 음성 채널에 접속해 주세요!\n그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요.",
@@ -300,6 +301,7 @@ test("모든 문장", () => {
       "background-failed": "error ❌ 배경을 만들지 못했어요!\n봇 로그에 적힌 원인을 확인하고 다시 올려 주세요.",
       "background-bad-source": "warning ✏️ 쓸 수 없는 파일이에요!\n이미지 · 영상 · 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요.",
       "background-link-failed": "warning ✏️ 링크에서 가져오지 못했어요!\n주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.",
+      "background-no-video-encoder": "warning ⚠️ 이 기기에서는 영상 배경을 만들 수 없어요!\n봇의 ffmpeg 에 H.264 나 VP9 인코더가 있어야 해요. 이미지 배경은 쓸 수 있어요.",
     },
   );
 });

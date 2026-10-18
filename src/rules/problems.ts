@@ -193,6 +193,8 @@ const WEB = {
   "background-bad-source": { status: 422, title: "Not a usable image or video" },
   // 링크에서 다운로드하지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
+  // 봇의 ffmpeg 에 영상 배경을 만들 인코더(H.264 · VP9)가 없다. 이미지 배경은 된다
+  "background-no-video-encoder": { status: 409, title: "No encoder for video backgrounds" },
   // 대시보드: 캐시 DB. 필터 식(열마다 · 아무 열에서나)과 읽는 구간
   "bad-filter": { status: 400, title: "Invalid filter expression" },
   "filter-too-long": { status: 400, title: "Filter expression is too long", params: ["max"] },

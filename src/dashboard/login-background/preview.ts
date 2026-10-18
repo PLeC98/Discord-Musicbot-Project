@@ -30,17 +30,19 @@ const SET_TIME = { full: 20, fhd: 7 };
 const H264_BYTES_PER_SECOND = 2_500_000 / 8;
 /** 영상 썸네일 세트의 어림(품질 95 WebP 의 화소당 크기) */
 const STILL_BYTES_PER_PIXEL = 0.12;
-/** H.264 미리보기의 인코더별 옵션(인코딩의 720p 와 같은 방식) */
-const PREVIEW_H264: Record<string, string[]> = {
+/** 미리보기의 인코더별 옵션(H.264 는 인코딩의 720p 와 같은 방식). H.264 가 없으면 VP9(WebM, 빠르게) */
+const PREVIEW_OPTIONS: Record<string, string[]> = {
   h264_nvenc: ["-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "2"],
   libopenh264: ["-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51"],
+  libx264: ["-preset", "veryfast", "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "2500k"],
+  "libvpx-vp9": ["-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1", "-b:v", "2500k"],
 };
 const FULL: LoginBackgroundCrop = { x: 0, y: 0, w: 1, h: 1 };
 
-const previewVideo = (id: string) => path.join(store.folderOf(id), "preview.mp4");
+const previewVideo = (id: string, ext: "mp4" | "webm") => path.join(store.folderOf(id), `preview.${ext}`);
 const previewImage = (id: string) => path.join(store.folderOf(id), "preview.webp");
 /** 편집 창의 미리보기 파일(없으면 null) */
-const previewOf = (id: string) => [previewVideo(id), previewImage(id)].find((file) => fs.existsSync(file)) ?? null;
+const previewOf = (id: string) => [previewVideo(id, "mp4"), previewVideo(id, "webm"), previewImage(id)].find((file) => fs.existsSync(file)) ?? null;
 
 /** framecrc 의 패킷 크기를 초마다 더한다(장면이 없는 초는 0) */
 function perSecondOf(framecrc: string): number[] {
@@ -91,21 +93,25 @@ async function previewOfImage(item: Readonly<Stored>): Promise<StageResult> {
 
 async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progress: (value: number) => void): Promise<StageResult> {
   await encodersReady();
+  // 편집 창이 트는 미리보기: H.264, 없으면 VP9. 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다)
   const h264 = encoderFor("h264");
-  if (!h264) throw codedError("background-failed", "H.264 인코더가 없습니다");
+  const encoder = h264 ?? encoderFor("vp9");
+  if (!encoder) throw codedError("background-no-video-encoder", "H.264 · VP9 인코더가 없어 영상 배경을 만들 수 없습니다");
+  const ext = h264 ? "mp4" : "webm";
+  const container = h264 ? ["-movflags", "+faststart", "-f", "mp4"] : ["-f", "webm"];
   const source = store.sourceOf(item.id);
   const probed = await probeVideo(source, signal);
   const probe = canProbe();
   const view = fitShort(probed.width, probed.height, PREVIEW_SHORT);
   const measure = fitShort(probed.width, probed.height, PROBE_SHORT);
   const graph = `${sourceFilter(probed)},split=${probe ? 2 : 1}[a]${probe ? "[b]" : ""};[a]${scaleTo(view)}[p]${probe ? `;[b]${scaleTo(measure)}[e]` : ""}`;
-  const part = `${previewVideo(item.id)}.part`;
+  const part = `${previewVideo(item.id, ext)}.part`;
   // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg 가 덮어쓰지 않는다
   fs.rmSync(part, { force: true });
   // 어림(AV1 preset 12)은 1.5GB 남짓: 다른 배경을 인코딩하는 중이면 남은 메모리를 기다린다
   if (probe) await enoughMemory(needOf({ codec: "probe" }), "크기 어림", signal);
   const started = Date.now();
-  const run = await ffmpeg([...["-v", "error", ...PROGRESS_ARGS, ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", h264, ...(PREVIEW_H264[h264] ?? []), "-g", "60", "-movflags", "+faststart", "-f", "mp4", part], ...(probe ? probeOutput("[e]") : [])], {
+  const run = await ffmpeg([...["-v", "error", ...PROGRESS_ARGS, ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", encoder, ...(PREVIEW_OPTIONS[encoder] ?? []), "-g", "60", ...container, part], ...(probe ? probeOutput("[e]") : [])], {
     signal,
     ...longJob(item.duration),
     onStderrLine: (line) => {
@@ -118,7 +124,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
     fs.rmSync(part, { force: true });
     throw codedError("background-failed", `미리보기를 만들지 못했습니다: ${run.timedOut ? "시간 초과" : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ")}`);
   }
-  fs.renameSync(part, previewVideo(item.id));
+  fs.renameSync(part, previewVideo(item.id, ext));
   if (!probe) return {};
   const seconds = (Date.now() - started) / 1000;
   const scale = upscale(item, probed, FULL);

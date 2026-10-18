@@ -1,6 +1,7 @@
 // 로그인 배경을 인코딩하는 인코더. 봇이 켜질 때마다 코덱마다 후보를 작은 테스트로 돌려 쓸 수 있는 첫 것을 선택한다(뒤에서, 봇 시작을 막지 않는다. 이 PC 에서 1초 안쪽).
 // 기록해 두지 않는다: 기기가 바뀌었는지 알아보는 비용(Windows 의 장치 정보 읽기)이 테스트의 절반쯤이고, 드라이버 · 라이브러리만 바뀌어도 늘 맞는다. 인코딩하다 인코더가 실패하면 다시 테스트한다(recheck).
-// 후보는 같은 화질이 되는 값을 재 둔 인코더만이다: AV1 은 SVT-AV1, VP9 은 libvpx, H.264 는 NVENC → OpenH264. 하드웨어 AV1 · VP9 은 값을 재면 더한다
+// 후보는 같은 화질이 되는 값을 재 둔 인코더만이다: AV1 은 SVT-AV1, VP9 은 libvpx, H.264 는 NVENC → OpenH264 → x264(OpenH264 가 없는 ffmpeg 몫. 720p 는 고정 비트레이트 규격이라 같은 규격으로).
+// 하드웨어 AV1 · VP9 은 값을 재면 더한다
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
@@ -16,6 +17,7 @@ const CANDIDATES: Record<LoginBackgroundCodec, Candidate[]> = {
   h264: [
     { encoder: "h264_nvenc", hardware: true, options: ["-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "2"] },
     { encoder: "libopenh264", hardware: false, options: ["-b:v", "2500k"] },
+    { encoder: "libx264", hardware: false, options: ["-b:v", "2500k", "-bf", "0"] },
   ],
 };
 /** 장치가 없어서 못 쓰는 것(까닭으로 보이지 않는다). 그 밖의 실패(드라이버가 낡음 등)는 운영자에게 까닭을 보인다 */
@@ -69,6 +71,11 @@ const isChecking = () => running !== null;
 const encoderFor = (codec: LoginBackgroundCodec) => encoders.find((one) => one.codec === codec)?.encoder ?? null;
 const canReadAnimatedWebp = () => animatedWebp;
 
+/** 테스트: 선택한 인코더를 바꿔 넣는다(인코더가 없는 기기 흉내) */
+function _useEncoders(list: LoginBackgroundEncoder[]) {
+  encoders = list;
+}
+
 /** 테스트: 선택한 것을 잊는다 */
 function _reset() {
   encoders = [];
@@ -76,4 +83,4 @@ function _reset() {
   running = null;
 }
 
-export { startEncoderCheck, recheck, encodersReady, encoderList, isChecking, encoderFor, canReadAnimatedWebp, _reset, CANDIDATES };
+export { startEncoderCheck, recheck, encodersReady, encoderList, isChecking, encoderFor, canReadAnimatedWebp, _reset, _useEncoders, CANDIDATES };

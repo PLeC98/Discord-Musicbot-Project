@@ -37,6 +37,8 @@ function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number,
   if (codec === "vp9") return ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34", "-deadline", "good", "-cpu-used", "4", "-row-mt", "1", "-tile-columns", short >= UHD ? "3" : "2", "-auto-alt-ref", "1", "-lag-in-frames", "25", "-pix_fmt", "yuv420p", ...gop];
   // H.264: NVENC 는 VBR 2.2M(OpenH264 2.5M 과 크기가 같고 화질이 높다), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(hls.js 가 반복으로 되감을 때 bufferSeekOverHole 을 냈다)
   if (encoder === "h264_nvenc") return ["-c:v", "h264_nvenc", "-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
+  // x264: OpenH264 와 같은 2.5M 규격(2초 최대가 3M 안에 들게 VBV 를 그만큼으로)
+  if (encoder === "libx264") return ["-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "2500k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
   return ["-c:v", "libopenh264", "-profile:v", "high", "-coder", "cabac", "-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51", "-pix_fmt", "yuv420p", ...gop];
 }
 

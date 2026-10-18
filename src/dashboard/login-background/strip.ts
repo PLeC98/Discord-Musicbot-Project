@@ -33,7 +33,7 @@ function layoutOf(duration: number, width: number, height: number): LoginBackgro
 /** 장면 띠 단계 */
 async function strip({ item, signal }: StageJob): Promise<StageResult> {
   const preview = previewOf(item.id);
-  if (!preview?.endsWith(".mp4")) throw codedError("background-failed", "미리보기 영상이 없습니다");
+  if (!preview || preview.endsWith(".webp")) throw codedError("background-failed", "미리보기 영상이 없습니다");
   const probed = await probeVideo(preview, signal);
   const layout = layoutOf(item.duration, probed.width, probed.height);
   const rows = Math.ceil(layout.count / COLUMNS);

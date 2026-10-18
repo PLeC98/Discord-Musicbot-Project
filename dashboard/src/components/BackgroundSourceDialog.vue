@@ -8,6 +8,7 @@
           <div class="flex flex-col gap-1">
             <h3 class="text-xl font-round font-semibold">{{ S.title }}</h3>
             <p class="text-sm text-on-surface-variant nums">{{ S.free(formatBytes(state.freeBytes)) }}</p>
+            <p v-if="imagesOnly" class="text-sm text-tertiary">{{ S.imagesOnly }}</p>
           </div>
 
           <!-- 버튼 영역: 가져오는 중이면 같은 위치 · 같은 높이에 진행(파일 이름 · 진행 막대 · 지금 하는 일 한 줄 · %)을 겹쳐 그린다(팝업 높이가 그대로).
@@ -97,6 +98,8 @@ const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ upload: []; link: [url: string]; use: [id: string]; remove: [id: string] }>();
 
 /** 보일 단계: 올리는 중이면 원본 받기 하나(올린 몫), 봇이 받은 뒤면 그 배경의 편집 전 단계 */
+/** 영상 배경을 만들 인코더(H.264 · VP9)가 없다(테스트하는 중이면 아직 모른다) */
+const imagesOnly = computed(() => !!props.state && !props.state.checking && props.state.encoders.length > 0 && !props.state.encoders.some((one) => (one.codec === "h264" || one.codec === "vp9") && one.encoder));
 const steps = computed(() => {
   if (props.uploading) return [props.uploading.progress];
   const bg = props.pending;

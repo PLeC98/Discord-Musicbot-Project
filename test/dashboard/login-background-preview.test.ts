@@ -12,6 +12,7 @@ import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
 import { inspectSource, probeVideo } from "../../src/dashboard/login-background/source.ts";
+import { codeOf } from "../../src/rules/error-kind.ts";
 import { preview, previewOf, recount, perSecondOf } from "../../src/dashboard/login-background/preview.ts";
 import { layoutOf, strip, stripOf } from "../../src/dashboard/login-background/strip.ts";
 
@@ -132,6 +133,27 @@ test("장면 띠: 0.5초 간격(최대 160장)으로 높이 128 장면을 10열 
   const meta = await sharp(stripOf(one.id)!).metadata();
   assert.deepEqual([meta.format, meta.width, meta.height], ["webp", 2280, 128]);
   assert.deepEqual(layoutOf(600, 854, 480), { count: 160, every: 3.75, columns: 10, width: 228, height: 128 });
+});
+
+test("H.264 인코더가 없으면 VP9(WebM) 미리보기, 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다)", opts, async () => {
+  const before = encoders.encoderList();
+  if (!encoders.encoderFor("vp9")) return;
+  try {
+    encoders._useEncoders(before.map((one) => (one.codec === "h264" ? { ...one, encoder: null } : one)));
+    const one = await made("clip.mp4");
+    await run(one);
+    assert.match(previewOf(one.id)!, /preview\.webm$/);
+    const probed = await probeVideo(previewOf(one.id)!, signal);
+    assert.deepEqual([probed.width, probed.height], [854, 480]);
+    // 장면 띠도 WebM 미리보기에서 뜬다
+    assert.equal((await strip({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} })).strip?.count, 6);
+
+    encoders._useEncoders(before.map((one) => (one.codec === "av1" ? one : { ...one, encoder: null })));
+    const other = await made("clip.mp4");
+    await assert.rejects(run(other), (error) => codeOf(error) === "background-no-video-encoder");
+  } finally {
+    encoders._useEncoders(before);
+  }
 });
 
 test("이어 하기: 끊긴 미리보기 몫이 남아 있어도 다시 만든다", opts, async () => {

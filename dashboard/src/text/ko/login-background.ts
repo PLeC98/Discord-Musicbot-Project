@@ -87,7 +87,7 @@ const advanced = {
   encodersTip: "봇이 시작할 때 이 기기에서 쓸 수 있는 인코더를 확인해 선택해요.",
   /** 코덱 · 인코더 이름(ffmpeg 의 이름 → 보일 이름) */
   codec: { av1: "AV1", vp9: "VP9", h264: "H.264" } satisfies Record<LoginBackgroundCodec, string>,
-  encoderName: { libsvtav1: "SVT-AV1", "libvpx-vp9": "libvpx", libopenh264: "OpenH264", h264_nvenc: "NVENC", h264_qsv: "QuickSync", h264_amf: "AMF", h264_vaapi: "VAAPI" } as Record<string, string>,
+  encoderName: { libsvtav1: "SVT-AV1", "libvpx-vp9": "libvpx", libopenh264: "OpenH264", libx264: "x264", h264_nvenc: "NVENC", h264_qsv: "QuickSync", h264_amf: "AMF", h264_vaapi: "VAAPI" } as Record<string, string>,
   use: (name: string, hardware: boolean) => `${name} · ${hardware ? "GPU" : "CPU"}`,
   noEncoder: "사용할 수 있는 인코더가 없어요",
   checking: "확인하는 중…",
@@ -103,6 +103,7 @@ const advanced = {
 const source = {
   title: "로그인 배경",
   free: (size: string) => `남은 저장 공간 ${size}`,
+  imagesOnly: "이 기기에서는 이미지 배경만 만들 수 있어요(영상 인코더 없음)",
   fromFile: "파일 업로드",
   fileHint: "이미지 · 영상 · 움짤",
   fileHintTip: "투명한 부분은 지원하지 않아요.",
