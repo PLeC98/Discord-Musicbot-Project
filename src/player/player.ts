@@ -43,6 +43,8 @@ import { PlaybackWatch } from "./playback-watch.ts";
 import { IdleLeave } from "./idle-leave.ts";
 import { PlaybackState } from "./playback-state.ts";
 import { CurrentPlayback } from "./current-playback.ts";
+import type { Resume } from "./current-playback.ts";
+import { leaveDeadPin } from "../sources/pinned-fallback.ts";
 import * as playerEvents from "./events.ts";
 import { prepareStart, resolveSource, commitPlaying } from "./start-playback.ts";
 import { TrackDownloader, tooLongToCache } from "../media/cache-download.ts";
@@ -140,7 +142,7 @@ const REAL = {
   createPersistence: (player: Player) => new SessionPersistence(player),
   createWarmer: (player: Player, deps: WarmerDeps) => new QueueWarmer(player, deps),
   createDownloader: (player: Player) => new TrackDownloader(player),
-  findEquivalent: (track: QueuedTrack) => equivalent.findYouTubeEquivalent(track),
+  findEquivalent: (track: QueuedTrack, opts?: { skipPin?: boolean }) => equivalent.findYouTubeEquivalent(track, opts),
   sponsorFor: (track: QueuedTrack, guildId: string) => SponsorBlock.forTrack(track, guildId),
   pickAutoplay: (cfg: Parameters<typeof autoplayRoute.pickTrack>[0], recent: Parameters<typeof autoplayRoute.pickTrack>[1], deps?: AutoplayDeps) => autoplayRoute.pickTrack(cfg, recent, deps),
 };
@@ -400,29 +402,15 @@ class Player {
       this.lastPlaybackPosition = start.startMs;
       const track = pb.track;
 
-      const source = await resolveSource(this, track, start.startMs, previous?.resume);
-      const { streamInfo, cacheFile } = source;
-      pb.isLive = source.isLive;
-      const transport = (pb.transport = transportOf({ file: cacheFile, streamUrl: streamInfo?.url, streamInfo }));
-      pb.live = transport.live; // 끝 처리가 재연결 여부를 이걸로 구분한다
-      // 다시보기를 처음부터 틀지 않는다. 사용자가 넣은 것은 방송이다
-      if (endedLive(liveReopen, transport)) return { ok: false, code: "live-ended" };
-
-      const input = await openInput({
-        io: this.io,
-        transport,
-        streamInfo,
-        cacheFile,
-        startMs: start.startMs,
-        meta: { title: track.title, url: track.pageUrl, duration: track.duration },
-        download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
-        // 오류는 곡이 바뀐 뒤에 도착할 수 있다. 이 재생의 곡을 붙잡아 두어 엉뚱한 곡의 캐시로 갈아타지 않게 한다
-        onStreamLost: (splicer) => this._planCacheSwitch(splicer, track),
-        onProgress: () => {
-          pb.inputProgressAt = Date.now();
-        },
-        label: this._trackLabel(track),
+      const open = () => this._openSource(pb, start.startMs, previous?.resume, liveReopen);
+      const opened = await open().catch(async (error: unknown) => {
+        // 직접 지정한 음원이 여는 순간 사라졌으면(직접 링크는 여기서야 연다) 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더.
+        // 스트림 주소로 여는 음원(유튜브 · 사운드클라우드)은 sources/stream-url 이 이미 했다
+        if (!(await leaveDeadPin(track, error, { findYouTubeEquivalent: (t, o) => this.io.findEquivalent(t as QueuedTrack, o) }))) throw error;
+        return open();
       });
+      if (!opened) return { ok: false, code: "live-ended" };
+      const { source, input } = opened;
       if (!input.resource) throw codedError("stream-failed", "오디오 리소스를 만들지 못했습니다");
       pb.resource = input.resource;
       pb.cacheFile = input.cacheFile;
@@ -441,6 +429,34 @@ class Player {
         this.lifecycle.to("idle", "시작 못 함");
       }
     }
+  }
+
+  // 소리를 어디서 받을지 정하고 연다. 끊긴 라이브를 다시 여는데 방송이 끝났으면 null(다시보기를 처음부터 틀지 않는다. 사용자가 넣은 것은 방송이다)
+  async _openSource(pb: CurrentPlayback, startMs: number, resume: Resume | null | undefined, liveReopen: boolean) {
+    const track = pb.track;
+    const source = await resolveSource(this, track, startMs, resume);
+    const { streamInfo, cacheFile } = source;
+    pb.isLive = source.isLive;
+    const transport = (pb.transport = transportOf({ file: cacheFile, streamUrl: streamInfo?.url, streamInfo }));
+    pb.live = transport.live; // 끝 처리가 재연결 여부를 이걸로 구분한다
+    if (endedLive(liveReopen, transport)) return null;
+
+    const input = await openInput({
+      io: this.io,
+      transport,
+      streamInfo,
+      cacheFile,
+      startMs,
+      meta: { title: track.title, url: track.pageUrl, duration: track.duration },
+      download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
+      // 오류는 곡이 바뀐 뒤에 도착할 수 있다. 이 재생의 곡을 붙잡아 두어 엉뚱한 곡의 캐시로 갈아타지 않게 한다
+      onStreamLost: (splicer) => this._planCacheSwitch(splicer, track),
+      onProgress: () => {
+        pb.inputProgressAt = Date.now();
+      },
+      label: this._trackLabel(track),
+    });
+    return { source, input };
   }
 
   // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다

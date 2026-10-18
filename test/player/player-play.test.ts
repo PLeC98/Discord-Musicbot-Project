@@ -15,6 +15,7 @@ import { AudioSplicer } from "../../src/media/audio-splicer.ts";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
 import { md5 } from "../../src/rules/audio-key-of.ts";
+import { codedError } from "../../src/rules/error-kind.ts";
 import { recordPanel } from "../helpers/panel-events.ts";
 import type { FakeChild } from "../helpers/player-harness.ts";
 import type { Player } from "../../src/player/player.ts";
@@ -325,6 +326,23 @@ test("직접 링크가 열리지 않으면 그때 다운로드를 시작해 기�
 
   assert.equal(r.ok, false);
   assert.equal(calls.downloads.length, 1, "다운로드해서 틀 길을 연다");
+});
+
+test("직접 지정한 직접 링크가 여는 순간 사라졌으면 이번 재생은 지정을 건너뛰고 원래 링크로 한 번 더 연다", async () => {
+  const p = h.makePlayer();
+  const track = yt("origdirect1", { audioUrl: "https://files.test/dead.mp3", audioFoundBy: "pinned" });
+  p.currentTrack = track;
+  behavior.stream = (t) => (t.audioUrl?.startsWith("https://files.test/") ? { url: t.audioUrl, platform: "direct" } : { url: "https://media.test/orig", duration: 100 });
+  behavior.directStream = () => {
+    throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404") });
+  };
+  behavior.download = () => Promise.reject(new Error("받기도 실패"));
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, true);
+  assert.deepEqual([track.audioUrl, track.audioFoundBy], ["https://www.youtube.com/watch?v=origdirect1", "given"]);
+  p.releaseAudioProtection();
 });
 
 test("인터넷 라디오는 라이브로 튼다. 다운로드해 두지 않고, 끝나면 방송이 끝난 것으로 본다", async () => {
