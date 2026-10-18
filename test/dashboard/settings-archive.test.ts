@@ -229,6 +229,16 @@ test("파일에 없는 항목 · 모르는 항목 · 빈 목록은 거절한다"
   assert.equal((await send("import", file)).status, 400);
 });
 
+test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 알린다", async () => {
+  const full = zip([
+    { name: ".env", data: Buffer.from("DISCORD_TOKEN=x") },
+    { name: "database/settings.restore.db", data: Buffer.from("db") },
+  ]);
+  const { status, json } = await preview(full);
+  assert.deepEqual([status, json.code], [400, "bad-archive"]);
+  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없습니다/);
+});
+
 test("ZIP 이 아니거나 settings.json 이 없거나 모르는 형식이면 bad-archive", async () => {
   const cases = [Buffer.from("그냥 글"), zip([{ name: "other.json", data: Buffer.from("{}") }]), rewrite(await exported(), (json) => (json.format = 2))];
   for (const file of cases) {

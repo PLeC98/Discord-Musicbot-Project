@@ -33,6 +33,8 @@ import { ARCHIVE_ITEMS, ARCHIVE_KINDS } from "./contract/settings-archive.ts";
 const FORMAT = 1;
 const JSON_NAME = "settings.json";
 const FAVICON_DIR = "favicon/";
+// 명령 전체 백업(app/full-backup)에만 있는 항목
+const FULL_BACKUP_MARK = "database/settings.restore.db";
 // settings.json 하나의 상한. 설정 문서는 크지 않다(장르 수십 개 · 프롬프트 몇 KB)
 const JSON_MAX_BYTES = 4 * 1024 * 1024;
 // 파비콘 파일을 모두 합친 상한(슬롯 일곱 × 기록 여섯 × png 두 장 남짓)
@@ -101,6 +103,8 @@ function parse(file: string): Parsed {
   const zipped = openZip(file);
   try {
     const entry = zipped.entries.find((one) => one.name === JSON_NAME);
+    // 명령 전체 백업(pnpm run backup)은 봇 폴더에 풀어 덮어쓰는 것이라 여기서 불러오지 않는다
+    if (!entry && zipped.entries.some((one) => one.name === FULL_BACKUP_MARK)) throw badArchive("전체 백업은 불러올 수 없습니다. 봇을 끈 채 봇 폴더에 풀어 덮어쓰세요(다음에 켤 때 설정 DB 를 교체하고 오디오 캐시를 합칩니다).");
     if (!entry) throw badArchive(`${JSON_NAME} 이 없습니다. 이 봇의 설정 내보내기 파일이 아닙니다.`);
     if (entry.size > JSON_MAX_BYTES) throw badArchive(`${JSON_NAME} 이 너무 큽니다.`);
     let json: unknown;
