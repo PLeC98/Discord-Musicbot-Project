@@ -32,7 +32,7 @@ test("캐시: 수 · 크기와 상한, 지키는 파일, 한 번도 틀지 않�
   ins.run("guarded", "cached", "/nx/guarded.opus", 2_000_000, 0, old);
   ins.run("fresh", "cached", "/nx/fresh.opus", 1_000_000, 0, old);
   ins.run("broken", "error", null, null, 0, null);
-  audioCache.protect("guarded");
+  audioCache.protect("g-stats", "guarded");
 
   const before = audioCache.storageStats();
   assert.deepEqual({ ...before.cache, maxBytes: undefined, maxFiles: undefined }, { bytes: 6_000_000, maxBytes: undefined, files: 3, maxFiles: undefined, protectedFiles: 1, neverPlayed: 2, failed: 1, lastCleanup: null });
@@ -46,7 +46,7 @@ test("캐시: 수 · 크기와 상한, 지키는 파일, 한 번도 틀지 않�
     await audioCache.evict();
   } finally {
     Object.assign(config.cache, saved);
-    audioCache.unprotect("guarded");
+    audioCache.unprotect("g-stats");
   }
   const { lastCleanup, files } = audioCache.storageStats().cache;
   assert.equal(files, 1, "지키는 파일은 남기고 지운다");

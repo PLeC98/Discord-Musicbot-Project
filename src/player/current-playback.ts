@@ -1,8 +1,8 @@
 // 곡 하나를 한 번 트는 동안만 사는 것. play() 가 부를 때마다 새로 만들고(위치 이동 · 재시도 · 복구 재개도 새 재생이다),
 // 곡이 바뀌거나 플레이어를 정리하면 버린다. 늦게 도착한 이벤트는 "이게 지금 재생의 것인가"를 객체 동일성으로 구분한다.
 //
-// 재생을 넘어 이어지는 것은 여기 두지 않는다. 곡 자체(currentTrack), 캐시 퇴거 보호 키(_protectedAudioKey),
-// 다시 틀 위치(lastPlaybackPosition)는 플레이어에 있다.
+// 재생을 넘어 이어지는 것은 여기 두지 않는다. 곡 자체(currentTrack)와 다시 틀 위치(lastPlaybackPosition)는 플레이어에,
+// 캐시 보호는 저장 계층(store/audio-cache)에 서버마다 있다.
 
 import type { AudioResource } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";

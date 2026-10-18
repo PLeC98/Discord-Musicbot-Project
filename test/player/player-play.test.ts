@@ -140,7 +140,7 @@ test("캐시로 튼 곡은 퇴거에서 보호한다", async () => {
 
   await playOnce(p);
 
-  assert.equal(p._protectedAudioKey, "yt:ddddddddddd");
+  assert.equal(audioCache._protectedKeys.get(p.guild.id), "yt:ddddddddddd");
   assert.ok(audioCache._liveKeys().has("yt:ddddddddddd"));
   p.releaseAudioProtection();
 });
@@ -388,6 +388,22 @@ test("스트림도 캐시도 안 되면 실패를 돌려주고 멈춘다", async
   assert.ok(r.error, "문장은 화면이 만든다. 오류를 그대로 넘긴다");
   assert.equal(p.currentTrack, null, "대기열이 비어 있으면 현재 곡을 비운다");
   assert.ok(h.fakeAudioOf(p).stops >= 1, "말하는 중 상태를 푼다");
+  assert.equal(audioCache._protectedKeys.has(p.guild.id), false, "고르며 건 캐시 보호를 푼다");
+});
+
+test("곡을 고르는 순간부터 캐시 보호를 건다(재생을 시작하기 전, 스트림을 여는 동안에도)", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("ppppppppppp");
+  let protectedWhileOpening = false;
+  behavior.stream = () => {
+    protectedWhileOpening = audioCache._liveKeys().has("yt:ppppppppppp");
+    return { url: "https://media.test/p", duration: 100 };
+  };
+
+  await playOnce(p);
+
+  assert.equal(protectedWhileOpening, true, "그사이 퇴거가 고른 파일을 삭제하지 않게");
+  p.releaseAudioProtection();
 });
 
 test("캐시하지 않는 곡은 스트림이 안 열리면 기다릴 다운로드가 없어 그 오류로 실패한다", async () => {
@@ -746,9 +762,8 @@ test("play() 는 느린 곡 찾기에 들어가기 전에 여는 중(starting)�
 test("다른 곡을 틀면 앞 곡의 퇴거 보호를 풀고 새 곡을 보호한다", async () => {
   const track = yt("y1yyyyyyyyy");
   h.seedCache("yt:y1yyyyyyyyy", track);
-  audioCache.protect("yt:y0yyyyyyyyy");
   const p = h.makePlayer();
-  p._protectedAudioKey = "yt:y0yyyyyyyyy";
+  audioCache.protect(p.guild.id, "yt:y0yyyyyyyyy");
   p.currentTrack = track;
 
   await playOnce(p);

@@ -72,8 +72,13 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
  * @param previousResume  직전 재생이 남긴 위치 재개 정보
  */
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
+  // 캐시 파일을 고르기 전에 보호를 건다. 고른 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
+  const pickCacheFile = () => {
+    audioCache.protect(player.guild.id, audioKeyOf(track.audioUrl));
+    return TrackDownloader.findCacheFile(track);
+  };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
-  let cacheFile = TrackDownloader.findCacheFile(track);
+  let cacheFile = pickCacheFile();
   // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
   let streamInfo: StreamInfo | null = startMs > 0 && !cacheFile ? resumeStream(track, previousResume, startMs) : null;
 
@@ -83,7 +88,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     if (!track.audioUrl) {
       const ytUrl = await player.io.findEquivalent(track);
       if (!ytUrl) throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
-      cacheFile = TrackDownloader.findCacheFile(track);
+      cacheFile = pickCacheFile();
     }
     // 어느 사이트에서 받을지는 sources/stream-url 한 곳에서 분기한다
     if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok });
@@ -179,7 +184,6 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   log.info(`재생: ${logTitle(track.title)} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
 
   const audioKey = audioKeyOf(track.audioUrl);
-  protectAudio(player, audioKey);
   player.audioPlayer.play(resource);
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
   if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified, { countPlay: !continued });
@@ -201,18 +205,6 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
   player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 선택 실패: ${messageOf(error)}`));
-}
-
-// 재생 중인 곡을 퇴거 대상에서 보호한다(해제는 releaseAudioProtection)
-function protectAudio(player: Player, audioKey: string | null) {
-  if (player._protectedAudioKey && player._protectedAudioKey !== audioKey) {
-    audioCache.unprotect(player._protectedAudioKey);
-    player._protectedAudioKey = null;
-  }
-  if (audioKey) {
-    player._protectedAudioKey = audioKey;
-    audioCache.protect(audioKey);
-  }
 }
 
 // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록. 같은 곡을 이어 틀 때는 재생 횟수를 세지 않는다(퇴거 점수가 본다).

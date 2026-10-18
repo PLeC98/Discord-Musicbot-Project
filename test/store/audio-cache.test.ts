@@ -58,7 +58,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
   ins.run("bad2", "/nx/bad2.opus", 55_000_000, 0, null, OLD);
   // 조건은 나쁘지만 보호(재생 중/사전 캐시) 중인 키
   ins.run("protected1", "/nx/prot.opus", 60_000_000, 0, null, OLD);
-  audioCache.protect("protected1");
+  audioCache.protect("g-evict", "protected1");
 
   try {
     // 파일 11개, 상한 10 → 목표선 90%(9개)까지 2개를 삭제한다
@@ -76,7 +76,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
     assert.ok(remaining.has("protected1"), "보호 키는 조건이 나빠도 생존");
     for (let i = 0; i < 8; i++) assert.ok(remaining.has(`keep${i}`), `최근 재생 keep${i} 생존`);
   } finally {
-    audioCache.unprotect("protected1");
+    audioCache.unprotect("g-evict");
   }
 });
 
@@ -158,13 +158,13 @@ test("evict: 삭제할 수 있는 곡이 없어도 결과 줄을 남긴다", asy
   const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
   conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES ('onlylive', 'cached', '/nx/onlylive.opus', 1000000, 0, NULL, 0)").run();
-  audioCache.protect("onlylive");
+  audioCache.protect("g-evict", "onlylive");
   const from = sink.buffer.length;
   try {
     await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
     assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 삭제했습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 1개는 지키고)"));
   } finally {
-    audioCache.unprotect("onlylive");
+    audioCache.unprotect("g-evict");
     conn.prepare("DELETE FROM audio_cache").run();
   }
 });
@@ -406,14 +406,138 @@ async function runResetChecks() {
   assert.deepEqual(guildTable.getDjRoles("keepme"), ["role-keep"], "DJ 역할은 남는다");
 }
 
-test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌다)", async () => {
+// 다운로드를 마친 행과 그 파일을 둔다
+function seedCached(key: string, bytes = 1000) {
+  const file = audioCache.getFilePath(key);
+  fs.writeFileSync(file, "x".repeat(bytes));
+  audioCache.recordDownloadStart(key, { title: key });
+  audioCache.recordDownloadComplete(key, file, bytes, { title: key });
+  return file;
+}
+
+test("초기화는 재생 중 · 대기열 앞 곡의 파일과 보호를 남긴다(파일 잠금에 기대지 않는다)", async () => {
   await withTempCacheDir(async () => {
-    audioCache.protect("yt:live");
-    audioCache.setQueuedKeys("g1", ["yt:queued"]);
+    const live = seedCached("yt:live");
+    const queued = seedCached("yt:queued");
+    const other = seedCached("yt:other");
+    audioCache.protect("g-reset1", "yt:live");
+    audioCache.setQueuedKeys("g-reset1", ["yt:queued"]);
+    try {
+      const result = await audioCache.resetCache();
 
-    await audioCache.resetCache();
+      assert.equal(result.kept, 2);
+      assert.equal(fs.existsSync(live), true);
+      assert.equal(fs.existsSync(queued), true);
+      assert.equal(fs.existsSync(other), false);
+      assert.equal(audioCache._cacheCount(), 2, "남긴 파일의 행도 남는다");
+      assert.deepEqual([...audioCache._liveKeys()].sort(), ["yt:live", "yt:queued"], "보호는 그대로");
+    } finally {
+      audioCache.unprotect("g-reset1");
+      audioCache.setQueuedKeys("g-reset1", []);
+      cacheDb.get().prepare("DELETE FROM audio_cache").run();
+    }
+  });
+});
 
-    assert.equal(audioCache._liveKeys().size, 0);
+test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로드가 끝나면 그대로 기록된다", async () => {
+  await withTempCacheDir(async (dir: string) => {
+    const temp = path.join(dir, "track_0123456789abcdef0123456789abcdef.tmp-1-ab.opus");
+    fs.writeFileSync(temp, "다운로드 중");
+    audioCache.protectFile(temp);
+    audioCache.recordDownloadStart("yt:downloading", { title: "t" });
+    try {
+      await audioCache.resetCache();
+
+      assert.equal(fs.existsSync(temp), true, "임시 파일은 고아가 아니다");
+      assert.equal(audioCache.lookupByAudioKey("yt:downloading")?.status, "downloading", "행이 남아야 끝날 때 고칠 곳이 있다");
+      audioCache.recordDownloadComplete("yt:downloading", audioCache.getFilePath("yt:downloading"), 10, { title: "t" });
+      assert.equal(audioCache._cacheCount(), 1, "완료가 행을 찾는다(크기 셈 · 퇴거에서 빠지지 않는다)");
+    } finally {
+      audioCache.unprotectFile(temp);
+      cacheDb.get().prepare("DELETE FROM audio_cache").run();
+    }
+  });
+});
+
+// ── 삭제하는 길의 잠금 · 다운로드 중 ─────────────────────────────
+
+test("퇴거와 초기화는 겹치지 않고 하나씩 돈다", async () => {
+  await withTempCacheDir(async () => {
+    for (let i = 0; i < 4; i++) seedCached(`yt:lock${i}`);
+    let running = 0;
+    let most = 0;
+    audioCache._setRemoval({
+      unlink: async (target) => {
+        running++;
+        most = Math.max(most, running);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        running--;
+        await fs.promises.rm(target, { force: true });
+      },
+    });
+    try {
+      await withCacheLimits({ maxFiles: 0 }, () => Promise.all([audioCache.evict(), audioCache.resetCache(), audioCache.removeCached("yt:lock3")]));
+      assert.equal(most, 1, "파일 삭제가 동시에 둘 이상 돌지 않는다");
+    } finally {
+      audioCache._setRemoval();
+      cacheDb.get().prepare("DELETE FROM audio_cache").run();
+    }
+  });
+});
+
+test("퇴거가 파일을 삭제하는 사이 같은 곡 다운로드가 시작되면 새 행은 남긴다", async () => {
+  await withTempCacheDir(async () => {
+    seedCached("yt:race");
+    audioCache._setRemoval({
+      unlink: async (target) => {
+        audioCache.recordDownloadStart("yt:race", { title: "다시" }); // 삭제하는 사이 다운로드가 시작된다
+        await fs.promises.rm(target, { force: true });
+      },
+    });
+    try {
+      await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
+      assert.equal(audioCache.lookupByAudioKey("yt:race")?.status, "downloading", "끝난 다운로드가 기록될 행");
+    } finally {
+      audioCache._setRemoval();
+      cacheDb.get().prepare("DELETE FROM audio_cache").run();
+    }
+  });
+});
+
+test("removeCached: 쓰는 중 · 다운로드 중 · 바뀜 · 없음은 삭제하지 않고 까닭을, 아니면 파일과 행을 삭제한다", async () => {
+  await withTempCacheDir(async () => {
+    const conn = cacheDb.get();
+    try {
+      assert.deepEqual(await audioCache.removeCached("yt:none"), { ok: false, code: "gone" });
+
+      const file = seedCached("yt:rm", 1234);
+      const downloadedAt = audioCache.lookupByAudioKey("yt:rm")?.downloaded_at ?? null;
+      assert.deepEqual(await audioCache.removeCached("yt:rm", 1), { ok: false, code: "changed", current: downloadedAt });
+
+      audioCache.protect("g-rm", "yt:rm");
+      assert.deepEqual(await audioCache.removeCached("yt:rm"), { ok: false, code: "in-use", where: "playing" });
+      audioCache.unprotect("g-rm");
+      audioCache.setQueuedKeys("g-rm", ["yt:rm"]);
+      assert.deepEqual(await audioCache.removeCached("yt:rm"), { ok: false, code: "in-use", where: "queued" });
+      audioCache.setQueuedKeys("g-rm", []);
+
+      audioCache.recordDownloadStart("yt:rm", { title: "다시" });
+      assert.deepEqual(await audioCache.removeCached("yt:rm"), { ok: false, code: "downloading" });
+      conn.prepare("UPDATE audio_cache SET status = 'cached' WHERE audio_key = 'yt:rm'").run();
+
+      assert.deepEqual(await audioCache.removeCached("yt:rm", downloadedAt), { ok: true, bytes: 1234 });
+      assert.equal(fs.existsSync(file), false);
+      assert.equal(audioCache.lookupByAudioKey("yt:rm"), null);
+
+      // 파일 없는 실패 행은 행만 삭제한다
+      conn.prepare("INSERT INTO audio_cache (audio_key, status, created_at) VALUES ('yt:broken', 'error', 0)").run();
+      assert.deepEqual(await audioCache.removeCached("yt:broken"), { ok: true, bytes: 0 });
+      assert.equal(audioCache.lookupByAudioKey("yt:broken"), null);
+    } finally {
+      audioCache.unprotect("g-rm");
+      audioCache.setQueuedKeys("g-rm", []);
+      conn.prepare("DELETE FROM audio_cache").run();
+    }
   });
 });
 

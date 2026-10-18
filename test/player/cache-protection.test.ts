@@ -1,7 +1,6 @@
-// src/player/player.ts releaseAudioProtection — 캐시 퇴거 보호 해제 계약
-// 회귀 대상: 비활성 종료·강제 퇴장 경로가 currentTrack을 먼저 null해서
-// cleanup의 unprotect(currentTrack 전제)가 건너뛰어져 보호 Set이 다시 시작할 때까지 증가하던 누수.
-// protect/unprotect는 순수 in-memory Set — DB 미접촉.
+// src/player/player.ts releaseAudioProtection · src/store/audio-cache.ts protect — 재생 중인 곡의 캐시 보호
+// 보호는 저장 계층이 서버마다 들고 있다. 강제 퇴장 · 비활성 종료처럼 currentTrack 을 먼저 비우는 종료 경로에서도 풀리고(L-02 회귀),
+// 두 서버가 같은 곡을 틀다 한쪽이 끝나도 다른 쪽 보호는 남는다(B-120). 메모리만 쓰고 DB 는 건드리지 않는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,29 +8,37 @@ import * as audioCache from "../../src/store/audio-cache.ts";
 import { Player } from "../../src/player/player.ts";
 
 const release = Player.prototype.releaseAudioProtection;
-const isProtected = (key: string) => audioCache._protectedKeys.has(key);
+const isProtected = (key: string) => audioCache._liveKeys().has(key);
 
-test("currentTrack이 먼저 null된 종료 경로에서도 기억된 키가 해제됨 (L-02 회귀)", () => {
-  audioCache.protect("k1");
-  const player = { _protectedAudioKey: "k1", currentTrack: null }; // 강제 퇴장/비활성 종료가 null한 상태
-  release.call(player);
-  assert.equal(isProtected("k1"), false, "보호 Set에 잔존하지 않음");
-  assert.equal(player._protectedAudioKey, null);
+test("currentTrack 을 먼저 비운 종료 경로에서도 그 서버의 보호가 풀린다 (L-02 회귀)", () => {
+  audioCache.protect("g1", "k1");
+  release.call({ guild: { id: "g1" }, currentTrack: null }); // 강제 퇴장 · 비활성 종료가 비운 상태
+  assert.equal(isProtected("k1"), false);
 });
 
-test("기억된 키가 없으면 currentTrack의 음원 주소에서 계산한 키로 폴백 해제", () => {
-  audioCache.protect("yt:k2k2k2k2k2k");
-  const player = { _protectedAudioKey: null, currentTrack: { audioUrl: "https://www.youtube.com/watch?v=k2k2k2k2k2k" } };
-  release.call(player);
-  assert.equal(isProtected("yt:k2k2k2k2k2k"), false);
+test("두 서버가 같은 곡을 틀다 한쪽이 끝나도 다른 쪽 보호는 남는다 (B-120)", () => {
+  audioCache.protect("g1", "shared");
+  audioCache.protect("g2", "shared");
+  release.call({ guild: { id: "g1" }, currentTrack: null });
+  assert.equal(isProtected("shared"), true, "g2 가 아직 튼다");
+  release.call({ guild: { id: "g2" }, currentTrack: null });
+  assert.equal(isProtected("shared"), false);
 });
 
-test("둘 다 없으면 no-op — 다른 보호 키에 무영향", () => {
-  audioCache.protect("k3");
-  const player = { _protectedAudioKey: null, currentTrack: null };
-  release.call(player);
-  assert.equal(isProtected("k3"), true, "무관한 키는 유지");
-  audioCache.unprotect("k3");
+test("한 서버가 다른 곡으로 넘어가면 앞 곡의 보호는 풀린다", () => {
+  audioCache.protect("g1", "first");
+  audioCache.protect("g1", "second");
+  assert.equal(isProtected("first"), false);
+  assert.equal(isProtected("second"), true);
+  audioCache.protect("g1", null); // 키가 없는 곡(음원 주소를 아직 모른다)으로 넘어가면 보호가 없다
+  assert.equal(isProtected("second"), false);
+});
+
+test("다른 서버의 해제는 무관한 보호를 건드리지 않는다", () => {
+  audioCache.protect("g3", "k3");
+  release.call({ guild: { id: "g4" }, currentTrack: null });
+  assert.equal(isProtected("k3"), true);
+  audioCache.unprotect("g3");
 });
 
 // ── 대기열 보호 (길드별, 통째로 교체) ────────────────────────
@@ -63,12 +70,12 @@ test("한 길드의 교체가 다른 길드의 보호를 건드리지 않는다"
 });
 
 test("재생 중 보호와 대기열 보호는 합쳐진다", () => {
-  audioCache.protect("playing");
+  audioCache.protect("g9", "playing");
   audioCache.setQueuedKeys("g1", ["queued"]);
 
   assert.deepEqual([...audioCache._liveKeys()].sort(), ["playing", "queued"]);
 
-  audioCache.unprotect("playing");
+  audioCache.unprotect("g9");
   assert.deepEqual([...audioCache._liveKeys()], ["queued"], "대기열 보호는 남는다");
 
   audioCache.setQueuedKeys("g1", []);

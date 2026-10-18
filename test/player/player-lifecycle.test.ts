@@ -558,8 +558,7 @@ test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 �
   p.currentTrack = track;
   p.queue = [yt("rrrrrrrrrrr")];
   p.previousTracks = [yt("sssssssssss")];
-  p._protectedAudioKey = "yt:qqqqqqqqqqq";
-  audioCache.protect("yt:qqqqqqqqqqq");
+  audioCache.protect(p.guild.id, "yt:qqqqqqqqqqq");
   p.pauseReasons.add("manual");
 
   const from = sink.buffer.length;
@@ -573,7 +572,6 @@ test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 �
   assert.equal(p.connection, null);
   assert.equal(h.fakeAudioOf(p).stops, 1);
   assert.equal(p.pauseReasons.size, 0);
-  assert.equal(p._protectedAudioKey, null);
   assert.equal(audioCache._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
   const ended = sink.buffer.slice(from).filter((e) => e.text.startsWith("트랙 종료:"));
   assert.deepEqual(

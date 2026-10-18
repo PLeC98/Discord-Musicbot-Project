@@ -74,7 +74,7 @@ test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머
     ["yt:playing"],
     "파일이 남은 곡의 행만 살아남는다",
   );
-  assert.equal(audioCache._protectedKeys.has("yt:playing"), true, "살아남은 키는 다시 보호한다");
+  assert.equal(audioCache._liveKeys().size, 0, "보호는 초기화가 만들거나 비우지 않는다(재생 중이면 플레이어가 서버마다 걸어 둔 것이 남는다)");
   assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 데이터는 파일과 따로 살므로 통째로 비운다");
 });
 

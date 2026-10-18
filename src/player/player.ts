@@ -164,7 +164,6 @@ class Player {
   currentTrack!: QueuedTrack | null;
   queue!: QueuedTrack[];
   previousTracks!: QueuedTrack[];
-  _protectedAudioKey: string | null;
   volume: number;
   loop: Loop;
   /** 끄면 false, 켜면 장르 이름 */
@@ -222,10 +221,6 @@ class Player {
 
     // 대기열 관리. 현재곡·대기열·기록은 trackState로만 바꾼다
     trackState.init(this);
-    // 캐시 퇴거 보호 중인 캐시 키. currentTrack과 별도로 기억,
-    // 종료 경로가 currentTrack을 먼저 null해도 해제가 누락되지 않게
-    this._protectedAudioKey = null;
-
     // 사람이 바꾸는 재생 설정. 세션에 저장되어 다시 시작할 때 돌아온다
     this.volume = config.bot.defaultVolume;
     this.loop = false;
@@ -437,8 +432,12 @@ class Player {
     } catch (error) {
       return await this._playFailed(error, liveReopen);
     } finally {
-      // 틀지 못하고 나왔다(대기열이 비었거나 실패). 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰다
-      if (this.lifecycle.starting) this.lifecycle.to("idle", "시작 못 함");
+      // 틀지 못하고 나왔다(대기열이 비었거나 라이브가 끝났거나 실패). 고르며 건 캐시 보호도 푼다.
+      // 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰고 보호도 그 곡의 것이다
+      if (this.lifecycle.starting) {
+        this.releaseAudioProtection();
+        this.lifecycle.to("idle", "시작 못 함");
+      }
     }
   }
 
@@ -663,11 +662,9 @@ class Player {
     this.watch.stop();
   }
 
-  // 재생 중 트랙의 캐시 퇴거 보호 해제. currentTrack이 이미 null이어도 기억된 키로 해제
+  // 이 서버가 트는 곡의 캐시 보호 해제. 보호는 저장 계층이 서버마다 들고 있어 currentTrack 이 이미 비었어도 풀린다
   releaseAudioProtection() {
-    const key = this._protectedAudioKey || audioKeyOf(this.currentTrack?.audioUrl);
-    if (key) audioCache.unprotect(key);
-    this._protectedAudioKey = null;
+    audioCache.unprotect(this.guild.id);
   }
 
   /**
