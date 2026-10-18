@@ -179,7 +179,8 @@ function sortOf(table: TrackCacheTable, raw: string | null, errors: FieldProblem
 function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } | Refusal {
   const table = single(search, "table", "");
   if (!isTrackCacheTable(table)) return refusal("bad-request");
-  const [offset, limit] = [Number(single(search, "offset", "0")), Number(single(search, "limit", "50"))];
+  // 여럿이면 NaN 이라 범위 밖
+  const [offset, limit] = [single(search, "offset", "0"), single(search, "limit", "50")].map((raw) => (raw === null ? NaN : Number(raw)));
   if (!inRange(offset, 0, Number.MAX_SAFE_INTEGER) || !inRange(limit, 1, TRACK_CACHE_PAGE_MAX)) return refusal("bad-page-range");
   const errors: FieldProblem[] = [];
   const filters = filtersOf(table, search, errors);

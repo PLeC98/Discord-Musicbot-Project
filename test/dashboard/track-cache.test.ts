@@ -152,6 +152,9 @@ test("주소 질의: trackCacheSearch 의 역이고, 모르는 열 · 같은 키
   assert.deepEqual(refused("table=nope"), ["bad-request", null]);
   assert.deepEqual(refused("table=age&limit=201"), ["bad-page-range", null]);
   assert.deepEqual(refused("table=age&offset=-1"), ["bad-page-range", null]);
+  assert.deepEqual(refused("table=age&offset=1&offset=2"), ["bad-page-range", null]);
+  assert.deepEqual(refused("table=age&limit=5&limit=6"), ["bad-page-range", null]);
+  assert.deepEqual(refused("table=age&table=files"), ["bad-request", null]);
   assert.deepEqual(refused("table=age&f.title=a"), ["bad-request", "/filters/title"]);
   assert.deepEqual(refused("table=age&f.videoId=a&f.videoId=b"), ["bad-request", "/filters/videoId"]);
   assert.deepEqual(refused("table=age&q=a&q=b"), ["bad-request", "/q"]);
