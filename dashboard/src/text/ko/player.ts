@@ -21,7 +21,7 @@ const upNext = (title: string) => `다음: ${title}`;
 const nothingPlaying = "재생 중인 곡이 없어요";
 const openServer = "이 서버 화면으로";
 const seekCancelled = "곡이 바뀌어 위치 이동을 취소했어요.";
-const volumeFailed = "볼륨을 바꾸지 못했어요.";
+const volumeFailed = "음량을 바꾸지 못했어요.";
 /** 조작이 거절되거나 실패했을 때(봇이 문장을 주지 않은 경우) */
 const failed = {
   pause: "조작하지 못했어요.",

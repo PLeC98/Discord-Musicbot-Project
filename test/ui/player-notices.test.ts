@@ -50,6 +50,6 @@ test("자동재생 안내는 경고 색, 복원 안내는 머리 줄 · 본문�
   await sendNotice(player, "autoplay-gave-up", { genre: "jazz" });
   assert.equal(accentOf(sent[0]), resolveColor("#FEE75C"));
   await sendNotice(player, "restored", { title: "곡", atSec: 61, paused: false });
-  assert.deepEqual(textsOf(sent[1]), ["### ▶️ 봇이 복구됐어요.\n기록된 마지막 재생 상태를 이어갈게요.\n• **곡** (1:01)"]);
+  assert.deepEqual(textsOf(sent[1]), ["### ▶️ 봇이 복구됐어요\n기록된 마지막 재생 상태를 이어갈게요.\n• **곡** (1:01)"]);
   assert.equal(accentOf(sent[1]), resolveColor(config.bot.embedColor));
 });

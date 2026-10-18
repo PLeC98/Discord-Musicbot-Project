@@ -14,7 +14,7 @@ const viewAs = {
 const maintenance = "유지 관리";
 const redeploy = {
   title: "슬래시 커맨드 재배포",
-  desc: "봇 재시작 없이 현재 커맨드들을 디스코드에 다시 등록해요.",
+  desc: "봇 재시작 없이 현재 커맨드를 디스코드에 다시 등록해요.",
   run: "재배포",
   running: "재배포 중…",
   done: "커맨드를 다시 배포했어요",

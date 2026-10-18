@@ -4,15 +4,15 @@
 const tiers = {
   moderator: { label: "서버 관리자", desc: "같은 음성 채널에 있지 않아도 조작이 가능해요. (관리, 차단, 추방, 타임아웃 권한 중 하나 보유)" },
   dj: { label: "DJ", desc: "재생 조작은 되지만 봇과 같은 음성 채널에 있어야 해요." },
-  user: { label: "일반 유저", desc: "DJ 역할을 정한 서버에서는 조작이 막히고 곡 추가만 할 수 있어요." },
+  user: { label: "일반 유저", desc: "DJ 역할을 지정한 서버에서는 조작이 막히고 곡 추가만 할 수 있어요." },
 };
 
 // 패널 틀
 const back = "뒤로";
 const tabsLabel = "운영자 패널 탭";
 const unsavedTab = "저장하지 않은 변경이 있어요";
-const dbNotYet = "캐시 DB 는 아직 짜지 않았어요";
-const leaveConfirm = { title: "저장하지 않고 떠날까요?", body: "고친 설정이 저장되지 않았어요. 떠나면 고친 내용이 사라져요.", confirm: "떠나기" };
+const dbNotYet = "캐시 DB 는 아직 준비되지 않았어요";
+const leaveConfirm = { title: "저장하지 않고 나갈까요?", body: "변경한 설정이 저장되지 않았어요. 나가면 변경 내용이 사라져요.", confirm: "나가기" };
 /** 탭 이름 */
 const tabs = {
   status: "봇 상태",

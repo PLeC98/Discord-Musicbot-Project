@@ -10,7 +10,7 @@ const offered = (collection: string, total: number, offset: number) => `📃 ${c
 /** 이어 넣은 결과의 머리 */
 function added({ collection, added, skipped, dropped }: { collection: string; added: number; skipped?: number; dropped?: number }) {
   let head = `✅ ${collection}에서 ${fmt(added)}곡을 더 넣었어요.`;
-  if (skipped && skipped > 0) head += ` 받을 수 없는 ${fmt(skipped)}곡(미리듣기 · 지역 제한 등)은 뺐어요.`;
+  if (skipped && skipped > 0) head += ` 재생할 수 없는 ${fmt(skipped)}곡(미리듣기 · 지역 제한 등)은 제외했어요.`;
   if (dropped && dropped > 0) head += ` 대기열이 가득 차 ${fmt(dropped)}곡은 빠졌어요.`;
   return head;
 }

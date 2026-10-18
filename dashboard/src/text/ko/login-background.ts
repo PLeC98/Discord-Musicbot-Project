@@ -11,7 +11,7 @@ const stage: Record<LoginBackgroundStage, string> = {
   highRes: "영상 다운로드 중",
   thumb: "썸네일 제작 중",
   stills: "이미지 변환 중",
-  tones: "장면 색 뽑는 중",
+  tones: "장면 색 추출 중",
   h264: "인코딩 중(1/4)",
   encode: "인코딩 중(3/4)",
   drop: "마무리하는 중",
@@ -47,7 +47,7 @@ const card = {
   immersive: "몰입형 테마 색상",
   immersiveTip: "영상의 장면이 바뀔 때 테마 색을 그 장면의 색으로 바꿔요.",
   seam: "반복 전환 효과",
-  seamTip: "영상이 끝에서 처음으로 돌아갈 때 거는 효과예요. 끝과 처음 장면이 다를 때 덜 튀어 보여요.",
+  seamTip: "영상이 끝에서 처음으로 돌아갈 때 적용하는 효과예요. 끝과 처음 장면이 다를 때 덜 튀어 보여요.",
   seamKinds: { cut: "없음", freeze: "마지막 프레임 겹치기", cover: "페이드(테마 색)", black: "페이드(검정)", blur: "블러 전환" },
   seamSeconds: (s: number) => `${s}초`,
   seamLength: "효과 길이",
@@ -80,11 +80,11 @@ const advanced = {
   history: "기록 보관 개수",
   historyTip: "다시 인코딩하지 않고 바로 바꿔 쓸 수 있게 남겨 둘 배경 수예요. 0 이면 지금 배경만 남겨요.",
   maxSize: "최대 용량(GB)",
-  maxSizeTip: "쓰는 배경과 기록을 합친 크기예요. 넘으면 오래 안 쓴 기록부터 지워요. 0 이면 무제한이에요.",
+  maxSizeTip: "사용 중인 배경과 기록을 합친 크기예요. 넘으면 오래 안 쓴 기록부터 지워요. 0 이면 무제한이에요.",
   usedLabel: "사용 중",
   used: (used: string, max: string | null) => (max ? `${used} / ${max}` : `${used} · 무제한`),
   encoders: "인코딩 환경",
-  encodersTip: "봇이 켜질 때 이 기기에서 쓸 수 있는 인코더를 확인해 골라요.",
+  encodersTip: "봇이 시작할 때 이 기기에서 쓸 수 있는 인코더를 확인해 선택해요.",
   /** 코덱 · 인코더 이름(ffmpeg 의 이름 → 보일 이름) */
   codec: { av1: "AV1", vp9: "VP9", h264: "H.264" } satisfies Record<LoginBackgroundCodec, string>,
   encoderName: { libsvtav1: "SVT-AV1", "libvpx-vp9": "libvpx", libopenh264: "OpenH264", h264_nvenc: "NVENC", h264_qsv: "QuickSync", h264_amf: "AMF", h264_vaapi: "VAAPI" } as Record<string, string>,
@@ -95,8 +95,8 @@ const advanced = {
   /** 지금 굽는 것: 단계 · AV1 병렬 단계 · 묶은 코어 · 속도(실시간의 몇 배) */
   bakeTitle: "지금 인코딩",
   bake: (rungs: string, lp: number | null, cores: string, speed: number | null) => [rungs, ...(lp === null ? [] : [`AV1 병렬 단계 ${lp}`]), cores, ...(speed === null ? [] : [`실시간의 ${speed < 1 ? speed.toFixed(2) : speed.toFixed(1)}배`])].join(" · "),
-  bakeTip: "봇 상태 탭에서 굽는 동안의 메모리와 이벤트 루프 지연을 볼 수 있어요.",
-  cores: (bound: number | null, total: number) => (bound === null ? `코어 ${total}개(묶지 않음)` : `코어 ${bound} / ${total}`),
+  bakeTip: "봇 상태 탭에서 인코딩하는 동안의 메모리와 이벤트 루프 지연을 볼 수 있어요.",
+  cores: (bound: number | null, total: number) => (bound === null ? `코어 ${total}개(지정 안 함)` : `코어 ${bound} / ${total}`),
 };
 
 /** 변경 팝업: 파일 업로드 · 링크로 추가 · 기록 */
@@ -110,8 +110,8 @@ const source = {
   linkLabel: "주소",
   linkPlaceholder: "https://…",
   linkFetch: "가져오기",
-  linkBad: "http · https 로 시작하는 주소를 넣어 주세요.",
-  uploadStep: "원본 받기",
+  linkBad: "http · https 로 시작하는 주소를 입력해 주세요.",
+  uploadStep: "원본 다운로드",
   uploading: "업로드 중",
   queued: "인코딩 대기",
   preparing: "편집 창 불러오는 중",
@@ -134,7 +134,7 @@ const edit = {
   pause: "일시정지",
   range: (from: string, to: string, seconds: number) => `${from} – ${to}(${Math.round(seconds)}초)`,
   useAsThumb: "이 장면을 썸네일로",
-  thumbHint: "썸네일을 고르지 않으면 구간 시작 장면을 써요.",
+  thumbHint: "썸네일을 선택하지 않으면 구간 시작 장면을 써요.",
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 예상 파일 크기(세트 하나) */
   estimate: (size: string) => `예상 파일 크기 약 ${size}`,
@@ -142,7 +142,7 @@ const edit = {
   encodeTime: (minutes: number) => (minutes < 1 ? "예상 인코딩 시간 1분 이내" : `예상 인코딩 시간 약 ${Math.round(minutes)}분`),
   counting: "예상 파일 크기 계산 중…",
   /** 유튜브는 480p 로 잰 어림이다(고해상도는 적용한 뒤에 받는다) */
-  rough: "고화질을 받기 전이라 대략이에요",
+  rough: "고화질 영상을 받기 전이라 대략적인 값이에요",
   evict: (n: number) => `최대 용량을 넘을 수 있어 오래된 기록 ${n}개를 지우게 될 수 있어요.`,
   overAlone: "이 배경 하나만으로 최대 용량을 넘을 수 있어요. 만들면 기록을 모두 지우고 이것만 남겨요.",
   reset: "재설정",

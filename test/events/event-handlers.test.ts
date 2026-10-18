@@ -557,7 +557,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
   await interactionCreate.execute(pick.bot, pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
   assert.deepEqual(pick.log, [["deferUpdate"], ["deleteReply"]], "장르 메뉴(본인)는 지운다");
-  assert.match(textOf(pick.room.sent[0]?.payload ?? {}), /^### 🎲 자동 재생을 시작할게요!/, "켠 결과는 모두에게");
+  assert.match(textOf(pick.room.sent[0]?.payload ?? {}), /^### 🎲 자동재생을 시작할게요!/, "켠 결과는 모두에게");
   assert.deepEqual(lifetimesOf(pick.it), [LIFETIME.result], "결과 수명 뒤 지운다");
 
   const w2 = world();

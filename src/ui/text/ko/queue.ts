@@ -24,7 +24,7 @@ const partlyAdded = () => "⚠️ 일부 곡을 추가했어요!";
 /** 담은 안내 밑의 경고 줄들. skipped 출처가 받을 수 없어 뺀 곡 수, dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 받음 */
 function addedWarnings({ dropped, skipped, queueLimited, max }: { dropped: number; skipped: number; queueLimited: boolean; max: number }) {
   const lines: string[] = [];
-  if (skipped > 0) lines.push(`받을 수 없는 ${skipped}곡은 제외됐어요. (미리듣기 · 지역 제한 등)`);
+  if (skipped > 0) lines.push(`재생할 수 없는 ${skipped}곡은 제외됐어요. (미리듣기 · 지역 제한 등)`);
   if (dropped > 0) lines.push(`대기열이 가득 차서 ${dropped}곡은 넣지 못했어요. (최대 ${max}곡)`);
   else if (queueLimited) lines.push(`대기열이 가득 차서 목록의 일부만 넣었어요. (최대 ${max}곡)`);
   return lines;
@@ -33,7 +33,7 @@ function addedWarnings({ dropped, skipped, queueLimited, max }: { dropped: numbe
 /** 대기열 화면. count 는 다음 곡 수, 쪽이 둘 이상이면 몇 쪽인지 */
 const view = ({ count, page, pages }: { count: number; page: number; pages: number }) => ({
   title: "📝 재생 대기열",
-  footer: `모두 ${count}곡${pages > 1 ? ` • ${page}/${pages}쪽` : ""}`,
+  footer: `모두 ${count}곡${pages > 1 ? ` • ${page}/${pages} 페이지` : ""}`,
 });
 
 export { added, partlyAdded, addedWarnings, view };

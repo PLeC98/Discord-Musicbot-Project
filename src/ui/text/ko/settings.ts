@@ -11,15 +11,15 @@ const channelRemoved = () => ({ title: "🔧 전용 채널 해제됨", descripti
 const channelSet = (channel: string) => ({
   title: "✅ 전용 채널 설정됨",
   description: `${channel} 채널을 봇 전용 채널로 설정했어요.\n\n` + `이 채널에 링크나 검색어를 적으면 바로 재생해요.\n` + `대시보드의 공지도 이 채널로 발송돼요.`,
-  inputs: "📋 넣을 수 있는 것",
+  inputs: "📋 입력할 수 있는 것",
   inputsValue: "• 지원하는 플랫폼 링크 (유튜브, 스포티파이, 사운드클라우드)\n• 재생 가능한 미디어 링크\n• 곡 이름이나 아티스트 이름 등의 검색어",
 });
 
 /** DJ 역할 고르기 화면. roleIds 는 지금 DJ 역할(없으면 모두가 조작) */
 const djRoleMenu = (roleIds: string[]) => ({
   title: "🎧 DJ 역할",
-  description: [roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요.", "", "아래 메뉴에서 DJ로 정할 역할을 고른 뒤 **저장**을 누르세요. (여러 역할을 지정할 수 있어요)", "아무 역할도 고르지 않으면 모두가 DJ 권한을 가져요.", "서버 관리자들(서버 관리, 추방, 차단, 타임아웃 권한을 가진 사람)은 설정과 상관없이 늘 조작할 수 있어요."].join("\n"),
-  placeholder: "DJ로 정할 역할 고르기",
+  description: [roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요.", "", "아래 메뉴에서 DJ로 지정할 역할을 선택한 뒤 **저장**을 누르세요. (여러 역할을 지정할 수 있어요)", "아무 역할도 선택하지 않으면 모두가 DJ 권한을 가져요.", "서버 관리자들(서버 관리, 추방, 차단, 타임아웃 권한을 가진 사람)은 설정과 상관없이 항상 조작할 수 있어요."].join("\n"),
+  placeholder: "DJ로 지정할 역할 선택",
 });
 const djRoleCancelled = () => ({ title: "🎧 DJ 역할 설정을 취소했어요", description: "변경 사항은 반영하지 않았어요." });
 /** 역할 없이 저장했다 */
@@ -33,14 +33,14 @@ const onOff = (enabled: boolean) => (enabled ? "켬" : "끔");
 /** SponsorBlock 설정 화면. enabled 는 이 서버에서 켰는지 */
 const sponsorMenu = (enabled: boolean) => ({
   title: "⏭️ SponsorBlock 자동 건너뛰기",
-  description: `현재 설정: **${onOff(enabled)}**\n건너뛸 구간 종류를 아래에서 고르고 **저장**을 누르세요. 켜고 끄기는 버튼으로 해요.`,
+  description: `현재 설정: **${onOff(enabled)}**\n건너뛸 구간 종류를 아래에서 선택하고 **저장**을 누르세요. 켜고 끄기는 버튼으로 해요.`,
   placeholder: "건너뛸 구간 종류 선택",
   toggle: enabled ? "켜짐 (끄기)" : "꺼짐 (켜기)",
 });
 /** 저장한 구간을 한 줄로. categories 는 구간 종류의 이름표 */
 const sponsorSummary = (enabled: boolean, categories: string[]) => {
   if (!enabled) return onOff(false);
-  return categories.length ? categories.join(", ") : "고른 구간 없음 (건너뛰지 않아요)";
+  return categories.length ? categories.join(", ") : "선택한 구간 없음 (건너뛰지 않아요)";
 };
 const sponsorCancelled = () => ({ title: "⏭️ SponsorBlock 설정을 취소했어요", description: "변경 사항은 반영하지 않았어요." });
 const sponsorSaved = (enabled: boolean, summary: string) => ({ title: "⏭️ SponsorBlock 설정을 저장했어요", description: `현재 설정: **${onOff(enabled)}**\n구간: ${summary}` });

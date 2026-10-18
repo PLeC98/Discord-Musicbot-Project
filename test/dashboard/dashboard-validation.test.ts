@@ -214,7 +214,7 @@ test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면�
     assert.equal(r.status, 200);
     await new Promise(setImmediate);
     assert.equal(sent.length, 1);
-    assert.match(sent[0], /^### 🔀 곡의 순서를 옮겼어요\n\*\*\[q0\]/);
+    assert.match(sent[0], /^### 🔀 곡의 순서를 바꿨어요\n\*\*\[q0\]/);
     assert.match(sent[0], /📍 기존 순번: 1번째\n📍 현재 순번: 3번째\n-# 👤 변경한 사람 <@owner> \(대시보드\)$/, "사람은 1부터 센다");
 
     const refused = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 1, before: 2 });
@@ -237,7 +237,7 @@ test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 �
     await new Promise(setImmediate);
     assert.deepEqual(p.calls, [["seek", 42000, "highlight"]]);
     assert.equal(sent.length, 1);
-    assert.match(sent[0], /^### ✨ 하이라이트로 건너 뛰었어요!/);
+    assert.match(sent[0], /^### ✨ 하이라이트로 건너뛰었어요!/);
 
     Object.assign(p, { sponsor: null });
     const none = await req("POST", `/api/guilds/${GUILD_ID}/player/highlight`);

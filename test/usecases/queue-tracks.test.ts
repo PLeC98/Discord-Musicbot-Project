@@ -255,11 +255,11 @@ test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인�
 
 // 사운드클라우드 세트는 받을 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n받을 수 없는 3곡은 제외됐어요. (미리듣기 · 지역 제한 등)");
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기 · 지역 제한 등)");
 
   const { add: live, notices, responder } = setup({ current: track("now") });
   await live({ tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);
-  assert.match(String(notices.at(-1)), /받을 수 없는 2곡/, "곡 찾기가 넘긴 수가 안내까지 간다");
+  assert.match(String(notices.at(-1)), /재생할 수 없는 2곡/, "곡 찾기가 넘긴 수가 안내까지 간다");
 });
 
 test("플레이어가 없거나 처리 중 던지면 실패 문장", async () => {

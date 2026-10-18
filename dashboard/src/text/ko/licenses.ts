@@ -20,10 +20,10 @@ const items = {
   twemojiFont: "Twemoji COLR 글꼴",
   modelRegistry: "PocketRisu 모델 레지스트리",
   modelRegistryNote: "AI 모델 정보",
-  cmudictNote: "영어 끝소리, 조사 고르기",
+  cmudictNote: "영어 끝소리, 조사 선택",
   gemmaTokenizer: "Gemma 4 토크나이저",
   gemmaTokenizerNote: "토큰 수 세기",
-  unihanNote: "한자 읽기, 조사 고르기",
+  unihanNote: "한자 읽기, 조사 선택",
 };
 
 export { title, thisBot, runningSource, runningSourceModified, originalProject, originalSource, sourceUnknown, upstreamPart, groupFontsArt, groupLibraries, groupData, items };

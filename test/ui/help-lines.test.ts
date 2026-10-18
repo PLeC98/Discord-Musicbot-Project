@@ -22,7 +22,7 @@ const EXPECTED = [
   },
   {
     name: "🎛️ 모드 & 오디오",
-    lines: ["`/loop`: 반복 모드를 설정해요 🔒", "`/autoplay`: 자동 재생 기능을 켜거나 꺼요 🔒", "`/volume`: 볼륨을 설정해요 🔒"],
+    lines: ["`/loop`: 반복 모드를 설정해요 🔒", "`/autoplay`: 자동재생을 켜거나 꺼요 🔒", "`/volume`: 볼륨을 설정해요 🔒"],
   },
   {
     name: "🔍 탐색 & 정보",

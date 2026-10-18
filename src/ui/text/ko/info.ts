@@ -59,7 +59,7 @@ const cache = (v: CacheValues) => ({
   },
   plays: { name: "▶️ 재생 통계", value: [`**총 재생 횟수:** ${v.plays.toLocaleString()}회`, `**총 재생 시간:** ${v.played}`, `**평균 곡 길이:** ${v.averageLength}`, `**한 번도 안 튼 곡:** ${v.neverPlayed}개`].join("\n") },
   platforms: { name: "🌐 플랫폼 분포", value: [`🔴 YouTube: **${v.platforms.youtube}**개`, `🟠 SoundCloud: **${v.platforms.soundcloud}**개`, `🔗 직접 링크: **${v.platforms.direct}**개`].join("\n") },
-  misc: { name: "🔧 기타", value: [`**주소 기록:** ${v.lookups}개`, `**다운로드 중:** ${v.downloading}개`, `**재생 보호 중:** ${v.protectedCount}개`].join("\n") },
+  misc: { name: "🔧 기타", value: [`**링크 데이터:** ${v.lookups}개`, `**다운로드 중:** ${v.downloading}개`, `**재생 보호 중:** ${v.protectedCount}개`].join("\n") },
   top: "🏆 재생 TOP 5",
   recent: "🆕 최근 추가",
   footer: `캐시 경로: audio_cache/`,

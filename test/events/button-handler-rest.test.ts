@@ -263,7 +263,7 @@ test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정�
   const { it, bot } = press(w, "panel:pause:S1", { reply: async (p: Payload) => ((payload = p), { resource: { message: { id: "r1" } } }) });
   await interactionCreate.execute(bot, it);
   assert.equal(thumbnailOf(payload), null);
-  assert.deepEqual(textsOf(payload), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", `-# 👤 요청한 사람 <@${USER}>`]);
+  assert.deepEqual(textsOf(payload), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지했어요.", `-# 👤 요청한 사람 <@${USER}>`]);
   assert.deepEqual(lifetimesOf(it), [LIFETIME.result], "조작 결과의 수명");
 });
 
@@ -275,7 +275,7 @@ test("하이라이트 버튼: 옮기는 중을 본인에게 먼저 보내고, �
   p.seek = async () => {};
   const done = press(w, "panel:highlight:S1");
   await interactionCreate.execute(done.bot, done.it);
-  assert.deepEqual(done.log, [["reply", "✨ 하이라이트로 건너뛰는 중..."], ["deleteReply"], ["send", "### ✨ 하이라이트로 건너 뛰었어요!"]]);
+  assert.deepEqual(done.log, [["reply", "✨ 하이라이트로 건너뛰는 중..."], ["deleteReply"], ["send", "### ✨ 하이라이트로 건너뛰었어요!"]]);
   p.sponsor = { highlightAt: null };
   const none = press(w, "panel:highlight:S1");
   await interactionCreate.execute(none.bot, none.it);
@@ -328,7 +328,7 @@ test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 
   assert.match(text, /^`1\.` \*\*\[곡1\]/);
   assert.match(text, /`10\.` \*\*\[곡10\]/);
   assert.doesNotMatch(text, /곡11/, "한 쪽 10곡");
-  assert.equal(payload.embeds[0].data.footer.text, "모두 12곡 • 1/2쪽");
+  assert.equal(payload.embeds[0].data.footer.text, "모두 12곡 • 1/2 페이지");
   assert.deepEqual(buttonsOf(payload), [
     ["◀", "queue:page:0", true],
     ["▶", "queue:page:2", false],
@@ -344,7 +344,7 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
   await interactionCreate.execute(next.bot, next.it);
   const text = String(updates[0].embeds[0].data.description);
   assert.match(text, /^`11\.` \*\*\[곡11\]/, "번호는 쪽을 이어 센다");
-  assert.equal(updates[0].embeds[0].data.footer.text, "모두 12곡 • 2/2쪽");
+  assert.equal(updates[0].embeds[0].data.footer.text, "모두 12곡 • 2/2 페이지");
   assert.deepEqual(buttonsOf(updates[0]), [
     ["◀", "queue:page:1", false],
     ["▶", "queue:page:3", true],

@@ -14,13 +14,13 @@ const clearOne = (size: number) => `${size}px 파비콘 이미지 삭제(기록�
 
 /** 이 크기에 내는 것이 어디서 왔는지 */
 const from = {
-  upload: "올린 이미지",
+  upload: "업로드한 이미지",
   scaled: (source: number) => `${source}px 이미지에서`,
   avatar: "봇 프로필",
   none: "없음",
 };
 /** 이 크기보다 작은 이미지를 늘려 쓸 때 */
-const blurryTip = "이 크기보다 작은 이미지를 늘려서 흐릴 수 있어요.";
+const blurryTip = "이 크기보다 작은 이미지를 늘려서 흐릿하게 보일 수 있어요.";
 
 /** 올리기 전에 거른 까닭(화면이 미리 본다). name 은 파일 이름 */
 const refuse = {
@@ -43,7 +43,7 @@ const crop = {
   zoom: "화면 확대",
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 선택한 영역이 쓸 크기보다 작을 때만 */
-  tooSmall: (target: number) => `${target}px 보다 작아서 흐릴 수 있어요`,
+  tooSmall: (target: number) => `${target}px 보다 작아서 흐릿하게 보일 수 있어요`,
   use: "적용하기",
 };
 
@@ -58,7 +58,7 @@ const slotDialog = {
   linkLabel: "이미지 주소",
   linkPlaceholder: "https://…",
   linkFetch: "가져오기",
-  linkBad: "http · https 로 시작하는 주소를 넣어 주세요.",
+  linkBad: "http · https 로 시작하는 주소를 입력해 주세요.",
   linkFailed: "링크에서 이미지를 가져오지 못했어요.",
 };
 

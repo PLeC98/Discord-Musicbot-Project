@@ -45,12 +45,12 @@ const autoplay = "자동재생";
 const autoplayOn = "자동재생 켜기";
 const autoplayOff = "자동재생 끄기";
 const whichGenre = "어떤 장르를 재생할까요?";
-const dragToReorder = "끌어서 순서 바꾸기";
-const pickedByAutoplay = "자동재생이 골라 둔 곡";
+const dragToReorder = "드래그해서 순서 바꾸기";
+const pickedByAutoplay = "자동재생이 선택한 곡";
 const removeSong = "빼기";
 const queueEmpty = "대기열이 비어 있어요";
 /** 아직 받지 않은 곡이 뒤에 있어 맨 끝으로 옮길 수 없을 때 */
-const moveNeedsAll = { title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 내려 다 불러온 뒤 맨 끝으로 옮길 수 있어요." };
+const moveNeedsAll = { title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 스크롤해 모두 불러온 뒤 맨 끝으로 옮길 수 있어요." };
 
 // 실패(봇이 문장을 주지 않은 경우). 재생 조작은 text.player.failed
 const failed = {
@@ -60,7 +60,7 @@ const failed = {
   remove: "곡을 빼지 못했어요.",
   move: "곡을 옮기지 못했어요.",
   highlight: "하이라이트로 가지 못했어요.",
-  genres: "장르 목록을 받지 못했어요.",
+  genres: "장르 목록을 불러오지 못했어요.",
   autoplayOn: "자동재생을 켜지 못했어요.",
   autoplayOff: "자동재생을 끄지 못했어요.",
 };

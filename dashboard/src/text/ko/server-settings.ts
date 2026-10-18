@@ -11,7 +11,7 @@ const channel = { title: "봇 전용 채널", desc: "전용 채널에서는 명�
 /** DJ 역할. 고를 수 있는 수는 max */
 const dj = {
   title: "DJ 역할",
-  desc: "재생 제어를 역할 보유자와 모더레이터로 제한해요. 설정하지 않으면 모든 유저가 제어할 수 있어요.",
+  desc: "재생 제어를 역할 보유자와 서버 관리자로 제한해요. 설정하지 않으면 모든 유저가 제어할 수 있어요.",
   noRoles: "이 서버에 지정할 수 있는 역할이 없어요",
   noMatch: "일치하는 역할이 없어요",
   picked: (count: number, max: number) => `선택됨: ${count} / ${max}`,
@@ -31,7 +31,7 @@ const sponsor = {
 /** 한 번에 넣을 재생목록 곡 수 */
 const playlistAdd = {
   title: "한 번에 넣을 재생목록 곡 수",
-  desc: "많은 곡이 포함된 재생목록을 한 번에 다 넣지 않고 설정한 곡만큼만 넣어요. 초과된 곡은 이어 넣을 수 있어요.",
+  desc: "많은 곡이 포함된 재생목록을 한 번에 다 넣지 않고 설정한 곡만큼만 넣어요. 남은 곡은 이어서 넣을 수 있어요.",
   choose: "곡 수 선택",
   /** 기본값 단추: 넓은 카드는 "기본값 · ", 좁으면 "기본 " */
   defaultLong: "기본값 · ",
@@ -39,7 +39,7 @@ const playlistAdd = {
   songs: (count: number) => `${count}곡`,
   custom: "직접 입력",
   unit: "곡",
-  invalid: (min: number, max: number) => `${min}~${max}곡 사이의 정수로 정해 주세요.`,
+  invalid: (min: number, max: number) => `${min}~${max}곡 사이의 정수로 입력해 주세요.`,
   /** 지금 값 안내: 앞 · 값 · 뒤로 나눠 값만 굵게 그린다 */
   effectiveBefore: "재생목록을 넣으면 한 번에 ",
   effectiveAfter: (min: number, max: number) => `씩 들어가요 · ${min}~${max}곡 · 디스코드에서는 `,

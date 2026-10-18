@@ -20,7 +20,7 @@ type Look = { channel: (id: string) => string; developer: () => string };
 const PLAIN: Look = { channel: (id) => `#${id}`, developer: () => "봇 개발자" };
 
 // 대시보드 화면은 보낼 수 없는 값(화면이 고를 수 있는 것만 보낸다). 옛 화면이 바뀐 봇에 보냈을 수도 있다
-const stalePage = (look: Look) => `페이지를 새로 고친 뒤 다시 시도해 보고, 계속되면 ${look.developer()}에게 보고해 주세요.`;
+const stalePage = (look: Look) => `페이지를 새로고침한 뒤 다시 시도해 보고, 계속되면 ${look.developer()}에게 보고해 주세요.`;
 // 화면도 봇도 보낼 일이 없는 값
 const cannotHappen = (look: Look) => `일반적으로는 발생할 수 없는 오류이니, ${look.developer()}에게 보고해 주세요.`;
 
@@ -38,7 +38,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 봇 운영자(OWNER_ID)만 쓰는 화면을 다른 사람이 열었다
   "must-owner": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작은 봇 운영자 전용이에요."),
   // 검색 결과 버튼은 검색한 사람만 누른다
-  "search-owner-only": () => warning("permission", "다른 사람의 패널이에요!", "검색한 사람만 고를 수 있어요."),
+  "search-owner-only": () => warning("permission", "다른 사람의 패널이에요!", "검색한 사람만 선택할 수 있어요."),
   // 전용 채널이 있으면 /dashboard 는 그 채널에서만. channelId 는 전용 채널
   "only-in-bot-channel": ({ channelId = "" }, look) => warning("permission", "전용 채널이 아니에요!", `이 명령어는 ${look.channel(channelId)} 채널에서만 사용할 수 있어요.`),
   // DM 에서 서버 명령을 불렀다
@@ -48,7 +48,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "permission-voice": () => error("permission", "제게 권한이 없어요.", "봇이 그 음성 채널에 접속하거나 말할 권한이 없어요."),
   // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅) · 그 밖(rules/error-kind 가 거절된 요청의 주소로 가른다)
   "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
-  "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요."),
+  "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해 달라고 해 주세요."),
   // 지금 상태로는 못 함
   // 지금 곡이 없다(플레이어가 없거나 곡이 비었다)
   "no-song": () => warning("state", "재생 중인 곡이 없어요!", "이 조작을 하려면 재생 중인 곡이 있어야 해요."),
@@ -80,7 +80,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "more-expired": () => warning("stale", "시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요."),
   // 입력이 틀림
   // 시간 입력(/seek)을 읽지 못했다
-  "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽어 들일 수 없는 형식이에요. `1:30`, `3m20s`, `90` 처럼 적어 주세요!"),
+  "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽을 수 없는 형식이에요. `1:30`, `3m20s`, `90` 처럼 적어 주세요!"),
   "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", "볼륨은 0에서 100 까지의 숫자로 적어야 해요."),
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
@@ -118,7 +118,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "geo-blocked": () => warning("blocked", "지역 제한 콘텐츠예요!", "이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요."),
   // skipped 는 받을 수 없어 뺀 곡 수
   "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요."),
-  "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간의 곡들이 받을 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
+  "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간의 곡들이 재생할 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
   // 바깥 실패
   // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operator-hints). 사용자는 설정을 만질 수 없다
   "yt-bot-check": () => error("failed", "유튜브가 요청을 차단했어요!", "잠시 후에 재시도해 보고, 계속 동일한 문제가 발생하면 봇 운영자에게 알려주세요."),
@@ -145,7 +145,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   // 까닭을 모르고 곡을 못 틀었다
   "cannot-start": () => error("failed", "예상치 못한 오류예요!", "곡을 재생하지 못했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
   // 새로고침 버튼이 화면(/help · /system)을 다시 그리다 실패했다
-  "refresh-failed": () => error("failed", "정보를 새로 고치지 못했어요.", "명령어를 다시 입력하여 새 패널로 조회해 주세요."),
+  "refresh-failed": () => error("failed", "정보를 새로고침하지 못했어요.", "명령어를 다시 입력하여 새 패널로 조회해 주세요."),
   "channel-set-failed": () => error("failed", "채널 지정에 실패했어요.", "채널을 조회하지 못했거나 저장에 실패했어요. 권한 설정을 확인해보고, 잠시 후 시도해도 오류가 발생한다면 봇 운영자에게 알려주세요."),
   "settings-save-failed": () => error("failed", "설정을 저장하지 못했어요.", "데이터베이스나 저장소에 문제가 있어요. 봇 운영자에게 알려주세요."),
   "dj-role-save-failed": () => error("failed", "저장하지 못했어요", "DJ 역할 저장 중에 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
@@ -163,9 +163,9 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "no-guild-access": () => warning("permission", "이 서버를 볼 수 없어요!", "봇이 있는 서버 중 내가 멤버인 서버만 볼 수 있어요. 그 서버에서 나갔다면 서버 목록에서도 빠져요."),
   "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
   // 대시보드: 상태
-  "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 띄워 줄 실행기 없이 켰어요. 봇 폴더에서 `pnpm start` 로 켜면 대시보드에서 다시 시작할 수 있어요."),
+  "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
-  "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 골라 주세요."),
+  "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 선택해 주세요."),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없어요!", "먼저 참가 버튼으로 봇을 음성 채널에 불러 주세요."),
   "too-many-requests": () => warning("waiting", "요청이 너무 많아요!", "짧은 시간에 요청을 많이 보냈어요. 잠시 뒤에 다시 시도해 주세요."),
   "too-many-streams": () => warning("waiting", "실시간 연결이 너무 많아요!", "이 계정으로 열어 둔 대시보드 탭이 너무 많아요. 쓰지 않는 탭을 닫아 주세요."),
@@ -177,13 +177,13 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "route-not-found": (_, look) => warning("notFound", "없는 주소예요!", `화면이 봇에 없는 주소로 요청했어요. ${stalePage(look)}`),
   "bad-queue-range": (_, look) => warning("input", "대기열을 읽지 못했어요!", `요청한 위치나 개수가 맞지 않아요. ${stalePage(look)}`),
   "bad-query": ({ max }) => warning("input", "검색어가 올바르지 않아요!", `검색어를 1~${max}자로 적어 주세요.`),
-  "bad-more-state": () => warning("input", "더 넣을 목록을 알아보지 못했어요!", "목록 링크를 다시 넣은 뒤에 시도해 주세요."),
+  "bad-more-state": () => warning("input", "더 넣을 목록을 읽지 못했어요!", "목록 링크를 다시 넣은 뒤에 시도해 주세요."),
   "bad-settings": (_, look) => warning("input", "서버 설정을 읽지 못했어요!", `보낸 설정의 형식이 맞지 않아요. ${stalePage(look)}`),
   "bad-sponsorblock": (_, look) => warning("input", "SponsorBlock 설정을 읽지 못했어요!", `보낸 설정의 형식이 맞지 않아요. ${stalePage(look)}`),
   "bad-sponsor-categories": (_, look) => warning("input", "SponsorBlock 구간 종류를 읽지 못했어요!", `보낸 구간 종류의 형식이 맞지 않아요. ${stalePage(look)}`),
   "bad-dj-roles": (_, look) => warning("input", "DJ 역할을 읽지 못했어요!", `보낸 역할 목록의 형식이 맞지 않아요. ${stalePage(look)}`),
-  "too-many-dj-roles": ({ max }) => warning("input", "DJ 역할이 너무 많아요!", `DJ 역할은 ${max}개까지 정할 수 있어요.`),
-  "bad-bot-channel": () => warning("input", "전용 채널로 쓸 수 없는 채널이에요!", "봇 전용 채널은 일반 텍스트 채널이어야 해요. 다른 채널을 골라 주세요."),
+  "too-many-dj-roles": ({ max }) => warning("input", "DJ 역할이 너무 많아요!", `DJ 역할은 ${max}개까지 지정할 수 있어요.`),
+  "bad-bot-channel": () => warning("input", "전용 채널로 쓸 수 없는 채널이에요!", "봇 전용 채널은 일반 텍스트 채널이어야 해요. 다른 채널을 선택해 주세요."),
   // 대시보드: 운영자
   "announce-empty": () => warning("input", "공지 내용이 비어 있어요!", "보낼 내용을 적어 주세요."),
   "announce-too-long": ({ max, length }) => warning("input", "공지가 너무 길어요!", `공지는 ${max}자까지 보낼 수 있어요. (지금 ${length}자)`),
@@ -194,36 +194,36 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "deploy-failed": () => error("failed", "명령어를 배포하지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 함께 적힌 원문을 확인해 주세요."),
   "suggest-failed": () => error("failed", "자동완성 후보를 받지 못했어요!", "그 출처에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "model-refresh-failed": () => error("failed", "모델 정보를 받지 못했어요!", "모델 정보 저장소에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  "cache-clear-failed": () => error("failed", "캐시를 비우지 못했어요!", "파일을 지우거나 데이터베이스를 고치다 실패했어요. 운영자 로그를 확인해 주세요."),
-  "token-count-failed": () => error("failed", "토큰 수를 세지 못했어요!", "AI 서비스에 물어보지 못했거나 글이 너무 길어요. 함께 적힌 원문을 확인해 주세요."),
+  "cache-clear-failed": () => error("failed", "캐시를 비우지 못했어요!", "파일을 삭제하거나 데이터베이스를 수정하다 실패했어요. 운영자 로그를 확인해 주세요."),
+  "token-count-failed": () => error("failed", "토큰 수를 세지 못했어요!", "AI 서비스에 요청하지 못했거나 글이 너무 길어요. 함께 적힌 원문을 확인해 주세요."),
   "bad-suggest-type": (_, look) => warning("input", "자동완성이 없는 출처 종류예요!", stalePage(look)),
-  "bad-suggest-field": (_, look) => warning("input", "자동완성이 없는 칸이에요!", stalePage(look)),
+  "bad-suggest-field": (_, look) => warning("input", "자동완성이 없는 입력란이에요!", stalePage(look)),
   "bad-suggest-term": ({ max }) => warning("input", "검색어가 올바르지 않아요!", `검색어를 1~${max}자로 적어 주세요.`),
   "too-many-items": ({ max }) => warning("input", "한 번에 보낼 수 있는 개수를 넘었어요!", `한 번에 ${max}개까지 보낼 수 있어요.`),
   "urls-empty": () => warning("input", "유튜브 주소가 없어요!", "판정해 볼 곡의 유튜브 주소를 적어 주세요."),
   "nothing-to-save": (_, look) => warning("input", "저장할 내용이 없어요!", `보낸 내용이 비어 있어요. ${stalePage(look)}`),
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
-  "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 적힌 칸들을 고친 뒤에 다시 저장해 주세요."),
+  "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 표시된 입력란을 고친 뒤에 다시 저장해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
-  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
+  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP 이 아니거나 파일이 깨졌어요. 함께 적힌 원문을 확인해 주세요."),
-  "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 해 주세요.`),
-  "upload-gone": () => warning("stale", "올린 파일이 없어졌어요!", "올린 지 1시간이 지났거나 봇이 다시 켜졌어요. 파일을 다시 올려 주세요."),
+  "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.`),
+  "upload-gone": () => warning("stale", "올린 파일이 없어졌어요!", "올린 지 1시간이 지났거나 봇이 다시 시작됐어요. 파일을 다시 올려 주세요."),
   "snapshot-not-found": (_, look) => warning("notFound", "없는 스냅샷이에요!", `오래되어 지워졌을 수 있어요. ${stalePage(look)}`),
   "ai-log-not-found": (_, look) => warning("notFound", "없는 기록이에요!", `저장 용량을 넘어 지워졌거나 모두 지운 기록이에요. ${stalePage(look)}`),
-  "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 뜬 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
+  "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   // 대시보드: 파비콘(올린 이미지 · 링크로 받는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png · webp · jpg · svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
   "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
-  "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일에 쓰다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
+  "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일을 저장하다 실패했어요. 함께 적힌 원문을 확인해 주세요."),
   // 대시보드: 로그인 배경
   "background-not-editable": () => warning("state", "지금은 편집할 수 없어요!", "편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요."),
-  "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "다 만든 배경만 기록에서 골라 쓸 수 있어요."),
-  "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 해 주세요.`),
-  "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 까닭을 확인하고 다시 올려 주세요."),
+  "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "완성된 배경만 기록에서 선택할 수 있어요."),
+  "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 시도해 주세요.`),
+  "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 원인을 확인하고 다시 올려 주세요."),
   "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지 · 영상 · 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
   "background-link-failed": () => warning("input", "링크에서 가져오지 못했어요!", "주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요."),
   // 대시보드: 캐시 DB
@@ -240,7 +240,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "track-cache-write-failed": () => error("failed", "변경 사항을 저장하지 못했어요!", "캐시 DB 에 저장하다 실패했어요. 운영자 로그를 확인해 주세요."),
   // 대시보드: 초기화
   "reset-name-mismatch": () => warning("input", "봇 이름이 맞지 않아요!", "확인 창에 적힌 봇 이름을 그대로 입력해 주세요."),
-  "reset-already-staged": () => warning("state", "봇 전체 초기화가 이미 예약돼 있어요!", "봇을 다시 켜면 지워져요. 취소하려면 초기화 카드에서 예약 취소를 눌러 주세요."),
+  "reset-already-staged": () => warning("state", "봇 전체 초기화가 이미 예약돼 있어요!", "봇을 다시 시작하면 지워져요. 취소하려면 초기화 카드에서 예약 취소를 눌러 주세요."),
   "reset-not-staged": (_, look) => warning("notFound", "예약된 봇 전체 초기화가 없어요!", stalePage(look)),
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };

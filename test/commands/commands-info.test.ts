@@ -200,14 +200,14 @@ test("/queue: 다음 곡만 쪽마다 나눠 보인다. 없는 쪽은 마지막 
   assert.match(descriptionOf(p1), /^`1\.` \*\*\[곡1\]\(u0\)\*\*/);
   assert.doesNotMatch(descriptionOf(p1), /지금/, "지금 곡은 재생 패널이 보인다");
   assert.equal(p1.embeds[0].data.fields, undefined, "칸을 쓰지 않는다");
-  assert.equal(p1.embeds[0].data.footer?.text, "모두 25곡 • 1/3쪽");
+  assert.equal(p1.embeds[0].data.footer?.text, "모두 25곡 • 1/3 페이지");
   assert.deepEqual(lifetimesOf(first.it), [LIFETIME.screen], "읽는 화면의 수명");
 
   const last = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue), options: { page: 9 } });
   await run(await command("queue"), last.it, last.bot);
   const p3 = last.log[0][1];
   assert.match(descriptionOf(p3), /`21\.` \*\*\[곡21\]/, "번호는 쪽을 이어 센다");
-  assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3쪽");
+  assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3 페이지");
 });
 
 // 링크가 붙은 긴 유튜브 제목 열 줄이면 칸 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).
@@ -306,7 +306,7 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
   assert.match(f["▶️ 재생 통계"], /한 번도 안 튼 곡:\*\* 1개/);
   assert.match(f["▶️ 재생 통계"], /평균 곡 길이:\*\* 2분 5초/);
   assert.equal(f["🌐 플랫폼 분포"], "🔴 YouTube: **1**개\n🟠 SoundCloud: **1**개\n🔗 직접 링크: **1**개");
-  assert.match(f["🔧 기타"], /주소 기록:\*\* 1개/);
+  assert.match(f["🔧 기타"], /링크 데이터:\*\* 1개/);
   assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*: 3회 \(2:05\)/);
   assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
 });
@@ -448,7 +448,7 @@ test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장�
   await interactionCreate.execute(fakeBot(), fake<Interaction>(empty.it));
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(saveEmpty.it));
-  assert.match(String(saveEmpty.log.at(-1)?.[2]), /고른 구간 없음 \(건너뛰지 않아요\)/);
+  assert.match(String(saveEmpty.log.at(-1)?.[2]), /선택한 구간 없음 \(건너뛰지 않아요\)/);
 
   const cancel = sbInteraction({ customId: "sb:cancel", messageId: "m-cancel" });
   await interactionCreate.execute(fakeBot(), fake<Interaction>(cancel.it));

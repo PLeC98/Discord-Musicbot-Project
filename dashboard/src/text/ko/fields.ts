@@ -2,19 +2,19 @@
 
 /** 고르기 칸의 찾기(후보가 많을 때) */
 const searchAmong = (count: number) => `${count}개 중에서 찾기`;
-const pick = "고르기";
+const pick = "선택";
 /** 여럿 고르기에서 둘 이상 골랐을 때 */
 const pickedSummary = (first: string, more: number) => `${first} 외 ${more}개`;
-const emojiChange = "이모지 바꾸기";
-const emojiPick = "이모지 고르기";
+const emojiChange = "이모지 변경";
+const emojiPick = "이모지 선택";
 const rangeStart = (label: string) => `${label} 시작`;
 const rangeEnd = (label: string) => `${label} 끝`;
 const typeForSuggestions = "입력하면 후보가 표시돼요";
 const suggestLoading = "후보를 찾는 중이에요";
-const suggestFailed = "후보를 받지 못했어요. Enter 로 그대로 넣을 수 있어요";
-const suggestNone = "후보가 없어요. Enter 로 그대로 넣을 수 있어요";
+const suggestFailed = "후보를 불러오지 못했어요. Enter 로 그대로 입력할 수 있어요";
+const suggestNone = "후보가 없어요. Enter 로 그대로 입력할 수 있어요";
 /** 마크다운 링크를 넣을 때 고른 글이 없으면 그 자리 */
-const linkText = "링크 글";
+const linkText = "링크 텍스트";
 /** 마크다운 미리보기에서 멘션 자리(누구인지 모른다) */
 const mentionUser = "@사용자";
 const mentionRole = "@역할";
@@ -32,7 +32,7 @@ const colorArea = "채도 · 밝기";
 const colorAreaValue = (saturation: number, brightness: number) => `채도 ${saturation}% · 밝기 ${brightness}%`;
 const colorHue = "색상";
 const colorDefault = "기본 색으로";
-const colorFormat = "값 꼴";
+const colorFormat = "값 형식";
 const colorHex = "HEX 값(#RRGGBB)";
 /** RGB · HSV 칸마다 읽어 줄 이름 */
 const colorChannel = { r: "빨강(0~255)", g: "초록(0~255)", b: "파랑(0~255)", h: "색상(0~359도)", s: "채도(0~100%)", v: "밝기(0~100%)" } as const;

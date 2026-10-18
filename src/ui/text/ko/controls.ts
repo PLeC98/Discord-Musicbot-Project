@@ -16,7 +16,7 @@ const requestedBy = () => "👤 요청한 사람";
 const viaDashboard = (who: string) => `${who} (대시보드)`;
 
 /** 일시정지 · 재개 */
-const paused = (isPaused: boolean, track: Linked) => (isPaused ? { title: "⏸️ 일시정지했어요!", body: `${linkObject(track)} 일시정지 했어요.` } : { title: "▶️ 일시정지를 해제했어요!", body: `${linkObject(track)} 다시 재생할게요.` });
+const paused = (isPaused: boolean, track: Linked) => (isPaused ? { title: "⏸️ 일시정지했어요!", body: `${linkObject(track)} 일시정지했어요.` } : { title: "▶️ 일시정지를 해제했어요!", body: `${linkObject(track)} 다시 재생할게요.` });
 
 /** 건너뛰기 · 이전 곡인데 한 곡 반복이라 지금 곡을 처음부터 다시 틀었다 */
 const restartedOnRepeat = () => ({ title: "🔂 곡을 되감았어요!", body: "한 곡 반복 중이라 지금 곡을 처음부터 다시 틀어요." });
@@ -28,15 +28,15 @@ const previous = (track: Linked) => ({ title: "⏮️ 이전 곡으로 되돌렸
 const jumped = (track: Linked) => ({ title: "⏭️ 선택한 곡으로 건너뛰었어요!", body: `${linkObject(track)} 재생할게요.` });
 
 /** 정지. cleared 는 비운 대기열 곡 수(0 이면 말하지 않는다) */
-const stopped = (cleared: number) => ({ title: "⏹️ 재생을 중지했어요!", body: `${cleared > 0 ? `대기열에 남아있던 ${cleared}곡을 버리고 ` : ""}채널에서 나갔어요.` });
+const stopped = (cleared: number) => ({ title: "⏹️ 재생을 중지했어요!", body: `${cleared > 0 ? `대기열에 남아 있던 ${cleared}곡을 삭제하고 ` : ""}채널에서 나갔어요.` });
 
 /** 섞기 */
-const shuffled = (count: number) => ({ title: "🔀 대기열을 셔플했어요!", body: `${count}개의 곡을 섞었어요.` });
+const shuffled = (count: number) => ({ title: "🔀 대기열을 셔플했어요!", body: `${count}곡을 섞었어요.` });
 
 /** 하이라이트로 건너뛰는 동안 */
 const highlighting = () => "✨ 하이라이트로 건너뛰는 중...";
 /** 하이라이트로 건너뛰었다. at 은 옮긴 위치를 적은 것 */
-const highlighted = (at: string) => ({ title: "✨ 하이라이트로 건너 뛰었어요!", body: `⏱️ 위치: \`${at}\`` });
+const highlighted = (at: string) => ({ title: "✨ 하이라이트로 건너뛰었어요!", body: `⏱️ 위치: \`${at}\`` });
 
 /** 처음부터 다시 트는 동안 */
 const replaying = () => "🔄 처음부터 다시 트는 중...";
@@ -49,14 +49,14 @@ const seeking = () => "⏩ 위치를 옮기는 중...";
 const seeked = (at: string) => ({ title: "⏩ 위치를 옮겼어요!", body: `⏱️ 옮긴 위치: \`${at}\`` });
 
 /** 대기열 비우기. count 는 버린 곡 수 */
-const cleared = (count: number) => ({ title: "🗑️ 대기열을 비웠어요!", body: `대기열에 있던 ${count}곡을 버렸어요.` });
+const cleared = (count: number) => ({ title: "🗑️ 대기열을 비웠어요!", body: `대기열에 있던 ${count}곡을 삭제했어요.` });
 
 /** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
-const removed = (left: number) => ({ title: "🗑️ 선택한 곡을 버렸어요!", body: `대기열에 ${left}곡이 남았어요.` });
+const removed = (left: number) => ({ title: "🗑️ 선택한 곡을 삭제했어요!", body: `대기열에 ${left}곡이 남았어요.` });
 
 /** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
 const moved = (track: Linked, from: number, to: number) => ({
-  title: "🔀 곡의 순서를 옮겼어요",
+  title: "🔀 곡의 순서를 바꿨어요",
   body: `${link(track)}\n📍 기존 순번: ${from}번째\n📍 현재 순번: ${to}번째`,
   by: "👤 변경한 사람",
 });
@@ -90,6 +90,6 @@ const alreadyJoined = () => ({ title: "✅ 이미 음성 채널에 있어요.", 
 /** /join 이 저장한 세션을 복원하는 동안 */
 const restoring = () => "💾 듣던 곡을 불러오는 중...";
 /** /join 이 저장한 세션을 복원했다 */
-const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지 해 둔 상태였어요. 이어 들으려면 일시정지를 해제해주세요!` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
+const restored = (track: Linked, isPaused: boolean) => (isPaused ? { title: "⏸️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!` } : { title: "▶️ 듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
 export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };

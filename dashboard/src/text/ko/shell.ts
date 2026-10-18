@@ -4,7 +4,7 @@ const notFoundTitle = "페이지 없음";
 const notFound = "페이지를 찾을 수 없어요!\n주소가 잘못되었거나 없어진 페이지예요.";
 
 // 위 막대
-const topBar = "위 막대";
+const topBar = "상단 바";
 const serverList = "서버 목록";
 const serverSettingsSuffix = "- 서버 설정";
 const adminPanel = "운영자 패널";
@@ -46,12 +46,12 @@ const later = "나중에";
 const loggedIn = "로그인했어요";
 const openLoginWindow = "로그인 창 열기";
 /** 로그인 창을 연 뒤 대화상자에 */
-const loginWindowOpen = "로그인 창에서 로그인을 마치면 그 창은 저절로 닫히고 여기서 이어서 해요.";
+const loginWindowOpen = "로그인 창에서 로그인을 마치면 그 창은 자동으로 닫히고 여기서 이어서 할 수 있어요.";
 /** 로그인 창의 끝(/login-done) */
 const loginDoneTitle = "로그인했어요";
-const loginDoneBody = "원래 탭에서 이어서 해요. 이 창이 닫히지 않으면 직접 닫아 주세요.";
+const loginDoneBody = "원래 탭에서 이어서 할 수 있어요. 이 창이 닫히지 않으면 직접 닫아 주세요.";
 const notLoggedInYet = "아직 로그인되지 않았어요. 로그인 창에서 로그인을 마쳐 주세요.";
-const reauthBody = "로그인 창에서 다시 로그인하면 하던 일을 이어서 해요. 고치던 내용은 그대로 남아 있어요.";
+const reauthBody = "로그인 창에서 다시 로그인하면 하던 작업을 이어서 할 수 있어요. 고치던 내용은 그대로 남아 있어요.";
 
 // 시계(사이드바)
 const clockLabel = (hh: string, mm: string) => `${hh}시 ${mm}분`;

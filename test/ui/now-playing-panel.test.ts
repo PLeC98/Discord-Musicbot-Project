@@ -205,9 +205,9 @@ test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로
     ["disconnected", "inactivity-timeout", "쉬러 갔어요"],
     ["disconnected", "forced-disconnect", "내보냈어요"],
     ["disconnected", "operator-leave", "봇 운영자가"],
-    ["disconnected", "voice-lost", "다시 붙지 못했어요"],
+    ["disconnected", "voice-lost", "다시 연결하지 못했어요"],
     ["disconnected", "channel-gone", "채널이 사라졌어요"],
-    ["stop", "fault", "되풀이되어"],
+    ["stop", "fault", "반복되어"],
   ];
   for (const [reason, cause, notice] of cases) {
     const sent: unknown[] = [];

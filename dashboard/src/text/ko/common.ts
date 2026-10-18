@@ -5,7 +5,7 @@ const close = "닫기";
 const remove = "삭제";
 const reset = "초기화";
 const all = "전체";
-const noMatch = "찾는 것이 없어요";
+const noMatch = "일치하는 항목이 없어요";
 const toServerList = "서버 목록으로";
 /** 오류 알림의 보고 링크 */
 const reportToDeveloper = "봇 개발자에게 보고하기";
