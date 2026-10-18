@@ -11,7 +11,7 @@ import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
-import { bestSize, highRes, receiveYoutube } from "../../src/dashboard/login-background/youtube.ts";
+import { bestSize, highRes, receiveYoutube, shortfall } from "../../src/dashboard/login-background/youtube.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-youtube-"));
 const SAMPLE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-yt-sample-")), "clip.mp4");
@@ -88,6 +88,14 @@ test("고해상도 다운로드: 짧은 변 2160 이하의 가장 좋은 영상�
   assert.deepEqual([result.width, result.height], [640, 360]);
   assert.deepEqual(calls[0].formatSort, ["res:2160"]);
   assert.notEqual(fs.readFileSync(store.sourceOf(one.id), "utf8").slice(0, 6), "480p 자리");
+});
+
+test("고해상도가 다운로드 단계에서 본 크기보다 작으면 그 차이를 적는다(짧은 변으로 견준다)", () => {
+  assert.equal(shortfall({ width: 3840, height: 2160 }, { width: 640, height: 360 }), "640 × 360(다운로드 단계에서 본 크기 3840 × 2160)");
+  assert.equal(shortfall({ width: 3840, height: 2160 }, { width: 3840, height: 2160 }), null);
+  assert.equal(shortfall({ width: 1080, height: 1920 }, { width: 1080, height: 1920 }), null);
+  // 다운로드 단계에서 크기를 알지 못했으면 견주지 않는다
+  assert.equal(shortfall({ width: 0, height: 0 }, { width: 640, height: 360 }), null);
 });
 
 test("다운로드하지 못하면 background-link-failed(실패 · 라이브라 건너뜀)", async () => {

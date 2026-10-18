@@ -5,6 +5,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "dashboard" });
 import { codedError, messageOf } from "../../rules/error-kind.ts";
 import * as youtube from "../../sources/youtube/index.ts";
 import ytdlp, { type YtDlpFlags } from "../../sources/ytdlp-spawn.ts";
@@ -68,12 +70,20 @@ async function receiveYoutube({ item, folder, signal }: StageJob): Promise<Stage
   return { ...inspected, ...(bestSize(info) ?? {}) };
 }
 
+/** 받은 고해상도가 다운로드 단계에서 본 크기(받을 크기)보다 작으면 그 차이. 그때 유튜브가 낮은 형식만 주면 정지 화면 · 영상이 그 화질로 만들어진다 */
+function shortfall(expected: { width: number; height: number }, got: { width: number; height: number }): string | null {
+  if (!expected.width || !expected.height || Math.min(got.width, got.height) >= Math.min(expected.width, expected.height)) return null;
+  return `${got.width} × ${got.height}(다운로드 단계에서 본 크기 ${expected.width} × ${expected.height})`;
+}
+
 /** 고해상도 다운로드 단계(유튜브, 편집을 적용한 뒤): 원본을 짧은 변 2160 이하의 가장 좋은 영상으로 바꾼다 */
 async function highRes({ item, folder, signal }: StageJob): Promise<StageResult> {
   const { file } = await fetchVideo(item.link!, folder, "download", UHD, signal);
   fs.renameSync(file, store.sourceOf(item.id));
   const inspected = await inspectSource(store.sourceOf(item.id), signal);
+  const short = shortfall(item, inspected);
+  if (short) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}" 의 고해상도 다운로드가 기대보다 작습니다: ${short}`);
   return { width: inspected.width, height: inspected.height, fps: inspected.fps };
 }
 
-export { receiveYoutube, highRes, bestSize };
+export { receiveYoutube, highRes, bestSize, shortfall };
