@@ -177,6 +177,8 @@ test("오디오 캐시 번들: 기본은 캐시 파일 없이, withAudio 면 캐
   // 풀어 둔 번들을 다음 기동이 합친다(비운 캐시에)
   const bundle = unzip(fs.readFileSync(made.file), { maxBytes: 10_000_000 }).find((one) => one.name === "database/audio-cache.restore.zip")!;
   await audioCache.resetCache(AUDIO_CACHE_PARTS);
+  // 새로 설치한 봇 · 옮긴 직후: 캐시 폴더가 아직 없다(기동 때의 합치기는 캐시를 켜기 전이다)
+  fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true });
   fs.writeFileSync(path.join(store.dir, "audio-cache.restore.zip"), bundle.data);
   const done = await applyStagedAudio(store.dir);
   assert.deepEqual([done?.added?.["audio-files"], done?.added?.["audio-ledger"]], [1, 1]);
