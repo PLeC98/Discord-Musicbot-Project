@@ -8,7 +8,7 @@ import config from "../config/index.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { md5, audioKeyOf } from "../rules/audio-key-of.ts";
 import { sessions } from "./player-sessions.ts";
-import { cacheDb } from "./cache-db.ts";
+import { cacheDb, KEPT_ON_RESET } from "./cache-db.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -311,6 +311,7 @@ function wipeTables(survivors: string[]) {
   const holes = survivors.map(() => "?").join(",");
   conn().transaction(() => {
     for (const table of tables) {
+      if (KEPT_ON_RESET.includes(table)) continue;
       if (table === "audio_cache")
         conn()
           .prepare(`DELETE FROM audio_cache WHERE status <> 'downloading'${survivors.length ? ` AND audio_key NOT IN (${holes})` : ""}`)

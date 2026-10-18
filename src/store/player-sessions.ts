@@ -7,13 +7,14 @@ import { stateDb } from "./state-db.ts";
 import type { Db } from "./sqlite.ts";
 import { SessionTrackRow, checked } from "./rows.ts";
 import type { SessionTrackRow as TrackRow } from "./rows.ts";
+import { isAudioFoundBy } from "../rules/audio-found-by.ts";
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
 // better-sqlite3는 정수를 JS Number로 준다. 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
 const SEQ_LIMIT = Number.MAX_SAFE_INTEGER - GAP;
 
-const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry"] as const;
+const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry", "audio_found_by"] as const;
 
 type Slot = "current" | "queue" | "history";
 type LoopMode = "off" | "track" | "queue";
@@ -35,6 +36,7 @@ type TrackIn = {
   live?: boolean | null;
   requestedBy?: { id?: string | null } | null;
   requesterId?: string | null;
+  audioFoundBy?: string | null;
   /** 대기열 항목 번호(열거되지 않는 필드라 펼쳐 넘기면 빠진다. 곡 객체를 그대로 넘긴다) */
   readonly entry?: number;
 };
@@ -85,6 +87,7 @@ function toRow(track: TrackIn) {
     is_live: track.isLive || track.live ? 1 : 0,
     requester_id: track.requestedBy?.id || orNull(track.requesterId),
     entry: Number.isInteger(track.entry) && (track.entry as number) > 0 ? (track.entry as number) : null,
+    audio_found_by: orNull(track.audioFoundBy),
   };
 }
 
@@ -95,8 +98,7 @@ function fromRow(row: TrackRow) {
     pageUrl: row.page_url,
     requestKey: row.request_key,
     audioUrl: row.audio_url ?? undefined,
-    // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 링크 데이터에서 온 것과 같은 처지다(내려갔으면 다시 찾는다)
-    audioFoundBy: row.audio_url ? (row.audio_url === row.request_key ? ("given" as const) : ("ledger" as const)) : undefined,
+    audioFoundBy: isAudioFoundBy(row.audio_found_by) ? row.audio_found_by : undefined,
     duration: row.duration_sec,
     thumbnail: row.thumbnail,
     artist: row.artist,

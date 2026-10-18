@@ -7,7 +7,8 @@ import type { Db } from "./sqlite.ts";
 const stateDb = new DbFile({
   label: "실행 상태 DB",
   fileName: "state.db",
-  version: 1,
+  // 2: 곡마다 음원 주소를 어떻게 알았는지(session_tracks.audio_found_by)
+  version: 2,
   synchronous: "NORMAL",
   onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 위치가 사라집니다." },
   createTables,
@@ -47,6 +48,8 @@ function createTables(db: Db) {
       -- 대기열 항목 번호(player/track-state 의 entry). 곡을 가리키는 라벨이라 옮겨도 그대로다(seq 는 슬롯 안의 순서라 옮기면 바뀐다).
       -- 봇을 다시 시작해도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 복원할 때 새로 받는다
       entry            INTEGER,
+      -- 음원 주소를 어떻게 알았나(rules/audio-found-by). 링크 데이터를 쓰는 법과 음원이 죽었을 때 다시 찾을지를 가른다
+      audio_found_by   TEXT,
       PRIMARY KEY (guild_id, slot, seq)
     );
 

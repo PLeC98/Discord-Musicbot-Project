@@ -27,6 +27,7 @@ const SessionTrackRow = z.object({
   is_live: z.number().int(),
   requester_id: maybe(z.string()),
   entry: maybe(z.number().int().positive()),
+  audio_found_by: maybe(z.string()),
 });
 
 /** 오디오 링크 데이터 한 행 */

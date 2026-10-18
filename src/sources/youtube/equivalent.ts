@@ -7,9 +7,10 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { rankCandidates, searchCandidates } from "./match.ts";
 import { logTitle } from "../../infra/log/title.ts";
+import type { AudioFoundBy } from "../../rules/audio-found-by.ts";
 
 /** 동등물을 찾을 곡. 찾으면 audioUrl · audioFoundBy 를 적는다 */
-type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: "given" | "ledger" | "search"; [field: string]: unknown };
+type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; [field: string]: unknown };
 /** 유튜브 검색. 여기서 읽는 필드만 */
 type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean }> | null | undefined>;
 

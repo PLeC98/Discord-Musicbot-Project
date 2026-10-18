@@ -184,7 +184,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 필드 셋과 표시 정보 · 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 필드 셋과 표시 정보 · 음원을 어떻게 알았나 · 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -192,6 +192,7 @@ test("트랙 필드: 링크 필드 셋과 표시 정보 · 대기열 ID가 저�
     pageUrl: "https://anilist.co/anime/1",
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
+    audioFoundBy: "ledger",
     duration: "185",
     thumbnail: "https://img/1.jpg",
     artist: "가수",
@@ -212,7 +213,7 @@ test("트랙 필드: 링크 필드 셋과 표시 정보 · 대기열 ID가 저�
     pageUrl: "https://anilist.co/anime/1",
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
-    audioFoundBy: "ledger", // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 링크 데이터에서 온 것과 같은 처지다
+    audioFoundBy: "ledger", // 음원 주소로 가리지 않고 저장한 값(직접 지정한 음원 · 검색 결과를 링크 데이터에서 온 것과 섞지 않는다)
     duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",
@@ -301,4 +302,15 @@ test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다 
   assert.equal(db.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM session_tracks").get()?.n, 2, "지워야 i번째 곡이 i번째 행이다");
   store.removeAt(G, 1);
   assert.deepEqual(titles(loaded(store).queue), ["A"], "자리로 지우는 것이 맞는 곡을 지운다");
+});
+
+test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다(모르는 값 · 빈 값은 없음)", () => {
+  const { store } = open();
+  const base = { title: "노래", pageUrl: "https://y/2", requestKey: "https://y/2", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube" };
+  store.setCurrent(G, { ...base, audioFoundBy: "pinned" });
+  assert.equal(loaded(store).current?.audioFoundBy, "pinned");
+  store.setCurrent(G, { ...base, audioFoundBy: "옛 값" });
+  assert.equal(loaded(store).current?.audioFoundBy, undefined);
+  store.setCurrent(G, base);
+  assert.equal(loaded(store).current?.audioFoundBy, undefined, "음원 주소가 요청과 달라도 링크 데이터에서 온 것으로 가리지 않는다");
 });

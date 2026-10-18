@@ -1,6 +1,7 @@
-// 캐시 DB(cache.db). 다시 다운로드하거나 다시 찾으면 되살아나는 것만 담는다: 캐시 파일 기록 · 오디오 링크 데이터 · 외부 서비스의 응답.
+// 캐시 DB(cache.db). 음원 데이터를 담는다: 캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · 외부 서비스의 응답.
 // 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다). 삭제한 뒤 기록을 잃은 캐시 파일은 기동 정리(audioCache.onStartup)가 삭제한다.
-// 캐시 초기화는 이 파일의 표를 모두 비운다(audioCache.resetCache). 사람이 정한 값 · 실행 상태는 여기 두지 않는다.
+// 캐시 초기화는 직접 지정한 음원(KEPT_ON_RESET) 말고 이 파일의 표를 모두 비운다(audioCache.resetCache). 직접 지정한 음원은 사람이 정한 값이지만
+// "어느 요청에 어느 음원"이라는 음원 데이터라 링크 데이터와 같은 파일에 둔다(설정 스냅샷을 복원해도 따라 돌아가지 않는다). 실행 상태는 여기 두지 않는다.
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
@@ -11,7 +12,7 @@ const cacheDb = new DbFile({
   // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다
   version: 6,
   synchronous: "NORMAL",
-  onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
+  onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
   createTables,
 });
 
@@ -50,6 +51,23 @@ function createTables(db: Db) {
                 title_verified      INTEGER NOT NULL DEFAULT 0
             );
 
+            -- 운영자가 직접 지정한 음원. "이 요청은 이 음원으로 튼다". 곡을 찾을 때 링크 데이터보다 먼저 본다(store/pinned-sources).
+            -- 키는 링크 데이터와 같은 요청 키(canonicalUrl). 사람이 정한 값이라 캐시 초기화가 건너뛴다
+            CREATE TABLE IF NOT EXISTS pinned_sources (
+                request_key  TEXT PRIMARY KEY,
+                audio_url    TEXT NOT NULL,
+                pinned_at    INTEGER NOT NULL
+            );
+
+            -- 음원 하나를 재생할 수 있는지의 마지막 결과(재생 테스트 · 직접 지정한 음원이 재생에 실패한 것). 키는 audioKeyOf(음원 주소).
+            -- code: 실패 까닭(문제 코드, 라이브면 live). 성공이면 NULL
+            CREATE TABLE IF NOT EXISTS source_checks (
+                audio_key    TEXT PRIMARY KEY,
+                ok           INTEGER NOT NULL,
+                code         TEXT,
+                checked_at   INTEGER NOT NULL
+            );
+
             -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용. 라이브 조회 실패 시 사용).
             -- data_json = 정규화 이전 원시 배열(카테고리 전부). 정규화/필터는 SponsorBlock.js가 읽을 때 수행.
             CREATE TABLE IF NOT EXISTS sponsorblock_cache (
@@ -78,4 +96,7 @@ function createTables(db: Db) {
         `);
 }
 
-export { cacheDb, createTables };
+/** 캐시 초기화가 비우지 않는 표 */
+const KEPT_ON_RESET: readonly string[] = ["pinned_sources"];
+
+export { cacheDb, createTables, KEPT_ON_RESET };

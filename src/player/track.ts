@@ -8,8 +8,7 @@
 //
 // platform 은 곡이 어디서 왔는지의 라벨이다(화면과 대시보드 점 색). 어디서 받을지는 audioUrl 이 정한다.
 
-/** 음원 주소를 어떻게 알았나. 링크 데이터에서 온 영상이 죽었으면 다시 찾는다. */
-type AudioFoundBy = "given" | "ledger" | "search";
+import type { AudioFoundBy } from "../rules/audio-found-by.ts";
 
 /** 곡 길이가 어디서 왔나. provided: 출처가 준 값 · measured: 다운로드해 둔 음원을 잰 값 · unknown: 모른다(0). 적지 않았으면 provided */
 type DurationSource = "provided" | "measured" | "unknown";
