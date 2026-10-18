@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { md5 } from "../../src/rules/audio-key-of.ts";
+import { codedError } from "../../src/rules/error-kind.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import * as audioConvert from "../../src/media/convert.ts";
@@ -429,6 +430,23 @@ test("링크 데이터에서 가져온 영상이 내려갔으면 다시 찾아 �
   assert.equal(file, audioCache.getFilePath("yt:freshfresh01"), "새 영상의 키 경로로 다운로드한다");
   assert.equal(audioRow("yt:deaddeaddea")?.status, "error");
   assert.equal(audioRow("yt:freshfresh01")?.status, "cached");
+});
+
+test("직접 지정한 음원이 사라졌으면 지정을 건너뛰고 원래 링크로 다운로드한다(지금 트는 곡이면 보호도 옮긴다)", async () => {
+  ytdlpBehavior = (url, options) => {
+    if (url.includes("soundcloud.com")) throw codedError("unavailable-contents", "HTTP Error 404");
+    writesFile()(url, options);
+  };
+  const track: DownloadTrack = { ...yt("origorig001"), audioUrl: "https://soundcloud.com/gone/dl", audioFoundBy: "pinned" };
+  const owner = { guild: { id: "g-pindead" }, currentTrack: track };
+  audioCache.protect("g-pindead", "sc:gone/dl");
+
+  const file = await new TrackDownloader(owner, deps).downloadTrack(track);
+
+  assert.equal(file, audioCache.getFilePath("yt:origorig001"));
+  assert.deepEqual([track.audioUrl, track.audioFoundBy], ["https://www.youtube.com/watch?v=origorig001", "given"]);
+  assert.equal(audioCache._protectedKeys.get("g-pindead"), "yt:origorig001");
+  audioCache.unprotect("g-pindead");
 });
 
 test("새로 검색한 영상(링크 데이터에서 온 것이 아님)이 내려갔으면 다시 찾지 않는다", async () => {

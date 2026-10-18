@@ -20,6 +20,7 @@ import * as SoundCloud from "../sources/soundcloud/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as SponsorBlock from "../sources/sponsor-block.ts";
+import { leaveDeadPin } from "../sources/pinned-fallback.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { TrackInfo } from "../player/track.ts";
@@ -41,7 +42,7 @@ type Sources = {
   convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null; title?: string | null; artist?: string | null }> };
   measure: { durationSec(file: string): Promise<number | null> };
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
-  equivalent: { findYouTubeEquivalent(track: DownloadTrack): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
+  equivalent: { findYouTubeEquivalent(track: DownloadTrack, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
 };
 /** 다운로드하는 쪽 플레이어에서 읽는 필드 */
 type Owner = { guild: { id: string }; currentTrack?: unknown };
@@ -213,15 +214,15 @@ class TrackDownloader {
       try {
         return await this._performDownload(track, filepath);
       } catch (err) {
+        // 직접 지정한 음원이 사라졌으면 지정을 건너뛰고 다시 찾아 한 번 더(sources/pinned-fallback)
+        if (await leaveDeadPin(track, err, this.deps.equivalent)) return await this._redownload(track);
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
         // (극히 드문 케이스. 새로 검색한 영상이면 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const fresh = await this.deps.equivalent.reresolveYouTube(track);
           if (!fresh) throw err;
-          // 지금 트는 곡이면 캐시 보호도 새 음원으로 옮긴다(재생은 옛 스트림으로 계속되고, 다음 재생부터 새 파일을 쓴다)
-          if (this.player.currentTrack === track) audioCache.protect(this.player.guild.id, audioKeyOf(track.audioUrl));
-          return await this._performDownload(track, this.trackFilePath(track));
+          return await this._redownload(track);
         }
         throw err;
       }
@@ -233,6 +234,12 @@ class TrackDownloader {
     } finally {
       if (inFlight.get(filepath) === downloadPromise) inFlight.delete(filepath);
     }
+  }
+
+  // 음원을 다시 찾았다. 새 음원으로 다운로드한다. 지금 트는 곡이면 캐시 보호도 새 음원으로 옮긴다(재생은 옛 스트림으로 계속되고, 다음 재생부터 새 파일을 쓴다)
+  _redownload(track: DownloadTrack) {
+    if (this.player.currentTrack === track) audioCache.protect(this.player.guild.id, audioKeyOf(track.audioUrl));
+    return this._performDownload(track, this.trackFilePath(track));
   }
 
   // 다운로드 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 다운로드 · 사전 캐싱)은 그 결과만 debug 로 남긴다

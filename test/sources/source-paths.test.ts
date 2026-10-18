@@ -404,6 +404,62 @@ test("스트림: 링크 데이터에서 온 영상이 내려갔으면 한 번 �
   assert.equal(s.url, "https://rr.googlevideo.com/new");
 });
 
+// ── 직접 지정한 음원이 죽었을 때 ──────────────────────────────────────────
+
+test("사라졌다는 판정: 확실히 사라진 것만(일시 오류 · 연령 제한으로 지정을 버리지 않는다)", async () => {
+  const { deadSourceCode } = await import("../../src/sources/dead-source.ts");
+  assert.equal(deadSourceCode(new Error("ERROR: [youtube] abc: Video unavailable")), "unavailable-contents");
+  assert.equal(deadSourceCode(codedError("unavailable-contents", "HTTP Error 404")), "unavailable-contents");
+  assert.equal(deadSourceCode(codedError("sc-preview-only", "미리듣기")), "sc-preview-only");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 404") })), "direct-unavailable");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 503") })), null, "5xx 는 일시 오류");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: networkError("ECONNRESET") })), null);
+  assert.equal(deadSourceCode(codedError("rate-limited", "HTTP Error 403")), null);
+  assert.equal(deadSourceCode(new Error("ERROR: Sign in to confirm your age")), null, "연령 제한은 사라진 것이 아니다");
+});
+
+// 사운드클라우드 지정이 404 로 죽는다
+const deadSoundCloud = { getStream: async () => Promise.reject(codedError("unavailable-contents", "HTTP Error 404")) };
+
+test("스트림: 지정한 음원이 사라졌으면 원래 링크로 한 번 더 열고, 실패를 재생 테스트 결과로 남긴다. 지정은 그대로", async () => {
+  const url = "https://www.youtube.com/watch?v=pindeadstr1";
+  pinnedSources.setPin(url, "https://soundcloud.com/gone/one");
+  const youtube = { ...YouTube, getStream: async (u: string) => ({ url: `${u}#stream` }) };
+  const track: Seeking = { title: "곡", platform: "youtube", requestKey: url, audioUrl: "https://soundcloud.com/gone/one", audioFoundBy: "pinned" };
+
+  const s = await streamUrl.getStream(track, { youtube, soundcloud: deadSoundCloud, equivalent });
+
+  assert.equal(s.url, `${url}#stream`);
+  assert.deepEqual([track.audioUrl, track.audioFoundBy], [url, "given"]);
+  const { getCheck } = await import("../../src/store/source-checks.ts");
+  assert.equal(getCheck("sc:gone/one")?.ok, false);
+  assert.equal(pinnedSources.getPin(url)?.audioUrl, "https://soundcloud.com/gone/one", "지정은 사람이 해제할 때까지 그대로");
+});
+
+test("스트림: 스포티파이 곡의 지정이 사라졌으면 지정을 건너뛰고 링크 데이터로, 자동재생 곡은 링크 데이터의 유튜브 영상으로", async () => {
+  const youtube = { ...YouTube, getStream: async (u: string) => ({ url: `${u}#stream` }) };
+  const sp = "https://open.spotify.com/track/pindeadsp01";
+  pinnedSources.setPin(sp, "https://soundcloud.com/gone/two");
+  trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: "https://www.youtube.com/watch?v=spledger001", platform: "spotify", title: "곡" });
+  const spotify: Seeking = { title: "곡", platform: "spotify", requestKey: sp, audioUrl: "https://soundcloud.com/gone/two", audioFoundBy: "pinned" };
+  assert.equal((await streamUrl.getStream(spotify, { youtube, soundcloud: deadSoundCloud, equivalent })).url, "https://www.youtube.com/watch?v=spledger001#stream");
+  assert.equal(spotify.audioFoundBy, "ledger", "죽은 지정을 다시 붙이지 않았다");
+
+  trackLookup.recordTrackLookup({ requestKey: "amq:pindead", pageUrl: "https://anilist.co/anime/9", audioUrl: "https://www.youtube.com/watch?v=autoledger1", platform: "anisongdb", title: "곡" });
+  const auto: Seeking = { title: "곡", platform: "anisongdb", requestKey: "amq:pindead", audioUrl: "https://soundcloud.com/gone/three", audioFoundBy: "pinned" };
+  assert.equal((await streamUrl.getStream(auto, { youtube, soundcloud: deadSoundCloud, equivalent })).url, "https://www.youtube.com/watch?v=autoledger1#stream");
+
+  const orphan: Seeking = { title: "곡", platform: "anisongdb", requestKey: "amq:noledger", audioUrl: "https://soundcloud.com/gone/four", audioFoundBy: "pinned" };
+  await assert.rejects(streamUrl.getStream(orphan, { youtube, soundcloud: deadSoundCloud, equivalent }), /404/, "링크 데이터도 없으면 원래 오류(자동재생이 다음 후보를 선택한다)");
+});
+
+test("스트림: 지정한 음원의 일시 오류는 지정을 건너뛰지 않는다", async () => {
+  const flaky = { getStream: async () => Promise.reject(codedError("rate-limited", "HTTP Error 403")) };
+  const track: Seeking = { title: "곡", platform: "youtube", requestKey: "https://www.youtube.com/watch?v=pinflaky001", audioUrl: "https://soundcloud.com/flaky/one", audioFoundBy: "pinned" };
+  await assert.rejects(streamUrl.getStream(track, { soundcloud: flaky, equivalent }), /403/);
+  assert.equal(track.audioFoundBy, "pinned");
+});
+
 test("스트림: 새로 찾은 영상이 내려간 것은 다시 찾지 않는다. 사운드클라우드는 제 주소로", async () => {
   const youtube = {
     ...YouTube,

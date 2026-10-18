@@ -9,6 +9,7 @@ import * as SoundCloud from "./soundcloud/index.ts";
 import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { leaveDeadPin } from "./pinned-fallback.ts";
 
 // 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
 /** 스트림 서술자. 재생 쪽이 읽는 필드만 적는다. 소스마다 필드가 더 있다 */
@@ -32,7 +33,7 @@ type StreamInfo = {
 // 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
-type Equivalent = { findYouTubeEquivalent(track: Seeking): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
+type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
 /** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; equivalent: Equivalent; canPlayHls: boolean };
 const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equivalent: equivalentModule, canPlayHls: true };
@@ -43,7 +44,17 @@ const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equi
  */
 // options: 넘기지 않은 것은 진짜(youtube · soundcloud · equivalent)와 canPlayHls = true
 async function getStream(track: Seeking & { platform?: string | null }, options: Partial<StreamOptions> = {}) {
-  const { youtube, soundcloud, equivalent, canPlayHls } = { ...DEFAULTS, ...options };
+  const opts = { ...DEFAULTS, ...options };
+  try {
+    return await streamOf(track, opts);
+  } catch (error) {
+    // 직접 지정한 음원이 사라졌으면 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더(sources/pinned-fallback)
+    if (await leaveDeadPin(track, error, opts.equivalent)) return await streamOf(track, opts);
+    throw error;
+  }
+}
+
+async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls }: StreamOptions) {
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
     throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
