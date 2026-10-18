@@ -1,4 +1,4 @@
-// 요청 제한(express-rate-limit). 일반 API · 로그인 · 음량 · 곡 넣기가 같은 모양을 쓰고 한도만 다르다
+// 요청 제한(express-rate-limit). 일반 API · 로그인 · 볼륨 · 곡 넣기가 같은 모양을 쓰고 한도만 다르다
 
 import type { Request, RequestHandler } from "express";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
@@ -9,7 +9,7 @@ import { tooManyRequests } from "./problem.ts";
 // 로그인한 사람으로 센다. 로그인 전에는 IP(trust proxy 가 사설망 한정이라 믿을 수 있다)
 const userOrIp = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
 
-// 일반 API 한도에서 빼는 경로. 실시간 연결은 오래 붙어 있고, 음량은 끄는 동안 잇달아 와서 재생 경로가 따로 센다
+// 일반 API 한도에서 빼는 경로. 실시간 연결은 오래 붙어 있고, 볼륨은 끄는 동안 잇달아 와서 재생 경로가 따로 센다
 const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume)$/];
 
 /** 일반 API 한도에서 빼는 요청인가(주소의 경로로 본다) */

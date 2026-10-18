@@ -2,7 +2,7 @@
   <!-- 진행 막대(기존 대시보드와 같은 곧은 막대). 지나온 쪽 · SponsorBlock 구간(카테고리 색) · 하이라이트 표시 · 핸들.
        핸들은 올리거나 끄는 동안 보이고, 손가락으로 쓰는 기기에서는 늘 보인다. 위치 계산 · 끌기는 부모(seek-bar)가 한다 -->
   <div ref="root" class="group/seek relative flex items-center w-full @container" :style="{ height: `${height}px` }">
-    <!-- 막대 · 지나온 쪽 · 구간. 핸들이 보이는 동안은 핸들 양옆을 비운다(음량 막대와 같은 틈) -->
+    <!-- 막대 · 지나온 쪽 · 구간. 핸들이 보이는 동안은 핸들 양옆을 비운다(볼륨 막대와 같은 틈) -->
     <span class="absolute inset-0 flex items-center" :class="handle && [dragging ? 'mask-(--hole)' : 'group-hover/seek:mask-(--hole) pointer-coarse:mask-(--hole)']" :style="{ '--hole': hole }">
       <span class="absolute inset-x-0 rounded-full bg-on-surface/15" :style="{ height: `${thick}px` }"></span>
       <!-- 지나온 쪽과 핸들은 transform 으로만 옮긴다(폭 · 위치를 바꾸면 배치 · 그리기를 다시 한다).
@@ -43,7 +43,7 @@ const root = ref<HTMLElement | null>(null);
 const { width } = useElementSize(root);
 const shown = ref(props.value);
 let anchor = { value: props.value, at: performance.now() };
-// 핸들 양옆을 비우는 마스크. 핸들은 음량 막대처럼 세로 막대(폭 4 · 높이 두께의 3배, 끄는 동안 폭 2), 가운데에서 4 까지 비운다(음량 막대와 같은 틈)
+// 핸들 양옆을 비우는 마스크. 핸들은 볼륨 막대처럼 세로 막대(폭 4 · 높이 두께의 3배, 끄는 동안 폭 2), 가운데에서 4 까지 비운다(볼륨 막대와 같은 틈)
 const hole = computed(() => {
   const x = `${shown.value}%`;
   return `linear-gradient(to right, #000 calc(${x} - 4px), transparent calc(${x} - 4px), transparent calc(${x} + 4px), #000 calc(${x} + 4px))`;

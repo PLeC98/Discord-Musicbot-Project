@@ -1,7 +1,7 @@
 // play() 의 단계. play() 는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playback-input).
 //   prepareStart   틀 곡과 시작 위치. 대기열에서 꺼내고 음성 채널에 붙고, 새로 트는 곡이면 인트로 끝을 시작 위치로
 //   resolveSource  소리를 어디서 받나. 캐시 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
-//   commitPlaying  연 소리를 튼다. SponsorBlock · 음량 · 캐시 보호 · 재생 기록 · 멈춤 사유 · 위치 재개 정보 · 감시와 저장
+//   commitPlaying  연 소리를 튼다. SponsorBlock · 볼륨 · 캐시 보호 · 재생 기록 · 멈춤 사유 · 위치 재개 정보 · 감시와 저장
 // 플레이어의 상태를 읽고 쓰므로 플레이어를 받는다.
 
 import logger from "../infra/log/logger.ts";

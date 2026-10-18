@@ -149,7 +149,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
-  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 실시간 연결 · 음량은 뺀다(rate-limits)
+  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 실시간 연결 · 볼륨은 뺀다(rate-limits)
   app.use(
     "/api",
     limiter(() => rl.apiMax, { skip: unlimited }),

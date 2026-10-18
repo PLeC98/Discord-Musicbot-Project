@@ -169,12 +169,12 @@ test("하이라이트: 지점이 없으면 거절, 있으면 그 위치로(원�
   assert.deepEqual(p.calls, ["seek:42500:highlight"]);
 });
 
-test("음량: 0 ~ 100 정수만, 전후를 돌려준다", async () => {
+test("볼륨: 0 ~ 100 정수만, 전후를 돌려준다", async () => {
   for (const bad of [-1, 101, 5.5, NaN, "50"]) assert.equal(codeOf(await controls.volume(fakePlayer(), DJ, bad)), "bad-volume", String(bad));
   assert.deepEqual(await controls.volume(fakePlayer(), DJ, 80), { ok: true, before: 50, level: 80 });
 });
 
-test("음량: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고치기는 멈춘 뒤 한 번", async (t) => {
+test("볼륨: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고치기는 멈춘 뒤 한 번", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const lines: string[] = [];
   sink.addDestination((rec) => String(rec.msg).startsWith("볼륨:") && lines.push(String(rec.msg)));
@@ -193,7 +193,7 @@ test("음량: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고
   assert.deepEqual(lines, ["볼륨: 50% → 80%"]);
 });
 
-test("음량: 멈춘 뒤 settled 를 처음 값 → 마지막 값으로 한 번 부른다. 처음 값으로 돌아왔으면 부르지 않는다", async (t) => {
+test("볼륨: 멈춘 뒤 settled 를 처음 값 → 마지막 값으로 한 번 부른다. 처음 값으로 돌아왔으면 부르지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const shown: string[] = [];
   const settled = (from: number, to: number) => shown.push(`${from}→${to}`);

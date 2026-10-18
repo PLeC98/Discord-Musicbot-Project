@@ -10,7 +10,7 @@ import { text } from "../text/index.ts";
 const MIN_GAP_MS = 200;
 
 /**
- * serverVolume: 서버가 알려 준 음량. send: 음량을 보내고 응답을 상태에 반영한다
+ * serverVolume: 서버가 알려 준 볼륨. send: 볼륨을 보내고 응답을 상태에 반영한다
  */
 export function useVolumeControl(serverVolume: Readonly<Ref<number | undefined>>, send: (level: number) => Promise<unknown>) {
   const draft = ref<number | null>(null);

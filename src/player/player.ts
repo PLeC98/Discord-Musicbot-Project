@@ -201,7 +201,7 @@ class Player {
   downloader: TrackDownloader;
   persistence: SessionPersistence;
   trackSink: SessionPersistence;
-  /** 설정 필드(음량 · 반복 · 자동재생 · 멈춤 · 채널)이 바뀌면 알릴 곳. 무엇을 언제 쓸지는 받는 쪽(세션 저장)이 정한다. 복원은 DB 에서 읽은 값이라 알리지 않는다 */
+  /** 설정 필드(볼륨 · 반복 · 자동재생 · 멈춤 · 채널)이 바뀌면 알릴 곳. 무엇을 언제 쓸지는 받는 쪽(세션 저장)이 정한다. 복원은 DB 에서 읽은 값이라 알리지 않는다 */
   settingsSink: { onSettingsChanged(): void } | null;
   warmer: QueueWarmer;
   sponsorSkipper: SponsorSkipper;

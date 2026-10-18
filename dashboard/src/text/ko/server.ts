@@ -28,7 +28,7 @@ const enlarge = "크게 보기";
 const enlargeArt = "앨범아트 크게 보기";
 /** 곡이 없을 때 가수 자리 */
 const addToPlay = "곡을 넣으면 바로 재생해요.";
-const volumeLabel = (volume: number | string) => `음량 ${volume}`;
+const volumeLabel = (volume: number | string) => `볼륨 ${volume}`;
 /** 음성 채널 상태 한 줄 */
 const voice = {
   same: "봇과 같은 음성 채널에 있어요",

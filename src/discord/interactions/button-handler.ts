@@ -92,7 +92,7 @@ async function handleVolumeModal(interaction: Press) {
   await interaction.showModal(volumeModal());
 }
 
-/** 음량을 입력하는 모달. 받는 쪽은 modalHandler 의 음량 처리 */
+/** 볼륨을 입력하는 모달. 받는 쪽은 modalHandler 의 볼륨 처리 */
 function volumeModal() {
   const t = controlText.volumeModal();
   const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);

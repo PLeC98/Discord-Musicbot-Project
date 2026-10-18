@@ -8,7 +8,7 @@ import { tunablesChanged } from "../../src/config/tunables-changed.ts";
 import { signedInAs } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 
-test("실시간 연결 · 음량만 일반 API 한도에서 뺀다", () => {
+test("실시간 연결 · 볼륨만 일반 API 한도에서 뺀다", () => {
   const of = (url: string) => unlimited({ originalUrl: url });
   for (const url of ["/api/admin/logs/stream", "/api/guilds/events", "/api/guilds/123/player/events", "/api/guilds/123/player/volume", "/api/guilds/123/player/volume?queue=0"]) assert.equal(of(url), true, url);
   for (const url of ["/api/guilds/123/player/skip", "/api/guilds/123/player", "/api/me", "/api/admin/logs", "/api/guilds/123/player/volume/x"]) assert.equal(of(url), false, url);

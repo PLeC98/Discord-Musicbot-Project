@@ -394,7 +394,7 @@ test("조작 거절은 디스코드와 같은 코드의 문제 응답으로 보�
 
 test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
   const seen: boolean[] = [];
-  const off = playerEvents.on("refresh", async (p: Player) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
+  const off = playerEvents.on("refresh", async (p: Player) => p === player && seen.push(true)); // 앞 테스트의 볼륨 타이머가 늦게 올 수 있다
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });

@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-// 음량 단계별 아이콘. 0 은 음소거 표시, 1~33 · 34~66 · 67~100 은 물결 하나 · 둘 · 셋.
+// 볼륨 단계별 아이콘. 0 은 음소거 표시, 1~33 · 34~66 · 67~100 은 물결 하나 · 둘 · 셋.
 // 단계가 바뀌면 물결과 음소거 표시가 커지며 나타나고 줄며 사라진다
 const props = withDefaults(defineProps<{ level?: number; size?: number | string }>(), { level: 100, size: 18 });
 

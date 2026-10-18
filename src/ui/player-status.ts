@@ -5,7 +5,7 @@ import type { Player } from "../player/player.ts";
 
 type StatusHost = Pick<Player, "audioPlayer" | "volume" | "loop">;
 
-/** 재생 중 · 멈춤 · 음량 · 반복 */
+/** 재생 중 · 멈춤 · 볼륨 · 반복 */
 function playbackStatus(player: StatusHost) {
   const status = player.audioPlayer?.state?.status;
   return { playing: status === AudioPlayerStatus.Playing, paused: status === AudioPlayerStatus.Paused, volume: player.volume, loop: player.loop };

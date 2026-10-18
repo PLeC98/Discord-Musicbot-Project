@@ -1,4 +1,4 @@
-// src/discord/interactions/control-answers.ts — 음량은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
+// src/discord/interactions/control-answers.ts — 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
 // 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 메시지를 안내로 바꾼다
 
 import { test, after } from "node:test";
@@ -92,7 +92,7 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
   assert.deepEqual(lifetimesOf(beyond.it), [LIFETIME.warning], "거절은 경고 수명");
 });
 
-test("음량: 바꾼 결과를 모두에게. 명령과 패널의 입력 창이 이 하나를 부른다", async () => {
+test("볼륨: 바꾼 결과를 모두에게. 명령과 패널의 입력 창이 이 하나를 부른다", async () => {
   const { it, log } = asked();
   const levels: number[] = [];
   const { p } = player({ volume: 80, setVolume: (v: number) => (levels.push(v), v) });

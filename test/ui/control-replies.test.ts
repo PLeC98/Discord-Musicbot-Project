@@ -55,7 +55,7 @@ test("순서: 옮기기 전 · 뒤 위치와 누가", () => {
   assert.equal(separatorsOf(post(replies.previous(false, track))), 0, "누가 했나 줄이 없으면 구분선도 없다");
 });
 
-test("음량: 바뀌면 이전 → 지금, 같으면 그대로", () => {
+test("볼륨: 바뀌면 이전 → 지금, 같으면 그대로", () => {
   assert.deepEqual(shown(replies.volumeSet(80, 35, by)), ["### 🔊 볼륨을 조절했어요!\n**80%** → **35%**", BY]);
   assert.deepEqual(shown(replies.volumeSet(35, 35, by))[0], "### 🔊 볼륨을 조절했어요!\n볼륨이 이미 35%라서 그대로 둘게요.");
 });

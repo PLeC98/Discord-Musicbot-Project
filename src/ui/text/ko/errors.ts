@@ -240,7 +240,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "track-cache-write-failed": () => error("failed", "변경 사항을 저장하지 못했어요!", "캐시 DB 에 저장하다 실패했어요. 운영자 로그를 확인해 주세요."),
   // 대시보드: 초기화
   "reset-name-mismatch": () => warning("input", "봇 이름이 맞지 않아요!", "확인 창에 적힌 봇 이름을 그대로 입력해 주세요."),
-  "reset-already-staged": () => warning("state", "봇 전체 초기화가 이미 예약돼 있어요!", "봇을 다시 시작하면 지워져요. 취소하려면 초기화 카드에서 예약 취소를 눌러 주세요."),
+  "reset-already-staged": () => warning("state", "봇 전체 초기화가 이미 예약돼 있어요!", "봇을 다시 시작하면 삭제돼요. 취소하려면 초기화 카드에서 예약 취소를 눌러 주세요."),
   "reset-not-staged": (_, look) => warning("notFound", "예약된 봇 전체 초기화가 없어요!", stalePage(look)),
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };

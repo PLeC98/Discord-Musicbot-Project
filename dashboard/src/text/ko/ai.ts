@@ -291,7 +291,7 @@ const advanced = {
 const paid = {
   title: "실제로 보낼까요?",
   body: "토큰 비용이 발생해요.",
-  to: "보낼 곳",
+  to: "엔드포인트",
   model: "모델",
   what: "보낼 것",
   checking: "확인하는 중…",
@@ -350,7 +350,7 @@ const failed = {
   state: "키 저장 여부와 기본 프롬프트를 불러오지 못했어요.",
   preview: "미리보기를 만들지 못했어요.",
   models: "불러오지 못했어요.",
-  endpoint: "보낼 곳을 확인하지 못했어요.",
+  endpoint: "엔드포인트를 확인하지 못했어요.",
   send: "보내지 못했어요.",
 };
 

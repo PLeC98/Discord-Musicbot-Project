@@ -1,4 +1,4 @@
-// 재생 조작 · 탐색 · 음량 · 곡 표. 서버 화면 · 재생 바 · 대기열 판이 같이 쓴다
+// 재생 조작 · 탐색 · 볼륨 · 곡 표. 서버 화면 · 재생 바 · 대기열 판이 같이 쓴다
 
 const shuffle = "셔플";
 const previous = "이전곡";
@@ -10,7 +10,7 @@ const playPause = (running: boolean) => (running ? pause : play);
 const stop = "정지";
 const highlight = "하이라이트";
 const toHighlight = "하이라이트로 가기";
-const volume = "음량";
+const volume = "볼륨";
 const live = "라이브";
 const queue = "대기열";
 const mine = "내가 넣은 곡";
@@ -21,7 +21,7 @@ const upNext = (title: string) => `다음: ${title}`;
 const nothingPlaying = "재생 중인 곡이 없어요";
 const openServer = "이 서버 화면으로";
 const seekCancelled = "곡이 바뀌어 위치 이동을 취소했어요.";
-const volumeFailed = "음량을 바꾸지 못했어요.";
+const volumeFailed = "볼륨을 바꾸지 못했어요.";
 /** 조작이 거절되거나 실패했을 때(봇이 문장을 주지 않은 경우) */
 const failed = {
   pause: "조작하지 못했어요.",

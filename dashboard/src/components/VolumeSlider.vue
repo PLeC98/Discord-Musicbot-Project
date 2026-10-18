@@ -1,5 +1,5 @@
 <template>
-  <!-- 음량 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 끄는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
+  <!-- 볼륨 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 끄는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
   <span class="group/vol relative inline-flex">
     <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="level" class="peer m3-slider m3-slider-thin w-full" :style="style" :disabled="disabled" :aria-label="T.volume" @pointerdown="grab" @input="emit('input', valueOf($event))" @change="emit('change', valueOf($event))" />
     <!-- 핸들(폭 4) 가운데에 맞춘다 -->
@@ -21,7 +21,7 @@ import { VOLUME_MAX } from "../../../src/rules/limits.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
 
-// level 은 보여 줄 음량. bubble 이 거짓이면 말풍선을 두지 않는다(숫자를 따로 보여 주는 곳). 굵기는 m3-slider-thin(진행 막대와 같다)
+// level 은 보여 줄 볼륨. bubble 이 거짓이면 말풍선을 두지 않는다(숫자를 따로 보여 주는 곳). 굵기는 m3-slider-thin(진행 막대와 같다)
 const props = withDefaults(defineProps<{ level: number; disabled?: boolean; bubble?: boolean }>(), { disabled: false, bubble: true });
 const emit = defineEmits<{ input: [value: string]; change: [value: string] }>();
 

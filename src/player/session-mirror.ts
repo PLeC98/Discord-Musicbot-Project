@@ -13,7 +13,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 
 const HEARTBEAT_MS = 5000;
-// 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(음량을 연달아 바꾸는 따위)
+// 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(볼륨을 연달아 바꾸는 따위)
 const SETTINGS_SETTLE_MS = 200;
 
 // 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 트랙이 DB에서 삭제된다.
@@ -161,7 +161,7 @@ class SessionPersistence {
     this.settingsTimer.unref?.();
   }
 
-  /** 세션 행 열(음량 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
+  /** 세션 행 열(볼륨 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
   saveRowIfChanged() {
     const p = this.player;
     if (!p.currentTrack && p.queue.length === 0) return;

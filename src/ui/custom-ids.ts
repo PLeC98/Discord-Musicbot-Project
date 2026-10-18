@@ -2,7 +2,7 @@
 // 세션을 싣는 것은 마지막 필드가 세션이다(지난 재생의 버튼 · 메뉴를 구분한다).
 // 재생목록 더 넣기(plm · plmm)는 이어 불러올 상태를 나머지 필드에 싣는다(usecases/playlist-more). 한도(100자)가 빠듯해 접두사를 늘리지 않는다
 
-const PANEL = "panel"; // 재생 패널의 버튼 · 곡으로 건너뛰기 메뉴 · 음량 모달
+const PANEL = "panel"; // 재생 패널의 버튼 · 곡으로 건너뛰기 메뉴 · 볼륨 모달
 const AUTOPLAY = "autoplay"; // 자동재생 장르 메뉴
 const QUEUE = "queue"; // 대기열 보기의 넘기기
 const HELP = "help";

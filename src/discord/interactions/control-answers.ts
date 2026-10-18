@@ -48,7 +48,7 @@ async function answerShuffle(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.shuffled(r.count, interaction.member), LIFETIME.result);
 }
 
-/** 음량. level 은 명령이 받은 수이거나 입력 창에 입력한 값(맞는 값인지는 controls 가 본다) */
+/** 볼륨. level 은 명령이 받은 수이거나 입력 창에 입력한 값(맞는 값인지는 controls 가 본다) */
 async function answerVolume(interaction: Asked, player: MaybePlayer, level: unknown) {
   const r = await controls.volume(player, { member: interaction.member }, level);
   if (!r.ok) return refuse(interaction, r);

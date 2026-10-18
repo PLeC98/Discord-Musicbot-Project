@@ -691,7 +691,7 @@ test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
   );
 });
 
-test("리소스 음량과 전송 비트레이트를 맞춘다", async () => {
+test("리소스 볼륨과 전송 비트레이트를 맞춘다", async () => {
   const track = yt("wwwwwwwwwww");
   h.seedCache("yt:wwwwwwwwwww", track);
   const p = h.makePlayer();

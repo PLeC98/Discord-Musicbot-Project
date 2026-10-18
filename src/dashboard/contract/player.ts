@@ -46,7 +46,7 @@ type PlayingView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail"
 
 /**
  * 재생 상태. 조작은 모두 이 모양으로 답한다. boot · seq 는 만든 순서(늦게 온 옛 응답이 새 상태를 덮지 않게).
- * 플레이어가 없으면 음량 · 반복 · 기록 · 자동재생 필드가 없다
+ * 플레이어가 없으면 볼륨 · 반복 · 기록 · 자동재생 필드가 없다
  */
 type PlayerState = {
   boot: number;

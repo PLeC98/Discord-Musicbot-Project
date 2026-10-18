@@ -30,7 +30,7 @@ async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, 
   await answerVolume(interaction, players.get(interaction.guild.id), volume);
 }
 
-// 곡으로 건너뛰기 메뉴와 음량 입력 모달
+// 곡으로 건너뛰기 메뉴와 볼륨 입력 모달
 const routes: Route[] = [route("select", customId(PANEL, "jump", ""), handleJumpTo), route("modal", customId(PANEL, "volume"), handleVolumeModal)];
 
 export { routes, handleJumpTo, handleVolumeModal };

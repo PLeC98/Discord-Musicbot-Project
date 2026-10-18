@@ -77,7 +77,7 @@
             </div>
           </div>
 
-          <!-- 진행 줄. 넓은 창은 끝에 [음량 | 하이라이트 · 정지], 좁은 창은 [음량 버튼] -->
+          <!-- 진행 줄. 넓은 창은 끝에 [볼륨 | 하이라이트 · 정지], 좁은 창은 [볼륨 버튼] -->
           <SeekRow class="mt-3" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek">
             <div class="hidden @xl/win:flex items-center gap-2 shrink-0 pl-2">
               <div class="flex items-center gap-2 h-10 pl-2 pr-3 rounded-full bg-surface-container-high/60">
@@ -87,7 +87,7 @@
               <span class="w-px h-6 bg-outline-variant/60"></span>
               <PlayerActions :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
             </div>
-            <!-- 좁은 창: 음량은 버튼 하나. 누르면 슬라이더 말풍선 -->
+            <!-- 좁은 창: 볼륨은 버튼 하나. 누르면 슬라이더 말풍선 -->
             <div class="@xl/win:hidden relative shrink-0">
               <button type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeOpen ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="T.volumeLabel(volumeShown)" :aria-expanded="volumeOpen" :disabled="!player.canControl || !player.hasPlayer" @click="volumeOpen = !volumeOpen"><VolumeIcon :level="volumeShown" :size="24" /></button>
               <template v-if="volumeOpen">
@@ -107,7 +107,7 @@
         <VoiceLockOverlay v-if="locked" />
       </AppWindow>
 
-      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 그림(남는 높이 안의 가장 큰 정사각형) · 배지 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 음량 · 정지 · 대기열) ── -->
+      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 그림(남는 높이 안의 가장 큰 정사각형) · 배지 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 볼륨 · 정지 · 대기열) ── -->
       <div v-else class="relative flex-1 min-h-0 flex flex-col">
         <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
@@ -154,9 +154,9 @@
 
             <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
 
-            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치) · 음량 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 그룹).
-                 음량: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다
-                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿 · PC 음량 막대와 같다) -->
+            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치) · 볼륨 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 그룹).
+                 볼륨: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다
+                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿 · PC 볼륨 막대와 같다) -->
             <div ref="volRowEl" class="shrink-0 flex items-center gap-2" :class="short ? 'mt-1' : 'mt-5'">
               <div class="relative flex-1 min-w-0 h-10 flex items-center gap-3">
                 <span class="min-w-0 flex items-center gap-1.5 text-xs transition-opacity duration-200" :class="[player.sameVoice ? 'text-primary' : 'text-on-surface-variant', volumeExpand && !volumeInline && 'opacity-0 pointer-events-none']"
@@ -316,7 +316,7 @@ import { text } from "../text/index.ts";
 const P = text.player;
 const T = text.server;
 
-// 음량 버튼(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
+// 볼륨 버튼(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
 const route = useRoute();
@@ -627,10 +627,10 @@ const mine = computed(() => track.value?.requestedBy?.id === player.value.userId
 // 가림막은 곡이 있을 때만. 곡이 없으면 가릴 조작이 없다
 const locked = computed(() => Boolean(track.value) && channelLocked.value);
 
-// 휴대폰 음량 말풍선
+// 휴대폰 볼륨 말풍선
 const volumeOpen = ref(false);
 
-// 휴대폰 아래 줄의 음량 막대. 줄이 넓으면 늘 펼쳐 두고(volumeInline), 좁으면 누를 때 펼친다(volumeExpand). 손대지 않으면 3초 뒤 · 바깥을 누르면 접는다
+// 휴대폰 아래 줄의 볼륨 막대. 줄이 넓으면 늘 펼쳐 두고(volumeInline), 좁으면 누를 때 펼친다(volumeExpand). 손대지 않으면 3초 뒤 · 바깥을 누르면 접는다
 const volRowEl = ref<HTMLElement | null>(null);
 const { width: volRowWidth } = useElementSize(volRowEl);
 const volumeInline = computed(() => volRowWidth.value >= 400);

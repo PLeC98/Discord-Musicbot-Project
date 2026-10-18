@@ -161,7 +161,7 @@ async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = 
   return seek(player, actor, Math.max(0, Math.floor(at * 1000)), { ...opts, reason: "highlight" });
 }
 
-/** 음량(0 ~ VOLUME_MAX 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번, 그때 바뀌었으면 settled(처음 값, 마지막 값)도 */
+/** 볼륨(0 ~ VOLUME_MAX 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번, 그때 바뀌었으면 settled(처음 값, 마지막 값)도 */
 async function volume(player: MaybePlayer, actor: Actor, level: unknown, { settled }: { settled?: Settled } = {}) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -173,9 +173,9 @@ async function volume(player: MaybePlayer, actor: Actor, level: unknown, { settl
   return done({ before, level: applied });
 }
 
-// 대시보드는 끄는 동안 음량을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
+// 대시보드는 끄는 동안 볼륨을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
 const VOLUME_SETTLE_MS = 1000;
-/** 음량이 멈춘 뒤 부른다(대시보드가 디스코드 패널 채널에 알린다) */
+/** 볼륨이 멈춘 뒤 부른다(대시보드가 디스코드 패널 채널에 알린다) */
 type Settled = (from: number, to: number) => void;
 const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout; settled?: Settled }>(); // player -> { from, timer, settled(마지막에 받은 것) }
 
@@ -189,7 +189,7 @@ function settleVolume(player: Player, before: number, settled: Settled | undefin
       log.info(`볼륨: ${s.from}% → ${player.volume}%`);
       s.settled?.(s.from, player.volume);
     }
-    bestEffort(log, refresh(player), "음량 뒤 패널 갱신");
+    bestEffort(log, refresh(player), "볼륨 뒤 패널 갱신");
   }, VOLUME_SETTLE_MS);
   s.timer.unref?.();
   settling.set(player, s);
