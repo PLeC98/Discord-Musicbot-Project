@@ -12,6 +12,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { AUDIO_CACHE_PARTS_DEFAULT } from "../../src/rules/audio-cache-parts.ts";
 import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import config from "../../src/config/index.ts";
@@ -394,7 +395,7 @@ async function runResetChecks() {
   externalCaches.markAgeRestricted("reset1");
   sessions().append("g-reset", [{ title: "t", pageUrl: "https://y/reset1", requestKey: "https://y/reset1" }]);
 
-  const result = await audioCache.resetCache();
+  const result = await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
 
   assert.equal(typeof result.removed, "number");
   assert.equal(audioCache._cacheCount(), 0, "audio_cache 비움");
@@ -423,7 +424,7 @@ test("초기화는 재생 중 · 대기열 앞 곡의 파일과 보호를 남긴
     audioCache.protect("g-reset1", "yt:live");
     audioCache.setQueuedKeys("g-reset1", ["yt:queued"]);
     try {
-      const result = await audioCache.resetCache();
+      const result = await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
 
       assert.equal(result.kept, 2);
       assert.equal(fs.existsSync(live), true);
@@ -447,7 +448,7 @@ test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로
     audioCache.protectFile(temp);
     audioCache.recordDownloadStart("yt:downloading", { title: "t" });
     try {
-      await audioCache.resetCache();
+      await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
 
       assert.equal(fs.existsSync(temp), true, "임시 파일은 고아가 아니다");
       assert.equal(fs.existsSync(`${temp}.part`), true, "그 부스러기도 다운로드 중이다");
@@ -478,7 +479,7 @@ test("퇴거와 초기화는 겹치지 않고 하나씩 돈다", async () => {
       },
     });
     try {
-      await withCacheLimits({ maxFiles: 0 }, () => Promise.all([audioCache.evict(), audioCache.resetCache(), audioCache.removeCached("yt:lock3")]));
+      await withCacheLimits({ maxFiles: 0 }, () => Promise.all([audioCache.evict(), audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT), audioCache.removeCached("yt:lock3")]));
       assert.equal(most, 1, "파일 삭제가 동시에 둘 이상 돌지 않는다");
     } finally {
       audioCache._setRemoval();

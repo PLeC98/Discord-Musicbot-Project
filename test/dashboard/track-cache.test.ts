@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { AUDIO_CACHE_PARTS_DEFAULT } from "../../src/rules/audio-cache-parts.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 
 const store = openTempStore("track-cache-");
@@ -179,7 +180,7 @@ test("바뀜 번호: 화면의 표에 쓰면 오르고, 재생 테스트 결과�
   assert.ok(cacheRevision().revision > played.revision);
 
   const beforeReset = cacheRevision();
-  await audioCache.resetCache();
+  await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
   const afterReset = cacheRevision();
   assert.ok(afterReset.revision > beforeReset.revision && afterReset.checkRevision > beforeReset.checkRevision);
 });

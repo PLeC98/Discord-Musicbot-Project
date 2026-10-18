@@ -8,7 +8,8 @@ import config from "../config/index.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { md5, audioKeyOf } from "../rules/audio-key-of.ts";
 import { sessions } from "./player-sessions.ts";
-import { cacheDb, KEPT_ON_RESET } from "./cache-db.ts";
+import { cacheDb, TABLES_OF_PART } from "./cache-db.ts";
+import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -310,38 +311,61 @@ async function onStartup() {
   bestEffort(log, evictIfNeeded(), "기동 캐시 비우기");
 }
 
-// 캐시 DB 의 표를 모두 비운다. survivors: 남긴 파일의 키라 audio_cache 에 남길 행. 다운로드 중인 행도 남긴다(끝나면 그 행을 cached 로 고친다)
-function wipeTables(survivors: string[]) {
-  const tables = conn().prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[];
+// 선택한 것의 표를 비운다. survivors: 남긴 파일의 키라 audio_cache 에 남길 행. 다운로드 중인 행도 남긴다(끝나면 그 행을 cached 로 고친다).
+// 선택마다 비운 행 수
+function wipeTables(parts: readonly AudioCachePart[], survivors: string[]): Partial<Record<AudioCachePart, number>> {
   const holes = survivors.map(() => "?").join(",");
-  conn().transaction(() => {
-    for (const table of tables) {
-      if (KEPT_ON_RESET.includes(table)) continue;
-      if (table === "audio_cache")
-        conn()
+  const wipe = (table: string) =>
+    table === "audio_cache"
+      ? conn()
           .prepare(`DELETE FROM audio_cache WHERE status <> 'downloading'${survivors.length ? ` AND audio_key NOT IN (${holes})` : ""}`)
-          .run(...survivors);
-      else conn().prepare(`DELETE FROM "${table}"`).run();
-    }
+          .run(...survivors).changes
+      : conn().prepare(`DELETE FROM "${table}"`).run().changes;
+  const cleared: Partial<Record<AudioCachePart, number>> = {};
+  conn().transaction(() => {
+    for (const part of parts) cleared[part] = TABLES_OF_PART[part].reduce((sum, table) => sum + wipe(table), 0);
   })();
+  return cleared;
 }
 
+// 지우기 전의 크기(지운 크기를 센다). 못 읽으면 0
+function sizeOf(target: string) {
+  try {
+    return fs.statSync(target).size;
+  } catch {
+    return 0;
+  }
+}
+
+/** 오디오 캐시 초기화의 결과. removed · kept · freedBytes 는 캐시 파일을 선택했을 때의 파일 수 · 남긴 파일 수 · 실제로 지운 크기, cleared 는 선택마다 비운 행 수 */
+type ResetResult = { removed: number; kept: number; freedBytes: number; cleared: Partial<Record<AudioCachePart, number>> };
+
 /**
- * 캐시를 초기 상태로 되돌린다. 오디오 파일 전부와 캐시 DB 의 표 전부.
- *
- * 캐시 DB 에는 다시 다운로드하거나 다시 찾으면 되는 것만 있어 표 목록을 따로 들지 않고 모두 비운다.
+ * 오디오 캐시에서 선택한 것을 초기 상태로 되돌린다(rules/audio-cache-parts). 캐시 파일을 선택하면 오디오 파일까지 지운다.
  * 서버 설정(settings.db)과 저장된 대기열 · 음성 채널 상태(state.db)는 다른 파일이라 남는다.
  *
  * 재생 중 · 대기열 앞 곡과 다운로드 중인 파일은 남긴다(파일 잠금에 기대지 않는다: 리눅스는 재생 중인 파일도 삭제된다).
  * 삭제하지 못한 파일(다른 프로그램이 쥐고 있다)도 행과 함께 남기고 세어서 돌려준다.
  */
-function resetCache() {
-  return underCleanupLock(resetLocked);
+function resetCache(parts: readonly AudioCachePart[]): Promise<ResetResult> {
+  return underCleanupLock(() => resetLocked(parts));
 }
 
-async function resetLocked() {
-  const before = { files: cacheCount(), bytes: cacheSize() };
+async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResult> {
+  const files = parts.includes("files") ? await removeAllFiles() : { removed: 0, kept: 0, freedBytes: 0, keptKeys: [] };
+  const cleared = wipeTables(parts, files.keptKeys);
 
+  try {
+    conn().pragma("wal_checkpoint(TRUNCATE)");
+    conn().exec("VACUUM");
+  } catch {
+    /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
+  }
+  return { removed: files.removed, kept: files.kept, freedBytes: files.freedBytes, cleared };
+}
+
+// 캐시 파일을 모두 지운다. 남긴 것(재생 중 · 대기열 앞 · 삭제하지 못한 것)의 키는 행을 남기려고 돌려준다
+async function removeAllFiles() {
   // 파일을 먼저 삭제하고, 남긴 것의 행은 남긴다. 행만 삭제하고 파일을 남기면 DB 가 모르는 파일이 된다.
   const rows = conn().prepare("SELECT audio_key, file_path, status FROM audio_cache").all() as Array<Pick<AudioRow, "audio_key" | "file_path" | "status">>;
   const pathOf = (row: Pick<AudioRow, "audio_key" | "file_path">) => path.resolve(row.file_path || getFilePath(row.audio_key));
@@ -350,6 +374,14 @@ async function resetLocked() {
   const keptPaths = new Set<string>([...protectedFiles]);
   let removed = 0;
   let kept = 0;
+  let freedBytes = 0;
+  const remove = async (target: string) => {
+    const bytes = sizeOf(target);
+    if (!(await removeFile(target))) return false;
+    removed++;
+    freedBytes += bytes;
+    return true;
+  };
 
   for (const row of rows) {
     const target = pathOf(row);
@@ -359,9 +391,7 @@ async function resetLocked() {
       continue;
     }
     if (!fs.existsSync(target)) continue;
-    if (!guarded.has(row.audio_key) && (await removeFile(target))) {
-      removed++;
-    } else {
+    if (guarded.has(row.audio_key) || !(await remove(target))) {
       kept++; // 재생 중 · 대기열 앞이거나 삭제하지 못한 파일. 행을 남겨 둔다
       keptKeys.add(row.audio_key);
       keptPaths.add(target);
@@ -373,22 +403,10 @@ async function resetLocked() {
     for (const file of fs.readdirSync(dir)) {
       const target = path.resolve(path.join(dir, file));
       if (keptPaths.has(target) || inDownload(target)) continue;
-      if (await removeFile(target)) removed++;
-      else kept++;
+      if (!(await remove(target))) kept++;
     }
   }
-
-  wipeTables([...keptKeys]);
-
-  try {
-    conn().pragma("wal_checkpoint(TRUNCATE)");
-    conn().exec("VACUUM");
-  } catch {
-    /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
-  }
-
-  log.warn(`오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 재생 중 · 대기열 앞이거나 삭제하지 못해 남겨둠` : ""}`);
-  return { removed, kept, freedBytes: before.bytes, fileCountBefore: before.files };
+  return { removed, kept, freedBytes, keptKeys: [...keptKeys] };
 }
 
 async function cleanOrphanFiles() {
@@ -762,4 +780,4 @@ export {
   protectedKeys as _protectedKeys,
   protectedFiles as _protectedFiles,
 };
-export type { AudioRow, TrackMeta, CacheUse, RemoveResult };
+export type { AudioRow, TrackMeta, CacheUse, RemoveResult, ResetResult };

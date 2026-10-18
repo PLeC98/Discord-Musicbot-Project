@@ -1,10 +1,11 @@
-// src/store/pinned-sources.ts — 직접 지정한 음원. 요청 키를 링크 데이터와 같은 모양으로 다듬어 두고, 캐시 초기화가 건너뛴다.
+// src/store/pinned-sources.ts — 직접 지정한 음원. 요청 키를 링크 데이터와 같은 모양으로 다듬어 두고, 오디오 캐시 초기화의 처음 선택에서 빠진다.
 
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { AUDIO_CACHE_PARTS_DEFAULT } from "../../src/rules/audio-cache-parts.ts";
 
 import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
@@ -46,11 +47,11 @@ test("요청 키는 다듬어서 적고 찾는다(공유 링크 여럿이 한 �
   pins.unpin("https://www.youtube.com/watch?v=aaaaaaaaaaa", "https://soundcloud.com/a/b");
 });
 
-test("캐시 초기화는 직접 지정한 음원을 남기고 재생 테스트 결과는 비운다", async () => {
+test("처음 선택한 것으로 오디오 캐시를 초기화하면 직접 지정한 음원은 남고 재생 테스트 결과는 비운다", async () => {
   pins.setPin("https://www.youtube.com/watch?v=ddddddddddd", "https://soundcloud.com/c/d");
   cacheDb.get().prepare("INSERT INTO source_checks (audio_key, ok, code, checked_at) VALUES ('sc:/c/d', 0, 'sc-unavailable', 1)").run();
 
-  await audioCache.resetCache();
+  await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
 
   assert.equal(pins.getPin("https://www.youtube.com/watch?v=ddddddddddd")?.audioUrl, "https://soundcloud.com/c/d");
   assert.equal(cacheDb.get().prepare("SELECT COUNT(*) FROM source_checks").pluck().get(), 0);

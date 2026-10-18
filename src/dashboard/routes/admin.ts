@@ -24,7 +24,8 @@ import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
-import * as audioCache from "../../store/audio-cache.ts";
+import { resetAudioCache } from "../reset.ts";
+import { AUDIO_CACHE_PARTS_DEFAULT } from "../../rules/audio-cache-parts.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
@@ -156,13 +157,12 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
 });
 
-// 캐시 초기화. 오디오 파일과 캐시 DB 의 표(링크 데이터 · SponsorBlock · 연령 제한 · 스포티파이 익명 상태)를 비운다. 서버 설정 · 저장된 대기열은 다른 DB 라 남는다.
+// 캐시 초기화(지금 화면의 초기화 카드). 처음 선택한 것(직접 지정한 음원 빼고)을 오디오 캐시 초기화로 지운다. 화면을 나눈 초기화로 바꿀 때 이 경로는 없앤다.
 // 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중 · 대기열 앞 · 다운로드 중인 파일은 남기고, 재생은 끊기지 않는다.
 adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
   try {
-    const result = await audioCache.resetCache();
-    log.warn({ sub: "admin" }, `대시보드 운영자 패널에서 캐시 초기화: 파일 ${result.removed}개 삭제`);
-    res.json({ success: true, ...result } satisfies ResetReply);
+    const { removed, kept, freedBytes } = await resetAudioCache(AUDIO_CACHE_PARTS_DEFAULT, ranBy(req));
+    res.json({ success: true, removed, kept, freedBytes } satisfies ResetReply);
   } catch (error) {
     log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
     sendProblem(res, "cache-clear-failed", {}, { detail: messageOf(error) });

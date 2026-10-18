@@ -1,5 +1,5 @@
 // 직접 지정한 음원(pinned_sources). 운영자가 캐시 DB 에서 "이 요청은 이 음원으로 튼다"고 정한 것. 곡을 찾을 때 링크 데이터보다 먼저 본다.
-// 메모리에 따로 올리지 않고 표를 바로 읽는다(키 하나 조회라 가볍고, 같은 값을 두 벌 두지 않는다). 캐시 초기화가 건너뛴다(cache-db 의 KEPT_ON_RESET).
+// 메모리에 따로 올리지 않고 표를 바로 읽는다(키 하나 조회라 가볍고, 같은 값을 두 벌 두지 않는다). 오디오 캐시 초기화에서 따로 고른다(rules/audio-cache-parts 의 pins, 처음엔 꺼 둔다).
 
 import { cacheDb } from "./cache-db.ts";
 import * as audioCache from "./audio-cache.ts";

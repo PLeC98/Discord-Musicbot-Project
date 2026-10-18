@@ -191,7 +191,8 @@ function _remember(videoId: string) {
   return entry;
 }
 
-function _forget() {
+/** 기억한 구간을 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 곡부터 다시 묻는다 */
+function forget() {
   remembered.clear();
 }
 
@@ -200,7 +201,7 @@ function shape({ raw, source }: Fetched, categories: Iterable<string>): Segments
   return { ...normalize(raw, categories), source };
 }
 
-export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, useFetch };
+export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, forget, useFetch };
 export const _internal = { mergeIntervals, normalize };
 
 export type { RawSegment, SkipSegment, Segments };

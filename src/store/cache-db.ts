@@ -1,10 +1,11 @@
 // 캐시 DB(cache.db). 음원 데이터를 담는다: 캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · 외부 서비스의 응답.
 // 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다). 삭제한 뒤 기록을 잃은 캐시 파일은 기동 정리(audioCache.onStartup)가 삭제한다.
-// 캐시 초기화는 직접 지정한 음원(KEPT_ON_RESET) 말고 이 파일의 표를 모두 비운다(audioCache.resetCache). 직접 지정한 음원은 사람이 정한 값이지만
+// 오디오 캐시 초기화는 선택한 것(rules/audio-cache-parts)의 표만 비운다(TABLES_OF_PART, audioCache.resetCache). 직접 지정한 음원은 사람이 정한 값이지만
 // "어느 요청에 어느 음원"이라는 음원 데이터라 링크 데이터와 같은 파일에 둔다(설정 스냅샷을 복원해도 따라 돌아가지 않는다). 실행 상태는 여기 두지 않는다.
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
+import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 
 const cacheDb = new DbFile({
   label: "캐시 DB",
@@ -52,7 +53,7 @@ function createTables(db: Db) {
             );
 
             -- 운영자가 직접 지정한 음원. "이 요청은 이 음원으로 튼다". 곡을 찾을 때 링크 데이터보다 먼저 본다(store/pinned-sources).
-            -- 키는 링크 데이터와 같은 요청 키(canonicalUrl). 사람이 정한 값이라 캐시 초기화가 건너뛴다
+            -- 키는 링크 데이터와 같은 요청 키(canonicalUrl). 사람이 정한 값이라 오디오 캐시 초기화에서 따로 고른다(처음엔 꺼 둔다)
             CREATE TABLE IF NOT EXISTS pinned_sources (
                 request_key  TEXT PRIMARY KEY,
                 audio_url    TEXT NOT NULL,
@@ -114,7 +115,12 @@ function cacheRevision(): { revision: number; checkRevision: number } {
   return { revision: of("rows"), checkRevision: of("checks") };
 }
 
-/** 캐시 초기화가 비우지 않는 표 */
-const KEPT_ON_RESET: readonly string[] = ["pinned_sources"];
+/** 오디오 캐시 초기화의 선택마다 비우는 표. 모든 표가 꼭 하나에 든다(새 표가 초기화에서 빠지지 않게 테스트가 본다) */
+const TABLES_OF_PART: Record<AudioCachePart, readonly string[]> = {
+  files: ["audio_cache"],
+  ledger: ["track_lookup", "source_checks"],
+  external: ["sponsorblock_cache", "age_restricted", "spotify_anon"],
+  pins: ["pinned_sources"],
+};
 
-export { cacheDb, createTables, cacheRevision, KEPT_ON_RESET };
+export { cacheDb, createTables, cacheRevision, TABLES_OF_PART };

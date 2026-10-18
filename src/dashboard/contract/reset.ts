@@ -2,6 +2,9 @@
 // 휴대폰의 "설정 초기화 · 기기 전체 초기화"처럼 무엇을 삭제하는지로 나눈 줄 다섯. 여러 항목을 되돌릴 수 없이 한꺼번에 삭제하므로 모두 최근 로그인을 본다.
 // 설정이 바뀌는 줄(봇 설정 · 서버별 설정 · 봇 전체)은 바꾸기 전에 설정 스냅샷(before-reset)을 남긴다.
 // 봇 전체 초기화는 켜진 채 삭제하지 않는다: 마커로 예약하고 다시 시작해 다음 기동이 DB 를 열기 전에 삭제한다(사람이 누른 것만, 구조 버전 멈춤과 무관).
+// 오디오 캐시 초기화에서 선택하는 것은 rules/audio-cache-parts(봇의 캐시 DB 표 나눔과 같은 목록)
+
+import { AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, isAudioCachePart, type AudioCachePart } from "../../rules/audio-cache-parts.ts";
 
 /**
  * audio-cache: 오디오 캐시(확인 창에서 선택한 것) · bot-settings: 봇 설정(운영 조절값 · 장르 · 상태 문구 · AI 설정 · 프롬프트를 기본값으로, 키 · 쿠키를 삭제) ·
@@ -10,13 +13,6 @@
 const RESET_KINDS = ["audio-cache", "bot-settings", "guild-settings", "display", "all"] as const;
 type ResetKind = (typeof RESET_KINDS)[number];
 const isResetKind = (value: unknown): value is ResetKind => RESET_KINDS.includes(value as ResetKind);
-
-/** 오디오 캐시 초기화에서 선택하는 것: 캐시 파일(오디오 파일까지) · 곡 찾기 기록(링크 데이터 · 재생 확인 결과) · 바깥 서비스 기억(SponsorBlock · 연령 제한 · 스포티파이 익명) · 직접 지정한 음원 */
-const AUDIO_CACHE_PARTS = ["files", "ledger", "external", "pins"] as const;
-type AudioCachePart = (typeof AUDIO_CACHE_PARTS)[number];
-const isAudioCachePart = (value: unknown): value is AudioCachePart => AUDIO_CACHE_PARTS.includes(value as AudioCachePart);
-/** 처음 선택한 것(직접 지정한 음원은 사람이 선택한 것이라 꺼 둔다) */
-const AUDIO_CACHE_PARTS_DEFAULT: readonly AudioCachePart[] = ["files", "ledger", "external"];
 
 /** 초기화 요청(POST /api/admin/reset). parts 가 비면 nothing-to-save. all 은 봇 이름(ResetOverview.botName)을 그대로 입력해야 받는다 */
 type ResetRequest = { kind: "audio-cache"; parts: AudioCachePart[] } | { kind: "bot-settings" | "guild-settings" | "display" } | { kind: "all"; confirmName: string };

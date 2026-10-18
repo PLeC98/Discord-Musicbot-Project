@@ -11,6 +11,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { AUDIO_CACHE_PARTS_DEFAULT } from "../../src/rules/audio-cache-parts.ts";
 
 import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
@@ -59,7 +60,7 @@ test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머
 
   let result;
   try {
-    result = await audioCache.resetCache();
+    result = await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
   } finally {
     audioCache._setRemoval();
   }
@@ -90,7 +91,7 @@ test("남길 것이 없으면 전부 비운다", async () => {
   seedTrack("yt:a", "곡A");
   seedTrack("yt:b", "곡B");
 
-  const result = await audioCache.resetCache();
+  const result = await audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT);
 
   assert.equal(result.kept, 0);
   assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);

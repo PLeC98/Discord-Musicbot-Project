@@ -175,7 +175,7 @@ test("lookup: 캐시가 있으면 곧바로 캐시로 답하고, 라이브는 �
 
 // 기억해 둔 답(forTrack)도 뒤에서 받은 라이브 답으로 바뀐다
 test("forTrack: 캐시로 답한 뒤 뒤에서 받은 라이브 답을 기억한다", async () => {
-  SponsorBlock._forget();
+  SponsorBlock.forget();
   stubFetch("ytVid9", [seg("intro", 0, 5, "skip")]);
   await SponsorBlock.lookup("ytVid9", { categories: ["intro"] }); // 캐시를 채운다
   let answer = (_: unknown) => {};
@@ -256,7 +256,7 @@ test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
 // ── forTrack (곡 글루) ─────────────────────────────────────────────────────────
 
 test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 id 로 기억해 다시 묻지 않는다", async () => {
-  SponsorBlock._forget();
+  SponsorBlock.forget();
   stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
   const track = { platform: "youtube", id: "ytVid1", audioUrl: "https://youtu.be/ytVid1" };
   const r = await SponsorBlock.forTrack(track, "gEnsure");
@@ -272,7 +272,7 @@ test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 
 });
 
 test("forTrack: 겹쳐 불러도 한 번만 묻는다", async () => {
-  SponsorBlock._forget();
+  SponsorBlock.forget();
   let asked = 0;
   net.fetch = async () => {
     asked++;
@@ -284,7 +284,7 @@ test("forTrack: 겹쳐 불러도 한 번만 묻는다", async () => {
 });
 
 test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
-  SponsorBlock._forget();
+  SponsorBlock.forget();
   guildTable.setGuildSponsorBlock("gEnsureOff", { enabled: false, categories: null });
   let called = false;
   net.fetch = async () => {
@@ -297,13 +297,13 @@ test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
 });
 
 test("forTrack: 영상 id 를 모르면 null. 기억하지 않아 영상을 찾은 뒤 다시 물을 수 있다", async () => {
-  SponsorBlock._forget();
+  SponsorBlock.forget();
   const r = await SponsorBlock.forTrack({ platform: "spotify", title: "x" }, "gEnsure"); // 영상을 아직 못 찾아 음원 주소가 없다
   assert.equal(r, null);
 });
 
 test("forTrack: 못 받은 것(none)은 잠시 기억했다가 시간이 지나면 다시 묻는다", async (t) => {
-  SponsorBlock._forget();
+  SponsorBlock.forget();
   t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
   let asked = 0;
   net.fetch = async () => {

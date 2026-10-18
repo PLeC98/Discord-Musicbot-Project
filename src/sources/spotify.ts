@@ -467,6 +467,11 @@ async function getCollection(url: string, { offset = 0, limit = config.bot.playl
   return result;
 }
 
+/** 익명 상태(secret 목록 · 해시 · clientVersion)를 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 질의가 다시 추출한다. 받아 둔 토큰은 둔다 */
+function forgetAnonState() {
+  graphql._state = null;
+}
+
 // 테스트 시임. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 실행한 것처럼)
 function _reset() {
   official._token = null;
@@ -499,5 +504,5 @@ const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, 
 /** 익명 토큰이 끝나는 때(봇 상태 탭). 받은 적이 없으면 null */
 const anonTokenExpiresAt = () => graphql._anonToken?.expiresAt ?? null;
 
-export { getCollection, anonTokenExpiresAt, checkCredentials, _reset, _internals, useFetch };
+export { getCollection, anonTokenExpiresAt, checkCredentials, forgetAnonState, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };
