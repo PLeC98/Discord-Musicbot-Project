@@ -19,7 +19,6 @@
 import { computed, ref, watch } from "vue";
 import { onKeyStroke } from "@vueuse/core";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
-import { rem } from "../utils/rem.ts";
 import { artOf } from "../../../src/rules/track-art.ts";
 import type { Content } from "../theme/art.ts";
 import { text } from "../text/index.ts";
@@ -37,8 +36,9 @@ const big = computed(() => artOf(props.track?.thumbnail, "large") ?? "");
 const wide = computed(() => !wideFailed.value && big.value !== (props.track?.thumbnail ?? ""));
 const large = computed(() => (wide.value ? big.value : (props.track?.thumbnail ?? "")));
 
-// 그림 크기를 받은 뒤 원래 비율로 표시한다(네 방향 검은 띠는 뺀다: 틀을 내용의 비율로 두고 가운데를 채운다). 긴 변은 28rem(448) 까지, 그림 원래 크기의 1.5배까지만 키운다
-const MAX_REM = 28;
+// 그림 크기를 받은 뒤 원래 비율로 표시한다(네 방향 검은 띠는 뺀다: 틀을 내용의 비율로 두고 가운데를 채운다).
+// 화면에 맞춰 키우되(폭 90% · 높이 65% 안) 그림이 가진 화소(띠를 뺀 내용)의 1.5배까지만: 큰 그림은 크게, 작은 그림은 뭉개지지 않을 만큼
+const UPSCALE_MAX = 1.5;
 const size = ref<{ w: number; h: number } | null>(null);
 watch(
   () => props.track?.thumbnail,
@@ -59,7 +59,7 @@ const box = computed(() => {
   const s = size.value;
   if (!s) return null;
   const aspect = (s.w * props.content.w) / (s.h * props.content.h);
-  const cap = Math.min(rem(MAX_REM) * Math.min(1, aspect), s.w * 1.5);
+  const cap = s.w * props.content.w * UPSCALE_MAX;
   return { aspectRatio: String(aspect), width: `min(${Math.round(cap)}px, 90vw, calc(65dvh * ${aspect.toFixed(4)}))` };
 });
 </script>
