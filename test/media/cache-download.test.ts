@@ -411,9 +411,13 @@ test("링크 데이터에서 가져온 영상이 내려갔으면 다시 찾아 �
   };
   const track: DownloadTrack = { title: "스포티파이 곡", pageUrl: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
 
-  const file = await downloader().downloadTrack(track);
+  const owner = { guild: { id: "g-fresh" }, currentTrack: track }; // 지금 트는 곡
+  audioCache.protect("g-fresh", "yt:deaddeaddea");
+  const file = await new TrackDownloader(owner, deps).downloadTrack(track);
 
   assert.deepEqual(calls.reresolve, ["스포티파이 곡"]);
+  assert.equal(audioCache._protectedKeys.get("g-fresh"), "yt:freshfresh01", "지금 트는 곡이면 보호를 새 음원으로 옮긴다");
+  audioCache.unprotect("g-fresh");
   assert.equal(file, audioCache.getFilePath("yt:freshfresh01"), "새 영상의 키 경로로 다운로드한다");
   assert.equal(audioRow("yt:deaddeaddea")?.status, "error");
   assert.equal(audioRow("yt:freshfresh01")?.status, "cached");

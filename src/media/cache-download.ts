@@ -44,7 +44,7 @@ type Sources = {
   equivalent: { findYouTubeEquivalent(track: DownloadTrack): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
 };
 /** 다운로드하는 쪽 플레이어에서 읽는 필드 */
-type Owner = { guild: { id: string } };
+type Owner = { guild: { id: string }; currentTrack?: unknown };
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
  *
@@ -217,7 +217,10 @@ class TrackDownloader {
         if (YouTube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const fresh = await this.deps.equivalent.reresolveYouTube(track);
-          if (fresh) return await this._performDownload(track, this.trackFilePath(track));
+          if (!fresh) throw err;
+          // 지금 트는 곡이면 캐시 보호도 새 음원으로 옮긴다(재생은 옛 스트림으로 계속되고, 다음 재생부터 새 파일을 쓴다)
+          if (this.player.currentTrack === track) audioCache.protect(this.player.guild.id, audioKeyOf(track.audioUrl));
+          return await this._performDownload(track, this.trackFilePath(track));
         }
         throw err;
       }
