@@ -194,7 +194,6 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "deploy-failed": () => error("failed", "명령어를 배포하지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 아래 오류 내용을 확인해 주세요."),
   "suggest-failed": () => error("failed", "자동완성 후보를 받지 못했어요!", "그 출처에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "model-refresh-failed": () => error("failed", "모델 정보를 받지 못했어요!", "모델 정보 저장소에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  "cache-clear-failed": () => error("failed", "캐시를 비우지 못했어요!", "파일을 삭제하거나 데이터베이스를 수정하다 실패했어요. 운영자 로그를 확인해 주세요."),
   "token-count-failed": () => error("failed", "토큰 수를 세지 못했어요!", "AI 서비스에 요청하지 못했거나 글이 너무 길어요. 아래 오류 내용을 확인해 주세요."),
   "bad-suggest-type": (_, look) => warning("input", "자동완성이 없는 출처 종류예요!", stalePage(look)),
   "bad-suggest-field": (_, look) => warning("input", "자동완성이 없는 입력란이에요!", stalePage(look)),

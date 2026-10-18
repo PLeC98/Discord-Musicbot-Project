@@ -107,8 +107,6 @@ type LeaveReply = { success: true; name: string };
 type RedeployReply = { success: true; count: number; scope: string; guildId: string | null; names: string[] };
 /** 다시 시작을 받았다. 답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
 type RestartReply = { restarting: true };
-/** 캐시 초기화(지금 화면). kept 는 재생 중 · 대기열 앞이거나 삭제하지 못해 남긴 파일 수, freedBytes 는 실제로 지운 크기 */
-type ResetReply = { success: true; removed: number; kept: number; freedBytes: number };
 
 /** 설정 파일(genres · status · ai) 읽기와 저장 */
 /** 설정 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
@@ -149,4 +147,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, ResetReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };

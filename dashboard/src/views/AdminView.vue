@@ -72,7 +72,7 @@
 
         <!-- 캐시 DB: 음원 · 캐시 관리(B-115). 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다 -->
         <div class="admin-page" v-show="tab === 'db'">
-          <CacheDb v-if="opened.has('db')" />
+          <CacheDb v-if="opened.has('db')" ref="cacheDbEl" />
         </div>
 
         <div class="admin-page" v-show="tab === 'autoplay'">
@@ -477,11 +477,13 @@ function closeLogs() {
 // 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
 // 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
 const POLL_MS = 3000;
+const cacheDbEl = ref<InstanceType<typeof CacheDb> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
 function poll() {
   if (tab.value === "status" || tab.value === "info") void fetchStatus();
   else if (tab.value === "guilds") void fetchGuilds();
+  else if (tab.value === "db") void cacheDbEl.value?.checkChanged();
 }
 function startPoll() {
   if (!timer) timer = setInterval(poll, POLL_MS);

@@ -149,7 +149,6 @@ const WEB = {
   "deploy-failed": { status: 502, title: "Command deployment failed" },
   "suggest-failed": { status: 502, title: "Could not fetch suggestions" },
   "model-refresh-failed": { status: 502, title: "Could not fetch model information" },
-  "cache-clear-failed": { status: 500, title: "Could not clear the cache" },
   "token-count-failed": { status: 503, title: "Could not count tokens" },
   "bad-suggest-type": { status: 400, title: "No suggestions for this source type" },
   "bad-suggest-field": { status: 400, title: "No suggestions for this field" },

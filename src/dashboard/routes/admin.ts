@@ -13,7 +13,7 @@ import logManager from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type RestartReply, type ResetReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -24,8 +24,6 @@ import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
-import { resetAudioCache } from "../reset.ts";
-import { AUDIO_CACHE_PARTS_DEFAULT } from "../../rules/audio-cache-parts.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
@@ -155,18 +153,6 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   }
   log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}`);
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
-});
-
-// 캐시 초기화(지금 화면의 초기화 카드). 처음 선택한 것(직접 지정한 음원 빼고)을 오디오 캐시 초기화로 지운다. 화면을 나눈 초기화로 바꿀 때 이 경로는 없앤다.
-// 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중 · 대기열 앞 · 다운로드 중인 파일은 남기고, 재생은 끊기지 않는다.
-adminRouter.post("/reset-cache", requireOwner, async (req, res) => {
-  try {
-    const { removed, kept, freedBytes } = await resetAudioCache(AUDIO_CACHE_PARTS_DEFAULT, ranBy(req));
-    res.json({ success: true, removed, kept, freedBytes } satisfies ResetReply);
-  } catch (error) {
-    log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
-    sendProblem(res, "cache-clear-failed", {}, { detail: messageOf(error) });
-  }
 });
 
 // ── 설정 문서(장르 · 상태 문구 · AI 설정, settings.db) ──────────────────────
