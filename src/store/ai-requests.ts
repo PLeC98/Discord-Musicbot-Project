@@ -188,9 +188,9 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   if (query.result) where.push(query.result === "ok" ? "ok = 1" : "ok = 0");
   const q = query.q.trim();
   if (q) {
-    // 대소문자를 가리지 않는다(화면의 실시간 필터 aiLogMatches 와 같다). % · _ 는 글자 그대로
-    where.push("(instr(lower(url), @q) > 0 OR instr(lower(model), @q) > 0 OR instr(lower(name), @q) > 0 OR instr(lower(coalesce(error, '')), @q) > 0)");
-    args.q = q.toLowerCase();
+    // 한국어 찾기(조합 중인 글자 · 초성, 대소문자 무시, 화면의 실시간 필터 aiLogMatches 와 같다). % · _ 는 글자 그대로
+    where.push("(ko_match(url, @q) OR ko_match(model, @q) OR ko_match(name, @q) OR ko_match(coalesce(error, ''), @q))");
+    args.q = q;
   }
   const db = aiLogDb.get();
   const filter = where.length ? `WHERE ${where.join(" AND ")}` : "";

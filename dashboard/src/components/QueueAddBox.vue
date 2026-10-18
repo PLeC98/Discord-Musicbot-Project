@@ -16,7 +16,7 @@
       <!-- 선택하면 캡슐 전체에 후광 -->
       <div class="flex items-center gap-1 h-12 pl-3 pr-1 rounded-full bg-surface-container-highest transition-shadow duration-200 focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]">
         <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
-        <input :value="query" @input="query = valueOf($event)" class="flex-1 min-w-0 h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
+        <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
         <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
       </div>
       <!-- 재생목록 링크면 무엇을 넣을지 선택한다(이어 붙은 버튼 그룹). 넣기 버튼은 선택한 쪽으로 넣는다 -->
@@ -52,9 +52,9 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import PlaylistMore from "./PlaylistMore.vue";
+import SearchInput from "./SearchInput.vue";
 import { noticeText, problemText } from "../utils/problem.ts";
 import { LIMIT } from "../utils/request.ts";
-import { valueOf } from "../utils/dom.ts";
 import type { PlayerSeen } from "../utils/playback.ts";
 import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
 import type { AddReply, MoreReply, MoreView, PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";

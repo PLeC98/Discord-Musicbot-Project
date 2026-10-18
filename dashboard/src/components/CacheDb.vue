@@ -17,14 +17,9 @@
       <span class="mx-1 h-5 w-px bg-outline-variant"></span>
       <BaseButton variant="ghost" size="sm" :disabled="table === 'age' || !selectedKeys().length" v-tooltip="T.tools.probeTip" @click="probe(selectedKeys())"><Icon name="fact_check" :size="16" />{{ checking.length ? T.tools.probing(checking.length) : T.tools.probe }}</BaseButton>
       <button v-if="botChanged" type="button" class="tap h-8 px-3 rounded-full bg-primary text-on-primary text-xs font-medium" @click="reload()">{{ T.botChanged }}</button>
-      <label class="relative ml-auto">
-        <Icon name="search" :size="16" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-        <input ref="searchBox" v-model="q" type="text" :placeholder="T.tools.search" :aria-label="T.tools.search" :class="[FIELD, 'h-8! pl-8! text-xs! w-56', q && 'pr-8!', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''" @keydown.esc="q ? ((q = ''), $event.stopPropagation()) : undefined" />
-        <!-- 지우기: 입력란 안 오른쪽 끝 -->
-        <button v-if="q" type="button" class="tap state-layer absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.tools.clearFilter" v-tooltip="T.tools.clearFilter" @click.prevent="clearSearch()">
-          <Icon name="close" :size="16" />
-        </button>
-      </label>
+      <SearchInput v-model="q" class="ml-auto" size="sm" :clear-label="T.tools.clearFilter" type="text" :placeholder="T.tools.search" :aria-label="T.tools.search" :input-class="[FIELD, 'h-8! pl-8! text-xs! w-56', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''">
+        <template #leading><Icon name="search" :size="16" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" /></template>
+      </SearchInput>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.tools.shortcuts" :aria-expanded="showKeys" v-tooltip="T.tools.shortcuts" @click.stop="showKeys = !showKeys"><Icon name="help" :size="18" /></button>
       <!-- 단축키 -->
       <div v-if="showKeys" class="absolute right-0 top-10 z-150 w-md max-w-full p-3 rounded-(--r-inner) pane-menu text-xs" @click.stop>
@@ -59,21 +54,20 @@
             <tr>
               <th class="sticky left-0 z-30 bg-surface-container border-b border-r border-outline-variant/40"></th>
               <th v-for="(c, i) in shown" :key="c" class="relative p-0.5 border-b border-r border-outline-variant/40" :class="frozenClass(i)" :style="frozenStyle(i)">
-                <input
-                  :value="filters[table][c] ?? ''"
+                <!-- 격자 단축키가 받지 않게 키는 여기서 멈춘다 -->
+                <SearchInput
+                  :model-value="filters[table][c] ?? ''"
+                  size="xs"
+                  :clear-label="T.tools.clearFilter"
                   type="text"
                   :placeholder="T.filterPlaceholder"
                   :aria-label="`${T.columns[c]} ${T.filterPlaceholder}`"
-                  class="w-full h-6 px-1.5 rounded-xs bg-surface-container-highest text-xs font-normal outline-none placeholder:text-on-surface-variant/60 focus:outline-1 focus:outline-primary"
-                  :class="[filters[table][c] && 'pr-6', problems[c] && 'outline-1 outline-error']"
+                  :input-class="['w-full h-6 px-1.5 rounded-xs bg-surface-container-highest text-xs font-normal outline-none placeholder:text-on-surface-variant/60 focus:outline-1 focus:outline-primary', problems[c] && 'outline-1 outline-error']"
                   v-tooltip="problems[c] ?? ''"
-                  @input="setFilter(c, ($event.target as HTMLInputElement).value)"
+                  @update:model-value="setFilter(c, $event)"
                   @contextmenu.prevent.stop="openFilterMenu($event, c)"
-                  @keydown.stop="$event.key === 'Escape' && filters[table][c] && setFilter(c, '')"
+                  @keydown.stop
                 />
-                <button v-if="filters[table][c]" type="button" class="tap state-layer absolute right-1 top-1/2 -translate-y-1/2 size-5 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.tools.clearFilter" v-tooltip="T.tools.clearFilter" @click="clearFilter(c, $event)">
-                  <Icon name="close" :size="14" />
-                </button>
               </th>
             </tr>
           </thead>
@@ -167,6 +161,7 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import SingleSelect from "./SingleSelect.vue";
+import SearchInput from "./SearchInput.vue";
 import { useSaveTarget } from "../composables/save-targets.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { noticeText } from "../utils/problem.ts";
@@ -340,15 +335,6 @@ watch(q, () => {
   filterTimer = window.setTimeout(() => void reload(), 300);
 });
 /** 열 하나의 필터 지우기(입력란 안 x). 입력란에 포커스를 돌려 이어 쓰게 */
-function clearFilter(c: string, event: MouseEvent) {
-  setFilter(c, "");
-  ((event.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement | null)?.focus();
-}
-const searchBox = ref<HTMLInputElement | null>(null);
-function clearSearch() {
-  q.value = "";
-  searchBox.value?.focus();
-}
 function clearFilters() {
   filters[table.value] = {};
   q.value = "";

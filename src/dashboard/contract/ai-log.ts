@@ -2,6 +2,8 @@
 // 기록은 AI 요청 하나(주고받은 것 하나)가 한 줄이다. 재시도는 따로 한 줄씩 남는다(attempt).
 // 로그(requests)는 저장 용량을 넘으면 오래된 것부터 삭제되고, 사용량(usage)은 삭제하지 않아 통계는 로그보다 오래 남는다.
 
+import { koMatch } from "../../rules/ko-search.ts";
+
 /** 요청을 보낸 곳: 자동재생 판정 · 판정 테스트 · 연결 확인(유료 핑) · 모델 목록(무료 확인) */
 const AI_LOG_SOURCES = ["autoplay", "judge-test", "ping", "models"] as const;
 type AiLogSource = (typeof AI_LOG_SOURCES)[number];
@@ -77,8 +79,9 @@ function aiLogMatches(entry: AiLogEntry, query: AiLogQuery): boolean {
   if (query.sources.length && !query.sources.includes(entry.source)) return false;
   if (query.result === "ok" && !entry.ok) return false;
   if (query.result === "failed" && entry.ok) return false;
-  const q = query.q.trim().toLowerCase();
-  return !q || [entry.url, entry.model, entry.name, entry.error ?? ""].some((one) => one.toLowerCase().includes(q));
+  // 한국어 찾기(조합 중인 글자 · 초성, 대소문자 무시). 봇의 목록 읽기(store/ai-requests 의 ko_match)와 같다
+  const q = query.q.trim();
+  return !q || [entry.url, entry.model, entry.name, entry.error ?? ""].some((one) => koMatch(one, q));
 }
 
 /** 그룹 하나의 합. costUsd 는 값을 아는 것의 합이고 unpriced 는 가격 모름 요청 수. 응답 시간은 성공한 것만 */

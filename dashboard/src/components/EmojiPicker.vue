@@ -17,13 +17,8 @@
 
       <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색창(둘레 4 · 아래 구분선), 셀은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
       <div v-if="open" :class="panel" :style="popoverStyle">
-        <div class="relative shrink-0 p-1 border-b border-outline-variant/50">
-          <!-- v-model 을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다 -->
-          <input ref="searchBox" :value="query" :placeholder="T.emojiSearch" :class="[SEARCH_FIELD, 'w-full', query && 'pr-10']" @input="query = valueOf($event)" @keydown.esc="open = false" />
-          <!-- 지우기: 검색창 안 오른쪽 끝(아이콘 버튼 XS 32, 검색창 40 안에 같은 중심 4) -->
-          <button v-if="query" type="button" class="tap state-layer absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.emojiSearchClear" v-tooltip="T.emojiSearchClear" @click="clearQuery">
-            <Icon name="close" :size="20" />
-          </button>
+        <div class="shrink-0 p-1 border-b border-outline-variant/50">
+          <SearchInput ref="searchBox" v-model="query" :placeholder="T.emojiSearch" :input-class="[SEARCH_FIELD, 'w-full']" @escape="open = false" />
         </div>
 
         <div :class="scroller">
@@ -68,12 +63,12 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef, type CSSProperties } from "vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
+import SearchInput from "./SearchInput.vue";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { rem } from "../utils/rem.ts";
 import Twemoji from "./TwemojiImage.vue";
 import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
-import { valueOf } from "../utils/dom.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";
 import { text } from "../text/index.ts";
 const T = text.fields;
@@ -89,7 +84,7 @@ const emit = defineEmits<{ pick: [char: string]; clear: [] }>();
 
 const open = ref(false);
 const root = useTemplateRef<HTMLElement>("root");
-const searchBox = ref<HTMLInputElement | null>(null);
+const searchBox = ref<InstanceType<typeof SearchInput> | null>(null);
 const popoverStyle = ref<CSSProperties>({});
 const query = ref("");
 const groups = shallowRef<EmojiGroup[]>([]);
@@ -129,11 +124,6 @@ async function load() {
   // 저장된 이름 중 지금도 있는 것만 본다. 분류가 바뀌어도 엉뚱하게 접히지 않는다
   const names = new Set(Array.isArray(saved) ? saved : []);
   collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.name, names.has(group.name)]));
-}
-
-function clearQuery() {
-  query.value = "";
-  searchBox.value?.focus();
 }
 
 const results = computed(() => {

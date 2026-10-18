@@ -22,7 +22,7 @@ const mentionChannel = "#채널";
 
 // 이모지 고르기
 const emojiSearch = "이름 · 디스코드 이름 · 이모지 붙여넣기";
-const emojiSearchClear = "검색어 지우기";
+const searchClear = "검색어 지우기";
 const emojiLoading = "불러오는 중...";
 const emojiNone = "찾는 이모지가 없어요.";
 const emojiClear = "비우기";
@@ -57,4 +57,4 @@ const format = {
   timestamp: "현재 시간 (시간대 자동 변환)",
 };
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, emojiSearchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };
+export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };

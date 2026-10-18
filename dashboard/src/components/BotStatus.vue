@@ -193,7 +193,7 @@
           <button v-for="f in playerFilters" :key="f.key" type="button" :aria-pressed="f.on" :class="[FILTER_CHIP, f.on ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="f.toggle()">
             {{ f.label }}<span class="nums font-semibold">{{ f.count }}</span>
           </button>
-          <input :value="playerTerm" :placeholder="T.search" :class="SEARCH_FIELD" class="ml-auto flex-1 min-w-28 max-w-48" @input="playerTerm = valueOf($event)" />
+          <SearchInput v-model="playerTerm" :placeholder="T.search" :input-class="[SEARCH_FIELD, 'w-full']" class="ml-auto flex-1 min-w-28 max-w-48" />
         </div>
         <!-- 목록 영역은 서버 10.5줄(한 단일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 스크롤된다는 것이 보인다). 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게 -->
         <div ref="playerListEl" class="h-78 @4xl/content:h-126 overflow-y-auto -ml-2" :class="playerListOverflowing ? '-mr-4' : '-mr-2'" :style="playerFade">
@@ -275,13 +275,13 @@ import Icon from "./BaseIcon.vue";
 import GuildAvatar from "./GuildAvatar.vue";
 import MarqueeText from "./MarqueeText.vue";
 import SparkChart from "./SparkChart.vue";
+import SearchInput from "./SearchInput.vue";
 import { rem } from "../utils/rem.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { koMatch } from "../../../src/rules/ko-search.ts";
-import { valueOf } from "../utils/dom.ts";
 import { formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";

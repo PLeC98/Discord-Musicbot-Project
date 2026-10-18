@@ -5,7 +5,7 @@ import assert from "node:assert";
 import { openTempStore } from "../helpers/temp-store.ts";
 import * as requests from "../../src/store/ai-requests.ts";
 import type { NewRecord } from "../../src/store/ai-requests.ts";
-import type { AiLogQuery } from "../../src/dashboard/contract/ai-log.ts";
+import { aiLogMatches, type AiLogQuery } from "../../src/dashboard/contract/ai-log.ts";
 
 const store = openTempStore("ai-requests-");
 after(() => store.close());
@@ -62,6 +62,15 @@ test("필터: 출처 · 결과 · 찾는 말(대소문자 무시, 이름까지) 
   assert.equal(requests.list({ ...all, q: "FANCY" }, { limit: 50 }).matched, 1);
   // % 는 글자 그대로다(LIKE 처럼 아무 글자나가 아니다)
   assert.equal(requests.list({ ...all, q: "%" }, { limit: 50 }).matched, 0);
+  // 한국어 찾기: 조합 중인 마지막 글자 · 초성(화면의 실시간 필터 aiLogMatches 와 같은 규칙)
+  add({ source: "ping", name: "제미니 무료" });
+  assert.equal(requests.list({ ...all, q: "제민" }, { limit: 50 }).matched, 1);
+  assert.equal(requests.list({ ...all, q: "ㅈㅁㄴ" }, { limit: 50 }).matched, 1);
+  assert.equal(aiLogMatches(requests.list({ ...all, q: "ㅈㅁㄴ" }, { limit: 50 }).entries[0], { ...all, q: "ㅈㅁㄴ" }), true);
+  requests.clearRequests();
+  add({ source: "models", model: "", name: "", url: "https://api.openai.com/v1/models", tokens: null });
+  add({ ok: false, status: 429, error: "Too Many Requests" });
+  add({ source: "ping", name: "Fancy Model" });
   const first = requests.list(all, { limit: 2 });
   assert.equal(first.entries.length, 2);
   assert.equal(first.total, 3);

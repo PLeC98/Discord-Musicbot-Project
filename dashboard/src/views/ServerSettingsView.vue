@@ -32,7 +32,7 @@
         <BaseCard icon="headphones" :title="T.dj.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.dj.desc }}</p>
 
-          <input :value="roleFilter" @input="roleFilter = valueOf($event)" :disabled="!s.canEdit" :placeholder="text.fields.searchAmong(s.roles.length)" :class="[FIELD, 'w-full mb-2 disabled:opacity-38']" />
+          <SearchInput v-model="roleFilter" :disabled="!s.canEdit" :placeholder="text.fields.searchAmong(s.roles.length)" :input-class="[FIELD, 'w-full disabled:opacity-38']" class="mb-2" />
 
           <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
@@ -109,6 +109,7 @@ import SaveIndicator, { type SaveState } from "../components/SaveIndicator.vue";
 import { FIELD } from "../utils/field.ts";
 import { problemCodeOf, replyOf } from "../utils/request.ts";
 import SingleSelect from "../components/SingleSelect.vue";
+import SearchInput from "../components/SearchInput.vue";
 import BaseSwitch from "../components/BaseSwitch.vue";
 import SponsorCategories from "../components/SponsorCategories.vue";
 import { useGuildsStore } from "../stores/guilds.ts";

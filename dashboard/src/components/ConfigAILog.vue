@@ -31,10 +31,9 @@
         </div>
       </div>
 
-      <label class="relative block">
-        <Icon name="search" :size="20" class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-        <input v-model="query.q" type="search" :placeholder="T.search" :aria-label="T.search" :class="[SEARCH_FIELD, 'w-full pl-10!']" />
-      </label>
+      <SearchInput v-model="query.q" type="text" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full pl-10!']">
+        <template #leading><Icon name="search" :size="20" class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" /></template>
+      </SearchInput>
 
       <NoticeBox v-if="storage && !storage.enabled" variant="note" tone="notice" icon="info" class="mt-0!">{{ T.off }}</NoticeBox>
       <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
@@ -101,6 +100,7 @@ import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConfigTunables from "./ConfigTunables.vue";
+import SearchInput from "./SearchInput.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { CODE_BOX, SEARCH_FIELD } from "../utils/field.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";

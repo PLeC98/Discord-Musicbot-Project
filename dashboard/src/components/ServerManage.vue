@@ -57,7 +57,7 @@
       <div class="flex flex-col gap-3">
         <p class="text-sm text-on-surface-variant">{{ T.guilds.desc }}</p>
         <div class="flex flex-wrap items-center gap-2">
-          <input :value="term" :placeholder="T.guilds.search(guilds.length)" @input="term = valueOf($event)" :class="SEARCH_FIELD" class="flex-1 min-w-40" />
+          <SearchInput v-model="term" :placeholder="T.guilds.search(guilds.length)" :input-class="[SEARCH_FIELD, 'w-full']" class="flex-1 min-w-40" />
           <!-- 정렬 · 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
           <SelectPanel v-model:open="viewOpen" :summary="viewSummary" :muted="false" :count="0" :searchable="false" :empty="false" :rows="7" class="w-52 shrink-0">
             <p :class="SELECT_GROUP">{{ T.guilds.sort }}</p>
@@ -120,6 +120,7 @@ import { SEARCH_FIELD } from "../utils/field.ts";
 import { codeBlock, linePrefix, link, timestampTag, wrap, type Edit } from "../utils/markdown-edit.ts";
 import { SELECT_GROUP, SELECT_ROW, SELECT_ROW_ON } from "../utils/select-row.ts";
 import SelectPanel from "./SelectPanel.vue";
+import SearchInput from "./SearchInput.vue";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
 import { segment } from "../utils/segment.ts";
