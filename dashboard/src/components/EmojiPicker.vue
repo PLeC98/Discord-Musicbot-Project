@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { koMatch } from "../utils/ko-search.ts";
+import { koMatch } from "../../../src/rules/ko-search.ts";
 import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef, type CSSProperties } from "vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";

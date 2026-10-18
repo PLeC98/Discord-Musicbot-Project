@@ -115,7 +115,7 @@ import { useScrollFade } from "../composables/scroll-fade.ts";
 import { caretOf, insertAt, type Caret } from "../utils/caret.ts";
 import { discordMarkdown } from "../utils/discord-markdown.ts";
 import { composing, valueOf } from "../utils/dom.ts";
-import { koMatch } from "../utils/ko-search.ts";
+import { koMatch } from "../../../src/rules/ko-search.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { codeBlock, linePrefix, link, timestampTag, wrap, type Edit } from "../utils/markdown-edit.ts";
 import { SELECT_GROUP, SELECT_ROW, SELECT_ROW_ON } from "../utils/select-row.ts";

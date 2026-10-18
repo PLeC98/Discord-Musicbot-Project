@@ -11,8 +11,8 @@ import { parse } from "@vue/compiler-sfc";
 const SRC = path.join(import.meta.dirname, "..", "..", "dashboard", "src");
 const HANGUL = /[가-힣ㄱ-ㆎ]/;
 
-// 문구가 아니라 한글을 다루는 규칙 · 자료(초성 찾기의 자모 표, 이모지 이름)
-const NOT_TEXT = new Set(["utils/ko-search.ts", "emoji-list.ts"]);
+// 문구가 아니라 한글을 다루는 자료(이모지 이름)
+const NOT_TEXT = new Set(["emoji-list.ts"]);
 
 const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(vue|ts)$/.test(e.name) ? [path.join(dir, e.name)] : []));
 

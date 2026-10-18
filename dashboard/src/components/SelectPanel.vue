@@ -26,7 +26,7 @@
 <script setup lang="ts">
 // 드롭다운의 겉: 누르는 버튼 · body 로 내보낸 목록 · 검색창. 단일 선택(SingleSelect)과 다중 선택(MultiSelect)이 같이 쓴다.
 // 목록의 항목은 쓰는 쪽이 넣는다(slot). 검색어(term)로 필터링하는 것도 쓰는 쪽이 한다(utils/options)
-import { ref, nextTick, onBeforeUnmount, watch } from "vue";
+import { computed, ref, nextTick, onBeforeUnmount, watch } from "vue";
 import { useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { rem } from "../utils/rem.ts";
@@ -50,11 +50,14 @@ const props = defineProps<{
   disabled?: boolean;
   /** 목록이 보일 항목 수(넘으면 스크롤된다). 기본 6.5. 그룹 이름이 있는 짧은 메뉴(필터)는 다 보이게 늘린다 */
   rows?: number;
+  /** 작은 버튼(높이 32, 아이콘 버튼이 늘어선 도구 줄) */
+  small?: boolean;
 }>();
 const open = defineModel<boolean>("open", { default: false });
 const term = defineModel<string>("term", { default: "" });
 
-const boxCls = "w-full flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface h-10 pl-4 pr-3 text-sm font-[inherit] text-left cursor-pointer outline-none transition-[border-color] duration-150 focus-visible:border-primary disabled:opacity-38 disabled:cursor-not-allowed";
+const boxBase = "w-full flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface font-[inherit] text-left cursor-pointer outline-none transition-[border-color] duration-150 focus-visible:border-primary disabled:opacity-38 disabled:cursor-not-allowed";
+const boxCls = computed(() => `${boxBase} ${props.small ? "h-8 pl-3 pr-2 text-xs" : "h-10 pl-4 pr-3 text-sm"}`);
 // M3E 세로 메뉴(Compose SegmentedMenuTokens · StandardMenuTokens): 바탕 surface-container-low · 그림자 2단 · 모서리 16 · 안쪽 여백 4.
 // 항목은 높이 44 · 좌우 16, 항목 사이 틈 없음(틈은 그룹 사이에만 두고 스크롤되는 메뉴에는 두지 않는다), 모서리 4 에 첫 항목 위 · 마지막 항목 아래만 12(쓰는 쪽의 항목은 button), 선택한 항목은 12 · tertiary-container
 const panelCls = "pane-menu bg-surface-container-low! flex flex-col overflow-hidden rounded-lg";

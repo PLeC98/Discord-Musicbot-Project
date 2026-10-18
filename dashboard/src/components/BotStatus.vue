@@ -280,7 +280,7 @@ import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
-import { koMatch } from "../utils/ko-search.ts";
+import { koMatch } from "../../../src/rules/ko-search.ts";
 import { valueOf } from "../utils/dom.ts";
 import { formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";

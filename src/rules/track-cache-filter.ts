@@ -1,10 +1,11 @@
 // 캐시 DB 의 필터 식(DB Browser for SQLite 의 열 필터 문법)을 읽고 비교한다. 봇(읽기 경로)과 화면(입력란 미리 보기)이 같이 쓴다. Node 를 부르지 않는다.
-// 식: 그냥 쓰면 포함(대소문자 무시, % 는 아무 글자들) · =값 · <>값 · >값 <값 >=값 <=값 · 값~값(사이) · /정규식/(\/ 로 / 를 쓴다) · ='' (빔) · <>'' (빔 아님).
+// 식: 그냥 쓰면 포함(대소문자 무시. 한국어는 조합 중인 마지막 글자 · 초성으로도 찾는다: rules/ko-search, 서버 목록 찾기와 같다. % 를 넣으면 아무 글자들) · =값 · <>값 · >값 <값 >=값 <=값 · 값~값(사이) · /정규식/(\/ 로 / 를 쓴다) · ='' (빔) · <>'' (빔 아님).
 // 열의 형식에 따라 값을 읽는다: 크기는 10MB 같은 단위(없으면 바이트), 시각은 2026-10-17 · 2026-10-17 12:30 같은 날짜(이 기기의 시간대), 길이는 3:30 같은 분:초(없으면 초).
 // 날짜 하나는 그날 하루다: =날짜 는 그날 안, >날짜 는 그날 뒤, >=날짜 는 그날부터, <날짜 는 그날 전, <=날짜 는 그날까지.
 // 정규식은 서버가 음악 재생과 같은 이벤트 루프에서 돌리므로 길이 상한을 두고, 반복 안에 반복이 겹친 형태(오래 걸릴 수 있다)는 받지 않는다.
 
 import type { Code } from "./problems.ts";
+import { koMatch } from "./ko-search.ts";
 
 /** 열 하나의 필터 식 · 아무 열에서나 필터 · 그 안의 정규식 길이 상한 */
 const FILTER_MAX = 200;
@@ -15,7 +16,7 @@ type ColumnKind = "text" | "bytes" | "time" | "count" | "seconds";
 
 type Cmp = ">" | "<" | ">=" | "<=";
 /** 읽은 식. 값은 열의 형식으로 읽은 것(문자열 열은 문자열, 그 밖은 수). 날짜는 그날의 처음 · 끝(ms) */
-type Filter = { kind: "contains"; pattern: RegExp } | { kind: "equals"; value: string | number; until?: number } | { kind: "not-equals"; value: string | number; until?: number } | { kind: "compare"; op: Cmp; value: number } | { kind: "between"; low: number; high: number } | { kind: "regex"; pattern: RegExp } | { kind: "empty" } | { kind: "not-empty" };
+type Filter = { kind: "contains"; text: string } | { kind: "like"; pattern: RegExp } | { kind: "equals"; value: string | number; until?: number } | { kind: "not-equals"; value: string | number; until?: number } | { kind: "compare"; op: Cmp; value: number } | { kind: "between"; low: number; high: number } | { kind: "regex"; pattern: RegExp } | { kind: "empty" } | { kind: "not-empty" };
 
 type Problem = { ok: false; code: Code; max?: number };
 type Parsed = { ok: true; filter: Filter } | Problem;
@@ -99,7 +100,8 @@ function parseFilter(kind: ColumnKind, input: string): Parsed | null {
     if (!low || !high) return { ok: false, code: "bad-filter" };
     return { ok: true, filter: { kind: "between", low: low.value, high: high.until ?? high.value } };
   }
-  return { ok: true, filter: { kind: "contains", pattern: new RegExp(expr.split("%").map(escape).join(".*"), "i") } };
+  if (expr.includes("%")) return { ok: true, filter: { kind: "like", pattern: new RegExp(expr.split("%").map(escape).join(".*"), "i") } };
+  return { ok: true, filter: { kind: "contains", text: expr } };
 }
 
 // = 의 비교: 문자열은 그대로, 날짜는 그날 안, 수는 같은 수
@@ -117,14 +119,15 @@ function matchFilter(filter: Filter, value: string | number | null): boolean {
   if (filter.kind === "empty") return empty;
   if (filter.kind === "not-empty") return !empty;
   if (empty) return filter.kind === "not-equals";
-  if (filter.kind === "contains" || filter.kind === "regex") return filter.pattern.test(String(value));
+  if (filter.kind === "contains") return koMatch(String(value), filter.text);
+  if (filter.kind === "like" || filter.kind === "regex") return filter.pattern.test(String(value));
   if (filter.kind === "equals") return sameAs(filter, value);
   if (filter.kind === "not-equals") return !sameAs(filter, value);
   if (filter.kind === "between") return Number(value) >= filter.low && Number(value) <= filter.high;
   return COMPARE[filter.op](Number(value), filter.value);
 }
 
-/** 아무 열에서나: 낱말마다 어느 열에든 들어간 행(대소문자 무시). 빈 문자열은 null */
+/** 아무 열에서나: 낱말마다 어느 열에든 들어간 행(대소문자 무시, 한국어는 조합 중인 글자 · 초성도). 빈 문자열은 null */
 function parseWords(input: string): Words | null {
   const text = input.trim();
   if (!text) return null;
@@ -133,8 +136,8 @@ function parseWords(input: string): Words | null {
 }
 
 const matchWords = (words: string[], values: Array<string | number | null>) => {
-  const texts = values.filter((one) => one !== null && one !== "").map((one) => String(one).toLowerCase());
-  return words.every((word) => texts.some((text) => text.includes(word)));
+  const texts = values.filter((one) => one !== null && one !== "").map((one) => String(one));
+  return words.every((word) => texts.some((text) => koMatch(text, word)));
 };
 
 export { FILTER_MAX, REGEX_MAX, parseFilter, matchFilter, parseWords, matchWords, readValue };

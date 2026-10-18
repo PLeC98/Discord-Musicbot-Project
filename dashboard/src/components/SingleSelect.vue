@@ -1,5 +1,5 @@
 <template>
-  <SelectPanel v-model:open="open" v-model:term="term" :summary="summary" :summary-color="pickedColor" :muted="!picked" :count="options.length" :searchable="searchable" :empty="!shown.length" :disabled="disabled">
+  <SelectPanel v-model:open="open" v-model:term="term" :summary="summary" :summary-color="pickedColor" :muted="!picked" :count="options.length" :searchable="searchable" :empty="!shown.length" :disabled="disabled" :small="small">
     <button v-if="emptyLabel" type="button" :class="[rowCls, picked ? '' : rowOn]" @click="choose('')">
       <span class="truncate" :class="picked && 'text-on-surface-variant'">{{ emptyLabel }}</span>
     </button>
@@ -28,8 +28,10 @@ const props = withDefaults(
     emptyLabel?: string;
     searchFrom?: number;
     disabled?: boolean;
+    /** 작은 버튼(도구 줄) */
+    small?: boolean;
   }>(),
-  { modelValue: "", options: () => [], placeholder: text.fields.pick, emptyLabel: "", searchFrom: 12, disabled: false },
+  { modelValue: "", options: () => [], placeholder: text.fields.pick, emptyLabel: "", searchFrom: 12, disabled: false, small: false },
 );
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue] }>();
 

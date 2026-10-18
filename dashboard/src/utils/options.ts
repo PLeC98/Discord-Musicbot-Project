@@ -1,5 +1,5 @@
 // 드롭다운의 선택지와 필터링. 단일 선택 · 다중 선택이 같이 쓴다
-import { koMatch } from "./ko-search.ts";
+import { koMatch } from "../../../src/rules/ko-search.ts";
 
 /** 선택지 하나. 값은 저장할 것, label 은 보일 것, group 이 있으면 그 이름 아래에 묶어 보인다, color 가 있으면 이름 앞에 그 색 점(로그 카테고리처럼 색으로도 가리키는 것) */
 type OptionValue = string | number;

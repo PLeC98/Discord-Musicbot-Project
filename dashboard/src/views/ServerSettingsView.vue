@@ -116,7 +116,7 @@ import { HOLD, NO_ART, releasePageArt, setPageArt } from "../theme/theme.ts";
 import Icon from "../components/BaseIcon.vue";
 import { segment } from "../utils/segment.ts";
 import { valueOf } from "../utils/dom.ts";
-import { koMatch } from "../utils/ko-search.ts";
+import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";

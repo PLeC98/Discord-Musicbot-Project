@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { composing, valueOf } from "../utils/dom.ts";
-import { koMatch, koStarts } from "../utils/ko-search.ts";
+import { koMatch, koStarts } from "../../../src/rules/ko-search.ts";
 import { rem } from "../utils/rem.ts";
 import { CHIP_FIELD, CHIP_PANEL, CHIP_PANEL_NOTE, CHIP_PANEL_ROW, INPUT_CHIP, INPUT_CHIP_CLOSE } from "../utils/field.ts";
 import { ref, computed, watch } from "vue";

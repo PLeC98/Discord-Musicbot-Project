@@ -6,9 +6,7 @@
     <!-- 위 줄 -->
     <div class="relative flex flex-wrap items-center gap-1">
       <span class="text-xs text-on-surface-variant mr-1">{{ T.tableLabel }}</span>
-      <select :value="table" :class="[FIELD, 'h-8! px-2! text-xs!']" @change="switchTable(($event.target as HTMLSelectElement).value as TrackCacheTable)">
-        <option v-for="one in TRACK_CACHE_TABLES" :key="one" :value="one">{{ T.tables[one] }}</option>
-      </select>
+      <SingleSelect :model-value="table" :options="tableOptions" small class="w-32" @update:model-value="switchTable($event as TrackCacheTable)" />
       <span class="mx-1 h-5 w-px bg-outline-variant"></span>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.tools.refresh" v-tooltip="T.tools.refresh" @click="reload()"><Icon name="refresh" :size="18" :class="loading && 'animate-spin'" /></button>
       <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="!hasFilters" :aria-label="T.tools.clearFilters" v-tooltip="T.tools.clearFilters" @click="clearFilters()"><Icon name="filter_list_off" :size="18" /></button>
@@ -168,6 +166,7 @@ import axios from "axios";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
+import SingleSelect from "./SingleSelect.vue";
 import { useSaveTarget } from "../composables/save-targets.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { noticeText } from "../utils/problem.ts";
@@ -205,6 +204,7 @@ import {
 import { cellText, changeCount, editable, emptyChanges, keyOf, opsOf, rawText, stamp, summaryOf, type AnyRow, type Changes, type NewRow } from "../cache-db/model.ts";
 import { text } from "../text/index.ts";
 const T = text.cacheDb;
+const tableOptions = TRACK_CACHE_TABLES.map((one) => ({ value: one, label: T.tables[one] }));
 
 const API = "/api/admin/track-cache";
 const ROW_H = 28;
