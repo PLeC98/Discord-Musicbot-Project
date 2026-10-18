@@ -35,6 +35,7 @@ import { serviceKeysRouter } from "./routes/service-keys.ts";
 import { tunablesRouter } from "./routes/tunables.ts";
 import { settingsArchiveRouter } from "./routes/settings-archive.ts";
 import { trackCacheRouter } from "./routes/track-cache.ts";
+import { resetRouter } from "./routes/reset.ts";
 import { sweepUploads } from "./archive-uploads.ts";
 import { snapshotsRouter } from "./routes/snapshots.ts";
 import type { PlayerStream } from "./player-stream.ts";
@@ -172,6 +173,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/admin/settings-archive", settingsArchiveRouter);
   app.use("/api/admin/snapshots", snapshotsRouter);
   app.use("/api/admin/track-cache", trackCacheRouter);
+  app.use("/api/admin/reset", resetRouter);
   app.use("/api/admin/ai", aiLogRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));

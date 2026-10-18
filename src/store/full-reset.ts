@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
+import { settingsDb } from "./settings-db.ts";
 
 const MARKER = "reset.request";
 /** DB 폴더에서 남기는 것 */
@@ -14,23 +15,24 @@ const KEEP = new Set(["backups", "run-state.json", "child-processes.json", MARKE
 
 type Dirs = { database: string; audioCache: string };
 const REAL: Dirs = { database: PROJECT.database, audioCache: PROJECT.audioCache };
+/** 마커를 두는 DB 폴더(열린 settings.db 가 있는 곳. 테스트의 임시 폴더면 실제 봇 폴더를 건드리지 않는다). 열기 전이면 던진다 */
+const dbDir = () => path.dirname(settingsDb.get().name);
 
 /** 봇 전체 초기화를 예약한다(다음 기동에 지운다) */
-function request(dirs: Dirs = REAL) {
-  fs.mkdirSync(dirs.database, { recursive: true });
-  fs.writeFileSync(path.join(dirs.database, MARKER), JSON.stringify({ at: Date.now() }));
+function request(database = dbDir()) {
+  fs.writeFileSync(path.join(database, MARKER), JSON.stringify({ at: Date.now() }));
 }
 
 /** 예약을 취소한다. 예약되어 있었으면 true */
-function cancel(dirs: Dirs = REAL): boolean {
-  const marker = path.join(dirs.database, MARKER);
+function cancel(database = dbDir()): boolean {
+  const marker = path.join(database, MARKER);
   if (!fs.existsSync(marker)) return false;
   fs.rmSync(marker, { force: true });
   return true;
 }
 
 /** 예약되어 있나 */
-const requested = (dirs: Dirs = REAL) => fs.existsSync(path.join(dirs.database, MARKER));
+const requested = (database = dbDir()) => fs.existsSync(path.join(database, MARKER));
 
 type Remove = (target: string) => void;
 const removeTree: Remove = (target) => fs.rmSync(target, { recursive: true, force: true, maxRetries: 3 });
@@ -46,7 +48,7 @@ function emptyDir(dir: string, remove: Remove, keep: ReadonlySet<string> = new S
  * @param remove  하나를 지우는 함수(테스트가 막힌 파일을 흉내 낸다)
  */
 function applyRequested(dirs: Dirs = REAL, remove: Remove = removeTree): boolean {
-  if (!requested(dirs)) return false;
+  if (!requested(dirs.database)) return false;
   try {
     emptyDir(dirs.database, remove, KEEP);
     emptyDir(dirs.audioCache, remove);

@@ -31,6 +31,7 @@ const { tunablesRouter } = await import("../../src/dashboard/routes/tunables.ts"
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 const { snapshotsRouter } = await import("../../src/dashboard/routes/snapshots.ts");
 const { trackCacheRouter } = await import("../../src/dashboard/routes/track-cache.ts");
+const { resetRouter } = await import("../../src/dashboard/routes/reset.ts");
 const { identityRouter } = await import("../../src/dashboard/routes/identity.ts");
 const { loginBackgroundRouter } = await import("../../src/dashboard/routes/login-background.ts");
 const { publicLoginBackgroundRouter } = await import("../../src/dashboard/routes/login-background-public.ts");
@@ -105,6 +106,7 @@ const MOUNTS: Array<[string, Router]> = [
   ["/api/admin/settings-archive", settingsArchiveRouter],
   ["/api/admin/snapshots", snapshotsRouter],
   ["/api/admin/track-cache", trackCacheRouter],
+  ["/api/admin/reset", resetRouter],
   ["/api/admin/appearance/login-background", loginBackgroundRouter],
   ["", publicLoginBackgroundRouter],
   ["/api", identityRouter],

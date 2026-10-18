@@ -33,8 +33,8 @@ test("예약하지 않았으면 아무것도 지우지 않는다", () => {
 
 test("예약했으면 스냅샷 · 이번 실행의 기록을 뺀 DB 폴더와 캐시 폴더 안을 지우고, 마커도 지운다", () => {
   const dirs = layout();
-  fullReset.request(dirs);
-  assert.equal(fullReset.requested(dirs), true);
+  fullReset.request(dirs.database);
+  assert.equal(fullReset.requested(dirs.database), true);
 
   assert.equal(fullReset.applyRequested(dirs), true);
 
@@ -42,29 +42,29 @@ test("예약했으면 스냅샷 · 이번 실행의 기록을 뺀 DB 폴더와 �
   assert.deepEqual(left(path.join(dirs.database, "backups")), ["settings-daily-2026-10-18.db"]);
   assert.deepEqual(left(dirs.audioCache), []);
   for (const kept of [".env", "logs/bot.log", "vendor/bin/ffmpeg"]) assert.ok(fs.existsSync(path.join(ROOT, kept)), kept);
-  assert.equal(fullReset.requested(dirs), false);
+  assert.equal(fullReset.requested(dirs.database), false);
   assert.equal(fullReset.applyRequested(dirs), false, "한 번만");
 });
 
 test("예약 취소", () => {
   const dirs = layout();
-  fullReset.request(dirs);
-  assert.equal(fullReset.cancel(dirs), true);
-  assert.equal(fullReset.cancel(dirs), false);
+  fullReset.request(dirs.database);
+  assert.equal(fullReset.cancel(dirs.database), true);
+  assert.equal(fullReset.cancel(dirs.database), false);
   assert.equal(fullReset.applyRequested(dirs), false);
   assert.ok(fs.existsSync(path.join(dirs.database, "settings.db")));
 });
 
 test("지우다 막히면 RESET_FAILED 로 멈추고 마커는 남는다(다음 기동이 이어서 지운다)", () => {
   const dirs = layout();
-  fullReset.request(dirs);
+  fullReset.request(dirs.database);
   const locked = path.join(dirs.database, "state.db");
   const remove = (target: string) => {
     if (target === locked) throw Object.assign(new Error("EBUSY: resource busy or locked"), { code: "EBUSY" });
     fs.rmSync(target, { recursive: true, force: true });
   };
   assert.throws(() => fullReset.applyRequested(dirs, remove), { code: "RESET_FAILED" });
-  assert.equal(fullReset.requested(dirs), true);
+  assert.equal(fullReset.requested(dirs.database), true);
   assert.equal(fullReset.applyRequested(dirs), true, "막힌 것이 풀리면 이어서 지운다");
   assert.equal(fs.existsSync(locked), false);
 });

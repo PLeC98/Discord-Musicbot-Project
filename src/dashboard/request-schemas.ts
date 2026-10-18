@@ -6,6 +6,7 @@ import { z } from "zod";
 import { MAX_COUNT } from "../rules/more-choices.ts";
 import { QUEUE_WINDOW_MAX } from "./contract/player.ts";
 import { isCode, type Code } from "../rules/problems.ts";
+import { AUDIO_CACHE_PARTS } from "../rules/audio-cache-parts.ts";
 import type { FieldProblem } from "./contract/problem.ts";
 import { LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ID, SEAM_KINDS, SEAM_SECONDS } from "./contract/login-background.ts";
 
@@ -157,5 +158,20 @@ const TrackCacheWriteBody = z.object({ ops: z.array(TrackCacheOpBody, BAD_TRACK_
 const TrackCacheInspectBody = z.object({ requestKey: tcUrl.optional(), audioUrl: tcUrl.optional() }, BAD_TRACK_CACHE);
 const TrackCacheProbeBody = z.object({ audioUrls: z.array(tcUrl, BAD_TRACK_CACHE) }, BAD_TRACK_CACHE);
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, QUERY_MAX_LEN };
+// ── 초기화 ──
+
+const BAD_RESET = { error: "bad-request" satisfies Code };
+const ResetBody = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({ kind: z.literal("audio-cache", BAD_RESET), parts: z.array(z.enum(AUDIO_CACHE_PARTS, BAD_RESET), BAD_RESET).min(1, { error: "nothing-to-save" satisfies Code }) }, BAD_RESET),
+    z.object({ kind: z.literal("bot-settings", BAD_RESET) }, BAD_RESET),
+    z.object({ kind: z.literal("guild-settings", BAD_RESET) }, BAD_RESET),
+    z.object({ kind: z.literal("display", BAD_RESET) }, BAD_RESET),
+    z.object({ kind: z.literal("all", BAD_RESET), confirmName: z.string(BAD_RESET).max(200, BAD_RESET) }, BAD_RESET),
+  ],
+  BAD_RESET,
+);
+
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN };
 export type { SettingsRequest };

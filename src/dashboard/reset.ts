@@ -4,6 +4,8 @@
 
 import * as audioCache from "../store/audio-cache.ts";
 import { settingsDb } from "../store/settings-db.ts";
+import { rowCounts } from "../store/cache-db.ts";
+import * as fullReset from "../store/full-reset.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
 import * as secrets from "../store/secrets.ts";
 import * as tunables from "../store/tunables.ts";
@@ -15,6 +17,7 @@ import * as appearance from "./appearance.ts";
 import * as backgroundStore from "./login-background/store.ts";
 import * as backgroundRunner from "./login-background/runner.ts";
 import { LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_OPTIONS_DEFAULT } from "./contract/login-background.ts";
+import type { ResetOverview, StagedRestore } from "./contract/reset.ts";
 import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
@@ -76,4 +79,47 @@ function resetDisplay(by: string) {
   return { favicons, backgrounds };
 }
 
-export { resetAudioCache, resetBotSettings, resetGuildSettings, resetDisplay };
+// 예약한 복원. 명령 전체 백업의 오디오 캐시 복원은 아직 없다(B-122 가 더한다)
+const stagedRestore = (): StagedRestore => ({ snapshot: snapshots.staged(), audioCache: false });
+
+/**
+ * 카드가 줄마다 보이는 지금 양
+ * @param botName   봇 전체 초기화에서 입력할 이름(대시보드가 보이는 봇 이름)
+ * @param launcher  실행기로 켰나(곧바로 다시 시작할 수 있나)
+ */
+function overview(botName: string, launcher: boolean): ResetOverview {
+  const rows = rowCounts();
+  const { files, bytes } = audioCache.storageStats().cache;
+  return {
+    audioCache: { files, bytes, ledger: rows.track_lookup, checks: rows.source_checks, sponsorSegments: rows.sponsorblock_cache, ageRestricted: rows.age_restricted, pins: rows.pinned_sources },
+    botSettings: { tunables: Object.keys(tunables.view().values).length, documents: settingsDocs.names().filter((name) => name !== "tunables").length, secrets: secrets.count() },
+    guildSettings: { guilds: guildSettings.guildCount() },
+    display: { favicons: appearance.faviconCount(), backgrounds: backgroundStore.items().length },
+    botName,
+    launcher,
+    staged: fullReset.requested(),
+    restore: stagedRestore(),
+  };
+}
+
+/**
+ * 봇 전체 초기화를 예약한다: 예약한 복원을 취소하고(남기면 초기화한 봇에 옛 설정이 들어온다) 스냅샷을 남긴 뒤 마커를 건다.
+ * 지우는 것은 다음 기동(store/full-reset). 곧바로 다시 시작할지는 부르는 쪽(경로)이 정한다
+ */
+async function stageFullReset(by: string, restarting: boolean) {
+  const unstaged = stagedRestore();
+  snapshots.unstage();
+  const snapshot = await snapshots.take("before-reset");
+  fullReset.request();
+  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot} 은 취소` : ""}). 실행 ${by}`);
+  return { snapshot, unstaged };
+}
+
+/** 봇 전체 초기화 예약을 취소한다. 예약되어 있었으면 true */
+function cancelFullReset(by: string): boolean {
+  if (!fullReset.cancel()) return false;
+  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약을 취소했습니다. 실행 ${by}`);
+  return true;
+}
+
+export { resetAudioCache, resetBotSettings, resetGuildSettings, resetDisplay, overview, stageFullReset, cancelFullReset };

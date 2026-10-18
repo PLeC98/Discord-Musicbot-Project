@@ -123,4 +123,10 @@ const TABLES_OF_PART: Record<AudioCachePart, readonly string[]> = {
   pins: ["pinned_sources"],
 };
 
-export { cacheDb, createTables, cacheRevision, TABLES_OF_PART };
+/** 표마다의 행 수(초기화 카드) */
+function rowCounts(): Record<string, number> {
+  const tables = Object.values(TABLES_OF_PART).flat();
+  return Object.fromEntries(tables.map((table) => [table, cacheDb.get().prepare(`SELECT COUNT(*) FROM "${table}"`).pluck().get() as number]));
+}
+
+export { cacheDb, createTables, cacheRevision, rowCounts, TABLES_OF_PART };
