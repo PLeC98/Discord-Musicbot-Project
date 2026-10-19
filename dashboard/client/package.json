@@ -10,15 +10,15 @@
   "dependencies": {
     "@twemoji/api": "^17.0.3",
     "axios": "^1.20.0",
-    "pinia": "^4.0.3",
+    "pinia": "^4.1.0",
     "twemoji-colr-font": "^15.0.3",
-    "vue": "^3.5.43",
-    "vue-router": "^5.3.1"
+    "vue": "^3.5.44",
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-vue": "^6.0.9",
+    "@vitejs/plugin-vue": "^6.0.10",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.3.0"
+    "vite": "^8.3.4"
   }
 }
