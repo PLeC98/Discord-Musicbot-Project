@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createFragmentStream, startOf, type FragmentFetch } from "../../src/media/fragment-stream.ts";
+import { createFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
 
@@ -75,4 +75,25 @@ test("조각이 멈추면 끊고 다시 받는다", async () => {
 
 test("조각 수가 없으면 만들지 않는다", () => {
   assert.throws(() => createFragmentStream({ fragments: { base, count: 0 }, durationMs: 1, startMs: 0 }), /조각 수가 올바르지 않습니다/);
+});
+
+test("출처를 넘기면: 다음 조각이 늦게 나와도(라이브) 차례대로 흘리고, 닫으면 출처에 알린다", async () => {
+  const names = ["a", "b", "c"];
+  let given = 0;
+  let closed = 0;
+  const source: FragmentSource<string> = {
+    // 앞 조각을 받는 중에도 부른다. 늦게 나오는 조각 흉내
+    next: () => new Promise((resolve) => setTimeout(() => resolve(names[given++] ?? null), 5)),
+    fetch: async (name) => Buffer.from(`${name}|`),
+    startedAtMs: 1_000,
+    describe: (sent) => `흘림 ${sent}`,
+    close: () => closed++,
+  };
+  const s = streamFragments(source, { retryDelaysMs: [] });
+  assert.equal(await readAll(s), "a|b|c|");
+  assert.deepEqual([s.startedAtMs, s.describe(), closed], [1_000, "흘림 3", 1]);
+
+  const endless = streamFragments({ ...source, next: async () => "x" }, { retryDelaysMs: [] });
+  for await (const _ of endless) break;
+  assert.equal(closed, 2, "다 읽지 않고 닫아도 출처에 알린다");
 });
