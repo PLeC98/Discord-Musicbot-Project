@@ -85,6 +85,9 @@ test("원본에서 찾는다: 태그 · 그림(다시 구운 JPEG)을 기억하�
   embeddedArt.want([{ audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", thumbnail: null }]);
   await settled();
   assert.equal(opened.length, 1, "직접 링크가 아니면 찾지 않는다");
+  embeddedArt.want([{ ...direct("radio"), isLive: true }]);
+  await settled();
+  assert.equal(opened.length, 1, "라이브(인터넷 라디오)는 끝이 없어 찾지 않는다");
 });
 
 test("한 번에 둘, 지금 곡(first)이 기다리는 것보다 먼저", async (t) => {
@@ -149,7 +152,7 @@ test("캐시 파일이 있으면 그 태그에서 찾고 원본을 열지 않는
   assert.equal(embeddedArt.artFor(track), null, "초기화하면 잊는다");
 });
 
-test("담을 때 읽기(readFromBody)를 기억하고, 캐시 다운로드가 시작되면 끊는다(실패로 남기지 않는다)", async (t) => {
+test("담을 때 읽기(readFromBody)를 기억하고, 캐시 다운로드가 시작되면 끊고 다운로드가 알릴 때까지 다시 찾지 않는다", async (t) => {
   if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const track = direct("enqueued");
   const key = audioKeyOf(track.audioUrl)!;
@@ -166,9 +169,13 @@ test("담을 때 읽기(readFromBody)를 기억하고, 캐시 다운로드가 �
   assert.ok(body.destroyed);
   embeddedArt.want([slow]);
   await settled();
+  assert.equal(opened.length, 0, "다운로드가 맡은 동안 원본을 다시 열지 않는다");
+  // 다운로드가 결과를 알리면 풀린다(캐시 파일이 없으면 결과는 남지 않고 다시 찾는다)
+  embeddedArt.noteFile(slowKey, null, null);
+  embeddedArt.want([slow]);
+  await settled();
   assert.deepEqual(
     opened.map((one) => one.url),
     [slow.audioUrl],
-    "끊긴 것은 실패가 아니라 다시 찾을 수 있다",
   );
 });

@@ -28,6 +28,8 @@ const TAG_LIMITS = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 const ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const PARALLEL = 2;
 const RETRY_MS = 5 * 60_000;
+/** 캐시 다운로드가 맡은 키를 다시 찾지 않는 시간(다운로드가 결과를 알리면 풀린다. 실패하면 이만큼 지나 풀린다) */
+const HOLD_MS = 10 * 60_000;
 /** 기억하는 결과 수 · 그림 바이트 */
 const KEEP_RESULTS = 5000;
 const KEEP_IMAGE_BYTES = 32 * 1024 * 1024;
@@ -39,8 +41,8 @@ type Art = { fingerprint: string; width: number; height: number };
 type Result = { version: string; state: "found"; tags: TagInfo; art: Art | null } | { version: string; state: "failed"; retryAt: number };
 /** 찾음 알림: 그 키의 태그와 그림(없으면 null) */
 type Found = { tags: TagInfo; art: Art | null };
-/** 그림을 찾는 곡: 음원이 직접 링크 */
-type Wanted = { audioUrl?: string; thumbnail?: string | null };
+/** 그림을 찾는 곡: 음원이 직접 링크(라이브는 끝이 없어 찾지 않는다) */
+type Wanted = { audioUrl?: string; thumbnail?: string | null; isLive?: boolean };
 
 const results = new Map<string, Result>();
 const images = new Map<string, { jpeg: Buffer; audioKey: string }>();
@@ -49,6 +51,8 @@ const queue: Array<{ audioKey: string; url: string }> = [];
 const running = new Set<string>();
 /** 담을 때 읽기 · 원본 머리 읽기의 끊기(캐시 다운로드가 시작되면 끊는다) */
 const sourceReads = new Map<string, () => void>();
+/** 캐시 다운로드가 맡은 키 → 풀리는 시각. 그동안 원본을 다시 찾지 않는다(같은 파일로 연결이 셋 열리지 않게) */
+const holding = new Map<string, number>();
 let listener: ((audioKey: string, found: Found) => void) | null = null;
 
 const EMPTY: TagInfo = { title: null, artist: null, album: null };
@@ -160,6 +164,7 @@ function pump() {
 
 /** 아직 찾을 것인가(결과가 없거나 실패한 지 오래) */
 function needsFind(audioKey: string) {
+  if ((holding.get(audioKey) ?? 0) > Date.now()) return false;
   const known = results.get(audioKey);
   return !known || (known.state === "failed" && Date.now() >= known.retryAt);
 }
@@ -177,7 +182,7 @@ function directKeyOf(track: Wanted): string | null {
 function want(tracks: Iterable<Wanted | null | undefined>, { first = false } = {}) {
   const fresh: Array<{ audioKey: string; url: string }> = [];
   for (const track of tracks) {
-    const audioKey = track ? directKeyOf(track) : null;
+    const audioKey = track && !track.isLive ? directKeyOf(track) : null;
     if (!audioKey || !track?.audioUrl || running.has(audioKey) || !needsFind(audioKey) || queue.some((one) => one.audioKey === audioKey)) continue;
     fresh.push({ audioKey, url: track.audioUrl });
   }
@@ -217,14 +222,16 @@ async function imageOf(fingerprint: string): Promise<Buffer | null> {
 
 /** 캐시 파일을 막 만들었다(다운로드). 그 파일에 넣은 태그 · 그림으로 결과를 바로 채운다 */
 function noteFile(audioKey: string, tags: TagInfo | null, cover: Cover | null) {
+  holding.delete(audioKey);
   const { version } = versionOf(audioKey);
   if (version === "source") return;
   settle(audioKey, version, tags ?? EMPTY, cover);
 }
 
-/** 이 키의 캐시 다운로드가 시작됐다. 원본 머리 읽기를 끊는다(같은 파일로 연결이 셋 열리지 않게). 태그는 받은 파일이 채운다 */
+/** 이 키의 캐시 다운로드가 시작됐다. 원본 머리 읽기를 끊고, 다운로드가 결과를 알릴 때까지 다시 찾지 않는다(같은 파일로 연결이 셋 열리지 않게). 태그는 받은 파일이 채운다 */
 function cancelSource(audioKey: string) {
   sourceReads.get(audioKey)?.();
+  holding.set(audioKey, Date.now() + HOLD_MS);
 }
 
 /** 찾음 알림을 받을 곳(하나) */
@@ -235,6 +242,7 @@ function onFound(handler: ((audioKey: string, found: Found) => void) | null) {
 /** 캐시 초기화 때 */
 function clear() {
   results.clear();
+  holding.clear();
   images.clear();
   imageBytes = 0;
   queue.length = 0;
