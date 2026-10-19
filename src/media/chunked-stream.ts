@@ -3,6 +3,8 @@
 // googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
+// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
+// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200) · 구간이 어긋나면 · 전체 크기가 다르면 이어받기를 그만둔다.
 
 import { Readable } from "stream";
 import { codeOf, codedError } from "../rules/error-kind.ts";
@@ -27,6 +29,10 @@ type ChunkedOptions = {
   chunkSize: number;
   onInterrupt?: ((err: unknown) => boolean) | null;
   onResumed?: ((info: Resumed) => void) | null;
+  /** 이미 열린 첫 응답의 본문(처음부터 끝까지). 끊기면 Range 로 잇는다 */
+  first?: Readable | null;
+  /** 이을 때 보낼 If-Range(처음 응답의 강한 ETag 나 Last-Modified) */
+  ifRange?: string | null;
   fetchImpl?: RangeFetch;
   retryDelaysMs?: number[];
   stallMs?: number;
@@ -76,19 +82,35 @@ function createChunkedStream(options: ChunkedOptions): ChunkedStream {
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-function assertRangeStart(res: RangeResponse, expected: number) {
+// 이어받을 때(expected > 0)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다). 첫 요청의 크기는 어림값(유튜브 clen)이라 보지 않는다
+function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range");
   if (!cr) return;
-  const start = Number(/bytes\s+(\d+)-/i.exec(cr)?.[1]);
+  const [, startText, totalText] = /bytes\s+(\d+)-\d+\/(\d+|\*)/i.exec(cr) ?? [];
+  const start = Number(startText);
   if (Number.isFinite(start) && start !== expected) {
     throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
   }
+  if (expected > 0 && totalText && totalText !== "*" && Number(totalText) !== totalBytes) {
+    throw permanent(`이어받은 파일의 전체 크기가 다릅니다: 처음 ${totalBytes}B, 지금 ${cr}`);
+  }
+}
+
+/** Node 읽기 스트림을 청크가 읽는 모양(getReader().read())으로 */
+function readerOf(stream: Readable) {
+  const iterator = stream[Symbol.asyncIterator]();
+  return {
+    async read(): Promise<{ done: true; value?: undefined } | { done: false; value: Uint8Array }> {
+      const next = await iterator.next();
+      return next.done ? { done: true } : { done: false, value: next.value as Uint8Array };
+    },
+  };
 }
 
 // 스트림 하나의 상태. 청크를 받아 줄에 쌓고, 소비자가 원하는 만큼 흘려보낸다
 class ChunkedReader {
   readonly stream: Readable;
-  readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed">;
+  readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed" | "first" | "ifRange">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed" | "ifRange">;
   // 남은 양이 이 아래로 떨어지면 다음 청크를 받는다
   readonly lowWater: number;
   readonly expire: number;
@@ -102,6 +124,8 @@ class ChunkedReader {
   ended = false;
   handedOff = false;
   aborter: AbortController | null = null;
+  first: Readable | null; // 아직 읽기 시작하지 않은 첫 응답
+  firstBody: Readable | null = null; // 읽는 중인 첫 응답(끝나거나 끊기면 부순다)
   stallTimer: NodeJS.Timeout | undefined;
   wakeRoom: (() => void) | null = null;
 
@@ -118,8 +142,9 @@ class ChunkedReader {
   openedAt = 0;
   lastReadAt = 0;
 
-  constructor({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions) {
-    this.o = { url, headers, totalBytes, chunkSize, onInterrupt, onResumed, fetchImpl, retryDelaysMs, stallMs };
+  constructor({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, first = null, ifRange = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions) {
+    this.o = { url, headers, totalBytes, chunkSize, onInterrupt, onResumed, ifRange, fetchImpl, retryDelaysMs, stallMs };
+    this.first = first;
     this.lowWater = Math.max(1, Math.floor(chunkSize / 4));
     this.expire = Number(new URL(url, "http://_").searchParams.get("expire"));
     this.stream = new Readable({
@@ -130,6 +155,8 @@ class ChunkedReader {
       destroy: (err, cb) => {
         clearTimeout(this.stallTimer);
         this.aborter?.abort();
+        this.first?.destroy();
+        this.firstBody?.destroy();
         this.wakeRoom?.();
         cb(err);
       },
@@ -177,12 +204,21 @@ class ChunkedReader {
     this.o.onResumed?.(info);
   }
 
-  // 지금 청크를 요청한다. 응답이 맞지 않으면 던진다
+  // 지금 청크를 요청한다(이미 열린 첫 응답이 있으면 그것을 끝까지). 응답이 맞지 않으면 던진다
   async open() {
-    const { url, headers, fetchImpl, totalBytes } = this.o;
-    const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=${this.pos}-${this.target - 1}` }, signal: (this.aborter as AbortController).signal });
+    const { url, headers, fetchImpl, totalBytes, ifRange } = this.o;
+    const signal = (this.aborter as AbortController).signal;
+    if (this.first) {
+      const body = (this.firstBody = this.first);
+      this.first = null;
+      this.target = totalBytes;
+      signal.addEventListener("abort", () => body.destroy(signal.reason instanceof Error ? signal.reason : undefined), { once: true });
+      return readerOf(body);
+    }
+    const range = { Range: `bytes=${this.pos}-${this.target - 1}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
+    const res = await fetchImpl(url, { headers: { ...headers, ...range }, signal });
     if (res.status === 206) {
-      assertRangeStart(res, this.pos);
+      assertRange(res, this.pos, totalBytes);
     } else if (res.status === 200 && this.pos === 0) {
       // Range를 무시했다. 첫 요청이면 본문이 곧 전체 파일이다(조임은 못 피해도 재생은 된다)
       this.target = totalBytes;
@@ -228,6 +264,9 @@ class ChunkedReader {
     } finally {
       clearTimeout(this.stallTimer);
       this.aborter = null;
+      // 첫 응답은 한 번만 읽는다. 끝났거나 끊겼으면 연결을 닫는다(크기를 적게 알린 서버면 본문이 남아 있다)
+      this.firstBody?.destroy();
+      this.firstBody = null;
     }
   }
 
@@ -363,5 +402,5 @@ function describeStreamError(err: unknown): string {
   return parts.join(" ← ");
 }
 
-export { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
+export { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError, readerOf };
 export type { ChunkedOptions, ChunkedStream, RangeFetch, StreamStats };

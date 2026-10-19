@@ -312,6 +312,22 @@ test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 �
   }
 });
 
+test("이을 수 있는 직접 링크 파일은 연 응답을 첫 조각으로 청크 스트림에 넘긴다(검사값 · 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = tracks.direct("https://files.test/big.mp3");
+  behavior.stream = () => ({ url: "https://files.test/big.mp3", platform: "direct" });
+  const fetch = async () => ({ status: 206, headers: {}, body: null });
+  const body = Object.assign(new PassThrough(), { live: false, bounded: true, resumable: { totalBytes: 9_000_000, validator: '"v1"', fetch } });
+  behavior.directStream = () => body;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, true);
+  const [opts] = calls.chunked;
+  assert.deepEqual([opts.url, opts.totalBytes, opts.first === body, opts.ifRange, opts.fetchImpl === fetch], ["https://files.test/big.mp3", 9_000_000, true, '"v1"', true]);
+  assert.equal(calls.downloads.length, 1, "청크 스트림으로 감싸도 끝이 있는 입력이다");
+});
+
 test("직접 링크가 열리지 않으면 그때 다운로드를 시작해 기다린다", async () => {
   const p = h.makePlayer();
   const track = tracks.direct("https://files.test/c.mp3");

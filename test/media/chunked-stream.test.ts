@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Writable } from "stream";
+import { Readable as NodeReadable, Writable } from "stream";
 import { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError, type RangeFetch } from "../../src/media/chunked-stream.ts";
 import type { Readable } from "stream";
 
@@ -422,6 +422,106 @@ test("선행 요청 실패는 스트림을 정리한다 (죽은 요청을 남기
 });
 
 // ── 오류 설명·관측 ───────────────────────────────────────────
+
+// ── 이미 열린 첫 응답(직접 링크) ─────────────────────────────
+
+/** 이미 열린 첫 응답. dieAt 이 있으면 그만큼 보낸 뒤 연결이 끊긴다 */
+function firstBody(body: Buffer, dieAt?: number) {
+  let sent = false;
+  return new NodeReadable({
+    read() {
+      if (sent) return void this.destroy(Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }));
+      sent = true;
+      this.push(dieAt === undefined ? body : body.subarray(0, dieAt));
+      if (dieAt === undefined) this.push(null);
+    },
+  });
+}
+
+test("첫 응답을 받으면 그 본문을 끝까지 흘리고 Range 요청은 하지 않는다", async () => {
+  const body = makeBody(50_000);
+  const seen: unknown[] = [];
+  const first = firstBody(body);
+  const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, first, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });
+  assert.deepEqual(await collect(s), body);
+  assert.deepEqual([seen.length, first.destroyed], [0, true]);
+});
+
+test("첫 응답의 본문이 알린 크기보다 길게 남아 있으면 크기까지 받고 연결을 닫는다", async () => {
+  const body = makeBody(20_000);
+  let sent = false;
+  // 알린 크기를 다 보낸 뒤에도 끝내지 않는 서버
+  const first = new NodeReadable({
+    read() {
+      if (!sent) this.push(body);
+      sent = true;
+    },
+  });
+  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, first, fetchImpl: fakeFetch(body) });
+  assert.deepEqual(await collect(s), body);
+  assert.equal(first.destroyed, true);
+});
+
+test("첫 응답이 끊기면 받은 자리부터 끝까지 If-Range 를 달아 Range 로 잇는다", async () => {
+  const body = makeBody(50_000);
+  const asked: Array<Record<string, string>> = [];
+  const real = fakeFetch(body);
+  const resumed: unknown[] = [];
+  const s = createChunkedStream({
+    url: URL_,
+    totalBytes: body.length,
+    chunkSize: 16_384,
+    first: firstBody(body, 20_000),
+    ifRange: '"e1"',
+    onResumed: (info) => resumed.push(info),
+    fetchImpl: (url, opts) => {
+      asked.push(opts.headers);
+      return real(url, opts);
+    },
+    ...FAST,
+  });
+  assert.deepEqual(await collect(s), body);
+  assert.deepEqual(asked[0], { Range: "bytes=20000-49999", "If-Range": '"e1"' }, "첫 응답이 받던 나머지(끝까지)");
+  assert.equal(resumed.length, 1);
+});
+
+test("이을 때 200(파일이 바뀜 · Range 무시) · 416 · 전체 크기가 다르면 그만둔다(다시 요청하지 않는다)", async () => {
+  const body = makeBody(40_000);
+  const otherTotal: RangeFetch = async (url, opts) => {
+    const res = await fakeFetch(body)(url, opts);
+    return { ...res, headers: { get: (k: string) => (k.toLowerCase() === "content-range" ? `bytes 10000-19999/99999` : null) } };
+  };
+  for (const [what, fetchImpl] of [
+    ["200", fakeFetch(body, { status: 200 })],
+    ["416", fakeFetch(body, { status: 416 })],
+    ["전체 크기", otherTotal],
+  ] as const) {
+    let requests = 0;
+    const s = createChunkedStream({
+      url: URL_,
+      totalBytes: body.length,
+      chunkSize: 10_000,
+      first: firstBody(body, 10_000),
+      fetchImpl: (url, opts) => {
+        requests++;
+        return fetchImpl(url, opts);
+      },
+      ...FAST,
+    });
+    await assert.rejects(collect(s), Error, what);
+    assert.equal(requests, 1, what);
+  }
+});
+
+test("첫 Range 요청(유튜브)의 전체 크기는 어림값이라 보지 않는다", async () => {
+  const body = makeBody(20_000);
+  const rough: RangeFetch = async (url, opts) => {
+    const res = await fakeFetch(body)(url, opts);
+    return { ...res, headers: { get: (k: string) => (k.toLowerCase() === "content-range" ? `bytes 0-19999/20001` : null) } };
+  };
+  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 1 << 20, fetchImpl: rough });
+  assert.deepEqual(await collect(s), body);
+});
 
 test("오류 설명은 cause 사슬을 따라가 진짜 사유를 드러낸다", () => {
   const closed = Object.assign(new TypeError("terminated"), { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) });

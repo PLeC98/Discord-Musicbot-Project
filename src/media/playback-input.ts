@@ -16,7 +16,7 @@ import { InputHealth } from "./input-health.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
 import type { ChunkedOptions } from "./chunked-stream.ts";
 import type { FragmentOptions } from "./fragment-stream.ts";
-import type { DirectInputOptions } from "./direct-input.ts";
+import type { DirectInputOptions, Resumable } from "./direct-input.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import type { Transport } from "../rules/transport-of.ts";
 
@@ -25,10 +25,11 @@ type ResourceMeta = { title: string | null; url: string; duration: number; bitra
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 // startedAtMs: 곡 안의 어디부터 흘리나(조각 스트림은 위치가 든 조각부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
-// bounded: 직접 링크가 끝이 있고 크기 · 길이를 안다(나란히 다운로드해도 된다. media/direct-input)
+// bounded: 직접 링크가 끝이 있고 크기 · 길이를 안다(나란히 다운로드해도 된다). resumable: 끊기면 이을 수 있다(media/direct-input)
 type OpenedStream = Readable & {
   headers?: Record<string, unknown>;
   bounded?: boolean;
+  resumable?: Resumable;
   stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean };
   startedAtMs?: number;
   describe?(): string;
@@ -226,8 +227,7 @@ function adWaitMs(error: unknown, availableAt: number | null | undefined, now: n
 async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: Hooks): Promise<OpenedStream | null> {
   // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
   // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
-  // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다. HLS VOD 는 위치가 든 조각부터 받는다
-  if (streamInfo.platform === "direct") return o.io.directStream(streamInfo.url, { startMs: o.startMs, liveOnly: o.liveOnly });
+  if (streamInfo.platform === "direct") return openDirect(o, streamInfo.url, hooks);
 
   const { url } = streamInfo;
   // 평상시엔 yt-dlp가 준 것을 그대로 쓴다. 클라이언트마다 다른 값을 저쪽이 선택해 준다.
@@ -256,6 +256,27 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`), { status: response.status });
   const { body } = response;
   return body && "getReader" in body ? Readable.fromWeb(body) : body;
+}
+
+/**
+ * 직접 링크는 SSRF 가드(SafeUrl)를 통과해 연다. HLS VOD 는 위치가 든 조각부터 받는다.
+ * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 흘리고, 끊기면 캐시 전환을 먼저 묻고 받은 자리부터 Range 로 잇는다
+ */
+async function openDirect<R>(o: InputOptions<R>, url: string, hooks: Hooks): Promise<OpenedStream> {
+  const input = await o.io.directStream(url, { startMs: o.startMs, liveOnly: o.liveOnly });
+  if (!input.resumable) return input;
+  const { totalBytes, validator, fetch } = input.resumable;
+  const chunked = await o.io.openChunkedStream({
+    url,
+    totalBytes,
+    chunkSize: config.stream.chunkBytes,
+    first: input,
+    ifRange: validator,
+    fetchImpl: fetch,
+    onInterrupt: (err) => hooks.interrupt(err),
+    onResumed: (info) => hooks.resumed(info),
+  });
+  return Object.assign(chunked, { headers: input.headers, bounded: input.bounded });
 }
 
 // 스트림이 열리지 않았다. 나란히 다운로드하던 캐시가 다운로드가 끝났거나 다운로드 중이면 그것을 쓴다. 없으면 원래 오류
