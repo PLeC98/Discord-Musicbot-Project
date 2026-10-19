@@ -168,7 +168,8 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
     if (response.status < 200 || response.status >= 300) {
       response.body.destroy();
       agent.destroy();
-      throw new Error(`요청 실패: HTTP ${response.status}`);
+      // 받는 쪽이 상태로 가른다(416 은 받을 구간이 없음, 4xx 는 다시 받아도 같다)
+      throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
     }
 
     return { response, agent };
@@ -247,10 +248,11 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
  * 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws
  * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다).
  * accept: 받을 것의 조건(Content-Type · 크기 상한 · 홉마다의 응답 대기). 기본은 음원(직접 링크)
- * from: 이 바이트부터 받는다(Range). 서버가 따르지 않을 수 있어 받는 쪽이 상태 · 헤더로 확인한다(servedFrom)
+ * from · to: 이 바이트 구간을 받는다(Range, to 는 끝 바이트를 포함하고 없으면 끝까지). 서버가 따르지 않을 수 있어 받는 쪽이 상태 · 헤더로 확인한다(servedFrom).
+ * ifRange: 처음 응답의 강한 ETag 나 Last-Modified. 파일이 바뀌었으면 서버가 구간 대신 전체를 준다(200)
  */
-async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from }: { bodyIdleMs?: number; accept?: Accept; from?: number } = {}) {
-  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs, from === undefined ? {} : { Range: `bytes=${from}-` });
+async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from, to, ifRange }: { bodyIdleMs?: number; accept?: Accept; from?: number; to?: number; ifRange?: string } = {}) {
+  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs, rangeHeaders(from, to, ifRange));
   const source = response.body;
   try {
     assertResponseAllowed(response.headers, accept);
@@ -291,6 +293,12 @@ async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {})
     source.destroy();
     agent.destroy();
   }
+}
+
+/** 구간 요청의 헤더(from 이 없으면 없음). If-Range 는 구간과 함께일 때만 뜻이 있다 */
+function rangeHeaders(from: number | undefined, to: number | undefined, ifRange: string | undefined): Record<string, string> {
+  if (from === undefined) return {};
+  return { Range: `bytes=${from}-${to ?? ""}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
 }
 
 /** 받은 응답이 몇 바이트째부터인가: 206 이면 Content-Range 의 시작(없거나 깨졌으면 null), 그 밖은 처음부터(0) */

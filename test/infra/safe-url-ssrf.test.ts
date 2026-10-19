@@ -246,9 +246,24 @@ test("차단 사유에 내부 주소가 담기지만 SsrfError로만 던진다 (
   });
 });
 
-test("2xx 가 아닌 응답은 실패로 끊는다", async () => {
+test("2xx 가 아닌 응답은 실패로 끊는다. 받는 쪽이 가르게 상태를 단다", async () => {
   responder = () => reply(404, AUDIO);
   await assert.rejects(head("https://1.1.1.1/x.mp3"), /HTTP 404/);
+  responder = () => reply(416, AUDIO);
+  await assert.rejects(getStream("https://1.1.1.1/x.mp3"), (e: { status?: number }) => e.status === 416);
+});
+
+test("getStream 구간: 끝이 있는 구간 · 끝없는 구간, If-Range 는 구간과 함께만", async () => {
+  lookupImpl = async () => [{ address: "1.1.1.1", family: 4 }];
+  responder = () => reply(206, { ...AUDIO, "content-range": "bytes 616-121705/999999" });
+  const asked = async (opts: Parameters<typeof safeUrl.getStream>[2]) => {
+    calls.length = 0;
+    (await safeUrl.getStream("http://example.com/a.mp4", deps, opts)).destroy();
+    return [calls[0].headers.Range, calls[0].headers["If-Range"]];
+  };
+  assert.deepEqual(await asked({ from: 616, to: 121705 }), ["bytes=616-121705", undefined]);
+  assert.deepEqual(await asked({ from: 4096, ifRange: '"abc"' }), ["bytes=4096-", '"abc"']);
+  assert.deepEqual(await asked({ ifRange: '"abc"' }), [undefined, undefined], "구간 없이 If-Range 만 보내지 않는다");
 });
 
 // ── 7. 요청 함수: 진짜 소켓 ──────────────────────────────────────────────────
