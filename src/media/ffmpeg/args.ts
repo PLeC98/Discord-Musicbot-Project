@@ -1,6 +1,7 @@
 // 재생용 ffmpeg 인자.
 
 import { capabilities } from "./path.ts";
+import { AUDIO_FORMATS, CACHE_FORMATS, inputFilter } from "./input-filter.ts";
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.
 const SEG_MAX_RETRY = 5;
@@ -14,10 +15,10 @@ type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; s
  * 재생용 ffmpeg 인자 구성. 출력 대상(`pipe:1`)까지 포함한 완전한 인자를 돌려준다.
  *
  * 입력은 셋 중 하나다.
- *  - `file`: 캐시 파일. `-ss`는 `-i` 앞(seek 가능해 빠름)
+ *  - `file`: 캐시 파일. `-ss`는 `-i` 앞(seek 가능해 빠름). Ogg 만 읽는다(입력 필터)
  *  - `url`: 받아서 흘릴 수 없는 목록(HLS · DASH). "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
  *  - 둘 다 없으면 `pipe:0`: 그 밖의 모든 스트리밍. `-ss`는 `-i` 뒤여야 한다
- *    (pipe에서 입력측 `-ss`는 출력을 잘라먹는다)
+ *    (pipe에서 입력측 `-ss`는 출력을 잘라먹는다). 음원 형식만 읽는다(입력 필터, 직접 링크는 아무 바이트나 올 수 있다)
  *
  * URL을 주는 것은 목록에 한한다. 나머지를 URL로 열면 yt-dlp가 준 httpHeaders가 빠지고,
  * 스트리밍 실패 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
@@ -39,7 +40,7 @@ function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps
     return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", hls ? "warning" : "error", ...seek, "-i", url, ...output];
   }
 
-  return file ? [...seek, "-i", file, "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
+  return file ? [...seek, ...inputFilter(CACHE_FORMATS, "file"), "-i", file, "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", ...inputFilter(AUDIO_FORMATS, "pipe"), "-i", "pipe:0", ...seek, ...output];
 }
 
 export { buildFfmpegArgs };

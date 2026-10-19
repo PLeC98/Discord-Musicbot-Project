@@ -12,11 +12,10 @@ import * as safeUrl from "../../infra/safe-url.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { frameRate, stacked } from "./ladder.ts";
+import { inputFilter, VIDEO_FORMATS } from "../../media/ffmpeg/input-filter.ts";
 
-/** ffmpeg 가 읽어도 되는 형식(영상 컨테이너와 움직이는 그림). 다른 파일 · 주소를 읽는 형식(hls · concat · image2 등)은 뺀다 */
-const FORMATS = ["mov", "matroska", "avi", "flv", "mpegts", "mpeg", "ogg", "asf", "gif", "webp_anim", "apng"];
-/** 원본을 읽는 ffmpeg 에 늘 붙이는 것 */
-const READ_ARGS = ["-protocol_whitelist", "file", "-format_whitelist", FORMATS.join(",")];
+/** 원본을 읽는 ffmpeg 에 늘 붙이는 것(영상 컨테이너와 움직이는 그림만, 파일만) */
+const READ_ARGS = inputFilter(VIDEO_FORMATS, "file");
 /** sharp 로 읽는 정지 그림 형식 */
 const STILL_FORMATS = ["jpeg", "png", "webp", "gif", "avif", "heif", "tiff"];
 /** 받는 크기 · 길이 · 초당 프레임 수의 범위 */
@@ -163,5 +162,5 @@ async function receive({ item, signal }: StageJob): Promise<StageResult> {
   return inspectSource(file, signal);
 }
 
-export { receive, inspectSource, probeVideo, download, parseInput, READ_ARGS, FORMATS, MAX_PIXELS };
+export { receive, inspectSource, probeVideo, download, parseInput, READ_ARGS, MAX_PIXELS };
 export type { Inspected, Probed };

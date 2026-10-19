@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { ffmpegPath } from "./path.ts";
+import { AUDIO_FORMATS, inputFilter } from "./input-filter.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "ffmpeg" });
@@ -138,7 +139,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     const unknown: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null, title: null, artist: null };
     let child: ChildProcessWithoutNullStreams;
     try {
-      child = spawnFfmpeg(["-hide_banner", "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
+      child = spawnFfmpeg(["-hide_banner", ...inputFilter(AUDIO_FORMATS, "file"), "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
     } catch {
       return resolve(unknown);
     }

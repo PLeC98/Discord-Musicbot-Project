@@ -45,3 +45,4 @@ async function processMemory(pids: number[]): Promise<Map<number, number>> {
 }
 
 export { processMemory, parseTasklist, parsePs };
+export const _internals = { TIMEOUT_MS };

@@ -1,5 +1,6 @@
 import { codedError } from "../rules/error-kind.ts";
 import { spawnFfmpeg, probeAudio } from "./ffmpeg/process.ts";
+import { AUDIO_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type ConvertPlan } from "../rules/convert-plan.ts";
@@ -17,7 +18,7 @@ const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;
 function argsFor(plan: Pick<ConvertPlan, "action" | "bitrateKbps">, srcFile: string, outFile: string): string[] {
   const codec = plan.action === "copy" ? ["-c:a", "copy"] : ["-c:a", "libopus", "-b:a", `${plan.bitrateKbps}k`];
   // `-vn` 은 두 경우 모두 붙인다. 앨범아트가 붙은 파일을 리먹싱하면 그림까지 따라 들어온다.
-  return ["-hide_banner", "-loglevel", "error", "-i", srcFile, "-vn", ...codec, "-f", "opus", "-y", outFile];
+  return ["-hide_banner", "-loglevel", "error", ...inputFilter(AUDIO_FORMATS, "file"), "-i", srcFile, "-vn", ...codec, "-f", "opus", "-y", outFile];
 }
 
 /**

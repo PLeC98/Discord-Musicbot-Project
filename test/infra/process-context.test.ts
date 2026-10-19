@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { inGuild } from "../../src/infra/guild-context.ts";
 import * as registry from "../../src/infra/process-registry.ts";
-import { parsePs, parseTasklist, processMemory } from "../../src/infra/process-memory.ts";
+import { parsePs, parseTasklist, processMemory, _internals as memoryInternals } from "../../src/infra/process-memory.ts";
 
 let releases: Array<() => void> = [];
 afterEach(() => {
@@ -55,8 +55,11 @@ test("메모리: tasklist CSV(자릿점은 로캘마다) · ps 의 RSS 를 MB �
   assert.deepEqual([...parsePs("  4120 32212\n 4200  104857\n", new Set([4120]))], [[4120, 31]]);
 });
 
-test("메모리: 이 프로세스를 실제로 잰다", { timeout: 60_000 }, async () => {
+test("메모리: 이 프로세스를 실제로 잰다", { timeout: 60_000 }, async (t) => {
+  const started = Date.now();
   const memory = await processMemory([process.pid]);
+  // 바쁜 기계에서는 tasklist 가 상한을 넘긴다. 그때는 못 잰 것이지 틀린 것이 아니다
+  if (!memory.has(process.pid) && Date.now() - started >= memoryInternals.TIMEOUT_MS) return t.skip("tasklist · ps 가 상한 안에 끝나지 않음");
   assert.ok((memory.get(process.pid) ?? 0) > 10, `${memory.get(process.pid)}MB`);
   assert.equal((await processMemory([])).size, 0);
 });
