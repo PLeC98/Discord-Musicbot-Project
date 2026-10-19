@@ -2,6 +2,7 @@
 
 import type { Request } from "express";
 import { artOf } from "../rules/track-art.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
@@ -10,7 +11,18 @@ import { labelOf } from "../rules/platforms.ts";
 import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 
-function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
+/**
+ * 화면에 거는 곡 그림. 곡 그림 주소가 있으면 그것, 직접 링크 곡이면 찾아 둔 파일 태그의 그림(이 봇의 경로, 지문이 그림의 내용). 모르면 null(아이콘).
+ * 찾기를 시작하지 않는다(읽기만. 찾으면 플레이어가 새로 그리게 알린다)
+ */
+function trackArtUrl(guildId: string | undefined, track: Pick<QueuedTrack, "thumbnail" | "audioUrl">): string | null {
+  const known = artOf(track.thumbnail);
+  if (known || !guildId) return known;
+  const art = embeddedArt.artFor(track);
+  return art ? `/api/guilds/${guildId}/art/${art.fingerprint}.jpg` : null;
+}
+
+function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): QueueTrackView {
   return {
     index: i,
     // 대기열 ID. 빼기 · 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
@@ -18,7 +30,7 @@ function queueTrack(t: QueuedTrack, i: number): QueueTrackView {
     title: t.title,
     artist: t.artist,
     duration: t.duration,
-    thumbnail: artOf(t.thumbnail),
+    thumbnail: trackArtUrl(guildId, t),
     platform: t.platform,
     platformLabel: labelOf(t.platform),
     autoplay: Boolean(t.autoplay), // 자동재생이 미리 선택해 둔 곡. 화면에서 사용자 곡과 구분한다
@@ -48,7 +60,7 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
     title: track.title,
     artist: track.artist,
     duration: track.duration,
-    thumbnail: artOf(track.thumbnail),
+    thumbnail: trackArtUrl(player.guild?.id, track),
     url: track.pageUrl,
     platform: track.platform,
     platformLabel: labelOf(track.platform),
@@ -87,9 +99,9 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
     autoplayGenreLabel: player.autoplay ? genreConfig.labelOf(player.autoplay) : null,
     // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
     hasLive: player.hasLiveTrack?.() ?? false,
-    queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),
+    queue: (player.queue || []).slice(0, queueLimit).map((t, i) => queueTrack(player.guild?.id, t, i)),
     queueTotal: player.queue?.length ?? 0,
   };
 }
 
-export { queueTrack, queueWindow, playerState, toInt };
+export { queueTrack, queueWindow, playerState, toInt, trackArtUrl };

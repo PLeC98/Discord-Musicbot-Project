@@ -46,8 +46,8 @@
         <div class="relative" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
           <div class="flex items-center gap-4">
             <!-- 아트. 누르면 크게 본다 -->
-            <button v-if="track?.thumbnail" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
-              <img :src="track.thumbnail" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="artZoom > 1 ? { scale: artZoom } : undefined" />
+            <button v-if="artShown" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
+              <img :src="artShown" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = artShown" />
               <span class="absolute right-1 bottom-1 @xl/win:right-2 @xl/win:bottom-2 size-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 transition-opacity effects group-hover/art:opacity-100"><Icon name="open_in_full" :size="16" /></span>
             </button>
             <span v-else class="shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md bg-surface-container-high text-on-surface-variant flex items-center justify-center"><Icon :name="track ? 'audio_file' : 'music_off'" :size="36" /></span>
@@ -114,7 +114,7 @@
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
             <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
             <button
-              v-if="track?.thumbnail"
+              v-if="artShown"
               ref="artSwipeEl"
               type="button"
               data-no-swipe
@@ -128,7 +128,7 @@
               @pointercancel="artSwipe.up"
               @click="artSwipe.swiped.value || (artOpen = true)"
             >
-              <img :src="track.thumbnail" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" />
+              <img :src="artShown" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = artShown" />
             </button>
             <!-- 그림이 없는 곡도 같은 위치에서 밀어 넘긴다 -->
             <span v-else ref="artSwipeEl" data-no-swipe class="size-[min(100cqw,100cqh)] rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'" :style="artSwipe.style.value" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"
@@ -623,6 +623,9 @@ const artZoom = useArtZoom(() => player.value.currentTrack?.thumbnail, true);
 const artContent = useArtContent(() => player.value.currentTrack?.thumbnail);
 
 const track = computed(() => player.value.currentTrack);
+// 지금 곡의 그림. 불러오지 못하면(곡이 바뀐 뒤 늦게 불린 그림 등) 아이콘으로
+const brokenArt = ref<string | null>(null);
+const artShown = computed(() => (track.value?.thumbnail && track.value.thumbnail !== brokenArt.value ? track.value.thumbnail : null));
 // 지금 곡을 내가 넣었는지(출처 배지의 "내가 넣은 곡")
 const mine = computed(() => track.value?.requestedBy?.id === player.value.userId);
 // 가림막은 곡이 있을 때만. 곡이 없으면 가릴 조작이 없다

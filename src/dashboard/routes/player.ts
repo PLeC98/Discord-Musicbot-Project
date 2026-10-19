@@ -21,6 +21,10 @@ import { queueTrack, queueWindow, playerState, toInt } from "../player-view.ts";
 import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
+import * as embeddedArt from "../../sources/embedded-art.ts";
+
+/** 곡 그림 경로의 한도: 일반 API 한도의 몇 배(대기열 그림이 한 화면에 100장까지 불린다. 주소마다 한 번이라 다시 묻지 않는다) */
+const ART_LIMIT_FACTOR = 5;
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
@@ -90,7 +94,22 @@ function readRoutes(router: Router) {
     if (!window.ok) return sendProblem(res, window.code);
     const { offset, limit } = window.value;
 
-    res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length } satisfies QueuePage);
+    res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(ctx.guild.id, t, offset + i)), total: queue.length } satisfies QueuePage);
+  });
+
+  // 직접 링크 곡의 파일 태그 그림(다시 구운 JPEG). 그 서버의 지금 곡 · 대기열에서 찾은 그림만 답하고, 메모리 · 캐시 파일에서만 읽는다(통신하지 않는다).
+  // 주소의 지문이 그림의 내용이라 브라우저가 다시 묻지 않는다. 대기열 그림이 한꺼번에 불려 일반 API 한도와 따로, 넉넉히 센다
+  const artLimiter = limiter(() => config.dashboard.rateLimit.apiMax * ART_LIMIT_FACTOR);
+  router.get("/:guildId/art/:file", requireAuth, artLimiter, async (req: Request<{ guildId: string; file: string }>, res: Response) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const fingerprint = /^([0-9a-f]{20})\.jpg$/.exec(req.params.file)?.[1];
+    const tracks = [ctx.player?.currentTrack, ...(ctx.player?.queue ?? [])];
+    if (!fingerprint || !tracks.some((track) => track && embeddedArt.artFor(track)?.fingerprint === fingerprint)) return res.status(404).end();
+    const jpeg = await embeddedArt.imageOf(fingerprint);
+    if (!jpeg) return res.status(404).end();
+    res.set("Cache-Control", "private, max-age=31536000, immutable");
+    res.type("jpeg").send(jpeg);
   });
 }
 

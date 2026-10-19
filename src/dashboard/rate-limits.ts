@@ -9,8 +9,8 @@ import { tooManyRequests } from "./problem.ts";
 // 로그인한 사람으로 센다. 로그인 전에는 IP(trust proxy 가 사설망 한정이라 믿을 수 있다)
 const userOrIp = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
 
-// 일반 API 한도에서 빼는 경로. 실시간 연결은 오래 붙어 있고, 볼륨은 끄는 동안 잇달아 와서 재생 경로가 따로 센다
-const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume)$/];
+// 일반 API 한도에서 빼는 경로. 실시간 연결은 오래 붙어 있고, 볼륨은 끄는 동안 잇달아 와서, 곡 그림은 대기열 그림이 한꺼번에 불려 그 경로가 따로 센다
+const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume)$/, /^\/api\/guilds\/[^/]+\/art\/[^/]+$/];
 
 /** 일반 API 한도에서 빼는 요청인가(주소의 경로로 본다) */
 const unlimited = (req: Pick<Request, "originalUrl">) => UNLIMITED.some((re) => re.test(req.originalUrl.split("?")[0]));

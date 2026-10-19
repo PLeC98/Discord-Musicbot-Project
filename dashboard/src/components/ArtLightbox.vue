@@ -51,9 +51,10 @@ function loaded(e: Event) {
   if (wide.value && img.naturalWidth < 200) wideFailed.value = true;
   else size.value = { w: img.naturalWidth, h: img.naturalHeight };
 }
+// 큰 그림이 없으면 지금 그림으로, 지금 그림도 못 불러오면 보일 것이 없어 닫는다
 function failed() {
   if (wide.value) wideFailed.value = true;
-  else size.value = { w: 1, h: 1 };
+  else open.value = false;
 }
 const box = computed(() => {
   const s = size.value;
