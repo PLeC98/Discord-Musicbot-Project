@@ -18,6 +18,8 @@ import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as DirectLink from "../sources/direct.ts";
 import { applyTags } from "../sources/direct-tags.ts";
 import * as Tags from "../sources/file-tags.ts";
+import { bakeCover } from "./cover.ts";
+import type { CacheTags } from "./convert.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
 import * as SoundCloud from "../sources/soundcloud/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
@@ -42,8 +44,8 @@ type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
   soundcloud: Pick<typeof SoundCloud, "download">;
   direct: { getStream(url: string): Promise<AudioStream> };
-  convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null }> };
-  tags: { fromFile(file: string): Promise<TagInfo | null> };
+  convert: { toCacheOpus(srcFile: string, outFile: string, cache?: CacheTags): Promise<{ durationSec: number | null }> };
+  tags: { fromFile(file: string): Promise<(TagInfo & { picture?: { data: Uint8Array } | null }) | null> };
   measure: { durationSec(file: string): Promise<number | null> };
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
   equivalent: { findYouTubeEquivalent(track: DownloadTrack, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
@@ -388,10 +390,11 @@ class TrackDownloader {
       const started = Date.now();
       await pipeline(audioStream, fsSync.createWriteStream(rawPath));
       const received = Date.now();
-      // 받은 파일이 태그의 정본이다(곡에 반영하는 것은 다운로드를 마친 뒤)
+      // 받은 파일이 태그의 정본이다(곡에 반영하는 것은 다운로드를 마친 뒤). 캐시 파일에도 이 태그와 다시 구운 그림을 적는다
       const tags = await this.deps.tags.fromFile(rawPath);
+      const cover = tags?.picture ? await bakeCover(tags.picture.data) : null;
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
-      const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
+      const made = await this.deps.convert.toCacheOpus(rawPath, tempPath, { tags, cover });
       // 옮겼나 구웠나는 변환이 제 줄에 남긴다
       const how = `다운로드 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
       return { verifiedTitle: null, tags, audioDurationSec: made.durationSec || null, audioVersion, how };

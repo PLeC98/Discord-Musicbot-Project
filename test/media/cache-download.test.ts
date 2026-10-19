@@ -22,6 +22,8 @@ import type { YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import type { AudioRow } from "../../src/store/audio-cache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
 import type { TagInfo } from "../../src/rules/track-tags.ts";
+import type { CacheTags } from "../../src/media/convert.ts";
+import sharp from "sharp";
 import * as tracks from "../helpers/tracks.ts";
 import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
@@ -37,11 +39,11 @@ type TestTrack = DownloadTrack & { _equivalent?: string };
 type Options = YtDlpFlags & { output: string };
 
 // 무엇이 불렸는지 모은다
-let fileTags: TagInfo | null = null;
+let fileTags: (TagInfo & { picture?: { data: Uint8Array } | null }) | null = null;
 const calls = {
   ytdlp: [] as Array<{ url: string; options: Options }>,
   direct: [] as string[],
-  convert: [] as Array<{ src: string; out: string; srcExists: boolean }>,
+  convert: [] as Array<{ src: string; out: string; srcExists: boolean; cache?: CacheTags }>,
   sponsor: [] as Array<{ title: string | null; guildId: string }>,
   equivalent: [] as Array<string | null>,
   reresolve: [] as Array<string | null>,
@@ -82,8 +84,8 @@ const deps: Sources = {
   },
   convert: {
     ...audioConvert,
-    toCacheOpus: async (src: string, out: string) => {
-      calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
+    toCacheOpus: async (src: string, out: string, cache?: CacheTags) => {
+      calls.convert.push({ src, out, srcExists: fs.existsSync(src), cache });
       fs.writeFileSync(out, "opus");
       return { durationSec: 222 };
     },
@@ -321,6 +323,23 @@ test("직접 링크: 받은 파일에 태그가 있으면 제목과(비어 있�
   }
   assert.deepEqual([track.title, track.artist, track.album], ["태그 제목", "태그 가수", "태그 앨범"]);
   assert.deepEqual([lookupRow(track.requestKey)?.display_title, lookupRow(track.requestKey)?.title_verified], ["태그 제목", 1]);
+});
+
+test("직접 링크: 받은 파일의 태그와 다시 구운 그림(JPEG)을 캐시 변환에 넘긴다", async () => {
+  const track: DownloadTrack = { title: "a", pageUrl: "https://files.test/art.mp3", requestKey: "https://files.test/art.mp3", audioUrl: "https://files.test/art.mp3", platform: "direct", duration: 100 };
+  const png = await sharp({ create: { width: 1500, height: 1500, channels: 3, background: "#336699" } })
+    .png()
+    .toBuffer();
+  fileTags = { title: "태그 제목", artist: null, album: null, picture: { data: png } };
+  try {
+    await downloader().downloadTrack(track);
+  } finally {
+    fileTags = null;
+  }
+  const cache = calls.convert.at(-1)?.cache;
+  assert.equal(cache?.tags?.title, "태그 제목");
+  assert.deepEqual([cache?.cover?.width, cache?.cover?.height], [1000, 1000]);
+  assert.equal((await sharp(cache!.cover!.jpeg).metadata()).format, "jpeg");
 });
 
 test("직접 지정한 음원으로 받은 곡은 받은 파일의 태그로 고치지 않는다(곡 정보는 요청의 것)", async () => {
