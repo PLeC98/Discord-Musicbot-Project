@@ -42,8 +42,8 @@ before(async () => {
 type Opened = { url: string; from?: number };
 const opened: Opened[] = [];
 const found: Array<{ key: string; title: string | null; art: boolean }> = [];
-/** 원본 가짜: 그 주소의 바이트를 준다. hold 면 첫 바이트를 그만큼 늦춘다 */
-let reply: (url: string) => { body: Buffer | null; hold?: number } = () => ({ body: mp3 });
+/** 원본 가짜: 그 주소의 바이트를 준다. hold 면 첫 바이트를 그만큼 늦춘다. type 은 Content-Type(기본 audio/mpeg) */
+let reply: (url: string) => { body: Buffer | null; hold?: number; type?: string } = () => ({ body: mp3 });
 beforeEach(() => {
   embeddedArt.clear();
   opened.length = 0;
@@ -52,10 +52,10 @@ beforeEach(() => {
   embeddedArt.onFound((key, f) => found.push({ key, title: f.tags.title, art: Boolean(f.art) }));
   embeddedArt._internals.useOpen(async (url, opts) => {
     opened.push({ url, from: opts.from });
-    const { body, hold = 0 } = reply(url);
+    const { body, hold = 0, type = "audio/mpeg" } = reply(url);
     if (!body) throw new Error("ECONNREFUSED");
     await new Promise((resolve) => setTimeout(resolve, hold));
-    return Object.assign(Readable.from([body]), { headers: { "content-type": "audio/mpeg" }, status: 200 });
+    return Object.assign(Readable.from([body]), { headers: { "content-type": type }, status: 200 });
   });
 });
 
@@ -88,6 +88,27 @@ test("원본에서 찾는다: 태그 · 그림(다시 구운 JPEG)을 기억하�
   embeddedArt.want([{ ...direct("radio"), isLive: true }]);
   await settled();
   assert.equal(opened.length, 1, "라이브(인터넷 라디오)는 끝이 없어 찾지 않는다");
+});
+
+test("단순 목록(M3U)은 첫 주소를 따라가 그 파일의 태그를 읽는다. 빈 목록은 다시 찾지 않는다", async (t) => {
+  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  const list = (text: string) => ({ body: Buffer.from(text), type: "audio/x-mpegurl" });
+  reply = (url) => (url.endsWith("list.m3u") ? list("#EXTM3U\nhttps://files.test/inner.mp3\n") : url.endsWith("empty.m3u") ? list("#EXTM3U\n") : { body: mp3 });
+  const track = { audioUrl: "https://files.test/list.m3u", thumbnail: null };
+  embeddedArt.want([track]);
+  await settled();
+  assert.deepEqual(
+    opened.map((one) => one.url),
+    ["https://files.test/list.m3u", "https://files.test/inner.mp3"],
+  );
+  assert.equal(embeddedArt.tagsFor(track)?.title, "태그 제목");
+
+  const empty = { audioUrl: "https://files.test/empty.m3u", thumbnail: null };
+  embeddedArt.want([empty]);
+  await settled();
+  embeddedArt.want([empty]);
+  await settled();
+  assert.equal(opened.filter((one) => one.url.endsWith("empty.m3u")).length, 1);
 });
 
 test("한 번에 둘, 지금 곡(first)이 기다리는 것보다 먼저", async (t) => {

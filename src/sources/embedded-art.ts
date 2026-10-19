@@ -19,7 +19,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import * as fileTags from "./file-tags.ts";
 import type { Tags } from "./file-tags.ts";
 import { checkCover, bakeCover, type Cover } from "./cover.ts";
-import { openLink, OPEN_ACCEPT } from "./direct-open.ts";
+import { openFollowing, refusedByResponse, OPEN_ACCEPT } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
@@ -143,8 +143,16 @@ async function find(audioKey: string, url: string) {
     settle(audioKey, version, tagsOf(tags), cover);
     return;
   }
-  const opened = await openLink(url, { net: { getStream: (target, _deps, opts) => open(target, { accept: OPEN, ...opts }) }, accept: OPEN });
-  // 재생목록 · 웹 페이지 · 그림은 파일 태그가 없다
+  let opened;
+  try {
+    // 단순 목록은 담기 · 재생처럼 첫 주소를 따라간다
+    opened = await openFollowing(url, { net: { getStream: (target, _deps, opts) => open(target, { accept: OPEN, ...opts }) }, accept: OPEN });
+  } catch (error) {
+    // 음원이 아님 · 옛 SHOUTcast 는 다시 찾아도 같다
+    if (refusedByResponse(error)) return settle(audioKey, "source", EMPTY, null);
+    throw error;
+  }
+  // HLS · 웹 페이지 · 그림은 파일 태그가 없다
   if (opened.kind !== "file") return settle(audioKey, "source", EMPTY, null);
   await readFromBody(audioKey, url, opened.body);
 }
