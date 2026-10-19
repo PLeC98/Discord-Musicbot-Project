@@ -254,6 +254,32 @@ test("위치 이동: 색인 탓으로 열리지 않으면 처음부터 다시 �
   }
 });
 
+test("위치 이동 뒤 입력이 깨져 그 위치부터 다시 열 때도 같은 주소로 색인을 다시 물어 키프레임부터 받는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("seekidx0005", { duration: 6000 });
+  behavior.stream = () => ({ url: LONG, duration: 6000 });
+  behavior.seekStart = (q) => found({ startedAtMs: q.startMs - 5000 });
+  try {
+    assert.equal((await p.play(4_500_000)).ok, true);
+    Object.assign(p.playback!.resource!, { playbackDuration: 30_000 });
+    p.playback!.input!.mark("입력 스트림 오류: ECONNRESET");
+
+    await p.onTrackEnd("idle");
+
+    assert.deepEqual(
+      calls.seeks.map((q) => [q.url, q.startMs]),
+      [
+        [LONG, 4_500_000],
+        [LONG, 4_530_000],
+      ],
+    );
+    assert.equal(calls.chunked.length, 2);
+    assert.equal(calls.chunked[1].startByte, 90_000_000, "다시 연 것도 키프레임부터");
+  } finally {
+    h.dispose(p);
+  }
+});
+
 test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없으면 처음부터 받는다. 머리 요청이 한도를 넘으면 warn", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("seekidx0003", { duration: 6000 });
