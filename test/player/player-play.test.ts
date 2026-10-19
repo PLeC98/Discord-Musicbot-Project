@@ -636,6 +636,23 @@ test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치�
   assert.match(calls.fetches[1].url, /id=pb1bbbbbbbb/);
 });
 
+test("직접 링크 HLS VOD 의 위치 이동: 그 위치를 여는 쪽에 넘기고, ffmpeg 는 받기 시작한 조각과의 차이만 건너뛴다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = tracks.direct("https://h.test/vod/index.m3u8", { duration: 600 });
+  behavior.stream = () => ({ url: "https://h.test/vod/index.m3u8", platform: "direct" });
+  const asked: Array<{ startMs?: number } | undefined> = [];
+  behavior.directStream = (_url, opts) => {
+    asked.push(opts);
+    return Object.assign(new PassThrough(), { live: false, bounded: true, startedAtMs: 90_000, describe: () => "HLS 가짜" });
+  };
+
+  await playOnce(p, 95_500);
+
+  assert.equal(asked[0]?.startMs, 95_500);
+  const args = calls.spawns[0].args;
+  assert.equal(args[args.indexOf("-ss") + 1], "5.500");
+});
+
 test("새로 트는 곡의 첫 SponsorBlock 구간이 인트로면 그 끝에서 시작한다", async () => {
   const track = yt("qqqqqqqqqqq");
   h.seedCache("yt:qqqqqqqqqqq", track);
