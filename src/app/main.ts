@@ -29,6 +29,7 @@ import { onVoiceStateUpdate } from "../player/voice-presence.ts";
 import { PlayerRegistry } from "../player/registry.ts";
 import { createPotServer } from "../sources/youtube/pot-server.ts";
 import * as YouTube from "../sources/youtube/index.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
 import * as ytdlpOptions from "../sources/ytdlp-options.ts";
 import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { genres } from "../config/genres.ts";
@@ -200,7 +201,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
-  listenToPlayers(panels, stream);
+  listenToPlayers(panels, stream, players);
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
@@ -231,8 +232,11 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), "기동");
 }
 
-// 플레이어의 알림을 화면과 대시보드에 잇는다
-function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof createPlayerStream>) {
+// 플레이어의 알림을 화면과 대시보드에 잇는다. 직접 링크 곡의 파일 태그를 찾으면 그 곡을 가진 플레이어마다 반영한다
+function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof createPlayerStream>, players: PlayerRegistry) {
+  embeddedArt.onFound((audioKey, found) => {
+    for (const player of players.values()) player.takeFileTags(audioKey, found);
+  });
   playerEvents.on("refresh", (player) => panels.updatePlaying(player));
   playerEvents.on("ended", (player, reason, cause) => panels.drawEndedPanel(player, { reason, cause }));
   playerEvents.on("started", (player) => player.currentTrack && panels.postPlaying(player, player.currentTrack));

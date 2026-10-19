@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import * as audioCache from "../store/audio-cache.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
 import { settingsDb } from "../store/settings-db.ts";
 import { rowCounts } from "../store/cache-db.ts";
 import * as fullReset from "../store/full-reset.ts";
@@ -36,6 +37,8 @@ const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
  */
 async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
   const result = await audioCache.resetCache(parts);
+  // 기억한 파일 태그 · 그림은 캐시 파일의 판을 가리킨다
+  if (parts.includes("files")) embeddedArt.clear();
   if (parts.includes("external")) {
     sponsorBlock.forget();
     spotify.forgetAnonState();

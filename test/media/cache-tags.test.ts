@@ -1,4 +1,4 @@
-// 캐시 파일의 태그: 다시 구운 그림(media/cover) · FLAC 그림 블록(rules/flac-picture) · 캐시 변환이 적는 태그(media/convert).
+// 캐시 파일의 태그: 다시 구운 그림(sources/cover) · FLAC 그림 블록(rules/flac-picture) · 캐시 변환이 적는 태그(media/convert).
 // 받은 파일의 태그는 버리고 우리가 읽은 제목 · 가수 · 앨범과 그림만 적는다. 다시 읽으면(sources/file-tags) 같은 것이 나와야 한다
 
 import path from "node:path";
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import sharp from "sharp";
 
 import { pictureBlock } from "../../src/rules/flac-picture.ts";
-import { bakeCover, SIDE } from "../../src/media/cover.ts";
+import { bakeCover, SIDE } from "../../src/sources/cover.ts";
 import * as audioConvert from "../../src/media/convert.ts";
 import { fromFile } from "../../src/sources/file-tags.ts";
 import { spawnFfmpeg } from "../../src/media/ffmpeg/process.ts";

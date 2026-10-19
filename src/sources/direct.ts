@@ -6,7 +6,8 @@ const log = logger.child({ category: "link" });
 import * as SafeUrl from "../infra/safe-url.ts";
 import type { Readable } from "stream";
 import { messageOf, codedError } from "../rules/error-kind.ts";
-import * as Tags from "./file-tags.ts";
+import * as embeddedArt from "./embedded-art.ts";
+import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { Tags as FileTags } from "./file-tags.ts";
 
 /** 받는 쪽이 음원의 버전을 헤더에서, 이어 받기가 됐는지를 상태에서 읽는다 */
@@ -22,10 +23,8 @@ type InfoOptions = { tags?: (track: DirectTrack, tags: FileTags) => void; net?: 
 
 /** 홉마다의 응답 대기. 재생을 시작하는 길(지정한 음원이 라디오인지)도 부르므로 HEAD 와 같다 */
 const INFO_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 담기 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 담고 마저 읽는다 */
+/** 담기 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 담고 마저 읽는다(결과는 embedded-art 가 기억하고 알린다) */
 const TAG_WAIT_MS = 1500;
-/** 태그 읽기의 상한(그림이 든 머리 · 끝 moov 포함) */
-const TAG_LIMITS = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 
 /**
  * 직접 링크의 곡 정보. GET 하나의 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 머리의 태그를 읽는다.
@@ -76,7 +75,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     if (!tags || radio) return [track];
     const source = body;
     body = null;
-    const reading = Tags.fromStream(source, { ...TAG_LIMITS, rangeFrom: (start) => rangeFrom(url, start, net) }).then(
+    const reading = embeddedArt.readFromBody(audioKeyOf(url) ?? url, url, source).then(
       (read) => {
         if (read) tags(track, read);
       },
@@ -92,14 +91,6 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
   } finally {
     body?.destroy();
   }
-}
-
-/** 이어 받기(MP4 의 끝 moov). 서버가 그 자리부터 주지 않으면 null */
-async function rangeFrom(url: string, start: number, net: StreamNet): Promise<Readable | null> {
-  const part = await net.getStream(url, undefined, { accept: INFO_ACCEPT, from: start });
-  if (SafeUrl.servedFrom({ status: part.status ?? 200, headers: part.headers ?? {} }) === start) return part;
-  part.destroy();
-  return null;
 }
 
 /**

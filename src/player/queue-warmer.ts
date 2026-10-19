@@ -22,7 +22,11 @@ type WarmerDeps = {
   isBusy(track: QueuedTrack): boolean;
   keyOf(track: QueuedTrack | null | undefined): string | null;
   setProtection(guildId: string, keys: string[]): void;
+  /** 직접 링크 곡의 파일 태그 · 그림을 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
+  wantArt?(tracks: Array<QueuedTrack | null>): void;
 };
+/** 파일 태그 · 그림을 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */
+const ART_WINDOW = 1000;
 
 /**
  * 대기열 앞부분을 캐시에 올려둔 상태로 유지한다.
@@ -47,6 +51,7 @@ class QueueWarmer {
   isBusy: WarmerDeps["isBusy"];
   keyOf: WarmerDeps["keyOf"];
   setProtection: WarmerDeps["setProtection"];
+  wantArt: WarmerDeps["wantArt"];
   _timer: NodeJS.Timeout | null;
   _sleepTimer: NodeJS.Timeout | null;
   _wake: (() => void) | null;
@@ -76,6 +81,7 @@ class QueueWarmer {
     this.keyOf = deps.keyOf;
     // 길드의 보호 키 집합을 통째로 교체한다
     this.setProtection = deps.setProtection;
+    this.wantArt = deps.wantArt;
 
     this._timer = null;
     this._sleepTimer = null;
@@ -116,6 +122,8 @@ class QueueWarmer {
   /** 한 박자. 서명이 안정됐고 아직 반영하지 않았을 때만 움직인다. */
   tick() {
     if (this._stopped) return;
+    // 대기열 뒤쪽에 담은 곡도 차례가 오기 전에 그림이 생기게. 서명과 상관없이 박자마다 넘긴다(아는 곡은 메모리에서 건너뛴다)
+    this.wantArt?.([this.player.currentTrack, ...this.player.queue.slice(0, ART_WINDOW)]);
 
     const signature = this.signature();
     const stable = signature === this._lastSeen;

@@ -18,7 +18,8 @@ import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as DirectLink from "../sources/direct.ts";
 import { applyTags } from "../sources/direct-tags.ts";
 import * as Tags from "../sources/file-tags.ts";
-import { bakeCover } from "./cover.ts";
+import { bakeCover, type Cover } from "../sources/cover.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
 import type { CacheTags } from "./convert.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
 import * as SoundCloud from "../sources/soundcloud/index.ts";
@@ -115,7 +116,7 @@ function cleanTemp(tempPath: string): number {
  * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 다운로드한 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audio-version.ts)
  */
 // how: 어떻게 다운로드했나(로그 한 줄). 걸린 시간 · 포맷 · 옮겼나 구웠나
-type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
+type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; cover?: Cover | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
 
 const secs = (ms: number) => (ms / 1000).toFixed(1);
 // 다운로드한 포맷(로그용). info.json 의 필드
@@ -156,6 +157,12 @@ function record(audioKey: string, filepath: string, track: DownloadTrack, { veri
   } catch (error) {
     log.warn(`캐시 기록 실패 ("${logTitle(track.title)}"): ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+// 다운로드를 기록하고, 직접 링크면 캐시 파일에 넣은 태그 · 그림을 그림 찾기가 바로 알게 한다(대시보드 · 패널이 기다리지 않게)
+function finish(audioKey: string, filepath: string, track: DownloadTrack, got: Fetched) {
+  record(audioKey, filepath, track, got);
+  if (got.tags !== undefined) embeddedArt.noteFile(audioKey, got.tags, got.cover ?? null);
 }
 
 async function publish(tempPath: string, filepath: string): Promise<boolean> {
@@ -301,7 +308,7 @@ class TrackDownloader {
       const shown = shownDuration(track, measured, "measured");
       if (shown) Object.assign(track, shown);
 
-      if (audioKey) record(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
+      if (audioKey) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 다운로드하므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
@@ -374,6 +381,9 @@ class TrackDownloader {
   // 직접 링크. DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
   // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
   async _fetchDirect(downloadUrl: string, tempPath: string, track: DownloadTrack): Promise<Fetched> {
+    // 같은 파일의 머리 읽기(담을 때 · 그림 찾기)를 끊는다. 연결이 셋 열리지 않게. 태그는 받은 파일이 채운다
+    const key = audioKeyOf(downloadUrl);
+    if (key) embeddedArt.cancelSource(key);
     const audioStream = await this.deps.direct.getStream(downloadUrl);
     // 인터넷 라디오(icy-* 헤더)는 끝이 없어 받지 않는다. 담을 때 라이브로 적어 여기 오지 않지만, 직접 지정한 음원은 그 검사를 거치지 않는다
     if (Object.keys(audioStream.headers ?? {}).some((name) => name.toLowerCase().startsWith("icy-"))) {
@@ -397,7 +407,7 @@ class TrackDownloader {
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath, { tags, cover });
       // 옮겼나 구웠나는 변환이 제 줄에 남긴다
       const how = `다운로드 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
-      return { verifiedTitle: null, tags, audioDurationSec: made.durationSec || null, audioVersion, how };
+      return { verifiedTitle: null, tags, cover, audioDurationSec: made.durationSec || null, audioVersion, how };
     } finally {
       audioCache.unprotectFile(rawPath);
       try {

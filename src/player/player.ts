@@ -28,6 +28,8 @@ import { failureReason } from "../rules/failure-reason.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
 import * as DirectLink from "../sources/direct.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
+import { applyTags } from "../sources/direct-tags.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as SponsorBlock from "../sources/sponsor-block.ts";
 import { openChunkedStream } from "../media/chunked-stream.ts";
@@ -261,10 +263,11 @@ class Player {
       warm: (track) => {
         const before = infoOf(track);
         return inGuild(this.guild.id, () => this.downloader.warm(track), "prefetch").then((done) => {
-          this._noteTrackInfo(track, before);
+          if (this._noteTrackInfo(track, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
           return done;
         });
       },
+      wantArt: (tracks) => embeddedArt.want(tracks),
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
       keyOf: (track) => audioKeyOf(track?.audioUrl),
@@ -502,7 +505,7 @@ class Player {
       .then((file) => {
         log.debug(`백그라운드 캐시 다운로드 끝: ${this._trackLabel(trackToDownload)} → ${file}`);
         if (this.currentTrack === trackToDownload) this._learnLength(trackToDownload);
-        this._noteTrackInfo(trackToDownload, before);
+        if (this._noteTrackInfo(trackToDownload, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
       })
       .catch(() => {
         // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
@@ -511,15 +514,28 @@ class Player {
   }
 
   /**
-   * 다운로드가 곡 정보를 고쳤으면(유튜브 영상의 제목 · 직접 링크의 파일 태그 · 다운로드 전에 몰랐던 표시 길이) 세션 사본 · 패널 · 대시보드에 알린다.
-   * 채널 상태는 재생을 시작할 때만 쓰므로 지금 곡의 제목이 바뀌었으면 여기서 고친다
+   * 곡 정보가 바뀌었으면(유튜브 영상의 제목 · 직접 링크의 파일 태그 · 다운로드 전에 몰랐던 표시 길이) 세션 사본을 다시 쓰게 표시하고 바뀌었다고 답한다.
+   * 패널 · 대시보드는 부른 쪽이 새로 그린다. 채널 상태는 재생을 시작할 때만 쓰므로 지금 곡의 제목이 바뀌었으면 여기서 고친다
    */
-  _noteTrackInfo(track: QueuedTrack, before: ReturnType<typeof infoOf>) {
+  _noteTrackInfo(track: QueuedTrack, before: ReturnType<typeof infoOf>): boolean {
     const now = infoOf(track);
-    if ((Object.keys(before) as Array<keyof typeof before>).every((field) => before[field] === now[field])) return;
+    if ((Object.keys(before) as Array<keyof typeof before>).every((field) => before[field] === now[field])) return false;
     this.persistence.onTrackInfo();
     if (this.currentTrack === track && now.title !== before.title) this._showTrackInVoiceStatus();
-    bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+    return true;
+  }
+
+  /** 직접 링크 곡의 파일 태그를 찾았다(sources/embedded-art). 그 음원의 곡(지금 곡 · 대기열 · 지난 곡)에 반영하고, 반영했거나 그림이 생겼으면 새로 그린다 */
+  takeFileTags(audioKey: string, found: embeddedArt.Found) {
+    const tracks = [this.currentTrack, ...this.queue, ...this.previousTracks].filter((track): track is QueuedTrack => Boolean(track) && embeddedArt.directKeyOf(track as QueuedTrack) === audioKey);
+    if (tracks.length === 0) return;
+    let changed = false;
+    for (const track of tracks) {
+      const before = infoOf(track);
+      applyTags(track, found.tags);
+      if (this._noteTrackInfo(track, before)) changed = true;
+    }
+    if (changed || found.art) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
   }
 
   /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정 · 넘침 안전망이 쓴다 */

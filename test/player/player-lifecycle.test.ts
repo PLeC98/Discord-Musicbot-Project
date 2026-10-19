@@ -19,6 +19,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { playbackStatus, soundAttached } from "../../src/ui/player-status.ts";
 import { queueInfoOf } from "../../src/ui/queue-view.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
+import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
@@ -1277,6 +1278,49 @@ test("다운로드가 곡 정보를 고치면(지금 곡 · 예열한 대기열 
     off();
     h.dispose(p);
   }
+});
+
+test("파일 태그를 찾으면 그 음원의 곡(지금 곡 · 대기열)에 반영하고 한 번 새로 그린다. 다른 키는 그대로, 그림만 생겨도 새로 그린다", async () => {
+  const p = h.makePlayer();
+  const refreshed: Player[] = [];
+  const off = playerEvents.on("refresh", async (q) => void refreshed.push(q));
+  try {
+    const url = "https://files.test/tagged.mp3";
+    const fileTrack = (title: string): QueuedTrack => ({ title, pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 0 });
+    p.currentTrack = fileTrack("tagged");
+    p.queue.push(fileTrack("tagged"), yt("other", { title: "track_09" }));
+    const key = audioKeyOf(url)!;
+    const tags = { title: "태그 제목", artist: "태그 가수", album: null };
+
+    p.takeFileTags("dl:다른 키", { tags, art: null });
+    assert.equal(refreshed.length, 0, "다른 키");
+
+    p.takeFileTags(key, { tags, art: null });
+    assert.deepEqual([p.currentTrack.title, p.queue[0].title, p.queue[0].artist, p.queue[1].title], ["태그 제목", "태그 제목", "태그 가수", "track_09"]);
+    assert.deepEqual([refreshed.length, p.persistence.dirty], [1, true]);
+
+    p.takeFileTags(key, { tags, art: { fingerprint: "f", width: 1, height: 1 } });
+    assert.equal(refreshed.length, 2, "곡 정보는 그대로여도 그림이 생겼다");
+  } finally {
+    off();
+    h.dispose(p);
+  }
+});
+
+test("예열의 박자가 지금 곡과 대기열을 파일 태그 찾기에 넘긴다(서명이 그대로여도)", () => {
+  const p = h.makePlayer();
+  const asked: Array<Array<QueuedTrack | null>> = [];
+  p.warmer.wantArt = (tracks) => void asked.push(tracks);
+  p.currentTrack = yt("now", { title: "track_01" });
+  p.queue.push(yt("next", { title: "track_02" }));
+  p.warmer.tick();
+  p.warmer.tick();
+  h.dispose(p);
+  assert.equal(asked.length, 2);
+  assert.deepEqual(
+    asked[1].map((track) => track?.title),
+    ["track_01", "track_02"],
+  );
 });
 
 test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 bestEffort 가 남긴다)", async () => {

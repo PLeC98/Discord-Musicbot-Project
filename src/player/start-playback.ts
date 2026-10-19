@@ -7,6 +7,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { TrackDownloader } from "../media/cache-download.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as trackState from "./track-state.ts";
@@ -201,6 +202,8 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   player.persistence.startStateSync();
   player.warmer.start();
+  // 지금 곡의 파일 태그 · 그림을 먼저 찾게 한다(직접 링크만. 대기열은 예열의 박자가 넘긴다)
+  embeddedArt.want([track], { first: true });
   await player.persistence.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
 
   // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.

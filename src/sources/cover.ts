@@ -28,5 +28,21 @@ async function bakeCover(data: Uint8Array): Promise<Cover | null> {
   }
 }
 
-export { bakeCover, SIDE };
+/**
+ * 캐시 파일 태그에서 꺼낸 그림. 우리가 구운 모양(JPEG · 긴 변 1000px 안)이면 그대로, 아니면 다시 굽는다.
+ * 백업으로 가져온 남의 캐시 파일도 같은 확인을 지난다(누가 만든 파일인지 가리지 않는다)
+ */
+async function checkCover(data: Uint8Array): Promise<Cover | null> {
+  if (data.length === 0 || data.length > MAX_INPUT_BYTES) return null;
+  try {
+    const isJpeg = data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+    const { format, width = 0, height = 0 } = await sharp(data, { limitInputPixels: MAX_PIXELS }).metadata();
+    if (isJpeg && format === "jpeg" && width > 0 && height > 0 && width <= SIDE && height <= SIDE) return { jpeg: Buffer.from(data), width, height };
+  } catch {
+    return null;
+  }
+  return bakeCover(data);
+}
+
+export { bakeCover, checkCover, SIDE };
 export type { Cover };

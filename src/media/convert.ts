@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { codedError } from "../rules/error-kind.ts";
 import { pictureBlock } from "../rules/flac-picture.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
-import type { Cover } from "./cover.ts";
+import type { Cover } from "../sources/cover.ts";
 import { spawnFfmpeg, probeAudio } from "./ffmpeg/process.ts";
 import { AUDIO_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import logger from "../infra/log/logger.ts";
