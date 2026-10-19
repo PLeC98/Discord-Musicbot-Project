@@ -5,6 +5,8 @@
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 // 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
 // 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200) · 구간이 어긋나면 · 전체 크기가 다르면 이어받기를 그만둔다.
+// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 머리(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
+// 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
 import { Readable } from "stream";
 import { codeOf, codedError } from "../rules/error-kind.ts";
@@ -33,6 +35,12 @@ type ChunkedOptions = {
   first?: Readable | null;
   /** 이을 때 보낼 If-Range(처음 응답의 강한 ETag 나 Last-Modified) */
   ifRange?: string | null;
+  /** 첫 요청의 자리(파일 안의 바이트). 받은 양은 이 자리부터 센 절대 위치다 */
+  startByte?: number;
+  /** 맨 앞에 흘릴 바이트(파일의 머리). 받은 양에 세지 않는다 */
+  prefix?: Buffer | null;
+  /** 첫 요청에서 받은 앞 bytes 바이트를 확인한다. 줄 때만 열림(prime)을 그 확인 뒤로 미룬다 */
+  expectStart?: { bytes: number; check(head: Buffer): boolean } | null;
   fetchImpl?: RangeFetch;
   retryDelaysMs?: number[];
   stallMs?: number;
@@ -48,6 +56,7 @@ type StreamStats = {
   idleMs: number | null;
   expiresInS: number | null;
   resuming: boolean; // 끊겨서 이어받는 중인가
+  startByte: number; // 첫 요청의 자리(0 이면 파일 처음부터)
 };
 type ChunkedStream = Readable & { prime(): Promise<void>; stats(): StreamStats };
 
@@ -60,6 +69,10 @@ function httpError(status: number): Error & { status: number } {
   const message = `Range 요청 실패: HTTP ${status}`;
   return status >= 500 ? Object.assign(new Error(message), { status }) : Object.assign(permanent(message), { status });
 }
+
+/** 중간 바이트에서 시작한 첫 요청이 색인 탓으로 실패했다(Range 무시 · 416 · 구간 · 전체 크기가 다름 · 첫 바이트가 키프레임이 아님). 여는 쪽이 처음부터 다시 연다 */
+const seekMismatch = <E extends Error>(err: E) => Object.assign(err, { seekMismatch: true });
+const isSeekMismatch = (err: unknown) => (err as { seekMismatch?: boolean } | null)?.seekMismatch === true;
 
 /**
  * @param {string}   url          받을 주소 (서명된 미디어 URL)
@@ -74,15 +87,19 @@ function httpError(status: number): Error & { status: number } {
  * @returns {Readable}
  */
 function createChunkedStream(options: ChunkedOptions): ChunkedStream {
-  const { totalBytes, chunkSize } = options;
+  const { totalBytes, chunkSize, startByte = 0 } = options;
   if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않습니다: ${totalBytes}`);
   if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않습니다: ${chunkSize}`);
+  if (!Number.isInteger(startByte) || startByte < 0 || startByte >= totalBytes) throw new TypeError(`startByte가 올바르지 않습니다: ${startByte}`);
+  // 이미 열린 첫 응답은 파일 처음부터다
+  if (startByte > 0 && options.first) throw new TypeError("startByte와 first는 함께 줄 수 없습니다");
   const reader = new ChunkedReader(options);
   return Object.assign(reader.stream, { prime: () => reader.prime(), stats: () => reader.stats() });
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-// 이어받을 때(expected > 0)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다). 첫 요청의 크기는 어림값(유튜브 clen)이라 보지 않는다
+// 파일 처음이 아닌 자리(expected > 0, 이어받기 · 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
+// 0바이트에서 시작한 첫 요청의 크기는 어림값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range");
   if (!cr) return;
@@ -110,7 +127,7 @@ function readerOf(stream: Readable) {
 // 스트림 하나의 상태. 청크를 받아 줄에 쌓고, 소비자가 원하는 만큼 흘려보낸다
 class ChunkedReader {
   readonly stream: Readable;
-  readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed" | "first" | "ifRange">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed" | "ifRange">;
+  readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed" | "first" | "ifRange" | "prefix" | "expectStart">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed" | "ifRange" | "expectStart">;
   // 남은 양이 이 아래로 떨어지면 다음 청크를 받는다
   readonly lowWater: number;
   readonly expire: number;
@@ -125,6 +142,8 @@ class ChunkedReader {
   handedOff = false;
   aborter: AbortController | null = null;
   first: Readable | null; // 아직 읽기 시작하지 않은 첫 응답
+  verifying: boolean; // 첫 바이트를 확인하기 전(expectStart 를 줬을 때). 그동안은 열림을 알리지 않는다
+  probe: Buffer[] = []; // 확인하려고 모으는 첫 바이트
   firstBody: Readable | null = null; // 읽는 중인 첫 응답(끝나거나 끊기면 부순다)
   stallTimer: NodeJS.Timeout | undefined;
   wakeRoom: (() => void) | null = null;
@@ -142,9 +161,16 @@ class ChunkedReader {
   openedAt = 0;
   lastReadAt = 0;
 
-  constructor({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, first = null, ifRange = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions) {
-    this.o = { url, headers, totalBytes, chunkSize, onInterrupt, onResumed, ifRange, fetchImpl, retryDelaysMs, stallMs };
+  constructor({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, first = null, ifRange = null, startByte = 0, prefix = null, expectStart = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions) {
+    this.o = { url, headers, totalBytes, chunkSize, onInterrupt, onResumed, ifRange, startByte, expectStart, fetchImpl, retryDelaysMs, stallMs };
     this.first = first;
+    this.verifying = expectStart !== null;
+    this.pos = startByte;
+    // 머리는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치 · 실패 횟수 · 이어받기 알림을 건드린다)
+    if (prefix?.length) {
+      this.chunks.push(Buffer.from(prefix));
+      this.queued += prefix.length;
+    }
     this.lowWater = Math.max(1, Math.floor(chunkSize / 4));
     this.expire = Number(new URL(url, "http://_").searchParams.get("expire"));
     this.stream = new Readable({
@@ -217,20 +243,27 @@ class ChunkedReader {
     }
     const range = { Range: `bytes=${this.pos}-${this.target - 1}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
     const res = await fetchImpl(url, { headers: { ...headers, ...range }, signal });
+    // 위치를 옮긴 첫 요청이면 Range 무시(200) · 416 · 구간 어긋남은 색인 탓으로 본다(주소 탓의 403 · 404 는 아니다)
+    const mid = !this.primed && this.o.startByte > 0;
     if (res.status === 206) {
-      assertRange(res, this.pos, totalBytes);
+      try {
+        assertRange(res, this.pos, totalBytes);
+      } catch (err) {
+        throw mid ? seekMismatch(err as Error) : err;
+      }
     } else if (res.status === 200 && this.pos === 0) {
       // Range를 무시했다. 첫 요청이면 본문이 곧 전체 파일이다(조임은 못 피해도 재생은 된다)
       this.target = totalBytes;
     } else {
-      throw httpError(res.status);
+      const err = httpError(res.status);
+      throw mid && (res.status === 200 || res.status === 416) ? seekMismatch(err) : err;
     }
     if (!res.body) throw permanent("응답 본문이 없습니다");
     return res.body.getReader();
   }
 
-  // Range를 무시한 200 응답에서만 걸린다. 파일 전체를 메모리에 올리지 않도록 줄이 빌 때까지 기다린다.
-  // 기다리는 사이 스트림이 부서졌으면 false
+  // 줄이 청크 하나와 여유분을 넘을 때 걸린다(Range 를 무시한 200 응답, 머리를 먼저 줄에 둔 첫 요청).
+  // 파일 전체를 메모리에 올리지 않도록 줄이 빌 때까지 기다린다. 기다리는 사이 스트림이 부서졌으면 false
   async waitForRoom() {
     clearTimeout(this.stallTimer);
     await new Promise<void>((resolve) => (this.wakeRoom = resolve));
@@ -245,17 +278,18 @@ class ChunkedReader {
     this.chunkStart = this.pos;
     this.openedAt = this.lastReadAt = Date.now();
     this.armStall();
+    this.probe = [];
     try {
       const reader = await this.open();
-      if (!this.primed) {
-        this.primed = true;
-        this.settleReady?.(null);
-      }
+      if (!this.primed && !this.verifying) this.markPrimed();
       while (this.pos < this.target) {
         if (this.queued >= this.o.chunkSize + this.lowWater && !(await this.waitForRoom())) return;
         const { done, value } = await reader.read();
-        if (done) break;
-        this.take(value);
+        if (done) {
+          this.verifyFirst();
+          break;
+        }
+        this.accept(value);
       }
       if (this.pos < this.target) throw codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`);
     } catch (err) {
@@ -268,6 +302,31 @@ class ChunkedReader {
       this.firstBody?.destroy();
       this.firstBody = null;
     }
+  }
+
+  markPrimed() {
+    this.primed = true;
+    this.settleReady?.(null);
+  }
+
+  // 받은 바이트. 첫 바이트를 확인하는 중이면 모아 두었다가 확인한다
+  accept(value: Uint8Array) {
+    if (!this.verifying) return this.take(value);
+    this.probe.push(Buffer.from(value));
+    this.lastReadAt = Date.now();
+    this.armStall();
+    if (this.probe.reduce((sum, b) => sum + b.length, 0) >= (this.o.expectStart?.bytes ?? 0)) this.verifyFirst();
+  }
+
+  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 다시 받지 않는 실패(열림 전이라 prime 이 거부된다)
+  verifyFirst() {
+    if (!this.verifying) return;
+    const head = Buffer.concat(this.probe);
+    this.probe = [];
+    if (!this.o.expectStart?.check(head)) throw seekMismatch(permanent(`받은 첫 바이트가 색인이 가리킨 키프레임이 아닙니다(${this.pos}B)`));
+    this.verifying = false;
+    this.markPrimed();
+    if (head.length) this.take(head);
   }
 
   // 받은 바이트를 줄에 쌓는다
@@ -352,6 +411,7 @@ class ChunkedReader {
       idleMs: this.lastReadAt ? now - this.lastReadAt : null,
       expiresInS: this.expire > 0 ? this.expire - Math.floor(now / 1000) : null,
       resuming: this.interruptedAt > 0,
+      startByte: this.o.startByte,
     };
   }
 }
@@ -402,5 +462,5 @@ function describeStreamError(err: unknown): string {
   return parts.join(" ← ");
 }
 
-export { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError, readerOf };
+export { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError, readerOf, isSeekMismatch };
 export type { ChunkedOptions, ChunkedStream, RangeFetch, StreamStats };

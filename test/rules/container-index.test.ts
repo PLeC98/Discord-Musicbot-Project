@@ -258,6 +258,23 @@ test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 �
   }
 });
 
+test("머리: Segment 크기를 같은 너비의 크기 모름으로(4바이트 표기면 1F FF FF FF), 나머지 바이트는 그대로", () => {
+  const body = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, 0)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
+  // Cues 의 자리(0)가 첫 클러스터를 가리키도록 Info · Cues 를 클러스터 뒤가 아니라 앞에 두되, 위치 값은 클러스터 자리로 다시 쓴다
+  const clusterAt = body.indexOf(Buffer.from("1f43b675", "hex"));
+  const fixed = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, clusterAt)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
+  const size4 = Buffer.alloc(4);
+  size4.writeUInt32BE(0x10000000 | fixed.length);
+  const file = Buffer.concat([el(0x1a45dfa3, uint(0x4286, 1)), hexId(0x18538067), size4, fixed]);
+  const read = readIndex(file, file.length);
+  assert.ok(read.ok, JSON.stringify(read));
+  assert.equal(read.index.segment!.width, 4);
+  const header = headerOf(file, read.index);
+  const at = read.index.segment!.at + 4;
+  assert.equal(header.subarray(at, at + 4).toString("hex"), "1fffffff");
+  assert.equal(Buffer.compare(header.subarray(at + 4), file.subarray(at + 4, read.index.headerEnd)), 0);
+});
+
 // ── 시작점 · 묻기 전에 거르기 ──
 
 const synthetic = (points: Array<[number, number]>): ContainerIndex => ({ kind: "mp4", headerEnd: 100, segment: null, points: points.map(([ms, byte]) => ({ ms, byte, raw: ms })) });
