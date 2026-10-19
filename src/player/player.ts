@@ -465,7 +465,8 @@ class Player {
       onProgress: () => {
         pb.inputProgressAt = Date.now();
       },
-      liveOnly: liveReopen,
+      // 라이브로 담은 곡은 라이브로만 튼다(직접 링크 HLS 의 목록이 끝났으면 live-ended)
+      liveOnly: transport.live,
       label: this._trackLabel(track),
     });
     return { source, input };
@@ -474,9 +475,14 @@ class Player {
   // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다
   // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 구분할 수 없어 끝 처리가 남긴다)
   async _playFailed(error: unknown, liveReopen: boolean) {
-    // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS)
-    if (liveReopen && codeOf(error) === "live-ended") return { ok: false, code: "live-ended" } satisfies PlayResult;
-    if (liveReopen) return { ok: false, code: "live-reopen-failed", error } satisfies PlayResult;
+    // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음 · 세션 복원) 실패로 세지 않고 알리고 넘긴다
+    const ended = codeOf(error) === "live-ended";
+    if (liveReopen) return ended ? ({ ok: false, code: "live-ended" } satisfies PlayResult) : ({ ok: false, code: "live-reopen-failed", error } satisfies PlayResult);
+    if (ended) {
+      log.info(`방송이 끝나 틀지 않고 넘깁니다: ${this._trackLabel()} | 열어 보니 라이브가 아님`);
+      await this.handleError(error, { tell: true, counted: false });
+      return { ok: false, code: "live-ended" } satisfies PlayResult;
+    }
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
     elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
     elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
@@ -1305,18 +1311,20 @@ class Player {
     return this.queue.length < Math.max(1, want);
   }
 
-  // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다
-  async handleError(error: unknown, { tell = false }: { tell?: boolean } = {}) {
-    // 내려간 영상을 선택한 자동재생 곡. 우리가 선택한 것이니 사용자에게 알릴 일이 아니다.
-    // 기억해 두고(다음에 또 선택하지 않게) 조용히 다른 곡으로 넘어간다.
+  // 내려간 영상을 선택한 자동재생 곡이면 기억해 두고(다음에 또 선택하지 않게) true. 우리가 선택한 것이니 사용자에게 알릴 일이 아니다
+  _droppedDeadAutoplay(error: unknown) {
     const failed = this.currentTrack;
-    if (failed?.autoplay && YouTube.isVideoUnavailableError(error)) {
-      autoplayRoute.markDead(failed);
-      log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${logTitle(failed.title)}"`);
-      tell = false;
-    }
+    if (!failed?.autoplay || !YouTube.isVideoUnavailableError(error)) return false;
+    autoplayRoute.markDead(failed);
+    log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${logTitle(failed.title)}"`);
+    return true;
+  }
+
+  // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다. counted: 연달은 실패로 센다(끝난 방송은 세지 않는다)
+  async handleError(error: unknown, { tell = false, counted = true }: { tell?: boolean; counted?: boolean } = {}) {
+    if (this._droppedDeadAutoplay(error)) tell = false;
     // 다음 곡이 또 실패하면 여기로 다시 온다. 연달아 실패하면 대기열을 다 버리기 전에 멈춘다(자동재생이 죽은 곡을 계속 선택할 때도)
-    if (this._countFailure()) return this._stopAfterFailures();
+    if (counted && this._countFailure()) return this._stopAfterFailures();
 
     // 대기열이 비었어도 자동재생 중이면 멈추지 않는다. 그대로 두면 봇이 얼어붙는다.
     if (this.queue.length === 0 && this.autoplay) {

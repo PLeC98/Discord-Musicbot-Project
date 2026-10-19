@@ -60,6 +60,6 @@ test("곡을 찾거나 담지 못한 결과: 까닭의 문장이 먼저, 오류�
   assert.deepEqual(addFailureMessage({ code: "play-threw" }), text.notice("unknown-error"), "던진 것은 종류를 몰라도 오류 문장");
   assert.deepEqual(addFailureMessage({ code: "lookup-failed" }), text.notice("unknown-error"));
   assert.deepEqual(addFailureMessage({ code: "play-failed" }), text.notice("cannot-start"));
-  assert.deepEqual(addFailureMessage({ code: "live-ended" }), text.notice("cannot-start"));
+  assert.deepEqual(addFailureMessage({ code: "live-ended" }), text.notice("live-ended"));
   assert.equal(plainText(addFailureMessage({ code: "more-nothing-playable", skipped: 3 })), "해당 구간에는 재생할 수 없는 곡뿐이에요.\n미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (3곡)");
 });

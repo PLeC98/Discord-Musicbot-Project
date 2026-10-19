@@ -47,13 +47,13 @@ const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(reso
 
 /** 다시 받아도 같은 실패(4xx · 상한 · DRM) */
 const permanent = (error: Error) => Object.assign(error, { permanent: true });
-/** 4xx 로 거절한 요청은 다시 받지 않는다 */
+/** 가드가 막은 요청(내부 주소 · 크기 상한 · 받는 형식)과 4xx 로 거절한 요청은 다시 받지 않는다 */
 async function settled<T>(request: Promise<T>): Promise<T> {
   try {
     return await request;
   } catch (error) {
     const status = (error as { status?: unknown } | null)?.status;
-    throw typeof status === "number" && status < 500 ? permanent(error as Error) : error;
+    throw error instanceof SafeUrl.SsrfError || (typeof status === "number" && status < 500) ? permanent(error as Error) : error;
   }
 }
 

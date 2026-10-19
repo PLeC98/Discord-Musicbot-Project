@@ -116,7 +116,7 @@ test("이미 붙어 있으면 연결하지 않는다", async () => {
 
 test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만들고, 틀 곡이 없으니 대기열 소진으로 끝낸다(나갈 예약)", async () => {
   const withCode = setup({ plays: [{ ok: false, code: "live-ended" }] });
-  assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("cannot-start")) });
+  assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("live-ended")) });
   assert.equal(withCode.player.currentTrack, null);
   assert.ok(!withCode.calls.some((c) => Array.isArray(c) && c[0] === "embed"));
   assert.equal(withCode.calls.at(-1), "finish");
@@ -175,7 +175,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
 
 test("복구도 실패하면 첫 곡의 실패를 돌려준다", async () => {
   const { add } = setup({ plays: [{ ok: false, code: "live-ended" }, { ok: false }] });
-  assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("cannot-start")) });
+  assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("live-ended")) });
 });
 
 test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목록이어도 다음 곡을 붙여 보지 않고, 플레이어를 버린다", async () => {

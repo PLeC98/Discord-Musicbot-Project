@@ -96,9 +96,9 @@ function trackOf(url: string, headers: Record<string, unknown>, radio: boolean):
   };
 }
 
-/** HLS 곡. 라이브면 라이브로(캐시 · 위치 이동 없음), VOD 면 목록의 길이 */
+/** HLS 곡. 라이브면 라이브로(캐시 · 위치 이동 없음), VOD 면 목록의 길이. 제목은 호스트(목록 파일 이름은 index · playlist 같은 이름이다) */
 function hlsTrack(url: string, hls: Hls): DirectTrack {
-  const track = trackOf(url, {}, false);
+  const track = { ...trackOf(url, {}, false), title: new URL(url).hostname };
   if (hls.live) return { ...track, isLive: true, liveStatus: "is_live" };
   return { ...track, duration: (hls.durationMs ?? 0) / 1000, durationSource: "provided" };
 }

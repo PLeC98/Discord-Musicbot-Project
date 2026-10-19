@@ -412,6 +412,39 @@ test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝�
   );
 });
 
+test("라이브로 담은 HLS 를 처음 틀 때(세션 복원도 같다) 목록이 끝났으면 다시보기를 틀지 않고 알린 뒤 다음 곡으로. 실패로 세지 않는다", async () => {
+  const p = h.makePlayer();
+  const url = "https://h.test/ended/index.m3u8";
+  const ended = tracks.direct(url, { isLive: true, duration: 0 });
+  const next = cached("m5mmmmmmmmm");
+  p.currentTrack = ended;
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => ({ url, platform: "direct", liveStatus: "is_live" });
+  const asked: Array<{ liveOnly?: boolean } | undefined> = [];
+  behavior.directStream = (_url, opts) => {
+    asked.push(opts);
+    throw codedError("live-ended", "라이브 HLS 의 목록이 끝났습니다");
+  };
+  const sent = calls.sent.length;
+  const from = sink.buffer.length;
+
+  const r = await p.play(0);
+  h.dispose(p);
+
+  assert.deepEqual(r, { ok: false, code: "live-ended" });
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.failedTracks, 0);
+  assert.equal(asked[0]?.liveOnly, true);
+  assert.ok(calls.sent.length > sent, "채널에 알린다");
+  const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+  assert.ok(
+    lines.some((l) => /^info 방송이 끝나 틀지 않고 넘깁니다: /.test(l)),
+    lines.join(" / "),
+  );
+  assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
+});
+
 test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소진으로 간다", async () => {
   const p = h.makePlayer();
   embeds(p);

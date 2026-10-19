@@ -54,7 +54,7 @@ type InputOptions<R> = {
   download: Download | null;
   onStreamLost(splicer: Splicer): boolean;
   onProgress(): void;
-  /** 끊긴 라이브를 다시 연다(라이브 HLS 의 목록이 끝났으면 live-ended) */
+  /** 라이브로 담은 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
   liveOnly?: boolean;
   label: string;
 };

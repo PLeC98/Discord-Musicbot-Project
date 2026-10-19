@@ -40,6 +40,8 @@ const SHARED = {
   "live-no-seek": { status: 409, title: "Cannot seek a live stream" },
   "live-no-loop": { status: 409, title: "Cannot loop with a live stream" },
   "live-upcoming": { status: 409, title: "Live stream has not started" },
+  // 라이브로 담은 방송(직접 링크 HLS)이 끝났다. 다시보기를 처음부터 틀지 않는다
+  "live-ended": { status: 409, title: "Live stream has ended" },
   // 직접 지정한 음원이 라이브다(지정할 수 없다). 그 재생은 지정을 건너뛰고 다시 찾고, 찾지 못했을 때만 보인다
   "pinned-live": { status: 409, title: "Pinned source is a live stream" },
   // 그 사이 사라짐
