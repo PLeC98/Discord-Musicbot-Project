@@ -107,6 +107,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "more-nothing-found": () => warning("notFound", "더 넣을 곡을 찾지 못했어요!", "재생목록이 변경되었을 수 있어요. 해당 플랫폼에 접속하여 재생목록을 확인해주세요."),
   // 받을 수 없는 내용
   "unsupported-link": () => warning("link", "알 수 없는 링크예요!", "재생을 지원하지 않는 플랫폼이에요."),
+  "shoutcast-v1": () => warning("link", "열 수 없는 인터넷 라디오예요!", "옛 방식(SHOUTcast v1)으로 보내는 방송이라 틀 수 없어요. 방송사가 주는 다른 스트림 주소로 넣어 주세요."),
   "yt-unplayable": () => warning("link", "지원하지 않는 유튜브 링크예요!", "영상이나 재생목록의 주소를 넣어주세요."),
   "sc-unsupported": () => warning("link", "지원하지 않는 사운드클라우드 링크예요!", "곡이나 플레이리스트의 링크를 넣어 주세요."),
   // 막힌 주소 같은 까닭은 운영자 로그에만(내부망 탐지 도구가 되지 않게)

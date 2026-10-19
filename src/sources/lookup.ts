@@ -28,7 +28,7 @@ type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: nu
 // 두 경우가 서로의 필드를 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
 // collectionId: 이어 불러올 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
 /** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/error-messages 가 선택한다 */
-type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "sc-unsupported" | "nothing-playable";
+type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "shoutcast-v1" | "sc-unsupported" | "nothing-playable";
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; skipped?: number; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
 type Sources = {
@@ -130,9 +130,11 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
 
 // 찾다가 던졌다. 열어 보니 음원이 아닌 직접 링크(웹 페이지 등)는 실패가 아니라 지원하지 않는 링크다
 function lookupFailed(error: unknown, context: string | null): LookupResult {
-  if (codeOf(error) === "unsupported-link") {
-    log.debug({ sub: context || undefined }, `음원이 아닌 링크: ${messageOf(error)}`);
-    return { success: false, code: "unsupported-link" };
+  // 열어 보니 받을 수 없는 링크(음원이 아님 · 옛 SHOUTcast). 실패가 아니라 그 까닭으로 거절한다
+  const code = codeOf(error);
+  if (code === "unsupported-link" || code === "shoutcast-v1") {
+    log.debug({ sub: context || undefined }, `받을 수 없는 링크: ${messageOf(error)}`);
+    return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
   log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, YouTube.cookiesConfigured())}`);

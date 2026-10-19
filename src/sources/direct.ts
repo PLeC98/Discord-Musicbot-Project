@@ -24,7 +24,7 @@ const TAG_WAIT_MS = 1500;
 
 /**
  * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 머리의 태그를 읽는다.
- * HLS 는 목록으로 VOD(길이) · 라이브를 본다.
+ * HLS 는 목록으로 VOD(길이) · 라이브를 본다. 단순 목록(PLS · M3U)은 첫 주소를 열어 본다(곡의 음원 주소는 목록 주소 그대로, 열 때마다 다시 푼다).
  * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지 · 그림 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD 를 거절하는 서버(AnimeThemes CDN 의 403)에서도 된다
  */
@@ -35,7 +35,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     if (inputKind(url) !== "direct") return [];
 
     // SSRF 가드를 지나는 GET 하나로 판정한다. 종류 · 크기도 거기서 본다
-    const opened = await openLink(url, { net, accept: INFO_ACCEPT });
+    const opened = await openFollowing(url, { net, accept: INFO_ACCEPT });
     if (opened.kind === "hls") return [hlsTrack(url, await openHls(opened.text, opened.url, { net }))];
     if (opened.kind !== "file") throw notAudio(opened.kind);
     body = opened.body;
@@ -56,8 +56,8 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     clearTimeout(timer);
     return [track];
   } catch (error) {
-    // 음원이 아닌 링크는 그대로(곡 찾기가 "알 수 없는 링크"로). 받은 응답을 보고 안 것이라 숨길 것이 없다
-    if (codeOf(error) === "unsupported-link") throw error;
+    // 음원이 아닌 링크 · 옛 SHOUTcast 는 그대로(곡 찾기가 그 문장으로). 받은 응답을 보고 안 것이라 숨길 것이 없다
+    if (judged(error)) throw error;
     // SSRF 오라클 방지: 차단 사유(막힌 주소)는 원인에만 둔다. 곡 찾기가 로그 한 줄에 원인을 붙인다
     throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   } finally {
@@ -103,8 +103,21 @@ function hlsTrack(url: string, hls: Hls): DirectTrack {
   return { ...track, duration: (hls.durationMs ?? 0) / 1000, durationSource: "provided" };
 }
 
-/** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다). 단순 목록은 아직 열지 않는다(목록 읽기가 붙을 때까지) */
+/** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다) */
 const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크입니다(${kind})`);
+/** 받은 응답으로 판정한 거절(숨기지 않는다) */
+const judged = (error: unknown) => ["unsupported-link", "shoutcast-v1"].includes(String(codeOf(error)));
+
+/** 목록 안의 목록은 한 번까지 따라간다 */
+const LIST_DEPTH = 2;
+
+/** 열고, 단순 목록이면 그 첫 주소를 다시 연다(가드도 다시). 목록에 주소가 없거나 너무 깊으면 unsupported-link */
+async function openFollowing(url: string, options: Parameters<typeof openLink>[1], depth = 0): Promise<Exclude<Opened, { kind: "list" }>> {
+  const opened = await openLink(url, options);
+  if (opened.kind !== "list") return opened;
+  if (!opened.target || depth >= LIST_DEPTH) throw notAudio(opened.target ? "목록이 너무 깊음" : "빈 목록");
+  return openFollowing(opened.target, options, depth + 1);
+}
 
 /** 재생 · 다운로드 · 재생 테스트가 여는 것: 파일(본문 · 인터넷 라디오인가) 또는 HLS(조각은 media 가 받는다) */
 type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: number | null } | { kind: "hls"; hls: Hls };
@@ -117,10 +130,10 @@ async function open(url: string, net: StreamNet = { getStream: SafeUrl.getStream
   let opened: Opened;
   try {
     if (inputKind(url) !== "direct") throw new Error("직접 링크가 아님");
-    opened = await openLink(url, { net, ...opts });
+    opened = await openFollowing(url, { net, ...opts });
     if (opened.kind === "hls") return { kind: "hls", hls: await openHls(opened.text, opened.url, { net }) };
   } catch (error) {
-    if (codeOf(error) === "unsupported-link") throw error;
+    if (judged(error)) throw error;
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));
     throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });

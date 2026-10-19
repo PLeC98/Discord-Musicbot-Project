@@ -73,6 +73,8 @@ const SHARED = {
   "more-nothing-found": { status: 404, title: "No more tracks found" },
   // 받을 수 없는 내용
   "unsupported-link": { status: 422, title: "Unsupported link" },
+  // 옛 SHOUTcast(v1) 방송. 첫 줄이 ICY 라 받지 못한다
+  "shoutcast-v1": { status: 422, title: "Legacy SHOUTcast stream" },
   "yt-unplayable": { status: 422, title: "Unsupported YouTube link" },
   "sc-unsupported": { status: 422, title: "Unsupported SoundCloud link" },
   "direct-unavailable": { status: 422, title: "Link is not playable" },

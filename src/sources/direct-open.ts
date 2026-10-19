@@ -4,10 +4,12 @@
 //   hls   재생목록 글(작다, 다 받는다)과 그 마지막 주소(리다이렉트를 거친, 상대 주소의 기준)
 //   list  단순 목록(PLS · M3U)의 첫 주소
 //   page · other  음원이 아니다(부르는 쪽이 거절한다)
+// 옛 SHOUTcast(v1)는 첫 줄을 `ICY 200 OK` 로 답해 Node 가 응답을 읽지 못한다. 그 방송은 shoutcast-v1 로 거절한다(받은 응답으로 안 것이라 숨기지 않는다).
 
 import { PassThrough, type Readable } from "node:stream";
 import * as SafeUrl from "../infra/safe-url.ts";
 import { contentOf, listTarget, HEAD_BYTES, type LinkContent } from "../rules/link-content.ts";
+import { codedError } from "../rules/error-kind.ts";
 
 /** 받는 쪽이 음원의 버전을 헤더에서, 이어 받기가 됐는지를 상태에서 읽는다 */
 type AudioStream = Readable & { headers?: Record<string, unknown>; status?: number; url?: string };
@@ -88,6 +90,12 @@ async function readAll(source: Readable, head: Buffer, ended: boolean): Promise<
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/** Node 의 HTTP 해석기가 첫 줄 `ICY …`(SHOUTcast v1)를 거절한 오류인가 */
+function isIcyStatusLine(error: unknown): boolean {
+  const { code, rawPacket } = (error ?? {}) as { code?: unknown; rawPacket?: unknown };
+  return code === "HPE_INVALID_CONSTANT" && Buffer.isBuffer(rawPacket) && rawPacket.subarray(0, 4).toString("latin1") === "ICY ";
+}
+
 /** 음원으로 연 응답: 헤더 · 크기 · 인터넷 라디오(icy-*)인가. body 는 앞부분을 되돌려 넣은 본문(없으면 원본) */
 function fileOf(source: AudioStream, body: AudioStream = source): OpenedFile {
   const headers = (source.headers ?? {}) as Record<string, unknown>;
@@ -101,7 +109,13 @@ function fileOf(source: AudioStream, body: AudioStream = source): OpenedFile {
  * 막힌 주소 · 열리지 않음은 SafeUrl 의 오류를 그대로 던진다(부르는 쪽이 일반 문장으로 숨긴다)
  */
 async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, ...opts }: OpenOptions & { net?: StreamNet } = {}): Promise<Opened> {
-  const source = await net.getStream(url, undefined, { accept: OPEN_ACCEPT, ...opts });
+  let source: AudioStream;
+  try {
+    source = await net.getStream(url, undefined, { accept: OPEN_ACCEPT, ...opts });
+  } catch (error) {
+    if (isIcyStatusLine(error)) throw codedError("shoutcast-v1", `옛 SHOUTcast(ICY 첫 줄) 방송입니다: ${url}`, { cause: error });
+    throw error;
+  }
   const file = fileOf(source);
   if (opts.from !== undefined) return file;
   // 인터넷 라디오는 헤더로 안다(끝이 없어 앞부분을 기다릴 까닭이 없다)
