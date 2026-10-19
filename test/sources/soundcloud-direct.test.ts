@@ -19,16 +19,16 @@ type Reply = ({ fail?: string } & Record<string, unknown>) | null;
 const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, info: [] as string[], stream: [] as string[], streamOpts: [] as unknown[] };
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 let headReply: (url: string) => { headers: object };
-// 직접 링크의 네트워크(SafeUrl 의 getStream) 가짜. DirectLink 에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 본다
+// 직접 링크의 네트워크(SafeUrl 의 getStream) 가짜. DirectLink 에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 보고, 재생 · 다운로드는 본문 무응답 한도를 넘긴다
 const net = {
   getStream: async (url: string, _deps?: undefined, opts?: { bodyIdleMs?: number; accept?: { timeoutMs: number } }) => {
-    if (opts?.accept) {
+    if (opts?.bodyIdleMs === undefined) {
       calls.info.push(url);
       return Object.assign(Readable.from([Buffer.from("x")]), { headers: headReply(url).headers as Record<string, unknown>, status: 200 });
     }
     calls.stream.push(url);
     calls.streamOpts.push(opts);
-    return Readable.from(["x"]);
+    return Object.assign(Readable.from([Buffer.from("x")]), { headers: { "content-type": "audio/mpeg" }, status: 200 });
   },
 };
 const info = { net };
@@ -159,7 +159,11 @@ test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 �
   const s = await DirectLink.getStream("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
   assert.ok(s instanceof Readable);
   assert.deepEqual(calls.stream, ["https://files.test/a.mp3"]);
-  assert.deepEqual(calls.streamOpts, [{ bodyIdleMs: 6000 }], "본문 무응답 한도를 그대로 넘긴다");
+  assert.deepEqual(
+    calls.streamOpts.map((opts) => (opts as { bodyIdleMs?: number }).bodyIdleMs),
+    [6000],
+    "본문 무응답 한도를 그대로 넘긴다",
+  );
 
   await assert.rejects(DirectLink.getStream("https://files.test/a.txt", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /지원되지 않는 직접 오디오 파일 링크/.test(messageOf((e as Error).cause)));
   const blocked = {

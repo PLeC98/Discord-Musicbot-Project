@@ -4,17 +4,12 @@ import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 import * as SafeUrl from "../infra/safe-url.ts";
-import type { Readable } from "stream";
-import { messageOf, codedError } from "../rules/error-kind.ts";
+import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import * as embeddedArt from "./embedded-art.ts";
+import { openLink, OPEN_ACCEPT, type AudioStream, type StreamNet } from "./direct-open.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { Tags as FileTags } from "./file-tags.ts";
 
-/** 받는 쪽이 음원의 버전을 헤더에서, 이어 받기가 됐는지를 상태에서 읽는다 */
-type AudioStream = Readable & { headers?: Record<string, unknown>; status?: number };
-type StreamOptions = { bodyIdleMs?: number; accept?: SafeUrl.Accept; from?: number };
-// 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다
-type StreamNet = { getStream: (url: string, deps?: undefined, opts?: StreamOptions) => Promise<AudioStream> };
 /**
  * tags: 본문의 태그를 읽어 넘길 곳(곡 찾기만). 1.5초 안에 읽으면 돌려주기 전에, 아니면 나중에 부른다. 없으면 헤더만 보고 끊는다.
  * net 은 테스트가 가짜를 넘기는 곳
@@ -22,13 +17,13 @@ type StreamNet = { getStream: (url: string, deps?: undefined, opts?: StreamOptio
 type InfoOptions = { tags?: (track: DirectTrack, tags: FileTags) => void; net?: StreamNet };
 
 /** 홉마다의 응답 대기. 재생을 시작하는 길(지정한 음원이 라디오인지)도 부르므로 HEAD 와 같다 */
-const INFO_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
+const INFO_ACCEPT: SafeUrl.Accept = { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 /** 담기 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 담고 마저 읽는다(결과는 embedded-art 가 기억하고 알린다) */
 const TAG_WAIT_MS = 1500;
 
 /**
- * 직접 링크의 곡 정보. GET 하나의 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 머리의 태그를 읽는다.
- * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 링크를 열지 못하면 던진다.
+ * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 머리의 태그를 읽는다.
+ * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지 · 그림 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD 를 거절하는 서버(AnimeThemes CDN 의 403)에서도 된다
  */
 async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream } }: InfoOptions = {}): Promise<DirectTrack[]> {
@@ -39,9 +34,11 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
       return [];
     }
 
-    // SSRF 가드를 지나는 GET. 종류 · 크기도 거기서 본다
-    body = await net.getStream(url, undefined, { accept: INFO_ACCEPT });
-    const headers = (body.headers ?? {}) as Record<string, unknown>;
+    // SSRF 가드를 지나는 GET 하나로 판정한다. 종류 · 크기도 거기서 본다
+    const opened = await openLink(url, { net, accept: INFO_ACCEPT });
+    if (opened.kind !== "file") throw notAudio(opened.kind);
+    body = opened.body;
+    const { headers, radio } = opened;
     const contentType = String(headers["content-type"] || "");
     const contentLength = headers["content-length"];
 
@@ -49,8 +46,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     const urlPath = new URL(url).pathname;
     const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath);
     const extension = path.extname(filename).toLowerCase();
-    // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 헤더를 붙인다. 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 캐시 없음)
-    const radio = Object.keys(headers).some((name) => name.toLowerCase().startsWith("icy-"));
+    // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 헤더를 붙인다(radio). 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 캐시 없음)
 
     const track: DirectTrack = {
       title: extractTitle(filename),
@@ -86,6 +82,8 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     clearTimeout(timer);
     return [track];
   } catch (error) {
+    // 음원이 아닌 링크는 그대로(곡 찾기가 "알 수 없는 링크"로). 받은 응답을 보고 안 것이라 숨길 것이 없다
+    if (codeOf(error) === "unsupported-link") throw error;
     // SSRF 오라클 방지: 차단 사유(막힌 주소)는 원인에만 둔다. 곡 찾기가 로그 한 줄에 원인을 붙인다
     throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   } finally {
@@ -93,8 +91,11 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
   }
 }
 
+/** 음원이 아닌 응답의 거절. 재생목록 · 단순 목록은 아직 열지 않는다(HLS · 목록 읽기가 붙을 때까지) */
+const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크입니다(${kind})`);
+
 /**
- * 재생 · 다운로드용 스트림(SSRF 가드를 지난 Readable). 직접 링크는 주소로 위치를 옮길 수 없어 위치 이동은 ffmpeg 가 한다.
+ * 재생 · 다운로드용 스트림(SSRF 가드를 지난 Readable, direct-open 으로 판정한 음원). 직접 링크는 주소로 위치를 옮길 수 없어 위치 이동은 ffmpeg 가 한다.
  * net 은 테스트가 가짜를 넘기는 곳
  */
 async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<AudioStream> {
@@ -102,7 +103,9 @@ async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getS
     if (!links.isDirectAudioLink(url)) {
       throw new Error("지원되지 않는 직접 오디오 파일 링크");
     }
-    return await net.getStream(url, undefined, opts);
+    const opened = await openLink(url, { net, ...opts });
+    if (opened.kind !== "file") throw new Error(`음원이 아닌 응답(${opened.kind})`);
+    return opened.body;
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));

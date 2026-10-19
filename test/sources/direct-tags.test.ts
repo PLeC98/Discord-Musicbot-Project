@@ -13,6 +13,7 @@ import * as trackLookup from "../../src/store/track-lookup.ts";
 import * as pinnedSources from "../../src/store/pinned-sources.ts";
 import * as lookup from "../../src/sources/lookup.ts";
 import { HEAD_TIMEOUT_MS } from "../../src/infra/safe-url.ts";
+import { codeOf, codedError } from "../../src/rules/error-kind.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { Tags } from "../../src/sources/file-tags.ts";
 import { spawnFfmpeg } from "../../src/media/ffmpeg/process.ts";
@@ -27,27 +28,37 @@ const TAGS = { title: "태그 제목", artist: "태그 가수", album: "태그 �
 
 /** ffmpeg 로 만든 태그 단 MP3(시료가 없으면 null) */
 const samples = new Map<string, Buffer | null>();
-async function mp3(title: string, artist: string, album: string): Promise<Buffer | null> {
-  const key = `${title}|${artist}|${album}`;
-  if (samples.has(key)) return samples.get(key) ?? null;
-  const file = path.join(store.dir, `${samples.size}.mp3`);
-  const ok = await new Promise<boolean>((resolve) => {
+function ffmpeg(args: string[]): Promise<boolean> {
+  return new Promise((resolve) => {
     let child;
     try {
-      child = spawnFfmpeg(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=5", "-c:a", "libmp3lame", "-metadata", `title=${title}`, "-metadata", `artist=${artist}`, "-metadata", `album=${album}`, "-y", file], "probe", { killOnStdoutClose: false });
+      child = spawnFfmpeg(["-hide_banner", "-loglevel", "error", ...args], "probe", { killOnStdoutClose: false });
     } catch {
       return resolve(false);
     }
     child.on("error", () => resolve(false));
     child.on("exit", (code) => resolve(code === 0));
   });
+}
+
+/**
+ * ffmpeg 로 만든 태그 단 MP3(시료가 없으면 null).
+ * art: 그림이 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
+ */
+async function mp3(title: string, artist: string, album: string, { art = false } = {}): Promise<Buffer | null> {
+  const key = `${title}|${artist}|${album}|${art}`;
+  if (samples.has(key)) return samples.get(key) ?? null;
+  const file = path.join(store.dir, `${samples.size}.mp3`);
+  const cover = path.join(store.dir, "cover.jpg");
+  const picture = art ? ["-i", cover, "-map", "0:a", "-map", "1:v", "-c:v", "copy", "-disposition:v", "attached_pic"] : [];
+  const ok = (!art || (await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=1200x1200:d=1", "-frames:v", "1", "-y", cover]))) && (await ffmpeg(["-f", "lavfi", "-i", "sine=duration=5", ...picture, "-c:a", "libmp3lame", "-metadata", `title=${title}`, "-metadata", `artist=${artist}`, "-metadata", `album=${album}`, "-y", file]));
   const bytes = ok ? fs.readFileSync(file) : null;
   samples.set(key, bytes);
   return bytes;
 }
 
-/** 가짜 SafeUrl: 응답 헤더와 본문. 첫 조각만 firstDelayMs 늦게, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
-function netOf(body: Buffer, { headers = { "content-type": "audio/mpeg" } as Record<string, unknown>, firstDelayMs = 0 } = {}) {
+/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 조각은 laterDelayMs 마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
+function netOf(body: Buffer, { headers = { "content-type": "audio/mpeg" } as Record<string, unknown>, laterDelayMs = 0, chunk = 512 } = {}) {
   const seen = { accept: [] as Array<number | undefined>, destroyed: false };
   const net = {
     getStream: async (_url: string, _deps?: undefined, opts?: { accept?: { timeoutMs: number } }) => {
@@ -58,11 +69,11 @@ function netOf(body: Buffer, { headers = { "content-type": "audio/mpeg" } as Rec
           setTimeout(
             () => {
               if (at >= body.length) return;
-              const piece = body.subarray(at, at + 512);
+              const piece = body.subarray(at, at + chunk);
               at += piece.length;
               this.push(piece);
             },
-            at === 0 ? firstDelayMs : 0,
+            at < 8192 ? 0 : laterDelayMs,
           );
         },
         destroy(error, callback) {
@@ -102,10 +113,10 @@ test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 �
 });
 
 test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같은 곡을 고친다", { timeout: 20_000 }, async (t) => {
-  const body = await mp3("늦은 제목", "늦은 가수", "늦은 앨범");
+  const body = await mp3("늦은 제목", "늦은 가수", "늦은 앨범", { art: true });
   if (!body) return t.skip("ffmpeg로 시료를 만들 수 없음");
-  // 본문의 첫 바이트가 1.5초 넘게 늦게 온다
-  const { net } = netOf(body, { firstDelayMs: 2000 });
+  // 앞부분(판정)은 바로 오고, 그림이 든 태그의 나머지가 느리게 온다
+  const { net } = netOf(body, { laterDelayMs: 400, chunk: 8192 });
   let late: () => void = () => {};
   const applied = new Promise<void>((resolve) => (late = resolve));
   const started = Date.now();
@@ -150,4 +161,15 @@ test("곡 찾기: 직접 링크는 태그를 읽고, 직접 지정한 음원을 
     { url: FILE, tags: true },
     { url: "https://files.test/pinned.mp3", tags: false },
   ]);
+});
+
+test("음원이 아닌 직접 링크(웹 페이지 · 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
+  const page = netOf(Buffer.from("<!doctype html><p>로그인</p>"), { headers: { "content-type": "text/html" } });
+  await assert.rejects(DirectLink.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
+  const direct = {
+    getInfo: async () => {
+      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+    },
+  };
+  assert.deepEqual(await lookup.getTrackData("https://files.test/page.mp3", undefined, undefined, { direct }), { success: false, code: "unsupported-link" });
 });

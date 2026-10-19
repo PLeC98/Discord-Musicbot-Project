@@ -10,7 +10,7 @@ import { applyTags } from "./direct-tags.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as pinnedSources from "../store/pinned-sources.ts";
 import type { Pin } from "../store/pinned-sources.ts";
-import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { errorKind, messageOf, codeOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
 import { inputKind } from "../rules/input-kind.ts";
@@ -124,11 +124,20 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
     if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable", skipped: found.skipped } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
   } catch (error) {
-    // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
-    log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, YouTube.cookiesConfigured())}`);
-    log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${YouTube.briefError(error)}`);
-    return { success: false, code: "lookup-failed", error };
+    return lookupFailed(error, context);
   }
+}
+
+// 찾다가 던졌다. 열어 보니 음원이 아닌 직접 링크(웹 페이지 등)는 실패가 아니라 지원하지 않는 링크다
+function lookupFailed(error: unknown, context: string | null): LookupResult {
+  if (codeOf(error) === "unsupported-link") {
+    log.debug({ sub: context || undefined }, `음원이 아닌 링크: ${messageOf(error)}`);
+    return { success: false, code: "unsupported-link" };
+  }
+  // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
+  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, YouTube.cookiesConfigured())}`);
+  log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${YouTube.briefError(error)}`);
+  return { success: false, code: "lookup-failed", error };
 }
 
 // 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 불러오면 검색으로 넘어가지 않고 던진다

@@ -19,6 +19,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import * as fileTags from "./file-tags.ts";
 import type { Tags } from "./file-tags.ts";
 import { checkCover, bakeCover, type Cover } from "./cover.ts";
+import { openLink, OPEN_ACCEPT } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
@@ -26,6 +27,8 @@ const log = logger.child({ category: "track" });
 const TAG_LIMITS = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 /** 홉마다의 응답 대기 */
 const ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
+/** 원본을 열어 판정할 때(웹 페이지 · 재생목록도 받아 본다) */
+const OPEN: SafeUrl.Accept = { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const PARALLEL = 2;
 const RETRY_MS = 5 * 60_000;
 /** 캐시 다운로드가 맡은 키를 다시 찾지 않는 시간(다운로드가 결과를 알리면 풀린다. 실패하면 이만큼 지나 풀린다) */
@@ -140,8 +143,10 @@ async function find(audioKey: string, url: string) {
     settle(audioKey, version, tagsOf(tags), cover);
     return;
   }
-  const body = await open(url, { accept: ACCEPT });
-  await readFromBody(audioKey, url, body);
+  const opened = await openLink(url, { net: { getStream: (target, _deps, opts) => open(target, { accept: OPEN, ...opts }) }, accept: OPEN });
+  // 재생목록 · 웹 페이지 · 그림은 파일 태그가 없다
+  if (opened.kind !== "file") return settle(audioKey, "source", EMPTY, null);
+  await readFromBody(audioKey, url, opened.body);
 }
 
 /** 기다리는 것을 둘까지 돌린다 */

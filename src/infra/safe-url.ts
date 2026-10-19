@@ -172,7 +172,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
       throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
     }
 
-    return { response, agent };
+    return { response, agent, finalUrl: url.href };
   }
 
   throw new SsrfError(`리다이렉트 횟수 초과(>${MAX_REDIRECTS})`);
@@ -252,7 +252,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
  * ifRange: 처음 응답의 강한 ETag 나 Last-Modified. 파일이 바뀌었으면 서버가 구간 대신 전체를 준다(200)
  */
 async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from, to, ifRange }: { bodyIdleMs?: number; accept?: Accept; from?: number; to?: number; ifRange?: string } = {}) {
-  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs, rangeHeaders(from, to, ifRange));
+  const { response, agent, finalUrl } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs, rangeHeaders(from, to, ifRange));
   const source = response.body;
   try {
     assertResponseAllowed(response.headers, accept);
@@ -262,8 +262,8 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
     throw err;
   }
 
-  // 받는 쪽이 음원의 버전(ETag 등) · 이어 받기가 됐는지(상태)를 읽는다
-  const capped = Object.assign(byteCap(accept.maxBytes), { headers: response.headers, status: response.status });
+  // 받는 쪽이 음원의 버전(ETag 등) · 이어 받기가 됐는지(상태) · 리다이렉트를 거친 마지막 주소(재생목록의 상대 주소 기준)를 읽는다
+  const capped = Object.assign(byteCap(accept.maxBytes), { headers: response.headers, status: response.status, url: finalUrl });
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리
   });
