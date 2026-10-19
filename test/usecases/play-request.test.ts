@@ -225,6 +225,17 @@ test("ffmpeg 가 라이브 분기를 열 수 없으면 방송 중인 라이브�
   assert.equal(bot.embedCalls.length, 0);
 });
 
+test("직접 링크의 라이브(인터넷 라디오)는 파이프로 트므로 ffmpeg 가 라이브 분기를 못 열어도 담는다", async () => {
+  const radio = "https://radio.test/stream";
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("라디오", { isLive: true, liveStatus: "is_live", platform: "direct", pageUrl: radio, requestKey: radio, audioUrl: radio })] });
+  const bot = makeBot();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: radio, source: "/play", ffmpegReady: () => false }));
+
+  assert.equal(result.success, true);
+});
+
 test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 영상이 시작 전 방송이어도 막지 않는다", async () => {
   const pinnedSources = await import("../../src/store/pinned-sources.ts");
   pinnedSources.setPin("https://x/곧 시작하는 원곡", "https://soundcloud.com/pinned/upcoming");
