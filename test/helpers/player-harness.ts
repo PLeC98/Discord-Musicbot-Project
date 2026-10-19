@@ -24,6 +24,7 @@ import type { Boundary } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { DownloadTrack } from "../../src/media/cache-download.ts";
 import type { ChunkedOptions } from "../../src/media/chunked-stream.ts";
+import type { SeekRequest, SeekAnswer } from "../../src/media/seek-start.ts";
 import { startOf, type FragmentOptions } from "../../src/media/fragment-stream.ts";
 import type { StreamInfo } from "../../src/sources/stream-url.ts";
 import type { Segments } from "../../src/sources/sponsor-block.ts";
@@ -51,6 +52,7 @@ const calls = {
   spawns: [] as FakeChild[],
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
+  seeks: [] as SeekRequest[], // 색인으로 받기 시작할 자리를 물은 요청
   chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 테스트가 정한다
   fragments: [] as FragmentOptions[], // 조각 스트림을 연 요청
   fetches: [] as Array<{ url: string; init: FetchInit }>,
@@ -161,6 +163,12 @@ async function openChunkedStream(opts: ChunkedOptions) {
   });
   calls.chunkedStreams.push(stream);
   return stream;
+}
+
+// 색인 묻기 가짜. 기본은 없음이라 청크 스트림은 처음부터 받는다
+async function seekStart(request: SeekRequest): Promise<SeekAnswer> {
+  calls.seeks.push(request);
+  return behavior.seekStart ? behavior.seekStart(request) : { ok: false, why: "시험", near: true };
 }
 
 // 조각 스트림 가짜. 진짜처럼 위치가 든 조각의 시작부터 흘린다고 알린다
@@ -289,6 +297,7 @@ type Behavior = {
   download: ((track: DownloadTrack) => string | Promise<string>) | null;
   fetch: ((url: string, init: FetchInit) => unknown) | null;
   chunked: ((opts: ChunkedOptions) => unknown) | null;
+  seekStart: ((request: SeekRequest) => SeekAnswer | Promise<SeekAnswer>) | null;
   directStream: ((url: string, opts?: { startMs?: number; liveOnly?: boolean }) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
@@ -301,6 +310,7 @@ const behavior: Behavior = {
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
   chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
+  seekStart: null, // (request) → 색인의 답. 기본은 없음(처음부터 받는다)
   directStream: null, // (url) → Readable
   restore: null, // function (record) — this 는 플레이어. 세션 복원(명령 · 곡 추가의 분기)
   autoplay: null, // () → 자동재생이 선택할 곡. 기본은 못 찾음
@@ -358,6 +368,7 @@ const fakes: Partial<Boundary> = {
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],
+  seekStart,
   openFragmentStream: openFragmentStream as unknown as Boundary["openFragmentStream"],
   getStream: async (track) => {
     if (!behavior.stream) throw new Error("테스트가 스트림을 정하지 않았다");

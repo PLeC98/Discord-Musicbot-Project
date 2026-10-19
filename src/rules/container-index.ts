@@ -24,6 +24,8 @@ const LAST_POINT_LATE_MS = 1000;
 
 const none = (why: string): Read => ({ ok: false, why });
 const need = (bytes: number): Read => (bytes > MAX_HEAD_BYTES ? none(`색인이 너무 길다(${bytes}B)`) : { ok: false, need: bytes });
+/** 더 받을 양: 모자란 요소의 끝에 다음 요소 몫(4KB)을 더하고, 적어도 지금의 두 배(요소를 하나씩 알아내며 여러 번 오가지 않게) */
+const more = (buf: Buffer, end: number) => Math.max(end + 4096, buf.length * 2);
 
 // ── EBML(webm) ──
 
@@ -112,10 +114,10 @@ function webmParts(buf: Buffer): WebmParts | Read {
   let cues: Element | null = null;
   for (let at = segment.data; ;) {
     const el = elementAt(buf, at);
-    if (!el) return need(at + 64);
+    if (!el) return need(more(buf, at));
     if (el.id === ID.Cluster) return { segment, scale, audioTrack, cues, firstCluster: el.start };
     if (!Number.isFinite(el.size)) return none("첫 클러스터 앞에 크기 모를 요소");
-    if (el.end > buf.length) return need(el.end + 64);
+    if (el.end > buf.length) return need(more(buf, el.end));
     if (el.id === ID.Info) scale = childUint(buf, el, ID.TimecodeScale) ?? scale;
     if (el.id === ID.Tracks) audioTrack = audioTrackOf(buf, el);
     if (el.id === ID.Cues) cues = el;
@@ -187,10 +189,10 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
   let moovEnd: number | null = null;
   for (let at = 0; ;) {
     const box = boxAt(buf, at);
-    if (!box) return at + 16 > buf.length ? need(at + 64) : none("상자가 깨짐");
+    if (!box) return at + 16 > buf.length ? need(more(buf, at)) : none("상자가 깨짐");
     if (at === 0 && box.type !== "ftyp") return none("ftyp 로 시작하지 않음");
     if (box.type === "moof" || box.type === "mdat") return none("sidx 가 조각 앞에 없음");
-    if (box.end > buf.length) return need(box.end);
+    if (box.end > buf.length) return need(more(buf, box.end));
     if (box.type === "moov") moovEnd = box.end;
     if (box.type === "sidx") {
       if (moovEnd === null) return none("sidx 가 moov 앞에 있음");

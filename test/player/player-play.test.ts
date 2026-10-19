@@ -204,6 +204,78 @@ test("전체 길이(clen)를 아는 주소는 청크로 나눠 받는다", async
   assert.equal(calls.chunked[0].totalBytes, 4096);
 });
 
+// ── 긴 곡의 위치 이동: 색인으로 키프레임 바이트부터(media/seek-start) ──
+
+const LONG = "https://rr1.googlevideo.com/videoplayback?clen=120000000&x=1";
+const found = (over: Partial<{ startByte: number; startedAtMs: number }> = {}) => ({
+  ok: true as const,
+  start: { header: Buffer.from("HEAD"), startByte: 90_000_000, startedAtMs: 4_490_000, expectStart: { bytes: 4, check: () => true }, ...over },
+});
+
+test("위치 이동: 색인이 있으면 청크 스트림을 머리 · 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
+  const p = h.makePlayer();
+  // 곡 길이는 스트림이 알려 준 것이 먼저다(표시 길이와 다를 수 있다)
+  p.currentTrack = yt("seekidx0001", { duration: 100 });
+  behavior.stream = () => ({ url: LONG, duration: 6000 });
+  behavior.seekStart = () => found();
+
+  const r = await playOnce(p, 4_500_000);
+
+  assert.equal(r.ok, true);
+  assert.deepEqual(
+    calls.seeks.map((q) => [q.url, q.totalBytes, q.startMs, q.durationMs]),
+    [[LONG, 120_000_000, 4_500_000, 6_000_000]],
+  );
+  const [opts] = calls.chunked;
+  assert.deepEqual([opts.startByte, opts.prefix?.toString(), typeof opts.expectStart?.check], [90_000_000, "HEAD", "function"]);
+  const args = calls.spawns[0].args;
+  assert.equal(args[args.indexOf("-ss") + 1], "10.000");
+});
+
+test("위치 이동: 색인 탓으로 열리지 않으면 처음부터 다시 연다. 주소 · 네트워크 탓이면 다시 열지 않는다", async () => {
+  for (const [what, failure, opens] of [
+    ["색인 탓", Object.assign(new Error("받은 첫 바이트가 키프레임이 아닙니다"), { permanent: true, seekMismatch: true }), 2],
+    ["주소 탓", Object.assign(new Error("Range 요청 실패: HTTP 404"), { permanent: true, status: 404 }), 1],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("seekidx0002", { duration: 6000 });
+    behavior.stream = () => ({ url: LONG, duration: 6000 });
+    behavior.seekStart = () => found();
+    behavior.chunked = (opts) => {
+      if (opts.startByte) throw failure;
+    };
+    behavior.download = () => Promise.reject(new Error("받기도 실패"));
+
+    await playOnce(p, 4_500_000);
+
+    assert.equal(calls.chunked.length, opens, what);
+    if (opens === 2) assert.equal(calls.chunked[1].startByte, undefined, "둘째는 처음부터");
+  }
+});
+
+test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없으면 처음부터 받는다. 머리 요청이 한도를 넘으면 warn", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("seekidx0003", { duration: 6000 });
+  behavior.stream = () => ({ url: LONG, duration: 6000 });
+  await playOnce(p);
+  assert.equal(calls.seeks.length, 0);
+
+  h.reset();
+  const q = h.makePlayer();
+  q.currentTrack = yt("seekidx0004", { duration: 6000 });
+  behavior.stream = () => ({ url: LONG, duration: 6000 });
+  behavior.seekStart = () => ({ ok: false, why: "머리 요청이 3초를 넘김", slow: true });
+  const from = sink.buffer.length;
+  await playOnce(q, 4_500_000);
+  assert.equal(calls.chunked[0].startByte, undefined);
+  const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+  assert.ok(
+    lines.some((l) => /^warn 색인을 받지 못해 처음부터 받습니다: .* \| 머리 요청이 3초를 넘김$/.test(l)),
+    lines.join(" / "),
+  );
+});
+
 // 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 조각 목록뿐이다. 주소 하나로 열면 첫 조각(2초)만 틀고 끝난다
 test("조각 목록으로만 주는 소리는 위치가 든 조각부터 받아 파이프로 흘리고, 조각 안의 나머지만 -ss 로 건너뛴다", async () => {
   const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };

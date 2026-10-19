@@ -34,6 +34,7 @@ import * as SponsorBlock from "../sources/sponsor-block.ts";
 import { openChunkedStream } from "../media/chunked-stream.ts";
 import { createFragmentStream } from "../media/fragment-stream.ts";
 import { openDirectInput, type DirectInputOptions } from "../media/direct-input.ts";
+import { seekStart } from "../media/seek-start.ts";
 import { openInput } from "../media/playback-input.ts";
 import { InputHealth } from "../media/input-health.ts";
 import { endVerdict, type EndFacts } from "../rules/end-verdict.ts";
@@ -134,6 +135,7 @@ const REAL = {
   spawnFfmpeg,
   ffmpegCapabilities,
   openChunkedStream,
+  seekStart,
   openFragmentStream: createFragmentStream,
   fetch: (url: string, init: RequestInit) => fetch(url, init),
   sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms)),
