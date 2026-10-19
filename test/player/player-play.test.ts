@@ -293,21 +293,21 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
-test("직접 링크는 응답이 크기를 알릴 때만 나란히 다운로드한다. 크기를 모르는 응답은 스트림으로만 튼다", async () => {
-  for (const [headers, downloads] of [
-    [{ "content-length": "4096" }, 1],
-    [{}, 0],
+test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
+  for (const [bounded, downloads] of [
+    [true, 1],
+    [false, 0],
   ] as const) {
     h.reset();
     const p = h.makePlayer();
     p.currentTrack = tracks.direct("https://files.test/a.mp3");
     behavior.stream = () => ({ url: "https://files.test/a.mp3", platform: "direct" });
-    behavior.directStream = () => Object.assign(new PassThrough(), { headers });
+    behavior.directStream = () => Object.assign(new PassThrough(), { live: false, bounded });
 
     const r = await playOnce(p);
 
     assert.equal(r.ok, true);
-    assert.equal(calls.downloads.length, downloads, JSON.stringify(headers));
+    assert.equal(calls.downloads.length, downloads, `bounded=${bounded}`);
     assert.equal(p.playback?.live, false, "크기를 몰라도 라이브는 아니다(끝나면 끝, 위치 이동은 된다)");
   }
 });
@@ -974,7 +974,7 @@ test("다운로드 전에 길이를 몰랐던 곡(직접 링크)은 나란히 �
   const track = tracks.direct("https://files.test/len.mp3", { durationSource: "unknown" });
   p.currentTrack = track;
   behavior.stream = () => ({ url: "https://files.test/len.mp3", platform: "direct" });
-  behavior.directStream = () => Object.assign(new PassThrough(), { headers: { "content-length": "4096" } });
+  behavior.directStream = () => Object.assign(new PassThrough(), { headers: { "content-length": "4096" }, live: false, bounded: true });
   let finish: () => void = () => {};
   behavior.download = (t) =>
     new Promise((done) => {

@@ -79,7 +79,7 @@ const deps: Sources = {
   direct: {
     getStream: async (url: string) => {
       calls.direct.push(url);
-      return Object.assign(Readable.from([Buffer.from("raw-audio")]), { headers: { etag: '"v1"', "content-length": "9" } });
+      return Object.assign(Readable.from([Buffer.from("raw-audio")]), { headers: { etag: '"v1"', "content-length": "9" }, live: false, bounded: true });
     },
   },
   convert: {
@@ -484,7 +484,7 @@ test("직접 지정한 음원이 사라졌으면 지정을 건너뛰고 원래 �
 
 test("직접 지정한 음원이 인터넷 라디오면 받지 않고(끝이 없다) 지정을 건너뛰어 원래 링크로 다운로드한다", async () => {
   ytdlpBehavior = writesFile();
-  const radio = { ...deps, direct: { getStream: async (url: string) => (url.includes("radio.test") ? Object.assign(Readable.from([Buffer.from("endless")]), { headers: { "icy-name": "라디오" } }) : deps.direct.getStream(url)) } };
+  const radio = { ...deps, direct: { getStream: async (url: string) => (url.includes("radio.test") ? Object.assign(Readable.from([Buffer.from("endless")]), { headers: { "icy-name": "라디오" }, live: true, bounded: false }) : deps.direct.getStream(url)) } };
   const track: DownloadTrack = { ...yt("origradio01"), audioUrl: "https://radio.test/live.mp3", audioFoundBy: "pinned" };
 
   const file = await new TrackDownloader({ guild: { id: "g-radio" }, currentTrack: null }, radio).downloadTrack(track);

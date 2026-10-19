@@ -23,17 +23,17 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 
 import config from "../config/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import { errorKind, messageOf, codedError } from "../rules/error-kind.ts";
+import { errorKind, messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
-import * as DirectLink from "../sources/direct.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import { applyTags } from "../sources/direct-tags.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as SponsorBlock from "../sources/sponsor-block.ts";
 import { openChunkedStream } from "../media/chunked-stream.ts";
 import { createFragmentStream } from "../media/fragment-stream.ts";
+import { openDirectInput, type DirectInputOptions } from "../media/direct-input.ts";
 import { openInput } from "../media/playback-input.ts";
 import { InputHealth } from "../media/input-health.ts";
 import { endVerdict, type EndFacts } from "../rules/end-verdict.ts";
@@ -138,7 +138,7 @@ const REAL = {
   fetch: (url: string, init: RequestInit) => fetch(url, init),
   sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms)),
   // 재생은 본문 무응답을 짧게 본다. 플레이어가 버티는 10초(MAX_MISSED_FRAMES)보다 먼저 끊겨 곡 끝 판정이 입력 깨짐으로 다시 연다
-  directStream: (url: string) => DirectLink.getStream(url, undefined, { bodyIdleMs: DIRECT_BODY_IDLE_MS }),
+  directStream: (url: string, opts: DirectInputOptions) => openDirectInput(url, { ...opts, bodyIdleMs: DIRECT_BODY_IDLE_MS }),
   getStream: (track: Seeking & { platform?: string | null }, options?: Partial<StreamOptions>) => streamUrl.getStream(track, options),
   joinVoiceChannel,
   entersState,
@@ -465,6 +465,7 @@ class Player {
       onProgress: () => {
         pb.inputProgressAt = Date.now();
       },
+      liveOnly: liveReopen,
       label: this._trackLabel(track),
     });
     return { source, input };
@@ -473,6 +474,8 @@ class Player {
   // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다
   // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 구분할 수 없어 끝 처리가 남긴다)
   async _playFailed(error: unknown, liveReopen: boolean) {
+    // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS)
+    if (liveReopen && codeOf(error) === "live-ended") return { ok: false, code: "live-ended" } satisfies PlayResult;
     if (liveReopen) return { ok: false, code: "live-reopen-failed", error } satisfies PlayResult;
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
     elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);

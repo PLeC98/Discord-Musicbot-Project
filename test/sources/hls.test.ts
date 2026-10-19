@@ -6,7 +6,8 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openHls, type HlsFragments } from "../../src/sources/hls.ts";
-import { codeOf } from "../../src/rules/error-kind.ts";
+import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
+import * as DirectLink from "../../src/sources/direct.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 
 type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean };
@@ -153,4 +154,27 @@ test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송
   await closing.next();
   closing.close();
   assert.equal(await closing.next(), null, "남은 조각이 있어도");
+});
+
+test("직접 링크로 담기 · 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
+  const live = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\ns1.ts\n`;
+  const drm = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://x"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
+  const master = `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttp://10.0.0.1/inner.m3u8\n`;
+  const { net } = netOf({
+    "https://h.test/vod.m3u8": { body: vod(["a.ts", "b.ts", "c.ts"]) },
+    "https://h.test/live.m3u8": { body: live },
+    "https://h.test/drm.m3u8": { body: drm },
+    "https://h.test/master.m3u8": { body: master },
+  });
+  const [v] = await DirectLink.getInfo("https://h.test/vod.m3u8", { net });
+  assert.deepEqual([v.duration, v.durationSource, v.isLive, v.fileSize], [12, "provided", undefined, null]);
+  const [l] = await DirectLink.getInfo("https://h.test/live.m3u8", { net });
+  assert.deepEqual([l.isLive, l.liveStatus, l.duration], [true, "is_live", 0]);
+  const opened = await DirectLink.open("https://h.test/live.m3u8", net);
+  assert.ok(opened.kind === "hls" && opened.hls.live);
+
+  await assert.rejects(DirectLink.getInfo("https://h.test/drm.m3u8", { net }), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(DirectLink.open("https://h.test/drm.m3u8", net), (e: unknown) => codeOf(e) === "unsupported-link");
+  // 가짜 네트워크가 SafeUrl 처럼 막힌 주소를 거절한다(여기서는 없는 주소의 404)
+  await assert.rejects(DirectLink.open("https://h.test/master.m3u8", net), (e: unknown) => codeOf(e) === "direct-unavailable" && !messageOf(e).includes("10.0.0.1"));
 });

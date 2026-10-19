@@ -15,7 +15,7 @@ import * as versionOf from "./audio-version.ts";
 import { readInfo } from "../sources/ytdlp-info.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
-import * as DirectLink from "../sources/direct.ts";
+import { openDirectInput, type DirectInput } from "./direct-input.ts";
 import { applyTags } from "../sources/direct-tags.ts";
 import * as Tags from "../sources/file-tags.ts";
 import { bakeCover, type Cover } from "../sources/cover.ts";
@@ -35,7 +35,6 @@ import type { TrackInfo } from "../player/track.ts";
 type DownloadTrack = Pick<TrackInfo, "title" | "requestKey"> & Partial<TrackInfo>;
 /** 음원 주소만 보는 판정 */
 type HasAudio = Partial<TrackInfo> | null | undefined;
-import type { AudioStream } from "../sources/direct.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { addDownloaded } from "../infra/download-meter.ts";
@@ -44,7 +43,7 @@ import { addDownloaded } from "../infra/download-meter.ts";
 type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
   soundcloud: Pick<typeof SoundCloud, "download">;
-  direct: { getStream(url: string): Promise<AudioStream> };
+  direct: { getStream(url: string): Promise<DirectInput> };
   convert: { toCacheOpus(srcFile: string, outFile: string, cache?: CacheTags): Promise<{ durationSec: number | null }> };
   tags: { fromFile(file: string): Promise<(TagInfo & { picture?: { data: Uint8Array } | null }) | null> };
   measure: { durationSec(file: string): Promise<number | null> };
@@ -176,7 +175,7 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 }
 
 // 다운로드에 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
-const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
+const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: { getStream: (url) => openDirectInput(url) }, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
 // 조각으로 다운로드하는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 조각이 아닌 포맷에는 걸리지 않는다.
 // 실측(2026-09-30): 유튜브는 넷 이상이면 조각 170 ~ 320 즈음부터 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도).
@@ -378,17 +377,17 @@ class TrackDownloader {
     return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version, how: `yt-dlp ${secs(ended - started)}초 · ${format}${linger}` };
   }
 
-  // 직접 링크. DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
+  // 직접 링크(파일 · HLS VOD). SSRF 가드(SafeUrl)를 통과해 가져온다(media/direct-input).
   // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
   async _fetchDirect(downloadUrl: string, tempPath: string, track: DownloadTrack): Promise<Fetched> {
     // 같은 파일의 머리 읽기(담을 때 · 그림 찾기)를 끊는다. 연결이 셋 열리지 않게. 태그는 받은 파일이 채운다
     const key = audioKeyOf(downloadUrl);
     if (key) embeddedArt.cancelSource(key);
     const audioStream = await this.deps.direct.getStream(downloadUrl);
-    // 인터넷 라디오(icy-* 헤더)는 끝이 없어 받지 않는다. 담을 때 라이브로 적어 여기 오지 않지만, 직접 지정한 음원은 그 검사를 거치지 않는다
-    if (Object.keys(audioStream.headers ?? {}).some((name) => name.toLowerCase().startsWith("icy-"))) {
+    // 끝이 없는 것(인터넷 라디오 · 라이브 HLS)은 받지 않는다. 담을 때 라이브로 적어 여기 오지 않지만, 직접 지정한 음원은 그 검사를 거치지 않는다
+    if (audioStream.live) {
       audioStream.destroy();
-      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", `끝이 없는 인터넷 라디오라 캐시하지 않습니다: ${downloadUrl}`);
+      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", `끝이 없는 라이브(인터넷 라디오 · 라이브 HLS)라 캐시하지 않습니다: ${downloadUrl}`);
     }
     const audioVersion = versionOf.fromHeaders(audioStream.headers);
 

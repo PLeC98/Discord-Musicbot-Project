@@ -172,9 +172,9 @@ test("직접 링크 제목: 경로의 파일 이름(확장자를 뗀다), 이름
   assert.equal((await DirectLink.getInfo("https://radio.test/stream", info))[0].title, "Caf\u00e9 FM", "UTF-8 이 아니면 그대로");
 });
 
-test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
-  const s = await DirectLink.getStream("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
-  assert.ok(s instanceof Readable);
+test("직접 링크 열기: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
+  const s = await DirectLink.open("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
+  assert.ok(s.kind === "file" && s.body instanceof Readable && !s.radio);
   assert.deepEqual(calls.stream, ["https://files.test/a.mp3"]);
   assert.deepEqual(
     calls.streamOpts.map((opts) => (opts as { bodyIdleMs?: number }).bodyIdleMs),
@@ -182,15 +182,15 @@ test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 �
     "본문 무응답 한도를 그대로 넘긴다",
   );
 
-  await assert.rejects(DirectLink.getStream("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
+  await assert.rejects(DirectLink.open("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
   // 음원이 아닌 응답은 받은 응답으로 안 것이라 숨기지 않는다
-  await assert.rejects(DirectLink.getStream("https://files.test/page", net), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(DirectLink.open("https://files.test/page", net), (e: unknown) => codeOf(e) === "unsupported-link");
   const blocked = {
     getStream: async () => {
       throw new Error("SSRF 차단: 127.0.0.1");
     },
   };
-  await assert.rejects(DirectLink.getStream("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
+  await assert.rejects(DirectLink.open("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
 });
 
 test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이름만 구분자를 공백으로, 대소문자는 그대로", () => {

@@ -16,6 +16,7 @@ import { InputHealth } from "./input-health.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
 import type { ChunkedOptions } from "./chunked-stream.ts";
 import type { FragmentOptions } from "./fragment-stream.ts";
+import type { DirectInputOptions } from "./direct-input.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import type { Transport } from "../rules/transport-of.ts";
 
@@ -23,9 +24,11 @@ type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string | null; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-// startedAtMs: 곡 안의 어디부터 흘리나(조각 스트림은 위치가 든 조각부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태
+// startedAtMs: 곡 안의 어디부터 흘리나(조각 스트림은 위치가 든 조각부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
+// bounded: 직접 링크가 끝이 있고 크기 · 길이를 안다(나란히 다운로드해도 된다. media/direct-input)
 type OpenedStream = Readable & {
   headers?: Record<string, unknown>;
+  bounded?: boolean;
   stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean };
   startedAtMs?: number;
   describe?(): string;
@@ -37,7 +40,7 @@ type InputIo<R> = {
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   openFragmentStream(opts: FragmentOptions): OpenedStream;
   fetch(url: string, init: { headers: Record<string, string> }): Promise<{ ok: boolean; status: number; body: WebStream<Uint8Array> | Readable | null }>;
-  directStream(url: string): Promise<Readable>;
+  directStream(url: string, opts: DirectInputOptions): Promise<OpenedStream>;
   sleep(ms: number): Promise<void>;
 };
 type Download = { start(): void; filePath: string; wait(file: string): Promise<string> | null };
@@ -51,6 +54,8 @@ type InputOptions<R> = {
   download: Download | null;
   onStreamLost(splicer: Splicer): boolean;
   onProgress(): void;
+  /** 끊긴 라이브를 다시 연다(라이브 HLS 의 목록이 끝났으면 live-ended) */
+  liveOnly?: boolean;
   label: string;
 };
 type Opened<R> = { resource: R | null; cacheFile: string | null; health: InputHealth | null };
@@ -158,7 +163,7 @@ function openFile<R>(o: InputOptions<R>): Opened<R> {
 // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
 // 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 분기에만 두었다.
 async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promise<Opened<R>> {
-  // 직접 링크는 응답을 보고 다운로드할지 정한다. 크기를 모르는 응답(끝을 알 수 없는 스트림)을 나란히 다운로드하면 디스크를 한도까지 채운다
+  // 직접 링크는 연 것을 보고 다운로드할지 정한다. 끝을 알 수 없는 스트림을 나란히 다운로드하면 디스크를 한도까지 채운다
   const direct = o.streamInfo?.platform === "direct";
   if (!direct) download?.start();
 
@@ -185,8 +190,8 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
   }
   if (!audioStream || !streamInfo) return { resource: null, cacheFile: o.cacheFile, health: null };
   if (direct && download) {
-    if (audioStream.headers?.["content-length"]) download.start();
-    else log.debug(`크기를 알리지 않는 응답이라 다운로드해 두지 않고 스트림으로만 틉니다: ${o.label}`);
+    if (audioStream.bounded) download.start();
+    else log.debug(`끝이나 크기를 모르는 입력이라 다운로드해 두지 않고 스트림으로만 틉니다: ${o.label}`);
   }
   return pipeResource(o, streamInfo, audioStream, hooks);
 }
@@ -221,8 +226,8 @@ function adWaitMs(error: unknown, availableAt: number | null | undefined, now: n
 async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: Hooks): Promise<OpenedStream | null> {
   // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
   // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
-  // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
-  if (streamInfo.platform === "direct") return o.io.directStream(streamInfo.url);
+  // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다. HLS VOD 는 위치가 든 조각부터 받는다
+  if (streamInfo.platform === "direct") return o.io.directStream(streamInfo.url, { startMs: o.startMs, liveOnly: o.liveOnly });
 
   const { url } = streamInfo;
   // 평상시엔 yt-dlp가 준 것을 그대로 쓴다. 클라이언트마다 다른 값을 저쪽이 선택해 준다.

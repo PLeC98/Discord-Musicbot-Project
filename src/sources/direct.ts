@@ -7,6 +7,7 @@ import * as SafeUrl from "../infra/safe-url.ts";
 import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import * as embeddedArt from "./embedded-art.ts";
 import { openLink, OPEN_ACCEPT, type AudioStream, type StreamNet, type Opened } from "./direct-open.ts";
+import { openHls, type Hls } from "./hls.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { Tags as FileTags } from "./file-tags.ts";
 
@@ -23,6 +24,7 @@ const TAG_WAIT_MS = 1500;
 
 /**
  * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 머리의 태그를 읽는다.
+ * HLS 는 목록으로 VOD(길이) · 라이브를 본다.
  * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지 · 그림 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD 를 거절하는 서버(AnimeThemes CDN 의 403)에서도 된다
  */
@@ -34,6 +36,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
 
     // SSRF 가드를 지나는 GET 하나로 판정한다. 종류 · 크기도 거기서 본다
     const opened = await openLink(url, { net, accept: INFO_ACCEPT });
+    if (opened.kind === "hls") return [hlsTrack(url, await openHls(opened.text, opened.url, { net }))];
     if (opened.kind !== "file") throw notAudio(opened.kind);
     body = opened.body;
     const { radio } = opened;
@@ -93,25 +96,37 @@ function trackOf(url: string, headers: Record<string, unknown>, radio: boolean):
   };
 }
 
-/** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다). 재생목록 · 단순 목록은 아직 열지 않는다(HLS · 목록 읽기가 붙을 때까지) */
+/** HLS 곡. 라이브면 라이브로(캐시 · 위치 이동 없음), VOD 면 목록의 길이 */
+function hlsTrack(url: string, hls: Hls): DirectTrack {
+  const track = trackOf(url, {}, false);
+  if (hls.live) return { ...track, isLive: true, liveStatus: "is_live" };
+  return { ...track, duration: (hls.durationMs ?? 0) / 1000, durationSource: "provided" };
+}
+
+/** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다). 단순 목록은 아직 열지 않는다(목록 읽기가 붙을 때까지) */
 const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크입니다(${kind})`);
 
+/** 재생 · 다운로드 · 재생 테스트가 여는 것: 파일(본문 · 인터넷 라디오인가) 또는 HLS(조각은 media 가 받는다) */
+type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: number | null } | { kind: "hls"; hls: Hls };
+
 /**
- * 재생 · 다운로드용 스트림(SSRF 가드를 지난 Readable, direct-open 으로 판정한 음원). 직접 링크는 주소로 위치를 옮길 수 없어 위치 이동은 ffmpeg 가 한다.
- * net 은 테스트가 가짜를 넘기는 곳
+ * 재생 · 다운로드용으로 연다(SSRF 가드를 지난 GET 하나, direct-open 으로 판정). 직접 링크 파일은 주소로 위치를 옮길 수 없어 위치 이동은 ffmpeg 가 한다.
+ * 음원이 아니면(웹 페이지 · DRM 등) unsupported-link, 열지 못하면 direct-unavailable. net 은 테스트가 가짜를 넘기는 곳
  */
-async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<AudioStream> {
+async function open(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<DirectOpen> {
   let opened: Opened;
   try {
     if (inputKind(url) !== "direct") throw new Error("직접 링크가 아님");
     opened = await openLink(url, { net, ...opts });
+    if (opened.kind === "hls") return { kind: "hls", hls: await openHls(opened.text, opened.url, { net }) };
   } catch (error) {
+    if (codeOf(error) === "unsupported-link") throw error;
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));
     throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
   if (opened.kind !== "file") throw notAudio(opened.kind);
-  return opened.body;
+  return { kind: "file", body: opened.body, radio: opened.radio, length: opened.length };
 }
 
 // 주소의 퍼센트 인코딩을 푼다. 깨진 인코딩이면 그대로
@@ -165,7 +180,7 @@ type DirectTrack = {
   requestKey: string;
   audioUrl: string;
   duration: number;
-  durationSource: "unknown";
+  durationSource: "unknown" | "provided";
   isLive?: boolean;
   liveStatus?: string;
   thumbnail: null;
@@ -179,5 +194,5 @@ type DirectTrack = {
   album?: string | null;
 };
 
-export { getInfo, getStream, extractTitle, generateId };
-export type { AudioStream, StreamNet, InfoOptions, DirectTrack };
+export { getInfo, open, extractTitle, generateId };
+export type { AudioStream, StreamNet, InfoOptions, DirectTrack, DirectOpen };

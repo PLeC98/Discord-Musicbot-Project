@@ -11,11 +11,9 @@ const fail = (code: string) => async () => {
 };
 const never = async () => assert.fail("이 출처를 열면 안 된다");
 
-function openers(over: Partial<{ [K in keyof Openers]: Openers[K]["getStream"] }>): Openers {
-  return { youtube: { getStream: over.youtube ?? never }, soundcloud: { getStream: over.soundcloud ?? never }, direct: { getStream: over.direct ?? never } };
-}
-function stream(headers: Record<string, unknown>) {
-  return Object.assign(new PassThrough(), { headers });
+type Over = { youtube: Openers["youtube"]["getStream"]; soundcloud: Openers["soundcloud"]["getStream"]; direct: Openers["direct"]["open"] };
+function openers(over: Partial<Over>): Openers {
+  return { youtube: { getStream: over.youtube ?? never }, soundcloud: { getStream: over.soundcloud ?? never }, direct: { open: over.direct ?? never } };
 }
 
 test("유튜브: 열리면 됨, 라이브면 live, 실패면 그 코드", async () => {
@@ -42,19 +40,22 @@ test("사운드클라우드: 열리면 됨, 미리듣기만이면 그 코드", a
   assert.deepEqual(await probeSource(sc, openers({ soundcloud: fail("sc-preview-only") })), { ok: false, code: "sc-preview-only" });
 });
 
-test("직접 링크: GET 을 받자마자 끊고, icy 헤더(인터넷 라디오)면 live", async () => {
+test("직접 링크: 열자마자 끊고, 인터넷 라디오 · 라이브 HLS 면 live", async () => {
   const url = "https://cdn.example.net/a.mp3";
   const opened: PassThrough[] = [];
-  const open = (headers: Record<string, unknown>) =>
+  const open = (radio: boolean) =>
     openers({
       direct: async () => {
-        const one = stream(headers);
-        opened.push(one);
-        return one;
+        const body = new PassThrough();
+        opened.push(body);
+        return { kind: "file", body, radio };
       },
     });
-  assert.deepEqual(await probeSource(url, open({ "content-type": "audio/mpeg" })), { ok: true });
-  assert.deepEqual(await probeSource(url, open({ "content-type": "audio/mpeg", "icy-name": "radio" })), { ok: false, code: "live" });
+  assert.deepEqual(await probeSource(url, open(false)), { ok: true });
+  assert.deepEqual(await probeSource(url, open(true)), { ok: false, code: "live" });
+  for (const live of [false, true]) {
+    assert.deepEqual(await probeSource(url, openers({ direct: async () => ({ kind: "hls", hls: { live } }) })), live ? { ok: false, code: "live" } : { ok: true }, `HLS live=${live}`);
+  }
   assert.ok(
     opened.every((one) => one.destroyed),
     "열린 스트림은 모두 끊었다",

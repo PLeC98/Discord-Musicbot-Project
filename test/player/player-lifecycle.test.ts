@@ -27,6 +27,7 @@ import * as voiceChannelStatus from "../../src/player/voice-channel-status.ts";
 import config from "../../src/config/index.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { textOf } from "../helpers/cv2.ts";
+import { codedError } from "../../src/rules/error-kind.ts";
 
 useDefaultDocuments();
 
@@ -34,7 +35,8 @@ const { calls, behavior, AudioPlayerStatus } = h;
 
 beforeEach(() => h.reset());
 
-const yt = (await import("../helpers/tracks.ts")).youtube;
+const tracks = await import("../helpers/tracks.ts");
+const yt = tracks.youtube;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/player-notices)로 채널에 간다. 조립(main.ts)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);
@@ -380,6 +382,35 @@ for (const [ending, answer, line] of [
     assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
   });
 }
+
+test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝났으면 다음 곡으로. 실패로 세지 않는다", async () => {
+  const p = h.makePlayer();
+  const url = "https://h.test/live/index.m3u8";
+  const live = playing(p, tracks.direct(url, { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
+  const next = cached("m4mmmmmmmmm");
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => ({ url, platform: "direct", liveStatus: "is_live" });
+  const asked: Array<{ liveOnly?: boolean } | undefined> = [];
+  behavior.directStream = (_url, opts) => {
+    asked.push(opts);
+    throw codedError("live-ended", "라이브 HLS 의 목록이 끝났습니다");
+  };
+  const from = sink.buffer.length;
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.previousTracks.at(-1), live);
+  assert.equal(p.failedTracks, 0);
+  assert.equal(asked[0]?.liveOnly, true, "다시 열 때만 끝난 목록을 거절한다");
+  const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+  assert.ok(
+    lines.some((l) => /^info 방송이 끝나 다음 곡으로 넘깁니다: /.test(l)),
+    lines.join(" / "),
+  );
+});
 
 test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소진으로 간다", async () => {
   const p = h.makePlayer();

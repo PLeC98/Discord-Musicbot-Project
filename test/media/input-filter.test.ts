@@ -83,3 +83,18 @@ test("실물: 목록(concat · HLS)은 캐시 변환 · probeAudio · 표준 입
   assert.ok((await run(buildFfmpegArgs({}), fs.readFileSync(at("song.mp3")))).bytes > 0, "mp3 를 표준 입력으로 튼다");
   assert.ok((await run(buildFfmpegArgs({ file: at("cache.opus"), seekMs: 500 }))).bytes > 0, "캐시 opus 를 튼다");
 });
+
+test("실물: HLS 의 TS 조각을 이어 붙여 표준 입력으로 넣으면 조각을 합친 길이가 나온다(mp3 2초와 견준다)", async (t) => {
+  if (!(await samples())) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  for (const [name, freq] of [
+    ["seg0.ts", 440],
+    ["seg1.ts", 660],
+  ] as const) {
+    const made = await run(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `sine=frequency=${freq}:duration=2`, "-c:a", "aac", "-f", "mpegts", "-y", at(name)]);
+    if (made.code !== 0) return t.skip("ffmpeg로 TS 시료를 만들 수 없음");
+  }
+  const joined = Buffer.concat([fs.readFileSync(at("seg0.ts")), fs.readFileSync(at("seg1.ts"))]);
+  const two = (await run(buildFfmpegArgs({}), fs.readFileSync(at("song.mp3")))).bytes;
+  const four = (await run(buildFfmpegArgs({}), joined)).bytes;
+  assert.ok(Math.abs(four / two - 2) < 0.15, `조각 둘(4초) / mp3(2초) = ${(four / two).toFixed(2)}`);
+});

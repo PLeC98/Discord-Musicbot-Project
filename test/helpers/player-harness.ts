@@ -289,7 +289,7 @@ type Behavior = {
   download: ((track: DownloadTrack) => string | Promise<string>) | null;
   fetch: ((url: string, init: FetchInit) => unknown) | null;
   chunked: ((opts: ChunkedOptions) => unknown) | null;
-  directStream: ((url: string) => Readable | Promise<Readable>) | null;
+  directStream: ((url: string, opts?: { startMs?: number; liveOnly?: boolean }) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
   connect: (() => unknown) | null;
@@ -363,10 +363,10 @@ const fakes: Partial<Boundary> = {
     if (!behavior.stream) throw new Error("테스트가 스트림을 정하지 않았다");
     return behavior.stream(track as QueuedTrack);
   },
-  directStream: async (url) => {
+  directStream: (async (url: string, opts?: { startMs?: number; liveOnly?: boolean }) => {
     calls.directStreams.push(url);
-    return behavior.directStream ? behavior.directStream(url) : new PassThrough();
-  },
+    return behavior.directStream ? behavior.directStream(url, opts) : Object.assign(new PassThrough(), { live: false, bounded: false });
+  }) as unknown as Boundary["directStream"],
   fetch: (async (url: string, init: FetchInit) => {
     calls.fetches.push({ url, init });
     if (behavior.fetch) return behavior.fetch(url, init);
