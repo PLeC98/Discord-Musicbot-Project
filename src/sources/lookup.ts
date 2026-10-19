@@ -6,6 +6,7 @@ import * as links from "../rules/links.ts";
 import * as Spotify from "./spotify.ts";
 import * as SoundCloud from "./soundcloud/index.ts";
 import * as DirectLink from "./direct.ts";
+import { applyTags } from "./direct-tags.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as pinnedSources from "../store/pinned-sources.ts";
 import type { Pin } from "../store/pinned-sources.ts";
@@ -34,7 +35,7 @@ type Sources = {
   youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; search(query: string, limit: number): Promise<FoundTrack[]> };
   spotify: { getCollection(url: string, range?: Range): Promise<Collection> };
   soundcloud: { find(url: string, range?: Range & { what?: "track" | "set" }): Promise<SoundCloud.Found> };
-  direct: { getInfo(url: string): Promise<FoundTrack[]> };
+  direct: { getInfo(url: string, opts?: Pick<DirectLink.InfoOptions, "tags">): Promise<FoundTrack[]> };
 };
 const REAL: Sources = { youtube: YouTube, spotify: Spotify, soundcloud: SoundCloud, direct: DirectLink };
 
@@ -103,21 +104,22 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
 
-// 링크 종류마다 부르는 곳
-function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources): Promise<Found> {
+// 링크 종류마다 부르는 곳. 직접 링크는 tags 면 파일 태그(제목 · 가수 · 앨범)로 곡 정보를 고친다
+function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
   if (platform === "youtube") return fromYouTube(query, range, youtube);
   if (platform === "spotify") return fromSpotify(query, range, spotify);
   if (platform === "soundcloud") return fromSoundCloud(query, range, soundcloud);
-  return direct.getInfo(query).then(single); // 배열 계약: [track] 또는 []
+  return direct.getInfo(query, tags ? { tags: applyTags } : {}).then(single); // 배열 계약: [track] 또는 []
 }
 
-async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
+/** tags: 직접 링크의 파일 태그를 곡 정보로 쓰나(직접 지정한 음원을 읽을 때는 쓰지 않는다. 곡 정보는 요청의 것) */
+async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}, options: { tags?: boolean } = {}): Promise<LookupResult> {
   const platform = detectPlatform(query);
   if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
   // 프로필 · 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
   if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "sc-unsupported" };
   try {
-    const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources });
+    const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
     // 불러온 구간에 틀 수 있는 곡이 하나도 없는 세트는 뺀 까닭(nothing-playable)과 뺀 곡 수를 알린다
     if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable", skipped: found.skipped } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
@@ -180,7 +182,7 @@ async function pinnedTrack(query: string, pin: Pin, context: string | null | und
     track = original.success ? original.tracks[0] : null;
   }
   if (!track) {
-    const audio = await getTrackData(pin.audioUrl, context, {}, sources);
+    const audio = await getTrackData(pin.audioUrl, context, {}, sources, { tags: false });
     const from = audio.success ? audio.tracks[0] : null;
     track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: detectPlatform(query), duration: 0 };
   }

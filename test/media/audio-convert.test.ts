@@ -157,12 +157,12 @@ test("probe 파싱: 영상이 있어도 오디오 스트림에 적혀 있으면 
 
 test("probe 파싱: 읽을 것이 없으면 전부 null", () => {
   for (const text of ["", "Invalid data found when processing input", null]) {
-    assert.deepEqual(parseProbeOutput(text), { durationSec: null, codec: null, bitrateKbps: null, title: null, artist: null });
+    assert.deepEqual(parseProbeOutput(text), { durationSec: null, codec: null, bitrateKbps: null });
   }
 });
 
-// 2026-09-27 실측: ffmpeg 가 태그를 단 mp3 를 열 때의 헤더. 출력 쪽에도 같은 필드가 되풀이된다
-test("probe 파싱: 입력 파일의 태그(제목 · 가수)를 읽는다. 값 안의 콜론은 그대로", () => {
+// ffmpeg 가 태그를 단 mp3 를 열 때의 헤더. 태그는 읽지 않는다(파일 태그는 sources/file-tags)
+test("probe 파싱: 태그 블록이 있어도 길이 · 코덱을 읽는다", () => {
   const info = parseProbeOutput(`Input #0, mp3, from 'tagged.mp3':
   Metadata:
     title           : 노래 제목 : 콜론
@@ -174,9 +174,7 @@ Output #0, null, to 'pipe:':
   Metadata:
     title           : 출력 쪽
 `);
-  assert.equal(info.title, "노래 제목 : 콜론");
-  assert.equal(info.artist, "가수");
-  assert.equal(info.durationSec, 2);
+  assert.deepEqual(info, { durationSec: 2, codec: "mp3", bitrateKbps: 64 });
 });
 
 // ── 실물 한 번 ────────────────────────────────────────────────────────────────

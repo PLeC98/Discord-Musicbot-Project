@@ -5,7 +5,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type ConvertPlan } from "../rules/convert-plan.ts";
 
-type Converted = ConvertPlan & { durationSec: number | null; title: string | null; artist: string | null };
+type Converted = ConvertPlan & { durationSec: number | null };
 
 /**
  * yt-dlp 분기도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다.
@@ -34,7 +34,7 @@ async function toCacheOpus(srcFile: string, outFile: string): Promise<Converted>
   await run(argsFor(plan, srcFile, outFile));
   log.debug(`캐시 변환: ${plan.action === "copy" ? "리먹싱" : `변환 ${plan.bitrateKbps}k`} (${plan.why})`);
 
-  return { ...plan, durationSec: info.durationSec, title: info.title, artist: info.artist };
+  return { ...plan, durationSec: info.durationSec };
 }
 
 /** 출력이 파일이라 stdout 을 소비하지 않는다(killOnStdoutClose 해제. 켜면 조기 종료한다). */

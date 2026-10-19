@@ -1,5 +1,5 @@
 // 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
-// yt-dlp 는 실행하는 exec 만(useExec), 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
+// yt-dlp 는 실행하는 exec 만(useExec), 직접 링크는 SafeUrl 의 getStream 만 가짜로 둔다.
 
 import { Readable } from "node:stream";
 import * as links from "../../src/rules/links.ts";
@@ -16,21 +16,22 @@ import { plainText } from "../helpers/notice.ts";
 // yt-dlp 가 줄 것. 실패면 fail 에 stderr
 type Reply = ({ fail?: string } & Record<string, unknown>) | null;
 
-const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, head: [] as string[], stream: [] as string[], streamOpts: [] as unknown[] };
+const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, info: [] as string[], stream: [] as string[], streamOpts: [] as unknown[] };
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 let headReply: (url: string) => { headers: object };
-// 직접 링크의 네트워크(SafeUrl 의 head · getStream) 가짜. DirectLink 에 넘긴다
+// 직접 링크의 네트워크(SafeUrl 의 getStream) 가짜. DirectLink 에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 본다
 const net = {
-  head: async (url: string) => {
-    calls.head.push(url);
-    return headReply(url);
-  },
-  getStream: async (url: string, _deps?: undefined, opts?: { bodyIdleMs?: number }) => {
+  getStream: async (url: string, _deps?: undefined, opts?: { bodyIdleMs?: number; accept?: { timeoutMs: number } }) => {
+    if (opts?.accept) {
+      calls.info.push(url);
+      return Object.assign(Readable.from([Buffer.from("x")]), { headers: headReply(url).headers as Record<string, unknown>, status: 200 });
+    }
     calls.stream.push(url);
     calls.streamOpts.push(opts);
     return Readable.from(["x"]);
   },
 };
+const info = { net };
 
 before(() => {
   // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
@@ -107,32 +108,32 @@ test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 �
   }
 });
 
-test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 본다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
+test("직접 링크 정보: SafeUrl GET 의 응답 헤더로 크기와 종류를 본다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
-  const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", net);
+  const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", info);
 
-  assert.deepEqual(calls.head, ["https://files.test/my_song-name.mp3?x=1"]);
+  assert.deepEqual(calls.info, ["https://files.test/my_song-name.mp3?x=1"]);
   assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
   assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
 });
 
 test("직접 링크 정보: 서버가 알려 준 파일 이름(Content-Disposition)이 주소보다 먼저다", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": "attachment; filename=\"x.mp3\"; filename*=UTF-8''%EB%85%B8%EB%9E%98%20%EC%A0%9C%EB%AA%A9.mp3" } });
-  const [t] = await DirectLink.getInfo("https://files.test/get/7.mp3", net);
+  const [t] = await DirectLink.getInfo("https://files.test/get/7.mp3", info);
   assert.equal(t.title, "노래 제목");
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": 'attachment; filename="Artist - Song.mp3"' } });
-  const [u] = await DirectLink.getInfo("https://files.test/get/8.mp3", net);
+  const [u] = await DirectLink.getInfo("https://files.test/get/8.mp3", info);
   assert.equal(u.title, "Artist - Song");
 });
 
 test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
-  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.txt", net), []);
-  assert.equal(calls.head.length, 0);
+  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.txt", info), []);
+  assert.equal(calls.info.length, 0);
   headReply = () => {
     throw new Error("SSRF 차단: 10.0.0.5");
   };
-  const thrown = await DirectLink.getInfo("https://files.test/a.mp3", net).then(
+  const thrown = await DirectLink.getInfo("https://files.test/a.mp3", info).then(
     () => assert.fail("던져야 한다"),
     (e: unknown) => e,
   );
@@ -146,11 +147,11 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
 test("직접 링크: icy-* 헤더가 있으면 인터넷 라디오라 라이브로 담는다(길이를 추정하지 않는다)", async () => {
   // 끝없는 방송인데도 큰 가짜 크기를 붙이는 서버가 있다
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "54000000", "icy-name": "라디오", "icy-br": "128" } });
-  const [t] = await DirectLink.getInfo("https://radio.test/live.mp3", net);
+  const [t] = await DirectLink.getInfo("https://radio.test/live.mp3", info);
   assert.deepEqual({ isLive: t.isLive, liveStatus: t.liveStatus, duration: t.duration, durationSource: t.durationSource }, { isLive: true, liveStatus: "is_live", duration: 0, durationSource: "unknown" });
 
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
-  const [f] = await DirectLink.getInfo("https://files.test/b.mp3", net);
+  const [f] = await DirectLink.getInfo("https://files.test/b.mp3", info);
   assert.equal(f.isLive, undefined, "보통 파일은 라이브가 아니다");
 });
 

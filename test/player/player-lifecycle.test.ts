@@ -1219,7 +1219,7 @@ test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 �
   assert.deepEqual(puts.slice(3), [["/channels/voice3/voice-status", `${config.voiceStatus.playingPrefix}지금 곡`]]);
 });
 
-// 직접 링크는 재생과 나란히 다운로드하며 파일 태그로 제목을 고친다. 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
+// 다운로드가 제목을 고칠 수 있다(유튜브 영상의 제목 · 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
 test("음성 채널 상태: 곁에서 다운로드하며 지금 곡의 제목을 고치면 채널 상태도 고친다", async () => {
   voiceChannelStatus._internals._reset();
   const p = h.makePlayer();
@@ -1245,6 +1245,38 @@ test("음성 채널 상태: 곁에서 다운로드하며 지금 곡의 제목을
   await tick(10);
   h.dispose(p);
   assert.equal(puts.length, 1);
+});
+
+test("다운로드가 곡 정보를 고치면(지금 곡 · 예열한 대기열 곡) 세션 사본을 다시 쓰게 표시하고 패널 · 대시보드에 알린다. 그대로면 알리지 않는다", async () => {
+  const p = h.makePlayer();
+  const refreshed: Player[] = [];
+  const off = playerEvents.on("refresh", async (q) => void refreshed.push(q));
+  try {
+    p.currentTrack = yt("current", { title: "track_01" });
+    p.downloader.downloadTrack = async (one) => {
+      one.album = "태그 앨범";
+      return "file";
+    };
+    p._startBackgroundDownload();
+    await tick(10);
+    assert.deepEqual([refreshed.length, p.persistence.dirty], [1, true], "지금 곡");
+
+    p.persistence.dirty = false;
+    const queued = yt("queued", { title: "track_02" });
+    p.downloader.warm = async (one) => {
+      if (one) one.artist = "태그 가수";
+    };
+    await p.warmer.warm(queued);
+    assert.deepEqual([refreshed.length, p.persistence.dirty], [2, true], "예열한 대기열 곡");
+
+    p.persistence.dirty = false;
+    p.downloader.warm = async () => {};
+    await p.warmer.warm(queued);
+    assert.deepEqual([refreshed.length, p.persistence.dirty], [2, false], "그대로");
+  } finally {
+    off();
+    h.dispose(p);
+  }
 });
 
 test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 bestEffort 가 남긴다)", async () => {

@@ -16,6 +16,9 @@ import { readInfo } from "../sources/ytdlp-info.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as DirectLink from "../sources/direct.ts";
+import { applyTags } from "../sources/direct-tags.ts";
+import * as Tags from "../sources/file-tags.ts";
+import type { TagInfo } from "../rules/track-tags.ts";
 import * as SoundCloud from "../sources/soundcloud/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
@@ -39,7 +42,8 @@ type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
   soundcloud: Pick<typeof SoundCloud, "download">;
   direct: { getStream(url: string): Promise<AudioStream> };
-  convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null; title?: string | null; artist?: string | null }> };
+  convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null }> };
+  tags: { fromFile(file: string): Promise<TagInfo | null> };
   measure: { durationSec(file: string): Promise<number | null> };
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
   equivalent: { findYouTubeEquivalent(track: DownloadTrack, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
@@ -105,11 +109,11 @@ function cleanTemp(tempPath: string): number {
  * 그 순간 기동 스윕이 돌면 고아로 보고 삭제한다. 푸는 것은 다운로드가 끝날 때(_performDownload의 finally).
  */
 /**
- * 다운로드한 것. verifiedTitle: 영상 자체의 제목(유튜브만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
+ * 다운로드한 것. verifiedTitle: 영상 자체의 제목(유튜브만) · tags: 받은 파일의 태그(직접 링크만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
  * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 다운로드한 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audio-version.ts)
  */
 // how: 어떻게 다운로드했나(로그 한 줄). 걸린 시간 · 포맷 · 옮겼나 구웠나
-type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
+type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
 
 const secs = (ms: number) => (ms / 1000).toFixed(1);
 // 다운로드한 포맷(로그용). info.json 의 필드
@@ -117,13 +121,20 @@ const formatOf = (info: { format_id?: string | null; protocol?: string | null; a
 // yt-dlp 가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(다운로드 · 굽기와 따로 걸린 시간)
 const LINGER_LOG_MS = 5_000;
 
-// 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
+// 유튜브 트랙만 영상 자체의 제목으로 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
 // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
-// 직접 지정한 음원으로 받은 곡도 교정하지 않는다(곡 정보는 요청의 것, 음원은 다른 곡일 수 있다)
+// 직접 지정한 음원으로 받은 곡도 교정하지 않는다(곡 정보는 요청의 것, 음원은 다른 곡일 수 있다). 직접 링크는 파일 태그로 고친다(sources/direct-tags)
 function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
-  if (!verifiedTitle || (track.platform !== "youtube" && track.platform !== "direct") || track.audioFoundBy === "pinned" || verifiedTitle === track.title) return;
+  if (!verifiedTitle || track.platform !== "youtube" || track.audioFoundBy === "pinned" || verifiedTitle === track.title) return;
   log.debug(`제목 교정: "${logTitle(track.title)}" → "${verifiedTitle}"`);
   track.title = verifiedTitle;
+}
+
+// 다운로드한 것으로 곡 정보를 고친다. 유튜브는 영상 자체의 제목, 직접 링크는 받은 파일의 태그
+// (담을 때 태그를 읽지 못한 곡(끝 moov 에 이어 받기가 없는 서버 · 시간 초과 · 통신 오류)도 여기서 고쳐진다)
+function correctInfo(track: DownloadTrack, got: Fetched) {
+  correctTitle(track, got.verifiedTitle);
+  if (got.tags) applyTags(track, got.tags);
 }
 
 // 파일 검증. 최종 경로로 올리기 전에
@@ -156,7 +167,7 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 }
 
 // 다운로드에 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
-const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
+const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
 // 조각으로 다운로드하는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 조각이 아닌 포맷에는 걸리지 않는다.
 // 실측(2026-09-30): 유튜브는 넷 이상이면 조각 170 ~ 320 즈음부터 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도).
@@ -284,7 +295,7 @@ class TrackDownloader {
       const mine = await publish(tempPath, filepath);
       if (!mine) log.debug(`다른 쪽이 먼저 다운로드해 둔 캐시를 쓴다: "${logTitle(track.title)}"`);
 
-      correctTitle(track, got.verifiedTitle);
+      correctInfo(track, got);
       const shown = shownDuration(track, measured, "measured");
       if (shown) Object.assign(track, shown);
 
@@ -377,14 +388,13 @@ class TrackDownloader {
       const started = Date.now();
       await pipeline(audioStream, fsSync.createWriteStream(rawPath));
       const received = Date.now();
+      // 받은 파일이 태그의 정본이다(곡에 반영하는 것은 다운로드를 마친 뒤)
+      const tags = await this.deps.tags.fromFile(rawPath);
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
       // 옮겼나 구웠나는 변환이 제 줄에 남긴다
       const how = `다운로드 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
-
-      // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 비어 있을 때만 채운다
-      if (made.artist && !track.artist) track.artist = made.artist;
-      return { verifiedTitle: made.title ?? null, audioDurationSec: made.durationSec || null, audioVersion, how };
+      return { verifiedTitle: null, tags, audioDurationSec: made.durationSec || null, audioVersion, how };
     } finally {
       audioCache.unprotectFile(rawPath);
       try {

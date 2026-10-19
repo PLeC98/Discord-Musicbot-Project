@@ -21,6 +21,7 @@ import { TrackDownloader, type DownloadTrack, type Sources } from "../../src/med
 import type { YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import type { AudioRow } from "../../src/store/audio-cache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
+import type { TagInfo } from "../../src/rules/track-tags.ts";
 import * as tracks from "../helpers/tracks.ts";
 import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
@@ -36,7 +37,7 @@ type TestTrack = DownloadTrack & { _equivalent?: string };
 type Options = YtDlpFlags & { output: string };
 
 // 무엇이 불렸는지 모은다
-let convertTags: { title?: string; artist?: string } = {};
+let fileTags: TagInfo | null = null;
 const calls = {
   ytdlp: [] as Array<{ url: string; options: Options }>,
   direct: [] as string[],
@@ -84,9 +85,11 @@ const deps: Sources = {
     toCacheOpus: async (src: string, out: string) => {
       calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
       fs.writeFileSync(out, "opus");
-      return { durationSec: 222, ...convertTags };
+      return { durationSec: 222 };
     },
   },
+  // 받은 원본의 태그. 테스트마다 정한다(기본은 읽지 못함)
+  tags: { fromFile: async () => fileTags },
   measure: {
     durationSec: async (file: string) => {
       measured.push(file);
@@ -308,16 +311,27 @@ test("info.json 이 없으면 제목 · 길이를 모르는 채로 다운로드�
 
 // ── 직접 링크 분기 ─────────────────────────────────────────────────────
 
-test("직접 링크: 다운로드한 파일에 태그가 있으면 제목과(비어 있으면) 가수를 그것으로 고친다", async () => {
+test("직접 링크: 받은 파일에 태그가 있으면 제목과(비어 있으면) 가수 · 앨범을 그것으로 고치고, 링크 데이터에 확인된 제목으로 적는다", async () => {
   const track: DownloadTrack = { title: "a", pageUrl: "https://files.test/t.mp3", requestKey: "https://files.test/t.mp3", audioUrl: "https://files.test/t.mp3", platform: "direct", duration: 100 };
-  convertTags = { title: "태그 제목", artist: "태그 가수" };
+  fileTags = { title: "태그 제목", artist: "태그 가수", album: "태그 앨범" };
   try {
     await downloader().downloadTrack(track);
   } finally {
-    convertTags = {};
+    fileTags = null;
   }
-  assert.equal(track.title, "태그 제목");
-  assert.equal(track.artist, "태그 가수");
+  assert.deepEqual([track.title, track.artist, track.album], ["태그 제목", "태그 가수", "태그 앨범"]);
+  assert.deepEqual([lookupRow(track.requestKey)?.display_title, lookupRow(track.requestKey)?.title_verified], ["태그 제목", 1]);
+});
+
+test("직접 지정한 음원으로 받은 곡은 받은 파일의 태그로 고치지 않는다(곡 정보는 요청의 것)", async () => {
+  const track: DownloadTrack = { title: "요청 곡", pageUrl: "https://www.youtube.com/watch?v=pinnedtag01", requestKey: "https://www.youtube.com/watch?v=pinnedtag01", audioUrl: "https://files.test/pin.mp3", audioFoundBy: "pinned", platform: "youtube", duration: 100 };
+  fileTags = { title: "파일 제목", artist: "파일 가수", album: "파일 앨범" };
+  try {
+    await downloader().downloadTrack(track);
+  } finally {
+    fileTags = null;
+  }
+  assert.deepEqual([track.title, track.artist, track.album], ["요청 곡", undefined, undefined]);
 });
 
 test("직접 링크: SafeUrl 을 거쳐 원본을 다운로드하고, 변환하고, 잰 길이로 모르던 길이를 채운다", async () => {

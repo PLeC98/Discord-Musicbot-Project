@@ -134,6 +134,11 @@ class SessionPersistence {
     this.resync();
   }
 
+  /** 곡의 필드(제목 · 가수 · 앨범 · 표시 길이)를 그 자리에서 고쳤다(다운로드 · 파일 태그). 사본은 다음 쓰기 · 주기 저장에서 통째로 다시 쓴다 */
+  onTrackInfo() {
+    this.dirty = true;
+  }
+
   // ── 세션 행 ──
 
   sessionFields() {

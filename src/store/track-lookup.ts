@@ -74,9 +74,9 @@ const DISPLAY_SET = `
  *           옛 곡이 그 결과를 되살리지 않는다
  *   그 밖   넣거나 바꾼다. 음원이 요청과 다르면(자동으로 찾은 결과) 넣은 뒤 그 곡을 ledger 로 표시한다. 다음에 다시 틀거나 저장 세션에서 돌아와도 위 규칙을 따른다
  *
- * `verified`는 "제목을 영상 자체에서 확인했는가"다. 재생목록 페이지가 주는 제목은 같은 영상인데도
+ * `verified`는 "제목을 음원 자체에서 확인했는가"다(유튜브는 영상 자체, 직접 링크는 파일 태그). 재생목록 페이지가 주는 제목은 같은 영상인데도
  * 다를 수 있어(실측: 같은 영상인데 재생목록은 앞에 전각 공백이 붙은 축약 제목을, 영상 자체는
- * 정식 제목을 준다), 그걸로 확인된
+ * 정식 제목을 준다), 직접 링크는 태그를 읽기 전에 파일 이름이 제목이다. 그걸로 확인된
  * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 확인된 제목은 확인된
  * 제목으로만 갱신한다.
  */
@@ -121,7 +121,7 @@ function displayOf(requestKey: string): Pick<TrackInfo, "title" | "artist" | "th
   return row ? { title: row.display_title, artist: row.display_artist ?? undefined, thumbnail: row.display_thumbnail, pageUrl: row.page_url, requestKey: row.request_key, platform: row.platform } : null;
 }
 
-/** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */
+/** 음원 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */
 function getVerifiedTitle(requestKey: string): string | null {
   const row = rowOf(requestKey);
   return row?.title_verified ? row.display_title : null;
