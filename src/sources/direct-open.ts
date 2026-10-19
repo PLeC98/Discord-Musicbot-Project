@@ -16,6 +16,7 @@ type OpenOptions = { bodyIdleMs?: number; accept?: SafeUrl.Accept; from?: number
 type StreamNet = { getStream: (url: string, deps?: undefined, opts?: OpenOptions) => Promise<AudioStream> };
 
 type Opened = { kind: "file"; body: AudioStream; headers: Record<string, unknown>; status: number; length: number | null; radio: boolean } | { kind: "hls"; text: string; url: string } | { kind: "list"; target: string | null } | { kind: "page" | "other" };
+type OpenedFile = Extract<Opened, { kind: "file" }>;
 
 /** 판정하려면 웹 페이지 · 그림도 받아 봐야 한다(판정이 거절한다). 크기 상한 · 홉 대기는 음원과 같다 */
 const OPEN_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
@@ -87,20 +88,29 @@ async function readAll(source: Readable, head: Buffer, ended: boolean): Promise<
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/** 음원으로 연 응답: 헤더 · 크기 · 인터넷 라디오(icy-*)인가. body 는 앞부분을 되돌려 넣은 본문(없으면 원본) */
+function fileOf(source: AudioStream, body: AudioStream = source): OpenedFile {
+  const headers = (source.headers ?? {}) as Record<string, unknown>;
+  const length = Number(headers["content-length"]) > 0 ? Number(headers["content-length"]) : null;
+  const radio = Object.keys(headers).some((name) => name.toLowerCase().startsWith("icy-"));
+  return { kind: "file", body, headers, status: source.status ?? 200, length, radio };
+}
+
 /**
  * 직접 링크를 열어 판정한다. from · to · ifRange 를 주면 그 구간으로 연다(이어받기, 판정 없이 file).
  * 막힌 주소 · 열리지 않음은 SafeUrl 의 오류를 그대로 던진다(부르는 쪽이 일반 문장으로 숨긴다)
  */
 async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, ...opts }: OpenOptions & { net?: StreamNet } = {}): Promise<Opened> {
   const source = await net.getStream(url, undefined, { accept: OPEN_ACCEPT, ...opts });
-  const headers = (source.headers ?? {}) as Record<string, unknown>;
-  const status = source.status ?? 200;
-  const length = Number(headers["content-length"]) > 0 ? Number(headers["content-length"]) : null;
-  const radio = Object.keys(headers).some((name) => name.toLowerCase().startsWith("icy-"));
-  if (opts.from !== undefined) return { kind: "file", body: source, headers, status, length, radio };
+  const file = fileOf(source);
+  if (opts.from !== undefined) return file;
   // 인터넷 라디오는 헤더로 안다(끝이 없어 앞부분을 기다릴 까닭이 없다)
-  if (radio && /^\s*audio\//i.test(String(headers["content-type"] ?? ""))) return { kind: "file", body: source, headers, status, length, radio };
+  if (file.radio && /^\s*audio\//i.test(String(file.headers["content-type"] ?? ""))) return file;
+  return judge(source, url);
+}
 
+/** 앞부분을 읽어 판정한다. 음원이 아니면 연결을 닫는다 */
+async function judge(source: AudioStream, url: string): Promise<Opened> {
   let head: Buffer;
   let ended: boolean;
   try {
@@ -109,8 +119,8 @@ async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, .
     source.destroy();
     throw error;
   }
-  const kind: LinkContent = await contentOf(String(headers["content-type"] ?? ""), head);
-  if (kind === "audio") return { kind: "file", body: withHead(source, head, ended), headers, status, length, radio };
+  const kind: LinkContent = await contentOf(String(source.headers?.["content-type"] ?? ""), head);
+  if (kind === "audio") return fileOf(source, withHead(source, head, ended));
   try {
     if (kind === "hls" || kind === "list") {
       const text = await readAll(source, head, ended);
