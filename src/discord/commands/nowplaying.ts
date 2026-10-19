@@ -3,6 +3,7 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { reply } from "../../ui/frame.ts";
 import { nowPlayingView } from "../../ui/now-playing-info.ts";
+import * as discordArt from "../../ui/discord-art.ts";
 import { LIFETIME, noticeSelf, toSelf } from "../../ui/delivery.ts";
 
 const exported: GuildCommand = {
@@ -15,7 +16,9 @@ const exported: GuildCommand = {
     const player = bot.players.get(interaction.guild.id);
     if (!player) return await noticeSelf(interaction, errors.notice("no-song"));
     if (!player.currentTrack) return await noticeSelf(interaction, errors.notice("no-song"));
-    await toSelf(interaction, reply(nowPlayingView(player, player.currentTrack)), LIFETIME.screen);
+    // 직접 링크 곡은 파일 태그 그림을 첨부한다(ui/discord-art)
+    const art = await discordArt.artFor(player.currentTrack);
+    await toSelf(interaction, reply(nowPlayingView(player, player.currentTrack, art), art?.file && [art.file]), LIFETIME.screen);
   },
 };
 export default exported;

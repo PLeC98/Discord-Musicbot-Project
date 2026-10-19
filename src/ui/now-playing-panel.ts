@@ -62,13 +62,14 @@ type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" |
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 삭제되므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
+/** 패널에 붙여 둔 썸네일이 음표(그림 없는 곡)라는 표시. 그 밖은 파일 태그 그림의 지문 */
+const NO_ART = "no-art";
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
 import { LIFETIME } from "./delivery.ts";
 import { panelId, IDLE_SESSION } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
 import * as discordArt from "./discord-art.ts";
-import { artOf } from "../rules/track-art.ts";
 import { jumpDescription } from "./queue-display.ts";
 import { PanelLocation, type PanelStore } from "./panel-location.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -137,7 +138,7 @@ class NowPlayingPanel {
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
-  noArtAttached = new Set<string>(); // 지금 패널 메시지에 음표 썸네일(그림 없는 곡)을 첨부해 둔 guildId
+  attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표 · 파일 태그 그림의 지문)
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -254,24 +255,24 @@ class NowPlayingPanel {
   }
 
   /**
-   * 재생 중 패널 내용. 그림이 없는 곡의 음표 썸네일은 패널 메시지에 한 번만 올린다(5초 갱신마다 다시 올리지 않는다):
-   * 새로 올리는 패널(fresh) · 그 첨부가 없는 패널이면 올리고, 그림이 있는 곡으로 바뀌면 뗀다
+   * 재생 중 패널 내용. 첨부하는 썸네일(그림이 없는 곡의 음표 · 직접 링크 곡의 파일 태그 그림)은 바뀔 때만 올린다(5초 갱신마다 다시 올리지 않는다):
+   * 새로 올리는 패널(fresh) · 붙어 있는 것과 다르면 올리고, 주소로 거는 그림인 곡으로 바뀌면 뗀다
    */
   async _playingPayload(player: Player, track: QueuedTrack, fresh = false): Promise<Payload> {
-    const container = await this.createNowPlayingContainer(player, track);
+    const art = await discordArt.artFor(track);
+    const container = await this.createNowPlayingContainer(player, track, false, art);
     const jumpToRow = await this.createJumpToRow(player);
     const payload: Payload = { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
     const guildId = player.guild?.id ?? "";
-    const attached = !fresh && this.noArtAttached.has(guildId);
-    if (!artOf(track.thumbnail)) {
-      if (!attached) {
-        payload.files = [await noArtThumbnail.file(colorOf("brand"))];
-        payload.attachments = [];
-      }
-      this.noArtAttached.add(guildId);
-    } else {
+    const attached = fresh ? undefined : this.attachedArt.get(guildId);
+    const wanted = art?.file ? art.fingerprint : art ? null : NO_ART;
+    if (wanted === null) {
       if (attached) payload.attachments = [];
-      this.noArtAttached.delete(guildId);
+      this.attachedArt.delete(guildId);
+    } else if (wanted !== attached) {
+      payload.files = [art?.file ?? (await noArtThumbnail.file(colorOf("brand")))];
+      payload.attachments = [];
+      this.attachedArt.set(guildId, wanted ?? NO_ART);
     }
     return payload;
   }
@@ -371,8 +372,8 @@ class NowPlayingPanel {
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
-  /** 재생 중 패널의 화면(Components V2) */
-  async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false) {
+  /** 재생 중 패널의 화면(Components V2). art: 걸 그림(ui/discord-art, 주지 않으면 여기서 묻는다) */
+  async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false, art?: discordArt.DiscordArt | null) {
     const nowPlayingTitle = panelText.playingTitle();
 
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
@@ -388,10 +389,10 @@ class NowPlayingPanel {
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
 
-    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 그림이 없는 곡(직접 링크 등)은 음표 썸네일(_playingPayload 가 첨부한다).
-    // 디스코드는 눌러서 크게 보여 주므로 큰 그림을 건다(곡마다 처음 한 번 있는지 물어 본다)
-    await discordArt.prepare(track.thumbnail);
-    const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(discordArt.urlOf(track.thumbnail) ?? noArtThumbnail.url));
+    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 그림이 없는 곡은 음표 썸네일(_playingPayload 가 첨부한다).
+    // 디스코드는 눌러서 크게 보여 주므로 큰 그림을 건다(곡 그림 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 그림)
+    const shown = art === undefined ? await discordArt.artFor(track) : art;
+    const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(shown?.url ?? noArtThumbnail.url));
 
     const statusParts = statusOf(player);
 
@@ -432,7 +433,7 @@ class NowPlayingPanel {
       this.editFailures.get(player.guild.id)?.ok();
     } catch (error) {
       // 첨부가 실렸는지 모르니 다음에 다시 올린다
-      this.noArtAttached.delete(player.guild.id);
+      this.attachedArt.delete(player.guild.id);
       await this._onEditFailed(player, error);
     }
   }

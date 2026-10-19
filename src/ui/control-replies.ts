@@ -5,6 +5,7 @@ import * as errors from "./text/ko/errors.ts";
 import { formatDuration, formatMs } from "./format.ts";
 import * as controlText from "./text/ko/controls.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
+import type { DiscordArt } from "./discord-art.ts";
 
 type Track = { title: string | null; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */
@@ -65,10 +66,10 @@ function highlighted(ms: number) {
 
 /** 처음부터 다시 트는 동안 */
 const replaying = () => frame({ body: controlText.replaying() });
-/** 처음부터 다시 틀었다 */
-function replayed(track: Track, by: Actor) {
+/** 처음부터 다시 틀었다. art: 걸 그림(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡 그림 주소 */
+function replayed(track: Track, by: Actor, art?: DiscordArt | null) {
   const t = controlText.replayed(track);
-  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true, thumbnail: track.thumbnail });
+  return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true, thumbnail: art === undefined ? track.thumbnail : (art?.url ?? null) });
 }
 
 /** 위치를 옮기는 동안 */

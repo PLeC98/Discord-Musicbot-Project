@@ -45,12 +45,15 @@ const headOf = (notice: Notice) => `${EMOJI[notice.topic]} ${notice.title}`;
 /** 오류 · 경고 안내의 화면 */
 const noticeFrame = (notice: Notice) => frame({ title: headOf(notice), body: notice.body, color: notice.severity });
 
+/** 화면에 첨부하는 파일(썸네일을 attachment:// 로 건 곡 그림) */
+type Attachment = { attachment: Buffer; name: string };
+const withFiles = (files: Attachment[] | undefined) => (files?.length ? { files } : {});
 /** 새 응답(본인에게만) */
-const reply = (container: ContainerBuilder) => ({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const });
+const reply = (container: ContainerBuilder, files?: Attachment[]) => ({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const, ...withFiles(files) });
 /** 채널에 보내는 메시지, 또는 처음부터 Components V2 로 보낸 메시지 · 응답을 고칠 때 */
-const post = (container: ContainerBuilder) => ({ components: [container], flags: [MessageFlags.IsComponentsV2] as const });
+const post = (container: ContainerBuilder, files?: Attachment[]) => ({ components: [container], flags: [MessageFlags.IsComponentsV2] as const, ...withFiles(files) });
 /** 오류 · 경고 안내를 새 응답으로(본인에게만) */
 const noticeReply = (notice: Notice) => reply(noticeFrame(notice));
 
 export { frame, noticeFrame, noticeReply, reply, post, EMOJI };
-export type { Look };
+export type { Look, Attachment };

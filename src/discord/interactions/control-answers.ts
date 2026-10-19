@@ -5,6 +5,7 @@ import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../../usecases/controls.ts";
 import { controlMessage } from "../../ui/control-messages.ts";
 import * as replies from "../../ui/control-replies.ts";
+import * as discordArt from "../../ui/discord-art.ts";
 import { noticeFrame, reply } from "../../ui/frame.ts";
 import { LIFETIME, noticeMs, noticeSelf, replaceSelf, toAll } from "../../ui/delivery.ts";
 import { showFailureWith } from "../../ui/failure-notice.ts";
@@ -75,7 +76,9 @@ const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () =
 async function answerReplay(interaction: Asked, player: MaybePlayer) {
   const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.replayed(r.track, interaction.member), LIFETIME.result);
+  // 직접 링크 곡은 파일 태그 그림을 첨부한다(ui/discord-art)
+  const art = await discordArt.artFor(r.track);
+  return toAll(interaction, replies.replayed(r.track, interaction.member, art), LIFETIME.result, art?.file && [art.file]);
 }
 
 /** 곡 안의 위치로. ms 는 옮길 위치 */

@@ -9,8 +9,10 @@ import * as infoText from "./text/ko/info.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import { songTitle } from "./text/ko/labels.ts";
+import type { DiscordArt } from "./discord-art.ts";
 
-function nowPlayingView(player: Player, track: QueuedTrack) {
+/** art: 걸 그림(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡 그림 주소 */
+function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | null) {
   const t = infoText.nowPlaying();
   // 길이를 모르는 곡(라이브 아님)은 진행을 뺀다
   const live = Boolean(player.isLive ?? track.isLive);
@@ -19,7 +21,7 @@ function nowPlayingView(player: Player, track: QueuedTrack) {
   return frame({
     title: t.title,
     body: `**[${songTitle(track.title)}](${track.pageUrl})**`,
-    thumbnail: track.thumbnail,
+    thumbnail: art === undefined ? track.thumbnail : (art?.url ?? null),
     footer: [track.artist ? `${t.artist} ${track.artist}` : null, track.album ? `${t.album} ${track.album}` : null, `${t.platform} ${emojiOf(platform)} ${labelOf(platform)}`, progress ? `${t.progress} ${progress}` : null, track.requestedBy ? `${t.requester} <@${track.requestedBy.id}>` : null, `${t.status} ${infoText.nowPlayingStatus(playbackStatus(player))}`],
   });
 }

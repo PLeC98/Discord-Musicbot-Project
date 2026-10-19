@@ -16,6 +16,7 @@ import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
+import { remember } from "../helpers/tagged-audio.ts";
 
 useDefaultDocuments();
 // 권한 판정이 서버 설정(DJ 역할)을 읽는다
@@ -25,10 +26,12 @@ after(() => store.close());
 const guild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: { id: "vc1" } } } } });
 const member = fake<GuildMember>({ id: "u1", guild, permissions: { has: () => true }, voice: { channel: { id: "vc1" } }, roles: { cache: new Map() }, toString: () => "<@u1>" });
 
-type Payload = { components: Array<{ toJSON(): unknown }>; flags: unknown };
+type Payload = { components: Array<{ toJSON(): unknown }>; flags: unknown; files?: Array<{ name: string }> };
 
 function asked() {
   const log: Array<[string, string[], unknown]> = [];
+  // 채널에 보낸 첨부 이름
+  const sentFiles: string[][] = [];
   const it = {
     ...interactionKind("command"),
     member,
@@ -40,9 +43,9 @@ function asked() {
     },
     editReply: async (p: Payload) => log.push(["editReply", textsOf(p), p.flags]),
     deleteReply: async () => log.push(["deleteReply", [], null]),
-    channel: { send: async (p: Payload) => (log.push(["send", textsOf(p), p.flags]), { id: "c1", delete: async () => {} }) },
+    channel: { send: async (p: Payload) => (log.push(["send", textsOf(p), p.flags]), p.files && sentFiles.push(p.files.map((file) => file.name)), { id: "c1", delete: async () => {} }) },
   };
-  return { it: fake<Parameters<typeof answerReplay>[0]>(it), log };
+  return { it: fake<Parameters<typeof answerReplay>[0]>(it), log, sentFiles };
 }
 
 function player(over: object = {}) {
@@ -72,6 +75,15 @@ test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로
     ["send", ["### 🔄 곡을 되감았어요!\n**[곡](https://u.test)**을 처음부터 재생할게요.", "-# 👤 요청한 사람 <@u1>"], CV2],
   ]);
   assert.deepEqual(lifetimesOf(it), [LIFETIME.result]);
+});
+
+test("처음부터: 직접 링크 곡은 결과에 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
+  const url = "https://files.test/replay-art.mp3";
+  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  const { it, sentFiles } = asked();
+  const { p } = player({ currentTrack: { title: "파일", pageUrl: url, requestKey: url, audioUrl: url, duration: 300, thumbnail: null, platform: "direct" } });
+  await answerReplay(it, p);
+  assert.deepEqual(sentFiles, [["art.jpg"]]);
 });
 
 test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. 곡 길이를 넘으면 받아들이지 않고 안내", async () => {

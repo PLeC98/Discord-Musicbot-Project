@@ -17,6 +17,7 @@ import { settingsDb } from "../../src/store/settings-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
+import { remember } from "../helpers/tagged-audio.ts";
 import { fake, fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/player.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
@@ -147,6 +148,19 @@ test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상�
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
   assert.equal(headOf(log[0][1] as never), "### 🎵 현재 재생 중");
+});
+
+test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
+  const url = "https://files.test/nowplaying-art.mp3";
+  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  const track = { title: "파일", url, pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 3, thumbnail: null };
+  const { it, log, bot } = interaction({ player: nowPlayer(track) });
+  await run(await command("nowplaying"), it, bot);
+  assert.equal(thumbnailOf(log[0][1] as never), "attachment://art.jpg");
+  assert.deepEqual(
+    (log[0][1] as { files?: Array<{ name: string }> }).files?.map((file) => file.name),
+    ["art.jpg"],
+  );
 });
 
 test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 진입점이 알린다", async () => {

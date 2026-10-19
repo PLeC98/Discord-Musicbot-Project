@@ -10,6 +10,7 @@ import * as tempStore from "../helpers/temp-store.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
+import { remember } from "../helpers/tagged-audio.ts";
 
 // 큰 그림 확인은 네트워크로 나가지 않게: 모든 영상에 큰 그림이 있다고 답한다
 discordArt.useHead(async () => ({ ok: true, status: 200 }));
@@ -53,6 +54,25 @@ test("그림이 없는 곡은 음표 썸네일: 패널 메시지에 한 번만 �
   assert.deepEqual(shape(swapped), [null, []], "그림이 있는 곡: 뗀다");
   assert.ok(JSON.stringify(swapped.components[0].toJSON()).includes("https://i.ytimg.com/vi/abcdefghijk/maxresdefault.jpg"), "그림은 큰 것으로(ui/discord-art)");
   assert.deepEqual(shape(await mem._playingPayload(player, bare)), [["no-art.png"], []], "다시 그림 없는 곡: 올린다");
+});
+
+test("직접 링크 곡의 파일 태그 그림: 첨부해 걸고 같은 그림이면 다시 올리지 않는다. 음표 → 그림 → 같은 그림 → 주소 그림 → 음표", async (t) => {
+  const url = "https://files.test/panel-art.mp3";
+  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  const mem = newManager();
+  const player = fakePlayer({ guild: { id: "g-file-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const bare: QueuedTrack = { title: "파일", pageUrl: "https://files.test/none.mp3", requestKey: "https://files.test/none.mp3", audioUrl: "https://files.test/none.mp3", duration: 127, platform: "direct", thumbnail: null };
+  const tagged: QueuedTrack = { ...bare, title: "태그", pageUrl: url, requestKey: url, audioUrl: url };
+  const video: QueuedTrack = { ...bare, title: "영상", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" };
+  const shape = (payload: { files?: Array<{ name: string }>; attachments?: [] }) => [payload.files?.map((one) => one.name) ?? null, payload.attachments ?? null];
+
+  assert.deepEqual(shape(await mem._playingPayload(player, bare, true)), [["no-art.png"], []], "그림을 모르는 곡: 음표");
+  const withArt = await mem._playingPayload(player, tagged);
+  assert.deepEqual(shape(withArt), [["art.jpg"], []], "파일 태그 그림으로 바꿔 올린다");
+  assert.ok(JSON.stringify(withArt.components[0].toJSON()).includes("attachment://art.jpg"));
+  assert.deepEqual(shape(await mem._playingPayload(player, tagged)), [null, null], "같은 그림: 다시 올리지 않는다");
+  assert.deepEqual(shape(await mem._playingPayload(player, video)), [null, []], "주소로 거는 그림: 뗀다");
+  assert.deepEqual(shape(await mem._playingPayload(player, bare)), [["no-art.png"], []], "다시 음표");
 });
 
 test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {

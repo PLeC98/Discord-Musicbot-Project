@@ -10,7 +10,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
-import { noticeReply, post } from "./frame.ts";
+import { noticeReply, post, type Attachment } from "./frame.ts";
 import { scheduleDelete } from "./transient-messages.ts";
 
 /** 응답의 수명(ms). null 은 삭제하지 않는다 */
@@ -90,12 +90,12 @@ function noticeSelf(interaction: RepliableInteraction, notice: Notice) {
 
 /**
  * 모두에게. 아직 답하지 않았으면 공개 응답으로, 본인 자리표시자를 표시했으면 그것을 삭제하고 채널에 새로 보낸다
- * (채널에 쓸 수 없으면 공개 후속 메시지). ms 뒤 삭제한다
+ * (채널에 쓸 수 없으면 공개 후속 메시지). ms 뒤 삭제한다. files: 화면이 attachment:// 로 건 첨부
  */
-async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null) {
+async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null, files?: Attachment[]) {
   record(interaction, ms);
   if (!interaction.replied && !interaction.deferred) {
-    const { resource } = await interaction.reply({ ...post(view), withResponse: true });
+    const { resource } = await interaction.reply({ ...post(view, files), withResponse: true });
     const id = resource?.message?.id;
     if (id && ms !== null) scheduleDelete({ id, delete: () => interaction.deleteReply() }, ms);
     return;
@@ -103,24 +103,24 @@ async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, 
   await interaction.deleteReply().catch(() => {
     /* 자리표시자가 이미 삭제됐다 */
   });
-  return postNew(interaction, view, ms);
+  return postNew(interaction, view, ms, files);
 }
 
 /**
  * 모두에게 새 메시지로 보내고 ms 뒤 삭제한다. 채널에 쓸 수 없으면(권한 없음 등) 공개 후속 메시지로.
  * 상호작용 응답은 채널 권한이 없어도 되므로 봇이 글을 못 쓰는 채널에서도 결과는 보인다
  */
-async function postNew(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null) {
+async function postNew(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null, files?: Attachment[]) {
   if (canSend(interaction.channel)) {
     try {
-      const message = await interaction.channel.send(post(view));
+      const message = await interaction.channel.send(post(view, files));
       if (ms !== null) scheduleDelete(message, ms);
       return;
     } catch (error) {
       log.debug(`채널에 보내지 못해 후속 메시지로 보냅니다: ${messageOf(error)}`);
     }
   }
-  const message = await interaction.followUp(post(view));
+  const message = await interaction.followUp(post(view, files));
   if (ms !== null) scheduleDelete({ id: message.id, delete: () => interaction.deleteReply(message.id) }, ms);
 }
 

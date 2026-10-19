@@ -1,8 +1,10 @@
 // 디스코드에 거는 곡 그림. 디스코드는 눌러서 크게 보여 주므로 큰 그림을 건다.
 // 유튜브 maxresdefault 는 옛 영상에 없어(404) 영상마다 한 번 물어 본다. 없거나 물어 보지 못하면 늘 있는 hqdefault(480×360).
-// 물어 보기는 prepare 가 하고(재생 패널을 그리기 전), 그리는 쪽은 urlOf 로 아는 답만 쓴다(모르면 hqdefault)
+// 물어 보기는 prepare 가 하고(재생 패널을 그리기 전), 그리는 쪽은 urlOf 로 아는 답만 쓴다(모르면 hqdefault).
+// 곡 그림 주소가 없는 직접 링크 곡은 찾아 둔 파일 태그 그림(sources/embedded-art)을 첨부한다(artFor). 디스코드에는 봇의 공개 주소가 없다
 
 import { artOf, youtubeArt, youtubeIdOf } from "../rules/track-art.ts";
+import * as embeddedArt from "../sources/embedded-art.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 
@@ -47,7 +49,30 @@ function urlOf(url: string | null | undefined): string | null {
   return youtubeArt(videoId, known.get(videoId) ? "large" : "standard");
 }
 
-export { prepare, urlOf };
+/** 첨부하는 파일 태그 그림의 이름 */
+const ART_NAME = "art.jpg";
+
+/** 디스코드에 걸 그림: 주소, 첨부라면 그 파일과 지문(패널이 무엇을 붙였는지 기억한다) */
+type DiscordArt = { url: string; file?: { attachment: Buffer; name: string }; fingerprint?: string };
+
+/**
+ * 이 곡에 걸 그림. 곡 그림 주소가 있으면 그 큰 것(유튜브는 큰 그림이 있는지 물어 둔다), 직접 링크 곡이면 찾아 둔 파일 태그 그림의 첨부.
+ * 파일 태그 그림은 메모리 · 캐시 파일에서만 읽는다(통신을 기다리지 않는다. 모르면 null 이고, 찾으면 플레이어가 새로 그린다)
+ */
+async function artFor(track: { thumbnail?: string | null; audioUrl?: string } | null | undefined): Promise<DiscordArt | null> {
+  if (!track) return null;
+  if (artOf(track.thumbnail)) {
+    await prepare(track.thumbnail);
+    const url = urlOf(track.thumbnail);
+    return url ? { url } : null;
+  }
+  const art = embeddedArt.artFor(track);
+  const jpeg = art ? await embeddedArt.imageOf(art.fingerprint) : null;
+  return art && jpeg ? { url: `attachment://${ART_NAME}`, file: { attachment: jpeg, name: ART_NAME }, fingerprint: art.fingerprint } : null;
+}
+
+export { prepare, urlOf, artFor };
+export type { DiscordArt };
 export const _internals = {
   useHead(fake: Head) {
     head = fake;

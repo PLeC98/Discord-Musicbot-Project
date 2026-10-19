@@ -14,7 +14,12 @@ type Over = { replied?: boolean; deferred?: boolean; command?: boolean; componen
 // 부른 순서를 적는 상호작용. 보낸 것은 flags 로 본인 · 모두를 구분한다
 function asked({ replied = false, deferred = false, command = true, component = false, channel = true, denied = false }: Over = {}) {
   const calls: string[] = [];
-  const visible = (p: { flags?: unknown }) => ([p.flags].flat().includes(MessageFlags.Ephemeral) ? "self" : "all");
+  // 보낸 첨부 이름(응답 · 후속 · 채널)
+  const files: string[][] = [];
+  const visible = (p: { flags?: unknown; files?: Array<{ name: string }> }) => {
+    if (p.files) files.push(p.files.map((file) => file.name));
+    return [p.flags].flat().includes(MessageFlags.Ephemeral) ? "self" : "all";
+  };
   const it = {
     replied,
     deferred,
@@ -31,15 +36,15 @@ function asked({ replied = false, deferred = false, command = true, component = 
     deleteReply: async (id?: string) => calls.push(id ? `delete:${id}` : "delete"),
     channel: channel
       ? {
-          send: async () => {
-            calls.push("send");
+          send: async (p: { files?: Array<{ name: string }> }) => {
+            calls.push(`send:${visible(p)}`.replace(":all", ""));
             if (denied) throw new Error("Missing Permissions");
             return { id: "C", delete: async () => calls.push("delete:C") };
           },
         }
       : null,
   };
-  return { it, calls, real: fake<RepliableInteraction>(it) };
+  return { it, calls, files, real: fake<RepliableInteraction>(it) };
 }
 
 const view = () => frame({ title: "결과" });
@@ -162,4 +167,19 @@ test("모두: 지우지 않는 수명(null)이면 남긴다", async (t) => {
   await Promise.resolve();
   assert.deepEqual(a.calls, ["reply:all"]);
   assert.deepEqual(lifetimesOf(a.it), [null]);
+});
+
+test("모두: 화면이 attachment:// 로 건 첨부를 응답 · 채널 메시지 · 후속 메시지에 함께 보낸다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const art = [{ attachment: Buffer.from("jpeg"), name: "art.jpg" }];
+  const a = asked();
+  await toAll(a.real, view(), 15_000, art);
+  const b = asked({ replied: true });
+  await toAll(b.real, view(), 15_000, art);
+  const c = asked({ replied: true, channel: false });
+  await toAll(c.real, view(), 15_000, art);
+  assert.deepEqual([a.files, b.files, c.files], [[["art.jpg"]], [["art.jpg"]], [["art.jpg"]]]);
+  const none = asked();
+  await toAll(none.real, view(), 15_000);
+  assert.deepEqual(none.files, [], "첨부가 없으면 files 를 싣지 않는다");
 });
