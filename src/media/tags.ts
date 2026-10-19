@@ -9,9 +9,9 @@ type Picture = { data: Uint8Array; format: string };
 type Tags = { title: string | null; artist: string | null; album: string | null; picture: Picture | null };
 /**
  * maxBytes: 받는 바이트 상한(따로 받는 moov 포함), timeoutMs: 다 읽기까지의 시간 상한.
- * rangeFrom: MP4 의 moov 가 mdat 뒤에 있을 때 그 자리(start 바이트)부터 받는 스트림. 없으면 그 파일은 읽지 않는다
+ * rangeFrom: MP4 의 moov 가 mdat 뒤에 있을 때 그 자리(start 바이트)부터 받는 스트림. 없거나 null(서버가 이어 받기를 따르지 않음)이면 그 파일은 읽지 않는다
  */
-type StreamLimits = { maxBytes: number; timeoutMs: number; rangeFrom?: (start: number) => Promise<Readable> };
+type StreamLimits = { maxBytes: number; timeoutMs: number; rangeFrom?: (start: number) => Promise<Readable | null> };
 
 /** 파일을 읽을 때 한 번에 버퍼에 담는 상한(라이브러리의 상한). 그림 하나 · 태그 하나가 이보다 크면 읽지 않는다 */
 const FILE_MAX_ALLOCATION = 16 * 1024 * 1024;
@@ -127,6 +127,7 @@ async function mp4Tags(prefix: Prefix, limits: StreamLimits, budget: { left: num
   const moov = await moovFrom(prefix, async (after) => {
     if (!limits.rangeFrom) return null;
     const rest = await limits.rangeFrom(after);
+    if (!rest) return null;
     opened.push(rest);
     return moovFrom(new Prefix(reader(rest), budget), async () => null);
   });

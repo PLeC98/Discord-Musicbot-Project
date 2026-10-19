@@ -120,6 +120,7 @@ test("스트림 MP4: moov 가 mdat 뒤면 그 자리를 따로 받고, 받을 �
   assert.ok(main.sent.bytes < bytes.length / 2, `mdat 을 다 받지 않는다(${main.sent.bytes} / ${bytes.length})`);
 
   assert.equal(await fromStream(trickle(bytes).stream, LIMITS), null, "rangeFrom 이 없으면 읽지 않는다");
+  assert.equal(await fromStream(trickle(bytes).stream, { ...LIMITS, rangeFrom: async () => null }), null, "서버가 이어 받기를 따르지 않으면 읽지 않는다");
 });
 
 test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면 던진다, 스트림 오류도 던진다", { timeout: 30_000 }, async (t) => {

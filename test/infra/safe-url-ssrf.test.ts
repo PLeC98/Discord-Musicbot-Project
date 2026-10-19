@@ -183,6 +183,33 @@ test("getStream도 같은 검증 경로를 지난다", async () => {
   assert.equal(calls.length, 0);
 });
 
+test("getStream 이어 받기: from 을 주면 Range 를 리다이렉트 홉마다 다시 보내고, 받는 쪽에 응답 상태를 넘긴다", async () => {
+  lookupImpl = async () => [{ address: "1.1.1.1", family: 4 }];
+  responder = (_request, n) => (n === 1 ? reply(302, { location: "http://example.com/b.m4a" }) : reply(206, { ...AUDIO, "content-range": "bytes 100-199/200" }));
+  const stream = await safeUrl.getStream("http://example.com/a.m4a", deps, { from: 100 });
+  stream.destroy();
+  assert.deepEqual(
+    calls.map((call) => call.headers.Range),
+    ["bytes=100-", "bytes=100-"],
+  );
+  assert.equal(stream.status, 206);
+  assert.equal(safeUrl.servedFrom(stream), 100);
+
+  calls.length = 0;
+  responder = () => reply(200, AUDIO);
+  const plain = await getStream("http://example.com/a.mp3");
+  plain.destroy();
+  assert.equal(calls[0].headers.Range, undefined, "from 이 없으면 보내지 않는다");
+});
+
+test("servedFrom: 206 은 Content-Range 의 시작, 그 밖은 처음부터, 깨진 Content-Range 는 null", () => {
+  assert.equal(safeUrl.servedFrom({ status: 206, headers: { "content-range": "bytes 3871982-3957268/3957269" } }), 3871982);
+  assert.equal(safeUrl.servedFrom({ status: 206, headers: { "content-range": "bytes 5-9/*" } }), 5);
+  assert.equal(safeUrl.servedFrom({ status: 200, headers: {} }), 0, "Range 를 무시하고 전체를 줬다");
+  assert.equal(safeUrl.servedFrom({ status: 206, headers: {} }), null);
+  assert.equal(safeUrl.servedFrom({ status: 206, headers: { "content-range": "items 1-2/3" } }), null);
+});
+
 // getBuffer: 작은 파일을 끝까지 다운로드한다(파비콘 링크로 추가). 다운로드할 것의 조건은 부르는 쪽이 정한다
 const IMAGE: Accept = { contentType: /^image\/png/i, maxBytes: 8, timeoutMs: 1000 };
 const getBuffer = (url: string) => safeUrl.getBuffer(url, IMAGE, deps);

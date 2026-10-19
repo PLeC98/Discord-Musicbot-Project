@@ -140,7 +140,7 @@ function send({ method, url, agent, timeoutMs, headers }: Outgoing): Promise<Inc
  * 가드된 요청 + 수동 리다이렉트 루프. 각 홉을 재검증·핀 접속한다.
  * 호출측이 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
  */
-async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS) {
+async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, extra: Record<string, string> = {}) {
   let currentUrl = rawUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -149,7 +149,8 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
 
     let response;
     try {
-      response = await request({ method, url, agent, timeoutMs, headers: { "User-Agent": config.userAgents.browser } });
+      // 덧붙인 헤더(Range)는 홉마다 다시 보낸다
+      response = await request({ method, url, agent, timeoutMs, headers: { "User-Agent": config.userAgents.browser, ...extra } });
     } catch (err) {
       agent.destroy();
       throw err;
@@ -246,9 +247,10 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
  * 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws
  * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다).
  * accept: 받을 것의 조건(Content-Type · 크기 상한 · 홉마다의 응답 대기). 기본은 음원(직접 링크)
+ * from: 이 바이트부터 받는다(Range). 서버가 따르지 않을 수 있어 받는 쪽이 상태 · 헤더로 확인한다(servedFrom)
  */
-async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK }: { bodyIdleMs?: number; accept?: Accept } = {}) {
-  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs);
+async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from }: { bodyIdleMs?: number; accept?: Accept; from?: number } = {}) {
+  const { response, agent } = await guardedRequest("GET", rawUrl, deps, accept.timeoutMs, from === undefined ? {} : { Range: `bytes=${from}-` });
   const source = response.body;
   try {
     assertResponseAllowed(response.headers, accept);
@@ -258,8 +260,8 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
     throw err;
   }
 
-  // 받는 쪽이 음원의 버전(ETag 등)을 읽는다
-  const capped = Object.assign(byteCap(accept.maxBytes), { headers: response.headers });
+  // 받는 쪽이 음원의 버전(ETag 등) · 이어 받기가 됐는지(상태)를 읽는다
+  const capped = Object.assign(byteCap(accept.maxBytes), { headers: response.headers, status: response.status });
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리
   });
@@ -291,7 +293,14 @@ async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {})
   }
 }
 
-export { SsrfError, head, getStream, getBuffer, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES };
+/** 받은 응답이 몇 바이트째부터인가: 206 이면 Content-Range 의 시작(없거나 깨졌으면 null), 그 밖은 처음부터(0) */
+function servedFrom({ status, headers }: { status: number; headers: Record<string, unknown> }): number | null {
+  if (status !== 206) return 0;
+  const range = /^\s*bytes\s+(\d+)-\d+\/(?:\d+|\*)\s*$/i.exec(String(headers["content-range"] ?? ""));
+  return range ? Number(range[1]) : null;
+}
+
+export { SsrfError, head, getStream, getBuffer, servedFrom, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES, DIRECT_LINK, HEAD_TIMEOUT_MS };
 // 테스트가 진짜 소켓으로 보는 것
 export const _internals = { send, createPinnedAgent };
 export type { Accept, LookupFn, HttpRequest, RequestDeps, Outgoing, Incoming };
