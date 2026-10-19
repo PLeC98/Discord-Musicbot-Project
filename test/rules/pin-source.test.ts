@@ -17,12 +17,14 @@ test("지정할 음원: 사운드클라우드는 곡만, 짧은 링크는 받지
   assert.deepEqual(checkPinAudio("https://soundcloud.com/kikuo/sets/best"), { ok: false, code: "not-single-track" });
 });
 
-test("지정할 음원: 직접 링크 오디오는 받고, 스포티파이 · 검색어 · 모르는 주소는 막는다", () => {
-  const direct = checkPinAudio("https://files.example.net/song.mp3");
-  assert.ok(direct.ok && direct.kind === "direct" && direct.audioKey.startsWith("dl:"));
+test("지정할 음원: 직접 링크는 받고(음원인지는 열 때 본다), 스포티파이 · 검색어 · 알려진 사이트의 다른 주소는 막는다", () => {
+  for (const url of ["https://files.example.net/song.mp3", "https://radio.example.net:8000/live"]) {
+    const direct = checkPinAudio(url);
+    assert.ok(direct.ok && direct.kind === "direct" && direct.audioKey.startsWith("dl:"), url);
+  }
   assert.deepEqual(checkPinAudio("https://open.spotify.com/track/3dPQuX8Gs42Y7b454ybpMR"), { ok: false, code: "not-audio-source" });
   assert.deepEqual(checkPinAudio("yoasobi idol"), { ok: false, code: "unsupported-link" });
-  assert.deepEqual(checkPinAudio("https://example.com/page"), { ok: false, code: "unsupported-link" });
+  assert.deepEqual(checkPinAudio("https://www.youtube.com/@channel"), { ok: false, code: "unsupported-link" });
 });
 
 test("원래 링크: 곡 하나의 링크만, 링크 데이터와 같은 형식으로", () => {
@@ -31,5 +33,5 @@ test("원래 링크: 곡 하나의 링크만, 링크 데이터와 같은 형식�
   for (const url of ["https://open.spotify.com/album/abc", "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123", "https://soundcloud.com/kikuo/sets/best", "yoasobi idol"]) {
     assert.deepEqual(checkPinRequest(url), { ok: false, code: "not-single-track" }, url);
   }
-  assert.deepEqual(checkPinRequest("https://example.com/page"), { ok: false, code: "unsupported-link" });
+  assert.deepEqual(checkPinRequest("https://open.spotify.com/episode/abc"), { ok: false, code: "unsupported-link" });
 });

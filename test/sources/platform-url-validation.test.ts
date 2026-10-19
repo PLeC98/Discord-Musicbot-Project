@@ -6,6 +6,7 @@ const links = await import("../../src/rules/links.ts");
 import assert from "node:assert/strict";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
+import { codedError } from "../../src/rules/error-kind.ts";
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonical-url.ts");
 
@@ -78,15 +79,24 @@ test("cache normalization only canonicalizes genuine YouTube URLs", () => {
   assert.equal(canonicalUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 });
 
-// 유튜브가 아닌 사이트도 같다. 주소 글자를 검색어로 쓰면 엉뚱한 곡이 나오고, 링크 데이터가 맞으면 엉뚱한 캐시 파일이 나온다
-test("모르는 사이트의 링크도 거절하고, 링크 데이터를 보지 않는다", async () => {
+// 알려진 사이트 밖의 링크는 직접 링크 후보다. 열어 보니 웹 페이지면 거절한다(검색으로 흘리지 않는다)
+test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async () => {
+  const opened: string[] = [];
+  const direct = {
+    getInfo: async (url: string) => {
+      opened.push(url);
+      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+    },
+  };
   for (const url of ["https://anilist.co/anime/21827", "https://chzzk.naver.com/live/abc", "http://example.com/page"]) {
-    assert.equal(lookup.isUnsupportedLink(url), true, url);
-    const result = await lookup.resolveQuery(url, "test");
+    assert.equal(lookup.isUnsupportedLink(url), false, url);
+    const result = await lookup.getTrackData(url, "test", {}, { direct });
     assert.equal(result.success, false, url);
     assert.equal(result.code, "unsupported-link", url);
     assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.", url);
   }
+  assert.equal(opened.length, 3);
+  assert.equal(lookup.isUnsupportedLink("https://open.spotify.com/episode/abc"), true, "알려진 사이트의 다른 주소는 열지 않고 거절");
   assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI 는 링크 모양이 달라도 다룬다");
   assert.equal(lookup.isUnsupportedLink("https://cdn.example.com/a.mp3"), false, "직접 링크");
 });

@@ -6,7 +6,7 @@ import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf, md5 } from "../../src/rules/audio-key-of.ts";
 import { parseSoundCloudURL } from "../../src/rules/links.ts";
-test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 본다", () => {
+test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소는 unknown, 나머지 http(s) 는 직접 링크", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],
     ["https://youtu.be/abcdefghijk", "youtube"],
@@ -16,11 +16,19 @@ test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 
     ["https://soundcloud.com/artist/track", "soundcloud"],
     ["https://soundcloud.com/artist/track.mp3", "soundcloud"],
     ["https://cdn.example.com/a.mp3", "direct"],
-    // 유튜브 호스트지만 모르는 형태. 확장자가 맞으면 직접 링크가 된다(지금 답 그대로)
+    // 알려진 사이트의 다른 모양은 확장자가 있어도 그 사이트의 페이지다
     ["https://www.youtube.com/clip/abc", "unknown"],
-    ["https://www.youtube.com/x.mp3", "direct"],
-    ["https://anilist.co/anime/1", "unknown"],
-    ["http://example.com/page", "unknown"],
+    ["https://www.youtube.com/x.mp3", "unknown"],
+    ["https://open.spotify.com/episode/abc", "unknown"],
+    ["https://spotify.link/AbCd", "unknown"],
+    ["https://soundcloud.com/", "unknown"],
+    ["https://cdn.soundcloud.com/x", "unknown"],
+    // 나머지는 확장자가 없어도 후보다(음원인지는 열어 본 응답으로)
+    ["https://anilist.co/anime/1", "direct"],
+    ["http://example.com/page", "direct"],
+    ["https://radio.test:8000/;", "direct"],
+    ["https://notyoutube.com/watch?v=abcdefghijk", "direct"],
+    ["ftp://x.test/a.mp3", "search"],
     ["그냥 검색어", "search"],
     ["youtube.com/watch?v=abcdefghijk", "search"], // 주소처럼 생겨도 http(s) 가 없으면 검색어다
     [undefined, "search"],
@@ -57,12 +65,13 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", ()
     ["https://api-v2.soundcloud.com/tracks/368141150", "sc:api-v2.soundcloud.com/tracks/368141150"], // 재생목록을 훑어 읽은 곡
     ["https://cdn.example.com/a.mp3", `dl:${md5("https://cdn.example.com/a.mp3")}`],
     ["https://cdn.example.com/a.mp3?token=1", `dl:${md5("https://cdn.example.com/a.mp3?token=1")}`], // 서명된 주소는 쿼리까지
-    // 자동재생 음원(AnisongDB 는 소리 · 영상 파일, AnimeThemes 는 ogg). 확장자가 있어야 직접 링크로 받는다
+    // 자동재생 음원(AnisongDB 는 소리 · 영상 파일, AnimeThemes 는 ogg)
     ["https://nawdist.animemusicquiz.com/abcdef.mp3", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.mp3")}`],
     ["https://nawdist.animemusicquiz.com/abcdef.webm", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.webm")}`],
     ["https://a.animethemes.moe/Title-OP1.ogg", `dl:${md5("https://a.animethemes.moe/Title-OP1.ogg")}`],
     ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj", null], // 소리가 여기서 오지 않는다
-    ["https://anilist.co/anime/1", null],
+    ["https://anilist.co/anime/1", `dl:${md5("https://anilist.co/anime/1")}`], // 주소만으로는 웹 페이지인지 모른다
+    ["https://www.youtube.com/@channel", null],
     [undefined, null],
   ];
   for (const [input, want] of cases) assert.equal(audioKeyOf(input), want, String(input));

@@ -46,7 +46,7 @@ function detectPlatform(query: string) {
 }
 
 /**
- * 우리가 다루지 않는 링크인가(유튜브 클립 · 채널 · 검색 결과 페이지, 모르는 사이트).
+ * 우리가 다루지 않는 링크인가(유튜브 클립 · 채널 · 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
  *
  * 이런 주소를 검색으로 흘리면 URL 문자열 자체가 검색어가 되어 엉뚱한 영상이 재생되기에 재생을 거절한다.
  * (클립은 2026년 유튜브가 기능을 없앴다. 지원 대상이 아니다.)
@@ -161,8 +161,8 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
  * 캐시 숏컷 포함 해석. 캐시된 단일 곡은 yt-dlp 호출 없이 즉시 반환.
  * 재생목록 URL은 캐시를 우회: URL 정규화가 list=를 제거하므로 캐시된 단일 영상이 재생목록 전체를 가릴 수 있음.
  * 사운드클라우드도 곡 링크만 캐시를 본다(세트 · 곡인지 모르는 짧은 링크 · 모음은 우회).
- * 지원하지 않는 링크(모르는 사이트 · 유튜브 클립 등)도 우회한다. 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
- * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
+ * 지원하지 않는 링크(유튜브 클립 등)도 우회한다. 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
+ * 캐시가 그 엉뚱한 영상을 그대로 돌려준다. 같은 까닭으로 직접 링크는 음원이 요청 그대로인 행만 쓴다.
  */
 async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const soundcloud = links.parseSoundCloudURL(query);
@@ -172,7 +172,7 @@ async function resolveQuery(query: string, context?: string | null, range: Range
   const pin = skipCache ? null : pinnedSources.getPin(query);
   if (pin) return { success: true, isPlaylist: false, tracks: [await pinnedTrack(query, pin, context, sources)] };
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
-  if (cacheHit.hit) {
+  if (cacheHit.hit && (inputKind(query) !== "direct" || cacheHit.track.audioFoundBy === "given")) {
     log.debug(`캐시 히트(조회 · 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }

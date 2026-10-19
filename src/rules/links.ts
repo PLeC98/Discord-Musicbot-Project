@@ -119,21 +119,18 @@ function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other"
   return "other";
 }
 
-// ── 직접 링크(확장자로 구분한다) ──
+// ── 알려진 사이트 ──
 
-const DIRECT_AUDIO_FORMATS = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".opus", ".webm", ".mp4", ".mkv", ".avi", ".mov"];
+// 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립 · 채널, 스포티파이 에피소드 · 짧은 링크)도 그 사이트의 페이지다
+const KNOWN_SITE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "spotify.com", "spotify.link", "soundcloud.com"];
 
-function isDirectAudioLink(url: unknown): boolean {
+/** 알려진 사이트의 호스트인가. 직접 링크(파일 · 방송 주소)와 가른다 */
+function isKnownSiteHost(value: unknown): boolean {
+  if (typeof value !== "string") return false;
   try {
-    const urlObj = new URL(String(url));
-    const pathname = urlObj.pathname.toLowerCase();
-
-    // 주소가 받는 오디오 확장자로 끝나야 하고, http · https 여야 한다
-    const hasAudioExtension = DIRECT_AUDIO_FORMATS.some((format) => pathname.endsWith(format));
-    const isHttpLink = urlObj.protocol === "http:" || urlObj.protocol === "https:";
-
-    return isHttpLink && hasAudioExtension;
-  } catch (error) {
+    const host = new URL(value.trim()).hostname.toLowerCase().replace(/\.$/, "");
+    return KNOWN_SITE_HOSTS.some((known) => host === known || host.endsWith(`.${known}`));
+  } catch {
     return false;
   }
 }
@@ -151,4 +148,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, isKnownSiteHost };

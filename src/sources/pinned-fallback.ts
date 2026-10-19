@@ -1,7 +1,7 @@
 // 직접 지정한 음원이 죽었을 때. 그 재생은 지정을 건너뛰고 다시 찾는다. 지정은 사람이 해제할 때까지 그대로 두고,
 // 실패는 그 음원의 재생 테스트 결과로 남겨 캐시 DB 에 빨갛게 보인다. 일시 오류는 건너뛰지 않는다(dead-source).
 //
-//   원래 요청이 유튜브 · 사운드클라우드 · 직접 링크   원래 링크로
+//   원래 요청이 유튜브 · 사운드클라우드 · 직접 링크   원래 링크로(직접 링크는 그 링크로 담은 곡만. 자동재생 곡의 요청 키는 출처의 웹 페이지다)
 //   스포티파이                                       링크 데이터 · 검색으로(지정은 붙이지 않는다. 아니면 죽은 것을 다시 붙인다)
 //   자동재생 곡                                      후보는 이미 지나갔다. 링크 데이터가 기억하는 유튜브 영상, 없으면 실패로 둔다(자동재생이 다음 후보를 선택한다)
 // 링크 데이터는 삭제하지 않는다. 지정한 음원을 쓰는 동안 링크 데이터를 쓰지 않았으므로 그 자동 결과가 그대로 다시 찾기의 첫 길이다
@@ -40,7 +40,7 @@ async function leaveDeadPin(track: Seeking, error: unknown, equivalent: Refind):
 
   const requestKey = track.requestKey ?? "";
   const kind = inputKind(requestKey);
-  if (kind === "youtube" || kind === "soundcloud" || kind === "direct") {
+  if (kind === "youtube" || kind === "soundcloud" || (kind === "direct" && track.platform === "direct")) {
     track.audioUrl = canonicalUrl(requestKey);
     track.audioFoundBy = "given";
     return track.audioUrl;

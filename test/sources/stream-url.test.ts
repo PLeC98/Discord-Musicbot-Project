@@ -48,6 +48,6 @@ test("담을 때 라이브로 적은 직접 링크(인터넷 라디오)는 라�
   assert.equal(got.liveStatus, "is_live");
 });
 
-test("음원 주소가 모르는 사이트면 거절한다", async () => {
-  await assert.rejects(() => streamUrl.getStream({ platform: "없는것", audioUrl: "https://example.com/page" }, { youtube }), /지원되지 않는 음원 주소/);
+test("음원 주소가 알려진 사이트의 다른 주소면 거절한다", async () => {
+  await assert.rejects(() => streamUrl.getStream({ platform: "없는것", audioUrl: "https://www.youtube.com/@channel" }, { youtube }), /지원되지 않는 음원 주소/);
 });

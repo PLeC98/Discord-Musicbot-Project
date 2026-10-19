@@ -3,6 +3,7 @@
 
 import { Readable } from "node:stream";
 import * as links from "../../src/rules/links.ts";
+import { inputKind } from "../../src/rules/input-kind.ts";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -99,12 +100,12 @@ test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 �
 
 // ── 직접 링크 ─────────────────────────────────────────────────────────
 
-test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 한다(쿼리는 상관없다)", () => {
-  for (const url of ["https://files.test/a.mp3", "http://x.test/b/c.FLAC", "https://cdn.test/v.webm?sig=1", "https://x.test/y.opus"]) {
-    assert.equal(links.isDirectAudioLink(url), true, url);
+test("직접 링크 판정: 알려진 사이트 밖의 http(s) 면 확장자와 상관없이 후보", () => {
+  for (const url of ["https://files.test/a.mp3", "http://x.test/b/c.FLAC", "https://cdn.test/v.webm?sig=1", "https://files.test/a.txt", "https://x.test/mp3"]) {
+    assert.equal(inputKind(url), "direct", url);
   }
-  for (const url of ["https://files.test/a.txt", "ftp://x.test/a.mp3", "https://x.test/mp3", "not a url"]) {
-    assert.equal(links.isDirectAudioLink(url), false, url);
+  for (const url of ["ftp://x.test/a.mp3", "not a url", "https://www.youtube.com/a.mp3"]) {
+    assert.notEqual(inputKind(url), "direct", url);
   }
 });
 
@@ -127,8 +128,8 @@ test("직접 링크 정보: 서버가 알려 준 파일 이름(Content-Dispositi
   assert.equal(u.title, "Artist - Song");
 });
 
-test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
-  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.txt", info), []);
+test("직접 링크 정보: 직접 링크가 아니면 빈 배열, 음원이 아니면 unsupported-link, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
+  assert.deepEqual(await DirectLink.getInfo("https://open.spotify.com/episode/abc", info), []);
   assert.equal(calls.info.length, 0);
   headReply = () => {
     throw new Error("SSRF 차단: 10.0.0.5");
@@ -139,6 +140,8 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
   );
   assert.equal(codeOf(thrown), "direct-unavailable");
   assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
+  headReply = () => ({ headers: { "content-type": "text/html" } });
+  await assert.rejects(DirectLink.getInfo("https://files.test/a.mp3", info), (e: unknown) => codeOf(e) === "unsupported-link");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
   const told = errorMessage(thrown);
   assert.equal(plainText(told), "재생할 수 없는 링크예요!\n해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요.");
@@ -155,6 +158,20 @@ test("직접 링크: icy-* 헤더가 있으면 인터넷 라디오라 라이브�
   assert.equal(f.isLive, undefined, "보통 파일은 라이브가 아니다");
 });
 
+test("직접 링크 제목: 경로의 파일 이름(확장자를 뗀다), 이름이 없으면 호스트. 인터넷 라디오는 방송 이름(UTF-8)", async () => {
+  headReply = () => ({ headers: { "content-type": "audio/mpeg" } });
+  const titles: Array<string | null> = [];
+  for (const url of ["https://files.test/radio/live.php", "https://files.test/stream.mp3", "https://cdn.test/"]) titles.push((await DirectLink.getInfo(url, info))[0].title);
+  assert.deepEqual(titles, ["live", "stream", "cdn.test"]);
+
+  // Node 는 헤더를 latin1 로 읽는다. UTF-8 로 보낸 이름을 되살린다
+  const name = Buffer.from("한국 라디오", "utf8").toString("latin1");
+  headReply = () => ({ headers: { "content-type": "audio/mpeg", "icy-name": name } });
+  assert.equal((await DirectLink.getInfo("https://radio.test/stream", info))[0].title, "한국 라디오");
+  headReply = () => ({ headers: { "content-type": "audio/mpeg", "icy-name": "Caf\u00e9 FM" } });
+  assert.equal((await DirectLink.getInfo("https://radio.test/stream", info))[0].title, "Caf\u00e9 FM", "UTF-8 이 아니면 그대로");
+});
+
 test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
   const s = await DirectLink.getStream("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
   assert.ok(s instanceof Readable);
@@ -165,7 +182,9 @@ test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 �
     "본문 무응답 한도를 그대로 넘긴다",
   );
 
-  await assert.rejects(DirectLink.getStream("https://files.test/a.txt", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /지원되지 않는 직접 오디오 파일 링크/.test(messageOf((e as Error).cause)));
+  await assert.rejects(DirectLink.getStream("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
+  // 음원이 아닌 응답은 받은 응답으로 안 것이라 숨기지 않는다
+  await assert.rejects(DirectLink.getStream("https://files.test/page", net), (e: unknown) => codeOf(e) === "unsupported-link");
   const blocked = {
     getStream: async () => {
       throw new Error("SSRF 차단: 127.0.0.1");

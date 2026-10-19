@@ -4,7 +4,6 @@
 // 3단계가 필드를 분리하면서 답을 바꿨다. 남은 것은 그 틀린 답이 다시 나오지 않게 하는 테스트다.
 
 import fs from "node:fs";
-import * as links from "../src/rules/links.ts";
 import os from "node:os";
 import path from "node:path";
 import { test, before, after } from "node:test";
@@ -69,10 +68,6 @@ test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도
 test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음원 주소에서만 온다", async () => {
   const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
   assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null });
-
-  // 음원 주소 필드에 페이지가 들어가면 다운로드할 수 없다. 그래서 페이지는 제 필드에만 둔다
-  await assert.rejects(streamUrl.getStream({ ...track, audioUrl: track.pageUrl }), /지원되지 않는 음원 주소/);
-  assert.equal(links.isDirectAudioLink(track.pageUrl), false);
 });
 
 // 전에는 링크 데이터 키가 작품 페이지라, 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮었다(「Fatal」 링크를 넣으면 「Burning」)

@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import path from "path";
-import * as links from "../rules/links.ts";
+import { inputKind } from "../rules/input-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 import * as SafeUrl from "../infra/safe-url.ts";
 import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import * as embeddedArt from "./embedded-art.ts";
-import { openLink, OPEN_ACCEPT, type AudioStream, type StreamNet } from "./direct-open.ts";
+import { openLink, OPEN_ACCEPT, type AudioStream, type StreamNet, type Opened } from "./direct-open.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { Tags as FileTags } from "./file-tags.ts";
 
@@ -30,43 +30,14 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
   const started = Date.now();
   let body: AudioStream | null = null;
   try {
-    if (!links.isDirectAudioLink(url)) {
-      return [];
-    }
+    if (inputKind(url) !== "direct") return [];
 
     // SSRF 가드를 지나는 GET 하나로 판정한다. 종류 · 크기도 거기서 본다
     const opened = await openLink(url, { net, accept: INFO_ACCEPT });
     if (opened.kind !== "file") throw notAudio(opened.kind);
     body = opened.body;
-    const { headers, radio } = opened;
-    const contentType = String(headers["content-type"] || "");
-    const contentLength = headers["content-length"];
-
-    // 서버가 알려 준 파일 이름이 먼저다(서명된 주소 · 다운로드 주소는 경로가 파일 이름이 아닐 수 있다)
-    const urlPath = new URL(url).pathname;
-    const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath);
-    const extension = path.extname(filename).toLowerCase();
-    // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 헤더를 붙인다(radio). 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 캐시 없음)
-
-    const track: DirectTrack = {
-      title: extractTitle(filename),
-      // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl 도 그대로 돌려준다)
-      pageUrl: url,
-      requestKey: url,
-      audioUrl: url,
-      // 크기로 길이를 어림하면 VBR 에서 크게 어긋난다. 모르는 채로 두고 다운로드한 뒤 잰 값으로 채운다(cacheDownload)
-      duration: 0,
-      durationSource: "unknown",
-      ...(radio ? { isLive: true, liveStatus: "is_live" } : {}),
-      // 곡에 그림 주소는 없다. 파일 태그의 그림은 따로 찾는다
-      thumbnail: null,
-      platform: "direct",
-      id: generateId(url),
-      fileSize: contentLength ? parseInt(String(contentLength)) : null,
-      contentType: contentType,
-      extension: extension,
-      filename: filename,
-    };
+    const { radio } = opened;
+    const track = trackOf(url, opened.headers, radio);
     // 라디오는 끝이 없어 본문을 읽지 않는다
     if (!tags || radio) return [track];
     const source = body;
@@ -91,7 +62,38 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
   }
 }
 
-/** 음원이 아닌 응답의 거절. 재생목록 · 단순 목록은 아직 열지 않는다(HLS · 목록 읽기가 붙을 때까지) */
+/** 응답 헤더로 만든 곡(제목 · 크기 · 종류 · 파일 이름 · 라디오) */
+function trackOf(url: string, headers: Record<string, unknown>, radio: boolean): DirectTrack {
+  const contentType = String(headers["content-type"] || "");
+  const contentLength = headers["content-length"];
+
+  // 서버가 알려 준 파일 이름이 먼저다(서명된 주소 · 다운로드 주소는 경로가 파일 이름이 아닐 수 있다)
+  const urlPath = new URL(url).pathname;
+  const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath);
+  const extension = path.extname(filename).toLowerCase();
+  return {
+    title: titleOf(filename, headers, radio) ?? new URL(url).hostname,
+    // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl 도 그대로 돌려준다)
+    pageUrl: url,
+    requestKey: url,
+    audioUrl: url,
+    // 크기로 길이를 어림하면 VBR 에서 크게 어긋난다. 모르는 채로 두고 다운로드한 뒤 잰 값으로 채운다(cacheDownload)
+    duration: 0,
+    durationSource: "unknown",
+    // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 헤더를 붙인다(radio). 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 캐시 없음)
+    ...(radio ? { isLive: true, liveStatus: "is_live" } : {}),
+    // 곡에 그림 주소는 없다. 파일 태그의 그림은 따로 찾는다
+    thumbnail: null,
+    platform: "direct",
+    id: generateId(url),
+    fileSize: contentLength ? parseInt(String(contentLength)) : null,
+    contentType: contentType,
+    extension: extension,
+    filename: filename,
+  };
+}
+
+/** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다). 재생목록 · 단순 목록은 아직 열지 않는다(HLS · 목록 읽기가 붙을 때까지) */
 const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크입니다(${kind})`);
 
 /**
@@ -99,18 +101,17 @@ const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아
  * net 은 테스트가 가짜를 넘기는 곳
  */
 async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<AudioStream> {
+  let opened: Opened;
   try {
-    if (!links.isDirectAudioLink(url)) {
-      throw new Error("지원되지 않는 직접 오디오 파일 링크");
-    }
-    const opened = await openLink(url, { net, ...opts });
-    if (opened.kind !== "file") throw new Error(`음원이 아닌 응답(${opened.kind})`);
-    return opened.body;
+    if (inputKind(url) !== "direct") throw new Error("직접 링크가 아님");
+    opened = await openLink(url, { net, ...opts });
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));
     throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
+  if (opened.kind !== "file") throw notAudio(opened.kind);
+  return opened.body;
 }
 
 // 주소의 퍼센트 인코딩을 푼다. 깨진 인코딩이면 그대로
@@ -130,6 +131,18 @@ function extractTitle(filename: string): string | null {
   const name = decoded(path.parse(filename).name);
   const title = /\s/.test(name) ? name.replace(/_+/g, " ") : name.replace(/[-_.]+/g, " ");
   return title.replace(/\s+/g, " ").trim() || null;
+}
+
+/** 방송 이름(icy-name). 헤더는 latin1 로 읽히므로 UTF-8 로 맞으면 그것으로 */
+function stationName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const utf8 = Buffer.from(value, "latin1").toString("utf8");
+  return (utf8.includes("\uFFFD") ? value : utf8).trim() || null;
+}
+
+/** 담을 때의 제목: 인터넷 라디오는 방송 이름, 아니면 파일 이름. 둘 다 없으면 null(부르는 쪽이 호스트로) */
+function titleOf(filename: string, headers: Record<string, unknown>, radio: boolean): string | null {
+  return (radio ? stationName(headers["icy-name"]) : null) ?? extractTitle(filename);
 }
 
 /** Content-Disposition 의 파일 이름(filename* 가 먼저). 없으면 null */

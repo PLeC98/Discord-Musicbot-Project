@@ -53,14 +53,15 @@ const found = (title: string, extra: Partial<TrackInfo> = {}): TrackInfo => ({ t
 
 // ── 링크 종류 ─────────────────────────────────────────────────────────
 
-test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · 직접 링크, 검색어는 유튜브(검색), 모르는 링크는 unknown", () => {
+test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · 직접 링크, 검색어는 유튜브(검색), 알려진 사이트의 다른 주소는 unknown", () => {
   const cases = [
     ["https://youtu.be/aaaaaaaaaaa", "youtube"],
     ["https://open.spotify.com/track/abc", "spotify"],
     ["spotify:album:abc", "spotify"],
     ["https://soundcloud.com/a/b", "soundcloud"],
     ["https://files.test/a.mp3", "direct"],
-    ["https://anilist.co/anime/1", "unknown"],
+    ["https://anilist.co/anime/1", "direct"],
+    ["https://open.spotify.com/episode/abc", "unknown"],
     ["그냥 검색어", "youtube"],
   ];
   for (const [q, want] of cases) assert.equal(lookup.detectPlatform(q), want, q);
@@ -259,6 +260,35 @@ test("캐시 지름길: 캐시 파일이 있는 곡은 조회 없이 링크 데�
   assert.deepEqual([set.isPlaylist, scAsked.length], [true, 1]);
 });
 
+test("캐시 지름길: 직접 링크는 음원이 요청 그대로인 행만 쓴다(예전에 검색으로 맺힌 다른 음원은 되살리지 않는다)", async () => {
+  const cached = (key: string) => {
+    const file = audioCache.getFilePath(key);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "x");
+    audioCache.recordDownloadStart(key, { title: "t" });
+    audioCache.recordDownloadComplete(key, file, 1, { title: "t" }, { durationSec: 42 });
+  };
+  const opened: string[] = [];
+  const direct = {
+    getInfo: async (url: string) => {
+      opened.push(url);
+      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+    },
+  };
+
+  const page = "https://blog.test/post/1";
+  cached("yt:ddddddddddd");
+  trackLookup.recordTrackLookup({ requestKey: page, pageUrl: page, audioUrl: "https://www.youtube.com/watch?v=ddddddddddd", platform: "youtube", title: "엉뚱한 영상" });
+  const refused = await lookup.resolveQuery(page, undefined, undefined, { direct });
+  assert.deepEqual([refused.success, refused.code, opened], [false, "unsupported-link", [page]]);
+
+  const file = "https://files.test/stream";
+  cached(audioKeyOf(file)!);
+  trackLookup.recordTrackLookup({ requestKey: file, pageUrl: file, audioUrl: file, platform: "direct", title: "파일" });
+  const hit = await lookup.resolveQuery(file, undefined, undefined, { direct });
+  assert.deepEqual([hit.success, hit.tracks?.[0].title, opened.length], [true, "파일", 1]);
+});
+
 // ── 직접 지정한 음원 ──────────────────────────────────────────────────
 // 운영자가 캐시 DB 에서 지정한 음원이 링크 데이터 · 원래 링크보다 앞선다. 곡 정보는 요청의 것이다
 
@@ -417,6 +447,7 @@ test("사라졌다는 판정: 확실히 사라진 것만(일시 오류 · 연령
   assert.equal(deadSourceCode(codedError("rate-limited", "HTTP Error 403")), null);
   assert.equal(deadSourceCode(new Error("ERROR: Sign in to confirm your age")), null, "연령 제한은 사라진 것이 아니다");
   assert.equal(deadSourceCode(codedError("pinned-live", "라이브")), "live", "라이브는 지정할 수 없다");
+  assert.equal(deadSourceCode(codedError("unsupported-link", "음원이 아닌 링크입니다(page)")), "unsupported-link", "지운 파일 자리에 웹 페이지를 주는 서버");
 });
 
 // 사운드클라우드 지정이 404 로 죽는다
@@ -452,6 +483,19 @@ test("스트림: 스포티파이 곡의 지정이 사라졌으면 지정을 건�
 
   const orphan: Seeking = { title: "곡", platform: "anisongdb", requestKey: "amq:noledger", audioUrl: "https://soundcloud.com/gone/four", audioFoundBy: "pinned" };
   await assert.rejects(streamUrl.getStream(orphan, { youtube, soundcloud: deadSoundCloud, equivalent }), /404/, "링크 데이터도 없으면 원래 오류(자동재생이 다음 후보를 선택한다)");
+});
+
+test("스트림: 직접 링크 요청의 지정이 사라졌으면 그 링크로 담은 곡만 요청 주소로. 자동재생 곡의 요청 키(출처 페이지)는 음원으로 쓰지 않는다", async () => {
+  const youtube = { ...YouTube, getStream: async (u: string) => ({ url: `${u}#stream` }) };
+  const file = "https://files.test/pindead/stream";
+  const own: Seeking = { title: "곡", platform: "direct", requestKey: file, audioUrl: "https://soundcloud.com/gone/five", audioFoundBy: "pinned" };
+  assert.equal((await streamUrl.getStream(own, { youtube, soundcloud: deadSoundCloud, equivalent })).url, file);
+  assert.deepEqual([own.audioUrl, own.audioFoundBy], [file, "given"]);
+
+  const page = "https://www.last.fm/music/Artist/_/Song";
+  trackLookup.recordTrackLookup({ requestKey: page, pageUrl: page, audioUrl: "https://www.youtube.com/watch?v=lfmledger01", platform: "lastfm", title: "곡" });
+  const auto: Seeking = { title: "곡", platform: "lastfm", requestKey: page, audioUrl: "https://soundcloud.com/gone/six", audioFoundBy: "pinned" };
+  assert.equal((await streamUrl.getStream(auto, { youtube, soundcloud: deadSoundCloud, equivalent })).url, "https://www.youtube.com/watch?v=lfmledger01#stream");
 });
 
 test("스트림: 지정한 음원이 라이브(방송 중 · 시작 전 · 인터넷 라디오)면 사라진 것과 같이 원래 링크로, 결과는 live", async () => {
