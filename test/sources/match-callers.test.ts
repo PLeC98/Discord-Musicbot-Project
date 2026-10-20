@@ -10,6 +10,7 @@ import * as equivalent from "../../src/sources/youtube/equivalent.ts";
 import * as route from "../../src/autoplay/route.ts";
 import * as filterModule from "../../src/autoplay/filter.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
+import { inGuild } from "../../src/infra/guild-context.ts";
 
 const store = openTempStore("match-callers-");
 after(() => store.close());
@@ -59,4 +60,38 @@ test("자동재생: 1차 앞 둘을 6개씩 묻고, 1차에 답이 없을 때만
       `1차 답 ${primaryHits}`,
     );
   }
+});
+
+test("동등물: 같은 곡을 같은 줄에서 찾는 중이면 검색 한 벌의 답을 같이 받는다. 끝나면 다시 찾는다", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((done) => (release = done));
+  const { asked, search } = searcher(true);
+  const slow = async (query: string, limit: number) => (await gate, search(query, limit));
+  const song = (): equivalent.Seeking => ({ title: TARGET.title, artist: TARGET.artist, duration: TARGET.durationSec, requestKey: "sp:joined" });
+  const a = song();
+  const b = song();
+  const both = Promise.all([equivalent.findYouTubeEquivalent(a, { search: slow }), equivalent.findYouTubeEquivalent(b, { search: slow })]);
+  release();
+  assert.deepEqual(await both, [HIT[0].audioUrl, HIT[0].audioUrl]);
+  assert.equal(b.audioFoundBy, "search");
+  assert.equal(asked.length, primary.length + secondary.length, "검색 한 벌");
+  await equivalent.findYouTubeEquivalent(song(), { search });
+  assert.equal(asked.length, 2 * (primary.length + secondary.length), "끝난 뒤에는 새로 찾는다");
+});
+
+test("동등물: 미리 받기(뒤 줄)가 찾는 곡에 지금 곡(앞 줄)이 붙지 않는다. 찾지 못한 답도 같이 받는다", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((done) => (release = done));
+  let calls = 0;
+  const failing = async () => {
+    calls++;
+    await gate;
+    throw new Error("검색 실패");
+  };
+  const song = () => ({ title: TARGET.title, artist: TARGET.artist, duration: TARGET.durationSec, requestKey: "sp:lanes" });
+  const background = inGuild("g", () => Promise.all([equivalent.findYouTubeEquivalent(song(), { search: failing }), equivalent.findYouTubeEquivalent(song(), { search: failing })]), "prefetch");
+  const now = equivalent.findYouTubeEquivalent(song(), { search: failing });
+  release();
+  assert.deepEqual(await Promise.all([background, now]), [[null, null], null]);
+  assert.equal(calls, 2 * (primary.length + secondary.length), "뒤 줄 둘은 한 벌, 앞 줄은 따로 한 벌");
 });

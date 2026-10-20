@@ -6,7 +6,8 @@ import * as pinnedSources from "../../store/pinned-sources.ts";
 import * as links from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import { rankCandidates, searchCandidates } from "./match.ts";
+import { currentJob } from "../../infra/guild-context.ts";
+import { rankCandidates, searchCandidates, type Target } from "./match.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import type { AudioFoundBy } from "../../rules/audio-found-by.ts";
 
@@ -14,6 +15,30 @@ import type { AudioFoundBy } from "../../rules/audio-found-by.ts";
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; [field: string]: unknown };
 /** 유튜브 검색. 여기서 읽는 필드만 */
 type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean }> | null | undefined>;
+
+// 같은 곡(요청 키)을 같은 yt-dlp 줄에서 찾는 중이면 그 답을 같이 받는다(끝나면 버린다. 찾은 것은 링크 데이터가 기억한다).
+// 줄을 넘어 붙지 않는다: 미리 받기(뒤 줄)가 찾는 곡을 지금 틀면 따로 찾는다(붙으면 사용자가 뒤 줄을 기다린다)
+const seeking = new Map<string, Promise<string | null>>();
+
+/** 찾은 것 중 가장 맞는 영상의 주소. 없으면 null */
+async function bestOf(target: Target, search: Search): Promise<string | null> {
+  const candidates = await searchCandidates(target, search, "exact");
+  if (!candidates.length) return null;
+  return rankCandidates(candidates, target).best?.url || null;
+}
+
+/** 합치는 열쇠: 줄(미리 받기인가)과 요청 키. 요청 키가 없으면 합치지 않는다 */
+const seekKey = (track: Seeking) => (track.requestKey ? `${currentJob() === "prefetch" ? "prefetch" : "now"}|${track.requestKey}` : null);
+
+/** key 로 찾는 중인 것이 있으면 그 답, 없으면 새로 찾는다. joined: 남이 찾던 답이다 */
+function sharedBest(key: string | null, find: () => Promise<string | null>): { url: Promise<string | null>; joined: boolean } {
+  const going = key ? seeking.get(key) : undefined;
+  if (going) return { url: going, joined: true };
+  if (!key) return { url: find(), joined: false };
+  const url = find().finally(() => seeking.delete(key));
+  seeking.set(key, url);
+  return { url, joined: false };
+}
 
 /**
  * 음원 주소가 없는 곡(스포티파이)의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.ts).
@@ -44,16 +69,15 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 
   // 타겟: 스포티파이 duration(초)을 durationSec로 넘겨야 길이 신호가 동작한다
   const target = { title: track.title, artist: track.artist, durationSec: Number(track.duration) || 0 };
-  const candidates = await searchCandidates(target, search, "exact");
-  if (!candidates.length) return null;
+  const { url: found, joined } = sharedBest(seekKey(track), () => bestOf(target, search));
+  const url = await found;
+  if (!url) return null;
 
-  const { best } = rankCandidates(candidates, target);
-  if (!best || !best.url) return null;
-
-  track.audioUrl = best.url;
+  track.audioUrl = url;
   track.audioFoundBy = "search";
-  log.info(`유튜브 동등물(검색): "${logTitle(track.title)}" → ${best.url}`);
-  return track.audioUrl;
+  if (joined) log.debug(`유튜브 동등물(같은 곡을 찾던 답을 같이 받음): "${logTitle(track.title)}" → ${url}`);
+  else log.info(`유튜브 동등물(검색): "${logTitle(track.title)}" → ${url}`);
+  return url;
 }
 
 /**
