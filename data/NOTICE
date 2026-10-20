@@ -38,6 +38,36 @@ ai-prices.json
   SOFTWARE.
 
 --------------------------------------------------------------------------------
+discord-icons/glyphs.json
+
+  Glyph outlines (SVG paths) of Material Symbols Rounded, pinned to FILL 1,
+  wght 700, GRAD 0, opsz 20 by scripts/build-discord-icons.ts. The bot draws
+  its Discord application emojis from these outlines.
+  Source:  @fontsource-variable/material-symbols-rounded 5.3.8
+           (https://github.com/google/material-design-icons)
+  License: SIL Open Font License 1.1 (discord-icons/LICENSE-OFL-1.1.txt)
+
+  Copyright Google Inc. (as stated in the package's LICENSE)
+
+--------------------------------------------------------------------------------
+discord-icons/skipIcon.svg
+
+  The "skip to highlight" icon of the SponsorBlock browser extension,
+  unmodified (public/icons/skipIcon.svg at commit e126b59, 2021-08-18).
+  Source:  https://github.com/ajayyy/SponsorBlock
+  License: GNU General Public License v3.0 or later
+           (discord-icons/LICENSE-GPL-3.0.txt). The file was added while the
+           project was licensed under LGPL-3.0; the project is now
+           GPL-3.0-or-later.
+
+  Copyright (C) Ajay Ramachandran and SponsorBlock contributors
+
+  Modifications: the bot and the dashboard recolor and resize this icon when
+  drawing it (Discord application emojis: fill color changed, placed on a
+  rounded tile; dashboard: fill color follows the theme). Changed 2026-10-21.
+  This project is not affiliated with or endorsed by SponsorBlock.
+
+--------------------------------------------------------------------------------
 english-finals.json
 
   Derived from the CMU Pronouncing Dictionary by scripts/build-english-finals.ts
