@@ -29,6 +29,8 @@ type Api = {
 type Image = { data: Buffer; animated: boolean };
 
 const CDN_TIMEOUT_MS = 15_000;
+/** 굽기 · CDN 견주기를 함께 하는 수 */
+const COMPARE_AT_ONCE = 8;
 /** 움직이는 GIF 를 견줄 때 픽셀 하나의 허용 차(0 ~ 255). 디스코드가 다시 인코딩하면 5 안팎, 색이 바뀌면 훨씬 크다 */
 const GIF_TOLERANCE = 12;
 /** 운영자 색을 고르는 동안 잦은 저장을 모으는 시간 */
@@ -72,6 +74,20 @@ async function sameImage(local: Image, remote: Buffer) {
   return true;
 }
 
+/** 차례를 지키며 limit 개까지 함께 */
+async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let at = 0;
+  const lane = async () => {
+    while (at < items.length) {
+      const i = at++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  return out;
+}
+
 /** 올라가 있는 것이 그 그림인가. CDN 에서 못 받으면 아니라고 본다 */
 async function uploadedAs(api: Api, remote: Remote, image: Image) {
   const there = await api.download(remote).catch(() => null);
@@ -112,14 +128,19 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
   const skipped: string[] = [];
   let added = 0;
 
-  for (const entry of iconEntries()) {
-    if (takenByOthers.has(entry.name)) {
-      skipped.push(entry.name);
-      continue;
-    }
+  const entries = iconEntries().filter((entry) => {
+    if (takenByOthers.has(entry.name)) skipped.push(entry.name);
+    return !takenByOthers.has(entry.name);
+  });
+  // 굽기 · CDN 견주기는 서로 기대지 않아 여럿 함께(맞추기 시간의 대부분이다), 올리기는 하나씩
+  const checked = await mapLimit(entries, COMPARE_AT_ONCE, async (entry) => {
     const image = await imageOf(entry.spec, entry.tint);
     const existing = mine.get(entry.name);
-    if (existing && (await uploadedAs(api, existing, image))) {
+    return { entry, image, existing, same: existing ? await uploadedAs(api, existing, image) : false };
+  });
+
+  for (const { entry, image, existing, same } of checked) {
+    if (existing && same) {
       next.set(entry.name, { id: existing.id, animated: existing.animated });
       unused.delete(existing.id);
       continue;
