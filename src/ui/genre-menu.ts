@@ -5,6 +5,7 @@ import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilde
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./custom-ids.ts";
 import { frame, reply } from "./frame.ts";
+import type { IconKey } from "./icons.ts";
 import * as autoplayText from "./text/ko/autoplay.ts";
 
 /**
@@ -30,8 +31,8 @@ function genreSelect(placeholder: string) {
 }
 
 // 장르 메뉴가 달린 화면. 본인에게만 보인다
-function withMenu(t: { title: string; description: string; placeholder: string }) {
-  const container = frame({ title: t.title, body: t.description });
+function withMenu(t: { icon: IconKey; title: string; description: string; placeholder: string }) {
+  const container = frame({ icon: t.icon, title: t.title, body: t.description });
   container.addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(genreSelect(t.placeholder)));
   return reply(container);
 }
@@ -48,7 +49,7 @@ const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
 /** 장르를 선택해 켰다(모두에게 보내는 결과). genre 는 식별자, 보이는 것은 라벨. by 는 선택한 사람 */
 function autoplayOn(genre: string, by: { toString(): string }) {
   const t = autoplayText.turnedOn(genreConfig.labelOf(genre));
-  return frame({ title: t.title, body: t.description, footer: [`${t.by} ${by}`], divider: true });
+  return frame({ icon: t.icon, title: t.title, body: t.description, footer: [`${t.by} ${by}`], divider: true });
 }
 
 export { buildGenreMenu, buildAutoplayOffMenu, autoplayOn };

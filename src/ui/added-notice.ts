@@ -15,8 +15,9 @@ function addedView({ tracks, collection, insertFirst = false, notice = {} }: Add
   const { dropped = 0, skipped = 0, total = null, queueLimited = false } = notice;
   const head = queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst });
   const warnings = queueText.addedWarnings({ dropped, skipped, queueLimited, max: config.bot.maxQueueSize });
-  if (!warnings.length) return frame({ title: head.title, body: head.body });
-  return frame({ title: queueText.partlyAdded(), body: [head.body, ...warnings].join("\n"), color: "warning" });
+  if (!warnings.length) return frame({ icon: head.icon, title: head.title, body: head.body });
+  const partly = queueText.partlyAdded();
+  return frame({ icon: partly.icon, title: partly.title, body: [head.body, ...warnings].join("\n"), color: "warning" });
 }
 
 export { addedView };

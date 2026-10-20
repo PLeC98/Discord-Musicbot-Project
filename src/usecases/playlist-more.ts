@@ -149,7 +149,7 @@ function resultText(kind: Kind, result: MoreResult) {
 
 /** 이어 넣은 결과. 더 넣을 것이 있으면 메뉴를 다시 단다 */
 function resultView(state: MoreState, result: MoreResult, room: number) {
-  const text = resultText(state.kind, result);
+  const text = moreText.resultMark(resultText(state.kind, result));
   if (!result.next) return { view: moreView(text, null), menu: false };
   return menuView(text, result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }

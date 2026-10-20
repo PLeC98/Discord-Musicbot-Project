@@ -227,7 +227,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제�
     mock.timers.tick(1);
     await new Promise(setImmediate);
     assert.equal(msg.deleted, true);
-    assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔍 **노래 제목** 검색 중..." })));
+    assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔄 **노래 제목** 검색 중..." })));
     assert.equal(resolved[0].query, "노래 제목");
     assert.equal(resolved[0].context, "전용채널.resolveQuery");
     assert.equal(w.handled[0].who?.username, "사용자");
@@ -276,7 +276,7 @@ test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다",
   await settings.setBotChannel("g1", "bot-channel");
   const msg = message(w, { content: "가".repeat(70) });
   await messageHandler.execute(w.bot, msg);
-  assert.equal(textOf(msg.sent[0].payload), `🔍 **${"가".repeat(60)}…** 검색 중...`);
+  assert.equal(textOf(msg.sent[0].payload), `🔄 **${"가".repeat(60)}…** 검색 중...`);
 });
 
 test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 경고 수명(10초) 뒤 삭제한다", async () => {
@@ -491,7 +491,7 @@ test("더 넣기: 선택한 수만큼 이어 받아 넣고, 채널의 메뉴는 
     More.clearExpiry(messageId);
   }
 
-  assert.deepEqual(log[0], ["update", "⏳ 곡을 가져오는 중…"], "메뉴를 먼저 떼어 두 번 못 누르게 한다");
+  assert.deepEqual(log[0], ["update", "🔄 곡을 가져오는 중…"], "메뉴를 먼저 떼어 두 번 못 누르게 한다");
   assert.deepEqual(asked[0], { url: "https://www.youtube.com/playlist?list=PLabcdefghij", range: { offset: 5, limit: 7 } }, "앵커를 찾으려 다섯 곡(LOOKBACK) 앞부터, 그만큼 더");
   assert.deepEqual(
     w.handled[0].trackData.tracks.map((t) => t.id),

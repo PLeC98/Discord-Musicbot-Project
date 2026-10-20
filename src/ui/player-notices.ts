@@ -31,7 +31,7 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   "failed-in-row": ({ count, left }) => shown(notices.failedInRow(count, left)),
   restored: ({ title, atSec, paused }) => {
     const t = notices.restored(title, formatDuration(atSec), paused);
-    return { view: frame({ title: t.title, body: t.body }), ms: LIFETIME.glance };
+    return { view: frame({ icon: t.icon, title: t.title, body: t.body }), ms: LIFETIME.glance };
   },
 };
 

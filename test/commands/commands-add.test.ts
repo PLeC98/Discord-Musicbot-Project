@@ -219,7 +219,7 @@ test("/play: 검색 중 자리표시자를 본인에게 CV2 로 먼저 답하고
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.bot);
-  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔍 **노래** 검색 중..." }))], "처음부터 Components V2 로 답해야 안내 · 메뉴로 고칠 수 있다");
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **노래** 검색 중..." }))], "처음부터 Components V2 로 답해야 안내 · 메뉴로 고칠 수 있다");
   assert.equal(resolved[0].context, "play.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, undefined);
   assert.equal(w.handled[0].who?.username, "사용자");

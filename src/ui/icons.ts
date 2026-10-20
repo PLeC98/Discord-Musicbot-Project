@@ -64,9 +64,10 @@ const ICONS = {
   search: { glyph: "search", unicode: "🔍" },
   queue: { glyph: "queue_music", unicode: "📋" },
   channel: { glyph: "tag", unicode: "🔧", tints: ["brand", "done"] },
+  dj_role: { glyph: "headphones", unicode: "🎧", tints: ["brand", "done"] },
   sponsorblock: { glyph: "sponsorblock", unicode: "⏭️", tints: ["brand", "done"] },
   playlist_add: { glyph: "playlist_add", unicode: "📃", tints: ["brand", "done"] },
-  restored: { glyph: "restart_alt", unicode: "⏸️" },
+  restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
 
   // 정보 · 도움말 임베드의 제목 · 칸 이름
@@ -92,7 +93,8 @@ const ICONS = {
   inputs: { glyph: "list", unicode: "📋" },
   shield: { glyph: "shield", unicode: "🛡️" },
 
-  // 문장 안(본문 · 작은 글씨 · 상태)
+  // 문장 안(본문 · 작은 글씨 · 상태). 본문 크기라 기호 안의 기호(check_circle 등)는 쓰지 않는다
+  ok: { glyph: "check", unicode: "✅" },
   person: { glyph: "person", unicode: "👤" },
   idle: { glyph: "bedtime", unicode: "💤" },
   position: { glyph: "format_list_numbered", unicode: "📍" },

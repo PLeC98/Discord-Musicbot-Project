@@ -519,11 +519,11 @@ test("복원 안내: 멈춘 채 복원했으면 재개됐다고 하지 않는다
   const paused = fakeChannel();
   await restore(makeRecord({ pausedManual: true }), (p) => (p.textChannel = fake<GuildTextBasedChannel>(paused)));
   assert.equal(paused.sent.length, 1);
-  assert.ok(paused.sent[0].content.startsWith("### ⏸️ 봇이 복구됐어요\n마지막 일시정지 상태를 유지할게요."), paused.sent[0].content);
+  assert.ok(paused.sent[0].content.startsWith("### 🔄 봇이 복구됐어요\n마지막 일시정지 상태를 유지할게요."), paused.sent[0].content);
 
   const playing = fakeChannel();
   await restore(makeRecord(), (p) => (p.textChannel = fake<GuildTextBasedChannel>(playing)));
-  assert.ok(playing.sent[0].content.startsWith("### ▶️ 봇이 복구됐어요\n기록된 마지막 재생 상태를 이어갈게요."), playing.sent[0].content);
+  assert.ok(playing.sent[0].content.startsWith("### 🔄 봇이 복구됐어요\n기록된 마지막 재생 상태를 이어갈게요."), playing.sent[0].content);
 });
 
 test("복원: 무엇이 됐나를 돌려준다(이어 틂 · 틀 곡을 열지 못함 · 틀 곡 없음)", async () => {
