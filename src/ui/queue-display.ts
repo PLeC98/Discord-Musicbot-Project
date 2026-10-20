@@ -5,29 +5,29 @@
 
 import { formatDuration } from "./format.ts";
 import { songTitle } from "./text/ko/labels.ts";
+import { ICONS, icon } from "./icons.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 요청자 표기에서 읽는 필드
 type Requested = Pick<QueuedTrack, "autoplay" | "requestedBy"> | null | undefined;
 
-// 자동재생이 미리 선택해 둔 곡 표시. 장르별 이모지는 쓰지 않는다.
+// 자동재생이 미리 선택해 둔 곡 표시는 자동재생 아이콘. 장르별 이모지는 쓰지 않는다.
 // 알려야 하는 것은 "자동으로 들어온 곡"이지 장르가 아니고, 장르마다 다르면 전달이 흐려진다.
-const AUTOPLAY_MARK = "🎲";
 
 // 라이브 곡의 길이 표기
 const LIVE_MARK = "🔴LIVE";
 
 // 임베드용. 멘션으로 적는다. 알림은 가지 않고, 이름 캐시가 없어도 항상 맞게 보인다.
 function requesterLabel(track: Requested) {
-  if (track?.autoplay) return AUTOPLAY_MARK;
+  if (track?.autoplay) return icon("autoplay");
   const id = track?.requestedBy?.id;
   return id ? `<@${id}>` : null;
 }
 
-// 셀렉트 메뉴용. 옵션 설명은 멘션을 렌더링하지 않아 <@id>가 그대로 보인다. 이름을 쓴다.
+// 셀렉트 메뉴용. 옵션 설명은 멘션 · 앱 이모지를 렌더링하지 않아 그대로 글자로 보인다. 이름과 유니코드를 쓴다.
 // 복원된 곡은 id만 남으므로(세션에는 id만 저장한다) 그때는 요청자를 적지 않는다.
 function requesterName(track: Requested) {
-  if (track?.autoplay) return AUTOPLAY_MARK;
+  if (track?.autoplay) return ICONS.autoplay.unicode;
   const who = track?.requestedBy;
   return who?.username || who?.displayName || who?.tag || null;
 }
@@ -85,4 +85,4 @@ function queueDescription({ tracks, first = 1 }: { tracks: Listed[]; first?: num
   return text.length > DESCRIPTION_MAX ? `${text.slice(0, DESCRIPTION_MAX - 1)}…` : text;
 }
 
-export { queueLine, queueDescription, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };
+export { queueLine, queueDescription, jumpDescription, requesterLabel, requesterName };

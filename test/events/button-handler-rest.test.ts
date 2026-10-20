@@ -275,7 +275,7 @@ test("하이라이트 버튼: 옮기는 중을 본인에게 먼저 보내고, �
   p.seek = async () => {};
   const done = press(w, "panel:highlight:S1");
   await interactionCreate.execute(done.bot, done.it);
-  assert.deepEqual(done.log, [["reply", "✨ 하이라이트로 건너뛰는 중..."], ["deleteReply"], ["send", "### ✨ 하이라이트로 건너뛰었어요!"]]);
+  assert.deepEqual(done.log, [["reply", "🔄 하이라이트로 건너뛰는 중..."], ["deleteReply"], ["send", "### ✨ 하이라이트로 건너뛰었어요!"]]);
   p.sponsor = { highlightAt: null };
   const none = press(w, "panel:highlight:S1");
   await interactionCreate.execute(none.bot, none.it);
@@ -297,11 +297,11 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(◀ ▶)
+// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 맞추기 전에는 ◀ ▶)
 type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
-type QueueRow = { components: Array<{ data: { custom_id?: string; label?: string; disabled?: boolean } }> };
+type QueueRow = { components: Array<{ data: { custom_id?: string; emoji?: { name?: string }; disabled?: boolean } }> };
 type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };
-const buttonsOf = (p: QueuePayload) => p.components.flatMap((row) => row.components.map((c) => [c.data.label, c.data.custom_id, !!c.data.disabled]));
+const buttonsOf = (p: QueuePayload) => p.components.flatMap((row) => row.components.map((c) => [c.data.emoji?.name, c.data.custom_id, !!c.data.disabled]));
 
 test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 페이지와 넘기기 버튼", async () => {
   const w = world();

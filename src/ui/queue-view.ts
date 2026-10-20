@@ -5,6 +5,7 @@ import { queueDescription } from "./queue-display.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import { QUEUE, customId } from "./custom-ids.ts";
 import { colorOf } from "./colors.ts";
+import { buttonEmoji, type IconKey } from "./icons.ts";
 import * as queueText from "./text/ko/queue.ts";
 
 /** 한 페이지에 보이는 곡 수 */
@@ -26,7 +27,7 @@ function queueInfoOf(player: { queue: Listed[] }): QueueInfo {
 
 /**
  * 대기열 한 페이지. 페이지 번호는 1 부터이고 범위를 넘으면 끝 페이지로 붙인다.
- * 페이지가 둘 이상이면 넘기기 버튼(◀ ▶)을 단다. 넘기면 그때의 대기열로 다시 그린다
+ * 페이지가 둘 이상이면 넘기기 버튼(이전 · 다음 쪽)을 단다. 넘기면 그때의 대기열로 다시 그린다
  */
 function queueView(info: QueueInfo, page = 1) {
   const pages = pagesOf(info);
@@ -41,8 +42,8 @@ function queueView(info: QueueInfo, page = 1) {
     .setFooter({ text: t.footer });
 
   if (pages === 1) return { embeds: [embed], components: [] };
-  const button = (label: string, to: number, disabled: boolean) => new ButtonBuilder().setCustomId(`${PAGE_PREFIX}${to}`).setLabel(label).setStyle(ButtonStyle.Secondary).setDisabled(disabled);
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button("◀", shown - 1, shown === 1), button("▶", shown + 1, shown === pages));
+  const button = (key: IconKey, to: number, disabled: boolean) => new ButtonBuilder().setCustomId(`${PAGE_PREFIX}${to}`).setEmoji(buttonEmoji(key)).setStyle(ButtonStyle.Secondary).setDisabled(disabled);
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button("page_prev", shown - 1, shown === 1), button("page_next", shown + 1, shown === pages));
   return { embeds: [embed], components: [row] };
 }
 

@@ -3,10 +3,13 @@
 // `/queue`와 대기열 버튼이 거의 같은 임베드를 각자 만들고 있었다(한쪽만 고치면 표시가 달라진다).
 // 줄 만드는 일을 이 모듈로 모았으므로, 규칙은 여기서 잠근다.
 
-import { test } from "node:test";
+import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { queueLine, jumpDescription, AUTOPLAY_MARK } from "../../src/ui/queue-display.ts";
+import { queueLine, jumpDescription } from "../../src/ui/queue-display.ts";
+import { useUploaded } from "../../src/ui/icons.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
+
+afterEach(() => useUploaded(new Map()));
 
 const song = (over: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: "곡", pageUrl: "https://y/1", requestKey: "https://y/1", platform: "youtube", artist: "가수", duration: 100, ...over });
 
@@ -15,10 +18,11 @@ test("대기열 줄: 요청자는 멘션으로", () => {
   assert.equal(line, "`3.` **[곡](https://y/1)** | <@u1>\n");
 });
 
-test("대기열 줄: 자동재생 곡은 표식으로 — 장르 이모지를 쓰지 않는다", () => {
-  const line = queueLine(song({ autoplay: true, requestedBy: { id: "bot" } }), 1);
-  assert.equal(line, `\`1.\` **[곡](https://y/1)** | ${AUTOPLAY_MARK}\n`);
-  assert.equal(AUTOPLAY_MARK, "🎲");
+test("대기열 줄: 자동재생 곡은 자동재생 아이콘으로 — 장르 이모지를 쓰지 않는다. 앱 이모지를 맞추면 그것", () => {
+  const line = () => queueLine(song({ autoplay: true, requestedBy: { id: "bot" } }), 1);
+  assert.equal(line(), "`1.` **[곡](https://y/1)** | 🎲\n");
+  useUploaded(new Map([["autoplay", { id: "7", animated: false }]]));
+  assert.equal(line(), "`1.` **[곡](https://y/1)** | <:autoplay:7>\n");
 });
 
 test("대기열 줄: 요청자를 모르면 제목만", () => {
@@ -29,10 +33,11 @@ test("대기열 줄: 제목이 없으면 알 수 없는 곡", () => {
   assert.equal(queueLine(song({ title: null }), 2), "`2.` **[알 수 없는 곡](https://y/1)**\n");
 });
 
-// 셀렉트 메뉴 설명은 멘션을 렌더링하지 않는다(<@id>가 그대로 보인다) — 이름을 쓴다.
-test("점프 설명: 아티스트 | 길이 | 요청자 이름", () => {
+// 셀렉트 메뉴 설명은 멘션 · 앱 이모지를 렌더링하지 않는다(글자 그대로 보인다) — 이름과 유니코드를 쓴다.
+test("점프 설명: 아티스트 | 길이 | 요청자 이름. 자동재생 곡은 앱 이모지를 맞춰도 유니코드", () => {
   assert.equal(jumpDescription(song({ requestedBy: { id: "u1", username: "PLeC" } })), "가수 | 1:40 | PLeC");
-  assert.equal(jumpDescription(song({ autoplay: true })), `가수 | 1:40 | ${AUTOPLAY_MARK}`);
+  useUploaded(new Map([["autoplay", { id: "7", animated: false }]]));
+  assert.equal(jumpDescription(song({ autoplay: true })), "가수 | 1:40 | 🎲");
 });
 
 test("점프 설명: 라이브는 길이 위치에 🔴LIVE", () => {
@@ -46,7 +51,7 @@ test("점프 설명: 이름을 모르면 요청자를 적지 않는다", () => {
 });
 
 test("점프 설명: 아티스트가 없으면 나머지만, 아무것도 없으면 undefined", () => {
-  assert.equal(jumpDescription(song({ artist: undefined, autoplay: true })), `1:40 | ${AUTOPLAY_MARK}`);
+  assert.equal(jumpDescription(song({ artist: undefined, autoplay: true })), "1:40 | 🎲");
   assert.equal(jumpDescription(song({ artist: undefined, duration: 0 })), undefined);
 });
 
