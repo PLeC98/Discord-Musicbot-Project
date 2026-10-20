@@ -36,15 +36,11 @@ test("검색어는 1차 여럿 · 2차 여럿이다(이 표의 전제)", () => {
   assert.ok(secondary.length > 0, `2차 ${secondary.length}개`);
 });
 
-test("동등물: 1차 전부와 2차 전부를 6개씩 묻는다. 1차에 답이 있어도 2차를 묻는다", async () => {
+test("동등물: 1차 전부와 2차 전부를 6개씩, 아티스트 이름만 15개를 묻는다. 1차에 답이 있어도 2차를 묻는다", async () => {
   for (const primaryHits of [false, true]) {
     const { asked, search } = searcher(primaryHits);
     await equivalent.findYouTubeEquivalent({ title: TARGET.title, artist: TARGET.artist, duration: TARGET.durationSec }, { search });
-    assert.deepEqual(
-      asked,
-      [...primary, ...secondary].map((q) => [q, 6]),
-      `1차 답 ${primaryHits}`,
-    );
+    assert.deepEqual(asked, [...[...primary, ...secondary].map((q) => [q, 6]), [TARGET.artist, 15]], `1차 답 ${primaryHits}`);
   }
 });
 
@@ -74,9 +70,9 @@ test("동등물: 같은 곡을 같은 줄에서 찾는 중이면 검색 한 벌�
   release();
   assert.deepEqual(await both, [HIT[0].audioUrl, HIT[0].audioUrl]);
   assert.equal(b.audioFoundBy, "search");
-  assert.equal(asked.length, primary.length + secondary.length, "검색 한 벌");
+  assert.equal(asked.length, primary.length + secondary.length + 1, "검색 한 벌(아티스트 검색 포함)");
   await equivalent.findYouTubeEquivalent(song(), { search });
-  assert.equal(asked.length, 2 * (primary.length + secondary.length), "끝난 뒤에는 새로 찾는다");
+  assert.equal(asked.length, 2 * (primary.length + secondary.length + 1), "끝난 뒤에는 새로 찾는다");
 });
 
 test("동등물: 미리 받기(뒤 줄)가 찾는 곡에 지금 곡(앞 줄)이 붙지 않는다. 찾지 못한 답도 같이 받는다", async () => {
@@ -93,7 +89,7 @@ test("동등물: 미리 받기(뒤 줄)가 찾는 곡에 지금 곡(앞 줄)이 
   const now = equivalent.findYouTubeEquivalent(song(), { search: failing });
   release();
   assert.deepEqual(await Promise.all([background, now]), [[null, null], null]);
-  assert.equal(calls, 2 * (primary.length + secondary.length), "뒤 줄 둘은 한 벌, 앞 줄은 따로 한 벌");
+  assert.equal(calls, 2 * (primary.length + secondary.length + 1), "뒤 줄 둘은 한 벌, 앞 줄은 따로 한 벌");
 });
 
 // 검색어마다 다른 영상 하나를 주고, 늦게 물은 것이 먼저 끝나게 한다. 동시에 떠 있던 수의 최대를 잰다
@@ -116,8 +112,8 @@ function racing(failing: string | null = null) {
 
 test("검색: exact 는 1차 · 2차 검색어를 한꺼번에 묻고, 합친 차례는 검색어 차례다. 한 검색어가 실패해도 나머지로", async () => {
   const { search, peak } = racing(primary[1]);
-  const found = await searchCandidates(TARGET, search, "exact");
-  assert.equal(peak(), primary.length + secondary.length);
+  const found = (await searchCandidates(TARGET, search, "exact")).candidates;
+  assert.equal(peak(), primary.length + secondary.length + 1, "아티스트 검색도 함께");
   const all = [...primary, ...secondary];
   assert.deepEqual(
     found.map((c) => c.id),
@@ -132,4 +128,28 @@ test("검색: cheap 는 1차 앞 둘을 한꺼번에 묻고, 2차는 1차가 빈
   assert.deepEqual(asked, primary.slice(0, 2), "1차 둘이 함께 떠 있다");
   await pending;
   assert.deepEqual(asked, [...primary.slice(0, 2), ...secondary.slice(0, 2)]);
+});
+
+test("검색: exact 는 아티스트 채널을 알아보고 그 채널의 이 곡일 수 있는 영상을 2차 자리에 더한다. cheap 는 아티스트 검색을 하지 않는다", async () => {
+  const asked: Array<[string, number]> = [];
+  const own = (id: string, title: string, duration: number) => ({ id, audioUrl: `https://www.youtube.com/watch?v=${id}`, title, artist: "공식", duration });
+  const search = async (query: string, limit: number) => {
+    asked.push([query, limit]);
+    if (query === TARGET.artist) return [own("o1", "A - Song (TV Size)", 240), own("o2", "다른 노래", 240), own("o3", "A - Song (TV Size) MV", 250), own("o4", "또 다른 노래", 200), { id: "x1", audioUrl: "u", title: "Song", artist: "남", duration: 240 }];
+    return [];
+  };
+  const found = await searchCandidates(TARGET, search, "exact");
+  assert.deepEqual(found.artistChannels, ["공식"]);
+  assert.deepEqual(
+    found.candidates.map((c) => c.id),
+    ["o1", "o3"],
+  );
+  assert.ok(
+    found.candidates.every((c) => (c.rank ?? 0) >= 8),
+    "2차 자리(순위를 뒤로)",
+  );
+  asked.length = 0;
+  const cheap = await searchCandidates(TARGET, search, "cheap");
+  assert.deepEqual(cheap.artistChannels, []);
+  assert.ok(!asked.some(([q]) => q === TARGET.artist));
 });

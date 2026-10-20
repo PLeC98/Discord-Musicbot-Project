@@ -226,7 +226,7 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
   // thumbnail 을 꼭 싣는다(searchCandidates). Last.fm · LB Radio 는 표지를 안 주므로 영상 것이 유일한 그림이다.
   // 빠뜨리면 앨범아트 위치에 디스코드의 빈 그림이, 대시보드에는 파일 아이콘이 표시된다.
-  const candidates = await match.searchCandidates(target, search, "cheap");
+  const { candidates } = await match.searchCandidates(target, search, "cheap");
   if (!candidates.length) return null;
 
   let { best, confidence, ranked } = match.rankCandidates(candidates, target);

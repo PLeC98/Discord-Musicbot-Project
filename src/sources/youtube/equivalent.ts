@@ -22,9 +22,9 @@ const seeking = new Map<string, Promise<string | null>>();
 
 /** 찾은 것 중 가장 맞는 영상의 주소. 없으면 null */
 async function bestOf(target: Target, search: Search): Promise<string | null> {
-  const candidates = await searchCandidates(target, search, "exact");
+  const { candidates, artistChannels } = await searchCandidates(target, search, "exact");
   if (!candidates.length) return null;
-  return rankCandidates(candidates, target).best?.url || null;
+  return rankCandidates(candidates, { ...target, artistChannels }).best?.url || null;
 }
 
 /** 합치는 열쇠: 줄(미리 받기인가)과 요청 키. 요청 키가 없으면 합치지 않는다 */

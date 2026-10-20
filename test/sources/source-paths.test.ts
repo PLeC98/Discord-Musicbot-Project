@@ -378,8 +378,8 @@ test("동등물: 검색 결과에서 라이브를 빼고 점수로 고른다", a
 
   assert.ok(queries.length >= 1);
   assert.ok(
-    queries.every(([, n]) => n === 6),
-    "검색마다 6개씩",
+    queries.every(([q, n]) => n === (q === "가수" ? 15 : 6)),
+    "검색어마다 6개씩, 아티스트 이름만은 15개",
   );
   assert.equal(url, "https://www.youtube.com/watch?v=goodgoodgoo");
   assert.equal(track.audioUrl, "https://www.youtube.com/watch?v=goodgoodgoo");

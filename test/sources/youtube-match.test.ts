@@ -120,3 +120,68 @@ test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다
   assert.equal(I.detectVersionKind("Idol【TV】"), "tv");
   assert.equal(I.detectVersionKind("Song - Short -"), "short");
 });
+
+// ── 아티스트 채널(아티스트만 검색해 알아본 채널) ─────────────────
+
+const ZWNJ = "‌"; // 보이지 않는 문자뿐인 채널 이름(실제 사례)
+
+test("길이 4초 안은 1초마다 덜 준다(같은 채널의 1초 차 · 3초 차를 가른다)", () => {
+  assert.equal(I.durationScore(200, 200).score, W.durNear);
+  assert.equal(I.durationScore(203, 200).score, W.durNear - 3 * W.durNearPerSec);
+  assert.ok(I.durationScore(201, 200).score > I.durationScore(203, 200).score);
+});
+
+test("채널 추정: 아티스트 검색의 앞 6개에서 3개 넘게 · 절반 넘게 나온 채널. 이름이 없는 결과는 세지 않는다", () => {
+  const ch = (...names: Array<string | null>) => names.map((channel) => ({ channel }));
+  assert.equal(I.dominantChannel(ch("A", "B", "C", "D", "E", "F", "G", "G", "G", "G", "G", "G", "G")), null, "뒤쪽은 세지 않는다(전부 세면 G 가 절반을 넘는다)");
+  assert.equal(I.dominantChannel(ch("A", "A", "A", "A", "B", "C")), "A");
+  assert.equal(I.dominantChannel(ch("A", "A", "B")), null, "3개가 안 된다");
+  assert.equal(I.dominantChannel(ch(ZWNJ, ZWNJ, ZWNJ, ZWNJ, "B")), ZWNJ);
+  assert.equal(I.dominantChannel(ch(null, null, null, null, "B")), null);
+});
+
+test("아티스트 채널의 영상 중 이 곡일 수 있는 것: 그 채널이고 제목이 곡 제목을 품거나 글자가 없다", () => {
+  const list = [
+    { id: "1", channel: "A", title: "곡 (Official)" },
+    { id: "2", channel: "A", title: "다른 노래" },
+    { id: "3", channel: "A", title: ZWNJ },
+    { id: "4", channel: "B", title: "곡" },
+  ];
+  assert.deepEqual(
+    I.ownUploads(list, "A", target).map((c) => c.id),
+    ["1", "3"],
+  );
+  assert.deepEqual(
+    I.ownUploads(list, "A", { ...target, title: "......" }).map((c) => c.id),
+    ["3"],
+    "곡 제목에 글자가 없으면 글자 없는 영상만",
+  );
+});
+
+test("알아본 채널은 이름 그대로 견준다: 보이지 않는 이름끼리는 맞고, 빈 이름 · 없는 이름은 맞지 않는다", () => {
+  const known = { ...target, artist: "x0o0x_", artistChannels: [ZWNJ] };
+  assert.equal(I.artistChannelOf(ZWNJ, known).match, true);
+  assert.equal(I.artistChannelOf("", { ...known, artistChannels: [""] }).match, false);
+  assert.equal(I.artistChannelOf(null, known).match, false);
+  assert.equal(I.artistChannelOf("남의채널", known).match, false);
+  assert.equal(I.artistChannelOf("x0o0x_", { ...known, artistChannels: [] }).match, true, "이름이 맞으면 알아본 채널과 상관없이");
+});
+
+test("아티스트 채널의 영상이 5 ~ 60초 길면 MV 인트로로 보고 길이를 '가까움'으로 친다. 남의 채널 · 짧은 쪽 · 60초 넘게는 아니다", () => {
+  const own = { channel: "아티스트" };
+  assert.equal(scoreCandidate(cand({ ...own, durationSec: 240 }), target).breakdown.duration, W.durClose);
+  assert.equal(scoreCandidate(cand({ ...own, durationSec: 261 }), target).breakdown.duration, W.durFarLong);
+  assert.equal(scoreCandidate(cand({ ...own, durationSec: 170 }), target).breakdown.duration, W.durLoose);
+  assert.equal(scoreCandidate(cand({ durationSec: 240 }), target).breakdown.duration, W.durFarLong);
+  assert.equal(scoreCandidate(cand({ channel: ZWNJ, durationSec: 240 }), { ...target, artistChannels: [ZWNJ] }).breakdown.duration, W.durClose, "알아본 채널도");
+});
+
+test("제목이 기호뿐인 곡은 아티스트 채널 후보끼리 순위를 같게 두어 길이로 가른다. 글자가 있는 곡은 순위 그대로", () => {
+  const symbol = { title: "......", artist: "x0o0x_", durationSec: 147, artistChannels: [ZWNJ] };
+  const near = cand({ id: "near", title: ZWNJ, channel: ZWNJ, durationSec: 149, rank: 3 });
+  const far = cand({ id: "far", title: ZWNJ, channel: ZWNJ, durationSec: 134, rank: 0 });
+  const stranger = cand({ id: "stranger", title: "......", channel: "남의채널", durationSec: 147, rank: 1 });
+  assert.equal(rankCandidates([far, near, stranger], symbol).best?.id, "near");
+  const worded = { ...symbol, title: "곡" };
+  assert.equal(rankCandidates([far, { ...near, title: "곡" }], worded).ranked.find((r) => r.candidate.id === "near")?.rank, 3);
+});
