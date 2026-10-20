@@ -93,7 +93,7 @@ const noProcesses = "실행 중인 자식 프로세스가 없어요";
 const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (${byLabel})`;
 /** yt-dlp 줄: 곡 찾기 · 다운로드의 도는 수/크기와 기다리는 수 */
 const ytdlpLoad = (lookup: string, background: string, waiting: number) => `yt-dlp 곡 찾기 ${lookup} · 다운로드 ${background} · 기다림 ${formatNumber(waiting)}`;
-const ytdlpLoadTip = (count: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽었어요.\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
+const ytdlpLoadTip = (count: number, reused: number, missed: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽고, 받아 둔 정보를 ${formatNumber(reused)}번 다시 썼어요.${missed ? ` 자리가 없어 밀려난 정보를 ${formatNumber(missed)}번 다시 읽었어요.` : ""}\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
 const extractions = "유튜브 영상 정보 읽기";
 
 // 저장공간

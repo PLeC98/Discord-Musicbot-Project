@@ -4,6 +4,7 @@
 import type { Client } from "discord.js";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { ytdlpLoad } from "../../sources/ytdlp-spawn.ts";
+import { reuseLoad } from "../../sources/youtube/recent-info.ts";
 import { processMemory } from "../../infra/process-memory.ts";
 import { onWindow } from "../../infra/vitals.ts";
 import type { AdminStatus, ProcessRow } from "../contract/admin.ts";
@@ -48,7 +49,7 @@ function processSummary(client: Client, players: { has(guildId: string): boolean
     total: oldest.length,
     byLabel: [...byLabel].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
     oldest,
-    ytdlp: ytdlpLoad(),
+    ytdlp: { ...ytdlpLoad(), ...reuseLoad() },
   };
 }
 
