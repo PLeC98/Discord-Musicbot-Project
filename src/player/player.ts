@@ -62,6 +62,7 @@ import { inputKind } from "../rules/input-kind.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { bindToGuild, inGuild } from "../infra/guild-context.ts";
+import type { Job } from "../infra/process-job.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 
@@ -1179,9 +1180,9 @@ class Player {
    * 자동재생 후보 한 곡을 선택한다. 선택하지 못하면 null.
    *
    * 선택만 한다. 대기열도 재생도 건드리지 않는다. 부르는 쪽이 지금 틀지(handleAutoplay)
-   * 미리 대기열에 둘지(ensureAutoplayNext) 정한다.
+   * 미리 대기열에 둘지(ensureAutoplayNext) 정한다. job: 실행한 yt-dlp 의 일(미리 고르기는 prefetch 라 뒤 줄에 선다)
    */
-  async pickAutoplayTrack() {
+  async pickAutoplayTrack(job: Job | null = null) {
     if (!this.autoplay || typeof this.autoplay !== "string") return null;
 
     try {
@@ -1194,7 +1195,7 @@ class Player {
       const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
       // 길 찾기는 바깥 경계(pickAutoplay)를 지난다. autoplayDeps: 그 안의 소스 · 검색 · 링크 데이터 · AI 보조. 테스트만 넘긴다. 없으면 진짜
-      const picked = await inGuild(this.guild.id, () => this.io.pickAutoplay(cfg, recent, this.autoplayDeps));
+      const picked = await inGuild(this.guild.id, () => this.io.pickAutoplay(cfg, recent, this.autoplayDeps), job);
       if (!picked) {
         log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못했습니다 (장르 ${this.autoplay})`);
         return null;
@@ -1277,7 +1278,7 @@ class Player {
           if (!this._canPrefetchAutoplay()) break; // 쉬는 사이 사용자가 곡을 넣었을 수 있다
         }
 
-        const picked = await this.pickAutoplayTrack();
+        const picked = await this.pickAutoplayTrack("prefetch");
         if (!picked) break;
         // 선택하는 사이 대기열이 변했을 수 있다. 사용자가 곡을 넣었으면 미리 선택은 취소한다.
         if (!this._canPrefetchAutoplay()) break;

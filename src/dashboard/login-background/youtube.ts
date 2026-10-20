@@ -35,7 +35,7 @@ async function fetchVideo(url: string, folder: string, base: string, res: number
     await youtube.runYtDlp(
       url,
       (forceCookies) => youtube.getYtDlpOptions(flags, { forceCookies }),
-      (target, options) => ytdlp(target, options, { signal }),
+      (target, options, more) => ytdlp(target, options, { ...more, signal, job: "login-background" }),
     );
   } catch (error) {
     if (signal.aborted) throw error;

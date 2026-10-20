@@ -20,7 +20,7 @@ stores.open(TMP);
 audioCache.initialize();
 
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
-import runYtDlp, { useExec, type Exec, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
+import runYtDlp, { useExec, type Exec, type RunYtDlp, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import { plainText } from "../helpers/notice.ts";
 
 // yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
@@ -256,14 +256,45 @@ test("자동재생 재생목록 소스: 목록을 못 받으면 그 까닭, 곡 
 
 // ── 다시 받기 ─────────────────────────────────────────────────────────
 
+// yt-dlp 실행(run)을 감싸 다시 묻기로 불렀는지 적는다
+function retrySpy() {
+  const retries: boolean[] = [];
+  const exec: RunYtDlp = (url, flags, opts) => {
+    retries.push(opts?.retry === true);
+    return runYtDlp(url, flags, opts);
+  };
+  return { exec, retries };
+}
+
 test("미디어 주소가 어긋나면(403) 잠깐 뒤 한 번 더 받는다", async () => {
   let n = 0;
   respond = () => (++n === 1 ? { fail: "ERROR: unable to download video data: HTTP Error 403: Forbidden" } : { ...video("mmmmmmmmmmm"), url: "https://rr1.googlevideo.com/v" });
 
-  const s = await YouTube.getStream("https://www.youtube.com/watch?v=mmmmmmmmmmm");
+  const { exec, retries } = retrySpy();
+  const s = await YouTube.getStream("https://www.youtube.com/watch?v=mmmmmmmmmmm", { exec });
 
   assert.equal(calls.length, 2);
   assert.equal(s.url, "https://rr1.googlevideo.com/v");
+  assert.deepEqual(retries, [false, true], "다시 받기는 yt-dlp 줄의 맨 앞에 선다");
+});
+
+test("클라이언트를 바꾼 시도와 기본값 마지막 시도는 다시 묻기로 부른다", async () => {
+  playerClients.order = ["web_embedded", "mweb"];
+  try {
+    respond = () => ({ fail: "ERROR: [youtube] ccccccccccc: Requested format is not available" });
+    const { exec, retries } = retrySpy();
+    await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=ccccccccccc", { exec }));
+    assert.deepEqual(
+      calls.map((c, i) => [c.flags.extractorArgs ?? null, retries[i]]),
+      [
+        ["youtube:player_client=web_embedded", false],
+        ["youtube:player_client=mweb", true],
+        [null, true],
+      ],
+    );
+  } finally {
+    playerClients.order = [];
+  }
 });
 
 test("영상이 없는 것은 다시 받지 않는다", async () => {

@@ -33,6 +33,9 @@ const TUNABLES: readonly Tunable[] = [
   { key: "YTDLP_CLIENT_WINDOW", group: "youtube", kind: "int", def: "5", min: 2, max: 50 },
   { key: "YTDLP_CLIENT_FAILS", group: "youtube", kind: "int", def: "3", min: 1, max: 50 },
   { key: "YTDLP_CLIENT_RETRY_MINUTES", group: "youtube", kind: "int", def: "60", min: 0, max: 10080 },
+  // 동시에 도는 yt-dlp. 0 이면 자동(곡 찾기는 메모리로, 다운로드 · 미리 받기는 2)
+  { key: "YTDLP_LOOKUP_SLOTS", group: "youtube", kind: "int", def: "0", min: 0, max: 32 },
+  { key: "YTDLP_BACKGROUND_SLOTS", group: "youtube", kind: "int", def: "0", min: 0, max: 32 },
   { key: "COOKIES_SOURCE", group: "youtube", kind: "cookies", def: "" },
   { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
   // SponsorBlock

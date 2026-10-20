@@ -45,7 +45,7 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
         /* 기록 실패는 무시 */
       }
       log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId}). 쿠키로 재시도합니다`);
-      return await _runWithClients(url, buildOptions, true, exec);
+      return await _runWithClients(url, buildOptions, true, exec, true);
     }
 
     // 서명된 미디어 주소가 어긋난 경우. 한 번 더 받아 새 주소를 얻는다.
@@ -53,7 +53,7 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
     if (errors.isStaleMediaError(error)) {
       log.warn({ tags: ["retry"] }, `미디어 주소가 어긋났습니다 (${videoId || url}). 다시 받습니다`);
       await new Promise((done) => setTimeout(done, STALE_RETRY_MS));
-      return await _runWithClients(url, buildOptions, known, exec);
+      return await _runWithClients(url, buildOptions, known, exec, true);
     }
 
     throw error;
@@ -66,21 +66,22 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
  * 클라이언트 탓으로 보이는 실패에서만 다음으로 넘어가고 빈도를 기록한다. 영상이 없어졌거나
  * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다.
  * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다.
+ * retry: 다시 묻는 것이다. 첫 시도 뒤의 시도도 다시 묻기라 yt-dlp 줄의 맨 앞에 선다(곡 찾기 하나가 줄 끝을 여러 번 기다리지 않게)
  */
-async function _runWithClients(url: string, buildOptions: BuildOptions, forceCookies: boolean, exec: RunYtDlp): Promise<unknown> {
+async function _runWithClients(url: string, buildOptions: BuildOptions, forceCookies: boolean, exec: RunYtDlp, retry = false): Promise<unknown> {
   const table = playerClients();
   const clients = table.idle ? [] : table.list();
 
   if (clients.length === 0) {
     if (!table.idle) table.noteExhausted(); // 지정은 했는데 전부 제외됨
-    return _runOnce(url, buildOptions(forceCookies), null, exec);
+    return _runOnce(url, buildOptions(forceCookies), null, exec, retry);
   }
 
   let lastError: unknown = null;
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
     try {
-      const result = await _runOnce(url, buildOptions(forceCookies), client, exec);
+      const result = await _runOnce(url, buildOptions(forceCookies), client, exec, retry || i > 0);
       table.record(client, true);
       return result;
     } catch (error) {
@@ -95,7 +96,7 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
   // 지정한 것이 다 안 됐다. yt-dlp 기본값에 한 번 맡겨 본다. 유지보수되는 쪽이 더 나을 수 있다.
   log.warn({ tags: ["fallback"] }, `지정한 클라이언트를 모두 시도했습니다. yt-dlp 기본값으로 마지막 시도를 합니다`);
   try {
-    return await _runOnce(url, buildOptions(forceCookies), null, exec);
+    return await _runOnce(url, buildOptions(forceCookies), null, exec, true);
   } catch {
     throw lastError; // 원인 파악에는 클라이언트별 실패가 더 유용하다
   }
@@ -106,14 +107,14 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
  * 호출부가 extractorArgs를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다.
  * 클라이언트를 하나씩만 넘기는 이유는 _runWithClients 의 주석 참조.
  */
-async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl): Promise<unknown> {
+async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl, retry = false): Promise<unknown> {
   const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
   // 대시보드에 입력한 쿠키는 이 실행만의 파일로 풀어 넘기고, 끝나면 고친 쿠키를 되담고 삭제한다(store/cookie-jar)
   const held = opts.cookies === cookieJar.JAR ? cookieJar.checkout() : null;
   const sent = opts.cookies === cookieJar.JAR ? { ...opts, cookies: held?.file } : opts;
   if (sent.cookies === undefined) delete sent.cookies;
   try {
-    const result = await exec(url, sent);
+    const result = await exec(url, sent, retry ? { retry } : undefined);
     _inspectWarnings((result as { _stderr?: string } | null)?._stderr, client);
     return result;
   } finally {

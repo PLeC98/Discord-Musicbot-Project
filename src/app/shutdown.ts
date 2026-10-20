@@ -8,6 +8,7 @@ import { getVoiceConnections } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import * as procRegistry from "../infra/process-registry.ts";
+import { closeLanes } from "../sources/ytdlp-spawn.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { EXIT, type ExitCode } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
@@ -25,7 +26,11 @@ type Boundary = {
 const REAL: Boundary = {
   proc: process,
   voiceConnections: () => getVoiceConnections(),
-  killAll: (reason) => procRegistry.killAll(reason),
+  // 기다리던 yt-dlp 가 자식 정리 뒤에 뜨지 않게 줄을 먼저 닫는다
+  killAll: (reason) => {
+    closeLanes();
+    return procRegistry.killAll(reason);
+  },
   exit: (code) => process.exit(code),
   record: runRecord,
 };

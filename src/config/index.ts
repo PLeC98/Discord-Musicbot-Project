@@ -330,6 +330,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       clientWindow: tuneInt("YTDLP_CLIENT_WINDOW"),
       clientFails: tuneInt("YTDLP_CLIENT_FAILS"),
       clientRetryMs: tuneInt("YTDLP_CLIENT_RETRY_MINUTES") * 60 * 1000,
+      // 동시에 도는 수(sources/ytdlp-spawn). lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기. 0 이면 자동
+      lookupSlots: tuneInt("YTDLP_LOOKUP_SLOTS"),
+      backgroundSlots: tuneInt("YTDLP_BACKGROUND_SLOTS"),
 
       // 바이너리 버전(src/sources/ytdlp-binary.ts). 채널의 최신을 따라가거나 버전 하나로 고정한다
       channel: envEnum("YTDLP_CHANNEL", "nightly", YTDLP_CHANNELS),

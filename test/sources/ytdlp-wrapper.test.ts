@@ -62,6 +62,8 @@ test("실패 계약: stderr를 담은 Error — 연령제한/삭제영상 판별
 test("실행 중에는 레지스트리가 프로세스를 추적한다", opts, async () => {
   const before = registry.size();
   const pending = run("", { version: true });
+  // 줄에서 자리를 잡은 뒤에 띄운다
+  await new Promise((done) => setImmediate(done));
   assert.equal(registry.size(), before + 1, "실행 중에는 추적되어야 종료 시 정리할 수 있다");
   await pending.catch(() => {});
   assert.equal(registry.size(), before);
