@@ -26,7 +26,7 @@ const fields: Record<string, { label: string; help: string }> = {
   YTDLP_CLIENT_WINDOW: { label: "최근 몇 번을 보고 판단할지", help: "클라이언트가 막혔는지 볼 때 최근 몇 번의 결과를 볼지." },
   YTDLP_CLIENT_FAILS: { label: "그중 몇 번 실패하면 건너뛸지", help: "위 횟수 가운데 이만큼 실패하면 그 클라이언트를 한동안 건너뛰어요." },
   YTDLP_CLIENT_RETRY_MINUTES: { label: "건너뛴 클라이언트를 다시 테스트하기까지(분)", help: "0 이면 봇을 다시 시작하거나 클라이언트 설정을 저장할 때까지 건너뛰어요." },
-  YTDLP_LOOKUP_SLOTS: { label: "동시에 곡을 찾는 yt-dlp 수", help: "곡 찾기 · 검색 · 재생 주소처럼 사용자가 기다리는 일. 하나가 메모리를 약 400MB 써요.\n0 이면 메모리 2GB마다 하나(2~8)." },
+  YTDLP_LOOKUP_SLOTS: { label: "동시에 곡을 찾는 yt-dlp 수", help: "곡 찾기 · 검색 · 재생 주소처럼 사용자가 기다리는 일. 하나가 메모리를 수백 MB 써요(리눅스 노트북에서 약 400MB).\n0 이면 메모리 2GB마다 하나(2~8)." },
   YTDLP_BACKGROUND_SLOTS: { label: "동시에 다운로드 · 미리 받는 yt-dlp 수", help: "캐시 다운로드와 다음 곡 미리 받기. 0 이면 2." },
   COOKIES_SOURCE: { label: "쿠키 출처", help: "연령 제한 영상에만 써요. 쿠키 직접 입력이면 아래 유튜브 쿠키 카드에 입력한 쿠키를, 브라우저면 그 브라우저에서 가져와요.\n브라우저 프로필 등을 지정하려면 기타를 선택하고 yt-dlp 형식으로 입력해요(chrome:Profile 1 · firefox::컨테이너)." },
   BGUTIL_ENABLED: { label: "POToken 서버 사용", help: "설치돼 있을 때 켜면 봇과 함께 POToken 서버를 실행해요. mweb · tv_simply 클라이언트에 필요해요." },

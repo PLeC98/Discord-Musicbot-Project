@@ -259,7 +259,10 @@
             <span class="min-w-0 truncate">{{ T.processesTotal(status.processes.total, status.processes.byLabel.map((b) => `${b.label} ${b.count}`).join(" · ")) }}</span>
             <span class="ml-auto shrink-0 nums">{{ processMemMb }} MB</span>
           </div>
-          <span class="self-start max-w-full truncate nums" :class="ytdlp.nearLimit && LEVEL_TEXT.warn" v-tooltip="T.ytdlpLoadTip(ytdlp.extractedLastHour)">{{ T.ytdlpLoad(`${ytdlp.lookup.running}/${ytdlp.lookup.size}`, `${ytdlp.background.running}/${ytdlp.background.size}`, ytdlp.lookup.waiting + ytdlp.background.waiting) }}</span>
+          <span class="self-start max-w-full flex items-center gap-0.5 cursor-help" :class="ytdlp.nearLimit && LEVEL_TEXT.warn" v-tooltip="T.ytdlpLoadTip(ytdlp.extractedLastHour)"
+            ><span class="min-w-0 truncate nums">{{ T.ytdlpLoad(`${ytdlp.lookup.running}/${ytdlp.lookup.size}`, `${ytdlp.background.running}/${ytdlp.background.size}`, ytdlp.lookup.waiting + ytdlp.background.waiting) }}</span
+            ><Icon name="info" :size="14" class="shrink-0"
+          /></span>
         </div>
       </BaseCard>
       <ReuseStorage v-if="!storageBeside" />

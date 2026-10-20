@@ -54,7 +54,7 @@ function useInfoTimeout(ms: number | null) {
 // 오래 도는 뒤의 일이 앞의 일을 막지 않게 따로 센다. 자리는 실행 둘레에만 잡는다(다시 묻기는 자리를 돌려주고 줄 맨 앞에 다시 선다)
 type Lane = "lookup" | "background";
 const GB = 1024 ** 3;
-/** 곡 찾기 하나가 약 400MB(JS 과제를 푸는 node 포함)라 메모리의 1/4 를 넘지 않게: 2GB 마다 하나, 2 ~ 8. 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로 */
+/** 곡 찾기 하나가 약 400MB(JS 과제를 푸는 node 포함, 리눅스 노트북 실측)라 메모리의 1/4 를 넘지 않게: 2GB 마다 하나, 2 ~ 8. 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로 */
 function autoLookupSlots(constrained: number, total: number): number {
   const memory = constrained > 0 && constrained < total ? constrained : total;
   return Math.min(8, Math.max(2, Math.floor(memory / (2 * GB))));
@@ -113,7 +113,7 @@ function countExtraction(url: string, flags: YtDlpFlags) {
   }
   if (extractionWarned) return;
   extractionWarned = true;
-  log.warn({ tags: ["youtube-change"] }, `지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽었습니다. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작합니다`);
+  log.warn(`지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽었습니다. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작합니다`);
 }
 
 /** 봇 상태 탭: 줄마다 도는 수 · 크기 · 기다리는 수와 지난 1시간 영상 정보 추출 수(nearLimit: 알리는 수를 넘었다) */
