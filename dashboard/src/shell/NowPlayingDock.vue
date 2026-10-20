@@ -142,5 +142,6 @@ const metaBtn = "state-layer flex items-center gap-3 min-w-0 rounded-full p-1 pr
 const iconBtn = `${CTL_BTN} size-10 text-on-surface hover:not-disabled:scale-105`;
 const toggleBtn = `${CTL_BTN} ${TOGGLE_BTN}`;
 const playBtn = "tap size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer bg-primary text-on-primary transition-[scale] duration-150 hover:not-disabled:scale-105 active:not-disabled:scale-95 disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed";
-const timeText = "hidden @lg:block w-10 shrink-0 text-center text-xs font-medium nums text-on-surface-variant";
+// 시간 칸은 한 줄로. 1시간이 넘는 곡이면 양쪽을 같이 넓힌다(막대가 가운데에서 흔들리지 않게, 막대는 남는 폭만큼 줄어든다)
+const timeText = computed(() => ["hidden @lg:block shrink-0 whitespace-nowrap text-center text-xs font-medium nums text-on-surface-variant", np.duration >= 3600 ? "min-w-14" : "min-w-10"]);
 </script>
