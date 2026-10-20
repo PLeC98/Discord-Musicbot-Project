@@ -463,8 +463,8 @@ class Player {
       startMs,
       meta: { title: track.title, url: track.pageUrl, duration: track.duration },
       download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
-      // 오류는 곡이 바뀐 뒤에 도착할 수 있다. 이 재생의 곡을 붙잡아 두어 엉뚱한 곡의 캐시로 갈아타지 않게 한다
-      onStreamLost: (splicer) => this._planCacheSwitch(splicer, track),
+      // 오류는 곡이 바뀐 뒤 · 같은 곡의 새 재생을 여는 동안에 도착할 수 있다. 이 재생을 붙잡아 두어 엉뚱한 곡 · 위치로 갈아타지 않게 한다
+      onStreamLost: (splicer) => this._planCacheSwitch(splicer, pb),
       onProgress: () => {
         pb.inputProgressAt = Date.now();
       },
@@ -566,8 +566,11 @@ class Player {
   /**
    * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다. 예약했으면 true.
    * 캐시가 아직 없으면 하지 않는다. 스트림이 이어받거나, Idle → play(위치)가 받는다.
+   * pb: 그 스트림을 연 재생. 같은 곡의 새 재생(위치 이동 · 다시 열기)을 여는 동안 옛 스트림이 끊기면 지금 재생(this.playback)은 이미 새 것이라,
+   * 위치 · 입력은 그 스트림을 연 재생의 것으로 센다. 새 재생이 자리 잡을 때까지 옛 소리는 캐시로 이어진다
    */
-  _planCacheSwitch(splicer: Switchable | null, track: QueuedTrack) {
+  _planCacheSwitch(splicer: Switchable | null, pb: Pick<CurrentPlayback, "track" | "startOffsetMs" | "input">) {
+    const { track } = pb;
     const giveUp = (why: string) => {
       wlog.debug(`무지연 전환 포기: ${this._trackLabel()} | ${why}`);
       return false;
@@ -583,7 +586,7 @@ class Player {
     // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
     // resource.playbackDuration을 쓰면 자기 정합적이지 않다.
     const atMs = splicer.emittedMs + SWITCH_LEAD_MS;
-    const seekMs = (this.playback?.startOffsetMs || 0) + atMs; // 캐시 파일 안에서의 절대 위치
+    const seekMs = (pb.startOffsetMs || 0) + atMs; // 캐시 파일 안에서의 절대 위치
 
     let decoder;
     try {
@@ -598,10 +601,9 @@ class Player {
       return false;
     }
     // 갈아타면 곡 끝 판정은 캐시 파일 쪽을 본다. 버린 스트림이 늦게 남기는 표시는 이 재생과 무관하다
-    const pb = this.playback;
     const health = new InputHealth("캐시 전환").watch(decoder);
     splicer.once("switched", (ms: number) => {
-      if (pb) pb.input = health;
+      pb.input = health;
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
       // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
       wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
