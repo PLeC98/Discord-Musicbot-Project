@@ -85,8 +85,14 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
   }
 
   let lastError: unknown = null;
+  // 다운로드를 다른 클라이언트로 다시 받기 전에 받다 만 파일을 지운다(클라이언트마다 고르는 포맷이 달라 이어 붙인 파일이 깨진다)
+  const output = buildOptions(forceCookies).output;
+  const fresh = () => {
+    if (output) clearOutput(output);
+  };
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
+    if (i > 0) fresh();
     try {
       const result = await _runOnce(url, buildOptions(forceCookies), client, exec, retry || i > 0);
       table.record(client, true);
@@ -102,6 +108,7 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
 
   // 지정한 것이 다 안 됐다. yt-dlp 기본값에 한 번 맡겨 본다. 유지보수되는 쪽이 더 나을 수 있다.
   log.warn({ tags: ["fallback"] }, `지정한 클라이언트를 모두 시도했습니다. yt-dlp 기본값으로 마지막 시도를 합니다`);
+  fresh();
   try {
     return await _runOnce(url, buildOptions(forceCookies), null, exec, true);
   } catch {

@@ -403,3 +403,19 @@ test("다운로드의 낡은 주소 다시 받기는 받다 만 파일을 지우
   assert.equal(ran.length, 2);
   assert.equal(fs.existsSync(path.join(dir, "k.tmp-1-ab.webm.part")), false);
 });
+
+test("다운로드를 다른 클라이언트로 다시 받기 전에도 받다 만 파일을 지운다", async () => {
+  playerClients.order = ["web_embedded", "mweb"];
+  try {
+    const seen: boolean[] = [];
+    const { dir, exec, build } = downloadRig(() => {
+      seen.push(fs.existsSync(path.join(dir, "k.tmp-1-ab.webm.part")));
+      fs.writeFileSync(path.join(dir, "k.tmp-1-ab.webm.part"), "half");
+      return Object.assign(new Error("ERROR: Requested format is not available"), { stderr: "ERROR: Requested format is not available" });
+    });
+    await assert.rejects(YouTube.runYtDlp("https://www.youtube.com/watch?v=yyyyyyyyyyy", build, exec));
+    assert.deepEqual(seen, [false, false, false], "시도마다 받다 만 파일 없이 시작한다");
+  } finally {
+    playerClients.order = [];
+  }
+});
