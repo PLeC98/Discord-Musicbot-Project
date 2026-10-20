@@ -6,6 +6,7 @@ import type { Client } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
 import { HELP, customId } from "../../ui/custom-ids.ts";
 import { colorOf } from "../../ui/colors.ts";
+import { buttonEmoji } from "../../ui/icons.ts";
 import * as helpText from "../../ui/text/ko/help.ts";
 import { helpSections } from "../../ui/help-lines.ts";
 import { LIFETIME, selfOnly, toSelf } from "../../ui/delivery.ts";
@@ -32,8 +33,8 @@ async function buildHelpEmbed(client: Client<true>, { players, commands }: Pick<
   });
   const buttons: ButtonBuilder[] = [];
   const labels = helpText.buttons();
-  if (config.bot.website) buttons.push(new ButtonBuilder().setLabel(labels.website).setEmoji("🌐").setURL(config.bot.website).setStyle(ButtonStyle.Link));
-  buttons.push(new ButtonBuilder().setCustomId(customId(HELP, "refresh")).setLabel(labels.refresh).setEmoji("🔄").setStyle(ButtonStyle.Secondary));
+  if (config.bot.website) buttons.push(new ButtonBuilder().setLabel(labels.website).setEmoji(buttonEmoji("web")).setURL(config.bot.website).setStyle(ButtonStyle.Link));
+  buttons.push(new ButtonBuilder().setCustomId(customId(HELP, "refresh")).setLabel(labels.refresh).setEmoji(buttonEmoji("refresh")).setStyle(ButtonStyle.Secondary));
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
   return { embed, row };
 }

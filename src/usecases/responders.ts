@@ -6,6 +6,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
 import type { Responder } from "../ui/now-playing-panel.ts";
 import { post } from "../ui/frame.ts";
+import { icon } from "../ui/icons.ts";
 import { LIFETIME, postNew } from "../ui/delivery.ts";
 
 /**
@@ -43,7 +44,7 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
 function interactionResponder(interaction: RepliableInteraction): Responder {
   const dismiss = onceDismiss(async () => {
     if (interaction.deferred || interaction.replied) return;
-    await interaction.reply({ content: "▶️", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: icon("play"), flags: MessageFlags.Ephemeral });
     await interaction.deleteReply();
   });
 

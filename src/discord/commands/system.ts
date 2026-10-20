@@ -6,6 +6,7 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 import type { Client } from "discord.js";
 import { SYSTEM, customId } from "../../ui/custom-ids.ts";
 import { colorOf } from "../../ui/colors.ts";
+import { buttonEmoji } from "../../ui/icons.ts";
 import * as infoText from "../../ui/text/ko/info.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { LIFETIME, expireSelf, noticeSelf } from "../../ui/delivery.ts";
@@ -66,7 +67,7 @@ function buildSystemEmbed(client: Client<true>, players: { size: number }) {
     )
     .setTimestamp();
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(customId(SYSTEM, "refresh")).setLabel(infoText.refresh()).setEmoji("🔄").setStyle(ButtonStyle.Secondary));
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(customId(SYSTEM, "refresh")).setLabel(infoText.refresh()).setEmoji(buttonEmoji("refresh")).setStyle(ButtonStyle.Secondary));
 
   return { embed, row };
 }

@@ -7,6 +7,8 @@ import { helpSections } from "../../src/ui/help-lines.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { enabledCommands } from "../../src/app/command-loader.ts";
 import { withConfig } from "../helpers/config.ts";
+import { iconEntries, useUploaded } from "../../src/ui/icons.ts";
+import * as helpText from "../../src/ui/text/ko/help.ts";
 
 // 실행 목록(켜진 명령)으로 만든다. /help 가 client.commands 로 하는 것과 같다
 const sectionsNow = () => helpSections(enabledCommands().map((command) => ({ defined: command.data.toJSON(), help: command.help })));
@@ -79,4 +81,23 @@ test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완�
     { defined: { name: "z", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "everyone" } },
   ]);
   assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);
+});
+
+test("앱 이모지를 맞춰도(<:이름:19자리 id> 는 유니코드보다 25자 안팎 길다) 도움말 임베드가 디스코드 상한 안", () => {
+  useUploaded(new Map(iconEntries().map((entry, i) => [entry.name, { id: String(1514244801397260398n + BigInt(i)), animated: entry.spec.shape === "spin" }])));
+  try {
+    const intro = helpText.intro();
+    const fields = [...sectionsNow(), helpText.platforms(), helpText.stats({ guilds: 1234, users: 1234567, active: 99, uptime: "123일 23시간 59분" }), helpText.links({ invite: `https://discord.com/oauth2/authorize?client_id=${"9".repeat(19)}&scope=bot`, website: "https://example.com/very/long/website/path" })];
+    assert.match(fields[0].name, /^<:music:\d{19}> /, "앱 이모지가 실렸다");
+    assert.ok(intro.title.length <= 256, "제목");
+    assert.ok(intro.description.length <= 4096, "설명");
+    for (const { name, lines } of fields) {
+      assert.ok(name.length <= 256, `칸 이름: ${name}`);
+      assert.ok(lines.join("\n").length <= 1024, `${name}: ${lines.join("\n").length}자`);
+    }
+    const total = intro.title.length + intro.description.length + fields.reduce((sum, { name, lines }) => sum + name.length + lines.join("\n").length, 0);
+    assert.ok(total <= 6000, `임베드 전체 ${total}자`);
+  } finally {
+    useUploaded(new Map());
+  }
 });

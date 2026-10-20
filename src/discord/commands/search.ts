@@ -10,6 +10,7 @@ import { requesterName } from "../../usecases/add-tracks.ts";
 import { SEARCH, customId } from "../../ui/custom-ids.ts";
 import logger from "../../infra/log/logger.ts";
 import { colorOf } from "../../ui/colors.ts";
+import { buttonEmoji } from "../../ui/icons.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { LIFETIME, expireSelf, noticeInstead, noticeSelf } from "../../ui/delivery.ts";
@@ -42,7 +43,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
     .setCustomId(customId(SEARCH, "cancel", userId))
     .setLabel(t.cancel)
     .setStyle(ButtonStyle.Danger)
-    .setEmoji("❌");
+    .setEmoji(buttonEmoji("cancel"));
 
   const components = [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(0, 4), cancelButton)];
   if (buttons.length > 4) components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(4)));
