@@ -32,6 +32,7 @@ import * as YouTube from "../sources/youtube/index.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import * as ytdlpOptions from "../sources/ytdlp-options.ts";
 import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
+import { bgutilVersion } from "../sources/bgutil-version.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
 import * as commandLoader from "./command-loader.ts";
@@ -306,6 +307,8 @@ function checkBeforeLogin() {
   YouTube.logAuthMode();
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기");
+  // bgutil 은 설치된 것 · 설정한 것 · 최신을 견주어 알리기만 한다(설치는 봇을 끄고)
+  bestEffort(log, bgutilVersion.start(), "bgutil 버전 확인");
 
   // 자동재생 · 활동 문구 설정을 여기서 한 번 읽는다. 읽는 쪽이 쓸 때뿐이라 그대로 두면 틀린 설정 · 키가 빠진 소스 경고가
   // 그때서야 나와 기동 로그에 안 남는다. 틀렸으면 알리고 그 기능만 끈다(기동은 멈추지 않는다. 고칠 대시보드가 떠야 한다)

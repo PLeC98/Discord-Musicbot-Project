@@ -14,7 +14,7 @@ import youtubedl from "youtube-dl-exec";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
-import { httpFor } from "../infra/http.ts";
+import { latestReleaseTag } from "./github-release.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -31,7 +31,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const RETRY_MS = 60 * 60 * 1000;
 const UPDATE_TIMEOUT_MS = 180_000; // 바이너리 20MB 안팎을 다운로드한다
 const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으로 실행된다
-const API_TIMEOUT_MS = 15_000;
 
 // youtube-dl-exec 가 설치 때 다운로드한 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
@@ -83,19 +82,8 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
   });
 }
 
-// 최신 릴리스는 GitHub API 로(공유 HTTP 클라이언트)
-const github = httpFor("github");
-
-async function realLatestTag(channel: Channel) {
-  const res = await github.fetch(`https://api.github.com/repos/${REPOS[channel]}/releases/latest`, {
-    headers: { Accept: "application/vnd.github+json", "User-Agent": config.userAgents.bot },
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`GitHub 릴리스 조회 ${res.status} (${REPOS[channel]})`);
-  const { tag_name: tag } = (await res.json()) as { tag_name?: unknown };
-  if (typeof tag !== "string" || !tag) throw new Error(`GitHub 릴리스에 태그가 없습니다 (${REPOS[channel]})`);
-  return tag;
-}
+// 최신 릴리스는 GitHub API 로
+const realLatestTag = (channel: Channel) => latestReleaseTag(REPOS[channel]);
 
 const REAL: Io = { dir: path.join(PROJECT.bin, "yt-dlp"), seed: YOUTUBE_DL_PATH, run: realRun, latestTag: realLatestTag, now: () => Date.now() };
 

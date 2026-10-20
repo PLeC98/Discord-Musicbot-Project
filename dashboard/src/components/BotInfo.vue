@@ -125,6 +125,8 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
   const { status } = props;
   const memUsed = status.system.totalMem - status.system.freeMem;
   const { disk, cache, db } = status.storage;
+  const { bgutil } = status.env;
+  const bgutilRows: InfoRow[] = bgutil ? [{ icon: "key", key: "bgutil", value: bgutil.installed, note: bgutil.installed !== bgutil.target ? `(→ ${bgutil.target})` : bgutil.newer ? `(${bgutil.newer} available)` : undefined }] : [];
   const playing = status.players.list.filter((p) => p.state === "playing").length;
   return [
     {
@@ -148,6 +150,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
         { icon: "forum", key: "discord.js", value: status.env.discordJs },
         { icon: "download", key: "yt-dlp", value: status.env.ytdlp.version ?? "—", note: status.env.ytdlp.autoUpdate ? "(auto-update)" : undefined },
         { icon: "movie", key: "ffmpeg", value: status.env.ffmpeg ?? "—" },
+        ...bgutilRows,
         { icon: "tag", key: "PID", value: `${status.env.pid}` },
         { icon: "list", key: "Log Level", value: status.logLevel },
         { icon: "dashboard", key: "Dashboard", value: `${status.env.dashboardClients}`, note: "connected" },

@@ -5,6 +5,7 @@ import config from "../../config/index.ts";
 import logSink from "../../infra/log/sink.ts";
 import { ffmpegVersion } from "../../media/ffmpeg/path.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
+import { bgutilVersion } from "../../sources/bgutil-version.ts";
 import type { AdminStatus } from "../contract/admin.ts";
 
 /** commandCount: 켜진 슬래시 명령 수, dashboardClients: 지금 열린 대시보드 연결 수, launcher: 다시 시작할 수 있는가(조립이 넘긴 다시 시작이 있다) */
@@ -17,6 +18,7 @@ function envStatus(commandCount: number, dashboardClients: number, launcher: boo
     launcher,
     // 스스로 새 버전을 다운로드하는가(알리기만 하는 notify · 버전 고정은 아니다). 다음 확인은 알리기만 해도 있다
     ytdlp: { version: state?.version ?? null, autoUpdate: config.ytdlp.update === "auto" && !config.ytdlp.version, checkedAt: state?.lastChecked || null, nextCheckAt: ytdlpBinary.nextAt },
+    bgutil: bgutilVersion.state(),
     commands: { count: commandCount, scope: config.discord.guildId ? "guild" : "global" },
     dashboardClients,
   };

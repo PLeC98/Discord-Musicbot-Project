@@ -52,9 +52,10 @@ type AdminStatus = {
   recent: { warn: number; error: number; lines: Array<{ ts: number; level: "warn" | "error"; text: string; count: number }> };
   /**
    * ffmpeg · ytdlp.version 은 찾지 못했으면 null. ytdlp.autoUpdate: 스스로 새 버전을 다운로드하는가, nextCheckAt: 다음 확인(예약하지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수.
-   * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 실행해 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다
+   * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 실행해 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다.
+   * bgutil: 설치된 버전 · 설정한 버전(BGUTIL_VERSION) · 그보다 새 릴리스(없으면 null). 설치돼 있지 않으면 null
    */
-  env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
+  env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
   history: StatusHistory;
   logLevel: string;
 };
