@@ -1,34 +1,36 @@
 // 응답 템플릿. 헤더 줄 · 본문 · 작은 글씨의 푸터를 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 헤더 옆에 붙인다(큰 그림, ui/discord-art).
-// 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 헤더 줄의 이모지를, 얼마나 심각한지(severity)로 색을 정한다
+// 헤더 줄의 아이콘은 그 화면의 색으로 칠한 것을 쓴다(ui/icons). 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 아이콘을, 얼마나 심각한지(severity)로 색을 정한다
 
 import { ContainerBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import * as discordArt from "./discord-art.ts";
 import { colorOf, type Meaning } from "./colors.ts";
+import { icon as iconText, type IconKey } from "./icons.ts";
 import type { Notice, Topic } from "./text/notice.ts";
 
-// 사용자가 할 일이 같으면 한 이모지
-const EMOJI = {
-  failed: "❌", // 처리하다 실패했다(봇 안쪽 · 연결 · 플랫폼이 막음)
-  permission: "🚫", // 권한이 없다
-  voice: "🎧", // 음성 채널
-  stale: "⌛", // 오래된 버튼 · 메뉴
-  input: "✏️", // 입력이 틀렸다
-  notFound: "🔍", // 찾지 못했다
-  link: "🔗", // 링크를 쓸 수 없다
-  blocked: "🔒", // 곡이 막혀 있다
-  live: "🔴", // 라이브
-  waiting: "⏳", // 기다리는 중이라 지금은 못 함
-  muted: "🔇", // 봇이 음소거됨
-  autoplay: "🎲", // 자동재생
-  state: "⚠️", // 그 밖에 지금 상태라 못 함 · 일부만 됨
-} as const satisfies Record<Topic, string>;
+// 사용자가 할 일이 같으면 한 아이콘(ui/icons 의 키). 라이브는 빨간 원 그대로(그 자체가 라이브의 표시)
+const TOPIC_ICON = {
+  failed: "failed", // 처리하다 실패했다(봇 안쪽 · 연결 · 플랫폼이 막음)
+  permission: "permission", // 권한이 없다
+  voice: "voice", // 음성 채널
+  stale: "stale", // 오래된 버튼 · 메뉴
+  input: "input", // 입력이 틀렸다
+  notFound: "not_found", // 찾지 못했다
+  link: "link_off", // 링크를 쓸 수 없다
+  blocked: "blocked", // 곡이 막혀 있다
+  live: null, // 라이브
+  waiting: "waiting", // 기다리는 중이라 지금은 못 함
+  muted: "muted", // 봇이 음소거됨
+  autoplay: "autoplay", // 자동재생
+  state: "state", // 그 밖에 지금 상태라 못 함 · 일부만 됨
+} as const satisfies Record<Topic, IconKey | null>;
+const LIVE = "🔴";
 
-/** 화면의 필드. footer 는 작은 글씨 줄들(비면 건너뛴다), divider 면 그 위에 구분선 */
-type Look = { title?: string; body?: string | null; footer?: Array<string | null>; divider?: boolean; thumbnail?: string | null; color?: Meaning };
+/** 화면의 필드. icon 은 헤더 줄 앞의 아이콘, footer 는 작은 글씨 줄들(비면 건너뛴다), divider 면 그 위에 구분선 */
+type Look = { icon?: IconKey; title?: string; body?: string | null; footer?: Array<string | null>; divider?: boolean; thumbnail?: string | null; color?: Meaning };
 
 // 헤더 줄 · 본문을 한 블록으로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 텍스트만 둔다
-function frame({ title, body, footer = [], divider = false, thumbnail, color = "brand" }: Look) {
-  const head = [title ? `### ${title}` : null, body].filter(Boolean).join("\n");
+function frame({ icon, title, body, footer = [], divider = false, thumbnail, color = "brand" }: Look) {
+  const head = [title ? `### ${icon ? `${iconText(icon, color)} ` : ""}${title}` : null, body].filter(Boolean).join("\n");
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf(color)));
   const text = new TextDisplayBuilder().setContent(head);
   const art = discordArt.urlOf(thumbnail);
@@ -40,7 +42,11 @@ function frame({ title, body, footer = [], divider = false, thumbnail, color = "
   return container;
 }
 
-const headOf = (notice: Notice) => `${EMOJI[notice.topic]} ${notice.title}`;
+/** 안내의 헤더 줄: 주제의 아이콘(경고 수준의 색) + 제목 */
+const headOf = (notice: Notice) => {
+  const key = TOPIC_ICON[notice.topic];
+  return `${key ? iconText(key, notice.severity) : LIVE} ${notice.title}`;
+};
 
 /** 오류 · 경고 안내의 화면 */
 const noticeFrame = (notice: Notice) => frame({ title: headOf(notice), body: notice.body, color: notice.severity });
@@ -55,5 +61,5 @@ const post = (container: ContainerBuilder, files?: Attachment[]) => ({ component
 /** 오류 · 경고 안내를 새 응답으로(본인에게만) */
 const noticeReply = (notice: Notice) => reply(noticeFrame(notice));
 
-export { frame, noticeFrame, noticeReply, reply, post, EMOJI };
+export { frame, noticeFrame, noticeReply, reply, post, headOf, TOPIC_ICON };
 export type { Look, Attachment };
