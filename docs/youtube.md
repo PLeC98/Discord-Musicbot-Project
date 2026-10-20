@@ -72,7 +72,7 @@ web_embedded,mweb,visionos,tv_simply
 pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 ```
 
-받는 버전은 고정된 릴리스 태그입니다. 다른 버전을 쓰려면 `.env`의 `BGUTIL_VERSION`에 태그를 적고 `pnpm run update:bgutil`로 다시 받으세요.
+받는 버전은 고정된 릴리스 태그이고, 의존성은 그 태그의 잠금 파일 그대로 설치합니다. 다른 버전을 쓰려면 `.env`의 `BGUTIL_VERSION`에 태그를 적고 봇을 끈 뒤 `pnpm run update:bgutil`로 다시 받으세요(윈도우에서는 봇이 켜져 있으면 설치가 실패합니다).
 
 설치한 뒤 운영자 패널 유튜브 탭의 "POToken 서버 쓰기"를 켜고 **저장 후 다시 시작**을 누르면 동작합니다. 켜면 봇 실행 시 POToken 서버(포트 4416)를 함께 띄웁니다. 켜두고 설치를 안 했으면 오류를 남기고 POToken 없이 진행합니다.
 

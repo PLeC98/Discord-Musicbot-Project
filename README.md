@@ -245,7 +245,7 @@ pm2, systemd, 도커 등을 사용할 때도 `pnpm start`(또는 `node scripts/l
 | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `pnpm install`             | 의존성 갱신. 의존성이 바뀌었을 때만 `postinstall`(ffmpeg 설치, yt-dlp 목표 버전 받기, 대시보드 빌드)이 돕니다 |
 | `pnpm run build:dashboard` | 대시보드 화면 다시 빌드. 업데이트 뒤 화면이 구 버전의 것이면 기동 시 로그가 알려 줍니다                       |
-| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 다시 빌드                                                        |
+| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 다시 빌드(봇을 끄고)                                             |
 | `pnpm run update:ytdlp`    | yt-dlp 를 목표 버전(`.env` 의 채널 · 고정 버전)으로 받기                                                      |
 | `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                                                          |
 | `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                                                                     |

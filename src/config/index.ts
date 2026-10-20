@@ -62,7 +62,7 @@ const PROJECT_REPO = "https://github.com/PLeC98/Discord-Musicbot-Project";
 //   ffmpeg  BtbN/FFmpeg-Builds 의 월말 autobuild 태그. 그 외 autobuild 는 2주 뒤 삭제된다(월말은 2년 보관)
 //   bgutil  bgutil-ytdlp-pot-provider 의 릴리스 태그. 서버와 yt-dlp 플러그인이 같은 체크아웃에서 나온다
 const FFMPEG_RELEASE = "autobuild-2026-08-31-13-27";
-const BGUTIL_VERSION = "2.0.0";
+const BGUTIL_VERSION = "2.0.2";
 
 // yt-dlp 채널(릴리스 저장소는 ytdlpBinary 가 안다)과 새 버전을 보았을 때 할 일
 const YTDLP_CHANNELS = ["stable", "nightly", "master"] as const;
