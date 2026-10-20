@@ -1,4 +1,4 @@
-// scripts/install-ffmpeg.ts · install-bgutil.ts — 어느 버전을 다운로드할지. 기본값은 src/config/index.ts, .env 로 바꾼다.
+// scripts/install-ffmpeg.ts(src/media/ffmpeg/release) · install-bgutil.ts — 어느 버전을 다운로드할지. 기본값은 src/config/index.ts, .env 로 바꾼다.
 //
 // 회귀 대상 둘:
 // 1. 움직이는 태그(latest)를 쓰면 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
@@ -13,7 +13,7 @@ import util from "node:util";
 import path from "node:path";
 
 import { loadConfig } from "../src/config/index.ts";
-import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../scripts/install-ffmpeg.ts";
+import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../src/media/ffmpeg/release.ts";
 
 const DEFAULTS = loadConfig({}).config;
 

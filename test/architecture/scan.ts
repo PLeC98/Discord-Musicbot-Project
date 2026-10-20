@@ -39,6 +39,8 @@ function walk(dir: string, out: string[] = []) {
 // 기동 파일과 설정 모듈
 const isRootIndex = (rel: string) => rel === "src/index.ts";
 const isRootConfig = (rel: string) => rel === "src/config/index.ts";
+// 진입 파일의 첫 줄(.env 를 만들고 읽는다)
+const ENV_BOOTSTRAP = "src/app/env-bootstrap.ts";
 
 function layerOf(rel: string) {
   if (isRootIndex(rel)) return "app";
@@ -293,6 +295,27 @@ function scan() {
     graph.set(f.rel, targets);
   }
 
+  // 진입 파일(기동 · scripts) 중 루트 설정까지 닿는 것. 프로젝트 모듈 중 첫 부름이 .env 를 읽는 부트스트랩이어야 설정보다 먼저 돈다
+  const scripts = walk("scripts")
+    .filter((rel) => /^scripts\/[^/]+\.ts$/.test(rel))
+    .map(scanSource);
+  const reachesConfig = (start: string[]) => {
+    const seen = new Set(start);
+    const queue = [...start];
+    while (queue.length) {
+      const v = queue.shift() as string;
+      if (isRootConfig(v)) return true;
+      for (const w of graph.get(v) ?? []) {
+        if (seen.has(w)) continue;
+        seen.add(w);
+        queue.push(w);
+      }
+    }
+    return false;
+  };
+  const entries = [...sources.filter((f) => isRootIndex(f.rel)), ...scripts].filter((f) => reachesConfig(f.deps.map((d) => d.to)));
+  const stripComments = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\/\/.*$/gm, "");
+
   const perFile = <T extends { rel: string }>(list: T[], pick: (f: T) => number) => Object.fromEntries(list.map((f): [string, number] => [f.rel, pick(f)]).filter(([, n]) => n > 0));
   return {
     files: sources.length,
@@ -305,6 +328,10 @@ function scan() {
     requireCache: perFile(tests, (f) => f.requireCache),
     methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
     lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
+    configEntries: entries.map((f) => f.rel),
+    withoutBootstrap: entries.filter((f) => f.deps[0]?.to !== ENV_BOOTSTRAP).map((f) => f.rel),
+    // .env 를 process.env 에 올리는 파일(주석은 뺀다)
+    envFileLoad: [...sources, ...scripts].map((f) => f.rel).filter((rel) => /process\.loadEnvFile\b/.test(stripComments(rel))),
     // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)
     dirnameUse: sources.map((f) => f.rel).filter((rel) => /import\.meta\.dirname/.test(fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\/\/.*$/gm, ""))),
     // 어느 줄인가(진단용. 기준선은 파일만 본다)

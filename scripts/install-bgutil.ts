@@ -8,6 +8,7 @@
 // bgutil은 별도로 가져와야 한다.
 // 봇 실행 시 자동 감지되어 POToken 서버(포트 4416)를 함께 시작한다.
 
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import { execSync, execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";

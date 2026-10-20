@@ -27,7 +27,7 @@ function walk(dir: string, out: string[] = []) {
 
 // 진입 파일. 불러오면 실제 봇이 켜진다(토큰으로 로그인 · 대시보드 · POToken 서버)
 const ENTRY = path.join(ROOT, "src", "index.ts");
-// 기동의 첫 줄. 불러오면 .env 가 없을 때 저장소 루트에 만든다(테스트가 남기면 안 된다)
+// 진입 파일의 첫 줄. 불러오면 .env 가 없을 때 저장소 루트에 만들고 .env 를 읽는다(테스트는 둘 다 하면 안 된다)
 const BOOTSTRAP = path.join(ROOT, "src", "app", "env-bootstrap.ts");
 const files = DIRS.flatMap((d) => walk(path.join(ROOT, d))).filter((f) => f !== ENTRY && f !== BOOTSTRAP);
 const rel = (f: string) => path.relative(ROOT, f).replace(/\\/g, "/");

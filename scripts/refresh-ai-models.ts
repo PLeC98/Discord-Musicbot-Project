@@ -3,6 +3,7 @@
  *
  * 대시보드의 갱신 버튼과 같은 길(src/config/ai-models · ai-prices 의 refresh)을 쓴다.
  */
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import path from "path";
 import * as models from "../src/config/ai-models.ts";
 import * as prices from "../src/config/ai-prices.ts";

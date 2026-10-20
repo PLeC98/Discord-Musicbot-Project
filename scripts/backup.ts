@@ -1,6 +1,7 @@
 // 전체 백업. `pnpm run backup`(캐시 파일까지는 `pnpm run backup --with-audio`). .env · 설정 DB · 오디오 캐시 번들 · 파비콘 · 로그인 배경을 database/full-backups/ 의 ZIP 하나로(이전 것은 삭제한다).
 // 봇이 켜져 있어도 된다. 옮길 때는 봇을 끈 채 그 ZIP 을 봇 폴더에 풀어 덮어쓰고 켠다(src/app/full-backup)
 
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import { makeFullBackup } from "../src/app/full-backup.ts";
 
 try {

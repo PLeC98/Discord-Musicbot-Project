@@ -1,4 +1,4 @@
-// src/config/env-file.ts(설치 · 기동이 부른다) — .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다
+// src/config/env-file.ts(설치 · 진입 파일이 부른다) — .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { parseEnv } from "node:util";
-import { setupEnv, fillLine } from "../src/config/env-file.ts";
+import { setupEnv, loadEnv, fillLine } from "../src/config/env-file.ts";
 import { loadConfig } from "../src/config/index.ts";
 import { isSecretsKey } from "../src/rules/secrets-key.ts";
 
@@ -48,17 +48,18 @@ test("값을 넣어도 줄의 주석은 남는다. 값이 이미 있는 줄 · �
   assert.equal(fillLine(text, "SESSION_SECRET", "new"), text);
 });
 
-// pnpm 은 의존성이 그대로면 설치 뒤 단계(postinstall)를 건너뛴다. 그래서 기동 · 명령 배포가 설정을 읽기 전에 만든다
-test("기동 파일 · 명령 배포 스크립트는 다른 무엇보다 먼저 .env 를 만든다", () => {
-  const root = path.join(import.meta.dirname, "..");
-  for (const [file, spec] of [
-    ["src/index.ts", "./app/env-bootstrap.ts"],
-    ["scripts/deploy-commands.ts", "../src/app/env-bootstrap.ts"],
-  ]) {
-    const first = fs
-      .readFileSync(path.join(root, file), "utf8")
-      .split(/\r?\n/)
-      .find((line) => line.startsWith("import "));
-    assert.ok(first?.startsWith(`import "${spec}";`), file);
+// 진입 파일이 부트스트랩을 맨 먼저 부르는지는 test/architecture 가 본다
+test("읽기: 파일의 값을 process.env 에 올리되 이미 있는 값(셸)은 덮지 않는다. 없으면 false", () => {
+  const target = path.join(dir, "load.env");
+  fs.writeFileSync(target, "B96_FROM_FILE=file\nB96_FROM_SHELL=file\n");
+  process.env.B96_FROM_SHELL = "shell";
+  try {
+    assert.equal(loadEnv(target), true);
+    assert.equal(process.env.B96_FROM_FILE, "file");
+    assert.equal(process.env.B96_FROM_SHELL, "shell");
+    assert.equal(loadEnv(path.join(dir, "missing.env")), false);
+  } finally {
+    delete process.env.B96_FROM_FILE;
+    delete process.env.B96_FROM_SHELL;
   }
 });

@@ -2,7 +2,7 @@
 // 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
-import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 가 없으면 만든다
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import * as configCheck from "../src/app/config-check.ts";
 import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제 · 경고 목록
 

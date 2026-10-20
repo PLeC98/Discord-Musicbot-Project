@@ -14,6 +14,7 @@ import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 //
 // 불러와도 멈추지 않는다. 잘못 적은 값은 문제 목록(problems)에, 기능만 꺼지는 빈 값은 경고 목록(warnings)에
 // 모으고, 기동(src/index.ts)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
+// 값은 process.env 에서만 읽는다. .env 를 process.env 에 올리는 것은 진입 파일의 첫 줄(app/env-bootstrap)이다(테스트는 .env 를 읽지 않는다).
 // 운영 조절값(rules/tunables)은 .env 가 아니라 settings.db 의 문서에서 온다. 불러올 때는 기본값이고, 기동이 DB 를 연 뒤
 // 같은 loadConfig 로 다시 셈해 이 객체에 올린다(store/tunables). 그 값이 틀렸으면 기동을 멈추지 않고 그 필드만 기본값(tuneProblems).
 
@@ -444,9 +445,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
   };
 }
 
+// .env 가 있나는 문제 문장에만 쓴다(없으면 그 문제 하나만 알린다)
 const envFileFound = fs.existsSync(ENV_PATH);
-// 이미 있는 환경 변수는 덮지 않는다(셸 · 테스트가 준 값이 이긴다)
-if (envFileFound) process.loadEnvFile(ENV_PATH);
 // 문제 · 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
 

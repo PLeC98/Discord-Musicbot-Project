@@ -5,6 +5,7 @@
  * 사람이 부르면(update:ytdlp): YTDLP_UPDATE 와 상관없이 목표 버전으로 다운로드하고, 실패하면 1 로 끝난다.
  * 봇 모듈을 부르면 로거가 콘솔을 가로채므로 콘솔이 아니라 로거로 남긴다(봇과 같은 모양).
  */
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import config from "../src/config/index.ts";
 import logger from "../src/infra/log/logger.ts";
 import { ytdlpBinary, describe } from "../src/sources/ytdlp-binary.ts";
