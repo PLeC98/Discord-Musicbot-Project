@@ -5,7 +5,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { buildSearchQueries } from "../../src/sources/youtube/match.ts";
+import { buildSearchQueries, searchCandidates } from "../../src/sources/youtube/match.ts";
 import * as equivalent from "../../src/sources/youtube/equivalent.ts";
 import * as route from "../../src/autoplay/route.ts";
 import * as filterModule from "../../src/autoplay/filter.ts";
@@ -94,4 +94,42 @@ test("동등물: 미리 받기(뒤 줄)가 찾는 곡에 지금 곡(앞 줄)이 
   release();
   assert.deepEqual(await Promise.all([background, now]), [[null, null], null]);
   assert.equal(calls, 2 * (primary.length + secondary.length), "뒤 줄 둘은 한 벌, 앞 줄은 따로 한 벌");
+});
+
+// 검색어마다 다른 영상 하나를 주고, 늦게 물은 것이 먼저 끝나게 한다. 동시에 떠 있던 수의 최대를 잰다
+function racing(failing: string | null = null) {
+  const asked: string[] = [];
+  let open = 0;
+  let peak = 0;
+  const search = async (query: string) => {
+    asked.push(query);
+    open++;
+    peak = Math.max(peak, open);
+    await new Promise((done) => setTimeout(done, 40 - asked.length * 3));
+    open--;
+    if (query === failing) throw new Error("검색 실패");
+    const id = `q${[...primary, ...secondary].indexOf(query)}`;
+    return [{ id, audioUrl: `https://www.youtube.com/watch?v=${id}`, title: "A - Song", artist: "A", duration: 240 }];
+  };
+  return { asked, search, peak: () => peak };
+}
+
+test("검색: exact 는 1차 · 2차 검색어를 한꺼번에 묻고, 합친 차례는 검색어 차례다. 한 검색어가 실패해도 나머지로", async () => {
+  const { search, peak } = racing(primary[1]);
+  const found = await searchCandidates(TARGET, search, "exact");
+  assert.equal(peak(), primary.length + secondary.length);
+  const all = [...primary, ...secondary];
+  assert.deepEqual(
+    found.map((c) => c.id),
+    all.map((q, i) => (q === primary[1] ? null : `q${i}`)).filter(Boolean),
+  );
+});
+
+test("검색: cheap 는 1차 앞 둘을 한꺼번에 묻고, 2차는 1차가 빈 것을 본 뒤에 묻는다", async () => {
+  const asked: string[] = [];
+  const empty = async (query: string) => (asked.push(query), await new Promise((done) => setTimeout(done, 10)), []);
+  const pending = searchCandidates(TARGET, empty, "cheap");
+  assert.deepEqual(asked, primary.slice(0, 2), "1차 둘이 함께 떠 있다");
+  await pending;
+  assert.deepEqual(asked, [...primary.slice(0, 2), ...secondary.slice(0, 2)]);
 });

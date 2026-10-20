@@ -434,25 +434,25 @@ type Search = (query: string, limit: number) => Promise<Found[] | null | undefin
 
 /**
  * target 을 검색해 후보를 모은다. 합친 순서(순위) 그대로, 주소가 없거나 라이브인 것은 뺀다
- * (라이브는 같은 곡으로서 언제나 오답이고, 선택해 두면 캐시 다운로드가 끝나지 않는다). 한 검색어가 실패해도 나머지로 간다
+ * (라이브는 같은 곡으로서 언제나 오답이고, 선택해 두면 캐시 다운로드가 끝나지 않는다). 한 검색어가 실패해도 나머지로 간다.
+ * 검색어는 한꺼번에 묻는다(동시 폭은 yt-dlp 줄이 묶는다). exact 는 1차 · 2차를 함께, cheap 의 2차는 1차가 빈 것을 본 뒤에
  */
 async function searchCandidates(target: Target, search: Search, profile: SearchProfile) {
   const p = SEARCH_PROFILES[profile];
   const { primary, secondary } = buildSearchQueries(target);
-  const run = async (queries: string[]) => {
-    const lists = [];
-    for (const query of queries.slice(0, p.queries)) {
-      try {
-        const results = (await search(query, p.perQuery)) || [];
-        lists.push(results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail })));
-      } catch {
-        lists.push([]);
-      }
+  const one = async (query: string) => {
+    try {
+      const results = (await search(query, p.perQuery)) || [];
+      return results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
+    } catch {
+      return [];
     }
-    return lists;
   };
-  const primaryLists = await run(primary);
-  const secondaryLists = p.secondary === "always" || !primaryLists.some((l) => l.length) ? await run(secondary) : [];
+  // 답은 검색어 차례로 둔다(합치는 순위가 그 차례다)
+  const run = (queries: string[]) => Promise.all(queries.slice(0, p.queries).map(one));
+  const both = p.secondary === "always";
+  const [primaryLists, alongside] = await Promise.all([run(primary), both ? run(secondary) : null]);
+  const secondaryLists = alongside ?? (primaryLists.some((l) => l.length) ? [] : await run(secondary));
   return mergeCandidateLists(primaryLists, secondaryLists).filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
 }
 
