@@ -3,6 +3,7 @@
 
 import type { Client } from "discord.js";
 import * as procRegistry from "../../infra/process-registry.ts";
+import { ytdlpLoad } from "../../sources/ytdlp-spawn.ts";
 import { processMemory } from "../../infra/process-memory.ts";
 import { onWindow } from "../../infra/vitals.ts";
 import type { AdminStatus, ProcessRow } from "../contract/admin.ts";
@@ -28,7 +29,7 @@ function watchProcesses() {
 // 재생 · 다음 곡 일인데 그 서버에 플레이어가 없으면 남은 것일 수 있다
 const STRAY_JOBS = new Set(["play", "prefetch"]);
 
-/** 오래된 것부터 전부. byLabel 은 프로그램마다의 수 */
+/** 오래된 것부터 전부. byLabel 은 프로그램마다의 수, ytdlp 는 yt-dlp 줄과 추출 수 */
 function processSummary(client: Client, players: { has(guildId: string): boolean }): AdminStatus["processes"] {
   const all = procRegistry.list();
   const oldest: ProcessRow[] = all.map((p) => ({
@@ -47,6 +48,7 @@ function processSummary(client: Client, players: { has(guildId: string): boolean
     total: oldest.length,
     byLabel: [...byLabel].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
     oldest,
+    ytdlp: ytdlpLoad(),
   };
 }
 

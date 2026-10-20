@@ -91,6 +91,10 @@ const strayTip = "플레이어가 없는 서버의 재생 작업을 하는 프�
 const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", loginBackground: "로그인 배경", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
 const noProcesses = "실행 중인 자식 프로세스가 없어요";
 const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (${byLabel})`;
+/** yt-dlp 줄: 곡 찾기 · 다운로드의 도는 수/크기와 기다리는 수 */
+const ytdlpLoad = (lookup: string, background: string, waiting: number) => `yt-dlp 곡 찾기 ${lookup} · 다운로드 ${background} · 기다림 ${formatNumber(waiting)}`;
+const ytdlpLoadTip = (count: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽었어요.\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
+const extractions = "유튜브 영상 정보 읽기";
 
 // 저장공간
 const storage = "저장공간";
@@ -166,6 +170,9 @@ export {
   jobs,
   noProcesses,
   processesTotal,
+  ytdlpLoad,
+  ytdlpLoadTip,
+  extractions,
   storage,
   dbBrowser,
   audioCache,

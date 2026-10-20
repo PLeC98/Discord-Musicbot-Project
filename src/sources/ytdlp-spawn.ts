@@ -116,9 +116,10 @@ function countExtraction(url: string, flags: YtDlpFlags) {
   log.warn({ tags: ["youtube-change"] }, `지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽었습니다. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작합니다`);
 }
 
-/** 봇 상태 탭: 줄마다 도는 수 · 크기 · 기다리는 수와 지난 1시간 영상 정보 추출 수 */
-function ytdlpLoad(): { lookup: SlotStats; background: SlotStats; extractedLastHour: number } {
-  return { lookup: lanes.lookup.stats(), background: lanes.background.stats(), extractedLastHour: extractedLastHour() };
+/** 봇 상태 탭: 줄마다 도는 수 · 크기 · 기다리는 수와 지난 1시간 영상 정보 추출 수(nearLimit: 알리는 수를 넘었다) */
+function ytdlpLoad(): { lookup: SlotStats; background: SlotStats; extractedLastHour: number; nearLimit: boolean } {
+  const count = extractedLastHour();
+  return { lookup: lanes.lookup.stats(), background: lanes.background.stats(), extractedLastHour: count, nearLimit: count >= EXTRACTION_WARN };
 }
 
 // 다운로드 감시: 받는 파일 묶음이 limitMs 동안 하나도 바뀌지 않으면(이름 · 크기 · 수정 시각) 내린다. 느려도 무엇이든 바뀌면 둔다.

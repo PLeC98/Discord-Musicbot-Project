@@ -8,6 +8,7 @@ import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
 import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
 import type { Job } from "../../infra/process-job.ts";
+import type { SlotStats } from "../../infra/slot-queue.ts";
 import { FIXED_COLORS } from "../../ui/palette.ts";
 import type { AiKeyState, KeyCheck, SecretView, ServiceKeysView } from "../../rules/service-keys.ts";
 import type { TunablesView } from "../../rules/tunables.ts";
@@ -33,8 +34,11 @@ type AdminStatus = {
   activePlayers: number;
   /** 플레이어. list 는 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기) */
   players: { voiceConnections: number; queued: number; list: PlayerRow[] };
-  /** 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수 */
-  processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: ProcessRow[] };
+  /**
+   * 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수.
+   * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다
+   */
+  processes: { total: number; byLabel: Array<{ label: string; count: number }>; oldest: ProcessRow[]; ytdlp: { lookup: SlotStats; background: SlotStats; extractedLastHour: number; nearLimit: boolean } };
   youtube: YoutubeStatus;
   links: LinkRow[];
   storage: StorageView;

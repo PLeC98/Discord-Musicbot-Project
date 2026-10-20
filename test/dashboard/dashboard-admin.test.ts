@@ -197,7 +197,12 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
   assert.deepEqual(r.json.players.list, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
   assert.equal(r.json.players.queued, 1);
-  assert.deepEqual(r.json.processes, { total: 0, byLabel: [], oldest: [] });
+  const { ytdlp, ...processes } = r.json.processes;
+  assert.deepEqual(processes, { total: 0, byLabel: [], oldest: [] });
+  // yt-dlp 줄: 도는 것 · 기다리는 것 없이 크기만, 지난 1시간 추출 수
+  assert.deepEqual([ytdlp.lookup.running, ytdlp.lookup.waiting, ytdlp.background], [0, 0, { running: 0, size: 2, waiting: 0 }]);
+  assert.ok(ytdlp.lookup.size >= 2 && ytdlp.lookup.size <= 8, `곡 찾기 줄 ${ytdlp.lookup.size}`);
+  assert.deepEqual([ytdlp.extractedLastHour, ytdlp.nearLimit], [0, false]);
   // 로그 뷰어의 레벨 토글 초기 상태가 이 값을 따른다 — 없으면 서버가 debug를 안 보내는데도
   // DEBUG 알약이 켜진 채로 시작해, 아무것도 안 나오는 필터가 켜져 있는 것처럼 보인다.
   assert.ok(["trace", "debug", "info", "warn", "error", "fatal"].includes(r.json.logLevel), `logLevel=${r.json.logLevel}`);

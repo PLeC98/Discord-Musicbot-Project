@@ -253,10 +253,13 @@
           </div>
         </template>
         <div v-else class="py-3 text-sm text-on-surface-variant">{{ T.noProcesses }}</div>
-        <!-- 합계는 카드 맨 아래에 붙인다(옆 카드에 맞춰 늘어난 높이의 바닥). 구분선은 한 줄로 -->
-        <div v-if="status.processes.oldest.length" class="mt-auto flex items-baseline gap-3 pt-3 border-t border-outline-variant/40 text-xs text-on-surface-variant">
-          <span class="min-w-0 truncate">{{ T.processesTotal(status.processes.total, status.processes.byLabel.map((b) => `${b.label} ${b.count}`).join(" · ")) }}</span>
-          <span class="ml-auto shrink-0 nums">{{ processMemMb }} MB</span>
+        <!-- 합계는 카드 맨 아래에 붙인다(옆 카드에 맞춰 늘어난 높이의 바닥). 구분선은 한 줄로. 그 아래 yt-dlp 줄(올리면 지난 1시간 영상 정보 읽기 수) -->
+        <div class="mt-auto flex flex-col gap-1 pt-3 border-t border-outline-variant/40 text-xs text-on-surface-variant">
+          <div v-if="status.processes.oldest.length" class="flex items-baseline gap-3">
+            <span class="min-w-0 truncate">{{ T.processesTotal(status.processes.total, status.processes.byLabel.map((b) => `${b.label} ${b.count}`).join(" · ")) }}</span>
+            <span class="ml-auto shrink-0 nums">{{ processMemMb }} MB</span>
+          </div>
+          <span class="self-start max-w-full truncate nums" :class="ytdlp.nearLimit && LEVEL_TEXT.warn" v-tooltip="T.ytdlpLoadTip(ytdlp.extractedLastHour)">{{ T.ytdlpLoad(`${ytdlp.lookup.running}/${ytdlp.lookup.size}`, `${ytdlp.background.running}/${ytdlp.background.size}`, ytdlp.lookup.waiting + ytdlp.background.waiting) }}</span>
         </div>
       </BaseCard>
       <ReuseStorage v-if="!storageBeside" />
@@ -577,6 +580,7 @@ const processListOverflowing = useOverflowing(processListEl);
 // 더 있는 쪽 끝 반 줄(16)을 흐리게
 const processFade = useScrollFade(processListEl, () => true, 16);
 const processMemMb = computed(() => props.status.processes.oldest.reduce((n, p) => n + (p.memMb ?? 0), 0));
+const ytdlp = computed(() => props.status.processes.ytdlp);
 
 // ── ⑤ 저장공간 ──
 const storageBars = computed(() => {
@@ -632,6 +636,7 @@ const attention = computed(() => [
   ...youtubeClients.value.filter((client) => client.level !== "ok").map((client) => ({ name: T.youtubeClient(client.name), word: client.excluded ? T.attention.skipped : T.attention.failingOften, level: client.level, at: "links" })),
   ...storageBars.value.filter((u) => u.level !== "ok").map((u) => ({ name: u.label, word: T.attention.nearlyFull, level: u.level, at: "storage" })),
   ...props.status.processes.oldest.filter((p) => p.stray).map((p) => ({ name: `${p.label} ${p.pid}`, word: T.attention.stray, level: "warn" as Level, at: "processes" })),
+  ...(props.status.processes.ytdlp.nearLimit ? [{ name: T.extractions, word: T.attention.nearLimit, level: "warn" as Level, at: "processes" }] : []),
 ]);
 const overallLevel = computed<Level>(() => (attention.value.some((a) => a.level === "bad") ? "bad" : attention.value.length ? "warn" : "ok"));
 </script>
