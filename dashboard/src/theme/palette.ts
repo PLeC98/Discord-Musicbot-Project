@@ -6,12 +6,11 @@
 import { Hct, MaterialDynamicColors, SchemeMonochrome, SchemeTonalSpot, argbFromHex, hexFromArgb } from "@material/material-color-utilities";
 // 그림에 쓸 만한 색이 없다(art.ts 가 흑백 · 거의 무채색 그림에 준다)
 import { COLORLESS } from "../../../src/rules/art-seed.ts";
+// 무채색 기준(디스코드 앱 이모지의 색과 같은 기준)
+import { CHROMA_FLOOR } from "../../../src/rules/icon-tones.ts";
 
 /** 운영자 색(임베드 색)을 불러오기 전 처음의 바탕색 */
 const DEFAULT_SEED = argbFromHex("#1793d1");
-
-/** 이보다 채도가 낮으면 무채색으로 본다. 앨범아트에서 색을 추출할 때 버리는 기준(Score.CUTOFF_CHROMA)과 같다 */
-const CHROMA_FLOOR = 5;
 
 const roles = new MaterialDynamicColors().allColors;
 const kebab = (name: string) => name.replaceAll("_", "-");
