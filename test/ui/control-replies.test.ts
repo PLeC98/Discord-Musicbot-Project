@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as replies from "../../src/ui/control-replies.ts";
 import { post } from "../../src/ui/frame.ts";
+import { useUploaded } from "../../src/ui/icons.ts";
 import { separatorsOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 
 const by = "<@1>";
@@ -18,6 +19,25 @@ test("일시정지 · 반복: 누가 했나 줄, 썸네일은 붙이지 않는�
   assert.equal(thumbnailOf(post(replies.paused(false, track, by))), null);
   assert.equal(separatorsOf(post(c)), 1, "누가 했나 줄 위에 구분선");
   assert.equal(thumbnailOf(post(replies.loopSet("track", by))), null);
+});
+
+test("앱 이모지를 맞추면 헤더 줄 · 본문 · 누가 했나 줄의 아이콘이 앱 이모지(진행 중은 움직이는 것)", () => {
+  useUploaded(
+    new Map([
+      ["pause", { id: "1", animated: false }],
+      ["person", { id: "2", animated: false }],
+      ["seek", { id: "3", animated: false }],
+      ["time", { id: "4", animated: false }],
+      ["progress", { id: "5", animated: true }],
+    ]),
+  );
+  try {
+    assert.deepEqual(shown(replies.paused(true, track, by)), ["### <:pause:1> 일시정지했어요!\n**[곡](https://u.test)**을 일시정지했어요.", "-# <:person:2> 요청한 사람 <@1>"]);
+    assert.deepEqual(shown(replies.seeked(90_000)), ["### <:seek:3> 위치를 옮겼어요!\n<:time:4> 옮긴 위치: `1:30`"]);
+    assert.deepEqual(shown(replies.seeking()), ["<a:progress:5> 위치를 옮기는 중..."]);
+  } finally {
+    useUploaded(new Map());
+  }
 });
 
 test("건너뛰기: 건너뛴 곡과 누가 했나, 썸네일은 붙이지 않는다. 한 곡 반복이면 되감았다고", () => {

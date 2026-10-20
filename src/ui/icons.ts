@@ -55,6 +55,7 @@ const ICONS = {
   // 성공 응답의 머리 줄
   done: { glyph: "check_circle", unicode: "✅", tints: ["brand", "done"] },
   first_added: { glyph: "playlist_play", unicode: "⏫" },
+  stopped: { glyph: "stop", unicode: "⏹️" },
   highlight_jump: { glyph: "sponsorblock", unicode: "✨" },
   replay: { glyph: "replay", unicode: "🔄" },
   seek: { glyph: "fast_forward", unicode: "⏩" },
