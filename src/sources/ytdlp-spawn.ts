@@ -54,21 +54,26 @@ function useInfoTimeout(ms: number | null) {
 // 오래 도는 뒤의 일이 앞의 일을 막지 않게 따로 센다. 자리는 실행 둘레에만 잡는다(다시 묻기는 자리를 돌려주고 줄 맨 앞에 다시 선다)
 type Lane = "lookup" | "background";
 const GB = 1024 ** 3;
-/** 곡 찾기 하나가 약 400MB(JS 과제를 푸는 node 포함, 리눅스 노트북 실측)라 메모리의 1/4 를 넘지 않게: 2GB 마다 하나, 2 ~ 8. 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로 */
-function autoLookupSlots(constrained: number, total: number): number {
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
+/**
+ * 자동 크기. 메모리는 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로.
+ * 곡 찾기는 하나가 약 400MB(JS 과제를 푸는 node 포함, 리눅스 노트북 실측)라 메모리의 1/4 를 넘지 않게 2GB 마다 하나, 2 ~ 8.
+ * 다운로드 · 미리 받기는 하나가 그만큼에 변환 CPU 까지 들어 4GB 마다 하나, 2 ~ 4
+ */
+function autoSlots(constrained: number, total: number): Record<Lane, number> {
   const memory = constrained > 0 && constrained < total ? constrained : total;
-  return Math.min(8, Math.max(2, Math.floor(memory / (2 * GB))));
+  return { lookup: clamp(Math.floor(memory / (2 * GB)), 2, 8), background: clamp(Math.floor(memory / (4 * GB)), 2, 4) };
 }
-const BACKGROUND_SLOTS = 2;
-let autoLookup: number | null = null;
+let auto: Record<Lane, number> | null = null;
+const autoSize = (lane: Lane) => (auto ??= autoSlots(process.constrainedMemory(), os.totalmem()))[lane];
 let fixedSizes: Record<Lane, number> | null = null;
 /** 테스트가 줄 크기를 고정한다. null 이면 원래대로 */
 function useLaneSizes(sizes: Record<Lane, number> | null) {
   fixedSizes = sizes;
 }
 const lanes: Record<Lane, SlotQueue> = {
-  lookup: new SlotQueue(() => fixedSizes?.lookup ?? (config.ytdlp.lookupSlots || (autoLookup ??= autoLookupSlots(process.constrainedMemory(), os.totalmem())))),
-  background: new SlotQueue(() => fixedSizes?.background ?? (config.ytdlp.backgroundSlots || BACKGROUND_SLOTS)),
+  lookup: new SlotQueue(() => fixedSizes?.lookup ?? (config.ytdlp.lookupSlots || autoSize("lookup"))),
+  background: new SlotQueue(() => fixedSizes?.background ?? (config.ytdlp.backgroundSlots || autoSize("background"))),
 };
 // 줄 안의 차례: 다시 묻기가 맨 앞, 그다음 지금 곡의 일, 미리 받기는 뒤
 const RANK = { retry: 0, now: 1, prefetch: 2 };
@@ -261,7 +266,7 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
 }
 
 export default run;
-export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoLookupSlots, familyOf };
+export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoSlots, familyOf };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 곳의 모양 */
 type RunYtDlp = typeof run;
 export type { YtDlpFlags, YtDlpError, RunYtDlp, RunOptions, Exec };

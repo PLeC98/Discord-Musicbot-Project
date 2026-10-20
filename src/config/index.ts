@@ -330,7 +330,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       clientWindow: tuneInt("YTDLP_CLIENT_WINDOW"),
       clientFails: tuneInt("YTDLP_CLIENT_FAILS"),
       clientRetryMs: tuneInt("YTDLP_CLIENT_RETRY_MINUTES") * 60 * 1000,
-      // 동시에 도는 수(sources/ytdlp-spawn). lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기. 0 이면 자동
+      // 동시에 도는 수(sources/ytdlp-spawn). lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기. 0 이면 메모리로
       lookupSlots: tuneInt("YTDLP_LOOKUP_SLOTS"),
       backgroundSlots: tuneInt("YTDLP_BACKGROUND_SLOTS"),
 

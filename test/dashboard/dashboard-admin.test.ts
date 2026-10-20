@@ -200,8 +200,9 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   const { ytdlp, ...processes } = r.json.processes;
   assert.deepEqual(processes, { total: 0, byLabel: [], oldest: [] });
   // yt-dlp 줄: 도는 것 · 기다리는 것 없이 크기만, 지난 1시간 추출 수
-  assert.deepEqual([ytdlp.lookup.running, ytdlp.lookup.waiting, ytdlp.background], [0, 0, { running: 0, size: 2, waiting: 0 }]);
+  assert.deepEqual([ytdlp.lookup.running, ytdlp.lookup.waiting, ytdlp.background.running, ytdlp.background.waiting], [0, 0, 0, 0]);
   assert.ok(ytdlp.lookup.size >= 2 && ytdlp.lookup.size <= 8, `곡 찾기 줄 ${ytdlp.lookup.size}`);
+  assert.ok(ytdlp.background.size >= 2 && ytdlp.background.size <= 4, `다운로드 줄 ${ytdlp.background.size}`);
   assert.deepEqual([ytdlp.extractedLastHour, ytdlp.nearLimit], [0, false]);
   // 로그 뷰어의 레벨 토글 초기 상태가 이 값을 따른다 — 없으면 서버가 debug를 안 보내는데도
   // DEBUG 알약이 켜진 채로 시작해, 아무것도 안 나오는 필터가 켜져 있는 것처럼 보인다.

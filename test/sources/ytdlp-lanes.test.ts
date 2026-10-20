@@ -7,7 +7,7 @@ import path from "node:path";
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
-import run, { useExec, useInfoTimeout, useLaneSizes, useStallWatch, ytdlpLoad, autoLookupSlots, familyOf, type Exec, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
+import run, { useExec, useInfoTimeout, useLaneSizes, useStallWatch, ytdlpLoad, autoSlots, familyOf, type Exec, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import { inGuild } from "../../src/infra/guild-context.ts";
 
 const GB = 1024 ** 3;
@@ -55,14 +55,16 @@ afterEach(() => {
   useStallWatch(null);
 });
 
-test("곡 찾기 줄의 크기는 메모리로: 2GB 마다 하나, 2 ~ 8. 프로세스에 걸린 상한이 있으면 그것으로", () => {
-  assert.equal(autoLookupSlots(0, 16 * GB), 8);
-  assert.equal(autoLookupSlots(0, 64 * GB), 8);
-  assert.equal(autoLookupSlots(0, 8 * GB), 4);
-  assert.equal(autoLookupSlots(0, 4 * GB), 2);
-  assert.equal(autoLookupSlots(0, 2 * GB), 2);
-  assert.equal(autoLookupSlots(6 * GB, 64 * GB), 3, "컨테이너 상한");
-  assert.equal(autoLookupSlots(2 ** 62, 4 * GB), 2, "상한이 없다는 큰 값이면 전체 메모리");
+test("줄 크기는 메모리로: 곡 찾기는 2GB 마다 하나(2 ~ 8), 다운로드는 4GB 마다 하나(2 ~ 4). 프로세스에 걸린 상한이 있으면 그것으로", () => {
+  const sizes = (constrained: number, total: number) => Object.values(autoSlots(constrained, total));
+  assert.deepEqual(sizes(0, 16 * GB), [8, 4]);
+  assert.deepEqual(sizes(0, 64 * GB), [8, 4]);
+  assert.deepEqual(sizes(0, 12 * GB), [6, 3]);
+  assert.deepEqual(sizes(0, 8 * GB), [4, 2]);
+  assert.deepEqual(sizes(0, 4 * GB), [2, 2]);
+  assert.deepEqual(sizes(0, 2 * GB), [2, 2]);
+  assert.deepEqual(sizes(6 * GB, 64 * GB), [3, 2], "컨테이너 상한");
+  assert.deepEqual(sizes(2 ** 62, 4 * GB), [2, 2], "상한이 없다는 큰 값이면 전체 메모리");
 });
 
 test("곡 찾기는 상한까지만 돌고 나머지는 차례로. 실패해도 자리를 돌려준다", HELD, async () => {
