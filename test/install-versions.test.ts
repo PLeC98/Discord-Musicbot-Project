@@ -14,6 +14,7 @@ import path from "node:path";
 
 import { loadConfig } from "../src/config/index.ts";
 import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../src/media/ffmpeg/release.ts";
+import { isMonthEndBuild } from "../src/rules/vendor-updates.ts";
 
 const DEFAULTS = loadConfig({}).config;
 
@@ -32,12 +33,7 @@ const CHECKSUMS = [
 
 test("릴리스는 월말 autobuild 태그로 고정한다 — 그 외에는 2주 뒤 404", () => {
   const release = DEFAULTS.ffmpeg.release;
-  const match = /^autobuild-(\d{4})-(\d{2})-(\d{2})-\d{2}-\d{2}$/.exec(release);
-  assert.ok(match, `latest 같은 움직이는 태그 금지: ${release}`);
-
-  const [, year, month, day] = match.map(Number);
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  assert.equal(day, lastDay, `${year}-${month}의 마지막 날이어야 한다 (월말 빌드만 2년 보관): ${release}`);
+  assert.ok(isMonthEndBuild(release), `latest 같은 움직이는 태그 · 월말이 아닌 빌드 금지(월말 빌드만 2년 보관): ${release}`);
   assert.ok(RELEASES_URL.startsWith("https://github.com/BtbN/FFmpeg-Builds/"), RELEASES_URL);
 });
 
