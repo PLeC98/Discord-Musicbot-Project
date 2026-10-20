@@ -23,6 +23,7 @@ import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
+import { icon } from "../../ui/icons.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
@@ -84,7 +85,12 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
 
   const cfg = ANNOUNCE_STYLE[type];
 
-  const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(body).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
+  const embed = new EmbedBuilder()
+    .setTitle(`${icon(cfg.icon)} ${cfg.title}`)
+    .setDescription(body)
+    .setColor(cfg.color)
+    .setTimestamp()
+    .setFooter({ text: "봇 운영자" });
 
   // 서버마다 따로 보낸다. 한 서버가 늦어도 다른 서버는 기다리지 않는다
   const results = await Promise.allSettled(

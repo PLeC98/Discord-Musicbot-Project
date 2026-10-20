@@ -38,7 +38,9 @@
           <div class="flex rounded-(--r-inner) bg-surface-container-highest overflow-hidden font-discord">
             <span class="w-1 shrink-0" :style="{ backgroundColor: style.color }"></span>
             <div class="min-w-0 flex-1 px-4 py-3">
-              <div class="flex items-center gap-2 text-sm font-semibold text-on-surface"><Twemoji :char="style.emoji" :size="18" />{{ style.title }}</div>
+              <div class="flex items-center gap-2 text-sm font-semibold text-on-surface">
+                <span class="inline-flex size-5 items-center justify-center rounded-[28%]" :style="{ backgroundColor: tile.tile, color: tile.glyph }"><Icon :name="KIND_ICON[kind]" :size="16" fill :weight="700" /></span>{{ style.title }}
+              </div>
               <!-- 본문은 디스코드 마크다운으로 그린다(utils/discord-markdown). 스포일러는 누르면 드러난다 -->
               <!-- eslint-disable-next-line vue/no-v-html -- 글은 이스케이프하고 만든 태그만 넣는다 -->
               <div v-if="body" class="dmd mt-1 text-sm text-on-surface wrap-break-word" @click="revealSpoiler" v-html="rendered"></div>
@@ -93,7 +95,7 @@
       </div>
     </BaseCard>
 
-    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(guilds.length)" :body="T.announce.confirmBody(style.emoji, style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
+    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(guilds.length)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
     <ConfirmDialog :model-value="leaveTarget !== null" icon="logout" :title="T.guilds.leaveTitle(leaveTarget?.name ?? '')" :body="T.guilds.leaveBody(Boolean(leaveTarget?.hasPlayer))" :confirm-label="T.guilds.leave" :busy="leaving" @update:model-value="(v) => !v && (leaveTarget = null)" @confirm="leave" />
   </div>
 </template>
@@ -126,6 +128,8 @@ import { LIMIT } from "../utils/request.ts";
 import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, type AdminGuilds, type AnnounceKind, type BroadcastReply } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
+import { ICONS } from "../../../src/ui/icons.ts";
+import { iconTones } from "../../../src/rules/icon-tones.ts";
 import { compareText, formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
 const F = text.fields.format;
@@ -142,8 +146,8 @@ const FIELD = "block w-full bg-surface-container-highest border border-transpare
 // ── 전체 공지 ──
 // 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
 const KIND_LABEL: Record<AnnounceKind, string> = T.announce.kinds;
-// 종류 버튼의 아이콘(보낼 임베드의 이모지와 같은 뜻)
-const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: "build", update: "new_releases", alert: "warning", info: "info" };
+// 종류 버튼 · 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
+const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: ICONS[ANNOUNCE_STYLE.maintenance.icon].glyph, update: ICONS[ANNOUNCE_STYLE.update.icon].glyph, alert: ICONS[ANNOUNCE_STYLE.alert.icon].glyph, info: ICONS[ANNOUNCE_STYLE.info.icon].glyph };
 const KINDS = (Object.entries(KIND_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label, icon: KIND_ICON[value] }));
 const kind = ref<AnnounceKind>("maintenance");
 const message = ref("");
@@ -153,8 +157,9 @@ const length = computed(() => body.value.length);
 // 푸터의 시각: 지금 보내면 찍힐 시각을 디스코드 한국어 표기로("오늘 오후 11:15"). 분이 바뀌면 따라간다
 const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
 const sentAt = computed(() => T.announce.today(formatTime(now.value, { hour: "numeric", minute: "2-digit" })));
-// 봇이 보낼 임베드의 모양(계약 ANNOUNCE_STYLE)
+// 봇이 보낼 임베드의 모양(계약 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
 const style = computed(() => ANNOUNCE_STYLE[kind.value]);
+const tile = computed(() => iconTones(style.value.color));
 const tooLong = computed(() => length.value > ANNOUNCE_MAX);
 const sendOpen = ref(false);
 const sending = ref(false);

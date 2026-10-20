@@ -92,7 +92,7 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
   await answerSeek(it, p, 90_000);
   assert.deepEqual(seeks, ["90000:seek"]);
   assert.deepEqual(log, [
-    ["reply", ["⏩ 위치를 옮기는 중..."], MINE],
+    ["reply", ["🔄 위치를 옮기는 중..."], MINE],
     ["deleteReply", [], null],
     ["send", ["### ⏩ 위치를 옮겼어요!\n⏱️ 옮긴 위치: `1:30`"], CV2],
   ]);

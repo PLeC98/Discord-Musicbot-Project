@@ -21,7 +21,7 @@ const announce = {
   sending: "보내는 중...",
   send: (title: string) => `${title} 전송`,
   confirmTitle: (count: number) => `${count}곳에 공지를 보낼까요?`,
-  confirmBody: (emoji: string, title: string) => `${emoji} ${title}\n보낸 뒤에는 취소할 수 없어요.`,
+  confirmBody: (title: string) => `${title}\n보낸 뒤에는 취소할 수 없어요.`,
   confirm: "보내기",
   partial: { title: "공지를 일부만 보냈어요", body: (sent: number, failed: number) => `${sent}곳에 보내고 ${failed}곳에는 보내지 못했어요` },
   done: "공지를 보냈어요",
