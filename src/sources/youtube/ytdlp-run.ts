@@ -15,6 +15,10 @@ import * as cookieJar from "../../store/cookie-jar.ts";
 import { NEEDS_POT, playerClients } from "./clients.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
+import * as recentInfo from "./recent-info.ts";
+import fs from "node:fs";
+import path from "node:path";
+import { clearOutput, familyOf } from "../ytdlp-spawn.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
@@ -53,6 +57,9 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
     if (errors.isStaleMediaError(error)) {
       log.warn({ tags: ["retry"] }, `미디어 주소가 어긋났습니다 (${videoId || url}). 다시 받습니다`);
       await new Promise((done) => setTimeout(done, STALE_RETRY_MS));
+      // 다운로드면 받다 만 파일을 지운다(다시 받을 때 포맷이 다르면 이어 붙인 파일이 깨진다)
+      const output = buildOptions(known).output;
+      if (output) clearOutput(output);
       return await _runWithClients(url, buildOptions, known, exec, true);
     }
 
@@ -152,5 +159,47 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
   }
 }
 
-export { runYtDlp, _runWithClients, _runOnce, _inspectWarnings };
+// 받아 둔 정보로 받다 실패했을 때 추출부터 다시 받을 까닭: 받기 자체가 실패했다(낡은 주소 · 요청 제한 · 연결 · 멎음). 변환 실패 · 끄는 중은 다시 받아도 같다
+const FETCH_FAILED = new Set(["stale-media", "rate-limited", "network-error"]);
+
+/**
+ * 유튜브 음원 다운로드(buildOptions 의 output 으로). 받아 둔 영상 정보(recent-info)가 있으면 다시 추출하지 않고 그것으로 한 번 받는다
+ * (--load-info-json. 불러온 정보에는 클라이언트 바꾸기 · 낡은 주소 다시 받기 · 쿠키가 소용없어 그 길을 타지 않는다).
+ * 받기가 실패하면 받다 만 파일을 지우고 추출부터 받는다. 끝나면(성공 · 실패) 받아 둔 정보를 지운다(다음부터는 캐시 파일로 튼다)
+ */
+async function downloadAudio(url: string, buildOptions: BuildOptions, exec: RunYtDlp = youtubedl): Promise<unknown> {
+  const id = links.extractVideoId(url);
+  try {
+    const known = id ? recentInfo.recall(id) : null;
+    const output = buildOptions(false).output;
+    if (known && output) {
+      const done = await fromInfo(known, buildOptions(false), output, exec);
+      if (done) return done.result;
+    }
+    return await runYtDlp(url, buildOptions, exec);
+  } finally {
+    if (id) recentInfo.forget(id);
+  }
+}
+
+// 받아 둔 정보로 한 번. 받기가 실패했으면 묶음을 지우고 null(추출부터 받게), 그 밖의 실패는 던진다
+async function fromInfo(info: unknown, options: Flags, output: string, exec: RunYtDlp): Promise<{ result: unknown } | null> {
+  const { dir, stem } = familyOf(output);
+  // 출력 묶음 안(임시 파일 정리 · 멎은 다운로드 감시가 그대로 덮는다)
+  const file = path.join(dir, `${stem}.load.json`);
+  const { cookies: _cookies, cookiesFromBrowser: _browser, ...flags } = options;
+  try {
+    fs.writeFileSync(file, JSON.stringify(info));
+    return { result: await exec("", { ...flags, loadInfoJson: file }) };
+  } catch (error) {
+    if (!FETCH_FAILED.has(String((error as { code?: unknown } | null)?.code))) throw error;
+    log.debug(`받아 둔 영상 정보로 받지 못해 추출부터 다시 받습니다: ${errors.briefError(error, 1)}`);
+    clearOutput(output);
+    return null;
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
+
+export { runYtDlp, downloadAudio, _runWithClients, _runOnce, _inspectWarnings };
 export type { BuildOptions };

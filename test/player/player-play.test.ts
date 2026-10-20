@@ -341,6 +341,49 @@ test("앞 광고로 막힌 스트림(403)은 광고가 끝나는 시각까지 �
   assert.equal(calls.downloads.length, 1);
 });
 
+// 다시 쓴 주소(받아 둔 영상 정보 · 직전 재생)는 추출한 IP 에 묶여 망을 옮기면 안 열린다
+test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다. 위치 이동 때 다시 쓸 주소도 새 것이다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("rfrfrfrfrfr");
+  const asked: boolean[] = [];
+  behavior.stream = (_track, options) => {
+    asked.push(options?.fresh === true);
+    return options?.fresh ? { url: "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new", duration: 100 } : { url: "https://rr1.googlevideo.com/videoplayback?clen=4096&n=old", duration: 100, reused: true };
+  };
+  behavior.chunked = (opts) => {
+    if (opts.url.endsWith("n=old")) throw Object.assign(new Error("Range 요청 실패: HTTP 403"), { status: 403 });
+  };
+  behavior.download = () => Promise.reject(new Error("받기 실패")); // 캐시로 넘어가 가려지지 않게
+  const from = sink.buffer.length;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, true);
+  assert.deepEqual(asked, [false, true]);
+  assert.deepEqual(
+    calls.chunked.map((c) => c.url.slice(-5)),
+    ["n=old", "n=new"],
+  );
+  assert.equal(p.playback?.resume?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("다시 쓴 스트림 주소가 열리지 않아 주소를 새로 받습니다")));
+});
+
+test("다시 쓰지 않은 주소가 열리지 않으면 새로 묻지 않고 지금처럼 캐시로 넘긴다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("nfnfnfnfnfn");
+  let asks = 0;
+  behavior.stream = () => (asks++, { url: "https://rr1.googlevideo.com/videoplayback?clen=4096&n=one", duration: 100 });
+  behavior.chunked = () => {
+    throw Object.assign(new Error("Range 요청 실패: HTTP 403"), { status: 403 });
+  };
+  behavior.download = () => Promise.reject(new Error("받기 실패"));
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false);
+  assert.equal(asks, 1);
+});
+
 test("앞 광고로 막힌 것이 아니면(시각 없음 · 지남 · 403 아님 · 60초 넘게 남음) 기다리지 않고 그대로 실패로 넘긴다", async () => {
   const soon = () => Date.now() / 1000 + 0.1;
   const cases = [

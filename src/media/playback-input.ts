@@ -59,9 +59,12 @@ type InputOptions<R> = {
   onProgress(): void;
   /** 라이브로 담은 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
   liveOnly?: boolean;
+  /** 주소를 새로 받는다. 부르는 쪽은 다시 쓴 주소(streamInfo.reused)일 때만 주고, 열리지 않으면 한 번 부른다 */
+  refresh?: (() => Promise<StreamInfo>) | null;
   label: string;
 };
-type Opened<R> = { resource: R | null; cacheFile: string | null; health: InputHealth | null };
+/** streamInfo: 새로 받은 주소로 열었으면 그 서술자(다시 열 때 그것을 쓰게) */
+type Opened<R> = { resource: R | null; cacheFile: string | null; health: InputHealth | null; streamInfo?: StreamInfo };
 type Hooks = { interrupt(err: unknown): boolean; resumed(info: { attempts: number; downtimeMs: number; starvedMs: number }): void };
 
 const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이드 길이
@@ -177,18 +180,15 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
       /* 스플라이서가 생기기 전에는 알릴 곳이 없다 */
     },
   };
-  const { streamInfo } = o;
+  let streamInfo = o.streamInfo;
   let audioStream: OpenedStream | null = null;
   if (typeof streamInfo?.url === "string") {
     try {
       audioStream = await openStream(o, streamInfo, hooks);
     } catch (error) {
-      // 스트리밍 실패. 다운로드로 넘어간다. 다운로드하지 않는 곡이면 원래 오류
-      if (!download) throw error;
-      if (direct) download.start();
-      const file = await cacheFallback(download, error);
-      log.info(`스트림을 열지 못해 다운로드한 캐시로 틉니다: ${o.label} | ${describeStreamError(error)}`);
-      return { resource: null, cacheFile: file, health: null };
+      const again = await reopenFresh(o, hooks, error);
+      if (!again) return fallBack(o, download, direct, error);
+      ({ streamInfo, audioStream } = again);
     }
   }
   if (!audioStream || !streamInfo) return { resource: null, cacheFile: o.cacheFile, health: null };
@@ -196,7 +196,30 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
     if (audioStream.bounded) download.start();
     else log.debug(`끝이나 크기를 모르는 입력이라 다운로드해 두지 않고 스트림으로만 틉니다: ${o.label}`);
   }
-  return pipeResource(o, streamInfo, audioStream, hooks);
+  return { ...pipeResource(o, streamInfo, audioStream, hooks), ...(streamInfo !== o.streamInfo ? { streamInfo } : {}) };
+}
+
+// 스트리밍 실패. 다운로드로 넘어간다. 다운로드하지 않는 곡이면 원래 오류
+async function fallBack<R>(o: InputOptions<R>, download: Download | null, direct: boolean, error: unknown): Promise<Opened<R>> {
+  if (!download) throw error;
+  if (direct) download.start();
+  const file = await cacheFallback(download, error);
+  log.info(`스트림을 열지 못해 다운로드한 캐시로 틉니다: ${o.label} | ${describeStreamError(error)}`);
+  return { resource: null, cacheFile: file, health: null };
+}
+
+// 다시 쓴 주소(받아 둔 영상 정보 · 직전 재생의 주소)가 열리지 않았다. 주소는 추출한 IP 에 묶여 망을 옮기면 안 열린다.
+// 새로 받아 한 번 더 연다. 그것도 안 되면 null(원래 오류로 캐시 폴백에 맡긴다)
+async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown): Promise<{ streamInfo: StreamInfo; audioStream: OpenedStream | null } | null> {
+  if (!o.refresh) return null;
+  log.info(`다시 쓴 스트림 주소가 열리지 않아 주소를 새로 받습니다: ${o.label} | ${describeStreamError(error)}`);
+  try {
+    const streamInfo = await o.refresh();
+    return { streamInfo, audioStream: await openStream(o, streamInfo, hooks) };
+  } catch (again) {
+    log.debug(`새로 받은 주소도 열리지 않았습니다: ${o.label} | ${describeStreamError(again)}`);
+    return null;
+  }
 }
 
 // 앞 광고를 이보다 오래 기다리지는 않는다. 넘으면 원래 오류로 캐시 폴백에 맡긴다

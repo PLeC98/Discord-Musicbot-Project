@@ -14,6 +14,7 @@ import * as trackLookup from "../../store/track-lookup.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
 import * as run from "./ytdlp-run.ts";
+import * as recentInfo from "./recent-info.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp } from "../ytdlp-spawn.ts";
 
@@ -155,22 +156,26 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
   return tracks;
 }
 
-// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 까닭을 알린다
-async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
-  const info = readInfo(
-    await run.runYtDlp(
-      url,
-      (forceCookies) =>
-        auth.getYtDlpOptions(
-          {
-            dumpSingleJson: true,
-            preferFreeFormats: true,
-          },
-          { forceCookies },
-        ),
-      exec,
-    ),
+// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 고르기까지)이라 받은 것을 재생 주소 · 다운로드가 그대로 다시 쓴다(recent-info)
+const extractInfo = (url: string, exec?: RunYtDlp) =>
+  run.runYtDlp(
+    url,
+    (forceCookies) =>
+      auth.getYtDlpOptions(
+        {
+          dumpSingleJson: true,
+          format: "bestaudio/best",
+        },
+        { forceCookies },
+      ),
+    exec,
   );
+
+// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 까닭을 알린다. 받은 정보는 재생 주소 · 다운로드가 다시 쓰게 둔다
+async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
+  const raw = await extractInfo(url, exec);
+  recentInfo.remember(raw);
+  const info = readInfo(raw);
 
   if (!info) {
     throw new Error("yt-dlp 가 정보를 주지 않았습니다");
@@ -179,27 +184,28 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
 }
 
-async function getStream(url: string, { exec }: { exec?: RunYtDlp } = {}) {
+// 받아 둔 영상 정보가 있으면 그것(known), 없으면 추출해 둔다. fresh 면 받아 둔 것을 읽지도 넣지도 않는다
+async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: boolean): Promise<{ raw: unknown; known: boolean }> {
+  const id = fresh ? null : links.extractVideoId(url);
+  const recalled = id ? recentInfo.recall(id) : null;
+  if (recalled) return { raw: recalled, known: true };
+  const raw = await extractInfo(url, exec);
+  if (!fresh) recentInfo.remember(raw);
+  return { raw, known: false };
+}
+
+/**
+ * 재생용 스트림 서술자. 받아 둔 영상 정보(곡 정보 · 앞선 재생 주소)가 있으면 yt-dlp 없이 그것으로 만들고 reused 를 단다(열리지 않으면 재생 쪽이 fresh 로 다시 묻는다).
+ * fresh: 받아 둔 것을 읽지도 넣지도 않고 지금 유튜브에 묻는다(재생 테스트 · 다시 쓴 주소가 열리지 않았을 때)
+ */
+async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp; fresh?: boolean } = {}) {
   // 실패는 부르는 쪽(재생)이 한 번 남긴다
   if (!url) {
     throw new Error("URL이 필요함");
   }
 
-  // 단순 형식으로 스트림 URL 가져오기
-  const info = readInfo(
-    await run.runYtDlp(
-      url,
-      (forceCookies) =>
-        auth.getYtDlpOptions(
-          {
-            dumpSingleJson: true,
-            format: "bestaudio/best",
-          },
-          { forceCookies },
-        ),
-      exec,
-    ),
-  );
+  const { raw, known } = await streamSource(url, exec, fresh);
+  const info = readInfo(raw);
 
   if (!info || !info.url) {
     throw new Error("스트림 URL을 찾을 수 없음");
@@ -224,6 +230,7 @@ async function getStream(url: string, { exec }: { exec?: RunYtDlp } = {}) {
     availableAt: info.available_at ?? null,
     // 조각 목록으로만 주는 포맷이면 조각 주소의 모양. 재생 쪽이 조각을 순서대로 다운로드한다(media/fragment-stream)
     fragments: fragmentsOf(info),
+    reused: known,
   };
 }
 

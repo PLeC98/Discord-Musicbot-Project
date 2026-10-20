@@ -29,16 +29,18 @@ type StreamInfo = {
   availableAt?: number | null;
   /** 조각 목록으로만 주는 포맷이면 조각 주소의 모양(포맷 주소 뒤 `&sq=번호`, 조각 수). 아니면 없다 */
   fragments?: { base: string; count: number } | null;
+  /** 앞서 받아 둔 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 받는다) */
+  reused?: boolean;
   [field: string]: unknown;
 };
 // 여기서 부르는 것만
-type YouTubeStreams = { getStream(url: string): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
+type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
-/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다) */
-type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean };
-const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true };
+/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 받아 둔 유튜브 영상 정보를 쓰지 않는다(다시 쓴 주소가 열리지 않았다) */
+type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean; fresh: boolean };
+const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true, fresh: false };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
@@ -67,7 +69,7 @@ async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInf
   return info?.isLive === true;
 }
 
-async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls }: StreamOptions) {
+async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions) {
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
     throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
@@ -76,13 +78,13 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
   switch (inputKind(audioUrl)) {
     case "youtube":
       try {
-        return await youtube.getStream(audioUrl);
+        return await youtube.getStream(audioUrl, { fresh });
       } catch (err) {
         // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);
-          if (ytUrl) return await youtube.getStream(ytUrl);
+          if (ytUrl) return await youtube.getStream(ytUrl, { fresh });
         }
         throw err;
       }

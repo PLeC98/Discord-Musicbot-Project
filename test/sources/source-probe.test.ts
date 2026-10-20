@@ -19,6 +19,10 @@ function openers(over: Partial<Over>): Openers {
 test("유튜브: 열리면 됨, 라이브면 live, 실패면 그 코드", async () => {
   const yt = "https://www.youtube.com/watch?v=aaaaaaaaaaa";
   assert.deepEqual(await probeSource(yt, openers({ youtube: async () => ({ isLive: false }) })), { ok: true });
+  // 받아 둔 영상 정보를 쓰지 않고 지금 묻는다(내려간 영상을 괜찮다고 적지 않게)
+  const asked: unknown[] = [];
+  await probeSource(yt, openers({ youtube: async (_url: string, options: unknown) => (asked.push(options), { isLive: false }) }));
+  assert.deepEqual(asked, [{ fresh: true }]);
   assert.deepEqual(await probeSource(yt, openers({ youtube: async () => ({ isLive: true }) })), { ok: false, code: "live" });
   assert.deepEqual(await probeSource(yt, openers({ youtube: fail("unavailable-contents") })), { ok: false, code: "unavailable-contents" });
   assert.deepEqual(

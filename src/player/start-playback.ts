@@ -12,6 +12,7 @@ import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as trackState from "./track-state.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
+import { reuseState } from "../rules/stream-reuse.ts";
 import { shownDuration } from "../rules/duration-shown.ts";
 import { messageOf, codedError } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
@@ -28,7 +29,6 @@ type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVe
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
 const SEND_BITRATE = 128_000;
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다
-const RESUME_URL_MARGIN_MS = 60_000; // 직전 주소를 다시 쓸 때 남은 곡을 다 받고도 이만큼은 만료가 남아야 한다
 
 /**
  * 틀 곡과 시작 위치.
@@ -135,27 +135,14 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
 function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, startMs: number): StreamInfo | null {
   const key = resumeKeyOf(track);
   if (!resume?.url || !key || resume.trackKey !== key || resume.info.liveStatus === "is_live") return null;
-  const expireMs = expireOf(resume.url);
   const remainingMs = Math.max(0, (resume.info.duration || track.duration || 0) * 1000 - startMs);
-  if (!expireMs) {
-    log.debug(`직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다: ${logTitle(track.title)}`);
+  const state = reuseState(resume.url, remainingMs);
+  if (state !== "ok") {
+    log.debug(`직전 스트림 주소는 ${state === "unknown" ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받습니다: ${logTitle(track.title)}`);
     return null;
   }
-  if (expireMs - Date.now() < remainingMs + RESUME_URL_MARGIN_MS) {
-    log.debug(`직전 스트림 주소의 만료가 가까워 주소를 새로 받습니다: ${logTitle(track.title)} | 만료 ${Math.round((expireMs - Date.now()) / 1000)}초 후`);
-    return null;
-  }
-  return { ...resume.info, url: resume.url };
-}
-
-// 주소가 알려 준 만료 시각(ms). 없으면 null
-function expireOf(url: string) {
-  try {
-    const sec = Number(new URL(url).searchParams.get("expire"));
-    return sec > 0 ? sec * 1000 : null;
-  } catch {
-    return null;
-  }
+  // 다시 쓴 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
+  return { ...resume.info, url: resume.url, reused: true };
 }
 
 function resumeKeyOf(track: QueuedTrack | null) {

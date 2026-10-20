@@ -22,7 +22,7 @@ const IS_WIN = process.platform === "win32";
 const SPAWN_OPTS = IS_WIN ? {} : { detached: true };
 
 /** yt-dlp 플래그(camelCase). 라이브러리 타입에 없는 것 중 우리가 쓰는 필드를 더한다 */
-type YtDlpFlags = Flags & { cookiesFromBrowser?: string; extractorArgs?: string; pluginDirs?: string; fragmentRetries?: number; concurrentFragments?: number };
+type YtDlpFlags = Flags & { cookiesFromBrowser?: string; extractorArgs?: string; pluginDirs?: string; fragmentRetries?: number; concurrentFragments?: number; loadInfoJson?: string };
 
 /** yt-dlp 가 실패했을 때 던지는 것. message 는 stderr 와 같고, 어떤 실패인지 code 로 구분해 붙인다 */
 type YtDlpError = Error & { stderr?: string; stdout?: string; exitCode?: number; code?: string };
@@ -141,7 +141,31 @@ function familyOf(output: string) {
   const base = path.basename(output);
   const template = base.indexOf("%(");
   const stem = template >= 0 ? base.slice(0, template).replace(/\.$/, "") : base.replace(/\.[^.]*$/, "");
-  return { dir: path.dirname(output), has: (name: string) => name === base || name === stem || name.startsWith(`${stem}.`) };
+  return { dir: path.dirname(output), stem, has: (name: string) => name === base || name === stem || name.startsWith(`${stem}.`) };
+}
+
+/**
+ * output 의 파일 묶음을 지운다. 같은 출력으로 다시 받기 전에 부른다: yt-dlp 는 남은 .part 를 이어 받는데, 다시 받을 때 포맷이 다르면 이어 붙인 파일이 깨진다.
+ * 돌려주는 것은 지운 수. 잠겨 있거나 이미 없는 것은 넘어간다
+ */
+function clearOutput(output: string): number {
+  const { dir, has } = familyOf(output);
+  let names: string[];
+  try {
+    names = fs.readdirSync(dir).filter(has);
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const name of names) {
+    try {
+      fs.rmSync(path.join(dir, name), { force: true });
+      removed++;
+    } catch {
+      /* 잠겨 있음. 부르는 쪽의 정리가 받는다 */
+    }
+  }
+  return removed;
 }
 
 async function snapshotOf({ dir, has }: ReturnType<typeof familyOf>): Promise<string> {
@@ -266,7 +290,7 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
 }
 
 export default run;
-export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoSlots, familyOf };
+export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoSlots, familyOf, clearOutput };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 곳의 모양 */
 type RunYtDlp = typeof run;
 export type { YtDlpFlags, YtDlpError, RunYtDlp, RunOptions, Exec };

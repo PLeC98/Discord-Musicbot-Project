@@ -21,6 +21,7 @@ audioCache.initialize();
 
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import runYtDlp, { useExec, type Exec, type RunYtDlp, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
+import { useRecentInfo, recall } from "../../src/sources/youtube/recent-info.ts";
 import { plainText } from "../helpers/notice.ts";
 
 // yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
@@ -56,6 +57,8 @@ after(() => {
 
 beforeEach(() => {
   calls.length = 0;
+  // 받아 둔 영상 정보는 봇 전체에 하나다. 가짜가 주는 주소는 만료 시각(expire=)이 없어 두지 않지만, 아래 다시 쓰기 시험이 넣은 것을 비운다
+  useRecentInfo(null);
   respond = () => ({});
   cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
@@ -131,7 +134,9 @@ test("정보: 필드를 옮겨 담고 포맷 목록을 붙인다. 라이브는 �
   assert.ok(t);
 
   assert.equal(calls[0].flags.dumpSingleJson, true);
-  assert.equal(calls[0].flags.preferFreeFormats, true);
+  // 재생 주소와 같은 옵션이라 받은 것을 재생 주소 · 다운로드가 다시 쓴다
+  assert.equal(calls[0].flags.format, "bestaudio/best");
+  assert.equal(calls[0].flags.preferFreeFormats, undefined);
   assert.equal(t.title, "원제");
   assert.deepEqual(t.formats, [{ format_id: "251" }]);
   assert.equal(t.isLive, true);
@@ -175,6 +180,7 @@ test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위�
     protocol: "https",
     availableAt: 1790500000,
     fragments: null,
+    reused: false,
   });
 });
 
@@ -301,4 +307,99 @@ test("영상이 없는 것은 다시 받지 않는다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] nnnnnnnnnnn: Video unavailable" });
   await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=nnnnnnnnnnn"));
   assert.equal(calls.length, 1);
+});
+
+// ── 받아 둔 영상 정보를 다시 쓰기 ─────────────────────────────────────
+
+// 만료가 넉넉한 주소를 준다(영상 정보에 고른 포맷이 실린 모양)
+const lasting = (id: string, expireIn = 6 * 3600) => ({ ...video(id), url: `https://rr1.googlevideo.com/videoplayback?id=${id}&expire=${Math.floor(Date.now() / 1000) + expireIn}`, format_id: "251", protocol: "https", formats: [{ format_id: "251", acodec: "opus", vcodec: "none" }] });
+
+test("곡 정보 뒤의 재생 주소는 yt-dlp 를 부르지 않는다. 서술자는 추출한 것과 같고 다시 쓴 표시만 다르다", async () => {
+  respond = () => lasting("rrrrrrrrrrr");
+  await YouTube.getInfo("https://www.youtube.com/watch?v=rrrrrrrrrrr");
+  const again = await YouTube.getStream("https://www.youtube.com/watch?v=rrrrrrrrrrr");
+  assert.equal(calls.length, 1);
+  assert.equal(again.reused, true);
+  const fresh = await YouTube.getStream("https://www.youtube.com/watch?v=rrrrrrrrrrr", { fresh: true });
+  assert.equal(calls.length, 2, "fresh 는 받아 둔 것을 읽지 않는다");
+  assert.deepEqual({ ...again, reused: false }, fresh);
+});
+
+test("곡을 다 받기 전에 만료될 주소 · fresh 로 받은 것은 다시 쓰지 않는다", async () => {
+  respond = () => lasting("sssssssssss", 200 + 30);
+  await YouTube.getStream("https://www.youtube.com/watch?v=sssssssssss");
+  await YouTube.getStream("https://www.youtube.com/watch?v=sssssssssss");
+  assert.equal(calls.length, 2, "200초 곡에 230초 남은 주소");
+  respond = () => lasting("ttttttttttt");
+  await YouTube.getStream("https://www.youtube.com/watch?v=ttttttttttt", { fresh: true });
+  await YouTube.getStream("https://www.youtube.com/watch?v=ttttttttttt");
+  assert.equal(calls.length, 4, "fresh 는 넣지도 않는다");
+});
+
+// 다운로드: 받는 쪽이 주는 옵션과, 실행을 적는 가짜
+function downloadRig(fail: ((url: string) => YtDlpError | null) | null = null) {
+  const dir = fs.mkdtempSync(path.join(TMP, "dl-"));
+  const output = path.join(dir, "k.tmp-1-ab.opus");
+  const ran: Array<{ url: string; flags: YtDlpFlags; loaded: unknown }> = [];
+  const exec: RunYtDlp = async (url, flags = {}) => {
+    const loaded = flags.loadInfoJson ? JSON.parse(fs.readFileSync(flags.loadInfoJson, "utf8")) : null;
+    ran.push({ url, flags, loaded });
+    const error = fail?.(url);
+    if (error) throw error;
+    return {};
+  };
+  const build = () => ({ output, writeInfoJson: true, cookies: "jar", extractAudio: true });
+  return { dir, output, ran, exec, build };
+}
+
+test("다운로드: 받아 둔 정보가 있으면 빈 주소 · loadInfoJson 으로 한 번(쿠키 없이), 끝나면 지운다", async () => {
+  respond = () => lasting("uuuuuuuuuuu");
+  await YouTube.getStream("https://www.youtube.com/watch?v=uuuuuuuuuuu");
+  const { dir, ran, exec, build } = downloadRig();
+  await YouTube.downloadAudio("https://www.youtube.com/watch?v=uuuuuuuuuuu", build, exec);
+  assert.equal(ran.length, 1);
+  assert.equal(ran[0].url, "");
+  assert.equal(ran[0].flags.cookies, undefined);
+  assert.equal(path.dirname(ran[0].flags.loadInfoJson!), dir, "출력 묶음 안");
+  assert.match(path.basename(ran[0].flags.loadInfoJson!), /^k\.tmp-1-ab\.load\.json$/);
+  assert.equal((ran[0].loaded as { id: string }).id, "uuuuuuuuuuu");
+  assert.deepEqual(fs.readdirSync(dir), [], "불러올 파일이 남지 않는다");
+  assert.equal(recall("uuuuuuuuuuu"), null, "받은 곡은 지운다");
+});
+
+test("다운로드: 받기가 실패하면 받다 만 파일을 지우고 추출부터 받는다. 그 밖의 실패는 그대로 던진다", async () => {
+  respond = () => lasting("vvvvvvvvvvv");
+  await YouTube.getStream("https://www.youtube.com/watch?v=vvvvvvvvvvv");
+  const stale = downloadRig((url) => (url ? null : Object.assign(new Error("ERROR: unable to download video data: HTTP Error 403: Forbidden"), { code: "stale-media" })));
+  fs.writeFileSync(path.join(stale.dir, "k.tmp-1-ab.webm.part"), "half");
+  await YouTube.downloadAudio("https://www.youtube.com/watch?v=vvvvvvvvvvv", stale.build, stale.exec);
+  assert.deepEqual(
+    stale.ran.map((r) => r.url),
+    ["", "https://www.youtube.com/watch?v=vvvvvvvvvvv"],
+  );
+  assert.equal(fs.existsSync(path.join(stale.dir, "k.tmp-1-ab.webm.part")), false, "받다 만 파일을 지웠다");
+
+  await YouTube.getStream("https://www.youtube.com/watch?v=vvvvvvvvvvv");
+  const broken = downloadRig(() => Object.assign(new Error("ERROR: Postprocessing: Conversion failed!"), { code: "stream-failed" }));
+  await assert.rejects(YouTube.downloadAudio("https://www.youtube.com/watch?v=vvvvvvvvvvv", broken.build, broken.exec), /Conversion failed/);
+  assert.equal(broken.ran.length, 1, "변환 실패는 다시 받지 않는다");
+  assert.equal(recall("vvvvvvvvvvv"), null, "실패해도 지운다");
+});
+
+test("다운로드: 받아 둔 정보가 없으면 추출부터(지금 길)", async () => {
+  const { ran, exec, build } = downloadRig();
+  await YouTube.downloadAudio("https://www.youtube.com/watch?v=wwwwwwwwwww", build, exec);
+  assert.deepEqual(
+    ran.map((r) => [r.url, r.flags.loadInfoJson ?? null]),
+    [["https://www.youtube.com/watch?v=wwwwwwwwwww", null]],
+  );
+});
+
+test("다운로드의 낡은 주소 다시 받기는 받다 만 파일을 지우고 다시 받는다(포맷이 바뀌면 이어 붙인 파일이 깨진다)", async () => {
+  let n = 0;
+  const { dir, ran, exec, build } = downloadRig(() => (++n === 1 ? Object.assign(new Error("ERROR: unable to download video data: HTTP Error 403: Forbidden"), { stderr: "ERROR: unable to download video data: HTTP Error 403: Forbidden" }) : null));
+  fs.writeFileSync(path.join(dir, "k.tmp-1-ab.webm.part"), "half");
+  await YouTube.runYtDlp("https://www.youtube.com/watch?v=xxxxxxxxxxx", build, exec);
+  assert.equal(ran.length, 2);
+  assert.equal(fs.existsSync(path.join(dir, "k.tmp-1-ab.webm.part")), false);
 });

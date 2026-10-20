@@ -470,8 +470,12 @@ class Player {
       },
       // 라이브로 담은 곡은 라이브로만 튼다(직접 링크 HLS 의 목록이 끝났으면 live-ended)
       liveOnly: transport.live,
+      // 다시 쓴 주소가 열리지 않으면 받아 둔 것을 쓰지 않고 새로 받는다
+      refresh: streamInfo?.reused ? () => this.io.getStream(track, { canPlayHls: this.io.ffmpegCapabilities().ok, fresh: true }) : null,
       label: this._trackLabel(track),
     });
+    // 새로 받은 주소로 열었으면 위치 이동 때 다시 쓸 주소도 그것이다
+    if (input.streamInfo) source.streamInfo = input.streamInfo;
     return { source, input };
   }
 

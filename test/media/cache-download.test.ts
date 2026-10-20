@@ -59,7 +59,7 @@ const deps: Sources = {
   youtube: {
     ...YouTube,
     getYtDlpOptions: (options = {}) => options, // 넘기는 옵션을 그대로 본다
-    runYtDlp: async (url, build) => {
+    downloadAudio: async (url, build) => {
       const flags = build(false);
       assert.ok(flags.output, "출력 경로가 없다");
       const options = { ...flags, output: flags.output };

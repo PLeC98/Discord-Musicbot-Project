@@ -26,7 +26,7 @@ async function captureOptions(): Promise<YtDlpFlags | undefined> {
   const seen: { options?: YtDlpFlags } = {};
   const youtube: Sources["youtube"] = {
     ...YouTube,
-    runYtDlp: async (_url, build) => {
+    downloadAudio: async (_url, build) => {
       seen.options = build(false);
       throw new Error("여기까지만");
     },

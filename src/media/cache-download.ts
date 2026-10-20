@@ -41,7 +41,7 @@ import { addDownloaded } from "../infra/download-meter.ts";
 
 // 다운로드에 부르는 소스와 변환에서 여기서 부르는 필드만
 type Sources = {
-  youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
+  youtube: Pick<typeof YouTube, "downloadAudio" | "getYtDlpOptions">;
   soundcloud: Pick<typeof SoundCloud, "download">;
   direct: { getStream(url: string): Promise<DirectInput> };
   convert: { toCacheOpus(srcFile: string, outFile: string, cache?: CacheTags): Promise<{ durationSec: number | null }> };
@@ -359,8 +359,8 @@ class TrackDownloader {
     // 사운드클라우드는 공통 옵션과 재생 포맷만(유튜브 전용 옵션 · 클라이언트 바꾸기 · 쿠키가 없다)
     const started = Date.now();
     if (inputKind(downloadUrl) === "soundcloud") await this.deps.soundcloud.download(downloadUrl, { ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.soundcloud });
-    // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
-    else await this.deps.youtube.runYtDlp(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions({ ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.youtube }, { forceCookies }));
+    // 받아 둔 영상 정보가 있으면 다시 추출하지 않고 받는다. 없으면 추출부터: 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
+    else await this.deps.youtube.downloadAudio(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions({ ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.youtube }, { forceCookies }));
 
     // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
     // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
