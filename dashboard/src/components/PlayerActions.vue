@@ -1,7 +1,7 @@
 <template>
   <!-- 서버 화면의 하이라이트로 가기 · 정지(진행 줄 끝 · 휴대폰 아래 줄 · 좁은 창의 표 행). 하이라이트는 곡에 있을 때만 -->
   <button v-if="highlight" type="button" :class="[BTN, size, 'bg-surface-container-high']" :aria-label="T.toHighlight" v-tooltip="T.toHighlight" :disabled="!player.canControl || busy('highlight')" @click="emit('highlight')">
-    <Icon name="keyboard_double_arrow_right" :size="iconSize" :style="{ color: 'var(--category-highlight-color)' }" />
+    <SponsorBlockIcon :size="iconSize" :style="{ color: 'var(--category-highlight-color)' }" />
   </button>
   <button type="button" :class="[BTN, size, 'text-error border border-error/40']" :aria-label="T.stop" v-tooltip="T.stop" :disabled="!player.canControl || !player.hasPlayer || busy('stop')" @click="emit('stop')"><Icon name="stop" :size="iconSize" fill /></button>
 </template>
@@ -9,6 +9,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import Icon from "./BaseIcon.vue";
+import SponsorBlockIcon from "./SponsorBlockIcon.vue";
 import type { PlayerSeen } from "../utils/playback.ts";
 import { text } from "../text/index.ts";
 const T = text.player;

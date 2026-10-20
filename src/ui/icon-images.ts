@@ -10,14 +10,15 @@ import { PROJECT } from "../infra/project-paths.ts";
 import { iconTones } from "../rules/icon-tones.ts";
 import { colorOf } from "./colors.ts";
 import { ON_COLOR_BUTTON } from "./palette.ts";
+import { SHIELD_OF_GLYPH, shieldOf } from "./shield-svg.ts";
 import type { IconSpec, Tint } from "./icons.ts";
 
 const SIZE = 128;
 const RADIUS = SIZE * 0.28;
 /** 머티리얼 기호: 글꼴 칸이 이모지 칸에서 차지하는 비율(디스코드에서 견주어 정함) */
 const SCALE = 0.88;
-/** 방패: 보이는 모양의 긴 변이 이모지 칸에서 차지하는 비율 */
-const SHIELD = 0.7;
+/** 방패: 보이는 모양의 긴 변이 이모지 칸에서 차지하는 비율(대시보드와 같은 기호 칸 대비 비율) */
+const SHIELD = SCALE * SHIELD_OF_GLYPH;
 /** 도는 것: 한 바퀴 24장 · 장마다 50ms(1.2초) */
 const SPIN_FRAMES = 24;
 const SPIN_DELAY_MS = 50;
@@ -33,26 +34,17 @@ function glyphPath(name: string) {
   return d;
 }
 
-let shield: { paths: string; width: number; height: number; viewBox: string } | null = null;
-/** SponsorBlock 하이라이트 방패의 경로. 편집기 속성(inkscape: 등)은 네임스페이스 없이 넣으면 SVG 해석이 깨져 걷어 낸다 */
-function shieldOf() {
-  if (!shield) {
-    const svg = fs.readFileSync(path.join(DIR, "skipIcon.svg"), "utf8");
-    const viewBox = /viewBox="([^"]+)"/.exec(svg)?.[1] ?? "0 0 1 1";
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const paths = [...svg.matchAll(/<path[\s\S]*?\/>/g)].map((m) => m[0].replace(/\s[a-z]+:[a-z-]+="[^"]*"/g, "")).join("");
-    shield = { paths, width, height, viewBox };
-  }
-  return shield;
-}
+let shield: ReturnType<typeof shieldOf> | null = null;
+/** SponsorBlock 하이라이트 방패(원본 그대로 둔 파일에서 경로만) */
+const shieldShape = () => (shield ??= shieldOf(fs.readFileSync(path.join(DIR, "skipIcon.svg"), "utf8")));
 
 // 기호 하나를 이모지 칸 가운데에. rotate: 도는 것의 각도
 function glyphSvg(spec: IconSpec, color: string, rotate: number) {
   if (spec.glyph === "sponsorblock") {
-    const { paths, width, height, viewBox } = shieldOf();
+    const { paths, width, height, viewBox } = shieldShape();
     const s = (SIZE * SHIELD) / Math.max(width, height);
     const [w, h] = [width * s, height * s];
-    return `<svg x="${(SIZE - w) / 2}" y="${(SIZE - h) / 2}" width="${w}" height="${h}" viewBox="${viewBox}">${paths.replace(/fill:#ffffff/gi, `fill:${color}`)}</svg>`;
+    return `<svg x="${(SIZE - w) / 2}" y="${(SIZE - h) / 2}" width="${w}" height="${h}" viewBox="${viewBox}">${paths.map((d) => `<path d="${d}" fill="${color}"/>`).join("")}</svg>`;
   }
   const s = (SIZE * (spec.scale ?? SCALE)) / 960;
   return `<path transform="rotate(${rotate} ${SIZE / 2} ${SIZE / 2}) translate(${SIZE / 2} ${SIZE / 2}) scale(${s} ${-s}) translate(-480 -480)" d="${glyphPath(spec.glyph)}" fill="${color}"/>`;
