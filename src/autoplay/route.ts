@@ -187,8 +187,7 @@ function artOfVideo(video: Video): string | null {
 /**
  * AnimeThemes가 준 음원 하나를 재생 가능한 트랙으로.
  *
- * `DirectLink.getInfo`를 거치지 않는다. 그쪽 CDN이 HEAD에 403을 준다. 거쳤더라도 쓰지 않을 것이
- * 제목을 파일명으로 하고, 아티스트를 비우고, 앨범아트를 빈 그림으로 두기 때문이다.
+ * `DirectLink.getInfo`를 거치지 않는다(요청 하나를 아낀다). 거쳐도 쓸 것이 없다: 제목은 파일 이름 · 파일 태그, 아티스트 · 그림은 비어 있다.
  * 우리는 API에서 진짜 이름과 표지를 불러왔으므로 그것을 그대로 싣는다.
  */
 const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
