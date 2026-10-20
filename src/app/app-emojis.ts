@@ -72,6 +72,12 @@ async function sameImage(local: Image, remote: Buffer) {
   return true;
 }
 
+/** 올라가 있는 것이 그 그림인가. CDN 에서 못 받으면 아니라고 본다 */
+async function uploadedAs(api: Api, remote: Remote, image: Image) {
+  const there = await api.download(remote).catch(() => null);
+  return there !== null && (await sameImage(image, there));
+}
+
 /** 이름이 겹치지 않는 임시 이름(32자 안) */
 function tempName(name: string, taken: ReadonlySet<string>) {
   for (let n = 1; ; n++) {
@@ -90,8 +96,11 @@ async function loadKnown(api: Api) {
   return known.size;
 }
 
-/** 맞추기. onChanged: 쓰는 쪽의 id 가 바뀐 뒤(옛 것을 지우기 전) 계속 고치는 메시지를 다시 그린다 */
-async function sync(api: Api, { onChanged }: { onChanged: () => Promise<unknown> }) {
+/**
+ * 맞추기. onChanged: 쓰는 쪽의 id 가 바뀐 뒤(옛 것을 지우기 전) 계속 고치는 메시지를 다시 그린다.
+ * stale: 참이면 올리기를 멈추고 아무것도 바꾸지 않은 채 끝낸다(그새 운영자 색이 또 바뀜). 그때까지 올린 것은 다음 맞추기가 지운다
+ */
+async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: () => Promise<unknown>; stale?: () => boolean }) {
   const remote = await api.list();
   const mine = new Map(remote.filter((one) => one.mine).map((one) => [one.name, one]));
   const takenByOthers = new Set(remote.filter((one) => !one.mine).map((one) => one.name));
@@ -110,13 +119,14 @@ async function sync(api: Api, { onChanged }: { onChanged: () => Promise<unknown>
     }
     const image = await imageOf(entry.spec, entry.tint);
     const existing = mine.get(entry.name);
-    if (existing) {
-      const there = await api.download(existing).catch(() => null);
-      if (there && (await sameImage(image, there))) {
-        next.set(entry.name, { id: existing.id, animated: existing.animated });
-        unused.delete(existing.id);
-        continue;
-      }
+    if (existing && (await uploadedAs(api, existing, image))) {
+      next.set(entry.name, { id: existing.id, animated: existing.animated });
+      unused.delete(existing.id);
+      continue;
+    }
+    if (stale()) {
+      log.debug(`앱 이모지 맞춤을 멈춤(다시 맞춤): ${added}개 올린 뒤`);
+      return;
     }
     const name = existing ? tempName(entry.name, taken) : entry.name;
     taken.add(name);
@@ -183,7 +193,7 @@ class AppEmojis {
       do {
         this.again = false;
         // 실패하면 그때까지 실은 것(목록에서 불러온 id · 유니코드)으로 돈다. 아이콘이 옛 그림 · 유니코드로 남으므로 알린다
-        await sync(this.api, { onChanged: this.onChanged }).catch((error: unknown) => log.warn(`앱 이모지를 맞추지 못했습니다(그대로 돕니다): ${messageOf(error)}`));
+        await sync(this.api, { onChanged: this.onChanged, stale: () => this.again }).catch((error: unknown) => log.warn(`앱 이모지를 맞추지 못했습니다(그대로 돕니다): ${messageOf(error)}`));
       } while (this.again);
     })().finally(() => (this.running = null));
   }

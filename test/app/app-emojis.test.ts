@@ -93,6 +93,37 @@ test("운영자 색이 바뀜: 운영자 색 타일만 임시 이름으로 올�
     assert.notEqual(icon("pause"), before);
   }));
 
+test("올리는 중에 색이 되돌아감: 멈추고 아무것도 바꾸지 않으며, 다음 맞추기가 올린 것만 지운다", () =>
+  withConfig({ bot: { embedColor: "#2743D2" } }, async () => {
+    const app = fakeApp();
+    await sync(app.api, { onChanged: async () => {} });
+    const before = icon("pause");
+    app.calls.length = 0;
+    let redrawn = 0;
+    await withConfig({ bot: { embedColor: "#FF0000" } }, () => sync(app.api, { onChanged: async () => void redrawn++, stale: () => app.calls.length >= 3 }));
+    assert.deepEqual(
+      app.calls.map((c) => c.split(" ")[0]),
+      ["create", "create", "create"],
+      "멈춘 뒤로는 올리지도 지우지도 않는다",
+    );
+    assert.equal(redrawn, 0);
+    assert.equal(icon("pause"), before, "쓰는 쪽은 그대로");
+    app.calls.length = 0;
+    await sync(app.api, { onChanged: async () => void redrawn++ });
+    assert.deepEqual(
+      app.calls.map((c) => c.split(" ")[0]),
+      ["remove", "remove", "remove"],
+      "원래 색으로 맞추면 멈추기 전에 올린 임시 이름 것만 지운다",
+    );
+    assert.equal(redrawn, 0);
+    assert.deepEqual(
+      names(app),
+      iconEntries()
+        .map((one) => one.name)
+        .sort(),
+    );
+  }));
+
 test("운영자가 같은 이름으로 올린 이모지는 건드리지 않고 그 아이콘은 유니코드", async () => {
   const theirs = { id: "1", name: "pause", animated: false, mine: false };
   const app = fakeApp([theirs]);
