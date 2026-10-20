@@ -621,6 +621,26 @@ class NowPlayingPanel {
   }
 
   /**
+   * 아이콘(앱 이모지)이 바뀌었을 때. 재생 중인 패널은 5초 갱신이 새 아이콘으로 다시 그리므로 끝난 패널만,
+   * 같은 모양으로 그 자리에서 고친다(새로 올리지 않는다)
+   */
+  async redrawIdlePanels() {
+    for (const guild of this.client.guilds?.cache?.values() ?? []) {
+      try {
+        if (this.players.get(guild.id)?.nowPlayingMessage) continue;
+        const record = await this.location.store.getPanel(guild.id);
+        if (!record) continue;
+        const view: IdleView = this.idleViews.get(guild.id) ?? { reason: "stop" };
+        const dedicated = record.channelId === (await GuildSettingsManager.getBotChannel(guild.id));
+        const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
+        await this.location.edit(guild, payload);
+      } catch (error) {
+        log.warn(`끝난 패널을 다시 그리지 못함 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+      }
+    }
+  }
+
+  /**
    * 시작할 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
    * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
    */

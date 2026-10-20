@@ -61,6 +61,7 @@ import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
+import { AppEmojis, apiOf } from "./app-emojis.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -259,8 +260,13 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, players, Player, { touched });
+  // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 먼저 싣는다. 패널을 유니코드로 한 번 그렸다가 다시 고치지 않게
+  const appEmojis = new AppEmojis(apiOf(client), { onChanged: () => panels.redrawIdlePanels() });
+  await appEmojis.loadKnown();
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await panels.restorePanels();
+  // 그림이 맞는지 견주고 올리기 · 지우기는 뒤에서(운영자 색이 바뀌면 다시)
+  appEmojis.start();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
 }
 

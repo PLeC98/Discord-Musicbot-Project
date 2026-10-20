@@ -42,3 +42,10 @@ test("OAuth 콜백의 모든 요청에 중단 신호가 붙어 있다", () => {
   assert.ok(calls.length >= 1, "호출부를 찾지 못했다");
   for (const call of calls) assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);
 });
+
+test("앱 이모지 맞추기의 CDN 요청에 중단 신호가 붙어 있다", () => {
+  const src = read("src/app/app-emojis.ts");
+  const calls = callSites(src, "cdn.fetch");
+  assert.ok(calls.length >= 1, "호출부를 찾지 못했다");
+  for (const call of calls) assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);
+});

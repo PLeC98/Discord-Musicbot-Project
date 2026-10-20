@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { PROJECT } from "../infra/project-paths.ts";
 import { iconTones } from "../rules/icon-tones.ts";
 import { colorOf } from "./colors.ts";
+import { ON_COLOR_BUTTON } from "./palette.ts";
 import type { IconSpec, Tint } from "./icons.ts";
 
 const SIZE = 128;
@@ -20,7 +21,6 @@ const SHIELD = 0.7;
 /** 도는 것: 한 바퀴 24장 · 장마다 50ms(1.2초) */
 const SPIN_FRAMES = 24;
 const SPIN_DELAY_MS = 50;
-const WHITE = "#FFFFFF";
 
 const DIR = path.join(PROJECT.data, "discord-icons");
 
@@ -61,7 +61,7 @@ function glyphSvg(spec: IconSpec, color: string, rotate: number) {
 function svgOf(spec: IconSpec, tint: Tint, rotate = 0) {
   const body =
     spec.shape === "white"
-      ? glyphSvg(spec, WHITE, rotate)
+      ? glyphSvg(spec, ON_COLOR_BUTTON, rotate)
       : (() => {
           const { tile, glyph } = iconTones(colorOf(tint));
           return `<rect width="${SIZE}" height="${SIZE}" rx="${RADIUS}" fill="${tile}"/>${glyphSvg(spec, glyph, rotate)}`;
