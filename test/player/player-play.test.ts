@@ -712,6 +712,32 @@ test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼
   }
 });
 
+test("0:00 으로 되감기 · 한곡 반복도 같은 곡이면 직전 주소를 다시 쓴다(새 주소는 앞 광고 시간 동안 막힌다). 라이브는 늘 새로 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const url = `https://rr1.googlevideo.com/videoplayback?id=2&expire=${expire}`;
+  for (const [what, liveStatus, asks] of [
+    ["보통 곡", null, 1],
+    ["라이브", "is_live", 3],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("pzzzzzzzzzz", { duration: 300, ...(liveStatus ? { isLive: true } : {}) });
+    let asked = 0;
+    behavior.stream = () => {
+      asked += 1;
+      return { url, duration: 300, liveStatus };
+    };
+    try {
+      await p.play(0);
+      await p.play(0, { continued: true }); // 처음부터 다시 · 0:00 으로 위치 이동
+      await p.play(0); // 한곡 반복
+    } finally {
+      h.dispose(p);
+    }
+    assert.equal(asked, asks, what);
+  }
+});
+
 test("캐시 파일로 이어 틀면 직전 주소를 따지지 않는다. 만료를 모르는 주소는 그렇게 남긴다", async (t) => {
   const track = yt("pc1cccccccc");
   const p = h.makePlayer();

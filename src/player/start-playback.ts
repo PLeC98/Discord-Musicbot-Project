@@ -80,8 +80,8 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
-  // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
-  let streamInfo: StreamInfo | null = startMs > 0 && !cacheFile ? resumeStream(track, previousResume, startMs) : null;
+  // 같은 곡을 다시 열면(위치 이동 · 처음으로 · 한곡 반복 · 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
+  let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previousResume, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 키가 정해지므로
@@ -127,12 +127,14 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
 }
 
 /**
- * 같은 곡 안에서 위치를 옮길 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp 를 다시 부르지 않는다).
- * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다
+ * 같은 곡을 다시 열 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp 를 다시 부르지 않는다). 위치가 0 이어도 같다:
+ * 새로 받은 유튜브 주소는 앞 광고가 끝날 때까지 본편을 막지만(media/playback-input 의 광고 대기) 직전 주소는 그 시간이 이미 지났다.
+ * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다.
+ * 라이브는 늘 새로 받는다(끊긴 라이브를 다시 열 때 새 답을 봐야 방송이 끝났는지 안다)
  */
 function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, startMs: number): StreamInfo | null {
   const key = resumeKeyOf(track);
-  if (!resume?.url || !key || resume.trackKey !== key) return null;
+  if (!resume?.url || !key || resume.trackKey !== key || resume.info.liveStatus === "is_live") return null;
   const expireMs = expireOf(resume.url);
   const remainingMs = Math.max(0, (resume.info.duration || track.duration || 0) * 1000 - startMs);
   if (!expireMs) {
