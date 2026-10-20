@@ -19,6 +19,7 @@ const NO_RESPONDER: Responder = {
 };
 import * as playerEvents from "../player/events.ts";
 import * as panelText from "./text/ko/panel.ts";
+import { buttonEmoji, icon, type IconKey } from "./icons.ts";
 import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
@@ -83,12 +84,17 @@ import { canGoBack, canGoNext } from "../rules/controls.ts";
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 필드에 달고 나간다.
 const IDLE_CONTROLS: Controls = { sessionId: IDLE_SESSION, previousTracks: [], queue: [], loop: false, paused: false, autoplay: false };
 
-// 반복 버튼의 모양
+// 반복 버튼의 모양. 아이콘은 표의 키(그릴 때 앱 이모지로), 색 버튼 위는 흰 기호
 const LOOP_LOOKS = {
-  track: { emoji: "🔂", style: ButtonStyle.Success },
-  queue: { emoji: "🔁", style: ButtonStyle.Success },
-  off: { emoji: "➡️", style: ButtonStyle.Secondary },
-} as const;
+  track: { icon: "repeat_one_on", style: ButtonStyle.Success },
+  queue: { icon: "repeat_on", style: ButtonStyle.Success },
+  off: { icon: "repeat_off", style: ButtonStyle.Secondary },
+} as const satisfies Record<string, { icon: IconKey; style: ButtonStyle }>;
+// 자동재생 버튼의 모양(켜짐 · 꺼짐)
+const AUTOPLAY_LOOKS = {
+  on: { icon: "autoplay_on", style: ButtonStyle.Success },
+  off: { icon: "autoplay", style: ButtonStyle.Secondary },
+} as const satisfies Record<string, { icon: IconKey; style: ButtonStyle }>;
 
 // 이전 · 다음 곡 버튼을 켤지(대시보드와 같은 규칙, rules/controls)
 const canBack = (p: Controls) => canGoBack({ history: p.previousTracks.length, loop: p.loop });
@@ -384,7 +390,7 @@ class NowPlayingPanel {
     const artistValue = track.artist || "-";
     const platformValue = labelOf(track.platform);
 
-    const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
+    const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(artistValue)}` : "";
     // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.ts).
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
@@ -413,7 +419,7 @@ class NowPlayingPanel {
 
     // 구분선 + 대시보드 링크(공개 주소일 때만) · 플랫폼
     const link = dashboardLink();
-    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link ? `${link}  |  ` : ""}🖥️ ${platformValue}`));
+    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link ? `${link}  |  ` : ""}${icon("system")} ${platformValue}`));
 
     return container;
   }
@@ -528,7 +534,7 @@ class NowPlayingPanel {
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 다 틀었거나 끊겼으면 따로 알린다.
     // 사람이 멈추거나 내보낸 것(/stop · /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
-    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ title: ended.title, body: ended.body }))), "끝 안내 보내기");
+    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
     // 플레이어는 이제 틀고 있는 곡 · 패널이 없다
     trackState.setCurrent(player, null);
@@ -669,27 +675,27 @@ class NowPlayingPanel {
     const previousButton = new ButtonBuilder()
       .setCustomId(id("previous"))
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("⏮️")
+      .setEmoji(buttonEmoji("prev"))
       .setDisabled(disabled || !canBack(player));
 
     const pauseButton = new ButtonBuilder()
       .setCustomId(id("pause"))
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji(player.paused ? "▶️" : "⏸️")
+      .setEmoji(buttonEmoji(player.paused ? "play" : "pause"))
       .setDisabled(disabled);
 
     const skipButton = new ButtonBuilder()
       .setCustomId(id("skip"))
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("⏭️")
+      .setEmoji(buttonEmoji("next"))
       .setDisabled(disabled || !canSkip(player));
 
-    const stopButton = new ButtonBuilder().setCustomId(id("stop")).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
+    const stopButton = new ButtonBuilder().setCustomId(id("stop")).setStyle(ButtonStyle.Danger).setEmoji(buttonEmoji("stop")).setDisabled(disabled);
 
-    const volumeButton = new ButtonBuilder().setCustomId(id("volume")).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
+    const volumeButton = new ButtonBuilder().setCustomId(id("volume")).setStyle(ButtonStyle.Secondary).setEmoji(buttonEmoji("volume")).setDisabled(disabled);
 
     // 둘째 줄: 섞기(아이콘만) · 반복 · 대기열 · 자동재생
-    const shuffleButton = new ButtonBuilder().setCustomId(id("shuffle")).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
+    const shuffleButton = new ButtonBuilder().setCustomId(id("shuffle")).setStyle(ButtonStyle.Secondary).setEmoji(buttonEmoji("shuffle")).setDisabled(disabled);
 
     // 반복 버튼은 끔 → 한 곡 반복 → 대기열 반복 차례로 돈다
     const loopLook = LOOP_LOOKS[player.loop || "off"];
@@ -697,17 +703,18 @@ class NowPlayingPanel {
       .setCustomId(id("loop"))
       .setLabel(panelText.loopLabel(player.loop || "off"))
       .setStyle(loopLook.style)
-      .setEmoji(loopLook.emoji)
+      .setEmoji(buttonEmoji(loopLook.icon))
       .setDisabled(disabled);
 
     const labels = panelText.buttons();
-    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel(labels.queue).setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(queueOff(player, disabled));
+    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel(labels.queue).setStyle(ButtonStyle.Primary).setEmoji(buttonEmoji("queue_button")).setDisabled(queueOff(player, disabled));
 
+    const autoplayLook = AUTOPLAY_LOOKS[player.autoplay ? "on" : "off"];
     const autoplayButton = new ButtonBuilder()
       .setCustomId(id("autoplay"))
       .setLabel(labels.autoplay)
-      .setStyle(player.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setEmoji("🎲")
+      .setStyle(autoplayLook.style)
+      .setEmoji(buttonEmoji(autoplayLook.icon))
       .setDisabled(disabled && !keepAutoplay);
 
     // SponsorBlock 하이라이트 점프. 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽. 봇 전체에서 SponsorBlock 을 껐으면 버튼을 두지 않는다
@@ -716,7 +723,7 @@ class NowPlayingPanel {
     const highlightButton = new ButtonBuilder()
       .setCustomId(id("highlight"))
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("💡")
+      .setEmoji(buttonEmoji("highlight"))
       .setDisabled(disabled || !hasHighlight);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);

@@ -8,6 +8,7 @@ import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import * as tempStore from "../helpers/temp-store.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import { withConfig } from "../helpers/config.ts";
+import { useUploaded } from "../../src/ui/icons.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, WebhookClient } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { PanelStore } from "../../src/ui/panel-location.ts";
@@ -321,6 +322,23 @@ test("대기열 버튼: 다음 곡이 없으면 끈다(대기열 화면은 다�
   };
   assert.equal(await queueDisabled({}), true);
   assert.equal(await queueDisabled({ queue: [{ title: "다음" }] }), false);
+});
+
+test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지 · 대기열 · 켠 반복 · 켠 자동재생) 위는 흰 기호", async () => {
+  const { mem, guild, text } = setup({});
+  const keys = ["prev", "pause", "next", "stop", "volume", "highlight", "shuffle", "repeat_on", "queue_button", "autoplay_on"];
+  useUploaded(new Map(keys.map((key, i) => [key, { id: String(100 + i), animated: false }])));
+  try {
+    const rows = await withConfig({ sponsorblock: { enabled: true } }, () => mem.createControlButtons(makePlayer(guild, text(BOT), { loop: "queue", autoplay: "pop" })));
+    const shown = rows.flatMap((row) => row.toJSON().components).map((b) => ("emoji" in b ? b.emoji : null));
+    assert.deepEqual(
+      shown.map((emoji) => emoji?.name),
+      keys,
+    );
+    assert.ok(shown.every((emoji) => emoji?.id));
+  } finally {
+    useUploaded(new Map());
+  }
 });
 
 test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다", async () => {
