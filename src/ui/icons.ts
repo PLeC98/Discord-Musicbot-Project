@@ -39,18 +39,19 @@ const ICONS = {
   page_prev: { glyph: "chevron_left", unicode: "◀" },
   page_next: { glyph: "chevron_right", unicode: "▶" },
 
-  // 응답 머리 줄의 주제(오류 · 경고 안내, ui/frame). 머리 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색
+  // 응답 머리 줄의 주제(오류 · 경고 안내, ui/frame). 머리 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
+  // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(시험이 맞춰 본다)
   failed: { glyph: "error", unicode: "❌", tints: ["error"] },
   permission: { glyph: "block", unicode: "🚫", tints: SEVERITY },
-  voice: { glyph: "headphones", unicode: "🎧", tints: ["brand", ...SEVERITY] },
-  stale: { glyph: "hourglass_disabled", unicode: "⌛", tints: SEVERITY },
-  input: { glyph: "edit", unicode: "✏️", tints: SEVERITY },
-  not_found: { glyph: "search_off", unicode: "🔍", tints: SEVERITY },
-  link_off: { glyph: "link_off", unicode: "🔗", tints: SEVERITY },
+  voice: { glyph: "headphones", unicode: "🎧", tints: SEVERITY },
+  stale: { glyph: "hourglass_disabled", unicode: "⌛", tints: ["warning"] },
+  input: { glyph: "edit", unicode: "✏️", tints: ["warning"] },
+  not_found: { glyph: "search_off", unicode: "🔍", tints: ["warning"] },
+  link_off: { glyph: "link_off", unicode: "🔗", tints: ["warning"] },
   blocked: { glyph: "lock", unicode: "🔒", tints: SEVERITY },
   waiting: { glyph: "hourglass_top", unicode: "⏳", tints: ["brand", ...SEVERITY] },
-  muted: { glyph: "volume_off", unicode: "🔇", tints: ["brand", ...SEVERITY] },
-  state: { glyph: "warning", unicode: "⚠️", tints: ["warning", "error"] },
+  muted: { glyph: "volume_off", unicode: "🔇", tints: ["brand", "warning"] },
+  state: { glyph: "warning", unicode: "⚠️", tints: ["warning"] },
 
   // 성공 응답의 머리 줄
   done: { glyph: "check_circle", unicode: "✅", tints: ["brand", "done"] },
@@ -63,7 +64,7 @@ const ICONS = {
   progress: { glyph: "progress_activity", unicode: "🔄", shape: "spin" },
   search: { glyph: "search", unicode: "🔍" },
   queue: { glyph: "queue_music", unicode: "📋" },
-  channel: { glyph: "tag", unicode: "🔧", tints: ["brand", "done"] },
+  channel: { glyph: "tag", unicode: "🔧", tints: ["done"] },
   dj_role: { glyph: "headphones", unicode: "🎧", tints: ["brand", "done"] },
   sponsorblock: { glyph: "sponsorblock", unicode: "⏭️", tints: ["brand", "done"] },
   playlist_add: { glyph: "playlist_add", unicode: "📃", tints: ["brand", "done"] },

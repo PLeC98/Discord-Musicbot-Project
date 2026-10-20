@@ -33,7 +33,7 @@ test("주제마다 아이콘 하나. 앱 이모지를 맞추기 전에는 유니
   });
 });
 
-test("안내를 만드는 곳의 (경고 수준, 주제)마다 그 색으로 그려 둔 아이콘이 있다(없으면 다른 색 타일로 내려간다)", () => {
+test("주제의 아이콘은 안내를 만드는 곳이 쓰는 경고 수준의 색만 그려 둔다(빠지면 다른 색 타일로 내려가고, 남으면 쓰지 않는 앱 이모지를 올린다)", () => {
   const dir = path.join(import.meta.dirname, "../../src");
   const pairs = new Set<string>();
   const scan = (at: string) => {
@@ -45,11 +45,16 @@ test("안내를 만드는 곳의 (경고 수준, 주제)마다 그 색으로 그
   };
   scan(dir);
   assert.ok(pairs.size > 10, `찾은 짝이 너무 적다: ${[...pairs].join(", ")}`);
+  const used = new Map<string, Set<string>>();
   for (const pair of pairs) {
     const [severity, topic] = pair.split(" ") as ["error" | "warning", Topic];
     const key = TOPIC_ICON[topic];
     assert.ok(key !== undefined, `모르는 주제: ${pair}`);
-    if (key) assert.ok(((ICONS[key] as IconSpec).tints ?? ["brand"]).includes(severity), `${pair}: ${key} 의 tints 에 ${severity} 가 없다`);
+    if (key) used.set(key, (used.get(key) ?? new Set()).add(severity));
+  }
+  for (const [key, severities] of used) {
+    const drawn = ((ICONS[key as keyof typeof ICONS] as IconSpec).tints ?? ["brand"]).filter((tint) => tint === "error" || tint === "warning");
+    assert.deepEqual([...drawn].sort(), [...severities].sort(), key);
   }
 });
 
