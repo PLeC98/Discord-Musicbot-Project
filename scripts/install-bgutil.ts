@@ -2,7 +2,7 @@
 //   pnpm run install:bgutil · update:bgutil. 둘은 같은 일을 한다:
 //   없으면 git clone, 설정한 태그로 체크아웃, 그 태그의 잠금 파일 그대로 의존성 설치(npm ci) + 빌드
 //
-// 설치하는 버전은 src/config/index.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
+// 설치하는 버전은 src/config/vendor-versions.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 //

@@ -4,7 +4,7 @@
  * 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀐다.
  * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 삭제돼서 고정해 두면 404가 난다.
  *
- * 기본 태그는 src/config/index.ts 에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 자산 이름은 그 릴리스의
+ * 기본 태그는 src/config/vendor-versions.ts 에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 자산 이름은 그 릴리스의
  * checksums.sha256에서 찾으므로 버전 문자열을 따로 맞출 필요가 없다.
  * 태그 목록: https://github.com/BtbN/FFmpeg-Builds/releases
  *
