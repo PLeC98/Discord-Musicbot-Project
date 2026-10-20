@@ -10,6 +10,8 @@ import type { Job } from "../../infra/process-job.ts";
 
 /** 남겨 둘 표준 오류의 끝 */
 const STDERR_KEEP = 64 * 1024;
+/** 진행을 받는 인자(-progress 를 표준 오류로). stallMs 를 쓰려면 인자에 있어야 한다(없으면 진행이 오지 않아 stallMs 에 끊긴다) */
+const PROGRESS_ARGS = ["-progress", "pipe:2", "-nostats"];
 
 type FfmpegJob = {
   /** 표준 입력으로 줄 것 */
@@ -43,19 +45,19 @@ function progressWatch(stallMs: number, onStall: () => void) {
   };
 }
 
-/** 끝난 코드(실행하지 못하면 null) · 모은 출력(글 · 바이트 그대로) · 멈춘 까닭 */
-type FfmpegResult = { code: number | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
+/** 끝난 코드(실행하지 못했거나 신호로 끝났으면 null) · 끝낸 신호 · 모은 출력(글 · 바이트 그대로) · 멈춘 까닭 */
+type FfmpegResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
 function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardStdout = false, onStderrLine, label = "job", job, bindCores = false }: FfmpegJob = {}): Promise<FfmpegResult> {
   return new Promise((resolve) => {
-    if (signal?.aborted) return resolve({ code: null, stdout: "", output: Buffer.alloc(0), stderr: "", aborted: true, timedOut: false });
+    if (signal?.aborted) return resolve({ code: null, signal: null, stdout: "", output: Buffer.alloc(0), stderr: "", aborted: true, timedOut: false });
     let child;
     try {
       const command = { file: ffmpegPath(), args: ["-hide_banner", "-nostdin", ...args] };
       const { file, args: line } = bindCores ? bindCommand(command.file, command.args) : command;
       child = spawn(file, line, { windowsHide: true, stdio: [input ? "pipe" : "ignore", "pipe", "pipe"] });
     } catch (error) {
-      return resolve({ code: null, stdout: "", output: Buffer.alloc(0), stderr: String(error), aborted: false, timedOut: false });
+      return resolve({ code: null, signal: null, stdout: "", output: Buffer.alloc(0), stderr: String(error), aborted: false, timedOut: false });
     }
     if (bindCores) bindProcess(child.pid);
     const release = procRegistry.register(child, `ffmpeg:${label}`, { job });
@@ -83,19 +85,19 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
         onStderrLine?.(line);
       }
     });
-    const done = (code: number | null, extra = "") => {
+    const done = (code: number | null, extra = "", ended: NodeJS.Signals | null = null) => {
       if (timer) clearTimeout(timer);
       watch?.stop();
       signal?.removeEventListener("abort", kill);
       release();
       const output = Buffer.concat(chunks);
-      resolve({ code, stdout: output.toString("utf8"), output, stderr: stderr + extra, aborted: signal?.aborted ?? false, timedOut });
+      resolve({ code, signal: ended, stdout: output.toString("utf8"), output, stderr: stderr + extra, aborted: signal?.aborted ?? false, timedOut });
     };
     child.on("error", (error) => done(null, String(error)));
-    child.on("close", (code) => done(code));
+    child.on("close", (code, ended) => done(code, "", ended));
     if (input) child.stdin?.end(input);
   });
 }
 
-export { runFfmpeg, progressWatch };
+export { runFfmpeg, progressWatch, PROGRESS_ARGS };
 export type { FfmpegJob, FfmpegResult };

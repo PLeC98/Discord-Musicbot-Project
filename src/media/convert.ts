@@ -3,7 +3,8 @@ import { codedError } from "../rules/error-kind.ts";
 import { pictureBlock } from "../rules/flac-picture.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
 import type { Cover } from "../sources/cover.ts";
-import { spawnFfmpeg, probeAudio } from "./ffmpeg/process.ts";
+import { probeAudio } from "./ffmpeg/process.ts";
+import { runFfmpeg, PROGRESS_ARGS } from "./ffmpeg/job.ts";
 import { AUDIO_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
@@ -63,18 +64,23 @@ async function toCacheOpus(srcFile: string, outFile: string, { tags, cover }: Ca
   return { ...plan, durationSec: info.durationSec };
 }
 
-/** 출력이 파일이라 stdout 을 소비하지 않는다(killOnStdoutClose 해제. 켜면 조기 종료한다). */
-function run(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawnFfmpeg(args, "download", { killOnStdoutClose: false });
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (code === 0) resolve();
-      else reject(codedError("stream-failed", `FFmpeg 종료 (code=${code}, signal=${signal})`));
-    });
-  });
+// 진행이 이만큼 멈추면 끊는다. 느린 기기의 긴 변환도 진행은 0.5초마다 온다
+const STALL_MS = 60_000;
+let stallMs = STALL_MS;
+/** 테스트가 멈춤 한도를 줄인다. null 이면 원래대로 */
+function useConvertStall(ms: number | null) {
+  stallMs = ms ?? STALL_MS;
 }
 
-export { toCacheOpus, planFor, ytdlpPostprocessorArgs, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
+/** 파일로 쓰는 변환. 진행이 멈추면 끊고, 실패하면 표준 오류의 끝을 실어 던진다(부르는 쪽이 한 번 남긴다) */
+async function run(args: string[]): Promise<void> {
+  const done = await runFfmpeg([...PROGRESS_ARGS, ...args], { label: "download", stallMs, discardStdout: true });
+  if (done.code === 0) return;
+  const tail = done.stderr.trim().slice(-1000);
+  const why = done.timedOut ? `진행이 ${stallMs / 1000}초 동안 멈춰 끊었습니다` : `FFmpeg 종료 (code=${done.code}, signal=${done.signal})`;
+  throw codedError("stream-failed", tail ? `${why}: ${tail}` : why);
+}
+
+export { toCacheOpus, useConvertStall, planFor, ytdlpPostprocessorArgs, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
 export const _internals = { argsFor, escapeMeta };
 export type { Converted, CacheTags };

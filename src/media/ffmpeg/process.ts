@@ -21,8 +21,8 @@ const CRASH_SIGNALS = new Set<NodeJS.Signals>(["SIGSEGV", "SIGABRT", "SIGBUS", "
 
 /**
  * @param {string[]} args 완전한 ffmpeg 인자. 출력 대상까지 호출부가 지정한다.
- *   재생은 `pipe:1`, 캐시 변환은 `-y <파일>`이라 여기서 임의로 붙일 수 없다.
- * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "download")
+ *   재생은 `pipe:1`, 검사는 `-f null -`이라 여기서 임의로 붙일 수 없다.
+ * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "switch" | "probe")
  * @param {{killOnStdoutClose?: boolean}} opts stdout을 소비하는 경로(재생)에서만 true
  */
 function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
@@ -30,7 +30,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   const child = spawn(bin, args, { windowsHide: true });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
-  // 소리를 내는 것은 재생, 다운로드 · 검사는 실행한 문맥의 일(지금 곡 · 다음 곡)
+  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡 · 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
   // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
@@ -49,7 +49,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
 
   // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남는다.
   // prism의 _cleanup()이 하던 일을 여기서 대신한다.
-  // 파일로 출력하는 캐시 변환 경로는 stdout을 소비하지 않으므로 이 정리를 걸지 않는다(조기 종료 방지).
+  // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
   // 우리가 손을 떼서 죽인 것인지 표시. 프로세스가 아직 살아 있는데 stdout이 닫혔다면
   // 닫은 쪽은 소비자, 즉 우리다(무지연 전환에서 옛 소스를 버릴 때가 그렇다).
   // 이때 ffmpeg는 파이프 쓰기가 실패해 스스로 죽는데(Windows에서는 EINVAL → 종료 코드 -22),
