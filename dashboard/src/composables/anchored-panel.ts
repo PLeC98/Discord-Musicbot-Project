@@ -20,6 +20,9 @@ export function coveredBottom(el: HTMLElement) {
   return raw.endsWith("rem") ? n * parseFloat(getComputedStyle(document.documentElement).fontSize) : n;
 }
 
+/** 폭을 정한 패널이 화면 가장자리에서 떨어질 거리(px) */
+const EDGE = 8;
+
 /** 패널의 쌓임 순서: 기준 요소가 든 층(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 층이 없으면 PANEL_Z */
 const PANEL_Z = 160;
 function layerAbove(el: HTMLElement) {
@@ -34,8 +37,9 @@ function layerAbove(el: HTMLElement) {
 /**
  * root: 입력란을 감싼 겉(바깥 누름 판정의 기준) · anchor: 기준이 될 요소(입력란 또는 버튼) · panel: 표시할 패널(바깥 누름 판정에 같이 쓴다)
  * open: 열림 상태(바깥을 누르면 여기를 내린다) · maxHeight: 패널이 바랄 최대 높이(px) · gap: 기준 요소와 패널 사이 간격(px, 음수면 테두리를 겹친다)
+ * width: 패널 폭(px). 없으면 기준 요소의 폭(드롭다운). 주면 그 폭으로 기준 요소의 왼쪽에 맞추되 화면 오른쪽을 넘지 않게 당긴다(달력처럼 내용이 정한 폭)
  */
-export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1 }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number }) {
+export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number }) {
   const style = ref<CSSProperties>({});
   let observer: ResizeObserver | null = null;
   /** 패널이 줄지 않고 다 보이는 높이. 열 때 한 번 잰다(검색으로 항목이 줄 때 뒤집히지 않게) */
@@ -59,10 +63,12 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
     // 아래가 내용을 다 담지 못하고 위가 더 넓을 때만 뒤집는다. 기준이 내용 높이 하나라 스크롤하며 그 선을 넘을 때 한 번만 바뀐다
     const flip = below < need && above > below;
 
+    const w = width ?? rect.width;
+    const left = width === undefined ? rect.left : Math.min(Math.max(EDGE, rect.left), window.innerWidth - width - EDGE);
     style.value = {
       position: "fixed",
-      left: `${rect.left}px`,
-      width: `${rect.width}px`,
+      left: `${left}px`,
+      width: `${w}px`,
       maxHeight: `${Math.max(80, Math.min(maxHeight, flip ? above : below))}px`,
       zIndex: layerAbove(el),
       ...(flip ? { bottom: `${window.innerHeight - rect.top + gap}px` } : { top: `${rect.bottom + gap}px` }),
