@@ -7,7 +7,7 @@
 // 지금 쓰는 파일은 꽉 차면 이름이 바뀌어 떼어진다(내용은 그대로). 그래서 파일을 첫 줄의 시각(since)으로 알아보고,
 // 보던 파일이 떼어졌으면 같은 첫 줄을 가진 떼어 낸 파일에서 이어 읽는다.
 // 파일마다 줄 수 · 카테고리 · 태그 · 처음과 끝 시각은 한 번 훑어 기억한다(떼어 낸 파일은 바뀌지 않고, 지금 파일은 늘어난 부분만 더 훑는다).
-// 찾기의 맞은 줄 수는 부를 때마다 파일 전체를 훑는다(입력이 멈춘 뒤 한 번 부른다)
+// 찾기의 맞은 줄 수는 처음 받는 쪽마다 파일 전체를 훑는다(입력이 멈춘 뒤 한 번)
 
 import fs from "fs";
 import path from "path";
@@ -228,7 +228,9 @@ function readLogPage(target: { name: string; path: string }, query: PageQuery): 
       const line = parse(raw);
       return line && matchesLog(line, query.filter) ? line : null;
     };
-    const page = (lines: FileLine[], more: boolean, later: boolean): FilePage => ({ name: target.name, since, lines, more, later, ...(query.filter.q?.trim() ? { matches: countMatches(fd, size, query.filter) } : {}) });
+    // 맞은 줄 수는 처음 받는 쪽에서만 센다(이어 받는 쪽은 화면이 이미 안다)
+    const counting = query.filter.q?.trim() && query.before === undefined && query.after === undefined;
+    const page = (lines: FileLine[], more: boolean, later: boolean): FilePage => ({ name: target.name, since, lines, more, later, ...(counting ? { matches: countMatches(fd, size, query.filter) } : {}) });
 
     if (query.after !== undefined) {
       // 그 줄 뒤에서부터 아래로
