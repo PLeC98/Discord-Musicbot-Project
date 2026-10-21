@@ -50,7 +50,7 @@ let base: string;
 before(async () => {
   const app = express();
   app.use(express.json());
-  app.use(signedInAs(() => ({ id: "u1", username: "사용자", guilds: [] })));
+  app.use(signedInAs(() => ({ id: "u1", username: "사용자" })));
   app.locals.bot = bot;
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);

@@ -25,6 +25,8 @@ export const useUserStore = defineStore("user", {
     viewAsLabel: (s) => (s.data?.viewAs ? TIER_TEXT[s.data.viewAs].label : null),
     displayName: (s) => s.data?.globalName || s.data?.username || "",
     avatarUrl: (s) => s.data?.avatarUrl ?? null,
+    // 대시보드에서 봇을 초대할 수 있나(사이드바 ⊕ · 초대 화면)
+    canInvite: (s) => s.data?.canInvite ?? false,
   },
   actions: {
     // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 열지 않는다).

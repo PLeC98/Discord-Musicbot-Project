@@ -136,6 +136,26 @@ test("볼 수 없는 서버의 넛지는 받지 않는다. 볼 수 있는지는 
   res.emit("close");
 });
 
+test("봇이 나간 서버: 이제 볼 수 없어도 나가기 전에 멤버였던 사람의 연결에 바로 보낸다", async () => {
+  const { botLeftGuild } = await import("../../src/dashboard/routes/player-events.ts");
+  const member = makeRes();
+  const other = makeRes();
+  DashboardEvents.addClient(member, sees(), "leftU1");
+  DashboardEvents.addClient(other, sees(), "leftU2");
+  member.writes.length = 0;
+  other.writes.length = 0;
+
+  botLeftGuild(DashboardEvents, { id: "leftG", members: { cache: new Set(["leftU1", "stranger"]) } });
+  assert.deepEqual(
+    member.writes.map((w) => JSON.parse(w.replace("data: ", "").trim())),
+    [{ t: "changed", g: "leftG" }],
+  );
+  assert.equal(other.writes.length, 0, "그 서버 멤버가 아니었던 사람");
+
+  member.emit("close");
+  other.emit("close");
+});
+
 // 넛지 합치기: 몰린 알림은 창 하나에 한 번, 창이 끝나면 다시 받는다
 test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다시 예약한다. 그 서버를 볼 이가 없으면 예약도 안 한다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });

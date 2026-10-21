@@ -126,6 +126,8 @@ const WEB = {
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
   // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },
+  // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant 를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
+  "invite-unavailable": { status: 403, title: "Inviting is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },
   "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
   "too-many-requests": { status: 429, title: "Too many requests" },

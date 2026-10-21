@@ -18,6 +18,7 @@
       <span class="size-20 rounded-[30%] bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="music_off" :size="40" /></span>
       <p class="text-xl font-round font-semibold">{{ T.empty.title }}</p>
       <p class="text-sm text-on-surface-variant max-w-sm">{{ T.empty.body }}</p>
+      <router-link v-if="user.canInvite" to="/invite" class="tap state-layer h-10 px-5 rounded-full bg-primary text-on-primary text-sm font-semibold no-underline inline-flex items-center gap-1.5"><Icon name="add" :size="18" :weight="600" />{{ text.invite.goInvite }}</router-link>
     </div>
 
     <div v-else class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">

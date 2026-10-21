@@ -292,7 +292,7 @@ const NAME = { C: "명령", B: "버튼", D: "대시보드" };
 before(async () => {
   const app = express();
   app.use(express.json());
-  app.use(signedInAs(() => ({ id: "u1", username: "u1", guilds: [] })));
+  app.use(signedInAs(() => ({ id: "u1", username: "u1" })));
   app.locals.bot = bot;
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);

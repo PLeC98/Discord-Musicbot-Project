@@ -53,7 +53,8 @@ import { StatusManager } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
-import { botJoinedGuild } from "../dashboard/routes/player-events.ts";
+import { botJoinedGuild, botLeftGuild } from "../dashboard/routes/player-events.ts";
+import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -208,6 +209,8 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
   });
+  // 봇이 서버에서 나가면 그 서버 멤버였던 사람들의 서버 목록 · 초대 화면이 다시 읽게 한다
+  client.on(Events.GuildDelete, (guild) => botLeftGuild(stream, guild));
 
   // 서버 하나 다시 시작. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
@@ -252,6 +255,8 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
+  // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇 · 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
+  void loadAppInfo(client);
 
   // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행 · 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다

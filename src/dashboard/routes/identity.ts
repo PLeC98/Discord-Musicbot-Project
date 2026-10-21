@@ -7,6 +7,7 @@ import { getViewAs } from "../view-as.ts";
 import type { BotInfo, Me } from "../contract/identity.ts";
 import { avatarUrl } from "../images.ts";
 import { faviconVersion } from "../appearance.ts";
+import { canInvite } from "../invite.ts";
 import { sendProblem } from "../problem.ts";
 
 const identityRouter = express.Router();
@@ -16,8 +17,10 @@ const identityRouter = express.Router();
 // 계속 노출하기 위한 원래 값이다.
 identityRouter.get("/me", (req, res) => {
   if (!req.session.user) return sendProblem(res, "login-required");
-  const user = req.session.user;
-  res.json({ ...user, avatarUrl: avatarUrl(user.id, user.avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) } satisfies Me);
+  // 세션 사용자를 펼치지 않고 필드를 골라 보낸다(세션에 무엇이 더 붙어도 화면으로 새지 않게)
+  const { id, username, globalName, avatar } = req.session.user;
+  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id) };
+  res.json(me);
 });
 
 // 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름 · 그림은 준비 전이면 null.

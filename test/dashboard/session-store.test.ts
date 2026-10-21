@@ -6,9 +6,12 @@ import os from "node:os";
 import path from "node:path";
 import { test, after } from "node:test";
 import type { SessionData } from "express-session";
+import Database from "better-sqlite3";
 import assert from "node:assert/strict";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { fake } from "../helpers/fake.ts";
+import * as secrets from "../../src/store/secrets.ts";
+import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sess-"));
 const stores: SqliteSessionStore[] = [];
@@ -99,4 +102,55 @@ test("cookie.expires 없는 세션(브라우저 세션 쿠키)은 폴백 TTL로 
   store.set("sid1", fake<SessionData>({ cookie: {}, user: { id: "u1" } }));
   assert.notEqual(await getAsync(store, "sid1"), null, "즉시 만료되지 않음");
   assert.equal(store.prune(), 0);
+});
+
+test("디스코드 토큰: 세션 행에 암호문으로 두고, 세션을 다시 저장해도 남고, 세션과 함께 지워진다", async () => {
+  secrets._useKey(newSecretsKey());
+  try {
+    const store = makeStore("token.db");
+    assert.equal(store.saveDiscordToken("sid1", "tok-abc"), false, "행이 없으면(저장 전) 적지 않는다");
+    store.set("sid1", makeSession({ id: "u1" }));
+    assert.equal(store.saveDiscordToken("sid1", "tok-abc"), true);
+    assert.equal(store.readDiscordToken("sid1"), "tok-abc");
+
+    store.set("sid1", makeSession({ id: "u1", more: 1 }));
+    assert.equal(store.readDiscordToken("sid1"), "tok-abc", "세션 저장은 토큰 열을 건드리지 않는다");
+    assert.equal(JSON.stringify(await getAsync(store, "sid1")).includes("tok-abc"), false, "세션 JSON 에는 없다");
+
+    store.destroy("sid1");
+    assert.equal(store.readDiscordToken("sid1"), null);
+  } finally {
+    secrets._useKey();
+  }
+});
+
+test("디스코드 토큰: 다른 세션 행으로 옮기거나 SECRETS_KEY 를 바꾸면 풀리지 않는다. DB 파일에 평문이 없다", () => {
+  secrets._useKey(newSecretsKey());
+  try {
+    const store = makeStore("token-move.db");
+    store.set("sid1", makeSession({ id: "u1" }));
+    store.set("sid2", makeSession({ id: "u2" }));
+    store.saveDiscordToken("sid1", "tok-secret-value");
+    store.db.prepare("UPDATE sessions SET discord_token = (SELECT discord_token FROM sessions WHERE sid = 'sid1') WHERE sid = 'sid2'").run();
+    assert.equal(store.readDiscordToken("sid2"), null, "세션 ID 에 묶여 있다");
+
+    store.db.pragma("wal_checkpoint(TRUNCATE)");
+    assert.equal(fs.readFileSync(path.join(tmpDir, "token-move.db")).includes("tok-secret-value"), false);
+
+    secrets._useKey(newSecretsKey());
+    assert.equal(store.readDiscordToken("sid1"), null, "다른 키");
+  } finally {
+    secrets._useKey();
+  }
+});
+
+test("구조 버전이 다른 옛 파일(토큰 열이 없다)은 열지 않고 삭제를 안내한다", () => {
+  const file = path.join(tmpDir, "old.db");
+  const old = new Database(file);
+  old.exec("CREATE TABLE sessions (sid TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at INTEGER NOT NULL)");
+  old.close();
+  assert.throws(
+    () => makeStore("old.db"),
+    (error: Error & { code?: string }) => error.code === "SCHEMA_MISMATCH" && /로그인 세션 DB.*삭제/.test(error.message),
+  );
 });

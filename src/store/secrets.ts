@@ -4,6 +4,7 @@
 // - 묶기: 키는 저장할 때의 제공자 · 주소(origin)에 묶인다. 인증 데이터(AAD)에 이름 · 제공자 · 주소 · 형식 버전을 넣고, 풀 때는 부르는 쪽이 기대하는 값으로 만든다.
 //   그래서 DB 에 쓸 수 있는 사람이 암호문을 다른 행으로 옮기거나 묶인 주소 열만 바꾸면 풀리지 않는다.
 // - 값은 응답 · 로그 · 대시보드 내보내기로 나가지 않는다(설정 스냅샷 · 명령 전체 백업에는 DB 째 암호문으로). 화면에는 status() 의 저장 여부 · 바꾼 때 · 끝 네 글자만(풀지 않고 적어 둔 것).
+// - 다른 표의 한 열에 두는 값(로그인 세션의 디스코드 토큰)도 같은 키에서 끌어낸 용도별 키로 잠근다(sealBlob · openBlob).
 
 import crypto from "crypto";
 import logger from "../infra/log/logger.ts";
@@ -31,20 +32,26 @@ type Status = { saved: boolean; updatedAt: number | null; last4: string | null; 
 
 type Row = { name: string; format: number; key_id: string; provider: string; endpoint: string; iv: Buffer; tag: Buffer; ciphertext: Buffer; last4: string; updated_at: number };
 
-// 키에서 끌어낸 것. 같은 키면 다시 계산하지 않는다
-let derived: { raw: string; enc: Buffer; id: string } | null = null;
+// 키에서 끌어낸 것. 같은 키면 다시 계산하지 않는다. 암호 키는 용도마다 따로다(비밀값 · 로그인 세션의 디스코드 토큰)
+let derived: { raw: string; ikm: Buffer; id: string; enc: Map<string, Buffer> } | null = null;
 // 테스트 시임. 정하면 config 대신 이 키를 쓴다
 let keyOverride: string | null = null;
 
-function keys() {
+const expand = (ikm: Buffer, info: string, bytes: number) => Buffer.from(crypto.hkdfSync("sha256", ikm, Buffer.alloc(0), info, bytes));
+
+function keys(purpose = "secrets") {
   const raw = keyOverride ?? config.secrets.key;
   if (!raw) throw codedError("SECRETS_KEY_MISSING", "SECRETS_KEY 가 없어 비밀값을 다룰 수 없습니다");
   if (derived?.raw !== raw) {
     const ikm = Buffer.from(raw, "base64");
-    const expand = (info: string, bytes: number) => Buffer.from(crypto.hkdfSync("sha256", ikm, Buffer.alloc(0), info, bytes));
-    derived = { raw, enc: expand("musicbot secrets v1 encrypt", 32), id: expand("musicbot secrets v1 key-id", 8).toString("hex") };
+    derived = { raw, ikm, id: expand(ikm, "musicbot secrets v1 key-id", 8).toString("hex"), enc: new Map() };
   }
-  return derived;
+  let enc = derived.enc.get(purpose);
+  if (!enc) {
+    enc = expand(derived.ikm, `musicbot ${purpose} v1 encrypt`, 32);
+    derived.enc.set(purpose, enc);
+  }
+  return { enc, id: derived.id };
 }
 
 // 주소는 origin 으로 묶는다(같은 호스트 안의 경로는 같은 곳이다). 주소 모양이 아니면 다듬은 문자열 그대로
@@ -129,10 +136,39 @@ function status(name: string): Status {
   return { saved: true, updatedAt: row.updated_at, last4: row.last4 || null, sameKey: row.key_id === keys().id, provider: row.provider || null, endpoint: row.endpoint || null };
 }
 
+// ── 한 열에 담는 암호문 ──
+// 다른 표의 한 열에 같은 키 · 같은 암호로 잠근 값을 둔다(로그인 세션의 디스코드 토큰). [형식 1 | 키 지문 8 | iv 12 | tag 16 | 암호문].
+// purpose 가 다르면 키가 다르고, bound(그 행의 키, 세션 ID 등)를 인증 데이터에 넣어 다른 행으로 옮기면 풀리지 않는다
+
+const blobAad = (purpose: string, bound: string) => Buffer.from(JSON.stringify([FORMAT, purpose, bound]), "utf8");
+
+function sealBlob(purpose: string, value: string, bound: string): Buffer {
+  const { enc, id } = keys(purpose);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", enc, iv);
+  cipher.setAAD(blobAad(purpose, bound));
+  const ciphertext = Buffer.concat([cipher.update(Buffer.from(value, "utf8")), cipher.final()]);
+  return Buffer.concat([Buffer.from([FORMAT]), Buffer.from(id, "hex"), iv, cipher.getAuthTag(), ciphertext]);
+}
+
+/** 풀기. 형식 · 키가 다르거나 풀리지 않으면 null(다시 받을 값이다) */
+function openBlob(purpose: string, blob: Buffer, bound: string): string | null {
+  const { enc, id } = keys(purpose);
+  if (blob.length < 37 || blob[0] !== FORMAT || blob.subarray(1, 9).toString("hex") !== id) return null;
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", enc, blob.subarray(9, 21));
+    decipher.setAAD(blobAad(purpose, bound));
+    decipher.setAuthTag(blob.subarray(21, 37));
+    return Buffer.concat([decipher.update(blob.subarray(37)), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
 // 테스트 시임. 인자 없이 부르면 config 의 키로
 function _useKey(raw: string | null = null) {
   keyOverride = raw;
 }
 
-export { put, read, remove, removeAll, count, status, originOf, _useKey };
+export { put, read, remove, removeAll, count, status, originOf, sealBlob, openBlob, _useKey };
 export type { Binding, Read, Status };

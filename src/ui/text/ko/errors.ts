@@ -167,6 +167,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
   // 대시보드: 상태
   "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
+  "invite-unavailable": () => warning("permission", "대시보드에서 봇을 초대할 수 없어요!", "이 봇은 디스코드 설정상 봇 주인만 초대할 수 있거나, 대시보드의 초대 링크로는 넣을 수 없어요. 봇 운영자에게 알려주세요."),
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 선택해 주세요."),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없어요!", "먼저 참가 버튼으로 봇을 음성 채널에 불러 주세요."),

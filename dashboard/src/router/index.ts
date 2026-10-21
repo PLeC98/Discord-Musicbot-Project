@@ -46,6 +46,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    // 봇 초대: 서버 관리 권한이 있고 봇이 없는 서버. 사이드바의 ⊕ 가 연다
+    path: "/invite",
+    component: () => import("../views/InviteView.vue"),
+    meta: { requiresAuth: true, workspace: true },
+  },
+  {
     path: "/admin",
     component: () => import("../views/AdminView.vue"),
     meta: { requiresAuth: true, requiresOwner: true },

@@ -129,7 +129,7 @@ let base: string;
 before(async () => {
   const app = express();
   app.use(express.json());
-  app.use(signedInAs(() => ({ id: "owner", username: "owner", guilds: [] })));
+  app.use(signedInAs(() => ({ id: "owner", username: "owner" })));
   app.locals.bot = bot;
   app.locals.lookup = lookup;
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));

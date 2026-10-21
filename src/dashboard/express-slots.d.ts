@@ -1,14 +1,13 @@
 // 대시보드 서버가 세션과 앱(app.locals)에 매단 것
 
-import type { RESTAPIPartialCurrentUserGuild } from "discord.js";
 import type { BotContext } from "../app/bot-context.ts";
 import type { deployCommands } from "../app/command-loader.ts";
 import type { Lookup } from "../usecases/add-tracks.ts";
 import type { Tier } from "./contract/identity.ts";
 import type { PlayerStream } from "./player-stream.ts";
 
-/** 로그인한 사용자. OAuth 콜백이 세션에 담는다 */
-type SessionUser = { id: string; username: string; globalName: string; avatar: string | null; guilds: RESTAPIPartialCurrentUserGuild[] };
+/** 로그인한 사용자. OAuth 콜백이 세션에 담는다. 디스코드 토큰은 세션 행의 따로 둔 열에(dashboard/session-store) */
+type SessionUser = { id: string; username: string; globalName: string; avatar: string | null };
 
 declare module "express-session" {
   interface SessionData {

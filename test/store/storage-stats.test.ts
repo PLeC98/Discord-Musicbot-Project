@@ -57,7 +57,7 @@ test("캐시: 수 · 크기와 상한, 지키는 파일, 한 번도 틀지 않�
 test("DB: 파일들(-wal 포함) 크기의 합과 행 수. 저장된 대기열은 실행 상태 DB 에서 센다", () => {
   const stats = stores.dbStats();
   assert.equal(path.resolve(stats.dir), path.resolve(DB_DIR));
-  const each = ["settings.db", "state.db", "cache.db", "ai-requests.db"].map((name) => path.join(DB_DIR, name));
+  const each = ["settings.db", "state.db", "cache.db", "ai-requests.db", "sessions.db"].map((name) => path.join(DB_DIR, name));
   const sum = each.reduce((total, file) => total + fs.statSync(file).size + (fs.existsSync(`${file}-wal`) ? fs.statSync(`${file}-wal`).size : 0), 0);
   assert.equal(stats.bytes, sum);
   assert.deepEqual([stats.lookups, stats.pins, stats.sponsorSegments, stats.sessions], [0, 0, 0, 0]);

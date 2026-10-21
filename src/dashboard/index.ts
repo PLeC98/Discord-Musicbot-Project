@@ -35,6 +35,7 @@ import { serviceKeysRouter } from "./routes/service-keys.ts";
 import { tunablesRouter } from "./routes/tunables.ts";
 import { settingsArchiveRouter } from "./routes/settings-archive.ts";
 import { trackCacheRouter } from "./routes/track-cache.ts";
+import { createInviteRouter } from "./routes/invite.ts";
 import { resetRouter } from "./routes/reset.ts";
 import { sweepUploads } from "./archive-uploads.ts";
 import { snapshotsRouter } from "./routes/snapshots.ts";
@@ -179,6 +180,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/admin/ai", aiLogRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
+  app.use("/api/invite", createInviteRouter());
 
   // 지금 로그인한 사람(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
   app.use("/api", identityRouter);

@@ -7,6 +7,7 @@ import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
+import { inviteUrl } from "../rules/invite-url.ts";
 import { FFMPEG_RELEASE, BGUTIL_VERSION } from "./vendor-versions.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -291,7 +292,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       website: envUrl("WEBSITE"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
-      invite: "https://discord.com/oauth2/authorize?client_id=" + env("CLIENT_ID") + "&permissions=8&scope=bot%20applications.commands",
+      invite: inviteUrl(env("CLIENT_ID", "")),
       leaveDelayQueueEmptyMs: tuneInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS") * 1000,
       leaveDelayAloneMs: tuneInt("LEAVE_DELAY_ALONE_SECONDS") * 1000,
     },

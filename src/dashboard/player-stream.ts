@@ -115,13 +115,21 @@ class PlayerStream {
     this.coalesceTimers.set(guildId, t);
   }
 
-  _emit(guildId: string) {
+  /**
+   * 봇이 그 서버에서 나갔다. 이제 그 서버를 볼 수 없어 canSee 를 묻지 않고, 나가기 전에 그 서버 멤버였던 사용자(userKeys)의 연결에 바로 보낸다.
+   * 받은 화면이 서버 목록을 다시 읽어 그 서버를 빼고, 초대 화면이 그 서버를 되돌린다
+   */
+  notifyLeft(guildId: string, userKeys: Set<string>) {
+    this._emit(guildId, (sub) => userKeys.has(sub.userKey));
+  }
+
+  _emit(guildId: string, to = (sub: Sub) => sub.canSee(guildId)) {
     // guildId를 함께 보낸다. 한 연결이 여러 서버를 받으므로, 이게 없으면
     // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바 · 서버 화면이 자기 서버만 선택하는 근거).
     // 그 서버를 볼 수 있는 구독자에게만 보내 ID 노출 문제는 없다.
     const payload = `data: ${JSON.stringify({ t: "changed", g: guildId } satisfies GuildEvent)}\n\n`;
     for (const sub of this.subs) {
-      if (!sub.canSee(guildId)) continue;
+      if (!to(sub)) continue;
       try {
         sub.res.write(payload);
       } catch {

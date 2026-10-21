@@ -40,6 +40,16 @@
         <span :class="slot"><GuildAvatar :guild="g" :active="isGuild(g.id)" size-class="size-11" text-class="text-base" /></span>
         <span v-if="vertical" :class="label">{{ g.name }}</span>
       </router-link>
+      <!-- 봇 초대(디스코드의 "서버 추가"처럼 목록 끝). 서버 아이콘과 같은 크기, 누르면 초대 화면. 초대할 수 있는 사람만 -->
+      <router-link v-if="user.canInvite" to="/invite" v-tooltip="vertical && !open ? text.invite.title : null" :aria-label="text.invite.title" :class="item">
+        <span :class="pip(isInvite)"></span>
+        <span :class="slot">
+          <span class="size-11 flex items-center justify-center transition-[border-radius,background-color,color] spring-fast" :class="isInvite ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-primary group-hover:rounded-[32%] group-hover:bg-primary group-hover:text-on-primary'">
+            <Icon name="add" :size="26" :weight="600" />
+          </span>
+        </span>
+        <span v-if="vertical" :class="label">{{ text.invite.title }}</span>
+      </router-link>
     </div>
 
     <!-- 시계: 마우스로 쓰는 기기(PC)만. 휴대폰 · 태블릿은 OS 의 위 막대에 늘 있다 -->
@@ -56,6 +66,7 @@ import AccountMenu from "../components/AccountMenu.vue";
 import SidebarClock from "./SidebarClock.vue";
 import GuildAvatar from "../components/GuildAvatar.vue";
 import { useGuildsStore } from "../stores/guilds.ts";
+import { useUserStore } from "../stores/user.ts";
 import { prefetchArt, prefs } from "../theme/theme.ts";
 import { shell, toggleSidebar, setSidebarWidth, SIDEBAR_WIDTH } from "./shell-state.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
@@ -82,6 +93,8 @@ watch(
   () => (avatarBroken.value = false),
 );
 const isGuild = (id: string) => route.params.guildId === id;
+const isInvite = computed(() => route.path === "/invite");
+const user = useUserStore();
 
 // 폭 끌기. 끄는 동안은 트랜지션을 끄고 손을 바로 따라간다. 놓을 때 기억한다
 const resizing = ref(false);

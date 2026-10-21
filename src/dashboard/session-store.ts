@@ -1,17 +1,16 @@
-import path from "path";
-import fs from "fs";
 import { Store, type SessionData } from "express-session";
-import Database, { type Statement } from "better-sqlite3";
-import { PROJECT } from "../infra/project-paths.ts";
-import { ownerOnly } from "../infra/owner-only.ts";
+import type Database from "better-sqlite3";
+import type { Statement } from "better-sqlite3";
+import { DbFile } from "../store/sqlite.ts";
+import { sessionDb } from "../store/session-db.ts";
+import * as secrets from "../store/secrets.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../rules/error-kind.ts";
 
 // express-session의 기본 MemoryStore 대체:
 // 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
-// 캐시 DB와 같은 better-sqlite3 사용, 파일은 분리(database/sessions.db).
-const DB_PATH = path.join(PROJECT.database, "sessions.db");
+// 파일은 로그인 세션 DB(database/sessions.db, store/session-db). 다른 DB 와 함께 열린다.
 
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -30,21 +29,17 @@ class SqliteSessionStore extends Store {
   _destroyStmt: Statement<[string]>;
   _pruneStmt: Statement<[number]>;
   _pruneTimer: NodeJS.Timeout;
+  // dbPath 로 따로 연 파일(테스트). 닫을 때 같이 닫는다
+  _own: DbFile | null = null;
 
-  // dbPath는 테스트 시임 (임시 DB. 운영 DB 미접촉)
-  constructor({ dbPath = DB_PATH, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
+  // dbPath는 테스트 시임 (임시 DB. 운영 DB 미접촉). 없으면 함께 연 로그인 세션 DB
+  constructor({ dbPath, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
     super();
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    this.db = new Database(dbPath);
-    ownerOnly(dbPath); // 로그인 세션이 든다
-    this.db.pragma("journal_mode = WAL");
-    this.db.exec(
-      `CREATE TABLE IF NOT EXISTS sessions (
-        sid TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        expires_at INTEGER NOT NULL
-      )`,
-    );
+    if (dbPath) {
+      this._own = new DbFile(sessionDb.spec);
+      this._own.open(dbPath);
+    }
+    this.db = (this._own ?? sessionDb).get();
 
     this._getStmt = this.db.prepare("SELECT data, expires_at FROM sessions WHERE sid = ?");
     this._setStmt = this.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at");
@@ -125,8 +120,33 @@ class SqliteSessionStore extends Store {
 
   close() {
     clearInterval(this._pruneTimer);
-    this.db.close();
+    this._own?.close();
+  }
+
+  // ── 디스코드 접근 토큰 ──
+  // 로그인 때 받은 토큰을 세션 행에 암호문으로 둔다(세션 JSON 밖, 세션 ID 에 묶음). 세션 행과 함께 지워진다.
+  // 세션을 저장(set)해도 이 열은 그대로다
+
+  /** 그 세션 행에 토큰을 적는다. 행이 없으면(아직 저장 전) false */
+  saveDiscordToken(sid: string, token: string) {
+    return this.db.prepare("UPDATE sessions SET discord_token = ? WHERE sid = ?").run(secrets.sealBlob(TOKEN_PURPOSE, token, sid), sid).changes > 0;
+  }
+
+  /** 토큰. 없거나 풀리지 않으면(다른 SECRETS_KEY · 다른 행에서 옮김) null */
+  readDiscordToken(sid: string) {
+    const blob = this.db.prepare("SELECT discord_token FROM sessions WHERE sid = ? AND expires_at > ?").pluck().get(sid, Date.now()) as Buffer | null | undefined;
+    return blob ? secrets.openBlob(TOKEN_PURPOSE, blob, sid) : null;
   }
 }
 
+// 비밀값과 다른 키로 잠근다(store/secrets 의 용도)
+const TOKEN_PURPOSE = "discord-token";
+
 export { SqliteSessionStore };
+
+/** 요청의 세션 저장소가 디스코드 토큰을 다루면 그것. 아니면 null(테스트의 메모리 저장소) */
+function tokenStoreOf(req: { sessionStore?: unknown }): SqliteSessionStore | null {
+  return req.sessionStore instanceof SqliteSessionStore ? req.sessionStore : null;
+}
+
+export { tokenStoreOf };

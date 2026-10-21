@@ -6,9 +6,16 @@ import assert from "node:assert/strict";
 import express from "express";
 import session from "express-session";
 import type { Server } from "node:http";
-import { createAuthRouter, type DiscordHttp } from "../../src/dashboard/routes/auth.ts";
+import { createAuthRouter } from "../../src/dashboard/routes/auth.ts";
+import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
 import { requireRecentLogin, RECENT_LOGIN_MS } from "../../src/dashboard/middleware/recent-login.ts";
 import { fake } from "../helpers/fake.ts";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
+import * as secrets from "../../src/store/secrets.ts";
+import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
 const { listenForFetch } = listen;
 
@@ -35,9 +42,9 @@ function fakeDiscord({ fail = null as Error | null } = {}) {
   };
 }
 
-async function start(http: ReturnType<typeof fakeDiscord>) {
+async function start(http: ReturnType<typeof fakeDiscord>, { store }: { store?: SqliteSessionStore } = {}) {
   const app = express();
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false }));
+  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store }));
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
   // 위험한 조작 경로 · 로그인한 지 오래된 것처럼 만들기(테스트만)
@@ -87,7 +94,7 @@ test("콜백: 코드가 없거나 state 가 안 맞으면 디스코드를 부르
   assert.equal(discord.calls.length, 0);
 });
 
-test("콜백: 코드를 토큰으로 바꾸고 사용자 · 서버 목록을 세션에 담아 대시보드로 보낸다. 세션 id 는 새로 받는다", async () => {
+test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대시보드로 보낸다(서버 목록은 받지 않는다). 세션 id 는 새로 받는다", async () => {
   const discord = fakeDiscord();
   const { go } = await start(discord);
   const login = await go("/auth/login");
@@ -98,15 +105,15 @@ test("콜백: 코드를 토큰으로 바꾸고 사용자 · 서버 목록을 세
   assert.equal(location(res), "/dashboard");
   assert.notEqual(sessionCookie(res), before, "세션 고정 공격을 막으려고 새 id");
 
-  const [token, me, guilds] = discord.calls;
+  const [token, me, ...rest] = discord.calls;
   assert.equal(token.url, "https://discord.com/api/v10/oauth2/token");
   assert.equal(token.body?.code, "abc");
   assert.equal(token.body?.grant_type, "authorization_code");
   assert.equal(me.auth, "Bearer tok");
-  assert.equal(guilds.url, "https://discord.com/api/v10/users/@me/guilds");
+  assert.deepEqual(rest, [], "서버 목록은 초대 화면이 열 때 받는다");
 
   const user = await (await go("/me")).json();
-  assert.deepEqual(user, { id: "u1", username: "user", globalName: "user", avatar: "av", guilds: [{ id: "g1" }] });
+  assert.deepEqual(user, { id: "u1", username: "user", globalName: "user", avatar: "av" });
 });
 
 // 화면이 연 로그인 창(다시 로그인)은 끝나면 창을 닫는 화면으로. 다음 로그인이 평소 로그인이면 대시보드로
@@ -157,4 +164,31 @@ test("로그아웃: 세션을 삭제하고 204", async () => {
   await go(`/auth/callback?code=abc&state=${state}`);
   assert.equal((await go("/auth/logout", { method: "POST" })).status, 204);
   assert.equal(await (await go("/me")).json(), null);
+});
+
+test("토큰: 콜백이 세션 행에 암호문으로 두고, 로그아웃하면 디스코드에 폐기를 요청하고 행과 함께 지운다", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-auth-"));
+  secrets._useKey(newSecretsKey());
+  const store = new SqliteSessionStore({ dbPath: path.join(dir, "sessions.db") });
+  try {
+    const discord = fakeDiscord();
+    const { go } = await start(discord, { store });
+    const state = new URL(location(await go("/auth/login"))).searchParams.get("state");
+    await go(`/auth/callback?code=abc&state=${state}`);
+    const sid = store.db.prepare("SELECT sid FROM sessions").pluck().get() as string;
+    assert.equal(store.readDiscordToken(sid), "tok");
+
+    discord.calls.length = 0;
+    assert.equal((await go("/auth/logout", { method: "POST" })).status, 204);
+    await new Promise((done) => setImmediate(done));
+    assert.deepEqual(
+      discord.calls.map((c) => [c.url, c.body?.token, c.body?.token_type_hint]),
+      [["https://discord.com/api/v10/oauth2/token/revoke", "tok", "access_token"]],
+    );
+    assert.equal(store.readDiscordToken(sid), null);
+  } finally {
+    store.close();
+    secrets._useKey();
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  }
 });

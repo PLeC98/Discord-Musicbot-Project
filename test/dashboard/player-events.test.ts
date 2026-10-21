@@ -54,7 +54,7 @@ const stream = fake<PlayerStream>({
   notify: (guildId: string) => nudged.push(guildId),
 });
 
-let user = { id: "u1", username: "u", guilds: [{ id: "g1" }, { id: "g2" }, { id: "gone" }] };
+let user = { id: "u1", username: "u" };
 let server: Server;
 let base: string;
 
@@ -96,12 +96,12 @@ test("연결을 연 뒤 봇이 새 서버에 들면, 연결을 연 사람을 그
 
 test("운영자도 참가한 서버만", async () => {
   subscribed.length = 0;
-  user = { id: "owner", username: "o", guilds: [] };
+  user = { id: "owner", username: "o" };
   try {
     await requestJson(base, "GET", "/api/guilds/events");
     assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1"]);
   } finally {
-    user = { id: "u1", username: "u", guilds: [{ id: "g1" }, { id: "g2" }, { id: "gone" }] };
+    user = { id: "u1", username: "u" };
   }
 });
 

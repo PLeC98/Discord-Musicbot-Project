@@ -36,8 +36,8 @@ test("Spotify의 모든 요청에 중단 신호가 붙어 있다", () => {
   }
 });
 
-test("OAuth 콜백의 모든 요청에 중단 신호가 붙어 있다", () => {
-  const src = read("src/dashboard/routes/auth.ts");
+test("디스코드 REST(OAuth 콜백 · 초대 화면)의 모든 요청에 중단 신호가 붙어 있다", () => {
+  const src = read("src/dashboard/discord-api.ts");
   const calls = callSites(src, "fetch");
   assert.ok(calls.length >= 1, "호출부를 찾지 못했다");
   for (const call of calls) assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);

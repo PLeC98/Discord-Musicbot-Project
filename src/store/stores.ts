@@ -3,7 +3,7 @@
 //   state.db     다시 시작했을 때 이어 갈 실행 상태(저장된 대기열 · 음성 채널 상태 · 재생 패널 위치). 멈출 때 삭제하고 다시 시작하라고 안내한다
 //   cache.db     다시 다운로드하면 되는 것(캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 외부 서비스의 응답). 같다. 오디오 캐시 초기화는 선택한 것의 표를 비운다
 //   ai-requests.db  AI 리퀘스트 로그 · 사용량 통계. 같다. 오디오 캐시 초기화 · 백업과 무관하다(봇 전체 초기화는 모두 지운다, store/full-reset)
-// 로그인 세션(sessions.db)은 대시보드가 따로 연다(dashboard/session-store).
+//   sessions.db  대시보드 로그인 세션과 그 세션의 디스코드 토큰(암호문). 같다(잃는 것은 로그인뿐이다). 세션을 다루는 것은 dashboard/session-store
 
 import path from "path";
 import logger from "../infra/log/logger.ts";
@@ -15,9 +15,10 @@ import { settingsDb } from "./settings-db.ts";
 import { stateDb } from "./state-db.ts";
 import { cacheDb } from "./cache-db.ts";
 import { aiLogDb } from "./ai-log-db.ts";
+import { sessionDb } from "./session-db.ts";
 
 // 여는 순서. 설정이 깨졌으면 다른 파일을 건드리기 전에 멈춘다
-const FILES: DbFile[] = [settingsDb, stateDb, cacheDb, aiLogDb];
+const FILES: DbFile[] = [settingsDb, stateDb, cacheDb, aiLogDb, sessionDb];
 
 /** dir: DB 를 둘 폴더. 운영은 database/, 테스트는 임시 폴더. 하나라도 못 열면 연 것을 닫고 던진다 */
 function open(dir = PROJECT.database) {
@@ -27,7 +28,7 @@ function open(dir = PROJECT.database) {
     close();
     throw error;
   }
-  log.info({ tags: ["startup"] }, "DB 준비 완료 (설정 · 실행 상태 · 캐시 · AI 리퀘스트 로그)");
+  log.info({ tags: ["startup"] }, "DB 준비 완료 (설정 · 실행 상태 · 캐시 · AI 리퀘스트 로그 · 로그인 세션)");
 }
 
 // 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 라벨). 설정 DB 면 기동이 복원하는 법을 알린다

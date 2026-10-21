@@ -67,12 +67,12 @@ function leaksIn(where: string, body: string) {
 }
 
 // 세션 하나를 모든 요청이 나눠 쓴다(CSRF 토큰도 거기 담긴다). 방금 로그인한 운영자
-const session = fake<Request["session"]>({ user: { id: "owner", username: "owner", globalName: "owner", avatar: null, guilds: [] }, loginAt: Date.now() });
+const session = fake<Request["session"]>({ user: { id: "owner", username: "owner", globalName: "owner", avatar: null }, loginAt: Date.now() });
 const signedIn = (req: Request, _res: Response, next: NextFunction) => {
   req.session = session;
   next();
 };
-const client = { isReady: () => true, user: { tag: "bot#0001", id: "1", username: "bot", avatarURL: () => null, displayAvatarURL: () => null }, guilds: { cache: new Map() }, ws: { ping: 10, status: 0 }, application: { commands: { cache: new Map() } } };
+const client = { isReady: () => true, user: { tag: "bot#0001", id: "1", username: "bot", avatarURL: () => null, displayAvatarURL: () => null }, guilds: { cache: new Map() }, ws: { ping: 10, status: 0 }, application: { commands: { cache: new Map() }, fetch: async () => ({ botPublic: true, botRequireCodeGrant: false, owner: null }) } };
 
 let base = "";
 let csrf = "";

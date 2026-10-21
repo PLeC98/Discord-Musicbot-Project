@@ -51,4 +51,9 @@ async function botJoinedGuild(stream: PlayerStream, guild: { id: string; members
   stream.notify(guild.id);
 }
 
-export { createPlayerEventsRouter, nudgeAfterChange, botJoinedGuild };
+/** 봇이 서버에서 나갔다. 그 서버의 멤버였던 사람(멤버 캐시는 나간 서버 객체에 남아 있다) 중 연결을 연 사람에게 알린다 */
+function botLeftGuild(stream: PlayerStream, guild: { id: string; members: { cache: { has(id: string): boolean } } }) {
+  stream.notifyLeft(guild.id, new Set([...stream.listUsers()].filter((id) => guild.members.cache.has(id))));
+}
+
+export { createPlayerEventsRouter, nudgeAfterChange, botJoinedGuild, botLeftGuild };

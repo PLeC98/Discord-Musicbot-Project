@@ -68,7 +68,7 @@ before(async () => {
     await embeddedArt.readFromBody(audioKeyOf(OTHER)!, OTHER, Readable.from([mp3]));
   }
   const app = express();
-  app.use(signedInAs(() => ({ id: "owner", username: "owner", guilds: [] })));
+  app.use(signedInAs(() => ({ id: "owner", username: "owner" })));
   app.locals.bot = fakeBot({ client, players, panels: { updatePlaying: async () => {}, panelChannel: async () => null } });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
