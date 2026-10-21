@@ -94,8 +94,8 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
   function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됐습니다 (${value}): ${reason}.`);
-    else problems.push(`.env의 ${key} 값이 잘못됐습니다 (${value}): ${reason}. 고친 뒤 다시 실행하세요.`);
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됐습니다 (${String(value)}): ${reason}.`);
+    else problems.push(`.env의 ${key} 값이 잘못됐습니다 (${String(value)}): ${reason}. 고친 뒤 다시 실행하세요.`);
     return def;
   }
 

@@ -9,6 +9,7 @@ import type { QueuedTrack } from "./track.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { tooLongToCache } from "../media/cache-download.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { messageOf } from "../rules/error-kind.ts";
 
 /** 예열이 읽는 플레이어 필드. 뺀 슬롯을 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
@@ -145,7 +146,7 @@ class QueueWarmer {
       this.setProtection(guildId, keys);
     }
 
-    this._run().catch((err) => log.error(`사전 캐싱 실패: ${err?.message || err}`));
+    this._run().catch((err) => log.error(`사전 캐싱 실패: ${messageOf(err)}`));
   }
 
   /**

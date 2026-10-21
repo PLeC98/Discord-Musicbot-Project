@@ -8,7 +8,7 @@ import { runFfmpeg, PROGRESS_ARGS } from "./ffmpeg/job.ts";
 import { AUDIO_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type ConvertPlan } from "../rules/convert-plan.ts";
+import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type CodecPlan, type ConvertPlan } from "../rules/convert-plan.ts";
 
 type Converted = ConvertPlan & { durationSec: number | null };
 /** 캐시 파일에 적을 것: 받은 파일의 태그 중 우리가 쓰는 것과 다시 구운 그림 */
@@ -26,7 +26,7 @@ const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;
  * 받은 파일의 태그는 버리고(-map_metadata -1) tags(제목 · 가수 · 앨범)만 적는다. pictureFile 이 있으면 그 ffmetadata 파일의 그림 태그를 오디오 스트림에 붙인다.
  * ffmpeg 는 Ogg 에 그림 스트림을 쓰지 못해(Unsupported codec id) 그림은 태그(METADATA_BLOCK_PICTURE)로만 들어간다
  */
-function argsFor(plan: Pick<ConvertPlan, "action" | "bitrateKbps">, srcFile: string, outFile: string, { tags, pictureFile }: { tags?: Partial<TagInfo> | null; pictureFile?: string | null } = {}): string[] {
+function argsFor(plan: CodecPlan, srcFile: string, outFile: string, { tags, pictureFile }: { tags?: Partial<TagInfo> | null; pictureFile?: string | null } = {}): string[] {
   const codec = plan.action === "copy" ? ["-c:a", "copy"] : ["-c:a", "libopus", "-b:a", `${plan.bitrateKbps}k`];
   const picture = pictureFile ? [...inputFilter(["ffmetadata"], "file"), "-f", "ffmetadata", "-i", pictureFile] : [];
   const pictureMeta = pictureFile ? ["-map_metadata:s:a:0", "1:s:0"] : [];
@@ -77,7 +77,7 @@ async function run(args: string[]): Promise<void> {
   const done = await runFfmpeg([...PROGRESS_ARGS, ...args], { label: "download", stallMs, discardStdout: true });
   if (done.code === 0) return;
   const tail = done.stderr.trim().slice(-1000);
-  const why = done.timedOut ? `진행이 ${stallMs / 1000}초 동안 멈춰 끊었습니다` : `FFmpeg 종료 (code=${done.code}, signal=${done.signal})`;
+  const why = done.timedOut ? `진행이 ${stallMs / 1000}초 동안 멈춰 끊었습니다` : `FFmpeg 종료 (code=${done.code ?? "없음"}, signal=${done.signal ?? "없음"})`;
   throw codedError("stream-failed", tail ? `${why}: ${tail}` : why);
 }
 

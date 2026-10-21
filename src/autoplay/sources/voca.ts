@@ -141,7 +141,7 @@ async function artistId(site: Site, name: string) {
   const page = await getJson<{ items?: Artist[] } | null>(site, `https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
   const found = sameName(page?.items || [], name);
   if (!found?.id) throw new Error(`${site}에서 찾지 못한 이름입니다: ${name}`);
-  log.debug(`${site} 이름 풀기: ${name} → ${found.name} (${found.id})`);
+  log.debug(`${site} 이름 풀기: ${name} → ${found.name ?? "없음"} (${found.id})`);
   ids.set(key, found.id);
   return found.id;
 }

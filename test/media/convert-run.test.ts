@@ -41,6 +41,6 @@ test("실패하면 표준 오류의 끝을 실어 stream-failed 로 던진다. �
     (e: Error & { code?: string }) => e,
   );
   assert.equal(error?.code, "stream-failed");
-  assert.match(String(error?.message), /FFmpeg 종료 \(code=\d+, signal=null\): \S/);
+  assert.match(String(error?.message), /FFmpeg 종료 \(code=\d+, signal=없음\): \S/);
   assert.equal(registry.size(), before);
 });

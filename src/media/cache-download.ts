@@ -177,6 +177,9 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 // 다운로드에 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
 const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: { getStream: (url) => openDirectInput(url) }, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
+// 출처가 유튜브가 아닌 곡을 유튜브에서 받았으면 그 영상(로그 꼬리)
+const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : "");
+
 // 조각으로 다운로드하는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 조각이 아닌 포맷에는 걸리지 않는다.
 // 유튜브는 넷 이상이면 도중에 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
@@ -311,7 +314,7 @@ class TrackDownloader {
       // 예열이 앞으로 여러 곡을 미리 다운로드하므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
-      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
+      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.

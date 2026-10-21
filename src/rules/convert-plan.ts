@@ -25,7 +25,9 @@ const REMUX_SLACK = 1.25;
 const TRANSCODE_TARGET_KBPS = 128;
 
 type CacheAudioInfo = { codec?: string | null; bitrateKbps?: number | string | null };
-type ConvertPlan = { action: "copy" | "transcode"; bitrateKbps: number | null; why: string };
+/** 무엇을 할지와 비트레이트. 다시 구울 때는 늘 정해져 있다 */
+type CodecPlan = { action: "copy"; bitrateKbps: number | null } | { action: "transcode"; bitrateKbps: number };
+type ConvertPlan = CodecPlan & { why: string };
 
 /**
  * probe 결과로 무엇을 할지 정한다. 부수 효과가 없어 정책은 여기만 보면 되고,
@@ -46,4 +48,4 @@ function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
 }
 
 export { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
-export type { CacheAudioInfo, ConvertPlan };
+export type { CacheAudioInfo, CodecPlan, ConvertPlan };

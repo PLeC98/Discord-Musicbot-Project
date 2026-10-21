@@ -21,7 +21,7 @@ function reasonOf(stderr: string, encoder: string): string {
 /** 그 인코더 · 옵션으로 테스트 영상을 구워 본다. 실패하면 ffmpeg 가 낸 까닭 */
 async function tryEncoder(encoder: string, options: string[]): Promise<{ ok: true } | { ok: false; reason: string }> {
   const { code, stderr } = await runFfmpeg(["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=256x144:rate=30", "-frames:v", "8", "-c:v", encoder, ...options, "-f", "null", "-"], { timeoutMs: TRIAL_MS, label: "encoder-check" });
-  return code === 0 ? { ok: true } : { ok: false, reason: reasonOf(stderr, encoder) || `끝난 코드 ${code}` };
+  return code === 0 ? { ok: true } : { ok: false, reason: reasonOf(stderr, encoder) || `끝난 코드 ${code ?? "없음"}` };
 }
 
 /** 움직이는 WebP 를 읽는가(두 장을 다 읽어야 참). 형식은 ffmpeg 가 알아보게 둔다(webp_pipe 로 정하면 움직이는 그림을 못 읽는다) */

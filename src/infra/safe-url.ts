@@ -198,11 +198,11 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
   const headers = responseHeaders as Record<string, unknown>;
   const ct = headers["content-type"] || "";
   if (!isAllowedContentType(ct, accept.contentType)) {
-    throw new SsrfError(`허용되지 않는 Content-Type: ${ct}`);
+    throw new SsrfError(`허용되지 않는 Content-Type: ${String(ct)}`);
   }
   const len = headers["content-length"];
   if (len && Number(len) > accept.maxBytes) {
-    throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${len}`);
+    throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${String(len)}`);
   }
 }
 

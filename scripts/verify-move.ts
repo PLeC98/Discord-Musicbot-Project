@@ -33,8 +33,8 @@ const normalize = (line: string) =>
 // 기준선 파일은 옮긴 파일 이름을 따라 키와 수가 바뀐다. 코드가 아니므로 보지 않는다
 const SKIP = new Set(["eslint-suppressions.json", "test/architecture/baseline.json"]);
 
-const removed = new Map(); // 모양 → 남은 수
-const removedAt = new Map(); // 모양 → 처음 본 위치
+const removed = new Map<string, number>(); // 모양 → 남은 수
+const removedAt = new Map<string, string>(); // 모양 → 처음 본 위치
 const added = [];
 let file = "";
 let oldFile = "";

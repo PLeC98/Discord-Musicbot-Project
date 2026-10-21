@@ -24,7 +24,7 @@ function isLoopbackHost(host: string | null | undefined) {
  */
 function describeBinding(host: string | null | undefined, port: number, dashboardUrl: string | null | undefined) {
   if (isLoopbackHost(host)) {
-    return { line: `🌐 Dashboard: http://${host}:${port} (이 기기 전용. 외부 접속은 DASHBOARD_HOST)`, warnings: [] };
+    return { line: `🌐 Dashboard: http://${host ?? "없음"}:${port} (이 기기 전용. 외부 접속은 DASHBOARD_HOST)`, warnings: [] };
   }
 
   const scope = WILDCARD.has(String(host ?? "")) ? "모든 인터페이스" : "외부 접속 허용";
@@ -32,7 +32,7 @@ function describeBinding(host: string | null | undefined, port: number, dashboar
   if (String(dashboardUrl ?? "").startsWith("http://")) {
     warnings.push("⚠️ [dashboard] 평문 HTTP로 외부에 열려 있습니다. HTTPS 프록시 뒤에 두세요.");
   }
-  return { line: `🌐 Dashboard: ${host}:${port} (${scope})`, warnings };
+  return { line: `🌐 Dashboard: ${host ?? "없음"}:${port} (${scope})`, warnings };
 }
 
 /** 대시보드를 연다. 연 주소나 못 연 까닭을 남기고, 열었으면 opened 를 부른다. 못 열면 봇은 대시보드 없이 돈다 */

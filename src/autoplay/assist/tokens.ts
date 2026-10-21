@@ -12,6 +12,7 @@
 import { Worker } from "worker_threads";
 import * as models from "../../config/ai-models.ts";
 import logger from "../../infra/log/logger.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
 import type { Counted } from "./tokenizers.ts";
 
@@ -58,7 +59,7 @@ function spawn() {
     else job.reject(new Error(error || "토큰을 세지 못했습니다"));
   });
   one.on("error", (error) => {
-    log.warn(`토큰 세는 스레드가 멈췄습니다(${error.message}). 다음 세기에 다시 시작합니다`);
+    log.warn(`토큰 세는 스레드가 멈췄습니다(${messageOf(error)}). 다음 세기에 다시 시작합니다`);
     stop(one, error);
   });
   one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));

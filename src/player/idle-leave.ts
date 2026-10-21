@@ -34,7 +34,7 @@ class IdleLeave {
     const player = this.player;
     if (this.aloneTimer) return;
 
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id}에 사람이 없습니다. ${Math.round(this.aloneMs / 1000)}초 뒤 정리합니다`);
+    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없습니다. ${Math.round(this.aloneMs / 1000)}초 뒤 정리합니다`);
     player.pauseFor("alone");
 
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
@@ -79,7 +79,7 @@ class IdleLeave {
       // 여기가 "정리 예약이 취소된다"는 상태 변화가 실제로 일어나는 지점이다.
       // 예약을 건 타이머 콜백 안에도 같은 로그가 있었는데, 사람이 돌아오면 음성 상태 이벤트가
       // 이 함수를 먼저 불러 타이머를 지우므로 그 콜백은 아예 실행되지 않았다. 거의 안 찍혔다.
-      if (shouldResume) log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id}에 사람이 복귀하여 정리를 취소합니다`);
+      if (shouldResume) log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 복귀하여 정리를 취소합니다`);
     }
 
     if (shouldResume) {

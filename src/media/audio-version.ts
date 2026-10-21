@@ -25,7 +25,7 @@ function fromYtDlpInfo(info: YtDlpDownloadInfo | null | undefined): string | nul
   if (info.extractor_key === "Soundcloud" || /soundcloud/i.test(String(info.extractor || ""))) {
     const file = url?.pathname.split("/").filter(Boolean)[0];
     if (file) return `file:${file}`;
-    if (info.modified_timestamp) return `modified:${info.modified_timestamp}`;
+    if (info.modified_timestamp) return `modified:${String(info.modified_timestamp)}`;
   }
   return null;
 }
@@ -40,7 +40,7 @@ function fromHeaders(headers: ResponseHeaders | null | undefined): string | null
     ["modified", headers["last-modified"]],
     ["length", headers["content-length"]],
   ].filter(([, v]) => v != null && v !== "");
-  return parts.length ? parts.map(([k, v]) => `${k}=${v}`).join(";") : null;
+  return parts.length ? parts.map(([k, v]) => `${String(k)}=${String(v)}`).join(";") : null;
 }
 
 export { fromYtDlpInfo, fromHeaders };

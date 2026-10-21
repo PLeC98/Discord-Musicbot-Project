@@ -65,7 +65,7 @@ const exported: GuildCommand = {
       return await noticeSelf(interaction, errors.notice("channel-set-failed"));
     }
 
-    await interaction.reply(post(screens.channelSet(`${channel}`)));
+    await interaction.reply(post(screens.channelSet(channel.toString())));
     // 안내 뒤에 올려야 패널이 맨 아래에 온다
     await movePanel(interaction, bot);
   },

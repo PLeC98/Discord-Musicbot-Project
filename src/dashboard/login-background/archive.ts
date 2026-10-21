@@ -90,7 +90,7 @@ function rungsFrom(raw: unknown): store.Media["rungs"] | null {
 
 /** 인코딩한 것의 형식(공개 응답에 그대로 나간다). 그림은 HLS 가 없고, 영상은 코덱 하나 이상 */
 function mediaFrom(raw: unknown, kind: store.Stored["kind"]): store.Media | null {
-  if (!isTable(raw) || !Array.isArray(raw.stills) || !raw.stills.length || !raw.stills.every((width) => Number.isInteger(width) && STILL_FILE.test(`still-${width}.webp`))) return null;
+  if (!isTable(raw) || !Array.isArray(raw.stills) || !raw.stills.length || !raw.stills.every((width) => Number.isInteger(width) && STILL_FILE.test(`still-${String(width)}.webp`))) return null;
   const scenes = Array.isArray(raw.scenes) ? raw.scenes.map(sceneFrom) : [null];
   const rungs = rungsFrom(raw.rungs);
   if (!isColor(raw.color) || scenes.some((one) => one === null) || !rungs || (kind === "image") !== (Object.keys(rungs).length === 0)) return null;

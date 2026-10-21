@@ -16,6 +16,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
 import { errorKind, messageOf } from "../../rules/error-kind.ts";
+import { logTitle } from "../../infra/log/title.ts";
 import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
@@ -913,7 +914,7 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
     const [verdict] = await askBatch(one, [candidate], about.genre, { retries: retriesIn(about) });
     if (!verdict) return true; // 판정을 못 읽었다. 버릴 근거가 없다
     if (verdict.song && verdict.fits) return true;
-    log.debug(`AI 보조가 필터링함(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${candidate.title}`);
+    log.debug(`AI 보조가 필터링함(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${logTitle(candidate.title)}`);
     return false;
   } catch (error) {
     failedIn(about);

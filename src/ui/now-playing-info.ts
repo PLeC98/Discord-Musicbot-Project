@@ -22,7 +22,7 @@ function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | n
     title: t.title,
     body: `**[${songTitle(track.title)}](${track.pageUrl})**`,
     thumbnail: art === undefined ? track.thumbnail : (art?.url ?? null),
-    footer: [track.artist ? `${t.artist} ${track.artist}` : null, track.album ? `${t.album} ${track.album}` : null, `${t.platform} ${emojiOf(platform)} ${labelOf(platform)}`, progress ? `${t.progress} ${progress}` : null, track.requestedBy ? `${t.requester} <@${track.requestedBy.id}>` : null, `${t.status} ${infoText.nowPlayingStatus(playbackStatus(player))}`],
+    footer: [track.artist ? `${t.artist} ${track.artist}` : null, track.album ? `${t.album} ${track.album}` : null, `${t.platform} ${emojiOf(platform)} ${labelOf(platform)}`, progress ? `${t.progress} ${progress}` : null, track.requestedBy?.id ? `${t.requester} <@${track.requestedBy.id}>` : null, `${t.status} ${infoText.nowPlayingStatus(playbackStatus(player))}`],
   });
 }
 

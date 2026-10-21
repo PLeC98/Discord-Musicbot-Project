@@ -198,7 +198,7 @@ async function pinnedTrack(query: string, pin: Pin, context: string | null | und
     track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: detectPlatform(query), duration: 0 };
   }
   pinnedSources.applyPin(track, pin);
-  log.debug(`직접 지정한 음원(조회 생략): "${logTitle(track.title)}" → ${track.audioUrl}`);
+  log.debug(`직접 지정한 음원(조회 생략): "${logTitle(track.title)}" → ${track.audioUrl ?? "없음"}`);
   return track;
 }
 

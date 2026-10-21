@@ -12,7 +12,7 @@ type Track = { title: string | null; pageUrl: string; thumbnail?: string | null 
 type Actor = { toString(): string };
 
 // 누가 했나 줄
-const who = (by: Actor) => `${controlText.requestedBy()} ${by}`;
+const who = (by: Actor) => `${controlText.requestedBy()} ${String(by)}`;
 
 /** 일시정지 · 재개 */
 function paused(isPaused: boolean, track: Track, by: Actor) {
@@ -95,7 +95,7 @@ function removed(left: number, by: Actor) {
 /** 대기열 순서 바꾸기. from · to 는 사람이 센 위치(1부터) */
 function moved(track: Track, from: number, to: number, by: Actor) {
   const t = controlText.moved(track, from, to);
-  return frame({ icon: t.icon, title: t.title, body: t.body, footer: [`${t.by} ${by}`], divider: true });
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: [`${t.by} ${String(by)}`], divider: true });
 }
 
 /** 볼륨. before · level 은 0 ~ VOLUME_MAX(rules/limits) */

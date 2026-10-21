@@ -76,7 +76,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
       log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
     } else if (closedByUs) {
       // 종료 코드는 남긴다. 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 구분한다.
-      log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${code ?? signal})`);
+      log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${code ?? signal ?? "없음"})`);
     } else if (code !== 0 && code !== null) {
       log.warn(`ffmpeg(${label}) 종료 코드 ${code}${detail}`);
     }

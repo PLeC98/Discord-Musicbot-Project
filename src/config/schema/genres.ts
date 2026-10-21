@@ -36,7 +36,7 @@ function sourceOf(type: string) {
       for (const [key, allowed] of Object.entries(spec.enums || {})) {
         if (source[key] == null) continue;
         for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
-          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${one}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}` });
+          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${String(one)}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}` });
         }
       }
       if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "{where}: yearFrom이 yearTo보다 큽니다." });
@@ -46,7 +46,7 @@ function sourceOf(type: string) {
 
 const [firstSource, ...restSources] = TYPES.map((type) => sourceOf(type));
 const source = z.discriminatedUnion("type", [firstSource, ...restSources], {
-  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 합니다." : `{where}: 모르는 종류입니다(${(issue.input as { type?: unknown }).type}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
+  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 합니다." : `{where}: 모르는 종류입니다(${String((issue.input as { type?: unknown }).type)}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
 });
 
 const genre = z.preprocess(
@@ -108,7 +108,7 @@ const defaults = z.preprocess(
       if (d.maxDurationSec == null) return;
       const min = d.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       if (Number(min) <= Number(d.maxDurationSec)) return;
-      const message = d.minDurationSec == null ? `maxDurationSec(${d.maxDurationSec})이 비운 minDurationSec의 기본값(${min})보다 작습니다.` : "minDurationSec이 maxDurationSec보다 큽니다.";
+      const message = d.minDurationSec == null ? `maxDurationSec(${String(d.maxDurationSec)})이 비운 minDurationSec의 기본값(${String(min)})보다 작습니다.` : "minDurationSec이 maxDurationSec보다 큽니다.";
       ctx.addIssue({ code: "custom", message });
     }, ALWAYS),
 );
@@ -123,7 +123,7 @@ const genresFile = z.preprocess(
       if (own.minDurationSec == null && own.maxDurationSec == null) continue;
       const min = own.minDurationSec ?? base.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       const max = own.maxDurationSec ?? base.maxDurationSec;
-      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${min})이 maxDurationSec(${max})보다 큽니다.` });
+      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${String(min)})이 maxDurationSec(${String(max)})보다 큽니다.` });
     }
   }, ALWAYS),
 );

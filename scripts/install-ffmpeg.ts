@@ -18,6 +18,7 @@ import crypto from "crypto";
 import { spawnSync } from "child_process";
 import config from "../src/config/index.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { messageOf } from "../src/rules/error-kind.ts";
 import { TARGETS, RELEASES_URL, assetFor } from "../src/media/ffmpeg/release.ts";
 
 const ROOT = PROJECT.root;
@@ -140,7 +141,7 @@ async function main() {
 main().catch((error) => {
   // 설치 실패로 pnpm install 전체를 깨지 않는다. 기동 시 ffmpegPath가 PATH를 찾고,
   // 그것도 없으면 거기서 분명한 메시지와 함께 멈춘다.
-  console.warn(`⚠️  [ffmpeg] 다운로드 실패: ${error.message}`);
+  console.warn(`⚠️  [ffmpeg] 다운로드 실패: ${messageOf(error)}`);
   console.warn("   PATH의 ffmpeg를 사용하거나, .env의 FFMPEG_PATH로 경로를 지정하세요.");
   process.exit(0);
 });

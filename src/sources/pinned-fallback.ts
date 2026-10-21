@@ -36,7 +36,7 @@ async function leaveDeadPin(track: Seeking, error: unknown, equivalent: Refind):
   } catch (recordError) {
     log.debug(`재생 테스트 결과를 남기지 못했습니다: ${messageOf(recordError)}`);
   }
-  log.warn(`직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾습니다(지정은 그대로): "${logTitle(track.title)}" | ${track.audioUrl} | ${code}`);
+  log.warn(`직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾습니다(지정은 그대로): "${logTitle(track.title)}" | ${track.audioUrl ?? "없음"} | ${code}`);
 
   const requestKey = track.requestKey ?? "";
   const kind = inputKind(requestKey);

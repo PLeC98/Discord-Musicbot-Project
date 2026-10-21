@@ -179,7 +179,7 @@ function deploySlashCommands() {
     .deployCommands()
     .then((r) => {
       if (r.ok && r.skipped) log.info(`명령어 정의 ${r.count}개가 바뀌지 않았습니다. 등록을 건너뜁니다. (강제 재배포: pnpm run cmddeploy)`);
-      else if (r.ok) log.info(`${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 배포했습니다.`);
+      else if (r.ok) log.info(`${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 배포했습니다.`);
       else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
     })
     .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));

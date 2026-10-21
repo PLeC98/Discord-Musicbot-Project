@@ -22,7 +22,7 @@ class InputHealth {
   watch(child: Exiting) {
     child.once("exit", (code, signal) => {
       this.exitCode = code === null && signal ? -1 : code;
-      if (this.exitCode !== 0) this.mark(`ffmpeg 종료 코드 ${code ?? signal}`);
+      if (this.exitCode !== 0) this.mark(`ffmpeg 종료 코드 ${code ?? signal ?? "없음"}`);
     });
     return this;
   }

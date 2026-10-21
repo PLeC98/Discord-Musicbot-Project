@@ -331,7 +331,7 @@ const graphql = {
     const { secret, version } = state.secrets[0];
     const key = deriveKey(secret);
     const qs = new URLSearchParams({ reason: "init", productType: "web-player", totp: totp(key, Date.now()), totpServer: totp(key, serverSec * 1000), totpVer: String(version) });
-    const r = await send(`https://open.spotify.com/api/token?${qs}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await send(`https://open.spotify.com/api/token?${qs.toString()}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!r.ok) throw Object.assign(new Error(`익명 토큰 ${r.status}`), { status: r.status });
     return (await r.json()) as { accessToken: string; accessTokenExpirationTimestampMs?: number };
   },

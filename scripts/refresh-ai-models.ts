@@ -15,13 +15,13 @@ import { PROVIDER_SPECS } from "../src/autoplay/assist/index.ts";
   console.log(`다운로드 중. 프로바이더 ${registries.length}곳${force ? " (강제)" : ""}`);
 
   const got = await models.refresh({ registries, force });
-  if (!got.changed) console.log(`모델 프로필: 바뀐 것이 없습니다. 모델 ${got.count}개 (${got.fetchedAt})`);
+  if (!got.changed) console.log(`모델 프로필: 바뀐 것이 없습니다. 모델 ${got.count}개 (${got.fetchedAt ?? "없음"})`);
   else console.log(`모델 프로필: 모델 ${got.count}개 → ${path.relative(process.cwd(), models.FETCHED)}`);
 
   // 가격표를 다운로드하지 못해도 모델 프로필은 이미 다운로드했다. 실패는 알리고 끝낸다
   const priced = await prices.refresh().catch((e: unknown) => console.error(`가격표: 다운로드하지 못했습니다(${e instanceof Error ? e.message : String(e)}). 가진 가격표를 씁니다`));
   if (!priced) return;
-  if (!priced.changed) console.log(`가격표: 바뀐 것이 없습니다. 모델 ${priced.count}개 (${priced.fetchedAt})`);
+  if (!priced.changed) console.log(`가격표: 바뀐 것이 없습니다. 모델 ${priced.count}개 (${priced.fetchedAt ?? "없음"})`);
   else console.log(`가격표: 모델 ${priced.count}개 → ${path.relative(process.cwd(), prices.FETCHED)}`);
 })().catch((e) => {
   console.error("실패:", e.message);

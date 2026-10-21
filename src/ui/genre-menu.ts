@@ -49,7 +49,7 @@ const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
 /** 장르를 선택해 켰다(모두에게 보내는 결과). genre 는 식별자, 보이는 것은 라벨. by 는 선택한 사람 */
 function autoplayOn(genre: string, by: { toString(): string }) {
   const t = autoplayText.turnedOn(genreConfig.labelOf(genre));
-  return frame({ icon: t.icon, title: t.title, body: t.description, footer: [`${t.by} ${by}`], divider: true });
+  return frame({ icon: t.icon, title: t.title, body: t.description, footer: [`${t.by} ${String(by)}`], divider: true });
 }
 
 export { buildGenreMenu, buildAutoplayOffMenu, autoplayOn };

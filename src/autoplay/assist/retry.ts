@@ -26,7 +26,7 @@ function summaryOf(status: number, text: string) {
   const error = readBody(text);
   const name = [error?.status, error?.type, error?.code].find((one) => typeof one === "string" && one);
   const message = typeof error?.message === "string" ? error.message : text;
-  return { key: `HTTP ${status}${name ? ` ${name}` : ""}`, detail: message.replace(/\s+/g, " ").trim().slice(0, 300) };
+  return { key: `HTTP ${status}${name ? ` ${String(name)}` : ""}`, detail: message.replace(/\s+/g, " ").trim().slice(0, 300) };
 }
 
 /** 다시 해도 소용없는 한도 소진인가 */

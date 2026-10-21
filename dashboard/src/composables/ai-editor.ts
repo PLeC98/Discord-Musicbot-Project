@@ -70,7 +70,7 @@ const MARKS = Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint
 // 길이가 있을 때만 적는 구간(넣기 칩)
 const BLOCK_MARK = "{{#if-exist {{duration}}}}{{duration}} {{/}}";
 // 조회 안 한 주소를 그대로 보내면 쓰이는 보기 곡(제목 · 길이)
-const SAMPLE_LINES = AI_SAMPLE_CANDIDATES.map((one) => (one.durationSec ? `${one.title} (${formatDuration(one.durationSec)})` : one.title)).join(NL);
+const SAMPLE_LINES = AI_SAMPLE_CANDIDATES.map((one) => (one.durationSec ? `${one.title ?? ""} (${formatDuration(one.durationSec)})` : (one.title ?? ""))).join(NL);
 const CONSTS = { NL, NONE_MARK, EXTRA_SAMPLE, ROLES, MARKS, BLOCK_MARK, SAMPLE_LINES };
 
 // 프로바이더를 바꾸면 모델 필드가 빈다. 사람이 선택한 것만 브라우저에 적어 둔다.

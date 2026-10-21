@@ -51,7 +51,7 @@ function trackOf(item: YtInfo): ScTrack | null {
 
 // 곡 하나. 미리듣기만 열린 곡은 30초 조각을 곡처럼 틀지 않는다
 function oneTrack(item: YtInfo): ScTrack {
-  if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${item.title ?? item.webpage_url}`);
+  if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${item.title ?? item.webpage_url ?? "없음"}`);
   const track = trackOf(item);
   if (!track) throw new Error("yt-dlp 가 곡 페이지 주소를 주지 않았습니다");
   return track;

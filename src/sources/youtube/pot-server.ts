@@ -73,7 +73,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       release();
       proc = null;
       if (stopping) return;
-      log.warn({ sub: "bgutil" }, `서버 비정상 종료 (code=${code}), 5초 후 재시작합니다`);
+      log.warn({ sub: "bgutil" }, `서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 재시작합니다`);
       setTimeout(start, RESTART_MS);
     });
     log.debug({ sub: "bgutil" }, "POToken 서버 시작");

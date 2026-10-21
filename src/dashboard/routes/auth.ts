@@ -55,8 +55,8 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
     return "bad_client";
   }
   // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게
-  const what = response ? `상태 코드 ${response.status}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
-  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, `OAuth 콜백 오류: ${what}`);
+  const what = response ? `상태 코드 ${response.status ?? "없음"}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
+  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, `OAuth 콜백 오류: ${what ?? "없음"}`);
   return "auth_failed";
 }
 
@@ -87,7 +87,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         scope: "identify guilds",
         state,
       });
-      res.redirect(`${DISCORD_API}/oauth2/authorize?${params}`);
+      res.redirect(`${DISCORD_API}/oauth2/authorize?${params.toString()}`);
     });
   });
 

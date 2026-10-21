@@ -53,7 +53,7 @@ const message = z.preprocess(
       // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
       type: present(
         (type) => isActivityType(type),
-        (issue) => `{where}: "${issue.input}"은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
+        (issue) => `{where}: ${JSON.stringify(issue.input)}은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
       ),
     },
     { error: "{where}: 문구는 글자로 적거나 text/type으로 풀어 적어야 합니다." },

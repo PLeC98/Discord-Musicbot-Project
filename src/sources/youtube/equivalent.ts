@@ -53,7 +53,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 
   // 운영자가 직접 지정한 음원이 먼저다(유튜브가 아니어도 된다: 사운드클라우드 · 직접 링크)
   if (!skipPin && pinnedSources.applyPin(track)) {
-    log.debug(`직접 지정한 음원(검색 생략): "${logTitle(track.title)}" → ${track.audioUrl}`);
+    log.debug(`직접 지정한 음원(검색 생략): "${logTitle(track.title)}" → ${track.audioUrl ?? "없음"}`);
     return track.audioUrl ?? null;
   }
 
