@@ -3,9 +3,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PROBLEMS, isCode, type Code, type Params } from "../../src/rules/problems.ts";
-import { notice } from "../../src/ui/text/ko/errors.ts";
+import { noticeFor } from "../../src/ui/text/ko/errors.ts";
 
 const codes = Object.keys(PROBLEMS) as Code[];
+const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2 };
+/** 그 코드의 목록에 적은 값만 견본으로 채운다 */
+const paramsFor = (code: Code) => {
+  const spec = PROBLEMS[code];
+  return Object.fromEntries(("params" in spec ? spec.params : []).map((name) => [name, SAMPLE[name]]));
+};
 
 test("코드는 소문자 케밥, 63자 이하", () => {
   for (const code of codes) assert.match(code, /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, code);
@@ -24,16 +30,21 @@ test("값 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자 · �
 });
 
 test("목록에 적은 값으로 그린 안내에는 빈 값이 끼지 않는다", () => {
-  const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2 };
-  for (const [code, spec] of Object.entries(PROBLEMS) as Array<[Code, (typeof PROBLEMS)[Code]]>) {
-    const params = Object.fromEntries(("params" in spec ? spec.params : []).map((name) => [name, SAMPLE[name]]));
-    const { title, body = "" } = notice(code, params);
+  for (const code of codes) {
+    const { title, body = "" } = noticeFor(code, paramsFor(code));
     assert.doesNotMatch(`${title}\n${body}`, /undefined|null|NaN|\[object/, code);
   }
 });
 
 test("안내는 그 코드를 단다", () => {
-  for (const code of codes) assert.equal(notice(code).code, code);
+  for (const code of codes) assert.equal(noticeFor(code, paramsFor(code)).code, code);
+});
+
+test("실행 중에 코드가 정해진 문제에 그 코드의 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로, 빠진 이름을 알린다", () => {
+  const missing: string[][] = [];
+  assert.equal(noticeFor("queue-full", {}, undefined, (names) => missing.push(names)).code, "unknown-error");
+  assert.deepEqual(missing, [["max"]]);
+  assert.equal(noticeFor("queue-full", { max: 3 }).code, "queue-full");
 });
 
 test("목록에 있는 코드인지 구분한다(흐름의 코드 · 옛 이름은 아니다)", () => {

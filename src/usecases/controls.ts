@@ -20,7 +20,7 @@ import type { Player } from "../player/player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
-import type { Code, Params, Problem } from "../rules/problems.ts";
+import type { Code, NeedsParams, ParamsOf, Problem } from "../rules/problems.ts";
 
 /** 누가 시켰나: 디스코드 멤버 */
 type Actor = { member: GuildMember };
@@ -31,9 +31,10 @@ type MaybePlayer = Player | null | undefined;
 /** 권한 판정. 막으면 그 까닭 */
 type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied | null>;
 
-const fail = (code: Code, params: Params = {}): Refusal => ({ ok: false, code, ...params });
+/** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems 의 params) */
+const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true ? [params: ParamsOf<C>] : [params?: ParamsOf<C>]): Refusal => ({ ok: false, code, ...params }) as Refusal;
 // 사람이 풀 수 없는 멈춤(Player.pauseReasons)의 까닭마다
-const HELD: Record<string, Code> = { mute: "held-mute", alone: "held-alone" };
+const HELD: Record<string, "held-mute" | "held-alone"> = { mute: "held-mute", alone: "held-alone" };
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 

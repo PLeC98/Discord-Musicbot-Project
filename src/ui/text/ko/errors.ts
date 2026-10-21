@@ -4,7 +4,7 @@
 import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type Notice, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
-import type { Code, Params } from "../../../rules/problems.ts";
+import { PROBLEMS, type Code, type NeedsParams, type Params, type ParamsOf } from "../../../rules/problems.ts";
 
 // 봇 쪽 문제 · 외부 실패로 못 했다
 const error = (topic: Topic, title: string, body?: string) => noticeOf("error", topic, title, body);
@@ -24,7 +24,7 @@ const stalePage = (look: Look) => `페이지를 새로고침한 뒤 다시 시�
 // 화면도 봇도 보낼 일이 없는 값
 const cannotHappen = (look: Look) => `일반적으로는 발생할 수 없는 오류이니, ${look.developer()}에게 보고해 주세요.`;
 
-const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
+const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 요청한 사람이 갖추지 못함
   // 봇을 부를 때 부른 사람이 음성 채널에 없다
   "must-be-in-voice": () => warning("voice", "먼저 음성 채널에 접속해 주세요!", "그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요."),
@@ -86,7 +86,7 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", "볼륨은 0에서 100 까지의 숫자로 적어야 해요."),
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
-  "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${durationMs === undefined ? "?" : formatMs(durationMs)})보다 뒤로 이동할 수는 없어요.`),
+  "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${formatMs(durationMs)})보다 뒤로 이동할 수는 없어요.`),
   "genre-unusable": ({ genre = "", keys = "" }) => warning("state", "지금은 쓸 수 없는 장르예요!", `\`${genre}\` 장르가 쓰는 소스(${keys})의 키가 아직 없어요. 봇 운영자에게 알려 주세요.`),
   "unknown-genre": ({ genre = "" }) => warning("stale", "알 수 없는 장르예요!", `그 사이 장르 목록이 변경되어 \`${genre}\`${josa(genre, "은")} 없어졌어요. 장르를 다시 선택해 주세요.`),
   // 재생목록 한 번에 넣는 곡 수가 범위 밖이다. queueCap 은 범위의 끝이 대기열 상한이라 그렇다면 그 상한
@@ -249,8 +249,25 @@ const TEXT: { [C in Code]: (p: Params, look: Look) => Notice } = {
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };
 
-/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params), look 은 그리는 쪽의 값 형식 */
-const notice = (code: Code, params: Params = {}, look: Look = PLAIN): Notice => ({ code, ...TEXT[code](params, look) });
+/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params, 모두 있어야 한다), look 은 그리는 쪽의 값 형식 */
+function notice<C extends Code>(code: C, ...[params, look = PLAIN]: NeedsParams<C> extends true ? [params: ParamsOf<C>, look?: Look] : [params?: ParamsOf<C>, look?: Look]): Notice {
+  // 코드마다 다른 값 타입을 한 표에서 고르므로 여기서만 넓힌다(위 시그니처가 맞춰 넘겼다)
+  const text = TEXT[code] as (p: Params, look: Look) => Notice;
+  return { code, ...text(params ?? {}, look) };
+}
 
-export { notice, PLAIN };
+/**
+ * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답 · 곡 담기 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
+ * 빠진 이름은 missing 으로 넘긴다(봇은 남기고, 화면은 그대로 보인다)
+ */
+function noticeFor(code: Code, params: Params = {}, look: Look = PLAIN, missing?: (names: string[]) => void): Notice {
+  const names = ((PROBLEMS[code] as { params?: readonly (keyof Params)[] }).params ?? []).filter((name) => params[name] === undefined);
+  if (names.length) {
+    missing?.(names);
+    return notice("unknown-error", {}, look);
+  }
+  return { code, ...(TEXT[code] as (p: Params, look: Look) => Notice)(params, look) };
+}
+
+export { notice, noticeFor, PLAIN };
 export type { Look };

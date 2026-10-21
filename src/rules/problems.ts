@@ -227,8 +227,17 @@ const WEB = {
 const PROBLEMS = { ...SHARED, ...WEB };
 
 type Code = keyof typeof PROBLEMS;
-/** 문제 하나: 코드와 그 문장에 드는 값 */
-type Problem = { code: Code } & Params;
+/** 그 코드의 문장에 드는 값의 이름(목록의 params) */
+// 코드마다 따로 본다(여러 코드의 유니온이면 그중 하나라도 드는 이름 모두)
+type ParamNames<C extends Code> = C extends Code ? ((typeof PROBLEMS)[C] extends { params: readonly (infer P extends Param)[] } ? P : never) : never;
+/** 그 코드의 문장에 드는 값. 목록에 적은 이름은 모두 있어야 한다 */
+type ParamsOf<C extends Code> = { [K in ParamNames<C>]: Exclude<Params[K], undefined> };
+/** 그 코드의 문장에 드는 값이 있는가(있으면 부를 때 값을 꼭 넘긴다) */
+type NeedsParams<C extends Code> = [ParamNames<C>] extends [never] ? false : true;
+/** 문제 하나: 코드와 그 코드의 문장에 드는 값 */
+type Problem = { [C in Code]: { code: C } & ParamsOf<C> }[Code];
+/** 실행 중에 코드가 정해져 값을 아직 견주지 않은 문제(대시보드 응답 · 곡 담기 결과). 그리기 전에 errors.noticeFor 가 견준다 */
+type LooseProblem = { code: Code } & Params;
 
 /** 목록에 있는 코드인가 */
 const isCode = (value: string): value is Code => Object.hasOwn(PROBLEMS, value);
@@ -240,4 +249,4 @@ const isWebCode = (code: Code): boolean => Object.hasOwn(WEB, code);
 const problemOf = (code: Code): ProblemSpec => PROBLEMS[code];
 
 export { PROBLEMS, problemOf, isCode, isWebCode };
-export type { Code, Params, Param, Problem, ProblemSpec };
+export type { Code, Params, Param, ParamsOf, NeedsParams, Problem, LooseProblem, ProblemSpec };

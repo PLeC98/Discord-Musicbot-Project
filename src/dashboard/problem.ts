@@ -3,7 +3,7 @@
 
 import express, { type Request, type Response } from "express";
 import type { RateLimitInfo } from "express-rate-limit";
-import { PROBLEMS, isCode, type Code, type Params, type Problem } from "../rules/problems.ts";
+import { PROBLEMS, isCode, type Code, type LooseProblem, type Params } from "../rules/problems.ts";
 import { PROBLEM_PATH, problemBody, type Extra } from "./contract/problem.ts";
 
 /** 문제로 답한다. 상태는 목록의 것 */
@@ -12,8 +12,8 @@ function sendProblem(res: Response, code: Code, params?: Params, extra?: Extra) 
   return res.status(body.status).type("application/problem+json").json(body);
 }
 
-/** 거절 결과(코드와 값)로 답한다 */
-function refuseWith(res: Response, { code, ...params }: Problem, extra?: Extra) {
+/** 거절 결과(코드와 값)로 답한다. 값은 받는 쪽(화면)이 그 코드의 목록과 견준다 */
+function refuseWith(res: Response, { code, ...params }: LooseProblem, extra?: Extra) {
   return sendProblem(res, code, params, extra);
 }
 

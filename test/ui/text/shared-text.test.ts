@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { PROBLEMS, type Code, type Params } from "../../../src/rules/problems.ts";
-import { notice } from "../../../src/ui/text/ko/errors.ts";
+import { notice, noticeFor } from "../../../src/ui/text/ko/errors.ts";
 import { DISCORD_LOOK } from "../../../src/ui/mentions.ts";
 
 const ROOT = path.join(import.meta.dirname, "..", "..", "..");
@@ -43,7 +43,7 @@ test("공유 문장에는 디스코드에서만 읽히는 형식(멘션 · 헤�
   const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2 };
   for (const [code, spec] of Object.entries(PROBLEMS) as Array<[Code, (typeof PROBLEMS)[Code]]>) {
     const params = Object.fromEntries(("params" in spec ? spec.params : []).map((name) => [name, SAMPLE[name]]));
-    const { title, body = "" } = notice(code, params);
+    const { title, body = "" } = noticeFor(code, params);
     assert.doesNotMatch(`${title}\n${body}`, /<[#@:]|<t:|^#{1,3} |^-# |\]\(|\|\||~~/m, code);
   }
 });

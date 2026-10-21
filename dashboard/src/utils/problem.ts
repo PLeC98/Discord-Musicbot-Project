@@ -4,7 +4,7 @@
 // 공유 문장의 꾸밈(굵게 · 코드)은 지금 화면이 글자로만 보여서 뗀다.
 // 문장이 "봇 개발자에게 보고해 주세요"를 쓰면 보고할 곳(소스 저장소, /api/bot 의 sourceRepo)을 reportUrl 로 붙인다
 
-import { notice, PLAIN } from "../../../src/ui/text/ko/errors.ts";
+import { noticeFor, PLAIN } from "../../../src/ui/text/ko/errors.ts";
 import { isCode, isWebCode, type Code } from "../../../src/rules/problems.ts";
 import type { Notice } from "../../../src/ui/text/notice.ts";
 import { paramsOf, type ProblemBody } from "../../../src/dashboard/contract/problem.ts";
@@ -31,7 +31,7 @@ export const codeLineOf = text.errors.codeLine;
 
 /** 봇과 같은 안내의 제목 줄 · 본문(꾸밈을 뗀 글). 요청 없이 화면이 먼저 알릴 때(조작이 막힌 까닭 등) */
 export function noticeText(code: Code): { title: string; body: string } {
-  const { title, body } = notice(code, {}, PLAIN);
+  const { title, body } = noticeFor(code, {}, PLAIN);
   return { title: plain(title), body: body ? plain(body) : "" };
 }
 
@@ -60,7 +60,7 @@ export function problemNotice(error: unknown, fallback: string): ProblemNotice {
     // 문장이 봇 개발자를 불렀는지 본다. 불렀으면 보고할 곳을 붙인다
     let asked = false;
     const look = { ...PLAIN, developer: () => ((asked = true), PLAIN.developer()) };
-    const { title, body, severity } = notice(data.code, paramsOf({ ...data, code: data.code }), look);
+    const { title, body, severity } = noticeFor(data.code, paramsOf({ ...data, code: data.code }), look);
     const status = statusOf(error) ?? data.status;
     const codeLine = isWebCode(data.code) ? codeLineOf(data.code, status) : "";
     return { title: plain(title), body: body ? plain(body) : "", detail: typeof data.detail === "string" ? data.detail : "", codeLine, severity, reportUrl: asked ? reportTo : "" };
