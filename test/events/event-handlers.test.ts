@@ -1,7 +1,7 @@
-// 테스트가 한 번도 돌지 않던 이벤트 넷의 지금 동작을 고정한다(구조 리팩터링 0-B).
+// 이벤트 넷의 지금 동작을 고정한다.
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler · 자동재생 장르는 src/discord/interactions/autoplay).
 //
-// 6단계가 진입점을 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 교체하지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
+// 모듈을 통째로 교체하지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(봇 문맥의 panels)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
 
 import fs from "node:fs";

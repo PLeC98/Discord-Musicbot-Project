@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert";
 import { iconTones } from "../../src/rules/icon-tones.ts";
 
-// 값은 디스코드에서 사용자와 견주어 정한 것(톤 40 타일 · 톤 98 기호, 채도 36)
+// 값은 디스코드에서 견주어 정한 것(톤 40 타일 · 톤 98 기호, 채도 36)
 test("바탕색의 색상만 가져와 정한 톤으로: 운영자 색 기본값 · 응답 색", () => {
   assert.deepEqual(iconTones("#2743D2"), { tile: "#525b92", glyph: "#fbf8ff" });
   assert.deepEqual(iconTones("#ED4245"), { tile: "#904a47", glyph: "#fff8f7" });

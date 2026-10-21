@@ -149,10 +149,10 @@ const NO_CAP = 1;
 const BAND = { dark: { lo: 0.16, hi: 0.36, chroma: 0.1 }, light: { lo: 0.86, hi: 0.95, chroma: 0.07 } };
 const BACKDROP_LOOKS = {
   // 지금 곡의 앨범아트(배경은 들러리). 아주 작게(64 폭) 만들어 브라우저가 늘리며 부드럽게 번지게 하고, 흐림은 살짝(1px) 준다
-  // (2026-10-09 사용자가 배경 실험 페이지에서 선택한 값. 192 폭은 늘렸을 때 압축 자국이 네모나게 보였다)
+  // (192 폭은 늘렸을 때 압축 자국이 네모나게 보였다)
   song: { width: 64, upTo: false, blur: 1 / 64, saturate: 1.6, band: 1, range: BAND, quality: 0.92, crop: true },
   // 로그인 화면의 봇 프사(배경이 시계 · 버튼과 함께 주인공). 받은 그대로의 해상도로 그림을 살리고(768 폭 상한: 네 자리 폭부터 만드는 시간이 확 는다),
-  // 흐림은 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다). 2026-10-10 사용자가 배경 실험 페이지에서 선택한 값
+  // 흐림은 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다)
   avatar: { width: 768, upTo: true, blur: 0.005, saturate: 1, band: 0.5, range: { dark: { lo: 0.2, hi: 0.45, chroma: NO_CAP }, light: { lo: 0.8, hi: 0.95, chroma: NO_CAP } }, quality: 0.99, crop: false },
 } satisfies Record<string, BakeLook>;
 type BackdropKind = keyof typeof BACKDROP_LOOKS;

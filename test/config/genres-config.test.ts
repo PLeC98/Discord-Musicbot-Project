@@ -213,7 +213,7 @@ test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(던지
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 문서 대신 직전 값");
 });
 
-// 키는 대시보드에서 입력하므로 키가 없다고 기동을 멈추면 입력할 곳도 안 뜬다(2차 16단계 "정한 것" 6)
+// 키는 대시보드에서 입력하므로 키가 없다고 기동을 멈추면 입력할 곳도 안 뜬다
 test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장르만 못 쓴다. 키를 입력하면 바로 쓴다", async () => {
   const config = (await import("../../src/config/index.ts")).default;
   const saved = config.sources.lastfmKey;

@@ -1,6 +1,6 @@
-// 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard)의 지금 동작을 고정한다(구조 리팩터링 0-B).
+// 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard)의 지금 동작을 고정한다.
 //
-// 6단계가 명령을 얇게 만들고 곡 추가 코어를 usecases/add-tracks 로 옮긴다. 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다.
+// 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
 // /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 

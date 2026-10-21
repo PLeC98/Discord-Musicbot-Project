@@ -134,7 +134,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
 
   assert.deepEqual(shape(idle), shape(playing));
   assert.equal(buttonsOf(idle).length, buttonsOf(playing).length);
-  // 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다(3단계). 나머지는 대기열 버튼까지 꺼진다.
+  // 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다. 나머지는 대기열 버튼까지 꺼진다.
   const alive = buttonsOf(idle).filter((b) => !b.disabled);
   assert.deepEqual(
     alive.map((b) => b.custom_id),
@@ -146,7 +146,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
   assert.equal(files[0].name, "blank.png");
 });
 
-// 기본값 localhost · 사설 주소는 다른 사람이 열 수 없다(G20)
+// 기본값 localhost · 사설 주소는 다른 사람이 열 수 없다
 test("대시보드 링크는 DASHBOARD_URL 이 공개 주소일 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
   const mem = newManager();
   const track: QueuedTrack = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
@@ -324,7 +324,7 @@ test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 �
   );
 });
 
-// 디스코드가 5초 넘게 걸려도 두 갱신이 겹치지 않는다(G38)
+// 디스코드가 5초 넘게 걸려도 두 갱신이 겹치지 않는다
 test("진행 막대: 앞 갱신이 끝난 뒤 5초에 다음을 건다. 갱신 중에 멈추면 다시 걸지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const mem = newManager();

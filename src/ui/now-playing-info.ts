@@ -1,5 +1,5 @@
 // /nowplaying 의 화면. 지금 곡의 필드(아티스트 · 앨범 · 플랫폼 · 진행 · 요청자 · 상태)을 모두 작은 글씨 줄로 보인다.
-// 재생 패널과는 따로 그린다(2026-10-02 사용자). 진행 막대만 패널과 같다
+// 재생 패널과는 따로 그린다. 진행 막대만 패널과 같다
 
 import { emojiOf, labelOf } from "../rules/platforms.ts";
 import { frame } from "./frame.ts";

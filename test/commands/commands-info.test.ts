@@ -1,7 +1,7 @@
-// 표시 · 설정 명령과 SponsorBlock 설정 화면의 지금 동작을 고정한다(구조 리팩터링 0-B).
+// 표시 · 설정 명령과 SponsorBlock 설정 화면의 지금 동작을 고정한다.
 // /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setdjrole · /sponsorblock, 그리고 sponsorConfigHandler.
 //
-// 6단계가 표시 명령을 ui/ 의 같은 조각으로, 설정 명령을 store/guild-settings 로 돌린다. 문구 전부가 아니라 "무엇을 선택해 담았나 ·
+// 문구 전부가 아니라 "무엇을 선택해 담았나 ·
 // 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
 
 import fs from "node:fs";

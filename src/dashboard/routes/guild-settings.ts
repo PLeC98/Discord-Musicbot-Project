@@ -70,7 +70,7 @@ function createGuildSettingsRouter() {
   // ── Settings endpoints ────────────────────────────────────────────────────────
 
   // 서버 설정 조회. DJ 역할·봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-  // 조회·변경 모두 모더레이터 전용 (사용자 결정. 일반 멤버는 ⚙ 진입 자체 불가).
+  // 조회·변경 모두 모더레이터 전용(일반 멤버는 ⚙ 진입 자체 불가).
   router.get("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;

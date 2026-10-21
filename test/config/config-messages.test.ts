@@ -392,7 +392,7 @@ for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () =>
 for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
 for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(promptProblems(input, on), want));
 
-// ── 틀린 문서를 읽으면: 기동을 멈추지 않고 알리고 그 기능만 끈다(2차 16단계 "정한 것" 6) ──────
+// ── 틀린 문서를 읽으면: 기동을 멈추지 않고 알리고 그 기능만 끈다 ──────
 
 after(() => useDefaultDocuments());
 
