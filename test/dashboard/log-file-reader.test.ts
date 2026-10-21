@@ -6,7 +6,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { listLogFiles, readLogPage, resolveLogFile, filteredLines, formatLogLine } from "../../src/dashboard/log-file-reader.ts";
-import { backupPath } from "../../src/infra/log/file.ts";
+import { backupPath, createFileDestination } from "../../src/infra/log/file.ts";
 
 const T0 = 1_760_000_000_000;
 /** i 번째 줄: 1초 간격, 셋마다 warn, 다섯마다 youtube 카테고리 · retry 태그 */
@@ -145,4 +145,31 @@ test("내려받기: 거른 줄을 화면과 같은 칸으로, 시각은 보는 �
   assert.match(kst, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} INFO {2}youtube\/client #retry 줄 5 재생 시작$/);
   const utc = new Date(T0 + 5000).toISOString().replace("T", " ").replace("Z", "");
   assert.equal(formatLogLine(lines[1], 0).slice(0, 23), utc);
+});
+
+test("실제 기록기가 크기를 넘겨 떼어 내도, 보던 쪽에서 앞 · 뒤로 이어 읽는다", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logread-rotate-"));
+  const file = path.join(dir, "bot.log");
+  const dest = createFileDestination({ file, maxBytes: 64 * 1024, keep: 5 });
+  const write = (from: number, to: number) => {
+    for (let i = from; i < to; i++) dest.write(record(i));
+  };
+  try {
+    write(0, 200);
+    const target = resolveLogFile(file, "bot.log")!;
+    const seen = readLogPage(target, { ...all, limit: 20 })!;
+    assert.deepEqual(texts(seen).slice(-2), [198, 199]);
+    // 보는 동안 계속 쌓여 크기를 넘긴다: 지금 파일이 떼어지고 새 파일이 시작된다
+    write(200, 2000);
+    assert.ok(listLogFiles(file).length > 1, "떼어 낸 파일이 생겼다");
+    // 앞 쪽: 보던 파일(첫 줄 0)을 따라가 그 앞의 줄
+    const moved = resolveLogFile(file, "bot.log", seen.since)!;
+    assert.notEqual(moved.name, "bot.log");
+    assert.deepEqual(texts(readLogPage(moved, { ...all, limit: 3, before: seen.lines[0].offset })), [177, 178, 179]);
+    // 뒤 쪽: 보던 마지막 줄 뒤로 이어지는 줄
+    const after = readLogPage(moved, { ...all, limit: 3, after: seen.lines.at(-1)!.offset })!;
+    assert.deepEqual(texts(after), [200, 201, 202]);
+  } finally {
+    dest.close();
+  }
 });
