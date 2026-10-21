@@ -6,7 +6,7 @@
     <PaneHeader icon="article" :title="T.title">
       <template #actions>
         <span class="flex items-center gap-1 text-xs text-on-surface-variant"
-          ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'"></span>{{ connected ? T.connected : T.disconnected }} · <span class="nums text-on-surface">{{ T.lines(shown.length) }}</span></span
+          ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'"></span>{{ connected ? T.connected : T.disconnected }} · <span class="nums text-on-surface">{{ T.lines(lineCount) }}</span></span
         >
       </template>
     </PaneHeader>
@@ -31,16 +31,26 @@
 
     <!-- 로그 영역. 넓으면 한 줄(시각 · 레벨 · 카테고리 · 글), 좁으면 시각 · 레벨 · 카테고리를 윗줄에 두고 글은 아랫줄. 글은 낱말 단위로 끊는다.
          바탕은 드롭다운 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 트랙을 비운다 -->
-    <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
+    <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto [overflow-anchor:none] rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
       <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ logs.length ? text.common.noMatch : T.empty }}</p>
-      <div v-for="entry in shown" :key="entry.id" class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5 border-b border-outline-variant/20 last:border-b-0">
-        <span class="flex items-baseline gap-3 shrink-0">
-          <span class="font-mono nums text-on-surface-variant">{{ clock(entry.ts) }}</span>
-          <span class="w-[5ch] font-mono font-semibold" :class="LEVEL_TONE[entry.level]">{{ entry.level.toUpperCase() }}</span>
-          <span v-if="entry.category || entry.sub" class="flex items-center gap-1 text-on-surface-variant"><span class="size-2 rounded-full" :style="{ backgroundColor: catColor(entry.category || entry.sub || '') }"></span>{{ [entry.category, entry.sub].filter(Boolean).join("/") }}</span>
-          <span v-for="t in entry.tags" :key="t" class="text-on-surface-variant">#{{ t }}</span>
-        </span>
-        <span class="min-w-0 wrap-break-word whitespace-pre-wrap" :class="TEXT_TONE[entry.level]">{{ entry.text }}</span>
+      <!-- 줄은 한 번 그리면 바뀌지 않는다(v-memo: 탭을 옮기거나 새 줄이 와도 다시 비교하지 않는다). 화면 밖 줄은 그리기를 건너뛴다(content-visibility, 높이는 한 줄 25px 로 짐작하고 그린 뒤로는 그 높이) -->
+      <div v-for="entry in shown" :key="entry.key" v-memo="[entry.key]" class="[content-visibility:auto] [contain-intrinsic-size:auto_25px] border-b border-outline-variant/20 last:border-b-0">
+        <!-- 표시 줄: 받지 못한 줄 · 봇 재시작. 필터와 상관없이 늘 보인다 -->
+        <div v-if="entry.mark" class="flex items-center gap-2 py-1 text-xs text-on-surface-variant">
+          <span class="flex-1 border-t border-dashed border-outline-variant"></span>
+          <Icon :name="entry.mark === 'gap' ? 'sync_problem' : 'restart_alt'" :size="16" />
+          <span>{{ entry.mark === "gap" ? T.missed(entry.missed) : T.restarted }}</span>
+          <span class="flex-1 border-t border-dashed border-outline-variant"></span>
+        </div>
+        <div v-else class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5">
+          <span class="flex items-baseline gap-3 shrink-0">
+            <span class="font-mono nums text-on-surface-variant">{{ clock(entry.ts) }}</span>
+            <span class="w-[5ch] font-mono font-semibold" :class="LEVEL_TONE[entry.level]">{{ entry.level.toUpperCase() }}</span>
+            <span v-if="entry.category || entry.sub" class="flex items-center gap-1 text-on-surface-variant"><span class="size-2 rounded-full" :style="{ backgroundColor: catColor(entry.category || entry.sub || '') }"></span>{{ [entry.category, entry.sub].filter(Boolean).join("/") }}</span>
+            <span v-for="t in entry.tags" :key="t" class="text-on-surface-variant">#{{ t }}</span>
+          </span>
+          <span class="min-w-0 wrap-break-word whitespace-pre-wrap" :class="TEXT_TONE[entry.level]">{{ entry.text }}</span>
+        </div>
       </div>
     </div>
   </section>
@@ -60,12 +70,13 @@ import { SEARCH_FIELD } from "../utils/field.ts";
 import { koMatch } from "../../../src/rules/ko-search.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
 import { LEVELS, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
+import type { LogRow } from "../utils/log-rows.ts";
 import { formatClock } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
 const T = text.logs;
 
 /** active: 이 탭이 보이는가(숨어 있는 동안은 스크롤할 수 없어 돌아왔을 때 맨 아래로 맞춘다). serverLevel: 봇의 LOG_LEVEL(처음 켜 둘 레벨) */
-const props = defineProps<{ logs: WireEntry[]; connected: boolean; serverLevel?: string; active: boolean }>();
+const props = defineProps<{ logs: LogRow[]; connected: boolean; serverLevel?: string; active: boolean }>();
 const emit = defineEmits<{ clear: [] }>();
 
 // ── 레벨 ──
@@ -102,8 +113,10 @@ function toggleLevel(v: LevelName) {
 }
 
 // ── 카테고리 · 태그 ──
-const categories = computed(() => [...new Set(props.logs.flatMap((e) => (e.category ? [e.category] : [])))].sort());
-const tags = computed(() => [...new Set(props.logs.flatMap((e) => e.tags ?? []))].sort());
+// 받은 줄만(표시 줄 빼고)
+const lines = computed(() => props.logs.filter((e): e is LogRow & WireEntry => !e.mark));
+const categories = computed(() => [...new Set(lines.value.flatMap((e) => (e.category ? [e.category] : [])))].sort());
+const tags = computed(() => [...new Set(lines.value.flatMap((e) => e.tags ?? []))].sort());
 // 드롭다운의 값. "" 이면 필터링하지 않는다
 const category = ref<OptionValue>("");
 const tag = ref<OptionValue>("");
@@ -120,7 +133,9 @@ const catColor = (name: string) => {
 // 글자 찾기: 글 · 카테고리 · 태그(한국어는 조합 중인 글자 · 초성으로도)
 const term = ref("");
 const matchesTerm = (e: WireEntry) => !term.value.trim() || [e.text, e.category ?? "", e.sub ?? "", ...(e.tags ?? [])].some((one) => koMatch(one, term.value));
-const shown = computed(() => props.logs.filter((e) => levelsOn.value.has(e.level) && (!category.value || e.category === category.value) && (!tag.value || (e.tags ?? []).includes(String(tag.value))) && matchesTerm(e)));
+const shown = computed(() => props.logs.filter((e) => e.mark || (levelsOn.value.has(e.level) && (!category.value || e.category === category.value) && (!tag.value || (e.tags ?? []).includes(String(tag.value))) && matchesTerm(e))));
+// 머리에 적는 줄 수(표시 줄 빼고)
+const lineCount = computed(() => shown.value.filter((e) => !e.mark).length);
 
 // 봇 상태 탭과 같은 24시간 시각
 const clock = (ms: number) => formatClock(ms, { seconds: true });
@@ -130,9 +145,14 @@ const clock = (ms: number) => formatClock(ms, { seconds: true });
 const pane = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(pane);
 const follow = ref(true);
+// 내린 뒤 화면 밖이던 줄이 그려지며 높이가 바뀔 수 있어 한 프레임 뒤에 한 번 더 내린다. 위쪽 줄의 높이가 바뀌어도 브라우저가 스크롤을 옮기지 않는다(overflow-anchor: none)
+const toBottom = () => {
+  if (pane.value) pane.value.scrollTop = pane.value.scrollHeight;
+};
 const toEnd = () =>
   void nextTick(() => {
-    if (pane.value) pane.value.scrollTop = pane.value.scrollHeight;
+    toBottom();
+    requestAnimationFrame(() => follow.value && toBottom());
   });
 function onScroll() {
   const el = pane.value;
@@ -142,8 +162,9 @@ function setFollow(on: boolean) {
   follow.value = on;
   if (on) toEnd();
 }
+// 줄 수가 아니라 마지막 줄을 본다(상한에 닿으면 앞을 잘라 수가 그대로다)
 watch(
-  () => shown.value.length,
+  () => shown.value.at(-1)?.key,
   () => follow.value && toEnd(),
 );
 // 숨어 있는 동안(display:none)은 scrollTop 이 먹지 않는다. 돌아오면 맞춘다

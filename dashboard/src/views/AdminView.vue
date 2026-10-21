@@ -175,7 +175,8 @@ import CacheDb from "../components/CacheDb.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
-import { KEPT_LINES, type WireEntry } from "../../../src/infra/log/levels.ts";
+import { SHOWN_LINES, type LogGap, type WireEntry } from "../../../src/infra/log/levels.ts";
+import type { LogRow } from "../utils/log-rows.ts";
 import type { AdminGuilds, AdminStatus } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
@@ -411,16 +412,18 @@ function onGuildsChanged() {
 }
 
 // ── 로그 보기 ──────────────────────────────────────────────
-const logs = ref<WireEntry[]>([]);
+const logs = ref<LogRow[]>([]);
 const sseConnected = ref(false);
 // 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
 let lastLogEventId = "";
 let lastLogId = 0;
 // 붙을 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
 // 한 프레임 동안 모았다가 한 번에 넣는다
-let pendingLogs: WireEntry[] = [];
+let pendingLogs: LogRow[] = [];
+// 표시 줄(받지 못함 · 다시 시작)의 key
+let markSeq = 0;
 let flushFrame: number | null = null;
-function queueLog(entry: WireEntry) {
+function queueLog(entry: LogRow) {
   pendingLogs.push(entry);
   flushFrame ??= requestAnimationFrame(flushLogs);
 }
@@ -428,7 +431,7 @@ function flushLogs() {
   flushFrame = null;
   const next = logs.value.concat(pendingLogs);
   pendingLogs = [];
-  logs.value = next.length > KEPT_LINES ? next.slice(-KEPT_LINES) : next;
+  logs.value = next.length > SHOWN_LINES ? next.slice(-SHOWN_LINES) : next;
 }
 
 watch(tab, () => {
@@ -436,7 +439,7 @@ watch(tab, () => {
   syncLogs();
 });
 
-// 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 500줄까지 들고 있다)
+// 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 KEPT_LINES 줄까지 들고 있고, 그 밖으로 밀려난 줄은 수만 받는다, infra/log/levels)
 const wantLogs = () => tab.value === "logs" && live();
 // 끊기면 브라우저가 마지막 id 를 실어 다시 붙고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
 const logLink = eventLink({
@@ -445,18 +448,22 @@ const logLink = eventLink({
   check: async () => (await axios.get("/api/me")).status === 200,
   onState: (state) => (sseConnected.value = state === "open"),
   events: {
-    // 봇을 다시 시작해 줄 번호가 처음부터다. 지금 목록은 옛 실행의 것이라 비운다
+    // 봇을 다시 시작해 줄 번호가 처음부터다. 옛 실행의 줄은 두고 그 자리에 표시 줄을 넣는다
     reset: () => {
-      logs.value = [];
-      pendingLogs = [];
       lastLogId = 0;
+      queueLog({ key: `mark-${++markSeq}`, mark: "restart" });
+    },
+    // 다시 붙었는데 이어 받을 줄이 서버가 쌓아 둔 줄 밖으로 밀려났다. 그 수를 표시 줄로
+    gap: (e) => {
+      const { missed } = JSON.parse(String(e.data)) as LogGap;
+      queueLog({ key: `mark-${++markSeq}`, mark: "gap", missed });
     },
     message: (e) => {
       const entry = JSON.parse(String(e.data)) as WireEntry;
       lastLogEventId = e.lastEventId || lastLogEventId;
       if (entry.id <= lastLogId) return; // 이미 받은 줄
       lastLogId = entry.id;
-      queueLog(entry);
+      queueLog({ ...entry, key: e.lastEventId || String(entry.id) });
     },
   },
 });

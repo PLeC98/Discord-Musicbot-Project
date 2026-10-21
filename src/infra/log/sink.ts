@@ -7,7 +7,7 @@
 import util from "util";
 import config from "../../config/index.ts";
 import { styleText } from "node:util";
-import { LEVELS, KEPT_LINES, levelNameOf, type LevelName, type WireEntry } from "./levels.ts";
+import { LEVELS, KEPT_LINES, levelNameOf, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -35,7 +35,7 @@ type SseClient = {
 // info 레벨을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
 // 로그 스트림에 보내지 못하고 쌓인 양이 이만큼을 넘으면 읽지 않는 소비자로 보고 끊는다.
-// 붙을 때 쌓인 줄(500줄 약 100KB)을 보내는 동안 write 가 false 를 돌려주는 것은 정상이라 그것만으로는 끊지 않는다
+// 붙을 때 쌓인 줄(KEPT_LINES, 2000줄 약 0.5MB)을 보내는 동안 write 가 false 를 돌려주는 것은 정상이라 그것만으로는 끊지 않는다
 const MAX_PENDING_BYTES = 1024 * 1024;
 
 // 색 입히기. 칠할지는 sink 가 정하므로(useColor) 스트림을 보지 않는다
@@ -278,7 +278,7 @@ class LogManager {
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
    * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
    * after: 화면이 마지막으로 받은 줄의 SSE id("기동시각.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 시작함)
-   * reset 을 먼저 보내고 전부. 없으면(처음 연결) 전부.
+   * reset 을 먼저 보내고 전부. 없으면(처음 연결) 전부. 이어 받을 줄이 쌓아 둔 줄 밖으로 이미 밀려났으면 gap(받지 못한 줄 수)을 줄보다 먼저 보낸다.
    *
    * 상한을 넘으면 아무것도 쓰지 않고 false(답은 부른 경로가 문제 응답으로 쓴다). 느린 소비자는 record 가 정리한다(쌓인 양을 본다).
    */
@@ -298,6 +298,10 @@ class LogManager {
     const seq = Number(seqText);
     const resuming = boot === String(this.boot) && Number.isInteger(seq);
     if (after && !resuming) res.write("event: reset\ndata: {}\n\n");
+    // 이어 받을 첫 줄(이 실행의 seq 다음, 다시 시작했으면 1번)보다 쌓아 둔 첫 줄이 뒤면 그 사이를 못 받았다. 처음 연결은 이어 받는 것이 아니라 알리지 않는다
+    const wanted = resuming ? seq + 1 : 1;
+    const first = this.buffer[0]?.id;
+    if (after && first !== undefined && first > wanted) res.write(`event: gap\ndata: ${JSON.stringify({ missed: first - wanted } satisfies LogGap)}\n\n`);
     for (const entry of this.buffer) {
       if (!resuming || entry.id > seq) res.write(this._frameOf(entry));
     }

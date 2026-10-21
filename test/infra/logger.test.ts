@@ -8,6 +8,7 @@ import type { LogRecord } from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
+import { KEPT_LINES } from "../../src/infra/log/levels.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;
 // 터미널 소음 억제
@@ -215,10 +216,10 @@ test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 
   assert.equal(lm.clients.size, 1, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
 });
 
-test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓인 500줄 약 100KB 를 보내는 중 한 줄, 진짜 HTTP)", async () => {
+test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 둔 줄 전부를 보내는 중 한 줄, 진짜 HTTP)", async () => {
   const http = await import("node:http");
   const lm = new LogManager({ intercept: false, terminal: quiet });
-  for (let i = 0; i < 500; i++) lm.record({ level: 30, time: i, msg: `줄 ${i} ` + "x".repeat(120) });
+  for (let i = 0; i < KEPT_LINES; i++) lm.record({ level: 30, time: i, msg: `줄 ${i} ` + "x".repeat(120) });
   const server = http.createServer((_req, res) => lm.addClient(res, "owner"));
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   const { port } = server.address() as { port: number };
@@ -255,6 +256,31 @@ test("관리자 SSE: 줄마다 기동표.번호를 싣고, 다시 붙으면 마�
   lm.addClient(restarted, "owner", `${lm.boot - 1}.2`);
   assert.match(restarted.writes[0], /^event: reset\n/);
   assert.deepEqual(ids(restarted), [1, 2, 3]);
+});
+
+test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으면 받지 못한 줄 수(gap)를 줄보다 먼저 보낸다. 처음 연결은 알리지 않는다", () => {
+  const lm = new LogManager({ maxLines: 3, intercept: false, terminal: quiet });
+  for (let i = 1; i <= 10; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
+  const gapOf = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^event: gap\ndata: (.+)$/gm)].map((m) => JSON.parse(m[1]) as { missed: number }));
+  const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
+
+  const resumed = fakeRes();
+  lm.addClient(resumed, "owner", `${lm.boot}.4`);
+  assert.deepEqual(gapOf(resumed), [{ missed: 3 }], "5 · 6 · 7 번이 밀려났다");
+  assert.ok(resumed.writes.findIndex((w) => w.startsWith("event: gap")) < resumed.writes.findIndex((w) => w.startsWith("id:")), "줄보다 먼저");
+  assert.deepEqual(ids(resumed), [8, 9, 10]);
+
+  const caughtUp = fakeRes();
+  lm.addClient(caughtUp, "owner", `${lm.boot}.7`);
+  assert.deepEqual(gapOf(caughtUp), [], "바로 다음 줄부터 남아 있으면 빠진 것이 없다");
+
+  const restarted = fakeRes();
+  lm.addClient(restarted, "owner", `${lm.boot - 1}.99`);
+  assert.deepEqual(gapOf(restarted), [{ missed: 7 }], "다시 시작했으면 이 실행의 1번부터 센다");
+
+  const fresh = fakeRes();
+  lm.addClient(fresh, "owner");
+  assert.deepEqual(gapOf(fresh), [], "처음 연결");
 });
 
 test("관리자 SSE: 연결이 닫히면 하트비트도 함께 제거한다", () => {
