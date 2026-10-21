@@ -39,7 +39,7 @@
         <div v-if="entry.mark" class="flex items-center gap-2 py-1 text-xs text-on-surface-variant">
           <span class="flex-1 border-t border-dashed border-outline-variant"></span>
           <Icon :name="entry.mark === 'gap' ? 'sync_problem' : 'restart_alt'" :size="16" />
-          <span class="min-w-0 text-center">{{ entry.mark === "gap" ? T.missed(entry.missed, KEPT_LINES) : T.restarted }}</span>
+          <span class="min-w-0 text-center">{{ entry.mark === "gap" ? T.missed(entry.missed) : T.restarted }}</span>
           <span class="flex-1 border-t border-dashed border-outline-variant"></span>
         </div>
         <div v-else class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5">
@@ -69,7 +69,7 @@ import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-ch
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { koMatch } from "../../../src/rules/ko-search.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
-import { KEPT_LINES, LEVELS, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
+import { LEVELS, isLevel, type LevelName, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { LogRow } from "../utils/log-rows.ts";
 import { formatClock } from "../utils/locale.ts";
 import { text } from "../text/index.ts";

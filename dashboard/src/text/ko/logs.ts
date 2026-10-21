@@ -13,7 +13,7 @@ const clear = "지우기";
 const empty = "표시할 로그가 아직 없어요";
 const search = "로그에서 찾기";
 /** 표시 줄: 다시 붙었을 때 서버가 쌓아 둔 줄 밖으로 밀려나 받지 못한 줄 · 봇 재시작 */
-const missed = (count: number, kept: number) => `보관 한도 ${formatNumber(kept)}줄을 넘어 ${formatNumber(count)}줄을 받지 못했어요`;
+const missed = (count: number) => `연결이 끊긴 사이 ${formatNumber(count)}줄이 실시간 버퍼에서 밀려났어요`;
 const restarted = "봇이 다시 시작했어요";
 
 export { title, connected, disconnected, lines, allCategories, allTags, autoScroll, clear, empty, search, missed, restarted };
