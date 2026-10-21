@@ -164,7 +164,7 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
       auth.getYtDlpOptions(
         {
           dumpSingleJson: true,
-          format: "bestaudio/best",
+          format: run.AUDIO_FORMAT,
         },
         { forceCookies },
       ),

@@ -345,7 +345,7 @@ class TrackDownloader {
       // 일본어·한국어 제목이 깨지고(Windows 의 cp949), PYTHONIOENCODING으로도 안 바뀐다.
       // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
       writeInfoJson: true,
-      format: "bestaudio/best",
+      format: YouTube.AUDIO_FORMAT,
       preferFreeFormats: true,
       // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
       // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 실행되지 않는다.

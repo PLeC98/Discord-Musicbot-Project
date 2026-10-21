@@ -22,6 +22,11 @@ import { clearOutput, familyOf } from "../ytdlp-spawn.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
+/** 음원 포맷 고르기. 오디오 전용이 없으면 영상이 섞인 것도 받는다. 시도마다 좁히고 넓히는 것은 formatFor 가 한다 */
+const AUDIO_FORMAT = "bestaudio/best";
+// 영상이 섞인 것을 받을 때는 작은 것부터(360p 통합이 1080p HLS 보다 다섯 배쯤 작고 소리는 같은 AAC 다)
+const SMALL_VIDEO = ["res:360"] as unknown as Flags["formatSort"];
+
 /**
  * yt-dlp 호출을 연령 제한 폴백과 함께 실행.
  *  - 해당 videoId가 이미 연령 제한으로 알려져 있으면 처음부터 쿠키 사용(실패 시도 생략 → 영상당 실패 1회 보장).
@@ -68,11 +73,12 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
 }
 
 /**
- * player_client를 순서대로 시도한다. 지정이 없으면 호출 한 번으로 끝. 기존과 동일하다.
+ * player_client를 순서대로 시도한다. 지정이 없으면 호출 한 번으로 끝.
  *
  * 클라이언트 탓으로 보이는 실패에서만 다음으로 넘어가고 빈도를 기록한다. 영상이 없어졌거나
  * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다.
- * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다.
+ * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다. 쿠키를 못 받아 건너뛴 클라이언트는 세지 않고 다음으로 간다.
+ * 쿠키 없는 클라이언트 시도는 오디오 전용만 받는다(SABR 이 걸리면 영상이 섞인 포맷만 남는 클라이언트가 있다). 마지막 시도 · 쿠키 시도는 무엇이든 받는다.
  * retry: 다시 묻는 것이다. 첫 시도 뒤의 시도도 다시 묻기라 yt-dlp 줄의 맨 앞에 선다(곡 찾기 하나가 줄 끝을 여러 번 기다리지 않게)
  */
 async function _runWithClients(url: string, buildOptions: BuildOptions, forceCookies: boolean, exec: RunYtDlp, retry = false): Promise<unknown> {
@@ -81,7 +87,7 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
 
   if (clients.length === 0) {
     if (!table.idle) table.noteExhausted(); // 지정은 했는데 전부 제외됨
-    return _runOnce(url, buildOptions(forceCookies), null, exec, retry);
+    return _runOnce(url, formatFor(buildOptions(forceCookies), false), null, exec, retry);
   }
 
   let lastError: unknown = null;
@@ -93,15 +99,22 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
     if (i > 0) fresh();
+    const options = formatFor(buildOptions(forceCookies), !forceCookies);
     try {
-      const result = await _runOnce(url, buildOptions(forceCookies), client, exec, retry || i > 0);
+      const result = await _runOnce(url, options, client, exec, retry || i > 0);
+      if (!forceCookies) requireAudioOnly(result, options);
       table.record(client, true);
       return result;
     } catch (error) {
+      const next = clients[i + 1];
+      if (errors.isSkippedClientError(error)) {
+        lastError = error;
+        log.debug(`${client} 는 쿠키를 받지 않아 yt-dlp 가 건너뛰었습니다${next ? `. ${next} 로 전환합니다` : ""}`);
+        continue;
+      }
       if (!errors.isClientFault(error)) throw error; // 영상·네트워크 문제. 클라이언트 바꿔봐야 소용없다
       lastError = error;
       table.record(client, false);
-      const next = clients[i + 1];
       log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors._faultReason(error)})${next ? `. ${next} 로 전환합니다` : ""}`);
     }
   }
@@ -110,10 +123,30 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
   log.warn({ tags: ["fallback"] }, `지정한 클라이언트를 모두 시도했습니다. yt-dlp 기본값으로 마지막 시도를 합니다`);
   fresh();
   try {
-    return await _runOnce(url, buildOptions(forceCookies), null, exec, true);
+    return await _runOnce(url, formatFor(buildOptions(forceCookies), false), null, exec, true);
   } catch {
     throw lastError; // 원인 파악에는 클라이언트별 실패가 더 유용하다
   }
+}
+
+/**
+ * 시도에 맞춘 포맷 고르기. AUDIO_FORMAT 을 쓰는 실행만 바꾼다.
+ * audioOnly: 오디오 전용만 받는다. 다운로드는 고르기를 좁히고(라이브는 받지 않는다), 정보 추출은 고른 것을 requireAudioOnly 가 본다(라이브는 오디오 전용이 없다).
+ * 아니면 영상이 섞인 것도 받되 작은 것부터
+ */
+function formatFor(options: Flags, audioOnly: boolean): Flags {
+  if (options.format !== AUDIO_FORMAT) return options;
+  if (!audioOnly) return { ...options, formatSort: SMALL_VIDEO };
+  return options.dumpSingleJson ? options : { ...options, format: "bestaudio" };
+}
+
+/** 정보 추출이 영상이 섞인 포맷을 골랐으면(라이브가 아닌데) 그 클라이언트의 실패로 친다 */
+function requireAudioOnly(result: unknown, options: Flags) {
+  if (options.format !== AUDIO_FORMAT || !options.dumpSingleJson) return;
+  const info = result as { vcodec?: string | null; format_id?: string; is_live?: boolean; live_status?: string } | null;
+  if (!info?.vcodec || info.vcodec === "none") return;
+  if (info.is_live || info.live_status === "is_live" || info.live_status === "is_upcoming") return;
+  throw Object.assign(new Error(`오디오 전용 포맷이 없습니다(고른 것 ${info.format_id ?? "모름"})`), { code: errors.NO_AUDIO_ONLY });
 }
 
 /**
@@ -194,7 +227,8 @@ async function fromInfo(info: unknown, options: Flags, output: string, exec: Run
   const { dir, stem } = familyOf(output);
   // 출력 묶음 안(임시 파일 정리 · 멎은 다운로드 감시가 그대로 덮는다)
   const file = path.join(dir, `${stem}.load.json`);
-  const { cookies: _cookies, cookiesFromBrowser: _browser, ...flags } = options;
+  // 불러온 정보에서 다시 고른다. 추출이 고른 것과 같게, 오디오 전용이 없으면 작은 영상부터
+  const { cookies: _cookies, cookiesFromBrowser: _browser, ...flags } = formatFor(options, false);
   try {
     fs.writeFileSync(file, JSON.stringify(info));
     return { result: await exec("", { ...flags, loadInfoJson: file }) };
@@ -208,5 +242,5 @@ async function fromInfo(info: unknown, options: Flags, output: string, exec: Run
   }
 }
 
-export { runYtDlp, downloadAudio, _runWithClients, _runOnce, _inspectWarnings };
+export { AUDIO_FORMAT, runYtDlp, downloadAudio, _runWithClients, _runOnce, _inspectWarnings };
 export type { BuildOptions };

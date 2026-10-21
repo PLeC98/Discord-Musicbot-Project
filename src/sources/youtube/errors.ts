@@ -75,9 +75,14 @@ function isSkippedClientError(error: unknown) {
   return /Skipping client "[\w-]+"/i.test(msg);
 }
 
+/** 오디오 전용만 받는 시도에서 그 클라이언트가 영상이 섞인 포맷만 줬다(ytdlp-run 이 붙인다) */
+const NO_AUDIO_ONLY = "no-audio-only";
+const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
+
 /** 이 실패가 클라이언트 탓으로 보이는가 (영상·네트워크 문제와 구별) */
 function isClientFault(error: unknown) {
   const msg = textOf(error);
+  if (isNoAudioOnly(error)) return true;
   if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
   // 실행조차 안 된 것을 실패로 세면 멀쩡한 클라이언트가 제외된다. 연령 제한 영상 몇 편이면
   // 주력 경로가 세션 내내 빠지고, 그때부터 평상시 재생까지 기본값으로 떨어진다.
@@ -140,10 +145,11 @@ function codeOf(error: unknown) {
 
 function _faultReason(error: unknown) {
   const msg = textOf(error);
+  if (isNoAudioOnly(error)) return "오디오 전용 포맷 없음";
   if (/PO Token/i.test(msg)) return "POToken 필요";
   if (/only images are available/i.test(msg)) return "재생 가능한 포맷 없음";
   if (/requested format is not available/i.test(msg)) return "요청한 포맷 없음";
   return "포맷 획득 실패";
 }
 
-export { briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };
+export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };

@@ -418,3 +418,81 @@ test("다운로드를 다른 클라이언트로 다시 받기 전에도 받다 �
     playerClients.order = [];
   }
 });
+
+// ── 오디오 전용 포맷 고르기 ───────────────────────────────────────────
+
+// 고른 포맷만 다른 영상 정보(영상이 섞인 것 · 오디오 전용)
+const picked = (id: string, formatId: string, vcodec: string, extra: Record<string, unknown> = {}) => ({ ...video(id), format_id: formatId, vcodec, acodec: "mp4a.40.2", url: `https://rr1.googlevideo.com/${formatId}`, ...extra });
+
+test("정보 추출: 클라이언트가 영상이 섞인 포맷만 주면 다음 클라이언트로 간다. 마지막 시도는 무엇이든 받되 작은 영상부터", async () => {
+  playerClients.order = ["web_embedded", "mweb"];
+  try {
+    respond = (_url, flags) => (flags.extractorArgs ? picked("sssssssssss", "96", "avc1.640028") : picked("sssssssssss", "18", "avc1.42001E"));
+    const info = await YouTube.getInfo("https://www.youtube.com/watch?v=sssssssssss");
+    assert.equal(info.title, "영상 sssssssssss");
+    assert.deepEqual(
+      calls.map((c) => [c.flags.extractorArgs ?? null, c.flags.format, c.flags.formatSort ?? null]),
+      [
+        ["youtube:player_client=web_embedded", "bestaudio/best", null],
+        ["youtube:player_client=mweb", "bestaudio/best", null],
+        [null, "bestaudio/best", ["res:360"]],
+      ],
+    );
+  } finally {
+    playerClients.order = [];
+  }
+});
+
+test("정보 추출: 오디오 전용을 주는 클라이언트에서 끝난다. 라이브는 영상이 섞여도 받는다", async () => {
+  playerClients.order = ["visionos", "mweb"];
+  try {
+    respond = () => picked("aaaaaaaaaaa", "251", "none");
+    await YouTube.getInfo("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+    assert.equal(calls.length, 1);
+
+    calls.length = 0;
+    respond = () => picked("lllllllllll", "95", "avc1.4D401F", { is_live: true, live_status: "is_live" });
+    await YouTube.getInfo("https://www.youtube.com/watch?v=lllllllllll");
+    assert.equal(calls.length, 1);
+  } finally {
+    playerClients.order = [];
+  }
+});
+
+test("다운로드: 클라이언트 시도는 오디오 전용만 고르고, 마지막 시도는 작은 영상부터", async () => {
+  playerClients.order = ["web_embedded"];
+  try {
+    const { ran, exec } = downloadRig(() => Object.assign(new Error("ERROR: Requested format is not available"), { stderr: "ERROR: Requested format is not available" }));
+    const build = () => ({ output: path.join(TMP, "f.tmp-1-ab.opus"), format: YouTube.AUDIO_FORMAT, extractAudio: true });
+    await assert.rejects(YouTube.runYtDlp("https://www.youtube.com/watch?v=ddddddddddd", build, exec));
+    assert.deepEqual(
+      ran.map((r) => [r.flags.format, r.flags.formatSort ?? null]),
+      [
+        ["bestaudio", null],
+        ["bestaudio/best", ["res:360"]],
+      ],
+    );
+  } finally {
+    playerClients.order = [];
+  }
+});
+
+test("쿠키 시도: 쿠키를 못 받아 건너뛴 클라이언트는 다음으로 간다(실패로 세지 않는다). 쿠키 시도는 무엇이든 받는다", async () => {
+  playerClients.order = ["visionos", "web_embedded"];
+  playerClients.history.clear();
+  try {
+    const { ran, exec } = downloadRig(() => (ran.length === 1 ? Object.assign(new Error("skipped"), { stderr: 'WARNING: [youtube] Skipping client "visionos" since it does not support cookies\nERROR: Requested format is not available' }) : null));
+    const build = () => ({ output: path.join(TMP, "c.tmp-1-ab.opus"), format: YouTube.AUDIO_FORMAT, cookies: "jar" });
+    await YouTube._runWithClients("https://www.youtube.com/watch?v=kkkkkkkkkkk", build, true, exec);
+    assert.deepEqual(
+      ran.map((r) => [r.flags.extractorArgs, r.flags.format, r.flags.formatSort ?? null]),
+      [
+        ["youtube:player_client=visionos", "bestaudio/best", ["res:360"]],
+        ["youtube:player_client=web_embedded", "bestaudio/best", ["res:360"]],
+      ],
+    );
+    assert.equal(playerClients.history.get("visionos"), undefined, "건너뛴 클라이언트는 기록하지 않는다");
+  } finally {
+    playerClients.order = [];
+  }
+});
