@@ -57,7 +57,7 @@ const GB = 1024 ** 3;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 /**
  * 자동 크기. 메모리는 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로.
- * 곡 찾기는 하나가 약 400MB(JS 과제를 푸는 node 포함, 리눅스 노트북 실측)라 메모리의 1/4 를 넘지 않게 2GB 마다 하나, 2 ~ 8.
+ * 곡 찾기는 하나가 약 400MB(JS 과제를 푸는 node 포함)라 메모리의 1/4 를 넘지 않게 2GB 마다 하나, 2 ~ 8.
  * 다운로드 · 미리 받기는 하나가 그만큼에 변환 CPU 까지 들어 4GB 마다 하나, 2 ~ 4
  */
 function autoSlots(constrained: number, total: number): Record<Lane, number> {

@@ -30,7 +30,7 @@ function complaint(fn: () => unknown = () => genreConfig.genres()) {
   return { code: "CONFIG_INVALID", message: line.text, got };
 }
 
-// 실측(2026-09-16): 이 라이브러리는 YAML 1.2 core라 no·yes·on·off·y·n이 전부 문자열이다.
+// 이 라이브러리는 YAML 1.2 core라 no·yes·on·off·y·n이 전부 문자열이다.
 // 값으로 읽히는 것은 true/false/null뿐이고, null 키는 빈 문자열이 된다.
 test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 마찬가지", () => {
   for (const key of ["true", '"true"', "null"]) {

@@ -43,7 +43,7 @@ type SourceTypeView = {
   window: Window | null;
 };
 
-// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(실측은 sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 선택한다
+// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 선택한다
 const VOCA_WINDOW: Window = { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 };
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
@@ -116,7 +116,7 @@ const SEASON_OPTIONS = opts([
 ]);
 
 // 사이트마다 있는 것이 다르다. 돌려쓰면 없는 값을 선택하게 되고, 그걸 넣으면 0곡이 온다.
-// (실측 2026-09-18. 유튜브 PV 있는 곡 기준으로 한 건이라도 있는 것만)
+// (유튜브 PV 가 있는 곡이 한 곡이라도 있는 것만)
 const VOCA_SONG_TYPES: Record<Site, string[]> = {
   vocadb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "DramaPV", "Other"],
   utaitedb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "Live", "Other"],
@@ -132,12 +132,11 @@ const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
 };
 
 // 가사 언어. 저쪽이 목록을 안 주므로 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다
-// (실측 2026-09-18, 유튜브 PV 있는 곡 기준. 사이트마다 다르고, 많은 순서다).
+// (유튜브 PV 가 있는 곡 기준. 사이트마다 다르고, 많은 순서다).
 //
-// ha·ln·yo·jv 는 뺐다. 표본 20곡이 전부 "로마자 표기" 항목이었다. 하우사어 곡 12,997개가
-// 있는 것이 아니라, 로마자 가사에 엉뚱한 코드가 붙어 있는 것이다.
+// ha·ln·yo·jv 는 뺐다. 그 언어의 곡이 아니라 로마자 가사에 엉뚱한 코드가 붙은 것이다.
 //
-// 번역 가사만 있는 곡도 걸린다(영어는 표본의 절반쯤). 그 언어로 부른 곡만 필터링할 방법은 저쪽에 없다.
+// 번역 가사만 있는 곡도 걸린다. 그 언어로 부른 곡만 필터링할 방법은 저쪽에 없다.
 const LANG_NAMES: Record<string, string> = {
   ja: "일본어",
   en: "영어",

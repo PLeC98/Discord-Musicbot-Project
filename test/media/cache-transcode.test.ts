@@ -52,7 +52,7 @@ test("캐시 변환은 코덱을 못 박지 않는다 — yt-dlp 가 소스를 �
   assert.ok(!ppa.includes("libopus"), `libopus 를 적으면 리먹싱 판단을 덮는다: ${ppa}`);
 
   // 비트레이트는 남긴다 — 스트림 카피에는 무시되고, 진짜 변환이 필요한 AAC 소스에만 걸린다.
-  // 빼면 그때 libopus 기본값(실측 95k)으로 떨어진다.
+  // 빼면 그때 libopus 기본값(128k 보다 낮다)으로 떨어진다.
   assert.equal(ppa, "ffmpeg:-b:a 128k");
 
   assert.ok(argv.includes("--extract-audio"));

@@ -25,7 +25,7 @@ import { logTitle } from "../infra/log/title.ts";
 
 /** 소리를 어디서 받을지 정한 것 */
 type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
-// 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
+// 안 정하면 캐시(128k)보다 낮은 libopus 기본값으로 나간다. 그래서 캐시에 맞춘다.
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
 const SEND_BITRATE = 128_000;
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다

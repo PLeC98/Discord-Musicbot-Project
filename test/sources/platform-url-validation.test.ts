@@ -33,8 +33,7 @@ test("recognizes canonical YouTube playlists and video IDs", () => {
   assert.equal(links.extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
 });
 
-// /live/ID가 빠져 있어 URL 문자열이 그대로 검색어가 됐고, 검색이 돌려준 무관한 영상이 재생됐다
-// (2026-09-08 실사용 발견). 형태별로 못박는다.
+// 형태를 하나라도 놓치면 URL 문자열이 그대로 검색어가 되어 무관한 영상이 재생된다. 형태별로 못박는다.
 test("YouTube URL 형태별 인식 — /live/ 포함", () => {
   const shapes = [
     ["https://www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"],

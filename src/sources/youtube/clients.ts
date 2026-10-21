@@ -10,7 +10,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
 import config from "../../config/index.ts";
 
-// 2026-09-11 기준, yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
+// yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.
 // 이걸로 필터링하면 yt-dlp가 나중에 추가하는 클라이언트를 우리가 막게 됨.
 const KNOWN = ["web", "web_safari", "web_embedded", "web_music", "web_creator", "mweb", "android", "android_vr", "ios", "tv", "tv_simply", "tv_downgraded", "visionos"];
@@ -19,7 +19,7 @@ const KNOWN = ["web", "web_safari", "web_embedded", "web_music", "web_creator", 
 // 유튜브가 바꾸면 이 표가 먼저 틀려지므로, 판단의 최종 근거는 실행 중 관측값
 //
 // web_creator는 우리가 선택하는 값이 아니다. 연령 제한 영상에서 yt-dlp가 알아서 끼워 넣는다.
-// POToken 없이 부르면 오디오 전용 포맷을 통째로 버리고 360p 통짜 하나만 남긴다(2026-09-22 실측).
+// POToken 없이 부르면 오디오 전용 포맷을 통째로 버리고 360p 통짜 하나만 남긴다.
 // 정상 동작이므로 경고가 아니라 debug로 흘려야 한다.
 const NEEDS_POT = ["mweb", "tv_simply", "web_creator"];
 

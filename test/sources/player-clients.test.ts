@@ -1,6 +1,6 @@
 // src/sources/youtube/clients.ts — 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
 // 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가
-// 달라서(2026-09-11 실측) 성공이 섞이면 연속 카운터가 계속 리셋된다.
+// 달라서 성공이 섞이면 연속 카운터가 계속 리셋된다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -88,8 +88,7 @@ test("빈 값은 빈 배열 — 미설정과 같다", () => {
 
 test("안내용 목록끼리 어긋나지 않는다", () => {
   for (const c of NEEDS_POT) assert.ok(KNOWN.includes(c), `${c}가 KNOWN에 없다`);
-  // KNOWN은 2026-09-11에 yt-dlp가 실제로 알아듣는 것만 담는다. 예전 목록에는 이 넷이
-  // 들어 있었는데 전부 없는 이름이었고, yt-dlp가 조용히 기본값으로 떨어져 "된다"고 오인했다.
+  // KNOWN은 yt-dlp가 실제로 알아듣는 것만 담는다. 아래 넷은 없는 이름이라 넘기면 yt-dlp가 조용히 기본값으로 떨어진다.
   for (const gone of ["android_music", "android_creator", "ios_music", "tv_embedded"]) {
     assert.ok(!KNOWN.includes(gone), `${gone}은 이 yt-dlp가 모르는 이름이다`);
   }

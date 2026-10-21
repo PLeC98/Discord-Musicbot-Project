@@ -1,7 +1,6 @@
 // src/media/convert.ts: 다운로드한 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
-// 회귀 대상: 직접 링크 분기가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
-// 이미 Opus 186~329k 인데 그걸 128k 로 다시 구워 저장했다(2026-09-21 실측).
+// 직접 링크도 무엇이 들어오든 다시 굽지 않는다. 이미 높은 비트레이트의 Opus(AnimeThemes 는 186 ~ 329k)를 128k 로 굽지 않게.
 //
 // 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus 로 다시 쓸지 재는 곳에만 걸리고,
 // 변환 목표는 소스 비트레이트와 무관하다. mp3 128k 와 Opus 128k 는 같은 값이 아니므로
@@ -31,7 +30,7 @@ test("이미 Opus 면 그대로 옮긴다. 손실 세대를 쓰지 않는다", (
 });
 
 test("상한을 아슬아슬하게 넘긴 것은 굽지 않는다. 구우면 오히려 커진다", () => {
-  // 실측: 323k 를 `-b:a 320k` 로 구웠더니 324k 가 나오고 파일이 4KB 늘었다(libopus VBR).
+  // 323k 를 `-b:a 320k` 로 구우면 324k 가 나오고 파일이 커진다(libopus VBR).
   // 손실 세대와 CPU 를 쓰고 용량도 손해라면 할 이유가 없다.
   for (const kbps of [REMUX_MAX_KBPS + 1, 329, Math.floor(REMUX_MAX_KBPS * REMUX_SLACK)]) {
     assert.equal(planFor({ codec: "opus", bitrateKbps: kbps }).action, "copy", `${kbps}k`);
@@ -43,7 +42,7 @@ test("크게 넘는 Opus 만 상한까지 낮춰 다시 굽는다", () => {
   assert.equal(plan.action, "transcode");
   assert.equal(plan.bitrateKbps, REMUX_MAX_KBPS, "상한까지만 낮춘다");
 
-  // 상시 작동하는 값이면 상한이 아니라 그냥 재인코딩 정책이다. 실측 표본이 다 통과해야 한다.
+  // 상시 작동하는 값이면 상한이 아니라 그냥 재인코딩 정책이다. 실제 음원 표본이 다 통과해야 한다.
   for (const kbps of [186, 205, 288, 310, 318, 319]) {
     assert.equal(planFor({ codec: "opus", bitrateKbps: kbps }).action, "copy", `AnimeThemes ${kbps}k`);
   }

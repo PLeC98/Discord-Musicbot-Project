@@ -28,14 +28,13 @@ const VOCA_PAGE = 50;
 // 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
 const VOCA_TIMEOUT_MS = 35_000;
 
-// 정렬 순서에서 몇 번째까지 볼지는 VOCA_WINDOW(genreSources). 깊은 창은 저쪽이 못 준다(실측 2026-09-25/26, vocadb):
-//   가수 · 가수 분류  깊이에 비례해 느려진다. UTAU 0 → 1초, 1,000 → 3~7초, 5,000 → 13~20초, 15,000 이상은 대개 500
-//   그 밖             조건이 없으면 30,000 → 10초, 120,000 이상은 500. minScore 를 걸면 빠르다(7,000번째도 0.6초)
+// 정렬 순서에서 몇 번째까지 볼지는 VOCA_WINDOW(genreSources). 깊은 창은 저쪽이 못 준다:
+// 깊이에 비례해 느려지고 너무 깊으면 500 을 준다. 가수 · 가수 분류를 걸면 훨씬 얕은 데서 그렇고, minScore 를 걸면 빠르다.
 // 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽에서 선택하게 된다. 보통 설정(minScore 등)은 기본 깊이보다 적어 전체에서 선택한다
 
 // 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
 // 가사 언어: `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다. 그리고 한 번에 하나만 건다:
-// 둘을 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 줄어든다(실측 2026-09-18).
+// 둘을 걸면 "둘 다 있는 곡"이 되어 크게 줄어든다.
 // 가수 분류: 웹은 아티스트 검색에만 보이지만 곡에도 걸린다. 여럿 선택하면 모두 참여한 곡이다
 function advancedFilters(lang: string | null, artistTypes: string[] = []) {
   const list = [...(lang ? [["Lyrics", lang]] : []), ...artistTypes.map((type) => ["ArtistType", type])];
@@ -204,8 +203,7 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
 function candidateOf(song: Song, type: Site): Candidate | null {
   // disabled 를 꼭 봐야 한다. 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
   // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 선택해 재생이 실패한다.
-  // 실측: vocadb 100곡 중 10곡에 죽은 PV가 섞여 있다. Bad Apple!! 은 죽은 Original 다음에
-  // 멀쩡한 Original 이 있어서, 안 보면 정확히 틀린 것을 집는다.
+  // 죽은 PV 는 드물지 않고, 죽은 Original 다음에 멀쩡한 Original 이 오는 곡도 있어 안 보면 틀린 것을 집는다.
   const pvs = (song.pvs || []).filter((p) => p.service === "Youtube" && !p.disabled);
   const pv = pvs.find((p) => p.pvType === "Original") || pvs[0];
   if (!pv?.url || !song.name) return null;

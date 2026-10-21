@@ -18,8 +18,7 @@ discordArt.useHead(async () => ({ ok: true, status: 200 }));
 const newManager = () => new NowPlayingPanel(fake<Client>({}), new Map());
 
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
-// 직접 링크는 thumbnail이 null이라 now-playing 갱신이 매번 CombinedError로 죽었다
-// (2026-09-08 실사용 발견 — 재생은 되는데 임베드만 계속 실패).
+// 직접 링크는 thumbnail이 null 일 수 있다(그대로 보내면 갱신이 매번 CombinedError 로 실패한다).
 test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능한 형태여야 한다", async () => {
   const mem = newManager();
   const player = fakePlayer({
@@ -86,7 +85,7 @@ test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보�
 });
 
 // ── 끝난 패널 ──
-// 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
+// 부르는 곳이 현재 곡을 먼저 비우므로, 버튼 끄기는 곡 정보 없이도 돌아야 한다.
 
 // 전용 채널은 임시 DB 에 둔다
 const store = tempStore.openTempStore("embed-manager-");

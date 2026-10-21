@@ -1,5 +1,5 @@
 // 사운드클라우드 출처(sources/soundcloud). yt-dlp 는 실행하는 exec 만 가짜로 둔다(응답 · 오류 모양 맞추기는 진짜가 돈다).
-// 응답 모양은 2026-09-27 실측(곡 · 세트 · 미리듣기 · 지역 제한)을 따른다.
+// 응답 모양은 실제 응답(곡 · 세트 · 미리듣기 · 지역 제한)을 따른다.
 
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -81,7 +81,7 @@ test("곡 링크의 실패는 까닭의 이름을 단다: 없음 · 지역 제�
 });
 
 test("세트: 한 구간을 온전히 읽고, 받을 수 없는 곡과 미리듣기는 빼고 센다", async () => {
-  // 실측 모양: 지역 제한이 섞이면 1 로 끝나지만 JSON 은 끝까지 오고, 못 받은 곡은 null
+  // 실제 모양: 지역 제한이 섞이면 1 로 끝나지만 JSON 은 끝까지 오고, 못 받은 곡은 null
   respond = () => ({
     json: { _type: "playlist", id: "1860035430", title: "Chill Guitar", playlist_count: 50, entries: [null, item("a"), item("p", { duration: 30, formats: preview }), null, item("b")] },
     fail: GEO,
@@ -153,7 +153,7 @@ test("캐시 다운로드: 미리듣기 곡은 고를 포맷이 없어 '포맷 �
   await assert.rejects(SoundCloud.download("https://soundcloud.com/artist/preview", { output: "x.opus" }), (e: unknown) => codeOf(e) === "no-formats");
 });
 
-// 세트 하나가 곡마다 요청을 30개 남짓 쓴다. 서버 여럿이 동시에 넣어 겹치면 IP 가 막힌다(실측)
+// 세트 하나가 곡마다 요청을 30개 남짓 쓴다. 서버 여럿이 동시에 넣어 겹치면 IP 가 막힌다
 test("세트 읽기는 한 번에 하나씩, 곡 하나는 기다리지 않는다", async () => {
   const order: string[] = [];
   const held: Array<() => void> = [];

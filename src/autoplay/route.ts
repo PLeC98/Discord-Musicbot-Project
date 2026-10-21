@@ -94,7 +94,7 @@ const isDead = (url: string | null | undefined) => {
 
 // 글자와 숫자만 남긴다. 소스마다 띄어쓰기·하이픈·장식 기호가 달라서, 공백만 정리해서는
 // 같은 곡을 놓친다: `Nan mo nee`/`Nanmonee`, `Laid-Back Journey`/`Laid Back Journey`,
-// `Happy☆Material`/`Happy Material`. 두 애니송 DB 를 짝지어 재 보니 81.5% → 88.2%였다.
+// `Happy☆Material`/`Happy Material`.
 //
 // ⚠️ `[^a-z0-9]` 로 쓰면 안 된다. 일본어 제목이 통째로 빈 문자열이 되어 서로 다른 곡이
 //    전부 하나로 뭉개진다. 소스 절반이 일본어 제목을 준다. \p{L}\p{N} 여야 한다.
@@ -275,7 +275,7 @@ async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | u
     return null;
   }
   // 검색으로 얻은 것(키워드)만 한 번 더 묻는다. 주소를 직접 주는 소스는 출처가 곧 정답이다.
-  // 실측에서 AI가 규칙을 이긴 것이 바로 이 경로였다(86% → 95%).
+  // AI 판정이 규칙보다 나은 것이 이 경로다.
   if (cand.fromSearch && !(await assist.accepts(track, { genre, pick }))) return null;
   return track;
 }

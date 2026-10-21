@@ -490,7 +490,7 @@ test("출처 곡을 최근에 틀었으면 같은 영상을 다른 이름으로 
   assert.equal(reject({ title: "ファタール", youtubeUrl: "https://www.youtube.com/watch?v=fatalfatal1" }), true);
 });
 
-// 소스마다 띄어쓰기·하이픈·장식 기호를 다르게 적는다. 실측한 실제 쌍들이다.
+// 소스마다 띄어쓰기·하이픈·장식 기호를 다르게 적는다. 실제로 나온 쌍들이다.
 test("표기가 다른 같은 곡을 같다고 본다", () => {
   const same = [
     [

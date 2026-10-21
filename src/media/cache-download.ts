@@ -178,8 +178,7 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: { getStream: (url) => openDirectInput(url) }, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
 // 조각으로 다운로드하는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 조각이 아닌 포맷에는 걸리지 않는다.
-// 실측(2026-09-30): 유튜브는 넷 이상이면 조각 170 ~ 320 즈음부터 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도).
-// 조각 2338개 하나씩 약 2.2분 · 둘씩 55초. 사운드클라우드는 여덟까지 막히지 않고, 아무도 다운로드하지 않은 곡은 하나씩 223KiB/s · 넷씩 734KiB/s
+// 유튜브는 넷 이상이면 도중에 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
 class TrackDownloader {
   player: Owner;
@@ -340,7 +339,7 @@ class TrackDownloader {
       output: tempPath,
       // 이 다운로드에 곁들여 메타데이터를 파일로 다운로드한다. 왕복이 늘지 않는다.
       // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
-      // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
+      // 일본어·한국어 제목이 깨지고(Windows 의 cp949), PYTHONIOENCODING으로도 안 바뀐다.
       // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
       writeInfoJson: true,
       format: "bestaudio/best",

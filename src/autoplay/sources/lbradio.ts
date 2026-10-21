@@ -9,7 +9,7 @@ import type { Candidate } from "./candidate.ts";
 // 여기서 읽는 필드만
 type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: string; title?: string; duration?: number; identifier?: string[] }> } } } };
 
-// LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).
+// LB Radio는 재생목록을 그때그때 짜 주느라 느리다.
 // 15초로는 자주 끊겨 멀쩡한 소스가 빈손으로 취급된다.
 const SLOW_MS = 30000;
 

@@ -4,7 +4,7 @@
        가운데: 시간 눈금(확대에 맞춰 간격이 바뀐다)에 재생 위치 · 정지 화면 마커, 마커에서 띠 아래까지 줄. 띠는 일정 간격으로 뜬 장면을 깔고, 구간 밖은 어둡게, 양 끝 핸들로 구간.
        눈금이나 띠를 누르거나 끌면 그 위치로. 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 정지 화면 시각(누르면 그 위치로).
        장면은 봇이 가져올 때 만든 장면 띠(GET …/:id/strip, 격자 WebP 한 장)를 셀마다 잘라 깐다. 띠가 아직 없으면 빈 띠 -->
-  <!-- 키로 다루려고 포커스를 받는다. 공통 포커스 테두리(3px) 대신 시간 막대 영역에 가는 1px 테두리로 포커스를 보인다(2026-10-13 사용자) -->
+  <!-- 키로 다루려고 포커스를 받는다. 공통 포커스 테두리(3px) 대신 시간 막대 영역에 가는 1px 테두리로 포커스를 보인다 -->
   <div class="group/tl flex flex-col gap-2 select-none outline-none focus-visible:outline-none" tabindex="0" @keydown="onKey">
     <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
       <span class="flex items-center gap-2">

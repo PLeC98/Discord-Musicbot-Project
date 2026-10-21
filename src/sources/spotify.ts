@@ -249,7 +249,7 @@ const official = {
   },
 
   async artist(id: string, over: Partial<Net> = {}) {
-    const a = (await net(over).get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 생략 가능(실측)
+    const a = (await net(over).get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 은 생략해도 된다
     return (a.tracks || [])
       .slice(0, 10)
       .map((t) => normApiTrack(t))
