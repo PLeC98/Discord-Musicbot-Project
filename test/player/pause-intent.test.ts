@@ -57,13 +57,13 @@ function makePlayer(status: string) {
   return Object.assign(p, { audio });
 }
 
-test("버퍼링 중에 건 일시정지는 재생으로 넘어오는 순간 걸린다 — 다시 시작 뒤 복원 회귀", () => {
+test("버퍼링 중에 건 일시정지는 재생으로 넘어오는 순간 걸린다(다시 시작 뒤 복원에서도)", () => {
   const p = makePlayer("buffering");
   assert.equal(p.pauseFor("manual"), true, "의도는 받았다고 알린다 — 일시정지 버튼이 이 값으로 응답한다");
   assert.equal(p.paused, true);
 
   p.audio.to("playing");
-  assert.equal(p.audio.state.status, "paused", "구 코드는 여기서 그대로 재생됐다");
+  assert.equal(p.audio.state.status, "paused", "버퍼링 중에 건 일시정지가 걸려 있다");
   assert.equal(p.paused, true);
 });
 

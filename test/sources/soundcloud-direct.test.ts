@@ -203,7 +203,7 @@ test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이�
   assert.equal(DirectLink.extractTitle("___.mp3"), null, "이름이 남지 않으면 표시 문구로 채우지 않고 비워 둔다");
 });
 
-// 회귀 대상: 주소 앞 12글자로 만들어 같은 호스트의 곡이 모두 같은 ID 였다
+// 주소 앞부분으로 만들면 같은 호스트의 곡이 모두 같은 ID 가 된다
 test("직접 링크 곡 ID 는 주소 전체에서 나온다", () => {
   assert.notEqual(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/b.mp3"));
   assert.equal(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/a.mp3"));

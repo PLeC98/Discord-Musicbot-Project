@@ -1,10 +1,10 @@
 // scripts/install-ffmpeg.ts(src/media/ffmpeg/release) · install-bgutil.ts — 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env 로 바꾼다.
 //
-// 회귀 대상 둘:
-// 1. 움직이는 태그(latest)를 쓰면 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
-//    게다가 BtbN은 일반 autobuild를 2주만 보관하므로 월말 빌드여야 고정이 유지된다(2년 보관).
-// 2. `FFMPEG_PATH=   # 설명` 처럼 값이 비고 주석만 있는 줄을 값으로 읽어, 설정한 적 없는 사용자가
-//    다운로드를 영영 건너뛰던 것. 사용자가 복사해 쓰는 .env.example 그대로 읽어 본다.
+// 지키는 것 둘:
+// 1. 움직이는 태그(latest)는 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
+//    BtbN은 일반 autobuild를 2주만 보관하므로 월말 빌드(2년 보관)로 고정한다.
+// 2. `FFMPEG_PATH=   # 설명` 처럼 값이 비고 주석만 있는 줄은 빈 값이다(값으로 읽으면 다운로드를 영영 건너뛴다).
+//    사용자가 복사해 쓰는 .env.example 그대로 읽어 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

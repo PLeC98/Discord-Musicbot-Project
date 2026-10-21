@@ -166,7 +166,7 @@ test("rewind: 반복을 끄기 전에 대기열 끝으로 돌아간 사본은 �
   trackState.retire(p, A, { requeue: true }); // 반복 중에 A가 끝나 기록과 대기열 끝 양쪽에 들어간 뒤 반복을 껐다
 
   trackState.rewind(p);
-  assert.deepEqual(titles(p.queue), ["A", "B", "C"], "구 코드는 A가 앞과 끝에 두 번 있었다");
+  assert.deepEqual(titles(p.queue), ["A", "B", "C"], "A가 앞과 끝에 두 번 있지 않다");
 });
 
 test("rewindRing: 대기열 반복의 이전 곡은 대기열 맨 끝 곡이다. 기록은 건드리지 않는다(복원 뒤처럼 서로 다른 객체여도 곡 수가 그대로)", () => {

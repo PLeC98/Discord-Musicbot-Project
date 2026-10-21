@@ -147,7 +147,7 @@ test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
   );
 });
 
-// 관리자 로그 스트림에는 연결 상한도 느린 소비자 처리도 없었다(감사 L-04).
+// 관리자 로그 스트림도 연결 상한 · 느린 소비자 처리를 둔다.
 // 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다.
 function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   const res = {

@@ -1,6 +1,6 @@
 // src/dashboard/routes/guilds.ts — 플레이어 조작 API의 입력 검증
-// 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
-// parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
+// 비문자열 query(TypeError면 async 핸들러라 응답 없는 unhandled rejection이 된다), "Infinity" · "50junk" 같은 느슨한 숫자,
+// 로그 · yt-dlp 로 흘러갈 제어문자를 막는다.
 // 실 라우터 + fake client/player, 모더레이터 멤버로 권한 게이트를 지나 검증 로직만 조준.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
@@ -139,7 +139,7 @@ before(async () => {
 
 after(() => server.close());
 
-// 응답이 없으면 기다리지 않고 실패한다(구 코드의 무응답 회귀를 행 대신 실패로)
+// 응답이 없으면 기다리지 않고 실패한다(무응답이면 매달리지 않고 실패로 드러나게)
 const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body, { timeoutMs: 3000 });
 
 function freshPlayer() {
@@ -150,7 +150,7 @@ function freshPlayer() {
   return player;
 }
 
-test("queue add: 비문자열 query(배열/객체/숫자)는 400 — 구 코드는 TypeError로 응답 없음", async () => {
+test("queue add: 비문자열 query(배열/객체/숫자)는 400", async () => {
   freshPlayer();
   for (const query of [["a", "b"], { q: "x" }, 42]) {
     const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query });

@@ -1,5 +1,5 @@
 // src/infra/safe-url.ts — SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
-// 회귀 대상: IPv6 리터럴 대괄호 미제거로 전 IPv6 리터럴이 DNS 경로로 빠지던 문제
+// IPv6 리터럴은 대괄호를 떼고 본다(안 떼면 모든 IPv6 리터럴이 DNS 경로로 빠진다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -27,13 +27,12 @@ test("isBlockedIp: 내부·예약 대역 차단 배터리", () => {
   for (const ip of allowed) assert.equal(isBlockedIp(ip), false, ip);
 });
 
-test("IPv6 리터럴: 대괄호를 벗겨 IP로 판정 — 내부는 리터럴 차단, 공인은 핀 접속 (L-03 회귀)", async () => {
-  // 구 코드: '[::1]'이 net.isIP 실패 → DNS 경로 → 'DNS 해석 실패'로 우연히 차단.
-  // 신 코드: IP 리터럴로 인식해 명시적 차단 (메시지로 경로 구분)
+test("IPv6 리터럴: 대괄호를 벗겨 IP로 판정 — 내부는 리터럴 차단, 공인은 핀 접속", async () => {
+  // IP 리터럴로 인식해 명시적으로 차단한다(DNS 해석 실패로 우연히 막히는 것이 아니다. 메시지로 경로를 구분한다)
   await assert.rejects(validateAndResolve("http://[::1]/x"), (e) => e instanceof SsrfError && /리터럴/.test(e.message));
   await assert.rejects(validateAndResolve("http://[fe80::1]/x"), /리터럴/);
 
-  // 공인 IPv6 리터럴은 DNS 없이 그 주소로 핀 — 구 코드에서는 사용 자체가 불가했음
+  // 공인 IPv6 리터럴은 DNS 없이 그 주소로 핀
   const { pinnedIp, family, url } = await validateAndResolve("https://[2606:4700:4700::1111]/file.mp3");
   assert.equal(pinnedIp, "2606:4700:4700::1111");
   assert.equal(family, 6);

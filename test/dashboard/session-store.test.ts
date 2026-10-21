@@ -1,5 +1,5 @@
 // src/dashboard/session-store.ts — SQLite 세션 스토어
-// 회귀 대상: MemoryStore의 다시 시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
+// 다시 시작해도 세션이 남는다(MemoryStore 는 잃는다). 임시 DB 를 쓰고 운영 sessions.db 는 건드리지 않는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -55,7 +55,7 @@ test("읽을 수 없는 세션 행은 없는 세션으로 보고 삭제한다(�
   assert.equal(left.n, 0);
 });
 
-test("다시 시작 생존: 같은 DB 파일을 다시 열어도 세션 유지 (MemoryStore 회귀)", async () => {
+test("다시 시작 생존: 같은 DB 파일을 다시 열어도 세션 유지", async () => {
   const dbPath = path.join(tmpDir, "restart.db");
   const first = new SqliteSessionStore({ dbPath });
   first.set("sid1", makeSession({ id: "u1" }));

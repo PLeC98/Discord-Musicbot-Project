@@ -261,7 +261,7 @@ test("자동재생 출처 곡: 찾아 둔 영상(음원 주소)으로 다운로�
   assert.equal(lookupRow(track.requestKey)?.platform, "lastfm");
 });
 
-// 회귀 대상: 애니 소스 곡은 링크 데이터에 작품 페이지를 키로 적어 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮었다
+// 애니 소스 곡을 작품 페이지를 키로 적으면 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮는다
 test("자동재생 곡은 링크 데이터에 요청 키(소스 안의 곡)로 적힌다. 같은 작품의 두 곡이 따로 산다", async () => {
   const page = "https://anilist.co/anime/150672";
   const song = (id: number, vid: string) => ({ title: `곡 ${id}`, pageUrl: page, requestKey: `amq:${id}`, platform: "anisongdb", audioUrl: `https://www.youtube.com/watch?v=${vid}` });

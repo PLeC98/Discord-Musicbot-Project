@@ -147,7 +147,7 @@ test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없�
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), /Some other failure/);
 });
 
-// 회귀 대상: 비공개 · 연령 제한 영상 링크를 입력하면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
+// 비공개 · 연령 제한 영상 링크는 까닭을 삼키지 않는다(삼키면 "결과를 찾을 수 없습니다"로만 보인다)
 test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "unavailable-contents");
@@ -249,7 +249,7 @@ test("재생목록: 항목이 없으면 null, 목록을 받지 못하면 까닭�
   await assert.rejects(YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL3"), (e) => codeOf(e) === "unavailable-playlist");
 });
 
-// 회귀 대상: 목록 조회 실패가 null 이 되어 없는 목록도 "믹스라서 못 쓴다"로 알렸다
+// 목록 조회 실패를 null 로 뭉개면 없는 목록도 "믹스라서 못 쓴다"로 알리게 된다
 test("자동재생 재생목록 소스: 목록을 못 받으면 그 까닭, 곡 수를 모르는 목록(믹스)만 믹스 안내", async () => {
   const playlists = await import("../../src/autoplay/sources/playlists.ts");
   const url = "https://www.youtube.com/playlist?list=PLzzz";

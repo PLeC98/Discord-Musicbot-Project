@@ -1,7 +1,6 @@
 // src/usecases/add-tracks.ts — 곡 추가 경로의 단일 코어.
 //
-// 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서
-// 코어가 둘로 나뉘어 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.
+// 슬래시 명령 · 전용 채널 · 검색 선택 · 대시보드가 같은 곡 추가 코어를 지난다(둘로 나뉘면 같은 버그를 두 번 고치고 요청자 모양도 갈린다).
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -449,7 +448,7 @@ test("봇이 쉬는 서버에서 곡을 못 찾으면 플레이어를 만들지 
   assert.equal(bot.players.has(guild.id), false);
 });
 
-test("요청자는 정규화된 모양으로 코어에 들어간다 (대시보드 username undefined 회귀)", async () => {
+test("요청자는 정규화된 모양으로 코어에 들어간다(대시보드에서 와도 username 이 있다)", async () => {
   mockResolve = () => ok("곡A");
   const bot = makeBot();
   const guild = makeGuild();

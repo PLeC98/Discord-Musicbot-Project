@@ -151,7 +151,7 @@ test("lookup: 조회 실패 + 캐시 있음 → source cache (폴백)", async ()
   assert.equal(r?.skipSegments.length, 1);
 });
 
-// 회귀 대상: 캐시가 있어도 라이브(320~565ms)를 먼저 기다려, 바로 트는 첫 곡이 그만큼 늦었다
+// 캐시가 있으면 라이브 조회를 기다리지 않는다. 기다리면 바로 트는 첫 곡이 그만큼 늦는다
 test("lookup: 캐시가 있으면 곧바로 캐시로 답하고, 라이브는 뒤에서 받아 다음 답을 고친다", async () => {
   stubFetch("vidBoth", [seg("intro", 0, 8, "skip")]);
   await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });

@@ -1,5 +1,5 @@
 // src/sources/youtube/index.ts getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
-// 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
+// 쿠키가 없다고 player_client 를 강제로 바꾸지 않는다
 // 쿠키 출처는 운영 조절값(settings.db)이라 .env 와 상관없이 기본값(쓰지 않음)으로 시작한다.
 
 import { test } from "node:test";
@@ -8,7 +8,7 @@ const YouTube = await import("../../src/sources/youtube/index.ts");
 const ytdlpOptions = await import("../../src/sources/ytdlp-options.ts");
 const config = (await import("../../src/config/index.ts")).default;
 
-test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 재생 불능 회귀)", () => {
+test("쿠키 미설정이어도 player_client를 강제하지 않음", () => {
   const opts = YouTube.getYtDlpOptions();
   assert.equal(opts.extractorArgs, undefined, "ios 강제 폴백 금지 — 기본 클라이언트 + bgutil POT에 맡김");
   assert.equal(opts.cookiesFromBrowser, undefined);
@@ -73,7 +73,7 @@ test("플러그인 루트는 하위 디렉터리 안의 yt_dlp_plugins를 찾는
   assert.equal(findPluginRoot(root), path.join(root, "plugin", "yt_dlp_plugins"));
 });
 
-test("yt_dlp_plugins를 직접 담은 디렉터리는 루트가 아니다 (POToken 미로딩 회귀)", () => {
+test("yt_dlp_plugins를 직접 담은 디렉터리는 루트가 아니다(그러면 POToken 플러그인을 못 읽는다)", () => {
   const { findPluginRoot } = YouTube._internals;
   const root = fixture(path.join("plugin", "yt_dlp_plugins", "extractor"));
   assert.equal(findPluginRoot(path.join(root, "plugin")), null, "한 단계 안쪽을 넘기면 yt-dlp가 못 찾는다");
@@ -159,9 +159,8 @@ test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () =
 
 // ── 미디어 주소가 어긋난 실패 ─────────────────────────────────────────────
 
-// 회귀 대상: 자동재생이 고른 곡이 `HTTP Error 403: Forbidden`으로 실패했는데, 같은 영상을
-// 몇 분 뒤 직접 틀면 멀쩡히 재생됐다. 영상 문제가 아니라 서명된 미디어 주소의 문제라
-// 다시 받으면 풀린다. 그런데 이 오류가 어디에도 걸리지 않아 한 번에 실패로 끝났다.
+// 다운로드 중의 `HTTP Error 403: Forbidden` 은 영상 문제가 아니라 서명된 미디어 주소의 문제라 다시 받으면 풀린다.
+// 영상이 없어진 것과 구분해 다시 시도하게 한다.
 test("다운로드하다 막힌 것과 영상이 없어진 것을 구분한다", () => {
   const err = (msg: string) => ({ stderr: msg });
 

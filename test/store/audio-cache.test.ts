@@ -295,8 +295,7 @@ async function withCacheLimits(limits: { maxFiles?: number; maxSizeBytes?: numbe
 }
 
 // ── 중단된 다운로드 잔해 정리 ──────────────────────────────────────
-// 회귀 대상: 라이브 매칭 등으로 다운로드가 중단되면 yt-dlp가 track_<md5>.opus.part 등을 남기는데,
-// _cleanOrphanFiles가 .opus만 훑어서 이 부스러기들이 영구 잔류하고 용량만 먹던 문제.
+// 다운로드가 중단되면 yt-dlp가 track_<md5>.opus.part 등을 남긴다. _cleanOrphanFiles 는 .opus 말고 이런 부스러기도 치운다.
 
 import crypto from "node:crypto";
 

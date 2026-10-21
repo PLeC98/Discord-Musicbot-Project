@@ -30,8 +30,7 @@ test("이모지: 아는 플랫폼은 그 이모지, 모르는 값은 음표", ()
   assert.equal(emojiOf(""), "🎵");
 });
 
-// 회귀 대상: platform 을 그대로 첫 글자만 올려 썼다. platform 은 내부 분류 코드라
-// "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 패널에 그대로 나왔다.
+// platform 은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 된다.
 test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
   const label = labelOf;
 

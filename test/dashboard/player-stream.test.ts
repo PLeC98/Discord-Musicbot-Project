@@ -1,6 +1,5 @@
 // src/dashboard/player-stream.ts — SSE 연결 회계의 idempotent cleanup
-// 회귀 대상: 쓰기 실패 시 구독에서만 빠지고 perKey(연결 캡) 정리가 close 이벤트에만 의존
-// close가 안 오는 비정상 종료에서 캡이 영구 점유되던 문제.
+// 쓰기에 실패하면 구독과 함께 perKey(연결 캡)도 정리한다. close 이벤트에만 기대면 close가 안 오는 비정상 종료에서 캡이 영구 점유된다.
 
 import { test, after, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -44,7 +43,7 @@ const sees =
   (guildId: string) =>
     ids.includes(guildId);
 
-test("쓰기 실패 시 구독 · 연결 캡이 전부 정리됨 (L-06 회귀 — close 불필요)", () => {
+test("쓰기 실패 시 구독 · 연결 캡이 전부 정리됨(close 를 기다리지 않는다)", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG2", "evG3"), "evU2");
   assert.equal(DashboardEvents.perKey.get("evU2"), 1);
@@ -53,7 +52,7 @@ test("쓰기 실패 시 구독 · 연결 캡이 전부 정리됨 (L-06 회귀 �
   DashboardEvents._emit("evG2");
 
   assert.equal(DashboardEvents.subs.size, 0);
-  assert.equal(DashboardEvents.perKey.has("evU2"), false, "연결 캡 해제 — 구 코드는 영구 점유");
+  assert.equal(DashboardEvents.perKey.has("evU2"), false, "연결 캡 해제");
 });
 
 test("idempotent: 쓰기 실패 정리 후 늦은 close가 와도 이중 감산 없음", () => {

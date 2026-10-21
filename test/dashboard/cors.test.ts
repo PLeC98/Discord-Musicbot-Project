@@ -18,8 +18,7 @@ test("기본 실행은 대시보드 주소 하나만 허용한다 (개발 서버
   assert.equal(await isAllowed(options, "http://localhost:5173"), false);
 });
 
-// 예전에는 NODE_ENV !== "production"이 기준이라 평상시 실행이 허용 쪽이었다 —
-// 닫으려면 운영자가 기억해야 했다. 이제 `pnpm run dev`가 켤 때만 열린다.
+// 개발 서버 출처는 `pnpm run dev`가 켤 때만 연다. NODE_ENV 로 가르면 평상시 실행이 열린 쪽이 되어 운영자가 닫는 것을 기억해야 한다.
 test("개발 서버(5173)는 명시적으로 켰을 때만 허용한다", async () => {
   const options = createCorsOptions("http://localhost:33333", { allowDevOrigin: true });
   assert.equal(await isAllowed(options, "http://localhost:33333"), true);

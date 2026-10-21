@@ -131,7 +131,7 @@ test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간
   );
 });
 
-// 회귀 대상: 모든 경로가 실패해도 빈 결과를 돌려줘 "결과 없음"으로만 보였다
+// 모든 경로가 실패하면 빈 결과가 아니라 까닭을 던진다(빈 결과면 "결과 없음"으로만 보인다)
 test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범(404)은 없음이다", async () => {
   routes = [tokenRoute, () => reply({}, { status: 503 })];
   const from = sink.buffer.length;
@@ -326,7 +326,7 @@ test("GraphQL 질의: 다른 오류와 JSON 이 아닌 응답은 던진다", asy
   await assert.rejects(graphql._query("fetchPlaylist", "fetchPlaylist", {}), /GraphQL 응답 파싱 실패 502/);
 });
 
-// 회귀 대상: 가수가 없으면 "알 수 없는 아티스트"를 필드에 넣어, 자동재생 필터를 지나 매칭 검색어가 됐다
+// 표시 문구("알 수 없는 아티스트")를 필드에 넣으면 자동재생 필터를 지나 매칭 검색어가 된다
 test("가수가 없는 곡은 가수 필드를 비워 둔다(표시 문구는 그릴 때)", () => {
   const { normApiTrack } = Spotify._internals;
   const t = normApiTrack({ id: "x", name: "곡", artists: [], duration_ms: 1000, album: { name: "앨범", images: [] }, external_urls: { spotify: "https://open.spotify.com/track/x" } });

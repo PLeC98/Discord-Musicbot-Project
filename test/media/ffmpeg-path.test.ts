@@ -1,7 +1,6 @@
 // src/media/ffmpeg/path.ts — ffmpeg 경로 해석의 단일 출처.
 //
-// 회귀 대상: 재생과 캐시 변환이 서로 다른 ffmpeg를 쓰던 문제. 어느 바이너리가 도는지
-// 알 수 없어 플랫폼별 빌드 결함을 진단할 수 없었다.
+// 재생과 캐시 변환은 같은 ffmpeg를 쓴다. 다르면 어느 바이너리가 도는지 알 수 없어 플랫폼별 빌드 결함을 진단할 수 없다.
 
 import path from "node:path";
 import fs from "node:fs";

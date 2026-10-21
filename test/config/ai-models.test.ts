@@ -108,7 +108,7 @@ test("다운로드해 둔 파일에 현행 모델의 추론 필드가 있다", (
   assert.ok(!astra.enum.some((e) => e.value === "none"));
 });
 
-// 회귀 대상: 모양 검사가 모델 이름 셋(claude-opus-5 · gemini-3.7-flash · gpt-5.5)에 묶여, 저쪽이 옛 모델을 빼면 멀쩡해도 갱신을 거부했다
+// 모양 검사를 특정 모델 이름에 묶으면 저쪽이 옛 모델을 뺄 때 멀쩡한 갱신을 거부한다
 test("갱신 모양 검사: 모델 이름이 아니라 필드가 통째로 비었는지로 본다", () => {
   const field = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
   const snap = (profiles: Record<string, { modelId: string; schema: unknown[] }>) => ({ baseProviders: {}, profiles }) as Parameters<typeof models.lostShape>[1];

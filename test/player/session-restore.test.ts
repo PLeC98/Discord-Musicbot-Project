@@ -1,8 +1,7 @@
 // src/player/session-restore.ts — 기동 시 저장 세션의 길드 확보.
 //
-// 회귀 대상 1: 구 코드는 `guilds.fetch().catch(() => null)`로 거부를 삼켜 바깥 catch의
-// `retries--`가 도달 불가였다. 길드 하나가 계속 실패하면 1초 간격 무한 루프 = 기동 정지.
-// 회귀 대상 2: 일시적 조회 실패에도 저장 세션을 삭제했다.
+// 지키는 것 1: 길드 조회가 계속 실패해도 정해진 횟수 뒤 끝낸다(실패를 삼키면 1초 간격 무한 루프로 기동이 멈춘다).
+// 지키는 것 2: 일시적 조회 실패에는 저장 세션을 지우지 않는다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +34,7 @@ function apiError(code: number) {
   return Object.assign(new Error(`api ${code}`), { code });
 }
 
-test("fetch가 계속 실패해도 정확히 N회 뒤 종료한다 (무한 루프 회귀)", { timeout: 3000 }, async () => {
+test("fetch가 계속 실패해도 정확히 N회 뒤 종료한다", { timeout: 3000 }, async () => {
   const client = makeClient(() => {
     throw new Error("ECONNRESET");
   });

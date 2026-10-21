@@ -1,8 +1,7 @@
 // media/ffmpeg/args buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
 //
-// 회귀 대상: 오프셋 재생 시 ffmpeg에 URL을 직접 입력하던 것. httpHeaders가 빠지고,
-// 스트리밍 실패 폴백을 건너뛰며, 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 됐다.
-// pipe 입력에서 `-ss`를 `-i` 앞에 두면 출력이 잘리는 것도 함께 고정한다.
+// 오프셋 재생도 ffmpeg에 URL을 직접 넣지 않는다(httpHeaders가 빠지고, 스트리밍 실패 폴백을 건너뛰며,
+// 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 된다). pipe 입력에서 `-ss`를 `-i` 앞에 두면 출력이 잘리는 것도 함께 고정한다.
 //
 // URL 입력은 HLS 분기에만 있다(live-hls.test.ts). 여기서 고정하는 것은 그 분기를 부르지 않은
 // 모든 경우가 여전히 pipe 로 간다는 것이다.

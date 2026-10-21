@@ -80,13 +80,13 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
   });
 }
 
-test("자동재생이 곡을 선택하지 못하면 대기열 소진 흐름으로 떨어진다 (회귀: 좀비 상태)", async () => {
+test("자동재생이 곡을 선택하지 못하면 대기열 소진 흐름으로 떨어진다", async () => {
   const p = makePlayer({ autoplay: "lo-fi", picked: false });
 
   await onTrackEnd.call(p, "idle");
 
   assert.equal(p.calls.autoplay, 1, "자동재생을 시도는 한다");
-  assert.equal(p.currentTrack, null, "구 코드는 끝난 곡을 그대로 들고 있었다 — 그래서 전부 먹통이 됐다");
+  assert.equal(p.currentTrack, null, "끝난 곡을 들고 있으면 패널 · 대기열이 멈춘다");
   assert.equal(p.calls.idleLeave, 1, "퇴장 예약까지 정상 종료 경로를 탄다");
   assert.equal(p.calls.voiceStatus, 1);
   assert.equal(p.autoplay, "lo-fi", "한 번 못 찾았다고 장르를 꺼버리면 안 된다 — 다음 곡에서 다시 시도한다");

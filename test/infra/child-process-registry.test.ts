@@ -1,7 +1,7 @@
 // src/infra/process-registry.ts — 외부 프로세스 트리 종료
 //
-// 회귀 대상: 라이브 방송이 잘못 매칭돼 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를 외부 다운로더로
-// 실행하는데(손자 프로세스), 봇을 종료해도 ffmpeg가 살아남아 끝나지 않는 방송을 계속 다운로드하던 문제.
+// yt-dlp가 ffmpeg를 외부 다운로더로 실행하면(손자 프로세스) 봇을 꺼도 ffmpeg가 살아남아
+// 끝나지 않는 방송을 계속 받을 수 있다. killAll 은 트리 전체를 내린다.
 //
 // 이 테스트는 실제로 손자 프로세스를 만들어 killAll이 "트리 전체"를 죽이는지 확인한다.
 // Windows(taskkill /T)와 POSIX(detached + 프로세스 그룹 시그널)는 구현이 완전히 다르므로,
@@ -66,7 +66,7 @@ function spawnChildWithGrandchild() {
   return { child, grandchildPid };
 }
 
-test("killAll: 자식과 손자 프로세스를 모두 종료한다 (좀비 ffmpeg 회귀)", async () => {
+test("killAll: 자식과 손자 프로세스를 모두 종료한다", async () => {
   const { child, grandchildPid } = spawnChildWithGrandchild();
   const gpid = await grandchildPid;
   const pid = child.pid;

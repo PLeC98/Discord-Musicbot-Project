@@ -1,8 +1,8 @@
 // src/player/player.ts — 반복 모드 × 트랙 전이(자연 종료/스킵/이전곡) 계약
-// 회귀 대상 3종:
-//  1. 한곡 반복 중 스킵이 대기열을 진행시킴 (기대: 현재 곡 재시작, 대기열 불변)
-//  2. 큐 반복 중 이전곡을 누르면 중단곡이 대기열에 복제됨 (3곡 → 5곡)
-//  3. 한곡 반복 중 이전곡을 누르면 곡이 증식하며 두 곡이 번갈아 재생됨
+// 지키는 것:
+//  1. 한곡 반복 중 스킵은 현재 곡을 다시 틀고 대기열은 그대로다
+//  2. 큐 반복 중 이전곡은 중단곡을 대기열에 복제하지 않는다
+//  3. 한곡 반복 중 이전곡은 곡을 늘리지 않는다(두 곡이 번갈아 재생되지 않는다)
 // onTrackEnd/previous를 프로토타입 호출 — 실 오디오/연결 없이 상태 전이만 검증.
 
 import { test } from "node:test";
@@ -87,13 +87,13 @@ test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열·기�
   assert.equal(p.previousTracks.length, 0, "기록 불변");
 });
 
-test("한곡 반복: 스킵도 현재 곡 재시작 — 대기열을 진행시키지 않음 (버그 1 회귀)", async () => {
+test("한곡 반복: 스킵도 현재 곡 재시작 — 대기열을 진행시키지 않음", async () => {
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B")] });
 
   await onTrackEnd.call(p, "skip");
 
-  assert.deepEqual(p.played, [{ title: "A", ms: 0 }], "구 코드는 B로 진행했음");
+  assert.deepEqual(p.played, [{ title: "A", ms: 0 }], "B로 넘어가지 않는다");
   assert.deepEqual(titles(p.queue), ["B"]);
 });
 
@@ -102,10 +102,10 @@ test("한곡 반복: 반복 재생이 이전 곡 기록을 오염시키지 않�
 
   for (let i = 0; i < 3; i++) await onTrackEnd.call(p, "idle");
 
-  assert.equal(p.previousTracks.length, 0, "구 코드는 반복마다 A가 기록에 쌓였음");
+  assert.equal(p.previousTracks.length, 0, "반복마다 A가 기록에 쌓이지 않는다");
 });
 
-test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 회귀 — 구 코드는 곡이 증식)", async () => {
+test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변", async () => {
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B")], history: [] });
 
@@ -177,7 +177,7 @@ test("skip(reason): 기본은 'skip', 점프는 'jump'를 종료 사유로 세�
 
 // ── 큐 반복 ───────────────────────────────────────────────────
 
-test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존 (버그 2 회귀 — 구 코드는 3곡이 5곡으로)", async () => {
+test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존", async () => {
   const [A, B, C, D, E] = ["A", "B", "C", "D", "E"].map((t) => makeTrack(t));
   const p = makePlayer({ loop: "queue", current: C, queue: [D, E], history: [A, B] });
 

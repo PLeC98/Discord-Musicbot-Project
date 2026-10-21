@@ -61,7 +61,7 @@ test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는
   assert.equal(errorKind(e), "unknown-error");
 });
 
-// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(예전에는 낱말로 구분해 프로그램 버그가 엉뚱한 종류가 됐다)
+// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(낱말로 가르면 프로그램 버그가 엉뚱한 종류가 된다)
 test("classify 는 이름이 없으면 unknown. 문자열과 빈 값도 받는다", () => {
   for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
     assert.equal(errorKind(new Error(msg)), "unknown-error", msg);

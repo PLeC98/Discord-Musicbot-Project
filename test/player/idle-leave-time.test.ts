@@ -1,7 +1,6 @@
 // src/player/idle-leave.ts · src/ui/now-playing-panel.ts — 곡이 없을 때 나갈 시각이 바뀌면 끝난 패널이 따라간다.
 //
-// 회귀 대상: 대기열을 다 튼 뒤 사람이 나가 봇이 혼자 남아도, 끝난 패널은 대기열 소진 기준의
-// "n분 후 쉬러 갈게요"를 그대로 보였다. 실제로 나가는 것은 두 타이머 중 먼저 끝나는 쪽이다.
+// 끝난 패널의 "n분 후 쉬러 갈게요"는 두 타이머(대기열 소진 · 혼자 남음) 중 먼저 끝나는 쪽이다. 실제로 나가는 때가 그것이다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

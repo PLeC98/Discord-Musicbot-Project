@@ -264,7 +264,7 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   trackState.reset(p);
 
   const s = loaded(p.guild.id);
-  assert.equal(s.current?.title, "now", "구 코드 구조였다면 비우는 순간 방금 저장한 트랙이 지워진다");
+  assert.equal(s.current?.title, "now", "비우는 순간 방금 저장한 트랙이 지워지지 않는다");
   assert.deepEqual(titles(s.queue), ["next"]);
 });
 
@@ -358,7 +358,7 @@ async function restore(record: RestoredSession, setup: (p: TestPlayer) => void =
   return p;
 }
 
-test("복원: 수동 일시정지 세션은 멈춘 상태로 (L-01 회귀 — 구 코드는 무조건 자동 재생)", async () => {
+test("복원: 수동 일시정지 세션은 멈춘 상태로", async () => {
   const p = await restore(makeRecord({ pausedManual: true }));
   assert.deepEqual(p.calls[0], ["play", 30_000, true], "play 시작 시점에 이미 manual 사유가 걸려 즉시 일시정지");
   assert.equal(p.paused, true);

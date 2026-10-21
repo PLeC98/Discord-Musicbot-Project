@@ -1,9 +1,7 @@
 // src/media/cache-download.ts — 캐시 변환 옵션.
 //
-// 회귀 대상: `postprocessorArgs` 가 코덱을 못 박고 있었다. yt-dlp 의 ExtractAudio 는 소스 코덱을
-// 보고 `-acodec copy`(이미 Opus) 또는 `-acodec libopus`(그 밖)를 스스로 선택하는데, 우리 값이
-// 그 뒤에 붙어 ffmpeg 에서 이겨 버렸다. 그래서 유튜브 251(Opus)까지 매번 다시 인코딩됐다.
-// 상류에서 내려온 뒤 아무도 다시 보지 않은 설정이다.
+// `postprocessorArgs` 에 코덱을 못 박지 않는다. yt-dlp 의 ExtractAudio 는 소스 코덱을 보고 `-acodec copy`(이미 Opus)
+// 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이 그 뒤에 붙으면 이겨서 유튜브 251(Opus)까지 다시 인코딩된다.
 //
 // 옵션 객체가 아니라 yt-dlp 가 받는 인자로 본다. youtube-dl-exec 는 객체 값을 조용히 버린다.
 

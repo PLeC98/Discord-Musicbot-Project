@@ -1,8 +1,7 @@
 // src/sources/youtube/match.ts — 후보 채점의 순수 로직 계약.
 //
-// 유튜브 검색 결과로 실제 선택을 검증하는 회귀 코퍼스는 여기 두지 않는다.
-// 그건 외부 서비스의 현재 순위를 얼린 데이터라 CI가 매번 확인할 성질이 아니다
-// (로컬에서 따로 잰다).
+// 유튜브 검색 결과로 실제 선택을 검증하는 시험은 두지 않는다.
+// 외부 서비스의 지금 순위에 기대는 데이터라 CI가 매번 확인할 성질이 아니다.
 //
 // 여기 남은 것은 네트워크도 외부 데이터도 타지 않는, 코드 자체의 계약이다.
 
@@ -12,7 +11,7 @@ import { rankCandidates, scoreCandidate, W, _internal as I } from "../../src/sou
 
 // ── 용어 판정 ────────────────────────────────────────────────
 
-test("라틴 용어는 단어 경계로 찾는다 (부분 문자열 오탐 회귀)", () => {
+test("라틴 용어는 단어 경계로 찾는다(부분 문자열로 찾지 않는다)", () => {
   assert.equal(I.countJunk("The Discovery Song", "x"), 0, "Discovery가 cover에 걸리면 안 된다");
   assert.equal(I.countJunk("Loophole", "x"), 0, "Loophole이 loop에 걸리면 안 된다");
   assert.equal(I.countVersion("Alive and Well", "x"), 0, "Alive가 live에 걸리면 안 된다");
@@ -111,7 +110,7 @@ test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝
   assert.equal(I.detectVersionKind("Video Killed the Radio Star on TV"), null, "끝의 TV 만으로는 버전이 아니다");
 });
 
-// 회귀 대상: 공백 뒤의 맨 단어도 받아 "Love on TV - Live" 를 TV 버전으로 봤다
+// 공백 뒤의 맨 단어를 받으면 "Love on TV - Live" 를 TV 버전으로 본다
 test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다. 괄호 · 대시로 연 표시는 단어만으로도", () => {
   assert.equal(I.detectVersionKind("Love on TV - Live"), null);
   assert.equal(I.detectVersionKind("Life is Short - Live"), null);

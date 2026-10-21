@@ -1,7 +1,7 @@
 // src/media/cache-download.ts — 같은 곡을 두 서버가 동시에 다운로드하는 경쟁
 //
-// 회귀 대상: 진행 중 다운로드 맵이 Player마다 따로였다. 서버가 다르면 같은 전역 캐시 경로에
-// yt-dlp/ffmpeg가 둘 다 쓰고, 한쪽의 실패 정리가 다른 쪽 작업 파일을 삭제했다.
+// 진행 중 다운로드는 봇 전체에서 하나로 본다. Player마다 따로면 서버가 다를 때 같은 캐시 경로에 둘이 쓰고,
+// 한쪽의 실패 정리가 다른 쪽 작업 파일을 지운다.
 
 import os from "node:os";
 import path from "node:path";

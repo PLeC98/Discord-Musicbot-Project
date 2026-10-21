@@ -157,7 +157,7 @@ test("requireOwner: 비로그인 401 / 운영자 아님 403", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
-// OWNER_ID를 바꿔도 SQLite에 남은 기존 세션이 그대로 통과하던 회귀.
+// OWNER_ID를 바꾸면 SQLite에 남은 기존 세션도 통과하지 못한다.
 // 구버전 세션에 남아 있는 isAdmin 필드는 인가에 쓰이지 않는다.
 test("requireOwner: 구버전 세션의 isAdmin=true는 인가에 쓰이지 않는다", async () => {
   currentUser = { id: "former-owner", username: "이전 운영자", isAdmin: true };
@@ -262,7 +262,7 @@ test("POST broadcast: 빈 내용 400", async () => {
   assert.equal(r.status, 400);
 });
 
-// 회귀: message가 객체면 `message?.trim()`에서 TypeError가 나 500이 됐다. 길이·종류도 안 봤다.
+// message가 객체여도 500(TypeError)이 아니라 검증 오류로 답한다. 길이·종류도 본다.
 test("POST broadcast: 문자열·길이·종류를 검증한다", async () => {
   for (const body of [{ message: { evil: 1 } }, { message: 42 }, {}]) {
     const r = await req("POST", "/api/admin/broadcast", body);

@@ -102,9 +102,8 @@ test("찾은 것이 TV 사이즈 립이면 음원으로 떨어진다 — 음질�
   assert.equal(track.platform, "direct", `${route.FULL_SEC}초 미만이면 음원을 쓴다`);
 });
 
-// 회귀 대상: 애니송 DB 는 길이를 안 실어 보내고 가수 이름이 채널명과 같은 일도 드물다.
-// 그래서 확신 high 로 가는 길이 전부 막히고 "정크 단어가 없는 검색 1위"만으로 medium 이
-// 붙어 엉뚱한 영상이 지나갔다. 음원을 이미 쥐고 있을 때는 그만큼으로는 부족하다.
+// 애니송 DB 는 길이를 안 실어 보내고 가수 이름이 채널명과 같은 일도 드물어 확신 high 로 가는 길이 막힌다.
+// "정크 단어가 없는 검색 1위"만으로는 medium 이 붙는데, 음원을 이미 쥐고 있을 때는 그만큼으로는 부족하다.
 test("음원이 있는데 찾은 영상 제목에 곡 제목이 없으면 음원으로 떨어진다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "다른 곡입니다", artist: "아무 채널", duration: 260 }];
   const track = await resolved({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceKey: "amq:1" }, LIMITS);
@@ -132,8 +131,7 @@ test("이름뿐인데 못 찾으면 null", async () => {
 
 // ── 표시 이름 ─────────────────────────────────────────────────────────────
 
-// 회귀 대상: 유튜브 채널명을 아티스트 필드에 넣어 `lcozzarelli — Sarah Vaughan - Fever`처럼 나왔다.
-// 채널명은 올린 사람이지 아티스트가 아니다. 우리가 그 곡을 찾아서 고른 것이므로 소스가 안다.
+// 채널명은 올린 사람이지 아티스트가 아니다(`lcozzarelli`). 우리가 그 곡을 찾아서 고른 것이므로 소스가 안다.
 test("표시 이름은 소스 것을 앞세운다 — 유튜브 채널명은 아티스트가 아니다", async () => {
   // 올린 사람이 채널명(artist 필드)으로 오고, 영상 제목에는 군더더기가 붙어 있다
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Sarah Vaughan - Fever (HQ audio)", artist: "lcozzarelli", duration: 240 }];
@@ -150,13 +148,9 @@ test("소스가 이름을 모르면 영상 쪽을 쓴다 — 키워드·유튜�
 
 // ── 출처와 소리를 나눠 쥔다 ───────────────────────────────────────────────
 
-// 회귀 대상: 출처에서 받아 온 곡을 `platform: "youtube"` + 영상 주소로 만들었더니,
-// 링크 데이터(track_lookup)의 그 영상 행에 우리 이름이 덮였다. 나중에 누가 그 영상을 직접 틀면
-// resolveFromCache가 우리가 써 둔 이름을 돌려준다. 게다가 TrackDownloader가 유튜브 트랙의
-// 제목을 영상 제목으로 되돌려 놓아 "소스 것을 앞세운다"가 무위로 돌아간다.
-//
-// 스포티파이가 이미 같은 처지이고 이 저장소는 그것을 이렇게 푼다 —
-// 보여 줄 링크와 platform은 출처 것, 영상은 음원 주소로 나눠 쓴다.
+// 출처 곡을 `platform: "youtube"` + 영상 주소로 만들면 링크 데이터(track_lookup)의 그 영상 행에 우리 이름이 덮이고
+// (누가 그 영상을 직접 틀면 우리 이름이 나온다), TrackDownloader 가 제목을 영상 제목으로 되돌린다.
+// 스포티파이와 같이 보여 줄 링크와 platform은 출처 것, 영상은 음원 주소로 나눠 쓴다.
 test("출처가 있는 곡은 주소도 platform도 출처 것이다 — 소리만 유튜브에서 온다", async () => {
   const track = await resolved(
     {
@@ -196,8 +190,7 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
   assert.equal(track.artist, "누군가");
 });
 
-// 회귀 대상: 로그가 음원으로 떨어진 곡을 "→ 유튜브"로 적고 있었다. platform 으로 구분하려 했는데
-// 음원을 직접 트는 곡도 platform 은 출처 이름이라 그 판정은 어느 소스에서도 참이 되지 않는다.
+// 음원을 직접 트는 곡도 platform 은 출처 이름이라 platform 으로는 소리가 어디서 오는지 가를 수 없다.
 // 소리가 어디서 오는지는 음원 주소로만 구분한다.
 test("음원으로 떨어져도 platform 은 출처 이름이다 — 소리의 출생은 음원 주소로 구분한다", async () => {
   ytResults = [];
@@ -285,9 +278,7 @@ test("링크 데이터가 음원 파일을 가리키면(전에 음원으로 떨�
 
 // ── 썸네일 ────────────────────────────────────────────────────────────────
 
-// 회귀 대상: 유튜브 검색 결과를 후보 모양으로 옮길 때 thumbnail을 빠뜨렸다. Last.fm·LB Radio는
-// 표지를 안 주므로 영상 것이 유일한 그림인데, 그게 없어 디스코드에는 빈 그림이,
-// 대시보드에는 파일 아이콘이 떴다.
+// Last.fm·LB Radio는 표지를 안 주므로 유튜브 검색 결과의 썸네일이 유일한 그림이다. 후보로 옮길 때 빠뜨리지 않는다.
 test("소스가 표지를 안 주면 영상 썸네일을 쓴다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/v1/hq.jpg" }];
 
@@ -366,7 +357,7 @@ test("고르기 하나의 판정은 모두 같은 고르기 표시를 받고, �
 // MusicBrainz는 모르는 아티스트·곡을 정해진 이름으로 채운다([no artist]·[unknown] 등).
 // 그대로 두면 그걸 유튜브에 검색하게 된다.
 //
-// 회귀 대상: 처음엔 "대괄호로 싸인 것"을 전부 필터링했는데, `[Alexandros]`가 실존하는 밴드다.
+// "대괄호로 싸인 것"을 전부 거르면 안 된다. `[Alexandros]`는 실존하는 밴드다.
 test("MusicBrainz 자리표시 항목은 후보에서 뺀다", () => {
   const { _placeholder } = sources;
 
@@ -402,9 +393,8 @@ test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 페이지가 
   route._dead.clear();
 });
 
-// 회귀 대상: VocaDB 계열은 영상이 내려간 것을 disabled 로 표시해 둔다(웹에서 "PV 사용할 수
-// 없음"으로 회색이 되는 그것). 그걸 안 보고 Original 부터 찾아서, Bad Apple!! 처럼 죽은 Original
-// 다음에 멀쩡한 Original 이 있는 곡에서 정확히 틀린 것을 집었다.
+// VocaDB 계열은 영상이 내려간 것을 disabled 로 표시해 둔다(웹에서 "PV 사용할 수 없음"으로 회색이 되는 그것).
+// 그걸 안 보고 Original 부터 찾으면 죽은 Original 다음에 멀쩡한 Original 이 있는 곡에서 틀린 것을 집는다.
 test("VocaDB 계열은 disabled 된 PV를 고르지 않는다", () => {
   const pick = (pvs: Array<{ service: string; disabled?: boolean; pvType?: string; url: string }>) => {
     const ok = pvs.filter((p) => p.service === "Youtube" && !p.disabled);
@@ -484,7 +474,7 @@ test("음원 주소가 같아도 필터링한다 — 모양이 달라도 다듬�
   assert.equal(reject({ title: "또 다른 제목", youtubeUrl: "https://youtu.be/otherotherx" }), false);
 });
 
-// 회귀 대상: 출처 곡은 url 에 출처 페이지를 들고 있어 후보의 영상 주소와 비교하면 한 번도 맞지 않았다(이름 비교가 막아 주고 있었다)
+// 출처 곡은 url 에 출처 페이지를 들고 있어 후보의 영상 주소와 견주면 맞지 않는다. 음원 주소로 견준다
 test("출처 곡을 최근에 틀었으면 같은 영상을 다른 이름으로 가져와도 필터링한다", () => {
   const reject = route.rejector([{ title: "Fatal", pageUrl: "https://anilist.co/anime/150672", audioUrl: "https://www.youtube.com/watch?v=fatalfatal1" }]);
   assert.equal(reject({ title: "ファタール", youtubeUrl: "https://www.youtube.com/watch?v=fatalfatal1" }), true);

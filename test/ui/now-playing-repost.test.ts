@@ -1,5 +1,5 @@
 // 현재 재생 임베드의 자가 복구 — 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
-// 회귀 대상: 사용자가 임베드를 지우면 5초 갱신마다 10008(Unknown Message)을 error로 찍던 도배.
+// 사용자가 임베드를 지워도 5초 갱신마다 10008(Unknown Message)을 error로 찍지 않는다.
 
 import sink from "../../src/infra/log/sink.ts";
 import { test, after } from "node:test";

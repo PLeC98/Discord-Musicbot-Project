@@ -1,6 +1,6 @@
 // usecases/add-tracks 의 곡 담기(queueTracks)는 서버마다 한 번에 하나다. 앞 작업의 꼬리에 잇는다.
 // 틀고 있는 플레이어에 담으면 담은 뒤 응답 매체(notifyQueued)로 알린다. 그 지점을 테스트가 붙잡아 끝나는 때를 정한다.
-// 회귀 대상: "기다렸다가 등록"하면 앞 작업의 정리가 뒤 작업의 항목을 지워 둘이 함께 돈다
+// "기다렸다가 등록"하면 앞 작업의 정리가 뒤 작업의 항목을 지워 둘이 함께 돈다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
