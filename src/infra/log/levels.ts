@@ -11,6 +11,27 @@ const levelNameOf = (value: number): LevelName | undefined => LEVEL_NAMES.find((
 
 /** 대시보드(SSE)로 보내는 한 줄. id 는 이 프로세스 안에서 오르는 줄 번호(다시 붙을 때 이어 받기), level 은 레벨 이름 */
 type WireEntry = { id: number; ts: number; level: LevelName; text: string; category?: string; sub?: string; tags?: string[] };
+/** 줄 번호를 뺀 한 줄. 실시간 로그와 로그 파일 보기가 같은 칸을 쓴다 */
+type WireFields = Omit<WireEntry, "id">;
+
+const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+
+/**
+ * 로그 레코드(pino JSON 부분집합: level 숫자 · time · msg · 바인딩)를 대시보드의 한 줄로. 가리기는 레코드를 남기기 전에 이미 했다.
+ * 파일에서 읽은 레코드도 받으므로 바인딩의 모양을 확인한다
+ */
+function wireFields(rec: { level: number; time: number; msg?: unknown; category?: unknown; sub?: unknown; tags?: unknown }): WireFields {
+  const entry: WireFields = {
+    ts: rec.time,
+    // 실제 레벨 이름 그대로. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 가르지 못한다
+    level: levelNameOf(rec.level) || "info",
+    text: typeof rec.msg === "string" ? rec.msg.replace(ANSI_RE, "") : String(rec.msg ?? ""),
+  };
+  if (typeof rec.category === "string" && rec.category) entry.category = rec.category; // 있을 때만
+  if (typeof rec.sub === "string" && rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
+  if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags.map(String); // 교차 태그
+  return entry;
+}
 
 /** 쌓아 두는 줄 수. 대시보드가 붙을 때 이만큼 보낸다 */
 const KEPT_LINES = 2000;
@@ -23,5 +44,5 @@ const SHOWN_LINES = 3000;
 /** 다시 붙었을 때 이어 받을 줄이 이미 쌓아 둔 줄 밖으로 밀려났다(SSE event: gap). missed 는 받지 못한 줄 수(번호가 빠짐없이 이어져 정확하다) */
 type LogGap = { missed: number };
 
-export { LEVEL_NAMES, LEVELS, isLevel, levelNameOf, KEPT_LINES, SHOWN_LINES };
-export type { LevelName, WireEntry, LogGap };
+export { LEVEL_NAMES, LEVELS, isLevel, levelNameOf, wireFields, KEPT_LINES, SHOWN_LINES };
+export type { LevelName, WireEntry, WireFields, LogGap };

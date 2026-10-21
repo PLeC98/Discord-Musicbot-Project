@@ -54,6 +54,23 @@ function nextBackupPath(file: string, exists: (target: string) => boolean = fs.e
   return target;
 }
 
+/** file 에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
+function rotatedFilesOf(file: string): string[] {
+  const base = path.basename(file);
+  const ext = path.extname(base);
+  const stem = ext ? base.slice(0, -ext.length) : base;
+  const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^${esc(stem)}-\\d{4}-\\d{2}-\\d{2}T[\\d.-]+${esc(ext)}$`);
+  try {
+    return fs
+      .readdirSync(path.dirname(file))
+      .filter((n) => re.test(n))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
 function stripAnsi(s: unknown): unknown {
   return typeof s === "string" ? s.replace(ANSI_RE, "") : s;
 }
@@ -126,27 +143,10 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     return fd !== null;
   }
 
-  // 지금까지 분리해 둔 파일들. 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
-  function rotatedFiles() {
-    const base = path.basename(file);
-    const ext = path.extname(base);
-    const stem = ext ? base.slice(0, -ext.length) : base;
-    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`^${esc(stem)}-\\d{4}-\\d{2}-\\d{2}T[\\d.-]+${esc(ext)}$`);
-    try {
-      return fs
-        .readdirSync(path.dirname(file))
-        .filter((n) => re.test(n))
-        .sort();
-    } catch {
-      return []; // 디렉터리를 못 읽으면 정리를 건너뛴다. 기록은 계속되어야 한다
-    }
-  }
-
   // keep을 넘는 오래된 파일 삭제. keep=0이면 제한이 없으므로 아무것도 삭제하지 않는다.
   function prune() {
     if (keep <= 0) return;
-    const old = rotatedFiles();
+    const old = rotatedFilesOf(file);
     for (const name of old.slice(0, Math.max(0, old.length - keep))) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
@@ -211,4 +211,4 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
   return { write, close, path: file };
 }
 
-export { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp };
+export { createFileDestination, backupPath, nextBackupPath, rotatedFilesOf, stripAnsi, stamp };

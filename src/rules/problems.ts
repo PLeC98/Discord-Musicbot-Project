@@ -182,6 +182,8 @@ const WEB = {
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
   // AI 리퀘스트 로그: 없는 행(저장 용량을 넘어 삭제됐거나 모두 삭제했다)
   "ai-log-not-found": { status: 404, title: "Request log entry not found" },
+  // 로그 파일 보기: 보관 개수를 넘어 삭제됐거나 파일 로그를 껐다
+  "log-file-not-found": { status: 404, title: "Log file not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
   // 대시보드: 파비콘(올린 이미지 · 링크로 다운로드하는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },

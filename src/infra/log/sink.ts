@@ -7,13 +7,12 @@
 import util from "util";
 import config from "../../config/index.ts";
 import { styleText } from "node:util";
-import { LEVELS, KEPT_LINES, levelNameOf, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
+import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
 
-const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
-// 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다). 검사용은 따로.
+// 호출부가 이미 색을 넣었는지 본다(색 지우기는 levels 의 wireFields 가 한다)
 const HAS_ANSI = /\x1B\[/;
 
 /** 로그 레코드(pino JSON 부분집합). 바인딩(category · sub · tags · err …)이 같이 실린다 */
@@ -245,17 +244,7 @@ class LogManager {
   }
 
   _toWire(rec: LogRecord): WireEntry {
-    const entry: WireEntry = {
-      id: ++this.lastId,
-      ts: rec.time,
-      // 실제 레벨 이름 그대로. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 가르지 못한다
-      level: levelNameOf(rec.level) || "info",
-      text: this._strip(rec.msg),
-    };
-    if (rec.category) entry.category = rec.category; // 있을 때만
-    if (rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
-    if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags; // 교차 태그
-    return entry;
+    return { id: ++this.lastId, ...wireFields(rec) };
   }
 
   // 경고 · 오류는 지난 1시간을 따로 둔다(봇 상태 탭). 줄 버퍼는 debug 를 켜면 몇 분 만에 넘친다
@@ -268,10 +257,6 @@ class LogManager {
   /** 지난 1시간의 경고 · 오류(오래된 것부터) */
   recentProblems(now = Date.now()) {
     return this.problems.filter((one) => now - one.ts <= PROBLEM_WINDOW_MS);
-  }
-
-  _strip(s: unknown): string {
-    return typeof s === "string" ? s.replace(ANSI_RE, "") : String(s ?? "");
   }
 
   /**

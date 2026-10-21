@@ -20,6 +20,7 @@ import { callbackUrl, createAuthRouter } from "./routes/auth.ts";
 import { clientFreshness, freshnessWarning } from "./client-freshness.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { aiLogRouter, withGuildName } from "./routes/ai-log.ts";
+import { logFilesRouter } from "./routes/log-files.ts";
 import * as aiLogStream from "./ai-log-stream.ts";
 import * as aiRequests from "../store/ai-requests.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
@@ -178,6 +179,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/admin/track-cache", trackCacheRouter);
   app.use("/api/admin/reset", resetRouter);
   app.use("/api/admin/ai", aiLogRouter);
+  app.use("/api/admin/logs", logFilesRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
   app.use("/api/invite", createInviteRouter());
