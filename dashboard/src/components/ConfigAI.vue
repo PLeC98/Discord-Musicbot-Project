@@ -126,6 +126,7 @@
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { ref, computed } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import { useRoute, useRouter } from "vue-router";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
@@ -154,6 +155,14 @@ const T = text.ai;
 
 // 상태 · 주고받기는 composables/ai-editor(카드들이 같이 쓴다)
 const { loadError, NL, draft, sections, paid, paidUrl, paidUrlError, pingText, shown, on, aiOn, listMarked, shownSections, boxes, showRawRequest, problems, copy, judgeUsable, providerOptions, runPaid } = provideAiEditor();
+useCloseLayer(
+  computed(() => paid.value != null),
+  () => (paid.value = null),
+);
+useCloseLayer(
+  computed(() => shown.value != null),
+  () => (shown.value = null),
+);
 
 /** active: AI 보조 탭이 보이는가(편집기는 탭을 오가도 남아 있다) */
 defineProps<{ active: boolean }>();

@@ -283,8 +283,9 @@ import { TOPBAR_BTN, TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
 import { PHONE_QUERY, SHORT_QUERY } from "../utils/breakpoints.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import { useRoute, useRouter } from "vue-router";
-import { onKeyStroke, useElementSize, useMediaQuery } from "@vueuse/core";
+import { useElementSize, useMediaQuery } from "@vueuse/core";
 import axios from "axios";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
@@ -665,7 +666,7 @@ const short = useMediaQuery(SHORT_QUERY);
 const sheetMode = computed(() => isPhone.value);
 // 판이 접혔을 때 헤더에 보이는 다음 곡
 const nextTitle = computed(() => (player.value.queue[0] ? songTitle(player.value.queue[0].title) : ""));
-onKeyStroke("Escape", () => (volumeOpen.value = false));
+useCloseLayer(volumeOpen, () => (volumeOpen.value = false));
 
 // 헤더 아래 한 줄: 나와 봇의 음성 채널
 const voiceLine = computed((): { icon: IconName; text: string } => {
@@ -680,6 +681,7 @@ const autoplayGenre = computed(() => player.value.autoplayGenre ?? null);
 const autoplayGenreLabel = computed(() => player.value.autoplayGenreLabel ?? null);
 const genres = ref<AutoplayGenres["genres"]>([]);
 const genreMenu = ref(false);
+useCloseLayer(genreMenu, () => (genreMenu.value = false));
 // 장르 메뉴를 위로 열지(버튼 아래 공간이 메뉴 높이 320 + 여유보다 좁으면)
 const genreMenuUp = ref(false);
 async function toggleGenreMenu(e: MouseEvent) {

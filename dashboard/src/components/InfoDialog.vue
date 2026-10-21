@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { ref, useId } from "vue";
-import { onKeyStroke } from "@vueuse/core";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
@@ -35,5 +35,5 @@ defineProps<{ title: string; icon: IconName }>();
 const panel = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(panel);
 const titleId = useId();
-onKeyStroke("Escape", () => (open.value = false));
+useCloseLayer(open, () => (open.value = false));
 </script>

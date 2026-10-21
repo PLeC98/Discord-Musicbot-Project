@@ -156,6 +156,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
@@ -796,6 +797,7 @@ function inspectNew(row: NewRow, c: "requestKey" | "audioUrl") {
 function onNewKey(event: KeyboardEvent, n: number) {
   if (event.isComposing) return;
   if (event.key === "Escape") {
+    event.preventDefault();
     change(() => changes.newRows.splice(n, 1));
     refocus();
   }
@@ -880,11 +882,6 @@ function onCardKey(event: KeyboardEvent) {
     if (editing.value) commitInline();
     if (pane.dirty) applyPane(false);
     void save();
-  } else if (event.key === "Escape" && (menu.value || showKeys.value)) {
-    event.preventDefault();
-    event.stopPropagation();
-    closePopups();
-    refocus();
   }
 }
 function moveBy(event: KeyboardEvent, delta: Pos, absolute?: Partial<Pos>) {
@@ -933,6 +930,7 @@ function onCellKey(event: KeyboardEvent, { r, i }: { r: number; i: number }) {
   const key = event.key;
   if (key === "F2" || key === "Enter") return void (event.preventDefault(), startEdit(r, shown.value[i]));
   if (key === "Escape") {
+    event.preventDefault();
     rowSel.clear();
     extra.clear();
     anchor.value = { r, i };
@@ -965,6 +963,10 @@ function keepInView(r: number, i: number, toStart = false) {
 type Item = { label: string; hint?: string; danger?: boolean; off?: boolean; run?: () => void } | "-";
 const menu = ref<{ x: number; y: number; items: Item[]; grid: boolean } | null>(null);
 const showKeys = ref(false);
+useCloseLayer(
+  computed(() => menu.value != null || showKeys.value),
+  () => (closePopups(), refocus()),
+);
 function closePopups() {
   menu.value = null;
   showKeys.value = false;

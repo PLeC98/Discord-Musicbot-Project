@@ -73,6 +73,7 @@
 <script setup lang="ts">
 import { rem } from "../utils/rem.ts";
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import SettingsDialog from "./SettingsDialog.vue";
@@ -90,6 +91,7 @@ const props = withDefaults(defineProps<{ wide?: boolean; compact?: boolean; labe
 const user = useUserStore();
 const triggerEl = ref<HTMLElement | null>(null);
 const open = ref(false);
+useCloseLayer(open, () => (open.value = false));
 const pos = ref<Record<string, string>>({});
 const placeAbove = ref(true);
 const settingsOpen = ref(false);
@@ -141,15 +143,10 @@ async function logout() {
 
 // 창 크기가 바뀌면 좌표가 어긋난다. 다시 계산하는 대신 닫는다.
 const onResize = () => (open.value = false);
-const onKey = (e: KeyboardEvent) => {
-  if (e.key === "Escape") open.value = false;
-};
 onMounted(() => {
   window.addEventListener("resize", onResize);
-  window.addEventListener("keydown", onKey);
 });
 onUnmounted(() => {
   window.removeEventListener("resize", onResize);
-  window.removeEventListener("keydown", onKey);
 });
 </script>

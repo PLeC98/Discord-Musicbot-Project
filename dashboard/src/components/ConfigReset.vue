@@ -56,6 +56,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
@@ -79,6 +80,10 @@ const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 l
 
 const view = ref<ResetOverview | null>(null);
 const asking = ref<ResetKind | null>(null);
+useCloseLayer(
+  computed(() => asking.value != null),
+  () => close(),
+);
 const busy = ref(false);
 const typed = ref("");
 const parts = reactive(Object.fromEntries(AUDIO_CACHE_PARTS.map((part) => [part, AUDIO_CACHE_PARTS_DEFAULT.includes(part)])) as Record<AudioCachePart, boolean>);

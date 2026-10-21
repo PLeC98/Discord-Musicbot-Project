@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { onKeyStroke } from "@vueuse/core";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import Icon from "../components/BaseIcon.vue";
 import { TOPBAR_BTN } from "../utils/topbar.ts";
 import { inbox, unread, markAllRead, removeFromInbox } from "../composables/toasts.ts";
@@ -146,5 +146,5 @@ function clearAll() {
   setTimeout(() => (clearing.value = false), shown.length * step + 500);
 }
 
-onKeyStroke("Escape", () => open.value && close());
+useCloseLayer(open, close);
 </script>

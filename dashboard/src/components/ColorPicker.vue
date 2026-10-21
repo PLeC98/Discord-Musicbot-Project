@@ -14,7 +14,7 @@
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
       <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low · 모서리 16. 안쪽 둘레 12, 맨 아래 기본 색으로(40 + 선) -->
-      <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle" @keydown.esc.stop="close">
+      <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
         <div class="flex flex-col gap-3 p-3">
           <!-- 채도(가로) · 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
           <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch, type CSSProperties } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import { hexToHsv, hsvToHex, hsvToRgb, isHex, keepHue, parseHex, rgbToHsv, type Hsv } from "../utils/color.ts";
 import { coveredBottom } from "../composables/anchored-panel.ts";
 import { valueOf } from "../utils/dom.ts";
@@ -71,6 +72,7 @@ const props = defineProps<{
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
 
 const open = ref(false);
+useCloseLayer(open, () => close());
 const root = useTemplateRef<HTMLElement>("root");
 const trigger = useTemplateRef<HTMLButtonElement>("trigger");
 const panel = useTemplateRef<HTMLElement>("panel");

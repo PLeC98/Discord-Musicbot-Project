@@ -13,7 +13,7 @@
         <!-- 고치는 중에는 그 자리에서 바로 입력한다. 삭제하고 다시 입력하게 하면 긴 검색어가 성가시다.
              size 속성은 "0" 글자 너비로 세는 것이라 실제 글자 폭과 어긋나고 상한도 없다.
              field-sizing으로 내용에 맞추되 max-w-full로 묶는다(안 되는 브라우저는 기본 폭으로 남는다). -->
-        <input v-if="editing === i" ref="editBox" :value="draft" @input="draft = valueOf($event)" class="bg-transparent border-0 text-on-surface text-xs outline-none font-[inherit] p-0 min-w-16 max-w-full field-sizing-content" @keydown.enter="composing($event) || ($event.preventDefault(), commitEdit())" @keydown.esc="editing = null" @blur="commitEdit" />
+        <input v-if="editing === i" ref="editBox" :value="draft" @input="draft = valueOf($event)" class="bg-transparent border-0 text-on-surface text-xs outline-none font-[inherit] p-0 min-w-16 max-w-full field-sizing-content" @keydown.enter="composing($event) || ($event.preventDefault(), commitEdit())" @keydown.esc.prevent="editing = null" @blur="commitEdit" />
         <template v-else>
           <!-- 긴 값은 줄여 보이므로, 툴팁으로는 전문을 보여준다 -->
           <button class="cursor-text text-left truncate min-w-0" v-tooltip="item" @click="startEdit(i)">{{ item }}</button>
@@ -30,7 +30,6 @@
         @keydown.down="composing($event) || ($event.preventDefault(), move(1))"
         @keydown.up="composing($event) || ($event.preventDefault(), move(-1))"
         @keydown.enter="composing($event) || ($event.preventDefault(), onEnter())"
-        @keydown.esc="open = false"
         @keydown.backspace="composing($event) || onBackspace()"
         @blur="commit"
       />

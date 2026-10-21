@@ -25,7 +25,7 @@
         @keydown.down="composing($event) || ($event.preventDefault(), move(1))"
         @keydown.up="composing($event) || ($event.preventDefault(), move(-1))"
         @keydown.enter="composing($event) || ($event.preventDefault(), take(hits[at]))"
-        @keydown.esc="term ? (term = '') : (open = false)"
+        @keydown.esc="term && ($event.preventDefault(), (term = ''))"
         @keydown.backspace="composing($event) || onBackspace()"
       />
     </div>

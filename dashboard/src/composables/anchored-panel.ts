@@ -9,9 +9,9 @@
 //   스크롤과 창 크기 변화를 따라간다. 내부 스크롤 영역도 잡으려면 캡처로 들어야 한다.
 //   입력란 자체가 커지면(칩이 늘면) 다시 잰다.
 //
-// 바텀 시트처럼 기기의 뒤로로 닫히는 판 위에서 열리면 뒤로가 이 패널부터 닫는다(판까지 한꺼번에 닫히지 않게).
-import { ref, nextTick, watch, onBeforeUnmount, type Ref, type CSSProperties } from "vue";
-import { layerOpen, useBackDismiss } from "./back-dismiss.ts";
+// 열려 있는 동안 Esc · 기기의 뒤로는 이 패널부터 닫는다(close-layer).
+import { computed, ref, nextTick, watch, onBeforeUnmount, type Ref, type CSSProperties } from "vue";
+import { useCloseLayer } from "./close-layer.ts";
 
 type ElementRef = Readonly<Ref<HTMLElement | null | undefined>>;
 
@@ -41,11 +41,14 @@ function layerAbove(el: HTMLElement) {
  * root: 입력란을 감싼 겉(바깥 누름 판정의 기준) · anchor: 기준이 될 요소(입력란 또는 버튼) · panel: 표시할 패널(바깥 누름 판정에 같이 쓴다)
  * open: 열림 상태(바깥을 누르면 여기를 내린다) · maxHeight: 패널이 바랄 최대 높이(px) · gap: 기준 요소와 패널 사이 간격(px, 음수면 테두리를 겹친다)
  * width: 패널 폭(px). 없으면 기준 요소의 폭(드롭다운). 주면 그 폭으로 기준 요소의 왼쪽에 맞추되 화면 오른쪽을 넘지 않게 당긴다(달력처럼 내용이 정한 폭)
- * backDismiss: 열 때 기기의 뒤로로 닫히게 할지. 없으면 뒤로로 닫히는 판 위에서 열릴 때만
  */
-export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width, backDismiss = layerOpen }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number; backDismiss?: () => boolean }) {
+export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number }) {
   const style = ref<CSSProperties>({});
-  useBackDismiss(open, () => (open.value = false), backDismiss);
+  // 층은 패널이 실제로 그려졌을 때만(칩 입력 · 태그 고르기는 입력칸에 포커스만 가도 open 이 참이다)
+  useCloseLayer(
+    computed(() => open.value && panel.value != null),
+    () => (open.value = false),
+  );
   let observer: ResizeObserver | null = null;
   /** 패널이 줄지 않고 다 보이는 높이. 열 때 한 번 잰다(검색으로 항목이 줄 때 뒤집히지 않게) */
   let need = maxHeight;

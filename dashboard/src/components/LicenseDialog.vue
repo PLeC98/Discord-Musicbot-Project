@@ -67,8 +67,8 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
-import { onKeyStroke } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
@@ -83,7 +83,7 @@ const overflowing = useOverflowing(dialogEl);
 
 const open = defineModel<boolean>({ required: true });
 const close = () => (open.value = false);
-onKeyStroke("Escape", () => open.value && close());
+useCloseLayer(open, close);
 
 const GROUPS = [
   { title: T.groupFontsArt, items: FONTS_AND_ART },

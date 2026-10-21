@@ -158,6 +158,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
@@ -218,6 +219,7 @@ const silhouette = ref(true);
 const sourceOpen = ref(false);
 const editOpen = ref(false);
 const loginOpen = ref(false);
+useCloseLayer(loginOpen, () => (loginOpen.value = false));
 const editingId = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const avatar = ref<string | null>(null);

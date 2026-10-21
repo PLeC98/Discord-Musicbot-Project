@@ -45,8 +45,8 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
-import { onKeyStroke } from "@vueuse/core";
 import { ref } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import BaseSwitch from "./BaseSwitch.vue";
@@ -61,7 +61,7 @@ const overflowing = useOverflowing(dialogEl);
 
 const open = defineModel<boolean>({ required: true });
 const close = () => (open.value = false);
-onKeyStroke("Escape", () => open.value && close());
+useCloseLayer(open, close);
 
 const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
   { mode: "dark", label: text.shell.modeDark, icon: "dark_mode" },

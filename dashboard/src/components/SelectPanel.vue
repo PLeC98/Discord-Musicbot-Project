@@ -10,7 +10,7 @@
     <Teleport to="body">
       <div v-if="open" ref="panel" :class="panelCls" :style="style">
         <div v-if="searchable" class="shrink-0 p-1 border-b border-outline-variant/50">
-          <SearchInput ref="box" v-model="term" type="text" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" @escape="onSearchEscape" />
+          <SearchInput ref="box" v-model="term" type="text" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
         </div>
         <!-- 스크롤바 트랙은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색창 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
         <!-- 넘치면 오른쪽 안쪽 여백을 4 - 3 = 1 로(useOverflowing) -->
@@ -26,7 +26,7 @@
 <script setup lang="ts">
 // 드롭다운의 겉: 누르는 버튼 · body 로 내보낸 목록 · 검색창. 단일 선택(SingleSelect)과 다중 선택(MultiSelect)이 같이 쓴다.
 // 목록의 항목은 쓰는 쪽이 넣는다(slot). 검색어(term)로 필터링하는 것도 쓰는 쪽이 한다(utils/options)
-import { computed, ref, nextTick, onBeforeUnmount, watch } from "vue";
+import { computed, ref, nextTick, watch } from "vue";
 import { useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { rem } from "../utils/rem.ts";
@@ -67,11 +67,6 @@ const root = ref<HTMLElement | null>(null);
 const anchor = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const box = ref<InstanceType<typeof SearchInput> | null>(null);
-/** 검색어가 빈 채로 Esc: 목록을 닫는다(검색어가 있으면 SearchInput 이 비운다). 둘레의 창까지 닫지 않게 멈춘다 */
-function onSearchEscape(event: KeyboardEvent) {
-  event.stopPropagation();
-  open.value = false;
-}
 
 // 항목 높이는 M3E 세로 메뉴(44)에서 한 단계 촘촘하게(density -1, 40 = 2.5rem). 목록은 6.5개까지 보인다(마지막 항목이 반쯤 걸려 스크롤된다는 것이 보인다).
 // 패널은 검색창 몫까지 더해 잡고, 화면 남는 공간이 모자라면 목록이 줄어든다. 항목 높이가 rem 이라 높이도 rem 으로 셈한다
@@ -84,17 +79,9 @@ const overflowing = useOverflowing(listEl);
 
 const { style } = useAnchoredPanel({ root, anchor, panel, open, maxHeight: PANEL_MAX });
 
-// 바깥 누름은 패널 위치를 잡는 쪽이 같이 본다. 패널이 body 로 나가 있기 때문이다.
-const onEsc = (event: KeyboardEvent) => event.key === "Escape" && (open.value = false);
-
+// 바깥 누름과 Esc · 기기의 뒤로는 패널 위치를 잡는 쪽이 같이 본다(검색어가 있으면 Esc 는 SearchInput 이 먼저 비운다)
 watch(open, (now) => {
-  if (now) document.addEventListener("keydown", onEsc);
-  else document.removeEventListener("keydown", onEsc);
   if (now && props.searchable) void nextTick(() => box.value?.focus({ preventScroll: true }));
   if (!now) term.value = "";
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener("keydown", onEsc);
 });
 </script>

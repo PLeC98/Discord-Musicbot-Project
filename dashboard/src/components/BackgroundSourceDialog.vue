@@ -3,7 +3,7 @@
        기록은 행을 누르면 그 배경으로 바꾸고(다 만든 것만, 다시 만들지 않는다), 행 안 오른쪽 끝에서 삭제한다. 처리 중인 배경은 하는 일을, 실패한 배경은 까닭(툴팁)을 함께 보인다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="open && state" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false" @keydown.esc="open = false">
+      <div v-if="open && state" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
         <div role="dialog" aria-modal="true" :aria-label="S.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 animate-[art-in_350ms_var(--ease-spring-fast)]">
           <div class="flex flex-col gap-1">
             <h3 class="text-xl font-round font-semibold">{{ S.title }}</h3>
@@ -82,6 +82,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
@@ -95,6 +96,10 @@ const S = text.loginBackground.source;
 /** pending: 가져오는 중인 배경(편집 전 단계를 보인다). uploading: 봇이 받기 전, 올리는 중인 파일과 올린 몫(0 ~ 1) */
 const props = defineProps<{ state: LoginBackgroundState | null; busy: boolean; pending: LoginBackgroundItem | null; uploading: { name: string; progress: number } | null }>();
 const open = defineModel<boolean>({ required: true });
+useCloseLayer(
+  computed(() => open.value && props.state != null),
+  () => (open.value = false),
+);
 const emit = defineEmits<{ upload: []; link: [url: string]; use: [id: string]; remove: [id: string] }>();
 
 /** 보일 단계: 올리는 중이면 원본 받기 하나(올린 몫), 봇이 받은 뒤면 그 배경의 편집 전 단계 */

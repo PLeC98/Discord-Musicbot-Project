@@ -18,7 +18,7 @@
       <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색창(둘레 4 · 아래 구분선), 셀은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
       <div v-if="open" :class="panel" :style="popoverStyle">
         <div class="shrink-0 p-1 border-b border-outline-variant/50">
-          <SearchInput ref="searchBox" v-model="query" :placeholder="T.emojiSearch" :input-class="[SEARCH_FIELD, 'w-full']" @escape="open = false" />
+          <SearchInput ref="searchBox" v-model="query" :placeholder="T.emojiSearch" :input-class="[SEARCH_FIELD, 'w-full']" />
         </div>
 
         <div :class="scroller">
@@ -61,6 +61,7 @@
 <script setup lang="ts">
 import { koMatch } from "../../../src/rules/ko-search.ts";
 import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef, type CSSProperties } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import SearchInput from "./SearchInput.vue";
@@ -83,6 +84,7 @@ const props = withDefaults(
 const emit = defineEmits<{ pick: [char: string]; clear: [] }>();
 
 const open = ref(false);
+useCloseLayer(open, () => (open.value = false));
 const root = useTemplateRef<HTMLElement>("root");
 const searchBox = ref<InstanceType<typeof SearchInput> | null>(null);
 const popoverStyle = ref<CSSProperties>({});

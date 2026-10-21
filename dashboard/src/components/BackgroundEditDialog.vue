@@ -11,7 +11,7 @@
        최대 용량을 넘을 것 같으면(어림을 넉넉히 1.3배) 삭제할 수 있는 오래된 기록 수를 알린다(막지 않는다, 구운 뒤 실제 크기로 지킨다) -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="open && bg" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @keydown.esc="open = false">
+      <div v-if="open && bg" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1">
         <div ref="dialogEl" role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-3xl max-h-[95dvh] overflow-y-auto flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
@@ -69,6 +69,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
@@ -83,6 +84,10 @@ const T = text.loginBackground.edit;
 /** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다). seam: 카드의 반복 전환 효과(편집 창에서 고르는 효과의 처음 값) */
 const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
 const open = defineModel<boolean>({ required: true });
+useCloseLayer(
+  computed(() => open.value && props.bg != null),
+  () => (open.value = false),
+);
 /** done: 편집과 고른 반복 전환 효과. recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";

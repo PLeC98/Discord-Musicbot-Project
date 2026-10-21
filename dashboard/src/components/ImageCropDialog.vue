@@ -5,7 +5,7 @@
        재설정은 처음 틀로 되돌린다. "적용하기"를 누르면 선택한 영역을 원본 해상도로(긴 변 maxSide 까지) 잘라 png 로 넘긴다. 바깥을 누르거나 Esc 면 닫는다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false" @keydown.esc="open = false">
+      <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
         <div role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-xl flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
@@ -58,6 +59,7 @@ const T = text.appearance.crop;
 /** file: 자를 그림. aspect: 가로 ÷ 세로(1 이면 정사각형). target: 쓸 크기(한 변 px, 그보다 작게 선택하면 알린다). maxSide: 넘기는 긴 변의 상한(쓰는 곳이 필요한 만큼, 안 주면 아주 큰 원본을 그대로 넘기지 않을 만큼) */
 const props = withDefaults(defineProps<{ file: File | null; aspect: number; target?: number; maxSide?: number }>(), { target: undefined, maxSide: 2048 });
 const open = defineModel<boolean>({ required: true });
+useCloseLayer(open, () => (open.value = false));
 const emit = defineEmits<{ done: [blob: Blob] }>();
 
 type Corner = "nw" | "ne" | "sw" | "se";

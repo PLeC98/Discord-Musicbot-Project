@@ -37,6 +37,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
@@ -71,6 +72,10 @@ function close() {
   showDialog.value = false;
   if (session.reauth) endReauth(false);
 }
+useCloseLayer(
+  computed(() => (session.ended || session.reauth) && showDialog.value),
+  close,
+);
 
 function openLogin() {
   // 사용자가 누른 때에만 연다(그렇지 않으면 브라우저가 팝업으로 막는다). 창을 닫지 않고 마치기를 기다린다

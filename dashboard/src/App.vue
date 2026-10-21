@@ -91,7 +91,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { onKeyStroke, useMediaQuery, useResizeObserver } from "@vueuse/core";
+import { useMediaQuery, useResizeObserver } from "@vueuse/core";
+import { useCloseLayer } from "./composables/close-layer.ts";
 import { useDrawerSwipe } from "./composables/drawer-swipe.ts";
 import { PHONE_QUERY } from "./utils/breakpoints.ts";
 import { useRoute, useRouter } from "vue-router";
@@ -135,7 +136,7 @@ watch(
   () => route.fullPath,
   () => (drawerOpen.value = false),
 );
-onKeyStroke("Escape", () => (drawerOpen.value = false));
+useCloseLayer(drawerOpen, () => (drawerOpen.value = false));
 const guilds = useGuildsStore();
 
 // 위 막대 가운데에 표시할, 지금 보고 있는 서버

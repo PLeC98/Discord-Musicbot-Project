@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
@@ -86,6 +87,10 @@ const busy = ref(false);
 const applying = ref(false);
 const noFiles = ref(false);
 const preview = ref<ArchivePreview | null>(null);
+useCloseLayer(
+  computed(() => preview.value != null),
+  () => close(),
+);
 const chosen = reactive(Object.fromEntries(ARCHIVE_ITEMS.map((item) => [item, false])) as Record<ArchiveItem, boolean>);
 
 // 가져올 수 있는 행: 파일에 있고 검사를 지났고 지금과 다르다(합치는 행은 새로 가져올 것 · 바뀔 것이 있을 때)

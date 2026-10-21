@@ -4,7 +4,7 @@
        행을 누르면 그 이미지를 쓴다, 미리 보기 · 업로드한 때 · 쓰고 있으면 칠하고 "사용 중", 행 안 오른쪽 끝에 기록에서 삭제). 바깥을 누르거나 Esc 면 닫는다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="open && entry" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false" @keydown.esc="open = false">
+      <div v-if="open && entry" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
         <div role="dialog" aria-modal="true" :aria-label="D.title(entry.size)" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 animate-[art-in_350ms_var(--ease-spring-fast)]">
           <div class="flex flex-col gap-1">
             <h3 class="text-xl font-round font-semibold">{{ D.title(entry.size) }}</h3>
@@ -59,7 +59,8 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
@@ -69,8 +70,12 @@ const D = text.appearance.slotDialog;
 import { APPEARANCE_MAX_BYTES, FAVICON_HISTORY, type FaviconSlot } from "../../../src/dashboard/contract/appearance.ts";
 
 /** entry: 보여 줄 크기(바뀌면 그대로 따라간다). busy: 요청 중이라 버튼을 막는다 */
-defineProps<{ entry: FaviconSlot | null; busy: boolean }>();
+const props = defineProps<{ entry: FaviconSlot | null; busy: boolean }>();
 const open = defineModel<boolean>({ required: true });
+useCloseLayer(
+  computed(() => open.value && props.entry != null),
+  () => (open.value = false),
+);
 const emit = defineEmits<{ upload: []; link: [url: string]; use: [id: string]; remove: [id: string] }>();
 
 const linking = ref(false);

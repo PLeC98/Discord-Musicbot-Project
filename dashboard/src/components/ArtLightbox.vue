@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { onKeyStroke } from "@vueuse/core";
+import { useCloseLayer } from "../composables/close-layer.ts";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { artOf } from "../../../src/rules/track-art.ts";
 import type { Content } from "../theme/art.ts";
@@ -28,7 +28,10 @@ const T = text.player;
 const props = defineProps<{ track: { thumbnail?: string | null; title: string | null; artist?: string | null } | null | undefined; content: Content }>();
 const open = defineModel<boolean>("open", { required: true });
 
-onKeyStroke("Escape", () => (open.value = false));
+useCloseLayer(
+  computed(() => open.value && Boolean(props.track?.thumbnail)),
+  () => (open.value = false),
+);
 
 // 큰 그림이 따로 있으면(유튜브 maxresdefault, rules/track-art) 먼저 써 보고, 없으면(작은 대체 그림이 온다) 지금 그림으로
 const wideFailed = ref(false);
