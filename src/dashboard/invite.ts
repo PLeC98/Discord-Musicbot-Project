@@ -18,17 +18,17 @@ let loading: Promise<void> | null = null;
  * 포털에서 Public Bot 을 바꾼 것은 다시 시작할 때 따라간다
  */
 function loadAppInfo(client: Client): Promise<void> {
+  // 봇이 준비되기 전(화면이 다시 이으며 /api/me 를 부를 때)에는 앱이 없다. 받는 중으로 두지 않아 준비된 뒤 다시 받는다
+  if (!client.application) return Promise.resolve();
   loading ??= client.application
-    ? client.application
-        .fetch()
-        .then((app) => {
-          const owner = app.owner;
-          const ownerIds = !owner ? [] : "members" in owner ? [...owner.members.keys()] : [owner.id];
-          appInfo = { botPublic: app.botPublic === true, requireCodeGrant: app.botRequireCodeGrant === true, ownerIds };
-        })
-        .catch((error: unknown) => log.warn(`디스코드 앱 정보를 받지 못해 초대 화면을 잠시 닫습니다: ${messageOf(error)}`))
-        .finally(() => (loading = null))
-    : Promise.resolve();
+    .fetch()
+    .then((app) => {
+      const owner = app.owner;
+      const ownerIds = !owner ? [] : "members" in owner ? [...owner.members.keys()] : [owner.id];
+      appInfo = { botPublic: app.botPublic === true, requireCodeGrant: app.botRequireCodeGrant === true, ownerIds };
+    })
+    .catch((error: unknown) => log.warn(`디스코드 앱 정보를 받지 못해 초대 화면을 잠시 닫습니다: ${messageOf(error)}`))
+    .finally(() => (loading = null));
   return loading;
 }
 
@@ -77,6 +77,7 @@ const forgetGuilds = (key: string) => kept.delete(key);
 // 테스트 시임
 function _setAppInfo(info: AppInfo | null) {
   appInfo = info;
+  loading = null;
   kept.clear();
 }
 

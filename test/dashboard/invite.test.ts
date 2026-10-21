@@ -13,8 +13,9 @@ import { requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { createInviteRouter } from "../../src/dashboard/routes/invite.ts";
-import { _setAppInfo, managedGuilds, KEEP_MS, FRESH_GAP_MS } from "../../src/dashboard/invite.ts";
+import { _setAppInfo, canInvite, loadAppInfo, managedGuilds, KEEP_MS, FRESH_GAP_MS } from "../../src/dashboard/invite.ts";
 import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
+import type { Client } from "discord.js";
 import type { InviteList } from "../../src/dashboard/contract/invite.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
@@ -135,4 +136,41 @@ test("디스코드가 요청을 막으면(429) rate-limited, 초대할 수 없�
   _setAppInfo({ botPublic: false, requireCodeGrant: false, ownerIds: ["someone-else"] });
   const refused = await requestJson<ProblemReply>(base, "GET", "/api/invite");
   assert.deepEqual([refused.status, refused.json.code], [403, "invite-unavailable"]);
+});
+
+test("앱 정보: 봇이 준비되기 전에 물어도 막히지 않고, 준비된 뒤 받는다. 팀이면 팀원", async () => {
+  _setAppInfo(null);
+  const client = { application: null as unknown };
+  await loadAppInfo(fake<Client>(client));
+  assert.equal(canInvite(fake<Client>(client), "u1"), false, "준비 전");
+
+  client.application = {
+    fetch: async () => ({
+      botPublic: false,
+      botRequireCodeGrant: false,
+      owner: {
+        members: new Map([
+          ["t1", {}],
+          ["t2", {}],
+        ]),
+      },
+    }),
+  };
+  await loadAppInfo(fake<Client>(client));
+  assert.deepEqual([canInvite(fake<Client>(client), "t2"), canInvite(fake<Client>(client), "u1")], [true, false]);
+});
+
+test("응답 어디에도 디스코드 토큰이 없다(목록 · 다시 로그인 · 실패)", async () => {
+  const raw = async () => (await fetch(`${base}/api/invite`)).text();
+  signIn(sid, "tok-should-not-leak");
+  const bodies = [await raw()];
+  reply = () => Promise.reject(Object.assign(new Error("HTTP 401 tok-should-not-leak"), { response: { status: 401 } }));
+  sid = `sid-${Math.random()}`;
+  signIn(sid, "tok-should-not-leak");
+  bodies.push(await raw());
+  reply = () => Promise.reject(Object.assign(new Error("HTTP 500 tok-should-not-leak"), { response: { status: 500 } }));
+  sid = `sid-${Math.random()}`;
+  signIn(sid, "tok-should-not-leak");
+  bodies.push(await raw());
+  for (const body of bodies) assert.equal(body.includes("tok-should-not-leak"), false, body.slice(0, 80));
 });
