@@ -34,6 +34,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watchEffect } from "vue";
 import Icon from "./BaseIcon.vue";
+import { useBackDismiss } from "../composables/back-dismiss.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
@@ -43,6 +44,11 @@ const props = withDefaults(defineProps<{ title: string; icon?: IconName; next?: 
 
 type Stop = "peek" | "half" | "full";
 const stop = ref<Stop>("peek");
+// 펼쳐 있는 동안 기기 · 브라우저의 뒤로는 페이지가 아니라 판을 접는다
+useBackDismiss(
+  computed(() => stop.value !== "peek"),
+  () => (stop.value = "peek"),
+);
 /** 접힘 · 반 · 끝까지의 보이는 높이(px) */
 const peek = computed(() => (props.compact ? 64 : 76));
 const full = computed(() => Math.max(peek.value + 100, props.deskHeight - 8));
