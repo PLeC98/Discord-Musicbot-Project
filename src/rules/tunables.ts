@@ -58,6 +58,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "RATE_LIMIT_WINDOW_SEC", group: "dashboard", kind: "int", def: "60", min: 1, max: 3600 },
   { key: "RATE_LIMIT_API_MAX", group: "dashboard", kind: "int", def: "120", min: 1, max: 100000 },
   { key: "RATE_LIMIT_QUEUE_MAX", group: "dashboard", kind: "int", def: "20", min: 1, max: 100000 },
+  { key: "RATE_LIMIT_PUBLIC_MAX", group: "dashboard", kind: "int", def: "1000", min: 1, max: 100000 },
   { key: "RATE_LIMIT_AUTH_WINDOW_SEC", group: "dashboard", kind: "int", def: "600", min: 1, max: 86400 },
   { key: "RATE_LIMIT_AUTH_MAX", group: "dashboard", kind: "int", def: "30", min: 1, max: 100000 },
   { key: "SSE_HEARTBEAT_SEC", group: "dashboard", kind: "int", def: "20", min: 5, max: 300 },

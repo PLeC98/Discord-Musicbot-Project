@@ -218,3 +218,24 @@ test("잘못된 JSON 본문은 400 — 500으로 뭉개지 않는다", async () 
     storeBroken = true;
   }
 });
+
+test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽어도). /api · /auth 는 따로 세서 여기 한도에 걸리지 않는다", async () => {
+  const { default: config } = await import("../../src/config/index.ts");
+  const saved = config.dashboard.rateLimit.publicMax;
+  config.dashboard.rateLimit.publicMax = 2;
+  // 카운터가 다른 시험과 섞이지 않게 앱을 새로 띄운다
+  const own = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
+  await new Promise((resolve) => own.once("listening", resolve));
+  const at = (urlPath: string) => fetch(baseUrl(own) + urlPath, { signal: AbortSignal.timeout(3000) }).then(async (res) => ({ status: res.status, body: await res.text() }));
+  try {
+    for (let i = 0; i < 3; i++) assert.notEqual((await at("/api/whatever")).status, 429, "/api 는 공개 경로 한도로 세지 않는다");
+    assert.notEqual((await at("/servers")).status, 429);
+    assert.notEqual((await at("/servers")).status, 429);
+    const over = await at("/servers");
+    assert.equal(over.status, 429);
+    assert.equal(JSON.parse(over.body).code, "too-many-requests");
+  } finally {
+    config.dashboard.rateLimit.publicMax = saved;
+    own.close();
+  }
+});

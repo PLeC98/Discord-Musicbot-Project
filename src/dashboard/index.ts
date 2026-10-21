@@ -116,6 +116,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host));
+  // 로그인 없이 받는 것(오류 설명 · 파비콘 · 로그인 배경 · 화면 파일 · 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api · /auth 는 아래에서 따로 센다
+  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => /^\/(?:api|auth)(?:\/|$)/.test(req.path) }));
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
