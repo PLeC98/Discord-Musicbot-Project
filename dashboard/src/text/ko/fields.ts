@@ -57,4 +57,31 @@ const format = {
   timestamp: "현재 시간 (시간대 자동 변환)",
 };
 
-export { searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };
+// 날짜 · 시간 고르기
+const datePicker = {
+  placeholder: "날짜 · 시간",
+  month: (year: number, month: number) => `${year}년 ${month}월`,
+  year: (year: number) => `${year}년`,
+  pickYear: "연도",
+  monthName: (month: number) => `${month}월`,
+  weekdays: ["일", "월", "화", "수", "목", "금", "토"],
+  prevMonth: "이전 달",
+  nextMonth: "다음 달",
+  hour: "시",
+  minute: "분",
+  /** 고른 시각을 지우고 처음으로 */
+  reset: "초기화",
+  apply: "적용",
+  /** 고른 시각(칸에 적는 글). 올해면 연도를 빼고 */
+  summary: (d: Date) => {
+    const two = (n: number) => String(n).padStart(2, "0");
+    const year = d.getFullYear() === new Date().getFullYear() ? "" : `${d.getFullYear()}년 `;
+    return `${year}${d.getMonth() + 1}월 ${d.getDate()}일 ${two(d.getHours())}:${two(d.getMinutes())}`;
+  },
+};
+
+// 거르기 창(좁은 화면에서 거르기를 모아 둔 창)
+const filter = "필터";
+const filterApplied = (count: number) => `필터 ${count}개 적용됨`;
+
+export { datePicker, filter, filterApplied, searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };
