@@ -69,7 +69,7 @@ const ladder = shallowRef<Step[]>([]);
 const index = ref(0);
 const step = computed<Step | null>(() => ladder.value[index.value] ?? null);
 const codec = computed(() => step.value?.codec ?? null);
-const signature = () => `${props.bg.id}|${ladder.value.map((one) => `${one.codec}:${one.cap}:${one.effect}`).join(",")}`;
+const signature = () => `${props.bg.id}|${JSON.stringify(ladder.value.map((one) => [one.codec, one.cap, one.effect]))}`;
 function recall(): number | null {
   try {
     const got = JSON.parse(readStored(STEP_KEY) ?? "null") as { sig: string; index: number } | null;

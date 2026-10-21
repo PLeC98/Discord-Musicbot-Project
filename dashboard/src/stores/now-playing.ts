@@ -42,7 +42,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const duration = computed(() => track.value?.duration ?? 0);
   const position = computed(() => positionAt(clock.value, now.value));
 
-  const url = (path = "") => `/api/guilds/${guildId.value}/player${path}?queue=0`;
+  const url = (id: string, path = "") => `/api/guilds/${id}/player${path}?queue=0`;
 
   // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 필드가 없어 그것만 남긴다
   function apply(next: PlayerState) {
@@ -58,7 +58,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       return;
     }
     try {
-      const res = await axios.get<PlayerRead>(url());
+      const res = await axios.get<PlayerRead>(url(id));
       // 응답이 오는 사이에 대상이 바뀌었으면 버린다
       if (guildId.value !== id) return;
       if (accepts(data.value, res.data)) {
@@ -74,10 +74,11 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   // 응답을 기다리는 조작. 같은 조작을 겹쳐 보내지 않는다
   const { isBusy, whileBusy } = useBusy();
   async function send(type: string, body: object | undefined, fallback: string) {
-    if (!guildId.value) return;
+    const id = guildId.value;
+    if (!id) return;
     await whileBusy(type, async () => {
       try {
-        apply((await axios.post<PlayerState>(url(`/${type}`), body)).data);
+        apply((await axios.post<PlayerState>(url(id, `/${type}`), body)).data);
       } catch (e) {
         notifyProblem(e, fallback);
         void refresh(); // 거절되면 서버 상태로 되돌린다
@@ -106,9 +107,10 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   }
 
   async function setVolume(volume: number) {
-    if (!guildId.value) return;
+    const id = guildId.value;
+    if (!id) return;
     try {
-      apply((await axios.post<PlayerState>(url("/volume"), { volume: Number(volume) })).data);
+      apply((await axios.post<PlayerState>(url(id, "/volume"), { volume: Number(volume) })).data);
     } catch (e) {
       notifyProblem(e, text.player.volumeFailed);
       void refresh();

@@ -16,7 +16,7 @@ async function spotify(source: GenreSource): Promise<Candidate[]> {
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
   const part = await Spotify.getCollection(source.url, { offset, limit: PLAYLIST_PAGE });
-  return (part?.tracks || []).filter((t) => t.title && t.artist).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceUrl: t.pageUrl || undefined, platform: "spotify", sourceKey: t.requestKey || `${t.artist}|${t.title}` }));
+  return (part?.tracks || []).flatMap((t) => (t.title && t.artist ? [{ ...t, title: t.title, artist: t.artist }] : [])).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceUrl: t.pageUrl || undefined, platform: "spotify", sourceKey: t.requestKey || `${t.artist}|${t.title}` }));
 }
 
 async function youtube(source: GenreSource): Promise<Candidate[]> {

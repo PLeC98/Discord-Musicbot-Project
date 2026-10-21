@@ -164,8 +164,8 @@ function candidateOf(song: Song, title: string, id: number, file: string): Candi
     title,
     audioUrl: `${ANISONG_HOST}/${file}`,
     // 곡마다 있는 웹페이지가 없어 작품 페이지를 쓴다.
-    // AniList가 드물게 비어 있고 annId는 늘 있으므로 이어 쓴다.
-    sourceUrl: anilist ? `https://anilist.co/anime/${anilist}` : `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}`,
+    // AniList가 드물게 비어 있으면 annId 로 이어 쓴다.
+    sourceUrl: anilist ? `https://anilist.co/anime/${anilist}` : song.annId !== undefined ? `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}` : undefined,
     platform: "anisongdb",
     sourceKey: `amq:${id}`,
     _anilist: anilist || null,

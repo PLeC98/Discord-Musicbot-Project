@@ -21,13 +21,11 @@ async function lastfm(source: GenreSource): Promise<Candidate[]> {
   const url = `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getTopTracks", tag, limit: 1000, page, api_key: key, format: "json" })}`;
   const list = (await getJson<TopTracks | null>("lastfm", url))?.tracks?.track || [];
   return list
-    .map((t) => ({
-      artist: t.artist?.name || "",
-      title: t.name || "",
-      sourceUrl: t.url || undefined, // Last.fm 곡 페이지가 곧 출처 주소다
-      platform: "lastfm",
-      sourceKey: t.url || `${t.artist?.name}|${t.name}`,
-    }))
+    .map((t) => {
+      const [artist, title] = [t.artist?.name || "", t.name || ""];
+      // Last.fm 곡 페이지가 곧 출처 주소다. 없으면 아티스트와 제목으로 가른다(빈 것은 아래에서 빠진다)
+      return { artist, title, sourceUrl: t.url || undefined, platform: "lastfm", sourceKey: t.url || `${artist}|${title}` };
+    })
     .filter((t) => t.artist && t.title);
 }
 

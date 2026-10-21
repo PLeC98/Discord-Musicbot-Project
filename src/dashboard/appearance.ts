@@ -239,7 +239,8 @@ async function faviconPng(size: number, avatarUrl: string | null): Promise<Buffe
     return cached(`reserve:${lent.id}:${size}`, async () => resized(fs.readFileSync(reserveOf(lent.id)), size));
   }
   const input = await avatarInput(avatarUrl);
-  return input && cached(`avatar:${avatarUrl}:${size}`, () => resized(input, size));
+  if (!input || !avatarUrl) return null;
+  return cached(`avatar:${avatarUrl}:${size}`, () => resized(input, size));
 }
 
 /** 기록의 그림을 슬롯 크기로(미리 보기). 없으면 null */

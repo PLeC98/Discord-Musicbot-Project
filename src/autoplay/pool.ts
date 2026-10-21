@@ -41,7 +41,7 @@ function keyOf(source: unknown): string {
 }
 
 // 곡 하나를 가리키는 값. 같은 곡이 두 번 나오지 않게 하는 데만 쓴다.
-const idOf = (track: Candidate | null | undefined) => String(track?.sourceKey ?? track?.youtubeUrl ?? track?.audioUrl ?? `${track?.artist}|${track?.title}`);
+const idOf = (track: Candidate | null | undefined) => String(track?.sourceKey ?? track?.youtubeUrl ?? track?.audioUrl ?? `${track?.artist ?? ""}|${track?.title ?? ""}`);
 
 function sweep(now: number) {
   for (const [key, pool] of pools) if (now - pool.fetchedAt > TTL_MS) pools.delete(key);

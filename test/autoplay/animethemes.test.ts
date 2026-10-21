@@ -74,6 +74,16 @@ test("같은 곡은 한 번만. 겹침은 주제가가 아니라 곡 id 로 막�
   });
 });
 
+test("곡 id 가 없는 주제가는 뺀다(겹침도 출처 키도 가를 수 없다)", async () => {
+  const noId = { ...theme(0, "id 없음", [video("None", "https://a/x.ogg")]), song: { title: "id 없음", artists: [{ name: "가수" }] } };
+  serve(() => ({ animethemes: [noId, theme(9, "id 있음", [video("None", "https://a/9.ogg")])] }));
+  const got = await animethemes(source());
+  assert.deepEqual(
+    got.map((c) => [c.title, c.sourceKey]),
+    [["id 있음", "at:9"]],
+  );
+});
+
 test("조건이 없으면 주제가를 무작위로 한 번 묻는다. 종류 · 순번은 저쪽 필터로", async () => {
   const urls = serve(() => ({ animethemes: [] }));
   await animethemes(source({ themeType: "ED", sequence: 2 }));

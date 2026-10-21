@@ -495,10 +495,11 @@ async function doStop() {
 
 // 빼기는 그 항목 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
 async function removeTrack(track: QueueTrackView) {
-  if (!Number.isInteger(track.entry)) return;
-  await whileBusy(`remove:${track.entry}`, async () => {
+  const entry = track.entry;
+  if (entry === null || !Number.isInteger(entry)) return;
+  await whileBusy(`remove:${entry}`, async () => {
     try {
-      applyState((await axios.delete<PlayerState>(`/api/guilds/${guildId}/player/queue/entry/${track.entry}${qs()}`)).data);
+      applyState((await axios.delete<PlayerState>(`/api/guilds/${guildId}/player/queue/entry/${entry}${qs()}`)).data);
     } catch (e) {
       notifyProblem(e, T.failed.remove);
       void refresh();

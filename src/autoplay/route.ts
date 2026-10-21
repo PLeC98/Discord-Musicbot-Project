@@ -144,7 +144,7 @@ function requestKeyOf(cand: Partial<Candidate>): string {
   if (links.isHttpLink(key)) return canonicalUrl(key);
   if (cand.youtubeUrl && !cand.sourceUrl) return canonicalUrl(cand.youtubeUrl);
   if (/^[a-z]+:\d+$/.test(key)) return key;
-  return `${cand.platform || "autoplay"}:${key || `${cand.artist}|${cand.title}`}`;
+  return `${cand.platform || "autoplay"}:${key || `${cand.artist ?? ""}|${cand.title ?? ""}`}`;
 }
 
 /** 트랙의 id 는 영상 id 다. 검색이 준 것이 없으면 주소에서 */

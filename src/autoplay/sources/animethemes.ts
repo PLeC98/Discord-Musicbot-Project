@@ -26,11 +26,12 @@ async function animethemes(source: GenreSource): Promise<Candidate[]> {
   for (const theme of themes) {
     const song = theme.song;
     // 같은 곡이 여러 시즌의 OP일 수 있다. 겹침은 animetheme.id가 아니라 song.id로 막는다
-    if (!song?.title || seen.has(song.id)) continue;
+    // id 가 없는 곡은 겹침도 출처 키도 가를 수 없어 뺀다
+    if (!song?.title || song.id === undefined || seen.has(song.id)) continue;
     const link = audioOf(theme);
     if (!link) continue;
     seen.add(song.id);
-    out.push(candidateOf(theme, song, song.title, link));
+    out.push(candidateOf(theme, song, song.title, song.id, link));
   }
   return out;
 }
@@ -43,7 +44,7 @@ function audioOf(theme: Theme) {
   return (clean || videos[0])?.audio?.link || null;
 }
 
-function candidateOf(theme: Theme, song: Song, title: string, audioUrl: string): Candidate {
+function candidateOf(theme: Theme, song: Song, title: string, id: number, audioUrl: string): Candidate {
   const anime = theme.anime;
   return {
     artist: (song.artists || []).map((a) => a.name).join(", ") || anime?.name || "",
@@ -52,7 +53,7 @@ function candidateOf(theme: Theme, song: Song, title: string, audioUrl: string):
     thumbnail: (anime?.images || []).find((i) => /large/i.test(String(i.facet)))?.link || null,
     sourceUrl: anime?.slug ? `https://animethemes.moe/anime/${anime.slug}` : undefined,
     platform: "animethemes",
-    sourceKey: `at:${song.id}`,
+    sourceKey: `at:${id}`,
   };
 }
 

@@ -206,7 +206,7 @@ function candidateOf(song: Song, type: Site): Candidate | null {
   // 죽은 PV 는 드물지 않고, 죽은 Original 다음에 멀쩡한 Original 이 오는 곡도 있어 안 보면 틀린 것을 집는다.
   const pvs = (song.pvs || []).filter((p) => p.service === "Youtube" && !p.disabled);
   const pv = pvs.find((p) => p.pvType === "Original") || pvs[0];
-  if (!pv?.url || !song.name) return null;
+  if (!pv?.url || !song.name || song.id === undefined) return null;
   return {
     artist: creditOf(song) || song.artistString || "",
     title: song.name,

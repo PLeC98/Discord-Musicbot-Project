@@ -81,7 +81,9 @@ function pickImageUrl(sources: ApiImage[] | null | undefined): string | null {
 function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: string; images?: ApiImage[] }): SpotifyTrack | null {
   if (!t || !t.name) return null;
   const album = albumOverride || t.album;
-  const url = t.external_urls?.spotify || `https://open.spotify.com/track/${t.id}`;
+  const url = t.external_urls?.spotify || (t.id ? `https://open.spotify.com/track/${t.id}` : null);
+  // 주소도 id 도 없으면 가리킬 곳이 없다
+  if (!url) return null;
   return {
     title: t.name,
     artist:

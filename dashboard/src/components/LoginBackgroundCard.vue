@@ -308,7 +308,7 @@ async function loadShown() {
 }
 // 지금 배경 · 걸 수 있는 것(정지 화면 → 저화질 → 다)이 바뀌면 다시 불러온다
 watch(
-  () => `${state.value?.current}|${state.value?.shows}`,
+  () => JSON.stringify([state.value?.current, state.value?.shows]),
   () => void loadShown(),
 );
 

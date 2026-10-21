@@ -25,7 +25,7 @@ function canonicalUrl(value: unknown): unknown {
     }
     case "spotify": {
       const { type, id } = parseSpotifyURL(value);
-      return `https://open.spotify.com/${type}/${id}`;
+      return type && id ? `https://open.spotify.com/${type}/${id}` : value;
     }
     case "soundcloud":
       return soundCloudPath(value);

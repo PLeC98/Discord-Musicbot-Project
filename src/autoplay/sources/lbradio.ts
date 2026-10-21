@@ -31,15 +31,18 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: modes[0] })}`;
   const list = (await getJson<Radio | null>("listenbrainz", url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
   return list
-    .map((t) => ({
-      artist: t.creator || "",
-      title: t.title || "",
-      // 200곡 중 196곡에 길이가 있었다. 없는 것은 정 유형으로 떨어져 필터를 탄다.
-      durationSec: Number(t.duration) > 0 ? Math.round(Number(t.duration) / 1000) : undefined,
-      sourceUrl: t.identifier?.[0] || undefined, // MusicBrainz 녹음 주소
-      platform: "lbradio",
-      sourceKey: String(t.identifier?.[0] || `${t.creator}|${t.title}`),
-    }))
+    .map((t) => {
+      const [artist, title] = [t.creator || "", t.title || ""];
+      return {
+        artist,
+        title,
+        // 길이가 없는 곡은 정 유형으로 떨어져 필터를 탄다.
+        durationSec: Number(t.duration) > 0 ? Math.round(Number(t.duration) / 1000) : undefined,
+        sourceUrl: t.identifier?.[0] || undefined, // MusicBrainz 녹음 주소
+        platform: "lbradio",
+        sourceKey: t.identifier?.[0] || `${artist}|${title}`,
+      };
+    })
     .filter((t) => t.artist && t.title && !PLACEHOLDER.test(t.artist) && !PLACEHOLDER.test(t.title));
 }
 

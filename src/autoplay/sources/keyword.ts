@@ -18,7 +18,7 @@ async function keyword(source: GenreSource, { search = (query, limit) => YouTube
   // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplay/assist)
   // 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
   // 제목 없는 곡은 후보로 삼지 않는다(후보의 제목으로 선택하고 겹침을 구분한다)
-  return results.flatMap((r) => (r.audioUrl && r.title && !r.isLive ? [{ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }] : []));
+  return results.flatMap((r) => (r.audioUrl && r.title && !r.isLive ? [{ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: r.id != null ? `yt:${r.id}` : r.audioUrl }] : []));
 }
 
 export { keyword };
