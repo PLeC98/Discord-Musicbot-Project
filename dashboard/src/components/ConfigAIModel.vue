@@ -44,7 +44,7 @@
         </div>
         <p v-if="keyTrouble" class="text-xs text-(--warn-ink)">{{ keyTrouble === "moved" ? (spec?.serviceAccount ? TM.keyMovedRegion : TM.keyMoved) : TM.keyAgain }}</p>
         <p v-if="spec?.serviceAccount && keyInput.trim() && !looksLikeAccount" class="text-xs text-(--warn-ink)">{{ TM.accountShape }}</p>
-        <p class="text-xs text-on-surface-variant">{{ spec?.serviceAccount ? TM.accountHint : TM.keyHint }}</p>
+        <p v-if="spec?.serviceAccount" class="text-xs text-on-surface-variant">{{ TM.accountHint }}</p>
         <p v-if="!secureOrigin" class="text-xs text-(--warn-ink)">{{ TM.insecure }}</p>
       </div>
       <p v-if="on && staleCustomUrl" class="text-xs text-(--warn-ink)">{{ TM.staleUrl }}</p>

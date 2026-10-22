@@ -26,7 +26,6 @@ const services = {
 };
 
 const groupTitle = "서비스 키";
-const groupDesc = "입력한 값은 암호화해 저장하고 다시 보여 주지 않아요. 입력하거나 삭제하려면 로그인한 지 10분 이내여야 해요.";
 const linkLabel = "키 발급";
 /** 칸의 상태 */
 const state = {
@@ -58,4 +57,4 @@ const check = {
   unreachable: "서비스에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
 };
 
-export { services, groupTitle, groupDesc, linkLabel, state, againTip, updated, placeholderNew, placeholderReplace, save, saving, test, testing, clear, savedDone, clearedDone, saveFailed, clearFailed, testFailed, loadFailed, check };
+export { services, groupTitle, linkLabel, state, againTip, updated, placeholderNew, placeholderReplace, save, saving, test, testing, clear, savedDone, clearedDone, saveFailed, clearFailed, testFailed, loadFailed, check };

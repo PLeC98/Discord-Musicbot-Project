@@ -1,7 +1,6 @@
 <template>
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <p class="flex items-center gap-1 text-sm text-on-surface-variant"><Icon name="lock" :size="16" class="shrink-0" />{{ T.groupDesc }}</p>
 
     <BaseCard v-for="id in SERVICE_IDS" :key="id" icon="key" :title="T.services[id].title">
       <template #actions>

@@ -32,7 +32,6 @@ const model = {
   clearValue: "저장된 값 지우기",
   accountShape: "client_email 과 private_key 가 있는 JSON 이어야 해요.",
   accountHint: "발급받은 JSON 을 그대로 붙여넣어요. 프로젝트를 비우면 그 안의 project_id 를 써요.",
-  keyHint: "저장된 값은 보안을 위해 다시 보여 주지 않아요. 저장하거나 지우려면 로그인한 지 10분 안이어야 해요.",
   keyMoved: "키를 저장한 뒤 주소가 바뀌어 지금 주소로는 키를 보내지 않아요. 이 주소로 쓰려면 키를 다시 저장해 주세요.",
   keyMovedRegion: "JSON 을 저장한 뒤 리전이 바뀌어 지금 리전으로는 보내지 않아요. 이 리전으로 쓰려면 다시 저장해 주세요.",
   keyAgain: "저장된 키를 복호화할 수 없어요(암호화 키 SECRETS_KEY 가 바뀌었거나 값이 손상됐어요). 다시 저장해 주세요.",
