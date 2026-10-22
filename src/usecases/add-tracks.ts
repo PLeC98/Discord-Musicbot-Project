@@ -17,6 +17,7 @@ import { liveBlockReason } from "../rules/live-block-reason.ts";
 import { errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { canSend } from "../ui/channels.ts";
+import { inVoiceTarget } from "../infra/guild-context.ts";
 import { addedView } from "../ui/added-notice.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { PlayerSeats } from "../player/registry.ts";
@@ -158,7 +159,7 @@ async function requestPlayback(bot: Bot, request: PlaybackRequest): Promise<Play
   const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));
 
   // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 레지스트리에 남는다
-  const checked = await tracksFor(bot.players.get(guild.id) ?? null, request, batch);
+  const checked = await findTracks(bot, request, batch);
   const who = toRequester(request.requester);
   logRequest(request, who, isRefused(checked) ? checked : trimmed(checked, request.single));
   if (isRefused(checked)) return { success: false, ...checked };
@@ -177,6 +178,13 @@ async function requestPlayback(bot: Bot, request: PlaybackRequest): Promise<Play
   // 목록이 더 남았으면 이어 불러올 상태. 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
   const more = result.success && !result.dropped ? continuation(request.query ?? null, trackData, { insertFirst }) : null;
   return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player, more: more && { ...more, batch } };
+}
+
+// 곡 찾기. 찾는 동안 봇이 붙을 음성 채널(요청의 채널, 없으면 플레이어가 기억한 채널)을 문맥에 싣는다(봇이 아직 음성 밖일 때 연령 제한 판정이 본다, sources/age-gate)
+function findTracks(bot: Bot, request: PlaybackRequest, batch: number) {
+  const existing = bot.players.get(request.guild.id) ?? null;
+  const target = request.voiceChannel ?? existing?.voiceChannel ?? null;
+  return inVoiceTarget(target?.id ?? null, () => tracksFor(existing, request, batch));
 }
 
 // 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다

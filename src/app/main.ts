@@ -201,10 +201,11 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   // 명령은 기동 확인 뒤 init 이 채운다
   const commands = new Map<string, SlashCommand>();
   const bot: BotContext = { client, players, panels, commands };
-  // 연령 제한 콘텐츠의 서버 판정이 볼 곳: 봇이 지금 든 음성 채널(옮겨져도 따라간다)이 연령 제한 채널인가. 음성에 없으면 모른다
-  ageGate.usePlace((guildId) => {
-    const channel = client.guilds.cache.get(guildId)?.members.me?.voice?.channel;
-    return channel ? channel.nsfw : null;
+  // 연령 제한 콘텐츠의 서버 판정이 볼 곳: 봇이 지금 든 음성 채널(옮겨져도 따라간다), 음성 밖이면 곡을 넣는 일이 실은 붙을 채널. 둘 다 없으면 모른다
+  ageGate.usePlace((guildId, target) => {
+    const guild = client.guilds.cache.get(guildId);
+    const channel = guild?.members.me?.voice?.channel ?? (target ? guild?.channels.cache.get(target) : null);
+    return channel?.isVoiceBased() ? channel.nsfw : null;
   });
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다

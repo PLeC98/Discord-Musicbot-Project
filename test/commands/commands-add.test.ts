@@ -4,6 +4,7 @@
 // /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
+import { inGuild, currentVoiceTarget } from "../../src/infra/guild-context.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as tracks from "../helpers/tracks.ts";
@@ -223,6 +224,19 @@ test("/play: 검색 중 자리표시자를 본인에게 CV2 로 먼저 답하고
   assert.equal(resolved[0].context, "play.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, undefined);
   assert.equal(w.handled[0].who?.username, "사용자");
+});
+
+test("/play: 곡을 찾는 동안 문맥에 봇이 붙을 음성 채널(요청한 사람의 채널)을 싣는다(연령 제한 판정이 본다)", async () => {
+  const seen: Array<string | null> = [];
+  resolveReply = () => {
+    seen.push(currentVoiceTarget());
+    return { success: true, isPlaylist: false, tracks: [tracks.youtube("aaaaaaaaaaa", { title: "곡" })] };
+  };
+  const idle = world({ botVoice: null, userVoice: "v1" });
+  const { it } = interaction(idle, { options: { query: "노래" } });
+  await inGuild("g1", async () => runCommand(await command("play"), it, idle.bot));
+  assert.deepEqual(seen, ["v1"]);
+  assert.equal(currentVoiceTarget(), null, "찾기가 끝나면 문맥에서 빠진다");
 });
 
 test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 진입점이 그 오류의 문장으로 바꾼다", async () => {

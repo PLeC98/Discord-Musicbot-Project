@@ -16,7 +16,7 @@ import { runYtDlp } from "../../src/sources/youtube/ytdlp-run.ts";
 import { _ageCheck } from "../../src/player/start-playback.ts";
 import * as ageGate from "../../src/sources/age-gate.ts";
 import * as GuildSettingsManager from "../../src/store/guild-settings.ts";
-import { inGuild } from "../../src/infra/guild-context.ts";
+import { inGuild, inVoiceTarget, currentVoiceTarget as currentTarget } from "../../src/infra/guild-context.ts";
 import { codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 
@@ -184,4 +184,26 @@ test("서버 단위: 처음 알게 된 연령 제한은 쿠키 · 판정과 상�
     Object.assign(config.ytdlp, saved);
     ageGate.usePlace();
   }
+});
+
+test("서버 단위: 봇이 음성 밖이면 곡을 넣는 일이 실은 붙을 채널로 판정한다(첫 곡도 찾을 때 막는다)", () => {
+  documents._use("age-content", { enabled: true, changedAt: 1 });
+  externalCaches.markAgeRestricted("agechan0003");
+  const url = "https://www.youtube.com/watch?v=agechan0003";
+  // 봇은 음성 밖, 채널 v-nsfw 는 연령 제한 · v-plain 은 아님
+  ageGate.usePlace((_guildId, target) => (target === null ? null : target === "v-nsfw"));
+  const verdict = (target: string | null) =>
+    inGuild("g-out", () =>
+      inVoiceTarget(target, () => {
+        try {
+          _ageCheck(url);
+          return "ok";
+        } catch (e) {
+          return String(codeOf(e));
+        }
+      }),
+    );
+  assert.deepEqual([verdict("v-nsfw"), verdict("v-plain"), verdict(null)], ["ok", "age-channel-only", "ok"]);
+  assert.equal(inGuild("g-out", () => inVoiceTarget("v-plain", () => "in")) + inGuild("g-out", () => String(currentTarget())), "innull", "실은 채널은 그 일 안에서만");
+  ageGate.usePlace();
 });
