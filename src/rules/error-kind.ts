@@ -5,7 +5,7 @@
 import { isCode, type Code } from "./problems.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
-const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "spotify-unavailable", "direct-unavailable", "network-error", "stream-failed", "voice-failed"]);
+const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed"]);
 // 연결이 끊기거나 닿지 않은 것(Node · undici 가 붙이는 이름)
 const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
 // 디스코드 API 오류 번호. 50001 접근 없음 · 50013 권한 없음

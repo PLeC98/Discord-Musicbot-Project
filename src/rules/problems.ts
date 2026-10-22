@@ -96,7 +96,6 @@ const SHARED = {
   "voice-failed": { status: 502, title: "Could not join the voice channel" },
   // 운영자 설정 · 잠시 못 함
   "rate-limited": { status: 503, title: "Platform rate limit" },
-  "spotify-unavailable": { status: 503, title: "Spotify links are unavailable" },
   "yt-age-cookies-invalid": { status: 503, title: "Age-restricted videos are temporarily unavailable" },
   "live-no-ffmpeg": { status: 503, title: "Live streams are unavailable" },
   "still-starting": { status: 503, title: "Playback is still starting" },

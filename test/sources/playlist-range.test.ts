@@ -1,6 +1,7 @@
 // 여러 곡 출처는 필요한 구간만 받는다 — 스포티파이 재생목록·앨범·인기곡, 유튜브 재생목록, 해석기 전달.
 // 다 받은 뒤 대기열에서 자르지 않는다(1만 곡 재생목록이면 1분 넘게 걸린다).
 
+import { withConfig } from "../helpers/config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -120,7 +121,8 @@ test("스포티파이 앨범: 중간부터는 그 위치의 곡 페이지를 바
 });
 
 test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", async () => {
-  const r = await Spotify.getCollection("https://open.spotify.com/artist/X", { limit: 3 }, { get: async () => ({ tracks: apiItems(0, 10) }) });
+  // 공식 API 경로(키가 있을 때)로. 익명 경로도 같은 자르기를 지난다
+  const r = await withConfig({ spotify: { clientId: "cid", clientSecret: "cs" } }, () => Spotify.getCollection("https://open.spotify.com/artist/X", { limit: 3 }, { get: async () => ({ tracks: apiItems(0, 10) }) }));
   assert.equal(r.tracks.length, 3);
   assert.equal(r.total, 10);
 });

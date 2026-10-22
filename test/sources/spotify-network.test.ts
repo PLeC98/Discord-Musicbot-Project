@@ -11,7 +11,6 @@ import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { fake } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -104,16 +103,53 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "aaa111" });
 });
 
-// 운영자 설정이 없는 것이다. 없음이 아니다. 사용자에게는 이 링크를 지금 못 튼다고, 까닭은 운영자 로그에
-test("자격증명이 없으면 곡 주소는 요청 없이 spotify-unavailable 로 던진다", async () => {
+// 익명 GraphQL 의 곡 · 앨범(getTrack · getAlbum). 가짜 질의로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
+const gqlTrack = (id: string, name: string) => ({ uri: `spotify:track:${id}`, name, duration: { totalMilliseconds: 201500 }, artists: { items: [{ profile: { name: "가수" } }] } });
+const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op: string, _hash: string, vars: Record<string, unknown>) => {
+  seen.push([op, vars]);
+  if (op === "getTrack") return String(vars.uri).endsWith(":gone") ? { trackUnion: { __typename: "NotFound" } } : { trackUnion: { ...gqlTrack(String(vars.uri).split(":").pop() ?? "", "익명 곡"), firstArtist: { items: [{ profile: { name: "가수" } }] }, otherArtists: { items: [{ profile: { name: "피처링" } }] }, albumOfTrack: { name: "앨범", coverArt: { sources: [{ url: "https://i.scdn.co/big", height: 640 }] } } } };
+  if (op === "getAlbum") {
+    const all = Array.from({ length: 7 }, (_, i) => ({ track: gqlTrack(`t${i}`, `수록곡 ${i}`) }));
+    const offset = Number(vars.offset);
+    return { albumUnion: { name: "앨범", coverArt: { sources: [{ url: "https://i.scdn.co/cover", height: 640 }] }, tracksV2: { totalCount: all.length, items: all.slice(offset, offset + Number(vars.limit)) } } };
+  }
+  throw new Error(`모르는 질의 ${op}`);
+};
+
+test("키가 없으면 곡 · 앨범도 익명 GraphQL 로 연다(공식 API 는 부르지 않는다)", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
-  await assert.rejects(Spotify.getCollection("https://open.spotify.com/track/e1"), (e) => codeOf(e) === "spotify-unavailable" && /API 키 탭/.test(messageOf(e)));
-  assert.equal(requests.length, 0);
+  const seen: Array<[string, Record<string, unknown>]> = [];
+  const [t] = (await Spotify.getCollection("https://open.spotify.com/track/e1", undefined, { query: anonQuery(seen) })).tracks;
+  assert.deepEqual(t, { title: "익명 곡", artist: "가수, 피처링", album: "앨범", pageUrl: "https://open.spotify.com/track/e1", requestKey: "https://open.spotify.com/track/e1", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "e1" });
+
+  const part = await Spotify.getCollection("https://open.spotify.com/album/al1", { offset: 2, limit: 3 }, { query: anonQuery(seen) });
+  assert.deepEqual(
+    part.tracks.map((x) => [x.title, x.album, x.thumbnail]),
+    [
+      ["수록곡 2", "앨범", "https://i.scdn.co/cover"],
+      ["수록곡 3", "앨범", "https://i.scdn.co/cover"],
+      ["수록곡 4", "앨범", "https://i.scdn.co/cover"],
+    ],
+  );
+  assert.deepEqual([part.total, part.nextOffset], [7, 5]);
+  assert.deepEqual(
+    seen.map(([op, vars]) => [op, vars.uri]),
+    [
+      ["getTrack", "spotify:track:e1"],
+      ["getAlbum", "spotify:album:al1"],
+    ],
+  );
+  assert.equal(requests.length, 0, "공식 API 토큰도 받지 않는다");
 });
 
-test("자격증명이 틀려 토큰을 못 받으면(401) 역시 spotify-unavailable", async () => {
+test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 익명 GraphQL 로 넘어간다. 없는 곡은 없음이다", async () => {
   routes = [(url) => (url === "https://accounts.spotify.com/api/token" ? reply({ error: "invalid_client" }, { status: 401 }) : undefined)];
-  await assert.rejects(Spotify.getCollection("https://open.spotify.com/track/e2"), (e) => codeOf(e) === "spotify-unavailable");
+  const from = sink.buffer.length;
+  const seen: Array<[string, Record<string, unknown>]> = [];
+  const [t] = (await Spotify.getCollection("https://open.spotify.com/track/e2", undefined, { query: anonQuery(seen) })).tracks;
+  assert.equal(t.title, "익명 곡");
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && /키가 틀렸습니다/.test(e.text)));
+  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/track/gone", undefined, { query: anonQuery(seen) }), { tracks: [], total: null, nextOffset: null });
 });
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
@@ -132,10 +168,13 @@ test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간
 });
 
 // 모든 경로가 실패하면 빈 결과가 아니라 까닭을 던진다(빈 결과면 "결과 없음"으로만 보인다)
-test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범(404)은 없음이다", async () => {
+test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범(404)은 없음이다(익명 GraphQL 로 다시 묻지 않는다)", async () => {
   routes = [tokenRoute, () => reply({}, { status: 503 })];
+  const failing = async () => {
+    throw new Error("GraphQL 503");
+  };
   const from = sink.buffer.length;
-  await assert.rejects(Spotify.getCollection("https://open.spotify.com/album/al1"), /API 503/);
+  await assert.rejects(Spotify.getCollection("https://open.spotify.com/album/al1", undefined, { query: failing }), /GraphQL 503/);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
     lines.some((l) => l.startsWith("warn") && l.includes("주 경로 실패")),
@@ -143,9 +182,7 @@ test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범
   );
 
   routes = [tokenRoute, () => reply({}, { status: 404 })];
-  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/album/al2"), { tracks: [], total: null, nextOffset: null });
-  routes = [tokenRoute, () => reply({}, { status: 429 })];
-  await assert.rejects(Spotify.getCollection("https://open.spotify.com/album/al3"), (e) => codeOf(e) === "rate-limited");
+  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/album/al2", undefined, { query: failing }), { tracks: [], total: null, nextOffset: null });
 });
 
 test("모르는 주소는 요청 없이 빈 결과", async () => {
