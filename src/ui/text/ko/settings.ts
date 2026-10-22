@@ -68,11 +68,11 @@ const panel = {
   description: "고르거나 누르면 바로 저장돼요.",
   /** 부분마다 굵은 이름 줄 + 지금 값. roleIds 는 지금 DJ 역할 */
   dj: (roleIds: string[]) => `${icon("dj_role")} **DJ 역할**\n${roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}\n재생 조작은 이 역할이 있는 사람과 서버 관리자만 할 수 있어요.` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요."}`,
-  djPlaceholder: "DJ로 지정할 역할 선택 (비우면 모두)",
+  djPlaceholder: "DJ로 지정할 역할 선택",
   sponsor: (enabled: boolean) => `${icon("sponsorblock")} **SponsorBlock 자동 건너뛰기**\n현재 설정: **${onOff(enabled)}**`,
   sponsorToggle: (enabled: boolean) => (enabled ? "끄기" : "켜기"),
   sponsorPlaceholder: "건너뛸 구간 종류 선택",
-  age: () => `${icon("shield")} **연령 제한 콘텐츠**\n연령 제한이 걸린 곡을 어떤 음성 채널에서 재생 가능하게 할지 정해요.`,
+  age: () => `${icon("age_restricted")} **연령 제한 콘텐츠**\n연령 제한이 걸린 곡을 어떤 음성 채널에서 재생 가능하게 할지 정해요.`,
   ageChannel: "연령 제한 채널에서만",
   ageAll: "모든 채널에서",
   ageAllWarning: "-# 이 서버의 모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",

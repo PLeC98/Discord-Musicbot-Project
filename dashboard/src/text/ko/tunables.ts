@@ -6,7 +6,7 @@ const groups = {
   look: { title: "디스코드", icon: "forum", desc: "" },
   youtube: { title: "유튜브", icon: "smart_display", desc: "" },
   ageyoutube: { title: "유튜브", icon: "smart_display", desc: "" },
-  sponsorblock: { title: "SponsorBlock", icon: "fact_check", desc: "비음악 구간을 건너뛰어요. 구간 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0)" },
+  sponsorblock: { title: "SponsorBlock", icon: "sponsorblock", desc: "비음악 구간을 건너뛰어요. 구간 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0)" },
   cache: { title: "오디오 캐시", icon: "hard_drive", desc: "" },
   stream: { title: "재생 스트림", icon: "graphic_eq", desc: "" },
   dashboard: { title: "대시보드 요청 제한 · 실시간 연결", icon: "dashboard", desc: "" },

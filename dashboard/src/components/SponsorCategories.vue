@@ -11,7 +11,7 @@
     </div>
 
     <!-- 구간 설명은 대화상자로 연다(카드 안에서 펼치면 단 배치가 흔들린다) -->
-    <InfoDialog v-model="helpOpen" icon="skip_next" :title="T.categories">
+    <InfoDialog v-model="helpOpen" icon="sponsorblock" :title="T.categories">
       <dl class="flex flex-col gap-1">
         <div v-for="c in CATEGORIES" :key="c.id" class="rounded-(--r-inner) bg-surface-container-highest px-4 py-3">
           <dt class="text-sm font-semibold">{{ c.label }}</dt>

@@ -54,10 +54,12 @@ const ICONS = {
 ${table.map(([name, cp]) => `  ${/^\d/.test(name) ? JSON.stringify(name) : name}: 0x${cp!.toString(16)},`).join("\n")}
 } as const;
 
-type IconName = keyof typeof ICONS;
+/** 글꼴 기호가 아니라 BaseIcon 이 SVG 로 그리는 것. sponsorblock: SponsorBlock 방패(SponsorBlockIcon, 디스코드 아이콘 표의 같은 이름) */
+type DrawnIcon = "sponsorblock";
+type IconName = keyof typeof ICONS | DrawnIcon;
 
 export { ICONS };
-export type { IconName };
+export type { IconName, DrawnIcon };
 `;
   const options = (await prettier.resolveConfig(OUT_TABLE)) ?? {};
   fs.writeFileSync(OUT_TABLE, await prettier.format(body, { ...options, filepath: OUT_TABLE }));

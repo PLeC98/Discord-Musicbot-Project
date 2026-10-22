@@ -47,7 +47,7 @@
         </BaseCard>
 
         <!-- SponsorBlock -->
-        <BaseCard icon="skip_next" :title="T.sponsor.title" class="mb-(--gap-in)">
+        <BaseCard icon="sponsorblock" :title="T.sponsor.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.sponsor.desc }}</p>
 
           <NoticeBox v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" variant="note" tone="notice" icon="warning" class="mt-0! mb-2">{{ T.sponsor.masterOff }}</NoticeBox>
