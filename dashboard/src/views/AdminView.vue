@@ -96,10 +96,10 @@
           <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
-        <!-- 설정: 설정 표시(고급 설정 보기) · 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 표시 그룹은 디스플레이 탭) · 디스코드 명령(곧바로 하는 재배포) -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 표시 그룹은 디스플레이 탭) · 설정 표시(고급 설정 보기) · 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigVisibility v-if="opened.has('settings')" class="mb-(--gap-in)" />
           <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false" />
+          <ConfigVisibility v-if="opened.has('settings')" class="mt-(--gap-in)" />
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
         </div>
 

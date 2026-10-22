@@ -1,5 +1,5 @@
 <template>
-  <!-- 일반 탭 맨 위: 설정을 어디까지 보일지. 저장 막대와 상관없이 곧바로 바뀌고 서버에 남는다(어느 기기로 열어도 같게) -->
+  <!-- 일반 탭: 설정을 어디까지 보일지. 저장 막대와 상관없이 곧바로 바뀌고 서버에 남는다(어느 기기로 열어도 같게) -->
   <BaseCard icon="visibility" :title="T.title">
     <label class="flex items-start gap-3 cursor-pointer">
       <span class="min-w-0 flex-1">

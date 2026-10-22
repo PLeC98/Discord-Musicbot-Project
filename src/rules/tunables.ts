@@ -5,6 +5,7 @@
 // restart: 기동 때 한 번 잡는 값. 저장해도 다시 시작하기 전까지는 기동 때 값으로 돈다(반쯤 적용되는 일이 없게. store/tunables).
 // 나머지는 저장하면 바로 적용된다. 기동 때 만들어 둔 것(요청 제한기 · 하트비트 · 캐시 정리 타이머 · 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 // advanced: 동작을 알아야 고치는 값. 운영자 패널은 "고급 설정 보기"를 켰을 때만 보인다
+// box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 일의 출처별 값)
 
 /** 그룹(화면의 카드 순서) */
 const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "cache", "stream", "dashboard", "ailog"] as const;
@@ -16,7 +17,10 @@ type TunableGroup = (typeof TUNABLE_GROUPS)[number];
  */
 type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies" | "categories";
 
-type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean; advanced?: boolean };
+/** 카드 안의 박스. recheck: 원본 다시 확인 간격(출처별) */
+type TunableBox = "recheck";
+
+type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean; advanced?: boolean; box?: TunableBox };
 
 const TUNABLES: readonly Tunable[] = [
   // 대기열 · 나가기
@@ -50,13 +54,13 @@ const TUNABLES: readonly Tunable[] = [
   { key: "CACHE_MAX_SIZE_MB", group: "cache", kind: "int", def: "1024", min: 1, max: 1048576 },
   { key: "CACHE_MAX_FILES", group: "cache", kind: "int", def: "500", min: 1, max: 1000000 },
   { key: "CACHE_MIN_FREE_DISK_MB", group: "cache", kind: "int", def: "2048", min: 0, max: 1048576 },
+  { key: "CACHE_MAX_TRACK_MINUTES", group: "cache", kind: "int", def: "60", min: 0, max: 10080 },
   { key: "CACHE_EVICT_TARGET_PERCENT", group: "cache", kind: "int", def: "90", min: 50, max: 99, advanced: true },
   { key: "CACHE_EVICT_INTERVAL_HOURS", group: "cache", kind: "int", def: "4", min: 1, max: 168, advanced: true },
-  { key: "CACHE_MAX_TRACK_MINUTES", group: "cache", kind: "int", def: "60", min: 0, max: 10080 },
   // 캐시로 튼 곡의 원본을 다시 묻는 간격(일, 0 이면 묻지 않는다). 묻기의 값 · 바뀌었을 때 할 일이 출처마다 달라 따로
-  { key: "CACHE_RECHECK_YOUTUBE_DAYS", group: "cache", kind: "int", def: "90", min: 0, max: 3650, advanced: true },
-  { key: "CACHE_RECHECK_SOUNDCLOUD_DAYS", group: "cache", kind: "int", def: "30", min: 0, max: 3650, advanced: true },
-  { key: "CACHE_RECHECK_DIRECT_DAYS", group: "cache", kind: "int", def: "14", min: 0, max: 3650, advanced: true },
+  { key: "CACHE_RECHECK_YOUTUBE_DAYS", group: "cache", kind: "int", def: "90", min: 0, max: 3650, advanced: true, box: "recheck" },
+  { key: "CACHE_RECHECK_SOUNDCLOUD_DAYS", group: "cache", kind: "int", def: "30", min: 0, max: 3650, advanced: true, box: "recheck" },
+  { key: "CACHE_RECHECK_DIRECT_DAYS", group: "cache", kind: "int", def: "14", min: 0, max: 3650, advanced: true, box: "recheck" },
   // 재생 스트림
   { key: "STREAM_CHUNK_KB", group: "stream", kind: "int", def: "1024", min: 64, max: 65536, advanced: true },
   // 대시보드 요청 제한 · 실시간 연결
@@ -102,4 +106,4 @@ function tunable(key: string): Tunable {
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
 export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, groupsIn, tunable, tunableValue };
-export type { Tunable, TunableGroup, TunableKind, TunableTab, TunablesView };
+export type { TunableBox, Tunable, TunableGroup, TunableKind, TunableTab, TunablesView };
