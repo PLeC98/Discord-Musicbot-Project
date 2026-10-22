@@ -13,7 +13,6 @@ const accentOf = (c: ReturnType<typeof screens.saved>) => (c.toJSON() as { accen
 test("저장한 결과는 완료 색, 그 밖은 기본 색", () => {
   assert.equal(accentOf(screens.saved({ title: "t", description: "d" })), resolveColor("#57F287"));
   assert.equal(accentOf(screens.shown({ title: "t", description: "d" })), resolveColor(config.bot.embedColor));
-  assert.equal(accentOf(screens.djRoleMenu([])), resolveColor(config.bot.embedColor));
 });
 
 test("전용 채널을 정한 결과: 받는 입력을 본문 끝에", () => {
@@ -22,9 +21,4 @@ test("전용 채널을 정한 결과: 받는 입력을 본문 끝에", () => {
   assert.match(s.body, /<#c1> 채널을 봇 전용 채널로 설정했어요\./);
   assert.match(s.body, /\*\*📋 입력할 수 있는 것\*\*\n• 지원하는 플랫폼 링크 \(유튜브, 스포티파이, 사운드클라우드\)\n• 재생 가능한 미디어 링크\n• 곡 이름이나 아티스트 이름 등의 검색어$/);
   assert.equal(accentOf(screens.channelSet("<#c1>")), resolveColor("#57F287"));
-});
-
-test("SponsorBlock 화면: 구간 메뉴와 토글 · 저장 · 취소", () => {
-  const s = screenOf(post(screens.sponsorMenu({ enabled: false, options: [{ label: "인트로", value: "intro", default: true }] })));
-  assert.deepEqual([s.rows, s.buttons], [2, ["sb:toggle", "sb:save", "sb:cancel"]]);
 });

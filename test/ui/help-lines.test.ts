@@ -32,16 +32,7 @@ const EXPECTED = [
   },
   {
     name: "📡 채널 & 세션",
-    lines: [
-      "`/join`: 봇을 음성 채널에 참가시켜요",
-      "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒",
-      "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️",
-      "`/setting`: 서버 설정을 열어요 (DJ 역할 · SponsorBlock · 연령 제한 콘텐츠) 🛡️",
-      "`/setdjrole`: DJ 역할을 설정해요 (복수 선택 가능) 🛡️",
-      "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️",
-      "`/sponsorblock`: SponsorBlock 기능 설정 패널을 열어요 🛡️",
-      "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)",
-    ],
+    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
   },
   {
     name: "📊 봇 정보",
@@ -61,7 +52,7 @@ test("명령 정의에서 만든 /help 의 줄(섹션 · 순서 · 권한 표시
 test("꺼진 명령은 도움말에도 없다", () => {
   const lines = withConfig({ sponsorblock: { enabled: false } }, sectionsNow).flatMap((section) => section.lines);
   assert.equal(
-    lines.some((line) => line.startsWith("`/sponsorblock") || line.startsWith("`/highlight")),
+    lines.some((line) => line.startsWith("`/highlight")),
     false,
   );
   assert.ok(lines.some((line) => line.startsWith("`/play`")));

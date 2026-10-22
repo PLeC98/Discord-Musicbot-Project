@@ -2,7 +2,6 @@
 // 손으로 고치지 않는다: node scripts/build-icon-font.ts 가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 삭제하고 실행)
 
 const ICONS = {
-  "18_up_rating": 0xf8fd,
   add: 0xe145,
   admin_panel_settings: 0xef3d,
   arrow_back: 0xe5c4,
@@ -93,6 +92,7 @@ const ICONS = {
   music_off: 0xe440,
   network_check: 0xe640,
   new_releases: 0xef76,
+  no_adult_content: 0xf8fe,
   notifications: 0xe7f5,
   notifications_off: 0xe7f6,
   open_in_full: 0xf1ce,

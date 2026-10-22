@@ -37,7 +37,7 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
 
   if (djRoleIds !== undefined) {
     plan.roles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
-    // 디스코드 /setdjrole 의 역할 선택 메뉴와 같은 상한
+    // 디스코드 /setting 의 역할 선택 메뉴와 같은 상한
     if (plan.roles.length > DJ_ROLE_MAX) return { refused: { code: "too-many-dj-roles", max: DJ_ROLE_MAX } };
   }
 
@@ -122,7 +122,7 @@ function createGuildSettingsRouter() {
     res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
   });
 
-  // 서버 설정 변경. 모더레이터만. /setdjrole·/setchannel과 동일 기준.
+  // 서버 설정 변경. 모더레이터만. /setting · /setchannel 과 같은 기준.
   // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);

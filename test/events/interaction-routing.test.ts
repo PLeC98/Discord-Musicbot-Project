@@ -17,10 +17,8 @@ import { ROUTES } from "../../src/discord/interactions/index.ts";
 import { route, routeOf, type Kind as RouteKind } from "../../src/discord/interactions/route.ts";
 import { routes as buttonHandler, volumeModal } from "../../src/discord/interactions/button-handler.ts";
 import { routes as autoplay } from "../../src/discord/interactions/autoplay.ts";
-import { routes as djRoleConfigHandler } from "../../src/discord/interactions/dj-role-config-handler.ts";
 import { routes as modalHandler } from "../../src/discord/interactions/modal-handler.ts";
 import { routes as playlistMoreHandler } from "../../src/discord/interactions/playlist-more-handler.ts";
-import { routes as sponsorConfigHandler } from "../../src/discord/interactions/sponsor-config-handler.ts";
 import { routes as settingsPanelHandler } from "../../src/discord/interactions/settings-panel-handler.ts";
 import { selectOf } from "../helpers/cv2.ts";
 
@@ -31,7 +29,7 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, djRoleConfigHandler, modalHandler, playlistMoreHandler, sponsorConfigHandler, settingsPanelHandler };
+const OWNERS = { autoplay, buttonHandler, modalHandler, playlistMoreHandler, settingsPanelHandler };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -101,20 +99,13 @@ const CASES: [Kind, string, string][] = [
   ["button", "system:refresh", "buttonHandler"],
   ["button", "search:pick:u1:1:aaaaaaaaaaa", "buttonHandler"],
   ["button", "search:cancel:u1", "buttonHandler"],
-  ["button", "sb:toggle", "sponsorConfigHandler"],
-  ["button", "sb:save", "sponsorConfigHandler"],
-  ["button", "sb:cancel", "sponsorConfigHandler"],
-  ["button", "djrole:save", "djRoleConfigHandler"],
-  ["button", "djrole:cancel", "djRoleConfigHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
   ["button", "setting:age-all", "settingsPanelHandler"],
   ["button", "setting:close", "settingsPanelHandler"],
   ["select", "autoplay:genre", "autoplay"],
   ["select", "panel:jump:s1", "modalHandler"],
-  ["select", "sb:cats", "sponsorConfigHandler"],
   ["select", "setting:sb-cats", "settingsPanelHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
-  ["roleSelect", "djrole:select", "djRoleConfigHandler"],
   ["roleSelect", "setting:dj", "settingsPanelHandler"],
   ["modal", "panel:volume", "modalHandler"],
   ["modal", "plmm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
@@ -188,6 +179,6 @@ test("글자 그대로 적은 custom_id 도 모두 위 목록에 있다", () => 
 
 test("종류가 다르면 접두사가 맞아도 받지 않는다(버튼 접두사의 메뉴 · 모달)", () => {
   assert.equal(routeOf(ROUTES, "select", "panel:skip:s1"), null);
-  assert.equal(routeOf(ROUTES, "modal", "sb:toggle"), null);
-  assert.ok(routeOf(ROUTES, "button", "sb:toggle"));
+  assert.equal(routeOf(ROUTES, "modal", "setting:sb-toggle"), null);
+  assert.ok(routeOf(ROUTES, "button", "setting:sb-toggle"));
 });

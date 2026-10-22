@@ -207,7 +207,7 @@ const ALL_TABS: Tab[] = [
   { id: "settings", label: T.tabs.settings, icon: "tune", group: "config" },
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
-  { id: "age", label: T.tabs.age, icon: "18_up_rating", group: "config" },
+  { id: "age", label: T.tabs.age, icon: "no_adult_content", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },

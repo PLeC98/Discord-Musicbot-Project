@@ -91,7 +91,7 @@
         </BaseCard>
 
         <!-- 연령 제한 콘텐츠를 틀 곳. 봇 운영자가 연령 제한 콘텐츠를 꺼 두었으면 카드가 없다 -->
-        <BaseCard v-if="s.agePlace" icon="18_up_rating" :title="T.agePlace.title" class="mb-(--gap-in)">
+        <BaseCard v-if="s.agePlace" icon="no_adult_content" :title="T.agePlace.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.agePlace.desc }}</p>
           <div class="flex gap-0.5" role="radiogroup" :aria-label="T.agePlace.choose">
             <button v-for="(place, i) in AGE_PLACES" :key="place" type="button" role="radio" :aria-checked="agePlace === place" :disabled="!s.canEdit" @click="agePlace = place" :class="[segment(agePlace === place, i, AGE_PLACES.length), SEG_TIGHT]"><Icon v-if="agePlace === place" name="check" :size="18" />{{ T.agePlace[place] }}</button>

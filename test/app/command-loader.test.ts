@@ -30,7 +30,7 @@ const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../src/config/index.ts")).default;
 
-test("봇 전체에서 SponsorBlock 을 껐으면 /sponsorblock · /highlight 를 등록하지도 실행 목록에 올리지도 않는다", async () => {
+test("봇 전체에서 SponsorBlock 을 껐으면 /highlight 를 등록하지도 실행 목록에 올리지도 않는다. /setting 은 늘 있다(그리는 화면에서 그 부분이 빠진다)", async () => {
   const { withConfig } = await import("../helpers/config.ts");
   const names = () => definitions().map((c) => c.name);
   assert.deepEqual(
@@ -38,10 +38,10 @@ test("봇 전체에서 SponsorBlock 을 껐으면 /sponsorblock · /highlight �
     withConfig({ sponsorblock: { enabled: false } }, names),
     "배포하는 것과 실행 목록이 같은 집합",
   );
-  assert.ok(withConfig({ sponsorblock: { enabled: true } }, names).includes("sponsorblock"));
+  assert.ok(withConfig({ sponsorblock: { enabled: true } }, names).includes("highlight"));
   const off = withConfig({ sponsorblock: { enabled: false } }, names);
-  assert.ok(!off.includes("sponsorblock") && !off.includes("highlight"));
-  assert.equal(off.length, COMMANDS.length - 2, "다른 명령은 그대로");
+  assert.ok(!off.includes("highlight") && off.includes("setting"));
+  assert.equal(off.length, COMMANDS.length - 1, "다른 명령은 그대로");
 });
 
 test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {

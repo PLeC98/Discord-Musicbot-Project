@@ -1,5 +1,5 @@
-// 표시 · 설정 명령과 SponsorBlock 설정 화면의 지금 동작을 고정한다.
-// /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setdjrole · /sponsorblock, 그리고 sponsorConfigHandler.
+// 표시 · 설정 명령의 지금 동작을 고정한다(/setting 의 버튼 · 메뉴는 test/events/settings-panel).
+// /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setting.
 //
 // 문구 전부가 아니라 "무엇을 선택해 담았나 ·
 // 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
@@ -10,7 +10,7 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
-import { MessageFlags, PermissionFlagsBits, type Client, type Interaction } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, type Client } from "discord.js";
 
 import { cacheDb } from "../../src/store/cache-db.ts";
 import { settingsDb } from "../../src/store/settings-db.ts";
@@ -18,9 +18,8 @@ import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { remember } from "../helpers/tagged-audio.ts";
-import { fake, fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
+import { fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/player.ts";
-import { interactionKind } from "../helpers/interaction-kind.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import * as infoText from "../../src/ui/text/ko/info.ts";
 import { headOf, screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
@@ -36,8 +35,6 @@ audioCache.initialize();
 const config = (await import("../../src/config/index.ts")).default;
 const errors = await import("../../src/ui/text/ko/errors.ts");
 const settings = await import("../../src/store/guild-settings.ts");
-const { SKIP_CATEGORIES } = await import("../../src/rules/sponsor-categories.ts");
-const interactionCreate = (await import("../../src/discord/events/interaction-create.ts")).default;
 
 after(() => {
   audioCache.close();
@@ -359,130 +356,11 @@ test("/setchannel remove: 삭제하고 패널을 옮긴 뒤 안내. 저장 실�
   });
 });
 
-test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메뉴의 기본값으로 둔다", async () => {
+test("/setting: 본인에게만 서버 설정 한 화면을 띄운다. 서버에 남아 있는 역할만 지금 DJ 로 보이고 메뉴의 기본값으로 둔다", async () => {
   await settings.setDjRoles("g1", ["r1", "gone"]);
   const { it, log, bot } = interaction({ guildRoles: ["r1", "r2"] });
-  await run(await command("setdjrole"), it, bot);
-  const screen = screenOf(log[0][1]);
-  assert.match(screen.body, /^현재 DJ 역할: <@&r1>\n/);
-  assert.deepEqual(screen.roles, ["r1"]);
-  assert.deepEqual(screen.buttons, ["djrole:save", "djrole:cancel"]);
+  await run(await command("setting"), it, bot);
+  assert.match(textOf(log[0][1]), /현재 DJ 역할: <@&r1>\n/);
+  assert.deepEqual(screenOf(log[0][1]).roles, ["r1"]);
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
-
-  settings.forgetCache();
-  settingsDb.get().exec("DELETE FROM guild_settings;");
-  const none = interaction();
-  await run(await command("setdjrole"), none.it, none.bot);
-  assert.match(screenOf(none.log[0][1]).body, /DJ 역할이 없어 \*\*모두\*\*/);
-});
-
-// ── /sponsorblock 과 설정 화면 ────────────────────────────────────────
-
-function sbInteraction({ customId, values = [], messageId = "reply-msg", manage = true }: { customId: string; values?: string[]; messageId?: string; manage?: boolean }) {
-  // 받은 것. 이름 다음에 보는 필드
-  const log: Array<[string, ...Array<string | number | null | Sent>]> = [];
-  const it = {
-    customId,
-    values,
-    guild: { id: "g1" },
-    message: { id: messageId },
-    memberPermissions: { has: (p: bigint) => manage && p === PermissionFlagsBits.ManageGuild },
-    ...interactionKind(customId === "sb:cats" ? "select" : "button"),
-    replied: false,
-    deferred: false,
-    reply: async (p: Sent) => log.push(["reply", p]),
-    deferUpdate: async () => {
-      it.deferred = true;
-      log.push(["deferUpdate"]);
-    },
-    deleteReply: async () => log.push(["deleteReply"]),
-    update: async (p: Sent) => {
-      const s = screenOf(p);
-      log.push(["update", s.title, s.body, s.rows, s.done ? "완료" : "기본"]);
-    },
-    channel: {
-      send: async (p: Sent) => {
-        const s = screenOf(p);
-        log.push(["send", s.title, s.body, s.rows, s.done ? "완료" : "기본"]);
-        return { id: "sent", delete: async () => {} };
-      },
-    },
-  };
-  return { it, log };
-}
-
-test("/sponsorblock: 지금 설정으로 화면을 표시하고 보류 상태를 메시지 id 로 남긴다", async () => {
-  const { it, log, bot } = interaction();
-  await run(await command("sponsorblock"), it, bot);
-  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
-  assert.deepEqual(screenOf(log[0][1]).buttons, ["sb:toggle", "sb:save", "sb:cancel"]);
-
-  // 보류 상태를 이어받는지: 토글하면 켬 → 끔
-  const toggle = sbInteraction({ customId: "sb:toggle" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(toggle.it));
-  assert.match(String(toggle.log[0][2]), /현재 설정: \*\*끔\*\*/);
-});
-
-test("SponsorBlock 화면: 서버 관리 권한이 필요하다", async () => {
-  const denied = sbInteraction({ customId: "sb:save", manage: false });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(denied.it));
-  assert.deepEqual(denied.log, [["reply", noticeReply(errors.notice("must-moderator"))]]);
-});
-
-test("SponsorBlock 화면: 선택하고 저장하면 모르는 구간은 빼고 저장한다. 보류가 없으면 지금 설정에서 시작한다", async () => {
-  const pick = sbInteraction({ customId: "sb:cats", values: ["intro", "nope", "intro", "outro"], messageId: "m-save" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(pick.it));
-  assert.deepEqual(pick.log, [["deferUpdate"]]);
-
-  const save = sbInteraction({ customId: "sb:save", messageId: "m-save" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(save.it));
-  settings.forgetCache();
-  assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
-  assert.deepEqual(
-    save.log.map(([name]) => name),
-    ["deferUpdate", "deleteReply", "send"],
-    "설정 화면(본인)을 지우고 저장한 결과는 모두에게",
-  );
-  const shown = save.log.at(-1) ?? [];
-  assert.deepEqual([shown[1], shown[4]], ["⏭️ SponsorBlock 설정을 저장했어요", "완료"]);
-  assert.match(String(shown[2]), /인트로\/무음 구간, 최종 화면 구간/);
-  assert.ok(SKIP_CATEGORIES.includes("intro"));
-});
-
-test("SponsorBlock 화면: 끄고 저장하면 끔, 구간을 비우고 저장하면 건너뛰지 않는다고, 취소하면 그대로 닫는다", async () => {
-  const toggle = sbInteraction({ customId: "sb:toggle", messageId: "m-off" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(toggle.it));
-  const save = sbInteraction({ customId: "sb:save", messageId: "m-off" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(save.it));
-  assert.match(String(save.log.at(-1)?.[2]), /구간: 끔/);
-
-  settings.forgetCache();
-  settingsDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 삭제해, 새 보류가 "켬"에서 시작하게
-  const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(empty.it));
-  const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(saveEmpty.it));
-  assert.match(String(saveEmpty.log.at(-1)?.[2]), /선택한 구간 없음 \(건너뛰지 않아요\)/);
-
-  const cancel = sbInteraction({ customId: "sb:cancel", messageId: "m-cancel" });
-  await interactionCreate.execute(fakeBot(), fake<Interaction>(cancel.it));
-  assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정을 취소했어요", "변경 사항은 반영하지 않았어요.", 0, "기본"]]);
-});
-
-test("SponsorBlock 화면: 봇 전체에서 꺼져 있으면 열려 있던 메뉴의 버튼 · 메뉴는 없는 것과 같다(저장하지 않는다)", async () => {
-  settings.forgetCache();
-  settingsDb.get().exec("DELETE FROM guild_settings;");
-  const saved = config.sponsorblock.enabled;
-  config.sponsorblock.enabled = false;
-  try {
-    for (const customId of ["sb:toggle", "sb:save", "sb:cats"]) {
-      const it = sbInteraction({ customId, values: ["intro"], messageId: "m-off-global" });
-      await interactionCreate.execute(fakeBot(), fake<Interaction>(it.it));
-      assert.deepEqual(it.log, [["reply", noticeReply(errors.notice("unknown-interaction"))]], customId);
-    }
-    settings.forgetCache();
-    assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });
-  } finally {
-    config.sponsorblock.enabled = saved;
-  }
 });
