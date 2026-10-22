@@ -314,7 +314,9 @@ test("영상이 없는 것은 다시 받지 않는다", async () => {
 const lasting = (id: string, expireIn = 6 * 3600) => ({ ...video(id), url: `https://rr1.googlevideo.com/videoplayback?id=${id}&expire=${Math.floor(Date.now() / 1000) + expireIn}`, format_id: "251", protocol: "https", formats: [{ format_id: "251", acodec: "opus", vcodec: "none" }] });
 
 test("곡 정보 뒤의 재생 주소는 yt-dlp 를 부르지 않는다. 서술자는 추출한 것과 같고 다시 쓴 표시만 다르다", async () => {
-  respond = () => lasting("rrrrrrrrrrr");
+  // 두 번 추출해도 같은 답(부를 때마다 셈하면 초 경계에서 만료 시각이 달라진다)
+  const answer = lasting("rrrrrrrrrrr");
+  respond = () => answer;
   await YouTube.getInfo("https://www.youtube.com/watch?v=rrrrrrrrrrr");
   const again = await YouTube.getStream("https://www.youtube.com/watch?v=rrrrrrrrrrr");
   assert.equal(calls.length, 1);
