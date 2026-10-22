@@ -7,6 +7,7 @@ import * as ai from "./ko/ai.ts";
 import * as appearance from "./ko/appearance.ts";
 import * as archive from "./ko/archive.ts";
 import * as cacheDb from "./ko/cache-db.ts";
+import * as commands from "./ko/commands.ts";
 import * as common from "./ko/common.ts";
 import * as cookies from "./ko/cookies.ts";
 import * as dev from "./ko/dev.ts";
@@ -35,6 +36,6 @@ import * as snapshots from "./ko/snapshots.ts";
 import * as status from "./ko/status.ts";
 import * as tunables from "./ko/tunables.ts";
 
-const text = { admin, ai, appearance, archive, cacheDb, common, cookies, dev, editor, errors, fields, genres, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, tunables };
+const text = { admin, ai, appearance, archive, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, tunables };
 
 export { text };

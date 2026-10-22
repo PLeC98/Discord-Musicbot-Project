@@ -1,4 +1,4 @@
-// 운영자 패널: 개발자 옵션 탭(권한 적용해서 보기 · 유지 관리. 초기화는 백업 · 초기화 탭, text/ko/reset)
+// 운영자 패널: 개발자 옵션 탭(권한 적용해서 보기). 슬래시 커맨드 재배포는 설정 탭(text/ko/commands), 초기화는 백업 · 초기화 탭(text/ko/reset)
 
 /** 권한 적용해서 보기 */
 const viewAs = {
@@ -10,17 +10,4 @@ const viewAs = {
   failed: "권한 수준을 바꾸지 못했어요.",
 };
 
-/** 유지 관리 */
-const maintenance = "유지 관리";
-const redeploy = {
-  title: "슬래시 커맨드 재배포",
-  desc: "봇 재시작 없이 현재 커맨드를 디스코드에 다시 등록해요.",
-  run: "재배포",
-  running: "재배포 중…",
-  done: "커맨드를 다시 배포했어요",
-  /** 등록한 수와 범위 */
-  summary: (count: number, guild: boolean) => `${count}개 · ${guild ? "서버" : "전역"}`,
-  failed: "커맨드를 다시 배포하지 못했어요.",
-};
-
-export { viewAs, maintenance, redeploy };
+export { viewAs };

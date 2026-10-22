@@ -1,5 +1,5 @@
 <template>
-  <!-- 권한 적용해서 보기(디스코드의 "역할 적용해서 서버 보기", 서버 판정까지 같이 낮아진다) · 유지 관리(커맨드 재배포). 넓으면 두 단. 초기화는 백업 · 초기화 탭(ConfigReset) -->
+  <!-- 권한 적용해서 보기(디스코드의 "역할 적용해서 서버 보기", 서버 판정까지 같이 낮아진다). 커맨드 재배포는 설정 탭(ConfigCommands), 초기화는 백업 · 초기화 탭(ConfigReset) -->
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-(--gap-in) items-start">
     <BaseCard icon="visibility" :title="T.viewAs.title">
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.viewAs.desc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.viewAs.tip" /></p>
@@ -13,33 +13,16 @@
         </button>
       </div>
     </BaseCard>
-
-    <!-- 항목마다 이름 · 설명, 오른쪽에 하기. 좁으면 버튼이 아래로 -->
-    <BaseCard icon="build" :title="T.maintenance">
-      <div class="flex flex-col">
-        <div :class="actionRow">
-          <div class="min-w-0 flex-1 basis-56">
-            <p class="text-sm font-semibold text-on-surface">{{ T.redeploy.title }}</p>
-            <p class="text-xs text-on-surface-variant">{{ T.redeploy.desc }}</p>
-          </div>
-          <BaseButton variant="secondary" :disabled="redeploying" @click="redeploy">{{ redeploying ? T.redeploy.running : T.redeploy.run }}</BaseButton>
-        </div>
-      </div>
-    </BaseCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
-import axios from "axios";
 import BaseCard from "./BaseCard.vue";
-import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
-import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { LIMIT } from "../utils/request.ts";
+import { notifyProblem } from "../composables/toasts.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.ts";
-import type { RedeployReply } from "../../../src/dashboard/contract/admin.ts";
 import type { Tier } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 const T = text.dev;
@@ -53,8 +36,6 @@ const TIER_ROWS: { id: Tier | null; label: string; desc: string }[] = [{ id: nul
 
 // 라디오 항목(선택한 항목은 목록 · 상세의 선택한 항목과 같은 색)
 const tierRow = "state-layer w-full flex items-start gap-3 text-left rounded-(--r-inner) px-3 py-2.5 text-on-surface cursor-pointer transition-[background-color,border-radius] duration-150 disabled:cursor-not-allowed disabled:opacity-38";
-// 유지 관리 카드의 한 항목
-const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0";
 
 async function pickTier(tier: Tier | null) {
   if (switchingTier.value || user.viewAs === tier) return;
@@ -64,22 +45,6 @@ async function pickTier(tier: Tier | null) {
   } catch (e) {
     notifyProblem(e, T.viewAs.failed);
     switchingTier.value = false;
-  }
-}
-
-// ── 명령 다시 배포 ─────────────────────────────────────────
-const redeploying = ref(false);
-
-async function redeploy() {
-  if (redeploying.value) return;
-  redeploying.value = true;
-  try {
-    const { data } = await axios.post<RedeployReply>("/api/admin/redeploy-commands", undefined, { timeout: LIMIT.long });
-    notifyDone(T.redeploy.done, T.redeploy.summary(data.count, data.scope === "guild"));
-  } catch (e) {
-    notifyProblem(e, T.redeploy.failed);
-  } finally {
-    redeploying.value = false;
   }
 }
 </script>
