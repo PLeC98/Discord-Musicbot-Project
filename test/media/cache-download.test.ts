@@ -251,6 +251,35 @@ test("사운드클라우드: 제 주소로, 사운드클라우드 출처가 다�
   assert.equal(track.title, "SC", "유튜브가 아니면 제목을 안 고친다");
 });
 
+test("사운드클라우드가 미리듣기 조각만 줬으면 캐시하지 않는다(넣은 뒤 권리자가 미리듣기로 돌린 곡)", async () => {
+  ytdlpBehavior = (_url: string, options: Options) => {
+    fs.writeFileSync(options.output, "opus-bytes");
+    fs.writeFileSync(`${options.output}.info.json`, JSON.stringify({ title: "SC", duration: 30, extractor_key: "Soundcloud", format_id: "hls_aac_160k_preview", url: "https://playback.media-streaming.soundcloud.cloud/x/aac_160k/u/playlist.m3u8" }));
+  };
+  const track = { title: "SC", requestKey: "https://soundcloud.com/a/p", audioUrl: "https://soundcloud.com/a/p", platform: "soundcloud" };
+
+  await assert.rejects(downloader().downloadTrack(track), (error) => /미리듣기/.test(String((error as Error).message)) || JSON.stringify(error).includes("sc-preview-only"));
+  assert.equal(fs.existsSync(audioCache.getFilePath("sc:a/p")), false, "캐시 파일이 없다");
+  assert.deepEqual(leftovers(), []);
+});
+
+test("다른 쪽이 먼저 받아 둔 파일이면 버린 쪽의 버전으로 기록을 덮지 않는다", async () => {
+  const track = yt("dupdupdup01");
+  const file = audioCache.getFilePath("yt:dupdupdup01");
+  ytdlpBehavior = (url: string, options: Options) => {
+    writesFile()(url, options);
+    // 다운로드하는 사이 다른 쪽이 같은 파일을 올리고 기록했다
+    fs.writeFileSync(file, "theirs");
+    audioCache.recordDownloadStart("yt:dupdupdup01", track);
+    audioCache.recordDownloadComplete("yt:dupdupdup01", file, 6, track, { audioVersion: "lmt:theirs" });
+  };
+
+  await downloader().downloadTrack(track);
+
+  assert.equal(fs.readFileSync(file, "utf8"), "theirs");
+  assert.equal(audioRow("yt:dupdupdup01")?.audio_version, "lmt:theirs");
+});
+
 test("자동재생 출처 곡: 찾아 둔 영상(음원 주소)으로 다운로드한다. 다시 찾지 않는다", async () => {
   const track = { title: "출처 곡", requestKey: "https://www.last.fm/music/a/_/b", platform: "lastfm", audioUrl: "https://www.youtube.com/watch?v=eeeeeeeeeee" };
 

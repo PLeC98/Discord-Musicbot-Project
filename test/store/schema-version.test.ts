@@ -1,4 +1,4 @@
-// src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 옮기기 코드도, 저절로 새로 만들기도 두지 않는다.
+// src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 저절로 새로 만들기는 두지 않고, 그 자리에서 올리는 단계는 spec.upgrades 에 있는 것만(캐시 DB 6 → 7).
 // 어느 파일이든 열지 않고 멈춘다. 캐시 · 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -59,6 +59,16 @@ test("새 폴더: 세 파일을 각자의 버전으로 만들고 쓴다", () => 
 const remove = (name: string) => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(path.join(dir, name + suffix), { force: true });
 };
+
+test("캐시 DB 6 은 그 자리에서 7 로: 재생 테스트 결과에 원본 버전 열만 더하고 직접 지정한 음원 · 결과는 그대로", () => {
+  prepare("cache.db", 6, "CREATE TABLE source_checks (audio_key TEXT PRIMARY KEY, ok INTEGER NOT NULL, code TEXT, checked_at INTEGER NOT NULL); INSERT INTO source_checks VALUES ('yt:a', 0, 'unavailable-contents', 1); CREATE TABLE pinned_sources (request_key TEXT PRIMARY KEY, audio_url TEXT NOT NULL, pinned_at INTEGER NOT NULL); INSERT INTO pinned_sources VALUES ('https://y/a', 'https://y/b', 2);");
+  stores.open(dir);
+  assert.equal(versionOf(cacheDb), 7);
+  const db = cacheDb.get();
+  assert.deepEqual(db.prepare("SELECT audio_key, ok, code, version FROM source_checks").get(), { audio_key: "yt:a", ok: 0, code: "unavailable-contents", version: null });
+  assert.equal(db.prepare("SELECT audio_url FROM pinned_sources").pluck().get(), "https://y/b");
+  assert.ok(db.prepare("SELECT COUNT(*) FROM audio_cache").pluck().get() === 0, "없던 표는 새로 만든다");
+});
 
 test("캐시 DB 버전이 다르면(옛 한 파일 구조 포함) 열지 않고 멈춘다. 파일은 손대지 않고, 삭제한 뒤 다시 시작하면 새로 만든다", () => {
   prepare("cache.db", 5, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY); CREATE TABLE audio_cache (audio_key TEXT PRIMARY KEY); INSERT INTO audio_cache VALUES ('yt:old');");

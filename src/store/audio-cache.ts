@@ -496,13 +496,14 @@ function adoptFile(row: AdoptRow, tempPath: string): Promise<boolean> {
       await fs.promises.rename(tempPath, filePath);
       conn()
         .prepare(
-          `INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, duration_sec, title, channel, audio_version, play_count, last_played_at, downloaded_at, created_at)
-           VALUES (@key, 'cached', @path, @size, @duration, @title, @channel, @version, @plays, @last, @downloaded, @now)
+          `INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, duration_sec, title, channel, audio_version, version_checked_at, play_count, last_played_at, downloaded_at, created_at)
+           VALUES (@key, 'cached', @path, @size, @duration, @title, @channel, @version, @checked, @plays, @last, @downloaded, @now)
            ON CONFLICT(audio_key) DO UPDATE SET status = 'cached', file_path = excluded.file_path, file_size_bytes = excluded.file_size_bytes, duration_sec = excluded.duration_sec,
-               title = excluded.title, channel = excluded.channel, audio_version = excluded.audio_version, play_count = MAX(audio_cache.play_count, excluded.play_count),
+               title = excluded.title, channel = excluded.channel, audio_version = excluded.audio_version, version_checked_at = excluded.version_checked_at, play_count = MAX(audio_cache.play_count, excluded.play_count),
                last_played_at = MAX(COALESCE(audio_cache.last_played_at, 0), COALESCE(excluded.last_played_at, 0)), downloaded_at = excluded.downloaded_at`,
         )
-        .run({ key: row.audioKey, path: filePath, size: fs.statSync(filePath).size, duration: row.durationSec, title: row.title, channel: row.channel, version: row.audioVersion, plays: row.plays, last: row.lastPlayedAt, downloaded: row.downloadedAt ?? Date.now(), now: Date.now() });
+        // 버전을 본 때는 그 파일을 받은 때(다운로드할 때 같은 응답에서 적었다)
+        .run({ key: row.audioKey, path: filePath, size: fs.statSync(filePath).size, duration: row.durationSec, title: row.title, channel: row.channel, version: row.audioVersion, checked: row.audioVersion ? (row.downloadedAt ?? Date.now()) : null, plays: row.plays, last: row.lastPlayedAt, downloaded: row.downloadedAt ?? Date.now(), now: Date.now() });
     } finally {
       unprotectFile(filePath);
     }

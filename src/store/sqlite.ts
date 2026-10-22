@@ -9,7 +9,7 @@ import { ownerOnly } from "../infra/owner-only.ts";
 type Db = Database.Database;
 
 /**
- * 구조 버전이 맞지 않을 때의 안내. 어느 파일이든 열지 않고 멈춘다(옮기기 코드도, 저절로 삭제하고 새로 만들기도 두지 않는다).
+ * 구조 버전이 맞지 않을 때의 안내. 어느 파일이든 열지 않고 멈춘다(저절로 삭제하고 새로 만들기는 두지 않는다. 그 자리에서 올리는 단계는 spec.upgrades 에 있는 것만).
  * lost: 삭제해도 되는 파일. 삭제하면 무엇을 잃는지(안내는 "이 파일을 삭제하고 다시 시작하라")
  * hint: 삭제하면 안 되는 파일의 안내(설정 DB)
  */
@@ -27,6 +27,8 @@ type DbSpec = {
   onMismatch: OnMismatch;
   /** 표 만들기. 이미 있으면 그대로 둔다 */
   createTables(db: Db): void;
+  /** 그 자리에서 올리는 단계: 키는 올리기 전 버전, 값은 다음 버전으로 바꾸는 일(열 더하기처럼 잃는 것이 없을 때만). 이어지는 단계가 다 있어야 쓴다 */
+  upgrades?: Record<number, (db: Db) => void>;
 };
 
 class DbFile {
@@ -60,11 +62,16 @@ class DbFile {
     }
   }
 
-  // 표가 있는데 버전이 다르면 멈춘다(파일은 손대지 않는다). 표가 없으면 새 파일이다
+  // 표가 있는데 버전이 다르면 멈춘다(파일은 손대지 않는다). 표가 없으면 새 파일이다. 옛 버전에서 지금 버전까지 올리는 단계가 다 있으면 한 묶음으로 올린다
   settle(db: Db, file: string) {
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[];
     const found = db.pragma("user_version", { simple: true }) as number;
     if (!tables.length || found === this.spec.version) return;
+    const steps = Array.from({ length: Math.max(0, this.spec.version - found) }, (_, i) => this.spec.upgrades?.[found + i]);
+    if (steps.length && steps.every(Boolean)) {
+      db.transaction(() => steps.forEach((step) => step!(db)))();
+      return;
+    }
     const rule = this.spec.onMismatch;
     const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 종료하고 이 파일(같은 이름의 -wal · -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듭니다. 삭제하면 ${rule.lost}`;
     throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });

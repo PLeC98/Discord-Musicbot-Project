@@ -567,6 +567,17 @@ test("같은 오디오를 다시 다운로드하면 앞선 요청이 남긴 길�
 });
 
 // 반드시 마지막 — DB를 닫는다
+
+test("캐시 가져오기(adoptFile): 버전이 있으면 그 파일을 받은 때를 버전을 본 때로 적는다", async () => {
+  const temp = path.join(audioCache.cacheDir(), "adopt.tmp");
+  fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
+  fs.writeFileSync(temp, "opus");
+  const adopted = await audioCache.adoptFile({ audioKey: "yt:adoptadopt1", title: "t", channel: null, durationSec: 10, sizeBytes: 4, plays: 0, lastPlayedAt: null, downloadedAt: 1_700_000_000_000, audioVersion: "lmt:1" }, temp);
+  assert.equal(adopted, true);
+  const row = cacheDb.get().prepare("SELECT audio_version, version_checked_at FROM audio_cache WHERE audio_key = ?").get("yt:adoptadopt1");
+  assert.deepEqual(row, { audio_version: "lmt:1", version_checked_at: 1_700_000_000_000 });
+});
+
 test("다운로드 기록 직후 닫혀도 예약된 캐시 정리가 DB를 다시 열지 않는다", async () => {
   audioCache.recordDownloadComplete("yt:closed1", audioCache.getFilePath("yt:closed1"), 100, { title: "t" });
   audioCache.close();

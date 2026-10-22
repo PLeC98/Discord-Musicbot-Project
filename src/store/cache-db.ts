@@ -10,11 +10,13 @@ import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 const cacheDb = new DbFile({
   label: "캐시 DB",
   fileName: "cache.db",
-  // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다
-  version: 6,
+  // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다. 7: 재생 테스트 · 다시 확인의 원본 버전(source_checks.version)
+  version: 7,
   synchronous: "NORMAL",
   onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
   createTables,
+  // 6 → 7 은 열 하나를 더할 뿐이라 그 자리에서(직접 지정한 음원 · 링크 데이터를 잃지 않게)
+  upgrades: { 6: (db) => db.exec("ALTER TABLE source_checks ADD COLUMN version TEXT") },
 });
 
 function createTables(db: Db) {
@@ -60,13 +62,15 @@ function createTables(db: Db) {
                 pinned_at    INTEGER NOT NULL
             );
 
-            -- 음원 하나를 재생할 수 있는지의 마지막 결과(재생 테스트 · 직접 지정한 음원이 재생에 실패한 것). 키는 audioKeyOf(음원 주소).
+            -- 음원 하나를 원본에서 재생할 수 있는지의 마지막 결과(재생 테스트 · 캐시의 다시 확인 · 직접 지정한 음원이 재생에 실패한 것). 키는 audioKeyOf(음원 주소).
             -- code: 실패 까닭(문제 코드, 라이브면 live). 성공이면 NULL
+            -- version: 그때 본 원본의 버전(audio_cache.audio_version 과 같은 꼴). 모르면 NULL. 둘이 다르면 캐시 파일은 원본이 바뀌기 전 것이다
             CREATE TABLE IF NOT EXISTS source_checks (
                 audio_key    TEXT PRIMARY KEY,
                 ok           INTEGER NOT NULL,
                 code         TEXT,
-                checked_at   INTEGER NOT NULL
+                checked_at   INTEGER NOT NULL,
+                version      TEXT
             );
 
             -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용. 라이브 조회 실패 시 사용).

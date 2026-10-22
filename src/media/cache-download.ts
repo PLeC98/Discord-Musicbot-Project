@@ -309,7 +309,8 @@ class TrackDownloader {
       const shown = shownDuration(track, measured, "measured");
       if (shown) Object.assign(track, shown);
 
-      if (audioKey) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
+      // 먼저 끝낸 쪽이 그 파일의 기록(버전 · 길이)을 이미 남겼다. 버린 쪽의 값으로 덮지 않는다
+      if (audioKey && mine) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 다운로드하므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
@@ -371,6 +372,8 @@ class TrackDownloader {
     }
     const ended = Date.now();
     const info = this._takeInfoJson(tempPath);
+    // 사운드클라우드가 미리듣기 조각(30초)만 준 곡: 곡처럼 캐시하지 않는다(넣은 뒤 권리자가 미리듣기로 돌린 곡)
+    if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡이라 캐시하지 않습니다: ${downloadUrl}`);
     // 다운로드한 포맷과 옮겼나 구웠나(yt-dlp 의 ExtractAudio 는 Opus 면 옮기고 아니면 굽는다)
     const codec = info.acodec?.split(".")[0] ?? "?";
     const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
