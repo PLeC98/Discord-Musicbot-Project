@@ -21,6 +21,7 @@ import { routes as djRoleConfigHandler } from "../../src/discord/interactions/dj
 import { routes as modalHandler } from "../../src/discord/interactions/modal-handler.ts";
 import { routes as playlistMoreHandler } from "../../src/discord/interactions/playlist-more-handler.ts";
 import { routes as sponsorConfigHandler } from "../../src/discord/interactions/sponsor-config-handler.ts";
+import { routes as settingsPanelHandler } from "../../src/discord/interactions/settings-panel-handler.ts";
 import { selectOf } from "../helpers/cv2.ts";
 
 useDefaultDocuments();
@@ -30,7 +31,7 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, djRoleConfigHandler, modalHandler, playlistMoreHandler, sponsorConfigHandler };
+const OWNERS = { autoplay, buttonHandler, djRoleConfigHandler, modalHandler, playlistMoreHandler, sponsorConfigHandler, settingsPanelHandler };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -105,11 +106,15 @@ const CASES: [Kind, string, string][] = [
   ["button", "sb:cancel", "sponsorConfigHandler"],
   ["button", "djrole:save", "djRoleConfigHandler"],
   ["button", "djrole:cancel", "djRoleConfigHandler"],
+  ["button", "setting:sb-toggle", "settingsPanelHandler"],
+  ["button", "setting:age-all", "settingsPanelHandler"],
   ["select", "autoplay:genre", "autoplay"],
   ["select", "panel:jump:s1", "modalHandler"],
   ["select", "sb:cats", "sponsorConfigHandler"],
+  ["select", "setting:sb-cats", "settingsPanelHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["roleSelect", "djrole:select", "djRoleConfigHandler"],
+  ["roleSelect", "setting:dj", "settingsPanelHandler"],
   ["modal", "panel:volume", "modalHandler"],
   ["modal", "plmm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["command", "probe", "commands"],

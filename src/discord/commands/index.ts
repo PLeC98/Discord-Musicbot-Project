@@ -23,6 +23,7 @@ import replay from "./replay.ts";
 import search from "./search.ts";
 import seek from "./seek.ts";
 import setchannel from "./setchannel.ts";
+import setting from "./setting.ts";
 import setdjrole from "./setdjrole.ts";
 import setplaylistlimit from "./setplaylistlimit.ts";
 import shuffle from "./shuffle.ts";
@@ -34,6 +35,6 @@ import volume from "./volume.ts";
 import type { SlashCommand } from "../../app/command-loader.ts";
 
 // 순서가 곧 /help 의 순서다(그룹 안에서 위에서 아래로)
-const COMMANDS: readonly SlashCommand[] = [play, playfirst, pause, stop, skip, previous, replay, seek, highlight, queue, clear, remove, move, shuffle, loop, autoplay, volume, search, nowplaying, join, leave, setchannel, setdjrole, setplaylistlimit, sponsorblock, dashboard, ping, system, cachestatus, license, help];
+const COMMANDS: readonly SlashCommand[] = [play, playfirst, pause, stop, skip, previous, replay, seek, highlight, queue, clear, remove, move, shuffle, loop, autoplay, volume, search, nowplaying, join, leave, setchannel, setting, setdjrole, setplaylistlimit, sponsorblock, dashboard, ping, system, cachestatus, license, help];
 
 export { COMMANDS };

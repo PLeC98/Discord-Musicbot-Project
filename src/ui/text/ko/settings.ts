@@ -1,4 +1,4 @@
-// 서버 설정 화면(/setchannel · /setdjrole · /setplaylistlimit · /sponsorblock)의 문구. icon 은 헤더 줄 아이콘의 키(ui/settings-screens 가 화면 색으로 그린다)
+// 서버 설정 화면(/setting · /setchannel · /setdjrole · /setplaylistlimit · /sponsorblock)의 문구. icon 은 헤더 줄 아이콘의 키(ui/settings-screens 가 화면 색으로 그린다)
 
 import { icon } from "../../icons.ts";
 
@@ -61,4 +61,21 @@ const playlistLimitNow = ({ count, isDefault, min, max }: { count: number; isDef
 });
 const playlistLimitSet = (count: number) => ({ icon: "done" as const, title: "재생목록에 한 번에 넣을 곡 수를 바꿨어요", description: `이제 재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.` });
 
-export { buttons, channelRemoved, channelSet, djRoleMenu, djRoleCancelled, djRoleCleared, djRoleSaved, sponsorMenu, sponsorSummary, sponsorCancelled, sponsorSaved, playlistLimitReset, playlistLimitNow, playlistLimitSet };
+/** /setting 한 화면: DJ 역할 · SponsorBlock · 연령 제한 콘텐츠. 고르면 바로 저장한다 */
+const panel = {
+  icon: "modes" as const,
+  title: "서버 설정",
+  description: "고르거나 누르면 바로 저장돼요.",
+  /** 부분마다 굵은 이름 줄 + 지금 값. roleIds 는 지금 DJ 역할 */
+  dj: (roleIds: string[]) => `${icon("dj_role")} **DJ 역할**\n${roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}\n재생 조작은 이 역할이 있는 사람과 서버 관리자만 할 수 있어요.` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요."}`,
+  djPlaceholder: "DJ로 지정할 역할 선택 (비우면 모두)",
+  sponsor: (enabled: boolean) => `${icon("sponsorblock")} **SponsorBlock 자동 건너뛰기**\n현재 설정: **${onOff(enabled)}**`,
+  sponsorToggle: (enabled: boolean) => (enabled ? "끄기" : "켜기"),
+  sponsorPlaceholder: "건너뛸 구간 종류 선택",
+  age: () => `${icon("shield")} **연령 제한 콘텐츠**\n연령 제한이 걸린 곡을 어떤 음성 채널에서 재생 가능하게 할지 정해요.`,
+  ageChannel: "연령 제한 채널에서만",
+  ageAll: "모든 채널에서",
+  ageAllWarning: "-# 이 서버의 모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",
+};
+
+export { panel, buttons, channelRemoved, channelSet, djRoleMenu, djRoleCancelled, djRoleCleared, djRoleSaved, sponsorMenu, sponsorSummary, sponsorCancelled, sponsorSaved, playlistLimitReset, playlistLimitNow, playlistLimitSet };
