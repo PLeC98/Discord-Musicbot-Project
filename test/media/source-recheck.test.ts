@@ -29,14 +29,14 @@ test("유튜브: 자르면 바뀜 + 길이도 다르다, 오디오만 바꾸면 
   assert.ok(resounded.kind === "changed" && resounded.version.startsWith("lmt:179260"));
 });
 
-test("유튜브: 내려간 영상은 사라짐, 일시 오류는 모름, 적어 둔 버전이 없으면 모름", async () => {
+test("유튜브: 내려간 영상은 사라짐, 일시 오류는 모름, 적어 둔 버전이 없으면 견주지 못함", async () => {
   const removed = new Error("ERROR: [youtube] ppIDyKeeRxs: Video unavailable. This video has been removed by the uploader");
   const gone = await recheck(YT, { version: "lmt:1", durationSec: 1 }, deps({ youtubeInfo: async () => Promise.reject(removed) }));
   assert.deepEqual(gone, { kind: "gone", code: "unavailable-contents" });
   const flaky = await recheck(YT, { version: "lmt:1", durationSec: 1 }, deps({ youtubeInfo: async () => Promise.reject(new Error("ERROR: unable to download webpage: timed out")) }));
   assert.equal(flaky.kind, "unknown");
   const blank = await recheck(YT, { version: null, durationSec: null }, deps({ youtubeInfo: async () => ({ formats: BEFORE }) }));
-  assert.equal(blank.kind, "unknown");
+  assert.equal(blank.kind, "uncompared");
 });
 
 test("사운드클라우드: 음원 파일 id 로 견주고, 미리듣기만 남았으면 사라짐", async () => {
@@ -46,6 +46,8 @@ test("사운드클라우드: 음원 파일 id 로 견주고, 미리듣기만 남
   assert.deepEqual(await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: stream("NEWfile12345") })), { kind: "changed", version: "file:NEWfile12345", durationChanged: null });
   const preview = await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: async () => Promise.reject(codedError("sc-preview-only", "미리듣기")) }));
   assert.deepEqual(preview, { kind: "gone", code: "sc-preview-only" });
+  const older = await recheck(SC, { version: "modified:1657536958", durationSec: 1 }, deps({ soundcloudStream: stream("cWHNerOLlkUq") }));
+  assert.equal(older.kind, "uncompared", "적어 둔 것이 수정 시각이면 파일 id 와 견주지 않는다");
 });
 
 test("직접 링크: 머리로 견주고(ETag 우선), 404 · 410 · 웹 페이지는 사라짐, 403 · 5xx 는 모름", async () => {

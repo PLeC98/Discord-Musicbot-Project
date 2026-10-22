@@ -138,7 +138,7 @@
 <script setup lang="ts">
 import { session, live } from "../composables/session.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
 import { eventLink } from "../utils/event-link.ts";
 import { unsaved, unsavedIn } from "../composables/unsaved.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
@@ -171,7 +171,7 @@ import { draft as tunableDraft } from "../composables/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import ConfigReset from "../components/ConfigReset.vue";
-import CacheDb from "../components/CacheDb.vue";
+import type CacheDbPanel from "../components/CacheDb.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
@@ -484,7 +484,9 @@ function closeLogs() {
 // 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
 // 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
 const POLL_MS = 3000;
-const cacheDbEl = ref<InstanceType<typeof CacheDb> | null>(null);
+// 캐시 DB 탭은 크고 열 때만 그린다: 따로 받는다
+const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
+const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
 function poll() {

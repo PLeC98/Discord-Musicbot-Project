@@ -4,9 +4,10 @@
 // 한 번에 하나씩, 같은 출처는 간격을 두고(유튜브 · 사운드클라우드는 yt-dlp 의 뒤 줄로), yt-dlp 가 바쁘거나 유튜브 추출 수가 알리는 선을 넘었으면 미룬다.
 // 결과(media/source-recheck)는 source_checks 에 원본에서 틀 수 있는가 · 그때 본 원본의 버전으로 남긴다. 바뀜은 그 버전과 캐시 파일의 버전이 달라 보인다.
 //
-//   바뀜     유튜브는 알리기만(저작권 주장으로 소리를 지운 편집일 수 있다), 사운드클라우드 · 직접 링크는 캐시를 지워 다음 재생 때 새로 받는다(쓰는 중이면 끝난 뒤)
-//   사라짐   캐시는 그대로 틀고 남기기만(곡은 대개 다른 주소에 있어 정리는 다른 캐시와 같다)
-//   모름     하루 뒤에 다시(일시 오류 · 요청 제한 · 만료된 주소)
+//   바뀜         유튜브는 알리기만(저작권 주장으로 소리를 지운 편집일 수 있다), 사운드클라우드 · 직접 링크는 캐시를 지워 다음 재생 때 새로 받는다(쓰는 중이면 끝난 뒤)
+//   견주지 못함  틀 수 있음으로 남긴다(앞서 본 버전은 지킨다). 다시 물어도 같아 간격대로만 묻는다
+//   사라짐       캐시는 그대로 틀고 남기기만(곡은 대개 다른 주소에 있어 정리는 다른 캐시와 같다)
+//   모름         하루 뒤에 다시(일시 오류 · 요청 제한 · 만료된 주소)
 
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
@@ -129,6 +130,11 @@ async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   if (result.kind === "same") {
     sourceChecks.recordCheck(job.audioKey, { ok: true, at, version: result.version });
     log.debug(`원본 다시 확인: 같음 ${where}`);
+    return;
+  }
+  if (result.kind === "uncompared") {
+    sourceChecks.recordCheck(job.audioKey, { ok: true, at });
+    log.debug(`원본 다시 확인: 열림, 견주지 못함(${result.reason}) ${where}`);
     return;
   }
   if (result.kind === "gone") {

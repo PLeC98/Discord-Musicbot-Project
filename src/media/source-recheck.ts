@@ -1,4 +1,4 @@
-// 캐시해 둔 음원의 원본이 지금 어떤가: 같은가 · 바뀌었는가 · 사라졌는가 · 모르는가. 캐시의 다시 확인이 부른다.
+// 캐시해 둔 음원의 원본이 지금 어떤가: 같은가 · 바뀌었는가 · 견줄 수 없는가 · 사라졌는가 · 모르는가. 캐시의 다시 확인이 부른다.
 // 원본에 한 번 묻고, 다운로드할 때 적어 둔 버전(media/audio-version)과 견준다. 무엇을 할지(알리기 · 다시 받기)는 부르는 쪽이 정한다.
 //
 //   유튜브        영상 정보 한 번(yt-dlp). 적어 둔 lmt 가 지금 포맷 어디에도 없으면 바뀜. 오디오 포맷의 길이가 캐시와 다른지도 적는다(자르기면 다르고, 오디오만 바꾸면 같다)
@@ -19,11 +19,12 @@ import * as versionOf from "./audio-version.ts";
 type Stored = { version: string | null; durationSec: number | null };
 
 /**
- * same: 같은 원본(version 은 적어 둔 버전과 같은 값, 견주지 못했으면 null).
+ * same: 같은 원본(version 은 적어 둔 버전과 같은 값).
  * changed: 바뀜(version 은 원본의 지금 버전). durationChanged: 유튜브에서 오디오 길이가 캐시와 다른가(모르면 null).
- * gone: 원본에서 틀 수 없다(문제 코드). unknown: 이번에는 모른다(까닭)
+ * uncompared: 원본은 답했지만 견줄 버전이 없다(적어 둔 버전이 없는 캐시 · 버전을 주지 않는 서버. 다시 물어도 같다, 까닭).
+ * gone: 원본에서 틀 수 없다(문제 코드). unknown: 이번에는 모른다(일시 오류 등, 까닭)
  */
-type Recheck = { kind: "same"; version: string | null } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string };
+type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string };
 
 /** 원본에 묻는 길. 테스트가 가짜를 넘긴다 */
 type Deps = {
@@ -53,7 +54,7 @@ async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Pro
   const kind = inputKind(audioUrl);
   try {
     if (kind === "youtube") return youtube(await deps.youtubeInfo(audioUrl), stored);
-    if (kind === "soundcloud") return compared(versionOf.fromSoundCloudUrl((await deps.soundcloudStream(audioUrl)).url), stored, (a, b) => a === b);
+    if (kind === "soundcloud") return compared(versionOf.fromSoundCloudUrl((await deps.soundcloudStream(audioUrl)).url), stored, sameSoundCloud);
     if (kind === "direct") return direct((await deps.directHead(audioUrl)).headers, stored);
     return { kind: "unknown", reason: `다시 확인하지 않는 출처(${kind})` };
   } catch (error) {
@@ -64,9 +65,9 @@ async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Pro
 function youtube(info: { formats?: unknown[] | null }, stored: Stored): Recheck {
   const lmts = versionOf.lmtsOf(info.formats);
   const mine = versionOf.lmtOf(stored.version);
-  if (!lmts.size) return { kind: "unknown", reason: "원본 포맷에 lmt 가 없다" };
-  if (!mine) return { kind: "unknown", reason: "적어 둔 버전이 없다" };
-  if (lmts.has(mine)) return { kind: "same", version: stored.version };
+  if (!lmts.size) return { kind: "uncompared", reason: "원본 포맷에 lmt 가 없다" };
+  if (!mine) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
+  if (lmts.has(mine)) return { kind: "same", version: `lmt:${mine}` };
   const duration = versionOf.audioDurationOf(info.formats);
   const durationChanged = duration && stored.durationSec ? Math.abs(duration - stored.durationSec) > DURATION_SLACK_SEC : null;
   // 바뀐 원본의 버전은 포맷 하나의 lmt(편집하면 모든 포맷이 함께 바뀐다). 다시 받으면 그 포맷의 값이 audio_version 이 되고, 다음 확인에서 같음이 된다
@@ -79,12 +80,15 @@ function direct(headers: Record<string, unknown>, stored: Stored): Recheck {
   return compared(versionOf.fromHeaders(headers), stored, versionOf.sameDirect);
 }
 
-// 원본의 지금 버전을 적어 둔 것과 견준다. 어느 쪽이든 없거나 견줄 수 없으면 모름
+// 사운드클라우드 두 버전: 같은 꼴(음원 파일 id 끼리 · 수정 시각끼리)만 견준다. 재생 주소에서는 늘 파일 id 라 적어 둔 것이 수정 시각이면 견줄 수 없다
+const sameSoundCloud = (a: string, b: string) => (a.split(":")[0] === b.split(":")[0] ? a === b : null);
+
+// 원본의 지금 버전을 적어 둔 것과 견준다. 어느 쪽이든 없거나 견줄 수 없으면 견주지 못함
 function compared(now: string | null, stored: Stored, same: (a: string, b: string) => boolean | null): Recheck {
-  if (!now) return { kind: "unknown", reason: "원본의 버전을 읽지 못했다" };
-  if (!stored.version) return { kind: "unknown", reason: "적어 둔 버전이 없다" };
+  if (!now) return { kind: "uncompared", reason: "원본이 버전을 주지 않는다" };
+  if (!stored.version) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
   const verdict = same(stored.version, now);
-  if (verdict === null) return { kind: "unknown", reason: "견줄 값이 없다" };
+  if (verdict === null) return { kind: "uncompared", reason: "견줄 값이 없다" };
   return verdict ? { kind: "same", version: stored.version } : { kind: "changed", version: now, durationChanged: null };
 }
 

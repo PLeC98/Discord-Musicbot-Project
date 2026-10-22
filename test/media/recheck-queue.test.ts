@@ -85,6 +85,17 @@ test("같음: 원본 버전 · 확인 시각을 남기고(캐시 파일 행은 �
   assert.equal(asked.length, 1);
 });
 
+test("견주지 못함(버전 없는 옛 캐시 등): 틀 수 있음으로 남겨 간격대로만 다시 묻는다", async () => {
+  cached("yt:aaaaaaaaaaa", NOW - 100 * DAY, "lmt:1");
+  answer = { kind: "uncompared", reason: "적어 둔 버전이 없다" };
+  queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
+  await queue._drain();
+  assert.deepEqual(sourceChecks.getCheck("yt:aaaaaaaaaaa"), { ok: true, at: NOW });
+  queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
+  await queue._drain();
+  assert.equal(asked.length, 1);
+});
+
 test("유튜브가 바뀌면 알리기만: 원본 버전은 남기고 캐시 파일은 그대로", async () => {
   const file = cached("yt:aaaaaaaaaaa", NOW - 100 * DAY, "lmt:1");
   answer = { kind: "changed", version: "lmt:2", durationChanged: false };

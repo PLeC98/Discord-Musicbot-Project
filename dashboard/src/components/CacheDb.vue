@@ -1078,19 +1078,22 @@ async function probe(keys: string[]) {
   }
 }
 let checkTimer = 0;
+// 확인 번호가 바뀌었으면 보이는 행의 확인 결과 · 원본만 다시 받는다(다시 읽지 않아 선택 · 바꾼 것이 남는다)
+async function refreshChecks(latest: number) {
+  if (latest === checkRevision.value) return;
+  const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
+  const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`)).data;
+  for (const row of rows.values()) {
+    if (table.value === "requests" && (row as TrackRequestRow).audioKey && got.checks[(row as TrackRequestRow).audioKey!]) (row as TrackRequestRow).check = got.checks[(row as TrackRequestRow).audioKey!];
+    if (table.value === "files" && got.sources[(row as TrackFileRow).audioKey]) (row as TrackFileRow).source = got.sources[(row as TrackFileRow).audioKey];
+  }
+  checkRevision.value = got.checkRevision;
+}
 function pollChecks() {
   clearTimeout(checkTimer);
   checkTimer = window.setTimeout(async () => {
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
-    if (data.checkRevision !== checkRevision.value) {
-      const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
-      const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`)).data;
-      for (const row of rows.values()) {
-        if (table.value === "requests" && (row as TrackRequestRow).audioKey && got.checks[(row as TrackRequestRow).audioKey!]) (row as TrackRequestRow).check = got.checks[(row as TrackRequestRow).audioKey!];
-        if (table.value === "files" && got.sources[(row as TrackFileRow).audioKey]) (row as TrackFileRow).source = got.sources[(row as TrackFileRow).audioKey];
-      }
-      checkRevision.value = got.checkRevision;
-    }
+    await refreshChecks(data.checkRevision);
     checking.value = data.checking;
     if (data.checking.length) pollChecks();
   }, PROBE_POLL_MS);
@@ -1098,12 +1101,13 @@ function pollChecks() {
 
 // ── 변경 번호(탭이 보이는 동안 운영자 패널의 3초 읽기가 부른다) ─────────────
 
-/** 봇이 이 표들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것 · 바꾼 것을 지키려고 저절로 다시 읽지 않는다) */
+/** 봇이 이 표들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것 · 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 고친다 */
 async function checkChanged() {
-  if (!loadedRevision.value || botChanged.value) return;
+  if (!loadedRevision.value) return;
   try {
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
     if (data.revision !== loadedRevision.value) botChanged.value = true;
+    if (!checking.value.length) await refreshChecks(data.checkRevision);
   } catch {
     // 다음 주기에 다시 묻는다
   }
