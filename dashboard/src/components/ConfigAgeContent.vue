@@ -9,7 +9,15 @@
       <!-- 확인창이 떠 있는 동안은 켠 쪽으로 보인다(취소하면 돌아간다) -->
       <BaseSwitch :model-value="ageContent.enabled || asking" :disabled="busy" class="mt-0.5" @update:model-value="toggle" />
     </label>
-    <ConfirmDialog v-model="asking" icon="18_up_rating" :title="T.confirm.title" :body="T.confirm.body" :emphasis="T.confirm.emphasis" :confirm-label="T.confirm.run" tone="primary" :busy="busy" @confirm="turnOn" />
+    <!-- 문단 셋: 계정 · 서버마다 틀 곳(모든 채널만 굵게) · 굵은 경고 -->
+    <ConfirmDialog v-model="asking" icon="18_up_rating" :title="T.confirm.title" :confirm-label="T.confirm.run" tone="primary" :busy="busy" @confirm="turnOn">
+      <span class="block">{{ T.confirm.account }}</span>
+      <span class="block mt-3"
+        >{{ T.confirm.placeBefore }}<strong class="font-semibold text-on-surface">{{ T.confirm.placeStrong }}</strong
+        >{{ T.confirm.placeAfter }}</span
+      >
+      <strong class="block mt-3 font-semibold text-on-surface">{{ T.confirm.emphasis }}</strong>
+    </ConfirmDialog>
   </BaseCard>
 </template>
 
