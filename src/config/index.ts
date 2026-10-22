@@ -394,6 +394,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       evictTargetPercent: tuneInt("CACHE_EVICT_TARGET_PERCENT"),
       // 이보다 긴 곡은 캐시하지 않고 스트림으로만 튼다(초). 0 이면 상한 없음
       maxTrackSec: tuneInt("CACHE_MAX_TRACK_MINUTES") * 60,
+      // 캐시로 튼 곡의 원본을 다시 묻는 간격(ms, 출처마다). 0 이면 묻지 않는다(media/recheck-queue)
+      recheckMs: { youtube: tuneInt("CACHE_RECHECK_YOUTUBE_DAYS") * 86_400_000, soundcloud: tuneInt("CACHE_RECHECK_SOUNDCLOUD_DAYS") * 86_400_000, direct: tuneInt("CACHE_RECHECK_DIRECT_DAYS") * 86_400_000 },
     },
 
     // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsor-block.ts). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).

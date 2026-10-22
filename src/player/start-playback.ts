@@ -7,6 +7,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { TrackDownloader } from "../media/cache-download.ts";
+import * as recheckQueue from "../media/recheck-queue.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
@@ -95,6 +96,8 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok });
   }
 
+  // 캐시 파일로 튼다: 원본을 본 지 오래됐으면 뒤에서 다시 묻는다(이번 재생은 기다리지 않는다)
+  if (cacheFile) recheckQueue.notePlayedFromCache(track, player.guild.id);
   return {
     cacheFile,
     streamInfo,

@@ -52,6 +52,10 @@ const TUNABLES: readonly Tunable[] = [
   { key: "CACHE_EVICT_TARGET_PERCENT", group: "cache", kind: "int", def: "90", min: 50, max: 99 },
   { key: "CACHE_EVICT_INTERVAL_HOURS", group: "cache", kind: "int", def: "4", min: 1, max: 168 },
   { key: "CACHE_MAX_TRACK_MINUTES", group: "cache", kind: "int", def: "60", min: 0, max: 10080 },
+  // 캐시로 튼 곡의 원본을 다시 묻는 간격(일, 0 이면 묻지 않는다). 묻기의 값 · 바뀌었을 때 할 일이 출처마다 달라 따로
+  { key: "CACHE_RECHECK_YOUTUBE_DAYS", group: "cache", kind: "int", def: "90", min: 0, max: 3650 },
+  { key: "CACHE_RECHECK_SOUNDCLOUD_DAYS", group: "cache", kind: "int", def: "30", min: 0, max: 3650 },
+  { key: "CACHE_RECHECK_DIRECT_DAYS", group: "cache", kind: "int", def: "14", min: 0, max: 3650 },
   // 재생 스트림
   { key: "STREAM_CHUNK_KB", group: "stream", kind: "int", def: "1024", min: 64, max: 65536 },
   // 대시보드 요청 제한 · 실시간 연결
