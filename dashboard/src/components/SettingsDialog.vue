@@ -1,5 +1,5 @@
 <template>
-  <!-- 화면 설정(M3 대화상자). 이 브라우저에만 기억한다 -->
+  <!-- 설정(M3 대화상자). 밝기 · 테마 · 화면은 이 브라우저에만 기억하고, 계정(로그인한 기기)은 서버의 세션이다. 계정은 창을 열 때 읽는다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
@@ -37,6 +37,10 @@
               </label>
             </div>
           </template>
+
+          <div class="text-label font-semibold text-primary mb-2 mt-2">{{ T.groupAccount }}</div>
+          <div class="text-body font-medium mb-1">{{ T.devices.title }}</div>
+          <AccountDevices />
         </div>
       </div>
     </Transition>
@@ -50,6 +54,7 @@ import { useCloseLayer } from "../composables/close-layer.ts";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import BaseSwitch from "./BaseSwitch.vue";
+import AccountDevices from "./AccountDevices.vue";
 import { mode, prefs, setMode, setPref, type Mode, type Prefs } from "../theme/theme.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";

@@ -53,7 +53,7 @@ before(async () => {
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store }));
   app.use(noteDevice);
   app.use("/auth", createAuthRouter({ http }));
-  app.use("/api/me/devices", createLoginDevicesRouter({ locate: (ip) => ({ kind: "geo", city: `도시 ${ip}`, region: null, country: "KR" }), geoip: () => true, http }));
+  app.use("/api/me/devices", createLoginDevicesRouter({ places: { load: async () => true, locate: (ip) => ({ kind: "geo", city: `도시 ${ip}`, region: null, country: "대한민국" }) }, http }));
   // 로그인한 지 오래된 것처럼(최근 로그인 확인)
   app.post("/age-login", (req, res) => {
     req.session.loginAt = Date.now() - RECENT_LOGIN_MS - 1;

@@ -16,10 +16,11 @@ import { bestEffort } from "../../infra/best-effort.ts";
 import { sendProblem } from "../problem.ts";
 import type { LoginDevices, SignedOut } from "../contract/identity.ts";
 
-/**
- * locate: IP 위치(공인 주소만 묻는다). geoip: 위치 DB 를 쓰고 있나(화면이 출처 링크를 단다). http: 디스코드(토큰 폐기)
- */
-function createLoginDevicesRouter({ locate, geoip, http = discordHttp }: { locate: Locate; geoip: () => boolean; http?: DiscordHttp }) {
+/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 묻는다 */
+type Places = { load(): Promise<boolean>; locate: Locate };
+
+/** http: 디스코드(토큰 폐기) */
+function createLoginDevicesRouter({ places, http = discordHttp }: { places: Places; http?: DiscordHttp }) {
   const router = express.Router();
 
   // 세션을 끊는다. 끝까지 해 본다(토큰 폐기는 기다리지 않는다)
@@ -31,12 +32,14 @@ function createLoginDevicesRouter({ locate, geoip, http = discordHttp }: { locat
   }
 
   // 최근 활동 순, 지금 기기가 맨 앞. 지금 기기는 이 요청이 고친 세션(저장은 답한 뒤)으로
-  router.get("/", requireAuth, (req, res) => {
+  router.get("/", requireAuth, async (req, res) => {
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
+    const geoip = await places.load();
+    const locate: Locate = geoip ? places.locate : () => null;
     const rows = store.sessionsOf(signedIn(req).id).map(({ sid, session }) => describe(sid, sid === req.sessionID ? req.session : session, req.sessionID, locate));
     rows.sort((a, b) => Number(b.current) - Number(a.current) || (b.seenAt ?? 0) - (a.seenAt ?? 0));
-    res.json({ devices: rows, geoip: geoip() } satisfies LoginDevices);
+    res.json({ devices: rows, geoip } satisfies LoginDevices);
   });
 
   // 기기 하나. 지금 기기는 여기서 끊지 않는다(로그아웃으로)

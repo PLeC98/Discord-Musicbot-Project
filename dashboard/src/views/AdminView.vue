@@ -96,9 +96,12 @@
           <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
-        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭) · 설정 표시(고급 설정 보기) · 연령 제한 콘텐츠 · 디스코드 명령(곧바로 하는 재배포) -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, IP 위치 정보 카드 안에 판 · 업데이트) · 설정 표시(고급 설정 보기) · 연령 제한 콘텐츠 · 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
-          <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false" />
+          <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false">
+            <!-- IP 위치 정보: 지금 판 · 업데이트 확인 · 업데이트(누르면 바로) -->
+            <template #in-geoip><ConfigGeoip class="mt-4" /></template>
+          </ConfigTunables>
           <ConfigVisibility v-if="opened.has('settings')" class="mt-(--gap-in)" />
           <ConfigAgeContent v-if="opened.has('settings')" class="mt-(--gap-in)" />
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
@@ -182,6 +185,7 @@ import ConfigReset from "../components/ConfigReset.vue";
 import ConfigCommands from "../components/ConfigCommands.vue";
 import ConfigVisibility from "../components/ConfigVisibility.vue";
 import ConfigAgeContent from "../components/ConfigAgeContent.vue";
+import ConfigGeoip from "../components/ConfigGeoip.vue";
 import { ageContent, loadAgeContent } from "../composables/age-content.ts";
 import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";

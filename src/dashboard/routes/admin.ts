@@ -13,7 +13,7 @@ import logManager from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type PanelPrefs, type AgeContent, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type PanelPrefs, type AgeContent, type GeoipCheck, type GeoipStatus, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -23,6 +23,7 @@ import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
 import { ageContent, setAgeContent } from "../../config/age-content.ts";
+import * as geoip from "../geoip.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import { icon } from "../../ui/icons.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
@@ -482,6 +483,23 @@ adminRouter.put("/age-content", requireOwner, (req, res) => {
     YouTube.logAuthMode();
   }
   res.json(next satisfies AgeContent);
+});
+
+// IP 위치 DB(dashboard/geoip). 받기는 오래 걸려(약 60MB) 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
+adminRouter.get("/geoip", requireOwner, (_req, res) => {
+  res.json(geoip.status() satisfies GeoipStatus);
+});
+
+adminRouter.post("/geoip/check", requireOwner, async (_req, res) => {
+  res.json((await geoip.check()) satisfies GeoipCheck);
+});
+
+adminRouter.post("/geoip/update", requireOwner, (req, res) => {
+  log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
+  geoip.update().catch(() => {
+    /* 까닭은 상태(error)와 로그에 */
+  });
+  res.status(202).json(geoip.status() satisfies GeoipStatus);
 });
 
 adminRouter.get("/config/:name", requireOwner, (req, res) => {

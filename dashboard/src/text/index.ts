@@ -16,6 +16,7 @@ import * as editor from "./ko/editor.ts";
 import * as errors from "./ko/errors.ts";
 import * as fields from "./ko/fields.ts";
 import * as genres from "./ko/genres.ts";
+import * as geoip from "./ko/geoip.ts";
 import * as invite from "./ko/invite.ts";
 import * as licenses from "./ko/licenses.ts";
 import * as login from "./ko/login.ts";
@@ -37,6 +38,6 @@ import * as snapshots from "./ko/snapshots.ts";
 import * as status from "./ko/status.ts";
 import * as tunables from "./ko/tunables.ts";
 
-const text = { admin, ageContent, ai, appearance, archive, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, tunables };
+const text = { admin, ageContent, ai, appearance, archive, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, geoip, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, tunables };
 
 export { text };

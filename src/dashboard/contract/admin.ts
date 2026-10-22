@@ -124,6 +124,11 @@ type RestartReply = { restarting: true };
 /** 운영자 패널의 보기 설정(GET · PUT /api/admin/panel). advanced: 고급 설정 보기. 어느 기기로 열어도 같게 서버에 둔다 */
 type PanelPrefs = { advanced: boolean };
 
+/** IP 위치 DB(dashboard/geoip). version: 가진 판(YYYY-MM), bytes: 그 파일 크기, job: 하는 일, received · total: 받는 중의 바이트(압축된 것), error: 마지막 실패 */
+type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | null; bytes: number | null; job: "idle" | "checking" | "downloading"; received: number | null; total: number | null; error: string | null };
+/** 확인 결과. latest: 받을 수 있는 가장 새 판(없으면 null), size: 그 판의 받는 크기 */
+type GeoipCheck = { current: string | null; latest: string | null; size: number | null };
+
 /** 설정 파일(genres · status · ai) 읽기와 저장 */
 /** 설정 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
 type ConfigFile = { name: string; data: Record<string, unknown>; revision: number };
@@ -163,4 +168,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, AgeContent, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, GeoipStatus, GeoipCheck, AgeContent, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };

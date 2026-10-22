@@ -8,7 +8,7 @@
 // box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 일의 출처별 값)
 
 /** 그룹(화면의 카드 순서) */
-const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "dashboard", "ailog"] as const;
+const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
@@ -64,6 +64,9 @@ const TUNABLES: readonly Tunable[] = [
   { key: "CACHE_RECHECK_DIRECT_DAYS", group: "cache", kind: "int", def: "14", min: 0, max: 3650, advanced: true, box: "recheck" },
   // 재생 스트림
   { key: "STREAM_CHUNK_KB", group: "stream", kind: "int", def: "1024", min: 64, max: 65536, advanced: true },
+  // IP 위치 DB(로그인한 기기의 위치, DB-IP City Lite). 자동 업데이트는 매달 새 판을 받는다
+  { key: "GEOIP_ENABLED", group: "geoip", kind: "bool", def: "true" },
+  { key: "GEOIP_AUTO_UPDATE", group: "geoip", kind: "bool", def: "true" },
   // 대시보드 요청 제한 · 실시간 연결
   { key: "RATE_LIMIT_WINDOW_SEC", group: "dashboard", kind: "int", def: "60", min: 1, max: 3600, advanced: true },
   { key: "RATE_LIMIT_API_MAX", group: "dashboard", kind: "int", def: "120", min: 1, max: 100000, advanced: true },
@@ -81,7 +84,7 @@ const TUNABLES: readonly Tunable[] = [
 
 /** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, 연령 제한 콘텐츠의 쿠키는 연령 제한, AI 리퀘스트 로그는 AI 보조, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
 type TunableTab = "settings" | "appearance" | "youtube" | "age" | "ai";
-const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", dashboard: "settings", ailog: "ai" };
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai" };
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
 
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));

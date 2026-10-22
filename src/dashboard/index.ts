@@ -28,6 +28,7 @@ import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
 import { createLoginDevicesRouter } from "./routes/login-devices.ts";
 import { noteDevice } from "./login-devices.ts";
+import * as geoip from "./geoip.ts";
 import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts";
 import { loginBackgroundRouter } from "./routes/login-background.ts";
 import { publicLoginBackgroundRouter } from "./routes/login-background-public.ts";
@@ -189,7 +190,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/invite", createInviteRouter());
 
   // 지금 로그인한 사람(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
-  app.use("/api/me/devices", createLoginDevicesRouter({ locate: () => null, geoip: () => false }));
+  app.use("/api/me/devices", createLoginDevicesRouter({ places: geoip }));
   app.use("/api", identityRouter);
 
   app.use(notFoundJson);
@@ -210,6 +211,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   sweepUploads();
   // AI 리퀘스트 로그: 새 기록을 실시간 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
+  // IP 위치 DB: 자동 업데이트면 새 판을 받는다(로그인한 기기의 위치)
+  geoip.start();
   onTunablesChanged(() => {
     aiLogStream.syncHeartbeat();
     if (aiRequests.isOpen()) aiRequests.rotate(config.aiLog.maxBytes);

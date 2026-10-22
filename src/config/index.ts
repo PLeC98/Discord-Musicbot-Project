@@ -414,6 +414,11 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       enabled: tuneBool("AI_LOG_ENABLED"),
       maxBytes: tuneInt("AI_LOG_MAX_MB") * 1024 * 1024,
     },
+    // IP 위치 DB(dashboard/geoip). 로그인한 기기의 위치. 끄면 받지도 쓰지도 않는다(받은 파일은 둔다)
+    geoip: {
+      enabled: tuneBool("GEOIP_ENABLED"),
+      autoUpdate: tuneBool("GEOIP_AUTO_UPDATE"),
+    },
 
     voiceStatus: {
       playingPrefix: tuneText("VOICE_PLAYING_PREFIX"),

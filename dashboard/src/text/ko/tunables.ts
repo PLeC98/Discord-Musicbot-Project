@@ -9,6 +9,7 @@ const groups = {
   sponsorblock: { title: "SponsorBlock", icon: "sponsorblock", desc: "비음악 구간을 건너뛰어요. 구간 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0)" },
   cache: { title: "오디오 캐시", icon: "hard_drive", desc: "" },
   stream: { title: "재생 스트림", icon: "graphic_eq", desc: "" },
+  geoip: { title: "IP 위치 정보", icon: "public", desc: "" },
   dashboard: { title: "대시보드 요청 제한 · 실시간 연결", icon: "dashboard", desc: "" },
   ailog: { title: "기록 설정", icon: "settings", desc: "" },
 } as const;
@@ -46,6 +47,8 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   CACHE_RECHECK_YOUTUBE_DAYS: { label: "유튜브 원본 다시 확인(일)", short: "유튜브", help: "바뀌어도 캐시는 그대로 두고 캐시 DB 에 알리기만 해요." },
   CACHE_RECHECK_SOUNDCLOUD_DAYS: { label: "사운드클라우드 원본 다시 확인(일)", short: "사운드클라우드", help: "음원 파일이 바뀌었으면 캐시를 지워 다음 재생 때 새로 받아요. 미리듣기만 남았으면 캐시를 그대로 둬요." },
   CACHE_RECHECK_DIRECT_DAYS: { label: "직접 링크 원본 다시 확인(일)", short: "직접 링크", help: "파일이 바뀌었으면 캐시를 지워 다음 재생 때 새로 받아요." },
+  GEOIP_ENABLED: { label: "로그인한 기기의 위치 표시", help: "설정 창의 로그인한 기기 목록에 IP 로 찾은 대략의 위치를 보여요. DB-IP City Lite 를 받아 둬요(받을 때 약 60MB, 풀면 약 130MB). 끄면 받은 파일은 지우지 않고 쓰지 않아요." },
+  GEOIP_AUTO_UPDATE: { label: "매달 자동 업데이트", help: "새 판(매달 나와요)이 올라오면 받아요. 끄면 아래 업데이트 버튼으로만 받아요." },
   STREAM_CHUNK_KB: { label: "청크 크기(KB)", help: "유튜브 스트림을 나눠 받는 크기. 1024KB 면 약 1분 분량. 권장 256~4096." },
   RATE_LIMIT_WINDOW_SEC: { label: "요청을 세는 구간(초)", help: "아래 값들을 세는 구간. 로그인 시도는 따로 세요." },
   RATE_LIMIT_API_MAX: { label: "구간당 일반 요청 수", help: "실시간 갱신 연결은 세지 않아요. 정상 사용에서 걸리면 늘리세요." },

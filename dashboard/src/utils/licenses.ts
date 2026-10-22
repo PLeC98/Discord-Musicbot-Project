@@ -38,12 +38,13 @@ const repoKey = (url: string) =>
 /** 운영자가 고친 소스를 원본과 다른 곳에 공개했나(SOURCE_REPO_URL 을 원본과 다르게 지정함). 둘 중 하나라도 모르면 아니다 */
 export const isModifiedSource = (sourceRepo?: string, projectRepo?: string) => Boolean(sourceRepo && projectRepo && repoKey(sourceRepo) !== repoKey(projectRepo));
 
-/** 봇이 함께 배포하는 서드파티 데이터(data/). data/NOTICE 와 같은 것을 적는다 */
+/** 봇이 함께 배포하거나(data/) 받아 쓰는(DB-IP, database/geoip) 서드파티 데이터. data/NOTICE 와 같은 것을 적는다 */
 export const DATA_FILES: LicenseItem[] = [
   { name: T.modelRegistry, license: "CC0-1.0", url: "https://github.com/PocketRisu/pocketrisu-model-registry", note: T.modelRegistryNote },
   { name: "CMU Pronouncing Dictionary", license: "BSD-2-Clause · ISC", url: "https://github.com/cmusphinx/cmudict", note: T.cmudictNote },
   { name: T.gemmaTokenizer, license: "Apache 2.0", url: "https://huggingface.co/omote-ai/gemma-4-e2b-tokenizer", note: T.gemmaTokenizerNote },
   { name: "Unicode Unihan", license: "Unicode License v3", url: "https://www.unicode.org/charts/unihan.html", note: T.unihanNote },
+  { name: "DB-IP City Lite", license: "CC BY 4.0", url: "https://db-ip.com", note: T.dbipNote },
 ];
 
 /** 포크해 온 원본 */
