@@ -80,6 +80,6 @@ const imported = "백업을 불러왔어요";
 const importedBody = "화면을 새로고침해요.";
 const importFailed = "백업을 불러오지 못했어요.";
 /** 불러온 뒤: 쿠키 출처가 바뀌었다(file: 쿠키 직접 입력, 그 밖은 브라우저) */
-const cookiesChanged = (source: string) => (source === "file" ? { title: "쿠키 출처가 '쿠키 직접 입력'으로 바뀌었어요", body: "쿠키는 백업에 없어요. 유튜브 탭에서 입력해 주세요." } : { title: `쿠키 출처가 '${source}'(으)로 바뀌었어요`, body: "유튜브 탭에서 확인해 주세요." });
+const cookiesChanged = (source: string) => (source === "file" ? { title: "쿠키 출처가 '쿠키 직접 입력'으로 바뀌었어요", body: "쿠키는 백업에 없어요. 연령 제한 탭에서 입력해 주세요(일반 탭에서 연령 제한 콘텐츠를 켜면 생겨요)." } : { title: `쿠키 출처가 '${source}'(으)로 바뀌었어요`, body: "연령 제한 탭에서 확인해 주세요(일반 탭에서 연령 제한 콘텐츠를 켜면 생겨요)." });
 
 export { exportTitle, exportDescBefore, backupCommand, exportDescAfter, exports, withoutFiles, withoutFilesTip, importTitle, importDesc, importFullBackup, importButton, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, dialogNoteMerge, items, counts, breakdown, room, notInFile, same, differs, problem, cancel, apply, imported, importedBody, importFailed, cookiesChanged, tips };

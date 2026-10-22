@@ -1,4 +1,4 @@
-// 운영 조절값. 대시보드(운영자 패널의 일반 · 유튜브 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
+// 운영 조절값. 대시보드(운영자 패널의 일반 · 유튜브 · 연령 제한 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다(옛 .env 의 같은 이름).
 // 값은 .env 와 같은 글자로 둔다. 읽는 길(config 의 envReaders)이 하나라 검사 · 단위 바꾸기 · 다듬기가 .env 때와 같다.
 // 화면도 부르므로 Node 없는 모듈이다. 라벨 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
 //
@@ -8,7 +8,7 @@
 // box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 일의 출처별 값)
 
 /** 그룹(화면의 카드 순서) */
-const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "cache", "stream", "dashboard", "ailog"] as const;
+const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "dashboard", "ailog"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
@@ -41,8 +41,9 @@ const TUNABLES: readonly Tunable[] = [
   // 동시에 도는 yt-dlp. 0 이면 메모리로 정한다
   { key: "YTDLP_LOOKUP_SLOTS", group: "youtube", kind: "int", def: "0", min: 0, max: 32, advanced: true },
   { key: "YTDLP_BACKGROUND_SLOTS", group: "youtube", kind: "int", def: "0", min: 0, max: 32, advanced: true },
-  { key: "COOKIES_SOURCE", group: "youtube", kind: "cookies", def: "" },
   { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
+  // 연령 제한 영상을 받을 때만 쓰는 쿠키. 연령 제한 콘텐츠를 켰을 때만 쓰고 보인다(config/age-content)
+  { key: "COOKIES_SOURCE", group: "ageyoutube", kind: "cookies", def: "" },
   // SponsorBlock
   { key: "SPONSORBLOCK_ENABLED", group: "sponsorblock", kind: "bool", def: "true", restart: true },
   { key: "SPONSORBLOCK_API_BASE", group: "sponsorblock", kind: "url", def: "https://sponsor.ajay.app", advanced: true },
@@ -78,9 +79,9 @@ const TUNABLES: readonly Tunable[] = [
   { key: "AI_LOG_MAX_MB", group: "ailog", kind: "int", def: "64", min: 1, max: 10240, advanced: true },
 ];
 
-/** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, AI 리퀘스트 로그는 AI 보조, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
-type TunableTab = "settings" | "appearance" | "youtube" | "ai";
-const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", cache: "settings", stream: "settings", dashboard: "settings", ailog: "ai" };
+/** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브 · SponsorBlock 은 유튜브, 연령 제한 콘텐츠의 쿠키는 연령 제한, AI 리퀘스트 로그는 AI 보조, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
+type TunableTab = "settings" | "appearance" | "youtube" | "age" | "ai";
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", dashboard: "settings", ailog: "ai" };
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
 
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));

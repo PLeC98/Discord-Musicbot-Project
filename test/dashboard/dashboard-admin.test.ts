@@ -184,6 +184,21 @@ test("운영자 패널의 보기 설정: 처음엔 고급 설정 보기가 꺼�
   documents._use("panel");
 });
 
+test("연령 제한 콘텐츠: 처음엔 꺼짐, 켜면 설정 문서(age-content)에 켠 때와 함께 남고, 같은 값은 때를 바꾸지 않는다, 모양이 틀리면 거절", async () => {
+  documents._use("age-content");
+  assert.deepEqual((await req("GET", "/api/admin/age-content")).json, { enabled: false, changedAt: null });
+  const on = (await req<{ enabled: boolean; changedAt: number }>("PUT", "/api/admin/age-content", { enabled: true })).json;
+  assert.equal(on.enabled, true);
+  assert.ok(Math.abs(on.changedAt - Date.now()) < 5000);
+  assert.deepEqual(documents.get("age-content"), on);
+  assert.deepEqual((await req("PUT", "/api/admin/age-content", { enabled: true })).json, on, "이미 켜져 있으면 그대로");
+  assert.equal((await req("PUT", "/api/admin/age-content", { enabled: 1 })).status, 400);
+  currentUser = { id: "u1" };
+  assert.equal((await req("PUT", "/api/admin/age-content", { enabled: false })).status, 403, "운영자만");
+  currentUser = { id: "owner", username: "owner" };
+  documents._use("age-content");
+});
+
 test("GET status: 봇/노드/시스템 상태 형태", async () => {
   const r = await req<AdminStatus>("GET", "/api/admin/status");
   assert.equal(r.status, 200);

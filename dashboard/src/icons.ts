@@ -45,6 +45,7 @@ const ICONS = {
   event: 0xe878,
   event_busy: 0xe615,
   expand_more: 0xe5cf,
+  explicit: 0xe01e,
   explore_off: 0xe9a8,
   fact_check: 0xf0c5,
   filter_list: 0xe152,

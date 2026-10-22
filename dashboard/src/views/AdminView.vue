@@ -96,18 +96,24 @@
           <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
-        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 표시 그룹은 디스플레이 탭) · 설정 표시(고급 설정 보기) · 디스코드 명령(곧바로 하는 재배포) -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭) · 설정 표시(고급 설정 보기) · 연령 제한 콘텐츠 · 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
           <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false" />
           <ConfigVisibility v-if="opened.has('settings')" class="mt-(--gap-in)" />
+          <ConfigAgeContent v-if="opened.has('settings')" class="mt-(--gap-in)" />
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
         </div>
 
-        <!-- 유튜브: 운영 조절값의 유튜브 · SponsorBlock 그룹과 유튜브 쿠키 -->
+        <!-- 유튜브: 운영 조절값의 유튜브 · SponsorBlock 그룹 -->
         <div class="admin-page" v-show="tab === 'youtube'">
-          <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false">
+          <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
+        </div>
+
+        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 받을 때 쓰는 쿠키 · 계정 정보 -->
+        <div class="admin-page" v-show="tab === 'age'">
+          <ConfigTunables v-if="opened.has('age')" :groups="groupsIn('age')" tab="age" :can-restart="status?.env.launcher ?? false">
             <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 항목에 선택한 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
-            <template #after-youtube><ConfigCookies v-if="cookieFile" /></template>
+            <template #after-ageyoutube><ConfigCookies v-if="cookieFile" /></template>
           </ConfigTunables>
         </div>
 
@@ -175,6 +181,8 @@ import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import ConfigReset from "../components/ConfigReset.vue";
 import ConfigCommands from "../components/ConfigCommands.vue";
 import ConfigVisibility from "../components/ConfigVisibility.vue";
+import ConfigAgeContent from "../components/ConfigAgeContent.vue";
+import { ageContent, loadAgeContent } from "../composables/age-content.ts";
 import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
@@ -198,6 +206,7 @@ const ALL_TABS: Tab[] = [
   { id: "status", label: T.tabs.status, icon: "smart_toy", group: "status" },
   { id: "settings", label: T.tabs.settings, icon: "tune", group: "config" },
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
+  { id: "age", label: T.tabs.age, icon: "explicit", group: "config" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
@@ -211,6 +220,8 @@ const ALL_TABS: Tab[] = [
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
+// 보이는 탭. 연령 제한 탭은 연령 제한 콘텐츠를 켰을 때만 있다
+const TABS = computed(() => ALL_TABS.filter((t) => t.id !== "age" || ageContent.value.enabled));
 // ── 저장 막대 ─────────────────────────────────────────────────────────────────
 // 고친 편집기를 탭 순서대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다)
 const targets = computed(() => [...saveTargets]);
@@ -239,7 +250,7 @@ async function saveEverythingAndRestart() {
   if (await saveEverything(true)) await restartNow();
 }
 
-// 유튜브 탭의 쿠키 카드를 표시할지: 쿠키 출처 항목에 선택한 값이 파일인가
+// 연령 제한 탭의 쿠키 카드를 표시할지: 쿠키 출처 항목에 선택한 값이 파일인가
 const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
@@ -252,11 +263,11 @@ const isPhone = useMediaQuery(PHONE_QUERY);
 // 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면 · 태블릿 · PC 는 지난번 탭
 const tab = computed<string | null>(() => {
   const q = route.query.tab;
-  if (typeof q === "string" && ALL_TABS.some((t) => t.id === q)) return q;
+  if (typeof q === "string" && TABS.value.some((t) => t.id === q)) return q;
   const byParam = Object.keys(TAB_PARAM).find((id) => route.query[TAB_PARAM[id]]);
   if (byParam) return byParam;
   if (isPhone.value) return null;
-  return savedTab && ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status";
+  return savedTab && TABS.value.some((t) => t.id === savedTab) ? savedTab : "status";
 });
 // 설정 편집기는 처음 연 때 만들고 그 뒤로는 숨기기만 한다. 탭을 옮겨도 저장하지 않은 편집이 남는다
 const opened = ref(new Set(tab.value ? [tab.value] : []));
@@ -353,7 +364,7 @@ const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
 
-const TAB_GROUPS = (["status", "config", "outside", "autoplay", "watch", "backup", "dev"] as const).map((g) => ALL_TABS.filter((t) => t.group === g)).filter((g) => g.length > 0);
+const TAB_GROUPS = computed(() => (["status", "config", "outside", "autoplay", "watch", "backup", "dev"] as const).map((g) => TABS.value.filter((t) => t.group === g)).filter((g) => g.length > 0));
 
 // 레일의 선택 표시. 선택한 탭 아이콘 위치(data-ind)의 높이로 옮긴다. 처음 위치를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
 const railEl = ref<HTMLElement | null>(null);
@@ -511,6 +522,7 @@ function stopPoll() {
 let stopSessionWatch: (() => void) | null = null;
 onMounted(() => {
   void loadPanelPrefs();
+  void loadAgeContent();
   // 첫 진입만은 탭과 무관하게 둘 다 받는다. 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
   void fetchStatus();
   void fetchGuilds();

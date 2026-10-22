@@ -17,14 +17,17 @@ const secrets = await import("../../src/store/secrets.ts");
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const { _runOnce } = await import("../../src/sources/youtube/ytdlp-run.ts");
 const config = (await import("../../src/config/index.ts")).default;
-// 쿠키 출처는 운영 조절값이다(유튜브 탭). 이 테스트는 file 로 둔다
+const documents = await import("../../src/config/documents.ts");
+// 쿠키 출처는 운영 조절값이다(연령 제한 탭). 이 테스트는 file 로 두고, 쿠키를 쓰도록 연령 제한 콘텐츠를 켠다
 Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
+documents._use("age-content", { enabled: true, changedAt: 1 });
 
 const store = openTempStore("cookie-jar-");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-files-"));
 secrets._useKey(Buffer.alloc(32, 8).toString("base64"));
 cookieJar._setDir(TMP);
 after(() => {
+  documents._use("age-content");
   secrets._useKey();
   store.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
@@ -53,6 +56,14 @@ test("입력하면 봇을 다시 시작하지 않아도 그 다음 판정부터 
   assert.equal(YouTube.cookiesConfigured(), true);
   assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, cookieJar.JAR);
   assert.equal(YouTube.getYtDlpOptions().cookies, undefined);
+});
+
+test("연령 제한 콘텐츠를 끄면 입력한 쿠키는 남아도 붙이지 않는다", () => {
+  cookieJar.save(SAMPLE);
+  documents._use("age-content", { enabled: false, changedAt: 2 });
+  assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, undefined);
+  assert.equal(cookieJar.ready(), true, "지우지 않는다");
+  documents._use("age-content", { enabled: true, changedAt: 3 });
 });
 
 test("실행마다 파일로 풀어 넘기고 끝나면 삭제한다. 탭 문자 · LF · 끝 개행을 지킨다", async () => {

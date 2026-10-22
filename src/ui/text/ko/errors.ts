@@ -116,6 +116,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "unavailable-playlist": () => warning("blocked", "접근할 수 없거나 존재하지 않는 재생 목록이에요!", "비공개이거나 삭제된 재생 목록은 재생할 수 없어요."),
   // 운영자가 쿠키를 일부러 설정하지 않은 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
   "yt-age-no-cookies": () => warning("blocked", "연령 제한 영상은 틀 수 없어요!", "제한되지 않은 곡을 틀어주세요."),
+  "age-content-off": () => warning("blocked", "연령 제한 영상은 틀 수 없어요!", "제한되지 않은 곡을 틀어주세요."),
   // 사운드클라우드 Go+ · 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
   "sc-preview-only": () => warning("blocked", "미리듣기만 가능한 곡이라 틀 수 없어요.", "다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요."),
   "geo-blocked": () => warning("blocked", "지역 제한 콘텐츠예요!", "이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요."),

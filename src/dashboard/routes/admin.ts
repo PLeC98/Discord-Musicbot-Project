@@ -13,7 +13,7 @@ import logManager from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type PanelPrefs, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type PanelPrefs, type AgeContent, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -22,6 +22,7 @@ import { promptProblems } from "../../config/schema/ai-prompt.ts";
 import { aiSwitchedOff } from "../../config/schema/ai.ts";
 import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
+import { ageContent, setAgeContent } from "../../config/age-content.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import { icon } from "../../ui/icons.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
@@ -414,7 +415,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
 //
 // 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 입력 · 삭제는 최근 로그인만
 function cookieState(): CookieState {
-  return { source: YouTube.statusSnapshot().cookies, hasFile: cookieJar.ready() };
+  return { source: YouTube.cookieSource(), hasFile: cookieJar.ready() };
 }
 
 adminRouter.get("/cookies", requireOwner, (req, res) => res.json(cookieState()));
@@ -464,6 +465,23 @@ adminRouter.put("/panel", requireOwner, (req, res) => {
   const next = { ...panelOf(documents.get("panel")), advanced };
   documents.put("panel", next, documents.revisionOf("panel"));
   res.json(next satisfies PanelPrefs);
+});
+
+// 연령 제한 콘텐츠(운영자 단위, config/age-content). 화면이 켜기 전에 확인을 받는다. 저장 막대와 상관없이 곧바로 쓴다
+adminRouter.get("/age-content", requireOwner, (_req, res) => {
+  res.json(ageContent() satisfies AgeContent);
+});
+
+adminRouter.put("/age-content", requireOwner, (req, res) => {
+  const enabled: unknown = req.body?.enabled;
+  if (typeof enabled !== "boolean") return sendProblem(res, "nothing-to-save");
+  const before = ageContent().enabled;
+  const next = setAgeContent(enabled);
+  if (next.enabled !== before) {
+    log.warn({ sub: "admin" }, `대시보드에서 연령 제한 콘텐츠 ${enabled ? "켬" : "끔"}. 실행 ${ranBy(req)}`);
+    YouTube.logAuthMode();
+  }
+  res.json(next satisfies AgeContent);
 });
 
 adminRouter.get("/config/:name", requireOwner, (req, res) => {

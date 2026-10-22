@@ -91,7 +91,7 @@ const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRes
 
 const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
-const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
+const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc }, ageyoutube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
 const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));

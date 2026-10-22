@@ -11,6 +11,9 @@ import * as recheckQueue from "../media/recheck-queue.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
+import * as externalCaches from "../store/external-caches.ts";
+import { assertAgeAllowed } from "../sources/age-gate.ts";
+import { extractVideoId } from "../rules/links.ts";
 import * as trackState from "./track-state.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { reuseState } from "../rules/stream-reuse.ts";
@@ -75,7 +78,9 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
  */
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
   // 캐시 파일을 고르기 전에 보호를 건다. 고른 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
+  // 연령 제한으로 적힌 곡은 그 전에 판정한다. 캐시는 쿠키 없이 틀므로 여기서 막지 않으면 연령 제한 콘텐츠를 꺼도 틀린다
   const pickCacheFile = () => {
+    ageCheck(track.audioUrl);
     audioCache.protect(player.guild.id, audioKeyOf(track.audioUrl));
     return TrackDownloader.findCacheFile(track);
   };
@@ -105,6 +110,20 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     isLive: liveAnswer(streamInfo, cacheFile),
     sponsor: player.io.sponsorFor(track, player.guild.id).catch(() => null),
   };
+}
+
+/** 연령 제한으로 적어 둔 유튜브 영상이면 연령 제한 콘텐츠를 틀어도 되는지 본다(sources/age-gate) */
+function ageCheck(audioUrl: string | null | undefined) {
+  const videoId = extractVideoId(audioUrl);
+  if (videoId && markedAgeRestricted(videoId)) assertAgeAllowed(videoId);
+}
+
+function markedAgeRestricted(videoId: string) {
+  try {
+    return externalCaches.isAgeRestricted(videoId);
+  } catch {
+    return false; // 캐시 DB 를 열지 않았다(시험 · 스크립트)
+  }
 }
 
 // 재생목록으로 담은 곡은 재생목록 페이지가 준 제목을 쓰고 있는데, 같은 영상인데도 다를 수 있다.
@@ -233,5 +252,5 @@ function audioDurationSec(track: Pick<QueuedTrack, "audioUrl"> | null, streamInf
   return streamed && streamed > 0 ? streamed : null;
 }
 
-export { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec };
+export { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec, ageCheck as _ageCheck };
 export type { Source };

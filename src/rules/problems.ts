@@ -81,6 +81,8 @@ const SHARED = {
   "unavailable-contents": { status: 422, title: "Content is private or removed" },
   "unavailable-playlist": { status: 422, title: "Playlist is private or removed" },
   "yt-age-no-cookies": { status: 422, title: "Age-restricted video" },
+  // 운영자가 연령 제한 콘텐츠를 꺼 두었다(config/age-content)
+  "age-content-off": { status: 422, title: "Age-restricted content is off" },
   "sc-preview-only": { status: 422, title: "Preview-only track" },
   "geo-blocked": { status: 422, title: "Region-blocked content" },
   "nothing-playable": { status: 422, title: "No playable tracks", params: ["skipped"] },

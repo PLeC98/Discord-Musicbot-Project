@@ -13,6 +13,7 @@ import { FIXED_COLORS } from "../../ui/palette.ts";
 import type { IconKey } from "../../ui/icons.ts";
 import type { AiKeyState, KeyCheck, SecretView, ServiceKeysView } from "../../rules/service-keys.ts";
 import type { TunablesView } from "../../rules/tunables.ts";
+import type { AgeContent } from "../../config/age-content.ts";
 
 /**
  * 봇 상태 탭(운영자). 3초마다 받는다. 메모리는 MB, 시각은 epoch ms, 시간 길이는 초(uptime) · ms(ageMs).
@@ -162,4 +163,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, AgeContent, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };

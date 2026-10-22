@@ -1,10 +1,11 @@
-// 운영자 패널: 일반 · 유튜브 · 디스플레이 탭(과 AI 보조 탭의 리퀘스트 로그)의 운영 조절값(옛 .env 의 같은 이름. 칸 목록은 src/rules/tunables.ts)
+// 운영자 패널: 일반 · 유튜브 · 연령 제한 · 디스플레이 탭(과 AI 보조 탭의 리퀘스트 로그)의 운영 조절값(칸 목록은 src/rules/tunables.ts)
 
 /** 묶음마다 제목 · 아이콘 · 설명 */
 const groups = {
   queue: { title: "대기열 · 나가기", icon: "queue_music", desc: "" },
   look: { title: "디스코드", icon: "forum", desc: "" },
   youtube: { title: "유튜브", icon: "smart_display", desc: "" },
+  ageyoutube: { title: "유튜브", icon: "smart_display", desc: "" },
   sponsorblock: { title: "SponsorBlock", icon: "fact_check", desc: "비음악 구간을 건너뛰어요. 구간 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0)" },
   cache: { title: "오디오 캐시", icon: "hard_drive", desc: "" },
   stream: { title: "재생 스트림", icon: "graphic_eq", desc: "" },
@@ -78,7 +79,7 @@ const boxes = {
 const visibility = {
   title: "설정 표시",
   advanced: "고급 설정 보기",
-  advancedDesc: "동작을 알아야 고치는 값이에요. 켜면 각 카드와 AI 보조의 제자리에 보여요.",
+  advancedDesc: "어떤 설정인지 모르면 만지지 않는 게 좋은, 좀 더 복잡한 설정들을 표시해요.",
   /** 꺼 두었을 때 기본값과 다르게 저장된 고급 항목 수 */
   changed: (n: number) => `기본값과 다른 고급 설정 ${n}개`,
   saveFailed: "고급 설정 보기를 바꾸지 못했어요.",

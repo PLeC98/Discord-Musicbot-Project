@@ -1,4 +1,4 @@
-// 설정 문서(장르 · 상태 문구 · AI 설정 · 프롬프트 · 운영자 패널의 보기 설정). 사람이 고치는 파일이 아니라 settings.db 의 documents 에 둔다.
+// 설정 문서(장르 · 상태 문구 · AI 설정 · 프롬프트 · 운영자 패널의 보기 설정 · 연령 제한 콘텐츠). 사람이 고치는 파일이 아니라 settings.db 의 documents 에 둔다.
 //
 // 설정 계층은 DB(store)를 부를 수 없다. 그래서 여기는 메모리에 문서를 들고 있고, 기동 때 앱 조립이 저장소를 붙인다(attach).
 // 붙이면 그때 한 번 읽어 올리고, 저장(put)하면 저장소에 쓰고 메모리를 바꾼다. 쓰는 곳은 읽을 때마다 DB 를 보지 않는다.
@@ -12,7 +12,7 @@ import statusDefault from "./defaults/status.ts";
 import aiDefault from "./defaults/ai.ts";
 import { upgradeDoc } from "./ai-upgrade.ts";
 
-const DOC_NAMES = ["genres", "status", "ai", "ai-prompt", "panel"] as const;
+const DOC_NAMES = ["genres", "status", "ai", "ai-prompt", "panel", "age-content"] as const;
 type DocName = (typeof DOC_NAMES)[number];
 
 /** 문서 하나. revision 0 은 아직 저장한 적 없음(기본값) */
@@ -30,6 +30,8 @@ const DEFAULTS: Record<DocName, () => unknown> = {
   "ai-prompt": () => [],
   // 운영자 패널의 보기 설정. 운영자가 어느 기기로 열어도 같게 보이도록 서버에 둔다(브라우저마다 다르지 않게)
   panel: () => ({ advanced: false }),
+  // 연령 제한 콘텐츠를 다루는가(운영자 단위, config/age-content). 기본은 꺼짐. changedAt: 마지막으로 켜거나 끈 때
+  "age-content": () => ({ enabled: false, changedAt: null }),
 };
 
 const held = new Map<DocName, Doc>();

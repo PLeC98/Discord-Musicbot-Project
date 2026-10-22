@@ -9,7 +9,7 @@ import config from "../../config/index.ts";
 import { baseOptions } from "../ytdlp-options.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
-import type { YoutubeStatus } from "./status-types.ts";
+import type { CookieSource, YoutubeStatus } from "./status-types.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
@@ -33,6 +33,7 @@ function findPluginRoot(dir: string): string | null {
 const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 import * as cookieJar from "../../store/cookie-jar.ts";
+import { ageContentOn } from "../../config/age-content.ts";
 
 // 유튜브용 yt-dlp 옵션. 공통(ytdlpOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
@@ -45,10 +46,10 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
   });
 
   // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
-  // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다.
+  // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 쓰지 않는다(config/age-content).
   //   "player_client=ios 강제" 폴백은 금지. ios는 자체 POT 없이 포맷을 안 주고
   //   bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다.
-  if (forceCookies) {
+  if (forceCookies && ageContentOn()) {
     if (config.ytdlp.cookiesFromBrowser) {
       options.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
     } else if (config.ytdlp.useCookieFile && cookieJar.ready()) {
@@ -72,7 +73,7 @@ function logAuthMode() {
   const clients = config.ytdlp.playerClients;
   const pot = potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
   // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
-  const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 입력한 쿠키(연령 제한 폴백 전용)" : "대시보드에 입력한 쿠키(아직 없음. 유튜브 탭에서 입력하세요)") : "없음";
+  const cookie = !ageContentOn() ? "쓰지 않음(연령 제한 콘텐츠 꺼짐)" : config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 입력한 쿠키(연령 제한 폴백 전용)" : "대시보드에 입력한 쿠키(아직 없음. 연령 제한 탭에서 입력하세요)") : "없음";
   log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
   // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
@@ -100,7 +101,8 @@ function statusSnapshot(): YoutubeStatus {
   const fails = (h: Array<"ok" | "ng"> | undefined) => (h || []).filter((x) => x === "ng").length;
   return {
     pot: potEnabled() ? "on" : config.bgutil.enabled ? "missing" : "off",
-    cookies: config.ytdlp.cookiesFromBrowser ? "browser" : config.ytdlp.useCookieFile ? "file" : "none",
+    // 지금 쓰는 쿠키. 연령 제한 콘텐츠를 꺼 두었으면 설정해 둔 것이 있어도 쓰지 않는다
+    cookies: ageContentOn() ? cookieSource() : "none",
     configured: snap.order.length > 0,
     clients: snap.order.map((name) => ({
       name,
@@ -113,8 +115,13 @@ function statusSnapshot(): YoutubeStatus {
   };
 }
 
+/** 설정해 둔 쿠키 출처(연령 제한 콘텐츠를 켰는지와 상관없이) */
+function cookieSource(): CookieSource {
+  return config.ytdlp.cookiesFromBrowser ? "browser" : config.ytdlp.useCookieFile ? "file" : "none";
+}
+
 /**
- * 쿠키(브라우저 · 대시보드에 입력한 것)를 지금 쓸 수 있는가. 연령 제한 폴백 가능 여부.
+ * 쿠키(브라우저 · 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate 가 먼저 본다).
  *
  * 입력한 쿠키는 기동 시점이 아니라 물어볼 때마다 본다. 대시보드로 교체하면 봇을 다시 시작하지
  * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮다(연령 제한에서만 불린다).
@@ -124,4 +131,4 @@ function cookiesConfigured() {
   return config.ytdlp.useCookieFile && cookieJar.ready();
 }
 
-export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
+export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookieSource, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
