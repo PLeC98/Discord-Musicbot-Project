@@ -79,6 +79,8 @@ const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
 // 묵음을 흘려보내는 멈춤(묵음 다섯 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
 const SILENT_STOP_CAP_MS = 500;
+// 버릴 때 음성 채널 상태 문구를 지우며 기다리는 한도. 넘으면 그냥 나간다(문구는 남을 수 있다)
+const VOICE_STATUS_CLEAR_MS = 2000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
 type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
@@ -780,7 +782,10 @@ class Player {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
-      bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
+      // 상태 문구는 나가기 전에 지우고 기다린다. 나간 뒤에는 그 채널에 쓸 수 없다(채널 관리 권한이 든다. 초대 링크는 청하지 않는다). 길어도 VOICE_STATUS_CLEAR_MS 만
+      let cap: NodeJS.Timeout | undefined;
+      await Promise.race([bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기"), new Promise((done) => (cap = setTimeout(done, VOICE_STATUS_CLEAR_MS)))]);
+      clearTimeout(cap);
       if (session === "save") await this.persistence.persistState("leave");
       else if (session === "remove") this.persistence?.removeSession();
 
@@ -1424,7 +1429,10 @@ class Player {
     bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title ?? ""}`.trimEnd()), "음성 채널 상태 바꾸기");
   }
 
-  /** 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다 */
+  /**
+   * 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다.
+   * 옛 채널 지우기는 채널 관리 권한이 있을 때만 된다(이미 나온 채널이다. 초대 링크는 그 권한을 청하지 않는다). 없으면 문구가 남는다
+   */
   movedVoiceStatus(fromId: string) {
     bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
     if (this.currentTrack) this._showTrackInVoiceStatus();

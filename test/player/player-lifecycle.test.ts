@@ -661,6 +661,28 @@ test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 
   assert.equal(p.connection, null);
 });
 
+test("버리기: 음성 채널 상태 문구를 다 지운 뒤에 나간다(나간 뒤에는 그 채널에 쓸 수 없다). 지우기가 늦거나 실패해도 나간다", async () => {
+  const order: string[] = [];
+  const p = h.makePlayer();
+  const disconnect = p.voice.disconnect.bind(p.voice);
+  p.voice.disconnect = (reason: string) => (order.push("나감"), disconnect(reason));
+  p.updateVoiceStatus = async (status) => {
+    await new Promise((done) => setTimeout(done, 20));
+    order.push(`지움:${status}`);
+  };
+  await p.dispose({ reason: "정지", session: "remove" });
+  h.dispose(p);
+  assert.deepEqual(order, ["지움:", "나감"]);
+
+  const q = h.makePlayer();
+  q.updateVoiceStatus = async () => {
+    throw new Error("Missing Permissions");
+  };
+  await q.dispose({ reason: "정지", session: "remove" });
+  h.dispose(q);
+  assert.equal(q.connection, null, "실패해도 나간다");
+});
+
 test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포함)을 전부 놓는다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
