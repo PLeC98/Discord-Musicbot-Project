@@ -57,6 +57,8 @@ function isVideoUnavailableError(error: unknown) {
   if (isAgeRestrictedError(error)) return false;
 
   const msg = textOf(error);
+  // 요청 한도도 "This content isn't available, try again later" 로 온다(yt-dlp 가 "rate-limited by YouTube for up to an hour" 를 덧붙인다). 영상은 살아 있다
+  if (RATE_LIMITED.test(msg)) return false;
   return /video (?:is )?unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
 }
 
@@ -113,7 +115,7 @@ function isStaleMediaError(error: unknown) {
 // 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
 const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
-const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded/i;
+const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded|try again later/i;
 // 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection · [WinError 10061] 등)
 const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
 const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;

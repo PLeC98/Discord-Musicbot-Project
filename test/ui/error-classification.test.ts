@@ -37,6 +37,9 @@ const TABLE: Row[] = [
   ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "unknown-error", F, F, T, T, F], // 403 은 봇 감지가 아니다
   ["ERROR: unable to download fragment 12", "unknown-error", F, F, T, T, F],
   ["HTTP Error 429: Too Many Requests", "rate-limited", F, F, T, T, F],
+  // 요청 한도(yt-dlp 위키 "This content isn't available, try again later"). 영상 없음과 문장이 겹친다. 영상 없음으로 보면 자동재생이 곡을 영구히 버린다
+  ["ERROR: [youtube] abcdefghijk: This content isn't available, try again later. The current session has been rate-limited by YouTube for up to an hour. It is recommended to use `-t sleep` to add a delay between video requests to avoid exceeding the rate limit.", "rate-limited", F, F, F, F, F],
+  ["ERROR: [youtube] abc: This content isn't available, try again later.", "rate-limited", F, F, F, F, F],
   // 그 밖
   ["getaddrinfo ENOTFOUND youtube.com", "network-error", F, F, F, F, F],
   ["ffmpeg exited with code 1", "stream-failed", F, F, F, F, F],
@@ -92,6 +95,8 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
     "ERROR: unable to download video data: HTTP Error 403: Forbidden": "stale-media",
     "ERROR: unable to download fragment 12": "stale-media",
     "HTTP Error 429: Too Many Requests": "rate-limited", // 요청 제한이 주소 어긋남보다 앞이다. 다시 받을지는 isStaleMediaError 가 따로 본다
+    "ERROR: [youtube] abcdefghijk: This content isn't available, try again later. The current session has been rate-limited by YouTube for up to an hour. It is recommended to use `-t sleep` to add a delay between video requests to avoid exceeding the rate limit.": "rate-limited",
+    "ERROR: [youtube] abc: This content isn't available, try again later.": "rate-limited",
     "getaddrinfo ENOTFOUND youtube.com": "network-error",
     "ffmpeg exited with code 1": "stream-failed",
     "This content is not available in your country": "geo-blocked",
