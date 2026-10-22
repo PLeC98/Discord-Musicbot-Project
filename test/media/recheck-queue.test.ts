@@ -74,12 +74,12 @@ test("간격이 지난 파일만 묻는다: 유튜브 90일 · 직접 링크 14�
   }
 });
 
-test("같음: 원본 버전 · 확인 시각을 남기고 버전을 본 때를 고친다. 다음 재생은 다시 묻지 않는다", async () => {
+test("같음: 원본 버전 · 확인 시각을 남기고(캐시 파일 행은 그대로), 다음 재생은 다시 묻지 않는다", async () => {
   cached("yt:aaaaaaaaaaa", NOW - 100 * DAY, "lmt:1");
   queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
   await queue._drain();
   assert.deepEqual(sourceChecks.getCheck("yt:aaaaaaaaaaa"), { ok: true, at: NOW, version: "lmt:1" });
-  assert.equal(audioCache.lookupByAudioKey("yt:aaaaaaaaaaa")?.version_checked_at, NOW);
+  assert.equal(audioCache.lookupByAudioKey("yt:aaaaaaaaaaa")?.version_checked_at, NOW - 100 * DAY);
   queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
   await queue._drain();
   assert.equal(asked.length, 1);
@@ -107,9 +107,8 @@ test("직접 링크가 바뀌면 캐시를 지운다(다음 재생이 새로 받
   } finally {
     audioCache.unprotect("g1");
   }
-  // 캐시 DB 의 다시 확인(간격을 보지 않는다)으로 다시: 이제 지운다
-  assert.equal(queue.checkNow(key, DL, "b"), true);
-  await queue._drain();
+  // 캐시 DB 의 재생 테스트(간격 · 줄을 보지 않는다)로 다시: 이제 지운다
+  assert.equal((await queue.recheckNow(key, DL))?.kind, "changed");
   assert.equal(fs.existsSync(file), false);
   assert.equal(audioCache.lookupByAudioKey(key), null);
 });
@@ -130,8 +129,8 @@ test("사라짐은 캐시를 두고 남기기만, 모름은 하루 동안 다시
   queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
   await queue._drain();
   assert.equal(asked.length, 1, "모름이면 하루 동안 다시 넣지 않는다");
-  assert.equal(queue.checkNow("yt:aaaaaaaaaaa", YT, "a"), true);
-  await queue._drain();
+  assert.equal((await queue.recheckNow("yt:aaaaaaaaaaa", YT))?.kind, "unknown");
   assert.equal(asked.length, 2, "손으로는 바로");
-  assert.equal(queue.checkNow("yt:aaaaaaaaaaa", "https://open.spotify.com/track/x", "a"), false, "키와 주소가 맞지 않으면 넣지 않는다");
+  assert.equal(await queue.recheckNow("yt:aaaaaaaaaaa", "https://open.spotify.com/track/x"), null, "키와 주소가 맞지 않으면 묻지 않는다");
+  assert.equal(await queue.recheckNow("yt:bbbbbbbbbbb", "https://www.youtube.com/watch?v=bbbbbbbbbbb"), null, "캐시 파일이 없으면 묻지 않는다");
 });

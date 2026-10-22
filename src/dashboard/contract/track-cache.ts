@@ -13,18 +13,19 @@ const isTrackCacheTable = (value: unknown): value is TrackCacheTable => TRACK_CA
 /**
  * 표마다의 열(화면의 처음 순서). 필터 · 정렬은 이 이름으로만 받고 원시 값으로 한다(크기는 바이트, 때는 ms).
  * 합친 열의 원시 값: pinnedAt · ageMarkedAt 은 그 때(없으면 빔), file · status 는 상태 문자열(cached · downloading · error · none),
- * check 는 확인 결과 문자열(ok 또는 실패 코드, 확인하지 않았으면 빔. 정렬은 확인한 때)
+ * check 는 확인 결과 문자열(ok 또는 실패 코드, 확인하지 않았으면 빔. 정렬은 확인한 때),
+ * source 는 원본 상태 문자열(same · changed · ok 또는 실패 코드, 받은 뒤 확인하지 않았으면 빔. 정렬은 확인한 때)
  */
 const TRACK_CACHE_COLUMNS = {
   requests: ["requestKey", "platform", "title", "artist", "audioUrl", "pinnedAt", "file", "size", "plays", "lastPlayedAt", "ageMarkedAt", "check"],
-  files: ["audioKey", "audioUrl", "title", "channel", "status", "size", "duration", "plays", "lastPlayedAt", "downloadedAt", "requests"],
+  files: ["audioKey", "audioUrl", "title", "channel", "status", "size", "duration", "plays", "lastPlayedAt", "downloadedAt", "requests", "source"],
   age: ["videoId", "markedAt"],
 } as const satisfies Record<TrackCacheTable, readonly string[]>;
 type TrackCacheColumn<T extends TrackCacheTable = TrackCacheTable> = (typeof TRACK_CACHE_COLUMNS)[T][number];
 /** 열의 형식(필터 식의 값을 이 형식으로 읽는다) */
 const TRACK_CACHE_COLUMN_KINDS: { readonly [T in TrackCacheTable]: Record<TrackCacheColumn<T>, ColumnKind> } = {
   requests: { requestKey: "text", platform: "text", title: "text", artist: "text", audioUrl: "text", pinnedAt: "time", file: "text", size: "bytes", plays: "count", lastPlayedAt: "time", ageMarkedAt: "time", check: "text" },
-  files: { audioKey: "text", audioUrl: "text", title: "text", channel: "text", status: "text", size: "bytes", duration: "seconds", plays: "count", lastPlayedAt: "time", downloadedAt: "time", requests: "count" },
+  files: { audioKey: "text", audioUrl: "text", title: "text", channel: "text", status: "text", size: "bytes", duration: "seconds", plays: "count", lastPlayedAt: "time", downloadedAt: "time", requests: "count", source: "text" },
   age: { videoId: "text", markedAt: "time" },
 };
 const isTrackCacheColumn = <T extends TrackCacheTable>(table: T, value: unknown): value is TrackCacheColumn<T> => (TRACK_CACHE_COLUMNS[table] as readonly unknown[]).includes(value);
@@ -47,6 +48,12 @@ type TrackFileStatus = "cached" | "downloading" | "error" | "none";
 
 /** 재생 확인 결과. 운영자가 누른 확인과 직접 지정한 음원이 틀다 죽은 것이 같은 위치에 남는다. code 는 실패한 까닭(라이브면 "live") */
 type TrackCheck = { ok: true; at: number } | { ok: false; code: Code | "live"; at: number };
+
+/**
+ * 캐시 파일의 원본: 받은 뒤 마지막 확인(재생 테스트 · 캐시로 튼 곡의 다시 확인)에서 본 것. 받은 뒤 확인하지 않았으면 null.
+ * same 캐시와 같은 원본 · changed 원본이 바뀜(다시 받으려면 캐시 파일 삭제) · ok 열리지만 버전은 견주지 못함 · gone 원본에서 틀 수 없음(code 는 까닭)
+ */
+type TrackSource = { state: "same" | "changed" | "ok"; at: number } | { state: "gone"; code: Code | "live"; at: number };
 
 /**
  * 요청 표의 한 행: 요청 하나(링크 데이터 행 ∪ 직접 지정한 음원. 직접 지정한 음원은 링크 데이터에 없어도 행이 있다).
@@ -100,6 +107,7 @@ type TrackFileRow = {
   downloadedAt: number | null;
   /** 이 파일을 쓰는 요청 수 */
   requests: number;
+  source: TrackSource | null;
 };
 
 /** 연령 제한 표의 한 행 */
@@ -197,8 +205,11 @@ type TrackCacheProbeQueued = { queued: number; already: number; keys: string[] }
 /** 리비전 번호(GET /api/admin/track-cache/revision). 탭이 보이는 동안 운영자 패널의 3초 읽기가 이것만 본다. checking: 확인을 기다리거나 하는 중인 음원 키 */
 type TrackCacheRevision = { revision: number; checkRevision: number; checking: string[] };
 
-/** 확인 결과(GET /api/admin/track-cache/checks?keys=<음원 키>,…, 한 번에 TRACK_CACHE_PAGE_MAX 개까지). 확인 번호가 바뀌었을 때 화면의 행만 다시 받는다 */
-type TrackCacheChecks = { checks: Record<string, TrackCheck>; checkRevision: number };
+/**
+ * 확인 결과(GET /api/admin/track-cache/checks?keys=<음원 키>,…, 한 번에 TRACK_CACHE_PAGE_MAX 개까지). 확인 번호가 바뀌었을 때 화면의 행만 다시 받는다.
+ * sources 는 캐시 파일이 있는 키의 원본(캐시 파일 표의 source 열)
+ */
+type TrackCacheChecks = { checks: Record<string, TrackCheck>; sources: Record<string, TrackSource>; checkRevision: number };
 
 export { TRACK_CACHE_TABLES, TRACK_CACHE_COLUMNS, TRACK_CACHE_COLUMN_KINDS, TRACK_CACHE_DEFAULT_SORT, TRACK_CACHE_PAGE_MAX, TRACK_CACHE_FILTER_MAX, TRACK_CACHE_REGEX_MAX, TRACK_CACHE_OPS_MAX, TRACK_CACHE_FILE_DELETES_MAX, TRACK_CACHE_PROBE_MAX, isTrackCacheTable, isTrackCacheColumn, trackCacheSearch };
-export type { TrackCacheTable, TrackCacheColumn, TrackFileStatus, TrackCheck, TrackRequestRow, TrackFileRow, TrackAgeRow, TrackCacheRow, TrackCacheSort, TrackCacheQuery, TrackCachePage, TrackCacheOp, TrackCacheOpName, TrackCacheWrite, TrackFileUse, TrackCacheCurrent, TrackCacheOpResult, TrackCacheWritten, TrackCacheInspect, TrackCacheInspected, TrackCacheProbe, TrackCacheProbeQueued, TrackCacheRevision, TrackCacheChecks };
+export type { TrackCacheTable, TrackCacheColumn, TrackFileStatus, TrackCheck, TrackSource, TrackRequestRow, TrackFileRow, TrackAgeRow, TrackCacheRow, TrackCacheSort, TrackCacheQuery, TrackCachePage, TrackCacheOp, TrackCacheOpName, TrackCacheWrite, TrackFileUse, TrackCacheCurrent, TrackCacheOpResult, TrackCacheWritten, TrackCacheInspect, TrackCacheInspected, TrackCacheProbe, TrackCacheProbeQueued, TrackCacheRevision, TrackCacheChecks };

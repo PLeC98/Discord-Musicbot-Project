@@ -20,6 +20,8 @@ const editable = (table: TrackCacheTable, column: string) => table === "requests
 
 const checkText = (check: TrackRequestRow["check"]) => (check === null ? "" : check.ok ? T.values.checkOk : check.code === "live" ? T.values.checkLive : T.values.checkFail);
 
+const sourceText = (source: TrackFileRow["source"]) => (source === null ? "" : T.values.source[source.state]);
+
 // 요청 테이블에만 있는 열의 글. 그 밖의 열이면 null
 function requestCellText(r: TrackRequestRow, column: string): string | null {
   if (column === "pinnedAt") return r.pinnedAt === null ? "" : stamp(r.pinnedAt);
@@ -37,6 +39,7 @@ function cellText(table: TrackCacheTable, row: AnyRow, column: string): string {
   const own = table === "requests" ? requestCellText(row as TrackRequestRow, column) : null;
   if (own !== null) return own;
   if (table === "files" && column === "status") return T.values.status[(row as TrackFileRow).status];
+  if (table === "files" && column === "source") return sourceText((row as TrackFileRow).source);
   const value = (row as Record<string, unknown>)[column];
   const asNumber = NUMBER_TEXT[column];
   if (asNumber) return value === null ? T.values.none : asNumber(value as number);
@@ -49,6 +52,10 @@ function rawText(row: AnyRow, column: string): string {
   if (column === "check") {
     const check = (row as TrackRequestRow).check;
     return check ? (check.ok ? "ok" : check.code) : "";
+  }
+  if (column === "source") {
+    const source = (row as TrackFileRow).source;
+    return source ? (source.state === "gone" ? source.code : source.state) : "";
   }
   const value = (row as Record<string, unknown>)[column];
   return value === null || value === undefined ? "" : String(value);

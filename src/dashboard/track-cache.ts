@@ -3,7 +3,29 @@
 // 쓰기는 모두 검사한 뒤 DB 몫(동기라 그사이 봇이 끼어들지 않는다)을 먼저, 캐시 파일 삭제를 그 뒤에 하나씩. 조작마다 결과를 낸다.
 // 계약이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
 
-import { TRACK_CACHE_COLUMNS, TRACK_CACHE_COLUMN_KINDS, TRACK_CACHE_FILE_DELETES_MAX, TRACK_CACHE_OPS_MAX, TRACK_CACHE_PAGE_MAX, isTrackCacheColumn, isTrackCacheTable, type TrackAgeRow, type TrackCacheInspect, type TrackCacheInspected, type TrackCacheOp, type TrackCacheOpName, type TrackCacheOpResult, type TrackCachePage, type TrackCacheQuery, type TrackCacheTable, type TrackCacheWritten, type TrackCheck, type TrackFileRow, type TrackRequestRow } from "./contract/track-cache.ts";
+import {
+  TRACK_CACHE_COLUMNS,
+  TRACK_CACHE_COLUMN_KINDS,
+  TRACK_CACHE_FILE_DELETES_MAX,
+  TRACK_CACHE_OPS_MAX,
+  TRACK_CACHE_PAGE_MAX,
+  isTrackCacheColumn,
+  isTrackCacheTable,
+  type TrackAgeRow,
+  type TrackCacheInspect,
+  type TrackCacheInspected,
+  type TrackCacheOp,
+  type TrackCacheOpName,
+  type TrackCacheOpResult,
+  type TrackCachePage,
+  type TrackCacheQuery,
+  type TrackCacheTable,
+  type TrackCacheWritten,
+  type TrackCheck,
+  type TrackFileRow,
+  type TrackSource,
+  type TrackRequestRow,
+} from "./contract/track-cache.ts";
 import type { FieldProblem } from "./contract/problem.ts";
 import { matchFilter, matchWords, parseFilter, parseWords, type ColumnKind, type Filter } from "../rules/track-cache-filter.ts";
 import { checkPinAudio, checkPinRequest } from "../rules/pin-source.ts";
@@ -42,7 +64,16 @@ function load(): Sources {
 }
 
 // 남긴 실패 코드가 문제 목록에 없으면(이전 코드) 알 수 없는 오류로
-const checkOf = (check: sourceChecks.Check | undefined): TrackCheck | null => (check ? (check.ok ? check : { ok: false, code: check.code === "live" || isCode(check.code) ? check.code : "unknown-error", at: check.at }) : null);
+const codeOf = (code: string): Code | "live" => (code === "live" || isCode(code) ? code : "unknown-error");
+const checkOf = (check: sourceChecks.Check | undefined): TrackCheck | null => (check ? (check.ok ? { ok: true, at: check.at } : { ok: false, code: codeOf(check.code), at: check.at }) : null);
+
+/** 캐시 파일의 원본: 받은 뒤의 확인만. 바뀜은 그때 본 원본의 버전이 캐시 파일의 버전과 다른 것 */
+function sourceOf(row: audioCache.AudioRow, check: sourceChecks.Check | undefined): TrackSource | null {
+  if (!check || check.at < (row.downloaded_at ?? 0)) return null;
+  if (!check.ok) return { state: "gone", code: codeOf(check.code), at: check.at };
+  if (!check.version || !row.audio_version) return { state: "ok", at: check.at };
+  return { state: check.version === row.audio_version ? "same" : "changed", at: check.at };
+}
 
 // 요청 행의 링크 데이터 몫 · 직접 지정한 음원 몫
 function requestCells(requestKey: string, led: LookupRow | undefined, pin: pinnedSources.Pin | undefined) {
@@ -105,22 +136,27 @@ function fileRows(src: Sources): TrackFileRow[] {
     lastPlayedAt: row.last_played_at,
     downloadedAt: row.downloaded_at,
     requests: uses.get(row.audio_key) ?? 0,
+    source: sourceOf(row, src.checks.get(row.audio_key)),
   }));
 }
 
 const ageRows = (src: Sources): TrackAgeRow[] => [...src.age].map(([videoId, markedAt]) => ({ videoId, markedAt }));
 
 type AnyRow = TrackRequestRow | TrackFileRow | TrackAgeRow;
-// 셀의 원시 값(필터 · 정렬은 이것으로). 재생 테스트는 결과 문자열, 정렬은 테스트한 때
+// 셀의 원시 값(필터 · 정렬은 이것으로). 재생 테스트 · 원본은 결과 문자열, 정렬은 확인한 때
 function rawOf(row: AnyRow, column: string): string | number | null {
   if (column === "check") {
     const check = (row as TrackRequestRow).check;
     return check ? (check.ok ? "ok" : check.code) : null;
   }
+  if (column === "source") {
+    const source = (row as TrackFileRow).source;
+    return source ? (source.state === "gone" ? source.code : source.state) : null;
+  }
   const value = (row as Record<string, unknown>)[column];
   return typeof value === "string" || typeof value === "number" ? value : null;
 }
-const sortValueOf = (row: AnyRow, column: string) => (column === "check" ? ((row as TrackRequestRow).check?.at ?? null) : rawOf(row, column));
+const sortValueOf = (row: AnyRow, column: string) => (column === "check" ? ((row as TrackRequestRow).check?.at ?? null) : column === "source" ? ((row as TrackFileRow).source?.at ?? null) : rawOf(row, column));
 const KEY_OF: Record<TrackCacheTable, string> = { requests: "requestKey", files: "audioKey", age: "videoId" };
 
 // ── 읽기 ────────────────────────────────────────────────────────────────────
@@ -331,5 +367,5 @@ function inspect(body: TrackCacheInspect): TrackCacheInspected {
   return out;
 }
 
-export { queryOf, read, write, inspect, checkOf };
+export { queryOf, read, write, inspect, checkOf, sourceOf };
 export type { Refusal };

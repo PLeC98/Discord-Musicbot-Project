@@ -106,6 +106,31 @@ test("캐시 파일 표: 음원 주소는 키에서 되돌리고(직접 링크�
   assert.equal(more.find((row) => row.audioKey === "sc:on.soundcloud.com/x")?.audioUrl, "https://on.soundcloud.com/x");
 });
 
+test("캐시 파일의 원본: 받은 뒤의 확인만, 그때 본 버전이 캐시 파일과 다르면 바뀜 · 견줄 버전이 없으면 재생 가능", () => {
+  store.db().prepare("UPDATE audio_cache SET audio_version = 'lmt:1' WHERE audio_key = 'yt:aaaaaaaaaa1'").run();
+  const source = () => (page(query("files")).rows as TrackFileRow[]).find((row) => row.audioKey === "yt:aaaaaaaaaa1")!.source;
+  assert.equal(source(), null, "확인하지 않았다");
+  sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 99, version: "lmt:2" });
+  assert.equal(source(), null, "받기 전의 확인");
+  sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 200, version: "lmt:1" });
+  assert.deepEqual(source(), { state: "same", at: 200 });
+  sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 300, version: "lmt:2" });
+  assert.deepEqual(source(), { state: "changed", at: 300 });
+  sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 400 });
+  assert.deepEqual(source(), { state: "changed", at: 400 }, "버전을 모르는 재생 테스트는 앞서 본 버전을 지킨다");
+  sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: false, code: "unavailable-contents", at: 500 });
+  assert.deepEqual(source(), { state: "gone", code: "unavailable-contents", at: 500 });
+  assert.deepEqual(
+    (page(query("files", { filters: { source: "=unavailable-contents" } })).rows as TrackFileRow[]).map((row) => row.audioKey),
+    ["yt:aaaaaaaaaa1"],
+    "필터는 원시 값으로",
+  );
+  store.db().prepare("DELETE FROM source_checks").run();
+  sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 600 });
+  store.db().prepare("UPDATE audio_cache SET audio_version = NULL").run();
+  assert.deepEqual(source(), { state: "ok", at: 600 });
+});
+
 test("필터 · 아무 열 · 정렬(빈 값은 뒤로, 키가 끝 기준) · 구간", () => {
   assert.deepEqual(
     requests(query("requests", { filters: { size: ">=2MB" } })).map((row) => row.requestKey),

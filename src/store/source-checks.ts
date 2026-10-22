@@ -11,10 +11,10 @@ type CheckRow = { audio_key: string; ok: number; code: string | null; checked_at
 const conn = () => cacheDb.get();
 const toCheck = (row: CheckRow | undefined): Check | null => (row ? { ...(row.ok ? { ok: true as const, at: row.checked_at } : { ok: false as const, code: row.code ?? "failed", at: row.checked_at }), ...(row.version ? { version: row.version } : {}) } : null);
 
-/** 결과를 남긴다(같은 음원의 앞 결과를 바꾼다) */
+/** 결과를 남긴다(같은 음원의 앞 결과를 바꾼다). 원본 버전을 모르는 결과(재생 테스트 · 사라짐)는 앞서 본 버전을 지킨다 */
 function recordCheck(audioKey: string, check: Check) {
   conn()
-    .prepare("INSERT INTO source_checks (audio_key, ok, code, checked_at, version) VALUES (?, ?, ?, ?, ?) ON CONFLICT(audio_key) DO UPDATE SET ok = excluded.ok, code = excluded.code, checked_at = excluded.checked_at, version = excluded.version")
+    .prepare("INSERT INTO source_checks (audio_key, ok, code, checked_at, version) VALUES (?, ?, ?, ?, ?) ON CONFLICT(audio_key) DO UPDATE SET ok = excluded.ok, code = excluded.code, checked_at = excluded.checked_at, version = COALESCE(excluded.version, source_checks.version)")
     .run(audioKey, check.ok ? 1 : 0, check.ok ? null : check.code, check.at, check.version ?? null);
 }
 

@@ -208,7 +208,7 @@ const HEAD_W = 44;
 const BLOCK = 100;
 const PROBE_POLL_MS = 1500;
 const HINT_MS = 4000;
-const DEFAULT_WIDTH: Record<string, number> = { requestKey: 260, audioUrl: 260, audioKey: 200, title: 180, artist: 120, channel: 120, platform: 90, pinnedAt: 136, file: 84, status: 84, size: 76, plays: 64, requests: 64, duration: 64, lastPlayedAt: 136, downloadedAt: 136, ageMarkedAt: 136, markedAt: 136, check: 88, videoId: 140 };
+const DEFAULT_WIDTH: Record<string, number> = { requestKey: 260, audioUrl: 260, audioKey: 200, title: 180, artist: 120, channel: 120, platform: 90, pinnedAt: 136, file: 84, status: 84, size: 76, plays: 64, requests: 64, duration: 64, lastPlayedAt: 136, downloadedAt: 136, ageMarkedAt: 136, markedAt: 136, check: 88, source: 88, videoId: 140 };
 
 // ── 테이블 · 필터 · 정렬 · 열 모양(열 너비 · 숨김 · 고정은 브라우저에 사람마다) ──────
 
@@ -655,9 +655,12 @@ function cellClass(r: number, c: string) {
 }
 // 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 틀 때 건너뛴다)
 const checkFailed = (one: TrackRequestRow) => !!one.check && !one.check.ok && (one.check.code !== "live" || one.pinnedAt !== null);
-// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원 · 다운로드 실패
+// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원 · 다운로드 실패 · 원본이 바뀌었거나 없음
 function failing(row: AnyRow, c: string): boolean {
-  if (table.value === "files") return c === "status" && (row as TrackFileRow).status === "error";
+  if (table.value === "files") {
+    const one = row as TrackFileRow;
+    return (c === "status" && one.status === "error") || (c === "source" && (one.source?.state === "changed" || one.source?.state === "gone"));
+  }
   if (table.value !== "requests") return false;
   const one = row as TrackRequestRow;
   if (c === "check" || c === "audioUrl") return checkFailed(one);
@@ -668,17 +671,24 @@ function rowHeadClass(r: number) {
   if (rowSel.has(r)) return "bg-primary text-on-primary";
   return "bg-surface-container text-on-surface-variant";
 }
-// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패 · 재생 불가 까닭
+// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패 · 재생 불가 까닭 · 원본 상태의 뜻
 function tipOf(r: number, c: string): string {
   const row = rowAt(r)!;
   const failure = failureOf(row, c);
   if (failure) return failure;
+  if (table.value === "files" && c === "source") return sourceTip((row as TrackFileRow).source);
   if (table.value === "requests" && c === "check") {
     const one = row as TrackRequestRow;
     const check = one.check;
     if (check && !check.ok && checkFailed(one)) return T.tips.checkFailed(check.code === "live" ? T.tips.pinnedLive : noticeText(check.code).title, stamp(check.at));
   }
   return "";
+}
+
+function sourceTip(source: TrackFileRow["source"]): string {
+  if (!source || source.state === "same") return "";
+  if (source.state === "gone") return T.tips.sourceGone(source.code === "live" ? T.values.checkLive : noticeText(source.code).title, stamp(source.at));
+  return source.state === "changed" ? T.tips.sourceChanged(stamp(source.at)) : T.tips.sourceOk(stamp(source.at));
 }
 
 // ── 셀 안 편집 · 셀 편집 창 ───────────────────────────────────────────────
@@ -1075,7 +1085,10 @@ function pollChecks() {
     if (data.checkRevision !== checkRevision.value) {
       const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
       const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`)).data;
-      for (const row of rows.values()) if (table.value === "requests" && (row as TrackRequestRow).audioKey && got.checks[(row as TrackRequestRow).audioKey!]) (row as TrackRequestRow).check = got.checks[(row as TrackRequestRow).audioKey!];
+      for (const row of rows.values()) {
+        if (table.value === "requests" && (row as TrackRequestRow).audioKey && got.checks[(row as TrackRequestRow).audioKey!]) (row as TrackRequestRow).check = got.checks[(row as TrackRequestRow).audioKey!];
+        if (table.value === "files" && got.sources[(row as TrackFileRow).audioKey]) (row as TrackFileRow).source = got.sources[(row as TrackFileRow).audioKey];
+      }
       checkRevision.value = got.checkRevision;
     }
     checking.value = data.checking;

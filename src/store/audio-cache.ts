@@ -209,11 +209,6 @@ function holdForExport(audioKeys: Iterable<string>): () => void {
 }
 
 /** 오디오 키로 캐시 파일 기록 한 행을 그대로 읽는다 */
-/** 원본을 다시 확인해 같았다: 버전을 본 때만 고친다(media/recheck-queue) */
-function noteVersionChecked(audioKey: string, at: number) {
-  conn().prepare("UPDATE audio_cache SET version_checked_at = ? WHERE audio_key = ?").run(at, audioKey);
-}
-
 function lookupByAudioKey(audioKey: string): AudioRow | null {
   return (conn().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) as AudioRow | undefined) || null;
 }
@@ -828,7 +823,6 @@ export {
   mergePlays,
   rankForEviction,
   lookupByAudioKey,
-  noteVersionChecked,
   allRows,
   recordDownloadStart,
   recordDownloadComplete,

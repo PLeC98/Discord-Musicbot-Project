@@ -28,6 +28,7 @@ const columns: Record<string, string> = {
   requests: "요청 수",
   videoId: "영상 ID",
   markedAt: "등록 시각",
+  source: "원본",
 };
 /** 열 헤더 툴팁: 이름만으로 뜻이 덜 읽히는 열 */
 const columnTips: Record<string, string> = {
@@ -36,6 +37,7 @@ const columnTips: Record<string, string> = {
   pinnedAt: "음원을 직접 지정한 시각. 비어 있으면 자동으로 찾은 음원이에요",
   audioKey: "캐시 파일을 가리키는 키(유튜브 yt: · 사운드클라우드 sc: · 직접 링크 dl:)",
   requests: "이 캐시 파일을 재생 음원으로 쓰는 요청 수",
+  source: "다운로드한 뒤 원본을 확인한 결과. 재생 테스트를 하거나, 캐시로 재생한 곡을 봇이 주기적으로 확인해요",
 };
 
 const tools = {
@@ -47,7 +49,7 @@ const tools = {
   newRowOff: "새 행은 링크 데이터 테이블에서만 추가할 수 있어요",
   deleteRows: "선택한 행 삭제",
   probe: "재생 테스트",
-  probeTip: "선택한 행의 음원이 지금 재생되는지 확인해요. 저장과 상관없이 바로 실행돼요",
+  probeTip: "선택한 행의 음원이 지금 재생되는지 확인해요. 캐시 파일이 있으면 원본이 바뀌었는지도 봐요. 저장과 상관없이 바로 실행돼요",
   probing: (n: number) => `재생 테스트 중 ${n}`,
   search: "모든 열에서 필터",
   shortcuts: "단축키",
@@ -100,6 +102,7 @@ const values = {
   checkOk: "재생 가능",
   checkLive: "라이브",
   checkFail: "재생 불가",
+  source: { same: "같음", changed: "바뀜", ok: "재생 가능", gone: "원본 없음" },
   noRows: "행이 없어요",
 };
 
@@ -108,6 +111,9 @@ const tips = {
   checkFailed: (reason: string, when: string) => `${reason} (${when} 테스트)`,
   /** 지정한 음원이 라이브: 라이브는 지정할 수 없어 틀 때 원래 요청으로 다시 찾는다 */
   pinnedLive: "라이브는 지정할 수 없어요. 틀 때 원래 요청으로 다시 찾아요",
+  sourceChanged: (when: string) => `원본이 바뀌었어요. 캐시 파일을 삭제하면 다음 재생 때 새로 받아요 (${when} 확인)`,
+  sourceOk: (when: string) => `재생은 되지만 캐시와 같은 원본인지는 알 수 없어요 (${when} 확인)`,
+  sourceGone: (reason: string, when: string) => `${reason}. 캐시 파일은 그대로 재생해요 (${when} 확인)`,
 };
 
 /** 격자 아래 상태 줄에 잠깐 보이는 안내 */
