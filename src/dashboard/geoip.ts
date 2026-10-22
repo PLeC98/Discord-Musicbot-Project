@@ -208,11 +208,20 @@ async function autoCheck() {
   }
 }
 
-/** 기동 때 한 번. 자동 확인을 건다(봇이 꺼지는 것을 막지 않는다). 끄면 올린 것을 내리고, 켜면 바로 한 번 본다 */
+/** 기동 때 한 번. 받다 꺼진 임시 파일을 치우고 자동 확인을 건다(봇이 꺼지는 것을 막지 않는다). 위치 DB 설정을 바꾸면: 끄면 올린 것을 내리고, 켜면 바로 한 번 본다 */
 function start() {
+  try {
+    for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
+  } catch {
+    // 자리가 아직 없다
+  }
   setTimeout(() => void autoCheck(), FIRST_CHECK_MS).unref();
   setInterval(() => void autoCheck(), CHECK_EVERY_MS).unref();
+  let before = `${config.geoip.enabled}|${config.geoip.autoUpdate}`;
   onTunablesChanged(() => {
+    const now = `${config.geoip.enabled}|${config.geoip.autoUpdate}`;
+    if (now === before) return; // 다른 조절값을 저장했다
+    before = now;
     if (!config.geoip.enabled) unload();
     else void autoCheck();
   });

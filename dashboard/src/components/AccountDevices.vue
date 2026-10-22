@@ -15,7 +15,7 @@
       <BaseButton v-if="!d.current" variant="ghost" size="sm" :disabled="busy" @click="signOut(d)">{{ T.signOut }}</BaseButton>
     </div>
     <div v-if="others > 0" class="flex justify-end pt-2">
-      <BaseButton variant="secondary" :disabled="busy" @click="asking = true">{{ T.signOutOthers }}</BaseButton>
+      <BaseButton variant="secondary" :disabled="busy" @click="askOthers">{{ T.signOutOthers }}</BaseButton>
     </div>
     <a v-if="geoip" href="https://db-ip.com" target="_blank" rel="noopener noreferrer" class="self-start mt-2 text-xs text-on-surface-variant hover:underline">{{ T.attribution }}</a>
     <ConfirmDialog v-model="asking" icon="logout" :title="T.confirmTitle" :body="T.confirmBody(others)" :confirm-label="T.signOutOthers" :busy="busy" @confirm="signOutOthers" />
@@ -29,6 +29,7 @@ import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
+import { ensureRecentLogin } from "../composables/session.ts";
 import { problemText } from "../utils/problem.ts";
 import { relativeTime } from "../utils/locale.ts";
 import type { IconName } from "../icons.ts";
@@ -79,7 +80,9 @@ async function load() {
   }
 }
 
+// 끊기는 최근 로그인만: 오래됐으면 로그인 창을 먼저 연다(초기화 · 복원과 같다)
 async function signOut(d: LoginDevice) {
+  if (!(await ensureRecentLogin())) return;
   busy.value = true;
   try {
     const { data } = await axios.delete<SignedOut>(`/api/me/devices/${d.id}`);
@@ -90,6 +93,10 @@ async function signOut(d: LoginDevice) {
     busy.value = false;
     void load();
   }
+}
+
+async function askOthers() {
+  if (await ensureRecentLogin()) asking.value = true;
 }
 
 async function signOutOthers() {
