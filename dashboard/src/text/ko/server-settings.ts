@@ -45,4 +45,14 @@ const playlistAdd = {
   effectiveAfter: (min: number, max: number) => `씩 들어가요 · ${min}~${max}곡 · 디스코드에서는 `,
 };
 
-export { backToPlayer, back, loadFailed, saveFailed, channel, dj, sponsor, playlistAdd };
+/** 연령 제한 콘텐츠를 틀 곳(봇 운영자가 연령 제한 콘텐츠를 켰을 때만 보인다) */
+const agePlace = {
+  title: "연령 제한 콘텐츠",
+  desc: "연령 제한 영상을 어느 음성 채널에서 틀지 정해요. 연령 제한 채널은 디스코드에서 성인 인증을 마친 사람만 들어갈 수 있어요.",
+  choose: "틀 곳 선택",
+  channel: "연령 제한 채널에서만",
+  all: "모든 채널에서",
+  allWarning: "이 서버의 모든 음성 채널에서 연령 제한 영상이 재생될 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",
+};
+
+export { backToPlayer, back, loadFailed, saveFailed, channel, dj, sponsor, playlistAdd, agePlace };

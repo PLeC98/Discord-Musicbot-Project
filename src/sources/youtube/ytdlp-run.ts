@@ -13,6 +13,7 @@ type BuildOptions = (forceCookies: boolean) => Flags;
 import * as externalCaches from "../../store/external-caches.ts";
 import * as cookieJar from "../../store/cookie-jar.ts";
 import { assertAgeAllowed } from "../age-gate.ts";
+import { codedError } from "../../rules/error-kind.ts";
 import { NEEDS_POT, playerClients } from "./clients.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
@@ -30,9 +31,9 @@ const SMALL_VIDEO = ["res:360"] as unknown as Flags["formatSort"];
 
 /**
  * yt-dlp 호출을 연령 제한 폴백과 함께 실행.
- *  - 해당 videoId가 이미 연령 제한으로 알려져 있으면 처음부터 쿠키 사용(실패 시도 생략 → 영상당 실패 1회 보장).
- *  - 평상시(bgutil) 시도가 연령 제한으로 실패하면 videoId를 기록하고 쿠키로 1회 재시도.
- *  - 운영자가 연령 제한 콘텐츠를 꺼 두었으면 둘 다 하지 않고 age-content-off 로 거절한다(sources/age-gate).
+ *  - 해당 videoId가 이미 연령 제한으로 알려져 있으면 처음부터 쿠키 사용(실패 시도 생략 → 영상당 실패 1회 보장). 쿠키가 없으면 부르지 않고 거절.
+ *  - 평상시(bgutil) 시도가 연령 제한으로 실패하면 videoId를 기록하고(쿠키 · 판정과 상관없이) 쿠키로 1회 재시도.
+ *  - 틀어도 되는 곳이 아니면(운영자가 껐거나 서버가 연령 제한 채널에서만인데 아닌 채널) 둘 다 하지 않고 거절한다(sources/age-gate).
  * @param {string} url
  * @param {(forceCookies:boolean)=>object} buildOptions  forceCookies를 받아 yt-dlp 옵션을 만드는 함수
  */
@@ -45,7 +46,10 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
   } catch {
     /* 캐시 미초기화 등. 기본값 false */
   }
-  if (known && videoId) assertAgeAllowed(videoId);
+  if (known && videoId) {
+    assertAgeAllowed(videoId);
+    if (!auth.cookiesConfigured()) throw codedError("yt-age-no-cookies", `연령 제한 영상인데 쿠키가 없습니다 (${videoId})`);
+  }
 
   try {
     return await _runWithClients(url, buildOptions, known, exec);
@@ -67,15 +71,15 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
   }
 }
 
-/** 처음 알게 된 연령 제한. 연령 제한 콘텐츠를 껐으면 거절하고, 쿠키가 있으면 적어 두고 쿠키로 한 번 더, 없으면 그 실패 그대로 */
+/** 처음 알게 된 연령 제한. 적어 두고(다음부터 캐시로 틀 때도 판정한다), 틀어도 되는 곳이 아니면 거절, 쿠키가 있으면 쿠키로 한 번 더, 없으면 그 실패 그대로 */
 async function _retryWithCookies(url: string, videoId: string, buildOptions: BuildOptions, exec: RunYtDlp, error: unknown): Promise<unknown> {
-  assertAgeAllowed(videoId, error);
-  if (!auth.cookiesConfigured()) throw error;
   try {
     externalCaches.markAgeRestricted(videoId);
   } catch {
     /* 기록 실패는 무시 */
   }
+  assertAgeAllowed(videoId, error);
+  if (!auth.cookiesConfigured()) throw error;
   log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId}). 쿠키로 재시도합니다`);
   return await _runWithClients(url, buildOptions, true, exec, true);
 }

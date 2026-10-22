@@ -1,5 +1,7 @@
 // 서버와 화면이 주고받는 모양: 서버 목록 · 실시간 알림 · 서버 설정(/api/guilds 아래)
 
+import type { AgePlace } from "../../rules/age-place.ts";
+
 /** 서버 목록의 상태: 봇이 음성 채널 밖 = idle, 곡을 트는 중 = playing, 일시정지 = paused, 음성 채널에 있지만 곡이 없다 = waiting */
 type ListState = "idle" | "playing" | "paused" | "waiting";
 
@@ -23,6 +25,8 @@ type GuildSettings = {
   channels: Array<{ id: string; name: string }>;
   sponsorblock: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd: { value: number | null; effective: number; min: number; max: number; default: number };
+  /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 null(화면에 칸이 없다) */
+  agePlace: AgePlace | null;
 };
 
 /** 서버 설정 저장의 답 */

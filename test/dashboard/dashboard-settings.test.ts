@@ -23,6 +23,7 @@ type Reply = ProblemReply & {
   channels?: { id: string; name: string }[];
   sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd?: unknown;
+  agePlace?: string | null;
   canManage?: boolean;
   canControl?: boolean;
   canAdd?: boolean;
@@ -40,6 +41,7 @@ const { createPlayerStream } = await import("../../src/dashboard/player-stream.t
 const temp = openTempStore("dashboard-settings-");
 const settings = await import("../../src/store/guild-settings.ts");
 const config = (await import("../../src/config/index.ts")).default;
+const documents = await import("../../src/config/documents.ts");
 
 // 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250 · 기본 50 으로 본다
 const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
@@ -311,6 +313,22 @@ test("PUT settings: 재생목록 한 번에 넣는 곡 수 — 저장 / null은 
     assert.equal(r.status, 400, `거부: ${JSON.stringify(bad)}`);
   }
   assert.deepEqual(settingsRow(), rowBefore, "다른 설정도 함께 미반영");
+});
+
+test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 칸이 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장 · 되돌리기, 모르는 값은 400", async () => {
+  currentMember = modMember();
+  documents._use("age-content", { enabled: false, changedAt: 1 });
+  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, null);
+
+  documents._use("age-content", { enabled: true, changedAt: 2 });
+  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, "channel");
+  assert.equal((await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { agePlace: "all" })).status, 200);
+  assert.equal(settings.table.getAgePlace(GUILD_ID), "all");
+  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, "all");
+  assert.equal((await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { agePlace: "nsfw" })).status, 400);
+  assert.equal((await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { agePlace: "channel" })).status, 200);
+  assert.equal(settings.table.getAgePlace(GUILD_ID), "channel");
+  documents._use("age-content");
 });
 
 // ── GET /player의 음성 재적 플래그 ───────────────────────────

@@ -89,6 +89,15 @@
             >
           </div>
         </BaseCard>
+
+        <!-- 연령 제한 콘텐츠를 틀 곳. 봇 운영자가 연령 제한 콘텐츠를 꺼 두었으면 카드가 없다 -->
+        <BaseCard v-if="s.agePlace" icon="18_up_rating" :title="T.agePlace.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.agePlace.desc }}</p>
+          <div class="flex gap-0.5" role="radiogroup" :aria-label="T.agePlace.choose">
+            <button v-for="(place, i) in AGE_PLACES" :key="place" type="button" role="radio" :aria-checked="agePlace === place" :disabled="!s.canEdit" @click="agePlace = place" :class="[segment(agePlace === place, i, AGE_PLACES.length), SEG_TIGHT]"><Icon v-if="agePlace === place" name="check" :size="18" />{{ T.agePlace[place] }}</button>
+          </div>
+          <NoticeBox v-if="agePlace === 'all'" variant="note" tone="notice" icon="warning">{{ T.agePlace.allWarning }}</NoticeBox>
+        </BaseCard>
       </div>
     </template>
   </div>
@@ -120,6 +129,7 @@ import { valueOf } from "../utils/dom.ts";
 import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
+import { AGE_PLACES, type AgePlace } from "../../../src/rules/age-place.ts";
 import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";
 import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
 import { text } from "../text/index.ts";
@@ -139,7 +149,7 @@ const loadError = ref<string | null>(null);
 // 읽기 실패가 서버가 없거나 멤버가 아니어서다(다시 해도 같다)
 const loadGone = ref(false);
 const GONE = ["guild-not-found", "no-guild-access"];
-const s = ref<SettingsSeen>({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null });
+const s = ref<SettingsSeen>({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null, agePlace: null });
 
 // 편집 폼 상태 (서버 값과 분리. 저장 전까지 반영 안 됨)
 const selectedRoles = ref<string[]>([]);
@@ -148,6 +158,9 @@ const channelOptions = computed(() => s.value.channels.map((c) => ({ value: c.id
 const roleFilter = ref("");
 const sbEnabled = ref(true);
 const sbCategories = ref<string[]>([]);
+// 연령 제한 콘텐츠를 틀 곳. 운영자가 꺼 두었으면(s.agePlace 가 null) 보내지 않는다
+const agePlace = ref<AgePlace>("channel");
+const ageDirty = computed(() => s.value.agePlace !== null && agePlace.value !== s.value.agePlace);
 const roleListEl = ref<HTMLElement | null>(null);
 const roleListOverflowing = useOverflowing(roleListEl);
 
@@ -210,7 +223,7 @@ function syncPaForm() {
   paCount.value = v;
 }
 
-const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value || paDirty.value);
+const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value || paDirty.value || ageDirty.value);
 
 function toggleSbCategory(id: string) {
   const i = sbCategories.value.indexOf(id);
@@ -236,6 +249,7 @@ function apply(data: GuildSettings) {
   selectedChannel.value = data.botChannelId;
   syncSbForm();
   syncPaForm();
+  agePlace.value = data.agePlace ?? "channel";
 }
 
 async function load() {
@@ -269,7 +283,7 @@ function schedule() {
   if (!s.value.canEdit || !dirty.value || typing.value || paInvalid.value) return;
   saveTimer = window.setTimeout(() => void save(), 400);
 }
-watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue], schedule, { deep: true });
+watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue, agePlace], schedule, { deep: true });
 watch(typing, (now) => !now && schedule());
 
 async function save() {
@@ -279,12 +293,13 @@ async function save() {
   clearTimeout(doneTimer);
   saveState.value = "saving";
   // 보낸 그대로를 붙잡아 둔다(저장 중에 또 고친 것은 기준에 넣지 않아 다음 저장이 보낸다)
-  const sent = { roles: [...selectedRoles.value], channel: selectedChannel.value, sbOn: sbEnabled.value, sbCats: [...sbCategories.value], pa: paValue.value };
+  const sent = { roles: [...selectedRoles.value], channel: selectedChannel.value, sbOn: sbEnabled.value, sbCats: [...sbCategories.value], pa: paValue.value, age: agePlace.value };
   const body: SettingsRequest = {
     djRoleIds: sent.roles,
     botChannelId: sent.channel,
     sponsorblock: { enabled: sent.sbOn, categories: sent.sbCats },
     ...(s.value.playlistAdd && { playlistAddMax: sent.pa }),
+    ...(s.value.agePlace && { agePlace: sent.age }),
   };
   try {
     const began = Date.now();
@@ -293,7 +308,7 @@ async function save() {
     await new Promise((r) => setTimeout(r, Math.max(0, 600 - (Date.now() - began))));
     const sb = s.value.sponsorblock;
     const pa = s.value.playlistAdd;
-    s.value = { ...s.value, djRoleIds: sent.roles, botChannelId: sent.channel, sponsorblock: sb && { ...sb, enabled: sent.sbOn, categories: sent.sbCats }, playlistAdd: pa && { ...pa, value: sent.pa } };
+    s.value = { ...s.value, djRoleIds: sent.roles, botChannelId: sent.channel, sponsorblock: sb && { ...sb, enabled: sent.sbOn, categories: sent.sbCats }, playlistAdd: pa && { ...pa, value: sent.pa }, agePlace: s.value.agePlace && sent.age };
     saveState.value = "done";
   } catch (e) {
     saveState.value = "error";

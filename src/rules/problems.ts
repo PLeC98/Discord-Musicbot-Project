@@ -83,6 +83,8 @@ const SHARED = {
   "yt-age-no-cookies": { status: 422, title: "Age-restricted video" },
   // 운영자가 연령 제한 콘텐츠를 꺼 두었다(config/age-content)
   "age-content-off": { status: 422, title: "Age-restricted content is off" },
+  // 서버가 연령 제한 콘텐츠를 연령 제한 음성 채널에서만 튼다(store/guild-settings 의 agePlace)
+  "age-channel-only": { status: 422, title: "Age-restricted content needs an age-restricted channel" },
   "sc-preview-only": { status: 422, title: "Preview-only track" },
   "geo-blocked": { status: 422, title: "Region-blocked content" },
   "nothing-playable": { status: 422, title: "No playable tracks", params: ["skipped"] },

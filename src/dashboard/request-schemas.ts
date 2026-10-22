@@ -2,6 +2,7 @@
 // 재생 조작의 값(볼륨 · 반복 모드 · 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
+import { AGE_PLACES } from "../rules/age-place.ts";
 import { z } from "zod";
 import { MAX_COUNT } from "../rules/more-choices.ts";
 import { QUEUE_WINDOW_MAX } from "./contract/player.ts";
@@ -94,6 +95,8 @@ function settingsBody({ min, max }: { min: number; max: number }) {
         .optional(),
       djRoleIds: z.array(z.string(BAD_ROLES), BAD_ROLES).optional(),
       botChannelId: z.union([z.null(), z.string()], { error: "bad-bot-channel" satisfies Code }).optional(),
+      // 연령 제한 콘텐츠를 틀 곳(store/guild-settings 의 agePlace)
+      agePlace: z.enum(AGE_PLACES, { error: "bad-request" satisfies Code }).optional(),
     },
     { error: "bad-settings" satisfies Code },
   );

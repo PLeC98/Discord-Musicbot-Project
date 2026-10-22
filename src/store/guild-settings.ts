@@ -4,6 +4,7 @@ import { z } from "zod";
 import { settingsDb } from "./settings-db.ts";
 import config from "../config/index.ts";
 import { codeOf } from "../rules/error-kind.ts";
+import { AGE_PLACES, type AgePlace } from "../rules/age-place.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -25,6 +26,7 @@ const FIELDS = {
   djRoleIds: z.array(z.string().min(1)).min(1),
   sponsorBlock: z.object({ enabled: z.boolean().nullable().optional(), categories: z.array(z.string()).nullable().optional() }),
   playlistAddMax: z.number().int().positive(),
+  agePlace: z.enum(AGE_PLACES),
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
@@ -131,6 +133,16 @@ const table = {
   setPlaylistAddMax(guildId: string, count: number | null | undefined) {
     writeField(guildId, "playlistAddMax", count ?? undefined);
   },
+
+  /** 연령 제한 콘텐츠를 틀 곳. 미설정이면 연령 제한 채널에서만 */
+  getAgePlace(guildId: string): AgePlace {
+    return readDoc(guildId).agePlace ?? "channel";
+  },
+
+  /** 기본값(연령 제한 채널에서만)이면 지운다 */
+  setAgePlace(guildId: string, place: AgePlace) {
+    writeField(guildId, "agePlace", place === "channel" ? undefined : place);
+  },
 };
 
 /** 설정이 있는 서버 수(초기화 카드) */
@@ -148,7 +160,7 @@ function replaceAll(docs: Record<string, GuildDoc>) {
 }
 
 // 서버 · 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
-type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting };
+type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace };
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
@@ -294,6 +306,35 @@ function resolvePlaylistAddMax(guildId: string): number {
   return Math.max(min, Math.min(max, stored ?? fallback));
 }
 
+// ── 연령 제한 콘텐츠를 틀 곳 ────────────────────────────────────────────────
+
+/** 이 서버에서 연령 제한 콘텐츠를 틀 곳. 곡을 찾거나 틀 때마다 부르므로 메모리에 담는다. DB 가 열리지 않았거나 못 읽으면 기본(연령 제한 채널에서만) */
+function resolveAgePlace(guildId: string): AgePlace {
+  const hit = cached(guildId, "agePlace");
+  if (hit !== undefined) return hit;
+  if (!settingsDb.isOpen()) return "channel";
+  try {
+    const value = table.getAgePlace(guildId);
+    remember(guildId, "agePlace", value);
+    return value;
+  } catch (error) {
+    log.error("연령 제한 콘텐츠를 틀 곳 읽기 실패(연령 제한 채널에서만으로 본다):", error);
+    return "channel";
+  }
+}
+
+async function setAgePlace(guildId: string, place: AgePlace) {
+  try {
+    table.setAgePlace(guildId, place);
+    remember(guildId, "agePlace", place);
+    return true;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("연령 제한 콘텐츠를 틀 곳 저장 실패:", error);
+    return false;
+  }
+}
+
 // ── SponsorBlock 서버별 설정 ────────────────────────────────────────────────
 
 /** 서버별 원본 설정(상속=null). { enabled: null|bool, categories: null|string[] } */
@@ -351,5 +392,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
 export type { SponsorBlockSetting, GuildDoc };

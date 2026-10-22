@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터만(봇 운영자도 그 서버의 권한대로)
+// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수 · 연령 제한 콘텐츠를 틀 곳). 모더레이터만(봇 운영자도 그 서버의 권한대로)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -11,6 +11,8 @@ import { isModerator } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
+import { ageContentOn } from "../../config/age-content.ts";
+import type { AgePlace } from "../../rules/age-place.ts";
 import { openGuild } from "../guild-access.ts";
 import { parse, settingsBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
@@ -21,11 +23,11 @@ import type { GuildSettings, Saved } from "../contract/guilds.ts";
 /** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
 /** 반영할 것. undefined 는 변경 없음, null 은 해제 */
-type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null };
+type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null; agePlace?: AgePlace };
 
 // 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 필터링하고, 받을 수 없는 값이면 그 문제
-function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax }: SettingsBody): SettingsPlan | { refused: Problem } {
-  const plan: SettingsPlan = { playlistAdd: playlistAddMax };
+function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax, agePlace }: SettingsBody): SettingsPlan | { refused: Problem } {
+  const plan: SettingsPlan = { playlistAdd: playlistAddMax, agePlace };
 
   if (sponsorblock !== undefined) {
     const valid = new Set(SKIP_CATEGORIES);
@@ -49,7 +51,7 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
 }
 
 // 반영한다. 전용 채널이 실제로 바뀌었나(화면은 저장할 때마다 전용 채널을 함께 보낸다. 바뀌었을 때만 패널을 옮긴다)
-async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAdd }: SettingsPlan) {
+async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAdd, agePlace }: SettingsPlan) {
   if (roles !== undefined) {
     if (roles.length) await GuildSettingsManager.setDjRoles(guild.id, roles);
     else await GuildSettingsManager.clearDjRoles(guild.id);
@@ -62,6 +64,7 @@ async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAd
   }
   if (sponsor !== undefined) await GuildSettingsManager.setSponsorBlock(guild.id, sponsor);
   if (playlistAdd !== undefined) await GuildSettingsManager.setPlaylistAddMax(guild.id, playlistAdd);
+  if (agePlace !== undefined) await GuildSettingsManager.setAgePlace(guild.id, agePlace);
   return channelChanged;
 }
 
@@ -113,7 +116,10 @@ function createGuildSettingsRouter() {
       ...GuildSettingsManager.playlistAddLimits(),
     };
 
-    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd } satisfies GuildSettings);
+    // 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 칸이 없다
+    const agePlace = ageContentOn() ? GuildSettingsManager.resolveAgePlace(guild.id) : null;
+
+    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
   });
 
   // 서버 설정 변경. 모더레이터만. /setdjrole·/setchannel과 동일 기준.

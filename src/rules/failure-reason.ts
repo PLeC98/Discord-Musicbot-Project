@@ -8,6 +8,7 @@ import { operatorHint } from "./operator-hints.ts";
 const LABELS: Record<string, string> = {
   "yt-age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 입력해 주세요",
   "age-content-off": "연령 제한 · 연령 제한 콘텐츠 꺼짐",
+  "age-channel-only": "연령 제한 · 연령 제한 채널이 아님",
   "yt-bot-check": "봇 감지",
   "unavailable-contents": "없거나 비공개 · 삭제된 곡",
   "unavailable-playlist": "없거나 비공개인 재생목록",

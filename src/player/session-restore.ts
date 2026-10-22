@@ -3,6 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import { sessions, type RestoredSession, type SessionState } from "../store/player-sessions.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { inGuild } from "../infra/guild-context.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
 
@@ -62,7 +63,8 @@ async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor
 
   for (const record of saved) {
     try {
-      await restoreOne(client, players, PlayerCtor, record);
+      // 서버 문맥으로: 복원한 재생이 여는 일(연령 제한 판정 · 자식 프로세스 기록)이 그 서버의 일로 돈다
+      await inGuild(record.guildId, () => restoreOne(client, players, PlayerCtor, record));
     } catch (error) {
       log.error(`서버 ID ${record.guildId} 세션 복원 중 오류:`, messageOf(error));
       sessions().removeSession(record.guildId);
@@ -126,7 +128,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
 /** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 시작). 세션이 없으면 아무것도 안 한다 */
 async function restoreGuild(client: Client, players: Registry, PlayerCtor: PlayerClass, guildId: string) {
   const record = sessions().load(guildId);
-  if (record) await restoreOne(client, players, PlayerCtor, record);
+  if (record) await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, record));
 }
 
 export { resolveGuildForRestore, restoreSavedPlayers, restoreGuild, ATTEMPTS, RETRY_DELAY_MS };

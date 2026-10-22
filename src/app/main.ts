@@ -22,6 +22,7 @@ import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { Player } from "../player/player.ts";
 import { restoreSavedPlayers, restoreGuild } from "../player/session-restore.ts";
+import * as ageGate from "../sources/age-gate.ts";
 import { adoptLingeringVoice } from "../player/voice-adopt.ts";
 import * as voiceChannelStatus from "../player/voice-channel-status.ts";
 import * as voiceStatusStore from "../store/voice-status.ts";
@@ -200,6 +201,11 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   // 명령은 기동 확인 뒤 init 이 채운다
   const commands = new Map<string, SlashCommand>();
   const bot: BotContext = { client, players, panels, commands };
+  // 연령 제한 콘텐츠의 서버 판정이 볼 곳: 봇이 지금 든 음성 채널(옮겨져도 따라간다)이 연령 제한 채널인가. 음성에 없으면 모른다
+  ageGate.usePlace((guildId) => {
+    const channel = client.guilds.cache.get(guildId)?.members.me?.voice?.channel;
+    return channel ? channel.nsfw : null;
+  });
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
