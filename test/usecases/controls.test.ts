@@ -336,10 +336,11 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 } });
   assert.deepEqual(p.calls, ["dispose:save:leave"], "세션을 저장하고 끝난 패널(leave)로 버린다");
 
-  let disconnected = 0;
-  const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });
+  // 게이트웨이로 나간다(REST 로 빼기는 멤버 옮기기 권한이 든다)
+  const sent: unknown[] = [];
+  const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" } } } }, shard: { send: (payload: unknown) => sent.push(payload) } });
   assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only" });
-  assert.equal(disconnected, 1);
+  assert.deepEqual(sent, [{ op: 4, d: { guild_id: "g2", channel_id: null, self_mute: false, self_deaf: false } }]);
   assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), DJ, players)), "no-song");
 });
 
