@@ -26,6 +26,8 @@ import * as aiRequests from "../store/ai-requests.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
+import { createLoginDevicesRouter } from "./routes/login-devices.ts";
+import { noteDevice } from "./login-devices.ts";
 import { appearanceRouter, publicAppearanceRouter } from "./routes/appearance.ts";
 import { loginBackgroundRouter } from "./routes/login-background.ts";
 import { publicLoginBackgroundRouter } from "./routes/login-background-public.ts";
@@ -144,6 +146,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(bodyLimit());
   app.use(cors(createCorsOptions(url, { allowDevOrigin: config.dashboard.devOrigin })));
   app.use(sessionMiddleware);
+  // 로그인한 기기 기록(마지막 활동 · IP). 몇 분마다만 세션을 다시 쓴다
+  app.use(noteDevice);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 
@@ -185,6 +189,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/invite", createInviteRouter());
 
   // 지금 로그인한 사람(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
+  app.use("/api/me/devices", createLoginDevicesRouter({ locate: () => null, geoip: () => false }));
   app.use("/api", identityRouter);
 
   app.use(notFoundJson);

@@ -21,6 +21,8 @@ declare module "express-session" {
     csrfToken: string;
     /** 권한 수준 오버라이드(viewAs). 세션 저장소에서 읽은 값이라 쓰는 곳은 getViewAs 로 다시 본다 */
     viewAs: Tier;
+    /** 이 세션의 기기 기록(User-Agent · IP · 시각). IP 가 들어 봉해 둔다(dashboard/login-devices) */
+    device: string;
   }
 }
 

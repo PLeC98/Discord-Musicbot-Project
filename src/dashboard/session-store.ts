@@ -114,6 +114,19 @@ class SqliteSessionStore extends Store {
     }
   }
 
+  /** 그 사용자의 살아 있는 세션들(세션 id · 내용). 내용을 행마다 읽어 거른다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개) */
+  sessionsOf(userId: string, now = Date.now()): Array<{ sid: string; session: SessionData }> {
+    const rows = this.db.prepare("SELECT sid, data FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string }>;
+    return rows.flatMap(({ sid, data }) => {
+      try {
+        const session = JSON.parse(data) as SessionData;
+        return session.user?.id === userId ? [{ sid, session }] : [];
+      } catch {
+        return [];
+      }
+    });
+  }
+
   prune(now = Date.now()) {
     return this._pruneStmt.run(now).changes;
   }

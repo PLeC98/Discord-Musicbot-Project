@@ -216,6 +216,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "archive-too-many-files": ({ max }) => warning("state", "캐시 파일이 너무 많아요!", `한 번에 ${max ?? 0}개까지 내보낼 수 있어요. 캐시 파일 제외로 내보내 주세요.`),
   "upload-gone": () => warning("stale", "올린 파일이 없어졌어요!", "올린 지 1시간이 지났거나 봇이 다시 시작됐어요. 파일을 다시 올려 주세요."),
   "snapshot-not-found": (_, look) => warning("notFound", "없는 스냅샷이에요!", `오래되어 지워졌을 수 있어요. ${stalePage(look)}`),
+  "device-not-found": (_, look) => warning("notFound", "이미 로그아웃된 기기예요!", stalePage(look)),
   "ai-log-not-found": (_, look) => warning("notFound", "없는 기록이에요!", `저장 용량을 넘어 지워졌거나 모두 지운 기록이에요. ${stalePage(look)}`),
   "log-file-not-found": () => warning("notFound", "없는 로그 파일이에요!", "보관 개수를 넘어 삭제됐거나 파일 로그를 껐어요. 페이지를 새로고침해 파일 목록을 다시 받아 주세요."),
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),

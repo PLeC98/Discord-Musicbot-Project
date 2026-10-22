@@ -9,6 +9,7 @@ import { tokenStoreOf } from "../session-store.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { forgetGuilds } from "../invite.ts";
+import { recordLogin } from "../login-devices.ts";
 
 /** 여기서 읽는 필드만 */
 type TokenReply = { access_token: string; token_type: string };
@@ -34,6 +35,11 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
   return "auth_failed";
 }
 
+/** 디스코드에 접근 토큰 폐기를 요청한다(RFC 7009). 로그아웃 · 다른 기기 로그아웃 */
+function revokeToken(http: DiscordHttp, token: string) {
+  return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+}
+
 /** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
@@ -46,8 +52,6 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
-  // 로그아웃 때 디스코드에 토큰 폐기를 요청한다(RFC 7009)
-  const revoke = (token: string) => http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 
   // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다
   router.get("/login", (req, res) => {
@@ -120,6 +124,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         }
         req.session.user = sessionUser;
         req.session.loginAt = Date.now();
+        recordLogin(req, req.session.loginAt);
         req.session.save(() => {
           // 토큰은 세션 행에 암호문으로(세션 JSON 밖). 7일이라 로그인 쿠키와 같이 끝난다. 리프레시 토큰은 두지 않는다
           tokenStoreOf(req)?.saveDiscordToken(req.sessionID, access_token);
@@ -134,7 +139,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 지워지고, 디스코드에도 폐기를 요청한다
   router.post("/logout", (req, res) => {
     const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
-    if (token) bestEffort(log, revoke(token), "디스코드 토큰 폐기");
+    if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기");
     forgetGuilds(req.sessionID);
     req.session.destroy(() => res.status(204).end());
   });
@@ -142,4 +147,4 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   return router;
 }
 
-export { createAuthRouter, callbackUrl };
+export { createAuthRouter, callbackUrl, revokeToken };

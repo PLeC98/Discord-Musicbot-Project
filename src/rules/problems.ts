@@ -183,6 +183,8 @@ const WEB = {
   "upload-gone": { status: 410, title: "Uploaded file is gone" },
   // 설정 DB 스냅샷 복원: 없는 이름 · 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
+  // 로그인한 기기 목록의 그 세션이 그사이 끝났다(로그아웃 · 기한)
+  "device-not-found": { status: 404, title: "Signed-in device not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
   // AI 리퀘스트 로그: 없는 행(저장 용량을 넘어 삭제됐거나 모두 삭제했다)
   "ai-log-not-found": { status: 404, title: "Request log entry not found" },

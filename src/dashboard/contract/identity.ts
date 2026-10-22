@@ -29,4 +29,16 @@ type ViewAsReply = { viewAs: Tier | null };
 const RECENT_LOGIN_MS = 10 * 60_000;
 
 export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS };
-export type { Tier, Me, BotInfo, LoginError, ViewAsReply };
+/** 로그인한 기기가 있는 곳. private: 내부망(집 · 같은 망), geo: IP 위치(모르는 칸은 null), null: 모름(위치 DB 를 껐거나 없다) */
+type DevicePlace = { kind: "private" } | { kind: "geo"; city: string | null; region: string | null; country: string | null } | null;
+/**
+ * 설정 창 "계정"의 로그인한 기기 하나. id 는 세션을 가리키는 손잡이(세션 id 가 아니다). current: 지금 이 기기.
+ * known: 기기 기록이 있다(없으면 이 기능 전에 로그인하고 그 뒤로 쓰지 않은 세션). kind: desktop · mobile · tablet, 모르면 null
+ */
+type LoginDevice = { id: string; current: boolean; known: boolean; browser: string | null; os: string | null; kind: "desktop" | "mobile" | "tablet" | null; signedInAt: number | null; seenAt: number | null; place: DevicePlace };
+/** geoip: 위치를 IP 위치 DB 로 보였다(출처 링크를 단다) */
+type LoginDevices = { devices: LoginDevice[]; geoip: boolean };
+/** 로그아웃시킨 세션 수 */
+type SignedOut = { count: number };
+
+export type { Tier, Me, BotInfo, LoginError, ViewAsReply, DevicePlace, LoginDevice, LoginDevices, SignedOut };
