@@ -13,7 +13,7 @@ import logManager from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type PanelPrefs, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -449,6 +449,21 @@ adminRouter.post("/ai/models", requireOwner, async (req, res) => {
 // 유료 확인. 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
 adminRouter.post("/ai/ping", requireOwner, async (req, res) => {
   res.json(await assist.ping(req.body?.data || {}));
+});
+
+// 운영자 패널의 보기 설정. 저장 막대와 상관없이 곧바로 쓰고, 마지막에 쓴 것이 남는다(한 사람의 보기 설정이라 번호를 맞추지 않는다)
+const panelOf = (data: unknown): PanelPrefs => ({ advanced: (data as Partial<PanelPrefs> | null)?.advanced === true });
+
+adminRouter.get("/panel", requireOwner, (_req, res) => {
+  res.json(panelOf(documents.get("panel")) satisfies PanelPrefs);
+});
+
+adminRouter.put("/panel", requireOwner, (req, res) => {
+  const advanced: unknown = req.body?.advanced;
+  if (typeof advanced !== "boolean") return sendProblem(res, "nothing-to-save");
+  const next = { ...panelOf(documents.get("panel")), advanced };
+  documents.put("panel", next, documents.revisionOf("panel"));
+  res.json(next satisfies PanelPrefs);
 });
 
 adminRouter.get("/config/:name", requireOwner, (req, res) => {

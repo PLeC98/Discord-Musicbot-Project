@@ -1,5 +1,5 @@
 <!--
-  AI 보조 · 고급 설정: 요청 · 재시도.
+  AI 보조 · 고급 설정: 요청 · 재시도와 리퀘스트 로그의 기록 설정(운영 조절값 ailog 그룹). 운영자 패널의 "고급 설정 보기"를 켰을 때만 목록에 있다.
   상태는 composables/ai-editor(ConfigAI 가 내려 준다).
 -->
 <template>
@@ -38,10 +38,13 @@
       </label>
     </div>
   </BaseCard>
+
+  <ConfigTunables :groups="['ailog']" tab="ai" :can-restart="false" />
 </template>
 
 <script setup lang="ts">
 import BaseCard from "./BaseCard.vue";
+import ConfigTunables from "./ConfigTunables.vue";
 import NumberInput from "./NumberInput.vue";
 import ChipInput from "./ChipInput.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";

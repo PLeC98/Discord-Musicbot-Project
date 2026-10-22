@@ -10,7 +10,7 @@
     </NoticeBox>
 
     <template v-for="group in groups" :key="group">
-      <BaseCard :icon="T.groups[group].icon" :title="T.groups[group].title">
+      <BaseCard v-if="byGroup(group).length" :icon="T.groups[group].icon" :title="T.groups[group].title">
         <template v-if="GROUP_DOCS[group]" #actions><DocLink :file="GROUP_DOCS[group]!.file" :label="GROUP_DOCS[group]!.label" /></template>
         <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
         <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
@@ -64,6 +64,7 @@ import { valueOf } from "../utils/dom.ts";
 import { problemText } from "../utils/problem.ts";
 import { trackUnsaved } from "../composables/unsaved.ts";
 import { attach, draft, labelOf, namesOf, pending, saved } from "../composables/tunables.ts";
+import { showAdvanced } from "../composables/advanced-settings.ts";
 import { TUNABLES, tunable, tunableValue, type Tunable, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
 import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
@@ -83,7 +84,9 @@ const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>>
 
 const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
-const byGroup = (group: TunableGroup) => mine.value.filter((one) => one.group === group);
+// 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 고치는 중이거나 다시 시작을 기다리는 항목은 보인다(저장 막대 · 다시 시작 안내가 가리키는 칸이 숨지 않게)
+const shown = (one: Tunable) => !one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key);
+const byGroup = (group: TunableGroup) => mine.value.filter((one) => one.group === group && shown(one));
 const boolOf = (one: Tunable) => (draft.value[one.key] || one.def) === "true";
 const changed = (one: Tunable) => tunableValue(one.key, draft.value[one.key] ?? "") !== (saved.value[one.key] ?? "");
 const dirty = computed(() => mine.value.some(changed));

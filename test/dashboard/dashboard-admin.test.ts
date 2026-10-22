@@ -171,6 +171,19 @@ test("requireOwner: 구버전 세션의 isAdmin=true는 인가에 쓰이지 않�
 
 // ── 상태 / 서버 목록 ─────────────────────────────────────────
 
+test("운영자 패널의 보기 설정: 처음엔 고급 설정 보기가 꺼져 있고, 켜면 설정 문서(panel)에 남아 다음 읽기도 켜진 채, 모양이 틀리면 거절", async () => {
+  documents._use("panel");
+  assert.deepEqual((await req("GET", "/api/admin/panel")).json, { advanced: false });
+  assert.deepEqual((await req("PUT", "/api/admin/panel", { advanced: true })).json, { advanced: true });
+  assert.deepEqual(documents.get("panel"), { advanced: true });
+  assert.deepEqual((await req("GET", "/api/admin/panel")).json, { advanced: true }, "다른 기기로 열어도 같다");
+  assert.equal((await req("PUT", "/api/admin/panel", { advanced: "yes" })).status, 400);
+  currentUser = { id: "u1" };
+  assert.equal((await req("PUT", "/api/admin/panel", { advanced: false })).status, 403, "운영자만");
+  currentUser = { id: "owner", username: "owner" };
+  documents._use("panel");
+});
+
 test("GET status: 봇/노드/시스템 상태 형태", async () => {
   const r = await req<AdminStatus>("GET", "/api/admin/status");
   assert.equal(r.status, 200);

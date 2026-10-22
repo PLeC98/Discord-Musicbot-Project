@@ -68,6 +68,15 @@ const pickColor = "색 선택";
 const youtubeDoc = "클라이언트 설명";
 /** 쿠키 출처 고르기 */
 const cookies = { none: "사용 안 함", file: "쿠키 직접 입력", browsers: "브라우저", otherGroup: "기타 형식", other: "기타(직접 입력)", otherPlaceholder: "예: chrome:Profile 1" };
+/** 일반 탭 맨 위: 설정을 어디까지 보일지 */
+const visibility = {
+  title: "설정 표시",
+  advanced: "고급 설정 보기",
+  advancedDesc: "동작을 알아야 고치는 값이에요. 켜면 각 카드와 AI 보조의 제자리에 보여요.",
+  /** 꺼 두었을 때 기본값과 다르게 저장된 고급 항목 수 */
+  changed: (n: number) => `기본값과 다른 고급 설정 ${n}개`,
+  saveFailed: "고급 설정 보기를 바꾸지 못했어요.",
+};
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";
@@ -76,4 +85,4 @@ const savedRestart = (names: string) => `봇을 다시 시작해야 적용돼요
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
 const loadFailed = "운영 조절값을 읽지 못했어요.";
 
-export { groups, fields, title, defaultWith, restartTip, pending, restartBadge, pickColor, youtubeDoc, cookies, on, off, savedDone, savedRestart, saveFailed, loadFailed };
+export { groups, fields, title, visibility, defaultWith, restartTip, pending, restartBadge, pickColor, youtubeDoc, cookies, on, off, savedDone, savedRestart, saveFailed, loadFailed };

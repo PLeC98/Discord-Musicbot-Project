@@ -1,6 +1,6 @@
 <!--
   AI 보조 · 리퀘스트 로그: AI 보조가 모델에게 보낸 요청 하나가 한 줄(재시도는 따로). 상태는 composables/ai-log, 모양은 contract/ai-log.
-  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 찾기 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문) · 기록 설정(운영 조절값 ailog 그룹).
+  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 찾기 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문). 기록 설정(운영 조절값 ailog 그룹)은 고급 설정(ConfigAIAdvanced).
   새 기록은 실시간으로 온다: 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙고, 아니면 "새 기록 n건" 알약을 누르면 붙는다.
 -->
 <template>
@@ -86,8 +86,6 @@
     </div>
   </BaseCard>
 
-  <ConfigTunables :groups="['ailog']" tab="ai" :can-restart="false" />
-
   <ConfirmDialog v-model="asking" icon="delete_sweep" :title="T.clearTitle" :body="T.clearBody" :confirm-label="T.clearConfirm" :busy="clearing" @confirm="confirmClear" />
 </template>
 
@@ -99,7 +97,6 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import ConfigTunables from "./ConfigTunables.vue";
 import SearchInput from "./SearchInput.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { CODE_BOX, SEARCH_FIELD } from "../utils/field.ts";

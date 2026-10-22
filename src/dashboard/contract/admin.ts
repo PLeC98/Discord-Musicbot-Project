@@ -120,6 +120,9 @@ type RedeployReply = { success: true; count: number; scope: string; guildId: str
 /** 다시 시작을 받았다. 답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
 type RestartReply = { restarting: true };
 
+/** 운영자 패널의 보기 설정(GET · PUT /api/admin/panel). advanced: 고급 설정 보기. 어느 기기로 열어도 같게 서버에 둔다 */
+type PanelPrefs = { advanced: boolean };
+
 /** 설정 파일(genres · status · ai) 읽기와 저장 */
 /** 설정 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
 type ConfigFile = { name: string; data: Record<string, unknown>; revision: number };
@@ -159,4 +162,4 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };

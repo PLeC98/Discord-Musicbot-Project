@@ -146,6 +146,7 @@ import ConfigAIJudge from "./ConfigAIJudge.vue";
 import ConfigAIAdvanced from "./ConfigAIAdvanced.vue";
 import ConfigAILog from "./ConfigAILog.vue";
 import ConfigAIUsage from "./ConfigAIUsage.vue";
+import { showAdvanced } from "../composables/advanced-settings.ts";
 import { provideAiEditor } from "../composables/ai-editor.ts";
 const TV = text.ai.preview;
 const TD = text.ai.paid;
@@ -169,17 +170,19 @@ defineProps<{ active: boolean }>();
 
 const route = useRoute();
 const router = useRouter();
-// 프로바이더를 선택하지 않아도 여는 것
-const ALWAYS_OPEN: readonly string[] = ["model", "log", "usage"];
+// 프로바이더를 선택하지 않아도 여는 것(고급 설정에는 리퀘스트 로그의 기록 설정도 있다)
+const ALWAYS_OPEN: readonly string[] = ["model", "advanced", "log", "usage"];
 
 // ── 목록 · 상세. 주소 ?ai= 에 선택한 항목(model · prompt · advanced · log · usage). 두 단이면 선택한 것이 없을 때 모델 ──
-const FIXED_ITEMS = [
+const ITEMS = [
   { id: "model", label: T.items.model, icon: "model_training" },
   { id: "prompt", label: T.items.prompt, icon: "terminal" },
   { id: "advanced", label: T.items.advanced, icon: "settings" },
   { id: "log", label: T.items.log, icon: "history" },
   { id: "usage", label: T.items.usage, icon: "bar_chart" },
 ] as const;
+// 고급 설정은 운영자 패널의 "고급 설정 보기"를 따른다
+const FIXED_ITEMS = computed(() => ITEMS.filter((item) => item.id !== "advanced" || showAdvanced.value));
 const paneEl = ref<HTMLElement | null>(null);
 const { twoPane, listCardClass, paneClass } = useListDetailLayout(paneEl);
 // 한 단이면 운영자 패널 위 막대 ← 로 목록에
@@ -187,7 +190,8 @@ reportSinglePane("ai", () => !twoPane.value);
 const picked = computed<string | null>(() => {
   const q = route.query.ai;
   if (typeof q === "string") {
-    if (ALWAYS_OPEN.includes(q) || (on.value && ["prompt", "advanced"].includes(q))) return q;
+    if (q === "advanced" && !showAdvanced.value) return twoPane.value ? "model" : null;
+    if (ALWAYS_OPEN.includes(q) || (on.value && q === "prompt")) return q;
   }
   return twoPane.value ? "model" : null;
 });
