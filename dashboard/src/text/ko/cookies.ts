@@ -4,7 +4,6 @@ const title = "유튜브 쿠키";
 const unknown = "저장 여부를 확인하지 못했어요";
 const saved = "저장된 쿠키 있음";
 const none = "저장된 쿠키 없음";
-const purpose = "연령 제한 영상을 다운로드할 때만 써요.";
 const purposeTip = "유튜브가 세션을 바꾸면 만료 시각 전에도 무효가 돼요.\n로그에 cookies are no longer valid 가 보이면 새로 붙여넣어 주세요.";
 const save = "저장";
 const saving = "저장 중…";
@@ -20,4 +19,4 @@ const saveFailed = "쿠키를 저장하지 못했어요.";
 const clearFailed = "쿠키를 지우지 못했어요.";
 const loadFailed = "쿠키 상태를 읽지 못했어요.";
 
-export { title, unknown, saved, none, purpose, purposeTip, save, saving, clear, pasteHint, pasteHintTip, insecure, replacePlaceholder, savedDone, clearedDone, saveFailed, clearFailed, loadFailed };
+export { title, unknown, saved, none, purposeTip, save, saving, clear, pasteHint, pasteHintTip, insecure, replacePlaceholder, savedDone, clearedDone, saveFailed, clearFailed, loadFailed };

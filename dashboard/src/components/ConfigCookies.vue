@@ -2,9 +2,9 @@
   <!-- 유튜브 쿠키 입력. 카드가 아니라 연령 제한 탭 유튜브 카드의 칸들 아래에 들어간다(ConfigTunables 의 in- 슬롯) -->
   <div class="flex flex-col gap-2">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <!-- 이름표 · 무엇에 쓰고 언제 교체하는지(툴팁) · 오른쪽에 있는지 없는지. 값은 쓰기 전용이라 어느 통로로도 내려오지 않는다 -->
+    <!-- 이름표 · 언제 교체하는지(툴팁) · 오른쪽에 있는지 없는지. 무엇에 쓰는지는 탭이 말한다(연령 제한). 값은 쓰기 전용이라 어느 통로로도 내려오지 않는다 -->
     <div class="flex items-center gap-2">
-      <span class="flex flex-1 min-w-0 items-center gap-1 text-xs text-on-surface-variant">{{ T.title }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="`${T.purpose}\n${T.purposeTip}`" /></span>
+      <span class="flex flex-1 min-w-0 items-center gap-1 text-xs text-on-surface-variant">{{ T.title }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.purposeTip" /></span>
       <span class="inline-flex items-center gap-1 text-xs" :class="state.hasFile ? 'text-primary' : 'text-on-surface-variant'"><Icon :name="!known ? 'help' : state.hasFile ? 'check_circle' : 'radio_button_unchecked'" :size="16" :fill="known && state.hasFile" />{{ !known ? T.unknown : state.hasFile ? T.saved : T.none }}</span>
     </div>
     <textarea :value="input" rows="6" autocomplete="off" spellcheck="false" wrap="off" :placeholder="placeholder" :aria-label="T.title" :class="[AREA, 'font-mono text-xs', state.hasFile && 'placeholder:font-sans']" @input="input = valueOf($event)"></textarea>
