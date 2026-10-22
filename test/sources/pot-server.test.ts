@@ -81,6 +81,26 @@ test("준비가 시간 안에 안 되면 기다림을 접는다(봇은 POToken �
   server.stop();
 });
 
+test("내리면 꺼질 때까지 기다린다: 실행한 것이 없으면 none, 꺼지면 stopped, 1초 안에 안 꺼지면 timeout", async (t) => {
+  assert.equal(await createPotServer({ spawn: fakeSpawn().spawn, exists: () => true }).stop(), "none");
+
+  const { spawn, spawned } = fakeSpawn();
+  const server = createPotServer({ spawn, exists: () => true });
+  await withConfig({ bgutil: { enabled: true } }, () => server.start());
+  const stopped = server.stop();
+  assert.equal(spawned[0].proc.killed, "SIGTERM");
+  spawned[0].proc.emit("exit", null);
+  assert.equal(await stopped, "stopped");
+
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const stuck = fakeSpawn();
+  const slow = createPotServer({ spawn: stuck.spawn, exists: () => true });
+  await withConfig({ bgutil: { enabled: true } }, () => slow.start());
+  const waiting = slow.stop();
+  t.mock.timers.tick(1000);
+  assert.equal(await waiting, "timeout");
+});
+
 test("비정상 종료면 5초 뒤 다시 실행하고, 내린 뒤의 종료는 다시 실행하지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { spawn, spawned } = fakeSpawn();

@@ -14,10 +14,13 @@ const SERVER_DIR = path.join(PROJECT.bgutil, "server");
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");
 const PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 실행하기까지
+const STOP_WAIT_MS = 1000; // 내릴 때 꺼지기를 기다리는 상한. 넘으면 종료 처리의 자식 정리가 내린다
 
 // 실행한 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
 type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
-type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; kill(signal?: NodeJS.Signals): unknown };
+type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; once(event: "exit", listener: () => void): unknown; kill(signal?: NodeJS.Signals): unknown };
+/** 내린 결과. none 실행한 것이 없다 · stopped 꺼졌다 · timeout 상한 안에 꺼지지 않았다 */
+type PotStop = "none" | "stopped" | "timeout";
 type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["ignore", "pipe", "pipe"] }) => PotProcess;
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean }>;
 
@@ -79,12 +82,22 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     log.debug({ sub: "bgutil" }, "POToken 서버 시작");
   }
 
-  function stop() {
+  // 내리고 꺼질 때까지 기다린다(상한 STOP_WAIT_MS). 꺼지면 레지스트리에서도 빠져 종료 처리의 자식 정리에 섞이지 않는다
+  function stop(): Promise<PotStop> {
     stopping = true;
-    if (proc) {
-      proc.kill("SIGTERM");
-      proc = null;
-    }
+    const child = proc;
+    proc = null;
+    if (!child) return Promise.resolve("none");
+    if (child.exitCode != null || child.signalCode != null) return Promise.resolve("stopped");
+    return new Promise((done) => {
+      const timer = setTimeout(() => done("timeout"), STOP_WAIT_MS);
+      timer.unref?.();
+      child.once("exit", () => {
+        clearTimeout(timer);
+        done("stopped");
+      });
+      child.kill("SIGTERM");
+    });
   }
 
   // /ping 에 응답할 때까지 기다린다(최대 timeoutMs). 실행한 것이 없으면 바로 통과, 시간을 넘기면 경고만
@@ -111,3 +124,4 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
 }
 
 export { createPotServer, scrubBgutilLine, PORT };
+export type { PotStop };

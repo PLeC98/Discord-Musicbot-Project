@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
+import sink from "../../src/infra/log/sink.ts";
 import { EXIT } from "../../src/app/exit-codes.ts";
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
@@ -55,11 +56,18 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   let handle: ReturnType<typeof installShutdown> | undefined;
   const exited = new Promise((resolve) => {
     const shutdown = installShutdown({
-      potServer: { stop: () => steps.push("pot:stop") },
+      potServer: { stop: async () => (steps.push("pot:stop"), "stopped" as const) },
       logFile: { close: () => steps.push("log:close") },
       proc,
       voiceConnections: () => new Map(live),
-      killAll: (reason: string) => steps.push(`kill:${reason}`),
+      killAll: () => (
+        steps.push("kill"),
+        [
+          { label: "ffmpeg:playback", pid: 11 },
+          { label: "ffmpeg:playback", pid: 12 },
+          { label: "yt-dlp", pid: 13 },
+        ]
+      ),
       exit: (code: number) => {
         exits++;
         resolve(code);
@@ -77,7 +85,7 @@ test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
-  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
+  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill", "log:close"]);
 });
 
 test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다", async () => {
@@ -86,7 +94,7 @@ test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실�
   assert.equal(await exited, 0);
   assert.deepEqual(
     steps.filter((s) => !s.startsWith("voice:")),
-    ["record:shutdown", "pot:stop", "kill:SIGINT", "log:close"],
+    ["record:shutdown", "pot:stop", "kill", "log:close"],
     "세션 저장 · 봇 내리기는 없다",
   );
 });
@@ -96,7 +104,7 @@ test("레지스트리에 없는 음성 연결도 채널에는 남긴 채 정리�
   proc.emit("SIGHUP");
   assert.equal(await exited, 0);
   assert.ok(steps.includes("voice:g9:stay"), "레지스트리에 없던 연결");
-  assert.equal(steps.at(-2), "kill:SIGHUP");
+  assert.equal(steps.at(-2), "kill");
 });
 
 test("종료가 중간에 던져도(연결 정리 실패) 나간다", async () => {
@@ -126,7 +134,7 @@ test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 
   assert.equal(await exited, EXIT.restart);
   await new Promise((r) => setImmediate(r));
   assert.equal(exits(), 1);
-  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill:운영자", "log:close"]);
+  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill", "log:close"]);
 });
 
 test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {
@@ -145,9 +153,16 @@ test("기동이 실패하면 기동 실패로 적고, 봇 · POToken 서버 · �
     stopFailedStart(
       { destroy: () => steps.push("client:destroy") },
       {
-        potServer: { stop: () => steps.push("pot:stop") },
+        potServer: { stop: async () => (steps.push("pot:stop"), "stopped" as const) },
         logFile: { close: () => steps.push("log:close") },
-        killAll: (reason: string) => steps.push(`kill:${reason}`),
+        killAll: () => (
+          steps.push("kill"),
+          [
+            { label: "ffmpeg:playback", pid: 11 },
+            { label: "ffmpeg:playback", pid: 12 },
+            { label: "yt-dlp", pid: 13 },
+          ]
+        ),
         exit: (code: number) => {
           steps.push(`exit:${code}`);
           resolve(code);
@@ -158,6 +173,24 @@ test("기동이 실패하면 기동 실패로 적고, 봇 · POToken 서버 · �
       0,
     );
   });
-  assert.deepEqual(steps, ["record:startup-failed", "client:destroy", "pot:stop", "kill:기동 실패", "log:close"], "나가기는 아직");
+  assert.deepEqual(steps, ["record:startup-failed", "client:destroy", "pot:stop"], "POToken 서버가 꺼지기를 기다리는 동안 나가지 않는다");
   assert.equal(await exited, 75);
+  assert.deepEqual(steps, ["record:startup-failed", "client:destroy", "pot:stop", "kill", "log:close", "exit:75"]);
+});
+
+test("깨끗한 종료는 단계마다 info 한 줄을 차례로 남기고, 남은 자식 프로세스는 이름별 개수로 적는다", async () => {
+  const from = sink.buffer.length;
+  const { proc, exited } = setup();
+  proc.emit("SIGINT");
+  await exited;
+  const lines = sink.buffer.slice(from).filter((e) => e.category === "core");
+  assert.deepEqual(
+    lines.filter((e) => e.level !== "info").map((e) => e.text.split(" Error")[0]),
+    ["음성 연결 정리 실패: g8"],
+    "실패만 info 가 아니다(가짜 연결 g8 이 일부러 실패한다)",
+  );
+  const steps = lines.filter((e) => e.level === "info" && !e.text.startsWith("음성 연결 정리(")).map((e) => e.text);
+  const last = steps.pop();
+  assert.deepEqual(steps, ["종료 시작: 프로세스 종료(SIGINT)", "세션 저장: 서버 1곳", "음성 채널 상태 문구 지움: 1곳", "디스코드 연결 닫음", "POToken 서버 내림", "남은 자식 프로세스 정리: 3개 (ffmpeg:playback 2 · yt-dlp 1)"]);
+  assert.match(last!, /^종료 끝: \d+\.\d초$/);
 });

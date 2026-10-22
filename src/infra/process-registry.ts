@@ -73,7 +73,10 @@ function persistTo(file: string) {
 function install() {
   if (hooksInstalled) return;
   hooksInstalled = true;
-  process.on("exit", () => killAll("exit"));
+  process.on("exit", () => {
+    const killed = killAll();
+    if (killed.length) log.warn(`종료 처리를 거치지 않고 나가며 외부 프로세스 ${killed.length}개 정리: ${killed.map(({ label, pid }) => `${label}#${pid}`).join(", ")}`);
+  });
 }
 
 /**
@@ -143,10 +146,10 @@ function kill(child: Tracked): boolean {
 
 /**
  * 등록된 모든 프로세스를 트리째 종료한다. 멱등. 두 번 불러도 안전하다.
- * reason 은 로그용. 돌려주는 것은 실제로 종료를 시도한 프로세스 수
+ * 돌려주는 것은 실제로 종료를 시도한 프로세스. 줄은 부르는 쪽이 남긴다(종료 처리는 info, 그 밖의 길로 나가면 warn)
  */
-function killAll(reason = "shutdown"): number {
-  if (active.size === 0) return 0;
+function killAll(): Array<{ label: string; pid: number }> {
+  if (active.size === 0) return [];
   const entries = [...active.values()];
   active.clear();
   save();
@@ -154,13 +157,12 @@ function killAll(reason = "shutdown"): number {
   const killed = [];
   for (const entry of entries) {
     try {
-      if (killTree(entry)) killed.push(`${entry.label}#${entry.pid}`);
+      if (killTree(entry)) killed.push({ label: entry.label, pid: entry.pid });
     } catch {
       /* 종료 경로에서는 실패해도 더 할 수 있는 일이 없다 */
     }
   }
-  if (killed.length) log.warn(`외부 프로세스 ${killed.length}개 정리 (${reason}): ${killed.join(", ")}`);
-  return killed.length;
+  return killed;
 }
 
 /** 현재 추적 중인 프로세스 수 */

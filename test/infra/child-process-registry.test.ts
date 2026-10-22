@@ -78,8 +78,8 @@ test("killAll: 자식과 손자 프로세스를 모두 종료한다", async () =
   const release = registry.register(child, "test:child", { group: !IS_WIN });
   assert.equal(registry.size(), 1);
 
-  const killed = registry.killAll("test");
-  assert.equal(killed, 1, "1개 프로세스에 대해 kill을 시도해야 함");
+  const killed = registry.killAll();
+  assert.deepEqual(killed, [{ label: "test:child", pid }], "1개 프로세스에 대해 kill을 시도해야 함");
   assert.equal(registry.size(), 0, "killAll 후 레지스트리는 비어야 함");
 
   assert.ok(await waitFor(() => !alive(pid)), "자식이 종료되어야 함");
@@ -106,13 +106,13 @@ test("killTree: 이미 종료한 프로세스에는 시그널을 보내지 않�
   // exit 후에는 exitCode/signalCode가 채워지므로 kill 대상에서 빠져야 한다.
   // (안 그러면 OS가 그 번호를 재발급한 남의 프로세스를 죽이게 된다.)
   assert.equal(registry._internals._isAlive(child), false);
-  assert.equal(registry.killAll("test"), 0, "종료된 프로세스는 kill을 시도하지 않아야 함");
+  assert.deepEqual(registry.killAll(), [], "종료된 프로세스는 kill을 시도하지 않아야 함");
 
   release();
 });
 
-test("killAll: 멱등 — 비어 있으면 0을 반환하고 아무것도 하지 않는다", () => {
+test("killAll: 멱등 — 비어 있으면 빈 목록을 반환하고 아무것도 하지 않는다", () => {
   assert.equal(registry.size(), 0);
-  assert.equal(registry.killAll("test"), 0);
-  assert.equal(registry.killAll("test"), 0);
+  assert.deepEqual(registry.killAll(), []);
+  assert.deepEqual(registry.killAll(), []);
 });
