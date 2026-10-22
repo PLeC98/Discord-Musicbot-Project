@@ -68,7 +68,7 @@ const ICONS = {
   dj_role: { glyph: "headphones", unicode: "🎧", tints: ["brand", "done"] },
   sponsorblock: { glyph: "sponsorblock", unicode: "⏭️", tints: ["brand", "done"] },
   playlist_add: { glyph: "playlist_add", unicode: "📃", tints: ["brand", "done"] },
-  age_restricted: { glyph: "18_up_rating", unicode: "🔞" },
+  age_restricted: { glyph: "no_adult_content", unicode: "🔞" },
   restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
 

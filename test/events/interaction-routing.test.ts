@@ -108,6 +108,7 @@ const CASES: [Kind, string, string][] = [
   ["button", "djrole:cancel", "djRoleConfigHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
   ["button", "setting:age-all", "settingsPanelHandler"],
+  ["button", "setting:close", "settingsPanelHandler"],
   ["select", "autoplay:genre", "autoplay"],
   ["select", "panel:jump:s1", "modalHandler"],
   ["select", "sb:cats", "sponsorConfigHandler"],

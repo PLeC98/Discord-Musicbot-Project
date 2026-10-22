@@ -46,9 +46,14 @@ async function saveSponsorCategories(interaction: StringSelectMenuInteraction<"c
 
 const AGE_BUTTONS: Record<string, AgePlace> = { "setting:age-channel": "channel", "setting:age-all": "all" };
 
-// 버튼: SponsorBlock 켜기 · 끄기(setting:sb-toggle), 연령 제한 콘텐츠를 틀 곳(setting:age-*)
+// 버튼: SponsorBlock 켜기 · 끄기(setting:sb-toggle), 연령 제한 콘텐츠를 틀 곳(setting:age-*), 닫기(setting:close)
 async function pressButton(interaction: ButtonInteraction<"cached">) {
   const guild = interaction.guild;
+  // 닫기: 본인에게만 보인 화면을 바로 지운다
+  if (interaction.customId === "setting:close") {
+    await interaction.deferUpdate();
+    return interaction.deleteReply();
+  }
   if (interaction.customId === "setting:sb-toggle" && config.sponsorblock.enabled) {
     await GuildSettingsManager.setSponsorBlock(guild.id, { enabled: !GuildSettingsManager.resolveSponsorBlock(guild.id).enabled });
   }

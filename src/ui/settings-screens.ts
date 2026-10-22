@@ -54,7 +54,7 @@ type Option = { label: string; value: string; default: boolean };
 type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Option[] } | null; agePlace: AgePlace | null };
 
 /**
- * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴) · SponsorBlock(켜기 버튼 · 구간 메뉴) · 연령 제한 콘텐츠(틀 곳 버튼 둘).
+ * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴) · SponsorBlock(켜기 버튼 · 구간 메뉴) · 연령 제한 콘텐츠(틀 곳 버튼 둘), 맨 아래 닫기.
  * 고르면 바로 저장하고 이 화면을 다시 그린다. 받는 쪽은 src/discord/interactions/settings-panel-handler
  */
 function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
@@ -93,6 +93,9 @@ function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
     container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(pick("channel", t.ageChannel), pick("all", t.ageAll)));
     if (agePlace === "all") container.addTextDisplayComponents(text(t.ageAllWarning));
   }
+
+  divide();
+  container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("setting:close").setLabel(t.close).setStyle(ButtonStyle.Secondary)));
   return container;
 }
 

@@ -68,6 +68,13 @@ function fakeInteraction(kind: InteractionKind, customId: string, { values = [] 
     deferred: false,
     repliedWith: null as unknown,
     updatedWith: null as Payload | null,
+    deleted: false,
+    async deferUpdate() {
+      ix.deferred = true;
+    },
+    async deleteReply() {
+      ix.deleted = true;
+    },
     async reply(payload: unknown) {
       ix.repliedWith = payload;
     },
@@ -93,7 +100,7 @@ test("한 화면에 세 부분. 컴포넌트 40 · 글자 4000 한도 안", asyn
   assert.match(text, /연령 제한 콘텐츠/);
   assert.deepEqual(
     buttonsOf(shown).map((b) => b.custom_id),
-    ["setting:sb-toggle", "setting:age-channel", "setting:age-all"],
+    ["setting:sb-toggle", "setting:age-channel", "setting:age-all", "setting:close"],
   );
   assert.ok(countOf(shown) <= 40, `컴포넌트 ${countOf(shown)}`);
   assert.ok([...text].length <= 4000);
@@ -104,8 +111,11 @@ test("봇 전체에서 SponsorBlock · 연령 제한 콘텐츠를 껐으면 그 
   documents._use("age-content", { enabled: false, changedAt: 2 });
   const shown = await render();
   assert.doesNotMatch(textOf(shown), /SponsorBlock|연령 제한/);
-  assert.deepEqual(buttonsOf(shown), []);
-  assert.equal(screenOf(shown).rows, 1, "역할 메뉴 줄만");
+  assert.deepEqual(
+    buttonsOf(shown).map((b) => b.custom_id),
+    ["setting:close"],
+  );
+  assert.equal(screenOf(shown).rows, 2, "역할 메뉴 줄 · 닫기 줄");
 });
 
 test("역할 메뉴: 고르면 바로 저장하고 화면을 다시 그린다. 서버에 없는 역할은 빼고, 비우면 푼다", async () => {
@@ -152,4 +162,9 @@ test("서버 관리 권한이 없으면 거절하고 저장하지 않는다", as
   const ix = await run(fakeInteraction("button", "setting:age-all", { canManage: false }));
   assert.match(textOf(ix.repliedWith), /서버 관리 권한/);
   assert.equal(settings.resolveAgePlace("g1"), "channel");
+});
+
+test("닫기: 본인에게만 보인 화면을 바로 지운다", async () => {
+  const ix = await run(fakeInteraction("button", "setting:close"));
+  assert.deepEqual([ix.deleted, ix.updatedWith], [true, null]);
 });
