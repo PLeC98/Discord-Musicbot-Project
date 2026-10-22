@@ -60,7 +60,6 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
-    const started = Date.now();
     const client = bot?.client ?? null;
     const reason = restart ? `다시 시작(${why})` : `프로세스 종료(${why})`;
     log.info(`종료 시작: ${reason}`);
@@ -77,7 +76,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
       }
     }
     record.end(restart ? "restart" : "shutdown");
-    await release(client, { potServer, logFile, killAll }, started);
+    await release(client, { potServer, logFile, killAll });
     exit(restart ? EXIT.restart : EXIT.stopped);
   };
 
@@ -155,16 +154,15 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
 /** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정 · 토큰이 틀림 또는 일시적 실패)로 나간다 */
 function stopFailedStart(client: { destroy(): unknown } | null, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
   const { killAll, exit, record } = { ...REAL, ...boundary };
-  const started = Date.now();
   log.info("종료 시작: 기동 실패");
   record.end("startup-failed");
-  void release(client, { potServer, logFile, killAll }, started)
+  void release(client, { potServer, logFile, killAll })
     .catch((error: unknown) => log.error("종료 중 오류:", error))
     .finally(() => setTimeout(() => exit(code), graceMs));
 }
 
-// 봇이 실행한 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일. 내린 것마다 한 줄, 마지막에 걸린 시간
-async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">, started: number) {
+// 봇이 실행한 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
+async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">) {
   if (client) {
     client.destroy();
     log.info("디스코드 연결 닫음");
@@ -178,7 +176,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
 
-  log.info(`종료 끝: ${((Date.now() - started) / 1000).toFixed(1)}초`);
+  log.info("종료 끝");
   if (logFile) logFile.close();
 }
 
