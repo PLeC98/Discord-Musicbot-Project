@@ -13,7 +13,8 @@
     <DefineField v-slot="{ one, short }">
       <!-- 구간 선택은 체크박스 목록이라 label 로 감싸지 않는다(라벨을 누르면 첫 체크박스가 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 컴포넌트, SponsorBlock 을 끄면 흐리게 -->
       <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
-      <label v-else class="block min-w-0">
+      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 고르면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에 -->
+      <label v-else class="block min-w-0" :class="one.kind === 'cookies' && '@md/card:col-span-2'">
         <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
           ><span class="truncate">{{ (short && T.fields[one.key]?.short) || (T.fields[one.key]?.label ?? one.key) }}</span
           ><Icon v-if="T.fields[one.key]?.help" name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.fields[one.key]?.help" /><span v-if="pending.includes(one.key)" class="text-tertiary" v-tooltip="T.restartTip">{{ T.pending }}</span
@@ -25,7 +26,7 @@
           <span class="text-sm text-on-surface">{{ boolOf(one) ? T.on : T.off }}</span>
         </span>
         <!-- 쿠키 출처: 쓰지 않음 · 파일 · 브라우저 선택, 그 밖의 형식(프로필 · 키링 · 컨테이너)은 "기타"를 선택하고 아래 입력란에 입력한다 -->
-        <span v-else-if="one.kind === 'cookies'" class="flex flex-col gap-2">
+        <span v-else-if="one.kind === 'cookies'" class="grid grid-cols-1 @md/card:grid-cols-2 gap-x-3 gap-y-2">
           <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
           <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
         </span>
@@ -51,9 +52,9 @@
             </div>
           </div>
         </div>
+        <!-- 그룹 카드 안, 칸들 아래에 부르는 쪽이 끼우는 슬롯(연령 제한 탭 유튜브 그룹의 유튜브 쿠키 입력) -->
+        <slot :name="`in-${group}`" />
       </BaseCard>
-      <!-- 그룹 카드 뒤에 부르는 쪽이 끼우는 슬롯(유튜브 그룹 뒤의 유튜브 쿠키 카드) -->
-      <slot :name="`after-${group}`" />
     </template>
   </div>
 </template>
@@ -91,7 +92,7 @@ const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRes
 
 const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
-const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc }, ageyoutube: { file: "docs/youtube.md", label: T.youtubeDoc } };
+const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
 const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));

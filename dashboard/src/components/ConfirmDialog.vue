@@ -6,7 +6,9 @@
         <div role="alertdialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-sm animate-[art-in_350ms_var(--ease-spring-fast)]">
           <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4" :class="tone === 'danger' ? 'bg-error-container text-on-error-container' : 'bg-secondary-container text-on-secondary-container'"><Icon :name="icon" :size="24" /></span>
           <h3 class="text-xl font-round font-semibold text-center mb-4">{{ title }}</h3>
-          <p class="text-sm text-on-surface-variant text-center whitespace-pre-line" :class="actions && 'mb-6'">{{ body }}</p>
+          <p class="text-sm text-on-surface-variant text-center whitespace-pre-line" :class="actions && 'mb-6'">
+            {{ body }}<strong v-if="emphasis" class="block mt-2 font-semibold text-on-surface">{{ emphasis }}</strong>
+          </p>
           <div v-if="actions" class="flex gap-2 justify-end">
             <BaseButton variant="ghost" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
             <BaseButton :variant="tone" :disabled="busy" @click="emit('confirm')">{{ confirmLabel }}</BaseButton>
@@ -24,8 +26,8 @@ import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 import { useCloseLayer } from "../composables/close-layer.ts";
 
-/** tone: danger(되돌릴 수 없는 일, 오류 색) · primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다. actions: false 면 버튼 없이 알리기만(바깥을 눌러도 닫지 않는다) */
-const props = withDefaults(defineProps<{ icon: IconName; title: string; body: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean; actions?: boolean }>(), { tone: "danger", busy: false, actions: true });
+/** tone: danger(되돌릴 수 없는 일, 오류 색) · primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다. actions: false 면 버튼 없이 알리기만(바깥을 눌러도 닫지 않는다). emphasis: 본문 아래 굵게 한 줄 */
+const props = withDefaults(defineProps<{ icon: IconName; title: string; body: string; emphasis?: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean; actions?: boolean }>(), { tone: "danger", busy: false, actions: true, emphasis: "" });
 const open = defineModel<boolean>({ required: true });
 // Esc · 기기의 뒤로는 취소와 같다. 버튼이 없거나(기다리는 중) 요청 중이면 닫지 않는다
 useCloseLayer(open, () => {

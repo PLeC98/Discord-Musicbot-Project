@@ -17,10 +17,10 @@ const SOURCE = path.join(PROJECT.root, "dashboard", "node_modules", "@fontsource
 const OUT_FONT = path.join(PROJECT.root, "dashboard", "src", "assets", "material-symbols.woff2");
 const OUT_TABLE = path.join(PROJECT.root, "dashboard", "src", "icons.ts");
 
-/** 지금 표에 있는 이름 */
+/** 지금 표에 있는 이름(숫자로 시작하는 이름은 따옴표로 싼다) */
 function listed(): string[] {
   if (!fs.existsSync(OUT_TABLE)) return [];
-  return [...fs.readFileSync(OUT_TABLE, "utf8").matchAll(/^ {2}([a-z0-9_]+): 0x[0-9a-f]+,$/gm)].map((m) => m[1]);
+  return [...fs.readFileSync(OUT_TABLE, "utf8").matchAll(/^ {2}"?([a-z0-9_]+)"?: 0x[0-9a-f]+,$/gm)].map((m) => m[1]);
 }
 
 /** 기호 이름 → 코드포인트. 원본의 합자를 따라가 나온 기호가 개인 영역 코드포인트를 가지면 그것 */
@@ -51,7 +51,7 @@ async function main() {
 // 손으로 고치지 않는다: node scripts/build-icon-font.ts 가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 삭제하고 실행)
 
 const ICONS = {
-${table.map(([name, cp]) => `  ${name}: 0x${cp!.toString(16)},`).join("\n")}
+${table.map(([name, cp]) => `  ${/^\d/.test(name) ? JSON.stringify(name) : name}: 0x${cp!.toString(16)},`).join("\n")}
 } as const;
 
 type IconName = keyof typeof ICONS;

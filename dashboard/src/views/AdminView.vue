@@ -113,7 +113,7 @@
         <div class="admin-page" v-show="tab === 'age'">
           <ConfigTunables v-if="opened.has('age')" :groups="groupsIn('age')" tab="age" :can-restart="status?.env.launcher ?? false">
             <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 항목에 선택한 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
-            <template #after-ageyoutube><ConfigCookies v-if="cookieFile" /></template>
+            <template #in-ageyoutube><ConfigCookies v-if="cookieFile" class="mt-4" /></template>
           </ConfigTunables>
         </div>
 
@@ -206,8 +206,8 @@ const ALL_TABS: Tab[] = [
   { id: "status", label: T.tabs.status, icon: "smart_toy", group: "status" },
   { id: "settings", label: T.tabs.settings, icon: "tune", group: "config" },
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
-  { id: "age", label: T.tabs.age, icon: "explicit", group: "config" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
+  { id: "age", label: T.tabs.age, icon: "18_up_rating", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },

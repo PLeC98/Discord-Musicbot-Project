@@ -34,6 +34,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "VOICE_PAUSED_PREFIX", group: "look", kind: "text", def: "" },
   { key: "VOICE_IDLE_STATUS", group: "look", kind: "text", def: "" },
   // 유튜브
+  { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
   { key: "YTDLP_PLAYER_CLIENTS", group: "youtube", kind: "list", def: "", advanced: true },
   { key: "YTDLP_CLIENT_WINDOW", group: "youtube", kind: "int", def: "5", min: 2, max: 50, advanced: true },
   { key: "YTDLP_CLIENT_FAILS", group: "youtube", kind: "int", def: "3", min: 1, max: 50, advanced: true },
@@ -41,7 +42,6 @@ const TUNABLES: readonly Tunable[] = [
   // 동시에 도는 yt-dlp. 0 이면 메모리로 정한다
   { key: "YTDLP_LOOKUP_SLOTS", group: "youtube", kind: "int", def: "0", min: 0, max: 32, advanced: true },
   { key: "YTDLP_BACKGROUND_SLOTS", group: "youtube", kind: "int", def: "0", min: 0, max: 32, advanced: true },
-  { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
   // 연령 제한 영상을 받을 때만 쓰는 쿠키. 연령 제한 콘텐츠를 켰을 때만 쓰고 보인다(config/age-content)
   { key: "COOKIES_SOURCE", group: "ageyoutube", kind: "cookies", def: "" },
   // SponsorBlock
