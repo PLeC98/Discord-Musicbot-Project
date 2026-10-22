@@ -48,6 +48,8 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     autoplay: false,
     _endReason: null,
     _stopWith: Player.prototype._stopWith,
+    _clearSilentStop: Player.prototype._clearSilentStop,
+    _silentStop: null,
     _restartsOnPrevious: Player.prototype._restartsOnPrevious,
     guild: { id: "g1", client: null },
     played: [] as Array<{ title: string | null | undefined; ms: number }>,
@@ -62,7 +64,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
-    audioPlayer: { stop() {} },
+    audioPlayer: { state: { status: "idle" }, stop() {} },
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });
       this.playback = { startOffsetMs: ms, resource: { playbackDuration: 0 } };

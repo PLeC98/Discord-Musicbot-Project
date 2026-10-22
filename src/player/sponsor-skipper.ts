@@ -7,7 +7,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 필드 */
-type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor" | "playback">;
+type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "isStopping" | "paused" | "play" | "skip" | "sponsor" | "playback">;
 type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.
@@ -86,6 +86,8 @@ class SponsorSkipper {
     // 셋업(play 진행) 중이거나 아직 실제 Playing이 아니면 발동 보류. 비캐시 곡의 초반
     // 스킵이 셋업 중인 play()에 재진입해 재생을 깨는 것을 방지(버그 수정).
     if (p.isPlayStarting) return;
+    // 묵음을 흘려보내며 멈추는 중이면 곡이 곧 바뀐다
+    if (p.isStopping) return;
     if (p.audioPlayer?.state?.status !== AudioPlayerStatus.Playing) return;
 
     const curSec = p.getCurrentTime() / 1000;

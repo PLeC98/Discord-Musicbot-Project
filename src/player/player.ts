@@ -77,6 +77,8 @@ const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이
 // 이 값을 넘으면 플레이어가 멈추고 곡 끝 판정이 "공급이 끊겨 멈춤"으로 그 위치부터 다시 연다
 const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
+// 묵음을 흘려보내는 멈춤(묵음 다섯 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
+const SILENT_STOP_CAP_MS = 500;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
 type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
@@ -196,6 +198,8 @@ class Player {
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 차례에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
+  /** 묵음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
+  _silentStop: NodeJS.Timeout | null = null;
   /** 걸린 곡 끝 처리가 끝나기를 기다리는 쪽 */
   _endWaiters = new Set<() => void>();
   /** 연달아 실패해 멈춰도 텍스트 채널에 알리지 않는다(세션을 복원하는 /join 이 명령 응답으로 말하는 동안) */
@@ -617,9 +621,10 @@ class Player {
   }
 
   onPlayerIdle(trigger = "idle") {
+    this._clearSilentStop();
     const reason = this._endReason ?? trigger;
     this._endReason = null;
-    // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 멈춤(audioPlayer.stop)은 Idle 을 곧바로 부른다
+    // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 묵음을 흘려보내면 100ms 뒤에 온다
     this._scheduleEnd(reason);
   }
 
@@ -636,7 +641,7 @@ class Player {
    * 다음 곡을 여는 데 오래 걸리면 capMs 까지만 기다린다. 대시보드가 바뀐 곡을 응답에 싣게 한다
    */
   untilSwitched(capMs = 2000): Promise<void> {
-    if (!this._endScheduled && !this.lifecycle.ending) return Promise.resolve();
+    if (!this._endScheduled && !this._silentStop && !this.lifecycle.ending) return Promise.resolve();
     return new Promise((done) => {
       const finish = () => {
         clearTimeout(cap);
@@ -650,12 +655,38 @@ class Player {
 
   /**
    * 지금 곡을 멈추고 그 까닭을 끝 처리(Idle)에 넘긴다. 곡을 멈추는 쪽은 모두 여기를 지난다.
-   * 이미 멈추는 중이면 먼저 온 까닭을 지킨다(겹친 까닭은 로그로만). force 가 거짓이면 남은 소리를 흘려보낸 뒤 멈춘다
+   * 이미 멈추는 중이면 먼저 온 까닭을 지킨다(겹친 까닭은 로그로만).
+   * 재생 중이면 묵음 프레임 다섯을 보낸 뒤 멈춘다(디스코드 문서의 보간 막기): 그냥 끊으면 듣는 쪽이 끊긴 소리를 늘여 메우고,
+   * 연결에 남은 마지막 패킷(@discordjs/voice 가 미리 준비해 둔 것)이 다음 곡 첫머리에 나간다. 묵음으로 끝나면 남는 것도 묵음이다.
+   * 묵음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
    */
-  _stopWith(reason: string, { force = true }: { force?: boolean } = {}) {
+  _stopWith(reason: string, { force = false }: { force?: boolean } = {}) {
     if (this._endReason && this._endReason !== reason) log.debug(`이미 멈추는 중(원인=${this._endReason}). ${reason} 은 버린다: ${this._trackLabel()}`);
     this._endReason ??= reason;
-    this.audioPlayer.stop(force);
+    if (force || this.audioPlayer.state.status !== AudioPlayerStatus.Playing) {
+      this._clearSilentStop();
+      this.audioPlayer.stop(true);
+      return;
+    }
+    if (this._silentStop) return;
+    this.audioPlayer.stop();
+    this._silentStop = setTimeout(() => {
+      this._silentStop = null;
+      if (this.audioPlayer.state.status === AudioPlayerStatus.Idle) return;
+      log.debug(`묵음 멈춤이 ${SILENT_STOP_CAP_MS}ms 안에 끝나지 않아 바로 멈춥니다(상태=${this.audioPlayer.state.status}): ${this._trackLabel()}`);
+      this.audioPlayer.stop(true);
+    }, SILENT_STOP_CAP_MS);
+    this._silentStop.unref?.();
+  }
+
+  _clearSilentStop() {
+    if (this._silentStop) clearTimeout(this._silentStop);
+    this._silentStop = null;
+  }
+
+  /** 묵음을 흘려보내며 멈추는 중이다(곡이 곧 바뀐다) */
+  get isStopping() {
+    return this._silentStop !== null;
   }
 
   pauseFor(reason: string | null = null) {
@@ -723,6 +754,7 @@ class Player {
 
   /** 반복 타이머를 모두 멈춘다. 재생 상태 · 저장된 세션은 건드리지 않는다. 버리는 플레이어는 꼭 부른다(남은 타이머가 플레이어를 붙잡는다) */
   _stopTimers() {
+    this._clearSilentStop();
     this.idle.stop();
     this.warmer.stop();
     this.persistence.stopStateSync();

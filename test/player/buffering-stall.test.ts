@@ -25,6 +25,8 @@ function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reas
     },
     _endReason: reason,
     _stopWith: Player.prototype._stopWith,
+    _clearSilentStop: Player.prototype._clearSilentStop,
+    _silentStop: null,
     playback: { inputProgressAt: inputAt },
     _trackLabel: Player.prototype._trackLabel,
   });

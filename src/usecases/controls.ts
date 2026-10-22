@@ -144,6 +144,8 @@ function seekBlocked(player: Player) {
   if (player.isLive) return fail("live-no-seek");
   // 여는 중에는 옮길 곡이 아직 자리 잡지 않았다
   if (player.isPlayStarting) return fail("still-starting");
+  // 묵음을 흘려보내며 멈추는 중이면 곡이 곧 바뀐다(옮기면 새 소리가 묵음을 덮어 멈춤을 무른다)
+  if (player.isStopping) return fail("track-changed");
   return null;
 }
 
