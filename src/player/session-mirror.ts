@@ -336,13 +336,11 @@ class SessionPersistence {
   // 패널을 다시 세운다. announce 면 이어 튼다고 텍스트 채널에 알린다
   async _announceRestored(resumeMs: number, announce: boolean) {
     const player = this.player;
-    if (player.textChannel) {
-      try {
-        // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
-        await playerEvents.started(player);
-      } catch (error) {
-        log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
-      }
+    try {
+      // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 패널 채널은 패널이 정한다(텍스트 채널이 없으면 전용 채널). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
+      await playerEvents.started(player);
+    } catch (error) {
+      log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
     }
 
     if (announce && player.currentTrack) {

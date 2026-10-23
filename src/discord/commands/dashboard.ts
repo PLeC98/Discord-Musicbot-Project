@@ -27,7 +27,7 @@ const exported: GuildCommand = {
       if (permErr) return noticeSelf(interaction, errors.notice(permErr));
     }
     // 패널을 이 채널에 올린다
-    const panelErr = await checkPanelChannel(guild, channel);
+    const panelErr = await checkPanelChannel(guild, interaction);
     if (panelErr) return noticeSelf(interaction, errors.notice(panelErr));
 
     const player = bot.players.get(guild.id);

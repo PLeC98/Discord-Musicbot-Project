@@ -2,7 +2,7 @@
 // 봇을 끌 때 음성 채널에는 남는다(app/shutdown). 곡도 대기열도 없이 끄면 세션이 없어, 다시 시작한 뒤 채널에 앉은 봇을 아무도 모른다.
 // 세션이 없는 서버만: 그 채널에 플레이어를 붙이고 /join 으로 곡 없이 들어왔을 때처럼 틀 게 없음 퇴장을, 사람이 없으면 혼자 남음 퇴장을 건다.
 
-import { GatewayOpcodes, type Client } from "discord.js";
+import type { Client } from "discord.js";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -10,7 +10,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
 import { sessions } from "../store/player-sessions.ts";
-import { voiceJoinDenied } from "./voice-access.ts";
+import { leaveVoice, voiceJoinDenied } from "./voice-access.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -28,11 +28,11 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
       continue;
     }
 
-    // 꺼져 있는 사이 권한이 바뀌었다. 다시 붙어 봐야 답이 없으니 게이트웨이로 나간다(REST 빼기는 멤버 이동 권한이 든다)
+    // 꺼져 있는 사이 권한이 바뀌었다. 다시 붙어 봐야 답이 없으니 나간다
     const denied = voiceJoinDenied(channel, guild.members.me, { inside: true });
     if (denied) {
       log.warn(`세션 없이 남은 음성 채널에 다시 붙을 수 없어(${denied}) 나갑니다: "${channel.name}" (${guild.name})`);
-      guild.shard.send({ op: GatewayOpcodes.VoiceStateUpdate, d: { guild_id: guild.id, channel_id: null, self_mute: false, self_deaf: false } });
+      leaveVoice(guild);
       continue;
     }
 

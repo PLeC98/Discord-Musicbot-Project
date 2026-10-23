@@ -29,7 +29,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
-    const panelErr = await checkPanelChannel(guild, channel);
+    const panelErr = await checkPanelChannel(guild, interaction, bot.players.get(guild.id)?.textChannel);
     if (panelErr) return noticeSelf(interaction, errors.notice(panelErr));
     // 저장한 세션을 복원하는 동안 "불러오는 중"을 본인에게 먼저 보낸다
     const result = await join(bot, { guild, member, textChannel: channel }, { restoring: () => interaction.reply(reply(replies.restoring())) });

@@ -15,7 +15,8 @@ import { messageOf } from "../rules/error-kind.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { canGoBack } from "../rules/controls.ts";
 import * as genreConfig from "../config/genres.ts";
-import { GatewayOpcodes, type Guild, type GuildMember } from "discord.js";
+import type { Guild, GuildMember } from "discord.js";
+import { leaveVoice } from "../player/voice-access.ts";
 import type { Player } from "../player/player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
@@ -361,8 +362,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   const player = players.get(guild.id);
   if (!player) {
     if (!guild.members.me?.voice?.channel) return fail("no-song");
-    // 게이트웨이로 나간다(음성 상태 op 4, 채널 없음). REST 로 빼기(voice.disconnect)는 멤버 이동 권한이 든다(봇 역할에 그 권한이 없는 서버도 있다)
-    guild.shard.send({ op: GatewayOpcodes.VoiceStateUpdate, d: { guild_id: guild.id, channel_id: null, self_mute: false, self_deaf: false } });
+    leaveVoice(guild);
     return done({ left: "voice-only" as const });
   }
   const track = player.currentTrack;

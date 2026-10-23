@@ -184,21 +184,24 @@ test("소환: 스테이지는 말하기 권한 대신 스스로 발언자가 되
 
 // ── checkPanelChannel (패널을 올릴 채널) ─────────────────────
 
-test("패널 채널: 전용 채널에 올릴 수 있으면 어디서 쳐도 통과, 아니면 친 채널. 둘 다 안 되면 까닭(들어가지 않은 비공개 스레드는 따로)", async () => {
+test("패널 채널: 전용 채널에 올릴 수 있으면 어디서 쳐도 통과, 아니면 친 채널, 아니면 플레이어가 쓰는 채널. 다 안 되면 까닭(봇이 볼 수 없는 채널은 따로)", async () => {
   const me = {};
   const postable = { send: async () => ({}), isThread: () => false };
   const locked = { ...postable, guild: { members: { me } }, permissionsFor: () => ({ has: () => false }) };
   const privateThread = { send: async () => ({}), type: ChannelType.PrivateThread, joined: false, isThread: () => true, sendable: false };
   const guild = (dedicated: object | null, timedOutUntil: number | null = null) => fake<Guild>({ id: "pg", channels: { cache: new Map(dedicated ? [["dc", dedicated]] : []) }, members: { me: { communicationDisabledUntilTimestamp: timedOutUntil } } });
+  const at = (channel: object | null, channelId: string | null = "c") => ({ channel: channel && fake<TextBasedChannel>(channel), channelId });
 
   setGuild("pg", { botChannel: "dc" });
-  assert.equal(await checkPanelChannel(guild(postable), fake<TextBasedChannel>(locked)), null, "전용 채널로 간다");
-  assert.equal(await checkPanelChannel(guild(locked), fake<TextBasedChannel>(postable)), null, "전용 채널에 못 올리면 친 채널");
-  assert.equal(await checkPanelChannel(guild(locked), fake<TextBasedChannel>(locked)), "permission-text");
-  assert.equal(await checkPanelChannel(guild(postable, Date.now() + 60_000), fake<TextBasedChannel>(postable)), "bot-timed-out", "타임아웃이면 그 까닭으로");
+  assert.equal(await checkPanelChannel(guild(postable), at(locked)), null, "전용 채널로 간다");
+  assert.equal(await checkPanelChannel(guild(locked), at(postable)), null, "전용 채널에 못 올리면 친 채널");
+  assert.equal(await checkPanelChannel(guild(locked), at(locked)), "permission-text");
+  assert.equal(await checkPanelChannel(guild(locked), at(locked), fake<TextBasedChannel>(postable)), null, "플레이어가 쓰는 채널로 간다");
+  assert.equal(await checkPanelChannel(guild(postable, Date.now() + 60_000), at(postable)), "bot-timed-out", "타임아웃이면 그 까닭으로");
   setGuild("pg", { botChannel: null });
-  assert.equal(await checkPanelChannel(guild(null), fake<TextBasedChannel>(privateThread)), "thread-not-joined");
-  assert.equal(await checkPanelChannel(guild(null), fake<TextBasedChannel>({ ...privateThread, joined: true, sendable: true })), null);
+  assert.equal(await checkPanelChannel(guild(null), at(privateThread)), "channel-unseen");
+  assert.equal(await checkPanelChannel(guild(null), at(null)), "channel-unseen", "캐시에 없는 채널(들어가 있지 않은 비공개 스레드)");
+  assert.equal(await checkPanelChannel(guild(null), at({ ...privateThread, joined: true, sendable: true })), null);
 });
 
 // 곡 추가 진입점(/play·/playfirst·전용 채널)은 재적 규칙과 소환 검사를 이어 붙인다.

@@ -90,12 +90,14 @@ afterEach(() => {
 // 플레이어 가짜와 음성 연결. 테스트는 steps 로 무엇을 불렀는지 본다
 // fetchAs: 디스코드에 채널을 물었을 때의 답(기본: 캐시에 있으면 있다). 오류면 던진다
 // atDiscord: 디스코드에 봇의 음성 채널을 물었을 때의 답(기본: 캐시와 같다). 오류면 던진다
-function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined } = {}) {
+// denied: 봇에게 음성 채널의 그 권한이 없다
+function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined, denied = [] as bigint[] } = {}) {
   const steps: string[] = [];
   const channels = new Map<string, unknown>();
-  if (channel) channels.set("vc1", { id: "vc1", isVoiceBased: () => true });
-  channels.set("vc2", { id: "vc2", isVoiceBased: () => true });
-  const me = { voice: { channelId: inChannel } };
+  const permissionsFor = () => ({ has: (bit: bigint) => !denied.includes(bit) });
+  if (channel) channels.set("vc1", { id: "vc1", isVoiceBased: () => true, permissionsFor });
+  channels.set("vc2", { id: "vc2", isVoiceBased: () => true, permissionsFor });
+  const me: { voice: { channelId: string | null }; communicationDisabledUntilTimestamp?: number } = { voice: { channelId: inChannel } };
   const fetch = async (id: string) => {
     if (!fetchAs) return channels.get(id) ?? null;
     const r = fetchAs(id);
@@ -121,8 +123,9 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
     async onVoiceRecovered() {
       steps.push("resume");
     },
-    pauseFor: (r: string) => (steps.push(`pause:${r}`), true),
-    resumeFor: (r: string) => (steps.push(`resume:${r}`), true),
+    pauseReasons: new Set<string>(),
+    pauseFor: (r: string) => (player.pauseReasons.add(r), steps.push(`pause:${r}`), true),
+    resumeFor: (r: string) => (player.pauseReasons.delete(r), steps.push(`resume:${r}`), true),
     movedVoiceStatus: (from: string) => steps.push(`status-moved:${from}`),
     noticeStage: (code: string) => steps.push(`notice:${code}`),
   };
@@ -361,6 +364,25 @@ test("복구 중에 정리하면 늦게 돌아온 성공이 상태를 건드리�
 
 const state = (channelId: string | null, extra: object = {}) => ({ channelId, serverMute: false, serverDeaf: false, suppress: false, channel: null, ...extra });
 
+test("타임아웃되어 빠졌으면 세션을 남긴다(곧 풀린다)", async () => {
+  const s = await ready();
+  s.me.communicationDisabledUntilTimestamp = Date.now() + 60_000;
+  s.link.onBotState(state("vc1"), state(null));
+  await until(() => s.steps.length > 0, "버리기");
+  assert.deepEqual(s.steps, ["dispose:save:disconnected:forced-disconnect"]);
+});
+
+test("다시 붙이기: 그 사이 연결 권한이 빠졌으면 시도하지 않고 그만둔다(세션은 저장)", async () => {
+  joins.length = 0;
+  const s = await ready();
+  joins.length = 0;
+  s.channels.set("vc1", { id: "vc1", isVoiceBased: () => true, permissionsFor: () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.Connect }) });
+  s.link.recover("시험");
+  await until(() => s.steps.length > 0, "그만두기");
+  assert.equal(joins.length, 0);
+  assert.equal(s.steps.at(-1), "dispose:save:disconnected:voice-lost");
+});
+
 test("봇이 채널에서 빠졌다: 채널이 있으면 강제 퇴장, 없으면 채널 사라짐. 끝난 뒤에는 늦은 끊김을 보지 않는다", async () => {
   const kicked = await ready();
   assert.deepEqual(kicked.link.onBotState(state("vc1"), state(null)), { left: true, moved: false, muteChanged: false });
@@ -581,7 +603,7 @@ test("이미 청중 · 음소거인 채로 붙으면(이어받기 · 복원) 붙
   assert.deepEqual(calls, ["request:true"]);
   assert.deepEqual(
     s.steps.filter((x) => x.startsWith("pause") || x.startsWith("notice")),
-    ["pause:stage", "notice:stage-requested", "pause:stage"],
+    ["pause:stage", "notice:stage-requested"],
   );
 
   // 끊겼다 다시 들어오면 다시 요청한다
@@ -589,6 +611,19 @@ test("이미 청중 · 음소거인 채로 붙으면(이어받기 · 복원) 붙
   s.link.onBotState(state(null), state("st1", { channel: st, suppress: true }));
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(calls, ["request:true", "request:true"]);
+  assert.equal(s.steps.filter((x) => x === "notice:stage-requested").length, 1, "같은 스테이지에 다시 붙어 요청해도 채널에는 한 번만 알린다");
+});
+
+test("멈춤 까닭은 지금 상태에 맞춘다: 끊긴 사이 서버 음소거가 풀렸으면 다시 들어올 때 푼다", async () => {
+  const { link, steps } = await ready();
+  link.onBotState(state("vc1"), state("vc1", { serverMute: true }));
+  link.state = "recovering";
+  link.onBotState(state("vc1", { serverMute: true }), state(null));
+  link.onBotState(state(null), state("vc1"));
+  assert.deepEqual(
+    steps.filter((x) => x.startsWith("pause") || x.startsWith("resume:mute")),
+    ["pause:mute", "resume:mute"],
+  );
 });
 
 // ── 정리 ──

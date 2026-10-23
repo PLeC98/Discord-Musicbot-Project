@@ -231,6 +231,23 @@ test("복원: 음성 채널에 지금 들어갈 수 없으면(권한 · 꽉 참)
   for (const id of ["p1", "p2", "p3"]) sessions().removeSession(id);
 });
 
+test("복원: 들어갈 수 없는데 봇이 그 채널에 남아 있으면(끌 때 남는다) 게이트웨이로 나가고 세션은 남긴다", async () => {
+  saved("q1");
+  const g = guildWith("q1", [channel("vc1", "voice", { perms: (bit) => bit !== PermissionFlagsBits.Connect }), channel("tc1", "text")]);
+  Object.assign(g.members.me!.voice, { channelId: "vc1" });
+  const sent: unknown[] = [];
+  Object.assign(g, { shard: { send: (payload: unknown) => sent.push(payload) } });
+  const { client, players } = clientWith([g]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.equal(made.length, 0);
+  assert.deepEqual(sent, [{ op: 4, d: { guild_id: "q1", channel_id: null, self_mute: false, self_deaf: false } }]);
+  assert.deepEqual(remaining(), ["q1"]);
+  sessions().removeSession("q1");
+});
+
 test("복원: 디스코드가 채널을 보여 주지 않으면(접근 없음) 세션을 남기고, 없는 채널이면 삭제한다", async () => {
   saved("h1");
   saved("h2");

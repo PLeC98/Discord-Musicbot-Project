@@ -4,7 +4,7 @@
 // 디스코드가 권한 없음으로 거절한 것은 남기기만 한다. 서버가 채널 권한을 막은 것이라 다시 시작해도 같고, 플레이어 상태와 상관없다.
 
 import logger from "../infra/log/logger.ts";
-import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { errorKind, isPermissionError, messageOf } from "../rules/error-kind.ts";
 import type { Player } from "../player/player.ts";
 
 const log = logger.child({ category: "core" });
@@ -25,9 +25,8 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
 
   /** 서버 guildId 에서 모르는 오류가 났다. where: 어디서 새어 나왔나(로그) */
   return async function fault(guildId: string, error: unknown, where: string) {
-    const kind = errorKind(error);
-    if (kind.startsWith("permission-")) {
-      log.warn(`서버 ${guildId} 에서 디스코드가 권한 없음으로 거절 (${where}, ${kind}): ${messageOf(error)}`);
+    if (isPermissionError(error)) {
+      log.warn(`서버 ${guildId} 에서 디스코드가 권한 없음으로 거절 (${where}, ${errorKind(error)}): ${messageOf(error)}`);
       return;
     }
     log.error(`서버 ${guildId} 에서 모르는 오류 (${where}):`, error);

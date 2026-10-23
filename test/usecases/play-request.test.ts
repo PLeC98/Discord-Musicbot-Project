@@ -139,6 +139,13 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
   assert.equal(player.voiceChannel, voice);
 });
 
+test("ensurePlayer: 플레이어 없이 봇만 음성에 남아 있으면 새 플레이어는 봇이 있는 채널(부른 사람의 채널로 옮기지 않는다)", () => {
+  const bot = makeBot();
+  const botVoice = voiceOf("봇VC");
+  const player = ensurePlayer(bot, { guild: makeGuild({ botVoice }), textChannel: makeChannel("t1"), voiceChannel: voiceOf("요청자VC") });
+  assert.equal(player.voiceChannel, botVoice);
+});
+
 test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
   const bot = makeBot();
   const guild = makeGuild();

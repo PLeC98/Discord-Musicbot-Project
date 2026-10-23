@@ -148,7 +148,7 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
 
   // 곡 추가 경로. /play · /search 와 같은 검사
-  const permErr = checkAdd(member) || checkSummon(member) || (await checkPanelChannel(guild, interaction.channel));
+  const permErr = checkAdd(member) || checkSummon(member) || (await checkPanelChannel(guild, interaction, bot.players.get(guild.id)?.textChannel));
   if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
   await interaction.deferUpdate();

@@ -2,7 +2,7 @@ import { MessageFlags } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { scheduleDelete } from "../ui/transient-messages.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { isPermissionError, messageOf } from "../rules/error-kind.ts";
 import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
 import type { Responder } from "../ui/now-playing-panel.ts";
 import { post } from "../ui/frame.ts";
@@ -54,7 +54,8 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
       try {
         await postNew(interaction, view, LIFETIME.glance);
       } catch (error) {
-        log.error("대기열 안내 전송 실패:", messageOf(error));
+        if (isPermissionError(error)) log.warn(`대기열 안내를 보내지 못함(권한 없음): ${messageOf(error)}`);
+        else log.error("대기열 안내 전송 실패:", messageOf(error));
       }
     },
 
@@ -78,7 +79,8 @@ function channelResponder(channel: GuildTextBasedChannel | null | undefined, onD
         if (interaction && !canPost(channel)) await postNew(interaction, view, LIFETIME.glance);
         else if (canPost(channel)) scheduleDelete(await channel.send(post(view)));
       } catch (error) {
-        log.error("대기열 안내 전송 실패:", messageOf(error));
+        if (isPermissionError(error)) log.warn(`대기열 안내를 보내지 못함(권한 없음): ${messageOf(error)}`);
+        else log.error("대기열 안내 전송 실패:", messageOf(error));
       }
     },
 

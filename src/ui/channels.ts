@@ -31,7 +31,8 @@ function botHas(channel: Seen, bits: bigint[]) {
 function canPost<C>(channel: C | null | undefined): channel is Extract<C, { send: unknown }> {
   if (!canSend(channel)) return false;
   const seen = channel as Seen;
-  if (seen.isThread?.()) return seen.sendable !== false;
+  // 스레드는 discord.js 판정에 부모 채널 보기를 더한다(discord.js 는 보기가 없으면 다른 권한도 없다는 규칙을 적용하지 않는다)
+  if (seen.isThread?.()) return seen.sendable !== false && botHas(seen, [PermissionFlagsBits.ViewChannel]);
   if (!botHas(seen, [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) return false;
   if (seen.isVoiceBased?.() && !botHas(seen, [PermissionFlagsBits.Connect])) return false;
   return (seen.guild?.members?.me?.communicationDisabledUntilTimestamp ?? 0) <= Date.now();

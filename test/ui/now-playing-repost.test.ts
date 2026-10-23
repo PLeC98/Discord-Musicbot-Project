@@ -182,14 +182,28 @@ test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 
   assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
 });
 
-test("그 채널의 권한이 빠져 갱신이 잇달아 거절되면(50013) 처음 한 번만 warn. 패널은 그대로", async () => {
+test("그 채널의 권한이 빠져 갱신이 거절되면(50013) warn 하고 이 곡의 갱신을 멈춘다. 모르는 실패는 error 하고 멈춘다", async () => {
   const refused = () => Object.assign(new Error("Missing Permissions"), { code: 50013, url: "https://discord.com/api/v10/channels/1/messages/100" });
-  const { mem, player, calls } = makeSetup({ editError: refused() });
+  const { mem, player, calls, state } = makeSetup({ editError: refused() });
   const from = sink.buffer.length;
-  for (let i = 0; i < 3; i++) await mem.updatePlaying(player);
-  mem.stopProgressUpdate("g1");
+  mem.startProgressUpdate(player);
+  await mem.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn"]);
+  assert.equal(mem.progressTimers.has("g1"), false);
   assert.deepEqual(calls.sent, []);
+
+  state.editError = new Error("모르는 실패");
+  mem.startProgressUpdate(player);
+  await mem.updatePlaying(player);
+  assert.deepEqual(levelsSince(from), ["warn", "error"]);
+  assert.equal(mem.progressTimers.has("g1"), false);
+});
+
+test("패널을 둔 스레드가 보관됐으면(50083) 다시 올린다(보내면 보관이 풀린다)", async () => {
+  const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Thread is archived"), { code: 50083 }) });
+  await mem.updatePlaying(player);
+  mem.stopProgressUpdate("g1");
+  assert.equal(calls.sent.length, 1);
 });
 
 test("다시 올리려는데 텍스트 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {

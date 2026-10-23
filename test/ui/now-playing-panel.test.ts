@@ -310,6 +310,18 @@ test("웹훅 관리 권한이 없는 채널은 웹훅을 묻지 않고 채널로
   assert.deepEqual([message.id, webhook], ["m-plain", null]);
 });
 
+test("웹훅 찾기만(create: false): 우리 웹훅이 없으면 만들지 않는다(기록된 패널을 고치거나 지울 때)", async () => {
+  const mem = newManager();
+  const channel = fake<GuildTextBasedChannel>({
+    id: "c3",
+    guild: { members: { me: {} } },
+    permissionsFor: () => ({ has: () => true }),
+    fetchWebhooks: async () => new Collection(),
+    createWebhook: async () => assert.fail("찾기만 할 때는 만들지 않는다"),
+  });
+  assert.equal(await mem.getOrCreateWebhook(channel, { create: false }), null);
+});
+
 test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {
   const mem = newManager();
   const json = JSON.stringify((await mem.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());

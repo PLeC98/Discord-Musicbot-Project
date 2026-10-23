@@ -73,12 +73,12 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
         .setRequired(true),
     ),
 
-  async execute(interaction: ChatInputCommandInteraction<"cached">, _bot: BotContext, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
+  async execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
     const query = interaction.options.getString("query", true);
     const member = interaction.member;
 
     // 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
-    const permErr = checkAdd(member) || checkSummon(member) || (await checkPanelChannel(interaction.guild, interaction.channel));
+    const permErr = checkAdd(member) || checkSummon(member) || (await checkPanelChannel(interaction.guild, interaction, bot.players.get(interaction.guild.id)?.textChannel));
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
     // 검색이 던지면(네트워크 · 봇 감지 등) 진입점이 남기고 이 답 메시지에 그 종류로 알린다

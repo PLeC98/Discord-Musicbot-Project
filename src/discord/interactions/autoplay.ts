@@ -29,7 +29,7 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
   const blocked = await controls.autoplayBlocked(actor);
   if (blocked) return noticeSelf(interaction, controlMessage(blocked));
   // 켜면 플레이어를 만들어 패널을 올린다. /play 와 같은 검사
-  const panelErr = player ? null : await checkPanelChannel(interaction.guild, interaction.channel);
+  const panelErr = await checkPanelChannel(interaction.guild, interaction, player?.textChannel);
   if (panelErr) return noticeSelf(interaction, errors.notice(panelErr));
   return toSelf(interaction, buildGenreMenu(), LIFETIME.menu);
 }

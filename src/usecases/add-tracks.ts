@@ -84,9 +84,10 @@ function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel: given = n
   const textChannel = canPost(given) ? given : null;
   const botVoiceChannel = guild.members.me?.voice?.channel ?? null;
 
+  // 봇이 이미 음성에 있으면 그 채널이다(플레이어 없이 남은 봇. 부른 사람의 채널로 옮기지 않는다: 그 채널은 들어가는 검사를 거치지 않았다)
   let player = bot.players.get(guild.id);
   if (!player) {
-    player = new Player(guild, textChannel, voiceChannel ?? botVoiceChannel);
+    player = new Player(guild, textChannel, botVoiceChannel ?? voiceChannel);
     bot.players.set(guild.id, player);
     return player;
   }

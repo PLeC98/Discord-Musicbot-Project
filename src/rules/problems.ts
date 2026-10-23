@@ -27,7 +27,7 @@ const SHARED = {
   "permission-stage": { status: 409, title: "Bot cannot speak in this stage" },
   "bot-timed-out": { status: 409, title: "Bot is timed out" },
   "permission-text": { status: 409, title: "Bot lacks text channel permissions" },
-  "thread-not-joined": { status: 409, title: "Bot is not in this private thread" },
+  "channel-unseen": { status: 409, title: "Bot cannot see this channel" },
   "permission-other": { status: 409, title: "Bot lacks a required permission" },
   // 지금 상태로는 못 함
   "no-song": { status: 409, title: "Nothing is playing" },

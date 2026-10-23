@@ -90,17 +90,21 @@ function joinDenied(member: GuildMember, { inside = false } = {}): Extract<Permi
 }
 
 /**
- * 패널을 올릴 채널이 있는가. 전용 채널에 봇이 글을 올릴 수 있으면 거기, 아니면 명령을 친 채널. 둘 다 안 되면 그 까닭.
- * 상호작용 응답은 채널 권한 없이 가니 명령은 답하지만, 패널 · 안내는 채널에 올린다
+ * 패널을 올릴 채널이 있는가. 전용 채널에 봇이 글을 올릴 수 있으면 거기, 아니면 명령을 친 채널(at), 그것도 안 되면 플레이어가 쓰는 채널(current).
+ * 셋 다 안 되면 그 까닭. 상호작용 응답은 채널 권한 없이 가니 명령은 답하지만, 패널 · 안내는 채널에 올린다.
+ * 명령을 친 채널이 캐시에 없으면(channelId 만 있다) 봇이 볼 수 없는 채널이다: 들어가 있지 않은 비공개 스레드이거나 보기가 막힌 채널
  */
-async function checkPanelChannel(guild: Guild, channel: TextBasedChannel | null): Promise<"permission-text" | "thread-not-joined" | "bot-timed-out" | null> {
+async function checkPanelChannel(guild: Guild, at: { channel: TextBasedChannel | null; channelId: string | null }, current: TextBasedChannel | null = null): Promise<"permission-text" | "channel-unseen" | "bot-timed-out" | null> {
+  const { channel } = at;
   // 타임아웃이면 어느 채널에도 못 올린다. 그 까닭으로
   if ((guild.members.me?.communicationDisabledUntilTimestamp ?? 0) > Date.now()) return "bot-timed-out";
   const dedicatedId = await GuildSettingsManager.getBotChannel(guild.id);
   if (dedicatedId && canPostPanel(guild.channels.cache.get(dedicatedId))) return null;
+  if (canPostPanel(current)) return null;
   const privateThread = channel?.type === ChannelType.PrivateThread ? channel : null;
   if (canPostPanel(channel)) return null;
-  return privateThread && !privateThread.joined ? "thread-not-joined" : "permission-text";
+  const unseen = !channel && Boolean(at.channelId);
+  return unseen || (privateThread && !privateThread.joined) ? "channel-unseen" : "permission-text";
 }
 
 /** 그 곡을 넣은 사람도 하는 조작: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 재적 규칙은 적용. rules/controls) */

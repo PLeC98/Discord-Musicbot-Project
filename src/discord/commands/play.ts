@@ -47,7 +47,7 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       const query = interaction.options.getString("query", true);
       const { member, guild, channel } = interaction;
 
-      const permErr = (await permission(member)) || (await checkPanelChannel(guild, channel));
+      const permErr = (await permission(member)) || (await checkPanelChannel(guild, interaction, bot.players.get(guild.id)?.textChannel));
       if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
       // "검색 중" 은 본인에게만. 처음부터 Components V2 로 응답해야 이 자리표시자를 안내 · 메뉴로 고칠 수 있다

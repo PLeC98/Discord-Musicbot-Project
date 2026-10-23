@@ -13,26 +13,34 @@ import { addFailureMessage } from "../../ui/error-messages.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
 import { noticeMs } from "../../ui/delivery.ts";
-import { canPostPanel, canReply } from "../../ui/channels.ts";
+import { canPost, canPostPanel, canReply } from "../../ui/channels.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 // 글 · 파일을 올릴 수 없다고 이미 알린 전용 채널(메시지마다 남기지 않는다)
 const unpostable = new Set<string>();
 
-// 봇이 글 · 패널을 올릴 수 있는 전용 채널인가. 없으면(전용 채널의 권한이 바뀌었다) 답할 길이 없어 받지 않는다. 그 채널마다 한 번만 남긴다
-function postable(channel: Message<true>["channel"]) {
+// 봇이 패널을 올릴 수 있는 전용 채널인가(전용 채널의 권한이 바뀌었을 수 있다). ok · text-only: 글만 올릴 수 있다(까닭을 답한다) · closed: 글도 못 올린다(답할 길이 없다).
+// 못 올린다는 로그는 그 채널마다 한 번만
+function panelState(channel: Message<true>["channel"]) {
   const { id } = channel;
   if (canPostPanel(channel)) {
     unpostable.delete(id);
-    return true;
+    return "ok" as const;
   }
   if (!unpostable.has(id)) log.warn({ sub: "message" }, `전용 채널 ${id} 에 글 · 파일을 올릴 권한이 없어 곡 요청을 받지 않습니다`);
   unpostable.add(id);
-  return false;
+  return canPost(channel) ? ("text-only" as const) : ("closed" as const);
+}
+
+// 이 전용 채널에서 곡 요청을 받을 수 있나. 글만 올릴 수 있으면 까닭을 답하고 받지 않는다
+async function accepts(message: Message<true>) {
+  const state = panelState(message.channel);
+  if (state === "text-only") await refuse(message, "permission-text");
+  return state === "ok";
 }
 
 // 곡 추가를 막은 까닭을 답한다. 답장은 메시지 기록 보기가 들어 없으면 채널 메시지로. 답과 요청을 그 수준의 수명 뒤 삭제한다
-async function refuse(message: Message<true>, code: PermissionDenied) {
+async function refuse(message: Message<true>, code: PermissionDenied | "permission-text") {
   const refused = errors.notice(code);
   const payload = post(noticeFrame(refused));
   const reply = await (canReply(message.channel) ? message.reply(payload) : message.channel.send(payload));
@@ -53,7 +61,8 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     // 전용 채널의 글만 받는다
     const botChannelId = await GuildSettingsManager.getBotChannel(guildId);
-    if (!botChannelId || message.channel.id !== botChannelId || !postable(message.channel)) return;
+    if (!botChannelId || message.channel.id !== botChannelId) return;
+    if (!(await accepts(message))) return;
 
     const member = message.member;
     if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)

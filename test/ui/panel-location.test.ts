@@ -113,7 +113,17 @@ test("기록된 패널을 제자리에서 고친다 — 지워졌으면 기록�
       edits.push(id);
     },
   });
-  const { guild, store, panel } = setup({ record: { channelId: "c1", messageId: "m1" }, webhooks: { c1: webhook } });
+  const { guild, channels, store, panel } = setup({ record: { channelId: "c1", messageId: "m1" }, webhooks: { c1: webhook } });
+  // 웹훅이 모르는 메시지면 채널로 고쳐 본다(봇이 채널로 보낸 패널일 수 있다). 여기서는 그것도 없다
+  const tried: string[] = [];
+  Object.assign(channels.get("c1")!, {
+    messages: {
+      edit: async (id: string) => {
+        tried.push(id);
+        throw Object.assign(new Error("Unknown Message"), { code: 10008 });
+      },
+    },
+  });
 
   const done = await panel.edit(guild, { components: [] });
   assert.equal(done?.messageId, "m1");
@@ -122,6 +132,7 @@ test("기록된 패널을 제자리에서 고친다 — 지워졌으면 기록�
   fail = Object.assign(new Error("Unknown Message"), { code: 10008 });
   assert.equal(await panel.edit(guild, {}), null);
   assert.equal(store.records.get("g1"), null, "다음 게시가 새로 올리도록 기록을 비운다");
+  assert.deepEqual(tried, ["m1"]);
   assert.equal(await panel.edit(guild, {}), null, "기록이 없으면 할 일이 없다");
 });
 
