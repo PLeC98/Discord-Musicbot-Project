@@ -182,6 +182,16 @@ test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 
   assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
 });
 
+test("그 채널의 권한이 빠져 갱신이 잇달아 거절되면(50013) 처음 한 번만 warn. 패널은 그대로", async () => {
+  const refused = () => Object.assign(new Error("Missing Permissions"), { code: 50013, url: "https://discord.com/api/v10/channels/1/messages/100" });
+  const { mem, player, calls } = makeSetup({ editError: refused() });
+  const from = sink.buffer.length;
+  for (let i = 0; i < 3; i++) await mem.updatePlaying(player);
+  mem.stopProgressUpdate("g1");
+  assert.deepEqual(levelsSince(from), ["warn"]);
+  assert.deepEqual(calls.sent, []);
+});
+
 test("다시 올리려는데 텍스트 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
   const { mem, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
   const from = sink.buffer.length;

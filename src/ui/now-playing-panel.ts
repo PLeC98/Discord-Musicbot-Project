@@ -197,7 +197,7 @@ class NowPlayingPanel {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
-    if (!player.textChannel || typeof player.textChannel.send !== "function") return;
+    if (!canPost(player.textChannel)) return;
 
     try {
       scheduleDelete(await player.textChannel.send(post(view)), LIFETIME.glance);
@@ -309,7 +309,7 @@ class NowPlayingPanel {
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
     // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
     const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track, true)), attachments: [] });
-    return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
+    return edited ? { message: edited.message ?? { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
   /** 현재 재생 메시지를 삭제합니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
@@ -371,8 +371,9 @@ class NowPlayingPanel {
    * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
    */
   async _isBuried(player: Player, now = Date.now()) {
+    // 패널을 전용 채널에 둘 때만(올릴 수 없으면 패널은 요청한 채널에 있다. panelChannel)
     const channel = await this._dedicatedChannel(player.guild, player.textChannel);
-    return channel ? this._buriedAt(channel, player.nowPlayingMessage?.id, now) : false;
+    return canPostPanel(channel) ? this._buriedAt(channel, player.nowPlayingMessage?.id, now) : false;
   }
 
   // 채널 캐시만 읽는다. 12초 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
@@ -472,8 +473,9 @@ class NowPlayingPanel {
       log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않았습니다. 다음 갱신에서 다시 합니다 (${where})`);
       return;
     }
-    // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
-    if (errorKind(error) === "network-error") {
+    // 네트워크가 끊겼거나 그 채널의 권한이 빠졌다(서버가 막았다). 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
+    const kind = errorKind(error);
+    if (kind === "network-error" || kind.startsWith("permission-")) {
       this._editFailure(player).fail(messageOf(error));
       return;
     }

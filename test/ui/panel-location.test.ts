@@ -137,6 +137,25 @@ test("기록된 패널을 고치는데 웹훅이 지워졌으면(10015) 그 채�
   assert.deepEqual(forgotten, ["c1"]);
 });
 
+test("웹훅이 없으면(스레드 · 웹훅 관리 권한 없음) 봇이 채널로 보낸 패널을 고친다. 웹훅이 보낸 것이라 거절되면 null", async () => {
+  const { guild, channels, panel } = setup({ record: { channelId: "c1", messageId: "m1" } });
+  const edited: string[] = [];
+  let refuse = false;
+  Object.assign(channels.get("c1")!, {
+    messages: {
+      edit: async (id: string) => {
+        if (refuse) throw Object.assign(new Error("Cannot edit a message authored by another user"), { code: 50005 });
+        edited.push(id);
+        return { id, edit: async () => {} };
+      },
+    },
+  });
+  const done = await panel.edit(guild, { components: [] });
+  assert.deepEqual([done?.messageId, done?.webhook, done?.message?.id, edited], ["m1", null, "m1", ["m1"]]);
+  refuse = true;
+  assert.equal(await panel.edit(guild, {}), null);
+});
+
 test("패널을 지우고 기록을 비운다", async () => {
   const log: string[] = [];
   const { guild, store, panel } = setup({ record: { channelId: "c2", messageId: "old" }, webhooks: { c2: fakeWebhook(log) } });

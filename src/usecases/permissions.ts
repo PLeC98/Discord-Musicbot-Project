@@ -93,7 +93,9 @@ function joinDenied(member: GuildMember, { inside = false } = {}): Extract<Permi
  * 패널을 올릴 채널이 있는가. 전용 채널에 봇이 글을 올릴 수 있으면 거기, 아니면 명령을 친 채널. 둘 다 안 되면 그 까닭.
  * 상호작용 응답은 채널 권한 없이 가니 명령은 답하지만, 패널 · 안내는 채널에 올린다
  */
-async function checkPanelChannel(guild: Guild, channel: TextBasedChannel | null): Promise<"permission-text" | "thread-not-joined" | null> {
+async function checkPanelChannel(guild: Guild, channel: TextBasedChannel | null): Promise<"permission-text" | "thread-not-joined" | "bot-timed-out" | null> {
+  // 타임아웃이면 어느 채널에도 못 올린다. 그 까닭으로
+  if ((guild.members.me?.communicationDisabledUntilTimestamp ?? 0) > Date.now()) return "bot-timed-out";
   const dedicatedId = await GuildSettingsManager.getBotChannel(guild.id);
   if (dedicatedId && canPostPanel(guild.channels.cache.get(dedicatedId))) return null;
   const privateThread = channel?.type === ChannelType.PrivateThread ? channel : null;

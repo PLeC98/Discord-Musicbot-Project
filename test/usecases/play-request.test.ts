@@ -571,6 +571,19 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   assert.equal(playerOf(bot).textChannel, given);
 });
 
+test("호출자가 준 텍스트 채널에 봇이 글을 올릴 수 없으면 전용 채널로 채운다(세션 저장이 텍스트 채널을 남긴다)", async () => {
+  mockResolve = () => ok("곡A");
+  setGuild(GUILD_ID, { botChannel: "botCh" });
+  const bot = makeBot();
+  const botChannel = makeChannel("botCh");
+  const locked = fake<GuildTextBasedChannel>({ id: "locked", send: async () => ({}), guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => false }) });
+  const guild = makeGuild({ channels: [botChannel] });
+  bot.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
+
+  await requestPlayback(bot, { guild, requester: { id: "u1" }, query: "곡A", textChannel: locked, lookup });
+  assert.equal(playerOf(bot).textChannel, botChannel);
+});
+
 // ── 불러올 곡 수 (해석기에 넘기는 어림값) ──────────────────────
 
 async function withLimits(queueMax: number, playlistMax: number, fn: () => Promise<void>) {

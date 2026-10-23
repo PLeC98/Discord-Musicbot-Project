@@ -131,25 +131,25 @@ const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못
 const JOIN_DENIED = { "permission-voice": "봇 권한 없음", "permission-stage": "스테이지에서 말할 길 없음", "voice-full": "인원이 꽉 참", "bot-timed-out": "봇이 타임아웃됨" } as const;
 
 // 저장된 음성 · 텍스트 채널. gone: 기록이 없거나 채널이 없어졌거나 그 종류가 아니다(세션을 버린다) · unreachable: 디스코드가 채널을 보여 주지 않았다(접근 없음 · 일시적 실패)
+// 텍스트 채널은 없어도 된다(기록이 없거나 없어졌으면 패널은 전용 채널로 간다)
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {
-  if (!voiceChannelId || !textChannelId) return "gone" as const;
-  let unreachable = false;
   const find = async (id: string) => {
     const cached = guild.channels.cache.get(id);
     if (cached) return cached;
     try {
       return await guild.channels.fetch(id);
     } catch (error) {
-      if (codeOf(error) !== RESTJSONErrorCodes.UnknownChannel) unreachable = true;
-      return null;
+      return codeOf(error) === RESTJSONErrorCodes.UnknownChannel ? null : ("unreachable" as const);
     }
   };
-  const voice = await find(voiceChannelId);
-  const text = await find(textChannelId);
-  if (voice?.isVoiceBased() && text?.isTextBased()) return { voice, text };
-  if (unreachable) return "unreachable" as const;
-  log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-  return "gone" as const;
+  const voice = voiceChannelId ? await find(voiceChannelId) : null;
+  if (voice === "unreachable") return voice;
+  if (!voice?.isVoiceBased()) {
+    log.warn(`서버 ${guild.name}의 음성 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
+    return "gone" as const;
+  }
+  const found = textChannelId ? await find(textChannelId) : null;
+  return { voice, text: found && found !== "unreachable" && found.isTextBased() ? found : null };
 }
 
 /** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 시작). 세션이 없으면 아무것도 안 한다 */

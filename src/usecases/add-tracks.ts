@@ -188,10 +188,10 @@ function findTracks(bot: Bot, request: PlaybackRequest, batch: number) {
   return inVoiceTarget(target?.id ?? null, () => tracksFor(existing, request, batch));
 }
 
-// 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다
+// 서버의 플레이어. 요청에도 플레이어에도 글을 올릴 수 있는 텍스트 채널이 없으면 전용 채널을 쓴다
 async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
-  let resolvedTextChannel = textChannel;
-  if (!resolvedTextChannel && !bot.players.get(guild.id)?.textChannel) {
+  let resolvedTextChannel = canPost(textChannel) ? textChannel : null;
+  if (!resolvedTextChannel && !canPost(bot.players.get(guild.id)?.textChannel)) {
     resolvedTextChannel = await resolveFallbackTextChannel(guild);
   }
   return ensurePlayer(bot, { guild, textChannel: resolvedTextChannel, voiceChannel });

@@ -128,6 +128,23 @@ test("채널: 안내를 CV2 메시지로 보낸다", async () => {
   assert.deepEqual(channel.calls, [["send", post(view)]]);
 });
 
+test("채널(검색 선택): 봇이 그 채널에 글을 올릴 수 없으면 상호작용의 공개 후속 메시지로 알린다", async () => {
+  const channel = Object.assign(fakeChannel(), { guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => false }) });
+  const interaction = Object.assign(fakeInteraction(), {
+    channel,
+    async followUp(payload: Payload) {
+      interaction.calls.push(["followUp", payload]);
+      return { id: "f1" };
+    },
+  });
+  await channelResponder(channel, null, interaction).notifyQueued(view);
+  assert.deepEqual(channel.calls, []);
+  assert.deepEqual(
+    interaction.calls.map(([n]) => n),
+    ["followUp"],
+  );
+});
+
 test("상호작용: 아직 응답 전이면 reply로 확인만 하고 삭제한다", async () => {
   const interaction = fakeInteraction({ deferred: false, replied: false });
   await interactionResponder(interaction).dismissPlaceholder();

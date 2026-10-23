@@ -189,12 +189,13 @@ test("패널 채널: 전용 채널에 올릴 수 있으면 어디서 쳐도 통�
   const postable = { send: async () => ({}), isThread: () => false };
   const locked = { ...postable, guild: { members: { me } }, permissionsFor: () => ({ has: () => false }) };
   const privateThread = { send: async () => ({}), type: ChannelType.PrivateThread, joined: false, isThread: () => true, sendable: false };
-  const guild = (dedicated: object | null) => fake<Guild>({ id: "pg", channels: { cache: new Map(dedicated ? [["dc", dedicated]] : []) } });
+  const guild = (dedicated: object | null, timedOutUntil: number | null = null) => fake<Guild>({ id: "pg", channels: { cache: new Map(dedicated ? [["dc", dedicated]] : []) }, members: { me: { communicationDisabledUntilTimestamp: timedOutUntil } } });
 
   setGuild("pg", { botChannel: "dc" });
   assert.equal(await checkPanelChannel(guild(postable), fake<TextBasedChannel>(locked)), null, "전용 채널로 간다");
   assert.equal(await checkPanelChannel(guild(locked), fake<TextBasedChannel>(postable)), null, "전용 채널에 못 올리면 친 채널");
   assert.equal(await checkPanelChannel(guild(locked), fake<TextBasedChannel>(locked)), "permission-text");
+  assert.equal(await checkPanelChannel(guild(postable, Date.now() + 60_000), fake<TextBasedChannel>(postable)), "bot-timed-out", "타임아웃이면 그 까닭으로");
   setGuild("pg", { botChannel: null });
   assert.equal(await checkPanelChannel(guild(null), fake<TextBasedChannel>(privateThread)), "thread-not-joined");
   assert.equal(await checkPanelChannel(guild(null), fake<TextBasedChannel>({ ...privateThread, joined: true, sendable: true })), null);

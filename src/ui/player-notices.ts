@@ -11,6 +11,7 @@ import { scheduleDelete } from "./transient-messages.ts";
 import type { Player } from "../player/player.ts";
 import type { Notice } from "./text/notice.ts";
 import type { Notices, NoticeCode } from "../player/events.ts";
+import { canPost } from "./channels.ts";
 
 type Shown = { view: ContainerBuilder; ms: number };
 
@@ -40,7 +41,7 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
 
 async function sendNotice<C extends NoticeCode>(player: Pick<Player, "textChannel">, code: C, detail: Notices[C]) {
   const notice = VIEW[code]?.(detail);
-  if (!notice || typeof player.textChannel?.send !== "function") return;
+  if (!notice || !canPost(player.textChannel)) return;
   const sent = await player.textChannel.send(post(notice.view));
   scheduleDelete(sent, notice.ms);
 }

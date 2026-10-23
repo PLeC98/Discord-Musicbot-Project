@@ -124,11 +124,11 @@ function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
   const made: FakePlayer[] = [];
   class FakePlayer {
     guild: Guild;
-    text: { id: string };
+    text: { id: string } | null;
     voice: { id: string };
     calls: string[] = [];
 
-    constructor(guild: Guild, text: { id: string }, voice: { id: string }) {
+    constructor(guild: Guild, text: { id: string } | null, voice: { id: string }) {
       this.guild = guild;
       this.text = text;
       this.voice = voice;
@@ -170,7 +170,7 @@ test("복원: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저�
 
   assert.equal(made.length, 1);
   assert.equal(made[0].voice.id, "vc1");
-  assert.equal(made[0].text.id, "tc1");
+  assert.equal(made[0].text?.id, "tc1");
   assert.deepEqual(made[0].calls, ["restore:r1"]);
   assert.equal(players.get("r1"), made[0]);
   sessions().removeSession("r1");
@@ -249,7 +249,18 @@ test("복원: 디스코드가 채널을 보여 주지 않으면(접근 없음) �
   sessions().removeSession("h1");
 });
 
-test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 삭제한다", async () => {
+test("복원: 텍스트 채널 기록이 없거나 없어졌으면 텍스트 채널 없이 복원한다(패널은 전용 채널로)", async () => {
+  saved("t1", { text: "gone-text" });
+  const { client, players } = clientWith([guildWith("t1")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.deepEqual([made.length, made[0]?.text], [1, null]);
+  sessions().removeSession("t1");
+});
+
+test("복원: 음성 채널 기록이 없거나 음성 채널이 아니면 세션을 삭제한다", async () => {
   saved("r3", { voice: null });
   saved("r4", { voice: "tc1", text: "vc1" }); // 서로 바뀐 종류
   const { client, players } = clientWith([guildWith("r3"), guildWith("r4")]);

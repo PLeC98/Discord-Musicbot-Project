@@ -4,7 +4,9 @@
 import { type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../../ui/text/ko/errors.ts";
 import * as controls from "../../usecases/controls.ts";
-import { ensurePlayer } from "../../usecases/add-tracks.ts";
+import { ensurePlayer, resolveFallbackTextChannel } from "../../usecases/add-tracks.ts";
+import { checkPanelChannel } from "../../usecases/permissions.ts";
+import { canPost } from "../../ui/channels.ts";
 import { controlMessage } from "../../ui/control-messages.ts";
 import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../ui/genre-menu.ts";
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../../ui/custom-ids.ts";
@@ -26,6 +28,9 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
   }
   const blocked = await controls.autoplayBlocked(actor);
   if (blocked) return noticeSelf(interaction, controlMessage(blocked));
+  // 켜면 플레이어를 만들어 패널을 올린다. /play 와 같은 검사
+  const panelErr = player ? null : await checkPanelChannel(interaction.guild, interaction.channel);
+  if (panelErr) return noticeSelf(interaction, errors.notice(panelErr));
   return toSelf(interaction, buildGenreMenu(), LIFETIME.menu);
 }
 
@@ -42,7 +47,9 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { 
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];
-  const create = () => ensurePlayer(bot, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
+  // 친 채널에 글을 올릴 수 없으면 전용 채널
+  const textChannel = canPost(interaction.channel) ? interaction.channel : await resolveFallbackTextChannel(guild);
+  const create = () => ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null });
   const r = await controls.autoplay(bot.players.get(guild.id), { member }, genre, {
     create,
     onAccepted: async () => {

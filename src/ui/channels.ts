@@ -9,6 +9,7 @@ function canSend<C>(channel: C | null | undefined): channel is Extract<C, { send
 
 type Seen = {
   isThread?: () => boolean;
+  isVoiceBased?: () => boolean;
   sendable?: boolean;
   permissionsFor?: (member: never) => { has(bit: bigint): boolean } | null;
   guild?: { members?: { me?: { communicationDisabledUntilTimestamp?: number | null } | null } };
@@ -24,6 +25,7 @@ function botHas(channel: Seen, bits: bigint[]) {
 
 /**
  * 봇이 그 채널에 글을 올릴 수 있는가. 채널 권한 덮어쓰기 · 타임아웃까지 본다(디스코드는 보내 봐야 거절한다).
+ * 음성 · 스테이지 채널의 채팅은 연결 권한도 든다(연결이 없으면 다른 권한도 막힌다).
  * 스레드는 discord.js 가 본다(비공개 스레드는 봇이 들어가 있어야 한다)
  */
 function canPost<C>(channel: C | null | undefined): channel is Extract<C, { send: unknown }> {
@@ -31,7 +33,13 @@ function canPost<C>(channel: C | null | undefined): channel is Extract<C, { send
   const seen = channel as Seen;
   if (seen.isThread?.()) return seen.sendable !== false;
   if (!botHas(seen, [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) return false;
+  if (seen.isVoiceBased?.() && !botHas(seen, [PermissionFlagsBits.Connect])) return false;
   return (seen.guild?.members?.me?.communicationDisabledUntilTimestamp ?? 0) <= Date.now();
+}
+
+/** 답장(메시지 참조)을 달 수 있는가. 답장은 메시지 기록 보기가 든다 */
+function canReply(channel: unknown) {
+  return botHas(channel as Seen, [PermissionFlagsBits.ReadMessageHistory]);
 }
 
 /** 재생 패널을 올릴 수 있는가. 패널은 썸네일 파일을 붙인다(그림이 없는 곡 · 끝난 패널) */
@@ -39,4 +47,4 @@ function canPostPanel<C>(channel: C | null | undefined): channel is Extract<C, {
   return canPost(channel) && botHas(channel as Seen, [PermissionFlagsBits.AttachFiles]);
 }
 
-export { canSend, canPost, canPostPanel };
+export { canSend, canPost, canPostPanel, canReply };

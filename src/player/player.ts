@@ -1454,6 +1454,8 @@ class Player {
     if (!me) return;
     const perms = channel.permissionsFor(me);
     if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
+    // 들어가 있지 않은 채널(옮겨지기 전 채널)은 채널 관리 권한이 있어야 쓴다
+    if (me.voice?.channelId !== channel.id && !perms.has(PermissionFlagsBits.ManageChannels)) return;
 
     // 사람이 적어 둔 상태는 건드리지 않는다. 현재 값은 게이트웨이로만 알 수 있다(voiceChannelStatus).
     if (!voiceChannelStatus.canWrite(channel.id)) return;

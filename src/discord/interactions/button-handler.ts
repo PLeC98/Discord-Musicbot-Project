@@ -7,7 +7,7 @@ import type { Notice } from "../../ui/text/notice.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { channelResponder } from "../../usecases/responders.ts";
-import { checkControl, checkAdd, checkSummon } from "../../usecases/permissions.ts";
+import { checkControl, checkAdd, checkPanelChannel, checkSummon } from "../../usecases/permissions.ts";
 import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
@@ -148,7 +148,7 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
 
   // 곡 추가 경로. /play · /search 와 같은 검사
-  const permErr = checkAdd(member) || checkSummon(member);
+  const permErr = checkAdd(member) || checkSummon(member) || (await checkPanelChannel(guild, interaction.channel));
   if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
   await interaction.deferUpdate();
@@ -161,10 +161,13 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   showFailureWith(interaction, (notice) => noticeInstead(interaction, notice));
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
-  const responder = channelResponder(interaction.channel, () =>
-    interaction.deleteReply().catch(() => {
-      /* 이미 삭제됐다 */
-    }),
+  const responder = channelResponder(
+    interaction.channel,
+    () =>
+      interaction.deleteReply().catch(() => {
+        /* 이미 삭제됐다 */
+      }),
+    interaction,
   );
 
   const result = await requestPlayback(bot, {

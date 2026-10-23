@@ -13,6 +13,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { ensurePlayer, resolveFallbackTextChannel } from "./add-tracks.ts";
 import { joinDenied } from "./permissions.ts";
+import { canPost } from "../ui/channels.ts";
 
 type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null };
 
@@ -43,7 +44,8 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
   if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep" });
 
-  const player = ensurePlayer(bot, { guild, textChannel: textChannel ?? (await resolveFallbackTextChannel(guild)), voiceChannel: channel });
+  // 친 채널에 글을 올릴 수 없으면 전용 채널(세션 저장이 텍스트 채널을 남긴다)
+  const player = ensurePlayer(bot, { guild, textChannel: canPost(textChannel) ? textChannel : await resolveFallbackTextChannel(guild), voiceChannel: channel });
   if (saved?.current) {
     await restoring?.();
     return restore(player, saved);

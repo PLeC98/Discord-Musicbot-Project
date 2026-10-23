@@ -7,7 +7,7 @@ import { recordPanel } from "../helpers/panel-events.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/player-notices.ts";
 import type { AudioResource } from "@discordjs/voice";
-import { ChannelType, type Client, type VoiceBasedChannel } from "discord.js";
+import { ChannelType, PermissionFlagsBits, type Client, type VoiceBasedChannel } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { CurrentPlayback } from "../../src/player/current-playback.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -1304,6 +1304,21 @@ test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 �
   await tick(10);
   h.dispose(p);
   assert.deepEqual(puts.slice(3), [["/channels/voice3/voice-status", `${config.voiceStatus.playingPrefix}지금 곡`]]);
+});
+
+test("음성 채널 상태: 들어가 있지 않은 채널(옮겨지기 전 채널)은 채널 관리 권한이 있어야 지운다", async () => {
+  voiceChannelStatus._internals._reset();
+  const p = h.makePlayer();
+  const puts: string[] = [];
+  p.guild.client.rest = fake<Client["rest"]>({ put: async (route: string) => puts.push(route) });
+  const noManage = () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.ManageChannels });
+  for (const id of ["voice1", "voice2"]) p.guild.channels.cache.set(id, fake<VoiceBasedChannel>({ id, type: ChannelType.GuildVoice, permissionsFor: noManage }));
+  Object.assign(p.guild.members, { me: { voice: { channelId: "voice2" } } });
+  p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice2" });
+  p.movedVoiceStatus("voice1");
+  await tick(10);
+  h.dispose(p);
+  assert.deepEqual(puts, ["/channels/voice2/voice-status"]);
 });
 
 // 다운로드가 제목을 고칠 수 있다(유튜브 영상의 제목 · 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
-import { canPost, canPostPanel } from "../../src/ui/channels.ts";
+import { canPost, canPostPanel, canReply } from "../../src/ui/channels.ts";
 
 const send = async () => ({});
 const { ViewChannel, SendMessages, AttachFiles } = PermissionFlagsBits;
@@ -27,6 +27,16 @@ test("글: 보낼 수 없는 채널(음성 · 분류)은 아니고, 서버 채�
   assert.equal(canPost({ isThread: () => false }), false);
   assert.equal(canPost(null), false);
   assert.equal(canPost({ send }), true);
+});
+
+test("음성 · 스테이지 채널의 채팅은 연결 권한도 있어야 한다", () => {
+  assert.equal(canPost({ ...text(), isVoiceBased: () => true }), false);
+  assert.equal(canPost({ ...text({ perms: [...ALL, PermissionFlagsBits.Connect] }), isVoiceBased: () => true }), true);
+});
+
+test("답장: 메시지 기록 보기가 있어야", () => {
+  assert.equal(canReply(text()), false);
+  assert.equal(canReply(text({ perms: [PermissionFlagsBits.ReadMessageHistory] })), true);
 });
 
 test("스레드: discord.js 의 판정(sendable)을 따른다. 비공개 스레드는 봇이 들어가 있어야 한다", () => {
