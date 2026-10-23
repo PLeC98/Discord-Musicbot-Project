@@ -2,7 +2,7 @@
 //
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(classify)는 그 이름으로 정해진다.
 // 재시도 · 폴백(YouTube.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
-// "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 구분하던 것이다.
+// "순서" 라고 적은 행은 봇 감지 규칙과 겹치는 문장이라 그보다 먼저 봐야 한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,12 +18,12 @@ type Row = [msg: string, kind: string, gone: boolean, age: boolean, fault: boole
 const TABLE: Row[] = [
   // 영상이 없는 경우
   ["ERROR: [youtube] abc: Video unavailable", "unavailable-contents", T, F, F, F, F],
-  ["ERROR: [youtube] abc: This video is unavailable", "unavailable-contents", T, F, F, F, F], // 고친 순서: 봇 감지 규칙에 있던 것을 영상 없음으로. 영상 없음 정규식도 "is" 를 받는다
+  ["ERROR: [youtube] abc: This video is unavailable", "unavailable-contents", T, F, F, F, F], // 순서: 봇 감지보다 먼저 영상 없음으로. 영상 없음 정규식도 "is" 를 받는다
   ["ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "unavailable-contents", T, F, F, F, F],
   ["ERROR: This video has been removed by the uploader", "unavailable-contents", T, F, F, F, F],
   ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "unavailable-contents", T, F, F, F, F],
   // 연령 제한 · 봇 감지 · 쿠키
-  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-no-cookies", F, T, F, F, F], // 고친 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
+  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-no-cookies", F, T, F, F, F], // 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
   ["ERROR: Sign in to confirm you're not a bot", "yt-bot-check", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 구분하지 않는다
   ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)

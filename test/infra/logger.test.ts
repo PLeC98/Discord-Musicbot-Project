@@ -115,8 +115,8 @@ test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 �
   assert.equal(lm.buffer[0].level, "debug");
 });
 
-// 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로 접어서 보냈다. 그러면 debug와 trace가,
-// fatal과 error가 합쳐져 대시보드가 영영 구분하지 못한다 — 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
+// 대시보드가 아는 네 가지(log/info/warn/error)로 접어 보내면 debug와 trace가,
+// fatal과 error가 합쳐져 대시보드가 구분하지 못한다. 레벨 이름을 그대로 보낸다.
 test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다)", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   for (const [i, lv] of [10, 20, 30, 40, 50, 60].entries()) lm.record({ level: lv, time: i, msg: "m" });

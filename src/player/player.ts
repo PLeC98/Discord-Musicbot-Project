@@ -782,7 +782,7 @@ class Player {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
-      // 상태 문구는 나가기 전에 지우고 기다린다. 나간 뒤에는 채널 관리 권한이 있어야 쓴다(옛 초대 링크로 들어온 서버엔 없다). 길어도 VOICE_STATUS_CLEAR_MS 만
+      // 상태 문구는 나가기 전에 지우고 기다린다. 나간 뒤에는 채널 관리 권한이 있어야 쓴다(봇 역할에 그 권한이 없는 서버도 있다). 길어도 VOICE_STATUS_CLEAR_MS 만
       let cap: NodeJS.Timeout | undefined;
       await Promise.race([bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기"), new Promise((done) => (cap = setTimeout(done, VOICE_STATUS_CLEAR_MS)))]);
       clearTimeout(cap);

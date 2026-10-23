@@ -57,7 +57,7 @@ try {
   const existed = fs.existsSync(DIR);
   if (!existed) git(["clone", REPO, DIR], ROOT);
 
-  // 체크아웃 안의 변경을 되돌린다(예전 설치가 npm audit fix 로 고친 잠금 파일). 같은 태그로 다시 설치할 때도 태그의 잠금 파일로
+  // 체크아웃 안의 변경을 되돌린다(앞선 설치가 npm audit fix 로 고친 잠금 파일). 같은 태그로 다시 설치할 때도 태그의 잠금 파일로
   git(["checkout", "--", "."], DIR);
 
   const before = currentTag();
@@ -90,7 +90,7 @@ try {
   console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 포트 4416에서 함께 시작됩니다.");
   if (existed && moved) {
     // yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부한다(경고가 아니라 중단).
-    // 봇이 실행해 둔 서버는 예전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.
+    // 봇이 실행해 둔 서버는 설치 전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.
     console.log("\n⚠️  봇이 실행 중이라면 재시작하세요.");
     console.log("   봇이 실행한 POToken 서버는 아직 이전 버전으로 돌고 있고,");
     console.log("   플러그인과 메이저 버전이 다르면 토큰 발급이 거부됩니다.");

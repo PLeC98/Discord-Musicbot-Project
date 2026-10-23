@@ -260,7 +260,7 @@ test("캐시 지름길: 캐시 파일이 있는 곡은 조회 없이 링크 데�
   assert.deepEqual([set.isPlaylist, scAsked.length], [true, 1]);
 });
 
-test("캐시 지름길: 직접 링크는 음원이 요청 그대로인 행만 쓴다(예전에 검색으로 맺힌 다른 음원은 되살리지 않는다)", async () => {
+test("캐시 지름길: 직접 링크는 음원이 요청 그대로인 행만 쓴다(검색으로 맺힌 다른 음원은 되살리지 않는다)", async () => {
   const cached = (key: string) => {
     const file = audioCache.getFilePath(key);
     fs.mkdirSync(path.dirname(file), { recursive: true });

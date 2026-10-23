@@ -42,7 +42,7 @@ test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
 
 test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있으면 null)", async () => {
   const search = async () => [
-    // 유일한 후보가 라이브 — 예전 코드라면 이게 우승해서 무한 다운로드로 이어졌다.
+    // 유일한 후보가 라이브. 고르면 끝나지 않는 다운로드가 된다
     { id: "L".repeat(11), url: "https://www.youtube.com/watch?v=LLLLLLLLLLL", title: "24/7 kids anime live", artist: "SomeChannel", duration: 0, isLive: true },
   ];
 

@@ -263,7 +263,7 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   if (streamInfo.fragments) return o.io.openFragmentStream({ fragments: streamInfo.fragments, durationMs: (streamInfo.duration || o.meta.duration) * 1000, startMs: o.startMs, headers });
 
   // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
-  // 길이를 모르는 입력은 나눌 수가 없으므로 예전 방식 그대로(처음부터 받고 위치는 ffmpeg 의 -ss 가 정한다).
+  // 길이를 모르는 입력은 나눌 수가 없으므로 처음부터 받는다(위치는 ffmpeg 의 -ss 가 정한다).
   const totalBytes = contentLengthFromUrl(url);
   if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.meta.duration) * 1000 }, hooks);
   const response = await o.io.fetch(url, { headers });

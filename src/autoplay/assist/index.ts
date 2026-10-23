@@ -97,8 +97,7 @@ Examples
 Answer only with a JSON array. Do not explain.
 [{"n":1,"song":true,"fits":false}, ...]`;
 
-// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{list}} 위치에 후보가 들어간다.
-// 이 둘이 곧 예전 모양(system=기준 · user=목록)이라 설정을 안 건드리면 지금까지와 같다.
+// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{list}} 위치에 후보가 들어간다: system 에 판정 기준, user 에 후보 목록.
 const DEFAULT_SECTIONS: PromptSection[] = [
   { role: "system", text: DEFAULT_PROMPT },
   { role: "user", text: "{{list}}" },
