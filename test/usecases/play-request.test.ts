@@ -139,13 +139,6 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
   assert.equal(player.voiceChannel, voice);
 });
 
-test("ensurePlayer: 플레이어 없이 봇만 음성에 남아 있으면 새 플레이어는 봇이 있는 채널(부른 사람의 채널로 옮기지 않는다)", () => {
-  const bot = makeBot();
-  const botVoice = voiceOf("봇VC");
-  const player = ensurePlayer(bot, { guild: makeGuild({ botVoice }), textChannel: makeChannel("t1"), voiceChannel: voiceOf("요청자VC") });
-  assert.equal(player.voiceChannel, botVoice);
-});
-
 test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
   const bot = makeBot();
   const guild = makeGuild();
@@ -576,19 +569,6 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
 
   await requestPlayback(bot, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given, lookup });
   assert.equal(playerOf(bot).textChannel, given);
-});
-
-test("호출자가 준 텍스트 채널에 봇이 글을 올릴 수 없으면 전용 채널로 채운다(세션 저장이 텍스트 채널을 남긴다)", async () => {
-  mockResolve = () => ok("곡A");
-  setGuild(GUILD_ID, { botChannel: "botCh" });
-  const bot = makeBot();
-  const botChannel = makeChannel("botCh");
-  const locked = fake<GuildTextBasedChannel>({ id: "locked", send: async () => ({}), guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => false }) });
-  const guild = makeGuild({ channels: [botChannel] });
-  bot.players.set(GUILD_ID, fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
-
-  await requestPlayback(bot, { guild, requester: { id: "u1" }, query: "곡A", textChannel: locked, lookup });
-  assert.equal(playerOf(bot).textChannel, botChannel);
 });
 
 // ── 불러올 곡 수 (해석기에 넘기는 어림값) ──────────────────────

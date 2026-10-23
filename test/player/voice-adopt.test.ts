@@ -3,7 +3,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits, type Client } from "discord.js";
+import type { Client } from "discord.js";
 import { adoptLingeringVoice } from "../../src/player/voice-adopt.ts";
 import config from "../../src/config/index.ts";
 import { fake } from "../helpers/fake.ts";
@@ -15,15 +15,13 @@ after(() => store.close());
 
 const BOT = "bot1";
 
-// 서버 하나. botIn: 봇이 앉아 있는 음성 채널(없으면 null) · humans: 그 채널의 사람 수 · denied: 봇에게 없는 권한
-// 게이트웨이로 보낸 것은 sent 에
-function guildWith(id: string, { botIn = "vc1" as string | null, humans = 1, denied = [] as bigint[] } = {}) {
+// 서버 하나. botIn: 봇이 앉아 있는 음성 채널(없으면 null) · humans: 그 채널의 사람 수
+function guildWith(id: string, { botIn = "vc1" as string | null, humans = 1 } = {}) {
   const members = new Map<string, { user: { bot: boolean } }>([[BOT, { user: { bot: true } }]]);
   for (let i = 0; i < humans; i++) members.set(`u${i}`, { user: { bot: false } });
-  const channel = { id: botIn, name: `채널-${id}`, isVoiceBased: () => true, permissionsFor: () => ({ has: (bit: bigint) => !denied.includes(bit) }), members: Object.assign(members, { filter: (fn: (m: { user: { bot: boolean } }) => boolean) => ({ size: [...members.values()].filter(fn).length }) }) };
+  const channel = { id: botIn, name: `채널-${id}`, isVoiceBased: () => true, members: Object.assign(members, { filter: (fn: (m: { user: { bot: boolean } }) => boolean) => ({ size: [...members.values()].filter(fn).length }) }) };
   const voiceStates = new Map(botIn ? [[BOT, { channel }]] : []);
-  const sent: unknown[] = [];
-  return { id, name: `서버-${id}`, voiceStates: { cache: voiceStates }, members: { me: {} }, sent, shard: { send: (payload: unknown) => sent.push(payload) } };
+  return { id, name: `서버-${id}`, voiceStates: { cache: voiceStates } };
 }
 
 function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as string[] } = {}) {
@@ -97,12 +95,4 @@ test("이번 기동에 세션 복원이 손댄 서버(복원하다 실패해 세
   await adoptLingeringVoice(client, players, FakePlayer, { touched: ["g1"] });
   assert.ok(!steps.some((s) => s.startsWith("g1:")));
   assert.ok(steps.includes("g2:connect"));
-});
-
-test("꺼져 있는 사이 그 채널에 들어갈 권한이 빠졌으면 이어받지 않고 게이트웨이로 나간다", async () => {
-  const g = guildWith("d1", { denied: [PermissionFlagsBits.Connect] });
-  const { client, players, steps, FakePlayer } = world([g]);
-  await adoptLingeringVoice(client, players, FakePlayer);
-  assert.deepEqual(steps, []);
-  assert.deepEqual(g.sent, [{ op: 4, d: { guild_id: "d1", channel_id: null, self_mute: false, self_deaf: false } }]);
 });

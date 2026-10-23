@@ -7,7 +7,7 @@ import { recordPanel } from "../helpers/panel-events.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/player-notices.ts";
 import type { AudioResource } from "@discordjs/voice";
-import { ChannelType, PermissionFlagsBits, type Client, type VoiceBasedChannel } from "discord.js";
+import type { Client, VoiceBasedChannel } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { CurrentPlayback } from "../../src/player/current-playback.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -661,28 +661,6 @@ test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 
   assert.equal(p.connection, null);
 });
 
-test("버리기: 음성 채널 상태 문구를 다 지운 뒤에 나간다(나간 뒤에는 그 채널에 쓸 수 없다). 지우기가 늦거나 실패해도 나간다", async () => {
-  const order: string[] = [];
-  const p = h.makePlayer();
-  const disconnect = p.voice.disconnect.bind(p.voice);
-  p.voice.disconnect = (reason: string) => (order.push("나감"), disconnect(reason));
-  p.updateVoiceStatus = async (status) => {
-    await new Promise((done) => setTimeout(done, 20));
-    order.push(`지움:${status}`);
-  };
-  await p.dispose({ reason: "정지", session: "remove" });
-  h.dispose(p);
-  assert.deepEqual(order, ["지움:", "나감"]);
-
-  const q = h.makePlayer();
-  q.updateVoiceStatus = async () => {
-    throw new Error("Missing Permissions");
-  };
-  await q.dispose({ reason: "정지", session: "remove" });
-  h.dispose(q);
-  assert.equal(q.connection, null, "실패해도 나간다");
-});
-
 test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포함)을 전부 놓는다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
@@ -813,7 +791,7 @@ type Member = { user: { bot: boolean; id: string } };
 function voiceChannelWith(player: Player, humans: string[]) {
   const all = new Map(humans.map((id): [string, Member] => [id, { user: { bot: false, id } }]));
   const members = Object.assign(all, { filter: (fn: (m: Member) => boolean) => ({ size: [...all.values()].filter(fn).length }) });
-  player.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
+  player.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
 }
 
 test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도 없으면 정리하고 레지스트리에서 뺀다", async () => {
@@ -1269,7 +1247,7 @@ test("음성 채널 상태: 권한이 있고 사람이 쓴 문구가 아니면 �
   const p = h.makePlayer();
   const puts: Array<[string, string]> = [];
   p.guild.client.rest = fake<Client["rest"]>({ put: async (route: string, { body }: { body: { status: string } }) => puts.push([route, body.status]) });
-  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, permissionsFor: () => ({ has: () => true }) }));
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", permissionsFor: () => ({ has: () => true }) }));
 
   await p.updateVoiceStatus("곡 제목");
   voiceChannelStatus.observe("voice1", "사람이 쓴 것");
@@ -1284,7 +1262,7 @@ test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 �
   const p = h.makePlayer();
   const puts: Array<[string, string]> = [];
   p.guild.client.rest = fake<Client["rest"]>({ put: async (route: string, { body }: { body: { status: string } }) => puts.push([route, body.status]) });
-  for (const id of ["voice1", "voice2", "voice3"]) p.guild.channels.cache.set(id, fake<VoiceBasedChannel>({ id, type: ChannelType.GuildVoice, permissionsFor: () => ({ has: () => true }) }));
+  for (const id of ["voice1", "voice2", "voice3"]) p.guild.channels.cache.set(id, fake<VoiceBasedChannel>({ id, permissionsFor: () => ({ has: () => true }) }));
   p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice1" });
   await p.updateVoiceStatus("곡 제목");
 
@@ -1306,28 +1284,13 @@ test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 �
   assert.deepEqual(puts.slice(3), [["/channels/voice3/voice-status", `${config.voiceStatus.playingPrefix}지금 곡`]]);
 });
 
-test("음성 채널 상태: 들어가 있지 않은 채널(옮겨지기 전 채널)은 채널 관리 권한이 있어야 지운다", async () => {
-  voiceChannelStatus._internals._reset();
-  const p = h.makePlayer();
-  const puts: string[] = [];
-  p.guild.client.rest = fake<Client["rest"]>({ put: async (route: string) => puts.push(route) });
-  const noManage = () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.ManageChannels });
-  for (const id of ["voice1", "voice2"]) p.guild.channels.cache.set(id, fake<VoiceBasedChannel>({ id, type: ChannelType.GuildVoice, permissionsFor: noManage }));
-  Object.assign(p.guild.members, { me: { voice: { channelId: "voice2" } } });
-  p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice2" });
-  p.movedVoiceStatus("voice1");
-  await tick(10);
-  h.dispose(p);
-  assert.deepEqual(puts, ["/channels/voice2/voice-status"]);
-});
-
 // 다운로드가 제목을 고칠 수 있다(유튜브 영상의 제목 · 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
 test("음성 채널 상태: 곁에서 다운로드하며 지금 곡의 제목을 고치면 채널 상태도 고친다", async () => {
   voiceChannelStatus._internals._reset();
   const p = h.makePlayer();
   const puts: string[] = [];
   p.guild.client.rest = fake<Client["rest"]>({ put: async (_route: string, { body }: { body: { status: string } }) => puts.push(body.status) });
-  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, permissionsFor: () => ({ has: () => true }) }));
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", permissionsFor: () => ({ has: () => true }) }));
   p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice1" });
   const track = yt("tagged", { title: "track_01" });
   p.currentTrack = track;
@@ -1432,7 +1395,7 @@ test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 be
       throw new Error("Missing Access");
     },
   });
-  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, permissionsFor: () => ({ has: () => true }) }));
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", permissionsFor: () => ({ has: () => true }) }));
   await assert.rejects(p.updateVoiceStatus("곡 제목"), /Missing Access/);
   h.dispose(p);
 });

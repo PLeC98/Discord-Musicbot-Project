@@ -11,7 +11,7 @@ import { MAX_COUNT, moreChoices, type Kind, type MoreState, type More } from "..
 import * as labels from "../ui/text/ko/labels.ts";
 import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transient-messages.ts";
-import { canPost } from "../ui/channels.ts";
+import { canSend } from "../ui/channels.ts";
 import { LIFETIME } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { moreView, countModal as moreCountModal } from "../ui/playlist-more-menu.ts";
@@ -203,7 +203,7 @@ async function offerOnInteraction(interaction: RepliableInteraction, more: More,
 async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: More, player: Player, requesterId: string, { quiet = false } = {}) {
   const offer = offerView({ ...more, requesterId }, roomFor(player));
   if (!offer.menu) return true;
-  if (!canPost(channel)) return false;
+  if (!canSend(channel)) return false;
   try {
     const message = await channel.send(post(offer.view));
     expireLater(message.id, () => message.delete());

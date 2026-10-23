@@ -93,12 +93,9 @@ const roles = new Map([
   ["r2", makeRole("r2", "VIP", 3)],
   ["r3", makeRole("r3", "Mod", 8, 0xff0000)],
 ]);
-// c3: 봇이 글을 올릴 수 없는 텍스트 채널(채널 권한 덮어쓰기)
-const send = async () => ({});
-const channels = new Map<string, object>([
-  ["c1", { id: "c1", name: "general", type: ChannelType.GuildText, rawPosition: 0, send }],
-  ["c2", { id: "c2", name: "music", type: ChannelType.GuildText, rawPosition: 1, send }],
-  ["c3", { id: "c3", name: "locked", type: ChannelType.GuildText, rawPosition: 3, send, guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => false }) }],
+const channels = new Map([
+  ["c1", { id: "c1", name: "general", type: ChannelType.GuildText, rawPosition: 0 }],
+  ["c2", { id: "c2", name: "music", type: ChannelType.GuildText, rawPosition: 1 }],
   ["v1", { id: "v1", name: "voice", type: ChannelType.GuildVoice, rawPosition: 2 }],
 ]);
 
@@ -173,30 +170,8 @@ test("GET settings: 모더레이터 — 현황 + 드롭다운 목록", async () 
   assert.deepEqual(
     r.json.channels?.map((x) => x.id),
     ["c1", "c2"],
-    "봇이 글을 올릴 수 있는 일반 텍스트 채널만",
+    "일반 텍스트 채널만",
   );
-
-  store.botChannel.set(GUILD_ID, "c3");
-  const locked = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.deepEqual(
-    locked.json.channels?.map((x) => x.id),
-    ["c1", "c2", "c3"],
-    "지금 전용 채널은 권한이 빠졌어도 목록에 남는다",
-  );
-});
-
-test("PUT settings: 봇이 글을 올릴 수 없는 채널은 전용 채널로 고르지 못한다. 이미 그 채널이면 다른 설정은 저장된다", async () => {
-  currentMember = modMember();
-  store.botChannel.set(GUILD_ID, "c1");
-  const refused = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { botChannelId: "c3" });
-  assert.equal(refused.status, 409);
-  assert.equal(refused.json.code, "permission-text");
-  assert.equal(store.botChannel.get(GUILD_ID), "c1");
-
-  store.botChannel.set(GUILD_ID, "c3");
-  const kept = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { botChannelId: "c3", djRoleIds: ["r1"] });
-  assert.equal(kept.status, 200);
-  assert.deepEqual(store.djRoles.get(GUILD_ID), ["r1"]);
 });
 
 test("GET settings: 일반 멤버는 조회도 403 (모더레이터 전용)", async () => {

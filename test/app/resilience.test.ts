@@ -15,9 +15,10 @@ test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 tru
   assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
 });
 
-test("아는 디스코드 오류: 만료 · 이미 처리된 상호작용은 info. 그 밖은 null(권한 없음은 따로 본다)", () => {
+test("아는 디스코드 오류: 만료 · 이미 처리된 상호작용은 info, 권한 없음은 error. 그 밖은 null", () => {
   assert.equal(knownDiscordError({ code: 10062 })?.level, "info");
   assert.equal(knownDiscordError({ code: 40060 })?.level, "info");
+  assert.equal(knownDiscordError({ code: 50013 })?.level, "error");
   assert.equal(knownDiscordError({ code: 10008 }), null);
   assert.equal(knownDiscordError(new Error("버그")), null);
 });
@@ -81,12 +82,10 @@ function installed() {
   return { client, proc, faults, exits };
 }
 
-test("아는 디스코드 오류 · 권한 없음은 로그만: 다시 시작하지도 내리지도 않고 폭주로 세지 않는다", () => {
+test("아는 디스코드 오류는 로그만: 다시 시작하지도 내리지도 않고 폭주로 세지 않는다", () => {
   const { client, proc, faults, exits } = installed();
   for (let i = 0; i <= FLOOD_MAX; i++) {
     client.emit("error", { code: 50013, message: "Missing Permissions" });
-    proc.emit("unhandledRejection", { code: 50001, message: "Missing Access" });
-    inGuild("g1", () => proc.emit("unhandledRejection", { code: 50013, message: "Missing Permissions" }));
     proc.emit("unhandledRejection", { code: 10062 });
     inGuild("g1", () => proc.emit("uncaughtException", { code: 40060 }));
   }

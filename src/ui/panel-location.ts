@@ -12,7 +12,7 @@ const UNKNOWN_WEBHOOK = 10015;
 
 /** 웹훅을 다시 찾는 쪽(NowPlayingPanel) */
 /** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 삭제된 웹훅의 기억을 지운다 */
-type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel, options?: { create?: boolean }): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
+type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
 /** 기록 저장소. 테스트는 가짜를 준다 */
 type Store = Pick<typeof panelRecords, "getPanel" | "setPanel">;
 type PanelGuild = Pick<Guild, "id" | "channels">;
@@ -50,32 +50,18 @@ class PanelLocation {
     });
   }
 
-  /**
-   * 기록된 패널을 제자리에서 고친다. 고쳤으면 { channel, webhook, messageId, message }, 없거나 못 고치면 null.
-   * 웹훅이 없으면(스레드 · 웹훅 관리 권한 없음) 봇이 채널로 보낸 패널을 고친다(message 는 그 메시지. 웹훅이 보낸 것은 못 고친다)
-   */
+  /** 기록된 패널을 제자리에서 고친다. 고쳤으면 { channel, webhook, messageId }, 없거나 못 고치면 null. */
   edit(guild: PanelGuild | null | undefined, payload: Payload) {
     if (!guild?.id) return Promise.resolve(null);
     return this._serial(guild.id, async () => {
       const record = await this.store.getPanel(guild.id);
       if (!record) return null;
       const channel = await this._channel(guild, record.channelId);
-      if (!channel) return null;
-      // 찾기만 한다. 새 웹훅은 옛 패널을 고칠 수 없다
-      const webhook = await this.embeds.getOrCreateWebhook(channel, { create: false });
+      const webhook = channel && (await this.embeds.getOrCreateWebhook(channel));
+      if (!webhook) return null;
       try {
-        if (webhook) {
-          try {
-            await webhook.editMessage(record.messageId, payload);
-            return { channel, webhook, messageId: record.messageId, message: null };
-          } catch (error) {
-            // 그 웹훅의 메시지가 아니다. 웹훅을 쓸 수 없던 때 봇이 채널로 보낸 패널일 수 있어 채널로 고쳐 본다
-            if (codeOf(error) !== UNKNOWN_MESSAGE) throw error;
-          }
-        }
-        if (!("messages" in channel)) return null;
-        const message = await channel.messages.edit(record.messageId, payload as Parameters<typeof channel.messages.edit>[1]);
-        return { channel, webhook: null, messageId: record.messageId, message };
+        await webhook.editMessage(record.messageId, payload);
+        return { channel, webhook, messageId: record.messageId };
       } catch (error) {
         if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 삭제됐다. 다음 게시가 새로 올린다
         // 웹훅이 삭제됐다. 기억을 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 삭제한다)
@@ -106,7 +92,7 @@ class PanelLocation {
     const sameChannel = hint.channel?.id === channelId;
     const channel = sameChannel ? hint.channel : await this._channel(guild, channelId);
     if (!channel) return;
-    const webhook = sameChannel && hint.webhook ? hint.webhook : await this.embeds.getOrCreateWebhook(channel, { create: false });
+    const webhook = sameChannel && hint.webhook ? hint.webhook : await this.embeds.getOrCreateWebhook(channel);
     try {
       if (webhook) return await webhook.deleteMessage(messageId);
     } catch {

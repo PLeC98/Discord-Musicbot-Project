@@ -1,9 +1,7 @@
-import { ChannelType, PermissionFlagsBits } from "discord.js";
+import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
-import type { Guild, GuildMember, TextBasedChannel } from "discord.js";
-import { canPostPanel } from "../ui/channels.ts";
-import { voiceJoinDenied } from "../player/voice-access.ts";
+import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
 
@@ -12,7 +10,7 @@ import { ownTrackDenied } from "../rules/controls.ts";
 // 서버 소유자와 Administrator(관리자) 권한 보유자는 discord.js 권한 검사가 자동으로 전부 통과시킨다.
 // 기준을 조정하려면 이 배열만 수정하면 된다.
 /** 권한 판정이 막은 까닭 */
-type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice" | "permission-stage" | "voice-full" | "bot-timed-out">;
+type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
 
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
 
@@ -71,40 +69,23 @@ function checkAdd(member: GuildMember) {
 
 /**
  * 봇이 유휴 상태일 때 소환 가능한지. 요청자의 채널로 들어가야 하므로 모더레이터여도 본인 접속 필수이며,
- * 봇이 그 채널에 들어갈 수 있어야 한다(joinDenied). 봇이 이미 음성 채널에 있으면 검사 불필요(null).
+ * 봇에게 그 채널의 Connect/Speak 권한이 있어야 한다. 봇이 이미 음성 채널에 있으면 검사 불필요(null).
  *
  * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
  * 이 검사를 이어 붙여야 두 상태가 모두 덮인다.
  */
 function checkSummon(member: GuildMember): PermissionDenied | null {
-  if (member.guild.members.me?.voice?.channel) return null;
-  return joinDenied(member);
-}
+  const me = member.guild.members.me;
+  if (me?.voice?.channel) return null;
 
-/** 봇이 부른 사람의 음성 채널에 들어갈 수 없는 까닭. 들어갈 수 있으면 null. inside: 봇이 이미 그 채널에 있다(voiceJoinDenied) */
-function joinDenied(member: GuildMember, { inside = false } = {}): Extract<PermissionDenied, "must-be-in-voice" | "permission-voice" | "permission-stage" | "voice-full" | "bot-timed-out"> | null {
   const target = member.voice.channel;
-  // 음성 채널에 있는데 봇이 그 채널을 모른다(봇이 볼 수 없는 채널)
-  if (!target) return member.voice.channelId ? "permission-voice" : "must-be-in-voice";
-  return voiceJoinDenied(target, member.guild.members.me, { inside });
-}
+  if (!target) return "must-be-in-voice";
 
-/**
- * 패널을 올릴 채널이 있는가. 전용 채널에 봇이 글을 올릴 수 있으면 거기, 아니면 명령을 친 채널(at), 그것도 안 되면 플레이어가 쓰는 채널(current).
- * 셋 다 안 되면 그 까닭. 상호작용 응답은 채널 권한 없이 가니 명령은 답하지만, 패널 · 안내는 채널에 올린다.
- * 명령을 친 채널이 캐시에 없으면(channelId 만 있다) 봇이 볼 수 없는 채널이다: 들어가 있지 않은 비공개 스레드이거나 보기가 막힌 채널
- */
-async function checkPanelChannel(guild: Guild, at: { channel: TextBasedChannel | null; channelId: string | null }, current: TextBasedChannel | null = null): Promise<"permission-text" | "channel-unseen" | "bot-timed-out" | null> {
-  const { channel } = at;
-  // 타임아웃이면 어느 채널에도 못 올린다. 그 까닭으로
-  if ((guild.members.me?.communicationDisabledUntilTimestamp ?? 0) > Date.now()) return "bot-timed-out";
-  const dedicatedId = await GuildSettingsManager.getBotChannel(guild.id);
-  if (dedicatedId && canPostPanel(guild.channels.cache.get(dedicatedId))) return null;
-  if (canPostPanel(current)) return null;
-  const privateThread = channel?.type === ChannelType.PrivateThread ? channel : null;
-  if (canPostPanel(channel)) return null;
-  const unseen = !channel && Boolean(at.channelId);
-  return unseen || (privateThread && !privateThread.joined) ? "channel-unseen" : "permission-text";
+  const permissions = me ? target.permissionsFor(me) : null;
+  if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
+    return "permission-voice";
+  }
+  return null;
 }
 
 /** 그 곡을 넣은 사람도 하는 조작: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 재적 규칙은 적용. rules/controls) */
@@ -119,5 +100,5 @@ const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrac
 /** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
 const checkRemoveTrack = checkOwnTrack;
 
-export { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, joinDenied, checkPanelChannel, checkSkip, checkRemoveTrack };
+export { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };

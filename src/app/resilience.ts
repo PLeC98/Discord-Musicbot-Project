@@ -9,7 +9,7 @@
 import logger from "../infra/log/logger.ts";
 import { Events } from "discord.js";
 import { currentGuild } from "../infra/guild-context.ts";
-import { errorKind, isPermissionError, codeOf, messageOf } from "../rules/error-kind.ts";
+import { errorKind, codeOf, messageOf } from "../rules/error-kind.ts";
 import { EXIT } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { GuildFault } from "./guild-fault.ts";
@@ -44,6 +44,7 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
 const KNOWN_DISCORD_ERRORS: Record<number, { level: "info" | "error"; message: string }> = {
   10062: { level: "info", message: "만료된 상호작용입니다 (10062 Unknown interaction)" },
   40060: { level: "info", message: "이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)" },
+  50013: { level: "error", message: "해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)" },
 };
 
 function knownDiscordError(err: unknown) {
@@ -89,11 +90,6 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
     const known = knownDiscordError(error);
     if (known) {
       coreLog[known.level](`${known.message} (${source})`);
-      return;
-    }
-    // 권한 없음(50001 · 50013)은 서버가 막은 것이라 다시 해도 같다. 폭주로 세지 않는다
-    if (isPermissionError(error)) {
-      coreLog.warn(`디스코드가 권한 없음으로 거절 (${source}, ${errorKind(error)}): ${messageOf(error)}`);
       return;
     }
     const guildId = currentGuild();

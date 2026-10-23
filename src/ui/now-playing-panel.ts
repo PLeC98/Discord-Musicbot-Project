@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, PermissionFlagsBits } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
@@ -25,9 +25,9 @@ import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as trackState from "../player/track-state.ts";
-import { codeOf, errorKind, isPermissionError, messageOf } from "../rules/error-kind.ts";
+import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
-import { canPost, canPostPanel } from "./channels.ts";
+import { canSend } from "./channels.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
 import type { Player, PanelMessage } from "../player/player.ts";
 import type { PlayerSeats } from "../player/registry.ts";
@@ -39,8 +39,6 @@ const UNKNOWN_WEBHOOK = 10015;
 const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(error) === UNKNOWN_WEBHOOK;
 // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없다
 const UNKNOWN_CHANNEL = 10003;
-// 패널을 둔 스레드가 보관됐다. 보관된 스레드의 메시지는 고칠 수 없다(보내면 풀린다)
-const THREAD_ARCHIVED = 50083;
 // 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
 const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
 
@@ -109,7 +107,6 @@ function statusOf(player: Player) {
   const parts: string[] = [];
   if (player.paused) {
     if (player.pauseReasons?.has("mute")) parts.push(panelText.pausedStatus("mute"));
-    else if (player.pauseReasons?.has("stage")) parts.push(panelText.pausedStatus("stage"));
     else if (player.pauseReasons?.has("alone")) parts.push(panelText.pausedStatus("alone"));
     else parts.push(panelText.pausedStatus("other"));
   }
@@ -168,18 +165,15 @@ class NowPlayingPanel {
     }
   }
 
-  // 웹훅을 달 수 없는 채널(스레드 등)이나 웹훅 관리 권한이 없는 채널은 채널로 보낸다. create: 없으면 만든다(기록된 패널을 고치거나 지울 때는 찾기만)
-  async getOrCreateWebhook(channel: GuildBasedChannel, { create = true } = {}) {
+  // 웹훅을 달 수 없는 채널(스레드 등)은 채널로 보낸다
+  async getOrCreateWebhook(channel: GuildBasedChannel) {
     const cached = this.webhookCache.get(channel.id);
     if (cached) return cached;
     if (!("fetchWebhooks" in channel)) return null;
-    const me = channel.guild.members.me;
-    if (me && !channel.permissionsFor(me)?.has(PermissionFlagsBits.ManageWebhooks)) return null;
     try {
       const webhooks = await channel.fetchWebhooks();
       const ours = (wh: Webhook): wh is Webhook<WebhookType.Incoming> => wh.isIncoming() && wh.owner?.id === this.client.user?.id && wh.name === "Music Now Playing";
       let webhook = webhooks.find(ours);
-      if (!webhook && !create) return null;
       if (!webhook) {
         webhook = await channel.createWebhook({ name: "Music Now Playing" });
       }
@@ -188,9 +182,7 @@ class NowPlayingPanel {
       return client;
     } catch (error) {
       // 채널이 삭제됐다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
-      // 권한 없음은 서버가 그 채널에서 막은 것이다(채널로 보낸다)
-      if (isPermissionError(error)) log.debug("웹훅 조회/생성 거절:", messageOf(error));
-      else if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
+      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
       return null;
     }
   }
@@ -200,13 +192,12 @@ class NowPlayingPanel {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
-    if (!canPost(player.textChannel)) return;
+    if (!player.textChannel || typeof player.textChannel.send !== "function") return;
 
     try {
       scheduleDelete(await player.textChannel.send(post(view)), LIFETIME.glance);
     } catch (error) {
-      if (isPermissionError(error)) log.warn(`재생목록 추가 안내를 보내지 못함(권한 없음): ${messageOf(error)}`);
-      else log.error("재생목록 추가 안내 전송 실패:", error);
+      log.error("재생목록 추가 안내 전송 실패:", error);
     }
   }
 
@@ -215,7 +206,7 @@ class NowPlayingPanel {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this.panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
-    if (!canPostPanel(channel)) {
+    if (!canSend(channel)) {
       return { success: true };
     }
 
@@ -300,10 +291,9 @@ class NowPlayingPanel {
     return guild.channels?.cache?.get(id) ?? (fallback?.id === id ? fallback : null);
   }
 
-  /** 패널을 둘 채널. 전용 채널이 있으면 거기, 없거나 봇이 그 채널에 글을 올릴 수 없으면 요청한 채널 */
+  /** 패널을 둘 채널. 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
   async panelChannel(player: Player) {
-    const dedicated = await this._dedicatedChannel(player.guild, player.textChannel);
-    return canPostPanel(dedicated) ? dedicated : player.textChannel;
+    return (await this._dedicatedChannel(player.guild, player.textChannel)) ?? player.textChannel;
   }
 
   // 전용 채널 맨 아래에 끝난 패널이 있으면 재생 화면으로 고친다. 고쳤으면 { message, webhook }
@@ -313,7 +303,7 @@ class NowPlayingPanel {
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
     // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
     const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track, true)), attachments: [] });
-    return edited ? { message: edited.message ?? { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
+    return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
   /** 현재 재생 메시지를 삭제합니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
@@ -342,7 +332,7 @@ class NowPlayingPanel {
     const previous = player.nowPlayingMessage;
     try {
       const channel = await this.panelChannel(player);
-      if (!canPostPanel(channel)) return;
+      if (!canSend(channel)) return;
       const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack, channel);
 
       if (player.nowPlayingMessage !== previous || !player.currentTrack) {
@@ -360,7 +350,7 @@ class NowPlayingPanel {
       else {
         player.nowPlayingMessage = null;
         this.stopProgressUpdate(guildId);
-        if (errorKind(error) === "network-error" || isPermissionError(error)) log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
+        if (errorKind(error) === "network-error") log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
         else log.error("재생 중 임베드 다시 올리기 실패:", messageOf(error));
       }
     } finally {
@@ -375,9 +365,8 @@ class NowPlayingPanel {
    * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
    */
   async _isBuried(player: Player, now = Date.now()) {
-    // 패널을 전용 채널에 둘 때만(올릴 수 없으면 패널은 요청한 채널에 있다. panelChannel)
     const channel = await this._dedicatedChannel(player.guild, player.textChannel);
-    return canPostPanel(channel) ? this._buriedAt(channel, player.nowPlayingMessage?.id, now) : false;
+    return channel ? this._buriedAt(channel, player.nowPlayingMessage?.id, now) : false;
   }
 
   // 채널 캐시만 읽는다. 12초 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
@@ -458,7 +447,16 @@ class NowPlayingPanel {
   // 패널 고치기가 실패했다. 까닭마다 할 일이 다르다
   async _onEditFailed(player: Player, error: unknown) {
     // 편집 대상이 없어졌다. 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
-    if (isGone(error)) return this._onPanelGone(player, error);
+    if (isGone(error)) {
+      if (codeOf(error) === UNKNOWN_WEBHOOK) {
+        const channel = await this.panelChannel(player);
+        if (channel?.id) this.deleteWebhookCache(channel.id);
+        player.nowPlayingWebhook = null;
+      }
+      const channelId = player.nowPlayingMessage ? channelIdOf(player.nowPlayingMessage) : null;
+      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 삭제됨" : "메시지가 삭제됨");
+      return;
+    }
     const where = player.guild.name ?? player.guild.id;
     if (codeOf(error) === UNKNOWN_CHANNEL) {
       this._dropPanel(player);
@@ -468,42 +466,12 @@ class NowPlayingPanel {
       log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않았습니다. 다음 갱신에서 다시 합니다 (${where})`);
       return;
     }
-    // 스레드가 보관됐다(고치기는 활동이 아니라 긴 곡이면 보관된다). 보내면 보관이 풀리니 다시 올린다. 잠겨 올릴 수 없으면 갱신을 멈춘다
-    if (codeOf(error) === THREAD_ARCHIVED) {
-      if (canPostPanel(await this.panelChannel(player))) await this._repostNowPlaying(player, "스레드가 보관됨");
-      else this._stopPanel(player, "패널을 둔 스레드가 보관되어 갱신을 멈춥니다");
-      return;
-    }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
     if (errorKind(error) === "network-error") {
       this._editFailure(player).fail(messageOf(error));
       return;
     }
-    // 그 채널의 권한이 빠졌다(서버가 막았다). 다시 해도 같으니 이 곡의 갱신을 멈춘다(다음 곡이 새로 올린다)
-    if (isPermissionError(error)) {
-      this._stopPanel(player, `패널을 고칠 권한이 없어 이 곡의 갱신을 멈춥니다(${messageOf(error)})`);
-      return;
-    }
-    // 모르는 실패. 한 번 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
     log.error("재생 중 임베드 갱신 실패:", error);
-    this.stopProgressUpdate(player.guild.id);
-  }
-
-  // 패널 메시지나 웹훅이 없어졌다. 다시 올린다
-  async _onPanelGone(player: Player, error: unknown) {
-    if (codeOf(error) === UNKNOWN_WEBHOOK) {
-      const channel = await this.panelChannel(player);
-      if (channel?.id) this.deleteWebhookCache(channel.id);
-      player.nowPlayingWebhook = null;
-    }
-    const channelId = player.nowPlayingMessage ? channelIdOf(player.nowPlayingMessage) : null;
-    await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 삭제됨" : "메시지가 삭제됨");
-  }
-
-  // 이 곡의 패널 갱신을 멈춘다. 재생은 이어진다
-  _stopPanel(player: Player, why: string) {
-    log.warn(`${why} (${player.guild.name ?? player.guild.id}). 재생은 이어집니다`);
-    this.stopProgressUpdate(player.guild.id);
   }
 
   _editFailure(player: Player) {
@@ -566,7 +534,7 @@ class NowPlayingPanel {
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 다 틀었거나 끊겼으면 따로 알린다.
     // 사람이 멈추거나 내보낸 것(/stop · /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
-    if (ended && live && !dedicated && canPost(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
+    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
     // 플레이어는 이제 틀고 있는 곡 · 패널이 없다
     trackState.setCurrent(player, null);
@@ -591,7 +559,7 @@ class NowPlayingPanel {
       else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
       // 이미 삭제된 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (errorKind(error) === "network-error" || isPermissionError(error)) log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
+      if (errorKind(error) === "network-error") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
       else if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
     }
   }
@@ -625,7 +593,7 @@ class NowPlayingPanel {
     const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) return;
     const channel = await this._dedicatedChannel(guild);
-    if (!canPostPanel(channel) || channel.id !== channelId) return;
+    if (!canSend(channel) || channel.id !== channelId) return;
     const record = await this.location.store.getPanel(guild.id);
     if (record?.channelId !== channel.id || !this._buriedAt(channel, record.messageId, now)) return;
 
@@ -648,7 +616,7 @@ class NowPlayingPanel {
       if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
       return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
     }
-    if (canPostPanel(channel)) await this._postIdle(guild, channel);
+    if (canSend(channel)) await this._postIdle(guild, channel);
     else await this.location.remove(guild);
   }
 
@@ -692,7 +660,7 @@ class NowPlayingPanel {
           const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
           if (await this.location.edit(guild, payload)) continue;
         }
-        if (canPostPanel(channel)) await this._postIdle(guild, channel);
+        if (canSend(channel)) await this._postIdle(guild, channel);
       } catch (error) {
         log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }

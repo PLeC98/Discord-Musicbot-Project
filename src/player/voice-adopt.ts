@@ -10,7 +10,6 @@ import { messageOf } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
 import { sessions } from "../store/player-sessions.ts";
-import { leaveVoice, voiceJoinDenied } from "./voice-access.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -25,14 +24,6 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     // 저장된 세션이 있는 서버(이번 기동이 복원하지 않았다: 연달아 끊김 · 일시적 조회 실패)는 /join 이 이어 튼다. 붙들면 /join 이 막히고 퇴장 때 세션을 삭제한다
     if (sessions().load(guild.id)) {
       log.info(`세션이 있어 음성 채널의 봇을 이어받지 않습니다. /join 으로 이어 틉니다: "${channel.name}" (${guild.name})`);
-      continue;
-    }
-
-    // 꺼져 있는 사이 권한이 바뀌었다. 다시 붙어 봐야 답이 없으니 나간다
-    const denied = voiceJoinDenied(channel, guild.members.me, { inside: true });
-    if (denied) {
-      log.warn(`세션 없이 남은 음성 채널에 다시 붙을 수 없어(${denied}) 나갑니다: "${channel.name}" (${guild.name})`);
-      leaveVoice(guild);
       continue;
     }
 

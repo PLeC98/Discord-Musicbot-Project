@@ -2,16 +2,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits } from "discord.js";
-import { inviteUrl, FLAGS, PERMISSIONS } from "../../src/rules/invite-url.ts";
+import { inviteUrl } from "../../src/rules/invite-url.ts";
 
 test("바탕: 권한 · 범위. 서버를 주면 그 서버를 미리 고르고 바꾸지 못하게", () => {
-  assert.equal(inviteUrl("123"), `https://discord.com/oauth2/authorize?client_id=123&permissions=${PERMISSIONS}&scope=bot%20applications.commands`);
-  assert.equal(inviteUrl("123", "456"), `https://discord.com/oauth2/authorize?client_id=123&permissions=${PERMISSIONS}&scope=bot%20applications.commands&guild_id=456&disable_guild_select=true`);
-});
-
-test("권한: 적은 비트가 discord.js 의 값과 같고, 관리자는 청하지 않는다", () => {
-  for (const [name, bit] of Object.entries(FLAGS)) assert.equal(bit, PermissionFlagsBits[name as keyof typeof PermissionFlagsBits], name);
-  assert.equal(PERMISSIONS & PermissionFlagsBits.Administrator, 0n);
-  assert.equal(PERMISSIONS, 281750415731728n);
+  assert.equal(inviteUrl("123"), "https://discord.com/oauth2/authorize?client_id=123&permissions=8&scope=bot%20applications.commands");
+  assert.equal(inviteUrl("123", "456"), "https://discord.com/oauth2/authorize?client_id=123&permissions=8&scope=bot%20applications.commands&guild_id=456&disable_guild_select=true");
 });

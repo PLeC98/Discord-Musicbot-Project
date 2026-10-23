@@ -5,7 +5,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits, RESTJSONErrorCodes } from "discord.js";
+import { RESTJSONErrorCodes } from "discord.js";
 import { resolveGuildForRestore, restoreSavedPlayers } from "../../src/player/session-restore.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
@@ -107,28 +107,27 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 const store = openTempStore("session-restore-");
 after(() => store.close());
 
-// 음성 채널은 봇이 들어갈 수 있다(perms 로 바꾼다). full: 꽉 찼다
-const channel = (id: string, kind: "voice" | "text", { perms = () => true, full = false }: { perms?: (bit: bigint) => boolean; full?: boolean } = {}) => ({ id, full, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text", permissionsFor: () => ({ has: perms }) });
+const channel = (id: string, kind: "voice" | "text") => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
 
 function saved(guildId: string, { voice = "vc1", text = "tc1" }: { voice?: string | null; text?: string } = {}) {
   sessions().saveSession(guildId, { voiceChannelId: voice, textChannelId: text });
 }
 
-function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", "text")], fetch: (id: string) => Promise<unknown> = async () => null) {
+function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", "text")]) {
   const cache = new Map(chans.map((c) => [c.id, c]));
-  return fake<Guild>({ id, name: `서버 ${id}`, channels: { cache, fetch }, members: { me: { voice: { channelId: null } } } });
+  return fake<Guild>({ id, name: `서버 ${id}`, channels: { cache, fetch: async () => null } });
 }
 
 // 플레이어 대신. 무엇으로 만들었고 무엇을 불렀는지 남긴다
-function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
+function fakePlayerClass({ restoreFails = false } = {}) {
   const made: FakePlayer[] = [];
   class FakePlayer {
     guild: Guild;
-    text: { id: string } | null;
+    text: { id: string };
     voice: { id: string };
     calls: string[] = [];
 
-    constructor(guild: Guild, text: { id: string } | null, voice: { id: string }) {
+    constructor(guild: Guild, text: { id: string }, voice: { id: string }) {
       this.guild = guild;
       this.text = text;
       this.voice = voice;
@@ -137,7 +136,7 @@ function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
     persistence = {
       restoreFromState: async (record: { guildId: string }) => {
         this.calls.push(`restore:${record.guildId}`);
-        if (restoreFails) throw restoreFails === true ? new Error("복원 실패") : restoreFails;
+        if (restoreFails) throw new Error("복원 실패");
       },
     };
     async dispose(o: { reason: string; session: string }) {
@@ -170,7 +169,7 @@ test("복원: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저�
 
   assert.equal(made.length, 1);
   assert.equal(made[0].voice.id, "vc1");
-  assert.equal(made[0].text?.id, "tc1");
+  assert.equal(made[0].text.id, "tc1");
   assert.deepEqual(made[0].calls, ["restore:r1"]);
   assert.equal(players.get("r1"), made[0]);
   sessions().removeSession("r1");
@@ -199,85 +198,7 @@ test("복원: 저장 상태를 복원하지 못하면 플레이어를 세션 삭
   sessions().removeSession("r2");
 });
 
-test("복원: 음성 채널에 붙지 못한 것은 세션 탓이 아니라 세션을 남긴다", async () => {
-  saved("r6");
-  const { client, players } = clientWith([guildWith("r6")]);
-  const { FakePlayer, made } = fakePlayerClass({ restoreFails: Object.assign(new Error("붙지 못함"), { code: "voice-failed" }) });
-
-  await restoreSavedPlayers(client, players, FakePlayer);
-
-  assert.deepEqual(made[0].calls, ["restore:r6", "dispose:세션 복원 실패:keep"]);
-  sessions().removeSession("r6");
-});
-
-test("복원: 음성 채널에 지금 들어갈 수 없으면(권한 · 꽉 참) 플레이어를 만들지 않고 세션을 남긴다. 이미 그 채널에 있으면 꽉 찼어도 복원한다", async () => {
-  saved("p1");
-  saved("p2");
-  saved("p3");
-  const denied = guildWith("p1", [channel("vc1", "voice", { perms: (bit) => bit !== PermissionFlagsBits.Connect }), channel("tc1", "text")]);
-  const full = guildWith("p2", [channel("vc1", "voice", { full: true, perms: (bit) => bit !== PermissionFlagsBits.MoveMembers }), channel("tc1", "text")]);
-  const inside = guildWith("p3", [channel("vc1", "voice", { full: true, perms: (bit) => bit !== PermissionFlagsBits.MoveMembers }), channel("tc1", "text")]);
-  Object.assign(inside.members.me!.voice, { channelId: "vc1" });
-  const { client, players } = clientWith([denied, full, inside]);
-  const { FakePlayer, made } = fakePlayerClass();
-
-  await restoreSavedPlayers(client, players, FakePlayer);
-
-  assert.deepEqual(
-    made.map((p) => p.guild.id),
-    ["p3"],
-  );
-  assert.deepEqual(remaining().sort(), ["p1", "p2", "p3"]);
-  for (const id of ["p1", "p2", "p3"]) sessions().removeSession(id);
-});
-
-test("복원: 들어갈 수 없는데 봇이 그 채널에 남아 있으면(끌 때 남는다) 게이트웨이로 나가고 세션은 남긴다", async () => {
-  saved("q1");
-  const g = guildWith("q1", [channel("vc1", "voice", { perms: (bit) => bit !== PermissionFlagsBits.Connect }), channel("tc1", "text")]);
-  Object.assign(g.members.me!.voice, { channelId: "vc1" });
-  const sent: unknown[] = [];
-  Object.assign(g, { shard: { send: (payload: unknown) => sent.push(payload) } });
-  const { client, players } = clientWith([g]);
-  const { FakePlayer, made } = fakePlayerClass();
-
-  await restoreSavedPlayers(client, players, FakePlayer);
-
-  assert.equal(made.length, 0);
-  assert.deepEqual(sent, [{ op: 4, d: { guild_id: "q1", channel_id: null, self_mute: false, self_deaf: false } }]);
-  assert.deepEqual(remaining(), ["q1"]);
-  sessions().removeSession("q1");
-});
-
-test("복원: 디스코드가 채널을 보여 주지 않으면(접근 없음) 세션을 남기고, 없는 채널이면 삭제한다", async () => {
-  saved("h1");
-  saved("h2");
-  const refuse = (code: number) => async () => {
-    throw Object.assign(new Error("거절"), { code });
-  };
-  const hidden = guildWith("h1", [], refuse(RESTJSONErrorCodes.MissingAccess));
-  const gone = guildWith("h2", [], refuse(RESTJSONErrorCodes.UnknownChannel));
-  const { client, players } = clientWith([hidden, gone]);
-  const { FakePlayer, made } = fakePlayerClass();
-
-  await restoreSavedPlayers(client, players, FakePlayer);
-
-  assert.equal(made.length, 0);
-  assert.deepEqual(remaining(), ["h1"]);
-  sessions().removeSession("h1");
-});
-
-test("복원: 텍스트 채널 기록이 없거나 없어졌으면 텍스트 채널 없이 복원한다(패널은 전용 채널로)", async () => {
-  saved("t1", { text: "gone-text" });
-  const { client, players } = clientWith([guildWith("t1")]);
-  const { FakePlayer, made } = fakePlayerClass();
-
-  await restoreSavedPlayers(client, players, FakePlayer);
-
-  assert.deepEqual([made.length, made[0]?.text], [1, null]);
-  sessions().removeSession("t1");
-});
-
-test("복원: 음성 채널 기록이 없거나 음성 채널이 아니면 세션을 삭제한다", async () => {
+test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 삭제한다", async () => {
   saved("r3", { voice: null });
   saved("r4", { voice: "tc1", text: "vc1" }); // 서로 바뀐 종류
   const { client, players } = clientWith([guildWith("r3"), guildWith("r4")]);

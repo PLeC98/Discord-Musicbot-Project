@@ -1,10 +1,8 @@
 // 서버 하나에서 모르는 오류가 났다(목록에 없는 오류). 그 서버의 플레이어 상태를 믿을 수 없으니 그 서버만 다시 시작한다:
 // 세션 저장 → 채널에 남긴 채 버리기 → 저장된 세션으로 복원. 다른 서버는 아무 일 없다.
 // 같은 서버에서 짧은 시간에 되풀이되면 세션이 까닭일 수 있으니 세션을 삭제하고 그 서버만 멈춘다.
-// 디스코드가 권한 없음으로 거절한 것은 남기기만 한다. 서버가 채널 권한을 막은 것이라 다시 시작해도 같고, 플레이어 상태와 상관없다.
 
 import logger from "../infra/log/logger.ts";
-import { errorKind, isPermissionError, messageOf } from "../rules/error-kind.ts";
 import type { Player } from "../player/player.ts";
 
 const log = logger.child({ category: "core" });
@@ -25,10 +23,6 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
 
   /** 서버 guildId 에서 모르는 오류가 났다. where: 어디서 새어 나왔나(로그) */
   return async function fault(guildId: string, error: unknown, where: string) {
-    if (isPermissionError(error)) {
-      log.warn(`서버 ${guildId} 에서 디스코드가 권한 없음으로 거절 (${where}, ${errorKind(error)}): ${messageOf(error)}`);
-      return;
-    }
     log.error(`서버 ${guildId} 에서 모르는 오류 (${where}):`, error);
     const player = players.get(guildId);
     // 복원할 플레이어가 없다(명령 · 화면 쪽 일). 로그만 남긴다. 다시 시작하는 중에 난 것은 그 다시 시작이 맡는다

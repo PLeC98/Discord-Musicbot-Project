@@ -211,25 +211,6 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   assert.deepEqual(resolved, []);
 });
 
-test("전용 채널: 봇이 그 채널에 글을 올릴 수 없으면(채널 권한 덮어쓰기) 답하지도 받지도 않는다", async () => {
-  const w = world();
-  await settings.setBotChannel("g1", "bot-channel");
-  const msg = message(w);
-  Object.assign(msg.channel, { guild: { members: { me: {} } }, permissionsFor: () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.SendMessages }) });
-  await messageHandler.execute(w.bot, msg);
-  assert.deepEqual([resolved, msg.sent, msg.replies, msg.deleted], [[], [], [], false]);
-});
-
-test("전용 채널: 글은 올릴 수 있는데 파일 첨부가 막혔으면(패널을 못 올린다) 그 까닭을 답하고 받지 않는다", async () => {
-  const w = world();
-  await settings.setBotChannel("g1", "bot-channel");
-  const msg = message(w);
-  Object.assign(msg.channel, { guild: { members: { me: {} } }, permissionsFor: () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.AttachFiles }) });
-  await messageHandler.execute(w.bot, msg);
-  assert.deepEqual(resolved, []);
-  assert.equal(msg.replies.length, 1);
-});
-
 test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제하고(곧바로 삭제하면 보낸 사람 앱에 유령으로 남는다), 검색 중 자리표시자를 CV2 로 보내고, 코어에 전용채널로 넘긴다", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {

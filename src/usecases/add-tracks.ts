@@ -16,7 +16,7 @@ import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/live-block-reason.ts";
 import { errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
-import { canPost } from "../ui/channels.ts";
+import { canSend } from "../ui/channels.ts";
 import { inVoiceTarget } from "../infra/guild-context.ts";
 import { addedView } from "../ui/added-notice.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
@@ -78,16 +78,14 @@ function toRequester(source: RequesterSource): Requester | null {
  * 서버의 플레이어를 확보한다. 이미 있으면 재사용하고 채널만 갱신.
  *
  * voiceChannel은 봇이 유휴일 때만 갱신한다. 재생 중 다른 채널 참조로 오염되면
- * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드). 봇이 글을 올릴 수 없는 채널도 null 처럼(패널은 전용 채널로 간다).
+ * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드).
  */
-function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel: given = null, voiceChannel = null }: { guild: Guild; textChannel?: GuildTextBasedChannel | null; voiceChannel?: VoiceBasedChannel | null }) {
-  const textChannel = canPost(given) ? given : null;
+function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel = null, voiceChannel = null }: { guild: Guild; textChannel?: GuildTextBasedChannel | null; voiceChannel?: VoiceBasedChannel | null }) {
   const botVoiceChannel = guild.members.me?.voice?.channel ?? null;
 
-  // 봇이 이미 음성에 있으면 그 채널이다(플레이어 없이 남은 봇. 부른 사람의 채널로 옮기지 않는다: 그 채널은 들어가는 검사를 거치지 않았다)
   let player = bot.players.get(guild.id);
   if (!player) {
-    player = new Player(guild, textChannel, botVoiceChannel ?? voiceChannel);
+    player = new Player(guild, textChannel, voiceChannel ?? botVoiceChannel);
     bot.players.set(guild.id, player);
     return player;
   }
@@ -106,7 +104,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (!botChannelId) return null;
     const channel = guild.channels.cache.get(botChannelId) ?? null;
-    return canPost(channel) ? channel : null;
+    return canSend(channel) ? channel : null;
   } catch {
     return null;
   }
@@ -189,10 +187,10 @@ function findTracks(bot: Bot, request: PlaybackRequest, batch: number) {
   return inVoiceTarget(target?.id ?? null, () => tracksFor(existing, request, batch));
 }
 
-// 서버의 플레이어. 요청에도 플레이어에도 글을 올릴 수 있는 텍스트 채널이 없으면 전용 채널을 쓴다
+// 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다
 async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
-  let resolvedTextChannel = canPost(textChannel) ? textChannel : null;
-  if (!resolvedTextChannel && !canPost(bot.players.get(guild.id)?.textChannel)) {
+  let resolvedTextChannel = textChannel;
+  if (!resolvedTextChannel && !bot.players.get(guild.id)?.textChannel) {
     resolvedTextChannel = await resolveFallbackTextChannel(guild);
   }
   return ensurePlayer(bot, { guild, textChannel: resolvedTextChannel, voiceChannel });

@@ -70,7 +70,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-/** 디스코드가 권한 없음으로 거절했다(50001 · 50013). 서버가 그 채널에서 막은 것이라 다시 해도 같다 */
-const isPermissionError = (error: unknown) => errorKind(error).startsWith("permission-");
-
-export { errorKind, isPermissionError, codedError, codeOf, messageOf };
+export { errorKind, codedError, codeOf, messageOf };

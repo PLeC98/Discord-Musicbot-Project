@@ -182,30 +182,6 @@ test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 
   assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
 });
 
-test("그 채널의 권한이 빠져 갱신이 거절되면(50013) warn 하고 이 곡의 갱신을 멈춘다. 모르는 실패는 error 하고 멈춘다", async () => {
-  const refused = () => Object.assign(new Error("Missing Permissions"), { code: 50013, url: "https://discord.com/api/v10/channels/1/messages/100" });
-  const { mem, player, calls, state } = makeSetup({ editError: refused() });
-  const from = sink.buffer.length;
-  mem.startProgressUpdate(player);
-  await mem.updatePlaying(player);
-  assert.deepEqual(levelsSince(from), ["warn"]);
-  assert.equal(mem.progressTimers.has("g1"), false);
-  assert.deepEqual(calls.sent, []);
-
-  state.editError = new Error("모르는 실패");
-  mem.startProgressUpdate(player);
-  await mem.updatePlaying(player);
-  assert.deepEqual(levelsSince(from), ["warn", "error"]);
-  assert.equal(mem.progressTimers.has("g1"), false);
-});
-
-test("패널을 둔 스레드가 보관됐으면(50083) 다시 올린다(보내면 보관이 풀린다)", async () => {
-  const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Thread is archived"), { code: 50083 }) });
-  await mem.updatePlaying(player);
-  mem.stopProgressUpdate("g1");
-  assert.equal(calls.sent.length, 1);
-});
-
 test("다시 올리려는데 텍스트 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
   const { mem, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
   const from = sink.buffer.length;
@@ -223,16 +199,13 @@ test("다시 올리기가 네트워크로 실패하면 warn", async () => {
   assert.deepEqual(levelsSince(from), ["warn"]);
 });
 
-test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고 한다(보내는 쪽이 받는다). 권한 거절은 debug, 다른 실패는 error", async () => {
+test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고 한다(보내는 쪽이 받는다). 다른 실패는 error", async () => {
   const { mem } = makeSetup();
-  const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => true }), fetchWebhooks: async () => Promise.reject(error) });
+  const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", fetchWebhooks: async () => Promise.reject(error) });
   const from = sink.buffer.length;
   assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(unknownChannel())), null);
   assert.deepEqual(levelsSince(from), []);
-  // 디스코드가 권한 없음으로 거절한 것은 서버가 그 채널에서 막은 것이라 debug
-  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(Object.assign(new Error("Missing Permissions"), { code: 50013 }))), null);
-  assert.deepEqual(levelsSince(from), []);
-  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("모르는 실패"))), null);
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("Missing Permissions"))), null);
   assert.deepEqual(levelsSince(from), ["error"]);
 });
 

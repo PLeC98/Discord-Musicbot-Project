@@ -14,7 +14,7 @@ const buttons = () => ({ queue: "대기열", autoplay: "자동재생" });
 const jumpPlaceholder = () => "⏭ 이 곡 먼저 재생하기";
 
 // 멈춘 까닭(Player.pauseReasons)마다 [아이콘, 글]
-const PAUSED = { mute: ["muted", "음소거됨"], stage: ["voice", "발언자 기다림"], alone: ["alone", "혼자 남음"], other: ["pause", "일시정지"] } as const satisfies Record<string, readonly [IconKey, string]>;
+const PAUSED = { mute: ["muted", "음소거됨"], alone: ["alone", "혼자 남음"], other: ["pause", "일시정지"] } as const satisfies Record<string, readonly [IconKey, string]>;
 /** 상태 줄의 멈춤 */
 const pausedStatus = (reason: keyof typeof PAUSED) => `${icon(PAUSED[reason][0])} ${PAUSED[reason][1]}`;
 /** 상태 줄의 대기열 곡 수 */

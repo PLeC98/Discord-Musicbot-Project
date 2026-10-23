@@ -11,7 +11,6 @@ import { scheduleDelete } from "./transient-messages.ts";
 import type { Player } from "../player/player.ts";
 import type { Notice } from "./text/notice.ts";
 import type { Notices, NoticeCode } from "../player/events.ts";
-import { canPost } from "./channels.ts";
 
 type Shown = { view: ContainerBuilder; ms: number };
 
@@ -30,9 +29,6 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   "skipped-after-error": ({ error }) => shown(errorMessage(error)),
   // 곡이 연달아 실패해 넘기기를 그만뒀다. 대기열은 남아 있다
   "failed-in-row": ({ count, left }) => shown(notices.failedInRow(count, left)),
-  // 스테이지에 청중으로 들어왔다(player/voice-link)
-  "stage-requested": () => shown(notices.stageRequested()),
-  "stage-cannot-speak": () => shown(notices.stageCannotSpeak()),
   restored: ({ title, atSec, paused }) => {
     const t = notices.restored(title, formatDuration(atSec), paused);
     return { view: frame({ icon: t.icon, title: t.title, body: t.body }), ms: LIFETIME.glance };
@@ -41,7 +37,7 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
 
 async function sendNotice<C extends NoticeCode>(player: Pick<Player, "textChannel">, code: C, detail: Notices[C]) {
   const notice = VIEW[code]?.(detail);
-  if (!notice || !canPost(player.textChannel)) return;
+  if (!notice || typeof player.textChannel?.send !== "function") return;
   const sent = await player.textChannel.send(post(notice.view));
   scheduleDelete(sent, notice.ms);
 }

@@ -41,7 +41,6 @@ import type { SlashCommand } from "./command-loader.ts";
 import type { BotContext } from "./bot-context.ts";
 import { EVENTS } from "../discord/events/index.ts";
 import { installErrorHandlers } from "./resilience.ts";
-import { logMissingPermissions } from "./role-permissions.ts";
 import { createGuildFaults } from "./guild-fault.ts";
 import { guarded, type OnFault } from "./event-boundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
@@ -265,7 +264,6 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   new StatusManager(client).start(); // 활동 문구
   // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇 · 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
   void loadAppInfo(client);
-  logMissingPermissions(client);
 
   // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행 · 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다

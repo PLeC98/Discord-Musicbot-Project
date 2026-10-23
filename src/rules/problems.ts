@@ -23,11 +23,7 @@ const SHARED = {
   "guild-only": { status: 403, title: "Server-only command" },
   // 봇에게 디스코드 권한이 없음
   "permission-voice": { status: 409, title: "Bot lacks voice channel permissions" },
-  "voice-full": { status: 409, title: "Voice channel is full" },
-  "permission-stage": { status: 409, title: "Bot cannot speak in this stage" },
-  "bot-timed-out": { status: 409, title: "Bot is timed out" },
   "permission-text": { status: 409, title: "Bot lacks text channel permissions" },
-  "channel-unseen": { status: 409, title: "Bot cannot see this channel" },
   "permission-other": { status: 409, title: "Bot lacks a required permission" },
   // 지금 상태로는 못 함
   "no-song": { status: 409, title: "Nothing is playing" },
@@ -40,7 +36,6 @@ const SHARED = {
   "switch-failed": { status: 409, title: "Could not switch tracks" },
   "held-mute": { status: 409, title: "Paused because the bot is server-muted" },
   "held-alone": { status: 409, title: "Paused because the bot is alone" },
-  "held-stage": { status: 409, title: "Paused until the bot becomes a stage speaker" },
   "ended-while-adding": { status: 409, title: "Playback ended while adding" },
   "live-no-seek": { status: 409, title: "Cannot seek a live stream" },
   "live-no-loop": { status: 409, title: "Cannot loop with a live stream" },

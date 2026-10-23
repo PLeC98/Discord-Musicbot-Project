@@ -6,7 +6,7 @@ import type { Request } from "express";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { bestEffort } from "../infra/best-effort.ts";
-import { canPost } from "../ui/channels.ts";
+import { canSend } from "../ui/channels.ts";
 import { LIFETIME } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { scheduleDelete } from "../ui/transient-messages.ts";
@@ -32,7 +32,7 @@ function channelOf({ panels }: Pick<BotContext, "panels">, player: Player | null
 
 async function sendTo(channel: Promise<Channel>, view: ContainerBuilder, ms: number) {
   const target = await channel;
-  if (!canPost(target)) return;
+  if (!canSend(target)) return;
   scheduleDelete(await target.send(post(view)), ms);
 }
 

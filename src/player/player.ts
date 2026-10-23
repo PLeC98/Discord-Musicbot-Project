@@ -11,7 +11,7 @@ import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
 const clog = logger.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
 const elog = logger.child({ category: "error" });
-import { ChannelType, PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
+import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
 import type { AudioPlayer, AudioPlayerState, VoiceConnection } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
@@ -79,8 +79,6 @@ const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
 // 묵음을 흘려보내는 멈춤(묵음 다섯 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
 const SILENT_STOP_CAP_MS = 500;
-// 버릴 때 음성 채널 상태 문구를 지우며 기다리는 한도. 넘으면 그냥 나간다(문구는 남을 수 있다)
-const VOICE_STATUS_CLEAR_MS = 2000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
 type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
@@ -782,10 +780,7 @@ class Player {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
-      // 상태 문구는 나가기 전에 지우고 기다린다. 나간 뒤에는 채널 관리 권한이 있어야 쓴다(봇 역할에 그 권한이 없는 서버도 있다). 길어도 VOICE_STATUS_CLEAR_MS 만
-      let cap: NodeJS.Timeout | undefined;
-      await Promise.race([bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기"), new Promise((done) => (cap = setTimeout(done, VOICE_STATUS_CLEAR_MS)))]);
-      clearTimeout(cap);
+      bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
       if (session === "save") await this.persistence.persistState("leave");
       else if (session === "remove") this.persistence?.removeSession();
 
@@ -1429,15 +1424,7 @@ class Player {
     bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title ?? ""}`.trimEnd()), "음성 채널 상태 바꾸기");
   }
 
-  /**
-   * 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다.
-   * 옛 채널 지우기는 채널 관리 권한이 있을 때만 된다(이미 나온 채널이다). 없으면 문구가 남는다
-   */
-  /** 스테이지에서 발언을 요청했다 · 발언자가 될 길이 없다(voice-link 가 알린다) */
-  noticeStage(code: "stage-requested" | "stage-cannot-speak") {
-    playerEvents.notice(this, code, {}).catch(noticeFailed);
-  }
-
+  /** 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다 */
   movedVoiceStatus(fromId: string) {
     bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
     if (this.currentTrack) this._showTrackInVoiceStatus();
@@ -1447,15 +1434,12 @@ class Player {
   // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다. channelId 를 주지 않으면 지금 음성 채널
   async updateVoiceStatus(status: string | null, channelId = this.voiceChannel?.id) {
     const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
-    // 상태 문구는 일반 음성 채널에만 있다(스테이지에는 없다)
-    if (!channel || channel.type !== ChannelType.GuildVoice) return;
+    if (!channel) return;
 
     const me = this.guild.members.me;
     if (!me) return;
     const perms = channel.permissionsFor(me);
     if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
-    // 들어가 있지 않은 채널(옮겨지기 전 채널)은 채널 관리 권한이 있어야 쓴다
-    if (me.voice?.channelId !== channel.id && !perms.has(PermissionFlagsBits.ManageChannels)) return;
 
     // 사람이 적어 둔 상태는 건드리지 않는다. 현재 값은 게이트웨이로만 알 수 있다(voiceChannelStatus).
     if (!voiceChannelStatus.canWrite(channel.id)) return;

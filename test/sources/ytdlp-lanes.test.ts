@@ -177,8 +177,7 @@ test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연�
     );
     assert.equal(error?.code, "network-error");
     assert.match(String(error?.message), /나아가지 않아/);
-    // 가짜 yt-dlp 는 10분 돈다. 그보다 훨씬 먼저 끊는다(자식 프로세스를 띄우고 죽이는 시간은 부하에 따라 흔들려 넉넉히 둔다)
-    assert.ok(Date.now() - started < 8000);
+    assert.ok(Date.now() - started < 3000);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

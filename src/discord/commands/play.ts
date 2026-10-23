@@ -5,7 +5,7 @@ import * as searchText from "../../ui/text/ko/search.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { interactionResponder } from "../../usecases/responders.ts";
 import { offerOnInteraction } from "../../usecases/playlist-more.ts";
-import { checkAdd, checkPanelChannel, checkSummon } from "../../usecases/permissions.ts";
+import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import type { PermissionDenied } from "../../usecases/permissions.ts";
@@ -47,7 +47,7 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       const query = interaction.options.getString("query", true);
       const { member, guild, channel } = interaction;
 
-      const permErr = (await permission(member)) || (await checkPanelChannel(guild, interaction, bot.players.get(guild.id)?.textChannel));
+      const permErr = await permission(member);
       if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
       // "검색 중" 은 본인에게만. 처음부터 Components V2 로 응답해야 이 자리표시자를 안내 · 메뉴로 고칠 수 있다

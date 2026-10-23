@@ -10,7 +10,6 @@ import * as errors from "../../ui/text/ko/errors.ts";
 import { post } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
-import { canPostPanel } from "../../ui/channels.ts";
 const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
@@ -60,7 +59,6 @@ const exported: GuildCommand = {
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
     if (!channel) return noticeSelf(interaction, errors.notice("channel-set-failed")); // 캐시에 없는 채널
-    if (!canPostPanel(channel)) return noticeSelf(interaction, errors.notice("permission-text"));
     const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
 
     if (!success) {

@@ -105,13 +105,11 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
   assert.equal(codeOf(await controls.pause(fakePlayer({ pauseFor: () => false }), DJ)), "control-failed");
 });
 
-test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 스테이지 청중 · 혼자 남음)이 붙들고 있으면 그 까닭의 코드로 거절한다", async () => {
+test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있으면 그 까닭의 코드로 거절한다", async () => {
   const muted = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "mute"]), resumeFor: () => (muted.pauseReasons.delete("manual"), false) });
   assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held-mute" });
   const alone = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "alone"]), resumeFor: () => (alone.pauseReasons.delete("manual"), false) });
   assert.deepEqual(await controls.pause(alone, DJ), { ok: false, code: "held-alone" });
-  const audience = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "stage"]), resumeFor: () => (audience.pauseReasons.delete("manual"), false) });
-  assert.deepEqual(await controls.pause(audience, DJ), { ok: false, code: "held-stage" });
   assert.equal(codeOf(await controls.pause(fakePlayer({ paused: true, resumeFor: () => false }), DJ)), "control-failed", "붙든 까닭이 없으면 그냥 실패");
   assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "control-failed", "멈추기 실패는 붙든 까닭과 상관없다");
 });
@@ -338,11 +336,10 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 } });
   assert.deepEqual(p.calls, ["dispose:save:leave"], "세션을 저장하고 끝난 패널(leave)로 버린다");
 
-  // 게이트웨이로 나간다(REST 로 빼기는 멤버 옮기기 권한이 든다)
-  const sent: unknown[] = [];
-  const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" } } } }, shard: { send: (payload: unknown) => sent.push(payload) } });
+  let disconnected = 0;
+  const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });
   assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only" });
-  assert.deepEqual(sent, [{ op: 4, d: { guild_id: "g2", channel_id: null, self_mute: false, self_deaf: false } }]);
+  assert.equal(disconnected, 1);
   assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), DJ, players)), "no-song");
 });
 

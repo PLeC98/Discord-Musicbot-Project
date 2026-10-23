@@ -2,13 +2,12 @@ import { MessageFlags } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { scheduleDelete } from "../ui/transient-messages.ts";
-import { isPermissionError, messageOf } from "../rules/error-kind.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
 import type { Responder } from "../ui/now-playing-panel.ts";
 import { post } from "../ui/frame.ts";
 import { icon } from "../ui/icons.ts";
 import { LIFETIME, postNew } from "../ui/delivery.ts";
-import { canPost } from "../ui/channels.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -54,8 +53,7 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
       try {
         await postNew(interaction, view, LIFETIME.glance);
       } catch (error) {
-        if (isPermissionError(error)) log.warn(`대기열 안내를 보내지 못함(권한 없음): ${messageOf(error)}`);
-        else log.error("대기열 안내 전송 실패:", messageOf(error));
+        log.error("대기열 안내 전송 실패:", messageOf(error));
       }
     },
 
@@ -67,20 +65,18 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
  * 텍스트 채널. 전용 채널과 검색 선택.
  * 자리표시자가 별도 메시지라 안내로 덮어쓸 수 없다 → 안내 전에 먼저 치운다.
  * onDismiss는 진입점이 자기 자리표시자를 삭제하는 방법을 넘긴다.
- * interaction 을 주면(검색 선택) 그 채널에 쓸 수 없을 때 공개 후속 메시지로 알린다(postNew)
  */
-function channelResponder(channel: GuildTextBasedChannel | null | undefined, onDismiss: (() => unknown) | null = null, interaction?: RepliableInteraction): Responder {
+function channelResponder(channel: GuildTextBasedChannel | null | undefined, onDismiss: (() => unknown) | null = null): Responder {
   const dismiss = onceDismiss(onDismiss);
 
   return {
     async notifyQueued(view: ContainerBuilder) {
       await dismiss();
+      if (!channel || typeof channel.send !== "function") return;
       try {
-        if (interaction && !canPost(channel)) await postNew(interaction, view, LIFETIME.glance);
-        else if (canPost(channel)) scheduleDelete(await channel.send(post(view)));
+        scheduleDelete(await channel.send(post(view)));
       } catch (error) {
-        if (isPermissionError(error)) log.warn(`대기열 안내를 보내지 못함(권한 없음): ${messageOf(error)}`);
-        else log.error("대기열 안내 전송 실패:", messageOf(error));
+        log.error("대기열 안내 전송 실패:", messageOf(error));
       }
     },
 

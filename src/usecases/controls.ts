@@ -16,7 +16,6 @@ import { VOLUME_MAX } from "../rules/limits.ts";
 import { canGoBack } from "../rules/controls.ts";
 import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
-import { leaveVoice } from "../player/voice-access.ts";
 import type { Player } from "../player/player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
@@ -35,7 +34,7 @@ type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied |
 /** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems 의 params) */
 const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true ? [params: ParamsOf<C>] : [params?: ParamsOf<C>]): Refusal => ({ ok: false, code, ...params }) as Refusal;
 // 사람이 풀 수 없는 멈춤(Player.pauseReasons)의 까닭마다
-const HELD: Record<string, "held-mute" | "held-stage" | "held-alone"> = { mute: "held-mute", stage: "held-stage", alone: "held-alone" };
+const HELD: Record<string, "held-mute" | "held-alone"> = { mute: "held-mute", alone: "held-alone" };
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
@@ -362,7 +361,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   const player = players.get(guild.id);
   if (!player) {
     if (!guild.members.me?.voice?.channel) return fail("no-song");
-    leaveVoice(guild);
+    await guild.members.me.voice.disconnect();
     return done({ left: "voice-only" as const });
   }
   const track = player.currentTrack;

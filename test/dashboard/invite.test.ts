@@ -84,7 +84,7 @@ test("서버 관리 권한(소유자 · 관리자 포함)이 있고 봇이 없�
     ["10", "11", "12"],
   );
   assert.equal(guilds[0].icon, "https://cdn.discordapp.com/icons/10/abc.webp?size=64", "그림 주소는 서버가 만든다");
-  assert.match(guilds[0].inviteUrl, /^https:\/\/discord\.com\/oauth2\/authorize\?client_id=[^&]*&permissions=\d+&scope=bot%20applications\.commands&guild_id=10&disable_guild_select=true$/);
+  assert.match(guilds[0].inviteUrl, /^https:\/\/discord\.com\/oauth2\/authorize\?client_id=[^&]*&permissions=8&scope=bot%20applications\.commands&guild_id=10&disable_guild_select=true$/);
   assert.deepEqual(asked, ["https://discord.com/api/v10/users/@me/guilds Bearer tok"], "세션 행의 토큰으로 묻는다");
 });
 

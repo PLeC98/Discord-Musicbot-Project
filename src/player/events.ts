@@ -26,8 +26,6 @@ type Notices = {
   "skipped-after-error": { error: unknown };
   "failed-in-row": { count: number; left: number };
   restored: { title: string | null; atSec: number; paused: boolean };
-  "stage-requested": Record<string, never>;
-  "stage-cannot-speak": Record<string, never>;
 };
 type NoticeCode = keyof Notices;
 /** 알림마다 넘기는 것 */
