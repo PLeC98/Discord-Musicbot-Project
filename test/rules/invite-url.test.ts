@@ -14,5 +14,5 @@ test("권한: 적은 비트가 discord.js 의 값과 같고, 관리자 · 멤버
   for (const [name, bit] of Object.entries(FLAGS)) assert.equal(bit, PermissionFlagsBits[name as keyof typeof PermissionFlagsBits], name);
   assert.equal(PERMISSIONS & PermissionFlagsBits.Administrator, 0n);
   assert.equal(PERMISSIONS & PermissionFlagsBits.MoveMembers, 0n);
-  assert.equal(PERMISSIONS, 281750394760192n);
+  assert.equal(PERMISSIONS, 281750394760208n);
 });

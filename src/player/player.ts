@@ -782,7 +782,7 @@ class Player {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
-      // 상태 문구는 나가기 전에 지우고 기다린다. 나간 뒤에는 그 채널에 쓸 수 없다(채널 관리 권한이 든다. 초대 링크는 청하지 않는다). 길어도 VOICE_STATUS_CLEAR_MS 만
+      // 상태 문구는 나가기 전에 지우고 기다린다. 나간 뒤에는 채널 관리 권한이 있어야 쓴다(옛 초대 링크로 들어온 서버엔 없다). 길어도 VOICE_STATUS_CLEAR_MS 만
       let cap: NodeJS.Timeout | undefined;
       await Promise.race([bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기"), new Promise((done) => (cap = setTimeout(done, VOICE_STATUS_CLEAR_MS)))]);
       clearTimeout(cap);
@@ -1431,7 +1431,7 @@ class Player {
 
   /**
    * 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다.
-   * 옛 채널 지우기는 채널 관리 권한이 있을 때만 된다(이미 나온 채널이다. 초대 링크는 그 권한을 청하지 않는다). 없으면 문구가 남는다
+   * 옛 채널 지우기는 채널 관리 권한이 있을 때만 된다(이미 나온 채널이다). 없으면 문구가 남는다
    */
   movedVoiceStatus(fromId: string) {
     bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
