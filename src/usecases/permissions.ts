@@ -12,7 +12,7 @@ import { ownTrackDenied } from "../rules/controls.ts";
 // 서버 소유자와 Administrator(관리자) 권한 보유자는 discord.js 권한 검사가 자동으로 전부 통과시킨다.
 // 기준을 조정하려면 이 배열만 수정하면 된다.
 /** 권한 판정이 막은 까닭 */
-type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice" | "voice-full" | "bot-timed-out">;
+type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice" | "permission-stage" | "voice-full" | "bot-timed-out">;
 
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
 
@@ -82,7 +82,7 @@ function checkSummon(member: GuildMember): PermissionDenied | null {
 }
 
 /** 봇이 부른 사람의 음성 채널에 들어갈 수 없는 까닭. 들어갈 수 있으면 null. inside: 봇이 이미 그 채널에 있다(voiceJoinDenied) */
-function joinDenied(member: GuildMember, { inside = false } = {}): Extract<PermissionDenied, "must-be-in-voice" | "permission-voice" | "voice-full" | "bot-timed-out"> | null {
+function joinDenied(member: GuildMember, { inside = false } = {}): Extract<PermissionDenied, "must-be-in-voice" | "permission-voice" | "permission-stage" | "voice-full" | "bot-timed-out"> | null {
   const target = member.voice.channel;
   // 음성 채널에 있는데 봇이 그 채널을 모른다(봇이 볼 수 없는 채널)
   if (!target) return member.voice.channelId ? "permission-voice" : "must-be-in-voice";

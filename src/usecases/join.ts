@@ -20,7 +20,7 @@ type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextB
  * refused: 부르지 않았다 · already: 이미 그 채널에 있다 · joined: 붙어서 곡을 기다린다 ·
  * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡) · restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
-type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "voice-full" | "bot-timed-out" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number } | { kind: "restore-error" };
+type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "permission-stage" | "voice-full" | "bot-timed-out" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number } | { kind: "restore-error" };
 
 /**
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.

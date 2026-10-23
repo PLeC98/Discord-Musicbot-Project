@@ -128,7 +128,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
 
 // 복원한 결과를 로그에
 const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
-const JOIN_DENIED = { "permission-voice": "봇 권한 없음", "voice-full": "인원이 꽉 참", "bot-timed-out": "봇이 타임아웃됨" } as const;
+const JOIN_DENIED = { "permission-voice": "봇 권한 없음", "permission-stage": "스테이지에서 말할 길 없음", "voice-full": "인원이 꽉 참", "bot-timed-out": "봇이 타임아웃됨" } as const;
 
 // 저장된 음성 · 텍스트 채널. gone: 기록이 없거나 채널이 없어졌거나 그 종류가 아니다(세션을 버린다) · unreachable: 디스코드가 채널을 보여 주지 않았다(접근 없음 · 일시적 실패)
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {

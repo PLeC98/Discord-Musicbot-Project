@@ -16,10 +16,10 @@ const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, 
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id
 // botChannelPerms: 유저의 음성 채널에서 봇이 가지는 권한 (checkSummon 검사 대상) / full: 그 채널이 꽉 찼다
 // hiddenVoice: 유저가 음성 채널에 있지만 봇이 그 채널을 모른다 / botTimedOutUntil: 봇의 타임아웃이 끝나는 때
-type MemberOptions = { id?: string; perms?: bigint[]; roles?: string[]; guildRoles?: string[]; voice?: string | null; botVoice?: string | null; botChannelPerms?: bigint[] | null; full?: boolean; hiddenVoice?: boolean; botTimedOutUntil?: number | null };
+type MemberOptions = { id?: string; perms?: bigint[]; roles?: string[]; guildRoles?: string[]; voice?: string | null; botVoice?: string | null; botChannelPerms?: bigint[] | null; full?: boolean; hiddenVoice?: boolean; botTimedOutUntil?: number | null; stage?: boolean };
 const CAN_JOIN = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak];
 
-function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2"], voice = null, botVoice = null, botChannelPerms = CAN_JOIN, full = false, hiddenVoice = false, botTimedOutUntil = null }: MemberOptions = {}) {
+function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2"], voice = null, botVoice = null, botChannelPerms = CAN_JOIN, full = false, hiddenVoice = false, botTimedOutUntil = null, stage = false }: MemberOptions = {}) {
   return fake<GuildMember>({
     id,
     permissions: { has: (p: bigint) => perms.includes(p) },
@@ -31,7 +31,7 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
     roles: { cache: { has: (id: string) => roles.includes(id) } },
     voice: {
       channelId: voice,
-      channel: voice && !hiddenVoice ? { id: voice, full, permissionsFor: () => (botChannelPerms === null ? null : { has: (p: bigint) => botChannelPerms.includes(p) }) } : null,
+      channel: voice && !hiddenVoice ? { id: voice, full, type: stage ? ChannelType.GuildStageVoice : ChannelType.GuildVoice, permissionsFor: () => (botChannelPerms === null ? null : { has: (p: bigint) => botChannelPerms.includes(p) }) } : null,
     },
   });
 }
@@ -172,6 +172,14 @@ test("소환: 꽉 찬 채널은 멤버 이동 권한이 있어야, 봇이 타임
 
 test("소환: 요청자가 음성에 있고 봇 권한이 갖춰지면 통과", () => {
   assert.equal(checkSummon(fakeMember({ voice: "vc1" })), null);
+});
+
+test("소환: 스테이지는 말하기 권한 대신 스스로 발언자가 되거나(멤버 음소거) 발언을 요청할 수 있어야(발언권 요청)", () => {
+  const { ViewChannel, Connect, MuteMembers, RequestToSpeak } = PermissionFlagsBits;
+  assert.equal(checkSummon(fakeMember({ voice: "st1", stage: true, botChannelPerms: [ViewChannel, Connect] })), "permission-stage");
+  assert.equal(checkSummon(fakeMember({ voice: "st1", stage: true, botChannelPerms: [ViewChannel, Connect, RequestToSpeak] })), null);
+  assert.equal(checkSummon(fakeMember({ voice: "st1", stage: true, botChannelPerms: [ViewChannel, Connect, MuteMembers] })), null);
+  assert.equal(checkSummon(fakeMember({ voice: "st1", stage: true, botChannelPerms: [ViewChannel, RequestToSpeak] })), "permission-voice", "연결은 스테이지도 든다");
 });
 
 // ── checkPanelChannel (패널을 올릴 채널) ─────────────────────

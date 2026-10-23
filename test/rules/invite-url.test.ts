@@ -13,5 +13,5 @@ test("바탕: 권한 · 범위. 서버를 주면 그 서버를 미리 고르고 
 test("권한: 적은 비트가 discord.js 의 값과 같고, 관리자는 청하지 않는다", () => {
   for (const [name, bit] of Object.entries(FLAGS)) assert.equal(bit, PermissionFlagsBits[name as keyof typeof PermissionFlagsBits], name);
   assert.equal(PERMISSIONS & PermissionFlagsBits.Administrator, 0n);
-  assert.equal(PERMISSIONS, 281750411537424n);
+  assert.equal(PERMISSIONS, 281750415731728n);
 });

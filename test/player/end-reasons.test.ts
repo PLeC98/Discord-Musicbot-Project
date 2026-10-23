@@ -3,7 +3,7 @@
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import type { Client, GuildMember, VoiceBasedChannel, VoiceState } from "discord.js";
+import { ChannelType, type Client, type GuildMember, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
@@ -128,7 +128,7 @@ test("강제 퇴장: 원인=forced-disconnect, 곡 이름이 남는다. 레지�
 test("혼자 남아 시간이 다 되면: 원인=inactivity-timeout, 곡 이름이 남는다. 세션을 삭제하고 레지스트리에서 빠진다", async () => {
   const p = playingPlayer(yt("eeeeeeeeeee", { title: "다섯째 곡" }));
   const members = Object.assign(new Map(), { filter: () => ({ size: 0 }) });
-  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
   p.idle.aloneMs = 0;
   const lines = await endLines(() => p.idle.startAlone());
   assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=inactivity-timeout']);

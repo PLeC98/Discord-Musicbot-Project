@@ -11,7 +11,7 @@ import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
 const clog = logger.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
 const elog = logger.child({ category: "error" });
-import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
+import { ChannelType, PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
 import type { AudioPlayer, AudioPlayerState, VoiceConnection } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
@@ -1433,6 +1433,11 @@ class Player {
    * 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다.
    * 옛 채널 지우기는 채널 관리 권한이 있을 때만 된다(이미 나온 채널이다). 없으면 문구가 남는다
    */
+  /** 스테이지에서 발언을 요청했다 · 발언자가 될 길이 없다(voice-link 가 알린다) */
+  noticeStage(code: "stage-requested" | "stage-cannot-speak") {
+    playerEvents.notice(this, code, {}).catch(noticeFailed);
+  }
+
   movedVoiceStatus(fromId: string) {
     bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
     if (this.currentTrack) this._showTrackInVoiceStatus();
@@ -1442,7 +1447,8 @@ class Player {
   // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다. channelId 를 주지 않으면 지금 음성 채널
   async updateVoiceStatus(status: string | null, channelId = this.voiceChannel?.id) {
     const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
-    if (!channel) return;
+    // 상태 문구는 일반 음성 채널에만 있다(스테이지에는 없다)
+    if (!channel || channel.type !== ChannelType.GuildVoice) return;
 
     const me = this.guild.members.me;
     if (!me) return;
