@@ -13,6 +13,7 @@ import { addFailureMessage } from "../../ui/error-messages.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
 import { noticeMs } from "../../ui/delivery.ts";
+import { canPostPanel } from "../../ui/channels.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 
@@ -30,6 +31,11 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 전용 채널의 글만 받는다
     const botChannelId = await GuildSettingsManager.getBotChannel(guildId);
     if (!botChannelId || message.channel.id !== botChannelId) return;
+    // 봇이 글 · 패널을 올릴 수 없는 채널이다(전용 채널의 권한이 바뀌었다). 답할 길이 없다
+    if (!canPostPanel(message.channel)) {
+      log.warn({ sub: "message" }, `전용 채널 ${botChannelId} 에 글 · 파일을 올릴 권한이 없어 곡 요청을 받지 않습니다`);
+      return;
+    }
 
     const member = message.member;
     if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)

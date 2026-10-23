@@ -91,7 +91,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     user: { id: userId },
     member: { id: userId },
     client,
-    channel: { id: channelId, toString: () => `<#${channelId}>` },
+    channel: { id: channelId, toString: () => `<#${channelId}>`, send: async () => ({}) },
     memberPermissions: { has: (p: bigint) => manage && p === PermissionFlagsBits.ManageGuild },
     replied: false,
     deferred: false,
@@ -333,10 +333,18 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2], "모두에게 보인다");
   assert.deepEqual(seen, ["movePanel"], "안내 뒤에 옮긴다");
 
-  const other = interaction({ options: { channel: { id: "c6", toString: () => "<#c6>" } } });
+  const other = interaction({ options: { channel: { id: "c6", toString: () => "<#c6>", send: async () => ({}) } } });
   await run(await command("setchannel"), other.it, other.bot);
   settings.forgetCache();
   assert.equal(await settings.getBotChannel("g1"), "c6");
+
+  // 봇이 글 · 파일을 올릴 수 없는 채널은 저장하지 않는다
+  const locked = { id: "c7", toString: () => "<#c7>", send: async () => ({}), guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => false }) };
+  const refused = interaction({ options: { channel: locked } });
+  await run(await command("setchannel"), refused.it, refused.bot);
+  settings.forgetCache();
+  assert.equal(await settings.getBotChannel("g1"), "c6");
+  assert.deepEqual(refused.log[0][1], noticeReply(errors.notice("permission-text")));
 });
 
 test("/setchannel remove: 삭제하고 패널을 옮긴 뒤 안내. 저장 실패는 본인에게만", async () => {

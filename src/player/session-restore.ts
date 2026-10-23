@@ -2,10 +2,11 @@ import { RESTJSONErrorCodes, type Client, type Guild } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import { sessions, type RestoredSession, type SessionState } from "../store/player-sessions.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import { inGuild } from "../infra/guild-context.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
+import { voiceJoinDenied } from "./voice-access.ts";
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -95,8 +96,20 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
 
   const channels = await savedChannels(guild, record.session);
   if (alreadyPlaying()) return;
-  if (!channels) {
+  if (channels === "gone") {
     sessions().removeSession(guildId);
+    return;
+  }
+  // 채널을 보지 못했거나 지금 들어갈 수 없다(권한 · 인원 · 타임아웃). 세션은 남긴다: 다음 기동이나 /join 이 다시 복원한다
+  if (channels === "unreachable") {
+    log.warn(`서버 ${guild.name}의 저장된 채널을 불러오지 못해 이번에는 복원하지 않습니다(세션은 남깁니다)`);
+    return;
+  }
+  // 이미 그 채널에 있을 수 있다(서버 하나 다시 시작)
+  const me = guild.members.me;
+  const denied = voiceJoinDenied(channels.voice, me, { inside: me?.voice?.channelId === channels.voice.id });
+  if (denied) {
+    log.warn(`서버 ${guild.name}의 음성 채널에 지금 들어갈 수 없어 복원하지 않습니다(${JOIN_DENIED[denied]}, 세션은 남깁니다)`);
     return;
   }
 
@@ -107,22 +120,36 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
     log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, messageOf(error));
-    await player.dispose({ reason: "세션 복원 실패", session: "remove" });
+    // 음성 채널에 붙지 못했으면 세션 탓이 아니다. 남겨 두고 다음에 다시 복원한다
+    const kind = errorKind(error);
+    await player.dispose({ reason: "세션 복원 실패", session: kind === "voice-failed" || kind.startsWith("permission-") ? "keep" : "remove" });
   }
 }
 
 // 복원한 결과를 로그에
 const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
+const JOIN_DENIED = { "permission-voice": "봇 권한 없음", "voice-full": "인원이 꽉 참", "bot-timed-out": "봇이 타임아웃됨" } as const;
 
-// 저장된 음성 · 텍스트 채널. 기록이 없거나 그 종류의 채널이 아니면 null
+// 저장된 음성 · 텍스트 채널. gone: 기록이 없거나 채널이 없어졌거나 그 종류가 아니다(세션을 버린다) · unreachable: 디스코드가 채널을 보여 주지 않았다(접근 없음 · 일시적 실패)
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {
-  if (!voiceChannelId || !textChannelId) return null;
-  const find = async (id: string) => guild.channels.cache.get(id) || (await guild.channels.fetch(id).catch(() => null));
+  if (!voiceChannelId || !textChannelId) return "gone" as const;
+  let unreachable = false;
+  const find = async (id: string) => {
+    const cached = guild.channels.cache.get(id);
+    if (cached) return cached;
+    try {
+      return await guild.channels.fetch(id);
+    } catch (error) {
+      if (codeOf(error) !== RESTJSONErrorCodes.UnknownChannel) unreachable = true;
+      return null;
+    }
+  };
   const voice = await find(voiceChannelId);
   const text = await find(textChannelId);
   if (voice?.isVoiceBased() && text?.isTextBased()) return { voice, text };
+  if (unreachable) return "unreachable" as const;
   log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-  return null;
+  return "gone" as const;
 }
 
 /** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 시작). 세션이 없으면 아무것도 안 한다 */

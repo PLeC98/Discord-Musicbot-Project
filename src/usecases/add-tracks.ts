@@ -16,7 +16,7 @@ import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/live-block-reason.ts";
 import { errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
-import { canSend } from "../ui/channels.ts";
+import { canPost } from "../ui/channels.ts";
 import { inVoiceTarget } from "../infra/guild-context.ts";
 import { addedView } from "../ui/added-notice.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
@@ -78,9 +78,10 @@ function toRequester(source: RequesterSource): Requester | null {
  * 서버의 플레이어를 확보한다. 이미 있으면 재사용하고 채널만 갱신.
  *
  * voiceChannel은 봇이 유휴일 때만 갱신한다. 재생 중 다른 채널 참조로 오염되면
- * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드).
+ * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드). 봇이 글을 올릴 수 없는 채널도 null 처럼(패널은 전용 채널로 간다).
  */
-function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel = null, voiceChannel = null }: { guild: Guild; textChannel?: GuildTextBasedChannel | null; voiceChannel?: VoiceBasedChannel | null }) {
+function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel: given = null, voiceChannel = null }: { guild: Guild; textChannel?: GuildTextBasedChannel | null; voiceChannel?: VoiceBasedChannel | null }) {
+  const textChannel = canPost(given) ? given : null;
   const botVoiceChannel = guild.members.me?.voice?.channel ?? null;
 
   let player = bot.players.get(guild.id);
@@ -104,7 +105,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (!botChannelId) return null;
     const channel = guild.channels.cache.get(botChannelId) ?? null;
-    return canSend(channel) ? channel : null;
+    return canPost(channel) ? channel : null;
   } catch {
     return null;
   }

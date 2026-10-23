@@ -18,6 +18,7 @@ import { parse, settingsBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
 import { DJ_ROLE_MAX } from "../../rules/limits.ts";
+import { canPostPanel } from "../../ui/channels.ts";
 import type { GuildSettings, Saved } from "../contract/guilds.ts";
 
 /** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
@@ -25,8 +26,9 @@ type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
 /** 반영할 것. undefined 는 변경 없음, null 은 해제 */
 type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null; agePlace?: AgePlace };
 
-// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 필터링하고, 받을 수 없는 값이면 그 문제
-function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax, agePlace }: SettingsBody): SettingsPlan | { refused: Problem } {
+// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 필터링하고, 받을 수 없는 값이면 그 문제.
+// currentChannelId: 지금 전용 채널(화면은 저장할 때마다 보낸다. 그 사이 봇 권한이 빠졌어도 다른 설정은 저장된다)
+function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax, agePlace }: SettingsBody, currentChannelId: string | null): SettingsPlan | { refused: Problem } {
   const plan: SettingsPlan = { playlistAdd: playlistAddMax, agePlace };
 
   if (sponsorblock !== undefined) {
@@ -45,6 +47,7 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
   else if (botChannelId !== undefined) {
     const ch = guild.channels.cache.get(botChannelId);
     if (!ch || ch.type !== ChannelType.GuildText) return { refused: { code: "bad-bot-channel" } };
+    if (botChannelId !== currentChannelId && !canPostPanel(ch)) return { refused: { code: "permission-text" } };
     plan.channel = botChannelId;
   }
   return plan;
@@ -95,9 +98,9 @@ function createGuildSettingsRouter() {
       .sort((a, b) => b.position - a.position)
       .map((r) => ({ id: r.id, name: r.name, color: r.color ? r.hexColor : null }));
 
-    // /setchannel과 동일하게 일반 텍스트 채널만
+    // /setchannel과 동일하게 봇이 글을 올릴 수 있는 일반 텍스트 채널만
     const channels = [...guild.channels.cache.values()]
-      .filter((c) => c.type === ChannelType.GuildText)
+      .filter((c) => c.type === ChannelType.GuildText && (c.id === botChannelId || canPostPanel(c)))
       .sort((a, b) => a.rawPosition - b.rawPosition)
       .map((c) => ({ id: c.id, name: c.name }));
 
@@ -138,7 +141,7 @@ function createGuildSettingsRouter() {
     // 필드별 문제. 재생목록 곡 수는 범위를 같이 싣는다
     if (!body.ok) return sendProblem(res, "bad-settings", {}, { errors: body.errors.map((one) => (one.code === "playlist-limit-out-of-range" ? { ...one, min: limits.min, max: limits.max } : one)) });
 
-    const plan = planSettings(guild, body.value);
+    const plan = planSettings(guild, body.value, await GuildSettingsManager.getBotChannel(guild.id));
     if ("refused" in plan) return refuseWith(res, plan.refused);
     const channelChanged = await applySettings(guild, plan);
     if (channelChanged) {

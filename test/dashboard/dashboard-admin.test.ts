@@ -12,6 +12,7 @@ import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
+import { ChannelType, PermissionFlagsBits } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
 import type { AdminStatus } from "../../src/dashboard/contract/admin.ts";
@@ -51,12 +52,13 @@ import express from "express";
 function makeSendableChannel(id: string) {
   const ch = {
     id,
+    type: ChannelType.GuildText,
     position: 0,
     sent: [] as { embeds: unknown[] }[],
     isTextBased: () => true,
     isThread: () => false,
     send: async (payload: { embeds: unknown[] }) => ch.sent.push(payload),
-    permissionsFor: () => ({ has: () => true }),
+    permissionsFor: (): { has(bit: bigint): boolean } => ({ has: () => true }),
   };
   return ch;
 }
@@ -334,6 +336,25 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   assert.equal(g1.botChannel.sent[0].embeds.length, 1);
   // 공지 색은 ANNOUNCE_STYLE: 점검은 경고(노랑)
   assert.equal((g1.botChannel.sent[0].embeds[0] as { toJSON(): { color?: number } }).toJSON().color, 0xfee75c);
+});
+
+test("POST broadcast: 채널이 거절하면 다음 후보로. 임베드를 올릴 수 없는 채널은 고르지 않는다", async () => {
+  setGuild("100", { botChannel: "bc-100" });
+  const noEmbed = { ...makeSendableChannel("no-embed-100"), permissionsFor: () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.EmbedLinks }) };
+  const next = makeSendableChannel("next-100");
+  const send = g1.botChannel.send;
+  g1.botChannel.send = async () => Promise.reject(Object.assign(new Error("Missing Permissions"), { code: 50013 }));
+  g1.channels.cache.set(noEmbed.id, noEmbed);
+  g1.channels.cache.set(next.id, next);
+  try {
+    const r = await req<{ sent: number; total: number }>("POST", "/api/admin/broadcast", { message: "점검 안내", type: "maintenance" });
+    assert.equal(r.json.sent, r.json.total);
+    assert.deepEqual([noEmbed.sent.length, next.sent.length], [0, 1]);
+  } finally {
+    g1.botChannel.send = send;
+    g1.channels.cache.delete(noEmbed.id);
+    g1.channels.cache.delete(next.id);
+  }
 });
 
 // ── 설정 문서 (장르 · 상태 문구 · AI 설정 · 프롬프트) ────────────────────────────────

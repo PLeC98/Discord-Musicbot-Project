@@ -5,7 +5,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { RESTJSONErrorCodes } from "discord.js";
+import { PermissionFlagsBits, RESTJSONErrorCodes } from "discord.js";
 import { resolveGuildForRestore, restoreSavedPlayers } from "../../src/player/session-restore.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
@@ -107,19 +107,20 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 const store = openTempStore("session-restore-");
 after(() => store.close());
 
-const channel = (id: string, kind: "voice" | "text") => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
+// 음성 채널은 봇이 들어갈 수 있다(perms 로 바꾼다). full: 꽉 찼다
+const channel = (id: string, kind: "voice" | "text", { perms = () => true, full = false }: { perms?: (bit: bigint) => boolean; full?: boolean } = {}) => ({ id, full, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text", permissionsFor: () => ({ has: perms }) });
 
 function saved(guildId: string, { voice = "vc1", text = "tc1" }: { voice?: string | null; text?: string } = {}) {
   sessions().saveSession(guildId, { voiceChannelId: voice, textChannelId: text });
 }
 
-function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", "text")]) {
+function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", "text")], fetch: (id: string) => Promise<unknown> = async () => null) {
   const cache = new Map(chans.map((c) => [c.id, c]));
-  return fake<Guild>({ id, name: `서버 ${id}`, channels: { cache, fetch: async () => null } });
+  return fake<Guild>({ id, name: `서버 ${id}`, channels: { cache, fetch }, members: { me: { voice: { channelId: null } } } });
 }
 
 // 플레이어 대신. 무엇으로 만들었고 무엇을 불렀는지 남긴다
-function fakePlayerClass({ restoreFails = false } = {}) {
+function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
   const made: FakePlayer[] = [];
   class FakePlayer {
     guild: Guild;
@@ -136,7 +137,7 @@ function fakePlayerClass({ restoreFails = false } = {}) {
     persistence = {
       restoreFromState: async (record: { guildId: string }) => {
         this.calls.push(`restore:${record.guildId}`);
-        if (restoreFails) throw new Error("복원 실패");
+        if (restoreFails) throw restoreFails === true ? new Error("복원 실패") : restoreFails;
       },
     };
     async dispose(o: { reason: string; session: string }) {
@@ -196,6 +197,56 @@ test("복원: 저장 상태를 복원하지 못하면 플레이어를 세션 삭
 
   assert.deepEqual(made[0].calls, ["restore:r2", "dispose:세션 복원 실패:remove"]);
   sessions().removeSession("r2");
+});
+
+test("복원: 음성 채널에 붙지 못한 것은 세션 탓이 아니라 세션을 남긴다", async () => {
+  saved("r6");
+  const { client, players } = clientWith([guildWith("r6")]);
+  const { FakePlayer, made } = fakePlayerClass({ restoreFails: Object.assign(new Error("붙지 못함"), { code: "voice-failed" }) });
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.deepEqual(made[0].calls, ["restore:r6", "dispose:세션 복원 실패:keep"]);
+  sessions().removeSession("r6");
+});
+
+test("복원: 음성 채널에 지금 들어갈 수 없으면(권한 · 꽉 참) 플레이어를 만들지 않고 세션을 남긴다. 이미 그 채널에 있으면 꽉 찼어도 복원한다", async () => {
+  saved("p1");
+  saved("p2");
+  saved("p3");
+  const denied = guildWith("p1", [channel("vc1", "voice", { perms: (bit) => bit !== PermissionFlagsBits.Connect }), channel("tc1", "text")]);
+  const full = guildWith("p2", [channel("vc1", "voice", { full: true, perms: (bit) => bit !== PermissionFlagsBits.MoveMembers }), channel("tc1", "text")]);
+  const inside = guildWith("p3", [channel("vc1", "voice", { full: true, perms: (bit) => bit !== PermissionFlagsBits.MoveMembers }), channel("tc1", "text")]);
+  Object.assign(inside.members.me!.voice, { channelId: "vc1" });
+  const { client, players } = clientWith([denied, full, inside]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.deepEqual(
+    made.map((p) => p.guild.id),
+    ["p3"],
+  );
+  assert.deepEqual(remaining().sort(), ["p1", "p2", "p3"]);
+  for (const id of ["p1", "p2", "p3"]) sessions().removeSession(id);
+});
+
+test("복원: 디스코드가 채널을 보여 주지 않으면(접근 없음) 세션을 남기고, 없는 채널이면 삭제한다", async () => {
+  saved("h1");
+  saved("h2");
+  const refuse = (code: number) => async () => {
+    throw Object.assign(new Error("거절"), { code });
+  };
+  const hidden = guildWith("h1", [], refuse(RESTJSONErrorCodes.MissingAccess));
+  const gone = guildWith("h2", [], refuse(RESTJSONErrorCodes.UnknownChannel));
+  const { client, players } = clientWith([hidden, gone]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining(), ["h1"]);
+  sessions().removeSession("h1");
 });
 
 test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 삭제한다", async () => {

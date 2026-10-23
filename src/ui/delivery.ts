@@ -9,7 +9,7 @@ const log = logger.child({ category: "events" });
 import { messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
-import { canSend } from "./channels.ts";
+import { canPost } from "./channels.ts";
 import { noticeReply, post, type Attachment } from "./frame.ts";
 import { scheduleDelete } from "./transient-messages.ts";
 
@@ -111,7 +111,7 @@ async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, 
  * 상호작용 응답은 채널 권한이 없어도 되므로 봇이 글을 못 쓰는 채널에서도 결과는 보인다
  */
 async function postNew(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null, files?: Attachment[]) {
-  if (canSend(interaction.channel)) {
+  if (canPost(interaction.channel)) {
     try {
       const message = await interaction.channel.send(post(view, files));
       if (ms !== null) scheduleDelete(message, ms);

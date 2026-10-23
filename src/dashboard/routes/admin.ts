@@ -24,8 +24,9 @@ import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
 import { ageContent, setAgeContent } from "../../config/age-content.ts";
 import * as geoip from "../geoip.ts";
-import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
+import { ChannelType, EmbedBuilder, PermissionFlagsBits, type Guild, type GuildBasedChannel } from "discord.js";
 import { icon } from "../../ui/icons.ts";
+import { canPost } from "../../ui/channels.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
@@ -59,18 +60,18 @@ adminRouter.post("/restart", requireOwner, (req, res) => {
   res.status(202).json({ restarting: true } satisfies RestartReply);
 });
 
-// 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 텍스트 채널
-async function announceChannel(guild: Guild) {
+// 공지를 보낼 채널 후보: 전용 채널 → 시스템 채널 → 텍스트 채널(위에서부터). 봇이 글과 임베드를 올릴 수 있는 텍스트 · 공지 채널만
+async function announceChannels(guild: Guild) {
   const me = guild.members.me;
-  const writable = (c: GuildBasedChannel | null | undefined) => (c && c.isTextBased() && !c.isThread() && me && c.permissionsFor(me)?.has("SendMessages") ? c : null);
+  const writable = (c: GuildBasedChannel | null | undefined) => (c && (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement) && me && canPost(c) && c.permissionsFor(me)?.has(PermissionFlagsBits.EmbedLinks) ? c : null);
 
   const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
-  const preferred = writable(botChannelId ? guild.channels.cache.get(botChannelId) : null) ?? writable(guild.systemChannel);
-  if (preferred) return preferred;
-  return [...guild.channels.cache.values()]
+  const rest = [...guild.channels.cache.values()]
     .map(writable)
     .filter((c) => c !== null)
-    .sort((a, b) => a.position - b.position)[0];
+    .sort((a, b) => a.position - b.position);
+  const preferred = [botChannelId ? guild.channels.cache.get(botChannelId) : null, guild.systemChannel].map(writable).filter((c) => c !== null);
+  return [...new Set([...preferred, ...rest])];
 }
 
 adminRouter.post("/broadcast", requireOwner, async (req, res) => {
@@ -97,9 +98,17 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   // 서버마다 따로 보낸다. 한 서버가 늦어도 다른 서버는 기다리지 않는다
   const results = await Promise.allSettled(
     [...client.guilds.cache.values()].map(async (guild) => {
-      const ch = await announceChannel(guild);
-      if (!ch) throw new Error("보낼 채널 없음");
-      await ch.send({ embeds: [embed] });
+      // 한 채널이 거절하면(그 사이 권한이 바뀌었다) 다음 후보로
+      let last: unknown = new Error("보낼 채널 없음");
+      for (const ch of await announceChannels(guild)) {
+        try {
+          await ch.send({ embeds: [embed] });
+          return;
+        } catch (error) {
+          last = error;
+        }
+      }
+      throw last;
     }),
   );
   const sent = results.filter((r) => r.status === "fulfilled").length;

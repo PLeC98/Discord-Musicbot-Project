@@ -1,6 +1,6 @@
 // 봇 부르기. 디스코드 /join 과 대시보드 "봇 부르기"가 같이 쓴다. 판정과 일은 여기서, 결과를 어떻게 알릴지는 진입점이 정한다
 
-import { PermissionFlagsBits, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
+import type { Guild, GuildMember, GuildTextBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player", sub: "join" });
 import config from "../config/index.ts";
@@ -12,6 +12,7 @@ import { sessions, type RestoredSession } from "../store/player-sessions.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { ensurePlayer, resolveFallbackTextChannel } from "./add-tracks.ts";
+import { joinDenied } from "./permissions.ts";
 
 type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null };
 
@@ -19,7 +20,7 @@ type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextB
  * refused: 부르지 않았다 · already: 이미 그 채널에 있다 · joined: 붙어서 곡을 기다린다 ·
  * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡) · restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
-type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number } | { kind: "restore-error" };
+type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "voice-full" | "bot-timed-out" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number } | { kind: "restore-error" };
 
 /**
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
@@ -28,7 +29,7 @@ type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voic
  */
 async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring }: { restoring?: () => Promise<unknown> } = {}): Promise<JoinResult> {
   const channel = member.voice.channel;
-  const refused = refusal(guild, channel);
+  const refused = refusal(guild, member);
   if (refused || !channel) return { kind: "refused", code: refused ?? "must-be-in-voice" };
 
   // 이미 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
@@ -60,14 +61,13 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
 }
 
 // 부를 수 없는 까닭. 부를 수 있으면 null
-function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
-  if (!channel) return "must-be-in-voice" as const;
-  const me = guild.members.me;
-  const permissions = me ? channel.permissionsFor(me) : null;
-  if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return "permission-voice" as const;
+function refusal(guild: Guild, member: GuildMember) {
+  const botChannel = guild.members.me?.voice?.channel;
+  const inside = Boolean(botChannel) && botChannel?.id === member.voice.channel?.id;
+  const denied = joinDenied(member, { inside });
+  if (denied) return denied;
   // 다른 채널에서 쓰는 봇은 옮기지 않는다(옮기려면 디스코드에서 끌어다 놓는다)
-  const botChannel = me?.voice?.channel;
-  if (botChannel && botChannel.id !== channel.id) return "bot-in-other-voice" as const;
+  if (botChannel && !inside) return "bot-in-other-voice" as const;
   return null;
 }
 

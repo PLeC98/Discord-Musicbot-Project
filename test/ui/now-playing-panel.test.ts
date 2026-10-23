@@ -3,7 +3,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
-import { Collection, MessageFlags, WebhookClient, type Client, type GuildTextBasedChannel } from "discord.js";
+import { Collection, MessageFlags, PermissionFlagsBits, WebhookClient, type Client, type GuildTextBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tempStore from "../helpers/temp-store.ts";
@@ -276,6 +276,8 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
   const fresh = { id: "w2", token: "t2", name: "Music Now Playing", owner: { id: "bot" }, isIncoming: () => true };
   const channel = fake<GuildTextBasedChannel>({
     id: "c1",
+    guild: { members: { me: {} } },
+    permissionsFor: () => ({ has: () => true }),
     fetchWebhooks: async () => new Collection(),
     createWebhook: async () => fresh,
     send: async () => assert.fail("웹훅이 있으면 채널로 보내지 않는다"),
@@ -293,6 +295,19 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
     mem.deleteWebhookCache("c1");
   }
   assert.deepEqual(sent, ["stale-destroyed", "fresh"]);
+});
+
+test("웹훅 관리 권한이 없는 채널은 웹훅을 묻지 않고 채널로 보낸다", async () => {
+  const mem = newManager();
+  const channel = fake<GuildTextBasedChannel>({
+    id: "c2",
+    guild: { members: { me: {} } },
+    permissionsFor: () => ({ has: (bit: bigint) => bit !== PermissionFlagsBits.ManageWebhooks }),
+    fetchWebhooks: async () => assert.fail("권한이 없으면 묻지 않는다"),
+    send: async () => ({ id: "m-plain" }),
+  });
+  const { message, webhook } = await mem._sendPanel(channel, { components: [], flags: MessageFlags.IsComponentsV2 });
+  assert.deepEqual([message.id, webhook], ["m-plain", null]);
 });
 
 test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {

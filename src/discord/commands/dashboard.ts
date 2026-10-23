@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { interactionResponder } from "../../usecases/responders.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
-import { checkControl } from "../../usecases/permissions.ts";
+import { checkControl, checkPanelChannel } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { DISCORD_LOOK } from "../../ui/mentions.ts";
@@ -26,6 +26,9 @@ const exported: GuildCommand = {
       const permErr = await checkControl(member);
       if (permErr) return noticeSelf(interaction, errors.notice(permErr));
     }
+    // 패널을 이 채널에 올린다
+    const panelErr = await checkPanelChannel(guild, channel);
+    if (panelErr) return noticeSelf(interaction, errors.notice(panelErr));
 
     const player = bot.players.get(guild.id);
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다

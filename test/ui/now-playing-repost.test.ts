@@ -199,13 +199,16 @@ test("다시 올리기가 네트워크로 실패하면 warn", async () => {
   assert.deepEqual(levelsSince(from), ["warn"]);
 });
 
-test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고 한다(보내는 쪽이 받는다). 다른 실패는 error", async () => {
+test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고 한다(보내는 쪽이 받는다). 권한 거절은 debug, 다른 실패는 error", async () => {
   const { mem } = makeSetup();
-  const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", fetchWebhooks: async () => Promise.reject(error) });
+  const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", guild: { members: { me: {} } }, permissionsFor: () => ({ has: () => true }), fetchWebhooks: async () => Promise.reject(error) });
   const from = sink.buffer.length;
   assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(unknownChannel())), null);
   assert.deepEqual(levelsSince(from), []);
-  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("Missing Permissions"))), null);
+  // 디스코드가 권한 없음으로 거절한 것은 서버가 그 채널에서 막은 것이라 debug
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(Object.assign(new Error("Missing Permissions"), { code: 50013 }))), null);
+  assert.deepEqual(levelsSince(from), []);
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("모르는 실패"))), null);
   assert.deepEqual(levelsSince(from), ["error"]);
 });
 

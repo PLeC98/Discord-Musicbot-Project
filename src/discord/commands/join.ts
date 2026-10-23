@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import { join, type JoinResult } from "../../usecases/join.ts";
+import { checkPanelChannel } from "../../usecases/permissions.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { noticeFrame, reply } from "../../ui/frame.ts";
 import * as replies from "../../ui/control-replies.ts";
@@ -28,6 +29,8 @@ const exported: GuildCommand = {
 
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
+    const panelErr = await checkPanelChannel(guild, channel);
+    if (panelErr) return noticeSelf(interaction, errors.notice(panelErr));
     // 저장한 세션을 복원하는 동안 "불러오는 중"을 본인에게 먼저 보낸다
     const result = await join(bot, { guild, member, textChannel: channel }, { restoring: () => interaction.reply(reply(replies.restoring())) });
     await answer(interaction, result);

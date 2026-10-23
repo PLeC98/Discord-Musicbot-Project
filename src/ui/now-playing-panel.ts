@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, PermissionFlagsBits } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
@@ -27,7 +27,7 @@ import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as trackState from "../player/track-state.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
-import { canSend } from "./channels.ts";
+import { canPost, canPostPanel } from "./channels.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
 import type { Player, PanelMessage } from "../player/player.ts";
 import type { PlayerSeats } from "../player/registry.ts";
@@ -165,11 +165,13 @@ class NowPlayingPanel {
     }
   }
 
-  // 웹훅을 달 수 없는 채널(스레드 등)은 채널로 보낸다
+  // 웹훅을 달 수 없는 채널(스레드 등)이나 웹훅 관리 권한이 없는 채널은 채널로 보낸다
   async getOrCreateWebhook(channel: GuildBasedChannel) {
     const cached = this.webhookCache.get(channel.id);
     if (cached) return cached;
     if (!("fetchWebhooks" in channel)) return null;
+    const me = channel.guild.members.me;
+    if (me && !channel.permissionsFor(me)?.has(PermissionFlagsBits.ManageWebhooks)) return null;
     try {
       const webhooks = await channel.fetchWebhooks();
       const ours = (wh: Webhook): wh is Webhook<WebhookType.Incoming> => wh.isIncoming() && wh.owner?.id === this.client.user?.id && wh.name === "Music Now Playing";
@@ -182,7 +184,9 @@ class NowPlayingPanel {
       return client;
     } catch (error) {
       // 채널이 삭제됐다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
-      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
+      // 권한 없음은 서버가 그 채널에서 막은 것이다(채널로 보낸다)
+      if (errorKind(error).startsWith("permission-")) log.debug("웹훅 조회/생성 거절:", messageOf(error));
+      else if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
       return null;
     }
   }
@@ -206,7 +210,7 @@ class NowPlayingPanel {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this.panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
-    if (!canSend(channel)) {
+    if (!canPostPanel(channel)) {
       return { success: true };
     }
 
@@ -291,9 +295,10 @@ class NowPlayingPanel {
     return guild.channels?.cache?.get(id) ?? (fallback?.id === id ? fallback : null);
   }
 
-  /** 패널을 둘 채널. 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
+  /** 패널을 둘 채널. 전용 채널이 있으면 거기, 없거나 봇이 그 채널에 글을 올릴 수 없으면 요청한 채널 */
   async panelChannel(player: Player) {
-    return (await this._dedicatedChannel(player.guild, player.textChannel)) ?? player.textChannel;
+    const dedicated = await this._dedicatedChannel(player.guild, player.textChannel);
+    return canPostPanel(dedicated) ? dedicated : player.textChannel;
   }
 
   // 전용 채널 맨 아래에 끝난 패널이 있으면 재생 화면으로 고친다. 고쳤으면 { message, webhook }
@@ -332,7 +337,7 @@ class NowPlayingPanel {
     const previous = player.nowPlayingMessage;
     try {
       const channel = await this.panelChannel(player);
-      if (!canSend(channel)) return;
+      if (!canPostPanel(channel)) return;
       const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack, channel);
 
       if (player.nowPlayingMessage !== previous || !player.currentTrack) {
@@ -534,7 +539,7 @@ class NowPlayingPanel {
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 다 틀었거나 끊겼으면 따로 알린다.
     // 사람이 멈추거나 내보낸 것(/stop · /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
-    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
+    if (ended && live && !dedicated && canPost(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
     // 플레이어는 이제 틀고 있는 곡 · 패널이 없다
     trackState.setCurrent(player, null);
@@ -593,7 +598,7 @@ class NowPlayingPanel {
     const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) return;
     const channel = await this._dedicatedChannel(guild);
-    if (!canSend(channel) || channel.id !== channelId) return;
+    if (!canPostPanel(channel) || channel.id !== channelId) return;
     const record = await this.location.store.getPanel(guild.id);
     if (record?.channelId !== channel.id || !this._buriedAt(channel, record.messageId, now)) return;
 
@@ -616,7 +621,7 @@ class NowPlayingPanel {
       if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
       return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
     }
-    if (canSend(channel)) await this._postIdle(guild, channel);
+    if (canPostPanel(channel)) await this._postIdle(guild, channel);
     else await this.location.remove(guild);
   }
 
@@ -660,7 +665,7 @@ class NowPlayingPanel {
           const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
           if (await this.location.edit(guild, payload)) continue;
         }
-        if (canSend(channel)) await this._postIdle(guild, channel);
+        if (canPostPanel(channel)) await this._postIdle(guild, channel);
       } catch (error) {
         log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }
