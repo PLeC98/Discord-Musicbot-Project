@@ -1,5 +1,5 @@
-// src/dashboard/settings-archive.ts · routes/settings-archive.ts — 설정 내보내기 · 가져오기(ZIP).
-// 내보낸 것을 그대로 복원하고, 선택한 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 가져오기는 그 티켓으로
+// src/dashboard/settings-archive.ts · routes/settings-archive.ts — 설정 내보내기 · 불러오기(ZIP).
+// 내보낸 것을 그대로 복원하고, 선택한 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 불러오기는 그 티켓으로
 
 process.env.OWNER_ID = "owner";
 
@@ -80,7 +80,7 @@ async function preview(file: Buffer) {
   const res = await upload(file);
   return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
 }
-/** 가져오기: 미리 보기로 올려 받은 티켓으로(route 는 "import?items=…") */
+/** 불러오기: 미리 보기로 올려 받은 티켓으로(route 는 "import?items=…") */
 async function send(route: string, file: Buffer) {
   const { json } = await preview(file);
   return fetch(`${base}/${route}${route.includes("?") ? "&" : "?"}token=${json.token}`, { method: "POST" });
@@ -183,7 +183,7 @@ test("선택한 항목만 덮어쓰고 메모리(설정 객체 · 문서)까지 
   assert.equal(documents.revisionOf("status"), statusRevision);
 });
 
-test("문서를 가져오면 저장 번호가 올라 열어 둔 편집기는 낡은 번호로 덮지 못한다", async () => {
+test("문서를 불러오면 저장 번호가 올라 열어 둔 편집기는 낡은 번호로 덮지 못한다", async () => {
   const file = await exported();
   const before = documents.revisionOf("genres");
   assert.equal((await send("import?items=genres", file)).status, 200);
@@ -210,8 +210,8 @@ test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모
   assert.equal(documents.revisionOf("genres"), genresRevision, "검사를 지난 항목도 쓰지 않는다");
 });
 
-// 평문으로 남는 필드에 비밀 헤더를 적어 가져오지 못한다(저장 때와 같은 검사)
-test("AI 설정의 추가 인자에 비밀 헤더가 있으면 꺼 두었어도 가져오지 않는다", async () => {
+// 평문으로 남는 필드에 비밀 헤더를 적어 불러오지 못한다(저장 때와 같은 검사)
+test("AI 설정의 추가 인자에 비밀 헤더가 있으면 꺼 두었어도 불러오지 않는다", async () => {
   const file = rewrite(await exported(), (json) => {
     (json.documents as Record<string, unknown>).ai = { enabled: true, provider: "openai", model: "m", extra: "header::Authorization=Bearer sk-몰래" };
   });
@@ -253,7 +253,7 @@ const currents = () =>
     .slots.filter((one) => one.current)
     .map((one) => one.size);
 
-test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 있던 파일을 가져오면 파비콘이 없어진다", async () => {
+test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 있던 파일을 불러오면 파비콘이 없어진다", async () => {
   await appearance.addFavicon(32, await square(32));
   const first = await exported("favicon");
   await appearance.addFavicon(32, await square(40));
@@ -267,7 +267,7 @@ test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 �
   assert.equal(snapshots.list().length, snapshotCount, "설정 DB 항목이 없으면 스냅샷을 뜨지 않는다");
   assert.deepEqual(currents(), [32]);
   assert.equal(appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.history.length, 2);
-  assert.equal(rowsOf((await preview(file)).json).favicon.same, true, "가져온 뒤에는 같다");
+  assert.equal(rowsOf((await preview(file)).json).favicon.same, true, "불러온 뒤에는 같다");
   assert.equal(fs.readdirSync(faviconDir).length, 5, "목록 하나 · 이미지마다 둘, 48 의 파일은 치웠다");
 
   appearance.removeFavicon(32, appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.current!);
@@ -280,7 +280,7 @@ test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 �
   );
 });
 
-test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하고 가져오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
+test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하고 불러오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
   await appearance.addFavicon(32, await square(32));
   const file = await exported("favicon");
   const missing = zip(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
@@ -288,7 +288,7 @@ test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하�
   const broken = zip(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
   assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["망가졌거나 크기가 맞지 않는 이미지가 있습니다."]);
   assert.notEqual((await send("import?items=favicon", broken)).status, 200);
-  assert.deepEqual(currents(), [32], "가져오지 않았다");
+  assert.deepEqual(currents(), [32], "불러오지 않았다");
 
   const old = zip([...unzip(rewrite(file, (json) => (json.favicons = ["32.png"]))).filter((one) => !one.name.startsWith("favicon/")), { name: "favicon/32.png", data: await square(32) }]);
   assert.equal(rowsOf((await preview(old)).json).favicon.inFile, false);
@@ -308,7 +308,7 @@ test("예전에 봇 설정과 함께 내보낸 파비콘도 불러온다", async
   assert.deepEqual(currents(), [32]);
 });
 
-test("올린 파일: 가져오면 삭제하고(같은 티켓으로 다시 못 쓴다), 검사에 걸리면 두고, 닫으면 삭제한다. 못 읽은 파일은 남기지 않는다", async () => {
+test("올린 파일: 불러오면 삭제하고(같은 티켓으로 다시 못 쓴다), 검사에 걸리면 두고, 닫으면 삭제한다. 못 읽은 파일은 남기지 않는다", async () => {
   const file = await exported();
   const { json } = await preview(file);
   assert.equal(fs.readdirSync(uploadDir).length, 1);
@@ -341,7 +341,7 @@ test("다운로드 주소는 한 번만 쓴다(다시 열면 404). 모르는 티
   assert.equal((await fetch(`${base}/download/${"0".repeat(32)}`)).status, 404);
 });
 
-test("내보내기 · 가져오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
+test("내보내기 · 불러오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
   const file = await exported();
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
   for (const kind of ["settings", "favicon", "login-background"]) assert.equal((await fetch(`${base}/export?kind=${kind}`, { method: "POST" })).status, 403);
@@ -364,7 +364,7 @@ test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
 });
 
-// 남이 준 파일로 모르고 가져오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
+// 남이 준 파일로 모르고 불러오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
 test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다", async () => {
   const file = rewrite(await exported("settings"), (json) => {
     (json.tunables as Record<string, string>).WEBSITE = "https://phish.example";

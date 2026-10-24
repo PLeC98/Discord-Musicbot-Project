@@ -150,7 +150,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
 async function restoreAudioCache() {
   try {
     const done = await archive.applyStagedAudio(PROJECT.database);
-    if (done) log.info(`명령 전체 백업의 오디오 캐시를 합쳤습니다: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(" · ") || "새로 가져온 것 없음"}`);
+    if (done) log.info(`명령 전체 백업의 오디오 캐시를 합쳤습니다: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(" · ") || "새로 불러온 것 없음"}`);
   } catch (error) {
     log.warn(`명령 전체 백업의 오디오 캐시를 합치지 못했습니다: ${messageOf(error)}`);
   }

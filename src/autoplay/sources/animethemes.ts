@@ -11,7 +11,7 @@ type Anime = { name?: string; slug?: string; year?: number; season?: string; ima
 type Theme = { type?: string; sequence?: number | null; song?: Song; animethemeentries?: Array<{ videos?: Video[] }>; anime?: Anime };
 
 // ── animethemes ───────────────────────────────────────────────────────────
-// 음원(.ogg)을 직접 준다. 다만 TV 사이즈(중앙값 90초)라 artist+title도 같이 채워 보낸다
+// 음원(.ogg)을 직접 준다. 다만 대개 TV 사이즈라 artist+title도 같이 채워 보낸다
 // 부르는 쪽이 유튜브에서 풀버전을 먼저 찾고 못 찾으면 이 음원으로 떨어진다.
 const SEASON_ORDER: Record<string, number> = { Winter: 0, Spring: 1, Summer: 2, Fall: 3 };
 
@@ -36,7 +36,7 @@ async function animethemes(source: GenreSource): Promise<Candidate[]> {
   return out;
 }
 
-// 들을 음원 주소. overlap이 None인 판본이 하나도 없으면 음원에 대사가 얹혀 있다(60곡 중 5곡). 그것만 버린다.
+// 들을 음원 주소. overlap이 None인 판본이 하나도 없으면 음원에 대사가 얹혀 있다. 그것만 버린다.
 function audioOf(theme: Theme) {
   const videos = (theme.animethemeentries || []).flatMap((e) => e.videos || []);
   const clean = videos.find((v) => v.overlap === "None");

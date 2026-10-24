@@ -90,7 +90,7 @@ function anisongFilters(source: Partial<GenreSource>): Filters {
     song_categories: list(source.songCategories, ANISONG_CATEGORIES) || ["standard"],
     broadcasts: list(source.broadcasts, ANISONG_BROADCASTS) || ["normal"],
     // require_any 는 OR(require_all 이 AND). HQ 를 같이 받는 이유는 저쪽이 영상을 먼저 올리고
-    // 음원 추출을 나중에 해서, 최신 분기로 좁히면 영상만 있는 곡이 넷 중 하나꼴이기 때문이다.
+    // 음원 추출을 나중에 해서, 최신 분기로 좁히면 영상만 있는 곡이 많기 때문이다.
     media_links: { require_any: ["audio", "HQ"] },
   };
 

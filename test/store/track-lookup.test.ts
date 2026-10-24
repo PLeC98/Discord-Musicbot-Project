@@ -12,7 +12,7 @@ const route = await import("../../src/autoplay/route.ts");
 
 // ── 제목 출처 (title_verified) ───────────────────────────────
 // 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면
-// 한 번 고친 것이 도로 낡은 값으로 돌아간다 — 이 왕복이 실제 증상이었다.
+// 한 번 고친 것이 도로 낡은 값으로 돌아간다.
 
 const TL_URL = "https://www.youtube.com/watch?v=titletest";
 
@@ -93,7 +93,7 @@ test("퇴거로 audio_cache 행이 삭제돼도 링크 데이터는 남는다. �
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/ev1", pageUrl: "https://open.spotify.com/track/ev1", audioUrl: "https://www.youtube.com/watch?v=evictedvid", platform: "spotify", title: "곡" });
 
   fs.unlinkSync(file);
-  cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 줄마다 하는 일
+  cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 행마다 하는 일
 
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/ev1").hit, false, "파일이 없으니 캐시로는 못 튼다");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/ev1?si=x"), "https://www.youtube.com/watch?v=evictedvid", "검색은 건너뛴다");

@@ -28,7 +28,7 @@ function textOf(head: Uint8Array) {
     .trimStart();
 }
 
-// MPEG 오디오 프레임 머리의 길이(바이트). 머리가 아니면 0. layer I · II · III, MPEG 1 · 2 · 2.5
+// MPEG 오디오 프레임 헤더의 길이(바이트). 헤더가 아니면 0. layer I · II · III, MPEG 1 · 2 · 2.5
 const BITRATES: Record<string, number[]> = {
   "1-1": [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
   "1-2": [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
@@ -53,14 +53,14 @@ function mpegFrameLength(b: Uint8Array, at: number): number {
   return Math.floor((perFrame * bitrate) / rate) + padding;
 }
 
-// ADTS(AAC) 프레임 머리의 길이. 머리가 아니면 0
+// ADTS(AAC) 프레임 헤더의 길이. 헤더가 아니면 0
 function adtsFrameLength(b: Uint8Array, at: number): number {
   if (at + 7 > b.length || b[at] !== 0xff || (b[at + 1] & 0xf6) !== 0xf0) return 0;
   const length = ((b[at + 3] & 3) << 11) | (b[at + 4] << 3) | (b[at + 5] >> 5);
   return length >= 7 ? length : 0;
 }
 
-/** 앞부분 어딘가에서 프레임 둘이 잇달아 나오는가(MPEG 오디오 · ADTS). 우연히 맞은 동기 바이트를 거른다 */
+/** 앞부분 어딘가에서 프레임 둘이 잇달아 나오는가(MPEG 오디오 · ADTS). 우연히 맞은 동기 바이트를 제외한다 */
 function twoFrames(head: Uint8Array): boolean {
   for (let at = 0; at + 8 < head.length; at++) {
     for (const lengthAt of [mpegFrameLength, adtsFrameLength]) {

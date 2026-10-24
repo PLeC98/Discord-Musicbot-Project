@@ -23,7 +23,7 @@ type Artist = { id?: number; name?: string; artistType?: string; names?: Array<{
 
 const VOCA_PAGE = 50;
 
-// 곡 검색은 오래 기다린다. 가수를 걸면 저쪽이 느리다(UNI 1,235곡도 첫 창에 6~12초, 깊은 창은 30초에서 저쪽이 500).
+// 곡 검색은 오래 기다린다. 가수를 걸면 저쪽이 느리다(깊은 창은 30초에서 저쪽이 500).
 // 곡이 도는 동안 다음 곡을 미리 선택하고 풀이 한 시간 가므로 기다려도 티가 안 난다.
 // 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
 const VOCA_TIMEOUT_MS = 35_000;
@@ -211,7 +211,7 @@ function candidateOf(song: Song, type: Site): Candidate | null {
     artist: creditOf(song) || song.artistString || "",
     title: song.name,
     youtubeUrl: pv.url,
-    // 기본 응답에 들어 있다(100곡 중 빈 것 0개). 없으면 길이 제한에 걸려 통째로 떨어진다.
+    // 기본 응답에 들어 있다. 없으면 길이 제한에 걸려 통째로 떨어진다.
     durationSec: Number(song.lengthSeconds) || undefined,
     thumbnail: song.thumbUrl || null,
     sourceUrl: `https://${VOCA_HOSTS[type]}/S/${song.id}`,

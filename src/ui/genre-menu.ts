@@ -1,5 +1,5 @@
 // 자동재생 장르 선택 화면. 자동재생 버튼과 `/autoplay`가 같은 것을 표시한다.
-// 진입점마다 따로 만들면 한쪽만 고쳐져 어긋난다(실제로 명령 쪽은 영문 키 목록을 쓰고 있었다).
+// 진입점마다 따로 만들면 한쪽만 고쳐져 어긋난다.
 
 import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
 import * as genreConfig from "../config/genres.ts";

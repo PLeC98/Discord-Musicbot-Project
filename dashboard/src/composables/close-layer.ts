@@ -63,7 +63,7 @@ export function useCloseLayer(open: Readonly<Ref<boolean>>, close: () => void) {
     },
     { immediate: true },
   );
-  // 열린 채 사라지면(화면을 옮기면) 같이 거둔다
+  // 열린 채 사라지면(화면을 옮기면) 같이 정리한다
   onScopeDispose(() => {
     stop?.();
     stop = null;

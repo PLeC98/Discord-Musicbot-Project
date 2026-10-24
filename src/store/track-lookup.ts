@@ -161,7 +161,7 @@ function clearResult(requestKey: string, expect: string): Guarded<string> {
   return current === null ? GONE : changedTo(current);
 }
 
-/** 들여오는 링크 데이터 행(오디오 캐시 불러오기) */
+/** 불러오는 링크 데이터 행(오디오 캐시 불러오기) */
 type MergeRow = { requestKey: string; pageUrl: string; audioUrl: string; platform: string; title: string | null; artist: string | null; thumbnail: string | null; titleVerified: boolean };
 
 /**

@@ -479,7 +479,7 @@ function cacheCount(): number {
 /** 다운로드해 둔 캐시 파일의 크기 합 · 수(오디오 캐시 불러오기가 상한까지 남은 몫을 센다) */
 const cacheUsage = () => ({ bytes: cacheSize(), files: cacheCount() });
 
-/** 들여오는 캐시 파일 하나의 행(다른 봇이 내보낸 것) */
+/** 불러오는 캐시 파일 하나의 행(다른 봇이 내보낸 것) */
 type AdoptRow = { audioKey: string; title: string | null; channel: string | null; durationSec: number | null; sizeBytes: number; plays: number; lastPlayedAt: number | null; downloadedAt: number | null; audioVersion: string | null };
 
 /**
@@ -568,7 +568,7 @@ function guardedKeys() {
 }
 
 /**
- * 삭제 순서. 점수가 높은(삭제할 만한) 것이 앞이다. 오디오 캐시 불러오기는 들여올 행을 이것으로 줄 세워 점수가 낮은 것부터 상한까지 가져온다
+ * 삭제 순서. 점수가 높은(삭제할 만한) 것이 앞이다. 오디오 캐시 불러오기는 불러올 행을 이것으로 줄 세워 점수가 낮은 것부터 상한까지 불러온다
  * @param moreAge  연령 제한으로 함께 볼 영상 id(불러오는 파일의 연령 제한)
  */
 function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "last_played_at" | "downloaded_at" | "created_at" | "file_size_bytes">>(rows: T[], moreAge: Iterable<string> = []) {

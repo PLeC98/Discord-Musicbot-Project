@@ -108,7 +108,7 @@ function settle(h: number, v: number) {
   stop.value = v < -0.5 ? order[Math.min(2, order.indexOf(nearest(h, "up")))] : v > 0.5 ? order[Math.max(0, order.indexOf(nearest(h, "down")))] : nearest(h);
 }
 // 내용에서 시트 끌기(끝까지 펼치기 전만). 안의 조작에서 시작한 것은 받지 않는다.
-// 내용 영역 자신도 펼치기 전에는 touch-none 이라 내용 영역 안쪽만 본다(아니면 어디를 잡든 조작으로 보여 판이 끌리지 않았다)
+// 내용 영역 자신도 펼치기 전에는 touch-none 이라 내용 영역 안쪽만 본다(아니면 어디를 잡든 조작으로 보여 판이 끌리지 않는다)
 const OWN = "input, textarea, select, button, a, [role=slider], .touch-none";
 function ownControl(target: EventTarget | null) {
   const own = target instanceof Element ? target.closest(OWN) : null;

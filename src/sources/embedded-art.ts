@@ -1,6 +1,6 @@
 // 직접 링크 곡의 파일 태그(제목 · 가수 · 앨범 · 그림)를 찾아 기억한다. 디스코드 패널 · 대시보드가 그림을, 플레이어가 곡 정보를 여기서 받는다.
 //
-//   얻는 곳   캐시 파일의 태그(통신 없음) → 원본 링크의 머리(SafeUrl, 담을 때 읽은 것 포함). 캐시를 만들 때 넣은 것은 다운로드가 바로 알린다
+//   얻는 곳   캐시 파일의 태그(통신 없음) → 원본 링크의 헤더(SafeUrl, 담을 때 읽은 것 포함). 캐시를 만들 때 넣은 것은 다운로드가 바로 알린다
 //   기억      결과는 음원 키마다(버전: 캐시 파일이면 "file:" + 다운로드 시각, 아니면 "source"). 그림은 다시 구운 JPEG 을 바이트 상한 안에서 LRU.
 //             밀려나도 사라지지 않는다: 결과는 다시 찾고, 그림은 캐시 파일에서 다시 꺼낸다(원본에서만 얻은 그림은 다시 찾을 때까지 없다)
 //   찾기      한 번에 둘(지금 곡이 먼저), 같은 키는 한 번만. 통신 실패는 몇 분 뒤 다시, "없음"은 캐시 파일이 생길 때 다시
@@ -23,7 +23,7 @@ import { openFollowing, refusedByResponse, OPEN_ACCEPT } from "./direct-open.ts"
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
-/** 태그 읽기의 상한(그림이 든 머리 · 끝 moov 포함) */
+/** 태그 읽기의 상한(그림이 든 헤더 · 끝 moov 포함) */
 const TAG_LIMITS = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 /** 홉마다의 응답 대기 */
 const ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
@@ -52,7 +52,7 @@ const images = new Map<string, { jpeg: Buffer; audioKey: string }>();
 let imageBytes = 0;
 const queue: Array<{ audioKey: string; url: string }> = [];
 const running = new Set<string>();
-/** 담을 때 읽기 · 원본 머리 읽기의 끊기(캐시 다운로드가 시작되면 끊는다) */
+/** 담을 때 읽기 · 원본 헤더 읽기의 끊기(캐시 다운로드가 시작되면 끊는다) */
 const sourceReads = new Map<string, () => void>();
 /** 캐시 다운로드가 맡은 키 → 풀리는 시각. 그동안 원본을 다시 찾지 않는다(같은 파일로 연결이 셋 열리지 않게) */
 const holding = new Map<string, number>();
@@ -135,7 +135,7 @@ async function rangeFrom(url: string, start: number): Promise<Readable | null> {
   return null;
 }
 
-/** 한 키를 찾는다: 캐시 파일이 있으면 그 태그, 없으면 원본 머리 */
+/** 한 키를 찾는다: 캐시 파일이 있으면 그 태그, 없으면 원본 헤더 */
 async function find(audioKey: string, url: string) {
   const { version, file } = versionOf(audioKey);
   if (file) {
@@ -242,7 +242,7 @@ function noteFile(audioKey: string, tags: TagInfo | null, cover: Cover | null) {
   settle(audioKey, version, tags ?? EMPTY, cover);
 }
 
-/** 이 키의 캐시 다운로드가 시작됐다. 원본 머리 읽기를 끊고, 다운로드가 결과를 알릴 때까지 다시 찾지 않는다(같은 파일로 연결이 셋 열리지 않게). 태그는 받은 파일이 채운다 */
+/** 이 키의 캐시 다운로드가 시작됐다. 원본 헤더 읽기를 끊고, 다운로드가 결과를 알릴 때까지 다시 찾지 않는다(같은 파일로 연결이 셋 열리지 않게). 태그는 받은 파일이 채운다 */
 function cancelSource(audioKey: string) {
   sourceReads.get(audioKey)?.();
   holding.set(audioKey, Date.now() + HOLD_MS);

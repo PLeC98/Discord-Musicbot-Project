@@ -32,7 +32,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 
   for (const thumbnail of [null, undefined, "", "https://example.org/t.jpg"]) {
     const container = await mem.createNowPlayingContainer(player, { ...base, thumbnail });
-    // toJSON이 실제 전송 시 도는 검증 — 썸네일이 없을 때 여기서 터졌다
+    // toJSON이 실제 전송 시 도는 검증 — 썸네일이 없어도 여기서 던지지 않는다
     const json = container.toJSON();
     assert.ok(JSON.stringify(json).includes("Test"), `제목이 담겨야 한다 (thumbnail=${thumbnail})`);
   }

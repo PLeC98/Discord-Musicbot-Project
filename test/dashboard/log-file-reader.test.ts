@@ -1,4 +1,4 @@
-// src/dashboard/log-file-reader.ts — 로그 파일 읽기(끝에서부터 쪽 · 뒤로 이어 읽기 · 시각으로 가기 · 거르기 · 떼어진 파일 따라가기 · 덜 된 줄)
+// src/dashboard/log-file-reader.ts — 로그 파일 읽기(끝에서부터 쪽 · 뒤로 이어 읽기 · 시각으로 가기 · 필터 · 떼어진 파일 따라가기 · 덜 된 줄)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -63,7 +63,7 @@ test("시각으로 가기(at): 그 시각 이상인 첫 줄이 들고, 그 뒤 5
   assert.equal(texts(readLogPage(target, { ...all, limit: 10, at: T0 + 10_000_000 })).at(-1), 999);
 });
 
-test("거르기: 레벨 · 카테고리 · 태그 · 찾기(실시간 로그와 같은 규칙), 찾기가 있으면 파일 전체의 맞은 줄 수", () => {
+test("필터: 레벨 · 카테고리 · 태그 · 찾기(실시간 로그와 같은 규칙), 찾기가 있으면 파일 전체의 맞은 줄 수", () => {
   const { file } = writeLog(100);
   const target = resolveLogFile(file, "bot.log")!;
   const warn = readLogPage(target, { limit: 300, filter: { levels: new Set(["warn"] as const) } })!;
@@ -136,7 +136,7 @@ test("보던 지금 파일이 떼어졌으면 첫 줄의 시각(since)으로 떼
   assert.equal(resolveLogFile(file, "bot.log", page.since), null);
 });
 
-test("내려받기: 거른 줄을 화면과 같은 칸으로, 시각은 보는 사람의 시간대", () => {
+test("내려받기: 필터링한 줄을 화면과 같은 열로, 시각은 보는 사람의 시간대", () => {
   const { file } = writeLog(10);
   const target = resolveLogFile(file, "bot.log")!;
   const lines = [...filteredLines(target, { category: "youtube" })];

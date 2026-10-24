@@ -13,7 +13,7 @@ const log = logger.child({ category: "autoplay" });
 type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: string; title?: string; duration?: number; identifier?: string[] }> } } } };
 
 // LB Radio는 재생목록을 그때그때 짜 주느라 느리다.
-// 15초로는 자주 끊겨 멀쩡한 소스가 빈손으로 취급된다.
+// 한도가 짧으면 멀쩡한 소스가 빈손으로 취급된다.
 const SLOW_MS = 30000;
 
 // ── lbradio ───────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
 }
 
 // MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 빈 값을 채운다.
-// 그대로 두면 그걸 유튜브에 검색하게 된다(250곡 중 1곡꼴).
+// 그대로 두면 그걸 유튜브에 검색하게 된다.
 //
 // 대괄호로 싸였다고 다 필터링하면 안 된다. `[Alexandros]`는 실존하는 일본 록밴드다.
 // 그래서 정해진 목록만 본다. https://musicbrainz.org/doc/Style/Unknown_and_untitled

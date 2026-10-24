@@ -23,7 +23,7 @@ const LOGIN_BG_BLUR_MAX = 1.6;
 const LOGIN_BG_COVER_MAX = 80;
 /**
  * 화면에서 거는 값의 처음 값. 블러는 지금 로그인 화면(봇 프로필 그림 배경)과 같다.
- * 오버레이 35% 는 지금 로그인 화면이 봇 그림의 밝기를 띠 안으로 모으는 정도와 가깝다(회색 단계로 맞추면 어두운 모드 31% · 밝은 모드 39%)
+ * 오버레이 35% 는 지금 로그인 화면이 봇 그림의 밝기를 띠 안으로 모으는 정도와 가깝다
  */
 const LOGIN_BG_OPTIONS_DEFAULT: LoginBackgroundOptions = { blur: 0.5, cover: 35, follow: true, seam: { kind: "cut", seconds: 1 } };
 /** 기록 · 저장 한도의 처음 값. maxBytes 0 이면 무제한 */

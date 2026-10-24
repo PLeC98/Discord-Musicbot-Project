@@ -25,7 +25,7 @@ type Message = { role?: string; content?: string; text?: string };
  * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르다(응답이 센 토큰 수에 맞춘 값).
  *
  *   openai     한 메시지 3 + 요청 3
- *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같았다
+ *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같다
  *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
  *   anthropic  세대마다 다르다. 5(4.8~5) · 10(4.7) · 6(4.5~4.6)
  */
@@ -37,7 +37,7 @@ const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
 };
 
 // ── 세는 스레드 ────────────────────────────────────────────────────────────
-// 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어(1.6만 자 2.5초)
+// 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어
 // 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 시작하고 계속 쓴다(표를 다시 읽지 않게).
 
 // 맡긴 일 하나의 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 시작한다
@@ -128,7 +128,7 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
 }
 
 /**
- * 앤트로픽에 직접 물어 정확히 측정. 무과금, ~150ms
+ * 앤트로픽에 직접 물어 정확히 측정. 무과금
  * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {

@@ -708,7 +708,7 @@ function setAutoplay(genre: string | null) {
 const pickGenre = (name: string) => setAutoplay(name);
 
 // 처음 그릴 때는 화면에 보이는 만큼만 만들고, 나머지는 색이 옮겨 간 뒤 한가할 때 붙인다.
-// 100행을 한 번에 만들면 한 프레임이 70~100ms 가 되어 색 옮김의 첫 단계가 걸린다(아래쪽 행은 화면 밖이라 늦게 붙어도 보이지 않는다)
+// 100행을 한 번에 만들면 그 프레임이 길어져 색 옮김의 첫 단계가 걸린다(아래쪽 행은 화면 밖이라 늦게 붙어도 보이지 않는다)
 const FIRST_ROWS = 30;
 const rowLimit = ref(FIRST_ROWS);
 const shownQueue = computed(() => player.value.queue.slice(0, rowLimit.value));

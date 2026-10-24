@@ -1,7 +1,7 @@
 // 음원 파일 앞부분의 색인(webm Cues · mp4 sidx)으로 시간 → 바이트를 안다. 보는 것은 바이트뿐이다(통신 없음).
 // 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(클러스터 · 조각)부터 받으려고 쓴다(media/seek-start).
 //   webm  EBML → Segment → Info(TimecodeScale) · Tracks(오디오 트랙 번호) · 첫 클러스터 앞의 Cues. 위치는 Segment 데이터 시작 기준(RFC 9559 §16)
-//   mp4   ftyp → moov(여기까지가 머리) → sidx(version 0 · 1, 조각마다 크기 · 길이). 조각 시작은 sidx 다음 바이트 + first_offset
+//   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0 · 1, 조각마다 크기 · 길이). 조각 시작은 sidx 다음 바이트 + first_offset
 // 색인이 이상하면(값이 빠짐 · 시각이나 바이트가 줄어듦 · 파일 밖 · 계층형 sidx 등) 없음으로 답한다. 부르는 쪽은 그때 파일 처음부터 받는다.
 
 type Kind = "webm" | "mp4";
@@ -12,7 +12,7 @@ type ContainerIndex = { kind: Kind; headerEnd: number; points: Point[]; segment:
 type Read = { ok: true; index: ContainerIndex } | { ok: false; need: number } | { ok: false; why: string };
 type StartPoint = { byte: number; startedAtMs: number; expectStart(bytes: Buffer): boolean };
 
-/** 받은 첫 바이트를 확인하는 데 드는 양(webm: 클러스터 ID · 크기 · Timestamp, mp4: 상자 머리) */
+/** 받은 첫 바이트를 확인하는 데 드는 양(webm: 클러스터 ID · 크기 · Timestamp, mp4: 상자 헤더) */
 const FIRST_BYTES: Record<Kind, number> = { webm: 32, mp4: 8 };
 /** 디코더가 앞 소리 없이 시작하면 처음 수십 ms 가 다르다(Opus). 목표보다 이만큼 넘게 앞선 키프레임에서 시작한다 */
 const PREROLL_MS = 1000;
@@ -106,7 +106,7 @@ type WebmParts = { segment: Element; scale: number; audioTrack: number | null; c
 /** Segment 의 자식을 첫 클러스터까지 훑는다. 앞부분이 모자라면 더 받아야 할 양 */
 function webmParts(buf: Buffer): WebmParts | Read {
   const ebml = elementAt(buf, 0);
-  if (!ebml || ebml.id !== ID.EBML || !Number.isFinite(ebml.size)) return none("EBML 머리가 아님");
+  if (!ebml || ebml.id !== ID.EBML || !Number.isFinite(ebml.size)) return none("EBML 헤더가 아님");
   const segment = elementAt(buf, ebml.end);
   if (!segment || segment.id !== ID.Segment) return none("Segment 가 없음");
   let scale = 1_000_000;
@@ -208,7 +208,7 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
 
 // ── 함께 ──
 
-/** 시각 · 바이트가 늘어나기만 하고 모두 [머리 끝, 파일 끝) 안인가 */
+/** 시각 · 바이트가 늘어나기만 하고 모두 [헤더 끝, 파일 끝) 안인가 */
 function checked(index: ContainerIndex, totalBytes: number): Read {
   const { points, headerEnd } = index;
   if (points.length === 0) return none("색인 항목이 없음");
@@ -226,7 +226,7 @@ function readIndex(head: Buffer, totalBytes: number): Read {
   return none("webm · mp4 가 아님");
 }
 
-/** 머리로 넣을 바이트. webm 은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */
+/** 헤더로 넣을 바이트. webm 은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */
 function headerOf(head: Buffer, index: ContainerIndex): Buffer {
   const header = Buffer.from(head.subarray(0, index.headerEnd));
   if (index.segment) {
@@ -263,7 +263,7 @@ function startPoint(index: ContainerIndex, { targetMs, durationMs, chunkBytes }:
   return { byte: point.byte, startedAtMs: Math.round(point.ms), expectStart: startCheck(index.kind, point) };
 }
 
-/** 머리를 받으러 갈 만한가(받기 전에). 목표 바이트를 평균으로 어림해 첫 청크 둘 안이면 처음부터 받아도 차이가 없다 */
+/** 헤더를 받으러 갈 만한가(받기 전에). 목표 바이트를 평균으로 어림해 첫 청크 둘 안이면 처음부터 받아도 차이가 없다 */
 function worthIndexing({ startMs, durationMs, totalBytes, chunkBytes }: { startMs: number; durationMs: number; totalBytes: number; chunkBytes: number }): boolean {
   if (!(startMs > 0) || !(durationMs > 0) || !(totalBytes > 0)) return false;
   return (startMs / durationMs) * totalBytes >= 2 * chunkBytes;

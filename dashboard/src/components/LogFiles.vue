@@ -1,5 +1,5 @@
 <template>
-  <!-- 로그 파일 보기. 실시간 로그 창과 같은 틀(머리 · 거르기 · 줄 영역). 실시간 로그의 "파일 보기"가 여는 페이지(views/LogFilesView)에 놓인다.
+  <!-- 로그 파일 보기. 실시간 로그 창과 같은 틀(헤더 · 필터 · 줄 영역). 실시간 로그의 "파일 보기"가 여는 페이지(views/LogFilesView)에 놓인다.
        배치는 카드 안쪽 폭으로 바꾼다(사이드바를 접은 화면 = 화면 - 116, 1280 이상은 - 124):
        1187 이상: 레벨 / 카테고리 · 태그 · 찾기 … 날짜 · 시간(224) · 파일(256).
        935 ~ 1186: 오른쪽이 한 열이 되어 날짜 · 시간(256)을 파일 위로(첫 줄 오른쪽까지).
@@ -104,7 +104,7 @@ const BASE = "/api/admin/logs";
 /** initialAt: 이 시각으로 연다(실시간 로그의 "밀려났어요" 줄에서 왔을 때). 그 시각이 든 파일을 고른다 */
 const props = defineProps<{ initialAt?: number }>();
 
-// ── 거르기 ──
+// ── 필터 ──
 // 처음 켜 둘 레벨: trace 를 뺀 모두(지난 기록은 무엇이 있었는지 보러 온다)
 const BASE_LEVELS: LevelName[] = ["fatal", "error", "warn", "info", "debug"];
 const levelsOn = ref(new Set<LevelName>(BASE_LEVELS));
@@ -114,7 +114,7 @@ function toggleLevel(v: LevelName) {
   levelsOn.value = next;
 }
 const term = ref("");
-// 카테고리 · 태그: 그 파일에 나온 것(파일 목록이 준다). "" 이면 거르지 않는다. 실시간 로그와 같은 모양(카테고리 앞에 줄의 점과 같은 색)
+// 카테고리 · 태그: 그 파일에 나온 것(파일 목록이 준다). "" 이면 필터링하지 않는다. 실시간 로그와 같은 모양(카테고리 앞에 줄의 점과 같은 색)
 const category = ref<OptionValue>("");
 const tag = ref<OptionValue>("");
 const categoryOptions = computed<Option[]>(() => (current.value?.categories ?? []).map((c) => ({ value: c, label: c, color: catColor(c) })));
@@ -137,7 +137,7 @@ async function loadFiles() {
   enabled.value = list.enabled;
   files.value = list.files;
 }
-// 내려받기: 지금 건 거르기 그대로, 시각은 이 화면의 시간대로
+// 내려받기: 지금 건 필터 그대로, 시각은 이 화면의 시간대로
 const downloadUrl = computed(() => `${BASE}/file/download?${new URLSearchParams({ name: String(file.value), ...filterParams(), tz: String(new Date().getTimezoneOffset()) })}`);
 
 // ── 줄 ──
@@ -149,7 +149,7 @@ let since = 0;
 const loading = ref<"" | "page" | "earlier" | "later">("");
 const matches = ref<number | null>(null);
 const matchNote = computed(() => (matches.value == null ? "" : L.lines(matches.value)));
-// 맞은 부분을 칠할 찾기: 받은 줄을 거른 찾기(입력 중인 찾기는 결과가 오기 전이라 쓰지 않는다)
+// 맞은 부분을 칠할 찾기: 받은 줄을 필터링한 찾기(입력 중인 찾기는 결과가 오기 전이라 쓰지 않는다)
 const searched = ref("");
 const pane = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(pane);
@@ -247,7 +247,7 @@ function jump(ms: number | null) {
   void reload(ms == null ? {} : { at: ms });
 }
 
-// 파일 · 거르기를 바꾸면 끝에서부터 다시. 날짜 · 시간으로 파일을 바꿀 때는 그쪽이 그 시각으로 읽으므로 한 번 건너뛴다
+// 파일 · 필터를 바꾸면 끝에서부터 다시. 날짜 · 시간으로 파일을 바꿀 때는 그쪽이 그 시각으로 읽으므로 한 번 건너뛴다
 let skipWatch = false;
 watch([file, levelsOn, category, tag], () => {
   if (skipWatch) return void (skipWatch = false);
@@ -260,7 +260,7 @@ watch(term, () => {
 });
 
 // ── 필터 창 ──
-// 안의 거르기는 줄의 것과 같은 값을 바로 바꾼다. 필터 창이 맡은 것만 센다: 줄에서 빠진 날짜 · 시간(카드 804 이하) · 파일(524 이하). 휴대폰은 둘 다 창 안에 있다
+// 안의 필터는 줄의 것과 같은 값을 바로 바꾼다. 필터 창이 맡은 것만 센다: 줄에서 빠진 날짜 · 시간(카드 804 이하) · 파일(524 이하). 휴대폰은 둘 다 창 안에 있다
 const sheetOpen = ref(false);
 const isPhone = useMediaQuery(PHONE_QUERY);
 const card = ref<HTMLElement | null>(null);

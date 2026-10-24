@@ -1,4 +1,4 @@
-// src/sources/hls.ts — 직접 링크 HLS 의 목록 받기 · 고르기 · 라이브 따라가기 · 조각 받기(바이트 구간 · 머리 조각 · AES-128).
+// src/sources/hls.ts — 직접 링크 HLS 의 목록 받기 · 고르기 · 라이브 따라가기 · 조각 받기(바이트 구간 · 초기화 조각 · AES-128).
 // 네트워크는 가짜다(주소 → 응답)
 
 import crypto from "node:crypto";
@@ -69,7 +69,7 @@ test("VOD: 위치가 든 조각부터 받고 그 조각의 시작을 알린다",
   assert.equal(hls.fragments().startedAtMs, 0);
 });
 
-test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버면 잘라 쓴다. 머리 조각은 바뀔 때만 먼저 받는다", async () => {
+test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버면 잘라 쓴다. 초기화 조각은 바뀔 때만 먼저 받는다", async () => {
   const file = "INIT" + "AAAA" + "BBBB";
   const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI="main.mp4",BYTERANGE="4@0"\n#EXTINF:4,\n#EXT-X-BYTERANGE:4@4\nmain.mp4\n#EXTINF:4,\n#EXT-X-BYTERANGE:4\nmain.mp4\n#EXT-X-MAP:URI="other.mp4"\n#EXTINF:4,\nseg.m4s\n#EXT-X-ENDLIST\n`;
   for (const honorsRange of [true, false]) {

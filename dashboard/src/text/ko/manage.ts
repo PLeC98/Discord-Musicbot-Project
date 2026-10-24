@@ -15,7 +15,7 @@ const announce = {
   tooLong: (over: number) => `${formatNumber(over)}자를 줄여 주세요`,
   preview: "디스코드 메시지 미리보기",
   previewEmpty: "입력한 공지 내용이 여기에 표시돼요",
-  /** 미리보기 임베드의 바닥글(봇이 보낼 때와 같은 꼴) */
+  /** 미리보기 임베드의 바닥글(봇이 보낼 때와 같은 형식) */
   previewFooter: (sentAt: string) => `봇 운영자 • ${sentAt}`,
   today: (time: string) => `오늘 ${time}`,
   sending: "보내는 중...",

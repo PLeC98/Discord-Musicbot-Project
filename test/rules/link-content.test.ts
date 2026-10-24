@@ -6,7 +6,7 @@ import { contentOf, listTarget } from "../../src/rules/link-content.ts";
 import { taggedMp3 } from "../helpers/tagged-audio.ts";
 
 const text = (value: string) => new TextEncoder().encode(value);
-/** MPEG1 layer III 128kbps 44.1kHz 프레임 머리 + 채움(한 프레임 417 바이트) */
+/** MPEG1 layer III 128kbps 44.1kHz 프레임 헤더 + 채움(한 프레임 417 바이트) */
 const frame = () => Uint8Array.from([0xff, 0xfb, 0x90, 0x64, ...new Array(413).fill(0)]);
 const frames = (n: number) => Uint8Array.from(Array.from({ length: n }, frame).flatMap((one) => [...one]));
 

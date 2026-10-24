@@ -69,7 +69,7 @@ const restartTip = "시작할 때 한 번 정하는 값이라 봇을 다시 시�
 const pending = "저장함 · 다시 시작하면 적용";
 const restartBadge = "다시 시작해야 적용";
 const pickColor = "색 선택";
-/** 유튜브 카드 머리의 설명서 단추 */
+/** 유튜브 카드 헤더의 설명서 단추 */
 const youtubeDoc = "상세 설명";
 /** 쿠키 출처 고르기 */
 const cookies = { none: "사용 안 함", file: "쿠키 직접 입력", browsers: "브라우저", otherGroup: "기타 형식", other: "기타(직접 입력)", otherPlaceholder: "예: chrome:Profile 1" };

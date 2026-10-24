@@ -1,4 +1,4 @@
-// src/media/seek-start.ts — 위치를 옮길 때 받기 시작할 자리(머리 · 키프레임 바이트)를 묻는다.
+// src/media/seek-start.ts — 위치를 옮길 때 받기 시작할 자리(헤더 · 키프레임 바이트)를 묻는다.
 // 요청은 가짜(파일 바이트를 Range 로 준다). 끝에서는 진짜 청크 스트림 · ffmpeg 로 색인 길과 처음부터 받은 길의 소리를 견준다
 
 import path from "node:path";
@@ -60,7 +60,7 @@ function fileFetch(file: Buffer, { status = 206, hang = false } = {}) {
 const request = (file: Buffer, over: Partial<SeekRequest> = {}): SeekRequest => ({ url: "https://rr.test/a", headers: {}, totalBytes: file.length, startMs: 90_000, durationMs: 120_000, chunkBytes: 64 * 1024, ...over });
 
 for (const kind of ["webm", "m4a"] as const) {
-  test(`${kind}: 머리 · 키프레임 바이트 · 그 자리의 첫 바이트 확인을 준다`, async (t) => {
+  test(`${kind}: 헤더 · 키프레임 바이트 · 그 자리의 첫 바이트 확인을 준다`, async (t) => {
     const file = files[kind];
     if (!file) return t.skip("ffmpeg로 시료를 만들 수 없음");
     const { fetchImpl, asked } = fileFetch(file);
@@ -89,7 +89,7 @@ test("가까운 위치는 묻지 않는다 · 색인이 처음 받은 양보다 
   assert.equal(more.asked[0], "bytes=0-299");
 });
 
-test("머리 요청이 206 이 아니면 · 받지 못하면 · 한도를 넘으면 없음(한도는 slow)", async (t) => {
+test("헤더 요청이 206 이 아니면 · 받지 못하면 · 한도를 넘으면 없음(한도는 slow)", async (t) => {
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const ignored = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 200 }).fetchImpl });
@@ -156,7 +156,7 @@ function bestLag(a: Buffer, b: Buffer) {
 }
 
 for (const kind of ["webm", "m4a"] as const) {
-  test(`실물 ${kind}: 색인 길(머리 + 키프레임부터 · 남은 -ss)의 소리가 처음부터 받은 길과 같다(어긋남 2ms 안)`, async (t) => {
+  test(`실물 ${kind}: 색인 길(헤더 + 키프레임부터 · 남은 -ss)의 소리가 처음부터 받은 길과 같다(어긋남 2ms 안)`, async (t) => {
     const file = files[kind];
     if (!file) return t.skip("ffmpeg로 시료를 만들 수 없음");
     const startMs = 90_500;

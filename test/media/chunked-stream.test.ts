@@ -523,13 +523,13 @@ test("첫 Range 요청(유튜브)의 전체 크기는 어림값이라 보지 않
   assert.deepEqual(await collect(s), body);
 });
 
-// ── 위치를 옮긴 첫 요청(키프레임 바이트부터 · 머리 먼저) ─────────────
+// ── 위치를 옮긴 첫 요청(키프레임 바이트부터 · 헤더 먼저) ─────────────
 
 const HEAD = Buffer.from("MEDIA-HEADER");
 /** 키프레임 자리의 앞 4바이트를 확인한다 */
 const expectAt = (body: Buffer, at: number) => ({ bytes: 4, check: (head: Buffer) => Buffer.compare(head.subarray(0, 4), body.subarray(at, at + 4)) === 0 });
 
-test("startByte · prefix: 머리를 먼저 흘리고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
+test("startByte · prefix: 헤더를 먼저 흘리고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
   const body = makeBody(50_000);
   const seen: Array<{ start: number }> = [];
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 30_000, prefix: HEAD, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });

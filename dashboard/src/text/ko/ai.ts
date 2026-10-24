@@ -60,7 +60,7 @@ const params = {
   listPlaceholder: "입력하고 Enter",
   badJson: "올바른 JSON 이 아니에요",
   extra: "추가 파라미터",
-  /** 추가 파라미터 설명의 앞(뒤에 줄 꼴 예시가 붙는다) */
+  /** 추가 파라미터 설명의 앞(뒤에 줄 형식 예시가 붙는다) */
   extraHelp: "한 줄에 하나씩. ",
 };
 
@@ -117,7 +117,7 @@ const prompt = {
   estimated: "추정치",
   tokensFailed: "토큰 수를 세지 못함",
   addSection: "섹션 추가",
-  /** 설명: 앞 · 답 꼴 예시 · 뒤 */
+  /** 설명: 앞 · 답 형식 예시 · 뒤 */
   descBefore: "섹션마다 역할을 정해 적은 순서대로 보내요. 답은 반드시 ",
   descAfter: " 형식의 JSON 배열이어야 해요.",
   emptyUsesDefault: "비어 있어 기본 프롬프트를 써요.",

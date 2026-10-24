@@ -14,7 +14,7 @@ const add = "추가";
 const expand = "펼치기";
 const collapse = "접기";
 const clearValue = "비우기";
-/** 저장소 설명서로 가는 단추(카드 머리) */
+/** 저장소 설명서로 가는 단추(카드 헤더) */
 const docs = "설명서";
 const docsTip = "봇 저장소의 설명서를 새 탭에서 열어요.";
 

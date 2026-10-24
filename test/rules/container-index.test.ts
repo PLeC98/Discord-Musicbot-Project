@@ -61,7 +61,7 @@ for (const [name, file] of [
   });
 }
 
-test("실제 파일: 머리는 첫 클러스터 · moov 까지, webm 은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
+test("실제 파일: 헤더는 첫 클러스터 · moov 까지, webm 은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
   if (!webm || !m4a) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const w = indexOf(webm);
   const header = headerOf(webm, w);
@@ -74,7 +74,7 @@ test("실제 파일: 머리는 첫 클러스터 · moov 까지, webm 은 Segment
 
   const m = indexOf(m4a);
   assert.equal(Buffer.compare(headerOf(m4a, m), m4a.subarray(0, m.headerEnd)), 0);
-  assert.equal(m4a.toString("latin1", m.headerEnd + 4, m.headerEnd + 8), "sidx", "머리는 moov 끝까지(sidx 는 넣지 않는다)");
+  assert.equal(m4a.toString("latin1", m.headerEnd + 4, m.headerEnd + 8), "sidx", "헤더는 moov 끝까지(sidx 는 넣지 않는다)");
 });
 
 test("실제 파일: 앞부분이 모자라면 더 받을 양을 알린다", (t) => {
@@ -258,7 +258,7 @@ test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 �
   }
 });
 
-test("머리: Segment 크기를 같은 너비의 크기 모름으로(4바이트 표기면 1F FF FF FF), 나머지 바이트는 그대로", () => {
+test("헤더: Segment 크기를 같은 너비의 크기 모름으로(4바이트 표기면 1F FF FF FF), 나머지 바이트는 그대로", () => {
   const body = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, 0)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
   // Cues 의 자리(0)가 첫 클러스터를 가리키도록 Info · Cues 를 클러스터 뒤가 아니라 앞에 두되, 위치 값은 클러스터 자리로 다시 쓴다
   const clusterAt = body.indexOf(Buffer.from("1f43b675", "hex"));
@@ -275,7 +275,7 @@ test("머리: Segment 크기를 같은 너비의 크기 모름으로(4바이트 
   assert.equal(Buffer.compare(header.subarray(at + 4), file.subarray(at + 4, read.index.headerEnd)), 0);
 });
 
-// ── 시작점 · 묻기 전에 거르기 ──
+// ── 시작점 · 묻기 전 판정 ──
 
 const synthetic = (points: Array<[number, number]>): ContainerIndex => ({ kind: "mp4", headerEnd: 100, segment: null, points: points.map(([ms, byte]) => ({ ms, byte, raw: ms })) });
 
@@ -297,7 +297,7 @@ test("시작점: 목표보다 1초 넘게 앞선 마지막 키프레임. 첫 청
   assert.match((at(25_000, 0) as { why: string }).why, /곡 길이/, "길이를 모르면");
 });
 
-test("묻기 전에 거르기: 목표 바이트 어림이 첫 청크 둘 밖일 때만", () => {
+test("묻기 전 판정: 목표 바이트 어림이 첫 청크 둘 밖일 때만", () => {
   const base = { durationMs: 6_000_000, totalBytes: 120_000_000, chunkBytes: 1_048_576 };
   assert.equal(worthIndexing({ ...base, startMs: 60_000 }), false, "1분 = 1.2MB < 2MB");
   assert.equal(worthIndexing({ ...base, startMs: 120_000 }), true, "2분 = 2.4MB");

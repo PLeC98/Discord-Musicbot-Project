@@ -1,5 +1,5 @@
 <template>
-  <!-- 봇 초대. 서버 목록과 같은 틀(머리 · 카드 격자)에, 카드는 서버 관리 권한이 있고 봇이 없는 서버. 카드 아래 줄이 지금 곡 대신 초대 버튼이다 -->
+  <!-- 봇 초대. 서버 목록과 같은 틀(헤더 · 카드 격자)에, 카드는 서버 관리 권한이 있고 봇이 없는 서버. 카드 아래 줄이 지금 곡 대신 초대 버튼이다 -->
   <div class="min-h-full px-(--gap-out) pt-2 md:pt-0 pb-[calc(var(--gap-out)+var(--player))]">
     <header class="flex items-center justify-between gap-4 h-12 md:h-(--strip) mb-1 md:mb-0 px-[calc((var(--r-desk)-var(--gap-out))/2)]">
       <div class="flex items-baseline gap-3 min-w-0">

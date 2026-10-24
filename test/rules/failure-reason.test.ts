@@ -1,4 +1,4 @@
-// src/rules/failure-reason.ts — 재생 실패를 로그 한 줄로. 같은 실패가 두 줄씩, yt-dlp 원문 그대로 찍히던 것을 줄였다.
+// src/rules/failure-reason.ts — 재생 실패를 로그 한 줄로. 같은 실패를 두 줄씩, yt-dlp 원문 그대로 찍지 않는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

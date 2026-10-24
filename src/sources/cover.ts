@@ -30,7 +30,7 @@ async function bakeCover(data: Uint8Array): Promise<Cover | null> {
 
 /**
  * 캐시 파일 태그에서 꺼낸 그림. 우리가 구운 모양(JPEG · 긴 변 1000px 안)이면 그대로, 아니면 다시 굽는다.
- * 백업으로 가져온 남의 캐시 파일도 같은 확인을 지난다(누가 만든 파일인지 가리지 않는다)
+ * 백업으로 불러온 남의 캐시 파일도 같은 확인을 지난다(누가 만든 파일인지 가리지 않는다)
  */
 async function checkCover(data: Uint8Array): Promise<Cover | null> {
   if (data.length === 0 || data.length > MAX_INPUT_BYTES) return null;

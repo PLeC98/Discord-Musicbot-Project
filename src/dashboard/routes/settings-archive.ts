@@ -1,5 +1,5 @@
-// 설정 내보내기 · 가져오기(운영자 패널 백업 탭). /api/admin/settings-archive
-// 내보내기 · 가져오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
+// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
+// 내보내기 · 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
 import crypto from "node:crypto";
 import express from "express";
@@ -95,7 +95,7 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
   }
 });
 
-// token: 미리 보기의 토큰, items: 덮어쓸 항목(쉼표로). 가져오면 올린 파일을 삭제한다(검사에 걸리면 다시 선택할 수 있게 둔다)
+// token: 미리 보기의 토큰, items: 덮어쓸 항목(쉼표로). 불러오면 올린 파일을 삭제한다(검사에 걸리면 다시 선택할 수 있게 둔다)
 settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   const token = String(req.query.token ?? "");
   const items = String(req.query.items ?? "")
@@ -105,15 +105,15 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   const file = uploads.fileOf(token);
   if (!file) return sendProblem(res, "upload-gone");
   try {
-    // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 가져올 때만)
+    // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
     const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
     uploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 가져오기: ${imported.imported.join(" · ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(" · ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
     if (unreadable(res, error)) return;
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
-    log.error({ sub: "admin" }, `설정 가져오기 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, `설정 불러오기 실패: ${messageOf(error)}`);
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });

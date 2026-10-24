@@ -391,7 +391,7 @@ class TrackDownloader {
   // 직접 링크(파일 · HLS VOD). SSRF 가드(SafeUrl)를 통과해 가져온다(media/direct-input).
   // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
   async _fetchDirect(downloadUrl: string, tempPath: string, track: DownloadTrack): Promise<Fetched> {
-    // 같은 파일의 머리 읽기(담을 때 · 그림 찾기)를 끊는다. 연결이 셋 열리지 않게. 태그는 받은 파일이 채운다
+    // 같은 파일의 헤더 읽기(담을 때 · 그림 찾기)를 끊는다. 연결이 셋 열리지 않게. 태그는 받은 파일이 채운다
     const key = audioKeyOf(downloadUrl);
     if (key) embeddedArt.cancelSource(key);
     const audioStream = await this.deps.direct.getStream(downloadUrl);

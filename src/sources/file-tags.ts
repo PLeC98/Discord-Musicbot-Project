@@ -1,5 +1,5 @@
 // 음원 파일의 태그(제목 · 가수 · 앨범 · 그림)를 읽는다(music-metadata). 남이 준 바이트라 우리가 바이트 · 시간 상한을 먼저 건다.
-// 파일은 라이브러리가 자리를 옮겨 읽어(MP4 의 끝 moov 도) 그대로 넘긴다. 스트림은 태그가 있는 머리까지만 읽고 끊는다.
+// 파일은 라이브러리가 자리를 옮겨 읽어(MP4 의 끝 moov 도) 그대로 넘긴다. 스트림은 태그가 있는 헤더까지만 읽고 끊는다.
 // MP4 는 스트림으로 주면 mdat 을 끝까지 읽어서, 맨 위 상자를 우리가 걸어 ftyp + moov 만 버퍼로 넘긴다(moov 가 끝이면 그 자리를 따로 받는다)
 
 import { PassThrough, type Readable } from "node:stream";
@@ -96,7 +96,7 @@ function reader(stream: Readable) {
 
 type Box = { type: string; start: number; size: number; header: number };
 
-/** prefix 의 at 자리 상자 머리. 크기 0(파일 끝까지)은 null */
+/** prefix 의 at 자리 상자 헤더. 크기 0(파일 끝까지)은 null */
 async function boxAt(prefix: Prefix, at: number): Promise<Box | null> {
   if (!(await prefix.fill(at + 8))) return null;
   const bytes = prefix.bytes();
@@ -144,7 +144,7 @@ async function mp4Tags(prefix: Prefix, limits: StreamLimits, budget: { left: num
   }
 }
 
-/** 그 밖: 받는 대로 라이브러리에 흘리고, 라이브러리가 끝나면(태그가 있는 머리를 다 읽음) 받기를 그만둔다 */
+/** 그 밖: 받는 대로 라이브러리에 흘리고, 라이브러리가 끝나면(태그가 있는 헤더를 다 읽음) 받기를 그만둔다 */
 async function streamTags(prefix: Prefix, next: () => Promise<IteratorResult<Buffer>>, budget: { left: number }): Promise<Tags | null> {
   const feed = new PassThrough();
   // 라이브러리가 끝났는지(읽었든 못 읽었든). 못 읽은 것은 "없음"이고, 보내는 쪽(스트림)의 오류만 던진다
@@ -180,7 +180,7 @@ async function streamTags(prefix: Prefix, next: () => Promise<IteratorResult<Buf
 }
 
 /**
- * 스트림(원본 링크)의 태그. 머리까지만 받고 스트림을 부순다.
+ * 스트림(원본 링크)의 태그. 헤더까지만 받고 스트림을 부순다.
  * 상한 안에 태그를 다 읽지 못했거나 읽을 수 없는 형식이면 null, 스트림 오류 · 시간 초과는 던진다
  */
 async function fromStream(source: Readable, limits: StreamLimits): Promise<Tags | null> {

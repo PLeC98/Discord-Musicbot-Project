@@ -18,7 +18,7 @@ function intOf(raw: unknown): number | undefined {
 }
 const textOf = (raw: unknown) => (typeof raw === "string" ? raw : "");
 
-/** 거르기. levels 가 없으면 모든 레벨, 빈 글이면 아무 레벨도 아니다(화면에서 레벨을 모두 끈 것) */
+/** 필터. levels 가 없으면 모든 레벨, 빈 글이면 아무 레벨도 아니다(화면에서 레벨을 모두 끈 것) */
 function filterOf(req: Request): LogFilter {
   const levels = req.query.levels;
   return {
@@ -48,7 +48,7 @@ logFilesRouter.get("/file", requireOwner, (req, res) => {
   res.json(page satisfies FilePage);
 });
 
-// 내려받기: 화면과 같은 칸(가린 것)을 지금 건 거르기 그대로. 원본은 서버의 로그 폴더에 있다. 한 줄씩 흘려 보낸다
+// 내려받기: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다. 한 줄씩 흘려 보낸다
 logFilesRouter.get("/file/download", requireOwner, (req, res) => {
   const target = targetOf(req);
   if (!target) return sendProblem(res, "log-file-not-found");

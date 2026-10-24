@@ -80,7 +80,7 @@ const datePicker = {
   },
 };
 
-// 거르기 창(좁은 화면에서 거르기를 모아 둔 창)
+// 필터 창(좁은 화면에서 필터를 모아 둔 창)
 const filter = "필터";
 const filterApplied = (count: number) => `필터 ${count}개 적용됨`;
 

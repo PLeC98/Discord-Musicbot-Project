@@ -193,7 +193,7 @@ test("검사: 미리 선택해 둘 곡 수는 장르마다 둘 수 없다(기본
   assert.match(problems, /팝: prefetchCount.*defaults/);
 });
 
-// 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 시작해야 다음 문제가 보이던 것을 없앴다
+// 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 시작해야 다음 문제가 보이지 않게
 test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장 전 검사와 같은 문구)", () => {
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", "  팝:", "    emoji: abc", "    sources: []", ""].join("\n"));
   const err = complaint();

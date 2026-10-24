@@ -1,6 +1,6 @@
 <template>
   <!-- 날짜 · 시각 고르기. 누르는 칸은 드롭다운과 같은 모양, 펼친 창(304)에 달력 · 시 · 분 · "초기화" · "적용". PC · 태블릿 · 휴대폰 모두 같은 부품.
-       날짜: 머리의 "2026년 10월 ▾" → 연도 목록 → 월 목록 → 달력(M3 날짜 고르기처럼). 달력은 좌우로 끌면 따라오고 충분히 밀면 이전 · 다음 달로. ‹ › 도 있다.
+       날짜: 헤더의 "2026년 10월 ▾" → 연도 목록 → 월 목록 → 달력(M3 날짜 고르기처럼). 달력은 좌우로 끌면 따라오고 충분히 밀면 이전 · 다음 달로. ‹ › 도 있다.
        시간: 위아래로 돌리는 휠(WheelPicker, 가운데를 누르면 직접 친다). 로그가 없는 날 · 월은 막고, 연도 목록과 달 넘기기에서는 뺀다 -->
   <div ref="root" class="relative">
     <button ref="anchor" type="button" :class="boxCls" :aria-expanded="open" @click="toggle">
@@ -14,7 +14,7 @@
     <Teleport to="body">
       <!-- 보통은 칸 아래에 붙인다. 창 폭은 칸이 아니라 달력이 정한다(칸 왼쪽에, 안 들어가면 칸 오른쪽 끝에 맞춘다).
            휴대폰이거나 세로가 좁거나(755 미만), 열 때 칸 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 띄운다(필터 창과 같은 전환, style.css 의 fdialog). 뒤 누르기 · 기기의 뒤로 · Esc 로 닫는다.
-           휴대폰 가로처럼 낮은 화면(세로 512 이하)은 위아래로 쌓으면 시 · 분부터 잘리므로 왼쪽에 머리 · 달력, 오른쪽에 시 · 분 · 버튼을 둔다.
+           휴대폰 가로처럼 낮은 화면(세로 512 이하)은 위아래로 쌓으면 시 · 분부터 잘리므로 왼쪽에 헤더 · 달력, 오른쪽에 시 · 분 · 버튼을 둔다.
            끌어서 넘기므로 글자는 선택되지 않게 -->
       <Transition name="fdialog" :duration="asDialog ? { enter: 250, leave: 150 } : 0">
         <div v-if="open" :class="asDialog ? 'fixed inset-0 z-300 flex items-center justify-center p-4' : 'contents'">
@@ -23,7 +23,7 @@
           <div ref="panel" :role="asDialog ? 'dialog' : undefined" :aria-modal="asDialog || undefined" :class="asDialog ? (side ? SIDE_CLS : DIALOG_CLS) : MENU_CLS" :style="asDialog ? undefined : style">
             <!-- 왼쪽(낮은 화면만 묶는다. 그 밖은 묶지 않고 위아래로 잇는다) -->
             <div :class="side ? 'w-72 flex flex-col gap-2' : 'contents'">
-              <!-- 머리: 달 넘기기와 연 · 월 고르기 -->
+              <!-- 헤더: 달 넘기기와 연 · 월 고르기 -->
               <div class="flex items-center justify-between h-9">
                 <button v-if="view === 'days'" type="button" :class="NAV_BTN" :disabled="!prevMonth" :aria-label="T.prevMonth" @click="turn(-1)"><Icon name="chevron_right" :size="20" class="rotate-180" /></button>
                 <span v-else class="size-8"></span>
@@ -75,7 +75,7 @@
 
             <!-- 오른쪽(낮은 화면만): 구분선 뒤에 시 · 분(큰 휠, 세로 가운데)과 버튼(맨 아래, 시 · 분 자리를 밀지 않는다) -->
             <div :class="side ? 'relative flex flex-col justify-center pl-4 border-l border-outline-variant/50' : 'contents'">
-              <!-- 시 · 분: 돌리는 휠. 마우스 휠 한 번에 1. 콜론이 달력 가운데(수요일 칸) 아래에 오게 시계 아이콘은 자리를 차지하지 않고 시 휠 왼쪽에 붙인다 -->
+              <!-- 시 · 분: 돌리는 휠. 마우스 휠 한 번에 1. 콜론이 달력 가운데(수요일 열) 아래에 오게 시계 아이콘은 자리를 차지하지 않고 시 휠 왼쪽에 붙인다 -->
               <div class="flex justify-center" :class="side ? 'pl-6' : '-mt-1 pt-1 border-t border-outline-variant/50'">
                 <div class="relative flex items-center gap-2">
                   <Icon name="schedule" :size="18" class="absolute right-full top-1/2 -translate-y-1/2 mr-2 text-on-surface-variant" />
@@ -109,9 +109,9 @@ import { coveredBottom, useAnchoredPanel } from "../composables/anchored-panel.t
 import { rem } from "../utils/rem.ts";
 import { text } from "../text/index.ts";
 
-// 창 폭(rem). 날짜 한 칸 40 × 7 + 여백
+// 창 폭(rem). 날짜 한 셀 40 × 7 + 여백
 const PANEL_REM = 19;
-// 칸에 붙인 창의 높이(rem): 머리 2.25 · 달력 15.75 · 시 · 분 6.25 · 버튼 2 · 사이 · 안쪽 여백 3(실제 465px)
+// 칸에 붙인 창의 높이(rem): 헤더 2.25 · 달력 15.75 · 시 · 분 6.25 · 버튼 2 · 사이 · 안쪽 여백 3(실제 465px)
 const PANEL_H_REM = 29.25;
 const GAP = 4;
 
@@ -196,7 +196,7 @@ const prevMonth = computed(() => neighbor(cursor.value.year, cursor.value.month,
 const nextMonth = computed(() => neighbor(cursor.value.year, cursor.value.month, 1));
 
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-// 한 달의 6주 칸: 그 달 1일이 든 주의 일요일부터. 로그가 없는 날은 막는다
+// 한 달의 6주 셀: 그 달 1일이 든 주의 일요일부터. 로그가 없는 날은 막는다
 function monthDays(y: number, m: number) {
   const first = new Date(y, m, 1);
   const from = new Date(first);
@@ -252,7 +252,7 @@ const slide = ref(0);
 const sliding = ref(false);
 const width = ref(0);
 const trackStyle = computed(() => ({ translate: `calc(-100% / 3 + ${slide.value}px) 0`, transition: sliding.value ? `translate ${TURN_MS}ms cubic-bezier(0.2, 0, 0, 1)` : "none" }));
-// 넘어가는 중인 달. 머리 글은 미끄러지기 시작할 때 바로 바꾼다
+// 넘어가는 중인 달. 헤더 글은 미끄러지기 시작할 때 바로 바꾼다
 const turning = ref<{ year: number; month: number } | null>(null);
 const shown = computed(() => turning.value ?? cursor.value);
 function turn(dir: 1 | -1) {

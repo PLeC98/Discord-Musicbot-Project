@@ -1,4 +1,4 @@
-// src/infra/slot-queue.ts — 동시에 도는 수를 묶는 줄. 상한까지만 들이고 차례(rank · 온 차례)로, 끊기 · 닫기
+// src/infra/slot-queue.ts — 동시에 도는 수를 묶는 줄. 상한까지만 자리를 주고 차례(rank · 온 차례)로, 끊기 · 닫기
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -6,7 +6,7 @@ import { SlotQueue } from "../../src/infra/slot-queue.ts";
 
 const tick = () => new Promise((done) => setImmediate(done));
 
-test("상한까지만 들이고 나머지는 자리가 나면 온 차례로", async () => {
+test("상한까지만 자리를 주고 나머지는 자리가 나면 온 차례로", async () => {
   const queue = new SlotQueue(() => 2);
   const entered: number[] = [];
   const leaves: Array<() => void> = [];
@@ -47,7 +47,7 @@ test("크기는 들일 때마다 다시 읽는다", async () => {
   await tick();
   assert.equal(second, false);
   size = 2;
-  void queue.take(); // 다음 들이기에서 늘어난 크기를 본다
+  void queue.take(); // 다음에 자리를 줄 때 늘어난 크기를 본다
   await tick();
   assert.equal(second, true);
   first();

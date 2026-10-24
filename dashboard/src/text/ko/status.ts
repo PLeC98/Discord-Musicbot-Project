@@ -64,7 +64,7 @@ const clients = "클라이언트 (설정 순서)";
 const clientsRate = "성공/시도";
 const clientSkipped = "건너뜀";
 const clientDetail = (order: number, tried: number, ok: number, excluded: boolean) => `${order}번째로 시도\n${tried}번 중 ${ok}번 성공${excluded ? "\n연속 실패로 한동안 건너뛰어요" : ""}`;
-/** 지난 때를 큰 단위 둘까지 "2시간 8분 전" 꼴로(0 인 단위는 뺀다). cut 이면 앞에 "약" */
+/** 지난 때를 큰 단위 둘까지 "2시간 8분 전" 형식으로(0 인 단위는 뺀다). cut 이면 앞에 "약" */
 const justNow = "방금 전";
 const unitNames = { day: "일", hour: "시간", minute: "분", second: "초" };
 const ago = (span: string) => `${span} 전`;

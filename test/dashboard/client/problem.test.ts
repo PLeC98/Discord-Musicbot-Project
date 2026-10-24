@@ -53,7 +53,7 @@ test("응답 없이 실패한 요청은 화면만의 문장과 코드", () => {
 });
 
 test("문제 응답이 아니거나 모르는 코드면 화면이 준 글(코드 줄 없음)", () => {
-  for (const error of [undefined, null, { response: {} }, failed("<html>"), failed({ error: "옛 꼴" }), failed({ code: "no-such-code" }), failed({ code: "toString" }), { code: "ECONNABORTED" }]) assert.equal(problemText(error, "실패"), "실패");
+  for (const error of [undefined, null, { response: {} }, failed("<html>"), failed({ error: "옛 형식" }), failed({ code: "no-such-code" }), failed({ code: "toString" }), { code: "ECONNABORTED" }]) assert.equal(problemText(error, "실패"), "실패");
 });
 
 test("필드별 원문 목록", () => {

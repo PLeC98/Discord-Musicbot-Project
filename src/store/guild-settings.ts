@@ -164,7 +164,7 @@ type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: numbe
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
-/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(가져오기 · 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
+/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기 · 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
 function forgetCache() {
   cache.clear();
 }

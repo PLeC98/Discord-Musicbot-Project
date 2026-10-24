@@ -3,11 +3,11 @@
 // 스포티파이 익명 상태 · 재생 테스트 결과는 담지 않는다. 곡 파일 없이 내보내면(files=0) 캐시 파일 행도 담지 않는다.
 // 내보내는 동안 담을 파일을 지킨다(퇴거 · 삭제 · 초기화가 지우지 않게, audioCache.holdForExport). 그래도 사라진 파일은 건너뛰고 행 목록에서 뺀다.
 // 불러오기는 합친다(쓰는 봇에 더하는 것이 흔하고, 빈 봇으로 옮길 때도 합치기가 곧 바꾸기다):
-//   캐시 파일       없는 것만 가져온다(재생 수 · 마지막 재생은 큰 쪽). 캐시 상한(크기 · 수)과 남은 디스크까지, 퇴거 점수가 낮은 것부터
+//   캐시 파일       없는 것만 불러온다(재생 수 · 마지막 재생은 큰 쪽). 캐시 상한(크기 · 수)과 남은 디스크까지, 퇴거 점수가 낮은 것부터
 //   링크 데이터     이 봇의 행을 둔다(더 새 결과). 음원이 같으면 확인된 제목을 앞세운다
-//   직접 지정한 음원 파일의 것으로 덮는다(운영자가 정한 것을 가져온다)
+//   직접 지정한 음원 파일의 것으로 덮는다(운영자가 정한 것을 불러온다)
 //   연령 제한 · SponsorBlock 합친다
-// 연령 제한을 먼저 가져온다(퇴거 점수가 읽는다). 파일은 임시 이름으로 받아 옮긴다(받는 동안 정리가 지우지 않게 지킨다). 설정 DB 가 아니라 스냅샷을 뜨지 않는다.
+// 연령 제한을 먼저 불러온다(퇴거 점수가 읽는다). 파일은 임시 이름으로 받아 옮긴다(받는 동안 정리가 지우지 않게 지킨다). 설정 DB 가 아니라 스냅샷을 뜨지 않는다.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -139,7 +139,7 @@ function roomForCache() {
 }
 
 /**
- * 가져올 캐시 파일: 이 봇에 없고 ZIP 에 파일이 있는 것을 퇴거 점수가 낮은 것부터, 캐시 상한(크기 · 수)과 남은 디스크까지.
+ * 불러올 캐시 파일: 이 봇에 없고 ZIP 에 파일이 있는 것을 퇴거 점수가 낮은 것부터, 캐시 상한(크기 · 수)과 남은 디스크까지.
  * existing: 이 봇에 이미 있다(받는 중 포함) · over: 상한 밖
  */
 function planFiles(bundle: Bundle, moreAge: Iterable<string>) {
@@ -173,7 +173,7 @@ const breakdown = (added: number, existing: number, changed = 0, overLimit = 0, 
 const merged = (item: AudioItem, part: ArchiveBreakdown, inFile: boolean): ArchiveRow => ({ item, inFile, same: inFile && part.added === 0 && part.changed === 0 && part.overLimit === 0, problems: [], warnings: [], count: null, breakdown: part });
 const videoIdsOf = (rows: Rows) => rows.age.map((one) => one.videoId);
 
-/** 항목마다 몇 개를 새로 · 이미 있음 · 다른 값 · 상한 밖으로 가져오는지. 상한은 파일의 연령 제한도 함께 가져온다고 보고 센다(처음 선택) */
+/** 항목마다 몇 개를 새로 · 이미 있음 · 다른 값 · 상한 밖으로 불러오는지. 상한은 파일의 연령 제한도 함께 불러온다고 보고 센다(처음 선택) */
 function previewRows(bundle: Bundle): ArchiveRow[] {
   const { rows } = bundle;
   const plan = planFiles(bundle, videoIdsOf(rows));
@@ -234,7 +234,7 @@ async function importFiles(file: string, bundle: Bundle) {
 }
 
 /**
- * 고른 항목을 합친다. 항목마다 새로 가져온 수(캐시 파일은 옮긴 수). 연령 제한 → 캐시 파일(하나씩) → 링크 데이터 · 직접 지정한 음원 · SponsorBlock 순서.
+ * 고른 항목을 합친다. 항목마다 새로 불러온 수(캐시 파일은 옮긴 수). 연령 제한 → 캐시 파일(하나씩) → 링크 데이터 · 직접 지정한 음원 · SponsorBlock 순서.
  * 캐시 파일은 지금 상태로 다시 센다(미리 본 뒤 바뀌었을 수 있다). 연령 제한을 먼저 가져왔으면 퇴거 점수가 그것을 읽는다
  */
 async function applyBundle(file: string, items: readonly ArchiveItem[]): Promise<Partial<Record<AudioItem, number>>> {

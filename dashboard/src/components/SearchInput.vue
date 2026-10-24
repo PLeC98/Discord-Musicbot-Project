@@ -2,7 +2,7 @@
   <!-- 찾기 · 필터 입력란: 값이 있으면 입력란 안 오른쪽 끝에 지우기(x). 누르면 비우고 입력란에 포커스를 남기고, Esc 도 비운다(비울 때는 Esc 를 막아 둘레의 판이 닫히지 않는다. 비어 있으면 판이 닫힌다).
        v-model 을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 찾기가 늦다.
        꾸밈은 부르는 쪽: class 는 감싼 틀(자리 · 너비)에, input-class 는 입력란에, 그 밖의 속성 · 이벤트는 입력란에. 왼쪽 아이콘은 leading 슬롯.
-       note: 값이 있을 때 입력란 안 지우기 앞에 작게 보일 글(찾은 줄 수 등). 머리 · 줄의 다른 칸과 폭을 다투지 않게 입력란 안에 둔다 -->
+       note: 값이 있을 때 입력란 안 지우기 앞에 작게 보일 글(찾은 줄 수 등). 헤더 · 줄의 다른 칸과 폭을 다투지 않게 입력란 안에 둔다 -->
   <div class="relative" :class="attrs.class">
     <slot name="leading" />
     <input ref="box" v-bind="rest" :value="modelValue" :class="[inputClass, modelValue && !shownNote && SIZES[size].pad]" :style="shownNote ? { paddingRight: `${SIZES[size].end + noteWidth + 8}px` } : undefined" @input="emit('update:modelValue', valueOf($event))" @keydown.esc="onEscape" />

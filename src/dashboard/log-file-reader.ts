@@ -1,4 +1,4 @@
-// 로그 파일 읽기(대시보드의 로그 파일 보기). 기록(infra/log/file.ts)이 남긴 NDJSON 을 실시간 로그와 같은 칸으로 읽는다.
+// 로그 파일 읽기(대시보드의 로그 파일 보기). 기록(infra/log/file.ts)이 남긴 NDJSON 을 실시간 로그와 같은 필드로 읽는다.
 //
 // 쪽은 파일 안의 바이트 위치로 넘긴다: 어느 위치 앞의 줄(before, 없으면 끝에서부터) · 어느 줄 뒤의 줄(after) · 시각 둘레(at).
 // 줄은 시간 순서라 시각은 위치를 반씩 좁혀 찾는다. 줄은 0x0A 로만 자른다(UTF-8 의 여러 바이트 글자 안에는 0x0A 가 없어 덩어리 경계에서 안전하다).
@@ -284,7 +284,7 @@ function readLogPage(target: { name: string; path: string }, query: PageQuery): 
   });
 }
 
-/** 거르기를 모두 건 채 파일 전체에서 맞은 줄 수 */
+/** 필터를 모두 건 채 파일 전체에서 맞은 줄 수 */
 function countMatches(fd: number, size: number, filter: LogFilter): number {
   let n = 0;
   for (const raw of forward(fd, 0, size)) {
@@ -294,7 +294,7 @@ function countMatches(fd: number, size: number, filter: LogFilter): number {
   return n;
 }
 
-/** 거르기에 맞는 줄들을 앞에서부터(내려받기) */
+/** 필터에 맞는 줄들을 앞에서부터(내려받기) */
 function* filteredLines(target: { path: string }, filter: LogFilter): Generator<FileLine> {
   let fd: number;
   try {
@@ -314,7 +314,7 @@ function* filteredLines(target: { path: string }, filter: LogFilter): Generator<
   }
 }
 
-/** 내려받기의 한 줄: 화면과 같은 칸(시각 · 레벨 · 카테고리 · 태그 · 글). 시각은 보는 사람의 시간대로(offsetMin: Date.getTimezoneOffset 의 값) */
+/** 내려받기의 한 줄: 화면과 같은 열(시각 · 레벨 · 카테고리 · 태그 · 글). 시각은 보는 사람의 시간대로(offsetMin: Date.getTimezoneOffset 의 값) */
 function formatLogLine(line: FileLine, offsetMin: number): string {
   const d = new Date(line.ts - offsetMin * 60_000);
   const two = (n: number) => String(n).padStart(2, "0");

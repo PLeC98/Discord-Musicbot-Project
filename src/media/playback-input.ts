@@ -273,7 +273,7 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
 }
 
 /**
- * 청크 스트림. 먼 위치면 파일의 색인으로 목표 앞의 키프레임 바이트부터 받고(머리를 먼저 흘린다, media/seek-start) 나머지는 ffmpeg 의 -ss 가 맞춘다.
+ * 청크 스트림. 먼 위치면 파일의 색인으로 목표 앞의 키프레임 바이트부터 받고(헤더를 먼저 흘린다, media/seek-start) 나머지는 ffmpeg 의 -ss 가 맞춘다.
  * 색인이 없거나 · 받지 못하거나 · 그 자리가 색인 탓으로 열리지 않으면 처음부터 받는다(주소 · 네트워크 탓의 실패는 그대로 던진다)
  */
 async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, durationMs }: { url: string; headers: Record<string, string>; totalBytes: number; durationMs: number }, hooks: Hooks): Promise<OpenedStream> {

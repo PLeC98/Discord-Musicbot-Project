@@ -4,8 +4,7 @@ import assert from "node:assert";
 import { PLATFORM_NAMES, isPlatform, labelOf, emojiOf } from "../../src/rules/platforms.ts";
 import { TYPES } from "../../src/autoplay/sources/index.ts";
 
-// 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 뜬다.
-// 실제로 자동재생 소스 여섯이 대시보드에서 이름 없이(그리고 회색 점으로) 떠 있었다.
+// 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 이름 없이(그리고 회색 점으로) 뜬다.
 test("자동재생 소스는 모두 라벨을 갖는다", () => {
   // keyword 는 곡을 유튜브에서 바로 집으므로 platform 이 youtube 다 — 제 이름이 없다(autoplayRoute).
   const needed = TYPES.filter((t) => t !== "keyword");

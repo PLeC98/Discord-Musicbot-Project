@@ -5,7 +5,7 @@
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 // 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
 // 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200) · 구간이 어긋나면 · 전체 크기가 다르면 이어받기를 그만둔다.
-// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 머리(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
+// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
 import { Readable } from "stream";
@@ -39,7 +39,7 @@ type ChunkedOptions = {
   ifRange?: string | null;
   /** 첫 요청의 자리(파일 안의 바이트). 받은 양은 이 자리부터 센 절대 위치다 */
   startByte?: number;
-  /** 맨 앞에 흘릴 바이트(파일의 머리). 받은 양에 세지 않는다 */
+  /** 맨 앞에 흘릴 바이트(파일의 헤더). 받은 양에 세지 않는다 */
   prefix?: Buffer | null;
   /** 첫 요청에서 받은 앞 bytes 바이트를 확인한다. 줄 때만 열림(prime)을 그 확인 뒤로 미룬다 */
   expectStart?: { bytes: number; check(head: Buffer): boolean } | null;
@@ -168,7 +168,7 @@ class ChunkedReader {
     this.first = first;
     this.verifying = expectStart !== null;
     this.pos = startByte;
-    // 머리는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치 · 실패 횟수 · 이어받기 알림을 건드린다)
+    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치 · 실패 횟수 · 이어받기 알림을 건드린다)
     if (prefix?.length) {
       this.chunks.push(Buffer.from(prefix));
       this.queued += prefix.length;
@@ -264,7 +264,7 @@ class ChunkedReader {
     return res.body.getReader();
   }
 
-  // 줄이 청크 하나와 여유분을 넘을 때 걸린다(Range 를 무시한 200 응답, 머리를 먼저 줄에 둔 첫 요청).
+  // 줄이 청크 하나와 여유분을 넘을 때 걸린다(Range 를 무시한 200 응답, 헤더를 먼저 줄에 둔 첫 요청).
   // 파일 전체를 메모리에 올리지 않도록 줄이 빌 때까지 기다린다. 기다리는 사이 스트림이 부서졌으면 false
   async waitForRoom() {
     clearTimeout(this.stallTimer);

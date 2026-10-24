@@ -84,7 +84,7 @@ const rungDir = (id: string, plan: Shape) => path.join(codecDir(id, plan.codec),
 const made = (id: string, plan: Shape) => fs.existsSync(path.join(rungDir(id, plan), "index.m3u8"));
 
 /**
- * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 init 조각을 작업 폴더에 쓴다
+ * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 초기화 조각을 작업 폴더에 쓴다
  */
 const hlsOutput = (dir: string) => {
   const at = (name: string) => path.join(dir, name).replaceAll("\\", "/");
@@ -117,7 +117,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
     fs.mkdirSync(dir, { recursive: true });
   }
   const labels = plans.map((_, i) => `o${i}`);
-  // AV1 은 10비트로 줄인다(8비트는 어두운 면에 얼룩이 생겼다)
+  // AV1 은 10비트로 줄인다(8비트는 어두운 면에 얼룩이 진다)
   const format = (plan: Plan) => (plan.codec === "av1" ? "yuv420p10le" : "yuv420p");
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
   const graph = `${sourceFilter(probed, edit.crop, { from, to })}${split}`;
@@ -144,7 +144,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
   return null;
 }
 
-/** init 조각의 설정 박스에서 코덱 문자열(RFC 6381) */
+/** 초기화 조각의 설정 박스에서 코덱 문자열(RFC 6381) */
 function codecString(init: Buffer): string {
   const box = (name: string) => {
     const at = init.indexOf(Buffer.from(name, "latin1"));
@@ -160,7 +160,7 @@ function codecString(init: Buffer): string {
   }
   const vpcC = box("vpcC");
   if (vpcC) return `vp09.${String(vpcC[4]).padStart(2, "0")}.${String(vpcC[5]).padStart(2, "0")}.${String(vpcC[6] >> 4).padStart(2, "0")}`;
-  throw codedError("background-failed", "init 조각에서 코덱을 읽지 못했습니다");
+  throw codedError("background-failed", "초기화 조각에서 코덱을 읽지 못했습니다");
 }
 
 /** 인코딩한 단계의 목록 값: 2초 최대(조각마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */

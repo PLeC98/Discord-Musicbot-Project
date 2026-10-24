@@ -99,12 +99,12 @@ function use(saved: Record<string, string>) {
   for (const error of tunablesChanged()) log.error(`운영 조절값을 저장했지만 적용하지 못한 곳이 있습니다: ${messageOf(error)}`);
 }
 
-/** 문서를 외부(가져오기)가 바꿨다. DB 에서 다시 읽어 저장할 때처럼 올린다 */
+/** 문서를 외부(불러오기)가 바꿨다. DB 에서 다시 읽어 저장할 때처럼 올린다 */
 function reload() {
   use(shape(docs.read(DOC).data));
 }
 
-/** 가져오기가 한 트랜잭션 안에서 쓴다. 검사는 problemsOf 로 먼저. 메모리는 reload 로 */
+/** 불러오기가 한 트랜잭션 안에서 쓴다. 검사는 problemsOf 로 먼저. 메모리는 reload 로 */
 function writeRaw(values: Record<string, unknown>) {
   docs.write(DOC, shape(values), docs.read(DOC).revision);
 }

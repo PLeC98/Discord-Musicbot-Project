@@ -49,7 +49,7 @@ function detectPlatform(query: string) {
  * 우리가 다루지 않는 링크인가(유튜브 클립 · 채널 · 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
  *
  * 이런 주소를 검색으로 흘리면 URL 문자열 자체가 검색어가 되어 엉뚱한 영상이 재생되기에 재생을 거절한다.
- * (클립은 2026년 유튜브가 기능을 없앴다. 지원 대상이 아니다.)
+ * (클립은 유튜브가 없앤 기능이라 지원 대상이 아니다.)
  */
 function isUnsupportedLink(query: string): boolean {
   return inputKind(query) === "unknown";

@@ -3,7 +3,7 @@
 
 import { cacheDb } from "./cache-db.ts";
 
-/** 결과 하나. ok 가 아니면 code 는 문제 코드(라이브면 live). version: 그때 본 원본의 버전(audio_version 과 같은 꼴, 모르면 없다) */
+/** 결과 하나. ok 가 아니면 code 는 문제 코드(라이브면 live). version: 그때 본 원본의 버전(audio_version 과 같은 형식, 모르면 없다) */
 type Check = ({ ok: true; at: number } | { ok: false; code: string; at: number }) & { version?: string | null };
 type CheckRow = { audio_key: string; ok: number; code: string | null; checked_at: number; version: string | null };
 

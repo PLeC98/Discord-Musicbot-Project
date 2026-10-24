@@ -1,5 +1,5 @@
 // HLS 재생목록(RFC 8216) 해석. 보는 것은 목록 글과 그 주소뿐이다(통신 없음).
-// 상위 목록은 화질 · 음성 고르기를, 하위 목록은 조각(주소 · 바이트 구간 · 머리 조각 · 키 · 순번)과 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
+// 상위 목록은 화질 · 음성 고르기를, 하위 목록은 조각(주소 · 바이트 구간 · 초기화 조각 · 키 · 순번)과 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
 
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };
@@ -89,7 +89,7 @@ const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pendi
   ],
 ];
 
-/** 하위 목록: 조각과 그 앞의 태그. 머리 조각 · 키는 바뀔 때까지 뒤 조각에 이어진다 */
+/** 하위 목록: 조각과 그 앞의 태그. 초기화 조각 · 키는 바뀔 때까지 뒤 조각에 이어진다 */
 function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
   const out: MediaPlaylist = { kind: "media", targetDuration: 0, mediaSequence: 0, ended: false, segments: [] };
   const next: Pending = { duration: 0, range: null, init: null, key: null, discontinuity: false };

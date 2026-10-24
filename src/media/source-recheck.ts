@@ -36,7 +36,7 @@ type Deps = {
 // 길이가 이만큼(초) 넘게 다르면 다른 길이로 본다. 같은 영상의 포맷끼리도 0.1초쯤 다르다
 const DURATION_SLACK_SEC = 1.5;
 
-// 첫 1바이트만: 머리(ETag · Last-Modified · Content-Range)만 쓰고 바로 끊는다. HEAD 를 막는 서버가 있어 GET 으로
+// 첫 1바이트만: 헤더(ETag · Last-Modified · Content-Range)만 쓰고 바로 끊는다. HEAD 를 막는 서버가 있어 GET 으로
 async function directHead(url: string) {
   const body = await SafeUrl.getStream(url, undefined, { accept: { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS }, from: 0, to: 0 });
   body.destroy();
@@ -80,7 +80,7 @@ function direct(headers: Record<string, unknown>, stored: Stored): Recheck {
   return compared(versionOf.fromHeaders(headers), stored, versionOf.sameDirect);
 }
 
-// 사운드클라우드 두 버전: 같은 꼴(음원 파일 id 끼리 · 수정 시각끼리)만 견준다. 재생 주소에서는 늘 파일 id 라 적어 둔 것이 수정 시각이면 견줄 수 없다
+// 사운드클라우드 두 버전: 같은 형식(음원 파일 id 끼리 · 수정 시각끼리)만 비교한다. 재생 주소에서는 늘 파일 id 라 적어 둔 것이 수정 시각이면 비교할 수 없다
 const sameSoundCloud = (a: string, b: string) => (a.split(":")[0] === b.split(":")[0] ? a === b : null);
 
 // 원본의 지금 버전을 적어 둔 것과 견준다. 어느 쪽이든 없거나 견줄 수 없으면 견주지 못함

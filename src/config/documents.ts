@@ -57,7 +57,7 @@ function attach(next: DocStore): DocName[] {
   return upgraded.map(({ name }) => name);
 }
 
-/** 붙인 저장소에서 다시 읽는다(가져오기가 DB 를 직접 바꾼 뒤). 붙이지 않았으면 아무것도 안 한다 */
+/** 붙인 저장소에서 다시 읽는다(불러오기가 DB 를 직접 바꾼 뒤). 붙이지 않았으면 아무것도 안 한다 */
 function reload(): DocName[] {
   return store ? attach(store) : [];
 }

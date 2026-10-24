@@ -50,7 +50,7 @@ test("사운드클라우드: 음원 파일 id 로 견주고, 미리듣기만 남
   assert.equal(older.kind, "uncompared", "적어 둔 것이 수정 시각이면 파일 id 와 견주지 않는다");
 });
 
-test("직접 링크: 머리로 견주고(ETag 우선), 404 · 410 · 웹 페이지는 사라짐, 403 · 5xx 는 모름", async () => {
+test("직접 링크: 헤더로 비교하고(ETag 우선), 404 · 410 · 웹 페이지는 사라짐, 403 · 5xx 는 모름", async () => {
   const URL = "https://a.animethemes.moe/AttackNo1-ED1.ogg";
   const stored = { version: 'etag="472613ec";modified=Sun, 25 Jun 2023 04:33:06 GMT;length=2321206', durationSec: 1 };
   const head = (headers: Record<string, unknown>) => async () => ({ headers });

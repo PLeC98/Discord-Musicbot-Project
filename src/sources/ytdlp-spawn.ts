@@ -43,7 +43,7 @@ function useExec(exec: Exec | null) {
 }
 
 // 파일로 다운로드하지 않는 호출(정보 · 검색 · 재생목록 · 스트림 주소)의 한도. 멈춘 yt-dlp 가 곡 넣기를 끝없이 붙잡지 않게 넘으면 내린다.
-// 곡 넣기 하나가 yt-dlp 를 여러 번 불러도 운영 로그(25일)에서 길어야 54초였다. 다운로드는 곡 길이만큼 걸려 걸지 않는다
+// 곡 넣기 하나가 yt-dlp 를 여러 번 불러도 넉넉히 끝나는 값이다. 다운로드는 곡 길이만큼 걸려 걸지 않는다
 const INFO_TIMEOUT_MS = 90_000;
 let infoTimeoutMs = INFO_TIMEOUT_MS;
 /** 테스트가 한도를 줄인다. null 이면 원래대로 */

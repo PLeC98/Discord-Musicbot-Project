@@ -1,10 +1,10 @@
 // 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 조각을 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
-// 모든 요청(상위 · 하위 목록 · 조각 · 머리 조각 · 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
+// 모든 요청(상위 · 하위 목록 · 조각 · 초기화 조각 · 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
 //   상위 목록   음성 따로가 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
 //   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 조각부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다
 //   라이브      끝에서 LIVE_EDGE 조각 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
 //              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게)
-//   암호       AES-128 은 키를 받아 풀고(IV 가 없으면 조각 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 머리 조각은 풀지 않는다
+//   암호       AES-128 은 키를 받아 풀고(IV 가 없으면 조각 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 조각은 풀지 않는다
 // 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range 로 받는다. 구간을 무시하고 200 으로 주는 서버면 그 구간만 잘라 쓴다.
 
 import crypto from "node:crypto";
@@ -16,7 +16,7 @@ import type { StreamNet } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 
-/** 받을 것 하나: 조각이거나, 머리 조각이 바뀌었을 때의 머리 조각 */
+/** 받을 것 하나: 조각이거나, 초기화 조각이 바뀌었을 때의 초기화 조각 */
 type HlsPart = { url: string; range: ByteRange | null; key: Key | null; sequence: number };
 /** media/fragment-stream 의 출처 모양(층 순서상 그 타입을 쓰지 않는다) */
 type HlsFragments = {
@@ -188,7 +188,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     }
   }
 
-  // 조각 하나를 받을 것들로(머리 조각이 바뀌었으면 그것 먼저)
+  // 조각 하나를 받을 것들로(초기화 조각이 바뀌었으면 그것 먼저)
   function partsOf(segment: Segment): HlsPart[] {
     lastSequence = segment.sequence;
     const parts: HlsPart[] = [];

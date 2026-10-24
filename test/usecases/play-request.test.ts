@@ -257,7 +257,7 @@ test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 �
 });
 
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
-// 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
+// 조용히 버리면 디스코드에는 아무 반응이 없어 먹통처럼 보인다 — 이유를 말하고 거절한다.
 test("시작 전 방송은 거절하고 이유를 알린다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] });
   const bot = makeBot();

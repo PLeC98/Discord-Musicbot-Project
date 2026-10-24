@@ -51,7 +51,7 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
   // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
   // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 쓰지 않는다(config/age-content).
   //   "player_client=ios 강제" 폴백은 금지. ios는 자체 POT 없이 포맷을 안 주고
-  //   bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다.
+  //   bgutil도 ios용 POT은 못 만들어 모든 영상을 틀 수 없게 된다.
   if (forceCookies && ageContentOn()) {
     if (config.ytdlp.cookiesFromBrowser) {
       options.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;

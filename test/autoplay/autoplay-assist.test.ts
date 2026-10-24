@@ -608,7 +608,7 @@ test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
   assert.deepEqual(got.problems, ["이름이 없습니다: 이름없음"]);
 });
 
-// 점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다. 키 이름이 통째로 들어가 조용히 무시됐다.
+// 점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다. 키 이름이 통째로 들어가 조용히 무시된다.
 test("추가 파라미터 — 점 표기로 안쪽 필드에 넣는다", () => {
   const got = assist.parseExtra(["thinking.budget_tokens=1024", "thinking.type=enabled", "generationConfig.thinkingConfig.thinkingLevel=high"].join("\n"));
 
@@ -762,7 +762,7 @@ test("조건이 안 맞는 필드는 보내지 않는다", async () => {
 });
 
 // 온도도 모델이 받는 필드 하나다 — 프로필이 적어 둔 위치로 들어간다(제미니는 generationConfig 안).
-// 끝 슬래시를 떼는 정규식이 역추적으로 O(n²) 였다 — 20만 글자에 12.4초 동안 이벤트 루프가 멈췄다.
+// 끝 슬래시를 정규식으로 떼면 역추적으로 O(n²) 가 되어 긴 주소에서 이벤트 루프가 멈춘다.
 test("긴 주소에도 끝 슬래시 떼기가 느려지지 않는다", () => {
   const one = { provider: "custom", baseUrl: "/".repeat(200_000) + "x" };
   const started = Date.now();
@@ -1303,7 +1303,7 @@ test("유료 확인은 짧은 물음 하나만 보낸다 — 판정 프롬프트
 // ── 모델이 공백을 이상하게 뱉을 때 ────────────────────────────────────────
 
 // gemma 계열이 토크나이저의 공백 표시(U+2581)를 답에 그대로 흘리면
-// JSON.parse 가 `Unexpected token '▁'` 로 죽는다. 실제로 겪은 것이다.
+// JSON.parse 가 `Unexpected token '▁'` 로 죽는다.
 test("답에 U+2581 이 섞여 와도 읽는다", async () => {
   useConfig(ON);
   answers(`[\n▁▁{"n": 1, "song": true, "fits": true}\n]`);
@@ -1336,8 +1336,7 @@ test("배치 크기대로 나눠 묻는다", async () => {
   assert.equal(calls.length, 3, "5개를 2개씩 — 세 번");
 });
 
-// 업로더 이름은 일부러 안 넘긴다. 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다
-// (유튜브의 그 필드는 대개 채널 이름이다: Vevo · Radio Mix).
+// 업로더 이름은 일부러 안 넘긴다(유튜브의 그 필드는 대개 채널 이름이다: Vevo · Radio Mix).
 test("업로더 이름은 넘기지 않는다", async () => {
   useConfig(ON);
   calls.length = 0;

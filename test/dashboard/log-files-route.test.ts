@@ -33,7 +33,7 @@ const server = await listenForFetch(app);
 const base = `${baseUrl(server)}/api/admin/logs`;
 after(() => server.close());
 
-test("목록과 한 쪽: 운영자는 파일 목록 · 거른 줄을 받는다", async () => {
+test("목록과 한 쪽: 운영자는 파일 목록 · 필터링한 줄을 받는다", async () => {
   const list = (await (await fetch(`${base}/files`)).json()) as LogFileList;
   assert.equal(list.enabled, true);
   assert.deepEqual(
@@ -61,7 +61,7 @@ test("목록에 없는 이름 · 경로는 log-file-not-found", async () => {
   assert.equal((await fetch(`${base}/file/download?name=other.txt`)).status, 404);
 });
 
-test("내려받기: 거른 줄을 화면과 같은 칸의 글로, 파일 이름은 .txt", async () => {
+test("내려받기: 필터링한 줄을 화면과 같은 열의 글로, 파일 이름은 .txt", async () => {
   const res = await fetch(`${base}/file/download?name=bot.log&category=youtube&tz=0`);
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-disposition") ?? "", /bot\.txt/);

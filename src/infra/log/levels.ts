@@ -11,7 +11,7 @@ const levelNameOf = (value: number): LevelName | undefined => LEVEL_NAMES.find((
 
 /** 대시보드(SSE)로 보내는 한 줄. id 는 이 프로세스 안에서 오르는 줄 번호(다시 붙을 때 이어 받기), level 은 레벨 이름 */
 type WireEntry = { id: number; ts: number; level: LevelName; text: string; category?: string; sub?: string; tags?: string[] };
-/** 줄 번호를 뺀 한 줄. 실시간 로그와 로그 파일 보기가 같은 칸을 쓴다 */
+/** 줄 번호를 뺀 한 줄. 실시간 로그와 로그 파일 보기가 같은 필드를 쓴다 */
 type WireFields = Omit<WireEntry, "id">;
 
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;

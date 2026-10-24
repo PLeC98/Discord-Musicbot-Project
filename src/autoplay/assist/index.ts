@@ -103,7 +103,7 @@ const DEFAULT_SECTIONS: PromptSection[] = [
   { role: "user", text: "{{list}}" },
 ];
 
-// 업로더 이름은 일부러 안 넣는다. 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
+// 업로더 이름은 일부러 안 넣는다.
 // 유튜브의 그 필드는 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
 // 길이를 모르면 "길이=" 구간째 뺀다("0분"이라고 적으면 거짓을 알려 주는 것이고, "길이=" 만 남으면 모델이 더 헷갈린다)
 const DEFAULT_LINE = "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}";
@@ -585,7 +585,7 @@ const usable = (field: ModelField, value: unknown) => {
 
 /**
  * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
- * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
+ * 무료이고, tik 로 어림하면 한국어에서 크게 모자란다.
  */
 async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCount | null> {
   try {

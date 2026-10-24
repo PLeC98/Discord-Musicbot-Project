@@ -43,7 +43,7 @@ function seed(key: string, track: audioCache.TrackMeta) {
 
 const watch = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 
-// 전에는 음원으로 떨어진 곡의 작품 페이지(webUrl)를 저장할 필드가 없어 복원 뒤 링크가 음원 파일로 바뀌었다
+// 음원으로 떨어진 곡도 작품 페이지(webUrl)를 저장해, 복원 뒤 링크가 음원 파일로 바뀌지 않는다
 test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도 작품 페이지 링크를 지킨다", () => {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
@@ -69,7 +69,7 @@ test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음�
   assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null });
 });
 
-// 전에는 링크 데이터 키가 작품 페이지라, 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮었다(「Fatal」 링크를 넣으면 「Burning」)
+// 링크 데이터 키가 작품 페이지면 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮는다(「Fatal」 링크를 넣으면 「Burning」)
 test("링크 데이터: 같은 작품의 두 곡은 요청 키가 달라 따로 산다. 작품 페이지는 키가 아니다", () => {
   const page = "https://anilist.co/anime/150672";
   const fatal = { title: "Fatal", artist: "GEMN", platform: "anisongdb", pageUrl: page, requestKey: "amq:9001", audioUrl: watch("fatalfatal1") };
@@ -108,7 +108,7 @@ test("링크 데이터 조회 앞의 링크 다듬기: 공유 링크가 링크 �
   assert.equal(trackLookup.resolveFromCache(`${clean}?si=0a1b2c`).hit, true, "다운로드해 둔 파일로 바로 튼다");
 });
 
-// 전에는 외래 키 연쇄 삭제 때문에 퇴거가 링크 데이터까지 삭제했다. "퇴거돼도 알려준다"는 주석과 반대였다
+// 외래 키 연쇄 삭제가 걸려 있으면 퇴거가 링크 데이터까지 삭제한다. 퇴거돼도 링크 데이터는 남아야 한다
 test("퇴거가 audio_cache 행을 삭제해도 링크 데이터는 남는다", () => {
   const spotify = "https://open.spotify.com/track/evictcascade";
   const file = seed("yt:evictcasca", { title: "곡" });

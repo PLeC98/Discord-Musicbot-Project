@@ -23,7 +23,7 @@ const INFO_ACCEPT: SafeUrl.Accept = { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TI
 const TAG_WAIT_MS = 1500;
 
 /**
- * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 머리의 태그를 읽는다.
+ * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 앞부분의 태그를 읽는다.
  * HLS 는 목록으로 VOD(길이) · 라이브를 본다. 단순 목록(PLS · M3U)은 첫 주소를 열어 본다(곡의 음원 주소는 목록 주소 그대로, 열 때마다 다시 푼다).
  * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지 · 그림 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD 를 거절하는 서버(AnimeThemes CDN 의 403)에서도 된다

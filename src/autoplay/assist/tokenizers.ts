@@ -7,7 +7,7 @@ import path from "path";
 import { PROJECT } from "../../infra/project-paths.ts";
 import { codeOf, describeError } from "../../rules/error-kind.ts";
 
-// gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
+// gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다. AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
 let tik: Promise<typeof import("gpt-tokenizer")> | null = null;
 // 본문에 적힌 <|endoftext|> 같은 특수 토큰 글자는 글자 그대로 센다(API 도 사용자 글을 그렇게 받는다). 기본값은 예외를 던진다
 const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer"))).countTokens(body, { disallowedSpecial: new Set() });
@@ -112,7 +112,7 @@ const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score &
 
 /**
  * 점수가 높은 짝부터 붙여 나간다(같으면 왼쪽 먼저). 더 붙일 것이 없으면 그것이 토큰 수.
- * 조각을 연결 목록으로, 붙일 짝을 힙으로 둔다. 붙일 때마다 전부 훑으면 글 길이의 제곱이 든다(6만 자 36초)
+ * 조각을 연결 목록으로, 붙일 짝을 힙으로 둔다. 붙일 때마다 전부 훑으면 글 길이의 제곱이 든다
  */
 function countGemma(text: string, rank: Map<string, number>) {
   // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약임

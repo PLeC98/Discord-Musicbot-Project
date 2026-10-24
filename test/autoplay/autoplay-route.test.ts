@@ -357,7 +357,7 @@ test("고르기 하나의 판정은 모두 같은 고르기 표시를 받고, �
 // MusicBrainz는 모르는 아티스트·곡을 정해진 이름으로 채운다([no artist]·[unknown] 등).
 // 그대로 두면 그걸 유튜브에 검색하게 된다.
 //
-// "대괄호로 싸인 것"을 전부 거르면 안 된다. `[Alexandros]`는 실존하는 밴드다.
+// "대괄호로 싸인 것"을 전부 필터링하면 안 된다. `[Alexandros]`는 실존하는 밴드다.
 test("MusicBrainz 자리표시 항목은 후보에서 뺀다", () => {
   const { _placeholder } = sources;
 
@@ -443,7 +443,7 @@ test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () 
   assert.equal(one["advancedFilters[0][param]"], "ko");
   assert.ok(!("languages" in one), "languages 로는 안 건다");
 
-  // 둘을 한꺼번에 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 준다.
+  // 둘을 한꺼번에 걸면 "둘 다 있는 곡"이 되어 곡이 크게 준다.
   // 그래서 언어마다 따로 받아 섞는다.
   assert.deepEqual(_someLanguages(["ko", "en"]), ["ko", "en"]);
   assert.deepEqual(_someLanguages([]), [null], "안 골랐으면 조건 없이 한 번");

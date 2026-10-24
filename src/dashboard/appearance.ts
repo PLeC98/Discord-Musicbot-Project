@@ -273,7 +273,7 @@ function faviconSlots(hasAvatar: boolean): FaviconSlots {
 
 const faviconVersion = () => version;
 
-// ── 내보내기 · 가져오기 · 전체 백업 ──
+// ── 내보내기 · 불러오기 · 전체 백업 ──
 
 /** 이 폴더에서 봇이 쓰는 파일인지(전체 백업이 담을 것) */
 const isFaviconFile = (name: string) => FILE.test(name);
@@ -287,7 +287,7 @@ function faviconFiles(): Array<{ name: string; data: Buffer }> {
 
 /** 검사를 지나 저장할 모양: 슬롯들과 파일(다시 만든 png) */
 type Prepared = { slots: Map<number, Slot>; files: Map<string, Buffer> };
-/** 가져온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음 · 목록에 있는 그림 파일이 없음 · 그림이 망가졌거나 크기가 맞지 않음 */
+/** 불러온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음 · 목록에 있는 그림 파일이 없음 · 그림이 망가졌거나 크기가 맞지 않음 */
 type FaviconFault = "index" | "missing" | "broken";
 
 /** 그림 하나를 본다: png 로 읽히고 정사각형 side 인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */
@@ -302,7 +302,7 @@ async function remade(data: Buffer | undefined, side: number): Promise<Buffer | 
   }
 }
 
-/** 가져온 파일들(내보내기의 favicon/ 아래)을 본다. 목록의 그림마다 두 파일이 있고 크기가 맞아야 한다. 지나가면 저장할 모양 */
+/** 불러온 파일들(내보내기의 favicon/ 아래)을 본다. 목록의 그림마다 두 파일이 있고 크기가 맞아야 한다. 지나가면 저장할 모양 */
 async function checkFavicons(files: Array<{ name: string; data: Buffer }>): Promise<{ ok: true; prepared: Prepared } | { ok: false; faults: FaviconFault[] }> {
   const byName = new Map(files.map((one) => [one.name, one.data]));
   let raw: unknown;
@@ -324,7 +324,7 @@ async function checkFavicons(files: Array<{ name: string; data: Buffer }>): Prom
   return faults.size ? { ok: false, faults: [...faults] } : { ok: true, prepared: { slots: map, files: out } };
 }
 
-/** 슬롯들을 가져온 것으로 통째 바꾼다(가져오기, 검사는 checkFavicons 로 먼저) */
+/** 슬롯들을 불러온 것으로 통째 바꾼다(불러오기, 검사는 checkFavicons 로 먼저) */
 function replaceFavicons({ slots: next, files }: Prepared) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, data] of files) writeAtomic(path.join(dir, name), data);

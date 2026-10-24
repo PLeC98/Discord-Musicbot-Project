@@ -1,4 +1,4 @@
-// src/rules/hls-playlist.ts — HLS 재생목록 해석(상위 · 하위 목록, 바이트 구간 · 머리 조각 · 키 · 순번 · 끝)과 받을 하위 목록 고르기
+// src/rules/hls-playlist.ts — HLS 재생목록 해석(상위 · 하위 목록, 바이트 구간 · 초기화 조각 · 키 · 순번 · 끝)과 받을 하위 목록 고르기
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -36,7 +36,7 @@ v240/index.m3u8
   assert.equal(chooseMedia({ ...master, audio: [] }), "https://cdn.test/live/v240/index.m3u8", "대역폭이 가장 낮은 화질");
 });
 
-test("하위 목록: 조각 길이 · 순번 · 끝, 바이트 구간(오프셋 없으면 같은 주소의 앞 구간 끝에서), 머리 조각 · 키는 바뀔 때까지 이어진다", () => {
+test("하위 목록: 조각 길이 · 순번 · 끝, 바이트 구간(오프셋 없으면 같은 주소의 앞 구간 끝에서), 초기화 조각 · 키는 바뀔 때까지 이어진다", () => {
   const media = parsePlaylist(
     `#EXTM3U
 #EXT-X-TARGETDURATION:6
@@ -62,7 +62,7 @@ https://other.test/seg3.ts
   assert.deepEqual([one.url, one.sequence, one.duration, one.range], ["https://cdn.test/vod/a1/main.mp4", 41, 5.99, { offset: 616, length: 121090 }]);
   assert.deepEqual(two.range, { offset: 121706, length: 121201 }, "오프셋 없는 구간은 앞 구간 끝에서");
   assert.deepEqual(one.init, { url: "https://cdn.test/vod/a1/main.mp4", range: { offset: 0, length: 616 } });
-  assert.equal(two.init?.url, one.init?.url, "머리 조각이 이어진다");
+  assert.equal(two.init?.url, one.init?.url, "초기화 조각이 이어진다");
   assert.equal(one.key?.method, "AES-128");
   assert.equal(one.key?.url, "https://keys.test/k1");
   assert.deepEqual([...(one.key?.iv ?? [])].slice(-2), [0, 42]);

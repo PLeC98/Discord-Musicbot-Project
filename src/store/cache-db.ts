@@ -64,7 +64,7 @@ function createTables(db: Db) {
 
             -- 음원 하나를 원본에서 재생할 수 있는지의 마지막 결과(재생 테스트 · 캐시의 다시 확인 · 직접 지정한 음원이 재생에 실패한 것). 키는 audioKeyOf(음원 주소).
             -- code: 실패 까닭(문제 코드, 라이브면 live). 성공이면 NULL
-            -- version: 그때 본 원본의 버전(audio_cache.audio_version 과 같은 꼴). 모르면 NULL. 둘이 다르면 캐시 파일은 원본이 바뀌기 전 것이다
+            -- version: 그때 본 원본의 버전(audio_cache.audio_version 과 같은 형식). 모르면 NULL. 둘이 다르면 캐시 파일은 원본이 바뀌기 전 것이다
             CREATE TABLE IF NOT EXISTS source_checks (
                 audio_key    TEXT PRIMARY KEY,
                 ok           INTEGER NOT NULL,

@@ -1,5 +1,5 @@
 // 로그 파일 보기의 모양(/api/admin/logs/files · /api/admin/logs/file · /api/admin/logs/file/download). 봇과 화면이 같이 읽으므로 Node 를 부르지 않는다.
-// 줄은 실시간 로그와 같은 칸이고(levels 의 WireFields), 거르기도 실시간 로그와 같다(matchesLog).
+// 줄은 실시간 로그와 같은 필드이고(levels 의 WireFields), 필터도 실시간 로그와 같다(matchesLog).
 // 쪽은 파일 안의 바이트 위치(offset)로 넘긴다. 지금 쓰는 파일은 꽉 차면 이름이 바뀌어 떼어지므로, 파일은 첫 줄의 시각(since)으로 알아본다
 
 import { koMatch } from "../../rules/ko-search.ts";
@@ -21,7 +21,7 @@ type LogFile = {
   firstAt: number;
   lastAt: number;
   lines: number;
-  /** 파일에 나온 카테고리 · 태그(거르기 선택지) */
+  /** 파일에 나온 카테고리 · 태그(필터 선택지) */
   categories: string[];
   tags: string[];
 };
@@ -32,14 +32,14 @@ type LogFileList = { enabled: boolean; files: LogFile[] };
 type FileLine = WireFields & { offset: number };
 /**
  * 한 쪽. name · since 는 읽은 파일(보던 파일이 떼어졌으면 떼어 낸 파일의 이름이 온다). more 는 앞에, later 는 뒤에 줄이 더 있다.
- * matches 는 찾기가 있을 때 거르기를 모두 건 채 파일 전체에서 맞은 줄 수(처음 받는 쪽에만: before · after 없이)
+ * matches 는 찾기가 있을 때 필터를 모두 건 채 파일 전체에서 맞은 줄 수(처음 받는 쪽에만: before · after 없이)
  */
 type FilePage = { name: string; since: number; lines: FileLine[]; more: boolean; later: boolean; matches?: number };
 
-/** 거르기. 비운 칸은 거르지 않는다 */
+/** 필터. 비운 필드는 필터링하지 않는다 */
 type LogFilter = { levels?: ReadonlySet<LevelName>; category?: string; tag?: string; q?: string };
 
-/** 줄이 거르기에 맞는지. 찾기는 글 · 카테고리 · 하위 카테고리 · 태그에서(한국어 조합 중 글자 · 초성도) */
+/** 줄이 필터에 맞는지. 찾기는 글 · 카테고리 · 하위 카테고리 · 태그에서(한국어 조합 중 글자 · 초성도) */
 function matchesLog(line: Pick<WireFields, "level" | "text" | "category" | "sub" | "tags">, filter: LogFilter): boolean {
   if (filter.levels && !filter.levels.has(line.level)) return false;
   if (filter.category && line.category !== filter.category) return false;

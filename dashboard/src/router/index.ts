@@ -57,7 +57,7 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresOwner: true },
   },
   {
-    // 로그 파일 보기: 실시간 로그 머리의 "파일 보기"가 같은 창에서 연다
+    // 로그 파일 보기: 실시간 로그 헤더의 "파일 보기"가 같은 창에서 연다
     path: "/admin/log-files",
     component: () => import("../views/LogFilesView.vue"),
     meta: { requiresAuth: true, requiresOwner: true, workspace: true, title: text.logs.files.title },

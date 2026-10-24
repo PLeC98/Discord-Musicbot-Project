@@ -1,6 +1,6 @@
 // IP 위치 DB(DB-IP City Lite, MMDB, CC BY 4.0 — 위치를 보이는 화면에 출처 링크). 로그인한 기기 목록이 공인 주소의 도시 · 지역 · 나라를 묻는다(login-devices).
 // 실행 파일이 아니라 숫자 표라 버전을 고정하지 않고 봇이 받는다: database/geoip/dbip-city-lite-YYYY-MM.mmdb(버전은 파일 이름).
-//   자동(GEOIP_AUTO_UPDATE): 가진 버전이 이번 달이 아니면 하루에 한 번 이번 달 버전의 머리만 묻고, 있으면 받는다(DB-IP 의 버전은 늘 1일 자로 보였다. 관찰이다).
+//   자동(GEOIP_AUTO_UPDATE): 가진 버전이 이번 달이 아니면 하루에 한 번 이번 달 버전에 HEAD 요청만 보내고, 있으면 받는다.
 //   수동: 운영자 패널의 확인(이번 달 · 지난달 중 가장 새 버전) · 업데이트.
 // 받기: 임시 파일에 압축을 풀며 받고 → 열어서 읽히는지 확인 → 옛 버전을 지우고 이름을 바꾼다. 실패하면 쓰던 파일을 그대로 쓴다.
 // 읽기: 파일 전체를 메모리에 올린다(약 130MB). 목록을 볼 때만 올리고 한동안 쓰지 않으면 내린다.
@@ -122,7 +122,7 @@ function locate(ip: string): DevicePlace {
   return { kind: "geo", city: name(hit.city?.names), region: name(hit.subdivisions?.[0]?.names), country: name(hit.country?.names) };
 }
 
-/** 그 버전이 올라와 있으면 받는 크기, 없으면 null(머리만 묻는다) */
+/** 그 버전이 올라와 있으면 받는 크기, 없으면 null(HEAD 요청만 보낸다) */
 async function sizeOf(version: string): Promise<number | null> {
   const res = await http.fetch(urlOf(version), { method: "HEAD", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
@@ -149,7 +149,7 @@ async function check(): Promise<GeoipCheck> {
   }
 }
 
-/** 그 버전을 받아 바꿔 끼운다. 실패하면 던지고 쓰던 파일은 그대로 */
+/** 그 버전을 받아 교체한다. 실패하면 던지고 쓰던 파일은 그대로 */
 async function download(version: string) {
   fs.mkdirSync(DIR, { recursive: true });
   const temp = path.join(DIR, `.download-${process.pid}.mmdb`);

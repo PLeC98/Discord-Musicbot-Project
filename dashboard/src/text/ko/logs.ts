@@ -16,10 +16,10 @@ const search = "로그에서 찾기";
 const missed = (count: number) => `연결이 끊긴 사이 ${formatNumber(count)}줄이 실시간 버퍼에서 밀려났어요`;
 const restarted = "봇이 다시 시작했어요";
 
-/** 머리의 "파일 보기 ›"(로그 파일 보기 페이지로) · 밀려난 줄 표시 끝의 "파일에서 보기 ›"(그 시각으로) */
+/** 헤더의 "파일 보기 ›"(로그 파일 보기 페이지로) · 밀려난 줄 표시 끝의 "파일에서 보기 ›"(그 시각으로) */
 const openFiles = "파일 보기";
 const gapToFile = "파일에서 보기";
-/** 거르기 창의 묶음 */
+/** 필터 창의 그룹 */
 const filterLevels = "레벨";
 const filterCategories = "카테고리 · 태그";
 const filterView = "보기";
@@ -31,7 +31,7 @@ const files = {
   /** 위 막대의 돌아가기(실시간 로그로) */
   back: title,
   download: "내려받기",
-  downloadTip: "지금 건 거르기 그대로, 화면과 같은 칸을 글로 받아요.",
+  downloadTip: "지금 건 필터 그대로, 화면과 같은 열을 글로 받아요.",
   search: "파일에서 찾기",
   latest: "최신 파일",
   /** 떼어 낸 파일: 날짜가 아니라 크기로 떼어 내므로 마지막 줄의 시각까지 적는다("언제부터"는 바로 앞 파일이 말해 준다) */

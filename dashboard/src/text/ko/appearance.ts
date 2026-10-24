@@ -22,7 +22,7 @@ const from = {
 /** 이 크기보다 작은 이미지를 늘려 쓸 때 */
 const blurryTip = "이 크기보다 작은 이미지를 늘려서 흐릿하게 보일 수 있어요.";
 
-/** 올리기 전에 거른 까닭(화면이 미리 본다). name 은 파일 이름 */
+/** 올리기 전에 거절한 까닭(화면이 미리 본다). name 은 파일 이름 */
 const refuse = {
   format: (name: string) => `${name}: 이 형식은 올릴 수 없어요.`,
   tooBig: (name: string, max: string) => `${name}: ${max} 보다 큰 파일은 올릴 수 없어요.`,

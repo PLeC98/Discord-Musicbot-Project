@@ -193,7 +193,7 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · �
   assert.equal(shown.bytes, store.folderBytes(shown.id));
   assert.deepEqual([store.loaded().options.blur, store.loaded().limits], [1.2, { history: 3, maxBytes: 0 }]);
   assert.deepEqual([publicOf().kind, (publicOf() as { id: string }).id], ["video", shown.id], "로그인 화면이 새 배경을 받는다");
-  assert.equal(fs.readdirSync(uploadDir).length, 1, "가져온 파일은 지운다(남은 것은 앞서 미리 보기만 하고 닫지 않은 것)");
+  assert.equal(fs.readdirSync(uploadDir).length, 1, "불러온 파일은 지운다(남은 것은 앞서 미리 보기만 하고 닫지 않은 것)");
 
   const again = await preview(file);
   assert.equal(again.row.same, true, "불러온 뒤에는 같다(id 가 아니라 만든 때 · 이름 · 파일로 본다)");

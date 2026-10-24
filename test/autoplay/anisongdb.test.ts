@@ -21,7 +21,7 @@ test("아무것도 입력하지 않으면 OP/ED · standard · normal · 음원 
   assert.deepEqual(f.song_types, ["opening", "ending"], "삽입곡은 기본으로 끈다");
   assert.deepEqual(f.song_categories, ["standard"], "Instrumental 은 자동재생에 안 맞는다");
   assert.deepEqual(f.broadcasts, ["normal"]);
-  // require_any 는 OR. 영상만 있는 곡을 버리지 않는다(최신 분기에서 넷 중 하나꼴이다)
+  // require_any 는 OR. 영상만 있는 곡을 버리지 않는다(최신 분기에 많다)
   assert.deepEqual(f.media_links, { require_any: ["audio", "HQ"] });
 });
 

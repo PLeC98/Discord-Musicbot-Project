@@ -56,7 +56,7 @@ beforeEach(() => {
 
 const files = () => fs.readdirSync(dir).sort();
 
-test("확인: 이번 달 버전이 있으면 그것, 없으면 지난달. 머리만 묻는다", async () => {
+test("확인: 이번 달 버전이 있으면 그것, 없으면 지난달. HEAD 요청만 보낸다", async () => {
   published.set(lastMonth, "city-old");
   assert.deepEqual(await geoip.check(), { current: null, latest: lastMonth, size: gzipSync(Buffer.from("city-old")).length });
   assert.deepEqual(asked, [`HEAD ${thisMonth}`, `HEAD ${lastMonth}`]);
@@ -64,7 +64,7 @@ test("확인: 이번 달 버전이 있으면 그것, 없으면 지난달. 머리
   assert.equal((await geoip.check()).latest, thisMonth);
 });
 
-test("업데이트: 받아서 압축을 풀고 열어 본 뒤 옛 버전을 지우고 바꿔 끼운다. 이미 그 버전이면 받지 않는다", async () => {
+test("업데이트: 받아서 압축을 풀고 열어 본 뒤 옛 버전을 지우고 교체한다. 이미 그 버전이면 받지 않는다", async () => {
   fs.writeFileSync(path.join(dir, `dbip-city-lite-${lastMonth}.mmdb`), "city-old");
   published.set(thisMonth, "city-new");
   assert.equal(await geoip.update(), thisMonth);

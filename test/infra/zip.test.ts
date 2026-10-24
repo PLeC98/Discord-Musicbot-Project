@@ -1,4 +1,4 @@
-// src/infra/zip.ts — 설정 내보내기 · 가져오기 · 백업의 ZIP. 묶은 것을 그대로 풀고(메모리 · 파일, ZIP64 포함), 믿을 수 없는 파일은 거절한다
+// src/infra/zip.ts — 설정 내보내기 · 불러오기 · 백업의 ZIP. 묶은 것을 그대로 풀고(메모리 · 파일, ZIP64 포함), 믿을 수 없는 파일은 거절한다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

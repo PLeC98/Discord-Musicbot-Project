@@ -175,7 +175,7 @@ function aiTarget(doc: unknown) {
 
 const linksIn = (value: unknown) => new Set(JSON.stringify(value ?? null).match(/https?:\/\/[^\s"'\\]+/g) ?? []);
 
-/** 바깥으로 나가는 값이 바뀌는지(남이 준 파일로 모르고 가져오지 않게) */
+/** 바깥으로 나가는 값이 바뀌는지(남이 준 파일로 모르고 불러오지 않게) */
 function docWarnings(item: DocItem, value: unknown): string[] {
   if (item === "ai") {
     const before = aiTarget(documents.get("ai"));
@@ -221,7 +221,7 @@ async function faviconRow(parsed: Parsed): Promise<ArchiveRow> {
   return { item: "favicon", inFile: true, same: stable(now) === stable(theirs), problems, warnings: [], count };
 }
 
-// 프롬프트를 따질 때 볼 AI 설정: 파일의 것을 함께 가져오면 그것, 아니면 지금 것
+// 프롬프트를 따질 때 볼 AI 설정: 파일의 것을 함께 불러오면 그것, 아니면 지금 것
 function aiDocFor(json: Partial<ArchiveJson>, takingAi: boolean) {
   const fromFile = isTable(json.documents) ? json.documents.ai : undefined;
   return takingAi && fromFile !== undefined ? fromFile : documents.get("ai");
@@ -311,7 +311,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   const cookiesBefore = tunables.view().values[COOKIES_KEY] ?? "";
   let docItems: DocItem[];
   try {
-    // 스냅샷은 설정 DB 의 것이라 DB 항목을 가져올 때만(파비콘 · 로그인 배경만이면 뜨지 않는다. 가져오기 전 스냅샷은 몇 개만 남는다)
+    // 스냅샷은 설정 DB 의 것이라 DB 항목을 불러올 때만(파비콘 · 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
     if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
     docItems = writeChosen(parsed.json, items);
   } catch (error) {
@@ -328,7 +328,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   return { ...importedOf(items, cookiesBefore), ...(added ? { added } : {}) };
 }
 
-// 가져온 뒤 알릴 것: 다시 시작해야 적용되는 값 · 바뀐 쿠키 출처(꺼졌거나 그대로면 null)
+// 불러온 뒤 알릴 것: 다시 시작해야 적용되는 값 · 바뀐 쿠키 출처(꺼졌거나 그대로면 null)
 function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImported {
   const after = tunables.view();
   const cookies = after.values[COOKIES_KEY] ?? "";
@@ -339,7 +339,7 @@ function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImporte
 const STAGED_AUDIO = "audio-cache.restore.zip";
 
 /**
- * 기동 때(설정을 올린 뒤 · 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 가져오고 삭제한다.
+ * 기동 때(설정을 올린 뒤 · 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 불러오고 삭제한다.
  * 번들이 없으면 null. 읽을 수 없는 번들(ZIP 이 깨졌거나 오디오 캐시가 아님)은 삭제하고 던진다(매번 다시 하지 않게). 그 밖의 실패는 번들을 남기고 던진다(다음 기동이 다시 한다)
  */
 async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {

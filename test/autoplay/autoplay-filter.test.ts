@@ -54,15 +54,15 @@ test("차단어는 곡 표식이 있어도 면제하지 않는다 — 공식 믹
 test("여러 곡을 이어 붙인 생김새는 떨어진다", () => {
   // 쉼표로 아티스트를 나열한 것은 대개 컴필레이션이다
   assert.equal(judge("Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift, Adele").reason, "믹스 생김새");
-  // 연도가 둘이면 "몇 년도부터 몇 년도까지 모음"이다(0%)
+  // 연도가 둘이면 "몇 년도부터 몇 년도까지 모음"이다
   assert.equal(judge("Classic Rock 1980 1990 Greatest").reason, "믹스 생김새");
-  // 이모지 둘이면 이미 15%다 — 옛 문턱(넷)은 너무 느슨했다
+  // 이모지는 둘부터 믹스로 본다
   assert.equal(judge("여름 노래 🌊🔥").reason, "믹스 생김새");
   assert.equal(judge("3 Hours of Piano").reason, "믹스 생김새");
 });
 
 test("곡 표식이 있으면 생김새 규칙을 면제한다", () => {
-  // 공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다(official·MV·feat.은 한 곡일 확률 97~100%)
+  // 공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다(official·MV·feat.이 있으면 거의 늘 한 곡)
   assert.equal(judge("아이돌 '노래' 🌊🔥 (Official Music Video)").ok, true);
   assert.equal(judge("Artist - Song 🎉🎊 M/V").ok, true);
   assert.equal(judge("A, B, C, D - Song (feat. E)").ok, true);

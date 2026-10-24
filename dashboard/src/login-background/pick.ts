@@ -3,7 +3,7 @@
 // 선택: powerEfficient ○ 인 단계 중 꽉 채웠을 때 필요한 세로 이상의 가장 낮은 해상도(없으면 가장 높은 것)를 먼저 정하고, 그 해상도에서 AV1 · VP9 · H.264 순서로 코덱.
 // H.264 720p(폴백)는 AV1 · VP9 에 ○ 가 없을 때만. ○ 가 없으면 풀 수 있는 가장 낮은 단계. 선택한 해상도가 그 코덱의 가장 높은 단계보다 낮으면 상한을 건다.
 // 내리기: 선택한 코덱에서 효과를 테마 색 전체 → 오버레이 색만 → 고정 순서로 빼고, 그 코덱의 낮은 해상도 상한 → H.264 720p → 정지 그림.
-// 흐림이 강하면(화면 높이의 0.23% 이상, B1) 4K 와 1080p 가 같아 보여 1080p 까지만 선택한다
+// 흐림이 강하면(화면 높이의 0.23% 이상) 4K 와 1080p 가 같아 보여 1080p 까지만 선택한다
 
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundStream } from "../../../src/dashboard/contract/login-background.ts";
 
@@ -16,7 +16,7 @@ type Effect = "full" | "cover" | "fixed";
 /** 내려갈 순서의 한 단계. codec 이 null 이면 정지 그림, cap 이 null 이면 해상도는 hls.js 가 화면 크기 · 통신으로 */
 type Step = { codec: LoginBackgroundCodec | null; cap: number | null; effect: Effect };
 
-/** 흐림 → 1080p 상한의 선(화면 높이에 대한 흐림 반지름, B1: 4K 와 1080p 의 VMAF 차이가 1 아래) */
+/** 흐림 → 1080p 상한의 선(화면 높이에 대한 흐림 반지름. 이보다 흐리면 4K 와 1080p 가 같아 보인다) */
 const BLUR_CAP_RATIO = 0.0023;
 const FHD = 1080;
 

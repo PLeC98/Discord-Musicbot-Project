@@ -81,7 +81,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
   }
 });
 
-// 넘친 정도와 상관없이 20% · 한 번에 50개를 삭제하면 큰 캐시는 50개 상한에 걸려 상한 바로 밑을 오갔다
+// 넘친 정도와 상관없이 일정 비율 · 한 번에 정한 개수만 삭제하면 큰 캐시는 그 개수 상한에 걸려 상한 바로 밑을 오간다
 test("evict: 넘친 만큼, 목표선(상한의 90%)까지 삭제한다. 한 번에 삭제하는 수의 상한은 없다", async () => {
   const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
@@ -123,7 +123,7 @@ test("evict: 저장된 세션의 곡은 조건이 나빠도 삭제하지 않는�
   }
 });
 
-// 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다(140곡 대기열 · 상한 100에서 하나도 삭제하지 못했다)
+// 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다(대기열이 상한보다 길면 하나도 삭제하지 못한다)
 test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(사전 캐시 범위)만 지킨다", async () => {
   const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
@@ -170,7 +170,7 @@ test("evict: 삭제할 수 있는 곡이 없어도 결과 줄을 남긴다", asy
   }
 });
 
-// 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 삭제가 풀릴 때까지 멈춘다. 동기로 삭제하면 봇 전체가 같이 멈췄다
+// 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 삭제가 풀릴 때까지 멈춘다. 동기로 삭제하면 봇 전체가 같이 멈춘다
 test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이번 실행 동안 다시 삭제하지 않는다", async () => {
   const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
@@ -568,7 +568,7 @@ test("같은 오디오를 다시 다운로드하면 앞선 요청이 남긴 길�
 
 // 반드시 마지막 — DB를 닫는다
 
-test("캐시 가져오기(adoptFile): 버전이 있으면 그 파일을 받은 때를 버전을 본 때로 적는다", async () => {
+test("캐시 불러오기(adoptFile): 버전이 있으면 그 파일을 받은 때를 버전을 본 때로 적는다", async () => {
   const temp = path.join(audioCache.cacheDir(), "adopt.tmp");
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   fs.writeFileSync(temp, "opus");

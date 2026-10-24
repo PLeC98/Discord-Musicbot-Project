@@ -53,7 +53,7 @@ const aiFile = z.preprocess(
       provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`),
       // 켜고 끄기. 끄면(false) 선택한 프로바이더 · 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
       enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
-      // 온도도 모델이 받는 필드 하나다. params 아래로 옮겼다
+      // 온도도 모델이 받는 필드 하나라 params 아래에 모델별로 둔다
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
       timeoutMs: between("timeoutMs", 1000, 600000),
       batchSize: between("batchSize", 1, 50),

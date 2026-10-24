@@ -54,7 +54,7 @@ test("YouTube URL 형태별 인식 — /live/ 포함", () => {
 });
 
 test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
-  // 클립은 유튜브가 기능을 없앴다(2026). 채널·검색 결과 페이지도 재생 대상이 아니다.
+  // 클립은 유튜브가 없앤 기능이다. 채널·검색 결과 페이지도 재생 대상이 아니다.
   const unsupported = ["https://www.youtube.com/clip/UgkxDwCneHNsPn-e8AtJkR6rRVpNlHqHOZDE", "https://www.youtube.com/@someChannel", "https://www.youtube.com/results?search_query=test"];
 
   for (const url of unsupported) {

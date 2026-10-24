@@ -1,5 +1,5 @@
 // src/dashboard/audio-cache-archive.ts — 오디오 캐시 내보내기 · 불러오기. 내보낸 것을 비운 캐시에 합쳐 되돌리고, 있는 것은 이 봇의 것을 두며(직접 지정한 음원은 덮는다),
-// 캐시 상한 안에서 퇴거 점수가 낮은 것부터 가져온다. 내보내는 동안 담을 파일은 지킨다. 받은 이름이 아니라 키로 이 봇의 자리에 둔다.
+// 캐시 상한 안에서 퇴거 점수가 낮은 것부터 불러온다. 내보내는 동안 담을 파일은 지킨다. 받은 이름이 아니라 키로 이 봇의 자리에 둔다.
 
 process.env.OWNER_ID = "owner";
 
@@ -164,7 +164,7 @@ test("합치기: 이 봇의 링크 데이터를 두고(같은 음원이면 확�
   assert.equal(pinnedSources.getPin("https://open.spotify.com/track/p")?.audioUrl, "https://soundcloud.com/from/file");
 });
 
-test("캐시 상한: 넘는 것은 가져오지 않고, 퇴거 점수가 낮은(자주 · 최근 튼) 것부터 가져온다", async () => {
+test("캐시 상한: 넘는 것은 불러오지 않고, 퇴거 점수가 낮은(자주 · 최근 튼) 것부터 불러온다", async () => {
   const now = Date.now();
   seedFile("yt:aaaaaaaaaa1", 100, 0, now - 90 * 86_400_000);
   seedFile("yt:aaaaaaaaaa2", 100, 30, now);

@@ -99,8 +99,7 @@ function isClientFault(error: unknown) {
  * 주소로 세 번 재시도해도(retries:3) 계속 403인데, 주소를 새로 받으면 풀린다. 주소 자체가
  * 처음부터 거절당한 것이지 통신이 끊긴 게 아니다.
  *
- * 저쪽 사정이고 우리 쪽에 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS·VPN·쿠키와 무관하며,
- * 실패한 요청에 siu=1 이 붙는다는 관찰이 있다. 2026.08.19 기준 고쳐진 바 없다).
+ * 저쪽 사정이고 우리 쪽에 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS·VPN·쿠키와 무관하다).
  * 그래서 여기서는 다시 받는 것만 한다.
  */
 function isStaleMediaError(error: unknown) {

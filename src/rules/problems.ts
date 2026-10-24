@@ -173,7 +173,7 @@ const WEB = {
   // 읽은 뒤 다른 탭 · 다른 사람이 먼저 저장했다(저장 번호가 다르다)
   "config-changed": { status: 409, title: "Config changed since it was read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
-  // 설정 가져오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
+  // 설정 불러오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },
   // 올린 파일을 둘 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "disk-full": { status: 409, title: "Not enough free disk space", params: ["size"] },

@@ -470,7 +470,7 @@ function dispose(player: Player) {
 const lookupRow = (requestKey: string) => cacheDb.get().prepare<[string], LookupRow>("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const audioRow = (key: string) => cacheDb.get().prepare<[string], AudioRow>("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 
-/** 걸어 둔 타이머의 시간(Node 타이머의 내부 필드). 치운 타이머는 -1 */
+/** 예약한 타이머의 시간(Node 타이머의 내부 필드). 취소한 타이머는 -1 */
 const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | null)?._idleTimeout;
 
 /** 플레이어의 가짜 오디오 플레이어. 테스트가 멈춘 횟수 · 튼 것을 본다 */

@@ -5,7 +5,7 @@
   <section class="@container/card pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
     <PaneHeader icon="article" :title="T.title">
       <!-- 제목 바로 옆에 연결 상태 · 줄 수. 연결되어 있으면 초록 점과 줄 수만, 끊기면 회색 점 · "끊김" · 줄 수. 점은 툴팁으로 상태를 말한다.
-           줄 수는 거르기 · 찾기와 상관없이 들고 있는 줄 전부(찾은 수는 찾기 칸 안에) -->
+           줄 수는 필터 · 찾기와 상관없이 들고 있는 줄 전부(찾은 수는 찾기 칸 안에) -->
       <template #badge>
         <span class="flex items-center gap-1.5 text-xs text-on-surface-variant shrink-0"
           ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'" :aria-label="connected ? T.connected : T.disconnected" v-tooltip="connected ? T.connected : T.disconnected"></span><template v-if="!connected">{{ T.disconnected }} ·</template> <span class="nums text-on-surface">{{ T.lines(lineCount) }}</span></span
@@ -148,15 +148,15 @@ const tag = ref<OptionValue>("");
 const categoryOptions = computed<Option[]>(() => categories.value.map((c) => ({ value: c, label: c, color: catColor(c) })));
 const tagOptions = computed<Option[]>(() => tags.value.map((t) => ({ value: t, label: `#${t}` })));
 
-// 거르기 · 글자 찾기(글 · 카테고리 · 태그, 한국어는 조합 중인 글자 · 초성으로도). 로그 파일 보기와 같은 규칙
+// 필터 · 글자 찾기(글 · 카테고리 · 태그, 한국어는 조합 중인 글자 · 초성으로도). 로그 파일 보기와 같은 규칙
 const term = ref("");
 const shown = computed(() => {
   const filter = { levels: levelsOn.value, category: String(category.value), tag: String(tag.value), q: term.value };
   return props.logs.filter((e) => e.mark || matchesLog(e, filter));
 });
-// 찾기 칸 안의 찾은 줄 수: 거르기를 모두 건 채 지금 들고 있는 줄에서(끊김 · 재시작 표시는 빼고)
+// 찾기 칸 안의 찾은 줄 수: 필터를 모두 건 채 지금 들고 있는 줄에서(끊김 · 재시작 표시는 빼고)
 const matchNote = computed(() => (term.value.trim() ? T.lines(shown.value.filter((e) => !e.mark).length) : ""));
-// 머리의 줄 수: 거르기 · 찾기와 상관없이 지금 들고 있는 줄 전부(표시 줄 빼고, 찾은 수는 찾기 칸 안에)
+// 헤더의 줄 수: 필터 · 찾기와 상관없이 지금 들고 있는 줄 전부(표시 줄 빼고, 찾은 수는 찾기 칸 안에)
 const lineCount = computed(() => props.logs.filter((e) => !e.mark).length);
 
 // 봇 상태 탭과 같은 24시간 시각
@@ -186,7 +186,7 @@ function setFollow(on: boolean) {
 }
 
 // ── 필터 창(좁은 화면) ──
-// 안의 거르기는 PC 와 같은 값을 바로 바꾼다. 초기화는 처음 켠 레벨 · 모든 카테고리 · 모든 태그로
+// 안의 필터는 PC 와 같은 값을 바로 바꾼다. 초기화는 처음 켠 레벨 · 모든 카테고리 · 모든 태그로
 const sheetOpen = ref(false);
 const sameSet = (a: Set<LevelName>, b: Set<LevelName>) => a.size === b.size && [...a].every((x) => b.has(x));
 // 바꾼 필터 수(레벨 · 카테고리 · 태그). 필터 버튼의 배지

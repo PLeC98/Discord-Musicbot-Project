@@ -53,7 +53,7 @@ test("굽기: 큰 그림은 긴 변 1000px JPEG, 작은 그림은 키우지 않�
 
   assert.equal(await bakeCover(Buffer.from("not an image")), null);
   assert.equal(await bakeCover(new Uint8Array()), null);
-  // PNG 머리만 거대한 크기를 적은 것(읽기 전에 막는다)
+  // PNG 헤더만 거대한 크기를 적은 것(읽기 전에 막는다)
   const ihdr = Buffer.from("89504e470d0a1a0a0000000d49484452000186a0000186a00806000000", "hex");
   assert.equal(await bakeCover(Buffer.concat([ihdr, Buffer.alloc(64)])), null);
 });

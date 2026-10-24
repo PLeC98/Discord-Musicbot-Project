@@ -212,7 +212,7 @@ const found = (over: Partial<{ startByte: number; startedAtMs: number }> = {}) =
   start: { header: Buffer.from("HEAD"), startByte: 90_000_000, startedAtMs: 4_490_000, expectStart: { bytes: 4, check: () => true }, ...over },
 });
 
-test("위치 이동: 색인이 있으면 청크 스트림을 머리 · 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
+test("위치 이동: 색인이 있으면 청크 스트림을 헤더 · 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
   const p = h.makePlayer();
   // 곡 길이는 스트림이 알려 준 것이 먼저다(표시 길이와 다를 수 있다)
   p.currentTrack = yt("seekidx0001", { duration: 100 });
@@ -280,7 +280,7 @@ test("위치 이동 뒤 입력이 깨져 그 위치부터 다시 열 때도 같�
   }
 });
 
-test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없으면 처음부터 받는다. 머리 요청이 한도를 넘으면 warn", async () => {
+test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없으면 처음부터 받는다. 헤더 요청이 한도를 넘으면 warn", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("seekidx0003", { duration: 6000 });
   behavior.stream = () => ({ url: LONG, duration: 6000 });
@@ -291,13 +291,13 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
   const q = h.makePlayer();
   q.currentTrack = yt("seekidx0004", { duration: 6000 });
   behavior.stream = () => ({ url: LONG, duration: 6000 });
-  behavior.seekStart = () => ({ ok: false, why: "머리 요청이 3초를 넘김", slow: true });
+  behavior.seekStart = () => ({ ok: false, why: "헤더 요청이 3초를 넘김", slow: true });
   const from = sink.buffer.length;
   await playOnce(q, 4_500_000);
   assert.equal(calls.chunked[0].startByte, undefined);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^warn 색인을 받지 못해 처음부터 받습니다: .* \| 머리 요청이 3초를 넘김$/.test(l)),
+    lines.some((l) => /^warn 색인을 받지 못해 처음부터 받습니다: .* \| 헤더 요청이 3초를 넘김$/.test(l)),
     lines.join(" / "),
   );
 });

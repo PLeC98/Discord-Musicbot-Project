@@ -39,7 +39,7 @@ const ICONS = {
   page_prev: { glyph: "chevron_left", unicode: "◀" },
   page_next: { glyph: "chevron_right", unicode: "▶" },
 
-  // 응답 머리 줄의 주제(오류 · 경고 안내, ui/frame). 머리 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
+  // 응답 헤더 줄의 주제(오류 · 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
   // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(시험이 맞춰 본다)
   failed: { glyph: "error", unicode: "❌", tints: ["error"] },
   permission: { glyph: "block", unicode: "🚫", tints: SEVERITY },
@@ -53,7 +53,7 @@ const ICONS = {
   muted: { glyph: "volume_off", unicode: "🔇", tints: ["brand", "warning"] },
   state: { glyph: "warning", unicode: "⚠️", tints: ["warning"] },
 
-  // 성공 응답의 머리 줄
+  // 성공 응답의 헤더 줄
   done: { glyph: "check_circle", unicode: "✅", tints: ["brand", "done"] },
   first_added: { glyph: "playlist_play", unicode: "⏫" },
   stopped: { glyph: "stop", unicode: "⏹️" },
