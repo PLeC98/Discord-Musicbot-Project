@@ -4,6 +4,9 @@
 
 import { PassThrough, type Readable } from "node:stream";
 import { parseBuffer, parseFile, parseStream, selectCover, type IAudioMetadata, type IOptions } from "music-metadata";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "track" });
 
 type Picture = { data: Uint8Array; format: string };
 type Tags = { title: string | null; artist: string | null; album: string | null; picture: Picture | null };
@@ -37,7 +40,8 @@ function tagsOf({ common }: IAudioMetadata): Tags {
 async function fromFile(file: string): Promise<Tags | null> {
   try {
     return tagsOf(await parseFile(file, { ...OPTIONS, maxMemoryAllocation: FILE_MAX_ALLOCATION }));
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`파일 태그 읽기 실패: ${file} | ${messageOf(error)}`);
     return null;
   }
 }
@@ -134,7 +138,8 @@ async function mp4Tags(prefix: Prefix, limits: StreamLimits, budget: { left: num
   if (!moov) return null;
   try {
     return tagsOf(await parseBuffer(Buffer.concat([head, moov]), { mimeType: "audio/mp4" }, OPTIONS));
-  } catch {
+  } catch (error) {
+    log.debug(`MP4 태그 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -145,9 +150,14 @@ async function streamTags(prefix: Prefix, next: () => Promise<IteratorResult<Buf
   // 라이브러리가 끝났는지(읽었든 못 읽었든). 못 읽은 것은 "없음"이고, 보내는 쪽(스트림)의 오류만 던진다
   let settled = false;
   let unreadable = false;
+  // 우리가 피드를 닫은 뒤의 실패는 닫은 까닭(상한 · 스트림 오류)의 메아리다
+  let closed = false;
   const parsing = parseStream(feed, undefined, OPTIONS).then(
     (meta) => ((settled = true), meta),
-    () => ((settled = unreadable = true), null),
+    (error: unknown) => {
+      if (!closed) log.debug(`스트림 태그 읽기 실패: ${messageOf(error)}`);
+      return ((settled = unreadable = true), null);
+    },
   );
   try {
     feed.write(prefix.bytes());
@@ -164,6 +174,7 @@ async function streamTags(prefix: Prefix, next: () => Promise<IteratorResult<Buf
     const meta = await parsing;
     return meta && !unreadable ? tagsOf(meta) : null;
   } finally {
+    closed = true;
     feed.destroy();
   }
 }

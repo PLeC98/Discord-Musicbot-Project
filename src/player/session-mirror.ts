@@ -348,8 +348,8 @@ class SessionPersistence {
     if (announce && player.currentTrack) {
       try {
         await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(resumeMs / 1000), paused: player.paused });
-      } catch {
-        // 메시지를 보낼 수 없으면 무시
+      } catch (error) {
+        log.warn(`복원 알림을 보내지 못했습니다: ${messageOf(error)}`);
       }
     }
   }

@@ -15,7 +15,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { artOf } from "../rules/track-art.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import * as fileTags from "./file-tags.ts";
 import type { Tags } from "./file-tags.ts";
 import { checkCover, bakeCover, type Cover } from "./cover.ts";
@@ -69,7 +69,8 @@ function versionOf(audioKey: string): { version: string; file: string | null } {
   try {
     const stat = fs.statSync(row.file_path);
     return { version: `file:${row.downloaded_at ?? `${stat.size}-${stat.mtimeMs}`}`, file: row.file_path };
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일을 보지 못함(원본으로): ${audioKey} | ${messageOf(error)}`);
     return { version: "source", file: null };
   }
 }

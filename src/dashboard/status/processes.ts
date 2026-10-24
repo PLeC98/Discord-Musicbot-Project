@@ -16,7 +16,8 @@ async function measure() {
   if (measuring) return;
   measuring = true;
   try {
-    memory = await processMemory(procRegistry.list().map((p) => p.pid));
+    // 못 읽었으면 지난 값을 둔다(그사이 끝난 pid 의 값은 목록에 나오지 않는다)
+    memory = (await processMemory(procRegistry.list().map((p) => p.pid))) ?? memory;
   } finally {
     measuring = false;
   }

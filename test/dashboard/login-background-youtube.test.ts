@@ -11,12 +11,16 @@ import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
 import { bestSize, highRes, receiveYoutube, shortfall } from "../../src/dashboard/login-background/youtube.ts";
 
+// yt-dlp 실행은 연령 제한으로 적어 둔 영상인지 캐시 DB 를 본다
+const db = openTempStore("login-bg-youtube-db-");
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-youtube-"));
 const SAMPLE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-yt-sample-")), "clip.mp4");
 after(() => {
   useExec(null);
+  db.close();
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
   fs.rmSync(path.dirname(SAMPLE), { recursive: true, force: true, maxRetries: 5 });
 });

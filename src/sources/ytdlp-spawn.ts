@@ -12,6 +12,7 @@ import { SlotQueue, type SlotStats } from "../infra/slot-queue.ts";
 import type { Job } from "../infra/process-job.ts";
 import { isYouTubeURL } from "../rules/links.ts";
 import * as errors from "./youtube/errors.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { ytdlpBinary } from "./ytdlp-binary.ts";
 const log = logger.child({ category: "ytdlp" });
 
@@ -153,7 +154,8 @@ function clearOutput(output: string): number {
   let names: string[];
   try {
     names = fs.readdirSync(dir).filter(has);
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`받다 만 파일을 찾지 못함: ${dir} | ${messageOf(error)}`);
     return 0;
   }
   let removed = 0;
@@ -161,8 +163,9 @@ function clearOutput(output: string): number {
     try {
       fs.rmSync(path.join(dir, name), { force: true });
       removed++;
-    } catch {
-      /* 잠겨 있음. 부르는 쪽의 정리가 받는다 */
+    } catch (error) {
+      // 잠겨 있음. 부르는 쪽의 정리가 받는다
+      log.debug(`받다 만 파일 삭제 실패: ${name} | ${messageOf(error)}`);
     }
   }
   return removed;
@@ -179,8 +182,8 @@ async function snapshotOf({ dir, has }: ReturnType<typeof familyOf>): Promise<st
   return parts.join("|");
 }
 
-/** output 의 파일 묶음을 감시해 멎으면 onStall. 돌려주는 것은 감시를 멈추는 함수 */
-function watchDownload(output: string, onStall: () => void): () => void {
+/** output 의 파일 묶음을 감시해 멎으면 onStall. 돌려주는 것은 감시를 멈추는 함수. read 는 시험이 바꾼다 */
+function watchDownload(output: string, onStall: () => void, read = snapshotOf): () => void {
   const family = familyOf(output);
   const { everyMs, limitMs } = stall;
   let last: string | null = null;
@@ -190,7 +193,7 @@ function watchDownload(output: string, onStall: () => void): () => void {
   const timer = setInterval(() => {
     if (busy) return;
     busy = true;
-    void snapshotOf(family).then((now) => {
+    void read(family).then((now) => {
       busy = false;
       if (stopped) return;
       if (now !== last) {
@@ -290,7 +293,7 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
 }
 
 export default run;
-export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoSlots, familyOf, clearOutput };
+export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoSlots, familyOf, clearOutput, watchDownload };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 곳의 모양 */
 type RunYtDlp = typeof run;
 export type { YtDlpFlags, YtDlpError, RunYtDlp, RunOptions, Exec };

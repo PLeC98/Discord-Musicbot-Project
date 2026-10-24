@@ -12,7 +12,7 @@ import { frame, noticeFrame, post } from "../../ui/frame.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
-import { noticeMs } from "../../ui/delivery.ts";
+import { noticeMs, unlessGone } from "../../ui/delivery.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 
@@ -52,11 +52,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send(post(frame({ body: searchText.searching(preview) })));
 
-    const responder = channelResponder(message.channel, () =>
-      loadingMsg.delete().catch(() => {
-        /* 이미 삭제됐다 */
-      }),
-    );
+    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(unlessGone(log, "자리표시자 삭제")));
 
     try {
       const result = await requestPlayback(bot, {

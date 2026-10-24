@@ -7,10 +7,14 @@ import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { fakeBot, fakePlayer } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
 import type { AutoplayGenres, PlayerState } from "../../src/dashboard/contract/player.ts";
 import type { Player } from "../../src/player/player.ts";
 
 useDefaultDocuments();
+// 켜면 패널 채널을 찾느라 서버 설정을 읽는다
+const store = openTempStore("dashboard-autoplay-");
+after(() => store.close());
 const genreConfig = await import("../../src/config/genres.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");

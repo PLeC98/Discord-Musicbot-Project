@@ -22,7 +22,7 @@ import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
-import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf } from "../../ui/delivery.ts";
+import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf, unlessGone } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
 import { youtubeWatchUrl } from "../../rules/links.ts";
 
@@ -161,11 +161,7 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   showFailureWith(interaction, (notice) => noticeInstead(interaction, notice));
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
-  const responder = channelResponder(interaction.channel, () =>
-    interaction.deleteReply().catch(() => {
-      /* 이미 삭제됐다 */
-    }),
-  );
+  const responder = channelResponder(interaction.channel, () => interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제")));
 
   const result = await requestPlayback(bot, {
     guild,

@@ -1,7 +1,7 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 남은 자식 프로세스 정리 → 종료 처리기 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
-import { Client, GatewayIntentBits, Events, type ClientEvents, type VoiceState } from "discord.js";
+import { Client, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../config/index.ts";
@@ -58,7 +58,7 @@ import { botJoinedGuild, botLeftGuild } from "../dashboard/routes/player-events.
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { errorKind, messageOf } from "../rules/error-kind.ts";
 import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
@@ -239,9 +239,28 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   );
   // 새어 나온 오류 · 거부 · 예외를 구분해 표적 복구하거나 안전 종료한다
   installErrorHandlers(client, { players, fault });
+  listenToLibrary(client);
 
   // 실패는 init 이 받아 기동 실패로 내린다
   bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), "기동");
+}
+
+// 라이브러리(discord.js · REST)가 알리는 경고 · 진행 · 연결 오류. 게이트웨이가 끊긴 까닭 · 다시 붙은 횟수는 대시보드 상태(dashboard/status/gateway)가 모은다
+function listenToLibrary(client: Client) {
+  const dlog = logger.child({ category: "discord" });
+  client.on(Events.Warn, (message) => dlog.warn(message));
+  // 하트비트마다 나오는 양이라 trace
+  client.on(Events.Debug, (message) => dlog.trace(message));
+  // 연결 오류 뒤에는 라이브러리가 스스로 다시 붙는다. 네트워크가 끊긴 동안은 시도마다 나오므로 debug
+  client.on(Events.ShardError, (error, shardId) => {
+    const line = `게이트웨이 연결 오류 (샤드 ${shardId}): ${messageOf(error)}`;
+    if (errorKind(error) === "network-error") dlog.debug(line);
+    else dlog.warn(line);
+  });
+  // 토큰 · 인텐트처럼 다시 붙어도 같은 닫힘 코드면 라이브러리가 다시 붙지 않는다
+  client.on(Events.ShardDisconnect, (event, shardId) => dlog.error(`게이트웨이 연결이 닫혀 다시 붙지 않습니다 (샤드 ${shardId}): 닫힘 코드 ${event.code}`));
+  client.rest.on(RESTEvents.RateLimited, (info) => dlog.debug(`요청 제한에 걸려 기다립니다: ${info.method.toUpperCase()} ${info.route} | ${info.timeToReset}ms${info.global ? " | 전역" : ""}`));
+  client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다. 직접 링크 곡의 파일 태그를 찾으면 그 곡을 가진 플레이어마다 반영한다

@@ -48,8 +48,9 @@ async function fetchVideo(url: string, folder: string, base: string, res: number
   let info: Info = {};
   try {
     info = JSON.parse(fs.readFileSync(infoFile, "utf8")) as Info;
-  } catch {
+  } catch (error) {
     // 정보가 없어도 다운로드한 영상은 쓴다
+    log.debug(`로그인 배경 영상 정보(info.json) 읽기 실패: ${messageOf(error)}`);
   }
   fs.rmSync(infoFile, { force: true });
   return { file: path.join(folder, name), info };

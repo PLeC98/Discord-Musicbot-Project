@@ -4,8 +4,11 @@
 
 import type { Response } from "express";
 import config from "../config/index.ts";
+import logger from "../infra/log/logger.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import * as requests from "../store/ai-requests.ts";
 import type { AiLogEntry, AiLogPushed } from "./contract/ai-log.ts";
+const log = logger.child({ category: "dashboard" });
 
 /** 다시 붙을 때 보내는 놓친 줄의 상한 */
 const RESUME_MAX = 200;
@@ -32,7 +35,8 @@ function broadcast(entry: AiLogEntry) {
   for (const res of [...clients.keys()]) {
     try {
       res.write(frame);
-    } catch {
+    } catch (error) {
+      log.trace(`AI 리퀘스트 로그 연결 쓰기 실패: ${messageOf(error)}`);
       clients.delete(res);
     }
   }
@@ -53,7 +57,8 @@ function syncHeartbeat() {
     for (const res of [...clients.keys()]) {
       try {
         res.write(": ping\n\n");
-      } catch {
+      } catch (error) {
+        log.trace(`AI 리퀘스트 로그 연결 하트비트 쓰기 실패: ${messageOf(error)}`);
         clients.delete(res);
       }
     }
@@ -74,7 +79,10 @@ function addClient(res: Response, userKey: string, after: number): boolean {
     syncHeartbeat();
   };
   res.on("close", drop);
-  res.on("error", drop);
+  res.on("error", (error: unknown) => {
+    log.debug(`AI 리퀘스트 로그 연결 오류: ${messageOf(error)}`);
+    drop();
+  });
   return true;
 }
 

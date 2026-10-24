@@ -7,7 +7,7 @@ import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } fr
 import type { Responder } from "../ui/now-playing-panel.ts";
 import { post } from "../ui/frame.ts";
 import { icon } from "../ui/icons.ts";
-import { LIFETIME, postNew } from "../ui/delivery.ts";
+import { LIFETIME, postNew, unlessGone } from "../ui/delivery.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -30,8 +30,8 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
     done = true;
     try {
       if (fn) await fn();
-    } catch {
-      /* 이미 만료/삭제됐을 수 있음 */
+    } catch (error) {
+      unlessGone(log, "자리표시자 정리")(error);
     }
   };
 }

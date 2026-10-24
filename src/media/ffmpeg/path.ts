@@ -1,4 +1,4 @@
-import { codedError } from "../../rules/error-kind.ts";
+import { codedError, messageOf } from "../../rules/error-kind.ts";
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
@@ -26,10 +26,14 @@ function probe(candidate: string | null | undefined): string | null {
   if (!candidate) return null;
   try {
     const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000 });
-    if (result.error || result.status !== 0) return null;
+    if (result.error || result.status !== 0) {
+      log.debug(`ffmpeg 후보를 실행하지 못함: ${candidate} | ${result.error ? messageOf(result.error) : `종료 코드 ${result.status ?? result.signal ?? "없음"}`}`);
+      return null;
+    }
     const match = /ffmpeg version (\S+)/i.exec(result.stdout || "");
     return match ? match[1] : "unknown";
-  } catch {
+  } catch (error) {
+    log.debug(`ffmpeg 후보를 실행하지 못함: ${candidate} | ${messageOf(error)}`);
     return null;
   }
 }
@@ -107,9 +111,13 @@ function capabilities(): Capabilities {
   const ask = (args: string[]): string => {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
-      if (result.error) return "";
+      if (result.error) {
+        log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
+        return "";
+      }
       return `${result.stdout || ""}${result.stderr || ""}`;
-    } catch {
+    } catch (error) {
+      log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
       return "";
     }
   };

@@ -7,7 +7,10 @@ import path from "node:path";
 import type { Request } from "express";
 import { PROJECT } from "../infra/project-paths.ts";
 import { roomIn } from "../infra/disk.ts";
+import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { saveBody, type Saved } from "./body-to-file.ts";
+const log = logger.child({ category: "dashboard" });
 
 const PREFIX = "archive-";
 const TOKEN = /^[0-9a-f]{32}$/;
@@ -49,7 +52,8 @@ function sweepUploads() {
   let names: string[];
   try {
     names = fs.readdirSync(dir);
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`올린 백업 파일 치우기 실패: ${messageOf(error)}`);
     return;
   }
   for (const name of names) if (name.startsWith(PREFIX)) fs.rmSync(path.join(dir, name), { force: true });

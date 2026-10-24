@@ -66,7 +66,7 @@ const PIN_SETTLE_MS = 12000;
 /** 패널에 붙여 둔 썸네일이 음표(그림 없는 곡)라는 표시. 그 밖은 파일 태그 그림의 지문 */
 const NO_ART = "no-art";
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
-import { LIFETIME } from "./delivery.ts";
+import { LIFETIME, unlessGone } from "./delivery.ts";
 import { panelId, IDLE_SESSION } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
@@ -312,8 +312,8 @@ class NowPlayingPanel {
     try {
       if (webhook) await webhook.deleteMessage(messageId);
       else await channel.messages.delete(messageId);
-    } catch {
-      /* 이미 삭제됐거나 삭제할 권한이 없음 */
+    } catch (error) {
+      unlessGone(log, "현재 재생 메시지 삭제")(error);
     }
   }
 

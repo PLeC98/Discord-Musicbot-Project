@@ -4,7 +4,7 @@ import express from "express";
 import { trackArtUrl } from "../player-view.ts";
 import { PermissionFlagsBits } from "discord.js";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { voiceFlags } from "../guild-access.ts";
+import { notMember, voiceFlags } from "../guild-access.ts";
 import { sendProblem } from "../problem.ts";
 import { playState, soundAttached } from "../../ui/player-status.ts";
 import type { Player } from "../../player/player.ts";
@@ -29,7 +29,7 @@ function createGuildListRouter() {
     const user = signedIn(req);
     const rows = await Promise.all(
       [...client.guilds.cache.values()].map(async (guild): Promise<GuildRow | null> => {
-        const member = await guild.members.fetch(user.id).catch(() => null); // 캐시 우선
+        const member = await guild.members.fetch(user.id).catch(notMember(guild.id, user.id)); // 캐시 우선
         if (!member) return null;
         const player = players.get(guild.id);
         // 지금 곡(서버 카드가 그린다). 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙)

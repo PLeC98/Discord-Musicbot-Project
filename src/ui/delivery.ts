@@ -6,7 +6,7 @@
 import { MessageFlags, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
@@ -32,6 +32,17 @@ const noticeMs = (notice: Notice) => (notice.code !== undefined ? BY_CODE[notice
 // 상호작용 토큰은 15분 뒤 죽는다. 그보다 긴 수명은 삭제할 수 없다
 const TOKEN_MS = 15 * 60_000;
 
+// 이미 사라진 응답 · 메시지. 10008 메시지 없음 · 10015 웹훅 없음 · 50027 상호작용 토큰 만료
+const GONE_CODES = new Set<unknown>([10008, 10015, 50027]);
+
+/** 응답 · 메시지를 지우거나 고친 실패를 받는 catch 처리기. 이미 사라졌으면 넘기고, 그 밖의 실패는 부른 쪽 로거에 debug 로 남긴다 */
+function unlessGone(log: { debug(line: string): unknown }, what: string) {
+  return (error: unknown) => {
+    if (GONE_CODES.has(codeOf(error))) return;
+    log.debug(`${what} 실패: ${describeError(error)}`);
+  };
+}
+
 // 테스트가 예약된 수명을 읽는 위치. 상호작용마다 예약한 순서대로
 const scheduled = new WeakMap<object, Array<number | null>>();
 const lifetimesOf = (interaction: object) => scheduled.get(interaction) ?? [];
@@ -44,9 +55,7 @@ function expireSelf(interaction: RepliableInteraction, ms: number | null, messag
   const timer = setTimeout(() => {
     Promise.resolve()
       .then(() => (messageId ? interaction.deleteReply(messageId) : interaction.deleteReply()))
-      .catch(() => {
-        /* 이미 닫았거나 삭제했다 */
-      });
+      .catch(unlessGone(log, "본인 응답 삭제"));
   }, ms);
   timer.unref?.();
 }
@@ -75,9 +84,7 @@ async function replaceSelf(interaction: RepliableInteraction, view: ContainerBui
  */
 async function noticeInstead(interaction: RepliableInteraction, notice: Notice) {
   if (!interaction.deferred && !interaction.replied && interaction.isMessageComponent()) await interaction.deferUpdate();
-  await interaction.deleteReply().catch(() => {
-    /* 이미 삭제됐다 */
-  });
+  await interaction.deleteReply().catch(unlessGone(log, "안내로 바꿀 응답 삭제"));
   const message = await interaction.followUp(noticeReply(notice));
   expireSelf(interaction, noticeMs(notice), message.id);
 }
@@ -100,9 +107,7 @@ async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, 
     if (id && ms !== null) scheduleDelete({ id, delete: () => interaction.deleteReply() }, ms);
     return;
   }
-  await interaction.deleteReply().catch(() => {
-    /* 자리표시자가 이미 삭제됐다 */
-  });
+  await interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제"));
   return postNew(interaction, view, ms, files);
 }
 
@@ -127,4 +132,4 @@ async function postNew(interaction: RepliableInteraction, view: ContainerBuilder
 /** 본인 표시를 단 응답(임베드 · 텍스트 화면) */
 const selfOnly = <P extends object>(payload: P) => ({ ...payload, flags: MessageFlags.Ephemeral }) as P & { flags: MessageFlags.Ephemeral };
 
-export { LIFETIME, TOKEN_MS, noticeMs, expireSelf, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };
+export { LIFETIME, TOKEN_MS, noticeMs, unlessGone, expireSelf, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };

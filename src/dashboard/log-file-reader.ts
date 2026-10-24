@@ -13,7 +13,10 @@ import fs from "fs";
 import path from "path";
 import { rotatedFilesOf } from "../infra/log/file.ts";
 import { wireFields } from "../infra/log/levels.ts";
+import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { AT_AFTER_LINES, matchesLog, type FileLine, type FilePage, type LogFile, type LogFilter } from "./contract/log-files.ts";
+const log = logger.child({ category: "dashboard" });
 
 /** 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;
@@ -134,7 +137,8 @@ function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | nul
   let fd: number;
   try {
     fd = fs.openSync(file, "r");
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패: ${messageOf(error)}`);
     return null;
   }
   try {
@@ -189,8 +193,10 @@ function listLogFiles(file: string): LogFile[] {
     let stat: fs.Stats;
     try {
       stat = fs.statSync(full);
-    } catch {
-      continue; // 지금 파일이 아직 없다(기록 전) · 그새 삭제됐다
+    } catch (error) {
+      // 지금 파일이 아직 없다(기록 전) · 그새 삭제됐다
+      if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 정보 읽기 실패: ${messageOf(error)}`);
+      continue;
     }
     const s = scan(full);
     if (!s) continue;
@@ -293,7 +299,8 @@ function* filteredLines(target: { path: string }, filter: LogFilter): Generator<
   let fd: number;
   try {
     fd = fs.openSync(target.path, "r");
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패(내려받기): ${messageOf(error)}`);
     return;
   }
   try {

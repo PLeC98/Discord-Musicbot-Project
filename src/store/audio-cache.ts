@@ -10,7 +10,7 @@ import { md5, audioKeyOf } from "../rules/audio-key-of.ts";
 import { sessions } from "./player-sessions.ts";
 import { cacheDb, TABLES_OF_PART } from "./cache-db.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { driveOf } from "../infra/disk.ts";
@@ -337,11 +337,12 @@ function wipeTables(parts: readonly AudioCachePart[], survivors: string[]): Part
   return cleared;
 }
 
-// 지우기 전의 크기(지운 크기를 센다). 못 읽으면 0
+// 지우기 전의 크기(지운 크기를 센다). 못 읽으면 0(없는 것은 이미 지워졌다)
 function sizeOf(target: string) {
   try {
     return fs.statSync(target).size;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일 크기 읽기 실패: ${path.basename(target)} | ${messageOf(error)}`);
     return 0;
   }
 }
@@ -367,8 +368,9 @@ async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResul
   try {
     conn().pragma("wal_checkpoint(TRUNCATE)");
     conn().exec("VACUUM");
-  } catch {
-    /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
+  } catch (error) {
+    // 파일 크기만 못 줄일 뿐 초기화는 끝났다
+    log.debug(`캐시 DB 파일 줄이기 실패: ${messageOf(error)}`);
   }
   return { removed: files.removed, kept: files.kept, freedBytes: files.freedBytes, cleared };
 }
@@ -460,7 +462,8 @@ function freeDiskBytes() {
   try {
     const stat = fs.statfsSync(dir);
     return stat.bavail * stat.bsize;
-  } catch {
+  } catch (error) {
+    log.debug(`캐시 폴더 드라이브의 남은 크기 읽기 실패(남은 크기로 비우지 않는다): ${messageOf(error)}`);
     return Infinity;
   }
 }

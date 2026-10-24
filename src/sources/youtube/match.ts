@@ -2,6 +2,9 @@
 // 실제 검색(YouTube.search)은 호출측(probe · youtube/equivalent)이 하고, 결과 병합은 mergeCandidateLists로.
 
 import { youtubeWatchUrl } from "../../rules/links.ts";
+import logger from "../../infra/log/logger.ts";
+import { briefError } from "./errors.ts";
+const log = logger.child({ category: "youtube" });
 
 /** 채점할 후보(유튜브 검색 결과). rank 는 병합한 순위, listOrder 는 주 쿼리 0 · 보조 1 */
 type Candidate = { id?: string | number | null; url?: string | null; title?: string | null; channel?: string | null; durationSec?: number | null; isLive?: boolean; rank?: number; listOrder?: number };
@@ -495,7 +498,8 @@ async function searchCandidates(target: Target, search: Search, profile: SearchP
     try {
       const results = (await search(query, limit)) || [];
       return results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
-    } catch {
+    } catch (error) {
+      log.debug(`검색어 하나의 검색 실패(나머지로): "${query}" | ${briefError(error, 1)}`);
       return [];
     }
   };

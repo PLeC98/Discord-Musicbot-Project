@@ -28,6 +28,12 @@ function messageOf(error: unknown, fallback = String(error)): string {
   return (typeof message === "string" && message) || fallback;
 }
 
+/** 로그에 싣는 오류: 메시지와 코드(있으면) */
+function describeError(error: unknown): string {
+  const code = codeOf(error);
+  return `${messageOf(error)}${code === undefined ? "" : ` (${code})`}`;
+}
+
 // 디스코드가 권한 없음으로 거절한 요청. 거절된 요청의 주소로 구분한다: 음성 채널 상태는 음성, 메시지 · 고정 · 웹훅은 글, 그 밖.
 // 음성 채널 접속은 게이트웨이로 가 이 번호를 받지 않는다(접속 전에 권한을 본다. usecases/permissions)
 function permissionKind(one: object) {
@@ -70,4 +76,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-export { errorKind, codedError, codeOf, messageOf };
+export { errorKind, codedError, codeOf, messageOf, describeError };

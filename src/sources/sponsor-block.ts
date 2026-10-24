@@ -15,6 +15,9 @@ import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { httpFor } from "../infra/http.ts";
+import { messageOf } from "../rules/error-kind.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "sponsor" });
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 const http = httpFor("sponsorblock");
@@ -90,9 +93,16 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
   const timer = setTimeout(() => controller.abort(), sb.timeoutMs);
   try {
     const res = await send(url, { headers: { "User-Agent": config.userAgents.bot }, signal: controller.signal });
-    if (res.status !== 200) return null;
+    if (res.status !== 200) {
+      // 404 는 그 해시 앞자리에 구간이 하나도 없다는 답이다
+      if (res.status !== 404) log.debug(`SponsorBlock 조회 실패: ${videoId} | HTTP ${res.status}`);
+      return null;
+    }
     const arr: unknown = await res.json();
-    if (!Array.isArray(arr)) return null;
+    if (!Array.isArray(arr)) {
+      log.debug(`SponsorBlock 조회 실패: ${videoId} | 응답이 배열이 아님`);
+      return null;
+    }
     const mine = (arr as ApiVideo[]).filter((v) => v.hash === fullHash || v.videoID === videoId);
     return mine.flatMap((v) =>
       (v.segments || []).map((s) => ({
@@ -104,8 +114,10 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
         locked: s.locked ? 1 : 0,
       })),
     );
-  } catch {
-    return null; // abort/네트워크 오류 → 폴백
+  } catch (error) {
+    // abort/네트워크 오류 → 폴백
+    log.debug(`SponsorBlock 조회 실패: ${videoId} | ${controller.signal.aborted ? `${sb.timeoutMs}ms 초과` : messageOf(error)}`);
+    return null;
   } finally {
     clearTimeout(timer);
   }
@@ -142,13 +154,18 @@ async function _rawFor(videoId: string): Promise<Fetched> {
   return { raw: null, source: "none" };
 }
 
-// 캐시로 답한 뒤 라이브로 고친다. 못 받으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다
+// 캐시로 답한 뒤 라이브로 고친다. 못 받거나 못 적으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다.
+// 뒤에서 도는 일이라 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
 async function _refresh(videoId: string) {
-  const raw = await _fetchRaw(videoId).catch(() => null);
-  if (!raw) return;
-  externalCaches.setSponsorSegments(videoId, raw);
-  const entry = remembered.get(videoId);
-  if (entry) entry.promise = Promise.resolve({ raw, source: "live" });
+  try {
+    const raw = await _fetchRaw(videoId);
+    if (!raw) return;
+    externalCaches.setSponsorSegments(videoId, raw);
+    const entry = remembered.get(videoId);
+    if (entry) entry.promise = Promise.resolve({ raw, source: "live" });
+  } catch (error) {
+    log.debug(`SponsorBlock 구간 새로 고치기 실패: ${videoId} | ${messageOf(error)}`);
+  }
 }
 
 /** 트랙에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
@@ -178,7 +195,10 @@ async function forTrack(track: { audioUrl?: string | null; [field: string]: unkn
 function _remember(videoId: string) {
   const at = Date.now();
   const promise = _rawFor(videoId)
-    .catch((): Fetched => ({ raw: null, source: "none" }))
+    .catch((error: unknown): Fetched => {
+      log.debug(`SponsorBlock 구간 조회 실패: ${videoId} | ${messageOf(error)}`);
+      return { raw: null, source: "none" };
+    })
     .then((r) => {
       entry.none = !r.raw;
       return r;

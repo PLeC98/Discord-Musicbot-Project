@@ -38,7 +38,8 @@ async function checkCover(data: Uint8Array): Promise<Cover | null> {
     const isJpeg = data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
     const { format, width = 0, height = 0 } = await sharp(data, { limitInputPixels: MAX_PIXELS }).metadata();
     if (isJpeg && format === "jpeg" && width > 0 && height > 0 && width <= SIDE && height <= SIDE) return { jpeg: Buffer.from(data), width, height };
-  } catch {
+  } catch (error) {
+    log.debug(`곡 그림을 확인하지 못함(그림 없이): ${messageOf(error)}`);
     return null;
   }
   return bakeCover(data);

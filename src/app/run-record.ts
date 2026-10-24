@@ -8,6 +8,9 @@
 import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
+import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
+const log = logger.child({ category: "core" });
 
 type Ending = "shutdown" | "restart" | "startup-failed" | "global-flood";
 type Run = { startedAt: number; aliveAt: number; ended: { how: Ending; at: number } | null; shortStreak: number };
@@ -43,7 +46,9 @@ class RunRecord {
     try {
       const run = JSON.parse(fs.readFileSync(this.file, "utf8")) as Run;
       return typeof run.startedAt === "number" && typeof run.aliveAt === "number" ? run : null;
-    } catch {
+    } catch (error) {
+      // 파일이 없는 것은 첫 기동이다
+      if (codeOf(error) !== "ENOENT") log.debug(`실행 기록 읽기 실패: ${messageOf(error)}`);
       return null;
     }
   }
@@ -84,8 +89,9 @@ class RunRecord {
     this.run.aliveAt = this.now();
     try {
       this._write();
-    } catch {
+    } catch (error) {
       // 다음 간격에 다시 적는다. 못 적어도 끝난 방식은 end() 가 적는다
+      log.trace(`실행 기록 고치기 실패: ${messageOf(error)}`);
     }
   }
 
@@ -98,8 +104,9 @@ class RunRecord {
     this.run = { ...this.run, aliveAt: at, ended: { how, at } };
     try {
       this._write();
-    } catch {
+    } catch (error) {
       // 끝나는 중이다. 못 적으면 다음 기동이 "기록 없이 끊김"으로 본다
+      log.warn(`실행 기록에 끝난 방식을 적지 못했습니다: ${messageOf(error)}`);
     }
   }
 }

@@ -52,6 +52,9 @@ class SsrfError extends Error {
   }
 }
 
+// DNS 가 붙인 이름(ENOTFOUND · EAI_AGAIN 등), 없으면 메시지. 원인으로 달지 않는다(오류 종류가 네트워크로 바뀐다)
+const dnsReason = (error: unknown) => (error as NodeJS.ErrnoException | undefined)?.code ?? (error instanceof Error ? error.message : String(error));
+
 /** 공인(global unicast) IP 가 아니면 막는다. 판정은 infra/public-address(패널의 대시보드 링크와 같은 판정) */
 const isBlockedIp = (ip: string) => !isPublicIp(ip);
 
@@ -92,8 +95,8 @@ async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.
   let addrs;
   try {
     addrs = await lookup(host, { all: true, verbatim: true });
-  } catch {
-    throw new SsrfError(`DNS 해석 실패: ${host}`);
+  } catch (error) {
+    throw new SsrfError(`DNS 해석 실패: ${host} (${dnsReason(error)})`);
   }
   if (!addrs || addrs.length === 0) throw new SsrfError(`DNS 결과 없음: ${host}`);
   for (const a of addrs) {

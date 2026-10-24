@@ -810,8 +810,8 @@ class Player {
     if (ending) log.info(`트랙 종료: ${ending} | 원인=${end}`);
     try {
       this.playback?.resource?.playStream?.destroy();
-    } catch {
-      // 이미 닫혔다
+    } catch (error) {
+      log.debug(`재생 스트림 닫기 실패: ${messageOf(error)}`);
     }
     this.playback = null;
     this.lastPlaybackPosition = 0;
@@ -1137,8 +1137,9 @@ class Player {
     this.lastPlaybackPosition = 0;
     try {
       this.audioPlayer.stop(true);
-    } catch {
-      /* 이미 멈춘 플레이어다 */
+    } catch (error) {
+      // 멈춘 플레이어의 stop 은 던지지 않는다. 던졌으면 전이를 받은 리스너가 던진 것이다
+      log.warn(`오디오 플레이어 정지 실패: ${messageOf(error)}`);
     }
     // 세션을 복원하는 /join 은 이것을 명령 응답으로 말한다(quietFailures)
     if (!this.quietFailures) await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
@@ -1384,8 +1385,8 @@ class Player {
       // 사용자 알림은 호출자(명령 editReply / 대시보드 응답)가 play() 반환값으로 처리한다. 여기서 텍스트 채널로 또 보내지 않는다.
       try {
         this.audioPlayer.stop(true);
-      } catch {
-        /* 이미 멈춘 플레이어다 */
+      } catch (error) {
+        log.warn(`오디오 플레이어 정지 실패: ${messageOf(error)}`);
       }
       // 틀 곡이 없다. 다 튼 것과 같이 끝낸다(끝난 패널 · 세션 삭제 · 나갈 예약). 곡 담기가 첫 곡을 트는 중이면 담기가 끝낸다
       if (!this.finishByCaller) await this.finishQueue();

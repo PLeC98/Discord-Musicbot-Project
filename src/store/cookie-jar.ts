@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 const log = logger.child({ category: "youtube" });
 import { PROJECT } from "../infra/project-paths.ts";
 import * as secrets from "./secrets.ts";
@@ -62,8 +63,9 @@ function release(held: { file: string; text: string; since: number | null }) {
   try {
     const now = fs.readFileSync(held.file, "utf8");
     if (normalize(now) && normalize(now) !== normalize(held.text) && secrets.status(NAME).updatedAt === held.since) save(now);
-  } catch {
-    /* 읽지 못했으면 되담지 않는다. 쿠키는 그대로다 */
+  } catch (error) {
+    // 되담지 못했으면 쿠키는 그대로다
+    if (codeOf(error) !== "ENOENT") log.warn(`yt-dlp 가 고친 쿠키를 되담지 못했습니다: ${messageOf(error)}`);
   } finally {
     fs.rmSync(held.file, { force: true });
   }
@@ -74,8 +76,10 @@ function sweep() {
   let left: string[];
   try {
     left = fs.readdirSync(dir).filter((name) => name.startsWith(PREFIX));
-  } catch {
-    return; // 폴더가 없다
+  } catch (error) {
+    // 폴더가 없으면 치울 것도 없다
+    if (codeOf(error) !== "ENOENT") log.debug(`남은 쿠키 파일 찾기 실패: ${messageOf(error)}`);
+    return;
   }
   for (const name of left) fs.rmSync(path.join(dir, name), { force: true });
   if (left.length) log.info(`지난 실행이 남긴 쿠키 파일 ${left.length}개를 삭제했습니다`);

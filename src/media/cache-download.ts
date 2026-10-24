@@ -1,4 +1,4 @@
-import { codedError } from "../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import config from "../config/index.ts";
 import fsModule from "fs";
 const fs = fsModule.promises;
@@ -89,7 +89,8 @@ function cleanTemp(tempPath: string): number {
   let names: string[];
   try {
     names = fsSync.readdirSync(dir);
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`임시 조각 파일을 찾지 못함: ${dir} | ${messageOf(error)}`);
     return 0;
   }
   for (const name of names) {
@@ -97,8 +98,9 @@ function cleanTemp(tempPath: string): number {
     try {
       fsSync.unlinkSync(path.join(dir, name));
       removed++;
-    } catch {
-      /* 아직 잠겨 있거나 이미 없음. 기동 스윕이 처리 */
+    } catch (error) {
+      // 아직 잠겨 있거나 이미 없음. 기동 스윕이 처리
+      if (codeOf(error) !== "ENOENT") log.debug(`임시 조각 파일 삭제 실패: ${name} | ${messageOf(error)}`);
     }
   }
   return removed;
@@ -326,8 +328,9 @@ class TrackDownloader {
         const removed = cleanTemp(tempPath);
         if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${logTitle(track.title)}`);
         if (audioKey) audioCache.recordError(audioKey);
-      } catch {
-        /* 정리 실패는 원래 오류를 가리면 안 된다 */
+      } catch (cleanupError) {
+        // 정리 실패는 원래 오류를 가리면 안 된다
+        log.warn(`캐시 다운로드 실패 뒤 정리 실패 ("${logTitle(track.title)}"): ${messageOf(cleanupError)}`);
       }
       throw this._failed(track, error);
     } finally {
@@ -416,8 +419,9 @@ class TrackDownloader {
       audioCache.unprotectFile(rawPath);
       try {
         fsSync.unlinkSync(rawPath);
-      } catch {
-        /* 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다 */
+      } catch (error) {
+        // 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다
+        if (codeOf(error) !== "ENOENT") log.debug(`받은 원본 임시 파일 삭제 실패: ${rawPath} | ${messageOf(error)}`);
       }
     }
   }
@@ -442,11 +446,13 @@ class TrackDownloader {
           version: versionOf.fromYtDlpInfo(info),
           ...formatOf(info),
         };
-      } catch {
+      } catch (error) {
+        log.debug(`info.json 읽기 실패(제목 · 길이 · 버전 없이): ${p} | ${messageOf(error)}`);
         try {
           fsSync.unlinkSync(p);
-        } catch {
-          /* 남아도 기동 스윕이 치운다 */
+        } catch (unlinkError) {
+          // 남아도 기동 스윕이 치운다
+          if (codeOf(unlinkError) !== "ENOENT") log.debug(`info.json 삭제 실패: ${p} | ${messageOf(unlinkError)}`);
         }
       }
     }
@@ -493,7 +499,8 @@ class TrackDownloader {
     const file = audioCache.getFilePath(key);
     try {
       return fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
-    } catch {
+    } catch (error) {
+      if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일을 보지 못함: ${file} | ${messageOf(error)}`);
       return null;
     }
   }

@@ -9,6 +9,7 @@ import * as processRegistry from "../../infra/process-registry.ts";
 const log = logger.child({ category: "core" });
 import config from "../../config/index.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 
 const SERVER_DIR = path.join(PROJECT.bgutil, "server");
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");
@@ -18,7 +19,7 @@ const STOP_WAIT_MS = 1000; // 내릴 때 꺼지기를 기다리는 상한. 넘�
 
 // 실행한 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
 type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
-type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; once(event: "exit", listener: () => void): unknown; kill(signal?: NodeJS.Signals): unknown };
+type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; on(event: "error", listener: (error: Error) => void): unknown; once(event: "exit", listener: () => void): unknown; kill(signal?: NodeJS.Signals): unknown };
 /** 내린 결과. none 실행한 것이 없다 · stopped 꺼졌다 · timeout 상한 안에 꺼지지 않았다 */
 type PotStop = "none" | "stopped" | "timeout";
 type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["ignore", "pipe", "pipe"] }) => PotProcess;
@@ -72,6 +73,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     const release = processRegistry.register(child, "bgutil", { job: "pot-server" });
     child.stdout?.on("data", (d: Buffer) => relay(d, "out"));
     child.stderr?.on("data", (d: Buffer) => relay(d, "err"));
+    child.on("error", (error) => log.error({ sub: "bgutil" }, `POToken 서버 실행 실패: ${messageOf(error)}`));
     child.on("exit", (code) => {
       release();
       proc = null;
@@ -104,6 +106,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
   async function waitReady(timeoutMs = 30000) {
     if (!proc) return true;
     const deadline = Date.now() + timeoutMs;
+    let lastError = "";
     while (Date.now() < deadline) {
       try {
         const res = await fetch(`http://127.0.0.1:${PORT}/ping`, { signal: AbortSignal.timeout(1000) });
@@ -111,12 +114,13 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
           log.info({ sub: "bgutil" }, `POToken 서버 준비 완료 (포트 ${PORT})`);
           return true;
         }
-      } catch {
-        /* 아직 준비 안 됨. 재시도 */
+      } catch (error) {
+        // 아직 준비 안 됨. 재시도
+        lastError = messageOf(error);
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    log.warn({ sub: "bgutil" }, `${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.`);
+    log.warn({ sub: "bgutil" }, `${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
     return false;
   }
 

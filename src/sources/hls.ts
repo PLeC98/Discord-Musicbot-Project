@@ -10,9 +10,11 @@
 import crypto from "node:crypto";
 import type { Readable } from "node:stream";
 import * as SafeUrl from "../infra/safe-url.ts";
-import { codedError } from "../rules/error-kind.ts";
+import { codedError, messageOf } from "../rules/error-kind.ts";
 import { parsePlaylist, chooseMedia, lengthOf, type MediaPlaylist, type Segment, type ByteRange, type Key } from "../rules/hls-playlist.ts";
 import type { StreamNet } from "./direct-open.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "link" });
 
 /** 받을 것 하나: 조각이거나, 머리 조각이 바뀌었을 때의 머리 조각 */
 type HlsPart = { url: string; range: ByteRange | null; key: Key | null; sequence: number };
@@ -181,6 +183,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
         unchanged = true;
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || ++failures >= RELOAD_FAILURES) throw error;
+        log.trace(`라이브 HLS 목록 다시 받기 실패(${failures}/${RELOAD_FAILURES}): ${messageOf(error)}`);
       }
     }
   }

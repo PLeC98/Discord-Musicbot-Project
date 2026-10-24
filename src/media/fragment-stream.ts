@@ -8,6 +8,9 @@
 // 위치 이동은 그 위치가 든 조각부터 받는다. 조각 안의 나머지는 ffmpeg 의 -ss 가 맞춘다(startedAtMs).
 
 import { Readable } from "stream";
+import { messageOf } from "../rules/error-kind.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000; // 조각 하나를 받는 데 이보다 오래 걸리면 끊고 다시 받는다
@@ -56,6 +59,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
         return await source.fetch(fragment, controller.signal);
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || attempt >= retryDelaysMs.length || closed) throw error;
+        log.trace(`조각 받기 실패(다시 받기 ${attempt + 1}/${retryDelaysMs.length}): ${messageOf(error)}`);
         retries++;
         await sleep(retryDelaysMs[attempt]);
       } finally {

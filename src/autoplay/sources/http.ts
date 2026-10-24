@@ -3,6 +3,9 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import config from "../../config/index.ts";
 import { httpFor, type HttpClient } from "../../infra/http.ts";
+import { messageOf } from "../../rules/error-kind.ts";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "autoplay" });
 
 const userAgent = () => config.userAgents.bot;
 
@@ -34,7 +37,9 @@ async function getJson<T = unknown>(service: SourceService, url: string, headers
 async function probe(service: SourceService, url: string, headers: Record<string, string> = {}): Promise<Response | null> {
   try {
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-  } catch {
+  } catch (error) {
+    // 주소에 키가 실려 있어(Last.fm) 주소는 싣지 않는다
+    log.debug(`${service} 키 확인 요청 실패: ${messageOf(error)}`);
     return null;
   }
 }

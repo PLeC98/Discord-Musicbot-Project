@@ -50,7 +50,8 @@ let lastId = 0;
 
 function spawn() {
   const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
-  one.on("message", ({ id, counted, error }: { id: number; counted?: Counted[]; error?: string }) => {
+  one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
+    if (problem) log.warn(`젬마 토크나이저 파일을 읽지 못해 tik 로 어림합니다: ${problem}`);
     const job = waiting.get(id);
     if (!job) return;
     waiting.delete(id);
@@ -154,7 +155,10 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    log.debug(`앤트로픽 토큰 세기 실패(어림으로): HTTP ${res.status}`);
+    return null;
+  }
   const json = (await res.json()) as { input_tokens?: unknown } | null;
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }

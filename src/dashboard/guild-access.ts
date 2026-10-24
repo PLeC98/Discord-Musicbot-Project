@@ -1,12 +1,24 @@
 // 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십 · 권한 수준 오버라이드.
 // 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 권한대로다(ref-dashboard-security "서버 접근")
 
-import type { Guild, GuildMember } from "discord.js";
+import { RESTJSONErrorCodes, type Guild, type GuildMember } from "discord.js";
 import type { Request, Response } from "express";
+import logger from "../infra/log/logger.ts";
+import { codeOf, describeError } from "../rules/error-kind.ts";
 import type { Actor } from "../usecases/controls.ts";
 import { signedIn } from "./middleware/require-auth.ts";
 import { shadowMember } from "./view-as.ts";
 import { sendProblem } from "./problem.ts";
+const log = logger.child({ category: "dashboard" });
+
+/** 멤버 조회의 답: 멤버가 아니다 */
+const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONErrorCodes.UnknownUser]);
+
+/** members.fetch 의 catch. 멤버가 아니라는 답은 조용히, 다른 실패는 까닭을 남긴다. 어느 쪽이든 null(멤버로 보지 않는다) */
+const notMember = (guildId: string, userId: string) => (error: unknown) => {
+  if (!NOT_MEMBER.has(codeOf(error))) log.debug(`멤버 조회 실패: 서버 ${guildId} · 사용자 ${userId} | ${describeError(error)}`);
+  return null;
+};
 
 /** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null(멤버가 아니면 no-guild-access) */
 async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
@@ -24,12 +36,8 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   }
 
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
-  let fetched: GuildMember | null = null;
-  try {
-    fetched = await guild.members.fetch(signedIn(req).id); // 캐시 우선, 미스 시 REST 1회
-  } catch {
-    /* 멤버 아님 */
-  }
+  const userId = signedIn(req).id;
+  const fetched: GuildMember | null = await guild.members.fetch(userId).catch(notMember(guildId, userId)); // 캐시 우선, 미스 시 REST 1회
   if (!fetched) {
     sendProblem(res, "no-guild-access");
     return null;
@@ -56,4 +64,4 @@ function voiceFlags(guild: Guild | null | undefined, userId: string | null | und
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
-export { openGuild, voiceFlags };
+export { openGuild, voiceFlags, notMember };

@@ -16,10 +16,12 @@ import { messageOf } from "../rules/error-kind.ts";
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Done = (err?: unknown) => void;
-// 부른 쪽이 결과를 기다리지 않을 때
-const unheard: Done = () => {
-  /* 들을 사람이 없다 */
-};
+// 부른 쪽이 결과를 기다리지 않을 때. 실패는 여기서 남긴다
+const unheard =
+  (what: string): Done =>
+  (err) => {
+    if (err) log.error(`로그인 세션 ${what} 실패: ${messageOf(err)}`);
+  };
 
 class SqliteSessionStore extends Store {
   db: Database.Database;
@@ -51,8 +53,9 @@ class SqliteSessionStore extends Store {
     this._pruneTimer = setInterval(() => {
       try {
         this.prune();
-      } catch {
-        /* 정리 실패는 다음 주기에 재시도. 서비스에 영향 없음 */
+      } catch (error) {
+        // 다음 주기에 다시 한다. 서비스에 영향 없음
+        log.debug(`만료된 로그인 세션 정리 실패: ${messageOf(error)}`);
       }
     }, pruneIntervalMs);
     this._pruneTimer.unref();
@@ -86,7 +89,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  set(sid: string, session: SessionData, cb: Done = unheard) {
+  set(sid: string, session: SessionData, cb: Done = unheard("저장")) {
     try {
       this._setStmt.run(sid, JSON.stringify(session), this._expiresAt(session));
       cb(null);
@@ -96,7 +99,7 @@ class SqliteSessionStore extends Store {
   }
 
   // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장
-  touch(sid: string, session: SessionData, cb: Done = unheard) {
+  touch(sid: string, session: SessionData, cb: Done = unheard("만료 연장")) {
     try {
       this._touchStmt.run(this._expiresAt(session), sid);
       cb(null);
@@ -105,7 +108,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  destroy(sid: string, cb: Done = unheard) {
+  destroy(sid: string, cb: Done = unheard("삭제")) {
     try {
       this._destroyStmt.run(sid);
       cb(null);

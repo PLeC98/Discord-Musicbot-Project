@@ -3,7 +3,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import logger from "../../infra/log/logger.ts";
+import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec } from "../contract/login-background.ts";
+const log = logger.child({ category: "dashboard" });
 
 const STILL_FILE = /^still-(\d{2,4})\.webp$/;
 /** 단계 폴더(짧은 변) · 단계 안의 파일 */
@@ -27,7 +30,8 @@ function servedFiles(folder: string): string[] {
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(path.join(folder, ...parts), { withFileTypes: true });
-    } catch {
+    } catch (error) {
+      if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 파일 목록 읽기 실패(${path.join(folder, ...parts)}): ${messageOf(error)}`);
       return;
     }
     for (const entry of entries) {

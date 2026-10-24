@@ -12,7 +12,7 @@ import * as labels from "../ui/text/ko/labels.ts";
 import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transient-messages.ts";
 import { canSend } from "../ui/channels.ts";
-import { LIFETIME } from "../ui/delivery.ts";
+import { LIFETIME, unlessGone } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { moreView, countModal as moreCountModal } from "../ui/playlist-more-menu.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -174,11 +174,7 @@ function expireLater(messageId: string, remove: () => unknown, ms: number = LIFE
   markTransient(messageId, ms); // 조작하는 동안 현재 재생 메시지가 이 밑으로 내려오지 않게
   const timer = setTimeout(() => {
     expiries.delete(messageId);
-    Promise.resolve()
-      .then(remove)
-      .catch(() => {
-        /* 이미 삭제됐거나 삭제할 권한이 없다 */
-      });
+    Promise.resolve().then(remove).catch(unlessGone(log, "더 넣기 메뉴 삭제"));
   }, ms);
   timer.unref?.();
   expiries.set(messageId, timer);

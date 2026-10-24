@@ -8,7 +8,7 @@ import path from "path";
 import Database from "better-sqlite3";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
-import { codedError, messageOf } from "../rules/error-kind.ts";
+import { codeOf, codedError, messageOf } from "../rules/error-kind.ts";
 import { settingsDb, VERSION } from "./settings-db.ts";
 import { ownerOnly } from "../infra/owner-only.ts";
 import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
@@ -35,8 +35,10 @@ function list(dir = dbDir()): Snapshot[] {
   let names: string[];
   try {
     names = fs.readdirSync(folder).filter((name) => NAME.test(name));
-  } catch {
-    return []; // 아직 뜬 것이 없다
+  } catch (error) {
+    // 폴더가 없으면 아직 뜬 것이 없다
+    if (codeOf(error) !== "ENOENT") log.debug(`설정 DB 스냅샷 목록 읽기 실패: ${messageOf(error)}`);
+    return [];
   }
   return names
     .map((name) => {
@@ -123,7 +125,9 @@ function staged(dir = dbDir()): string | null {
   if (!fs.existsSync(path.join(dir, STAGED))) return null;
   try {
     return (JSON.parse(fs.readFileSync(path.join(dir, `${STAGED}.json`), "utf8")) as { from?: string }).from ?? STAGED;
-  } catch {
+  } catch (error) {
+    // 설명 파일이 없으면 예약한 파일 이름으로 부른다
+    if (codeOf(error) !== "ENOENT") log.debug(`예약한 설정 DB 의 설명 읽기 실패: ${messageOf(error)}`);
     return STAGED;
   }
 }

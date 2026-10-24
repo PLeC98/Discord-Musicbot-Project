@@ -150,8 +150,9 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     for (const name of old.slice(0, Math.max(0, old.length - keep))) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
-      } catch {
-        /* 삭제하지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다 */
+      } catch (err) {
+        // 삭제하지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") notice(`[logFile] 지난 로그 파일 삭제 실패(${name}): ${(err as Error).message}\n`);
       }
     }
   }

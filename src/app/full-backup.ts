@@ -55,13 +55,16 @@ async function dbCopy(file: string): Promise<{ file: string; done: () => void }>
 async function writeTo(out: string, inputs: ZipInput[]) {
   const part = `${out}.part`;
   const stream = fs.createWriteStream(part, { mode: 0o600 });
+  // 열기 · 쓰기 실패는 error 로 온다. 듣지 않으면 잡히지 않은 예외로 끝나고, 쓰는 쪽은 "닫혔다"만 받는다
+  let failed: Error | null = null;
+  stream.on("error", (error) => (failed ??= error));
   try {
     await writeZip(inputs, sinkOf(stream));
     await new Promise<void>((resolve, reject) => stream.end((error?: Error | null) => (error ? reject(error) : resolve())));
   } catch (error) {
     stream.destroy();
     fs.rmSync(part, { force: true });
-    throw error;
+    throw failed ?? error;
   }
   return part;
 }

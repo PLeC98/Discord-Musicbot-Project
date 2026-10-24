@@ -15,7 +15,7 @@ import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { latestReleaseTag } from "./github-release.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
@@ -117,7 +117,8 @@ class YtdlpBinary {
     try {
       const state = JSON.parse(fs.readFileSync(this.stateFile, "utf8")) as State;
       return typeof state.version === "string" && fs.existsSync(this.fileOf(state.version)) ? state : null;
-    } catch {
+    } catch (error) {
+      if (codeOf(error) !== "ENOENT") log.debug(`yt-dlp 버전 기록 읽기 실패: ${messageOf(error)}`);
       return null;
     }
   }
@@ -191,7 +192,12 @@ class YtdlpBinary {
     const current = this.state!.version;
     const swap = (to: string) => this._write({ ...this.state!, version: to, previous: current, capped: null });
     // 다운로드해 둔 버전(직전 버전으로 되돌리기 등)이면 다운로드하지 않고 교체한다. 어느 채널에서 다운로드한 버전인지는 모른다
-    if (fs.existsSync(this.fileOf(target)) && (await this._version(this.fileOf(target)).catch(() => null)) === target) {
+    const kept = (file: string) =>
+      this._version(file).catch((error: unknown) => {
+        log.debug(`저장된 yt-dlp 버전 확인 실패(다시 다운로드): ${messageOf(error)}`);
+        return null;
+      });
+    if (fs.existsSync(this.fileOf(target)) && (await kept(this.fileOf(target))) === target) {
       swap(target);
       return { kind: "reused", from: current, to: target };
     }
@@ -219,8 +225,9 @@ class YtdlpBinary {
     } finally {
       try {
         fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
-      } catch {
+      } catch (error) {
         // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 삭제하지 못한다. 다음 다운로드나 봇 기동 때의 정리가 삭제한다
+        log.debug(`yt-dlp 다운로드 임시 폴더 삭제 실패: ${messageOf(error)}`);
       }
     }
   }
@@ -238,8 +245,9 @@ class YtdlpBinary {
       if (!entry.isDirectory() || keep.has(entry.name)) continue;
       try {
         fs.rmSync(path.join(this.io.dir, entry.name), { recursive: true, force: true });
-      } catch {
+      } catch (error) {
         // 옛 버전으로 아직 돌고 있다
+        log.debug(`yt-dlp 옛 버전 폴더 삭제 실패(${entry.name}): ${messageOf(error)}`);
       }
     }
   }

@@ -11,8 +11,7 @@ import * as recheckQueue from "../media/recheck-queue.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
-import * as externalCaches from "../store/external-caches.ts";
-import { assertAgeAllowed } from "../sources/age-gate.ts";
+import { assertAgeAllowed, markedAgeRestricted } from "../sources/age-gate.ts";
 import { extractVideoId } from "../rules/links.ts";
 import * as trackState from "./track-state.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
@@ -56,8 +55,9 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
       if (!track.audioUrl) await player.io.findEquivalent(track); // 멱등. 영상 id 확정
       const introEnd = introOffsetMs(await player.io.sponsorFor(track, player.guild.id));
       if (introEnd > 0) startMs = introEnd;
-    } catch {
-      /* 조회 실패는 무시(fail-open). 오프셋 없이 재생 */
+    } catch (error) {
+      // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생
+      log.debug(`인트로 끝 조회 실패, 처음부터 틉니다: ${messageOf(error)}`);
     }
   }
   return { ok: true, startMs };
@@ -108,7 +108,10 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     streamInfo,
     titleVerified: verifyTitle(track, streamInfo),
     isLive: liveAnswer(streamInfo, cacheFile),
-    sponsor: player.io.sponsorFor(track, player.guild.id).catch(() => null),
+    sponsor: player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
+      log.debug(`SponsorBlock 구간 조회 실패, 구간 없이 틉니다: ${messageOf(error)}`);
+      return null;
+    }),
   };
 }
 
@@ -116,14 +119,6 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 function ageCheck(audioUrl: string | null | undefined) {
   const videoId = extractVideoId(audioUrl);
   if (videoId && markedAgeRestricted(videoId)) assertAgeAllowed(videoId);
-}
-
-function markedAgeRestricted(videoId: string) {
-  try {
-    return externalCaches.isAgeRestricted(videoId);
-  } catch {
-    return false; // 캐시 DB 를 열지 않았다(시험 · 스크립트)
-  }
 }
 
 // 재생목록으로 담은 곡은 재생목록 페이지가 준 제목을 쓰고 있는데, 같은 영상인데도 다를 수 있다.

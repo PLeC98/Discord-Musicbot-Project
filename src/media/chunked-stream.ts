@@ -10,6 +10,8 @@
 
 import { Readable } from "stream";
 import { codeOf, codedError } from "../rules/error-kind.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
@@ -352,6 +354,7 @@ class ChunkedReader {
     }
     const delays = this.o.retryDelaysMs;
     if ((err as { permanent?: boolean }).permanent || this.failures >= delays.length) throw err;
+    log.trace(`청크 요청 실패(다시 받기 ${this.failures + 1}/${delays.length}, ${this.pos}B): ${describeStreamError(err)}`);
     await sleep(delays[this.failures++]);
     return !this.stream.destroyed;
   }

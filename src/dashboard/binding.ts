@@ -5,9 +5,11 @@
 
 import type { Express } from "express";
 import type { Server } from "node:http";
+import type { Socket } from "node:net";
+import type { Duplex } from "node:stream";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { messageOf } from "../rules/error-kind.ts";
+import { describeError, messageOf } from "../rules/error-kind.ts";
 
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
 const WILDCARD = new Set(["0.0.0.0", "::"]);
@@ -35,15 +37,29 @@ function describeBinding(host: string | null | undefined, port: number, dashboar
   return { line: `🌐 Dashboard: ${host ?? "없음"}:${port} (${scope})`, warnings };
 }
 
+// 요청을 읽지 못했을 때 답하는 상태. 들으면 Node 의 기본 처리가 꺼지므로 그 처리(_http_server 의 socketOnError)를 그대로 한다
+const CLIENT_ERROR_STATUS: Record<string, string> = { HPE_HEADER_OVERFLOW: "431 Request Header Fields Too Large", HPE_CHUNK_EXTENSIONS_OVERFLOW: "413 Payload Too Large", ERR_HTTP_REQUEST_TIMEOUT: "408 Request Timeout" };
+
+function onClientError(error: Error & { code?: string }, duplex: Duplex) {
+  const socket = duplex as Socket & { _httpMessage?: { headersSent?: boolean } | null };
+  // 받는 도중 브라우저가 끊는 것은 흔하다
+  if (error.code !== "ECONNRESET") log.trace(`대시보드 요청을 읽지 못했습니다(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
+  // 나가던 응답이 있으면 그 사이에 끼워 쓰지 않는다
+  if (socket.writable && !socket._httpMessage?.headersSent) socket.write(`HTTP/1.1 ${CLIENT_ERROR_STATUS[error.code ?? ""] ?? "400 Bad Request"}\r\nConnection: close\r\n\r\n`);
+  socket.destroy(error);
+}
+
 /** 대시보드를 연다. 연 주소나 못 연 까닭을 남기고, 열었으면 opened 를 부른다. 못 열면 봇은 대시보드 없이 돈다 */
 function listen(app: Pick<Express, "listen">, { host, port, url }: { host: string; port: number; url: string }, opened?: () => void): Server {
   const { line, warnings } = describeBinding(host, port, url);
-  return app.listen(port, host, (error?: Error) => {
+  const server = app.listen(port, host, (error?: Error) => {
     if (error) return log.error(`대시보드를 열지 못했습니다. 봇은 대시보드 없이 돕니다: ${messageOf(error)}`);
     log.info(line);
     for (const w of warnings) log.warn(w);
     opened?.();
   });
+  server.on("clientError", onClientError);
+  return server;
 }
 
 export { isLoopbackHost, describeBinding, listen };

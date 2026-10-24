@@ -12,8 +12,8 @@ import type { YtDlpFlags as Flags, RunYtDlp } from "../ytdlp-spawn.ts";
 type BuildOptions = (forceCookies: boolean) => Flags;
 import * as externalCaches from "../../store/external-caches.ts";
 import * as cookieJar from "../../store/cookie-jar.ts";
-import { assertAgeAllowed } from "../age-gate.ts";
-import { codedError } from "../../rules/error-kind.ts";
+import { assertAgeAllowed, markedAgeRestricted } from "../age-gate.ts";
+import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
 import { NEEDS_POT, playerClients } from "./clients.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
@@ -40,12 +40,7 @@ const SMALL_VIDEO = ["res:360"] as unknown as Flags["formatSort"];
 // exec: yt-dlp 를 실행하는 함수. 생략하면 진짜(ytdlpSpawn)
 async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp = youtubedl): Promise<unknown> {
   const videoId = links.extractVideoId(url);
-  let known = false;
-  try {
-    known = videoId ? externalCaches.isAgeRestricted(videoId) : false;
-  } catch {
-    /* 캐시 미초기화 등. 기본값 false */
-  }
+  const known = markedAgeRestricted(videoId);
   if (known && videoId) {
     assertAgeAllowed(videoId);
     if (!auth.cookiesConfigured()) throw codedError("yt-age-no-cookies", `연령 제한 영상인데 쿠키가 없습니다 (${videoId})`);
@@ -75,8 +70,9 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
 async function _retryWithCookies(url: string, videoId: string, buildOptions: BuildOptions, exec: RunYtDlp, error: unknown): Promise<unknown> {
   try {
     externalCaches.markAgeRestricted(videoId);
-  } catch {
-    /* 기록 실패는 무시 */
+  } catch (error) {
+    if (codeOf(error) === "DB_NOT_OPEN") throw error;
+    log.debug(`연령 제한 기록 실패(${videoId}): ${messageOf(error)}`);
   }
   assertAgeAllowed(videoId, error);
   if (!auth.cookiesConfigured()) throw error;
@@ -136,7 +132,8 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
   fresh();
   try {
     return await _runOnce(url, formatFor(buildOptions(forceCookies), false), null, exec, true);
-  } catch {
+  } catch (error) {
+    log.debug(`yt-dlp 기본값 시도도 실패: ${errors.briefError(error, 1)}`);
     throw lastError; // 원인 파악에는 클라이언트별 실패가 더 유용하다
   }
 }

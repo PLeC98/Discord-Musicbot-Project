@@ -8,6 +8,8 @@ import { COMMANDS } from "../discord/commands/index.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { BotContext } from "./bot-context.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "core" });
 
 /** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
 type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
@@ -41,20 +43,23 @@ function deployFingerprint(scope: string, guildId: string | null, commands: unkn
   return crypto.createHash("sha256").update(src).digest("hex");
 }
 
+// 읽지 못하면 재배포한다(안전한 쪽). 파일이 없는 것은 첫 배포라 남기지 않는다
 function readDeployedFingerprint(hashPath: string) {
   try {
     return JSON.parse(fs.readFileSync(hashPath, "utf8")).fingerprint || null;
-  } catch {
-    return null; // 파일 없음/손상 → 재배포 (안전한 쪽)
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`명령 배포 지문 읽기 실패: ${messageOf(error)}`);
+    return null;
   }
 }
 
+// 지문 저장 실패는 다음 기동에서 한 번 더 배포될 뿐이다
 function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
   try {
     fs.mkdirSync(path.dirname(hashPath), { recursive: true });
     fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, deployedAt: new Date().toISOString() }));
-  } catch {
-    /* 지문 저장 실패는 다음 기동에서 한 번 더 배포될 뿐. 무해 */
+  } catch (error) {
+    log.debug(`명령 배포 지문 저장 실패: ${messageOf(error)}`);
   }
 }
 

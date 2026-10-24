@@ -12,6 +12,8 @@ import * as DirectLink from "./direct.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { errorKind } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "track" });
 
 /** 결과. 실패면 문제 코드(라이브면 live) */
 type Probed = { ok: true } | { ok: false; code: Code | "live" };
@@ -28,8 +30,9 @@ const LIVE: Probed = { ok: false, code: "live" };
 
 /** 음원 주소 하나를 열어 본다. 던지지 않는다 */
 async function probeSource(audioUrl: string, open: Openers = REAL): Promise<Probed> {
+  const kind = inputKind(audioUrl);
   try {
-    switch (inputKind(audioUrl)) {
+    switch (kind) {
       case "youtube":
         return (await open.youtube.getStream(audioUrl, { fresh: true })).isLive ? LIVE : { ok: true };
       case "soundcloud":
@@ -45,6 +48,8 @@ async function probeSource(audioUrl: string, open: Openers = REAL): Promise<Prob
         return { ok: false, code: "unsupported-link" };
     }
   } catch (error) {
+    // 직접 링크는 여는 쪽(direct)이 까닭을 남긴다
+    if (kind !== "direct") log.debug(`재생 테스트 실패: ${audioUrl} | ${YouTube.briefError(error, 1)}`);
     return { ok: false, code: errorKind(error) };
   }
 }

@@ -3,6 +3,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import logger from "./log/logger.ts";
+const log = logger.child({ category: "core" });
+
+const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** 마운트 지점: target 과 dev 가 같은 가장 위 폴더 */
 function mountPoint(target: string) {
@@ -26,7 +30,8 @@ function driveOf(target: string): { drive: string; usedBytes: number; totalBytes
     const stat = fs.statfsSync(target);
     const totalBytes = stat.blocks * stat.bsize;
     return { drive: driveName(target), usedBytes: totalBytes - stat.bfree * stat.bsize, totalBytes };
-  } catch {
+  } catch (error) {
+    log.debug(`드라이브 크기 읽기 실패(${target}): ${reasonOf(error)}`);
     return null;
   }
 }
@@ -39,7 +44,8 @@ function freeBytesOf(target: string): number | null {
   try {
     const stat = fs.statfsSync(target);
     return stat.bavail * stat.bsize;
-  } catch {
+  } catch (error) {
+    log.debug(`남은 크기 읽기 실패(${target}): ${reasonOf(error)}`);
     return null;
   }
 }

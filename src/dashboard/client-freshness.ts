@@ -4,6 +4,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
+const log = logger.child({ category: "dashboard" });
 
 /** 빌드가 남기는 것. files 는 저장소 루트에서의 상대 경로(/ 구분) */
 type BuildInputs = { builtAt: number; files: string[] };
@@ -15,7 +18,8 @@ const BUILD_INPUTS = ".build-inputs.json";
 function mtimeOf(file: string) {
   try {
     return fs.statSync(file).mtimeMs;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`화면 소스 수정 시각 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -24,7 +28,8 @@ function readInputs(file: string): BuildInputs | null {
   try {
     const data = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<BuildInputs>;
     return typeof data.builtAt === "number" && Array.isArray(data.files) ? { builtAt: data.builtAt, files: data.files } : null;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`화면 빌드 정보(${BUILD_INPUTS}) 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }

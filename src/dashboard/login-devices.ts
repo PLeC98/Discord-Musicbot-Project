@@ -8,7 +8,10 @@ import type { SessionData } from "express-session";
 import { UAParser } from "ua-parser-js";
 import * as secrets from "../store/secrets.ts";
 import { isPublicIp } from "../infra/public-address.ts";
+import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { DevicePlace, LoginDevice } from "./contract/identity.ts";
+const log = logger.child({ category: "dashboard" });
 
 /** 기기 기록. ip 는 그때 요청의 주소(믿는 프록시 뒤면 실제 주소) */
 type DeviceRecord = { ua: string; ip: string; signedInAt: number; seenAt: number };
@@ -21,7 +24,8 @@ const SEEN_EVERY_MS = 5 * 60_000;
 function seal(sid: string, record: DeviceRecord): string | undefined {
   try {
     return secrets.sealBlob(PURPOSE, JSON.stringify(record), sid).toString("base64");
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "SECRETS_KEY_MISSING") log.debug(`로그인 기기 기록 봉하기 실패: ${messageOf(error)}`);
     return undefined;
   }
 }

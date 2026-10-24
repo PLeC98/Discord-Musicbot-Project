@@ -1,8 +1,11 @@
 import type { Response } from "express";
 import config from "../config/index.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
+import logger from "../infra/log/logger.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import { sendProblem } from "./problem.ts";
 import type { GuildEvent } from "./contract/guilds.ts";
+const log = logger.child({ category: "dashboard" });
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
 /** 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다 */
@@ -99,7 +102,10 @@ class PlayerStream {
     };
     this.subs.add(sub);
     res.on("close", sub.cleanup);
-    res.on("error", sub.cleanup);
+    res.on("error", (error: unknown) => {
+      log.debug(`재생 알림 연결 오류: ${messageOf(error)}`);
+      sub.cleanup();
+    });
   }
 
   /** 서버 상태 변화 알림. coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 그 서버를 볼 구독자가 없으면 타이머도 안 만듦. */
@@ -132,7 +138,8 @@ class PlayerStream {
       if (!to(sub)) continue;
       try {
         sub.res.write(payload);
-      } catch {
+      } catch (error) {
+        log.trace(`재생 알림 쓰기 실패: ${messageOf(error)}`);
         sub.cleanup();
       }
     }
@@ -143,7 +150,8 @@ class PlayerStream {
     for (const sub of this.subs) {
       try {
         sub.res.write(ping);
-      } catch {
+      } catch (error) {
+        log.trace(`재생 알림 하트비트 쓰기 실패: ${messageOf(error)}`);
         sub.cleanup();
       }
     }

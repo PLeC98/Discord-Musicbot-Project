@@ -3,6 +3,7 @@ import { ffmpegPath } from "./path.ts";
 import { AUDIO_FORMATS, inputFilter } from "./input-filter.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
@@ -134,7 +135,8 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     let child: ChildProcessWithoutNullStreams;
     try {
       child = spawnFfmpeg(["-hide_banner", ...inputFilter(AUDIO_FORMATS, "file"), "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
-    } catch {
+    } catch (error) {
+      log.debug(`ffmpeg(probe) 실행 실패: ${file} | ${messageOf(error)}`);
       return resolve(unknown);
     }
 

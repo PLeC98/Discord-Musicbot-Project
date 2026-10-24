@@ -1,11 +1,13 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "commands" });
 import { interactionResponder } from "../../usecases/responders.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { checkControl } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { DISCORD_LOOK } from "../../ui/mentions.ts";
-import { noticeSelf } from "../../ui/delivery.ts";
+import { noticeSelf, unlessGone } from "../../ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj-outside-bot-channel" },
@@ -32,9 +34,7 @@ const exported: GuildCommand = {
     if (!player?.currentTrack) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await bot.panels.repostIdlePanel(guild, channel);
-      return interaction.deleteReply().catch(() => {
-        /* 상호작용이 이미 닫혔다 */
-      });
+      return interaction.deleteReply().catch(unlessGone(log, "/dashboard 응답 삭제"));
     }
 
     player.movePanel(channel);

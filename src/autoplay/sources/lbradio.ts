@@ -5,6 +5,9 @@ import { query, getJson, probe } from "./http.ts";
 import type { KeyCheck } from "../../rules/service-keys.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
+import { messageOf } from "../../rules/error-kind.ts";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "autoplay" });
 
 // 여기서 읽는 필드만
 type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: string; title?: string; duration?: number; identifier?: string[] }> } } } };
@@ -68,7 +71,10 @@ async function checkListenbrainzToken(): Promise<KeyCheck> {
   if (!token) return { ok: false, reason: "missing" };
   const res = await probe("listenbrainz", "https://api.listenbrainz.org/1/validate-token", { Authorization: `Token ${token}` });
   if (!res) return { ok: false, reason: "unreachable" };
-  const body = (await res.json().catch(() => null)) as { valid?: boolean } | null;
+  const body = (await res.json().catch((error: unknown) => {
+    log.debug(`ListenBrainz 토큰 확인 응답을 읽지 못함(HTTP ${res.status}): ${messageOf(error)}`);
+    return null;
+  })) as { valid?: boolean } | null;
   if (res.ok && body?.valid === true) return { ok: true };
   return (res.ok && body?.valid === false) || res.status === 401 ? { ok: false, reason: "rejected" } : { ok: false, reason: "unreachable" };
 }

@@ -14,19 +14,19 @@ import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { continueCollection } from "../../usecases/add-tracks.ts";
 import * as More from "../../usecases/playlist-more.ts";
 import { route, type Route } from "./route.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import { MAX_COUNT, parseCount, type MoreState } from "../../rules/more-choices.ts";
 import type { Player } from "../../player/player.ts";
-import { LIFETIME, noticeInstead, noticeSelf, toAll } from "../../ui/delivery.ts";
+import { LIFETIME, noticeInstead, noticeSelf, toAll, unlessGone } from "../../ui/delivery.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
 /** 더 넣기 메뉴(셀렉트) 또는 곡 수 입력(메뉴 메시지에서 연 모달) */
 type MoreInteraction = StringSelectMenuInteraction<"cached"> | ModalMessageModalSubmitInteraction<"cached">;
 
-const closed = () => {
-  /* 상호작용이 이미 닫혔다 */
-};
+// 상호작용이 이미 닫혔으면 넘긴다
+const closed = unlessGone(log, "더 넣기 응답");
 
 const refuser = (interaction: MoreInteraction) => (notice: Notice) => noticeSelf(interaction, notice).catch(closed);
 
@@ -68,9 +68,8 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     const now = Date.now();
     if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
     lastEdit = now;
-    interaction.editReply(post(fetchingView({ done, want }))).catch(() => {
-      /* 진행 표시는 놓쳐도 된다 */
-    });
+    // 진행 표시는 놓쳐도 된다. 불러오는 동안 되풀이하므로 trace
+    interaction.editReply(post(fetchingView({ done, want }))).catch((error: unknown) => log.trace(`더 넣기 진행 표시 실패: ${messageOf(error)}`));
   };
 
   let outcome: { view: ContainerBuilder } | { failed: Notice };

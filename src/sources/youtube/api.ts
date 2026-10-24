@@ -4,7 +4,7 @@ import logger from "../../infra/log/logger.ts";
 import { artOf, youtubeArt } from "../../rules/track-art.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
-import { codedError } from "../../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
 import { canonicalUrl } from "../../rules/canonical-url.ts";
 import { readInfo } from "../ytdlp-info.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
@@ -255,8 +255,10 @@ function playlistTrack(entry: YtInfo) {
   try {
     const known = trackLookup.getVerifiedTitle(track.requestKey);
     if (known) track.title = known;
-  } catch {
-    /* DB 미초기화 등. 재생목록 제목 그대로 간다 */
+  } catch (error) {
+    if (codeOf(error) === "DB_NOT_OPEN") throw error;
+    // 재생목록 제목 그대로 간다
+    log.debug(`확인된 제목 읽기 실패(목록 제목으로): ${messageOf(error)}`);
   }
   return track;
 }

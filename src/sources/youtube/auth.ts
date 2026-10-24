@@ -3,6 +3,7 @@
 import path from "path";
 import type { YtDlpFlags as Flags } from "../ytdlp-spawn.ts";
 import fs from "fs";
+import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import config from "../../config/index.ts";
@@ -22,8 +23,10 @@ function findPluginRoot(dir: string): string | null {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return null; // 설치 안 됨
+  } catch (error) {
+    // 설치 안 됨
+    if (codeOf(error) !== "ENOENT") log.warn(`POToken 플러그인 폴더를 읽지 못했습니다: ${dir} | ${messageOf(error)}`);
+    return null;
   }
   for (const e of entries) {
     if (e.isDirectory() && fs.existsSync(path.join(dir, e.name, "yt_dlp_plugins"))) return path.join(dir, e.name, "yt_dlp_plugins");

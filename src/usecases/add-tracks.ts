@@ -14,7 +14,7 @@ import { roomFor, roomLeft } from "../rules/queue-room.ts";
 import type { More, MoreState } from "../rules/more-choices.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/live-block-reason.ts";
-import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { canSend } from "../ui/channels.ts";
 import { inVoiceTarget } from "../infra/guild-context.ts";
@@ -105,7 +105,9 @@ async function resolveFallbackTextChannel(guild: Guild) {
     if (!botChannelId) return null;
     const channel = guild.channels.cache.get(botChannelId) ?? null;
     return canSend(channel) ? channel : null;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) === "DB_NOT_OPEN") throw error;
+    log.warn(`전용 채널 설정 읽기 실패, 안내 채널 없이 진행합니다 (${guild.id}): ${messageOf(error)}`);
     return null;
   }
 }

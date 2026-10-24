@@ -5,6 +5,9 @@ import { pick, rand, query, getJson, probe } from "./http.ts";
 import type { KeyCheck } from "../../rules/service-keys.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
+import { messageOf } from "../../rules/error-kind.ts";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "autoplay" });
 
 // 여기서 읽는 필드만
 type TopTracks = { tracks?: { track?: Array<{ name?: string; url?: string; artist?: { name?: string } }> } };
@@ -35,7 +38,10 @@ async function checkLastfmKey(): Promise<KeyCheck> {
   if (!key) return { ok: false, reason: "missing" };
   const res = await probe("lastfm", `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getInfo", tag: "rock", api_key: key, format: "json" })}`);
   if (!res) return { ok: false, reason: "unreachable" };
-  const body = (await res.json().catch(() => null)) as { error?: number } | null;
+  const body = (await res.json().catch((error: unknown) => {
+    log.debug(`Last.fm 키 확인 응답을 읽지 못함(HTTP ${res.status}): ${messageOf(error)}`);
+    return null;
+  })) as { error?: number } | null;
   if (res.ok && body && !body.error) return { ok: true };
   return body?.error === 10 || body?.error === 26 || res.status === 403 ? { ok: false, reason: "rejected" } : { ok: false, reason: "unreachable" };
 }

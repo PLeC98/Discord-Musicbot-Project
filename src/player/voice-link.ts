@@ -7,7 +7,7 @@ import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
-import { codeOf, codedError, errorKind, messageOf } from "../rules/error-kind.ts";
+import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -37,6 +37,8 @@ const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "re
 // 빠짐 · 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
+// 라이브러리의 진행 줄에는 음성 서버 토큰 · 암호 키가 실린다. 로그에는 남기지 않는다
+const hideSecrets = (line: string) => line.replace(/"(token|secret_key|secretKey)":("[^"]*"|\[[^\]]*\]|\{[^}]*\})/g, '"$1":"…"');
 
 class VoiceLink {
   player: VoiceHost;
@@ -105,7 +107,8 @@ class VoiceLink {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
     if (!channelId) throw new Error("음성 채널이 없습니다");
-    const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator() });
+    // debug: 라이브러리의 진행 줄(음성 서버 · 네트워킹)을 받는다(_watch)
+    const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: true });
     player.connection = connection;
     this._watch(connection);
     connection.subscribe(player.audioPlayer);
@@ -197,10 +200,13 @@ class VoiceLink {
       "error",
       bindToGuild(guildId, (error: Error) => this._onError(error)),
     );
+    // 패킷마다 나오는 양이라 trace
+    connection.on("debug", (message: string) => log.trace(`${hideSecrets(message)} | ${this._label()}`));
   }
 
   _onStateChange(oldState: VoiceConnectionState, newState: VoiceConnectionState) {
     if (this.state === "closed") return;
+    this._watchNetworking(oldState, newState);
     if (oldState.status !== newState.status) log.debug(`연결 상태: ${oldState.status} → ${newState.status} | ${this._label()}`);
     if (newState.status === VoiceConnectionStatus.Ready && this.state === "waiting") {
       this._clearWait();
@@ -214,6 +220,14 @@ class VoiceLink {
       return;
     }
     if (newState.status === VoiceConnectionStatus.Destroyed) this.recover("연결이 부서짐");
+  }
+
+  // 음성 서버 연결의 닫힘 코드. 4014 가 아니면 라이브러리가 끊김 없이 스스로 다시 참가해(Ready → Signalling) 전이에는 까닭이 없다.
+  // 연결이 다시 참가하기 전에 찍도록 앞에 건다
+  _watchNetworking(oldState: VoiceConnectionState, newState: VoiceConnectionState) {
+    const networking = "networking" in newState ? newState.networking : null;
+    if (!networking || ("networking" in oldState && oldState.networking === networking)) return;
+    networking.prependOnceListener("close", (code: number) => log.debug(`음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`));
   }
 
   _onError(error: Error) {
@@ -411,7 +425,9 @@ class VoiceLink {
     try {
       return Boolean(await channels.fetch(channelId, { force: true }));
     } catch (error) {
-      return codeOf(error) !== UNKNOWN_CHANNEL;
+      if (codeOf(error) === UNKNOWN_CHANNEL) return false;
+      log.debug(`채널을 디스코드에 묻지 못해 있다고 봅니다: ${describeError(error)}`);
+      return true;
     }
   }
 
@@ -495,8 +511,9 @@ class VoiceLink {
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
     try {
       connection.destroy(leave);
-    } catch {
-      // 이미 부서짐 등. 새 연결로 진행
+    } catch (error) {
+      // 새 연결로 진행
+      log.debug(`옛 연결 부수기 실패: ${messageOf(error)}`);
     }
   }
 

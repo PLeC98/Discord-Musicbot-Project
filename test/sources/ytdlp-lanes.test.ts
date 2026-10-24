@@ -4,10 +4,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, afterEach } from "node:test";
+import { test, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
-import run, { useExec, useInfoTimeout, useLaneSizes, useStallWatch, ytdlpLoad, autoSlots, familyOf, type Exec, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
+import run, { useExec, useInfoTimeout, useLaneSizes, useStallWatch, ytdlpLoad, autoSlots, familyOf, watchDownload, type Exec, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import { inGuild } from "../../src/infra/guild-context.ts";
 
 const GB = 1024 ** 3;
@@ -170,16 +170,45 @@ test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연�
     useExec(sleeper());
     useStallWatch({ everyMs: 50, limitMs: 300 });
     fs.writeFileSync(path.join(dir, "x.opus.part"), "a");
-    const started = Date.now();
     const error = await run("https://youtu.be/x", { output: path.join(dir, "x.opus") }).then(
       () => null,
       (e: YtDlpError) => e,
     );
+    // 가짜 자식은 스스로 끝나지 않으므로 이 오류가 온 것이 감시가 내렸다는 뜻이다.
+    // 한도 뒤 곧 알리는지는 아래 감시 시험이 본다(여기서 시간을 재면 taskkill 이 섞인다. 부하가 걸리면 그것만 몇 초)
     assert.equal(error?.code, "network-error");
     assert.match(String(error?.message), /나아가지 않아/);
-    assert.ok(Date.now() - started < 3000);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("다운로드 감시: 처음 본 뒤 파일 묶음이 한도 동안 그대로면 그 시점의 확인에서 알린다(한도 전에는 알리지 않는다)", async () => {
+  mock.timers.enable({ apis: ["setInterval", "Date"] });
+  try {
+    useStallWatch({ everyMs: 50, limitMs: 300 });
+    let firedAt: number | null = null;
+    // 파일 대신 늘 같은 묶음을 읽는다. 진짜 파일을 읽으면 부하에 따라 확인이 건너뛰어진다
+    const stop = watchDownload(
+      "x.opus",
+      () => (firedAt = Date.now()),
+      () => Promise.resolve("x.opus.part:1"),
+    );
+    // 읽기는 마이크로태스크로 끝나므로 setImmediate 한 번이면 확인이 끝난다
+    const check = async () => {
+      mock.timers.tick(50);
+      await new Promise(setImmediate);
+    };
+    await check(); // 50: 처음 본다
+    const firstSeen = Date.now();
+    while (Date.now() - firstSeen < 300) {
+      await check();
+      if (Date.now() - firstSeen < 300) assert.equal(firedAt, null, `${Date.now() - firstSeen}ms 에 알렸다`);
+    }
+    assert.equal(firedAt, firstSeen + 300, "한도에 닿은 확인에서 알린다");
+    stop();
+  } finally {
+    mock.timers.reset();
   }
 });
 

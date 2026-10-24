@@ -8,9 +8,12 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+import logger from "../infra/log/logger.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { FAVICON_HISTORY, FAVICON_MIN_SIDE, FAVICON_RESERVE_SIDE, FAVICON_SIZES, type FaviconImage, type FaviconSlot, type FaviconSlots } from "./contract/appearance.ts";
 import type { Code, Params } from "../rules/problems.ts";
+const log = logger.child({ category: "dashboard" });
 
 let dir = path.join(PROJECT.dashboardData, "favicon");
 const INDEX = "index.json";
@@ -79,14 +82,16 @@ function loaded(): Map<number, Slot> {
   let names: string[] = [];
   try {
     names = fs.readdirSync(dir);
-  } catch {
+  } catch (error) {
     // 아직 하나도 올리지 않았다
+    if (codeOf(error) !== "ENOENT") log.debug(`파비콘 자리 읽기 실패: ${messageOf(error)}`);
   }
   let raw: unknown = null;
   try {
     raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8"));
-  } catch {
+  } catch (error) {
     // 목록이 없거나 망가졌다: 빈 슬롯으로
+    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX})을 읽지 못해 빈 슬롯으로 시작합니다(목록에 없는 그림 파일은 삭제): ${messageOf(error)}`);
   }
   const present = new Set(names);
   slots = slotsFrom(raw, (id) => present.has(`${id}.png`) && present.has(`${id}.reserve.png`));
@@ -133,7 +138,8 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
   try {
     const [png, reserve] = await Promise.all([draw(size), draw(reserveSide)]);
     return { ok: true, image: { id: newId(), bytes: raw.length, width, height, vector, at: Date.now(), reserveSide }, png, reserve };
-  } catch {
+  } catch (error) {
+    log.debug(`파비콘 그리기 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
     return refused("bad-image");
   }
 }
@@ -221,8 +227,10 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (res.ok) input = Buffer.from(await res.arrayBuffer());
-  } catch {
+    else log.debug(`봇 프로필 그림 받기 실패: HTTP ${res.status}`);
+  } catch (error) {
     // 디스코드에 닿지 못했다. 다음 요청에서 다시
+    log.debug(`봇 프로필 그림 받기 실패: ${messageOf(error)}`);
     return null;
   }
   avatar = { url, input };

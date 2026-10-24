@@ -55,11 +55,21 @@ test("메모리: tasklist CSV(자릿점은 로캘마다) · ps 의 RSS 를 MB �
   assert.deepEqual([...parsePs("  4120 32212\n 4200  104857\n", new Set([4120]))], [[4120, 31]]);
 });
 
+test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코드와 stderr(UTF-8 이 아니면 길이만), 실행조차 못 했는지", () => {
+  const failed = (fields: object) => Object.assign(new Error("Command failed: tasklist /FO CSV /NH"), fields);
+  assert.equal(memoryInternals.failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초를 넘겨 끊음(SIGTERM)");
+  assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from("ERROR: Invalid argument.\r\n")), "종료 코드 1 · ERROR: Invalid argument.");
+  // 한국어 Windows 의 tasklist 가 cp949 로 쓴 "오류:"
+  assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from([0xbf, 0xc0, 0xb7, 0xf9, 0x3a])), "종료 코드 1 · UTF-8 이 아닌 5바이트(콘솔 코드 페이지)");
+  assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.alloc(0)), "종료 코드 1");
+  assert.equal(memoryInternals.failure(Object.assign(new Error("spawn tasklist ENOENT"), { code: "ENOENT" }), Buffer.alloc(0)), "spawn tasklist ENOENT");
+});
+
 test("메모리: 이 프로세스를 실제로 잰다", { timeout: 60_000 }, async (t) => {
   const started = Date.now();
   const memory = await processMemory([process.pid]);
   // 바쁜 기계에서는 tasklist 가 상한을 넘긴다. 그때는 못 잰 것이지 틀린 것이 아니다
-  if (!memory.has(process.pid) && Date.now() - started >= memoryInternals.TIMEOUT_MS) return t.skip("tasklist · ps 가 상한 안에 끝나지 않음");
-  assert.ok((memory.get(process.pid) ?? 0) > 10, `${memory.get(process.pid)}MB`);
-  assert.equal((await processMemory([])).size, 0);
+  if (!memory?.has(process.pid) && Date.now() - started >= memoryInternals.TIMEOUT_MS) return t.skip("tasklist · ps 가 상한 안에 끝나지 않음");
+  assert.ok((memory?.get(process.pid) ?? 0) > 10, `${memory?.get(process.pid)}MB`);
+  assert.equal((await processMemory([]))?.size, 0);
 });

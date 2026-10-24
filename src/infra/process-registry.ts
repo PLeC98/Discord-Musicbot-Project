@@ -7,6 +7,7 @@ import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
+const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
  * yt-dlp / ffmpeg 프로세스 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
@@ -55,7 +56,7 @@ function save() {
     fs.writeFileSync(temp, JSON.stringify(record));
     fs.renameSync(temp, recordFile);
   } catch (error) {
-    log.debug(`자식 프로세스 기록 실패: ${error instanceof Error ? error.message : String(error)}`);
+    log.debug(`자식 프로세스 기록 실패: ${reasonOf(error)}`);
   }
 }
 
@@ -116,8 +117,9 @@ function killTree(entry: Entry): boolean {
   if (!_isAlive(child)) return false; // PID 재사용된 남의 프로세스 보호
 
   if (IS_WIN) {
-    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다.
-    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝났다
+    const { error, status } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+    if (error || (status !== 0 && status !== 128)) log.debug(`${entry.label}#${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)}`}`);
     return true;
   }
 
@@ -128,8 +130,8 @@ function killTree(entry: Entry): boolean {
     // ESRCH(이미 종료) 또는 그룹이 없는 경우. 직접 pid로 한 번 더.
     try {
       process.kill(pid, "SIGKILL");
-    } catch {
-      /* 이미 없음 */
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") log.debug(`${entry.label}#${pid} 종료 실패: ${reasonOf(error)}`);
     }
   }
   return true;
@@ -158,8 +160,9 @@ function killAll(): Array<{ label: string; pid: number }> {
   for (const entry of entries) {
     try {
       if (killTree(entry)) killed.push({ label: entry.label, pid: entry.pid });
-    } catch {
-      /* 종료 경로에서는 실패해도 더 할 수 있는 일이 없다 */
+    } catch (error) {
+      // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다
+      log.debug(`${entry.label}#${entry.pid} 종료 실패: ${reasonOf(error)}`);
     }
   }
   return killed;

@@ -9,6 +9,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { PROJECT } from "../../infra/project-paths.ts";
 import { freeBytesOf, roomIn } from "../../infra/disk.ts";
+import logger from "../../infra/log/logger.ts";
+import { bestEffort } from "../../infra/best-effort.ts";
+import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { isCode, type Code } from "../../rules/problems.ts";
 import {
   LOGIN_BG_BEFORE_EDIT,
@@ -34,6 +37,7 @@ import {
   type LoginBackgroundStage,
   type LoginBackgroundStrip,
 } from "../contract/login-background.ts";
+const log = logger.child({ category: "dashboard" });
 
 let dir = path.join(PROJECT.dashboardData, "login-background");
 const INDEX = "index.json";
@@ -151,8 +155,9 @@ function readIndex(folder = dir): Index {
   let raw: Partial<Index> | null = null;
   try {
     raw = JSON.parse(fs.readFileSync(path.join(folder, INDEX), "utf8")) as Partial<Index>;
-  } catch {
+  } catch (error) {
     // 아직 없거나 망가졌다: 빈 기록으로
+    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 기록(${INDEX})을 읽지 못해 빈 기록으로 시작합니다(기록에 없는 배경 폴더는 삭제): ${messageOf(error)}`);
   }
   const items = (Array.isArray(raw?.items) ? raw.items : []).filter(isStored).filter((one) => fs.existsSync(path.join(folder, one.id)));
   const current = items.some((one) => one.id === raw?.current) ? (raw!.current as string) : null;
@@ -168,8 +173,9 @@ function loaded(): Index {
   let names: string[] = [];
   try {
     names = fs.readdirSync(dir);
-  } catch {
+  } catch (error) {
     // 아직 하나도 올리지 않았다
+    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 자리 읽기 실패: ${messageOf(error)}`);
   }
   const kept = new Set(items.map((one) => one.id));
   for (const name of names) if (LOGIN_BG_ID.test(name) && !kept.has(name)) fs.rmSync(path.join(dir, name), { recursive: true, force: true });
@@ -235,9 +241,7 @@ function removeFolder(id: string) {
   try {
     fs.rmSync(folder, { recursive: true, force: true });
   } catch {
-    fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }).catch(() => {
-      // 다음에 켤 때 치운다
-    });
+    bestEffort(log, fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }), `로그인 배경 폴더(${id}) 삭제`);
   }
 }
 
@@ -322,8 +326,9 @@ function folderBytes(id: string): number {
   };
   try {
     walk(folderOf(id));
-  } catch {
+  } catch (error) {
     // 폴더가 없다
+    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 폴더(${id}) 크기 세기 실패: ${messageOf(error)}`);
   }
   return sum;
 }

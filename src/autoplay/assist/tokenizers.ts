@@ -5,6 +5,7 @@
 import fs from "fs";
 import path from "path";
 import { PROJECT } from "../../infra/project-paths.ts";
+import { codeOf, describeError } from "../../rules/error-kind.ts";
 
 // gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
 let tik: Promise<typeof import("gpt-tokenizer")> | null = null;
@@ -19,6 +20,8 @@ const GEMMA_FILE = path.join(PROJECT.data, "gemma-tokenizer.model");
 // 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.
 // 조각 → 점수. 파일이 없으면 false
 let gemma: Map<string, number> | false | null = null;
+// 파일이 있는데 읽지 못한 까닭. 이 모듈은 세는 스레드에서 돌아 로그가 봇 로그에 닿지 않으므로 스레드가 부모에게 한 번 넘긴다
+let gemmaProblem: string | null = null;
 
 function varint(buf: Buffer, at: number): [number, number] {
   let out = 0;
@@ -88,10 +91,18 @@ function loadGemma(): Map<string, number> | false {
     const rank = new Map<string, number>();
     for (let i = 0; i < piece.length; i++) rank.set(piece[i], score[i]);
     gemma = rank;
-  } catch {
+  } catch (error) {
     gemma = false; // 파일이 없으면 tik 로 떨어진다
+    if (codeOf(error) !== "ENOENT") gemmaProblem = describeError(error);
   }
   return gemma;
+}
+
+/** 젬마 파일을 읽지 못한 까닭. 한 번 꺼내면 비운다 */
+function takeGemmaProblem() {
+  const problem = gemmaProblem;
+  gemmaProblem = null;
+  return problem;
 }
 
 // 붙일 짝 하나. left · right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
@@ -174,5 +185,5 @@ async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
   return { tokens: body ? await tikCount(body) : 0, by: "tik", exact: tokenizer === "tik" };
 }
 
-export { count, GEMMA_FILE, readPieces };
+export { count, takeGemmaProblem, GEMMA_FILE, readPieces };
 export type { Counted };

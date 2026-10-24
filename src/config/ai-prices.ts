@@ -11,9 +11,12 @@ import path from "path";
 import { createHash } from "crypto";
 import { PROJECT } from "../infra/project-paths.ts";
 import { httpFor } from "../infra/http.ts";
+import logger from "../infra/log/logger.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { PROVIDER_SPECS } from "./schema/ai-providers.ts";
 import type { AiTokens } from "../dashboard/contract/ai-log.ts";
 import type { RefreshResult } from "./ai-model-types.ts";
+const log = logger.child({ category: "config" });
 
 const SOURCE = "https://models.dev/api.json";
 /** 저장소에 함께 싣는 기본 사본. 여기에는 쓰지 않는다 */
@@ -31,10 +34,12 @@ type SourceBook = Record<string, { models?: Record<string, SourceModel> } | unde
 
 let held: PriceBook | null = null;
 
+// 다운로드한 사본은 없을 수 있다
 function readBook(file: string): PriceBook | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as PriceBook;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.warn(`AI 가격표를 읽지 못했습니다(${path.basename(file)}): ${messageOf(error)}`);
     return null;
   }
 }

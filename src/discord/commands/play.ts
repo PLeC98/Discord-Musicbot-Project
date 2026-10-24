@@ -1,4 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "commands" });
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
@@ -12,7 +14,7 @@ import type { PermissionDenied } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { HelpEntry } from "../../ui/help-lines.ts";
 import type { GuildMember } from "discord.js";
-import { noticeMs, noticeSelf, replaceSelf } from "../../ui/delivery.ts";
+import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
 
 /** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름 · 설명 · 권한 · 넣을 위치만 다르다 */
 type PlayOptions = {
@@ -72,9 +74,7 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
       }
       // 담은 안내는 모두에게 따로 갔다. "검색 중" 자리표시자는 더 넣기 메뉴로 고치거나 삭제한다
       if (result.more && (await offerOnInteraction(interaction, result.more, result.player))) return;
-      await interaction.deleteReply().catch(() => {
-        /* 이미 삭제됐다 */
-      });
+      await interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제"));
     },
   };
 }

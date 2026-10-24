@@ -17,7 +17,7 @@ import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { DevicePlace } from "./contract/identity.ts";
 import type { GeoipCheck, GeoipStatus } from "./contract/admin.ts";
 const log = logger.child({ category: "dashboard", sub: "geoip" });
@@ -59,7 +59,9 @@ function versionsOnDisk(): string[] {
       .flatMap((name) => FILE.exec(name)?.[1] ?? [])
       .sort()
       .reverse();
-  } catch {
+  } catch (error) {
+    // 자리가 아직 없다(받은 적이 없다)
+    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 자리 읽기 실패: ${messageOf(error)}`);
     return [];
   }
 }
@@ -73,7 +75,9 @@ function status(): GeoipStatus {
   if (version) {
     try {
       bytes = fs.statSync(fileOf(version)).size;
-    } catch {
+    } catch (error) {
+      // 그새 새 판으로 바뀌었다
+      if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 파일 크기 읽기 실패: ${messageOf(error)}`);
       bytes = null;
     }
   }
@@ -121,7 +125,11 @@ function locate(ip: string): DevicePlace {
 /** 그 판이 올라와 있으면 받는 크기, 없으면 null(머리만 묻는다) */
 async function sizeOf(version: string): Promise<number | null> {
   const res = await http.fetch(urlOf(version), { method: "HEAD", signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    // 없는 판이면 404. 다른 거절도 없는 판으로 보되 까닭을 남긴다
+    if (res.status !== 404) log.debug(`IP 위치 DB ${version} 판 확인: HTTP ${res.status}`);
+    return null;
+  }
   return Number(res.headers.get("content-length")) || 0;
 }
 
@@ -186,7 +194,11 @@ function once<T>(work: () => Promise<T>): Promise<T> {
 /** 운영자의 업데이트: 가장 새 판을 받는다. 이미 그 판이면 받지 않는다. 받은 판(없으면 null) */
 const update = () =>
   once(async () => {
-    const { latest } = await check();
+    // 받기 실패는 download 가 남긴다
+    const { latest } = await check().catch((error: unknown) => {
+      log.warn(`IP 위치 DB 판 확인 실패: ${messageOf(error)}`);
+      throw error;
+    });
     if (latest && latest !== current()) await download(latest);
     return current();
   });
@@ -197,14 +209,19 @@ async function autoCheck() {
   const [thisMonth, lastMonth] = monthsNow();
   const have = current();
   if (have === thisMonth) return;
+  const probe = (version: string) =>
+    sizeOf(version).catch((error: unknown) => {
+      log.debug(`IP 위치 DB ${version} 판 확인 실패: ${messageOf(error)}`);
+      throw error;
+    });
   try {
     await once(async () => {
-      if ((await sizeOf(thisMonth)) !== null) return download(thisMonth);
-      if (!have && (await sizeOf(lastMonth)) !== null) return download(lastMonth);
+      if ((await probe(thisMonth)) !== null) return download(thisMonth);
+      if (!have && (await probe(lastMonth)) !== null) return download(lastMonth);
       log.debug(`IP 위치 DB ${thisMonth} 판이 아직 없습니다. 내일 다시 봅니다`);
     });
   } catch {
-    // 내일 다시 본다(까닭은 download 가 남겼다)
+    // 내일 다시 본다(까닭은 probe · download 가 남겼다)
   }
 }
 
@@ -212,8 +229,9 @@ async function autoCheck() {
 function start() {
   try {
     for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
-  } catch {
+  } catch (error) {
     // 자리가 아직 없다
+    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 임시 파일 치우기 실패: ${messageOf(error)}`);
   }
   setTimeout(() => void autoCheck(), FIRST_CHECK_MS).unref();
   setInterval(() => void autoCheck(), CHECK_EVERY_MS).unref();

@@ -6,9 +6,13 @@
 // 그것도 없으면 모른다: 막지 않고 틀 때(음성에 붙은 뒤) 다시 본다
 
 import { ageContentOn } from "../config/age-content.ts";
-import { codedError } from "../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import { currentGuild, currentVoiceTarget } from "../infra/guild-context.ts";
+import logger from "../infra/log/logger.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as externalCaches from "../store/external-caches.ts";
+
+const log = logger.child({ category: "youtube" });
 
 /** 서버에서 봇이 든 음성 채널(없으면 붙을 채널 target)이 연령 제한 채널인가. 둘 다 없으면 null */
 type PlaceOf = (guildId: string, target: string | null) => boolean | null;
@@ -29,4 +33,16 @@ function assertAgeAllowed(what: string, cause?: unknown) {
   if (placeOf(guildId, currentVoiceTarget()) === false) throw codedError("age-channel-only", `연령 제한 채널이 아닌 음성 채널입니다 (${what})`, options);
 }
 
-export { assertAgeAllowed, usePlace };
+/** 연령 제한으로 적어 둔 영상인가. 기록을 읽지 못하면 아닌 것으로 본다 */
+function markedAgeRestricted(videoId: string | null | undefined) {
+  if (!videoId) return false;
+  try {
+    return externalCaches.isAgeRestricted(videoId);
+  } catch (error) {
+    if (codeOf(error) === "DB_NOT_OPEN") throw error;
+    log.warn(`연령 제한 기록 읽기 실패, 제한 없는 영상으로 봅니다 (${videoId}): ${messageOf(error)}`);
+    return false;
+  }
+}
+
+export { assertAgeAllowed, markedAgeRestricted, usePlace };

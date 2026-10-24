@@ -4,6 +4,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import type { PlayerStream } from "../player-stream.ts";
 import { sendProblem } from "../problem.ts";
+import { notMember } from "../guild-access.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
 // req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 추출해 finish 에서 쓴다.
@@ -34,7 +35,7 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    await Promise.all([...client.guilds.cache.values()].map((guild) => guild.members.fetch(user.id).catch(() => null)));
+    await Promise.all([...client.guilds.cache.values()].map((guild) => guild.members.fetch(user.id).catch(notMember(guild.id, user.id))));
     const canSee = (guildId: string) => Boolean(client.guilds.cache.get(guildId)?.members.cache.has(user.id));
     stream.addClient(res, canSee, user.id);
   });
@@ -47,7 +48,7 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
  * 연결을 연 사람들을 그 서버에서 한 번씩 가져와 캐시를 채우고, 화면이 다시 읽게 알린다
  */
 async function botJoinedGuild(stream: PlayerStream, guild: { id: string; members: { fetch(id: string): Promise<unknown> } }) {
-  await Promise.all([...stream.listUsers()].map((id) => guild.members.fetch(id).catch(() => null)));
+  await Promise.all([...stream.listUsers()].map((id) => guild.members.fetch(id).catch(notMember(guild.id, id))));
   stream.notify(guild.id);
 }
 

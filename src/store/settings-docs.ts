@@ -3,26 +3,30 @@
 
 import Database from "better-sqlite3";
 import fs from "fs";
-import { codedError } from "../rules/error-kind.ts";
+import logger from "../infra/log/logger.ts";
+import { codedError, messageOf } from "../rules/error-kind.ts";
 import { settingsDb } from "./settings-db.ts";
+const log = logger.child({ category: "config" });
 
 /** 문서 하나. 없으면 data 는 null, revision 은 0 */
 type Doc = { data: unknown; revision: number };
 
 const conn = () => settingsDb.get();
 
-function parse(raw: string | undefined): unknown {
+// 망가진 문서는 없는 것으로(읽는 쪽이 기본값으로 돈다)
+function parse(name: string, raw: string | undefined): unknown {
   if (raw === undefined) return null;
   try {
     return JSON.parse(raw);
-  } catch {
-    return null; // 망가진 문서는 없는 것으로(읽는 쪽이 기본값으로 돈다)
+  } catch (error) {
+    log.warn(`설정 문서 ${name} 이 JSON 이 아니어서 없는 것으로 봅니다: ${messageOf(error)}`);
+    return null;
   }
 }
 
 function read(name: string): Doc {
   const row = conn().prepare("SELECT data_json, revision FROM documents WHERE name = ?").get(name) as { data_json: string; revision: number } | undefined;
-  return { data: parse(row?.data_json), revision: row?.revision ?? 0 };
+  return { data: parse(name, row?.data_json), revision: row?.revision ?? 0 };
 }
 
 /** 쓸 문서 하나. revision 은 화면이 읽었을 때의 번호 */
@@ -67,7 +71,7 @@ function peek(file: string, name: string): unknown {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
     const row = db.prepare("SELECT data_json FROM documents WHERE name = ?").get(name) as { data_json: string } | undefined;
-    return parse(row?.data_json);
+    return parse(name, row?.data_json);
   } catch {
     return null; // 표가 없다(옛 파일)
   } finally {

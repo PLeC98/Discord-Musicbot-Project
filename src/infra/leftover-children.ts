@@ -30,6 +30,15 @@ type Boundary = {
 };
 
 const imageName = (name: string) => name.replace(/\.exe$/i, "").toLowerCase();
+const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const codeOf = (error: unknown) => (error as NodeJS.ErrnoException | undefined)?.code;
+
+// 묻지 못했으면 까닭을 남긴다. 빈 목록이면 모두 끝난 것으로 보고 기록을 지운다
+function asked(what: string, result: { error?: Error; status: number | null; stderr?: string | null }, okStatus: (status: number | null) => boolean) {
+  const stderr = result.stderr?.trim();
+  if (result.error) log.warn(`남은 자식 프로세스를 확인하지 못했습니다(${what}): ${result.error.message}`);
+  else if (!okStatus(result.status)) log.warn(`남은 자식 프로세스를 확인하지 못했습니다(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
+}
 
 // Windows: CIM 에서 이름 · 만든 시각. POSIX: ps 의 이름 · 시작 시각
 function realProcesses(pids: number[]): Seen[] {
@@ -37,15 +46,18 @@ function realProcesses(pids: number[]): Seen[] {
   if (IS_WIN) {
     const filter = pids.map((pid) => `ProcessId=${pid}`).join(" OR ");
     const script = `Get-CimInstance Win32_Process -Filter '${filter}' | ForEach-Object { "$($_.ProcessId)|$($_.Name)|$(([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds())" }`;
-    const out = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", windowsHide: true, timeout: 15_000 }).stdout ?? "";
-    return out
+    const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", windowsHide: true, timeout: 15_000 });
+    asked("powershell", result, (status) => status === 0);
+    return (result.stdout ?? "")
       .split(/\r?\n/)
       .filter(Boolean)
       .map((line) => line.split("|"))
       .map(([pid, name, at]) => ({ pid: Number(pid), image: imageName(name), startedAt: Number(at) }));
   }
-  const out = spawnSync("ps", ["-o", "pid=,lstart=,comm=", "-p", pids.join(",")], { encoding: "utf8", timeout: 15_000 }).stdout ?? "";
-  return out
+  const result = spawnSync("ps", ["-o", "pid=,lstart=,comm=", "-p", pids.join(",")], { encoding: "utf8", timeout: 15_000 });
+  // ps 는 고른 pid 가 다 끝났으면 1 로 끝난다
+  asked("ps", result, (status) => status === 0 || status === 1);
+  return (result.stdout ?? "")
     .split("\n")
     .map((line) => /^\s*(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.+)$/.exec(line))
     .filter((m) => m !== null)
@@ -54,13 +66,16 @@ function realProcesses(pids: number[]): Seen[] {
 
 function realKillTree(pid: number, group: boolean) {
   if (IS_WIN) {
-    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+    // 128: 그 사이에 끝났다
+    const { error, status } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+    if (error || (status !== 0 && status !== 128)) log.debug(`pid ${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)}`}`);
     return;
   }
   try {
     process.kill(group ? -pid : pid, "SIGKILL");
-  } catch {
-    /* 그 사이에 끝났다 */
+  } catch (error) {
+    // ESRCH: 그 사이에 끝났다
+    if (codeOf(error) !== "ESRCH") log.debug(`pid ${pid} 종료 실패: ${reasonOf(error)}`);
   }
 }
 
@@ -68,7 +83,9 @@ const REAL: Boundary = {
   read: (file) => {
     try {
       return fs.readFileSync(file, "utf8");
-    } catch {
+    } catch (error) {
+      // 없는 것은 첫 기동이다
+      if (codeOf(error) !== "ENOENT") log.debug(`자식 프로세스 기록 읽기 실패: ${reasonOf(error)}`);
       return null;
     }
   },
@@ -93,8 +110,8 @@ function parse(text: string | null): ChildRecord | null {
   if (text === null) return null;
   try {
     return JSON.parse(text) as ChildRecord;
-  } catch {
-    log.debug("자식 프로세스 기록을 읽지 못해 삭제합니다");
+  } catch (error) {
+    log.debug(`자식 프로세스 기록을 읽지 못해 삭제합니다: ${reasonOf(error)}`);
     return null;
   }
 }

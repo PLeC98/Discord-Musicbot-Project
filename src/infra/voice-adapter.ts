@@ -7,6 +7,8 @@
 // 내보낼 때 고쳤는지 알린다(onSend). 고치지 않은 요청이 나간 뒤 봇이 그 채널로 돌아오면 라이브러리의 되돌림이다(voiceLink).
 
 import type { DiscordGatewayAdapterCreator } from "@discordjs/voice";
+import logger from "./log/logger.ts";
+const log = logger.child({ category: "voice" });
 
 // 게이트웨이로 보내는 것. 여기서 보는 필드만
 type GatewayPayload = { op?: number; d?: { channel_id?: string | null; [field: string]: unknown } };
@@ -44,7 +46,8 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
       clearTimeout(timer);
       pending = null;
       onSend?.(payload.d.channel_id, rewritten);
-      adapter.sendPayload(payload);
+      // 붙잡는 동안 라이브러리에는 보냈다고 답했다. 못 보낸 것은 여기서만 안다
+      if (!adapter.sendPayload(payload)) log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 게이트웨이로 보내지 못했습니다(샤드가 준비되지 않았다)`);
     };
 
     return {

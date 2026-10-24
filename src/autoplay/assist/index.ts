@@ -598,8 +598,10 @@ async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCoun
       if (exact !== null) return { total: exact, body: exact - tokens.FRAMING.anthropic.perRequest, by: "claude", exact: true };
     }
     return await tokens.countMessages(messages, by, spec?.dialect || "openai");
-  } catch {
-    return null; // 못 세도 요청은 나가야 한다
+  } catch (error) {
+    // 못 세도 요청은 나가야 한다
+    log.debug(`토큰 세기 실패(${String(one.provider)} · ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
+    return null;
   }
 }
 

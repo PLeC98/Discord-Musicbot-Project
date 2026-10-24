@@ -7,7 +7,7 @@ import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { newerRelease } from "../rules/vendor-updates.ts";
 import { latestReleaseTag } from "./github-release.ts";
 const log = logger.child({ category: "core", sub: "bgutil" });
@@ -25,7 +25,8 @@ function readInstalled() {
   try {
     const { version } = JSON.parse(fs.readFileSync(path.join(PROJECT.bgutil, "server", "package.json"), "utf8")) as { version?: unknown };
     return typeof version === "string" && version ? version : null;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`bgutil 설치 버전 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }

@@ -2,7 +2,7 @@ import { RESTJSONErrorCodes, type Client, type Guild } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import { sessions, type RestoredSession, type SessionState } from "../store/player-sessions.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { inGuild } from "../infra/guild-context.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
@@ -117,7 +117,13 @@ const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못
 // 저장된 음성 · 텍스트 채널. 기록이 없거나 그 종류의 채널이 아니면 null
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {
   if (!voiceChannelId || !textChannelId) return null;
-  const find = async (id: string) => guild.channels.cache.get(id) || (await guild.channels.fetch(id).catch(() => null));
+  const fetch = (id: string) =>
+    guild.channels.fetch(id).catch((error: unknown) => {
+      // 채널이 삭제됐다(10003)는 답은 없다는 뜻이다. 그 밖의 실패도 세션을 제거하게 되므로 까닭을 남긴다
+      if (codeOf(error) !== RESTJSONErrorCodes.UnknownChannel) log.warn(`서버 ${guild.name}의 채널 ${id} 조회 실패: ${describeError(error)}`);
+      return null;
+    });
+  const find = async (id: string) => guild.channels.cache.get(id) || (await fetch(id));
   const voice = await find(voiceChannelId);
   const text = await find(textChannelId);
   if (voice?.isVoiceBased() && text?.isTextBased()) return { voice, text };

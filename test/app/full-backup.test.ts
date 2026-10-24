@@ -78,6 +78,18 @@ test("켜져 있는 봇에서 만들고(.env · 설정 DB 를 교체할 이름�
   if (process.platform !== "win32") assert.equal(fs.statSync(second.file).mode & 0o777, 0o600);
 });
 
+// root 는 읽기 전용 파일도 쓸 수 있다
+test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 예외로 새지 않는다)", { skip: process.getuid?.() === 0 }, async () => {
+  const blockedOut = path.join(work, "blocked-out");
+  const part = path.join(blockedOut, "musicbot-full-20261012-0900.zip.part");
+  // 쓸 자리에 읽기 전용 파일이 있으면 열기가 실패한다
+  fs.mkdirSync(blockedOut);
+  fs.writeFileSync(part, "");
+  fs.chmodSync(part, 0o444);
+  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: blockedOut }, new Date(2026, 9, 12, 9, 0)), (error) => ["EPERM", "EACCES"].includes(String(codeOf(error))));
+  assert.ok(!fs.existsSync(part), "쓰다 만 파일을 지운다");
+});
+
 test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고, 그 봇의 것은 스냅샷으로 남긴다", async () => {
   settingsDocs.write("status", { messages: ["옮길 것"] }, settingsDocs.read("status").revision);
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir });

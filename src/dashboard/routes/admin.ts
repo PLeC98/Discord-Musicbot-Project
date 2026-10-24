@@ -246,7 +246,10 @@ async function countByClaude(texts: string[], provider: string, model: string) {
   const ask = (one: string) =>
     tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }).then(
       (got) => (got === null ? null : got - wrap),
-      () => null,
+      (error: unknown) => {
+        log.debug({ sub: "admin" }, `앤트로픽 토큰 세기 실패(tik 로 어림): ${messageOf(error)}`);
+        return null;
+      },
     );
   const each = await Promise.all(texts.map((one) => (one ? ask(one) : 0)));
   return each.every((one): one is number => one !== null) ? each : null;
@@ -497,7 +500,7 @@ adminRouter.post("/geoip/check", requireOwner, async (_req, res) => {
 adminRouter.post("/geoip/update", requireOwner, (req, res) => {
   log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
   geoip.update().catch(() => {
-    /* 까닭은 상태(error)와 로그에 */
+    /* 까닭은 geoip 가 로그에 남긴다(받기 실패는 상태의 error 에도) */
   });
   res.status(202).json(geoip.status() satisfies GeoipStatus);
 });
