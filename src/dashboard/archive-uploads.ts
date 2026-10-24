@@ -41,7 +41,7 @@ const fileOf = (token: string) => (TOKEN.test(token) && uploads.has(token) && fs
 
 /** 삭제한다 */
 function drop(token: string) {
-  if (!TOKEN.test(token)) return;
+  if (!TOKEN.test(token) || !uploads.has(token)) return;
   clearTimeout(uploads.get(token));
   uploads.delete(token);
   fs.rmSync(fileFor(token), { force: true });

@@ -8,6 +8,7 @@ import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
+import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { FFMPEG_RELEASE, BGUTIL_VERSION } from "./vendor-versions.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,11 +173,11 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
   // 그대로 넘기므로 모양은 깨지 않고(`chrome:Profile 1`), 앞의 브라우저 이름만 yt-dlp 가 받는 것인지 본다.
   // 모르는 이름이면 yt-dlp 가 사용법 오류로 끝나 모든 곡 찾기가 실패한다
-  // yt-dlp 릴리스 태그. stable 은 2026.08.19, nightly · master 는 뒤에 시각이 붙는다(2026.09.27.232849)
+  // yt-dlp 릴리스 태그(rules/ytdlp-tag)
   function envYtdlpVersion(key: string) {
     const v = env(key);
     if (v === null || !v.trim()) return null;
-    return /^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/.test(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 합니다", null);
+    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 합니다", null);
   }
 
   function envCookies(key: string) {

@@ -88,6 +88,17 @@ test("최신은 하루 한 번만 묻는다. 기록은 디스크에 남아 다�
   assert.equal(w.asks, 2);
 });
 
+test("GitHub 가 준 태그가 릴리스 태그 모양이 아니면 그 경로로 실행하거나 옮기지 않고 실패한다", async () => {
+  const { w, bin } = world({ latest: "../../evil" });
+  await assert.rejects(bin.check(), /릴리스 태그의 모양이 아닙니다/);
+  assert.deepEqual(
+    w.runs.filter((run) => run.includes("evil") || run.includes("--update-to")),
+    [],
+    "받은 태그로는 아무것도 실행하지 않는다",
+  );
+  assert.ok(!fs.existsSync(path.join(root, "evil")), "폴더 밖에 아무것도 만들지 않는다");
+});
+
 test("notify: 새 버전을 알리기만 하고 다운로드하지 않는다", async () => {
   config.ytdlp.update = "notify";
   const { w, bin, rel } = world();

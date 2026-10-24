@@ -215,11 +215,13 @@ function resolveLogFile(file: string, name: string, since?: number): { name: str
   const dir = path.dirname(file);
   const base = path.basename(file);
   const rotated = rotatedFilesOf(file);
-  if (name !== base && !rotated.includes(name)) return null;
-  const found = { name, path: path.join(dir, name) };
+  // 그 폴더에 있는 로그 파일 이름 가운데 하나만(요청 값이 아니라 찾은 이름으로 경로를 만든다)
+  const picked = [base, ...rotated].find((one) => one === name);
+  if (!picked) return null;
+  const found = { name: picked, path: path.join(dir, picked) };
   if (!fs.existsSync(found.path)) return null;
   // 빈 파일(since 0)은 떼어지지 않는다
-  if (since === undefined || !since || name !== base || firstTime(found.path) === since) return found;
+  if (since === undefined || !since || picked !== base || firstTime(found.path) === since) return found;
   const moved = rotated.reverse().find((one) => firstTime(path.join(dir, one)) === since);
   return moved ? { name: moved, path: path.join(dir, moved) } : null;
 }

@@ -103,13 +103,14 @@ function checkSnapshot(file: string) {
 /** 선택한 스냅샷을 복원으로 예약한다(다음 기동에 교체한다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
 function stage(name: string) {
   const dir = dbDir();
-  if (!NAME.test(name) || !list(dir).some((one) => one.name === name)) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷입니다: ${name}`);
-  const from = path.join(backupsOf(dir), name);
+  const found = NAME.test(name) ? list(dir).find((one) => one.name === name) : undefined;
+  if (!found) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷입니다: ${name}`);
+  const from = path.join(backupsOf(dir), found.name);
   checkSnapshot(from);
   const to = path.join(dir, STAGED);
   fs.copyFileSync(from, `${to}.tmp`);
   fs.renameSync(`${to}.tmp`, to);
-  fs.writeFileSync(path.join(dir, `${STAGED}.json`), JSON.stringify({ from: name }));
+  fs.writeFileSync(path.join(dir, `${STAGED}.json`), JSON.stringify({ from: found.name }));
   ownerOnly(to);
 }
 

@@ -193,10 +193,11 @@ function clearFavicon(size: number): boolean {
 function removeFavicon(size: number, id: string): boolean {
   const map = loaded();
   const slot = map.get(size)!;
-  if (!slot.history.some((one) => one.id === id)) return false;
-  map.set(size, { current: slot.current === id ? null : slot.current, history: slot.history.filter((one) => one.id !== id) });
+  const gone = slot.history.find((one) => one.id === id);
+  if (!gone) return false;
+  map.set(size, { current: slot.current === gone.id ? null : slot.current, history: slot.history.filter((one) => one.id !== gone.id) });
   save(map);
-  dropFiles(id);
+  dropFiles(gone.id);
   changed();
   return true;
 }
@@ -253,8 +254,8 @@ async function faviconPng(size: number, avatarUrl: string | null): Promise<Buffe
 
 /** 기록의 그림을 슬롯 크기로(미리 보기). 없으면 null */
 function previewPng(size: number, id: string): Buffer | null {
-  if (!slotOf(size).history.some((one) => one.id === id)) return null;
-  return fs.readFileSync(pngOf(id));
+  const found = slotOf(size).history.find((one) => one.id === id);
+  return found ? fs.readFileSync(pngOf(found.id)) : null;
 }
 
 /** 운영자 패널의 파비콘 상태. hasAvatar: 봇 프로필 그림을 대신 쓸 수 있는지 */

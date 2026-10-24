@@ -15,6 +15,7 @@ import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { latestReleaseTag } from "./github-release.ts";
+import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -165,6 +166,13 @@ class YtdlpBinary {
     fs.chmodSync(to, 0o755);
   }
 
+  // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 모양이 다르면 쓰지 않는다
+  async _latestTag(channel: Channel) {
+    const tag = await this.io.latestTag(channel);
+    if (!isYtdlpTag(tag)) throw new Error(`yt-dlp 릴리스 태그의 모양이 아닙니다: ${tag.slice(0, 40)}`);
+    return tag;
+  }
+
   /**
    * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치 · update:ytdlp)이다: 하루 한 번 · YTDLP_UPDATE · 다운로드해 봤던 태그를 보지 않고 다운로드한다.
    * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp 가 다운로드한 버전을 이어받는다). 알릴 것이 없으면 null
@@ -178,7 +186,7 @@ class YtdlpBinary {
 
     let target = pin;
     if (!target) {
-      target = await this.io.latestTag(channel);
+      target = await this._latestTag(channel);
       this._write({ ...state, lastChecked: this.io.now() });
     }
     if (target === state.version) return { kind: "current", version: target };
