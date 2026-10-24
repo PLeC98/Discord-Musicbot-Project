@@ -29,7 +29,8 @@ test("켜면 이 봇과 살아 있는 자식(실행 파일 이름 · 그룹 · �
   assert.equal(read().owner.pid, process.pid);
 
   const before = Date.now();
-  const releaseA = registry.register(fakeChild(990_002, "C:\\Program Files\\node.exe"), "bgutil");
+  // 경로는 이 OS 의 모양으로(POSIX 의 basename 은 역슬래시를 구분자로 보지 않는다)
+  const releaseA = registry.register(fakeChild(990_002, path.join("C:", "Program Files", "node.exe")), "bgutil");
   const releaseB = registry.register(fakeChild(990_003, "/usr/bin/yt-dlp"), "yt-dlp", { group: true });
   const children = read().children;
   assert.deepEqual(
