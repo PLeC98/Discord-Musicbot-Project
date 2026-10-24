@@ -1,8 +1,8 @@
 // IP 위치 DB(DB-IP City Lite, MMDB, CC BY 4.0 — 위치를 보이는 화면에 출처 링크). 로그인한 기기 목록이 공인 주소의 도시 · 지역 · 나라를 묻는다(login-devices).
-// 실행 파일이 아니라 숫자 표라 판을 고정하지 않고 봇이 받는다: database/geoip/dbip-city-lite-YYYY-MM.mmdb(판은 파일 이름).
-//   자동(GEOIP_AUTO_UPDATE): 가진 판이 이번 달이 아니면 하루에 한 번 이번 달 판의 머리만 묻고, 있으면 받는다(DB-IP 의 판은 늘 1일 자로 보였다. 관찰이다).
-//   수동: 운영자 패널의 확인(이번 달 · 지난달 중 가장 새 판) · 업데이트.
-// 받기: 임시 파일에 압축을 풀며 받고 → 열어서 읽히는지 확인 → 옛 판을 지우고 이름을 바꾼다. 실패하면 쓰던 파일을 그대로 쓴다.
+// 실행 파일이 아니라 숫자 표라 버전을 고정하지 않고 봇이 받는다: database/geoip/dbip-city-lite-YYYY-MM.mmdb(버전은 파일 이름).
+//   자동(GEOIP_AUTO_UPDATE): 가진 버전이 이번 달이 아니면 하루에 한 번 이번 달 버전의 머리만 묻고, 있으면 받는다(DB-IP 의 버전은 늘 1일 자로 보였다. 관찰이다).
+//   수동: 운영자 패널의 확인(이번 달 · 지난달 중 가장 새 버전) · 업데이트.
+// 받기: 임시 파일에 압축을 풀며 받고 → 열어서 읽히는지 확인 → 옛 버전을 지우고 이름을 바꾼다. 실패하면 쓰던 파일을 그대로 쓴다.
 // 읽기: 파일 전체를 메모리에 올린다(약 130MB). 목록을 볼 때만 올리고 한동안 쓰지 않으면 내린다.
 // 끄면(GEOIP_ENABLED) 받지도 읽지도 않는다. 받은 파일은 지우지 않는다
 
@@ -51,7 +51,7 @@ function monthsNow(now = new Date()) {
   return [ym(now), ym(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)))];
 }
 
-/** 가진 판들(새 것부터) */
+/** 가진 버전들(새 것부터) */
 function versionsOnDisk(): string[] {
   try {
     return fs
@@ -76,7 +76,7 @@ function status(): GeoipStatus {
     try {
       bytes = fs.statSync(fileOf(version)).size;
     } catch (error) {
-      // 그새 새 판으로 바뀌었다
+      // 그새 새 버전으로 바뀌었다
       if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 파일 크기 읽기 실패: ${messageOf(error)}`);
       bytes = null;
     }
@@ -122,18 +122,18 @@ function locate(ip: string): DevicePlace {
   return { kind: "geo", city: name(hit.city?.names), region: name(hit.subdivisions?.[0]?.names), country: name(hit.country?.names) };
 }
 
-/** 그 판이 올라와 있으면 받는 크기, 없으면 null(머리만 묻는다) */
+/** 그 버전이 올라와 있으면 받는 크기, 없으면 null(머리만 묻는다) */
 async function sizeOf(version: string): Promise<number | null> {
   const res = await http.fetch(urlOf(version), { method: "HEAD", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
-    // 없는 판이면 404. 다른 거절도 없는 판으로 보되 까닭을 남긴다
-    if (res.status !== 404) log.debug(`IP 위치 DB ${version} 판 확인: HTTP ${res.status}`);
+    // 없는 버전이면 404. 다른 거절도 없는 버전으로 보되 까닭을 남긴다
+    if (res.status !== 404) log.debug(`IP 위치 DB ${version} 버전 확인: HTTP ${res.status}`);
     return null;
   }
   return Number(res.headers.get("content-length")) || 0;
 }
 
-/** 받을 수 있는 가장 새 판(이번 달 · 지난달) */
+/** 받을 수 있는 가장 새 버전(이번 달 · 지난달) */
 async function check(): Promise<GeoipCheck> {
   // 받는 중이면 그 표시를 덮지 않는다
   const mine = job === "idle";
@@ -149,7 +149,7 @@ async function check(): Promise<GeoipCheck> {
   }
 }
 
-/** 그 판을 받아 바꿔 끼운다. 실패하면 던지고 쓰던 파일은 그대로 */
+/** 그 버전을 받아 바꿔 끼운다. 실패하면 던지고 쓰던 파일은 그대로 */
 async function download(version: string) {
   fs.mkdirSync(DIR, { recursive: true });
   const temp = path.join(DIR, `.download-${process.pid}.mmdb`);
@@ -174,7 +174,7 @@ async function download(version: string) {
     log.info(`IP 위치 DB 를 받았습니다: ${version} (${Math.round(fs.statSync(fileOf(version)).size / 1e6)}MB)`);
   } catch (error) {
     lastError = messageOf(error);
-    log.warn(`IP 위치 DB 를 받지 못했습니다(쓰던 판을 그대로 씁니다): ${lastError}`);
+    log.warn(`IP 위치 DB 를 받지 못했습니다(쓰던 버전을 그대로 씁니다): ${lastError}`);
     throw error;
   } finally {
     fs.rmSync(temp, { force: true });
@@ -191,19 +191,19 @@ function once<T>(work: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/** 운영자의 업데이트: 가장 새 판을 받는다. 이미 그 판이면 받지 않는다. 받은 판(없으면 null) */
+/** 운영자의 업데이트: 가장 새 버전을 받는다. 이미 그 버전이면 받지 않는다. 받은 버전(없으면 null) */
 const update = () =>
   once(async () => {
     // 받기 실패는 download 가 남긴다
     const { latest } = await check().catch((error: unknown) => {
-      log.warn(`IP 위치 DB 판 확인 실패: ${messageOf(error)}`);
+      log.warn(`IP 위치 DB 버전 확인 실패: ${messageOf(error)}`);
       throw error;
     });
     if (latest && latest !== current()) await download(latest);
     return current();
   });
 
-/** 자동: 켜져 있고 자동 업데이트이고 가진 판이 이번 달이 아니면, 이번 달 판이 올라왔을 때 받는다(파일이 아예 없으면 지난달 판이라도) */
+/** 자동: 켜져 있고 자동 업데이트이고 가진 버전이 이번 달이 아니면, 이번 달 버전이 올라왔을 때 받는다(파일이 아예 없으면 지난달 버전이라도) */
 async function autoCheck() {
   if (!config.geoip.enabled || !config.geoip.autoUpdate || busy) return;
   const [thisMonth, lastMonth] = monthsNow();
@@ -211,14 +211,14 @@ async function autoCheck() {
   if (have === thisMonth) return;
   const probe = (version: string) =>
     sizeOf(version).catch((error: unknown) => {
-      log.debug(`IP 위치 DB ${version} 판 확인 실패: ${messageOf(error)}`);
+      log.debug(`IP 위치 DB ${version} 버전 확인 실패: ${messageOf(error)}`);
       throw error;
     });
   try {
     await once(async () => {
       if ((await probe(thisMonth)) !== null) return download(thisMonth);
       if (!have && (await probe(lastMonth)) !== null) return download(lastMonth);
-      log.debug(`IP 위치 DB ${thisMonth} 판이 아직 없습니다. 내일 다시 봅니다`);
+      log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없습니다. 내일 다시 봅니다`);
     });
   } catch {
     // 내일 다시 본다(까닭은 probe · download 가 남겼다)

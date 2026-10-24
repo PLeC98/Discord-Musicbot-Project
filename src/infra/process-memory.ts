@@ -9,14 +9,17 @@ const IS_WIN = process.platform === "win32";
 // 바쁜 기계에서는 tasklist 가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
 const TIMEOUT_MS = 30_000;
 
-// 출력. 실패하면 null
-function run(file: string, args: string[]): Promise<string | null> {
+// 출력. 실패하면 null. done: 실패가 아닌 종료 코드(ps 는 고른 pid 가 다 끝났으면 1 로 끝난다)
+function run(file: string, args: string[], done: number[] = []): Promise<string | null> {
   const started = Date.now();
   return new Promise((resolve) => {
     execFile(file, args, { encoding: "buffer", windowsHide: true, timeout: TIMEOUT_MS }, (error, stdout, stderr) => {
-      // 15초마다 돈다. ps 는 고른 pid 가 다 끝났으면 1 로 끝난다
-      if (error) log.trace(`자식 프로세스 메모리 읽기 실패(${file}, ${Date.now() - started}ms): ${failure(error, stderr)}`);
-      resolve(error ? null : stdout.toString("utf8"));
+      if (error && !(typeof error.code === "number" && done.includes(error.code))) {
+        // 15초마다 돈다
+        log.trace(`자식 프로세스 메모리 읽기 실패(${file}, ${Date.now() - started}ms): ${failure(error, stderr)}`);
+        return resolve(null);
+      }
+      resolve(stdout.toString("utf8"));
     });
   });
 }
@@ -64,7 +67,7 @@ function parsePs(out: string, pids: Set<number>) {
 async function processMemory(pids: number[]): Promise<Map<number, number> | null> {
   if (pids.length === 0) return new Map();
   const wanted = new Set(pids);
-  const out = IS_WIN ? await run("tasklist", ["/FO", "CSV", "/NH"]) : await run("ps", ["-o", "pid=,rss=", "-p", pids.join(",")]);
+  const out = IS_WIN ? await run("tasklist", ["/FO", "CSV", "/NH"]) : await run("ps", ["-o", "pid=,rss=", "-p", pids.join(",")], [1]);
   if (out === null) return null;
   return IS_WIN ? parseTasklist(out, wanted) : parsePs(out, wanted);
 }

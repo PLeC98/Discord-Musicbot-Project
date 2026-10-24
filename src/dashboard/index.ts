@@ -211,7 +211,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   sweepUploads();
   // AI 리퀘스트 로그: 새 기록을 실시간 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
-  // IP 위치 DB: 자동 업데이트면 새 판을 받는다(로그인한 기기의 위치)
+  // IP 위치 DB: 자동 업데이트면 새 버전을 받는다(로그인한 기기의 위치)
   geoip.start();
   onTunablesChanged(() => {
     aiLogStream.syncHeartbeat();

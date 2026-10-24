@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PROJECT } from "./project-paths.ts";
 import logger from "./log/logger.ts";
+import { codeOf, messageOf } from "./error-text.ts";
 const log = logger.child({ category: "core" });
 
 // 없거나 폴더면(.git 은 보통 폴더다) 조용히 null
@@ -12,8 +13,8 @@ const read = (file: string) => {
   try {
     return fs.readFileSync(file, "utf8").trim();
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT" && code !== "EISDIR" && code !== "ENOTDIR") log.debug(`버전 정보 읽기 실패(${file}): ${error instanceof Error ? error.message : String(error)}`);
+    const code = codeOf(error);
+    if (code !== "ENOENT" && code !== "EISDIR" && code !== "ENOTDIR") log.debug(`버전 정보 읽기 실패(${file}): ${messageOf(error)}`);
     return null;
   }
 };

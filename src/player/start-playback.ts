@@ -17,7 +17,7 @@ import * as trackState from "./track-state.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { reuseState } from "../rules/stream-reuse.ts";
 import { shownDuration } from "../rules/duration-shown.ts";
-import { messageOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { CurrentPlayback } from "./current-playback.ts";
 import type { Resume } from "./current-playback.ts";
@@ -109,6 +109,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     titleVerified: verifyTitle(track, streamInfo),
     isLive: liveAnswer(streamInfo, cacheFile),
     sponsor: player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
+      if (codeOf(error) === "DB_NOT_OPEN") throw error;
       log.debug(`SponsorBlock 구간 조회 실패, 구간 없이 틉니다: ${messageOf(error)}`);
       return null;
     }),

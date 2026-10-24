@@ -1,4 +1,4 @@
-// src/media/source-recheck.ts — 캐시한 음원의 원본이 지금 어떤가(같음 · 바뀜 · 사라짐 · 모름). 잰 값으로(2026-10-22, 비공개 시험 영상)
+// src/media/source-recheck.ts — 캐시한 음원의 원본이 지금 어떤가(같음 · 바뀜 · 사라짐 · 모름). 잰 값으로(비공개 시험 영상)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

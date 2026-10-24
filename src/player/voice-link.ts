@@ -2,7 +2,7 @@
 // 복구 · 강제 퇴장 · 채널 사라짐 · 이동 · 서버 음소거를 여기서만 구분한다.
 
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState, type VoiceConnection, type VoiceConnectionState } from "@discordjs/voice";
-import type { VoiceBasedChannel, VoiceState } from "discord.js";
+import { RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
@@ -24,9 +24,9 @@ const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
 const RECOVER_READY_MS = 15_000; // 다시 붙일 때 Ready 까지
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본다(_unstick)
-const UNKNOWN_CHANNEL = 10003;
+const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
-const UNKNOWN_VOICE_STATE = 10065; // 봇이 음성 채널에 없다
+const UNKNOWN_VOICE_STATE = RESTJSONErrorCodes.UnknownVoiceState; // 봇이 음성 채널에 없다
 const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 

@@ -12,6 +12,7 @@
 import fs from "fs";
 import path from "path";
 import { repeatingFailure } from "../repeating-failure.ts";
+import { codeOf, messageOf } from "../error-text.ts";
 import type { LogRecord } from "./sink.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
@@ -114,7 +115,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     }
     down ??= now();
     lastTry = now();
-    failures.fail(`${what}: ${(err as Error).message}`);
+    failures.fail(`${what}: ${messageOf(err)}`);
   }
 
   function open() {
@@ -152,7 +153,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
         fs.unlinkSync(path.join(path.dirname(file), name));
       } catch (err) {
         // 삭제하지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT") notice(`[logFile] 지난 로그 파일 삭제 실패(${name}): ${(err as Error).message}\n`);
+        if (codeOf(err) !== "ENOENT") notice(`[logFile] 지난 로그 파일 삭제 실패(${name}): ${messageOf(err)}\n`);
       }
     }
   }

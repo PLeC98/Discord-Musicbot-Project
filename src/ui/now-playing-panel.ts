@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, RESTJSONErrorCodes } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
@@ -34,11 +34,10 @@ import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 삭제했거나 웹훅이 삭제됐다. 다시 올려야 한다.
-const UNKNOWN_MESSAGE = 10008;
-const UNKNOWN_WEBHOOK = 10015;
+const { UnknownMessage: UNKNOWN_MESSAGE, UnknownWebhook: UNKNOWN_WEBHOOK } = RESTJSONErrorCodes;
 const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(error) === UNKNOWN_WEBHOOK;
 // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없다
-const UNKNOWN_CHANNEL = 10003;
+const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 // 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
 const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
 

@@ -3,10 +3,11 @@
 //   모두: 공개 응답 · 채널 메시지. transientMessages.scheduleDelete 로 삭제해 패널이 묻혔는지 셀 때 빠진다
 // "하는 중"(자리표시자 · 메뉴 · 설정 화면)은 본인에게, 결과는 모두에게. 본인 자리표시자 뒤의 결과는 자리표시자를 삭제하고 채널에 새로 보낸다
 
-import { MessageFlags, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
+import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
+import { isDeadInteraction } from "../rules/dead-interaction.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
@@ -32,13 +33,13 @@ const noticeMs = (notice: Notice) => (notice.code !== undefined ? BY_CODE[notice
 // 상호작용 토큰은 15분 뒤 죽는다. 그보다 긴 수명은 삭제할 수 없다
 const TOKEN_MS = 15 * 60_000;
 
-// 이미 사라진 응답 · 메시지. 10008 메시지 없음 · 10015 웹훅 없음 · 50027 상호작용 토큰 만료
-const GONE_CODES = new Set<unknown>([10008, 10015, 50027]);
+// 이미 사라진 응답 · 메시지: 메시지 없음 · 웹훅 없음 · 상호작용 토큰 만료
+const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownWebhook, RESTJSONErrorCodes.InvalidWebhookToken]);
 
-/** 응답 · 메시지를 지우거나 고친 실패를 받는 catch 처리기. 이미 사라졌으면 넘기고, 그 밖의 실패는 부른 쪽 로거에 debug 로 남긴다 */
+/** 응답 · 메시지를 지우거나 고친 실패를 받는 catch 처리기. 이미 사라졌거나 상호작용이 닫혔으면 넘기고, 그 밖의 실패는 부른 쪽 로거에 debug 로 남긴다 */
 function unlessGone(log: { debug(line: string): unknown }, what: string) {
   return (error: unknown) => {
-    if (GONE_CODES.has(codeOf(error))) return;
+    if (GONE_CODES.has(codeOf(error)) || isDeadInteraction(error)) return;
     log.debug(`${what} 실패: ${describeError(error)}`);
   };
 }

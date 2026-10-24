@@ -6,13 +6,11 @@ const log = logger.child({ category: "player" });
 import * as panelRecords from "../store/panel-records.ts";
 import { codeOf, describeError } from "../rules/error-kind.ts";
 import { unlessGone } from "./delivery.ts";
-import type { Guild, GuildBasedChannel, WebhookClient } from "discord.js";
+import { RESTJSONErrorCodes, type Guild, type GuildBasedChannel, type WebhookClient } from "discord.js";
 import type { PanelRecord } from "../store/panel-records.ts";
 import type { PanelHook as Hook } from "../player/player.ts";
 
-const UNKNOWN_CHANNEL = 10003;
-const UNKNOWN_MESSAGE = 10008;
-const UNKNOWN_WEBHOOK = 10015;
+const { UnknownChannel: UNKNOWN_CHANNEL, UnknownMessage: UNKNOWN_MESSAGE, UnknownWebhook: UNKNOWN_WEBHOOK } = RESTJSONErrorCodes;
 
 /** 웹훅을 다시 찾는 쪽(NowPlayingPanel) */
 /** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 삭제된 웹훅의 기억을 지운다 */

@@ -285,7 +285,10 @@ class TrackDownloader {
 
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
-      await bestEffort(log, this.deps.sponsor.forTrack(track, player.guild.id), "SponsorBlock 구간 미리 불러오기");
+      await this.deps.sponsor.forTrack(track, player.guild.id).catch((error: unknown) => {
+        if (codeOf(error) === "DB_NOT_OPEN") throw error;
+        log.debug(`SponsorBlock 구간 미리 불러오기 실패: ${messageOf(error)}`);
+      });
 
       // ⚠️ 라이브 스트림은 캐시 다운로드 대상이 아니다. 끝이 없어서 yt-dlp가 ffmpeg를 외부 다운로더로
       //    실행한 뒤 무한히 파일을 불린다. 재생(스트리밍)은 정상 진행되므로 여기서만 끊는다.

@@ -19,7 +19,7 @@ after(() => {
 });
 
 const [thisMonth, lastMonth] = geoip.monthsNow();
-// 올라와 있는 판 → 압축 전 내용
+// 올라와 있는 버전 → 압축 전 내용
 let published = new Map<string, string>();
 const asked: string[] = [];
 geoip._http.useFetch((async (input: string | URL | Request, init?: RequestInit) => {
@@ -56,7 +56,7 @@ beforeEach(() => {
 
 const files = () => fs.readdirSync(dir).sort();
 
-test("확인: 이번 달 판이 있으면 그것, 없으면 지난달. 머리만 묻는다", async () => {
+test("확인: 이번 달 버전이 있으면 그것, 없으면 지난달. 머리만 묻는다", async () => {
   published.set(lastMonth, "city-old");
   assert.deepEqual(await geoip.check(), { current: null, latest: lastMonth, size: gzipSync(Buffer.from("city-old")).length });
   assert.deepEqual(asked, [`HEAD ${thisMonth}`, `HEAD ${lastMonth}`]);
@@ -64,7 +64,7 @@ test("확인: 이번 달 판이 있으면 그것, 없으면 지난달. 머리만
   assert.equal((await geoip.check()).latest, thisMonth);
 });
 
-test("업데이트: 받아서 압축을 풀고 열어 본 뒤 옛 판을 지우고 바꿔 끼운다. 이미 그 판이면 받지 않는다", async () => {
+test("업데이트: 받아서 압축을 풀고 열어 본 뒤 옛 버전을 지우고 바꿔 끼운다. 이미 그 버전이면 받지 않는다", async () => {
   fs.writeFileSync(path.join(dir, `dbip-city-lite-${lastMonth}.mmdb`), "city-old");
   published.set(thisMonth, "city-new");
   assert.equal(await geoip.update(), thisMonth);
@@ -74,10 +74,10 @@ test("업데이트: 받아서 압축을 풀고 열어 본 뒤 옛 판을 지우�
 
   asked.length = 0;
   await geoip.update();
-  assert.deepEqual(asked, [`HEAD ${thisMonth}`], "같은 판이면 받지 않는다");
+  assert.deepEqual(asked, [`HEAD ${thisMonth}`], "같은 버전이면 받지 않는다");
 });
 
-test("받은 것이 도시 DB 가 아니거나 받다 실패하면 쓰던 판을 그대로 두고 까닭을 남긴다", async () => {
+test("받은 것이 도시 DB 가 아니거나 받다 실패하면 쓰던 버전을 그대로 두고 까닭을 남긴다", async () => {
   fs.writeFileSync(path.join(dir, `dbip-city-lite-${lastMonth}.mmdb`), "city-old");
   published.set(thisMonth, "asn-wrong");
   await assert.rejects(geoip.update());
@@ -85,14 +85,14 @@ test("받은 것이 도시 DB 가 아니거나 받다 실패하면 쓰던 판을
   assert.match(geoip.status().error ?? "", /도시 DB 가 아닙니다/);
 });
 
-test("자동: 켜져 있고 가진 판이 이번 달이 아니면 이번 달 판을 받는다. 아직 없으면 받지 않고(내일 다시), 파일이 아예 없으면 지난달 판이라도", async () => {
+test("자동: 켜져 있고 가진 버전이 이번 달이 아니면 이번 달 버전을 받는다. 아직 없으면 받지 않고(내일 다시), 파일이 아예 없으면 지난달 버전이라도", async () => {
   published.set(lastMonth, "city-old");
   await geoip.autoCheck();
-  assert.deepEqual(files(), [`dbip-city-lite-${lastMonth}.mmdb`], "처음이면 지난달 판");
+  assert.deepEqual(files(), [`dbip-city-lite-${lastMonth}.mmdb`], "처음이면 지난달 버전");
 
   asked.length = 0;
   await geoip.autoCheck();
-  assert.deepEqual(asked, [`HEAD ${thisMonth}`], "이번 달 판이 없으면 묻기만");
+  assert.deepEqual(asked, [`HEAD ${thisMonth}`], "이번 달 버전이 없으면 묻기만");
 
   published.set(thisMonth, "city-new");
   await geoip.autoCheck();
@@ -100,7 +100,7 @@ test("자동: 켜져 있고 가진 판이 이번 달이 아니면 이번 달 판
 
   asked.length = 0;
   await geoip.autoCheck();
-  assert.deepEqual(asked, [], "이번 달 판이 있으면 묻지도 않는다");
+  assert.deepEqual(asked, [], "이번 달 버전이 있으면 묻지도 않는다");
 });
 
 test("자동 업데이트를 껐거나 위치 DB 를 껐으면 묻지 않는다", async () => {

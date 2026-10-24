@@ -1,7 +1,7 @@
 // 직접 링크 곡의 파일 태그(제목 · 가수 · 앨범 · 그림)를 찾아 기억한다. 디스코드 패널 · 대시보드가 그림을, 플레이어가 곡 정보를 여기서 받는다.
 //
 //   얻는 곳   캐시 파일의 태그(통신 없음) → 원본 링크의 머리(SafeUrl, 담을 때 읽은 것 포함). 캐시를 만들 때 넣은 것은 다운로드가 바로 알린다
-//   기억      결과는 음원 키마다(판: 캐시 파일이면 "file:" + 다운로드 시각, 아니면 "source"). 그림은 다시 구운 JPEG 을 바이트 상한 안에서 LRU.
+//   기억      결과는 음원 키마다(버전: 캐시 파일이면 "file:" + 다운로드 시각, 아니면 "source"). 그림은 다시 구운 JPEG 을 바이트 상한 안에서 LRU.
 //             밀려나도 사라지지 않는다: 결과는 다시 찾고, 그림은 캐시 파일에서 다시 꺼낸다(원본에서만 얻은 그림은 다시 찾을 때까지 없다)
 //   찾기      한 번에 둘(지금 곡이 먼저), 같은 키는 한 번만. 통신 실패는 몇 분 뒤 다시, "없음"은 캐시 파일이 생길 때 다시
 //   알림      찾으면(태그나 그림이 있으면) onFound 로. 플레이어가 그 키의 곡에 반영하고 패널 · 대시보드를 새로 그린다(app/main 이 잇는다)
@@ -62,7 +62,7 @@ const EMPTY: TagInfo = { title: null, artist: null, album: null };
 const tagsOf = (tags: Tags | null): TagInfo => (tags ? { title: tags.title, artist: tags.artist, album: tags.album } : EMPTY);
 const fingerprintOf = (jpeg: Buffer) => crypto.createHash("sha1").update(jpeg).digest("hex").slice(0, 20);
 
-/** 이 키의 지금 판. 캐시 파일이 있으면 그 다운로드 시각(비었으면 파일 크기 · 수정 시각), 없으면 원본 */
+/** 이 키의 지금 버전. 캐시 파일이 있으면 그 다운로드 시각(비었으면 파일 크기 · 수정 시각), 없으면 원본 */
 function versionOf(audioKey: string): { version: string; file: string | null } {
   const row = audioCache.lookupByAudioKey(audioKey);
   if (row?.status !== "cached" || !row.file_path) return { version: "source", file: null };

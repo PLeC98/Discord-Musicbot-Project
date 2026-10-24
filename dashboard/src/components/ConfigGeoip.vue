@@ -1,5 +1,5 @@
 <template>
-  <!-- IP 위치 정보 카드 안(ConfigTunables 의 in-geoip 슬롯): 지금 판 · 업데이트 확인(새 판이 있으면 업데이트 버튼, 없으면 "이미 최신") · 받는 중 진행. 누르면 바로 하는 일이라 저장 막대와 상관없다 -->
+  <!-- IP 위치 정보 카드 안(ConfigTunables 의 in-geoip 슬롯): 지금 버전 · 업데이트 확인(새 버전이 있으면 업데이트 버튼, 없으면 "이미 최신") · 받는 중 진행. 누르면 바로 하는 일이라 저장 막대와 상관없다 -->
   <div class="flex flex-col gap-2">
     <p class="text-sm text-on-surface-variant">{{ !state ? "" : !state.enabled ? T.off : state.version ? T.version(state.version, mb(state.bytes)) : T.noVersion }}</p>
     <div v-if="state?.job === 'downloading'" class="flex flex-col gap-1">
@@ -35,7 +35,7 @@ let timer = 0;
 const mb = (bytes: number | null) => (bytes === null ? null : Math.round(bytes / 1e6));
 const percent = computed(() => (state.value?.total ? Math.min(100, Math.round(((state.value.received ?? 0) / state.value.total) * 100)) : 0));
 
-// 받는 동안은 1초마다 다시 읽는다. 끝나면 판이 바뀌었는지 알린다
+// 받는 동안은 1초마다 다시 읽는다. 끝나면 버전이 바뀌었는지 알린다
 async function refresh() {
   const before = state.value;
   try {

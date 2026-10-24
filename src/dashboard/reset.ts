@@ -37,7 +37,7 @@ const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
  */
 async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
   const result = await audioCache.resetCache(parts);
-  // 기억한 파일 태그 · 그림은 캐시 파일의 판을 가리킨다
+  // 기억한 파일 태그 · 그림은 캐시 파일의 버전을 가리킨다
   if (parts.includes("files")) embeddedArt.clear();
   if (parts.includes("external")) {
     sponsorBlock.forget();

@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 잠금 파일의 알려진 취약점(npm 권고). high 이상이면 막는다. 고칠 판이 없어 넘길 것은 pnpm-workspace.yaml 의 auditConfig.ignoreGhsas 에 까닭과 함께
+  # 잠금 파일의 알려진 취약점(npm 권고). high 이상이면 막는다. 고칠 버전이 없어 넘길 것은 pnpm-workspace.yaml 의 auditConfig.ignoreGhsas 에 까닭과 함께
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

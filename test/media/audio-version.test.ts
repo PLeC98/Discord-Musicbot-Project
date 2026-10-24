@@ -27,7 +27,7 @@ test("구간 응답이면 크기는 Content-Range 의 전체(첫 1바이트만 �
   assert.equal(fromHeaders({ etag: '"m"', "content-length": "1", "content-range": "bytes 0-0/2321206" }), 'etag="m";length=2321206');
 });
 
-// 잰 값(2026-10-22, 비공개 시험 영상을 30초 자른 뒤): 포맷마다 lmt 가 다르고 주소의 dur 이 길이
+// 잰 값(비공개 시험 영상을 30초 자른 뒤): 포맷마다 lmt 가 다르고 주소의 dur 이 길이
 const yt = (itag: number, lmt: string, dur: string, audio = true) => ({ format_id: String(itag), url: `https://rr1.googlevideo.com/videoplayback?itag=${itag}&lmt=${lmt}&dur=${dur}`, acodec: audio ? "opus" : "none", vcodec: audio ? "none" : "vp9" });
 
 test("유튜브 포맷 목록: lmt 들 · 오디오 포맷의 길이, 버전 한 줄의 lmt", () => {

@@ -2,12 +2,12 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
+import { codeOf, messageOf } from "./error-text.ts";
 import { currentGuild, currentJob } from "./guild-context.ts";
 import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
-const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
  * yt-dlp / ffmpeg 프로세스 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
@@ -56,7 +56,7 @@ function save() {
     fs.writeFileSync(temp, JSON.stringify(record));
     fs.renameSync(temp, recordFile);
   } catch (error) {
-    log.debug(`자식 프로세스 기록 실패: ${reasonOf(error)}`);
+    log.debug(`자식 프로세스 기록 실패: ${messageOf(error)}`);
   }
 }
 
@@ -131,7 +131,7 @@ function killTree(entry: Entry): boolean {
     try {
       process.kill(pid, "SIGKILL");
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ESRCH") log.debug(`${entry.label}#${pid} 종료 실패: ${reasonOf(error)}`);
+      if (codeOf(error) !== "ESRCH") log.debug(`${entry.label}#${pid} 종료 실패: ${messageOf(error)}`);
     }
   }
   return true;
@@ -162,7 +162,7 @@ function killAll(): Array<{ label: string; pid: number }> {
       if (killTree(entry)) killed.push({ label: entry.label, pid: entry.pid });
     } catch (error) {
       // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다
-      log.debug(`${entry.label}#${entry.pid} 종료 실패: ${reasonOf(error)}`);
+      log.debug(`${entry.label}#${entry.pid} 종료 실패: ${messageOf(error)}`);
     }
   }
   return killed;

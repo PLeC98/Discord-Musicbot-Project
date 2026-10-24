@@ -15,7 +15,7 @@ import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { httpFor } from "../infra/http.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 
@@ -155,7 +155,7 @@ async function _rawFor(videoId: string): Promise<Fetched> {
 }
 
 // 캐시로 답한 뒤 라이브로 고친다. 못 받거나 못 적으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다.
-// 뒤에서 도는 일이라 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
+// 뒤에서 도는 일이라 DB_NOT_OPEN 말고는 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
 async function _refresh(videoId: string) {
   try {
     const raw = await _fetchRaw(videoId);
@@ -164,6 +164,7 @@ async function _refresh(videoId: string) {
     const entry = remembered.get(videoId);
     if (entry) entry.promise = Promise.resolve({ raw, source: "live" });
   } catch (error) {
+    if (codeOf(error) === "DB_NOT_OPEN") throw error;
     log.debug(`SponsorBlock 구간 새로 고치기 실패: ${videoId} | ${messageOf(error)}`);
   }
 }
@@ -176,7 +177,7 @@ function _trackVideoId(track: { audioUrl?: string | null; [field: string]: unkno
 /**
  * 곡의 구간 · 하이라이트를 서버별 설정으로 필터링한 것. 재생 근접(미리 다운로드) · 재생 직전에 부른다.
  * 조회는 영상 id 로 기억해 두고 다시 묻지 않는다. 겹쳐 불러도 한 번만 묻는다.
- * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. 예외를 던지지 않는다.
+ * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. DB 를 열기 전(DB_NOT_OPEN) 말고는 던지지 않는다.
  * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}
  */
 async function forTrack(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined, guildId: string): Promise<Segments | null> {
@@ -196,6 +197,7 @@ function _remember(videoId: string) {
   const at = Date.now();
   const promise = _rawFor(videoId)
     .catch((error: unknown): Fetched => {
+      if (codeOf(error) === "DB_NOT_OPEN") throw error;
       log.debug(`SponsorBlock 구간 조회 실패: ${videoId} | ${messageOf(error)}`);
       return { raw: null, source: "none" };
     })

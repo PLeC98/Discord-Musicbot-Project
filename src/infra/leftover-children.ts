@@ -8,6 +8,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import logger from "./log/logger.ts";
+import { codeOf, messageOf } from "./error-text.ts";
 import type { ChildRecord } from "./process-registry.ts";
 const log = logger.child({ category: "proc" });
 
@@ -30,8 +31,6 @@ type Boundary = {
 };
 
 const imageName = (name: string) => name.replace(/\.exe$/i, "").toLowerCase();
-const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
-const codeOf = (error: unknown) => (error as NodeJS.ErrnoException | undefined)?.code;
 
 // 묻지 못했으면 까닭을 남긴다. 빈 목록이면 모두 끝난 것으로 보고 기록을 지운다
 function asked(what: string, result: { error?: Error; status: number | null; stderr?: string | null }, okStatus: (status: number | null) => boolean) {
@@ -75,7 +74,7 @@ function realKillTree(pid: number, group: boolean) {
     process.kill(group ? -pid : pid, "SIGKILL");
   } catch (error) {
     // ESRCH: 그 사이에 끝났다
-    if (codeOf(error) !== "ESRCH") log.debug(`pid ${pid} 종료 실패: ${reasonOf(error)}`);
+    if (codeOf(error) !== "ESRCH") log.debug(`pid ${pid} 종료 실패: ${messageOf(error)}`);
   }
 }
 
@@ -85,7 +84,7 @@ const REAL: Boundary = {
       return fs.readFileSync(file, "utf8");
     } catch (error) {
       // 없는 것은 첫 기동이다
-      if (codeOf(error) !== "ENOENT") log.debug(`자식 프로세스 기록 읽기 실패: ${reasonOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.debug(`자식 프로세스 기록 읽기 실패: ${messageOf(error)}`);
       return null;
     }
   },
@@ -111,7 +110,7 @@ function parse(text: string | null): ChildRecord | null {
   try {
     return JSON.parse(text) as ChildRecord;
   } catch (error) {
-    log.debug(`자식 프로세스 기록을 읽지 못해 삭제합니다: ${reasonOf(error)}`);
+    log.debug(`자식 프로세스 기록을 읽지 못해 삭제합니다: ${messageOf(error)}`);
     return null;
   }
 }

@@ -248,7 +248,7 @@ test("캐시 지름길: 캐시 파일이 있는 곡은 조회 없이 링크 데�
   await lookup.resolveQuery(`${url}&list=PLx`, undefined, undefined, listed);
   assert.equal(playlistAsked, true, "list= 가 있으면 캐시의 한 곡이 재생목록을 가리지 않게 지름길을 건너뛴다");
 
-  // 사운드클라우드 세트가 한 곡으로 캐시돼 있어도(옛 판이 세트를 한 곡으로 받아 둔 것) 세트로 다시 읽는다
+  // 사운드클라우드 세트가 한 곡으로 캐시돼 있어도(옛 버전이 세트를 한 곡으로 받아 둔 것) 세트로 다시 읽는다
   const setUrl = "https://soundcloud.com/a/sets/b";
   const setFile = audioCache.getFilePath("sc:a/sets/b");
   fs.writeFileSync(setFile, "x");

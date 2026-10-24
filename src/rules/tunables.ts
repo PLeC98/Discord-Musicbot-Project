@@ -64,7 +64,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "CACHE_RECHECK_DIRECT_DAYS", group: "cache", kind: "int", def: "14", min: 0, max: 3650, advanced: true, box: "recheck" },
   // 재생 스트림
   { key: "STREAM_CHUNK_KB", group: "stream", kind: "int", def: "1024", min: 64, max: 65536, advanced: true },
-  // IP 위치 DB(로그인한 기기의 위치, DB-IP City Lite). 자동 업데이트는 매달 새 판을 받는다
+  // IP 위치 DB(로그인한 기기의 위치, DB-IP City Lite). 자동 업데이트는 매달 새 버전을 받는다
   { key: "GEOIP_ENABLED", group: "geoip", kind: "bool", def: "true" },
   { key: "GEOIP_AUTO_UPDATE", group: "geoip", kind: "bool", def: "true" },
   // 대시보드 요청 제한 · 실시간 연결

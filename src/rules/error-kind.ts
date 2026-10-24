@@ -3,6 +3,7 @@
 // 글은 보지 않는다. 이름이 없으면 unknown-error 다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 import { isCode, type Code } from "./problems.ts";
+import { codeOf, messageOf } from "../infra/error-text.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed"]);
@@ -14,18 +15,6 @@ const PERMISSION_CODES = new Set([50001, 50013]);
 /** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다 */
 function codedError(code: string, message: string, options?: { cause?: unknown }) {
   return Object.assign(new Error(message, options), { code });
-}
-
-/** 오류가 달고 온 이름(code). 문자열도 숫자도 온다(디스코드 API 는 숫자) */
-function codeOf(error: unknown): string | number | undefined {
-  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
-  return typeof code === "string" || typeof code === "number" ? code : undefined;
-}
-
-/** 알릴 오류 메시지. 메시지가 없으면 fallback(주지 않으면 값을 그대로 문자열로) */
-function messageOf(error: unknown, fallback = String(error)): string {
-  const message = error && typeof error === "object" && "message" in error ? error.message : undefined;
-  return (typeof message === "string" && message) || fallback;
 }
 
 /** 로그에 싣는 오류: 메시지와 코드(있으면) */
