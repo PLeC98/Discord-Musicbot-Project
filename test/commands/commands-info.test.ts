@@ -224,7 +224,7 @@ test("/queue: 다음 곡만 페이지마다 나눠 보인다. 없는 페이지�
 // 링크가 붙은 긴 유튜브 제목 열 줄이면 필드 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).
 // 본문은 4096자지만 서명된 직접 링크 · 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
 test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
-  const who = { id: "151864213755789312" };
+  const who = { id: "123456789012345678" };
   const long = (i: number) => ({ title: "가".repeat(150), pageUrl: `https://cdn.example.com/${"x".repeat(1000)}/${i}.mp3`, duration: 60, requestedBy: who });
   const short = { title: "짧은 곡", pageUrl: "https://www.youtube.com/watch?v=bbbbbbbbbbb", duration: 60, requestedBy: who };
   const queue = [long(1), short, ...Array.from({ length: 8 }, (_, i) => long(i + 2))];
