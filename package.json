@@ -17,7 +17,7 @@
     "update:ytdlp": "node scripts/update-ytdlp.ts",
     "update:models": "node scripts/refresh-ai-models.ts",
     "test": "node --test \"test/**/*.test.ts\"",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"test/**/*.test.ts\" && node scripts/lcov-relative.ts",
+    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage', { recursive: true })\" && node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"test/**/*.test.ts\" && node scripts/lcov-relative.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

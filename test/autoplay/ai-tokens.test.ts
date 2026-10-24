@@ -89,7 +89,8 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
     last = now;
   }, 20);
   const started = performance.now();
-  await tokens.count("가".repeat(8000), "tik");
+  // 빠른 기계에서도 세는 시간이 타이머 틈보다 넉넉히 길게. 아래 상한 시험과 다른 글이어야 한다(gpt-tokenizer 가 병합 결과를 캐시에 둬 같은 글은 두 번째가 빠르다)
+  await tokens.count("나".repeat(16000), "tik");
   clearInterval(ticking);
   widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
   const took = performance.now() - started;
