@@ -495,7 +495,7 @@ test("링크 데이터에서 가져온 영상이 내려갔으면 다시 찾아 �
 
 test("직접 지정한 음원이 사라졌으면 지정을 건너뛰고 원래 링크로 다운로드한다(지금 트는 곡이면 보호도 옮긴다)", async () => {
   ytdlpBehavior = (url, options) => {
-    if (url.includes("soundcloud.com")) throw codedError("unavailable-contents", "HTTP Error 404");
+    if (new URL(url).hostname === "soundcloud.com") throw codedError("unavailable-contents", "HTTP Error 404");
     writesFile()(url, options);
   };
   const track: DownloadTrack = { ...yt("origorig001"), audioUrl: "https://soundcloud.com/gone/dl", audioFoundBy: "pinned" };

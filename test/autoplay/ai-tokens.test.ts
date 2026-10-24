@@ -81,19 +81,28 @@ test("tik 은 특수 토큰 글자를 글자 그대로 센다", async () => {
 test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
   await tokens.count("a", "tik"); // 스레드와 표를 먼저 준비한다
   // 타이머 사이의 가장 긴 틈을 잰다. 이 스레드에서 세면 틈이 세는 시간 전체가 된다(횟수로 재면 다른 테스트가 함께 돌 때 흔들린다)
-  let last = performance.now();
-  let widest = 0;
-  const ticking = setInterval(() => {
-    const now = performance.now();
-    widest = Math.max(widest, now - last);
-    last = now;
-  }, 20);
-  const started = performance.now();
-  // 빠른 기계에서도 세는 시간이 타이머 틈보다 넉넉히 길게. 아래 상한 시험과 다른 글이어야 한다(gpt-tokenizer 가 병합 결과를 캐시에 둬 같은 글은 두 번째가 빠르다)
-  await tokens.count("나".repeat(16000), "tik");
-  clearInterval(ticking);
-  widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
-  const took = performance.now() - started;
+  const measure = async (text: string) => {
+    let last = performance.now();
+    let widest = 0;
+    const ticking = setInterval(() => {
+      const now = performance.now();
+      widest = Math.max(widest, now - last);
+      last = now;
+    }, 20);
+    const started = performance.now();
+    await tokens.count(text, "tik");
+    clearInterval(ticking);
+    widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
+    return { took: performance.now() - started, widest };
+  };
+  // 기계마다 빠르기가 달라(커버리지 · 부하) 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
+  // 글자는 매번 바꾼다(gpt-tokenizer 가 병합 결과를 캐시에 둬 같은 글은 두 번째가 빠르다. 아래 상한 시험의 "가" 도 피한다)
+  let result = { took: 0, widest: 0 };
+  for (const [i, size] of [2000, 4000, 8000, 16000, 32000].entries()) {
+    result = await measure(String.fromCharCode("나".charCodeAt(0) + i).repeat(size));
+    if (result.took > 200) break;
+  }
+  const { took, widest } = result;
   assert.ok(took > 200, `느린 글이어야 테스트가 된다(${Math.round(took)}ms)`);
   assert.ok(widest < took * 0.5, `타이머 틈이 ${Math.round(widest)}ms 까지 벌어졌다(세기 ${Math.round(took)}ms)`);
 });

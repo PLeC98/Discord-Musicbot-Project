@@ -93,7 +93,7 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   const [a] = (await Spotify.getCollection("https://open.spotify.com/track/aaa111")).tracks;
   await Spotify.getCollection("https://open.spotify.com/track/bbb222");
 
-  const tokenCalls = requests.filter((r) => r.url.includes("accounts.spotify.com"));
+  const tokenCalls = requests.filter((r) => new URL(r.url).hostname === "accounts.spotify.com");
   assert.equal(tokenCalls.length, 1, "토큰은 만료 전까지 재사용");
   assert.equal(tokenCalls[0].init.method, "POST");
   assert.equal(tokenCalls[0]?.init.headers?.Authorization, `Basic ${Buffer.from("cid:csecret").toString("base64")}`);

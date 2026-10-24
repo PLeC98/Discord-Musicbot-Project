@@ -34,7 +34,7 @@ test("주고받은 것을 남기고 받은 글을 돌려준다. 인증 헤더는
   assert.equal(entry.costUsd, 0);
   assert.notEqual(entry.firstMs, null);
   const detail = requests.one(entry.id)!;
-  assert.match(detail.requestHeaders, new RegExp(`Bearer ${REDACTED.replace(/[[\]]/g, "\\$&")}`));
+  assert.ok(detail.requestHeaders.includes(`Bearer ${REDACTED}`), detail.requestHeaders);
   assert.ok(!detail.requestHeaders.includes("sk-secret-value-123"));
   assert.equal(detail.requestBody, '{"q":1}');
 });
