@@ -8,9 +8,14 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Seoul"
+    # 출시 2주가 지난 버전만 올린다(손으로 올릴 때도 pnpm update 에 minimum-release-age=20160 을 준다)
     cooldown:
-      default-days: 1
+      default-days: 14
     open-pull-requests-limit: 5
+    ignore:
+      # 봇은 Node 24 에서 돈다. 타입도 Node 의 메이저에 맞춘다
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         patterns:
@@ -26,3 +31,5 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Seoul"
+    cooldown:
+      default-days: 14

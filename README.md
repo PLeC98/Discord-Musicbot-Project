@@ -10,7 +10,6 @@
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-4-%2306B6D4?logo=tailwindcss)](https://tailwindcss.com/)
 <br>
 [![커버리지](https://img.shields.io/codecov/c/github/PLeC98/Discord-Musicbot-Project?logo=codecov)](https://codecov.io/gh/PLeC98/Discord-Musicbot-Project)
-[![Known Vulnerabilities](https://snyk.io/test/github/PLeC98/Discord-Musicbot-Project/badge.svg?style=flat-square)](https://snyk.io/test/github/PLeC98/Discord-Musicbot-Project)
 ![라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project)
 
 </div>

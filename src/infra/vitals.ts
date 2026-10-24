@@ -4,7 +4,7 @@
 
 import os from "node:os";
 import v8 from "node:v8";
-import { monitorEventLoopDelay, type IntervalHistogram } from "node:perf_hooks";
+import { monitorEventLoopDelay } from "node:perf_hooks";
 
 const TICK_MS = 3000;
 const WINDOW_TICKS = 5;
@@ -35,7 +35,7 @@ function cpuBetween(from: Mark, to: Mark): Cpu {
 }
 
 let timer: NodeJS.Timeout | null = null;
-let histogram: IntervalHistogram | null = null;
+let histogram: ReturnType<typeof monitorEventLoopDelay> | null = null;
 let lastTick: Mark | null = null;
 let windowStart: Mark | null = null;
 let ticks = 0;

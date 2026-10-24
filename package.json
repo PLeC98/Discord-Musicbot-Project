@@ -33,8 +33,8 @@
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
     "express-session": "^1.19.0",
     "file-type": "^22.2.0",
     "gpt-tokenizer": "^4.0.0",
@@ -45,7 +45,7 @@
     "sharp": "^0.35.5",
     "ua-parser-js": "^2.0.10",
     "yaml": "^2.9.1",
-    "youtube-dl-exec": "^3.1.15",
+    "youtube-dl-exec": "^3.1.17",
     "zod": "^4.6.7"
   },
   "engines": {
@@ -62,15 +62,15 @@
     "@types/subset-font": "^2.3.0",
     "@vue/compiler-sfc": "3.5.43",
     "cmu-pronouncing-dictionary": "3.0.0",
-    "eslint": "^10.11.0",
+    "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-vue": "^10.11.0",
+    "eslint-plugin-vue": "^10.11.1",
     "fontkit": "^2.0.4",
-    "globals": "^17.12.0",
+    "globals": "^17.13.0",
     "jiti": "^2.7.0",
-    "prettier": "^3.9.8",
+    "prettier": "^3.9.10",
     "subset-font": "^2.9.0",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.70.1"
+    "typescript-eslint": "^8.71.1"
   }
 }
