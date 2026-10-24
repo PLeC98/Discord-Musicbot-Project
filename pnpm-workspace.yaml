@@ -8,6 +8,7 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - vite@8.1.0
+  - body-parser@2.4.0
 
 packages:
   - "dashboard"
