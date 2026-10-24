@@ -2,7 +2,7 @@
 // 복구 · 강제 퇴장 · 채널 사라짐 · 이동 · 서버 음소거를 여기서만 구분한다.
 
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState, type VoiceConnection, type VoiceConnectionState } from "@discordjs/voice";
-import { RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
+import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
@@ -14,7 +14,7 @@ const log = logger.child({ category: "voice" });
 /** 음성 라이브러리에서 부르는 것 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 필드 */
-type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "pauseFor" | "resumeFor" | "movedVoiceStatus">;
+type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "pauseFor" | "resumeFor" | "pauseReasons" | "movedVoiceStatus" | "noticeStage">;
 type LinkState = "idle" | "joining" | "ready" | "waiting" | "recovering" | "closed";
 /** 게이트웨이의 봇 음성 상태에서 일어난 일. 화면 · 혼자 남음은 부른 쪽이 맞춘다 */
 type BotStateChange = { left: boolean; moved: boolean; muteChanged: boolean };
@@ -37,8 +37,6 @@ const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "re
 // 빠짐 · 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
-// 라이브러리의 진행 줄에는 음성 서버 토큰 · 암호 키가 실린다. 로그에는 남기지 않는다
-const hideSecrets = (line: string) => line.replace(/"(token|secret_key|secretKey)":("[^"]*"|\[[^\]]*\]|\{[^}]*\})/g, '"$1":"…"');
 
 class VoiceLink {
   player: VoiceHost;
@@ -62,6 +60,10 @@ class VoiceLink {
   lastPlainJoin: { channelId: string; at: number } | null = null;
   /** 답 없는 참가를 풀려고 스스로 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
   selfLeave: string | null = null;
+  /** 발언자가 되려고 이미 손쓴 스테이지. 들어올 때마다 한 번만(붙은 뒤 맞추기와 들어옴 알림이 겹친다) */
+  stageTaken: string | null = null;
+  /** 발언 요청을 이미 알린 스테이지. 끊겼다 다시 붙어 다시 요청해도 채널에 되풀이해 알리지 않는다 */
+  stageNoticed: string | null = null;
   stuckTimer: NodeJS.Timeout | null = null;
   /** 이번 복구에서 디스코드에 닿는데도 받아 둔 음성 서버 정보로 다시 붙지 못했다(정보가 낡음). 남은 시도는 새로 참가한다 */
   reattachRefused = false;
@@ -93,6 +95,7 @@ class VoiceLink {
       await this._join(JOIN_READY_MS);
       this.state = "ready";
       log.info(`음성 채널 참가: ${this._label()}`);
+      this._syncHold();
       return true;
     } catch (error) {
       this._drop({ leave: true });
@@ -200,8 +203,8 @@ class VoiceLink {
       "error",
       bindToGuild(guildId, (error: Error) => this._onError(error)),
     );
-    // 패킷마다 나오는 양이라 trace
-    connection.on("debug", (message: string) => log.trace(`${hideSecrets(message)} | ${this._label()}`));
+    // 음성 웹소켓 메시지 · 상태 바뀜마다 나오는 양이라 trace. 실린 토큰 · 암호 키는 로그 sink 가 가린다
+    connection.on("debug", (message: string) => log.trace(`${message} | ${this._label()}`));
   }
 
   _onStateChange(oldState: VoiceConnectionState, newState: VoiceConnectionState) {
@@ -371,6 +374,7 @@ class VoiceLink {
   /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 구분한다 */
   onBotState(oldState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress">, newState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress" | "channel">): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
+      this.stageTaken = null; // 다시 들어오면 다시 발언자가 된다
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
       if (this.selfLeave === oldState.channelId) {
         this.selfLeave = null;
@@ -388,23 +392,75 @@ class VoiceLink {
       return { left: true, moved: false, muteChanged: false };
     }
     let moved = false;
+    let bounced = false;
     if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId && newState.channel) {
-      this.followMove(oldState.channelId, newState.channel);
+      bounced = this.followMove(oldState.channelId, newState.channel);
       moved = true;
     }
-    return { left: false, moved, muteChanged: this._followMute(oldState, newState) };
+    // 되돌려 붙는 중이면 그 채널은 곧 떠난다
+    if (newState.channelId !== oldState.channelId && !bounced) this._entered(newState);
+    return { left: false, moved, muteChanged: this._followMute(newState) };
+  }
+
+  // 채널에 들어왔다(부름 · 옮겨짐 · 다시 붙음). 스테이지에 청중으로 들어왔으면 발언자가 되려 한다. 들어올 때만: 모더레이터가 청중으로 내린 것은 따른다
+  _entered(now: Pick<VoiceState, "channelId" | "suppress" | "channel">) {
+    if (this.stageTaken !== now.channelId) this.stageTaken = null;
+    if (now.suppress && now.channel) this._enterStage(now.channel);
+  }
+
+  // 붙은 뒤 지금 음성 상태로 멈춤을 맞춘다. 이미 음소거 · 청중인 채로 다시 붙으면(기동 뒤 이어받기 · 세션 복원) 바뀜 알림이 오지 않는다
+  _syncHold() {
+    const now = this.player.guild.members.me?.voice;
+    if (!now?.channelId) return;
+    this._followMute(now);
+    if (now.suppress && now.channel) this._enterStage(now.channel);
+  }
+
+  _enterStage(channel: VoiceBasedChannel) {
+    if (channel.type !== ChannelType.GuildStageVoice || this.stageTaken === channel.id) return;
+    this.stageTaken = channel.id;
+    void this._takeStage(channel);
   }
 
   // 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다. 멈춤이 바뀌었으면 true
-  _followMute(oldState: Pick<VoiceState, "serverMute" | "serverDeaf" | "suppress">, newState: Pick<VoiceState, "serverMute" | "serverDeaf" | "suppress">) {
-    const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
-    const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
-    if (!wasMuted && isMuted) return this.player.pauseFor("mute");
-    if (wasMuted && !isMuted) {
-      this.player.resumeFor("mute");
-      return true;
+  _followMute(now: Pick<VoiceState, "serverMute" | "serverDeaf" | "suppress" | "channel">) {
+    const onStage = now.channel?.type === ChannelType.GuildStageVoice;
+    const mute = this._holdFor("mute", Boolean(now.serverMute || now.serverDeaf || (now.suppress && !onStage)));
+    const stage = this._holdFor("stage", Boolean(now.suppress && onStage));
+    return mute || stage;
+  }
+
+  // 멈춤 까닭 하나를 지금 상태대로. 바뀌었으면 true
+  _holdFor(reason: string, on: boolean) {
+    if (on === this.player.pauseReasons.has(reason)) return false;
+    if (on) this.player.pauseFor(reason);
+    else this.player.resumeFor(reason);
+    return true;
+  }
+
+  /**
+   * 스테이지에서는 발언자여야 들린다. 멤버 음소거 권한이 있으면 스스로 발언자가 되고, 없으면 발언을 요청한다.
+   * 모더레이터가 받아 주면 suppress 가 풀려 이어 튼다(_followMute). 둘 다 안 되면 알린다
+   */
+  async _takeStage(channel: VoiceBasedChannel) {
+    const me = this.player.guild.members.me;
+    const permissions = me ? channel.permissionsFor(me) : null;
+    try {
+      if (me && permissions?.has(PermissionFlagsBits.MuteMembers)) {
+        await me.voice.setSuppressed(false);
+        log.info(`스테이지 발언자가 됐습니다: ${this._label()}`);
+      } else if (me && permissions?.has(PermissionFlagsBits.RequestToSpeak)) {
+        await me.voice.setRequestToSpeak(true);
+        log.info(`스테이지 발언을 요청했습니다(모더레이터의 수락을 기다립니다): ${this._label()}`);
+        if (this.stageNoticed !== channel.id) this.player.noticeStage("stage-requested");
+        this.stageNoticed = channel.id;
+      } else {
+        log.warn(`스테이지에서 발언자가 될 수도 요청할 수도 없습니다(멤버 음소거 · 발언권 요청 권한 없음): ${this._label()}`);
+        this.player.noticeStage("stage-cannot-speak");
+      }
+    } catch (error) {
+      log.warn(`스테이지 발언자 되기 실패: ${this._label()} | ${describeError(error)}`);
     }
-    return false;
   }
 
   // 봇이 채널에서 빠졌다. 채널이 없으면 채널 사라짐, 있으면 강제 퇴장. 빠짐 알림이 채널 삭제 알림보다 먼저 올 수 있어 캐시가 아니라 디스코드에 묻는다

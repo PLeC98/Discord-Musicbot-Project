@@ -99,6 +99,23 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
   assert.doesNotMatch(String(got[0].msg), /abcDEF123456/);
 });
 
+test("레드액션: msg 에 JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  // op 0 참가: 토큰 글. op 4 세션 설명: 암호 키 배열. 상태 바뀜: 연결 정보의 토큰과 Uint8Array 로 든 키(객체로 직렬화된다)
+  const identify = `[WS] >> ${JSON.stringify({ op: 0, d: { server_id: "1", session_id: "abc", token: "voice-token-1234" } })}`;
+  const description = `[WS] << ${JSON.stringify({ op: 4, d: { mode: "aead_aes256_gcm_rtpsize", secret_key: [11, 22, 33] } })}`;
+  const state = `state change:\nfrom ${JSON.stringify({ code: 4, connectionOptions: { token: "voice-token-1234" }, connectionData: { secretKey: new Uint8Array([11, 22, 33]) } })}`;
+  for (const msg of [identify, description, state, '[WS] << {"op":2,"d":{"ssrc":1}}']) lm.record({ level: 10, time: Date.now(), msg });
+  const [a, b, c, plain] = got.map((r) => String(r.msg));
+  for (const hidden of [a, b, c]) assert.doesNotMatch(hidden, /voice-token-1234|11,22,33|"0":11/, hidden);
+  assert.match(a, /"token":"\[REDACTED\]"/);
+  assert.match(b, /"secret_key":"\[REDACTED\]"/);
+  assert.match(c, /"secretKey":"\[REDACTED\]"/);
+  assert.equal(plain, '[WS] << {"op":2,"d":{"ssrc":1}}', "비밀이 없는 줄은 그대로");
+});
+
 // ── sink: 와이어 투영 / 버퍼 ────────────────────────────────
 test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });

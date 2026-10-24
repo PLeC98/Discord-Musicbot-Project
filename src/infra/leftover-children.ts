@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import logger from "./log/logger.ts";
 import { codeOf, messageOf } from "./error-text.ts";
+import { consoleText } from "./console-text.ts";
 import type { ChildRecord } from "./process-registry.ts";
 const log = logger.child({ category: "proc" });
 
@@ -32,9 +33,12 @@ type Boundary = {
 
 const imageName = (name: string) => name.replace(/\.exe$/i, "").toLowerCase();
 
+// 바깥 프로그램의 출력 글(콘솔 코드 페이지로 읽는다)
+const textOf = (bytes: Buffer | null | undefined) => (bytes ? consoleText(bytes) : "");
+
 // 묻지 못했으면 까닭을 남긴다. 빈 목록이면 모두 끝난 것으로 보고 기록을 지운다
-function asked(what: string, result: { error?: Error; status: number | null; stderr?: string | null }, okStatus: (status: number | null) => boolean) {
-  const stderr = result.stderr?.trim();
+function asked(what: string, result: { error?: Error; status: number | null; stderr?: Buffer | null }, okStatus: (status: number | null) => boolean) {
+  const stderr = textOf(result.stderr).trim();
   if (result.error) log.warn(`남은 자식 프로세스를 확인하지 못했습니다(${what}): ${result.error.message}`);
   else if (!okStatus(result.status)) log.warn(`남은 자식 프로세스를 확인하지 못했습니다(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
 }
@@ -45,18 +49,18 @@ function realProcesses(pids: number[]): Seen[] {
   if (IS_WIN) {
     const filter = pids.map((pid) => `ProcessId=${pid}`).join(" OR ");
     const script = `Get-CimInstance Win32_Process -Filter '${filter}' | ForEach-Object { "$($_.ProcessId)|$($_.Name)|$(([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds())" }`;
-    const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", windowsHide: true, timeout: 15_000 });
+    const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, timeout: 15_000 });
     asked("powershell", result, (status) => status === 0);
-    return (result.stdout ?? "")
+    return textOf(result.stdout)
       .split(/\r?\n/)
       .filter(Boolean)
       .map((line) => line.split("|"))
       .map(([pid, name, at]) => ({ pid: Number(pid), image: imageName(name), startedAt: Number(at) }));
   }
-  const result = spawnSync("ps", ["-o", "pid=,lstart=,comm=", "-p", pids.join(",")], { encoding: "utf8", timeout: 15_000 });
+  const result = spawnSync("ps", ["-o", "pid=,lstart=,comm=", "-p", pids.join(",")], { timeout: 15_000 });
   // ps 는 고른 pid 가 다 끝났으면 1 로 끝난다
   asked("ps", result, (status) => status === 0 || status === 1);
-  return (result.stdout ?? "")
+  return textOf(result.stdout)
     .split("\n")
     .map((line) => /^\s*(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.+)$/.exec(line))
     .filter((m) => m !== null)
@@ -66,8 +70,9 @@ function realProcesses(pids: number[]): Seen[] {
 function realKillTree(pid: number, group: boolean) {
   if (IS_WIN) {
     // 128: 그 사이에 끝났다
-    const { error, status } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-    if (error || (status !== 0 && status !== 128)) log.debug(`pid ${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)}`}`);
+    const { error, status, stderr } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
+    // 못 내리면 프로세스가 남는다
+    if (error || (status !== 0 && status !== 128)) log.warn(`pid ${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${textOf(stderr).trim()}`}`);
     return;
   }
   try {

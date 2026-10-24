@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
 import { codeOf, messageOf } from "./error-text.ts";
+import { consoleText } from "./console-text.ts";
 import { currentGuild, currentJob } from "./guild-context.ts";
 import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
@@ -118,8 +119,9 @@ function killTree(entry: Entry): boolean {
 
   if (IS_WIN) {
     // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝났다
-    const { error, status } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-    if (error || (status !== 0 && status !== 128)) log.debug(`${entry.label}#${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)}`}`);
+    const { error, status, stderr } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
+    // 못 내리면 프로세스가 남는다(다음 기동의 남은 자식 정리가 다시 본다)
+    if (error || (status !== 0 && status !== 128)) log.warn(`${entry.label}#${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
     return true;
   }
 

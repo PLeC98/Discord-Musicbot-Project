@@ -20,7 +20,8 @@ function codedError(code: string, message: string, options?: { cause?: unknown }
 /** 로그에 싣는 오류: 메시지와 코드(있으면) */
 function describeError(error: unknown): string {
   const code = codeOf(error);
-  return `${messageOf(error)}${code === undefined ? "" : ` (${code})`}`;
+  const text = messageOf(error);
+  return code === undefined || text === `오류 코드 ${code}` ? text : `${text} (${code})`;
 }
 
 // 디스코드가 권한 없음으로 거절한 요청. 거절된 요청의 주소로 구분한다: 음성 채널 상태는 음성, 메시지 · 고정 · 웹훅은 글, 그 밖.

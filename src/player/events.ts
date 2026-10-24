@@ -25,6 +25,8 @@ type Notices = {
   "autoplay-gave-up": { genre: string };
   "skipped-after-error": { error: unknown };
   "failed-in-row": { count: number; left: number };
+  "stage-requested": Record<string, never>;
+  "stage-cannot-speak": Record<string, never>;
   restored: { title: string | null; atSec: number; paused: boolean };
 };
 type NoticeCode = keyof Notices;

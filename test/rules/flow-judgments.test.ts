@@ -7,7 +7,7 @@ import { candidateKind } from "../../src/rules/candidate-kind.ts";
 import { liveBlockReason } from "../../src/rules/live-block-reason.ts";
 import { transportOf, isHlsStream } from "../../src/rules/transport-of.ts";
 import { isDeadInteraction } from "../../src/rules/dead-interaction.ts";
-import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
+import { codeOf, describeError, messageOf } from "../../src/rules/error-kind.ts";
 test("candidateKind: 유튜브 주소 > 가수 · 제목 > 음원, 아무것도 없으면 null", () => {
   assert.equal(candidateKind({ youtubeUrl: "u", artist: "a", title: "t", audioUrl: "x" }), "youtube");
   assert.equal(candidateKind({ artist: "a", title: "t", audioUrl: "x" }), "search");
@@ -75,6 +75,14 @@ test("codeOf · messageOf: 무엇이 던져져도 읽는다", () => {
   assert.equal(messageOf(new Error("펑")), "펑");
   assert.equal(messageOf({ message: "글" }), "글");
   assert.equal(messageOf("그냥 글"), "그냥 글");
-  assert.equal(messageOf(new Error("")), "Error", "글이 비면 값 그대로");
-  assert.equal(messageOf(undefined), "undefined");
+  // 글이 비면 무슨 오류인지 알 수 있는 다음 것으로
+  assert.equal(messageOf(Object.assign(new Error(""), { name: "AbortError" })), "AbortError");
+  assert.equal(messageOf(Object.assign(new Error(""), { code: "EPIPE" })), "오류 코드 EPIPE");
+  assert.equal(describeError(Object.assign(new Error(""), { code: "EPIPE" })), "오류 코드 EPIPE", "코드를 두 번 싣지 않는다");
+  assert.match(messageOf(new Error("")), /^메시지 없는 Error \(at .+\)$/, "던진 자리");
+  assert.equal(messageOf({ status: 500, reason: "busy" }), '{"status":500,"reason":"busy"}');
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  assert.equal(messageOf(circular), "메시지 없는 Object");
+  assert.equal(messageOf(undefined), "던진 값: undefined");
 });

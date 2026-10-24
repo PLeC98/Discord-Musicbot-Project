@@ -77,6 +77,8 @@ const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "c
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
   { re: /((?:access_?token|client_?secret|refresh_?token|api_?key)["'`\s:=]{1,4}["'`]?)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
+  // JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄: 참가 · 세션 설명 · 상태 바뀜). 값은 글 · 배열 · 객체(Uint8Array)
+  { re: /"(token|secret_?key)":("[^"]*"|\[[^\]]*\]|\{[^}]*\})/gi, repl: '"$1":"[REDACTED]"' },
 ];
 
 /** 지난 1시간 경고 · 오류. fatal 은 오류로 */

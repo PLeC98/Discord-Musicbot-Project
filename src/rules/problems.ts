@@ -35,6 +35,7 @@ const SHARED = {
   "too-few-to-move": { status: 409, title: "Too few tracks to move" },
   "switch-failed": { status: 409, title: "Could not switch tracks" },
   "held-mute": { status: 409, title: "Paused because the bot is server-muted" },
+  "held-stage": { status: 409, title: "Paused until the bot becomes a stage speaker" },
   "held-alone": { status: 409, title: "Paused because the bot is alone" },
   "ended-while-adding": { status: 409, title: "Playback ended while adding" },
   "live-no-seek": { status: 409, title: "Cannot seek a live stream" },

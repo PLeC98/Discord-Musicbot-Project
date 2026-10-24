@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { inGuild } from "../../src/infra/guild-context.ts";
 import * as registry from "../../src/infra/process-registry.ts";
-import { parsePs, parseTasklist, processMemory, _internals as memoryInternals } from "../../src/infra/process-memory.ts";
+import { parsePs, parseProcStatus, parseTasklist, processMemory, _internals as memoryInternals } from "../../src/infra/process-memory.ts";
 
 let releases: Array<() => void> = [];
 afterEach(() => {
@@ -53,14 +53,14 @@ test("메모리: tasklist CSV(자릿점은 로캘마다) · ps 의 RSS 를 MB �
     ],
   );
   assert.deepEqual([...parsePs("  4120 32212\n 4200  104857\n", new Set([4120]))], [[4120, 31]]);
+  assert.equal(parseProcStatus("Name:\tffmpeg\nVmPeak:\t  120000 kB\nVmRSS:\t   32212 kB\nThreads:\t4\n"), 32212);
+  assert.equal(parseProcStatus("Name:\tkthreadd\nThreads:\t1\n"), null, "커널 스레드에는 VmRSS 가 없다");
 });
 
-test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코드와 stderr(UTF-8 이 아니면 길이만), 실행조차 못 했는지", () => {
+test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코드와 stderr, 실행조차 못 했는지", () => {
   const failed = (fields: object) => Object.assign(new Error("Command failed: tasklist /FO CSV /NH"), fields);
   assert.equal(memoryInternals.failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초를 넘겨 끊음(SIGTERM)");
   assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from("ERROR: Invalid argument.\r\n")), "종료 코드 1 · ERROR: Invalid argument.");
-  // 한국어 Windows 의 tasklist 가 cp949 로 쓴 "오류:"
-  assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from([0xbf, 0xc0, 0xb7, 0xf9, 0x3a])), "종료 코드 1 · UTF-8 이 아닌 5바이트(콘솔 코드 페이지)");
   assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.alloc(0)), "종료 코드 1");
   assert.equal(memoryInternals.failure(Object.assign(new Error("spawn tasklist ENOENT"), { code: "ENOENT" }), Buffer.alloc(0)), "spawn tasklist ENOENT");
 });

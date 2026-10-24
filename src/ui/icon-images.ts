@@ -84,4 +84,3 @@ async function imageOf(spec: IconSpec, tint: Tint): Promise<{ data: Buffer; anim
 }
 
 export { imageOf, SIZE };
-export const _internals = { svgOf };

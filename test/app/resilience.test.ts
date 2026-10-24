@@ -15,9 +15,9 @@ test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 tru
   assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
 });
 
-test("아는 디스코드 오류: 만료 · 이미 처리된 상호작용은 info, 권한 없음은 error. 그 밖은 null", () => {
-  assert.equal(knownDiscordError({ code: 10062 })?.level, "info");
-  assert.equal(knownDiscordError({ code: 40060 })?.level, "info");
+test("아는 디스코드 오류: 못 답한 · 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
+  assert.equal(knownDiscordError({ code: 10062 })?.level, "warn");
+  assert.equal(knownDiscordError({ code: 40060 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 50013 })?.level, "error");
   assert.equal(knownDiscordError({ code: 10008 }), null);
   assert.equal(knownDiscordError(new Error("버그")), null);

@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import logger from "./log/logger.ts";
+import { consoleText } from "./console-text.ts";
 const log = logger.child({ category: "proc" });
 
 /** 쓸 코어 수와 첫 코어(위쪽부터 쓴다) */
@@ -29,9 +30,9 @@ function bindProcess(pid: number | undefined) {
   if (process.platform !== "win32" || !pid) return;
   const { first, count } = encodeCores();
   const mask = ((2n ** BigInt(count) - 1n) << BigInt(first)).toString();
-  execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).ProcessorAffinity = [IntPtr]${mask}`], { windowsHide: true, timeout: 15_000 }, (error) => {
+  execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).ProcessorAffinity = [IntPtr]${mask}`], { encoding: "buffer", windowsHide: true, timeout: 15_000 }, (error, _stdout, stderr) => {
     // 묶지 못해도 굽기는 그대로 돈다(코어를 다 쓸 뿐)
-    if (error) log.debug(`코어 묶기 실패(pid ${pid}): ${error.message}`);
+    if (error) log.debug(`코어 묶기 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
   });
 }
 

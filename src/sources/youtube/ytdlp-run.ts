@@ -123,7 +123,7 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
       if (!errors.isClientFault(error)) throw error; // 영상·네트워크 문제. 클라이언트 바꿔봐야 소용없다
       lastError = error;
       table.record(client, false);
-      log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors._faultReason(error)})${next ? `. ${next} 로 전환합니다` : ""}`);
+      log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors.faultReason(error)})${next ? `. ${next} 로 전환합니다` : ""}`);
     }
   }
 

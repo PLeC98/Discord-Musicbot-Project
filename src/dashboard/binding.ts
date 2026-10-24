@@ -44,7 +44,7 @@ function onClientError(error: Error & { code?: string }, duplex: Duplex) {
   const socket = duplex as Socket & { _httpMessage?: { _headerSent?: boolean } | null };
   // 받는 도중 브라우저가 끊는 것은 흔하다
   if (error.code !== "ECONNRESET") log.trace(`대시보드 요청을 읽지 못했습니다(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
-  // 나가던 응답의 머리가 이미 소켓에 나갔으면 그 사이에 끼워 쓰지 않는다
+  // 나가던 응답의 헤더가 이미 소켓에 나갔으면 오류 응답을 끼워 쓰지 않는다
   if (socket.writable && !socket._httpMessage?._headerSent) socket.write(`HTTP/1.1 ${CLIENT_ERROR_STATUS[error.code ?? ""] ?? "400 Bad Request"}\r\nConnection: close\r\n\r\n`);
   socket.destroy(error);
 }

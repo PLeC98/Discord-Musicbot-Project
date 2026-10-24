@@ -34,7 +34,7 @@ type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied |
 /** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems 의 params) */
 const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true ? [params: ParamsOf<C>] : [params?: ParamsOf<C>]): Refusal => ({ ok: false, code, ...params }) as Refusal;
 // 사람이 풀 수 없는 멈춤(Player.pauseReasons)의 까닭마다
-const HELD: Record<string, "held-mute" | "held-alone"> = { mute: "held-mute", alone: "held-alone" };
+const HELD: Record<string, "held-mute" | "held-stage" | "held-alone"> = { mute: "held-mute", stage: "held-stage", alone: "held-alone" };
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 

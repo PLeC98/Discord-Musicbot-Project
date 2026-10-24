@@ -1,7 +1,7 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 남은 자식 프로세스 정리 → 종료 처리기 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
-import { Client, GatewayCloseCodes, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
+import { Client, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../config/index.ts";
@@ -53,6 +53,7 @@ import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
 import { StatusManager } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
+import { watchGateway } from "../dashboard/status/gateway.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
 import { botJoinedGuild, botLeftGuild } from "../dashboard/routes/player-events.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
@@ -194,6 +195,8 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
     // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,
+    // 거절된 요청이 이만큼 쌓일 때마다 알린다(listenToLibrary)
+    rest: { invalidRequestWarningInterval: 500 },
   });
   const players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
   players.followDisposals(); // 버려진 플레이어는 레지스트리가 스스로 뺀다
@@ -245,20 +248,21 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), "기동");
 }
 
-// 라이브러리(discord.js · REST)가 알리는 경고 · 진행 · 연결 오류. 게이트웨이가 끊긴 까닭 · 다시 붙은 횟수는 대시보드 상태(dashboard/status/gateway)가 모은다
+// 라이브러리(discord.js · REST)가 알리는 경고 · 진행. 게이트웨이의 끊김 · 연결 오류는 dashboard/status/gateway 가 끊김 하나에 한 줄로 남긴다
 function listenToLibrary(client: Client) {
   const dlog = logger.child({ category: "discord" });
+  watchGateway(client);
   client.on(Events.Warn, (message) => dlog.warn(message));
   // 하트비트마다 나오는 양이라 trace
   client.on(Events.Debug, (message) => dlog.trace(message));
-  // 다시 붙는 오류는 끊긴 까닭으로 대시보드 상태가 모으고, 다시 붙지 않는 닫힘은 바로 뒤 ShardDisconnect 가 한 줄로 남긴다
-  client.on(Events.ShardError, (error, shardId) => dlog.debug(`게이트웨이 연결 오류 (샤드 ${shardId}): ${messageOf(error)}`));
-  // 토큰 · 인텐트처럼 다시 붙어도 같은 닫힘 코드면 라이브러리가 다시 붙지 않는다
-  client.on(Events.ShardDisconnect, (event, shardId) => {
-    const name = (GatewayCloseCodes as Record<number, string | undefined>)[event.code];
-    dlog.error(`게이트웨이 연결이 닫혀 다시 붙지 않습니다 (샤드 ${shardId}): 닫힘 코드 ${event.code}${name ? ` ${name}` : ""}`);
+  // 경로마다의 제한은 라이브러리가 줄 세워 기다리는 정상 흐름이다. 전역 제한은 봇 전체가 멈추니 운영자가 알아야 한다
+  client.rest.on(RESTEvents.RateLimited, (info) => {
+    const line = `요청 제한에 걸려 기다립니다: ${info.method.toUpperCase()} ${info.route} | ${info.timeToReset}ms${info.global ? " | 전역" : ""}`;
+    if (info.global) dlog.warn(line);
+    else dlog.debug(line);
   });
-  client.rest.on(RESTEvents.RateLimited, (info) => dlog.debug(`요청 제한에 걸려 기다립니다: ${info.method.toUpperCase()} ${info.route} | ${info.timeToReset}ms${info.global ? " | 전역" : ""}`));
+  // 거절된 요청(401 · 403 · 429)이 10분에 1만 번을 넘으면 디스코드가 IP 를 한동안 막는다
+  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청이 ${count}번입니다(10분 창의 남은 ${Math.round(remainingTime / 1000)}초). 1만 번을 넘으면 디스코드가 이 IP 를 한동안 막습니다`));
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
 

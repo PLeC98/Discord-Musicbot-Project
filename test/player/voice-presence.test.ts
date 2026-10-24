@@ -33,8 +33,8 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
     queue: [tracks.youtube("bbbbbbbbbbb", { title: "다음" })],
     pauseReasons: new Set(paused),
     dispose: async (o: { reason: string; session: string; panel?: string }) => calls.push(`dispose:${o.reason}:${o.session}:${o.panel ?? "-"}`),
-    pauseFor: (r: string) => (calls.push(`pause:${r}`), true),
-    resumeFor: (r: string) => (calls.push(`resume:${r}`), true),
+    pauseFor: (r: string) => (player.pauseReasons.add(r), calls.push(`pause:${r}`), true),
+    resumeFor: (r: string) => (player.pauseReasons.delete(r), calls.push(`resume:${r}`), true),
     movedVoiceStatus: (from: string) => calls.push(`status-moved:${from}`),
     idle: {
       startAlone: () => calls.push("startAlone"),
@@ -90,7 +90,7 @@ test("봇이 서버 음소거되면 mute 로 멈추고, 풀리면 mute 를 푼�
   assert.deepEqual(calls.slice(0, 2), ["pause:mute", "embed:update"]);
 
   calls.length = 0;
-  await onVoiceStateUpdate(client, players, state(BOT, "vc1", { suppress: true }), state(BOT, "vc1"));
+  await onVoiceStateUpdate(client, players, state(BOT, "vc1", { serverMute: true }), state(BOT, "vc1"));
   assert.deepEqual(calls.slice(0, 2), ["resume:mute", "embed:update"]);
 });
 

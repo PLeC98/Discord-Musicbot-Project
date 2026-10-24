@@ -41,9 +41,9 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
 }
 
 // 다시 해도 결과가 같은 디스코드 API 오류. 여기까지 왔으면 난 위치가 받지 않은 것이라 로그만 남긴다
-const KNOWN_DISCORD_ERRORS: Record<number, { level: "info" | "error"; message: string }> = {
-  10062: { level: "info", message: "만료된 상호작용입니다 (10062 Unknown interaction)" },
-  40060: { level: "info", message: "이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)" },
+const KNOWN_DISCORD_ERRORS: Record<number, { level: "warn" | "error"; message: string }> = {
+  10062: { level: "warn", message: "상호작용에 3초 안에 답하지 못했습니다(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 돌고 있다) (10062 Unknown interaction)" },
+  40060: { level: "warn", message: "이미 답한 상호작용에 다시 답했습니다(코드가 두 번 답했거나, 같은 토큰으로 다른 봇이 돌고 있다) (40060 Interaction already acknowledged)" },
   50013: { level: "error", message: "해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)" },
 };
 

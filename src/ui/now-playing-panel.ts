@@ -106,6 +106,7 @@ function statusOf(player: Player) {
   const parts: string[] = [];
   if (player.paused) {
     if (player.pauseReasons?.has("mute")) parts.push(panelText.pausedStatus("mute"));
+    else if (player.pauseReasons?.has("stage")) parts.push(panelText.pausedStatus("stage"));
     else if (player.pauseReasons?.has("alone")) parts.push(panelText.pausedStatus("alone"));
     else parts.push(panelText.pausedStatus("other"));
   }

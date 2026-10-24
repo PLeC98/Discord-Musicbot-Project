@@ -18,4 +18,9 @@ const restored = (title: string | null | undefined, at: string, paused: boolean)
   return paused ? { icon: "restored" as const, title: "봇이 복구됐어요", body: `마지막 일시정지 상태를 유지할게요.\n${line}` } : { icon: "restored" as const, title: "봇이 복구됐어요", body: `기록된 마지막 재생 상태를 이어갈게요.\n${line}` };
 };
 
-export { autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, failedInRow, restored };
+/** 스테이지에 청중으로 들어와 발언을 요청했다 */
+const stageRequested = () => noticeOf("warning", "voice", "스테이지 발언을 요청했어요!", "스테이지 모더레이터가 요청을 수락하면 곡을 틀게요.");
+/** 스테이지에서 발언자가 될 수도, 요청할 수도 없다 */
+const stageCannotSpeak = () => noticeOf("error", "permission", "이 스테이지에서는 말할 수 없어요.", "봇에게 멤버 음소거 권한이나 발언권 요청 권한을 주거나, 모더레이터가 저를 발언자로 초대해 주세요.");
+
+export { autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, failedInRow, restored, stageRequested, stageCannotSpeak };

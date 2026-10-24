@@ -7,7 +7,6 @@ import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type Interacti
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
-import { isDeadInteraction } from "../rules/dead-interaction.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
@@ -33,14 +32,17 @@ const noticeMs = (notice: Notice) => (notice.code !== undefined ? BY_CODE[notice
 // 상호작용 토큰은 15분 뒤 죽는다. 그보다 긴 수명은 삭제할 수 없다
 const TOKEN_MS = 15 * 60_000;
 
-// 이미 사라진 응답 · 메시지: 메시지 없음 · 웹훅 없음 · 상호작용 토큰 만료
-const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownWebhook, RESTJSONErrorCodes.InvalidWebhookToken]);
+// 누가 이미 지운 메시지 · 웹훅. 봇이 할 일이 없다
+const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownWebhook]);
 
-/** 응답 · 메시지를 지우거나 고친 실패를 받는 catch 처리기. 이미 사라졌거나 상호작용이 닫혔으면 넘기고, 그 밖의 실패는 부른 쪽 로거에 debug 로 남긴다 */
-function unlessGone(log: { debug(line: string): unknown }, what: string) {
+/**
+ * 응답 · 메시지를 지우거나 고친 실패를 받는 catch 처리기. 누가 이미 지웠으면 넘기고, 그 밖은 부른 쪽 로거에 warn 으로 남긴다.
+ * 상호작용 오류도 남긴다: 10062 는 3초 안에 못 답함 · 답하지 않은 응답 · 같은 토큰의 다른 봇, 40060 은 두 번 답함, 50027 은 응답 수명이 토큰(15분)을 넘김
+ */
+function unlessGone(log: { warn(line: string): unknown }, what: string) {
   return (error: unknown) => {
-    if (GONE_CODES.has(codeOf(error)) || isDeadInteraction(error)) return;
-    log.debug(`${what} 실패: ${describeError(error)}`);
+    if (GONE_CODES.has(codeOf(error))) return;
+    log.warn(`${what} 실패: ${describeError(error)}`);
   };
 }
 

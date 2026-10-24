@@ -62,6 +62,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "switch-failed": () => warning("state", "작업에 실패했어요!", "곡을 전환하지 못했어요. 잠시 후 재시도해 보고, 계속되면 봇 운영자에게 알려주세요."),
   // 사람이 풀 수 없는 멈춤(Player.pauseReasons)이 일시정지 풀기를 막았다
   "held-mute": () => warning("muted", "음소거되었어요!", "봇이 서버에서 음소거되어서 곡을 멈춰뒀어요. 음소거가 풀리면 이어서 틀게요."),
+  "held-stage": () => warning("voice", "발언자를 기다리고 있어요.", "스테이지에서 청중이라 곡을 멈춰뒀어요. 스테이지 모더레이터가 저를 발언자로 초대하면 이어서 틀게요."),
   "held-alone": () => warning("waiting", "기다리고 있어요.", "음성 채널에 저 혼자 있어서 곡을 멈춰뒀어요. 누가 들어오면 이어서 틀게요!"),
   // 곡을 담는 사이에 플레이어가 사라졌다(더 넣기 포함)
   "ended-while-adding": () => warning("state", "그 사이에 재생이 끝나버렸어요!", "플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요."),

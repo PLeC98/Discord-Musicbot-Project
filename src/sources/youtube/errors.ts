@@ -145,7 +145,7 @@ function codeOf(error: unknown) {
   return null;
 }
 
-function _faultReason(error: unknown) {
+function faultReason(error: unknown) {
   const msg = textOf(error);
   if (isNoAudioOnly(error)) return "오디오 전용 포맷 없음";
   if (/PO Token/i.test(msg)) return "POToken 필요";
@@ -154,4 +154,4 @@ function _faultReason(error: unknown) {
   return "포맷 획득 실패";
 }
 
-export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };
+export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };

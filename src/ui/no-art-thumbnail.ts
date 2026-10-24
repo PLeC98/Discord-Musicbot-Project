@@ -34,4 +34,3 @@ const pngOf = (color: `#${string}`) => {
 
 export const url = `attachment://${NAME}`;
 export const file = async (color: `#${string}`) => ({ attachment: await pngOf(color), name: NAME });
-export const _internals = { svgOf, NAME, SIZE };

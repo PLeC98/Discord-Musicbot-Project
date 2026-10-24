@@ -9,7 +9,7 @@ import { BOT_VERSION } from "../../infra/version.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { AdminStatus } from "../contract/admin.ts";
-import { gateway, watchGateway } from "./gateway.ts";
+import { gateway } from "./gateway.ts";
 import { startStatusHistory, statusHistory } from "./history.ts";
 import { linkRows } from "./links.ts";
 import { playerRows } from "./players.ts";
@@ -67,10 +67,9 @@ async function adminStatus({ client, players, commands }: BotContext, viewerId: 
   };
 }
 
-/** 모으기 시작한다(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리 · 저장공간) */
+/** 모으기 시작한다(측정 · 최근 15분 · 프로세스 메모리 · 저장공간). 게이트웨이는 기동이 로그인 전에 듣는다 */
 function startStatus(bot: BotContext) {
   startStatusHistory(bot);
-  watchGateway(bot.client);
   watchProcesses();
   watchStorage();
 }
