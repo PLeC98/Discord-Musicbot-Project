@@ -40,6 +40,9 @@ function isYouTubePlaylist(value: unknown): boolean {
   return hostname === "youtu.be" || parsed.pathname === "/playlist" || parsed.pathname === "/watch";
 }
 
+/** 영상 id 의 보는 주소(한 모양으로 적는다) */
+const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
+
 function extractVideoId(value: unknown): string | null {
   const parsed = parseYouTubeURL(value);
   if (!parsed) return null;
@@ -84,38 +87,57 @@ function isSoundCloudURL(url: unknown): boolean {
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
-    // 모바일 앱 공유용 짧은 링크 (yt-dlp가 리디렉션을 따라감)
+    // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 넘겨주기를 따라간다
     /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
-    // 재생목록을 훑어 읽으면 여섯째 곡부터 곡 페이지 대신 이 주소가 온다. yt-dlp 가 그대로 받는다
-    /^https?:\/\/api(-v2)?\.soundcloud\.com\/tracks\/\d+/,
+    // 곡 · 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
+    /^https?:\/\/api(-v2)?\.soundcloud\.com\/(tracks|playlists)\/\d+/,
   ];
   return patterns.some((pattern) => pattern.test(String(url)));
 }
 
-// ── 직접 링크(확장자로 가린다) ──
+// 사용자 이름 뒤에 와도 곡이 아닌 경로(프로필의 탭들)
+const SOUNDCLOUD_TABS = new Set(["sets", "likes", "tracks", "reposts", "albums", "popular-tracks", "followers", "following", "comments", "spotlight", "playlists", "toptracks"]);
 
-const DIRECT_AUDIO_FORMATS = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".opus", ".webm", ".mp4", ".mkv", ".avi", ".mov"];
+/**
+ * 사운드클라우드 주소가 무엇을 가리키나.
+ *   track  곡(/사용자/곡, 비밀 공유 /사용자/곡/s-…, api 의 tracks/<id>)
+ *   set    세트 · 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api 의 playlists/<id>)
+ *   short  앱 공유용 짧은 링크(곡인지 세트인지는 yt-dlp 가 풀어야 안다)
+ *   other  사용자 프로필 · 좋아요 · 재게시 같은 모음. 받지 않는다
+ * 사운드클라우드 주소가 아니면 null
+ */
+function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other" | null {
+  if (!isSoundCloudURL(value)) return null;
+  const url = new URL(String(value));
+  const host = url.hostname.toLowerCase().replace(/^(www|m)\./, "");
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (host === "on.soundcloud.com") return "short";
+  if (host !== "soundcloud.com") return parts[0] === "tracks" ? "track" : "set";
+  const secret = (part: string | undefined) => part === undefined || /^s-[\w-]+$/.test(part);
+  if (parts[1] === "sets" && parts.length >= 3 && parts.length <= 4 && secret(parts[3])) return "set";
+  if (parts.length >= 2 && parts.length <= 3 && !SOUNDCLOUD_TABS.has(parts[1]) && secret(parts[2])) return "track";
+  return "other";
+}
 
-function isDirectAudioLink(url: unknown): boolean {
+// ── 알려진 사이트 ──
+
+// 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립 · 채널, 스포티파이 에피소드 · 짧은 링크)도 그 사이트의 페이지다
+const KNOWN_SITE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "spotify.com", "spotify.link", "soundcloud.com"];
+
+/** 알려진 사이트의 호스트인가. 직접 링크(파일 · 방송 주소)와 가른다 */
+function isKnownSiteHost(value: unknown): boolean {
+  if (typeof value !== "string") return false;
   try {
-    const urlObj = new URL(String(url));
-    const pathname = urlObj.pathname.toLowerCase();
-
-    // URL이 지원되는 오디오 형식으로 끝나는지 확인
-    const hasAudioExtension = DIRECT_AUDIO_FORMATS.some((format) => pathname.endsWith(format));
-
-    // 직접 HTTP/HTTPS 링크인지 확인
-    const isHttpLink = urlObj.protocol === "http:" || urlObj.protocol === "https:";
-
-    return isHttpLink && hasAudioExtension;
-  } catch (error) {
+    const host = new URL(value.trim()).hostname.toLowerCase().replace(/\.$/, "");
+    return KNOWN_SITE_HOSTS.some((known) => host === known || host.endsWith(`.${known}`));
+  } catch {
     return false;
   }
 }
 
 // ── 링크인가 ──
 
-/** http · https 주소인가. 링크가 아닌 글(검색어)과 가른다 */
+/** http · https 주소인가. 링크가 아닌 텍스트(검색어)와 구분한다 */
 function isHttpLink(value: unknown): boolean {
   if (typeof value !== "string") return false;
   try {
@@ -126,4 +148,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, isKnownSiteHost };

@@ -6,8 +6,9 @@
  * 기본값이면 안 되고, 개발 중일 때만 켠다.
  *
  * 환경 변수를 여기서 심는 이유: npm 스크립트의 `VAR=값 node ...` 표기는 Windows에서 동작하지 않는다.
+ * 실행기가 실행하는 봇은 이 환경을 물려받는다.
  */
 process.env.DASHBOARD_DEV_ORIGIN = "true";
 
 // 환경 변수를 심은 뒤에 불러와야 한다(import 는 끌어올려진다)
-await import("../index.ts");
+await import("./launch.ts");

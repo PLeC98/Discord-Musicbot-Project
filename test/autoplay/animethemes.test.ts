@@ -1,7 +1,7 @@
 // src/autoplay/sources/animethemes.ts — AnimeThemes 소스.
 //
 // 지키려는 계약:
-//  · 대사가 얹힌 판본(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 판본이 있으면 그것을 쓴다
+//  · 대사가 얹힌 버전(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다
 //  · 같은 곡이 여러 작품 · 시즌의 주제가일 수 있다. 겹침은 song.id 로 막는다
 //  · 연도 · 시즌 조건은 anime 쪽에 걸고, 양끝 시즌은 받은 뒤 우리가 자른다
 //  · 종류(OP · ED)와 순번이 맞는 주제가만
@@ -38,7 +38,7 @@ const theme = (songId: number, title: string, videos: Array<ReturnType<typeof vi
   ...extra,
 });
 
-test("대사가 얹힌 판본만 있으면 버리고, 깨끗한 판본이 있으면 그것을 쓴다", async () => {
+test("대사가 얹힌 버전만 있으면 버리고, 깨끗한 버전이 있으면 그것을 쓴다", async () => {
   serve(() => ({
     animethemes: [theme(1, "대사만 있음", [video("Over", "https://a/1-over.ogg")]), theme(2, "섞여 있음", [video("Transition", "https://a/2-trans.ogg"), video("None", "https://a/2-clean.ogg")]), theme(3, "판본 정보 없음", [])],
   }));
@@ -74,6 +74,16 @@ test("같은 곡은 한 번만. 겹침은 주제가가 아니라 곡 id 로 막�
   });
 });
 
+test("곡 id 가 없는 주제가는 뺀다(겹침도 출처 키도 가를 수 없다)", async () => {
+  const noId = { ...theme(0, "id 없음", [video("None", "https://a/x.ogg")]), song: { title: "id 없음", artists: [{ name: "가수" }] } };
+  serve(() => ({ animethemes: [noId, theme(9, "id 있음", [video("None", "https://a/9.ogg")])] }));
+  const got = await animethemes(source());
+  assert.deepEqual(
+    got.map((c) => [c.title, c.sourceKey]),
+    [["id 있음", "at:9"]],
+  );
+});
+
 test("조건이 없으면 주제가를 무작위로 한 번 묻는다. 종류 · 순번은 저쪽 필터로", async () => {
   const urls = serve(() => ({ animethemes: [] }));
   await animethemes(source({ themeType: "ED", sequence: 2 }));
@@ -106,7 +116,7 @@ test("연도를 걸면 작품 쪽에 묻고, 양끝 시즌 밖의 작품은 우�
   );
 });
 
-test("양끝 시즌을 안 적으면 그해 처음부터 끝까지", async () => {
+test("양끝 시즌을 입력하지 않으면 그해 처음부터 끝까지", async () => {
   serve(() => ({
     anime: [
       { year: 2020, season: "Winter", animethemes: [theme(1, "처음", [video("None", "https://a/1.ogg")])] },

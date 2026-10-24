@@ -1,0 +1,81 @@
+<template>
+  <!-- 유튜브 쿠키 입력. 카드가 아니라 연령 제한 탭 유튜브 카드의 칸들 아래에 들어간다(ConfigTunables 의 in- 슬롯) -->
+  <div class="flex flex-col gap-2">
+    <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
+    <!-- 이름표 · 언제 교체하는지(툴팁) · 오른쪽에 있는지 없는지. 무엇에 쓰는지는 탭이 말한다(연령 제한). 값은 쓰기 전용이라 어느 통로로도 내려오지 않는다 -->
+    <div class="flex items-center gap-2">
+      <span class="flex flex-1 min-w-0 items-center gap-1 text-xs text-on-surface-variant">{{ T.title }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.purposeTip" /></span>
+      <span class="inline-flex items-center gap-1 text-xs" :class="state.hasFile ? 'text-primary' : 'text-on-surface-variant'"><Icon :name="!known ? 'help' : state.hasFile ? 'check_circle' : 'radio_button_unchecked'" :size="16" :fill="known && state.hasFile" />{{ !known ? T.unknown : state.hasFile ? T.saved : T.none }}</span>
+    </div>
+    <textarea :value="input" rows="6" autocomplete="off" spellcheck="false" wrap="off" :placeholder="placeholder" :aria-label="T.title" :class="[AREA, 'font-mono text-xs', state.hasFile && 'placeholder:font-sans']" @input="input = valueOf($event)"></textarea>
+    <div class="flex items-center gap-2">
+      <BaseButton :disabled="!input.trim() || saving" @click="save">{{ saving ? T.saving : T.save }}</BaseButton>
+      <button v-if="state.hasFile" type="button" :class="[ICON_BTN, 'size-10']" class="hover:text-error" :disabled="saving" :aria-label="T.clear" v-tooltip="T.clear" @click="clear"><Icon name="delete" :size="20" /></button>
+    </div>
+    <p class="flex items-center gap-1 text-xs text-on-surface-variant">{{ T.pasteHint }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.pasteHintTip" /></p>
+    <p v-if="!secureOrigin" class="text-xs text-(--warn-ink)">{{ T.insecure }}</p>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ICON_BTN } from "../utils/icon-button.ts";
+import { valueOf } from "../utils/dom.ts";
+import { problemText } from "../utils/problem.ts";
+import { AREA } from "../utils/field.ts";
+import { trackUnsaved } from "../composables/unsaved.ts";
+import { notifyDone, notifyProblem } from "../composables/toasts.ts";
+import { ref, reactive, computed, onMounted } from "vue";
+import axios from "axios";
+import BaseButton from "./BaseButton.vue";
+import Icon from "./BaseIcon.vue";
+import NoticeBox from "./NoticeBox.vue";
+import type { CookieState } from "../../../src/dashboard/contract/admin.ts";
+import { text } from "../text/index.ts";
+const T = text.cookies;
+
+const input = ref("");
+// 붙여 넣고 저장하지 않은 쿠키도 떠날 때 묻는다
+trackUnsaved(
+  "age:cookies",
+  computed(() => Boolean(input.value.trim())),
+);
+const saving = ref(false);
+const loadError = ref("");
+const state = reactive<CookieState>({ source: "none", hasFile: false });
+// 서버에서 상태를 불러왔는지. 못 불러왔으면 "없음"이 아니라 모른다
+const known = ref(false);
+
+const placeholder = computed(() => (state.hasFile ? T.replacePlaceholder : "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t…"));
+const secureOrigin = computed(() => window.isSecureContext);
+
+function apply(data: CookieState) {
+  Object.assign(state, data);
+  known.value = true;
+  loadError.value = "";
+}
+
+async function put(cookieText: string) {
+  saving.value = true;
+  try {
+    apply((await axios.put<CookieState>("/api/admin/cookies", { text: cookieText })).data);
+    input.value = "";
+    notifyDone(cookieText ? T.savedDone : T.clearedDone);
+  } catch (err) {
+    notifyProblem(err, cookieText ? T.saveFailed : T.clearFailed);
+  } finally {
+    saving.value = false;
+  }
+}
+
+const save = () => put(input.value);
+const clear = () => put("");
+
+onMounted(async () => {
+  try {
+    apply((await axios.get<CookieState>("/api/admin/cookies")).data);
+  } catch (err) {
+    // 저장은 여전히 된다
+    loadError.value = problemText(err, T.loadFailed);
+  }
+});
+</script>

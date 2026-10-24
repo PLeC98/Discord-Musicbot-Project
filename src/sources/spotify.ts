@@ -1,27 +1,27 @@
 // Spotify 소스. 링크 타입별 투트랙 라우팅.
-//   track/album  → 공식 Web API(native fetch, client credentials)
-//   artist       → 공식 API, 실패 시 익명 GraphQL 폴백(정책 축소 대비)
-//   playlist     → 익명 GraphQL 전용(공식은 100곡 상한이라 사실상 불가)
+//   track/album/artist → 운영자가 키를 넣었으면 공식 Web API(공유 HTTP 클라이언트, client credentials), 실패하거나 키가 없으면 익명 GraphQL
+//   playlist           → 익명 GraphQL 전용(공식은 100곡 상한이라 사실상 불가)
 //
 // 익명 경로는 웹플레이어의 공개 동작(TOTP → /api/token → api-partner/pathfinder)을 재현한 것.
 // 외부 코드 이식 없이 번들에서 직접 밝혀낸 원리로 구현. secret/해시/clientVersion은 DB에 캐시하고
 // TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
 
 import crypto from "crypto";
-import { isSpotifyURL, parseSpotifyURL } from "../rules/links.ts";
+import { parseSpotifyURL } from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
-import config from "../../config.ts";
-import * as externalCaches from "../store/externalCaches.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import config from "../config/index.ts";
+import * as externalCaches from "../store/external-caches.ts";
+import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
+import { httpFor } from "../infra/http.ts";
+import type { KeyCheck } from "../rules/service-keys.ts";
 
-// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
-let send: typeof fetch = fetch;
-function useFetch(fake: typeof fetch | null) {
-  send = fake ?? fetch;
-}
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+const http = httpFor("spotify");
+const send = http.fetch;
+const useFetch = http.useFetch;
 
-// 응답의 모양. 여기서 읽는 칸만
+// 응답의 모양. 여기서 읽는 필드만
 type ApiImage = { url?: string; height?: number | null };
 type ApiTrack = { id?: string; name?: string; duration_ms?: number; artists?: Array<{ name?: string }>; album?: { name?: string; images?: ApiImage[] }; external_urls?: { spotify?: string } };
 type ApiAlbum = { name?: string; images?: ApiImage[]; tracks?: { items?: ApiTrack[]; next?: string | null; total?: number } };
@@ -29,19 +29,24 @@ type ApiPage = { items?: ApiTrack[]; next?: string | null };
 type GqlTrack = { id?: string; uri?: string; name?: string; trackDuration?: { totalMilliseconds?: number }; duration?: { totalMilliseconds?: number }; artists?: { items?: Array<{ profile?: { name?: string } }> }; albumOfTrack?: { name?: string; coverArt?: { sources?: ApiImage[] } } };
 type GqlPlaylist = { playlistV2?: { __typename?: string; content?: { totalCount?: number; items?: Array<{ itemV2?: { __typename?: string; data?: GqlTrack & { __typename?: string } } }> } } };
 type GqlArtist = { artistUnion?: { discography?: { topTracks?: { items?: Array<{ track?: GqlTrack }> } } } };
+type GqlArtistList = { items?: Array<{ profile?: { name?: string } }> };
+/** getTrack 의 곡. 가수는 firstArtist · otherArtists 로 온다 */
+type GqlTrackUnion = { trackUnion?: GqlTrack & { __typename?: string; firstArtist?: GqlArtistList; otherArtists?: GqlArtistList } };
+type GqlAlbum = { albumUnion?: { __typename?: string; name?: string; coverArt?: { sources?: ApiImage[] }; tracksV2?: { totalCount?: number; items?: Array<{ track?: GqlTrack }> } } };
 
 /** 스포티파이 곡(두 경로 공통 출력) */
-type SpotifyTrack = { title: string; artist: string; album: string | null; pageUrl: string; requestKey: string; duration: number; thumbnail: string | null; platform: "spotify"; type: "track"; id?: string };
+type SpotifyTrack = { title: string; artist?: string; album: string | null; pageUrl: string; requestKey: string; duration: number; thumbnail: string | null; platform: "spotify"; id?: string };
 /** 여러 곡 출처의 한 구간. total 은 모르면 null */
 type Part = { tracks: SpotifyTrack[]; total: number | null; nextOffset: number | null };
 type Range = { offset?: number; limit?: number };
-type Token = { value: string; expiresAt: number };
-/** 웹플레이어 번들에서 뽑은 익명 상태 */
+/** auth: 받을 때 쓴 키(공식 API). 키가 바뀌면 버린다 */
+type Token = { value: string; expiresAt: number; auth?: string };
+/** 웹플레이어 번들에서 추출한 익명 상태 */
 type AnonState = { secrets: Array<{ secret: string; version: number }>; hashes: Record<string, string>; clientVersion: string; fetchedAt: number };
 
 const isTrack = (t: SpotifyTrack | null): t is SpotifyTrack => t !== null;
 
-/** 요청 함수. get 은 공식 API, query 는 익명 GraphQL. 테스트가 가짜를 넘기는 자리(넘기지 않은 것은 진짜) */
+/** 요청 함수. get 은 공식 API, query 는 익명 GraphQL. 테스트가 가짜를 넘기는 곳(넘기지 않은 것은 진짜) */
 type Net = { get: (path: string) => Promise<unknown>; query: (operationName: string, hashKey: string, variables: Record<string, unknown>) => Promise<unknown> };
 // 진짜 요청 함수. 아래 두 프로바이더가 가진 것을 부른다
 const net = (over: Partial<Net> = {}): Net => ({ get: (p) => official._get(p), query: (op, hash, vars) => graphql._query(op, hash, vars), ...over });
@@ -56,14 +61,14 @@ const htmlHeaders = () => ({ "User-Agent": ua(), "Accept-Language": "en" });
 const TIMEOUT_MS = 10000;
 const BUNDLE_TIMEOUT_MS = 30000;
 
-// 웹플레이어 판(Spotify-App-Version 머리). 홈에서 못 읽고 저장값도 없을 때만 쓴다. 머리 값이라 기본을 둔다
+// 웹플레이어 버전(Spotify-App-Version 헤더). 홈에서 못 읽고 저장값도 없을 때만 쓴다. 헤더 값이라 기본을 둔다
 const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
-// secret · 해시는 코드에 두지 않는다. 늘 번들에서 뽑고 DB 에 남긴다. 낡은 값을 코드에 두면 뽑기 실패를 가린다
+// secret · 해시는 코드에 두지 않는다. 늘 번들에서 추출하고 DB 에 남긴다. 낡은 값을 코드에 두면 추출 실패를 가린다
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
-// 뽑기에 실패하면 이만큼은 다시 뽑지 않고 저장값을 쓴다. 저쪽이 죽어 있을 때 요청마다 번들(수 MB)을 받지 않게
+// 추출에 실패하면 이만큼은 다시 추출하지 않고 저장값을 쓴다. 저쪽이 죽어 있을 때 요청마다 번들(수 MB)을 다운로드하지 않게
 const EXTRACT_RETRY_MS = 10 * 60 * 1000;
-// 번들에서 해시를 뽑는 질의
-const OPERATIONS = ["fetchPlaylist", "queryArtistOverview"];
+// 번들에서 해시를 추출하는 질의
+const OPERATIONS = ["fetchPlaylist", "queryArtistOverview", "getTrack", "getAlbum"];
 
 // ── 정규화 (양 경로 공통 출력 계약) ──
 function pickImageUrl(sources: ApiImage[] | null | undefined): string | null {
@@ -79,29 +84,30 @@ function pickImageUrl(sources: ApiImage[] | null | undefined): string | null {
 function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: string; images?: ApiImage[] }): SpotifyTrack | null {
   if (!t || !t.name) return null;
   const album = albumOverride || t.album;
-  const url = t.external_urls?.spotify || `https://open.spotify.com/track/${t.id}`;
+  const url = t.external_urls?.spotify || (t.id ? `https://open.spotify.com/track/${t.id}` : null);
+  // 주소도 id 도 없으면 가리킬 곳이 없다
+  if (!url) return null;
   return {
     title: t.name,
     artist:
       (t.artists || [])
         .map((a) => a.name)
         .filter(Boolean)
-        .join(", ") || "알 수 없는 아티스트",
+        .join(", ") || undefined,
     album: album?.name || null,
     pageUrl: url,
     requestKey: url,
     duration: Math.floor((t.duration_ms || 0) / 1000),
     thumbnail: pickImageUrl(album?.images),
     platform: "spotify",
-    type: "track",
     id: t.id,
   };
 }
 
-// 가수 이름들. 없으면 "알 수 없는 아티스트"
+// 가수 이름들. 없으면 비워 둔다(표시 문구는 그릴 때)
 function artistsOf(d: GqlTrack) {
   const names = (d.artists?.items || []).map((a) => a.profile?.name).filter(Boolean);
-  return names.join(", ") || "알 수 없는 아티스트";
+  return names.join(", ") || undefined;
 }
 
 // GraphQL 트랙 data(playlist item.itemV2.data / artist topTracks item.track) → 표준.
@@ -120,7 +126,6 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
     duration: Math.floor(durMs / 1000),
     thumbnail: pickImageUrl(d.albumOfTrack?.coverArt?.sources),
     platform: "spotify",
-    type: "track",
     id,
   };
 }
@@ -128,7 +133,7 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
 /** 재생목록 한 쪽의 항목들 */
 type GqlItems = NonNullable<NonNullable<NonNullable<GqlPlaylist["playlistV2"]>["content"]>["items"]>;
 
-// 재생할 수 있는 곡만(지역 제한 · 지워진 곡은 NotFound 로 온다)
+// 재생할 수 있는 곡만(지역 제한 · 삭제된 곡은 NotFound 로 온다)
 function playable(items: GqlItems) {
   const out: SpotifyTrack[] = [];
   for (const it of items) {
@@ -138,11 +143,21 @@ function playable(items: GqlItems) {
   return out;
 }
 
+// 앨범 한 쪽. 앨범 이름 · 표지는 곡에 없어 앨범의 것을 붙인다. 없는 앨범은 NotFound 로 온다. count: 받은 항목 수(원본 위치를 센다)
+async function albumPage(query: Net["query"], id: string, offset: number, limit: number) {
+  const a = ((await query("getAlbum", "getAlbum", { uri: `spotify:album:${id}`, locale: "", offset, limit })) as GqlAlbum | null)?.albumUnion;
+  if (!a || a.__typename === "NotFound") throw codedError("not-found", `앨범 없음(NotFound) ${id}`);
+  const items = a.tracksV2?.items ?? [];
+  const albumOfTrack = { name: a.name, coverArt: a.coverArt };
+  const tracks = items.map((it) => (it.track ? normGqlTrack({ ...it.track, albumOfTrack }) : null)).filter(isTrack);
+  return { tracks, count: items.length, total: a.tracksV2?.totalCount ?? null };
+}
+
 // 재생목록 한 쪽. 접근할 수 없으면 던진다
 async function playlistPage(query: Net["query"], id: string, offset: number, limit: number) {
   const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
   const pl = data?.playlistV2;
-  if (!pl || pl.__typename === "NotFound") throw new Error("플레이리스트 접근 불가(NotFound)");
+  if (!pl || pl.__typename === "NotFound") throw codedError("unavailable-playlist", "플레이리스트 접근 불가(NotFound)");
   return { items: pl.content?.items || [], total: pl.content?.totalCount ?? null };
 }
 
@@ -197,18 +212,21 @@ const official = {
   _token: null as Token | null,
 
   async _accessToken(): Promise<string> {
-    if (!config.spotify.clientId || !config.spotify.clientSecret) throw new Error("Spotify 자격증명 미설정");
-    if (this._token && Date.now() < this._token.expiresAt - 60000) return this._token.value;
+    // 키가 없으면 라우팅이 부르지 않는다(routesOf). 직접 부른 것만 여기 닿는다
+    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-failed", "Spotify 키 미설정(운영자 패널의 API 키 탭)");
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
+    // 키를 바꿨으면 쥐고 있던 토큰을 버린다(옛 키로 받은 것이다)
+    if (this._token && this._token.auth === auth && Date.now() < this._token.expiresAt - 60000) return this._token.value;
     const r = await send("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ua() },
       body: "grant_type=client_credentials",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!r.ok) throw new Error(`토큰 발급 실패 ${r.status}`);
+    // 400 · 401 은 자격증명이 틀린 것이다(운영자 설정). 라우팅이 익명 GraphQL 로 넘기고 이 줄은 운영자 로그에 남는다
+    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀렸습니다. 운영자 패널의 API 키 탭)" : ""}`);
     const j = (await r.json()) as { access_token: string; expires_in?: number };
-    this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000 };
+    this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000, auth };
     return this._token.value;
   },
 
@@ -216,7 +234,8 @@ const official = {
     const tok = await this._accessToken();
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
     const r = await send(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!r.ok) throw new Error(`API ${r.status} (${path.slice(0, 40)})`);
+    // 없는 곡 · 앨범 · 가수는 없음이다(resolveType). 요청 제한은 그렇다고 단다
+    if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", `API ${r.status} (${path.slice(0, 40)})`);
     return r.json();
   },
 
@@ -245,17 +264,9 @@ const official = {
   },
 
   async artist(id: string, over: Partial<Net> = {}) {
-    const a = (await net(over).get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 생략 가능(실측)
+    const a = (await net(over).get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 은 생략해도 된다
     return (a.tracks || [])
       .slice(0, 10)
-      .map((t) => normApiTrack(t))
-      .filter(isTrack);
-  },
-
-  async search(query: string, limit: number, over: Partial<Net> = {}) {
-    const r = (await net(over).get(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`)) as { tracks?: { items?: ApiTrack[] } };
-    return (r.tracks?.items || [])
-      .slice(0, limit)
       .map((t) => normApiTrack(t))
       .filter(isTrack);
   },
@@ -267,11 +278,11 @@ const graphql = {
   _state: null as AnonState | null,
   _failedAt: 0,
 
-  // 뽑지 않고 쓸 수 있는 상태. 없으면 null(뽑는다)
+  // 추출하지 않고 쓸 수 있는 상태. 없으면 null(추출한다)
   _reusable(forceRefresh: boolean, usable: AnonState | null): AnonState | null {
     if (forceRefresh || !usable) return null;
     if (Date.now() - usable.fetchedAt < STATE_TTL_MS) return usable;
-    // 방금 뽑기에 실패했으면 쉬는 동안은 저장값으로. 토큰 · 해시 오류로 부른 강제 뽑기는 쉬지 않는다
+    // 방금 추출에 실패했으면 쉬는 동안은 저장값으로. 토큰 · 해시 오류로 부른 강제 추출은 쉬지 않는다
     return Date.now() - this._failedAt < EXTRACT_RETRY_MS ? usable : null;
   },
 
@@ -294,8 +305,8 @@ const graphql = {
     return this._state;
   },
 
-  // 홈과 웹플레이어 번들에서 뽑는다. 응답이 오류이거나 secret 을 못 찾으면 던진다(부르는 쪽이 저장값으로 넘어간다).
-  // 못 찾은 해시는 직전 값을 둔다. 그 질의만 해시 만료로 실패해 다시 뽑게 된다
+  // 홈과 웹플레이어 번들에서 추출한다. 응답이 오류이거나 secret 을 못 찾으면 던진다(부르는 쪽이 저장값으로 넘어간다).
+  // 못 찾은 해시는 직전 값을 둔다. 그 질의만 해시 만료로 실패해 다시 추출하게 된다
   async _extract(previous: AnonState | null = null): Promise<Omit<AnonState, "fetchedAt">> {
     const homeRes = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!homeRes.ok) throw new Error(`홈 ${homeRes.status}`);
@@ -305,8 +316,9 @@ const graphql = {
     if (cfg) {
       try {
         clientVersion = JSON.parse(Buffer.from(cfg[1], "base64").toString()).clientVersion || clientVersion;
-      } catch {
-        /* 판을 못 읽으면 직전 값 */
+      } catch (e) {
+        // 버전을 못 읽으면 직전 값
+        log.debug(`clientVersion 읽기 실패(직전 값 ${clientVersion}): ${messageOf(e)}`);
       }
     }
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
@@ -333,7 +345,7 @@ const graphql = {
     const { secret, version } = state.secrets[0];
     const key = deriveKey(secret);
     const qs = new URLSearchParams({ reason: "init", productType: "web-player", totp: totp(key, Date.now()), totpServer: totp(key, serverSec * 1000), totpVer: String(version) });
-    const r = await send(`https://open.spotify.com/api/token?${qs}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await send(`https://open.spotify.com/api/token?${qs.toString()}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!r.ok) throw Object.assign(new Error(`익명 토큰 ${r.status}`), { status: r.status });
     return (await r.json()) as { accessToken: string; accessTokenExpirationTimestampMs?: number };
   },
@@ -358,7 +370,7 @@ const graphql = {
   async _query(operationName: string, hashKey: string, variables: Record<string, unknown>): Promise<unknown> {
     const run = async () => {
       const state = await this._ensureState(false);
-      // 번들에서 못 찾은 해시. 해시 만료와 같이 다시 뽑게 한다
+      // 번들에서 못 찾은 해시. 해시 만료와 같이 다시 추출하게 한다
       if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없습니다(번들에서 못 찾음)`), { persistedNotFound: true });
       const tok = await this._token();
       const r = await send(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -401,10 +413,36 @@ const graphql = {
       const items = page.items;
       if (total == null) total = page.total;
       out.push(...playable(items));
-      // 재생할 수 없는 곡은 건너뛰므로 받은 곡 수와 원본 위치가 어긋난다. 다음 위치는 원본 기준으로 센다
+      // 재생할 수 없는 곡은 건너뛰므로 불러온 곡 수와 원본 위치가 어긋난다. 다음 위치는 원본 기준으로 센다
       cursor += items.length;
       if (items.length < want) break;
       if (total != null && cursor >= total) break;
+    }
+    return { tracks: out, total, nextOffset: cursor };
+  },
+
+  // 곡 하나. 없는 곡은 NotFound 로 온다
+  async track(id: string, over: Partial<Net> = {}) {
+    const t = ((await net(over).query("getTrack", "getTrack", { uri: `spotify:track:${id}` })) as GqlTrackUnion | null)?.trackUnion;
+    if (!t || t.__typename === "NotFound") throw codedError("not-found", `곡 없음(NotFound) ${id}`);
+    const n = normGqlTrack({ ...t, artists: { items: [...(t.firstArtist?.items ?? []), ...(t.otherArtists?.items ?? [])] } });
+    return n ? [n] : [];
+  },
+
+  // 앨범의 offset 부터 limit 곡. 스포티파이에서 지역 때문에 못 트는 곡(playability)도 넣는다. 소리는 유튜브에서 찾는다(공식 API 도 market 없이 다 준다)
+  async album(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+    const { query } = net(over);
+    const PAGE = 50;
+    const out: SpotifyTrack[] = [];
+    let cursor = offset;
+    let total: number | null = null;
+    while (out.length < limit) {
+      const want = Math.min(PAGE, limit - out.length);
+      const page = await albumPage(query, id, cursor, want);
+      total ??= page.total;
+      out.push(...page.tracks);
+      cursor += page.count;
+      if (page.count < want || (total !== null && cursor >= total)) break;
     }
     return { tracks: out, total, nextOffset: cursor };
   },
@@ -419,68 +457,74 @@ const graphql = {
 // ── 라우팅 정책 (유일한 정책 지점) ──
 // 각 타입 → 시도할 백엔드 순서. 앞이 실패/빈결과면 다음으로 폴백.
 // 모든 경로는 { tracks, total(모르면 null), nextOffset(원본 목록 기준 다음 위치) }를 돌려준다.
-// 인기곡처럼 통째로만 오는 목록은 받은 뒤 구간을 자른다.
+// 인기곡처럼 통째로만 오는 목록은 불러온 뒤 구간을 자른다.
 function sliceWhole(tracks: SpotifyTrack[], { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}): Part {
   const part = tracks.slice(offset, offset + limit);
   return { tracks: part, total: tracks.length, nextOffset: offset + part.length };
 }
 
 type Route = (id: string, o: Range, over: Partial<Net>) => Promise<Part>;
-const ROUTES: Record<string, Route[]> = {
-  track: [async (id, _o, over) => ({ tracks: await official.track(id, over), total: null, nextOffset: null })],
-  album: [(id, o, over) => official.album(id, o, over)],
-  artist: [async (id, o, over) => sliceWhole(await official.artist(id, over), o), async (id, o, over) => sliceWhole(await graphql.artist(id, over), o)],
-  playlist: [(id, o, over) => graphql.playlist(id, o, over)],
+// 공식 API 는 운영자가 키를 넣었을 때만 앞에 선다. 키가 없으면 부르지 않는다(실패로 남기지 않는다)
+const hasKeys = () => Boolean(config.spotify.clientId && config.spotify.clientSecret);
+const OFFICIAL: Record<string, Route> = {
+  track: async (id, _o, over) => ({ tracks: await official.track(id, over), total: null, nextOffset: null }),
+  album: (id, o, over) => official.album(id, o, over),
+  artist: async (id, o, over) => sliceWhole(await official.artist(id, over), o),
 };
+const ANONYMOUS: Record<string, Route> = {
+  track: async (id, _o, over) => ({ tracks: await graphql.track(id, over), total: null, nextOffset: null }),
+  album: (id, o, over) => graphql.album(id, o, over),
+  artist: async (id, o, over) => sliceWhole(await graphql.artist(id, over), o),
+  playlist: (id, o, over) => graphql.playlist(id, o, over),
+};
+const routesOf = (type: string): Route[] | undefined => (Object.hasOwn(ANONYMOUS, type) ? [...(hasKeys() && Object.hasOwn(OFFICIAL, type) ? [OFFICIAL[type]] : []), ANONYMOUS[type]] : undefined);
 
+// 한 경로라도 답했으면(빈 결과 포함) 그 답이다. 주 경로가 실패하고 폴백이 빈 결과면 없음이다(주 경로 실패는 경고로 남는다).
+// 모든 경로가 실패하면 마지막 까닭을 던진다. 없는 곡 · 앨범(404)은 실패가 아니라 없음이다
 async function resolveType(type: string, id: string, options: Range, over: Partial<Net>): Promise<Part> {
   const empty: Part = { tracks: [], total: null, nextOffset: null };
-  const chain = Object.hasOwn(ROUTES, type) ? ROUTES[type] : undefined;
+  const chain = routesOf(type);
   if (!chain) return empty;
+  let answered = false;
+  let failure: unknown = null;
   for (let i = 0; i < chain.length; i++) {
     const last = i === chain.length - 1;
     try {
       const result = await chain[i](id, options, over);
       if (result.tracks.length || last) return result;
-      // 빈 결과 + 폴백 남음 → 다음 시도
+      answered = true; // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
+      // 없는 곡 · 앨범 · 가수다. 다른 경로도 같은 답이라 묻지 않는다
+      if (codeOf(e) === "not-found") return empty;
       log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${messageOf(e)}${last ? "" : ", 폴백 전환"}`);
-      if (last) return empty;
+      failure = e;
     }
   }
-  return empty;
+  if (answered) return empty;
+  throw failure;
 }
 
 // ── 외부 계약 (sources/lookup 이 쓰는 것) ──
 
-// 여러 곡 출처는 필요한 구간만 받는다
+// 여러 곡 출처는 필요한 구간만 불러온다
 // over: 요청 함수 가짜(테스트). 생략하면 진짜
 async function getCollection(url: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
   const { type, id } = parseSpotifyURL(url);
   if (!type || !id) return { tracks: [], total: null, nextOffset: null };
   const result = await resolveType(type, id, { offset, limit }, over);
   const { tracks, total } = result;
-  const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
+  const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist ?? "?"}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
   const range = total != null && total > tracks.length ? ` (전체 ${total}곡 중 ${offset + 1}번째부터)` : "";
   log.info(`${type} ${id} → ${tracks.length}곡${range}: ${head}`);
   return result;
 }
 
-async function getFromURL(url: string): Promise<SpotifyTrack[]> {
-  return (await getCollection(url)).tracks;
+/** 익명 상태(secret 목록 · 해시 · clientVersion)를 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 질의가 다시 추출한다. 받아 둔 토큰은 둔다 */
+function forgetAnonState() {
+  graphql._state = null;
 }
 
-async function search(query: string, limit = 1): Promise<SpotifyTrack[]> {
-  if (isSpotifyURL(query)) return getFromURL(query);
-  try {
-    return await official.search(query, limit);
-  } catch (e) {
-    log.warn(`검색 실패: ${messageOf(e)}`);
-    return [];
-  }
-}
-
-// 테스트 시임. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 띄운 것처럼)
+// 테스트 시임. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 실행한 것처럼)
 function _reset() {
   official._token = null;
   graphql._anonToken = null;
@@ -489,7 +533,31 @@ function _reset() {
 }
 
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
+/** 저장된 키로 토큰을 받아 본다(운영자 패널의 연결 테스트). 쥐고 있는 토큰은 쓰지도 바꾸지도 않는다 */
+async function checkCredentials(): Promise<KeyCheck> {
+  const { clientId, clientSecret } = config.spotify;
+  if (!clientId || !clientSecret) return { ok: false, reason: "missing" };
+  try {
+    const r = await send("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: { Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ua() },
+      body: "grant_type=client_credentials",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (r.ok) return { ok: true };
+    if (r.status === 400 || r.status === 401) return { ok: false, reason: "rejected" };
+    log.debug(`API 키 확인 실패: HTTP ${r.status}`);
+    return { ok: false, reason: "unreachable" };
+  } catch (e) {
+    log.debug(`API 키 확인 실패: ${messageOf(e)}`);
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-export { getCollection, getFromURL, search, _reset, _internals, useFetch };
+/** 익명 토큰이 끝나는 때(봇 상태 탭). 받은 적이 없으면 null */
+const anonTokenExpiresAt = () => graphql._anonToken?.expiresAt ?? null;
+
+export { getCollection, anonTokenExpiresAt, checkCredentials, forgetAnonState, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };

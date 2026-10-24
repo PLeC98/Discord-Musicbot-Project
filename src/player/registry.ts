@@ -1,47 +1,39 @@
 import { Collection } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./player.ts";
+import * as playerEvents from "./events.ts";
 
 /**
- * client.players를 감싸 등록, 해제를 전부 기록
- *
- * 봇이 음성 채널에 남아 소리를 내고 있는데 레지스트리는 비어 있는 사례를 쫓기 위한 관측용
- * (곡 추가가 409, /nowplaying이 "재생 중인 곡 없음"). 지우는 경로가 여러 파일에 흩어져 있고
- * 아직 찾지 못한 경로가 있을 수 있어, 호출부마다 로그를 다는 대신 맵 자체를 감쌌다.
+ * 서버마다 플레이어 하나. 조립(app/main)이 하나 만들어 넘긴다. 등록 · 해제를 기록한다.
+ * 빼는 길은 플레이어를 버릴 때 오는 알림 하나다(followDisposals → forget). 그 서버에 새 플레이어가
+ * 이미 들어와 있으면 늦게 버려진 옛 플레이어가 새것을 빼지 않는다.
  */
 
-// 스택에서 이 파일 바깥 첫 프레임을 "파일:줄"로 뽑는다. 경로 구분자는 미리 /로 통일.
-function caller() {
-  const frames = (new Error().stack || "").split("\n").slice(2);
-  for (const raw of frames) {
-    if (raw.includes("playerRegistry")) continue;
-    const frame = raw.split("\\").join("/");
-    const withDir = frame.match(/([^/]+\/[^/]+):(\d+):\d+\)?\s*$/);
-    if (withDir) return `${withDir[1]}:${withDir[2]}`;
-    const bare = frame.match(/([^/(\s]+):(\d+):\d+\)?\s*$/);
-    if (bare) return `${bare[1]}:${bare[2]}`;
-  }
-  return "?";
-}
+const label = (player: Player | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
 
-const label = (player: MusicPlayer | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
-
-class PlayerRegistry extends Collection<string, MusicPlayer> {
-  set(guildId: string, player: MusicPlayer) {
-    log.debug(`등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""} | ${caller()}`);
+class PlayerRegistry extends Collection<string, Player> {
+  set(guildId: string, player: Player) {
+    log.debug(`등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""}`);
     return super.set(guildId, player);
   }
 
-  delete(guildId: string) {
-    const prev = this.get(guildId);
-    if (prev) {
-      const track = prev.currentTrack ? `"${prev.currentTrack.title}"` : "없음";
-      const conn = prev.connection?.state?.status ?? "없음";
-      log.debug(`해제: ${label(prev, guildId)} | 재생중=${track} | 연결=${conn} | ${caller()}`);
-    }
-    return super.delete(guildId);
+  /** 버려진 플레이어를 뺀다(reason: 버린 까닭). 그 서버에 이미 다른(새) 플레이어가 있으면 건드리지 않는다 */
+  forget(player: Player, reason = "?") {
+    const guildId = player.guild?.id;
+    if (!guildId || this.get(guildId) !== player) return;
+    log.debug(`해제: ${label(player, guildId)} | 원인=${reason}`);
+    super.delete(guildId);
+  }
+
+  /** 플레이어가 버려지면 스스로 뺀다. 떼는 함수를 돌려준다 */
+  followDisposals() {
+    return playerEvents.on("disposed", (player, reason) => this.forget(player, reason));
   }
 }
 
+/** 레지스트리를 읽거나 올리기만 하는 쪽이 받는 모양. 조립은 레지스트리를, 테스트는 Map 을 넘긴다 */
+type PlayerSeats = { get(guildId: string): Player | undefined; has(guildId: string): boolean; set(guildId: string, player: Player): unknown };
+
 export { PlayerRegistry };
+export type { PlayerSeats };

@@ -2,74 +2,69 @@
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
-// 생산자는 두 갈래: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
+// 생산자는 두 경로: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 import util from "util";
-import config from "../../../config.ts";
-import chalk from "chalk";
+import config from "../../config/index.ts";
+import { styleText } from "node:util";
+import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
 
-const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
-// 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다). 검사용은 따로.
+// 호출부가 이미 색을 넣었는지 본다(색 지우기는 levels 의 wireFields 가 한다)
 const HAS_ANSI = /\x1B\[/;
-
-export type LevelName = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 /** 로그 레코드(pino JSON 부분집합). 바인딩(category · sub · tags · err …)이 같이 실린다 */
 export type LogRecord = { level: number; time: number; msg?: unknown; category?: string; sub?: string; tags?: string[]; [field: string]: unknown };
-/** 대시보드(SSE)로 보내는 한 줄 */
-type WireEntry = { ts: number; level: string; text: string; category?: string; sub?: string; tags?: string[] };
 /** 레코드를 받는 곳(파일 등) */
 type Destination = (rec: LogRecord) => void;
 /** 로그 스트림을 받는 HTTP 응답. 여기서 쓰는 것만 */
 type SseClient = {
   write(chunk: string): boolean;
+  /** 아직 보내지 못하고 쌓인 바이트 */
+  readonly writableLength: number;
   end(): void;
   on(event: "close" | "error", fn: () => void): unknown;
-  status(code: number): { json(body: unknown): unknown };
   writeHead(code: number, headers: Record<string, string>): unknown;
   flushHeaders(): void;
 };
 
-// pino와 동일한 레벨 체계
-const LEVELS: Record<LevelName, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
-const LEVEL_NAMES: Record<number, LevelName> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-// SSE 와이어 레벨 = 실제 레벨 이름. 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로
-// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 영영 못 가른다.
-// 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
-const WIRE_LEVEL: Record<number, string> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
-// info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
+// info 레벨을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
+// 로그 스트림에 보내지 못하고 쌓인 양이 이만큼을 넘으면 읽지 않는 소비자로 보고 끊는다.
+// 붙을 때 쌓인 줄(KEPT_LINES, 2000줄 약 0.5MB)을 보내는 동안 write 가 false 를 돌려주는 것은 정상이라 그것만으로는 끊지 않는다
+const MAX_PENDING_BYTES = 1024 * 1024;
+
+// 색 입히기. 칠할지는 sink 가 정하므로(useColor) 스트림을 보지 않는다
+type Style = Parameters<typeof styleText>[0];
+const style = (format: Style) => (text: string) => styleText(format, text, { validateStream: false });
 
 // 레벨 라벨 색.
 const LEVEL_COLOR: Record<LevelName, (text: string) => string> = {
-  trace: chalk.gray,
-  debug: chalk.gray,
-  info: chalk.cyan,
-  warn: chalk.yellow,
-  error: chalk.red,
-  fatal: chalk.bgRed.white,
+  trace: style("gray"),
+  debug: style("gray"),
+  info: style("cyan"),
+  warn: style("yellow"),
+  error: style("red"),
+  fatal: style(["bgRed", "white"]),
 };
 
-// 본문 색도 sink가 칠한다. 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
-// 79%가 흰 글씨였다(실측 86건 중 68건). 색이 위험도가 아니라 "그 줄을 쓴 사람이 chalk를 썼는지"를
-// 나타내던 셈이다. sink는 레벨을 알고 있으니 여기서 일관되게 칠한다.
+// 본문 색도 sink가 레벨로 칠한다. 부르는 쪽은 색을 붙이지 않는다.
 const TEXT_COLOR: Record<LevelName, (text: string) => string> = {
-  trace: chalk.gray,
-  debug: chalk.gray,
+  trace: style("gray"),
+  debug: style("gray"),
   info: (s) => s,
-  warn: chalk.yellow,
-  error: chalk.red,
-  fatal: chalk.red.bold,
+  warn: style("yellow"),
+  error: style("red"),
+  fatal: style(["red", "bold"]),
 };
 
-// 카테고리 배지 색. 이름 해시로 고른다(대시보드 뷰어의 catColor와 같은 방식).
-// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 가르는 편이
-// 이모지로 가르는 것보다 확실하고, cmd에서 깨지지도 않는다.
-const CAT_COLORS = [chalk.magenta, chalk.blue, chalk.green, chalk.yellow, chalk.cyan, chalk.redBright, chalk.blueBright, chalk.greenBright];
+// 카테고리 배지 색. 이름 해시로 정한다(대시보드 뷰어의 catColor와 같은 방식).
+// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 구분하는 편이
+// 이모지로 구분하는 것보다 확실하고, cmd에서 깨지지도 않는다.
+const CAT_COLORS = (["magenta", "blue", "green", "yellow", "cyan", "redBright", "blueBright", "greenBright"] as const).map(style);
 function catColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -82,14 +77,27 @@ const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "c
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
   { re: /((?:access_?token|client_?secret|refresh_?token|api_?key)["'`\s:=]{1,4}["'`]?)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
+  // JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄: 참가 · 세션 설명 · 상태 바뀜). 값은 글 · 배열 · 객체(Uint8Array)
+  { re: /"(token|secret_?key)":("[^"]*"|\[[^\]]*\]|\{[^}]*\})/gi, repl: '"$1":"[REDACTED]"' },
 ];
+
+/** 지난 1시간 경고 · 오류. fatal 은 오류로 */
+type Problem = { ts: number; level: "warn" | "error"; text: string };
+const PROBLEM_WINDOW_MS = 60 * 60_000;
+const MAX_PROBLEMS = 2000;
 
 class LogManager {
   maxLines: number;
   consoleLevel: number;
   buffer: WireEntry[];
+  problems: Problem[];
+  lastId: number;
+  boot: number;
   clients: Set<SseClient>;
+  _owners: Map<SseClient, string>;
   _cleanups: WeakMap<SseClient, () => void>;
+  _heartbeat: NodeJS.Timeout | null;
+  _heartbeatMs: number;
   destinations: Destination[];
   earlyRecords: LogRecord[];
   isTTY: boolean;
@@ -97,26 +105,31 @@ class LogManager {
   terminal: (rec: LogRecord) => void;
 
   /** terminal: 터미널에 찍는 함수. 생략하면 _renderTerminal */
-  constructor({ maxLines = 500, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
+  constructor({ maxLines = KEPT_LINES, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
     this.maxLines = maxLines;
     this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
     // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
     this.consoleLevel = 0;
     this.buffer = [];
+    this.problems = [];
+    this.lastId = 0;
+    // 기동 시각. 줄 번호는 다시 시작하면 처음부터라, 이어 받을 번호가 이 실행의 것인지 구분한다
+    this.boot = Date.now();
     this.clients = new Set();
+    this._owners = new Map(); // res -> 연 사람(상한을 사람마다 센다)
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
-    this.destinations = []; // file(file.ts), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
+    this._heartbeat = null; // 연결 모두에 한 타이머로 보낸다. 첫 연결 때 건다
+    this._heartbeatMs = 0;
+    this.destinations = []; // file(file.ts) 등 레코드를 받는 함수
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
     // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
     // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
     this.earlyRecords = [];
 
-    // 터미널 사정(코드페이지·색·TTY)의 단일 홈.
+    // 터미널 사정(색·TTY)의 단일 홈.
     this.isTTY = !!process.stdout.isTTY;
     this.useColor = this.isTTY;
-    // TODO(Phase3): Windows cmd 기본 코드페이지(레거시 949/437)에서 UTF-8 깨짐 →
-    //   cmd 판별 후 `chcp 65001` 적용 + pino-pretty를 여기 렌더러 자리에 연결.
 
     if (intercept) this._intercept();
   }
@@ -137,24 +150,26 @@ class LogManager {
     }
   }
 
-  // facade와 브리지가 공통으로 부르는 입구.
+  // facade와 브리지가 공통으로 부르는 진입점.
   record(rec: LogRecord) {
     const safe = this._redact(rec);
     if (safe.level >= this.consoleLevel) this.terminal(safe);
 
     const entry = this._toWire(safe);
+    if (safe.level >= LEVELS.warn) this._keepProblem(entry);
     this.buffer.push(entry);
     if (this.buffer.length > this.maxLines) this.buffer.shift();
 
-    const payload = `data: ${JSON.stringify(entry)}\n\n`;
+    const payload = this._frameOf(entry);
     for (const res of this.clients) {
       try {
-        // write가 false면 커널 버퍼가 찼다는 뜻. 읽지 않는 소비자를 붙들고 있으면 메모리가 는다.
-        // 로그는 지나간 것을 되돌려 줄 성질이 아니므로 기다리지 않고 끊는다(다시 열면 버퍼부터 받는다).
-        if (res.write(payload) === false) {
+        // 읽지 않는 소비자를 붙들고 있으면 메모리가 는다. 쌓인 양이 상한을 넘으면 끊는다(다시 열면 마지막 번호 뒤부터 받는다)
+        if (res.writableLength > MAX_PENDING_BYTES) {
           res.end();
           this._dropClient(res);
+          continue;
         }
+        res.write(payload);
       } catch {
         this._dropClient(res);
       }
@@ -212,7 +227,7 @@ class LogManager {
   }
 
   _renderTerminal(rec: LogRecord) {
-    const name = LEVEL_NAMES[rec.level] || "info";
+    const name = levelNameOf(rec.level) || "info";
     const paint = (fn: ((text: string) => string) | undefined, text: string) => (this.useColor && fn ? fn(text) : text);
 
     const tag = paint(LEVEL_COLOR[name], name.toUpperCase().padEnd(5));
@@ -221,7 +236,7 @@ class LogManager {
     const cat = catLabel ? paint(catColor(rec.category || rec.sub || ""), ` [${catLabel}]`) : "";
     // 태그: 교차 성질(직교) 라벨 집합 → 배지 뒤 #tag
     const tagsRaw = Array.isArray(rec.tags) && rec.tags.length ? " " + rec.tags.map((t) => `#${t}`).join(" ") : "";
-    const tags = tagsRaw ? paint(chalk.gray, tagsRaw) : "";
+    const tags = tagsRaw ? paint(style("gray"), tagsRaw) : "";
 
     const raw = typeof rec.msg === "string" ? rec.msg : String(rec.msg ?? "");
     // 호출부가 이미 색을 넣었으면 덧칠하지 않는다(ANSI가 겹치면 리셋 위치가 어긋난다).
@@ -231,33 +246,32 @@ class LogManager {
   }
 
   _toWire(rec: LogRecord): WireEntry {
-    const entry: WireEntry = {
-      ts: rec.time,
-      level: WIRE_LEVEL[rec.level] || "info",
-      text: this._strip(rec.msg),
-    };
-    if (rec.category) entry.category = rec.category; // 있을 때만
-    if (rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
-    if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags; // 교차 태그
-    return entry;
+    return { id: ++this.lastId, ...wireFields(rec) };
   }
 
-  _strip(s: unknown): string {
-    return typeof s === "string" ? s.replace(ANSI_RE, "") : String(s ?? "");
+  // 경고 · 오류는 지난 1시간을 따로 둔다(봇 상태 탭). 줄 버퍼는 debug 를 켜면 몇 분 만에 넘친다
+  _keepProblem(entry: WireEntry) {
+    this.problems.push({ ts: entry.ts, level: entry.level === "warn" ? "warn" : "error", text: entry.text });
+    const since = entry.ts - PROBLEM_WINDOW_MS;
+    while (this.problems.length > MAX_PROBLEMS || (this.problems[0] && this.problems[0].ts < since)) this.problems.shift();
+  }
+
+  /** 지난 1시간의 경고 · 오류(오래된 것부터) */
+  recentProblems(now = Date.now()) {
+    return this.problems.filter((one) => now - one.ts <= PROBLEM_WINDOW_MS);
   }
 
   /**
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
-   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). "SSE 연결을 몇 개까지 두느냐"는 한 가지 질문이다.
+   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
+   * after: 화면이 마지막으로 받은 줄의 SSE id("기동시각.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 시작함)
+   * reset 을 먼저 보내고 전부. 없으면(처음 연결) 전부. 이어 받을 줄이 쌓아 둔 줄 밖으로 이미 밀려났으면 gap(받지 못한 줄 수)을 줄보다 먼저 보낸다.
    *
-   * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
+   * 상한을 넘으면 아무것도 쓰지 않고 false(답은 부른 경로가 문제 응답으로 쓴다). 느린 소비자는 record 가 정리한다(쌓인 양을 본다).
    */
-  addClient(res: SseClient) {
-    const { maxPerUser, heartbeatMs } = config.dashboard.sse;
-    if (this.clients.size >= maxPerUser) {
-      res.status(429).json({ error: "로그 연결이 너무 많습니다" });
-      return;
-    }
+  addClient(res: SseClient, userKey: string, after = "") {
+    const { maxPerUser } = config.dashboard.sse;
+    if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) return false;
 
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -267,35 +281,65 @@ class LogManager {
     });
     res.flushHeaders();
 
+    const [boot, seqText] = after.split(".");
+    const seq = Number(seqText);
+    const resuming = boot === String(this.boot) && Number.isInteger(seq);
+    if (after && !resuming) res.write("event: reset\ndata: {}\n\n");
+    // 이어 받을 첫 줄(이 실행의 seq 다음, 다시 시작했으면 1번)보다 쌓아 둔 첫 줄이 뒤면 그 사이를 못 받았다. 처음 연결은 이어 받는 것이 아니라 알리지 않는다
+    const wanted = resuming ? seq + 1 : 1;
+    const first = this.buffer[0]?.id;
+    if (after && first !== undefined && first > wanted) res.write(`event: gap\ndata: ${JSON.stringify({ missed: first - wanted } satisfies LogGap)}\n\n`);
     for (const entry of this.buffer) {
-      res.write(`data: ${JSON.stringify(entry)}\n\n`);
+      if (!resuming || entry.id > seq) res.write(this._frameOf(entry));
     }
-
-    // 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
-    const ping = setInterval(() => {
-      try {
-        res.write(": ping\n\n");
-      } catch {
-        cleanup();
-      }
-    }, heartbeatMs);
-    if (ping.unref) ping.unref();
 
     let done = false;
     const cleanup = () => {
       if (done) return;
       done = true;
-      clearInterval(ping);
       this.clients.delete(res);
+      this._owners.delete(res);
     };
 
     this.clients.add(res);
+    this._owners.set(res, userKey);
     this._cleanups.set(res, cleanup);
+    this.syncHeartbeat();
     res.on("close", cleanup);
     res.on("error", cleanup);
+    return true;
   }
 
-  /** 연결 정리. 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
+  // SSE 한 줄. id 를 실어 브라우저가 다시 붙을 때 마지막 id(Last-Event-ID)를 보내게 한다
+  _frameOf(entry: WireEntry) {
+    return `id: ${this.boot}.${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`;
+  }
+
+  /**
+   * 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
+   * 간격이 바뀌었으면 다시 건다(운영 조절값을 저장하면 조립이 부른다). 아직 연결이 없었으면 걸지 않는다
+   */
+  syncHeartbeat() {
+    const ms = config.dashboard.sse.heartbeatMs;
+    if (!this.clients.size && !this._heartbeat) return;
+    if (this._heartbeat && ms === this._heartbeatMs) return;
+    if (this._heartbeat) clearInterval(this._heartbeat);
+    this._heartbeatMs = ms;
+    this._heartbeat = setInterval(() => this._pingAll(), ms);
+    this._heartbeat.unref?.();
+  }
+
+  _pingAll() {
+    for (const res of [...this.clients]) {
+      try {
+        res.write(": ping\n\n");
+      } catch {
+        this._dropClient(res);
+      }
+    }
+  }
+
+  /** 연결 정리. 쓰기 실패 경로에서도 함께 제거한다. */
   _dropClient(res: SseClient) {
     const cleanup = this._cleanups.get(res);
     if (cleanup) cleanup();
@@ -305,6 +349,6 @@ class LogManager {
 
 const singleton = Object.assign(new LogManager(), {
   LogManager, // 테스트용 클래스(격리 인스턴스 생성)
-  _internals: { LEVELS, LEVEL_NAMES, WIRE_LEVEL, CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
+  _internals: { CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
 });
 export default singleton;

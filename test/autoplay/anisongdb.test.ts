@@ -2,7 +2,7 @@
 //
 // 지키려는 계약:
 //  · 보내는 값은 소문자. 받은 값을 되보내면 422
-//  · 안 적은 칸은 아예 뺀다. 빈 배열은 422
+//  · 입력하지 않은 필드는 아예 뺀다. 빈 배열은 422
 //  · include_no_difficulty 를 켜지 않는다. 난이도 0 은 결측이다
 //  · 삽입곡은 기본으로 꺼져 있다
 
@@ -16,16 +16,16 @@ const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────
 
-test("아무것도 안 적으면 OP/ED · standard · normal · 음원 있음", () => {
+test("아무것도 입력하지 않으면 OP/ED · standard · normal · 음원 있음", () => {
   const f = build({});
   assert.deepEqual(f.song_types, ["opening", "ending"], "삽입곡은 기본으로 끈다");
   assert.deepEqual(f.song_categories, ["standard"], "Instrumental 은 자동재생에 안 맞는다");
   assert.deepEqual(f.broadcasts, ["normal"]);
-  // require_any 는 OR. 영상만 있는 곡을 버리지 않는다(최신 분기에서 넷 중 하나꼴이다)
+  // require_any 는 OR. 영상만 있는 곡을 버리지 않는다(최신 분기에 많다)
   assert.deepEqual(f.media_links, { require_any: ["audio", "HQ"] });
 });
 
-test("안 적은 칸은 아예 없다 — 빈 배열을 보내면 422다", () => {
+test("입력하지 않은 필드는 아예 없다 — 빈 배열을 보내면 422다", () => {
   const f = build({});
   for (const key of ["anime_types", "genres", "tags", "difficulty", "season"]) {
     assert.ok(!(key in f), `${key} 는 없어야 한다`);
@@ -63,7 +63,7 @@ test("난이도는 양끝을 다 싣는다", () => {
   assert.deepEqual(build({ difficultyFrom: 40, difficultyTo: 60 }).difficulty, { start: 40, end: 60 });
 });
 
-test("한쪽만 적으면 반대쪽은 끝까지", () => {
+test("한쪽만 입력하면 반대쪽은 끝까지", () => {
   assert.deepEqual(build({ difficultyFrom: 50 }).difficulty, { start: 50, end: 100 });
   assert.deepEqual(build({ difficultyTo: 30 }).difficulty, { start: 1, end: 30 });
 });
@@ -79,16 +79,16 @@ test("100을 넘겨도 100에서 멈춘다", () => {
 
 // ── 분기 ──────────────────────────────────────────────────────────────────
 
-// AnimeThemes 는 시즌 범위 문법이 없어 우리가 걸러냈다. 저쪽은 범위를 받는다.
+// AnimeThemes 는 시즌 범위 문법이 없어 우리가 필터링했다. 저쪽은 범위를 받는다.
 test("분기는 저쪽이 범위로 받으므로 우리가 자르지 않는다", () => {
   assert.deepEqual(build({ yearFrom: 2024, seasonFrom: "Spring", yearTo: 2026, seasonTo: "Summer" }).season, { start: "Spring 2024", end: "Summer 2026" });
 });
 
-test("분기를 안 적으면 그 해 처음부터 끝까지", () => {
+test("분기를 입력하지 않으면 그 해 처음부터 끝까지", () => {
   assert.deepEqual(build({ yearFrom: 2020, yearTo: 2021 }).season, { start: "Winter 2020", end: "Fall 2021" });
 });
 
-test("분기만 적고 연도가 없으면 무시한다 — 연도 없는 분기는 뜻이 없다", () => {
+test("분기만 입력하고 연도가 없으면 무시한다 — 연도 없는 분기는 뜻이 없다", () => {
   assert.equal(build({ seasonFrom: "Summer" }).season, undefined);
 });
 
@@ -100,7 +100,7 @@ test("장르와 태그는 require_any 로 싣는다", () => {
   assert.deepEqual(f.tags, { require_any: ["Idol", "School"] });
 });
 
-// Idol·School 은 태그이고 장르가 아니다. 장르 칸에 넣으면 422 가 온다.
+// Idol·School 은 태그이고 장르가 아니다. 장르 필드에 넣으면 422 가 온다.
 // SPEC 의 enums 가 설정 시점에 잡는다.
 test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
   const { SPEC } = sources;
@@ -116,8 +116,8 @@ test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
 
 // ── 목록 캐시 ─────────────────────────────────────────────────────────────
 
-// 0칸은 난이도가 아니라 결측이다. 그대로 그리면 왼쪽 끝에 없는 봉우리가 생긴다.
-test("난이도 분포에서 0칸을 뺀다", async () => {
+// 0 구간은 난이도가 아니라 결측이다. 그대로 그리면 왼쪽 끝에 없는 봉우리가 생긴다.
+test("난이도 분포에서 0 구간을 뺀다", async () => {
   useFetch(
     fake<typeof fetch>(async () => ({
       ok: true,
@@ -144,7 +144,7 @@ test("난이도 분포에서 0칸을 뺀다", async () => {
   }
 });
 
-test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 것보다 빈 목록이 낫다", async () => {
+test("목록을 못 받아도 던지지 않는다 — 입력란이 안 그려지는 것보다 빈 목록이 낫다", async () => {
   useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 503, text: async () => "" })));
   try {
     sources._seedAnisongStats(null);
@@ -159,7 +159,7 @@ test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 �
 // 가짜 fetch. AnisongDB 와 AniList 를 부르는 순서대로 답한다.
 function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; covers?: unknown[]; anilistFails?: boolean }) {
   const calls: Array<{ url: string; body: { variables?: { ids?: unknown[] } } | null }> = [];
-  // 가짜 응답은 여기서 읽는 칸만 준다
+  // 가짜 응답은 여기서 읽는 필드만 준다
   const net = async (url: string, opts?: RequestInit) => {
     calls.push({ url: String(url), body: opts?.body ? JSON.parse(String(opts.body)) : null });
     if (String(url).includes("anilist")) {
@@ -174,7 +174,7 @@ function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; 
 
 const song = (over: Record<string, unknown> = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
 
-test("후보 모양 — 음원 주소·출처·열쇠", async () => {
+test("후보 모양 — 음원 주소·출처·키", async () => {
   const s = stub({ songs: [song()], covers: [{ id: 7, coverImage: { extraLarge: "https://cover/7.jpg" } }] });
   try {
     const [cand] = await sources.fetchFrom({ type: "anisongdb" });
@@ -215,7 +215,7 @@ test("음원이 없으면 영상 주소로 떨어진다", async () => {
   }
 });
 
-// 음원 주소가 캐시 장부의 열쇠이자 최근 재생 판정에 쓰인다. 섞이면 같은 곡이 두 칸으로 갈린다.
+// 음원 주소가 링크 데이터의 키이자 최근 재생 판정에 쓰인다. 섞이면 같은 곡이 두 행으로 나뉜다.
 test("음원 호스트가 하나로 고정된다", async () => {
   const s = stub({ songs: [song(), song({ amqSongId: 2, audio: "b.mp3" }), song({ amqSongId: 3, audio: "c.mp3" })] });
   try {
@@ -237,8 +237,8 @@ test("AniList ID 가 없으면 ANN 주소를 쓴다", async () => {
   }
 });
 
-// AniList 는 분당 30회다. 곡마다 치면 닿는다.
-test("표지는 묶어서 묻는다 — 곡마다 치지 않는다", async () => {
+// AniList 는 분당 30회다. 곡마다 물으면 한도에 닿는다.
+test("표지는 묶어서 묻는다 — 곡마다 묻지 않는다", async () => {
   const songs = Array.from({ length: 120 }, (_, i) => song({ amqSongId: i, linked_ids: { anilist: i } }));
   const s = stub({ songs });
   try {

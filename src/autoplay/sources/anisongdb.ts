@@ -2,19 +2,19 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genreSources.ts";
+import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genre-sources.ts";
 import { getJson, postJson, remembered } from "./http.ts";
-import { messageOf } from "../../rules/errorKind.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// 여기서 읽는 칸만
+// 여기서 읽는 필드만
 type RawStats = { songs_by_season?: Record<string, unknown>; songs_by_difficulty?: number[]; songs_by_genre?: Record<string, unknown>; songs_by_tag?: Record<string, unknown> };
 type Song = { songName?: string; amqSongId?: number; annSongId?: number; annId?: number; audio?: string; HQ?: string; songArtist?: string; animeENName?: string; linked_ids?: { anilist?: number | null } };
 type Covers = { data?: { Page?: { media?: Array<{ id?: number; coverImage?: { extraLarge?: string; large?: string } }> } } };
-/** 화면이 고를 값과 분포. 연도는 받았을 때만 */
+/** 화면이 선택할 값과 분포. 연도는 불러왔을 때만 */
 type AnisongStats = { genres: string[]; tags: string[]; difficulty: number[]; min?: number; max?: number };
-/** 저쪽이 받는 filters. 안 적은 칸은 아예 뺀다 */
+/** 저쪽이 받는 filters. 안 적은 필드는 아예 뺀다 */
 type Filters = {
   song_types: string[];
   song_categories: string[];
@@ -32,18 +32,18 @@ type Filters = {
 // (songDifficulty)가 있어 "유명한 곡만"을 걸 수 있다.
 const ANISONG = "https://anisongdb.com/api";
 
-const YEAR_TTL_MS = 24 * 60 * 60 * 1000;
-// 화면(운영자 자동재생 설정)이 저쪽을 기다리는 한도와, 못 받았을 때 다시 묻기까지 쉬는 시간
+const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
+// 화면(운영자 자동재생 설정)이 저쪽을 기다리는 한도와, 못 불러왔을 때 다시 묻기까지 쉬는 시간
 const CATALOG_WAIT_MS = 2000;
 const CATALOG_RETRY_MS = 10 * 60 * 1000;
 
-// 저쪽의 통계. 못 받으면 까닭을 남기고 null
+// 저쪽의 통계. 못 불러오면 까닭을 남기고 null
 async function loadAnisongStats(): Promise<AnisongStats | null> {
   try {
-    const stats = await getJson<RawStats | null>(`${ANISONG}/database_stats`);
+    const stats = await getJson<RawStats | null>("anisongdb", `${ANISONG}/database_stats`);
     const seasons = Object.keys(stats?.songs_by_season || {});
     const years = seasons.map((one) => Number(String(one).match(/\d{4}/)?.[0])).filter(Boolean);
-    // 0칸은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
+    // 0 구간은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
     // 빼므로 여기서도 뺀다. 안 빼면 슬라이더 옆 분포에 없는 봉우리가 생긴다.
     const histogram = Array.isArray(stats?.songs_by_difficulty) ? stats.songs_by_difficulty.slice(1) : [];
     return {
@@ -51,25 +51,25 @@ async function loadAnisongStats(): Promise<AnisongStats | null> {
       tags: Object.keys(stats?.songs_by_tag || {}),
       difficulty: histogram,
       // 1920~30년대에 한두 곡이 있어 슬라이더가 백 해 너비가 된다. 저쪽도 그 해를
-      // 고를 수 있게 두므로 우리도 자르지 않는다.
+      // 선택할 수 있게 두므로 우리도 자르지 않는다.
       ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
     };
   } catch (error) {
-    log.debug(`AnisongDB 목록을 받아오지 못했습니다: ${messageOf(error)}`);
+    log.debug(`AnisongDB 목록을 불러오지 못했습니다: ${messageOf(error)}`);
     return null;
   }
 }
 
 // 장르·태그 목록과 난이도 분포. 하루 한 번 묻고, 화면은 오래 기다리지 않는다(http.remembered)
-const anisongStats = remembered(loadAnisongStats, { ttlMs: YEAR_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS });
+const anisongStats = remembered(loadAnisongStats, { ttlMs: CATALOG_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS });
 
-/** 화면이 고를 값을 저쪽에 물어 채운다. 못 받았거나 늦으면 null(빈 목록으로 그린다). */
+/** 화면이 선택할 값을 저쪽에 물어 채운다. 못 불러왔거나 늦으면 null(빈 목록으로 그린다). */
 const anisongCatalog = () => anisongStats.get();
 
 /**
  * 설정 한 줄을 저쪽이 받는 filters 로.
  *
- * 안 적은 칸은 아예 빼야 한다. 빈 배열은 minItems 1 에 걸려 422.
+ * 안 적은 필드는 아예 빼야 한다. 빈 배열은 minItems 1 에 걸려 422.
  * `include_no_difficulty` 는 켜지 않는다. 난이도 0·null 은 값이 아니라 결측이다.
  */
 function anisongFilters(source: Partial<GenreSource>): Filters {
@@ -90,7 +90,7 @@ function anisongFilters(source: Partial<GenreSource>): Filters {
     song_categories: list(source.songCategories, ANISONG_CATEGORIES) || ["standard"],
     broadcasts: list(source.broadcasts, ANISONG_BROADCASTS) || ["normal"],
     // require_any 는 OR(require_all 이 AND). HQ 를 같이 받는 이유는 저쪽이 영상을 먼저 올리고
-    // 음원 추출을 나중에 해서, 최신 분기로 좁히면 영상만 있는 곡이 넷 중 하나꼴이기 때문이다.
+    // 음원 추출을 나중에 해서, 최신 분기로 좁히면 영상만 있는 곡이 많기 때문이다.
     media_links: { require_any: ["audio", "HQ"] },
   };
 
@@ -121,12 +121,12 @@ function anisongFilters(source: Partial<GenreSource>): Filters {
 }
 
 // 음원 호스트. 저쪽 미러 셋이 같은 파일을 갖고 있지만 하나로 고정해야 한다. 이 주소가
-// 캐시 장부의 열쇠이자 최근 재생 판정에 쓰여서, 섞으면 같은 곡이 두 칸으로 갈린다.
+// 오디오 캐시의 키이자 최근 재생 판정에 쓰여서, 섞으면 같은 곡이 두 행으로 나뉜다.
 // files.catbox.moe 는 미러가 아니므로 쓰지 않는다(없는 파일이 있다).
 const ANISONG_HOST = "https://nawdist.animemusicquiz.com";
 
-// AnisongDB 는 표지를 안 준다. 작품 ID 가 후보에 실려 오므로 AniList 에서 받아 온다.
-// 분당 30회 제한이 있어 곡마다 치면 닿는다. 한 번 채울 때 묶어서 두 번만 묻는다.
+// AnisongDB 는 표지를 안 준다. 작품 ID 가 후보에 실려 오므로 AniList 에서 불러온다.
+// 분당 30회 제한이 있어 곡마다 부르면 닿는다. 한 번 채울 때 묶어서 두 번만 묻는다.
 const ANILIST = "https://graphql.anilist.co";
 
 const ANILIST_BATCH = 50;
@@ -141,22 +141,22 @@ function coversIn(body: Covers | null): Array<[number, string]> {
   });
 }
 
-/** 작품 ID 배열 → 표지 주소 Map. 못 받으면 그만큼 빈다(그림 없이 튼다). */
+/** 작품 ID 배열 → 표지 주소 Map. 못 불러오면 그만큼 빈다(그림 없이 튼다). */
 async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
   const covers = new Map<number, string>();
   for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
     try {
-      const body = await postJson<Covers | null>(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
+      const body = await postJson<Covers | null>("anilist", ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
       for (const [id, url] of coversIn(body)) covers.set(id, url);
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
-      log.debug(`AniList 표지를 받아오지 못했습니다: ${messageOf(error)}`);
+      log.debug(`AniList 표지를 불러오지 못했습니다: ${messageOf(error)}`);
     }
   }
   return covers;
 }
 
-// 후보 하나. 표지를 묶어 받는 동안 작품 ID 를 잠깐 싣는다(_anilist)
+// 후보 하나. 표지를 묶어 불러오는 동안 작품 ID 를 잠깐 싣는다(_anilist)
 function candidateOf(song: Song, title: string, id: number, file: string): Candidate & { _anilist?: number | null } {
   const anilist = song.linked_ids?.anilist;
   return {
@@ -164,8 +164,8 @@ function candidateOf(song: Song, title: string, id: number, file: string): Candi
     title,
     audioUrl: `${ANISONG_HOST}/${file}`,
     // 곡마다 있는 웹페이지가 없어 작품 페이지를 쓴다.
-    // AniList가 드물게 비어 있고 annId는 늘 있으므로 이어 쓴다.
-    sourceUrl: anilist ? `https://anilist.co/anime/${anilist}` : `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}`,
+    // AniList가 드물게 비어 있으면 annId 로 이어 쓴다.
+    sourceUrl: anilist ? `https://anilist.co/anime/${anilist}` : song.annId !== undefined ? `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}` : undefined,
     platform: "anisongdb",
     sourceKey: `amq:${id}`,
     _anilist: anilist || null,
@@ -175,12 +175,12 @@ function candidateOf(song: Song, title: string, id: number, file: string): Candi
 }
 
 async function anisongdb(source: GenreSource): Promise<Candidate[]> {
-  // 500까지 받을 수 있지만 뽑는 것은 3분에 한 곡이라 100이면 풀 TTL을 버틴다.
+  // 500까지 불러올 수 있지만 선택하는 것은 3분에 한 곡이라 100이면 풀 TTL을 버틴다.
   // 조건에 맞는 곡이 n보다 적으면 그 전부가 온다.
   const n = Math.min(500, Math.max(1, Number(source.n) || 100));
-  const songs = await postJson<Song[] | null>(`${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
+  const songs = await postJson<Song[] | null>("anisongdb", `${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
 
-  // 표지를 묶어 받는 동안 작품 ID 를 곡에 잠깐 싣는다
+  // 표지를 묶어 불러오는 동안 작품 ID 를 곡에 잠깐 싣는다
   const out: Array<Candidate & { _anilist?: number | null }> = [];
   const seen = new Set<number>();
   for (const song of songs || []) {
@@ -191,7 +191,7 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
     if (id == null || seen.has(id)) continue;
 
     // 음원이 없으면 영상에서 소리를 뺀다. ffmpeg 인자는 손댈 것이 없다.
-    // `-f opus`가 오디오 전용 컨테이너라 알아서 소리만 고른다.
+    // `-f opus`가 오디오 전용 컨테이너라 알아서 소리만 선택한다.
     const file = song.audio || song.HQ;
     if (!file) continue;
 
@@ -210,5 +210,5 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
 // 테스트가 바깥으로 나가지 않게 통계를 미리 채워 둔다
 const _seedAnisongStats = (stats: AnisongStats | null) => anisongStats.seed(stats);
 
-export { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
+export { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, CATALOG_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
 export type { AnisongStats };

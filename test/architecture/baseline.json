@@ -1,9 +1,10 @@
 {
   "direction": [],
   "cycles": [],
-  "unseen": ["src/app/moduleLoader.ts"],
+  "unseen": [],
   "lazyRequire": {},
   "configCapture": {},
   "requireCache": {},
-  "methodSwap": []
+  "methodSwap": [],
+  "lateAwait": []
 }

@@ -42,7 +42,7 @@ test("모드를 섞으면 프롬프트 안에서 원소마다 적고, mode 파�
     assert.equal(calls[0].auth, "Token tok");
   }));
 
-test("모드를 안 적으면 hard. 프롬프트를 직접 적으면 그것을 쓴다", () =>
+test("모드를 입력하지 않으면 hard. 프롬프트를 직접 입력하면 그것을 쓴다", () =>
   withToken(async () => {
     const calls = serve([]);
     await lbradio(source({ tags: ["jazz"] }));
@@ -76,5 +76,5 @@ test("길이는 밀리초를 초로. 모를 때 채우는 이름은 버리고 �
 
 test("토큰이 없으면 던진다", () =>
   withConfig({ sources: { listenbrainzToken: "" } }, async () => {
-    await assert.rejects(lbradio(source({ tags: ["rock"] })), /LISTENBRAINZ_TOKEN/);
+    await assert.rejects(lbradio(source({ tags: ["rock"] })), /ListenBrainz 토큰이 없습니다/);
   }));

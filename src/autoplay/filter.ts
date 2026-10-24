@@ -1,30 +1,32 @@
-// 자동재생 후보를 걸러내는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
+// 자동재생 후보를 필터링하는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
 //
 // 따로 빼 둔 이유: 실제 재생과 실측 도구가 같은 코드를 지나야 잰 것이 뜻을 갖는다.
 // 도구가 로직을 베끼면 규칙을 고칠 때마다 어긋나고, 그러면 "무엇이 나아졌는지"를 말할 수 없다.
 //
 // 문턱은 짐작이 아니라 실제 후보 표본을 세어 정한 값이다. 근거 없이 흔들지 말 것.
 
-// 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새. 옆의 숫자는 그 표식이 있을 때
-// 실제로 한 곡이었던 비율이다(전체 평균은 82%). 낮을수록 센 표식이다.
+import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
+
+// 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새.
 const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
-  ["연도 둘 이상", (t) => (t.match(/\b(19|20)\d\d\b/g) || []).length >= 2], // 0%
-  ["쉼표 셋 이상", (t) => (t.match(/,/g) || []).length >= 3], // 7%. 아티스트를 나열한 컴필레이션
-  ["이모지 둘 이상", (t) => (t.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length >= 2], // 15%
-  ["시간 표기", (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)], // 20%
+  ["연도 둘 이상", (t) => (t.match(/\b(19|20)\d\d\b/g) || []).length >= 2],
+  ["쉼표 셋 이상", (t) => (t.match(/,/g) || []).length >= 3], // 아티스트를 나열한 컴필레이션
+  ["이모지 둘 이상", (t) => (t.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length >= 2],
+  ["시간 표기", (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)],
   ["괄호 다섯 이상", (t) => (t.match(/[[\]【】]/g) || []).length >= 5],
 ];
 
-// 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 셋 다 "한 곡"일 확률이 97~100%였다.
+// 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 셋 다 거의 늘 한 곡이다.
 // (공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다.)
-const SONG_MARKS = /official|\bm\/?v\b|\bfe?a?t\.?\b/i;
+// feat · ft 만 센다. fe?a?t 로 적으면 "fat" · "fet" 도 걸린다
+const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 
 // 낱말 경계를 쓸 수 있는 차단어인지. 로마자·숫자·공백뿐이면 쓴다.
 // 한국어·일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** 판정에 쓰는 설정. 수 칸은 글자일 수 있다 */
+/** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords 는 이 출처에 거는 차단어(키워드 출처만, autoplay/route 가 선택한다) */
 type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
 type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
 type Verdict = { ok: boolean; reason?: string; detail?: string };
@@ -42,8 +44,8 @@ function prepare(cfg: FilterConfig | null | undefined): Limits {
   }
 
   return {
-    minSec: Number(cfg?.minDurationSec ?? 0),
-    maxSec: cfg?.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec),
+    minSec: Number(cfg?.minDurationSec ?? GENRE_DEFAULTS.minDurationSec),
+    maxSec: cfg?.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec), // 비우면 상한 없음(GENRE_DEFAULTS)
     blocked,
   };
 }

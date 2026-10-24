@@ -1,9 +1,13 @@
 // 재생용 ffmpeg 인자.
 
 import { capabilities } from "./path.ts";
+import { AUDIO_FORMATS, CACHE_FORMATS, inputFilter } from "./input-filter.ts";
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.
 const SEG_MAX_RETRY = 5;
+// 주소 분기에서 읽기가 이만큼(µs) 멈추면 연결을 끊고 다시 붙는다. 기본(0)은 끝없이 기다린다.
+// 플레이어가 공급 부족을 버티는 10초(Player 의 MAX_MISSED_FRAMES)보다 먼저 결론 내게 둔다. HLS 는 세그먼트 요청에도 물려준다
+const RW_TIMEOUT_US = 6_000_000;
 
 type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; seekMs?: number; caps?: { segMaxRetry: boolean } | null };
 
@@ -11,15 +15,15 @@ type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; s
  * 재생용 ffmpeg 인자 구성. 출력 대상(`pipe:1`)까지 포함한 완전한 인자를 돌려준다.
  *
  * 입력은 셋 중 하나다.
- *  - `file`: 캐시 파일. `-ss`는 `-i` 앞(seek 가능해 빠름)
+ *  - `file`: 캐시 파일. `-ss`는 `-i` 앞(seek 가능해 빠름). Ogg 만 읽는다(입력 필터)
  *  - `url`: 받아서 흘릴 수 없는 목록(HLS · DASH). "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
  *  - 둘 다 없으면 `pipe:0`: 그 밖의 모든 스트리밍. `-ss`는 `-i` 뒤여야 한다
- *    (pipe에서 입력측 `-ss`는 출력을 잘라먹는다)
+ *    (pipe에서 입력측 `-ss`는 출력을 잘라먹는다). 음원 형식만 읽는다(입력 필터, 직접 링크는 아무 바이트나 올 수 있다)
  *
  * URL을 주는 것은 목록에 한한다. 나머지를 URL로 열면 yt-dlp가 준 httpHeaders가 빠지고,
  * 스트리밍 실패 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
  *
- * caps: ffmpeg 능력(주소 갈래만 본다). 생략하면 진짜. hls: 주소가 HLS 재생목록인가(세그먼트 재시도는 HLS 옵션이다)
+ * caps: ffmpeg 능력(주소 분기만 본다). 생략하면 진짜. hls: 주소가 HLS 재생목록인가(세그먼트 재시도는 HLS 옵션이다)
  */
 function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps = null }: ArgsOptions = {}): string[] {
   const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
@@ -29,13 +33,14 @@ function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps
     // 잔끊김은 ffmpeg 안에서 흡수시키고 우리 재시도는 진짜 실패에만 돌게 나눈다.
     // `-reconnect_at_eof`는 켜지 않는다. 라이브에서 EOF는 "방송이 끝났다"인데, 켜면
     // 오류로 보고 무한히 다시 붙는다.
-    const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1"];
+    const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1", "-rw_timeout", String(RW_TIMEOUT_US)];
     // HLS 디먹서의 옵션이고 오래된 빌드에는 없다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로 확인하고 붙인다.
     const retry = hls && (caps ?? capabilities()).segMaxRetry ? ["-seg_max_retry", String(SEG_MAX_RETRY)] : [];
-    return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", "error", ...seek, "-i", url, ...output];
+    // HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 0 으로 끝난다. 그 줄(warning)을 보려고 한 단계 낮춘다(media/playback-input 이 읽는다)
+    return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", hls ? "warning" : "error", ...seek, "-i", url, ...output];
   }
 
-  return file ? [...seek, "-i", file, "-analyzeduration", "0", "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
+  return file ? [...seek, ...inputFilter(CACHE_FORMATS, "file"), "-i", file, "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", ...inputFilter(AUDIO_FORMATS, "pipe"), "-i", "pipe:0", ...seek, ...output];
 }
 
 export { buildFfmpegArgs };

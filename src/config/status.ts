@@ -1,13 +1,12 @@
-// 봇 활동 문구 설정(status.yaml).
+// 봇 활동 문구 설정(settings.db 의 "status" 문서, config/documents).
 //
-// 틀린 파일은 쓰지 않는다. 기동 때 틀렸으면 장르처럼 문제를 전부 알리고 기동을 멈춘다(index.ts).
-// 돌던 중에 손으로 고친 파일이 틀렸으면 멈출 수 없으니(이 함수는 setInterval 안에서 불린다) 문제를 알리고
-// 직전에 맞던 설정으로 계속 돈다. 고치면 다음 회전부터 새 설정이 들어간다.
+// 틀린 문서는 쓰지 않는다. 문제를 전부 알리고 직전에 맞던 설정으로, 그것도 없으면(기동 때부터 틀림) 빈 설정(활동 문구 없음)으로 돈다.
+// 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다. 고치면 다음 회전부터 새 설정이 들어간다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import { load } from "./yamlStore.ts";
-import { codeOf, messageOf } from "../rules/errorKind.ts";
+import * as documents from "./documents.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { statusProblems, ACTIVITY_TYPES } from "./schema/status.ts";
 
 const validateStatus = statusProblems;
@@ -25,26 +24,29 @@ let reported = "";
 
 /** 검사를 통과한 설정. 틀렸으면 문제를 한 줄씩 적은 CONFIG_INVALID 로 던진다 */
 function checkedStatus(): StatusConfig {
-  const data = load("status");
+  const data = documents.get("status");
   const problems = validateStatus(data);
   if (problems.length) {
-    throw Object.assign(new Error(["config/status.yaml 을 읽을 수 없습니다:", ...problems.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(["활동 문구 설정을 읽을 수 없습니다:", ...problems.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
   }
   return data as StatusConfig;
 }
 
-/** 활동 문구 설정. 기동 때 틀렸으면 던지고, 돌던 중에 틀리면 알리고 직전에 맞던 설정을 돌려준다 */
+// 맞는 설정이 한 번도 없었을 때. 문구가 없으니 활동을 걸지 않는다
+const EMPTY: StatusConfig = { messages: [] };
+
+/** 활동 문구 설정. 틀리면 알리고 직전에 맞던 설정을, 그것도 없으면 빈 설정을 돌려준다 */
 function status(): StatusConfig {
   try {
     lastGood = checkedStatus();
     reported = "";
     return lastGood;
   } catch (error) {
-    if (codeOf(error) !== "CONFIG_INVALID" || !lastGood) throw error;
+    if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   고칠 때까지 직전에 맞던 설정으로 돕니다.`);
+    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 직전에 맞던 설정으로 돕니다." : "고칠 때까지 활동 문구를 걸지 않습니다. 운영자 패널의 상태 문구 탭에서 고치세요."}`);
     reported = message;
-    return lastGood;
+    return lastGood ?? EMPTY;
   }
 }
 

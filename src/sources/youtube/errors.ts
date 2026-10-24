@@ -1,4 +1,4 @@
-// yt-dlp 오류를 가른다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
+// yt-dlp 오류를 구분한다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
 
 // 오류에서 읽을 글. yt-dlp 오류는 stderr 에, 나머지는 message 에 담긴다
 function textOf(error: unknown): string {
@@ -33,11 +33,11 @@ function briefError(error: unknown, maxLines = 4) {
 /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별 */
 function isAgeRestrictedError(error: unknown) {
   const msg = textOf(error);
-  return /confirm your age|inappropriate for some users/i.test(msg);
+  return /confirm your age|inappropriate for some users|age.?restricted|only available to registered users/i.test(msg);
 }
 
 /**
- * 걸어 둔 쿠키를 유튜브가 받지 않았는가. yt-dlp 는 이것을 WARNING 으로만 적고 ERROR 에는 연령 확인 요구만 적는다.
+ * 붙인 쿠키를 유튜브가 받지 않았는가. yt-dlp 는 이것을 WARNING 으로만 적고 ERROR 에는 연령 확인 요구만 적는다.
  * 브라우저에서 그 계정을 계속 쓰면 세션이 갱신되며 내보낸 쿠키가 무효가 된다(만료 시각과 무관)
  */
 function isCookiesInvalidError(error: unknown) {
@@ -57,6 +57,8 @@ function isVideoUnavailableError(error: unknown) {
   if (isAgeRestrictedError(error)) return false;
 
   const msg = textOf(error);
+  // 요청 한도도 "This content isn't available, try again later" 로 온다(yt-dlp 가 "rate-limited by YouTube for up to an hour" 를 덧붙인다). 영상은 살아 있다
+  if (RATE_LIMITED.test(msg)) return false;
   return /video (?:is )?unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
 }
 
@@ -75,9 +77,14 @@ function isSkippedClientError(error: unknown) {
   return /Skipping client "[\w-]+"/i.test(msg);
 }
 
+/** 오디오 전용만 받는 시도에서 그 클라이언트가 영상이 섞인 포맷만 줬다(ytdlp-run 이 붙인다) */
+const NO_AUDIO_ONLY = "no-audio-only";
+const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
+
 /** 이 실패가 클라이언트 탓으로 보이는가 (영상·네트워크 문제와 구별) */
 function isClientFault(error: unknown) {
   const msg = textOf(error);
+  if (isNoAudioOnly(error)) return true;
   if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
   // 실행조차 안 된 것을 실패로 세면 멀쩡한 클라이언트가 제외된다. 연령 제한 영상 몇 편이면
   // 주력 경로가 세션 내내 빠지고, 그때부터 평상시 재생까지 기본값으로 떨어진다.
@@ -86,14 +93,13 @@ function isClientFault(error: unknown) {
 }
 
 /**
- * 포맷 주소를 받아 놓고 내려받다가 막힌 것인가.
+ * 포맷 주소를 받아 놓고 다운로드하다가 막힌 것인가.
  *
  * 유튜브가 발급한 미디어 주소를 그 CDN이 거절하는 일이 간헐적으로 있다. yt-dlp 자신이 같은
  * 주소로 세 번 재시도해도(retries:3) 계속 403인데, 주소를 새로 받으면 풀린다. 주소 자체가
  * 처음부터 거절당한 것이지 통신이 끊긴 게 아니다.
  *
- * 저쪽 사정이고 우리 쪽에 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS·VPN·쿠키와 무관하며,
- * 실패한 요청에 siu=1 이 붙는다는 관찰이 있다. 2026.08.19 기준 고쳐진 바 없다).
+ * 저쪽 사정이고 우리 쪽에 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS·VPN·쿠키와 무관하다).
  * 그래서 여기서는 다시 받는 것만 한다.
  */
 function isStaleMediaError(error: unknown) {
@@ -104,27 +110,47 @@ function isStaleMediaError(error: unknown) {
   return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
 }
 
+// yt-dlp 가 적는 문장으로만 구분하는 것. 우리가 고칠 수 없는 문장이라 여기서 읽는다.
+// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
+const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
+const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
+const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded|try again later/i;
+// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection · [WinError 10061] 등)
+const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
+const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
+const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
+
 /**
  * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlpSpawn)이 실패할 때 한 번 붙인다. 모르면 null.
- * 차례는 위 판별들이 서로를 빼는 차례와 같다(연령 제한 → 영상 없음 → 건너뛴 클라이언트 → 클라이언트 탓 · 주소 어긋남).
+ * 연령 제한 → 지역 차단 → 영상 없음 순서다. 요청 제한(429)은 주소 어긋남보다 앞이다
+ * (다시 받을지는 ytdlpRun 이 isStaleMediaError 로 따로 본다).
  */
 function codeOf(error: unknown) {
-  // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 넣으면 풀린다
-  if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "age-cookies-invalid";
-  if (isAgeRestrictedError(error)) return "age-restricted";
-  if (isVideoUnavailableError(error)) return "video-unavailable";
+  const msg = textOf(error);
+  // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 입력하면 풀린다
+  if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "yt-age-cookies-invalid";
+  if (isAgeRestrictedError(error)) return "yt-age-no-cookies";
+  // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다
+  if (GEO_BLOCKED.test(msg)) return "geo-blocked";
+  if (isVideoUnavailableError(error)) return "unavailable-contents";
+  if (PLAYLIST_UNAVAILABLE.test(msg)) return "unavailable-playlist";
+  if (BOT_CHECK.test(msg)) return "yt-bot-check";
+  if (RATE_LIMITED.test(msg)) return "rate-limited";
   if (isSkippedClientError(error)) return "skipped-client";
   if (isStaleMediaError(error)) return "stale-media";
   if (isClientFault(error)) return "client-fault";
+  if (NETWORK.test(msg)) return "network-error";
+  if (FFMPEG.test(msg)) return "stream-failed";
   return null;
 }
 
-function _faultReason(error: unknown) {
+function faultReason(error: unknown) {
   const msg = textOf(error);
+  if (isNoAudioOnly(error)) return "오디오 전용 포맷 없음";
   if (/PO Token/i.test(msg)) return "POToken 필요";
   if (/only images are available/i.test(msg)) return "재생 가능한 포맷 없음";
   if (/requested format is not available/i.test(msg)) return "요청한 포맷 없음";
   return "포맷 획득 실패";
 }
 
-export { briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };
+export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };

@@ -5,19 +5,20 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-/** 유튜브 검색. 결과에서 여기서 읽는 칸만 */
-type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title: string; duration?: number; isLive?: boolean; thumbnail?: string | null }> | null | undefined>;
+/** 유튜브 검색. 결과에서 여기서 읽는 필드만 */
+type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title: string | null; duration?: number; isLive?: boolean; thumbnail?: string | null }> | null | undefined>;
 
 // ── keyword ───────────────────────────────────────────────────────────────
-// 옛 길. 유튜브 검색 결과를 그대로 후보로 삼는다. 품질이 제일 낮으니 weight를 낮게 주는 편이 낫다.
+// 가장 단순한 출처. 유튜브 검색 결과를 그대로 후보로 삼는다. 품질이 제일 낮으니 weight를 낮게 주는 편이 낫다.
 // search: 유튜브 검색. 생략하면 진짜
 async function keyword(source: GenreSource, { search = (query, limit) => YouTube.search(query, limit) }: { search?: Search } = {}): Promise<Candidate[]> {
   const word = pick(source.keywords || []);
   if (!word) return [];
   const results = (await search(word, 15)) || [];
-  // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplayAssist)
+  // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplay/assist)
   // 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
-  return results.flatMap((r) => (r.audioUrl && !r.isLive ? [{ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }] : []));
+  // 제목 없는 곡은 후보로 삼지 않는다(후보의 제목으로 선택하고 겹침을 구분한다)
+  return results.flatMap((r) => (r.audioUrl && r.title && !r.isLive ? [{ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: r.id != null ? `yt:${r.id}` : r.audioUrl }] : []));
 }
 
 export { keyword };

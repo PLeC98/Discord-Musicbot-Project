@@ -1,0 +1,191 @@
+// src/player/player.ts `_planCacheSwitch` — 스트림이 죽었을 때 캐시로 무이음 전환을 예약하는 판정
+//
+// 예약하지 '않아야' 하는 경우가 핵심이다. 잘못 예약하면 엉뚱한 곡·엉뚱한 위치로 갈아타거나,
+// 이미 끝난 재생에 손을 대게 된다. 그럴 땐 아무것도 안 해야 기존 경로(Idle → play(위치))가 받는다.
+//
+// 프로토타입 호출 — 실 오디오·음성 연결 없이 판정만 검증한다(playback-loop.test.ts와 같은 방식).
+// 캐시 파일은 곡의 키 경로(임시 폴더)에 진짜로 둔다.
+
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { PassThrough } from "node:stream";
+import { EventEmitter } from "node:events";
+import { Player } from "../../src/player/player.ts";
+import * as audioCache from "../../src/store/audio-cache.ts";
+import { InputHealth } from "../../src/media/input-health.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fakePlayer as asPlayer } from "../helpers/fake.ts";
+import * as tracks from "../helpers/tracks.ts";
+
+const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
+const realDir = audioCache.cacheDir();
+audioCache._setCacheDir(DIR);
+after(() => {
+  audioCache._setCacheDir(realDir);
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
+});
+
+const planCacheSwitch = Player.prototype._planCacheSwitch;
+
+function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 5000 } = {}) {
+  const calls: Array<{ next: { destroy?(): void }; atMs: number }> = [];
+  return {
+    destroyed,
+    switchPending,
+    emittedMs,
+    slips: 0,
+    calls,
+    planSwitch(next: { destroy?(): void }, atMs: number) {
+      calls.push({ next, atMs });
+      this.switchPending = true;
+      return true;
+    },
+    once() {},
+  };
+}
+
+// 캐시 파일을 여는 디코더(ffmpeg)는 실행하지 않는다. 출력 필드만 있는 가짜
+const fakeFfmpeg = () => ({ stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true, once() {}, on() {} });
+
+function fakePlayer({ track, startOffsetMs = 0 }: { track?: QueuedTrack; startOffsetMs?: number } = {}) {
+  return asPlayer({
+    currentTrack: track,
+    playback: { startOffsetMs },
+    io: { spawnFfmpeg: fakeFfmpeg },
+    _trackLabel: Player.prototype._trackLabel,
+  });
+}
+
+const TRACK = tracks.youtube("pcspcspcs01", { title: "곡", duration: 200 });
+// 스트림을 연 재생(곡 · 시작 위치 · 입력)
+const opened = (startOffsetMs = 0, input: InputHealth | null = null) => ({ track: TRACK, startOffsetMs, input });
+const cacheFile = audioCache.getFilePath("yt:pcspcspcs01");
+
+// 이 곡의 캐시 파일을 둔다. null 이면 없앤다
+function cacheAs(content: string | Buffer | null) {
+  fs.rmSync(cacheFile, { force: true });
+  if (content != null) fs.writeFileSync(cacheFile, content);
+}
+
+// ── 예약하지 않아야 하는 경우 ────────────────────────────────
+
+test("캐시 파일이 없으면 예약하지 않는다 (기존 경로가 받는다)", () => {
+  cacheAs(null);
+  const sp = fakeSplicer();
+  planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, opened());
+  assert.equal(sp.calls.length, 0);
+});
+
+test("캐시 파일이 비어 있으면 예약하지 않는다 (다운로드 중일 수 있다)", () => {
+  cacheAs("");
+  const sp = fakeSplicer();
+  planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, opened());
+  assert.equal(sp.calls.length, 0);
+});
+
+test("트랙이 이미 바뀌었으면 예약하지 않는다 (늦게 도착한 오류)", () => {
+  cacheAs(Buffer.alloc(4096));
+  const sp = fakeSplicer();
+  const player = fakePlayer({ track: { ...TRACK, title: "다음 곡" } });
+  planCacheSwitch.call(player, sp, opened()); // 오류는 이전 곡의 것
+  assert.equal(sp.calls.length, 0, "다음 곡의 캐시로 갈아타면 안 된다");
+});
+
+test("이미 파괴됐거나 예약된 스플라이서는 건드리지 않는다", () => {
+  cacheAs(Buffer.alloc(4096));
+  const player = fakePlayer({ track: TRACK });
+
+  const dead = fakeSplicer({ destroyed: true });
+  planCacheSwitch.call(player, dead, opened());
+  assert.equal(dead.calls.length, 0, "파괴됨");
+
+  const pending = fakeSplicer({ switchPending: true });
+  planCacheSwitch.call(player, pending, opened());
+  assert.equal(pending.calls.length, 0, "이미 예약됨");
+
+  planCacheSwitch.call(player, null, opened()); // 던지지 않는다
+});
+
+// ── 예약하는 경우 ────────────────────────────────────────────
+
+test("캐시가 있으면 현재 위치보다 앞선 지점에 예약한다", () => {
+  cacheAs(Buffer.alloc(4096));
+
+  const sp = fakeSplicer({ emittedMs: 12_000 });
+  planCacheSwitch.call(fakePlayer({ track: TRACK, startOffsetMs: 30_000 }), sp, opened(30_000));
+
+  assert.equal(sp.calls.length, 1);
+  const { atMs, next } = sp.calls[0];
+  assert.ok(atMs > 12_000, `전환 지점은 현재보다 앞이어야 한다 (${atMs}ms)`);
+  assert.ok(atMs - 12_000 >= 1000, "디코더 기동을 덮을 만큼 여유가 있어야 한다");
+  assert.ok(next, "디코더 출력이 넘어갔다");
+  next.destroy?.();
+});
+
+test("예약했는지를 돌려준다 — 청크 스트림이 이어받을지 이걸로 정한다", () => {
+  cacheAs(null);
+  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK }), fakeSplicer(), opened()), false);
+
+  cacheAs(Buffer.alloc(4096));
+  const sp = fakeSplicer();
+  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, opened()), true);
+  sp.calls[0].next.destroy?.();
+});
+
+// ── 갈아탄 뒤 곡 끝 판정이 볼 입력 ────────────────────────────
+
+test("갈아타면 재생이 가리키는 입력이 캐시 디코더의 것으로 바뀌고, 버린 스트림에 늦게 오는 표시는 섞이지 않는다", () => {
+  cacheAs(Buffer.alloc(4096));
+  const switched: Array<(ms: number) => void> = [];
+  const sp = { ...fakeSplicer(), once: (_event: string, fn: (ms: number) => void) => switched.push(fn) };
+  const decoder = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true });
+  const streamSide = new InputHealth("청크");
+  const playback = opened(0, streamSide);
+  const player = asPlayer({
+    currentTrack: TRACK,
+    playback,
+    io: { spawnFfmpeg: () => decoder },
+    _trackLabel: Player.prototype._trackLabel,
+  });
+
+  assert.equal(planCacheSwitch.call(player, sp, playback), true);
+  assert.equal(player.playback?.input, streamSide, "전환 전에는 스트림 쪽을 본다");
+  switched.forEach((fn) => fn(6000));
+  const fileSide = player.playback?.input;
+  assert.notEqual(fileSide, streamSide);
+
+  streamSide.mark("입력 스트림이 덜 받고 끝남");
+  assert.equal(fileSide?.broken, null, "버린 스트림의 표시는 캐시 쪽과 무관하다");
+  decoder.emit("exit", 1, null);
+  assert.match(fileSide?.broken ?? "", /종료 코드 1/, "캐시 디코더의 종료 코드를 본다");
+  sp.calls[0].next.destroy?.();
+});
+
+// ── 같은 곡의 새 재생을 여는 동안 ────────────────────────────
+
+test("새 재생(위치 이동)을 여는 동안 옛 스트림이 끊기면 옛 재생의 위치로 갈아타고, 입력도 옛 재생에 붙인다", () => {
+  cacheAs(Buffer.alloc(4096));
+  const switched: Array<(ms: number) => void> = [];
+  const sp = { ...fakeSplicer({ emittedMs: 12_000 }), once: (_event: string, fn: (ms: number) => void) => switched.push(fn) };
+  const args: string[][] = [];
+  const decoder = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true });
+  const old = opened(0);
+  const fresh = opened(60_000); // play(60000) 이 이미 지금 재생으로 세웠다
+  const player = asPlayer({
+    currentTrack: TRACK,
+    playback: fresh,
+    io: { spawnFfmpeg: (a: string[]) => (args.push(a), decoder) },
+    _trackLabel: Player.prototype._trackLabel,
+  });
+
+  assert.equal(planCacheSwitch.call(player, sp, old), true);
+  const seekSec = Number(args[0][args[0].indexOf("-ss") + 1]);
+  assert.ok(seekSec > 12 && seekSec < 20, `옛 재생은 0초부터 12초를 내보냈다(받은 위치 ${seekSec}초, 새 재생의 60초를 더하면 안 된다)`);
+  switched.forEach((fn) => fn(14_000));
+  assert.ok(old.input, "갈아탄 입력은 옛 재생의 것");
+  assert.equal(fresh.input, null, "새 재생의 입력은 건드리지 않는다");
+  sp.calls[0].next.destroy?.();
+});

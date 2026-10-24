@@ -7,6 +7,127 @@ ai-models.json
   License: CC0-1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
 
 --------------------------------------------------------------------------------
+ai-prices.json
+
+  The price fields (input · output · cache read, USD per million tokens) of the
+  providers this bot calls, picked from the models.dev catalog by
+  src/config/ai-prices.ts.
+  Source:  https://models.dev/api.json (https://github.com/sst/models.dev)
+  License: MIT
+
+  MIT License
+
+  Copyright (c) 2025 models.dev
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+--------------------------------------------------------------------------------
+discord-icons/glyphs.json
+
+  Glyph outlines (SVG paths) of Material Symbols Rounded, pinned to FILL 1,
+  wght 700, GRAD 0, opsz 20 by scripts/build-discord-icons.ts. The bot draws
+  its Discord application emojis from these outlines.
+  Source:  @fontsource-variable/material-symbols-rounded 5.3.8
+           (https://github.com/google/material-design-icons)
+  License: SIL Open Font License 1.1 (discord-icons/LICENSE-OFL-1.1.txt)
+
+  Copyright Google Inc. (as stated in the package's LICENSE)
+
+--------------------------------------------------------------------------------
+discord-icons/skipIcon.svg
+
+  The "skip to highlight" icon of the SponsorBlock browser extension,
+  unmodified (public/icons/skipIcon.svg at commit e126b59, 2021-08-18).
+  Source:  https://github.com/ajayyy/SponsorBlock
+  License: GNU General Public License v3.0 or later
+           (discord-icons/LICENSE-GPL-3.0.txt). The file was added while the
+           project was licensed under LGPL-3.0; the project is now
+           GPL-3.0-or-later.
+
+  Copyright (C) Ajay Ramachandran and SponsorBlock contributors
+
+  Modifications: the bot and the dashboard recolor and resize this icon when
+  drawing it (Discord application emojis: fill color changed, placed on a
+  rounded tile; dashboard: fill color follows the theme). Changed 2026-10-21.
+  This project is not affiliated with or endorsed by SponsorBlock.
+
+--------------------------------------------------------------------------------
+english-finals.json
+
+  Derived from the CMU Pronouncing Dictionary by scripts/build-english-finals.ts
+  (the final sound class of words whose pronunciation differs from a spelling
+  guess).
+  Source:  cmu-pronouncing-dictionary 3.0.0 (https://github.com/words/cmu-pronouncing-dictionary),
+           crawled from cmudict (https://github.com/cmusphinx/cmudict)
+  License: BSD-2-Clause (cmudict), ISC (cmu-pronouncing-dictionary)
+
+  Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+     The contents of this file are deemed to be source code.
+
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+
+  This work was supported in part by funding from the Defense Advanced
+  Research Projects Agency, the Office of Naval Research and the National
+  Science Foundation of the United States of America, and by member
+  companies of the Carnegie Mellon Sphinx Speech Consortium. We acknowledge
+  the contributions of many volunteers to the expansion and improvement of
+  this dictionary.
+
+  THIS SOFTWARE IS PROVIDED BY CARNEGIE MELLON UNIVERSITY ``AS IS'' AND
+  ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+  PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY
+  NOR ITS EMPLOYEES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+  ISC License
+
+  Copyright (c) 2015 Zeke Sikelianos <zeke@sikelianos.com>
+
+  Permission to use, copy, modify, and/or distribute this software for any
+  purpose with or without fee is hereby granted, provided that the above
+  copyright notice and this permission notice appear in all copies.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+--------------------------------------------------------------------------------
 gemma-tokenizer.model
 
   Derived from Google's Gemma 4 tokenizer.
@@ -26,3 +147,63 @@ gemma-tokenizer.model
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
+
+--------------------------------------------------------------------------------
+kanji-finals.json
+
+  Derived from the Japanese readings (kJapaneseOn, kJapaneseKun) in the Unicode
+  Unihan database by scripts/build-kanji-finals.ts.
+  Source:  https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip
+           (Unihan_Readings.txt, Unicode 18.0.0, 2026-07-31)
+  License: Unicode License v3 (https://www.unicode.org/license.txt)
+
+  UNICODE LICENSE V3
+
+  COPYRIGHT AND PERMISSION NOTICE
+
+  Copyright © 1991-2026 Unicode, Inc.
+
+  NOTICE TO USER: Carefully read the following legal agreement. BY
+  DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+  SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+  TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+  DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of data files and any associated documentation (the "Data Files") or
+  software and any associated documentation (the "Software") to deal in the
+  Data Files or Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, and/or sell
+  copies of the Data Files or Software, and to permit persons to whom the
+  Data Files or Software are furnished to do so, provided that either (a)
+  this copyright and permission notice appear with all copies of the Data
+  Files or Software, or (b) this copyright and permission notice appear in
+  associated Documentation.
+
+  THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+  KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+  THIRD PARTY RIGHTS.
+
+  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+  BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+  OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+  WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+  ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+  FILES OR SOFTWARE.
+
+  Except as contained in this notice, the name of a copyright holder shall
+  not be used in advertising or otherwise to promote the sale, use or other
+  dealings in these Data Files or Software without prior written
+  authorization of the copyright holder.
+
+--------------------------------------------------------------------------------
+Downloaded at runtime (not in this directory): database/geoip/dbip-city-lite-YYYY-MM.mmdb
+
+  DB-IP City Lite, the IP-to-city database the dashboard uses to show the
+  approximate location of signed-in devices (src/dashboard/geoip.ts). The bot
+  downloads it; it is not redistributed in this repository.
+  Source:  https://db-ip.com/db/download/ip-to-city-lite
+  License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  Attribution: "IP Geolocation by DB-IP" (https://db-ip.com), shown under the
+  signed-in device list.

@@ -4,29 +4,28 @@
  * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정함
  *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩
  *   gemma   제미니·젬마. data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자람
- *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 측정: 무료이고 정확
+ *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자란다.
+ *           그래서 저쪽 count_tokens 로 측정: 무료이고 정확
  *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
+ * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")
  */
-import fs from "fs";
-import path from "path";
-import * as models from "../../config/schema/aiModels.ts";
+import { Worker } from "worker_threads";
+import * as models from "../../config/ai-models.ts";
+import logger from "../../infra/log/logger.ts";
+import { messageOf } from "../../rules/error-kind.ts";
+import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
+import type { Counted } from "./tokenizers.ts";
 
-// gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
-let tik: Promise<{ encode(text: string): number[] }> | null = null;
-const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer"))).encode(body).length;
+const log = logger.child({ category: "autoplay" });
 
 /** 셀 메시지. 본문은 content 나 text 에 */
 type Message = { role?: string; content?: string; text?: string };
-type Counted = { tokens: number; by: string; exact: boolean };
-
-const GEMMA_FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
 
 /**
- * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 실측으로 잡았다.
+ * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르다(응답이 센 토큰 수에 맞춘 값).
  *
- *   openai     한 메시지 3 + 요청 3. 본문 33 짜리가 prompt_tokens 39 로 왔다
- *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같았다
+ *   openai     한 메시지 3 + 요청 3
+ *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같다
  *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
  *   anthropic  세대마다 다르다. 5(4.8~5) · 10(4.7) · 6(4.5~4.6)
  */
@@ -37,105 +36,72 @@ const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
   anthropic: { perMessage: 0, perRequest: 6 },
 };
 
-// ── SentencePiece BPE ──────────────────────────────────────────────────────
-// 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.
-// 조각 → 점수. 파일이 없으면 false
-let gemma: Map<string, number> | false | null = null;
+// ── 세는 스레드 ────────────────────────────────────────────────────────────
+// 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어
+// 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 시작하고 계속 쓴다(표를 다시 읽지 않게).
 
-function varint(buf: Buffer, at: number): [number, number] {
-  let out = 0;
-  let shift = 0;
-  let byte;
-  do {
-    byte = buf[at++];
-    out += (byte & 0x7f) * 2 ** shift;
-    shift += 7;
-  } while (byte & 0x80);
-  return [out, at];
+// 맡긴 일 하나의 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 시작한다
+const COUNT_TIMEOUT_MS = 10_000;
+
+type Waiting = { resolve: (counted: Counted[]) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
+let thread: Worker | null = null;
+const waiting = new Map<number, Waiting>();
+let lastId = 0;
+
+function spawn() {
+  const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
+  one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
+    if (problem) log.warn(`젬마 토크나이저 파일을 읽지 못해 tik 로 어림합니다: ${problem}`);
+    const job = waiting.get(id);
+    if (!job) return;
+    waiting.delete(id);
+    clearTimeout(job.timer);
+    if (counted) job.resolve(counted);
+    else job.reject(new Error(error || "토큰을 세지 못했습니다"));
+  });
+  one.on("error", (error) => {
+    log.warn(`토큰 세는 스레드가 멈췄습니다(${messageOf(error)}). 다음 세기에 다시 시작합니다`);
+    stop(one, error);
+  });
+  one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));
+  one.unref(); // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
+  return one;
 }
 
-/** ModelProto 에서 조각과 점수만 */
-function readPieces(buf: Buffer) {
-  const piece: string[] = [];
-  const score: number[] = [];
-  let at = 0;
-  while (at < buf.length) {
-    let tag;
-    [tag, at] = varint(buf, at);
-    const field = tag >> 3;
-    const wire = tag & 7;
-    if (wire !== 2) {
-      if (wire === 0) [, at] = varint(buf, at);
-      else if (wire === 5) at += 4;
-      else if (wire === 1) at += 8;
-      else break;
-      continue;
-    }
-    let len;
-    [len, at] = varint(buf, at);
-    const sub = buf.subarray(at, at + len);
-    at += len;
-    if (field !== 1) continue; // pieces 만
-
-    let j = 0;
-    let text = "";
-    let value = 0;
-    while (j < sub.length) {
-      let t;
-      [t, j] = varint(sub, j);
-      const f = t >> 3;
-      const w = t & 7;
-      if (w === 2) {
-        let l;
-        [l, j] = varint(sub, j);
-        if (f === 1) text = sub.toString("utf8", j, j + l);
-        j += l;
-      } else if (w === 5) {
-        if (f === 2) value = sub.readFloatLE(j);
-        j += 4;
-      } else if (w === 0) {
-        [, j] = varint(sub, j);
-      } else break;
-    }
-    piece.push(text);
-    score.push(value);
+// 스레드를 끝내고 맡긴 일을 전부 실패로 돌린다
+function stop(one: Worker, error: Error) {
+  if (thread !== one) return;
+  thread = null;
+  for (const job of waiting.values()) {
+    clearTimeout(job.timer);
+    job.reject(error);
   }
-  return { piece, score };
+  waiting.clear();
+  void one.terminate();
 }
 
-function loadGemma(): Map<string, number> | false {
-  if (gemma !== null) return gemma;
-  try {
-    const { piece, score } = readPieces(fs.readFileSync(GEMMA_FILE));
-    const rank = new Map<string, number>();
-    for (let i = 0; i < piece.length; i++) rank.set(piece[i], score[i]);
-    gemma = rank;
-  } catch {
-    gemma = false; // 파일이 없으면 tik 로 떨어진다
-  }
-  return gemma;
+/**
+ * 글 여러 개를 각각 센다. 따로 도는 스레드에서 세므로 긴 글도 봇을 멈추지 않는다.
+ * 상한(맡긴 때부터)을 넘기면 예외. 그때 함께 기다리던 세기도 실패로 돌린다
+ */
+function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<Counted[]> {
+  const worker = (thread ??= spawn());
+  const id = ++lastId;
+  const bodies = texts.map((one) => String(one ?? ""));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const chars = bodies.reduce((sum, one) => sum + one.length, 0);
+      log.warn(`토큰 세기가 ${timeoutMs / 1000}초를 넘겨 멈춥니다(${tokenizer} · ${chars}자). 다음 세기에 다시 시작합니다`);
+      stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
+    }, timeoutMs);
+    waiting.set(id, { resolve, reject, timer });
+    worker.postMessage({ id, texts: bodies, tokenizer });
+  });
 }
 
-// 점수가 높은 짝부터 붙여 나간다. 더 붙일 것이 없으면 그것이 토큰 수.
-function countGemma(text: string, rank: Map<string, number>) {
-  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약임
-  const prepared = "▁" + String(text).replace(/ /g, "▁");
-  const parts = [...prepared];
-  for (;;) {
-    let bestAt = -1;
-    let best = -Infinity;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const joined = parts[i] + parts[i + 1];
-      const got = rank.get(joined);
-      if (got !== undefined && got > best) {
-        best = got;
-        bestAt = i;
-      }
-    }
-    if (bestAt < 0) break;
-    parts.splice(bestAt, 2, parts[bestAt] + parts[bestAt + 1]);
-  }
-  return parts.length;
+// 글 하나가 몇 토큰인지, 어느 기준으로 셌는지
+async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
+  return (await countAll([text], tokenizer))[0];
 }
 
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────
@@ -147,50 +113,40 @@ function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | u
   return found?.tokenizer || "tik";
 }
 
-// 글 하나가 몇 토큰인지, 어느 기준으로 셌는지
-async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
-  const body = String(text ?? "");
-  if (tokenizer === "gemma") {
-    const rank = loadGemma();
-    if (rank) return { tokens: body ? countGemma(body, rank) : 0, by: "gemma", exact: true };
-  }
-  // claude 는 공개 토크나이저가 없다. gemma 파일이 없을 때도 여기로 온다.
-  return { tokens: body ? await tikCount(body) : 0, by: "tik", exact: tokenizer === "tik" };
-}
-
 /**
  * 요청 하나가 몇 토큰인지. 메시지를 감싸는 몫까지 더한 값.
- * 본문만 세려면 `count` 를 쓴다(프롬프트 칸이 그렇게 쓴다).
+ * 본문만 세려면 `count` 를 쓴다(프롬프트 입력란이 그렇게 쓴다).
  */
 async function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
   const wrap = FRAMING[dialect] || FRAMING.openai;
-  let total = wrap.perRequest;
-  const each: number[] = [];
-  for (const one of messages || []) {
-    const got = await count(one?.content ?? one?.text ?? "", tokenizer);
-    each.push(got.tokens);
-    total += got.tokens + wrap.perMessage;
-  }
-  const got = await count("", tokenizer);
+  // 끝의 빈 글은 어느 기준으로 셌는지 알려고 붙인다(메시지가 없어도 알 수 있게)
+  const counted = await countAll([...(messages || []).map((one) => one?.content ?? one?.text ?? ""), ""], tokenizer);
+  const got = counted.pop() as Counted;
+  const each = counted.map((one) => one.tokens);
+  const total = each.reduce((sum, one) => sum + one + wrap.perMessage, wrap.perRequest);
   return { total, body: total - wrap.perRequest - (messages || []).length * wrap.perMessage, each, by: got.by, exact: got.exact };
 }
 
 /**
- * 앤트로픽에 직접 물어 정확히 측정. 무과금, ~150ms
+ * 앤트로픽에 직접 물어 정확히 측정. 무과금
  * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
+  // system 은 본문 맨 위 필드 하나로. 역할을 바꾸기 전에 분리해야 user 로 한 번 더 들어가지 않는다
+  const all = messages || [];
   const body: { model: string; messages: Array<{ role: string; content: string }>; system?: string } = {
     model,
-    messages: (messages || []).map((one) => ({ role: one.role === "assistant" ? "assistant" : "user", content: String(one.content ?? one.text ?? "") })).filter((one) => one.content),
+    messages: all
+      .filter((one) => one.role !== "system")
+      .map((one) => ({ role: one.role === "assistant" ? "assistant" : "user", content: String(one.content ?? one.text ?? "") }))
+      .filter((one) => one.content),
   };
-  const system = (messages || [])
+  const system = all
     .filter((one) => one.role === "system")
     .map((one) => one.content ?? one.text)
     .join(String.fromCharCode(10, 10));
   if (system) body.system = system;
-  body.messages = body.messages.filter((one) => one.role !== "system");
   if (!body.messages.length) return null;
 
   const res = await send("https://api.anthropic.com/v1/messages/count_tokens", {
@@ -199,10 +155,13 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    log.debug(`앤트로픽 토큰 세기 실패(어림으로): HTTP ${res.status}`);
+    return null;
+  }
   const json = (await res.json()) as { input_tokens?: unknown } | null;
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }
 
-export { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, readPieces as _readPieces };
+export { count, countAll, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, readPieces as _readPieces };
 export type { Message };

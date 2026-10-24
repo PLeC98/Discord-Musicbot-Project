@@ -1,40 +1,28 @@
 /**
- * ffmpeg 바이너리 설치. BtbN/FFmpeg-Builds 릴리스에서 받아 `bin/`에 둔다.
+ * ffmpeg 바이너리 설치. BtbN/FFmpeg-Builds 릴리스에서 다운로드해 `vendor/bin/`에 둔다.
  *
  * 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀐다.
- * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 지워져서 고정해 두면 404가 난다.
+ * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 삭제돼서 고정해 두면 404가 난다.
  *
- * 기본 태그는 config.ts 에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 자산 이름은 그 릴리스의
+ * 기본 태그는 src/config/vendor-versions.ts 에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 자산 이름은 그 릴리스의
  * checksums.sha256에서 찾으므로 버전 문자열을 따로 맞출 필요가 없다.
  * 태그 목록: https://github.com/BtbN/FFmpeg-Builds/releases
  *
  * macOS와 미지원 아키텍처는 BtbN이 빌드를 주지 않아 건너뛴다. PATH의 ffmpeg나 FFMPEG_PATH를 쓴다.
  */
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import fs from "fs";
 import os from "os";
 import path from "path";
 import crypto from "crypto";
 import { spawnSync } from "child_process";
-import config from "../config.ts";
+import config from "../src/config/index.ts";
+import { PROJECT } from "../src/infra/project-paths.ts";
+import { messageOf } from "../src/rules/error-kind.ts";
+import { TARGETS, RELEASES_URL, assetFor } from "../src/media/ffmpeg/release.ts";
 
-const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
-
-const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
-const ROOT = path.join(import.meta.dirname, "..");
-const BIN_DIR = path.join(ROOT, "bin");
-
-/** BtbN 빌드 하나. 자산 이름 조각 · 아카이브 확장자 · 실행 파일 이름 */
-type Target = { slug: string; ext: string; bin: string };
-/** 고른 자산 */
-type Asset = { assetName: string; sha256: string; version: string; branch: string };
-
-// BtbN이 제공하는 플랫폼만. 키는 `${process.platform}-${process.arch}`.
-const TARGETS: Record<string, Target | undefined> = {
-  "linux-x64": { slug: "linux64", ext: "tar.xz", bin: "ffmpeg" },
-  "linux-arm64": { slug: "linuxarm64", ext: "tar.xz", bin: "ffmpeg" },
-  "win32-x64": { slug: "win64", ext: "zip", bin: "ffmpeg.exe" },
-  "win32-arm64": { slug: "winarm64", ext: "zip", bin: "ffmpeg.exe" },
-};
+const ROOT = PROJECT.root;
+const BIN_DIR = PROJECT.bin;
 
 const force = process.argv.includes("--force");
 
@@ -47,43 +35,6 @@ async function download(url: string) {
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}. ${url}`);
   return Buffer.from(await res.arrayBuffer());
-}
-
-/**
- * 릴리스의 checksums.sha256에서 이 플랫폼이 쓸 자산을 고른다.
- *
- * 한 릴리스에는 ffmpeg 브랜치가 여럿 들어 있다(예: 8.1 · 9.0 · N-master). 그중
- * 릴리스 브랜치의 가장 높은 버전을 쓴다. N-master(`ffmpeg-N-126342-…`)는 이름에 브랜치가
- * 없어 제외되고, `-shared-`는 실행에 별도 라이브러리가 필요해 제외한다.
- *
- * 자산 이름을 코드에 박지 않는 이유: 이름에 커밋 해시가 들어가 릴리스마다 달라진다.
- * 태그 하나만 바꾸면 되도록 이름은 릴리스가 알려주는 것을 쓴다.
- * 이 플랫폼용 빌드가 없으면 null.
- */
-function resolveAsset(checksumsText: string, key: string): Asset | null {
-  const target = TARGETS[key];
-  return target ? assetFor(checksumsText, target, key) : null;
-}
-
-function assetFor(checksumsText: string, target: Target, key: string): Asset {
-  const pattern = new RegExp(`^ffmpeg-(n\\d[^\\s]*?)-${target.slug}-${VARIANT}-(\\d+\\.\\d+)\\.${target.ext.replace(".", "\\.")}$`);
-
-  let best: (Asset & { order: number[] }) | null = null;
-  for (const line of checksumsText.split(/\r?\n/)) {
-    const [hash, name] = line.trim().split(/\s+/);
-    if (!hash || !name) continue;
-
-    const match = pattern.exec(name);
-    if (!match) continue;
-
-    const branch = match[2].split(".").map(Number);
-    if (!best || branch[0] > best.order[0] || (branch[0] === best.order[0] && branch[1] > best.order[1])) {
-      best = { assetName: name, sha256: hash, version: match[1], branch: match[2], order: branch };
-    }
-  }
-
-  if (!best) throw new Error(`이 릴리스에 ${key}용 ${VARIANT} 빌드가 없습니다`);
-  return { assetName: best.assetName, sha256: best.sha256, version: best.version, branch: best.branch };
 }
 
 /**
@@ -128,7 +79,7 @@ function extractBinary(archiveName: string, binName: string, cwd: string) {
   throw new Error(`아카이브를 열 수 있는 tar가 없습니다 (.tar.xz는 xz-utils 필요)\n  ${errors.join("\n  ")}`);
 }
 
-// 같은 릴리스를 이미 받아 두었으면 그 판. 없거나 스탬프가 깨졌으면 null(다시 받는다)
+// 같은 릴리스를 이미 다운로드해 두었으면 그 버전. 없거나 스탬프가 깨졌으면 null(다시 다운로드한다)
 function installedVersion(binPath: string, stampPath: string, release: string): string | null {
   if (!fs.existsSync(binPath) || !fs.existsSync(stampPath)) return null;
   try {
@@ -140,9 +91,9 @@ function installedVersion(binPath: string, stampPath: string, release: string): 
 }
 
 async function main() {
-  // --force는 FFMPEG_PATH가 있어도 내려받는다. 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
+  // --force는 FFMPEG_PATH가 있어도 다운로드한다. 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
   const configured = config.ffmpeg.path;
-  if (configured && !force) skip(`.env의 FFMPEG_PATH가 설정돼 있어 내려받지 않습니다 (${configured}). 그래도 받으려면 --force`);
+  if (configured && !force) skip(`.env의 FFMPEG_PATH가 설정돼 있어 다운로드하지 않습니다 (${configured}). 그래도 다운로드하려면 --force`);
 
   const key = `${process.platform}-${process.arch}`;
   const target = TARGETS[key];
@@ -161,7 +112,7 @@ async function main() {
   const checksums = (await download(`${baseUrl}/checksums.sha256`)).toString("utf8");
   const { assetName, sha256: wantSha, version } = assetFor(checksums, target, key);
 
-  console.log(`🔄 [ffmpeg] 내려받는 중: ${assetName}`);
+  console.log(`🔄 [ffmpeg] 다운로드 중: ${assetName}`);
   const archiveBuf = await download(`${baseUrl}/${assetName}`);
 
   const gotSha = crypto.createHash("sha256").update(archiveBuf).digest("hex");
@@ -187,14 +138,10 @@ async function main() {
   console.log(`✅ [ffmpeg] ${reported[1]} → ${path.relative(ROOT, binPath)}`);
 }
 
-if (import.meta.main) {
-  main().catch((error) => {
-    // 설치 실패로 pnpm install 전체를 깨지 않는다. 기동 시 ffmpegPath가 PATH를 찾고,
-    // 그것도 없으면 거기서 분명한 메시지와 함께 멈춘다.
-    console.warn(`⚠️  [ffmpeg] 내려받기 실패: ${error.message}`);
-    console.warn("   PATH의 ffmpeg를 사용하거나, .env의 FFMPEG_PATH로 경로를 지정하세요.");
-    process.exit(0);
-  });
-}
-
-export { VARIANT, TARGETS, RELEASES_URL, resolveAsset };
+main().catch((error) => {
+  // 설치 실패로 pnpm install 전체를 깨지 않는다. 기동 시 ffmpegPath가 PATH를 찾고,
+  // 그것도 없으면 거기서 분명한 메시지와 함께 멈춘다.
+  console.warn(`⚠️  [ffmpeg] 다운로드 실패: ${messageOf(error)}`);
+  console.warn("   PATH의 ffmpeg를 사용하거나, .env의 FFMPEG_PATH로 경로를 지정하세요.");
+  process.exit(0);
+});

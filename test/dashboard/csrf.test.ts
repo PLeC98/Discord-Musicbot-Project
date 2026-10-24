@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
-import { issueCsrfToken, requireCsrfToken } from "../../dashboard/server/middleware/csrf.ts";
+import { issueCsrfToken, requireCsrfToken } from "../../src/dashboard/middleware/csrf.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 
 type Body = { csrfToken?: string; code?: string };
 
-// 응답은 보낸 상태 · 헤더 · 본문을 모은다. 본문은 시험만 읽는 칸이라 이름을 달리한다
+// 응답은 보낸 상태 · 헤더 · 본문을 모은다. 본문은 테스트만 읽는 필드라 이름을 달리한다
 function response() {
   return fakeWith<Response>()({
     statusCode: 200,
@@ -18,6 +18,10 @@ function response() {
     },
     set(name: string, value: string) {
       this.sentHeaders[name] = value;
+      return this;
+    },
+    type(value: string) {
+      this.sentHeaders["Content-Type"] = value;
       return this;
     },
     json(body: Body) {
@@ -73,7 +77,7 @@ test("rejects unsafe methods with a missing or incorrect token", () => {
     );
     assert.equal(called, false);
     assert.equal(res.statusCode, 403);
-    assert.equal(res.sentBody?.code, "INVALID_CSRF_TOKEN");
+    assert.equal(res.sentBody?.code, "bad-csrf-token");
   }
 });
 

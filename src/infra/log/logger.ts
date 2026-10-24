@@ -1,5 +1,5 @@
 // pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장·렌더·배포는 sink(LogManager)가 한다.
-// 나중에 pino를 넣으면 이 파일만 갈아끼운다.
+// 나중에 pino를 넣으면 이 파일만 교체한다.
 //
 //   logger.warn({ guildId }, "무언가 %s", x);
 //   const yt = logger.child({ category: "youtube" });
@@ -13,7 +13,8 @@
 
 import util from "util";
 import sink from "./sink.ts";
-import type { LevelName, LogRecord } from "./sink.ts";
+import type { LogRecord } from "./sink.ts";
+import { LEVELS, isLevel, levelNameOf, type LevelName } from "./levels.ts";
 
 type LogFn = (...args: unknown[]) => void;
 
@@ -24,14 +25,10 @@ export interface Logger extends Record<LevelName, LogFn> {
   child(bindings: Record<string, unknown>): Logger;
 }
 
-const LEVELS: Record<LevelName, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
-const LEVEL_NAMES: Record<number, LevelName> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-const isLevel = (v: unknown): v is LevelName => typeof v === "string" && v in LEVELS;
-
 // pino 호환 인자 → sink 레코드로 정규화.
 function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: unknown[]): LogRecord & { msg: string } {
   let merge: Record<string, unknown> | null = null;
-  let msg: string; // 아래 if/else-if/else 세 갈래가 모두 할당(exhaustive)
+  let msg: string; // 아래 if/else-if/else 세 분기가 모두 할당(exhaustive)
 
   if (args.length && args[0] instanceof Error) {
     // logger.error(err) / logger.error(err, "msg", ...)
@@ -72,7 +69,7 @@ function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelNam
 
   const api = {
     get level() {
-      return LEVEL_NAMES[effective()];
+      return levelNameOf(effective()) ?? "info";
     },
     set level(v: string) {
       if (!isLevel(v)) return;
@@ -81,7 +78,7 @@ function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelNam
       else ownLevelNum = LEVELS[v];
     },
     child(childBindings: Record<string, unknown>): Logger {
-      return createLogger({ ...bindings, ...childBindings }, ownLevelNum != null ? LEVEL_NAMES[ownLevelNum] : null, record);
+      return createLogger({ ...bindings, ...childBindings }, ownLevelNum != null ? (levelNameOf(ownLevelNum) ?? null) : null, record);
     },
   } as Logger;
 
@@ -95,5 +92,5 @@ function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelNam
   return api;
 }
 
-const root = Object.assign(createLogger(), { _internals: { LEVELS, LEVEL_NAMES, buildRecord, createLogger } });
+const root = Object.assign(createLogger(), { _internals: { LEVELS, buildRecord, createLogger } });
 export default root;

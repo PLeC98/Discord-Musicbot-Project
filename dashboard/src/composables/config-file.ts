@@ -1,0 +1,110 @@
+// 설정 파일 편집기 하나의 주고받기: 읽기 · 저장 · 되돌리기 · 저장하지 않은 편집 · 서버가 가리킨 문제.
+// 장르 · 상태 문구 · AI 설정 편집기가 같이 쓴다. 화면에 그릴 모양으로 바꾸는 것(apply)과 보낼 모양(payload)은 편집기가 정한다
+
+import { ref, computed, watch } from "vue";
+import axios from "axios";
+import { trackUnsaved } from "./unsaved.ts";
+import { problemDetails, problemText } from "../utils/problem.ts";
+import { notifyDone, notifyProblem } from "./toasts.ts";
+import type { ConfigFile, ConfigSaved } from "../../../src/dashboard/contract/admin.ts";
+import { text } from "../text/index.ts";
+
+type Data = Record<string, unknown>;
+
+type Options = {
+  /** 저장하지 않은 편집을 알릴 이름(운영자 화면의 탭) */
+  tab: string;
+  /** 설정 말고도 저장하지 않은 것이 있는지(입력해 두고 저장하지 않은 키 등) */
+  alsoUnsaved?: () => boolean;
+  /** 보낼 모양. 바뀌었는지는 마지막으로 받은 것과 견준다 */
+  payload: () => unknown;
+  /** 받은 것을 편집기에 넣는다 */
+  apply: (data: Data) => void;
+  /** 읽기. 기본은 GET /api/admin/config/<name> */
+  read: () => Promise<Data>;
+  /** 저장하고 저장된 것을 돌려받는다 */
+  write: (payload: unknown) => Promise<Data>;
+  /** 저장했다는 알림의 둘째 줄(언제부터 반영되는지) */
+  savedNote: string;
+};
+
+/**
+ * /api/admin/config/<name> 으로 읽고 쓰는 것. 읽은 저장 번호를 들고 있다가 저장할 때 돌려보낸다
+ * (그사이 다른 탭 · 다른 사람이 저장했으면 서버가 config-changed 로 거절한다)
+ */
+export const configFileIo = (name: string) => {
+  let revision = 0;
+  return {
+    read: async () => {
+      const got = (await axios.get<ConfigFile>(`/api/admin/config/${name}`)).data;
+      revision = got.revision;
+      return got.data;
+    },
+    write: async (payload: unknown) => {
+      const saved = (await axios.put<ConfigSaved>(`/api/admin/config/${name}`, { data: payload, revision })).data;
+      revision = saved.revision;
+      return saved.data;
+    },
+  };
+};
+
+export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, savedNote }: Options) {
+  const snapshot = ref("");
+  // 처음 불러오기 전에는 고친 것도 문제도 없다. 불러오기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
+  // 저장 막대 · 검사 오류 · 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사 · 빈 목록 안내를 가린다
+  const loaded = ref(false);
+  const saving = ref(false);
+  const loadError = ref("");
+  const serverProblems = ref<string[]>([]);
+
+  const dirty = computed(() => loaded.value && JSON.stringify(payload()) !== snapshot.value);
+  trackUnsaved(
+    tab,
+    computed(() => dirty.value || Boolean(alsoUnsaved?.())),
+  );
+
+  // 고치면 서버가 가리킨 문제를 제거한다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
+  watch(payload, () => {
+    if (dirty.value) serverProblems.value = [];
+  });
+
+  /** 받은 것을 넣고 이것을 기준(저장된 상태)으로 삼는다 */
+  function load(data: Data) {
+    apply(data);
+    snapshot.value = JSON.stringify(payload());
+    loaded.value = true;
+  }
+
+  async function fetch() {
+    loadError.value = "";
+    try {
+      load(await read());
+    } catch (error) {
+      loadError.value = problemText(error, text.editor.loadFailed);
+    }
+  }
+
+  /** 저장. 됐으면 true */
+  async function save(): Promise<boolean> {
+    saving.value = true;
+    serverProblems.value = [];
+    try {
+      load(await write(payload()));
+      notifyDone(text.editor.saved, savedNote);
+      return true;
+    } catch (error) {
+      // 서버가 필드마다 가리킨 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
+      const details = problemDetails(error);
+      if (details.length) serverProblems.value = details;
+      else notifyProblem(error, text.editor.saveFailedSentence);
+      return false;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  /** 마지막으로 받은 것으로 되돌린다 */
+  const revert = () => load(JSON.parse(snapshot.value) as Data);
+
+  return { loaded, dirty, saving, loadError, serverProblems, load, fetch, save, revert };
+}

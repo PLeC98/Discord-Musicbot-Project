@@ -2,41 +2,48 @@
 // 듣는 쪽은 조립(src/app/main.ts)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
-//   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · disconnected)
-//   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
+//   ended(player, reason, cause) 재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · failures · stop · leave · disconnected · joined).
+//                               cause 는 버린 까닭(dispose 의 end: forced-disconnect · inactivity-timeout · voice-lost 등). 없으면 패널 모양이 곧 까닭
+//   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡 · 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
-//   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
+//   disposed(player, reason)    플레이어를 버렸다(reason: 버린 까닭). 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
+//   notice(player, code, detail)     텍스트 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/player-notices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 //   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 끝난 패널의 문구를 고친다
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import { messageOf } from "../rules/errorKind.ts";
-import type { MusicPlayer } from "./Player.ts";
+import { messageOf } from "../rules/error-kind.ts";
+import type { Player } from "./player.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };
-/** 글자 채널에 알릴 일과 그 세부 */
+/** 텍스트 채널에 알릴 일과 그 세부 */
 type Notices = {
   "autoplay-unknown-genre": { genre: string };
+  "autoplay-genre-unusable": { genre: string; keys: string };
   "autoplay-gave-up": { genre: string };
   "skipped-after-error": { error: unknown };
-  restored: { title: string; atSec: number; paused: boolean };
+  "failed-in-row": { count: number; left: number };
+  "stage-requested": Record<string, never>;
+  "stage-cannot-speak": Record<string, never>;
+  restored: { title: string | null; atSec: number; paused: boolean };
 };
 type NoticeCode = keyof Notices;
 /** 알림마다 넘기는 것 */
 type EventArgs = {
-  refresh: [player: MusicPlayer];
-  ended: [player: MusicPlayer, reason: string];
-  started: [player: MusicPlayer, requester: Requester];
-  released: [player: MusicPlayer, textChannelId: string];
-  notice: [player: MusicPlayer, code: NoticeCode, detail: Notices[NoticeCode]];
+  refresh: [player: Player];
+  ended: [player: Player, reason: string, cause?: string];
+  started: [player: Player];
+  released: [player: Player, textChannelId: string];
+  disposed: [player: Player, reason: string];
+  notice: [player: Player, code: NoticeCode, detail: Notices[NoticeCode]];
   touched: [guildId: string];
-  leaving: [player: MusicPlayer, leavesAt: number | null];
+  leaving: [player: Player, leavesAt: number | null];
 };
 type Listener<K extends keyof EventArgs> = (...args: EventArgs[K]) => unknown;
 
-const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), notice: new Set(), touched: new Set(), leaving: new Set() };
+const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), disposed: new Set(), notice: new Set(), touched: new Set(), leaving: new Set() };
 
 /** 듣는 쪽을 건다. 떼는 함수를 돌려준다 */
 function on<K extends keyof EventArgs>(name: K, fn: Listener<K>) {
@@ -51,14 +58,25 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
   await Promise.all([...set].map((fn) => fn(...args)));
 }
 
-const refresh = (player: MusicPlayer) => emit("refresh", player);
-const ended = (player: MusicPlayer, reason: string) => emit("ended", player, reason);
-const started = (player: MusicPlayer, requester: Requester) => emit("started", player, requester);
-const leaving = (player: MusicPlayer, leavesAt: number | null) => emit("leaving", player, leavesAt);
-const notice = <C extends NoticeCode>(player: MusicPlayer, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
+const refresh = (player: Player) => emit("refresh", player);
+const ended = (player: Player, reason: string, cause?: string) => emit("ended", player, reason, cause);
+const started = (player: Player) => emit("started", player);
+const leaving = (player: Player, leavesAt: number | null) => emit("leaving", player, leavesAt);
+const notice = <C extends NoticeCode>(player: Player, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
 
-function released(player: MusicPlayer, textChannelId: string) {
+function released(player: Player, textChannelId: string) {
   for (const fn of listeners.released) fn(player, textChannelId);
+}
+
+// 버리는 도중에 부른다. 듣는 쪽의 실패가 정리를 끊지 않게 한다
+function disposed(player: Player, reason: string) {
+  for (const fn of listeners.disposed) {
+    try {
+      fn(player, reason);
+    } catch (error) {
+      log.warn(`버림 알림 실패: ${messageOf(error)}`);
+    }
+  }
 }
 
 // 대시보드 알림은 기다리지 않고, 실패해도 알린 쪽을 멈추지 않는다
@@ -76,6 +94,6 @@ function _reset() {
   for (const set of Object.values(listeners)) set.clear();
 }
 
-export { on, refresh, ended, started, notice, leaving, released, touched, _reset };
+export { on, refresh, ended, started, notice, leaving, released, disposed, touched, _reset };
 export type { Notices, NoticeCode };
 export type { EventArgs, Requester };

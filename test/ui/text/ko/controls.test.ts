@@ -1,0 +1,86 @@
+// src/ui/text/ko/controls.ts — 조작 응답 문장을 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import * as controls from "../../../../src/ui/text/ko/controls.ts";
+
+test("모든 문장", () => {
+  assert.deepEqual(
+    [
+      controls.requestedBy(),
+      controls.paused(true, { title: "곡", pageUrl: "https://example.com/v" }),
+      controls.paused(false, { title: "곡", pageUrl: "https://example.com/v" }),
+      controls.paused(true, { title: "Love", pageUrl: "u" }),
+      controls.paused(true, { title: "ドラえもん", pageUrl: "u" }),
+      controls.restartedOnRepeat(),
+      controls.skipped({ title: "곡", pageUrl: "https://example.com/v" }),
+      controls.previous({ title: "곡", pageUrl: "https://example.com/v" }),
+      controls.jumped({ title: "곡", pageUrl: "https://example.com/v" }),
+      controls.stopped(3),
+      controls.stopped(0),
+      controls.shuffled(4),
+      controls.highlighting(),
+      controls.highlighted("1:23"),
+      controls.replaying(),
+      controls.replayed({ title: "곡", pageUrl: "https://example.com/v" }),
+      controls.seeking(),
+      controls.seeked("1:30"),
+      controls.cleared(5),
+      controls.removed(2),
+      controls.moved({ title: "곡", pageUrl: "https://example.com/v" }, 2, 7),
+      controls.loopSet("track"),
+      controls.loopSet("queue"),
+      controls.loopSet(false),
+      controls.volumeSet(30, 60),
+      controls.volumeSet(60, 60),
+      controls.volumeModal(),
+      controls.left({ track: { title: "곡", pageUrl: "https://example.com/v" }, at: "1:15", queue: 2 }),
+      controls.left(null),
+      controls.joined(),
+      controls.alreadyJoined(),
+      controls.restored({ title: "곡", pageUrl: "https://example.com/v" }, true),
+      controls.restored({ title: "곡", pageUrl: "https://example.com/v" }, false),
+      controls.restoring(),
+    ],
+    [
+      "👤 요청한 사람",
+      { icon: "pause", title: "일시정지했어요!", body: "**[곡](https://example.com/v)**을 일시정지했어요." },
+      { icon: "play", title: "일시정지를 해제했어요!", body: "**[곡](https://example.com/v)**을 다시 재생할게요." },
+      { icon: "pause", title: "일시정지했어요!", body: "**[Love](u)**를 일시정지했어요." },
+      { icon: "pause", title: "일시정지했어요!", body: "**[ドラえもん](u)**을 일시정지했어요." },
+      { icon: "repeat_one", title: "곡을 되감았어요!", body: "한 곡 반복 중이라 지금 곡을 처음부터 다시 틀어요." },
+      { icon: "next", title: "곡을 건너뛰었어요!", body: "**[곡](https://example.com/v)**을 건너뛰었어요." },
+      { icon: "prev", title: "이전 곡으로 되돌렸어요!", body: "**[곡](https://example.com/v)**을 다시 재생할게요." },
+      { icon: "next", title: "선택한 곡으로 건너뛰었어요!", body: "**[곡](https://example.com/v)**을 재생할게요." },
+      { icon: "stopped", title: "재생을 중지했어요!", body: "대기열에 남아 있던 3곡을 삭제하고 채널에서 나갔어요." },
+      { icon: "stopped", title: "재생을 중지했어요!", body: "채널에서 나갔어요." },
+      { icon: "shuffle", title: "대기열을 셔플했어요!", body: "4곡을 섞었어요." },
+      "🔄 하이라이트로 건너뛰는 중...",
+      { icon: "highlight_jump", title: "하이라이트로 건너뛰었어요!", body: "⏱️ 위치: `1:23`" },
+      "🔄 처음부터 다시 트는 중...",
+      { icon: "replay", title: "곡을 되감았어요!", body: "**[곡](https://example.com/v)**을 처음부터 재생할게요." },
+      "🔄 위치를 옮기는 중...",
+      { icon: "seek", title: "위치를 옮겼어요!", body: "⏱️ 옮긴 위치: `1:30`" },
+      { icon: "cleared", title: "대기열을 비웠어요!", body: "대기열에 있던 5곡을 삭제했어요." },
+      { icon: "cleared", title: "선택한 곡을 삭제했어요!", body: "대기열에 2곡이 남았어요." },
+      { icon: "shuffle", title: "곡의 순서를 바꿨어요", body: "**[곡](https://example.com/v)**\n📍 기존 순번: 2번째\n📍 현재 순번: 7번째", by: "👤 변경한 사람" },
+      { icon: "repeat_one", title: "반복 모드를 바꿨어요!", body: "**한 곡 반복** 모드로 설정했어요. 현재 곡을 계속해서 재생해요." },
+      { icon: "repeat", title: "반복 모드를 바꿨어요!", body: "**대기열 반복** 모드로 설정했어요. 대기열이 끝나면 처음부터 다시 틀어요." },
+      { icon: "repeat_off", title: "반복 모드를 바꿨어요!", body: "반복 모드를 **해제**했어요." },
+      { icon: "volume", title: "볼륨을 조절했어요!", body: "**30%** → **60%**" },
+      { icon: "volume", title: "볼륨을 조절했어요!", body: "볼륨이 이미 60%라서 그대로 둘게요." },
+      { title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" },
+      { title: "👋 음성 채널에서 나갔어요", body: "재생 중이던 곡: **[곡](https://example.com/v)**\n⏱️ 저장한 위치 `1:15` · 📋 저장한 대기열 2곡\n`/join`으로 이어 들을 수 있어요." },
+      { title: "👋 음성 채널에서 나갔어요", body: null },
+      { icon: "done", title: "음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." },
+      { icon: "done", title: "이미 음성 채널에 있어요.", body: "저는 준비됐어요. 언제든지 곡을 넣어 주세요." },
+      { icon: "pause", title: "듣던 곡이 있어요!", body: "이전에 **[곡](https://example.com/v)**을 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!" },
+      { icon: "play", title: "듣던 곡이 있어요!", body: "이전에 **[곡](https://example.com/v)**을 듣고 있었어요. 이어서 재생할게요!" },
+      "🔄 듣던 곡을 불러오는 중...",
+    ],
+  );
+});
+
+test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자를 보고 선택한다", () => {
+  assert.deepEqual(controls.paused(true, { title: null, pageUrl: "https://example.com/v" }), { icon: "pause", title: "일시정지했어요!", body: "**[알 수 없는 곡](https://example.com/v)**을 일시정지했어요." });
+});

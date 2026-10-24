@@ -1,13 +1,14 @@
 // logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import type { LogRecord } from "../../src/infra/log/sink.ts";
 
 import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
-import config from "../../config.ts";
+import config from "../../src/config/index.ts";
+import { KEPT_LINES } from "../../src/infra/log/levels.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;
 // 터미널 소음 억제
@@ -98,12 +99,29 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
   assert.doesNotMatch(String(got[0].msg), /abcDEF123456/);
 });
 
+test("레드액션: msg 에 JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  // op 0 참가: 토큰 글. op 4 세션 설명: 암호 키 배열. 상태 바뀜: 연결 정보의 토큰과 Uint8Array 로 든 키(객체로 직렬화된다)
+  const identify = `[WS] >> ${JSON.stringify({ op: 0, d: { server_id: "1", session_id: "abc", token: "voice-token-1234" } })}`;
+  const description = `[WS] << ${JSON.stringify({ op: 4, d: { mode: "aead_aes256_gcm_rtpsize", secret_key: [11, 22, 33] } })}`;
+  const state = `state change:\nfrom ${JSON.stringify({ code: 4, connectionOptions: { token: "voice-token-1234" }, connectionData: { secretKey: new Uint8Array([11, 22, 33]) } })}`;
+  for (const msg of [identify, description, state, '[WS] << {"op":2,"d":{"ssrc":1}}']) lm.record({ level: 10, time: Date.now(), msg });
+  const [a, b, c, plain] = got.map((r) => String(r.msg));
+  for (const hidden of [a, b, c]) assert.doesNotMatch(hidden, /voice-token-1234|11,22,33|"0":11/, hidden);
+  assert.match(a, /"token":"\[REDACTED\]"/);
+  assert.match(b, /"secret_key":"\[REDACTED\]"/);
+  assert.match(c, /"secretKey":"\[REDACTED\]"/);
+  assert.equal(plain, '[WS] << {"op":2,"d":{"ssrc":1}}', "비밀이 없는 줄은 그대로");
+});
+
 // ── sink: 와이어 투영 / 버퍼 ────────────────────────────────
-test("와이어 투영: {ts,level,text} + ANSI 스트립", () => {
+test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   lm.record({ level: 40, time: 123, msg: "\x1B[33m노랑\x1B[39m" });
   const entry = lm.buffer[0];
-  assert.deepEqual(entry, { ts: 123, level: "warn", text: "노랑" });
+  assert.deepEqual(entry, { id: 1, ts: 123, level: "warn", text: "노랑" });
 });
 
 // 브리지에 걸리는 console.log은 전부 서드파티다 — info로 올리면 우리 로그가 묻힌다.
@@ -114,8 +132,8 @@ test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 �
   assert.equal(lm.buffer[0].level, "debug");
 });
 
-// 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로 접어서 보냈다. 그러면 debug와 trace가,
-// fatal과 error가 합쳐져 대시보드가 영영 못 가른다 — 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
+// 대시보드가 아는 네 가지(log/info/warn/error)로 접어 보내면 debug와 trace가,
+// fatal과 error가 합쳐져 대시보드가 구분하지 못한다. 레벨 이름을 그대로 보낸다.
 test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다)", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   for (const [i, lv] of [10, 20, 30, 40, 50, 60].entries()) lm.record({ level: lv, time: i, msg: "m" });
@@ -147,11 +165,12 @@ test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
   );
 });
 
-// 관리자 로그 스트림에는 연결 상한도 느린 소비자 처리도 없었다(감사 L-04).
+// 관리자 로그 스트림도 연결 상한 · 느린 소비자 처리를 둔다.
 // 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다.
-function fakeRes({ writeResult = true } = {}) {
+function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   const res = {
     writes: [] as string[],
+    writableLength,
     ended: false,
     statusCode: null as number | null,
     body: null as unknown,
@@ -180,36 +199,112 @@ function fakeRes({ writeResult = true } = {}) {
   return res;
 }
 
-test("관리자 SSE: 연결 상한을 넘으면 429 — 무한정 받지 않는다", () => {
+test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429 — 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 
-  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes());
+  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner");
   assert.equal(lm.clients.size, maxPerUser);
 
   const over = fakeRes();
-  lm.addClient(over);
-  assert.equal(over.statusCode, 429);
+  assert.equal(lm.addClient(over, "owner"), false);
+  assert.equal(over.statusCode, null, "답은 부른 경로가 문제 응답(too-many-streams)으로 쓴다");
   assert.equal(lm.clients.size, maxPerUser, "상한을 넘는 연결은 등록하지 않는다");
+
+  const other = fakeRes();
+  assert.equal(lm.addClient(other, "someone-else"), true, "다른 사용자는 따로 센다");
+  assert.equal(lm.clients.size, maxPerUser + 1);
 });
 
-test("관리자 SSE: 읽지 않는 소비자는 끊는다 — 버퍼가 쌓이게 두지 않는다", () => {
+test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 양이 상한을 넘는(읽지 않는) 소비자만 끊는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
 
-  const slow = fakeRes({ writeResult: false }); // write가 false = 커널 버퍼가 참
-  lm.addClient(slow);
+  // 붙을 때 쌓인 줄을 한꺼번에 보내면 write 가 false 를 돌려준다. 그것만으로 끊으면 붙는 순간 로그가 나면 끊긴다
+  const busy = fakeRes({ writeResult: false, writableLength: 100_000 });
+  lm.addClient(busy, "owner");
+  lm.record({ level: 30, time: 1, msg: "한 줄" });
+  assert.equal(busy.ended, false);
   assert.equal(lm.clients.size, 1);
 
-  lm.record({ level: 30, time: 1, msg: "한 줄" });
-  assert.equal(slow.ended, true);
-  assert.equal(lm.clients.size, 0, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
+  const stuck = fakeRes({ writeResult: false, writableLength: 2 * 1024 * 1024 });
+  lm.addClient(stuck, "owner");
+  lm.record({ level: 30, time: 2, msg: "한 줄" });
+  assert.equal(stuck.ended, true);
+  assert.equal(lm.clients.size, 1, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
 });
 
-test("관리자 SSE: 연결이 닫히면 하트비트도 함께 걷는다", () => {
+test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 둔 줄 전부를 보내는 중 한 줄, 진짜 HTTP)", async () => {
+  const http = await import("node:http");
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  for (let i = 0; i < KEPT_LINES; i++) lm.record({ level: 30, time: i, msg: `줄 ${i} ` + "x".repeat(120) });
+  const server = http.createServer((_req, res) => lm.addClient(res, "owner"));
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  const { port } = server.address() as { port: number };
+  let ended = false;
+  let received = "";
+  const req = http.get({ host: "127.0.0.1", port, path: "/" }, (res) => {
+    res.setEncoding("utf8");
+    res.on("data", (chunk: string) => (received += chunk));
+    res.on("end", () => (ended = true));
+  });
+  await new Promise((done) => setTimeout(done, 10));
+  lm.record({ level: 30, time: 9999, msg: "붙는 순간의 새 줄" });
+  await new Promise((done) => setTimeout(done, 300));
+  req.destroy();
+  server.close();
+  assert.equal(ended, false, "서버가 끊지 않았다");
+  assert.match(received, /붙는 순간의 새 줄/);
+});
+
+test("관리자 SSE: 줄마다 기동표.번호를 싣고, 다시 붙으면 마지막 번호 뒤만 보낸다. 다른 실행의 번호면(봇을 다시 시작) reset 뒤 전부", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  for (let i = 1; i <= 3; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
+  const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
+
+  const first = fakeRes();
+  lm.addClient(first, "owner");
+  assert.deepEqual(ids(first), [1, 2, 3]);
+
+  const resumed = fakeRes();
+  lm.addClient(resumed, "owner", `${lm.boot}.2`);
+  assert.deepEqual(ids(resumed), [3], "이미 받은 줄은 다시 보내지 않는다");
+
+  const restarted = fakeRes();
+  lm.addClient(restarted, "owner", `${lm.boot - 1}.2`);
+  assert.match(restarted.writes[0], /^event: reset\n/);
+  assert.deepEqual(ids(restarted), [1, 2, 3]);
+});
+
+test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으면 받지 못한 줄 수(gap)를 줄보다 먼저 보낸다. 처음 연결은 알리지 않는다", () => {
+  const lm = new LogManager({ maxLines: 3, intercept: false, terminal: quiet });
+  for (let i = 1; i <= 10; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
+  const gapOf = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^event: gap\ndata: (.+)$/gm)].map((m) => JSON.parse(m[1]) as { missed: number }));
+  const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
+
+  const resumed = fakeRes();
+  lm.addClient(resumed, "owner", `${lm.boot}.4`);
+  assert.deepEqual(gapOf(resumed), [{ missed: 3 }], "5 · 6 · 7 번이 밀려났다");
+  assert.ok(resumed.writes.findIndex((w) => w.startsWith("event: gap")) < resumed.writes.findIndex((w) => w.startsWith("id:")), "줄보다 먼저");
+  assert.deepEqual(ids(resumed), [8, 9, 10]);
+
+  const caughtUp = fakeRes();
+  lm.addClient(caughtUp, "owner", `${lm.boot}.7`);
+  assert.deepEqual(gapOf(caughtUp), [], "바로 다음 줄부터 남아 있으면 빠진 것이 없다");
+
+  const restarted = fakeRes();
+  lm.addClient(restarted, "owner", `${lm.boot - 1}.99`);
+  assert.deepEqual(gapOf(restarted), [{ missed: 7 }], "다시 시작했으면 이 실행의 1번부터 센다");
+
+  const fresh = fakeRes();
+  lm.addClient(fresh, "owner");
+  assert.deepEqual(gapOf(fresh), [], "처음 연결");
+});
+
+test("관리자 SSE: 연결이 닫히면 하트비트도 함께 제거한다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
 
   const res = fakeRes();
-  lm.addClient(res);
+  lm.addClient(res, "owner");
   assert.equal(typeof res.handlers.close, "function");
   assert.equal(typeof res.handlers.error, "function");
 
@@ -224,7 +319,49 @@ test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송
   lm.clients.add(res);
   lm.record({ level: 50, time: 7, msg: "err" });
   assert.equal(res.writes.length, 1);
-  assert.match(res.writes[0], /^data: /);
-  const parsed = JSON.parse(res.writes[0].slice(6));
-  assert.deepEqual(parsed, { ts: 7, level: "error", text: "err" });
+  assert.equal(res.writes[0].split("\n")[0], `id: ${lm.boot}.1`);
+  const parsed = JSON.parse(res.writes[0].split("data: ")[1]);
+  assert.deepEqual(parsed, { id: 1, ts: 7, level: "error", text: "err" });
+});
+
+test("지난 1시간 경고 · 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
+  const m = new LogManager({ intercept: false, maxLines: 2, terminal: () => {} });
+  const at = Date.now();
+  m.record({ level: 40, time: at - 2 * 60 * 60_000, msg: "두 시간 전" });
+  m.record({ level: 40, time: at - 1000, msg: "경고" });
+  m.record({ level: 60, time: at - 500, msg: "치명" });
+  for (let i = 0; i < 5; i++) m.record({ level: 30, time: at, msg: `info ${i}` });
+  assert.equal(m.buffer.length, 2, "줄 버퍼는 넘쳤다");
+  assert.deepEqual(
+    m.recentProblems(at).map((one) => [one.level, one.text]),
+    [
+      ["warn", "경고"],
+      ["error", "치명"],
+    ],
+  );
+});
+
+// 하트비트는 연결 모두에 타이머 하나. 간격을 바꿔 저장하면 조립이 syncHeartbeat 를 불러 다시 건다
+test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  const sse = config.dashboard.sse;
+  const before = sse.heartbeatMs;
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  try {
+    sse.heartbeatMs = 20_000;
+    const res = fakeRes();
+    lm.addClient(res, "owner");
+    const pings = () => res.writes.filter((w) => w.startsWith(": ping")).length;
+    mock.timers.tick(20_000);
+    assert.equal(pings(), 1);
+
+    sse.heartbeatMs = 5_000;
+    lm.syncHeartbeat();
+    mock.timers.tick(5_000);
+    assert.equal(pings(), 2, "새 간격");
+  } finally {
+    sse.heartbeatMs = before;
+    if (lm._heartbeat) clearInterval(lm._heartbeat);
+    mock.timers.reset();
+  }
 });

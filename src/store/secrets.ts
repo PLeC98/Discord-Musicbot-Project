@@ -1,0 +1,174 @@
+// 비밀값(외부 서비스 키 · AI 키 · 서비스 계정 · 쿠키). settings.db 의 secrets 표에 값마다 암호화해 둔다.
+//
+// - 암호: SECRETS_KEY(.env, base64 32바이트)에서 HKDF 로 용도별 키를 끌어내 AES-256-GCM. 행마다 키 지문(key_id)을 적어 다른 키로 잠근 행을 가려낸다.
+// - 묶기: 키는 저장할 때의 제공자 · 주소(origin)에 묶인다. 인증 데이터(AAD)에 이름 · 제공자 · 주소 · 형식 버전을 넣고, 풀 때는 부르는 쪽이 기대하는 값으로 만든다.
+//   그래서 DB 에 쓸 수 있는 사람이 암호문을 다른 행으로 옮기거나 묶인 주소 열만 바꾸면 풀리지 않는다.
+// - 값은 응답 · 로그 · 대시보드 내보내기로 나가지 않는다(설정 스냅샷 · 명령 전체 백업에는 DB 째 암호문으로). 화면에는 status() 의 저장 여부 · 바꾼 때 · 끝 네 글자만(풀지 않고 적어 둔 것).
+// - 다른 표의 한 열에 두는 값(로그인 세션의 디스코드 토큰)도 같은 키에서 끌어낸 용도별 키로 잠근다(sealBlob · openBlob).
+
+import crypto from "crypto";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "config" });
+import config from "../config/index.ts";
+import { codedError } from "../rules/error-kind.ts";
+import { settingsDb } from "./settings-db.ts";
+
+// 암호문 모양. 바꾸면 올리고 읽는 쪽이 옛 형식을 다시 입력하라고 한다
+const FORMAT = 1;
+// 값 하나의 상한. 쿠키 파일도 넉넉히 들어간다
+const MAX_BYTES = 1024 * 1024;
+// 이보다 짧은 값은 끝 네 글자를 적지 않는다(반 넘게 드러난다)
+const LAST4_MIN_LENGTH = 12;
+
+/** 키를 묶는 곳. 둘 다 없으면 묶지 않은 키(주소가 고정된 서비스) */
+type Binding = { provider?: string | null; endpoint?: string | null };
+/**
+ * 꺼낸 결과. none: 없음, moved: 묶인 곳(제공자 · 주소)이 지금과 다르다(키를 붙이지 않는다),
+ * other-key: 다른 SECRETS_KEY 로 잠갔다, old-format: 예전 형식으로 잠갔다, broken: 풀리지 않는다(열을 바꿨거나 망가졌다). 모두 "다시 입력하세요"
+ */
+type Read = { state: "ok"; value: string } | { state: "none" | "moved" | "other-key" | "old-format" | "broken" };
+/** 화면에 보이는 것. 값은 없다 */
+type Status = { saved: boolean; updatedAt: number | null; last4: string | null; sameKey: boolean; provider: string | null; endpoint: string | null };
+
+type Row = { name: string; format: number; key_id: string; provider: string; endpoint: string; iv: Buffer; tag: Buffer; ciphertext: Buffer; last4: string; updated_at: number };
+
+// 키에서 끌어낸 것. 같은 키면 다시 계산하지 않는다. 암호 키는 용도마다 따로다(비밀값 · 로그인 세션의 디스코드 토큰)
+let derived: { raw: string; ikm: Buffer; id: string; enc: Map<string, Buffer> } | null = null;
+// 테스트 시임. 정하면 config 대신 이 키를 쓴다
+let keyOverride: string | null = null;
+
+const expand = (ikm: Buffer, info: string, bytes: number) => Buffer.from(crypto.hkdfSync("sha256", ikm, Buffer.alloc(0), info, bytes));
+
+function keys(purpose = "secrets") {
+  const raw = keyOverride ?? config.secrets.key;
+  if (!raw) throw codedError("SECRETS_KEY_MISSING", "SECRETS_KEY 가 없어 비밀값을 다룰 수 없습니다");
+  if (derived?.raw !== raw) {
+    const ikm = Buffer.from(raw, "base64");
+    derived = { raw, ikm, id: expand(ikm, "musicbot secrets v1 key-id", 8).toString("hex"), enc: new Map() };
+  }
+  let enc = derived.enc.get(purpose);
+  if (!enc) {
+    enc = expand(derived.ikm, `musicbot ${purpose} v1 encrypt`, 32);
+    derived.enc.set(purpose, enc);
+  }
+  return { enc, id: derived.id };
+}
+
+// 주소는 origin 으로 묶는다(같은 호스트 안의 경로는 같은 곳이다). 주소 모양이 아니면 다듬은 문자열 그대로
+function originOf(endpoint: string | null | undefined) {
+  const text = (endpoint ?? "").trim();
+  if (!text) return "";
+  try {
+    return new URL(text).origin.toLowerCase();
+  } catch {
+    return text.toLowerCase();
+  }
+}
+
+function aadOf(name: string, provider: string, endpoint: string) {
+  return Buffer.from(JSON.stringify([FORMAT, name, provider, endpoint]), "utf8");
+}
+
+const conn = () => settingsDb.get();
+
+/** 저장(덮어쓰기). 값은 1바이트 이상 1MB 이하 */
+function put(name: string, value: string, binding: Binding = {}) {
+  const bytes = Buffer.from(value, "utf8");
+  if (!value.trim() || bytes.length > MAX_BYTES) throw codedError("SECRET_INVALID", `비밀값 ${name} 은 비어 있지 않고 1MB 이하여야 합니다`);
+  const { enc, id } = keys();
+  const provider = binding.provider ?? "";
+  const endpoint = originOf(binding.endpoint);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", enc, iv);
+  cipher.setAAD(aadOf(name, provider, endpoint));
+  const ciphertext = Buffer.concat([cipher.update(bytes), cipher.final()]);
+  const last4 = value.length >= LAST4_MIN_LENGTH ? value.slice(-4) : "";
+  conn()
+    .prepare(
+      `INSERT INTO secrets (name, format, key_id, provider, endpoint, iv, tag, ciphertext, last4, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(name) DO UPDATE SET
+           format = excluded.format, key_id = excluded.key_id, provider = excluded.provider, endpoint = excluded.endpoint,
+           iv = excluded.iv, tag = excluded.tag, ciphertext = excluded.ciphertext, last4 = excluded.last4, updated_at = excluded.updated_at`,
+    )
+    .run(name, FORMAT, id, provider, endpoint, iv, cipher.getAuthTag(), ciphertext, last4, Date.now());
+}
+
+/** 꺼내기. binding 은 저장할 때와 같은 곳을 기대하는 값으로 준다(지금 설정의 제공자 · 주소) */
+function read(name: string, binding: Binding = {}): Read {
+  const row = conn().prepare("SELECT * FROM secrets WHERE name = ?").get(name) as Row | undefined;
+  if (!row) return { state: "none" };
+  const { enc, id } = keys();
+  if (row.format !== FORMAT) return { state: "old-format" };
+  if (row.key_id !== id) return { state: "other-key" };
+  const provider = binding.provider ?? "";
+  const endpoint = originOf(binding.endpoint);
+  if (row.provider !== provider || row.endpoint !== endpoint) return { state: "moved" };
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", enc, row.iv);
+    decipher.setAAD(aadOf(name, provider, endpoint));
+    decipher.setAuthTag(row.tag);
+    return { state: "ok", value: Buffer.concat([decipher.update(row.ciphertext), decipher.final()]).toString("utf8") };
+  } catch {
+    log.warn(`비밀값 ${name} 이 풀리지 않습니다(저장된 행이 바뀌었거나 망가졌습니다). 대시보드에서 다시 입력하세요`);
+    return { state: "broken" };
+  }
+}
+
+/** 삭제. 삭제했으면 true */
+function remove(name: string) {
+  return conn().prepare("DELETE FROM secrets WHERE name = ?").run(name).changes > 0;
+}
+
+/** 모두 삭제한다(봇 설정 초기화). 삭제한 수 */
+function removeAll(): number {
+  return conn().prepare("DELETE FROM secrets").run().changes;
+}
+
+/** 저장된 비밀값 수(초기화 카드) */
+function count(): number {
+  return conn().prepare("SELECT COUNT(*) FROM secrets").pluck().get() as number;
+}
+
+/** 화면용. 풀지 않는다 */
+function status(name: string): Status {
+  const row = conn().prepare("SELECT key_id, provider, endpoint, last4, updated_at FROM secrets WHERE name = ?").get(name) as Pick<Row, "key_id" | "provider" | "endpoint" | "last4" | "updated_at"> | undefined;
+  if (!row) return { saved: false, updatedAt: null, last4: null, sameKey: true, provider: null, endpoint: null };
+  return { saved: true, updatedAt: row.updated_at, last4: row.last4 || null, sameKey: row.key_id === keys().id, provider: row.provider || null, endpoint: row.endpoint || null };
+}
+
+// ── 한 열에 담는 암호문 ──
+// 다른 표의 한 열에 같은 키 · 같은 암호로 잠근 값을 둔다(로그인 세션의 디스코드 토큰). [형식 1 | 키 지문 8 | iv 12 | tag 16 | 암호문].
+// purpose 가 다르면 키가 다르고, bound(그 행의 키, 세션 ID 등)를 인증 데이터에 넣어 다른 행으로 옮기면 풀리지 않는다
+
+const blobAad = (purpose: string, bound: string) => Buffer.from(JSON.stringify([FORMAT, purpose, bound]), "utf8");
+
+function sealBlob(purpose: string, value: string, bound: string): Buffer {
+  const { enc, id } = keys(purpose);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", enc, iv);
+  cipher.setAAD(blobAad(purpose, bound));
+  const ciphertext = Buffer.concat([cipher.update(Buffer.from(value, "utf8")), cipher.final()]);
+  return Buffer.concat([Buffer.from([FORMAT]), Buffer.from(id, "hex"), iv, cipher.getAuthTag(), ciphertext]);
+}
+
+/** 풀기. 형식 · 키가 다르거나 풀리지 않으면 null(다시 받을 값이다) */
+function openBlob(purpose: string, blob: Buffer, bound: string): string | null {
+  const { enc, id } = keys(purpose);
+  if (blob.length < 37 || blob[0] !== FORMAT || blob.subarray(1, 9).toString("hex") !== id) return null;
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", enc, blob.subarray(9, 21));
+    decipher.setAAD(blobAad(purpose, bound));
+    decipher.setAuthTag(blob.subarray(21, 37));
+    return Buffer.concat([decipher.update(blob.subarray(37)), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+// 테스트 시임. 인자 없이 부르면 config 의 키로
+function _useKey(raw: string | null = null) {
+  keyOverride = raw;
+}
+
+export { put, read, remove, removeAll, count, status, originOf, sealBlob, openBlob, _useKey };
+export type { Binding, Read, Status };

@@ -1,0 +1,10 @@
+{
+  // 화면 앱의 타입 검사(vue-tsc, 빌드는 Vite). 엄격도는 봇과 같다.
+  // 봇과 같이 쓰는 모듈(../src)도 이 설정으로 본다. 브라우저에서 도니 Node 타입은 넣지 않는다(types: [])
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue"]
+}

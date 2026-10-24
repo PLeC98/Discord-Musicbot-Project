@@ -1,18 +1,21 @@
 // src/ui/mentions.ts — 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
 //
-// 회귀 대상 1: 트랙 제목·직접 링크 파일명은 공격자가 정할 수 있는데 그대로 content에 들어갔다.
-// allowedMentions가 한 곳도 없어서 제목에 @everyone을 넣으면 봇 명의로 대규모 멘션이 나갔다.
-// 회귀 대상 2: 제목이 `[클릭](https://evil.example)`이면 안내 문구 안에서 진짜 클릭되는
-// 링크로 렌더링됐다(2026-09-08 실측). 곡 하나 추가할 수 있으면 피싱 링크를 심을 수 있었다.
+// 트랙 제목 · 직접 링크 파일명은 남이 정할 수 있다. 제목의 @everyone 이 봇 명의의 대규모 멘션으로 나가거나
+// `[클릭](https://evil.example)` 이 안내 문구 안에서 진짜 링크로 렌더링되면 곡 하나로 피싱 링크를 심을 수 있다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { WebhookClient, MessagePayload } from "discord.js";
 import { ALLOWED_MENTIONS, escapeMd } from "../../src/ui/mentions.ts";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { addedView } from "../../src/ui/added-notice.ts";
+import { post } from "../../src/ui/frame.ts";
+import { textsOf } from "../helpers/cv2.ts";
+// 담은 안내가 보인 글자(ui/added-notice)
+const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";
@@ -30,7 +33,7 @@ test("독립 WebhookClient도 멘션을 막는다 (봇 Client 옵션을 상속�
   const webhook = new WebhookClient({ id: "1", token: "t" }, { allowedMentions: ALLOWED_MENTIONS });
   assert.deepEqual(webhook.options.allowedMentions, ALLOWED_MENTIONS);
 
-  // 보낼 본문(API 모양). 여기서 보는 칸만
+  // 보낼 본문(API 모양). 여기서 보는 필드만
   const body = MessagePayload.create(webhook, { content: EVIL_MENTION }).resolveBody().body as { allowed_mentions?: { parse?: string[] } } | null;
   assert.deepEqual(body?.allowed_mentions?.parse, [], "전송 payload까지 반영되어야 한다");
 });
@@ -45,7 +48,7 @@ test("마스크드 링크 주입을 무력화한다", () => {
 test("서식 문자는 이스케이프하되 텍스트는 보존한다", () => {
   const escaped = escapeMd("곡 **제목** 과 my_song_name");
   assert.ok(!/(?<!\\)\*\*/.test(escaped), "굵게 표시가 살아 있으면 안 된다");
-  // 본문에서는 백슬래시가 화면에 노출되지 않는다(실측) — 텍스트는 그대로 보인다
+  // 본문에서는 백슬래시가 화면에 노출되지 않는다. 텍스트는 그대로 보인다
   assert.ok(escaped.includes("제목"));
   assert.ok(escaped.includes("my"));
 });
@@ -62,21 +65,20 @@ test("빈 값·비문자열에도 안전하다", () => {
 
 // 실제 전송 경로 — 대기열 추가 안내는 content라 서식이 그대로 해석된다
 test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않는다", () => {
-  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
-  const msg = mem.createQueueAdditionMessage([{ title: EVIL_LINK }], null, false);
+  const msg = addedText([{ title: EVIL_LINK }], null, false);
 
   assert.ok(!/(^|[^\\])\[[^\]]*\]\(/.test(msg), msg);
   assert.ok(msg.includes("여기를 클릭"), "제목 텍스트 자체는 보여준다");
 });
 
-// now-playing 제목은 마스크드 링크의 "라벨" 자리라 이스케이프하지 않는다.
-// 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다(실측).
+// now-playing 제목은 마스크드 링크의 "라벨" 위치라 이스케이프하지 않는다.
+// 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
 // 라벨 밖으로 탈출해 다른 URL을 거는 것도 불가능함을 확인했다 — 라벨이 깨지면
 // 디스코드가 링크 자체를 만들지 않는다.
 test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () => {
-  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
+  const mem = new NowPlayingPanel(fake<Client>({}), new Map());
   const track: QueuedTrack = { title: "게임 실황 [Official] my_song_name", pageUrl: "https://ok.example", requestKey: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
-  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }) });
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false });
 
   const container = await mem.createNowPlayingContainer(player, track);
   const json = JSON.stringify(container.toJSON());

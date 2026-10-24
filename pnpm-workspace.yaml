@@ -8,16 +8,25 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - vite@8.1.0
+  - body-parser@2.4.0
 
 packages:
-  - "dashboard/client"
+  - "dashboard"
+
+# 루트와 대시보드가 같은 버전을 쓴다. TypeScript 는 6 에 둔다(vue-tsc 는 TS 7 에서 돌지 못하고 typescript-eslint 는 <6.1 이다)
+catalog:
+  "@material/material-color-utilities": ^0.4.0
+  "@types/node": ^24.13.6
+  typescript: ~6.0.3
 
 patchedDependencies:
   "@discordjs/node-pre-gyp@0.4.5": patches/@discordjs__node-pre-gyp@0.4.5.patch
+  # 0.4.0 의 ESM 열 군데가 확장자 없이 서로를 불러(./dynamic_color 등) 번들러 밖(Node)에서는 열리지 않는다. 봇 서버가 그림 색을 뽑을 때(rules/art-seed) 부른다
+  "@material/material-color-utilities@0.4.0": patches/@material__material-color-utilities@0.4.0.patch
 
 # 이행 의존성 보안 강제 상향 (2026-08-17):
 # tar: 픽스가 7.5.x에만 존재, node-pre-gyp의 ^6로는 도달 불가라 포크 스코프로 상향 (>=7.5.21).
-# undici: @discordjs/rest 고정 버전이 취약, 픽스는 >=6.28.0. 7/8은 discord.js 스테이블 지원 시 승계.
+# undici: @discordjs/rest 고정 버전이 취약, 픽스는 6.29.1. 패치까지만 따른다(다음 minor 는 바뀐 것을 보고 올린다). 7/8은 discord.js 스테이블 지원 시 승계.
 overrides:
   "@discordjs/node-pre-gyp>tar": ^7.5.21
-  undici: ^6.28.0
+  undici: ~6.29.1

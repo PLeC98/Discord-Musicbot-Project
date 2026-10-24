@@ -15,6 +15,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 잠금 파일의 알려진 취약점(npm 권고). high 이상이면 막는다. 고칠 버전이 없어 넘길 것은 pnpm-workspace.yaml 의 auditConfig.ignoreGhsas 에 까닭과 함께
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        run: npm install -g pnpm@11.13.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Audit
+        run: pnpm audit --audit-level high
+
   test-and-build:
     name: Test and build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -31,6 +52,8 @@ jobs:
       NODE_ENV: test
       DISCORD_TOKEN: ci-placeholder
       CLIENT_ID: "000000000000000000"
+      # 비밀값 암호화 키의 임시 값(32바이트 0). 테스트가 쓰는 모양만 맞춘다
+      SECRETS_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
     steps:
       - name: Configure git to keep LF line endings
@@ -52,6 +75,7 @@ jobs:
       - name: Create test environment file
         run: node -e "require('node:fs').writeFileSync('.env', '')"
 
+      # postinstall 이 대시보드 화면도 빌드한다(빌드가 깨지면 여기서 멈춘다)
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -77,10 +101,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          files: lcov.info
+          files: coverage/lcov.info
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-
-      - name: Build dashboard
-        run: pnpm run build:dashboard

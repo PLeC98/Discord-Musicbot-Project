@@ -3,9 +3,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { PROJECT } from "../src/infra/project-paths.ts";
 
-const ROOT = path.join(import.meta.dirname, "..");
-const FILE = path.join(ROOT, "lcov.info");
+const ROOT = PROJECT.root;
+const FILE = path.join(ROOT, "coverage", "lcov.info");
 
 const text = fs.readFileSync(FILE, "utf8");
 fs.writeFileSync(

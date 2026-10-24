@@ -1,15 +1,17 @@
+import { codedError, messageOf } from "../../rules/error-kind.ts";
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
-import config from "../../../config.ts";
+import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
+import { PROJECT } from "../../infra/project-paths.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이
  * 같은 바이너리를 쓰도록 여기서만 결정한다.
  *
- * 해석 순서: FFMPEG_PATH(.env) → bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 던진다.
+ * 해석 순서: FFMPEG_PATH(.env) → vendor/bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 던진다.
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
  */
 
@@ -19,22 +21,26 @@ type Capabilities = { https: boolean; hls: boolean; dash: boolean; segMaxRetry: 
 let resolved: Resolved | null = null;
 let caps: Capabilities | null = null;
 
-/** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 뽑는다. 아니면 null. */
+/** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 추출한다. 아니면 null. */
 function probe(candidate: string | null | undefined): string | null {
   if (!candidate) return null;
   try {
     const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000 });
-    if (result.error || result.status !== 0) return null;
+    if (result.error || result.status !== 0) {
+      log.debug(`ffmpeg 후보를 실행하지 못함: ${candidate} | ${result.error ? messageOf(result.error) : `종료 코드 ${result.status ?? result.signal ?? "없음"}`}`);
+      return null;
+    }
     const match = /ffmpeg version (\S+)/i.exec(result.stdout || "");
     return match ? match[1] : "unknown";
-  } catch {
+  } catch (error) {
+    log.debug(`ffmpeg 후보를 실행하지 못함: ${candidate} | ${messageOf(error)}`);
     return null;
   }
 }
 
-/** scripts/install-ffmpeg.ts가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
+/** scripts/install-ffmpeg.ts가 다운로드해 두는 위치. 미지원 플랫폼에서는 없다. */
 function fromBundle(): string | null {
-  const p = path.join(import.meta.dirname, "..", "..", "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  const p = path.join(PROJECT.bin, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   return fs.existsSync(p) ? p : null;
 }
 
@@ -51,7 +57,7 @@ function resolve(): Resolved {
     if (!version) {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
-      throw new Error(`FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`);
+      throw codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`);
     }
     resolved = { path: configured, version, source: "FFMPEG_PATH" };
     return resolved;
@@ -70,7 +76,16 @@ function resolve(): Resolved {
     }
   }
 
-  throw new Error("ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
+  throw codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
+}
+
+/** 쓰는 ffmpeg 의 버전(봇 상태 탭). 찾지 못했으면 null */
+function ffmpegVersion(): string | null {
+  try {
+    return resolve().version;
+  } catch {
+    return null;
+  }
 }
 
 /** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
@@ -96,9 +111,13 @@ function capabilities(): Capabilities {
   const ask = (args: string[]): string => {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
-      if (result.error) return "";
+      if (result.error) {
+        log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
+        return "";
+      }
       return `${result.stdout || ""}${result.stderr || ""}`;
-    } catch {
+    } catch (error) {
+      log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
       return "";
     }
   };
@@ -115,7 +134,7 @@ function capabilities(): Capabilities {
 
   caps = { https, hls, dash, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
-    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"})`);
+    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 다운로드한 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
   }
   return caps;
 }
@@ -134,6 +153,6 @@ function _reset() {
   caps = null;
 }
 
-export { ffmpegPath, resolve, capabilities, logResolved };
+export { ffmpegPath, ffmpegVersion, resolve, capabilities, logResolved };
 export const _internals = { probe, fromBundle, _reset };
 export type { Capabilities, Resolved };

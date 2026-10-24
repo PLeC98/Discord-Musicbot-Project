@@ -1,272 +1,113 @@
-// src/app/resilience.ts — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
+// src/app/resilience.ts — 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 시작하고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VoiceConnectionStatus } from "@discordjs/voice";
-import type { TestContext } from "node:test";
-import { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_MAX } from "../../src/app/resilience.ts";
-
-// ── isTransientNetworkError ──────────────────────────────────
-
-test("네트워크 오류 분류: code 우선", () => {
-  for (const code of ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "ENOTFOUND", "EAI_AGAIN", "ECONNABORTED"]) {
-    assert.equal(isTransientNetworkError(Object.assign(new Error("x"), { code })), true, code);
-  }
-});
-
-test("네트워크 오류 분류: undici UND_ERR_* 접두사", () => {
-  assert.equal(isTransientNetworkError(Object.assign(new Error("x"), { code: "UND_ERR_SOCKET" })), true);
-  assert.equal(isTransientNetworkError(Object.assign(new Error("x"), { code: "UND_ERR_CONNECT_TIMEOUT" })), true);
-});
-
-test("네트워크 오류 분류: name (FetchError/AbortError)", () => {
-  assert.equal(isTransientNetworkError(Object.assign(new Error("x"), { name: "FetchError" })), true);
-  assert.equal(isTransientNetworkError(Object.assign(new Error("x"), { name: "AbortError" })), true);
-});
-
-test("네트워크 오류 분류: message 폴백 (terminated / socket hang up / IP discovery)", () => {
-  assert.equal(isTransientNetworkError(new Error("request terminated")), true);
-  assert.equal(isTransientNetworkError(new Error("socket hang up")), true);
-  assert.equal(isTransientNetworkError(new Error("Cannot perform IP discovery - socket closed")), true);
-});
-
-test("무관한 버그는 네트워크로 오인하지 않음 (삼킴 방지)", () => {
-  assert.equal(isTransientNetworkError(new TypeError("Cannot read properties of undefined")), false);
-  assert.equal(isTransientNetworkError(new Error("something went wrong")), false);
-  assert.equal(isTransientNetworkError(Object.assign(new Error("boring"), { code: "SOME_OTHER" })), false);
-  assert.equal(isTransientNetworkError(null), false);
-  assert.equal(isTransientNetworkError(undefined), false);
-});
-
-// ── healBrokenPlayers ────────────────────────────────────────
-
-type PlayerOptions = { track?: boolean; paused?: boolean; recovering?: boolean; ready?: boolean; status?: VoiceConnectionStatus | null; throwOnRecover?: boolean };
-
-// 복구를 시작한 횟수(recovered)를 센다
-function fakePlayer({ track = true, paused = false, recovering = false, ready = false, status = null, throwOnRecover = false }: PlayerOptions = {}) {
-  const counts = { recovered: 0 };
-  return {
-    currentTrack: track ? { title: "t" } : null,
-    paused,
-    isRecovering: recovering,
-    connection: { state: { status: status ?? (ready ? VoiceConnectionStatus.Ready : VoiceConnectionStatus.Disconnected) } },
-    get recovered() {
-      return counts.recovered;
-    },
-    voice: {
-      startConnectionRecovery() {
-        if (throwOnRecover) throw new Error("recover boom");
-        counts.recovered++;
-      },
-    },
-  };
-}
-
-test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없음·일시정지·수립중은 무영향", async () => {
-  const broken = fakePlayer();
-  const ready = fakePlayer({ ready: true });
-  const noTrack = fakePlayer({ track: false });
-  const pausedP = fakePlayer({ paused: true });
-  const recovering = fakePlayer({ recovering: true });
-  const connecting = fakePlayer({ status: VoiceConnectionStatus.Connecting });
-  const signalling = fakePlayer({ status: VoiceConnectionStatus.Signalling });
-
-  const client = {
-    players: new Map([
-      ["g1", broken],
-      ["g2", ready],
-      ["g3", noTrack],
-      ["g4", pausedP],
-      ["g5", recovering],
-      ["g6", connecting],
-      ["g7", signalling],
-    ]),
-  };
-  await healBrokenPlayers(client);
-
-  assert.equal(broken.recovered, 1, "끊긴 플레이어는 복구");
-  assert.equal(ready.recovered, 0, "정상(Ready)은 무영향");
-  assert.equal(noTrack.recovered, 0, "트랙 없음은 무영향");
-  assert.equal(pausedP.recovered, 0, "일시정지는 무영향");
-  assert.equal(recovering.recovered, 0, "자체 복구 중은 방해 금지");
-  assert.equal(connecting.recovered, 0, "연결 수립 중(Connecting)은 완료를 기다림");
-  assert.equal(signalling.recovered, 0, "연결 수립 중(Signalling)은 완료를 기다림");
-});
-
-test("한 플레이어의 복구 실패가 다른 플레이어 복구를 막지 않음", async () => {
-  const bad = fakePlayer({ throwOnRecover: true });
-  const good = fakePlayer();
-  const client = {
-    players: new Map([
-      ["g1", bad],
-      ["g2", good],
-    ]),
-  };
-  await healBrokenPlayers(client);
-  assert.equal(good.recovered, 1);
-});
-
-test("client 없음/players 없음은 조용히 통과", async () => {
-  await healBrokenPlayers(null);
-  await healBrokenPlayers({});
-});
-
-// ── networkErrorFlooding ─────────────────────────────────────
-
-test(`빈도 가드: 60초 창 내 ${NET_ERR_MAX}회까지 false, 초과 시 true, 창 지나면 리셋`, (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: 1_000_000_000 });
-  for (let i = 1; i <= NET_ERR_MAX; i++) {
-    assert.equal(networkErrorFlooding(), false, `${i}번째는 허용`);
-  }
-  assert.equal(networkErrorFlooding(), true, `${NET_ERR_MAX + 1}번째는 폭주 판정`);
-  t.mock.timers.tick(61_000); // 창 밖으로
-  assert.equal(networkErrorFlooding(), false, "창이 지나면 카운터 리셋");
-});
-
-test("빈도 가드: 인스턴스별 독립 카운터 — 네트워크 폭주가 unknown rejection 판정을 오염시키지 않음", (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: 2_000_000_000 });
-  const a = makeFloodGuard();
-  const b = makeFloodGuard();
-  for (let i = 1; i <= NET_ERR_MAX; i++) a();
-  assert.equal(a(), true, "a는 폭주 판정");
-  assert.equal(b(), false, "b의 카운터는 무영향");
-});
-
-test("빈도 가드: unknownRejectionFlooding 인스턴스 동작", (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: 3_000_000_000 });
-  for (let i = 1; i <= NET_ERR_MAX; i++) {
-    assert.equal(unknownRejectionFlooding(), false, `${i}번째 단발은 봇 유지`);
-  }
-  assert.equal(unknownRejectionFlooding(), true, "반복되면 안전 종료 승격");
-  t.mock.timers.tick(61_000);
-  assert.equal(unknownRejectionFlooding(), false, "창이 지나면 리셋");
-});
-
-// ── fatalShutdown ────────────────────────────────────────────
-
-test("안전 종료: 전 플레이어 cleanup + 맵 비움 + 주입된 exit 호출", () => {
-  let cleaned = 0;
-  let exited = 0;
-  const players = new Map([
-    ["g1", { cleanup: () => cleaned++ }],
-    ["g2", { cleanup: () => cleaned++ }],
-    ["g3", null], // cleanup 없는 항목도 안전
-  ]);
-  fatalShutdown({ players }, new Error("fatal"), () => exited++);
-  assert.equal(cleaned, 2);
-  assert.equal(players.size, 0);
-  assert.equal(exited, 1);
-});
-
-test("안전 종료: cleanup이 던져도 exit는 반드시 호출 (best-effort)", () => {
-  let exited = 0;
-  const players = new Map([
-    [
-      "g1",
-      {
-        cleanup: () => {
-          throw new Error("cleanup boom");
-        },
-      },
-    ],
-  ]);
-  fatalShutdown({ players }, new Error("fatal"), () => exited++);
-  assert.equal(exited, 1);
-});
-
-test("안전 종료: client 없음도 exit 호출", () => {
-  let exited = 0;
-  fatalShutdown(null, new Error("fatal"), () => exited++);
-  assert.equal(exited, 1);
-});
-
-// ── Discord API 오류 분류 ─────────────────────────────────────
-
-test("무해한 Discord 오류: 코드별 안내와 로그 등급", () => {
-  assert.equal(ignorableDiscordError({ code: 10062 })?.level, "info");
-  assert.equal(ignorableDiscordError({ code: 40060 })?.level, "info");
-  assert.equal(ignorableDiscordError({ code: 50013 })?.level, "error");
-  assert.match(ignorableDiscordError({ code: 10062 })?.message ?? "", /10062/);
-});
-
-test("무해한 Discord 오류: 그 외에는 null (알 수 없는 오류로 넘긴다)", () => {
-  assert.equal(ignorableDiscordError({ code: 50035 }), null);
-  assert.equal(ignorableDiscordError(new Error("boom")), null);
-  assert.equal(ignorableDiscordError(null), null);
-  assert.equal(ignorableDiscordError(undefined), null);
-});
-
-test("빈도 가드는 오류 종류별로 서로 다른 인스턴스다 (카운터 오염 방지)", () => {
-  assert.equal(new Set([networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding]).size, 3);
-});
-
-// ── 새어 나온 오류 처리기 ─────────────────────────────────────────────────────
-
 import { EventEmitter } from "node:events";
-const { installErrorHandlers } = await import("../../src/app/resilience.ts");
+import { makeFloodGuard, knownDiscordError, fatalShutdown, installErrorHandlers, FLOOD_MAX, FLOOD_WINDOW_MS } from "../../src/app/resilience.ts";
+import { inGuild } from "../../src/infra/guild-context.ts";
 
-// 빈도 가드는 모듈에 하나씩이라 시험마다 시계를 한 시간씩 먼 미래로 옮겨 앞 시험의 기록을 창 밖으로 보낸다
-let clock = Date.UTC(2100, 0, 1);
+// ── 빈도 가드 ──
 
-// 끊긴 음성 연결을 가진 플레이어 하나. 표적 복구가 불렸는지 센다
-function installed(t: TestContext) {
-  clock += 3_600_000;
-  t.mock.timers.enable({ apis: ["Date"], now: clock });
-  const heals: number[] = [];
-  const exits: number[] = [];
-  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1) }, cleanup() {} };
-  const client = Object.assign(new EventEmitter(), { players: new Map([["g1", player]]) });
-  const proc = new EventEmitter();
-  installErrorHandlers(client, { proc, exit: () => exits.push(1) });
-  return { client, proc, heals, exits };
+test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 true, 시간창이 지나면 다시 센다`, () => {
+  const flooding = makeFloodGuard();
+  for (let i = 0; i < FLOOD_MAX; i++) assert.equal(flooding(1000), false);
+  assert.equal(flooding(1000), true);
+  assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
+});
+
+test("아는 디스코드 오류: 못 답한 · 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
+  assert.equal(knownDiscordError({ code: 10062 })?.level, "warn");
+  assert.equal(knownDiscordError({ code: 40060 })?.level, "warn");
+  assert.equal(knownDiscordError({ code: 50013 })?.level, "error");
+  assert.equal(knownDiscordError({ code: 10008 }), null);
+  assert.equal(knownDiscordError(new Error("버그")), null);
+});
+
+// ── 안전 종료 ──
+
+// 치명 종료로 내릴 플레이어. 세션을 곧바로 쓰고(saveNow) 채널에는 남긴 채 연결을 정리한다(release)
+function savable(id: string, steps: string[], { saveFails = false } = {}) {
+  return {
+    persistence: {
+      saveNow: (reason: string) => {
+        if (saveFails) throw new Error("디스크 가득 참");
+        steps.push(`save:${id}:${reason}`);
+      },
+    },
+    voice: { release: (reason: string) => steps.push(`release:${id}:${reason}`) },
+  };
 }
 
-const net = () => Object.assign(new Error("socket"), { code: "ECONNRESET" });
-const settle = () => new Promise((r) => setImmediate(r));
-
-test("처리기: 무해한 디스코드 오류와 죽은 상호작용은 넘어간다", async (t) => {
-  const { client, proc, exits, heals } = installed(t);
-  client.emit("error", { code: 50013, message: "Missing Permissions" });
-  proc.emit("unhandledRejection", { code: 10008 });
-  for (let i = 0; i < NET_ERR_MAX + 2; i++) proc.emit("uncaughtException", { code: 10062 });
-  await settle();
-  assert.deepEqual(exits, []);
-  assert.deepEqual(heals, []);
+test("안전 종료: 모든 플레이어의 세션을 저장하고 채널에는 남긴 채 연결을 정리한 뒤, 전역 폭주로 적고 나간다", () => {
+  const steps: string[] = [];
+  const players = new Map([
+    ["g1", savable("g1", steps)],
+    ["g2", null], // 빈 항목도 안전
+    ["g3", savable("g3", steps)],
+  ]);
+  fatalShutdown(players, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: (how) => void steps.push(`record:${how}`) } });
+  assert.deepEqual(steps, ["save:g1:shutdown", "release:g1:치명적 오류", "save:g3:shutdown", "release:g3:치명적 오류", "record:global-flood", "exit"]);
 });
 
-test("처리기: 일시적 네트워크 오류는 끊긴 서버만 되살린다", async (t) => {
-  const { client, proc, exits, heals } = installed(t);
-  client.emit("error", net());
-  await settle();
-  proc.emit("unhandledRejection", net());
-  await settle();
-  proc.emit("uncaughtException", net());
-  await settle();
-  assert.equal(heals.length, 3);
+test("안전 종료: 한 서버의 저장이 실패해도 그 연결은 정리하고, 나머지를 저장하고, 반드시 나간다", () => {
+  const steps: string[] = [];
+  const players = new Map([
+    ["g1", savable("g1", steps, { saveFails: true })],
+    ["g2", savable("g2", steps)],
+  ]);
+  fatalShutdown(players, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: () => {} } });
+  assert.deepEqual(steps, ["release:g1:치명적 오류", "save:g2:shutdown", "release:g2:치명적 오류", "exit"]);
+});
+
+test("안전 종료: 플레이어 없음도 exit 호출", () => {
+  let exited = 0;
+  fatalShutdown(null, new Error("fatal"), { exit: () => exited++, record: { end: () => {} } });
+  assert.equal(exited, 1);
+});
+
+// ── 새어 나온 오류 처리기 ──
+
+// 처리기를 건 클라이언트 · 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
+function installed() {
+  const faults: string[] = [];
+  const exits: number[] = [];
+  const client = new EventEmitter();
+  const proc = new EventEmitter();
+  installErrorHandlers(client, {
+    proc,
+    fault: async (guildId, _error, where) => void faults.push(`${guildId}:${where}`),
+    exit: () => exits.push(1),
+    record: { end: () => {} },
+  });
+  return { client, proc, faults, exits };
+}
+
+test("아는 디스코드 오류는 로그만: 다시 시작하지도 내리지도 않고 폭주로 세지 않는다", () => {
+  const { client, proc, faults, exits } = installed();
+  for (let i = 0; i <= FLOOD_MAX; i++) {
+    client.emit("error", { code: 50013, message: "Missing Permissions" });
+    proc.emit("unhandledRejection", { code: 10062 });
+    inGuild("g1", () => proc.emit("uncaughtException", { code: 40060 }));
+  }
+  assert.deepEqual(faults, []);
   assert.deepEqual(exits, []);
 });
 
-test("처리기: 잡히지 않은 예외는 네트워크 오류가 아니면 곧바로 안전 종료", async (t) => {
-  const { proc, exits } = installed(t);
+test("서버 문맥 안에서 새어 나온 오류는 그 서버만 다시 시작한다. 몇 번이 와도 봇 전체를 내리지 않는다(그 서버의 되풀이는 guildFault 가 막는다)", () => {
+  const { proc, faults, exits } = installed();
+  for (let i = 0; i <= FLOOD_MAX; i++) inGuild("g1", () => proc.emit("uncaughtException", new Error("버그")));
+  inGuild("g2", () => proc.emit("unhandledRejection", new Error("버그")));
+  assert.equal(faults.filter((f) => f === "g1:exception").length, FLOOD_MAX + 1);
+  assert.ok(faults.includes("g2:rejection"));
+  assert.deepEqual(exits, []);
+});
+
+test("서버를 모르는 오류는 남기고 계속 돈다. 서버를 가리지 않고 쏟아지면 내린다", () => {
+  const { client, proc, faults, exits } = installed();
   proc.emit("uncaughtException", new Error("버그"));
-  assert.equal(exits.length, 1);
-});
-
-test("처리기: 알 수 없는 거부 · 클라이언트 오류는 한 번이면 넘어가고, 몰려오면 안전 종료", async (t) => {
-  const { client, proc, exits } = installed(t);
-  proc.emit("unhandledRejection", new Error("한 번"));
-  client.emit("error", new Error("한 번"));
-  assert.deepEqual(exits, []);
-
-  for (let i = 0; i < NET_ERR_MAX; i++) proc.emit("unhandledRejection", "문자열 거부");
-  assert.equal(exits.length, 1, "거부가 몰려옴");
-  for (let i = 0; i < NET_ERR_MAX; i++) client.emit("error", new Error("또"));
-  assert.equal(exits.length, 2, "클라이언트 오류가 몰려옴");
-});
-
-test("처리기: 네트워크 예외가 몰려오면 안전 종료", async (t) => {
-  const { proc, exits } = installed(t);
-  for (let i = 0; i <= NET_ERR_MAX; i++) proc.emit("uncaughtException", net());
-  await settle();
-  assert.equal(exits.length, 1);
+  client.emit("error", Object.assign(new Error("socket"), { code: "ECONNRESET" }));
+  assert.deepEqual(exits, [], "한두 번은 계속 돈다");
+  for (let i = 0; i < FLOOD_MAX - 1; i++) proc.emit("unhandledRejection", "문자열 거부"); // 앞의 둘과 합쳐 문턱을 한 번 넘는다
+  assert.deepEqual(exits, [1], "쏟아지면 내린다");
+  assert.deepEqual(faults, []);
 });

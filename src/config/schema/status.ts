@@ -1,11 +1,17 @@
-// 봇 활동 문구 설정(status.yaml)의 스키마.
+// 봇 활동 문구 설정("status" 문서)의 스키마.
 
-import { NUMERIC_NAME } from "./genres.ts";
+import { NUMERIC_NAME, YAML_WORDS } from "./genres.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
-const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];
+const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"] as const;
+type ActivityType = (typeof ACTIVITY_TYPES)[number];
+const isActivityType = (v: unknown): v is ActivityType => ACTIVITY_TYPES.some((type) => type === v);
 
 const MAX_TEXT = 128; // 디스코드 활동 문구 길이 상한
+
+// 문구를 바꾸는 간격(초). 비우면 기본값(기본 설정 문서와 같다), 그보다 짧게는 돌리지 않는다
+const INTERVAL_DEFAULT = 60;
+const INTERVAL_MIN = 10;
 
 // "MM-DD ~ MM-DD" / "HH:MM ~ HH:MM". 비교가 문자열 비교라 두 자리로 적지 않으면
 // 형식이 틀린 게 아니라 "엉뚱한 날에 걸린다". 그래서 모양까지 본다.
@@ -35,7 +41,7 @@ const range = (kind: RangeKind) =>
 
 // 문구 하나. 글자로 적거나 { text, type } 으로 풀어 적는다
 const message = z.preprocess(
-  // 배열은 칸이 없는 표로 읽던 것과 같게 빈 표로
+  // 배열은 필드가 없는 표로 읽던 것과 같게 빈 표로
   (item) => (typeof item === "string" ? { text: item } : Array.isArray(item) ? {} : item),
   z.object(
     {
@@ -46,8 +52,8 @@ const message = z.preprocess(
         .refine((text) => !text.trim() || text.length <= MAX_TEXT, { error: (issue) => `{where}: 문구가 ${MAX_TEXT}자를 넘습니다. "${String(issue.input).slice(0, 20)}…"` }),
       // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
       type: present(
-        (type) => typeof type === "string" && ACTIVITY_TYPES.includes(type),
-        (issue) => `{where}: "${issue.input}"은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
+        (type) => isActivityType(type),
+        (issue) => `{where}: ${JSON.stringify(issue.input)}은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
       ),
     },
     { error: "{where}: 문구는 글자로 적거나 text/type으로 풀어 적어야 합니다." },
@@ -69,8 +75,8 @@ const special = z
   .superRefine((all, ctx) => {
     if (!all || typeof all !== "object" || Array.isArray(all)) return; // 표가 아니면 위에서 이미 알렸다
     for (const name of Object.keys(all)) {
-      if (["true", "false", "", "null"].includes(name)) ctx.addIssue({ code: "custom", message: `"${name || "null"}"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
-      if (NUMERIC_NAME.test(name)) ctx.addIssue({ code: "custom", message: `"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년"처럼 글자를 붙여 주세요.` });
+      if (YAML_WORDS.includes(name)) ctx.addIssue({ code: "custom", message: `"${name || "null"}"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
+      if (NUMERIC_NAME.test(name)) ctx.addIssue({ code: "custom", message: `"${name}": 숫자만으로 된 이름은 순서가 어긋납니다. "${name}년"처럼 글자를 붙여 주세요.` });
     }
   }, ALWAYS)
   .nullish();
@@ -78,7 +84,7 @@ const special = z
 const statusFile = z.preprocess(
   plain,
   z.object({
-    interval: present((v) => Number(v) >= 10, "interval은 10 이상이어야 합니다(초)."),
+    interval: present((v) => Number(v) >= INTERVAL_MIN, `interval은 ${INTERVAL_MIN} 이상이어야 합니다(초).`),
     messages,
     special,
   }),
@@ -93,4 +99,5 @@ function statusProblems(data: unknown): string[] {
   });
 }
 
-export { statusProblems, ACTIVITY_TYPES };
+export { statusProblems, ACTIVITY_TYPES, MAX_TEXT, INTERVAL_DEFAULT, INTERVAL_MIN, isActivityType };
+export type { ActivityType };

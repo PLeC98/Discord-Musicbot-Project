@@ -1,0 +1,90 @@
+// src/ui/control-replies.ts — 조작 결과 화면. 헤더 줄 · 본문 · 작은 글씨의 누가 했나 줄, 처음부터는 곡에 썸네일이 있으면 헤더 옆(일시정지 · 건너뛰기 · 반복은 붙이지 않는다)
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import * as replies from "../../src/ui/control-replies.ts";
+import { post } from "../../src/ui/frame.ts";
+import { useUploaded } from "../../src/ui/icons.ts";
+import { separatorsOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
+
+const by = "<@1>";
+const track = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://i.test/t.jpg" };
+const shown = (c: ReturnType<typeof replies.cleared>) => textsOf(post(c));
+const BY = "-# 👤 요청한 사람 <@1>";
+
+test("일시정지 · 반복: 누가 했나 줄, 썸네일은 붙이지 않는다", () => {
+  const c = replies.paused(true, track, by);
+  assert.deepEqual(shown(c), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지했어요.", BY]);
+  assert.equal(thumbnailOf(post(c)), null);
+  assert.equal(thumbnailOf(post(replies.paused(false, track, by))), null);
+  assert.equal(separatorsOf(post(c)), 1, "누가 했나 줄 위에 구분선");
+  assert.equal(thumbnailOf(post(replies.loopSet("track", by))), null);
+});
+
+test("앱 이모지를 맞추면 헤더 줄 · 본문 · 누가 했나 줄의 아이콘이 앱 이모지(진행 중은 움직이는 것)", () => {
+  useUploaded(
+    new Map([
+      ["pause", { id: "1", animated: false }],
+      ["person", { id: "2", animated: false }],
+      ["seek", { id: "3", animated: false }],
+      ["time", { id: "4", animated: false }],
+      ["progress", { id: "5", animated: true }],
+    ]),
+  );
+  try {
+    assert.deepEqual(shown(replies.paused(true, track, by)), ["### <:pause:1> 일시정지했어요!\n**[곡](https://u.test)**을 일시정지했어요.", "-# <:person:2> 요청한 사람 <@1>"]);
+    assert.deepEqual(shown(replies.seeked(90_000)), ["### <:seek:3> 위치를 옮겼어요!\n<:time:4> 옮긴 위치: `1:30`"]);
+    assert.deepEqual(shown(replies.seeking()), ["<a:progress:5> 위치를 옮기는 중..."]);
+  } finally {
+    useUploaded(new Map());
+  }
+});
+
+test("건너뛰기: 건너뛴 곡과 누가 했나, 썸네일은 붙이지 않는다. 한 곡 반복이면 되감았다고", () => {
+  const c = replies.skipped(false, track, by);
+  assert.deepEqual(shown(c), ["### ⏭️ 곡을 건너뛰었어요!\n**[곡](https://u.test)**을 건너뛰었어요.", BY]);
+  assert.equal(thumbnailOf(post(c)), null);
+  assert.deepEqual(shown(replies.skipped(true, track, by)), ["### 🔂 곡을 되감았어요!\n한 곡 반복 중이라 지금 곡을 처음부터 다시 틀어요.", BY]);
+});
+
+test("이전 곡: 되돌아간 곡. 한 곡 반복이면 되감았다고", () => {
+  assert.deepEqual(shown(replies.previous(false, track)), ["### ⏮️ 이전 곡으로 되돌렸어요!\n**[곡](https://u.test)**을 다시 재생할게요."]);
+  assert.deepEqual(shown(replies.previous(true, track)), ["### 🔂 곡을 되감았어요!\n한 곡 반복 중이라 지금 곡을 처음부터 다시 틀어요."]);
+});
+
+test("정지: 버린 곡이 있을 때만 그 수를 말한다", () => {
+  assert.deepEqual(shown(replies.stopped(3, by)), ["### ⏹️ 재생을 중지했어요!\n대기열에 남아 있던 3곡을 삭제하고 채널에서 나갔어요.", BY]);
+  assert.deepEqual(shown(replies.stopped(0, by)), ["### ⏹️ 재생을 중지했어요!\n채널에서 나갔어요.", BY]);
+});
+
+test("하이라이트 · 위치 이동: 옮긴 위치를 본문에", () => {
+  assert.deepEqual(shown(replies.highlighted(83_000)), ["### ✨ 하이라이트로 건너뛰었어요!\n⏱️ 위치: `1:23`"]);
+  assert.deepEqual(shown(replies.seeked(90_000)), ["### ⏩ 위치를 옮겼어요!\n⏱️ 옮긴 위치: `1:30`"]);
+});
+
+test("비우기 · 빼기: 곡 수와 누가 했나", () => {
+  assert.deepEqual(shown(replies.cleared(3, by)), ["### 🗑️ 대기열을 비웠어요!\n대기열에 있던 3곡을 삭제했어요.", BY]);
+  assert.deepEqual(shown(replies.removed(4, by)), ["### 🗑️ 선택한 곡을 삭제했어요!\n대기열에 4곡이 남았어요.", BY]);
+});
+
+test("순서: 옮기기 전 · 뒤 위치와 누가", () => {
+  const moved = post(replies.moved(track, 3, 1, by));
+  assert.deepEqual(textsOf(moved), ["### 🔀 곡의 순서를 바꿨어요\n**[곡](https://u.test)**\n📍 기존 순번: 3번째\n📍 현재 순번: 1번째", "-# 👤 변경한 사람 <@1>"]);
+  assert.equal(separatorsOf(moved), 1, "변경한 사람 줄 위에 구분선");
+  assert.equal(separatorsOf(post(replies.removed(4, by))), 1, "요청한 사람 줄이 있는 결과도 그 위에 구분선");
+  assert.equal(separatorsOf(post(replies.previous(false, track))), 0, "누가 했나 줄이 없으면 구분선도 없다");
+});
+
+test("볼륨: 바뀌면 이전 → 지금, 같으면 그대로", () => {
+  assert.deepEqual(shown(replies.volumeSet(80, 35, by)), ["### 🔊 볼륨을 조절했어요!\n**80%** → **35%**", BY]);
+  assert.deepEqual(shown(replies.volumeSet(35, 35, by))[0], "### 🔊 볼륨을 조절했어요!\n볼륨이 이미 35%라서 그대로 둘게요.");
+});
+
+test("나가기: 곡이 있었으면 저장한 곡 · 위치 · 대기열과 복원하는 법, 없으면 헤더 줄만", () => {
+  assert.deepEqual(shown(replies.left({ track, positionSec: 75, queue: 2 }, by)), ["### 👋 음성 채널에서 나갔어요\n재생 중이던 곡: **[곡](https://u.test)**\n⏱️ 저장한 위치 `1:15` · 📋 저장한 대기열 2곡\n`/join`으로 이어 들을 수 있어요.", BY]);
+  assert.deepEqual(shown(replies.left(null, by)), ["### 👋 음성 채널에서 나갔어요", BY]);
+});
+
+test("들어오기: 들어왔다 · 이미 있다", () => {
+  assert.deepEqual([shown(replies.joined()), shown(replies.alreadyJoined())], [["### ✅ 음성 채널에 접속했어요!\n언제든지 곡을 넣어 주세요."], ["### ✅ 이미 음성 채널에 있어요.\n저는 준비됐어요. 언제든지 곡을 넣어 주세요."]]);
+});

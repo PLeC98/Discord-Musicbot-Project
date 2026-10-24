@@ -4,14 +4,14 @@ import { query, getJson } from "./http.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// 여기서 읽는 칸만
+// 여기서 읽는 필드만
 type Video = { overlap?: string; audio?: { link?: string } };
 type Song = { id?: number; title?: string; artists?: Array<{ name?: string }> };
 type Anime = { name?: string; slug?: string; year?: number; season?: string; images?: Array<{ facet?: string; link?: string }>; animethemes?: Theme[] };
 type Theme = { type?: string; sequence?: number | null; song?: Song; animethemeentries?: Array<{ videos?: Video[] }>; anime?: Anime };
 
 // ── animethemes ───────────────────────────────────────────────────────────
-// 음원(.ogg)을 직접 준다. 다만 TV 사이즈(중앙값 90초)라 artist+title도 같이 채워 보낸다
+// 음원(.ogg)을 직접 준다. 다만 대개 TV 사이즈라 artist+title도 같이 채워 보낸다
 // 부르는 쪽이 유튜브에서 풀버전을 먼저 찾고 못 찾으면 이 음원으로 떨어진다.
 const SEASON_ORDER: Record<string, number> = { Winter: 0, Spring: 1, Summer: 2, Fall: 3 };
 
@@ -26,16 +26,17 @@ async function animethemes(source: GenreSource): Promise<Candidate[]> {
   for (const theme of themes) {
     const song = theme.song;
     // 같은 곡이 여러 시즌의 OP일 수 있다. 겹침은 animetheme.id가 아니라 song.id로 막는다
-    if (!song?.title || seen.has(song.id)) continue;
+    // id 가 없는 곡은 겹침도 출처 키도 가를 수 없어 뺀다
+    if (!song?.title || song.id === undefined || seen.has(song.id)) continue;
     const link = audioOf(theme);
     if (!link) continue;
     seen.add(song.id);
-    out.push(candidateOf(theme, song, song.title, link));
+    out.push(candidateOf(theme, song, song.title, song.id, link));
   }
   return out;
 }
 
-// 들을 음원 주소. overlap이 None인 판본이 하나도 없으면 음원에 대사가 얹혀 있다(60곡 중 5곡). 그것만 버린다.
+// 들을 음원 주소. overlap이 None인 판본이 하나도 없으면 음원에 대사가 얹혀 있다. 그것만 버린다.
 function audioOf(theme: Theme) {
   const videos = (theme.animethemeentries || []).flatMap((e) => e.videos || []);
   const clean = videos.find((v) => v.overlap === "None");
@@ -43,7 +44,7 @@ function audioOf(theme: Theme) {
   return (clean || videos[0])?.audio?.link || null;
 }
 
-function candidateOf(theme: Theme, song: Song, title: string, audioUrl: string): Candidate {
+function candidateOf(theme: Theme, song: Song, title: string, id: number, audioUrl: string): Candidate {
   const anime = theme.anime;
   return {
     artist: (song.artists || []).map((a) => a.name).join(", ") || anime?.name || "",
@@ -52,7 +53,7 @@ function candidateOf(theme: Theme, song: Song, title: string, audioUrl: string):
     thumbnail: (anime?.images || []).find((i) => /large/i.test(String(i.facet)))?.link || null,
     sourceUrl: anime?.slug ? `https://animethemes.moe/anime/${anime.slug}` : undefined,
     platform: "animethemes",
-    sourceKey: `at:${song.id}`,
+    sourceKey: `at:${id}`,
   };
 }
 
@@ -65,11 +66,11 @@ async function themesAtRandom(source: GenreSource): Promise<Theme[]> {
     "filter[type]": source.themeType,
     "filter[sequence]": source.sequence,
   })}`;
-  return (await getJson<{ animethemes?: Theme[] } | null>(url))?.animethemes || [];
+  return (await getJson<{ animethemes?: Theme[] } | null>("animethemes", url))?.animethemes || [];
 }
 
 // 연도·시즌·매체는 animetheme 쪽에서 조용히 무시된다. anime 쪽에 걸어야 듣는다.
-// 시즌은 범위 문법이 없어 연도로만 자르고 양끝 시즌은 우리가 걸러낸다.
+// 시즌은 범위 문법이 없어 연도로만 자르고 양끝 시즌은 우리가 필터링한다.
 async function themesByAnime(source: GenreSource): Promise<Theme[]> {
   const url = `https://api.animethemes.moe/anime?${query({
     sort: "random",
@@ -80,7 +81,7 @@ async function themesByAnime(source: GenreSource): Promise<Theme[]> {
     "filter[season]": source.season?.join(","),
     "filter[media_format]": source.mediaFormat?.join(","),
   })}`;
-  const list = (await getJson<{ anime?: Anime[] } | null>(url))?.anime || [];
+  const list = (await getJson<{ anime?: Anime[] } | null>("animethemes", url))?.anime || [];
 
   const { from, to } = seasonRange(source);
   return list.flatMap((anime) => {

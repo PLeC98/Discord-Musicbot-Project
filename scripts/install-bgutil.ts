@@ -1,21 +1,24 @@
 // bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
 //   pnpm run install:bgutil · update:bgutil. 둘은 같은 일을 한다:
-//   없으면 git clone, 설정한 태그로 체크아웃, 의존성 설치 + 빌드
+//   없으면 git clone, 설정한 태그로 체크아웃, 그 태그의 잠금 파일 그대로 의존성 설치(npm ci) + 빌드
 //
-// 받는 판은 config.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
-// 기본 브랜치를 따라가지 않는다. 설치한 날에 따라 다른 코드가 깔린다.
+// 설치하는 버전은 src/config/vendor-versions.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
+// 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
+// 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 //
 // bgutil은 별도로 가져와야 한다.
 // 봇 실행 시 자동 감지되어 POToken 서버(포트 4416)를 함께 시작한다.
 
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import { execSync, execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
-import config from "../config.ts";
-import { messageOf } from "../src/rules/errorKind.ts";
+import config from "../src/config/index.ts";
+import { messageOf } from "../src/rules/error-kind.ts";
+import { PROJECT } from "../src/infra/project-paths.ts";
 
-const ROOT = path.join(import.meta.dirname, "..");
-const DIR = path.join(ROOT, "bgutil-ytdlp-pot-provider");
+const ROOT = PROJECT.root;
+const DIR = PROJECT.bgutil;
 const SERVER = path.join(DIR, "server");
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
 const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
@@ -52,15 +55,16 @@ function hasTag(tag: string) {
 
 try {
   const existed = fs.existsSync(DIR);
-  if (!existed) git(["clone", REPO, "bgutil-ytdlp-pot-provider"], ROOT);
+  if (!existed) git(["clone", REPO, DIR], ROOT);
+
+  // 체크아웃 안의 변경을 되돌린다(앞선 설치가 npm audit fix 로 고친 잠금 파일). 같은 태그로 다시 설치할 때도 태그의 잠금 파일로
+  git(["checkout", "--", "."], DIR);
 
   const before = currentTag();
   const moved = before !== VERSION;
   if (!moved) {
     console.log(`ℹ️  bgutil ${VERSION}이 이미 체크아웃돼 있습니다. 의존성 설치 + 빌드만 진행합니다.`);
   } else {
-    // npm audit fix가 server/package-lock.json을 로컬 변경하므로, 원복해야 다른 태그로 옮길 수 있다
-    git(["checkout", "--", "."], DIR);
     if (!hasTag(VERSION)) git(["fetch", "--tags", "origin"], DIR);
     if (!hasTag(VERSION)) {
       console.error(`\n❌ bgutil에 ${VERSION} 태그가 없습니다. .env의 BGUTIL_VERSION을 확인하세요 (태그 목록: ${TAGS_URL})`);
@@ -72,20 +76,13 @@ try {
 
   if (!fs.existsSync(SERVER)) throw new Error(`server 디렉터리를 찾을 수 없습니다: ${SERVER}`);
 
-  // bgutil은 자체 npm 프로젝트(별도 ecosystem). package-lock 기반 재현 설치, 실패 시 install로 폴백
+  // bgutil은 자체 npm 프로젝트(별도 ecosystem). 잠금 파일 그대로만 설치한다(npm install 로 넘어가면 그날의 트리가 깔린다)
   try {
     run("npm ci", SERVER);
   } catch {
-    console.warn("⚠️  npm ci 실패 → npm install로 폴백합니다.");
-    run("npm install", SERVER);
-  }
-
-  // upstream 잠금 파일의 알려진 취약 전이 의존성을 semver 범위 내에서 교체 (예: form-data GHSA-hmw2-7cc7-3qxx).
-  // 로컬 변경분은 태그를 옮길 때 원복 후 재적용. upstream이 잠금을 고치면 자연히 no-op.
-  try {
-    run("npm audit fix", SERVER);
-  } catch {
-    console.warn("⚠️  npm audit fix 실패(네트워크/레지스트리 문제일 수 있음). 설치는 계속 진행합니다. 나중에 bgutil-ytdlp-pot-provider/server에서 직접 실행해 주세요.");
+    console.error("\n❌ npm ci 실패. 윈도우에서는 봇이 켜져 있으면 POToken 서버가 node_modules 의 파일(canvas.node)을 물고 있어 지우지 못합니다.");
+    console.error("   봇을 끄고 다시 실행하세요. 꺼져 있었다면 위의 npm 오류를 보세요(네트워크 · canvas 네이티브 모듈용 빌드 툴체인).");
+    process.exit(1);
   }
 
   run("npx tsc", SERVER); // build/main.js 생성 (tsconfig outDir=./build)
@@ -93,9 +90,9 @@ try {
   console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 포트 4416에서 함께 시작됩니다.");
   if (existed && moved) {
     // yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부한다(경고가 아니라 중단).
-    // 봇이 띄워 둔 서버는 예전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.
+    // 봇이 실행해 둔 서버는 설치 전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.
     console.log("\n⚠️  봇이 실행 중이라면 재시작하세요.");
-    console.log("   봇이 띄운 POToken 서버는 아직 이전 버전으로 돌고 있고,");
+    console.log("   봇이 실행한 POToken 서버는 아직 이전 버전으로 돌고 있고,");
     console.log("   플러그인과 메이저 버전이 다르면 토큰 발급이 거부됩니다.");
   }
 } catch (e) {

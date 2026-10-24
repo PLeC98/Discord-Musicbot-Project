@@ -1,8 +1,8 @@
-// 자동재생 소스가 내는 곡 한 줄. 어느 칸이 찼는지가 뒤의 처리를 정한다(sources/index 의 설명).
+// 자동재생 소스가 내는 곡 한 줄. 어느 필드가 찼는지가 뒤의 처리를 정한다(sources/index 의 설명).
 
 type Candidate = {
   title: string;
-  /** 같은 곡을 두 번 내지 않게 가르는 값 */
+  /** 같은 곡을 두 번 내지 않게 구분하는 값 */
   sourceKey: string;
   artist?: string;
   durationSec?: number;

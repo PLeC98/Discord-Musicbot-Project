@@ -1,0 +1,106 @@
+import type { HelpEntry } from "../ui/help-lines.ts";
+import { REST, Routes, type ChatInputCommandInteraction, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
+import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import config from "../config/index.ts";
+import { COMMANDS } from "../discord/commands/index.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
+import type { BotContext } from "./bot-context.ts";
+import { PROJECT } from "../infra/project-paths.ts";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "core" });
+
+/** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
+type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
+/**
+ * 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다.
+ * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(다음 기동의 배포에서)
+ */
+type GuildCommand = { data: CommandData; help: HelpEntry | null; anywhere?: false; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext): unknown };
+/** 서버 밖(DM)에서도 쓰는 명령 */
+type AnywhereCommand = { data: CommandData; help: HelpEntry | null; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, bot: BotContext): unknown };
+/** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
+type SlashCommand = GuildCommand | AnywhereCommand;
+
+// 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
+// env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
+const HASH_PATH = path.join(PROJECT.database, "deployed-commands.json");
+
+/** 켜진 명령. 배포하는 것과 실행 목록에 올리는 것이 이 집합이다(꺼진 기능은 진입점이 없다) */
+function enabledCommands() {
+  return COMMANDS.filter((command) => command.enabled?.() ?? true);
+}
+
+/** 배포용 JSON */
+function definitions() {
+  return enabledCommands().map((command) => command.data.toJSON());
+}
+
+// 현재 명령어 세트 + 배포 대상의 지문. 어느 하나라도 바뀌면 재배포 대상
+function deployFingerprint(scope: string, guildId: string | null, commands: unknown[]) {
+  const src = JSON.stringify({ clientId: config.discord.clientId, scope, guildId, commands });
+  return crypto.createHash("sha256").update(src).digest("hex");
+}
+
+// 읽지 못하면 재배포한다(안전한 쪽). 파일이 없는 것은 첫 배포라 남기지 않는다
+function readDeployedFingerprint(hashPath: string) {
+  try {
+    return JSON.parse(fs.readFileSync(hashPath, "utf8")).fingerprint || null;
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.debug(`명령 배포 지문 읽기 실패: ${messageOf(error)}`);
+    return null;
+  }
+}
+
+// 지문 저장 실패는 다음 기동에서 한 번 더 배포될 뿐이다
+function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
+  try {
+    fs.mkdirSync(path.dirname(hashPath), { recursive: true });
+    fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, deployedAt: new Date().toISOString() }));
+  } catch (error) {
+    log.debug(`명령 배포 지문 저장 실패: ${messageOf(error)}`);
+  }
+}
+
+/** 명령 등록 요청. 경로와 정의를 받아 디스코드가 등록한 명령 목록을 돌려준다 */
+type PutCommands = (route: `/${string}`, body: RESTPostAPIApplicationCommandsJSONBody[]) => Promise<RESTPutAPIApplicationCommandsResult>;
+// 디스코드 API 의 답을 등록한 명령 목록으로 본다
+const putCommands: PutCommands = async (route, body) => (await new REST().setToken(config.discord.token).put(route, { body })) as RESTPutAPIApplicationCommandsResult;
+
+type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
+
+// 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(지문이 같으면) 건너뛰고, 대시보드의 다시 등록 · 수동 스크립트는 force 로 늘 등록한다.
+// hashPath · put 은 테스트가 넘기는 슬롯(임시 파일이라 운영 지문을 건드리지 않고, 실제로 등록하지 않는다)
+async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
+  const scope = config.discord.guildId ? "guild" : "global";
+  const guildId = config.discord.guildId || null;
+  const commands = definitions();
+  const fingerprint = deployFingerprint(scope, guildId, commands);
+
+  if (!force && readDeployedFingerprint(hashPath) === fingerprint) {
+    return { ok: true, skipped: true, count: commands.length, scope, guildId, names: commands.map((c) => c.name) };
+  }
+
+  try {
+    const route = guildId ? Routes.applicationGuildCommands(config.discord.clientId, guildId) : Routes.applicationCommands(config.discord.clientId);
+    const data = await put(route, commands);
+    writeDeployedFingerprint(hashPath, fingerprint); // 성공 시에만 기록. 실패하면 다음 기동에 재시도
+    return { ok: true, skipped: false, count: data.length, scope, guildId, names: data.map((c) => c.name) };
+  } catch (error) {
+    return { ok: false, error, scope, guildId };
+  }
+}
+
+// 배포 실패 로그 라인
+function deployErrorLines(result: { scope: string; error?: unknown }) {
+  const lines = [`❌ 명령어 배포 실패 (${result.scope}): ${messageOf(result.error)}`];
+  if (codeOf(result.error) === 50001) {
+    lines.push('   → 봇이 대상 서버에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
+    lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환됩니다.");
+  }
+  return lines;
+}
+
+export { enabledCommands, definitions, deployCommands, deployErrorLines };
+export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, DeployResult };
