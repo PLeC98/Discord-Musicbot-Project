@@ -12,8 +12,8 @@ function isAllowed(options: ReturnType<typeof createCorsOptions>, origin: string
 }
 
 test("기본 실행은 대시보드 주소 하나만 허용한다 (개발 서버 포함 안 함)", async () => {
-  const options = createCorsOptions("https://discord.plec.moe/");
-  assert.equal(await isAllowed(options, "https://discord.plec.moe"), true);
+  const options = createCorsOptions("https://dashboard.example.com/");
+  assert.equal(await isAllowed(options, "https://dashboard.example.com"), true);
   assert.equal(await isAllowed(options, "https://evil.example"), false);
   assert.equal(await isAllowed(options, "http://localhost:5173"), false);
 });
@@ -30,19 +30,19 @@ test("개발 서버(5173)는 명시적으로 켰을 때만 허용한다", async 
 });
 
 test("Origin 헤더가 없는 요청(브라우저가 아닌 호출)은 통과", async () => {
-  const options = createCorsOptions("https://discord.plec.moe");
+  const options = createCorsOptions("https://dashboard.example.com");
   assert.equal(await isAllowed(options, undefined), true);
 });
 
 test("형식이 깨졌거나 출처를 헷갈리게 만든 값은 거부", async () => {
-  const options = createCorsOptions("https://discord.plec.moe");
+  const options = createCorsOptions("https://dashboard.example.com");
   assert.equal(await isAllowed(options, "not a url"), false);
-  assert.equal(await isAllowed(options, "https://discord.plec.moe.evil.example"), false);
-  assert.equal(await isAllowed(options, "https://discord.plec.moe@evil.example"), false);
+  assert.equal(await isAllowed(options, "https://dashboard.example.com.evil.example"), false);
+  assert.equal(await isAllowed(options, "https://dashboard.example.com@evil.example"), false);
 });
 
 test("DASHBOARD_URL은 평범한 http·https 출처여야 한다", () => {
-  assert.equal(normalizeDashboardOrigin("https://discord.plec.moe/path"), "https://discord.plec.moe");
+  assert.equal(normalizeDashboardOrigin("https://dashboard.example.com/path"), "https://dashboard.example.com");
   assert.throws(() => normalizeDashboardOrigin("javascript:alert(1)"), /http 나 https/);
   assert.throws(() => normalizeDashboardOrigin("https://user:pass@example.com"), /계정 · 쿼리 · 조각 없는 주소/);
   assert.throws(() => normalizeDashboardOrigin("https://example.com/?next=evil"), /계정 · 쿼리 · 조각 없는 주소/);

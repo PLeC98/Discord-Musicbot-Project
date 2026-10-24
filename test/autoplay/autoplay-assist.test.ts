@@ -956,7 +956,7 @@ test("무료 확인은 모델 목록만 받는다 — 추론이 없다", async (
 test("baseUrl 은 custom 일 때만 쓴다", () => {
   assert.equal(assist.endpointOf({ provider: "openai", baseUrl: "http://엉뚱한곳/v1" }), "https://api.openai.com/v1");
   assert.equal(assist.endpointOf({ provider: "ollama", baseUrl: "http://엉뚱한곳/v1" }), "http://127.0.0.1:11434/v1");
-  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "https://plec.moe/anthropic/v1/" }), "https://plec.moe/anthropic/v1", "끝의 빗금은 정리한다");
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "https://proxy.example.com/anthropic/v1/" }), "https://proxy.example.com/anthropic/v1", "끝의 빗금은 정리한다");
   assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "" }), "");
   assert.equal(assist.endpointOf({ provider: "모름" }), "");
 

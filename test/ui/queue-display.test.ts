@@ -35,13 +35,13 @@ test("대기열 줄: 제목이 없으면 알 수 없는 곡", () => {
 
 // 셀렉트 메뉴 설명은 멘션 · 앱 이모지를 렌더링하지 않는다(글자 그대로 보인다) — 이름과 유니코드를 쓴다.
 test("점프 설명: 아티스트 | 길이 | 요청자 이름. 자동재생 곡은 앱 이모지를 맞춰도 유니코드", () => {
-  assert.equal(jumpDescription(song({ requestedBy: { id: "u1", username: "PLeC" } })), "가수 | 1:40 | PLeC");
+  assert.equal(jumpDescription(song({ requestedBy: { id: "u1", username: "요청자" } })), "가수 | 1:40 | 요청자");
   useUploaded(new Map([["autoplay", { id: "7", animated: false }]]));
   assert.equal(jumpDescription(song({ autoplay: true })), "가수 | 1:40 | 🎲");
 });
 
 test("점프 설명: 라이브는 길이 위치에 🔴LIVE", () => {
-  assert.equal(jumpDescription(song({ isLive: true, duration: 0, requestedBy: { id: "u1", username: "PLeC" } })), "가수 | 🔴LIVE | PLeC");
+  assert.equal(jumpDescription(song({ isLive: true, duration: 0, requestedBy: { id: "u1", username: "요청자" } })), "가수 | 🔴LIVE | 요청자");
   assert.equal(jumpDescription(song({ artist: undefined, isLive: true, duration: 0 })), "🔴LIVE");
 });
 

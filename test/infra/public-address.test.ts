@@ -48,7 +48,7 @@ test("주소: IP 로 적었으면 공인 unicast 일 때만, 이름이면 localh
     ["http://router.home.arpa", false],
     ["http://svc.internal", false],
     ["not a url", false],
-    ["https://discord.plec.moe", true],
+    ["https://bot.example.org", true],
     ["http://93.184.216.34:8080", true],
     ["http://[2606:4700::1111]", true],
     ["https://music.example.com/dashboard", true],
