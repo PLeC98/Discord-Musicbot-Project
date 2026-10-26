@@ -4,6 +4,7 @@ import { AUDIO_FORMATS, inputFilter } from "./input-filter.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { exitText, exitVerdict } from "./exit.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
@@ -16,9 +17,6 @@ const log = logger.child({ category: "ffmpeg" });
 
 // 소리를 내는 ffmpeg(playback-input · 무이음 전환)
 const PLAYING = new Set(["stream", "playback", "switch"]);
-
-// SIGKILL/SIGTERM은 스킵·정지·종료에서 우리가 보내는 것이므로 크래시가 아니다.
-const CRASH_SIGNALS = new Set<NodeJS.Signals>(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
 
 /**
  * @param {string[]} args 완전한 ffmpeg 인자. 출력 대상까지 호출부가 지정한다.
@@ -51,17 +49,15 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남는다.
   // prism의 _cleanup()이 하던 일을 여기서 대신한다.
   // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
-  // 우리가 손을 떼서 죽인 것인지 표시. 프로세스가 아직 살아 있는데 stdout이 닫혔다면
-  // 닫은 쪽은 소비자, 즉 우리다(무지연 전환에서 옛 소스를 버릴 때가 그렇다).
-  // 이때 ffmpeg는 파이프 쓰기가 실패해 스스로 죽는데(Windows에서는 EINVAL → 종료 코드 -22),
-  // 그건 사고가 아니라 우리가 시킨 정리다. 경고로 올리면 안 된다.
+  // 우리가 손을 떼서 죽인 것인지 표시. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
+  // (스킵 · 위치 이동, 무지연 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
+  // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg 는 파이프 쓰기가 실패해 스스로 죽는다(exit.ts)
   let closedByUs = false;
   if (killOnStdoutClose) {
     child.stdout.on("close", () => {
-      if (child.exitCode === null && child.signalCode === null) {
-        closedByUs = true;
-        child.kill("SIGKILL");
-      }
+      if (child.stdout.readableEnded) return;
+      closedByUs = true;
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
     });
   }
 
@@ -73,14 +69,10 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   child.on("exit", (code, signal) => {
     release();
     const detail = stderrTail.trim() ? `: ${stderrTail.trim()}` : "";
-    if (signal !== null && CRASH_SIGNALS.has(signal)) {
-      log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
-    } else if (closedByUs) {
-      // 종료 코드는 남긴다. 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 구분한다.
-      log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${code ?? signal ?? "없음"})`);
-    } else if (code !== 0 && code !== null) {
-      log.warn(`ffmpeg(${label}) 종료 코드 ${code}${detail}`);
-    }
+    const verdict = exitVerdict({ code, signal, closedByUs });
+    if (verdict === "crash") log.error(`ffmpeg(${label}) 비정상 종료: ${exitText(code, signal)}${detail}`);
+    else if (verdict === "cleanup") log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${exitText(code, signal)})`);
+    else if (verdict === "failed") log.warn(`ffmpeg(${label}) 종료 코드 ${exitText(code, signal)}${closedByUs ? "(출력을 닫기 전에 이미 실패)" : ""}${detail}`);
   });
 
   return child;
@@ -159,5 +151,5 @@ async function probeDurationSec(file: string): Promise<number | null> {
 }
 
 export { spawnFfmpeg, probeAudio, probeDurationSec };
-export const _internals = { CRASH_SIGNALS, parseProbeOutput };
+export const _internals = { parseProbeOutput };
 export type { ProbeInfo };
