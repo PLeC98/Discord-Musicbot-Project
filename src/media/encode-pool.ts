@@ -208,6 +208,8 @@ class EncodePool {
   #timers: NodeJS.Timeout[] = [];
   #closing = false;
   #stats = { deaths: 0, late: 0 };
+  // 상태 탭의 최근 15분: 지난 구간에서 가장 늦은 워커의 응답 p99(ms)
+  #peakRtt = 0;
 
   // 해제하지 않은 채 GC 된 세션의 인코더를 워커에서 해제한다. 여기 닿았다면 리소스를 정리하지 않는 경로가 있다
   readonly #unreleased = new FinalizationRegistry<Slot>((slot) => {
@@ -261,7 +263,7 @@ class EncodePool {
     this.#unbind(session);
   }
 
-  /** 상태 탭 */
+  /** 상태 탭. late · deaths 는 봇이 켜진 뒤의 합, 워커의 rttP99 는 지난 1초, cpuPct 는 코어 하나 기준 */
   stats() {
     return {
       max: this.#limit(),
@@ -269,8 +271,15 @@ class EncodePool {
       sessions: this.#sessions.size,
       deaths: this.#stats.deaths,
       late: this.#stats.late,
-      workers: this.#workers.map((e) => ({ n: e.n, streams: e.ids.size, depth: e.depth, cpuPct: e.load ? Math.round(e.load.cpuUs / 10_000) : null })),
+      workers: this.#workers.map((e) => ({ n: e.n, streams: e.ids.size, depth: e.depth, rttP99: Math.round(e.lastP99 * 10) / 10, cpuPct: e.load ? Math.round(e.load.cpuUs / 10_000) : null })),
     };
+  }
+
+  /** 지난번 부른 뒤 가장 늦은 워커의 응답 p99(ms). 부르면 다시 센다(상태 탭의 구간마다) */
+  takePeakRtt() {
+    const peak = this.#peakRtt;
+    this.#peakRtt = 0;
+    return Math.round(peak * 10) / 10;
   }
 
   /** 워커를 모두 내린다. 정상 종료에서는 부르지 않는다(프로세스 종료가 스레드를 함께 내린다) */
@@ -554,6 +563,7 @@ class EncodePool {
       const rttP99 = p99(entry.rtt);
       const late = entry.late;
       entry.lastP99 = rttP99;
+      this.#peakRtt = Math.max(this.#peakRtt, rttP99);
       entry.rtt = [];
       entry.late = 0;
       this.#stats.late += late;

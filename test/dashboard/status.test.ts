@@ -45,6 +45,8 @@ test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈�
   assert.equal(history.heapPct.length, 1);
   assert.ok(history.heapPct[0] > 0 && history.heapPct[0] < 100);
   for (const series of [history.loopP99, history.cpuBot, history.cpuSystem]) assert.equal(series.length, 1);
+  // 인코딩 워커를 띄우지 않았으면 응답은 0
+  assert.deepEqual(history.encodeRtt, [0]);
 });
 
 test("최근 15분: 60점을 넘으면 오래된 것부터 버린다", () => {

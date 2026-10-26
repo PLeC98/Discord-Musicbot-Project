@@ -18,6 +18,7 @@ import { storageView, watchStorage } from "./storage.ts";
 import { envStatus, recentProblems } from "./env.ts";
 import { downloadMeter } from "../../infra/download-meter.ts";
 import { TrackDownloader } from "../../media/cache-download.ts";
+import { encodePool } from "../../media/encode-pool.ts";
 import type { PlayerStream } from "../player-stream.ts";
 
 const MB = 1024 * 1024;
@@ -59,6 +60,8 @@ async function adminStatus({ client, players, commands }: BotContext, viewerId: 
     links: linkRows(client),
     storage: storageView(),
     recent: recentProblems(),
+    // 이벤트 루프 지연은 메인 스레드 것이라 인코딩이 밀리는 것은 여기서 본다
+    encoding: encodePool.stats(),
     env: envStatus(commands.size, stream.subs.size, launcher),
     history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면

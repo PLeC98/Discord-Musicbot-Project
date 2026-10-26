@@ -58,6 +58,11 @@ type AdminStatus = {
    * bgutil: 설치된 버전 · 설정한 버전(BGUTIL_VERSION) · 그보다 새 릴리스(없으면 null). 설치돼 있지 않으면 null
    */
   env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
+  /**
+   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(재생 중인 플레이어 수와 비교한다).
+   * late · deaths: 봇이 켜진 뒤 워커가 늦어 빈 프레임 수 · 워커가 죽거나 내린 수. 워커마다 streams: 맡은 세션, depth: 미리 만드는 깊이, rttP99: 지난 1초의 응답 p99(ms), cpuPct: CPU(코어 하나 기준, 아직 모르면 null)
+   */
+  encoding: { max: number; quota: number | null; sessions: number; late: number; deaths: number; workers: Array<{ n: number; streams: number; depth: number; rttP99: number; cpuPct: number | null }> };
   history: StatusHistory;
   logLevel: string;
 };
@@ -90,7 +95,8 @@ type StorageView = {
 };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
-type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[] };
+/** encodeRtt: 구간마다 가장 늦은 인코딩 워커의 응답 p99(ms) */
+type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[] };
 
 /** 전체 서버 공지의 종류. 화면은 이 키로 라벨을 단다 */
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
