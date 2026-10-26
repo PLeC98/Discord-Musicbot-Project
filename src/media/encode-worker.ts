@@ -11,9 +11,10 @@ import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; pcm: ArrayBuffer } | { type: "close"; id: number };
 type FromWorker =
   | { type: "ready"; libopusVersion: string; frameUs: number }
-  | { type: "packet"; id: number; seq: number; packet: ArrayBuffer }
+  // doneAt: 답을 보낸 때(timeOrigin + now, ms). 메인이 받기를 미룬 시간을 빼고 워커가 걸린 시간을 잰다
+  | { type: "packet"; id: number; seq: number; packet: ArrayBuffer; doneAt: number }
   // fatal: 이 스레드의 WASM 모듈이 망가졌다(abort). 메인이 스레드를 바꾼다
-  | { type: "error"; id: number; seq: number | null; message: string; fatal: boolean }
+  | { type: "error"; id: number; seq: number; message: string; fatal: boolean; doneAt: number }
   // 지난 보고 뒤로 인코딩에 쓴 시간과 스레드 CPU 시간(µs), 살아 있는 인코더 수
   | { type: "load"; busyUs: number; cpuUs: number; encoders: number };
 
@@ -33,11 +34,13 @@ function send(message: FromWorker, transfer: ArrayBuffer[] = []) {
   reply?.postMessage(message, transfer);
 }
 
-function errorOf(id: number, seq: number | null, error: unknown) {
+const doneAt = () => performance.timeOrigin + performance.now();
+
+function errorOf(id: number, seq: number, error: unknown) {
   // WASM abort 는 모듈 전체가 망가진 것이라 이 스레드의 다른 인코더도 믿을 수 없다.
   // WebAssembly.RuntimeError 는 lib(es2024)에 타입이 없어 이름으로 본다
   const fatal = error instanceof Error && error.name === "RuntimeError";
-  send({ type: "error", id, seq, message: error instanceof Error ? error.message : String(error), fatal });
+  send({ type: "error", id, seq, message: error instanceof Error ? error.message : String(error), fatal, doneAt: doneAt() });
 }
 
 function encode(stream: Stream, frame: Frame) {
@@ -53,7 +56,7 @@ function encode(stream: Stream, frame: Frame) {
     const packet = stream.encoder.encode(Buffer.from(frame.pcm));
     // encode 가 돌려준 것은 WASM 힙의 복사본이라 그 ArrayBuffer 를 그대로 넘겨도 된다
     const owned = packet.byteOffset === 0 && packet.byteLength === packet.buffer.byteLength ? (packet.buffer as ArrayBuffer) : packet.buffer.slice(packet.byteOffset, packet.byteOffset + packet.byteLength);
-    send({ type: "packet", id: frame.id, seq: frame.seq, packet: owned as ArrayBuffer }, [owned as ArrayBuffer]);
+    send({ type: "packet", id: frame.id, seq: frame.seq, packet: owned as ArrayBuffer, doneAt: doneAt() }, [owned as ArrayBuffer]);
   } catch (error) {
     errorOf(frame.id, frame.seq, error);
   } finally {
