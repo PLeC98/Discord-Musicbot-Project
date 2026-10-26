@@ -51,6 +51,8 @@ type EncodeSession = {
   /** 읽을 때 보낸 것은 있는데 받은 패킷이 없었다(워커가 늦다) */
   late(): void;
   free(): void;
+  /** 로그용: 붙어 있는 워커 번호와 가장 오래 답을 기다리는 프레임의 나이(ms) */
+  describe(): { worker: number | null; oldestMs: number | null };
 };
 
 type Sent = { seq: number; frame: Buffer; gain: number; sentAt: number };
@@ -114,6 +116,11 @@ class Session implements EncodeSession {
 
   free() {
     this.pool.release(this);
+  }
+
+  describe() {
+    const head = this.sent[0];
+    return { worker: this.slot.entry?.n ?? null, oldestMs: head?.sentAt ? Math.round(now() - head.sentAt) : null };
   }
 }
 

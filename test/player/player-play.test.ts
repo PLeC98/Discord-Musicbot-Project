@@ -17,7 +17,7 @@ import { StreamType } from "@discordjs/voice";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
 import { md5 } from "../../src/rules/audio-key-of.ts";
-import { codedError } from "../../src/rules/error-kind.ts";
+import { codedError, codeOf } from "../../src/rules/error-kind.ts";
 import { recordPanel } from "../helpers/panel-events.ts";
 import type { FakeChild } from "../helpers/player-harness.ts";
 import type { Player } from "../../src/player/player.ts";
@@ -146,6 +146,20 @@ test("캐시로 튼 곡은 퇴거에서 보호한다", async () => {
   assert.equal(audioCache._protectedKeys.get(p.guild.id), "yt:ddddddddddd");
   assert.ok(audioCache._liveKeys().has("yt:ddddddddddd"));
   p.releaseAudioProtection();
+});
+
+test("인코딩 워커를 쓸 수 없으면 ffmpeg 를 띄우기 전에 encoder-unavailable 로 실패한다", async () => {
+  const track = yt("ccccccccccc");
+  h.seedCache("yt:ccccccccccc", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  behavior.encoder = () => false;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false);
+  assert.equal(codeOf(r.error), "encoder-unavailable");
+  assert.equal(calls.spawns.length, 0);
 });
 
 // ── 스트림으로 튼다 ────────────────────────────────────────────────────

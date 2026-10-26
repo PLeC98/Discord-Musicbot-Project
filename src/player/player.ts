@@ -133,6 +133,9 @@ function starvedDetail(pb: CurrentPlayback | null) {
   if (tracked) parts.push(`입력 없음 ${sec(Date.now() - tracked)}초`);
   const detail = input?.detail();
   if (detail) parts.push(detail);
+  // 워커가 늦거나 멈춘 것을 입력 탓으로 읽지 않게 출력 쪽도 적는다
+  const out = pb?.output?.describe();
+  if (out) parts.push(`출력 워커 ${out.worker ?? "없음"} · 답 기다림 ${out.inflight}개${out.oldestMs === null ? "" : `(가장 오래 ${sec(out.oldestMs)}초)`} · 받아 둔 ${out.ready}개 · 깊이 ${out.depth}`);
   return parts.join(" · ");
 }
 
@@ -151,6 +154,7 @@ const REAL = {
   createAudioPlayer,
   createAudioResource,
   openEncoder: encodePool.open.bind(encodePool),
+  encoderAvailable: () => encodePool.available(),
   spawnFfmpeg,
   ffmpegCapabilities,
   openChunkedStream,

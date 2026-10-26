@@ -14,6 +14,7 @@ const log = logger.child({ category: "player" });
 
 type OpenEncoder = (hooks: SessionHooks) => EncodeSession;
 type Pending = { chunk: Buffer; offset: number; done: (err?: Error | null) => void };
+type OutputState = { inflight: number; ready: number; frames: number; depth: number; worker: number | null; oldestMs: number | null };
 
 class OpusOutput extends Duplex {
   readonly #session: EncodeSession;
@@ -30,6 +31,8 @@ class OpusOutput extends Duplex {
   #pending: Pending | null = null;
   #finish: ((err?: Error | null) => void) | null = null;
   #pumping = false;
+  // destroy 될 때의 상태. voice 가 공급이 끊겨 멈추면 출력을 destroy 한 뒤에 로그를 남긴다
+  #last: OutputState | null = null;
   /** 받는 PCM 소스(attachOpusOutput 이 정한다). 어느 분기로 열었는지 볼 때 */
   source: Readable | null = null;
 
@@ -55,9 +58,9 @@ class OpusOutput extends Duplex {
     return this.#gain;
   }
 
-  /** 멈춤 로그 · 테스트용: 보낸 것, 받아 둔 것(읽는 쪽 버퍼 포함), 못 보낸 프레임, 깊이 */
-  describe() {
-    return { inflight: this.#inflight, ready: this.#ready.length + this.readableLength, frames: this.#frames.length, depth: this.#session.depth };
+  /** 멈춤 로그 · 테스트용: 보낸 것, 받아 둔 것(읽는 쪽 버퍼 포함), 못 보낸 프레임, 깊이, 워커 번호, 가장 오래 기다리는 답의 나이. destroy 뒤에는 그때의 값 */
+  describe(): OutputState {
+    return this.#last ?? { inflight: this.#inflight, ready: this.#ready.length + this.readableLength, frames: this.#frames.length, depth: this.#session.depth, ...this.#session.describe() };
   }
 
   // 와 있는 패킷을 먼저 받고 읽는다. _read 가 한 번 빈손으로 끝나면 Node 가 _read 를 다시 부르지 않아 여기서 받아야 한다.
@@ -90,6 +93,7 @@ class OpusOutput extends Duplex {
   }
 
   _destroy(err: Error | null, done: (err?: Error | null) => void) {
+    this.#last = this.describe();
     this.#session.free();
     this.#pending = null;
     this.#frames = [];

@@ -40,6 +40,8 @@ type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
   createAudioResource(input: Readable, options: { inputType: StreamType; metadata: ResourceMeta }): R;
   openEncoder: OpenEncoder;
+  // 인코딩 워커를 쓸 수 있는가(media/encode-pool). 못 쓰면 ffmpeg · 입력을 열기 전에 거절한다
+  encoderAvailable(): boolean;
   ffmpegCapabilities(): Capabilities;
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   seekStart(request: SeekRequest): Promise<SeekAnswer>;
@@ -89,6 +91,7 @@ const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).t
  * @returns cacheFile 은 결국 파일로 열었으면 그 경로. health 는 연 소스의 온전함(곡 끝 판정이 본다)
  */
 async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
+  if (!o.io.encoderAvailable()) throw codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없습니다");
   // 주소 분기는 스트림 주소가 있어야 정해진다(transportOf)
   if (o.transport.via === "url" && o.streamInfo) return openUrl(o, o.streamInfo);
   if (o.transport.via === "pipe") {

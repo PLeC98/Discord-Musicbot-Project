@@ -100,6 +100,7 @@ const SHARED = {
   "yt-age-cookies-invalid": { status: 503, title: "Age-restricted videos are temporarily unavailable" },
   "live-no-ffmpeg": { status: 503, title: "Live streams are unavailable" },
   "still-starting": { status: 503, title: "Playback is still starting" },
+  "encoder-unavailable": { status: 503, title: "Audio encoder is unavailable" },
   // 봇 안쪽 실패
   "unknown-error": { status: 500, title: "Unexpected error" },
   "command-failed": { status: 500, title: "Command failed" },

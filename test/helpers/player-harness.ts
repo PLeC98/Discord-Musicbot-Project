@@ -134,6 +134,7 @@ function fakeEncoder(hooks: SessionHooks): EncodeSession {
     free() {
       freed = true;
     },
+    describe: () => ({ worker: null, oldestMs: null }),
   };
 }
 
@@ -325,6 +326,7 @@ type Behavior = {
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
   connect: (() => unknown) | null;
+  encoder: (() => boolean) | null;
 };
 const behavior: Behavior = {
   stream: null, // (track, options) → streamInfo. 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 묻는다
@@ -338,6 +340,7 @@ const behavior: Behavior = {
   restore: null, // function (record) — this 는 플레이어. 세션 복원(명령 · 곡 추가의 분기)
   autoplay: null, // () → 자동재생이 선택할 곡. 기본은 못 찾음
   connect: null, // () → 던지면 음성 채널에 붙지 못함
+  encoder: null, // () → false 면 인코딩 워커를 쓸 수 없음. 기본은 쓸 수 있음
 };
 
 // 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
@@ -389,6 +392,7 @@ const fakes: Partial<Boundary> = {
   pickAutoplay: async () => (behavior.autoplay ? behavior.autoplay() : null) as Awaited<ReturnType<Boundary["pickAutoplay"]>>,
   createAudioResource: createAudioResource as unknown as Boundary["createAudioResource"],
   openEncoder: fakeEncoder,
+  encoderAvailable: () => (behavior.encoder ? behavior.encoder() : true),
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],

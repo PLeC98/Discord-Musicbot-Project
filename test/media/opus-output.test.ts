@@ -34,6 +34,7 @@ function counted() {
       send: (frame, gain) => session.send(frame, gain),
       drain: () => session.drain(),
       late: () => session.late(),
+      describe: () => session.describe(),
       free: () => {
         stats.freed++;
         session.free();
@@ -63,6 +64,7 @@ function manual(depth = 2) {
       drain: deliver,
       late: () => stats.late++,
       free: () => stats.freed++,
+      describe: () => ({ worker: null, oldestMs: null }),
     };
   };
   return { open, stats, control, fail: (error: Error) => hooks?.onError(error) };

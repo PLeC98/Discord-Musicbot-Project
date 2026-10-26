@@ -254,6 +254,23 @@ test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입
   );
 });
 
+test("공급이 끊겨 멈추면 출력 쪽(워커 · 답을 기다리는 프레임 · 받아 둔 패킷 · 깊이)도 남긴다", async () => {
+  const p = h.makePlayer();
+  starved(p, cached("e3eeeeeeeee"), 30_000);
+  const output = { describe: () => ({ inflight: 3, ready: 0, frames: 1, depth: 2, worker: 2, oldestMs: 1200 }) };
+  Object.assign(p.playback ?? {}, { input: { kind: "파일", detail: () => null }, output });
+  const from = sink.buffer.length;
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  const lines = sink.buffer.slice(from).map((e) => e.text);
+  assert.ok(
+    lines.some((l) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 파일 · 출력 워커 2 · 답 기다림 3개\(가장 오래 1\.2초\) · 받아 둔 0개 · 깊이 2$/.test(l)),
+    lines.join("\n"),
+  );
+});
+
 test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 간다", async () => {
   const p = h.makePlayer();
   const track = starved(p, yt("fffffffffff"), 30000);
