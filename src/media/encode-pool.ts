@@ -356,6 +356,36 @@ class EncodePool {
       this.#homeless.delete(id);
       if (session && !session.freed) this.#attach(session, entry);
     }
+    this.#rebalance(entry);
+    // 몰려 열리는 동안에는 하나씩 띄우므로, 뜰 때마다 더 필요한지 다시 본다
+    this.#growForLoad();
+  }
+
+  // 새 워커가 몫을 받는다: 활성 세션이 몫보다 많은 워커에서 옮겨 온다. 옮긴 세션은 새 인코더로 다시 시작한다(위치 이동 때와 같은 어긋남).
+  // 와 있는 답을 먼저 받고, 답을 기다리는 프레임이 없는 세션부터 옮긴다(기다리던 답은 버리고 다시 보내야 한다)
+  #rebalance(fresh: Entry) {
+    const others = this.#workers.filter((e) => e !== fresh);
+    for (const entry of others) this.drain(entry);
+    const lists = others.map((e) => this.#activeSessions(e).sort((a, b) => a.sent.length - b.sent.length));
+    const total = lists.reduce((sum, list) => sum + list.length, this.#activeOf(fresh));
+    const share = Math.floor(total / this.#workers.length);
+    let taken = this.#activeOf(fresh);
+    let moved = 0;
+    for (const list of lists.sort((a, b) => b.length - a.length)) {
+      for (let left = list.length; taken < share && left > share; left--) {
+        const session = list[list.length - left] as Session;
+        this.#unbind(session);
+        this.#attach(session, fresh);
+        taken++;
+        moved++;
+      }
+    }
+    if (moved) log.debug(`재생 인코딩 워커 ${fresh.n} 로 스트림 ${moved}개를 옮겼습니다`);
+  }
+
+  #activeSessions(entry: Entry) {
+    const since = now() - ACTIVE_MS;
+    return [...entry.ids].map((id) => this.#sessions.get(id)?.deref()).filter((s): s is Session => !!s && !s.freed && s.lastSend >= since);
   }
 
   #grow() {
@@ -570,7 +600,7 @@ class EncodePool {
       entry.calm = isCalm(rttP99, entry.depth) ? entry.calm + 1 : 0;
       entry.depthChanges = entry.depthChanges.filter((t) => at - t < 60_000);
       const action = decideDepth({ rttP99, depth: entry.depth, canGrow: this.#mayGrow() && !this.#spawning, contended: contendedOf(entry.load), calm: entry.calm });
-      if (action === "grow") this.#growFrom(entry);
+      if (action === "grow") this.#grow();
       else if (action === "slow" && late > 0) slow = entry;
       // 띄우는 중인 워커가 있으면 깊이를 올리지 않고 기다린다(뜨면 스트림을 나눠 받는다)
       else if (action === "deepen" && this.#spawning) continue;
@@ -583,28 +613,6 @@ class EncodePool {
       if (slow === entry) this.#slowLate += late;
     }
     this.#noteSlow(slow);
-  }
-
-  // 워커를 하나 늘리고, 늦은 워커의 활성 세션 절반을 새 워커로 옮긴다
-  #growFrom(entry: Entry) {
-    if (!this.#mayGrow()) return;
-    this.#spawn().then(
-      (fresh) => {
-        if (this.#closing) return void fresh.thread.terminate();
-        this.#adopt(fresh);
-        const since = now() - ACTIVE_MS;
-        const active = [...entry.ids].map((id) => this.#sessions.get(id)?.deref()).filter((s): s is Session => !!s && !s.freed && s.lastSend >= since);
-        for (const session of active.slice(0, Math.floor(active.length / 2))) {
-          this.#unbind(session);
-          this.#attach(session, fresh);
-        }
-        log.debug(`재생 인코딩 워커 ${entry.n} 의 스트림 ${Math.floor(active.length / 2)}개를 워커 ${fresh.n} 로 옮겼습니다`);
-      },
-      (error: unknown) => {
-        log.warn(messageOf(error));
-        this.#noteDeath();
-      },
-    );
   }
 
   // 깊이 상한에서도 늦은 프레임이 이어지면 처음 한 줄 warn, 10초 동안 늦지 않으면 풀렸다고 한 줄 info

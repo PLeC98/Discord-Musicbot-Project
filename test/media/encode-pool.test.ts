@@ -203,6 +203,69 @@ test("WASM 오류는 그 프레임의 세션만 실패시키고 다른 세션은
   }
 });
 
+test("워커가 늦고 늘릴 수 없으면 깊이를 올리고, 자리를 잡으면 머문다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const { session, packets, errors } = opened(pool);
+    // voice 처럼 20ms 마다 하나를 꺼내고, 꺼내지 않은 것 + 보낸 것이 깊이가 되게 채운다. 워커는 프레임마다 18ms 걸린다(깊이 2 의 문턱 16ms 를 넘는다)
+    let sent = 0;
+    let used = 0;
+    const timer = setInterval(() => {
+      session.drain();
+      if (packets.length > used) used++;
+      while (sent - used < session.depth) {
+        session.send(frame(), 18);
+        sent++;
+      }
+    }, 20);
+    const depths: number[] = [];
+    for (let s = 0; s < 8; s++) {
+      await sleep(1000);
+      depths.push(session.depth);
+    }
+    clearInterval(timer);
+    assert.deepEqual(errors, []);
+    // 올린 순간 한꺼번에 보낸 프레임이 줄을 서 한 단계 더 오를 수 있다. 그 뒤로는 머문다
+    const last = depths.slice(-3);
+    assert.ok(last.every((d) => d === last[0]) && last[0] !== undefined && last[0] >= 3 && last[0] <= 4, `깊이 ${depths.join(",")}`);
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("워커가 늦어 하나를 늘리면 새 워커가 활성 세션의 몫을 받는다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const streams = Array.from({ length: 4 }, () => ({ ...opened(pool), sent: 0, used: 0 }));
+    // 세션마다 프레임에 18ms 라 워커 하나로는 따라가지 못한다
+    const timer = setInterval(() => {
+      for (const s of streams) {
+        s.session.drain();
+        if (s.packets.length > s.used) s.used++;
+        while (s.sent - s.used < s.session.depth) {
+          s.session.send(frame(), 18);
+          s.sent++;
+        }
+      }
+    }, 20);
+    await until(() => pool.stats().workers.length === 2, "워커 늘리기", 5000);
+    clearInterval(timer);
+    assert.deepEqual(
+      pool.stats().workers.map((w) => w.streams),
+      [2, 2],
+    );
+    for (const s of streams) {
+      assert.deepEqual(s.errors, []);
+      s.session.free();
+    }
+  } finally {
+    await pool.close();
+  }
+});
+
 test("응답이 깊이의 문턱에 가까우면 워커를 늘리고, 늘릴 수 없으면 깊이를 올리고, 상한이면 늦다고 본다", () => {
   const base = { depth: START_DEPTH, canGrow: true, contended: false, calm: 0 };
   assert.equal(decideDepth({ ...base, rttP99: 2 }), null);

@@ -87,9 +87,8 @@ class OpusOutput extends Duplex {
   }
 
   _read() {
-    const packet = this.#ready.shift();
-    if (packet) this.#emit(packet);
-    else this.#waiting = true;
+    this.#waiting = true;
+    this.#take();
   }
 
   _destroy(err: Error | null, done: (err?: Error | null) => void) {
@@ -104,15 +103,19 @@ class OpusOutput extends Duplex {
   #onPacket(packet: Buffer) {
     this.#inflight--;
     if (this.destroyed) return;
-    if (this.#waiting) this.#emit(packet);
-    else this.#ready.push(packet);
+    this.#ready.push(packet);
+    if (this.#waiting) this.#take();
     this.#pump();
   }
 
-  #emit(packet: Buffer) {
+  // 기다리는 읽기에 받아 둔 패킷을 내준다. 처음에는 깊이만큼 모일 때까지(보낸 것이 다 돌아왔으면 그대로) 기다린다.
+  // 몰려 시작할 때 워커에 줄이 생겨도 첫 패킷 다음 박자가 비지 않게 한다
+  #take() {
+    if (!this.#ready.length) return;
+    if (!this.#started && this.#ready.length < this.#session.depth && this.#inflight) return;
     this.#waiting = false;
     this.#started = true;
-    this.push(packet);
+    this.push(this.#ready.shift());
   }
 
   // 깊이가 허락하는 만큼 프레임을 잘라 보낸다. 조각을 다 자르면 그 callback 을 부른다(다음 조각이 바로 들어올 수 있다).
