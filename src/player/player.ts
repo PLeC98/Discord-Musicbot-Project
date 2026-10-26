@@ -1127,11 +1127,11 @@ class Player {
     return true;
   }
 
-  // 끊긴 라이브를 다시 연다. 열었으면 true. 방송이 끝났거나 열지 못했으면 실패로 세지 않고 알리지 않는다.
-  // false 면 끝 처리가 다 튼 곡처럼 기록에 넣고 다음 곡으로 넘긴다
+  // 끊긴 라이브를 다시 연다. 열었거나 그사이 플레이어가 버려졌으면 true(끝 처리가 더 할 일이 없다).
+  // 방송이 끝났거나 열지 못했으면 실패로 세지 않고 알리지 않는다. false 면 끝 처리가 다 튼 곡처럼 기록에 넣고 다음 곡으로 넘긴다
   async _reopenLive(label: string) {
     const reopened = await this.play(0, { liveReopen: true });
-    if (reopened.ok) return true;
+    if (reopened.ok || reopened.code === "disposed") return true;
     if (reopened.code === "live-ended") log.info(`방송이 끝나 다음 곡으로 넘깁니다: ${label} | 다시 열어 보니 라이브가 아님`);
     else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${failureReason(reopened.error, YouTube.cookiesConfigured())}`);
     else log.warn(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${reopened.code}`);

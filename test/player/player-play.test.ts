@@ -977,6 +977,13 @@ test("트는 사이에 플레이어가 버려지면 틀지 않고 출력을 dest
   assert.equal(p.lifecycle.phase, "disposed");
 });
 
+test("끊긴 라이브를 다시 여는 사이에 플레이어가 버려지면 끝 처리가 다음 곡으로 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  p.play = async () => ({ ok: false, code: "disposed" });
+  assert.equal(await p._reopenLive("곡"), true);
+  h.dispose(p);
+});
+
 test("볼륨은 출력이 만들 때 받고, voice 에는 인코딩한 Opus 를 넘긴다(inlineVolume 없이)", async () => {
   const track = yt("wwwwwwwwwww");
   h.seedCache("yt:wwwwwwwwwww", track);

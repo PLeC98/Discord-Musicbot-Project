@@ -3,7 +3,7 @@
 //
 // 읽힐 때만 인코딩한다. voice 가 20ms 마다 read() 하면 그때 한 프레임을 인코딩하고, 받은 PCM 조각은 다 쓸 때까지
 // 쓰기 callback 을 미뤄 위쪽(스플라이서 · ffmpeg 파이프)에 쌓아 둔다. 그래서 볼륨 변경이 (HWM + 1) 패킷 안에 들리고,
-// 인코딩이 voice 의 오디오 주기마다 고르게 나뉜다. 받은 조각을 한꺼번에 인코딩하면 64KB(약 340ms)씩 몰려 주기가 밀린다.
+// 인코딩이 voice 의 오디오 주기마다 고르게 나뉜다. 받은 조각을 한꺼번에 인코딩하면 조각 단위로 몰려 주기가 밀린다.
 
 import { Duplex, pipeline, type Readable } from "stream";
 import logger from "../infra/log/logger.ts";
