@@ -137,6 +137,35 @@ test("읽지 않으면 HWM 을 넘겨 인코딩하지 않는다(받은 조각의
   output.destroy();
 });
 
+test("조각이 프레임 크기와 같아도(스플라이서) 읽지 않으면 앞서 인코딩하지 않는다", async () => {
+  const src = new PassThrough();
+  const output = attachOpusOutput(src, { gain: 1, createEncoder: real });
+  const pcm = sine(200);
+  for (let o = 0; o < pcm.length; o += FRAME_BYTES) src.write(pcm.subarray(o, o + FRAME_BYTES));
+  await new Promise((r) => setTimeout(r, 50));
+  assert.ok(output.readableLength <= 1, `쌓인 패킷 ${output.readableLength}`);
+  output.destroy();
+});
+
+test("조각이 프레임 크기와 같아도 setVolume 은 (HWM + 1) 패킷 안에 먹는다", async () => {
+  const src = new PassThrough();
+  const output = attachOpusOutput(src, { gain: 1, createEncoder: real });
+  const pcm = sine(60);
+  for (let o = 0; o < pcm.length; o += FRAME_BYTES) src.write(pcm.subarray(o, o + FRAME_BYTES));
+  src.end();
+  await once(output, "readable");
+  const packets: Buffer[] = [];
+  for (let i = 0; i < 60; i++) {
+    const p = output.read();
+    if (p) packets.push(p);
+    else await new Promise((r) => setTimeout(r, 2));
+    if (packets.length === 30) output.setVolume(0.25);
+  }
+  const rms = await rmsOf(packets);
+  const loud = rms.slice(10, 28).reduce((a, b) => a + b) / 18;
+  assert.ok(rms[32] < loud * 0.35, `33번째 패킷 RMS ${rms[32]} / ${loud}`);
+});
+
 test("destroy 하면 인코더를 정확히 한 번 해제한다(끝까지 읽고 끝나도, 중간에 destroy 해도)", async () => {
   const done = counted();
   await readAll(attachOpusOutput(chunked(sine(5), [3000]), { gain: 1, createEncoder: done.make }));

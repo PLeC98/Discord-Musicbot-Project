@@ -30,6 +30,8 @@ class OpusOutput extends Duplex {
   #samples = new Int16Array(this.#frame.buffer, this.#frame.byteOffset, FRAME_BYTES / 2);
   #fill = 0;
   #pending: Pending | null = null;
+  // 다 쓴 조각의 callback 중 패킷을 내보내지 못해(push 가 false) 미뤄 둔 것. 다음 _read 때 부른다
+  #release: ((err?: Error | null) => void) | null = null;
   #finish: ((err?: Error | null) => void) | null = null;
   #pumping = false;
   /** 받는 PCM 소스(attachOpusOutput 이 정한다). 어느 분기로 열었는지 볼 때 */
@@ -91,6 +93,7 @@ class OpusOutput extends Duplex {
     const encoder = this.#encoder;
     this.#encoder = null;
     this.#pending = null;
+    this.#release = null;
     if (encoder) {
       unreleased.unregister(this);
       encoder.free();
@@ -104,26 +107,17 @@ class OpusOutput extends Duplex {
   }
 
   // 읽는 쪽이 받는 동안 프레임을 채워 인코딩한다. push 가 false 면 멈추고 다음 _read 때 이어 간다.
-  // 조각을 다 쓰고 부른 callback 이 다음 _write 를 바로 부를 수 있어 다시 들어오는 것을 막는다(바깥 루프가 이어 처리한다)
+  // 조각의 callback 은 그 조각으로 만든 패킷을 내보낼 수 있을 때만 부른다. 먼저 부르면 다음 조각이 바로 들어와
+  // 조각이 프레임 크기와 같을 때(스플라이서) 읽는 쪽이 멈춰도 인코딩이 계속된다.
+  // callback 이 다음 _write 를 바로 부를 수 있어 다시 들어오는 것을 막는다(바깥 루프가 이어 처리한다)
   #pump() {
     if (this.#pumping || !this.#encoder) return;
     this.#pumping = true;
     try {
-      while (this.#pending) {
-        const p = this.#pending;
-        const n = Math.min(FRAME_BYTES - this.#fill, p.chunk.length - p.offset);
-        p.chunk.copy(this.#frame, this.#fill, p.offset, p.offset + n);
-        this.#fill += n;
-        p.offset += n;
-        if (p.offset === p.chunk.length) {
-          this.#pending = null;
-          p.done();
-        }
-        if (this.#fill === FRAME_BYTES) {
-          this.#fill = 0;
-          if (!this.push(this.#encodeFrame())) return;
-        }
-      }
+      const release = this.#release;
+      this.#release = null;
+      release?.();
+      while (this.#pending) if (!this.#step(this.#pending)) return;
       // 끝에 남은 20ms 미만은 버린다. 뒤에 voice 의 묵음 다섯이 이어진다
       if (this.#finish && !this.#pending) {
         const done = this.#finish;
@@ -137,6 +131,25 @@ class OpusOutput extends Duplex {
     } finally {
       this.#pumping = false;
     }
+  }
+
+  // 조각에서 프레임을 채우고, 차면 인코딩해 내보낸다. 읽는 쪽이 멈추라고 하면(push 가 false) false
+  #step(p: Pending) {
+    const n = Math.min(FRAME_BYTES - this.#fill, p.chunk.length - p.offset);
+    p.chunk.copy(this.#frame, this.#fill, p.offset, p.offset + n);
+    this.#fill += n;
+    p.offset += n;
+    const used = p.offset === p.chunk.length;
+    if (used) this.#pending = null;
+    if (this.#fill === FRAME_BYTES) {
+      this.#fill = 0;
+      if (!this.push(this.#encodeFrame())) {
+        if (used) this.#release = p.done;
+        return false;
+      }
+    }
+    if (used) p.done();
+    return true;
   }
 
   #encodeFrame() {
