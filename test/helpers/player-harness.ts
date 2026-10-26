@@ -20,6 +20,7 @@ import { PassThrough, Writable, type Readable } from "stream";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
 import type { AudioPlayer, StreamType, VoiceConnection } from "@discordjs/voice";
 import type { OpusOutput } from "../../src/media/opus-output.ts";
+import type { EncodeSession, SessionHooks } from "../../src/media/encode-pool.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { Boundary } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -109,6 +110,32 @@ class FakeAudioPlayer extends EventEmitter {
 }
 
 const destroyResource = (resource: unknown) => (resource as Partial<FakeResource>).playStream?.destroy?.();
+
+// 인코딩 워커 대신. 플레이어 테스트는 소리를 읽지 않는다. 빈 패킷이면 missedFrames 가 쌓이므로 크기를 맞춘다.
+// 보낸 프레임의 패킷은 read() 의 drain 이 주고, 읽지 않으면 다음 마이크로태스크에 준다(실제의 이벤트 길). send 안에서 바로 주면 실제에 없는 재진입이 생긴다
+function fakeEncoder(hooks: SessionHooks): EncodeSession {
+  let queued = 0;
+  let scheduled = false;
+  let freed = false;
+  const deliver = () => {
+    scheduled = false;
+    for (; queued > 0 && !freed; queued--) hooks.onPacket(Buffer.alloc(320));
+  };
+  return {
+    depth: 2,
+    send() {
+      queued++;
+      if (scheduled) return;
+      scheduled = true;
+      queueMicrotask(deliver);
+    },
+    drain: deliver,
+    late() {},
+    free() {
+      freed = true;
+    },
+  };
+}
 
 function createAudioResource(input: OpusOutput, options: FakeResource["options"] = {}): FakeResource {
   const resource: FakeResource = {
@@ -361,8 +388,7 @@ const fakes: Partial<Boundary> = {
   // 자동재생 길 찾기. 기본은 "못 찾음"(밖으로 나가지 않는다)
   pickAutoplay: async () => (behavior.autoplay ? behavior.autoplay() : null) as Awaited<ReturnType<Boundary["pickAutoplay"]>>,
   createAudioResource: createAudioResource as unknown as Boundary["createAudioResource"],
-  // 실제 WASM 인코더 대신. 플레이어 테스트는 소리를 읽지 않는다. 빈 패킷이면 missedFrames 가 쌓이므로 크기를 맞춘다
-  createOpusEncoder: async () => ({ encode: () => Buffer.alloc(320), free: () => {} }),
+  openEncoder: fakeEncoder,
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],

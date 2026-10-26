@@ -1,37 +1,71 @@
-// src/media/opus-output.ts — PCM 을 20ms 프레임으로 모아 볼륨을 곱하고 Opus 로 인코딩하는 재생 출력
+// src/media/opus-output.ts — PCM 을 20ms 프레임으로 모아 인코딩 세션에 보내고 Opus 패킷을 내주는 재생 출력
 //
 // 지키는 것: 조각 크기와 상관없이 3840바이트 프레임 하나가 패킷 하나가 되고, 패킷은 Buffer 로 한 번에 하나씩 나온다.
-// 읽힐 때만 인코딩한다(읽지 않으면 받은 조각의 callback 이 미뤄진다). 인코더는 정확히 한 번 해제한다.
-// 끝나면 end 를 내고, 입력 오류 · 인코딩 오류는 출력의 error 가 되며 위쪽 스트림까지 destroy 된다.
+// 미리 만드는 것은 세션의 깊이까지다(보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼). 읽지 않으면 받은 조각의 callback 이 미뤄진다.
+// 볼륨은 바꾼 뒤 깊이 + 1 패킷 안에 들린다. read() 는 와 있는 패킷을 그 자리에서 받는다(_read 가 한 번 빈손이었어도).
+// 세션은 정확히 한 번 해제한다. 끝나면 end 를 내고, 입력 오류 · 세션 오류는 출력의 error 가 되며 위쪽 스트림까지 destroy 된다.
 // voice 의 실제 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration 이 20씩 오른다.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough, Readable } from "stream";
 import { once } from "events";
 import { createAudioResource, StreamType } from "@discordjs/voice";
 import { createDecoder } from "libopus-wasm";
-import { OpusOutput, attachOpusOutput } from "../../src/media/opus-output.ts";
-import { createOpusEncoder, type OpusEncoder } from "../../src/media/opus-encoder.ts";
+import { OpusOutput, attachOpusOutput, type OpenEncoder } from "../../src/media/opus-output.ts";
+import { EncodePool, type SessionHooks } from "../../src/media/encode-pool.ts";
+import { createOpusEncoder } from "../../src/media/opus-encoder.ts";
 import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
 
-const real = () => createOpusEncoder();
+const pool = new EncodePool({ calibrateFrames: 0 });
+after(() => pool.close());
+const real: OpenEncoder = (hooks) => pool.open(hooks);
 
-// 해제 횟수를 세는 실제 인코더
+// 실제 세션의 해제 횟수를 센다
 function counted() {
-  const stats = { created: 0, freed: 0 };
-  const make = async (): Promise<OpusEncoder> => {
-    const enc = await real();
-    stats.created++;
+  const stats = { opened: 0, freed: 0 };
+  const open: OpenEncoder = (hooks) => {
+    const session = pool.open(hooks);
+    stats.opened++;
     return {
-      encode: (frame) => enc.encode(frame),
+      get depth() {
+        return session.depth;
+      },
+      send: (frame, gain) => session.send(frame, gain),
+      drain: () => session.drain(),
+      late: () => session.late(),
       free: () => {
         stats.freed++;
-        enc.free();
+        session.free();
       },
     };
   };
-  return { make, stats };
+  return { open, stats };
+}
+
+// 패킷을 손으로 주는 가짜 세션: read() 의 drain 때만 준다. hold 면 워커가 늦은 것처럼 주지 않는다
+function manual(depth = 2) {
+  const stats = { sent: 0, late: 0, freed: 0 };
+  const control = { hold: false };
+  let hooks: SessionHooks | null = null;
+  let queued = 0;
+  const deliver = () => {
+    for (; queued > 0 && !control.hold; queued--) hooks?.onPacket(Buffer.alloc(320, 1));
+  };
+  const open: OpenEncoder = (h) => {
+    hooks = h;
+    return {
+      depth,
+      send: () => {
+        stats.sent++;
+        queued++;
+      },
+      drain: deliver,
+      late: () => stats.late++,
+      free: () => stats.freed++,
+    };
+  };
+  return { open, stats, control, fail: (error: Error) => hooks?.onError(error) };
 }
 
 // 진폭이 일정한 사인파(왼쪽 · 오른쪽 같음)
@@ -56,6 +90,13 @@ function chunked(buf: Buffer, sizes: number[]) {
   return Readable.from(parts, { objectMode: false });
 }
 
+// 프레임 크기 조각으로 써 넣는 소스(스플라이서처럼)
+function framed(frames: number, src = new PassThrough()) {
+  const pcm = sine(frames);
+  for (let o = 0; o < pcm.length; o += FRAME_BYTES) src.write(pcm.subarray(o, o + FRAME_BYTES));
+  return src;
+}
+
 async function readAll(output: Readable) {
   const packets: unknown[] = [];
   for await (const p of output) packets.push(p);
@@ -74,9 +115,25 @@ async function rmsOf(packets: Buffer[]) {
   return out;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const ahead = (output: OpusOutput) => {
+  const d = output.describe();
+  return d.inflight + d.ready + d.frames;
+};
+
+test("조각이 프레임 크기와 같아도(스플라이서) 읽지 않으면 깊이 + 1 프레임까지만 미리 만든다", async () => {
+  const src = new PassThrough();
+  const output = attachOpusOutput(src, { gain: 1, openEncoder: real });
+  framed(200, src);
+  await sleep(100);
+  const d = output.describe();
+  assert.ok(ahead(output) <= d.depth + 1, `미리 만든 것 ${JSON.stringify(d)}`);
+  output.destroy();
+});
+
 test("조각 크기와 상관없이 3840바이트 프레임 하나가 Buffer 패킷 하나가 된다(1바이트 · 홀수 크기 포함)", async () => {
   for (const sizes of [[1], [3, 7, 4093], [FRAME_BYTES], [65536]]) {
-    const output = attachOpusOutput(chunked(sine(10), sizes), { gain: 1, createEncoder: real });
+    const output = attachOpusOutput(chunked(sine(10), sizes), { gain: 1, openEncoder: real });
     const packets = await readAll(output);
     assert.equal(packets.length, 10, `조각 ${sizes.join(",")}`);
     for (const p of packets) assert.ok(Buffer.isBuffer(p) && p.length > 0);
@@ -85,36 +142,40 @@ test("조각 크기와 상관없이 3840바이트 프레임 하나가 Buffer 패
 
 test("끝에 남은 20ms 미만은 버리고 end 를 낸다", async () => {
   const pcm = Buffer.concat([sine(3), Buffer.alloc(FRAME_BYTES - 4)]);
-  const packets = await readAll(attachOpusOutput(chunked(pcm, [5000]), { gain: 1, createEncoder: real }));
+  const packets = await readAll(attachOpusOutput(chunked(pcm, [5000]), { gain: 1, openEncoder: real }));
   assert.equal(packets.length, 3);
 });
 
 test("쓰기 없이 끝나도 end 를 낸다", async () => {
-  const packets = await readAll(attachOpusOutput(Readable.from([], { objectMode: false }), { gain: 1, createEncoder: real }));
+  const packets = await readAll(attachOpusOutput(Readable.from([], { objectMode: false }), { gain: 1, openEncoder: real }));
   assert.equal(packets.length, 0);
 });
 
-test("배율을 곱해 인코딩하고, 곡 중간 setVolume 은 그 뒤 패킷부터 먹는다", async () => {
-  const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 1, createEncoder: real });
+test("배율을 곱해 인코딩하고, 곡 중간 setVolume 은 깊이 + 1 패킷 안에 먹는다", async () => {
+  const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 1, openEncoder: real });
   const packets: Buffer[] = [];
+  let depth = 0;
   for await (const p of output) {
     packets.push(p as Buffer);
-    if (packets.length === 30) output.setVolume(0.25);
+    if (packets.length === 30) {
+      depth = output.describe().depth;
+      output.setVolume(0.25);
+    }
   }
   const rms = await rmsOf(packets);
   const loud = rms.slice(10, 28).reduce((a, b) => a + b) / 18;
-  const quiet = rms.slice(34).reduce((a, b) => a + b) / (rms.length - 34);
+  const quiet = rms.slice(40).reduce((a, b) => a + b) / (rms.length - 40);
   // 0.25 배면 RMS 도 약 0.25 배(Opus 손실 때문에 정확하지 않다)
   assert.ok(Math.abs(quiet / loud - 0.25) < 0.05, `비율 ${(quiet / loud).toFixed(3)}`);
-  // 바꾼 뒤 (HWM + 1) 패킷 안에 바뀐다: 30번째를 받은 뒤 바꿨으니 31번째는 이미 인코딩된 옛 크기, 32번째가 새 크기로 인코딩된다.
-  // 디코더는 앞 프레임과 겹쳐 풀므로(lookahead) 32번째는 둘이 섞여 나오고 33번째부터 온전히 작다
-  assert.ok(rms[30] > loud * 0.8, `31번째 패킷 RMS ${rms[30]}`);
-  assert.ok(rms[32] < loud * 0.35, `33번째 패킷 RMS ${rms[32]}`);
+  // 30번째를 받은 뒤 바꿨다. 이미 보낸 깊이만큼은 옛 크기다. 디코더는 앞 프레임과 겹쳐 풀므로 그다음 하나는 섞여 나온다
+  assert.ok(rms[29] > loud * 0.8, `30번째 패킷 RMS ${rms[29]}`);
+  const heard = 30 + depth + 1;
+  assert.ok(rms[heard] < loud * 0.35, `${heard + 1}번째 패킷 RMS ${rms[heard]}(깊이 ${depth})`);
 });
 
 test("처음 볼륨은 첫 패킷부터 먹는다(만든 뒤 한참 기다렸다 읽어도 앞서 인코딩된 큰 소리가 없다)", async () => {
-  const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 0.1, createEncoder: real });
-  await new Promise((r) => setTimeout(r, 200));
+  const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 0.1, openEncoder: real });
+  await sleep(200);
   const packets = await readAll(output);
   const rms = await rmsOf(packets);
   const full = 12000 / Math.SQRT2;
@@ -124,84 +185,96 @@ test("처음 볼륨은 첫 패킷부터 먹는다(만든 뒤 한참 기다렸다
 
 test("배율 1 이면 PCM 을 건드리지 않는다(곱하지 않은 인코딩과 같은 패킷)", async () => {
   const pcm = sine(5);
-  const a = await readAll(attachOpusOutput(chunked(pcm, [4000]), { gain: 1, createEncoder: real }));
-  const enc = await real();
+  const a = await readAll(attachOpusOutput(chunked(pcm, [4000]), { gain: 1, openEncoder: real }));
+  const enc = await createOpusEncoder();
   const b = Array.from({ length: 5 }, (_, i) => enc.encode(pcm.subarray(i * FRAME_BYTES, (i + 1) * FRAME_BYTES)));
   enc.free();
   assert.deepEqual(a, b);
 });
 
-test("읽지 않으면 HWM 을 넘겨 인코딩하지 않는다(받은 조각의 callback 이 미뤄진다)", async () => {
-  const output = new OpusOutput({ gain: 1, createEncoder: real });
+test("읽지 않으면 깊이를 넘겨 보내지 않고 받은 조각의 callback 이 미뤄진다. 읽으면 이어 간다", async () => {
+  const output = new OpusOutput({ gain: 1, openEncoder: real });
   let written = false;
   output.write(sine(20), () => {
     written = true;
   });
-  await new Promise((r) => setTimeout(r, 50));
-  assert.equal(output.readableLength, 1);
+  await sleep(50);
+  const d = output.describe();
+  assert.ok(d.inflight + d.ready <= d.depth, JSON.stringify(d));
   assert.equal(written, false);
-  // 읽으면 이어 간다
   let n = 0;
-  while (output.read()) n++;
-  assert.ok(n >= 1);
-  output.destroy();
-});
-
-test("조각이 프레임 크기와 같아도(스플라이서) 읽지 않으면 앞서 인코딩하지 않는다", async () => {
-  const src = new PassThrough();
-  const output = attachOpusOutput(src, { gain: 1, createEncoder: real });
-  const pcm = sine(200);
-  for (let o = 0; o < pcm.length; o += FRAME_BYTES) src.write(pcm.subarray(o, o + FRAME_BYTES));
-  await new Promise((r) => setTimeout(r, 50));
-  assert.ok(output.readableLength <= 1, `쌓인 패킷 ${output.readableLength}`);
-  output.destroy();
-});
-
-test("조각이 프레임 크기와 같아도 setVolume 은 (HWM + 1) 패킷 안에 먹는다", async () => {
-  const src = new PassThrough();
-  const output = attachOpusOutput(src, { gain: 1, createEncoder: real });
-  const pcm = sine(60);
-  for (let o = 0; o < pcm.length; o += FRAME_BYTES) src.write(pcm.subarray(o, o + FRAME_BYTES));
-  src.end();
-  await once(output, "readable");
-  const packets: Buffer[] = [];
-  for (let i = 0; i < 60; i++) {
-    const p = output.read();
-    if (p) packets.push(p);
-    else await new Promise((r) => setTimeout(r, 2));
-    if (packets.length === 30) output.setVolume(0.25);
+  for (let i = 0; i < 200 && n < 20; i++) {
+    if (output.read()) n++;
+    else await sleep(2);
   }
-  const rms = await rmsOf(packets);
-  const loud = rms.slice(10, 28).reduce((a, b) => a + b) / 18;
-  assert.ok(rms[32] < loud * 0.35, `33번째 패킷 RMS ${rms[32]} / ${loud}`);
+  assert.equal(n, 20);
+  assert.equal(written, true);
+  output.destroy();
 });
 
-test("destroy 하면 인코더를 정확히 한 번 해제한다(끝까지 읽고 끝나도, 중간에 destroy 해도)", async () => {
+test("_read 가 한 번 빈손으로 끝나도 다음 read() 가 와 있는 패킷을 그 자리에서 받는다", () => {
+  const enc = manual();
+  const output = new OpusOutput({ gain: 1, openEncoder: enc.open });
+  output.write(sine(4));
+  assert.equal(enc.stats.sent, 2);
+  // 아직 아무것도 오지 않았다: 빈손
+  enc.control.hold = true;
+  assert.equal(output.read(), null);
+  enc.control.hold = false;
+  // 이벤트 루프를 돌리지 않고 읽는다. drain 이 주는 패킷이 바로 나온다
+  const packet: unknown = output.read();
+  assert.ok(Buffer.isBuffer(packet));
+  output.destroy();
+});
+
+test("보낸 것은 있는데 받은 패킷이 없어 빈손으로 읽히면 세션에 늦음을 알린다(첫 패킷 전은 세지 않는다)", () => {
+  const before = manual();
+  before.control.hold = true;
+  const first = new OpusOutput({ gain: 1, openEncoder: before.open });
+  first.write(sine(10));
+  assert.equal(first.read(), null);
+  assert.equal(before.stats.late, 0);
+  first.destroy();
+
+  const enc = manual();
+  const output = new OpusOutput({ gain: 1, openEncoder: enc.open });
+  output.write(sine(10));
+  assert.ok(Buffer.isBuffer(output.read()));
+  enc.control.hold = true;
+  // 받아 둔 것은 아직 내준다
+  assert.ok(Buffer.isBuffer(output.read()));
+  assert.equal(enc.stats.late, 0);
+  assert.equal(output.read(), null);
+  assert.equal(enc.stats.late, 1);
+  // read(0) 은 Node 안쪽의 채우기라 세지 않는다
+  output.read(0);
+  assert.equal(enc.stats.late, 1);
+  output.destroy();
+});
+
+test("destroy 하면 세션을 정확히 한 번 해제한다(끝까지 읽고 끝나도, 중간에 destroy 해도, 만들자마자 destroy 해도)", async () => {
   const done = counted();
-  await readAll(attachOpusOutput(chunked(sine(5), [3000]), { gain: 1, createEncoder: done.make }));
+  await readAll(attachOpusOutput(chunked(sine(5), [3000]), { gain: 1, openEncoder: done.open }));
   await new Promise((r) => setImmediate(r));
-  assert.deepEqual(done.stats, { created: 1, freed: 1 });
+  assert.deepEqual(done.stats, { opened: 1, freed: 1 });
 
   const cut = counted();
-  const output = attachOpusOutput(chunked(sine(50), [3000]), { gain: 1, createEncoder: cut.make });
+  const output = attachOpusOutput(chunked(sine(50), [3000]), { gain: 1, openEncoder: cut.open });
   await once(output, "readable");
   output.destroy();
   output.destroy();
   await new Promise((r) => setImmediate(r));
-  assert.deepEqual(cut.stats, { created: 1, freed: 1 });
-});
+  assert.deepEqual(cut.stats, { opened: 1, freed: 1 });
 
-test("인코더가 만들어지기 전에 destroy 돼도 만들어지는 대로 해제한다", async () => {
-  const done = counted();
-  const output = new OpusOutput({ gain: 1, createEncoder: done.make });
-  output.destroy();
-  await new Promise((r) => setTimeout(r, 30));
-  assert.deepEqual(done.stats, { created: 1, freed: 1 });
+  const early = counted();
+  new OpusOutput({ gain: 1, openEncoder: early.open }).destroy();
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(early.stats, { opened: 1, freed: 1 });
 });
 
 test("입력 오류는 출력의 error 가 된다", async () => {
   const src = new PassThrough();
-  const output = attachOpusOutput(src, { gain: 1, createEncoder: real });
+  const output = attachOpusOutput(src, { gain: 1, openEncoder: real });
   const failed = once(output, "error");
   src.write(sine(2));
   src.destroy(new Error("입력 끊김"));
@@ -209,39 +282,38 @@ test("입력 오류는 출력의 error 가 된다", async () => {
   assert.equal((err as Error).message, "입력 끊김");
 });
 
-test("인코딩 오류가 _read 안에서 나도 error 로 나오고 위쪽 스트림이 destroy 된다", async () => {
+test("세션 오류가 read() 안의 drain 에서 와도 error 로 나오고 위쪽 스트림이 destroy 된다", async () => {
   const src = new PassThrough();
-  const output = attachOpusOutput(src, {
-    gain: 1,
-    createEncoder: async () => ({
-      encode: () => {
-        throw new Error("인코딩 실패");
-      },
-      free: () => {},
-    }),
-  });
+  const enc = manual();
+  const open: OpenEncoder = (hooks) => {
+    const session = enc.open(hooks);
+    return { ...session, depth: 2, drain: () => hooks.onError(new Error("인코딩 실패")) };
+  };
+  const output = attachOpusOutput(src, { gain: 1, openEncoder: open });
   const failed = once(output, "error");
   src.write(sine(3));
-  output.read();
+  await sleep(10);
+  assert.equal(output.read(), null);
   const [err] = await failed;
   assert.equal((err as Error).message, "인코딩 실패");
   await new Promise((r) => setImmediate(r));
   assert.equal(src.destroyed, true);
 });
 
-test("인코더 생성 실패는 출력의 error 가 되고 위쪽 스트림이 destroy 된다", async () => {
+test("세션이 쓸 수 없다고 알리면 출력의 error 가 되고 위쪽 스트림이 destroy 된다", async () => {
   const src = new PassThrough();
-  const output = attachOpusOutput(src, { gain: 1, createEncoder: () => Promise.reject(new Error("WASM 없음")) });
+  const enc = manual();
+  const output = attachOpusOutput(src, { gain: 1, openEncoder: enc.open });
   const failed = once(output, "error");
-  src.write(sine(1));
+  enc.fail(new Error("쓸 수 있는 재생 인코딩 워커가 없습니다"));
   const [err] = await failed;
-  assert.equal((err as Error).message, "WASM 없음");
+  assert.match((err as Error).message, /워커가 없습니다/);
   await new Promise((r) => setImmediate(r));
   assert.equal(src.destroyed, true);
 });
 
 test("voice 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration 이 20씩, 끝나면 묵음 다섯", async () => {
-  const output = attachOpusOutput(chunked(sine(4), [65536]), { gain: 1, createEncoder: real });
+  const output = attachOpusOutput(chunked(sine(4), [65536]), { gain: 1, openEncoder: real });
   const resource = createAudioResource(output, { inputType: StreamType.Opus });
   assert.equal(resource.playStream, output);
   await once(output, "readable");
@@ -250,7 +322,7 @@ test("voice 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이�
   for (let i = 0; i < 60 && resource.readable; i++) {
     const p = resource.read();
     if (p) reads.push(p);
-    else await new Promise((r) => setTimeout(r, 5));
+    else await sleep(5);
   }
   const silence = Buffer.from([0xf8, 0xff, 0xfe]);
   const audio = reads.filter((p) => !p.equals(silence));

@@ -3,7 +3,7 @@ import logger from "../infra/log/logger.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { gainOf } from "../rules/volume-gain.ts";
 import * as guildSettings from "../store/guild-settings.ts";
-import { createOpusEncoder } from "../media/opus-encoder.ts";
+import { encodePool } from "../media/encode-pool.ts";
 const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = logger.child({ category: "watchdog" });
@@ -150,7 +150,7 @@ const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.arti
 const REAL = {
   createAudioPlayer,
   createAudioResource,
-  createOpusEncoder,
+  openEncoder: encodePool.open.bind(encodePool),
   spawnFfmpeg,
   ffmpegCapabilities,
   openChunkedStream,

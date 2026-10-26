@@ -13,7 +13,7 @@ import { AudioSplicer } from "./audio-splicer.ts";
 import { contentLengthFromUrl, describeStreamError, isSeekMismatch } from "./chunked-stream.ts";
 import { buildFfmpegArgs } from "./ffmpeg/args.ts";
 import { InputHealth } from "./input-health.ts";
-import { attachOpusOutput, type CreateEncoder, type OpusOutput } from "./opus-output.ts";
+import { attachOpusOutput, type OpenEncoder, type OpusOutput } from "./opus-output.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
 import type { ChunkedOptions } from "./chunked-stream.ts";
 import type { FragmentOptions } from "./fragment-stream.ts";
@@ -39,7 +39,7 @@ type OpenedStream = Readable & {
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
   createAudioResource(input: Readable, options: { inputType: StreamType; metadata: ResourceMeta }): R;
-  createOpusEncoder: CreateEncoder;
+  openEncoder: OpenEncoder;
   ffmpegCapabilities(): Capabilities;
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   seekStart(request: SeekRequest): Promise<SeekAnswer>;
@@ -76,7 +76,7 @@ const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이�
 const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 /**
- * @param o.io  바깥 경계(spawnFfmpeg · createAudioResource · createOpusEncoder · ffmpegCapabilities · openChunkedStream · fetch · directStream)
+ * @param o.io  바깥 경계(spawnFfmpeg · createAudioResource · openEncoder · ffmpegCapabilities · openChunkedStream · fetch · directStream)
  * @param o.streamInfo  스트림 서술자. 캐시 파일로 틀면 없을 수 있다
  * @param o.cacheFile  캐시 파일
  * @param o.startMs  곡 안의 시작 위치
@@ -101,7 +101,7 @@ async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
 
 // 볼륨 · 인코딩은 우리 출력이 하고 voice 에는 Opus 패킷을 넘긴다
 function resourceOf<R>(o: InputOptions<R>, input: Readable, duration: number): { resource: R; output: OpusOutput } {
-  const output = attachOpusOutput(input, { gain: o.gain, createEncoder: o.io.createOpusEncoder });
+  const output = attachOpusOutput(input, { gain: o.gain, openEncoder: o.io.openEncoder });
   const resource = o.io.createAudioResource(output, {
     inputType: StreamType.Opus,
     metadata: { title: o.meta.title, url: o.meta.url, duration, bitrate: o.streamInfo?.bitrate || 128 },

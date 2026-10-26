@@ -20,7 +20,7 @@ import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
-import { loadOpus } from "../media/opus-encoder.ts";
+import { encodePool } from "../media/encode-pool.ts";
 import { Player } from "../player/player.ts";
 import { restoreSavedPlayers, restoreGuild } from "../player/session-restore.ts";
 import * as ageGate from "../sources/age-gate.ts";
@@ -319,7 +319,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
-    await loadOpusEncoder();
+    await startEncoding();
     loadCommands(commands);
     loadEvents(bot, onFault);
     // 이제부터 끄면 세션을 저장하고 연결 · 봇까지 정리한다
@@ -359,10 +359,12 @@ function checkBeforeLogin() {
 }
 
 // 재생 인코더(WASM)를 불러 둔다. 못 불러오면 재생할 수 없으니 멈춘다. 불러 두지 않으면 첫 곡을 틀 때 모듈을 컴파일한다
-async function loadOpusEncoder() {
+// 첫 인코딩 워커를 띄워 libopus 까지 불러 둔다. 워커는 재생이 늘면 상한까지 늘어난다
+async function startEncoding() {
   try {
-    const { libopusVersion } = await loadOpus();
-    log.info({ tags: ["startup"] }, `Opus 인코더: ${libopusVersion} (WASM)`);
+    const { libopusVersion, max, quota } = await encodePool.start();
+    const limit = quota ? `상한 ${max}, CPU quota ${quota.toFixed(1)}` : `상한 ${max}`;
+    log.info({ tags: ["startup"] }, `Opus 인코더: ${libopusVersion} (WASM, 워커 스레드 ${limit})`);
   } catch (error) {
     log.error(`Opus 인코더를 불러오지 못했습니다: ${messageOf(error)}`);
     throw new StartupStopped(messageOf(error), { cause: error });
