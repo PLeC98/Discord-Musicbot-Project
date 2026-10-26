@@ -112,6 +112,16 @@ test("배율을 곱해 인코딩하고, 곡 중간 setVolume 은 그 뒤 패킷�
   assert.ok(rms[32] < loud * 0.35, `33번째 패킷 RMS ${rms[32]}`);
 });
 
+test("처음 볼륨은 첫 패킷부터 먹는다(만든 뒤 한참 기다렸다 읽어도 앞서 인코딩된 큰 소리가 없다)", async () => {
+  const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 0.1, createEncoder: real });
+  await new Promise((r) => setTimeout(r, 200));
+  const packets = await readAll(output);
+  const rms = await rmsOf(packets);
+  const full = 12000 / Math.SQRT2;
+  // 첫 패킷은 디코더가 앞 소리 없이 시작해 작다. 둘째부터
+  for (const [i, r] of rms.slice(1).entries()) assert.ok(r < full * 0.15, `${i + 2}번째 패킷 RMS ${r}`);
+});
+
 test("배율 1 이면 PCM 을 건드리지 않는다(곱하지 않은 인코딩과 같은 패킷)", async () => {
   const pcm = sine(5);
   const a = await readAll(attachOpusOutput(chunked(pcm, [4000]), { gain: 1, createEncoder: real }));
