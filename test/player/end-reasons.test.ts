@@ -33,7 +33,7 @@ function playingPlayer(track: QueuedTrack, playedMs = 30_000) {
     return true;
   };
   p.currentTrack = track;
-  p.playback = fake({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } } });
+  p.playback = fake({ resource: { playbackDuration: playedMs, playStream: { destroy() {} } } });
   audio.state = { status: AudioPlayerStatus.Playing };
   return p;
 }
@@ -184,7 +184,7 @@ test("연달아 넘기기: 미뤄 둔 끝은 그 사이 재생이 바뀌었으�
     await tick(60);
     p.skip(); // 둘째 곡의 끝을 미뤄 둔다
     await tick(20);
-    p.playback = fake({ resource: { playbackDuration: 0, playStream: { destroy() {} }, volume: { setVolume() {} } } }); // 그 사이 재생이 바뀌었다
+    p.playback = fake({ resource: { playbackDuration: 0, playStream: { destroy() {} } } }); // 그 사이 재생이 바뀌었다
     release();
     await tick(200);
     assert.equal(p.currentTrack?.title, "둘째 곡", "바뀐 재생을 넘기지 않았다");

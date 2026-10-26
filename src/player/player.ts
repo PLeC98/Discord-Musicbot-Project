@@ -1,6 +1,8 @@
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
+import { gainOf } from "../rules/volume-gain.ts";
+import { createOpusEncoder } from "../media/opus-encoder.ts";
 const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = logger.child({ category: "watchdog" });
@@ -81,10 +83,22 @@ const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 �
 const SILENT_STOP_CAP_MS = 500;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
-type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
+type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
 
 // 끊긴 라이브를 다시 열었는데 라이브가 아니다(방송이 끝나 다시보기가 됐다)
 const endedLive = (liveReopen: boolean, transport: { live: boolean }) => liveReopen && !transport.live;
+
+// voice 에 넘기지 못한 리소스를 destroy 한다. 넘긴 것은 voice 가 교체 · Idle 때 destroy 한다
+function dropUnplayed(pb: CurrentPlayback | null) {
+  const resource = pb?.resource;
+  if (!resource || resource.audioPlayer) return;
+  try {
+    resource.playStream.destroy();
+  } catch (error) {
+    log.debug(`재생하지 못한 리소스 닫기 실패: ${messageOf(error)}`);
+  }
+}
+
 // 자동재생 선택 줄에 적을 소리의 출처(음원 주소의 종류로)
 const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
 
@@ -135,6 +149,7 @@ const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.arti
 const REAL = {
   createAudioPlayer,
   createAudioResource,
+  createOpusEncoder,
   spawnFfmpeg,
   ffmpegCapabilities,
   openChunkedStream,
@@ -406,9 +421,12 @@ class Player {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
+    let pb: CurrentPlayback | null = null;
     try {
       const start = await prepareStart(this, seekMs);
       if (!start.ok) return start;
+      // 기다리는 동안 플레이어가 버려졌으면(stop · leave) 새 소리를 열지 않는다
+      if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
 
       // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
       this._endReason = null;
@@ -416,11 +434,12 @@ class Player {
       // 틀 곡은 prepareStart 가 정했다
       const current = this.currentTrack;
       if (!current) return { ok: false, code: "queue-empty" };
-      const pb = (this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs }));
+      pb = this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs });
+      const opening = pb; // 아래 콜백은 let 의 좁힌 형식을 이어받지 못한다
       this.lastPlaybackPosition = start.startMs;
       const track = pb.track;
 
-      const open = () => this._openSource(pb, start.startMs, previous?.resume, liveReopen);
+      const open = () => this._openSource(opening, start.startMs, previous?.resume, liveReopen);
       const opened = await open().catch(async (error: unknown) => {
         // 직접 지정한 음원이 여는 순간 사라졌으면(직접 링크는 여기서야 연다) 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더.
         // 스트림 주소로 여는 음원(유튜브 · 사운드클라우드)은 sources/stream-url 이 이미 했다
@@ -431,14 +450,21 @@ class Player {
       const { source, input } = opened;
       if (!input.resource) throw codedError("stream-failed", "오디오 리소스를 만들지 못했습니다");
       pb.resource = input.resource;
+      pb.output = input.output ?? null;
       pb.cacheFile = input.cacheFile;
       pb.input = input.health;
+      if (this.lifecycle.disposed) {
+        dropUnplayed(pb);
+        return { ok: false, code: "disposed" };
+      }
 
       await commitPlaying(this, pb, source, { continued });
+      // 트는 사이에 버려졌다. 넘긴 리소스는 정리(_endPlayback)가 destroy 했다
+      if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
       this.lifecycle.to("playing");
       return { ok: true, track: this.currentTrack };
     } catch (error) {
-      return await this._playFailed(error, liveReopen);
+      return await this._playFailed(error, liveReopen, pb);
     } finally {
       // 틀지 못하고 나왔다(대기열이 비었거나 라이브가 끝났거나 실패). 고르며 건 캐시 보호도 푼다.
       // 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰고 보호도 그 곡의 것이다
@@ -469,6 +495,7 @@ class Player {
       download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
       // 오류는 곡이 바뀐 뒤 · 같은 곡의 새 재생을 여는 동안에 도착할 수 있다. 이 재생을 붙잡아 두어 엉뚱한 곡 · 위치로 갈아타지 않게 한다
       onStreamLost: (splicer) => this._planCacheSwitch(splicer, pb),
+      gain: gainOf(this.volume),
       onProgress: () => {
         pb.inputProgressAt = Date.now();
       },
@@ -485,7 +512,10 @@ class Player {
 
   // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다
   // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 구분할 수 없어 끝 처리가 남긴다)
-  async _playFailed(error: unknown, liveReopen: boolean) {
+  async _playFailed(error: unknown, liveReopen: boolean, pb: CurrentPlayback | null) {
+    // 만들었지만 voice 에 넘기지 못한 리소스는 voice 도 정리도 destroy 하지 않는다. 그대로 두면 ffmpeg · Opus 인코더가 남는다
+    dropUnplayed(pb);
+    if (this.lifecycle.disposed) return { ok: false, code: "disposed" } satisfies PlayResult;
     // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음 · 세션 복원) 실패로 세지 않고 알리고 넘긴다
     const ended = codeOf(error) === "live-ended";
     if (liveReopen) return ended ? ({ ok: false, code: "live-ended" } satisfies PlayResult) : ({ ok: false, code: "live-reopen-failed", error } satisfies PlayResult);
@@ -893,9 +923,7 @@ class Player {
   setVolume(volume: number) {
     // 조작 로그는 부르는 쪽(usecases/controls)이 잇단 변경을 모아 한 줄로 남긴다
     this.volume = Math.max(0, Math.min(VOLUME_MAX, volume));
-    if (this.resource && this.resource.volume) {
-      this.resource.volume.setVolume(this.volume / 100); // 퍼센트 → 배율
-    }
+    this.playback?.output?.setVolume(gainOf(this.volume));
     this.settingsSink?.onSettingsChanged();
     return this.volume;
   }
@@ -1413,7 +1441,7 @@ class Player {
   /** 저장된 설정을 복원한다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
   restoreSettings({ volume, loop, autoplay }: { volume?: number | null; loop: Loop; autoplay: string | false }) {
     this.pauseReasons = new Set();
-    if (typeof volume === "number") this.volume = volume;
+    if (typeof volume === "number") this.volume = Math.max(0, Math.min(VOLUME_MAX, volume));
     this.loop = loop;
     this.autoplay = autoplay;
   }

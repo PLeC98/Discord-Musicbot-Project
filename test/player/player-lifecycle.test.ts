@@ -59,7 +59,7 @@ const playback = (fields: object) => fake<CurrentPlayback>(fields);
 // 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다. 음원 길이는 곡의 길이와 같게 둔다. extra 는 재생 상태에 더할 필드
 function playing(player: Player, track: QueuedTrack, playedMs = track.duration * 1000, extra: object = {}) {
   player.currentTrack = track;
-  player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } }, lengthMs: track.duration ? track.duration * 1000 : null, ...extra });
+  player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} } }, lengthMs: track.duration ? track.duration * 1000 : null, ...extra });
   return track;
 }
 
@@ -1090,21 +1090,21 @@ test("재시도를 다 쓴 것 · 멎어서 넘긴 것도 실패로 세고, 한�
 
 // ── 조작 ─────────────────────────────────────────────────────────────
 
-test("볼륨은 0~100 으로 자르고 지금 리소스에 바로 건다", () => {
+test("볼륨은 0~100 으로 자르고 지금 출력에 배율(세제곱)로 바로 건다", () => {
   const p = h.makePlayer();
   let applied: number | null = null;
   p.playback = playback({
-    resource: {
-      volume: {
-        setVolume: (v: number) => {
-          applied = v;
-        },
+    output: {
+      setVolume: (v: number) => {
+        applied = v;
       },
     },
   });
 
   assert.equal(p.setVolume(150), 100);
   assert.equal(applied, 1);
+  assert.equal(p.setVolume(50), 50);
+  assert.equal(applied, 0.125);
   assert.equal(p.setVolume(-3), 0);
   h.dispose(p);
   assert.deepEqual(calls.persists, [], "조작은 저장을 모른다(세션 미러가 주기 저장 때 바뀐 필드를 쓴다)");

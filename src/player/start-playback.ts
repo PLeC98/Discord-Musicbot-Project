@@ -17,6 +17,7 @@ import * as trackState from "./track-state.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { reuseState } from "../rules/stream-reuse.ts";
 import { shownDuration } from "../rules/duration-shown.ts";
+import { gainOf } from "../rules/volume-gain.ts";
 import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { CurrentPlayback } from "./current-playback.ts";
@@ -28,9 +29,6 @@ import { logTitle } from "../infra/log/title.ts";
 
 /** 소리를 어디서 받을지 정한 것 */
 type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
-// 안 정하면 캐시(128k)보다 낮은 libopus 기본값으로 나간다. 그래서 캐시에 맞춘다.
-// 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
-const SEND_BITRATE = 128_000;
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다
 
 /**
@@ -179,10 +177,12 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   // 자동 스킵 워처 가동. 구간 있으면 시작, 위치 이동이면 기준점을 그 위치로(수동 진입 허용)
   pb.sponsor = await source.sponsor;
+  // 기다리는 사이에 플레이어가 버려졌다. 정리(_endPlayback)가 이 리소스를 destroy 했으니 틀지 않는다
+  if (player.lifecycle.disposed) return;
   player.sponsorSkipper.onPlayStart(pb.startOffsetMs);
 
-  resource.volume?.setVolume(player.volume / 100);
-  resource.encoder?.setBitrate(SEND_BITRATE);
+  // 출력은 만들 때 볼륨을 받았다. 여는 동안 바뀐 값을 다시 건다
+  pb.output?.setVolume(gainOf(player.volume));
 
   const durationSec = audioDurationSec(track, streamInfo, pb.cacheFile);
   pb.lengthMs = durationSec ? durationSec * 1000 : null;

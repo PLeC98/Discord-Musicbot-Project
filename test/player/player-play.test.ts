@@ -12,6 +12,8 @@ import * as audioCache from "../../src/store/audio-cache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audio-splicer.ts";
+import { gainOf } from "../../src/rules/volume-gain.ts";
+import { StreamType } from "@discordjs/voice";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
 import { md5 } from "../../src/rules/audio-key-of.ts";
@@ -70,7 +72,7 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
   assert.equal(calls.downloads.length, 0, "이미 있으니 다운로드하지 않는다");
   assert.equal(calls.fetches.length, 0);
   assert.equal(h.fakeAudioOf(p).played.length, 1);
-  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "파일 분기는 스플라이서를 끼우지 않는다");
+  assert.equal(calls.resources[0].input.source, calls.spawns[0].stdout, "파일 분기는 스플라이서를 끼우지 않는다");
   // 캐시에 적힌 길이는 캐시된 음원을 잰 값이다. 보이던 값(180)과 2초 넘게 다르니 표시도 바꾼다
   assert.equal(p.currentTrack.duration, 201);
   assert.equal(p.playback?.lengthMs, 201_000, "곡 끝 판정은 이 음원의 길이를 본다");
@@ -164,7 +166,7 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
   assert.equal(calls.spawns[0].label, "stream");
   assert.ok(calls.spawns[0].args.includes("pipe:0"));
   assert.equal(calls.downloads.length, 1, "재생과 나란히 캐시를 다운로드한다");
-  assert.ok(calls.resources[0].input instanceof AudioSplicer, "스트림 분기는 무지연 전환을 위해 스플라이서를 끼운다");
+  assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "스트림 분기는 무지연 전환을 위해 스플라이서를 끼운다");
   assert.equal(p.currentTrack.duration, 180, "보이던 길이를 지킨다(스트림이 준 길이도 출처가 준 값이다)");
   assert.equal(p.playback?.lengthMs, 190_000, "곡 끝 판정은 트는 음원의 길이(스트림이 준 값)를 본다");
 });
@@ -179,7 +181,7 @@ test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 다운�
   assert.equal(r.ok, true);
   assert.equal(calls.fetches.length, 1);
   assert.equal(calls.downloads.length, 0, "기본 상한 60분");
-  assert.ok(calls.resources[0].input instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
+  assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
 });
 
 test("헤더를 안 준 스트림은 브라우저 User-Agent 로 받는다", async () => {
@@ -628,7 +630,7 @@ test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 다�
   assert.equal(calls.downloads.length, 1);
   assert.equal(p.playback?.live, false);
   assert.equal(p.isLive, false);
-  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 분기는 스플라이서를 끼우지 않는다");
+  assert.equal(calls.resources[0].input.source, calls.spawns[0].stdout, "HLS 분기는 스플라이서를 끼우지 않는다");
 });
 
 test("라이브는 위치 0 으로 열고, 캐시를 다운로드하지 않는다", async () => {
@@ -936,7 +938,46 @@ test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
   );
 });
 
-test("리소스 볼륨과 전송 비트레이트를 맞춘다", async () => {
+test("리소스를 만든 뒤 voice 에 넘기기 전에 실패하면 그 출력을 destroy 한다(ffmpeg · 인코더가 남지 않게)", async () => {
+  const track = yt("vvvvvvvvvvv");
+  h.seedCache("yt:vvvvvvvvvvv", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  // 재생을 확정하기 전에 기다리는 SponsorBlock 조회가 DB 닫힘으로 던진다(종료 중)
+  behavior.sponsor = () => {
+    throw codedError("DB_NOT_OPEN", "DB 가 닫혔다");
+  };
+
+  await playOnce(p, 3000);
+
+  assert.equal(calls.resources.length, 1);
+  assert.equal(h.fakeAudioOf(p).played.length, 0, "voice 에 넘기지 못했다");
+  assert.equal(calls.resources[0].input.destroyed, true);
+});
+
+test("트는 사이에 플레이어가 버려지면 틀지 않고 출력을 destroy 하며 단계를 playing 으로 덮지 않는다", async () => {
+  const track = yt("uuuuuuuuuuu");
+  h.seedCache("yt:uuuuuuuuuuu", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  let answer: (s: null) => void = () => {};
+  behavior.sponsor = () => new Promise((resolve) => (answer = resolve));
+
+  // 위치 이동(0 이 아님)이라 인트로 조회를 건너뛰고, 리소스를 만든 뒤 SponsorBlock 답을 기다린다
+  const playing = p.play(3000);
+  while (calls.resources.length === 0) await new Promise((r) => setImmediate(r));
+  await p.dispose({ reason: "테스트", session: "keep" });
+  answer(null);
+  const r = await playing;
+  h.dispose(p);
+
+  assert.deepEqual(r, { ok: false, code: "disposed" });
+  assert.equal(h.fakeAudioOf(p).played.length, 0);
+  assert.equal(calls.resources[0].input.destroyed, true);
+  assert.equal(p.lifecycle.phase, "disposed");
+});
+
+test("볼륨은 출력이 만들 때 받고, voice 에는 인코딩한 Opus 를 넘긴다(inlineVolume 없이)", async () => {
   const track = yt("wwwwwwwwwww");
   h.seedCache("yt:wwwwwwwwwww", track);
   const p = h.makePlayer();
@@ -945,8 +986,10 @@ test("리소스 볼륨과 전송 비트레이트를 맞춘다", async () => {
 
   await playOnce(p);
 
-  assert.equal(calls.resources[0].volume.value, 0.4);
-  assert.equal(calls.resources[0].encoder.bitrate, 128000);
+  assert.equal(calls.resources[0].input.gain, gainOf(40));
+  assert.equal(p.playback?.output, calls.resources[0].input);
+  assert.equal(calls.resources[0].options.inputType, StreamType.Opus);
+  assert.equal(calls.resources[0].options.inlineVolume, undefined, "넘기면 voice 가 prism 의 디코더 · 볼륨 · 인코더를 다시 끼운다");
 });
 
 test("틀면 넘침 안전망을 5초 간격으로 건다", async () => {

@@ -1,4 +1,4 @@
-// 소리를 여는 곳. 캐시 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 실행하고 오디오 리소스를 만든다.
+// 소리를 여는 곳. 캐시 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 실행하고, 그 PCM 에 재생 출력(media/opus-output)을 붙여 오디오 리소스를 만든다.
 // 어느 분기로 갈지는 transportOf 가 정했다. 스트림 파이프가 열리지 않으면 나란히 다운로드하던 캐시 파일로 연다.
 
 import { codedError } from "../rules/error-kind.ts";
@@ -13,6 +13,7 @@ import { AudioSplicer } from "./audio-splicer.ts";
 import { contentLengthFromUrl, describeStreamError, isSeekMismatch } from "./chunked-stream.ts";
 import { buildFfmpegArgs } from "./ffmpeg/args.ts";
 import { InputHealth } from "./input-health.ts";
+import { attachOpusOutput, type CreateEncoder, type OpusOutput } from "./opus-output.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
 import type { ChunkedOptions } from "./chunked-stream.ts";
 import type { FragmentOptions } from "./fragment-stream.ts";
@@ -37,7 +38,8 @@ type OpenedStream = Readable & {
 };
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
-  createAudioResource(input: Readable, options: { inputType: StreamType; inlineVolume: boolean; metadata: ResourceMeta }): R;
+  createAudioResource(input: Readable, options: { inputType: StreamType; metadata: ResourceMeta }): R;
+  createOpusEncoder: CreateEncoder;
   ffmpegCapabilities(): Capabilities;
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   seekStart(request: SeekRequest): Promise<SeekAnswer>;
@@ -56,6 +58,8 @@ type InputOptions<R> = {
   meta: { title: string | null; url: string; duration: number };
   download: Download | null;
   onStreamLost(splicer: Splicer): boolean;
+  /** 처음 볼륨 배율(rules/volume-gain). 출력이 만들어지자마자 데이터가 흐르므로 처음부터 받는다 */
+  gain: number;
   onProgress(): void;
   /** 라이브로 담은 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
   liveOnly?: boolean;
@@ -64,7 +68,7 @@ type InputOptions<R> = {
   label: string;
 };
 /** streamInfo: 새로 받은 주소로 열었으면 그 서술자(다시 열 때 그것을 쓰게) */
-type Opened<R> = { resource: R | null; cacheFile: string | null; health: InputHealth | null; streamInfo?: StreamInfo };
+type Opened<R> = { resource: R | null; output?: OpusOutput; cacheFile: string | null; health: InputHealth | null; streamInfo?: StreamInfo };
 type Hooks = { interrupt(err: unknown): boolean; resumed(info: { attempts: number; downtimeMs: number; starvedMs: number }): void };
 
 const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이드 길이
@@ -72,7 +76,7 @@ const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이�
 const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 /**
- * @param o.io  바깥 경계(spawnFfmpeg · createAudioResource · ffmpegCapabilities · openChunkedStream · fetch · directStream)
+ * @param o.io  바깥 경계(spawnFfmpeg · createAudioResource · createOpusEncoder · ffmpegCapabilities · openChunkedStream · fetch · directStream)
  * @param o.streamInfo  스트림 서술자. 캐시 파일로 틀면 없을 수 있다
  * @param o.cacheFile  캐시 파일
  * @param o.startMs  곡 안의 시작 위치
@@ -95,12 +99,14 @@ async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
   return o.cacheFile ? openFile(o) : { resource: null, cacheFile: null, health: null };
 }
 
-function resourceOf<R>(o: InputOptions<R>, input: Readable, duration: number): R {
-  return o.io.createAudioResource(input, {
-    inputType: StreamType.Raw,
-    inlineVolume: true,
+// 볼륨 · 인코딩은 우리 출력이 하고 voice 에는 Opus 패킷을 넘긴다
+function resourceOf<R>(o: InputOptions<R>, input: Readable, duration: number): { resource: R; output: OpusOutput } {
+  const output = attachOpusOutput(input, { gain: o.gain, createEncoder: o.io.createOpusEncoder });
+  const resource = o.io.createAudioResource(output, {
+    inputType: StreamType.Opus,
     metadata: { title: o.meta.title, url: o.meta.url, duration, bitrate: o.streamInfo?.bitrate || 128 },
   });
+  return { resource, output };
 }
 
 // 목록에 필요한 ffmpeg 능력. 모르는 방식은 https 만 있으면 ffmpeg 에 맡겨 본다
@@ -132,7 +138,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // ffmpeg 출력이 곧 "살아 있다"의 증거다.
   ffmpeg.stdout.on("data", () => o.onProgress());
 
-  return { resource: resourceOf(o, ffmpeg.stdout, live ? 0 : streamInfo.duration || o.meta.duration), cacheFile: null, health };
+  return { ...resourceOf(o, ffmpeg.stdout, live ? 0 : streamInfo.duration || o.meta.duration), cacheFile: null, health };
 }
 
 // HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 흘린 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
@@ -161,7 +167,7 @@ function watchSegmentSkips<R>(o: InputOptions<R>, ffmpeg: FfmpegChild, health: I
 // 캐시 파일. 미리 다운로드했거나, 스트림이 열리지 않아 나란히 다운로드하던 것을 기다렸다
 function openFile<R>(o: InputOptions<R>): Opened<R> {
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ file: o.cacheFile, seekMs: o.startMs }), "playback");
-  return { resource: resourceOf(o, ffmpeg.stdout, o.streamInfo?.duration || o.meta.duration), cacheFile: o.cacheFile, health: new InputHealth("파일").watch(ffmpeg) };
+  return { ...resourceOf(o, ffmpeg.stdout, o.streamInfo?.duration || o.meta.duration), cacheFile: o.cacheFile, health: new InputHealth("파일").watch(ffmpeg) };
 }
 
 // 스트림 파이프. 캐시를 나란히 다운로드하면서 기다리지 않고 바로 튼다. 이 분기에서는 네트워크를 Node가 담당하고
@@ -379,7 +385,7 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
   // pipe 뒤에 붙인다. 먼저 붙이면 흐르기 시작한 데이터가 목적지 없이 버려진다
   audioStream.on("data", () => o.onProgress());
 
-  return { resource: resourceOf(o, playSource, streamInfo.duration || o.meta.duration), cacheFile: null, health };
+  return { ...resourceOf(o, playSource, streamInfo.duration || o.meta.duration), cacheFile: null, health };
 }
 
 export { openInput };

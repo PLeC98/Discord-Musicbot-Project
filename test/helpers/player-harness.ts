@@ -18,7 +18,8 @@ import path from "path";
 import { EventEmitter } from "events";
 import { PassThrough, Writable, type Readable } from "stream";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
-import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
+import type { AudioPlayer, StreamType, VoiceConnection } from "@discordjs/voice";
+import type { OpusOutput } from "../../src/media/opus-output.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { Boundary } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -34,13 +35,13 @@ import type { LookupRow } from "../../src/store/rows.ts";
 
 // 가짜 ffmpeg 프로세스와 오디오 리소스. 테스트가 읽는 필드
 type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
+// input 은 재생 출력(media/opus-output)이다. 그 PCM 소스는 input.source
 type FakeResource = {
-  input: Readable;
-  options: { metadata?: unknown };
+  input: OpusOutput;
+  options: { inputType?: StreamType; inlineVolume?: boolean; metadata?: unknown };
   metadata: unknown;
   playbackDuration: number;
-  volume: { value: number | null; setVolume(v: number): void };
-  encoder: { bitrate: number | null; setBitrate(b: number): void };
+  audioPlayer?: unknown;
   playStream: { destroy(): void };
 };
 
@@ -82,7 +83,10 @@ class FakeAudioPlayer extends EventEmitter {
     this.played = [];
     this.stops = 0;
   }
+  // voice 처럼 넘겨받은 리소스에 표시하고, 갈아 끼우거나 멈추면 옛 리소스를 destroy 한다
   play(resource: unknown) {
+    if (this.state.resource && this.state.resource !== resource) destroyResource(this.state.resource);
+    (resource as FakeResource).audioPlayer = this;
     this.played.push(resource);
     this.state = { status: AudioPlayerStatus.Buffering, resource };
   }
@@ -98,30 +102,22 @@ class FakeAudioPlayer extends EventEmitter {
   }
   stop() {
     this.stops += 1;
+    if (this.state.resource) destroyResource(this.state.resource);
     this.state = { status: AudioPlayerStatus.Idle };
     return true;
   }
 }
 
-function createAudioResource(input: Readable, options: { metadata?: unknown } = {}): FakeResource {
+const destroyResource = (resource: unknown) => (resource as Partial<FakeResource>).playStream?.destroy?.();
+
+function createAudioResource(input: OpusOutput, options: FakeResource["options"] = {}): FakeResource {
   const resource: FakeResource = {
     input,
     options,
     metadata: options.metadata,
     playbackDuration: 0,
-    volume: {
-      value: null,
-      setVolume(v: number) {
-        this.value = v;
-      },
-    },
-    encoder: {
-      bitrate: null,
-      setBitrate(b: number) {
-        this.bitrate = b;
-      },
-    },
-    playStream: { destroy() {} },
+    // StreamType.Opus 면 voice 의 playStream 은 넘긴 출력 그 자체다
+    playStream: { destroy: () => input.destroy() },
   };
   calls.resources.push(resource);
   return resource;
@@ -365,6 +361,8 @@ const fakes: Partial<Boundary> = {
   // 자동재생 길 찾기. 기본은 "못 찾음"(밖으로 나가지 않는다)
   pickAutoplay: async () => (behavior.autoplay ? behavior.autoplay() : null) as Awaited<ReturnType<Boundary["pickAutoplay"]>>,
   createAudioResource: createAudioResource as unknown as Boundary["createAudioResource"],
+  // 실제 WASM 인코더 대신. 플레이어 테스트는 소리를 읽지 않는다. 빈 패킷이면 missedFrames 가 쌓이므로 크기를 맞춘다
+  createOpusEncoder: async () => ({ encode: () => Buffer.alloc(320), free: () => {} }),
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],
@@ -447,6 +445,8 @@ function seedCache(key: string, track: QueuedTrack, { durationSec = 200 } = {}) 
 }
 
 function reset() {
+  // 지난 테스트가 틀다 둔 출력. 운영에서는 voice 가 교체 · Idle 때, 정리가 버릴 때 destroy 한다
+  for (const resource of calls.resources) resource.input.destroy();
   for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
   calls.settings = 0;
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;

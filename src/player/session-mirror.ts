@@ -285,10 +285,6 @@ class SessionPersistence {
     if (!player.currentTrack) return "failed";
     if (session.pausedManual) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
-    if (player.resource?.volume) {
-      player.resource.volume.setVolume(player.volume / 100);
-    }
-
     await this._announceRestored(resumeMs, announce);
     return "restored";
   }

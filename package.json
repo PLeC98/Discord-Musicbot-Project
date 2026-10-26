@@ -27,7 +27,6 @@
     "typecheck": "tsc -p . && tsc -p test/dashboard/client && pnpm --dir dashboard run typecheck"
   },
   "dependencies": {
-    "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.2",
     "@material/material-color-utilities": "catalog:",
     "better-sqlite3": "^13.0.3",
@@ -40,6 +39,7 @@
     "gpt-tokenizer": "^4.0.0",
     "ipaddr.js": "^2.5.0",
     "korean-lunar-calendar": "^0.4.0",
+    "libopus-wasm": "0.4.1",
     "maxmind": "^5.0.7",
     "music-metadata": "^12.2.2",
     "sharp": "^0.35.5",
