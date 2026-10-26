@@ -5,6 +5,8 @@
 
 import { recordPanel } from "../helpers/panel-events.ts";
 import * as playerEvents from "../../src/player/events.ts";
+import { gainOf } from "../../src/rules/volume-gain.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import * as playerNotices from "../../src/ui/player-notices.ts";
 import type { AudioResource } from "@discordjs/voice";
 import { ChannelType, type Client, type VoiceBasedChannel } from "discord.js";
@@ -1090,7 +1092,15 @@ test("재시도를 다 쓴 것 · 멎어서 넘긴 것도 실패로 세고, 한�
 
 // ── 조작 ─────────────────────────────────────────────────────────────
 
-test("볼륨은 0~100 으로 자르고 지금 출력에 배율(세제곱)로 바로 건다", () => {
+test("새 플레이어는 그 서버에서 마지막으로 정한 볼륨으로 시작한다", async () => {
+  await guildSettings.saveVolume("g7", 25);
+  const p = h.makePlayer({ guildId: "g7" });
+  assert.equal(p.volume, 25);
+  h.dispose(p);
+  await guildSettings.saveVolume("g7", 100);
+});
+
+test("볼륨은 0~100 으로 자르고 지금 출력에 배율(dB)로 바로 건다", () => {
   const p = h.makePlayer();
   let applied: number | null = null;
   p.playback = playback({
@@ -1104,7 +1114,7 @@ test("볼륨은 0~100 으로 자르고 지금 출력에 배율(세제곱)로 바
   assert.equal(p.setVolume(150), 100);
   assert.equal(applied, 1);
   assert.equal(p.setVolume(50), 50);
-  assert.equal(applied, 0.125);
+  assert.equal(applied, gainOf(50));
   assert.equal(p.setVolume(-3), 0);
   h.dispose(p);
   assert.deepEqual(calls.persists, [], "조작은 저장을 모른다(세션 미러가 주기 저장 때 바뀐 필드를 쓴다)");

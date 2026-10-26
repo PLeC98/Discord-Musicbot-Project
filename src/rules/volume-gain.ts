@@ -1,11 +1,15 @@
 // 볼륨(0 ~ VOLUME_MAX 정수)을 PCM 에 곱할 배율로. 배율로 바꾸는 곳은 여기 하나다.
-// 귀는 소리 크기를 로그로 느껴서 선형이면 위쪽 절반이 거의 같게 들린다. 세제곱이면 50 이 -18 dB, 25 가 -36 dB 다.
+// 귀는 소리 크기를 로그로 느끼므로 dB 로 고르게 나눈다: 1 이 -40 dB, 한 칸마다 0.4 dB, 100 이 0 dB. 0 은 음소거다.
+// 세제곱 같은 거듭제곱 곡선은 낮은 쪽이 -70 dB 아래로 떨어져 1 ~ 5 가 들리지 않는다.
 
 import { VOLUME_MAX } from "./limits.ts";
 
+const RANGE_DB = 40;
+
 function gainOf(level: number): number {
-  const ratio = Math.max(0, Math.min(VOLUME_MAX, level)) / VOLUME_MAX;
-  return ratio ** 3;
+  const clamped = Math.max(0, Math.min(VOLUME_MAX, level));
+  if (clamped === 0) return 0;
+  return 10 ** ((-RANGE_DB * (VOLUME_MAX - clamped)) / VOLUME_MAX / 20);
 }
 
 export { gainOf };

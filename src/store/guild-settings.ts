@@ -5,6 +5,7 @@ import { settingsDb } from "./settings-db.ts";
 import config from "../config/index.ts";
 import { codeOf } from "../rules/error-kind.ts";
 import { AGE_PLACES, type AgePlace } from "../rules/age-place.ts";
+import { VOLUME_MAX } from "../rules/limits.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -27,6 +28,7 @@ const FIELDS = {
   sponsorBlock: z.object({ enabled: z.boolean().nullable().optional(), categories: z.array(z.string()).nullable().optional() }),
   playlistAddMax: z.number().int().positive(),
   agePlace: z.enum(AGE_PLACES),
+  volume: z.number().int().min(0).max(VOLUME_MAX),
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
@@ -143,6 +145,16 @@ const table = {
   setAgePlace(guildId: string, place: AgePlace) {
     writeField(guildId, "agePlace", place === "channel" ? undefined : place);
   },
+
+  /** 마지막으로 정한 볼륨. 미설정이면 null */
+  getVolume(guildId: string): number | null {
+    return readDoc(guildId).volume ?? null;
+  },
+
+  /** 기본 볼륨이면 지운다 */
+  setVolume(guildId: string, level: number) {
+    writeField(guildId, "volume", level === config.bot.defaultVolume ? undefined : level);
+  },
 };
 
 /** 설정이 있는 서버 수(초기화 카드) */
@@ -160,7 +172,7 @@ function replaceAll(docs: Record<string, GuildDoc>) {
 }
 
 // 서버 · 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
-type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace };
+type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null };
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
@@ -335,6 +347,36 @@ async function setAgePlace(guildId: string, place: AgePlace) {
   }
 }
 
+// ── 볼륨 ─────────────────────────────────────────────────────────────────
+
+/** 이 서버에서 새 플레이어가 시작할 볼륨(마지막으로 정한 값). DB 가 열리지 않았거나 못 읽으면 기본 볼륨 */
+function resolveVolume(guildId: string): number {
+  let stored = cached(guildId, "volume");
+  if (stored === undefined && settingsDb.isOpen()) {
+    try {
+      stored = table.getVolume(guildId);
+      remember(guildId, "volume", stored);
+    } catch (error) {
+      log.error("서버 볼륨 읽기 실패(기본 볼륨으로 시작한다):", error);
+      stored = null;
+    }
+  }
+  return stored ?? config.bot.defaultVolume;
+}
+
+/** 볼륨을 바꾸고 멈춘 뒤 부른다(usecases/controls). 다음에 새로 틀 때 이 값으로 시작한다 */
+async function saveVolume(guildId: string, level: number) {
+  try {
+    table.setVolume(guildId, level);
+    remember(guildId, "volume", level);
+    return true;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("서버 볼륨 저장 실패:", error);
+    return false;
+  }
+}
+
 // ── SponsorBlock 서버별 설정 ────────────────────────────────────────────────
 
 /** 서버별 원본 설정(상속=null). { enabled: null|bool, categories: null|string[] } */
@@ -392,5 +434,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, resolveVolume, saveVolume, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
 export type { SponsorBlockSetting, GuildDoc };

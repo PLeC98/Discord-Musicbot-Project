@@ -2,6 +2,7 @@ import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceCha
 import logger from "../infra/log/logger.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { gainOf } from "../rules/volume-gain.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { createOpusEncoder } from "../media/opus-encoder.ts";
 const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
@@ -252,7 +253,7 @@ class Player {
     // 대기열 관리. 현재곡·대기열·기록은 trackState로만 바꾼다
     trackState.init(this);
     // 사람이 바꾸는 재생 설정. 세션에 저장되어 다시 시작할 때 돌아온다
-    this.volume = config.bot.defaultVolume;
+    this.volume = guildSettings.resolveVolume(guild.id); // 이 서버에서 마지막으로 정한 볼륨
     this.loop = false;
     this.autoplay = false;
     this.paused = false;

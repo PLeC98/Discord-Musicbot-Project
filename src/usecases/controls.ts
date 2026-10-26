@@ -14,6 +14,7 @@ import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { canGoBack } from "../rules/controls.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/player.ts";
@@ -182,17 +183,22 @@ const VOLUME_SETTLE_MS = 1000;
 type Settled = (from: number, to: number) => void;
 const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout; settled?: Settled }>(); // player -> { from, timer, settled(마지막에 받은 것) }
 
+const saveServerVolume = async (player: Player) => guildSettings.saveVolume(player.guild.id, player.volume);
+
 function settleVolume(player: Player, before: number, settled: Settled | undefined) {
   const s = settling.get(player) ?? { from: before };
   if (settled) s.settled = settled;
   clearTimeout(s.timer);
   s.timer = setTimeout(() => {
     settling.delete(player);
-    if (s.from !== player.volume) {
+    const changed = s.from !== player.volume;
+    if (changed) {
       log.info(`볼륨: ${s.from}% → ${player.volume}%`);
       s.settled?.(s.from, player.volume);
     }
     bestEffort(log, refresh(player), "볼륨 뒤 패널 갱신");
+    // 정지했다가 다시 틀어도 이 볼륨으로 시작한다
+    if (changed) bestEffort(log, saveServerVolume(player), "서버 볼륨 저장");
   }, VOLUME_SETTLE_MS);
   s.timer.unref?.();
   settling.set(player, s);

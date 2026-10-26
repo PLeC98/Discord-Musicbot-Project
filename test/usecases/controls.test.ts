@@ -16,6 +16,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import * as genreConfig from "../../src/config/genres.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import { plainText } from "../helpers/notice.ts";
 
 useDefaultDocuments();
@@ -214,6 +215,21 @@ test("볼륨: 멈춘 뒤 settled 를 처음 값 → 마지막 값으로 한 번 
   await controls.volume(p, DJ, 80, { settled });
   t.mock.timers.tick(controls.VOLUME_SETTLE_MS);
   assert.deepEqual(shown, ["50→80"], "제자리면 부르지 않는다");
+});
+
+test("볼륨: 멈춘 뒤 서버 볼륨으로 저장해, 정지했다가 다시 틀 때 그 볼륨으로 시작한다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  await guildSettings.saveVolume("g1", 100); // 앞 테스트가 남긴 값
+  const p = fakePlayer();
+  p.setVolume = (v: number) => (p.volume = v);
+
+  await controls.volume(p, DJ, 35);
+  assert.equal(guildSettings.resolveVolume("g1"), 100, "멈추기 전에는 저장하지 않는다");
+  t.mock.timers.tick(controls.VOLUME_SETTLE_MS);
+  await new Promise(setImmediate);
+  guildSettings.forgetCache();
+  assert.equal(guildSettings.resolveVolume("g1"), 35);
+  await guildSettings.saveVolume("g1", 100);
 });
 
 test("반복: 모드 확인, 라이브가 있으면 켜기만 거절", async () => {

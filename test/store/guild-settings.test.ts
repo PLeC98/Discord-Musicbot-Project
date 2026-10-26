@@ -116,6 +116,17 @@ test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", ()
   assert.equal(settings.resolvePlaylistAddMax("g-unopened"), 7);
 });
 
+test("볼륨: 저장하면 새 플레이어가 그 값으로 시작하고, 기본 볼륨이면 문서에서 지운다. 미설정은 기본 볼륨", async () => {
+  assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
+  assert.equal(await settings.saveVolume("g1", 30), true);
+  fresh();
+  assert.equal(settings.resolveVolume("g1"), 30);
+  await settings.saveVolume("g1", config.bot.defaultVolume);
+  fresh();
+  assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
+  assert.equal(guildTable.getVolume("g1"), null, "기본값은 남기지 않는다");
+});
+
 test("SponsorBlock: 부분 갱신. 준 필드만 바꾸고 null 은 상속으로 되돌린다", async () => {
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });
   await settings.setSponsorBlock("g1", { enabled: false });
