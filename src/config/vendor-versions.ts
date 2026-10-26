@@ -3,7 +3,7 @@
 //   ffmpeg  BtbN/FFmpeg-Builds 의 월말 autobuild 태그. 그 외 autobuild 는 2주 뒤 삭제된다(월말은 2년 보관)
 //   bgutil  bgutil-ytdlp-pot-provider 의 릴리스 태그. 서버와 yt-dlp 플러그인이 같은 체크아웃에서 나온다
 
-const FFMPEG_RELEASE = "autobuild-2026-08-31-13-27";
+const FFMPEG_RELEASE = "autobuild-2026-09-30-13-08";
 const BGUTIL_VERSION = "2.0.2";
 
 export { FFMPEG_RELEASE, BGUTIL_VERSION };
