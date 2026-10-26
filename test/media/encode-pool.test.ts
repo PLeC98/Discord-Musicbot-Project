@@ -13,6 +13,7 @@ import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 
 const FAULTY = new URL("../helpers/faulty-encode-worker.ts", import.meta.url);
+const STUB = new URL("../helpers/stub-encode-worker.ts", import.meta.url);
 
 function frame(amplitude = 12000) {
   const buf = Buffer.alloc(FRAME_BYTES);
@@ -169,6 +170,34 @@ test("한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, �
     const refused = opened(pool);
     await until(() => refused.errors.length === 1, "늦추는 동안 새 세션 거절");
     assert.equal(codeOf(refused.errors[0]), "encoder-unavailable");
+  } finally {
+    await pool.close();
+  }
+});
+
+test("WASM 오류는 그 프레임의 세션만 실패시키고 다른 세션은 옮기며, 되풀이해도 새 워커를 늦추지 않는다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const other = opened(pool);
+    other.session.send(frame(), 1);
+    await until(() => other.packets.length === 1, "다른 세션의 첫 패킷");
+    for (let round = 1; round <= 4; round++) {
+      // 앞 판에서 내린 워커 대신 새 워커가 뜰 때까지(아래 동기 루프는 이벤트 루프를 돌리지 않는다)
+      await until(() => pool.stats().workers.length > 0, "새 워커");
+      const broken = opened(pool);
+      broken.session.send(frame(), -2);
+      // read() 안의 drain 에서 워커가 내려지는 길
+      const deadline = Date.now() + 2000;
+      while (!broken.errors.length && Date.now() < deadline) broken.session.drain();
+      assert.match(broken.errors[0]?.message ?? "", /WASM/);
+      assert.equal(pool.stats().deaths, round);
+    }
+    assert.equal(pool.available(), true);
+    other.session.send(frame(), 1);
+    await until(() => other.packets.length === 2, "옮겨 간 다른 세션의 패킷");
+    assert.deepEqual(other.errors, []);
+    other.session.free();
   } finally {
     await pool.close();
   }

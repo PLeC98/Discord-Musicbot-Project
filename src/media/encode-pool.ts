@@ -429,11 +429,16 @@ class EncodePool {
       return;
     }
     if (m.type !== "packet" && m.type !== "error") return;
-    const session = this.#sessions.get(m.id)?.deref();
-    // 해제했거나 다른 워커로 옮긴 세션의 늦은 답이다. 해제할 때마다 생기므로 남기지 않는다
-    if (entry.gone || !session || session.freed || session.slot.entry !== entry) return;
-    if (m.type === "error" && m.fatal) return this.#died(entry, `WASM 오류로 내렸습니다(${m.message})`);
-    this.#answer(entry, session, m);
+    if (entry.gone) return;
+    const found = this.#sessions.get(m.id)?.deref();
+    // 없으면 해제했거나 다른 워커로 옮긴 세션의 늦은 답이다. 해제할 때마다 생기므로 남기지 않는다
+    const session = found && !found.freed && found.slot.entry === entry ? found : null;
+    if (m.type === "error" && m.fatal) {
+      // 어느 프레임에서 났는지 안다. 그 세션은 다시 보내지 않고 실패시키고, 이 죽음은 잇단 죽음(백오프)에 세지 않는다
+      if (session) this.#fail(session, new Error(`인코딩 중 WASM 오류: ${m.message}`));
+      return this.#died(entry, `WASM 오류로 내렸습니다(${m.message})`, { known: !!session });
+    }
+    if (session) this.#answer(entry, session, m);
   }
 
   // 세션의 가장 오래된 프레임에 온 답
@@ -478,7 +483,8 @@ class EncodePool {
   }
 
   // 워커가 죽었거나 내렸다. 맡던 세션은 다른 워커로 옮긴다
-  #died(entry: Entry, why: string) {
+  // known: 원인 세션을 이미 실패시켰다. 남은 세션에는 죽음을 세지 않는다
+  #died(entry: Entry, why: string, { known = false } = {}) {
     if (entry.gone) return;
     entry.gone = true;
     this.#workers = this.#workers.filter((e) => e !== entry);
@@ -489,6 +495,7 @@ class EncodePool {
     const at = now();
     // 이 세션이 붙어 있던 워커가 잇달아 죽었다: 그 입력이 워커를 죽이는 것으로 보고 그 세션만 실패시킨다
     const poisoned = sessions.filter((session) => {
+      if (known) return false;
       session.deaths.splice(0, session.deaths.length, ...session.deaths.filter((t) => at - t < DEATH_WINDOW_MS), at);
       return session.deaths.length >= POISON_DEATHS;
     });
@@ -498,7 +505,7 @@ class EncodePool {
     if (poisoned.length) what.push(`스트림 ${poisoned.length}개는 붙어 있던 워커가 잇달아 죽어 실패시킵니다`);
     log.warn(`재생 인코딩 워커 ${entry.n}: ${why}. ${what.join(". ")}`);
     this.#stats.deaths++;
-    this.#noteDeath();
+    if (!known) this.#noteDeath();
     for (const session of sessions) {
       if (poisoned.includes(session)) this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽었습니다"));
       else this.#move(session);
