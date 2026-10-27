@@ -94,7 +94,7 @@ test("deployCommands: 성공 경로 — 현재 로드된 세트 전체를 1회 P
   assert.deepEqual(putCalls[0].body, commands, "로드된 정의를 그대로 등록");
 });
 
-test("deployCommands: 정의 무변경 재기동은 PUT 생략, force는 항상 PUT (§2.3)", async () => {
+test("deployCommands: 정의 무변경 재기동은 PUT 생략, force는 항상 PUT", async () => {
   const hashPath = freshHashPath();
   putCalls = [];
 

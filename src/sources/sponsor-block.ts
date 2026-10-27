@@ -66,7 +66,7 @@ function mergeIntervals(segs: Array<{ start: number; end: number; category: stri
 
 // 원시 세그먼트 배열 → { skipSegments, highlightAt }
 //  - skipSegments: enabledCategories에 속한 skip 구간을 병합한 [{start,end,categories}]
-//  - highlightAt: poi_highlight 지점(최다 득표) 초 단위 또는 null (하이라이트 기능용, §J)
+//  - highlightAt: poi_highlight 지점(최다 득표) 초 단위 또는 null (하이라이트 기능용)
 function normalize(raw: RawSegment[] | null | undefined, enabledCategories: Iterable<string>) {
   const enabled = new Set(enabledCategories);
   const skips = (raw || []).flatMap((s) => (s.actionType === "skip" && enabled.has(s.category) && finite(s.start) && finite(s.end) && s.end > s.start ? [{ start: s.start, end: s.end, category: s.category }] : []));
