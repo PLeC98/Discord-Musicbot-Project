@@ -116,7 +116,8 @@ const workers = {
   deaths: "켜진 뒤 다시 띄운 워커",
   worker: (n: number) => `워커 ${n}`,
   streams: (count: number) => `재생 ${formatNumber(count)}`,
-  cpu: (pct: number) => `CPU ${pct}%`,
+  /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100 이 끝) */
+  cpu: (pct: number) => `코어 ${pct}%`,
   /** 응답 p99 / 버퍼(미리 만든 프레임으로 버티는 시간) */
   rtt: (rtt: string, buffer: string) => `응답 ${rtt} / 버퍼 ${buffer}`,
   none: "재생이 없어 워커가 없어요",
