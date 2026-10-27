@@ -181,7 +181,7 @@
             ></span
           >
         </div>
-        <SparkChart :values="m.series" :second="m.second" :max="m.max" :warn="m.warn" :unit="m.chartUnit" :minutes="historyMinutes" :now="new Date(status.history.endAt)" :tone="LEVEL_GRAPH[m.level]" />
+        <SparkChart :values="m.series" :second="m.second" :max="m.max" :warn="m.warn" :scale="m.scale" :minutes="historyMinutes" :now="new Date(status.history.endAt)" :tone="LEVEL_GRAPH[m.level]" />
       </section>
     </div>
 
@@ -293,6 +293,7 @@ import { formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { compareText, formatClock } from "../utils/locale.ts";
+import { axisMax, bitRate, byteRate, fixed, time, type Scale } from "../utils/units.ts";
 import { text } from "../text/index.ts";
 const T = text.status;
 
@@ -317,8 +318,20 @@ const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90
 
 // ── 글 ──
 const clock = (ms: number, seconds = false) => formatClock(ms, { seconds });
-// 응답 시간(ms). 1초 넘으면 초로
-const latencyText = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v}ms`);
+// 시간(ms). 1초부터 초(소수 한 자리), 그 아래는 받은 자릿수 그대로(utils/units)
+const timeParts = (ms: number) => {
+  const s = time(ms);
+  return { value: s.unit === "ms" ? String(s.n) : s.n.toFixed(1), unit: s.unit };
+};
+const timeText = (ms: number) => {
+  const { value, unit } = timeParts(ms);
+  return `${value}${unit}`;
+};
+/** 보조 글의 시간: 큰 숫자와 단위가 같으면 수만, 다르면 단위까지 */
+const timeBeside = (ms: number, main: string) => {
+  const { value, unit } = timeParts(ms);
+  return unit === main ? value : `${value}${unit}`;
+};
 const toGB = (bytes: number) => bytes / 1024 ** 3;
 // GB 표기: 100 GB 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
 // 1 GB 아래는 MB 로 같은 규칙(DB 처럼 작은 것)
@@ -332,21 +345,19 @@ const gbText = (bytes: number) => {
   return `${gb >= 100 ? gb.toFixed(0) : gb.toFixed(1).replace(/\.0$/, "")} GB`;
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
-// 업로드는 회선 속도처럼 비트로. 1 Mbps 아래는 kbps 정수
+const downloadParts = (bps: number) => {
+  const s = byteRate(toMBps(bps));
+  return { value: s.n.toFixed(1), unit: s.unit };
+};
+// 업로드는 회선 속도처럼 비트로(kbps · Mbps · Gbps). kbps 는 정수, 100 이상은 정수, 그 아래는 소수 한 자리
 const toMbps = (bps: number) => (bps * 8) / 1e6;
 const rateParts = (bps: number) => {
-  const mbps = toMbps(bps);
-  if (mbps >= 1) return { value: mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1), unit: "Mbps" };
-  return { value: String(Math.round(mbps * 1000)), unit: "kbps" };
+  const s = bitRate(toMbps(bps));
+  return { value: s.unit === "kbps" || s.n >= 100 ? s.n.toFixed(0) : s.n.toFixed(1), unit: s.unit };
 };
 const rateText = (bps: number) => {
   const { value, unit } = rateParts(bps);
   return `${value} ${unit}`;
-};
-// 세로축 최대: 1 · 2 · 5 × 10ⁿ 중 값이 들어가는 가장 작은 것(1 Mbps 아래로는 내리지 않는다)
-const niceMax = (peak: number) => {
-  const step = 10 ** Math.floor(Math.log10(Math.max(1, peak)));
-  return [1, 2, 5, 10].map((k) => k * step).find((v) => v >= peak) ?? 10 * step;
 };
 
 // 살펴볼 것을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3 · 바깥 간격 2 · secondary,
@@ -425,20 +436,26 @@ const gb = (mb: number, digits: number) => (mb / 1024).toFixed(digits);
 const rounded = (value: string) => (/^\d+\.\d+$/.test(value) ? String(Math.round(Number(value))) : value);
 
 /** subShort · subTopShort: 좁은 카드에서 대신 보일 보조 글(소수 한 자리 덜). subBreak: " · " 위치에서 두 줄로(11~13rem 은 sub, 10.5rem 아래는 subShort). subUp: 화면 412px 아래에서 보조 글을 숫자 위쪽에. subSwap: 화면 412px 아래에서 두 줄의 위아래를 바꾼다. subNarrowBreak: 10.5rem 아래에서 sub 대신 보일 두 줄 */
-type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; subShort?: string; subTopShort?: string; subBreak?: boolean; subNarrowBreak?: [string, string]; subUp?: boolean; subSwap?: boolean; series: number[]; second?: number[]; max: number; warn?: number; chartUnit: string; level: Level; word: string; why: string };
+type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; subShort?: string; subTopShort?: string; subBreak?: boolean; subNarrowBreak?: [string, string]; subUp?: boolean; subSwap?: boolean; series: number[]; second?: number[]; max: number; warn?: number; scale: Scale; level: Level; word: string; why: string };
 const metrics = computed<Metric[]>(() => {
   const { status } = props;
   const h = status.history;
   const heapPct = (status.node.memory.heapUsed / status.node.memory.heapLimit) * 100;
   const playing = status.players.list.filter((p) => p.state === "playing").length;
   const pingAvg = Math.round(h.ping.reduce((a, b) => a + b, 0) / Math.max(1, h.ping.length));
+  const ping = timeParts(status.bot.ping);
+  const loop = timeParts(status.loop.p99);
+  // 좁은 카드의 최대는 ms 면 정수로(초는 이미 소수 한 자리)
+  const loopMaxShort = time(status.loop.max).unit === "ms" ? Math.round(status.loop.max) : status.loop.max;
+  const download = downloadParts(status.download.bytesPerSec);
+  const downloadSeries = h.downloadBps.map(toMBps);
   const upload = rateParts(status.upload.bot);
   const uploadSecond = status.upload.system === null ? undefined : h.uploadSystem.map(toMbps);
   const uploadSeries = h.uploadBot.map(toMbps);
   return [
-    { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), chartUnit: T.metrics.countUnit, level: "ok", word: "", why: "" },
-    { title: T.metrics.ping, value: `${status.bot.ping}`, unit: "ms", sub: T.metrics.pingSub(historyMinutes.value, pingAvg), subUp: true, series: h.ping, max: 300, warn: LIMITS.ping[0], chartUnit: "ms", level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
-    { title: T.metrics.loop, value: `${status.loop.p99}`, unit: "ms", sub: T.metrics.loopSub(status.loop.max), subShort: T.metrics.loopSub(Math.round(status.loop.max)), subBreak: true, series: h.loopP99, max: 100, warn: LIMITS.loop[0], chartUnit: "ms", level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
+    { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), scale: fixed(T.metrics.countUnit), level: "ok", word: "", why: "" },
+    { title: T.metrics.ping, value: ping.value, unit: ping.unit, sub: T.metrics.pingSub(historyMinutes.value, timeBeside(pingAvg, ping.unit)), subUp: true, series: h.ping, max: axisMax(peak(h.ping), 300, time), warn: LIMITS.ping[0], scale: time, level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
+    { title: T.metrics.loop, value: loop.value, unit: loop.unit, sub: T.metrics.loopSub(timeBeside(status.loop.max, loop.unit)), subShort: T.metrics.loopSub(timeBeside(loopMaxShort, loop.unit)), subBreak: true, series: h.loopP99, max: axisMax(peak(h.loopP99), 100, time), warn: LIMITS.loop[0], scale: time, level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
     encodingMetric(status.encoding, h.encodeRtt, playing),
     {
       title: T.metrics.heap,
@@ -451,13 +468,13 @@ const metrics = computed<Metric[]>(() => {
       series: h.heapPct,
       max: 100,
       warn: LIMITS.heap[0],
-      chartUnit: "%",
+      scale: fixed("%"),
       level: levelOf(heapPct, ...LIMITS.heap),
       word: T.attention.nearLimit,
       why: "",
     },
-    { title: T.metrics.cpu, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), subUp: true, series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], chartUnit: "%", level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
-    { title: T.metrics.download, value: toMBps(status.download.bytesPerSec).toFixed(1), unit: "MB/s", subSwap: true, subTop: T.metrics.downloadActive(status.download.active), sub: T.metrics.downloadToday(formatBytes(status.download.todayBytes)), series: h.downloadBps.map(toMBps), max: 5, chartUnit: "MB/s", level: "ok", word: "", why: "" },
+    { title: T.metrics.cpu, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), subUp: true, series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], scale: fixed("%"), level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
+    { title: T.metrics.download, value: download.value, unit: download.unit, subSwap: true, subTop: T.metrics.downloadActive(status.download.active), sub: T.metrics.downloadToday(formatBytes(status.download.todayBytes)), series: downloadSeries, max: axisMax(peak(downloadSeries), 5, byteRate), scale: byteRate, level: "ok", word: "", why: "" },
     {
       title: T.metrics.upload,
       value: upload.value,
@@ -466,8 +483,8 @@ const metrics = computed<Metric[]>(() => {
       ...(status.upload.system === null ? { sub: T.metrics.uploadToday(formatBytes(status.upload.todayBytes)) } : { subTop: T.metrics.uploadToday(formatBytes(status.upload.todayBytes)), sub: T.metrics.uploadSystem(rateText(status.upload.system)), subSwap: true }),
       series: uploadSeries,
       second: uploadSecond,
-      max: niceMax(Math.max(...uploadSeries, ...(uploadSecond ?? []))),
-      chartUnit: "Mbps",
+      max: axisMax(peak(uploadSeries, uploadSecond), 1, bitRate),
+      scale: bitRate,
       level: "ok",
       word: "",
       why: [T.metrics.uploadParts(rateText(status.upload.voice), rateText(status.upload.dashboard)), status.upload.system === null ? T.metrics.uploadNoSystem : ""].filter(Boolean).join("\n"),
@@ -478,23 +495,26 @@ const metrics = computed<Metric[]>(() => {
 // 인코딩 응답: 가장 늦은 워커의 응답 p99. 답은 (깊이 − 1) × 20ms 안에 와야 하고, 깊이를 상한까지 올린 워커가 그 8할을 넘으면 주의, 넘기면 문제(빈 프레임).
 // 툴팁 첫 줄은 살아 있는 세션 수와 재생 중인 플레이어 수(세션이 더 많이 남으면 새는 것)
 const FRAME_MS = 20;
+/** 그래프 세로축의 상한을 고를 최고값(15분) */
+const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
 function encodingMetric(e: AdminStatus["encoding"], series: number[], playing: number): Metric {
   const budget = (e.maxDepth - 1) * FRAME_MS;
   const worstAtMax = Math.max(0, ...e.workers.filter((w) => w.depth >= e.maxDepth).map((w) => w.rttP99));
+  const worst = timeParts(Math.max(0, ...e.workers.map((w) => w.rttP99)));
   return {
     title: T.metrics.encoding,
-    value: `${Math.max(0, ...e.workers.map((w) => w.rttP99))}`,
-    unit: "ms",
+    value: worst.value,
+    unit: worst.unit,
     ...(e.late ? { subTop: T.metrics.encodingLate(e.late) } : {}),
     sub: T.metrics.encodingSub(e.workers.length, e.max, Math.max(0, ...e.workers.map((w) => w.depth))),
     subBreak: true,
     series,
-    max: budget,
+    max: axisMax(peak(series), budget, time),
     warn: budget * 0.8,
-    chartUnit: "ms",
+    scale: time,
     level: levelOf(worstAtMax, budget * 0.8, budget),
     word: T.attention.high,
-    why: [T.metrics.encodingSessions(e.sessions, playing), ...e.workers.map((w) => T.metrics.encodingWorker(w.n, w.streams, w.depth, w.rttP99, w.cpuPct))].join("\n"),
+    why: [T.metrics.encodingSessions(e.sessions, playing), ...e.workers.map((w) => T.metrics.encodingWorker(w.n, w.streams, w.depth, timeText(w.rttP99), w.cpuPct))].join("\n"),
   };
 }
 
@@ -548,7 +568,7 @@ function discordDetail() {
   return reconnects > 0 ? T.reconnected(reconnects) : "";
 }
 function measuredLinkLine(c: LinkRow): LinkLine {
-  const value = c.state === "fail" ? (c.error ?? T.failed) : c.latencyMs === null ? "" : latencyText(c.latencyMs);
+  const value = c.state === "fail" ? (c.error ?? T.failed) : c.latencyMs === null ? "" : timeText(c.latencyMs);
   const when = c.lastOkAt ? sinceText(c.lastOkAt) : null;
   return { name: c.name, state: c.state, detail: c.note ?? "", when: when?.short ?? "", whenFull: when?.full, value, hint: c.hint };
 }

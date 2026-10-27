@@ -1,11 +1,11 @@
 <template>
-  <!-- 작은 흐름 그래프. 세로축은 0 부터 max 까지 고정(값이 작아도 크게 부풀지 않게), 가로축은 minutes 분 전부터 지금까지.
+  <!-- 작은 흐름 그래프. 세로축은 0 부터 max 까지(부르는 쪽이 utils/units 의 axisMax 로 정한다), 가로축은 minutes 분 전부터 지금까지. 숫자의 단위는 값마다 scale 로 고른다.
        기준(warn)이 있으면 점선으로 긋고 오른쪽 끝에 그 값을 적는다. 올리면 그 때의 시각 · 값을 보여 준다 -->
   <div class="relative select-none" role="img" :aria-label="summary" @pointermove="onMove" @pointerleave="hover = null">
     <div class="relative h-20">
-      <span class="absolute left-0 top-1 text-2xs leading-none text-on-surface-variant nums">{{ fmt(max) }}{{ unit }}</span>
+      <span class="absolute left-0 top-1 text-2xs leading-none text-on-surface-variant nums">{{ fmt(max) }}</span>
       <!-- 경고 기준 숫자: 점선 오른쪽 끝 바로 위 -->
-      <span v-if="warn !== undefined" class="absolute right-0 -translate-y-full pb-0.5 text-2xs leading-none text-(--warn-ink) nums" :style="{ top: `${(y(warn) / 40) * 100}%` }">{{ fmt(warn) }}{{ unit }}</span>
+      <span v-if="warn !== undefined" class="absolute right-0 -translate-y-full pb-0.5 text-2xs leading-none text-(--warn-ink) nums" :style="{ top: `${(y(warn) / 40) * 100}%` }">{{ fmt(warn) }}</span>
       <svg viewBox="0 0 100 40" preserveAspectRatio="none" class="absolute inset-0 w-full h-full overflow-visible">
         <!-- 위 끝(왼쪽 위 숫자가 가리키는 선) · 바닥(0) -->
         <line x1="0" x2="100" y1="2" y2="2" class="stroke-outline-variant" stroke-opacity="0.5" stroke-width="1" vector-effect="non-scaling-stroke" />
@@ -19,7 +19,7 @@
         <line v-if="hover !== null" :x1="x(hover)" :x2="x(hover)" y1="0" y2="40" class="stroke-on-surface-variant" stroke-width="1" vector-effect="non-scaling-stroke" />
       </svg>
       <div v-if="hover !== null && n" class="absolute -top-7 z-10 px-2 py-1 rounded-xs bg-inverse-surface text-inverse-on-surface text-xs leading-4 nums whitespace-nowrap -translate-x-1/2" :style="{ left: `${Math.min(85, Math.max(15, x(hover)))}%` }">
-        {{ timeAt(hover) }} · {{ fmt(values[hover]) }}{{ unit }}<template v-if="second"> / {{ fmt(second[hover]) }}{{ unit }}</template>
+        {{ timeAt(hover) }} · {{ fmt(values[hover]) }}<template v-if="second"> / {{ fmt(second[hover]) }}</template>
       </div>
     </div>
     <div class="flex justify-between mt-1 text-2xs text-on-surface-variant nums">
@@ -31,7 +31,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { formatClock, formatNumber } from "../utils/locale.ts";
+import { formatClock } from "../utils/locale.ts";
+import { plain, type Scale } from "../utils/units.ts";
 import { text } from "../text/index.ts";
 const T = text.status;
 
@@ -42,7 +43,8 @@ const props = defineProps<{
   second?: number[];
   max: number;
   warn?: number;
-  unit: string;
+  /** 값의 단위 고르기(utils/units) */
+  scale: Scale;
   /** 그래프가 덮는 시간(분) */
   minutes: number;
   /** 지금 시각(가로축 끝) */
@@ -63,8 +65,11 @@ const line = (s: number[]) => {
 };
 const area = (s: number[]) => `${line(s)} L100,40 L0,40 Z`;
 // 읽는 사람(화면 낭독기)에게는 그래프 대신 한 줄로
-const summary = computed(() => (!n.value ? T.chartEmpty : T.chartSummary({ minutes: props.minutes, min: `${fmt(Math.min(...props.values))}${props.unit}`, max: `${fmt(Math.max(...props.values))}${props.unit}`, axisMax: `${fmt(props.max)}${props.unit}` })));
-const fmt = (v: number) => (v >= 100 || Number.isInteger(v) ? formatNumber(Math.round(v)) : v.toFixed(v < 10 ? 2 : 1));
+const summary = computed(() => (!n.value ? T.chartEmpty : T.chartSummary({ minutes: props.minutes, min: fmt(Math.min(...props.values)), max: fmt(Math.max(...props.values)), axisMax: fmt(props.max) })));
+const fmt = (v: number) => {
+  const s = props.scale(v);
+  return `${plain(s.n)}${s.unit}`;
+};
 
 function onMove(e: PointerEvent) {
   if (!n.value) return;
