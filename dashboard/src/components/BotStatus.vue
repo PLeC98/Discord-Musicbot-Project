@@ -148,8 +148,9 @@
       <ReuseStorage v-if="storageBeside" class="min-w-0" :style="flexFromBase(STORAGE_CARD_REM)" />
     </div>
 
-    <!-- ③ 지금: 값 + 최근 15분 흐름 -->
-    <div class="grid grid-cols-2 @3xl/content:grid-cols-3 @6xl/content:grid-cols-6 gap-(--gap-in)">
+    <!-- ③ 지금: 값 + 최근 15분 흐름. 여덟 칸을 네 칸씩 두 줄(위: 재생 · 응답, 아래: 자원). 두 단이면 둘씩 짝이 맞는다.
+         네 칸은 카드가 13rem(보조 글을 한 줄에 두는 폭) 이상일 때부터 -->
+    <div class="grid grid-cols-2 @4xl/content:grid-cols-4 gap-(--gap-in)">
       <section v-for="m in metrics" :key="m.title" :data-at="m.title" class="@container/metric pane rounded-(--r-window) px-4 py-3 flex flex-col gap-1">
         <div class="flex items-center gap-1 text-xs text-on-surface-variant">
           <span class="truncate" :class="m.why && 'underline decoration-dotted underline-offset-2 cursor-help'" v-tooltip="m.why || null">{{ m.title }}</span>
@@ -331,6 +332,22 @@ const gbText = (bytes: number) => {
   return `${gb >= 100 ? gb.toFixed(0) : gb.toFixed(1).replace(/\.0$/, "")} GB`;
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
+// 업로드는 회선 속도처럼 비트로. 1 Mbps 아래는 kbps 정수
+const toMbps = (bps: number) => (bps * 8) / 1e6;
+const rateParts = (bps: number) => {
+  const mbps = toMbps(bps);
+  if (mbps >= 1) return { value: mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1), unit: "Mbps" };
+  return { value: String(Math.round(mbps * 1000)), unit: "kbps" };
+};
+const rateText = (bps: number) => {
+  const { value, unit } = rateParts(bps);
+  return `${value} ${unit}`;
+};
+// 세로축 최대: 1 · 2 · 5 × 10ⁿ 중 값이 들어가는 가장 작은 것(1 Mbps 아래로는 내리지 않는다)
+const niceMax = (peak: number) => {
+  const step = 10 ** Math.floor(Math.log10(Math.max(1, peak)));
+  return [1, 2, 5, 10].map((k) => k * step).find((v) => v >= peak) ?? 10 * step;
+};
 
 // 살펴볼 것을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3 · 바깥 간격 2 · secondary,
 // 나타날 때 600ms(long4) 중 1/4 은 0 → 8 로 두꺼워지고 3/4 은 3 으로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
@@ -415,10 +432,14 @@ const metrics = computed<Metric[]>(() => {
   const heapPct = (status.node.memory.heapUsed / status.node.memory.heapLimit) * 100;
   const playing = status.players.list.filter((p) => p.state === "playing").length;
   const pingAvg = Math.round(h.ping.reduce((a, b) => a + b, 0) / Math.max(1, h.ping.length));
+  const upload = rateParts(status.upload.bot);
+  const uploadSecond = status.upload.system === null ? undefined : h.uploadSystem.map(toMbps);
+  const uploadSeries = h.uploadBot.map(toMbps);
   return [
     { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), chartUnit: T.metrics.countUnit, level: "ok", word: "", why: "" },
     { title: T.metrics.ping, value: `${status.bot.ping}`, unit: "ms", sub: T.metrics.pingSub(historyMinutes.value, pingAvg), subUp: true, series: h.ping, max: 300, warn: LIMITS.ping[0], chartUnit: "ms", level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
     { title: T.metrics.loop, value: `${status.loop.p99}`, unit: "ms", sub: T.metrics.loopSub(status.loop.max), subShort: T.metrics.loopSub(Math.round(status.loop.max)), subBreak: true, series: h.loopP99, max: 100, warn: LIMITS.loop[0], chartUnit: "ms", level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
+    encodingMetric(status.encoding, h.encodeRtt),
     {
       title: T.metrics.heap,
       value: heapPct.toFixed(0),
@@ -437,8 +458,44 @@ const metrics = computed<Metric[]>(() => {
     },
     { title: T.metrics.cpu, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), subUp: true, series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], chartUnit: "%", level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
     { title: T.metrics.download, value: toMBps(status.download.bytesPerSec).toFixed(1), unit: "MB/s", subSwap: true, subTop: T.metrics.downloadActive(status.download.active), sub: T.metrics.downloadToday(formatBytes(status.download.todayBytes)), series: h.downloadBps.map(toMBps), max: 5, chartUnit: "MB/s", level: "ok", word: "", why: "" },
+    {
+      title: T.metrics.upload,
+      value: upload.value,
+      unit: upload.unit,
+      // 시스템을 재지 못하면 보조 글에 오늘 보낸 양만
+      ...(status.upload.system === null ? { sub: T.metrics.uploadToday(formatBytes(status.upload.todayBytes)) } : { subTop: T.metrics.uploadToday(formatBytes(status.upload.todayBytes)), sub: T.metrics.uploadSystem(rateText(status.upload.system)), subSwap: true }),
+      series: uploadSeries,
+      second: uploadSecond,
+      max: niceMax(Math.max(...uploadSeries, ...(uploadSecond ?? []))),
+      chartUnit: "Mbps",
+      level: "ok",
+      word: "",
+      why: [T.metrics.uploadParts(rateText(status.upload.voice), rateText(status.upload.dashboard)), status.upload.system === null ? T.metrics.uploadNoSystem : ""].filter(Boolean).join("\n"),
+    },
   ];
 });
+
+// 인코딩 응답: 가장 늦은 워커의 응답 p99. 답은 (깊이 − 1) × 20ms 안에 와야 하고, 깊이를 상한까지 올린 워커가 그 8할을 넘으면 주의, 넘기면 문제(빈 프레임)
+const FRAME_MS = 20;
+function encodingMetric(e: AdminStatus["encoding"], series: number[]): Metric {
+  const budget = (e.maxDepth - 1) * FRAME_MS;
+  const worstAtMax = Math.max(0, ...e.workers.filter((w) => w.depth >= e.maxDepth).map((w) => w.rttP99));
+  return {
+    title: T.metrics.encoding,
+    value: `${Math.max(0, ...e.workers.map((w) => w.rttP99))}`,
+    unit: "ms",
+    ...(e.late ? { subTop: T.metrics.encodingLate(e.late) } : {}),
+    sub: T.metrics.encodingSub(e.workers.length, e.max, Math.max(0, ...e.workers.map((w) => w.depth))),
+    subBreak: true,
+    series,
+    max: budget,
+    warn: budget * 0.8,
+    chartUnit: "ms",
+    level: levelOf(worstAtMax, budget * 0.8, budget),
+    word: T.attention.high,
+    why: e.workers.map((w) => T.metrics.encodingWorker(w.n, w.streams, w.depth, w.rttP99, w.cpuPct)).join("\n"),
+  };
+}
 
 // ── ② 연결 ──
 const LINK_WORD: Record<LinkState, string> = T.linkWords;
@@ -541,7 +598,7 @@ const playerFilters = computed(() => {
 const NOT_MEMBER_TIP = T.notMemberTip;
 const ORPHAN_TIP = T.strayTip;
 // 하는 일: 봇 헬퍼는 이름, 서버의 일은 서버 이름(다음 곡 · 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
-const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "login-background": T.jobs.loginBackground };
+const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "login-background": T.jobs.loginBackground, "net-stats": T.jobs.netStats };
 function processJob(p: ProcessRow) {
   const helper = p.job && HELPER_JOB[p.job];
   if (helper) return helper;

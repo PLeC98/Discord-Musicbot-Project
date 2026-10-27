@@ -47,6 +47,7 @@ import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter } from "./problem.ts";
 import { limiter, unlimited } from "./rate-limits.ts";
 import { startStatus } from "./status/index.ts";
+import { countServer } from "../infra/upload-meter.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
 
@@ -218,7 +219,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
     if (aiRequests.isOpen()) aiRequests.rotate(config.aiLog.maxBytes);
   });
 
-  listen(app, config.dashboard, () => {
+  const server = listen(app, config.dashboard, () => {
     // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
     log.info(`디스코드 개발자 포털 OAuth2 → Redirects 에 등록할 주소: ${callbackUrl()}`);
     // 업데이트 뒤 화면을 다시 빌드하지 않으면 옛 화면이 새 서버와 어긋난다(pnpm install 은 의존성이 그대로면 빌드를 건너뛴다)
@@ -227,6 +228,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
     // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
     if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
   });
+  // 봇 상태 탭의 업로드에 대시보드가 보낸 양을 넣는다
+  countServer(server);
 
   return app;
 }

@@ -10,6 +10,7 @@ import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { FRAME_BYTES } from "./audio-splicer.ts";
 import type { EncodeSession, SessionHooks } from "./encode-pool.ts";
+import { addVoicePacket } from "../infra/upload-meter.ts";
 const log = logger.child({ category: "player" });
 
 type OpenEncoder = (hooks: SessionHooks) => EncodeSession;
@@ -71,6 +72,8 @@ class OpusOutput extends Duplex {
     // drain 이 이 출력에 오류를 주면 그 자리에서 destroy 된다
     if (this.destroyed) return null;
     const packet = super.read(size);
+    // voice 가 읽어 간 패킷은 곧 보내는 패킷이다(봇 상태 탭의 업로드)
+    if (packet) addVoicePacket(packet.length);
     this.#pump();
     if (packet === null && size !== 0 && this.#started && this.#inflight && !this.readableEnded) this.#session.late();
     return packet;

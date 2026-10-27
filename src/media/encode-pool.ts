@@ -294,6 +294,7 @@ class EncodePool {
   stats() {
     return {
       max: this.#limit(),
+      maxDepth: MAX_DEPTH,
       quota: this.#quota,
       sessions: this.#sessions.size,
       deaths: this.#stats.deaths,

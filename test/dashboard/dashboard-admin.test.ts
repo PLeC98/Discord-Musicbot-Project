@@ -32,6 +32,7 @@ const aiKeys = await import("../../src/store/ai-keys.ts");
 const logSink = (await import("../../src/infra/log/sink.ts")).default;
 const config = (await import("../../src/config/index.ts")).default;
 const { BOT_VERSION } = await import("../../src/infra/version.ts");
+const { MAX_DEPTH } = await import("../../src/media/encode-pool.ts");
 
 /** 거절 · 확인 답의 필드. 경로마다 읽는 필드가 더 있으면 부를 때 모양을 적는다 */
 type Reply = ProblemReply & { success?: boolean };
@@ -221,9 +222,10 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.equal(r.json.storage.cache.maxFiles, config.cache.maxFiles, "저장공간");
   assert.deepEqual([r.json.env.pid, r.json.env.dashboardClients, r.json.env.commands.count], [process.pid, 2, 0], "환경: 대시보드 연결 수 · 켜진 명령 수");
   assert.deepEqual(Object.keys(r.json.download).sort(), ["active", "bytesPerSec", "todayBytes"]);
+  assert.deepEqual(Object.keys(r.json.upload).sort(), ["bot", "dashboard", "system", "todayBytes", "voice"]);
   assert.equal(typeof r.json.recent.warn, "number");
   // 인코딩 워커: 띄우지 않았으면 워커 없이 상한만
-  assert.deepEqual({ ...r.json.encoding, max: 0 }, { max: 0, quota: r.json.encoding.quota, sessions: 0, late: 0, deaths: 0, workers: [] });
+  assert.deepEqual({ ...r.json.encoding, max: 0 }, { max: 0, maxDepth: MAX_DEPTH, quota: r.json.encoding.quota, sessions: 0, late: 0, deaths: 0, workers: [] });
   assert.ok(r.json.encoding.max >= 1);
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
   assert.deepEqual(r.json.players.list, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);

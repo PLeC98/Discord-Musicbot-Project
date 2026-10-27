@@ -19,6 +19,7 @@ import { envStatus, recentProblems } from "./env.ts";
 import { downloadMeter } from "../../infra/download-meter.ts";
 import { TrackDownloader } from "../../media/cache-download.ts";
 import { encodePool } from "../../media/encode-pool.ts";
+import { uploadView } from "./upload.ts";
 import type { PlayerStream } from "../player-stream.ts";
 
 const MB = 1024 * 1024;
@@ -51,6 +52,7 @@ async function adminStatus({ client, players, commands }: BotContext, viewerId: 
     cpu,
     loop,
     download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
+    upload: uploadView(),
     activePlayers: players.size,
     players: await playerRows(client, players, viewerId),
     // 자식 프로세스. 오래 살아 있는 항목 · 플레이어 없는 서버의 재생 일이 새는 신호다

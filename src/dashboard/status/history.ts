@@ -5,13 +5,14 @@ import { onWindow, startVitals, vitals, WINDOW_MS, type Window } from "../../inf
 import { playState } from "../../ui/player-status.ts";
 import { downloadMeter } from "../../infra/download-meter.ts";
 import { encodePool } from "../../media/encode-pool.ts";
+import { closeUploadWindow, startUpload, type ReadSystem } from "./upload.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { StatusHistory } from "../contract/admin.ts";
 
 const POINTS = (15 * 60_000) / WINDOW_MS;
 
 type Series = Exclude<keyof StatusHistory, "stepMs" | "endAt">;
-const history: StatusHistory = { stepMs: WINDOW_MS, endAt: Date.now(), playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [], downloadBps: [], encodeRtt: [] };
+const history: StatusHistory = { stepMs: WINDOW_MS, endAt: Date.now(), playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [], downloadBps: [], encodeRtt: [], uploadBot: [], uploadSystem: [] };
 
 function push(series: Series, value: number) {
   const list = history[series];
@@ -19,8 +20,10 @@ function push(series: Series, value: number) {
   if (list.length > POINTS) list.shift();
 }
 
-/** 구간 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU · 다운로드 속도 · 인코딩 워커 응답 */
-function sample(bot: BotContext, window: Window) {
+/** 구간 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU · 다운로드 · 인코딩 워커 응답 · 업로드.
+ * 시스템 업로드를 받을 때까지 기다렸다 한꺼번에 넣는다(점들이 같은 구간을 가리키게) */
+async function sample(bot: BotContext, window: Window) {
+  const upload = await closeUploadWindow();
   const heap = process.memoryUsage().heapUsed;
   const limit = vitals().heapLimit * 1024 * 1024;
   history.endAt = Date.now();
@@ -32,12 +35,15 @@ function sample(bot: BotContext, window: Window) {
   push("cpuSystem", window.cpu.system);
   push("downloadBps", downloadMeter().bytesPerSec);
   push("encodeRtt", encodePool.takePeakRtt());
+  push("uploadBot", upload.bot);
+  push("uploadSystem", upload.system ?? 0);
 }
 
-/** 측정을 켜고 구간마다 모은다. 끊는 함수를 돌려준다 */
-function startStatusHistory(bot: BotContext) {
+/** 측정을 켜고 구간마다 모은다. 끊는 함수를 돌려준다. readSystem: 시스템 업로드 누계를 읽는 것(시험이 바꾼다) */
+function startStatusHistory(bot: BotContext, { readSystem }: { readSystem?: ReadSystem } = {}) {
   startVitals();
-  return onWindow((window) => sample(bot, window));
+  void startUpload(readSystem);
+  return onWindow((window) => void sample(bot, window));
 }
 
 const statusHistory = (): StatusHistory => history;

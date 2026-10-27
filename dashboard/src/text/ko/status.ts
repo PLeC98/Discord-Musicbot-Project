@@ -44,6 +44,15 @@ const metrics = {
   download: "다운로드 (yt-dlp)",
   downloadActive: (count: number) => `활성 ${count}개`,
   downloadToday: (size: string) => `오늘 ${size}`,
+  encoding: "인코딩 응답",
+  encodingSub: (workers: number, max: number, depth: number) => `워커 ${workers}/${max} · 깊이 ${depth}`,
+  encodingLate: (count: number) => `빈 프레임 ${formatNumber(count)}`,
+  encodingWorker: (n: number, streams: number, depth: number, rtt: number, cpu: number | null) => `워커 ${n}: 재생 ${streams} · 깊이 ${depth} · ${rtt}ms${cpu === null ? "" : ` · CPU ${cpu}%`}`,
+  upload: "업로드",
+  uploadSystem: (rate: string) => `시스템 ${rate}`,
+  uploadToday: (size: string) => `오늘 ${size}`,
+  uploadParts: (voice: string, dashboard: string) => `음성 ${voice} · 대시보드 ${dashboard}`,
+  uploadNoSystem: "시스템 전체 업로드는 재지 못했어요",
   countUnit: "개",
 };
 
@@ -88,7 +97,7 @@ const columns = { pid: "PID", label: "프로그램", job: "작업", age: "실행
 const sortBy = (label: string) => `${label}${josa(label, "으로")} 정렬`;
 const strayTip = "플레이어가 없는 서버의 재생 작업을 하는 프로세스예요.\n종료에 실패한 잔류 프로세스일 수 있어요.";
 /** 하는 일: 봇 도우미는 이름, 서버의 일은 서버 이름(다음 곡 · 자동 검색은 덧붙인다) */
-const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", loginBackground: "로그인 배경", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
+const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", loginBackground: "로그인 배경", netStats: "시스템 업로드 측정", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
 const noProcesses = "실행 중인 자식 프로세스가 없어요";
 const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (${byLabel})`;
 /** yt-dlp 줄: 곡 찾기 · 다운로드의 도는 수/크기와 기다리는 수 */

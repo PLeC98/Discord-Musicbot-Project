@@ -33,6 +33,11 @@ type AdminStatus = {
   loop: { p99: number; max: number };
   /** 곡 다운로드(캐시). bytesPerSec 은 지난 15초에 마친 양의 평균, todayBytes 는 오늘(봇 기계의 자정부터), active 는 지금 다운로드하는 곡 수 */
   download: { bytesPerSec: number; todayBytes: number; active: number };
+  /**
+   * 업로드(바이트/초, 지난 15초 평균). bot = voice + dashboard: 음성은 보낸 Opus 패킷에 RTP · 암호화 · UDP/IP 머리를 더한 추정, 대시보드는 같은 기계 밖으로 보낸 HTTP 응답.
+   * system: 이 기계의 모든 송신(루프백 · 가상 인터페이스 제외), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 기계의 자정부터) 보낸 양
+   */
+  upload: { bot: number; voice: number; dashboard: number; system: number | null; todayBytes: number };
   activePlayers: number;
   /** 플레이어. list 는 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기) */
   players: { voiceConnections: number; queued: number; list: PlayerRow[] };
@@ -59,10 +64,10 @@ type AdminStatus = {
    */
   env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
   /**
-   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(재생 중인 플레이어 수와 비교한다).
+   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, maxDepth: 미리 만드는 깊이의 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(재생 중인 플레이어 수와 비교한다).
    * late · deaths: 봇이 켜진 뒤 워커가 늦어 빈 프레임 수 · 워커가 죽거나 내린 수. 워커마다 streams: 맡은 세션, depth: 미리 만드는 깊이, rttP99: 지난 1초의 응답 p99(ms), cpuPct: CPU(코어 하나 기준, 아직 모르면 null)
    */
-  encoding: { max: number; quota: number | null; sessions: number; late: number; deaths: number; workers: Array<{ n: number; streams: number; depth: number; rttP99: number; cpuPct: number | null }> };
+  encoding: { max: number; maxDepth: number; quota: number | null; sessions: number; late: number; deaths: number; workers: Array<{ n: number; streams: number; depth: number; rttP99: number; cpuPct: number | null }> };
   history: StatusHistory;
   logLevel: string;
 };
@@ -95,8 +100,8 @@ type StorageView = {
 };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
-/** encodeRtt: 구간마다 가장 늦은 인코딩 워커의 응답 p99(ms) */
-type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[] };
+/** encodeRtt: 구간마다 가장 늦은 인코딩 워커의 응답 p99(ms). uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0) */
+type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[]; uploadBot: number[]; uploadSystem: number[] };
 
 /** 전체 서버 공지의 종류. 화면은 이 키로 라벨을 단다 */
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;

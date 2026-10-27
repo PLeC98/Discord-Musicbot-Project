@@ -28,14 +28,16 @@ const bot = fakeBot({
   ]),
 });
 
-const closeWindows = (n: number) => {
+// 구간을 닫으면 업로드를 받은 뒤 점을 넣는다(시스템 업로드는 읽지 않는 것으로 바꿔 프로그램을 띄우지 않는다)
+const closeWindows = async (n: number) => {
   for (let i = 0; i < n * 5; i++) _tick();
+  await new Promise((resolve) => setImmediate(resolve));
 };
 
-test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈춤 · 곡 없음은 빼고) · 디스코드 지연 · heap 사용률", () => {
-  startStatusHistory(bot);
+test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈춤 · 곡 없음은 빼고) · 디스코드 지연 · heap 사용률", async () => {
+  startStatusHistory(bot, { readSystem: async () => null });
   const before = Date.now();
-  closeWindows(1);
+  await closeWindows(1);
 
   const history = statusHistory();
   assert.equal(history.stepMs, 15_000);
@@ -47,10 +49,13 @@ test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈�
   for (const series of [history.loopP99, history.cpuBot, history.cpuSystem]) assert.equal(series.length, 1);
   // 인코딩 워커를 띄우지 않았으면 응답은 0
   assert.deepEqual(history.encodeRtt, [0]);
+  // 시스템 업로드를 못 읽은 구간은 0
+  assert.equal(history.uploadBot.length, 1);
+  assert.deepEqual(history.uploadSystem, [0]);
 });
 
-test("최근 15분: 60점을 넘으면 오래된 것부터 버린다", () => {
-  closeWindows(70);
+test("최근 15분: 60점을 넘으면 오래된 것부터 버린다", async () => {
+  await closeWindows(70);
   assert.equal(statusHistory().ping.length, 60);
 });
 
