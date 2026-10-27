@@ -35,7 +35,7 @@ type AdminStatus = {
   download: { bytesPerSec: number; todayBytes: number; active: number };
   /**
    * 업로드(바이트/초, 지난 15초 평균). bot = voice + dashboard: 음성은 보낸 Opus 패킷에 RTP · 암호화 · UDP/IP 머리를 더한 추정, 대시보드는 같은 기계 밖으로 보낸 HTTP 응답.
-   * system: 이 기계의 모든 송신(루프백 · 가상 인터페이스 제외), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 기계의 자정부터) 보낸 양
+   * system: 이 기계의 송신(Linux 는 장치가 있는 인터페이스, 없으면 루프백만 뺀다. Windows 는 이더넷 · 무선 종류로, 같은 종류인 가상 스위치 어댑터도 들어간다), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 기계의 자정부터) 보낸 양
    */
   upload: { bot: number; voice: number; dashboard: number; system: number | null; todayBytes: number };
   activePlayers: number;

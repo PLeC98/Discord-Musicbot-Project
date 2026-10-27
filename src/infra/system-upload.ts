@@ -157,6 +157,8 @@ async function systemSent(): Promise<Sent | null> {
   } else if (process.platform === "win32") got = await fromShell();
   else return null;
   if (got === null) return null;
+  // 잴 인터페이스가 하나도 없으면 0 이 아니라 못 잰 것이다
+  if (!("failed" in got) && got.size === 0) got = { failed: "잴 수 있는 네트워크 인터페이스가 없음" };
   if ("failed" in got) {
     failures.fail(got.failed);
     return null;
