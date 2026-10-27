@@ -71,6 +71,7 @@
     "prettier": "^3.9.10",
     "subset-font": "^2.9.0",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.1",
+    "wawoff2": "^2.0.1"
   }
 }

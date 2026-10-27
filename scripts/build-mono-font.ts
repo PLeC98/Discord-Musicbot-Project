@@ -1,10 +1,13 @@
-// 대시보드 고정폭 글꼴(D2Coding)을 조각내 만든다. 손으로 실행한다. postinstall 이나 빌드에 걸려 있지 않다. 결과물은 저장소에 넣는다.
-//   node scripts/build-mono-font.ts               공식 저장소(naver/d2codingfont)의 최신 릴리스를 다운로드해 만든다
+// 대시보드 고정폭 글꼴(D2Coding 을 조각낸 수정본)을 만든다. 손으로 실행한다. postinstall 이나 빌드에 걸려 있지 않다. 결과물은 저장소에 넣는다.
+//   node scripts/build-mono-font.ts               공식 저장소(naver/d2-coding-font)의 최신 릴리스를 다운로드해 만든다
 //   node scripts/build-mono-font.ts <릴리스 zip>  다운로드해 둔 공식 릴리스 zip 으로 만든다
 //
 // 원본 TTF 는 굵기마다 4MB 남짓이고 공식 릴리스에는 웹 글꼴이 없다. 화면에 나온 글자의 조각만 다운로드하도록 woff2 조각으로 나눈다.
 // 조각 경계: 한글 · 라틴은 Pretendard 의 dynamic subset 조각을 그대로 빌린다(자주 쓰는 글자끼리 묶여 있어 한 화면의 한글이 적은 조각으로 끝난다).
-// 그 밖의 글자(한자 · 가나 일부 등)는 코드 순서로 묶는다. 결과: dashboard/src/assets/d2coding/(조각 · OFL.txt) · dashboard/src/d2coding.css(@font-face)
+// 그 밖의 글자(한자 · 가나 일부 등)는 코드 순서로 묶는다. 결과: dashboard/src/assets/mono/(조각 · OFL.txt) · dashboard/src/mono.css(@font-face)
+//
+// D2Coding 은 예약 글꼴 이름(Reserved Font Name) "D2Coding" · "D2Coding-Bold" 를 단 SIL OFL 1.1 이라 조각낸 수정본은 그 이름을 쓸 수 없다(OFL 조건 3).
+// 그래서 글꼴 안 이름(name 표의 패밀리 · 전체 · PostScript · 고유 ID)과 CSS 이름을 FAMILY 로 바꾼다. 저작권(0번) · 라이선스(13 · 14번)는 남긴다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,19 +15,25 @@ import * as fontkit from "fontkit";
 import subsetFont from "subset-font";
 import * as prettier from "prettier";
 import { unzip } from "../src/infra/zip.ts";
+import { setNames, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 
 const DASHBOARD = path.join(PROJECT.root, "dashboard");
-const OUT_DIR = path.join(DASHBOARD, "src", "assets", "d2coding");
-const OUT_CSS = path.join(DASHBOARD, "src", "d2coding.css");
+const OUT_DIR = path.join(DASHBOARD, "src", "assets", "mono");
+const OUT_CSS = path.join(DASHBOARD, "src", "mono.css");
+/** 수정본의 이름. "D2Coding" 이 들어가면 안 된다 */
+const FAMILY = "Musicbot Mono";
 const PRETENDARD_CSS = path.join(DASHBOARD, "node_modules", "pretendard", "dist", "web", "variable", "pretendardvariable-dynamic-subset.css");
-const RELEASES = "https://api.github.com/repos/naver/d2codingfont/releases/latest";
+const RELEASES = "https://api.github.com/repos/naver/d2-coding-font/releases/latest";
 // Pretendard 조각에 들지 않은 글자를 묶는 크기(한자는 한 조각에 이만큼)
 const REST_CHUNK = 400;
 const WEIGHTS = [
-  { weight: 400, file: /^D2Coding\/D2Coding-Ver[\d.]+-\d+\.ttf$/ },
-  { weight: 700, file: /^D2Coding\/D2CodingBold-Ver[\d.]+-\d+\.ttf$/ },
+  { weight: 400, style: "Regular", file: /^D2Coding\/D2Coding-Ver[\d.]+-\d+\.ttf$/ },
+  { weight: 700, style: "Bold", file: /^D2Coding\/D2CodingBold-Ver[\d.]+-\d+\.ttf$/ },
 ] as const;
+
+/** 원본 이름을 FAMILY 로. 1 패밀리 · 3 고유 ID · 4 전체 · 6 PostScript, 원본의 16 · 17(선호 패밀리) · 20(CID 이름)은 지운다 */
+const renamed = (style: string) => ({ 1: FAMILY, 3: `${FAMILY} ${style}`, 4: style === "Regular" ? FAMILY : `${FAMILY} ${style}`, 6: `${FAMILY.replace(/ /g, "")}-${style}`, 16: "", 17: "", 20: "" });
 
 async function releaseZip(): Promise<Buffer> {
   const given = process.argv[2];
@@ -87,29 +96,30 @@ async function main() {
   const faces: string[] = [];
   let version = "";
   let total = 0;
-  for (const { weight, file } of WEIGHTS) {
+  for (const { weight, style, file } of WEIGHTS) {
     const entry = entries.find((one) => file.test(one.name));
     if (!entry) throw new Error(`릴리스에 ${weight} 굵기 TTF 가 없습니다`);
     version = /Ver([\d.]+)/.exec(entry.name)?.[1] ?? version;
-    const charset = new Set<number>((fontkit.create(entry.data) as fontkit.Font).characterSet);
+    const source = setNames(entry.data, { ...renamed(style), ...OFL_NAMES });
+    const charset = new Set<number>((fontkit.create(source) as fontkit.Font).characterSet);
     const chunks = chunksOf(charset);
     for (const [i, cps] of chunks.entries()) {
       const name = `${weight}-${i}.woff2`;
-      const font = await subsetFont(entry.data, String.fromCodePoint(...cps), { targetFormat: "woff2" });
+      const font = await subsetFont(source, String.fromCodePoint(...cps), { targetFormat: "woff2", preserveNameIds: LICENSE_NAME_IDS });
       fs.writeFileSync(path.join(OUT_DIR, name), font);
       total += font.length;
-      faces.push(`@font-face {\n  font-family: "D2Coding";\n  font-style: normal;\n  font-weight: ${weight};\n  font-display: swap;\n  src: url("./assets/d2coding/${name}") format("woff2");\n  unicode-range: ${rangeOf(cps)};\n}`);
+      faces.push(`@font-face {\n  font-family: "${FAMILY}";\n  font-style: normal;\n  font-weight: ${weight};\n  font-display: swap;\n  src: url("./assets/mono/${name}") format("woff2");\n  unicode-range: ${rangeOf(cps)};\n}`);
     }
     console.log(`${weight}: 조각 ${chunks.length}개`);
   }
 
-  const body = `/* D2Coding ${version}(NAVER, SIL OFL 1.1, assets/d2coding/OFL.txt). 대시보드의 고정폭 글꼴(style.css 의 --font-mono).
+  const body = `/* ${FAMILY}: D2Coding ${version}(NAVER, SIL OFL 1.1, assets/mono/OFL.txt)을 조각낸 수정본, 예약 글꼴 이름이라 이름을 바꿨다. 대시보드의 고정폭 글꼴(style.css 의 --font-mono).
    손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 조각내 만든다. 화면에 나온 글자의 조각만 다운로드한다 */
 ${faces.join("\n")}
 `;
   const options = (await prettier.resolveConfig(OUT_CSS)) ?? {};
   fs.writeFileSync(OUT_CSS, await prettier.format(body, { ...options, filepath: OUT_CSS }));
-  console.log(`D2Coding ${version}: 조각 ${faces.length}개, 모두 ${(total / 1024).toFixed(0)}KB`);
+  console.log(`${FAMILY}(D2Coding ${version}): 조각 ${faces.length}개, 모두 ${(total / 1024).toFixed(0)}KB`);
 }
 
 await main();

@@ -5,6 +5,7 @@
 // 원본은 화면 앱이 받는 Material Symbols Rounded 가변 글꼴(채움 축 포함) 전체다(1.4MB 남짓). 기호 이름을 원본의 합자(이름 글자 → 기호)로 풀어
 // 코드포인트를 얻고, 그 코드포인트만 담은 글꼴(dashboard/src/assets/material-symbols.woff2)과 이름 → 코드포인트 표(icons.ts)를 쓴다.
 // 화면은 이름 대신 코드포인트를 그리므로 합자 표는 담지 않는다. 결과물은 저장소에 넣는다.
+// 원본에 없는 라이선스 설명 · 주소(name 13 · 14번)를 넣고, 패키지의 라이선스를 글꼴 옆에 둔다(scripts/font-names.ts)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,9 +13,12 @@ import * as fontkit from "fontkit";
 import subsetFont from "subset-font";
 import * as prettier from "prettier";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { setNames, toSfnt, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
 
 const SOURCE = path.join(PROJECT.root, "dashboard", "node_modules", "@fontsource-variable", "material-symbols-rounded", "files", "material-symbols-rounded-latin-fill-normal.woff2");
 const OUT_FONT = path.join(PROJECT.root, "dashboard", "src", "assets", "material-symbols.woff2");
+const LICENSE = path.join(path.dirname(SOURCE), "..", "LICENSE");
+const OUT_LICENSE = path.join(PROJECT.root, "dashboard", "src", "assets", "material-symbols-OFL.txt");
 const OUT_TABLE = path.join(PROJECT.root, "dashboard", "src", "icons.ts");
 
 /** 지금 표에 있는 이름(숫자로 시작하는 이름은 따옴표로 싼다) */
@@ -44,8 +48,9 @@ async function main() {
     process.exit(1);
   }
 
-  const font = await subsetFont(source, String.fromCodePoint(...table.map(([, cp]) => cp!)), { targetFormat: "woff2" });
+  const font = await subsetFont(setNames(await toSfnt(source), OFL_NAMES), String.fromCodePoint(...table.map(([, cp]) => cp!)), { targetFormat: "woff2", preserveNameIds: LICENSE_NAME_IDS });
   fs.writeFileSync(OUT_FONT, font);
+  fs.copyFileSync(LICENSE, OUT_LICENSE);
 
   const body = `// Material Symbols Rounded 기호: 이름 → 코드포인트. 화면이 쓰는 기호만 두고, 아이콘 글꼴(assets/material-symbols.woff2)도 이것만 담는다.
 // 손으로 고치지 않는다: node scripts/build-icon-font.ts 가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 삭제하고 실행)
