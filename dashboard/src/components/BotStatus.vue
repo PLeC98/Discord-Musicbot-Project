@@ -439,7 +439,7 @@ const metrics = computed<Metric[]>(() => {
     { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), chartUnit: T.metrics.countUnit, level: "ok", word: "", why: "" },
     { title: T.metrics.ping, value: `${status.bot.ping}`, unit: "ms", sub: T.metrics.pingSub(historyMinutes.value, pingAvg), subUp: true, series: h.ping, max: 300, warn: LIMITS.ping[0], chartUnit: "ms", level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
     { title: T.metrics.loop, value: `${status.loop.p99}`, unit: "ms", sub: T.metrics.loopSub(status.loop.max), subShort: T.metrics.loopSub(Math.round(status.loop.max)), subBreak: true, series: h.loopP99, max: 100, warn: LIMITS.loop[0], chartUnit: "ms", level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
-    encodingMetric(status.encoding, h.encodeRtt),
+    encodingMetric(status.encoding, h.encodeRtt, playing),
     {
       title: T.metrics.heap,
       value: heapPct.toFixed(0),
@@ -475,9 +475,10 @@ const metrics = computed<Metric[]>(() => {
   ];
 });
 
-// 인코딩 응답: 가장 늦은 워커의 응답 p99. 답은 (깊이 − 1) × 20ms 안에 와야 하고, 깊이를 상한까지 올린 워커가 그 8할을 넘으면 주의, 넘기면 문제(빈 프레임)
+// 인코딩 응답: 가장 늦은 워커의 응답 p99. 답은 (깊이 − 1) × 20ms 안에 와야 하고, 깊이를 상한까지 올린 워커가 그 8할을 넘으면 주의, 넘기면 문제(빈 프레임).
+// 툴팁 첫 줄은 살아 있는 세션 수와 재생 중인 플레이어 수(세션이 더 많이 남으면 새는 것)
 const FRAME_MS = 20;
-function encodingMetric(e: AdminStatus["encoding"], series: number[]): Metric {
+function encodingMetric(e: AdminStatus["encoding"], series: number[], playing: number): Metric {
   const budget = (e.maxDepth - 1) * FRAME_MS;
   const worstAtMax = Math.max(0, ...e.workers.filter((w) => w.depth >= e.maxDepth).map((w) => w.rttP99));
   return {
@@ -493,7 +494,7 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[]): Metric {
     chartUnit: "ms",
     level: levelOf(worstAtMax, budget * 0.8, budget),
     word: T.attention.high,
-    why: e.workers.map((w) => T.metrics.encodingWorker(w.n, w.streams, w.depth, w.rttP99, w.cpuPct)).join("\n"),
+    why: [T.metrics.encodingSessions(e.sessions, playing), ...e.workers.map((w) => T.metrics.encodingWorker(w.n, w.streams, w.depth, w.rttP99, w.cpuPct))].join("\n"),
   };
 }
 

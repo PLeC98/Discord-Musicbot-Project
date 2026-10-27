@@ -47,6 +47,7 @@ const metrics = {
   encoding: "인코딩 응답",
   encodingSub: (workers: number, max: number, depth: number) => `워커 ${workers}/${max} · 깊이 ${depth}`,
   encodingLate: (count: number) => `빈 프레임 ${formatNumber(count)}`,
+  encodingSessions: (sessions: number, playing: number) => `인코딩 세션 ${sessions} · 재생 중 ${playing}`,
   encodingWorker: (n: number, streams: number, depth: number, rtt: number, cpu: number | null) => `워커 ${n}: 재생 ${streams} · 깊이 ${depth} · ${rtt}ms${cpu === null ? "" : ` · CPU ${cpu}%`}`,
   upload: "업로드",
   uploadSystem: (rate: string) => `시스템 ${rate}`,
