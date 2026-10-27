@@ -64,7 +64,7 @@ type AdminStatus = {
    */
   env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
   /**
-   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, maxDepth: 미리 만드는 깊이의 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(재생 중인 플레이어 수와 비교한다).
+   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, maxDepth: 미리 만드는 깊이의 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(재생 출력 하나에 하나라 일시정지한 것도 든다).
    * late · deaths: 봇이 켜진 뒤 워커가 늦어 빈 프레임 수 · 워커가 죽거나 내린 수. 워커마다 streams: 맡은 세션, depth: 미리 만드는 깊이, rttP99: 지난 1초의 응답 p99(ms), cpuPct: CPU(코어 하나 기준, 아직 모르면 null)
    */
   encoding: { max: number; maxDepth: number; quota: number | null; sessions: number; late: number; deaths: number; workers: Array<{ n: number; streams: number; depth: number; rttP99: number; cpuPct: number | null }> };
@@ -100,8 +100,8 @@ type StorageView = {
 };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
-/** encodeRtt: 구간마다 가장 늦은 인코딩 워커의 응답 p99(ms). uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0) */
-type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[]; uploadBot: number[]; uploadSystem: number[] };
+/** encodeRtt: 구간마다 가장 늦은 인코딩 워커의 응답 p99(ms). encodeLate: 구간 동안 워커가 늦어 빈 프레임 수. uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0) */
+type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[]; encodeLate: number[]; uploadBot: number[]; uploadSystem: number[] };
 
 /** 전체 서버 공지의 종류. 화면은 이 키로 라벨을 단다 */
 const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;

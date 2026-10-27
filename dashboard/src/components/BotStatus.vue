@@ -185,8 +185,8 @@
       </section>
     </div>
 
-    <!-- ④ 하는 일 · ⑤ 쌓이는 곳: 두 단 격자. 첫 행에 활성 플레이어 · 자식 프로세스(같은 행이라 높이가 같다), 둘째 행 왼쪽에 저장공간(넓을 때는 연결 카드 옆으로 간다).
-         한 단이 되면 DOM 순서 그대로 1 2 3 -->
+    <!-- ④ 하는 일 · ⑤ 쌓이는 곳: 두 단 격자. 첫 행에 활성 플레이어 · 자식 프로세스(같은 행이라 높이가 같다), 둘째 행에 인코딩 워커 · 저장공간(저장공간은 넓을 때 연결 카드 옆으로 간다).
+         한 단이 되면 DOM 순서 그대로 -->
     <div class="grid grid-cols-1 @4xl/content:grid-cols-2 gap-(--gap-in)">
       <BaseCard ref="playerCardEl" icon="graphic_eq" :title="T.playersTitle(status.players.voiceConnections)">
         <!-- 상태 필터: M3 필터 칩(여럿 켜기). 오른쪽 끝에 찾기. 연결된 서버 수는 카드 제목에, 청취자 · 대기열 합계는 카드 맨 아래(자식 프로세스 합계와 같은 모양) -->
@@ -266,6 +266,29 @@
           /></span>
         </div>
       </BaseCard>
+      <!-- 인코딩 워커: 인코딩 응답 칸이 "괜찮은가"면 여기는 "왜". 워커마다 맡은 재생 · CPU(코어 하나 기준) · 응답 p99 와 버퍼(미리 만든 프레임으로 버티는 시간, (깊이 − 1) × 20ms).
+           막대는 응답이 버퍼를 얼마나 쓰는지. 깊이를 끝까지 올린 워커만 주의 · 문제로 칠한다(덜 올렸으면 풀이 더 올린다) -->
+      <BaseCard icon="memory" :title="T.workers.title" data-at="workers">
+        <div class="flex flex-col gap-3">
+          <div v-for="w in workerRows" :key="w.n">
+            <div class="flex items-baseline gap-2 text-sm">
+              <span>{{ T.workers.worker(w.n) }}</span>
+              <span class="text-xs text-on-surface-variant nums">{{ w.detail }}</span>
+              <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[w.level]">{{ w.rtt }}</span>
+            </div>
+            <div class="h-2 mt-1 rounded-full bg-(--store-free) overflow-hidden">
+              <div class="h-full rounded-full" :class="LEVEL_BAR[w.level]" :style="{ width: `${Math.max(2, w.ratio * 100)}%` }"></div>
+            </div>
+          </div>
+          <div v-if="!workerRows.length" class="text-sm text-on-surface-variant">{{ T.workers.none }}</div>
+          <dl class="flex flex-col gap-1 text-sm pt-3 border-t border-outline-variant/40">
+            <div v-for="[k, v] in workerSummary" :key="k" class="flex items-baseline justify-between gap-3">
+              <dt class="shrink-0 text-on-surface-variant">{{ k }}</dt>
+              <dd class="min-w-0 nums text-right">{{ v }}</dd>
+            </div>
+          </dl>
+        </div>
+      </BaseCard>
       <ReuseStorage v-if="!storageBeside" />
     </div>
   </div>
@@ -292,7 +315,7 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { byteUnit, formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
-import { compareText, formatClock } from "../utils/locale.ts";
+import { compareText, formatClock, formatNumber } from "../utils/locale.ts";
 import { axisMax, bitRate, byteRate, fixed, time, type Scale } from "../utils/units.ts";
 import { text } from "../text/index.ts";
 const T = text.status;
@@ -459,7 +482,7 @@ const metrics = computed<Metric[]>(() => {
     { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), scale: fixed(T.metrics.countUnit), level: "ok", word: "", why: "" },
     { title: T.metrics.ping, value: ping.value, unit: ping.unit, sub: T.metrics.pingSub(historyMinutes.value, timeBeside(pingAvg, ping.unit)), subUp: true, series: h.ping, max: axisMax(peak(h.ping), 300, time), warn: LIMITS.ping[0], scale: time, level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
     { title: T.metrics.loop, value: loop.value, unit: loop.unit, sub: T.metrics.loopSub(timeBeside(status.loop.max, loop.unit)), subShort: T.metrics.loopSub(timeBeside(loopMaxShort, loop.unit)), subBreak: true, series: h.loopP99, max: axisMax(peak(h.loopP99), 100, time), warn: LIMITS.loop[0], scale: time, level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
-    encodingMetric(status.encoding, h.encodeRtt, playing),
+    encodingMetric(status.encoding, h.encodeRtt, h.encodeLate),
     {
       title: T.metrics.heap,
       value: heapPct.toFixed(0),
@@ -496,30 +519,57 @@ const metrics = computed<Metric[]>(() => {
 });
 
 // 인코딩 응답: 가장 늦은 워커의 응답 p99. 답은 (깊이 − 1) × 20ms 안에 와야 하고, 깊이를 상한까지 올린 워커가 그 8할을 넘으면 주의, 넘기면 문제(빈 프레임).
-// 툴팁 첫 줄은 살아 있는 세션 수와 재생 중인 플레이어 수(세션이 더 많이 남으면 새는 것)
+// 보조 글은 깊이를 끝까지 올렸을 때의 한도와 최근 15분 빈 프레임. 워커마다의 값은 인코딩 워커 카드에
 const FRAME_MS = 20;
 /** 그래프 세로축의 상한을 고를 최고값(15분) */
 const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
-function encodingMetric(e: AdminStatus["encoding"], series: number[], playing: number): Metric {
+function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries: number[]): Metric {
   const budget = (e.maxDepth - 1) * FRAME_MS;
+  const late = lateSeries.reduce((a, b) => a + b, 0);
   const worstAtMax = Math.max(0, ...e.workers.filter((w) => w.depth >= e.maxDepth).map((w) => w.rttP99));
   const worst = timeParts(Math.max(0, ...e.workers.map((w) => w.rttP99)));
   return {
     title: T.metrics.encoding,
     value: worst.value,
     unit: worst.unit,
-    ...(e.late ? { subTop: T.metrics.encodingLate(e.late) } : {}),
-    sub: T.metrics.encodingSub(e.workers.length, e.max, Math.max(0, ...e.workers.map((w) => w.depth))),
-    subBreak: true,
+    ...(late ? { subTop: T.metrics.encodingLate(late) } : {}),
+    sub: T.metrics.encodingLimit(timeText(budget)),
     series,
     max: axisMax(peak(series), budget, time),
     warn: budget * 0.8,
     scale: time,
     level: levelOf(worstAtMax, budget * 0.8, budget),
     word: T.attention.high,
-    why: [T.metrics.encodingSessions(e.sessions, playing), ...e.workers.map((w) => T.metrics.encodingWorker(w.n, w.streams, w.depth, timeText(w.rttP99), w.cpuPct))].join("\n"),
+    why: "",
   };
 }
+
+// 인코딩 워커 카드: 워커마다 한 줄, 아래에 워커 수 · 세션(재생 출력 하나에 하나라 재생 · 일시정지 중인 서버 수와 같아야 한다, 곡을 바꾸는 순간만 어긋난다) · 켜진 뒤 누계
+const workerRows = computed(() => {
+  const e = props.status.encoding;
+  const budget = (e.maxDepth - 1) * FRAME_MS;
+  return e.workers.map((w) => {
+    const buffer = (w.depth - 1) * FRAME_MS;
+    return {
+      n: w.n,
+      detail: [T.workers.streams(w.streams), w.cpuPct === null ? "" : T.workers.cpu(w.cpuPct)].filter(Boolean).join(" · "),
+      rtt: T.workers.rtt(timeText(w.rttP99), timeText(buffer)),
+      ratio: Math.min(1, w.rttP99 / buffer),
+      level: w.depth >= e.maxDepth ? levelOf(w.rttP99, budget * 0.8, budget) : ("ok" as Level),
+    };
+  });
+});
+const workerSummary = computed(() => {
+  const e = props.status.encoding;
+  const sounding = props.status.players.list.filter((p) => p.state !== "idle").length;
+  return [
+    [T.workers.count, [T.workers.of(e.workers.length, e.max), e.quota === null ? "" : T.workers.quota(e.quota)].filter(Boolean).join(" · ")],
+    [T.workers.sessions, formatNumber(e.sessions)],
+    [T.workers.sounding, formatNumber(sounding)],
+    [T.workers.lateTotal, formatNumber(e.late)],
+    [T.workers.deaths, formatNumber(e.deaths)],
+  ];
+});
 
 // ── ② 연결 ──
 const LINK_WORD: Record<LinkState, string> = T.linkWords;

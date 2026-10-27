@@ -45,10 +45,10 @@ const metrics = {
   downloadActive: (count: number) => `활성 ${count}개`,
   downloadToday: (size: string) => `오늘 ${size}`,
   encoding: "인코딩 응답",
-  encodingSub: (workers: number, max: number, depth: number) => `워커 ${workers}/${max} · 깊이 ${depth}`,
+  /** 응답이 이만큼 늦어도 소리가 끊기지 않는다(깊이를 끝까지 올렸을 때) */
+  encodingLimit: (limit: string) => `한도 ${limit}`,
+  /** 최근 15분 */
   encodingLate: (count: number) => `빈 프레임 ${formatNumber(count)}`,
-  encodingSessions: (sessions: number, playing: number) => `인코딩 세션 ${sessions} · 재생 중 ${playing}`,
-  encodingWorker: (n: number, streams: number, depth: number, rtt: string, cpu: number | null) => `워커 ${n}: 재생 ${streams} · 깊이 ${depth} · ${rtt}${cpu === null ? "" : ` · CPU ${cpu}%`}`,
   upload: "업로드",
   uploadSystem: (rate: string) => `시스템 ${rate}`,
   uploadToday: (size: string) => `오늘 ${size}`,
@@ -105,6 +105,24 @@ const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (
 const ytdlpLoad = (lookup: string, background: string, waiting: number) => `yt-dlp 곡 찾기 ${lookup} · 다운로드 ${background} · 기다림 ${formatNumber(waiting)}`;
 const ytdlpLoadTip = (count: number, reused: number, missed: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽고, 받아 둔 정보를 ${formatNumber(reused)}번 다시 썼어요.${missed ? ` 자리가 없어 밀려난 정보를 ${formatNumber(missed)}번 다시 읽었어요.` : ""}\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
 const extractions = "유튜브 영상 정보 읽기";
+
+// 인코딩 워커
+const workers = {
+  title: "인코딩 워커",
+  count: "워커",
+  of: (count: number, max: number) => `${count} / ${max}`,
+  quota: (cores: number) => `CPU 할당 ${cores}코어`,
+  sessions: "인코딩 세션",
+  sounding: "재생 · 일시정지 중인 서버",
+  lateTotal: "켜진 뒤 빈 프레임",
+  deaths: "켜진 뒤 다시 띄운 워커",
+  worker: (n: number) => `워커 ${n}`,
+  streams: (count: number) => `재생 ${formatNumber(count)}`,
+  cpu: (pct: number) => `CPU ${pct}%`,
+  /** 응답 p99 / 버퍼(미리 만든 프레임으로 버티는 시간) */
+  rtt: (rtt: string, buffer: string) => `응답 ${rtt} / 버퍼 ${buffer}`,
+  none: "재생이 없어 워커가 없어요",
+};
 
 // 저장공간
 const storage = "저장공간";
@@ -183,6 +201,7 @@ export {
   ytdlpLoad,
   ytdlpLoadTip,
   extractions,
+  workers,
   storage,
   dbBrowser,
   audioCache,

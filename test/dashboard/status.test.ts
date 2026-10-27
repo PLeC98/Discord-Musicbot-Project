@@ -49,6 +49,7 @@ test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈�
   for (const series of [history.loopP99, history.cpuBot, history.cpuSystem]) assert.equal(series.length, 1);
   // 인코딩 워커를 띄우지 않았으면 응답은 0
   assert.deepEqual(history.encodeRtt, [0]);
+  assert.deepEqual(history.encodeLate, [0]);
   // 시스템 업로드를 못 읽은 구간은 0
   assert.equal(history.uploadBot.length, 1);
   assert.deepEqual(history.uploadSystem, [0]);
