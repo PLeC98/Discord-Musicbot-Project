@@ -108,9 +108,9 @@ const extractions = "유튜브 영상 정보 읽기";
 
 // 인코딩 워커
 const workers = {
-  title: "인코딩 워커",
-  count: "워커",
-  of: (count: number, max: number) => `${count} / ${max}`,
+  title: (count: number) => `인코딩 워커 (${count})`,
+  /** 이 기계에서 띄울 수 있는 최대(CPU 코어 − 1, 8 까지) */
+  limit: "워커 상한",
   quota: (cores: number) => `CPU 할당 ${cores}코어`,
   sessions: "인코딩 세션",
   sounding: "재생 · 일시정지 중인 서버",

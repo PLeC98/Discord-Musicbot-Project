@@ -268,7 +268,7 @@
       </BaseCard>
       <!-- 인코딩 워커: 인코딩 응답 칸이 "괜찮은가"면 여기는 "왜". 워커마다 맡은 재생 · CPU(코어 하나 기준) · 응답 p99 와 버퍼(미리 만든 프레임으로 버티는 시간, (깊이 − 1) × 20ms).
            막대는 응답이 버퍼를 얼마나 쓰는지. 깊이를 끝까지 올린 워커만 주의 · 문제로 칠한다(덜 올렸으면 풀이 더 올린다) -->
-      <BaseCard icon="memory" :title="T.workers.title" data-at="workers">
+      <BaseCard icon="memory" :title="T.workers.title(status.encoding.workers.length)" data-at="workers">
         <div class="flex flex-col gap-3">
           <div v-for="w in workerRows" :key="w.n">
             <div class="flex items-baseline gap-2 text-sm">
@@ -544,7 +544,7 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
   };
 }
 
-// 인코딩 워커 카드: 워커마다 한 줄, 아래에 워커 수 · 세션(재생 출력 하나에 하나라 재생 · 일시정지 중인 서버 수와 같아야 한다, 곡을 바꾸는 순간만 어긋난다) · 켜진 뒤 누계
+// 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 세션(재생 출력 하나에 하나라 재생 · 일시정지 중인 서버 수와 같아야 한다, 곡을 바꾸는 순간만 어긋난다) · 켜진 뒤 누계
 const workerRows = computed(() => {
   const e = props.status.encoding;
   const budget = (e.maxDepth - 1) * FRAME_MS;
@@ -563,7 +563,7 @@ const workerSummary = computed(() => {
   const e = props.status.encoding;
   const sounding = props.status.players.list.filter((p) => p.state !== "idle").length;
   return [
-    [T.workers.count, [T.workers.of(e.workers.length, e.max), e.quota === null ? "" : T.workers.quota(e.quota)].filter(Boolean).join(" · ")],
+    [T.workers.limit, [String(e.max), e.quota === null ? "" : T.workers.quota(e.quota)].filter(Boolean).join(" · ")],
     [T.workers.sessions, formatNumber(e.sessions)],
     [T.workers.sounding, formatNumber(sounding)],
     [T.workers.lateTotal, formatNumber(e.late)],
