@@ -1,6 +1,8 @@
 // 재생 인코딩 워커 풀. 출력(media/opus-output)마다 세션을 열어 주고, 세션이 보낸 PCM 프레임을 워커(media/encode-worker)가 Opus 패킷으로 돌려준다.
 //
-// 세션이 인코더 자리를 든다. 워커가 죽거나 멈추면 세션을 다른 워커의 새 인코더에 옮겨 붙이고, 답을 못 받은 프레임을 다시 보낸다. 출력은 모른다.
+// 세션이 인코더 자리를 든다. 워커가 죽거나 멈추면 세션을 다른 워커의 새 인코더에 옮겨 붙인다. 출력은 모른다.
+// 프레임 버퍼는 사본 없이 워커로 넘긴다. 그래서 죽거나 멈춘 워커에 보낸 프레임은 되돌릴 수 없어 그 박자를 무음 패킷으로 채운다.
+// 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 잃는 것이 없다.
 // 받기는 출력의 read() 안에서 부르는 drain()(동기)이 먼저다. message 이벤트는 voice 가 읽지 않을 때(처음 · 일시정지)의 예비 길이다.
 // 워커가 늦어지면 먼저 워커를 늘리고, 늘릴 수 없으면 그 워커의 미리 만드는 깊이(depth)를 올린다. 워커는 줄이지 않는다.
 // import 만으로는 워커를 띄우지 않는다. 기동 때 start() 가 첫 워커를 띄운다.
@@ -10,7 +12,7 @@ import fs from "fs";
 import { Worker, MessageChannel, receiveMessageOnPort, type MessagePort } from "worker_threads";
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
-import type { FromWorker, ToWorker } from "./encode-worker.ts";
+import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
 const log = logger.child({ category: "player" });
 
 const FRAME_MS = 20;
@@ -41,7 +43,7 @@ const POISON_DEATHS = 2;
 
 type SessionHooks = { onPacket(packet: Buffer): void; onError(error: Error): void };
 
-/** 출력 하나의 인코더 자리. 프레임은 보낸 뒤 고치지 않는다(워커를 옮길 때 다시 보낸다) */
+/** 출력 하나의 인코더 자리. 보낸 프레임의 버퍼는 워커로 넘어가 비워진다(프레임마다 새 버퍼를 쓴다) */
 type EncodeSession = {
   /** 미리 보내 둘 프레임 수(보낸 것 + 받아 둔 패킷). 바뀌면 다음 보내기부터 따른다 */
   readonly depth: number;
@@ -55,7 +57,8 @@ type EncodeSession = {
   describe(): { worker: number | null; oldestMs: number | null };
 };
 
-type Sent = { seq: number; frame: Buffer; gain: number; sentAt: number };
+// frame: 아직 워커에 보내지 않은 프레임(보내면 null). sentAt: 보낸 때(보내지 않았으면 0)
+type Sent = { seq: number; frame: Buffer | null; gain: number; sentAt: number };
 type Load = Extract<FromWorker, { type: "load" }>;
 type Slot = { id: number; entry: Entry | null };
 
@@ -80,6 +83,8 @@ const now = () => performance.timeOrigin + performance.now();
 class Session implements EncodeSession {
   readonly sent: Sent[] = [];
   readonly deaths: number[] = [];
+  // 옮겨 갈 워커. 옛 워커에 보낸 프레임의 답을 다 받을 때까지 새 프레임은 들고 있는다
+  moveTo: Entry | null = null;
   lastSend = now();
   freed = false;
   #seq = 0;
@@ -100,11 +105,11 @@ class Session implements EncodeSession {
 
   send(frame: Buffer, gain: number) {
     if (this.freed) return;
-    const item = { seq: this.#seq++, frame, gain, sentAt: 0 };
+    const item: Sent = { seq: this.#seq++, frame, gain, sentAt: 0 };
     this.sent.push(item);
     this.pool.hold(this);
     this.lastSend = now();
-    if (this.slot.entry) post(this.slot.entry, this.slot.id, item);
+    if (this.slot.entry && !this.moveTo) post(this.slot.entry, this.slot.id, item);
   }
 
   drain() {
@@ -127,12 +132,19 @@ class Session implements EncodeSession {
 }
 
 function post(entry: Entry, id: number, item: Sent) {
+  const frame = item.frame;
+  if (!frame) return;
+  item.frame = null;
   item.sentAt = now();
-  // 보낸 프레임은 옮겨 붙일 때 다시 보내야 하므로 사본을 넘긴다(넘긴 ArrayBuffer 는 이쪽에서 비워진다)
-  const pcm = item.frame.buffer.slice(item.frame.byteOffset, item.frame.byteOffset + item.frame.byteLength) as ArrayBuffer;
+  // 버퍼를 통째로 가진 프레임은 그대로 넘긴다. Buffer 풀 조각은 넘기면 풀 전체가 비워지므로 잘라 넘긴다
+  const whole = frame.byteOffset === 0 && frame.byteLength === frame.buffer.byteLength;
+  const pcm = (whole ? frame.buffer : frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength)) as ArrayBuffer;
   const message: ToWorker = { type: "frame", id, seq: item.seq, gain: item.gain, pcm };
   entry.thread.postMessage(message, [pcm]);
 }
+
+// voice 가 쉼으로 보내는 Opus 무음 프레임
+const silence = () => Buffer.from([0xf8, 0xff, 0xfe]);
 
 const control = (entry: Entry, message: ToWorker) => entry.thread.postMessage(message);
 
@@ -377,7 +389,7 @@ class EncodePool {
   }
 
   // 새 워커가 몫을 받는다: 활성 세션이 몫보다 많은 워커에서 옮겨 온다. 옮긴 세션은 새 인코더로 다시 시작한다(위치 이동 때와 같은 어긋남).
-  // 와 있는 답을 먼저 받고, 답을 기다리는 프레임이 없는 세션부터 옮긴다(기다리던 답은 버리고 다시 보내야 한다)
+  // 와 있는 답을 먼저 받는다. 답을 기다리는 세션은 그 답을 다 받은 뒤 옮긴다(#answer)
   #rebalance(fresh: Entry) {
     const others = this.#workers.filter((e) => e !== fresh);
     for (const entry of others) this.drain(entry);
@@ -389,13 +401,20 @@ class EncodePool {
     for (const list of lists.sort((a, b) => b.length - a.length)) {
       for (let left = list.length; taken < share && left > share; left--) {
         const session = list[list.length - left] as Session;
-        this.#unbind(session);
-        this.#attach(session, fresh);
+        if (session.sent.length) session.moveTo = fresh;
+        else this.#relocate(session, fresh);
         taken++;
         moved++;
       }
     }
     if (moved) log.debug(`재생 인코딩 워커 ${fresh.n} 로 스트림 ${moved}개를 옮겼습니다`);
+  }
+
+  #relocate(session: Session, target: Entry) {
+    session.moveTo = null;
+    this.#unbind(session);
+    if (target.gone) this.#move(session);
+    else this.#attach(session, target);
   }
 
   #activeSessions(entry: Entry) {
@@ -489,34 +508,57 @@ class EncodePool {
       entry.load = m;
       return;
     }
-    if (m.type !== "packet" && m.type !== "error") return;
-    if (entry.gone) return;
-    const found = this.#sessions.get(m.id)?.deref();
+    if (m.type !== "replies") return;
+    const received = now();
+    for (const item of m.items) {
+      // 앞의 답(WASM 오류)으로 이 워커를 내렸다
+      if (entry.gone) return;
+      this.#reply(entry, item, received);
+    }
+  }
+
+  #reply(entry: Entry, item: Reply, received: number) {
+    const found = this.#sessions.get(item.id)?.deref();
     // 없으면 해제했거나 다른 워커로 옮긴 세션의 늦은 답이다. 해제할 때마다 생기므로 남기지 않는다
     const session = found && !found.freed && found.slot.entry === entry ? found : null;
-    if (m.type === "error" && m.fatal) {
-      // 어느 프레임에서 났는지 안다. 그 세션은 다시 보내지 않고 실패시키고, 이 죽음은 잇단 죽음(백오프)에 세지 않는다
-      if (session) this.#fail(session, new Error(`인코딩 중 WASM 오류: ${m.message}`));
-      return this.#died(entry, `WASM 오류로 내렸습니다(${m.message})`, { known: !!session });
+    if (item.fatal) {
+      // 어느 프레임에서 났는지 안다. 그 세션은 실패시키고, 이 죽음은 잇단 죽음(백오프)에 세지 않는다
+      if (session) this.#fail(session, new Error(`인코딩 중 WASM 오류: ${item.error ?? ""}`));
+      return this.#died(entry, `WASM 오류로 내렸습니다(${item.error ?? ""})`, { known: !!session });
     }
-    if (session) this.#answer(entry, session, m);
+    if (session) this.#answer(entry, session, item, received);
   }
 
   // 세션의 가장 오래된 프레임에 온 답
-  #answer(entry: Entry, session: Session, m: Extract<FromWorker, { type: "packet" | "error" }>) {
+  #answer(entry: Entry, session: Session, item: Reply, received: number) {
     const head = session.sent[0];
-    if (!head || head.seq !== m.seq) return this.#fail(session, new Error(`인코딩 답의 순서가 어긋났습니다(기다린 ${head?.seq ?? "없음"}, 받은 ${m.seq})`));
+    if (!head || head.seq !== item.seq) return this.#fail(session, new Error(`인코딩 답의 순서가 어긋났습니다(기다린 ${head?.seq ?? "없음"}, 받은 ${item.seq})`));
     session.sent.shift();
     if (!session.sent.length) this.#busy.delete(session);
     // 메인이 받기를 미룬 시간은 빼고 워커가 걸린 시간을 본다. 스레드마다 시계 기준이 조금 다를 수 있어 받은 때를 넘지 않게 한다
-    const received = now();
-    entry.rtt.push(Math.max(0, Math.min(received, m.doneAt) - head.sentAt));
-    if (m.type === "error") return this.#fail(session, new Error(m.message));
+    entry.rtt.push(Math.max(0, Math.min(received, item.doneAt) - head.sentAt));
+    if (!item.packet) return this.#fail(session, new Error(item.error ?? "인코딩 실패"));
+    this.#deliver(session, Buffer.from(item.packet));
+    // 옮겨 가는 중이고 옛 워커에 보낸 것을 다 받았다
+    const next = session.sent[0];
+    if (session.moveTo && !session.freed && (!next || next.frame)) this.#relocate(session, session.moveTo);
+  }
+
+  #deliver(session: Session, packet: Buffer) {
     try {
-      session.hooks.onPacket(Buffer.from(m.packet));
+      session.hooks.onPacket(packet);
     } catch (error) {
       this.#fail(session, error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  // 죽거나 멈춘 워커에 보낸 프레임은 버퍼를 넘겨 되돌릴 수 없다. 그 박자는 무음으로 채워 순서를 잇는다
+  #dropPosted(session: Session) {
+    for (let head = session.sent[0]; head && !head.frame && !session.freed; head = session.sent[0]) {
+      session.sent.shift();
+      this.#deliver(session, silence());
+    }
+    if (!session.sent.length) this.#busy.delete(session);
   }
 
   #fail(session: Session, error: Error) {
@@ -568,9 +610,29 @@ class EncodePool {
     log.warn(`재생 인코딩 워커 ${entry.n}: ${why}. ${what.join(". ")}`);
     this.#stats.deaths++;
     if (!known) this.#noteDeath();
+    this.#cancelMovesTo(entry);
     for (const session of sessions) {
-      if (poisoned.includes(session)) this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽었습니다"));
-      else this.#move(session);
+      if (poisoned.includes(session)) {
+        this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽었습니다"));
+        continue;
+      }
+      session.moveTo = null;
+      // 무음을 채우는 동안 출력이 보내는 프레임은 들고 있다가 새 워커에 보낸다
+      this.#unbind(session);
+      this.#dropPosted(session);
+      if (!session.freed) this.#move(session);
+    }
+  }
+
+  // 이 워커로 옮겨 오려던 세션은 지금 워커에 남는다. 들고 있던 프레임을 보낸다
+  #cancelMovesTo(target: Entry) {
+    for (const entry of this.#workers) {
+      for (const id of entry.ids) {
+        const session = this.#sessions.get(id)?.deref();
+        if (session?.moveTo !== target) continue;
+        session.moveTo = null;
+        for (const item of session.sent) post(entry, id, item);
+      }
     }
   }
 

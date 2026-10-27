@@ -1,7 +1,8 @@
 // src/media/encode-pool.ts — 출력마다 세션을 열어 프레임을 워커에서 인코딩하고, 워커가 죽거나 멈추면 다른 워커로 옮겨 붙이는 풀
 //
 // 지키는 것: 기동하면 첫 워커가 libopus 를 불러 둔다. 세션의 패킷은 보낸 순서대로 하나씩 오고, drain() 은 이벤트 루프 없이 받는다.
-// 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 빠짐 · 겹침 없이 이어진다.
+// 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 박자는 무음으로 채워 빠짐 · 겹침이 없다.
+// 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 무음이 없다.
 // 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable 로 실패한다.
 // 깊이 · 워커 늘리기 판단(decideDepth)과 워커 수 상한.
 
@@ -150,7 +151,11 @@ test("한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, �
   const pool = new EncodePool({ workerUrl: FAULTY, maxWorkers: 2, calibrateFrames: 0 });
   try {
     await pool.start();
+    // 워커를 죽이는 입력: 첫 프레임에 워커가 죽고(그 박자는 무음), 옮긴 워커도 다음 프레임에 죽는다
     const poison = opened(pool);
+    poison.session.send(frame(), -1);
+    await until(() => pool.stats().deaths === 1 && poison.packets.length === 1, "첫 죽음과 무음 하나");
+    await until(() => pool.stats().workers.length === 1, "새 워커");
     poison.session.send(frame(), -1);
     await until(() => poison.errors.length === 1, "독이 든 세션의 실패");
     assert.match(poison.errors[0]?.message ?? "", /잇달아/);
@@ -252,13 +257,21 @@ test("워커가 늦어 하나를 늘리면 새 워커가 활성 세션의 몫을
       }
     }, 20);
     await until(() => pool.stats().workers.length === 2, "워커 늘리기", 5000);
-    clearInterval(timer);
-    assert.deepEqual(
-      pool.stats().workers.map((w) => w.streams),
-      [2, 2],
+    // 답을 기다리던 세션은 그 답을 다 받은 뒤 옮긴다
+    await until(
+      () =>
+        pool
+          .stats()
+          .workers.map((w) => w.streams)
+          .join() === "2,2",
+      "몫 나누기",
+      5000,
     );
+    clearInterval(timer);
     for (const s of streams) {
       assert.deepEqual(s.errors, []);
+      // 옮기면서 잃은 프레임이 없다(무음 패킷은 3바이트)
+      assert.ok(s.packets.every((p) => p.length === 8));
       s.session.free();
     }
   } finally {

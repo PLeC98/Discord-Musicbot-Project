@@ -16,6 +16,7 @@ parentPort?.on("message", (m: ToWorker) => {
   // 바쁜 대기로 잰다(Atomics.wait 는 Windows 에서 15.6ms 단위로 늘어난다)
   for (const until = performance.now() + m.gain; m.gain > 1 && performance.now() < until;) continue;
   const doneAt = performance.timeOrigin + performance.now();
-  if (m.gain === -2) send({ type: "error", id: m.id, seq: m.seq, message: "unreachable", fatal: true, doneAt });
-  else send({ type: "packet", id: m.id, seq: m.seq, packet: new ArrayBuffer(8), doneAt });
+  if (m.gain === -2) return send({ type: "replies", items: [{ id: m.id, seq: m.seq, doneAt, error: "unreachable", fatal: true }] });
+  const packet = new ArrayBuffer(8);
+  reply?.postMessage({ type: "replies", items: [{ id: m.id, seq: m.seq, doneAt, packet }] } satisfies FromWorker, [packet]);
 });
