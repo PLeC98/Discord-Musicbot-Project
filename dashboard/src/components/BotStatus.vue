@@ -544,7 +544,8 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
   };
 }
 
-// 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 세션(재생 출력 하나에 하나라 재생 · 일시정지 중인 서버 수와 같아야 한다, 곡을 바꾸는 순간만 어긋난다) · 켜진 뒤 누계
+// 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 켜진 뒤 누계.
+// 세션 수는 싣지 않는다(워커마다의 재생 수를 더한 것, 새는 세션은 GC 안전망이 warn 로그로 알린다)
 const workerRows = computed(() => {
   const e = props.status.encoding;
   const budget = (e.maxDepth - 1) * FRAME_MS;
@@ -561,11 +562,8 @@ const workerRows = computed(() => {
 });
 const workerSummary = computed(() => {
   const e = props.status.encoding;
-  const sounding = props.status.players.list.filter((p) => p.state !== "idle").length;
   return [
     [T.workers.limit, [String(e.max), e.quota === null ? "" : T.workers.quota(e.quota)].filter(Boolean).join(" · ")],
-    [T.workers.sessions, formatNumber(e.sessions)],
-    [T.workers.sounding, formatNumber(sounding)],
     [T.workers.lateTotal, formatNumber(e.late)],
     [T.workers.deaths, formatNumber(e.deaths)],
   ];

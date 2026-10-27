@@ -112,8 +112,6 @@ const workers = {
   /** 이 기계에서 띄울 수 있는 최대(CPU 코어 − 1, 8 까지) */
   limit: "워커 상한",
   quota: (cores: number) => `CPU 할당 ${cores}코어`,
-  sessions: "인코딩 세션",
-  sounding: "재생 · 일시정지 중인 서버",
   lateTotal: "켜진 뒤 빈 프레임",
   deaths: "켜진 뒤 다시 띄운 워커",
   worker: (n: number) => `워커 ${n}`,
