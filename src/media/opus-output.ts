@@ -66,7 +66,8 @@ class OpusOutput extends Duplex {
   // 와 있는 패킷을 먼저 받고 읽는다. _read 가 한 번 빈손으로 끝나면 Node 가 _read 를 다시 부르지 않아 여기서 받아야 한다.
   // 읽은 뒤에 보낸다(읽는 쪽 버퍼가 줄어든 뒤라야 깊이를 바로 센다)
   override read(size?: number) {
-    if (!this.destroyed && !this.#ready.length && this.#inflight) this.#session.drain();
+    // 처음에는 깊이만큼 모일 때까지 기다리므로 받아 둔 것이 있어도 받는다
+    if (!this.destroyed && (!this.#ready.length || !this.#started) && this.#inflight) this.#session.drain();
     // drain 이 이 출력에 오류를 주면 그 자리에서 destroy 된다
     if (this.destroyed) return null;
     const packet = super.read(size);

@@ -102,6 +102,7 @@ class Session implements EncodeSession {
     if (this.freed) return;
     const item = { seq: this.#seq++, frame, gain, sentAt: 0 };
     this.sent.push(item);
+    this.pool.hold(this);
     this.lastSend = now();
     if (this.slot.entry) post(this.slot.entry, this.slot.id, item);
   }
@@ -112,6 +113,7 @@ class Session implements EncodeSession {
 
   late() {
     if (this.slot.entry) this.slot.entry.late++;
+    else this.pool.noteLate();
   }
 
   free() {
@@ -196,6 +198,9 @@ class EncodePool {
   #frameUs = 0;
   #libopusVersion: string | null = null;
   readonly #sessions = new Map<number, WeakRef<Session>>();
+  // 답을 기다리는 프레임이 있는 세션. 그동안은 강하게 든다(진행 중인 I/O 가 콜백을 살려 두듯).
+  // 아무도 출력을 들지 않은 채 답을 기다리면 GC 가 출력과 기다리는 쪽을 함께 치운다
+  readonly #busy = new Set<Session>();
   // 옮겨 갈 워커를 기다리는 세션(워커가 뜨는 중)
   readonly #homeless = new Set<number>();
   #deaths: number[] = [];
@@ -255,10 +260,20 @@ class EncodePool {
     for (let m = receiveMessageOnPort(entry.port); m; m = receiveMessageOnPort(entry.port)) this.#receive(entry, m.message as FromWorker);
   }
 
+  hold(session: Session) {
+    this.#busy.add(session);
+  }
+
+  /** 옮겨 갈 워커를 기다리는 세션의 늦음(워커별로 세지 못한다) */
+  noteLate() {
+    this.#stats.late++;
+  }
+
   release(session: Session) {
     if (session.freed) return;
     session.freed = true;
     session.sent.length = 0;
+    this.#busy.delete(session);
     this.#unreleased.unregister(session);
     this.#unbind(session);
   }
@@ -492,6 +507,7 @@ class EncodePool {
     const head = session.sent[0];
     if (!head || head.seq !== m.seq) return this.#fail(session, new Error(`인코딩 답의 순서가 어긋났습니다(기다린 ${head?.seq ?? "없음"}, 받은 ${m.seq})`));
     session.sent.shift();
+    if (!session.sent.length) this.#busy.delete(session);
     // 메인이 받기를 미룬 시간은 빼고 워커가 걸린 시간을 본다. 스레드마다 시계 기준이 조금 다를 수 있어 받은 때를 넘지 않게 한다
     const received = now();
     entry.rtt.push(Math.max(0, Math.min(received, m.doneAt) - head.sentAt));
