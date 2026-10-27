@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, formatMs, formatSpan, formatBytes } from "../../src/ui/format.ts";
+import { formatDuration, formatMs, formatSpan, formatBytes, byteUnit } from "../../src/ui/format.ts";
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   assert.equal(formatDuration(0), "0:00");
@@ -58,14 +58,20 @@ test("formatSpan: 일을 쓰면 /help, 초까지 쓰면 /system, 일을 안 쓰�
   assert.equal(formatSpan(400000, { days: false, withSeconds: true }), "111시간 6분 40초");
 });
 
-test("formatBytes: GB 의 소수 자릿수만 부르는 쪽이 정한다(/cachestatus 2 · /system 1)", () => {
-  const sizes = [0, 512, 1536, 5 * 1024 ** 2 + 300_000, 1024 ** 3, 3.456 * 1024 ** 3];
+test("formatBytes: GB · TB 의 소수 자릿수만 부르는 쪽이 정한다(/cachestatus 2 · /system 1), 1024 GB 부터 TB", () => {
+  const sizes = [0, 512, 1536, 5 * 1024 ** 2 + 300_000, 1024 ** 3, 3.456 * 1024 ** 3, 1023.9 * 1024 ** 3, 1024 ** 4, 97.23 * 1024 ** 4];
   assert.deepEqual(
     sizes.map((b) => formatBytes(b, { gbDigits: 2 })),
-    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.00 GB", "3.46 GB"],
+    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.00 GB", "3.46 GB", "1023.90 GB", "1.00 TB", "97.23 TB"],
   );
   assert.deepEqual(
     sizes.map((b) => formatBytes(b)),
-    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.0 GB", "3.5 GB"],
+    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.0 GB", "3.5 GB", "1023.9 GB", "1.0 TB", "97.2 TB"],
   );
+});
+
+test("byteUnit: 1024 배씩 KB · MB · GB · TB, KB 아래로는 내리지 않는다", () => {
+  assert.deepEqual(byteUnit(100), { n: 100 / 1024, unit: "KB", per: 1024 });
+  assert.deepEqual(byteUnit(2 * 1024 ** 3), { n: 2, unit: "GB", per: 1024 ** 3 });
+  assert.deepEqual(byteUnit(3 * 1024 ** 4), { n: 3, unit: "TB", per: 1024 ** 4 });
 });

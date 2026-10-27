@@ -289,7 +289,7 @@ import { useScrollFade } from "../composables/scroll-fade.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { koMatch } from "../../../src/rules/ko-search.ts";
-import { formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
+import { byteUnit, formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { compareText, formatClock } from "../utils/locale.ts";
@@ -332,17 +332,22 @@ const timeBeside = (ms: number, main: string) => {
   const { value, unit } = timeParts(ms);
   return unit === main ? value : `${value}${unit}`;
 };
+const MB = 1024 ** 2;
 const toGB = (bytes: number) => bytes / 1024 ** 3;
-// GB 표기: 100 GB 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
-// 1 GB 아래는 MB 로 같은 규칙(DB 처럼 작은 것)
+// 크기: 단위는 크기에 맞게(MB · GB · TB, src/ui/format 의 byteUnit), 100 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
 const sizeText = (bytes: number) => {
-  if (bytes >= 1024 ** 3) return gbText(bytes);
-  const mb = bytes / 1024 ** 2;
-  return `${mb >= 100 ? mb.toFixed(0) : mb.toFixed(1).replace(/\.0$/, "")} MB`;
+  const { n, unit } = byteUnit(bytes);
+  return `${n >= 100 ? n.toFixed(0) : n.toFixed(1).replace(/\.0$/, "")} ${unit}`;
 };
-const gbText = (bytes: number) => {
-  const gb = toGB(bytes);
-  return `${gb >= 100 ? gb.toFixed(0) : gb.toFixed(1).replace(/\.0$/, "")} GB`;
+/** 소수 자릿수를 정한 크기("1.60 GB") */
+const sizeFixed = (bytes: number, digits: number) => {
+  const { n, unit } = byteUnit(bytes);
+  return `${n.toFixed(digits)} ${unit}`;
+};
+/** 크기 둘을 큰 쪽(whole)의 단위 하나로("18.3 / 20 GB") */
+const sizePair = (part: number, whole: number, partDigits: number, wholeDigits = partDigits) => {
+  const { per, unit } = byteUnit(whole);
+  return `${(part / per).toFixed(partDigits)} / ${(whole / per).toFixed(wholeDigits)} ${unit}`;
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
 const downloadParts = (bps: number) => {
@@ -430,8 +435,6 @@ const historyMinutes = computed(() => Math.max(1, Math.round((props.status.histo
 // 카드 폭에 따라 하나만 보인다(좁은 카드 11rem 아래)
 const WIDE = "@max-[11rem]/metric:hidden";
 const NARROW = "hidden @max-[11rem]/metric:inline";
-/** MB → GB, 소수 digits 자리 */
-const gb = (mb: number, digits: number) => (mb / 1024).toFixed(digits);
 /** 소수가 있는 값을 정수로(좁은 카드). 소수가 없으면 그대로 */
 const rounded = (value: string) => (/^\d+\.\d+$/.test(value) ? String(Math.round(Number(value))) : value);
 
@@ -461,10 +464,10 @@ const metrics = computed<Metric[]>(() => {
       title: T.metrics.heap,
       value: heapPct.toFixed(0),
       unit: "%",
-      subTop: `RSS ${gb(status.node.memory.rss, 2)} GB`,
-      subTopShort: `RSS ${gb(status.node.memory.rss, 1)} GB`,
-      sub: `${gb(status.node.memory.heapUsed, 2)} / ${gb(status.node.memory.heapLimit, 2)} GB`,
-      subShort: `${gb(status.node.memory.heapUsed, 1)} / ${gb(status.node.memory.heapLimit, 1)} GB`,
+      subTop: `RSS ${sizeFixed(status.node.memory.rss * MB, 2)}`,
+      subTopShort: `RSS ${sizeFixed(status.node.memory.rss * MB, 1)}`,
+      sub: sizePair(status.node.memory.heapUsed * MB, status.node.memory.heapLimit * MB, 2),
+      subShort: sizePair(status.node.memory.heapUsed * MB, status.node.memory.heapLimit * MB, 1),
       series: h.heapPct,
       max: 100,
       warn: LIMITS.heap[0],
@@ -668,9 +671,9 @@ const storageBars = computed(() => {
   const { cache, disk } = props.status.storage;
   const diskPct = (disk.usedBytes / disk.totalBytes) * 100;
   return [
-    { key: "cache", label: T.audioCache, ratio: cache.bytes / cache.maxBytes, text: `${toGB(cache.bytes).toFixed(1)} / ${toGB(cache.maxBytes).toFixed(0)} GB`, level: "ok" as Level },
+    { key: "cache", label: T.audioCache, ratio: cache.bytes / cache.maxBytes, text: sizePair(cache.bytes, cache.maxBytes, 1, 0), level: "ok" as Level },
     { key: "files", label: T.cacheFiles, ratio: cache.files / cache.maxFiles, text: T.files(cache.files, cache.maxFiles), level: "ok" as Level },
-    { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(gbText(disk.totalBytes), gbText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
+    { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(sizeText(disk.totalBytes), sizeText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
   ];
 });
 // 재생 중 캐시 보호: 지금 트는 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패 · 다운로드 멈춤 · 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
@@ -691,7 +694,7 @@ const driveParts = computed(() => {
   const reserve = Math.min(free, disk.minFreeBytes);
   const parts = [{ label: T.audioCache, bytes: cache.bytes, tone: "bg-(--store-cache)" }, ...(dbHere ? [{ label: "DB", bytes: db.bytes, tone: "bg-(--store-db)" }] : []), { label: T.driveParts.other, bytes: other, tone: "bg-(--store-other)" }, { label: T.driveParts.free, bytes: free - reserve, tone: "bg-(--store-free)" }];
   const rows = parts.map((part) => ({ ...part, text: sizeText(part.bytes), tip: `${part.label} ${sizeText(part.bytes)}` }));
-  const minFree = gbText(disk.minFreeBytes);
+  const minFree = sizeText(disk.minFreeBytes);
   return [...rows, { label: T.driveParts.reserve, bytes: reserve, tone: "bg-(--store-reserve)", text: minFree, tip: T.reserveTip(minFree) }];
 });
 const dbRows = computed<Array<[string, string]>>(() => {

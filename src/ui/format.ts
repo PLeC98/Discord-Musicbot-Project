@@ -40,11 +40,23 @@ function formatSpan(seconds: number, { days = true, withSeconds = false }: { day
   return showSeconds ? "0초" : "0분";
 }
 
-/** 바이트를 KB · MB · GB 로. gbDigits: GB 의 소수 자릿수 */
-function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}) {
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(gbDigits)} GB`;
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
+const BYTE_UNITS = [
+  ["TB", 1024 ** 4],
+  ["GB", 1024 ** 3],
+  ["MB", 1024 ** 2],
+  ["KB", 1024],
+] as const;
+
+/** 바이트 크기에 맞는 단위(1024 배씩, KB 아래로는 내리지 않는다). 수를 몇 자리로 쓸지는 부르는 쪽이 정한다. per: 그 단위가 몇 바이트인지 */
+function byteUnit(bytes: number) {
+  const [unit, per] = BYTE_UNITS.find(([, size]) => bytes >= size) ?? BYTE_UNITS[BYTE_UNITS.length - 1];
+  return { n: bytes / per, unit, per };
 }
 
-export { formatDuration, formatMs, formatSpan, formatBytes };
+/** 바이트를 KB · MB · GB · TB 로. gbDigits: GB · TB 의 소수 자릿수 */
+function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}) {
+  const { n, unit } = byteUnit(bytes);
+  return `${n.toFixed(unit === "GB" || unit === "TB" ? gbDigits : 1)} ${unit}`;
+}
+
+export { formatDuration, formatMs, formatSpan, formatBytes, byteUnit };

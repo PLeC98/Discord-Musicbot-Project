@@ -22,6 +22,7 @@ import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
 import { AV1_LP_MAX, av1LpFor, enoughMemory, needOf, splitLp } from "./memory.ts";
 import { josa } from "../../rules/josa.ts";
+import { formatBytes } from "../../ui/format.ts";
 
 /** H.264 단계의 짧은 변 */
 const H264_SHORT = 720;
@@ -224,7 +225,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
     const uhd = plan.short >= UHD;
     const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
     if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
-    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}: 남은 메모리(${(os.freemem() / 1024 ** 3).toFixed(1)}GB)에 맞춰 AV1 병렬 단계를 ${lp} 로 낮춥니다`);
+    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}: 남은 메모리(${formatBytes(os.freemem())})에 맞춰 AV1 병렬 단계를 ${lp} 로 낮춥니다`);
     const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress(Math.min(1, (finished + value) / total)));
     if (!failure) {
       finished++;

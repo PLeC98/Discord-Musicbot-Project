@@ -43,6 +43,7 @@
 import { computed, defineComponent, h } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import { byteUnit } from "../../../src/ui/format.ts";
 import type { IconName } from "../icons.ts";
 
 const props = defineProps<{ status: AdminStatus }>();
@@ -109,8 +110,12 @@ function uptimeText(sec: number) {
   const part = (n: number, unit: string) => (n ? `${n} ${unit}${n === 1 ? "" : "s"}` : "");
   return [part(days, "day"), part(hours, "hour"), part(mins, "min")].filter(Boolean).join(", ") || "0 mins";
 }
-const gibFromBytes = (bytes: number) => (bytes / 1024 ** 3).toFixed(2);
-const gibFromMb = (mb: number) => (mb / 1024).toFixed(2);
+// 크기: 단위는 크기에 맞게(src/ui/format 의 byteUnit), 이진 단위 이름(GiB · TiB)으로 소수 둘째 자리
+const binText = (bytes: number) => {
+  const { n, unit } = byteUnit(bytes);
+  return `${n.toFixed(2)} ${unit.replace("B", "iB")}`;
+};
+const binFromMb = (mb: number) => binText(mb * 1024 ** 2);
 const percentText = (a: number, b: number) => `(${Math.round((a / b) * 100)}%)`;
 const osName = (p: string) => (p === "win32" ? "Windows" : p === "darwin" ? "macOS" : "Linux");
 // "2026-10-07 01:37"
@@ -163,16 +168,16 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
         { icon: "computer", key: "OS", value: `${osName(status.node.platform)} ${status.node.arch}` },
         { icon: "timer", key: "Uptime", value: uptimeText(status.system.uptime) },
         { icon: "memory", key: "CPU", value: status.system.cpuModel, note: `(${status.system.cpus})` },
-        { icon: "memory_alt", key: "Memory", value: `${gibFromMb(memUsed)} GiB / ${gibFromMb(status.system.totalMem)} GiB`, note: percentText(memUsed, status.system.totalMem) },
-        { icon: "data_object", key: "Heap", value: `${gibFromMb(status.node.memory.heapUsed)} GiB / ${gibFromMb(status.node.memory.heapLimit)} GiB`, note: percentText(status.node.memory.heapUsed, status.node.memory.heapLimit) },
+        { icon: "memory_alt", key: "Memory", value: `${binFromMb(memUsed)} / ${binFromMb(status.system.totalMem)}`, note: percentText(memUsed, status.system.totalMem) },
+        { icon: "data_object", key: "Heap", value: `${binFromMb(status.node.memory.heapUsed)} / ${binFromMb(status.node.memory.heapLimit)}`, note: percentText(status.node.memory.heapUsed, status.node.memory.heapLimit) },
       ],
     },
     {
       title: "Storage",
       tone: "text-on-surface-variant",
       rows: [
-        { icon: "hard_drive", key: `Disk (${disk.drive})`, value: `${gibFromBytes(disk.usedBytes)} GiB / ${gibFromBytes(disk.totalBytes)} GiB`, note: percentText(disk.usedBytes, disk.totalBytes) },
-        { icon: "library_music", key: "Cache", value: `${gibFromBytes(cache.bytes)} GiB / ${gibFromBytes(cache.maxBytes)} GiB`, note: percentText(cache.bytes, cache.maxBytes) },
+        { icon: "hard_drive", key: `Disk (${disk.drive})`, value: `${binText(disk.usedBytes)} / ${binText(disk.totalBytes)}`, note: percentText(disk.usedBytes, disk.totalBytes) },
+        { icon: "library_music", key: "Cache", value: `${binText(cache.bytes)} / ${binText(cache.maxBytes)}`, note: percentText(cache.bytes, cache.maxBytes) },
         { icon: "folder", key: "Files", value: `${cache.files.toLocaleString("en-US")} / ${cache.maxFiles.toLocaleString("en-US")}` },
         { icon: "database", key: "Database", value: `${(db.bytes / 1024 ** 2).toFixed(1)} MiB` },
       ],
