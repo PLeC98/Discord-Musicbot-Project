@@ -122,7 +122,7 @@ const workers = {
   /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100 이 끝) */
   cpu: (pct: number) => `코어 ${pct}%`,
   /** 응답 시간 p99 / 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms) */
-  rtt: (rtt: string, limit: string) => `응답 시간 ${rtt} / 응답 한도 ${limit}`,
+  rtt: (rtt: string, limit: string) => `응답 시간 ${rtt} / ${limit}`,
   none: "재생이 없어 워커가 없어요",
 };
 
