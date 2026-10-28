@@ -75,14 +75,22 @@ test("드래그의 높이 계산: 드래그 중인 행의 가운데가 이웃 �
   assert.equal(heightTarget(98, 64 * 5, 64, 100), 99);
 });
 
-test("드래그 중인 행은 첫 행 ~ 마지막 행 위치 밖으로 나가지 않는다(나가면 스크롤 영역이 늘어 자동 스크롤이 끝없이 따라간다)", () => {
+test("드래그 중인 행은 첫 행 ~ 마지막 행 위치에서 반 칸 더까지만 간다(그 밖으로 나가면 스크롤 영역이 늘어 자동 스크롤이 끝없이 따라간다)", () => {
   // 높이로 계산(대기열): 100곡 중 10번째, 행 64px
-  assert.equal(boundedDy(64 * 200, 10, { h: 64, count: 100 }), 64 * 89);
-  assert.equal(boundedDy(-64 * 200, 10, { h: 64, count: 100 }), -64 * 10);
+  assert.equal(boundedDy(64 * 200, 10, { h: 64, count: 100 }), 64 * 89.5);
+  assert.equal(boundedDy(-64 * 200, 10, { h: 64, count: 100 }), -64 * 10.5);
   assert.equal(boundedDy(100, 10, { h: 64, count: 100 }), 100);
-  assert.equal(boundedDy(50, 0, { h: 64, count: 1 }), 0, "한 곡뿐이면 움직이지 않는다");
+  assert.equal(boundedDy(50, 0, { h: 64, count: 1 }), 32, "한 곡뿐이면 반 칸까지");
   // 시작 때 잰 위치: 높이가 다른 세 항목(위 0 · 50 · 130, 높이 40 · 70 · 30)의 가운데 것
   const rows = { tops: [0, 50, 130], heights: [40, 70, 30] };
-  assert.equal(boundedDy(500, 1, rows), 130 + 30 - (50 + 70), "아래 끝이 마지막 항목의 아래 끝에 맞을 때까지");
-  assert.equal(boundedDy(-500, 1, rows), -50, "위 끝이 첫 항목의 위 끝에 맞을 때까지");
+  assert.equal(boundedDy(500, 1, rows), 130 + 30 - (50 + 70) + 35, "아래 끝이 마지막 항목의 아래 끝을 반 칸 넘을 때까지");
+  assert.equal(boundedDy(-500, 1, rows), -50 - 35, "위 끝이 첫 항목의 위 끝을 반 칸 넘을 때까지");
+});
+
+test("끝까지 끌면 마지막 자리 · 첫 자리가 된다(자른 거리로도 이웃 행의 가운데를 넘는다)", () => {
+  const rows = { h: 64, count: 100 };
+  assert.equal(heightTarget(10, boundedDy(64 * 500, 10, rows), 64, 100), 99);
+  assert.equal(heightTarget(10, boundedDy(-64 * 500, 10, rows), 64, 100), 0);
+  assert.equal(heightTarget(98, boundedDy(64 * 500, 98, rows), 64, 100), 99, "마지막 앞 행을 마지막으로");
+  assert.equal(heightTarget(1, boundedDy(-64 * 500, 1, rows), 64, 100), 0, "둘째 행을 첫째로");
 });

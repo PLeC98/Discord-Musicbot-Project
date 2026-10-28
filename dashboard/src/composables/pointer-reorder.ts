@@ -59,12 +59,16 @@ export function heightTarget(from: number, dy: number, h: number, count: number)
   return Math.min(Math.max(from + steps, 0), Math.max(0, count - 1));
 }
 
-/** 드래그 중인 항목이 갈 수 있는 거리로 자른다: 첫 항목 위치 ~ 마지막 항목 위치(행 높이 h · 항목 count 개, 아니면 시작 때 잰 위 · 높이) */
+/**
+ * 드래그 중인 항목이 갈 수 있는 거리로 자른다(행 높이 h · 항목 count 개, 아니면 시작 때 잰 위 · 높이).
+ * 첫 항목 · 마지막 항목 위치에서 드래그 중인 항목 높이의 절반만큼 더 나갈 수 있다(그 가운데를 넘어야 첫 · 마지막 자리가 된다)
+ */
 export function boundedDy(dy: number, from: number, rows: { h: number; count: number } | { tops: number[]; heights: number[] }) {
-  if ("h" in rows) return Math.min(Math.max(dy, -from * rows.h), Math.max(0, rows.count - 1 - from) * rows.h);
+  if ("h" in rows) return Math.min(Math.max(dy, -(from + 0.5) * rows.h), (Math.max(0, rows.count - 1 - from) + 0.5) * rows.h);
   const { tops, heights } = rows;
   const last = tops.length - 1;
-  return Math.min(Math.max(dy, tops[0] - tops[from]), tops[last] + heights[last] - (tops[from] + heights[from]));
+  const half = heights[from] / 2;
+  return Math.min(Math.max(dy, tops[0] - tops[from] - half), tops[last] + heights[last] - (tops[from] + heights[from]) + half);
 }
 
 export function usePointerReorder({ enabled, start, end, drop, rowHeight, count }: Options) {
