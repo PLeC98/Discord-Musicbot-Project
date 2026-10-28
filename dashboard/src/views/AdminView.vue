@@ -67,7 +67,7 @@
         </div>
 
         <div class="admin-page" v-show="tab === 'guilds'">
-          <ServerManage :guilds="guilds" @changed="onGuildsChanged" />
+          <ServerManage v-model:query="guildQuery" :list="guilds" @changed="onGuildsChanged" />
         </div>
 
         <!-- 캐시 DB. 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다 -->
@@ -194,7 +194,7 @@ import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { SHOWN_LINES, type LogGap, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { LogRow } from "../utils/log-rows.ts";
-import { COUNTS_ONLY, STATUS_QUERY, statusParams, type AdminGuilds, type AdminStatus, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
+import { COUNTS_ONLY, GUILD_QUERY, STATUS_QUERY, guildParams, statusParams, type AdminGuilds, type AdminStatus, type GuildQuery, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
 import { replyOrder } from "../utils/reply-order.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
@@ -429,17 +429,24 @@ watch(statusQuery, () => {
 });
 
 // ── 서버 관리 ─────────────────────────────────────────
-type AdminGuild = AdminGuilds["guilds"][number];
-const guilds = ref<AdminGuild[]>([]);
-
-async function fetchGuilds() {
+// 서버 목록은 질의(구간 · 찾기 · 재생 중만 · 정렬)로 거른 구간만 받는다. 받기 규칙은 봇 상태와 같다
+const guilds = ref<AdminGuilds>({ total: 0, playing: 0, matched: 0, from: 0, guilds: [] });
+const guildQuery = shallowRef<GuildQuery>(GUILD_QUERY);
+const guildOrder = replyOrder();
+async function fetchGuilds(poll = false) {
+  if (poll && guildOrder.busy()) return;
+  const asked = guildQuery.value;
+  const n = guildOrder.send();
   try {
-    const res = await axios.get<AdminGuilds>("/api/admin/guilds");
-    guilds.value = res.data.guilds;
+    const res = await axios.get<AdminGuilds>("/api/admin/guilds", { params: guildParams(asked) });
+    if (guildOrder.settle(n, asked === guildQuery.value)) guilds.value = res.data;
   } catch (e) {
-    notifyProblem(e, T.failed.guilds);
+    if (guildOrder.settle(n, asked === guildQuery.value)) notifyProblem(e, T.failed.guilds);
   }
 }
+watch(guildQuery, () => {
+  if (tab.value === "guilds" && live()) void fetchGuilds();
+});
 
 // 서버에서 나갔으면 목록과 봇 상태(서버 수 · 플레이어)를 다시 읽는다
 function onGuildsChanged() {
@@ -527,7 +534,7 @@ let visHandler: (() => void) | null = null;
 // now: 탭 바꿈 · 다시 보임(받는 중이어도 바로 보낸다)
 function poll(now = false) {
   if (tab.value === "status" || tab.value === "info") void fetchStatus(!now);
-  else if (tab.value === "guilds") void fetchGuilds();
+  else if (tab.value === "guilds") void fetchGuilds(!now);
   else if (tab.value === "db") void cacheDbEl.value?.checkChanged();
 }
 function startPoll() {

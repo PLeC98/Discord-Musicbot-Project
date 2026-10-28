@@ -160,8 +160,15 @@ const announceBody = (message: string) => message.trim();
 /** 공지의 답. 일부 서버에만 보냈으면 partial */
 type BroadcastReply = { success: true; sent: number; failed: number; total: number; partial: boolean };
 
-/** 봇이 든 서버 전부 */
-type AdminGuilds = { guilds: Array<{ id: string; name: string; icon: string | null; memberCount: number; hasPlayer: boolean }> };
+type AdminGuild = { id: string; name: string; icon: string | null; memberCount: number; hasPlayer: boolean };
+/** 봇이 든 서버. guilds 는 질의(GuildQuery)로 거르고 정렬한 구간만. total: 전부의 수, playing: 재생 중인 서버 수(거르기와 상관없다), matched: 거른 수, from: 받은 구간의 시작 */
+type AdminGuilds = { total: number; playing: number; matched: number; from: number; guilds: AdminGuild[] };
+const GUILD_SORTS = ["name", "name-desc", "members-desc", "members-asc"] as const;
+type GuildSort = (typeof GUILD_SORTS)[number];
+/** 서버 관리 탭 목록의 질의. guilds: 구간, q: 서버 이름 찾기(Q_MAX 자까지), playing: 재생 중만, sort: 이름 · 이름 역순 · 멤버 수 두 방향(같으면 서버 ID) */
+type GuildQuery = { guilds: Span; q: string; playing: boolean; sort: GuildSort };
+const GUILD_QUERY: GuildQuery = { guilds: { from: 0, count: 30 }, q: "", playing: false, sort: "name" };
+const guildParams = (query: GuildQuery) => ({ guilds: `${query.guilds.from},${query.guilds.count}`, q: query.q, playing: query.playing ? "1" : "0", sort: query.sort });
 type LeaveReply = { success: true; name: string };
 /** 슬래시 명령 다시 등록. scope 는 guild(그 서버에만) · global */
 type RedeployReply = { success: true; count: number; scope: string; guildId: string | null; names: string[] };
@@ -214,5 +221,48 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 /** 유튜브 쿠키. 값은 오지 않는다. hasFile: 넣어 둔 쿠키가 있고 풀린다 */
 type CookieState = { source: CookieSource; hasFile: boolean };
 
-export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, PLAYER_STATES, LIST_WINDOW_MAX, PROCESS_SORTS, STATUS_QUERY, COUNTS_ONLY, Q_MAX, STRAY_SHOWN, statusParams };
-export type { AdminStatus, PlayerRow, PlayerState, Span, ProcessSort, StatusQuery, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, GeoipStatus, GeoipCheck, AgeContent, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, PLAYER_STATES, LIST_WINDOW_MAX, PROCESS_SORTS, STATUS_QUERY, COUNTS_ONLY, Q_MAX, STRAY_SHOWN, statusParams, GUILD_SORTS, GUILD_QUERY, guildParams };
+export type {
+  AdminStatus,
+  PlayerRow,
+  PlayerState,
+  Span,
+  ProcessSort,
+  StatusQuery,
+  ProcessRow,
+  LinkState,
+  LinkRow,
+  StorageView,
+  StatusHistory,
+  AnnounceKind,
+  BroadcastReply,
+  AdminGuild,
+  AdminGuilds,
+  GuildSort,
+  GuildQuery,
+  LeaveReply,
+  RedeployReply,
+  RestartReply,
+  PanelPrefs,
+  GeoipStatus,
+  GeoipCheck,
+  AgeContent,
+  ConfigFile,
+  ConfigSaved,
+  SourceTypes,
+  Suggestions,
+  AiState,
+  AiFields,
+  TokensReply,
+  CandidatesReply,
+  LinesReply,
+  KeysReply,
+  PromptReply,
+  AiSaved,
+  CookieState,
+  KeyCheck,
+  SecretView,
+  ServiceKeysView,
+  AiKeyState,
+  TunablesView,
+};

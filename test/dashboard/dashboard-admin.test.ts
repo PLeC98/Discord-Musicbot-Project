@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { Player } from "../../src/player/player.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
-import type { AdminStatus } from "../../src/dashboard/contract/admin.ts";
+import type { AdminGuilds, AdminStatus } from "../../src/dashboard/contract/admin.ts";
 import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, detailsOf, type ProblemReply } from "../helpers/dashboard.ts";
@@ -245,16 +245,18 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.ok(["trace", "debug", "info", "warn", "error", "fatal"].includes(r.json.logLevel), `logLevel=${r.json.logLevel}`);
 });
 
-test("GET guilds: 참가 서버 목록 + 재생 여부", async () => {
-  const r = await req<{ guilds: { id: string; name: string; memberCount: number; hasPlayer: boolean }[] }>("GET", "/api/admin/guilds");
+test("GET guilds: 참가 서버 목록 + 재생 여부, 질의로 거른 구간만", async () => {
+  const r = await req<AdminGuilds>("GET", "/api/admin/guilds");
   assert.equal(r.status, 200);
-  assert.equal(r.json.guilds.length, 3);
+  assert.deepEqual([r.json.total, r.json.playing, r.json.matched, r.json.from, r.json.guilds.length], [3, 1, 3, 0, 3]);
   const alpha = r.json.guilds.find((g) => g.id === "100");
   assert.ok(alpha);
   assert.equal(alpha.name, "AlphaGuild");
   assert.equal(alpha.memberCount, 42);
   assert.equal(alpha.hasPlayer, true);
   assert.equal(r.json.guilds.find((g) => g.id === "200")?.hasPlayer, false);
+  const playing = await req<AdminGuilds>("GET", "/api/admin/guilds?playing=1&guilds=5,10");
+  assert.deepEqual([playing.json.total, playing.json.matched, playing.json.from, playing.json.guilds.map((g) => g.id)], [3, 1, 0, ["100"]], "재생 중만, 시작이 넘치면 당긴다");
 });
 
 // ── 서버 나가기 ──────────────────────────────────────────────

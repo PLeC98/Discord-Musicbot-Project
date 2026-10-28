@@ -26,6 +26,14 @@ export function covers(have: Span, { first, last }: Rows) {
   return have.from <= first && last <= have.from + have.count;
 }
 
+/** 그릴 구간의 자리마다 받은 행(받지 못한 자리는 row 가 null 이라 화면이 빈 행 모양으로 그린다). from · rows: 받은 구간 */
+export function slotsOf<T>(range: { from: number; to: number }, from: number, rows: readonly T[], keyOf: (row: T) => string | number) {
+  return Array.from({ length: range.to - range.from }, (_, k) => {
+    const row = rows[range.from + k - from];
+    return row ? { key: keyOf(row), row } : { key: `slot-${range.from + k}`, row: null };
+  });
+}
+
 /**
  * el: 스크롤 영역. rowHeight: 행 높이(px). total: 거른 수. have: 받은 구간(시작 · 받은 행 수). request: 그 구간을 받게 한다.
  * 영역이 숨어 높이가 0 이면(v-show 로 숨은 탭) 셈하지도 받게 하지도 않는다.

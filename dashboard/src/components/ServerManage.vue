@@ -59,43 +59,47 @@
       <div class="flex flex-col gap-3">
         <p class="text-sm text-on-surface-variant">{{ T.guilds.desc }}</p>
         <div class="flex flex-wrap items-center gap-2">
-          <SearchInput v-model="term" :placeholder="T.guilds.search(guilds.length)" :input-class="[SEARCH_FIELD, 'w-full']" class="flex-1 min-w-40" />
+          <SearchInput v-model="term" :placeholder="T.guilds.search(list.total)" :input-class="[SEARCH_FIELD, 'w-full']" class="flex-1 min-w-40" />
           <!-- 정렬 · 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
           <SelectPanel v-model:open="viewOpen" :summary="viewSummary" :muted="false" :count="0" :searchable="false" :empty="false" :rows="7" class="w-52 shrink-0">
             <p :class="SELECT_GROUP">{{ T.guilds.sort }}</p>
-            <button v-for="o in SORTS" :key="o.value" type="button" role="menuitemradio" :aria-checked="sort === o.value" :class="[SELECT_ROW, sort === o.value && SELECT_ROW_ON]" @click="sort = o.value">{{ o.label }}</button>
+            <button v-for="o in SORTS" :key="o.value" type="button" role="menuitemradio" :aria-checked="query.sort === o.value" :class="[SELECT_ROW, query.sort === o.value && SELECT_ROW_ON]" @click="setList({ sort: o.value })">{{ o.label }}</button>
             <p :class="SELECT_GROUP">{{ T.guilds.filter }}</p>
-            <button type="button" role="menuitemcheckbox" :aria-checked="playingOnly" :class="[SELECT_ROW, 'justify-between gap-2', playingOnly && SELECT_ROW_ON]" @click="playingOnly = !playingOnly">
+            <button type="button" role="menuitemcheckbox" :aria-checked="query.playing" :class="[SELECT_ROW, 'justify-between gap-2', query.playing && SELECT_ROW_ON]" @click="setList({ playing: !query.playing })">
               <span class="truncate"
-                >{{ T.guilds.playingOnly }} <span class="nums">({{ playingCount }})</span></span
+                >{{ T.guilds.playingOnly }} <span class="nums">({{ list.playing }})</span></span
               >
-              <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="playingOnly ? 'accent-on-tertiary-container' : 'accent-primary'" :checked="playingOnly" tabindex="-1" />
+              <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="query.playing ? 'accent-on-tertiary-container' : 'accent-primary'" :checked="query.playing" tabindex="-1" />
             </button>
           </SelectPanel>
         </div>
-        <!-- 목록 영역은 서버 7.5줄(한 단일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다) -->
+        <!-- 목록 영역은 서버 7.5줄(한 단일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다).
+             보이는 행 둘레만 그리고 위아래는 빈 칸으로(composables/row-window, 봇 상태의 목록과 같다). 아직 받지 못한 자리는 빈 행 모양 -->
         <div ref="listEl" class="h-91 @4xl/content:h-105 overflow-y-auto -ml-2" :class="overflowing ? '-mr-4' : '-mr-2'" :style="listFade">
-          <ul v-if="shown.length" class="flex flex-col">
-            <li v-for="g in shown" :key="g.id" class="flex items-center gap-3 h-14 px-2 rounded-(--r-row)">
-              <GuildAvatar :guild="{ name: g.name, icon: g.icon, hasPlayer: g.hasPlayer, state: g.hasPlayer ? 'playing' : 'idle' }" :status="g.hasPlayer" size-class="size-9" text-class="text-sm" class="shrink-0" />
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold truncate">{{ g.name }}</div>
-                <div class="text-xs text-on-surface-variant nums">
-                  {{ T.guilds.members(g.memberCount)
-                  }}<template v-if="g.hasPlayer">
-                    · <span class="text-(--ok-ink)">{{ T.guilds.playing }}</span></template
-                  >
+          <ul v-if="list.matched" class="flex flex-col" :style="{ paddingTop: `${listTop}px`, paddingBottom: `${listBottom}px` }">
+            <li v-for="{ key, row: g } in slots" :key="key" class="flex items-center gap-3 h-14 px-2 rounded-(--r-row)">
+              <template v-if="!g"><span class="size-9 shrink-0 rounded-full bg-on-surface/8" aria-hidden="true" /><span class="h-3 w-1/2 rounded-sm bg-on-surface/8" aria-hidden="true" /></template>
+              <template v-else>
+                <GuildAvatar :guild="{ name: g.name, icon: g.icon, hasPlayer: g.hasPlayer, state: g.hasPlayer ? 'playing' : 'idle' }" :status="g.hasPlayer" size-class="size-9" text-class="text-sm" class="shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-semibold truncate">{{ g.name }}</div>
+                  <div class="text-xs text-on-surface-variant nums">
+                    {{ T.guilds.members(g.memberCount)
+                    }}<template v-if="g.hasPlayer">
+                      · <span class="text-(--ok-ink)">{{ T.guilds.playing }}</span></template
+                    >
+                  </div>
                 </div>
-              </div>
-              <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">{{ T.guilds.leave }}</BaseButton>
+                <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">{{ T.guilds.leave }}</BaseButton>
+              </template>
             </li>
           </ul>
-          <p v-else class="px-2 py-3 text-sm text-on-surface-variant">{{ guilds.length ? T.guilds.noMatch : T.guilds.none }}</p>
+          <p v-else class="px-2 py-3 text-sm text-on-surface-variant">{{ list.total ? T.guilds.noMatch : T.guilds.none }}</p>
         </div>
       </div>
     </BaseCard>
 
-    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(guilds.length)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
+    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(list.total)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
     <ConfirmDialog :model-value="leaveTarget !== null" icon="logout" :title="T.guilds.leaveTitle(leaveTarget?.name ?? '')" :body="T.guilds.leaveBody(Boolean(leaveTarget?.hasPlayer))" :confirm-label="T.guilds.leave" :busy="leaving" @update:model-value="(v) => !v && (leaveTarget = null)" @confirm="leave" />
   </div>
 </template>
@@ -104,7 +108,7 @@
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { computed, nextTick, ref } from "vue";
 import axios from "axios";
-import { useIntervalFn, useNow } from "@vueuse/core";
+import { useIntervalFn, useNow, watchDebounced } from "@vueuse/core";
 import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
@@ -114,10 +118,11 @@ import GuildAvatar from "./GuildAvatar.vue";
 import Twemoji from "./TwemojiImage.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
+import { slotsOf, useRowWindow } from "../composables/row-window.ts";
+import { rem } from "../utils/rem.ts";
 import { caretOf, insertAt, type Caret } from "../utils/caret.ts";
 import { discordMarkdown } from "../utils/discord-markdown.ts";
 import { composing, valueOf } from "../utils/dom.ts";
-import { koMatch } from "../../../src/rules/ko-search.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { codeBlock, linePrefix, link, timestampTag, wrap, type Edit } from "../utils/markdown-edit.ts";
 import { SELECT_GROUP, SELECT_ROW, SELECT_ROW_ON } from "../utils/select-row.ts";
@@ -126,17 +131,18 @@ import SearchInput from "./SearchInput.vue";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
 import { segment } from "../utils/segment.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, type AdminGuilds, type AnnounceKind, type BroadcastReply } from "../../../src/dashboard/contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, Q_MAX, announceBody, type AdminGuild, type AdminGuilds, type AnnounceKind, type BroadcastReply, type GuildQuery, type GuildSort, type Span } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
 import { iconTones } from "../../../src/rules/icon-tones.ts";
-import { compareText, formatNumber, formatTime } from "../utils/locale.ts";
+import { formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
 const F = text.fields.format;
 const T = text.manage;
 
-type AdminGuild = AdminGuilds["guilds"][number];
-const props = defineProps<{ guilds: AdminGuild[] }>();
+// list: 질의로 거른 서버의 구간과 수, query: 그 질의(바꾸면 운영자 패널이 바로 받는다)
+const props = defineProps<{ list: AdminGuilds }>();
+const query = defineModel<GuildQuery>("query", { required: true });
 /** changed: 서버에서 나갔다(목록 · 봇 상태를 다시 읽는다) */
 const emit = defineEmits<{ changed: [] }>();
 
@@ -232,31 +238,48 @@ async function send() {
 }
 
 // ── 참가 서버 ──
-const term = ref("");
-const playingOnly = ref(false);
-const playingCount = computed(() => props.guilds.filter((g) => g.hasPlayer).length);
-// 정렬: 이름(기본) · 이름 역순 · 멤버 수. 봇이 넘겨주는 순서는 디스코드에서 받은 순서라 기준이 없어 쓰지 않는다
-type Sort = "name" | "name-desc" | "members-desc" | "members-asc";
-const SORTS: Array<{ value: Sort; label: string }> = [
+// 거르기 · 정렬은 서버가 한다. 바꾸면 처음부터, 맨 위로
+function setList(patch: Partial<Omit<GuildQuery, "guilds">>) {
+  query.value = { ...query.value, ...patch, guilds: { ...query.value.guilds, from: 0 } };
+  listToTop();
+}
+// 찾기는 입력이 200ms 쉬면 보낸다
+const term = ref(query.value.q);
+watchDebounced(term, (q) => setList({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
+// 정렬: 이름(기본) · 이름 역순 · 멤버 수(같으면 서버 ID)
+const SORTS: Array<{ value: GuildSort; label: string }> = [
   { value: "name", label: T.guilds.sorts.name },
   { value: "name-desc", label: T.guilds.sorts.nameDesc },
   { value: "members-desc", label: T.guilds.sorts.membersDesc },
   { value: "members-asc", label: T.guilds.sorts.membersAsc },
 ];
-const sort = ref<Sort>("name");
 const viewOpen = ref(false);
-const viewSummary = computed(() => [SORTS.find((o) => o.value === sort.value)?.label, playingOnly.value && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
-const shown = computed(() => {
-  const list = props.guilds.filter((g) => (!playingOnly.value || g.hasPlayer) && koMatch(g.name, term.value));
-  if (sort.value === "name-desc") return list.sort((a, b) => compareText(b.name, a.name));
-  if (sort.value === "members-desc") return list.sort((a, b) => b.memberCount - a.memberCount);
-  if (sort.value === "members-asc") return list.sort((a, b) => a.memberCount - b.memberCount);
-  return list.sort((a, b) => compareText(a.name, b.name));
-});
+const viewSummary = computed(() => [SORTS.find((o) => o.value === query.value.sort)?.label, query.value.playing && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
 const listEl = ref<HTMLElement | null>(null);
-const overflowing = useOverflowing(listEl);
+// 행 높이 56(h-14)
+const ROW = 3.5 * rem(1);
+const {
+  range,
+  top: listTop,
+  bottom: listBottom,
+  toTop: listToTop,
+} = useRowWindow({
+  el: listEl,
+  rowHeight: () => ROW,
+  total: () => props.list.matched,
+  have: () => ({ from: props.list.from, count: props.list.guilds.length }),
+  request: (span: Span) => (query.value = { ...query.value, guilds: span }),
+});
+const slots = computed(() => slotsOf(range.value, props.list.from, props.list.guilds, (row) => row.id));
+// 빈 칸 높이만 바뀌어도 다시 잰다
+const overflowing = useOverflowing(listEl, () => [listTop.value, listBottom.value]);
 // 더 있는 쪽 끝 반 줄(28)을 흐리게(봇 상태의 목록과 같다)
-const listFade = useScrollFade(listEl, () => true, 28);
+const listFade = useScrollFade(
+  listEl,
+  () => true,
+  28,
+  () => [listTop.value, listBottom.value],
+);
 
 const leaveTarget = ref<AdminGuild | null>(null);
 const leaving = ref(false);

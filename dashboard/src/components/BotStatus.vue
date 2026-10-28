@@ -323,7 +323,7 @@ import SearchInput from "./SearchInput.vue";
 import { rem } from "../utils/rem.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
-import { useRowWindow } from "../composables/row-window.ts";
+import { slotsOf, useRowWindow } from "../composables/row-window.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
@@ -753,13 +753,6 @@ const youtubeClients = computed(() =>
 // 목록 둘은 서버가 거르고 · 정렬하고 · 보이는 구간만 준다. 행 높이: 플레이어 48, 자식 프로세스는 좁은 카드(448 미만) 48 · 넓으면 32
 const PLAYER_STATE_WORD: Record<PlayerState, string> = T.playerStates;
 const REM = rem(1);
-// 받지 못한 자리는 빈 행 모양으로(slot 의 row 가 null)
-function slotsOf<T>(range: { from: number; to: number }, from: number, rows: T[], keyOf: (row: T) => string | number) {
-  return Array.from({ length: range.to - range.from }, (_, k) => {
-    const row = rows[range.from + k - from];
-    return row ? { key: keyOf(row), row } : { key: `slot-${range.from + k}`, row: null };
-  });
-}
 const playerListEl = ref<HTMLElement | null>(null);
 const {
   range: playerRange,

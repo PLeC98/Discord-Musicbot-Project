@@ -39,7 +39,7 @@ import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { memberGuildIds } from "../user-guilds.ts";
-import { statusQueryOf } from "../list-window.ts";
+import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 
 // 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 묻는다: 오래됐으면 reauth-required 로 로그인 창을 먼저 띄우고, 확인 창은 로그인을 마친 뒤에 연다
 adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
@@ -116,7 +116,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   return res.json({ success: true, sent, failed, total, partial: failed > 0 } satisfies BroadcastReply);
 });
 
-// 봇이 든 서버 전부
+// 봇이 든 서버. 질의로 거르고 정렬한 구간만(list-window)
 adminRouter.get("/guilds", requireOwner, (req, res) => {
   const { client, players } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
@@ -129,7 +129,7 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
     hasPlayer: players.has(g.id),
   }));
 
-  res.json({ guilds } satisfies AdminGuilds);
+  res.json(guildList(guilds, guildQueryOf(req.query)) satisfies AdminGuilds);
 });
 
 // 서버에서 나가기(운영자가 대시보드에서)
