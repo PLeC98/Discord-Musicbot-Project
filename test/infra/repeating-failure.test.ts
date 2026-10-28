@@ -18,7 +18,7 @@ test("같은 까닭의 잇단 실패는 한 번만 남기고, 풀리면 횟수�
   save.ok();
   assert.deepEqual(lines, [
     ["error", "재생 위치 저장 실패: database is locked"],
-    ["info", "재생 위치 저장: 다시 됩니다(잇단 실패 165회 뒤)"],
+    ["info", "재생 위치 저장: 다시 됨 (실패 165회)"],
   ]);
 });
 

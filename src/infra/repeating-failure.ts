@@ -20,7 +20,7 @@ function repeatingFailure(log: FailureLog, what: string) {
     /** 성공. 실패 중이었으면 풀렸다고 한 줄 */
     ok() {
       if (failing === null) return;
-      log.info(`${what}: 다시 됩니다(잇단 실패 ${count}회 뒤)`);
+      log.info(`${what}: 다시 됨 (실패 ${count}회)`);
       failing = null;
       count = 0;
     },
