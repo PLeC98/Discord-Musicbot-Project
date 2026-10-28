@@ -83,7 +83,7 @@ async function highRes({ item, folder, signal }: StageJob): Promise<StageResult>
   fs.renameSync(file, store.sourceOf(item.id));
   const inspected = await inspectSource(store.sourceOf(item.id), signal);
   const short = shortfall(item, inspected);
-  if (short) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}" 의 고해상도 다운로드가 기대보다 작습니다: ${short}`);
+  if (short) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"의 고해상도 다운로드 파일이 예상보다 작습니다: ${short}`);
   return { width: inspected.width, height: inspected.height, fps: inspected.fps };
 }
 

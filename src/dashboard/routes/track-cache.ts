@@ -38,7 +38,7 @@ trackCacheRouter.post("/", async (req, res) => {
   try {
     written = await trackCache.write(body.value.ops, ranBy(req));
   } catch (error) {
-    log.error({ sub: "admin" }, `캐시 DB 를 저장하지 못했습니다: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, `캐시 DB 저장 실패: ${messageOf(error)}`);
     return sendProblem(res, "track-cache-write-failed", {}, { detail: messageOf(error) });
   }
   if (!written.ok) return refuse(res, written);

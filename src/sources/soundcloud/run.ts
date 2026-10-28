@@ -103,7 +103,7 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
             .filter((line) => /^ERROR/.test(line)),
         ),
       ];
-      log.debug(`사운드클라우드 세트에서 불러오지 못한 곡의 까닭: ${reasons.join(" / ")}`);
+      log.debug(`사운드클라우드 세트에서 제외한 곡 사유: ${reasons.join(" / ")}`);
       return partial;
     }
     if (!name) throw error;

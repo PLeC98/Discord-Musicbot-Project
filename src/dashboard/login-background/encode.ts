@@ -225,7 +225,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
     const uhd = plan.short >= UHD;
     const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
     if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
-    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}: 남은 메모리(${formatBytes(os.freemem())})에 맞춰 AV1 병렬 단계를 ${lp} 로 낮춥니다`);
+    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" ${what}: 여유 메모리(${formatBytes(os.freemem())})에 맞춰 AV1 병렬 단계를 ${lp}로 낮춥니다`);
     const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress(Math.min(1, (finished + value) / total)));
     if (!failure) {
       finished++;
@@ -237,7 +237,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
     await recheck();
     const next = encoderFor(plan.codec);
     if (next !== null && failedNow.has(next)) throw codedError("background-failed", `${what}을 ${next} 로 하지 못했습니다(인코더 테스트는 지납니다): ${failure}`);
-    log.warn({ sub: "admin" }, `로그인 배경 "${item.name}" 의 ${what}이 ${plan.encoder} 에서 실패해 인코더를 다시 테스트했습니다(${failure}). ${next ? `${next} 로 다시 인코딩합니다` : `${plan.codec} 는 쓸 수 있는 인코더가 없어 빼고 이어 갑니다`}`);
+    log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"의 ${what}이 ${plan.encoder}에서 실패해 인코더를 다시 테스트했습니다(${failure}). ${next ? `${next}${josa(next, "으로")} 다시 인코딩합니다` : `${plan.codec}${josa(plan.codec, "은")} 쓸 수 있는 인코더가 없어 빼고 이어 갑니다`}`);
   }
   return { media: { ...item.media, rungs: { ...item.media.rungs, ...writeMasters(item, shapesFor(LOGIN_BG_CODECS, size), fps) } } };
 }

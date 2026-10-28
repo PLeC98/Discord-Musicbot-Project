@@ -53,7 +53,7 @@ function onClientError(error: Error & { code?: string }, duplex: Duplex) {
 function listen(app: Pick<Express, "listen">, { host, port, url }: { host: string; port: number; url: string }, opened?: () => void): Server {
   const { line, warnings } = describeBinding(host, port, url);
   const server = app.listen(port, host, (error?: Error) => {
-    if (error) return log.error(`대시보드를 열지 못했습니다. 봇은 대시보드 없이 돕니다: ${messageOf(error)}`);
+    if (error) return log.error(`대시보드 서버 실행 실패(대시보드 없이 계속 실행): ${messageOf(error)}`);
     log.info(line);
     for (const w of warnings) log.warn(w);
     opened?.();

@@ -39,7 +39,7 @@ async function checkLastfmKey(): Promise<KeyCheck> {
   const res = await probe("lastfm", `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getInfo", tag: "rock", api_key: key, format: "json" })}`);
   if (!res) return { ok: false, reason: "unreachable" };
   const body = (await res.json().catch((error: unknown) => {
-    log.debug(`Last.fm 키 확인 응답을 읽지 못함(HTTP ${res.status}): ${messageOf(error)}`);
+    log.debug(`Last.fm 키 확인 응답 파싱 실패(HTTP ${res.status}): ${messageOf(error)}`);
     return null;
   })) as { error?: number } | null;
   if (res.ok && body && !body.error) return { ok: true };

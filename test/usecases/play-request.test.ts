@@ -507,28 +507,28 @@ test("로그: 못 넣은 까닭은 코드로. 곡 찾기가 던졌으면 오류 
     mockResolve = typeof answer === "function" ? answer : () => answer;
     return (await requestLines({ query: "q" })).lines;
   };
-  assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: no-song-result']);
-  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 못 넣음: lookup-failed(network-error)']);
-  assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: unsupported-link']);
+  assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: no-song-result']);
+  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: lookup-failed(network-error)']);
+  assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: unsupported-link']);
   const upcoming = { success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] } as const;
-  assert.deepEqual(await refused(() => ({ ...upcoming, tracks: [...upcoming.tracks] })), ['info 곡 요청: /play | carl | "q" → 못 넣음: live-upcoming']);
+  assert.deepEqual(await refused(() => ({ ...upcoming, tracks: [...upcoming.tracks] })), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: live-upcoming']);
 });
 
 test("로그: 담지 못했으면 그 까닭을 한 줄 더(info). 담았으면 debug 로, 상한으로 뺀 곡 수와 대기열 곡 수", async () => {
   mockResolve = () => ok("곡A");
   const failed = async (outcome: object) => (await requestLines({ query: "곡A" }, outcome)).lines.slice(1);
-  assert.deepEqual(await failed({ success: false, code: "voice-failed" }), ["info 곡 담기 실패: voice-failed"]);
-  assert.deepEqual(await failed({ success: false, code: "add-failed", kind: "network-error" }), ["info 곡 담기 실패: add-failed(network-error)"]);
-  assert.deepEqual(await failed({ success: false, code: "queue-full", dropped: 1 }), ["info 곡 담기 실패: queue-full"]);
+  assert.deepEqual(await failed({ success: false, code: "voice-failed" }), ["info 곡 추가 실패: voice-failed"]);
+  assert.deepEqual(await failed({ success: false, code: "add-failed", kind: "network-error" }), ["info 곡 추가 실패: add-failed(network-error)"]);
+  assert.deepEqual(await failed({ success: false, code: "queue-full", dropped: 1 }), ["info 곡 추가 실패: queue-full"]);
 
   const level = logger.level;
   logger.level = "debug";
   try {
     const dropped = await requestLines({ query: "곡A" }, { success: true, dropped: 2 });
     assert.equal(dropped.lines.length, 1, "담긴 것은 info 로 한 줄 더 남기지 않는다");
-    assert.ok(dropped.debug.includes("곡 담기 끝 | 상한으로 2곡 뺌 | 대기열 0곡"), dropped.debug.join(" / "));
+    assert.ok(dropped.debug.includes("곡 추가 완료 | 상한으로 2곡 뺌 | 대기열 0곡"), dropped.debug.join(" / "));
     const whole = await requestLines({ query: "곡A" });
-    assert.ok(whole.debug.includes("곡 담기 끝 | 대기열 0곡"), whole.debug.join(" / "));
+    assert.ok(whole.debug.includes("곡 추가 완료 | 대기열 0곡"), whole.debug.join(" / "));
   } finally {
     logger.level = level;
   }

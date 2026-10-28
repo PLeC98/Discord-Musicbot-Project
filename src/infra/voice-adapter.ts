@@ -47,7 +47,7 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
       pending = null;
       onSend?.(payload.d.channel_id, rewritten);
       // 붙잡는 동안 라이브러리에는 보냈다고 답했다. 못 보낸 것은 여기서만 안다
-      if (!adapter.sendPayload(payload)) log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 게이트웨이로 보내지 못했습니다(샤드가 준비되지 않았다)`);
+      if (!adapter.sendPayload(payload)) log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청 전송 실패(샤드 미준비)`);
     };
 
     return {

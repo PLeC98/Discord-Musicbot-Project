@@ -29,7 +29,7 @@ async function getPanel(guildId: string): Promise<PanelRecord | null> {
     return record;
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.error("현재 재생 패널 위치 읽기 실패(옛 패널을 못 치운다):", error);
+    log.error("현재 재생 패널 위치 읽기 실패(이전 패널 정리 생략):", error);
     return null;
   }
 }

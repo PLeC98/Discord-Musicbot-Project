@@ -25,7 +25,7 @@ function seal(sid: string, record: DeviceRecord): string | undefined {
   try {
     return secrets.sealBlob(PURPOSE, JSON.stringify(record), sid).toString("base64");
   } catch (error) {
-    if (codeOf(error) !== "SECRETS_KEY_MISSING") log.debug(`로그인 기기 기록 봉하기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "SECRETS_KEY_MISSING") log.debug(`로그인 기기 기록 암호화 실패: ${messageOf(error)}`);
     return undefined;
   }
 }

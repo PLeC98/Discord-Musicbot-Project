@@ -41,7 +41,7 @@ function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknow
 async function runCommand(bot: BotContext, interaction: ChatInputCommandInteraction) {
   const command = bot.commands.get(interaction.commandName);
   if (!command) {
-    log.warn(`실행 목록에 없는 명령: /${interaction.commandName}`);
+    log.warn(`처리할 핸들러가 없는 명령어: /${interaction.commandName}`);
     return noticeSelf(interaction, errors.notice("unknown-command")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {

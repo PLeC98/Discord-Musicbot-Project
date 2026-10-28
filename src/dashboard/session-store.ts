@@ -84,7 +84,7 @@ class SqliteSessionStore extends Store {
       return JSON.parse(data);
     } catch (error) {
       this._destroyStmt.run(sid);
-      log.warn(`읽을 수 없는 로그인 세션 하나를 삭제했습니다(그 사용자는 다시 로그인합니다): ${messageOf(error)}`);
+      log.warn(`손상된 로그인 세션 1개를 삭제했습니다(해당 사용자는 재로그인이 필요합니다): ${messageOf(error)}`);
       return null;
     }
   }

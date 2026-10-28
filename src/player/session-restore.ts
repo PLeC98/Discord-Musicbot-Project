@@ -37,7 +37,7 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
     }
   }
 
-  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패. 세션을 삭제하지 않고 다음 기동에서 다시 시도합니다: ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
+  log.warn(`서버 ID ${guildId} 조회 ${attempts}회 실패. 세션을 유지하고 다음 기동 시 재시도합니다: ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
   return { guild: null, gone: false };
 }
 
@@ -55,7 +55,7 @@ async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
   if (skip) {
-    log.warn(`짧게 끊긴 실행이 연달아여서 이번에는 저장된 세션 ${saved.length}개를 복원하지 않습니다(세션은 남겨 둡니다): 서버 ID ${touched.join(", ")}`);
+    log.warn(`짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${saved.length}개의 복원을 건너뜁니다(세션은 유지): 서버 ID ${touched.join(", ")}`);
     return touched;
   }
 
@@ -79,7 +79,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   if (!guild) {
     // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
     if (gone) {
-      log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
+      log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 삭제합니다`);
       sessions().removeSession(guildId);
     }
     return;
@@ -127,7 +127,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   const voice = await find(voiceChannelId);
   const text = await find(textChannelId);
   if (voice?.isVoiceBased() && text?.isTextBased()) return { voice, text };
-  log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
+  log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 삭제합니다`);
   return null;
 }
 

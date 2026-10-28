@@ -486,7 +486,7 @@ class NowPlayingPanel {
 
   // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없어 패널을 놓는다
   _dropPanel(player: Player) {
-    log.info(`패널을 올린 텍스트 채널이 사라져 패널을 놓습니다 (${player.guild.name ?? player.guild.id}). 재생은 이어집니다`);
+    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적을 해제합니다 (${player.guild.name ?? player.guild.id}). 재생은 계속됩니다`);
     this.stopProgressUpdate(player.guild.id);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -559,8 +559,8 @@ class NowPlayingPanel {
       else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
       // 이미 삭제된 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (errorKind(error) === "network-error") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
-      else if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
+      if (errorKind(error) === "network-error") log.warn(`재생 패널을 종료 상태로 갱신하지 못함: ${messageOf(error)}`);
+      else if (!isGone(error)) log.error("재생 패널을 종료 상태로 갱신 실패:", error);
     }
   }
 
@@ -583,7 +583,7 @@ class NowPlayingPanel {
     clearTimeout(this.repinTimers.get(guild.id));
     const timer = setTimeout(() => {
       this.repinTimers.delete(guild.id);
-      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(`끝난 패널을 맨 아래로 올리지 못함: ${messageOf(error)}`));
+      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(`종료된 재생 패널을 채널 하단으로 재전송하지 못함: ${messageOf(error)}`));
     }, PIN_SETTLE_MS + 1000);
     timer.unref?.();
     this.repinTimers.set(guild.id, timer);
@@ -641,7 +641,7 @@ class NowPlayingPanel {
         const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
         await this.location.edit(guild, payload);
       } catch (error) {
-        log.warn(`끝난 패널을 다시 그리지 못함 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+        log.warn(`종료된 재생 패널 갱신 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }
     }
   }
@@ -777,7 +777,7 @@ class NowPlayingPanel {
       await this._tickProgress(player);
     } catch (error) {
       // 고치기 실패는 _onEditFailed 가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
-      log.error(`진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (${player.guild.name ?? guildId}):`, error);
+      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신을 중단합니다 (${player.guild.name ?? guildId}):`, error);
       this.stopProgressUpdate(guildId);
       return;
     }

@@ -49,7 +49,7 @@ function apply(values: Record<string, string>) {
 
 // 기동 시 올린다. 틀린 필드는 기동을 멈추지 않고 그 필드만 기본값(DB 를 외부에서 고쳤을 때 등. 고칠 화면이 떠야 한다)
 function boot(values: Record<string, string>) {
-  for (const line of apply(values)) log.warn(`운영 조절값의 ${line} 그 값은 기본값으로 돕니다. 운영자 패널에서 고치세요`);
+  for (const line of apply(values)) log.warn(`운영 조절값 ${line} 해당 값은 기본값으로 적용됩니다. 운영자 패널에서 수정하세요`);
   booted = values;
 }
 

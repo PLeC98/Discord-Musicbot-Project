@@ -25,7 +25,7 @@ const dashboardActor = (req: Request) => controlText.viaDashboard(`<@${signedIn(
 function channelOf({ panels }: Pick<BotContext, "panels">, player: Player | null | undefined): Promise<Channel> {
   if (!player) return Promise.resolve(null);
   return panels.panelChannel(player).catch((error: unknown) => {
-    log.debug("대시보드 조작 안내: 패널 채널을 찾지 못함:", error);
+    log.debug("대시보드 조작 알림 전송 실패(패널 채널을 찾지 못함):", error);
     return null;
   });
 }
@@ -48,7 +48,7 @@ function announcer(bot: Pick<BotContext, "panels">, player: Player | null | unde
 function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId: string): Responder {
   return {
     async notifyQueued(view: ContainerBuilder) {
-      await sendTo(channelOf(bot, bot.players.get(guildId)), view, LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 넣기 안내 실패:", error));
+      await sendTo(channelOf(bot, bot.players.get(guildId)), view, LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 추가 알림 전송 실패:", error));
     },
     async dismissPlaceholder() {
       /* 자리표시자를 표시하지 않았다 */

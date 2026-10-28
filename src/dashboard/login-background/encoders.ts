@@ -43,14 +43,14 @@ async function check() {
   for (const codec of LOGIN_BG_CODECS) picked.push(await pick(codec));
   encoders = picked;
   animatedWebp = await readsAnimatedWebp();
-  log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(" · ")}${animatedWebp ? "" : " · 움직이는 WebP 를 읽지 못합니다(ffmpeg 9.0 이상 필요)"}`);
+  log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(" · ")}${animatedWebp ? "" : " · 움직이는 WebP를 읽지 못합니다(ffmpeg 9.0 이상 필요)"}`);
   for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${one.why}`);
 }
 
 /** 테스트한다(이미 하는 중이면 그것을 기다린다) */
 function run(): Promise<void> {
   running ??= check()
-    .catch((error: unknown) => log.error(`로그인 배경 인코더 테스트가 실패했습니다: ${messageOf(error)}`))
+    .catch((error: unknown) => log.error(`로그인 배경 인코더 테스트 실패: ${messageOf(error)}`))
     .finally(() => (running = null));
   return running;
 }

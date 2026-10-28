@@ -354,7 +354,7 @@ class ChunkedReader {
     }
     const delays = this.o.retryDelaysMs;
     if ((err as { permanent?: boolean }).permanent || this.failures >= delays.length) throw err;
-    log.trace(`청크 요청 실패(다시 받기 ${this.failures + 1}/${delays.length}, ${this.pos}B): ${describeStreamError(err)}`);
+    log.trace(`청크 요청 실패(재시도 ${this.failures + 1}/${delays.length}, ${this.pos}B): ${describeStreamError(err)}`);
     await sleep(delays[this.failures++]);
     return !this.stream.destroyed;
   }

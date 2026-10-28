@@ -221,7 +221,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
 
   const server = listen(app, config.dashboard, () => {
     // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
-    log.info(`디스코드 개발자 포털 OAuth2 → Redirects 에 등록할 주소: ${callbackUrl()}`);
+    log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);
     // 업데이트 뒤 화면을 다시 빌드하지 않으면 옛 화면이 새 서버와 어긋난다(pnpm install 은 의존성이 그대로면 빌드를 건너뛴다)
     const stale = freshnessWarning(clientFreshness(PROJECT.dashboardDist, PROJECT.root));
     if (stale) log.warn(stale);

@@ -107,7 +107,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
     );
     warned = false;
   } catch (error) {
-    if (!warned) log.warn(`AI 리퀘스트 로그를 남기지 못했습니다: ${messageOf(error)}. 요청은 그대로 갑니다`);
+    if (!warned) log.warn(`AI 리퀘스트 로그 기록 실패(요청은 계속 진행): ${messageOf(error)}`);
     warned = true;
   }
 }

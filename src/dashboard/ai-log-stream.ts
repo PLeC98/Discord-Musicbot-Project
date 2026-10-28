@@ -36,7 +36,7 @@ function broadcast(entry: AiLogEntry) {
     try {
       res.write(frame);
     } catch (error) {
-      log.trace(`AI 리퀘스트 로그 연결 쓰기 실패: ${messageOf(error)}`);
+      log.trace(`AI 리퀘스트 로그 SSE 쓰기 실패: ${messageOf(error)}`);
       clients.delete(res);
     }
   }
@@ -58,7 +58,7 @@ function syncHeartbeat() {
       try {
         res.write(": ping\n\n");
       } catch (error) {
-        log.trace(`AI 리퀘스트 로그 연결 하트비트 쓰기 실패: ${messageOf(error)}`);
+        log.trace(`AI 리퀘스트 로그 SSE 하트비트 쓰기 실패: ${messageOf(error)}`);
         clients.delete(res);
       }
     }
@@ -80,7 +80,7 @@ function addClient(res: Response, userKey: string, after: number): boolean {
   };
   res.on("close", drop);
   res.on("error", (error: unknown) => {
-    log.debug(`AI 리퀘스트 로그 연결 오류: ${messageOf(error)}`);
+    log.debug(`AI 리퀘스트 로그 SSE 연결 오류: ${messageOf(error)}`);
     drop();
   });
   return true;

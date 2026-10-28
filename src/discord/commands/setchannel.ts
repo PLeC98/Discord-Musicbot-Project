@@ -12,7 +12,7 @@ import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 const log = logger.child({ category: "commands" });
 
-const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
+const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "moderator" },

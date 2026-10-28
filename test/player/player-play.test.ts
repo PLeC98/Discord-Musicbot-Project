@@ -313,7 +313,7 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
   assert.equal(calls.chunked[0].startByte, undefined);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^warn 색인을 받지 못해 처음부터 받습니다: .* \| 헤더 요청이 3초를 넘김$/.test(l)),
+    lines.some((l) => /^warn 인덱스를 불러오지 못해 처음부터 스트리밍합니다: .* \| 헤더 요청이 3초를 넘김$/.test(l)),
     lines.join(" / "),
   );
 });
@@ -381,7 +381,7 @@ test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다.
     ["n=old", "n=new"],
   );
   assert.equal(p.playback?.resume?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
-  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("다시 쓴 스트림 주소가 열리지 않아 주소를 새로 받습니다")));
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다")));
 });
 
 test("다시 쓰지 않은 주소가 열리지 않으면 새로 묻지 않고 지금처럼 캐시로 넘긴다", async () => {
@@ -558,7 +558,7 @@ test("스트림이 실패해도 그사이 캐시 다운로드가 끝났으면 �
   assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 실행하지 않고 파일만");
   assert.equal(calls.spawns[0].label, "playback");
   assert.ok(
-    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 다운로드한 캐시로 틉니다")),
+    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 캐시 파일로 재생합니다")),
     "넘어간 것을 남긴다(조용히 넘어가면 스트림 쪽 결함이 가려진다)",
   );
 });

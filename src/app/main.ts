@@ -67,6 +67,7 @@ import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
+import { josa } from "../rules/josa.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -120,14 +121,14 @@ function main() {
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
     // 대시보드에서 봇 전체 초기화를 예약했으면 열기 전에 지운다(스냅샷 · .env · 로그 · 이번 실행의 기록은 남는다)
-    if (fullReset.applyRequested()) log.warn("봇 전체 초기화: DB · 캐시 파일 · 디스플레이 파일을 지웠습니다. 설정 스냅샷은 database/backups 에 남았습니다");
+    if (fullReset.applyRequested()) log.warn("봇 전체 초기화: DB · 캐시 파일 · 디스플레이 파일을 삭제했습니다. 설정 스냅샷은 database/backups에 보관했습니다");
     // 대시보드에서 선택한 스냅샷 · 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups 에 남는다)
     const restored = snapshots.applyStaged(PROJECT.database);
-    if (restored) log.warn(`설정 DB 를 ${restored} 로 복원했습니다. 바꾸기 전 것은 database/backups 에 남겼습니다`);
+    if (restored) log.warn(`설정 DB를 ${restored}로 복원했습니다. 기존 DB는 database/backups에 백업했습니다`);
     stores.open();
   } catch (error) {
     log.error(messageOf(error));
-    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 를 복원하려면 봇을 끈 채 database/backups 의 settings-*.db 하나를 database/settings.db 로 복사하세요(같은 SECRETS_KEY 여야 비밀값이 풀립니다)");
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB를 복원하려면 봇을 종료한 뒤 database/backups의 settings-*.db 파일을 database/settings.db로 복사하세요(같은 SECRETS_KEY여야 비밀값을 복호화할 수 있습니다)");
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }
@@ -138,7 +139,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   // 장르 · 상태 문구 · AI 설정 · 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db 에 쓴다
   // 예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 지금 기본값(영어)으로 바꿔 둔다(config/ai-upgrade)
   const upgraded = documents.attach(settingsDocs);
-  if (upgraded.length) log.info(`예전 기본값 그대로인 AI 설정을 지금 기본값으로 바꿨습니다: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(" · ")}`);
+  if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신했습니다: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(" · ")}`);
   warnLegacyConfigFiles();
   serviceKeys.load();
   aiKeys.warnLegacyFile();
@@ -152,16 +153,16 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
 async function restoreAudioCache() {
   try {
     const done = await archive.applyStagedAudio(PROJECT.database);
-    if (done) log.info(`명령 전체 백업의 오디오 캐시를 합쳤습니다: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(" · ") || "새로 불러온 것 없음"}`);
+    if (done) log.info(`전체 백업의 오디오 캐시를 병합했습니다: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(" · ") || "새로 불러온 것 없음"}`);
   } catch (error) {
-    log.warn(`명령 전체 백업의 오디오 캐시를 합치지 못했습니다: ${messageOf(error)}`);
+    log.warn(`전체 백업의 오디오 캐시 병합 실패: ${messageOf(error)}`);
   }
 }
 
 // 옛 설정 파일(config/*.yaml · ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 삭제하지도 않는다(보며 옮길 수 있게)
 function warnLegacyConfigFiles() {
   const left = ["genres.yaml", "status.yaml", "ai.yaml", "ai-prompt.chatml"].filter((name) => fs.existsSync(path.join(PROJECT.config, name)));
-  if (left.length) log.warn(`config/ 의 ${left.join(" · ")} 은 이제 읽지 않습니다. 운영자 패널(자동재생 · 상태 문구 · AI 보조 탭)에서 다시 입력하고 이 파일들은 삭제하세요`);
+  if (left.length) log.warn(`config/의 ${left.join(" · ")}${josa(left.join(" · "), "은")} 이제 읽지 않습니다. 운영자 패널(자동재생 · 상태 문구 · AI 보조 탭)에서 다시 입력하고 이 파일들은 삭제하세요`);
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -179,12 +180,12 @@ function setUpLogging() {
 }
 
 function deploySlashCommands() {
-  log.debug("슬래시 명령어 배포를 시작합니다.");
+  log.debug("슬래시 명령어 배포 시작");
   commandLoader
     .deployCommands()
     .then((r) => {
-      if (r.ok && r.skipped) log.info(`명령어 정의 ${r.count}개가 바뀌지 않았습니다. 등록을 건너뜁니다. (강제 재배포: pnpm run cmddeploy)`);
-      else if (r.ok) log.info(`${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 배포했습니다.`);
+      if (r.ok && r.skipped) log.info(`슬래시 명령어 ${r.count}개 변경 없음, 배포 생략(강제 재배포: pnpm run cmddeploy)`);
+      else if (r.ok) log.info(`슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 배포 완료`);
       else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
     })
     .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));
@@ -264,12 +265,12 @@ function listenToLibrary(client: Client) {
   client.on(Events.Debug, (message) => dlog.trace(message));
   // 경로마다의 제한은 라이브러리가 줄 세워 기다리는 정상 흐름이다. 전역 제한은 봇 전체가 멈추니 운영자가 알아야 한다
   client.rest.on(RESTEvents.RateLimited, (info) => {
-    const line = `요청 제한에 걸려 기다립니다: ${info.method.toUpperCase()} ${info.route} | ${info.timeToReset}ms${info.global ? " | 전역" : ""}`;
+    const line = `요청 제한 대기: ${info.method.toUpperCase()} ${info.route} | ${info.timeToReset}ms${info.global ? " | 전역" : ""}`;
     if (info.global) dlog.warn(line);
     else dlog.debug(line);
   });
   // 거절된 요청(401 · 403 · 429)이 10분에 1만 번을 넘으면 디스코드가 IP 를 한동안 막는다
-  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청이 ${count}번입니다(10분 창의 남은 ${Math.round(remainingTime / 1000)}초). 1만 번을 넘으면 디스코드가 이 IP 를 한동안 막습니다`));
+  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청 누적 ${count}회(10분 윈도우 남은 시간 ${Math.round(remainingTime / 1000)}초). 1만 회를 넘으면 디스코드에서 이 IP를 일시 차단합니다`));
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
 
@@ -323,7 +324,7 @@ async function cleanupAudioCache() {
 async function init(bot: BotContext, { commands, potServer, logFile, shutdown, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; onFault: OnFault }) {
   const { client, players } = bot;
   try {
-    log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
+    log.info({ tags: ["startup"] }, "봇 기동 시작");
     checkBeforeLogin();
     await startEncoding();
     loadCommands(commands);

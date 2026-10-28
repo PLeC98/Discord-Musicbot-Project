@@ -176,7 +176,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
 
-  log.info("종료 끝");
+  log.info("종료 완료");
   if (logFile) logFile.close();
 }
 

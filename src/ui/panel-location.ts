@@ -68,7 +68,7 @@ class PanelLocation {
         if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 삭제됐다. 다음 게시가 새로 올린다
         // 웹훅이 삭제됐다. 기억을 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 삭제한다)
         if (codeOf(error) === UNKNOWN_WEBHOOK) this.embeds.deleteWebhookCache(channel.id);
-        else if (codeOf(error) !== UNKNOWN_MESSAGE) log.warn(`기록된 패널 고치기 실패 (${guild.id}): ${describeError(error)}`);
+        else if (codeOf(error) !== UNKNOWN_MESSAGE) log.warn(`기록된 재생 패널 갱신 실패 (${guild.id}): ${describeError(error)}`);
         return null;
       }
     });

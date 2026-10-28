@@ -47,6 +47,6 @@ test("경고 문장: 새것이면 없고, 옛것이면 바뀐 수와 앞의 셋 
   assert.equal(freshnessWarning({ state: "fresh" }), null);
   assert.match(freshnessWarning({ state: "missing" }) ?? "", /빌드되지 않았습니다. pnpm run build:dashboard/);
   const stale = freshnessWarning({ state: "stale", changed: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"] }) ?? "";
-  assert.match(stale, /바뀐 화면 소스 5개: a\.ts, b\.ts, c\.ts 외 2개\)/);
+  assert.match(stale, /변경된 화면 소스 5개: a\.ts, b\.ts, c\.ts 외 2개\)/);
   assert.match(stale, /pnpm run build:dashboard/);
 });

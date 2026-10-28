@@ -7,7 +7,6 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { codeOf, codedError, messageOf } from "../../rules/error-kind.ts";
 import { isCode } from "../../rules/problems.ts";
-import { josa } from "../../rules/josa.ts";
 import { LOGIN_BG_ENCODE_STAGES, type LoginBackgroundCrop, type LoginBackgroundStage } from "../contract/login-background.ts";
 import * as store from "./store.ts";
 
@@ -58,7 +57,7 @@ function recount(one: store.Stored, crop: LoginBackgroundCrop, range: [number, n
     (error: unknown) => {
       if (counting.get(one.id) !== controller) return;
       counting.delete(one.id);
-      log.warn({ sub: "admin" }, `로그인 배경 "${one.name}" 의 크기 어림을 다시 세지 못했습니다: ${messageOf(error)}`);
+      log.warn({ sub: "admin" }, `로그인 배경 "${one.name}"의 예상 용량 재계산 실패: ${messageOf(error)}`);
     },
   );
 }
@@ -119,7 +118,7 @@ function finished(one: store.Stored, run: Run, result: StageResult) {
   if (run.stage === "thumb") store.showIfLatest(one);
   if (store.isReady(one)) {
     one.resumed = false;
-    log.info({ sub: "admin" }, `로그인 배경 "${one.name}"${josa(one.name, "을")} 다 만들었습니다`);
+    log.info({ sub: "admin" }, `로그인 배경 "${one.name}" 생성 완료`);
     const removed = store.enforceLimits();
     if (removed.length) log.info({ sub: "admin" }, `로그인 배경 한도를 넘어 기록에서 삭제했습니다: ${removed.join(", ")}`);
   }
@@ -134,7 +133,7 @@ function failed(one: store.Stored, run: Run, error: unknown) {
   one.problem = typeof code === "string" && isCode(code) ? code : "background-failed";
   one.stage = null;
   one.resumed = false;
-  log.error({ sub: "admin" }, `로그인 배경 "${one.name}" 의 ${run.stage} 단계가 실패했습니다: ${messageOf(error)}`);
+  log.error({ sub: "admin" }, `로그인 배경 "${one.name}" ${run.stage} 단계 실패: ${messageOf(error)}`);
   // 만든 것은 삭제하고 기록만 남긴다(운영자가 까닭을 보고 삭제한 뒤 다시 올린다). 걸려 있던 배경이면 이전 배경으로
   const folder = store.folderOf(one.id);
   fs.rmSync(folder, { recursive: true, force: true });

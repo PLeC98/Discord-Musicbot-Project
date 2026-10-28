@@ -367,7 +367,7 @@ test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는
 
 // 방송이 끝나면 ffmpeg 가 종료 코드를 남기기 전에 플레이어가 멈추기도 해 끊김으로 보고 다시 연다. 다시 열어 보면 끝난 것을 안다
 for (const [ending, answer, line] of [
-  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 방송이 끝나 다음 곡으로 넘깁니다: .* \| 다시 열어 보니 라이브가 아님$/],
+  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 라이브 방송이 종료되어 다음 곡으로 넘깁니다: .* \| 재확인 결과 라이브 아님$/],
   [
     "yt-dlp 가 오류로 답하면",
     () => {
@@ -426,7 +426,7 @@ test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝�
   assert.equal(asked[0]?.liveOnly, true, "다시 열 때만 끝난 목록을 거절한다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 방송이 끝나 다음 곡으로 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 라이브 방송이 종료되어 다음 곡으로 넘깁니다: /.test(l)),
     lines.join(" / "),
   );
 });
@@ -458,7 +458,7 @@ test("라이브로 담은 HLS 를 처음 틀 때(세션 복원도 같다) 목록
   assert.ok(calls.sent.length > sent, "채널에 알린다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 방송이 끝나 틀지 않고 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 종료된 라이브 방송이라 재생하지 않고 넘깁니다: /.test(l)),
     lines.join(" / "),
   );
   assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");

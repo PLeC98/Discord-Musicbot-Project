@@ -30,7 +30,7 @@ test("묶인 주소로만 나온다. 상태는 none · ok · moved", () => {
 test("옛 키 파일(config/ai-keys.yaml)이 남아 있으면 기동 시 한 줄. 비었으면 말하지 않는다", () => {
   const dir = path.join(store.dir, "config");
   fs.mkdirSync(dir, { recursive: true });
-  const said = () => sink.buffer.filter((e) => e.text.startsWith("config/ai-keys.yaml 은 이제 읽지 않습니다")).length;
+  const said = () => sink.buffer.filter((e) => e.text.startsWith("config/ai-keys.yaml은 이제 읽지 않습니다")).length;
   const before = said();
   fs.writeFileSync(path.join(dir, "ai-keys.yaml"), "");
   aiKeys.warnLegacyFile(dir);

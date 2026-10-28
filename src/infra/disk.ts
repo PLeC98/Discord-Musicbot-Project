@@ -30,7 +30,7 @@ function driveOf(target: string): { drive: string; usedBytes: number; totalBytes
     const totalBytes = stat.blocks * stat.bsize;
     return { drive: driveName(target), usedBytes: totalBytes - stat.bfree * stat.bsize, totalBytes };
   } catch (error) {
-    log.debug(`드라이브 크기 읽기 실패(${target}): ${messageOf(error)}`);
+    log.debug(`드라이브 전체 용량 조회 실패(${target}): ${messageOf(error)}`);
     return null;
   }
 }
@@ -44,7 +44,7 @@ function freeBytesOf(target: string): number | null {
     const stat = fs.statfsSync(target);
     return stat.bavail * stat.bsize;
   } catch (error) {
-    log.debug(`남은 크기 읽기 실패(${target}): ${messageOf(error)}`);
+    log.debug(`디스크 여유 공간 조회 실패(${target}): ${messageOf(error)}`);
     return null;
   }
 }

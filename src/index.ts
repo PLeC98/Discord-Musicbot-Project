@@ -15,7 +15,7 @@ let main: () => void;
 try {
   ({ main } = await import("./app/main.ts"));
 } catch (error) {
-  logger.child({ category: "core" }).error("본체를 불러오지 못해 기동을 멈춥니다:", error);
+  logger.child({ category: "core" }).error("메인 모듈을 불러오지 못해 기동을 중단합니다:", error);
   process.exit(EXIT.badSetup);
 }
 main();

@@ -27,7 +27,7 @@ function loadAppInfo(client: Client): Promise<void> {
       const ownerIds = !owner ? [] : "members" in owner ? [...owner.members.keys()] : [owner.id];
       appInfo = { botPublic: app.botPublic === true, requireCodeGrant: app.botRequireCodeGrant === true, ownerIds };
     })
-    .catch((error: unknown) => log.warn(`디스코드 앱 정보를 받지 못해 초대 화면을 잠시 닫습니다: ${messageOf(error)}`))
+    .catch((error: unknown) => log.warn(`디스코드 앱 정보를 불러오지 못해 초대 화면을 일시 비활성화합니다: ${messageOf(error)}`))
     .finally(() => (loading = null));
   return loading;
 }

@@ -73,13 +73,13 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
       list = await youtube.getPlaylist(query, range);
     } catch (error) {
       if (!video) throw error;
-      log.warn(`재생목록을 불러오지 못해 영상 하나로 갑니다: ${messageOf(error).split("\n")[0]}`);
+      log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리합니다: ${messageOf(error).split("\n")[0]}`);
       return single(await youtube.search(query, 1));
     }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
     if (!video) return single([]);
     // yt-dlp 가 비공개 · 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
-    log.info(`재생목록이 비었거나 열리지 않아 영상 하나로 갑니다 (${video})`);
+    log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리합니다 (${video})`);
   }
   return single(await youtube.search(query, 1));
 }
@@ -99,7 +99,7 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
   const { skipped } = found;
-  if (skipped > 0) log.info(`사운드클라우드 세트에서 받을 수 없는 ${skipped}곡을 뺍니다(미리듣기 · 지역 제한 등): ${found.title ?? query}`);
+  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외합니다(미리듣기 · 지역 제한 등): ${found.title ?? query}`);
   const secret = /\/s-[\w-]+\/?$/.test(new URL(query).pathname);
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
@@ -133,7 +133,7 @@ function lookupFailed(error: unknown, context: string | null): LookupResult {
   // 열어 보니 받을 수 없는 링크(음원이 아님 · 옛 SHOUTcast). 실패가 아니라 그 까닭으로 거절한다
   const code = codeOf(error);
   if (code === "unsupported-link" || code === "shoutcast-v1") {
-    log.debug({ sub: context || undefined }, `받을 수 없는 링크: ${messageOf(error)}`);
+    log.debug({ sub: context || undefined }, `처리할 수 없는 링크: ${messageOf(error)}`);
     return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다

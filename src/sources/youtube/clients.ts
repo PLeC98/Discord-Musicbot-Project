@@ -9,6 +9,7 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
 import config from "../../config/index.ts";
+import { josa } from "../../rules/josa.ts";
 
 // yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.
@@ -64,7 +65,7 @@ class PlayerClients {
         this.excluded.delete(client);
         this.history.delete(client);
         this.exhaustedLogged = false;
-        log.info(`${client} 를 다시 테스트합니다 (제외한 지 ${Math.round((this.now() - at) / 60000)}분)`);
+        log.info(`${client}${josa(client, "을")} 다시 테스트합니다 (제외한 지 ${Math.round((this.now() - at) / 60000)}분)`);
       }
     }
     return this.order.filter((c) => !this.excluded.has(c));
@@ -90,7 +91,7 @@ class PlayerClients {
 
     this.excluded.set(client, this.now());
     const until = this.retryMs > 0 ? `${Math.round(this.retryMs / 60000)}분 동안` : "이번 실행 동안";
-    log.warn(`${client} 를 ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 유튜브 탭의 "유튜브 클라이언트 순서"에서 빼는 것을 검토하세요`);
+    log.warn(`${client}${josa(client, "을")} ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 유튜브 탭의 "유튜브 클라이언트 순서"에서 빼는 것을 검토하세요`);
   }
 
   // 전멸했을 때 한 번만. 매 곡마다 같은 줄을 쌓지 않도록.

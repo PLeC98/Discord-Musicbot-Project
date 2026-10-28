@@ -104,7 +104,7 @@ function startShell(): Shell {
     self.answer?.({ failed: why });
   };
   child.on("error", (error) => gone(messageOf(error)));
-  child.on("exit", (code, signal) => gone(`PowerShell 이 끝남(${signal ?? `종료 코드 ${String(code)}`})${self.stderr.trim() ? ` · ${self.stderr.trim()}` : ""}`));
+  child.on("exit", (code, signal) => gone(`PowerShell 종료(${signal ?? `종료 코드 ${String(code)}`})${self.stderr.trim() ? ` · ${self.stderr.trim()}` : ""}`));
   // 봇이 나가는 것을 붙잡지 않는다
   child.unref();
   for (const stream of [child.stdin, child.stdout, child.stderr]) (stream as unknown as { unref?: () => void }).unref?.();
@@ -117,7 +117,7 @@ function ask(self: Shell): Promise<Sent | { failed: string }> {
       // 끝나기를 기다리지 않고 놓는다(다음 구간이 멈춘 셸에 다시 묻지 않게)
       if (shell === self) shell = null;
       processRegistry.kill(self.child);
-      finish({ failed: `${ANSWER_TIMEOUT_MS / 1000}초 안에 답이 없어 내림` });
+      finish({ failed: `${ANSWER_TIMEOUT_MS / 1000}초 안에 응답이 없어 종료` });
     }, ANSWER_TIMEOUT_MS).unref();
     const finish = (got: Sent | { failed: string }) => {
       clearTimeout(timer);
@@ -158,7 +158,7 @@ async function systemSent(): Promise<Sent | null> {
   else return null;
   if (got === null) return null;
   // 잴 인터페이스가 하나도 없으면 0 이 아니라 못 잰 것이다
-  if (!("failed" in got) && got.size === 0) got = { failed: "잴 수 있는 네트워크 인터페이스가 없음" };
+  if (!("failed" in got) && got.size === 0) got = { failed: "측정할 수 있는 네트워크 인터페이스가 없음" };
   if ("failed" in got) {
     failures.fail(got.failed);
     return null;

@@ -302,7 +302,7 @@ function* filteredLines(target: { path: string }, filter: LogFilter): Generator<
   try {
     fd = fs.openSync(target.path, "r");
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패(내려받기): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패(다운로드): ${messageOf(error)}`);
     return;
   }
   try {

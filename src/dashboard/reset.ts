@@ -26,6 +26,7 @@ import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import logger from "../infra/log/logger.ts";
+import { josa } from "../rules/josa.ts";
 const log = logger.child({ category: "dashboard" });
 
 const PART_NAMES: Record<AudioCachePart, string> = { files: "캐시 파일", ledger: "곡 찾기 기록", external: "바깥 서비스 데이터", pins: "직접 지정한 음원" };
@@ -120,7 +121,7 @@ async function stageFullReset(by: string, restarting: boolean) {
   fs.rmSync(stagedAudioFile(), { force: true });
   const snapshot = await snapshots.take("before-reset");
   fullReset.request();
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot} 은 취소` : ""}${unstaged.audioCache ? ", 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot}${josa(unstaged.snapshot, "은")} 취소` : ""}${unstaged.audioCache ? ", 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
   return { snapshot, unstaged };
 }
 

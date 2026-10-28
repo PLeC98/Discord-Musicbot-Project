@@ -53,7 +53,7 @@ function sweepUploads() {
   try {
     names = fs.readdirSync(dir);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`올린 백업 파일 치우기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`업로드된 백업 임시 파일 정리 실패: ${messageOf(error)}`);
     return;
   }
   for (const name of names) if (name.startsWith(PREFIX)) fs.rmSync(path.join(dir, name), { force: true });

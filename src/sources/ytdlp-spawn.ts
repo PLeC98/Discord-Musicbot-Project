@@ -89,7 +89,7 @@ async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined):
   const waited = Date.now() - asked;
   if (waited > WAIT_NOTE_MS[lane]) {
     const { running, size, waiting } = lanes[lane].stats();
-    log.debug(`yt-dlp 자리를 ${(waited / 1000).toFixed(1)}초 기다렸습니다 (${LANE_NAME[lane]} ${running}/${size}, 기다림 ${waiting})`);
+    log.debug(`yt-dlp 실행 슬롯을 ${(waited / 1000).toFixed(1)}초 대기했습니다 (${LANE_NAME[lane]} ${running}/${size}, 대기 ${waiting})`);
   }
   return leave;
 }
@@ -156,7 +156,7 @@ function clearOutput(output: string): number {
   try {
     names = fs.readdirSync(dir).filter(has);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`받다 만 파일을 찾지 못함: ${dir} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`임시 조각 파일 조회 실패: ${dir} | ${messageOf(error)}`);
     return 0;
   }
   let removed = 0;
@@ -166,7 +166,7 @@ function clearOutput(output: string): number {
       removed++;
     } catch (error) {
       // 잠겨 있음. 부르는 쪽의 정리가 받는다
-      log.debug(`받다 만 파일 삭제 실패: ${name} | ${messageOf(error)}`);
+      log.debug(`임시 조각 파일 삭제 실패: ${name} | ${messageOf(error)}`);
     }
   }
   return removed;
@@ -255,7 +255,7 @@ function lowerPriority(pid: number | undefined) {
     os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
   } catch (error) {
     if ((error as { info?: { code?: string } }).info?.code === "ESRCH") return; // 벌써 끝났다(Node 는 시스템 오류의 까닭을 info 에 싣는다)
-    const line = `yt-dlp 의 우선순위를 낮추지 못했습니다(재생 중에 곡을 받으면 소리가 잠깐 밀릴 수 있습니다): ${messageOf(error)}`;
+    const line = `yt-dlp 우선순위 낮추기 실패(재생 중 곡 다운로드 시 소리가 잠깐 밀릴 수 있음): ${messageOf(error)}`;
     if (priorityWarned) return void log.debug(line);
     priorityWarned = true;
     log.warn(line);

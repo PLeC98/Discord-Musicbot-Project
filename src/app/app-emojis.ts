@@ -90,7 +90,7 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) 
 
 /** 올라가 있는 것이 그 그림인가. CDN 에서 못 받으면 아니라고 본다 */
 async function uploadedAs(api: Api, remote: Remote, image: Image) {
-  const there = await api.download(remote).catch((error: unknown) => (log.debug(`앱 이모지 ${remote.name} 그림 받기 실패: ${messageOf(error)}`), null));
+  const there = await api.download(remote).catch((error: unknown) => (log.debug(`앱 이모지 ${remote.name} 이미지 다운로드 실패: ${messageOf(error)}`), null));
   return there !== null && (await sameImage(image, there));
 }
 
@@ -146,7 +146,7 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
       continue;
     }
     if (stale()) {
-      log.debug(`앱 이모지 맞춤을 멈춤(다시 맞춤): ${added}개 올린 뒤`);
+      log.debug(`앱 이모지 동기화 중단(재동기화): ${added}개 등록 후`);
       return;
     }
     const name = existing ? tempName(entry.name, taken) : entry.name;
@@ -162,9 +162,9 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
   for (const id of unused) await api.remove(id);
   for (const { id, name } of renames) await api.rename(id, name);
 
-  if (skipped.length) log.warn(`봇이 올리지 않은 앱 이모지가 이름을 쓰고 있어 그 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 개발자 포털에서 그 이모지의 이름을 바꾸거나 지우세요`);
-  if (added || unused.size) log.info(`앱 이모지 맞춤: ${next.size}개 중 ${added}개 새로 올림 · ${unused.size}개 지움`);
-  else log.debug(`앱 이모지 맞춤: ${next.size}개 그대로`);
+  if (skipped.length) log.warn(`봇이 등록하지 않은 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
+  if (added || unused.size) log.info(`앱 이모지 동기화: ${next.size}개 중 ${added}개 추가 · ${unused.size}개 삭제`);
+  else log.debug(`앱 이모지 동기화: ${next.size}개 변경 없음`);
 }
 
 /** 기동과 운영자 색 바뀜을 잇는다. 맞추기는 한 번에 하나, 도는 중에 다시 하라면 끝난 뒤 한 번 더 */
@@ -189,7 +189,7 @@ class AppEmojis {
       const count = await loadKnown(this.api);
       log.debug(`앱 이모지 ${count}개를 불러옴`);
     } catch (error) {
-      log.warn(`앱 이모지 목록을 받지 못해 아이콘을 유니코드로 둡니다: ${messageOf(error)}`);
+      log.warn(`앱 이모지 목록을 불러오지 못해 아이콘을 유니코드로 둡니다: ${messageOf(error)}`);
     }
   }
 
@@ -214,7 +214,7 @@ class AppEmojis {
       do {
         this.again = false;
         // 실패하면 그때까지 실은 것(목록에서 불러온 id · 유니코드)으로 돈다. 아이콘이 옛 그림 · 유니코드로 남으므로 알린다
-        await sync(this.api, { onChanged: this.onChanged, stale: () => this.again }).catch((error: unknown) => log.warn(`앱 이모지를 맞추지 못했습니다(그대로 돕니다): ${messageOf(error)}`));
+        await sync(this.api, { onChanged: this.onChanged, stale: () => this.again }).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
       } while (this.again);
     })().finally(() => (this.running = null));
   }

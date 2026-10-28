@@ -26,7 +26,7 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
   const { response, name, message, cause } = failureOf(error);
   // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다
   if (isBadClient(response)) {
-    log.error({ status: response?.status }, "OAuth 토큰 교환 거절: CLIENT_SECRET 이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다릅니다");
+    log.error({ status: response?.status }, "OAuth 토큰 교환 거절: CLIENT_SECRET이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다릅니다");
     return "bad_client";
   }
   // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게

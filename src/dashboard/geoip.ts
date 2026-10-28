@@ -61,7 +61,7 @@ function versionsOnDisk(): string[] {
       .reverse();
   } catch (error) {
     // 자리가 아직 없다(받은 적이 없다)
-    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 자리 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 경로 읽기 실패: ${messageOf(error)}`);
     return [];
   }
 }
@@ -103,7 +103,7 @@ async function load(): Promise<boolean> {
       reader = await open(fileOf(version));
       readerVersion = version;
     } catch (error) {
-      log.warn(`IP 위치 DB 를 열지 못했습니다(위치 필드를 비웁니다): ${messageOf(error)}`);
+      log.warn(`IP 위치 DB를 열지 못했습니다(위치 필드를 비웁니다): ${messageOf(error)}`);
       unload();
       return false;
     }
@@ -171,10 +171,10 @@ async function download(version: string) {
     for (const old of versionsOnDisk()) fs.rmSync(fileOf(old), { force: true });
     fs.renameSync(temp, fileOf(version));
     lastError = null;
-    log.info(`IP 위치 DB 를 받았습니다: ${version} (${Math.round(fs.statSync(fileOf(version)).size / 1e6)}MB)`);
+    log.info(`IP 위치 DB 다운로드 완료: ${version} (${Math.round(fs.statSync(fileOf(version)).size / 1e6)}MB)`);
   } catch (error) {
     lastError = messageOf(error);
-    log.warn(`IP 위치 DB 를 받지 못했습니다(쓰던 버전을 그대로 씁니다): ${lastError}`);
+    log.warn(`IP 위치 DB 다운로드 실패(기존 버전 유지): ${lastError}`);
     throw error;
   } finally {
     fs.rmSync(temp, { force: true });
@@ -218,7 +218,7 @@ async function autoCheck() {
     await once(async () => {
       if ((await probe(thisMonth)) !== null) return download(thisMonth);
       if (!have && (await probe(lastMonth)) !== null) return download(lastMonth);
-      log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없습니다. 내일 다시 봅니다`);
+      log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없습니다. 내일 다시 확인합니다`);
     });
   } catch {
     // 내일 다시 본다(까닭은 probe · download 가 남겼다)
@@ -231,7 +231,7 @@ function start() {
     for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
   } catch (error) {
     // 자리가 아직 없다
-    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 임시 파일 치우기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 임시 파일 삭제 실패: ${messageOf(error)}`);
   }
   setTimeout(() => void autoCheck(), FIRST_CHECK_MS).unref();
   setInterval(() => void autoCheck(), CHECK_EVERY_MS).unref();

@@ -252,7 +252,7 @@ async function countByClaude(texts: string[], provider: string, model: string) {
     tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }).then(
       (got) => (got === null ? null : got - wrap),
       (error: unknown) => {
-        log.debug({ sub: "admin" }, `앤트로픽 토큰 세기 실패(tik 로 어림): ${messageOf(error)}`);
+        log.debug({ sub: "admin" }, `Anthropic 토큰 계산 실패(tik으로 추산): ${messageOf(error)}`);
         return null;
       },
     );
@@ -292,7 +292,7 @@ async function refreshPrices() {
   try {
     return (await prices.refresh()).changed;
   } catch (error) {
-    log.warn({ sub: "admin" }, `AI 값표를 불러오지 못했습니다(models.dev): ${messageOf(error)}. 가진 값표로 비용을 셉니다`);
+    log.warn({ sub: "admin" }, `AI 가격표를 불러오지 못했습니다(models.dev): ${messageOf(error)}. 내장 가격표로 비용을 계산합니다`);
     return false;
   }
 }

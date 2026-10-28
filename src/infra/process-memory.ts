@@ -28,7 +28,7 @@ function run(file: string, args: string[], done: number[] = []): Promise<{ out: 
 
 // 상한을 넘겨 끊었는지, 자체 실패로 끝났으면 종료 코드와 stderr
 function failure(error: ExecFileException, stderr: Buffer) {
-  if (error.killed) return `${TIMEOUT_MS / 1000}초를 넘겨 끊음(${error.signal ?? "신호 모름"})`;
+  if (error.killed) return `${TIMEOUT_MS / 1000}초 초과로 강제 종료(${error.signal ?? "신호 모름"})`;
   // 실행조차 못 했다(ENOENT 등)
   if (typeof error.code !== "number") return error.message;
   const said = consoleText(stderr).trim();

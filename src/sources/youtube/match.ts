@@ -499,7 +499,7 @@ async function searchCandidates(target: Target, search: Search, profile: SearchP
       const results = (await search(query, limit)) || [];
       return results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
     } catch (error) {
-      log.debug(`검색어 하나의 검색 실패(나머지로): "${query}" | ${briefError(error, 1)}`);
+      log.debug(`개별 검색어 검색 실패(나머지 결과 사용): "${query}" | ${briefError(error, 1)}`);
       return [];
     }
   };

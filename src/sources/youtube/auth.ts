@@ -37,6 +37,7 @@ const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 import * as cookieJar from "../../store/cookie-jar.ts";
 import { ageContentOn } from "../../config/age-content.ts";
+import { josa } from "../../rules/josa.ts";
 
 // 유튜브용 yt-dlp 옵션. 공통(ytdlpOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
@@ -83,7 +84,7 @@ function logAuthMode() {
   // 막지는 않는다. 이 표는 오늘의 유튜브일 뿐이고, 진짜 판정은 실행이 한다.
   const needy = clients.filter((c) => NEEDS_POT.includes(c));
   if (needy.length && !potEnabled()) {
-    log.warn(`${needy.join(", ")} 은(는) POToken이 있어야 제대로 동작합니다. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
+    log.warn(`${needy.join(", ")}${josa(needy.join(", "), "은")} POToken이 있어야 제대로 동작합니다. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
   }
 
   // 우리가 아는 목록에 없는 이름. 필터링하지 않는다. yt-dlp가 새로 추가한 것일 수 있고,
@@ -91,7 +92,7 @@ function logAuthMode() {
   // 오타였다면 "넣으라는 대로 넣었는데 왜?"의 답이 여기 있다.
   const unknown = clients.filter((c) => !KNOWN.includes(c));
   if (unknown.length) {
-    log.warn(`${unknown.join(", ")} 은(는) 확인된 클라이언트 목록에 없습니다. yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옵니다`);
+    log.warn(`${unknown.join(", ")}${josa(unknown.join(", "), "은")} 확인된 클라이언트 목록에 없습니다. yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옵니다`);
   }
 }
 

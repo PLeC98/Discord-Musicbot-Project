@@ -39,8 +39,8 @@ const textOf = (bytes: Buffer | null | undefined) => (bytes ? consoleText(bytes)
 // 묻지 못했으면 까닭을 남긴다. 빈 목록이면 모두 끝난 것으로 보고 기록을 지운다
 function asked(what: string, result: { error?: Error; status: number | null; stderr?: Buffer | null }, okStatus: (status: number | null) => boolean) {
   const stderr = textOf(result.stderr).trim();
-  if (result.error) log.warn(`남은 자식 프로세스를 확인하지 못했습니다(${what}): ${result.error.message}`);
-  else if (!okStatus(result.status)) log.warn(`남은 자식 프로세스를 확인하지 못했습니다(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
+  if (result.error) log.warn(`잔류 자식 프로세스 확인 실패(${what}): ${result.error.message}`);
+  else if (!okStatus(result.status)) log.warn(`잔류 자식 프로세스 확인 실패(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
 }
 
 // Windows: CIM 에서 이름 · 만든 시각. POSIX: ps 의 이름 · 시작 시각
@@ -105,7 +105,7 @@ const matches = (seen: Seen | undefined, image: string | null, startedAt: number
 function mine(child: ChildRecord["children"][number], seen: Seen | undefined) {
   if (!seen) return false;
   if (matches(seen, child.image, child.startedAt)) return true;
-  log.debug(`pid ${child.pid} 는 기록의 ${child.label}(${child.image ?? "?"})이 아니라 두고 갑니다(지금 ${seen.image})`);
+  log.debug(`pid ${child.pid}는 기록된 ${child.label}(${child.image ?? "?"}) 프로세스가 아니므로 건너뜁니다(현재 ${seen.image})`);
   return false;
 }
 
@@ -138,13 +138,13 @@ function sweepLeftoverChildren(file: string, boundary: Partial<Boundary> = {}): 
   const alive = new Map(processes([...children.map((c) => c.pid), ...(owner ? [owner.pid] : [])]).map((p) => [p.pid, p]));
 
   if (owner && matches(alive.get(owner.pid), "node", owner.startedAt)) {
-    log.warn(`기록을 적은 봇 프로세스(pid ${owner.pid})가 아직 돌고 있어 남은 자식 프로세스 정리를 건너뜁니다. 봇이 둘 실행 중인지 보세요`);
+    log.warn(`기록을 남긴 봇 프로세스(pid ${owner.pid})가 아직 실행 중이어서 잔류 자식 프로세스 정리를 건너뜁니다. 봇이 중복 실행 중인지 확인하세요`);
     return null;
   }
 
   const killed = children.filter((child) => mine(child, alive.get(child.pid))).map((child) => (killTree(child.pid, child.group), `${child.label}#${child.pid}`));
   remove(file);
-  if (killed.length) log.warn(`직전 실행이 남긴 자식 프로세스 ${killed.length}개를 종료했습니다: ${killed.join(", ")}`);
+  if (killed.length) log.warn(`이전 실행의 잔류 자식 프로세스 ${killed.length}개를 종료했습니다: ${killed.join(", ")}`);
   return killed;
 }
 

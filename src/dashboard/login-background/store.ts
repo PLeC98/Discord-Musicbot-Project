@@ -175,7 +175,7 @@ function loaded(): Index {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 자리 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 경로 읽기 실패: ${messageOf(error)}`);
   }
   const kept = new Set(items.map((one) => one.id));
   for (const name of names) if (LOGIN_BG_ID.test(name) && !kept.has(name)) fs.rmSync(path.join(dir, name), { recursive: true, force: true });
@@ -328,7 +328,7 @@ function folderBytes(id: string): number {
     walk(folderOf(id));
   } catch (error) {
     // 폴더가 없다
-    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 폴더(${id}) 크기 세기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 폴더(${id}) 용량 계산 실패: ${messageOf(error)}`);
   }
   return sum;
 }

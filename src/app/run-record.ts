@@ -22,7 +22,7 @@ const ALIVE_MS = 30_000; // 살아 있던 시각을 고쳐 적는 간격
 const SHORT_RUN_MS = 10 * 60_000; // 이보다 짧게 끊긴 실행을 센다
 const SKIP_RESTORE_STREAK = 2;
 
-const ENDINGS: Record<Ending, string> = { shutdown: "깨끗이 끝남", restart: "다시 시작함", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 내림" };
+const ENDINGS: Record<Ending, string> = { shutdown: "정상 종료", restart: "다시 시작", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 종료" };
 
 function span(ms: number) {
   const min = Math.floor(ms / 60_000);
@@ -91,7 +91,7 @@ class RunRecord {
       this._write();
     } catch (error) {
       // 다음 간격에 다시 적는다. 못 적어도 끝난 방식은 end() 가 적는다
-      log.trace(`실행 기록 고치기 실패: ${messageOf(error)}`);
+      log.trace(`실행 기록 갱신 실패: ${messageOf(error)}`);
     }
   }
 
@@ -106,7 +106,7 @@ class RunRecord {
       this._write();
     } catch (error) {
       // 끝나는 중이다. 못 적으면 다음 기동이 "기록 없이 끊김"으로 본다
-      log.warn(`실행 기록에 끝난 방식을 적지 못했습니다: ${messageOf(error)}`);
+      log.warn(`실행 기록에 종료 사유 기록 실패: ${messageOf(error)}`);
     }
   }
 }

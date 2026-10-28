@@ -19,7 +19,7 @@ function parse(name: string, raw: string | undefined): unknown {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    log.warn(`설정 문서 ${name} 이 JSON 이 아니어서 없는 것으로 봅니다: ${messageOf(error)}`);
+    log.warn(`설정 문서 ${name}의 JSON 파싱에 실패해 없는 것으로 처리합니다: ${messageOf(error)}`);
     return null;
   }
 }

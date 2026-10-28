@@ -86,7 +86,7 @@ appearanceRouter.post("/favicon/fetch", async (req, res) => {
   try {
     data = await safeUrl.getBuffer(body.value.url, LINK_ACCEPT);
   } catch (error) {
-    log.warn({ sub: "admin" }, `파비콘 링크에서 그림을 다운로드하지 못했습니다: ${messageOf(error)}`);
+    log.warn({ sub: "admin" }, `파비콘 링크에서 이미지를 다운로드하지 못했습니다: ${messageOf(error)}`);
     return sendProblem(res, "image-link-failed", { max: APPEARANCE_MAX_BYTES });
   }
   const format = await sharp(data)

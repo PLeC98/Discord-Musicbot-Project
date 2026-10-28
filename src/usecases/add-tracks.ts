@@ -261,10 +261,10 @@ function logRequest({ source = "play", query, insertFirst = false }: PlaybackReq
   const asked = query ?? null;
   const head = `곡 요청: ${source} | ${nameOf(who)}${asked ? ` | "${asked}"` : ""}`;
   if (isRefused(found)) {
-    log.info({ sub: "play" }, `${head} → 못 넣음: ${causeOf(found)}`);
+    log.info({ sub: "play" }, `${head} → 대기열 추가 불가: ${causeOf(found)}`);
     return;
   }
-  const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 받을 수 없어 ${found.skipped}곡 뺌` : "", found.queueLimited ? " | 자리가 모자라 일부만 불러옴" : ""].join("");
+  const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 재생할 수 없어 ${found.skipped}곡 제외` : "", found.queueLimited ? " | 대기열 상한에 걸려 일부만 불러옴" : ""].join("");
   log.info({ sub: "play" }, `${head} → ${whatOf(found, asked)}${notes}`);
 }
 
@@ -281,8 +281,8 @@ const isUrl = (text: string) => /^https?:\/\//i.test(text.trim());
 // 담은 뒤. 못 담았으면 그 까닭을 info 로. 담았으면 대기열 상태는 추적용이라 debug 로(곧바로 튼 곡은 "재생" 줄이 말한다).
 // 상한으로 일부를 뺀 것도 담긴 것이라 debug 줄에 싣는다. 사용자에게는 담은 안내가 말한다
 function logOutcome(result: AddResult, player: Player) {
-  if (result.success === false) log.info({ sub: "play" }, `곡 담기 실패: ${causeOf(result)}`);
-  else log.debug({ sub: "play" }, `곡 담기 끝${result.dropped ? ` | 상한으로 ${result.dropped}곡 뺌` : ""} | 대기열 ${player.queue.length}곡`);
+  if (result.success === false) log.info({ sub: "play" }, `곡 추가 실패: ${causeOf(result)}`);
+  else log.debug({ sub: "play" }, `곡 추가 완료${result.dropped ? ` | 상한으로 ${result.dropped}곡 뺌` : ""} | 대기열 ${player.queue.length}곡`);
 }
 
 const nameOf = (who: Requester | null) => who?.tag ?? who?.username ?? who?.id ?? "?";
@@ -351,7 +351,7 @@ async function nextPart(lookup: Lookup, url: string, range: { offset: number; li
     return await lookup.getCollection(url, range);
   } catch (error) {
     if (gathered === 0) throw error;
-    log.warn(`이어 불러오기를 ${gathered}곡에서 멈춥니다: ${messageOf(error)}`);
+    log.warn(`재생목록 추가 불러오기를 ${gathered}곡에서 중단합니다: ${messageOf(error)}`);
     return null;
   }
 }
@@ -430,7 +430,7 @@ async function processTracks(bot: Bot, guildId: string, trackData: TrackData, re
   try {
     return await place(bot.panels, player, trackData, requester, responder);
   } catch (error) {
-    log.error({ kind: errorKind(error) }, "곡 담기 처리 실패:", error);
+    log.error({ kind: errorKind(error) }, "곡 추가 처리 실패:", error);
     return { success: false, code: "add-failed", ...kindOf(error) };
   }
 }

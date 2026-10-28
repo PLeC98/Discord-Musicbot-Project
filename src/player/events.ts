@@ -74,7 +74,7 @@ function disposed(player: Player, reason: string) {
     try {
       fn(player, reason);
     } catch (error) {
-      log.warn(`버림 알림 실패: ${messageOf(error)}`);
+      log.warn(`곡 제외 알림 전송 실패: ${messageOf(error)}`);
     }
   }
 }
@@ -85,7 +85,7 @@ function touched(guildId: string) {
     try {
       fn(guildId);
     } catch (error) {
-      log.warn(`대시보드 알림 실패: ${messageOf(error)}`);
+      log.warn(`대시보드 알림 전송 실패: ${messageOf(error)}`);
     }
   }
 }

@@ -63,7 +63,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
   if (known && links.isYouTubeURL(known)) {
     track.audioUrl = known;
     track.audioFoundBy = "ledger"; // 소비 시 unavailable이면 재검색 트리거
-    log.debug(`유튜브 동등물(링크 데이터 재사용, 검색 생략): "${logTitle(track.title)}" → ${known}`);
+    log.debug(`유튜브 매칭 음원(링크 데이터 재사용, 검색 생략): "${logTitle(track.title)}" → ${known}`);
     return known;
   }
 
@@ -75,8 +75,8 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 
   track.audioUrl = url;
   track.audioFoundBy = "search";
-  if (joined) log.debug(`유튜브 동등물(같은 곡을 찾던 답을 같이 받음): "${logTitle(track.title)}" → ${url}`);
-  else log.info(`유튜브 동등물(검색): "${logTitle(track.title)}" → ${url}`);
+  if (joined) log.debug(`유튜브 매칭 음원(진행 중인 요청 결과 공유): "${logTitle(track.title)}" → ${url}`);
+  else log.info(`유튜브 매칭 음원(검색): "${logTitle(track.title)}" → ${url}`);
   return url;
 }
 

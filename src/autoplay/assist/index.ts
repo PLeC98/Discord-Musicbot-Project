@@ -846,7 +846,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
-        log.debug(`AI 보조: 판정을 읽지 못해 한 번 더 묻습니다(${got.detail.slice(0, 80)})`);
+        log.debug(`AI 보조: 판정 응답을 파싱하지 못해 재요청합니다(${got.detail.slice(0, 80)})`);
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);

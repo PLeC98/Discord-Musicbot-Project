@@ -108,7 +108,7 @@ async function removeFile(fp: string): Promise<boolean> {
     if (result === "ok") return true;
     if (result === "late") {
       stuckFiles.add(target);
-      log.warn(`캐시 파일 삭제가 ${removeTimeoutMs / 1000}초 안에 끝나지 않아 이번 실행 동안 건너뜁니다(다른 프로그램이 파일을 쥐고 있을 수 있습니다): ${path.basename(target)}`);
+      log.warn(`캐시 파일 삭제가 ${removeTimeoutMs / 1000}초 안에 끝나지 않아 이번 실행에서는 건너뜁니다(다른 프로세스가 파일을 점유 중일 수 있음): ${path.basename(target)}`);
       return false;
     }
     log.debug(`캐시 파일을 삭제하지 못했습니다: ${path.basename(target)} | ${messageOf(result)}`);
@@ -370,7 +370,7 @@ async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResul
     conn().exec("VACUUM");
   } catch (error) {
     // 파일 크기만 못 줄일 뿐 초기화는 끝났다
-    log.debug(`캐시 DB 파일 줄이기 실패: ${messageOf(error)}`);
+    log.debug(`캐시 DB 파일 압축(VACUUM) 실패: ${messageOf(error)}`);
   }
   return { removed: files.removed, kept: files.kept, freedBytes: files.freedBytes, cleared };
 }
@@ -463,7 +463,7 @@ function freeDiskBytes() {
     const stat = fs.statfsSync(dir);
     return stat.bavail * stat.bsize;
   } catch (error) {
-    log.debug(`캐시 폴더 드라이브의 남은 크기 읽기 실패(남은 크기로 비우지 않는다): ${messageOf(error)}`);
+    log.debug(`캐시 폴더 드라이브의 여유 공간 조회 실패(여유 공간 기준 정리는 건너뜀): ${messageOf(error)}`);
     return Infinity;
   }
 }
@@ -726,7 +726,7 @@ function startPeriodicEviction() {
   if (evictInterval) clearInterval(evictInterval);
   evictEveryMs = config.cache.evictIntervalMs;
   evictInterval = setInterval(() => {
-    evictIfNeeded().catch((err: unknown) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", messageOf(err)));
+    evictIfNeeded().catch((err: unknown) => log.error("오디오 캐시 정기 정리 중 오류:", messageOf(err)));
   }, evictEveryMs);
   evictInterval.unref(); // 프로세스가 끝나는 것을 붙잡지 않는다
 }

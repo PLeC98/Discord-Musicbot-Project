@@ -164,7 +164,7 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
   dest.write(rec("다시 남김"));
   dest.close();
   assert.equal(notices.length, 2);
-  assert.match(notices[1], /다시 됨 \(실패 2회\)/);
+  assert.match(notices[1], /복구\(실패 2회\)/);
   const got = lines(path.join(dir, "bot.log"));
   assert.match(String(got[0].msg), /^파일 로그가 70초 동안 멈췄다가 다시 씁니다\. 그동안 3줄을 남기지 못했습니다$/);
   assert.equal(got[1].msg, "다시 남김");

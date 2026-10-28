@@ -109,7 +109,7 @@ class PlayerStream {
     this.subs.add(sub);
     res.on("close", sub.cleanup);
     res.on("error", (error: unknown) => {
-      log.debug(`재생 알림 연결 오류: ${messageOf(error)}`);
+      log.debug(`재생 상태 SSE 연결 오류: ${messageOf(error)}`);
       sub.cleanup();
     });
   }
@@ -145,7 +145,7 @@ class PlayerStream {
       try {
         sub.res.write(payload);
       } catch (error) {
-        log.trace(`재생 알림 쓰기 실패: ${messageOf(error)}`);
+        log.trace(`재생 상태 SSE 쓰기 실패: ${messageOf(error)}`);
         sub.cleanup();
       }
     }
@@ -157,7 +157,7 @@ class PlayerStream {
       try {
         sub.res.write(ping);
       } catch (error) {
-        log.trace(`재생 알림 하트비트 쓰기 실패: ${messageOf(error)}`);
+        log.trace(`재생 상태 SSE 하트비트 쓰기 실패: ${messageOf(error)}`);
         sub.cleanup();
       }
     }

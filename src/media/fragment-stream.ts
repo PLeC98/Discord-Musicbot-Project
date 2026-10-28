@@ -59,7 +59,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
         return await source.fetch(fragment, controller.signal);
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || attempt >= retryDelaysMs.length || closed) throw error;
-        log.trace(`세그먼트 받기 실패(다시 받기 ${attempt + 1}/${retryDelaysMs.length}): ${messageOf(error)}`);
+        log.trace(`세그먼트 다운로드 실패(재시도 ${attempt + 1}/${retryDelaysMs.length}): ${messageOf(error)}`);
         retries++;
         await sleep(retryDelaysMs[attempt]);
       } finally {

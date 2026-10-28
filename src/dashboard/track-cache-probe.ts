@@ -33,7 +33,7 @@ async function drain() {
       log.debug({ sub: "track-cache" }, `재생 테스트: ${next.url} | ${result.ok ? "됨" : result.code}`);
       sourceChecks.recordCheck(next.key, result.ok ? { ok: true, at: Date.now() } : { ok: false, code: result.code, at: Date.now() });
     } catch (error) {
-      log.debug({ sub: "track-cache" }, `재생 테스트를 끝내지 못했습니다(${next.url}): ${messageOf(error)}`);
+      log.debug({ sub: "track-cache" }, `재생 테스트 실패(${next.url}): ${messageOf(error)}`);
     }
   }
   running = null;

@@ -32,7 +32,7 @@ function bindProcess(pid: number | undefined) {
   const mask = ((2n ** BigInt(count) - 1n) << BigInt(first)).toString();
   execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).ProcessorAffinity = [IntPtr]${mask}`], { encoding: "buffer", windowsHide: true, timeout: 15_000 }, (error, _stdout, stderr) => {
     // 묶지 못해도 굽기는 그대로 돈다(코어를 다 쓸 뿐)
-    if (error) log.debug(`코어 묶기 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
+    if (error) log.debug(`CPU 코어 고정(affinity) 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
   });
 }
 

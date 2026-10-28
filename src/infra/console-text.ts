@@ -23,9 +23,9 @@ function oemCodePage(): number | null {
     const out = execFileSync("reg", ["query", "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage", "/v", "OEMCP"], { encoding: "latin1", windowsHide: true, timeout: 5000 });
     const found = /OEMCP\s+REG_SZ\s+(\d+)/.exec(out);
     oem = found ? Number(found[1]) : null;
-    if (oem === null) log.warn("콘솔 코드 페이지를 읽지 못했습니다(OEMCP 값 없음). 바깥 프로그램의 오류 글이 깨질 수 있습니다");
+    if (oem === null) log.warn("콘솔 코드 페이지를 확인하지 못했습니다(OEMCP 값 없음). 외부 프로세스의 오류 메시지가 깨질 수 있습니다");
   } catch (error) {
-    log.warn(`콘솔 코드 페이지를 읽지 못했습니다. 바깥 프로그램의 오류 글이 깨질 수 있습니다: ${messageOf(error)}`);
+    log.warn(`콘솔 코드 페이지를 확인하지 못했습니다(외부 프로세스의 오류 메시지가 깨질 수 있음): ${messageOf(error)}`);
   }
   return oem;
 }

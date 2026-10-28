@@ -165,7 +165,7 @@ async function _refresh(videoId: string) {
     if (entry) entry.promise = Promise.resolve({ raw, source: "live" });
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.debug(`SponsorBlock 구간 새로 고치기 실패: ${videoId} | ${messageOf(error)}`);
+    log.debug(`SponsorBlock 구간 새로고침 실패: ${videoId} | ${messageOf(error)}`);
   }
 }
 

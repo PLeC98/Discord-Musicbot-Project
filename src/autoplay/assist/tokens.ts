@@ -51,7 +51,7 @@ let lastId = 0;
 function spawn() {
   const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
   one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
-    if (problem) log.warn(`젬마 토크나이저 파일을 읽지 못해 tik 로 어림합니다: ${problem}`);
+    if (problem) log.warn(`Gemma 토크나이저 파일을 읽지 못해 tik으로 추산합니다: ${problem}`);
     const job = waiting.get(id);
     if (!job) return;
     waiting.delete(id);
@@ -60,7 +60,7 @@ function spawn() {
     else job.reject(new Error(error || "토큰을 세지 못했습니다"));
   });
   one.on("error", (error) => {
-    log.warn(`토큰 세는 스레드가 멈췄습니다(${messageOf(error)}). 다음 세기에 다시 시작합니다`);
+    log.warn(`토큰 계산 워커가 중단됐습니다(${messageOf(error)}). 다음 계산 시 다시 시작합니다`);
     stop(one, error);
   });
   one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));
@@ -91,7 +91,7 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
-      log.warn(`토큰 세기가 ${timeoutMs / 1000}초를 넘겨 멈춥니다(${tokenizer} · ${chars}자). 다음 세기에 다시 시작합니다`);
+      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 중단합니다(${tokenizer} · ${chars}자). 다음 계산 시 다시 시작합니다`);
       stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });
@@ -156,7 +156,7 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
-    log.debug(`앤트로픽 토큰 세기 실패(어림으로): HTTP ${res.status}`);
+    log.debug(`Anthropic 토큰 계산 실패(추산값 사용): HTTP ${res.status}`);
     return null;
   }
   const json = (await res.json()) as { input_tokens?: unknown } | null;

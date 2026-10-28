@@ -42,7 +42,7 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
       // 토큰이 만료됐거나 사용자가 디스코드에서 승인을 거뒀다
       if (status === 401) return res.json(relogin);
       if (status === 429) return sendProblem(res, "rate-limited");
-      log.warn(`초대 화면의 서버 목록을 디스코드에서 받지 못했습니다: ${status ? `상태 코드 ${status}` : messageOf(error)}`);
+      log.warn(`초대 화면의 서버 목록을 디스코드에서 불러오지 못했습니다: ${status ? `상태 코드 ${status}` : messageOf(error)}`);
       sendProblem(res, "unknown-error");
     }
   });

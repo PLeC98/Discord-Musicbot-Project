@@ -96,7 +96,7 @@ function dropUnplayed(pb: CurrentPlayback | null) {
   try {
     resource.playStream.destroy();
   } catch (error) {
-    log.debug(`재생하지 못한 리소스 닫기 실패: ${messageOf(error)}`);
+    log.debug(`미재생 오디오 리소스 해제 실패: ${messageOf(error)}`);
   }
 }
 
@@ -140,7 +140,7 @@ function starvedDetail(pb: CurrentPlayback | null) {
 }
 
 // 채널 알림을 못 보낸 것(권한 · 삭제된 채널)은 재생을 막지 않는다
-const noticeFailed = (error: unknown) => log.warn(`채널 알림을 보내지 못했습니다: ${messageOf(error)}`);
+const noticeFailed = (error: unknown) => log.warn(`채널 알림 전송 실패: ${messageOf(error)}`);
 
 const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 /** 다운로드가 고칠 수 있는 곡 정보 */
@@ -525,7 +525,7 @@ class Player {
     const ended = codeOf(error) === "live-ended";
     if (liveReopen) return ended ? ({ ok: false, code: "live-ended" } satisfies PlayResult) : ({ ok: false, code: "live-reopen-failed", error } satisfies PlayResult);
     if (ended) {
-      log.info(`방송이 끝나 틀지 않고 넘깁니다: ${this._trackLabel()} | 열어 보니 라이브가 아님`);
+      log.info(`종료된 라이브 방송이라 재생하지 않고 넘깁니다: ${this._trackLabel()} | 확인 결과 라이브 아님`);
       await this.handleError(error, { tell: true, counted: false });
       return { ok: false, code: "live-ended" } satisfies PlayResult;
     }
@@ -543,7 +543,7 @@ class Player {
   _downloadAlongside(track: QueuedTrack, streamInfo: { duration?: number | null } | null) {
     const seconds = streamInfo?.duration || track.duration;
     if (tooLongToCache(seconds)) {
-      log.debug(`길이 ${Math.round(seconds / 60)}분이라 캐시하지 않고 스트림으로만 틉니다: ${this._trackLabel(track)}`);
+      log.debug(`길이가 ${Math.round(seconds / 60)}분이어서 캐시하지 않고 스트림으로만 재생합니다: ${this._trackLabel(track)}`);
       return null;
     }
     return { start: () => this._startBackgroundDownload(), filePath: this.downloader.trackFilePath(track), wait: (file: string) => TrackDownloader.waitFor(file) };
@@ -558,7 +558,7 @@ class Player {
     this.downloader
       .downloadTrack(trackToDownload)
       .then((file) => {
-        log.debug(`백그라운드 캐시 다운로드 끝: ${this._trackLabel(trackToDownload)} → ${file}`);
+        log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(trackToDownload)} → ${file}`);
         if (this.currentTrack === trackToDownload) this._learnLength(trackToDownload);
         if (this._noteTrackInfo(trackToDownload, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
       })
@@ -696,7 +696,7 @@ class Player {
    * 무음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
    */
   _stopWith(reason: string, { force = false }: { force?: boolean } = {}) {
-    if (this._endReason && this._endReason !== reason) log.debug(`이미 멈추는 중(원인=${this._endReason}). ${reason} 은 버린다: ${this._trackLabel()}`);
+    if (this._endReason && this._endReason !== reason) log.debug(`이미 정지 처리 중(원인=${this._endReason})이므로 ${reason} 요청은 무시합니다: ${this._trackLabel()}`);
     this._endReason ??= reason;
     if (force || this.audioPlayer.state.status !== AudioPlayerStatus.Playing) {
       this._clearSilentStop();
@@ -708,7 +708,7 @@ class Player {
     this._silentStop = setTimeout(() => {
       this._silentStop = null;
       if (this.audioPlayer.state.status === AudioPlayerStatus.Idle) return;
-      log.debug(`무음 멈춤이 ${SILENT_STOP_CAP_MS}ms 안에 끝나지 않아 바로 멈춥니다(상태=${this.audioPlayer.state.status}): ${this._trackLabel()}`);
+      log.debug(`무음 정지가 ${SILENT_STOP_CAP_MS}ms 안에 끝나지 않아 즉시 정지합니다(상태=${this.audioPlayer.state.status}): ${this._trackLabel()}`);
       this.audioPlayer.stop(true);
     }, SILENT_STOP_CAP_MS);
     this._silentStop.unref?.();
@@ -832,7 +832,7 @@ class Player {
     }
     playerEvents.disposed(this, reason);
     // 패널은 정리가 끝난 뒤에. 패널 참조(텍스트 채널 · 메시지)를 놓기 전에 끝난 모양으로 고친다
-    if (panel) await playerEvents.ended(this, panel, end).catch((error) => log.warn(`끝난 패널 고치기 실패: ${messageOf(error)}`));
+    if (panel) await playerEvents.ended(this, panel, end).catch((error) => log.warn(`종료된 재생 패널 갱신 실패: ${messageOf(error)}`));
     this._dropPanel();
   }
 
@@ -1137,7 +1137,7 @@ class Player {
   async _reopenLive(label: string) {
     const reopened = await this.play(0, { liveReopen: true });
     if (reopened.ok || reopened.code === "disposed") return true;
-    if (reopened.code === "live-ended") log.info(`방송이 끝나 다음 곡으로 넘깁니다: ${label} | 다시 열어 보니 라이브가 아님`);
+    if (reopened.code === "live-ended") log.info(`라이브 방송이 종료되어 다음 곡으로 넘깁니다: ${label} | 재확인 결과 라이브 아님`);
     else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${failureReason(reopened.error, YouTube.cookiesConfigured())}`);
     else log.warn(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${reopened.code}`);
     return false;
@@ -1204,7 +1204,7 @@ class Player {
       trackState.shiftNext(this);
       await this.play(0);
       // 패널 고치기(디스코드 메시지 수정)는 기다리지 않는다. 연달아 넘기면 요청 제한에 걸려 끝 처리가 그만큼 붙들린다
-      playerEvents.refresh(this).catch((error) => log.warn(`다음 곡 패널 고치기 실패: ${messageOf(error)}`));
+      playerEvents.refresh(this).catch((error) => log.warn(`다음 곡 패널 갱신 실패: ${messageOf(error)}`));
       return true;
     }
     return this.autoplay ? this._continueAutoplay(this.autoplay) : false;

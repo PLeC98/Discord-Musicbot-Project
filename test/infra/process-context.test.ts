@@ -61,7 +61,7 @@ test("메모리: tasklist CSV(자릿점은 로캘마다) · ps 의 RSS 를 MB �
 
 test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코드와 stderr, 실행조차 못 했는지", () => {
   const failed = (fields: object) => Object.assign(new Error("Command failed: tasklist /FO CSV /NH"), fields);
-  assert.equal(memoryInternals.failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초를 넘겨 끊음(SIGTERM)");
+  assert.equal(memoryInternals.failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초 초과로 강제 종료(SIGTERM)");
   assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from("ERROR: Invalid argument.\r\n")), "종료 코드 1 · ERROR: Invalid argument.");
   assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.alloc(0)), "종료 코드 1");
   assert.equal(memoryInternals.failure(Object.assign(new Error("spawn tasklist ENOENT"), { code: "ENOENT" }), Buffer.alloc(0)), "spawn tasklist ENOENT");

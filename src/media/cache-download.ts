@@ -308,7 +308,7 @@ class TrackDownloader {
       // 다운로드한 양(봇 상태 탭의 다운로드). 먼저 끝낸 쪽이 있어 버려도 다운로드한 것은 다운로드한 것이다
       addDownloaded(fsSync.statSync(tempPath).size);
       const mine = await publish(tempPath, filepath);
-      if (!mine) log.debug(`다른 쪽이 먼저 다운로드해 둔 캐시를 쓴다: "${logTitle(track.title)}"`);
+      if (!mine) log.debug(`다른 작업이 먼저 다운로드한 캐시 파일을 사용합니다: "${logTitle(track.title)}"`);
 
       correctInfo(track, got);
       const shown = shownDuration(track, measured, "measured");
@@ -320,7 +320,7 @@ class TrackDownloader {
       // 예열이 앞으로 여러 곡을 미리 다운로드하므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
-      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
+      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 측정 ${secs(measureMs)}초`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.
@@ -424,7 +424,7 @@ class TrackDownloader {
         fsSync.unlinkSync(rawPath);
       } catch (error) {
         // 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다
-        if (codeOf(error) !== "ENOENT") log.debug(`받은 원본 임시 파일 삭제 실패: ${rawPath} | ${messageOf(error)}`);
+        if (codeOf(error) !== "ENOENT") log.debug(`다운로드한 원본 임시 파일 삭제 실패: ${rawPath} | ${messageOf(error)}`);
       }
     }
   }
@@ -450,7 +450,7 @@ class TrackDownloader {
           ...formatOf(info),
         };
       } catch (error) {
-        log.debug(`info.json 읽기 실패(제목 · 길이 · 버전 없이): ${p} | ${messageOf(error)}`);
+        log.debug(`info.json 읽기 실패(제목 · 길이 · 버전 생략): ${p} | ${messageOf(error)}`);
         try {
           fsSync.unlinkSync(p);
         } catch (unlinkError) {
@@ -503,7 +503,7 @@ class TrackDownloader {
     try {
       return fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
     } catch (error) {
-      if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일을 보지 못함: ${file} | ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일 확인 실패: ${file} | ${messageOf(error)}`);
       return null;
     }
   }

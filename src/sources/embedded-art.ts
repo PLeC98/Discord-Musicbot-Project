@@ -70,7 +70,7 @@ function versionOf(audioKey: string): { version: string; file: string | null } {
     const stat = fs.statSync(row.file_path);
     return { version: `file:${row.downloaded_at ?? `${stat.size}-${stat.mtimeMs}`}`, file: row.file_path };
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일을 보지 못함(원본으로): ${audioKey} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일 확인 실패(원본 사용): ${audioKey} | ${messageOf(error)}`);
     return { version: "source", file: null };
   }
 }
@@ -99,7 +99,7 @@ function keepImage(audioKey: string, cover: Cover): Art {
 function settle(audioKey: string, version: string, tags: TagInfo, cover: Cover | null) {
   const art = cover ? keepImage(audioKey, cover) : null;
   keep(audioKey, { version, state: "found", tags, art });
-  log.debug(`파일 태그: ${audioKey} | 제목 ${tags.title ? "있음" : "없음"} · 그림 ${art ? `${art.width}×${art.height}` : "없음"} (${version === "source" ? "원본" : "캐시 파일"})`);
+  log.debug(`파일 태그: ${audioKey} | 제목 ${tags.title ? "있음" : "없음"} · 앨범아트 ${art ? `${art.width}×${art.height}` : "없음"} (${version === "source" ? "원본" : "캐시 파일"})`);
   if (art || tags.title || tags.artist || tags.album) listener?.(audioKey, { tags, art });
 }
 
@@ -166,7 +166,7 @@ function pump() {
     running.add(next.audioKey);
     find(next.audioKey, next.url)
       .catch((error) => {
-        log.debug(`파일 태그를 찾지 못함(${Math.round(RETRY_MS / 60_000)}분 뒤 다시): ${next.audioKey} | ${messageOf(error)}`);
+        log.debug(`파일 태그 조회 실패(${Math.round(RETRY_MS / 60_000)}분 뒤 재시도): ${next.audioKey} | ${messageOf(error)}`);
         if (results.get(next.audioKey)?.state !== "failed") keep(next.audioKey, { version: "source", state: "failed", retryAt: Date.now() + RETRY_MS });
       })
       .finally(() => {

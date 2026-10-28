@@ -112,12 +112,12 @@ function capabilities(): Capabilities {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
       if (result.error) {
-        log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
+        log.debug(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
         return "";
       }
       return `${result.stdout || ""}${result.stderr || ""}`;
     } catch (error) {
-      log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
+      log.debug(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
       return "";
     }
   };

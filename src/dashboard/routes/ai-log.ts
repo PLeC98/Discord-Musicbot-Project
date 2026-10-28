@@ -69,7 +69,7 @@ aiLogRouter.get("/logs/:id", requireOwner, (req, res) => {
 aiLogRouter.delete("/logs", requireOwner, (req, res) => {
   const { count } = requests.size();
   requests.clearRequests();
-  log.warn({ sub: "admin" }, `대시보드에서 AI 리퀘스트 로그 전체 삭제(${count}줄, 사용량 통계는 남김). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, `대시보드에서 AI 리퀘스트 로그 전체 삭제(${count}줄, 사용량 통계 유지). 실행 ${ranBy(req)}`);
   res.json({ success: true });
 });
 
@@ -84,7 +84,7 @@ aiLogRouter.get("/usage", requireOwner, (req, res) => {
 
 aiLogRouter.delete("/usage", requireOwner, (req, res) => {
   requests.clearUsage();
-  log.warn({ sub: "admin" }, `대시보드에서 AI 사용량 통계 전체 삭제(리퀘스트 로그는 남김). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, `대시보드에서 AI 사용량 통계 전체 삭제(리퀘스트 로그 유지). 실행 ${ranBy(req)}`);
   res.json({ success: true });
 });
 

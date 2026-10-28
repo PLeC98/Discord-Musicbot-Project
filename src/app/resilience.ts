@@ -73,7 +73,7 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
   // 이 줄 다음에 프로세스가 죽는다. 레벨로 필터링할 때 "봇이 죽은 순간"만 추출할 수 있어야 한다
   const stack = error && typeof error === "object" && "stack" in error ? error.stack : undefined;
   flog.fatal(
-    `서버를 가리지 않는 오류가 쏟아져 봇을 내립니다. 재생 세션은 저장했습니다(다시 시작하면 이어서 틉니다).
+    `특정 서버와 무관한 오류가 폭주해 봇을 종료합니다. 재생 세션은 저장했습니다(다시 시작하면 이어서 재생합니다).
 ${String(stack || error)}`,
   );
   exit();
@@ -98,10 +98,10 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
       return;
     }
     // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이 · 네트워크 오류는 discord.js 가 알아서 재연결한다
-    if (errorKind(error) === "network-error") coreLog.warn(`경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
-    else coreLog.error(`경계가 빠진 위치에서 새어 나온 오류 (${source}):`, error);
+    if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
+    else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
     if (flooding()) {
-      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 모르는 오류가 ${FLOOD_MAX}번을 넘었습니다`);
+      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과했습니다`);
       fatalShutdown(players, error, { exit, record });
     }
   };

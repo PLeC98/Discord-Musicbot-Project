@@ -128,7 +128,7 @@ function staged(dir = dbDir()): string | null {
     return (JSON.parse(fs.readFileSync(path.join(dir, `${STAGED}.json`), "utf8")) as { from?: string }).from ?? STAGED;
   } catch (error) {
     // 설명 파일이 없으면 예약한 파일 이름으로 부른다
-    if (codeOf(error) !== "ENOENT") log.debug(`예약한 설정 DB 의 설명 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`예약한 설정 DB의 설명 읽기 실패: ${messageOf(error)}`);
     return STAGED;
   }
 }
@@ -144,7 +144,7 @@ function keepCurrent(dir: string, current: string) {
       db.close();
     }
   } catch (error) {
-    log.warn(`교체할 설정 DB 를 정리하지 못해 있는 그대로 남깁니다: ${messageOf(error)}`);
+    log.warn(`복원할 설정 DB 정리 실패(원본 그대로 적용): ${messageOf(error)}`);
   }
   fs.mkdirSync(backupsOf(dir), { recursive: true });
   const kept = path.join(backupsOf(dir), `settings-before-restore-${stamp(new Date())}.db`);

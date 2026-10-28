@@ -23,7 +23,7 @@ async function bakeCover(data: Uint8Array): Promise<Cover | null> {
     const { data: jpeg, info } = await sharp(data, { limitInputPixels: MAX_PIXELS, pages: 1 }).rotate().flatten().resize(SIDE, SIDE, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: QUALITY, mozjpeg: true }).toBuffer({ resolveWithObject: true });
     return { jpeg, width: info.width, height: info.height };
   } catch (error) {
-    log.debug(`곡 그림을 읽지 못함(그림 없이): ${messageOf(error)}`);
+    log.debug(`앨범아트를 불러오지 못함(앨범아트 없이 진행): ${messageOf(error)}`);
     return null;
   }
 }
@@ -39,7 +39,7 @@ async function checkCover(data: Uint8Array): Promise<Cover | null> {
     const { format, width = 0, height = 0 } = await sharp(data, { limitInputPixels: MAX_PIXELS }).metadata();
     if (isJpeg && format === "jpeg" && width > 0 && height > 0 && width <= SIDE && height <= SIDE) return { jpeg: Buffer.from(data), width, height };
   } catch (error) {
-    log.debug(`곡 그림을 확인하지 못함(그림 없이): ${messageOf(error)}`);
+    log.debug(`앨범아트를 확인하지 못함(앨범아트 없이 진행): ${messageOf(error)}`);
     return null;
   }
   return bakeCover(data);

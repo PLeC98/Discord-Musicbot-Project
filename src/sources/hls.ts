@@ -183,7 +183,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
         unchanged = true;
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || ++failures >= RELOAD_FAILURES) throw error;
-        log.trace(`라이브 HLS 목록 다시 받기 실패(${failures}/${RELOAD_FAILURES}): ${messageOf(error)}`);
+        log.trace(`라이브 HLS 플레이리스트 갱신 실패(${failures}/${RELOAD_FAILURES}): ${messageOf(error)}`);
       }
     }
   }

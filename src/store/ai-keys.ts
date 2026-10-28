@@ -52,7 +52,7 @@ function allValues(providers: readonly string[]) {
 function warnLegacyFile(dir = PROJECT.config) {
   const file = path.join(dir, "ai-keys.yaml");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {
-    log.warn("config/ai-keys.yaml 은 이제 읽지 않습니다. 운영자 패널의 AI 보조 탭에서 키를 다시 입력하고 이 파일은 삭제하세요");
+    log.warn("config/ai-keys.yaml은 이제 읽지 않습니다. 운영자 패널의 AI 보조 탭에서 키를 다시 입력하고 이 파일은 삭제하세요");
   }
 }
 

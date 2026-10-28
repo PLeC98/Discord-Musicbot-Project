@@ -21,6 +21,7 @@ import * as recentInfo from "./recent-info.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { clearOutput, familyOf } from "../ytdlp-spawn.ts";
+import { josa } from "../../rules/josa.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
@@ -54,7 +55,7 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
     // 서명된 미디어 주소가 어긋난 경우. 한 번 더 받아 새 주소를 얻는다.
     // 클라이언트 목록을 안 쓰는 설치에서는 이 재시도가 유일한 회복 수단이다.
     if (errors.isStaleMediaError(error)) {
-      log.warn({ tags: ["retry"] }, `미디어 주소가 어긋났습니다 (${videoId || url}). 다시 받습니다`);
+      log.warn({ tags: ["retry"] }, `미디어 주소가 거절돼 다시 추출합니다 (${videoId || url})`);
       await new Promise((done) => setTimeout(done, STALE_RETRY_MS));
       // 다운로드면 받다 만 파일을 지운다(다시 받을 때 포맷이 다르면 이어 붙인 파일이 깨진다)
       const output = buildOptions(known).output;
@@ -117,13 +118,13 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
       const next = clients[i + 1];
       if (errors.isSkippedClientError(error)) {
         lastError = error;
-        log.debug(`${client} 는 쿠키를 받지 않아 yt-dlp 가 건너뛰었습니다${next ? `. ${next} 로 전환합니다` : ""}`);
+        log.debug(`${client}${josa(client, "은")} 쿠키를 받지 않아 yt-dlp가 건너뛰었습니다${next ? `. ${next}${josa(next, "으로")} 전환합니다` : ""}`);
         continue;
       }
       if (!errors.isClientFault(error)) throw error; // 영상·네트워크 문제. 클라이언트 바꿔봐야 소용없다
       lastError = error;
       table.record(client, false);
-      log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors.faultReason(error)})${next ? `. ${next} 로 전환합니다` : ""}`);
+      log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors.faultReason(error)})${next ? `. ${next}${josa(next, "으로")} 전환합니다` : ""}`);
     }
   }
 
@@ -190,7 +191,7 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
     // 그러면 우리 폴백 루프가 첫 항목에서 끝나 뒤 목록이 통째로 사문화된다. 이건 알려야 한다.
     const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
     if (skipped) {
-      log.warn(`${skipped[1]} 은(는) 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다. 유튜브 탭의 "유튜브 클라이언트 순서"에서 고쳐 주세요`);
+      log.warn(`${skipped[1]}${josa(skipped[1], "은")} 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다. 유튜브 탭의 "유튜브 클라이언트 순서"에서 고쳐 주세요`);
       continue;
     }
     if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {
@@ -243,7 +244,7 @@ async function fromInfo(info: unknown, options: Flags, output: string, exec: Run
     return { result: await exec("", { ...flags, loadInfoJson: file }) };
   } catch (error) {
     if (!FETCH_FAILED.has(String((error as { code?: unknown } | null)?.code))) throw error;
-    log.debug(`받아 둔 영상 정보로 받지 못해 추출부터 다시 받습니다: ${errors.briefError(error, 1)}`);
+    log.debug(`캐시된 영상 정보로 다운로드하지 못해 정보 추출부터 다시 시도합니다: ${errors.briefError(error, 1)}`);
     clearOutput(output);
     return null;
   } finally {

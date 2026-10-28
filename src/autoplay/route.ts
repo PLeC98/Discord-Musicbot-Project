@@ -82,7 +82,7 @@ function markDead(urlOrTrack: string | { audioUrl?: string | null; [field: strin
   const oldest = dead.values().next().value;
   if (dead.size >= DEAD_MAX && oldest !== undefined) dead.delete(oldest);
   dead.add(id);
-  log.debug(`못 트는 영상으로 표시: ${id}`);
+  log.debug(`재생 불가 영상으로 표시: ${id}`);
   return true;
 }
 

@@ -40,7 +40,7 @@ class IdleLeave {
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
       () => {
-        this._aloneExpired().catch((error: unknown) => log.error("혼자 남음 정리 실패:", error));
+        this._aloneExpired().catch((error: unknown) => log.error("빈 음성 채널 자동 퇴장 정리 실패:", error));
       },
       Math.max(this.aloneMs, 0),
     );

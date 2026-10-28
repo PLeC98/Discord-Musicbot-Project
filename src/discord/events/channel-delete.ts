@@ -6,6 +6,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import type { ClientEvent } from "../../app/main.ts";
+import { josa } from "../../rules/josa.ts";
 
 const exported: ClientEvent<Events.ChannelDelete> = {
   name: Events.ChannelDelete,
@@ -14,7 +15,7 @@ const exported: ClientEvent<Events.ChannelDelete> = {
     const guild = channel.guild;
     if ((await GuildSettingsManager.getBotChannel(guild.id)) !== channel.id) return;
     await GuildSettingsManager.clearBotChannel(guild.id);
-    log.info(`전용 채널 "${channel.name}" 이 삭제되어 전용 채널 설정을 비웁니다 (${guild.name})`);
+    log.info(`전용 채널 "${channel.name}"${josa(channel.name, "이")} 삭제되어 전용 채널 설정을 비웁니다 (${guild.name})`);
     await panels.onBotChannelChanged(guild);
   },
 };

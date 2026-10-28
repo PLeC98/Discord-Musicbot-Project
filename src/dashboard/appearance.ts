@@ -84,14 +84,14 @@ function loaded(): Map<number, Slot> {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.debug(`파비콘 자리 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`파비콘 경로 읽기 실패: ${messageOf(error)}`);
   }
   let raw: unknown = null;
   try {
     raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8"));
   } catch (error) {
     // 목록이 없거나 망가졌다: 빈 슬롯으로
-    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX})을 읽지 못해 빈 슬롯으로 시작합니다(목록에 없는 그림 파일은 삭제): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX})을 읽지 못해 빈 슬롯으로 시작합니다(목록에 없는 이미지 파일은 삭제): ${messageOf(error)}`);
   }
   const present = new Set(names);
   slots = slotsFrom(raw, (id) => present.has(`${id}.png`) && present.has(`${id}.reserve.png`));
@@ -139,7 +139,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
     const [png, reserve] = await Promise.all([draw(size), draw(reserveSide)]);
     return { ok: true, image: { id: newId(), bytes: raw.length, width, height, vector, at: Date.now(), reserveSide }, png, reserve };
   } catch (error) {
-    log.debug(`파비콘 그리기 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
+    log.debug(`파비콘 변환 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
     return refused("bad-image");
   }
 }
@@ -228,10 +228,10 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (res.ok) input = Buffer.from(await res.arrayBuffer());
-    else log.debug(`봇 프로필 그림 받기 실패: HTTP ${res.status}`);
+    else log.debug(`봇 프로필 이미지 다운로드 실패: HTTP ${res.status}`);
   } catch (error) {
     // 디스코드에 닿지 못했다. 다음 요청에서 다시
-    log.debug(`봇 프로필 그림 받기 실패: ${messageOf(error)}`);
+    log.debug(`봇 프로필 이미지 다운로드 실패: ${messageOf(error)}`);
     return null;
   }
   avatar = { url, input };

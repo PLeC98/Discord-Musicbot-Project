@@ -268,7 +268,7 @@ class YtdlpBinary {
       this.cleanup();
       log.info(`yt-dlp ${version} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${seeded ? " | 설치 때 다운로드한 것을 옮겨 옴" : ""}`);
     } catch (error) {
-      log.warn(`yt-dlp 버전을 갖추지 못했습니다: ${messageOf(error)} | 쓰는 경로=${this.path()}`);
+      log.warn(`yt-dlp 바이너리 준비 실패: ${messageOf(error)} | 사용 경로=${this.path()}`);
       return;
     }
     if (mode === "off") return;

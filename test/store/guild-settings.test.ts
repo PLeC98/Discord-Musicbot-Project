@@ -240,7 +240,7 @@ test("필드 하나의 모양이 틀려도 다른 필드는 읽는다", () => {
   const warned = sink.buffer.slice(from).filter((e) => e.text.startsWith("서버 g5 설정의"));
   assert.deepEqual(
     warned.map((e) => e.text),
-    ["서버 g5 설정의 djRoleIds, playlistAddMax 값이 틀려 그 값은 기본값을 씁니다"],
+    ["서버 g5 설정의 djRoleIds, playlistAddMax 값 검증 실패(기본값 사용)"],
     "곡마다 읽어도 같은 문서는 한 번만 알린다",
   );
 });

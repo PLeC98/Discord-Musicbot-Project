@@ -49,7 +49,7 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
       if (restart) res.on("finish", () => restart(by));
     }
   } catch (error) {
-    log.error({ sub: "admin" }, `초기화(${request.kind})를 하지 못했습니다: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, `초기화(${request.kind}) 실패: ${messageOf(error)}`);
     return sendProblem(res, "reset-failed", {}, { detail: messageOf(error) });
   }
   res.json(done);

@@ -131,7 +131,7 @@ class VoiceLink {
   _armUnstick(connection: VoiceConnection, channelId: string, tries: number) {
     this._clearUnstick();
     this.stuckTimer = setTimeout(() => {
-      this._unstick(connection, channelId, tries).catch((error: unknown) => log.warn(`답 없는 참가 풀기 실패: ${messageOf(error)}`));
+      this._unstick(connection, channelId, tries).catch((error: unknown) => log.warn(`응답 없는 음성 채널 참가 요청 정리 실패: ${messageOf(error)}`));
     }, STUCK_MS);
   }
 
@@ -151,7 +151,7 @@ class VoiceLink {
     if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling) return;
     if (at === undefined) return this._armUnstick(connection, channelId, tries);
     if (tries === 0 || at !== channelId) {
-      log.debug(`참가 요청에 답이 없어 다시 보냅니다: ${this._label()}`);
+      log.debug(`음성 채널 참가 요청에 응답이 없어 재전송합니다: ${this._label()}`);
       connection.rejoin();
       return this._armUnstick(connection, channelId, tries + 1);
     }
@@ -161,7 +161,7 @@ class VoiceLink {
       this.selfLeave = null;
       return this._armUnstick(connection, channelId, tries);
     }
-    log.warn(`채널에 남아 있던 봇을 빼고 다시 참가합니다: ${this._label()} | 참가 요청에 답이 없고 디스코드에는 봇이 이 채널에 있음`);
+    log.warn(`채널에 남아 있던 이전 연결을 끊고 다시 참가합니다: ${this._label()} | 참가 요청 응답 없음(디스코드상에는 채널에 남아 있음)`);
     connection.rejoin();
   }
 
@@ -175,7 +175,7 @@ class VoiceLink {
       return (await this.player.guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
     } catch (error) {
       if (codeOf(error) === UNKNOWN_VOICE_STATE) return null;
-      log.debug(`봇의 음성 상태를 디스코드에 묻지 못해 기다립니다: ${messageOf(error)}`);
+      log.debug(`디스코드에서 봇의 음성 상태를 조회하지 못해 대기합니다: ${messageOf(error)}`);
       return undefined;
     }
   }
@@ -184,7 +184,7 @@ class VoiceLink {
   _adapterCreator() {
     const player = this.player;
     return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
-      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${guildName(player)})`),
+      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청 대상을 이동된 채널로 변경해 보냅니다: ${from} → ${to} (${guildName(player)})`),
       onSend: (channelId: string, rewritten: boolean) => {
         if (!rewritten) this.lastPlainJoin = { channelId, at: Date.now() };
       },
@@ -250,7 +250,7 @@ class VoiceLink {
     this.state = "waiting";
     this.waitCloseCode = closeCode ?? null;
     const gen = ++this.gen;
-    log.warn(`연결 끊김: ${this._label()} | 사유=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`);
+    log.warn(`연결 끊김: ${this._label()} | 원인=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`);
     this._clearWait();
     this.waitTimer = setTimeout(() => {
       if (gen !== this.gen || this.state !== "waiting") return;
@@ -293,7 +293,7 @@ class VoiceLink {
     this.recoveryAttempts = 0;
     this.reattachRefused = false;
     const gen = ++this.gen;
-    log.warn(`연결 복구 시작: ${this._label()} | 까닭=${why} | 최대 ${this.maxRecoveryAttempts}회`);
+    log.warn(`연결 복구 시작: ${this._label()} | 원인=${why} | 최대 ${this.maxRecoveryAttempts}회`);
     this._recoverLoop(gen).catch((error: unknown) => log.error("연결 복구 루프 오류:", error));
   }
 
@@ -330,7 +330,7 @@ class VoiceLink {
     const reattach = Boolean(connection) && !this.reattachRefused && (at === undefined || at === channelId);
     try {
       if (connection && reattach && this._reattach(connection)) {
-        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 받아 둔 음성 서버 정보로 재연결합니다: ${this._label()}`);
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 캐시된 음성 서버 정보로 재연결합니다: ${this._label()}`);
         try {
           await this.lib.entersState(connection, VoiceConnectionStatus.Ready, RECOVER_READY_MS);
         } catch (error) {
@@ -378,13 +378,13 @@ class VoiceLink {
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
       if (this.selfLeave === oldState.channelId) {
         this.selfLeave = null;
-        log.debug(`스스로 나간 알림. 다시 참가를 기다립니다: ${this._label()}`);
+        log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가를 기다립니다: ${this._label()}`);
         return { left: false, moved: false, muteChanged: false };
       }
       // 재연결하는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
       // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다. 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
-        log.info(`디스코드가 봇을 음성 채널에서 뺐습니다. 재연결하는 중이라 쫓겨난 것으로 보지 않습니다: ${this._label()}`);
+        log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이므로 강제 퇴장으로 처리하지 않습니다: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
         return { left: false, moved: false, muteChanged: false };
       }
@@ -470,7 +470,7 @@ class VoiceLink {
     this.state = "closed";
     this._channelExists(channelId)
       .then((exists) => this.player.dispose(exists ? FORCED_OUT : CHANNEL_GONE))
-      .catch((error: unknown) => log.error("빠진 뒤 정리 실패:", error));
+      .catch((error: unknown) => log.error("음성 채널 퇴장 후 정리 실패:", error));
   }
 
   // 채널이 아직 있나. 캐시에 없으면 없다. 있으면 디스코드에 물어 없다는 답(10003)일 때만 없다(묻지 못하면 있다고 본다)
@@ -482,7 +482,7 @@ class VoiceLink {
       return Boolean(await channels.fetch(channelId, { force: true }));
     } catch (error) {
       if (codeOf(error) === UNKNOWN_CHANNEL) return false;
-      log.debug(`채널을 디스코드에 묻지 못해 있다고 봅니다: ${describeError(error)}`);
+      log.debug(`디스코드에서 채널을 조회하지 못해 채널이 존재하는 것으로 간주합니다: ${describeError(error)}`);
       return true;
     }
   }
@@ -522,7 +522,7 @@ class VoiceLink {
       this.lastBounceFix = now;
       this.lastMove = null;
       player.voiceChannel = target;
-      log.warn(`음성 채널이 옮겨진 직후 원래 채널로 되돌아와 다시 옮깁니다: "${target.name ?? target.id}" (${where})`);
+      log.warn(`음성 채널 이동 직후 원래 채널로 되돌아가 다시 이동합니다: "${target.name ?? target.id}" (${where})`);
       player.connection?.rejoin({ channelId: target.id, selfDeaf: false, selfMute: false });
       return true;
     }
@@ -569,7 +569,7 @@ class VoiceLink {
       connection.destroy(leave);
     } catch (error) {
       // 새 연결로 진행
-      log.debug(`옛 연결 부수기 실패: ${messageOf(error)}`);
+      log.debug(`이전 음성 연결 해제(destroy) 실패: ${messageOf(error)}`);
     }
   }
 

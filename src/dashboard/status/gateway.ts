@@ -62,7 +62,7 @@ function onError(error: Error, shardId: number) {
 
 function onReconnecting(shardId: number) {
   attempt += 1;
-  log.debug(`게이트웨이 연결이 끊겨 재연결하는 중입니다(${attempt}번째 시도).`);
+  log.debug(`게이트웨이 연결이 끊겨 재연결하는 중입니다(${attempt}번째 시도)`);
   announce(shardId);
 }
 
@@ -70,7 +70,7 @@ function onConnected(how: string) {
   // 처음 연결된 것은 재연결이 아니다. 열리기 전에 닫힌 것(시도 알림 없음)도 남긴다
   if (attempt || errors || closedBy) {
     if (attempt) reconnects += 1;
-    const line = `게이트웨이에 재연결했습니다(${how}, ${attempt}번 시도, 까닭: ${causeText()}).`;
+    const line = `게이트웨이 재연결: ${how} | 시도 ${attempt}회 | 원인=${causeText()}`;
     if (announced || routine()) log.info(line);
     else log.warn(line);
   }

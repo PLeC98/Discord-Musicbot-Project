@@ -47,7 +47,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    warnOnce(guildId, raw, `서버 ${guildId} 설정이 JSON 이 아니어서 기본값을 씁니다`);
+    warnOnce(guildId, raw, `서버 ${guildId} 설정 읽기 실패(기본값 사용): 올바른 JSON 형식이 아님`);
     return {};
   }
   const source = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
@@ -59,7 +59,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
     if (checked.success) doc[key] = checked.data;
     else wrong.push(key);
   }
-  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값이 틀려 그 값은 기본값을 씁니다`);
+  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값 검증 실패(기본값 사용)`);
   return doc as GuildDoc;
 }
 
@@ -220,7 +220,7 @@ async function clearBotChannel(guildId: string) {
     table.clearBotChannel(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("전용 채널 지우기 실패:", error);
+    log.error("전용 채널 설정 해제 실패:", error);
   }
   cache.delete(`${guildId}_botChannel`);
 }
@@ -257,7 +257,7 @@ async function clearDjRoles(guildId: string) {
     table.clearDjRoles(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("DJ 역할 지우기 실패:", error);
+    log.error("DJ 역할 설정 해제 실패:", error);
   }
   cache.delete(`${guildId}_djRoles`);
 }
@@ -281,7 +281,7 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
     return value;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("재생목록 한 번에 넣는 곡 수 읽기 실패(기본값을 쓴다):", error);
+    log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
     return null;
   }
 }
@@ -294,7 +294,7 @@ async function setPlaylistAddMax(guildId: string, count: number | null | undefin
     return true;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("재생목록 한 번에 넣는 곡 수 저장 실패:", error);
+    log.error("재생목록 1회 최대 추가 곡 수 저장 실패:", error);
     return false;
   }
 }
@@ -311,7 +311,7 @@ function resolvePlaylistAddMax(guildId: string): number {
       stored = table.getPlaylistAddMax(guildId);
       remember(guildId, "playlistAdd", stored);
     } catch (error) {
-      log.error("재생목록 한 번에 넣는 곡 수 읽기 실패(기본값을 쓴다):", error);
+      log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
       stored = null;
     }
   }
@@ -330,7 +330,7 @@ function resolveAgePlace(guildId: string): AgePlace {
     remember(guildId, "agePlace", value);
     return value;
   } catch (error) {
-    log.error("연령 제한 콘텐츠를 틀 곳 읽기 실패(연령 제한 채널에서만으로 본다):", error);
+    log.error("연령 제한 콘텐츠 허용 범위 읽기 실패(연령 제한 채널만 허용으로 적용):", error);
     return "channel";
   }
 }
@@ -342,7 +342,7 @@ async function setAgePlace(guildId: string, place: AgePlace) {
     return true;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("연령 제한 콘텐츠를 틀 곳 저장 실패:", error);
+    log.error("연령 제한 콘텐츠 허용 범위 저장 실패:", error);
     return false;
   }
 }
@@ -357,7 +357,7 @@ function resolveVolume(guildId: string): number {
       stored = table.getVolume(guildId);
       remember(guildId, "volume", stored);
     } catch (error) {
-      log.error("서버 볼륨 읽기 실패(기본 볼륨으로 시작한다):", error);
+      log.error("서버 볼륨 읽기 실패(기본 볼륨 사용):", error);
       stored = null;
     }
   }
@@ -389,7 +389,7 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
     return v;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역을 따른다):", error);
+    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
     return { enabled: null, categories: null };
   }
 }
@@ -425,7 +425,7 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
     per = table.getGuildSponsorBlock(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역을 따른다):", error);
+    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
     per = { enabled: null, categories: null };
   }
   return {

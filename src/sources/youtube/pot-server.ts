@@ -64,7 +64,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     }
     // 반대로 사용하겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
     if (!installed) {
-      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil 이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
+      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
       return;
     }
     const child = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });
@@ -78,7 +78,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       release();
       proc = null;
       if (stopping) return;
-      log.warn({ sub: "bgutil" }, `서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 재시작합니다`);
+      log.warn({ sub: "bgutil" }, `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 재시작합니다`);
       setTimeout(start, RESTART_MS);
     });
     log.debug({ sub: "bgutil" }, "POToken 서버 시작");
@@ -120,7 +120,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    log.warn({ sub: "bgutil" }, `${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
+    log.warn({ sub: "bgutil" }, `POToken 서버가 ${timeoutMs / 1000}초 안에 응답하지 않아 POToken 없이 봇을 기동합니다.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
     return false;
   }
 

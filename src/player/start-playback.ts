@@ -55,7 +55,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
       if (introEnd > 0) startMs = introEnd;
     } catch (error) {
       // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생
-      log.debug(`인트로 끝 조회 실패, 처음부터 틉니다: ${messageOf(error)}`);
+      log.debug(`인트로 종료 지점 조회 실패, 처음부터 재생합니다: ${messageOf(error)}`);
     }
   }
   return { ok: true, startMs };
@@ -108,7 +108,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     isLive: liveAnswer(streamInfo, cacheFile),
     sponsor: player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
       if (codeOf(error) === "DB_NOT_OPEN") throw error;
-      log.debug(`SponsorBlock 구간 조회 실패, 구간 없이 틉니다: ${messageOf(error)}`);
+      log.debug(`SponsorBlock 구간 조회 실패, 구간 건너뛰기 없이 재생합니다: ${messageOf(error)}`);
       return null;
     }),
   };

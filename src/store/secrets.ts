@@ -109,7 +109,7 @@ function read(name: string, binding: Binding = {}): Read {
     decipher.setAuthTag(row.tag);
     return { state: "ok", value: Buffer.concat([decipher.update(row.ciphertext), decipher.final()]).toString("utf8") };
   } catch {
-    log.warn(`비밀값 ${name} 이 풀리지 않습니다(저장된 행이 바뀌었거나 망가졌습니다). 대시보드에서 다시 입력하세요`);
+    log.warn(`비밀값 ${name} 복호화 실패(저장된 행이 변경되었거나 손상됨). 대시보드에서 다시 입력하세요`);
     return { state: "broken" };
   }
 }

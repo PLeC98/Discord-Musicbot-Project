@@ -134,12 +134,12 @@ async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   }
   if (result.kind === "uncompared") {
     sourceChecks.recordCheck(job.audioKey, { ok: true, at });
-    log.debug(`원본 다시 확인: 열림, 견주지 못함(${result.reason}) ${where}`);
+    log.debug(`원본 다시 확인: 열림, 비교 불가(${result.reason}) ${where}`);
     return;
   }
   if (result.kind === "gone") {
     sourceChecks.recordCheck(job.audioKey, { ok: false, code: result.code, at });
-    log.info(`캐시한 곡의 원본을 더 틀 수 없습니다(${result.code}). 캐시는 그대로 틉니다: ${where}`);
+    log.info(`캐시된 곡의 원본을 더 이상 재생할 수 없습니다(${result.code}). 캐시 파일은 그대로 사용합니다: ${where}`);
     return;
   }
   if (result.kind === "unknown") {
@@ -149,10 +149,10 @@ async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   }
   sourceChecks.recordCheck(job.audioKey, { ok: true, at, version: result.version });
   if (job.platform === "youtube") {
-    log.info(`캐시한 곡의 원본이 바뀌었습니다(${WHAT_CHANGED(result)}). 캐시는 그대로 두고 캐시 DB 에 알립니다: ${where}`);
+    log.info(`캐시된 곡의 원본이 변경됐습니다(${WHAT_CHANGED(result)}). 캐시 파일은 유지하고 캐시 DB에 표시합니다: ${where}`);
     return;
   }
-  log.info(`캐시한 곡의 원본이 바뀌었습니다(${WHAT_CHANGED(result)}). 캐시를 지우고 다음 재생 때 새로 받습니다: ${where}`);
+  log.info(`캐시된 곡의 원본이 변경됐습니다(${WHAT_CHANGED(result)}). 캐시 파일을 삭제하고 다음 재생 시 새로 다운로드합니다: ${where}`);
   replacing.set(job.audioKey, { expect: row.downloaded_at, title: job.title ?? row.title });
   await replace(job.audioKey);
 }
@@ -173,7 +173,7 @@ async function replace(audioKey: string) {
     return;
   }
   replacing.delete(audioKey);
-  if (removed.ok) log.info(`바뀐 원본의 캐시를 지웠습니다. 다음 재생 때 새로 받습니다: "${logTitle(pending.title)}"`);
+  if (removed.ok) log.info(`변경된 원본의 캐시 파일을 삭제했습니다. 다음 재생 시 새로 다운로드합니다: "${logTitle(pending.title)}"`);
 }
 
 /** 테스트: 줄 · 기억을 비우고 원본에 묻는 함수 · 시계를 바꾼다(없으면 원래대로) */

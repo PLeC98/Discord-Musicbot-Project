@@ -13,6 +13,7 @@ import { Worker, MessageChannel, receiveMessageOnPort, type MessagePort } from "
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
+import { josa } from "../rules/josa.ts";
 const log = logger.child({ category: "player" });
 
 const FRAME_MS = 20;
@@ -258,7 +259,7 @@ class EncodePool {
       entry.ids.delete(slot.id);
       control(entry, { type: "close", id: slot.id });
     }
-    log.warn("정리되지 않은 출력 스트림의 인코더를 GC 가 해제했습니다. 리소스를 destroy 하지 않는 경로가 있습니다");
+    log.warn("정리되지 않은 출력 스트림의 인코더를 GC가 해제했습니다. 리소스를 destroy 하지 않는 경로가 있습니다");
   });
 
   constructor({ workerUrl, maxWorkers, stallMs, calibrateFrames }: PoolOptions = {}) {
@@ -429,7 +430,7 @@ class EncodePool {
         moved++;
       }
     }
-    if (moved) log.debug(`재생 인코딩 워커 ${fresh.n} 로 스트림 ${moved}개를 옮겼습니다`);
+    if (moved) log.debug(`재생 인코딩 워커 ${fresh.n}${josa(String(fresh.n), "으로")} 스트림 ${moved}개를 옮겼습니다`);
   }
 
   #relocate(session: Session, target: Entry) {
@@ -598,7 +599,7 @@ class EncodePool {
     try {
       session.hooks.onError(error);
     } catch (thrown) {
-      log.debug(`출력 스트림이 인코딩 오류를 받다 실패했습니다: ${messageOf(thrown)}`);
+      log.debug(`출력 스트림의 인코딩 오류 처리 중 실패: ${messageOf(thrown)}`);
     }
   }
 
@@ -774,7 +775,7 @@ class EncodePool {
       this.#slowCalm = 0;
       const streams = this.#workers.reduce((sum, e) => sum + e.ids.size, 0);
       const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : "알 수 없음";
-      log.warn(`재생 인코딩이 늦습니다(워커 ${this.#workers.length}개 · 상한 ${this.#limit()}, 스트림 ${streams}개, 늦은 워커의 CPU ${cpu}). 늦은 만큼 소리가 끊깁니다`);
+      log.warn(`재생 인코딩이 지연되고 있습니다(워커 ${this.#workers.length}개 · 상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊깁니다`);
     }
     if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
       log.info(`재생 인코딩 지연이 해소됐습니다(${Math.round((now() - this.#slowSince) / 1000)}초 동안 지연 프레임 ${this.#slowLate}개)`);

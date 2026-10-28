@@ -23,7 +23,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
 
   /** 서버 guildId 에서 모르는 오류가 났다. where: 어디서 새어 나왔나(로그) */
   return async function fault(guildId: string, error: unknown, where: string) {
-    log.error(`서버 ${guildId} 에서 모르는 오류 (${where}):`, error);
+    log.error(`서버 ${guildId}에서 알 수 없는 오류 (${where}):`, error);
     const player = players.get(guildId);
     // 복원할 플레이어가 없다(명령 · 화면 쪽 일). 로그만 남긴다. 다시 시작하는 중에 난 것은 그 다시 시작이 맡는다
     if (!player || resetting.has(guildId)) return;
@@ -33,7 +33,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
     times.push(at);
     recent.set(guildId, times);
     if (times.length > MAX_RESETS) {
-      log.error(`서버 ${guildId} 에서 모르는 오류가 되풀이되어(${WINDOW_MS / 60_000}분에 ${MAX_RESETS}번 넘게) 이 서버의 재생을 멈춥니다. 세션은 삭제합니다`);
+      log.error(`서버 ${guildId}에서 알 수 없는 오류가 반복되어(${WINDOW_MS / 60_000}분 내 ${MAX_RESETS}회 초과) 이 서버의 재생을 멈추고 세션을 삭제합니다`);
       await player.dispose({ reason: "되풀이 오류로 멈춤", session: "remove", panel: "stop", end: "fault" });
       return;
     }
@@ -45,7 +45,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
     }
     resetting.add(guildId);
     try {
-      log.warn(`서버 ${guildId} 만 다시 시작합니다(세션 저장 → 정리 → 복원)`);
+      log.warn(`서버 ${guildId}만 다시 시작합니다(세션 저장 → 정리 → 복원)`);
       await player.dispose({ reason: "모르는 오류로 다시 시작", session: "save", stay: true, end: "fault" });
       await restore(guildId);
     } catch (e) {

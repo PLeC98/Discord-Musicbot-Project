@@ -200,7 +200,7 @@ test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이�
     assert.ok(left().includes("stuck"), "삭제하지 못한 파일의 행은 남는다");
     assert.equal(left().length, 2, "나머지를 삭제해 목표선(3의 90%) 아래로: stuck 과 하나");
     const logs = sink.buffer.slice(from).map((e) => e.text);
-    assert.ok(logs.some((t) => t.startsWith("캐시 파일 삭제가 0.05초 안에 끝나지 않아 이번 실행 동안 건너뜁니다")));
+    assert.ok(logs.some((t) => t.startsWith("캐시 파일 삭제가 0.05초 안에 끝나지 않아 이번 실행에서는 건너뜁니다")));
     assert.ok(logs.some((t) => t.includes(" - 1개는 삭제하지 못했습니다")));
 
     calls.length = 0;

@@ -142,7 +142,7 @@ function createGuildSettingsRouter() {
     if ("refused" in plan) return refuseWith(res, plan.refused);
     const channelChanged = await applySettings(guild, plan);
     if (channelChanged) {
-      bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
+      bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
     }
 
     const user = signedIn(req);

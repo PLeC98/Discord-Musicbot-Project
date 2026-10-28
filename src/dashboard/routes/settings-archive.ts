@@ -69,7 +69,7 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
     res.end();
   } catch (error) {
     // 받던 쪽이 끊었거나 쓰는 동안 파일이 삭제됐다(헤더를 이미 보냈으니 응답을 끊는다)
-    log.debug({ sub: "admin" }, `설정 내보내기를 보내다 멈췄습니다: ${messageOf(error)}`);
+    log.debug({ sub: "admin" }, `설정 내보내기 전송 중단: ${messageOf(error)}`);
     res.destroy();
   } finally {
     release();

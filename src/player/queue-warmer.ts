@@ -165,7 +165,7 @@ class QueueWarmer {
 
     autoplayRoute.markDead(track);
     trackState.removeAt(this.player, index);
-    log.info(`자동재생 곡을 뺍니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 선택합니다`);
+    log.info(`자동재생 곡을 대기열에서 제거합니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 선택합니다`);
 
     // 뺀 슬롯을 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
     if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 슬롯의 자동재생 곡 선택");

@@ -112,7 +112,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
     const from = sink.buffer.length;
     const one = await lookup.getTrackData("https://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL4", undefined, undefined, video);
     assert.equal(one.isPlaylist, false);
-    assert.equal(sink.buffer.slice(from).filter((e) => e.text.includes("영상 하나로")).length, 1, "영상 하나로 간 것을 한 줄 남긴다");
+    assert.equal(sink.buffer.slice(from).filter((e) => e.text.includes("단일 영상으로")).length, 1, "영상 하나로 간 것을 한 줄 남긴다");
     assert.deepEqual([one.tracks?.[0].title, one.tracks?.[0].duration], ["https://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL4", 1]);
   }
 });

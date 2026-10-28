@@ -14,7 +14,7 @@ const THROWN = new Set(["lookup-failed", "play-threw"]);
 /** 오류 → 사용자에게 보일 안내. 종류는 rules/error-kind 가 구분한다 */
 function errorMessage(error: unknown) {
   const code = errorKind(error);
-  return errors.noticeFor(code, {}, errors.PLAIN, (names) => log.warn(`안내 문장에 드는 값이 빠져 알 수 없는 오류로 보입니다: ${code} 의 ${names.join(", ")}`));
+  return errors.noticeFor(code, {}, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체합니다: ${code} (${names.join(", ")})`));
 }
 
 /** 곡을 찾거나 담지 못한 결과 → 문제. 목록의 코드면 그 코드, 오류로 못 했으면 오류 종류, 아니면 곡을 틀 수 없다고 */
@@ -27,7 +27,7 @@ function addFailure({ code, kind, skipped }: AddFailure): LooseProblem {
 /** 곡을 찾거나 담지 못한 결과 → 안내 */
 function addFailureMessage(result: AddFailure) {
   const { code, ...params } = addFailure(result);
-  return errors.noticeFor(code, params, errors.PLAIN, (names) => log.warn(`안내 문장에 드는 값이 빠져 알 수 없는 오류로 보입니다: ${code} 의 ${names.join(", ")}`));
+  return errors.noticeFor(code, params, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체합니다: ${code} (${names.join(", ")})`));
 }
 
 /** 처리하지 못한 오류를 남기고 사용자 안내를 돌려준다(catch 블록에서) */

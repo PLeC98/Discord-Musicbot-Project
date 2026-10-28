@@ -236,7 +236,7 @@ test("다운로드가 끝나면 걸린 시간과 다운로드한 포맷을 한 �
     logger.level = level;
   }
   const line = sink.buffer.slice(from).find((e) => e.text.startsWith("캐시 다운로드 완료"))?.text ?? "";
-  assert.match(line, /\| yt-dlp \d+\.\d초 · 포맷 140\(http_dash_segments, mp4a → opus 구움\) · 파일을 다 쓰고 1\d\.\d초 뒤에 끝남 · 길이 재기 \d+\.\d초$/, line);
+  assert.match(line, /\| yt-dlp \d+\.\d초 · 포맷 140\(http_dash_segments, mp4a → opus 구움\) · 파일을 다 쓰고 1\d\.\d초 뒤에 끝남 · 길이 측정 \d+\.\d초$/, line);
 });
 
 test("사운드클라우드: 제 주소로, 사운드클라우드 출처가 다운로드한다(유튜브에서 찾지 않고 유튜브 옵션도 안 쓴다)", async () => {

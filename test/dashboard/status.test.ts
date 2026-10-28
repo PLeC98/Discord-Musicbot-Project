@@ -111,7 +111,7 @@ test("게이트웨이 로그: 디스코드가 재연결을 요청한 것은 재�
     client.emit(Events.ShardResume, 0, 5);
   });
   assert.equal(lines.length, 1);
-  assert.match(lines[0], /^30 게이트웨이에 재연결했습니다\(세션 재개, 1번 시도, 까닭: 디스코드가 재연결을 요청함\(op 7\) · 코드 4200\)/);
+  assert.match(lines[0], /^30 게이트웨이 재연결: 세션 재개 \| 시도 1회 \| 원인=디스코드가 재연결을 요청함\(op 7\) · 코드 4200/);
 });
 
 test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 때 info. 까닭이 시도 알림보다 늦게 와도 같다", () => {
@@ -123,7 +123,7 @@ test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 
     client.emit(Events.ShardReconnecting, 0);
     client.emit(Events.ShardReady, 0);
   });
-  assert.deepEqual(lines, ["40 게이트웨이 연결이 끊겼습니다 (샤드 0): 닫힘 코드 1006. 재연결하는 중입니다", "30 게이트웨이에 재연결했습니다(새 세션, 2번 시도, 까닭: 닫힘 코드 1006 · 연결 오류 1번(첫: connect ECONNREFUSED))."]);
+  assert.deepEqual(lines, ["40 게이트웨이 연결이 끊겼습니다 (샤드 0): 닫힘 코드 1006. 재연결하는 중입니다", "30 게이트웨이 재연결: 새 세션 | 시도 2회 | 원인=닫힘 코드 1006 · 연결 오류 1번(첫: connect ECONNREFUSED)"]);
 });
 
 test("게이트웨이 로그: 열리기 전에 닫힌 것은 재연결될 때 warn 으로 남기고, 그 까닭이 다음 끊김에 남지 않는다", () => {
@@ -135,8 +135,8 @@ test("게이트웨이 로그: 열리기 전에 닫힌 것은 재연결될 때 wa
     client.emit(Events.ShardResume, 0, 5);
   });
   assert.equal(lines.length, 2);
-  assert.match(lines[0], /^40 게이트웨이에 재연결했습니다\(새 세션, 0번 시도, 까닭: 닫힘 코드 1006\)/);
-  assert.match(lines[1], /^30 .*까닭: 디스코드가 재연결을 요청함\(op 7\)/);
+  assert.match(lines[0], /^40 게이트웨이 재연결: 새 세션 \| 시도 0회 \| 원인=닫힘 코드 1006/);
+  assert.match(lines[1], /^30 .*원인=디스코드가 재연결을 요청함\(op 7\)/);
 });
 
 test("게이트웨이 로그: 재연결하지 않는 닫힘은 오류와 합쳐 error 한 줄", () => {
