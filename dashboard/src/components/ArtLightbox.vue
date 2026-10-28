@@ -19,7 +19,7 @@
 import { computed, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
-import { artOf } from "../../../src/rules/track-art.ts";
+import { bigArt, noteArt } from "../utils/big-art.ts";
 import type { Content } from "../theme/art.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
@@ -33,31 +33,22 @@ useCloseLayer(
   () => (open.value = false),
 );
 
-// 큰 그림이 따로 있으면(유튜브 maxresdefault, rules/track-art) 먼저 써 보고, 없으면(작은 대체 그림이 온다) 지금 그림으로
-const wideFailed = ref(false);
-const big = computed(() => artOf(props.track?.thumbnail, "large") ?? "");
-const wide = computed(() => !wideFailed.value && big.value !== (props.track?.thumbnail ?? ""));
-const large = computed(() => (wide.value ? big.value : (props.track?.thumbnail ?? "")));
+// 출처의 큰 그림부터(utils/big-art: 유튜브 1280×720 → 480×360 → 지금 그림)
+const large = computed(() => bigArt(props.track?.thumbnail, "large") ?? "");
 
 // 그림 크기를 받은 뒤 원래 비율로 표시한다(네 방향 검은 띠는 뺀다: 틀을 내용의 비율로 두고 가운데를 채운다).
 // 화면에 맞춰 키우되(폭 90% · 높이 65% 안) 그림이 가진 화소(띠를 뺀 내용)의 1.5배까지만: 큰 그림은 크게, 작은 그림은 뭉개지지 않을 만큼
 const UPSCALE_MAX = 1.5;
 const size = ref<{ w: number; h: number } | null>(null);
-watch(
-  () => props.track?.thumbnail,
-  () => (wideFailed.value = false),
-);
 watch(large, () => (size.value = null));
 function loaded(e: Event) {
+  if (noteArt(e, props.track?.thumbnail) !== "ok") return;
   const img = e.target as HTMLImageElement;
-  // 유튜브는 큰 썸네일이 없으면 작은 대체 그림(120×90)을 준다
-  if (wide.value && img.naturalWidth < 200) wideFailed.value = true;
-  else size.value = { w: img.naturalWidth, h: img.naturalHeight };
+  size.value = { w: img.naturalWidth, h: img.naturalHeight };
 }
-// 큰 그림이 없으면 지금 그림으로, 지금 그림도 못 불러오면 보일 것이 없어 닫는다
-function failed() {
-  if (wide.value) wideFailed.value = true;
-  else open.value = false;
+// 큰 그림이 없으면 다음 크기로, 지금 그림도 못 불러오면 보일 것이 없어 닫는다
+function failed(e: Event) {
+  if (noteArt(e, props.track?.thumbnail) === "broken") open.value = false;
 }
 const box = computed(() => {
   const s = size.value;

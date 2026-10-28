@@ -47,7 +47,7 @@
           <div class="flex items-center gap-4">
             <!-- 아트. 누르면 크게 본다 -->
             <button v-if="artShown" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
-              <img :src="artShown" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = artShown" />
+              <img :src="deskArt ?? undefined" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="deskZoom > 1 ? { scale: deskZoom } : undefined" @load="noteArt($event, artShown)" @error="noteArt($event, artShown) === 'broken' && (brokenArt = artShown)" />
               <span class="absolute right-1 bottom-1 @xl/win:right-2 @xl/win:bottom-2 size-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 transition-opacity effects group-hover/art:opacity-100"><Icon name="open_in_full" :size="16" /></span>
             </button>
             <span v-else class="shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md bg-surface-container-high text-on-surface-variant flex items-center justify-center"><Icon :name="track ? 'audio_file' : 'music_off'" :size="36" /></span>
@@ -117,10 +117,10 @@
                  옆 곡의 그림을 미리 띄워 두어 넘어간 뒤 가운데에 바로 그려진다. 그림이 없으면 지금 칸과 같은 아이콘(넘어가며 아이콘이 바뀌지 않게)
                  사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
             <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && 'transition-[translate] duration-250 ease-smooth'" :style="[ART_STEP, artSwipe.style.value]">
-              <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><img v-if="art.previous" :src="art.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" /><Icon v-else name="audio_file" :size="64" /></span>
-              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="ART_SIDE" class="translate-x-(--art-step)"><img v-if="art.next" :src="art.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" /><Icon v-else name="audio_file" :size="64" /></span>
+              <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><img v-if="phoneArt.previous" :src="phoneArt.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" @load="noteArt($event, art.previous)" @error="noteArt($event, art.previous)" /><Icon v-else name="audio_file" :size="64" /></span>
+              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="ART_SIDE" class="translate-x-(--art-step)"><img v-if="phoneArt.next" :src="phoneArt.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" @load="noteArt($event, art.next)" @error="noteArt($event, art.next)" /><Icon v-else name="audio_file" :size="64" /></span>
               <button v-if="art.now" ref="artSwipeEl" type="button" data-no-swipe class="relative size-full rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none" :aria-label="T.enlargeArt" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up" @click="artSwipe.swiped.value || (artOpen = true)">
-                <img :src="art.now" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = art.now" />
+                <img :src="phoneArt.now ?? undefined" alt="" draggable="false" class="size-full object-cover" :style="nowZoom > 1 ? { scale: nowZoom } : undefined" @load="noteArt($event, art.now)" @error="noteArt($event, art.now) === 'broken' && (brokenArt = art.now)" />
               </button>
               <!-- 그림이 없는 곡도 같은 위치에서 밀어 넘긴다 -->
               <span v-else ref="artSwipeEl" data-no-swipe class="relative size-full rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"><Icon :name="track ? 'audio_file' : 'music_off'" :size="64" /></span>
@@ -294,6 +294,7 @@ import { shell } from "../shell/shell-state.ts";
 import PageError from "../components/PageError.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackArt from "../components/TrackArt.vue";
+import { bigArt, noteArt } from "../utils/big-art.ts";
 import MarqueeText from "../components/MarqueeText.vue";
 import ArtLightbox from "../components/ArtLightbox.vue";
 import PlayerActions from "../components/PlayerActions.vue";
@@ -662,8 +663,7 @@ function jumpToHighlight() {
   void send("highlight", "highlight", onTrackOf(player.value), T.failed.highlight);
 }
 
-// 아트의 위아래 검은 띠는 키워서 감춘다(theme/art 가 픽셀로 잰다)
-const artZoom = useArtZoom(() => player.value.currentTrack?.thumbnail, true);
+// 크게 보기가 띠를 뺀 비율로 보이게 내용의 비율을 잰다(theme/art)
 const artContent = useArtContent(() => player.value.currentTrack?.thumbnail);
 
 const track = computed(() => player.value.currentTrack);
@@ -678,8 +678,14 @@ watch(
   (held) => (heldArt.value = held ? { ...liveArt.value } : null),
 );
 const art = computed(() => heldArt.value ?? liveArt.value);
-const nextZoom = useArtZoom(() => art.value.next ?? undefined, true);
-const previousZoom = useArtZoom(() => art.value.previous ?? undefined, true);
+// 큰 칸은 늘려 그리지 않게 출처의 큰 그림으로(utils/big-art): 휴대폰 카드는 large, 태블릿 · PC 의 지금 곡(최대 128px)은 standard
+const phoneArt = computed(() => ({ now: bigArt(art.value.now, "large"), next: bigArt(art.value.next, "large"), previous: bigArt(art.value.previous, "large") }));
+const deskArt = computed(() => bigArt(artShown.value, "standard"));
+// 위아래 검은 띠는 키워서 감춘다(theme/art 가 그리는 그림의 픽셀로 잰다)
+const nowZoom = useArtZoom(() => phoneArt.value.now, true);
+const nextZoom = useArtZoom(() => phoneArt.value.next, true);
+const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
+const deskZoom = useArtZoom(() => deskArt.value, true);
 // 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
 const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
 const ART_SIDE = "absolute inset-0 rounded-(--r-window) overflow-hidden bg-surface-container-high text-on-surface-variant flex items-center justify-center shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)]";
