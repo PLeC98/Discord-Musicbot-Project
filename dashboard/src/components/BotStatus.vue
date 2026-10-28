@@ -285,12 +285,14 @@
       <BaseCard icon="memory" :title="T.workers.title(status.encoding.workers.length)" data-at="workers">
         <div class="flex flex-col gap-3">
           <div v-for="w in workerRows" :key="w.n">
-            <div class="flex flex-wrap items-baseline gap-x-2 text-sm">
+            <div class="flex items-baseline gap-2 text-sm">
               <span>{{ T.workers.worker(w.n) }}</span>
-              <span class="text-xs text-on-surface-variant nums">{{ w.detail }}</span>
-              <span class="basis-full text-right text-xs nums @min-[20rem]/card:basis-auto @min-[20rem]/card:ml-auto" :class="LEVEL_TEXT[w.level]"
-                ><span v-for="(text, i) in w.rtt" :key="i" :class="AT_WORKER[i]">{{ text }}</span></span
-              >
+              <div class="flex flex-1 flex-col items-end min-w-0 @min-[20rem]/card:flex-row @min-[20rem]/card:items-baseline @min-[20rem]/card:gap-2">
+                <span class="text-xs text-on-surface-variant nums">{{ w.detail }}</span>
+                <span class="text-xs nums @min-[20rem]/card:ml-auto" :class="LEVEL_TEXT[w.level]"
+                  ><span v-for="(text, i) in w.rtt" :key="i" :class="AT_WORKER[i]">{{ text }}</span></span
+                >
+              </div>
             </div>
             <div class="h-2 mt-1 rounded-full bg-(--store-free) overflow-hidden">
               <div class="h-full rounded-full" :class="LEVEL_BAR[w.level]" :style="{ width: `${Math.max(2, w.ratio * 100)}%` }"></div>
@@ -653,7 +655,7 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
 
 // 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 켜진 뒤 누계.
 // 세션 수는 싣지 않는다(워커마다의 재생 수를 더한 것, 새는 세션은 GC 안전망이 warn 로그로 알린다)
-// 응답 시간: 카드 안쪽이 320px(휴대폰 386px) 보다 좁으면 둘째 줄로 내리고, 320~336px(휴대폰 402px)에서만 한 줄에 넣으려고 ms 를 정수로
+// 응답 시간: 카드 안쪽이 320px(휴대폰 386px) 보다 좁으면 재생 · 코어와 함께 오른쪽에 두 줄로 쌓고, 320~336px(휴대폰 402px)에서만 한 줄에 넣으려고 ms 를 정수로
 const AT_WORKER = ["hidden @min-[20rem]/card:inline @min-[21rem]/card:hidden", "@min-[20rem]/card:hidden @min-[21rem]/card:inline"] as const;
 const wholeText = (ms: number) => {
   const { value, unit } = timeWhole(ms);
