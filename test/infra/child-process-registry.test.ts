@@ -88,6 +88,23 @@ test("killAll: 자식과 손자 프로세스를 모두 종료한다", async () =
   release();
 });
 
+test("killAll: 여러 트리를 한 번에 내린다(이미 끝난 것은 빼고)", async () => {
+  const trees = Array.from({ length: 3 }, () => spawnChildWithGrandchild());
+  const grandchildren = await Promise.all(trees.map((t) => t.grandchildPid));
+  const done = spawn(process.execPath, ["-e", "process.exit(0)"], { stdio: "ignore" });
+  const releases = [...trees.map(({ child }, i) => registry.register(child, `test:tree${i}`, { group: !IS_WIN })), registry.register(done, "test:done")];
+  await new Promise((resolve) => done.once("exit", resolve));
+
+  const killed = registry.killAll();
+  assert.deepEqual(
+    killed.map(({ label }) => label),
+    ["test:tree0", "test:tree1", "test:tree2"],
+  );
+  for (const { child } of trees) assert.ok(await waitFor(() => !alive(child.pid as number)), "자식이 종료되어야 함");
+  for (const pid of grandchildren) assert.ok(await waitFor(() => !alive(pid)), "손자도 함께 종료되어야 함");
+  for (const release of releases) release();
+});
+
 test("register: 유효하지 않은 pid는 추적하지 않는다 (pid 0 → -0 = 자기 그룹 자살 방지)", () => {
   assert.equal(registry.size(), 0);
   for (const pid of [undefined, null, 0, 1, -5, 1.5, "123", NaN]) {

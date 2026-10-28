@@ -108,23 +108,36 @@ function _isAlive(child: Tracked | null | undefined): boolean {
   return child.exitCode === null && child.signalCode === null;
 }
 
+// taskkill 한 번에 넘기는 PID 수(명령줄 길이 한도 안). 하나씩 부르면 이 PC 에서 하나에 약 0.45초라 재생 50곳의 종료가 20초를 넘었다
+const TASKKILL_BATCH = 100;
+
 /**
- * 프로세스와 그 자손을 강제 종료. 이미 종료된 프로세스는 건드리지 않는다.
- * 돌려주는 것은 실제로 kill 을 시도했는가
+ * 프로세스들과 그 자손을 강제 종료. 이미 종료된 프로세스는 건드리지 않는다.
+ * 돌려주는 것은 실제로 kill 을 시도한 것
  */
-function killTree(entry: Entry): boolean {
-  const { pid, group, child } = entry;
-  if (!Number.isInteger(pid) || pid <= 1) return false; // pid 0 → -0 = 자기 그룹 자살 방지
-  if (!_isAlive(child)) return false; // PID 재사용된 남의 프로세스 보호
-
-  if (IS_WIN) {
-    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝났다
-    const { error, status, stderr } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
-    // 못 내리면 프로세스가 남는다(다음 기동의 남은 자식 정리가 다시 본다)
-    if (error || (status !== 0 && status !== 128)) log.warn(`${entry.label}#${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
-    return true;
+function killTrees(entries: Entry[]): Entry[] {
+  // pid 0 → -0 = 자기 그룹 자살 방지, 끝난 것은 PID 가 재사용된 남의 프로세스일 수 있다
+  const live = entries.filter(({ pid, child }) => Number.isInteger(pid) && pid > 1 && _isAlive(child));
+  if (!IS_WIN) {
+    for (const entry of live) killPosix(entry);
+    return live;
   }
+  for (let i = 0; i < live.length; i += TASKKILL_BATCH) {
+    const batch = live.slice(i, i + TASKKILL_BATCH);
+    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝난 것이 있다(나머지는 내린다)
+    const { error, status, stderr } = spawnSync("taskkill", [...batch.flatMap(({ pid }) => ["/PID", String(pid)]), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
+    // 못 내리면 프로세스가 남는다(다음 기동의 남은 자식 정리가 다시 본다)
+    if (error || (status !== 0 && status !== 128)) log.warn(`${batch.map(({ label, pid }) => `${label}#${pid}`).join(", ")} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
+  }
+  return live;
+}
 
+function killTree(entry: Entry): boolean {
+  return killTrees([entry]).length > 0;
+}
+
+function killPosix(entry: Entry) {
+  const { pid, group } = entry;
   try {
     // detached로 실행했으면 그룹 전체(-pid). 손자 ffmpeg까지 같이 죽는다.
     process.kill(group ? -pid : pid, "SIGKILL");
@@ -136,7 +149,6 @@ function killTree(entry: Entry): boolean {
       if (codeOf(error) !== "ESRCH") log.debug(`${entry.label}#${pid} 종료 실패: ${messageOf(error)}`);
     }
   }
-  return true;
 }
 
 /** 등록한 자식 하나를 트리째 종료한다(시간 한도를 넘긴 것 등). 등록돼 있지 않거나 이미 끝났으면 false */
@@ -158,16 +170,13 @@ function killAll(): Array<{ label: string; pid: number }> {
   active.clear();
   save();
 
-  const killed = [];
-  for (const entry of entries) {
-    try {
-      if (killTree(entry)) killed.push({ label: entry.label, pid: entry.pid });
-    } catch (error) {
-      // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다
-      log.debug(`${entry.label}#${entry.pid} 종료 실패: ${messageOf(error)}`);
-    }
+  try {
+    return killTrees(entries).map(({ label, pid }) => ({ label, pid }));
+  } catch (error) {
+    // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다
+    log.debug(`자식 프로세스 종료 실패: ${messageOf(error)}`);
+    return [];
   }
-  return killed;
 }
 
 /** 현재 추적 중인 프로세스 수 */
