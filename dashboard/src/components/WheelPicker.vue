@@ -6,7 +6,7 @@
     <div class="pointer-events-none absolute inset-x-0 rounded-(--r-row) bg-secondary-container" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }"></div>
     <div
       ref="list"
-      class="relative h-full overflow-y-scroll scrollbar-none snap-y snap-mandatory overscroll-contain outline-none cursor-grab active:cursor-grabbing [mask-image:linear-gradient(to_bottom,transparent,black_30%,black_70%,transparent)]"
+      class="relative h-full overflow-y-scroll scrollbar-none snap-y snap-mandatory overscroll-contain outline-none cursor-grab active:cursor-grabbing mask-[linear-gradient(to_bottom,transparent,black_30%,black_70%,transparent)]"
       tabindex="0"
       role="spinbutton"
       :aria-label="label"

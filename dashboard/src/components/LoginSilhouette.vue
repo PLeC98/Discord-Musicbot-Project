@@ -5,9 +5,9 @@
   <div ref="hostEl" class="absolute inset-0 pointer-events-none overflow-hidden">
     <div class="absolute left-0 top-0 origin-top-left" :style="{ width: `${vw}px`, height: `${vh}px`, transform: `scale(${k})` }">
       <!-- 위 막대 -->
-      <span :class="ISLAND" class="left-3 top-3 w-[5.5rem] h-10"></span>
-      <span v-if="wide" :class="ISLAND" class="left-1/2 -translate-x-1/2 top-3 w-[6.5rem] h-10"></span>
-      <span :class="ISLAND" class="right-3 top-3 w-[12rem] h-10"></span>
+      <span :class="ISLAND" class="left-3 top-3 w-22 h-10"></span>
+      <span v-if="wide" :class="ISLAND" class="left-1/2 -translate-x-1/2 top-3 w-26 h-10"></span>
+      <span :class="ISLAND" class="right-3 top-3 w-48 h-10"></span>
       <!-- 시계 -->
       <span class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-on-surface/55" :style="{ top: '18%', width: wide ? '19rem' : '13rem', height: wide ? '5rem' : '3.5rem' }"></span>
       <!-- 그룹: 정가운데에서 화면 높이 3% 위 -->
