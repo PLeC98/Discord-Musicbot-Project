@@ -237,7 +237,7 @@
   --text-body-lg--line-height: 1.5;
   --text-body: 0.875rem;
   --text-body--line-height: 1.45;
-  /* 글자 크기는 Tailwind 이름(xs 12 · sm 14 · base 16 · lg 18 · xl 20 · 2xl 24 · 4xl 36)으로 쓰고 text-[1.23rem] 같은 임의 값은 쓰지 않는다.
+  /* 글자 크기는 Tailwind 이름(xs 12 · sm 14 · base 16 · lg 18 · xl 20 · 2xl 24 · 3xl 30 · 7xl 72)으로 쓰고 text-[1.23rem] 같은 임의 값은 쓰지 않는다.
      규격(M3)보다 한 단계 아래로 맞춘다(BodyLarge 16 → 14, LabelLarge 14 → 12). 2xs 는 작은 표(11, M3 label-small) */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;

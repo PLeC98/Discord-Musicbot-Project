@@ -1,7 +1,7 @@
 // 위 막대의 버튼(메뉴 · 뒤로 · 알림 · 화면이 넣는 도구). 막대 높이에 맞춰 휴대폰(막대 48)은 40 · 아이콘 24, 태블릿 · PC(막대 36)는 28 · 아이콘 20.
-// 아이콘 크기는 BaseIcon 이 글자 크기를 직접 적으므로 여기서 덮는다(!)
+// 아이콘 크기는 BaseIcon 이 글자 크기를 직접 적으므로 여기서 덮는다(!). 줄 높이는 기호 글꼴대로 1(/none)
 
-const ICON = "[&_.symbol]:text-[1.5rem]! md:[&_.symbol]:text-[1.25rem]!";
+const ICON = "[&_.symbol]:text-2xl/none! md:[&_.symbol]:text-xl/none!";
 
 /** 아이콘 버튼 */
 export const TOPBAR_BTN = `tap state-layer size-10 md:size-7 shrink-0 rounded-full flex items-center justify-center cursor-pointer text-on-surface no-underline ${ICON}`;

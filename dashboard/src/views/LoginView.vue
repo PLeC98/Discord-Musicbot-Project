@@ -35,7 +35,7 @@
       <!-- 시계: 화면 높이 18% 를 중심으로 고정(그룹과의 간격은 화면 높이를 따른다). 위 행은 비워 둔다. 낮은 화면은 공간이 없어 뺀다.
            그 위치가 위 막대나 그룹과 겹치면(애매하게 낮은 화면) 둘 사이 가운데로 옮기고 줄인다. 반 넘게 줄여야 하면 숨긴다(fit) -->
       <div></div>
-      <p v-if="!short" ref="clockEl" :style="clockStyle" :class="fit.clockHidden && 'invisible'" class="absolute inset-x-0 top-[18%] -translate-y-1/2 font-round font-semibold nums leading-none tracking-[-0.04em] text-[4.5rem] md:text-[6.5rem] text-on-surface drop-shadow-[0_2px_12px_rgb(0_0_0/0.25)]">{{ clock }}</p>
+      <p v-if="!short" ref="clockEl" :style="clockStyle" :class="fit.clockHidden && 'invisible'" class="absolute inset-x-0 top-[18%] -translate-y-1/2 font-round font-semibold nums leading-none tracking-[-0.04em] text-7xl md:text-[6.5rem] text-on-surface drop-shadow-[0_2px_12px_rgb(0_0_0/0.25)]">{{ clock }}</p>
 
       <!-- 그림 · 이름 · 로그인 버튼 그룹이 화면 정가운데. 고리는 활성 창 테두리와 같은 45도 그라데이션.
            크기는 폭만이 아니라 높이도 본다: 낮은 화면(휴대폰 가로)은 폭이 넓어도 휴대폰 크기. 정가운데에서 화면 높이 3% 만큼 올린다(눈으로 맞춘 값). 그림 · 이름 · 버튼 사이는 같은 간격 -->
@@ -46,7 +46,7 @@
             <Icon v-else name="graphic_eq" :size="short ? 44 : 88" :weight="600" />
           </span>
         </span>
-        <p class="font-semibold" :class="short ? 'mt-3 text-title-lg' : 'mt-4 text-title-lg md:text-[1.5rem]'">{{ botName || "MusicBot" }}</p>
+        <p class="font-semibold" :class="short ? 'mt-3 text-title-lg' : 'mt-4 text-title-lg md:text-2xl'">{{ botName || "MusicBot" }}</p>
 
         <!-- 입력란 모양의 로그인 버튼. 실패면 테두리가 오류 색으로 바뀌고 한 번 흔들린다(hyprlock 의 fail_color · fail_text) -->
         <!-- 미리 보기(preview)는 모양만: 눌러도 로그인하러 가지 않는다 -->
@@ -75,8 +75,8 @@
 
     <!-- 소스 링크(AGPL 13조 고지): waybar 와 같은 섬 -->
     <footer ref="footerEl" class="relative z-20 mt-auto flex justify-center px-3 pb-3">
-      <div :class="ISLAND" class="h-7! px-3! gap-1.5! md:h-8! md:px-4! md:gap-2! text-[0.6875rem] md:text-xs font-mono whitespace-nowrap">
-        <Icon name="code" :size="14" class="text-tertiary max-md:text-[0.75rem]!" />
+      <div :class="ISLAND" class="h-7! px-3! gap-1.5! md:h-8! md:px-4! md:gap-2! text-2xs md:text-xs font-mono whitespace-nowrap">
+        <Icon name="code" :size="14" class="text-tertiary max-md:text-xs/none!" />
         <template v-if="modified"> <a :href="sourceRepo" target="_blank" rel="noopener" :class="LINK">Modified Source</a><span class="text-on-surface-variant">│</span><a :href="projectRepo" target="_blank" rel="noopener" :class="LINK">Original Source</a> </template>
         <a v-else :href="sourceRepo" target="_blank" rel="noopener" :class="LINK">Source Code</a>
         <span class="text-on-surface-variant">│</span>
