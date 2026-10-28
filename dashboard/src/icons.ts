@@ -87,6 +87,7 @@ const ICONS = {
   menu: 0xe5d2,
   mobiledata_off: 0xf034,
   model_training: 0xf0cf,
+  more_vert: 0xe5d4,
   movie: 0xe404,
   music_note: 0xe405,
   music_off: 0xe440,

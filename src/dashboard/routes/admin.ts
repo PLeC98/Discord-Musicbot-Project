@@ -13,7 +13,35 @@ import logManager from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, type AdminGuilds, type AiFields, type AiSaved, type AiState, type BroadcastReply, type CandidatesReply, type ConfigFile, type ConfigSaved, type CookieState, type KeysReply, type LeaveReply, type LinesReply, type PromptReply, type PanelPrefs, type AgeContent, type GeoipCheck, type GeoipStatus, type RedeployReply, type RestartReply, type SourceTypes, type Suggestions, type TokensReply } from "../contract/admin.ts";
+import {
+  ANNOUNCE_MAX,
+  ANNOUNCE_STYLE,
+  announceBody,
+  isAnnounceKind,
+  type AdminGuilds,
+  type AiFields,
+  type AiSaved,
+  type AiState,
+  type BroadcastReply,
+  type CandidatesReply,
+  type ConfigDefault,
+  type ConfigFile,
+  type ConfigSaved,
+  type CookieState,
+  type KeysReply,
+  type LeaveReply,
+  type LinesReply,
+  type PromptReply,
+  type PanelPrefs,
+  type AgeContent,
+  type GeoipCheck,
+  type GeoipStatus,
+  type RedeployReply,
+  type RestartReply,
+  type SourceTypes,
+  type Suggestions,
+  type TokensReply,
+} from "../contract/admin.ts";
 import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
@@ -514,6 +542,13 @@ adminRouter.get("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name) || !documents.isDocName(name)) return sendProblem(res, "config-not-found");
   res.json({ name, data: documents.get(name) as Record<string, unknown>, revision: documents.revisionOf(name) } satisfies ConfigFile);
+});
+
+// 기본값. 저장하지 않는다(편집기가 불러와 보이고, 저장은 평소처럼 PUT 으로)
+adminRouter.get("/config/:name/default", requireOwner, (req, res) => {
+  const { name } = req.params;
+  if (!CONFIG_NAMES.includes(name) || !documents.isDocName(name)) return sendProblem(res, "config-not-found");
+  res.json({ name, data: documents.defaultOf(name) as Record<string, unknown> } satisfies ConfigDefault);
 });
 
 adminRouter.put("/config/:name", requireOwner, (req, res) => {

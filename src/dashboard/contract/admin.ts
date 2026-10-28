@@ -187,6 +187,8 @@ type GeoipCheck = { current: string | null; latest: string | null; size: number 
 /** 설정 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
 type ConfigFile = { name: string; data: Record<string, unknown>; revision: number };
 type ConfigSaved = { success: true; data: Record<string, unknown>; revision: number };
+/** 설정 문서의 기본값(새로 설치했을 때의 값). 편집기가 불러와 저장하지 않은 편집으로 보인다 */
+type ConfigDefault = { name: string; data: Record<string, unknown> };
 
 type SourceTypes = { types: SourceTypeView[] };
 /** 소스 편집기의 자동완성 */
@@ -248,6 +250,7 @@ export type {
   GeoipCheck,
   AgeContent,
   ConfigFile,
+  ConfigDefault,
   ConfigSaved,
   SourceTypes,
   Suggestions,

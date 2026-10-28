@@ -13,6 +13,8 @@
       <BaseCard v-if="showList" icon="library_music" :title="T.listTitle(rows.length, SELECT_MAX)" :class="listCardClass">
         <template #actions>
           <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="rows.length >= SELECT_MAX" :aria-label="T.addGenre" v-tooltip="rows.length >= SELECT_MAX ? T.atMost(SELECT_MAX) : text.common.add" @click="addRow"><Icon name="add" :size="20" /></button>
+          <!-- 기본값은 편집기에 불러오기만 한다(저장 막대로 저장하거나 되돌린다) -->
+          <MoreMenu :label="text.editor.more" :button-class="[ICON_BTN, 'size-8']" :items="[{ label: T.resetGenres, icon: 'restart_alt', select: loadDefault }]" />
         </template>
         <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
         <!-- 어느 항목의 것도 아닌 문제(저장할 때 서버가 가리킨 것 등) · 읽기 실패. 항목마다의 문제는 그 항목의 오류 아이콘과 편집 영역 맨 위에 -->
@@ -111,6 +113,7 @@ import SourceEditor from "./SourceEditor.vue";
 import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import NoticeBox from "./NoticeBox.vue";
+import MoreMenu from "./MoreMenu.vue";
 import Twemoji from "./TwemojiImage.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
@@ -149,7 +152,7 @@ function apply(data: Record<string, unknown>) {
   rows.value = toRows(genres);
 }
 
-const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "autoplay", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
+const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert, loadDefault } = useConfigFile({ tab: "autoplay", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => (loaded.value ? [...genreProblems(payload.value), ...serverProblems.value] : []));

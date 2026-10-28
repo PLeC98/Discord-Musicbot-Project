@@ -391,6 +391,18 @@ test("설정: 모르는 이름은 404", async () => {
   assert.equal((await req("PUT", "/api/admin/config/secrets", { data: {}, revision: 0 })).status, 404);
 });
 
+test("설정: 기본값을 읽는다(저장하지 않는다). 운영자만, 모르는 이름은 404", async () => {
+  const before = (await req<{ revision: number }>("GET", "/api/admin/config/genres")).json.revision;
+  const { status, json } = await req<{ name: string; data: Record<string, unknown> }>("GET", "/api/admin/config/genres/default");
+  assert.equal(status, 200);
+  assert.deepEqual(json.data, documents.defaultOf("genres"));
+  assert.equal((await req<{ revision: number }>("GET", "/api/admin/config/genres")).json.revision, before, "저장 번호가 그대로");
+  assert.equal((await req("GET", "/api/admin/config/secrets/default")).status, 404);
+  currentUser = { id: "someone", username: "someone" };
+  assert.equal((await req("GET", "/api/admin/config/genres/default")).status, 403);
+  currentUser = { id: "owner", username: "owner" };
+});
+
 test("설정: 읽으면 현재 값과 저장 번호가 온다", async () => {
   const { status, json } = await req<GenresConfig>("GET", "/api/admin/config/genres");
   assert.equal(status, 200);

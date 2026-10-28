@@ -5,6 +5,7 @@ import { formatNumber } from "../../utils/locale.ts";
 // 목록
 const listTitle = (count: number, max: number) => `자동재생 (${count}/${max})`;
 const addGenre = "장르 추가";
+const resetGenres = "자동재생 장르 초기화";
 const atMost = (max: number) => `${max}개까지만 추가할 수 있어요`;
 const desc = "자동재생에 사용할 장르와 장르마다 곡을 가져올 출처를 설정해요.";
 const global = "전역 설정";
@@ -73,4 +74,4 @@ const defaults = {
   blockedPlaceholder: "제외할 키워드를 입력하고 Enter",
 };
 
-export { listTitle, addGenre, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, label, labelPlaceholder, id, idPlaceholder, idTip, removeGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };
+export { listTitle, addGenre, resetGenres, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, label, labelPlaceholder, id, idPlaceholder, idTip, removeGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };

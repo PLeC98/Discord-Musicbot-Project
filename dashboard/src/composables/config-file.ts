@@ -6,7 +6,7 @@ import axios from "axios";
 import { trackUnsaved } from "./unsaved.ts";
 import { problemDetails, problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
-import type { ConfigFile, ConfigSaved } from "../../../src/dashboard/contract/admin.ts";
+import type { ConfigDefault, ConfigFile, ConfigSaved } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 
 type Data = Record<string, unknown>;
@@ -24,6 +24,8 @@ type Options = {
   read: () => Promise<Data>;
   /** 저장하고 저장된 것을 돌려받는다 */
   write: (payload: unknown) => Promise<Data>;
+  /** 기본값 읽기(새로 설치했을 때의 값). 없으면 기본값으로 되돌릴 수 없다 */
+  readDefault?: () => Promise<Data>;
   /** 저장했다는 알림의 둘째 줄(언제부터 반영되는지) */
   savedNote: string;
 };
@@ -45,10 +47,11 @@ export const configFileIo = (name: string) => {
       revision = saved.revision;
       return saved.data;
     },
+    readDefault: async () => (await axios.get<ConfigDefault>(`/api/admin/config/${name}/default`)).data.data,
   };
 };
 
-export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, savedNote }: Options) {
+export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, readDefault, savedNote }: Options) {
   const snapshot = ref("");
   // 처음 불러오기 전에는 고친 것도 문제도 없다. 불러오기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
   // 저장 막대 · 검사 오류 · 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사 · 빈 목록 안내를 가린다
@@ -106,5 +109,16 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
   /** 마지막으로 받은 것으로 되돌린다 */
   const revert = () => load(JSON.parse(snapshot.value) as Data);
 
-  return { loaded, dirty, saving, loadError, serverProblems, load, fetch, save, revert };
+  /** 기본값을 편집기에 불러온다. 저장하지 않은 편집이 되어 저장 막대로 저장하거나 되돌린다 */
+  async function loadDefault() {
+    if (!readDefault) return;
+    try {
+      apply(await readDefault());
+      notifyDone(text.editor.defaultLoaded, text.editor.defaultLoadedNote);
+    } catch (error) {
+      notifyProblem(error, text.editor.loadFailed);
+    }
+  }
+
+  return { loaded, dirty, saving, loadError, serverProblems, load, fetch, save, revert, loadDefault };
 }

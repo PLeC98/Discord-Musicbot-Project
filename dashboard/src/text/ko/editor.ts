@@ -16,5 +16,10 @@ const saved = "저장했어요";
 const saveFailed = "저장하지 못했어요";
 const saveFailedSentence = "저장하지 못했어요.";
 const loadFailed = "설정을 읽지 못했어요.";
+/** 기본값을 편집기에 불러왔다(아직 저장하지 않았다) */
+const defaultLoaded = "기본값을 불러왔어요";
+const defaultLoadedNote = "저장하면 반영돼요. 되돌리면 지금 설정으로 돌아가요.";
+/** ⋯ 메뉴 버튼 */
+const more = "더 보기";
 
-export { unsaved, unsavedLong, fixFirst, fixFirstIn, revert, save, saveRestart, saveRestartShort, saving, saved, saveFailed, saveFailedSentence, loadFailed };
+export { unsaved, unsavedLong, fixFirst, fixFirstIn, revert, save, saveRestart, saveRestartShort, saving, saved, saveFailed, saveFailedSentence, loadFailed, defaultLoaded, defaultLoadedNote, more };
