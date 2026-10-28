@@ -61,7 +61,8 @@ export function heightTarget(from: number, dy: number, h: number, count: number)
 
 /**
  * 드래그 중인 항목이 갈 수 있는 거리로 자른다(행 높이 h · 항목 count 개, 아니면 시작 때 잰 위 · 높이).
- * 첫 항목 · 마지막 항목 위치에서 드래그 중인 항목 높이의 절반만큼 더 나갈 수 있다(그 가운데를 넘어야 첫 · 마지막 자리가 된다)
+ * 첫 항목 · 마지막 항목 위치에서 드래그 중인 항목 높이의 절반만큼 더 나갈 수 있다(그 가운데를 넘어야 첫 · 마지막 자리가 된다).
+ * 그만큼 늘어나는 스크롤 영역으로는 자동 스크롤하지 않는다(scrollLimit)
  */
 export function boundedDy(dy: number, from: number, rows: { h: number; count: number } | { tops: number[]; heights: number[] }) {
   if ("h" in rows) return Math.min(Math.max(dy, -(from + 0.5) * rows.h), (Math.max(0, rows.count - 1 - from) + 0.5) * rows.h);
@@ -69,6 +70,30 @@ export function boundedDy(dy: number, from: number, rows: { h: number; count: nu
   const last = tops.length - 1;
   const half = heights[from] / 2;
   return Math.min(Math.max(dy, tops[0] - tops[from] - half), tops[last] + heights[last] - (tops[from] + heights[from]) + half);
+}
+
+// 아래로 자동 스크롤할 수 있는 끝: 드래그를 시작할 때의 맨 아래, 그 뒤 붙은 행(가상 스크롤 목록이 더 받음)만큼 늘린다.
+// 드래그 중인 항목이 끝 너머로 나가 늘어난 영역은 빼야 한다(따라 내려가면 항목이 손가락에서 떨어져 덜걱거린다. 위쪽은 0 에서 멈춰 그렇다)
+function bottomOf(scroller: HTMLElement | null, rowHeight?: () => number, count?: () => number) {
+  if (!scroller) return () => 0;
+  const max = scroller.scrollHeight - scroller.clientHeight;
+  const had = count?.() ?? 0;
+  return () => max + (rowHeight ? ((count?.() ?? had) - had) * rowHeight() : 0);
+}
+
+// 끝에 가까우면 한 프레임에 스크롤할 거리(위는 음수, 끝에서 멀면 0)
+function edgeStep(scroller: HTMLElement, y: number) {
+  const box = scroller.getBoundingClientRect();
+  const top = Math.max(box.top, 0);
+  // 떠 있는 재생 바가 목록 아래를 덮으면 그 윗선이 아래 끝이다(바 뒤에서는 손가락이 닿기 어렵다)
+  const dock = document.querySelector("[data-dock]")?.getBoundingClientRect();
+  const bottom = Math.min(box.bottom, window.innerHeight, dock && dock.top < box.bottom ? dock.top : Infinity);
+  return y < top + EDGE ? -SPEED * (1 - Math.max(0, y - top) / EDGE) : y > bottom - EDGE ? SPEED * (1 - Math.max(0, bottom - y) / EDGE) : 0;
+}
+
+// 자동 스크롤 한 번. 아래로는 limit 까지만
+function autoScroll(scroller: HTMLElement, dy: number, limit: number) {
+  scroller.scrollTop = dy > 0 ? Math.min(scroller.scrollTop + dy, Math.max(limit, scroller.scrollTop)) : scroller.scrollTop + dy;
 }
 
 export function usePointerReorder({ enabled, start, end, drop, rowHeight, count }: Options) {
@@ -88,6 +113,7 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
   let pos = 0; // 드래그 중인 항목이 지금 갈 위치(새 목록에서의 번호)
   let startY = 0;
   let startScroll = 0;
+  let scrollLimit = () => 0;
   let lastY = 0;
   let frame = 0;
 
@@ -129,14 +155,9 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
   function tick() {
     if (draggedIndex.value == null) return;
     if (scroller) {
-      const box = scroller.getBoundingClientRect();
-      const top = Math.max(box.top, 0);
-      // 떠 있는 재생 바가 목록 아래를 덮으면 그 윗선이 아래 끝이다(바 뒤에서는 손가락이 닿기 어렵다)
-      const dock = document.querySelector("[data-dock]")?.getBoundingClientRect();
-      const bottom = Math.min(box.bottom, window.innerHeight, dock && dock.top < box.bottom ? dock.top : Infinity);
-      const dy = lastY < top + EDGE ? -SPEED * (1 - Math.max(0, lastY - top) / EDGE) : lastY > bottom - EDGE ? SPEED * (1 - Math.max(0, bottom - lastY) / EDGE) : 0;
+      const dy = edgeStep(scroller, lastY);
       if (dy) {
-        scroller.scrollTop += dy;
+        autoScroll(scroller, dy, scrollLimit());
         layout();
       }
     }
@@ -186,6 +207,7 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
     rows = [...list.children].filter(isRow);
     scroller = scrollerOf(list);
     startScroll = scroller ? scroller.scrollTop : 0;
+    scrollLimit = bottomOf(scroller, rowHeight, count);
     from = pos = i;
     if (rowHeight) {
       // 행 사이 틈 없이 같은 높이
