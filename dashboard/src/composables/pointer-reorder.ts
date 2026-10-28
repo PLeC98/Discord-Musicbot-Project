@@ -7,6 +7,7 @@
 //
 // 항목마다 data-reorder 를 단다(같은 부모 아래의 형제끼리 순서를 본다). 핸들에는 touch-none 을 줘 드래그하는 손가락이 화면을 스크롤하지 않게 한다.
 // 드래그하는 동안 목록(스크롤되는 가장 가까운 조상) 위아래 끝 48px 안에 들면 그쪽으로 자동으로 스크롤한다(아래 끝은 떠 있는 재생 바가 덮으면 그 윗선).
+// 드래그 중인 항목은 첫 항목 ~ 마지막 항목 위치 밖으로 나가지 않는다(나가면 그만큼 스크롤 영역이 늘어 자동 스크롤이 끝없이 따라간다).
 //
 // 가상 스크롤 목록(대기열)은 rowHeight 를 준다: 드래그하는 동안 자동 스크롤로 행이 새로 그려지고 빠지므로, 순번을 시작 때 잰 행 위치 대신 행 높이로 계산하고
 // 밀어내기는 그때 그려진 행마다 한다. 행마다 data-index 에 목록 전체의 번호를 달고, 드래그 중인 행은 목록이 계속 그려 둔다(composables/row-window 의 keep).
@@ -58,6 +59,14 @@ export function heightTarget(from: number, dy: number, h: number, count: number)
   return Math.min(Math.max(from + steps, 0), Math.max(0, count - 1));
 }
 
+/** 드래그 중인 항목이 갈 수 있는 거리로 자른다: 첫 항목 위치 ~ 마지막 항목 위치(행 높이 h · 항목 count 개, 아니면 시작 때 잰 위 · 높이) */
+export function boundedDy(dy: number, from: number, rows: { h: number; count: number } | { tops: number[]; heights: number[] }) {
+  if ("h" in rows) return Math.min(Math.max(dy, -from * rows.h), Math.max(0, rows.count - 1 - from) * rows.h);
+  const { tops, heights } = rows;
+  const last = tops.length - 1;
+  return Math.min(Math.max(dy, tops[0] - tops[from]), tops[last] + heights[last] - (tops[from] + heights[from]));
+}
+
 export function usePointerReorder({ enabled, start, end, drop, rowHeight, count }: Options) {
   const draggedIndex = ref<number | null>(null);
 
@@ -96,7 +105,7 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
   // 드래그 중인 항목을 손가락에 붙이고, 그 가운데가 넘어선 항목들을 밀어낸다
   function layout() {
     if (!dragged) return;
-    const dy = lastY - startY + scrolled();
+    const dy = boundedDy(lastY - startY + scrolled(), from, rowHeight ? { h: rowHeight(), count: count?.() ?? 1 } : { tops, heights });
     dragged.style.transform = `translateY(${dy}px)`;
     pos = target(dy);
     current().forEach((row, at) => {

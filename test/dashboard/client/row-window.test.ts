@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { aroundRows, covers, drawnRows, slotsOf, visibleRows } from "../../../dashboard/src/composables/row-window.ts";
-import { heightTarget } from "../../../dashboard/src/composables/pointer-reorder.ts";
+import { boundedDy, heightTarget } from "../../../dashboard/src/composables/pointer-reorder.ts";
 import { replyOrder } from "../../../dashboard/src/utils/reply-order.ts";
 import { LIST_WINDOW_MAX } from "../../../src/dashboard/contract/admin.ts";
 
@@ -73,4 +73,16 @@ test("드래그의 높이 계산: 드래그 중인 행의 가운데가 이웃 �
   assert.equal(heightTarget(10, -65, 64, 100), 9);
   assert.equal(heightTarget(10, -64 * 50, 64, 100), 0);
   assert.equal(heightTarget(98, 64 * 5, 64, 100), 99);
+});
+
+test("드래그 중인 행은 첫 행 ~ 마지막 행 위치 밖으로 나가지 않는다(나가면 스크롤 영역이 늘어 자동 스크롤이 끝없이 따라간다)", () => {
+  // 높이로 계산(대기열): 100곡 중 10번째, 행 64px
+  assert.equal(boundedDy(64 * 200, 10, { h: 64, count: 100 }), 64 * 89);
+  assert.equal(boundedDy(-64 * 200, 10, { h: 64, count: 100 }), -64 * 10);
+  assert.equal(boundedDy(100, 10, { h: 64, count: 100 }), 100);
+  assert.equal(boundedDy(50, 0, { h: 64, count: 1 }), 0, "한 곡뿐이면 움직이지 않는다");
+  // 시작 때 잰 위치: 높이가 다른 세 항목(위 0 · 50 · 130, 높이 40 · 70 · 30)의 가운데 것
+  const rows = { tops: [0, 50, 130], heights: [40, 70, 30] };
+  assert.equal(boundedDy(500, 1, rows), 130 + 30 - (50 + 70), "아래 끝이 마지막 항목의 아래 끝에 맞을 때까지");
+  assert.equal(boundedDy(-500, 1, rows), -50, "위 끝이 첫 항목의 위 끝에 맞을 때까지");
 });
