@@ -143,7 +143,8 @@
             <!-- 진행: 막대 아래 양 끝에 시간 -->
             <SeekRow stacked class="shrink-0" :class="short ? 'mt-0.5' : 'mt-1'" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek" />
 
-            <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
+            <!-- 이전 · 다음 버튼도 앨범아트가 밀려 넘어가게(useArtSwipe 의 go) -->
+            <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="artSwipe.go(false)" @pause="togglePause" @skip="artSwipe.go(true)" @loop="cycleLoop" />
 
             <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치) · 볼륨 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 그룹).
                  볼륨: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다

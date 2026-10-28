@@ -4,6 +4,7 @@
 // 화면이 가운데 칸을 새 곡으로 그린다(옆 칸에 떠 있던 그림이라 다시 불러오지 않고 바로 그려진다). 넘기지 못했으면 띠가 돌아온다.
 // 드래그를 시작한 때부터 띠가 제자리로 돌아올 때까지는 holding 이다. 화면은 그동안 세 칸의 그림을 붙잡아 둔다(중간에 곡이 바뀌어도 미끄러지는 그림이 바뀌지 않게).
 // 가로로 움직이기 전에 세로로 먼저 움직이면 화면 스크롤에 넘긴다. 밀었으면 손을 떼며 오는 누름(크게 보기)은 받지 않는다(swiped).
+// 이전 · 다음 버튼도 go 로 같은 미끄러짐을 거쳐 넘긴다.
 
 import { computed, ref, type Ref } from "vue";
 
@@ -84,7 +85,21 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
     const allowed = toNext ? act.canNext() : act.canPrevious();
     const far = Math.abs(dx.value) > width() * PASS || (toNext ? last.v < -FLING : last.v > FLING);
     if (!allowed || !far) return back();
-    // 옆 칸까지 미끄러지는 동안 곡을 넘긴다
+    return slide(toNext);
+  }
+
+  /** 버튼으로 넘기기: 미는 것과 같은 미끄러짐으로. 미는 중 · 미끄러지는 중이면 받지 않는다 */
+  async function go(toNext: boolean) {
+    if (holding.value || start) return;
+    if (!(toNext ? act.canNext() : act.canPrevious())) return;
+    holding.value = true;
+    animating.value = true;
+    await new Promise((r) => requestAnimationFrame(r)); // 붙잡은 그림이 그려진 뒤 움직인다
+    return slide(toNext);
+  }
+
+  // 옆 칸까지 미끄러지는 동안 곡을 넘긴다
+  async function slide(toNext: boolean) {
     animating.value = true;
     dx.value = toNext ? -step() : step();
     const answer = Promise.race([(toNext ? act.next() : act.previous()).catch(() => false), wait(ANSWER_MS).then(() => false)]);
@@ -96,5 +111,5 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
     holding.value = false;
   }
 
-  return { down, move, up, style, animating, holding, swiped };
+  return { down, move, up, go, style, animating, holding, swiped };
 }
