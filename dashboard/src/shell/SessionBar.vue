@@ -35,7 +35,7 @@
 
     <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade).
          세로 막대의 스크롤바는 올렸을 때 · 스크롤하는 동안만 보인다(sb-auto-hide) -->
-    <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full overflow-y-auto overflow-x-hidden py-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="listHovered = false">
+    <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full overflow-y-auto overflow-x-hidden py-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="onListLeave">
       <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="vertical && !open ? g.name : null" :aria-label="g.name" :class="item">
         <span :class="pip(isGuild(g.id))"></span>
         <span :class="slot"><GuildAvatar :guild="g" :active="isGuild(g.id)" size-class="size-11" text-class="text-base" /></span>
@@ -90,6 +90,13 @@ function onListScroll() {
   listScrolling.value = true;
   clearTimeout(listIdle);
   listIdle = window.setTimeout(() => (listScrolling.value = false), 1000);
+}
+// 마우스가 나가면 스크롤 뒤 남겨 두던 시간도 끝낸다(마우스는 올려 둔 동안 이미 보인다. 그 시간은 터치 몫이다).
+// 손잡이를 끌며 밖으로 나가도 스크롤이 이어지면 다시 보인다
+function onListLeave() {
+  listHovered.value = false;
+  listScrolling.value = false;
+  clearTimeout(listIdle);
 }
 onUnmounted(() => clearTimeout(listIdle));
 
