@@ -9,7 +9,7 @@
     <div v-if="np.visible" class="absolute inset-x-0 bottom-0 z-30 flex justify-center pointer-events-none">
       <!-- 휴대폰 모양은 최대 폭 480(가로로 눕히면 21:9 화면에서 길쭉해졌다) -->
       <div data-dock class="pointer-events-auto relative w-[calc(100%-2*var(--cr))] max-w-120 md:max-w-none md:w-[max(min(24rem,calc(100%-2*var(--cr))),min(56rem,calc(100%-2*(var(--gap-out)+var(--rail)+var(--gap-in)))))] @container isolate rounded-t-(--r-window) [--cr:var(--r-desk)]">
-        <!-- 막 · 뒤 흐림: 양옆 오목한 모서리까지 한 장(style.css dock-film) -->
+        <!-- 막 · 뒤 블러: 양옆 오목한 모서리까지 한 장(style.css dock-film) -->
         <span class="dock-film" aria-hidden="true"></span>
         <!-- ── 태블릿 · PC ── -->
         <div class="hidden md:grid items-center gap-2 h-18 pl-2 pr-4 grid-cols-[minmax(0,1.2fr)_auto_minmax(0,0.6fr)] @lg:pr-5 @lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,0.8fr)]">

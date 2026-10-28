@@ -1,5 +1,5 @@
-// 반복 전환 효과: 끝에 닿기 전에 걸고(멈춘 장면 겹치기 · 오버레이 색 · 검게 · 흐림), 처음으로 돌아간 때에 해제한다.
-// 로그인 화면(LoginBackdrop, 구운 영상의 끝)과 편집 창(구간 끝)이 같이 쓴다. 레이어는 부르는 쪽이 그린다(흐림 크기 · 색은 그 틀에 맞춰)
+// 반복 전환 효과: 끝에 닿기 전에 걸고(멈춘 장면 겹치기 · 오버레이 색 · 검게 · 블러), 처음으로 돌아간 때에 해제한다.
+// 로그인 화면(LoginBackdrop, 구운 영상의 끝)과 편집 창(구간 끝)이 같이 쓴다. 레이어는 부르는 쪽이 그린다(블러 크기 · 색은 그 틀에 맞춰)
 
 import type { Ref } from "vue";
 import type { LoginBackgroundOptions } from "../../../src/dashboard/contract/login-background.ts";

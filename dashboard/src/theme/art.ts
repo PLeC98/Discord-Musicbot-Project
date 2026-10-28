@@ -124,7 +124,7 @@ const seedOf = (url: string) =>
   );
 
 // 배경화면용으로 미리 흐린 그림. 큰 레이어를 CSS 로 흐리면 두 레이어가 엇갈려 번지는 동안 매 프레임 두 레이어를 다시 흐린다(무겁다).
-// 한 번 만들어 두면 겹침은 다 된 그림 두 장을 섞기만 한다. 정한 폭으로 줄인 뒤 흐린다: 흐림은 그 폭 대비 비율이라 원본 해상도 · 화면 크기와 무관하게 같은 정도로 번진다.
+// 한 번 만들어 두면 겹침은 다 된 그림 두 장을 섞기만 한다. 정한 폭으로 줄인 뒤 흐린다: 블러는 그 폭 대비 비율이라 원본 해상도 · 화면 크기와 무관하게 같은 정도로 번진다.
 // 밝기는 모드에 맞는 띠로 옮긴다(OKLab L, 색조는 그대로): 하얀 그림이 어두운 모드에서 글자와 부딪히거나, 까만 그림이 밝은 모드에서 그러지 않게.
 // 그림의 쓰임마다 값이 다르다(BACKDROP_LOOKS)
 type Band = { lo: number; hi: number; chroma: number };
@@ -132,7 +132,7 @@ type BakeLook = {
   /** 줄일 폭(px). upTo 면 상한: 그보다 작은 그림은 받은 그대로 */
   width: number;
   upTo: boolean;
-  /** 흐림. 폭 대비 비율 */
+  /** 블러. 폭 대비 비율 */
   blur: number;
   saturate: number;
   /** 밝기 띠 세기(원래 색과 섞는 비율, 0 이면 띠 없음) · 모드마다 범위 */
@@ -148,11 +148,11 @@ const NO_CAP = 1;
 /** 모드마다 앨범아트 배경 밝기 띠(OKLab L 0~1)와 채도 상한. 어두운 모드 면은 L 0.13 쯤, 밝은 모드 면은 0.98 쯤이다 */
 const BAND = { dark: { lo: 0.16, hi: 0.36, chroma: 0.1 }, light: { lo: 0.86, hi: 0.95, chroma: 0.07 } };
 const BACKDROP_LOOKS = {
-  // 지금 곡의 앨범아트(배경은 들러리). 아주 작게(64 폭) 만들어 브라우저가 늘리며 부드럽게 번지게 하고, 흐림은 살짝(1px) 준다
+  // 지금 곡의 앨범아트(배경은 들러리). 아주 작게(64 폭) 만들어 브라우저가 늘리며 부드럽게 번지게 하고, 블러는 살짝(1px) 준다
   // (크게 만들면 늘렸을 때 압축 자국이 네모나게 보인다)
   song: { width: 64, upTo: false, blur: 1 / 64, saturate: 1.6, band: 1, range: BAND, quality: 0.92, crop: true },
   // 로그인 화면의 봇 프사(배경이 시계 · 버튼과 함께 주인공). 받은 그대로의 해상도로 그림을 살리고(768 폭 상한: 네 자리 폭부터 만드는 시간이 확 는다),
-  // 흐림은 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다)
+  // 블러는 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다)
   avatar: { width: 768, upTo: true, blur: 0.005, saturate: 1, band: 0.5, range: { dark: { lo: 0.2, hi: 0.45, chroma: NO_CAP }, light: { lo: 0.8, hi: 0.95, chroma: NO_CAP } }, quality: 0.99, crop: false },
 } satisfies Record<string, BakeLook>;
 type BackdropKind = keyof typeof BACKDROP_LOOKS;
@@ -189,7 +189,7 @@ async function bakeBackdrop(url: string, dark: boolean, look: BakeLook): Promise
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
   ctx.filter = `blur(${blur}px) saturate(${look.saturate})`;
-  // 가장자리가 투명하게 번지지 않게 흐림 폭만큼 넘치게 그린다
+  // 가장자리가 투명하게 번지지 않게 블러 폭만큼 넘치게 그린다
   const pad = blur * 2;
   ctx.drawImage(img, (img.naturalWidth - srcW) / 2, (img.naturalHeight - srcH) / 2, srcW, srcH, -pad, -pad, w + pad * 2, h + pad * 2);
   try {

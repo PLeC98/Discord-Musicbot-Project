@@ -233,7 +233,7 @@ onMounted(async () => {
   try {
     const res = await axios.get<BotInfo>("/api/bot");
     botAvatar.value = res.data.avatarUrl ?? undefined;
-    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 그림을 배경(쓰임 avatar: 원본 해상도, 옅은 흐림 · 밝기 띠)과 색으로 깐다
+    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 그림을 배경(쓰임 avatar: 원본 해상도, 옅은 블러 · 밝기 띠)과 색으로 깐다
     await backgroundRead;
     if (!props.preview && !background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
     botName.value = res.data.name ?? "";
