@@ -112,28 +112,18 @@
         <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
-            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
-            <button
-              v-if="artShown"
-              ref="artSwipeEl"
-              type="button"
-              data-no-swipe
-              class="size-[min(100cqw,100cqh)] rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none"
-              :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'"
-              :style="artSwipe.style.value"
-              :aria-label="T.enlargeArt"
-              @pointerdown="artSwipe.down"
-              @pointermove="artSwipe.move"
-              @pointerup="artSwipe.up"
-              @pointercancel="artSwipe.up"
-              @click="artSwipe.swiped.value || (artOpen = true)"
-            >
-              <img :src="artShown" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = artShown" />
-            </button>
-            <!-- 그림이 없는 곡도 같은 위치에서 밀어 넘긴다 -->
-            <span v-else ref="artSwipeEl" data-no-swipe class="size-[min(100cqw,100cqh)] rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" :class="artSwipe.animating.value && 'transition-[translate,opacity] duration-250 ease-smooth'" :style="artSwipe.style.value" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"
-              ><Icon :name="track ? 'audio_file' : 'music_off'" :size="64"
-            /></span>
+            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 그림은 [이전 | 지금 | 다음] 세 칸이 나란히 붙은 띠라 미는 동안 옆 곡 그림이 들어온다.
+                 옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다. 이전 곡 그림은 상태에 없어 빈 칸이다.
+                 사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
+            <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && 'transition-[translate] duration-250 ease-smooth'" :style="[ART_STEP, artSwipe.style.value]">
+              <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><Icon name="music_note" :size="64" /></span>
+              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="ART_SIDE" class="translate-x-(--art-step)"><img v-if="art.next" :src="art.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" /><Icon v-else name="music_note" :size="64" /></span>
+              <button v-if="art.now" ref="artSwipeEl" type="button" data-no-swipe class="relative size-full rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none" :aria-label="T.enlargeArt" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up" @click="artSwipe.swiped.value || (artOpen = true)">
+                <img :src="art.now" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = art.now" />
+              </button>
+              <!-- 그림이 없는 곡도 같은 위치에서 밀어 넘긴다 -->
+              <span v-else ref="artSwipeEl" data-no-swipe class="relative size-full rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"><Icon :name="track ? 'audio_file' : 'music_off'" :size="64" /></span>
+            </div>
           </div>
 
           <div :class="short ? 'flex-1 min-w-0 max-w-md flex flex-col justify-center' : 'contents'">
@@ -678,6 +668,18 @@ const track = computed(() => player.value.currentTrack);
 // 지금 곡의 그림. 불러오지 못하면(곡이 바뀐 뒤 늦게 불린 그림 등) 아이콘으로
 const brokenArt = ref<string | null>(null);
 const artShown = computed(() => (track.value?.thumbnail && track.value.thumbnail !== brokenArt.value ? track.value.thumbnail : null));
+// 휴대폰 앨범아트 띠의 세 칸. 미는 동안(holding)은 시작한 때의 것을 붙잡아 둔다(곡이 먼저 바뀌어도 미끄러지는 그림이 바뀌지 않게)
+const liveArt = computed(() => ({ now: artShown.value, next: player.value.queue?.[0]?.thumbnail ?? null, hasNext: skipEnabled(player.value), hasPrevious: previousEnabled(player.value) }));
+const heldArt = ref<typeof liveArt.value | null>(null);
+watch(
+  () => artSwipe.holding.value,
+  (held) => (heldArt.value = held ? { ...liveArt.value } : null),
+);
+const art = computed(() => heldArt.value ?? liveArt.value);
+const nextZoom = useArtZoom(() => art.value.next ?? undefined, true);
+// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
+const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
+const ART_SIDE = "absolute inset-0 rounded-(--r-window) overflow-hidden bg-surface-container-high text-on-surface-variant flex items-center justify-center shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)]";
 // 지금 곡을 내가 넣었는지(출처 배지의 "내가 넣은 곡")
 const mine = computed(() => track.value?.requestedBy?.id === player.value.userId);
 // 가림막은 곡이 있을 때만. 곡이 없으면 가릴 조작이 없다
