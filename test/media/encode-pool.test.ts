@@ -279,6 +279,38 @@ test("워커가 늦어 하나를 늘리면 새 워커가 활성 세션의 몫을
   }
 });
 
+test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커가 몫을 받고, 새 세션은 덜 맡은 워커로 간다", async () => {
+  // 세션 8개면 워커 2개가 필요한 프레임당 시간, 늘린 워커는 1.5초 뒤에 뜬다(스트림이 첫 프레임을 보내기 전)
+  process.env.STUB_ENCODE_FRAME_US = "2500";
+  process.env.STUB_ENCODE_GROW_READY_MS = "1500";
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2 });
+  try {
+    await pool.start();
+    const streams = Array.from({ length: 8 }, () => opened(pool));
+    await until(() => pool.stats().workers.length === 2, "워커 늘리기", 5000);
+    assert.equal(
+      pool
+        .stats()
+        .workers.map((w) => w.streams)
+        .join(),
+      "4,4",
+    );
+    streams.push(opened(pool), opened(pool));
+    assert.equal(
+      pool
+        .stats()
+        .workers.map((w) => w.streams)
+        .join(),
+      "5,5",
+    );
+    for (const s of streams) s.session.free();
+  } finally {
+    delete process.env.STUB_ENCODE_FRAME_US;
+    delete process.env.STUB_ENCODE_GROW_READY_MS;
+    await pool.close();
+  }
+});
+
 test("응답이 깊이의 문턱에 가까우면 워커를 늘리고, 늘릴 수 없으면 깊이를 올리고, 상한이면 늦다고 본다", () => {
   const base = { depth: START_DEPTH, canGrow: true, contended: false, calm: 0 };
   assert.equal(decideDepth({ ...base, rttP99: 2 }), null);

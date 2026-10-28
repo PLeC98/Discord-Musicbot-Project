@@ -85,7 +85,8 @@ class Session implements EncodeSession {
   readonly deaths: number[] = [];
   // 옮겨 갈 워커. 옛 워커에 보낸 프레임의 답을 다 받을 때까지 새 프레임은 들고 있는다
   moveTo: Entry | null = null;
-  lastSend = now();
+  // 아직 보내지 않았으면 곧 보낼 세션으로 센다(스트림은 첫 프레임까지 1초를 넘기기도 해, 몰려 열면 한 워커에 쏠렸다)
+  lastSend = Infinity;
   freed = false;
   #seq = 0;
 
