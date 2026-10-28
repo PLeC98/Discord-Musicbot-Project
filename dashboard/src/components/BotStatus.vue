@@ -288,7 +288,9 @@
             <div class="flex items-baseline gap-2 text-sm">
               <span>{{ T.workers.worker(w.n) }}</span>
               <span class="text-xs text-on-surface-variant nums">{{ w.detail }}</span>
-              <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[w.level]">{{ w.rtt }}</span>
+              <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[w.level]"
+                ><span v-for="(text, i) in w.rtt" :key="i" :class="AT_WORKER[i]">{{ text }}</span></span
+              >
             </div>
             <div class="h-2 mt-1 rounded-full bg-(--store-free) overflow-hidden">
               <div class="h-full rounded-full" :class="LEVEL_BAR[w.level]" :style="{ width: `${Math.max(2, w.ratio * 100)}%` }"></div>
@@ -651,6 +653,12 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
 
 // 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 켜진 뒤 누계.
 // 세션 수는 싣지 않는다(워커마다의 재생 수를 더한 것, 새는 세션은 GC 안전망이 warn 로그로 알린다)
+// 응답 시간 줄: 카드 안쪽이 384px(휴대폰 450px) 이하면 ms 를 정수로
+const AT_WORKER = ["@min-[24.01rem]/card:hidden", "hidden @min-[24.01rem]/card:inline"] as const;
+const wholeText = (ms: number) => {
+  const { value, unit } = timeWhole(ms);
+  return `${value}${unit}`;
+};
 const workerRows = computed(() => {
   const e = props.status.encoding;
   const budget = (e.maxDepth - 1) * FRAME_MS;
@@ -659,7 +667,7 @@ const workerRows = computed(() => {
     return {
       n: w.n,
       detail: [T.workers.streams(w.streams), w.cpuPct === null ? "" : T.workers.cpu(w.cpuPct)].filter(Boolean).join(" · "),
-      rtt: T.workers.rtt(timeText(w.rttP99), timeText(limit)),
+      rtt: [T.workers.rtt(wholeText(w.rttP99), wholeText(limit)), T.workers.rtt(timeText(w.rttP99), timeText(limit))],
       ratio: Math.min(1, w.rttP99 / limit),
       level: w.depth >= e.maxDepth ? levelOf(w.rttP99, budget * 0.8, budget) : ("ok" as Level),
     };
