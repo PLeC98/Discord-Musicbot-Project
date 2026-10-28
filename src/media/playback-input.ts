@@ -26,7 +26,7 @@ type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string | null; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-// startedAtMs: 곡 안의 어디부터 흘리나(조각 스트림은 위치가 든 조각부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
+// startedAtMs: 곡 안의 어디부터 흘리나(세그먼트 스트림은 위치가 든 세그먼트부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
 // bounded: 직접 링크가 끝이 있고 크기 · 길이를 안다(나란히 다운로드해도 된다). resumable: 끊기면 이을 수 있다(media/direct-input)
 type OpenedStream = Readable & {
   headers?: Record<string, unknown>;
@@ -268,7 +268,7 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   // 폴백은 yt-dlp를 안 거친 입력을 위한 것이다.
   const headers = streamInfo.httpHeaders || { "User-Agent": config.userAgents.browser };
 
-  // 조각 목록. 위치가 든 조각부터 받는다
+  // 세그먼트 목록. 위치가 든 세그먼트부터 받는다
   if (streamInfo.fragments) return o.io.openFragmentStream({ fragments: streamInfo.fragments, durationMs: (streamInfo.duration || o.meta.duration) * 1000, startMs: o.startMs, headers });
 
   // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
@@ -308,7 +308,7 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
 }
 
 /**
- * 직접 링크는 SSRF 가드(SafeUrl)를 통과해 연다. HLS VOD 는 위치가 든 조각부터 받는다.
+ * 직접 링크는 SSRF 가드(SafeUrl)를 통과해 연다. HLS VOD 는 위치가 든 세그먼트부터 받는다.
  * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 흘리고, 끊기면 캐시 전환을 먼저 묻고 받은 자리부터 Range 로 잇는다
  */
 async function openDirect<R>(o: InputOptions<R>, url: string, hooks: Hooks): Promise<OpenedStream> {
@@ -344,10 +344,10 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
 }
 
 function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream: OpenedStream, hooks: Hooks): Opened<R> {
-  // 스트림이 곡 중간부터 흘리면(조각 스트림) 그 앞은 이미 건너뛰었다
+  // 스트림이 곡 중간부터 흘리면(세그먼트 스트림) 그 앞은 이미 건너뛰었다
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: o.startMs - (audioStream.startedAtMs ?? 0) }), "stream");
   // 입력을 닫아 ffmpeg 가 0 으로 끝나도 스트림이 깨졌으면 끝이 아니다. 오류와 덜 받은 채 끝남을 따로 적는다
-  const kind = streamInfo.fragments ? "조각" : audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
+  const kind = streamInfo.fragments ? "세그먼트" : audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
   const health = new InputHealth(kind).watch(ffmpeg);
 
   // 소스를 교체할 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를

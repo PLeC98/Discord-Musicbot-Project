@@ -1,5 +1,5 @@
 // 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로) · 인코딩 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 삭제).
-// 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 조각)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
+// 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 세그먼트)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
 // 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss · -to, 움직이는 그림은 필터에서. ladder 의 seekArgs · sourceFilter, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
 // 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(나누면 빠르지만 메모리가 더 든다).
 // AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts).
@@ -85,7 +85,7 @@ const rungDir = (id: string, plan: Shape) => path.join(codecDir(id, plan.codec),
 const made = (id: string, plan: Shape) => fs.existsSync(path.join(rungDir(id, plan), "index.m3u8"));
 
 /**
- * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 초기화 조각을 작업 폴더에 쓴다
+ * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 초기화 세그먼트를 작업 폴더에 쓴다
  */
 const hlsOutput = (dir: string) => {
   const at = (name: string) => path.join(dir, name).replaceAll("\\", "/");
@@ -145,7 +145,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
   return null;
 }
 
-/** 초기화 조각의 설정 박스에서 코덱 문자열(RFC 6381) */
+/** 초기화 세그먼트의 설정 박스에서 코덱 문자열(RFC 6381) */
 function codecString(init: Buffer): string {
   const box = (name: string) => {
     const at = init.indexOf(Buffer.from(name, "latin1"));
@@ -161,10 +161,10 @@ function codecString(init: Buffer): string {
   }
   const vpcC = box("vpcC");
   if (vpcC) return `vp09.${String(vpcC[4]).padStart(2, "0")}.${String(vpcC[5]).padStart(2, "0")}.${String(vpcC[6] >> 4).padStart(2, "0")}`;
-  throw codedError("background-failed", "초기화 조각에서 코덱을 읽지 못했습니다");
+  throw codedError("background-failed", "초기화 세그먼트에서 코덱을 읽지 못했습니다");
 }
 
-/** 인코딩한 단계의 목록 값: 2초 최대(조각마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */
+/** 인코딩한 단계의 목록 값: 2초 최대(세그먼트마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */
 function rungOf(dir: string, plan: Shape, fps: number): LoginBackgroundRung & { average: number } {
   const playlist = fs.readFileSync(path.join(dir, "index.m3u8"), "utf8");
   const segments = [...playlist.matchAll(/#EXTINF:([\d.]+),\s*\n([^\n#]+)/g)].map((m) => ({ seconds: Number(m[1]), bytes: fs.statSync(path.join(dir, m[2].trim())).size }));

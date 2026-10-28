@@ -1,10 +1,10 @@
-// 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 조각을 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
-// 모든 요청(상위 · 하위 목록 · 조각 · 초기화 조각 · 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
+// 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
+// 모든 요청(상위 · 하위 목록 · 세그먼트 · 초기화 세그먼트 · 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
 //   상위 목록   음성 따로가 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
-//   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 조각부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다
-//   라이브      끝에서 LIVE_EDGE 조각 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
+//   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 세그먼트부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다
+//   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
 //              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게)
-//   암호       AES-128 은 키를 받아 풀고(IV 가 없으면 조각 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 조각은 풀지 않는다
+//   암호       AES-128 은 키를 받아 풀고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 풀지 않는다
 // 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range 로 받는다. 구간을 무시하고 200 으로 주는 서버면 그 구간만 잘라 쓴다.
 
 import crypto from "node:crypto";
@@ -16,7 +16,7 @@ import type { StreamNet } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 
-/** 받을 것 하나: 조각이거나, 초기화 조각이 바뀌었을 때의 초기화 조각 */
+/** 받을 것 하나: 세그먼트거나, 초기화 세그먼트가 바뀌었을 때의 초기화 세그먼트 */
 type HlsPart = { url: string; range: ByteRange | null; key: Key | null; sequence: number };
 /** media/fragment-stream 의 출처 모양(층 순서상 그 타입을 쓰지 않는다) */
 type HlsFragments = {
@@ -30,7 +30,7 @@ type Hls = {
   live: boolean;
   /** VOD 의 길이(EXTINF 의 합). 라이브는 null */
   durationMs: number | null;
-  /** startMs 가 든 조각부터 받는 출처(라이브는 위치를 보지 않는다) */
+  /** startMs 가 든 세그먼트부터 받는 출처(라이브는 위치를 보지 않는다) */
   fragments(startMs?: number): HlsFragments;
 };
 type HlsOptions = { net?: StreamNet; sleep?: (ms: number) => Promise<void> };
@@ -38,9 +38,9 @@ type HlsOptions = { net?: StreamNet; sleep?: (ms: number) => Promise<void> };
 /** 목록 · 키는 작다 */
 const LIST_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024 * 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const KEY_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 조각 하나. 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다) */
+/** 세그먼트 하나. 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다) */
 const PART_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
-/** 라이브를 끝에서 몇 조각 앞부터 트나 */
+/** 라이브를 끝에서 몇 세그먼트 앞부터 트나 */
 const LIVE_EDGE = 3;
 /** 라이브 목록을 연달아 이만큼 받지 못하면 오류로 끝난다 */
 const RELOAD_FAILURES = 3;
@@ -97,12 +97,12 @@ async function fetchList(url: string, net: StreamNet): Promise<{ text: string; u
   return { text: (await collect(body)).toString("utf8"), url: finalUrl };
 }
 
-/** DRM(AES-128 밖의 암호)이 걸린 조각이 있으면 거절 */
+/** DRM(AES-128 밖의 암호)이 걸린 세그먼트가 있으면 거절 */
 function assertPlayable(playlist: MediaPlaylist): void {
   if (playlist.segments.some((segment) => segment.key?.method === "OTHER")) throw permanent(codedError("unsupported-link", "DRM 으로 잠긴 HLS 입니다"));
 }
 
-/** 조각 순번의 IV(16바이트 큰 끝) */
+/** 세그먼트 순번의 IV(16바이트 큰 끝) */
 function sequenceIv(sequence: number): Buffer {
   const iv = Buffer.alloc(16);
   iv.writeBigUInt64BE(BigInt(sequence), 8);
@@ -115,7 +115,7 @@ function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
     const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
     return Buffer.concat([decipher.update(bytes), decipher.final()]);
   } catch (error) {
-    throw permanent(new Error(`HLS 조각을 풀지 못했습니다: ${(error as Error).message}`));
+    throw permanent(new Error(`HLS 세그먼트를 풀지 못했습니다: ${(error as Error).message}`));
   }
 }
 
@@ -142,7 +142,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
   let closed = false;
   let reloads = 0;
 
-  // 처음 받을 조각
+  // 처음 받을 세그먼트
   let startIndex = Math.max(0, playlist.segments.length - LIVE_EDGE);
   let startedAtMs = 0;
   if (startMs !== null) {
@@ -161,7 +161,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
   let lastInit: string | null = null;
   const queued: HlsPart[] = [];
 
-  // 라이브 목록을 다시 받아 새 조각을 잇는다. 끝났으면 false
+  // 라이브 목록을 다시 받아 새 세그먼트를 잇는다. 끝났으면 false
   async function reload(): Promise<boolean> {
     let unchanged = false;
     for (let failures = 0; ;) {
@@ -188,7 +188,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     }
   }
 
-  // 조각 하나를 받을 것들로(초기화 조각이 바뀌었으면 그것 먼저)
+  // 세그먼트 하나를 받을 것들로(초기화 세그먼트가 바뀌었으면 그것 먼저)
   function partsOf(segment: Segment): HlsPart[] {
     lastSequence = segment.sequence;
     const parts: HlsPart[] = [];
@@ -199,7 +199,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     return parts;
   }
 
-  // 차례를 지킨다(미리 받기가 앞 조각을 받는 중에 부른다)
+  // 차례를 지킨다(미리 받기가 앞 세그먼트를 받는 중에 부른다)
   let chain: Promise<unknown> = Promise.resolve();
   async function takeNext(): Promise<HlsPart | null> {
     for (;;) {
@@ -250,7 +250,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     },
     fetch: fetchPart,
     startedAtMs,
-    describe: (sent) => `HLS ${startMs === null ? "라이브" : "VOD"} · 조각 ${sent}개 흘림 · 마지막 순번 ${lastSequence}${startMs === null ? ` · 목록 다시 받음 ${reloads}회` : ""}`,
+    describe: (sent) => `HLS ${startMs === null ? "라이브" : "VOD"} · 세그먼트 ${sent}개 흘림 · 마지막 순번 ${lastSequence}${startMs === null ? ` · 목록 다시 받음 ${reloads}회` : ""}`,
     close() {
       closed = true;
     },

@@ -56,7 +56,7 @@ const calls = {
   chunked: [] as ChunkedOptions[],
   seeks: [] as SeekRequest[], // 색인으로 받기 시작할 자리를 물은 요청
   chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 테스트가 정한다
-  fragments: [] as FragmentOptions[], // 조각 스트림을 연 요청
+  fragments: [] as FragmentOptions[], // 세그먼트 스트림을 연 요청
   fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
@@ -196,11 +196,11 @@ async function seekStart(request: SeekRequest): Promise<SeekAnswer> {
   return behavior.seekStart ? behavior.seekStart(request) : { ok: false, why: "시험", near: true };
 }
 
-// 조각 스트림 가짜. 진짜처럼 위치가 든 조각의 시작부터 흘린다고 알린다
+// 세그먼트 스트림 가짜. 진짜처럼 위치가 든 세그먼트의 시작부터 흘린다고 알린다
 function openFragmentStream(opts: FragmentOptions) {
   calls.fragments.push(opts);
   const { atMs } = startOf(opts.fragments, opts.durationMs, opts.startMs);
-  return Object.assign(new PassThrough(), { startedAtMs: atMs, describe: () => "조각 가짜" });
+  return Object.assign(new PassThrough(), { startedAtMs: atMs, describe: () => "세그먼트 가짜" });
 }
 
 // ── 4. 캐시 DB: 진짜를 임시 DB 로 ──────────────────────────────────────

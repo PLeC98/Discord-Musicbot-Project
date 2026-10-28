@@ -46,9 +46,9 @@ test("transportOf: 받아서 흘릴 수 없는 것만 url, 캐시 파일이 있�
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.webm", streamInfo: { protocol: "https" } }), { via: "pipe", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://radio.test/s", streamInfo: { platform: "direct", liveStatus: "is_live" } }), { via: "pipe", live: true, cacheable: false }, "인터넷 라디오는 받아서 흘리되 라이브다");
   assert.deepEqual(transportOf({ file: null, streamUrl: null, streamInfo: { stream: {}, ...hls } }), { via: "pipe", live: false, cacheable: true }, "주소가 없으면 url 이 아니다");
-  // DASH 도 파이프에 안 담긴다. 조각 목록이다
+  // DASH 도 파이프에 안 담긴다. 세그먼트 목록이다
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.mpd", streamInfo: { protocol: "http_dash_segments" } }), { via: "url", live: false, cacheable: true, list: "dash" });
-  // 조각 주소의 모양을 알면 우리가 조각을 받아 흘린다(유튜브 post_live)
+  // 세그먼트 주소의 모양을 알면 우리가 세그먼트를 받아 흘린다(유튜브 post_live)
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/v?live=1", streamInfo: { protocol: "http_dash_segments", fragments: { base: "https://x/v?live=1", count: 9 } } }), { via: "pipe", live: false, cacheable: true });
   assert.equal(transportOf({ file: null, streamUrl: "https://x/a", streamInfo: { protocol: "ism" } }).list, "other", "모르는 방식도 받아서 흘릴 수는 없다");
   assert.equal(transportOf({ file: null, streamUrl: "https://x/a.mp3", streamInfo: { protocol: "http" } }).via, "pipe");

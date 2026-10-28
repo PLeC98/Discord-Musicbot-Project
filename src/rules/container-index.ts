@@ -1,7 +1,7 @@
 // 음원 파일 앞부분의 색인(webm Cues · mp4 sidx)으로 시간 → 바이트를 안다. 보는 것은 바이트뿐이다(통신 없음).
-// 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(클러스터 · 조각)부터 받으려고 쓴다(media/seek-start).
+// 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(webm 클러스터 · mp4 세그먼트)부터 받으려고 쓴다(media/seek-start).
 //   webm  EBML → Segment → Info(TimecodeScale) · Tracks(오디오 트랙 번호) · 첫 클러스터 앞의 Cues. 위치는 Segment 데이터 시작 기준(RFC 9559 §16)
-//   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0 · 1, 조각마다 크기 · 길이). 조각 시작은 sidx 다음 바이트 + first_offset
+//   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0 · 1, 세그먼트마다 크기 · 길이). 세그먼트 시작은 sidx 다음 바이트 + first_offset
 // 색인이 이상하면(값이 빠짐 · 시각이나 바이트가 줄어듦 · 파일 밖 · 계층형 sidx 등) 없음으로 답한다. 부르는 쪽은 그때 파일 처음부터 받는다.
 
 type Kind = "webm" | "mp4";
@@ -157,7 +157,7 @@ function boxAt(buf: Buffer, at: number): Box | null {
   return { type: buf.toString("latin1", at + 4, at + 8), start: at, data: at + header, end: at + size };
 }
 
-/** sidx → 조각의 시작 바이트 · 시각. 계층형(reference_type 1) · 값이 이상하면 까닭 */
+/** sidx → 세그먼트의 시작 바이트 · 시각. 계층형(reference_type 1) · 값이 이상하면 까닭 */
 function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
   const version = buf[sidx.data];
   if (version > 1) return `sidx version ${version}`;
@@ -181,7 +181,7 @@ function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
     time += buf.readUInt32BE(at + 4);
     if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return "sidx 값 오버플로";
   }
-  points.push({ ms: (time / timescale) * 1000, byte, raw: time }); // 마지막 조각의 끝(검사에만 쓴다)
+  points.push({ ms: (time / timescale) * 1000, byte, raw: time }); // 마지막 세그먼트의 끝(검사에만 쓴다)
   return points;
 }
 
@@ -191,7 +191,7 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
     const box = boxAt(buf, at);
     if (!box) return at + 16 > buf.length ? need(more(buf, at)) : none("상자가 깨짐");
     if (at === 0 && box.type !== "ftyp") return none("ftyp 로 시작하지 않음");
-    if (box.type === "moof" || box.type === "mdat") return none("sidx 가 조각 앞에 없음");
+    if (box.type === "moof" || box.type === "mdat") return none("sidx 가 세그먼트 앞에 없음");
     if (box.end > buf.length) return need(more(buf, box.end));
     if (box.type === "moov") moovEnd = box.end;
     if (box.type === "sidx") {

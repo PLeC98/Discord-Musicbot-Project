@@ -210,7 +210,7 @@ function sidx({ version = 0, timescale = 1000, ept = 0, firstOffset = 0, refs }:
   return box("sidx", fixed, count, ...entries);
 }
 
-test("mp4: 조각 시작은 sidx 다음 바이트 + first_offset, version 1(64비트)도 읽는다", () => {
+test("mp4: 세그먼트 시작은 sidx 다음 바이트 + first_offset, version 1(64비트)도 읽는다", () => {
   for (const version of [0, 1]) {
     const head = Buffer.concat([box("ftyp", Buffer.from("isom")), box("moov", Buffer.alloc(50))]);
     const index = sidx({
@@ -241,7 +241,7 @@ test("mp4: 조각 시작은 sidx 다음 바이트 + first_offset, version 1(64�
   }
 });
 
-test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 · moov 앞의 sidx · 조각 뒤의 sidx 는 없음", () => {
+test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 · moov 앞의 sidx · 세그먼트 뒤의 sidx 는 없음", () => {
   const ftyp = box("ftyp", Buffer.from("isom"));
   const moov = box("moov", Buffer.alloc(20));
   const cases: Array<[Buffer, RegExp]> = [
@@ -250,7 +250,7 @@ test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 �
     [Buffer.concat([ftyp, moov, sidx({ refs: [] })]), /항목이 없음/],
     [Buffer.concat([ftyp, moov, sidx({ refs: [[100000, 1000]] })]), /파일 밖/],
     [Buffer.concat([ftyp, sidx({ refs: [[100, 1000]] }), moov]), /moov 앞/],
-    [Buffer.concat([ftyp, moov, box("moof", Buffer.alloc(10)), sidx({ refs: [[100, 1000]] })]), /조각 앞에 없음/],
+    [Buffer.concat([ftyp, moov, box("moof", Buffer.alloc(10)), sidx({ refs: [[100, 1000]] })]), /세그먼트 앞에 없음/],
   ];
   for (const [buf, why] of cases) {
     const read = readIndex(buf, buf.length + 200);

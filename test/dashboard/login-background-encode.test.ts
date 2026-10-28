@@ -101,7 +101,7 @@ test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 �
   const av1Mtime = fs.statSync(at(one, "av1", "360", "index.m3u8")).mtimeMs;
   fs.rmSync(at(one, "vp9", "360"), { recursive: true });
   fs.mkdirSync(at(one, "vp9", "360.tmp"), { recursive: true });
-  fs.writeFileSync(at(one, "vp9", "360.tmp", "seg-000.m4s"), "끊긴 조각");
+  fs.writeFileSync(at(one, "vp9", "360.tmp", "seg-000.m4s"), "끊긴 세그먼트");
   one.media = first.media!;
   const again = await encode(job(one));
   assert.equal(fs.statSync(at(one, "av1", "360", "index.m3u8")).mtimeMs, av1Mtime);

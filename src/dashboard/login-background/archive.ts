@@ -26,7 +26,7 @@ const PLAYLIST_MAX_BYTES = 1024 * 1024;
 const STILL_MAX_BYTES = 64 * 1024 * 1024;
 const HEX = /^#[0-9a-f]{6}$/i;
 const CODECS = /^[A-Za-z0-9.]+(,[A-Za-z0-9.]+)*$/;
-/** 목록이 가리킬 수 있는 것: 코덱 목록은 단계 목록, 단계 목록은 조각 */
+/** 목록이 가리킬 수 있는 것: 코덱 목록은 단계 목록, 단계 목록은 세그먼트 */
 const RUNG_LINE = /^(\d{2,4})\/index\.m3u8$/;
 const SEGMENT_LINE = /^seg-\d{3,6}\.m4s$/;
 /** 단계 목록이 init 을 가리키는 줄(이 형식만 주소를 받는다) */
@@ -136,7 +136,7 @@ function itemFrom(raw: unknown): store.Stored | null {
 
 // ── 파일 검사 ──
 
-/** 목록의 줄이 이 폴더 안만 가리키는지. 가리키는 것(단계 폴더 · 조각 이름) */
+/** 목록의 줄이 이 폴더 안만 가리키는지. 가리키는 것(단계 폴더 · 세그먼트 이름) */
 function playlistTargets(text: string, line: RegExp, allowMap: boolean): string[] | null {
   const targets: string[] = [];
   for (const raw of text.split(/\r?\n/)) {
@@ -169,7 +169,7 @@ async function stillsProblem(one: store.Stored, files: Files): Promise<string | 
   return null;
 }
 
-/** 코덱마다 목록 · 단계 목록 · init · 조각이 다 있고 목록이 그 폴더 안만 가리키는지 */
+/** 코덱마다 목록 · 단계 목록 · init · 세그먼트가 다 있고 목록이 그 폴더 안만 가리키는지 */
 function streamsProblem(one: store.Stored, { has, read }: Files): string | null {
   for (const [codec, rungs] of Object.entries(one.media.rungs) as [LoginBackgroundCodec, LoginBackgroundRung[]][]) {
     const master = `${codec}/${PLAYLIST}`;

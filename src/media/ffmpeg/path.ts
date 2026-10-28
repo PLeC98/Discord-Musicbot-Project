@@ -103,7 +103,7 @@ function ffmpegPath(): string {
  * `segMaxRetry`는 비교적 최근 옵션이라 따로 본다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로
  * 없는 빌드에 붙이면 재생이 시작조차 못 한다.
  *
- * `dash`는 DASH 조각 목록을 여는가. 지금 받는 곳에서는 드물다.
+ * `dash`는 DASH 세그먼트 목록을 여는가. 지금 받는 곳에서는 드물다.
  */
 function capabilities(): Capabilities {
   if (caps) return caps;

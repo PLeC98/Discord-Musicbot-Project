@@ -106,7 +106,7 @@ function hlsTrack(url: string, hls: Hls): DirectTrack {
 /** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다) */
 const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크입니다(${kind})`);
 
-/** 재생 · 다운로드 · 재생 테스트가 여는 것: 파일(본문 · 인터넷 라디오인가) 또는 HLS(조각은 media 가 받는다) */
+/** 재생 · 다운로드 · 재생 테스트가 여는 것: 파일(본문 · 인터넷 라디오인가) 또는 HLS(세그먼트는 media 가 받는다) */
 type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: number | null } | { kind: "hls"; hls: Hls };
 
 /**

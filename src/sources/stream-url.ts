@@ -27,7 +27,7 @@ type StreamInfo = {
   isLive?: boolean;
   /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp 의 available_at) */
   availableAt?: number | null;
-  /** 조각 목록으로만 주는 포맷이면 조각 주소의 모양(포맷 주소 뒤 `&sq=번호`, 조각 수). 아니면 없다 */
+  /** 세그먼트 목록으로만 주는 포맷이면 세그먼트 주소의 모양(포맷 주소 뒤 `&sq=번호`, 세그먼트 수). 아니면 없다 */
   fragments?: { base: string; count: number } | null;
   /** 앞서 받아 둔 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 받는다) */
   reused?: boolean;

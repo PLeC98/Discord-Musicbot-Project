@@ -182,7 +182,7 @@ const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: { g
 // 출처가 유튜브가 아닌 곡을 유튜브에서 받았으면 그 영상(로그 꼬리)
 const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : "");
 
-// 조각으로 다운로드하는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 조각이 아닌 포맷에는 걸리지 않는다.
+// 세그먼트로 다운로드하는 포맷(유튜브 post_live 의 DASH 세그먼트 · 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 세그먼트가 아닌 포맷에는 걸리지 않는다.
 // 유튜브는 넷 이상이면 도중에 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
 class TrackDownloader {

@@ -1,4 +1,4 @@
-// src/media/direct-input.ts — 직접 링크를 재생 · 다운로드 입력으로. 파일은 본문, HLS 는 조각 스트림. 끝이 없는가(live) · 끝과 크기를 아는가(bounded)
+// src/media/direct-input.ts — 직접 링크를 재생 · 다운로드 입력으로. 파일은 본문, HLS 는 세그먼트 스트림. 끝이 없는가(live) · 끝과 크기를 아는가(bounded)
 
 import { PassThrough } from "node:stream";
 import { test } from "node:test";
@@ -48,7 +48,7 @@ test("파일: 크기를 알리면 bounded, 인터넷 라디오는 live(크기를
   }
 });
 
-test("HLS: VOD 는 bounded 이고 위치를 조각으로 넘긴다, 라이브는 live", async () => {
+test("HLS: VOD 는 bounded 이고 위치를 세그먼트 단위로 넘긴다, 라이브는 live", async () => {
   const asked: number[] = [];
   const vod = await openDirectInput("https://h.test/v.m3u8", { startMs: 5000 }, hlsOf(false, asked));
   assert.deepEqual([vod.live, vod.bounded, vod.startedAtMs, asked], [false, true, 4000, [5000]]);

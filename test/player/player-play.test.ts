@@ -318,8 +318,8 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
   );
 });
 
-// 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 조각 목록뿐이다. 주소 하나로 열면 첫 조각(2초)만 틀고 끝난다
-test("조각 목록으로만 주는 소리는 위치가 든 조각부터 받아 파이프로 흘리고, 조각 안의 나머지만 -ss 로 건너뛴다", async () => {
+// 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 세그먼트 목록뿐이다. 주소 하나로 열면 첫 세그먼트(2초)만 틀고 끝난다
+test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 흘리고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
   const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };
   const p = h.makePlayer();
   p.currentTrack = yt("pppppppppp1", { duration: 20 });
@@ -331,8 +331,8 @@ test("조각 목록으로만 주는 소리는 위치가 든 조각부터 받아 
   assert.deepEqual({ ...calls.fragments[0], headers: undefined }, { fragments, durationMs: 20_000, startMs: 5_000, headers: undefined });
   const args = argsOf(calls.spawns[0]);
   assert.ok(args.includes("-i pipe:0"), args);
-  assert.ok(args.includes("-ss 1.000"), `조각 하나가 2초라 5초는 셋째 조각(4초)부터 받고 1초를 건너뛴다: ${args}`);
-  assert.equal(p.playback?.input?.kind, "조각");
+  assert.ok(args.includes("-ss 1.000"), `세그먼트 하나가 2초라 5초는 셋째 세그먼트(4초)부터 받고 1초를 건너뛴다: ${args}`);
+  assert.equal(p.playback?.input?.kind, "세그먼트");
   assert.equal(p.playback?.live, false);
 });
 
@@ -835,7 +835,7 @@ test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치�
   assert.match(calls.fetches[1].url, /id=pb1bbbbbbbb/);
 });
 
-test("직접 링크 HLS VOD 의 위치 이동: 그 위치를 여는 쪽에 넘기고, ffmpeg 는 받기 시작한 조각과의 차이만 건너뛴다", async () => {
+test("직접 링크 HLS VOD 의 위치 이동: 그 위치를 여는 쪽에 넘기고, ffmpeg 는 받기 시작한 세그먼트와의 차이만 건너뛴다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://h.test/vod/index.m3u8", { duration: 600 });
   behavior.stream = () => ({ url: "https://h.test/vod/index.m3u8", platform: "direct" });

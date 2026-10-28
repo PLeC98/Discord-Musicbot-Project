@@ -252,7 +252,7 @@ test("풀다 실패하면(내용이 깨졌다) 푼 것을 삭제하고 지금 �
   store.show(one.id);
   store.save();
   const file = await exported();
-  // 조각의 몸통을 바꾼다(목차의 CRC 와 어긋나 풀 때 걸린다)
+  // 세그먼트의 몸통을 바꾼다(목차의 CRC 와 어긋나 풀 때 걸린다)
   const at = file.indexOf(Buffer.from("segment"));
   file[at] ^= 0xff;
   assert.deepEqual((await preview(file)).row.problems, [], "미리 보기는 목차 · 목록 · 그림만 본다");

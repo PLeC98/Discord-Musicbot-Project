@@ -106,7 +106,7 @@ function isStaleMediaError(error: unknown) {
   const msg = textOf(error);
   if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
   // "unable to download video data" 만으로는 안 된다. 네트워크 타임아웃도 같은 문구로 온다.
-  // 유튜브가 거절한 것(403/429)과 조각이 어긋난 것만 본다.
+  // 유튜브가 거절한 것(403/429)과 세그먼트가 어긋난 것만 본다.
   return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
 }
 

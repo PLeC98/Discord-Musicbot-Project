@@ -50,7 +50,7 @@ function withoutCookie(headers: unknown): unknown {
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== "cookie"));
 }
 
-/** 캐시할 만한 것이면 줄인 사본, 아니면 null(재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 조각 목록) */
+/** 캐시할 만한 것이면 줄인 사본, 아니면 null(재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 세그먼트 목록) */
 function trimmed(info: Info): Info | null {
   if (info._type === "playlist" || info.is_live === true || info.live_status === "is_live" || info.live_status === "is_upcoming") return null;
   if (typeof info.url !== "string" || !expireOf(info.url)) return null;

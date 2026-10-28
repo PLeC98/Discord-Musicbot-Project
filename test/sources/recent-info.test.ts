@@ -41,7 +41,7 @@ test("줄이기: 소리만 있는 포맷과 고른 포맷만, 자막 · 썸네�
   assert.equal(out.title, "영상 a");
 });
 
-test("캐시하지 않는 것: 재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 조각 목록 · 너무 큰 것", () => {
+test("캐시하지 않는 것: 재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 세그먼트 목록 · 너무 큰 것", () => {
   const cases: Array<[string, Record<string, unknown>]> = [
     ["p", { _type: "playlist" }],
     ["l", { is_live: true }],

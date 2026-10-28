@@ -68,7 +68,7 @@ type LoginBackgroundScene = { at: number; color: string | null };
 type LoginBackgroundLook = LoginBackgroundOptions & { position: LoginBackgroundPosition };
 /**
  * GET /api/login-background(로그인 전, 캐시하지 않음, ETag). none 이면 봇 프로필 그림 배경.
- * 파일 주소는 /login-background/:id/… 이고 id 는 배경마다 달라: 폭별 그림 · 조각은 1년 immutable, HLS 목록(.m3u8)은 캐시하지 않는다.
+ * 파일 주소는 /login-background/:id/… 이고 id 는 배경마다 달라: 폭별 그림 · 세그먼트는 1년 immutable, HLS 목록(.m3u8)은 캐시하지 않는다.
  * 인코딩 중이면 생긴 것만 싣는다(썸네일 → H.264 → AV1 · VP9). 보고 있는 화면은 받은 그대로 두고 다음 방문부터 더한 것을 쓴다.
  * stills 는 이미지면 그 그림, 영상이면 운영자가 선택한 썸네일(첫 화면 · 마지막 폴백). color 는 대표색(장면 색과 같은 형식, 없으면 null).
  * 원본 · 기록 목록 · 올린 파일 이름 · 받은 링크는 싣지 않는다

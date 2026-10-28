@@ -11,7 +11,7 @@ function normalizeDashboardOrigin(value: string) {
     throw new Error("DASHBOARD_URL 은 http 나 https 주소여야 합니다");
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error("DASHBOARD_URL 은 계정 · 쿼리 · 조각 없는 주소(출처)여야 합니다");
+    throw new Error("DASHBOARD_URL 은 계정 · 쿼리 · 프래그먼트 없는 주소(출처)여야 합니다");
   }
   return parsed.origin;
 }

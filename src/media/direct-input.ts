@@ -1,4 +1,4 @@
-// 직접 링크를 재생 · 다운로드 입력으로 연다(sources/direct 의 open). 파일은 그 본문, HLS 는 조각 스트림(media/fragment-stream).
+// 직접 링크를 재생 · 다운로드 입력으로 연다(sources/direct 의 open). 파일은 그 본문, HLS 는 세그먼트 스트림(media/fragment-stream).
 //   live       끝이 없다(인터넷 라디오 · 라이브 HLS). 캐시하지 않는다
 //   bounded    끝이 있고 크기 · 길이를 안다(크기를 알린 파일 · VOD HLS). 재생과 나란히 다운로드해도 된다
 //   resumable  끊기면 받은 자리부터 이을 수 있는 파일(크기를 알리고 음원 상한 안). 재생이 청크 스트림으로 연다(media/chunked-stream)
@@ -18,12 +18,12 @@ type DirectInput = Readable & {
   live: boolean;
   bounded: boolean;
   resumable?: Resumable;
-  /** 곡 안의 어느 위치(ms)부터 흘리나(HLS VOD 는 위치가 든 조각부터) */
+  /** 곡 안의 어느 위치(ms)부터 흘리나(HLS VOD 는 위치가 든 세그먼트부터) */
   startedAtMs?: number;
   describe?(): string;
 };
 /**
- * startMs: 곡 안의 시작 위치(HLS VOD 만 조각으로 맞춘다. 나머지는 ffmpeg 의 -ss)
+ * startMs: 곡 안의 시작 위치(HLS VOD 만 세그먼트 단위로 맞춘다. 나머지는 ffmpeg 의 -ss)
  * liveOnly: 라이브로 담은 곡이다. HLS 의 목록이 끝났으면 틀지 않고 live-ended(다시보기를 처음부터 틀지 않는다)
  */
 type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number };
