@@ -341,7 +341,7 @@
 }
 
 /* 한 줄 글이 넘치면 … 대신 끝을 투명하게. 넘치지 않으면 스크롤 타임라인이 비활성이라 마스크가 걸리지 않는다.
-   스크롤 타임라인이 없는 브라우저는 … 그대로 */
+   마스크는 content box 기준이라 오른쪽 padding 에는 글이 보이지 않는다(끝에 붙지 않게). 스크롤 타임라인이 없는 브라우저는 … 그대로 */
 @utility fade-end {
   overflow: hidden;
   white-space: nowrap;
@@ -355,7 +355,9 @@
 @keyframes fade-end {
   from,
   to {
-    mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent);
+    mask-origin: content-box;
+    mask-clip: content-box;
   }
 }
 

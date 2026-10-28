@@ -120,7 +120,7 @@ function startResize(e: PointerEvent) {
 // 서버 · 모든 서버 한 항목. 세로면 [아이콘 영역(막대 폭) | 이름], 가로면 아이콘만
 const item = computed(() => (props.vertical ? "group relative shrink-0 w-full flex items-center no-underline text-on-surface" : "group relative shrink-0 no-underline"));
 const slot = computed(() => (props.vertical ? "w-(--bar) shrink-0 flex justify-center" : "contents"));
-const label = "min-w-0 flex-1 pr-3 fade-end text-sm font-medium";
+const label = "min-w-0 flex-1 pr-4 fade-end text-sm font-medium";
 
 // 막대 가장자리(화면 가장자리 쪽)의 표시. 선택하면 길게, 올리면 짧게. 세로 막대는 왼쪽 끝, 가로 막대는 위 끝
 function pip(active: boolean) {
