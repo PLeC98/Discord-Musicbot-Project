@@ -28,12 +28,17 @@ const TICK_MS = 1000;
 const CALIBRATE_FRAMES = 200;
 // 기동 때 잰 프레임당 시간으로 워커 수를 미리 정할 때, 워커 하나를 이만큼만 채운다(주기의 여유)
 const TARGET_BUSY = 0.5;
-// 최근 이만큼 안에 프레임을 보낸 세션만 부하로 센다(일시정지한 세션은 비용이 없다)
+// 최근 이만큼 안에 프레임을 보낸 세션만 부하로 센다(일시정지한 세션은 비용이 없다). 아직 보내지 않은 세션은 곧 보낼 것으로 센다
 const ACTIVE_MS = 1000;
 // 깊이를 내리기 전에 여유가 이어져야 하는 틱 수(3분)와 분당 바꾸는 횟수 상한
 const CALM_TICKS = 180;
 const DEPTH_CHANGES_PER_MIN = 4;
-const SLOW_CALM_TICKS = 10;
+// 늦음 경고: 최근 SLOW_WINDOW 틱의 늦은 프레임이 활성 스트림마다 SLOW_FRAMES 개(100ms) 넘으면 warn, SLOW_CALM_TICKS 틱 내리 없으면 풀림.
+// 깊이 · 응답 시간이 아니라 늦은 프레임(소리가 빈 박자)으로 본다: CPU 를 빼앗기면 응답이 들쭉날쭉해 응답으로는 끊기는 동안에도 풀렸다고 보았다
+// 늦음은 띄엄띄엄 한 틱에 몰려 온다(CPU 를 빼앗긴 2코어에서 스트림마다 0.6 ~ 5초씩, 20 ~ 60초 간격). 몇 틱에 났는지가 아니라 양으로 보고, 풀림은 그 간격보다 길게 기다린다
+const SLOW_FRAMES = 5;
+const SLOW_WINDOW = 5;
+const SLOW_CALM_TICKS = 30;
 // 60초 안에 3번 죽으면 새 워커를 늦춘다. 같은 세션이 2번 죽음을 겪으면 그 세션만 실패시킨다(입력 하나가 워커를 잇달아 죽이는 경우)
 const DEATH_WINDOW_MS = 60_000;
 const DEATHS_TO_BACKOFF = 3;
@@ -72,6 +77,8 @@ type Entry = {
   // 지난 틱의 응답 p99(ms). 배정할 때 쓴다
   lastP99: number;
   late: number;
+  // 지난 틱의 늦은 프레임 수. 늦음 경고에 가장 많이 늦은 워커의 CPU 를 적는다
+  lastLate: number;
   load: Load | null;
   calm: number;
   depthChanges: number[];
@@ -222,6 +229,7 @@ class EncodePool {
   #lastDeath = 0;
   #slowSince = 0;
   #slowLate = 0;
+  #lateTicks: number[] = [];
   #slowCalm = 0;
   #timers: NodeJS.Timeout[] = [];
   #closing = false;
@@ -340,7 +348,7 @@ class EncodePool {
     this.#spawning++;
     const thread = new Worker(this.#url);
     const { port1, port2 } = new MessageChannel();
-    const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], lastP99: 0, late: 0, load: null, calm: 0, depthChanges: [], gone: false };
+    const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], lastP99: 0, late: 0, lastLate: 0, load: null, calm: 0, depthChanges: [], gone: false };
     return new Promise<Entry>((resolve, reject) => {
       let ready = false;
       const fail = (why: string) => {
@@ -440,9 +448,13 @@ class EncodePool {
   // 기동 때 잰 프레임당 시간으로 지금 활성 세션에 필요한 워커 수를 어림해 모자라면 늘린다(세션 복원 몰림)
   #growForLoad() {
     if (!this.#frameUs || this.#spawning) return;
-    const active = this.#workers.reduce((sum, e) => sum + this.#activeOf(e), 0);
+    const active = this.#activeStreams();
     const wanted = Math.ceil((active * this.#frameUs) / (FRAME_MS * 1000 * TARGET_BUSY));
     if (wanted > this.#workers.length) this.#grow();
+  }
+
+  #activeStreams() {
+    return this.#workers.reduce((sum, e) => sum + this.#activeOf(e), 0);
   }
 
   #activeOf(entry: Entry) {
@@ -668,20 +680,23 @@ class EncodePool {
   // 1초마다 워커별로 응답 시간을 보고 늘리기 · 깊이를 정한다
   #tick() {
     const at = now();
-    let slow: Entry | null = null;
+    let late = 0;
+    let worst: Entry | null = null;
     for (const entry of this.#workers.slice()) {
       const rttP99 = p99(entry.rtt);
-      const late = entry.late;
+      const entryLate = entry.late;
       entry.lastP99 = rttP99;
       this.#peakRtt = Math.max(this.#peakRtt, rttP99);
       entry.rtt = [];
       entry.late = 0;
-      this.#stats.late += late;
+      this.#stats.late += entryLate;
+      late += entryLate;
+      if (entryLate > (worst?.lastLate ?? 0)) worst = entry;
+      entry.lastLate = entryLate;
       entry.calm = isCalm(rttP99, entry.depth) ? entry.calm + 1 : 0;
       entry.depthChanges = entry.depthChanges.filter((t) => at - t < 60_000);
       const action = decideDepth({ rttP99, depth: entry.depth, canGrow: this.#mayGrow() && !this.#spawning, contended: contendedOf(entry.load), calm: entry.calm });
       if (action === "grow") this.#grow();
-      else if (action === "slow" && late > 0) slow = entry;
       // 띄우는 중인 워커가 있으면 깊이를 올리지 않고 기다린다(뜨면 스트림을 나눠 받는다)
       else if (action === "deepen" && this.#spawning) continue;
       else if ((action === "deepen" || action === "shallow") && entry.depthChanges.length < DEPTH_CHANGES_PER_MIN) {
@@ -690,21 +705,25 @@ class EncodePool {
         entry.calm = 0;
         log.debug(`재생 인코딩 워커 ${entry.n}: 미리 만드는 깊이 ${entry.depth}(응답 p99 ${rttP99.toFixed(1)}ms)`);
       }
-      if (slow === entry) this.#slowLate += late;
     }
-    this.#noteSlow(slow);
+    this.#noteSlow(late, worst);
   }
 
-  // 깊이 상한에서도 늦은 프레임이 이어지면 처음 한 줄 warn, 10초 동안 늦지 않으면 풀렸다고 한 줄 info
-  #noteSlow(slow: Entry | null) {
-    if (slow) this.#slowCalm = 0;
-    else if (this.#slowSince) this.#slowCalm++;
-    if (slow && !this.#slowSince) {
+  // 늦은 프레임이 이어지면 처음 한 줄 warn, 10초 동안 늦지 않으면 풀렸다고 한 줄 info. worst: 이번 틱에 가장 많이 늦은 워커
+  #noteSlow(late: number, worst: Entry | null) {
+    this.#lateTicks = [...this.#lateTicks.slice(1 - SLOW_WINDOW), late];
+    if (this.#slowSince) {
+      this.#slowLate += late;
+      this.#slowCalm = late > 0 ? 0 : this.#slowCalm + 1;
+    } else if (this.#lateTicks.reduce((sum, n) => sum + n, 0) >= Math.max(1, this.#activeStreams()) * SLOW_FRAMES) {
       this.#slowSince = now();
+      this.#slowLate = late;
+      this.#slowCalm = 0;
       const streams = this.#workers.reduce((sum, e) => sum + e.ids.size, 0);
-      const cpu = slow.load ? `${Math.round(slow.load.cpuUs / 10_000)}%` : "알 수 없음";
+      const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : "알 수 없음";
       log.warn(`재생 인코딩이 늦습니다(워커 ${this.#workers.length}개 · 상한 ${this.#limit()}, 스트림 ${streams}개, 늦은 워커의 CPU ${cpu}). 늦은 만큼 소리가 끊깁니다`);
-    } else if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
+    }
+    if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
       log.info(`재생 인코딩 늦음이 풀렸습니다(${Math.round((now() - this.#slowSince) / 1000)}초 동안 늦은 프레임 ${this.#slowLate}개)`);
       this.#slowSince = 0;
       this.#slowLate = 0;

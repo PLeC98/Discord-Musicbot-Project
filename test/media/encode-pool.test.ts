@@ -12,6 +12,7 @@ import { BroadcastChannel } from "worker_threads";
 import { EncodePool, decideDepth, workerLimit, START_DEPTH, MAX_DEPTH, type EncodeSession } from "../../src/media/encode-pool.ts";
 import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const FAULTY = new URL("../helpers/faulty-encode-worker.ts", import.meta.url);
 const STUB = new URL("../helpers/stub-encode-worker.ts", import.meta.url);
@@ -307,6 +308,32 @@ test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커
   } finally {
     delete process.env.STUB_ENCODE_FRAME_US;
     delete process.env.STUB_ENCODE_GROW_READY_MS;
+    await pool.close();
+  }
+});
+
+test("늦음 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게 늦으면(한 틱에 몰려도) 한 줄 warn, 30초 동안 늦지 않으면 풀렸다고 한 줄 info", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
+  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.includes("재생 인코딩이 늦습니다") || e.text.includes("재생 인코딩 늦음이 풀렸습니다"));
+  try {
+    await pool.start();
+    const { session } = opened(pool);
+    // 우리 출력이 읽힐 때 패킷이 없으면 늦음을 센다. 그것만 흉내 낸다
+    const late = (frames: number) => {
+      for (let i = 0; i < frames; i++) session.late();
+    };
+    const from = sink.buffer.length;
+    late(2);
+    await sleep(2500);
+    assert.deepEqual(slowLines(from), [], "두 프레임은 경고하지 않는다");
+    // 메인이 막혔다 몰아 읽은 것처럼 한 틱에 0.6초 몫
+    late(30);
+    await until(() => slowLines(from).length === 1, "경고", 2500);
+    assert.equal(slowLines(from)[0].level, "warn");
+    await until(() => slowLines(from).length === 2, "풀림", 33_000);
+    assert.equal(slowLines(from)[1].level, "info");
+    session.free();
+  } finally {
     await pool.close();
   }
 });
