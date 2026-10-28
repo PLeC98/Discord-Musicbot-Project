@@ -250,7 +250,7 @@ function vocaFields(site: Site): Field[] {
  *   env    있어야 하는 키의 이름(운영자 패널의 API 키 탭에서 입력한다. 없으면 그 소스만 못 쓴다, config/source-keys)
  */
 const SPEC: Record<string, SourceSpec> = {
-  keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 선택해 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 선택해 사용합니다" }), f("blockedKeywords", "list", "차단어 오버라이드", { deep: true, hint: "입력하면 이 출처에서는 전역 키워드 검색 차단어 대신 이것을 씁니다. 비우면 전역 값" })] },
+  keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 선택해 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 선택해 사용합니다" }), f("blockedKeywords", "list", "제외 키워드 오버라이드", { deep: true, hint: "입력하면 이 출처에서는 전역 제외 키워드 대신 이것을 씁니다. 비우면 전역 값" })] },
   lastfm: {
     label: "Last.fm",
     hint: "태그로 곡 이름을 불러와 유튜브에서 찾습니다.",

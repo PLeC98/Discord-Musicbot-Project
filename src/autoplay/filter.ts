@@ -21,12 +21,12 @@ const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
 // feat · ft 만 센다. fe?a?t 로 적으면 "fat" · "fet" 도 걸린다
 const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 
-// 낱말 경계를 쓸 수 있는 차단어인지. 로마자·숫자·공백뿐이면 쓴다.
+// 낱말 경계를 쓸 수 있는 제외 키워드인지. 로마자·숫자·공백뿐이면 쓴다.
 // 한국어·일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords 는 이 출처에 거는 차단어(키워드 출처만, autoplay/route 가 선택한다) */
+/** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords 는 이 출처에 거는 제외 키워드(키워드 출처만, autoplay/route 가 선택한다) */
 type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
 type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
 type Verdict = { ok: boolean; reason?: string; detail?: string };
@@ -35,7 +35,7 @@ type Verdict = { ok: boolean; reason?: string; detail?: string };
 function prepare(cfg: FilterConfig | null | undefined): Limits {
   const blocked: Limits["blocked"] = [];
   for (const raw of cfg?.blockedKeywords || []) {
-    // 제목을 소문자로 낮춰 견주므로 차단어도 낮춰 둔다
+    // 제목을 소문자로 낮춰 견주므로 제외 키워드도 낮춰 둔다
     const word = String(raw).trim().toLowerCase();
     if (!word) continue;
     // 낱말 경계를 붙여야 "mix"가 "remix"를 죽이지 않는다. 설정에 공백을 넣어 두는 것으로는 안 된다
@@ -58,9 +58,9 @@ function judge(track: { duration?: number | null; title?: string | null } | null
 
   const title = (track.title || "").toLowerCase();
 
-  // 차단어는 곡 표식이 있어도 면제하지 않는다. "공식 믹스"도 믹스다
+  // 제외 키워드는 곡 표식이 있어도 면제하지 않는다. "공식 믹스"도 믹스다
   const blocked = limits.blocked.find((b) => (b.test ? b.test.test(title) : title.includes(b.word)));
-  if (blocked) return { ok: false, reason: "차단어", detail: blocked.word };
+  if (blocked) return { ok: false, reason: "제외 키워드", detail: blocked.word };
 
   if (SONG_MARKS.test(title)) return { ok: true };
 

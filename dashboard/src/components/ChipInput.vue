@@ -1,5 +1,5 @@
 <!--
-  문자열 목록을 칩으로 다룬다. 검색어와 차단어가 같은 성질이라 한 곳에 모은다.
+  문자열 목록을 칩으로 다룬다. 검색어와 제외 키워드가 같은 성질이라 한 곳에 모은다.
   Enter로 추가, 지우기 버튼 또는 빈 입력란에서 Backspace로 제거, 칩을 누르면 고친다.
 
   suggest 를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그 · 가수). 후보는 돕는 것일 뿐이라
@@ -69,7 +69,7 @@ const props = withDefaults(
   defineProps<{
     modelValue?: string[];
     placeholder?: string;
-    /** 차단어처럼 대소문자를 가리지 않고 견주는 입력란. 입력되는 값 자체를 낮춰 둔다 */
+    /** 제외 키워드처럼 대소문자를 가리지 않고 견주는 입력란. 입력되는 값 자체를 낮춰 둔다 */
     lowercase?: boolean;
     /** 검색어로 후보를 불러온다. 없으면 후보를 표시하지 않는다 */
     suggest?: ((term: string) => Promise<Suggestion[]>) | null;

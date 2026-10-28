@@ -68,9 +68,9 @@ const defaults = {
   ifEmpty: (value: number | string) => `비우면 ${value}`,
   maxTip: "비우면 제한 없음",
   noLimit: "제한 없음",
-  blocked: "키워드 검색 차단어",
-  blockedTip: "키워드 출처에만 적용돼요. 찾은 곡 제목에 이 말이 있으면 제외해요.\n(대소문자 무관, 영문은 단어 단위 · 한글 · 일본어는 포함 여부로 매칭)",
-  blockedPlaceholder: "차단할 키워드를 입력하고 Enter",
+  blocked: "제외 키워드",
+  blockedTip: "키워드 출처에만 적용돼요. 검색어로 찾은 곡 제목에 이 키워드가 있으면 제외해요.\n(대소문자 무관, 영문은 단어 단위 · 한글 · 일본어는 포함 여부로 매칭)",
+  blockedPlaceholder: "제외할 키워드를 입력하고 Enter",
 };
 
 export { listTitle, addGenre, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, label, labelPlaceholder, id, idPlaceholder, idTip, removeGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };

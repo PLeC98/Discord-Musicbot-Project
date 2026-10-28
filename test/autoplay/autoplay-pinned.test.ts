@@ -12,7 +12,7 @@ after(() => store.close());
 const route = await import("../../src/autoplay/route.ts");
 const pinnedSources = await import("../../src/store/pinned-sources.ts");
 
-// 차단어 · 길이 하한이 걸리는 후보도 지정한 음원이면 지나간다
+// 제외 키워드 · 길이 하한이 걸리는 후보도 지정한 음원이면 지나간다
 const LIMITS = filterModule.prepare({ minDurationSec: 600, maxDurationSec: 3600, blockedKeywords: ["live"] });
 const deps: Deps = {
   ...route.REAL,

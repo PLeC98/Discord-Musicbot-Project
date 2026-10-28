@@ -78,7 +78,7 @@
             <SourceEditor :key="selected.key" v-model="selected.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="selectedIndex" />
           </section>
 
-          <!-- 전역 설정 오버라이드: 채운 입력란만 이 장르에서 전역 값을 대신한다. 비우면 전역 값(utils/genre-rows). 차단어는 키워드 출처마다 둔다(SourceEditor) -->
+          <!-- 전역 설정 오버라이드: 채운 입력란만 이 장르에서 전역 값을 대신한다. 비우면 전역 값(utils/genre-rows). 제외 키워드는 키워드 출처마다 둔다(SourceEditor) -->
           <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
             <h3 class="text-sm font-semibold text-on-surface">{{ T.overrides }}</h3>
             <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
@@ -142,7 +142,7 @@ const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(
 function apply(data: Record<string, unknown>) {
   // 파일에 필드가 없을 때의 값은 봇이 그때 쓰는 값(schema/genres 의 GENRE_DEFAULTS). 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
   const defaults: Defaults = { ...GENRE_DEFAULTS, blockedKeywords: [], ...((data.defaults as Partial<Defaults> | undefined) || {}) };
-  // 차단어는 제목을 소문자로 낮춰 견주므로, 입력되는 값도 낮춰 둔다. 대문자로 입력해 두면 아무것도 필터링하지 못한다
+  // 제외 키워드는 제목을 소문자로 낮춰 견주므로, 입력되는 값도 낮춰 둔다. 대문자로 입력해 두면 아무것도 필터링하지 못한다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   const genres = (data.genres as Record<string, GenreData> | undefined) || {};
   draft.value = { defaults, genres };

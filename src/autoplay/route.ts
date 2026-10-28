@@ -361,7 +361,7 @@ async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Playe
 
   // 가중치대로 훑되 한 소스가 빈 손이면 다음으로 간다. 목록이 곧 폴백 사슬이다.
   for (const source of byWeight(list)) {
-    // 차단어는 키워드 출처의 후보(유튜브 검색 결과)에만 건다. 출처 필드에 적었으면 전역 대신 그것. 다른 출처는 곡 이름이 확실해 오탐만 낸다
+    // 제외 키워드는 키워드 출처의 후보(유튜브 검색 결과)에만 건다. 출처 필드에 적었으면 전역 대신 그것. 다른 출처는 곡 이름이 확실해 오탐만 낸다
     const limits = autoplayFilter.prepare({ ...cfg, blockedKeywords: blockedFor(source, cfg) });
     // 한 소스 안에서도 몇 번은 더 본다. 후보 하나가 필터에 걸렸다고 소스를 버릴 이유가 없다
     for (let tries = 0; tries < 3; tries++) {
@@ -378,7 +378,7 @@ async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Playe
   return null;
 }
 
-/** 그 출처에 거는 차단어. 키워드 출처만, 출처 필드가 있으면 그것 */
+/** 그 출처에 거는 제외 키워드. 키워드 출처만, 출처 필드가 있으면 그것 */
 function blockedFor(source: GenreSource, cfg: PickConfig | null | undefined): unknown[] {
   if (source.type !== "keyword") return [];
   const own = (source as { blockedKeywords?: unknown }).blockedKeywords;

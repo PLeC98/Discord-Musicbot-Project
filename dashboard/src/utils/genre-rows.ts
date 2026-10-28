@@ -26,7 +26,7 @@ type GenreRow = {
 let serial = 0;
 const nextKey = () => ++serial;
 
-/** 장르마다 덮어쓸 수 있는 필드(차단어는 키워드 출처 필드가 덮어쓴다) */
+/** 장르마다 덮어쓸 수 있는 필드(제외 키워드는 키워드 출처 필드가 덮어쓴다) */
 const OVERRIDES = ["minDurationSec", "maxDurationSec"] as const;
 
 const toRows = (genres: Record<string, GenreData> | null | undefined): GenreRow[] =>

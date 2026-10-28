@@ -257,11 +257,11 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 
 // ── 뽑을 때의 필터링 ─────────────────────────────────────────────────────
 
-// 제목만 소문자로 낮추고 차단어를 그대로 두면 "Playlist" 같은 대문자 섞인 차단어가 아무것도 필터링하지 못한다.
+// 제목만 소문자로 낮추고 제외 키워드를 그대로 두면 "Playlist" 같은 대문자 섞인 제외 키워드가 아무것도 필터링하지 못한다.
 //
 // 규칙 자체는 autoplayFilter가 갖고 있다(test/autoplay/autoplay-filter.test.ts). 여기서 보는 것은
 // 설정에서 뽑기까지 그 규칙이 실제로 이어지는가다 — 소스에서 후보가 와서 필터를 지나는 길.
-test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 구분하지 않는다", async () => {
+test("설정의 제외 키워드가 뽑기까지 이어진다 — 대소문자를 구분하지 않는다", async () => {
   // 키워드 소스가 부르는 유튜브 검색만 가짜로. 후보가 필터를 지나는 길은 진짜다
   const search = async () => [
     { id: "1", title: "Best Playlist Ever", audioUrl: "https://y/1", duration: 200 },
@@ -293,7 +293,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 구�
     for (let i = 0; i < 8; i++) {
       pool._reset();
       const picked = await p.pickAutoplayTrack();
-      assert.equal(picked?.audioUrl, "https://y/2", "대문자로 적은 차단어도 필터링해야 한다");
+      assert.equal(picked?.audioUrl, "https://y/2", "대문자로 적은 제외 키워드도 필터링해야 한다");
     }
   } finally {
     pool._reset();

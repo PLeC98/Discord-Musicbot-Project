@@ -157,7 +157,7 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
-// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 차단어는 전역과 키워드 출처 필드에만
+// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 제외 키워드는 전역과 키워드 출처 필드에만
 test("검사: 장르별 덮어쓰기(길이)도 본다", () => {
   const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800 }), "");
