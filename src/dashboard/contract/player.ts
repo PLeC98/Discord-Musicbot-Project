@@ -57,6 +57,8 @@ type PlayerState = {
   loop?: Loop;
   currentTrack: PlayingView | null;
   hasPrevious?: boolean;
+  /** 이전 곡을 누르면 틀 곡의 그림(없거나 이전 곡이 없으면 null). 휴대폰 앨범아트를 밀 때 옆 카드에 미리 띄운다 */
+  previousThumbnail?: string | null;
   autoplay?: boolean;
   /** 자동재생 장르의 식별자 · 보여 줄 이름(꺼져 있으면 null) */
   autoplayGenre?: string | null;

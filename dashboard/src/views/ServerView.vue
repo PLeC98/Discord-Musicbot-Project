@@ -113,11 +113,12 @@
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
             <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 그림은 [이전 | 지금 | 다음] 세 칸이 나란히 붙은 띠라 미는 동안 옆 곡 그림이 들어온다.
-                 옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다. 이전 곡 그림은 상태에 없어 빈 칸이다.
+                 옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다.
+                 옆 곡의 그림을 미리 띄워 두어 넘어간 뒤 가운데에 바로 그려진다. 그림이 없으면 지금 칸과 같은 아이콘(넘어가며 아이콘이 바뀌지 않게)
                  사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
             <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && 'transition-[translate] duration-250 ease-smooth'" :style="[ART_STEP, artSwipe.style.value]">
-              <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><Icon name="music_note" :size="64" /></span>
-              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="ART_SIDE" class="translate-x-(--art-step)"><img v-if="art.next" :src="art.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" /><Icon v-else name="music_note" :size="64" /></span>
+              <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><img v-if="art.previous" :src="art.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" /><Icon v-else name="audio_file" :size="64" /></span>
+              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="ART_SIDE" class="translate-x-(--art-step)"><img v-if="art.next" :src="art.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" /><Icon v-else name="audio_file" :size="64" /></span>
               <button v-if="art.now" ref="artSwipeEl" type="button" data-no-swipe class="relative size-full rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none" :aria-label="T.enlargeArt" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up" @click="artSwipe.swiped.value || (artOpen = true)">
                 <img :src="art.now" alt="" draggable="false" class="size-full object-cover" :style="artZoom > 1 ? { scale: artZoom } : undefined" @error="brokenArt = art.now" />
               </button>
@@ -669,7 +670,7 @@ const track = computed(() => player.value.currentTrack);
 const brokenArt = ref<string | null>(null);
 const artShown = computed(() => (track.value?.thumbnail && track.value.thumbnail !== brokenArt.value ? track.value.thumbnail : null));
 // 휴대폰 앨범아트 띠의 세 칸. 미는 동안(holding)은 시작한 때의 것을 붙잡아 둔다(곡이 먼저 바뀌어도 미끄러지는 그림이 바뀌지 않게)
-const liveArt = computed(() => ({ now: artShown.value, next: player.value.queue?.[0]?.thumbnail ?? null, hasNext: skipEnabled(player.value), hasPrevious: previousEnabled(player.value) }));
+const liveArt = computed(() => ({ now: artShown.value, next: player.value.queue?.[0]?.thumbnail ?? null, previous: player.value.previousThumbnail ?? null, hasNext: skipEnabled(player.value), hasPrevious: previousEnabled(player.value) }));
 const heldArt = ref<typeof liveArt.value | null>(null);
 watch(
   () => artSwipe.holding.value,
@@ -677,6 +678,7 @@ watch(
 );
 const art = computed(() => heldArt.value ?? liveArt.value);
 const nextZoom = useArtZoom(() => art.value.next ?? undefined, true);
+const previousZoom = useArtZoom(() => art.value.previous ?? undefined, true);
 // 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
 const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
 const ART_SIDE = "absolute inset-0 rounded-(--r-window) overflow-hidden bg-surface-container-high text-on-surface-variant flex items-center justify-center shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)]";

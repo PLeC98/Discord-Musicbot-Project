@@ -78,6 +78,30 @@ test("rewind: 이전 곡을 맨 앞에, 중단된 현재곡을 그 뒤에 둔다
   assert.deepEqual(titles(none.queue), ["D"], "기록이 없으면 아무것도 바꾸지 않는다");
 });
 
+test("previousOf: 이전 곡을 누르면 틀 곡을 바꾸지 않고 본다(한곡 반복 · 고리에 지금 곡뿐이면 지금 곡, 대기열 반복은 대기열 끝, 아니면 기록 끝)", () => {
+  const plain = make({ current: t("C"), queue: [t("D")], history: [t("A"), t("B")] });
+  assert.equal(trackState.previousOf(plain)?.title, "B");
+  assert.deepEqual([titles(plain.queue), titles(plain.previousTracks)], [["D"], ["A", "B"]], "바꾸지 않는다");
+
+  // 대기열 반복을 끈 뒤 기록 끝에 남은 지금 곡(같은 객체)은 rewind 처럼 건너뛴다
+  const current = t("C");
+  const stale = make({ current, history: [t("A"), current] });
+  assert.equal(trackState.previousOf(stale)?.title, "A");
+
+  const ring = make({ current: t("C"), queue: [t("D"), t("E")], history: [t("A")] });
+  ring.loop = "queue";
+  assert.equal(trackState.previousOf(ring)?.title, "E");
+
+  const alone = make({ current: t("C"), history: [t("A")] });
+  alone.loop = "queue";
+  assert.equal(trackState.previousOf(alone)?.title, "C", "고리에 지금 곡뿐이면 지금 곡을 처음부터");
+  alone.loop = "track";
+  assert.equal(trackState.previousOf(alone)?.title, "C");
+
+  assert.equal(trackState.previousOf(make({ current: t("C") })), null, "기록이 없으면 없다");
+  assert.equal(trackState.previousOf(make({ history: [t("A")] })), null, "지금 곡이 없으면 없다");
+});
+
 test("removeAt·move: 범위 밖이면 null이고 아무것도 바꾸지 않는다", () => {
   const p = make({ queue: [t("A"), t("B"), t("C")] });
   assert.equal(trackState.removeAt(p, 3), null);

@@ -141,6 +141,20 @@ function rewindRing(player: Tracks) {
   return prev;
 }
 
+/** 이전 곡이 지금 곡을 처음부터 트는가. 한곡 반복, 또는 대기열 반복인데 대기열이 비었다(고리에 지금 곡뿐) */
+function restartsOnPrevious(player: Pick<Tracks, "loop" | "queue">) {
+  return player.loop === "track" || (player.loop === "queue" && player.queue.length === 0);
+}
+
+/** 이전 곡을 누르면 틀 곡. 바꾸지 않고 본다(player.previous 와 같은 고르기: 처음부터 · rewindRing · rewind) */
+function previousOf(player: Tracks) {
+  if (!player.currentTrack) return null;
+  if (restartsOnPrevious(player)) return player.currentTrack;
+  if (player.loop === "queue") return player.queue.at(-1) ?? null;
+  // rewind 처럼 기록 끝의 지금 곡(같은 객체)은 건너뛴다
+  return player.previousTracks.findLast((track) => track !== player.currentTrack) ?? null;
+}
+
 function removeAt(player: Queue, index: number) {
   if (!(index >= 0 && index < player.queue.length)) return null;
   const [track] = player.queue.splice(index, 1);
@@ -191,5 +205,5 @@ function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks
   if (!persisted) sinkOf(player)?.onReplace();
 }
 
-export { HISTORY_MAX, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, removeAt, move, shuffle, clearQueue, reset, restore };
+export { HISTORY_MAX, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, restartsOnPrevious, previousOf, removeAt, move, shuffle, clearQueue, reset, restore };
 export type { TrackSink, Tracks };

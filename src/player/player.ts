@@ -922,7 +922,7 @@ class Player {
 
   /** 이전 곡이 지금 곡을 처음부터 트는가. 한곡 반복, 또는 대기열 반복인데 대기열이 비었다(고리에 지금 곡뿐) */
   _restartsOnPrevious() {
-    return this.loop === "track" || (this.loop === "queue" && this.queue.length === 0);
+    return trackState.restartsOnPrevious(this);
   }
 
   setVolume(volume: number) {

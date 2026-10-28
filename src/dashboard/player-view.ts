@@ -6,6 +6,7 @@ import * as embeddedArt from "../sources/embedded-art.ts";
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
+import * as trackState from "../player/track-state.ts";
 // 라벨은 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
 import * as genreConfig from "../config/genres.ts";
@@ -78,6 +79,13 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
 const BOOT = Date.now();
 let made = 0;
 
+// 이전 곡의 그림. 가짜 플레이어(테스트)는 필드가 없을 수 있다
+function previousArt(player: Player) {
+  if (!player.previousTracks || !player.queue) return null;
+  const prev = trackState.previousOf(player);
+  return prev ? trackArtUrl(player.guild?.id, prev) : null;
+}
+
 function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE): PlayerState {
   const order = { boot: BOOT, seq: ++made };
   if (!player) return { ...order, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
@@ -93,6 +101,7 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
     loop: status.loop,
     currentTrack: track ? playingView(player, track) : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
+    previousThumbnail: previousArt(player),
     // 대기열이 비어도 자동재생이 켜져 있으면 넘기기가 된다
     autoplay: Boolean(player.autoplay),
     autoplayGenre: player.autoplay || null,
