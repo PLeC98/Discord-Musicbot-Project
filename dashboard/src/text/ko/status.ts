@@ -32,29 +32,31 @@ const youtubeClient = (name: string) => `유튜브 ${name}`;
 // 그래프 카드
 const metrics = {
   playing: "재생 중",
-  playingSubLabel: "연결된 서버",
-  playingSub: (connected: number) => `연결된 서버 ${connected}`,
+  /** 보조 글의 말(뒤에 수가 붙는다) */
+  playingSub: "연결됨",
   ping: "디스코드 API 핑",
-  pingSub: (minutes: number, average: string) => `${minutes}분 평균 ${average}`,
+  /** lines: 좁은 칸에서 두 줄로 */
+  pingSub: (minutes: number, average: string, lines = false) => `${minutes}분 평균${lines ? "\n" : " "}${average}`,
   loop: "이벤트 루프 지연",
-  loopSub: (max: string) => `p99 · 최대 ${max}`,
+  /** 좁은 칸의 제목(툴팁으로 loop 를 보인다) */
+  loopShort: "EL lag",
+  loopSub: "최대",
+  /** 큰 숫자가 p99 인 칸의 제목 뒤 */
+  p99: "p99",
   heap: "heap 메모리",
   cpu: "CPU",
   cpuSub: (system: number) => `시스템 ${system}%`,
   download: "다운로드 (yt-dlp)",
-  downloadActive: (count: number) => `활성 ${count}개`,
-  downloadToday: (size: string) => `오늘 ${size}`,
+  downloadActive: (count: number) => `활성 ${formatNumber(count)}개`,
+  downloadToday: "오늘",
   encoding: "인코딩 응답",
-  /** 응답이 이만큼 늦어도 소리가 끊기지 않는다(깊이를 끝까지 올렸을 때) */
-  encodingLimit: (limit: string) => `한도 ${limit}`,
-  /** 최근 15분 */
-  encodingLate: (count: number) => `빈 프레임 ${formatNumber(count)}`,
+  /** 최근 15분 동안의 합(핑의 "15분 평균" 과 같은 앞말). 수는 아래 줄에 */
+  encodingLate: "15분 빈 프레임",
   upload: "업로드",
-  uploadSystem: (rate: string) => `시스템 ${rate}`,
-  uploadToday: (size: string) => `오늘 ${size}`,
+  uploadSystem: "시스템",
+  uploadToday: "오늘",
   uploadParts: (voice: string, dashboard: string) => `음성 ${voice} · 대시보드 ${dashboard}`,
   uploadNoSystem: "시스템 전체 업로드는 재지 못했어요",
-  countUnit: "개",
 };
 
 // 연결

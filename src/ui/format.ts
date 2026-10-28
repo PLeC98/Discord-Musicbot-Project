@@ -53,10 +53,25 @@ function byteUnit(bytes: number) {
   return { n: bytes / per, unit, per };
 }
 
-/** 바이트를 KB · MB · GB · TB 로. gbDigits: GB · TB 의 소수 자릿수 */
-function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}) {
-  const { n, unit } = byteUnit(bytes);
-  return `${n.toFixed(unit === "GB" || unit === "TB" ? gbDigits : 1)} ${unit}`;
+type Scaled = { n: number; unit: string; per: number };
+
+/**
+ * 값을 고른 단위의 글로. pick: 단위 고르기(byteUnit · 대시보드의 utils/units), digits: 그 단위에서 소수 자릿수.
+ * 반올림한 수가 다음 단위의 경계에 닿으면(999.96 MB/s → "1000.0") 다음 단위로, 자릿수 규칙의 경계를 넘으면(99.96 → "100.0") 넘은 쪽 자릿수로 다시 쓴다
+ */
+function scaledText(v: number, pick: (v: number) => Scaled, digits: (n: number, unit: string) => number) {
+  let s = pick(v);
+  const round = (n: number, unit: string) => Number(n.toFixed(digits(n, unit)));
+  const up = pick(round(s.n, s.unit) * s.per);
+  if (up.unit !== s.unit) s = { ...up, n: v / up.per };
+  const n = round(s.n, s.unit);
+  return { value: n.toFixed(digits(n, s.unit)), unit: s.unit, per: s.per };
 }
 
-export { formatDuration, formatMs, formatSpan, formatBytes, byteUnit };
+/** 바이트를 KB · MB · GB · TB 로. gbDigits: GB · TB 의 소수 자릿수 */
+function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}) {
+  const { value, unit } = scaledText(bytes, byteUnit, (_, u) => (u === "GB" || u === "TB" ? gbDigits : 1));
+  return `${value} ${unit}`;
+}
+
+export { formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText };

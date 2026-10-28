@@ -15,6 +15,9 @@ export const bitRate: Scale = (mbps) => (mbps >= 1000 ? { n: mbps / 1000, unit: 
 /** MB/s(1024² 바이트). 1000 부터 GB/s(1024 배, 받은 양의 GB 와 같은 셈) */
 export const byteRate: Scale = (mbs) => (mbs >= 1000 ? { n: mbs / 1024, unit: "GB/s", per: 1024 } : { n: mbs, unit: "MB/s", per: 1 });
 
+/** 개수. 1000 부터 k, 100만부터 M(좁은 칸 · 긴 수를 줄여 쓸 때) */
+export const count: Scale = (n) => (n >= 1e6 ? { n: n / 1e6, unit: "M", per: 1e6 } : n >= 1000 ? { n: n / 1000, unit: "k", per: 1000 } : { n, unit: "", per: 1 });
+
 /** 단위가 하나뿐인 값(% · 개) */
 export const fixed =
   (unit: string): Scale =>

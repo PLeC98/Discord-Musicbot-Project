@@ -43,7 +43,7 @@
 import { computed, defineComponent, h } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { AdminStatus } from "../../../src/dashboard/contract/admin.ts";
-import { byteUnit } from "../../../src/ui/format.ts";
+import { byteUnit, scaledText } from "../../../src/ui/format.ts";
 import type { IconName } from "../icons.ts";
 
 const props = defineProps<{ status: AdminStatus }>();
@@ -112,8 +112,8 @@ function uptimeText(sec: number) {
 }
 // 크기: 단위는 크기에 맞게(src/ui/format 의 byteUnit), 이진 단위 이름(GiB · TiB)으로 소수 둘째 자리
 const binText = (bytes: number) => {
-  const { n, unit } = byteUnit(bytes);
-  return `${n.toFixed(2)} ${unit.replace("B", "iB")}`;
+  const { value, unit } = scaledText(bytes, byteUnit, () => 2);
+  return `${value} ${unit.replace("B", "iB")}`;
 };
 const binFromMb = (mb: number) => binText(mb * 1024 ** 2);
 const percentText = (a: number, b: number) => `(${Math.round((a / b) * 100)}%)`;

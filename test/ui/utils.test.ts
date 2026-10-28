@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, formatMs, formatSpan, formatBytes, byteUnit } from "../../src/ui/format.ts";
+import { formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText } from "../../src/ui/format.ts";
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   assert.equal(formatDuration(0), "0:00");
@@ -74,4 +74,15 @@ test("byteUnit: 1024 배씩 KB · MB · GB · TB, KB 아래로는 내리지 않�
   assert.deepEqual(byteUnit(100), { n: 100 / 1024, unit: "KB", per: 1024 });
   assert.deepEqual(byteUnit(2 * 1024 ** 3), { n: 2, unit: "GB", per: 1024 ** 3 });
   assert.deepEqual(byteUnit(3 * 1024 ** 4), { n: 3, unit: "TB", per: 1024 ** 4 });
+});
+
+test("scaledText: 반올림한 수가 단위 경계에 닿으면 다음 단위로, 자릿수 경계를 넘으면 그 자릿수로", () => {
+  const oneDigit = () => 1;
+  assert.equal(formatBytes(1023.96 * 1024 ** 3), "1.0 TB", "1024.0 GB 가 아니라");
+  assert.equal(formatBytes(1023.94 * 1024 ** 3), "1023.9 GB");
+  assert.deepEqual(scaledText(1023.96 * 1024 ** 3, byteUnit, oneDigit), { value: "1.0", unit: "TB", per: 1024 ** 4 });
+  // 100 이상은 정수, 그 아래는 소수 한 자리인 규칙: 99.96 은 "100.0" 이 아니라 "100"
+  const rule = (n: number) => (n >= 100 ? 0 : 1);
+  assert.equal(scaledText(99.96 * 1024 ** 3, byteUnit, rule).value, "100");
+  assert.equal(scaledText(99.94 * 1024 ** 3, byteUnit, rule).value, "99.9");
 });

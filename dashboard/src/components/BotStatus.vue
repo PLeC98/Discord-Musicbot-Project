@@ -149,36 +149,41 @@
     </div>
 
     <!-- ③ 지금: 값 + 최근 15분 흐름. 여덟 칸을 네 칸씩 두 줄(위: 재생 · 응답, 아래: 자원). 두 단이면 둘씩 짝이 맞는다.
-         네 칸은 카드가 13rem(보조 글을 한 줄에 두는 폭) 이상일 때부터 -->
-    <div class="grid grid-cols-2 @4xl/content:grid-cols-4 gap-(--gap-in)">
+         네 칸은 카드가 13rem(보조 글을 한 줄에 두는 폭) 이상일 때부터, 410px 이하는 한 단(두 단이면 큰 숫자 옆에 보조 글이 들어가지 않는다) -->
+    <div class="grid grid-cols-1 min-[411px]:grid-cols-2 @4xl/content:grid-cols-4 gap-(--gap-in)">
       <section v-for="m in metrics" :key="m.title" :data-at="m.title" class="@container/metric pane rounded-(--r-window) px-4 py-3 flex flex-col gap-1">
         <div class="flex items-center gap-1 text-xs text-on-surface-variant">
-          <span class="truncate" :class="m.why && 'underline decoration-dotted underline-offset-2 cursor-help'" v-tooltip="m.why || null">{{ m.title }}</span>
+          <span class="truncate" :class="m.why && 'underline decoration-dotted underline-offset-2 cursor-help'" v-tooltip="m.why || null"
+            ><template v-if="m.short"
+              ><span class="underline decoration-dotted underline-offset-2 cursor-help" :class="AT_SMALL[0]" v-tooltip="m.title">{{ m.short }}</span
+              ><span :class="AT_SMALL[1]">{{ m.title }}</span></template
+            ><template v-else>{{ m.title }}</template
+            ><template v-if="m.stat"> · {{ m.stat }}</template></span
+          >
           <span v-if="m.level !== 'ok'" class="ml-auto shrink-0 flex items-center gap-1 font-semibold" :class="LEVEL_TEXT[m.level]"><Icon :name="LEVEL_ICON[m.level]" :size="14" fill />{{ m.word }}</span>
         </div>
         <div class="flex items-baseline-last gap-0.5" :class="LEVEL_TEXT[m.level]">
-          <!-- 좁은 카드(11rem 아래)는 소수를 덜어 공간을 아낀다: 큰 숫자는 정수, 보조 글(이벤트 루프 · heap)은 한 자리 덜 -->
-          <!-- 화면 400px 아래는 큰 숫자를 한 단계 작게(세 자리 숫자 옆에 보조 글이 들어갈 공간) -->
-          <span class="font-round text-3xl max-[400px]:text-2xl font-semibold tracking-tighter nums"
-            ><span :class="WIDE">{{ m.value }}</span
-            ><span :class="NARROW">{{ rounded(m.value) }}</span></span
-          ><span class="text-xs" :class="m.level === 'ok' && 'text-on-surface-variant'">{{ m.unit }}</span>
-          <!-- 보조 글. subTop 이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 바닥선(last baseline)으로 맞춰, 큰 숫자 · 단위 · 보조 글 아래 줄이 같은 선에 선다 -->
-          <!-- 화면 폭 412px 아래(카드 폭이 아니라 화면 폭): subUp 은 보조 글을 숫자 위쪽에(숫자 아래쪽은 단위로 붐빈다), subSwap 은 두 줄의 위아래를 바꾼다 -->
-          <span class="ml-auto min-w-0 flex flex-col items-end text-xs text-on-surface-variant nums" :class="[m.subUp && 'max-[412px]:self-start', m.subSwap && 'max-[412px]:flex-col-reverse']"
-            ><span v-if="m.subTop" class="truncate"
-              ><span :class="m.subTopShort && WIDE">{{ m.subTop }}</span
-              ><span v-if="m.subTopShort" :class="NARROW">{{ m.subTopShort }}</span></span
+          <!-- 글이 판 여럿(Stepped)이면 칸 너비에 맞는 판 하나만 보인다 -->
+          <span class="font-round text-2xl @min-[10.14rem]/metric:text-3xl font-semibold tracking-tighter nums"
+            ><span v-for="s in stepsOf(m.value)" :key="s.cls" :class="[s.cls, s.tip && TIP]" v-tooltip="s.tip">{{ s.text }}</span></span
+          ><span v-if="m.unit" class="text-xs" :class="m.level === 'ok' && 'text-on-surface-variant'"
+            ><span v-for="s in stepsOf(m.unit)" :key="s.cls" :class="s.cls">{{ s.text }}</span></span
+          >
+          <!-- 보조 글. subTop 이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 바닥선(last baseline)으로 맞춰, 큰 숫자 · 단위 · 보조 글 아래 줄이 같은 선에 선다.
+               둘째 선 표시(짧은 가로선)는 둘째 선의 값이 있는 줄에(markTop 이면 위 줄). 글 안의 줄바꿈은 그대로 줄을 나눈다. 툴팁은 숫자에만.
+               늘 두 줄 높이(min-h-8)라 보조 글이 한 줄인 칸도 두 줄인 옆 칸과 큰 숫자의 높이가 같다(큰 숫자가 작아지면 두 줄이 줄 높이를 정한다) -->
+          <span class="ml-auto min-w-0 min-h-8 flex flex-col justify-end items-end text-right text-2xs @min-[10.14rem]/metric:text-xs text-on-surface-variant nums"
+            ><span v-if="m.subTop" class="flex items-center gap-1 truncate"
+              ><span v-if="m.second && m.markTop" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span
+              ><span v-for="s in stepsOf(lineOf(m.subTop).num)" :key="s.cls" class="whitespace-pre" :class="s.cls"
+                >{{ lineOf(m.subTop).label }}{{ lineOf(m.subTop).label ? " " : "" }}<span :class="s.tip && TIP" v-tooltip="s.tip">{{ s.text }}</span></span
+              ></span
             ><span class="flex items-center gap-1 truncate"
-              ><span v-if="m.second" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span><!-- subBreak: 카드가 13rem 아래면(11rem 아래는 subShort 한 줄) " · " 위치에서 두 줄로 --><span v-if="m.subBreak" :class="[WIDE, 'flex items-end gap-x-1 @max-[13rem]/metric:flex-col']"
-                ><span v-for="(part, i) in m.sub.split(' · ')" :key="i" class="flex gap-x-1"><span v-if="i" class="@max-[13rem]/metric:hidden">·</span>{{ part }}</span></span
-              ><!-- subNarrowBreak: 10.5rem 아래에서 두 줄로(연결된 서버 / 수) --><span v-else-if="m.subNarrowBreak" class="@max-[10.5rem]/metric:hidden">{{ m.sub }}</span
-              ><span v-if="m.subNarrowBreak" class="hidden @max-[10.5rem]/metric:flex flex-col items-end"
-                ><span v-for="part in m.subNarrowBreak" :key="part">{{ part }}</span></span
-              ><span v-else-if="!m.subBreak" :class="m.subShort && WIDE">{{ m.sub }}</span><!-- subShort 도 subBreak 면 10.5rem 아래에서 두 줄로 --><span v-if="m.subShort && m.subBreak" class="hidden @max-[11rem]/metric:flex items-end gap-x-1 @max-[10.5rem]/metric:flex-col"
-                ><span v-for="(part, i) in m.subShort.split(' · ')" :key="i" class="flex gap-x-1"><span v-if="i" class="@max-[10.5rem]/metric:hidden">·</span>{{ part }}</span></span
-              ><span v-else-if="m.subShort" :class="NARROW">{{ m.subShort }}</span></span
-            ></span
+              ><span v-if="m.second && !m.markTop" class="w-3 h-0.5 rounded-full bg-current opacity-50"></span
+              ><span v-for="s in stepsOf(lineOf(m.sub).num)" :key="s.cls" class="whitespace-pre" :class="s.cls"
+                >{{ lineOf(m.sub).label }}{{ lineOf(m.sub).label ? " " : "" }}<span :class="s.tip && TIP" v-tooltip="s.tip">{{ s.text }}</span></span
+              ></span
+            ><span v-if="m.subUp" class="@min-[9.2rem]/metric:hidden">&nbsp;</span></span
           >
         </div>
         <SparkChart :values="m.series" :second="m.second" :max="m.max" :warn="m.warn" :scale="m.scale" :minutes="historyMinutes" :now="new Date(status.history.endAt)" :tone="LEVEL_GRAPH[m.level]" />
@@ -312,11 +317,11 @@ import { useScrollFade } from "../composables/scroll-fade.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { koMatch } from "../../../src/rules/ko-search.ts";
-import { byteUnit, formatBytes, formatDuration, formatSpan } from "../../../src/ui/format.ts";
+import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
 import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { compareText, formatClock, formatNumber } from "../utils/locale.ts";
-import { axisMax, bitRate, byteRate, fixed, time, type Scale } from "../utils/units.ts";
+import { axisMax, bitRate, byteRate, count, fixed, time, type Scale } from "../utils/units.ts";
 import { text } from "../text/index.ts";
 const T = text.status;
 
@@ -350,43 +355,70 @@ const timeText = (ms: number) => {
   const { value, unit } = timeParts(ms);
   return `${value}${unit}`;
 };
-/** 보조 글의 시간: 큰 숫자와 단위가 같으면 수만, 다르면 단위까지 */
-const timeBeside = (ms: number, main: string) => {
-  const { value, unit } = timeParts(ms);
-  return unit === main ? value : `${value}${unit}`;
-};
 const MB = 1024 ** 2;
 const toGB = (bytes: number) => bytes / 1024 ** 3;
 // 크기: 단위는 크기에 맞게(MB · GB · TB, src/ui/format 의 byteUnit), 100 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
 const sizeText = (bytes: number) => {
-  const { n, unit } = byteUnit(bytes);
-  return `${n >= 100 ? n.toFixed(0) : n.toFixed(1).replace(/\.0$/, "")} ${unit}`;
+  const { value, unit } = scaledText(bytes, byteUnit, (n) => (n >= 100 ? 0 : 1));
+  return `${value.replace(/\.0$/, "")} ${unit}`;
 };
 /** 소수 자릿수를 정한 크기("1.60 GB") */
 const sizeFixed = (bytes: number, digits: number) => {
-  const { n, unit } = byteUnit(bytes);
-  return `${n.toFixed(digits)} ${unit}`;
+  const { value, unit } = scaledText(bytes, byteUnit, () => digits);
+  return `${value} ${unit}`;
 };
 /** 크기 둘을 큰 쪽(whole)의 단위 하나로("18.3 / 20 GB") */
 const sizePair = (part: number, whole: number, partDigits: number, wholeDigits = partDigits) => {
-  const { per, unit } = byteUnit(whole);
-  return `${(part / per).toFixed(partDigits)} / ${(whole / per).toFixed(wholeDigits)} ${unit}`;
+  const { value, unit, per } = scaledText(whole, byteUnit, () => wholeDigits);
+  return `${(part / per).toFixed(partDigits)} / ${value} ${unit}`;
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
-const downloadParts = (bps: number) => {
-  const s = byteRate(toMBps(bps));
-  return { value: s.n.toFixed(1), unit: s.unit };
-};
+const downloadParts = (bps: number) => scaledText(toMBps(bps), byteRate, () => 1);
 // 업로드는 회선 속도처럼 비트로(kbps · Mbps · Gbps). kbps 는 정수, 100 이상은 정수, 그 아래는 소수 한 자리
 const toMbps = (bps: number) => (bps * 8) / 1e6;
-const rateParts = (bps: number) => {
-  const s = bitRate(toMbps(bps));
-  return { value: s.unit === "kbps" || s.n >= 100 ? s.n.toFixed(0) : s.n.toFixed(1), unit: s.unit };
-};
+const rateParts = (bps: number) => scaledText(toMbps(bps), bitRate, (n, unit) => (unit === "kbps" || n >= 100 ? 0 : 1));
 const rateText = (bps: number) => {
   const { value, unit } = rateParts(bps);
   return `${value} ${unit}`;
 };
+/** 크기를 정수로(좁은 칸). 반올림으로 단위 경계를 넘으면 단위도 올린다 */
+const bytesWhole = (bytes: number) => {
+  const { value, unit } = scaledText(bytes, byteUnit, () => 0);
+  return `${value} ${unit}`;
+};
+/** 정수로(좁은 칸). 반올림으로 단위 경계를 넘으면 단위도 올린다 */
+const rateTextWhole = (bps: number) => {
+  const { value, unit } = scaledText(toMbps(bps), bitRate, () => 0);
+  return `${value} ${unit}`;
+};
+/** 휴대폰 칸: 정수로 쓰되 places 자리가 되면 한 단위(step 배) 올려 소수 한 자리(100 Mbps → 0.1 Gbps, 1023 GB → 1.0 TB) */
+function shortParts(v: number, pick: Scale, step: number, places: number) {
+  const whole = scaledText(v, pick, () => 0);
+  const up = pick(whole.per * step);
+  return whole.value.length < places || up.unit === whole.unit ? whole : { value: (v / up.per).toFixed(1), unit: up.unit, per: up.per };
+}
+const rateShort = (bps: number) => shortParts(toMbps(bps), bitRate, 1000, 3);
+const rateTextShort = (bps: number) => {
+  const { value, unit } = rateShort(bps);
+  return `${value} ${unit}`;
+};
+const bytesTextShort = (bytes: number) => {
+  const { value, unit } = shortParts(bytes, byteUnit, 1024, 4);
+  return `${value} ${unit}`;
+};
+/** 크기 둘을 큰 쪽의 휴대폰 칸 글(네 자리면 단위를 올려 소수 한 자리)에 맞춰("1.0 / 1.0 GB") */
+const sizePairShort = (part: number, whole: number) => {
+  const { value, unit, per } = shortParts(whole, byteUnit, 1024, 4);
+  return `${(part / per).toFixed(value.includes(".") ? 1 : 0)} / ${value} ${unit}`;
+};
+// 개수를 줄여서: 1000 부터 k · M 에 소수 한 자리(2,499 → 2.5k, 112,455,000 → 112.5M)
+const countParts = (n: number) => scaledText(n, count, (_, unit) => (unit ? 1 : 0));
+const countText = (n: number) => {
+  const { value, unit } = countParts(n);
+  return `${value}${unit}`;
+};
+/** 시간을 정수 ms 로(초는 소수 한 자리 그대로) */
+const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "ms" ? 0 : 1));
 
 // 살펴볼 것을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3 · 바깥 간격 2 · secondary,
 // 나타날 때 600ms(long4) 중 1/4 은 0 → 8 로 두꺼워지고 3/4 은 3 으로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
@@ -455,58 +487,117 @@ const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });
 // ── ③ 지금 ──
 // 모은 구간이 덮는 시간(분). 봇을 켠 지 1분이 안 됐어도 "0분"이 아니라 1분으로
 const historyMinutes = computed(() => Math.max(1, Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000)));
-// 카드 폭에 따라 하나만 보인다(좁은 카드 11rem 아래)
-const WIDE = "@max-[11rem]/metric:hidden";
-const NARROW = "hidden @max-[11rem]/metric:inline";
-/** 소수가 있는 값을 정수로(좁은 카드). 소수가 없으면 그대로 */
-const rounded = (value: string) => (/^\d+\.\d+$/.test(value) ? String(Math.round(Number(value))) : value);
 
-/** subShort · subTopShort: 좁은 카드에서 대신 보일 보조 글(소수 한 자리 덜). subBreak: " · " 위치에서 두 줄로(11~13rem 은 sub, 10.5rem 아래는 subShort). subUp: 화면 412px 아래에서 보조 글을 숫자 위쪽에. subSwap: 화면 412px 아래에서 두 줄의 위아래를 바꾼다. subNarrowBreak: 10.5rem 아래에서 sub 대신 보일 두 줄 */
-type Metric = { title: string; value: string; unit: string; sub: string; subTop?: string; subShort?: string; subTopShort?: string; subBreak?: boolean; subNarrowBreak?: [string, string]; subUp?: boolean; subSwap?: boolean; series: number[]; second?: number[]; max: number; warn?: number; scale: Scale; level: Level; word: string; why: string };
+// 칸 너비에 따라 바꿔 보일 글의 경계: 좁은 판부터 넓은 판까지의 클래스. 모바일 먼저라 기본은 가장 좁은 판이고 칸 안쪽이 경계 이상이면 다음 판.
+// 칸 안쪽은 휴대폰(스크롤바가 겹쳐 뜬다) 420px 162px · 450px 177px · 480px 192px, 데스크톱(스크롤바 10px)에서 사이드바를 접은 네 칸은 1220px 217.5px · 1195px 211.25px · 1190px 210px · 1130px 195px 라 그 폭부터 좁은 판
+const AT_PHONE = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline"] as const; // 핑 · 루프 지연 · 인코딩 응답(480px)
+const AT_PING = ["@min-[11.08rem]/metric:hidden", "hidden @min-[11.08rem]/metric:inline"] as const; // 핑 보조 글 두 줄(450px)
+const AT_BIG = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 업로드 큰 숫자(480px · 1220px)
+const AT_SYSTEM = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.21rem]/metric:hidden", "hidden @min-[13.21rem]/metric:inline"] as const; // 업로드 시스템(480px · 1195px)
+const AT_TODAY = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[12.2rem]/metric:hidden", "hidden @min-[12.2rem]/metric:inline"] as const; // 업 · 다운 오늘(480px · 1130px)
+const AT_HEAP = ["@min-[11.08rem]/metric:hidden", "hidden @min-[11.08rem]/metric:inline @min-[12.2rem]/metric:hidden", "hidden @min-[12.2rem]/metric:inline @min-[13.13rem]/metric:hidden", "hidden @min-[13.13rem]/metric:inline"] as const; // heap 보조 글(450px · 1130px · 1190px)
+const AT_DOWNLOAD = ["@min-[10.14rem]/metric:hidden", "hidden @min-[10.14rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 다운로드 큰 숫자(420px · 1220px)
+const AT_SMALL = ["@min-[10.14rem]/metric:hidden", "hidden @min-[10.14rem]/metric:inline"] as const; // 재생 중 · 루프 지연 제목(420px)
+/** 칸 너비에 따라 바꿔 보일 글: 좁은 판부터 넓은 판까지와 그 판들의 클래스(AT_…). tips: 판마다 숫자의 툴팁 */
+type Stepped = { texts: string[]; at: readonly string[]; tips?: (string | null)[] };
+type Text = string | Stepped;
+/** 보조 글 한 줄: 말 + 숫자(툴팁은 숫자에만) */
+type Line = { label: string; num: Text };
+const stepsOf = (t: Text) => (typeof t === "string" ? [{ text: t, cls: "", tip: null }] : t.texts.map((text, i) => ({ text, cls: t.at[i], tip: t.tips?.[i] ?? null })));
+const lineOf = (t: Text | Line): Line => (typeof t === "object" && "label" in t ? t : { label: "", num: t });
+const TIP = "underline decoration-dotted underline-offset-2 cursor-help";
+// 줄여 쓴 글이 값을 알아볼 만큼 바꾸면 툴팁으로 가장 넓은 판의 글: 단위가 바뀌었거나(k · M 포함) 같은 단위에서 5% 넘게 다를 때
+const unitOf = (t: string) => /[^\d.,\s/]+$/.exec(t)?.[0] ?? "";
+const numsOf = (t: string) => (t.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => Number(n.replace(/,/g, "")));
+function tipFor(shown: string, full: string) {
+  if (shown === full) return null;
+  if (unitOf(shown) !== unitOf(full)) return full;
+  const got = numsOf(shown);
+  return numsOf(full).some((n, i) => Math.abs((got[i] ?? 0) - n) > Math.abs(n) * 0.05) ? full : null;
+}
+/** 판마다 가장 넓은 판(마지막)과 견주어 툴팁을 단다 */
+const withTips = (s: Stepped): Stepped => ({ ...s, tips: s.texts.map((t) => tipFor(t, s.texts[s.texts.length - 1])) });
+/** 판마다의 큰 숫자 · 단위를 큰 숫자 칸과 단위 칸으로 나눈다(툴팁은 큰 숫자에) */
+const splitSteps = (parts: { value: string; unit: string }[], at: readonly string[]) => {
+  const text = (p: { value: string; unit: string }) => `${p.value} ${p.unit}`.trim();
+  const full = text(parts[parts.length - 1]);
+  return { value: { texts: parts.map((p) => p.value), at, tips: parts.map((p) => tipFor(text(p), full)) }, unit: { texts: parts.map((p) => p.unit), at } };
+};
+/**
+ * stat: 큰 숫자가 어떤 값인지(p99 등). 제목 뒤에 붙인다(살펴볼 것 칩에는 제목만). short: 좁은 칸(AT_SMALL)의 제목, 툴팁으로 제목을 보인다. markTop: 둘째 선 표시를 위 줄에.
+ * subUp: 좁은 칸(안쪽 9.2rem 아래, 390px)에서 한 줄 보조 글을 위 줄에. 아래 줄에 빈 줄을 두어 바닥선 맞춤은 그대로
+ */
+type Metric = { title: string; short?: string; subUp?: boolean; stat?: string; value: Text; unit: Text; sub: Text | Line; subTop?: Text | Line; markTop?: boolean; series: number[]; second?: number[]; max: number; warn?: number; scale: Scale; level: Level; word: string; why: string };
 const metrics = computed<Metric[]>(() => {
   const { status } = props;
   const h = status.history;
   const heapPct = (status.node.memory.heapUsed / status.node.memory.heapLimit) * 100;
   const playing = status.players.list.filter((p) => p.state === "playing").length;
+  const connected = status.players.list.length;
   const pingAvg = Math.round(h.ping.reduce((a, b) => a + b, 0) / Math.max(1, h.ping.length));
   const ping = timeParts(status.bot.ping);
   const loop = timeParts(status.loop.p99);
-  // 좁은 카드의 최대는 ms 면 정수로(초는 이미 소수 한 자리)
-  const loopMaxShort = time(status.loop.max).unit === "ms" ? Math.round(status.loop.max) : status.loop.max;
   const download = downloadParts(status.download.bytesPerSec);
+  // 좁은 칸은 정수로(반올림으로 단위 경계를 넘으면 단위도 올린다)
+  const loopWhole = timeWhole(status.loop.p99);
+  const loopMaxWhole = timeWhole(status.loop.max);
+  const downloadNarrow = scaledText(toMBps(status.download.bytesPerSec), byteRate, () => 0);
+  const uploadNarrow = scaledText(toMbps(status.upload.bot), bitRate, () => 0);
+  const uploadPhone = rateShort(status.upload.bot);
+  const todayLine = (label: string, bytes: number): Line => ({ label, num: withTips({ texts: [bytesTextShort(bytes), bytesWhole(bytes), formatBytes(bytes)], at: AT_TODAY }) });
   const downloadSeries = h.downloadBps.map(toMBps);
   const upload = rateParts(status.upload.bot);
   const uploadSecond = status.upload.system === null ? undefined : h.uploadSystem.map(toMbps);
   const uploadSeries = h.uploadBot.map(toMbps);
   return [
-    { title: T.metrics.playing, value: `${playing}`, unit: T.metrics.countUnit, sub: T.metrics.playingSub(status.players.list.length), subNarrowBreak: [T.metrics.playingSubLabel, String(status.players.list.length)], series: h.playing, max: Math.max(1, status.players.list.length), scale: fixed(T.metrics.countUnit), level: "ok", word: "", why: "" },
-    { title: T.metrics.ping, value: ping.value, unit: ping.unit, sub: T.metrics.pingSub(historyMinutes.value, timeBeside(pingAvg, ping.unit)), subUp: true, series: h.ping, max: axisMax(peak(h.ping), 300, time), warn: LIMITS.ping[0], scale: time, level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
-    { title: T.metrics.loop, value: loop.value, unit: loop.unit, sub: T.metrics.loopSub(timeBeside(status.loop.max, loop.unit)), subShort: T.metrics.loopSub(timeBeside(loopMaxShort, loop.unit)), subBreak: true, series: h.loopP99, max: axisMax(peak(h.loopP99), 100, time), warn: LIMITS.loop[0], scale: time, level: levelOf(status.loop.p99, ...LIMITS.loop), word: T.attention.lagging, why: "" },
+    {
+      title: T.metrics.playing,
+      ...(playing >= 1000 ? splitSteps([countParts(playing), { value: formatNumber(playing), unit: "" }], AT_SMALL) : { value: formatNumber(playing), unit: "" }),
+      sub: { label: T.metrics.playingSub, num: connected >= 1000 ? withTips({ texts: [countText(connected), formatNumber(connected)], at: AT_SMALL }) : formatNumber(connected) },
+      series: h.playing,
+      max: Math.max(1, connected),
+      scale: fixed(""),
+      level: "ok",
+      word: "",
+      why: "",
+    },
+    { title: T.metrics.ping, ...splitSteps([scaledText(status.bot.ping, time, () => 0), ping], AT_PHONE), sub: { texts: [true, false].map((lines) => T.metrics.pingSub(historyMinutes.value, timeText(pingAvg), lines)), at: AT_PING }, series: h.ping, max: axisMax(peak(h.ping), 300, time), warn: LIMITS.ping[0], scale: time, level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
+    {
+      title: T.metrics.loop,
+      short: T.metrics.loopShort,
+      stat: T.metrics.p99,
+      ...splitSteps([loopWhole, loop], AT_PHONE),
+      sub: { label: T.metrics.loopSub, num: withTips({ texts: [`${loopMaxWhole.value}${loopMaxWhole.unit}`, timeText(status.loop.max)], at: AT_PHONE }) },
+      series: h.loopP99,
+      max: axisMax(peak(h.loopP99), 100, time),
+      warn: LIMITS.loop[0],
+      scale: time,
+      level: levelOf(status.loop.p99, ...LIMITS.loop),
+      word: T.attention.lagging,
+      why: "",
+    },
     encodingMetric(status.encoding, h.encodeRtt, h.encodeLate),
+    { title: T.metrics.cpu, subUp: true, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], scale: fixed("%"), level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
     {
       title: T.metrics.heap,
       value: heapPct.toFixed(0),
       unit: "%",
-      subTop: `RSS ${sizeFixed(status.node.memory.rss * MB, 2)}`,
-      subTopShort: `RSS ${sizeFixed(status.node.memory.rss * MB, 1)}`,
-      sub: sizePair(status.node.memory.heapUsed * MB, status.node.memory.heapLimit * MB, 2),
-      subShort: sizePair(status.node.memory.heapUsed * MB, status.node.memory.heapLimit * MB, 1),
+      subTop: { label: "RSS", num: withTips({ texts: [bytesTextShort(status.node.memory.rss * MB), ...[0, 1, 2].map((digits) => sizeFixed(status.node.memory.rss * MB, digits))], at: AT_HEAP }) },
+      sub: withTips({ texts: [sizePairShort(status.node.memory.heapUsed * MB, status.node.memory.heapLimit * MB), ...[0, 1, 2].map((digits) => sizePair(status.node.memory.heapUsed * MB, status.node.memory.heapLimit * MB, digits))], at: AT_HEAP }),
       series: h.heapPct,
       max: 100,
       warn: LIMITS.heap[0],
       scale: fixed("%"),
       level: levelOf(heapPct, ...LIMITS.heap),
-      word: T.attention.nearLimit,
+      word: T.attention.high,
       why: "",
     },
-    { title: T.metrics.cpu, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), subUp: true, series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], scale: fixed("%"), level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
-    { title: T.metrics.download, value: download.value, unit: download.unit, subSwap: true, subTop: T.metrics.downloadActive(status.download.active), sub: T.metrics.downloadToday(formatBytes(status.download.todayBytes)), series: downloadSeries, max: axisMax(peak(downloadSeries), 5, byteRate), scale: byteRate, level: "ok", word: "", why: "" },
     {
       title: T.metrics.upload,
-      value: upload.value,
-      unit: upload.unit,
-      // 시스템을 재지 못하면 보조 글에 오늘 보낸 양만
-      ...(status.upload.system === null ? { sub: T.metrics.uploadToday(formatBytes(status.upload.todayBytes)) } : { subTop: T.metrics.uploadToday(formatBytes(status.upload.todayBytes)), sub: T.metrics.uploadSystem(rateText(status.upload.system)), subSwap: true }),
+      ...splitSteps([uploadPhone, uploadNarrow, upload], AT_BIG),
+      // 아래 줄은 오늘 보낸 양, 위 줄은 시스템 전체 송신(둘째 선). 시스템을 재지 못하면 위 줄이 없다
+      sub: todayLine(T.metrics.uploadToday, status.upload.todayBytes),
+      ...(status.upload.system === null ? {} : { subTop: { label: T.metrics.uploadSystem, num: withTips({ texts: [rateTextShort(status.upload.system), rateTextWhole(status.upload.system), rateText(status.upload.system)], at: AT_SYSTEM }) }, markTop: true }),
       series: uploadSeries,
       second: uploadSecond,
       max: axisMax(peak(uploadSeries, uploadSecond), 1, bitRate),
@@ -515,11 +606,12 @@ const metrics = computed<Metric[]>(() => {
       word: "",
       why: [T.metrics.uploadParts(rateText(status.upload.voice), rateText(status.upload.dashboard)), status.upload.system === null ? T.metrics.uploadNoSystem : ""].filter(Boolean).join("\n"),
     },
+    { title: T.metrics.download, ...splitSteps([shortParts(toMBps(status.download.bytesPerSec), byteRate, 1024, 3), downloadNarrow, download], AT_DOWNLOAD), subTop: T.metrics.downloadActive(status.download.active), sub: todayLine(T.metrics.downloadToday, status.download.todayBytes), series: downloadSeries, max: axisMax(peak(downloadSeries), 5, byteRate), scale: byteRate, level: "ok", word: "", why: "" },
   ];
 });
 
 // 인코딩 응답: 가장 늦은 워커의 응답 p99. 답은 (깊이 − 1) × 20ms 안에 와야 하고, 깊이를 상한까지 올린 워커가 그 8할을 넘으면 주의, 넘기면 문제(빈 프레임).
-// 보조 글은 깊이를 끝까지 올렸을 때의 한도와 최근 15분 빈 프레임. 워커마다의 값은 인코딩 워커 카드에
+// 보조 글은 최근 15분 빈 프레임(0 이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 바닥 축 · 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
 const FRAME_MS = 20;
 /** 그래프 세로축의 상한을 고를 최고값(15분) */
 const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
@@ -527,13 +619,14 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
   const budget = (e.maxDepth - 1) * FRAME_MS;
   const late = lateSeries.reduce((a, b) => a + b, 0);
   const worstAtMax = Math.max(0, ...e.workers.filter((w) => w.depth >= e.maxDepth).map((w) => w.rttP99));
-  const worst = timeParts(Math.max(0, ...e.workers.map((w) => w.rttP99)));
+  const worstMs = Math.max(0, ...e.workers.map((w) => w.rttP99));
   return {
     title: T.metrics.encoding,
-    value: worst.value,
-    unit: worst.unit,
-    ...(late ? { subTop: T.metrics.encodingLate(late) } : {}),
-    sub: T.metrics.encodingLimit(timeText(budget)),
+    stat: T.metrics.p99,
+    ...splitSteps([timeWhole(worstMs), timeParts(worstMs)], AT_PHONE),
+    // 위 줄에 말, 아래 줄에 수. 수는 늘 줄여 쓰고(112.5M) 줄였으면 숫자에 툴팁으로 전체
+    subTop: T.metrics.encodingLate,
+    sub: { label: "", num: { texts: [countText(late)], at: [""], tips: [tipFor(countText(late), formatNumber(late))] } },
     series,
     max: axisMax(peak(series), budget, time),
     warn: budget * 0.8,
