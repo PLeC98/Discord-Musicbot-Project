@@ -38,10 +38,13 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
+    // 상한은 멤버 확인(REST) 전에 본다. 이 경로는 요청 한도 밖이라 열고 닫기를 되풀이해도 묻는 수가 늘지 않게
+    if (stream.atCap(user.id)) return sendProblem(res, "too-many-streams");
     const { ids } = await memberGuildIds(req, { http });
-    if (ids) await Promise.all([...client.guilds.cache.values()].filter((guild) => ids.has(guild.id)).map((guild) => memberOf(guild, user.id)));
+    const all = [...client.guilds.cache.values()];
+    const checked = ids ? await Promise.all(all.filter((guild) => ids.has(guild.id)).map(async (guild) => ((await memberOf(guild, user.id)) ? guild.id : null))) : all.filter((guild) => seesGuild(guild, user.id)).map((guild) => guild.id);
     const canSee = (guildId: string) => seesGuild(client.guilds.cache.get(guildId), user.id);
-    stream.addClient(res, canSee, user.id);
+    stream.addClient(res, canSee, user.id, new Set(checked.filter((id) => id !== null)));
   });
 
   return router;
@@ -52,7 +55,17 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
  * 연결을 연 사람들을 그 서버에서 한 번씩 가져와 캐시를 채우고, 화면이 다시 읽게 알린다
  */
 async function botJoinedGuild(stream: PlayerStream, guild: Parameters<typeof memberOf>[0]) {
-  await Promise.all([...stream.listUsers()].map((id) => memberOf(guild, id)));
+  await Promise.all([...stream.listUsers()].map(async (id) => (await memberOf(guild, id)) && stream.watch(id, guild.id)));
+  stream.notify(guild.id);
+}
+
+/**
+ * 게이트웨이에 다시 붙어 서버를 다시 쓸 수 있게 됐다. discord.js 가 그 서버의 멤버 캐시를 다시 받는데 봇과 음성 채널 사람만 들어,
+ * 연결을 연 사람이 빠져 소식이 끊긴다. 그 서버를 멤버로 확인했던 연결의 사람만 다시 가져온다(연결 수 × 서버 수만큼 묻지 않는다).
+ * 그사이 나간 사람은 멤버가 아니라는 답을 받아 계속 빠진다
+ */
+async function guildBack(stream: PlayerStream, guild: Parameters<typeof memberOf>[0]) {
+  await Promise.all([...stream.watching(guild.id)].map((id) => memberOf(guild, id)));
   stream.notify(guild.id);
 }
 
@@ -61,4 +74,4 @@ function botLeftGuild(stream: PlayerStream, guild: { id: string; members: { cach
   stream.notifyLeft(guild.id, new Set([...stream.listUsers()].filter((id) => guild.members.cache.has(id))));
 }
 
-export { createPlayerEventsRouter, nudgeAfterChange, botJoinedGuild, botLeftGuild };
+export { createPlayerEventsRouter, nudgeAfterChange, botJoinedGuild, guildBack, botLeftGuild };

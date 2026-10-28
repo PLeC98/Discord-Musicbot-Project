@@ -56,7 +56,8 @@ import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
 import { watchGateway } from "../dashboard/status/gateway.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
-import { botJoinedGuild, botLeftGuild } from "../dashboard/routes/player-events.ts";
+import { botJoinedGuild, botLeftGuild, guildBack } from "../dashboard/routes/player-events.ts";
+import { watchGoneGuilds } from "../discord/gone-guilds.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
@@ -220,6 +221,10 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
   });
+  // 게이트웨이에 다시 붙어 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
+  client.on(Events.GuildAvailable, (guild) => {
+    bestEffort(log, guildBack(stream, guild), "다시 쓸 수 있게 된 서버의 대시보드 구독자 가져오기");
+  });
   // 봇이 서버에서 나가면 그 서버 멤버였던 사람들의 서버 목록 · 초대 화면이 다시 읽게 한다
   client.on(Events.GuildDelete, (guild) => botLeftGuild(stream, guild));
 
@@ -253,6 +258,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
 function listenToLibrary(client: Client) {
   const dlog = logger.child({ category: "discord" });
   watchGateway(client);
+  watchGoneGuilds(client);
   client.on(Events.Warn, (message) => dlog.warn(message));
   // 하트비트마다 나오는 양이라 trace
   client.on(Events.Debug, (message) => dlog.trace(message));

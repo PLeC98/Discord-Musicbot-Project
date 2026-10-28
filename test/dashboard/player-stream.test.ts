@@ -213,3 +213,30 @@ test("설정 객체를 넘기면 상한 · 하트비트를 다시 시작하지 �
   assert.equal(hub.heartbeatMs, 10_000, "닫은 허브는 다시 걸지 않는다");
   mock.timers.reset();
 });
+
+test("atCap: 상한에 찼는지 미리 본다(멤버 확인 전에). 연결이 닫히면 풀린다", () => {
+  const held = [];
+  for (let i = 0; i < maxPerUser; i++) {
+    assert.equal(DashboardEvents.atCap("evCap"), false);
+    const r = makeRes();
+    DashboardEvents.addClient(r, sees(), "evCap");
+    held.push(r);
+  }
+  assert.equal(DashboardEvents.atCap("evCap"), true);
+  held[0].emit("close");
+  assert.equal(DashboardEvents.atCap("evCap"), false);
+  for (const r of held.slice(1)) r.emit("close");
+});
+
+test("watching · watch: 그 서버를 멤버로 확인한 연결의 사용자, 연결을 연 뒤 확인한 서버를 더한다", () => {
+  const a = makeRes();
+  const b = makeRes();
+  DashboardEvents.addClient(a, sees(), "evWa", new Set(["evW1"]));
+  DashboardEvents.addClient(b, sees(), "evWb", new Set(["evW2"]));
+  assert.deepEqual([...DashboardEvents.watching("evW1")], ["evWa"]);
+  DashboardEvents.watch("evWb", "evW1");
+  assert.deepEqual([...DashboardEvents.watching("evW1")].sort(), ["evWa", "evWb"]);
+  a.emit("close");
+  assert.deepEqual([...DashboardEvents.watching("evW1")], ["evWb"], "닫힌 연결은 빠진다");
+  b.emit("close");
+});

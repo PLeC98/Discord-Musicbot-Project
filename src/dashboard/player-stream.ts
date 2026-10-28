@@ -8,8 +8,8 @@ import type { GuildEvent } from "./contract/guilds.ts";
 const log = logger.child({ category: "dashboard" });
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
-/** 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다 */
-type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; cleanup: () => void };
+/** 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 다시 붙어 멤버 캐시가 비면 이 서버들만 다시 채운다 */
+type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
 
 /**
  * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
@@ -82,8 +82,13 @@ class PlayerStream {
     else this.perKey.set(userKey, c);
   }
 
-  /** 구독. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. requireAuth 뒤 호출할 것 */
-  addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string) {
+  /** 그 사용자의 연결이 상한에 찼나. 부르는 쪽이 멤버 확인(REST)을 하기 전에 본다(실시간 연결은 요청 한도 밖이다) */
+  atCap(userKey: string) {
+    return (this.perKey.get(userKey) || 0) >= this.options.maxPerUser;
+  }
+
+  /** 구독. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. guilds: 멤버로 확인한 서버. requireAuth 뒤 호출할 것 */
+  addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string, guilds = new Set<string>()) {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
 
@@ -93,6 +98,7 @@ class PlayerStream {
       res,
       canSee,
       userKey,
+      guilds,
       cleanup: () => {
         if (done) return;
         done = true;
@@ -160,6 +166,16 @@ class PlayerStream {
   /** 연결을 열어 둔 사용자 */
   listUsers() {
     return new Set([...this.subs].map((sub) => sub.userKey));
+  }
+
+  /** 그 서버를 멤버로 확인한 연결의 사용자 */
+  watching(guildId: string) {
+    return new Set([...this.subs].filter((sub) => sub.guilds.has(guildId)).map((sub) => sub.userKey));
+  }
+
+  /** 그 사용자의 연결에 멤버로 확인한 서버를 더한다(연결을 연 뒤 봇이 든 서버) */
+  watch(userKey: string, guildId: string) {
+    for (const sub of this.subs) if (sub.userKey === userKey) sub.guilds.add(guildId);
   }
 
   /** 하트비트와 예약한 넛지를 멈춘다 */

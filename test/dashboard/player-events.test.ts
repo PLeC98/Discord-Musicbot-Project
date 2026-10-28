@@ -8,7 +8,7 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
-const { createPlayerEventsRouter, botJoinedGuild } = await import("../../src/dashboard/routes/player-events.ts");
+const { createPlayerEventsRouter, botJoinedGuild, guildBack } = await import("../../src/dashboard/routes/player-events.ts");
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express, { type Response } from "express";
@@ -45,15 +45,19 @@ let ready = true;
 const guilds = new Map<string, FakeGuild>();
 const client = { isReady: () => ready, guilds: { cache: guilds } };
 
-// 구독을 받으면 볼 수 있는가(canSee)를 적어 두고 연결을 닫는다
-const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string }> = [];
+// 구독을 받으면 볼 수 있는가(canSee) · 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full 이면 상한에 찼다
+const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string; guilds: Set<string> }> = [];
 const nudged: string[] = [];
+let full = false;
 const stream = fake<PlayerStream>({
-  addClient: (res: Response, canSee: (guildId: string) => boolean, userId: string) => {
-    subscribed.push({ canSee, userId });
+  atCap: () => full,
+  addClient: (res: Response, canSee: (guildId: string) => boolean, userId: string, guilds: Set<string>) => {
+    subscribed.push({ canSee, userId, guilds });
     res.end();
   },
   listUsers: () => new Set(subscribed.map((s) => s.userId)),
+  watching: (guildId: string) => new Set(subscribed.filter((s) => s.guilds.has(guildId)).map((s) => s.userId)),
+  watch: (userId: string, guildId: string) => subscribed.filter((s) => s.userId === userId).forEach((s) => s.guilds.add(guildId)),
   notify: (guildId: string) => nudged.push(guildId),
 });
 
@@ -146,6 +150,43 @@ test("쓸 수 없는 서버(다시 붙은 직후)는 캐시에 있어도 보이�
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), []);
   g1.available = true;
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), ["g1"]);
+});
+
+test("상한에 찼으면 멤버 확인(REST) 없이 막는다", async () => {
+  full = true;
+  try {
+    const { status } = await open();
+    assert.equal(status, 429);
+    assert.equal(subscribed.length, 0);
+    assert.deepEqual([tokens.state.asked, guilds.get("g1")?.fetched], [[], []]);
+  } finally {
+    full = false;
+  }
+});
+
+test("연결은 멤버로 확인한 서버를 든다. 새 서버에서 확인되면 더한다", async () => {
+  await open();
+  assert.deepEqual([...subscribed[0].guilds], ["g1"]);
+  const g3 = guild("g3", true);
+  guilds.set("g3", g3);
+  await botJoinedGuild(stream, fake<Parameters<typeof botJoinedGuild>[1]>(g3));
+  assert.deepEqual([...subscribed[0].guilds].sort(), ["g1", "g3"]);
+});
+
+test("게이트웨이에 다시 붙어 서버를 다시 쓸 수 있게 되면, 그 서버를 보던 연결의 사람만 다시 가져와 보이게 하고 알린다", async () => {
+  await open();
+  user = { id: "owner", username: "o" };
+  await open();
+  const g1 = guilds.get("g1");
+  assert.ok(g1);
+  // discord.js 가 GUILD_CREATE 에서 멤버 캐시를 비우고 봇 · 음성 채널 사람만 채운다
+  g1.members.cache.clear();
+  g1.fetched.length = 0;
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), [], "비운 캐시로는 보이지 않는다");
+  await guildBack(stream, fake<Parameters<typeof guildBack>[1]>(g1));
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), ["g1"]);
+  assert.deepEqual(g1.fetched, ["u1"], "그 서버를 보던 사람만 묻는다(운영자 연결은 g1 을 보지 않았다)");
+  assert.deepEqual(nudged, ["g1"]);
 });
 
 test("봇이 준비되기 전이면 구독하지 않고 503", async () => {
