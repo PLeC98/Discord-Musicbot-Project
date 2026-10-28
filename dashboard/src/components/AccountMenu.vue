@@ -13,8 +13,8 @@
     <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="rounded-full shrink-0" :class="compact ? 'size-9' : 'size-12'" />
     <span v-else class="rounded-full shrink-0 bg-tertiary-container text-on-tertiary-container font-round font-semibold flex items-center justify-center" :class="compact ? 'size-9 text-body' : 'size-12 text-title'">{{ initial }}</span>
     <span v-if="labeled" class="flex-1 min-w-0 text-left whitespace-nowrap">
-      <span class="block text-sm leading-4.5 font-semibold truncate">{{ user.displayName }}</span>
-      <span v-if="handle" class="block text-xs leading-4 text-on-surface-variant truncate">@{{ handle }}</span>
+      <span class="block text-sm leading-4.5 font-semibold fade-end">{{ user.displayName }}</span>
+      <span v-if="handle" class="block text-xs leading-4 text-on-surface-variant fade-end">@{{ handle }}</span>
     </span>
     <template v-if="wide">
       <span class="flex-1 min-w-0 text-left">
