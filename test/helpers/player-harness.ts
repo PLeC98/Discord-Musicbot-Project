@@ -131,6 +131,7 @@ function fakeEncoder(hooks: SessionHooks): EncodeSession {
     },
     drain: deliver,
     late() {},
+    underrun() {},
     free() {
       freed = true;
     },

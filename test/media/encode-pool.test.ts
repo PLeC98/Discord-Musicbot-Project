@@ -4,7 +4,7 @@
 // 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 프레임은 무음으로 채워 빠짐 · 겹침이 없다.
 // 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 무음이 없다.
 // 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable 로 실패한다.
-// 큐 깊이 · 워커 늘리기 판단(decideDepth)과 워커 수 상한.
+// 큐 깊이 · 워커 늘리기 판단(decideDepth)과 워커 수 상한. 늘려도 옮길 스트림이 없으면(늦는 스트림이 하나뿐) 늘리지 않고 큐 깊이를 올린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,6 +13,7 @@ import { EncodePool, decideDepth, workerLimit, START_DEPTH, MAX_DEPTH, type Enco
 import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
 
 const FAULTY = new URL("../helpers/faulty-encode-worker.ts", import.meta.url);
 const STUB = new URL("../helpers/stub-encode-worker.ts", import.meta.url);
@@ -237,6 +238,39 @@ test("워커가 늦고 늘릴 수 없으면 큐 깊이를 올리고, 자리를 �
     assert.ok(last.every((d) => d === last[0]) && last[0] !== undefined && last[0] >= 3 && last[0] <= 4, `큐 깊이 ${depths.join(",")}`);
     session.free();
   } finally {
+    await pool.close();
+  }
+});
+
+test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커를 늘리지 않고 큐 깊이를 올리며, 그 초의 상세를 debug 로 남긴다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 4, calibrateFrames: 0 });
+  const details = (from: number) => sink.buffer.slice(from).filter((e) => e.text.startsWith("재생 인코딩 상세: 워커 1(활성 스트림 1/1"));
+  const level = logger.level;
+  logger.level = "debug";
+  try {
+    await pool.start();
+    const from = sink.buffer.length;
+    const { session, packets, errors } = opened(pool);
+    let sent = 0;
+    let used = 0;
+    const timer = setInterval(() => {
+      session.drain();
+      if (packets.length > used) used++;
+      while (sent - used < session.depth) {
+        session.send(frame(), 18);
+        sent++;
+      }
+    }, 20);
+    await sleep(3500);
+    clearInterval(timer);
+    assert.deepEqual(errors, []);
+    assert.equal(pool.stats().workers.length, 1);
+    assert.ok(session.depth > START_DEPTH, `큐 깊이 ${session.depth}`);
+    assert.ok(details(from).length >= 1, "상세 로그");
+    assert.equal(details(from)[0].level, "debug");
+    session.free();
+  } finally {
+    logger.level = level;
     await pool.close();
   }
 });

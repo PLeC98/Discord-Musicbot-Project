@@ -4,7 +4,7 @@
 // 프레임 버퍼는 사본 없이 워커로 넘긴다. 그래서 죽거나 멈춘 워커에 보낸 프레임은 되돌릴 수 없어 그 프레임을 무음 패킷으로 채운다.
 // 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 잃는 것이 없다.
 // 받기는 출력 스트림의 read() 안에서 부르는 drain()(동기)이 먼저다. message 이벤트는 voice 가 읽지 않을 때(처음 · 일시정지)의 예비 길이다.
-// 워커가 늦어지면 먼저 워커를 늘리고, 늘릴 수 없으면 그 워커의 큐 깊이(depth)를 올린다. 워커는 줄이지 않는다.
+// 워커가 늦어지면 먼저 워커를 늘리고(늘리면 그 워커의 스트림이 옮겨 갈 때만), 아니면 그 워커의 큐 깊이(depth)를 올린다. 워커는 줄이지 않는다.
 // import 만으로는 워커를 띄우지 않는다. 기동 시 start() 가 첫 워커를 띄운다.
 
 import os from "os";
@@ -57,6 +57,8 @@ type EncodeSession = {
   drain(): void;
   /** 읽을 때 보낸 것은 있는데 받은 패킷이 없었다(워커가 늦다) */
   late(): void;
+  /** 읽을 때 보낸 것도 보낼 프레임도 없었다(입력 PCM 이 끊겼다). 원인을 가르는 로그에만 쓴다 */
+  underrun(): void;
   free(): void;
   /** 로그용: 붙어 있는 워커 번호와 가장 오래 답을 기다리는 프레임의 나이(ms) */
   describe(): { worker: number | null; oldestMs: number | null };
@@ -74,6 +76,11 @@ type Entry = {
   ids: Set<number>;
   depth: number;
   rtt: number[];
+  // 응답 시간을 나눈 것(ms): 보낸 뒤 워커가 인코딩을 시작하기까지 · 인코딩에 걸린 시간, 그리고 응답 시간에 넣지 않는 메인이 받기까지 걸린 시간
+  wait: number[];
+  encode: number[];
+  receive: number[];
+  underrun: number;
   // 지난 틱의 응답 시간 p99(ms). 배정할 때 쓴다
   lastP99: number;
   late: number;
@@ -127,6 +134,11 @@ class Session implements EncodeSession {
   late() {
     if (this.slot.entry) this.slot.entry.late++;
     else this.pool.noteLate();
+  }
+
+  // 옮겨 갈 워커를 기다리는 동안의 언더런은 세지 않는다(워커별 로그에만 쓴다)
+  underrun() {
+    if (this.slot.entry) this.slot.entry.underrun++;
   }
 
   free() {
@@ -348,7 +360,7 @@ class EncodePool {
     this.#spawning++;
     const thread = new Worker(this.#url);
     const { port1, port2 } = new MessageChannel();
-    const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], lastP99: 0, late: 0, lastLate: 0, load: null, calm: 0, depthChanges: [], gone: false };
+    const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], wait: [], encode: [], receive: [], underrun: 0, lastP99: 0, late: 0, lastLate: 0, load: null, calm: 0, depthChanges: [], gone: false };
     return new Promise<Entry>((resolve, reject) => {
       let ready = false;
       const fail = (why: string) => {
@@ -551,6 +563,11 @@ class EncodePool {
     if (!session.sent.length) this.#busy.delete(session);
     // 메인이 받기를 미룬 시간은 빼고 워커가 걸린 시간을 본다. 스레드마다 시계 기준이 조금 다를 수 있어 받은 때를 넘지 않게 한다
     entry.rtt.push(Math.max(0, Math.min(received, item.doneAt) - head.sentAt));
+    entry.receive.push(Math.max(0, received - item.doneAt));
+    if (item.startedAt !== undefined && item.encodeMs !== undefined) {
+      entry.wait.push(Math.max(0, item.startedAt - head.sentAt));
+      entry.encode.push(item.encodeMs);
+    }
     if (!item.packet) return this.#fail(session, new Error(item.error ?? "인코딩 실패"));
     this.#deliver(session, Buffer.from(item.packet));
     // 옮겨 가는 중이고 옛 워커에 보낸 것을 다 받았다
@@ -682,31 +699,67 @@ class EncodePool {
     const at = now();
     let late = 0;
     let worst: Entry | null = null;
+    const details: string[] = [];
     for (const entry of this.#workers.slice()) {
-      const rttP99 = p99(entry.rtt);
-      const entryLate = entry.late;
-      entry.lastP99 = rttP99;
-      this.#peakRtt = Math.max(this.#peakRtt, rttP99);
-      entry.rtt = [];
-      entry.late = 0;
-      this.#stats.late += entryLate;
+      const { rttP99, entryLate, detail } = this.#closeSecond(entry);
+      if (detail) details.push(detail);
       late += entryLate;
       if (entryLate > (worst?.lastLate ?? 0)) worst = entry;
       entry.lastLate = entryLate;
-      entry.calm = isCalm(rttP99, entry.depth) ? entry.calm + 1 : 0;
-      entry.depthChanges = entry.depthChanges.filter((t) => at - t < 60_000);
-      const action = decideDepth({ rttP99, depth: entry.depth, canGrow: this.#mayGrow() && !this.#spawning, contended: contendedOf(entry.load), calm: entry.calm });
-      if (action === "grow") this.#grow();
-      // 띄우는 중인 워커가 있으면 큐 깊이를 올리지 않고 기다린다(뜨면 스트림을 나눠 받는다)
-      else if (action === "deepen" && this.#spawning) continue;
-      else if ((action === "deepen" || action === "shallow") && entry.depthChanges.length < DEPTH_CHANGES_PER_MIN) {
-        entry.depth += action === "deepen" ? 1 : -1;
-        entry.depthChanges.push(at);
-        entry.calm = 0;
-        log.debug(`재생 인코딩 워커 ${entry.n}: 큐 깊이 ${entry.depth}(응답 시간 p99 ${rttP99.toFixed(1)}ms)`);
-      }
+      this.#steer(entry, rttP99, at);
     }
+    if (details.length) log.debug(`재생 인코딩 상세: ${details.join(" | ")}`);
     this.#noteSlow(late, worst);
+  }
+
+  // 워커 하나의 지난 1초 응답 시간으로 늘리기 · 큐 깊이를 정해 적용한다
+  #steer(entry: Entry, rttP99: number, at: number) {
+    entry.calm = isCalm(rttP99, entry.depth) ? entry.calm + 1 : 0;
+    entry.depthChanges = entry.depthChanges.filter((t) => at - t < 60_000);
+    const canGrow = this.#mayGrow() && !this.#spawning && this.#wouldShed(entry);
+    const action = decideDepth({ rttP99, depth: entry.depth, canGrow, contended: contendedOf(entry.load), calm: entry.calm });
+    if (action === "grow") return void this.#grow();
+    // 띄우는 중인 워커가 있으면 큐 깊이를 올리지 않고 기다린다(뜨면 스트림을 나눠 받는다)
+    if (action === "deepen" && this.#spawning) return;
+    if ((action === "deepen" || action === "shallow") && entry.depthChanges.length < DEPTH_CHANGES_PER_MIN) {
+      entry.depth += action === "deepen" ? 1 : -1;
+      entry.depthChanges.push(at);
+      entry.calm = 0;
+      log.debug(`재생 인코딩 워커 ${entry.n}: 큐 깊이 ${entry.depth}(응답 시간 p99 ${rttP99.toFixed(1)}ms)`);
+    }
+  }
+
+  // 워커 하나의 지난 1초를 닫는다: 응답 시간 p99 와 지연 프레임 수를 돌려주고 다음 1초를 비운다.
+  // 지연 · 언더런이 있었거나 응답 시간이 임계값을 넘은 초면 상세 한 줄(끊김의 원인을 가르는 debug)
+  #closeSecond(entry: Entry) {
+    const rttP99 = p99(entry.rtt);
+    const entryLate = entry.late;
+    const detail = entryLate || entry.underrun || rttP99 > (entry.depth - 1) * FRAME_MS * 0.8 ? this.#detail(entry, rttP99, entryLate) : null;
+    entry.lastP99 = rttP99;
+    this.#peakRtt = Math.max(this.#peakRtt, rttP99);
+    this.#stats.late += entryLate;
+    entry.rtt = [];
+    entry.wait = [];
+    entry.encode = [];
+    entry.receive = [];
+    entry.late = 0;
+    entry.underrun = 0;
+    return { rttP99, entryLate, detail };
+  }
+
+  // 워커를 하나 늘리면 이 워커의 활성 세션이 새 워커로 옮겨 가는가(#rebalance 와 같은 몫). 옮길 것이 없으면 늘려도 이 워커는 그대로 늦다
+  // (스트림 하나가 늦을 때 늘리기만 거듭해 상한까지 늘었다)
+  #wouldShed(entry: Entry) {
+    const share = Math.floor(this.#activeStreams() / (this.#workers.length + 1));
+    return share >= 1 && this.#activeOf(entry) > share;
+  }
+
+  // 워커 하나의 지난 1초. 응답 시간은 대기(보낸 뒤 인코딩 시작까지) + 인코딩 + 배치로 묶느라 늦춘 시간이다. 메인이 받기까지는 응답 시간에 넣지 않는다
+  #detail(entry: Entry, rttP99: number, late: number) {
+    const ms = (values: number[]) => (values.length ? `${p99(values).toFixed(1)}ms` : "-");
+    const max = entry.rtt.length ? Math.max(...entry.rtt) : 0;
+    const cpu = entry.load ? `${Math.round(entry.load.cpuUs / 10_000)}%` : "알 수 없음";
+    return `워커 ${entry.n}(활성 스트림 ${this.#activeOf(entry)}/${entry.ids.size}, 큐 깊이 ${entry.depth}, 응답 한도 ${(entry.depth - 1) * FRAME_MS}ms, CPU ${cpu}): ` + `지연 프레임 ${late}개 · 입력 언더런 ${entry.underrun}개 · 응답 시간 p99 ${rttP99.toFixed(1)}ms(최대 ${max.toFixed(1)}ms; 대기 p99 ${ms(entry.wait)} · 인코딩 p99 ${ms(entry.encode)}) · 메인이 받기까지 p99 ${ms(entry.receive)}`;
   }
 
   // 지연 프레임이 이어지면 처음 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info. worst: 이번 틱에 지연 프레임이 가장 많은 워커

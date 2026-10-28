@@ -12,8 +12,9 @@ import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; pcm: ArrayBuffer } | { type: "close"; id: number };
 // 프레임 하나의 답. packet 이 없으면 error 다.
 // doneAt: 답을 낸 때(timeOrigin + now, ms). 메인이 받기를 미룬 시간을 빼고 워커가 걸린 시간을 잰다.
+// startedAt · encodeMs: 인코딩을 시작한 때(timeOrigin + now)와 걸린 시간(ms). 메인이 응답 시간을 대기 · 인코딩으로 나눠 본다. 인코딩 전에 난 오류에는 없다.
 // fatal: 이 스레드의 WASM 모듈이 망가졌다(abort). 메인이 스레드를 바꾼다
-type Reply = { id: number; seq: number; doneAt: number; packet?: ArrayBuffer; error?: string; fatal?: boolean };
+type Reply = { id: number; seq: number; doneAt: number; startedAt?: number; encodeMs?: number; packet?: ArrayBuffer; error?: string; fatal?: boolean };
 type FromWorker =
   | { type: "ready"; libopusVersion: string; frameUs: number }
   // 한 스트림의 답은 보낸 순서대로 들어 있다
@@ -81,6 +82,7 @@ function errorOf(id: number, seq: number, error: unknown) {
 function encode(stream: Stream, frame: Frame) {
   if (stream.failed || !stream.encoder) return errorOf(frame.id, frame.seq, new Error(stream.failed ?? "인코더가 없습니다"));
   const started = performance.now();
+  const startedAt = performance.timeOrigin + started;
   try {
     if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(3840B 여야 한다)`);
     if (frame.gain !== 1) {
@@ -91,7 +93,7 @@ function encode(stream: Stream, frame: Frame) {
     const packet = stream.encoder.encode(Buffer.from(frame.pcm));
     // encode 가 돌려준 것은 WASM 힙의 복사본이라 그 ArrayBuffer 를 그대로 넘겨도 된다
     const owned = packet.byteOffset === 0 && packet.byteLength === packet.buffer.byteLength ? (packet.buffer as ArrayBuffer) : packet.buffer.slice(packet.byteOffset, packet.byteOffset + packet.byteLength);
-    answer({ id: frame.id, seq: frame.seq, doneAt: doneAt(), packet: owned as ArrayBuffer });
+    answer({ id: frame.id, seq: frame.seq, doneAt: doneAt(), startedAt, encodeMs: performance.now() - started, packet: owned as ArrayBuffer });
   } catch (error) {
     errorOf(frame.id, frame.seq, error);
   } finally {

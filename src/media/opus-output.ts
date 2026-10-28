@@ -75,7 +75,11 @@ class OpusOutput extends Duplex {
     // voice 가 읽어 간 패킷은 곧 보내는 패킷이다(봇 상태 탭의 업로드)
     if (packet) addVoicePacket(packet.length);
     this.#pump();
-    if (packet === null && size !== 0 && this.#started && this.#inflight && !this.readableEnded) this.#session.late();
+    // 빈손이면 voice 가 그 20ms 를 무음으로 채운다. 원인을 가른다: 보낸 것이 있으면 워커가 늦었고, 보낸 것도 없으면 입력 PCM 이 끊겼다(끝내는 중은 빼고)
+    if (packet === null && size !== 0 && this.#started && !this.readableEnded) {
+      if (this.#inflight) this.#session.late();
+      else if (!this.writableEnded) this.#session.underrun();
+    }
     return packet;
   }
 

@@ -34,6 +34,7 @@ function counted() {
       send: (frame, gain) => session.send(frame, gain),
       drain: () => session.drain(),
       late: () => session.late(),
+      underrun: () => session.underrun(),
       describe: () => session.describe(),
       free: () => {
         stats.freed++;
@@ -46,7 +47,7 @@ function counted() {
 
 // 패킷을 손으로 주는 가짜 세션: read() 의 drain 때만 준다. hold 면 워커가 늦은 것처럼 주지 않는다
 function manual(depth = 2) {
-  const stats = { sent: 0, late: 0, freed: 0 };
+  const stats = { sent: 0, late: 0, underrun: 0, freed: 0 };
   const control = { hold: false };
   let hooks: SessionHooks | null = null;
   let queued = 0;
@@ -63,6 +64,7 @@ function manual(depth = 2) {
       },
       drain: deliver,
       late: () => stats.late++,
+      underrun: () => stats.underrun++,
       free: () => stats.freed++,
       describe: () => ({ worker: null, oldestMs: null }),
     };
@@ -251,6 +253,20 @@ test("보낸 것은 있는데 받은 패킷이 없어 빈손으로 읽히면 세
   // read(0) 은 Node 안쪽의 채우기라 세지 않는다
   output.read(0);
   assert.equal(enc.stats.late, 1);
+  output.destroy();
+});
+
+test("보낸 것이 다 돌아온 뒤 입력이 끊긴 채 빈손으로 읽히면 지연이 아니라 언더런으로 센다(끝내는 중은 세지 않는다)", () => {
+  const enc = manual();
+  const output = new OpusOutput({ gain: 1, openEncoder: enc.open });
+  output.write(sine(2));
+  assert.ok(Buffer.isBuffer(output.read()));
+  assert.ok(Buffer.isBuffer(output.read()));
+  assert.equal(output.read(), null);
+  assert.deepEqual([enc.stats.late, enc.stats.underrun], [0, 1]);
+  output.end();
+  output.read();
+  assert.deepEqual([enc.stats.late, enc.stats.underrun], [0, 1]);
   output.destroy();
 });
 
