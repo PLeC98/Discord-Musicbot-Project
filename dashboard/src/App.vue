@@ -42,9 +42,9 @@
         <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" :aria-label="T.topBar">
           <div v-if="viewedGuild" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-[60%]">
             <GuildAvatar :guild="viewedGuild" active :status="false" size-class="size-6" text-class="text-2xs" />
-            <span class="text-sm font-semibold truncate"
-              >{{ viewedGuild.name }}<span v-if="route.path.endsWith('/settings')" class="ml-1 text-on-surface-variant font-medium">{{ T.serverSettingsSuffix }}</span></span
-            >
+            <!-- 넘치는 이름은 재생 바 제목처럼 좌우로 흐른다. 서버 설정의 " 설정" 은 흐르지 않고 뒤에 붙어 있다 -->
+            <MarqueeText class="min-w-0 text-sm font-semibold" :text="viewedGuild.name" />
+            <span v-if="route.path.endsWith('/settings')" class="shrink-0 text-sm text-on-surface-variant font-medium">{{ T.serverSettingsSuffix }}</span>
           </div>
           <span v-else-if="route.path === '/servers'" class="text-sm font-semibold">{{ T.serverList }}</span>
           <span v-else-if="route.meta.title" class="text-sm font-semibold">{{ route.meta.title }}</span>
@@ -108,6 +108,7 @@ import SessionBar from "./shell/SessionBar.vue";
 import { shell } from "./shell/shell-state.ts";
 import { TOPBAR_BTN } from "./utils/topbar.ts";
 import GuildAvatar from "./components/GuildAvatar.vue";
+import MarqueeText from "./components/MarqueeText.vue";
 import { useGuildsStore } from "./stores/guilds.ts";
 import { useUserStore } from "./stores/user.ts";
 import { setReportUrl } from "./utils/problem.ts";
