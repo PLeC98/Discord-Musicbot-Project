@@ -653,8 +653,8 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
 
 // 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 켜진 뒤 누계.
 // 세션 수는 싣지 않는다(워커마다의 재생 수를 더한 것, 새는 세션은 GC 안전망이 warn 로그로 알린다)
-// 응답 시간 줄: 카드 안쪽이 384px(휴대폰 450px) 이하면 ms 를 정수로
-const AT_WORKER = ["@min-[24.01rem]/card:hidden", "hidden @min-[24.01rem]/card:inline"] as const;
+// 응답 시간 줄: 카드 안쪽이 336px(휴대폰 402px) 보다 좁으면 ms 를 정수로
+const AT_WORKER = ["@min-[21rem]/card:hidden", "hidden @min-[21rem]/card:inline"] as const;
 const wholeText = (ms: number) => {
   const { value, unit } = timeWhole(ms);
   return `${value}${unit}`;
