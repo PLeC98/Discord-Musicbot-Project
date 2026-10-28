@@ -59,6 +59,8 @@ export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () 
     },
     { flush: "post", immediate: true },
   );
+  // 거른 수가 줄면(나가기 · 거르기로 서버가 구간을 당겼다) 브라우저가 스크롤 위치를 당긴다. 스크롤 알림에 기대지 않고 그린 뒤 다시 읽는다
+  watch(() => [opts.total(), opts.rowHeight()], measure, { flush: "post" });
 
   const rows = computed(() => visibleRows(scrollTop.value, viewHeight.value, opts.rowHeight(), opts.total()));
   // 숨은 동안은 받은 행을 그대로 그린다(셈할 높이가 없다)
