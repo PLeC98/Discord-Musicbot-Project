@@ -1,24 +1,27 @@
 .env
-cookies.txt
-database/
+node_modules/
+dashboard/dist/
+*.tmp
 
-# 옛 설정 파일. 설정은 이제 database/settings.db 에 있다. 남아 있는 옛 파일(키 · 쿠키 포함)이 올라가지 않게 막아 둔다
+audio_cache/
+database/
+*.log
+logs/
+
+# 커버리지 결과(pnpm run test:coverage)
+coverage/
+
+# 외부 도구: ffmpeg, yt-dlp(vendor/bin), POToken (vendor/bgutil-ytdlp-pot-provider)
+vendor/
+
+# 과거 버전에서 사용하던 설정/시크릿 파일
+cookies.txt
 config/genres.yaml
 config/status.yaml
 config/ai.yaml
 config/ai-keys.yaml
 config/ai-prompt.chatml
-audio_cache/
-node_modules/
-dashboard/dist/
-*.log
-logs/
-# 커버리지 결과(pnpm run test:coverage)
-coverage/
-*.tmp
-original_docs/
+
+# 개발 작업용 파일/디렉터리
 notes/
 CLAUDE.md
-
-# 설치 스크립트가 받는 외부 도구: ffmpeg · yt-dlp(vendor/bin), POToken 공급자(vendor/bgutil-ytdlp-pot-provider)
-vendor/
