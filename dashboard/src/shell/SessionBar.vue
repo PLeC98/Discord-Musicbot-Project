@@ -33,8 +33,9 @@
     <!-- 구분선: 양옆을 "접었을 때 선이 아이콘 영역 가운데 24 가 되는 만큼" 비우고 선은 그 안을 채운다. 펼치면 막대 폭을 따라 길어진다 -->
     <span :class="vertical ? 'w-full flex shrink-0 px-[calc((var(--bar)-1.5rem)/2)]' : 'contents'"><span class="shrink-0 rounded-full bg-outline-variant/70" :class="vertical ? 'h-0.5 w-full' : 'w-0.5 h-6'"></span></span>
 
-    <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade) -->
-    <div ref="listEl" class="flex gap-2 min-w-0 min-h-0 scrollbar-none" :class="vertical ? 'flex-col flex-1 w-full overflow-y-auto py-0.5' : 'flex-row items-center flex-1 overflow-x-auto px-0.5'" :style="listFade">
+    <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade).
+         세로 막대의 스크롤바는 올렸을 때 · 스크롤하는 동안만 보인다(sb-auto-hide) -->
+    <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full overflow-y-auto overflow-x-hidden py-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="listHovered = false">
       <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="vertical && !open ? g.name : null" :aria-label="g.name" :class="item">
         <span :class="pip(isGuild(g.id))"></span>
         <span :class="slot"><GuildAvatar :guild="g" :active="isGuild(g.id)" size-class="size-11" text-class="text-base" /></span>
@@ -81,6 +82,16 @@ const onToggle = () => (props.drawer ? emit("close") : toggleSidebar());
 
 const listEl = ref<HTMLElement | null>(null);
 const listFade = useScrollFade(listEl, () => props.vertical);
+// 스크롤바는 마우스를 올렸을 때와, 스크롤하는 동안 · 멈춘 뒤 잠깐 보인다(터치는 스크롤할 때만)
+const listHovered = ref(false);
+const listScrolling = ref(false);
+let listIdle = 0;
+function onListScroll() {
+  listScrolling.value = true;
+  clearTimeout(listIdle);
+  listIdle = window.setTimeout(() => (listScrolling.value = false), 1000);
+}
+onUnmounted(() => clearTimeout(listIdle));
 
 const store = useGuildsStore();
 const route = useRoute();

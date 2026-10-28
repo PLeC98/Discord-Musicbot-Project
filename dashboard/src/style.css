@@ -458,6 +458,31 @@ body {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+/* 손잡이를 평소에는 숨기고 sb-show 일 때(올렸을 때 · 스크롤하는 동안, 붙이는 것은 그 화면)만 보인다. 자리는 늘 잡아 둬 나타날 때 글이 밀리지 않는다.
+   :hover 로 하지 않는 까닭: 크롬은 부모의 :hover 만 바뀌면 스크롤바를 다시 그리지 않는다(클래스가 바뀌면 다시 그린다).
+   위 꾸미기가 층 밖이라 이것도 층 밖에 둔다(utilities 층에 두면 위 규칙에 진다).
+   나타나고 사라질 때는 손잡이 색의 비율(--sb-thumb-mix, 등록한 변수라 transition 된다)을 바꾼다. 스크롤바 의사 요소 자체에는 transition 이 걸리지 않는다 */
+@property --sb-thumb-mix {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+.sb-auto-hide {
+  --sb-thumb-mix: 0%;
+  transition: --sb-thumb-mix 250ms ease-out;
+}
+.sb-auto-hide.sb-show {
+  --sb-thumb-mix: 22%;
+  transition-duration: 150ms;
+}
+.sb-auto-hide::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--md-on-surface) var(--sb-thumb-mix), transparent);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .sb-auto-hide {
+    scrollbar-color: color-mix(in oklab, var(--md-on-surface) var(--sb-thumb-mix), transparent) var(--sb-track-color);
+  }
+}
 /* 파이어폭스는 위의 꾸미기를 읽지 않는다. 표준 둘(얇게 · 색)만 준다(둥근 손잡이 · 가장자리 비우기는 안 된다).
    base 층에 두어 scrollbar-none 같은 클래스가 이긴다(층 밖에 두면 모든 칸에 이겨 숨긴 스크롤바가 다시 뜬다) */
 @supports not selector(::-webkit-scrollbar) {
