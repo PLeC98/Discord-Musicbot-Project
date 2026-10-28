@@ -233,22 +233,25 @@
 
         <QueueAddBox :guild-id="guildId" :player="player" :queue-window="loadedCount" @state="applyState" />
 
-        <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다 -->
+        <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다.
+             받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 빈 칸으로 높이만(composables/row-window). 행 높이 64 고정, 끌기는 그 높이로 순번을 셈한다 -->
         <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
-          <div v-for="(item, i) in shownQueue" :key="item.entry ?? `i${i}`" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder>
-            <span class="text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
-            <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
-            <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
-              <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
-                <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
-                <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
-                <span class="nums shrink-0">· {{ formatDuration(item.duration) }}</span>
+          <div class="shrink-0 flex flex-col" :style="{ paddingTop: `${queueTop}px`, paddingBottom: `${queueBottom}px` }">
+            <div v-for="{ key, row: item, index: i } in queueSlots" :key="key" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder :data-index="i">
+              <span class="text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
+              <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
+              <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
+                <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
+                  <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
+                  <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
+                  <span class="nums shrink-0">· {{ formatDuration(item.duration) }}</span>
+                </div>
               </div>
+              <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
+              <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
             </div>
-            <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
-            <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
           </div>
           <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
             <Icon name="progress_activity" :size="20" class="animate-spin text-primary" />
@@ -279,6 +282,8 @@ import { useSeekBar } from "../composables/seek-bar.ts";
 import { useArtSwipe } from "../composables/art-swipe.ts";
 import { useBusy } from "../composables/busy.ts";
 import { usePointerReorder } from "../composables/pointer-reorder.ts";
+import { slotsOf, useRowWindow } from "../composables/row-window.ts";
+import { rem } from "../utils/rem.ts";
 import { TOPBAR_BTN, TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
 import { PHONE_QUERY, SHORT_QUERY } from "../utils/breakpoints.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
@@ -306,12 +311,12 @@ import SeekRow from "../components/SeekRow.vue";
 import TrackChips from "../components/TrackChips.vue";
 import VoiceLockOverlay from "../components/VoiceLockOverlay.vue";
 import { platformColor } from "../utils/platform-color.ts";
-import { HOLD, NO_ART, prefetchArt, releasePageArt, setPageArt, SHIFT_MS } from "../theme/theme.ts";
+import { HOLD, NO_ART, prefetchArt, releasePageArt, setPageArt } from "../theme/theme.ts";
 import { useArtContent, useArtZoom } from "../theme/art.ts";
 import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
-import { QUEUE_PAGE, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
+import { QUEUE_PAGE, QUEUE_WINDOW_MAX, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const P = text.player;
@@ -368,10 +373,38 @@ function applyState(data: PlayerState | PlayerRead) {
   if (isDragging.value) {
     heldQueue = { queue: next.queue, queueTotal: next.queueTotal };
     next = { ...next, queue: player.value.queue, queueTotal: player.value.queueTotal };
-  }
+  } else next = keepTail(next, player.value.queue);
   player.value = next;
   clock.value = clockOf(next, Date.now());
   syncLoaded();
+}
+
+// 조작 · 갱신 응답은 대기열을 앞에서 QUEUE_WINDOW_MAX 곡까지만 싣는다. 그보다 많이 받아 둔 화면은 잘린 뒤를 지난 값으로 잠깐 두고
+// 다시 받아 바꾼다(그대로 넣으면 목록이 접혀 보던 자리를 잃는다). 그사이 다른 대기열이 들어오면 그쪽이 맞다(queueVersion)
+let queueVersion = 0;
+function keepTail(next: PlayerSeen, had: QueueTrackView[]): PlayerSeen {
+  const version = ++queueVersion;
+  const total = next.queueTotal ?? 0;
+  if (next.queue.length !== QUEUE_WINDOW_MAX || had.length <= QUEUE_WINDOW_MAX || total <= QUEUE_WINDOW_MAX) return next;
+  const want = Math.min(had.length, total);
+  void refillTail(want, version);
+  // 앞으로 당겨진 곡이 뒤에 겹치지 않게
+  const head = new Set(next.queue.map((t) => t.entry));
+  return { ...next, queue: [...next.queue, ...had.slice(QUEUE_WINDOW_MAX, want).filter((t) => !head.has(t.entry))] };
+}
+async function refillTail(want: number, version: number) {
+  try {
+    const items: QueueTrackView[] = [];
+    for (let at = QUEUE_WINDOW_MAX; at < want; at += QUEUE_WINDOW_MAX) {
+      const res = await axios.get<QueuePage>(`/api/guilds/${guildId}/player/queue`, { params: { offset: at, limit: Math.min(QUEUE_WINDOW_MAX, want - at) } });
+      items.push(...(res.data.items || []));
+    }
+    if (version !== queueVersion || isDragging.value) return;
+    player.value = { ...player.value, queue: [...player.value.queue.slice(0, QUEUE_WINDOW_MAX), ...items] };
+    syncLoaded();
+  } catch (e) {
+    notifyProblem(e, T.failed.queueMore);
+  }
 }
 
 // 곡이 빠져 큐가 줄면 펼쳐 둔 창도 같이 줄인다. 안 그러면 바닥에 닿아도 더 받을 게 없다고 판단한다.
@@ -510,19 +543,36 @@ async function removeTrack(track: QueueTrackView) {
 
 // ── 대기열 끌어 옮기기 ───────────────────────────────────────────────────────
 
-const { startDrag } = usePointerReorder({
+// 대기열 행 높이(h-16). 보이는 행만 그리므로 끌기도 이 높이로 순번을 셈한다
+const QUEUE_ROW = 4 * rem(1);
+const { startDrag, draggedIndex } = usePointerReorder({
   // 놓으면 moveQueue 가 위치를 정하고 미뤄 둔 것을 넣는다. end 는 그 뒤(놓지 않고 끝난 때도)
   enabled: () => Boolean(player.value.canControl) && !isBusy("move"),
   start: () => (isDragging.value = true),
   end: releaseHeld,
   drop: (from, insertAt) => void moveQueue(from, insertAt),
+  rowHeight: () => QUEUE_ROW,
+  count: () => player.value.queue.length,
 });
+// 받은 곡은 다 들고 있고, 그리기만 보이는 행 둘레로(끄는 행은 구간 밖으로 나가도 그려 둔다). 더 받기는 바닥에 닿을 때(onQueueScroll)
+const {
+  range: queueRange,
+  top: queueTop,
+  bottom: queueBottom,
+} = useRowWindow({
+  el: queueBoxRef,
+  rowHeight: () => QUEUE_ROW,
+  total: () => player.value.queue.length,
+  have: () => ({ from: 0, count: player.value.queue.length }),
+  keep: () => draggedIndex.value,
+});
+const queueSlots = computed(() => slotsOf(queueRange.value, 0, player.value.queue, (t, i) => t.entry ?? `i${i}`).filter((slot) => slot.row !== null));
 
 // 끌기가 끝났다(놓음 · 취소). 끄는 동안 미뤄 둔 서버 대기열을 넣는다
 function releaseHeld() {
   isDragging.value = false;
   if (heldQueue) {
-    player.value = { ...player.value, ...heldQueue };
+    player.value = keepTail({ ...player.value, ...heldQueue }, player.value.queue);
     heldQueue = null;
     syncLoaded();
   }
@@ -707,21 +757,8 @@ function setAutoplay(genre: string | null) {
 }
 const pickGenre = (name: string) => setAutoplay(name);
 
-// 처음 그릴 때는 화면에 보이는 만큼만 만들고, 나머지는 색이 옮겨 간 뒤 한가할 때 붙인다.
-// 100행을 한 번에 만들면 그 프레임이 길어져 색 옮김의 첫 단계가 걸린다(아래쪽 행은 화면 밖이라 늦게 붙어도 보이지 않는다)
-const FIRST_ROWS = 30;
-const rowLimit = ref(FIRST_ROWS);
-const shownQueue = computed(() => player.value.queue.slice(0, rowLimit.value));
-// 대기열 번호 열 폭: 보이는 가장 큰 번호의 자릿수(두 자리 이상)만큼. 모든 행이 같은 폭이라 제목이 나란하다
-const numWidth = computed(() => `${Math.max(2, String(shownQueue.value.length).length) + 0.5}ch`);
-watch(loading, (isLoading) => {
-  if (isLoading) return;
-  setTimeout(() => {
-    const all = () => (rowLimit.value = Infinity);
-    if ("requestIdleCallback" in window) requestIdleCallback(all, { timeout: 1000 });
-    else all();
-  }, SHIFT_MS + 150);
-});
+// 대기열 번호 열 폭: 받은 곡의 가장 큰 번호의 자릿수(두 자리 이상)만큼. 스크롤해도 모든 행이 같은 폭이라 제목이 나란하다
+const numWidth = computed(() => `${Math.max(2, String(player.value.queue.length).length) + 0.5}ch`);
 
 // 대기열 전체 길이. 다 불러온 때만(일부만 더하면 틀린 값이 된다)
 const queueSeconds = computed(() => {

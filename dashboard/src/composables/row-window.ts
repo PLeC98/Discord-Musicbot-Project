@@ -26,20 +26,30 @@ export function covers(have: Span, { first, last }: Rows) {
   return have.from <= first && last <= have.from + have.count;
 }
 
-/** 그릴 구간의 자리마다 받은 행(받지 못한 자리는 row 가 null 이라 화면이 빈 행 모양으로 그린다). from · rows: 받은 구간 */
-export function slotsOf<T>(range: { from: number; to: number }, from: number, rows: readonly T[], keyOf: (row: T) => string | number) {
+/** 그릴 구간 [from, to): 보이는 행 위아래 한 화면씩, keep(끄는 행)이 밖이면 거기까지 이어서. 숨었으면(vis 가 null) 비운다(at 에서 빈 칸만) */
+export function drawnRows(vis: Rows | null, total: number, keep: number | null, at: number) {
+  if (!vis) return { from: Math.min(at, total), to: Math.min(at, total) };
+  const around = aroundRows(vis, total);
+  const to = around.from + around.count;
+  return keep === null || keep >= total ? { from: around.from, to } : { from: Math.min(around.from, keep), to: Math.max(to, keep + 1) };
+}
+
+/** 그릴 구간의 자리마다 번호와 받은 행(받지 못한 자리는 row 가 null 이라 화면이 빈 행 모양으로 그린다). from · rows: 받은 구간 */
+export function slotsOf<T>(range: { from: number; to: number }, from: number, rows: readonly T[], keyOf: (row: T, index: number) => string | number) {
   return Array.from({ length: range.to - range.from }, (_, k) => {
-    const row = rows[range.from + k - from];
-    return row ? { key: keyOf(row), row } : { key: `slot-${range.from + k}`, row: null };
+    const index = range.from + k;
+    const row = rows[index - from];
+    return row ? { key: keyOf(row, index), row, index } : { key: `slot-${index}`, row: null, index };
   });
 }
 
 /**
- * el: 스크롤 영역. rowHeight: 행 높이(px). total: 거른 수. have: 받은 구간(시작 · 받은 행 수). request: 그 구간을 받게 한다.
- * 영역이 숨어 높이가 0 이면(v-show 로 숨은 탭) 셈하지도 받게 하지도 않는다.
+ * el: 스크롤 영역. rowHeight: 행 높이(px). total: 거른 수. have: 받은 구간(시작 · 받은 행 수). request: 그 구간을 받게 한다(다 받아 둔 목록은 없다).
+ * keep: 구간 밖이어도 그려 둘 행(끌어 옮기는 행. 끄는 동안 자동 스크롤로 구간이 옮겨 가도 그 행까지 이어 그린다).
+ * 영역이 숨어 높이가 0 이면(v-show 로 숨은 탭) 행을 그리지도 받게 하지도 않는다(빈 칸으로 높이만).
  * 돌려주는 것: 그릴 구간 [from, to), 위 · 아래 빈 칸 높이, 맨 위로(거르기 · 정렬을 바꿨을 때)
  */
-export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () => number; total: () => number; have: () => Span; request: (span: Span) => void }) {
+export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () => number; total: () => number; have: () => Span; request?: (span: Span) => void; keep?: () => number | null }) {
   const scrollTop = ref(0);
   const viewHeight = ref(0);
   const measure = () => {
@@ -71,17 +81,7 @@ export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () 
   watch(() => [opts.total(), opts.rowHeight()], measure, { flush: "post" });
 
   const rows = computed(() => visibleRows(scrollTop.value, viewHeight.value, opts.rowHeight(), opts.total()));
-  // 숨은 동안은 받은 행을 그대로 그린다(셈할 높이가 없다)
-  const range = computed(() => {
-    const total = opts.total();
-    const vis = rows.value;
-    if (!vis) {
-      const have = opts.have();
-      return { from: Math.min(have.from, total), to: Math.min(total, have.from + have.count) };
-    }
-    const around = aroundRows(vis, total);
-    return { from: around.from, to: around.from + around.count };
-  });
+  const range = computed(() => drawnRows(rows.value, opts.total(), opts.keep?.() ?? null, opts.have().from));
   const top = computed(() => range.value.from * opts.rowHeight());
   const bottom = computed(() => Math.max(0, opts.total() - range.value.to) * opts.rowHeight());
 
@@ -94,7 +94,7 @@ export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () 
     },
     (want) => {
       stopTimer();
-      if (want) timer = window.setTimeout(() => opts.request(want), 100);
+      if (want && opts.request) timer = window.setTimeout(() => opts.request?.(want), 100);
     },
   );
   onBeforeUnmount(() => {

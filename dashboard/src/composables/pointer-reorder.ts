@@ -7,6 +7,9 @@
 //
 // 항목마다 data-reorder 를 단다(같은 부모 아래의 형제끼리 순서를 본다). 핸들에는 touch-none 을 줘 끄는 손가락이 화면을 스크롤하지 않게 한다.
 // 끄는 동안 목록(스크롤되는 가장 가까운 조상) 위아래 끝 48px 안에 들면 그쪽으로 자동으로 스크롤한다(아래 끝은 떠 있는 재생 바가 덮으면 그 윗선).
+//
+// 보이는 행만 그리는 목록(대기열)은 rowHeight 를 준다: 끄는 동안 자동 스크롤로 행이 새로 그려지고 빠지므로, 순번을 시작 때 잰 행 위치 대신 행 높이로 셈하고
+// 비켜 세우기는 그때 그려진 행마다 한다. 행마다 data-index 에 목록 전체의 번호를 달고, 끄는 행은 목록이 계속 그려 둔다(composables/row-window 의 keep).
 
 import { ref } from "vue";
 
@@ -19,6 +22,9 @@ type Options = {
   end?: () => void;
   /** 놓았다. from 번째를 to 틈(0 ~ 길이)으로(utils/reorder 의 reordered 와 같은 셈) */
   drop: (from: number, to: number) => void;
+  /** 행 높이(px, 모두 같다). 주면 순번을 높이로 셈한다(보이는 행만 그리는 목록). 그때 count 는 항목 수 */
+  rowHeight?: () => number;
+  count?: () => number;
 };
 
 const EDGE = 48; // 자동 스크롤을 시작하는 끝 거리
@@ -44,10 +50,22 @@ function scrollerOf(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
-export function usePointerReorder({ enabled, start, end, drop }: Options) {
+const isRow = (el: Element): el is HTMLElement => el instanceof HTMLElement && el.hasAttribute("data-reorder");
+
+/** 높이로 셈한 갈 위치: from 번째를 dy 만큼 끌었을 때 그 가운데가 넘어선 행(행 높이 h, 항목 count 개) */
+export function heightTarget(from: number, dy: number, h: number, count: number) {
+  const steps = dy > 0 ? Math.ceil(dy / h) - 1 : dy < 0 ? Math.floor(dy / h) + 1 : 0;
+  return Math.min(Math.max(from + steps, 0), Math.max(0, count - 1));
+}
+
+export function usePointerReorder({ enabled, start, end, drop, rowHeight, count }: Options) {
   const draggedIndex = ref<number | null>(null);
 
   let rows: HTMLElement[] = [];
+  let list: HTMLElement | null = null;
+  let dragged: HTMLElement | null = null;
+  // 높이로 셈할 때: 끄는 동안 새로 그려진 행(처음 비켜 세울 때는 미끄러지지 않고 바로 그 자리에)
+  let seen = new WeakSet<HTMLElement>();
   let scroller: HTMLElement | null = null;
   // 항목마다 끌기 시작 때의 위 · 높이(스크롤한 거리를 빼 목록 기준으로)
   let tops: number[] = [];
@@ -61,18 +79,34 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
   let frame = 0;
 
   const scrolled = () => (scroller ? scroller.scrollTop : 0) - startScroll;
+  // 지금 그려진 행과 그 번호. 높이로 셈하면 그때 그려진 행(data-index), 아니면 시작 때의 행
+  const current = () => (rowHeight && list ? [...list.children].filter(isRow) : rows);
+  const indexOf = (row: HTMLElement, at: number) => (rowHeight ? Number(row.dataset.index) : at);
 
-  // 들린 항목을 손가락에 붙이고, 그 가운데가 넘어선 항목들을 비켜 세운다
-  function layout() {
-    const dy = lastY - startY + scrolled();
-    rows[from].style.transform = `translateY(${dy}px)`;
+  // 들린 항목의 가운데가 넘어선 항목까지가 갈 위치
+  function target(dy: number) {
+    if (rowHeight) return heightTarget(from, dy, rowHeight(), count?.() ?? 1);
     const center = tops[from] + heights[from] / 2 + dy;
     let next = from;
     for (let i = from + 1; i < rows.length && center > tops[i] + heights[i] / 2; i++) next = i;
     for (let i = from - 1; i >= 0 && center < tops[i] + heights[i] / 2; i--) next = i;
-    pos = next;
-    rows.forEach((row, i) => {
-      if (i === from) return;
+    return next;
+  }
+
+  // 들린 항목을 손가락에 붙이고, 그 가운데가 넘어선 항목들을 비켜 세운다
+  function layout() {
+    if (!dragged) return;
+    const dy = lastY - startY + scrolled();
+    dragged.style.transform = `translateY(${dy}px)`;
+    pos = target(dy);
+    current().forEach((row, at) => {
+      if (row === dragged) return;
+      if (rowHeight && !seen.has(row)) {
+        seen.add(row);
+        row.style.transition = "none";
+        requestAnimationFrame(() => (row.style.transition = SLIDE));
+      }
+      const i = indexOf(row, at);
       const move = pos > from && i > from && i <= pos ? -shift : pos < from && i < from && i >= pos ? shift : 0;
       row.style.transform = move ? `translateY(${move}px)` : "";
     });
@@ -106,8 +140,8 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onCancel);
-    const moved = rows;
-    const target = pos;
+    const moved = [...new Set([...current(), ...(dragged ? [dragged] : [])])];
+    const to = pos;
     // 그린 위치를 한 번에 제거한다(움직임 없이). 목록을 바꾸면 항목이 이미 그 위치에 있다
     for (const row of moved) {
       row.style.transition = "none";
@@ -118,30 +152,41 @@ export function usePointerReorder({ enabled, start, end, drop }: Options) {
     requestAnimationFrame(() => requestAnimationFrame(() => moved.forEach((row) => row.style.removeProperty("transition"))));
     draggedIndex.value = null;
     rows = [];
+    list = null;
+    dragged = null;
+    seen = new WeakSet();
     scroller = null;
-    if (dropped && target !== from) drop(from, target > from ? target + 1 : target);
+    if (dropped && to !== from) drop(from, to > from ? to + 1 : to);
     end?.();
   }
   const onUp = () => finish(true);
   const onCancel = () => finish(false);
 
-  /** 핸들의 pointerdown 에 단다 */
+  /** 핸들의 pointerdown 에 단다. i: 그 행의 번호(높이로 셈하면 목록 전체의 번호) */
   function startDrag(e: PointerEvent, i: number) {
     if (draggedIndex.value != null || (e.pointerType === "mouse" && e.button !== 0) || (enabled && !enabled())) return;
     const row = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-reorder]");
     if (!row?.parentElement) return;
     e.preventDefault(); // 글자 선택 · 화면 스크롤을 막는다
-    rows = [...row.parentElement.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.hasAttribute("data-reorder"));
-    scroller = scrollerOf(row.parentElement);
+    list = row.parentElement;
+    dragged = row;
+    rows = [...list.children].filter(isRow);
+    scroller = scrollerOf(list);
     startScroll = scroller ? scroller.scrollTop : 0;
-    const rects = rows.map((r) => r.getBoundingClientRect());
-    tops = rects.map((r) => r.top);
-    heights = rects.map((r) => r.height);
     from = pos = i;
-    // 항목 사이: 들린 항목과 이웃 항목의 틈(이웃이 없으면 0)
-    const gap = i + 1 < rects.length ? rects[i + 1].top - rects[i].bottom : i > 0 ? rects[i].top - rects[i - 1].bottom : 0;
-    shift = heights[i] + Math.max(0, gap);
-    rows.forEach((r, at) => (at === i ? Object.assign(r.style, LIFTED) : (r.style.transition = SLIDE)));
+    if (rowHeight) {
+      // 행 사이 틈 없이 같은 높이
+      shift = rowHeight();
+      rows.forEach((r) => seen.add(r));
+    } else {
+      const rects = rows.map((r) => r.getBoundingClientRect());
+      tops = rects.map((r) => r.top);
+      heights = rects.map((r) => r.height);
+      // 항목 사이: 들린 항목과 이웃 항목의 틈(이웃이 없으면 0)
+      const gap = i + 1 < rects.length ? rects[i + 1].top - rects[i].bottom : i > 0 ? rects[i].top - rects[i - 1].bottom : 0;
+      shift = heights[i] + Math.max(0, gap);
+    }
+    rows.forEach((r) => (r === row ? Object.assign(r.style, LIFTED) : (r.style.transition = SLIDE)));
     draggedIndex.value = i;
     startY = lastY = e.clientY;
     start?.();
