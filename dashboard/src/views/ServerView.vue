@@ -405,9 +405,10 @@ function syncLoaded() {
   loadedCount.value = Math.max(QUEUE_PAGE, player.value.queue?.length || 0);
 }
 
+// 드래그하는 동안에도 받는다(끝에 이어 붙기만 해 드래그 중인 행의 번호는 그대로다. 그래야 놓지 않고 다음 페이지로 끌고 갈 수 있다)
 async function loadMore() {
   const total = player.value.queueTotal ?? 0;
-  if (loadingMore.value || isDragging.value || player.value.queue.length >= total) return;
+  if (loadingMore.value || player.value.queue.length >= total) return;
   loadingMore.value = true;
   try {
     const res = await axios.get<QueuePage>(`/api/guilds/${guildId}/player/queue`, { params: { offset: player.value.queue.length, limit: QUEUE_PAGE } });
@@ -422,10 +423,11 @@ async function loadMore() {
   }
 }
 
-function onQueueScroll(e: Event) {
-  const el = e.target as HTMLElement;
-  if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) void loadMore();
+// 바닥에 닿으면 더 받는다
+function loadIfAtEnd(el: HTMLElement | null) {
+  if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80) void loadMore();
 }
+const onQueueScroll = (e: Event) => loadIfAtEnd(e.target as HTMLElement);
 
 // 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다. 카드를 가려 이유를 먼저 보여준다.
 // 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
@@ -569,6 +571,8 @@ function releaseHeld() {
     heldQueue = null;
     syncLoaded();
   }
+  // 바닥에서 놓았으면 스크롤 이벤트가 다시 오지 않으므로 여기서 본다
+  loadIfAtEnd(queueBoxRef.value);
 }
 
 // 놓은 위치는 드래그하는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 반영하기 전에 정한다
