@@ -10,6 +10,12 @@
       <span class="hidden @2xl/desk:block text-sm text-on-surface-variant truncate">{{ greeting }}</span>
     </header>
 
+    <div v-if="!loading && relogin" class="mb-(--gap-in) rounded-(--r-window) bg-surface-container flex flex-wrap items-center gap-3 px-4 py-3">
+      <Icon name="login" :size="20" class="text-on-surface-variant shrink-0" />
+      <p class="text-sm text-on-surface-variant flex-1 min-w-48">{{ T.relogin.body }}</p>
+      <button type="button" class="tap state-layer h-9 px-4 rounded-full bg-primary text-on-primary text-sm font-semibold cursor-pointer" @click="openLoginWindow">{{ T.relogin.action }}</button>
+    </div>
+
     <div v-if="loading" class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
       <div v-for="n in 3" :key="n" class="h-38 rounded-(--r-window) bg-surface-container animate-pulse"></div>
     </div>
@@ -59,6 +65,7 @@ import GuildAvatar from "../components/GuildAvatar.vue";
 import TrackArt from "../components/TrackArt.vue";
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { text } from "../text/index.ts";
+import { openLoginWindow } from "../composables/session.ts";
 const T = text.servers;
 
 // 목록 데이터·SSE·폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
@@ -66,6 +73,7 @@ const store = useGuildsStore();
 const user = useUserStore();
 const guilds = computed(() => store.guilds);
 const loading = computed(() => store.loading);
+const relogin = computed(() => store.relogin);
 // 내가 듣는 서버를 맨 앞에
 const ordered = computed(() => [...store.guilds].sort((a, b) => Number(b.listening) - Number(a.listening)));
 

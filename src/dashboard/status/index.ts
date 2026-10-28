@@ -39,8 +39,8 @@ function botStatus(client: Client, uptime: number) {
   };
 }
 
-/** viewerId: 보는 운영자(플레이어 행의 멤버 여부), stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가 */
-async function adminStatus({ client, players, commands }: BotContext, viewerId: string, stream: Pick<PlayerStream, "subs">, launcher = false): Promise<AdminStatus> {
+/** viewerId · memberIds: 보는 운영자와 그 사람의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null), stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가 */
+async function adminStatus({ client, players, commands }: BotContext, viewerId: string, memberIds: ReadonlySet<string> | null, stream: Pick<PlayerStream, "subs">, launcher = false): Promise<AdminStatus> {
   const uptime = process.uptime();
   const mem = process.memoryUsage();
   const { cpu, loop, heapLimit } = vitals();
@@ -54,7 +54,7 @@ async function adminStatus({ client, players, commands }: BotContext, viewerId: 
     download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
     upload: uploadView(),
     activePlayers: players.size,
-    players: await playerRows(client, players, viewerId),
+    players: playerRows(client, players, viewerId, memberIds),
     // 자식 프로세스. 오래 살아 있는 항목 · 플레이어 없는 서버의 재생 일이 새는 신호다
     processes: processSummary(client, players),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).

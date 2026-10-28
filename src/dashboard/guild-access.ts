@@ -20,6 +20,23 @@ const notMember = (guildId: string, userId: string) => (error: unknown) => {
   return null;
 };
 
+/** 멤버 판정에 쓰는 서버의 모양(시험의 가짜는 available 이 없으면 쓸 수 있는 것으로 본다) */
+type MemberSource = { id: string; available?: boolean; members: { fetch(options: string | { user: string; force: boolean }): Promise<GuildMember> } };
+
+/**
+ * 이 사람이 지금 이 서버의 멤버인가(보고 조작하는 권한 판정의 한 입구). 멤버 캐시 → REST. 답은 따로 두지 않는다(두면 언제 낡을지 모른다).
+ * 다시 붙은 직후 그 서버의 GUILD_CREATE 전에는(쓸 수 없는 서버) 옛 멤버가 캐시에 남아 있으므로 캐시를 건너뛰고 묻는다
+ */
+function memberOf(guild: MemberSource, userId: string): Promise<GuildMember | null> {
+  const asked = guild.available === false ? guild.members.fetch({ user: userId, force: true }) : guild.members.fetch(userId);
+  return asked.catch(notMember(guild.id, userId));
+}
+
+/** 실시간 연결의 "볼 수 있나"(보낼 때 동기로). 멤버 캐시를 보되, 쓸 수 없는 서버는 캐시를 믿지 않는다 */
+function seesGuild(guild: { available?: boolean; members: { cache: { has(id: string): boolean } } } | undefined, userId: string) {
+  return Boolean(guild && guild.available !== false && guild.members.cache.has(userId));
+}
+
 /** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null(멤버가 아니면 no-guild-access) */
 async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   const { bot } = req.app.locals;
@@ -37,7 +54,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
 
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   const userId = signedIn(req).id;
-  const fetched: GuildMember | null = await guild.members.fetch(userId).catch(notMember(guildId, userId)); // 캐시 우선, 미스 시 REST 1회
+  const fetched = await memberOf(guild, userId);
   if (!fetched) {
     sendProblem(res, "no-guild-access");
     return null;
@@ -64,4 +81,4 @@ function voiceFlags(guild: Guild | null | undefined, userId: string | null | und
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
-export { openGuild, voiceFlags, notMember };
+export { openGuild, voiceFlags, notMember, memberOf, seesGuild };

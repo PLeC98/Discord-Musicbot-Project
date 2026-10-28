@@ -8,7 +8,7 @@ import { loginFailed, type LoginError } from "../contract/identity.ts";
 import { tokenStoreOf } from "../session-store.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
-import { forgetGuilds } from "../invite.ts";
+import { forgetGuilds } from "../user-guilds.ts";
 import { recordLogin } from "../login-devices.ts";
 
 /** 여기서 읽는 필드만 */

@@ -73,7 +73,8 @@ function makeGuild(id: string, name: string, { leaveError = null as Error | null
     iconURL: () => null,
     systemChannel: null,
     // 운영자는 AlphaGuild 에만 있다(봇 상태의 플레이어 줄)
-    members: { me: {}, fetch: async (userId: string) => (id === "100" ? { id: userId } : Promise.reject(new Error("Unknown Member"))) },
+    // 운영자의 서버 목록은 이 시험에 없다(토큰 없는 세션). 멤버 표시는 멤버 캐시로
+    members: { me: {}, cache: new Map(id === "100" ? [["owner", {}]] : []), fetch: async (userId: string) => (id === "100" ? { id: userId } : Promise.reject(new Error("Unknown Member"))) },
     channels: {
       cache: new Map([[botChannel.id, botChannel]]),
     },

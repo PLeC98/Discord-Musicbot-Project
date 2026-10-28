@@ -2,28 +2,37 @@
 //
 // 지키려는 계약: 지금 멤버인 서버의 신호만 받는다. 로그인할 때 받은 서버 목록이나 연결을 연 때의 집합에 기대면,
 // 그 뒤 나간 서버의 재생 상태가 계속 흘러가거나 그 뒤 들어간 서버의 신호가 빠진다. 운영자도 같다(참가한 서버만).
-// 볼 수 있는지는 보낼 때 멤버 캐시로 묻는다. 그래서 연결을 열 때와 봇이 새 서버에 들 때 캐시를 채운다.
+// 볼 수 있는지는 보낼 때 멤버 캐시로 묻는다. 그래서 연결을 열 때 그 사람이 든 서버(그 사람의 서버 목록)만 캐시를 채우고,
+// 봇이 새 서버에 들 때도 채운다. 목록을 받지 못하면 이미 확인한 서버만(봇이 든 서버마다 묻지 않는다). 쓸 수 없는 서버는 보이지 않는다.
 
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { createPlayerEventsRouter, botJoinedGuild } = await import("../../src/dashboard/routes/player-events.ts");
-import { test, before, after } from "node:test";
+import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express, { type Response } from "express";
 import type { Server } from "node:http";
 import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
-import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+import { requestJson } from "../helpers/dashboard.ts";
+import { userGuildsFixture } from "../helpers/user-guilds.ts";
 
-// 서버 하나. member 면 가져오기가 되고, 가져오면 진짜처럼 캐시에 남는다
+// 서버 하나. member 면 가져오기가 되고, 가져오면 진짜처럼 캐시에 남는다(캐시에 있으면 묻지 않고, force 면 묻는다). fetched: 디스코드에 물은 사용자
 const guild = (id: string, member: boolean) => {
   const cache = new Map<string, object>();
+  const fetched: string[] = [];
   return {
     id,
+    available: true,
+    fetched,
     members: {
       cache,
-      fetch: async (userId: string) => {
+      fetch: async (options: string | { user: string }) => {
+        const userId = typeof options === "string" ? options : options.user;
+        const hit = cache.get(userId);
+        if (hit && typeof options === "string") return hit;
+        fetched.push(userId);
         if (!member) throw new Error("Unknown Member");
         cache.set(userId, { id: userId });
         return { id: userId };
@@ -31,16 +40,10 @@ const guild = (id: string, member: boolean) => {
     },
   };
 };
+type FakeGuild = ReturnType<typeof guild>;
 let ready = true;
-const client = {
-  isReady: () => ready,
-  guilds: {
-    cache: new Map([
-      ["g1", guild("g1", true)],
-      ["g2", guild("g2", false)],
-    ]),
-  },
-};
+const guilds = new Map<string, FakeGuild>();
+const client = { isReady: () => ready, guilds: { cache: guilds } };
 
 // 구독을 받으면 볼 수 있는가(canSee)를 적어 두고 연결을 닫는다
 const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string }> = [];
@@ -54,62 +57,101 @@ const stream = fake<PlayerStream>({
   notify: (guildId: string) => nudged.push(guildId),
 });
 
+const tokens = userGuildsFixture();
 let user = { id: "u1", username: "u" };
 let server: Server;
 let base: string;
 
 before(async () => {
   const app = express();
-  app.use(signedInAs(() => user));
+  app.use(tokens.middleware(() => user));
   app.locals.bot = fakeBot({ client });
-  app.use("/api/guilds", createPlayerEventsRouter({ stream }));
+  app.use("/api/guilds", createPlayerEventsRouter({ stream, http: tokens.http }));
   server = await listenForFetch(app);
   base = baseUrl(server);
 });
-after(() => server.close());
+after(() => {
+  server.close();
+  tokens.close();
+});
+
+beforeEach(() => {
+  tokens.reset();
+  subscribed.length = 0;
+  nudged.length = 0;
+  user = { id: "u1", username: "u" };
+  guilds.clear();
+  guilds.set("g1", guild("g1", true));
+  guilds.set("g2", guild("g2", false));
+  tokens.state.guilds.set("u1", ["g1", "elsewhere"]);
+  tokens.state.guilds.set("owner", []);
+  tokens.signIn("u1");
+  tokens.signIn("owner");
+});
 
 const visible = (canSee: (guildId: string) => boolean, ids: string[]) => ids.filter((id) => canSee(id));
+const open = () => requestJson(base, "GET", "/api/guilds/events");
 
-test("멤버인 서버만 보인다. 봇이 없는 서버도 빠진다", async () => {
-  subscribed.length = 0;
-  const { status } = await requestJson(base, "GET", "/api/guilds/events");
+test("그 사람이 든 서버만 가져와 보인다. 든 적 없는 서버 · 봇이 없는 서버는 묻지도 않는다", async () => {
+  const { status } = await open();
   assert.equal(status, 200);
   assert.equal(subscribed[0].userId, "u1");
-  assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2", "gone"]), ["g1"], "g2 는 멤버가 아니고 gone 은 봇이 없다");
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2", "gone"]), ["g1"]);
+  assert.deepEqual(guilds.get("g2")?.fetched, [], "서버 목록에 없는 서버는 멤버 조회를 하지 않는다");
 });
 
 test("연결을 연 뒤 봇이 새 서버에 들면, 연결을 연 사람을 그 서버에서 가져와 보이게 하고 목록에 알린다", async () => {
-  subscribed.length = 0;
-  nudged.length = 0;
-  await requestJson(base, "GET", "/api/guilds/events");
+  await open();
   const g3 = guild("g3", true);
-  client.guilds.cache.set("g3", g3);
-  try {
-    assert.deepEqual(visible(subscribed[0].canSee, ["g3"]), [], "새 서버의 캐시에는 아직 없다(음성 채널에 없는 사람)");
-    await botJoinedGuild(stream, g3);
-    assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g3"]), ["g1", "g3"]);
-    assert.deepEqual(nudged, ["g3"]);
-  } finally {
-    client.guilds.cache.delete("g3");
-  }
+  guilds.set("g3", g3);
+  assert.deepEqual(visible(subscribed[0].canSee, ["g3"]), [], "새 서버의 캐시에는 아직 없다(음성 채널에 없는 사람)");
+  await botJoinedGuild(stream, fake<Parameters<typeof botJoinedGuild>[1]>(g3));
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g3"]), ["g1", "g3"]);
+  assert.deepEqual(nudged, ["g3"]);
 });
 
 test("운영자도 참가한 서버만", async () => {
-  subscribed.length = 0;
   user = { id: "owner", username: "o" };
-  try {
-    await requestJson(base, "GET", "/api/guilds/events");
-    assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1"]);
-  } finally {
-    user = { id: "u1", username: "u" };
-  }
+  await open();
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), []);
+});
+
+test("서버 목록을 받지 못하면(토큰 없음 · 거절) 이미 확인한 서버만 보이고, 봇이 든 서버마다 묻지 않는다", async () => {
+  user = { id: "u2", username: "토큰 없음" };
+  guilds.get("g1")?.members.cache.set("u2", { id: "u2" });
+  tokens.signIn("u2", { token: false });
+  await open();
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1"], "캐시에 있던 서버는 보인다");
+  assert.deepEqual(
+    [...guilds.values()].flatMap((g) => g.fetched),
+    [],
+    "멤버 조회가 나가지 않는다",
+  );
+
+  subscribed.length = 0;
+  user = { id: "u1", username: "u" };
+  guilds.get("g1")?.members.cache.set("u1", { id: "u1" });
+  tokens.state.failWith = 401;
+  await open();
+  await open();
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1"]);
+  assert.equal(tokens.state.asked.length, 1, "401 을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
+});
+
+test("쓸 수 없는 서버(다시 붙은 직후)는 캐시에 있어도 보이지 않는다", async () => {
+  await open();
+  const g1 = guilds.get("g1");
+  assert.ok(g1);
+  g1.available = false;
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), []);
+  g1.available = true;
+  assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), ["g1"]);
 });
 
 test("봇이 준비되기 전이면 구독하지 않고 503", async () => {
-  subscribed.length = 0;
   ready = false;
   try {
-    const { status } = await requestJson(base, "GET", "/api/guilds/events");
+    const { status } = await open();
     assert.equal(status, 503);
     assert.equal(subscribed.length, 0);
   } finally {

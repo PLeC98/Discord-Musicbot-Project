@@ -5,7 +5,7 @@ import { PermissionFlagsBits, PermissionsBitField, type Client } from "discord.j
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../rules/error-kind.ts";
-import { DISCORD_API, discordHttp, type DiscordHttp } from "./discord-api.ts";
+import { userGuilds, _resetUserGuilds, type UserGuild } from "./user-guilds.ts";
 
 /** 누가 초대할 수 있나. 공개 봇이 아니면 앱 소유자(팀이면 팀원)만 넣을 수 있고, code grant 를 요구하면 초대 링크만으로는 들어오지 않는다 */
 type AppInfo = { botPublic: boolean; requireCodeGrant: boolean; ownerIds: string[] };
@@ -44,42 +44,23 @@ function canInvite(client: Client, userId: string) {
 
 // ── 서버 목록 ──
 
-/** 디스코드가 주는 서버 목록에서 읽는 필드(/users/@me/guilds). permissions 는 서버 단위 권한 비트 */
-type UserGuild = { id: string; name: string; icon: string | null; owner: boolean; permissions: string };
 /** 서버 관리 권한이 있는 서버(봇이 들었는지는 부르는 쪽이 지금 값으로 뺀다) */
 type ManagedGuild = { id: string; name: string; icon: string | null };
 
-/** 받은 목록을 세션마다 잠깐 둔다. 화면을 다시 열거나 봇이 들고 나서 다시 읽을 때 디스코드에 묻지 않게 */
-const KEEP_MS = 30_000;
-/** 갱신 버튼(fresh)도 이보다 자주는 묻지 않는다 */
-const FRESH_GAP_MS = 10_000;
-const kept = new Map<string, { at: number; guilds: ManagedGuild[] }>();
-
 const manages = (g: UserGuild) => g.owner || new PermissionsBitField(BigInt(g.permissions)).has(PermissionFlagsBits.ManageGuild);
 
-/**
- * 그 사람이 관리하는 서버. key 는 세션(캐시 칸), fresh 면 KEEP_MS 안이어도 다시 받는다(FRESH_GAP_MS 안이면 둔 것).
- * 디스코드가 거절하면 상태와 본문을 실은 오류를 던진다(discord-api)
- */
-async function managedGuilds(key: string, token: string, { fresh = false, http = discordHttp, now = Date.now() }: { fresh?: boolean; http?: DiscordHttp; now?: number } = {}) {
-  for (const [k, v] of kept) if (now - v.at >= KEEP_MS) kept.delete(k);
-  const hit = kept.get(key);
-  if (hit && now - hit.at < (fresh ? FRESH_GAP_MS : KEEP_MS)) return hit.guilds;
-  const res = await http.get<UserGuild[]>(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bearer ${token}` } });
-  const guilds = res.data.filter(manages).map(({ id, name, icon }) => ({ id, name, icon }));
-  kept.set(key, { at: now, guilds });
-  return guilds;
+/** 그 사람이 관리하는 서버. 받기 · 두기 · 거절은 user-guilds 의 userGuilds 와 같다 */
+async function managedGuilds(key: string, token: string, options: Parameters<typeof userGuilds>[2] = {}) {
+  const guilds = await userGuilds(key, token, options);
+  return guilds.filter(manages).map(({ id, name, icon }) => ({ id, name, icon }));
 }
-
-/** 세션이 끝났다(로그아웃). 둔 목록을 버린다 */
-const forgetGuilds = (key: string) => kept.delete(key);
 
 // 테스트 시임
 function _setAppInfo(info: AppInfo | null) {
   appInfo = info;
   loading = null;
-  kept.clear();
+  _resetUserGuilds();
 }
 
-export { loadAppInfo, canInvite, managedGuilds, forgetGuilds, _setAppInfo, KEEP_MS, FRESH_GAP_MS };
+export { loadAppInfo, canInvite, managedGuilds, _setAppInfo };
 export type { AppInfo, ManagedGuild };

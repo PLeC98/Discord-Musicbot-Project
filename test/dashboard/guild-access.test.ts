@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import type { Request, Response } from "express";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { withConfig } from "../helpers/config.ts";
-import { openGuild } from "../../src/dashboard/guild-access.ts";
+import { memberOf, openGuild } from "../../src/dashboard/guild-access.ts";
 
 type Member = { id: string; permissions?: unknown };
 
@@ -86,4 +86,30 @@ test("권한 보기 전환(viewAs)이 걸려 있으면 권한만 바꾼 멤버�
   const member = got?.actor.member as unknown as Member;
   assert.equal(member.id, "u1");
   assert.notEqual(member.permissions, "real");
+});
+
+test("memberOf: 캐시 → REST, 답은 두지 않는다(멤버 아님도 다음에 다시 묻는다), 쓸 수 없는 서버는 캐시를 건너뛴다", async () => {
+  const asked: unknown[] = [];
+  const cache = new Map<string, Member>([["cached", { id: "cached" }]]);
+  const g = {
+    id: "g1",
+    available: true,
+    members: {
+      fetch: async (options: string | { user: string; force: boolean }) => {
+        const id = typeof options === "string" ? options : options.user;
+        if (typeof options === "string" && cache.has(id)) return cache.get(id);
+        asked.push(options);
+        if (id === "stranger") throw Object.assign(new Error("Unknown Member"), { code: 10007 });
+        return { id };
+      },
+    },
+  };
+  const guild = fake<Parameters<typeof memberOf>[0]>(g);
+  assert.deepEqual(await memberOf(guild, "cached"), { id: "cached" });
+  assert.equal(await memberOf(guild, "stranger"), null);
+  assert.equal(await memberOf(guild, "stranger"), null);
+  assert.equal(asked.length, 2, "멤버 아님을 기억하지 않는다");
+  g.available = false;
+  assert.deepEqual(await memberOf(guild, "cached"), { id: "cached" });
+  assert.deepEqual(asked.at(-1), { user: "cached", force: true }, "쓸 수 없는 서버는 캐시에 있어도 묻는다");
 });

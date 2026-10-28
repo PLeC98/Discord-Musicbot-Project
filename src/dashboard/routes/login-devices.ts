@@ -10,7 +10,7 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
 import { describe, handleOf, type Locate } from "../login-devices.ts";
 import { revokeToken } from "./auth.ts";
-import { forgetGuilds } from "../invite.ts";
+import { forgetGuilds } from "../user-guilds.ts";
 import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { sendProblem } from "../problem.ts";

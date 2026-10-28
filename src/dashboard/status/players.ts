@@ -7,12 +7,13 @@ import type { Player } from "../../player/player.ts";
 import type { PlayerRegistry } from "../../player/registry.ts";
 import type { AdminStatus, PlayerRow } from "../contract/admin.ts";
 import { guildIconUrl } from "../images.ts";
-import { notMember } from "../guild-access.ts";
 
-/** viewerId 가 그 서버 멤버인가(멤버가 아니면 화면은 그 서버 화면으로 잇지 않는다). 캐시 우선 */
-async function isMember(client: Client, guildId: string, viewerId: string) {
-  const guild = client.guilds.cache.get(guildId);
-  return Boolean(guild && (await guild.members.fetch(viewerId).catch(notMember(guildId, viewerId))));
+/**
+ * viewerId 가 그 서버 멤버로 보이나(멤버가 아니면 화면은 그 서버 화면으로 잇지 않는다). 멤버 캐시에 있거나 그 사람의 서버 목록(memberIds)에 있으면 참.
+ * 표시만이다(3초마다 서버마다 묻지 않는다). 그 서버를 여는 것은 openGuild 가 본다. memberIds 가 null 이면(목록을 받지 못함) 멤버 캐시만
+ */
+function looksMember(client: Client, guildId: string, viewerId: string, memberIds: ReadonlySet<string> | null) {
+  return Boolean(client.guilds.cache.get(guildId)?.members.cache.has(viewerId) || memberIds?.has(guildId));
 }
 
 /** 지금 곡. 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙) */
@@ -39,8 +40,8 @@ function playerRow(player: Player, member: boolean): PlayerRow {
   };
 }
 
-async function playerRows(client: Client, players: PlayerRegistry, viewerId: string): Promise<AdminStatus["players"]> {
-  const list = await Promise.all([...players.values()].map(async (player) => playerRow(player, await isMember(client, player.guild.id, viewerId))));
+function playerRows(client: Client, players: PlayerRegistry, viewerId: string, memberIds: ReadonlySet<string> | null): AdminStatus["players"] {
+  const list = [...players.values()].map((player) => playerRow(player, looksMember(client, player.guild.id, viewerId, memberIds)));
   return { voiceConnections: getVoiceConnections().size, queued: list.reduce((n, row) => n + row.queued, 0), list };
 }
 

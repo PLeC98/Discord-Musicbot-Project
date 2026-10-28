@@ -108,6 +108,8 @@ const guild = {
   channels: { cache: channels },
   voiceStates: { cache: voiceStates },
   members: {
+    // 이 시험의 세션에는 디스코드 토큰이 없어 서버 목록은 멤버 캐시로 고른다. 캐시는 지금 멤버인지를 그대로 비춘다
+    cache: { has: () => currentMember !== null },
     fetch: async () => {
       if (!currentMember) throw new Error("Unknown Member");
       return currentMember;

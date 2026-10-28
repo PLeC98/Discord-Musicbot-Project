@@ -43,12 +43,15 @@ export const useGuildsStore = defineStore("guilds", {
   state: () => ({
     guilds: [] as GuildRow[],
     loading: true,
+    /** 디스코드에서 서버 목록을 받지 못해 이미 확인한 서버만 보인다(다시 로그인하면 모두) */
+    relogin: false,
   }),
   actions: {
     async refresh() {
       try {
         const res = await axios.get<GuildList>("/api/guilds");
         this.guilds = res.data.guilds;
+        this.relogin = res.data.relogin === true;
       } catch {
         // 지금 목록을 둔다. 까닭은 띠(연결 안 됨 · 세션 끝)가 알리고, 다음 신호 · 주기 읽기에서 회복
       } finally {
