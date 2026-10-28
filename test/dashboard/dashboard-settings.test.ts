@@ -108,7 +108,7 @@ const guild = {
   channels: { cache: channels },
   voiceStates: { cache: voiceStates },
   members: {
-    // 이 시험의 세션에는 디스코드 토큰이 없어 서버 목록은 멤버 캐시로 고른다. 캐시는 지금 멤버인지를 그대로 비춘다
+    // 이 테스트의 세션에는 디스코드 토큰이 없어 서버 목록은 멤버 캐시로 고른다. 캐시는 지금 멤버인지를 그대로 비춘다
     cache: { has: () => currentMember !== null },
     fetch: async () => {
       if (!currentMember) throw new Error("Unknown Member");
@@ -317,7 +317,7 @@ test("PUT settings: 재생목록 한 번에 넣는 곡 수 — 저장 / null은 
   assert.deepEqual(settingsRow(), rowBefore, "다른 설정도 함께 미반영");
 });
 
-test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 칸이 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장 · 되돌리기, 모르는 값은 400", async () => {
+test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드가 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장 · 되돌리기, 모르는 값은 400", async () => {
   currentMember = modMember();
   documents._use("age-content", { enabled: false, changedAt: 1 });
   assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, null);

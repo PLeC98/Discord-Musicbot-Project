@@ -1,4 +1,4 @@
-// 그림 · 태그가 붙은 MP3 시료(ffmpeg 로 만든다). ffmpeg 가 없으면 null 이라 부르는 시험이 건너뛴다.
+// 그림 · 태그가 붙은 MP3 시료(ffmpeg 로 만든다). ffmpeg 가 없으면 null 이라 부르는 테스트가 건너뛴다.
 // 파일 태그 그림을 기억 모듈(sources/embedded-art)에 넣어 두는 것까지(remember)
 
 import fs from "node:fs";

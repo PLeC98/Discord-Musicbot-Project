@@ -19,7 +19,7 @@ import { FFMPEG_RELEASE, BGUTIL_VERSION } from "./vendor-versions.ts";
 // 모으고, 기동(src/index.ts)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
 // 값은 process.env 에서만 읽는다. .env 를 process.env 에 올리는 것은 진입 파일의 첫 줄(app/env-bootstrap)이다(테스트는 .env 를 읽지 않는다).
 // 운영 조절값(rules/tunables)은 .env 가 아니라 settings.db 의 문서에서 온다. 불러올 때는 기본값이고, 기동이 DB 를 연 뒤
-// 같은 loadConfig 로 다시 셈해 이 객체에 올린다(store/tunables). 그 값이 틀렸으면 기동을 멈추지 않고 그 필드만 기본값(tuneProblems).
+// 같은 loadConfig 로 다시 계산해 이 객체에 올린다(store/tunables). 그 값이 틀렸으면 기동을 멈추지 않고 그 필드만 기본값(tuneProblems).
 
 const ENV_PATH = PROJECT.env;
 
@@ -279,7 +279,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
     },
 
     // 자동재생 소스 자격증명(위와 같다). 없으면 그 소스만 못 쓴다. 장르 설정에서 어느 장르가
-    // 그 소스를 쓰는지 보고 기동 때 경고하고, 쓸 소스가 없는 장르는 선택할 때 거절한다(src/config/genres.ts).
+    // 그 소스를 쓰는지 보고 기동 시 경고하고, 쓸 소스가 없는 장르는 선택할 때 거절한다(src/config/genres.ts).
     sources: {
       lastfmKey: null as string | null,
       listenbrainzToken: null as string | null,

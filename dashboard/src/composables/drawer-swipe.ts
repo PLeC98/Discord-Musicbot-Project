@@ -1,11 +1,11 @@
-// 휴대폰 사이드 드로어를 손가락으로 여닫는다. 끄는 동안 사이드 드로어가 손가락을 따라오고(progress 0~1), 놓으면 빠르기 · 연 정도로 열지 닫을지 정한다.
+// 휴대폰 사이드 드로어를 손가락으로 여닫는다. 드래그하는 동안 사이드 드로어가 손가락을 따라오고(progress 0~1), 놓으면 빠르기 · 연 정도로 열지 닫을지 정한다.
 // 열기: 화면 왼쪽 끝 48px 안에서 시작해 오른쪽으로 쓸기(아무 데서나 받으면 너무 쉽게 열린다. 맨 끝은 안드로이드 · 브라우저의 "뒤로" 제스처가 먼저 가져가니 끝 바로 안쪽이 실제로 받는 영역이다).
-//   가로로 끄는 것(입력 · 막대 · 순서 바꾸기 핸들 · 알림 밀기 · 가로로 스크롤되는 영역) 위에서 시작하면 받지 않는다.
+//   가로로 드래그하는 것(입력 · 막대 · 순서 바꾸기 핸들 · 알림 밀기 · 가로로 스크롤되는 영역) 위에서 시작하면 받지 않는다.
 // 닫기: 열린 동안 아무 데서나 왼쪽으로 쓸기(사이드 드로어 · 뒤 막).
 
 import { ref, onMounted, onUnmounted, type Ref } from "vue";
 
-// 이 안에서 시작한 끌기는 사이드 드로어 것이 아니다
+// 이 안에서 시작한 드래그는 사이드 드로어 것이 아니다
 const OWN_DRAG = "input, textarea, select, [role=slider], [data-reorder], [data-no-swipe], .touch-none, [role=status]";
 const SLOP = 8; // 이만큼 움직여야 방향을 정한다
 const FLING = 0.35; // px/ms 이상으로 놓으면 방향대로
@@ -22,7 +22,7 @@ function inHorizontalScroller(el: Element | null): boolean {
 
 /**
  * open: 사이드 드로어가 열렸는지. drawer: 사이드 드로어 면(폭을 잰다). enabled: 지금 사이드 드로어를 쓰는 화면인지(휴대폰).
- * 돌려주는 drag 는 끄는 동안의 연 정도(아니면 null). 화면은 drag ?? (open ? 1 : 0) 으로 그린다
+ * 돌려주는 drag 는 드래그하는 동안의 연 정도(아니면 null). 화면은 drag ?? (open ? 1 : 0) 으로 그린다
  */
 export function useDrawerSwipe(open: Ref<boolean>, drawer: Ref<HTMLElement | null>, enabled: () => boolean) {
   const drag = ref<number | null>(null);

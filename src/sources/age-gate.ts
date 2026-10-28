@@ -19,7 +19,7 @@ type PlaceOf = (guildId: string, target: string | null) => boolean | null;
 
 let placeOf: PlaceOf = () => null;
 
-/** 앱 조립이 붙인다. 인자 없이 부르면 떼어 낸다(시험) */
+/** 앱 조립이 붙인다. 인자 없이 부르면 떼어 낸다(테스트) */
 function usePlace(fn?: PlaceOf) {
   placeOf = fn ?? (() => null);
 }

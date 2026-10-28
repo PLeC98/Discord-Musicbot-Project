@@ -39,7 +39,7 @@ test("선택 목록에 같은 이모지가 두 번 나오지 않는다", async (
 });
 
 test("항목마다 이름과 검색어가 있다", async () => {
-  // 이름은 툴팁으로 보이고 검색어는 찾기에 쓰인다 — 비면 그 셀은 찾을 수도, 뭔지 알 수도 없다.
+  // 이름은 툴팁으로 보이고 검색어는 검색에 쓰인다 — 비면 그 셀은 검색할 수도, 뭔지 알 수도 없다.
   const bad = (await all()).filter(([, , e]) => !e.label?.trim() || !e.search?.trim()).map(([group, char]) => `${group} ${char}`);
   assert.deepEqual(bad, []);
 });

@@ -90,7 +90,7 @@ const router = useRouter();
 const route = useRoute();
 const trackEl = ref<HTMLElement | null>(null);
 
-// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
+// 드래그하는 동안 바로 틀고 드래그 중인 값을 보여 준다(composables/volume-control)
 const {
   shown: volumeShown,
   input: volumeInput,

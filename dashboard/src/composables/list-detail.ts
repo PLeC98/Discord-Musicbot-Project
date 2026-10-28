@@ -1,7 +1,7 @@
 // 운영자 패널의 목록 · 상세 편집기(자동재생 장르 · 상태 문구)가 같이 쓰는 것(M3 목록 · 상세).
-// - 넓으면(52rem 이상) 두 단, 좁으면 한 단씩. 한 단에서 열면 방문 기록이 하나 쌓여 OS · 브라우저 뒤로가기가 목록으로 돌아온다(두 단은 쌓지 않는다)
+// - 넓으면(52rem 이상) 2열, 좁으면 1열. 1열에서 상세를 열면 방문 기록이 하나 쌓여 OS · 브라우저 뒤로가기가 목록으로 돌아온다(2열은 쌓지 않는다)
 // - 선택한 항목은 주소(?<param>=이름, 이름이 비었거나 겹치면 @순번, 목록 첫 항목의 전역 값은 @defaults)에 둬 새로고침 · 저장 뒤에도 다시 찾는다
-// - 두 단의 목록은 재생 바 옆이 비어 있으면 아래 끝까지 쓴다
+// - 2열일 때 목록은 재생 바 옆이 비어 있으면 아래 끝까지 쓴다
 
 import { computed, nextTick, reactive, ref, watch, type Ref } from "vue";
 import { goUp, pushDown, replaceKeepingUp } from "../utils/up-nav.ts";
@@ -12,12 +12,12 @@ import { useNowPlayingStore } from "../stores/now-playing.ts";
 
 /** 목록의 전역 값 항목의 주소 표식. 항목 표식의 @순번은 수만 쓰므로 겹치지 않는다 */
 const GLOBAL_TOKEN = "@defaults";
-/** 편집기마다(주소 표식 이름 → 지금 한 단으로 상세를 여는지). 운영자 패널이 위 막대 ← 를 보일지 정한다(태블릿에서도 한 단이면 ← 로 목록에) */
+/** 편집기마다(주소 표식 이름 → 지금 1열로 상세를 여는지). 운영자 패널이 위 막대 ← 를 보일지 정한다(태블릿에서도 1열이면 ← 로 목록에) */
 /** 목록 항목(48). 선택한 항목은 SELECT_ROW_ON, 끈 것은 흐리게(opacity) */
 export const LIST_ROW = "state-layer flex items-center gap-3 h-12 pl-1 pr-3 rounded-(--r-row) cursor-pointer text-sm text-on-surface transition-[background-color,opacity] duration-150";
 
 export const singlePane = reactive<Record<string, boolean>>({});
-/** 주소 표식 param 의 편집기가 한 단이면 알린다. 떠날 때 지우지 않는다: 새로 그리는 순서(개발 서버의 HMR 등)에 따라 새 편집기가 쓴 값을
+/** 주소 표식 param 의 편집기가 1열이면 알린다. 떠날 때 지우지 않는다: 새로 그리는 순서(개발 서버의 HMR 등)에 따라 새 편집기가 쓴 값을
  *  옛 편집기가 지울 수 있고, 남은 값은 그 탭이 보일 때 다시 쓰이므로 해가 없다. 운영자 패널은 ← 를 표시할지에만 쓰고, 누른 뒤 할 일은 주소로 정한다 */
 export function reportSinglePane(param: string, single: () => boolean) {
   watch(single, (v) => (singlePane[param] = v), { immediate: true });
@@ -25,7 +25,7 @@ export function reportSinglePane(param: string, single: () => boolean) {
 
 type Row = { key: number; name: string };
 
-/** 두 단 판단 · 목록 카드 높이 · 열 나누기만(선택은 부르는 쪽이 정할 때) */
+/** 2열 판단 · 목록 카드 높이 · 열 나누기만(선택은 부르는 쪽이 정할 때) */
 export function useListDetailLayout(paneEl: Ref<HTMLElement | null>) {
   const { width: paneWidth } = useElementSize(paneEl);
   // 목록 20rem + 편집이 입력란을 두 줄로 놓을 만큼
@@ -50,9 +50,9 @@ export function useListDetailLayout(paneEl: Ref<HTMLElement | null>) {
     const gap = parseFloat(getComputedStyle(paneEl.value).columnGap) || 0;
     return paneBox.left.value + rem(20) + gap <= dockBox.left.value + 0.5;
   });
-  /** 두 단의 목록 카드: 제자리에 붙고, 길면 그 안에서 스크롤된다 */
+  /** 2열일 때 목록 카드: 제자리에 붙고, 길면 그 안에서 스크롤된다 */
   const listCardClass = computed(() => (twoPane.value ? ["sticky top-(--gap-out) flex flex-col", besideDock.value ? "max-h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)" : "max-h-[calc(var(--desk-h)-var(--gap-out)*2-var(--player))]"] : []));
-  /** 두 단의 열 나누기(목록 20rem) */
+  /** 2열일 때의 열 나누기(목록 20rem) */
   const paneClass = computed(() => (twoPane.value ? "grid grid-cols-[20rem_minmax(0,1fr)] items-start gap-(--gap-in)" : ""));
   return { twoPane, besideDock, listCardClass, paneClass };
 }
@@ -90,13 +90,13 @@ export function useListDetail<R extends Row>({ param, rows, paneEl }: { param: s
   const keyIndex = computed(() => rows.value.findIndex((r) => r.key === selectedKey.value));
   /** 목록 첫 항목의 전역 값을 열었는지 */
   const globalSelected = computed(() => route.query[param] === GLOBAL_TOKEN);
-  // 두 단이면 선택한 것이 없을 때 첫 항목(전역 값)을 보인다. 한 단이면 선택한 것이 없을 때 목록만
+  // 2열이면 선택한 것이 없을 때 첫 항목(전역 값)을 보인다. 1열이면 선택한 것이 없을 때 목록만
   const selectedIndex = computed(() => (keyIndex.value >= 0 && !globalSelected.value ? keyIndex.value : -1));
   const selected = computed(() => rows.value[selectedIndex.value] ?? null);
   const showGlobal = computed(() => globalSelected.value || (twoPane.value && selectedIndex.value < 0));
-  /** 한 단에서 목록을 보일지(상세를 열지 않았을 때) */
+  /** 1열에서 목록을 보일지(상세를 열지 않았을 때) */
   const showList = computed(() => twoPane.value || (selectedIndex.value < 0 && !globalSelected.value));
-  // 목록에서 칠할 항목(두 단일 때만)
+  // 목록에서 칠할 항목(2열일 때만)
   const isOn = (i: number) => twoPane.value && i === selectedIndex.value;
   const globalOn = computed(() => twoPane.value && showGlobal.value);
 
@@ -128,7 +128,7 @@ export function useListDetail<R extends Row>({ param, rows, paneEl }: { param: s
       if (token && now && now !== GLOBAL_TOKEN && now !== token) void replaceKeepingUp(router, { query: { ...route.query, [param]: token } });
     },
   );
-  /** 항목을 삭제한 뒤: 한 단이면 목록으로, 두 단이면 이웃 항목(없으면 전역 값) */
+  /** 항목을 삭제한 뒤: 1열이면 목록으로, 2열이면 이웃 항목(없으면 전역 값) */
   function afterRemove(i: number, wasSelected: boolean) {
     if (!wasSelected) return;
     if (!twoPane.value) return backToList();

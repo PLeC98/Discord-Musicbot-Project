@@ -1,6 +1,6 @@
 // 운영자 패널: API 키 탭의 바깥 서비스 키(Spotify · Last.fm · ListenBrainz)
 
-/** 서비스마다: 제목 · 무엇에 쓰나 · 툴팁 · 키 발급 주소 · 칸 이름 */
+/** 서비스마다: 제목 · 무엇에 쓰나 · 툴팁 · 키 발급 주소 · 입력란 이름 */
 const services = {
   spotify: {
     title: "Spotify",
@@ -27,7 +27,7 @@ const services = {
 
 const groupTitle = "서비스 키";
 const linkLabel = "키 발급";
-/** 칸의 상태 */
+/** 입력란의 상태 */
 const state = {
   none: "없음",
   ok: (last4: string | null) => (last4 ? `저장됨 · 끝 ${last4}` : "저장됨"),
@@ -49,7 +49,7 @@ const saveFailed = (title: string) => `${title} 키를 저장하지 못했어요
 const clearFailed = (title: string) => `${title} 키를 삭제하지 못했어요.`;
 const testFailed = (title: string) => `${title} 연결 테스트를 하지 못했어요.`;
 const loadFailed = "서비스 키 상태를 읽지 못했어요.";
-/** 연결 시험 결과 */
+/** 연결 테스트 결과 */
 const check = {
   ok: "연결됐어요. 키가 맞아요.",
   missing: "저장된 키가 없어요.",

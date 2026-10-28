@@ -360,7 +360,7 @@ test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 
   assert.deepEqual(rows.tunables.warnings, ["쿠키 출처가 바뀌어요: 쓰지 않음 → firefox", "POToken 사용이 바뀌어요(다시 시작해야 적용돼요)"]);
 
   const res = await send("import?items=tunables", file);
-  assert.deepEqual(await res.json(), { imported: ["tunables"], restart: true, cookiesSource: "firefox" }, "기동 때 POToken 은 꺼져 있었다");
+  assert.deepEqual(await res.json(), { imported: ["tunables"], restart: true, cookiesSource: "firefox" }, "기동 시 POToken 은 꺼져 있었다");
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
 });
 

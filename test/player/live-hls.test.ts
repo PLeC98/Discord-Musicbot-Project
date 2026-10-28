@@ -101,7 +101,7 @@ test("URL 입력: 잔끊김은 ffmpeg가 먹되 EOF로는 재접속하지 않는
     assert.equal(args[idx(args, flag) + 1], "1", `${flag}가 켜져 있어야 함`);
     assert.ok(idx(args, flag) < idx(args, "-i"), `${flag}는 입력 옵션이라 -i 앞이어야 함`);
   }
-  // 라이브에서 EOF는 "방송이 끝났다"다. 켜면 그걸 오류로 보고 영영 다시 붙는다.
+  // 라이브에서 EOF는 "방송이 끝났다"다. 켜면 그걸 오류로 보고 영영 재연결한다.
   assert.equal(idx(args, "-reconnect_at_eof"), -1);
 });
 

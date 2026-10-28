@@ -67,7 +67,7 @@ const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
 // 추출에 실패하면 이만큼은 다시 추출하지 않고 저장값을 쓴다. 저쪽이 죽어 있을 때 요청마다 번들(수 MB)을 다운로드하지 않게
 const EXTRACT_RETRY_MS = 10 * 60 * 1000;
-// 번들에서 해시를 추출하는 질의
+// 번들에서 해시를 추출하는 쿼리
 const OPERATIONS = ["fetchPlaylist", "queryArtistOverview", "getTrack", "getAlbum"];
 
 // ── 정규화 (양 경로 공통 출력 계약) ──
@@ -306,7 +306,7 @@ const graphql = {
   },
 
   // 홈과 웹플레이어 번들에서 추출한다. 응답이 오류이거나 secret 을 못 찾으면 던진다(부르는 쪽이 저장값으로 넘어간다).
-  // 못 찾은 해시는 직전 값을 둔다. 그 질의만 해시 만료로 실패해 다시 추출하게 된다
+  // 못 찾은 해시는 직전 값을 둔다. 그 쿼리만 해시 만료로 실패해 다시 추출하게 된다
   async _extract(previous: AnonState | null = null): Promise<Omit<AnonState, "fetchedAt">> {
     const homeRes = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!homeRes.ok) throw new Error(`홈 ${homeRes.status}`);
@@ -519,7 +519,7 @@ async function getCollection(url: string, { offset = 0, limit = config.bot.playl
   return result;
 }
 
-/** 익명 상태(secret 목록 · 해시 · clientVersion)를 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 질의가 다시 추출한다. 받아 둔 토큰은 둔다 */
+/** 익명 상태(secret 목록 · 해시 · clientVersion)를 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 쿼리가 다시 추출한다. 받아 둔 토큰은 둔다 */
 function forgetAnonState() {
   graphql._state = null;
 }

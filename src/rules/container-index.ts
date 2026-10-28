@@ -179,7 +179,7 @@ function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
     points.push({ ms: (time / timescale) * 1000, byte, raw: time });
     byte += word & 0x7fffffff;
     time += buf.readUInt32BE(at + 4);
-    if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return "sidx 값이 넘침";
+    if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return "sidx 값 오버플로";
   }
   points.push({ ms: (time / timescale) * 1000, byte, raw: time }); // 마지막 조각의 끝(검사에만 쓴다)
   return points;

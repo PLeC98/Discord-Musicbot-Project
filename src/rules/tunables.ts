@@ -2,8 +2,8 @@
 // 이름 · 값은 .env 값과 같은 모양(대문자 이름 · 글자 값)이다. 읽는 길(config 의 envReaders)이 하나라 검사 · 단위 바꾸기 · 다듬기가 .env 값과 같다.
 // 화면도 부르므로 Node 없는 모듈이다. 라벨 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
 //
-// restart: 기동 때 한 번 잡는 값. 저장해도 다시 시작하기 전까지는 기동 때 값으로 돈다(반쯤 적용되는 일이 없게. store/tunables).
-// 나머지는 저장하면 바로 적용된다. 기동 때 만들어 둔 것(요청 제한기 · 하트비트 · 캐시 정리 타이머 · 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
+// restart: 기동 시 한 번 잡는 값. 저장해도 다시 시작하기 전까지는 기동 시 값으로 돈다(반쯤 적용되는 일이 없게. store/tunables).
+// 나머지는 저장하면 바로 적용된다. 기동 시 만들어 둔 것(요청 제한기 · 하트비트 · 캐시 정리 타이머 · 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 // advanced: 동작을 알아야 고치는 값. 운영자 패널은 "고급 설정 보기"를 켰을 때만 보인다
 // box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 일의 출처별 값)
 
@@ -67,7 +67,7 @@ const TUNABLES: readonly Tunable[] = [
   // IP 위치 DB(로그인한 기기의 위치, DB-IP City Lite). 자동 업데이트는 매달 새 버전을 받는다
   { key: "GEOIP_ENABLED", group: "geoip", kind: "bool", def: "true" },
   { key: "GEOIP_AUTO_UPDATE", group: "geoip", kind: "bool", def: "true" },
-  // 대시보드 요청 제한 · 실시간 연결
+  // 대시보드 요청 제한 · SSE 연결
   { key: "RATE_LIMIT_WINDOW_SEC", group: "dashboard", kind: "int", def: "60", min: 1, max: 3600, advanced: true },
   { key: "RATE_LIMIT_API_MAX", group: "dashboard", kind: "int", def: "120", min: 1, max: 100000, advanced: true },
   { key: "RATE_LIMIT_QUEUE_MAX", group: "dashboard", kind: "int", def: "20", min: 1, max: 100000, advanced: true },

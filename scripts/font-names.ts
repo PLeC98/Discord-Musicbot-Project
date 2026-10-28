@@ -1,15 +1,15 @@
-// 글꼴(TrueType · OpenType 한 개, sfnt)의 name 표를 고친다. 글꼴을 만드는 스크립트(build-*-font)가 조각내기 전에 원본에 한 번 부른다.
+// 글꼴(TrueType · OpenType 한 개, sfnt)의 name 테이블을 고친다. 글꼴을 만드는 스크립트(build-*-font)가 서브셋으로 나누기 전에 원본에 한 번 부른다.
 // 바꾸는 번호의 기록은 모든 플랫폼 · 언어에서 지우고 Windows 영어(3 · 1 · 0x409) 하나로 다시 쓴다. 빈 글은 그 번호를 지운다.
-// 다른 표는 그대로 옮기고 표 · 글꼴 체크섬을 다시 셈한다. 전자 서명(DSIG)은 고치면 맞지 않으므로 뺀다
+// 다른 테이블은 그대로 옮기고 테이블 · 글꼴 체크섬을 다시 계산한다. 전자 서명(DSIG)은 고치면 맞지 않으므로 뺀다
 
 import { decompress } from "wawoff2";
 
-/** OFL 이 권하는 라이선스 설명(13번) · 주소(14번). 조각마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
+/** OFL 이 권하는 라이선스 설명(13번) · 주소(14번). 서브셋마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
 const OFL_NAMES: Record<number, string> = {
   13: "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
   14: "https://openfontlicense.org",
 };
-/** subset-font(harfbuzz)는 0 ~ 6번만 남기므로 라이선스 칸은 따로 넘긴다(preserveNameIds) */
+/** subset-font(harfbuzz)는 0 ~ 6번만 남기므로 라이선스 기록은 따로 넘긴다(preserveNameIds) */
 const LICENSE_NAME_IDS = [13, 14];
 
 const WINDOWS = { platform: 3, encoding: 1, language: 0x409 };
@@ -65,7 +65,7 @@ function writeNames(records: NameRecord[]): Buffer {
 /** UTF-16BE(Windows 플랫폼의 글) */
 const utf16be = (text: string) => Buffer.from(text, "utf16le").swap16();
 
-/** name 표의 번호마다 글을 바꾼 새 글꼴. 빈 글("")은 그 번호를 지운다 */
+/** name 테이블의 번호마다 글을 바꾼 새 글꼴. 빈 글("")은 그 번호를 지운다 */
 function setNames(font: Buffer, names: Record<number, string>): Buffer {
   const tag = font.subarray(0, 4).toString("latin1");
   if (tag === "ttcf" || tag === "wOFF" || tag === "wOF2") throw new Error(`글꼴 하나(sfnt)여야 합니다: ${tag}`);
@@ -77,7 +77,7 @@ function setNames(font: Buffer, names: Record<number, string>): Buffer {
     tables.set(font.subarray(at, at + 4).toString("latin1"), font.subarray(offset, offset + font.readUInt32BE(at + 12)));
   }
   const name = tables.get("name");
-  if (!name) throw new Error("name 표가 없습니다");
+  if (!name) throw new Error("name 테이블이 없습니다");
   const changed = new Set(Object.keys(names).map(Number));
   const kept = readNames(name).filter((r) => !changed.has(r.id));
   const added = Object.entries(names)
@@ -88,7 +88,7 @@ function setNames(font: Buffer, names: Record<number, string>): Buffer {
   return assemble(font.readUInt32BE(0), tables);
 }
 
-/** 표들로 글꼴을 다시 짓는다(표 이름 순서, 4바이트 정렬, head 의 checkSumAdjustment 다시 셈) */
+/** 테이블들로 글꼴을 다시 짓는다(테이블 이름 순서, 4바이트 정렬, head 의 checkSumAdjustment 다시 계산) */
 function assemble(version: number, tables: Map<string, Buffer>): Buffer {
   const tags = [...tables.keys()].sort();
   const n = tags.length;
@@ -104,7 +104,7 @@ function assemble(version: number, tables: Map<string, Buffer>): Buffer {
   let headAt = -1;
   for (const [i, t] of tags.entries()) {
     const data = Buffer.from(tables.get(t)!);
-    // head 의 체크섬은 checkSumAdjustment 를 0 으로 두고 셈한다
+    // head 의 체크섬은 checkSumAdjustment 를 0 으로 두고 계산한다
     if (t === "head") {
       data.writeUInt32BE(0, 8);
       headAt = offset;

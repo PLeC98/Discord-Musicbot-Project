@@ -31,7 +31,7 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   const refused = refusal(guild, channel);
   if (refused || !channel) return { kind: "refused", code: refused ?? "must-be-in-voice" };
 
-  // 이미 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
+  // 이미 붙어 있음(붙는 중 · 끊겨 재연결하는 중 포함)
   const existing = bot.players.get(guild.id);
   if (existing?.voice.isAlive()) return { kind: "already", player: existing };
 
@@ -65,7 +65,7 @@ function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
   const me = guild.members.me;
   const permissions = me ? channel.permissionsFor(me) : null;
   if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return "permission-voice" as const;
-  // 다른 채널에서 쓰는 봇은 옮기지 않는다(옮기려면 디스코드에서 끌어다 놓는다)
+  // 다른 채널에서 쓰는 봇은 옮기지 않는다(옮기려면 디스코드에서 드래그해서 옮긴다)
   const botChannel = me?.voice?.channel;
   if (botChannel && botChannel.id !== channel.id) return "bot-in-other-voice" as const;
   return null;

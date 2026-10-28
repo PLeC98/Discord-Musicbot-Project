@@ -1,4 +1,4 @@
-// src/dashboard/routes/track-cache.ts — 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 계약의 모양.
+// src/dashboard/routes/track-cache.ts — 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 공유 타입의 모양.
 
 process.env.OWNER_ID = "owner";
 
@@ -41,7 +41,7 @@ const call = async (method: string, route: string, body?: unknown) => {
 const SPOTIFY = "https://open.spotify.com/track/1111111111111111111111";
 const SC = "https://soundcloud.com/artist/song";
 
-test("읽기: 표 하나의 구간과 번호, 질의가 틀리면 그 위치를 가리킨다", async () => {
+test("읽기: 표 하나의 구간과 번호, 쿼리가 틀리면 그 위치를 가리킨다", async () => {
   pinnedSources.setPin(SPOTIFY, SC, 10);
   const page = await call("GET", "/?table=requests&offset=0&limit=50&f.audioUrl=soundcloud&sort=pinnedAt:desc");
   assert.equal(page.status, 200);

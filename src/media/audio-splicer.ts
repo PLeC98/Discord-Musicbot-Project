@@ -166,7 +166,7 @@ class AudioSplicer extends Readable {
   }
 
   // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 멈추지 말고 전환 지점을 뒤로 민다.
-  // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 무이음으로 갈 이유가 없어진다.
+  // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 갭리스 전환을 할 이유가 없어진다.
   _slipOrWait(b: Readable) {
     const c = this._take(this.a);
     if (c) {
@@ -204,7 +204,7 @@ class AudioSplicer extends Readable {
     if (this.bDebt > 0 && isEnded(b) && b.readableLength === 0) this.bDebt = 0;
   }
 
-  // 두 조각의 길이가 다를 수 있다(끝난 소스의 꼬리). 긴 쪽에 맞추고 모자란 쪽은 무음으로 본다
+  // 두 청크의 길이가 다를 수 있다(끝난 소스의 꼬리). 긴 쪽에 맞추고 모자란 쪽은 무음으로 본다
   _mix(a: Buffer, b: Buffer): Buffer {
     const length = Math.max(a.length, b.length) & ~1;
     const sample = (buf: Buffer, i: number) => (i + 1 < buf.length ? buf.readInt16LE(i) : 0);

@@ -7,7 +7,7 @@
 // 지금 쓰는 파일은 꽉 차면 이름이 바뀌어 떼어진다(내용은 그대로). 그래서 파일을 첫 줄의 시각(since)으로 알아보고,
 // 보던 파일이 떼어졌으면 같은 첫 줄을 가진 떼어 낸 파일에서 이어 읽는다.
 // 파일마다 줄 수 · 카테고리 · 태그 · 처음과 끝 시각은 한 번 훑어 기억한다(떼어 낸 파일은 바뀌지 않고, 지금 파일은 늘어난 부분만 더 훑는다).
-// 찾기의 맞은 줄 수는 처음 받는 쪽마다 파일 전체를 훑는다(입력이 멈춘 뒤 한 번)
+// 검색의 맞은 줄 수는 처음 받는 쪽마다 파일 전체를 훑는다(입력이 멈춘 뒤 한 번)
 
 import fs from "fs";
 import path from "path";
@@ -161,7 +161,7 @@ function scan(file: string): Scan | null {
     const fresh: Scan = { since, size: 0, lines: 0, firstAt: 0, lastAt: 0, categories: new Set(), tags: new Set() };
     const done = known && known.since === since && known.size <= size ? known : fresh;
     if (done.size === size) return done;
-    // 덜 된 마지막 줄은 다음에 다시 훑도록 줄바꿈으로 끝난 곳까지만 셈한다
+    // 덜 된 마지막 줄은 다음에 다시 훑도록 줄바꿈으로 끝난 곳까지만 센다
     let scanned = done.size;
     for (const raw of forward(fd, done.size, size)) {
       const ended = raw.offset + raw.bytes.length < size;

@@ -12,7 +12,7 @@ type Entry = { text: string; expireMs: number };
 const MB = 1024 ** 2;
 const GB = 1024 ** 3;
 const HOUR_MS = 3_600_000;
-/** 줄여도 이보다 크면 두지 않는다 */
+/** 줄여도 이보다 크면 캐시하지 않는다 */
 const ENTRY_MAX = 256 * 1024;
 /** 맨 위에서 뺄 것(재생 주소 · 다운로드가 읽지 않는다). 쿠키는 메모리 · 다운로드에 넘기는 파일에 남기지 않는다 */
 const DROP = ["automatic_captions", "subtitles", "thumbnails", "heatmap", "description", "chapters", "tags", "categories", "cookies"];
@@ -23,7 +23,7 @@ function budgetFor(constrained: number, total: number): number {
   return Math.min(64 * MB, Math.max(8 * MB, Math.floor(memory / GB) * 2 * MB));
 }
 
-// 넣은 차례 그대로(같은 곡을 다시 넣으면 뒤로 간다). 앞이 가장 오래 남은 것
+// 삽입 순서 그대로(같은 곡을 다시 넣으면 뒤로 간다). 앞이 가장 오래 남은 것
 const entries = new Map<string, Entry>();
 let bytes = 0;
 let budget: number | null = null;
@@ -50,7 +50,7 @@ function withoutCookie(headers: unknown): unknown {
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== "cookie"));
 }
 
-/** 둘 만한 것이면 줄인 사본, 아니면 null(재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 조각 목록) */
+/** 캐시할 만한 것이면 줄인 사본, 아니면 null(재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 조각 목록) */
 function trimmed(info: Info): Info | null {
   if (info._type === "playlist" || info.is_live === true || info.live_status === "is_live" || info.live_status === "is_upcoming") return null;
   if (typeof info.url !== "string" || !expireOf(info.url)) return null;
@@ -71,7 +71,7 @@ function drop(id: string) {
   bytes -= entry.text.length;
 }
 
-// 1시간 지난 셈 · 밀려난 기록을 버린다
+// 1시간 지난 개수 기록 · 밀려난 기록을 버린다
 function prune(now: number) {
   for (const list of [reusedAt, missedAt]) while (list.length && list[0] <= now - HOUR_MS) list.shift();
   for (const [id, at] of evicted) {
@@ -92,7 +92,7 @@ function makeRoom(now: number) {
   }
 }
 
-/** yt-dlp 가 준 영상 정보를 둔다. 둘 만한 것이 아니면 그냥 넘어간다. 같은 곡이면 새 것으로 바꾼다 */
+/** yt-dlp 가 준 영상 정보를 캐시한다. 캐시할 만한 것이 아니면 그냥 넘어간다. 같은 곡이면 새 것으로 바꾼다 */
 function remember(raw: unknown) {
   if (!isObject(raw) || typeof raw.id !== "string") return;
   const info = trimmed(raw);

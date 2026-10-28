@@ -184,7 +184,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
 }
 
-// 받아 둔 영상 정보가 있으면 그것(known), 없으면 추출해 둔다. fresh 면 받아 둔 것을 읽지도 넣지도 않는다
+// 받아 둔 영상 정보가 있으면 그것(known), 없으면 추출해 캐시한다. fresh 면 받아 둔 것을 읽지도 캐시하지도 않는다
 async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: boolean): Promise<{ raw: unknown; known: boolean }> {
   const id = fresh ? null : links.extractVideoId(url);
   const recalled = id ? recentInfo.recall(id) : null;
@@ -196,7 +196,7 @@ async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: bool
 
 /**
  * 재생용 스트림 서술자. 받아 둔 영상 정보(곡 정보 · 앞선 재생 주소)가 있으면 yt-dlp 없이 그것으로 만들고 reused 를 단다(열리지 않으면 재생 쪽이 fresh 로 다시 묻는다).
- * fresh: 받아 둔 것을 읽지도 넣지도 않고 지금 유튜브에 묻는다(재생 테스트 · 다시 쓴 주소가 열리지 않았을 때)
+ * fresh: 받아 둔 것을 읽지도 캐시하지도 않고 지금 유튜브에 묻는다(재생 테스트 · 다시 쓴 주소가 열리지 않았을 때)
  */
 async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp; fresh?: boolean } = {}) {
   // 실패는 부르는 쪽(재생)이 한 번 남긴다

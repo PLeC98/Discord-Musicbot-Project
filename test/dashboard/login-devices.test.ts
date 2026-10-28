@@ -105,7 +105,7 @@ test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라�
       [false, true, "Mobile Safari", "iOS", "mobile"],
     ],
   );
-  assert.deepEqual(devices[0].place, { kind: "private" }, "시험은 127.0.0.1 에서 온다");
+  assert.deepEqual(devices[0].place, { kind: "private" }, "테스트는 127.0.0.1 에서 온다");
   assert.ok(devices.every((d) => typeof d.signedInAt === "number" && typeof d.seenAt === "number"));
   assert.ok(
     devices.every((d) => d.id.length === 22 && !/sess/.test(d.id)),

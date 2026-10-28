@@ -120,7 +120,7 @@ test("넛지 페이로드에 guildId가 실린다", () => {
   res.emit("close");
 });
 
-test("볼 수 없는 서버의 넛지는 받지 않는다. 볼 수 있는지는 보낼 때 물어 연결을 연 뒤 보이게 된 서버도 받는다", () => {
+test("볼 수 없는 서버의 넛지는 받지 않는다. 보기 권한은 보낼 때 확인해 연결을 연 뒤 보이게 된 서버도 받는다", () => {
   const res = makeRes();
   const visible = new Set(["evG7"]);
   DashboardEvents.addClient(res, (id: string) => visible.has(id), "evU7");

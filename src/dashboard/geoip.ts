@@ -33,7 +33,7 @@ const FIRST_CHECK_MS = 60_000;
 /** 쓰지 않으면 내리는 시간 */
 const IDLE_MS = 10 * 60_000;
 
-/** 파일을 여는 것(시험은 가짜를 넘긴다: 작은 MMDB 를 만들 도구가 없다) */
+/** 파일을 여는 것(테스트는 가짜를 넘긴다: 작은 MMDB 를 만들 도구가 없다) */
 type Open = (file: string) => Promise<Pick<Reader<CityResponse>, "get" | "metadata">>;
 let open: Open = (file) => maxmind.open<CityResponse>(file);
 
@@ -103,7 +103,7 @@ async function load(): Promise<boolean> {
       reader = await open(fileOf(version));
       readerVersion = version;
     } catch (error) {
-      log.warn(`IP 위치 DB 를 열지 못했습니다(위치 칸을 비웁니다): ${messageOf(error)}`);
+      log.warn(`IP 위치 DB 를 열지 못했습니다(위치 필드를 비웁니다): ${messageOf(error)}`);
       unload();
       return false;
     }
@@ -225,7 +225,7 @@ async function autoCheck() {
   }
 }
 
-/** 기동 때 한 번. 받다 꺼진 임시 파일을 치우고 자동 확인을 건다(봇이 꺼지는 것을 막지 않는다). 위치 DB 설정을 바꾸면: 끄면 올린 것을 내리고, 켜면 바로 한 번 본다 */
+/** 기동 시 한 번. 받다 꺼진 임시 파일을 치우고 자동 확인을 건다(봇이 꺼지는 것을 막지 않는다). 위치 DB 설정을 바꾸면: 끄면 올린 것을 내리고, 켜면 바로 한 번 본다 */
 function start() {
   try {
     for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
@@ -245,7 +245,7 @@ function start() {
   });
 }
 
-// 시험 시임. 자리 · 여는 것을 바꾼다. 인자 없이 부르면 진짜로
+// 테스트 시임. 자리 · 여는 것을 바꾼다. 인자 없이 부르면 진짜로
 function _use({ dir = path.join(PROJECT.database, "geoip"), opener = (file: string) => maxmind.open<CityResponse>(file) }: { dir?: string; opener?: Open } = {}) {
   DIR = dir;
   open = opener;

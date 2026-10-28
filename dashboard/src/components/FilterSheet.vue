@@ -1,9 +1,9 @@
 <template>
   <!-- 필터 창. 휴대폰은 바텀 시트(M3 모달 바텀 시트), 그 밖(태블릿 · 좁은 PC 창)은 가운데 팝업(M3 대화상자). 안의 필터는 고르는 대로 바로 반영된다(적용 버튼이 없다).
-       팝업은 끌기만 없고 나머지(헤더의 초기화 · 뒤 누르기 · 기기의 뒤로 · Esc 로 닫기)는 같다.
+       팝업은 드래그만 없고 나머지(헤더의 초기화 · 뒤 누르기 · 기기의 뒤로 · Esc 로 닫기)는 같다.
        바텀 시트: 뒤를 어둡게 하고 아래에서 올라온다.
-       헤더 오른쪽은 초기화. 닫기는 끌어 내리기 · 뒤 누르기 · 기기의 뒤로 · Esc.
-       끌기: 핸들 · 헤더는 늘, 내용은 맨 위에서 아래로 끌 때(대기열 시트와 같은 손짓). 판이 손가락을 따라오고, 놓을 때 4분의 1 넘게 내렸거나 빠르게 튕겼으면 닫고 아니면 제자리로 -->
+       헤더 오른쪽은 초기화. 닫기는 드래그해서 내리기 · 뒤 누르기 · 기기의 뒤로 · Esc.
+       드래그: 핸들 · 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓). 판이 손가락을 따라오고, 놓을 때 4분의 1 넘게 내렸거나 빠르게 튕겼으면 닫고 아니면 제자리로 -->
   <Teleport to="body">
     <!-- 팝업: 뒤는 서서히 어두워지고 창은 가운데서 조금 커지며 나타난다 -->
     <Transition v-if="!isPhone" name="fdialog" :duration="{ enter: 250, leave: 150 }">
@@ -68,10 +68,10 @@ watch(
   () => (drag.value = null),
 );
 
-// ── 끌기 ──
+// ── 드래그 ──
 const panel = ref<HTMLElement | null>(null);
 const body = ref<HTMLElement | null>(null);
-/** 끄는 동안 내린 거리(px). 아니면 null */
+/** 드래그하는 동안 내린 거리(px). 아니면 null */
 const drag = ref<number | null>(null);
 /** 놓은 뒤 제자리로 돌아가는 동안 */
 const settling = ref(false);
@@ -115,7 +115,7 @@ function up(e: PointerEvent) {
   if (drag.value !== null) release();
 }
 
-// 내용: 맨 위에서 아래로 끌면 판을 끈다(그 밖은 내용 스크롤). 첫 움직임에서 정하고, 판을 맡으면 그 손짓 내내 스크롤을 막는다
+// 내용: 맨 위에서 아래로 드래그하면 판이 따라 내려온다(그 밖은 내용 스크롤). 첫 움직임에서 정하고, 판을 맡으면 그 손짓 내내 스크롤을 막는다
 let touch: { y: number; mode: "sheet" | "native" | null } | null = null;
 function touchStart(e: TouchEvent) {
   if (e.touches.length !== 1) return void (touch = null);
@@ -141,14 +141,14 @@ function touchEnd() {
 </script>
 
 <style>
-/* 판의 위치: 끄는 동안 내린 거리(--drag). 끄는 동안은 손가락을 바로 따라가고, 놓아 제자리로 돌아갈 때만 미끄러진다 */
+/* 판의 위치: 드래그하는 동안 내린 거리(--drag). 드래그하는 동안은 손가락을 바로 따라가고, 놓아 제자리로 돌아갈 때만 미끄러진다 */
 .sheet-panel {
   translate: 0 var(--drag, 0px);
 }
 .sheet-panel.is-settling {
   transition: translate 250ms cubic-bezier(0.2, 0, 0, 1);
 }
-/* 막은 서서히, 판은 미끄러져. 둘이 따로 움직이도록 겉(루트)에는 걸지 않는다(판이 흐려지지 않게). 끌어 내린 뒤 닫으면 그 자리에서 마저 내려간다 */
+/* 막은 서서히, 판은 미끄러져. 둘이 따로 움직이도록 겉(루트)에는 걸지 않는다(판이 흐려지지 않게). 드래그해서 내린 뒤 닫으면 그 자리에서 마저 내려간다 */
 .sheet-enter-active > .sheet-scrim {
   transition: opacity 400ms cubic-bezier(0.05, 0.7, 0.1, 1);
 }

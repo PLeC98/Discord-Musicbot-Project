@@ -1,4 +1,4 @@
-// src/app/event-boundary.ts — 디스코드 이벤트 처리기를 서버 문맥에서 부르고, 새어 나온 던짐 · 거부를 그 서버의 오류로 넘긴다.
+// src/app/event-boundary.ts — 디스코드 이벤트 핸들러를 서버 문맥에서 부르고, 새어 나온 던짐 · 거부를 그 서버의 오류로 넘긴다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ test("인자에서 서버를 찾는다: guildId(상호작용 · 메시지) · gu
   assert.equal(guildOf([{ guildId: null }, "문자열", null]), null);
 });
 
-test("처리기는 그 서버의 문맥에서 돈다. 던짐 · 거부는 서버와 함께 넘긴다", async () => {
+test("핸들러는 그 서버의 문맥에서 돈다. 던짐 · 거부는 서버와 함께 넘긴다", async () => {
   const faults: string[] = [];
   const onFault = (error: unknown, guildId: string | null, where: string) => faults.push(`${where}:${guildId}:${(error as Error).message}`);
   const seen: Array<string | null> = [];

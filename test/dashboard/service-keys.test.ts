@@ -94,7 +94,7 @@ test("모르는 서비스 · 필드, 넣을 값이 없으면 거절한다", asyn
   assert.equal((await req("PUT", "/lastfm", { values: { apiKey: "  " } })).status, 400);
 });
 
-test("기동 때 꺼내 올린다. 다른 SECRETS_KEY 로 잠근 값은 올리지 않고 다시 넣으라고 보인다", async () => {
+test("기동 시 꺼내 올린다. 다른 SECRETS_KEY 로 잠근 값은 올리지 않고 다시 넣으라고 보인다", async () => {
   await req("PUT", "/lastfm", { values: { apiKey: "lastfm-key-0123456789" } });
   config.sources.lastfmKey = null;
   serviceKeys.load();

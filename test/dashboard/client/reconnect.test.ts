@@ -1,4 +1,4 @@
-// dashboard/src/utils/reconnect.ts — 닫힌 실시간 연결을 다시 열기까지의 간격
+// dashboard/src/utils/reconnect.ts — 닫힌 SSE 연결을 다시 열기까지의 간격
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

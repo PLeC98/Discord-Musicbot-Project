@@ -144,7 +144,7 @@ type TrackCachePage<T extends TrackCacheTable = TrackCacheTable> = {
 }[T];
 
 /**
- * 읽기를 주소 질의로: f.<열>=식 · q · sort=<열>:asc,<열>:desc · offset · limit. 빈 필터 · 빈 q 는 보내지 않는다.
+ * 읽기를 URL 쿼리로: f.<열>=식 · q · sort=<열>:asc,<열>:desc · offset · limit. 빈 필터 · 빈 q 는 보내지 않는다.
  * 서버는 모르는 열 · 같은 키가 여럿 · 정렬 열이 겹치는 것을 거절한다(문제의 pointer 는 /filters/<열> · /q · /sort)
  */
 function trackCacheSearch(query: TrackCacheQuery): URLSearchParams {

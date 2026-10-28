@@ -116,7 +116,7 @@ function createGuildSettingsRouter() {
       ...GuildSettingsManager.playlistAddLimits(),
     };
 
-    // 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 칸이 없다
+    // 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 필드가 없다
     const agePlace = ageContentOn() ? GuildSettingsManager.resolveAgePlace(guild.id) : null;
 
     res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);

@@ -1,5 +1,5 @@
 <template>
-  <!-- 볼륨 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 끄는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
+  <!-- 볼륨 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 드래그하는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
   <span class="group/vol relative inline-flex">
     <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="level" class="peer m3-slider m3-slider-thin w-full" :style="style" :disabled="disabled" :aria-label="T.volume" @pointerdown="grab" @input="emit('input', valueOf($event))" @change="emit('change', valueOf($event))" />
     <!-- 핸들(폭 4) 가운데에 맞춘다 -->
@@ -25,7 +25,7 @@ const T = text.player;
 const props = withDefaults(defineProps<{ level: number; disabled?: boolean; bubble?: boolean }>(), { disabled: false, bubble: true });
 const emit = defineEmits<{ input: [value: string]; change: [value: string] }>();
 
-// 끄는 동안(누른 손을 뗄 때까지). 터치로 끌면 브라우저가 :active 를 풀어 말풍선이 사라져서 직접 기억한다
+// 드래그하는 동안(누른 손을 뗄 때까지). 터치로 드래그하면 브라우저가 :active 를 풀어 말풍선이 사라져서 직접 기억한다
 const dragging = ref(false);
 function release() {
   dragging.value = false;

@@ -87,7 +87,7 @@ const config: Linter.Config[] = [
   },
 
   // 새어 나가는 약속을 막고, 문자열 틀에 빈 값이 끼지 않게 한다. 기다리지 않는 약속은 경계를 지나거나 bestEffort 로(실패를 받는 곳이 있어야 한다). 화면은 void 로 기다리지 않음을 적는다.
-  // 타입 정보가 필요해 봇 · 화면 코드에만 건다(시험은 가짜 · 일부러 기다리지 않는 약속이 많다). 화면 파일은 dashboard/tsconfig.json 이 본다
+  // 타입 정보가 필요해 봇 · 화면 코드에만 건다(테스트는 가짜 · 일부러 기다리지 않는 약속이 많다). 화면 파일은 dashboard/tsconfig.json 이 본다
   {
     files: ["src/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
     languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname, extraFileExtensions: [".vue"] } },

@@ -1,4 +1,4 @@
-// src/rules/ko-search.ts — 한국어를 아는 찾기. 마지막 글자는 조합 중일 수 있고, 자음만이면 초성으로 찾는다
+// src/rules/ko-search.ts — 한국어를 아는 검색. 마지막 글자는 조합 중일 수 있고, 자음만이면 초성으로 찾는다
 import test from "node:test";
 import assert from "node:assert/strict";
 import { koMatch, koRanges, koStarts } from "../../src/rules/ko-search.ts";

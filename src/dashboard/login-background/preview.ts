@@ -149,7 +149,7 @@ async function preview({ item, signal, progress }: StageJob): Promise<StageResul
   return item.kind === "image" ? previewOfImage(item) : previewOfVideo(item, signal, progress);
 }
 
-/** 크기 어림 다시 세기: 그 크롭 · 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 셈) */
+/** 크기 어림 다시 세기: 그 크롭 · 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 계산) */
 const recount: Recounter = async ({ item, crop, range, signal }) => {
   const before = item.estimate;
   if (!before) throw codedError("background-failed", "어림이 없습니다");

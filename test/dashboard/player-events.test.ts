@@ -2,8 +2,8 @@
 //
 // 지키려는 계약: 지금 멤버인 서버의 신호만 받는다. 로그인할 때 받은 서버 목록이나 연결을 연 때의 집합에 기대면,
 // 그 뒤 나간 서버의 재생 상태가 계속 흘러가거나 그 뒤 들어간 서버의 신호가 빠진다. 운영자도 같다(참가한 서버만).
-// 볼 수 있는지는 보낼 때 멤버 캐시로 묻는다. 그래서 연결을 열 때 그 사람이 든 서버(그 사람의 서버 목록)만 캐시를 채우고,
-// 봇이 새 서버에 들 때도 채운다. 목록을 받지 못하면 이미 확인한 서버만(봇이 든 서버마다 묻지 않는다). 쓸 수 없는 서버는 보이지 않는다.
+// 보기 권한 확인은 보낼 때 멤버 캐시로 한다. 그래서 연결을 열 때 사용자가 든 서버(사용자의 서버 목록)만 캐시를 채우고,
+// 봇이 새 서버에 들 때도 채운다. 목록을 받지 못하면 이미 확인한 서버만(봇이 든 서버마다 묻지 않는다). 사용 불가(unavailable) 서버는 보이지 않는다.
 
 process.env.OWNER_ID = "owner";
 
@@ -45,7 +45,7 @@ let ready = true;
 const guilds = new Map<string, FakeGuild>();
 const client = { isReady: () => ready, guilds: { cache: guilds } };
 
-// 구독을 받으면 볼 수 있는가(canSee) · 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full 이면 상한에 찼다
+// 구독을 받으면 보기 권한 확인(canSee) · 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full 이면 상한에 찼다
 const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string; guilds: Set<string> }> = [];
 const nudged: string[] = [];
 let full = false;
@@ -96,7 +96,7 @@ beforeEach(() => {
 const visible = (canSee: (guildId: string) => boolean, ids: string[]) => ids.filter((id) => canSee(id));
 const open = () => requestJson(base, "GET", "/api/guilds/events");
 
-test("그 사람이 든 서버만 가져와 보인다. 든 적 없는 서버 · 봇이 없는 서버는 묻지도 않는다", async () => {
+test("사용자가 든 서버만 가져와 보인다. 든 적 없는 서버 · 봇이 없는 서버는 묻지도 않는다", async () => {
   const { status } = await open();
   assert.equal(status, 200);
   assert.equal(subscribed[0].userId, "u1");
@@ -142,7 +142,7 @@ test("서버 목록을 받지 못하면(토큰 없음 · 거절) 이미 확인�
   assert.equal(tokens.state.asked.length, 1, "401 을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
 });
 
-test("쓸 수 없는 서버(다시 붙은 직후)는 캐시에 있어도 보이지 않는다", async () => {
+test("사용 불가 서버(재연결 직후)는 캐시에 있어도 보이지 않는다", async () => {
   await open();
   const g1 = guilds.get("g1");
   assert.ok(g1);
@@ -173,7 +173,7 @@ test("연결은 멤버로 확인한 서버를 든다. 새 서버에서 확인되
   assert.deepEqual([...subscribed[0].guilds].sort(), ["g1", "g3"]);
 });
 
-test("게이트웨이에 다시 붙어 서버를 다시 쓸 수 있게 되면, 그 서버를 보던 연결의 사람만 다시 가져와 보이게 하고 알린다", async () => {
+test("게이트웨이에 재연결해 사용 불가 서버가 다시 사용 가능해지면, 그 서버를 보던 연결의 사람만 다시 가져와 보이게 하고 알린다", async () => {
   await open();
   user = { id: "owner", username: "o" };
   await open();

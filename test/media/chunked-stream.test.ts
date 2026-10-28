@@ -20,7 +20,7 @@ function makeBody(size: number) {
 
 // Range를 이해하는 가짜 서버.
 //  sliceBytes   응답을 몇 바이트씩 나눠 줄지
-//  readDelayMs  조각 사이 지연 — 요청이 오래 진행 중이게 할 때
+//  readDelayMs  청크 사이 지연 — 요청이 오래 진행 중이게 할 때
 //  plan(n, start) 요청마다 행동: { status, throws, dieAfter: 이 응답에서 몇 바이트 뒤 끊김, hangAfter: 몇 바이트 뒤 멈춤 }
 type Act = { status?: number; throws?: unknown; dieAfter?: number; hangAfter?: number };
 type FakeOptions = {
@@ -538,7 +538,7 @@ test("startByte · prefix: 헤더를 먼저 흘리고 그 바이트부터 받는
   assert.deepEqual([s.stats().received, s.stats().totalBytes, s.stats().startByte], [body.length, body.length, 30_000]);
 });
 
-test("expectStart: 받은 첫 바이트를 확인한 뒤에 열린다(조각이 잘게 나뉘어 와도 모아서). 맞으면 그 바이트도 그대로 흘린다", async () => {
+test("expectStart: 받은 첫 바이트를 확인한 뒤에 열린다(청크가 잘게 나뉘어 와도 모아서). 맞으면 그 바이트도 그대로 흘린다", async () => {
   const body = makeBody(40_000);
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 20_000, prefix: HEAD, expectStart: expectAt(body, 20_000), fetchImpl: fakeFetch(body, { sliceBytes: 3 }) });
   assert.deepEqual(await collect(s), Buffer.concat([HEAD, body.subarray(20_000)]));

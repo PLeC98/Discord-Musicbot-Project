@@ -46,8 +46,8 @@ adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) =
   res.status(204).end();
 });
 
-// 봇 · Node · 시스템 상태(봇 상태 탭). 목록은 질의의 구간만(list-window)
-// 플레이어 행의 멤버 표시는 그 사람의 서버 목록으로(3초마다 디스코드를 기다리지 않게 지난 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 묻지 않는다
+// 봇 · Node · 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
+// 플레이어 행의 멤버 표시는 사용자의 서버 목록으로(3초마다 디스코드를 기다리지 않게 stale 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 묻지 않는다
 adminRouter.get("/status", requireOwner, async (req, res) => {
   const query = statusQueryOf(req.query);
   const { ids } = query.players.count ? await memberGuildIds(req, { stale: true }) : { ids: null };
@@ -116,7 +116,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   return res.json({ success: true, sent, failed, total, partial: failed > 0 } satisfies BroadcastReply);
 });
 
-// 봇이 든 서버. 질의로 거르고 정렬한 구간만(list-window)
+// 봇이 든 서버. 쿼리로 필터링하고 정렬한 구간만(list-window)
 adminRouter.get("/guilds", requireOwner, (req, res) => {
   const { client, players } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
@@ -539,7 +539,7 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
   }
 });
 
-// 실시간 로그(SSE). 화면이 마지막으로 받은 줄 뒤부터 보낸다. 브라우저가 스스로 다시 붙을 때는 Last-Event-ID 를,
+// 실시간 로그(SSE). 화면이 마지막으로 받은 줄 뒤부터 보낸다. 브라우저가 스스로 재연결할 때는 Last-Event-ID 를,
 // 화면이 닫았다 다시 열 때는 ?after= 를 싣는다
 adminRouter.get("/logs/stream", requireOwner, (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");

@@ -48,7 +48,7 @@ function allValues(providers: readonly string[]) {
   return out;
 }
 
-/** 옛 키 파일(config/ai-keys.yaml)이 남아 있으면 기동 때 한 줄. 읽지도 삭제하지도 않는다 */
+/** 옛 키 파일(config/ai-keys.yaml)이 남아 있으면 기동 시 한 줄. 읽지도 삭제하지도 않는다 */
 function warnLegacyFile(dir = PROJECT.config) {
   const file = path.join(dir, "ai-keys.yaml");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {

@@ -26,12 +26,12 @@ function nudgeAfterChange(stream: PlayerStream) {
   };
 }
 
-/** http: 디스코드를 부르는 HTTP 클라이언트(그 사람의 서버 목록). 생략하면 진짜 */
+/** http: 디스코드를 부르는 HTTP 클라이언트(사용자의 서버 목록). 생략하면 진짜 */
 function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http?: DiscordHttp }) {
   const router = express.Router();
 
   // SSE. 화면의 탭 하나가 여는 연결. 사용자 단위 멀티플렉스(볼 수 있는 서버 전체를 한 연결로).
-  // 볼 수 있는가는 보낼 때 멤버 캐시로 본다(동기여야 한다. 권한 · 서버 목록과 같은 기댐). 그래서 열 때 그 사람이 든 서버(그 사람의 서버 목록)만
+  // 보기 권한 확인은 보낼 때 멤버 캐시로 한다(동기여야 한다. 권한 · 서버 목록과 같은 기댐). 그래서 열 때 사용자가 든 서버(사용자의 서버 목록)만
   // 한 번 가져와 캐시를 채운다(캐시 우선, 없으면 REST). 목록을 받지 못하면 이미 확인한 서버만. 운영자도 참가한 서버만
   router.get("/events", requireAuth, async (req, res) => {
     const { client } = req.app.locals.bot;
@@ -60,7 +60,7 @@ async function botJoinedGuild(stream: PlayerStream, guild: Parameters<typeof mem
 }
 
 /**
- * 게이트웨이에 다시 붙어 서버를 다시 쓸 수 있게 됐다. discord.js 가 그 서버의 멤버 캐시를 다시 받는데 봇과 음성 채널 사람만 들어,
+ * 게이트웨이에 재연결해 사용 불가(unavailable) 서버가 다시 사용 가능해졌다. discord.js 가 그 서버의 멤버 캐시를 다시 받는데 봇과 음성 채널 사람만 들어,
  * 연결을 연 사람이 빠져 소식이 끊긴다. 그 서버를 멤버로 확인했던 연결의 사람만 다시 가져온다(연결 수 × 서버 수만큼 묻지 않는다).
  * 그사이 나간 사람은 멤버가 아니라는 답을 받아 계속 빠진다
  */

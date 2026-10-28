@@ -23,7 +23,7 @@ type AnywhereCommand = { data: CommandData; help: HelpEntry | null; anywhere: tr
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
 type SlashCommand = GuildCommand | AnywhereCommand;
 
-// 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
+// 배포 지문 저장 파일. 정의가 바뀌지 않은 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
 const HASH_PATH = path.join(PROJECT.database, "deployed-commands.json");
 

@@ -32,7 +32,7 @@ const get = async (urlPath: string) => {
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 };
 
-test("/api/me: 로그인 전에는 401, 로그인했으면 그 사람과 운영자인지", async () => {
+test("/api/me: 로그인 전에는 401, 로그인했으면 사용자와 운영자인지", async () => {
   user = null;
   const out = await get("/api/me");
   assert.deepEqual([out.status, out.json.code], [401, "login-required"]);

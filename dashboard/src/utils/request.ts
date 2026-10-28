@@ -108,7 +108,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
       if (response) response.data = await unblobbed(response.data);
       if (failureKind(error) === "offline") onReach(false);
       else if (response) onReach(true);
-      // 토큰은 처리기보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만
+      // 토큰은 핸들러보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만
       if (problemCodeOf(response?.data) === "bad-csrf-token") {
         token = null;
         if (request && !request.csrfRetried) return http.request({ ...request, csrfRetried: true });

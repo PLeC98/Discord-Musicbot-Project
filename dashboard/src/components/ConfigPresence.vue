@@ -137,7 +137,7 @@ useSaveTarget({ tab: "presence", dirty, saving, blocked: computed(() => problems
 const paneEl = ref<HTMLElement | null>(null);
 const { listCardClass, paneClass, selectedIndex, selected, showGlobal, showList, isOn, globalOn, select, openGlobal, afterRemove } = useListDetail({ param: "presence", rows: special, paneEl });
 const listEl = ref<HTMLElement | null>(null);
-// 더 있는 쪽 끝 반 줄(24)을 흐리게
+// 더 있는 쪽 끝 반 줄(24)을 페이드 처리한다
 const listFade = useScrollFade(listEl, () => true, 24);
 
 // ── 순서 바꾸기 ─────────────────────────

@@ -1,17 +1,17 @@
-// src/dashboard/list-window.ts — 운영자 화면의 긴 목록 질의 읽기와 자르기.
+// src/dashboard/list-window.ts — 운영자 화면의 긴 목록 쿼리 읽기와 자르기.
 // 지키는 것: 없는 값 · 잘못된 값은 화면의 처음 값으로(막지 않는다), 개수는 상한까지, states 빈 값은 "아무것도"(없을 때와 다르다).
-// 시작이 거른 수를 넘으면 마지막 구간으로 당긴다(나가기 · 거르기로 줄었다)
+// 시작이 필터링된 수를 넘으면 마지막 구간으로 당긴다(나가기 · 필터링으로 줄었다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cut, guildList, guildQueryOf, statusQueryOf } from "../../src/dashboard/list-window.ts";
 import { GUILD_QUERY, LIST_WINDOW_MAX, Q_MAX, STATUS_QUERY, guildParams, statusParams, type AdminGuild } from "../../src/dashboard/contract/admin.ts";
 
-test("질의가 없으면 화면의 처음 값", () => {
+test("쿼리가 없으면 화면의 처음 값", () => {
   assert.deepEqual(statusQueryOf({}), STATUS_QUERY);
 });
 
-test("화면이 보낸 질의를 그대로 읽는다(statusParams 와 맞물린다)", () => {
+test("화면이 보낸 쿼리를 그대로 읽는다(statusParams 와 맞물린다)", () => {
   const query = { players: { from: 40, count: 25 }, states: ["idle" as const], q: "음악", procs: { from: 0, count: 0 }, sort: "job" as const, desc: false };
   assert.deepEqual(statusQueryOf(statusParams(query)), query);
 });
@@ -31,7 +31,7 @@ test("states: 빈 값은 아무 상태도, 모르는 값은 뺀다", () => {
   assert.deepEqual(statusQueryOf({ states: "idle,stopped,playing" }).states, ["playing", "idle"]);
 });
 
-test("자르기: 구간 안이면 그대로, 시작이 거른 수를 넘으면 마지막 구간으로 당긴다, 개수 0 은 행 없이", () => {
+test("자르기: 구간 안이면 그대로, 시작이 필터링된 수를 넘으면 마지막 구간으로 당긴다, 개수 0 은 행 없이", () => {
   const rows = Array.from({ length: 10 }, (_, i) => i);
   assert.deepEqual(cut(rows, { from: 2, count: 3 }), { from: 2, rows: [2, 3, 4] });
   assert.deepEqual(cut(rows, { from: 8, count: 5 }), { from: 8, rows: [8, 9] }, "끝에 걸치면 당기지 않는다");
@@ -41,14 +41,14 @@ test("자르기: 구간 안이면 그대로, 시작이 거른 수를 넘으면 �
   assert.deepEqual(cut(rows, { from: 0, count: 0 }), { from: 0, rows: [] });
 });
 
-test("서버 관리 질의: 없으면 처음 값, 화면이 보낸 것은 그대로, 모르는 정렬은 처음 값", () => {
+test("서버 관리 쿼리: 없으면 처음 값, 화면이 보낸 것은 그대로, 모르는 정렬은 처음 값", () => {
   assert.deepEqual(guildQueryOf({}), GUILD_QUERY);
   const query = { guilds: { from: 60, count: 20 }, q: "음악", playing: true, sort: "members-asc" as const };
   assert.deepEqual(guildQueryOf(guildParams(query)), query);
   assert.equal(guildQueryOf({ sort: "id" }).sort, GUILD_QUERY.sort);
 });
 
-test("서버 관리 목록: 재생 중만 · 이름 찾기로 거르고, 정렬은 같으면 서버 ID(자릿수부터), 수는 전부 · 재생 중 · 거른 것", () => {
+test("서버 관리 목록: 재생 중만 · 이름 검색으로 필터링하고, 정렬은 같으면 서버 ID(자릿수부터), 수는 전부 · 재생 중 · 필터링된 것", () => {
   const g = (id: string, name: string, memberCount: number, hasPlayer = false): AdminGuild => ({ id, name, icon: null, memberCount, hasPlayer });
   const all = [g("300000000000000000", "나비", 5, true), g("99999999999999999", "가람", 5), g("200000000000000000", "음악 감상실", 9, true), g("100000000000000000", "가람", 7)];
   const ids = (query: Partial<typeof GUILD_QUERY>) => guildList(all, { ...GUILD_QUERY, ...query }).guilds.map((one) => one.id);

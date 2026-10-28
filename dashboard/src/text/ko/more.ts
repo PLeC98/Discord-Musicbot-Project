@@ -1,4 +1,4 @@
-// 재생목록 더 넣기(곡 넣기 칸 아래). 남은 자리 · 이름표는 봇 문장표(src/ui/text/ko/more)와 같은 것을 부른다
+// 재생목록 더 넣기(곡 넣기 입력란 아래). 남은 자리 · 이름표는 봇 문장표(src/ui/text/ko/more)와 같은 것을 부른다
 
 import { formatNumber } from "../../utils/locale.ts";
 

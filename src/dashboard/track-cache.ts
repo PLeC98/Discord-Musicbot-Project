@@ -1,7 +1,7 @@
 // 캐시 DB(운영자 패널 "캐시 DB" 탭)의 읽기 · 쓰기 · 값 검사. 모양은 contract/track-cache.
-// 화면의 표 셋은 cache.db 의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf 로 셈해야 해서 SQL 로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
+// 화면의 표 셋은 cache.db 의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf 로 계산해야 해서 SQL 로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
 // 쓰기는 모두 검사한 뒤 DB 몫(동기라 그사이 봇이 끼어들지 않는다)을 먼저, 캐시 파일 삭제를 그 뒤에 하나씩. 조작마다 결과를 낸다.
-// 계약이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
+// 공유 타입이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
 
 import {
   TRACK_CACHE_COLUMNS,
@@ -177,7 +177,7 @@ function compare(a: string | number | null, b: string | number | null, dir: "asc
 }
 
 /**
- * 주소 질의를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열 · 같은 키가 여럿 · 정렬 열이 겹치면 거절한다.
+ * URL 쿼리를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열 · 같은 키가 여럿 · 정렬 열이 겹치면 거절한다.
  * 필터 식은 여기서 읽지 않는다(read 가 읽는다)
  */
 // 값 하나만 받는 키(없으면 fallback). 여럿이면 null

@@ -1,6 +1,6 @@
 // 초기화(운영자 패널 백업 · 초기화 탭의 초기화 카드). 모양은 contract/reset. 줄마다 이미 있는 지우는 함수를 부르고 메모리를 DB 에 맞춘다.
 // 설정이 바뀌는 줄(봇 설정 · 서버별 설정)은 바꾸기 전에 설정 스냅샷(before-reset)을 남긴다.
-// 계약이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
+// 공유 타입이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +52,7 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
 /**
  * 봇 설정을 기본값으로: 설정 문서(운영 조절값 · 장르 · 상태 문구 · AI 설정 · 프롬프트)와 비밀값(서비스 키 · AI 키 · 쿠키)을 한 트랜잭션에서 삭제한다.
  * 기본값을 써 넣지 않는다(그 버전의 기본값이 굳어 다음 버전의 기본값을 따라가지 않는다). 순서는 불러오기와 같다: 스냅샷 → 한 트랜잭션 → 다시 읽기.
- * restart: 다시 시작해야 적용되는 값이 기동 때 값과 달라졌다
+ * restart: 다시 시작해야 적용되는 값이 기동 시 값과 달라졌다
  */
 async function resetBotSettings(by: string) {
   const snapshot = await snapshots.take("before-reset");

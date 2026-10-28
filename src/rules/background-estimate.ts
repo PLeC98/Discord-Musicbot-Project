@@ -9,7 +9,7 @@ const cropKeyOf = (crop: LoginBackgroundCrop) => [crop.x, crop.y, crop.w, crop.h
 /** 구간이 어림을 잰 구간 안인가(처음 어림은 전체를 잰다) */
 const inCounted = (counted: [number, number] | null, range: [number, number]) => !counted || (range[0] >= counted[0] - 0.5 && range[1] <= counted[1] + 0.5);
 
-/** 셈에 쓰는 어림 몫(봇의 기록에는 세는 중 표시가 따로 없다) */
+/** 계산에 쓰는 어림 몫(봇의 기록에는 세는 중 표시가 따로 없다) */
 type Counted = Pick<LoginBackgroundEstimate, "perSecond" | "stillBytes" | "crop" | "counted"> & { counting?: boolean };
 
 /**

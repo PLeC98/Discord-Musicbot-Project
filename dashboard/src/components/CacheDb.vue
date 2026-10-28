@@ -1,5 +1,5 @@
 <template>
-  <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite 의 데이터 보기를 본뜬 격자. 계약 contract/track-cache.
+  <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite 의 데이터 보기를 본뜬 격자. 공유 타입 contract/track-cache.
        위 줄(테이블 | 새로고침 · 필터 지우기 · 정렬 해제 | 새 행 · 행 삭제 | 재생 테스트 | 단축키 | 모든 열에서 필터) · 격자(행 번호 · 헤더 정렬 · 열마다 필터 · 이어 불러오기) ·
        오른쪽 셀 편집 창 · 아래 줄(페이지 이동 · 범위 · 상태 안내 · 행으로 이동). 변경은 모아 두었다가 운영자 패널의 저장 막대로 쓴다(재생 테스트만 바로) -->
   <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-2 min-w-0" @click="closePopups()" @keydown.capture="onCardKey">
@@ -427,7 +427,7 @@ const rowSel = reactive(new Set<number>());
 const rowAnchor = ref<number | null>(null);
 let dragging = false;
 let rowDragging = false;
-// Ctrl 을 누르고 행을 끌 때 그 전에 선택해 둔 행
+// Ctrl 을 누르고 행을 드래그할 때 그 전에 선택해 둔 행
 let rowBase: number[] = [];
 
 const inRange = (r: number, i: number) => {
@@ -607,7 +607,7 @@ const isDeleted = (r: number) => {
   const key = keyOf(table.value, row);
   return table.value === "requests" ? changes.deleteRequests.has(key) : table.value === "files" ? changes.deleteFiles.has(key) : changes.clearAges.has(key);
 };
-/** 재생 음원이 직접 지정한 것인가(저장 전 변경까지 셈한다) */
+/** 재생 음원이 직접 지정한 것인가(저장 전 변경까지 계산에 넣는다) */
 function isPinned(r: number): boolean {
   const row = rowAt(r) as TrackRequestRow | undefined;
   if (!row || table.value !== "requests") return false;
@@ -747,7 +747,7 @@ function syncPane() {
   pane.value = changedText(focus.value.r, focusInfo.value.column) ?? rawText(row, focusInfo.value.column);
   pane.dirty = false;
   pane.info = null;
-  // 끌거나 방향키를 누르고 있으면 셀마다 묻지 않게 잠깐 기다린다
+  // 드래그하거나 방향키를 누르고 있으면 셀마다 묻지 않게 잠깐 기다린다
   clearTimeout(inspectTimer);
   if (focusInfo.value.editable) {
     const value = pane.value;

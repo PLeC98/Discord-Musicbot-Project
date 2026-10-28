@@ -18,7 +18,7 @@ beforeEach(() => genreConfig._reset());
 after(() => useDefaultDocuments());
 
 /**
- * 기동 때처럼 읽어 알린 문제. 틀린 문서는 던지지 않고(기동을 멈추지 않는다) 알린 뒤 빈 설정으로 돈다.
+ * 기동 시와 같이 읽어 알린 문제. 틀린 문서는 던지지 않고(기동을 멈추지 않는다) 알린 뒤 빈 설정으로 돈다.
  * fn 을 주면 그것으로 읽는다
  */
 function complaint(fn: () => unknown = () => genreConfig.genres()) {

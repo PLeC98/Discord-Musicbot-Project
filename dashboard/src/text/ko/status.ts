@@ -32,16 +32,16 @@ const youtubeClient = (name: string) => `유튜브 ${name}`;
 // 그래프 카드
 const metrics = {
   playing: "재생 중",
-  /** 보조 글의 말(뒤에 수가 붙는다) */
+  /** 보조 텍스트의 말(뒤에 수가 붙는다) */
   playingSub: "연결됨",
   ping: "디스코드 API 핑",
-  /** lines: 좁은 칸에서 두 줄로 */
+  /** lines: 좁은 카드에서 두 줄로 */
   pingSub: (minutes: number, average: string, lines = false) => `${minutes}분 평균${lines ? "\n" : " "}${average}`,
   loop: "이벤트 루프 지연",
-  /** 좁은 칸의 제목(툴팁으로 loop 를 보인다) */
+  /** 좁은 카드의 제목(툴팁으로 loop 를 보인다) */
   loopShort: "EL lag",
   loopSub: "최대",
-  /** 큰 숫자가 p99 인 칸의 제목 뒤 */
+  /** 큰 숫자가 p99 인 카드의 제목 뒤 */
   p99: "p99",
   heap: "heap 메모리",
   cpu: "CPU",
@@ -49,9 +49,9 @@ const metrics = {
   download: "다운로드 (yt-dlp)",
   downloadActive: (count: number) => `활성 ${formatNumber(count)}개`,
   downloadToday: "오늘",
-  encoding: "인코딩 응답",
+  encoding: "인코딩 응답 시간",
   /** 최근 15분 동안의 합(핑의 "15분 평균" 과 같은 앞말). 수는 아래 줄에 */
-  encodingLate: "15분 빈 프레임",
+  encodingLate: "15분 누락 프레임",
   upload: "업로드",
   uploadSystem: "시스템",
   uploadToday: "오늘",
@@ -100,29 +100,29 @@ const columns = { pid: "PID", label: "프로그램", job: "작업", age: "실행
 const sortBy = (label: string) => `${label}${josa(label, "으로")} 정렬`;
 const strayMore = (count: number) => `외 ${formatNumber(count)}개`;
 const strayTip = "플레이어가 없는 서버의 재생 작업을 하는 프로세스예요.\n종료에 실패한 잔류 프로세스일 수 있어요.";
-/** 하는 일: 봇 도우미는 이름, 서버의 일은 서버 이름(다음 곡 · 자동 검색은 덧붙인다) */
+/** 작업: 봇 도우미는 이름, 서버의 작업은 서버 이름(다음 곡 · 자동 검색은 덧붙인다) */
 const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", loginBackground: "로그인 배경", netStats: "시스템 업로드 측정", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
 const noProcesses = "실행 중인 자식 프로세스가 없어요";
 const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (${byLabel})`;
 /** yt-dlp 줄: 곡 찾기 · 다운로드의 도는 수/크기와 기다리는 수 */
 const ytdlpLoad = (lookup: string, background: string, waiting: number) => `yt-dlp 곡 찾기 ${lookup} · 다운로드 ${background} · 기다림 ${formatNumber(waiting)}`;
-const ytdlpLoadTip = (count: number, reused: number, missed: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽고, 받아 둔 정보를 ${formatNumber(reused)}번 다시 썼어요.${missed ? ` 자리가 없어 밀려난 정보를 ${formatNumber(missed)}번 다시 읽었어요.` : ""}\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
+const ytdlpLoadTip = (count: number, reused: number, missed: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽고, 캐시된 정보를 ${formatNumber(reused)}번 다시 썼어요.${missed ? ` 자리가 없어 밀려난 정보를 ${formatNumber(missed)}번 다시 읽었어요.` : ""}\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
 const extractions = "유튜브 영상 정보 읽기";
 
 // 인코딩 워커
 const workers = {
   title: (count: number) => `인코딩 워커 (${count})`,
-  /** 이 기계에서 띄울 수 있는 최대(CPU 코어 − 1, 8 까지) */
+  /** 이 호스트에서 띄울 수 있는 최대(CPU 코어 − 1, 8 까지) */
   limit: "워커 상한",
   quota: (cores: number) => `CPU 할당 ${cores}코어`,
-  lateTotal: "켜진 뒤 빈 프레임",
+  lateTotal: "켜진 뒤 누락 프레임",
   deaths: "켜진 뒤 다시 띄운 워커",
   worker: (n: number) => `워커 ${n}`,
   streams: (count: number) => `재생 ${formatNumber(count)}`,
   /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100 이 끝) */
   cpu: (pct: number) => `코어 ${pct}%`,
-  /** 응답 p99 / 버퍼(미리 만든 프레임으로 버티는 시간) */
-  rtt: (rtt: string, buffer: string) => `응답 ${rtt} / 버퍼 ${buffer}`,
+  /** 응답 시간 p99 / 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms) */
+  rtt: (rtt: string, limit: string) => `응답 시간 ${rtt} / 응답 한도 ${limit}`,
   none: "재생이 없어 워커가 없어요",
 };
 

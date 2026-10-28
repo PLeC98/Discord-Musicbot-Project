@@ -1,5 +1,5 @@
 // src/store/tunables.ts · dashboard/routes/tunables.ts — 운영 조절값(일반 · 유튜브 · 디스플레이 탭). settings.db 의 문서에 두고 .env 와 같은 검사로 읽는다.
-// 저장하면 바로 먹고(기동 때 만든 것은 알림을 듣고 다시 만든다), 다시 시작해야 먹는 값은 기동 때 값으로 돈다. DB 에 틀린 값이 있어도 기동은 멈추지 않는다
+// 저장하면 바로 먹고(기동 시 만든 것은 알림을 듣고 다시 만든다), 다시 시작해야 먹는 값은 기동 시 값으로 돈다. DB 에 틀린 값이 있어도 기동은 멈추지 않는다
 
 process.env.OWNER_ID = "owner";
 
@@ -62,7 +62,7 @@ test("글 필드(음성 상태 접두어)는 앞뒤 공백을 남기고, 나머�
   assert.equal(config.voiceStatus.playingPrefix, "📻 ");
 });
 
-test("다시 시작해야 먹는 값은 저장해도 기동 때 값으로 돌고 pending 으로 알린다", async () => {
+test("다시 시작해야 먹는 값은 저장해도 기동 시 값으로 돌고 pending 으로 알린다", async () => {
   const saved = await req<View>("PUT", { values: { SPONSORBLOCK_ENABLED: "false", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42", RATE_LIMIT_API_MAX: "999" }, revision: 0 });
   assert.deepEqual(saved.json.pending.sort(), ["BGUTIL_ENABLED", "SPONSORBLOCK_ENABLED"]);
   // 로그는 몇 개가 아니라 무엇이 어떻게 바뀌었는지
@@ -78,7 +78,7 @@ test("다시 시작해야 먹는 값은 저장해도 기동 때 값으로 돌고
   assert.deepEqual(tunables.view().pending, []);
 });
 
-// 기동 때 만들어 둔 제한기 · 타이머는 이 알림을 듣고 다시 만든다. 듣는 쪽이 던져도 저장은 끝나고 로그에 남는다
+// 기동 시 만들어 둔 제한기 · 타이머는 이 알림을 듣고 다시 만든다. 듣는 쪽이 던져도 저장은 끝나고 로그에 남는다
 test("저장하면 바뀌었다고 알리고, 듣는 쪽의 실패는 저장을 막지 않는다", async () => {
   const heard: number[] = [];
   const offHeard = onTunablesChanged(() => heard.push(config.dashboard.sse.heartbeatMs));
@@ -114,7 +114,7 @@ test("읽은 뒤 다른 저장이 있었으면 config-changed(409)", async () =>
 });
 
 // DB 를 바깥에서 고쳤을 때. 고칠 대시보드가 실행돼야 하므로 기동을 멈추지 않는다
-test("DB 에 틀린 값이 있으면 기동 때 그 필드만 기본값으로 돌고 알린다", () => {
+test("DB 에 틀린 값이 있으면 기동 시 그 필드만 기본값으로 돌고 알린다", () => {
   docs.write("tunables", { CACHE_MAX_FILES: "많이", QUEUE_MAX_TRACKS: "300" }, 0);
   const from = sink.buffer.length;
   tunables.load();

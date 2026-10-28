@@ -453,7 +453,7 @@ test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로
       assert.equal(fs.existsSync(`${temp}.part`), true, "그 부스러기도 다운로드 중이다");
       assert.equal(audioCache.lookupByAudioKey("yt:downloading")?.status, "downloading", "행이 남아야 끝날 때 고칠 곳이 있다");
       audioCache.recordDownloadComplete("yt:downloading", audioCache.getFilePath("yt:downloading"), 10, { title: "t" });
-      assert.equal(audioCache._cacheCount(), 1, "완료가 행을 찾는다(크기 셈 · 퇴거에서 빠지지 않는다)");
+      assert.equal(audioCache._cacheCount(), 1, "완료가 행을 찾는다(크기 계산 · 퇴거에서 빠지지 않는다)");
     } finally {
       audioCache.unprotectFile(temp);
       cacheDb.get().prepare("DELETE FROM audio_cache").run();

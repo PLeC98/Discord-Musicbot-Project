@@ -40,7 +40,7 @@ function botStatus(client: Client, uptime: number) {
 }
 
 /**
- * query: 목록(플레이어 · 자식 프로세스)의 구간 · 거르기 · 정렬. viewer: 보는 운영자와 그 사람의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null),
+ * query: 목록(플레이어 · 자식 프로세스)의 구간 · 필터링 · 정렬. viewer: 보는 운영자와 그 운영자의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null),
  * stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가
  */
 function adminStatus({ client, players, commands }: BotContext, query: StatusQuery, viewer: { id: string; memberIds: ReadonlySet<string> | null }, stream: Pick<PlayerStream, "subs">, launcher = false): AdminStatus {

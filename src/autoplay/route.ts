@@ -65,7 +65,7 @@ type Deps = {
 const FULL_SEC = 150;
 
 // 길이를 안 넘기는 경로에서는 high가 구조적으로 안 나온다(rankCandidates의 세 경우가 전부
-// channelMatch 아니면 duration에 걸려 있다). 그래서 문턱을 유형별로 달리 잡는다.
+// channelMatch 아니면 duration에 걸려 있다). 그래서 임계값을 유형별로 달리 잡는다.
 const CONFIDENCE_OK = new Set(["high", "medium"]);
 
 // 내려간 영상. 소스 DB는 그게 아직 살아 있다고 믿으므로 우리가 기억해야 다시 선택하지 않는다.

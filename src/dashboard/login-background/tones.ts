@@ -12,7 +12,7 @@ import { fitShort, seekArgs, sourceFilter, squareCrop } from "./ladder.ts";
 import { probeVideo, READ_ARGS } from "./source.ts";
 import { frameAt } from "./stills.ts";
 
-/** 장면 바뀜의 문턱(ffmpeg scene 점수) · 하나로 보는 간격 · 처음 · 끝에서 빼는 몫 · 장면을 뜨는 때(바뀐 뒤) · 찾을 때의 짧은 변 */
+/** 장면 바뀜의 임계값(ffmpeg scene 점수) · 하나로 보는 간격 · 처음 · 끝에서 빼는 몫 · 장면을 뜨는 때(바뀐 뒤) · 찾을 때의 짧은 변 */
 const THRESHOLD = 0.3;
 const MERGE = 1;
 const EDGE = 0.5;

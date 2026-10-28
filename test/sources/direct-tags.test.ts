@@ -57,7 +57,7 @@ async function mp3(title: string, artist: string, album: string, { art = false }
   return bytes;
 }
 
-/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 조각은 laterDelayMs 마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
+/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 청크는 laterDelayMs 마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
 function netOf(body: Buffer, { headers = { "content-type": "audio/mpeg" } as Record<string, unknown>, laterDelayMs = 0, chunk = 512 } = {}) {
   const seen = { accept: [] as Array<number | undefined>, destroyed: false };
   const net = {

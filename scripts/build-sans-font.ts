@@ -5,7 +5,7 @@
 // 둘을 기본값(100 · 0)에 고정하고, 굵기 · 둥글기(ROND) · 크기 맞춤(opsz) · 기울기(slnt)는 남긴다(rond 버전은 크기 맞춤 · 기울기가 없어 쓰지 않는다).
 // 글자는 하나도 빼지 않는다(문구 · 곡명이 바뀌어도 다시 만들 필요가 없다). 서브셋과 unicode-range 는 원본 CSS 를 그대로 따른다.
 // 결과: dashboard/src/assets/google-sans-flex/(서브셋마다 woff2 · OFL.txt) · dashboard/src/google-sans-flex.css(@font-face)
-// 원본에 없는 라이선스 설명(name 13번)을 넣어 조각마다 라이선스가 따라가게 한다(scripts/font-names.ts)
+// 원본에 없는 라이선스 설명(name 13번)을 넣어 서브셋마다 라이선스가 따라가게 한다(scripts/font-names.ts)
 
 import fs from "node:fs";
 import path from "node:path";

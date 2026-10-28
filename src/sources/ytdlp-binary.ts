@@ -210,7 +210,7 @@ class YtdlpBinary {
       return { kind: "reused", from: current, to: target };
     }
 
-    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 다운로드를 삭제하지 않게). 남은 것은 봇 기동 때의 정리가 삭제한다
+    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 다운로드를 삭제하지 않게). 남은 것은 봇 기동 시의 정리가 삭제한다
     const staging = path.join(this.io.dir, `.staging-${process.pid}`);
     const file = path.join(staging, path.basename(this.io.seed));
     try {
@@ -234,14 +234,14 @@ class YtdlpBinary {
       try {
         fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
       } catch (error) {
-        // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 삭제하지 못한다. 다음 다운로드나 봇 기동 때의 정리가 삭제한다
+        // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 삭제하지 못한다. 다음 다운로드나 봇 기동 시의 정리가 삭제한다
         log.debug(`yt-dlp 다운로드 임시 폴더 삭제 실패: ${messageOf(error)}`);
       }
     }
   }
 
   /**
-   * 지금 버전 · 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 때와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
+   * 지금 버전 · 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 시와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
    * 봇은 디스크의 기록을 막 읽은 뒤라 제가 쓰는 버전이 지금 버전이다. update:ytdlp 는 돌고 있는 봇이 아직 쓰는 버전을 삭제할 수 있어 부르지 않는다.
    * 옛 버전으로 아직 돌고 있어 삭제하지 못한 것(Windows)은 다음에 삭제한다
    */
@@ -260,7 +260,7 @@ class YtdlpBinary {
     }
   }
 
-  /** 봇 기동. 버전을 갖추고 한 줄 남긴 뒤, 설정대로 기동 때와 하루 한 번 새 버전을 본다 */
+  /** 봇 기동. 버전을 갖추고 한 줄 남긴 뒤, 설정대로 기동 시와 하루 한 번 새 버전을 본다 */
   async start() {
     const { channel, version: pin, update: mode } = config.ytdlp;
     try {
@@ -275,7 +275,7 @@ class YtdlpBinary {
     await this._tick();
   }
 
-  // 기동 때와 하루 한 번. 새 버전을 보고 버전을 정리한 뒤 다음 확인을 예약한다
+  // 기동 시와 하루 한 번. 새 버전을 보고 버전을 정리한 뒤 다음 확인을 예약한다
   async _tick() {
     let failed = false;
     try {
@@ -286,7 +286,7 @@ class YtdlpBinary {
     } finally {
       this.cleanup();
     }
-    // 고정한 버전은 기동 때 한 번만 맞춘다
+    // 고정한 버전은 기동 시 한 번만 맞춘다
     if (!config.ytdlp.version) this._schedule(failed ? RETRY_MS : this.state!.lastChecked + DAY_MS - this.io.now());
   }
 
@@ -308,7 +308,7 @@ class YtdlpBinary {
   }
 }
 
-// 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 때 한 번 맞춘다)
+// 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 시 한 번 맞춘다)
 function updateText(mode: Mode, pinned: boolean) {
   if (mode === "auto") return pinned ? "자동" : "자동 (1일 1회 확인)";
   return mode === "notify" ? "알림만" : "하지 않음";

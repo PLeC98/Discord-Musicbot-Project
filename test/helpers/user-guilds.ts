@@ -1,4 +1,4 @@
-// 시험: 로그인 때 받은 디스코드 토큰과 그 사람의 서버 목록(/users/@me/guilds).
+// 테스트: 로그인 때 받은 디스코드 토큰과 그 사용자의 서버 목록(/users/@me/guilds).
 // 토큰은 진짜 세션 저장소(임시 DB)의 세션 행에 두고, 디스코드는 가짜 HTTP 로 답한다. 사용자마다 세션 하나(sid-<사용자 ID>)
 
 import fs from "node:fs";
@@ -13,7 +13,7 @@ import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 
-/** guilds: 사용자 ID → 그 사람이 든 서버 ID(디스코드의 답). failWith: 디스코드가 이 상태 코드로 거절한다(0 이면 답한다) */
+/** guilds: 사용자 ID → 그 사용자가 든 서버 ID(디스코드의 답). failWith: 디스코드가 이 상태 코드로 거절한다(0 이면 답한다) */
 function userGuildsFixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-user-guilds-"));
   secrets._useKey(newSecretsKey());

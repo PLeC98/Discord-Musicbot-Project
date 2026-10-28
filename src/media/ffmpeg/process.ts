@@ -15,7 +15,7 @@ const log = logger.child({ category: "ffmpeg" });
  * 프로세스 종료와 어긋난다.
  */
 
-// 소리를 내는 ffmpeg(playback-input · 무이음 전환)
+// 소리를 내는 ffmpeg(playback-input · 갭리스 전환)
 const PLAYING = new Set(["stream", "playback", "switch"]);
 
 /**
@@ -50,7 +50,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   // prism의 _cleanup()이 하던 일을 여기서 대신한다.
   // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
   // 우리가 손을 떼서 죽인 것인지 표시. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
-  // (스킵 · 위치 이동, 무지연 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
+  // (스킵 · 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
   // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg 는 파이프 쓰기가 실패해 스스로 죽는다(exit.ts)
   let closedByUs = false;
   if (killOnStdoutClose) {

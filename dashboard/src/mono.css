@@ -1,5 +1,5 @@
-/* Musicbot Mono: D2Coding 1.4.0(NAVER, SIL OFL 1.1, assets/mono/OFL.txt)을 조각낸 수정본, 예약 글꼴 이름이라 이름을 바꿨다. 대시보드의 고정폭 글꼴(style.css 의 --font-mono).
-   손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 조각내 만든다. 화면에 나온 글자의 조각만 다운로드한다 */
+/* Musicbot Mono: D2Coding 1.4.0(NAVER, SIL OFL 1.1, assets/mono/OFL.txt)의 서브셋 수정본, 예약된 글꼴 이름이라 이름을 바꿨다. 대시보드의 고정폭 글꼴(style.css 의 --font-mono).
+   손으로 고치지 않는다: node scripts/build-mono-font.ts 가 공식 릴리스를 서브셋으로 나눠 만든다. 화면에 나온 글자의 서브셋만 다운로드한다 */
 @font-face {
   font-family: "Musicbot Mono";
   font-style: normal;

@@ -77,7 +77,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
     if (attach) shutdown.attach(bot);
     handle = shutdown;
   });
-  if (!handle) throw new Error("처리기를 걸지 못했다");
+  if (!handle) throw new Error("핸들러를 걸지 못했다");
   return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 

@@ -98,7 +98,7 @@ after(() => {
   store.close();
 });
 
-// 라우터의 GET 경로. 경로 변수는 테스트할 값으로 채우고, 바깥에 묻는 경로 · 실시간 연결은 뺀다
+// 라우터의 GET 경로. 경로 변수는 테스트할 값으로 채우고, 바깥에 묻는 경로 · SSE 연결은 뺀다
 const MOUNTS: Array<[string, Router]> = [
   ["/api/admin", adminRouter],
   ["/api/admin/service-keys", serviceKeysRouter],

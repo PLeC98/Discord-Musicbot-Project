@@ -1,4 +1,4 @@
-// bgutil(POToken 공급자)의 설치된 버전 · 목표(BGUTIL_VERSION) · 최신 릴리스. 기동 때와 하루 한 번 최신을 보고, 옮길 것이 있으면 한 줄 남긴다.
+// bgutil(POToken 공급자)의 설치된 버전 · 목표(BGUTIL_VERSION) · 최신 릴리스. 기동 시와 하루 한 번 최신을 보고, 옮길 것이 있으면 한 줄 남긴다.
 // 설치는 하지 않는다(봇을 끄고 pnpm run update:bgutil. 의존성을 갈아 끼우므로 돌고 있는 POToken 서버와 같이 못 간다). 봇 상태 탭이 셋을 보인다
 
 import fs from "fs";

@@ -1,4 +1,4 @@
-// 외부 서비스 키를 비밀 표에서 꺼내 설정 객체에 올린다. 기동 때 한 번(load), 대시보드에서 바꿀 때마다(save · remove).
+// 외부 서비스 키를 비밀 표에서 꺼내 설정 객체에 올린다. 기동 시 한 번(load), 대시보드에서 바꿀 때마다(save · remove).
 // 값을 쓰는 곳(자동재생 소스 · 스포티파이)은 설정 객체를 그대로 읽는다. 값은 메모리에만 있고 응답 · 로그로 나가지 않는다.
 
 import logger from "../infra/log/logger.ts";
@@ -34,7 +34,7 @@ function apply(service: ServiceId) {
   });
 }
 
-/** 기동 때. 모두 꺼내 올리고, 다시 입력해야 하는 키 · 없는 Spotify 키를 알린다 */
+/** 기동 시. 모두 꺼내 올리고, 다시 입력해야 하는 키 · 없는 Spotify 키를 알린다 */
 function load() {
   for (const service of SERVICE_IDS) {
     const states = apply(service);

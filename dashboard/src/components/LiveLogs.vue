@@ -5,7 +5,7 @@
   <section class="@container/card pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
     <PaneHeader icon="article" :title="T.title">
       <!-- 제목 바로 옆에 연결 상태 · 줄 수. 연결되어 있으면 초록 점과 줄 수만, 끊기면 회색 점 · "끊김" · 줄 수. 점은 툴팁으로 상태를 말한다.
-           줄 수는 필터 · 찾기와 상관없이 들고 있는 줄 전부(찾은 수는 찾기 칸 안에) -->
+           줄 수는 필터 · 검색과 상관없이 들고 있는 줄 전부(검색된 수는 검색 입력란 안에) -->
       <template #badge>
         <span class="flex items-center gap-1.5 text-xs text-on-surface-variant shrink-0"
           ><span class="size-2 rounded-full" :class="connected ? 'bg-(--ok-ink)' : 'bg-outline'" :aria-label="connected ? T.connected : T.disconnected" v-tooltip="connected ? T.connected : T.disconnected"></span><template v-if="!connected">{{ T.disconnected }} ·</template> <span class="nums text-on-surface">{{ T.lines(lineCount) }}</span></span
@@ -20,7 +20,7 @@
     </PaneHeader>
 
     <!-- 필터: 레벨은 여럿 켜기(심각한 것부터). 카테고리 · 태그는 흘러온 로그에서 본 것만 드롭다운으로(종류가 늘어나는 목록이라 칩 대신, 많으면 검색창). 오른쪽 끝에 자동 스크롤(켜 두면 새 줄을 따라 내려간다) · 지우기 -->
-    <!-- 카드 안쪽 587 이하(휴대폰 · 운영자 화면에서 사이드바를 접은 화면 795 이하): 첫 줄은 필터 버튼 · 자동 스크롤, 둘째 줄은 찾기.
+    <!-- 카드 안쪽 587 이하(휴대폰 · 운영자 화면에서 사이드바를 접은 화면 795 이하): 첫 줄은 필터 버튼 · 자동 스크롤, 둘째 줄은 검색.
          레벨 · 카테고리 · 태그 · 지우기는 필터 창에(고르는 대로 반영. 휴대폰은 바텀 시트, 그 밖은 가운데 팝업) -->
     <div class="flex @min-[588px]/card:hidden items-center gap-2">
       <FilterButton :count="activeFilters" @open="openSheet" />
@@ -46,8 +46,8 @@
     </FilterSheet>
 
     <!-- 카드 안쪽 588 이상: 칸 이름이 붙은 격자(같은 버튼을 두 번 그리지 않게 칸 자리만 바꾼다). 안쪽 폭 = 운영자 화면에서 사이드바를 접으면 화면 - 208.
-         588 ~ 742(화면 796 ~ 950): 레벨 · 자동 스크롤 · 지우기 / 카테고리 · 태그 · 찾기(남은 폭).
-         743 이상(화면 951 이상): 레벨 / 카테고리 · 태그 · 찾기(288 까지) · 오른쪽 끝 자동 스크롤 · 지우기 -->
+         588 ~ 742(화면 796 ~ 950): 레벨 · 자동 스크롤 · 지우기 / 카테고리 · 태그 · 검색(남은 폭).
+         743 이상(화면 951 이상): 레벨 / 카테고리 · 태그 · 검색(288 까지) · 오른쪽 끝 자동 스크롤 · 지우기 -->
     <div class="hidden @min-[588px]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_actions'_'filters_filters'] @min-[743px]/card:[grid-template-areas:'chips_chips'_'filters_actions']">
       <div class="[grid-area:chips] flex flex-wrap items-center gap-2">
         <button v-for="l in LEVEL_CHIPS" :key="l.value" type="button" :aria-pressed="levelsOn.has(l.value)" :class="[FILTER_CHIP, levelsOn.has(l.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleLevel(l.value)">{{ l.label }}</button>
@@ -55,7 +55,7 @@
       <div class="[grid-area:filters] flex items-center gap-2 min-w-0">
         <SingleSelect v-model="category" class="w-44 shrink-0" :options="categoryOptions" :search-from="0" :empty-label="T.allCategories" />
         <SingleSelect v-model="tag" class="w-44 shrink-0" :options="tagOptions" :empty-label="T.allTags" />
-        <!-- 글자 찾기: 받아 둔 줄의 글 · 카테고리 · 태그에서(한국어 찾기). 넓으면 288 까지, 그 밖은 남은 폭을 다 -->
+        <!-- 글자 검색: 받아 둔 줄의 글 · 카테고리 · 태그에서(한국어 검색). 넓으면 288 까지, 그 밖은 남은 폭을 다 -->
         <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 @min-[743px]/card:max-w-72" />
       </div>
       <span class="[grid-area:actions] justify-self-end flex items-center gap-2">
@@ -68,7 +68,7 @@
          바탕은 드롭다운 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 트랙을 비운다 -->
     <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto [overflow-anchor:none] rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
       <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ logs.length ? text.common.noMatch : T.empty }}</p>
-      <!-- 줄은 한 번 그리면 찾기를 바꿀 때까지 바뀌지 않는다(v-memo: 탭을 옮기거나 새 줄이 와도 다시 비교하지 않는다. 찾기가 바뀌면 맞은 부분을 다시 칠한다). 화면 밖 줄은 그리기를 건너뛴다(content-visibility, 높이는 한 줄 25px 로 짐작하고 그린 뒤로는 그 높이) -->
+      <!-- 줄은 한 번 그리면 검색어를 바꿀 때까지 바뀌지 않는다(v-memo: 탭을 옮기거나 새 줄이 와도 다시 비교하지 않는다. 검색어가 바뀌면 일치한 부분을 다시 칠한다). 화면 밖 줄은 그리기를 건너뛴다(content-visibility, 높이는 한 줄 25px 로 짐작하고 그린 뒤로는 그 높이) -->
       <div v-for="entry in shown" :key="entry.key" v-memo="[entry.key, term]" class="[content-visibility:auto] [contain-intrinsic-size:auto_25px] border-b border-outline-variant/20 last:border-b-0">
         <!-- 표시 줄: 받지 못한 줄 · 봇 재시작. 필터와 상관없이 늘 보인다 -->
         <div v-if="entry.mark" class="flex items-center gap-2 py-1 text-xs text-on-surface-variant">
@@ -148,15 +148,15 @@ const tag = ref<OptionValue>("");
 const categoryOptions = computed<Option[]>(() => categories.value.map((c) => ({ value: c, label: c, color: catColor(c) })));
 const tagOptions = computed<Option[]>(() => tags.value.map((t) => ({ value: t, label: `#${t}` })));
 
-// 필터 · 글자 찾기(글 · 카테고리 · 태그, 한국어는 조합 중인 글자 · 초성으로도). 로그 파일 보기와 같은 규칙
+// 필터 · 글자 검색(글 · 카테고리 · 태그, 한국어는 조합 중인 글자 · 초성으로도). 로그 파일 보기와 같은 규칙
 const term = ref("");
 const shown = computed(() => {
   const filter = { levels: levelsOn.value, category: String(category.value), tag: String(tag.value), q: term.value };
   return props.logs.filter((e) => e.mark || matchesLog(e, filter));
 });
-// 찾기 칸 안의 찾은 줄 수: 필터를 모두 건 채 지금 들고 있는 줄에서(끊김 · 재시작 표시는 빼고)
+// 검색 입력란 안의 검색된 줄 수: 필터를 모두 건 채 지금 들고 있는 줄에서(끊김 · 재시작 표시는 빼고)
 const matchNote = computed(() => (term.value.trim() ? T.lines(shown.value.filter((e) => !e.mark).length) : ""));
-// 헤더의 줄 수: 필터 · 찾기와 상관없이 지금 들고 있는 줄 전부(표시 줄 빼고, 찾은 수는 찾기 칸 안에)
+// 헤더의 줄 수: 필터 · 검색과 상관없이 지금 들고 있는 줄 전부(표시 줄 빼고, 검색된 수는 검색 입력란 안에)
 const lineCount = computed(() => props.logs.filter((e) => !e.mark).length);
 
 // 봇 상태 탭과 같은 24시간 시각

@@ -223,7 +223,7 @@ test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽
   const { default: config } = await import("../../src/config/index.ts");
   const saved = config.dashboard.rateLimit.publicMax;
   config.dashboard.rateLimit.publicMax = 2;
-  // 카운터가 다른 시험과 섞이지 않게 앱을 새로 띄운다
+  // 카운터가 다른 테스트와 섞이지 않게 앱을 새로 띄운다
   const own = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
   await new Promise((resolve) => own.once("listening", resolve));
   const at = (urlPath: string) => fetch(baseUrl(own) + urlPath, { signal: AbortSignal.timeout(3000) }).then(async (res) => ({ status: res.status, body: await res.text() }));

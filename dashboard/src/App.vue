@@ -22,7 +22,7 @@
       <SessionBar vertical class="relative z-10 hidden md:flex" />
       <!-- 휴대폰: 세로 막대를 사이드 드로어로(모달 사이드 드로어, 지메일처럼 화면 일부를 덮는다). 위 막대의 메뉴 버튼 · 오른쪽으로 쓸기로 열고, 바깥 · Esc · 왼쪽으로 쓸기 · 화면을 옮기면 닫힌다(composables/drawer-swipe).
            모양은 화면 끝에 붙어 위아래를 꽉 채우는 면이라 각지게. 움직임은 M3E: 들어올 때 공간 스프링(살짝 넘쳤다 돌아온다. 넘친 만큼 왼쪽이 비지 않게 같은 색 그림자를 왼쪽에 깐다),
-           나갈 때 가속(emphasized accelerate) 짧게. 뒤 막은 효과 스프링으로 넘치지 않게. 끄는 동안은 손가락을 따라오고 움직임을 끈다.
+           나갈 때 가속(emphasized accelerate) 짧게. 뒤 막은 효과 스프링으로 넘치지 않게. 드래그하는 동안은 손가락을 따라오고 움직임을 끈다.
            휴대폰에서는 늘 붙여 두고 화면 밖으로 밀어 둔다(닫힌 동안은 inert). 사이드 드로어 컴포넌트 자체의 폭 움직임과 섞이지 않게 바깥 상자가 움직인다 -->
       <template v-if="isPhone">
         <div class="fixed inset-0 z-250 bg-black/40" :class="[drawerDrag === null && (drawerOpen ? 'transition-opacity duration-300 ease-effects' : 'transition-opacity duration-200 ease-in'), drawerShown === 0 && 'pointer-events-none']" :style="{ opacity: drawerShown }" @click="drawerOpen = false"></div>
@@ -64,7 +64,7 @@
             <NotificationInbox />
           </div>
         </header>
-        <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)이 재생 바 위까지의 높이를 셈한다 -->
+        <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)이 재생 바 위까지의 높이를 계산한다 -->
         <div ref="deskEl" :style="{ '--desk-h': `${deskHeight}px` }" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
           <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다 -->
           <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
@@ -129,7 +129,7 @@ const drawerOpen = ref(false);
 const drawerEl = ref<HTMLElement | null>(null);
 const isPhone = useMediaQuery(PHONE_QUERY);
 const { drag: drawerDrag } = useDrawerSwipe(drawerOpen, drawerEl, () => isPhone.value);
-// 사이드 드로어가 열린 정도(끄는 동안은 손가락, 아니면 열림 · 닫힘)
+// 사이드 드로어가 열린 정도(드래그하는 동안은 손가락, 아니면 열림 · 닫힘)
 const drawerShown = computed(() => drawerDrag.value ?? (drawerOpen.value ? 1 : 0));
 watch(isPhone, (phone) => !phone && (drawerOpen.value = false));
 watch(

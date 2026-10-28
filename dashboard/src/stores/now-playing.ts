@@ -14,7 +14,7 @@ import { text } from "../text/index.ts";
 // 서버 화면과 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로
 // 같은 서버를 둘이 동시에 읽는 상황이 생기지 않는다. 규칙은 utils/playback 을 같이 쓴다.
 //
-// 실시간 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
+// SSE 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
 // 대기열은 보지 않으므로 모든 요청에 ?queue=0 을 싣는다
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
@@ -44,7 +44,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
 
   const url = (id: string, path = "") => `/api/guilds/${id}/player${path}?queue=0`;
 
-  // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 필드가 없어 그것만 남긴다
+  // 받은 상태를 반영한다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 필드가 없어 그것만 남긴다
   function apply(next: PlayerState) {
     if (!accepts(data.value, next)) return;
     data.value = withReadFields(data.value, next);

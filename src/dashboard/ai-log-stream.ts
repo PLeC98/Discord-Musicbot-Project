@@ -1,5 +1,5 @@
-// AI 리퀘스트 로그의 실시간 연결(SSE, /api/admin/ai/logs/stream). 새 기록이 쓰이면(store/ai-requests 의 onRecorded) 열린 연결 모두에 보낸다.
-// 줄마다 기록 id 를 달아, 브라우저가 다시 붙을 때(Last-Event-ID) · 화면이 다시 열 때(?after=) 그 뒤의 줄부터 보낸다(최근 RESUME_MAX 줄까지).
+// AI 리퀘스트 로그의 SSE 연결(/api/admin/ai/logs/stream). 새 기록이 쓰이면(store/ai-requests 의 onRecorded) 열린 연결 모두에 보낸다.
+// 줄마다 기록 id 를 달아, 브라우저가 재연결할 때(Last-Event-ID) · 화면이 다시 열 때(?after=) 그 뒤의 줄부터 보낸다(최근 RESUME_MAX 줄까지).
 // 사용자당 연결 수는 플레이어 · 운영자 로그 스트림과 따로 센다(SSE_MAX_CONNECTIONS). 유휴 연결은 하트비트(SSE_HEARTBEAT_SEC)로 붙들어 둔다.
 
 import type { Response } from "express";
@@ -10,7 +10,7 @@ import * as requests from "../store/ai-requests.ts";
 import type { AiLogEntry, AiLogPushed } from "./contract/ai-log.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 다시 붙을 때 보내는 놓친 줄의 상한 */
+/** 재연결할 때 보내는 놓친 줄의 상한 */
 const RESUME_MAX = 200;
 
 /** 서버 이름을 붙인다(디스코드 캐시. 모르면 id 그대로) */

@@ -1,6 +1,6 @@
 <template>
   <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
-       대기열이 한 단 목록이라 넓어도 행만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
+       대기열이 1열 목록이라 넓어도 행만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
   <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 바텀 시트(스포티파이식). 시트 헤더(76)만큼 아래를 비운다.
        가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 그림이 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔했다 -->
   <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
@@ -142,7 +142,7 @@
             </div>
             <div class="shrink-0 flex items-center gap-3" :class="!short && 'mt-3'">
               <div class="min-w-0 flex-1">
-                <!-- 길면 뉴스 티커처럼 흘려 돈다 -->
+                <!-- 길면 뉴스 티커처럼 옆으로 흐른다(마퀴) -->
                 <a v-if="track" :href="track.url" target="_blank" rel="noopener" class="block no-underline font-round font-semibold leading-tight text-on-surface" :class="short ? 'text-xl' : 'text-2xl'"><MarqueeText :text="songTitle(track.title)" loop /></a>
                 <div v-else class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">{{ P.nothingPlaying }}</div>
                 <MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop />
@@ -234,7 +234,7 @@
         <QueueAddBox :guild-id="guildId" :player="player" :queue-window="loadedCount" @state="applyState" />
 
         <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다.
-             받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 빈 칸으로 높이만(composables/row-window). 행 높이 64 고정, 끌기는 그 높이로 순번을 셈한다 -->
+             받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 스페이서로 높이만(composables/row-window). 행 높이 64 고정, 드래그도 그 높이로 순번을 계산한다 -->
         <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
           <div class="shrink-0 flex flex-col" :style="{ paddingTop: `${queueTop}px`, paddingBottom: `${queueBottom}px` }">
             <div v-for="{ key, row: item, index: i } in queueSlots" :key="key" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder :data-index="i">
@@ -340,16 +340,16 @@ const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false,
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref<HTMLElement | null>(null);
-// 더 있는 쪽 끝 반 줄(32)을 흐리게(봇 상태 · 서버 관리의 목록과 같다)
+// 더 있는 쪽 끝 반 줄(32)을 페이드로(봇 상태 · 서버 관리의 목록과 같다)
 const queueFade = useScrollFade(queueBoxRef, () => true, 32);
 // 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다. 안 그러면 목록이 접힌다.
 const qs = () => `?queue=${loadedCount.value}`;
 
 const showStopConfirm = ref(false);
 
-// 대기열 끌기(핸들, composables/pointer-reorder). 끄는 동안(isDragging)은 받은 서버 대기열을 미룬다
+// 대기열 드래그(핸들, composables/pointer-reorder). 드래그하는 동안(isDragging)은 받은 서버 대기열을 미룬다
 const isDragging = ref(false);
-// 끄는 동안 받은 서버 대기열. 끄는 그 필드만 미루고(다른 필드는 바로 넣는다) 끌기가 끝나면 넣는다
+// 드래그하는 동안 받은 서버 대기열. 드래그 중인 필드(대기열)만 미루고(다른 필드는 바로 반영한다) 드래그가 끝나면 반영한다
 let heldQueue: Pick<PlayerState, "queue" | "queueTotal"> | null = null;
 
 // 진행 시계: 받은 위치 + 지난 시간(utils/playback). 1초마다 now 만 바꾼다
@@ -365,8 +365,8 @@ const { isBusy, whileBusy } = useBusy();
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 
-// 받은 재생 상태를 넣는다. 늦게 온 옛 상태는 버린다(만든 순서). 조작 응답에 없는 읽기 전용 필드(권한 · 음성)는 지금 값을 남긴다(utils/playback).
-// 대기열을 끄는 동안에는 대기열만 미룬다
+// 받은 재생 상태를 반영한다. 늦게 온 옛 상태는 버린다(만든 순서). 조작 응답에 없는 읽기 전용 필드(권한 · 음성)는 지금 값을 남긴다(utils/playback).
+// 대기열을 드래그하는 동안에는 대기열만 미룬다
 function applyState(data: PlayerState | PlayerRead) {
   if (!accepts(player.value, data)) return;
   let next = withReadFields(player.value, data);
@@ -379,8 +379,8 @@ function applyState(data: PlayerState | PlayerRead) {
   syncLoaded();
 }
 
-// 조작 · 갱신 응답은 대기열을 앞에서 QUEUE_WINDOW_MAX 곡까지만 싣는다. 그보다 많이 받아 둔 화면은 잘린 뒤를 지난 값으로 잠깐 두고
-// 다시 받아 바꾼다(그대로 넣으면 목록이 접혀 보던 자리를 잃는다). 그사이 다른 대기열이 들어오면 그쪽이 맞다(queueVersion)
+// 조작 · 갱신 응답은 대기열을 앞에서 QUEUE_WINDOW_MAX 곡까지만 싣는다. 그보다 많이 받아 둔 화면은 잘린 뒤를 stale 값으로 잠깐 두고
+// 다시 받아 바꾼다(그대로 반영하면 목록이 접혀 보던 자리를 잃는다). 그사이 다른 대기열이 들어오면 그쪽이 맞다(queueVersion)
 let queueVersion = 0;
 function keepTail(next: PlayerSeen, had: QueueTrackView[]): PlayerSeen {
   const version = ++queueVersion;
@@ -462,7 +462,7 @@ function retryLoad() {
 
 // ── 조작 ─────────────────────────────────────────────────────────────────
 
-// 응답을 기다리는 조작. 응답의 상태를 넣고, 거절되면 알리고 다시 읽는다
+// 응답을 기다리는 조작. 응답의 상태를 반영하고, 거절되면 알리고 다시 읽는다
 async function send(key: string, path: string, body: object | undefined, fallback: string): Promise<boolean> {
   const done = await whileBusy(key, async () => {
     try {
@@ -508,7 +508,7 @@ function cycleLoop() {
   void send("loop", "loop", { mode: modeOf(mode) }, P.failed.loop);
 }
 
-// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volume-control)
+// 드래그하는 동안 바로 틀고 드래그 중인 값을 보여 준다(composables/volume-control)
 const {
   shown: volumeShown,
   input: volumeInput,
@@ -541,12 +541,12 @@ async function removeTrack(track: QueueTrackView) {
   });
 }
 
-// ── 대기열 끌어 옮기기 ───────────────────────────────────────────────────────
+// ── 대기열 드래그해서 옮기기 ───────────────────────────────────────────────────
 
-// 대기열 행 높이(h-16). 보이는 행만 그리므로 끌기도 이 높이로 순번을 셈한다
+// 대기열 행 높이(h-16). 보이는 행만 그리므로 드래그도 이 높이로 순번을 계산한다
 const QUEUE_ROW = 4 * rem(1);
 const { startDrag, draggedIndex } = usePointerReorder({
-  // 놓으면 moveQueue 가 위치를 정하고 미뤄 둔 것을 넣는다. end 는 그 뒤(놓지 않고 끝난 때도)
+  // 놓으면 moveQueue 가 위치를 정하고 미뤄 둔 것을 반영한다. end 는 그 뒤(놓지 않고 끝난 때도)
   enabled: () => Boolean(player.value.canControl) && !isBusy("move"),
   start: () => (isDragging.value = true),
   end: releaseHeld,
@@ -554,7 +554,7 @@ const { startDrag, draggedIndex } = usePointerReorder({
   rowHeight: () => QUEUE_ROW,
   count: () => player.value.queue.length,
 });
-// 받은 곡은 다 들고 있고, 그리기만 보이는 행 둘레로(끄는 행은 구간 밖으로 나가도 그려 둔다). 더 받기는 바닥에 닿을 때(onQueueScroll)
+// 받은 곡은 다 들고 있고, 그리기만 보이는 행 둘레로(드래그 중인 행은 구간 밖으로 나가도 그려 둔다). 더 받기는 바닥에 닿을 때(onQueueScroll)
 const {
   range: queueRange,
   top: queueTop,
@@ -568,7 +568,7 @@ const {
 });
 const queueSlots = computed(() => slotsOf(queueRange.value, 0, player.value.queue, (t, i) => t.entry ?? `i${i}`).filter((slot) => slot.row !== null));
 
-// 끌기가 끝났다(놓음 · 취소). 끄는 동안 미뤄 둔 서버 대기열을 넣는다
+// 드래그가 끝났다(놓음 · 취소). 드래그하는 동안 미뤄 둔 서버 대기열을 반영한다
 function releaseHeld() {
   isDragging.value = false;
   if (heldQueue) {
@@ -578,7 +578,7 @@ function releaseHeld() {
   }
 }
 
-// 놓은 위치는 끄는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 넣기 전에 정한다
+// 놓은 위치는 드래그하는 동안 본 목록 기준이다. 미뤄 둔 서버 대기열을 반영하기 전에 정한다
 async function moveQueue(from: number, insertAt: number) {
   const queue = player.value.queue;
   const target = moveTarget(queue, from, insertAt, player.value.queueTotal ?? queue.length);
@@ -711,7 +711,7 @@ const artOpen = ref(false);
 
 // 휴대폰: 큰 그림 플레이어 + 대기열 바텀 시트(스포티파이식)
 const isPhone = useMediaQuery(PHONE_QUERY);
-// 낮은 화면(휴대폰 가로): 플레이어를 그림 | 나머지 두 단으로
+// 낮은 화면(휴대폰 가로): 플레이어를 그림 | 나머지 2열로
 const short = useMediaQuery(SHORT_QUERY);
 const sheetMode = computed(() => isPhone.value);
 // 판이 접혔을 때 헤더에 보이는 다음 곡
@@ -750,7 +750,7 @@ async function toggleGenreMenu(e: MouseEvent) {
 }
 const genreMenuEl = ref<HTMLElement | null>(null);
 const genreOverflowing = useOverflowing(genreMenuEl);
-// 켜기(장르) · 끄기(null). 응답의 상태를 넣는다
+// 켜기(장르) · 끄기(null). 응답의 상태를 반영한다
 function setAutoplay(genre: string | null) {
   genreMenu.value = false;
   void send("autoplay", "autoplay", { genre }, genre ? T.failed.autoplayOn : T.failed.autoplayOff);

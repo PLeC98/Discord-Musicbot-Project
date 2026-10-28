@@ -20,7 +20,7 @@
     </PageError>
 
     <template v-else>
-      <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 단이 는다(카드 한 장 360 쯤: 768~ 두 단, 1152~ 세 단). 높이를 맞춘 격자가 아니라 단마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
+      <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 열이 는다(카드 한 장 360 쯤: 768~ 2열, 1152~ 3열). 높이를 맞춘 격자가 아니라 열마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
       <div class="columns-1 @3xl/desk:columns-2 @6xl/desk:columns-3 gap-(--gap-in) *:break-inside-avoid">
         <!-- 봇 전용 채널 -->
         <BaseCard icon="keep" :title="T.channel.title" class="mb-(--gap-in)">

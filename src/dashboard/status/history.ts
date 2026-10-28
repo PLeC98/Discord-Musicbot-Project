@@ -13,7 +13,7 @@ const POINTS = (15 * 60_000) / WINDOW_MS;
 
 type Series = Exclude<keyof StatusHistory, "stepMs" | "endAt">;
 const history: StatusHistory = { stepMs: WINDOW_MS, endAt: Date.now(), playing: [], ping: [], loopP99: [], heapPct: [], cpuBot: [], cpuSystem: [], downloadBps: [], encodeRtt: [], encodeLate: [], uploadBot: [], uploadSystem: [] };
-// 빈 프레임은 풀이 켜진 뒤의 합이라 구간마다 늘어난 만큼을 넣는다
+// 누락 프레임은 풀이 켜진 뒤의 합이라 구간마다 늘어난 만큼을 넣는다
 let lateBefore = 0;
 
 function push(series: Series, value: number) {
@@ -22,7 +22,7 @@ function push(series: Series, value: number) {
   if (list.length > POINTS) list.shift();
 }
 
-/** 구간 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU · 다운로드 · 인코딩 워커 응답 · 빈 프레임 · 업로드.
+/** 구간 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU · 다운로드 · 인코딩 워커 응답 시간 · 누락 프레임 · 업로드.
  * 시스템 업로드를 받을 때까지 기다렸다 한꺼번에 넣는다(점들이 같은 구간을 가리키게) */
 async function sample(bot: BotContext, window: Window) {
   const upload = await closeUploadWindow();
@@ -44,7 +44,7 @@ async function sample(bot: BotContext, window: Window) {
   push("uploadSystem", upload.system ?? 0);
 }
 
-/** 측정을 켜고 구간마다 모은다. 끊는 함수를 돌려준다. readSystem: 시스템 업로드 누계를 읽는 것(시험이 바꾼다) */
+/** 측정을 켜고 구간마다 모은다. 끊는 함수를 돌려준다. readSystem: 시스템 업로드 누계를 읽는 것(테스트가 바꾼다) */
 function startStatusHistory(bot: BotContext, { readSystem }: { readSystem?: ReadSystem } = {}) {
   startVitals();
   lateBefore = encodePool.stats().late;

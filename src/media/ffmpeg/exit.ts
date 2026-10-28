@@ -69,7 +69,7 @@ const OUR_SIGNALS = new Set(["SIGKILL", "SIGTERM"]);
  * 끝난 ffmpeg 를 어떻게 남길지.
  *   crash    비정상 신호
  *   cleanup  우리가 출력을 닫아서 끝났다(그 뒤의 신호 · 파이프 쓰기 실패 · 정상 종료)
- *   failed   스스로 실패했다. 우리가 닫았더라도 종료 코드가 파이프 쓰기 실패가 아니면 그 전에 이미 실패한 것이다
+ *   failed   자체 실패했다. 우리가 닫았더라도 종료 코드가 파이프 쓰기 실패가 아니면 그 전에 이미 실패한 것이다
  *   ok       정상 종료
  * @param o.closedByUs  끝까지 읽지 않은 stdout 을 우리가 닫았다
  */

@@ -40,7 +40,7 @@ const ICONS = {
   page_next: { glyph: "chevron_right", unicode: "▶" },
 
   // 응답 헤더 줄의 주제(오류 · 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
-  // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(시험이 맞춰 본다)
+  // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(테스트가 맞춰 본다)
   failed: { glyph: "error", unicode: "❌", tints: ["error"] },
   permission: { glyph: "block", unicode: "🚫", tints: SEVERITY },
   voice: { glyph: "headphones", unicode: "🎧", tints: SEVERITY },
@@ -72,7 +72,7 @@ const ICONS = {
   restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
 
-  // 정보 · 도움말 임베드의 제목 · 칸 이름
+  // 정보 · 도움말 임베드의 제목 · 필드 이름
   system: { glyph: "computer", unicode: "🖥️" },
   uptime: { glyph: "timer", unicode: "⏱️" },
   memory: { glyph: "memory_alt", unicode: "💾" },

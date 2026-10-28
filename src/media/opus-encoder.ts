@@ -17,7 +17,7 @@ const COMPLEXITY = 9;
 // 캐시(128k)에 맞춘다. 더 올릴 수 있지만 청취로 그 위는 구분되지 않았다
 const SEND_BITRATE = 128_000;
 
-/** WASM 모듈을 불러 둔다. 기동 때 한 번 불러 두면 그 뒤 인코더 생성은 다음 틱 안에 끝난다 */
+/** WASM 모듈을 불러 둔다. 기동 시 한 번 불러 두면 그 뒤 인코더 생성은 다음 틱 안에 끝난다 */
 async function loadOpus(): Promise<{ libopusVersion: string }> {
   const { version } = await loadLibopus();
   return { libopusVersion: version };

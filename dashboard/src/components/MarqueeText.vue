@@ -1,7 +1,7 @@
 <template>
   <!-- 영역보다 긴 글은 천천히 흘려 보여 준다. 기본은 좌우로 오가고, loop 면 뉴스 티커처럼 한 방향으로 흐르며 같은 글 사본이 간격(3em)을 두고 뒤따라 이어진다(스포티파이 재생 화면).
        짧으면 그대로, 움직임 줄이기를 켰으면 "…" 로 자른다.
-       양끝을 FADE 만큼 흐리게 지우되, 겉을 그만큼 바깥으로 넓혀(음수 여백) 멈춰 있는 글의 첫 글자는 흐려지지 않게 한다 -->
+       양끝을 FADE 만큼 페이드로 지우되, 겉을 그만큼 바깥으로 넓혀(음수 여백) 멈춰 있는 글의 첫 글자에는 페이드가 걸리지 않게 한다 -->
   <!-- tip: 넘칠 때(흐르거나 "…" 로 잘릴 때)만 전체 글을 툴팁으로 -->
   <span ref="box" class="block overflow-hidden whitespace-nowrap" :class="reduced && 'truncate'" :style="moving ? edge : undefined" v-tooltip="tip && cut ? text : null">
     <span ref="track" :class="reduced ? 'inline' : 'inline-flex'"
@@ -19,7 +19,7 @@ import { rem } from "../utils/rem.ts";
 /** loop: 한 방향으로 흘러 이어지게(아니면 오간다) */
 const props = defineProps<{ text: string; tip?: boolean; loop?: boolean }>();
 
-/** 흐리게 지우는 길이(rem). 글자 크기를 키우면 같이 넓어진다 */
+/** 페이드 길이(rem). 글자 크기를 키우면 같이 넓어진다 */
 const FADE_REM = 0.5;
 /** 오가는 빠르기(rem/초, 가감속 없이 고르게. 기본 글자 크기면 18px/초)와 양끝에서 멈추는 시간(ms) */
 const SPEED_REM = 1.125;

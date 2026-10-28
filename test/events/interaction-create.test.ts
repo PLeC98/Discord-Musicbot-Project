@@ -1,5 +1,5 @@
-// src/discord/events/interaction-create.ts — 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 처리기 표로 선택한다.
-// 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 처리기는 그 자리표시자에.
+// src/discord/events/interaction-create.ts — 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 핸들러 표로 선택한다.
+// 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 핸들러는 그 자리표시자에.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -114,7 +114,7 @@ test("종류를 구분할 수 있는 오류(네트워크 등)는 그 종류의 �
   assert.deepEqual(pressed.sent[0][1], noticeReply(errors.notice("network-error")));
 });
 
-test("자리표시자를 표시한 처리기가 선언했으면 그 자리표시자에 알린다", async () => {
+test("자리표시자를 표시한 핸들러가 선언했으면 그 자리표시자에 알린다", async () => {
   const placeholder = {
     execute: async (i: object) => {
       showFailureWith(i, async (notice) => sent.push(["shown", notice]));
@@ -187,7 +187,7 @@ test("버튼 처리가 던졌는데 상호작용이 이미 죽었으면 알리�
   assert.deepEqual(sent, []);
 });
 
-test("처리기를 찾아 그 상호작용으로 부른다", async () => {
+test("핸들러를 찾아 그 상호작용으로 부른다", async () => {
   const seen: unknown[] = [];
   const { it, sent } = press({ customId: "x:go" });
   await routeInteraction(fakeBot(), it, [route("button", "x:", (i) => seen.push(i))]);

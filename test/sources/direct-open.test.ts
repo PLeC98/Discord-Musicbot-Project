@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { openLink, type AudioStream, type OpenOptions } from "../../src/sources/direct-open.ts";
 import { taggedMp3 } from "../helpers/tagged-audio.ts";
 
-/** 가짜 SafeUrl: 그 응답(헤더 · 본문 · 마지막 주소). endless 면 다 보낸 뒤에도 닫지 않고 같은 조각을 흘린다 */
+/** 가짜 SafeUrl: 그 응답(헤더 · 본문 · 마지막 주소). endless 면 다 보낸 뒤에도 닫지 않고 같은 청크를 흘린다 */
 function netOf(body: Buffer, headers: Record<string, unknown>, { url = "https://final.test/x", endless = false } = {}) {
   const asked: OpenOptions[] = [];
   const net = {

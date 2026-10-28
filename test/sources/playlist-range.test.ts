@@ -141,7 +141,7 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
   ytInfo = { title: "Mix", entries: [{ id: "a", title: "A" }] };
   const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
   assert.ok(mix);
-  assert.equal(ytCalls.at(-1)?.options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 묶음만큼");
+  assert.equal(ytCalls.at(-1)?.options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 배치만큼");
   assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
 });
 

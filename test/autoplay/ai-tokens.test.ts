@@ -6,7 +6,7 @@ import * as tokens from "../../src/autoplay/assist/tokens.ts";
 // OpenAI API 가 이 문장 하나를 39 로 셌다(gpt-6-astra · gpt-5.6-luna · gpt-5 모두 같았다).
 const SENTENCE = "세차를 하려고 해. 세차장은 50미터 떨어져 있어. 걸어가야 할까, 운전해서 가야 할까?";
 
-test("메시지 하나의 셈이 저쪽 실측과 맞는다", async () => {
+test("메시지 하나의 토큰 개수가 저쪽 실측과 맞는다", async () => {
   const got = await tokens.countMessages([{ content: SENTENCE }], "tik", "openai");
   assert.equal(got.total, 39, "감싸는 몫까지 더한 값");
   assert.equal(got.each[0], 33, "본문만");
@@ -33,7 +33,7 @@ test("gemma 는 tik 과 다르게 센다", async () => {
   assert.equal((await tokens.count("가나다라마바사", "gemma")).tokens, 6);
 });
 
-// 붙일 때마다 전부 훑는 단순한 셈. 빠른 셈이 이것과 같은 수를 내야 한다
+// 붙일 때마다 전부 훑는 단순한 계산. 빠른 계산이 이것과 같은 수를 내야 한다
 let rank: Map<string, number> | null = null;
 function naiveGemma(text: string) {
   if (!rank) {
@@ -56,7 +56,7 @@ function naiveGemma(text: string) {
   }
 }
 
-test("gemma 는 단순한 셈과 같은 수를 낸다", async () => {
+test("gemma 는 단순한 계산과 같은 수를 낸다", async () => {
   const fixed = ["hello world", "안녕하세요, 오늘 들을 곡을 추천해 주세요.", "a".repeat(40), "abab   aaa  bbb", "🎵 IU - 좋은 날 (Good Day) [MV] 😀", "   ", "x\n\ty"];
   const alphabet = "가나다라마바사 abcdefg 곡재생의이는을를 ,.!?\n\t日本語";
   let seed = 7;
@@ -95,8 +95,8 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
     widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
     return { took: performance.now() - started, widest };
   };
-  // 기계마다 빠르기가 달라(커버리지 · 부하) 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
-  // 글자는 매번 바꾼다(gpt-tokenizer 가 병합 결과를 캐시에 둬 같은 글은 두 번째가 빠르다. 아래 상한 시험의 "가" 도 피한다)
+  // 호스트마다 빠르기가 달라(커버리지 · 부하) 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
+  // 글자는 매번 바꾼다(gpt-tokenizer 가 병합 결과를 캐시해 같은 글은 두 번째가 빠르다. 아래 상한 테스트의 "가" 도 피한다)
   let result = { took: 0, widest: 0 };
   for (const [i, size] of [2000, 4000, 8000, 16000, 32000].entries()) {
     result = await measure(String.fromCharCode("나".charCodeAt(0) + i).repeat(size));

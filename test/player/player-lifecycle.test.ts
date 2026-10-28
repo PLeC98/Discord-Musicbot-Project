@@ -65,7 +65,7 @@ function playing(player: Player, track: QueuedTrack, playedMs = track.duration *
   return track;
 }
 
-// 공급이 끊겨 플레이어가 멈춘 곡. 재생 스트림이 끝까지 읽히지 않았다
+// 패킷 공급이 끊겨 플레이어가 멈춘 곡. 재생 스트림이 끝까지 읽히지 않았다
 function starved(player: Player, track: QueuedTrack, playedMs: number) {
   playing(player, track, playedMs);
   Object.assign(player.playback?.resource?.playStream ?? {}, { readableEnded: false });
@@ -138,7 +138,7 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   assert.ok(calls.sink.includes("onReset"), "기록 비움도 저장소에 반영");
 });
 
-test("공급이 끊겨 멈춘 곡은 끊긴 위치부터 다시 튼다", async () => {
+test("패킷 공급이 끊겨 멈춘 곡은 끊긴 위치부터 다시 튼다", async () => {
   const p = h.makePlayer();
   const track = cached("ddddddddddd");
   starved(p, track, 30000);
@@ -224,7 +224,7 @@ test("끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 다시 열�
   assert.equal(p.retry.used, 0);
 });
 
-test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입력 상태를 남기고, 다시 연 데 걸린 시간을 남긴다", async () => {
+test("패킷 공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입력 상태를 남기고, 다시 연 데 걸린 시간을 남긴다", async () => {
   const p = h.makePlayer();
   const track = cached("e1eeeeeeeee");
   starved(p, track, 30_000);
@@ -236,7 +236,7 @@ test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입
 
   const lines = sink.buffer.slice(from).map((e) => e.text);
   assert.ok(
-    lines.some((l) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 청크 · 입력 없음 1[23]\.\d초 · 청크 #3 · 이어받는 중$/.test(l)),
+    lines.some((l) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 청크 · 입력 없음 1[23]\.\d초 · 청크 #3 · 이어받는 중$/.test(l)),
     lines.join("\n"),
   );
   assert.ok(lines.some((l) => /^다시 열었습니다: .* \| \d+\.\d초 걸림$/.test(l)));
@@ -249,12 +249,12 @@ test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입
   await q.onTrackEnd("idle");
   h.dispose(q);
   assert.ok(
-    sink.buffer.slice(from2).some((e) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 캐시 전환$/.test(e.text)),
+    sink.buffer.slice(from2).some((e) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 캐시 전환$/.test(e.text)),
     "캐시로 갈아탄 뒤에는 입력이 끊긴 시간을 모른다",
   );
 });
 
-test("공급이 끊겨 멈추면 출력 쪽(워커 · 답을 기다리는 프레임 · 받아 둔 패킷 · 깊이)도 남긴다", async () => {
+test("패킷 공급이 끊겨 멈추면 출력 쪽(워커 · 응답 대기 프레임 · 송출 대기 패킷 · 큐 깊이)도 남긴다", async () => {
   const p = h.makePlayer();
   starved(p, cached("e3eeeeeeeee"), 30_000);
   const output = { describe: () => ({ inflight: 3, ready: 0, frames: 1, depth: 2, worker: 2, oldestMs: 1200 }) };
@@ -266,7 +266,7 @@ test("공급이 끊겨 멈추면 출력 쪽(워커 · 답을 기다리는 프레
 
   const lines = sink.buffer.slice(from).map((e) => e.text);
   assert.ok(
-    lines.some((l) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 파일 · 출력 워커 2 · 답 기다림 3개\(가장 오래 1\.2초\) · 받아 둔 0개 · 깊이 2$/.test(l)),
+    lines.some((l) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 파일 · 출력 워커 2 · 응답 대기 3개\(가장 오래 1\.2초\) · 송출 대기 0개 · 큐 깊이 2$/.test(l)),
     lines.join("\n"),
   );
 });
@@ -556,7 +556,7 @@ test("오디오 오류는 음원 쪽이다: 음성 연결을 건드리지 않고
   await new Promise((done) => setImmediate(done));
   h.dispose(p);
 
-  assert.deepEqual(calls.recoveries, [], "음성 연결을 다시 붙이지 않는다");
+  assert.deepEqual(calls.recoveries, [], "음성 연결을 재연결하지 않는다");
   assert.deepEqual(errors, [], "다음 곡으로 넘기는 오류 처리를 따로 부르지 않는다(곡 끝 처리와 겹친다)");
   assert.deepEqual(ends, ["stream-error"]);
 });
@@ -1117,7 +1117,7 @@ test("새 플레이어는 그 서버에서 마지막으로 정한 볼륨으로 �
   await guildSettings.saveVolume("g7", 100);
 });
 
-test("볼륨은 0~100 으로 자르고 지금 출력에 배율(dB)로 바로 건다", () => {
+test("볼륨은 0~100 으로 자르고 지금 출력 스트림에 볼륨 배율(dB)로 바로 건다", () => {
   const p = h.makePlayer();
   let applied: number | null = null;
   p.playback = playback({

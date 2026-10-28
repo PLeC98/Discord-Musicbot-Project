@@ -56,7 +56,7 @@ after(() => {
 
 beforeEach(() => {
   calls.length = 0;
-  // 받아 둔 영상 정보는 봇 전체에 하나다. 가짜가 주는 주소는 만료 시각(expire=)이 없어 두지 않지만, 아래 다시 쓰기 시험이 넣은 것을 비운다
+  // 받아 둔 영상 정보는 봇 전체에 하나다. 가짜가 주는 주소는 만료 시각(expire=)이 없어 캐시하지 않지만, 아래 다시 쓰기 테스트가 캐시한 것을 비운다
   useRecentInfo(null);
   respond = () => ({});
   cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
@@ -314,7 +314,7 @@ test("영상이 없는 것은 다시 받지 않는다", async () => {
 const lasting = (id: string, expireIn = 6 * 3600) => ({ ...video(id), url: `https://rr1.googlevideo.com/videoplayback?id=${id}&expire=${Math.floor(Date.now() / 1000) + expireIn}`, format_id: "251", protocol: "https", formats: [{ format_id: "251", acodec: "opus", vcodec: "none" }] });
 
 test("곡 정보 뒤의 재생 주소는 yt-dlp 를 부르지 않는다. 서술자는 추출한 것과 같고 다시 쓴 표시만 다르다", async () => {
-  // 두 번 추출해도 같은 답(부를 때마다 셈하면 초 경계에서 만료 시각이 달라진다)
+  // 두 번 추출해도 같은 답(부를 때마다 계산하면 초 경계에서 만료 시각이 달라진다)
   const answer = lasting("rrrrrrrrrrr");
   respond = () => answer;
   await YouTube.getInfo("https://www.youtube.com/watch?v=rrrrrrrrrrr");
@@ -334,7 +334,7 @@ test("곡을 다 받기 전에 만료될 주소 · fresh 로 받은 것은 다�
   respond = () => lasting("ttttttttttt");
   await YouTube.getStream("https://www.youtube.com/watch?v=ttttttttttt", { fresh: true });
   await YouTube.getStream("https://www.youtube.com/watch?v=ttttttttttt");
-  assert.equal(calls.length, 4, "fresh 는 넣지도 않는다");
+  assert.equal(calls.length, 4, "fresh 는 캐시하지도 않는다");
 });
 
 // 다운로드: 받는 쪽이 주는 옵션과, 실행을 적는 가짜

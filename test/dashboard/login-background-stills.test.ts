@@ -81,7 +81,7 @@ const job = (one: store.Stored) => ({ item: one, folder: store.folderOf(one.id),
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 const pixel = async (file: string) => [...(await sharp(file).raw().toBuffer()).subarray(0, 3)];
 
-test("대표색: 화면과 같은 셈(Celebi · Score). 무채색이면 COLORLESS(null)", () => {
+test("대표색: 화면과 같은 계산(Celebi · Score). 무채색이면 COLORLESS(null)", () => {
   const solid = (r: number, g: number, b: number) => Array.from({ length: 40 * 40 }, () => [r, g, b, 255]).flat();
   assert.match(hexOfSeed(seedOfPixels(solid(30, 90, 200)))!, /^#[0-9a-f]{6}$/);
   assert.equal(seedOfPixels(solid(128, 128, 128)), COLORLESS);

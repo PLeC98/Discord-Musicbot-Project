@@ -310,7 +310,7 @@ class LogManager {
     return true;
   }
 
-  // SSE 한 줄. id 를 실어 브라우저가 다시 붙을 때 마지막 id(Last-Event-ID)를 보내게 한다
+  // SSE 한 줄. id 를 실어 브라우저가 재연결할 때 마지막 id(Last-Event-ID)를 보내게 한다
   _frameOf(entry: WireEntry) {
     return `id: ${this.boot}.${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`;
   }

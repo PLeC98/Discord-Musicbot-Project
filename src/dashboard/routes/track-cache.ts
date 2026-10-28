@@ -20,7 +20,7 @@ const trackCacheRouter = express.Router();
 trackCacheRouter.use(requireOwner);
 
 const refuse = (res: Response, { code, params, errors }: trackCache.Refusal) => sendProblem(res, code, params, errors ? { errors } : undefined);
-// 주소 질의 그대로(같은 키가 여럿인지를 보려고 express 가 읽은 req.query 를 쓰지 않는다)
+// URL 쿼리 그대로(같은 키가 여럿인지를 보려고 express 가 읽은 req.query 를 쓰지 않는다)
 const searchOf = (req: Request) => new URL(req.originalUrl, "http://localhost").searchParams;
 
 trackCacheRouter.get("/", (req, res) => {

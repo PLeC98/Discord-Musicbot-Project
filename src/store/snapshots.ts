@@ -1,5 +1,5 @@
 // settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 풀린다.
-//   daily           하루 한 번(기동 때 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
+//   daily           하루 한 번(기동 시 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
 //   before-import   설정을 불러오기 전 · before-restore 복원으로 교체하기 전 · before-reset 초기화하기 전. 셋 합쳐 5개
 // 복원: 선택한 스냅샷을 settings.restore.db 로 예약하면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 교체한다(열린 DB 를 교체하지 않는다).
 
@@ -75,7 +75,7 @@ async function ensureDaily(at = new Date()) {
   return name;
 }
 
-/** 기동 때. 오늘 것을 뜨고 한 시간마다 살핀다(자정을 넘겨 돌아도 하루 한 번) */
+/** 기동 시. 오늘 것을 뜨고 한 시간마다 살핀다(자정을 넘겨 돌아도 하루 한 번) */
 function startDaily() {
   const check = () => ensureDaily().catch((error: unknown) => log.warn(`설정 DB 스냅샷을 남기지 못했습니다: ${messageOf(error)}`));
   void check();
@@ -153,7 +153,7 @@ function keepCurrent(dir: string, current: string) {
 }
 
 /**
- * 기동 때 settings.db 를 열기 전에. 예약한 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 교체한다.
+ * 기동 시 settings.db 를 열기 전에. 예약한 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 교체한다.
  * 교체한 스냅샷 이름(없었으면 null)
  */
 function applyStaged(dir: string): string | null {

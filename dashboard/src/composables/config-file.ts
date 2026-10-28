@@ -18,7 +18,7 @@ type Options = {
   alsoUnsaved?: () => boolean;
   /** 보낼 모양. 바뀌었는지는 마지막으로 받은 것과 견준다 */
   payload: () => unknown;
-  /** 받은 것을 편집기에 넣는다 */
+  /** 받은 것을 편집기에 반영한다 */
   apply: (data: Data) => void;
   /** 읽기. 기본은 GET /api/admin/config/<name> */
   read: () => Promise<Data>;
@@ -68,7 +68,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, s
     if (dirty.value) serverProblems.value = [];
   });
 
-  /** 받은 것을 넣고 이것을 기준(저장된 상태)으로 삼는다 */
+  /** 받은 것을 반영하고 이것을 기준(저장된 상태)으로 삼는다 */
   function load(data: Data) {
     apply(data);
     snapshot.value = JSON.stringify(payload());

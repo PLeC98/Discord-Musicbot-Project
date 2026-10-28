@@ -40,7 +40,7 @@ type SentBody = {
 };
 // 가짜 응답은 여기서 읽는 필드(ok · status · json · text)만 준다
 type FakeResponse = { ok: boolean; status?: number; headers?: Headers; json?: () => Promise<unknown>; text?: () => Promise<string> };
-// 보조가 바깥으로 보내는 요청(모델 · 토큰 셈 · 서비스 계정 토큰)을 이 가짜로 받는다
+// 보조가 바깥으로 보내는 요청(모델 · 토큰 세기 · 서비스 계정 토큰)을 이 가짜로 받는다
 function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<FakeResponse>) {
   assist.useFetch(fake<typeof fetch>(async (url: string, init: SentInit) => withText(await fn(url, init))));
 }
@@ -1315,7 +1315,7 @@ test("답에 U+2581 이 섞여 와도 읽는다", async () => {
 
 // ── 줄 형식의 모르는 이름 ─────────────────────────────────────────────────
 
-// 모르는 이름은 검사가 표시한다(저장 · 기동 때 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다 —
+// 모르는 이름은 검사가 표시한다(저장 · 기동 시 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다 —
 // 오타를 조용히 지우면 왜 사라졌는지 알 길이 없다
 test("줄 형식의 모르는 자리표시자는 검사가 표시하고, 그려 보면 그대로 남는다", async () => {
   useConfig(`${ON}list:\n  lineFormat: "{{title}} / {{아티스트}} / {{duration::m}}분"\n`, [{ role: "user", text: "{{list}}" }]);

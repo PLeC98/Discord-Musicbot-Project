@@ -94,12 +94,12 @@ test("deployCommands: 성공 경로 — 현재 로드된 세트 전체를 1회 P
   assert.deepEqual(putCalls[0].body, commands, "로드된 정의를 그대로 등록");
 });
 
-test("deployCommands: 정의 무변경 재기동은 PUT 생략, force는 항상 PUT", async () => {
+test("deployCommands: 정의 변경 없는 재기동은 PUT 생략, force는 항상 PUT", async () => {
   const hashPath = freshHashPath();
   putCalls = [];
 
   await deployCommands({ hashPath, put }); // 첫 배포 — 지문 기록
-  const second = await deployCommands({ hashPath, put }); // 무변경 재기동 시뮬레이션
+  const second = await deployCommands({ hashPath, put }); // 변경 없는 재기동 시뮬레이션
   assert.ok(second.ok);
   assert.equal(second.skipped, true);
   assert.equal(second.count, commands.length, "생략이어도 카운트/이름은 보고");

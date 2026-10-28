@@ -2,7 +2,7 @@
 // 봇이 올린 것(작성자가 봇)만 건드린다: 운영자가 같은 이름으로 올린 이모지는 지우지 않고 그 아이콘은 유니코드로 둔다.
 // 같은지는 CDN 의 그림과 견준다(PNG 는 올린 바이트 그대로 돌아온다. 움직이는 GIF 는 디스코드가 다시 인코딩해 프레임 픽셀을 허용치 안에서 견준다).
 // 이름은 앱 안에서 하나뿐이라 그림이 바뀐 것은 임시 이름으로 올려 쓰는 쪽을 바꾸고 옛 것을 지운 뒤 이름을 되돌린다.
-// 기동 때는 목록 하나로 이름 → id 를 먼저 싣고(패널 복원 전) 견주기 · 올리기는 뒤에서 한다. 운영자 색이 바뀌면 다시 맞춘다.
+// 기동 시에는 목록 하나로 이름 → id 를 먼저 싣고(패널 복원 전) 견주기 · 올리기는 뒤에서 한다. 운영자 색이 바뀌면 다시 맞춘다.
 
 import type { Client } from "discord.js";
 import sharp from "sharp";
@@ -17,7 +17,7 @@ const log = logger.child({ category: "core", sub: "emoji" });
 
 /** 앱에 있는 이모지 하나. mine: 봇이 올렸다 */
 type Remote = { id: string; name: string; animated: boolean; mine: boolean };
-/** 디스코드 쪽. 시험이 가짜를 넘긴다 */
+/** 디스코드 쪽. 테스트가 가짜를 넘긴다 */
 type Api = {
   list(): Promise<Remote[]>;
   /** CDN 의 그림(PNG 는 .png, 움직이는 것은 .gif). 못 받으면 null */

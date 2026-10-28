@@ -21,7 +21,7 @@ export const pending = ref<string[]>([]);
 export const loaded = ref(false);
 const revision = ref(0);
 
-/** 받은 값을 넣는다. keys 의 항목만 고치는 중인 값을 덮는다(나머지 탭에서 고치는 중인 값은 남긴다) */
+/** 받은 값을 반영한다. keys 의 항목만 고치는 중인 값을 덮는다(나머지 탭에서 고치는 중인 값은 남긴다) */
 function apply(view: TunablesView, keys: readonly string[]) {
   saved.value = { ...blank(), ...view.values };
   for (const key of keys) draft.value[key] = saved.value[key];

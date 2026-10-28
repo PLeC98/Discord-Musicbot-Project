@@ -161,7 +161,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
-  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 실시간 연결 · 볼륨은 뺀다(rate-limits)
+  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE 연결 · 볼륨은 뺀다(rate-limits)
   app.use(
     "/api",
     limiter(() => rl.apiMax, { skip: unlimited }),
@@ -202,7 +202,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
 function startDashboard(bot: BotContext, { stream, deployCommands, restart }: AppDeps) {
   const app = createApp(bot, { stream, deployCommands, restart });
-  // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재수립은 화면을 열기 전부터 모은다
+  // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재연결은 화면을 열기 전부터 모은다
   startStatus(bot);
   // 로그인 배경: 쓸 수 있는 인코더를 뒤에서 테스트하고, 봇이 꺼질 때 하던 단계 · 남은 단계를 이어서 한다
   startEncoderCheck();
@@ -210,7 +210,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   loginBackground.resume();
   // 백업 불러오기: 꺼지기 전에 올려 두고 불러오지 않은 파일을 치운다
   sweepUploads();
-  // AI 리퀘스트 로그: 새 기록을 실시간 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
+  // AI 리퀘스트 로그: 새 기록을 SSE 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
   // IP 위치 DB: 자동 업데이트면 새 버전을 받는다(로그인한 기기의 위치)
   geoip.start();

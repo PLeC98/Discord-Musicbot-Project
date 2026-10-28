@@ -116,7 +116,7 @@ test("돌던 중에 대시보드에서 새 쿠키를 입력했으면 되담지 �
   if (held) cookieJar.release(held);
 });
 
-test("꺼지다 남은 쿠키 파일은 기동 때 치운다. 다른 파일은 건드리지 않는다", () => {
+test("꺼지다 남은 쿠키 파일은 기동 시 치운다. 다른 파일은 건드리지 않는다", () => {
   fs.writeFileSync(path.join(TMP, "cookies-1-abc.txt"), "x");
   fs.writeFileSync(path.join(TMP, "other.txt"), "y");
   cookieJar.sweep();

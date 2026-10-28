@@ -81,7 +81,7 @@ let reported = "";
 const EMPTY: GenresConfig = { defaults: {}, genres: {} };
 
 /**
- * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 때부터 틀림) 빈 설정을 돌려준다.
+ * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 시점부터 틀림) 빈 설정을 돌려준다.
  * 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다(DB 를 바깥에서 고쳤을 때 등)
  */
 function genres(): GenresConfig {

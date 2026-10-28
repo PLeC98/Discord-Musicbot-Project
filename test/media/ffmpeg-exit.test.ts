@@ -32,7 +32,7 @@ test("파이프 쓰기 실패: Windows 는 -22 · -32, 그 밖은 하위 8비트
   assert.equal(isPipeWriteFailure(256 - 32, "linux"), true);
 });
 
-test("남기는 방식: 비정상 신호 · 우리가 닫은 정리 · 스스로 실패 · 정상", () => {
+test("남기는 방식: 비정상 신호 · 봇이 직접 닫은 종료 · 자체 실패 · 정상", () => {
   const v = (code: number | null, signal: string | null, closedByUs: boolean) => exitVerdict({ code, signal, closedByUs, platform: "win32" });
   assert.equal(v(null, "SIGSEGV", false), "crash");
   assert.equal(v(null, "SIGSEGV", true), "crash");

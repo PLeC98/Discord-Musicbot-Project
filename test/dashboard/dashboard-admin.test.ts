@@ -73,7 +73,7 @@ function makeGuild(id: string, name: string, { leaveError = null as Error | null
     iconURL: () => null,
     systemChannel: null,
     // 운영자는 AlphaGuild 에만 있다(봇 상태의 플레이어 줄)
-    // 운영자의 서버 목록은 이 시험에 없다(토큰 없는 세션). 멤버 표시는 멤버 캐시로
+    // 운영자의 서버 목록은 이 테스트에 없다(토큰 없는 세션). 멤버 표시는 멤버 캐시로
     members: { me: {}, cache: new Map(id === "100" ? [["owner", {}]] : []), fetch: async (userId: string) => (id === "100" ? { id: userId } : Promise.reject(new Error("Unknown Member"))) },
     channels: {
       cache: new Map([[botChannel.id, botChannel]]),
@@ -229,7 +229,7 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.deepEqual({ ...r.json.encoding, max: 0 }, { max: 0, maxDepth: MAX_DEPTH, quota: r.json.encoding.quota, sessions: 0, late: 0, deaths: 0, workers: [] });
   assert.ok(r.json.encoding.max >= 1);
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
-  // 질의가 없으면 화면의 처음 값(재생 중 · 일시정지만)이라 곡 없이 대기는 셈에만
+  // 쿼리가 없으면 화면의 처음 값(재생 중 · 일시정지만)이라 곡 없이 대기는 개수에만
   assert.deepEqual(r.json.players, { voiceConnections: 0, queued: 1, listeners: 0, counts: { playing: 0, paused: 0, idle: 1 }, matched: 0, from: 0, rows: [] });
   const idle = await req<AdminStatus>("GET", "/api/admin/status?states=idle");
   assert.deepEqual(idle.json.players.rows, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
@@ -245,7 +245,7 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.ok(["trace", "debug", "info", "warn", "error", "fatal"].includes(r.json.logLevel), `logLevel=${r.json.logLevel}`);
 });
 
-test("GET guilds: 참가 서버 목록 + 재생 여부, 질의로 거른 구간만", async () => {
+test("GET guilds: 참가 서버 목록 + 재생 여부, 쿼리로 필터링된 구간만", async () => {
   const r = await req<AdminGuilds>("GET", "/api/admin/guilds");
   assert.equal(r.status, 200);
   assert.deepEqual([r.json.total, r.json.playing, r.json.matched, r.json.from, r.json.guilds.length], [3, 1, 3, 0, 3]);
@@ -487,7 +487,7 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   assert.equal(byType.lbradio.label, "ListenBrainz Radio");
   assert.equal(byType.vocadb.label, "VocaDB");
 
-  // 곡이 많을 때 선택하는 범위. 화면이 "상위 n곡 중에서"를 채운 필드에 따라 셈한다
+  // 곡이 많을 때 선택하는 범위. 화면이 "상위 n곡 중에서"를 채운 필드에 따라 계산한다
   assert.deepEqual(byType.vocadb.window, { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 });
   assert.equal(byType.keyword.window, null);
   // 입력하는 동안 후보를 받는 필드. 화면이 이걸 보고 자동완성을 켠다

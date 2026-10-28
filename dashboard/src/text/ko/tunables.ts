@@ -1,4 +1,4 @@
-// 운영자 패널: 일반 · 유튜브 · 연령 제한 · 디스플레이 탭(과 AI 보조 탭의 리퀘스트 로그)의 운영 조절값(칸 목록은 src/rules/tunables.ts)
+// 운영자 패널: 일반 · 유튜브 · 연령 제한 · 디스플레이 탭(과 AI 보조 탭의 리퀘스트 로그)의 운영 조절값(필드 목록은 src/rules/tunables.ts)
 
 /** 묶음마다 제목 · 아이콘 · 설명 */
 const groups = {
@@ -14,7 +14,7 @@ const groups = {
   ailog: { title: "기록 설정", icon: "settings", desc: "" },
 } as const;
 
-/** 칸마다 이름표 · 설명(툴팁) */
+/** 필드마다 이름표 · 설명(툴팁) */
 /** label: 항목 이름(알림 · 안내에도 쓴다), short: 박스 안에서 보일 짧은 이름(박스 제목이 나머지를 말한다) */
 const fields: Record<string, { label: string; help: string; short?: string }> = {
   QUEUE_MAX_TRACKS: { label: "대기열 곡 수 상한", help: "재생 중인 곡은 빼고 세요. 0 이면 끔, 켜면 25 이상.\n곡이 수천 개면 셔플처럼 대기열 전체를 다시 쓰는 조작 동안 봇 전체가 잠깐 멈출 수 있어요. 1,000곡 안쪽을 권해요." },
@@ -90,7 +90,7 @@ const visibility = {
 const on = "켬";
 const off = "끔";
 const savedDone = "운영 조절값을 저장했어요";
-/** names: 다시 시작해야 먹는 칸의 이름(· 로 이음) */
+/** names: 다시 시작해야 적용되는 필드의 이름(· 로 이음) */
 const savedRestart = (names: string) => `봇을 다시 시작해야 적용돼요: ${names}`;
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
 const loadFailed = "운영 조절값을 읽지 못했어요.";

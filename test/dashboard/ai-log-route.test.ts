@@ -1,4 +1,4 @@
-// src/dashboard/routes/ai-log.ts · ai-log-stream.ts — AI 리퀘스트 로그 목록 · 한 줄 · 삭제 · 사용량 통계 · 실시간 연결
+// src/dashboard/routes/ai-log.ts · ai-log-stream.ts — AI 리퀘스트 로그 목록 · 한 줄 · 삭제 · 사용량 통계 · SSE 연결
 
 process.env.OWNER_ID = "owner";
 
@@ -89,7 +89,7 @@ test("로그를 삭제해도 통계는 남는다. 통계: 기간 · 출처 · �
   assert.equal((await get<Report>("/usage?period=0")).json.total.requests, 0);
 });
 
-test("실시간 연결: 새 기록을 서버 이름과 저장 상태를 붙여 보내고, 다시 붙으면 놓친 줄부터 보낸다", async () => {
+test("SSE 연결: 새 기록을 서버 이름과 저장 상태를 붙여 보내고, 재연결하면 놓친 줄부터 보낸다", async () => {
   requests.clearRequests();
   const missed = add();
   const controller = new AbortController();

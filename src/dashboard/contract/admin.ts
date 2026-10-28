@@ -21,7 +21,7 @@ import type { AgeContent } from "../../config/age-content.ts";
  * history 는 서버가 15초마다 모은 최근 15분이라 화면을 늦게 열어도 그래프가 차 있다
  */
 type AdminStatus = {
-  /** reconnects: 봇이 켜진 뒤 디스코드 API 연결이 끊겼다 다시 붙은(재수립) 횟수. retryAttempt: 지금 끊겨 다시 붙으려는 중이면 몇 번째 시도인지, 붙어 있으면 null */
+  /** reconnects: 봇이 켜진 뒤 디스코드 API 연결이 끊겼다 재연결한 횟수. retryAttempt: 지금 끊겨 재연결하려는 중이면 몇 번째 시도인지, 연결돼 있으면 null */
   bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number; startedAt: number; version: string; reconnects: number; retryAttempt: number | null };
   /** heapLimit: V8 heap 한도(이 값 대비로 판정한다. heapTotal 은 필요에 따라 늘어나는 값이라 한도가 아니다) */
   node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; heapLimit: number; rss: number } };
@@ -31,24 +31,24 @@ type AdminStatus = {
   cpu: { bot: number; system: number };
   /** 이벤트 루프 지연(ms). 지난 15초의 p99 와 최대 */
   loop: { p99: number; max: number };
-  /** 곡 다운로드(캐시). bytesPerSec 은 지난 15초에 마친 양의 평균, todayBytes 는 오늘(봇 기계의 자정부터), active 는 지금 다운로드하는 곡 수 */
+  /** 곡 다운로드(캐시). bytesPerSec 은 지난 15초에 마친 양의 평균, todayBytes 는 오늘(봇 호스트의 자정부터), active 는 지금 다운로드하는 곡 수 */
   download: { bytesPerSec: number; todayBytes: number; active: number };
   /**
-   * 업로드(바이트/초, 지난 15초 평균). bot = voice + dashboard: 음성은 보낸 Opus 패킷에 RTP · 암호화 · UDP/IP 머리를 더한 추정, 대시보드는 같은 기계 밖으로 보낸 HTTP 응답.
-   * system: 이 기계의 송신(Linux 는 장치가 있는 인터페이스, 없으면 루프백만 뺀다. Windows 는 이더넷 · 무선 종류로, 같은 종류인 가상 스위치 어댑터도 들어간다), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 기계의 자정부터) 보낸 양
+   * 업로드(바이트/초, 지난 15초 평균). bot = voice + dashboard: 음성은 보낸 Opus 패킷에 RTP · 암호화 · UDP/IP 헤더를 더한 추정, 대시보드는 로컬이 아닌 곳으로 보낸 HTTP 응답.
+   * system: 호스트 전체의 송신(Linux 는 장치가 있는 인터페이스, 없으면 루프백만 뺀다. Windows 는 이더넷 · 무선 종류로, 같은 종류인 가상 스위치 어댑터도 들어간다), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 호스트의 자정부터) 보낸 양
    */
   upload: { bot: number; voice: number; dashboard: number; system: number | null; todayBytes: number };
   activePlayers: number;
   /**
-   * 플레이어가 있는 서버(재생 · 일시정지 · 곡 없이 대기). 행은 질의(players · states · q)의 구간만 온다.
-   * listeners · queued · counts 는 전부의 합(거르기와 상관없다). matched: 거른 수, from: 받은 구간의 시작(당겼으면 보낸 시작보다 작다), rows: 그 구간의 행(만든 순서)
+   * 플레이어가 있는 서버(재생 · 일시정지 · 곡 없이 대기). 행은 쿼리(players · states · q)의 구간만 온다.
+   * listeners · queued · counts 는 전부의 합(필터링과 상관없다). matched: 필터링된 수, from: 받은 구간의 시작(당겼으면 보낸 시작보다 작다), rows: 그 구간의 행(삽입 순서)
    */
   players: { voiceConnections: number; queued: number; listeners: number; counts: Record<PlayerState, number>; matched: number; from: number; rows: PlayerRow[] };
   /**
-   * 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). 행은 질의(procs · sort · desc)로 정렬한 구간만 온다. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합.
-   * stray: 남은 것일 수 있는 프로세스의 앞(오래된 것부터 STRAY_SHOWN 개), strayMore: 그 밖의 수.
+   * 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). 행은 쿼리(procs · sort · desc)로 정렬한 구간만 온다. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합.
+   * stray: 잔류 의심 프로세스의 앞(오래된 것부터 STRAY_SHOWN 개), strayMore: 그 밖의 수.
    * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다.
-   * reused · missed: 지난 1시간 받아 둔 영상 정보를 다시 쓴 수 · 자리가 없어 밀려난 뒤 필요해져 다시 추출한 수
+   * reused · missed: 지난 1시간 캐시한 영상 정보를 다시 쓴 수 · 자리가 없어 밀려난 뒤 필요해져 다시 추출한 수
    */
   processes: {
     total: number;
@@ -72,8 +72,8 @@ type AdminStatus = {
    */
   env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
   /**
-   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, maxDepth: 미리 만드는 깊이의 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(재생 출력 하나에 하나라 일시정지한 것도 든다).
-   * late · deaths: 봇이 켜진 뒤 워커가 늦어 빈 프레임 수 · 워커가 죽거나 내린 수. 워커마다 streams: 맡은 세션, depth: 미리 만드는 깊이, rttP99: 지난 1초의 응답 p99(ms), cpuPct: CPU(코어 하나 기준, 아직 모르면 null)
+   * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, maxDepth: 큐 깊이의 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(출력 스트림 하나에 하나라 일시정지한 것도 든다).
+   * late · deaths: 봇이 켜진 뒤 워커가 늦어 생긴 누락 프레임 수 · 워커가 죽거나 내린 수. 워커마다 streams: 맡은 세션, depth: 큐 깊이, rttP99: 지난 1초의 응답 시간 p99(ms), cpuPct: CPU(코어 하나 기준, 아직 모르면 null)
    */
   encoding: { max: number; maxDepth: number; quota: number | null; sessions: number; late: number; deaths: number; workers: Array<{ n: number; streams: number; depth: number; rttP99: number; cpuPct: number | null }> };
   history: StatusHistory;
@@ -91,17 +91,17 @@ const LIST_WINDOW_MAX = 200;
 const PROCESS_SORTS = ["pid", "label", "job", "age", "mem"] as const;
 type ProcessSort = (typeof PROCESS_SORTS)[number];
 /**
- * 상태 탭 목록의 질의. players · procs: 구간(개수 0 이면 행 없이 셈만), states: 보일 상태, q: 서버 이름 · 곡 · 가수 찾기(Q_MAX 자까지).
- * sort · desc: 프로세스 정렬. 하는 일은 서버 이름 있는 일 → 나간 서버 → 서버 밖 일 → 봇 헬퍼 순서, 같은 값끼리는 방향과 상관없이 오래된 것부터
+ * 상태 탭 목록의 쿼리. players · procs: 구간(개수 0 이면 행 없이 개수만), states: 보일 상태, q: 서버 이름 · 곡 · 가수 검색(Q_MAX 자까지).
+ * sort · desc: 프로세스 정렬. 작업은 서버 이름 있는 작업 → 나간 서버 → 서버 밖 작업 → 봇 헬퍼 순서, 같은 값끼리는 방향과 상관없이 오래된 것부터
  */
 type StatusQuery = { players: Span; states: PlayerState[]; q: string; procs: Span; sort: ProcessSort; desc: boolean };
-/** 질의가 없을 때의 값(화면의 처음 값과 같다) */
+/** 쿼리가 없을 때의 값(화면의 처음 값과 같다) */
 const STATUS_QUERY: StatusQuery = { players: { from: 0, count: 30 }, states: ["playing", "paused"], q: "", procs: { from: 0, count: 30 }, sort: "age", desc: true };
-/** 셈만 받는 질의(행 없이. 정보 탭 · 다시 시작 기다리기) */
+/** 개수만 받는 쿼리(행 없이. 정보 탭 · 다시 시작 기다리기) */
 const COUNTS_ONLY: StatusQuery = { ...STATUS_QUERY, players: { from: 0, count: 0 }, procs: { from: 0, count: 0 } };
 const Q_MAX = 100;
 const STRAY_SHOWN = 20;
-/** 질의를 요청 질의 문자열 값으로(서버는 list-window 가 읽는다) */
+/** 쿼리를 요청의 쿼리 문자열 값으로(서버는 list-window 가 읽는다) */
 const statusParams = (query: StatusQuery) => ({
   players: `${query.players.from},${query.players.count}`,
   states: query.states.join(","),
@@ -111,8 +111,8 @@ const statusParams = (query: StatusQuery) => ({
   desc: query.desc ? "1" : "0",
 });
 /**
- * label: 프로그램(ffmpeg · yt-dlp · node). job: 하는 일, guildId: 그 일을 실행한 서버(봇 헬퍼 · 서버 밖의 곡 찾기는 null).
- * stray: 재생 · 다음 곡 일인데 그 서버에 플레이어가 없다(남은 프로세스일 수 있다). memMb: 15초마다 잰 값, 아직 못 쟀으면 null
+ * label: 프로그램(ffmpeg · yt-dlp · node). job: 작업, guildId: 그 작업을 실행한 서버(봇 헬퍼 · 서버 밖의 곡 찾기는 null).
+ * stray: 재생 · 다음 곡 작업인데 그 서버에 플레이어가 없다(잔류 의심). memMb: 15초마다 잰 값, 아직 못 쟀으면 null
  */
 type ProcessRow = { pid: number; label: string; ageMs: number; memMb: number | null; guildId: string | null; guildName: string | null; job: Job | null; stray: boolean };
 
@@ -136,7 +136,7 @@ type StorageView = {
 };
 
 /** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
-/** encodeRtt: 구간마다 가장 늦은 인코딩 워커의 응답 p99(ms). encodeLate: 구간 동안 워커가 늦어 빈 프레임 수. uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0) */
+/** encodeRtt: 구간마다 가장 느린 인코딩 워커의 응답 시간 p99(ms). encodeLate: 구간 동안 워커가 늦어 생긴 누락 프레임 수. uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0) */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[]; encodeLate: number[]; uploadBot: number[]; uploadSystem: number[] };
 
 /** 전체 서버 공지의 종류. 화면은 이 키로 라벨을 단다 */
@@ -161,11 +161,11 @@ const announceBody = (message: string) => message.trim();
 type BroadcastReply = { success: true; sent: number; failed: number; total: number; partial: boolean };
 
 type AdminGuild = { id: string; name: string; icon: string | null; memberCount: number; hasPlayer: boolean };
-/** 봇이 든 서버. guilds 는 질의(GuildQuery)로 거르고 정렬한 구간만. total: 전부의 수, playing: 재생 중인 서버 수(거르기와 상관없다), matched: 거른 수, from: 받은 구간의 시작 */
+/** 봇이 든 서버. guilds 는 쿼리(GuildQuery)로 필터링하고 정렬한 구간만. total: 전부의 수, playing: 재생 중인 서버 수(필터링과 상관없다), matched: 필터링된 수, from: 받은 구간의 시작 */
 type AdminGuilds = { total: number; playing: number; matched: number; from: number; guilds: AdminGuild[] };
 const GUILD_SORTS = ["name", "name-desc", "members-desc", "members-asc"] as const;
 type GuildSort = (typeof GUILD_SORTS)[number];
-/** 서버 관리 탭 목록의 질의. guilds: 구간, q: 서버 이름 찾기(Q_MAX 자까지), playing: 재생 중만, sort: 이름 · 이름 역순 · 멤버 수 두 방향(같으면 서버 ID) */
+/** 서버 관리 탭 목록의 쿼리. guilds: 구간, q: 서버 이름 검색(Q_MAX 자까지), playing: 재생 중만, sort: 이름 · 이름 역순 · 멤버 수 두 방향(같으면 서버 ID) */
 type GuildQuery = { guilds: Span; q: string; playing: boolean; sort: GuildSort };
 const GUILD_QUERY: GuildQuery = { guilds: { from: 0, count: 30 }, q: "", playing: false, sort: "name" };
 const guildParams = (query: GuildQuery) => ({ guilds: `${query.guilds.from},${query.guilds.count}`, q: query.q, playing: query.playing ? "1" : "0", sort: query.sort });

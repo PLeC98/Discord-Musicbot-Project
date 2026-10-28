@@ -36,7 +36,7 @@ import type { LookupRow } from "../../src/store/rows.ts";
 
 // 가짜 ffmpeg 프로세스와 오디오 리소스. 테스트가 읽는 필드
 type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
-// input 은 재생 출력(media/opus-output)이다. 그 PCM 소스는 input.source
+// input 은 출력 스트림(media/opus-output)이다. 그 PCM 소스는 input.source
 type FakeResource = {
   input: OpusOutput;
   options: { inputType?: StreamType; inlineVolume?: boolean; metadata?: unknown };
@@ -222,9 +222,9 @@ const VoiceLink = (await import("../../src/player/voice-link.ts")).VoiceLink;
 const SessionPersistence = (await import("../../src/player/session-mirror.ts")).SessionPersistence;
 const QueueWarmer = (await import("../../src/player/queue-warmer.ts")).QueueWarmer;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
-// 직접 링크 곡의 파일 태그 · 그림 찾기는 원본을 열지 않는다(시험은 네트워크로 나가지 않는다). 찾기를 보는 시험은 embedded-art 시험이 따로
+// 직접 링크 곡의 파일 태그 · 그림 찾기는 원본을 열지 않는다(테스트는 네트워크로 나가지 않는다). 찾기를 보는 테스트는 embedded-art 테스트가 따로
 (await import("../../src/sources/embedded-art.ts"))._internals.useOpen(async () => {
-  throw new Error("시험에서는 원본을 열지 않는다");
+  throw new Error("테스트에서는 원본을 열지 않는다");
 });
 const playerEvents = await import("../../src/player/events.ts");
 // 운영처럼 버려진 플레이어는 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만). 서버마다 레지스트리가 따로라 알림은 여기서 한 번만 듣는다

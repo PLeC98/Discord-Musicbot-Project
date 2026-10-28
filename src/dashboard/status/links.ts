@@ -79,12 +79,12 @@ function judged(id: Service): Pick<LinkRow, "state" | "latencyMs" | "lastOkAt" |
   return { state: slow ? "slow" : "ok", latencyMs: last.ms, lastOkAt, error: null, note: fails ? `최근 ${status.recent.length}번 중 ${fails}번 실패` : noteOf(id) };
 }
 
-/** 디스코드: 게이트웨이에 붙어 있으면 정상(지연은 하트비트), 다시 붙는 중이면 실패 */
+/** 디스코드: 게이트웨이에 연결돼 있으면 정상(지연은 하트비트), 재연결 중이면 실패 */
 function discordRow(client: Client): LinkRow {
   const { reconnects, retryAttempt } = gateway();
-  const note = reconnects ? `연결 재수립 ${reconnects}회` : null;
+  const note = reconnects ? `재연결 ${reconnects}회` : null;
   const base = { id: "discord", group: "play" as const, name: "디스코드 API" };
-  if (retryAttempt) return { ...base, state: "fail", latencyMs: null, lastOkAt: null, error: `다시 붙는 중(${retryAttempt}번째)`, note };
+  if (retryAttempt) return { ...base, state: "fail", latencyMs: null, lastOkAt: null, error: `재연결 중(${retryAttempt}번째)`, note };
   const ready = client.isReady();
   return { ...base, state: ready ? "ok" : "idle", latencyMs: ready && client.ws.ping >= 0 ? client.ws.ping : null, lastOkAt: ready ? Date.now() : null, error: null, note };
 }

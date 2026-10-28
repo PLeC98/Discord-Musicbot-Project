@@ -1,7 +1,7 @@
 // 입력 부품(고르기 · 여럿 고르기 · 칩 · 태그 · 구간 · 이모지 · 마크다운 편집)의 글
 
-/** 고르기 칸의 찾기(후보가 많을 때) */
-const searchAmong = (count: number) => `${count}개 중에서 찾기`;
+/** 고르기 입력란의 검색(후보가 많을 때) */
+const searchAmong = (count: number) => `${count}개 중에서 검색`;
 const pick = "선택";
 /** 여럿 고르기에서 둘 이상 골랐을 때 */
 const pickedSummary = (first: string, more: number) => `${first} 외 ${more}개`;
@@ -34,7 +34,7 @@ const colorHue = "색상";
 const colorDefault = "기본 색으로";
 const colorFormat = "값 형식";
 const colorHex = "HEX 값(#RRGGBB)";
-/** RGB · HSV 칸마다 읽어 줄 이름 */
+/** RGB · HSV 입력란마다 읽어 줄 이름 */
 const colorChannel = { r: "빨강(0~255)", g: "초록(0~255)", b: "파랑(0~255)", h: "색상(0~359도)", s: "채도(0~100%)", v: "밝기(0~100%)" } as const;
 
 // 마크다운 서식 도구(디스코드와 같은 단축키는 부르는 쪽이 붙인다)
@@ -72,7 +72,7 @@ const datePicker = {
   /** 고른 시각을 지우고 처음으로 */
   reset: "초기화",
   apply: "적용",
-  /** 고른 시각(칸에 적는 글). 올해면 연도를 빼고 */
+  /** 고른 시각(입력란에 적는 글). 올해면 연도를 빼고 */
   summary: (d: Date) => {
     const two = (n: number) => String(n).padStart(2, "0");
     const year = d.getFullYear() === new Date().getFullYear() ? "" : `${d.getFullYear()}년 `;

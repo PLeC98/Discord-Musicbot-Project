@@ -11,8 +11,8 @@ const allTags = "모든 태그";
 const autoScroll = "자동 스크롤";
 const clear = "지우기";
 const empty = "표시할 로그가 아직 없어요";
-const search = "로그에서 찾기";
-/** 표시 줄: 다시 붙었을 때 서버가 쌓아 둔 줄 밖으로 밀려나 받지 못한 줄 · 봇 재시작 */
+const search = "로그에서 검색";
+/** 표시 줄: 재연결했을 때 서버가 쌓아 둔 줄 밖으로 밀려나 받지 못한 줄 · 봇 재시작 */
 const missed = (count: number) => `연결이 끊긴 사이 ${formatNumber(count)}줄이 실시간 버퍼에서 밀려났어요`;
 const restarted = "봇이 다시 시작했어요";
 
@@ -32,7 +32,7 @@ const files = {
   back: title,
   download: "내려받기",
   downloadTip: "지금 건 필터 그대로, 화면과 같은 열을 글로 받아요.",
-  search: "파일에서 찾기",
+  search: "파일에서 검색",
   latest: "최신 파일",
   /** 떼어 낸 파일: 날짜가 아니라 크기로 떼어 내므로 마지막 줄의 시각까지 적는다("언제부터"는 바로 앞 파일이 말해 준다) */
   until: (ms: number) => {

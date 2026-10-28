@@ -1,5 +1,5 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
-// 로그 → 남은 자식 프로세스 정리 → 종료 처리기 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
+// 로그 → 남은 자식 프로세스 정리 → 종료 핸들러 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 핸들러 → 기동 확인 → 로그인.
 
 import { Client, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
@@ -96,7 +96,7 @@ function main() {
 
   // 유튜브 POToken 서버. 준비를 확인한 뒤 봇을 켠다
   const potServer = createPotServer();
-  // 종료 처리기는 POToken 서버를 기다리는 동안에도 받는다. 기다리다 끈 것이 기록 없이 끊김으로 세어지지 않게
+  // 종료 핸들러는 POToken 서버를 기다리는 동안에도 받는다. 기다리다 끈 것이 기록 없이 끊김으로 세어지지 않게
   const shutdown = installShutdown({ potServer, logFile });
   // 설정(조절값 · 키)은 DB 에 있다. POToken 서버 · 명령 배포 · 대시보드가 설정을 읽기 전에 연다
   if (!openSettings({ potServer, logFile })) return;
@@ -221,18 +221,18 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
   });
-  // 게이트웨이에 다시 붙어 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
+  // 게이트웨이에 재연결해 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
   client.on(Events.GuildAvailable, (guild) => {
     bestEffort(log, guildBack(stream, guild), "다시 쓸 수 있게 된 서버의 대시보드 구독자 가져오기");
   });
   // 봇이 서버에서 나가면 그 서버 멤버였던 사람들의 서버 목록 · 초대 화면이 다시 읽게 한다
   client.on(Events.GuildDelete, (guild) => botLeftGuild(stream, guild));
 
-  // 서버 하나 다시 시작. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
+  // 서버 하나 다시 시작. 이벤트 핸들러 경계와 새어 나온 오류 핸들러가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
   const onFault: OnFault = (error, guildId, where) => {
     if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
-    else log.error(`처리기 오류 (${where}):`, error);
+    else log.error(`핸들러 오류 (${where}):`, error);
   };
 
   client.once(Events.ClientReady, (ready) => {
@@ -398,7 +398,7 @@ function loadEvents(bot: BotContext, onFault: OnFault) {
   const events = EVENTS as readonly EventModule[];
   for (const event of events) {
     const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
-    // 처리기마다 서버 경계로 감싼다(app/event-boundary). 새어 나온 오류는 그 서버의 오류로 받는다
+    // 핸들러마다 서버 경계로 감싼다(app/event-boundary). 새어 나온 오류는 그 서버의 오류로 받는다
     register(
       event.name,
       guarded(event.name, (...args: unknown[]) => event.execute(bot, ...args), onFault),

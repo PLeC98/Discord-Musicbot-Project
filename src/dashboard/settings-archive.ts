@@ -1,4 +1,4 @@
-// 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 계약은 contract/settings-archive.
+// 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 공유 타입은 contract/settings-archive.
 //   settings  봇 설정만: 운영 조절값(PC 에 매인 쿠키 출처 · POToken 쓰기도) · 장르 · 활동 문구 · AI 설정 · 프롬프트. 서버별 설정 · 키 · 쿠키는 없다(설정 스냅샷 · 명령 전체 백업에 든다).
 //   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
@@ -301,7 +301,7 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
 /**
  * 선택한 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 까닭")로 아무것도 바꾸지 않는다.
  * before: DB 를 쓰기 바로 앞에 부른다(스냅샷).
- * restart: 다시 시작해야 적용되는 값이 기동 때 값과 다르다 · cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
+ * restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다 · cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
  */
 async function apply(file: string, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveImported> {
   const parsed = parse(file);
@@ -339,7 +339,7 @@ function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImporte
 const STAGED_AUDIO = "audio-cache.restore.zip";
 
 /**
- * 기동 때(설정을 올린 뒤 · 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 불러오고 삭제한다.
+ * 기동 시(설정을 올린 뒤 · 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 불러오고 삭제한다.
  * 번들이 없으면 null. 읽을 수 없는 번들(ZIP 이 깨졌거나 오디오 캐시가 아님)은 삭제하고 던진다(매번 다시 하지 않게). 그 밖의 실패는 번들을 남기고 던진다(다음 기동이 다시 한다)
  */
 async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {

@@ -41,7 +41,7 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
   return { guild: null, gone: false };
 }
 
-// 기동 때 저장된 재생 세션을 모두 복원한다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
+// 기동 시 저장된 재생 세션을 모두 복원한다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
 type PlayerClass = typeof Player;
 /** 서버마다의 플레이어. 복원한 플레이어를 여기에 올린다(복원하는 동안 들어온 명령이 같은 플레이어를 보게 먼저 올린다) */
 type Registry = Pick<PlayerSeats, "has" | "set">;

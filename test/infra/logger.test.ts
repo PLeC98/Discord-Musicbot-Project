@@ -256,7 +256,7 @@ test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 �
   assert.match(received, /붙는 순간의 새 줄/);
 });
 
-test("관리자 SSE: 줄마다 기동표.번호를 싣고, 다시 붙으면 마지막 번호 뒤만 보낸다. 다른 실행의 번호면(봇을 다시 시작) reset 뒤 전부", () => {
+test("관리자 SSE: 줄마다 기동표.번호를 싣고, 재연결하면 마지막 번호 뒤만 보낸다. 다른 실행의 번호면(봇을 다시 시작) reset 뒤 전부", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   for (let i = 1; i <= 3; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));

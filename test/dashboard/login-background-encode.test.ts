@@ -1,5 +1,5 @@
 // src/dashboard/login-background/encode.ts — H.264 · AV1 · VP9 를 HLS(fMP4)로 굽고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 굽는다(없으면 건너뛴다)
-// 단계 크기 셈(4K · 세로 · 작은 원본) · 구간과 크롭 · 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다) · 마무리(원본 삭제) · 코어 셈
+// 단계 크기 계산(4K · 세로 · 작은 원본) · 구간과 크롭 · 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다) · 마무리(원본 삭제) · 코어 계산
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -152,10 +152,10 @@ test("굽기 코어: 논리 코어의 80%, 최소 2개는 비운다(위쪽 코�
 test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 않는다", async () => {
   const { enoughMemory } = await import("../../src/dashboard/login-background/memory.ts");
   const started = Date.now();
-  await enoughMemory(0, "시험", signal);
+  await enoughMemory(0, "테스트", signal);
   const stopped = new AbortController();
   stopped.abort();
-  await enoughMemory(Number.MAX_SAFE_INTEGER, "시험", stopped.signal);
+  await enoughMemory(Number.MAX_SAFE_INTEGER, "테스트", stopped.signal);
   assert.ok(Date.now() - started < 1000);
 });
 

@@ -56,7 +56,7 @@ function layerAbove(el: HTMLElement) {
  */
 export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number }) {
   const style = ref<CSSProperties>({});
-  // 층은 패널이 실제로 그려졌을 때만(칩 입력 · 태그 고르기는 입력칸에 포커스만 가도 open 이 참이다)
+  // 층은 패널이 실제로 그려졌을 때만(칩 입력 · 태그 고르기는 입력란에 포커스만 가도 open 이 참이다)
   useCloseLayer(
     computed(() => open.value && panel.value != null),
     () => (open.value = false),

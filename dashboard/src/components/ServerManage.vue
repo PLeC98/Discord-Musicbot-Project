@@ -1,5 +1,5 @@
 <template>
-  <!-- 서버 관리 탭. 넓으면 두 단(왼쪽 전체 공지 · 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
+  <!-- 서버 관리 탭. 넓으면 2열(왼쪽 전체 공지 · 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
   <div class="grid grid-cols-1 @4xl/content:grid-cols-2 items-start gap-(--gap-in)">
     <!-- 카드 안 간격(design.md 간격 기준): 블록 사이 12, 입력란 → 글자 수 4, 라벨 → 미리보기 8 -->
     <BaseCard icon="campaign" :title="T.announce.title">
@@ -73,8 +73,8 @@
             </button>
           </SelectPanel>
         </div>
-        <!-- 목록 영역은 서버 7.5줄(한 단일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다).
-             보이는 행 둘레만 그리고 위아래는 빈 칸으로(composables/row-window, 봇 상태의 목록과 같다). 아직 받지 못한 자리는 빈 행 모양 -->
+        <!-- 목록 영역은 서버 7.5줄(1열일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다).
+             보이는 행 둘레만 그리고 위아래는 스페이서로 채운다(composables/row-window, 봇 상태의 목록과 같다). 아직 받지 못한 자리는 스켈레톤 행 -->
         <div ref="listEl" class="h-91 @4xl/content:h-105 overflow-y-auto -ml-2" :class="overflowing ? '-mr-4' : '-mr-2'" :style="listFade">
           <ul v-if="list.matched" class="flex flex-col" :style="{ paddingTop: `${listTop}px`, paddingBottom: `${listBottom}px` }">
             <li v-for="{ key, row: g } in slots" :key="key" class="flex items-center gap-3 h-14 px-2 rounded-(--r-row)">
@@ -140,7 +140,7 @@ import { text } from "../text/index.ts";
 const F = text.fields.format;
 const T = text.manage;
 
-// list: 질의로 거른 서버의 구간과 수, query: 그 질의(바꾸면 운영자 패널이 바로 받는다)
+// list: 쿼리로 필터링된 서버의 구간과 수, query: 그 쿼리(바꾸면 운영자 패널이 바로 받는다)
 const props = defineProps<{ list: AdminGuilds }>();
 const query = defineModel<GuildQuery>("query", { required: true });
 /** changed: 서버에서 나갔다(목록 · 봇 상태를 다시 읽는다) */
@@ -163,7 +163,7 @@ const length = computed(() => body.value.length);
 // 푸터의 시각: 지금 보내면 찍힐 시각을 디스코드 한국어 표기로("오늘 오후 11:15"). 분이 바뀌면 따라간다
 const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
 const sentAt = computed(() => T.announce.today(formatTime(now.value, { hour: "numeric", minute: "2-digit" })));
-// 봇이 보낼 임베드의 모양(계약 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
+// 봇이 보낼 임베드의 모양(공유 타입의 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
 const style = computed(() => ANNOUNCE_STYLE[kind.value]);
 const tile = computed(() => iconTones(style.value.color));
 const tooLong = computed(() => length.value > ANNOUNCE_MAX);
@@ -238,12 +238,12 @@ async function send() {
 }
 
 // ── 참가 서버 ──
-// 거르기 · 정렬은 서버가 한다. 바꾸면 처음부터, 맨 위로
+// 필터링 · 정렬은 백엔드가 한다. 바꾸면 처음부터, 맨 위로
 function setList(patch: Partial<Omit<GuildQuery, "guilds">>) {
   query.value = { ...query.value, ...patch, guilds: { ...query.value.guilds, from: 0 } };
   listToTop();
 }
-// 찾기는 입력이 200ms 쉬면 보낸다
+// 검색어는 입력이 200ms 쉬면 보낸다
 const term = ref(query.value.q);
 watchDebounced(term, (q) => setList({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
 // 정렬: 이름(기본) · 이름 역순 · 멤버 수(같으면 서버 ID)
@@ -271,9 +271,9 @@ const {
   request: (span: Span) => (query.value = { ...query.value, guilds: span }),
 });
 const slots = computed(() => slotsOf(range.value, props.list.from, props.list.guilds, (row) => row.id));
-// 빈 칸 높이만 바뀌어도 다시 잰다
+// 스페이서 높이만 바뀌어도 다시 잰다
 const overflowing = useOverflowing(listEl, () => [listTop.value, listBottom.value]);
-// 더 있는 쪽 끝 반 줄(28)을 흐리게(봇 상태의 목록과 같다)
+// 더 있는 쪽 끝 반 줄(28)을 페이드 처리한다(봇 상태의 목록과 같다)
 const listFade = useScrollFade(
   listEl,
   () => true,

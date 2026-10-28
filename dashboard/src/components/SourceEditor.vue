@@ -205,7 +205,7 @@ function suggestOf(source: SourceData, field: Field) {
   return what ? (term: string) => props.suggest(source.type ?? "", what, term) : null;
 }
 
-// 곡이 많을 때 몇 번째 곡까지 보는지. 봇과 같은 셈(rules/window-depth)
+// 곡이 많을 때 몇 번째 곡까지 보는지. 봇과 같은 계산(rules/window-depth)
 const depthOf = (source: SourceData) => {
   const window = spec(source.type)?.window;
   return window ? windowDepth(window, source) : 0;

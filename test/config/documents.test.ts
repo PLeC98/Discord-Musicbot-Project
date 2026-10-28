@@ -92,7 +92,7 @@ test("DB 에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서
   assert.equal(documents.revisionOf("status"), 3, "다음 저장은 번호 3 에 이어서");
 });
 
-test("예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 기동 때 지금 기본값으로 바꿔 저장한다", () => {
+test("예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 기동 시 지금 기본값으로 바꿔 저장한다", () => {
   const legacyLine = LEGACY_LINE_FORMATS[0];
   documents.putAll([
     { name: "ai", data: { provider: "vertex", list: { lineFormat: legacyLine, unknownDuration: "hide", unknownText: "모름" } } },

@@ -102,7 +102,7 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
   assert.equal(client.calls.length, 0);
 });
 
-// ── 기동 때 저장 세션 모두 복원 ───────────────────────────────────────────
+// ── 기동 시 저장 세션 모두 복원 ───────────────────────────────────────────
 
 const store = openTempStore("session-restore-");
 after(() => store.close());

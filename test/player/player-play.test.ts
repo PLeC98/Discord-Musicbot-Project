@@ -180,7 +180,7 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
   assert.equal(calls.spawns[0].label, "stream");
   assert.ok(calls.spawns[0].args.includes("pipe:0"));
   assert.equal(calls.downloads.length, 1, "재생과 나란히 캐시를 다운로드한다");
-  assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "스트림 분기는 무지연 전환을 위해 스플라이서를 끼운다");
+  assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "스트림 분기는 갭리스 전환을 위해 스플라이서를 끼운다");
   assert.equal(p.currentTrack.duration, 180, "보이던 길이를 지킨다(스트림이 준 길이도 출처가 준 값이다)");
   assert.equal(p.playback?.lengthMs, 190_000, "곡 끝 판정은 트는 음원의 길이(스트림이 준 값)를 본다");
 });
@@ -469,7 +469,7 @@ test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 �
   }
 });
 
-test("이을 수 있는 직접 링크 파일은 연 응답을 첫 조각으로 청크 스트림에 넘긴다(검사값 · 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
+test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검사값 · 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://files.test/big.mp3");
   behavior.stream = () => ({ url: "https://files.test/big.mp3", platform: "direct" });
@@ -1208,7 +1208,7 @@ test("연 입력의 종류를 적는다. 청크 스트림은 끊겼을 때 남�
   assert.equal(f.playback?.input?.kind, "파일");
 });
 
-test("오디오 플레이어는 공급이 끊겨도 10초(프레임 500개)를 버틴다", () => {
+test("오디오 플레이어는 패킷 공급이 끊겨도 10초(프레임 500개)를 버틴다", () => {
   let options: unknown = null;
   const p = new h.Player(h.fakeGuild("g9"), null, null, {
     createAudioPlayer: ((opts: unknown) => {

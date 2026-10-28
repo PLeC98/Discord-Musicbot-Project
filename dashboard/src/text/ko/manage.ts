@@ -7,7 +7,7 @@ const announce = {
   title: "전체 공지",
   desc: "봇이 들어간 모든 서버에 공지를 보내요.",
   kind: "공지 종류",
-  /** 공지 종류의 짧은 이름(고르기 단추). 임베드 제목은 계약 ANNOUNCE_STYLE */
+  /** 공지 종류의 짧은 이름(고르기 단추). 임베드 제목은 공유 타입의 ANNOUNCE_STYLE */
   kinds: { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" },
   toolbar: "서식",
   placeholder: "공지 내용",
@@ -33,7 +33,7 @@ const announce = {
 const guilds = {
   title: "참가 서버 목록",
   desc: "봇이 참가 중인 서버예요. 내보내면 되돌릴 수 없고, 다시 초대할 때까지 봇을 사용하지 못해요.",
-  search: (count: number) => `${count}곳 중에서 찾기`,
+  search: (count: number) => `${count}곳 중에서 검색`,
   sort: "정렬",
   filter: "필터",
   playingOnly: "재생 중인 서버",

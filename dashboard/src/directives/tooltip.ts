@@ -8,7 +8,7 @@
 
 import type { Directive } from "vue";
 
-/** 요소마다 든 것: 표시할 글과 붙인 처리기 */
+/** 요소마다 든 것: 표시할 글과 붙인 핸들러 */
 type Held = { text: string | null | undefined; show: () => void; hide: () => void; down: (e: PointerEvent) => void; up: (e: PointerEvent) => void; cancel: () => void; click: (e: MouseEvent) => void };
 const held = new WeakMap<HTMLElement, Held>();
 

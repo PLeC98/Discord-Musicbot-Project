@@ -32,8 +32,8 @@ after(() => {
   fs.rmSync(DISPLAY, { recursive: true, force: true, maxRetries: 5 });
 });
 
-test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기동 때와 달라진 다시 시작 값이 있으면 restart", async () => {
-  // 기동 때 BGUTIL_ENABLED=true 였다(다시 시작해야 적용되는 값)
+test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기동 시와 달라진 다시 시작 값이 있으면 restart", async () => {
+  // 기동 시 BGUTIL_ENABLED=true 였다(다시 시작해야 적용되는 값)
   tunables.writeRaw({ BGUTIL_ENABLED: "true", RATE_LIMIT_API_MAX: "7" });
   tunables.load();
   settingsDocs.write("genres", { genres: [] }, settingsDocs.read("genres").revision);
@@ -44,14 +44,14 @@ test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기�
 
   assert.match(done.snapshot, /^settings-before-reset-/);
   assert.ok(snapshots.list().some((one) => one.name === done.snapshot && one.kind === "before-reset"));
-  assert.equal(done.restart, true, "기동 때 true 였던 BGUTIL_ENABLED 가 기본값(false)이 된다");
+  assert.equal(done.restart, true, "기동 시 true 였던 BGUTIL_ENABLED 가 기본값(false)이 된다");
   assert.deepEqual(settingsDocs.names(), [], "기본값을 써 넣지 않는다");
   assert.equal(secrets.count(), 0);
   assert.equal(config.dashboard.rateLimit.apiMax, 120, "운영 조절값은 바로 기본값");
   assert.equal(config.sources.lastfmKey, null, "바깥 서비스 키도 메모리에서 빠진다");
 
   tunables.load();
-  assert.equal((await reset.resetBotSettings("tester")).restart, false, "기동 때와 같으면 다시 시작하지 않아도 된다");
+  assert.equal((await reset.resetBotSettings("tester")).restart, false, "기동 시와 같으면 다시 시작하지 않아도 된다");
 });
 
 test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버린다", async () => {

@@ -70,7 +70,7 @@ test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코�
 test("메모리: 이 프로세스를 실제로 잰다", { timeout: 60_000 }, async (t) => {
   const started = Date.now();
   const memory = await processMemory([process.pid]);
-  // 바쁜 기계에서는 tasklist 가 상한을 넘긴다. 그때는 못 잰 것이지 틀린 것이 아니다
+  // 바쁜 시스템에서는 tasklist 가 상한을 넘긴다. 그때는 못 잰 것이지 틀린 것이 아니다
   if (!memory?.has(process.pid) && Date.now() - started >= memoryInternals.TIMEOUT_MS) return t.skip("tasklist · ps 가 상한 안에 끝나지 않음");
   assert.ok((memory?.get(process.pid) ?? 0) > 10, `${memory?.get(process.pid)}MB`);
   assert.equal((await processMemory([]))?.size, 0);

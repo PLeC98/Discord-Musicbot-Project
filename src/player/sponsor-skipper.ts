@@ -86,7 +86,7 @@ class SponsorSkipper {
     // 셋업(play 진행) 중이거나 아직 실제 Playing이 아니면 발동 보류. 비캐시 곡의 초반
     // 스킵이 셋업 중인 play()에 재진입해 재생을 깨는 것을 방지(버그 수정).
     if (p.isPlayStarting) return;
-    // 묵음을 흘려보내며 멈추는 중이면 곡이 곧 바뀐다
+    // 무음을 흘려보내며 멈추는 중이면 곡이 곧 바뀐다
     if (p.isStopping) return;
     if (p.audioPlayer?.state?.status !== AudioPlayerStatus.Playing) return;
 

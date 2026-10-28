@@ -1,8 +1,8 @@
 <template>
   <!-- 로그인 배경 편집 창. 그림이나 영상에서 쓸 영역(비율 자유)을 선택하고, 영상이면 쓸 구간과 정지 화면 장면을 선택한다.
        자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
-       틀은 안을 끌면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 핸들은 그림 밖으로 나와도 보인다.
-       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 끌어도 옮겨진다).
+       틀은 안을 드래그하면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 핸들은 그림 밖으로 나와도 보인다.
+       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 드래그해도 옮겨진다).
        시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 정지 화면 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고(아래에서 고른 반복 전환 효과를 적용한다), 끄면 구간 끝에서 멈춘다.
        반복 전환 효과는 카드의 화면 값에서 시작하고, 적용하면 카드의 화면 값도 그 효과로 바뀐다(카드에서 나중에 바꿀 수 있다).
        보는 창의 높이는 편집 창의 나머지(제목 · 확대 · 시간 막대 · 버튼)를 뺀 남는 높이에 맞춘다(창 크기를 바꾸면 다시).
@@ -91,7 +91,7 @@ useCloseLayer(
 /** done: 편집과 고른 반복 전환 효과. recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";
-/** 구간을 바꾼 뒤 다시 세기를 요청하기까지(끄는 동안은 요청하지 않는다) */
+/** 구간을 바꾼 뒤 다시 세기를 요청하기까지(드래그하는 동안은 요청하지 않는다) */
 const RECOUNT_AFTER_MS = 600;
 
 type Corner = "nw" | "ne" | "sw" | "se";
@@ -141,9 +141,9 @@ const scale = computed(() => (natural.width ? (view.width * zoom.value) / natura
 const originalScale = computed(() => (natural.width && props.bg?.width ? props.bg.width / natural.width : 1));
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
 
-/** 예상 저장 공간(바이트, 세는 중이면 null). 편집 적용의 남은 공간 검사와 같은 셈(rules/background-estimate) */
+/** 예상 저장 공간(바이트, 세는 중이면 null). 편집 적용의 남은 공간 검사와 같은 계산(rules/background-estimate) */
 const estimateBytes = computed(() => estimatedBytes(props.bg?.estimate ?? null, cropKey.value, rangeNow()));
-/** 남은 저장 공간보다 크면 적용할 수 없다(봇도 같은 셈으로 막는다) */
+/** 남은 저장 공간보다 크면 적용할 수 없다(봇도 같은 계산으로 막는다) */
 const noSpace = computed(() => !!props.state && estimateBytes.value !== null && estimateBytes.value > props.state.freeBytes);
 /** 예상 인코딩 시간(분, 영상만): 이 기기에서 잰 굽는 속도 × 구간 길이 */
 const encodeMinutes = computed(() => {
@@ -305,7 +305,7 @@ function onTime() {
   if (videoEl.value?.paused && !peeking) now.value = videoEl.value.currentTime;
 }
 
-/** 구간 핸들을 끄는 동안: 재생 위치(now)는 그대로 두고 화면만 그 장면(재생 중이면 잠시 멈춘다). 놓으면 재생 위치로 돌아가 이어서 */
+/** 구간 핸들을 드래그하는 동안: 재생 위치(now)는 그대로 두고 화면만 그 장면(재생 중이면 잠시 멈춘다). 놓으면 재생 위치로 돌아가 이어서 */
 let peeking: { wasPlaying: boolean } | null = null;
 function peek(t: number) {
   const el = videoEl.value;
@@ -344,7 +344,7 @@ async function togglePlay() {
   }
 }
 
-// ── 틀: 안을 끌면 옮기고, 모서리는 반대 모서리를 붙잡고 비율 자유로 ──
+// ── 틀: 안을 드래그하면 옮기고, 모서리는 반대 모서리를 붙잡고 비율 자유로 ──
 
 let drag: { mode: "move" | Corner; px: number; py: number; from: { x: number; y: number; w: number; h: number } } | null = null;
 // 확대해도 보는 창의 가운데가 그림의 같은 곳에 남게(스크롤할 수 있는 폭 · 높이에 대한 비율로)
@@ -358,7 +358,7 @@ watch(zoom, async () => {
   el.scrollTop = cy * el.scrollHeight - el.clientHeight / 2;
 });
 
-/** 확대했을 때 틀 바깥(빈 곳 포함)을 끌면 보는 창을 옮긴다 */
+/** 확대했을 때 틀 바깥(빈 곳 포함)을 드래그하면 보는 창을 옮긴다 */
 function panStart(e: PointerEvent) {
   const el = viewportEl.value;
   if (!el || zoom.value <= 1) return;

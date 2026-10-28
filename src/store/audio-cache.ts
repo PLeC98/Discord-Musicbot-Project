@@ -523,7 +523,7 @@ function mergePlays(audioKey: string, plays: number, lastPlayedAt: number | null
   );
 }
 
-// 수 하나를 내는 질의(열 이름은 n)
+// 수 하나를 내는 쿼리(열 이름은 n)
 function countOf(sql: string): number {
   return (conn().prepare(sql).get() as { n: number }).n;
 }

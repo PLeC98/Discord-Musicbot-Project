@@ -1,5 +1,5 @@
 // src/dashboard/routes/guild-list.ts — 서버 목록: 지금 멤버인 서버만, 서버마다 상태와 지금 곡.
-// 그 사람이 든 서버(그 사람의 서버 목록)만 멤버 판정을 하고, 목록을 받지 못하면 이미 확인한 서버만 보이며 다시 로그인 표시를 싣는다
+// 사용자가 든 서버(사용자의 서버 목록)만 멤버 판정을 하고, 목록을 받지 못하면 이미 확인한 서버만 보이며 재로그인 안내를 싣는다
 
 process.env.OWNER_ID = "owner";
 
@@ -93,7 +93,7 @@ test("운영자도 멤버인 서버만(참가하지 않은 서버는 보이지 �
   assert.deepEqual(await list(), []);
 });
 
-test("그 사람의 서버 목록에 없는 서버는 멤버 판정을 하지 않는다", async () => {
+test("사용자의 서버 목록에 없는 서버는 멤버 판정을 하지 않는다", async () => {
   tokens.state.guilds.set("u1", ["100"]);
   assert.deepEqual(
     (await list()).map((g) => g.id),
@@ -102,7 +102,7 @@ test("그 사람의 서버 목록에 없는 서버는 멤버 판정을 하지 �
   assert.deepEqual([guilds.get("200")?.asked, guilds.get("300")?.asked], [[], []]);
 });
 
-test("서버 목록을 받지 못하면(토큰 없음 · 401) 이미 확인한 서버만 보이고 다시 로그인 표시를 싣는다. 봇이 든 서버마다 묻지 않는다", async () => {
+test("서버 목록을 받지 못하면(토큰 없음 · 401) 이미 확인한 서버만 보이고 재로그인 안내를 싣는다. 봇이 든 서버마다 묻지 않는다", async () => {
   guilds.get("100")?.members.cache.set("u2", { permissions: { has: () => false } });
   user = { id: "u2", username: "토큰 없음" };
   tokens.signIn("u2", { token: false });
@@ -124,7 +124,7 @@ test("서버 목록을 받지 못하면(토큰 없음 · 401) 이미 확인한 �
   assert.equal(tokens.state.asked.length, 1, "401 을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
 });
 
-test("목록을 받았으면 다시 로그인 표시가 없다", async () => {
+test("목록을 받았으면 재로그인 안내가 없다", async () => {
   assert.equal((await get()).relogin, undefined);
 });
 

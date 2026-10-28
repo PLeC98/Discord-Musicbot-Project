@@ -1,6 +1,6 @@
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결(채널에는 남는다) · 봇 · 자식 프로세스를 정리한 뒤 나간다.
 // 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 실행한다).
-// 처리기는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
+// 핸들러는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
 // 기동이 실패했을 때도 실행한 것을 내리고 나간다.
 
 import readline from "readline";
@@ -49,7 +49,7 @@ const FAILED_START_GRACE_MS = 1000;
 /** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름 · 내리기)와 서버마다의 플레이어 */
 type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]> };
 
-/** 종료 신호에 처리기를 건다. 돌려주는 attach 로 봇을 붙인다 */
+/** 종료 신호에 핸들러를 건다. 돌려주는 attach 로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   const { proc, voiceConnections, killAll, exit, record } = { ...REAL, ...boundary };
 

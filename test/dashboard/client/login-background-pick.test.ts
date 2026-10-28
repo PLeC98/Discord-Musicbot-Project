@@ -65,17 +65,17 @@ test("AV1 이 ○ 가 아니면 VP9, AV1 · VP9 에 ○ 가 없으면 H.264 720p
   assert.deepEqual(ladderOf(RUNGS, verdicts({ "av1-1080": ok }), 1080, { reduced: true, capFhd: false }), [{ codec: null, cap: null, effect: "fixed" }], "움직임 줄이기");
 });
 
-test("흐림이 강하면 1080p 까지만(4K 가 목록에 있어도 상한을 건다)", () => {
+test("블러가 강하면 1080p 까지만(4K 가 목록에 있어도 상한을 건다)", () => {
   const all = verdicts({ "av1-1080": ok, "av1-2160": ok, "h264-720": ok });
   const steps = ladderOf(RUNGS, all, 2160, { reduced: false, capFhd: true });
   assert.deepEqual(steps[0], { codec: "av1", cap: 1080, effect: "full" });
   assert.ok(steps.every((one) => one.cap === null || one.cap <= 1080 || one.codec === null));
-  // 흐림 반지름이 화면 높이의 0.23% 이상이면(가로 화면, 기본 흐림 0.5% 는 그보다 크다)
+  // 블러 반지름이 화면 높이의 0.23% 이상이면(가로 화면, 기본 블러 0.5% 는 그보다 크다)
   assert.equal(blurCapped({ width: 1920, height: 1080 }, 0.5), true);
   assert.equal(blurCapped({ width: 1920, height: 1080 }, 0.1), false);
 });
 
-test("필요한 짧은 변: 틀 × 배율을 영상 비율로 꽉 채운 크기(세로 화면은 크다), 흐림이 강하면 1080 까지", () => {
+test("필요한 짧은 변: 틀 × 배율을 영상 비율로 꽉 채운 크기(세로 화면은 크다), 블러가 강하면 1080 까지", () => {
   assert.equal(neededShort({ width: 1920, height: 1080, dpr: 1 }, 16 / 9, 0), 1080);
   assert.equal(neededShort({ width: 1920, height: 1080, dpr: 2 }, 16 / 9, 0), 2160);
   // 세로 휴대폰(393 × 852, 배율 3): 16:9 영상을 꽉 채우면 세로 2556

@@ -1,4 +1,4 @@
-// src/player/voice-adopt.ts — 세션 없이 음성 채널에 남은 봇을 기동 때 이어받는다.
+// src/player/voice-adopt.ts — 세션 없이 음성 채널에 남은 봇을 기동 시 이어받는다.
 // 가짜 서버 · 플레이어로 어느 서버에 무엇을 했는지만 본다.
 
 import { test, after } from "node:test";
@@ -70,7 +70,7 @@ test("그 채널에 사람이 없으면 혼자 남음 퇴장도 건다", async (
   assert.deepEqual(steps.slice(-2), ["g1:empty:곡 없이 대기", "g1:alone"]);
 });
 
-test("다시 붙지 못하면 그 서버는 정리하고(세션은 남김) 다음 서버로 넘어간다", async () => {
+test("재연결하지 못하면 그 서버는 정리하고(세션은 남김) 다음 서버로 넘어간다", async () => {
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")], { failConnect: ["g1"] });
   await adoptLingeringVoice(client, players, FakePlayer);
   assert.deepEqual(steps.slice(0, 2), ["g1:new:null:vc1", "g1:dispose:keep"]);

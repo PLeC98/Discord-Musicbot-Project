@@ -1,4 +1,4 @@
-// 세션 없이 음성 채널에 남은 봇을 이어받는다(기동 때 세션 복원 뒤).
+// 세션 없이 음성 채널에 남은 봇을 이어받는다(기동 시 세션 복원 뒤).
 // 봇을 끌 때 음성 채널에는 남는다(app/shutdown). 곡도 대기열도 없이 끄면 세션이 없어, 다시 시작한 뒤 채널에 앉은 봇을 아무도 모른다.
 // 세션이 없는 서버만: 그 채널에 플레이어를 붙이고 /join 으로 곡 없이 들어왔을 때처럼 틀 게 없음 퇴장을, 사람이 없으면 혼자 남음 퇴장을 건다.
 
@@ -32,7 +32,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     try {
       await player.voice.connect();
     } catch (error) {
-      log.warn(`세션 없이 남은 음성 채널에 다시 붙지 못해 정리합니다: "${channel.name}" (${guild.name}) | ${messageOf(error)}`);
+      log.warn(`세션 없이 남은 음성 채널에 재연결하지 못해 정리합니다: "${channel.name}" (${guild.name}) | ${messageOf(error)}`);
       await player.dispose({ reason: "남은 채널 이어받기 실패", session: "keep" });
       continue;
     }

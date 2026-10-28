@@ -6,7 +6,7 @@
     <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">{{ T.loginAgain }}</BaseButton>
     <BaseButton v-else variant="ghost" size="sm" :disabled="checking" @click="retry">{{ T.retry }}</BaseButton>
   </div>
-  <!-- 실시간 연결만 끊겼다. 요청은 되므로 조작은 그대로 쓰고, 화면은 30초마다 다시 읽는다 -->
+  <!-- SSE 연결만 끊겼다. 요청은 되므로 조작은 그대로 쓰고, 화면은 30초마다 다시 읽는다 -->
   <div v-else-if="session.streamDown" role="status" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-4 py-2 text-body pane-menu">
     <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="progress_activity" :size="20" class="animate-spin" /></span>
     <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
@@ -48,7 +48,7 @@ import { codeLineOf, noticeText, unansweredTitle } from "../utils/problem.ts";
 import { text } from "../text/index.ts";
 const T = text.shell;
 
-// 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required), 다시 로그인은 reauth-required
+// 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required), 재로그인 안내는 reauth-required
 const loginNotice = noticeText("login-required");
 const notice = computed(() => (session.ended ? loginNotice : noticeText("reauth-required")));
 
@@ -58,7 +58,7 @@ const showDialog = ref(false);
 const checking = ref(false);
 const note = ref("");
 
-// 끝났다고 알게 된 때 한 번 연다. 닫아도 띠가 남는다. 다시 로그인은 거절당할 때마다 연다(띠는 없다)
+// 끝났다고 알게 된 때 한 번 연다. 닫아도 띠가 남는다. 재로그인 안내는 거절당할 때마다 연다(띠는 없다)
 watch(
   () => session.ended || session.reauth,
   (shown) => {

@@ -1,4 +1,4 @@
-// 상호작용 진입점 하나(src/discord/events/interaction-create). 봇이 만드는 모든 custom_id · 모달 · 선택 메뉴가 정해진 처리기 하나로 가고,
+// 상호작용 진입점 하나(src/discord/events/interaction-create). 봇이 만드는 모든 custom_id · 모달 · 선택 메뉴가 정해진 핸들러 하나로 가고,
 // 정확히 한 번 답하는지 본다. 두 번 답하면 늦은 쪽이 40060 으로 터지고, 아무도 안 답하면 사용자는 "상호작용 실패"를 본다.
 
 import fs from "node:fs";
@@ -75,7 +75,7 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
   return fake<Interaction>(it);
 }
 
-// 이 custom_id 를 받는 처리기 모듈의 이름
+// 이 custom_id 를 받는 핸들러 모듈의 이름
 function ownerOf(kind: Kind, customId: string) {
   if (kind === "command") return "commands";
   const route = routeOf(ROUTES, kind as RouteKind, customId);
@@ -129,7 +129,7 @@ test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
 });
 
-test("처리기가 없는 custom_id 는 모른다고 한 번 답한다", async () => {
+test("핸들러가 없는 custom_id 는 모른다고 한 번 답한다", async () => {
   assert.deepEqual(await answers("button", "nobody_knows"), ["reply"]);
   assert.deepEqual(await answers("modal", "nobody_knows"), ["reply"]);
 });
@@ -138,7 +138,7 @@ test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것
   assert.deepEqual(await answers("command", "nobody_knows"), ["reply"]);
 });
 
-test("꺼진 처리기는 없는 것과 같고, 더 넓은 처리기로 넘기지 않는다", () => {
+test("꺼진 핸들러는 없는 것과 같고, 더 넓은 핸들러로 넘기지 않는다", () => {
   const wide = route("button", "a:", () => {});
   const narrow = route("button", "a:b:", () => {}, { enabled: () => false });
   assert.equal(routeOf([wide, narrow], "button", "a:b:1"), null);
@@ -146,15 +146,15 @@ test("꺼진 처리기는 없는 것과 같고, 더 넓은 처리기로 넘기�
   assert.equal(routeOf([wide, route("button", "a:b:", () => {}, { enabled: () => true })], "button", "a:b:1")?.prefix, "a:b:");
 });
 
-test("접두사가 여럿 맞으면 더 좁은 처리기가 받는다(자동재생 버튼은 재생 패널 버튼보다 좁다)", () => {
+test("접두사가 여럿 맞으면 더 좁은 핸들러가 받는다(자동재생 버튼은 재생 패널 버튼보다 좁다)", () => {
   const panel = routeOf(ROUTES, "button", "panel:skip:s1");
   const autoplay = routeOf(ROUTES, "button", "panel:autoplay:s1");
   assert.ok(panel && autoplay && panel !== autoplay);
   assert.equal(autoplay.prefix, "panel:autoplay:");
 });
 
-// 새 처리기를 만들고 위 목록에 안 넣으면 여기서 걸린다. 경로표의 처리기마다 그것을 선택하는 custom_id 가 목록에 있어야 한다
-test("경로표의 처리기는 모두 위 목록에서 불린다", () => {
+// 새 핸들러를 만들고 위 목록에 안 넣으면 여기서 걸린다. 경로표의 핸들러마다 그것을 선택하는 custom_id 가 목록에 있어야 한다
+test("경로표의 핸들러는 모두 위 목록에서 불린다", () => {
   const unused = ROUTES.filter((r) => !CASES.some(([kind, id]) => kind === r.kind && routeOf(ROUTES, r.kind, id) === r));
   assert.deepEqual(
     unused.map((r) => `${r.kind} ${r.prefix}`),

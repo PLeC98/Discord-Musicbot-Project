@@ -1,10 +1,10 @@
-// src/media/encode-pool.ts — 출력마다 세션을 열어 프레임을 워커에서 인코딩하고, 워커가 죽거나 멈추면 다른 워커로 옮겨 붙이는 풀
+// src/media/encode-pool.ts — 출력 스트림마다 세션을 열어 프레임을 워커에서 인코딩하고, 워커가 죽거나 멈추면 다른 워커로 옮겨 붙이는 풀
 //
 // 지키는 것: 기동하면 첫 워커가 libopus 를 불러 둔다. 세션의 패킷은 보낸 순서대로 하나씩 오고, drain() 은 이벤트 루프 없이 받는다.
-// 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 박자는 무음으로 채워 빠짐 · 겹침이 없다.
+// 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 프레임은 무음으로 채워 빠짐 · 겹침이 없다.
 // 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 무음이 없다.
 // 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable 로 실패한다.
-// 깊이 · 워커 늘리기 판단(decideDepth)과 워커 수 상한.
+// 큐 깊이 · 워커 늘리기 판단(decideDepth)과 워커 수 상한.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -117,7 +117,7 @@ test("워커가 죽으면 세션이 새 워커로 옮겨 붙어 빠짐 · 겹침
     await until(() => packets.length === 5, "죽기 전 패킷 5개");
     for (let i = 0; i < 5; i++) session.send(frame(), 1);
     broadcast("exit");
-    await until(() => pool.stats().deaths === 1, "워커 죽음");
+    await until(() => pool.stats().deaths === 1, "워커 크래시");
     for (let i = 0; i < 5; i++) session.send(frame(), 1);
     await until(() => packets.length >= 15, "옮긴 뒤 패킷");
     await sleep(100);
@@ -152,13 +152,13 @@ test("한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, �
   const pool = new EncodePool({ workerUrl: FAULTY, maxWorkers: 2, calibrateFrames: 0 });
   try {
     await pool.start();
-    // 워커를 죽이는 입력: 첫 프레임에 워커가 죽고(그 박자는 무음), 옮긴 워커도 다음 프레임에 죽는다
+    // 워커를 죽이는 입력: 첫 프레임에 워커가 죽고(그 프레임은 무음), 옮긴 워커도 다음 프레임에 죽는다
     const poison = opened(pool);
     poison.session.send(frame(), -1);
-    await until(() => pool.stats().deaths === 1 && poison.packets.length === 1, "첫 죽음과 무음 하나");
+    await until(() => pool.stats().deaths === 1 && poison.packets.length === 1, "첫 크래시와 무음 하나");
     await until(() => pool.stats().workers.length === 1, "새 워커");
     poison.session.send(frame(), -1);
-    await until(() => poison.errors.length === 1, "독이 든 세션의 실패");
+    await until(() => poison.errors.length === 1, "크래시 유발 세션의 실패");
     assert.match(poison.errors[0]?.message ?? "", /잇달아/);
     assert.equal(pool.stats().deaths, 2);
 
@@ -167,10 +167,10 @@ test("한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, �
     await until(() => healthy.packets.length === 1, "다른 세션은 된다");
     healthy.session.free();
 
-    // 60초 안의 세 번째 죽음: 새 워커를 늦춘다. 남은 워커가 없어 새 세션은 실패한다
+    // 60초 안의 세 번째 크래시: 새 워커를 늦춘다. 남은 워커가 없어 새 세션은 실패한다
     const third = opened(pool);
     third.session.send(frame(), -1);
-    await until(() => third.errors.length === 1, "세 번째 죽음 뒤 실패");
+    await until(() => third.errors.length === 1, "세 번째 크래시 뒤 실패");
     assert.equal(codeOf(third.errors[0]), "encoder-unavailable");
     assert.equal(pool.available(), false);
     const refused = opened(pool);
@@ -209,12 +209,12 @@ test("WASM 오류는 그 프레임의 세션만 실패시키고 다른 세션은
   }
 });
 
-test("워커가 늦고 늘릴 수 없으면 깊이를 올리고, 자리를 잡으면 머문다", async () => {
+test("워커가 늦고 늘릴 수 없으면 큐 깊이를 올리고, 자리를 잡으면 머문다", async () => {
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
   try {
     await pool.start();
     const { session, packets, errors } = opened(pool);
-    // voice 처럼 20ms 마다 하나를 꺼내고, 꺼내지 않은 것 + 보낸 것이 깊이가 되게 채운다. 워커는 프레임마다 18ms 걸린다(깊이 2 의 문턱 16ms 를 넘는다)
+    // voice 처럼 20ms 마다 하나를 꺼내고, 꺼내지 않은 것 + 보낸 것이 큐 깊이가 되게 채운다. 워커는 프레임마다 18ms 걸린다(큐 깊이 2 의 임계값 16ms 를 넘는다)
     let sent = 0;
     let used = 0;
     const timer = setInterval(() => {
@@ -234,14 +234,14 @@ test("워커가 늦고 늘릴 수 없으면 깊이를 올리고, 자리를 잡�
     assert.deepEqual(errors, []);
     // 올린 순간 한꺼번에 보낸 프레임이 줄을 서 한 단계 더 오를 수 있다. 그 뒤로는 머문다
     const last = depths.slice(-3);
-    assert.ok(last.every((d) => d === last[0]) && last[0] !== undefined && last[0] >= 3 && last[0] <= 4, `깊이 ${depths.join(",")}`);
+    assert.ok(last.every((d) => d === last[0]) && last[0] !== undefined && last[0] >= 3 && last[0] <= 4, `큐 깊이 ${depths.join(",")}`);
     session.free();
   } finally {
     await pool.close();
   }
 });
 
-test("워커가 늦어 하나를 늘리면 새 워커가 활성 세션의 몫을 받는다", async () => {
+test("워커가 늦어 하나를 늘리면 새 워커로 활성 세션을 리밸런싱한다", async () => {
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2, calibrateFrames: 0 });
   try {
     await pool.start();
@@ -265,7 +265,7 @@ test("워커가 늦어 하나를 늘리면 새 워커가 활성 세션의 몫을
           .stats()
           .workers.map((w) => w.streams)
           .join() === "2,2",
-      "몫 나누기",
+      "리밸런싱",
       5000,
     );
     clearInterval(timer);
@@ -280,7 +280,7 @@ test("워커가 늦어 하나를 늘리면 새 워커가 활성 세션의 몫을
   }
 });
 
-test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커가 몫을 받고, 새 세션은 덜 맡은 워커로 간다", async () => {
+test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커로 리밸런싱하고, 새 세션은 덜 맡은 워커로 간다", async () => {
   // 세션 8개면 워커 2개가 필요한 프레임당 시간, 늘린 워커는 1.5초 뒤에 뜬다(스트림이 첫 프레임을 보내기 전)
   process.env.STUB_ENCODE_FRAME_US = "2500";
   process.env.STUB_ENCODE_GROW_READY_MS = "1500";
@@ -312,13 +312,13 @@ test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커
   }
 });
 
-test("늦음 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게 늦으면(한 틱에 몰려도) 한 줄 warn, 30초 동안 늦지 않으면 풀렸다고 한 줄 info", async () => {
+test("지연 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게 늦으면(한 틱에 몰려도) 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info", async () => {
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
-  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.includes("재생 인코딩이 늦습니다") || e.text.includes("재생 인코딩 늦음이 풀렸습니다"));
+  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.includes("재생 인코딩이 늦습니다") || e.text.includes("재생 인코딩 지연이 해소됐습니다"));
   try {
     await pool.start();
     const { session } = opened(pool);
-    // 우리 출력이 읽힐 때 패킷이 없으면 늦음을 센다. 그것만 흉내 낸다
+    // 우리 출력 스트림이 읽힐 때 패킷이 없으면 지연을 센다. 그것만 흉내 낸다
     const late = (frames: number) => {
       for (let i = 0; i < frames; i++) session.late();
     };
@@ -330,7 +330,7 @@ test("늦음 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게
     late(30);
     await until(() => slowLines(from).length === 1, "경고", 2500);
     assert.equal(slowLines(from)[0].level, "warn");
-    await until(() => slowLines(from).length === 2, "풀림", 33_000);
+    await until(() => slowLines(from).length === 2, "해소", 33_000);
     assert.equal(slowLines(from)[1].level, "info");
     session.free();
   } finally {
@@ -338,7 +338,7 @@ test("늦음 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게
   }
 });
 
-test("응답이 깊이의 문턱에 가까우면 워커를 늘리고, 늘릴 수 없으면 깊이를 올리고, 상한이면 늦다고 본다", () => {
+test("응답 시간이 큐 깊이의 임계값에 가까우면 워커를 늘리고, 늘릴 수 없으면 큐 깊이를 올리고, 상한이면 늦다고 본다", () => {
   const base = { depth: START_DEPTH, canGrow: true, contended: false, calm: 0 };
   assert.equal(decideDepth({ ...base, rttP99: 2 }), null);
   assert.equal(decideDepth({ ...base, rttP99: 17 }), "grow");

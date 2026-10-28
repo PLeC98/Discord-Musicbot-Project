@@ -82,7 +82,7 @@ class Prefix {
   }
 }
 
-/** 스트림의 다음 조각. 기다리는 동안 스트림이 부서져도 처리되지 않은 거부가 남지 않게 한다 */
+/** 스트림의 다음 청크. 기다리는 동안 스트림이 부서져도 처리되지 않은 거부가 남지 않게 한다 */
 function reader(stream: Readable) {
   const it = (stream as AsyncIterable<Buffer>)[Symbol.asyncIterator]();
   return () => {

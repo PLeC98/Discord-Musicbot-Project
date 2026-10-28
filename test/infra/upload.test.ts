@@ -16,7 +16,7 @@ beforeEach(_reset);
 
 const fakeSocket = (remoteAddress: string) => Object.assign(new EventEmitter(), { remoteAddress, bytesWritten: 0 });
 
-test("음성: 내준 패킷마다 크기에 머리(RTP · 암호화 · UDP/IP)를 더한다", () => {
+test("음성: 내준 패킷마다 크기에 헤더(RTP · 암호화 · UDP/IP)를 더한다", () => {
   const before = uploadTotals().voice;
   addVoicePacket(200);
   addVoicePacket(100);

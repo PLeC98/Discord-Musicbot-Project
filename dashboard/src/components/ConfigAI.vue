@@ -12,7 +12,7 @@
 -->
 <template>
   <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 목록 헤더에 켜고 끄기 스위치 · 무엇을 하는지 한 줄.
-       목록: 모델 · 프롬프트 · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 선택한 것은 주소 ?ai=(두 단이면 선택한 것이 없을 때 모델) -->
+       목록: 모델 · 프롬프트 · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
@@ -47,7 +47,7 @@
           <ConfigAIJudge />
         </template>
 
-        <!-- ── 리퀘스트 로그 · 사용량 통계: 탭이 보일 때만 읽는다(로그는 실시간 연결도 그때만) ── -->
+        <!-- ── 리퀘스트 로그 · 사용량 통계: 탭이 보일 때만 읽는다(로그는 SSE 연결도 그때만) ── -->
         <ConfigAILog v-if="view === 'log'" :active="active" />
         <ConfigAIUsage v-if="view === 'usage'" :active="active" />
 
@@ -173,7 +173,7 @@ const router = useRouter();
 // 프로바이더를 선택하지 않아도 여는 것(고급 설정에는 리퀘스트 로그의 기록 설정도 있다)
 const ALWAYS_OPEN: readonly string[] = ["model", "advanced", "log", "usage"];
 
-// ── 목록 · 상세. 주소 ?ai= 에 선택한 항목(model · prompt · advanced · log · usage). 두 단이면 선택한 것이 없을 때 모델 ──
+// ── 목록 · 상세. 주소 ?ai= 에 선택한 항목(model · prompt · advanced · log · usage). 2열이면 선택한 것이 없을 때 모델 ──
 const ITEMS = [
   { id: "model", label: T.items.model, icon: "model_training" },
   { id: "prompt", label: T.items.prompt, icon: "terminal" },
@@ -185,7 +185,7 @@ const ITEMS = [
 const FIXED_ITEMS = computed(() => ITEMS.filter((item) => item.id !== "advanced" || showAdvanced.value));
 const paneEl = ref<HTMLElement | null>(null);
 const { twoPane, listCardClass, paneClass } = useListDetailLayout(paneEl);
-// 한 단이면 운영자 패널 위 막대 ← 로 목록에
+// 1열이면 운영자 패널 위 막대 ← 로 목록에
 reportSinglePane("ai", () => !twoPane.value);
 const picked = computed<string | null>(() => {
   const q = route.query.ai;
@@ -201,7 +201,7 @@ const isOn = (id: string) => twoPane.value && picked.value === id;
 /** 보이는 그룹(선택한 항목) */
 const view = computed(() => picked.value);
 const providerLabel = computed(() => providerOptions.value.find((one) => one.value === draft.value.provider)?.label ?? draft.value.provider ?? "");
-// 한 단에서 열면 방문 기록을 하나 쌓아(뒤로가기 = 목록), 두 단에서 선택하면 주소만 바꾼다
+// 1열에서 열면 방문 기록을 하나 쌓아(뒤로가기 = 목록), 2열에서 선택하면 주소만 바꾼다
 function openItem(id: string) {
   const query = { ...route.query, ai: id };
   if (twoPane.value) void router.replace({ query });

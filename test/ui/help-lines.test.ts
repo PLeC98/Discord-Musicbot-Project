@@ -92,7 +92,7 @@ test("앱 이모지를 맞춰도(<:이름:19자리 id> 는 유니코드보다 25
     assert.ok(intro.title.length <= 256, "제목");
     assert.ok(intro.description.length <= 4096, "설명");
     for (const { name, lines } of fields) {
-      assert.ok(name.length <= 256, `칸 이름: ${name}`);
+      assert.ok(name.length <= 256, `필드 이름: ${name}`);
       assert.ok(lines.join("\n").length <= 1024, `${name}: ${lines.join("\n").length}자`);
     }
     const total = intro.title.length + intro.description.length + fields.reduce((sum, { name, lines }) => sum + name.length + lines.join("\n").length, 0);

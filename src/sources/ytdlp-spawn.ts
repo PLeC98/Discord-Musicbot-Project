@@ -29,7 +29,7 @@ type YtDlpFlags = Omit<Flags, "output"> & { output?: string; cookiesFromBrowser?
 /** yt-dlp 가 실패했을 때 던지는 것. message 는 stderr 와 같고, 어떤 실패인지 code 로 구분해 붙인다 */
 type YtDlpError = Error & { stderr?: string; stdout?: string; exitCode?: number; code?: string };
 
-/** spawn 옵션과 줄에 쓰는 것. retry: 같은 것을 다시 묻는다(줄 맨 앞에 선다), job: 하는 일(없으면 문맥에서) */
+/** spawn 옵션과 줄에 쓰는 것. retry: 같은 것을 다시 묻는다(줄 맨 앞에 선다), job: 작업(없으면 문맥에서) */
 type RunOptions = SpawnOptions & { retry?: boolean; job?: Job };
 
 // 라이브러리가 내보내지만 타입에는 없는 것
@@ -183,7 +183,7 @@ async function snapshotOf({ dir, has }: ReturnType<typeof familyOf>): Promise<st
   return parts.join("|");
 }
 
-/** output 의 파일 묶음을 감시해 멎으면 onStall. 돌려주는 것은 감시를 멈추는 함수. read 는 시험이 바꾼다 */
+/** output 의 파일 묶음을 감시해 멎으면 onStall. 돌려주는 것은 감시를 멈추는 함수. read 는 테스트가 바꾼다 */
 function watchDownload(output: string, onStall: () => void, read = snapshotOf): () => void {
   const family = familyOf(output);
   const { everyMs, limitMs } = stall;

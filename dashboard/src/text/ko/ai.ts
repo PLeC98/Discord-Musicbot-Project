@@ -187,7 +187,7 @@ const log = {
   newCount: (n: number) => `새 기록 ${n}건`,
   live: "실시간",
   liveOff: "실시간 연결 끊김",
-  /** 상태 칸: 닿기 전에 막힌 요청 */
+  /** 상태 열: 닿기 전에 막힌 요청 */
   timeout: "시간 초과",
   unreached: "연결 실패",
   took: "소요 시간",
@@ -316,7 +316,7 @@ const providerOff = "사용하지 않음";
 /** 버텍스 주소를 보일 때 아직 모르는 칸 */
 const endpointProject = "[프로젝트 ID]";
 const endpointModel = "{모델}";
-/** 키 입력칸 자리 글 */
+/** 키 입력란 플레이스홀더 */
 const keyPlaceholder = { accountSaved: "저장돼 있어요. 바꾸려면 새 JSON 을 붙여넣으세요", keySaved: "저장돼 있어요. 새로 저장하면 교체돼요.", empty: "키를 입력하세요" };
 const keySaved = "키를 저장했어요";
 const keyCleared = "키를 지웠어요";
@@ -328,7 +328,7 @@ const modelsRefreshed = "모델 정보를 갱신했어요";
 const modelCount = (count: number) => `모델 ${count}개`;
 const modelsCurrent = "모델 정보가 이미 최신이에요";
 const modelsRefreshFailed = "모델 정보를 불러오지 못했어요.";
-/** 파라미터 칸의 범위 안내 */
+/** 파라미터 입력란의 범위 안내 */
 const atLeast = (value: number) => `${value} 이상`;
 const atMost = (value: number) => `${value} 이하`;
 const contextTokens = (count: string) => `컨텍스트 ${count}토큰`;

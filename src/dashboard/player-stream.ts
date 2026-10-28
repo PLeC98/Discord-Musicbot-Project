@@ -8,13 +8,13 @@ import type { GuildEvent } from "./contract/guilds.ts";
 const log = logger.child({ category: "dashboard" });
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
-/** 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 다시 붙어 멤버 캐시가 비면 이 서버들만 다시 채운다 */
+/** 연결 하나. canSee 는 보낼 때 그 서버의 보기 권한을 확인한다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 재연결해 멤버 캐시가 비면 이 서버들만 다시 채운다 */
 type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
 
 /**
  * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
  *
- * 화면의 탭 하나가 연결 하나를 연다. 그 연결이 사용자가 볼 수 있는 서버 전체의 신호를 싣는다(볼 수 있는지는 보낼 때 묻는다).
+ * 화면의 탭 하나가 연결 하나를 연다. 그 연결이 사용자가 볼 수 있는 서버 전체의 신호를 싣는다(보기 권한은 보낼 때 확인한다).
  * 서버 목록 · 재생 바 · 서버 화면이 같은 연결을 나눠 쓴다.
  *
  * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`). 받으면 GET으로 재조회.
@@ -65,7 +65,7 @@ class PlayerStream {
 
   /** 사용자당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. 이미 끊긴 연결도 false */
   _capOk(res: Response, userKey: string) {
-    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 셈이 남는다
+    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 연결 수가 남는다
     if (res.closed) return false;
     const count = this.perKey.get(userKey) || 0;
     if (count >= this.options.maxPerUser) {
@@ -82,7 +82,7 @@ class PlayerStream {
     else this.perKey.set(userKey, c);
   }
 
-  /** 그 사용자의 연결이 상한에 찼나. 부르는 쪽이 멤버 확인(REST)을 하기 전에 본다(실시간 연결은 요청 한도 밖이다) */
+  /** 그 사용자의 연결이 상한에 찼나. 부르는 쪽이 멤버 확인(REST)을 하기 전에 본다(SSE 연결은 요청 한도 밖이다) */
   atCap(userKey: string) {
     return (this.perKey.get(userKey) || 0) >= this.options.maxPerUser;
   }

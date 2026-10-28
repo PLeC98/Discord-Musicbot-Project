@@ -36,7 +36,7 @@ const TOKEN_MS = 15 * 60_000;
 const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownWebhook]);
 
 /**
- * 응답 · 메시지를 지우거나 고친 실패를 받는 catch 처리기. 누가 이미 지웠으면 넘기고, 그 밖은 부른 쪽 로거에 warn 으로 남긴다.
+ * 응답 · 메시지를 지우거나 고친 실패를 받는 catch 핸들러. 누가 이미 지웠으면 넘기고, 그 밖은 부른 쪽 로거에 warn 으로 남긴다.
  * 상호작용 오류도 남긴다: 10062 는 3초 안에 못 답함 · 답하지 않은 응답 · 같은 토큰의 다른 봇, 40060 은 두 번 답함, 50027 은 응답 수명이 토큰(15분)을 넘김
  */
 function unlessGone(log: { warn(line: string): unknown }, what: string) {

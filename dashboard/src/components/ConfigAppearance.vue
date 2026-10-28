@@ -10,7 +10,7 @@
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.faviconDesc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.faviconTip" /></p>
 
       <!-- 크기 슬롯: 쓰이는 곳 · 지금 내는 이미지(슬롯 폭의 미리보기 화면, 이미지는 실제 크기, 큰 것은 128 로 줄여) · 어디서 왔는지 · 기록 개수(이미지를 삭제해도 기록이 있으면 보인다) · 추가하기(변경) · 삭제.
-           슬롯에 끌어다 놓아도 된다. 남는 폭은 슬롯들이 나눠 갖는다 -->
+           슬롯에 드래그해서 놓아도 된다. 남는 폭은 슬롯들이 나눠 갖는다 -->
       <div class="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2">
         <div v-for="slot in state?.slots ?? []" :key="slot.size" class="flex flex-col items-center gap-2 rounded-2xl bg-surface-container px-3 py-4 transition-[outline-color] outline-2 outline-dashed" :class="over === slot.size ? 'outline-primary' : 'outline-transparent'" @dragover.prevent="over = slot.size" @dragleave="over = null" @drop.prevent="onDrop($event, slot.size)">
           <span class="text-base font-semibold nums">{{ slot.size }}px</span>
@@ -69,7 +69,7 @@ const API = "/api/admin/appearance/favicon";
 const state = ref<FaviconSlots | null>(null);
 const loadError = ref("");
 const busy = ref(false);
-/** 끌어다 놓는 중인 슬롯 */
+/** 드래그해서 올려놓는 중인 슬롯 */
 const over = ref<number | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 /** 파일을 선택하는 슬롯 */

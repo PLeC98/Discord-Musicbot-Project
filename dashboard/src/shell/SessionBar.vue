@@ -3,8 +3,8 @@
        서버 아이콘은 동그라미이고, 선택한 서버는 둥근 네모로 바뀌며 막대 가장자리에 표시가 선다(올리면 작게 튀어나온다).
        세로 막대는 맨 위(위 막대 높이)에 펼치기 버튼이 있고, 펼치면 아이콘 옆에 서버 이름이 나온다. 아이콘은 막대 폭(--bar)의 영역에 그대로 있어 펼쳐도 움직이지 않는다 -->
   <nav class="shrink-0 flex text-on-surface" :class="vertical ? ['relative flex-col pb-3 gap-3 overflow-hidden', resizing ? '' : 'transition-[width] spring', open ? '' : 'w-(--bar)'] : 'flex-row items-center h-(--bar) px-2 gap-2'" :style="vertical && !drawer && open ? { width: `${shell.sidebarWidth}px` } : undefined" :aria-label="T.serverRail">
-    <!-- 펼친 막대의 오른쪽 가장자리를 끌어 폭을 바꾼다(두 번 누르면 기본 폭). 잡는 곳은 가장자리 전체,
-         보이는 것은 가운데의 짧은 알약(M3 끌기 핸들). 올리면 나타나고 끄는 동안 길어진다 -->
+    <!-- 펼친 막대의 오른쪽 가장자리를 드래그해서 폭을 바꾼다(두 번 누르면 기본 폭). 잡는 곳은 가장자리 전체,
+         보이는 것은 가운데의 짧은 알약(M3 드래그 핸들). 올리면 나타나고 드래그하는 동안 길어진다 -->
     <span v-if="vertical && open && !drawer" class="group/resize absolute top-0 right-0 bottom-0 z-10 w-3 cursor-col-resize touch-none select-none flex items-center justify-center" role="separator" aria-orientation="vertical" :aria-label="T.sidebarWidth" @pointerdown="startResize" @dblclick="setSidebarWidth(SIDEBAR_WIDTH.initial, true)">
       <span class="w-1 rounded-full transition-[height,opacity,background-color] spring-fast" :class="resizing ? 'h-16 opacity-100 bg-primary' : 'h-10 opacity-0 bg-on-surface-variant group-hover/resize:opacity-70'"></span>
     </span>
@@ -33,7 +33,7 @@
     <!-- 구분선: 양옆을 "접었을 때 선이 아이콘 영역 가운데 24 가 되는 만큼" 비우고 선은 그 안을 채운다. 펼치면 막대 폭을 따라 길어진다 -->
     <span :class="vertical ? 'w-full flex shrink-0 px-[calc((var(--bar)-1.5rem)/2)]' : 'contents'"><span class="shrink-0 rounded-full bg-outline-variant/70" :class="vertical ? 'h-0.5 w-full' : 'w-0.5 h-6'"></span></span>
 
-    <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 흐리게 사라진다(더 있는 쪽만, composables/scroll-fade) -->
+    <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade) -->
     <div ref="listEl" class="flex gap-2 min-w-0 min-h-0 scrollbar-none" :class="vertical ? 'flex-col flex-1 w-full overflow-y-auto py-0.5' : 'flex-row items-center flex-1 overflow-x-auto px-0.5'" :style="listFade">
       <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="vertical && !open ? g.name : null" :aria-label="g.name" :class="item">
         <span :class="pip(isGuild(g.id))"></span>
@@ -96,7 +96,7 @@ const isGuild = (id: string) => route.params.guildId === id;
 const isInvite = computed(() => route.path === "/invite");
 const user = useUserStore();
 
-// 폭 끌기. 끄는 동안은 트랜지션을 끄고 손을 바로 따라간다. 놓을 때 기억한다
+// 폭 드래그. 드래그하는 동안은 트랜지션을 끄고 손을 바로 따라간다. 놓을 때 기억한다
 const resizing = ref(false);
 function startResize(e: PointerEvent) {
   const handle = e.currentTarget as HTMLElement;

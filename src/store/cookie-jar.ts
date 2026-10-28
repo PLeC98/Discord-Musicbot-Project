@@ -3,7 +3,7 @@
 // yt-dlp 는 `--cookies FILE` 을 읽고 끝나면서 고친 쿠키를 그 파일에 되쓴다. 그래서 실행마다 따로 파일을 주고(checkout),
 // 끝나면 바뀐 내용을 되담은 뒤 파일을 삭제한다(release). 그사이 대시보드에서 새 쿠키를 입력했으면 되담지 않는다(새것을 옛것으로 덮지 않게).
 // 파일은 봇 전용 임시 폴더(database/tmp)에 본인만 읽게(0600) 둔다. Windows 는 이 비트를 안 보고 사용자 폴더 권한을 따른다.
-// 꺼지다 남은 파일은 기동 때 치운다(sweep).
+// 꺼지다 남은 파일은 기동 시 치운다(sweep).
 
 import fs from "fs";
 import path from "path";
@@ -71,7 +71,7 @@ function release(held: { file: string; text: string; since: number | null }) {
   }
 }
 
-/** 꺼지다 남은 쿠키 파일을 치운다. 기동 때 한 번 */
+/** 꺼지다 남은 쿠키 파일을 치운다. 기동 시 한 번 */
 function sweep() {
   let left: string[];
   try {
@@ -85,7 +85,7 @@ function sweep() {
   if (left.length) log.info(`지난 실행이 남긴 쿠키 파일 ${left.length}개를 삭제했습니다`);
 }
 
-/** 옛 쿠키 파일(config/cookies.txt)이 남아 있으면 기동 때 한 줄. 읽지도 삭제하지도 않는다 */
+/** 옛 쿠키 파일(config/cookies.txt)이 남아 있으면 기동 시 한 줄. 읽지도 삭제하지도 않는다 */
 function warnLegacyFile(configDir = PROJECT.config) {
   const file = path.join(configDir, "cookies.txt");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {

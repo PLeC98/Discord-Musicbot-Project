@@ -48,7 +48,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () => config.sponsorblock.enabled };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
-// 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
+// 재적 · 계층 검사는 핸들러가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   if (!player) return noticeSelf(interaction, errors.notice("no-song"));

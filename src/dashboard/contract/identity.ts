@@ -29,7 +29,7 @@ type ViewAsReply = { viewAs: Tier | null };
 const RECENT_LOGIN_MS = 10 * 60_000;
 
 export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS };
-/** 로그인한 기기가 있는 곳. private: 내부망(집 · 같은 망), geo: IP 위치(모르는 칸은 null), null: 모름(위치 DB 를 껐거나 없다) */
+/** 로그인한 기기가 있는 곳. private: 내부망(집 · 같은 망), geo: IP 위치(모르는 필드는 null), null: 모름(위치 DB 를 껐거나 없다) */
 type DevicePlace = { kind: "private" } | { kind: "geo"; city: string | null; region: string | null; country: string | null } | null;
 /**
  * 설정 창 "계정"의 로그인한 기기 하나. id 는 세션을 가리키는 손잡이(세션 id 가 아니다). current: 지금 이 기기.

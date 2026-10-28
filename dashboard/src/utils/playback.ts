@@ -14,7 +14,7 @@ type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" 
 /** 진행 시계: 받은 위치(초) · 받은 때(ms) · 흐르는 중인지 · 길이(초) */
 type Clock = { at: number; since: number; running: boolean; duration: number };
 
-/** 상태 읽기(GET)만 싣는 필드: 음성 채널 · 이 사람이 할 수 있는 것. 조작 응답(PlayerState)에는 없다 */
+/** 상태 읽기(GET)만 싣는 필드: 음성 채널 · 사용자가 할 수 있는 것. 조작 응답(PlayerState)에는 없다 */
 type ReadFields = Omit<PlayerRead, keyof PlayerState>;
 /** 화면이 들고 있는 재생 상태. 읽기 전용 필드는 상태를 읽기 전이면 없다 */
 type PlayerSeen = PlayerState & Partial<ReadFields>;
@@ -97,12 +97,12 @@ export function seekPosition(clientX: number, rect: { left: number; width: numbe
   return Math.round(ratio * duration);
 }
 
-/** 끌어 놓은 위치의 옮기기 요청. before 항목 앞으로, null 이면 대기열 맨 끝 */
+/** 드래그해서 놓은 위치의 옮기기 요청. before 항목 앞으로, null 이면 대기열 맨 끝 */
 type MoveRequest = { entry: number; before: number | null };
 const isEntry = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value);
 
 /**
- * 끌어 놓은 위치 → 옮기기 요청. insertAt 은 받은 목록의 틈(0 ~ 길이, from 앞뒤는 제자리).
+ * 드래그해서 놓은 위치 → 옮기기 요청. insertAt 은 받은 목록의 틈(0 ~ 길이, from 앞뒤는 제자리).
  * "same": 제자리. "partial": 받은 창의 끝인데 그 뒤에 곡이 더 있다(맨 끝이 아니다).
  * "unknown": 항목 번호가 없다(봇이 다시 시작하기 전의 목록 등)
  */

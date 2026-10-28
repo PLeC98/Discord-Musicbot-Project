@@ -1,4 +1,4 @@
-// 소리를 여는 곳. 캐시 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 실행하고, 그 PCM 에 재생 출력(media/opus-output)을 붙여 오디오 리소스를 만든다.
+// 소리를 여는 곳. 캐시 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 실행하고, 그 PCM 에 출력 스트림(media/opus-output)을 붙여 오디오 리소스를 만든다.
 // 어느 분기로 갈지는 transportOf 가 정했다. 스트림 파이프가 열리지 않으면 나란히 다운로드하던 캐시 파일로 연다.
 
 import { codedError } from "../rules/error-kind.ts";
@@ -60,7 +60,7 @@ type InputOptions<R> = {
   meta: { title: string | null; url: string; duration: number };
   download: Download | null;
   onStreamLost(splicer: Splicer): boolean;
-  /** 처음 볼륨 배율(rules/volume-gain). 출력이 만들어지자마자 데이터가 흐르므로 처음부터 받는다 */
+  /** 처음 볼륨 배율(rules/volume-gain). 출력 스트림이 만들어지자마자 데이터가 흐르므로 처음부터 받는다 */
   gain: number;
   onProgress(): void;
   /** 라이브로 담은 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
@@ -146,7 +146,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
 
 // HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 흘린 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
 // 다시보기는 그 자리에서 입력을 끊는다. 이어 흘린 채 끝나면 끊긴 위치가 빠진 길이만큼 앞당겨져, 그 위치부터 다시 열 때 들은 끝부분을 되풀이한다.
-// 끊어 두면 곡 끝 판정이 입력 깨짐으로 보고 빠진 세그먼트 앞에서 다시 연다. 라이브는 짧은 빈틈보다 다시 붙는 공백이 길어 이어 튼다
+// 끊어 두면 곡 끝 판정이 입력 깨짐으로 보고 빠진 세그먼트 앞에서 다시 연다. 라이브는 짧은 빈틈보다 재연결 공백이 길어 이어 튼다
 const SEGMENT_SKIPPED = /failed too many times, skipping/;
 
 function watchSegmentSkips<R>(o: InputOptions<R>, ffmpeg: FfmpegChild, health: InputHealth, live: boolean) {

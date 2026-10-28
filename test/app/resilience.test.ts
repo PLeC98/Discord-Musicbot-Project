@@ -65,9 +65,9 @@ test("안전 종료: 플레이어 없음도 exit 호출", () => {
   assert.equal(exited, 1);
 });
 
-// ── 새어 나온 오류 처리기 ──
+// ── 새어 나온 오류 핸들러 ──
 
-// 처리기를 건 클라이언트 · 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
+// 핸들러를 건 클라이언트 · 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
 function installed() {
   const faults: string[] = [];
   const exits: number[] = [];
@@ -107,7 +107,7 @@ test("서버를 모르는 오류는 남기고 계속 돈다. 서버를 가리지
   proc.emit("uncaughtException", new Error("버그"));
   client.emit("error", Object.assign(new Error("socket"), { code: "ECONNRESET" }));
   assert.deepEqual(exits, [], "한두 번은 계속 돈다");
-  for (let i = 0; i < FLOOD_MAX - 1; i++) proc.emit("unhandledRejection", "문자열 거부"); // 앞의 둘과 합쳐 문턱을 한 번 넘는다
+  for (let i = 0; i < FLOOD_MAX - 1; i++) proc.emit("unhandledRejection", "문자열 거부"); // 앞의 둘과 합쳐 임계값을 한 번 넘는다
   assert.deepEqual(exits, [1], "쏟아지면 내린다");
   assert.deepEqual(faults, []);
 });

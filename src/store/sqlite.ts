@@ -62,7 +62,7 @@ class DbFile {
     }
   }
 
-  // 표가 있는데 버전이 다르면 멈춘다(파일은 손대지 않는다). 표가 없으면 새 파일이다. 옛 버전에서 지금 버전까지 올리는 단계가 다 있으면 한 묶음으로 올린다
+  // 표가 있는데 버전이 다르면 멈춘다(파일은 손대지 않는다). 표가 없으면 새 파일이다. 옛 버전에서 지금 버전까지 올리는 단계가 다 있으면 한 트랜잭션으로 올린다
   settle(db: Db, file: string) {
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[];
     const found = db.pragma("user_version", { simple: true }) as number;

@@ -36,7 +36,7 @@ const HOLD_MS = 10 * 60_000;
 /** 기억하는 결과 수 · 그림 바이트 */
 const KEEP_RESULTS = 5000;
 const KEEP_IMAGE_BYTES = 32 * 1024 * 1024;
-/** 원본을 여는 곳(SafeUrl). 시험이 가짜를 넘긴다 */
+/** 원본을 여는 곳(SafeUrl). 테스트가 가짜를 넘긴다 */
 type Open = (url: string, opts: { accept: SafeUrl.Accept; from?: number }) => Promise<Readable & { headers?: Record<string, unknown>; status?: number }>;
 let open: Open = (url, opts) => SafeUrl.getStream(url, undefined, opts);
 
@@ -264,7 +264,7 @@ function clear() {
 
 export { want, artFor, tagsFor, imageOf, readFromBody, noteFile, cancelSource, onFound, clear, directKeyOf };
 export const _internals = {
-  /** 원본을 여는 곳을 바꾼다(시험) */
+  /** 원본을 여는 곳을 바꾼다(테스트) */
   useOpen(fake: Open) {
     open = fake;
   },

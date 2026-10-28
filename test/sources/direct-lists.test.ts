@@ -10,7 +10,7 @@ import { codeOf } from "../../src/rules/error-kind.ts";
 
 type Reply = { body?: string; headers?: Record<string, unknown>; error?: Error };
 
-/** 가짜 SafeUrl(주소 → 응답). 라디오는 끝나지 않는 본문 흉내로 같은 조각을 이어 준다 */
+/** 가짜 SafeUrl(주소 → 응답). 라디오는 끝나지 않는 본문 흉내로 같은 청크를 이어 준다 */
 function netOf(routes: Record<string, Reply>) {
   const asked: string[] = [];
   const net = {

@@ -1,6 +1,6 @@
 <template>
-  <!-- 날짜 · 시각 고르기. 누르는 칸은 드롭다운과 같은 모양, 펼친 창(304)에 달력 · 시 · 분 · "초기화" · "적용". PC · 태블릿 · 휴대폰 모두 같은 부품.
-       날짜: 헤더의 "2026년 10월 ▾" → 연도 목록 → 월 목록 → 달력(M3 날짜 고르기처럼). 달력은 좌우로 끌면 따라오고 충분히 밀면 이전 · 다음 달로. ‹ › 도 있다.
+  <!-- 날짜 · 시각 고르기. 누르는 입력란은 드롭다운과 같은 모양, 펼친 창(304)에 달력 · 시 · 분 · "초기화" · "적용". PC · 태블릿 · 휴대폰 모두 같은 부품.
+       날짜: 헤더의 "2026년 10월 ▾" → 연도 목록 → 월 목록 → 달력(M3 날짜 고르기처럼). 달력은 좌우로 드래그하면 따라오고 충분히 밀면 이전 · 다음 달로. ‹ › 도 있다.
        시간: 위아래로 돌리는 휠(WheelPicker, 가운데를 누르면 직접 친다). 로그가 없는 날 · 월은 막고, 연도 목록과 달 넘기기에서는 뺀다 -->
   <div ref="root" class="relative">
     <button ref="anchor" type="button" :class="boxCls" :aria-expanded="open" @click="toggle">
@@ -12,10 +12,10 @@
     </button>
 
     <Teleport to="body">
-      <!-- 보통은 칸 아래에 붙인다. 창 폭은 칸이 아니라 달력이 정한다(칸 왼쪽에, 안 들어가면 칸 오른쪽 끝에 맞춘다).
-           휴대폰이거나 세로가 좁거나(755 미만), 열 때 칸 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 띄운다(필터 창과 같은 전환, style.css 의 fdialog). 뒤 누르기 · 기기의 뒤로 · Esc 로 닫는다.
+      <!-- 보통은 입력란 아래에 붙인다. 창 폭은 입력란이 아니라 달력이 정한다(입력란 왼쪽에, 안 들어가면 입력란 오른쪽 끝에 맞춘다).
+           휴대폰이거나 세로가 좁거나(755 미만), 열 때 입력란 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 띄운다(필터 창과 같은 전환, style.css 의 fdialog). 뒤 누르기 · 기기의 뒤로 · Esc 로 닫는다.
            휴대폰 가로처럼 낮은 화면(세로 512 이하)은 위아래로 쌓으면 시 · 분부터 잘리므로 왼쪽에 헤더 · 달력, 오른쪽에 시 · 분 · 버튼을 둔다.
-           끌어서 넘기므로 글자는 선택되지 않게 -->
+           드래그해서 넘기므로 글자는 선택되지 않게 -->
       <Transition name="fdialog" :duration="asDialog ? { enter: 250, leave: 150 } : 0">
         <div v-if="open" :class="asDialog ? 'fixed inset-0 z-300 flex items-center justify-center p-4' : 'contents'">
           <!-- 뒤를 누르면 바깥 누름(useAnchoredPanel)으로 닫힌다 -->
@@ -45,7 +45,7 @@
                     <button v-for="m in 12" :key="m" type="button" class="tap h-10 rounded-full text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-30" :class="pickYear === cursor.year && m - 1 === cursor.month ? 'bg-primary text-on-primary font-semibold' : 'state-layer'" :disabled="!monthHasLogs(pickYear, m - 1)" @click="chooseMonth(m - 1)">{{ T.monthName(m) }}</button>
                   </div>
 
-                  <!-- 달력: 요일 줄은 그대로, 날짜는 이전 · 지금 · 다음 달 세 장을 나란히 두고 함께 움직인다(끄는 동안 옆 달이 바로 붙어 보인다). 옆 달은 로그가 있는 가장 가까운 달 -->
+                  <!-- 달력: 요일 줄은 그대로, 날짜는 이전 · 지금 · 다음 달 세 장을 나란히 두고 함께 움직인다(드래그하는 동안 옆 달이 바로 붙어 보인다). 옆 달은 로그가 있는 가장 가까운 달 -->
                   <div v-else key="days" class="absolute inset-0 flex flex-col touch-pan-y" @pointerdown="swipeDown" @pointermove="swipeMove" @pointerup="swipeUp" @pointercancel="swipeUp">
                     <div class="grid grid-cols-7 text-center">
                       <span v-for="(w, i) in T.weekdays" :key="w" class="h-6 flex items-center justify-center text-2xs font-medium" :class="i === 0 ? 'text-(--log-error)' : 'text-on-surface-variant'">{{ w }}</span>
@@ -111,7 +111,7 @@ import { text } from "../text/index.ts";
 
 // 창 폭(rem). 날짜 한 셀 40 × 7 + 여백
 const PANEL_REM = 19;
-// 칸에 붙인 창의 높이(rem): 헤더 2.25 · 달력 15.75 · 시 · 분 6.25 · 버튼 2 · 사이 · 안쪽 여백 3(실제 465px)
+// 입력란에 붙인 창의 높이(rem): 헤더 2.25 · 달력 15.75 · 시 · 분 6.25 · 버튼 2 · 사이 · 안쪽 여백 3(실제 465px)
 const PANEL_H_REM = 29.25;
 const GAP = 4;
 
@@ -125,7 +125,7 @@ const emit = defineEmits<{ "update:modelValue": [value: number | null]; go: [val
 const T = text.fields.datePicker;
 
 const boxCls = "w-full h-10 pl-4 pr-3 text-sm flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-left cursor-pointer outline-none transition-[border-color] duration-150 focus-visible:border-primary";
-// 펼친 창: 칸 아래에 붙일 때(드롭다운 판) · 가운데 팝업일 때(M3 대화상자). 높이가 모자라면 줄이지 않고 스크롤한다
+// 펼친 창: 입력란 아래에 붙일 때(드롭다운 판) · 가운데 팝업일 때(M3 대화상자). 높이가 모자라면 줄이지 않고 스크롤한다
 const MENU_CLS = "pane-menu bg-surface-container-low! rounded-lg p-3 flex flex-col gap-2 select-none";
 const DIALOG_CLS = "fdialog-panel relative w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-4 flex flex-col gap-2 select-none";
 // 낮은 화면의 팝업: 좌우로 나눈다
@@ -138,7 +138,7 @@ const root = ref<HTMLElement | null>(null);
 const anchor = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
-// 휴대폰이거나 세로 755px 미만이면 가운데 팝업. 그 밖에도 열 때 칸 위아래 어느 쪽에도 창이 다 들어가지 않으면(cramped) 팝업
+// 휴대폰이거나 세로 755px 미만이면 가운데 팝업. 그 밖에도 열 때 입력란 위아래 어느 쪽에도 창이 다 들어가지 않으면(cramped) 팝업
 const smallScreen = useMediaQuery(`${PHONE_QUERY}, (max-height: 47.18rem)`);
 const cramped = ref(false);
 const asDialog = computed(() => smallScreen.value || cramped.value);
@@ -208,7 +208,7 @@ function monthDays(y: number, m: number) {
     return { key: date.toDateString(), date, inMonth: date.getMonth() === m, today: sameDay(date, today), selected: day.value != null && sameDay(date, day.value), disabled: !dayHasLogs(date) };
   });
 }
-// 세 장: 이전(로그가 있는 가장 가까운 달) · 지금 · 다음. 옆 달이 없으면 지금 달을 빈 자리로 둔다(끌어도 버틴다)
+// 세 장: 이전(로그가 있는 가장 가까운 달) · 지금 · 다음. 옆 달이 없으면 지금 달을 빈 자리로 둔다(드래그해도 버틴다)
 const pages = computed(() => {
   const now = cursor.value;
   const prev = prevMonth.value ?? now;
@@ -244,8 +244,8 @@ function chooseMonth(m: number) {
   view.value = "days";
 }
 
-// ── 달 넘기기: 끌기 · ‹ › ──
-// 세 장이 붙은 띠를 옮긴다. 끄는 동안 손을 따라오고(옆 달이 없으면 버티듯 덜), 놓을 때 4분의 1 넘게 밀었거나 빠르게 튕겼으면 옆 장으로 미끄러진 뒤
+// ── 달 넘기기: 드래그 · ‹ › ──
+// 세 장이 붙은 띠를 옮긴다. 드래그하는 동안 손을 따라오고(옆 달이 없으면 버티듯 덜), 놓을 때 4분의 1 넘게 밀었거나 빠르게 튕겼으면 옆 장으로 미끄러진 뒤
 // 그 달을 지금 달로 삼고 띠를 가운데로 되돌린다(같은 그림이라 티가 나지 않는다). ‹ › 는 같은 미끄러짐
 const TURN_MS = 220;
 const slide = ref(0);
@@ -294,7 +294,7 @@ function swipeUp(e: PointerEvent) {
   const s = swipe;
   swipe = null;
   if (s.locked !== "x") return;
-  // 끈 뒤 손을 뗀 자리의 날짜가 눌리지 않게
+  // 드래그한 뒤 손을 뗀 자리의 날짜가 눌리지 않게
   window.addEventListener("click", (ev) => ev.stopPropagation(), { capture: true, once: true });
   const dx = e.clientX - s.x;
   const fast = Math.abs(dx) / Math.max(1, e.timeStamp - s.t) > 0.5;

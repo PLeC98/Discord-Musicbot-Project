@@ -1,6 +1,6 @@
 // AI 보조 편집기의 상태와 주고받기. 편집기(ConfigAI)가 하나 만들어 내려 주고(provideAiEditor), 카드들이 같이 쓴다(useAiEditor).
 // 모델 · 프롬프트 · 판정 테스트 · 고급 설정이 한 설정 문서("ai" · "ai-prompt")를 함께 고치므로 상태는 하나(editorState)이고,
-// 그 위의 셈 · 동작을 그룹마다 나눠 둔다(프로바이더 · 모델 매개변수 · 고급 · 프롬프트 · 토큰 · 주고받기 · 서버 읽기 · 판정 테스트 · 모델 목록 · 유료 확인).
+// 그 위의 계산 · 동작을 그룹마다 나눠 둔다(프로바이더 · 모델 매개변수 · 고급 · 프롬프트 · 토큰 · 주고받기 · 서버 읽기 · 판정 테스트 · 모델 목록 · 유료 확인).
 
 import { provide, inject, ref, computed, watch, onMounted, type InjectionKey, type Ref } from "vue";
 import axios from "axios";
@@ -507,7 +507,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
     }
   }
   // 설정과 프롬프트는 딴 문서지만 한 편집기다. 둘을 한 번에 읽고, 한 요청으로 저장한다(둘 중 하나만 저장되지 않게).
-  // 이름(promptNames)이 설정 쪽에 실리므로 설정을 넣은 뒤에 프롬프트를 넣는다. 저장 번호는 설정 문서의 것을 들고 있다가 돌려보낸다
+  // 이름(promptNames)이 설정 쪽에 실리므로 설정을 반영한 뒤에 프롬프트를 반영한다. 저장 번호는 설정 문서의 것을 들고 있다가 돌려보낸다
   let aiRevision = 0;
   const file = useConfigFile({
     tab: "ai",
@@ -702,7 +702,7 @@ type Judge = ReturnType<typeof judgeTest>;
 // ── 모델 목록(무료 확인) · 프로바이더 · 모델 선택 ───────────────────────────
 function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>, on: Ref<boolean>) {
   const { draft, models, manualModel, tested, keyInput, loadingModels, showRaw, refreshing } = s;
-  // 불러온 모델 목록을 넣는다. 목록을 불러왔으면 드롭다운으로 돌아가고(못 불러왔을 때만 직접 입력하게 한다),
+  // 불러온 모델 목록을 반영한다. 목록을 불러왔으면 드롭다운으로 돌아가고(못 불러왔을 때만 직접 입력하게 한다),
   // 지금 값이 이 프로바이더의 목록에 없으면 기억해 둔 것으로 되돌린다
   function takeModels(list: string[]) {
     models.value = list;

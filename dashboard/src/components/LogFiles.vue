@@ -1,13 +1,13 @@
 <template>
   <!-- 로그 파일 보기. 실시간 로그 창과 같은 틀(헤더 · 필터 · 줄 영역). 실시간 로그의 "파일 보기"가 여는 페이지(views/LogFilesView)에 놓인다.
        배치는 카드 안쪽 폭으로 바꾼다(사이드바를 접은 화면 = 화면 - 116, 1280 이상은 - 124):
-       1187 이상: 레벨 / 카테고리 · 태그 · 찾기 … 날짜 · 시간(224) · 파일(256).
+       1187 이상: 레벨 / 카테고리 · 태그 · 검색 … 날짜 · 시간(224) · 파일(256).
        935 ~ 1186: 오른쪽이 한 열이 되어 날짜 · 시간(256)을 파일 위로(첫 줄 오른쪽까지).
-       934 이하: [필터 · 찾기 … 날짜 · 시간 · 파일] 한 줄. 레벨 · 카테고리 · 태그는 필터 창에(고르는 대로 반영).
-       804 이하는 날짜 · 시간을, 524 이하(사이드바를 편 820 · 휴대폰)는 파일까지 필터 창에(날짜 · 시간은 고르기 창의 "적용"). 오른쪽이 다 빠지면 찾기가 남은 폭을 다 쓴다 -->
+       934 이하: [필터 · 검색 … 날짜 · 시간 · 파일] 한 줄. 레벨 · 카테고리 · 태그는 필터 창에(고르는 대로 반영).
+       804 이하는 날짜 · 시간을, 524 이하(사이드바를 편 820 · 휴대폰)는 파일까지 필터 창에(날짜 · 시간은 고르기 창의 "적용"). 오른쪽이 다 빠지면 검색 입력란이 남은 폭을 다 쓴다 -->
   <section ref="card" class="@container/card pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
     <PaneHeader icon="folder" :title="T.title">
-      <!-- 실시간 로그처럼 제목 옆에 고른 파일의 전체 줄 수(불러온 수가 아니라). 찾은 줄 수는 찾기 칸 안에 -->
+      <!-- 실시간 로그처럼 제목 옆에 고른 파일의 전체 줄 수(불러온 수가 아니라). 검색된 줄 수는 검색 입력란 안에 -->
       <template #badge>
         <span v-if="current" class="text-xs nums text-on-surface shrink-0">{{ L.lines(current.lines) }}</span>
       </template>
@@ -149,7 +149,7 @@ let since = 0;
 const loading = ref<"" | "page" | "earlier" | "later">("");
 const matches = ref<number | null>(null);
 const matchNote = computed(() => (matches.value == null ? "" : L.lines(matches.value)));
-// 맞은 부분을 칠할 찾기: 받은 줄을 필터링한 찾기(입력 중인 찾기는 결과가 오기 전이라 쓰지 않는다)
+// 일치한 부분을 칠할 검색어: 받은 줄을 필터링한 검색어(입력 중인 검색어는 결과가 오기 전이라 쓰지 않는다)
 const searched = ref("");
 const pane = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(pane);

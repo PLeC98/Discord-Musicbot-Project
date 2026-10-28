@@ -103,7 +103,7 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "aaa111" });
 });
 
-// 익명 GraphQL 의 곡 · 앨범(getTrack · getAlbum). 가짜 질의로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
+// 익명 GraphQL 의 곡 · 앨범(getTrack · getAlbum). 가짜 쿼리로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
 const gqlTrack = (id: string, name: string) => ({ uri: `spotify:track:${id}`, name, duration: { totalMilliseconds: 201500 }, artists: { items: [{ profile: { name: "가수" } }] } });
 const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op: string, _hash: string, vars: Record<string, unknown>) => {
   seen.push([op, vars]);
@@ -113,7 +113,7 @@ const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op:
     const offset = Number(vars.offset);
     return { albumUnion: { name: "앨범", coverArt: { sources: [{ url: "https://i.scdn.co/cover", height: 640 }] }, tracksV2: { totalCount: all.length, items: all.slice(offset, offset + Number(vars.limit)) } } };
   }
-  throw new Error(`모르는 질의 ${op}`);
+  throw new Error(`모르는 쿼리 ${op}`);
 };
 
 test("키가 없으면 곡 · 앨범도 익명 GraphQL 로 연다(공식 API 는 부르지 않는다)", async () => {
@@ -153,7 +153,7 @@ test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 �
 });
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
-  // GraphQL 질의는 가짜로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
+  // GraphQL 쿼리는 가짜로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
   const query = async (op: string, _hash: string, vars: Record<string, unknown>) => {
     assert.equal(op, "queryArtistOverview");
     assert.equal(vars.uri, "spotify:artist:ar1");
@@ -190,7 +190,7 @@ test("모르는 주소는 요청 없이 빈 결과", async () => {
   assert.equal(requests.length, 0);
 });
 
-// ── 익명 GraphQL: 상태 · 토큰 · 질의 ───────────────────────────────────
+// ── 익명 GraphQL: 상태 · 토큰 · 쿼리 ───────────────────────────────────
 
 const HOME = `<script id="appServerConfig" type="text">${Buffer.from(JSON.stringify({ clientVersion: "9.9.9" })).toString("base64")}</script><script src="https://open.spotifycdn.com/cdn/build/web-player/web-player.abc123.js"></script>`;
 const BUNDLE = `x={secret:'s3cr\\'et',version:12};"fetchPlaylist","query","${"a".repeat(64)}";"queryArtistOverview","query","${"b".repeat(64)}"`;
@@ -283,7 +283,7 @@ test("익명 상태: 뽑기에 실패하면 한동안 다시 뽑지 않는다. �
   assert.equal(requests.length, afterFail + 1, "강제 뽑기는 쉬지 않는다");
 });
 
-test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아예 없으면 그 질의만 실패한다", async () => {
+test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아예 없으면 그 쿼리만 실패한다", async () => {
   routes = anonRoutes();
   await graphql._ensureState(false);
 
@@ -331,7 +331,7 @@ test("익명 토큰: 그 밖의 실패는 그대로 던진다", async () => {
   await assert.rejects(graphql._token(), /익명 토큰 500/);
 });
 
-test("GraphQL 질의: 파트너 헤더와 저장된 해시로 보낸다. 해시가 만료됐으면 다시 뽑아 한 번 더", async () => {
+test("GraphQL 쿼리: 파트너 헤더와 저장된 해시로 보낸다. 해시가 만료됐으면 다시 뽑아 한 번 더", async () => {
   let attempts = 0;
   routes = [
     ...anonRoutes(),
@@ -354,7 +354,7 @@ test("GraphQL 질의: 파트너 헤더와 저장된 해시로 보낸다. 해시�
   assert.equal(q[0]?.init.headers?.["Spotify-App-Version"], "9.9.9");
 });
 
-test("GraphQL 질의: 다른 오류와 JSON 이 아닌 응답은 던진다", async () => {
+test("GraphQL 쿼리: 다른 오류와 JSON 이 아닌 응답은 던진다", async () => {
   routes = [...anonRoutes(), (url) => (url.includes("api-partner") ? reply({ errors: [{ message: "Forbidden" }] }) : undefined)];
   await assert.rejects(graphql._query("fetchPlaylist", "fetchPlaylist", {}), /Forbidden/);
 

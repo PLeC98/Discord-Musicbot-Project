@@ -3,7 +3,7 @@
 
 import { onBeforeUnmount, ref, watch, type Ref } from "vue";
 
-/** again: 영역 크기 · 안의 항목 밖에서 내용 높이가 바뀌는 신호(보이는 행만 그리는 목록의 빈 칸 높이). 바뀌면 다시 잰다 */
+/** again: 영역 크기 · 안의 항목 밖에서 내용 높이가 바뀌는 신호(가상 스크롤 목록의 스페이서 높이). 바뀌면 다시 잰다 */
 export function useOverflowing(el: Ref<HTMLElement | null>, again?: () => unknown) {
   const overflowing = ref(false);
   let resize: ResizeObserver | null = null;

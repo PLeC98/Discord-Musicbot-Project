@@ -4,12 +4,12 @@
   설정은 settings.db 의 "genres" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
 -->
 <template>
-  <!-- 목록(첫 항목 "전역 설정", 그 아래 장르들) · 선택한 것의 편집(M3 목록 · 상세). 넓으면(52rem 이상) 두 단, 좁으면 한 단씩:
+  <!-- 목록(첫 항목 "전역 설정", 그 아래 장르들) · 선택한 것의 편집(M3 목록 · 상세). 넓으면(52rem 이상) 2열, 좁으면 1열로 하나씩:
        목록에서 누르면 편집이 목록 위치를 넘겨받고, 방문 기록이 하나 쌓여 OS · 브라우저의 뒤로가기가 목록으로 돌아온다.
        선택한 것은 주소(?genre=이름, 이름이 비었거나 겹치면 @순번, 전역 설정은 @defaults)에 둬 새로고침 · 저장 뒤에도 다시 찾는다 -->
   <div class="flex flex-col gap-(--gap-in)">
     <div ref="paneEl" :class="paneClass">
-      <!-- 장르 목록. 두 단이면 내려도 제자리에 붙어 있고, 길면 그 안에서 스크롤된다 -->
+      <!-- 장르 목록. 2열이면 내려도 제자리에 붙어 있고, 길면 그 안에서 스크롤된다 -->
       <BaseCard v-if="showList" icon="library_music" :title="T.listTitle(rows.length, SELECT_MAX)" :class="listCardClass">
         <template #actions>
           <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="rows.length >= SELECT_MAX" :aria-label="T.addGenre" v-tooltip="rows.length >= SELECT_MAX ? T.atMost(SELECT_MAX) : text.common.add" @click="addRow"><Icon name="add" :size="20" /></button>
@@ -166,7 +166,7 @@ const suggestFor = async (type: string, field: string, term: string) => (await a
 const paneEl = ref<HTMLElement | null>(null);
 const { listCardClass, paneClass, selectedIndex, selected, showGlobal, showList, isOn, globalOn, select, openGlobal, afterRemove } = useListDetail({ param: "genre", rows, paneEl });
 const listEl = ref<HTMLElement | null>(null);
-// 더 있는 쪽 끝 반 줄(24)을 흐리게
+// 더 있는 쪽 끝 반 줄(24)을 페이드 처리한다
 const listFade = useScrollFade(listEl, () => true, 24);
 
 // 항목마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/genres)를 그 장르 하나에만 돌린 것. 목록 항목의 아이콘(툴팁)과 편집 영역 맨 위에 보인다.

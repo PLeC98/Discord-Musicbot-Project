@@ -24,7 +24,7 @@
     <!-- 탭 레일. 내용이 길어도 제자리에 붙어 있다. 선택 표시(알약)는 하나를 두고 선택한 탭으로 미끄러뜨린다.
          높이는 바탕화면 위아래 틈 사이 전부(재생 바 노치는 가운데에 떠 있어 레일과 겹치지 않는다).
          페이지 아래 여백에 든 재생 바 높이만큼은 음수 여백으로 돌려줘 레일 때문에 페이지가 스크롤되지 않게 한다.
-         탭이 많아 넘치면 레일 안에서 스크롤되고 가장자리가 흐려진다 -->
+         탭이 많아 넘치면 레일 안에서 스크롤되고 가장자리가 페이드로 사라진다 -->
     <nav v-if="!loading" class="pane hidden md:flex sticky top-(--gap-out) shrink-0 w-(--rail) flex-col overflow-hidden rounded-(--r-window) h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)" :aria-label="T.tabsLabel">
       <div ref="railEl" class="relative min-h-0 flex flex-col items-stretch gap-1 py-3 overflow-y-auto overscroll-contain scrollbar-none" :style="railFade">
         <span aria-hidden="true" class="absolute top-0 left-1/2 w-14 h-8 rounded-2xl bg-secondary-container" :class="railReady && 'transition-transform spring'" :style="{ transform: `translate(-50%, ${pillY}px)` }"></span>
@@ -307,7 +307,7 @@ function setTab(id: string) {
   void pushDown(router, route, { query: { ...query, tab: id } });
 }
 // 위 막대 ← (화면 안에 따로 "목록으로"를 두지 않는다): 늘 상위로(utils/up-nav). 상세 표식(?genre= 등)이 있으면 그것을 제거해 목록으로,
-// 없으면 탭을 제거해 선택 화면으로. 상위가 바로 앞 기록이면 기록을 무르고(기기 뒤로와 같다), 아니면 바꿔치기(화면 크기가 바뀌어 한 단 ↔ 두 단이 뒤집혀도 늘 상위로).
+// 없으면 탭을 제거해 선택 화면으로. 상위가 바로 앞 기록이면 기록을 무르고(기기 뒤로와 같다), 아니면 바꿔치기(화면 크기가 바뀌어 1열 ↔ 2열이 뒤집혀도 늘 상위로).
 // 누른 뒤 화면이 바뀔 때까지 다시 누른 것은 무시한다(두 단계 건너뜀 막기)
 let backing = false;
 watch(
@@ -325,7 +325,7 @@ function goBack() {
 }
 // 지금 탭의 상세 표식(?genre= 등)
 const detailParam = computed(() => (tab.value ? TAB_PARAM[tab.value] : undefined));
-// 한 단으로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 표시한다, composables/list-detail 의 singlePane)
+// 1열로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 표시한다, composables/list-detail 의 singlePane)
 const detailOpen = computed(() => Boolean(detailParam.value && route.query[detailParam.value] && singlePane[detailParam.value]));
 // 상세를 닫고 목록(첫 화면)으로: 늘 상위로(목록에서 연 상세면 기록을 무르고, 아니면 표식만 제거한다)
 function closeDetail() {
@@ -368,7 +368,7 @@ const loading = ref(true);
 const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
-// 상태 탭 목록(플레이어 · 자식 프로세스)의 구간 · 거르기 · 정렬. 봇 상태 탭이 바꾸고(v-model), 바뀌면 바로 받는다. 정보 탭은 셈만 받는다
+// 상태 탭 목록(플레이어 · 자식 프로세스)의 구간 · 필터링 · 정렬. 봇 상태 탭이 바꾸고(v-model), 바뀌면 바로 받는다. 정보 탭은 개수만 받는다
 const statusQuery = shallowRef<StatusQuery>(STATUS_QUERY);
 const statusAsk = () => (tab.value === "info" ? COUNTS_ONLY : statusQuery.value);
 const statusOrder = replyOrder();
@@ -399,11 +399,11 @@ function placePill() {
     else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: "smooth" });
   }
 }
-// 레일은 스크롤바가 없어 흐림이 더 스크롤된다는 유일한 표시다. 탭 하나(64)만큼 넓게
+// 레일은 스크롤바가 없어 페이드가 더 스크롤된다는 유일한 표시다. 탭 하나(64)만큼 넓게
 const railFade = useScrollFade(railEl, () => true, 64);
 watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
-// 나중에 보낸 것의 답만 넣는다. 보낸 뒤 질의가 바뀌었으면(정보 탭의 셈만 받기가 상태 탭으로 바꾼 뒤 도착) 그 답도 넣지 않는다.
+// 최신 요청의 답만 반영한다. 보낸 뒤 쿼리가 바뀌었으면(정보 탭의 개수만 받기가 상태 탭으로 바꾼 뒤 도착) 그 답도 반영하지 않는다.
 // poll: 3초 폴링이면 받는 중일 때 건너뛴다(그 밖의 받기는 기다리지 않는다)
 async function fetchStatus(poll = false) {
   if (poll && statusOrder.busy()) return;
@@ -429,7 +429,7 @@ watch(statusQuery, () => {
 });
 
 // ── 서버 관리 ─────────────────────────────────────────
-// 서버 목록은 질의(구간 · 찾기 · 재생 중만 · 정렬)로 거른 구간만 받는다. 받기 규칙은 봇 상태와 같다
+// 서버 목록은 쿼리(구간 · 검색 · 재생 중만 · 정렬)로 필터링된 구간만 받는다. 응답 순서 처리는 봇 상태와 같다
 const guilds = ref<AdminGuilds>({ total: 0, playing: 0, matched: 0, from: 0, guilds: [] });
 const guildQuery = shallowRef<GuildQuery>(GUILD_QUERY);
 const guildOrder = replyOrder();
@@ -459,8 +459,8 @@ const sseConnected = ref(false);
 // 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
 let lastLogEventId = "";
 let lastLogId = 0;
-// 붙을 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
-// 한 프레임 동안 모았다가 한 번에 넣는다
+// 연결할 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
+// 한 프레임 동안 모았다가 한 번에 반영한다
 let pendingLogs: LogRow[] = [];
 // 표시 줄(받지 못함 · 다시 시작)의 key
 let markSeq = 0;
@@ -483,7 +483,7 @@ watch(tab, () => {
 
 // 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 KEPT_LINES 줄까지 들고 있고, 그 밖으로 밀려난 줄은 수만 받는다, infra/log/levels)
 const wantLogs = () => tab.value === "logs" && live();
-// 끊기면 브라우저가 마지막 id 를 실어 다시 붙고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
+// 끊기면 브라우저가 마지막 id 를 실어 재연결하고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
 const logLink = eventLink({
   url: () => `/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`,
   open: (url) => new EventSource(url, { withCredentials: true }),
@@ -495,7 +495,7 @@ const logLink = eventLink({
       lastLogId = 0;
       queueLog({ key: `mark-${++markSeq}`, mark: "restart" });
     },
-    // 다시 붙었는데 이어 받을 줄이 서버가 쌓아 둔 줄 밖으로 밀려났다. 그 수를 표시 줄로
+    // 재연결했는데 이어 받을 줄이 서버가 쌓아 둔 줄 밖으로 밀려났다. 그 수를 표시 줄로
     gap: (e) => {
       const { missed } = JSON.parse(String(e.data)) as LogGap;
       queueLog({ key: `mark-${++markSeq}`, mark: "gap", missed });

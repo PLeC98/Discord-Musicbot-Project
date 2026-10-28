@@ -600,7 +600,7 @@ test("불러올 곡 수: 한 번에 넣는 배치와 남은 자리 중 작은 �
   withLimits(30, 50, async () => {
     assert.equal((await requestWith({ playing: true })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
-    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 셈하지만, 배치가 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
+    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 세지만, 배치가 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
     assert.equal((await requestWith({ playing: false })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
     assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
@@ -617,7 +617,7 @@ test("자리가 모자라 덜 불러왔고 뒤에 곡이 더 있을 때만 queue
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData?.queueLimited, true);
 
     const room = () => ({ ...ok(...Array.from({ length: 25 }, (_, i) => `s${i}`)), total: 80 });
-    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData?.queueLimited, true, "남은 자리 25가 묶음 30보다 작다");
+    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData?.queueLimited, true, "남은 자리 25가 배치 30보다 작다");
 
     const whole = () => ({ ...ok("1", "2", "3"), total: 3 });
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData?.queueLimited, undefined, "목록을 다 받았으면 아니다");
@@ -718,7 +718,7 @@ test("이어 넣기: 다음 배치를 못 불러오면 모은 곡까지만 넣�
       return whole(range);
     };
     const { added } = await continueWith({ state: stateAt(50), count: 250, source: secondFails });
-    assert.equal(added?.tracks.length, 100, "첫 묶음만");
+    assert.equal(added?.tracks.length, 100, "첫 배치만");
 
     await assert.rejects(
       continueWith({
@@ -756,7 +756,7 @@ test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣
   withLimits(250, 50, async () => {
     const front = await continueWith({ state: stateAt(50, { insertFirst: true }), count: 10 });
     assert.equal(front.added?.insertAfterId, idOf(49));
-    assert.equal(continued(front.result).next?.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
+    assert.equal(continued(front.result).next?.insertFirst, true, "다음 배치도 같은 자리 규칙을 잇는다");
 
     const back = await continueWith({ state: stateAt(50), count: 10 });
     assert.equal(back.added?.insertAfterId, undefined);

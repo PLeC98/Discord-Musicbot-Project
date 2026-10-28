@@ -1,4 +1,4 @@
-// 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers 로 처리기를 건다.
+// 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers 로 핸들러를 건다.
 //
 // 방침: 봇 전체를 내리지 않고 서버 하나로 가둔다.
 // - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 이미 아는 디스코드 코드는 로그만 남긴다.
@@ -21,7 +21,7 @@ const coreLog = logger.child({ category: "core" });
 type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string): unknown } };
 /** 서버마다의 플레이어 */
 type Savables = Pick<Map<string, Savable | null>, "forEach">;
-/** 오류 처리기를 걸 클라이언트 */
+/** 오류 핸들러를 걸 클라이언트 */
 type WatchedClient = { on(event: "error", listener: (error: Error) => void): unknown };
 /** 처리되지 않은 거부 · 예외를 알리는 곳(프로세스) */
 type Proc = { on(event: "unhandledRejection" | "uncaughtException", listener: (error: unknown) => void): unknown };
@@ -79,10 +79,10 @@ ${String(stack || error)}`,
   exit();
 }
 
-/** 처리기에 넘기는 것. players: 내릴 때 세션을 저장할 플레이어 · fault: 서버 하나 다시 시작(없으면 로그만) · proc · exit · record: 테스트가 넘긴다 */
+/** 핸들러에 넘기는 것. players: 내릴 때 세션을 저장할 플레이어 · fault: 서버 하나 다시 시작(없으면 로그만) · proc · exit · record: 테스트가 넘긴다 */
 type Options = { players?: Savables; fault?: GuildFault; proc?: Proc; exit?: () => void; record?: Pick<typeof runRecord, "end"> };
 
-// 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다
+// 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 핸들러를 건다. 기동이 한 번 부른다
 function installErrorHandlers(client: WatchedClient, { players, fault, proc = process, exit, record }: Options = {}) {
   const flooding = makeFloodGuard();
 
@@ -97,7 +97,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
       fault(guildId, error, source).catch((e: unknown) => coreLog.error(`서버 ${guildId} 오류 처리 실패:`, e));
       return;
     }
-    // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이 · 네트워크 오류는 discord.js 가 스스로 다시 붙는다
+    // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이 · 네트워크 오류는 discord.js 가 알아서 재연결한다
     if (errorKind(error) === "network-error") coreLog.warn(`경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
     else coreLog.error(`경계가 빠진 위치에서 새어 나온 오류 (${source}):`, error);
     if (flooding()) {
@@ -106,7 +106,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
     }
   };
 
-  // discord.js 가 알리는 오류. 처리기의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
+  // discord.js 가 알리는 오류. 핸들러의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
   client.on(Events.Error, (error) => loose(error, "client"));
   proc.on("unhandledRejection", (reason) => loose(reason, "rejection"));
   proc.on("uncaughtException", (error) => loose(error, "exception"));

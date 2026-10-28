@@ -32,14 +32,14 @@ type LogFileList = { enabled: boolean; files: LogFile[] };
 type FileLine = WireFields & { offset: number };
 /**
  * 한 쪽. name · since 는 읽은 파일(보던 파일이 떼어졌으면 떼어 낸 파일의 이름이 온다). more 는 앞에, later 는 뒤에 줄이 더 있다.
- * matches 는 찾기가 있을 때 필터를 모두 건 채 파일 전체에서 맞은 줄 수(처음 받는 쪽에만: before · after 없이)
+ * matches 는 검색어가 있을 때 필터를 모두 건 채 파일 전체에서 맞은 줄 수(처음 받는 쪽에만: before · after 없이)
  */
 type FilePage = { name: string; since: number; lines: FileLine[]; more: boolean; later: boolean; matches?: number };
 
 /** 필터. 비운 필드는 필터링하지 않는다 */
 type LogFilter = { levels?: ReadonlySet<LevelName>; category?: string; tag?: string; q?: string };
 
-/** 줄이 필터에 맞는지. 찾기는 글 · 카테고리 · 하위 카테고리 · 태그에서(한국어 조합 중 글자 · 초성도) */
+/** 줄이 필터에 맞는지. 검색은 글 · 카테고리 · 하위 카테고리 · 태그에서(한국어 조합 중 글자 · 초성도) */
 function matchesLog(line: Pick<WireFields, "level" | "text" | "category" | "sub" | "tags">, filter: LogFilter): boolean {
   if (filter.levels && !filter.levels.has(line.level)) return false;
   if (filter.category && line.category !== filter.category) return false;

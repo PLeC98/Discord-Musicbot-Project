@@ -1,6 +1,6 @@
 // 문제(오류 · 거절) 코드 목록. 디스코드 안내와 대시보드 HTTP 오류(RFC 9457)가 같은 코드를 쓴다.
 // 코드 하나에 뜻 하나. 코드를 바꾸면 받는 쪽이 깨지니 새 뜻은 새 코드로. 문장에 드는 값은 params 에 이름을 적는다.
-// HTTP 상태: 400 입력이 틀림 · 403 요청한 사람에게 권한이 없음 · 404 대상이나 처리기가 없음 · 409 지금 상태로는 못 함 ·
+// HTTP 상태: 400 입력이 틀림 · 403 요청한 사람에게 권한이 없음 · 404 대상이나 핸들러가 없음 · 409 지금 상태로는 못 함 ·
 // 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 외부(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
 
 /** 문장에 드는 값. 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
@@ -64,7 +64,7 @@ const SHARED = {
   "more-bad-count": { status: 400, title: "Track count must be a positive number" },
   "more-not-requester": { status: 403, title: "Only the requester can add more" },
   "more-not-requester-close": { status: 403, title: "Only the requester can close the menu" },
-  // 대상이나 처리기가 없음
+  // 대상이나 핸들러가 없음
   "unknown-command": { status: 404, title: "Command is not available" },
   "unknown-interaction": { status: 404, title: "Unknown or expired button" },
   "more-unknown-menu": { status: 404, title: "Unknown menu" },

@@ -136,7 +136,7 @@ class ChunkedReader {
 
   pos = 0; // 받은 바이트 = 다음 요청의 시작 위치
   target = 0; // 지금 받는 청크의 끝(미포함)
-  chunks: Buffer[] = []; // 받아 두고 아직 내보내지 않은 조각
+  chunks: Buffer[] = []; // 받아 두고 아직 내보내지 않은 청크
   queued = 0;
   wanting = false;
   fetching = false;
@@ -359,7 +359,7 @@ class ChunkedReader {
     return !this.stream.destroyed;
   }
 
-  // 다음 조각을 받는다. fill 은 실패를 스스로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
+  // 다음 청크를 받는다. fill 은 실패를 스스로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
   _fillOrFail() {
     this.fill().catch((error: unknown) => this.stream.destroy(error instanceof Error ? error : new Error(String(error))));
   }

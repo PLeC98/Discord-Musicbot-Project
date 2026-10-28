@@ -1,5 +1,5 @@
 // 화면 글꼴의 라이선스 조건(scripts/font-names.ts 와 그것으로 만든 dashboard/src/assets 의 글꼴).
-// 셋 다 SIL OFL 1.1 이다. 조각마다 라이선스(name 13 · 14번)가 따라가야 하고, 예약 글꼴 이름(RFN)이 걸린 D2Coding 의 수정본은 그 이름을 쓸 수 없다
+// 셋 다 SIL OFL 1.1 이다. 서브셋마다 라이선스(name 13 · 14번)가 따라가야 하고, 예약된 글꼴 이름(RFN)이 걸린 D2Coding 의 수정본은 그 이름을 쓸 수 없다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,7 +10,7 @@ import { setNames, toSfnt, OFL_NAMES } from "../../scripts/font-names.ts";
 
 const ASSETS = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "assets");
 const open = (data: Buffer) => fontkit.create(data) as fontkit.Font;
-// @types/fontkit 은 name 표를 적지 않는다(fontkit 은 읽는다)
+// @types/fontkit 은 name 테이블을 적지 않는다(fontkit 은 읽는다)
 const names = (font: fontkit.Font) => (font as unknown as { name: { records: Record<string, Record<string, string> | undefined> } }).name.records;
 const en = (font: fontkit.Font, key: string) => Object.values(names(font)[key] ?? {})[0];
 
@@ -52,7 +52,7 @@ const shipped = () =>
     )
     .concat(path.join(ASSETS, "material-symbols.woff2"));
 
-test("내주는 글꼴은 조각마다 저작권 · 라이선스 설명 · 주소를 담는다(OFL FAQ 2.4)", () => {
+test("내주는 글꼴은 서브셋마다 저작권 · 라이선스 설명 · 주소를 담는다(OFL FAQ 2.4)", () => {
   const missing = shipped().filter((file) => {
     const font = open(fs.readFileSync(file));
     return !en(font, "copyright") || en(font, "license") !== OFL_NAMES[13] || en(font, "licenseURL") !== OFL_NAMES[14];
@@ -61,7 +61,7 @@ test("내주는 글꼴은 조각마다 저작권 · 라이선스 설명 · 주�
   for (const license of ["mono/OFL.txt", "google-sans-flex/OFL.txt", "material-symbols-OFL.txt"]) assert.ok(fs.existsSync(path.join(ASSETS, license)), `${license} 가 글꼴 옆에 있다`);
 });
 
-test("D2Coding 의 수정본(고정폭 조각)은 예약 글꼴 이름을 저작권 줄 밖에서 쓰지 않는다(OFL 조건 3)", () => {
+test("D2Coding 의 수정본(고정폭 서브셋)은 예약된 글꼴 이름을 저작권 줄 밖에서 쓰지 않는다(OFL 조건 3)", () => {
   const files = shipped().filter((file) => file.includes(`${path.sep}mono${path.sep}`));
   assert.ok(files.length > 0);
   const named = files.filter((file) =>

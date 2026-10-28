@@ -88,7 +88,7 @@ test("권한 보기 전환(viewAs)이 걸려 있으면 권한만 바꾼 멤버�
   assert.notEqual(member.permissions, "real");
 });
 
-test("memberOf: 캐시 → REST, 답은 두지 않는다(멤버 아님도 다음에 다시 묻는다), 쓸 수 없는 서버는 캐시를 건너뛴다", async () => {
+test("memberOf: 캐시 → REST, 답은 캐시하지 않는다(멤버 아님도 다음에 다시 묻는다), 사용 불가(unavailable) 서버는 캐시를 건너뛴다", async () => {
   const asked: unknown[] = [];
   const cache = new Map<string, Member>([["cached", { id: "cached" }]]);
   const g = {
@@ -111,5 +111,5 @@ test("memberOf: 캐시 → REST, 답은 두지 않는다(멤버 아님도 다음
   assert.equal(asked.length, 2, "멤버 아님을 기억하지 않는다");
   g.available = false;
   assert.deepEqual(await memberOf(guild, "cached"), { id: "cached" });
-  assert.deepEqual(asked.at(-1), { user: "cached", force: true }, "쓸 수 없는 서버는 캐시에 있어도 묻는다");
+  assert.deepEqual(asked.at(-1), { user: "cached", force: true }, "사용 불가 서버는 캐시에 있어도 묻는다");
 });

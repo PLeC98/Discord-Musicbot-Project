@@ -40,7 +40,7 @@ type AiLogEntry = {
   aborted: boolean;
   /** 보내고 응답을 다 받기까지 */
   tookMs: number;
-  /** 보내고 응답 본문 첫 조각까지. 닿지 못했으면 null */
+  /** 보내고 응답 본문 첫 청크까지. 닿지 못했으면 null */
   firstMs: number | null;
   /** 몇 번째 시도(1부터). 재시도면 2 이상 */
   attempt: number;
@@ -79,7 +79,7 @@ function aiLogMatches(entry: AiLogEntry, query: AiLogQuery): boolean {
   if (query.sources.length && !query.sources.includes(entry.source)) return false;
   if (query.result === "ok" && !entry.ok) return false;
   if (query.result === "failed" && entry.ok) return false;
-  // 한국어 찾기(조합 중인 글자 · 초성, 대소문자 무시). 봇의 목록 읽기(store/ai-requests 의 ko_match)와 같다
+  // 한국어 검색(조합 중인 글자 · 초성, 대소문자 무시). 봇의 목록 읽기(store/ai-requests 의 ko_match)와 같다
   const q = query.q.trim();
   return !q || [entry.url, entry.model, entry.name, entry.error ?? ""].some((one) => koMatch(one, q));
 }

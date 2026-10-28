@@ -27,7 +27,7 @@ const KEEP = { images: 8, small: 64, backdrops: 24 };
 function remember<T>(map: Map<string, Promise<T>>, key: string, make: () => Promise<T>, keep: number, drop?: (gone: Promise<T>) => void): Promise<T> {
   let found = map.get(key);
   if (found) {
-    // 최근에 쓴 것을 뒤로(Map 은 넣은 순서를 지킨다)
+    // 최근에 쓴 것을 뒤로(Map 은 삽입 순서를 지킨다)
     map.delete(key);
     map.set(key, found);
     return found;
@@ -117,7 +117,7 @@ const seedOf = (url: string) =>
       if (!ctx) return null;
       const crop = Math.min(img.naturalWidth * content.w, img.naturalHeight * content.h);
       ctx.drawImage(img, (img.naturalWidth - crop) / 2, (img.naturalHeight - crop) / 2, crop, crop, 0, 0, SEED_SIDE, SEED_SIDE);
-      // 선택하는 셈은 봇(로그인 배경의 장면 색)과 같은 것(rules/art-seed)
+      // 색을 고르는 계산은 봇(로그인 배경의 장면 색)과 같다(rules/art-seed)
       return seedOfPixels(ctx.getImageData(0, 0, SEED_SIDE, SEED_SIDE).data);
     },
     KEEP.small,

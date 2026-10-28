@@ -20,7 +20,7 @@ const statusOf = (error: unknown) => (error as { response?: { status?: number } 
 function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
 
-  // fresh=1: 갱신 버튼. 잠깐 둔 목록을 건너뛰고 디스코드에 다시 묻는다
+  // fresh=1: 갱신 버튼. 잠깐 캐시된 목록을 건너뛰고 디스코드에 다시 묻는다
   router.get("/", requireAuth, async (req, res) => {
     const { client } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");

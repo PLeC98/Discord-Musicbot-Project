@@ -3,7 +3,7 @@
 // 위에서부터 먼저 걸리는 것:
 //   우리가 멈춤            그 까닭대로(깨진 재생을 멈춘 까닭이면 끊김, 그 밖은 끝)
 //   라이브                 ffmpeg 가 0 으로 끝났고 입력이 온전하면 끝(방송 종료), 아니면 끊김
-//   재생 스트림이 덜 끝남   공급이 모자라 플레이어가 멈춘 것. 끊김
+//   재생 스트림이 덜 끝남   패킷 공급이 모자라 플레이어가 멈춘 것. 끊김
 //   입력 깨짐 표시          끊김(HLS 가 세그먼트를 건너뛴 것도 여기로 온다. media/playback-input)
 //   그 밖                  끝
 // 끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 끝으로 본다(끝부분을 되풀이해 틀지 않게).
@@ -35,7 +35,7 @@ const ended = (why: string): Verdict => ({ dropped: false, why });
 function dropCause(f: EndFacts): string | null {
   if (f.reason !== "idle") return BROKEN_STOPS[f.reason] ?? null;
   if (f.live) return f.exitCode === 0 && !f.broken ? null : (f.broken ?? `ffmpeg 종료 코드 ${f.exitCode ?? "없음"}`);
-  if (!f.streamEnded) return "공급이 끊겨 플레이어가 멈춤";
+  if (!f.streamEnded) return "패킷 공급이 끊겨 플레이어가 멈춤";
   return f.broken;
 }
 

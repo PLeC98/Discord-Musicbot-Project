@@ -3,7 +3,7 @@
 import type { ProcessRow, ProcessSort } from "../contract/admin.ts";
 import type { Job } from "../../infra/process-job.ts";
 
-// 하는 일의 순서: 서버 이름 있는 일 → 나간 서버의 일 → 서버 밖 일 → 봇 헬퍼. 서버 이름(가나다) 다음은 일(재생 · 다음 곡 · 곡 찾기 · 없음), 헬퍼는 이 순서.
+// 작업 순서: 서버 이름 있는 작업 → 나간 서버의 작업 → 서버 밖 작업 → 봇 헬퍼. 서버 이름(가나다) 다음은 작업(재생 · 다음 곡 · 곡 찾기 · 없음), 헬퍼는 이 순서.
 // 화면 글(헬퍼 이름 · "나간 서버")은 화면 언어를 따르므로 그 글로 정렬하지 않는다
 const TASKS: Array<Job | null> = ["play", "prefetch", "lookup", null];
 const HELPERS: Job[] = ["pot-server", "ytdlp-update", "login-background", "net-stats"];

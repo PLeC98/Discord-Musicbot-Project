@@ -1,7 +1,7 @@
 /**
- * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임에 배율을 곱해 Opus 패킷으로 돌려준다.
- * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 늦음 · 멈춤을 잰다.
- * 답은 한 차례(이벤트 루프 한 바퀴)에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 묶음이 커져 메인의 메시지 비용이 준다.
+ * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려준다.
+ * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 지연 · 멈춤을 잰다.
+ * 답은 한 차례(이벤트 루프 한 바퀴)에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 배치가 커져 메인의 메시지 비용이 준다.
  * media/opus-encoder 와 Node 내장만 부른다. logger 를 부르면 이 스레드에 파일 출력이 없는 sink 가 따로 생긴다(로그는 메인이 남긴다).
  *
  * 받는 것(parentPort): init · open · frame · close. 주는 것(init 때 받은 포트): ready · replies · load
@@ -55,7 +55,7 @@ function flush() {
   reply?.postMessage({ type: "replies", items } satisfies FromWorker, moved);
 }
 
-// 밀린 메시지를 한 바퀴에 다 처리하면 앞의 답이 그만큼 늦게 나간다. 묶음은 이만큼까지만 붙잡는다
+// 밀린 메시지를 한 바퀴에 다 처리하면 앞의 답이 그만큼 늦게 나간다. 배치는 이만큼까지만 붙잡는다
 const BATCH_MS = 0.25;
 const BATCH_MAX = 16;
 
@@ -84,7 +84,7 @@ function encode(stream: Stream, frame: Frame) {
   try {
     if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(3840B 여야 한다)`);
     if (frame.gain !== 1) {
-      // 배율은 0 ~ 1 이라 범위를 넘지 않는다. Int16Array 에 넣을 때 소수는 0 쪽으로 잘린다
+      // 볼륨 배율은 0 ~ 1 이라 범위를 넘지 않는다. Int16Array 에 넣을 때 소수는 0 쪽으로 잘린다
       const samples = new Int16Array(frame.pcm);
       for (let i = 0; i < samples.length; i++) samples[i] *= frame.gain;
     }
@@ -134,7 +134,7 @@ function close(id: number) {
   stream.encoder = null;
 }
 
-// 기동 때 한 번: 모듈을 불러 두고 프레임 하나를 인코딩하는 데 드는 시간을 잰다(메인이 처음 워커 수를 정하는 데 쓴다)
+// 기동 시 한 번: 모듈을 불러 두고 프레임 하나를 인코딩하는 데 드는 시간을 잰다(메인이 처음 워커 수를 정하는 데 쓴다)
 async function init(port: MessagePort, calibrateFrames: number) {
   reply = port;
   const { libopusVersion } = await loadOpus();
@@ -159,7 +159,7 @@ async function init(port: MessagePort, calibrateFrames: number) {
   }, LOAD_EVERY_MS).unref();
 }
 
-// 이 스레드가 실제로 CPU 를 쓴 시간(µs). 벽시계로 재는 ELU 는 코어를 다른 데 뺏긴 시간도 바쁨으로 센다
+// 이 스레드가 실제로 CPU 를 쓴 시간(µs). 실제 경과 시간(wall-clock)으로 재는 ELU 는 코어를 다른 데 뺏긴 시간도 바쁨으로 센다
 function cpuNow() {
   const used = process.threadCpuUsage();
   return used.user + used.system;

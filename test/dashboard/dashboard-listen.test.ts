@@ -40,7 +40,7 @@ test("포트가 쓰이고 있으면 못 열었다고 남기고 열었다고 적�
   assert.ok(failed?.msg.includes("EADDRINUSE"), JSON.stringify(lines));
 });
 
-// 요청을 읽지 못한 연결이 받는 답. 처리기를 달아도 Node 의 기본 답과 같아야 한다
+// 요청을 읽지 못한 연결이 받는 답. 핸들러를 달아도 Node 의 기본 답과 같아야 한다
 function rawReply(port: number, request: string) {
   return new Promise<string>((done) => {
     const socket = net.connect(port, "127.0.0.1");

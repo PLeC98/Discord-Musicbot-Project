@@ -63,7 +63,7 @@ test("시각으로 가기(at): 그 시각 이상인 첫 줄이 들고, 그 뒤 5
   assert.equal(texts(readLogPage(target, { ...all, limit: 10, at: T0 + 10_000_000 })).at(-1), 999);
 });
 
-test("필터: 레벨 · 카테고리 · 태그 · 찾기(실시간 로그와 같은 규칙), 찾기가 있으면 파일 전체의 맞은 줄 수", () => {
+test("필터: 레벨 · 카테고리 · 태그 · 검색(실시간 로그와 같은 규칙), 검색어가 있으면 파일 전체의 맞은 줄 수", () => {
   const { file } = writeLog(100);
   const target = resolveLogFile(file, "bot.log")!;
   const warn = readLogPage(target, { limit: 300, filter: { levels: new Set(["warn"] as const) } })!;

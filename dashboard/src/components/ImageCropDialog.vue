@@ -1,7 +1,7 @@
 <template>
   <!-- 그림에서 쓸 영역을 선택하는 대화상자(이미지 편집하기). 파비콘이 쓰고, 로그인 배경의 크롭도 쓴다.
-       aspect(가로 ÷ 세로)를 지키는 틀을 끌어 옮기고 네 모서리로 크기를 바꾼다. 처음 틀은 그 비율로 가장 크게, 가운데. 바깥은 어둡게 덮는다.
-       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 끌어도 옮겨진다).
+       aspect(가로 ÷ 세로)를 지키는 틀을 드래그해서 옮기고 네 모서리로 크기를 바꾼다. 처음 틀은 그 비율로 가장 크게, 가운데. 바깥은 어둡게 덮는다.
+       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 드래그해도 옮겨진다).
        재설정은 처음 틀로 되돌린다. "적용하기"를 누르면 선택한 영역을 원본 해상도로(긴 변 maxSide 까지) 잘라 png 로 넘긴다. 바깥을 누르거나 Esc 면 닫는다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
@@ -19,7 +19,7 @@
                   <img v-if="url" :src="url" alt="" class="block size-full pointer-events-none" draggable="false" />
                   <div class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
                 </div>
-                <!-- 선택한 영역의 틀과 핸들은 자르지 않는 레이어에(그림 밖으로 나와도 보이고 잡힌다). 안을 끌면 옮긴다. 핸들은 보이는 것보다 넓게 잡힌다 -->
+                <!-- 선택한 영역의 틀과 핸들은 자르지 않는 레이어에(그림 밖으로 나와도 보이고 잡힌다). 안을 드래그하면 옮긴다. 핸들은 보이는 것보다 넓게 잡힌다 -->
                 <div class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
                   <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
                 </div>
@@ -130,7 +130,7 @@ watch(zoom, async () => {
   el.scrollTop = cy * el.scrollHeight - el.clientHeight / 2;
 });
 
-/** 확대했을 때 틀 바깥(빈 곳 포함)을 끌면 보는 창을 옮긴다 */
+/** 확대했을 때 틀 바깥(빈 곳 포함)을 드래그하면 보는 창을 옮긴다 */
 function panStart(e: PointerEvent) {
   const el = viewportEl.value;
   if (!el || zoom.value <= 1) return;
@@ -144,7 +144,7 @@ function panStart(e: PointerEvent) {
   target.onpointerup = target.onpointercancel = () => (target.onpointermove = target.onpointerup = target.onpointercancel = null);
 }
 
-// 끌기: 옮기기는 틀 전체, 모서리는 반대쪽 모서리를 붙잡고 비율을 지키며 키우거나 줄인다
+// 드래그: 옮기기는 틀 전체, 모서리는 반대쪽 모서리를 붙잡고 비율을 지키며 키우거나 줄인다
 let drag: { mode: "move" | Corner; px: number; py: number; from: { x: number; y: number; w: number; h: number } } | null = null;
 function start(e: PointerEvent, mode: "move" | Corner) {
   e.stopPropagation();
@@ -172,7 +172,7 @@ function moveTo(e: PointerEvent) {
   // 붙잡은 반대 모서리
   const ax = west ? f.x + f.w : f.x;
   const ay = north ? f.y + f.h : f.y;
-  // 끈 만큼 넓이를 바꾸되 비율을 지키고, 그림 안에 머물 만큼만
+  // 드래그한 만큼 넓이를 바꾸되 비율을 지키고, 그림 안에 머물 만큼만
   const room = Math.min(west ? ax : natural.width - ax, (north ? ay : natural.height - ay) * props.aspect);
   const wanted = Math.max(Math.abs(f.w + (west ? -dx : dx)), Math.abs(f.h + (north ? -dy : dy)) * props.aspect);
   const w = Math.min(Math.max(wanted, MIN_SIDE * Math.max(1, props.aspect)), room);

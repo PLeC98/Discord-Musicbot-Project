@@ -167,7 +167,7 @@ test("필터 식이 틀리면 그 열을 가리켜 거절한다", () => {
   assert.equal(result.code, "bad-filter");
 });
 
-test("주소 질의: trackCacheSearch 의 역이고, 모르는 열 · 같은 키 여럿 · 겹친 정렬 · 구간 밖을 거절한다", () => {
+test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열 · 같은 키 여럿 · 겹친 정렬 · 구간 밖을 거절한다", () => {
   const sent = query("files", { filters: { title: "a", size: ">1MB" }, q: "x", sort: [{ column: "plays", dir: "desc" }], offset: 10, limit: 20 });
   assert.deepEqual(trackCache.queryOf(trackCacheSearch(sent)), { ok: true, query: sent });
 

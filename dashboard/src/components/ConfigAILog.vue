@@ -1,6 +1,6 @@
 <!--
   AI 보조 · 리퀘스트 로그: AI 보조가 모델에게 보낸 요청 하나가 한 줄(재시도는 따로). 상태는 composables/ai-log, 모양은 contract/ai-log.
-  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 찾기 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문). 기록 설정(운영 조절값 ailog 그룹)은 고급 설정(ConfigAIAdvanced).
+  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 검색 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문). 기록 설정(운영 조절값 ailog 그룹)은 고급 설정(ConfigAIAdvanced).
   새 기록은 실시간으로 온다: 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙고, 아니면 "새 기록 n건" 알약을 누르면 붙는다.
 -->
 <template>
@@ -110,7 +110,7 @@ import { AI_LOG_SOURCES, type AiLogEntry } from "../../../src/dashboard/contract
 import { text } from "../text/index.ts";
 const T = text.ai.log;
 
-/** active: 이 화면이 보이는가(보일 때만 읽고 실시간 연결을 연다) */
+/** active: 이 화면이 보이는가(보일 때만 읽고 SSE 연결을 연다) */
 const props = defineProps<{ active: boolean }>();
 
 const RESULTS = ["ok", "failed"] as const;

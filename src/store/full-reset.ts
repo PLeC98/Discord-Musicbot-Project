@@ -45,7 +45,7 @@ function emptyDir(dir: string, remove: Remove, keep: ReadonlySet<string> = new S
 }
 
 /**
- * 기동 때 DB 를 열기 전에. 예약되어 있으면 지우고 true. 지우다 막히면(Windows 잠금) RESET_FAILED 로 던진다(마커가 남아 다음 기동이 이어서 지운다)
+ * 기동 시 DB 를 열기 전에. 예약되어 있으면 지우고 true. 지우다 막히면(Windows 잠금) RESET_FAILED 로 던진다(마커가 남아 다음 기동이 이어서 지운다)
  * @param remove  하나를 지우는 함수(테스트가 막힌 파일을 흉내 낸다)
  */
 function applyRequested(dirs: Dirs = REAL, remove: Remove = removeTree): boolean {

@@ -94,7 +94,7 @@
         <button v-if="cur" type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="busy" :aria-label="C.clear" v-tooltip="C.clear" @click="clear"><Icon name="delete" :size="18" /></button>
       </div>
 
-      <!-- 고급 설정(접힘): 기록 보관 개수 · 최대 용량(쓰는 양 막대) · 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 까닭, 지금 인코딩). 다른 고급 설정(AI)과 같은 형태: 라벨에 툴팁 · 공용 숫자 입력란 · 빈칸이면 기본값 -->
+      <!-- 고급 설정(접힘): 기록 보관 개수 · 최대 용량(쓰는 양 막대) · 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 까닭, 지금 인코딩). 다른 고급 설정(AI)과 같은 형태: 라벨에 툴팁 · 공용 숫자 입력란 · 비워 두면 기본값 -->
       <details v-if="state" class="group/adv rounded-(--r-inner) bg-surface-container text-sm">
         <summary class="flex cursor-pointer list-none items-center gap-1 px-4 py-3 font-semibold"><Icon name="expand_more" :size="20" class="transition-transform group-open/adv:rotate-180" />{{ A.title }}</summary>
         <div class="flex flex-col gap-5 px-4 pb-4">
@@ -316,7 +316,7 @@ watch(
 
 // ── 고급 설정의 고친 값 ──
 
-/** 한도의 처음 값(빈칸이면 이것) */
+/** 한도의 처음 값(비워 두면 이것) */
 const DEFAULT_LIMITS = { history: LOGIN_BG_LIMITS_DEFAULT.history, gb: LOGIN_BG_LIMITS_DEFAULT.maxBytes / 1024 ** 3 };
 const limitsDraft = reactive<{ history: number | null; gb: number | null }>({ history: null, gb: null });
 /** 고친 입력란이 비었으면 처음 값 */

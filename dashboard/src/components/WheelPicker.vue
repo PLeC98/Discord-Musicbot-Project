@@ -1,6 +1,6 @@
 <template>
   <!-- 돌려서 고르는 휠(알람 앱처럼). 세 줄이 보이고 가운데가 고른 값. 끝에서 처음으로 이어진다(같은 값을 다섯 벌 늘어놓고 가운데 벌로 되돌린다).
-       손가락으로 밀기 · 마우스 휠(한 번 굴리면 step 만큼, OS · 브라우저의 스크롤 양과 상관없이) · 마우스로 끌기 · 위아래 화살표. 가운데를 누르면 그 자리가 입력칸이 되어 직접 친다(Enter · 다른 곳을 누르면 반영, Esc 는 그만) -->
+       손가락으로 밀기 · 마우스 휠(한 번 굴리면 step 만큼, OS · 브라우저의 스크롤 양과 상관없이) · 마우스로 드래그 · 위아래 화살표. 가운데를 누르면 그 자리가 입력란이 되어 직접 친다(Enter · 다른 곳을 누르면 반영, Esc 는 그만) -->
   <div class="relative select-none" :style="{ height: `${rowPx * 3}px` }">
     <!-- 가운데 띠 -->
     <div class="pointer-events-none absolute inset-x-0 rounded-(--r-row) bg-secondary-container" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }"></div>
@@ -29,7 +29,7 @@
       </button>
       <div :style="{ height: `${rowPx}px` }"></div>
     </div>
-    <!-- 직접 치기: 가운데 띠 자리에 입력칸 -->
+    <!-- 직접 치기: 가운데 띠 자리에 입력란 -->
     <input v-if="typing" ref="field" v-model="draft" inputmode="numeric" maxlength="2" :class="big ? 'text-2xl' : 'text-lg'" class="absolute inset-x-0 text-center font-semibold nums rounded-(--r-row) bg-surface-container-highest border border-primary outline-none" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }" :aria-label="label" @keydown.enter.prevent="commit" @keydown.esc.stop.prevent="typing = false" @blur="commit" />
   </div>
 </template>
@@ -119,7 +119,7 @@ function clickRow(i: number) {
   list.value?.scrollTo({ top: topOf(i), behavior: "smooth" });
 }
 
-// 마우스로 끌기(손가락 · 휠은 브라우저 스크롤이 한다)
+// 마우스로 드래그(손가락 · 휠은 브라우저 스크롤이 한다)
 let dragging = false;
 let moved = false;
 let start = { y: 0, top: 0 };

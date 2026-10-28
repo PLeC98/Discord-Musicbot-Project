@@ -89,7 +89,7 @@ test("서버 관리 권한(소유자 · 관리자 포함)이 있고 봇이 없�
   assert.deepEqual(asked, ["https://discord.com/api/v10/users/@me/guilds Bearer tok"], "세션 행의 토큰으로 묻는다");
 });
 
-test("잠깐 둔 목록: 다시 열면 디스코드에 묻지 않는다", async () => {
+test("잠깐 캐시된 목록: 다시 열면 디스코드에 묻지 않는다", async () => {
   signIn(sid, "tok");
   await requestJson(base, "GET", "/api/invite");
   await requestJson(base, "GET", "/api/invite");
@@ -97,7 +97,7 @@ test("잠깐 둔 목록: 다시 열면 디스코드에 묻지 않는다", async 
   assert.equal(asked.length, 1, "갱신 버튼도 잠깐 사이에는 다시 묻지 않는다");
 });
 
-test("둔 목록의 기한: 30초가 지나면 다시 묻고, 갱신 버튼은 10초가 지나면 다시 묻는다", async () => {
+test("캐시된 목록의 기한: 30초가 지나면 다시 묻고, 갱신 버튼은 10초가 지나면 다시 묻는다", async () => {
   let calls = 0;
   const counted = fake<DiscordHttp>({
     get: async () => {

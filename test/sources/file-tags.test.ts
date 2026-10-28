@@ -127,7 +127,7 @@ test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면
   if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const mp3 = fs.readFileSync(at("a.mp3"));
   assert.ok(cover.length > 25_000, `그림 ${cover.length}B`);
-  assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 4096 }), null, "첫 조각부터 넘는다");
+  assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 4096 }), null, "첫 청크부터 넘는다");
   assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 20_000 }), null, "그림이 든 헤더가 20KB 를 넘는다(이어 받는 동안)");
 
   const stalled = new Readable({ read() {} });

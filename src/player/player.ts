@@ -69,18 +69,18 @@ import type { Job } from "../infra/process-job.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 
-// 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
+// 갭리스 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가(캐시 디코더가 뜨는 시간보다 넉넉히)
 const LIVE_REOPEN_DELAY_MS = 1000; // 라이브 다시 열기 간격의 단위. 예산을 쓴 횟수에 비례해 늘린다
 const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 멈춘다
 const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이만큼 넘게 다르면 남긴다
-// 재생 중 공급이 끊겨도 이만큼(20ms 프레임 500개 = 10초) 버틴다. 라이브러리 기본은 5(0.1초).
+// 재생 중 패킷 공급이 끊겨도 이만큼(20ms 프레임 500개 = 10초) 버틴다. 라이브러리 기본은 5(0.1초).
 // 입력 층(청크 스트림 이어받기 · HLS 재접속 · 직접 링크 본문 무응답)이 이보다 먼저 결론 내게 둔다.
-// 이 값을 넘으면 플레이어가 멈추고 곡 끝 판정이 "공급이 끊겨 멈춤"으로 그 위치부터 다시 연다
+// 이 값을 넘으면 플레이어가 멈추고 곡 끝 판정이 "패킷 공급이 끊겨 멈춤"으로 그 위치부터 다시 연다
 const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
-// 묵음을 흘려보내는 멈춤(묵음 다섯 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
+// 무음을 흘려보내는 멈춤(무음 다섯 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
 const SILENT_STOP_CAP_MS = 500;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
@@ -124,7 +124,7 @@ function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: numb
 // 라이브러리는 Idle 로 가며 재생 스트림을 부순다. 끝까지 읽힌 스트림은 부서져도 끝난 것으로 남는다
 const streamEndedOf = (pb: CurrentPlayback | null) => pb?.resource?.playStream?.readableEnded ?? true;
 
-// 공급이 끊겨 멈췄을 때 남길 입력 상태. 버티는 시간(MAX_MISSED_FRAMES)이 맞는지 볼 근거다.
+// 패킷 공급이 끊겨 멈췄을 때 남길 입력 상태. 버티는 시간(MAX_MISSED_FRAMES)이 맞는지 볼 근거다.
 // 입력이 마지막으로 들어온 때는 스트림 · 주소 분기만 적는다(파일과 캐시 전환 뒤에는 없다)
 function starvedDetail(pb: CurrentPlayback | null) {
   const input = pb?.input;
@@ -135,7 +135,7 @@ function starvedDetail(pb: CurrentPlayback | null) {
   if (detail) parts.push(detail);
   // 워커가 늦거나 멈춘 것을 입력 탓으로 읽지 않게 출력 쪽도 적는다
   const out = pb?.output?.describe();
-  if (out) parts.push(`출력 워커 ${out.worker ?? "없음"} · 답 기다림 ${out.inflight}개${out.oldestMs === null ? "" : `(가장 오래 ${sec(out.oldestMs)}초)`} · 받아 둔 ${out.ready}개 · 깊이 ${out.depth}`);
+  if (out) parts.push(`출력 워커 ${out.worker ?? "없음"} · 응답 대기 ${out.inflight}개${out.oldestMs === null ? "" : `(가장 오래 ${sec(out.oldestMs)}초)`} · 송출 대기 ${out.ready}개 · 큐 깊이 ${out.depth}`);
   return parts.join(" · ");
 }
 
@@ -176,7 +176,7 @@ const REAL = {
   pickAutoplay: (cfg: Parameters<typeof autoplayRoute.pickTrack>[0], recent: Parameters<typeof autoplayRoute.pickTrack>[1], deps?: AutoplayDeps) => autoplayRoute.pickTrack(cfg, recent, deps),
 };
 type Boundary = typeof REAL;
-/** 무이음 전환에서 스플라이서에게 묻고 부르는 필드 */
+/** 갭리스 전환에서 스플라이서에게 묻고 부르는 필드 */
 type Switchable = Pick<AudioSplicer, "destroyed" | "switchPending" | "emittedMs" | "slips" | "planSwitch"> & { once(event: "switched", listener: (ms: number) => void): unknown };
 let defaultBoundary: Boundary = REAL;
 
@@ -218,7 +218,7 @@ class Player {
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 차례에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
-  /** 묵음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
+  /** 무음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
   _silentStop: NodeJS.Timeout | null = null;
   /** 걸린 곡 끝 처리가 끝나기를 기다리는 쪽 */
   _endWaiters = new Set<() => void>();
@@ -611,7 +611,7 @@ class Player {
   _planCacheSwitch(splicer: Switchable | null, pb: Pick<CurrentPlayback, "track" | "startOffsetMs" | "input">) {
     const { track } = pb;
     const giveUp = (why: string) => {
-      wlog.debug(`무지연 전환 포기: ${this._trackLabel()} | ${why}`);
+      wlog.debug(`갭리스 전환 포기: ${this._trackLabel()} | ${why}`);
       return false;
     };
 
@@ -643,9 +643,9 @@ class Player {
     const health = new InputHealth("캐시 전환").watch(decoder);
     splicer.once("switched", (ms: number) => {
       pb.input = health;
-      log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
+      log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 갭리스 전환: ${this._trackLabel()}`);
       // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
-      wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
+      wlog.debug(`갭리스 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
     });
     return true;
   }
@@ -659,7 +659,7 @@ class Player {
     this._clearSilentStop();
     const reason = this._endReason ?? trigger;
     this._endReason = null;
-    // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 묵음을 흘려보내면 100ms 뒤에 온다
+    // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 무음을 흘려보내면 100ms 뒤에 온다
     this._scheduleEnd(reason);
   }
 
@@ -691,9 +691,9 @@ class Player {
   /**
    * 지금 곡을 멈추고 그 까닭을 끝 처리(Idle)에 넘긴다. 곡을 멈추는 쪽은 모두 여기를 지난다.
    * 이미 멈추는 중이면 먼저 온 까닭을 지킨다(겹친 까닭은 로그로만).
-   * 재생 중이면 묵음 프레임 다섯을 보낸 뒤 멈춘다(디스코드 문서의 보간 막기): 그냥 끊으면 듣는 쪽이 끊긴 소리를 늘여 메우고,
-   * 연결에 남은 마지막 패킷(@discordjs/voice 가 미리 준비해 둔 것)이 다음 곡 첫머리에 나간다. 묵음으로 끝나면 남는 것도 묵음이다.
-   * 묵음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
+   * 재생 중이면 무음 프레임 다섯을 보낸 뒤 멈춘다(디스코드 문서의 보간 막기): 그냥 끊으면 듣는 쪽이 끊긴 소리를 늘여 메우고,
+   * 연결에 남은 마지막 패킷(@discordjs/voice 가 미리 준비해 둔 것)이 다음 곡 첫머리에 나간다. 무음으로 끝나면 남는 것도 무음이다.
+   * 무음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
    */
   _stopWith(reason: string, { force = false }: { force?: boolean } = {}) {
     if (this._endReason && this._endReason !== reason) log.debug(`이미 멈추는 중(원인=${this._endReason}). ${reason} 은 버린다: ${this._trackLabel()}`);
@@ -708,7 +708,7 @@ class Player {
     this._silentStop = setTimeout(() => {
       this._silentStop = null;
       if (this.audioPlayer.state.status === AudioPlayerStatus.Idle) return;
-      log.debug(`묵음 멈춤이 ${SILENT_STOP_CAP_MS}ms 안에 끝나지 않아 바로 멈춥니다(상태=${this.audioPlayer.state.status}): ${this._trackLabel()}`);
+      log.debug(`무음 멈춤이 ${SILENT_STOP_CAP_MS}ms 안에 끝나지 않아 바로 멈춥니다(상태=${this.audioPlayer.state.status}): ${this._trackLabel()}`);
       this.audioPlayer.stop(true);
     }, SILENT_STOP_CAP_MS);
     this._silentStop.unref?.();
@@ -719,7 +719,7 @@ class Player {
     this._silentStop = null;
   }
 
-  /** 묵음을 흘려보내며 멈추는 중이다(곡이 곧 바뀐다) */
+  /** 무음을 흘려보내며 멈추는 중이다(곡이 곧 바뀐다) */
   get isStopping() {
     return this._silentStop !== null;
   }
@@ -809,7 +809,7 @@ class Player {
    * @param o.session  remove: 세션을 삭제한다 · save: 저장해 남긴다(/join 이 복원한다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect · inactivity-timeout · leave 등). 기본 stop
-   * @param o.stay  음성 채널에는 남는다(곧 다시 붙는다. 서버 하나 다시 시작). 기본은 나간다
+   * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
   async dispose({ reason, session, panel, end = "stop", stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end?: string; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
@@ -1086,7 +1086,7 @@ class Player {
     const { dropped, why } = endVerdict(facts);
     const lengthText = facts.lengthMs ? `${sec(facts.lengthMs)}초` : "모름";
     wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
-    if (reason === "idle" && !facts.streamEnded && !facts.live) log.warn(`공급이 끊겨 플레이어가 멈춤: ${label} | ${starvedDetail(this.playback)}`);
+    if (reason === "idle" && !facts.streamEnded && !facts.live) log.warn(`패킷 공급이 끊겨 플레이어가 멈춤: ${label} | ${starvedDetail(this.playback)}`);
     // 길이는 판정에 쓰지 않는다. 저절로 끝난 위치가 길이와 크게 다르면 길이 쪽을 살필 수 있게 남긴다
     if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
       log.info(`곡이 길이와 다른 위치에서 끝남: ${label} | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
@@ -1111,7 +1111,7 @@ class Player {
     const at = `${sec(playedMs)}초`;
     if (step.reopen && live) {
       log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${label} | ${why} (${tries})`);
-      // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
+      // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 재연결해도 실패한다.
       // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
       await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
       return this._reopenLive(label);

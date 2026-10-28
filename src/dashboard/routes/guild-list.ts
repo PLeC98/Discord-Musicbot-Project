@@ -20,17 +20,17 @@ function listState(botInVoice: boolean, player: Player | undefined): ListState {
   return state === "idle" ? "waiting" : state;
 }
 
-/** http: 디스코드를 부르는 HTTP 클라이언트(그 사람의 서버 목록). 생략하면 진짜 */
+/** http: 디스코드를 부르는 HTTP 클라이언트(사용자의 서버 목록). 생략하면 진짜 */
 function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
 
-  // 봇이 든 서버 중 지금 멤버인 곳. 그 사람의 서버 목록(세션마다 30초 둔다)으로 고르고 멤버인지는 memberOf 로 본다. 나간 서버는 바로 빠지고, 막 든 서버는 목록을 다시 받을 때 보인다
+  // 봇이 든 서버 중 지금 멤버인 곳. 사용자의 서버 목록(세션마다 30초 캐시한다)으로 고르고 멤버인지는 memberOf 로 본다. 나간 서버는 바로 빠지고, 막 든 서버는 목록을 다시 받을 때 보인다
   router.get("/", requireAuth, async (req, res) => {
     const { client, players } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    // 그 사람이 든 서버만 멤버 판정을 한다(봇이 든 서버마다 묻지 않는다). 목록을 받지 못하면 이미 확인한 서버(멤버 캐시)만
+    // 사용자가 든 서버만 멤버 판정을 한다(봇이 든 서버마다 묻지 않는다). 목록을 받지 못하면 이미 확인한 서버(멤버 캐시)만
     const { ids, relogin } = await memberGuildIds(req, { http });
     const candidates = [...client.guilds.cache.values()].filter((guild) => (ids ? ids.has(guild.id) : seesGuild(guild, user.id)));
     const rows = await Promise.all(

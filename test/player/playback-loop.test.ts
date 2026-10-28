@@ -238,7 +238,7 @@ test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다�
   const p = makePlayer({ current: A, queue: [B] });
 
   for (let i = 0; i < 4; i++) {
-    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 10_000, playStream: { readableEnded: false } } }); // 매번 10초쯤 가다 공급이 끊겨 멈춤
+    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 10_000, playStream: { readableEnded: false } } }); // 매번 10초쯤 가다 패킷 공급이 끊겨 멈춤
     await onTrackEnd.call(p, "idle");
   }
 

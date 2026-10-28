@@ -132,7 +132,7 @@ function readBundle(file: string): Bundle {
   }
 }
 
-/** 캐시 파일을 둘 드라이브에 쓸 수 있는 크기: 남은 크기에서 최소 여유 공간(적어도 남겨 둘 몫). 남은 크기는 있는 경로로만 재므로 캐시 폴더를 먼저 만든다(새로 설치한 봇 · 기동 때의 합치기) */
+/** 캐시 파일을 둘 드라이브에 쓸 수 있는 크기: 남은 크기에서 최소 여유 공간(적어도 남겨 둘 몫). 남은 크기는 있는 경로로만 재므로 캐시 폴더를 먼저 만든다(새로 설치한 봇 · 기동 시의 합치기) */
 function roomForCache() {
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   return Math.max(0, (freeBytesOf(audioCache.cacheDir()) ?? 0) - Math.max(KEEP_FREE_BYTES, config.cache.minFreeDiskBytes));

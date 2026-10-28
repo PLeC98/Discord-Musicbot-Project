@@ -5,7 +5,7 @@ import { session, live } from "../composables/session.ts";
 import { eventLink } from "../utils/event-link.ts";
 import type { GuildEvent, GuildList, GuildRow } from "../../../src/dashboard/contract/guilds.ts";
 
-// 탭 하나에 실시간 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
+// 탭 하나에 SSE 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
 // 서버 목록 · 사이드바 · 재생 바 · 서버 화면이 같이 쓴다(연결 상한이 사용자당이라 화면마다 열면 넘친다).
 // 받는 쪽은 바뀐 서버 ID 를 받는다. null 이면 어느 서버인지 모른다(끊긴 동안 놓쳤을 수 있다): 전부 다시 읽는다
 type NudgeHandler = (guildId: string | null) => void;

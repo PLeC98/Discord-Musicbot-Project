@@ -88,7 +88,7 @@ test("코드 설명: GET /problems/<코드> 는 사람이 읽는 설명, 없는 
   assert.equal(((await missing.json()) as { code: string }).code, "route-not-found");
 });
 
-test("요청 제한: express-rate-limit 의 처리기로 걸면 넘친 요청은 문제 응답과 Retry-After", async () => {
+test("요청 제한: express-rate-limit 의 핸들러로 걸면 넘친 요청은 문제 응답과 Retry-After", async () => {
   const app = express();
   app.use(rateLimit({ windowMs: 60_000, limit: 1, standardHeaders: "draft-7", legacyHeaders: false, handler: tooManyRequests }));
   app.get("/x", (_req, res) => res.json({ ok: true }));

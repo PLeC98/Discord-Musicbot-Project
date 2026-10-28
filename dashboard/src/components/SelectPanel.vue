@@ -69,7 +69,7 @@ const panel = ref<HTMLElement | null>(null);
 const box = ref<InstanceType<typeof SearchInput> | null>(null);
 
 // 항목 높이는 M3E 세로 메뉴(44)에서 한 단계 촘촘하게(density -1, 40 = 2.5rem). 목록은 6.5개까지 보인다(마지막 항목이 반쯤 걸려 스크롤된다는 것이 보인다).
-// 패널은 검색창 몫까지 더해 잡고, 화면 남는 공간이 모자라면 목록이 줄어든다. 항목 높이가 rem 이라 높이도 rem 으로 셈한다
+// 패널은 검색창 몫까지 더해 잡고, 화면 남는 공간이 모자라면 목록이 줄어든다. 항목 높이가 rem 이라 높이도 rem 으로 계산한다
 const ROW_REM = 2.5;
 const LIST_MAX_REM = 0.25 + ROW_REM * (props.rows ?? 6.5);
 const PANEL_MAX = rem(LIST_MAX_REM + 3) + 1; // 검색창 몫: 위아래 여백 0.25 · 입력란 2.5rem · 아래 선 1px
