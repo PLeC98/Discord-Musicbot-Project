@@ -132,7 +132,6 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
   const { disk, cache, db } = status.storage;
   const { bgutil } = status.env;
   const bgutilRows: InfoRow[] = bgutil ? [{ icon: "key", key: "bgutil", value: bgutil.installed, note: bgutil.installed !== bgutil.target ? `(→ ${bgutil.target})` : bgutil.newer ? `(${bgutil.newer} available)` : undefined }] : [];
-  const playing = status.players.list.filter((p) => p.state === "playing").length;
   return [
     {
       title: "Bot",
@@ -143,7 +142,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
         { icon: "schedule", key: "Uptime", value: uptimeText(status.bot.uptime) },
         { icon: "event", key: "Started", value: dateTimeText(status.bot.startedAt) },
         { icon: "public", key: "Guilds", value: `${status.bot.guilds}` },
-        { icon: "graphic_eq", key: "Players", value: `${status.players.list.length}`, note: `(${playing} playing)` },
+        { icon: "graphic_eq", key: "Players", value: `${status.activePlayers}`, note: `(${status.players.counts.playing} playing)` },
         { icon: "terminal", key: "Commands", value: `${status.env.commands.count}`, note: `(${status.env.commands.scope})` },
       ],
     },

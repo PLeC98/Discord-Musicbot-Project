@@ -10,6 +10,10 @@ import { _tick, stopVitals } from "../../src/infra/vitals.ts";
 import { startStatusHistory, statusHistory } from "../../src/dashboard/status/history.ts";
 import { _reset, gateway, watchGateway } from "../../src/dashboard/status/gateway.ts";
 import { processSummary } from "../../src/dashboard/status/processes.ts";
+import { sortProcesses } from "../../src/dashboard/status/process-order.ts";
+import { playerRows } from "../../src/dashboard/status/players.ts";
+import { STATUS_QUERY, STRAY_SHOWN, type ProcessRow } from "../../src/dashboard/contract/admin.ts";
+import type { PlayerRegistry } from "../../src/player/registry.ts";
 import { inGuild } from "../../src/infra/guild-context.ts";
 import * as registry from "../../src/infra/process-registry.ts";
 import logSink from "../../src/infra/log/sink.ts";
@@ -150,18 +154,73 @@ test("자식 프로세스: 프로그램 · 서버 이름 · 일. 재생 · 다�
   const releases = [inGuild("g1", () => spawn("ffmpeg", "ffmpeg:playback"), "play"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "prefetch"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "lookup"), spawn("node", "bgutil")];
   try {
     const client = { guilds: { cache: new Map([["g1", { name: "하나" }]]) } } as unknown as Client;
-    const { total, byLabel, oldest } = processSummary(client, new Map([["g1", {}]]));
+    const { total, byLabel, rows, stray, strayMore, memMb } = processSummary(client, new Map([["g1", {}]]), STATUS_QUERY);
     assert.equal(total, 4);
+    assert.deepEqual([stray.map((p) => p.job), strayMore, memMb], [["prefetch"], 0, 0], "남은 것일 수 있는 것 · 못 잰 메모리는 합에 0");
     assert.deepEqual(byLabel, [
       { label: "yt-dlp", count: 2 },
       { label: "ffmpeg", count: 1 },
       { label: "node", count: 1 },
     ]);
-    const by = Object.fromEntries(oldest.map((p) => [`${p.label}:${p.job}`, [p.guildName, p.stray, p.memMb]]));
+    const by = Object.fromEntries(rows.map((p) => [`${p.label}:${p.job}`, [p.guildName, p.stray, p.memMb]]));
     assert.deepEqual(by, { "ffmpeg:play": ["하나", false, null], "yt-dlp:prefetch": [null, true, null], "yt-dlp:lookup": [null, false, null], "node:null": [null, false, null] });
   } finally {
     for (const release of releases) release();
   }
+});
+
+test("자식 프로세스: 구간만 행으로, 남은 것일 수 있는 것은 앞 STRAY_SHOWN 개와 넘는 수", () => {
+  let pid = 920_001;
+  const releases = Array.from({ length: STRAY_SHOWN + 3 }, () => inGuild("gone", () => registry.register({ pid: pid++, exitCode: null, signalCode: null, spawnfile: "ffmpeg" }, "ffmpeg:playback"), "play"));
+  try {
+    const client = { guilds: { cache: new Map() } } as unknown as Client;
+    const summary = processSummary(client, new Map(), { procs: { from: 5, count: 4 }, sort: "pid", desc: false });
+    assert.deepEqual([summary.total, summary.from, summary.rows.map((p) => p.pid)], [STRAY_SHOWN + 3, 5, [920_006, 920_007, 920_008, 920_009]]);
+    assert.deepEqual([summary.stray.length, summary.strayMore], [STRAY_SHOWN, 3]);
+  } finally {
+    for (const release of releases) release();
+  }
+});
+
+// 정렬 시험용 행: 이름 · 일 · 나이만 다르게
+const proc = (pid: number, ageMs: number, more: Partial<ProcessRow> = {}): ProcessRow => ({ pid, label: "ffmpeg", ageMs, memMb: null, guildId: null, guildName: null, job: null, stray: false, ...more });
+const pids = (rows: ProcessRow[]) => rows.map((p) => p.pid);
+
+test("프로세스 정렬: 방향은 고른 열에만, 같은 값끼리는 늘 오래된 것부터(같으면 pid)", () => {
+  const rows = () => [proc(3, 10, { memMb: 40 }), proc(1, 30, { memMb: 40 }), proc(2, 30, { memMb: null }), proc(4, 20, { memMb: 90 })];
+  assert.deepEqual(pids(sortProcesses(rows(), "mem", true)), [4, 1, 3, 2], "못 잰 것은 가장 작게");
+  assert.deepEqual(pids(sortProcesses(rows(), "mem", false)), [2, 1, 3, 4], "같은 40 끼리는 오름차순에서도 오래된 것부터");
+  assert.deepEqual(pids(sortProcesses(rows(), "age", true)), [1, 2, 4, 3]);
+  assert.deepEqual(pids(sortProcesses(rows(), "age", false)), [3, 4, 1, 2]);
+  const labels = [proc(1, 1, { label: "yt-dlp" }), proc(2, 2, { label: "ffmpeg" }), proc(3, 3, { label: "node" })];
+  assert.deepEqual(pids(sortProcesses(labels, "label", false)), [2, 3, 1]);
+});
+
+test("프로세스 정렬(하는 일): 서버 이름 있는 일(이름 가나다 → 재생 · 다음 곡 · 곡 찾기) → 나간 서버 → 서버 밖 일 → 봇 헬퍼", () => {
+  const rows = [proc(1, 1, { job: "pot-server" }), proc(2, 1, { job: "lookup" }), proc(3, 1, { job: "play", guildId: "x" }), proc(4, 1, { job: "lookup", guildId: "b", guildName: "나비" }), proc(5, 1, { job: "play", guildId: "b", guildName: "나비" }), proc(6, 1, { job: "prefetch", guildId: "a", guildName: "가람" }), proc(7, 1, { job: "net-stats" }), proc(8, 1, { job: "prefetch" })];
+  assert.deepEqual(pids(sortProcesses([...rows], "job", false)), [6, 5, 4, 3, 8, 2, 1, 7]);
+  assert.deepEqual(pids(sortProcesses([...rows], "job", true)), [7, 1, 2, 8, 3, 4, 5, 6]);
+});
+
+test("플레이어: 상태별 셈 · 합계는 전부, 행은 거른 것(상태 · 검색)의 구간만, 멤버 표시는 그 행만", () => {
+  const players = new Map(
+    [
+      ["a", "가요 광장", AudioPlayerStatus.Playing, "봄날"],
+      ["b", "음악 감상실", AudioPlayerStatus.Paused, "밤편지"],
+      ["c", "게임방", AudioPlayerStatus.Idle, null],
+      ["d", "노래방", AudioPlayerStatus.Playing, "음악의 숲"],
+    ].map(([id, name, status, title]) => [id, { guild: { id, name, icon: null, members: { me: null } }, audioPlayer: { state: { status } }, currentTrack: title ? { title, artist: "가수", duration: 200 } : null, queue: { length: 2 } }]),
+  ) as unknown as PlayerRegistry;
+  const asked: string[] = [];
+  const client = { guilds: { cache: { get: (id: string) => (asked.push(id), { members: { cache: new Map([["viewer", {}]]) } }) } } } as unknown as Client;
+  const view = playerRows(client, players, { players: { from: 0, count: 30 }, states: ["playing", "paused"], q: "음악" }, "viewer", null);
+  assert.deepEqual(view.counts, { playing: 2, paused: 1, idle: 1 });
+  assert.equal(view.queued, 8);
+  assert.deepEqual([view.matched, view.from, view.rows.map((r) => r.guildId)], [2, 0, ["b", "d"]], "서버 이름 · 곡 제목으로 찾는다");
+  assert.deepEqual(asked, ["b", "d"], "멤버 표시는 보낸 행만 본다");
+  const second = playerRows(client, players, { players: { from: 1, count: 1 }, states: ["playing", "paused", "idle"], q: "" }, "viewer", null);
+  assert.deepEqual([second.matched, second.from, second.rows.map((r) => r.guildId)], [4, 1, ["b"]], "만든 순서로 자른다");
+  assert.deepEqual(playerRows(client, players, { ...STATUS_QUERY, states: [] }, "viewer", null).rows, []);
 });
 
 test("최근 경고 · 오류: 같은 글은 한 줄로(횟수 · 마지막 때), 최근 것부터 셋", () => {

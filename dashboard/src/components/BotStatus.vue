@@ -58,7 +58,7 @@
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span class="size-12 shrink-0 rounded-[30%] flex items-center justify-center" :class="LEVEL_BADGE[overallLevel]"><Icon :name="LEVEL_ICON[overallLevel]" :size="24" fill /></span>
         <div class="min-w-0 grow basis-44">
-          <div class="font-round text-xl font-semibold">{{ overallLevel === "ok" ? T.allOk : T.needsAttention(attention.length) }}</div>
+          <div class="font-round text-xl font-semibold">{{ overallLevel === "ok" ? T.allOk : T.needsAttention(attentionCount) }}</div>
           <!-- 좁으면 자르지 않고 접는다(잘리면 작동 시간 · 서버 수가 보이지 않았다) -->
           <div class="text-sm text-on-surface-variant">
             {{ status.bot.tag }} · <template v-if="status.bot.status !== 0">{{ T.connecting }}</template
@@ -201,12 +201,14 @@
           </button>
           <SearchInput v-model="playerTerm" :placeholder="T.search" :input-class="[SEARCH_FIELD, 'w-full']" class="ml-auto flex-1 min-w-28 max-w-48" />
         </div>
-        <!-- 목록 영역은 서버 10.5줄(한 단일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 스크롤된다는 것이 보인다). 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게 -->
+        <!-- 목록 영역은 서버 10.5줄(한 단일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 스크롤된다는 것이 보인다). 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게.
+             보이는 행 둘레만 그리고 위아래는 빈 칸으로 높이만(composables/row-window). 아직 받지 못한 자리는 빈 행 모양 -->
         <div ref="playerListEl" class="h-78 @4xl/content:h-126 overflow-y-auto -ml-2" :class="playerListOverflowing ? '-mr-4' : '-mr-2'" :style="playerFade">
-          <ul v-if="shownPlayers.length" class="flex flex-col">
-            <li v-for="player in shownPlayers" :key="player.guildId">
+          <ul v-if="status.players.matched" class="flex flex-col" :style="{ paddingTop: `${playerTop}px`, paddingBottom: `${playerBottom}px` }">
+            <li v-for="{ key, row: player } in playerSlots" :key="key">
+              <div v-if="!player" class="flex items-center gap-3 h-12 px-2" aria-hidden="true"><span class="size-8 shrink-0 rounded-full bg-on-surface/8" /><span class="h-3 w-1/2 rounded-sm bg-on-surface/8" /></div>
               <!-- 참가한 서버만 그 서버 화면으로 잇는다(참가하지 않은 서버는 운영자도 열지 않는다) -->
-              <component :is="player.member ? RouterLink : 'div'" :to="player.member ? `/servers/${player.guildId}` : undefined" class="flex items-center gap-3 h-12 px-2 rounded-(--r-row) no-underline text-on-surface" :class="player.member && 'state-layer'" v-tooltip="player.member ? null : NOT_MEMBER_TIP">
+              <component v-else :is="player.member ? RouterLink : 'div'" :to="player.member ? `/servers/${player.guildId}` : undefined" class="flex items-center gap-3 h-12 px-2 rounded-(--r-row) no-underline text-on-surface" :class="player.member && 'state-layer'" v-tooltip="player.member ? null : NOT_MEMBER_TIP">
                 <GuildAvatar :guild="{ name: player.name, icon: player.icon, hasPlayer: true }" :status="false" size-class="size-8" class="shrink-0" />
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-semibold truncate">{{ player.name }}</div>
@@ -224,17 +226,17 @@
               </component>
             </li>
           </ul>
-          <div v-else class="px-2 py-3 text-sm text-on-surface-variant">{{ shownPlayerStates.size ? T.noMatch : T.noStatePicked }}</div>
+          <div v-else class="px-2 py-3 text-sm text-on-surface-variant">{{ query.states.length ? T.noMatch : T.noStatePicked }}</div>
         </div>
         <div class="mt-3 flex items-baseline gap-3 pt-3 border-t border-outline-variant/40 text-xs text-on-surface-variant">
           <span>{{ T.total }}</span>
-          <span class="ml-auto shrink-0 nums">{{ T.playersTotal(listenerTotal, status.players.queued) }}</span>
+          <span class="ml-auto shrink-0 nums">{{ T.playersTotal(status.players.listeners, status.players.queued) }}</span>
         </div>
       </BaseCard>
       <!-- 넓을 때(두 단)는 옆 카드(활성 플레이어)의 높이를 따르고 제 높이로 행을 늘리지 않는다(h-0 · min-h-full). 넘치는 행은 목록 영역 안에서 스크롤된다.
            한 단일 때는 카드 높이를 활성 플레이어 카드와 같게(잰 높이 --player-card-h). 열 헤더는 스크롤되지 않게 따로 두고, 행과 같은 고정 열 폭으로 맞춘다 -->
-      <BaseCard icon="terminal" :title="T.processes" data-at="processes" class="flex flex-col h-(--player-card-h) @4xl/content:h-0 @4xl/content:min-h-full" :style="{ '--player-card-h': `${playerCardHeight}px` }">
-        <template v-if="status.processes.oldest.length">
+      <BaseCard ref="processCardEl" icon="terminal" :title="T.processes" data-at="processes" class="flex flex-col h-(--player-card-h) @4xl/content:h-0 @4xl/content:min-h-full" :style="{ '--player-card-h': `${playerCardHeight}px` }">
+        <template v-if="status.processes.total">
           <!-- 열 헤더를 누르면 그 열로 행을 정렬한다(다시 누르면 거꾸로). 정렬한 열은 글자를 진하게 하고 화살표를 붙인다(오른쪽 맞춤 열은 화살표가 앞) -->
           <!-- 좁은 카드(448 미만)는 PID · 작동 시간 열을 헤더에서 빼고 행 아래에 작게 둔다(하는 일 열이 남지 않았다) -->
           <div :class="PROCESS_GRID" class="pb-1 text-xs text-on-surface-variant">
@@ -243,27 +245,34 @@
               ><Icon v-if="!c.right && processSort.key === c.key" :name="processSort.desc ? 'arrow_downward' : 'arrow_upward'" :size="14" />
             </button>
           </div>
-          <!-- 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(플레이어 목록과 같다). 늘린 만큼 안쪽 여백으로 행을 열 헤더에 맞춘다 -->
+          <!-- 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(플레이어 목록과 같다). 늘린 만큼 안쪽 여백으로 행을 열 헤더에 맞춘다.
+               보이는 행 둘레만 그린다(플레이어 목록과 같다). 그래서 행 높이를 고정한다: 좁은 카드는 두 줄 48, 넓으면 한 줄 32 -->
           <div ref="processListEl" class="flex-1 min-h-0 overflow-y-auto mb-3" :class="processListOverflowing && '-mr-4 pr-1.5'" :style="processFade">
-            <div v-for="p in sortedProcesses" :key="p.pid" :class="PROCESS_GRID" class="py-1.5 @md/card:h-8 @md/card:py-0 text-sm">
-              <span class="hidden @md/card:block font-mono text-xs nums">{{ p.pid }}</span>
-              <span class="font-mono text-xs" :class="p.label === 'yt-dlp' && 'text-tertiary'">{{ p.label }}</span>
-              <!-- 길면 흐르고 툴팁으로 전체를(잔류 프로세스는 까닭 툴팁) -->
-              <span class="min-w-0 flex items-center gap-1" :class="p.stray && LEVEL_TEXT.warn" v-tooltip="p.stray ? ORPHAN_TIP : null"><Icon v-if="p.stray" :name="LEVEL_ICON.warn" :size="14" fill class="shrink-0" /><MarqueeText class="min-w-0 flex-1" :text="processJob(p)" :tip="!p.stray" /></span>
-              <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000) }}</span>
-              <!-- 메모리는 서버가 15초마다 잰다. 막 뜬 프로세스는 아직 없다 -->
-              <span class="text-xs nums text-right">{{ p.memMb === null ? "—" : `${p.memMb} MB` }}</span>
-              <!-- 좁은 카드: PID · 작동 시간을 아래 줄에 -->
-              <span class="@md/card:hidden col-span-full -mt-0.5 font-mono text-xs nums text-on-surface-variant" :class="p.stray && LEVEL_TEXT.warn">PID {{ p.pid }} · {{ formatDuration(p.ageMs / 1000) }}</span>
+            <!-- 빈 칸 높이는 안쪽 상자에(스크롤 영역에 두면 그 여백이 줄어들지 않아 영역이 내용만큼 커진다) -->
+            <div :style="{ paddingTop: `${processTop}px`, paddingBottom: `${processBottom}px` }">
+              <template v-for="{ key, row: p } in processSlots" :key="key">
+                <div v-if="!p" :class="PROCESS_GRID" class="h-12 @md/card:h-8" aria-hidden="true"><span class="col-span-full h-3 w-1/2 rounded-sm bg-on-surface/8" /></div>
+                <div v-else :class="PROCESS_GRID" class="h-12 content-center @md/card:h-8 text-sm">
+                  <span class="hidden @md/card:block font-mono text-xs nums">{{ p.pid }}</span>
+                  <span class="font-mono text-xs" :class="p.label === 'yt-dlp' && 'text-tertiary'">{{ p.label }}</span>
+                  <!-- 길면 흐르고 툴팁으로 전체를(잔류 프로세스는 까닭 툴팁) -->
+                  <span class="min-w-0 flex items-center gap-1" :class="p.stray && LEVEL_TEXT.warn" v-tooltip="p.stray ? ORPHAN_TIP : null"><Icon v-if="p.stray" :name="LEVEL_ICON.warn" :size="14" fill class="shrink-0" /><MarqueeText class="min-w-0 flex-1" :text="processJob(p)" :tip="!p.stray" /></span>
+                  <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000) }}</span>
+                  <!-- 메모리는 서버가 15초마다 잰다. 막 뜬 프로세스는 아직 없다 -->
+                  <span class="text-xs nums text-right">{{ p.memMb === null ? "—" : `${p.memMb} MB` }}</span>
+                  <!-- 좁은 카드: PID · 작동 시간을 아래 줄에 -->
+                  <span class="@md/card:hidden col-span-full -mt-0.5 font-mono text-xs nums text-on-surface-variant" :class="p.stray && LEVEL_TEXT.warn">PID {{ p.pid }} · {{ formatDuration(p.ageMs / 1000) }}</span>
+                </div>
+              </template>
             </div>
           </div>
         </template>
         <div v-else class="py-3 text-sm text-on-surface-variant">{{ T.noProcesses }}</div>
         <!-- 합계는 카드 맨 아래에 붙인다(옆 카드에 맞춰 늘어난 높이의 바닥). 구분선은 한 줄로. 그 아래 yt-dlp 줄(올리면 지난 1시간 영상 정보 읽기 수) -->
         <div class="mt-auto flex flex-col gap-1 pt-3 border-t border-outline-variant/40 text-xs text-on-surface-variant">
-          <div v-if="status.processes.oldest.length" class="flex items-baseline gap-3">
+          <div v-if="status.processes.total" class="flex items-baseline gap-3">
             <span class="min-w-0 truncate">{{ T.processesTotal(status.processes.total, status.processes.byLabel.map((b) => `${b.label} ${b.count}`).join(" · ")) }}</span>
-            <span class="ml-auto shrink-0 nums">{{ processMemMb }} MB</span>
+            <span class="ml-auto shrink-0 nums">{{ status.processes.memMb }} MB</span>
           </div>
           <span class="self-start max-w-full flex items-center gap-0.5 cursor-help" :class="ytdlp.nearLimit && LEVEL_TEXT.warn" v-tooltip="T.ytdlpLoadTip(ytdlp.extractedLastHour, ytdlp.reused, ytdlp.missed)"
             ><span class="min-w-0 truncate nums">{{ T.ytdlpLoad(`${ytdlp.lookup.running}/${ytdlp.lookup.size}`, `${ytdlp.background.running}/${ytdlp.background.size}`, ytdlp.lookup.waiting + ytdlp.background.waiting) }}</span
@@ -301,7 +310,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { createReusableTemplate, useElementSize } from "@vueuse/core";
+import { createReusableTemplate, useElementSize, watchDebounced } from "@vueuse/core";
 import { RouterLink } from "vue-router";
 import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
@@ -314,18 +323,20 @@ import SearchInput from "./SearchInput.vue";
 import { rem } from "../utils/rem.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
+import { useRowWindow } from "../composables/row-window.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
-import { koMatch } from "../../../src/rules/ko-search.ts";
 import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
-import type { AdminStatus, LinkRow, LinkState, ProcessRow } from "../../../src/dashboard/contract/admin.ts";
+import { PLAYER_STATES, Q_MAX, type AdminStatus, type LinkRow, type LinkState, type PlayerRow, type PlayerState, type ProcessRow, type ProcessSort, type Span, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
-import { compareText, formatClock, formatNumber } from "../utils/locale.ts";
+import { formatClock, formatNumber } from "../utils/locale.ts";
 import { axisMax, bitRate, byteRate, count, fixed, time, type Scale } from "../utils/units.ts";
 import { text } from "../text/index.ts";
 const T = text.status;
 
+// query: 목록(플레이어 · 자식 프로세스)의 구간 · 거르기 · 정렬. 바꾸면 운영자 패널이 바로 받는다
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
+const query = defineModel<StatusQuery>("query", { required: true });
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 
 // ── 판정 · 모양 ──
@@ -532,8 +543,9 @@ const metrics = computed<Metric[]>(() => {
   const { status } = props;
   const h = status.history;
   const heapPct = (status.node.memory.heapUsed / status.node.memory.heapLimit) * 100;
-  const playing = status.players.list.filter((p) => p.state === "playing").length;
-  const connected = status.players.list.length;
+  const { counts } = status.players;
+  const playing = counts.playing;
+  const connected = counts.playing + counts.paused + counts.idle;
   const pingAvg = Math.round(h.ping.reduce((a, b) => a + b, 0) / Math.max(1, h.ping.length));
   const ping = timeParts(status.bot.ping);
   const loop = timeParts(status.loop.p99);
@@ -738,28 +750,53 @@ const youtubeClients = computed(() =>
 );
 
 // ── ④ 하는 일 ──
-type PlayerState = AdminStatus["players"]["list"][number]["state"];
+// 목록 둘은 서버가 거르고 · 정렬하고 · 보이는 구간만 준다. 행 높이: 플레이어 48, 자식 프로세스는 좁은 카드(448 미만) 48 · 넓으면 32
 const PLAYER_STATE_WORD: Record<PlayerState, string> = T.playerStates;
-const PLAYER_STATES = Object.keys(PLAYER_STATE_WORD) as PlayerState[];
-// 처음에는 곡이 걸린 서버만(재생 중 · 일시정지)
-const shownPlayerStates = ref(new Set<PlayerState>(["playing", "paused"]));
-const playerListEl = ref<HTMLElement | null>(null);
-const playerListOverflowing = useOverflowing(playerListEl);
-// 더 있는 쪽 끝 반 줄(24)을 흐리게(자식 프로세스 목록과 같다)
-const playerFade = useScrollFade(playerListEl, () => true, 24);
-// 찾기: 서버 이름 · 곡 · 가수(한국어 조합 중 글자 · 초성도, utils/ko-search)
-const playerTerm = ref("");
-const shownPlayers = computed(() => props.status.players.list.filter((p) => shownPlayerStates.value.has(p.state) && [p.name, p.title ?? "", p.artist ?? ""].some((t) => koMatch(t, playerTerm.value))));
-const listenerTotal = computed(() => props.status.players.list.reduce((n, p) => n + p.listeners, 0));
-function togglePlayerState(k: PlayerState) {
-  const next = new Set(shownPlayerStates.value);
-  if (!next.delete(k)) next.add(k);
-  shownPlayerStates.value = next;
+const REM = rem(1);
+// 받지 못한 자리는 빈 행 모양으로(slot 의 row 가 null)
+function slotsOf<T>(range: { from: number; to: number }, from: number, rows: T[], keyOf: (row: T) => string | number) {
+  return Array.from({ length: range.to - range.from }, (_, k) => {
+    const row = rows[range.from + k - from];
+    return row ? { key: keyOf(row), row } : { key: `slot-${range.from + k}`, row: null };
+  });
 }
-const playerFilters = computed(() => {
-  const l = props.status.players.list;
-  return PLAYER_STATES.map((k) => ({ key: k, label: PLAYER_STATE_WORD[k], count: l.filter((p) => p.state === k).length, on: shownPlayerStates.value.has(k), toggle: () => togglePlayerState(k) }));
+const playerListEl = ref<HTMLElement | null>(null);
+const {
+  range: playerRange,
+  top: playerTop,
+  bottom: playerBottom,
+  toTop: playerToTop,
+} = useRowWindow({
+  el: playerListEl,
+  rowHeight: () => 3 * REM,
+  total: () => props.status.players.matched,
+  have: () => ({ from: props.status.players.from, count: props.status.players.rows.length }),
+  request: (span: Span) => (query.value = { ...query.value, players: span }),
 });
+const playerSlots = computed(() => slotsOf<PlayerRow>(playerRange.value, props.status.players.from, props.status.players.rows, (row) => row.guildId));
+// 빈 칸 높이만 바뀌어도(거른 수 · 받은 구간) 다시 잰다
+const playerListOverflowing = useOverflowing(playerListEl, () => [playerTop.value, playerBottom.value]);
+// 더 있는 쪽 끝 반 줄(24)을 흐리게(자식 프로세스 목록과 같다)
+const playerFade = useScrollFade(
+  playerListEl,
+  () => true,
+  24,
+  () => [playerTop.value, playerBottom.value],
+);
+// 거르기 · 찾기를 바꾸면 처음부터
+function filterPlayers(patch: Partial<Pick<StatusQuery, "states" | "q">>) {
+  query.value = { ...query.value, ...patch, players: { ...query.value.players, from: 0 } };
+  playerToTop();
+}
+// 찾기: 서버 이름 · 곡 · 가수(한국어 조합 중 글자 · 초성도, rules/ko-search). 입력이 200ms 쉬면 보낸다
+const playerTerm = ref(query.value.q);
+watchDebounced(playerTerm, (q) => filterPlayers({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
+function togglePlayerState(k: PlayerState) {
+  const next = new Set(query.value.states);
+  if (!next.delete(k)) next.add(k);
+  filterPlayers({ states: PLAYER_STATES.filter((s) => next.has(s)) });
+}
+const playerFilters = computed(() => PLAYER_STATES.map((k) => ({ key: k, label: PLAYER_STATE_WORD[k], count: props.status.players.counts[k], on: query.value.states.includes(k), toggle: () => togglePlayerState(k) })));
 const NOT_MEMBER_TIP = T.notMemberTip;
 const ORPHAN_TIP = T.strayTip;
 // 하는 일: 봇 헬퍼는 이름, 서버의 일은 서버 이름(다음 곡 · 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
@@ -773,38 +810,48 @@ function processJob(p: ProcessRow) {
 }
 // 열 헤더와 행이 따로라 열 폭을 고정한다: PID 5자리 · 프로그램(yt-dlp) · 하는 일 · 작동 시간(2:58:33) · 메모리(52 MB)
 const PROCESS_GRID = "grid grid-cols-[4rem_minmax(0,1fr)_3.5rem] @md/card:grid-cols-[3rem_4rem_minmax(0,1fr)_4rem_3.5rem] items-center gap-x-3";
-// 정렬: 처음은 작동 시간이 긴 순서(서버가 주는 순서). 다른 열을 처음 누르면 수는 큰 것부터, 글은 가나다 순서
-type ProcessSortKey = "pid" | "label" | "job" | "age" | "mem";
-const PROCESS_COLUMNS: Array<{ key: ProcessSortKey; label: string; right?: boolean; numeric?: boolean }> = [
+// 정렬(서버가 한다): 처음은 작동 시간이 긴 순서. 다른 열을 처음 누르면 수는 큰 것부터, 글은 가나다 순서
+const PROCESS_COLUMNS: Array<{ key: ProcessSort; label: string; right?: boolean; numeric?: boolean }> = [
   { key: "pid", label: T.columns.pid, numeric: true },
   { key: "label", label: T.columns.label },
   { key: "job", label: T.columns.job },
   { key: "age", label: T.columns.age, right: true, numeric: true },
   { key: "mem", label: T.columns.mem, right: true, numeric: true },
 ];
-const processSort = ref<{ key: ProcessSortKey; desc: boolean }>({ key: "age", desc: true });
-function sortProcessesBy(key: ProcessSortKey) {
+const processSort = computed(() => ({ key: query.value.sort, desc: query.value.desc }));
+function sortProcessesBy(key: ProcessSort) {
   const { key: now, desc } = processSort.value;
-  processSort.value = key === now ? { key, desc: !desc } : { key, desc: Boolean(PROCESS_COLUMNS.find((c) => c.key === key)?.numeric) };
+  const next = key === now ? !desc : Boolean(PROCESS_COLUMNS.find((c) => c.key === key)?.numeric);
+  query.value = { ...query.value, sort: key, desc: next, procs: { ...query.value.procs, from: 0 } };
+  processToTop();
 }
-const processSortValue: Record<ProcessSortKey, (p: ProcessRow) => number | string> = { pid: (p) => p.pid, label: (p) => p.label, job: (p) => processJob(p), age: (p) => p.ageMs, mem: (p) => p.memMb ?? -1 };
-const sortedProcesses = computed(() => {
-  const { key, desc } = processSort.value;
-  const value = processSortValue[key];
-  const order = (a: ProcessRow, b: ProcessRow) => {
-    const x = value(a);
-    const y = value(b);
-    return typeof x === "number" && typeof y === "number" ? x - y : compareText(String(x), String(y));
-  };
-  return [...props.status.processes.oldest].sort((a, b) => (desc ? order(b, a) : order(a, b)));
-});
 const playerCardEl = ref<InstanceType<typeof BaseCard> | null>(null);
 const { height: playerCardHeight } = useElementSize(playerCardEl, undefined, { box: "border-box" });
+// 행 높이는 카드 안쪽 너비로 고른다(@md/card 와 같은 448)
+const processCardEl = ref<InstanceType<typeof BaseCard> | null>(null);
+const { width: processCardWidth } = useElementSize(processCardEl);
 const processListEl = ref<HTMLElement | null>(null);
-const processListOverflowing = useOverflowing(processListEl);
+const {
+  range: processRange,
+  top: processTop,
+  bottom: processBottom,
+  toTop: processToTop,
+} = useRowWindow({
+  el: processListEl,
+  rowHeight: () => (processCardWidth.value >= 28 * REM ? 2 : 3) * REM,
+  total: () => props.status.processes.total,
+  have: () => ({ from: props.status.processes.from, count: props.status.processes.rows.length }),
+  request: (span: Span) => (query.value = { ...query.value, procs: span }),
+});
+const processSlots = computed(() => slotsOf<ProcessRow>(processRange.value, props.status.processes.from, props.status.processes.rows, (row) => row.pid));
+const processListOverflowing = useOverflowing(processListEl, () => [processTop.value, processBottom.value]);
 // 더 있는 쪽 끝 반 줄(16)을 흐리게
-const processFade = useScrollFade(processListEl, () => true, 16);
-const processMemMb = computed(() => props.status.processes.oldest.reduce((n, p) => n + (p.memMb ?? 0), 0));
+const processFade = useScrollFade(
+  processListEl,
+  () => true,
+  16,
+  () => [processTop.value, processBottom.value],
+);
 const ytdlp = computed(() => props.status.processes.ytdlp);
 
 // ── ⑤ 저장공간 ──
@@ -860,8 +907,11 @@ const attention = computed(() => [
   ...linkGroups.value.flatMap((group) => group.items.map((line) => ({ name: line.name, word: LINK_WORD[line.state], level: linkLevel(line.state, group.critical), at: "links" }))).filter((item) => item.level !== "ok"),
   ...youtubeClients.value.filter((client) => client.level !== "ok").map((client) => ({ name: T.youtubeClient(client.name), word: client.excluded ? T.attention.skipped : T.attention.failingOften, level: client.level, at: "links" })),
   ...storageBars.value.filter((u) => u.level !== "ok").map((u) => ({ name: u.label, word: T.attention.nearlyFull, level: u.level, at: "storage" })),
-  ...props.status.processes.oldest.filter((p) => p.stray).map((p) => ({ name: `${p.label} ${p.pid}`, word: T.attention.stray, level: "warn" as Level, at: "processes" })),
+  ...props.status.processes.stray.map((p) => ({ name: `${p.label} ${p.pid}`, word: T.attention.stray, level: "warn" as Level, at: "processes" })),
+  // 앞 몇 개만 칩으로, 나머지는 수 하나로(칩 수 셈에는 다 든다)
+  ...(props.status.processes.strayMore ? [{ name: T.strayMore(props.status.processes.strayMore), word: T.attention.stray, level: "warn" as Level, at: "processes", count: props.status.processes.strayMore }] : []),
   ...(props.status.processes.ytdlp.nearLimit ? [{ name: T.extractions, word: T.attention.nearLimit, level: "warn" as Level, at: "processes" }] : []),
 ]);
+const attentionCount = computed(() => attention.value.reduce((n, a) => n + ("count" in a ? a.count : 1), 0));
 const overallLevel = computed<Level>(() => (attention.value.some((a) => a.level === "bad") ? "bad" : attention.value.length ? "warn" : "ok"));
 </script>

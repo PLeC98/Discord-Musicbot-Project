@@ -229,10 +229,12 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.deepEqual({ ...r.json.encoding, max: 0 }, { max: 0, maxDepth: MAX_DEPTH, quota: r.json.encoding.quota, sessions: 0, late: 0, deaths: 0, workers: [] });
   assert.ok(r.json.encoding.max >= 1);
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
-  assert.deepEqual(r.json.players.list, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
-  assert.equal(r.json.players.queued, 1);
+  // 질의가 없으면 화면의 처음 값(재생 중 · 일시정지만)이라 곡 없이 대기는 셈에만
+  assert.deepEqual(r.json.players, { voiceConnections: 0, queued: 1, listeners: 0, counts: { playing: 0, paused: 0, idle: 1 }, matched: 0, from: 0, rows: [] });
+  const idle = await req<AdminStatus>("GET", "/api/admin/status?states=idle");
+  assert.deepEqual(idle.json.players.rows, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
   const { ytdlp, ...processes } = r.json.processes;
-  assert.deepEqual(processes, { total: 0, byLabel: [], oldest: [] });
+  assert.deepEqual(processes, { total: 0, byLabel: [], memMb: 0, stray: [], strayMore: 0, from: 0, rows: [] });
   // yt-dlp 줄: 도는 것 · 기다리는 것 없이 크기만, 지난 1시간 추출 수
   assert.deepEqual([ytdlp.lookup.running, ytdlp.lookup.waiting, ytdlp.background.running, ytdlp.background.waiting], [0, 0, 0, 0]);
   assert.ok(ytdlp.lookup.size >= 2 && ytdlp.lookup.size <= 8, `곡 찾기 줄 ${ytdlp.lookup.size}`);

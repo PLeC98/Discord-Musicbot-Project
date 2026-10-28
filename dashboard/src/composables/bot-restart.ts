@@ -6,7 +6,7 @@
 import { ref } from "vue";
 import axios from "axios";
 import { notify, notifyProblem } from "./toasts.ts";
-import type { AdminStatus, RestartReply } from "../../../src/dashboard/contract/admin.ts";
+import { COUNTS_ONLY, statusParams, type AdminStatus, type RestartReply } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.restart;
 
@@ -18,7 +18,8 @@ type Phase = "idle" | "asking" | "starting" | "waiting";
 const phase = ref<Phase>("idle");
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const pidNow = async () => (await axios.get<AdminStatus>("/api/admin/status", { timeout: 3000 })).data.env.pid;
+// pid 만 읽는다(목록 행은 받지 않는다)
+const pidNow = async () => (await axios.get<AdminStatus>("/api/admin/status", { params: statusParams(COUNTS_ONLY), timeout: 3000 })).data.env.pid;
 
 // 새 프로세스가 답하면 true. 내려가 있는 동안의 실패는 기다린다
 async function cameBack(before: number) {

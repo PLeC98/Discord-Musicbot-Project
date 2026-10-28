@@ -55,7 +55,7 @@
            그 안쪽(선 위)에 그려진다. overflow-y를 명시하지 않으면 visible이 auto로 바뀌어,
            버튼의 -mb-px 1px 때문에 모든 해상도에서 세로 스크롤바가 상시로 생긴다. -->
         <div class="admin-page" v-show="tab === 'status'">
-          <BotStatus v-if="status" :status="status" :updated-at="statusAt" :stale="statusStale" @open-logs="setTab('logs')" @open-db="setTab('db')" />
+          <BotStatus v-if="status" v-model:query="statusQuery" :status="status" :updated-at="statusAt" :stale="statusStale" @open-logs="setTab('logs')" @open-db="setTab('db')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'info'">
@@ -149,7 +149,7 @@
 <script setup lang="ts">
 import { session, live } from "../composables/session.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
 import { eventLink } from "../utils/event-link.ts";
 import { unsaved, unsavedIn } from "../composables/unsaved.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
@@ -194,7 +194,8 @@ import ConfigAppearance from "../components/ConfigAppearance.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { SHOWN_LINES, type LogGap, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { LogRow } from "../utils/log-rows.ts";
-import type { AdminGuilds, AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import { COUNTS_ONLY, STATUS_QUERY, statusParams, type AdminGuilds, type AdminStatus, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
+import { replyOrder } from "../utils/reply-order.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.admin;
@@ -367,6 +368,10 @@ const loading = ref(true);
 const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
+// 상태 탭 목록(플레이어 · 자식 프로세스)의 구간 · 거르기 · 정렬. 봇 상태 탭이 바꾸고(v-model), 바뀌면 바로 받는다. 정보 탭은 셈만 받는다
+const statusQuery = shallowRef<StatusQuery>(STATUS_QUERY);
+const statusAsk = () => (tab.value === "info" ? COUNTS_ONLY : statusQuery.value);
+const statusOrder = replyOrder();
 
 const TAB_GROUPS = computed(() => (["status", "config", "outside", "autoplay", "watch", "backup", "dev"] as const).map((g) => TABS.value.filter((t) => t.group === g)).filter((g) => g.length > 0));
 
@@ -398,20 +403,30 @@ function placePill() {
 const railFade = useScrollFade(railEl, () => true, 64);
 watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
-async function fetchStatus() {
+// 나중에 보낸 것의 답만 넣는다. 보낸 뒤 질의가 바뀌었으면(정보 탭의 셈만 받기가 상태 탭으로 바꾼 뒤 도착) 그 답도 넣지 않는다.
+// poll: 3초 폴링이면 받는 중일 때 건너뛴다(그 밖의 받기는 기다리지 않는다)
+async function fetchStatus(poll = false) {
+  if (poll && statusOrder.busy()) return;
+  const asked = statusAsk();
+  const n = statusOrder.send();
   try {
-    const res = await axios.get<AdminStatus>("/api/admin/status");
+    const res = await axios.get<AdminStatus>("/api/admin/status", { params: statusParams(asked) });
+    if (!statusOrder.settle(n, asked === statusAsk())) return;
     status.value = res.data;
     statusAt.value = Date.now();
     statusStale.value = false;
     loading.value = false;
   } catch (e) {
+    if (!statusOrder.settle(n, asked === statusAsk())) return;
     statusStale.value = true;
     // 3초마다 요청한다. 같은 까닭이면 알림 하나가 남아 있다
     notifyProblem(e, T.failed.status);
     loading.value = false;
   }
 }
+watch(statusQuery, () => {
+  if (tab.value === "status" && live()) void fetchStatus();
+});
 
 // ── 서버 관리 ─────────────────────────────────────────
 type AdminGuild = AdminGuilds["guilds"][number];
@@ -455,7 +470,7 @@ function flushLogs() {
 }
 
 watch(tab, () => {
-  poll(); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
+  poll(true); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
   syncLogs();
 });
 
@@ -509,13 +524,14 @@ const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
-function poll() {
-  if (tab.value === "status" || tab.value === "info") void fetchStatus();
+// now: 탭 바꿈 · 다시 보임(받는 중이어도 바로 보낸다)
+function poll(now = false) {
+  if (tab.value === "status" || tab.value === "info") void fetchStatus(!now);
   else if (tab.value === "guilds") void fetchGuilds();
   else if (tab.value === "db") void cacheDbEl.value?.checkChanged();
 }
 function startPoll() {
-  if (!timer) timer = setInterval(poll, POLL_MS);
+  if (!timer) timer = setInterval(() => poll(), POLL_MS);
 }
 function stopPoll() {
   if (timer) {
@@ -534,7 +550,7 @@ onMounted(() => {
   const onVisibility = () => {
     if (!live()) stopPoll();
     else {
-      poll();
+      poll(true);
       startPoll();
     }
     syncLogs();

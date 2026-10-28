@@ -39,17 +39,19 @@ import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { memberGuildIds } from "../user-guilds.ts";
+import { statusQueryOf } from "../list-window.ts";
 
 // 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 묻는다: 오래됐으면 reauth-required 로 로그인 창을 먼저 띄우고, 확인 창은 로그인을 마친 뒤에 연다
 adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
   res.status(204).end();
 });
 
-// 봇 · Node · 시스템 상태(봇 상태 탭)
-// 플레이어 행의 멤버 표시는 그 사람의 서버 목록으로(3초마다 디스코드를 기다리지 않게 지난 목록을 쓰고 새로 받기는 뒤에서)
+// 봇 · Node · 시스템 상태(봇 상태 탭). 목록은 질의의 구간만(list-window)
+// 플레이어 행의 멤버 표시는 그 사람의 서버 목록으로(3초마다 디스코드를 기다리지 않게 지난 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 묻지 않는다
 adminRouter.get("/status", requireOwner, async (req, res) => {
-  const { ids } = await memberGuildIds(req, { stale: true });
-  res.json(await adminStatus(req.app.locals.bot, signedIn(req).id, ids, req.app.locals.stream, Boolean(req.app.locals.restart)));
+  const query = statusQueryOf(req.query);
+  const { ids } = query.players.count ? await memberGuildIds(req, { stale: true }) : { ids: null };
+  res.json(adminStatus(req.app.locals.bot, query, { id: signedIn(req).id, memberIds: ids }, req.app.locals.stream, Boolean(req.app.locals.restart)));
 });
 
 // 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 실행한다(app/launcher). 실행기 없이 켰으면 다시 실행해 줄 쪽이 없어 거절한다.

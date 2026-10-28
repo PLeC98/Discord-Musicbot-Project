@@ -6,7 +6,8 @@ import { computed, onBeforeUnmount, ref, watch, type Ref } from "vue";
 /** 흐려지는 길이(px). 영역마다 바꿀 수 있다 */
 const FADE = 24;
 
-export function useScrollFade(el: Ref<HTMLElement | null>, vertical: () => boolean, fade = FADE) {
+/** again: 영역 크기 · 자식 목록 밖에서 스크롤 길이가 바뀌는 신호(보이는 행만 그리는 목록의 빈 칸 높이). 바뀌면 다시 잰다 */
+export function useScrollFade(el: Ref<HTMLElement | null>, vertical: () => boolean, fade = FADE, again?: () => unknown) {
   const start = ref(false);
   const end = ref(false);
 
@@ -43,6 +44,7 @@ export function useScrollFade(el: Ref<HTMLElement | null>, vertical: () => boole
     },
     { flush: "post", immediate: true },
   );
+  if (again) watch(again, measure, { flush: "post" });
   onBeforeUnmount(detach);
 
   const style = computed(() => {

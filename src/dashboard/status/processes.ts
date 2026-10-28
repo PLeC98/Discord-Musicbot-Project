@@ -1,4 +1,4 @@
-// 봇 상태 탭의 자식 프로세스(ffmpeg · yt-dlp · 헬퍼): 어느 서버의 무슨 일인지와 메모리.
+// 봇 상태 탭의 자식 프로세스(ffmpeg · yt-dlp · 헬퍼): 어느 서버의 무슨 일인지와 메모리. 정렬하고 질의의 구간만 행으로.
 // 메모리는 프로그램을 실행해 읽으므로 15초 구간마다 한 번 재 둔다
 
 import type { Client } from "discord.js";
@@ -7,7 +7,9 @@ import { ytdlpLoad } from "../../sources/ytdlp-spawn.ts";
 import { reuseLoad } from "../../sources/youtube/recent-info.ts";
 import { processMemory } from "../../infra/process-memory.ts";
 import { onWindow } from "../../infra/vitals.ts";
-import type { AdminStatus, ProcessRow } from "../contract/admin.ts";
+import { STRAY_SHOWN, type AdminStatus, type ProcessRow, type StatusQuery } from "../contract/admin.ts";
+import { cut } from "../list-window.ts";
+import { oldestFirst, sortProcesses } from "./process-order.ts";
 
 let memory = new Map<number, number>();
 let measuring = false;
@@ -31,10 +33,9 @@ function watchProcesses() {
 // 재생 · 다음 곡 일인데 그 서버에 플레이어가 없으면 남은 것일 수 있다
 const STRAY_JOBS = new Set(["play", "prefetch"]);
 
-/** 오래된 것부터 전부. byLabel 은 프로그램마다의 수, ytdlp 는 yt-dlp 줄과 추출 수 */
-function processSummary(client: Client, players: { has(guildId: string): boolean }): AdminStatus["processes"] {
-  const all = procRegistry.list();
-  const oldest: ProcessRow[] = all.map((p) => ({
+/** 정렬한 구간의 행. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합, stray 는 남은 것일 수 있는 것의 앞(오래된 것부터), ytdlp 는 yt-dlp 줄과 추출 수 */
+function processSummary(client: Client, players: { has(guildId: string): boolean }, query: Pick<StatusQuery, "procs" | "sort" | "desc">): AdminStatus["processes"] {
+  const all: ProcessRow[] = procRegistry.list().map((p) => ({
     pid: p.pid,
     label: p.program,
     ageMs: p.ageMs,
@@ -45,11 +46,17 @@ function processSummary(client: Client, players: { has(guildId: string): boolean
     stray: Boolean(p.guildId && p.job && STRAY_JOBS.has(p.job) && !players.has(p.guildId)),
   }));
   const byLabel = new Map<string, number>();
-  for (const p of oldest) byLabel.set(p.label, (byLabel.get(p.label) ?? 0) + 1);
+  for (const p of all) byLabel.set(p.label, (byLabel.get(p.label) ?? 0) + 1);
+  const stray = all.filter((p) => p.stray).sort(oldestFirst);
+  const { from, rows } = cut(sortProcesses(all, query.sort, query.desc), query.procs);
   return {
-    total: oldest.length,
+    total: all.length,
     byLabel: [...byLabel].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-    oldest,
+    memMb: all.reduce((n, p) => n + (p.memMb ?? 0), 0),
+    stray: stray.slice(0, STRAY_SHOWN),
+    strayMore: Math.max(0, stray.length - STRAY_SHOWN),
+    from,
+    rows,
     ytdlp: { ...ytdlpLoad(), ...reuseLoad() },
   };
 }

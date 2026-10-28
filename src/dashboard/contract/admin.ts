@@ -39,17 +39,25 @@ type AdminStatus = {
    */
   upload: { bot: number; voice: number; dashboard: number; system: number | null; todayBytes: number };
   activePlayers: number;
-  /** 플레이어. list 는 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기) */
-  players: { voiceConnections: number; queued: number; list: PlayerRow[] };
   /**
-   * 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). oldest 는 오래된 것부터 전부, byLabel 은 프로그램마다의 수.
+   * 플레이어가 있는 서버(재생 · 일시정지 · 곡 없이 대기). 행은 질의(players · states · q)의 구간만 온다.
+   * listeners · queued · counts 는 전부의 합(거르기와 상관없다). matched: 거른 수, from: 받은 구간의 시작(당겼으면 보낸 시작보다 작다), rows: 그 구간의 행(만든 순서)
+   */
+  players: { voiceConnections: number; queued: number; listeners: number; counts: Record<PlayerState, number>; matched: number; from: number; rows: PlayerRow[] };
+  /**
+   * 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). 행은 질의(procs · sort · desc)로 정렬한 구간만 온다. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합.
+   * stray: 남은 것일 수 있는 프로세스의 앞(오래된 것부터 STRAY_SHOWN 개), strayMore: 그 밖의 수.
    * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다.
    * reused · missed: 지난 1시간 받아 둔 영상 정보를 다시 쓴 수 · 자리가 없어 밀려난 뒤 필요해져 다시 추출한 수
    */
   processes: {
     total: number;
     byLabel: Array<{ label: string; count: number }>;
-    oldest: ProcessRow[];
+    memMb: number;
+    stray: ProcessRow[];
+    strayMore: number;
+    from: number;
+    rows: ProcessRow[];
     ytdlp: { lookup: SlotStats; background: SlotStats; extractedLastHour: number; nearLimit: boolean; reused: number; missed: number };
   };
   youtube: YoutubeStatus;
@@ -72,8 +80,36 @@ type AdminStatus = {
   logLevel: string;
 };
 
+const PLAYER_STATES = ["playing", "paused", "idle"] as const;
+type PlayerState = (typeof PLAYER_STATES)[number];
 /** member: 보는 사람(운영자)이 그 서버 멤버인가. 아니면 화면은 그 서버 화면으로 잇지 않는다. queued: 대기열 곡 수(지금 곡은 빼고) */
-type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: "playing" | "paused" | "idle"; title: string | null; artist: string | null; position: number; duration: number; listeners: number; queued: number };
+type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: PlayerState; title: string | null; artist: string | null; position: number; duration: number; listeners: number; queued: number };
+
+/** 긴 목록의 구간(시작 · 개수). 한 번에 받는 행은 LIST_WINDOW_MAX 까지 */
+type Span = { from: number; count: number };
+const LIST_WINDOW_MAX = 200;
+const PROCESS_SORTS = ["pid", "label", "job", "age", "mem"] as const;
+type ProcessSort = (typeof PROCESS_SORTS)[number];
+/**
+ * 상태 탭 목록의 질의. players · procs: 구간(개수 0 이면 행 없이 셈만), states: 보일 상태, q: 서버 이름 · 곡 · 가수 찾기(Q_MAX 자까지).
+ * sort · desc: 프로세스 정렬. 하는 일은 서버 이름 있는 일 → 나간 서버 → 서버 밖 일 → 봇 헬퍼 순서, 같은 값끼리는 방향과 상관없이 오래된 것부터
+ */
+type StatusQuery = { players: Span; states: PlayerState[]; q: string; procs: Span; sort: ProcessSort; desc: boolean };
+/** 질의가 없을 때의 값(화면의 처음 값과 같다) */
+const STATUS_QUERY: StatusQuery = { players: { from: 0, count: 30 }, states: ["playing", "paused"], q: "", procs: { from: 0, count: 30 }, sort: "age", desc: true };
+/** 셈만 받는 질의(행 없이. 정보 탭 · 다시 시작 기다리기) */
+const COUNTS_ONLY: StatusQuery = { ...STATUS_QUERY, players: { from: 0, count: 0 }, procs: { from: 0, count: 0 } };
+const Q_MAX = 100;
+const STRAY_SHOWN = 20;
+/** 질의를 요청 질의 문자열 값으로(서버는 list-window 가 읽는다) */
+const statusParams = (query: StatusQuery) => ({
+  players: `${query.players.from},${query.players.count}`,
+  states: query.states.join(","),
+  q: query.q,
+  procs: `${query.procs.from},${query.procs.count}`,
+  sort: query.sort,
+  desc: query.desc ? "1" : "0",
+});
 /**
  * label: 프로그램(ffmpeg · yt-dlp · node). job: 하는 일, guildId: 그 일을 실행한 서버(봇 헬퍼 · 서버 밖의 곡 찾기는 null).
  * stray: 재생 · 다음 곡 일인데 그 서버에 플레이어가 없다(남은 프로세스일 수 있다). memMb: 15초마다 잰 값, 아직 못 쟀으면 null
@@ -178,5 +214,5 @@ type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revis
 /** 유튜브 쿠키. 값은 오지 않는다. hasFile: 넣어 둔 쿠키가 있고 풀린다 */
 type CookieState = { source: CookieSource; hasFile: boolean };
 
-export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind };
-export type { AdminStatus, PlayerRow, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, GeoipStatus, GeoipCheck, AgeContent, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };
+export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, PLAYER_STATES, LIST_WINDOW_MAX, PROCESS_SORTS, STATUS_QUERY, COUNTS_ONLY, Q_MAX, STRAY_SHOWN, statusParams };
+export type { AdminStatus, PlayerRow, PlayerState, Span, ProcessSort, StatusQuery, ProcessRow, LinkState, LinkRow, StorageView, StatusHistory, AnnounceKind, BroadcastReply, AdminGuilds, LeaveReply, RedeployReply, RestartReply, PanelPrefs, GeoipStatus, GeoipCheck, AgeContent, ConfigFile, ConfigSaved, SourceTypes, Suggestions, AiState, AiFields, TokensReply, CandidatesReply, LinesReply, KeysReply, PromptReply, AiSaved, CookieState, KeyCheck, SecretView, ServiceKeysView, AiKeyState, TunablesView };

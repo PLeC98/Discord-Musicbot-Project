@@ -1,12 +1,14 @@
-// 봇 상태 탭의 플레이어 행: 플레이어가 있는 서버 전부(재생 · 일시정지 · 곡 없이 대기)
+// 봇 상태 탭의 플레이어: 플레이어가 있는 서버(재생 · 일시정지 · 곡 없이 대기). 상태별로 세고, 거르고, 질의의 구간만 행으로
 
 import { getVoiceConnections } from "@discordjs/voice";
 import type { Client } from "discord.js";
 import { playState } from "../../ui/player-status.ts";
+import { koMatch } from "../../rules/ko-search.ts";
 import type { Player } from "../../player/player.ts";
 import type { PlayerRegistry } from "../../player/registry.ts";
-import type { AdminStatus, PlayerRow } from "../contract/admin.ts";
+import type { AdminStatus, PlayerRow, PlayerState, StatusQuery } from "../contract/admin.ts";
 import { guildIconUrl } from "../images.ts";
+import { cut } from "../list-window.ts";
 
 /**
  * viewerId 가 그 서버 멤버로 보이나(멤버가 아니면 화면은 그 서버 화면으로 잇지 않는다). 멤버 캐시에 있거나 그 사람의 서버 목록(memberIds)에 있으면 참.
@@ -17,32 +19,43 @@ function looksMember(client: Client, guildId: string, viewerId: string, memberId
 }
 
 /** 지금 곡. 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙) */
-function nowPlaying(player: Player, state: PlayerRow["state"]) {
+function nowPlaying(player: Player, state: PlayerState) {
   const track = state === "idle" ? null : player.currentTrack;
   if (!track) return { title: null, artist: null, position: 0, duration: 0 };
   return { title: track.title ?? null, artist: track.artist ?? null, position: Math.floor((player.getCurrentTime?.() || 0) / 1000), duration: track.duration ?? 0 };
 }
 
-function playerRow(player: Player, member: boolean): PlayerRow {
-  const guild = player.guild;
+/** 플레이어 하나의 행에서 멤버 표시 · 아이콘을 뺀 것(거르기 · 합계는 전부에 대해 셈한다) */
+function playerLine(player: Player) {
   const state = playState(player);
-  const channel = guild.members.me?.voice?.channel;
-  return {
-    guildId: guild.id,
-    name: guild.name,
-    icon: guildIconUrl(guild.id, guild.icon),
-    member,
-    state,
-    ...nowPlaying(player, state),
-    // 듣는 사람(봇 빼고)
-    listeners: channel ? channel.members.filter((m) => !m.user.bot).size : 0,
-    queued: player.queue?.length ?? 0,
-  };
+  const channel = player.guild.members.me?.voice?.channel;
+  // 듣는 사람(봇 빼고)
+  return { player, state, ...nowPlaying(player, state), listeners: channel ? channel.members.filter((m) => !m.user.bot).size : 0, queued: player.queue?.length ?? 0 };
+}
+type PlayerLine = ReturnType<typeof playerLine>;
+
+function playerRow({ player, ...line }: PlayerLine, member: boolean): PlayerRow {
+  const { guild } = player;
+  return { guildId: guild.id, name: guild.name, icon: guildIconUrl(guild.id, guild.icon), member, ...line };
 }
 
-function playerRows(client: Client, players: PlayerRegistry, viewerId: string, memberIds: ReadonlySet<string> | null): AdminStatus["players"] {
-  const list = [...players.values()].map((player) => playerRow(player, looksMember(client, player.guild.id, viewerId, memberIds)));
-  return { voiceConnections: getVoiceConnections().size, queued: list.reduce((n, row) => n + row.queued, 0), list };
+/** 셈 · 합계는 전부, 행은 거른 것의 구간만(만든 순서, 멤버 표시도 그 행만). viewerId · memberIds 는 looksMember */
+function playerRows(client: Client, players: PlayerRegistry, query: Pick<StatusQuery, "players" | "states" | "q">, viewerId: string, memberIds: ReadonlySet<string> | null): AdminStatus["players"] {
+  const all = [...players.values()].map(playerLine);
+  const counts: Record<PlayerState, number> = { playing: 0, paused: 0, idle: 0 };
+  for (const line of all) counts[line.state]++;
+  const states = new Set(query.states);
+  const matched = all.filter((line) => states.has(line.state) && [line.player.guild.name, line.title ?? "", line.artist ?? ""].some((text) => koMatch(text, query.q)));
+  const { from, rows } = cut(matched, query.players);
+  return {
+    voiceConnections: getVoiceConnections().size,
+    queued: all.reduce((n, line) => n + line.queued, 0),
+    listeners: all.reduce((n, line) => n + line.listeners, 0),
+    counts,
+    matched: matched.length,
+    from,
+    rows: rows.map((line) => playerRow(line, looksMember(client, line.player.guild.id, viewerId, memberIds))),
+  };
 }
 
 export { playerRows };
