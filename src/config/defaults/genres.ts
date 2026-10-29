@@ -13,7 +13,7 @@ const genresDefault: Record<string, unknown> = {
   genres: {
     "k-pop": {
       label: "K-POP",
-      emoji: "💖",
+      emoji: "🫰",
       sources: [
         {
           type: "spotify",
