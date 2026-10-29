@@ -1,4 +1,4 @@
-// src/infra/safe-url.ts — SSRF 방어가 실제로 버티는지 공격해 본다.
+// src/infra/safe-url.ts: SSRF 방어가 실제로 버티는지 공격해 본다.
 //
 // CodeQL이 이 파일을 js/request-forgery(critical)로 지적한다. "URL이 사용자 입력에 의존한다"는
 // 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속·홉별 재검증)를 CodeQL이 추적하지
@@ -84,7 +84,7 @@ test("허용되지 않는 스키마는 차단된다", async () => {
 // ── 2. DNS ──────────────────────────────────────────────────────────────────
 
 test("DNS가 여러 주소를 주면 하나라도 내부일 때 차단한다", async () => {
-  // 공인 IP를 먼저 주고 내부 IP를 섞는 고전적 우회 — 첫 레코드만 보면 뚫린다
+  // 공인 IP를 먼저 주고 내부 IP를 섞는 고전적 우회. 첫 레코드만 보면 뚫린다
   lookupImpl = async () => [
     { address: "93.184.216.34", family: 4 },
     { address: "127.0.0.1", family: 4 },
@@ -150,7 +150,7 @@ test("리다이렉트로 스키마를 바꿀 수 없다", async () => {
 });
 
 test("상대 경로 리다이렉트도 재검증을 거친다", async () => {
-  responder = redirectTo("//127.0.0.1/x"); // 프로토콜 상대 — 호스트가 바뀐다
+  responder = redirectTo("//127.0.0.1/x"); // 프로토콜 상대 주소라 호스트가 바뀐다
   await rejects(head("https://1.1.1.1/x.mp3"), /차단된 IP/);
   assert.equal(calls.length, 1);
 });

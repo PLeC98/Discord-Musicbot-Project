@@ -1,4 +1,4 @@
-// src/config/genres.ts — 장르 설정을 읽을 때 필터링하는 이름 · 이모지와 저장 전 검사.
+// src/config/genres.ts: 장르 설정을 읽을 때 필터링하는 이름 · 이모지와 저장 전 검사.
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -110,7 +110,7 @@ test("검사: 모르는 소스 종류는 걸린다", () => {
   assert.match(genreConfig.validateGenres({ genres: { 팝: { sources: [{ type: "없는것", keywords: ["a"] }] } } }).join(" "), /모르는 종류/);
 });
 
-// 맨 위 keywords:는 옛 모양이다. 조용히 읽어 주면 두 모양을 영원히 들고 가게 된다.
+// 맨 위 keywords:는 옛 형식이다. 조용히 읽어 주면 두 형식을 영원히 들고 가게 된다.
 test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
   const problems = genreConfig.validateGenres({ genres: { 팝: { keywords: ["a"], sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.match(problems, /sources: 로 옮겨/);

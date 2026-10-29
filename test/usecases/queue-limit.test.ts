@@ -1,4 +1,4 @@
-// 대기열 상한. 곡 담기(usecases/add-tracks 의 queueTracks)가 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
+// src/usecases/add-tracks.ts: 대기열 상한. 곡 추가(queueTracks)가 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

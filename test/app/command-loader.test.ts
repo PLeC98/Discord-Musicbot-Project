@@ -1,5 +1,5 @@
-// src/app/command-loader.ts — 커맨드 로드 + 배포 (등록 요청은 가짜를 넘긴다, 실 배포 없음).
-// 배포 지문은 임시 파일 사용 — 운영 database/deployed-commands.json 미접촉.
+// src/app/command-loader.ts: 커맨드 로드 + 배포(등록 요청은 가짜를 넘겨 실제로 배포하지 않는다).
+// 배포 해시는 임시 파일에 써서 운영 database/deployed-commands.json 을 건드리지 않는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -99,8 +99,8 @@ test("deployCommands: 정의 변경 없는 재기동은 PUT 생략, force는 항
   const hashPath = freshHashPath();
   putCalls = [];
 
-  await deployCommands({ hashPath, put }); // 첫 배포 — 지문 기록
-  const second = await deployCommands({ hashPath, put }); // 변경 없는 재기동 시뮬레이션
+  await deployCommands({ hashPath, put }); // 첫 배포: 해시 기록
+  const second = await deployCommands({ hashPath, put }); // 변경 없는 재기동
   assert.ok(second.ok);
   assert.equal(second.skipped, true);
   assert.equal(second.count, commands.length, "생략이어도 카운트/이름은 보고");

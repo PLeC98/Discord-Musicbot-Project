@@ -1,4 +1,4 @@
-// src/app/resilience.ts — 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 시작하고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
+// src/app/resilience.ts: 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 시작하고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

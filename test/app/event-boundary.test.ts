@@ -1,4 +1,4 @@
-// src/app/event-boundary.ts — 디스코드 이벤트 핸들러를 서버 문맥에서 부르고, 새어 나온 던짐 · 거부를 그 서버의 오류로 넘긴다.
+// src/app/event-boundary.ts: 디스코드 이벤트 핸들러를 서버 문맥에서 부르고, 새어 나온 던짐 · 거부를 그 서버의 오류로 넘긴다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/media/ffmpeg/process.ts probeDurationSec — 다운로드한 파일에서 실제 재생 길이를 읽는다.
+// src/media/ffmpeg/process.ts probeDurationSec: 다운로드한 파일에서 실제 재생 길이를 읽는다.
 // 직접 링크는 다운로드 전에 길이를 모르고, 이 값이 표시 · 진행바 · 캐시의 duration_sec 을 채운다.
 
 import os from "node:os";

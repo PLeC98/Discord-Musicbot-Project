@@ -1,4 +1,4 @@
-// src/discord/events/interaction-create.ts — 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 핸들러 표로 선택한다.
+// src/discord/events/interaction-create.ts: 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 핸들러 표로 선택한다.
 // 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 핸들러는 그 자리표시자에.
 
 import { test } from "node:test";

@@ -1,4 +1,4 @@
-// src/app/run-record.ts — 직전 실행이 어떻게 끝났는지를 다음 기동이 안다. 짧게 끊긴 실행이 연달아면 세션을 복원하지 않는다.
+// src/app/run-record.ts: 이전 실행이 어떻게 끝났는지를 다음 기동이 안다. 짧게 끊긴 실행이 연달아 두 번이면 세션을 복원하지 않는다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

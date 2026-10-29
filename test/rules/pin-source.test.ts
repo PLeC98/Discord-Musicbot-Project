@@ -1,4 +1,4 @@
-// src/rules/pin-source.ts — 캐시 DB 에서 직접 지정할 음원 · 새 행의 원래 링크가 쓸 수 있는 주소인가
+// src/rules/pin-source.ts: 캐시 DB 에서 직접 지정할 음원 · 새 행의 원래 링크가 쓸 수 있는 주소인가
 import test from "node:test";
 import assert from "node:assert";
 import { checkPinAudio, checkPinRequest } from "../../src/rules/pin-source.ts";

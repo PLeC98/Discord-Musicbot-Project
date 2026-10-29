@@ -1,4 +1,4 @@
-// src/media/fragment-stream.ts — 세그먼트 목록으로만 주는 오디오(유튜브 post_live)를 순서대로 받아 흘린다.
+// src/media/fragment-stream.ts: 세그먼트 목록으로만 주는 오디오(유튜브 post_live)를 순서대로 받아 흘린다.
 // 요청은 가짜다. 세그먼트 번호를 본문에 싣는다
 
 import { test } from "node:test";

@@ -1,4 +1,4 @@
-// src/media/direct-input.ts — 직접 링크를 재생 · 다운로드 입력으로. 파일은 본문, HLS 는 세그먼트 스트림. 끝이 없는가(live) · 끝과 크기를 아는가(bounded)
+// src/media/direct-input.ts: 직접 링크를 재생 · 다운로드 입력으로. 파일은 본문, HLS 는 세그먼트 스트림. 끝이 없는가(live) · 끝과 크기를 아는가(bounded)
 
 import { PassThrough } from "node:stream";
 import { test } from "node:test";

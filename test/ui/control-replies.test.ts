@@ -1,4 +1,4 @@
-// src/ui/control-replies.ts — 조작 결과 화면. 헤더 줄 · 본문 · 작은 글씨의 누가 했나 줄, 처음부터는 곡에 썸네일이 있으면 헤더 옆(일시정지 · 건너뛰기 · 반복은 붙이지 않는다)
+// src/ui/control-replies.ts: 조작 결과 화면. 헤더 줄 · 본문 · 작은 글씨의 누가 했나 줄, 처음부터는 곡에 썸네일이 있으면 헤더 옆(일시정지 · 건너뛰기 · 반복은 붙이지 않는다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

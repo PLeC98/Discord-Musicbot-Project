@@ -1,4 +1,4 @@
-// src/usecases/controls.ts — 재생 조작 코어. 전제 조건을 같은 순서로 보고, 조작하고, 패널에 알린다.
+// src/usecases/controls.ts: 재생 조작 코어. 전제 조건을 같은 순서로 보고, 조작하고, 패널에 알린다.
 // 플레이어는 부른 것을 적는 가짜. 권한은 진짜 판정에 가짜 멤버를 넘긴다(모더레이터는 통과, 봇과 다른 곳에 있으면 거절).
 
 import { test, after, afterEach } from "node:test";
@@ -417,7 +417,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(r, { ok: true, genre, started: true });
   assert.deepEqual(order, ["create", `set:${genre}`, "answer", "first"]);
 
-  // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 선택하지 않고 패널만 고친다
+  // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 선택하지 않고 패널만 갱신한다
   const playing = fakePlayer({ setAutoplay: () => {}, handleAutoplay: async () => assert.fail("뽑지 않는다") });
   assert.deepEqual(await controls.autoplay(playing, DJ, genre, { create: () => assert.fail("있으면 만들지 않는다") }), { ok: true, genre, started: false });
   assert.deepEqual(seen, ["refresh"]);

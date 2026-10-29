@@ -1,4 +1,4 @@
-// src/ui/mentions.ts — 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
+// src/ui/mentions.ts: 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
 //
 // 트랙 제목 · 직접 링크 파일명은 남이 정할 수 있다. 제목의 @everyone 이 봇 명의의 대규모 멘션으로 나가거나
 // `[클릭](https://evil.example)` 이 안내 문구 안에서 진짜 링크로 렌더링되면 곡 하나로 피싱 링크를 심을 수 있다.
@@ -14,7 +14,7 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import { addedView } from "../../src/ui/added-notice.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
-// 담은 안내가 보인 글자(ui/added-notice)
+// 추가 안내가 보인 글자(ui/added-notice)
 const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
@@ -23,7 +23,7 @@ const EVIL_LINK = "[여기를 클릭](https://evil.example)";
 test("기본값: 어떤 멘션도 파싱하지 않는다", () => {
   assert.deepEqual(ALLOWED_MENTIONS.parse, []);
   assert.equal(ALLOWED_MENTIONS.repliedUser, false);
-  // roles/users 화이트리스트를 두면 parse:[]의 의미가 흐려진다 — 필요한 곳에서 payload로 덮어쓴다
+  // roles/users 화이트리스트를 두면 parse:[]의 의미가 흐려진다. 필요한 곳에서 payload로 덮어쓴다
   assert.equal("users" in ALLOWED_MENTIONS, false);
   assert.equal("roles" in ALLOWED_MENTIONS, false);
 });
@@ -63,7 +63,7 @@ test("빈 값·비문자열에도 안전하다", () => {
   }
 });
 
-// 실제 전송 경로 — 대기열 추가 안내는 content라 서식이 그대로 해석된다
+// 실제 전송 경로. 대기열 추가 안내는 content라 서식이 그대로 해석된다
 test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않는다", () => {
   const msg = addedText([{ title: EVIL_LINK }], null, false);
 
@@ -73,7 +73,7 @@ test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않
 
 // now-playing 제목은 마스크드 링크의 "라벨" 위치라 이스케이프하지 않는다.
 // 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
-// 라벨 밖으로 탈출해 다른 URL을 거는 것도 불가능함을 확인했다 — 라벨이 깨지면
+// 라벨 밖으로 탈출해 다른 URL을 걸 수도 없다. 라벨이 깨지면
 // 디스코드가 링크 자체를 만들지 않는다.
 test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () => {
   const mem = new NowPlayingPanel(fake<Client>({}), new Map());

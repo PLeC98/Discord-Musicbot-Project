@@ -1,4 +1,4 @@
-// src/ui/playlist-more-menu.ts — 더 넣기 화면. 가져오는 동안 몇 곡째인지, 곡 수 모달에 미리 적어 둘 수
+// src/ui/playlist-more-menu.ts: 더 넣기 화면. 가져오는 동안 몇 곡째인지, 곡 수 모달에 미리 적어 둘 수
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

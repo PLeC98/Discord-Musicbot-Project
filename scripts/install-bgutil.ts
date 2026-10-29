@@ -6,8 +6,7 @@
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 //
-// bgutil은 별도로 가져와야 한다.
-// 봇 실행 시 자동 감지되어 POToken 서버(포트 4416)를 함께 시작한다.
+// 봇은 실행 시 설치된 bgutil 을 감지해 POToken 서버(포트 4416)를 함께 시작한다.
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import { execSync, execFileSync } from "child_process";
@@ -57,7 +56,7 @@ try {
   const existed = fs.existsSync(DIR);
   if (!existed) git(["clone", REPO, DIR], ROOT);
 
-  // 체크아웃 안의 변경을 되돌린다(앞선 설치가 npm audit fix 로 고친 잠금 파일). 같은 태그로 다시 설치할 때도 태그의 잠금 파일로
+  // 체크아웃 안의 변경을 되돌린다(앞선 설치가 npm audit fix 로 고친 잠금 파일). 같은 태그로 다시 설치할 때도 태그의 잠금 파일로 설치하게
   git(["checkout", "--", "."], DIR);
 
   const before = currentTag();

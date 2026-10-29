@@ -1,5 +1,5 @@
-// src/discord/interactions/settings-panel-handler.ts · commands/setting — /setting 한 화면(DJ 역할 · SponsorBlock · 연령 제한 콘텐츠).
-// 고르거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다. 봇 전체에서 끈 기능의 부분은 없다. 서버 설정은 진짜를 임시 DB 로 쓴다.
+// src/discord/interactions/settings-panel-handler.ts · commands/setting: /setting 한 화면(DJ 역할 · SponsorBlock · 연령 제한 콘텐츠).
+// 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다. 봇 전체에서 끈 기능의 부분은 없다. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/infra/process-registry.ts — 외부 프로세스 트리 종료
+// src/infra/process-registry.ts: 외부 프로세스 트리 종료
 //
 // yt-dlp가 ffmpeg를 외부 다운로더로 실행하면(손자 프로세스) 봇을 꺼도 ffmpeg가 살아남아
 // 끝나지 않는 방송을 계속 받을 수 있다. killAll 은 트리 전체를 내린다.
@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 const IS_WIN = process.platform === "win32";
 const registry = await import("../../src/infra/process-registry.ts");
 
-/** pid가 아직 살아있는가 — 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
+/** pid가 아직 살아있는가. 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
 function alive(pid: number) {
   try {
     process.kill(pid, 0);
@@ -24,7 +24,6 @@ function alive(pid: number) {
   }
 }
 
-/** cond()가 true가 될 때까지(또는 timeout까지) 대기 */
 async function waitFor(cond: () => boolean, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -39,7 +38,7 @@ async function waitFor(cond: () => boolean, timeoutMs = 5000) {
  * 손자 pid를 stdout으로 받아 두 세대가 모두 정리되는지 확인할 수 있게 한다.
  */
 function spawnChildWithGrandchild() {
-  // 손자는 아무 일도 안 하고 그냥 오래 살아있는다 — 무한 다운로드 중인 ffmpeg의 대역.
+  // 손자는 아무 일도 안 하고 그냥 오래 살아있는다. 무한 다운로드 중인 ffmpeg의 대역.
   const script = `
     const { spawn } = require("node:child_process");
     const g = spawn(process.execPath, ["-e", "setInterval(()=>{}, 1e9)"], { stdio: "ignore" });
@@ -48,7 +47,7 @@ function spawnChildWithGrandchild() {
   `;
   const child = spawn(process.execPath, ["-e", script], {
     stdio: ["ignore", "pipe", "ignore"],
-    // POSIX는 자체 프로세스 그룹이 있어야 그룹킬로 손자까지 잡을 수 있다(운영 코드 ytdlp.js와 동일 조건).
+    // POSIX는 자체 프로세스 그룹이 있어야 그룹킬로 손자까지 잡을 수 있다(운영 코드 src/sources/ytdlp-spawn.ts와 같은 조건).
     detached: !IS_WIN,
   });
 

@@ -1,4 +1,4 @@
-// src/infra/voice-adapter.ts — 참가 요청을 잠깐 붙잡아, 그사이 봇이 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
+// src/infra/voice-adapter.ts: 참가 요청을 잠깐 붙잡아, 그사이 봇이 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
 
 import { test } from "node:test";
 import type { TestContext } from "node:test";

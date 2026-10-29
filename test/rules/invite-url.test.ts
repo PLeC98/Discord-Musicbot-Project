@@ -1,4 +1,4 @@
-// src/rules/invite-url.ts — 봇 초대 링크(/help · 대시보드 초대 화면이 같은 바탕)
+// src/rules/invite-url.ts: 봇 초대 링크(/help · 대시보드 초대 화면이 같은 바탕)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

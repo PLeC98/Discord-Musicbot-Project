@@ -1,4 +1,4 @@
-// src/rules/volume-gain.ts — 볼륨(0 ~ 100)을 PCM 볼륨 배율(gain)로(dB 로 고르게, 범위 40 dB)
+// src/rules/volume-gain.ts: 볼륨(0 ~ 100)을 PCM 볼륨 배율(gain)로(dB 로 고르게, 범위 40 dB)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

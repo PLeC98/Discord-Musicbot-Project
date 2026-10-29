@@ -1,5 +1,5 @@
-// 곡 찾기(sources/lookup) · 유튜브 동등물(youtube/equivalent) · 스트림(streamUrl)의 분기를 고정한다
-// (링크 종류별 조회 · 캐시 지름길 · 키 만들기 · 동등물 찾기 · 재검색 · 스트림).
+// src/sources/lookup.ts · youtube/equivalent.ts · stream-url.ts: 곡 찾기 · 유튜브 매칭 · 스트림의 분기를 고정한다
+// (링크 종류별 조회 · 캐시 지름길 · 키 만들기 · 유튜브 매칭 · 재검색 · 스트림).
 //
 // 부르는 소스(YouTube · Spotify · SoundCloud · DirectLink)는 가짜를 넘기고, 링크 데이터는 진짜 저장소를 임시 DB 로 쓴다.
 // 유튜브 검색 결과도 트랙 모양이다(음원 주소가 audioUrl).
@@ -130,7 +130,7 @@ test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 
   assert.deepEqual([one.isPlaylist, one.collection, one.total, one.nextOffset], [false, null, null, null]);
 });
 
-// 사운드클라우드 곡 · 세트의 한 구간, 곡 찾기가 넘기는 것. 물은 주소와 구간을 적는다
+// 사운드클라우드 곡 · 세트의 한 구간, 곡 찾기가 넘기는 것. 요청한 주소와 구간을 적는다
 const scAsked: Array<{ url: string; range?: Range & { what?: string } }> = [];
 const scTrack = (url: string) => ({ ...found(url), platform: "soundcloud" as const, audioUrl: url, pageUrl: url, requestKey: url });
 const soundcloud = (kind: "track" | "set", skipped = 0, tracks = 2) => ({
@@ -204,7 +204,7 @@ test("모음 이어 받기: 유튜브 재생목록 · 스포티파이 · 사운�
   const one = found("1", { id: "1" });
   const part = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: [one], total: 60 }) } };
   assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", undefined, part), { tracks: [one], total: 60, nextOffset: null });
-  // 스포티파이의 답은 그대로 넘긴다. 물은 주소와 구간을 적는다
+  // 스포티파이의 답은 그대로 넘긴다. 요청한 주소와 구간을 적는다
   const asked: Array<{ url: string; range?: Range }> = [];
   const spotify = {
     spotify: {
@@ -348,7 +348,7 @@ test("동등물: 지정한 음원이 있으면 검색 · 링크 데이터보다 
   assert.equal(skipping.audioFoundBy, "ledger");
 });
 
-// ── 동등물 찾기 · 재검색 ──────────────────────────────────────────────
+// ── 유튜브 매칭 · 재검색 ──────────────────────────────────────────────
 
 test("동등물: 링크 데이터에 매핑이 있으면 검색하지 않고 쓰며, 링크 데이터에서 왔다고 표시한다", async () => {
   audioCache.recordDownloadStart("yt:fffffffffff", { title: "t" });

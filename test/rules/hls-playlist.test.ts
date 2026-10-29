@@ -1,4 +1,4 @@
-// src/rules/hls-playlist.ts — HLS 재생목록 해석(상위 · 하위 목록, 바이트 구간 · 초기화 세그먼트 · 키 · 순번 · 끝)과 받을 하위 목록 고르기
+// src/rules/hls-playlist.ts: HLS 재생목록 해석(상위 · 하위 목록, 바이트 구간 · 초기화 세그먼트 · 키 · 순번 · 끝)과 받을 하위 목록 고르기
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

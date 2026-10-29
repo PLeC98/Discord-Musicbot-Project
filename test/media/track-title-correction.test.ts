@@ -1,5 +1,5 @@
-// src/media/cache-download.ts `_takeInfoJson` — 다운로드에 곁들여 다운로드한 info.json에서 제목과 오디오 길이를 꺼낸다.
-// 읽고 삭제하는 것까지가 계약이다 — 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
+// src/media/cache-download.ts `_takeInfoJson`: 다운로드에 곁들여 받은 info.json에서 제목과 오디오 길이를 꺼낸다.
+// 읽고 삭제하는 것까지가 계약이다. 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

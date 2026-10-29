@@ -1,4 +1,4 @@
-// src/rules/source-url.ts — 자동재생 출처 주소를 저장할 모양. 목록을 가리키는 부분만 남는지
+// src/rules/source-url.ts: 자동재생 출처 주소를 저장할 모양. 목록을 가리키는 부분만 남는지
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

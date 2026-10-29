@@ -1,5 +1,5 @@
-// src/sources/file-tags.ts — 음원 파일의 태그(제목 · 가수 · 앨범 · 그림). 파일은 그대로, 스트림은 헤더까지만 받고 끊는다.
-// 시료는 ffmpeg 로 만든다(그림이 붙은 MP3 · FLAC · M4A(moov 앞 · 끝) · Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
+// src/sources/file-tags.ts: 음원 파일의 태그(제목 · 가수 · 앨범 · 앨범아트). 파일은 그대로, 스트림은 헤더까지만 받고 끊는다.
+// 시료는 ffmpeg 로 만든다(앨범아트가 붙은 MP3 · FLAC · M4A(moov 앞 · 끝) · Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
 
 import path from "node:path";
 import os from "node:os";

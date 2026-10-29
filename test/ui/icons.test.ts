@@ -1,3 +1,5 @@
+// src/ui/icons.ts: 아이콘 표. 앱 이모지를 동기화하기 전에는 유니코드, 동기화한 뒤에는 앱 이모지
+
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

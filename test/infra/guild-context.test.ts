@@ -1,4 +1,4 @@
-// src/infra/guild-context.ts — 서버 문맥이 타이머 · 약속 · await 를 따라가고, 묶은 리스너는 쏜 쪽과 상관없이 그 서버로 돈다.
+// src/infra/guild-context.ts: 서버 문맥이 타이머 · 약속 · await 를 따라가고, 묶은 리스너는 쏜 쪽과 상관없이 그 서버로 돈다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

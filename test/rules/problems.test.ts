@@ -1,4 +1,4 @@
-// src/rules/problems.ts — 문제 코드 목록. 코드 형식 · HTTP 상태 · 값 이름의 규칙과, 목록의 코드마다 안내가 그려지는지
+// src/rules/problems.ts: 문제 코드 목록. 코드 형식 · HTTP 상태 · 값 이름의 규칙과, 목록의 코드마다 안내가 그려지는지
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

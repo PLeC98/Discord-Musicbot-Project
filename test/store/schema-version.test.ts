@@ -1,4 +1,4 @@
-// src/store/stores.ts · sqlite.ts — DB 파일마다 구조 버전이 맞지 않을 때의 방침. 저절로 새로 만들기는 두지 않고, 그 자리에서 올리는 단계는 spec.upgrades 에 있는 것만(캐시 DB 6 → 7).
+// src/store/stores.ts · sqlite.ts: DB 파일마다 구조 버전이 맞지 않을 때의 방침. 저절로 새로 만들기는 두지 않고, 그 자리에서 올리는 단계는 spec.upgrades 에 있는 것만(캐시 DB 6 → 7).
 // 어느 파일이든 열지 않고 멈춘다. 캐시 · 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
 
 import { sessions } from "../../src/store/player-sessions.ts";

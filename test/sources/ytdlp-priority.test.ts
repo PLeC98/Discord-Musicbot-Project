@@ -1,4 +1,4 @@
-// src/sources/ytdlp-spawn.ts — yt-dlp 를 "보통보다 낮음"으로 돌린다(기동 직후 재생 인코딩 워커가 CPU 를 못 받아 소리가 밀리지 않게).
+// src/sources/ytdlp-spawn.ts: yt-dlp 를 "보통보다 낮음"으로 돌린다(기동 직후 재생 인코딩 워커가 CPU 를 못 받아 소리가 밀리지 않게).
 // yt-dlp 대신 말이 없는 진짜 자식 프로세스를 실행해 그 우선순위를 본다.
 
 import { test, afterEach } from "node:test";

@@ -1,6 +1,6 @@
 // src/media/convert.ts: 다운로드한 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
-// 직접 링크도 무엇이 들어오든 다시 굽지 않는다. 이미 높은 비트레이트의 Opus(AnimeThemes 등)를 128k 로 굽지 않게.
+// 직접 링크도 같은 판단을 따른다. 이미 높은 비트레이트의 Opus(AnimeThemes 등)를 128k 로 다시 인코딩하지 않게.
 //
 // 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus 로 다시 쓸지 재는 곳에만 걸리고,
 // 변환 목표는 소스 비트레이트와 무관하다. mp3 128k 와 Opus 128k 는 같은 값이 아니므로
@@ -30,7 +30,7 @@ test("이미 Opus 면 그대로 옮긴다. 손실 세대를 쓰지 않는다", (
 });
 
 test("상한을 아슬아슬하게 넘긴 것은 굽지 않는다. 구우면 오히려 커진다", () => {
-  // 323k 를 `-b:a 320k` 로 구우면 324k 가 나오고 파일이 커진다(libopus VBR).
+  // 323k 를 `-b:a 320k` 로 다시 인코딩하면 324k 가 나오고 파일이 커진다(libopus VBR).
   // 손실 세대와 CPU 를 쓰고 용량도 손해라면 할 이유가 없다.
   for (const kbps of [REMUX_MAX_KBPS + 1, 329, Math.floor(REMUX_MAX_KBPS * REMUX_SLACK)]) {
     assert.equal(planFor({ codec: "opus", bitrateKbps: kbps }).action, "copy", `${kbps}k`);
@@ -49,7 +49,7 @@ test("크게 넘는 Opus 만 상한까지 낮춰 다시 굽는다", () => {
 });
 
 test("Opus 가 아니면 소스 비트레이트와 무관하게 같은 목표로 굽는다", () => {
-  // mp3 320k 를 320k opus 로 굽는 판단이 나오면 안 된다. 같은 자로 잰 값이 아니다.
+  // mp3 320k 를 320k opus 로 인코딩하는 판단이 나오면 안 된다. 같은 자로 잰 값이 아니다.
   for (const [codec, kbps] of [
     ["mp3", 320],
     ["mp3", 128],
@@ -92,7 +92,7 @@ test("인자: 리먹싱은 -c:a copy, 변환은 libopus + 목표 비트레이트
 });
 
 test("인자: 출력은 언제나 opus 컨테이너이고 -vn 이 붙는다", () => {
-  // 캐시 파일명이 `.opus` 전제다. 앨범아트가 붙은 파일을 그대로 옮기면 그림까지 따라온다.
+  // 캐시 파일명이 `.opus` 전제다. 앨범아트가 붙은 파일을 그대로 옮기면 앨범아트까지 따라온다.
   for (const plan of [
     { action: "copy", bitrateKbps: 200 },
     { action: "transcode", bitrateKbps: 128 },
@@ -132,7 +132,7 @@ test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus 
   assert.equal(info.durationSec, 90.06, "헤더의 100분의 1초까지");
 });
 
-// 컨테이너 값을 오디오로 읽으면 멀쩡한 opus 를 상한까지 다시 굽는다.
+// 컨테이너 값을 오디오로 읽으면 멀쩡한 opus 를 상한까지 다시 인코딩한다.
 test("probe 파싱: 영상이 섞여 있으면 컨테이너 값을 쓰지 않는다", () => {
   const info = parseProbeOutput(`
   Duration: 00:01:29.14, start: 0.000000, bitrate: 4662 kb/s
@@ -217,11 +217,11 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
   assert.equal(after2.durationSec, info.durationSec, "옮긴 뒤에도 길이가 같아야 한다");
 });
 
-// ── SC-4 ─────────────────────────────────────────────────────────────────────
+// ── 음원 빌려 오기 ───────────────────────────────────────────────────────────
 
 test("음원을 빌려 오는 것은 음원 주소가 없는 곡(스포티파이)뿐이다. 사운드클라우드는 제 음원을 준다", () => {
-  // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
-  // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
+  // `sc:` 키에는 사운드클라우드 음원만 둔다. 유튜브 음원을 빌려 오면 같은 곡이 처음 틀 때와
+  // 캐시로 틀 때 서로 다른 녹음이 되고, 유튜브 검색이 틀리면 그 키에 다른 곡이 박힌 채 남는다.
   const { needsBorrowedAudio } = TrackDownloader._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);

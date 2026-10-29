@@ -1,4 +1,4 @@
-// src/store/snapshots.ts — settings.db 스냅샷. 하루 한 번 · 불러오기 · 복원 전에 뜨고, 선택한 것을 다음 기동에 교체한다
+// src/store/snapshots.ts: settings.db 스냅샷. 하루 한 번 · 불러오기 · 복원 전에 뜨고, 선택한 것을 다음 기동에 교체한다
 
 import fs from "node:fs";
 import path from "node:path";

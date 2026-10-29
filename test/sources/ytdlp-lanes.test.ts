@@ -1,4 +1,4 @@
-// src/sources/ytdlp-spawn.ts — yt-dlp 의 줄(곡 찾기 · 다운로드 · 미리 받기), 영상 정보 추출 세기, 멎은 다운로드 내리기.
+// src/sources/ytdlp-spawn.ts: yt-dlp 의 줄(곡 찾기 · 다운로드 · 미리 받기), 영상 정보 추출 세기, 멎은 다운로드 내리기.
 // 가짜 실행기(pid 없음)로 줄을 보고, 내리는 길은 말이 없는 진짜 자식 프로세스로 본다
 
 import fs from "node:fs";
@@ -15,7 +15,7 @@ const tick = () => new Promise((done) => setTimeout(done, 20));
 // 가짜가 끝나지 않으면 기다리는 약속이 풀리지 않는다. 걸리면 멈추지 않고 실패하게
 const HELD = { timeout: 5_000 };
 
-// 부른 차례와, 하나씩 끝낼 수 있는 가짜 실행. finish(url) 로 끝낸다(fail 이면 실패)
+// 부른 순서와, 하나씩 끝낼 수 있는 가짜 실행. finish(url) 로 끝낸다(fail 이면 실패)
 function heldExec() {
   const started: string[] = [];
   const pending = new Map<string, { ok: () => void; fail: () => void }>();

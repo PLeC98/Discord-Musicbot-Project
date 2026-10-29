@@ -1,4 +1,4 @@
-// src/sources/youtube/clients.ts — 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
+// src/sources/youtube/clients.ts: 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
 // 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가
 // 달라서 성공이 섞이면 연속 카운터가 계속 리셋된다.
 
@@ -41,7 +41,7 @@ test("창이 밀리면 오래된 실패는 잊는다", () => {
   pc.record("visionos", false);
   pc.record("visionos", false);
   pc.record("visionos", true); // 창: ng,ng,ok
-  pc.record("visionos", true); // 창: ng,ok,ok — 첫 실패가 밀려났다
+  pc.record("visionos", true); // 창: ng,ok,ok(첫 실패가 밀려났다)
   pc.record("visionos", true); // 창: ok,ok,ok
   assert.deepEqual(pc.list(), ["visionos"]);
 });

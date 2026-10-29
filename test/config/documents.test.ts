@@ -1,4 +1,4 @@
-// src/config/documents.ts · store/settings-docs.ts — 설정 문서(장르 · 상태 문구 · AI 설정 · 프롬프트).
+// src/config/documents.ts · store/settings-docs.ts: 설정 문서(장르 · 상태 문구 · AI 설정 · 프롬프트).
 // 메모리에 들고 있다가 저장하면 settings.db 에 쓴다. 저장 번호가 다르면 거절하고, 함께 쓰는 문서는 한 트랜잭션이다.
 
 import { test, after, beforeEach } from "node:test";

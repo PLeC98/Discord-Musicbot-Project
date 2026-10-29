@@ -1,4 +1,4 @@
-// src/app/app-emojis.ts — 앱 이모지 맞추기(가짜 디스코드 API)
+// src/app/app-emojis.ts: 앱 이모지 동기화(가짜 디스코드 API)
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ import { loadKnown, sync, tempName, type Api, type Remote } from "../../src/app/
 
 afterEach(() => useUploaded(new Map()));
 
-/** 메모리의 앱. 그림은 받은 그대로 돌려준다(PNG 처럼). calls: 부른 차례 */
+/** 메모리의 앱. 이미지는 받은 그대로 돌려준다(PNG 처럼). calls: 부른 순서 */
 function fakeApp(initial: Array<Remote & { data?: Buffer }> = []) {
   let next = 1000;
   const emojis = new Map<string, Remote & { data?: Buffer }>(initial.map((one) => [one.id, one]));

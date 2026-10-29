@@ -1,4 +1,4 @@
-// src/sources/sponsor-block.ts — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
+// src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
 // 네트워크는 가짜 fetch 를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
@@ -263,7 +263,7 @@ test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 
   assert.equal(r?.skipSegments.length, 1);
   assert.equal(Reflect.get(track, "sponsor"), undefined, "곡에는 붙이지 않는다");
 
-  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작 · 복원) 묻지 않는다
+  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작 · 복원) 다시 조회하지 않는다
   net.fetch = async () => {
     throw new Error("should not be called");
   };

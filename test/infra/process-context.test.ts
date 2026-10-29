@@ -1,4 +1,4 @@
-// src/infra/process-registry.ts · guild-context.ts · process-memory.ts — 자식 프로세스가 어느 서버의 무슨 일인지(실행한 문맥에서), 메모리
+// src/infra/process-registry.ts · guild-context.ts · process-memory.ts: 자식 프로세스가 어느 서버의 무슨 일인지(실행한 문맥에서), 메모리
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

@@ -1,3 +1,5 @@
+// src/rules/vendor-updates.ts: 따로 받는 도구(ffmpeg · bgutil)의 새 버전 판정과 기본값 고치기(scripts/check-vendor-updates.ts 가 쓴다)
+
 import test from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";

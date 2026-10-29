@@ -1,3 +1,5 @@
+// src/ui/transient-messages.ts: 잠깐 보이는 메시지의 삭제 예약 · 재시도 · 기한
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { markTransient, isTransient, scheduleDelete, RETRY_AFTER_MS } from "../../src/ui/transient-messages.ts";

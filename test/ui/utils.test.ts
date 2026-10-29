@@ -1,4 +1,4 @@
-// src/ui/format.ts — 공용 소형 유틸
+// src/ui/format.ts: 공용 소형 유틸
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -26,8 +26,8 @@ test("formatDuration: 소수/문자열 입력도 안전", () => {
   assert.equal(formatDuration("abc"), "0:00", "비숫자는 0 취급");
 });
 
-// 명령마다 따로 있던 사본(/search · /seek · /highlight · 조작 거절 · /cachestatus · /help · /system)을 합쳤다.
-// 아래 기대값은 합치기 전 사본들의 출력을 그대로 옮긴 것이다. 곳마다 보이는 표기를 바꾸지 않는다
+// /search · /seek · /highlight · 조작 거절 · /cachestatus · /help · /system 이 같은 함수를 쓴다.
+// 아래 기대값은 곳마다 보이던 표기 그대로다. 곳마다 보이는 표기를 바꾸지 않는다
 const SECS = [0, 0.4, 5, 59.9, 65, 3599, 3600, 3725.7, 86399, 86400, 90061, 360000, 400000.5];
 
 test("formatDuration: 값이 없을 때의 문구는 부르는 쪽이 넘긴다(/search 는 알 수 없음)", () => {

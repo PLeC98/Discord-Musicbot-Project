@@ -1,4 +1,4 @@
-// 대시보드 경로 테스트. 로그인한 사용자를 세션에 꽂고, 경로에 JSON 으로 묻는다.
+// 대시보드 경로 테스트 헬퍼. 로그인한 사용자를 세션에 꽂고, 경로에 JSON 으로 요청한다.
 
 import type { NextFunction, Request, Response } from "express";
 import { fake } from "./fake.ts";
@@ -12,7 +12,7 @@ function signedInAs(user: () => object | null) {
 }
 
 /**
- * 경로에 JSON 으로 묻는다. 받은 본문(json)은 부르는 쪽이 읽는 모양(T)으로 본다. 읽을 때 JSON 이 아니면 던진다
+ * 경로에 JSON 으로 요청한다. 받은 본문(json)은 부르는 쪽이 읽는 형식(T)으로 본다. 읽을 때 JSON 이 아니면 던진다
  * (상태만 보는 테스트는 본문이 JSON 이 아니어도 된다). timeoutMs 를 주면 응답이 없을 때 기다리지 않고 실패한다
  */
 async function requestJson<T>(base: string, method: string, urlPath: string, body?: unknown, { timeoutMs }: { timeoutMs?: number } = {}): Promise<{ status: number; json: T }> {

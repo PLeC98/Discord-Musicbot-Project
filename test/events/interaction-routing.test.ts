@@ -1,4 +1,4 @@
-// 상호작용 진입점 하나(src/discord/events/interaction-create). 봇이 만드는 모든 custom_id · 모달 · 선택 메뉴가 정해진 핸들러 하나로 가고,
+// src/discord/events/interaction-create.ts: 봇이 만드는 모든 custom_id · 모달 · 선택 메뉴가 정해진 핸들러 하나로 가고,
 // 정확히 한 번 답하는지 본다. 두 번 답하면 늦은 쪽이 40060 으로 터지고, 아무도 안 답하면 사용자는 "상호작용 실패"를 본다.
 
 import fs from "node:fs";

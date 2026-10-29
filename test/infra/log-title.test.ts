@@ -1,4 +1,4 @@
-// src/infra/log/title.ts — 로그에 적는 곡 제목
+// src/infra/log/title.ts: 로그에 적는 곡 제목
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

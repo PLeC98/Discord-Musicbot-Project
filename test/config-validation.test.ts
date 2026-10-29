@@ -1,8 +1,8 @@
-// src/config/index.ts — 잘못 적은 설정값은 기동을 멈춘다.
+// src/config/index.ts: 잘못 적은 설정값은 기동을 멈춘다.
 //
 // `parseInt`처럼 "120junk"를 120으로 삼키지 않는다. 경고 뒤 기본값으로 돌면 로그를 보지 않는 사이 의도하지 않은 값으로 운영된다.
 //
-// config 는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(src/index.ts)의 첫 줄이다.
+// config 는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(src/index.ts)이 본체를 불러오기 전이다.
 // 값 계산은 loadConfig 순수 함수라 바로 부른다.
 
 import { test } from "node:test";
@@ -13,7 +13,7 @@ import { loadConfig } from "../src/config/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
-// 모양이 맞는 암호화 키(32바이트)
+// 형식이 맞는 암호화 키(32바이트)
 const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수(env)와 운영 조절값(tunables, settings.db 의 문서)으로 설정을 계산한다 */

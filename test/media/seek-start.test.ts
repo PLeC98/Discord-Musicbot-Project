@@ -1,5 +1,5 @@
-// src/media/seek-start.ts — 위치를 옮길 때 받기 시작할 자리(헤더 · 키프레임 바이트)를 묻는다.
-// 요청은 가짜(파일 바이트를 Range 로 준다). 끝에서는 진짜 청크 스트림 · ffmpeg 로 색인 길과 처음부터 받은 길의 소리를 견준다
+// src/media/seek-start.ts: 위치를 옮길 때 받기 시작할 위치(헤더 · 키프레임 바이트)를 조회한다.
+// 요청은 가짜(파일 바이트를 Range 로 준다). 끝에서는 진짜 청크 스트림 · ffmpeg 로 인덱스 경로와 처음부터 받은 경로의 소리를 비교한다
 
 import path from "node:path";
 import os from "node:os";

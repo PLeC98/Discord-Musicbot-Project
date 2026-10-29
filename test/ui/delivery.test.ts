@@ -1,4 +1,4 @@
-// src/ui/delivery.ts — 응답의 대상과 수명. 본인 응답 · 후속 메시지 · 공개 응답 · 채널 메시지가 같은 수명표로 지워진다
+// src/ui/delivery.ts: 응답의 대상과 수명. 본인 응답 · 후속 메시지 · 공개 응답 · 채널 메시지가 같은 수명표로 지워진다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

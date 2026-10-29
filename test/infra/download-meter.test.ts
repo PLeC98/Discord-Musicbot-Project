@@ -1,4 +1,4 @@
-// src/infra/download-meter.ts — 다운로드한 곡의 양: 지난 15초에 마친 양의 평균 · 오늘 다운로드한 양
+// src/infra/download-meter.ts: 다운로드한 곡의 양. 지난 15초에 마친 양의 평균 · 오늘 다운로드한 양
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/sources/embedded-art.ts — 직접 링크 곡의 파일 태그 · 그림을 찾아 기억한다.
+// src/sources/embedded-art.ts: 직접 링크 곡의 파일 태그 · 앨범아트를 찾아 기억한다.
 // 원본을 여는 곳은 가짜(useOpen), 캐시 파일 · DB 는 임시 저장소. 시료는 ffmpeg 로 만든다(없으면 건너뛴다)
 
 import path from "node:path";
@@ -155,7 +155,7 @@ test("캐시 파일이 있으면 그 태그에서 찾고 원본을 열지 않는
   const art = embeddedArt.artFor(track)!;
   assert.equal(Buffer.compare((await embeddedArt.imageOf(art.fingerprint))!, cover!.jpeg), 0, "캐시 파일에 넣은 그림 그대로");
 
-  // 그림이 밀려나도 캐시 파일에서 다시 꺼낸다
+  // 앨범아트가 밀려나도 캐시 파일에서 다시 꺼낸다
   embeddedArt._internals.forgetImages();
   assert.equal(Buffer.compare((await embeddedArt.imageOf(art.fingerprint))!, cover!.jpeg), 0, "밀려난 그림");
   assert.equal(await embeddedArt.imageOf("0".repeat(20)), null, "모르는 지문");

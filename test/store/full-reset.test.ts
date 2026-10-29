@@ -1,4 +1,4 @@
-// src/store/full-reset.ts — 봇 전체 초기화. 마커가 있을 때만, DB 폴더에서 설정 스냅샷 · 명령 전체 백업 · 이번 실행의 기록을 뺀 전부와 캐시 폴더 안을 지우고 마커를 마지막에 지운다.
+// src/store/full-reset.ts: 봇 전체 초기화. 마커가 있을 때만, DB 폴더에서 설정 스냅샷 · 명령 전체 백업 · 이번 실행의 기록을 뺀 전부와 캐시 폴더 안을 지우고 마커를 마지막에 지운다.
 
 import fs from "node:fs";
 import os from "node:os";

@@ -1,4 +1,4 @@
-// src/rules/duration-shown.ts — 곡 길이 표시는 처음 보인 값을 흔들지 않는다
+// src/rules/duration-shown.ts: 곡 길이 표시는 처음 보인 값을 흔들지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

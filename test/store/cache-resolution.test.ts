@@ -1,4 +1,4 @@
-// Tier-1 매핑 조회/삭제 + 영상 내려감 판별 (Phase 2: 재생목록 항목 유튜브 검색 스킵 + 죽은 캐시 재검색).
+// src/store/track-lookup.ts · src/sources/youtube: 링크 데이터 조회/삭제 + 영상 내려감 판별(재생목록 항목의 유튜브 검색 스킵 + 죽은 캐시 재검색).
 
 import os from "node:os";
 import path from "node:path";
@@ -77,7 +77,7 @@ test("YouTube._isVideoEntry: 비디오만 통과, 채널/재생목록 제외", (
   // 비디오 (11자 id / watch URL)
   assert.equal(YouTube._isVideoEntry({ id: "UxM5UgpXYM4", url: "https://www.youtube.com/watch?v=UxM5UgpXYM4" }), true);
   assert.equal(YouTube._isVideoEntry({ id: "dQw4w9WgXcQ", ie_key: "Youtube" }), true);
-  // 채널 (x0o0x_ 케이스: 검색이 아티스트 채널을 반환) — 제외
+  // 채널(x0o0x_ 경우: 검색이 아티스트 채널을 반환)은 제외
   assert.equal(YouTube._isVideoEntry({ id: "UCxIzG0XIBe1XMh5dz-qUkVg", url: "https://www.youtube.com/channel/UCxIzG0XIBe1XMh5dz-qUkVg", ie_key: "YoutubeTab" }), false);
   assert.equal(YouTube._isVideoEntry({ url: "https://www.youtube.com/@somehandle" }), false);
   assert.equal(YouTube._isVideoEntry({ id: "PLxxxxxxxx", url: "https://www.youtube.com/playlist?list=PLxxxx" }), false);

@@ -1,5 +1,5 @@
-// 이벤트 넷의 지금 동작을 고정한다.
-// 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler · 자동재생 장르는 src/discord/interactions/autoplay).
+// src/discord/events · src/discord/interactions 의 이벤트 핸들러: 지금 동작을 고정한다.
+// 전용 채널 메시지(message-handler) · 채널 · 서버 삭제(channel-delete · guild-delete) · 끝난 패널 올리기(panel-pin) · 재생목록 더 넣기(playlist-more-handler) · 모달과 선택 메뉴(modal-handler · 자동재생 장르는 src/discord/interactions/autoplay).
 //
 // 모듈을 통째로 교체하지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(봇 문맥의 panels)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
@@ -137,12 +137,12 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
   const registered = fake<Player>(player);
   const client = { user: { id: "bot" } };
   const bot = fakeBot({ client, players: new Map([["g1", registered]]), panels: embeds });
-  // 곡 담기는 받은 것만 적는다
+  // 곡 추가는 받은 것만 적는다
   fakeAdder(bot, async (_bot, guildId, trackData, who, responder) => {
     handled.push({ guildId, trackData, who });
     return handle(trackData, responder);
   });
-  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  // 조작 뒤 패널 갱신은 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));
   return { guild, member, client, bot, player, seen, handled };
 }
@@ -582,7 +582,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   assert.deepEqual(w.seen, ["volume:35"]);
   assert.match(String(ok.log[0][1]), /^### 🔊 볼륨을 조절했어요!\n\*\*\d+%\*\* → \*\*35%\*\*\n-# 👤 요청한 사람 /);
 
-  // "50abc" 를 50 으로 읽지 않는다(parseInt 가 그랬다)
+  // "50abc" 를 parseInt 처럼 50 으로 읽지 않는다
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "panel:volume", volume: bad, select: false });
     await interactionCreate.execute(r.bot, r.it);

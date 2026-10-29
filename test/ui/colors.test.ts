@@ -1,4 +1,4 @@
-// src/ui/palette.ts · colors.ts — 화면의 색은 경고 수준마다 하나. 색 값은 palette 표에만 적는다
+// src/ui/palette.ts · colors.ts: 화면의 색은 경고 수준마다 하나. 색 값은 palette 표에만 적는다
 
 import fs from "node:fs";
 import path from "node:path";

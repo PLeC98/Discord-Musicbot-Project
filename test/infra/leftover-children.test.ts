@@ -1,4 +1,4 @@
-// src/infra/leftover-children.ts — 직전 실행이 남긴 자식 프로세스를 기동 시 내린다.
+// src/infra/leftover-children.ts: 이전 실행이 남긴 자식 프로세스를 기동 시 내린다.
 // 기록과 이름 · 시작 시각이 맞는 것만 내리고(pid 재사용 보호), 기록을 적은 봇이 아직 돌면 아무것도 하지 않는다. 진짜 프로세스는 건드리지 않는다
 
 import { test } from "node:test";
@@ -9,7 +9,7 @@ import type { ChildRecord } from "../../src/infra/process-registry.ts";
 const T = 1_790_000_000_000;
 const SELF = { pid: 500, ppid: 400 };
 
-// 기록 파일 하나와 OS 가 아는 프로세스들. 내린 것 · 삭제한 것 · 물어본 pid 를 적는다
+// 기록 파일 하나와 OS 가 아는 프로세스들. 내린 것 · 삭제한 것 · 조회한 pid 를 적는다
 function world(record: ChildRecord | string | null, running: SeenProcess[]) {
   const killed: string[] = [];
   const asked: number[][] = [];

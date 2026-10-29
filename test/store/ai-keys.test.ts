@@ -1,4 +1,4 @@
-// src/store/ai-keys.ts — AI 키는 비밀 표에 주소와 함께 묶인다. 옛 키 파일은 읽지 않고 남아 있으면 알린다
+// src/store/ai-keys.ts: AI 키는 비밀 표에 주소와 함께 묶인다. 옛 키 파일은 읽지 않고 남아 있으면 알린다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

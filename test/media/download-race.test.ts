@@ -1,4 +1,4 @@
-// src/media/cache-download.ts — 같은 곡을 두 서버가 동시에 다운로드하는 경쟁
+// src/media/cache-download.ts: 같은 곡을 두 서버가 동시에 다운로드하는 경쟁
 //
 // 진행 중 다운로드는 봇 전체에서 하나로 본다. Player마다 따로면 서버가 다를 때 같은 캐시 경로에 둘이 쓰고,
 // 한쪽의 실패 정리가 다른 쪽 작업 파일을 지운다.
@@ -54,7 +54,7 @@ test("같은 곡을 서버 둘이 동시에 다운로드하면 실제 다운로�
     await gate;
   };
 
-  // 서버가 다르면 플레이어도 다르다 — 그래도 같은 파일이면 한 번만 다운로드해야 한다
+  // 서버가 다르면 플레이어도 다르다. 그래도 같은 파일이면 한 번만 다운로드해야 한다
   const first = makeDownloader({ onDownload }).downloadTrack(track);
   const second = makeDownloader({ onDownload }).downloadTrack(track);
   await new Promise((resolve) => setImmediate(resolve));
@@ -125,7 +125,7 @@ test("게시: 최종 경로로 옮긴다 — 먼저 끝난 쪽이 있으면 내 
   assert.equal(await publish(mine, finalPath), true);
   assert.equal(fs.existsSync(mine), false);
   assert.equal(fs.readFileSync(finalPath, "utf8"), "내 파일");
-  // 옮긴 직후에는 DB에 아직 없다 — 그 사이 기동 스윕이 돌아도 삭제하지 않게 보호가 걸려 있어야 한다
+  // 옮긴 직후에는 DB에 아직 없다. 그 사이 기동 스윕이 돌아도 삭제하지 않게 보호가 걸려 있어야 한다
   assert.equal(audioCache._protectedFiles.has(path.resolve(finalPath)), true);
   audioCache.unprotectFile(finalPath);
 

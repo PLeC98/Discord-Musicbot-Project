@@ -17,7 +17,7 @@ function recordPanel({ player = null }: { player?: Player | null } = {}): Record
   offs.push(playerEvents.on("ended", async (p, reason) => mine(p) && seen.push(`end:${reason}`)));
   offs.push(playerEvents.on("started", async (p) => mine(p) && seen.push(`create:${p.currentTrack?.title}`)));
   offs.push(playerEvents.on("released", (p, textChannelId) => mine(p) && seen.push(`webhook:${textChannelId}`)));
-  // 열거되지 않게 붙인다. 기록을 배열로 견줄 때 섞이지 않게
+  // 열거되지 않게 붙인다. 기록을 배열로 비교할 때 섞이지 않게
   Object.defineProperty(seen, "stop", { value: () => offs.forEach((off) => off()) });
   return seen as Recorded;
 }

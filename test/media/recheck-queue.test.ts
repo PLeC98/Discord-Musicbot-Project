@@ -1,4 +1,4 @@
-// src/media/recheck-queue.ts — 캐시로 튼 곡의 원본을 출처마다의 간격이 지났으면 뒤에서 다시 묻고, 결과대로 남기거나 지운다
+// src/media/recheck-queue.ts: 캐시로 튼 곡의 원본을 출처마다의 간격이 지났으면 뒤에서 재조회하고, 결과대로 남기거나 지운다
 
 import fs from "node:fs";
 import os from "node:os";

@@ -1,4 +1,4 @@
-// 잇단 같은 실패는 처음 한 번만 error, 풀리면 한 줄. 로그가 사건 수와 맞는다.
+// src/infra/repeating-failure.ts: 연속된 같은 실패는 처음 한 번만 error, 풀리면 한 줄. 로그가 사건 수와 맞는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

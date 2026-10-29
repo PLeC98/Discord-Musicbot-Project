@@ -1,4 +1,4 @@
-// src/app/full-backup.ts — 명령 전체 백업(.env · 설정 DB · 파비콘 · 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
+// src/app/full-backup.ts: 명령 전체 백업(.env · 설정 DB · 파비콘 · 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
 
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";

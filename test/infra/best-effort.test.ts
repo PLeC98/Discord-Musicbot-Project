@@ -1,3 +1,5 @@
+// src/infra/best-effort.ts: 실패해도 되는 일은 삼키되, 무엇이 왜 실패했는지 debug 한 줄로 남긴다
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { bestEffort } from "../../src/infra/best-effort.ts";

@@ -1,4 +1,4 @@
-// src/ui/error-messages.ts — 오류 종류와 사용자 문장
+// src/ui/error-messages.ts: 오류 종류와 사용자 문장
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

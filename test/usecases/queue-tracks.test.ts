@@ -1,4 +1,4 @@
-// usecases/add-tracks 의 곡 담기(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 복구 · 대기열 상한 · 넣을 위치 · 안내를 본다.
+// src/usecases/add-tracks.ts: 곡 추가(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 복구 · 대기열 상한 · 넣을 위치 · 안내를 본다.
 // 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결 · 재생과 패널 만들기만 가짜다.
 
 import { test, mock } from "node:test";
@@ -94,7 +94,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
   const bot = { players, panels: mem };
   const notices: string[] = [];
   const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
-  // 이 서버에 곡을 담는다
+  // 이 서버에 곡을 추가한다
   const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(bot, "g1", data, requester, via);
   return { mem, add, player, calls, sent, notices, responder };
 }

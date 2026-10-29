@@ -1,4 +1,4 @@
-// src/sources/ytdlp-info.ts — yt-dlp JSON 경계. 쓰는 필드만 뽑고, 모양이 바뀐 필드만 버린다.
+// src/sources/ytdlp-info.ts: yt-dlp JSON 경계. 쓰는 필드만 뽑고, 모양이 바뀐 필드만 버린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

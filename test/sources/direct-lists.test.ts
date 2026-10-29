@@ -1,4 +1,4 @@
-// src/sources/direct.ts · direct-open.ts — 단순 목록(PLS · M3U)은 첫 주소를 다시 열고(목록 안의 목록은 한 번까지), 옛 SHOUTcast(ICY 첫 줄)는 그 까닭으로 거절한다
+// src/sources/direct.ts · direct-open.ts: 단순 목록(PLS · M3U)은 첫 주소를 다시 열고(목록 안의 목록은 한 번까지), 옛 SHOUTcast(ICY 첫 줄)는 그 까닭으로 거절한다
 
 import { Readable } from "node:stream";
 import { test } from "node:test";

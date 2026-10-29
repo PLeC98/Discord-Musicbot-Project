@@ -1,4 +1,4 @@
-// src/rules/failure-reason.ts — 재생 실패를 로그 한 줄로. 같은 실패를 두 줄씩, yt-dlp 원문 그대로 찍지 않는다.
+// src/rules/failure-reason.ts: 재생 실패를 로그 한 줄로. 같은 실패를 두 줄씩, yt-dlp 원문 그대로 찍지 않는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -56,7 +56,7 @@ test("감싼 오류는 원인의 첫 줄을 붙인다", () => {
   assert.equal(failureReason(wrapped, false), "재생할 수 없는 링크입니다 (요청 실패: HTTP 404)");
 });
 
-// 원인의 ERROR 줄을 그대로 글로 삼은 오류(사운드클라우드)는 같은 줄이 두 번 찍혔다(실사용)
+// 원인의 ERROR 줄을 그대로 글로 삼은 오류(사운드클라우드)는 같은 줄이 두 번 찍힐 수 있다
 test("원인의 첫 줄이 오류와 같으면 다시 붙이지 않는다. 이름이 있는 종류는 이름으로", () => {
   const line = "ERROR: [soundcloud] a/weird: Unable to download JSON metadata: HTTP Error 500";
   const same = codedError("stream-failed", line, { cause: new Error(`${line}\nmore`) });

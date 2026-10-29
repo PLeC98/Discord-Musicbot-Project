@@ -1,4 +1,4 @@
-// Spotify 순수 함수 단위 테스트 (네트워크 없음) — URL 파싱, TOTP, 정규화, secret 추출.
+// src/sources/spotify.ts: Spotify 순수 함수 단위 테스트 (네트워크 없음). URL 파싱, TOTP, 정규화, secret 추출.
 
 import { test } from "node:test";
 import * as links from "../../src/rules/links.ts";

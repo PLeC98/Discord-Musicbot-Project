@@ -1,4 +1,4 @@
-// src/ui/discord-art.ts — 디스코드에 거는 큰 곡 그림
+// src/ui/discord-art.ts: 디스코드에 거는 큰 앨범아트
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

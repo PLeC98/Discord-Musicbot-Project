@@ -1,4 +1,4 @@
-// src/infra/http.ts · link-status.ts — 바깥 서비스로 나가는 요청은 한 클라이언트를 지나고, 서비스마다 부른 결과를 남긴다
+// src/infra/http.ts · link-status.ts: 바깥 서비스로 나가는 요청은 한 클라이언트를 지나고, 서비스마다 부른 결과를 남긴다
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";

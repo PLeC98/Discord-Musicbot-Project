@@ -1,4 +1,4 @@
-// src/sources/youtube/recent-info.ts — 받아 둔 유튜브 영상 정보: 줄이기 · 캐시하지 않는 것 · 꺼내기(만료 · 사본) · 상한과 밀어내기 · 개수
+// src/sources/youtube/recent-info.ts: 받아 둔 유튜브 영상 정보. 줄이기 · 캐시하지 않는 것 · 꺼내기(만료 · 사본) · 상한과 밀어내기 · 개수
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";

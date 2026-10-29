@@ -1,4 +1,4 @@
-// src/rules/controls.ts — 이전 · 다음 곡 버튼과 넣은 사람의 조작. 서버 판정과 디스코드 패널 · 대시보드가 같이 쓴다
+// src/rules/controls.ts: 이전 · 다음 곡 버튼과 넣은 사람의 조작. 서버 판정과 디스코드 패널 · 대시보드가 같이 쓴다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/ui/shield-svg.ts — SponsorBlock 하이라이트 방패(원본 그대로 둔 파일)에서 경로만. 디스코드 앱 이모지와 대시보드가 같이 쓴다
+// src/ui/shield-svg.ts: SponsorBlock 하이라이트 방패(원본 그대로 둔 파일)에서 경로만. 디스코드 앱 이모지와 대시보드가 같이 쓴다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

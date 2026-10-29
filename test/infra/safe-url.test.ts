@@ -1,4 +1,4 @@
-// src/infra/safe-url.ts — SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
+// src/infra/safe-url.ts: SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
 // IPv6 리터럴은 대괄호를 떼고 본다(안 떼면 모든 IPv6 리터럴이 DNS 경로로 빠진다)
 
 import { test } from "node:test";

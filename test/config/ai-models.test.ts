@@ -1,8 +1,10 @@
+// src/config/ai-models.ts: AI 모델 프로필. base-provider 상속 · 본문으로 가는 필드 · 다운로드한 사본의 형식 검사와 선택
+
 import test from "node:test";
 import assert from "node:assert";
 import * as models from "../../src/config/ai-models.ts";
 
-// 프로필은 base-provider 를 상속한다. 버텍스 프로필은 schema 가 비어 있고 알맹이가 베이스에 있다 —
+// 프로필은 base-provider 를 상속한다. 버텍스 프로필은 schema 가 비어 있고 알맹이가 베이스에 있어,
 // 합치지 않으면 추론 필드가 통째로 빈다.
 test("base-provider 를 상속해 필드를 합친다", () => {
   const snapshot = {
@@ -75,7 +77,7 @@ test("본문으로 가는 필드만, 숨긴 것은 빼고", () => {
   assert.deepEqual(keys, ["seed"], "인증·숨김·modelId 는 뺀다");
 });
 
-// 앤트로픽은 max_tokens 가 필수다 — 프로필의 defaults 에 들어 있다.
+// 앤트로픽은 max_tokens 가 필수라 프로필의 defaults 에 들어 있다.
 test("늘 붙는 값은 base 와 프로필을 겹쳐서 준다", () => {
   const snapshot = {
     baseProviders: { p: { defaultBody: { stream: false, max_tokens: 1024 } } },
@@ -92,7 +94,7 @@ test("모르는 모델은 빈 손으로 — 던지지 않는다", () => {
   assert.equal(models.profileOf("p", "없는모델", snapshot), null);
 });
 
-// 실제로 다운로드해 둔 파일이 쓸 만한지. 저쪽 모양이 바뀌면 여기서 걸린다.
+// 실제로 다운로드해 둔 파일이 쓸 만한지. 저쪽 형식이 바뀌면 여기서 걸린다.
 test("다운로드해 둔 파일에 현행 모델의 추론 필드가 있다", () => {
   const snapshot = models.load();
   assert.ok(Object.keys(snapshot.profiles).length > 100, "프로필이 실려 있다");
@@ -102,13 +104,13 @@ test("다운로드해 둔 파일에 현행 모델의 추론 필드가 있다", (
   assert.ok(hasKey("vertex-gemini-native", "gemini-3.7-flash", "thinkingLevel"), "버텍스는 베이스에서 상속받는다");
   assert.ok(hasKey("openai", "gpt-6-astra", "reasoning_effort"));
 
-  // 한 세대 차이로 값 집합이 달라진다 — Astra 는 none 을 안 받는다
+  // 한 세대 차이로 값 집합이 달라진다. Astra 는 none 을 안 받는다
   const astra = models.fieldsOf("openai", "gpt-6-astra", snapshot).find((f) => f.key === "reasoning_effort");
   assert.ok(astra?.enum, "값 목록이 있다");
   assert.ok(!astra.enum.some((e) => e.value === "none"));
 });
 
-// 모양 검사를 특정 모델 이름에 묶으면 저쪽이 옛 모델을 뺄 때 멀쩡한 갱신을 거부한다
+// 형식 검사를 특정 모델 이름에 묶으면 저쪽이 옛 모델을 뺄 때 멀쩡한 갱신을 거부한다
 test("갱신 모양 검사: 모델 이름이 아니라 필드가 통째로 비었는지로 본다", () => {
   const field = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
   const snap = (profiles: Record<string, { modelId: string; schema: unknown[] }>) => ({ baseProviders: {}, profiles }) as Parameters<typeof models.lostShape>[1];
@@ -126,7 +128,7 @@ test("갱신 모양 검사: 저장소의 버전은 스스로와 견줘 통과한
   assert.deepEqual(models.lostShape(registries, held, held), []);
 });
 
-// 다운로드한 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 다운로드한 때가 새것을 쓴다
+// 다운로드한 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 두 사본 중 다운로드 시각(fetchedAt)이 새로운 쪽을 쓴다
 test("기본 사본 · 다운로드한 사본 중 다운로드한 때가 새것을 쓴다", () => {
   const at = (fetchedAt?: string) => ({ fetchedAt, baseProviders: {}, profiles: {} });
   const bundled = at("2026-10-01T00:00:00.000Z");

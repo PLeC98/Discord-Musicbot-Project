@@ -1,4 +1,4 @@
-// src/ui/now-playing-panel.ts — 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 담기의 순서는 test/usecases/queueTracksOrder.
+// src/ui/now-playing-panel.ts: 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 추가의 순서는 test/usecases/queue-tracks-order.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ import config from "../../src/config/index.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
 import { remember } from "../helpers/tagged-audio.ts";
 
-// 큰 그림 확인은 네트워크로 나가지 않게: 모든 영상에 큰 그림이 있다고 답한다
+// 큰 썸네일 확인은 네트워크로 나가지 않게: 모든 영상에 큰 썸네일이 있다고 답한다
 discordArt.useHead(async () => ({ ok: true, status: 200 }));
 
 const newManager = () => new NowPlayingPanel(fake<Client>({}), new Map());
@@ -33,7 +33,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 
   for (const thumbnail of [null, undefined, "", "https://example.org/t.jpg"]) {
     const container = await mem.createNowPlayingContainer(player, { ...base, thumbnail });
-    // toJSON이 실제 전송 시 도는 검증 — 썸네일이 없어도 여기서 던지지 않는다
+    // toJSON이 실제 전송 시 도는 검증. 썸네일이 없어도 여기서 던지지 않는다
     const json = container.toJSON();
     assert.ok(JSON.stringify(json).includes("Test"), `제목이 담겨야 한다 (thumbnail=${thumbnail})`);
   }
@@ -113,7 +113,7 @@ const buttonsOf = (json: Json) => json.components.filter((c) => c.type === 1).fl
 // 빌더를 JSON 으로
 const jsonOf = (builder: { toJSON(): unknown }) => builder.toJSON() as Json;
 
-// 대시보드 주소를 정해 두고 부른다. 테스트는 로컬 .env 를 읽으므로 주소에 따라 링크가 달라지는 테스트는 값을 정한다
+// 대시보드 주소를 정해 두고 부른다. 주소에 따라 링크가 달라지는 테스트는 값을 정해 설정 기본값에 기대지 않는다
 async function withDashboardUrl<T>(url: string, run: () => Promise<T>) {
   const saved = config.dashboard.url;
   config.dashboard.url = url;
@@ -135,7 +135,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
 
   assert.deepEqual(shape(idle), shape(playing));
   assert.equal(buttonsOf(idle).length, buttonsOf(playing).length);
-  // 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다. 나머지는 대기열 버튼까지 꺼진다.
+  // 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다. 나머지는 대기열 버튼까지 꺼진다.
   const alive = buttonsOf(idle).filter((b) => !b.disabled);
   assert.deepEqual(
     alive.map((b) => b.custom_id),

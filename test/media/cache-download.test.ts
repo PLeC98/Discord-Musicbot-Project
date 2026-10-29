@@ -1,7 +1,7 @@
-// TrackDownloader 가 캐시에 곡을 다운로드하는 흐름의 지금 동작을 고정한다.
+// src/media/cache-download.ts: TrackDownloader 가 캐시에 곡을 다운로드하는 흐름의 지금 동작을 고정한다.
 //
 // 분기마다 "무엇으로 다운로드했나 · 캐시 DB 에 무엇을 적었나 · 트랙에 무엇을 고쳤나"를 적어 둔다. 진짜 저장소를 임시 DB 로 쓰고
-// yt-dlp · 직접 링크 · 변환 · SponsorBlock · 동등물 찾기만 가짜로 넘긴다.
+// yt-dlp · 직접 링크 · 변환 · SponsorBlock · 유튜브 매칭만 가짜로 넘긴다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -32,7 +32,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
 
-// 테스트가 트랙에 달아 두는 것: 동등물을 찾으면 줄 영상
+// 테스트가 트랙에 달아 두는 것: 유튜브 매칭이 줄 영상
 type TestTrack = DownloadTrack & { _equivalent?: string };
 // 다운로드는 언제나 출력 경로를 준다
 type Options = YtDlpFlags & { output: string };
@@ -217,7 +217,7 @@ test("스포티파이: 동등물을 못 찾으면 다운로드 전에 실패한�
   assert.deepEqual(leftovers(), []);
 });
 
-// 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거. 완료 줄(debug)에 걸린 시간 · 다운로드한 포맷 · 옮겼나 구웠나를 싣는다
+// 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거. 완료 줄(debug)에 걸린 시간 · 다운로드한 포맷 · 옮겼나 인코딩했나를 싣는다
 test("다운로드가 끝나면 걸린 시간과 다운로드한 포맷을 한 줄에 남긴다. yt-dlp 가 파일을 다 쓰고 한참 뒤에 끝났으면 그것도", async () => {
   ytdlpBehavior = (url, options) => {
     writesFile()(url, options);

@@ -1,4 +1,4 @@
-// src/infra/console-text.ts — 바깥 프로그램의 출력: UTF-8 이 아니면 콘솔 코드 페이지로 읽는다
+// src/infra/console-text.ts: 바깥 프로그램의 출력. UTF-8 이 아니면 콘솔 코드 페이지로 읽는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/sources/direct-open.ts — 직접 링크를 GET 하나로 열어 판정하고, 읽은 앞부분은 되돌려 넣는다
+// src/sources/direct-open.ts: 직접 링크를 GET 하나로 열어 판정하고, 읽은 앞부분은 되돌려 넣는다
 
 import { Readable } from "node:stream";
 import { test } from "node:test";

@@ -1,4 +1,4 @@
-// src/rules/end-verdict.ts — 곡이 멈췄을 때 끝인가 끊김인가. 판정표의 행마다 고정한다
+// src/rules/end-verdict.ts: 곡이 멈췄을 때 끝인가 끊김인가. 판정표의 행마다 고정한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

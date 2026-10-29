@@ -1,4 +1,4 @@
-// src/sources/youtube/index.ts getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
+// src/sources/youtube/index.ts getYtDlpOptions: 쿠키 미설정 환경의 옵션 구성 계약.
 // 쿠키가 없다고 player_client 를 강제로 바꾸지 않는다
 // 쿠키 출처는 운영 조절값(settings.db)이라 .env 와 상관없이 기본값(쓰지 않음)으로 시작한다.
 
@@ -18,7 +18,7 @@ test("쿠키 미설정이어도 player_client를 강제하지 않음", () => {
 test("기본 옵션 유지 + 추가 옵션 병합", () => {
   const opts = YouTube.getYtDlpOptions({ dumpSingleJson: true });
   assert.equal(opts.dumpSingleJson, true);
-  // noWarnings는 켜지 않는다 — yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
+  // noWarnings는 켜지 않는다. yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
   assert.equal(opts.noWarnings, undefined);
   assert.match(String(opts.jsRuntimes), /^node:/, "JS 런타임은 자기 node 실행 파일 (deno 불필요)");
   // User-Agent를 덮지 않는다. yt-dlp가 클라이언트마다 고른 값이 http_headers로 실려 와
@@ -97,8 +97,8 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
   assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
 });
 
-// 스위치 값을 주변 환경에서 읽어 오면 안 된다. 개발자의 .env가 BGUTIL_ENABLED=true면
-// "끄면 안 넘긴다"가 확인되지 않은 채 실패로만 떴다. 두 방향을 직접 세워서 본다.
+// 스위치 값을 주변 환경에서 읽어 오면 안 된다. 환경의 BGUTIL_ENABLED가 true면
+// "끄면 안 넘긴다"가 확인되지 않은 채 실패로만 뜬다. 두 방향을 직접 세워서 본다.
 // potEnabled()는 부를 때마다 config를 보므로 값을 교체하면 그대로 듣는다.
 test("BGUTIL_ENABLED가 pluginDirs 전달을 정한다", (t) => {
   const { BGUTIL_AVAILABLE } = YouTube._internals;
@@ -174,16 +174,16 @@ test("다운로드하다 막힌 것과 영상이 없어진 것을 구분한다",
     assert.equal(YouTube.isClientFault(err(msg)), true, `${msg} — 클라이언트 목록이 있으면 다음으로 넘어가야 한다`);
   }
 
-  // 영상이 없어진 것은 다시 받아도 소용없다 — 다른 길로 가야 한다
+  // 영상이 없어진 것은 다시 받아도 소용없다. 다른 길로 가야 한다
   for (const msg of ["ERROR: [youtube] abc: Video unavailable", "ERROR: This video has been removed by the uploader"]) {
     assert.equal(YouTube.isStaleMediaError(err(msg)), false, msg);
     assert.equal(YouTube.isVideoUnavailableError(err(msg)), true, msg);
   }
 
-  // 연령 제한도 아니다 — 쿠키 폴백이 따로 있다
+  // 연령 제한도 아니다. 쿠키 폴백이 따로 있다
   assert.equal(YouTube.isStaleMediaError(err("ERROR: Sign in to confirm your age")), false);
 
-  // 네트워크 타임아웃은 같은 "unable to download video data" 문구로 오지만 다른 일이다 —
+  // 네트워크 타임아웃은 같은 "unable to download video data" 문구로 오지만 다른 일이다.
   // 유튜브가 거절한 게 아니라 우리가 못 닿은 것이라, 주소를 다시 받아도 소용이 없다.
   assert.equal(YouTube.isStaleMediaError(err("ERROR: unable to download video data: <urlopen error timed out>")), false);
 });

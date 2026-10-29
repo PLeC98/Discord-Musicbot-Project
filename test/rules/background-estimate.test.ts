@@ -1,4 +1,4 @@
-// src/rules/background-estimate.ts — 로그인 배경 편집의 예상 저장 공간(편집 창 · 편집 적용이 같이 쓴다)
+// src/rules/background-estimate.ts: 로그인 배경 편집의 예상 저장 공간(편집 창 · 편집 적용이 같이 쓴다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

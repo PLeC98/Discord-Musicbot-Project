@@ -1,4 +1,4 @@
-// src/ui/frame.ts — 응답 템플릿. 이모지는 무엇에 관한 것인지, 색은 경고 수준. 대시보드는 같은 헤더 줄 · 본문의 글자를 받는다
+// src/ui/frame.ts: 응답 템플릿. 이모지는 무엇에 관한 것인지, 색은 경고 수준. 대시보드는 같은 헤더 줄 · 본문의 글자를 받는다
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

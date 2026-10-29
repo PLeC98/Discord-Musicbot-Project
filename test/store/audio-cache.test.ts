@@ -1,5 +1,5 @@
-// src/store/audio-cache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
-// 임시 폴더에 DB 를 연다(stores.open) — 운영 DB(database/)는 건드리지 않는다.
+// src/store/audio-cache.ts: 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
+// 임시 폴더에 DB 를 연다(stores.open). 운영 DB(database/)는 건드리지 않는다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import { table as guildTable } from "../../src/store/guild-settings.ts";
@@ -566,7 +566,7 @@ test("같은 오디오를 다시 다운로드하면 앞선 요청이 남긴 길�
   assert.equal(audioCache.lookupByAudioKey("yt:dur3")?.duration_sec, 312);
 });
 
-// 반드시 마지막 — DB를 닫는다
+// 반드시 마지막. DB를 닫는다
 
 test("캐시 불러오기(adoptFile): 버전이 있으면 그 파일을 받은 때를 버전을 본 때로 적는다", async () => {
   const temp = path.join(audioCache.cacheDir(), "adopt.tmp");

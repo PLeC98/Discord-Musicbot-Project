@@ -1,4 +1,4 @@
-// src/app/launcher.ts — 실행기. 다시 시작 코드일 때만 다시 실행하고, 신호는 넘기고 기다린다(바깥 감시 pm2 · systemd · 도커와 겹쳐도 어긋나지 않게).
+// src/app/launcher.ts: 실행기. 다시 시작 코드일 때만 다시 실행하고, 신호는 넘기고 기다린다(바깥 감시 pm2 · systemd · 도커와 겹쳐도 어긋나지 않게).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

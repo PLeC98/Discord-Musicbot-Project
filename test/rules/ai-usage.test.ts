@@ -1,3 +1,5 @@
+// src/rules/ai-usage.ts: AI 리퀘스트 사용량 통계(날짜 계산 · 버킷 · 날마다 · 모델별)
+
 import test from "node:test";
 import assert from "node:assert";
 import { addDays, bucketOf, firstDay, usageReport, type UsageRow } from "../../src/rules/ai-usage.ts";

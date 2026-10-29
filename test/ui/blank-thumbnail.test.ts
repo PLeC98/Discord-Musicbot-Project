@@ -1,3 +1,5 @@
+// src/ui/blank-thumbnail.ts: 투명 썸네일 PNG(서명 · 크기 · RGBA · 체크섬)
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import zlib from "node:zlib";

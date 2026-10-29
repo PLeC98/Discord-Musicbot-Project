@@ -1,4 +1,4 @@
-// src/rules/track-tags.ts — 파일 태그를 곡 정보로 쓰는 곡과 바뀌는 필드
+// src/rules/track-tags.ts: 파일 태그를 곡 정보로 쓰는 곡과 바뀌는 필드
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/media/audio-splicer.ts — 재생을 끊지 않고 소스를 교체하는 스트림
+// src/media/audio-splicer.ts: 재생을 끊지 않고 소스를 교체하는 스트림
 //
 // 지키는 것: 전환 전후로 한 바이트도 새지 않고, 지정한 지점에서 갈아타며,
 // 크로스페이드 구간 밖은 원본과 완전히 같다. 소스가 끝나면 이 스트림도 끝난다
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { PassThrough, Readable } from "stream";
 import { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } from "../../src/media/audio-splicer.ts";
 
-// 위치마다 값이 다른 PCM — 어긋나면 바로 드러난다. mark로 소스를 구분한다.
+// 위치마다 값이 다른 PCM. 어긋나면 바로 드러난다. mark로 소스를 구분한다.
 function pcm(ms: number, mark: number) {
   const buf = Buffer.alloc(ms * BYTES_PER_MS);
   for (let i = 0; i < buf.length; i += 2) buf.writeInt16LE(((i / 2 + mark * 1000) % 20000) - 10000, i);
@@ -44,7 +44,7 @@ test("전환이 없으면 소스를 그대로 통과시킨다", async () => {
 });
 
 test("프레임보다 짧은 꼬리도 흘리지 않고 끝낸다", async () => {
-  // 'end'는 버퍼를 다 비워야 온다 — 꼬리를 남기면 스트림이 영영 안 끝나 트랙이 멈춘다
+  // 'end'는 버퍼를 다 비워야 온다. 꼬리를 남기면 스트림이 영영 안 끝나 트랙이 멈춘다
   const src = new PassThrough();
   const sp = new AudioSplicer(src);
   const body = Buffer.concat([pcm(100, 1), Buffer.alloc(FRAME_BYTES - 100)]); // 프레임 미만 꼬리
@@ -103,7 +103,7 @@ test("크로스페이드가 끝난 뒤 구간은 새 소스와 바이트 단위�
   src.writeAll(pcm(400, 1));
   const switchAt = 200;
   const b = pcm(400, 2);
-  nxt.writeAll(b); // 미리 채워둔다 — 늦지 않으므로 전환 지점을 밀 일이 없다
+  nxt.writeAll(b); // 미리 채워 둔다. 늦지 않으므로 전환 지점을 밀 일이 없다
   sp.planSwitch(nxt, switchAt);
 
   const out = await collect(sp);
@@ -277,7 +277,7 @@ test("전환을 마친 뒤 옛 소스가 오류를 내도 재생이 죽지 않�
   sp.planSwitch(nxt, 100);
   await new Promise((r) => setTimeout(r, 20));
 
-  // 핸들러를 떼기만 하면 듣는 사람이 없어져 uncaughtException이 된다 — 흡수기로 교체해야 한다
+  // 핸들러를 떼기만 하면 듣는 사람이 없어져 uncaughtException이 된다. 흡수기로 교체해야 한다
   assert.ok(src.listenerCount("error") > 0, "흡수기가 남아 있다");
   src.emit("error", new Error("늦게 터진 옛 소스")); // 던지지 않아야 한다
   await new Promise((r) => setTimeout(r, 10));

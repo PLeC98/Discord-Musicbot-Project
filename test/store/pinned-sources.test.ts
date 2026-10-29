@@ -1,4 +1,4 @@
-// src/store/pinned-sources.ts — 직접 지정한 음원. 요청 키를 링크 데이터와 같은 모양으로 다듬어 두고, 오디오 캐시 초기화의 처음 선택에서 빠진다.
+// src/store/pinned-sources.ts: 직접 지정한 음원. 요청 키를 링크 데이터와 같은 모양으로 다듬어 두고, 오디오 캐시 초기화의 처음 선택에서 빠진다.
 
 import os from "node:os";
 import path from "node:path";

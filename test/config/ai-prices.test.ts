@@ -1,3 +1,5 @@
+// src/config/ai-prices.ts: AI 가격표. 모델 가격 · 요청 비용 계산 · 다운로드한 값표의 선택과 갱신
+
 import test from "node:test";
 import assert from "node:assert";
 import fs from "fs";

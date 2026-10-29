@@ -1,5 +1,5 @@
-// 캐시 파일의 태그: 다시 구운 그림(sources/cover) · FLAC 그림 블록(rules/flac-picture) · 캐시 변환이 적는 태그(media/convert).
-// 받은 파일의 태그는 버리고 우리가 읽은 제목 · 가수 · 앨범과 그림만 적는다. 다시 읽으면(sources/file-tags) 같은 것이 나와야 한다
+// src/sources/cover.ts · src/rules/flac-picture.ts · src/media/convert.ts: 캐시 파일의 태그. 다시 인코딩한 앨범아트(cover) · FLAC 그림 블록(flac-picture) · 캐시 변환이 적는 태그(convert).
+// 받은 파일의 태그는 버리고 우리가 읽은 제목 · 가수 · 앨범과 앨범아트만 적는다. 다시 읽으면(sources/file-tags) 같은 것이 나와야 한다
 
 import path from "node:path";
 import os from "node:os";

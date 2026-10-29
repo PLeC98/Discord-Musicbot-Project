@@ -1,6 +1,6 @@
-// src/media/ffmpeg/input-filter.ts — 남이 준 바이트를 읽는 ffmpeg 의 입력 필터(형식 · 프로토콜).
+// src/media/ffmpeg/input-filter.ts: 남이 준 바이트를 읽는 ffmpeg 의 입력 필터(형식 · 프로토콜).
 //
-// 막는 것: 직접 링크가 음원 대신 이어 붙이기 목록(concat)을 주면 캐시 변환이 같은 폴더(캐시 폴더)의 다른 파일을 읽어 캐시로 만들었다.
+// 막는 것: 직접 링크가 음원 대신 이어 붙이기 목록(concat)을 주면 캐시 변환이 같은 폴더(캐시 폴더)의 다른 파일을 읽어 캐시로 만든다.
 // HLS 목록도 같은 부류다. 붙이는 곳은 캐시 변환 · probeAudio · 표준 입력 재생 · 캐시 파일 재생이고, 주소 입력(HLS)에는 붙이지 않는다.
 
 import path from "node:path";

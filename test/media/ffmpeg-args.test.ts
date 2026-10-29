@@ -1,4 +1,4 @@
-// media/ffmpeg/args buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
+// src/media/ffmpeg/args.ts buildFfmpegArgs: ffmpeg 인자 구성의 불변식.
 //
 // 오프셋 재생도 ffmpeg에 URL을 직접 넣지 않는다(httpHeaders가 빠지고, 스트리밍 실패 폴백을 건너뛰며,
 // 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 된다). pipe 입력에서 `-ss`를 `-i` 앞에 두면 출력이 잘리는 것도 함께 고정한다.
@@ -68,7 +68,7 @@ test("오프셋 0이면 -ss를 넣지 않는다 (양쪽 모드)", () => {
 });
 
 test("출력 포맷은 두 모드가 동일하고 pipe:1로 끝난다 (출력 스트림 media/opus-output 이 받는 PCM 형식)", () => {
-  // 출력 대상까지 여기서 붙인다 — spawnFfmpeg는 인자를 그대로 실행하므로,
+  // 출력 대상까지 여기서 붙인다. spawnFfmpeg는 인자를 그대로 실행하므로,
   // 출력이 파일인 캐시 변환 경로(-y <file>)와 섞이지 않으려면 호출부가 온전한 인자를 가져야 한다.
   const expected = ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"];
   for (const args of [build({ seekMs: 5000 }), build({ file: "/cache/x.opus", seekMs: 5000 })]) {

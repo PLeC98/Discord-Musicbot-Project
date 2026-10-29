@@ -1,4 +1,4 @@
-// src/store/player-sessions.ts — 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
+// src/store/player-sessions.ts: 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
 // 저장소는 행을 위치로 찾으므로, 둘이 한 번이라도 어긋나면 이후의 모든 증분 쓰기가 엉뚱한 행을 건드린다.
 
 import { test } from "node:test";
@@ -43,7 +43,7 @@ function loaded(store: PlayerSessionStore, guildId = G) {
   return s;
 }
 
-// 시드 고정 난수 — 실패하면 같은 순서로 재현된다
+// 시드 고정 난수. 실패하면 같은 순서로 재현된다
 function rng(seed: number) {
   let x = seed >>> 0;
   return (n: number) => {
@@ -56,7 +56,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   const { store } = open();
   const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
-  // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
+  // 이전곡은 사본 위치를 trackState가 알려 준다. 그 알림만 받아 저장소로 옮긴다
   const onRewind = (track: TrackIn, copy: number, current: TrackIn | null) => store.rewind(G, track, { copy, current });
   // 통째로 다시 쓰라는 알림(이전곡이 기록 끝의 지금 곡을 건너뛴 때 등)은 실제 미러(session-mirror resync)처럼 그대로 옮겨 쓴다
   const onReplace = () => store.replaceTracks(G, { current: p.currentTrack, queue: p.queue, history: p.previousTracks });
@@ -81,7 +81,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
       store.take(G, 0);
     },
     () => {
-      // 점프와 같은 모양 — 아무 위치의 곡이 현재곡이 된다
+      // 점프와 같은 모양. 아무 위치의 곡이 현재곡이 된다
       if (p.queue.length === 0) return;
       const i = pick(p.queue.length);
       trackState.move(p, i, 0);
@@ -152,7 +152,7 @@ test("같은 위치에 계속 끼우면 간격이 닳는다 — 재번호 후에
     return real(...args);
   };
 
-  // 마지막 곡을 1번 위치로 — 매번 맨 앞 곡 바로 뒤의 간격이 반으로 준다
+  // 마지막 곡을 1번 위치로. 매번 맨 앞 곡 바로 뒤의 간격이 반으로 준다
   for (let i = 0; i < 40; i++) {
     trackState.move(p, 2, 1);
     store.move(G, 2, 1);

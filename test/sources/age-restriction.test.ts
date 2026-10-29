@@ -1,4 +1,4 @@
-// 연령 제한 폴백: externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별.
+// src/store/external-caches.ts · src/sources/youtube: 연령 제한 폴백. externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별, 운영자 · 서버 단위의 연령 제한 콘텐츠 설정.
 
 import os from "node:os";
 import path from "node:path";
@@ -93,7 +93,7 @@ test("연령 제한 콘텐츠가 꺼져 있으면 쿠키가 있어도 다시 시
     await assert.rejects(runYtDlp("https://www.youtube.com/watch?v=ageoff00002", options, fakeExec(none)), (e) => codeOf(e) === "age-content-off");
     assert.equal(none.length, 0);
 
-    // 켜면 적어 두고 쿠키로 한 번 더 묻는다
+    // 켜면 적어 두고 쿠키로 한 번 더 요청한다
     documents._use("age-content", { enabled: true, changedAt: 2 });
     const on: YtDlpFlags[] = [];
     assert.deepEqual(await runYtDlp("https://www.youtube.com/watch?v=ageon000001", options, fakeExec(on)), { id: "ok" });

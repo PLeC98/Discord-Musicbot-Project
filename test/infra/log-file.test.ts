@@ -1,4 +1,4 @@
-// src/infra/log/file.ts — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
+// src/infra/log/file.ts: NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -177,7 +177,7 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
 });
 
 test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤에 붙인다", () => {
-  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터 — 9월
+  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터라 8 이 9월
   assert.equal(backupPath("/a/bot.log", at), "/a/bot-2026-09-10T14-23-05.123.log");
   assert.equal(backupPath("/a/bot", at), "/a/bot-2026-09-10T14-23-05.123");
 });

@@ -1,4 +1,4 @@
-// src/rules/track-art.ts — 출처마다 쓸 크기의 곡 그림 주소
+// src/rules/track-art.ts: 출처마다 쓸 크기의 앨범아트 주소
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

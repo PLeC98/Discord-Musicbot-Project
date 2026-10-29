@@ -1,4 +1,4 @@
-// src/rules/more-choices.ts — 더 넣기의 선택지와 적어 넣은 곡 수
+// src/rules/more-choices.ts: 더 넣기의 선택지와 적어 넣은 곡 수
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

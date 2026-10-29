@@ -1,4 +1,4 @@
-// src/ui/player-notices.ts — 플레이어가 알린 일을 응답 템플릿으로 채널에 보낸다. 안내는 그 경고 수준의 색, 복원은 기본 색
+// src/ui/player-notices.ts: 플레이어가 알린 일을 응답 템플릿으로 채널에 보낸다. 안내는 그 경고 수준의 색, 복원은 기본 색
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";

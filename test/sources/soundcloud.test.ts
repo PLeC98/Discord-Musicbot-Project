@@ -1,4 +1,4 @@
-// 사운드클라우드 출처(sources/soundcloud). yt-dlp 는 실행하는 exec 만 가짜로 둔다(응답 · 오류 모양 맞추기는 진짜가 돈다).
+// src/sources/soundcloud.ts: 사운드클라우드 출처. yt-dlp 는 실행하는 exec 만 가짜로 둔다(응답 · 오류 모양 맞추기는 진짜가 돈다).
 // 응답 모양은 실제 응답(곡 · 세트 · 미리듣기 · 지역 제한)을 따른다.
 
 import { test, before, beforeEach, after } from "node:test";

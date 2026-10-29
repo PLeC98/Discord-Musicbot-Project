@@ -1,4 +1,4 @@
-// src/rules/line-format.ts — 후보 줄 형식 · 프롬프트의 자리표시자. 봇과 대시보드가 같은 해석기로 줄을 만든다
+// src/rules/line-format.ts: 후보 줄 형식 · 프롬프트의 자리표시자. 봇과 대시보드가 같은 해석기로 줄을 만든다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

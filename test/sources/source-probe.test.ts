@@ -1,4 +1,4 @@
-// src/sources/source-probe.ts — 재생 테스트 한 건. 출처마다 실제로 열어 보고, 라이브(인터넷 라디오 포함)는 실패(live), 오류는 문제 코드로. 던지지 않는다.
+// src/sources/source-probe.ts: 재생 테스트 한 건. 출처마다 실제로 열어 보고, 라이브(인터넷 라디오 포함)는 실패(live), 오류는 문제 코드로. 던지지 않는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -19,7 +19,7 @@ function openers(over: Partial<Over>): Openers {
 test("유튜브: 열리면 됨, 라이브면 live, 실패면 그 코드", async () => {
   const yt = "https://www.youtube.com/watch?v=aaaaaaaaaaa";
   assert.deepEqual(await probeSource(yt, openers({ youtube: async () => ({ isLive: false }) })), { ok: true });
-  // 받아 둔 영상 정보를 쓰지 않고 지금 묻는다(내려간 영상을 괜찮다고 적지 않게)
+  // 받아 둔 영상 정보를 쓰지 않고 지금 조회한다(내려간 영상을 괜찮다고 적지 않게)
   const asked: unknown[] = [];
   await probeSource(yt, openers({ youtube: async (_url: string, options: unknown) => (asked.push(options), { isLive: false }) }));
   assert.deepEqual(asked, [{ fresh: true }]);

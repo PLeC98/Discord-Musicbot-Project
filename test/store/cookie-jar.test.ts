@@ -1,4 +1,4 @@
-// src/store/cookie-jar.ts · sources/youtube — 유튜브 쿠키. 비밀 표에 암호화해 두고 yt-dlp 를 돌릴 때만 그 실행의 파일로 푼다.
+// src/store/cookie-jar.ts · sources/youtube: 유튜브 쿠키. 비밀 표에 암호화해 두고 yt-dlp 를 돌릴 때만 그 실행의 파일로 복호화한다.
 //
 // 계약:
 //  · 있는지는 물어볼 때마다 본다(대시보드로 교체하면 바로 반영). 빈 글은 없는 것이다

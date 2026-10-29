@@ -1,6 +1,6 @@
-// yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
+// src/sources/youtube · src/rules/error-kind.ts: yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
 //
-// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(classify)는 그 이름으로 정해진다.
+// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(errorKind)는 그 이름으로 정해진다.
 // 재시도 · 폴백(YouTube.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
 // "순서" 라고 적은 행은 봇 감지 규칙과 겹치는 문장이라 그보다 먼저 봐야 한다.
 
@@ -10,7 +10,6 @@ import assert from "node:assert/strict";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { errorKind, codedError } from "../../src/rules/error-kind.ts";
 import { ytDlpError } from "../helpers/errors.ts";
-// [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;
 const F = false;
 // 문장, 분류, 판별 열(내려감 · 연령 제한 · 클라이언트 탓 · 낡은 주소 · 건너뛴 클라이언트)
@@ -64,7 +63,7 @@ test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는
   assert.equal(errorKind(e), "unknown-error");
 });
 
-// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(낱말로 가르면 프로그램 버그가 엉뚱한 종류가 된다)
+// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(단어로 구분하면 프로그램 버그가 엉뚱한 종류가 된다)
 test("classify 는 이름이 없으면 unknown. 문자열과 빈 값도 받는다", () => {
   for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
     assert.equal(errorKind(new Error(msg)), "unknown-error", msg);

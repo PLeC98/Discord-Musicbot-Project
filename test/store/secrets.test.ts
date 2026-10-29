@@ -1,4 +1,4 @@
-// src/store/secrets.ts — 비밀값은 암호화해 두고, 묶인 곳 · 같은 키에서만 풀린다. 화면용 상태에는 값이 없다
+// src/store/secrets.ts: 비밀값은 암호화해 두고, 묶인 곳 · 같은 키에서만 복호화된다. 화면용 상태에는 값이 없다
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";

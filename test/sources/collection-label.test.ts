@@ -1,4 +1,4 @@
-// 여러 곡을 담은 출처(재생목록·앨범·아티스트)를 구분해 대기열 추가를 안내한다
+// src/sources/lookup.ts · src/ui/added-notice.ts: 여러 곡을 담은 출처(재생목록·앨범·아티스트)를 구분해 대기열 추가를 안내한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,7 +10,7 @@ import { addedView } from "../../src/ui/added-notice.ts";
 import config from "../../src/config/index.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
-// 담은 안내가 보인 글자(ui/added-notice)
+// 추가 안내가 보인 글자(ui/added-notice)
 const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));

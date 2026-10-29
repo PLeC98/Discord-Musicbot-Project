@@ -1,4 +1,4 @@
-// src/rules/container-index.ts — 음원 앞부분의 색인(webm Cues · mp4 sidx)으로 시간 → 바이트, 받기 시작할 키프레임 고르기, 받은 첫 바이트 확인.
+// src/rules/container-index.ts: 음원 앞부분의 인덱스(webm Cues · mp4 sidx)로 시간 → 바이트, 받기 시작할 키프레임 선택, 받은 첫 바이트 확인.
 // 실제 파일(ffmpeg 로 만든 webm · m4a, 유튜브와 같은 배치)과 손으로 만든 바이트(가장자리)를 함께 본다
 
 import path from "node:path";
@@ -275,7 +275,7 @@ test("헤더: Segment 크기를 같은 너비의 크기 모름으로(4바이트 
   assert.equal(Buffer.compare(header.subarray(at + 4), file.subarray(at + 4, read.index.headerEnd)), 0);
 });
 
-// ── 시작점 · 묻기 전 판정 ──
+// ── 시작점 · 조회 전 판정 ──
 
 const synthetic = (points: Array<[number, number]>): ContainerIndex => ({ kind: "mp4", headerEnd: 100, segment: null, points: points.map(([ms, byte]) => ({ ms, byte, raw: ms })) });
 

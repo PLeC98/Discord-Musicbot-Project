@@ -1,4 +1,4 @@
-// src/media/audio-version.ts — 다운로드한 음원의 버전. 다운로드할 때 같은 응답에서 읽는다.
+// src/media/audio-version.ts: 다운로드한 음원의 버전. 다운로드할 때 같은 응답에서 읽는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

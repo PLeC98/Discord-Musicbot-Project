@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그 · 사용량 통계 저장: 쓰기 · 필터 · 페이지 넘기기 · 저장 용량 맞추기 · 삭제 · 필드 자르기
+// src/store/ai-requests.ts: AI 리퀘스트 로그 · 사용량 통계 저장. 쓰기 · 필터 · 페이지 넘기기 · 저장 용량 맞추기 · 삭제 · 필드 자르기
 
 import test, { after } from "node:test";
 import assert from "node:assert";

@@ -1,4 +1,4 @@
-// src/store/voice-status.ts — 봇이 음성 채널 상태에 마지막으로 쓴 값
+// src/store/voice-status.ts: 봇이 음성 채널 상태에 마지막으로 쓴 값
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

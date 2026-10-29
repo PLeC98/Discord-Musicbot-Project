@@ -1,4 +1,4 @@
-// src/infra/public-address.ts — 바깥에서 닿는 공개 주소인가. 외부 링크 가드와 패널의 대시보드 링크가 같이 쓴다
+// src/infra/public-address.ts: 바깥에서 닿는 공개 주소인가. 외부 링크 가드와 패널의 대시보드 링크가 같이 쓴다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

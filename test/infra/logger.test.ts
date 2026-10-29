@@ -1,4 +1,4 @@
-// logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
+// src/infra/log/logger.ts · sink.ts: logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
 import { test, mock } from "node:test";
@@ -124,7 +124,7 @@ test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   assert.deepEqual(entry, { id: 1, ts: 123, level: "warn", text: "노랑" });
 });
 
-// 브리지에 걸리는 console.log은 전부 서드파티다 — info로 올리면 우리 로그가 묻힌다.
+// 브리지에 걸리는 console.log은 전부 서드파티라 info로 올리면 우리 로그가 묻힌다.
 test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 나간다", () => {
   assert.equal(sink._internals.CONSOLE_LEVEL.log, 20);
   const lm = new LogManager({ intercept: false, terminal: quiet });

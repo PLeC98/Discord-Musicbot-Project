@@ -1,13 +1,13 @@
 // 진짜 Player 를 세워 play() 를 끝까지 돌리는 하네스.
 //
-// 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 조각을 테스트한다. 그래서 생성자와 협력자가 다 얽힌
-// play() 는 한 번도 돌지 않았다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
+// 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 일부만 테스트하므로, 생성자와 협력자가 다 얽힌
+// play() 는 돌지 않는다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
 //
 //   음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소
 //                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령 · 곡 추가가
 //                                          만드는 플레이어도 같은 가짜를 쓴다
 //   캐시 DB                                진짜 audioCache 를 임시 DB 로. "캐시 DB 에 무엇을 적었나"를 그대로 본다
-//   다운로드 · SponsorBlock · 동등물        테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
+//   다운로드 · SponsorBlock · 유튜브 매칭   테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
 //   음성 연결 · 세션 저장 · 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
 // node --test 는 테스트 파일마다 프로세스를 따로 실행하므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
@@ -55,7 +55,7 @@ const calls = {
   spawns: [] as FakeChild[],
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
-  seeks: [] as SeekRequest[], // 색인으로 받기 시작할 자리를 물은 요청
+  seeks: [] as SeekRequest[], // 인덱스로 받기 시작할 위치를 조회한 요청
   chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 테스트가 정한다
   fragments: [] as FragmentOptions[], // 세그먼트 스트림을 연 요청
   fetches: [] as Array<{ url: string; init: FetchInit }>,
@@ -85,7 +85,7 @@ class FakeAudioPlayer extends EventEmitter {
     this.played = [];
     this.stops = 0;
   }
-  // voice 처럼 넘겨받은 리소스에 표시하고, 갈아 끼우거나 멈추면 옛 리소스를 destroy 한다
+  // voice 처럼 넘겨받은 리소스에 표시하고, 교체하거나 멈추면 옛 리소스를 destroy 한다
   play(resource: unknown) {
     if (this.state.resource && this.state.resource !== resource) destroyResource(this.state.resource);
     (resource as FakeResource).audioPlayer = this;
@@ -191,7 +191,7 @@ async function openChunkedStream(opts: ChunkedOptions) {
   return stream;
 }
 
-// 색인 묻기 가짜. 기본은 없음이라 청크 스트림은 처음부터 받는다
+// 인덱스 조회 가짜. 기본은 없음이라 청크 스트림은 처음부터 받는다
 async function seekStart(request: SeekRequest): Promise<SeekAnswer> {
   calls.seeks.push(request);
   return behavior.seekStart ? behavior.seekStart(request) : { ok: false, why: "시험", near: true };
@@ -230,7 +230,7 @@ const VoiceLink = (await import("../../src/player/voice-link.ts")).VoiceLink;
 const SessionPersistence = (await import("../../src/player/session-mirror.ts")).SessionPersistence;
 const QueueWarmer = (await import("../../src/player/queue-warmer.ts")).QueueWarmer;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
-// 직접 링크 곡의 파일 태그 · 그림 찾기는 원본을 열지 않는다(테스트는 네트워크로 나가지 않는다). 찾기를 보는 테스트는 embedded-art 테스트가 따로
+// 직접 링크 곡의 파일 태그 · 앨범아트 찾기는 원본을 열지 않는다(테스트는 네트워크로 나가지 않는다). 찾기를 보는 테스트는 embedded-art 테스트가 따로
 (await import("../../src/sources/embedded-art.ts"))._internals.useOpen(async () => {
   throw new Error("테스트에서는 원본을 열지 않는다");
 });
@@ -337,21 +337,21 @@ type Behavior = {
   encoder: (() => boolean) | null;
 };
 const behavior: Behavior = {
-  stream: null, // (track, options) → streamInfo. 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 묻는다
-  equivalent: null, // (track) → youtubeUrl. 스포티파이 동등물
+  stream: null, // (track, options) → streamInfo. 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 조회한다
+  equivalent: null, // (track) → youtubeUrl. 스포티파이의 유튜브 매칭
   sponsor: null, // (track) → SponsorBlock.forTrack 의 답
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
   chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
-  seekStart: null, // (request) → 색인의 답. 기본은 없음(처음부터 받는다)
+  seekStart: null, // (request) → 인덱스의 답. 기본은 없음(처음부터 받는다)
   directStream: null, // (url) → Readable
-  restore: null, // function (record) — this 는 플레이어. 세션 복원(명령 · 곡 추가의 분기)
+  restore: null, // function (record), this 는 플레이어. 세션 복원(명령 · 곡 추가의 분기)
   autoplay: null, // () → 자동재생이 선택할 곡. 기본은 못 찾음
   connect: null, // () → 던지면 음성 채널에 붙지 못함
   encoder: null, // () → false 면 인코딩 워커를 쓸 수 없음. 기본은 쓸 수 있음
 };
 
-// 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
+// 유튜브 매칭 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
 const findEquivalent = async (track: QueuedTrack) => {
   calls.steps.push("equivalent");
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
@@ -360,7 +360,7 @@ const findEquivalent = async (track: QueuedTrack) => {
   }
   return url;
 };
-// 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 동등물을 찾은 뒤)
+// 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 유튜브 매칭 뒤)
 const sponsorFor = async (track: QueuedTrack) => {
   calls.steps.push("sponsor");
   if (!SponsorBlock._trackVideoId(track)) return null;
@@ -490,7 +490,7 @@ function reset() {
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
-  // 캐시 길이 상한은 기본값(60분)으로. 테스트는 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
+  // 캐시 길이 상한은 테스트마다 기본값(60분)으로 되돌린다
   config.cache.maxTrackSec = DEFAULT_MAX_TRACK_SEC;
   cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });

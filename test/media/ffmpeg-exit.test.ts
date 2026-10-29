@@ -1,4 +1,4 @@
-// src/media/ffmpeg/exit.ts — ffmpeg 가 끝난 까닭(종료 코드 해독 · 남기는 방식)
+// src/media/ffmpeg/exit.ts: ffmpeg 가 끝난 까닭(종료 코드 해독 · 남기는 방식)
 //
 // 지키는 것: Windows 의 부호 없는 32비트 코드를 부호 있는 AVERROR 로 되돌려 이름을 붙인다.
 // 우리가 출력을 닫아 생긴 종료(파이프 쓰기 실패 · 우리가 보낸 신호)만 정리로 보고,

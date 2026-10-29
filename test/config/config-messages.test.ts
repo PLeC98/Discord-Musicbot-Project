@@ -1,4 +1,4 @@
-// 설정 문서 검사 문구를 고정한다(config/schema 의 zod 스키마).
+// src/config/schema: 설정 문서 검사 문구를 고정한다(zod 스키마).
 //
 // 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 순서까지 적었다.
 // 여러 문제가 겹치면 필드 검사가 먼저, 교차 검사(이름 · 필드끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 그룹.
@@ -16,7 +16,6 @@ import { PROVIDERS } from "../../src/autoplay/assist/index.ts";
 // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
-// [이름, 넣는 것, 나올 문구들]
 type Case = [name: string, input: unknown, want: string[]];
 
 const GENRES: Case[] = [
@@ -323,7 +322,7 @@ const AIS: Case[] = [
         unknownText: 1,
       },
     },
-    // 옛 필드(unknownDuration · unknownText)은 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
+    // 옛 필드(unknownDuration · unknownText)는 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
     ["params.m1 은 필드 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}} · {{genre}} · {{title}} · {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
   ],
   [
@@ -339,7 +338,6 @@ const AIS: Case[] = [
 ];
 
 // [이름, 프롬프트 섹션, 켜 둠, 지금 나오는 문구]
-// [이름, 넣는 것, 켰나, 나올 문구들]
 const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]> = [
   ["목록이 아님", "text", true, ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."]],
   [

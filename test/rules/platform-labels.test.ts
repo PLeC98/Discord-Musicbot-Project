@@ -1,3 +1,5 @@
+// src/rules/platforms.ts: 플랫폼 라벨 · 이모지. 자동재생 소스가 빠짐없이 제 이름을 갖는다
+
 import test from "node:test";
 import assert from "node:assert";
 
@@ -6,12 +8,12 @@ import { TYPES } from "../../src/autoplay/sources/index.ts";
 
 // 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 이름 없이(그리고 회색 점으로) 뜬다.
 test("자동재생 소스는 모두 라벨을 갖는다", () => {
-  // keyword 는 곡을 유튜브에서 바로 집으므로 platform 이 youtube 다 — 제 이름이 없다(autoplayRoute).
+  // keyword 는 곡을 유튜브에서 바로 집으므로 platform 이 youtube 다. 제 이름이 없다(src/autoplay/route.ts).
   const needed = TYPES.filter((t) => t !== "keyword");
   const missing = needed.filter((t) => !isPlatform(t));
   assert.deepEqual(missing, [], `라벨 없는 소스: ${missing.join(", ")}`);
 
-  // 유튜브 재생목록이 아닌 소스들이 실제로 싣는 값(src/autoplaySources)
+  // 유튜브 재생목록이 아닌 소스들이 실제로 싣는 값(src/autoplay/sources)
   assert.equal(PLATFORM_NAMES.lbradio, "ListenBrainz Radio");
 });
 
@@ -43,7 +45,7 @@ test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
   assert.equal(label("soundcloud"), "SoundCloud");
   assert.equal(label("direct"), "직접 링크");
 
-  // 모르는 값은 첫 글자만 올린다 — 없는 것보다 낫다
+  // 모르는 값은 첫 글자만 올린다. 없는 것보다 낫다
   assert.equal(label("새소스"), "새소스");
   assert.equal(label("mixcloud"), "Mixcloud");
   assert.equal(label(null), "-");

@@ -1,4 +1,4 @@
-// src/sources/direct-tags.ts · direct.ts 의 getInfo 태그 읽기 — 직접 링크 곡 정보를 파일 태그로 고친다.
+// src/sources/direct-tags.ts · direct.ts 의 getInfo 태그 읽기: 직접 링크 곡 정보를 파일 태그로 고친다.
 // 담을 때 GET 하나: 1.5초 안에 읽으면 그 곡으로, 아니면 파일 이름으로 담고 마저 읽어 고친다. 고친 것은 링크 데이터에 확인된 제목으로 적는다
 
 import fs from "node:fs";
@@ -43,7 +43,7 @@ function ffmpeg(args: string[]): Promise<boolean> {
 
 /**
  * ffmpeg 로 만든 태그 단 MP3(시료가 없으면 null).
- * art: 그림이 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
+ * art: 앨범아트가 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
  */
 async function mp3(title: string, artist: string, album: string, { art = false } = {}): Promise<Buffer | null> {
   const key = `${title}|${artist}|${album}|${art}`;
@@ -115,7 +115,7 @@ test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 �
 test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같은 곡을 고친다", { timeout: 20_000 }, async (t) => {
   const body = await mp3("늦은 제목", "늦은 가수", "늦은 앨범", { art: true });
   if (!body) return t.skip("ffmpeg로 시료를 만들 수 없음");
-  // 앞부분(판정)은 바로 오고, 그림이 든 태그의 나머지가 느리게 온다
+  // 앞부분(판정)은 바로 오고, 앨범아트가 든 태그의 나머지가 느리게 온다
   const { net } = netOf(body, { laterDelayMs: 400, chunk: 8192 });
   let late: () => void = () => {};
   const applied = new Promise<void>((resolve) => (late = resolve));

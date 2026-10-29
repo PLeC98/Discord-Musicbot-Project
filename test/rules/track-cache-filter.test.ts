@@ -1,4 +1,4 @@
-// src/rules/track-cache-filter.ts — 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 견준다
+// src/rules/track-cache-filter.ts: 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 비교한다
 import test from "node:test";
 import assert from "node:assert";
 import { FILTER_MAX, REGEX_MAX, matchFilter, matchWords, parseFilter, parseWords, readValue, type ColumnKind } from "../../src/rules/track-cache-filter.ts";

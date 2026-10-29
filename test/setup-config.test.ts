@@ -1,4 +1,4 @@
-// src/config/env-file.ts(설치 · 진입 파일이 부른다) — .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
+// src/config/env-file.ts(설치 · 진입 파일이 부른다): .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

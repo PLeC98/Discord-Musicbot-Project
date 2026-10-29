@@ -1,4 +1,4 @@
-// src/sources/ytdlp-binary.ts — yt-dlp 버전을 버전마다 폴더에 두고, 목표 버전(고정 · 채널 최신)으로 맞추고, 가리키는 경로만 교체한다.
+// src/sources/ytdlp-binary.ts: yt-dlp 버전을 버전마다 폴더에 두고, 목표 버전(고정 · 채널 최신)으로 맞추고, 가리키는 경로만 교체한다.
 // 바이너리 · GitHub 는 가짜다. 가짜 바이너리는 파일 내용이 곧 버전이고, --update-to 를 받으면 파일을 새 버전으로 고쳐 쓴다.
 
 import { test, beforeEach, afterEach } from "node:test";

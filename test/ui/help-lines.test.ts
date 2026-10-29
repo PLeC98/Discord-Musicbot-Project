@@ -1,4 +1,4 @@
-// src/ui/help-lines.ts — /help 의 명령 줄을 명령 정의와 명령 모듈의 help(섹션 · 권한)에서 만든다.
+// src/ui/help-lines.ts: /help 의 명령 줄을 명령 정의와 명령 모듈의 help(섹션 · 권한)에서 만든다.
 // 실제 명령 목록으로 만든 줄을 적어 둔다(명령 · 설명 · 옵션 이름 · 권한을 바꾸면 여기도 바뀐다)
 
 import { test } from "node:test";

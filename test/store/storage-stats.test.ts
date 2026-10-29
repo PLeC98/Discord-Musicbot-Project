@@ -1,4 +1,4 @@
-// src/store/audio-cache.ts · stores.ts · infra/disk.ts — 봇 상태 탭의 저장공간: 캐시 수와 상한 · 지키는 파일 · 틀지 않은 파일 · 다운로드 실패 · 마지막 정리, DB 크기와 행 수, 드라이브
+// src/store/audio-cache.ts · stores.ts · infra/disk.ts: 봇 상태 탭의 저장공간. 캐시 수와 상한 · 지키는 파일 · 틀지 않은 파일 · 다운로드 실패 · 마지막 정리, DB 크기와 행 수, 드라이브
 
 import os from "node:os";
 import path from "node:path";

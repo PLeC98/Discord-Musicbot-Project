@@ -1,4 +1,4 @@
-// 버튼 핸들러의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
+// src/discord/interactions/button-handler.ts: 버튼 핸들러의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
 // 여기서는 검색 결과 버튼 · 도움말 · 시스템 새로고침 · 자동재생 버튼 · 대기열 버튼 · 옛 세션 · 모르는 버튼 · 조작이 실패했을 때를 본다.
 //
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜(서버 설정은 임시 DB),
@@ -87,7 +87,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     // 실행 목록. 도움말 새로고침이 이것으로 명령 줄을 만든다
     commands: new Map(COMMANDS.map((command) => [command.data.name, command])),
   });
-  // 곡 담기는 받은 곡의 제목만 적는다
+  // 곡 추가는 받은 곡의 제목만 적는다
   fakeAdder(bot, async (_bot, _guildId, trackData) => {
     seen.push({ handle: trackData.tracks.map((t) => t.title) });
     return handle(trackData);
@@ -128,7 +128,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
   };
   const registered = fake<Player>(p);
   if (player) bot.players.set("g1", registered);
-  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  // 조작 뒤 패널 갱신은 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));
   return { guild, member, client, bot, seen, player: p };
 }
@@ -299,7 +299,7 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 맞추기 전에는 ◀ ▶)
+// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 동기화하기 전에는 ◀ ▶)
 type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
 type QueueRow = { components: Array<{ data: { custom_id?: string; emoji?: { name?: string }; disabled?: boolean } }> };
 type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };

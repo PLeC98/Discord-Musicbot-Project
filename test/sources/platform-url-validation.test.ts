@@ -1,3 +1,5 @@
+// src/rules/links.ts · canonical-url.ts · src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트 · 유튜브 형태별 인식 · 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 흘리지 않는다
+
 process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
 
@@ -49,7 +51,7 @@ test("YouTube URL 형태별 인식 — /live/ 포함", () => {
     assert.equal(links.extractVideoId(url), id, url);
   }
 
-  // 같은 영상이면 어느 형태로 입력해도 같은 캐시 키로 접힌다 — /live/도 예외가 아니다
+  // 같은 영상이면 어느 형태로 입력해도 같은 캐시 키로 접힌다. /live/도 예외가 아니다
   assert.equal(canonicalUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
 });
 

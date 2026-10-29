@@ -1,4 +1,4 @@
-// src/sources/hls.ts — 직접 링크 HLS 의 목록 받기 · 고르기 · 라이브 따라가기 · 세그먼트 받기(바이트 구간 · 초기화 세그먼트 · AES-128).
+// src/sources/hls.ts: 직접 링크 HLS 의 목록 받기 · 선택 · 라이브 따라가기 · 세그먼트 받기(바이트 구간 · 초기화 세그먼트 · AES-128).
 // 네트워크는 가짜다(주소 → 응답)
 
 import crypto from "node:crypto";

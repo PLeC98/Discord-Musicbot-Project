@@ -1,4 +1,4 @@
-// 링크 판정 셋(inputKind · canonicalUrl · audioKeyOf). 순수 함수라 입력과 답만 적는다.
+// src/rules/input-kind.ts · canonical-url.ts · audio-key-of.ts: 링크 판정 셋. 순수 함수라 입력과 답만 적는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

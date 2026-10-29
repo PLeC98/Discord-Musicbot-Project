@@ -1,4 +1,4 @@
-// src/store/audio-cache.ts 의 resetCache(parts) · src/dashboard/reset.ts 의 resetAudioCache — 오디오 캐시 초기화는 선택한 것의 표만 비운다.
+// src/store/audio-cache.ts 의 resetCache(parts) · src/dashboard/reset.ts 의 resetAudioCache: 오디오 캐시 초기화는 선택한 것의 표만 비운다.
 // 캐시 DB 의 모든 표가 선택 하나에 들어(cache-db 의 TABLES_OF_PART) 새 표가 초기화에서 빠지지 않는다. 지운 크기는 실제로 지운 파일만 센다.
 
 import fs from "node:fs";

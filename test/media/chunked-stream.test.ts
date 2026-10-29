@@ -1,4 +1,4 @@
-// src/media/chunked-stream.ts — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
+// src/media/chunked-stream.ts: Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
 //
 // 네트워크는 fetch를 주입해 흉내낸다. 실 소켓 없이 전부 검증한다.
 
@@ -11,7 +11,7 @@ import type { Readable } from "stream";
 const URL_ = "https://x/y";
 const FAST = { retryDelaysMs: [0, 0, 0] };
 
-// 결정적인 본문 — 어긋나면 바로 드러나도록 위치마다 다른 값
+// 결정적인 본문. 위치마다 다른 값이라 어긋나면 바로 드러난다
 function makeBody(size: number) {
   const b = Buffer.alloc(size);
   for (let i = 0; i < size; i++) b[i] = (i * 7 + (i >> 8)) & 0xff;
@@ -20,7 +20,7 @@ function makeBody(size: number) {
 
 // Range를 이해하는 가짜 서버.
 //  sliceBytes   응답을 몇 바이트씩 나눠 줄지
-//  readDelayMs  청크 사이 지연 — 요청이 오래 진행 중이게 할 때
+//  readDelayMs  청크 사이 지연(요청이 오래 진행 중이게 할 때)
 //  plan(n, start) 요청마다 행동: { status, throws, dieAfter: 이 응답에서 몇 바이트 뒤 끊김, hangAfter: 몇 바이트 뒤 멈춤 }
 type Act = { status?: number; throws?: unknown; dieAfter?: number; hangAfter?: number };
 type FakeOptions = {
@@ -420,8 +420,6 @@ test("선행 요청 실패는 스트림을 정리한다 (죽은 요청을 남기
   );
   assert.equal(req.signal?.aborted, true);
 });
-
-// ── 오류 설명·관측 ───────────────────────────────────────────
 
 // ── 이미 열린 첫 응답(직접 링크) ─────────────────────────────
 

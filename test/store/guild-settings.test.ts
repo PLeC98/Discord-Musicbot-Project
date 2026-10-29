@@ -1,4 +1,4 @@
-// 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다.
+// src/store/guild-settings.ts: 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다.
 //
 // 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
 // DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB 로 쓴다.
@@ -38,8 +38,7 @@ after(() => {
 // 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다
 const fresh = () => settings.forgetCache();
 
-// DB 를 잠깐 닫는다. 표를 부르면 던진다(DB_NOT_OPEN)
-// 표가 망가진 동안(읽기 · 쓰기가 SQLite 오류로 실패한다)
+// 서버 설정 표가 망가진 동안(읽기 · 쓰기가 SQLite 오류로 실패한다)
 const whenDbDown = whenSettingsBroken;
 
 test("전용 채널: 저장 · 읽기 · 지우기. 미설정은 null", async () => {
@@ -111,7 +110,7 @@ test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", ()
   } finally {
     stores.open(TMP);
   }
-  // 열기 전의 기본값을 담아 두지 않았다. 담아 뒀으면 연 뒤에 적은 값이 안 보인다
+  // 열기 전의 기본값을 담아 두지 않는다. 담아 두면 연 뒤에 적은 값이 안 보인다
   guildTable.setPlaylistAddMax("g-unopened", 7);
   assert.equal(settings.resolvePlaylistAddMax("g-unopened"), 7);
 });

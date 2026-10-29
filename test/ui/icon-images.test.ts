@@ -1,3 +1,5 @@
+// src/ui/icon-images.ts: 앱 이모지 이미지(타일 · 기호 · 움직이는 GIF). 같은 입력이면 같은 바이트
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
@@ -5,7 +7,7 @@ import { withConfig } from "../helpers/config.ts";
 import { ICONS } from "../../src/ui/icons.ts";
 import { imageOf, SIZE } from "../../src/ui/icon-images.ts";
 
-// 그림의 한 점(RGBA)
+// 이미지의 한 점(RGBA)
 async function pixel(data: Buffer, x: number, y: number) {
   const { data: raw, info } = await sharp(data).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const at = (y * info.width + x) * 4;

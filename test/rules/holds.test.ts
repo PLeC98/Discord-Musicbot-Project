@@ -1,4 +1,4 @@
-// src/rules/holds.ts — 지금 음성 상태에서 걸려야 할 억제 사유와 듣는 사람 수
+// src/rules/holds.ts: 지금 음성 상태에서 걸려야 할 억제 사유와 듣는 사람 수
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

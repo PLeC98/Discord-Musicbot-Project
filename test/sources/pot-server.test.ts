@@ -1,4 +1,4 @@
-// src/sources/youtube/pot-server.ts — bgutil POToken 서버를 실행하고 지키기.
+// src/sources/youtube/pot-server.ts: bgutil POToken 서버를 실행하고 지키기.
 // 프로세스 실행 · 설치 확인 · HTTP 는 가짜를 넘긴다.
 
 import { test } from "node:test";

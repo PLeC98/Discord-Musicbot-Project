@@ -1,4 +1,4 @@
-// 표시 · 설정 명령의 지금 동작을 고정한다(/setting 의 버튼 · 메뉴는 test/events/settings-panel).
+// src/discord/commands 의 표시 · 설정 명령: 지금 동작을 고정한다(/setting 의 버튼 · 메뉴는 test/events/settings-panel).
 // /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setting.
 //
 // 문구 전부가 아니라 "무엇을 선택해 담았나 ·
@@ -200,7 +200,7 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.notice("queue-empty")));
 });
 
-// 대기열은 본문(description)에 싣는다. 필드(field)에 나눠 실으면 필드마다 이름 줄이 생겨 빈 여백이 끼었다
+// 대기열은 본문(description)에 싣는다. 필드(field)에 나눠 실으면 필드마다 이름 줄이 생겨 빈 여백이 낀다
 const descriptionOf = (payload: Sent) => String(payload.embeds[0].data.description ?? "");
 
 test("/queue: 다음 곡만 페이지마다 나눠 보인다. 없는 페이지는 마지막 페이지로", async () => {
@@ -221,7 +221,7 @@ test("/queue: 다음 곡만 페이지마다 나눠 보인다. 없는 페이지�
   assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3 페이지");
 });
 
-// 링크가 붙은 긴 유튜브 제목 열 줄이면 필드 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).
+// 필드 하나(1024자)에 실으면 링크가 붙은 긴 유튜브 제목 열 줄로 넘쳐 명령이 통째로 실패한다.
 // 본문은 4096자지만 서명된 직접 링크 · 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
 test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
   const who = { id: "123456789012345678" };

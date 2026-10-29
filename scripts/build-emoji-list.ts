@@ -7,7 +7,7 @@
 //   · 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
 //   · 한국어 이름·검색어. emojibase에서 가져온다.
 //
-// 그리고 Twemoji에 그림 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
+// 그리고 Twemoji에 이미지 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
 
 import fs from "fs";
@@ -17,7 +17,7 @@ import * as prettier from "prettier";
 import { messageOf } from "../src/rules/error-kind.ts";
 
 const EMOJIBASE = "17.0.0";
-// 대시보드가 그림을 받아오는 곳과 같은 버전을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
+// 대시보드가 이미지를 받아오는 곳과 같은 버전을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
 import twemojiPackage from "../dashboard/node_modules/@twemoji/api/package.json" with { type: "json" };
 import { PROJECT } from "../src/infra/project-paths.ts";
 const TWEMOJI = twemojiPackage.version;
@@ -25,7 +25,7 @@ const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5d
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
 const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.ts");
 
-// 받아 오는 것의 모양. 여기서 읽는 필드만 본다
+// 다운로드하는 데이터의 형식. 여기서 읽는 필드만 적는다
 const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });
 const Gist = z.record(z.string(), z.string());
 const Compact = z.array(z.object({ hexcode: z.string(), unicode: z.string(), label: z.string().optional(), tags: z.array(z.string()).optional() }));
@@ -103,7 +103,7 @@ function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: 
   return charOfCode;
 }
 
-// 목록의 한 줄. 못 담으면 dropped, 그림 파일이 없으면 noAsset 에 까닭을 적는다
+// 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset 에 까닭을 적는다
 function rowOf(group: string, code: string, charOfCode: Map<string, string>, korean: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
   const found = charOfCode.get(code);
   if (!found) return { dropped: `${group}:${code} (대응 없음)` };
@@ -127,7 +127,6 @@ function rowOf(group: string, code: string, charOfCode: Map<string, string>, kor
 async function main() {
   const picker = readPicker();
 
-  // 단축명 → 이모지.
   // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
   // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 지스트는 emojibase에 없는
   // 디스코드 고유 이름을 메우는 데만 쓴다.

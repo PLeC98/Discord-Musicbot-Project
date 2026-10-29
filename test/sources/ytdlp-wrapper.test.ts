@@ -1,4 +1,4 @@
-// src/sources/ytdlp-spawn.ts — youtube-dl-exec 드롭인 래퍼의 계약.
+// src/sources/ytdlp-spawn.ts: youtube-dl-exec 드롭인 래퍼의 계약.
 //
 // 왜 래퍼가 필요한가: 원본 youtubedl(url, flags)는 Promise만 돌려줘 spawn된 프로세스를 잡을 수 없다.
 // 그러면 봇을 종료해도 yt-dlp와 그 자식 ffmpeg가 고아로 남는다.
@@ -7,7 +7,7 @@
 // 우회하며 반환/오류 모양을 직접 재구현했다. 원본과 어긋나면
 // isAgeRestrictedError/isVideoUnavailableError(error.stderr를 읽는다)가 조용히 오작동한다.
 // 그래서 원본과 나란히 돌려 동등성을 확인한다. 네트워크 없이 yt-dlp 바이너리만 사용.
-// 바이너리는 둘 다 지금 버전(ytdlpBinary.path())이다. 래퍼는 실행할 때마다 지금 버전을 묻는다.
+// 바이너리는 둘 다 지금 버전(ytdlpBinary.path())이다. 래퍼는 실행할 때마다 지금 버전을 조회한다.
 //
 // 검사용 인자는 url이 아니라 flags로 넘긴다. youtube-dl-exec는 url을 `--` 뒤 positional로
 // 두므로(3.1.14+), url 위치에 플래그를 넣으면 yt-dlp가 리터럴 URL로 해석한다.

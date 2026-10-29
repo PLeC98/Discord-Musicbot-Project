@@ -1,4 +1,4 @@
-// 트랙의 링크 필드 셋(pageUrl · requestKey · audioUrl)과 오디오 링크 데이터.
+// src/store/track-lookup.ts · src/sources/stream-url.ts: 트랙의 링크 필드 셋(pageUrl · requestKey · audioUrl)과 오디오 링크 데이터.
 //
 // 세 필드가 서로 섞이지 않는지 본다(보여 줄 링크 · 링크 데이터 키 · 음원 주소는 다른 값이다).
 

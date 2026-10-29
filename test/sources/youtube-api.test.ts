@@ -1,4 +1,4 @@
-// YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다.
+// src/sources/youtube/index.ts: YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다.
 //
 // 모듈을 통째로 교체하지 않고 yt-dlp 를 실행하는 exec 하나만 가짜로 넘긴다(useExec). 그래서 src/sources/ytdlp-spawn.ts 의 응답 · 오류 모양
 // 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 테스트마다 비워 설정과 무관하게 한 번에 부르게 한다.
@@ -261,7 +261,7 @@ test("자동재생 재생목록 소스: 목록을 못 받으면 그 까닭, 곡 
 
 // ── 다시 받기 ─────────────────────────────────────────────────────────
 
-// yt-dlp 실행(run)을 감싸 다시 묻기로 불렀는지 적는다
+// yt-dlp 실행(run)을 감싸 재요청으로 불렀는지 적는다
 function retrySpy() {
   const retries: boolean[] = [];
   const exec: RunYtDlp = (url, flags, opts) => {
@@ -310,7 +310,7 @@ test("영상이 없는 것은 다시 받지 않는다", async () => {
 
 // ── 받아 둔 영상 정보를 다시 쓰기 ─────────────────────────────────────
 
-// 만료가 넉넉한 주소를 준다(영상 정보에 고른 포맷이 실린 모양)
+// 만료가 넉넉한 주소를 준다(영상 정보에 선택한 포맷이 실린 모양)
 const lasting = (id: string, expireIn = 6 * 3600) => ({ ...video(id), url: `https://rr1.googlevideo.com/videoplayback?id=${id}&expire=${Math.floor(Date.now() / 1000) + expireIn}`, format_id: "251", protocol: "https", formats: [{ format_id: "251", acodec: "opus", vcodec: "none" }] });
 
 test("곡 정보 뒤의 재생 주소는 yt-dlp 를 부르지 않는다. 서술자는 추출한 것과 같고 다시 쓴 표시만 다르다", async () => {
@@ -421,9 +421,9 @@ test("다운로드를 다른 클라이언트로 다시 받기 전에도 받다 �
   }
 });
 
-// ── 오디오 전용 포맷 고르기 ───────────────────────────────────────────
+// ── 오디오 전용 포맷 선택 ───────────────────────────────────────────
 
-// 고른 포맷만 다른 영상 정보(영상이 섞인 것 · 오디오 전용)
+// 선택한 포맷만 다른 영상 정보(영상이 섞인 것 · 오디오 전용)
 const picked = (id: string, formatId: string, vcodec: string, extra: Record<string, unknown> = {}) => ({ ...video(id), format_id: formatId, vcodec, acodec: "mp4a.40.2", url: `https://rr1.googlevideo.com/${formatId}`, ...extra });
 
 test("정보 추출: 클라이언트가 영상이 섞인 포맷만 주면 다음 클라이언트로 간다. 마지막 시도는 무엇이든 받되 작은 영상부터", async () => {

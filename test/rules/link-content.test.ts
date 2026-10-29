@@ -1,4 +1,4 @@
-// src/rules/link-content.ts — 직접 링크의 응답이 무엇인가(음원 · HLS · 단순 목록 · 웹 페이지 · 그 밖)와 단순 목록의 첫 주소
+// src/rules/link-content.ts: 직접 링크의 응답이 무엇인가(음원 · HLS · 단순 목록 · 웹 페이지 · 그 밖)와 단순 목록의 첫 주소
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/media/convert.ts — 캐시 변환을 작업 실행기로 돌린다: 진행이 오는 동안은 오래 걸려도 두고, 실패는 표준 오류의 끝을 실어 던진다
+// src/media/convert.ts: 캐시 변환을 작업 실행기로 돌린다. 진행이 오는 동안은 오래 걸려도 두고, 실패는 표준 오류의 끝을 실어 던진다
 
 import path from "node:path";
 import os from "node:os";
@@ -16,7 +16,7 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true }));
 afterEach(() => audioConvert.useConvertStall(null));
 const at = (name: string) => path.join(DIR, name);
 
-// 10분짜리 flac(굽기로 간다). 이 기기에서 굽기에 몇 초 걸린다
+// 10분짜리 flac(인코딩으로 간다). 인코딩에 몇 초 걸린다
 function longFlac(): boolean {
   const made = spawnSync(ffmpegPath(), ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=600", "-ac", "2", "-ar", "48000", "-y", at("long.flac")], { windowsHide: true });
   return made.status === 0;

@@ -1,4 +1,4 @@
-// src/usecases/permissions.ts — 권한 3계층(모더레이터/DJ/일반) 판정.
+// src/usecases/permissions.ts: 권한 3계층(모더레이터/DJ/일반) 판정.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after } from "node:test";
@@ -165,7 +165,7 @@ test("소환: 요청자가 음성에 있고 봇 권한이 갖춰지면 통과", 
 });
 
 // 곡 추가 진입점(/play·/playfirst·전용 채널)은 재적 규칙과 소환 검사를 이어 붙인다.
-// 둘 중 하나만 쓰면 한쪽 상태가 빈다 — checkAdd는 봇 유휴 시 항상 통과, checkSummon은 봇 접속 시 항상 통과.
+// 둘 중 하나만 쓰면 한쪽 상태가 빈다. checkAdd는 봇 유휴 시 항상 통과, checkSummon은 봇 접속 시 항상 통과.
 test("진입점 조합: checkAdd + checkSummon이 봇의 두 상태를 모두 덮는다", () => {
   // 봇 유휴 → 소환 검사가 담당
   assert.equal(checkAdd(fakeMember()), null, "checkAdd 단독은 봇 유휴 시 통과시킨다");

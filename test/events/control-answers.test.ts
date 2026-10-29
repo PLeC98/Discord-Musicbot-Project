@@ -1,4 +1,4 @@
-// src/discord/interactions/control-answers.ts — 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
+// src/discord/interactions/control-answers.ts: 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
 // 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 메시지를 안내로 바꾼다
 
 import { test, after } from "node:test";

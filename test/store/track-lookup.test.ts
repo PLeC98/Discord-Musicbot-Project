@@ -1,4 +1,4 @@
-// src/store/track-lookup.ts — 오디오 링크 데이터의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
+// src/store/track-lookup.ts: 오디오 링크 데이터의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -137,7 +137,7 @@ test("캐시한 음원의 길이: 음원 주소로, 주소가 없으면(스포�
   assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), 181.37);
 });
 
-// ── 링크 데이터를 쓰는 규칙(음원을 어떻게 알았나로 가른다) ──────────────────────
+// ── 링크 데이터를 쓰는 규칙(음원을 어떻게 알았나로 구분한다) ──────────────────────
 // 운영자가 지운 자동 결과를 반복 대기열 · 저장 세션의 옛 곡이 되살리지 않고, 직접 지정한 음원은 링크 데이터를 건드리지 않는다
 
 const ROW = (requestKey: string) => ({ requestKey, pageUrl: requestKey, platform: "spotify", title: "곡", artist: "가수" });

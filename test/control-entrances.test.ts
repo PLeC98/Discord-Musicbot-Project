@@ -1,4 +1,4 @@
-// 재생 조작 세 진입점(슬래시 명령 · 패널 버튼 · 대시보드)이 지금 무엇을 거절하고 무엇을 허용하나.
+// src/discord/events/interaction-create.ts · src/dashboard/routes/guilds.ts: 재생 조작 세 진입점(슬래시 명령 · 패널 버튼 · 대시보드)이 지금 무엇을 거절하고 무엇을 허용하나.
 //
 // 전제 조건을 바꾸면 바뀌는 셀을 이 표에서 같이 고친다.
 //
@@ -214,7 +214,6 @@ const DASHBOARD: Record<string, { method?: string; route: string; body?: object 
 };
 
 // ── 표 ───────────────────────────────────────────────────────────────
-//
 /** 진입점: 명령 · 버튼 · 대시보드 */
 type Entrance = "C" | "B" | "D";
 const ENTRANCES: Entrance[] = ["C", "B", "D"];

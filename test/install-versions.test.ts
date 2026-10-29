@@ -1,4 +1,4 @@
-// scripts/install-ffmpeg.ts(src/media/ffmpeg/release) · install-bgutil.ts — 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env 로 바꾼다.
+// scripts/install-ffmpeg.ts(src/media/ffmpeg/release) · install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env 로 바꾼다.
 //
 // 지키는 것 둘:
 // 1. 움직이는 태그(latest)는 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
@@ -18,7 +18,7 @@ import { isMonthEndBuild } from "../src/rules/vendor-updates.ts";
 
 const DEFAULTS = loadConfig({}).config;
 
-// 실제 릴리스의 checksums.sha256 일부 — 한 릴리스에 브랜치가 여럿 들어 있다
+// 실제 릴리스의 checksums.sha256 일부. 한 릴리스에 브랜치가 여럿 들어 있다
 const CHECKSUMS = [
   "aaa1  ffmpeg-N-126342-gf88b741dbf-linux64-lgpl.tar.xz",
   "aaa2  ffmpeg-n8.1.2-50-g1a748fe2cd-linux64-lgpl-8.1.tar.xz",

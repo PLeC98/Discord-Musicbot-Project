@@ -1,4 +1,4 @@
-// src/infra/owner-only.ts — 비밀(암호문) · 로그인이 든 파일은 봇을 돌리는 사용자만(POSIX 0600). Windows 는 권한이 먹지 않아 건너뛴다
+// src/infra/owner-only.ts: 비밀(암호문) · 로그인이 든 파일은 봇을 돌리는 사용자만(POSIX 0600). Windows 는 권한이 먹지 않아 건너뛴다
 
 import fs from "node:fs";
 import os from "node:os";

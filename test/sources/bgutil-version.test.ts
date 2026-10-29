@@ -1,4 +1,4 @@
-// src/sources/bgutil-version.ts — 설치된 bgutil · 설정한 버전 · 최신 릴리스를 견주어 알리기만 한다(설치는 봇을 끄고)
+// src/sources/bgutil-version.ts: 설치된 bgutil · 설정한 버전 · 최신 릴리스를 비교해 알리기만 한다(설치는 봇을 끄고)
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

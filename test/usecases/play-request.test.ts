@@ -1,11 +1,11 @@
-// src/usecases/add-tracks.ts — 곡 추가 경로의 단일 코어.
+// src/usecases/add-tracks.ts: 곡 추가 경로의 단일 코어.
 //
 // 슬래시 명령 · 전용 채널 · 검색 선택 · 대시보드가 같은 곡 추가 코어를 지난다(둘로 나뉘면 같은 버그를 두 번 고치고 요청자 모양도 갈린다).
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-// ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
+// ── 모킹 (곡 추가 코어를 불러오기 전에, 실 SQLite/네트워크 미접촉) ──────────────
 import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 import config from "../../src/config/index.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
@@ -63,7 +63,7 @@ function makeGuild({ botVoice = null, channels = [] }: { botVoice?: VoiceBasedCh
   return fake<Guild>({ id: GUILD_ID, channels: { cache }, members: { me: { voice: { channel: botVoice } } } });
 }
 
-// 곡 요청이 곡 담기(queueTracks)에 넘긴 것
+// 곡 요청이 곡 추가(queueTracks)에 넘긴 것
 type EmbedCall = { guildId: string; trackData: TrackData; requester: unknown; responder: Responder | undefined };
 
 function makeBot() {
@@ -99,7 +99,7 @@ function ok(...titles: string[]): Extract<LookupResult, { success: true }> {
 // ── toRequester ──────────────────────────────────────────────
 
 // 표시에 쓰는 이름은 그 서버에서 보이는 이름이다. GuildMember에는 username이 없어
-// 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다 — displayName을 먼저 본다.
+// 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다. displayName을 먼저 본다.
 test("toRequester: GuildMember는 서버 닉네임(displayName)을 쓴다", () => {
   const member = { id: "u1", user: { username: "carl", tag: "carl#0" }, displayName: "칼" };
   assert.deepEqual(toRequester(member), { id: "u1", username: "칼", tag: "carl#0" });
@@ -198,7 +198,7 @@ function baseArgs(bot: TestBot, guild: Guild, extra: Extra): PlaybackRequest {
   return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
-// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 더 이상 진입점에서 막지 않는다.
+// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 진입점에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const bot = makeBot();
@@ -257,7 +257,7 @@ test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 �
 });
 
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
-// 조용히 버리면 디스코드에는 아무 반응이 없어 먹통처럼 보인다 — 이유를 말하고 거절한다.
+// 조용히 버리면 디스코드에는 아무 반응이 없어 먹통처럼 보인다. 이유를 말하고 거절한다.
 test("시작 전 방송은 거절하고 이유를 알린다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] });
   const bot = makeBot();
@@ -436,7 +436,7 @@ test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대�
   assert.match(none.success ? "" : plainText(addFailureMessage(none)), /^앞의 4곡이 전부/);
 });
 
-// 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남았다
+// 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남는다
 test("봇이 쉬는 서버에서 곡을 못 찾으면 플레이어를 만들지 않는다", async () => {
   mockResolve = () => ({ success: false, code: "no-song-result" });
   const bot = makeBot();
@@ -471,7 +471,7 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
 
 // ── 로그: 누가 무엇을 찾아 무엇이 선택됐나 ─────────────────────
 
-// 곡 요청 줄들. 담기(queueTracks)를 부른 때의 로그 길이도 적는다
+// 곡 요청 줄들. 곡 추가(queueTracks)를 부른 때의 로그 길이도 적는다
 async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { success: true }) {
   const bot = makeBot();
   let handledAt = -1;
@@ -571,7 +571,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   assert.equal(playerOf(bot).textChannel, given);
 });
 
-// ── 불러올 곡 수 (해석기에 넘기는 어림값) ──────────────────────
+// ── 불러올 곡 수 (해석기에 넘기는 추산값) ──────────────────────
 
 async function withLimits(queueMax: number, playlistMax: number, fn: () => Promise<void>) {
   const saved = config.bot.maxQueueSize;
@@ -628,7 +628,7 @@ test("자리가 모자라 덜 불러왔고 뒤에 곡이 더 있을 때만 queue
 const SP = "37i9dQZF1E3aglU7q0y10F";
 const idOf = (i: number) => `t${String(i).padStart(21, "0")}`; // 22자 트랙 ID
 
-// 원본 목록 — shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 위치)
+// 원본 목록. shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 위치)
 function listSource(size: number, { shift = 0 } = {}) {
   return ({ offset = 0, limit = 0 }: Range): Collection => {
     const tracks: TrackInfo[] = [];

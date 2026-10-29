@@ -1,4 +1,4 @@
-// src/rules/loop-cycle.ts — 반복 버튼의 순환
+// src/rules/loop-cycle.ts: 반복 버튼의 순환
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

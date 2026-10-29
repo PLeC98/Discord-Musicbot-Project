@@ -1,4 +1,4 @@
-// src/sources/stream-url.ts — 재생용 스트림을 어디서 가져올지 고르는 곳. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
+// src/sources/stream-url.ts: 재생용 스트림을 어디서 가져올지 선택하는 곳. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
 //
 // platform 은 youtube/spotify/soundcloud/direct 말고도 자동재생 소스 이름(vocadb · lastfm · lbradio · touhoudb 등)이 온다.
 // 모르는 platform 을 던지면 캐시에 없는 곡만 실패해 "두 곡은 되다가 갑자기 안 되는" 모양으로 나타난다.
@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// 실제로 유튜브에 붙지 않는다 — 어느 주소로 가는지만 본다
+// 실제로 유튜브에 붙지 않는다. 어느 주소로 가는지만 본다
 const asks: Array<{ url: string; seek?: number }> = [];
 const youtube = {
   getStream: async (url: string) => {

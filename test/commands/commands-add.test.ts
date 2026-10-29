@@ -1,4 +1,4 @@
-// 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard)의 지금 동작을 고정한다.
+// src/discord/commands 의 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard): 지금 동작을 고정한다.
 //
 // 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
 // /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
@@ -97,7 +97,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     roles: { cache: { has: (r: string) => roles.includes(r) } },
     toString: () => `<@${USER}>`,
   };
-  // 패널 관리자가 받은 것. 곡 담기는 handled 에 따로
+  // 패널 관리자가 받은 것. 곡 추가는 handled 에 따로
   const seen: unknown[] = [];
   const handled: Array<{ handle: TrackData; who: Requester | null }> = [];
   const embeds = {
@@ -113,7 +113,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
   const players = new PlayerRegistry();
   players.followDisposals();
   const bot = fakeBot({ client, players, panels: embeds });
-  // 곡 담기는 받은 것만 적는다
+  // 곡 추가는 받은 것만 적는다
   fakeAdder(bot, async (_bot, _guildId, trackData, who) => {
     handled.push({ handle: trackData, who });
     return handle(trackData);
@@ -137,7 +137,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     },
   });
   if (player === "fake") bot.players.set("g1", existing);
-  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  // 조작 뒤 패널 갱신은 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === existing && seen.push("update"));
   return { guild: fake<Guild>(guild), member: fake<GuildMember>(member), client, bot, seen, handled, player: existing };
 }
@@ -151,7 +151,6 @@ type Sent = {
   embeds: Array<{ data: { fields: Array<{ name: string; value: string }> } }>;
 };
 type Logged = [name: string, payload?: Sent];
-// 마지막으로 보낸 것
 function lastSent(log: Logged[]) {
   const last = log.at(-1);
   assert.ok(last?.[1], "보낸 것이 있다");

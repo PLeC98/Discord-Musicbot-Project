@@ -1,4 +1,4 @@
-// src/app/guild-fault.ts — 모르는 오류가 난 서버만 다시 시작한다(세션 저장 → 채널에 남긴 채 버리기 → 복원). 되풀이되면 그 서버만 멈춘다.
+// src/app/guild-fault.ts: 모르는 오류가 난 서버만 다시 시작한다(세션 저장 → 채널에 남긴 채 버리기 → 복원). 되풀이되면 그 서버만 멈춘다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

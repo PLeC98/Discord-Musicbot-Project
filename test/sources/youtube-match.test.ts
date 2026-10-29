@@ -1,4 +1,4 @@
-// src/sources/youtube/match.ts — 후보 채점의 순수 로직 계약.
+// src/sources/youtube/match.ts: 후보 채점의 순수 로직 계약.
 //
 // 유튜브 검색 결과로 실제 선택을 검증하는 테스트는 두지 않는다.
 // 외부 서비스의 지금 순위에 기대는 데이터라 CI가 매번 확인할 성질이 아니다.
@@ -42,7 +42,7 @@ test("버전 표기는 공식 채널이어도 면제되지 않는다", () => {
 });
 
 test("정크는 공식 채널이거나 길이가 정확하면 면제된다", () => {
-  // 길이를 어긋나게 둬야 채널 때문에 면제되는지가 드러난다 — 길이가 정확하면 그것만으로 면제된다.
+  // 길이를 어긋나게 둬야 채널 때문에 면제되는지가 드러난다. 길이가 정확하면 그것만으로 면제된다.
   const off = { durationSec: 220 };
   const own = scoreCandidate(cand({ title: "곡 (Cover)", channel: "아티스트", ...off }), target);
   const other = scoreCandidate(cand({ title: "곡 (Cover)", ...off }), target);
