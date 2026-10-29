@@ -60,17 +60,6 @@ const remove = (name: string) => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(path.join(dir, name + suffix), { force: true });
 };
 
-test("실행 상태 DB 2 는 그 자리에서 3 으로: 사람이 멈춰 둔 칸의 이름만 바뀌고 값은 이어진다", () => {
-  stores.close();
-  remove("state.db");
-  prepare("state.db", 2, "CREATE TABLE player_sessions (guild_id TEXT PRIMARY KEY, paused_manual INTEGER NOT NULL DEFAULT 0); INSERT INTO player_sessions VALUES ('g', 1);");
-  stores.open(dir);
-  assert.equal(versionOf(stateDb), 3);
-  assert.equal(stateDb.get().prepare("SELECT user_paused FROM player_sessions WHERE guild_id = 'g'").pluck().get(), 1);
-  stores.close();
-  remove("state.db");
-});
-
 test("캐시 DB 6 은 그 자리에서 7 로: 재생 테스트 결과에 원본 버전 열만 더하고 직접 지정한 음원 · 결과는 그대로", () => {
   prepare("cache.db", 6, "CREATE TABLE source_checks (audio_key TEXT PRIMARY KEY, ok INTEGER NOT NULL, code TEXT, checked_at INTEGER NOT NULL); INSERT INTO source_checks VALUES ('yt:a', 0, 'unavailable-contents', 1); CREATE TABLE pinned_sources (request_key TEXT PRIMARY KEY, audio_url TEXT NOT NULL, pinned_at INTEGER NOT NULL); INSERT INTO pinned_sources VALUES ('https://y/a', 'https://y/b', 2);");
   stores.open(dir);

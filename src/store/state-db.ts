@@ -8,9 +8,8 @@ const stateDb = new DbFile({
   label: "실행 상태 DB",
   fileName: "state.db",
   // 2: 곡마다 음원 주소를 어떻게 알았는지(session_tracks.audio_found_by)
-  // 3: 사람이 멈춰 둔 것(player_sessions.paused_manual → user_paused). 그 자리에서 올린다
+  // 3: 사람이 멈춰 둔 것(player_sessions.user_paused)
   version: 3,
-  upgrades: { 2: (db) => db.exec("ALTER TABLE player_sessions RENAME COLUMN paused_manual TO user_paused") },
   synchronous: "NORMAL",
   onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 위치가 사라집니다." },
   createTables,
