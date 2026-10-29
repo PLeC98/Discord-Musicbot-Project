@@ -120,6 +120,18 @@ test("비정상 종료면 5초 뒤 다시 실행하고, 내린 뒤의 종료는 
   });
 });
 
+test("콘솔 종료 신호로 끝났으면(0xC000013A, 창 닫기 등) 비정상 종료로 보지 않고 다시 실행하지 않는다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { spawn, spawned } = fakeSpawn();
+  const server = createPotServer({ spawn, exists: () => true });
+  await withConfig({ bgutil: { enabled: true } }, async () => {
+    server.start();
+    spawned[0].proc.emit("exit", 3221225786);
+    t.mock.timers.tick(10_000);
+    assert.equal(spawned.length, 1);
+  });
+});
+
 test("서버 출력은 토큰을 가려 흘린다(오류 줄도 멈추지 않는다)", async () => {
   const { spawn, spawned } = fakeSpawn();
   const server = createPotServer({ spawn, exists: () => true });

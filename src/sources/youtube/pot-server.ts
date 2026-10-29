@@ -16,6 +16,8 @@ const ENTRY = path.join(SERVER_DIR, "build", "main.js");
 const PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 실행하기까지
 const STOP_WAIT_MS = 1000; // 내릴 때 꺼지기를 기다리는 상한. 넘으면 종료 처리의 자식 정리가 내린다
+// Windows 콘솔의 종료 신호(창 닫기 · 콘솔 전체에 간 Ctrl+C)로 끝난 코드(STATUS_CONTROL_C_EXIT). 같은 콘솔의 봇도 곧 끝난다
+const CONSOLE_EXIT = 0xc000013a;
 
 // 실행한 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
 type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
@@ -78,6 +80,10 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       release();
       proc = null;
       if (stopping) return;
+      if (code === CONSOLE_EXIT) {
+        log.debug({ sub: "bgutil" }, "POToken 서버가 콘솔 종료 신호로 끝났습니다. 봇도 곧 끝나므로 다시 실행하지 않습니다");
+        return;
+      }
       log.warn({ sub: "bgutil" }, `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 재시작합니다`);
       setTimeout(start, RESTART_MS);
     });
