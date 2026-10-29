@@ -42,7 +42,7 @@ const GUILD_ORDER: Record<GuildSort, (a: AdminGuild, b: AdminGuild) => number> =
   "members-asc": (a, b) => a.memberCount - b.memberCount,
 };
 
-// 서버 ID(스노플레이크)는 자릿수가 다를 수 있어 길이부터 견준다
+// 서버 ID(스노플레이크)는 자릿수가 다를 수 있어 길이부터 비교한다
 const byId = (a: AdminGuild, b: AdminGuild) => a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /** 서버 관리 탭: 필터링하고(재생 중만 · 이름 검색) 정렬하고(같으면 서버 ID) 자른다. 수는 전부 · 재생 중 · 필터링된 것 */

@@ -144,7 +144,7 @@ loginBackgroundRouter.get("/:id/strip", (req, res) => {
   res.sendFile(file, { headers: { "Cache-Control": "private, max-age=31536000, immutable" } });
 });
 
-// 크기 어림 다시 세기(편집 창에서 크롭을 정했을 때)
+// 크기 추산 다시 세기(편집 창에서 크롭을 정했을 때)
 loginBackgroundRouter.put("/:id/estimate", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
@@ -165,7 +165,7 @@ loginBackgroundRouter.put("/:id/edit", (req, res) => {
   const { crop, range, thumbAt } = body.value;
   const video = one.kind === "video";
   if (video && range && range[1] > one.duration + 0.5) return sendProblem(res, "bad-request");
-  // 남은 공간보다 클 어림이면 막는다(편집 창과 같은 계산. 어림이 없으면 남은 공간이 있는지만)
+  // 추산이 남은 공간보다 크면 막는다(편집 창과 같은 계산. 추산이 없으면 남은 공간이 있는지만)
   const room = store.room();
   const need = estimatedBytes(one.estimate, cropKeyOf(crop), video ? range : null) ?? 0;
   if (room <= 0 || need > room) return sendProblem(res, "background-no-space", { size: Math.max(0, room) });
@@ -204,7 +204,7 @@ loginBackgroundRouter.put("/current", (req, res) => {
   changed(req, res, `"${one.name}"${josa(one.name, "으로")} 바꿨습니다`);
 });
 
-// 비우기(봇 프로필 그림 배경으로). 기록은 남는다
+// 비우기(봇 프로필 이미지 배경으로). 기록은 남는다
 loginBackgroundRouter.delete("/current", (req, res) => {
   store.show(null);
   changed(req, res, "배경을 비웠습니다");

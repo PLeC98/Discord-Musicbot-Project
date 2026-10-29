@@ -39,7 +39,7 @@ type Inspected = Required<Pick<StageResult, "kind" | "width" | "height" | "durat
 const badSource = (why: string) => codedError("background-bad-source", why);
 const sideOk = (side: number) => Number.isFinite(side) && side >= MIN_SIDE && side <= MAX_SIDE;
 
-/** PNG 가 움직이는 것(APNG)인지: 그림 자료(IDAT) 앞에 acTL 청크가 있다. sharp 는 APNG 를 한 장으로 읽는다 */
+/** PNG 가 움직이는 것(APNG)인지: 이미지 데이터(IDAT) 앞에 acTL 청크가 있다. sharp 는 APNG 를 한 장으로 읽는다 */
 function isApng(file: string): boolean {
   const head = Buffer.alloc(64 * 1024);
   const fd = fs.openSync(file, "r");

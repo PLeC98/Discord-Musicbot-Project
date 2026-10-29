@@ -51,7 +51,7 @@ function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId
       await sendTo(channelOf(bot, bot.players.get(guildId)), view, LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 추가 알림 전송 실패:", error));
     },
     async dismissPlaceholder() {
-      /* 자리표시자를 표시하지 않았다 */
+      /* 대시보드는 자리표시자 메시지를 보내지 않아 지울 것이 없다 */
     },
   };
 }

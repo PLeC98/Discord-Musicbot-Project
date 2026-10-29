@@ -12,7 +12,7 @@ function sendProblem(res: Response, code: Code, params?: Params, extra?: Extra) 
   return res.status(body.status).type("application/problem+json").json(body);
 }
 
-/** 거절 결과(코드와 값)로 답한다. 값은 받는 쪽(화면)이 그 코드의 목록과 견준다 */
+/** 거절 결과(코드와 값)로 답한다. 값은 받는 쪽(화면)이 그 코드의 목록과 비교한다 */
 function refuseWith(res: Response, { code, ...params }: LooseProblem, extra?: Extra) {
   return sendProblem(res, code, params, extra);
 }

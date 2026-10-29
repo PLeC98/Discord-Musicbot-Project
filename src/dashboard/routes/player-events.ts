@@ -38,7 +38,7 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    // 상한은 멤버 확인(REST) 전에 본다. 이 경로는 요청 한도 밖이라 열고 닫기를 되풀이해도 묻는 수가 늘지 않게
+    // 상한은 멤버 확인(REST) 전에 본다. 이 경로는 요청 한도 밖이라 열고 닫기를 되풀이해도 REST 조회 수가 늘지 않게
     if (stream.atCap(user.id)) return sendProblem(res, "too-many-streams");
     const { ids } = await memberGuildIds(req, { http });
     const all = [...client.guilds.cache.values()];
@@ -61,7 +61,7 @@ async function botJoinedGuild(stream: PlayerStream, guild: Parameters<typeof mem
 
 /**
  * 게이트웨이에 재연결해 사용 불가(unavailable) 서버가 다시 사용 가능해졌다. discord.js 가 그 서버의 멤버 캐시를 다시 받는데 봇과 음성 채널 사람만 들어,
- * 연결을 연 사람이 빠져 소식이 끊긴다. 그 서버를 멤버로 확인했던 연결의 사람만 다시 가져온다(연결 수 × 서버 수만큼 묻지 않는다).
+ * 연결을 연 사람이 빠져 소식이 끊긴다. 그 서버를 멤버로 확인했던 연결의 사람만 다시 가져온다(연결 수 × 서버 수만큼 조회하지 않는다).
  * 그사이 나간 사람은 멤버가 아니라는 답을 받아 계속 빠진다
  */
 async function guildBack(stream: PlayerStream, guild: Parameters<typeof memberOf>[0]) {

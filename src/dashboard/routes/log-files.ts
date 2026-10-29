@@ -48,7 +48,7 @@ logFilesRouter.get("/file", requireOwner, (req, res) => {
   res.json(page satisfies FilePage);
 });
 
-// 내려받기: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다. 한 줄씩 흘려 보낸다
+// 다운로드: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다. 한 줄씩 흘려 보낸다
 logFilesRouter.get("/file/download", requireOwner, (req, res) => {
   const target = targetOf(req);
   if (!target) return sendProblem(res, "log-file-not-found");

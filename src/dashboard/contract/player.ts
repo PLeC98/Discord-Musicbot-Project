@@ -63,7 +63,7 @@ type PlayerState = {
   loop?: Loop;
   currentTrack: PlayingView | null;
   hasPrevious?: boolean;
-  /** 이전 곡을 누르면 틀 곡의 그림(없거나 이전 곡이 없으면 null). 휴대폰 앨범아트를 밀 때 옆 카드에 미리 띄운다 */
+  /** 이전 곡을 누르면 재생할 곡의 앨범아트(없거나 이전 곡이 없으면 null). 휴대폰에서 앨범아트를 밀 때 옆 카드에 미리 표시한다 */
   previousThumbnail?: string | null;
   autoplay?: boolean;
   /** 자동재생 장르의 식별자 · 보여 줄 이름(꺼져 있으면 null) */
@@ -82,7 +82,7 @@ type AutoplayGenres = { genres: Array<{ id: string; label: string; emoji: string
 /** 봇 · 나의 음성 채널 */
 type VoiceFlags = { botInVoice: boolean; userInVoice: boolean; sameVoice: boolean };
 
-/** 상태 읽기 · 부르기의 답. 재생 상태에 음성 채널과 이 사람이 할 수 있는 것을 더한다(화면 표시용, 막는 것은 경로마다 서버가 다시 본다) */
+/** 상태 읽기 · 부르기의 답. 재생 상태에 음성 채널과 이 사용자가 할 수 있는 것을 더한다(화면 표시용, 막는 것은 경로마다 서버가 다시 본다) */
 type PlayerRead = PlayerState & VoiceFlags & { hasPlayer: boolean; canControl: boolean; canAdd: boolean; canManage: boolean; userId: string };
 
 /** 대기열 더 보기 */

@@ -1,6 +1,6 @@
 /**
  * 본문 크기 상한. 대부분은 설정 몇 줄과 공지문(4096자)뿐이라 32kb 면 넉넉하다.
- * 판정 프롬프트와 캐시 DB 쓰기만 예외다: 로어북을 붙인 긴 프롬프트가 32kb 를 넘어 413 이 났고, 캐시 DB 쓰기는 조작을 200개까지 싣는다.
+ * 판정 프롬프트(로어북을 붙이면 32kb 를 넘는다)와 캐시 DB 쓰기(조작을 200개까지 싣는다)만 1mb 다.
  */
 import express, { type NextFunction, type Request, type Response } from "express";
 

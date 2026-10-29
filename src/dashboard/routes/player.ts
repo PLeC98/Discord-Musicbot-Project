@@ -23,13 +23,13 @@ import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as embeddedArt from "../../sources/embedded-art.ts";
 
-/** 곡 그림 경로의 한도: 일반 API 한도의 몇 배(대기열 그림이 한 화면에 100장까지 불린다. 주소마다 한 번이라 다시 묻지 않는다) */
+/** 앨범아트 경로의 한도: 일반 API 한도의 몇 배(대기열 앨범아트가 한 화면에 100장까지 불린다. 주소마다 한 번이라 다시 요청하지 않는다) */
 const ART_LIMIT_FACTOR = 5;
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
 
-// ── 재생 조작 ─────────────────────────────────────────────────────────────────
+// ── 재생 조작 ──
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
 // 받아들인 조작은 디스코드의 패널 채널에도 디스코드 조작과 같은 화면으로 알린다(discordNotice).
 
@@ -97,8 +97,8 @@ function readRoutes(router: Router) {
     res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(ctx.guild.id, t, offset + i)), total: queue.length } satisfies QueuePage);
   });
 
-  // 직접 링크 곡의 파일 태그 그림(다시 구운 JPEG). 그 서버의 지금 곡 · 대기열에서 찾은 그림만 답하고, 메모리 · 캐시 파일에서만 읽는다(통신하지 않는다).
-  // 주소의 지문이 그림의 내용이라 브라우저가 다시 묻지 않는다. 대기열 그림이 한꺼번에 불려 일반 API 한도와 따로, 넉넉히 센다
+  // 직접 링크 곡의 파일 태그 앨범아트(다시 인코딩한 JPEG). 그 서버의 지금 곡 · 대기열에서 찾은 이미지만 답하고, 메모리 · 캐시 파일에서만 읽는다(통신하지 않는다).
+  // 주소의 해시가 이미지 내용을 가리켜 브라우저가 다시 요청하지 않는다. 대기열 앨범아트가 한꺼번에 불려 일반 API 한도와 따로, 넉넉히 센다
   const artLimiter = limiter(() => config.dashboard.rateLimit.apiMax * ART_LIMIT_FACTOR);
   router.get("/:guildId/art/:file", requireAuth, artLimiter, async (req: Request<{ guildId: string; file: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
@@ -162,13 +162,13 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.previous(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
-    // 다음 곡을 튼 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
+    // 다음 곡을 재생한 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
     await ctx.player?.untilSwitched();
     announce(replies.previous(r.restarted, r.track));
     res.json(stateAfter(req));
   });
 
-  // Skip. DJ 계층이거나 현재 곡의 요청자 본인이면 가능
+  // 건너뛰기. DJ 계층이거나 현재 곡의 요청자 본인이면 가능
   router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -177,7 +177,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.skip(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
-    // 다음 곡을 튼 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
+    // 다음 곡을 재생한 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
     await ctx.player?.untilSwitched();
     announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
     res.json(stateAfter(req));
@@ -213,12 +213,12 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // Volume  { volume: 0-100 }. 화면은 드래그하는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
+  // 볼륨 { volume: 0 ~ 100 }. 화면은 드래그하는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
   const volumeLimiter = limiter(() => config.dashboard.rateLimit.apiMax);
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    // 디스코드 패널 채널에는 끄기를 멈춘 뒤 처음 값 → 마지막 값으로 한 번 알린다(채널도 그때 찾는다)
+    // 디스코드 패널 채널에는 드래그를 멈춘 뒤 처음 값 → 마지막 값으로 한 번 알린다(채널도 그때 찾는다)
     const by = dashboardActor(req);
     const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume), { settled: (from, to) => announcer(ctx.bot, ctx.player)(replies.volumeSet(from, to, by)) });
     if (!r.ok) return refuse(res, r);
@@ -323,7 +323,7 @@ function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
-  // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
+  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
@@ -365,7 +365,7 @@ function addRoutes(router: Router) {
     }
   });
 
-  // Continue a playlist  POST /:guildId/player/queue/more. 곡 추가와 같은 권한·제한
+  // 재생목록 더 넣기 POST /:guildId/player/queue/more. 곡 추가와 같은 권한·제한
   router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);

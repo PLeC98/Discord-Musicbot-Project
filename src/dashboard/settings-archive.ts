@@ -1,6 +1,6 @@
 // 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 공유 타입은 contract/settings-archive.
 //   settings  봇 설정만: 운영 조절값(PC 에 매인 쿠키 출처 · POToken 쓰기도) · 장르 · 활동 문구 · AI 설정 · 프롬프트. 서버별 설정 · 키 · 쿠키는 없다(설정 스냅샷 · 명령 전체 백업에 든다).
-//   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 예전에 봇 설정과 함께 내보낸 파일의 파비콘도 불러온다)
+//   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 봇 설정과 함께 파비콘을 담은 옛 형식 파일도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
 //   audio-cache  오디오 캐시: 캐시 파일 · 링크 데이터 · 직접 지정한 음원 · 연령 제한 · SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다
 // 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
@@ -59,7 +59,7 @@ type ArchiveJson = {
   /** settings 만 */
   tunables?: Record<string, string>;
   documents?: Partial<Record<DocItem, unknown>>;
-  /** favicon 만(예전 파일은 settings 에도). 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json 과 이미지 png). index.json 이 없으면 파비콘이 없는 파일로 본다 */
+  /** favicon 만(옛 형식 파일은 settings 에도). 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json 과 이미지 png). index.json 이 없으면 파비콘이 없는 파일로 본다 */
   favicons?: string[];
 };
 
@@ -238,7 +238,7 @@ async function rowFor(item: ArchiveItem, parsed: Parsed, aiDoc: unknown): Promis
 
 /** 파일의 종류(모르는 종류는 봇 설정만으로 본다) */
 const kindOf = (json: Partial<ArchiveJson>): ArchiveKind => ARCHIVE_KINDS.find((kind) => kind === json.kind) ?? "settings";
-/** 그 종류의 항목(예전에 봇 설정과 함께 내보낸 파비콘이 있으면 그것도) */
+/** 그 종류의 항목(옛 형식 파일처럼 봇 설정과 함께 담긴 파비콘이 있으면 그것도) */
 function itemsOf(parsed: Parsed): ArchiveItem[] {
   const kind = kindOf(parsed.json);
   if (kind === "audio-cache") return [...audioArchive.AUDIO_ITEMS];

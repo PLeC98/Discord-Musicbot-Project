@@ -15,14 +15,14 @@ import * as store from "../appearance.ts";
 
 /** 매니페스트가 부르는 아이콘 크기(안드로이드 홈 화면) */
 const MANIFEST_SIZES = [192, 256, 512];
-/** 봇 프로필 그림을 다운로드하는 크기(가장 큰 쓰는 크기) */
+/** 봇 프로필 이미지를 다운로드하는 크기(가장 큰 쓰는 크기) */
 const AVATAR_SIZE = 512;
-/** 링크로 다운로드하는 그림의 조건. Content-Type 이 없으면 다운로드해 보고 sharp 로 구분한다 */
+/** 링크로 다운로드하는 이미지의 조건. Content-Type 이 없으면 다운로드해 보고 sharp 로 구분한다 */
 const LINK_ACCEPT: safeUrl.Accept = { contentType: /^\s*image\/(png|webp|jpeg|svg\+xml)\s*(;|$)/i, maxBytes: APPEARANCE_MAX_BYTES, timeoutMs: 10_000 };
 /** sharp 가 읽은 형식 → 넘길 때의 Content-Type */
 const LINK_TYPES: Record<string, string> = { png: "image/png", webp: "image/webp", jpeg: "image/jpeg", svg: "image/svg+xml" };
 
-/** 봇 프로필 그림 주소. 프로필 그림을 안 정한 봇도 디스코드 기본 그림이 있다. 봇이 준비 전이면 null */
+/** 봇 프로필 이미지 주소. 프로필 이미지를 안 정한 봇도 디스코드 기본 이미지가 있다. 봇이 준비 전이면 null */
 const avatarUrl = (req: Request) => req.app.locals.bot.client.user?.displayAvatarURL({ size: AVATAR_SIZE, extension: "png" }) ?? null;
 /** 경로의 슬롯 크기. 쓰는 크기가 아니면 null */
 const sizeOf = (req: Request) => {
@@ -77,7 +77,7 @@ appearanceRouter.get("/favicon", (req, res) => {
   res.json(reply(req));
 });
 
-// 링크의 그림을 대신 다운로드해 그대로 넘긴다(브라우저가 다른 사이트의 그림을 직접 읽으면 CORS 에 막히는 일이 많다). 화면이 받아 정사각형인지 보고 크기에 추가한다.
+// 링크의 이미지를 대신 다운로드해 그대로 넘긴다(브라우저가 다른 사이트의 이미지를 직접 읽으면 CORS 에 막히는 일이 많다). 화면이 받아 정사각형인지 보고 크기에 추가한다.
 // 내부 주소 · 리다이렉트 · 크기 · 시간은 infra/safe-url 이 막는다. 막힌 까닭은 로그에만(봇이 내부망 탐지 도구가 되지 않게), 화면에는 image-link-failed 하나
 appearanceRouter.post("/favicon/fetch", async (req, res) => {
   const body = parse(FaviconLinkBody, req.body ?? {});
@@ -100,7 +100,7 @@ appearanceRouter.post("/favicon/fetch", async (req, res) => {
   res.type(type).send(data);
 });
 
-// 그림 본문 그대로(Content-Type: image/*). 상한을 넘으면 payload-too-large
+// 이미지 본문 그대로(Content-Type: image/*). 상한을 넘으면 payload-too-large
 appearanceRouter.put("/favicon/:size", express.raw({ type: "image/*", limit: APPEARANCE_MAX_BYTES }), (req: Request, res: Response) => {
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
@@ -128,7 +128,7 @@ appearanceRouter.delete("/favicon/:size/history/:id", (req, res) => {
   return changing(req, res, [`${size}px 의 기록에서 그림을 삭제했습니다`, `${size}px 기록에서 그림 삭제`], () => store.removeFavicon(size, req.params.id));
 });
 
-// 기록의 그림 미리 보기(슬롯 크기 png). id 는 다시 쓰지 않으므로 오래 캐시한다
+// 기록의 이미지 미리 보기(슬롯 크기 png). id 는 다시 쓰지 않으므로 오래 캐시한다
 appearanceRouter.get("/favicon/:size/history/:id", (req, res) => {
   const size = sizeOf(req);
   const png = size === null ? null : store.previewPng(size, req.params.id);

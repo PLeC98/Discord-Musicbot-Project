@@ -28,7 +28,7 @@ const ORDER: Record<ProcessSort, (a: ProcessRow, b: ProcessRow) => number> = {
 };
 // 같은 값끼리는 방향과 상관없이 오래된 것부터
 const oldestFirst = (a: ProcessRow, b: ProcessRow) => b.ageMs - a.ageMs || a.pid - b.pid;
-/** 정렬(제자리). 방향은 고른 열에만 걸린다 */
+/** 정렬(제자리). 방향은 선택한 열에만 걸린다 */
 function sortProcesses(rows: ProcessRow[], sort: ProcessSort, desc: boolean) {
   const order = ORDER[sort];
   const sign = desc ? -1 : 1;

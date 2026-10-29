@@ -17,7 +17,7 @@ const fileUrl = (id: string, ...parts: string[]) => ["/login-background", id, ..
 const FOREVER = "public, max-age=31536000, immutable";
 const NO_CACHE = "no-cache";
 
-/** 로그인 화면이 받는 것. 지금 배경이 걸 것(썸네일)이 없으면 none(봇 프로필 그림 배경) */
+/** 로그인 화면이 받는 것. 지금 배경이 걸 것(썸네일)이 없으면 none(봇 프로필 이미지 배경) */
 function publicOf(): LoginBackground {
   const { current, options } = store.loaded();
   const one = current ? store.find(current) : null;

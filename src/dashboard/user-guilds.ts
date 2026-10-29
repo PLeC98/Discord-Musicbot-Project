@@ -11,17 +11,17 @@ import { tokenStoreOf } from "./session-store.ts";
 /** 디스코드가 주는 서버 목록에서 읽는 필드. permissions 는 서버 단위 권한 비트 */
 type UserGuild = { id: string; name: string; icon: string | null; owner: boolean; permissions: string };
 
-/** 받은 목록을 세션마다 캐시한다. 이만큼 안이면 다시 묻지 않는다 */
+/** 받은 목록을 세션마다 캐시한다. 이만큼 안이면 다시 조회하지 않는다 */
 const KEEP_MS = 30_000;
-/** 갱신 버튼(fresh)도 이보다 자주는 묻지 않는다 */
+/** 갱신 버튼(fresh)도 이보다 자주는 조회하지 않는다 */
 const FRESH_GAP_MS = 10_000;
-/** 이만큼 쓰지 않은 캐시 항목은 지운다(로그아웃 없이 사라진 세션) */
+/** 이만큼 쓰지 않은 캐시 항목은 삭제한다(로그아웃 없이 사라진 세션) */
 const IDLE_MS = 10 * 60_000;
 
-// 캐시 항목. guilds 가 null 이면 토큰이 거절됐다(401): 다시 로그인할 때까지 묻지 않는다(401 은 디스코드의 IP 차단 한도에 든다)
+// 캐시 항목. guilds 가 null 이면 토큰이 거절됐다(401): 다시 로그인할 때까지 조회하지 않는다(401 은 디스코드의 IP 차단 한도에 든다)
 type Kept = { at: number; usedAt: number; guilds: UserGuild[] | null };
 const kept = new Map<string, Kept>();
-// 받는 중. 같은 세션이 한꺼번에 물으면(서버 목록과 SSE 연결) 진행 중인 요청 하나를 공유한다
+// 받는 중. 같은 세션이 한꺼번에 요청하면(서버 목록과 SSE 연결) 진행 중인 요청 하나를 공유한다
 const loading = new Map<string, Promise<UserGuild[]>>();
 
 const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
@@ -60,8 +60,8 @@ function keptList(hit: Kept | undefined, now: number, fresh: boolean) {
 
 /**
  * 사용자의 서버 전부. key 는 세션 ID(캐시 항목의 키), fresh 면 KEEP_MS 안이어도 다시 받는다(FRESH_GAP_MS 안이면 캐시된 것).
- * stale 이면 KEEP_MS 를 넘은 목록도 바로 주고 새로 받기는 뒤에서 한다(3초마다 묻는 표시가 디스코드를 기다리지 않게).
- * 디스코드가 거절하면 상태와 본문을 실은 오류를 던진다(discord-api). 401 을 받은 세션은 다시 로그인할 때까지 묻지 않고 401 로 던진다
+ * stale 이면 KEEP_MS 를 넘은 목록도 바로 주고 새로 받기는 뒤에서 한다(3초마다 갱신하는 표시가 디스코드를 기다리지 않게).
+ * 디스코드가 거절하면 상태와 본문을 실은 오류를 던진다(discord-api). 401 을 받은 세션은 다시 로그인할 때까지 조회하지 않고 401 로 던진다
  */
 async function userGuilds(key: string, token: string, options: ListOptions = {}): Promise<UserGuild[]> {
   const { fresh = false, stale = false, http = discordHttp, now = Date.now() } = options;

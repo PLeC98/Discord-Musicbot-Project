@@ -1,5 +1,5 @@
 // 로그인한 기기(설정 창 "계정"). 지금 사용자의 세션만 보이고 끊는다(세션 표에는 모든 사용자의 세션이 함께 있다).
-// 끊기는 최근 로그인만, 로그아웃과 같게: 그 세션의 디스코드 토큰 폐기 요청 · 서버 목록 캐시 지우기 · 세션 행 삭제.
+// 끊기는 최근 로그인만, 로그아웃과 같게: 그 세션의 디스코드 토큰 폐기 요청 · 서버 목록 캐시 삭제 · 세션 행 삭제.
 // 디스코드 토큰은 로그인마다 따로라 다른 기기의 것을 폐기해도 지금 기기의 토큰은 그대로다
 
 import express from "express";
@@ -16,7 +16,7 @@ import { bestEffort } from "../../infra/best-effort.ts";
 import { sendProblem } from "../problem.ts";
 import type { LoginDevices, SignedOut } from "../contract/identity.ts";
 
-/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 묻는다 */
+/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 조회한다 */
 type Places = { load(): Promise<boolean>; locate: Locate };
 
 /** http: 디스코드(토큰 폐기) */

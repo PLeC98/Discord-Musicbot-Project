@@ -1,10 +1,10 @@
-// IP 위치 DB(DB-IP City Lite, MMDB, CC BY 4.0 — 위치를 보이는 화면에 출처 링크). 로그인한 기기 목록이 공인 주소의 도시 · 지역 · 나라를 묻는다(login-devices).
-// 실행 파일이 아니라 숫자 표라 버전을 고정하지 않고 봇이 받는다: database/geoip/dbip-city-lite-YYYY-MM.mmdb(버전은 파일 이름).
-//   자동(GEOIP_AUTO_UPDATE): 가진 버전이 이번 달이 아니면 하루에 한 번 이번 달 버전에 HEAD 요청만 보내고, 있으면 받는다.
+// IP 위치 DB(DB-IP City Lite, MMDB, CC BY 4.0, 위치를 보이는 화면에 출처 링크를 단다). 로그인한 기기 목록이 공인 주소의 도시 · 지역 · 나라를 조회한다(login-devices).
+// 실행 파일이 아니라 숫자 표라 버전을 고정하지 않고 봇이 다운로드한다: database/geoip/dbip-city-lite-YYYY-MM.mmdb(버전은 파일 이름).
+//   자동(GEOIP_AUTO_UPDATE): 가진 버전이 이번 달이 아니면 하루에 한 번 이번 달 버전에 HEAD 요청만 보내고, 있으면 다운로드한다.
 //   수동: 운영자 패널의 확인(이번 달 · 지난달 중 가장 새 버전) · 업데이트.
-// 받기: 임시 파일에 압축을 풀며 받고 → 열어서 읽히는지 확인 → 옛 버전을 지우고 이름을 바꾼다. 실패하면 쓰던 파일을 그대로 쓴다.
+// 다운로드: 임시 파일에 압축을 풀며 받고 → 열어서 읽히는지 확인 → 옛 버전을 삭제하고 이름을 바꾼다. 실패하면 쓰던 파일을 그대로 쓴다.
 // 읽기: 파일 전체를 메모리에 올린다(약 130MB). 목록을 볼 때만 올리고 한동안 쓰지 않으면 내린다.
-// 끄면(GEOIP_ENABLED) 받지도 읽지도 않는다. 받은 파일은 지우지 않는다
+// 끄면(GEOIP_ENABLED) 받지도 읽지도 않는다. 받은 파일은 삭제하지 않는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -60,7 +60,7 @@ function versionsOnDisk(): string[] {
       .sort()
       .reverse();
   } catch (error) {
-    // 자리가 아직 없다(받은 적이 없다)
+    // 폴더가 아직 없다(다운로드한 적이 없다)
     if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 경로 읽기 실패: ${messageOf(error)}`);
     return [];
   }
@@ -230,7 +230,7 @@ function start() {
   try {
     for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
   } catch (error) {
-    // 자리가 아직 없다
+    // 폴더가 아직 없다
     if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 임시 파일 삭제 실패: ${messageOf(error)}`);
   }
   setTimeout(() => void autoCheck(), FIRST_CHECK_MS).unref();
@@ -245,7 +245,7 @@ function start() {
   });
 }
 
-// 테스트 시임. 자리 · 여는 것을 바꾼다. 인자 없이 부르면 진짜로
+// 테스트용: 폴더 · 여는 함수를 바꾼다. 인자 없이 부르면 실제 구현으로
 function _use({ dir = path.join(PROJECT.database, "geoip"), opener = (file: string) => maxmind.open<CityResponse>(file) }: { dir?: string; opener?: Open } = {}) {
   DIR = dir;
   open = opener;

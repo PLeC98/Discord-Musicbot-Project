@@ -95,7 +95,7 @@ function settingsBody({ min, max }: { min: number; max: number }) {
         .optional(),
       djRoleIds: z.array(z.string(BAD_ROLES), BAD_ROLES).optional(),
       botChannelId: z.union([z.null(), z.string()], { error: "bad-bot-channel" satisfies Code }).optional(),
-      // 연령 제한 콘텐츠를 틀 곳(store/guild-settings 의 agePlace)
+      // 연령 제한 콘텐츠를 재생할 곳(store/guild-settings 의 agePlace)
       agePlace: z.enum(AGE_PLACES, { error: "bad-request" satisfies Code }).optional(),
     },
     { error: "bad-settings" satisfies Code },
@@ -108,7 +108,7 @@ type SettingsRequest = z.input<ReturnType<typeof settingsBody>>;
 // ── 파비콘 ──
 
 const BAD_FAVICON = { error: "bad-request" satisfies Code };
-// 기록의 그림으로 교체 { id }
+// 기록의 이미지로 교체 { id }
 const FaviconUseBody = z.object({ id: z.string(BAD_FAVICON).min(1, BAD_FAVICON).max(64, BAD_FAVICON) }, BAD_FAVICON);
 // 링크로 추가 { url }. http · https 인지 · 내부 주소인지는 infra/safe-url 이 본다
 const FaviconLinkBody = z.object({ url: z.string(BAD_FAVICON).trim().min(1, BAD_FAVICON).max(2048, BAD_FAVICON) }, BAD_FAVICON);
@@ -123,7 +123,7 @@ const BackgroundCrop = z.object({ x: bgNumber(0, 1), y: bgNumber(0, 1), w: bgNum
 const BackgroundRange = z.tuple([bgNumber(0, Number.MAX_SAFE_INTEGER), bgNumber(0, Number.MAX_SAFE_INTEGER)], BAD_BACKGROUND).refine(([from, to]) => to - from >= 1, BAD_BACKGROUND);
 // 편집 적용 { crop, range, thumbAt }. 썸네일 장면은 구간 안
 const BackgroundEditBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable(), thumbAt: bgNumber(0, Number.MAX_SAFE_INTEGER).nullable() }, BAD_BACKGROUND).refine((edit) => edit.thumbAt === null || edit.range === null || (edit.thumbAt >= edit.range[0] && edit.thumbAt <= edit.range[1]), BAD_BACKGROUND);
-// 크기 어림 다시 세기 { crop, range }
+// 크기 추산 다시 세기 { crop, range }
 const BackgroundEstimateBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable() }, BAD_BACKGROUND);
 // 보일 위치 { x, y }(%)
 const BackgroundPositionBody = z.object({ x: bgNumber(0, 100), y: bgNumber(0, 100) }, BAD_BACKGROUND);

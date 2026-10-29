@@ -44,7 +44,7 @@ const INDEX = "index.json";
 
 type Kind = LoginBackgroundItem["kind"];
 type From = LoginBackgroundItem["from"];
-/** 크기 어림의 기록(편집을 적용하면 삭제한다) */
+/** 크기 추산의 기록(편집을 적용하면 삭제한다) */
 type Estimate = { perSecond: number[]; stillBytes: number; crop: LoginBackgroundCrop; counted: [number, number] | null; encodeRatio: number; rough: boolean };
 /** 인코딩한 것: 정지 그림 폭 · 대표색 · 장면 색 · 코덱마다의 HLS 단계(공개 응답이 쓴다) */
 type Media = { stills: number[]; color: string | null; scenes: LoginBackgroundScene[]; rungs: Partial<Record<LoginBackgroundCodec, LoginBackgroundRung[]>> };
@@ -215,7 +215,7 @@ function previousId(): string | null {
   );
 }
 
-/** 로그인 화면을 이 배경으로(null 이면 봇 프로필 그림). 쓰던 배경과 새 배경에 쓴 때를 적는다 */
+/** 로그인 화면을 이 배경으로(null 이면 봇 프로필 이미지). 쓰던 배경과 새 배경에 쓴 때를 적는다 */
 function show(id: string | null) {
   const state = loaded();
   const now = Date.now();

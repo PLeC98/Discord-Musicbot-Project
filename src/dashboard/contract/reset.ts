@@ -24,7 +24,7 @@ type StagedRestore = { snapshot: string | null; audioCache: boolean };
  * 카드가 줄마다 보이는 지금 양(GET /api/admin/reset). 확인 창이 "무엇이 삭제되는지"를 숫자로 보인다.
  * audioCache: 캐시 파일 수 · 크기(cached 만) · 링크 데이터 행 · 재생 확인 결과 · SponsorBlock 구간 · 연령 제한 · 직접 지정한 음원 /
  * botSettings: 저장된 운영 조절값 · 문서 · 비밀값 수(저장된 것이 곧 기본값과 다른 것) / guildSettings: 설정이 있는 서버 수 /
- * display: 올린 파비콘 그림 수(슬롯 · 기록) · 로그인 배경 기록 수(지금 배경 포함)
+ * display: 올린 파비콘 이미지 수(슬롯 · 기록) · 로그인 배경 기록 수(지금 배경 포함)
  */
 type ResetOverview = {
   audioCache: { files: number; bytes: number; ledger: number; checks: number; sponsorSegments: number; ageRestricted: number; pins: number };

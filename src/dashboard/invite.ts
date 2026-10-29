@@ -14,7 +14,7 @@ let appInfo: AppInfo | null = null;
 let loading: Promise<void> | null = null;
 
 /**
- * 앱 정보를 받는다(기동 마무리에서 한 번). 실패하면 초대 화면을 묻는 때 다시 받는다(한 번에 하나만).
+ * 앱 정보를 받는다(기동 마무리에서 한 번). 실패하면 초대 화면을 요청할 때 다시 받는다(한 번에 하나만).
  * 포털에서 Public Bot 을 바꾼 것은 다시 시작할 때 따라간다
  */
 function loadAppInfo(client: Client): Promise<void> {
@@ -32,7 +32,7 @@ function loadAppInfo(client: Client): Promise<void> {
   return loading;
 }
 
-/** 이 사람이 대시보드에서 봇을 초대할 수 있나. 앱 정보를 아직 못 받았으면 받기 시작하고 false */
+/** 이 사용자가 대시보드에서 봇을 초대할 수 있나. 앱 정보를 아직 못 받았으면 받기 시작하고 false */
 function canInvite(client: Client, userId: string) {
   if (!appInfo) {
     void loadAppInfo(client);
@@ -55,7 +55,7 @@ async function managedGuilds(key: string, token: string, options: Parameters<typ
   return guilds.filter(manages).map(({ id, name, icon }) => ({ id, name, icon }));
 }
 
-// 테스트 시임
+// 테스트용
 function _setAppInfo(info: AppInfo | null) {
   appInfo = info;
   loading = null;

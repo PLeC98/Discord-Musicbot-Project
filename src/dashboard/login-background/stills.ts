@@ -24,7 +24,7 @@ const COLOR_FRAMES = 20;
 /** 정지 그림 파일(공개 주소 /login-background/:id/still-<폭>.webp) */
 const stillFile = (id: string, width: number) => path.join(store.folderOf(id), `still-${width}.webp`);
 
-/** PNG 의 gAMA(1/감마, 없거나 sRGB · ICC 표시가 있으면 null). 그림 자료(IDAT) 앞의 청크만 본다 */
+/** PNG 의 gAMA(1/감마, 없거나 sRGB · ICC 표시가 있으면 null). 이미지 데이터(IDAT) 앞의 청크만 본다 */
 function pngGamma(file: string): number | null {
   const head = Buffer.alloc(64 * 1024);
   const fd = fs.openSync(file, "r");

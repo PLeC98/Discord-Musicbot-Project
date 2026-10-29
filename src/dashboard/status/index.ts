@@ -70,7 +70,7 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
     env: envStatus(commands.size, stream.subs.size, launcher),
     history: statusHistory(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
-    // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
+    // 그 칩을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
     logLevel: config.logging.level,
   };
 }

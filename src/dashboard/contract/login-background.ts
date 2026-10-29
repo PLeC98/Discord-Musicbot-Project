@@ -22,20 +22,20 @@ const LOGIN_BG_BLUR_MAX = 1.6;
 /** 오버레이 진하기 상한(%). 배경 불투명도 20% 까지 */
 const LOGIN_BG_COVER_MAX = 80;
 /**
- * 화면에서 거는 값의 처음 값. 블러는 지금 로그인 화면(봇 프로필 그림 배경)과 같다.
- * 오버레이 35% 는 지금 로그인 화면이 봇 그림의 밝기를 띠 안으로 모으는 정도와 가깝다
+ * 화면에서 거는 값의 처음 값. 블러는 지금 로그인 화면(봇 프로필 이미지 배경)과 같다.
+ * 오버레이 35% 는 지금 로그인 화면이 봇 프로필 이미지의 밝기를 띠 안으로 모으는 정도와 가깝다
  */
 const LOGIN_BG_OPTIONS_DEFAULT: LoginBackgroundOptions = { blur: 0.5, cover: 35, follow: true, seam: { kind: "cut", seconds: 1 } };
 /** 기록 · 저장 한도의 처음 값. maxBytes 0 이면 무제한 */
 const LOGIN_BG_LIMITS_DEFAULT: LoginBackgroundLimits = { history: 5, maxBytes: 10 * 1024 ** 3 };
 /** 기록 보관 개수의 상한 */
 const LOGIN_BG_HISTORY_MAX = 50;
-/** 인코딩 전 어림을 넉넉히 잡는 몫(넘을 것 같으면 알리기만, 인코딩한 뒤 실제 크기로 지킨다) */
+/** 인코딩 전 추산을 넉넉히 잡는 몫(넘을 것 같으면 알리기만, 인코딩한 뒤 실제 크기로 지킨다) */
 const LOGIN_BG_ESTIMATE_MARGIN = 1.3;
 
 /**
  * 만드는 단계. 앞의 셋은 편집 전, 나머지는 편집을 적용한 뒤다. 배경마다 해당하는 것만 한다.
- * receive 다운로드와 검사(형식 · 해상도 · 길이 · fps, 종류도 여기서 정한다, 유튜브는 480p) · preview 편집 창의 미리보기와 크기 어림 · strip 시간 막대 장면 띠(영상만) ·
+ * receive 다운로드와 검사(형식 · 해상도 · 길이 · fps, 종류도 여기서 정한다, 유튜브는 480p) · preview 편집 창의 미리보기와 크기 추산 · strip 시간 막대 장면 띠(영상만) ·
  * highRes 고해상도 다운로드(유튜브만, 영상 전체) · thumb 썸네일(가장 작은 폭)과 대표색 · stills 나머지 폭 · tones 장면 바뀜과 장면 색(영상만) ·
  * h264 H.264 720p(영상만) · encode AV1 · VP9 단계 전부(영상만) · drop 원본 삭제와 한도 지키기.
  * 인코딩(h264 · encode)은 봇 전체에서 한 번에 하나라 다른 배경을 인코딩하는 동안 그 단계에서 순서를 기다린다. 나머지는 순서와 상관없이 한다
@@ -67,7 +67,7 @@ type LoginBackgroundScene = { at: number; color: string | null };
 /** 로그인 화면에 쓰는 것. 화면에서 거는 값과 지금 배경의 보일 위치 */
 type LoginBackgroundLook = LoginBackgroundOptions & { position: LoginBackgroundPosition };
 /**
- * GET /api/login-background(로그인 전, 캐시하지 않음, ETag). none 이면 봇 프로필 그림 배경.
+ * GET /api/login-background(로그인 전, 캐시하지 않음, ETag). none 이면 봇 프로필 이미지 배경.
  * 파일 주소는 /login-background/:id/… 이고 id 는 배경마다 달라: 폭별 그림 · 세그먼트는 1년 immutable, HLS 목록(.m3u8)은 캐시하지 않는다.
  * 인코딩 중이면 생긴 것만 싣는다(썸네일 → H.264 → AV1 · VP9). 보고 있는 화면은 받은 그대로 두고 다음 방문부터 더한 것을 쓴다.
  * stills 는 이미지면 그 그림, 영상이면 운영자가 선택한 썸네일(첫 화면 · 마지막 폴백). color 는 대표색(장면 색과 같은 형식, 없으면 null).
@@ -82,12 +82,12 @@ type LoginBackgroundCrop = { x: number; y: number; w: number; h: number };
 /** 편집 창에서 정한 것. range 는 쓸 구간(초, 영상만), thumbAt 은 썸네일로 쓸 장면(초, 영상만, 구간 안) */
 type LoginBackgroundEdit = { crop: LoginBackgroundCrop; range: [number, number] | null; thumbAt: number | null };
 /**
- * 세트 크기 어림(편집 창의 예상 파일 크기 · 예상 인코딩 시간). 편집 전에만 싣는다.
+ * 세트 크기 추산(편집 창의 예상 파일 크기 · 예상 인코딩 시간). 편집 전에만 싣는다.
  * 원본을 받을 때 원본 전체를 한 번 빠르게 인코딩해 초마다의 세트 크기(perSecond, 그림은 빈다)를 둔다. 구간을 바꾸면 그 초를 더하기만 한다.
  * 크롭을 정하면 그 크롭 · 구간만 다시 센다: crop · counted 는 perSecond 를 잰 크롭과 구간(처음은 전체), counting 은 세는 중.
  * 선택한 크롭이 crop 과 다르거나 구간이 counted 밖이면 화면이 다시 세게 한다. stillBytes 는 정지 그림 세트.
- * encodeRatio 는 영상 1초를 인코딩하는 데 드는 초(이 기기에서 잰 어림의 속도에 미리 잰 세트 비율을 곱한 것).
- * rough 는 원본이 아닌 것으로 잰 어림(유튜브: 480p 로 재고 고해상도는 적용한 뒤에 다운로드한다)
+ * encodeRatio 는 영상 1초를 인코딩하는 데 드는 초(이 기기에서 잰 추산의 속도에 미리 잰 세트 비율을 곱한 것).
+ * rough 는 원본이 아닌 것으로 잰 추산(유튜브: 480p 로 재고 고해상도는 적용한 뒤에 다운로드한다)
  */
 type LoginBackgroundEstimate = { perSecond: number[]; stillBytes: number; crop: LoginBackgroundCrop; counted: [number, number] | null; counting: boolean; encodeRatio: number; rough: boolean };
 /**
@@ -147,7 +147,7 @@ type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | n
 type LoginBackgroundBake = { id: string; rungs: Array<{ codec: LoginBackgroundCodec; short: number }>; lp: number | null; cores: { bound: number | null; total: number }; speed: number | null };
 /**
  * GET /api/admin/appearance/login-background 와 바꾸는 요청들의 답. 진행은 인코딩하는 동안 이것을 다시 읽어 본다(운영자 패널의 상태 읽기와 같은 주기).
- * current 는 로그인 화면에 쓰는 배경. 새 배경은 썸네일이 생기면 current 가 되고, 그 전에는 쓰던 배경이 그대로다(없으면 봇 프로필 그림 배경).
+ * current 는 로그인 화면에 쓰는 배경. 새 배경은 썸네일이 생기면 current 가 되고, 그 전에는 쓰던 배경이 그대로다(없으면 봇 프로필 이미지 배경).
  * previous 는 로그인 화면에 걸었던 것 중 current 를 빼고 마지막으로 쓴 것(인코딩 취소 때 돌아갈 곳).
  * shows 는 로그인 화면에 지금 걸린 것, list 는 만드는 배경 · 쓰는 배경 · 기록(새것부터). usedBytes 는 list 전부, freeBytes 는 저장 위치 디스크의 남은 크기.
  * encoders 는 코덱마다의 인코더, checking 은 인코더를 테스트하는 중, bake 는 지금 도는 인코딩(없으면 null).
@@ -155,7 +155,7 @@ type LoginBackgroundBake = { id: string; rungs: Array<{ codec: LoginBackgroundCo
  *
  * POST /upload?name=(본문은 파일 그대로) · POST /link { url } 은 새 배경을 만든다(편집 전 단계가 끝나면 editing).
  * GET /:id/preview 는 편집 창의 미리보기(영상 480p · 그림, 원본과 함께 삭제한다), GET /:id/strip 은 시간 막대 장면 띠.
- * 카드 화면 판은 공개 파일(썸네일 · H.264 720p)이 생기면 그것을, 그 전에는 미리보기를 표시한다.
+ * 기록 카드는 공개 파일(썸네일 · H.264 720p)이 생기면 그것을, 그 전에는 미리보기를 표시한다.
  * PUT /:id/estimate { crop, range } 은 그 크롭 · 구간으로 다시 센다. PUT /:id/edit LoginBackgroundEdit 는 편집을 적용해 인코딩한다(editing 일 때만, 한 번만).
  * PUT /:id/position LoginBackgroundPosition. POST /:id/cancel 은 편집 취소 · 인코딩 취소이고, DELETE /:id(기록에서 삭제)도 만드는 중이면 같다.
  * PUT /current { id } 는 다 인코딩한 기록으로 교체하고, DELETE /current 는 비운다(기록은 남김).

@@ -34,7 +34,7 @@ class SqliteSessionStore extends Store {
   // dbPath 로 따로 연 파일(테스트). 닫을 때 같이 닫는다
   _own: DbFile | null = null;
 
-  // dbPath는 테스트 시임 (임시 DB. 운영 DB 미접촉). 없으면 함께 연 로그인 세션 DB
+  // dbPath 는 테스트용(임시 DB, 운영 DB 를 건드리지 않는다). 없으면 함께 연 로그인 세션 DB
   constructor({ dbPath, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
     super();
     if (dbPath) {
@@ -140,7 +140,7 @@ class SqliteSessionStore extends Store {
   }
 
   // ── 디스코드 접근 토큰 ──
-  // 로그인 때 받은 토큰을 세션 행에 암호문으로 둔다(세션 JSON 밖, 세션 ID 에 묶음). 세션 행과 함께 지워진다.
+  // 로그인 때 받은 토큰을 세션 행에 암호문으로 둔다(세션 JSON 밖, 세션 ID 에 묶음). 세션 행과 함께 삭제된다.
   // 세션을 저장(set)해도 이 열은 그대로다
 
   /** 그 세션 행에 토큰을 적는다. 행이 없으면(아직 저장 전) false */
@@ -148,14 +148,14 @@ class SqliteSessionStore extends Store {
     return this.db.prepare("UPDATE sessions SET discord_token = ? WHERE sid = ?").run(secrets.sealBlob(TOKEN_PURPOSE, token, sid), sid).changes > 0;
   }
 
-  /** 토큰. 없거나 풀리지 않으면(다른 SECRETS_KEY · 다른 행에서 옮김) null */
+  /** 토큰. 없거나 복호화되지 않으면(다른 SECRETS_KEY · 다른 행에서 옮김) null */
   readDiscordToken(sid: string) {
     const blob = this.db.prepare("SELECT discord_token FROM sessions WHERE sid = ? AND expires_at > ?").pluck().get(sid, Date.now()) as Buffer | null | undefined;
     return blob ? secrets.openBlob(TOKEN_PURPOSE, blob, sid) : null;
   }
 }
 
-// 비밀값과 다른 키로 잠근다(store/secrets 의 용도)
+// 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
 const TOKEN_PURPOSE = "discord-token";
 
 export { SqliteSessionStore };

@@ -12,7 +12,7 @@ type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: numb
 type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
 
 /**
- * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
+ * 대시보드 플레이어 상태 변화 넛지(SSE).
  *
  * 화면의 탭 하나가 연결 하나를 연다. 그 연결이 사용자가 볼 수 있는 서버 전체의 신호를 싣는다(보기 권한은 보낼 때 확인한다).
  * 서버 목록 · 재생 바 · 서버 화면이 같은 연결을 나눠 쓴다.

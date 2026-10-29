@@ -49,7 +49,7 @@ type Refusal = { ok: false; code: Code; params?: Params; errors?: FieldProblem[]
 const refusal = (code: Code, errors?: FieldProblem[], params?: Params): Refusal => ({ ok: false, code, ...(params ? { params } : {}), ...(errors ? { errors } : {}) });
 const firstOf = (errors: FieldProblem[]): Refusal => refusal(errors[0].code, errors, errors[0].max !== undefined ? { max: errors[0].max } : undefined);
 
-// ── 행 잇기 ──────────────────────────────────────────────────────────────────
+// ── 행 잇기 ──
 
 type Sources = { ledger: LookupRow[]; pins: pinnedSources.Pin[]; files: Map<string, audioCache.AudioRow>; age: Map<string, number>; checks: Map<string, sourceChecks.Check> };
 
@@ -159,7 +159,7 @@ function rawOf(row: AnyRow, column: string): string | number | null {
 const sortValueOf = (row: AnyRow, column: string) => (column === "check" ? ((row as TrackRequestRow).check?.at ?? null) : column === "source" ? ((row as TrackFileRow).source?.at ?? null) : rawOf(row, column));
 const KEY_OF: Record<TrackCacheTable, string> = { requests: "requestKey", files: "audioKey", age: "videoId" };
 
-// ── 읽기 ────────────────────────────────────────────────────────────────────
+// ── 읽기 ──
 
 /** 필터링 한 번의 시간 상한. 음악 재생과 같은 이벤트 루프라 길게 막지 않는다(겹친 반복 거절을 빠져나간 정규식) */
 const FILTER_TIME_MS = 100;
@@ -229,7 +229,7 @@ function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } 
 
 const problemOf = (pointer: string, problem: { code: Code; max?: number }): FieldProblem => ({ pointer, code: problem.code, ...(problem.max ? { max: problem.max } : {}) });
 
-// 열마다의 식과 아무 열에서나의 낱말을 읽어 행 하나를 보는 함수로
+// 열마다의 식과 아무 열에서나의 단어를 읽어 행 하나를 보는 함수로
 function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) => boolean } | Refusal {
   const kinds = TRACK_CACHE_COLUMN_KINDS[query.table] as Record<string, ColumnKind>;
   const errors: FieldProblem[] = [];
@@ -279,7 +279,7 @@ function read(query: TrackCacheQuery): { ok: true; page: TrackCachePage } | Refu
   return { ok: true, page: { table, rows: matched.slice(offset, offset + limit), offset, total: all.length, matched: matched.length, revision, checkRevision } as TrackCachePage };
 }
 
-// ── 쓰기 ────────────────────────────────────────────────────────────────────
+// ── 쓰기 ──
 
 // 모두 검사(하나라도 걸리면 아무것도 쓰지 않는다). 새 행의 요청 키는 다듬은 것으로 바꿔 둔다
 function validate(ops: TrackCacheOp[]): { ok: true; ops: TrackCacheOp[] } | Refusal {
@@ -319,7 +319,7 @@ function applyDbOp(op: Exclude<TrackCacheOp, { op: "deleteFile" }>): TrackCacheO
   return externalCaches.clearAgeRestricted(op.videoId, op.expect);
 }
 
-// 캐시 파일 삭제 하나(정리 잠금 안). 지운 바이트는 화면에 보내지 않는다
+// 캐시 파일 삭제 하나(정리 잠금 안). 삭제한 바이트는 화면에 보내지 않는다
 async function applyFileOp(op: Extract<TrackCacheOp, { op: "deleteFile" }>): Promise<TrackCacheOpResult> {
   const removed = await audioCache.removeCached(op.audioKey, op.expect);
   return removed.ok ? { ok: true } : removed;

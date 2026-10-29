@@ -36,7 +36,7 @@ function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number,
   const gop = ["-g", String(g)];
   if (codec === "av1") return ["-c:v", "libsvtav1", "-preset", "6", "-crf", short >= UHD ? "32" : "30", "-maxrate", short >= UHD ? "25000k" : "10000k", "-pix_fmt", "yuv420p10le", ...gop];
   if (codec === "vp9") return ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34", "-deadline", "good", "-cpu-used", "4", "-row-mt", "1", "-tile-columns", short >= UHD ? "3" : "2", "-auto-alt-ref", "1", "-lag-in-frames", "25", "-pix_fmt", "yuv420p", ...gop];
-  // H.264: NVENC 는 VBR 2.2M(OpenH264 2.5M 과 크기가 같고 화질이 높다), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(hls.js 가 반복으로 되감을 때 bufferSeekOverHole 을 냈다)
+  // H.264: NVENC 는 VBR 2.2M(OpenH264 2.5M 과 크기가 같고 화질이 높다), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(있으면 hls.js 가 반복 재생으로 되감을 때 bufferSeekOverHole 을 낸다)
   if (encoder === "h264_nvenc") return ["-c:v", "h264_nvenc", "-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
   // x264: OpenH264 와 같은 2.5M 규격(2초 최대가 3M 안에 들게 VBV 를 그만큼으로)
   if (encoder === "libx264") return ["-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "2500k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
@@ -118,7 +118,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
     fs.mkdirSync(dir, { recursive: true });
   }
   const labels = plans.map((_, i) => `o${i}`);
-  // AV1 은 10비트로 줄인다(8비트는 어두운 면에 얼룩이 진다)
+  // AV1 은 10비트로 인코딩한다(8비트는 어두운 면에 얼룩이 진다)
   const format = (plan: Plan) => (plan.codec === "av1" ? "yuv420p10le" : "yuv420p");
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
   const graph = `${sourceFilter(probed, edit.crop, { from, to })}${split}`;

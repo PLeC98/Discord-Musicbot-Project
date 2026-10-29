@@ -30,7 +30,7 @@ function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    // 사용자가 든 서버만 멤버 판정을 한다(봇이 든 서버마다 묻지 않는다). 목록을 받지 못하면 이미 확인한 서버(멤버 캐시)만
+    // 사용자가 든 서버만 멤버 판정을 한다(봇이 든 서버마다 조회하지 않는다). 목록을 받지 못하면 이미 확인한 서버(멤버 캐시)만
     const { ids, relogin } = await memberGuildIds(req, { http });
     const candidates = [...client.guilds.cache.values()].filter((guild) => (ids ? ids.has(guild.id) : seesGuild(guild, user.id)));
     const rows = await Promise.all(

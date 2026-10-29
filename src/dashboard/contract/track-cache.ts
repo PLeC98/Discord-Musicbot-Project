@@ -41,17 +41,17 @@ const TRACK_CACHE_FILE_DELETES_MAX = 100;
 /** 재생 확인을 한 번에 큐에 넣는 수 상한 */
 const TRACK_CACHE_PROBE_MAX = 20;
 
-// ── 행 ──────────────────────────────────────────────────────────────────────
+// ── 행 ──
 
 /** 캐시 파일의 상태. none: 행이 없다(밀려났거나 다운로드한 적 없음, 음원 키를 계산할 수 없는 주소 포함) */
 type TrackFileStatus = "cached" | "downloading" | "error" | "none";
 
-/** 재생 확인 결과. 운영자가 누른 확인과 직접 지정한 음원이 틀다 죽은 것이 같은 위치에 남는다. code 는 실패한 까닭(라이브면 "live") */
+/** 재생 확인 결과. 운영자가 누른 확인과 직접 지정한 음원이 재생 중 실패한 것이 같은 위치에 남는다. code 는 실패한 까닭(라이브면 "live") */
 type TrackCheck = { ok: true; at: number } | { ok: false; code: Code | "live"; at: number };
 
 /**
- * 캐시 파일의 원본: 받은 뒤 마지막 확인(재생 테스트 · 캐시로 튼 곡의 다시 확인)에서 본 것. 받은 뒤 확인하지 않았으면 null.
- * same 캐시와 같은 원본 · changed 원본이 바뀜(다시 받으려면 캐시 파일 삭제) · ok 열리지만 버전은 견주지 못함 · gone 원본에서 틀 수 없음(code 는 까닭)
+ * 캐시 파일의 원본: 받은 뒤 마지막 확인(재생 테스트 · 캐시로 재생한 곡의 재확인)에서 본 것. 받은 뒤 확인하지 않았으면 null.
+ * same 캐시와 같은 원본 · changed 원본이 바뀜(다시 받으려면 캐시 파일 삭제) · ok 열리지만 버전은 비교하지 못함 · gone 원본을 재생할 수 없음(code 는 까닭)
  */
 type TrackSource = { state: "same" | "changed" | "ok"; at: number } | { state: "gone"; code: Code | "live"; at: number };
 
@@ -115,7 +115,7 @@ type TrackAgeRow = { videoId: string; markedAt: number };
 
 type TrackCacheRow<T extends TrackCacheTable = TrackCacheTable> = { requests: TrackRequestRow; files: TrackFileRow; age: TrackAgeRow }[T];
 
-// ── 읽기(GET /api/admin/track-cache) ───────────────────────────────────────
+// ── 읽기(GET /api/admin/track-cache) ──
 
 type TrackCacheSort<T extends TrackCacheTable = TrackCacheTable> = ReadonlyArray<{ column: TrackCacheColumn<T>; dir: "asc" | "desc" }>;
 
@@ -136,8 +136,8 @@ type TrackCacheQuery<T extends TrackCacheTable = TrackCacheTable> = {
 }[T];
 
 /**
- * 읽은 구간. total: 그 표의 전부 · matched: 필터에 맞는 것. revision 은 이 표들에 쓰면 오르는 리비전 번호(다르면 화면이 "새 변경 사항이 있어요" 알약),
- * checkRevision 은 재생 확인 결과의 번호(운영자가 누른 확인은 알약을 표시하지 않게 따로)
+ * 읽은 구간. total: 그 표의 전부 · matched: 필터에 맞는 것. revision 은 이 표들에 쓰면 오르는 리비전 번호(다르면 화면이 "새 변경 사항이 있어요" 칩),
+ * checkRevision 은 재생 확인 결과의 번호(운영자가 누른 확인은 칩을 표시하지 않게 따로)
  */
 type TrackCachePage<T extends TrackCacheTable = TrackCacheTable> = {
   [K in T]: { table: K; rows: Array<TrackCacheRow<K>>; offset: number; total: number; matched: number; revision: number; checkRevision: number };
@@ -155,7 +155,7 @@ function trackCacheSearch(query: TrackCacheQuery): URLSearchParams {
   return search;
 }
 
-// ── 쓰기(POST /api/admin/track-cache) ──────────────────────────────────────
+// ── 쓰기(POST /api/admin/track-cache) ──
 
 /**
  * 조작 하나. expect 는 화면이 본 값(그사이 봇이 바꿨으면 그 조작은 "changed" 로 막힌다). 봇이 늘 다시 쓰는 열(재생 수 · 마지막 재생)은 비교하지 않는다.
@@ -195,7 +195,7 @@ type TrackCacheInspected = {
   audio?: { ok: true; canonical: string; kind: string; audioKey: string } | { ok: false; code: Code };
 };
 
-// ── 재생 확인 ───────────────────────────────────────────────────────────────
+// ── 재생 확인 ──
 
 /** 재생 확인 큐에 넣기(POST /api/admin/track-cache/probe). 쓰기 전 값이 있으면 그 주소로. 곧바로 돌아오고 봇이 하나씩 순서대로 한다 */
 type TrackCacheProbe = { audioUrls: string[] };

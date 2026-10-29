@@ -20,7 +20,7 @@ const statusOf = (error: unknown) => (error as { response?: { status?: number } 
 function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
 
-  // fresh=1: 갱신 버튼. 잠깐 캐시된 목록을 건너뛰고 디스코드에 다시 묻는다
+  // fresh=1: 갱신 버튼. 잠깐 캐시된 목록을 건너뛰고 디스코드에 다시 조회한다
   router.get("/", requireAuth, async (req, res) => {
     const { client } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
@@ -39,7 +39,7 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
       res.json({ state: "ready", guilds } satisfies InviteList);
     } catch (error) {
       const status = statusOf(error);
-      // 토큰이 만료됐거나 사용자가 디스코드에서 승인을 거뒀다
+      // 토큰이 만료됐거나 사용자가 디스코드에서 승인을 취소했다
       if (status === 401) return res.json(relogin);
       if (status === 429) return sendProblem(res, "rate-limited");
       log.warn(`초대 화면의 서버 목록을 디스코드에서 불러오지 못했습니다: ${status ? `상태 코드 ${status}` : messageOf(error)}`);

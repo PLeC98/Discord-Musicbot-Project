@@ -1,5 +1,5 @@
 // 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십 · 권한 수준 오버라이드.
-// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 권한대로다(ref-dashboard-security "서버 접근")
+// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 권한대로다
 
 import { RESTJSONErrorCodes, type Guild, type GuildMember } from "discord.js";
 import type { Request, Response } from "express";
@@ -25,7 +25,7 @@ type MemberSource = { id: string; available?: boolean; members: { fetch(options:
 
 /**
  * 이 사용자가 지금 이 서버의 멤버인가(보고 조작하는 권한 판정의 진입점 하나). 멤버 캐시 → REST. 답은 따로 캐시하지 않는다(캐시하면 언제 낡을지 모른다).
- * 재연결 직후 그 서버의 GUILD_CREATE 전에는(사용 불가(unavailable) 서버) 옛 멤버가 캐시에 남아 있으므로 캐시를 건너뛰고 묻는다
+ * 재연결 직후 그 서버의 GUILD_CREATE 전에는(사용 불가(unavailable) 서버) 옛 멤버가 캐시에 남아 있으므로 캐시를 건너뛰고 REST 로 조회한다
  */
 function memberOf(guild: MemberSource, userId: string): Promise<GuildMember | null> {
   const asked = guild.available === false ? guild.members.fetch({ user: userId, force: true }) : guild.members.fetch(userId);
@@ -63,7 +63,6 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다. 이 한 곳이면 아래의
   // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
   const member = shadowMember(req, fetched);
-  // 재생 조작을 하는 사람
   const actor: Actor = { member };
   return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };
 }

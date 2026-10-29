@@ -69,13 +69,13 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 
-// 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 묻는다: 오래됐으면 reauth-required 로 로그인 창을 먼저 띄우고, 확인 창은 로그인을 마친 뒤에 연다
+// 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 확인한다: 오래됐으면 reauth-required 로 로그인 창을 먼저 열고, 확인 창은 로그인을 마친 뒤에 연다
 adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
   res.status(204).end();
 });
 
 // 봇 · Node · 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
-// 플레이어 행의 멤버 표시는 사용자의 서버 목록으로(3초마다 디스코드를 기다리지 않게 stale 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 묻지 않는다
+// 플레이어 행의 멤버 표시는 사용자의 서버 목록으로(3초마다 디스코드를 기다리지 않게 stale 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 조회하지 않는다
 adminRouter.get("/status", requireOwner, async (req, res) => {
   const query = statusQueryOf(req.query);
   const { ids } = query.players.count ? await memberGuildIds(req, { stale: true }) : { ids: null };
@@ -191,7 +191,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
 // 조립(app/main)이 app.locals 로 넘긴다. 대시보드가 app 층을 부르지 않는다
 adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
-  const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도. 지문 무시
+  const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼은 명시적 재배포라 해시가 같아도 등록한다
   if (r.ok) {
     // 개수는 디스코드가 등록을 받고 돌려준 것이다
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 다시 등록했습니다.`);
@@ -201,7 +201,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
 });
 
-// ── 설정 문서(장르 · 상태 문구 · AI 설정, settings.db) ──────────────────────
+// ── 설정 문서(장르 · 상태 문구 · AI 설정, settings.db) ──
 //
 // 사람이 손으로 고치는 파일이 아니라 대시보드가 고치는 문서다(config/documents). 저장 번호로 두 탭이 서로 덮지 않게 한다.
 
@@ -215,11 +215,11 @@ const TIDIERS: Partial<Record<string, (data: unknown) => unknown>> = { genres: g
 // 검증·실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
 // 한쪽만 고치게 된다.
 adminRouter.get("/source-types", requireOwner, async (req, res) => {
-  // AnimeThemes 연도 범위를 저쪽에 물어 채우므로 비동기다(하루에 한 번만 묻고 캐시한다)
+  // AnimeThemes 연도 범위를 그쪽에 조회해 채우므로 비동기다(하루에 한 번만 조회하고 캐시한다)
   res.json({ types: await autoplaySources.catalog() } satisfies SourceTypes);
 });
 
-// 소스 편집기의 자동완성(VocaDB 계열의 태그 · 가수). 브라우저가 저쪽에 바로 묻지 않고 여기를 거친다.
+// 소스 편집기의 자동완성(VocaDB 계열의 태그 · 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.
 // 저쪽 CORS 를 모르고, 바깥으로 나가는 요청은 봇 User-Agent 로 나가야 한다
 const SUGGEST_TERM_MAX = 100;
 adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
@@ -274,7 +274,7 @@ adminRouter.get("/ai/fields", requireOwner, (req, res) => {
   } satisfies AiFields);
 });
 
-// 앤트로픽에 물은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 어림한다)
+// 앤트로픽에서 받은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 추산한다)
 async function countByClaude(texts: string[], provider: string, model: string) {
   const apiKey = assist.storedKey({ provider });
   const wrap = tokens.FRAMING.anthropic.perRequest;
@@ -290,7 +290,7 @@ async function countByClaude(texts: string[], provider: string, model: string) {
   return each.every((one): one is number => one !== null) ? each : null;
 }
 
-// 입력란마다의 본문 토큰. 클로드는 저쪽에 묻고, 못 받으면 tik 로 어림한다
+// 입력란마다의 본문 토큰. 클로드는 앤트로픽에 조회하고, 못 받으면 tik 로 추산한다
 async function countBodies(texts: string[], provider: string, model: string) {
   const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
   const exact = by === "claude" ? await countByClaude(texts, provider, model) : null;
@@ -301,7 +301,7 @@ async function countBodies(texts: string[], provider: string, model: string) {
 
 /**
  * 프롬프트 입력란에 적는 동안 세어 보는 곳. 본문만 센다(감싸는 몫은 미리보기에서 본다).
- * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
+ * 클로드는 공개 토크나이저가 없어 앤트로픽 API 로 센다. 무료이고 정확하다.
  * 세기가 상한에 걸리면(공백 없는 아주 긴 글) 503 으로 답한다
  */
 adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
@@ -317,7 +317,7 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
   }
 });
 
-/** 값표 갱신. 바뀌었으면 true. 못 불러와도 모델 프로필 갱신은 그대로 둔다(가진 값표로 계속 센다) */
+/** 가격표 갱신. 바뀌었으면 true. 못 불러와도 모델 프로필 갱신은 그대로 둔다(가진 가격표로 계속 센다) */
 async function refreshPrices() {
   try {
     return (await prices.refresh()).changed;
@@ -327,7 +327,7 @@ async function refreshPrices() {
   }
 }
 
-/** 모델 프로필 · 값표 갱신. 해시가 같으면 불러오지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
+/** 모델 프로필 · 가격표 갱신. 해시가 같으면 불러오지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
     const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
@@ -486,7 +486,7 @@ adminRouter.post("/ai/models", requireOwner, async (req, res) => {
   res.json(await assist.listModels(req.body?.data || {}));
 });
 
-// 유료 확인. 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
+// 유료 확인. 짧은 요청 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
 adminRouter.post("/ai/ping", requireOwner, async (req, res) => {
   res.json(await assist.ping(req.body?.data || {}));
 });
@@ -523,7 +523,7 @@ adminRouter.put("/age-content", requireOwner, (req, res) => {
   res.json(next satisfies AgeContent);
 });
 
-// IP 위치 DB(dashboard/geoip). 받기는 오래 걸려(약 60MB) 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
+// IP 위치 DB(dashboard/geoip). 다운로드는 오래 걸려(약 60MB) 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
 adminRouter.get("/geoip", requireOwner, (_req, res) => {
   res.json(geoip.status() satisfies GeoipStatus);
 });
@@ -535,7 +535,7 @@ adminRouter.post("/geoip/check", requireOwner, async (_req, res) => {
 adminRouter.post("/geoip/update", requireOwner, (req, res) => {
   log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
   geoip.update().catch(() => {
-    /* 까닭은 geoip 가 로그에 남긴다(받기 실패는 상태의 error 에도) */
+    /* 까닭은 geoip 가 로그에 남긴다(다운로드 실패는 상태의 error 에도) */
   });
   res.status(202).json(geoip.status() satisfies GeoipStatus);
 });

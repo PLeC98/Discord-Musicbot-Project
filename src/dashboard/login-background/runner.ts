@@ -12,10 +12,10 @@ import * as store from "./store.ts";
 
 /** 단계 하나의 일. item 은 지금 기록(바꾸지 않는다), folder 는 배경의 폴더, signal 은 취소, progress 는 그 단계의 0 ~ 1 */
 type StageJob = { item: Readonly<store.Stored>; folder: string; signal: AbortSignal; progress: (value: number) => void };
-/** 단계가 알아낸 것(다운로드: 종류 · 크기 · 길이, 미리보기: 어림, 장면 띠, 인코딩한 것). 기록에 덧쓴다 */
+/** 단계가 알아낸 것(다운로드: 종류 · 크기 · 길이, 미리보기: 추산, 장면 띠, 인코딩한 것). 기록에 덧쓴다 */
 type StageResult = Partial<Pick<store.Stored, "kind" | "width" | "height" | "duration" | "fps" | "strip" | "estimate" | "media">>;
 type Executor = (job: StageJob) => Promise<StageResult | void>;
-/** 크기 어림 다시 세기(편집 창에서 크롭을 정했을 때): 그 크롭 · 구간의 어림 */
+/** 크기 추산 다시 세기(편집 창에서 크롭을 정했을 때): 그 크롭 · 구간의 추산 */
 type Recounter = (job: { item: Readonly<store.Stored>; folder: string; crop: LoginBackgroundCrop; range: [number, number] | null; signal: AbortSignal }) => Promise<store.Estimate>;
 
 type Run = { stage: LoginBackgroundStage; controller: AbortController; progress: number };
@@ -35,12 +35,12 @@ function useExecutors(map: Partial<Record<LoginBackgroundStage, Executor>>) {
   executors = { ...executors, ...map };
 }
 
-/** 크기 어림을 다시 세는 일을 단다 */
+/** 크기 추산을 다시 세는 일을 단다 */
 function useRecounter(fn: Recounter) {
   recounter = fn;
 }
 
-/** 그 크롭 · 구간으로 크기 어림을 다시 센다(세던 것은 멈춘다). 편집을 적용하기 전에만 쓴다 */
+/** 그 크롭 · 구간으로 크기 추산을 다시 센다(세던 것은 멈춘다). 편집을 적용하기 전에만 쓴다 */
 function recount(one: store.Stored, crop: LoginBackgroundCrop, range: [number, number] | null) {
   stopCounting(one.id);
   if (!recounter) return;

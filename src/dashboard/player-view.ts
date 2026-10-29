@@ -13,7 +13,7 @@ import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 
 /**
- * 화면에 거는 곡 그림. 곡 그림 주소가 있으면 그것, 직접 링크 곡이면 찾아 둔 파일 태그의 그림(이 봇의 경로, 지문이 그림의 내용). 모르면 null(아이콘).
+ * 화면에 거는 앨범아트. 앨범아트 주소가 있으면 그것, 직접 링크 곡이면 찾아 둔 파일 태그의 이미지(이 봇의 경로, 해시가 이미지 내용을 가리킨다). 모르면 null(아이콘).
  * 찾기를 시작하지 않는다(읽기만. 찾으면 플레이어가 새로 그리게 알린다)
  */
 function trackArtUrl(guildId: string | undefined, track: Pick<QueuedTrack, "thumbnail" | "audioUrl">): string | null {
@@ -79,7 +79,7 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
 const BOOT = Date.now();
 let made = 0;
 
-// 이전 곡의 그림. 가짜 플레이어(테스트)는 필드가 없을 수 있다
+// 이전 곡의 앨범아트. 가짜 플레이어(테스트)는 필드가 없을 수 있다
 function previousArt(player: Player) {
   if (!player.previousTracks || !player.queue) return null;
   const prev = trackState.previousOf(player);
@@ -111,7 +111,7 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
     autoplay: Boolean(player.autoplay),
     autoplayGenre: player.autoplay || null,
     autoplayGenreLabel: player.autoplay ? genreConfig.labelOf(player.autoplay) : null,
-    // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
+    // 반복 버튼을 비활성화할지 정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
     hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map((t, i) => queueTrack(player.guild?.id, t, i)),
     queueTotal: player.queue?.length ?? 0,

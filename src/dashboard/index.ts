@@ -161,7 +161,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
-  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE 연결 · 볼륨은 뺀다(rate-limits)
+  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE 연결 · 볼륨 · 앨범아트는 뺀다(rate-limits)
   app.use(
     "/api",
     limiter(() => rl.apiMax, { skip: unlimited }),
@@ -190,7 +190,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/guilds", createGuildsRouter({ stream }));
   app.use("/api/invite", createInviteRouter());
 
-  // 지금 로그인한 사람(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
+  // 지금 로그인한 사용자(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
   app.use("/api/me/devices", createLoginDevicesRouter({ places: geoip }));
   app.use("/api", identityRouter);
 
@@ -212,7 +212,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   sweepUploads();
   // AI 리퀘스트 로그: 새 기록을 SSE 연결로 보낸다(서버 이름을 붙여). 저장 용량을 줄이면 곧바로 맞춘다
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
-  // IP 위치 DB: 자동 업데이트면 새 버전을 받는다(로그인한 기기의 위치)
+  // IP 위치 DB: 자동 업데이트면 새 버전을 다운로드한다(로그인한 기기의 위치)
   geoip.start();
   onTunablesChanged(() => {
     aiLogStream.syncHeartbeat();

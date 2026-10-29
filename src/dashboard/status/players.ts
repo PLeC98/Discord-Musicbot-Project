@@ -13,7 +13,7 @@ import { cut } from "../list-window.ts";
 
 /**
  * viewerId 가 그 서버 멤버로 보이나(멤버가 아니면 화면은 그 서버 화면으로 잇지 않는다). 멤버 캐시에 있거나 사용자의 서버 목록(memberIds)에 있으면 참.
- * 표시만이다(3초마다 서버마다 묻지 않는다). 그 서버를 여는 것은 openGuild 가 본다. memberIds 가 null 이면(목록을 받지 못함) 멤버 캐시만
+ * 표시만이다(3초마다 서버마다 조회하지 않는다). 그 서버를 여는 것은 openGuild 가 본다. memberIds 가 null 이면(목록을 받지 못함) 멤버 캐시만
  */
 function looksMember(client: Client, guildId: string, viewerId: string, memberIds: ReadonlySet<string> | null) {
   return Boolean(client.guilds.cache.get(guildId)?.members.cache.has(viewerId) || memberIds?.has(guildId));

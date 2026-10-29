@@ -51,7 +51,7 @@ type AiLogEntry = {
   candidates?: number;
   /** 응답에서 읽은 토큰. 못 읽었으면 null */
   tokens: AiTokens | null;
-  /** 비용(달러, 기록할 때의 값표로 센 추정). 값표가 0 이거나 로컬 모델이면 0, 값표에 없으면 null(가격 모름) */
+  /** 비용(달러, 기록할 때의 가격표로 센 추정). 가격표가 0 이거나 로컬 모델이면 0, 가격표에 없으면 null(가격 모름) */
   costUsd: number | null;
   /** 오류 · 판정 답을 못 읽은 까닭. 키는 가려져 있다 */
   error?: string;
@@ -67,12 +67,12 @@ type AiLogDetail = AiLogEntry & { requestHeaders: string; requestBody: string; r
 /** 저장 상태: 남은 줄 수 · 크기 · 저장 용량 · 기록 중인가 */
 type AiLogStorage = { count: number; bytes: number; maxBytes: number; enabled: boolean };
 
-/** 목록 한 쪽. total: 남아 있는 전부 · matched: 필터에 맞는 것 */
+/** 목록 한 페이지. total: 남아 있는 전부 · matched: 필터에 맞는 것 */
 type AiLogPage = { entries: AiLogEntry[]; total: number; matched: number; storage: AiLogStorage };
 /** 실시간으로 온 새 기록(/api/admin/ai/logs/stream 의 message). 저장 상태도 같이 온다(오래된 것이 삭제됐을 수 있다) */
 type AiLogPushed = { entry: AiLogEntry; total: number; storage: AiLogStorage };
 
-/** 필터: 출처(비면 전부) · 결과 · 찾는 말(URL · 모델 · 이름 · 오류, 대소문자 무시) */
+/** 필터: 출처(비면 전부) · 결과 · 검색어(URL · 모델 · 이름 · 오류, 대소문자 무시) */
 type AiLogQuery = { sources: AiLogSource[]; result: "" | "ok" | "failed"; q: string };
 /** 서버의 목록과 화면의 실시간 줄이 같은 규칙으로 필터링한다 */
 function aiLogMatches(entry: AiLogEntry, query: AiLogQuery): boolean {

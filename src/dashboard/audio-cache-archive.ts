@@ -1,5 +1,5 @@
 // 오디오 캐시 백업(설정 내보내기의 audio-cache 종류). ZIP 의 audio-cache/ 아래에 캐시 파일(files/<캐시 파일 이름>)과 마지막 항목의 행 목록(rows.json).
-// 행 목록: 담은 캐시 파일의 행 · 링크 데이터 전부(곡 파일 없이 내보내도 같다) · 직접 지정한 음원 · 연령 제한 · SponsorBlock 구간(불러오기에서 고른다).
+// 행 목록: 담은 캐시 파일의 행 · 링크 데이터 전부(곡 파일 없이 내보내도 같다) · 직접 지정한 음원 · 연령 제한 · SponsorBlock 구간(불러오기에서 선택한다).
 // 스포티파이 익명 상태 · 재생 테스트 결과는 담지 않는다. 곡 파일 없이 내보내면(files=0) 캐시 파일 행도 담지 않는다.
 // 내보내는 동안 담을 파일을 지킨다(퇴거 · 삭제 · 초기화가 지우지 않게, audioCache.holdForExport). 그래도 사라진 파일은 건너뛰고 행 목록에서 뺀다.
 // 불러오기는 합친다(쓰는 봇에 더하는 것이 흔하고, 빈 봇으로 옮길 때도 합치기가 곧 바꾸기다):
@@ -31,7 +31,7 @@ const FILES_DIR = `${DIR}files/`;
 const ZIP_MAX_ENTRIES = 100_000;
 const FILES_MAX = ZIP_MAX_ENTRIES - 2;
 
-// rows.json 하나의 상한(링크 데이터 · SponsorBlock 구간 수만 줄)
+// rows.json 크기 상한. 링크 데이터 · SponsorBlock 구간이 수만 행이어도 들어간다
 const ROWS_MAX_BYTES = 64 * 1024 * 1024;
 
 /** rows.json 의 모양. 읽을 때 같은 모양으로 검사한다 */
@@ -104,7 +104,7 @@ function exportInputs({ withFiles }: { withFiles: boolean }): { inputs: ZipInput
 
 // ── 불러오기 ──
 
-/** 오디오 캐시의 항목 */
+/** 불러오기에서 선택하는 오디오 캐시 항목 */
 const AUDIO_ITEMS = ["audio-files", "audio-ledger", "audio-pins", "audio-age", "audio-sponsorblock"] as const satisfies readonly ArchiveItem[];
 type AudioItem = (typeof AUDIO_ITEMS)[number];
 const isAudioItem = (item: ArchiveItem): item is AudioItem => (AUDIO_ITEMS as readonly string[]).includes(item);
@@ -206,7 +206,7 @@ function previewRows(bundle: Bundle): ArchiveRow[] {
 // 캐시 폴더 안의 임시 이름(정리가 다운로드 중인 파일로 보고 건너뛴다)
 const tempFor = (audioKey: string) => path.join(audioCache.cacheDir(), `${path.basename(audioCache.getFilePath(audioKey), ".opus")}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}.opus`);
 
-// 캐시 파일 하나를 ZIP 에서 임시 이름으로 받아 이 봇의 자리로 옮긴다. 옮겼으면 true
+// 캐시 파일 하나를 ZIP 에서 임시 이름으로 받아 이 봇의 캐시 경로로 옮긴다. 옮겼으면 true
 async function importFile(zipped: ReturnType<typeof openZip>, entry: ZipItem, row: FileRow) {
   const temp = tempFor(row.audioKey);
   audioCache.protectFile(temp);
@@ -234,7 +234,7 @@ async function importFiles(file: string, bundle: Bundle) {
 }
 
 /**
- * 고른 항목을 합친다. 항목마다 새로 불러온 수(캐시 파일은 옮긴 수). 연령 제한 → 캐시 파일(하나씩) → 링크 데이터 · 직접 지정한 음원 · SponsorBlock 순서.
+ * 선택한 항목을 합친다. 항목마다 새로 불러온 수(캐시 파일은 옮긴 수). 연령 제한 → 캐시 파일(하나씩) → 링크 데이터 · 직접 지정한 음원 · SponsorBlock 순서.
  * 캐시 파일은 지금 상태로 다시 센다(미리 본 뒤 바뀌었을 수 있다). 연령 제한을 먼저 가져왔으면 퇴거 점수가 그것을 읽는다
  */
 async function applyBundle(file: string, items: readonly ArchiveItem[]): Promise<Partial<Record<AudioItem, number>>> {

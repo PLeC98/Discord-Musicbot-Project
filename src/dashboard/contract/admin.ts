@@ -48,7 +48,7 @@ type AdminStatus = {
    * 자식 프로세스(ffmpeg · yt-dlp · 헬퍼). 행은 쿼리(procs · sort · desc)로 정렬한 구간만 온다. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합.
    * stray: 잔류 의심 프로세스의 앞(오래된 것부터 STRAY_SHOWN 개), strayMore: 그 밖의 수.
    * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다.
-   * reused · missed: 지난 1시간 캐시한 영상 정보를 다시 쓴 수 · 자리가 없어 밀려난 뒤 필요해져 다시 추출한 수
+   * reused · missed: 지난 1시간 캐시한 영상 정보를 다시 쓴 수 · 캐시가 가득 차 밀려난 뒤 필요해져 다시 추출한 수
    */
   processes: {
     total: number;
@@ -125,9 +125,9 @@ type LinkState = "ok" | "slow" | "fail" | "idle" | "off";
 type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: string; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: string | null; note: string | null; hint?: string | null };
 
 /**
- * 저장공간. cache: protectedFiles 는 지금 곡 · 대기열 앞이라 삭제하지 않는 파일, neverPlayed 는 다운로드하고 한 번도 틀지 않은 파일,
+ * 저장공간. cache: protectedFiles 는 지금 곡 · 대기열 앞이라 삭제하지 않는 파일, neverPlayed 는 다운로드하고 한 번도 재생하지 않은 파일,
  * failed 는 다운로드 실패로 남은 행(다운로드 실패 · 다운로드 멈춤 · 파일이 사라짐, 다시 다운로드하면 풀린다), lastCleanup 은 봇이 켜진 뒤 마지막으로 실제로 삭제한 정리(없으면 null).
- * disk: 캐시 폴더의 드라이브. db: drive 가 캐시 드라이브와 같으면 드라이브 막대에 조각으로 들어간다
+ * disk: 캐시 폴더의 드라이브. db: drive 가 캐시 드라이브와 같으면 드라이브 막대에 한 구간으로 들어간다
  */
 type StorageView = {
   cache: { bytes: number; maxBytes: number; files: number; maxFiles: number; protectedFiles: number; neverPlayed: number; failed: number; lastCleanup: { at: number; files: number; bytes: number } | null };
@@ -135,8 +135,10 @@ type StorageView = {
   db: { bytes: number; drive: string; lookups: number; pins: number; sponsorSegments: number; sessions: number };
 };
 
-/** 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근 */
-/** encodeRtt: 구간마다 가장 느린 인코딩 워커의 응답 시간 p99(ms). encodeLate: 구간 동안 워커가 늦어 생긴 누락 프레임 수. uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0) */
+/**
+ * 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근.
+ * encodeRtt: 구간마다 가장 느린 인코딩 워커의 응답 시간 p99(ms). encodeLate: 구간 동안 워커가 늦어 생긴 누락 프레임 수. uploadBot · uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0)
+ */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[]; encodeLate: number[]; uploadBot: number[]; uploadSystem: number[] };
 
 /** 전체 서버 공지의 종류. 화면은 이 키로 라벨을 단다 */
@@ -180,11 +182,10 @@ type PanelPrefs = { advanced: boolean };
 
 /** IP 위치 DB(dashboard/geoip). version: 가진 버전(YYYY-MM), bytes: 그 파일 크기, job: 하는 일, received · total: 받는 중의 바이트(압축된 것), error: 마지막 실패 */
 type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | null; bytes: number | null; job: "idle" | "checking" | "downloading"; received: number | null; total: number | null; error: string | null };
-/** 확인 결과. latest: 받을 수 있는 가장 새 버전(없으면 null), size: 그 버전의 받는 크기 */
+/** 확인 결과. latest: 받을 수 있는 가장 새 버전(없으면 null), size: 그 버전의 다운로드 크기 */
 type GeoipCheck = { current: string | null; latest: string | null; size: number | null };
 
-/** 설정 파일(genres · status · ai) 읽기와 저장 */
-/** 설정 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
+/** 설정 파일(genres · status · ai)의 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
 type ConfigFile = { name: string; data: Record<string, unknown>; revision: number };
 type ConfigSaved = { success: true; data: Record<string, unknown>; revision: number };
 /** 설정 문서의 기본값(새로 설치했을 때의 값). 편집기가 불러와 저장하지 않은 편집으로 보인다 */
@@ -197,7 +198,7 @@ type Suggestions = { items: Array<{ value: string; hint?: string }> };
 /** AI 보조의 지금 상태. 키는 값이 아니라 있는지만 온다 */
 type AiState = {
   hasKey: Record<string, boolean>;
-  /** 키 상태(키를 쓰는 프로바이더만). moved: 주소 · 리전이 바뀌어 다시 입력해야 함, again: 풀 수 없음 */
+  /** 키 상태(키를 쓰는 프로바이더만). moved: 주소 · 리전이 바뀌어 다시 입력해야 함, again: 복호화할 수 없음 */
   keyState: Record<string, AiKeyState>;
   providers: Array<ProviderSpec & { value: string }>;
   pingText: string;
@@ -208,7 +209,7 @@ type AiState = {
 };
 /** 그 모델이 받는 필드. 프로필이 모르는 프로바이더면 known 이 false 이고 필드 그룹이 없다 */
 type AiFields = { known: boolean; fields: ModelField[]; groups?: ModelGroup[]; models: ModelSummary[] };
-/** 입력란마다의 본문 토큰. exact 가 아니면 어림 */
+/** 입력란마다의 본문 토큰. exact 가 아니면 추산 */
 type TokensReply = { each: number[]; total: number; by: string; exact: boolean };
 type CandidatesReply = { candidates: TestCandidate[] };
 
@@ -220,7 +221,7 @@ type PromptReply = { sections: PromptSection[] };
 /** AI 설정과 프롬프트를 한 번에 저장한 답 */
 type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revision: number };
 
-/** 유튜브 쿠키. 값은 오지 않는다. hasFile: 넣어 둔 쿠키가 있고 풀린다 */
+/** 유튜브 쿠키. 값은 오지 않는다. hasFile: 저장된 쿠키가 있고 복호화된다 */
 type CookieState = { source: CookieSource; hasFile: boolean };
 
 export { AI_SAMPLE_CANDIDATES, ANNOUNCE_KINDS, ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, isAnnounceKind, PLAYER_STATES, LIST_WINDOW_MAX, PROCESS_SORTS, STATUS_QUERY, COUNTS_ONLY, Q_MAX, STRAY_SHOWN, statusParams, GUILD_SORTS, GUILD_QUERY, guildParams };

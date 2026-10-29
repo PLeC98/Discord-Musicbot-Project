@@ -22,7 +22,7 @@ function isLoopbackHost(host: string | null | undefined) {
  * @returns {{line: string, warnings: string[]}} 기동 로그 한 줄과 경고 목록.
  *
  * 경고는 설정만으로 확정되는 조합에서만 낸다(외부 바인딩 + DASHBOARD_URL이 http://).
- * 실제 연결이 평문인지는 기동 시점에 알 수 없다. 그건 요청 시점의 안전망(index.ts)이 맡는다.
+ * 실제 연결이 평문인지는 기동 시점에 알 수 없어 요청마다 index.ts 가 본다.
  */
 function describeBinding(host: string | null | undefined, port: number, dashboardUrl: string | null | undefined) {
   if (isLoopbackHost(host)) {
@@ -42,7 +42,7 @@ const CLIENT_ERROR_STATUS: Record<string, string> = { HPE_HEADER_OVERFLOW: "431 
 
 function onClientError(error: Error & { code?: string }, duplex: Duplex) {
   const socket = duplex as Socket & { _httpMessage?: { _headerSent?: boolean } | null };
-  // 받는 도중 브라우저가 끊는 것은 흔하다
+  // 받는 도중 브라우저가 끊는 것(ECONNRESET)은 흔해 남기지 않는다
   if (error.code !== "ECONNRESET") log.trace(`대시보드 요청을 읽지 못했습니다(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
   // 나가던 응답의 헤더가 이미 소켓에 나갔으면 오류 응답을 끼워 쓰지 않는다
   if (socket.writable && !socket._httpMessage?._headerSent) socket.write(`HTTP/1.1 ${CLIENT_ERROR_STATUS[error.code ?? ""] ?? "400 Bad Request"}\r\nConnection: close\r\n\r\n`);
