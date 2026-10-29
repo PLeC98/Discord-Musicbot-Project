@@ -567,6 +567,36 @@ test("스테이지에 청중으로 들어오면: 멤버 음소거 권한이면 �
   assert.deepEqual(calls, []);
 });
 
+test("음성 서버 연결이 붙기 전에는 발언자가 되지 않고 붙은 뒤에 된다(먼저 되면 소리가 들리지 않는다): 옮겨질 때 · 처음 참가", async () => {
+  const s = await ready();
+  const calls: string[] = [];
+  Object.assign(s.me.voice, { setSuppressed: async (v: boolean) => calls.push(`suppressed:${v}`) });
+  const st = stage("st1", [PermissionFlagsBits.MuteMembers]);
+  s.conn().to(VoiceConnectionStatus.Signalling);
+  Object.assign(s.me.voice, { channelId: "st1", suppress: true, channel: st });
+  s.link.onBotState(state("vc1"), state("st1", { channel: st, suppress: true }));
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(calls, [], "옮겨지는 중");
+  s.syncs.length = 0;
+  s.conn().to(VoiceConnectionStatus.Connecting);
+  s.conn().to(VoiceConnectionStatus.Ready);
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(calls, ["suppressed:false"]);
+  assert.deepEqual(s.syncs, ["sync"], "다시 붙으면 억제 사유도 맞춘다");
+
+  // 처음 참가: 들어왔다는 알림이 붙기 전에 온다
+  const first = setup({ inChannel: null });
+  const firstCalls: string[] = [];
+  Object.assign(first.me.voice, { setSuppressed: async (v: boolean) => firstCalls.push(`suppressed:${v}`) });
+  const joining = first.link.connect();
+  Object.assign(first.me.voice, { channelId: "st1", suppress: true, channel: st });
+  first.link.onBotState(state(null), state("st1", { channel: st, suppress: true }));
+  assert.deepEqual(firstCalls, [], "참가 중");
+  await joining;
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(firstCalls, ["suppressed:false"]);
+});
+
 test("이미 청중인 채로 붙으면(이어받기 · 복원) 붙은 뒤 사유를 맞추고 발언을 요청한다. 재연결해 다시 요청해도 채널에는 한 번만 알린다", async () => {
   const s = setup();
   const calls: string[] = [];
@@ -582,10 +612,11 @@ test("이미 청중인 채로 붙으면(이어받기 · 복원) 붙은 뒤 사�
     ["notice:stage-requested"],
   );
 
-  // 끊겼다 다시 들어오면 다시 요청한다
+  // 게이트웨이가 끊겨 음성 상태가 지워졌다가 복구로 다시 들어오면 다시 요청한다(붙은 뒤에)
+  s.conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.AdapterUnavailable });
   s.link.onBotState(state("st1", { channel: st, suppress: true }), state(null));
-  s.link.onBotState(state(null), state("st1", { channel: st, suppress: true }));
-  await new Promise((r) => setImmediate(r));
+  await until(() => calls.length === 2, "다시 요청");
+  assert.equal(s.link.state, "ready");
   assert.deepEqual(calls, ["request:true", "request:true"]);
   assert.equal(s.steps.filter((x) => x === "notice:stage-requested").length, 1);
 });

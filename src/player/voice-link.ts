@@ -218,6 +218,11 @@ class VoiceLink {
       this._settled();
       return;
     }
+    // 옮겨질 때처럼 우리 상태는 그대로인 채 라이브러리가 새 음성 서버에 다시 붙었다
+    if (newState.status === VoiceConnectionStatus.Ready && oldState.status !== VoiceConnectionStatus.Ready && this.state === "ready") {
+      this._settled();
+      return;
+    }
     if (newState.status === VoiceConnectionStatus.Disconnected && this.state === "ready") {
       if (newState.reason === VoiceConnectionDisconnectReason.Manual) return;
       this._wait(newState.reason, "closeCode" in newState ? newState.closeCode : undefined);
@@ -404,13 +409,18 @@ class VoiceLink {
     return { left: false, moved };
   }
 
-  // 채널에 들어왔다(부름 · 옮겨짐 · 재연결). 스테이지에 청중으로 들어왔으면 발언자가 되려 한다. 들어올 때만: 모더레이터가 청중으로 내린 것은 따른다
+  // 채널에 들어왔다(부름 · 옮겨짐 · 재연결). 스테이지에 청중으로 들어왔으면 발언자가 되려 한다. 들어올 때만: 모더레이터가 청중으로 내린 것은 따른다.
+  // 음성 서버 연결이 붙기 전에 발언자가 되면 소리를 보내도 들리지 않는다(사용자 실재생). 그때는 붙은 뒤(_settled)에 한다
   _entered(now: Pick<VoiceState, "channelId" | "suppress" | "channel">) {
     if (this.stageTaken !== now.channelId) this.stageTaken = null;
-    if (now.suppress && now.channel) this._enterStage(now.channel);
+    if (now.suppress && now.channel && this._linked()) this._enterStage(now.channel);
   }
 
-  // 붙었다(참가 · 자동 재연결 · 복구). 이미 음소거 · 청중인 채로 붙으면 바뀜 알림이 오지 않으므로 지금 상태로 맞추고,
+  _linked() {
+    return this.state === "ready" && this.player.connection?.state.status === VoiceConnectionStatus.Ready;
+  }
+
+  // 붙었다(참가 · 자동 재연결 · 복구 · 옮겨진 채널). 이미 음소거 · 청중인 채로 붙으면 바뀜 알림이 오지 않으므로 지금 상태로 맞추고,
   // 스테이지 청중이면 발언자가 되려 한다. 게이트웨이를 다시 붙어도 캐시는 새로 차지만 voiceStateUpdate 는 오지 않는다
   _settled() {
     this.player.syncHolds();
