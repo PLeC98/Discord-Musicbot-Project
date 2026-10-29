@@ -232,10 +232,13 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   if (!player) return fail("no-song");
   if (player.queue.length === 0) return fail("queue-empty");
   if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
-  const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, player.queue[index]));
+  const target = player.queue[index];
+  const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, target));
   if (blocked) return blocked;
-  const track = player.removeFromQueue(index);
-  if (!track) return fail("bad-position", { size: player.queue.length }); // 권한을 기다린 사이 대기열이 줄었다
+  // 권한을 기다린 사이 대기열이 바뀌었을 수 있어 권한을 본 그 곡을 다시 찾는다. 같은 자리의 다른 곡을 빼지 않는다
+  const at = player.queue.indexOf(target);
+  if (at < 0) return fail("entry-gone");
+  const track = player.removeFromQueue(at);
   await refresh(player);
   return done({ track, left: player.queue.length });
 }

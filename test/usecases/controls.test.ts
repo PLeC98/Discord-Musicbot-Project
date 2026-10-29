@@ -267,6 +267,15 @@ test("빼기: 빈 대기열 · 범위 밖 거절, 권한은 그 곡을 보고(�
   const requester = { member: member({ mod: false, id: "u9" }) };
   assert.equal(codeOf(await controls.remove(p, OUTSIDER, 0)), "must-be-in-same-voice");
   assert.equal(accepted(await controls.remove(p, requester, 1)).track?.title, "내 곡");
+
+  // 권한을 기다리는 사이 앞 곡이 빠져도 권한을 본 그 곡을 뺀다. 그 곡이 빠졌으면 다른 곡을 빼지 않고 거절한다
+  const shifted = fakePlayer({ queue: [track("a"), track("b"), track("c")] });
+  queueMicrotask(() => shifted.queue.splice(0, 1));
+  assert.equal(accepted(await controls.remove(shifted, DJ, 1)).track?.title, "b");
+  const gone = fakePlayer({ queue: [track("a"), track("b"), track("c")] });
+  queueMicrotask(() => gone.queue.splice(1, 1));
+  assert.equal(codeOf(await controls.remove(gone, DJ, 1)), "entry-gone");
+  assert.deepEqual(gone.calls, [], "아무것도 빼지 않았다");
 });
 
 test("옮기기: 두 곡 미만 · 범위 밖 · 같은 위치 거절", async () => {
