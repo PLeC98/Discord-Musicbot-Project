@@ -1,23 +1,22 @@
 <template>
   <!-- 봇 상태 탭. 괜찮은가(요약) → 무엇에 기대는가(연결, 높이가 거의 고정이라 위에) → 지금 어떤가(흐름) → 무엇을 하는가(플레이어 · 프로세스, 흐름과 자주 같이 보고 서버 수만큼 길어져 아래에) → 어디에 쌓이는가(저장공간). 잘 안 바뀌는 환경 · 버전은 봇 정보 탭(BotInfo).
-       상태는 색 + 모양(✓ 동그라미 · ! 세모 · ✕ 동그라미) + 낱말로 알린다. 화면 글은 짧게, 까닭은 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
+       상태는 색 + 모양(✓ 동그라미 · ! 세모 · ✕ 동그라미) + 단어로 알린다. 화면 글은 짧게, 까닭은 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
   <!-- 저장공간 카드는 폭에 따라 두 위치 중 하나에 놓인다. 한 번 정의해 두고 부른다(VueUse createReusableTemplate) -->
   <DefineStorage>
     <BaseCard icon="hard_drive" :title="T.storage" data-at="storage">
-      <!-- 카드 높이를 늘리지 않게 헤더 오른쪽에. 작은 색조 버튼(높이 32, 헤더 줄 40 안) -->
+      <!-- 카드 높이를 늘리지 않게 헤더 오른쪽에. 작은 색조 버튼(높이 32px, 헤더 줄 40px 안) -->
       <template #actions
         ><BaseButton variant="secondary" size="sm" class="gap-0!" @click="emit('openDb')">{{ T.dbBrowser }}<Icon name="chevron_right" :size="18" class="-mr-1.5" /></BaseButton
       ></template>
       <div class="flex flex-col gap-3">
         <!-- 막대는 늘 쓴 만큼. 캐시는 한도까지 채우고 오래 안 들은 곡부터 삭제하므로 차 있는 것이 정상(경고하지 않는다).
              순서는 오디오 캐시 · 캐시 파일 수 · 구분선 · 드라이브(오디오 캐시 · 기타 · 여유 공간 · 최소 여유로 나눈다) -->
-        <!-- 드라이브 막대 위에 구분선 -->
         <div v-for="bar in storageBars" :key="bar.key" :class="bar.key === 'drive' && 'pt-3 border-t border-outline-variant/40'">
           <div class="flex items-baseline gap-2 text-sm">
             <span>{{ bar.label }}</span>
             <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[bar.level]">{{ bar.text }}</span>
           </div>
-          <!-- 나눈 막대: 오디오 캐시 · 기타 · 여유 공간 · 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2 를 띄우고, 아래에 같은 색 점으로 이름 · 크기 -->
+          <!-- 나눈 막대: 오디오 캐시 · 기타 · 여유 공간 · 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px 을 띄우고, 아래에 같은 색 점으로 이름 · 크기 -->
           <template v-if="bar.key === 'drive'">
             <div class="flex gap-0.5 h-2 mt-1">
               <div v-for="part in driveParts" :key="part.label" class="h-full rounded-full" :class="part.tone" :style="{ flexGrow: toGB(part.bytes), flexBasis: '0%', minWidth: '0.25rem' }" v-tooltip="part.tip"></div>
@@ -54,12 +53,12 @@
   <div ref="root" class="flex flex-col gap-(--gap-in)">
     <!-- ① 요약 -->
     <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-3">
-      <!-- 좁으면(휴대폰) 마지막 갱신 · 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 영역이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라졌다 -->
+      <!-- 좁으면(휴대폰) 마지막 갱신 · 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 영역이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라진다 -->
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span class="size-12 shrink-0 rounded-[30%] flex items-center justify-center" :class="LEVEL_BADGE[overallLevel]"><Icon :name="LEVEL_ICON[overallLevel]" :size="24" fill /></span>
         <div class="min-w-0 grow basis-44">
           <div class="font-round text-xl font-semibold">{{ overallLevel === "ok" ? T.allOk : T.needsAttention(attentionCount) }}</div>
-          <!-- 좁으면 자르지 않고 접는다(잘리면 작동 시간 · 서버 수가 보이지 않았다) -->
+          <!-- 좁으면 자르지 않고 접는다(잘리면 실행 시간 · 서버 수가 보이지 않는다) -->
           <div class="text-sm text-on-surface-variant">
             {{ status.bot.tag }} · <template v-if="status.bot.status !== 0">{{ T.connecting }}</template
             >{{ T.runningFor(formatSpan(status.bot.uptime), status.bot.guilds) }}
@@ -77,7 +76,7 @@
         <button v-for="a in attention" :key="a.name" type="button" class="tap state-layer h-8 px-2 rounded-sm flex items-center gap-2 text-xs font-medium cursor-pointer" :class="LEVEL_CHIP[a.level]" @click="jumpTo(a.at)"><Icon :name="LEVEL_ICON[a.level]" :size="18" fill />{{ a.name }} · {{ a.word }}</button>
       </div>
       <div class="rounded-(--r-inner) bg-surface-container-high px-4 py-3">
-        <!-- 좁으면 낱말 단위로 다음 줄에(낱말 안에서 꺾이지 않게) -->
+        <!-- 좁으면 단어 단위로 다음 줄에(단어 안에서 꺾이지 않게) -->
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant whitespace-nowrap" :class="status.recent.lines.length ? 'mb-2' : ''">
           <span>{{ T.recentSummary }}</span>
           <span :class="status.recent.error ? LEVEL_TEXT.bad : ''">{{ T.errors(status.recent.error) }}</span>
@@ -105,7 +104,7 @@
           <div v-for="(col, ci) in linkColumns" :key="ci" class="flex flex-col gap-4">
             <div v-for="group in col" :key="group.title">
               <!-- 열: 이름 · 무엇(설명 · 모델 · 방식) · 마지막 성공 · 응답(실패면 오류). 쓰지 않는 곳도 같은 열(설명에 그 사실, 숫자 열은 -).
-                   좁은 카드(448 미만, 휴대폰)는 설명 열이 남지 않아 행마다 두 줄: 위에 이름 · 마지막 성공 · 응답, 아래에 설명(이름 글자 위치부터). 헤더 · 행이 저마다 같은 세 열 격자 -->
+                   좁은 카드(448px 미만, 휴대폰)는 설명 열이 남지 않아 행마다 두 줄: 위에 이름 · 마지막 성공 · 응답, 아래에 설명(이름 글자 위치부터). 헤더 · 행이 저마다 같은 세 열 격자 -->
               <div :class="LINK_GRID" class="items-center text-sm">
                 <span class="contents text-xs text-on-surface-variant" :class="LINK_NARROW"
                   ><span class="@md/card:col-span-2 pb-1">{{ group.title }}</span
@@ -201,7 +200,7 @@
           </button>
           <SearchInput v-model="playerTerm" :placeholder="T.search" :input-class="[SEARCH_FIELD, 'w-full']" class="ml-auto flex-1 min-w-28 max-w-48" />
         </div>
-        <!-- 목록 영역은 서버 10.5줄(1열일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 스크롤된다는 것이 보인다). 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게.
+        <!-- 목록 영역은 서버 10.5줄(1열일 때는 6.5줄) 높이로 고정(마지막 줄이 반쯤 걸려 스크롤된다는 것이 보인다). 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3px 떨어지게.
              보이는 행 둘레만 그리고 위아래는 스페이서로 높이만 채운다(composables/row-window). 아직 받지 못한 자리는 스켈레톤 행 -->
         <div ref="playerListEl" class="h-78 @4xl/content:h-126 overflow-y-auto -ml-2" :class="playerListOverflowing ? '-mr-4' : '-mr-2'" :style="playerFade">
           <ul v-if="status.players.matched" class="flex flex-col" :style="{ paddingTop: `${playerTop}px`, paddingBottom: `${playerBottom}px` }">
@@ -238,15 +237,15 @@
       <BaseCard ref="processCardEl" icon="terminal" :title="T.processes" data-at="processes" class="flex flex-col h-(--player-card-h) @4xl/content:h-0 @4xl/content:min-h-full" :style="{ '--player-card-h': `${playerCardHeight}px` }">
         <template v-if="status.processes.total">
           <!-- 열 헤더를 누르면 그 열로 행을 정렬한다(다시 누르면 거꾸로). 정렬한 열은 글자를 진하게 하고 화살표를 붙인다(오른쪽 맞춤 열은 화살표가 앞) -->
-          <!-- 좁은 카드(448 미만)는 PID · 실행 시간 열을 헤더에서 빼고 행 아래에 작게 둔다(작업 열이 남지 않았다) -->
+          <!-- 좁은 카드(448px 미만)는 PID · 실행 시간 열을 헤더에서 빼고 행 아래에 작게 둔다(작업 열 폭이 모자란다) -->
           <div :class="PROCESS_GRID" class="pb-1 text-xs text-on-surface-variant">
             <button v-for="c in PROCESS_COLUMNS" :key="c.key" type="button" class="flex items-center gap-1 min-w-0 cursor-pointer hover:text-on-surface" :class="[c.right && 'justify-end', processSort.key === c.key && 'text-on-surface font-semibold', (c.key === 'pid' || c.key === 'age') && '@max-md/card:hidden']" :aria-label="T.sortBy(c.label)" @click="sortProcessesBy(c.key)">
               <Icon v-if="c.right && processSort.key === c.key" :name="processSort.desc ? 'arrow_downward' : 'arrow_upward'" :size="14" /><span class="truncate">{{ c.label }}</span
               ><Icon v-if="!c.right && processSort.key === c.key" :name="processSort.desc ? 'arrow_downward' : 'arrow_upward'" :size="14" />
             </button>
           </div>
-          <!-- 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(플레이어 목록과 같다). 늘린 만큼 안쪽 여백으로 행을 열 헤더에 맞춘다.
-               보이는 행 둘레만 그린다(플레이어 목록과 같다). 그래서 행 높이를 고정한다: 좁은 카드는 두 줄 48, 넓으면 한 줄 32 -->
+          <!-- 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3px 떨어지게(플레이어 목록과 같다). 늘린 만큼 안쪽 여백으로 행을 열 헤더에 맞춘다.
+               보이는 행 둘레만 그린다(플레이어 목록과 같다). 그래서 행 높이를 고정한다: 좁은 카드는 두 줄 48px, 넓으면 한 줄 32px -->
           <div ref="processListEl" class="flex-1 min-h-0 overflow-y-auto mb-3" :class="processListOverflowing && '-mr-4 pr-1.5'" :style="processFade">
             <!-- 스페이서 높이는 안쪽 상자에(스크롤 영역에 두면 그 여백이 줄어들지 않아 영역이 내용만큼 커진다) -->
             <div :style="{ paddingTop: `${processTop}px`, paddingBottom: `${processBottom}px` }">
@@ -356,7 +355,7 @@ const LEVEL_BADGE: Record<Level, string> = { ok: "bg-primary-container text-on-p
 const LEVEL_CHIP: Record<Level, string> = { ok: "", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 
 /** 기준(주의 · 문제). 핑 ms, 루프 지연 ms, heap · CPU · 디스크 % */
-// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200 이 보통이고 멀쩡해도 200 중후반이 자주 뜬다
+// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200ms 가 보통이고 멀쩡해도 200ms 중후반이 자주 뜬다
 const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
 // ── 글 ──
@@ -435,9 +434,8 @@ const countText = (n: number) => {
 /** 시간을 정수 ms 로(초는 소수 한 자리 그대로) */
 const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "ms" ? 0 : 1));
 
-// 주의 칩을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3 · 바깥 간격 2 · secondary,
-// 나타날 때 600ms(long4) 중 1/4 은 0 → 8 로 두꺼워지고 3/4 은 3 으로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
-// (포커스 링은 포커스를 잃으면 바로 사라진다. 사라지는 움직임은 규격에 없어 RING.exitMs · exitEasing 으로 정했다)
+// 주의 칩을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3px · 바깥 간격 2px · secondary,
+// 나타날 때 600ms(long4) 중 1/4 은 0 → 8px 로 두꺼워지고 3/4 은 3px 로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
 const root = ref<HTMLElement | null>(null);
 // 사라질 때(규격에 없어 정했다): 두께는 그대로 흐려지기만 한다(300ms, emphasized accelerate). 두께를 줄이면 outline 이 px 단위로 끊겨 버벅여 보인다
 const RING = { width: 3, active: 8, offset: 2, durationMs: 600, holdMs: 1200, exitMs: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", exitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)" };
@@ -504,7 +502,7 @@ const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });
 const historyMinutes = computed(() => Math.max(1, Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000)));
 
 // 카드 너비에 따라 바꿔 보일 글의 경계: 좁은 버전부터 넓은 버전까지의 클래스. 모바일 먼저라 기본은 가장 좁은 버전이고 카드 안쪽이 경계 이상이면 다음 버전.
-// 카드 안쪽은 휴대폰(스크롤바가 겹쳐 뜬다) 420px 162px · 450px 177px · 480px 192px, 데스크톱(스크롤바 10px)에서 사이드바를 접은 네 칸은 1220px 217.5px · 1195px 211.25px · 1190px 210px · 1130px 195px 라 그 폭부터 좁은 버전
+// 경계는 끝 줄 주석의 화면 폭(휴대폰, 사이드바를 접은 데스크톱 네 칸)에서의 카드 안쪽 너비다
 const AT_PHONE = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline"] as const; // 핑 · 루프 지연 · 인코딩 응답 시간(480px)
 const AT_PING = ["@min-[11.08rem]/metric:hidden", "hidden @min-[11.08rem]/metric:inline"] as const; // 핑 보조 텍스트 두 줄(450px)
 const AT_BIG = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 업로드 큰 숫자(480px · 1220px)
@@ -530,7 +528,7 @@ function tipFor(shown: string, full: string) {
   const got = numsOf(shown);
   return numsOf(full).some((n, i) => Math.abs((got[i] ?? 0) - n) > Math.abs(n) * 0.05) ? full : null;
 }
-/** 버전마다 가장 넓은 버전(마지막)과 견주어 툴팁을 단다 */
+/** 버전마다 가장 넓은 버전(마지막)과 비교해 툴팁을 단다 */
 const withTips = (s: Stepped): Stepped => ({ ...s, tips: s.texts.map((t) => tipFor(t, s.texts[s.texts.length - 1])) });
 /** 버전마다의 큰 숫자 · 단위를 큰 숫자(value) 필드와 단위(unit) 필드로 나눈다(툴팁은 큰 숫자에) */
 const splitSteps = (parts: { value: string; unit: string }[], at: readonly string[]) => {
@@ -629,7 +627,7 @@ const metrics = computed<Metric[]>(() => {
 // 인코딩 응답 시간: 가장 늦은 워커의 응답 시간 p99. 응답은 응답 한도((큐 깊이 − 1) × 20ms) 안에 와야 하고, 큐 깊이를 상한까지 올린 워커가 그 80%를 넘으면 주의, 한도를 넘기면 문제(누락 프레임).
 // 보조 텍스트는 최근 15분 누락 프레임 수(0 이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 최소 상한 · 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
 const FRAME_MS = 20;
-/** 그래프 세로축의 상한을 고를 최고값(15분) */
+/** 그래프 세로축의 상한을 정할 최고값(15분) */
 const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
 function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries: number[]): Metric {
   const budget = (e.maxDepth - 1) * FRAME_MS;
@@ -760,7 +758,7 @@ const youtubeClients = computed(() =>
 );
 
 // ── ④ 작업 ──
-// 목록 둘은 서버가 필터링 · 정렬하고 보이는 구간만 준다. 행 높이: 플레이어 48, 자식 프로세스는 좁은 카드(448 미만) 48 · 넓으면 32
+// 목록 둘은 서버가 필터링 · 정렬하고 보이는 구간만 준다. 행 높이: 플레이어 48px, 자식 프로세스는 좁은 카드(448px 미만) 48px · 넓으면 32px
 const PLAYER_STATE_WORD: Record<PlayerState, string> = T.playerStates;
 const REM = rem(1);
 const playerListEl = ref<HTMLElement | null>(null);
@@ -779,7 +777,7 @@ const {
 const playerSlots = computed(() => slotsOf<PlayerRow>(playerRange.value, props.status.players.from, props.status.players.rows, (row) => row.guildId));
 // 스페이서 높이만 바뀌어도(필터링된 수 · 받은 구간) 다시 잰다
 const playerListOverflowing = useOverflowing(playerListEl, () => [playerTop.value, playerBottom.value]);
-// 더 있는 쪽 끝 반 줄(24)을 페이드 처리한다(자식 프로세스 목록과 같다)
+// 더 있는 쪽 끝 반 줄(24px)을 페이드 처리한다(자식 프로세스 목록과 같다)
 const playerFade = useScrollFade(
   playerListEl,
   () => true,
@@ -830,7 +828,7 @@ function sortProcessesBy(key: ProcessSort) {
 }
 const playerCardEl = ref<InstanceType<typeof BaseCard> | null>(null);
 const { height: playerCardHeight } = useElementSize(playerCardEl, undefined, { box: "border-box" });
-// 행 높이는 카드 안쪽 너비로 고른다(@md/card 와 같은 448)
+// 행 높이는 카드 안쪽 너비로 정한다(@md/card 와 같은 448px)
 const processCardEl = ref<InstanceType<typeof BaseCard> | null>(null);
 const { width: processCardWidth } = useElementSize(processCardEl);
 const processListEl = ref<HTMLElement | null>(null);
@@ -848,7 +846,7 @@ const {
 });
 const processSlots = computed(() => slotsOf<ProcessRow>(processRange.value, props.status.processes.from, props.status.processes.rows, (row) => row.pid));
 const processListOverflowing = useOverflowing(processListEl, () => [processTop.value, processBottom.value]);
-// 더 있는 쪽 끝 반 줄(16)을 페이드 처리한다
+// 더 있는 쪽 끝 반 줄(16px)을 페이드 처리한다
 const processFade = useScrollFade(
   processListEl,
   () => true,
@@ -867,7 +865,7 @@ const storageBars = computed(() => {
     { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(sizeText(disk.totalBytes), sizeText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
   ];
 });
-// 재생 중 캐시 보호: 지금 트는 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패 · 다운로드 멈춤 · 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
+// 재생 중 캐시 보호: 지금 재생 중인 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패 · 다운로드 멈춤 · 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
 const cacheCounts = computed<Array<[string, string]>>(() => {
   const { cache } = props.status.storage;
   return [

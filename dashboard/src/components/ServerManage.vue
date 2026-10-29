@@ -1,11 +1,11 @@
 <template>
   <!-- 서버 관리 탭. 넓으면 2열(왼쪽 전체 공지 · 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
   <div class="grid grid-cols-1 @4xl/content:grid-cols-2 items-start gap-(--gap-in)">
-    <!-- 카드 안 간격(design.md 간격 기준): 블록 사이 12, 입력란 → 글자 수 4, 라벨 → 미리보기 8 -->
+    <!-- 카드 안 간격: 블록 사이 12px, 입력란 → 글자 수 4px, 라벨 → 미리보기 8px -->
     <BaseCard icon="campaign" :title="T.announce.title">
       <div class="flex flex-col gap-3">
         <p class="text-sm text-on-surface-variant">{{ T.announce.desc }}</p>
-        <!-- 공지 종류: 이어 붙은 버튼 그룹(하나 선택). 종류마다 아이콘, 선택하면 체크(M3). 좁은 카드(384 미만)는 버튼 안 여백을 줄이고, 아주 좁으면(320 미만) 선택하지 않은 버튼의 아이콘을 뺀다 -->
+        <!-- 공지 종류: 이어 붙은 버튼 그룹(하나 선택). 종류마다 아이콘, 선택하면 체크(M3). 좁은 카드(384px 미만)는 버튼 안 여백을 줄이고, 아주 좁으면(320px 미만) 선택하지 않은 버튼의 아이콘을 뺀다 -->
         <div class="flex gap-0.5" role="radiogroup" :aria-label="T.announce.kind">
           <button v-for="(k, i) in KINDS" :key="k.value" type="button" role="radio" :aria-checked="kind === k.value" :class="[segment(kind === k.value, i, KINDS.length), '@max-sm/card:px-2 @max-sm/card:gap-1']" @click="kind = k.value"><Icon :name="kind === k.value ? 'check' : k.icon" :size="18" :class="kind !== k.value && '@max-xs/card:hidden!'" />{{ k.label }}</button>
         </div>
@@ -73,7 +73,7 @@
             </button>
           </SelectPanel>
         </div>
-        <!-- 목록 영역은 서버 7.5줄(1열일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다).
+        <!-- 목록 영역은 서버 7.5줄(1열일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3px 떨어지게(활성 플레이어 목록과 같다).
              보이는 행 둘레만 그리고 위아래는 스페이서로 채운다(composables/row-window, 봇 상태의 목록과 같다). 아직 받지 못한 자리는 스켈레톤 행 -->
         <div ref="listEl" class="h-91 @4xl/content:h-105 overflow-y-auto -ml-2" :class="overflowing ? '-mr-4' : '-mr-2'" :style="listFade">
           <ul v-if="list.matched" class="flex flex-col" :style="{ paddingTop: `${listTop}px`, paddingBottom: `${listBottom}px` }">
@@ -146,7 +146,7 @@ const query = defineModel<GuildQuery>("query", { required: true });
 /** changed: 서버에서 나갔다(목록 · 봇 상태를 다시 읽는다) */
 const emit = defineEmits<{ changed: [] }>();
 
-// 다른 입력란과 같은 채운 입력란(모서리 12, 포커스하면 테두리 primary)
+// 다른 입력란과 같은 채운 입력란(모서리 12px, 포커스하면 테두리 primary)
 const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] duration-150 focus:border-primary placeholder:text-on-surface-variant";
 
 // ── 전체 공지 ──
@@ -205,7 +205,7 @@ function onFormatKey(e: KeyboardEvent) {
   format(run);
 }
 
-// 이모지는 커서 위치에 끼워 넣는다. 판을 열면 입력란에서 포커스가 떠나므로 떠나기 전 위치를 적어 둔다
+// 이모지는 커서 위치에 끼워 넣는다. 이모지 선택을 열면 입력란에서 포커스가 떠나므로 떠나기 전 위치를 적어 둔다
 const box = ref<HTMLTextAreaElement | null>(null);
 const caret = ref<Caret | null>(null);
 function insertEmoji(char: string) {
@@ -256,7 +256,7 @@ const SORTS: Array<{ value: GuildSort; label: string }> = [
 const viewOpen = ref(false);
 const viewSummary = computed(() => [SORTS.find((o) => o.value === query.value.sort)?.label, query.value.playing && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
 const listEl = ref<HTMLElement | null>(null);
-// 행 높이 56(h-14)
+// 행 높이 56px(h-14)
 const ROW = 3.5 * rem(1);
 const {
   range,
@@ -273,7 +273,7 @@ const {
 const slots = computed(() => slotsOf(range.value, props.list.from, props.list.guilds, (row) => row.id));
 // 스페이서 높이만 바뀌어도 다시 잰다
 const overflowing = useOverflowing(listEl, () => [listTop.value, listBottom.value]);
-// 더 있는 쪽 끝 반 줄(28)을 페이드 처리한다(봇 상태의 목록과 같다)
+// 더 있는 쪽 끝 반 줄(28px)을 페이드 처리한다(봇 상태의 목록과 같다)
 const listFade = useScrollFade(
   listEl,
   () => true,

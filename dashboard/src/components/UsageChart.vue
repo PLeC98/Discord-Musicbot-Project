@@ -33,7 +33,7 @@ type Metric = "tokens" | "requests" | "cost";
 type Day = AiUsageBucket & { day: string };
 const props = defineProps<{ daily: Day[]; metric: Metric }>();
 
-/** 이보다 많은 날이면 이레씩 묶는다 */
+/** 이보다 많은 날이면 7일씩 묶는다 */
 const MAX_DAYS = 92;
 /** 아래 날짜 글은 열 개 남짓만 */
 const LABELS = 10;

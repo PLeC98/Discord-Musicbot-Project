@@ -1,13 +1,13 @@
 <template>
   <!-- 로그 파일 보기. 실시간 로그 창과 같은 틀(헤더 · 필터 · 줄 영역). 실시간 로그의 "파일 보기"가 여는 페이지(views/LogFilesView)에 놓인다.
-       배치는 카드 안쪽 폭으로 바꾼다(사이드바를 접은 화면 = 화면 - 116, 1280 이상은 - 124):
+       배치는 카드 안쪽 폭(px)으로 바꾼다(사이드바를 접은 화면 = 화면 - 116, 1280 이상은 - 124):
        1187 이상: 레벨 / 카테고리 · 태그 · 검색 … 날짜 · 시간(224) · 파일(256).
        935 ~ 1186: 오른쪽이 한 열이 되어 날짜 · 시간(256)을 파일 위로(첫 줄 오른쪽까지).
-       934 이하: [필터 · 검색 … 날짜 · 시간 · 파일] 한 줄. 레벨 · 카테고리 · 태그는 필터 창에(고르는 대로 반영).
-       804 이하는 날짜 · 시간을, 524 이하(사이드바를 편 820 · 휴대폰)는 파일까지 필터 창에(날짜 · 시간은 고르기 창의 "적용"). 오른쪽이 다 빠지면 검색 입력란이 남은 폭을 다 쓴다 -->
+       934 이하: [필터 · 검색 … 날짜 · 시간 · 파일] 한 줄. 레벨 · 카테고리 · 태그는 필터 창에(선택하는 대로 반영).
+       804 이하는 날짜 · 시간을, 524 이하(사이드바를 편 820 · 휴대폰)는 파일까지 필터 창에(날짜 · 시간은 선택 창의 "적용"). 오른쪽이 다 빠지면 검색 입력란이 남은 폭을 다 쓴다 -->
   <section ref="card" class="@container/card pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
     <PaneHeader icon="folder" :title="T.title">
-      <!-- 실시간 로그처럼 제목 옆에 고른 파일의 전체 줄 수(불러온 수가 아니라). 검색된 줄 수는 검색 입력란 안에 -->
+      <!-- 실시간 로그처럼 제목 옆에 선택한 파일의 전체 줄 수(불러온 수가 아니라). 검색된 줄 수는 검색 입력란 안에 -->
       <template #badge>
         <span v-if="current" class="text-xs nums text-on-surface shrink-0">{{ L.lines(current.lines) }}</span>
       </template>
@@ -101,7 +101,7 @@ const L = text.logs;
 const T = text.logs.files;
 const BASE = "/api/admin/logs";
 
-/** initialAt: 이 시각으로 연다(실시간 로그의 "밀려났어요" 줄에서 왔을 때). 그 시각이 든 파일을 고른다 */
+/** initialAt: 이 시각으로 연다(실시간 로그의 "밀려났어요" 줄에서 왔을 때). 그 시각이 든 파일을 선택한다 */
 const props = defineProps<{ initialAt?: number }>();
 
 // ── 필터 ──
@@ -128,7 +128,7 @@ const file = ref<OptionValue>("");
 const current = computed(() => files.value.find((f) => f.name === file.value));
 const latest = () => files.value.find((f) => f.current) ?? files.value[0];
 const fileOptions = computed<Option[]>(() => files.value.map((f) => ({ value: f.name, label: f.current ? T.latest : T.until(f.lastAt) })));
-// 날짜 · 시간은 파일마다의 기간에서 고른다(로그가 없는 사이는 막힌다. 고른 시각이 든 파일로 저절로 바꿔 연다). 빈 파일은 빼고
+// 날짜 · 시간은 파일마다의 기간에서 선택한다(로그가 없는 사이는 막힌다. 선택한 시각이 든 파일로 저절로 바꿔 연다). 빈 파일은 빼고
 const ranges = computed(() => files.value.filter((f) => f.lines).map((f): [number, number] => [f.firstAt, f.lastAt]));
 // 시각이 든 파일: 그 기간 안이면 그 파일, 사이(파일을 떼어 낸 틈)면 그 뒤로 가장 먼저 끝난 파일
 const fileAt = (ms: number) => files.value.find((f) => f.lines && f.firstAt <= ms && ms <= f.lastAt) ?? [...files.value].sort((a, b) => a.lastAt - b.lastAt).find((f) => f.lastAt >= ms) ?? latest();
@@ -137,7 +137,7 @@ async function loadFiles() {
   enabled.value = list.enabled;
   files.value = list.files;
 }
-// 내려받기: 지금 건 필터 그대로, 시각은 이 화면의 시간대로
+// 다운로드: 지금 건 필터 그대로, 시각은 이 화면의 시간대로
 const downloadUrl = computed(() => `${BASE}/file/download?${new URLSearchParams({ name: String(file.value), ...filterParams(), tz: String(new Date().getTimezoneOffset()) })}`);
 
 // ── 줄 ──
@@ -164,7 +164,7 @@ async function fetchPage(params: Record<string, string | number>, kind: "page" |
   try {
     const page = (await axios.get<FilePage>(`${BASE}/file`, { params: { name: file.value, ...filterParams(), ...params } })).data;
     since = page.since;
-    // 보던 지금 파일이 떼어졌다: 떼어 낸 파일을 이어 읽었다. 목록을 새로 받아 그 파일을 고른 것으로
+    // 보던 지금 파일이 떼어졌다: 떼어 낸 파일을 이어 읽었다. 목록을 새로 받아 그 파일을 선택한 것으로
     if (page.name !== file.value) {
       skipWatch = true;
       file.value = page.name;
@@ -237,7 +237,7 @@ function onScroll() {
 
 // ── 날짜 · 시간 ──
 const at = ref<number | null>(null);
-// 고른 시각 둘레로. null(초기화)이면 최신 파일의 끝에서부터
+// 선택한 시각 둘레로. null(초기화)이면 최신 파일의 끝에서부터
 function jump(ms: number | null) {
   const target = ms == null ? latest() : fileAt(ms);
   if (target && target.name !== file.value) {
@@ -260,7 +260,7 @@ watch(term, () => {
 });
 
 // ── 필터 창 ──
-// 안의 필터는 줄의 것과 같은 값을 바로 바꾼다. 필터 창이 맡은 것만 센다: 줄에서 빠진 날짜 · 시간(카드 804 이하) · 파일(524 이하). 휴대폰은 둘 다 창 안에 있다
+// 안의 필터는 줄의 것과 같은 값을 바로 바꾼다. 필터 창이 맡은 것만 센다: 줄에서 빠진 날짜 · 시간(카드 804px 이하) · 파일(524px 이하). 휴대폰은 둘 다 창 안에 있다
 const sheetOpen = ref(false);
 const isPhone = useMediaQuery(PHONE_QUERY);
 const card = ref<HTMLElement | null>(null);

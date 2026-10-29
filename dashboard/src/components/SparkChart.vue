@@ -1,5 +1,5 @@
 <template>
-  <!-- 작은 흐름 그래프. 세로축은 0 부터 max 까지(부르는 쪽이 utils/units 의 axisMax 로 정한다), 가로축은 minutes 분 전부터 지금까지. 숫자의 단위는 값마다 scale 로 고른다.
+  <!-- 작은 흐름 그래프. 세로축은 0 부터 max 까지(부르는 쪽이 utils/units 의 axisMax 로 정한다), 가로축은 minutes 분 전부터 지금까지. 숫자의 단위는 값마다 scale 로 정한다.
        기준(warn)이 있으면 점선으로 긋고 오른쪽 끝에 그 값을 적는다. 올리면 그 때의 시각 · 값을 보여 준다 -->
   <div class="relative select-none" role="img" :aria-label="summary" @pointermove="onMove" @pointerleave="hover = null">
     <div class="relative h-20">
@@ -43,7 +43,7 @@ const props = defineProps<{
   second?: number[];
   max: number;
   warn?: number;
-  /** 값의 단위 고르기(utils/units) */
+  /** 값의 단위 선택(utils/units) */
   scale: Scale;
   /** 그래프가 덮는 시간(분) */
   minutes: number;
@@ -64,7 +64,7 @@ const line = (s: number[]) => {
   return `M${points.map((v, i) => `${x(i, points.length).toFixed(2)},${y(v).toFixed(2)}`).join(" L")}`;
 };
 const area = (s: number[]) => `${line(s)} L100,40 L0,40 Z`;
-// 읽는 사람(화면 낭독기)에게는 그래프 대신 한 줄로
+// 스크린 리더에는 그래프 대신 한 줄로
 const summary = computed(() => (!n.value ? T.chartEmpty : T.chartSummary({ minutes: props.minutes, min: fmt(Math.min(...props.values)), max: fmt(Math.max(...props.values)), axisMax: fmt(props.max) })));
 const fmt = (v: number) => {
   const s = props.scale(v);

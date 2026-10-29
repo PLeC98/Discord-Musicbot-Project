@@ -17,7 +17,7 @@ const T = text.player;
 // 둥근 버튼. 누르는 동안 모서리가 줄어든다
 const BTN = "tap state-layer shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
-/** highlight: 하이라이트 지점이 있는지. small: 32(좁은 창의 표 행), 아니면 40 */
+/** highlight: 하이라이트 지점이 있는지. small: 32px(좁은 창의 표 행), 아니면 40px */
 const props = withDefaults(defineProps<{ player: PlayerSeen; highlight: boolean; busy: (key: string) => boolean; small?: boolean }>(), { small: false });
 const emit = defineEmits<{ highlight: []; stop: [] }>();
 

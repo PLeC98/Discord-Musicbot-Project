@@ -33,7 +33,7 @@ import { GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
 import { text } from "../text/index.ts";
 const T = text.genres.defaults;
 
-/** 전역 값. 필드를 바로 고친다(부모의 draft.defaults) */
+/** 전역 값. 필드를 바로 수정한다(부모의 draft.defaults) */
 type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] };
 const defaults = defineModel<Defaults>({ required: true });
 </script>

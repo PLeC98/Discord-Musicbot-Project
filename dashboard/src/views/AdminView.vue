@@ -11,7 +11,7 @@
     <div v-if="isPhone && !tab && !loading" class="flex flex-col gap-(--gap-in)">
       <section v-for="(group, gi) in TAB_GROUPS" :key="gi" class="pane rounded-(--r-window) p-2">
         <template v-for="(t, ti) in group" :key="t.id">
-          <!-- 구분선: 아이콘 영역(안쪽 여백 12 + 아이콘 40 + 틈 16)을 비우고 글자 시작부터 -->
+          <!-- 구분선: 아이콘 영역(안쪽 여백 12px + 아이콘 40px + 틈 16px)을 비우고 글자 시작부터 -->
           <div v-if="ti" class="h-px ml-17 mr-3 bg-outline-variant/60" aria-hidden="true"></div>
           <button type="button" class="tap state-layer w-full flex items-center gap-4 min-h-14 px-3 py-2 rounded-(--r-row) cursor-pointer text-left" @click="setTab(t.id)">
             <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsavedIn(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span></span>
@@ -85,7 +85,7 @@
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
-        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹) · 파비콘. 올린 그림은 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹) · 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
           <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
@@ -112,7 +112,7 @@
           <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
         </div>
 
-        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 받을 때 쓰는 쿠키 · 계정 정보 -->
+        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키 · 계정 정보 -->
         <div class="admin-page" v-show="tab === 'age'">
           <ConfigTunables v-if="opened.has('age')" :groups="groupsIn('age')" tab="age" :can-restart="status?.env.launcher ?? false">
             <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 항목에 선택한 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
@@ -341,7 +341,7 @@ watch(tab, (now, before) => {
   slide();
 });
 
-// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 우리 확인 대화상자로, 창 닫기 · 새로고침은 브라우저가 묻는다(beforeunload)
+// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 대시보드의 확인 대화상자로, 창 닫기 · 새로고침은 브라우저가 묻는다(beforeunload)
 const leaveOpen = ref(false);
 let leaveAnswer: ((go: boolean) => void) | null = null;
 onBeforeRouteLeave(() => {
@@ -399,7 +399,7 @@ function placePill() {
     else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: "smooth" });
   }
 }
-// 레일은 스크롤바가 없어 페이드가 더 스크롤된다는 유일한 표시다. 탭 하나(64)만큼 넓게
+// 레일은 스크롤바가 없어 페이드가 더 스크롤된다는 유일한 표시다. 탭 하나(64px)만큼 넓게
 const railFade = useScrollFade(railEl, () => true, 64);
 watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
@@ -520,13 +520,13 @@ function closeLogs() {
 
 // ── 수명 ────────────────────────────────────────────────
 // status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
-// 디스코드 rate limit과 무관하고(우리 Express만 친다) 보는 사람이 운영자 한 명이라 주기를
+// 디스코드 rate limit과 무관하고(봇의 Express만 부른다) 보는 사람이 운영자 한 명이라 주기를
 // 좁혀도 부담이 없다. 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
 //
 // 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
 // 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
 const POLL_MS = 3000;
-// 캐시 DB 탭은 크고 열 때만 그린다: 따로 받는다
+// 캐시 DB 탭은 크고 열 때만 그린다: 코드를 따로 불러온다
 const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;

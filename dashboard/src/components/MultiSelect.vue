@@ -27,7 +27,7 @@ const props = withDefaults(
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();
 
 const rowCls = `${SELECT_ROW} justify-between gap-2`;
-// 선택한 항목: M3E 세로 메뉴의 선택한 항목(모서리 12 · tertiary-container)
+// 선택한 항목: M3E 세로 메뉴의 선택한 항목(모서리 12px · tertiary-container)
 const rowOn = SELECT_ROW_ON;
 
 const open = ref(false);

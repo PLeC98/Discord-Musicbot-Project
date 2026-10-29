@@ -1,8 +1,8 @@
 <template>
   <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
-       대기열이 1열 목록이라 넓어도 행만 길어진다: 최대 1280 으로 가운데에 두고 양옆은 배경화면이 비친다 -->
-  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 바텀 시트(스포티파이식). 시트 헤더(76)만큼 아래를 비운다.
-       가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 그림이 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔했다 -->
+       대기열이 1열 목록이라 넓어도 행만 길어진다: 최대 1280px 로 가운데에 두고 양옆은 배경화면이 비친다 -->
+  <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 바텀 시트(스포티파이식). 시트 헤더(76px)만큼 아래를 비운다.
+       가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 앨범아트가 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔한다 -->
   <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
     <!-- 음성 상태 · 설정(태블릿 · PC)은 위 막대 오른쪽 끝으로 보낸다(서버 이름 · 아이콘은 위 막대 가운데). 휴대폰은 아래 한 줄로 -->
     <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 사이드 드로어에서 다른 서버로 건너왔어도 나가는 길은 하나).
@@ -19,7 +19,7 @@
       <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="T.serverSettings" :class="TOPBAR_BTN" :aria-label="T.serverSettings"><Icon name="tune" /></router-link>
     </Teleport>
 
-    <!-- 휴대폰: 글 · 버튼 뒤의 받침 막. 곡마다 배경화면 색이 달라 그림 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
+    <!-- 휴대폰: 글 · 버튼 뒤의 받침 오버레이. 곡마다 배경화면 색이 달라 앨범아트 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
          좁게 두면 띠처럼 뭉친다 -->
     <div
       v-if="sheetMode && !loading && !loadError"
@@ -53,7 +53,7 @@
             <span v-else class="shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md bg-surface-container-high text-on-surface-variant flex items-center justify-center"><Icon :name="track ? 'audio_file' : 'music_off'" :size="36" /></span>
 
             <div class="min-w-0 flex-1">
-              <!-- 출처 줄 아래와 아티스트 위 간격을 같게(제목이 가운데). 좁은 창의 아트(88)는 이 그룹 높이(출처 32 + 6 + 제목 + 6 + 아티스트)에 맞춘다.
+              <!-- 출처 줄 아래와 아티스트 위 간격을 같게(제목이 가운데). 좁은 창의 아트(88px)는 이 그룹 높이(출처 32px + 6px + 제목 + 6px + 아티스트)에 맞춘다.
                    곡이 없으면 이 줄을 숨겨 "재생 중인 곡이 없어요" 두 줄이 아트 높이의 가운데에 온다 -->
               <div v-if="track" class="flex items-center gap-2 mb-1.5 min-w-0 h-8">
                 <!-- 좁은 창은 하이라이트 · 정지 공간을 지키려고 "내가 넣은 곡"을 뺀다 -->
@@ -107,14 +107,14 @@
         <VoiceLockOverlay v-if="locked" />
       </AppWindow>
 
-      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 그림(남는 높이 안의 가장 큰 정사각형) · 배지 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 볼륨 · 정지 · 대기열) ── -->
+      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 앨범아트(남는 높이 안의 가장 큰 정사각형) · 배지 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 볼륨 · 정지 · 대기열) ── -->
       <div v-else class="relative flex-1 min-h-0 flex flex-col">
-        <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 그림, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
+        <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 앨범아트, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
-            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 그림은 [이전 | 지금 | 다음] 세 칸이 나란히 붙은 띠라 미는 동안 옆 곡 그림이 들어온다.
+            <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 앨범아트는 [이전 | 지금 | 다음] 세 칸이 나란히 붙은 띠라 미는 동안 옆 곡 앨범아트가 들어온다.
                  옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다.
-                 옆 곡의 그림을 미리 띄워 두어 넘어간 뒤 가운데에 바로 그려진다. 그림이 없으면 지금 칸과 같은 아이콘(넘어가며 아이콘이 바뀌지 않게)
+                 옆 곡의 앨범아트를 미리 불러 두어 넘어간 뒤 가운데에 바로 그려진다. 앨범아트가 없으면 지금 칸과 같은 아이콘(넘어가며 아이콘이 바뀌지 않게)
                  사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
             <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && 'transition-[translate] duration-250 ease-smooth'" :style="[ART_STEP, artSwipe.style.value]">
               <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><img v-if="phoneArt.previous" :src="phoneArt.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" @load="noteArt($event, art.previous)" @error="noteArt($event, art.previous)" /><Icon v-else name="audio_file" :size="64" /></span>
@@ -122,7 +122,7 @@
               <button v-if="art.now" ref="artSwipeEl" type="button" data-no-swipe class="relative size-full rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none" :aria-label="T.enlargeArt" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up" @click="artSwipe.swiped.value || (artOpen = true)">
                 <img :src="phoneArt.now ?? undefined" alt="" draggable="false" class="size-full object-cover" :style="nowZoom > 1 ? { scale: nowZoom } : undefined" @load="noteArt($event, art.now)" @error="noteArt($event, art.now) === 'broken' && (brokenArt = art.now)" />
               </button>
-              <!-- 그림이 없는 곡도 같은 위치에서 밀어 넘긴다 -->
+              <!-- 앨범아트가 없는 곡도 같은 위치에서 밀어 넘긴다 -->
               <span v-else ref="artSwipeEl" data-no-swipe class="relative size-full rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"><Icon :name="track ? 'audio_file' : 'music_off'" :size="64" /></span>
             </div>
           </div>
@@ -147,7 +147,7 @@
             <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="artSwipe.go(false)" @pause="togglePause" @skip="artSwipe.go(true)" @loop="cycleLoop" />
 
             <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치) · 볼륨 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 그룹).
-                 볼륨: 줄이 넓으면(400 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다
+                 볼륨: 줄이 넓으면(400px 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다
                  (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿 · PC 볼륨 막대와 같다) -->
             <div ref="volRowEl" class="shrink-0 flex items-center gap-2" :class="short ? 'mt-1' : 'mt-5'">
               <div class="relative flex-1 min-w-0 h-10 flex items-center gap-3">
@@ -209,8 +209,8 @@
               <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenreLabel ?? autoplayGenre }}</span>
             </button>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
-            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5 로(useOverflowing) -->
-            <!-- 아래에 공간이 없으면(휴대폰 대기열 판이 접혀 화면 아래에 있을 때) 위로 연다 -->
+            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px 로(useOverflowing) -->
+            <!-- 아래에 공간이 없으면(휴대폰 대기열 시트가 접혀 화면 아래에 있을 때) 위로 연다 -->
             <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2' : 'top-full mt-2', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
               <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
               <div class="grid grid-cols-2 gap-1">
@@ -226,7 +226,7 @@
         <QueueAddBox :guild-id="guildId" :player="player" :queue-window="loadedCount" @state="applyState" />
 
         <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다.
-             받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 스페이서로 높이만(composables/row-window). 행 높이 64 고정, 드래그도 그 높이로 순번을 계산한다 -->
+             받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 스페이서로 높이만(composables/row-window). 행 높이 64px 고정, 드래그도 그 높이로 순번을 계산한다 -->
         <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
           <div class="shrink-0 flex flex-col" :style="{ paddingTop: `${queueTop}px`, paddingBottom: `${queueBottom}px` }">
             <div v-for="{ key, row: item, index: i } in queueSlots" :key="key" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder :data-index="i">
@@ -333,7 +333,7 @@ const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false,
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref<HTMLElement | null>(null);
-// 더 있는 쪽 끝 반 줄(32)을 페이드로(봇 상태 · 서버 관리의 목록과 같다)
+// 더 있는 쪽 끝 반 줄(32px)을 페이드로(봇 상태 · 서버 관리의 목록과 같다)
 const queueFade = useScrollFade(queueBoxRef, () => true, 32);
 // 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다. 안 그러면 목록이 접힌다.
 const qs = () => `?queue=${loadedCount.value}`;
@@ -673,10 +673,10 @@ function jumpToHighlight() {
 const artContent = useArtContent(() => player.value.currentTrack?.thumbnail);
 
 const track = computed(() => player.value.currentTrack);
-// 지금 곡의 그림. 불러오지 못하면(곡이 바뀐 뒤 늦게 불린 그림 등) 아이콘으로
+// 지금 곡의 앨범아트. 불러오지 못하면(곡이 바뀐 뒤 늦게 불린 썸네일 등) 아이콘으로
 const brokenArt = ref<string | null>(null);
 const artShown = computed(() => (track.value?.thumbnail && track.value.thumbnail !== brokenArt.value ? track.value.thumbnail : null));
-// 휴대폰 앨범아트 띠의 세 칸. 미는 동안(holding)은 시작한 때의 것을 붙잡아 둔다(곡이 먼저 바뀌어도 미끄러지는 그림이 바뀌지 않게)
+// 휴대폰 앨범아트 띠의 세 칸. 미는 동안(holding)은 시작한 때의 것을 붙잡아 둔다(곡이 먼저 바뀌어도 미끄러지는 앨범아트가 바뀌지 않게)
 const liveArt = computed(() => ({ now: artShown.value, next: player.value.queue?.[0]?.thumbnail ?? null, previous: player.value.previousThumbnail ?? null, hasNext: skipEnabled(player.value), hasPrevious: previousEnabled(player.value) }));
 const heldArt = ref<typeof liveArt.value | null>(null);
 watch(
@@ -684,10 +684,10 @@ watch(
   (held) => (heldArt.value = held ? { ...liveArt.value } : null),
 );
 const art = computed(() => heldArt.value ?? liveArt.value);
-// 큰 칸은 늘려 그리지 않게 출처의 큰 그림으로(utils/big-art): 휴대폰 카드는 large, 태블릿 · PC 의 지금 곡(최대 128px)은 standard
+// 큰 칸은 늘려 그리지 않게 출처의 큰 이미지로(utils/big-art): 휴대폰 카드는 large, 태블릿 · PC 의 지금 곡(최대 128px)은 standard
 const phoneArt = computed(() => ({ now: bigArt(art.value.now, "large"), next: bigArt(art.value.next, "large"), previous: bigArt(art.value.previous, "large") }));
 const deskArt = computed(() => bigArt(artShown.value, "standard"));
-// 위아래 검은 띠는 키워서 감춘다(theme/art 가 그리는 그림의 픽셀로 잰다)
+// 위아래 검은 띠는 키워서 감춘다(theme/art 가 그리는 이미지의 픽셀로 잰다)
 const nowZoom = useArtZoom(() => phoneArt.value.now, true);
 const nextZoom = useArtZoom(() => phoneArt.value.next, true);
 const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
@@ -726,12 +726,12 @@ onUnmounted(() => {
 // 앨범아트 크게 보기(ArtLightbox)
 const artOpen = ref(false);
 
-// 휴대폰: 큰 그림 플레이어 + 대기열 바텀 시트(스포티파이식)
+// 휴대폰: 큰 앨범아트 플레이어 + 대기열 바텀 시트(스포티파이식)
 const isPhone = useMediaQuery(PHONE_QUERY);
-// 낮은 화면(휴대폰 가로): 플레이어를 그림 | 나머지 2열로
+// 낮은 화면(휴대폰 가로): 플레이어를 앨범아트 | 나머지 2열로
 const short = useMediaQuery(SHORT_QUERY);
 const sheetMode = computed(() => isPhone.value);
-// 판이 접혔을 때 헤더에 보이는 다음 곡
+// 시트가 접혔을 때 헤더에 보이는 다음 곡
 const nextTitle = computed(() => (player.value.queue[0] ? songTitle(player.value.queue[0].title) : ""));
 useCloseLayer(volumeOpen, () => (volumeOpen.value = false));
 
@@ -749,7 +749,7 @@ const autoplayGenreLabel = computed(() => player.value.autoplayGenreLabel ?? nul
 const genres = ref<AutoplayGenres["genres"]>([]);
 const genreMenu = ref(false);
 useCloseLayer(genreMenu, () => (genreMenu.value = false));
-// 장르 메뉴를 위로 열지(버튼 아래 공간이 메뉴 높이 320 + 여유보다 좁으면)
+// 장르 메뉴를 위로 열지(버튼 아래 공간이 메뉴 높이 320px + 여유보다 좁으면)
 const genreMenuUp = ref(false);
 async function toggleGenreMenu(e: MouseEvent) {
   if (!genreMenu.value) {
@@ -784,7 +784,7 @@ const queueSeconds = computed(() => {
   return p.queue.reduce((sum, t) => sum + (t.duration || 0), 0);
 });
 
-// 다음 곡의 그림을 미리 읽어 둔다. 곡이 넘어가는 순간 색이 바로 옮겨 간다(theme)
+// 다음 곡의 앨범아트를 미리 읽어 둔다. 곡이 넘어가는 순간 색이 바로 옮겨 간다(theme)
 watch(
   () => player.value.queue[0]?.thumbnail,
   (url) => prefetchArt(url),

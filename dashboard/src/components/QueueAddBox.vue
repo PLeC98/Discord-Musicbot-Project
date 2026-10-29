@@ -1,5 +1,5 @@
 <template>
-  <!-- 곡 넣기(대기열 창 맨 위). 넣을 수 없으면 까닭(봇과 같은 문장), 넣은 결과 · 이어 넣을 재생목록 -->
+  <!-- 곡 추가(대기열 창 맨 위). 넣을 수 없으면 까닭(봇과 같은 문장), 넣은 결과 · 이어 넣을 재생목록 -->
   <div class="shrink-0">
     <NoticeBox v-if="!player.botInVoice && !player.userInVoice" variant="gate" icon="headset_off" icon-class="text-on-surface-variant"
       ><span>{{ noticeText("must-be-in-voice").title }} {{ noticeText("must-be-in-voice").body }}</span></NoticeBox

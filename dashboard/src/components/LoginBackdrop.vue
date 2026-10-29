@@ -1,12 +1,12 @@
 <template>
   <!-- 로그인 배경 하나를 틀(부모 크기)에 그린다. 로그인 화면과 운영자 패널의 미리보기 화면(로그인 화면으로 보기)이 같이 쓴다.
-       파일은 봇이 크롭 · 구간을 적용해 구운 것이라 꽉 채우고(object-fit cover) 보일 위치만 정한다. 정지 그림은 폭별 그림에서 틀 폭 × 배율에 맞는 것.
+       파일은 봇이 크롭 · 구간을 적용해 인코딩한 것이라 꽉 채우고(object-fit cover) 보일 위치만 정한다. 정지 이미지는 폭별 이미지에서 틀 폭 × 배율에 맞는 것.
        영상은 HLS(코덱마다 목록 하나). 선택 규칙 · 내리기는 login-background/pick, 능동 조절은 adapt(adaptive 일 때만, 로그인 화면).
        블러는 오버레이(backdrop-filter, 틀 폭의 %), 오버레이는 화면 색을 진하기만큼. 장면 색은 장면이 바뀔 때만 1초 동안 넘어간다:
        paintTheme 이면 화면 색 시스템(theme.ts setPageSeed)을 칠하고(효과 full), 아니면 · 효과 cover 면 오버레이 색만 넘긴다.
        반복은 브라우저에 맡기고(loop) 끝에 닿기 전 · 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기 · 오버레이 색 · 검게 · 블러)를 적용하고 해제한다.
-       영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60 을 오가며 장면을 버리지 않게) -->
-  <!-- 틀 · 흐리는 레이어는 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 흐려 모서리 밖까지 번진다) -->
+       영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60Hz 를 오가며 장면을 버리지 않게) -->
+  <!-- 틀 · 블러 레이어는 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 블러 처리해 모서리 밖까지 번진다) -->
   <!-- 꾸밈 레이어다: 안의 효과 레이어(z-index)가 바깥(로그인 버튼 그룹) 위로 올라가지 않게 쌓임을 가두고(isolate), 누르기는 통과시킨다 -->
   <div ref="frameEl" class="absolute inset-0 isolate overflow-hidden rounded-[inherit] bg-black pointer-events-none" aria-hidden="true">
     <img v-if="still" :src="still.src" :srcset="still.srcset" :sizes="`${Math.max(1, Math.round(frame.width))}px`" alt="" class="absolute inset-0 size-full object-cover" :style="place" draggable="false" />
@@ -56,7 +56,7 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const place = computed(() => ({ objectPosition: `${props.look.position.x}% ${props.look.position.y}%` }));
 /** 블러(px): 화면 폭의 % 라 틀 폭에 곱한다(작은 틀에서는 그만큼 작게) */
 const blurPx = computed(() => (frame.width * props.look.blur) / 100);
-/** 정지 그림: 폭별 그림(작은 것부터). 틀 폭 × 배율에 맞는 것은 브라우저가 선택한다 */
+/** 정지 이미지: 폭별 이미지(작은 것부터). 틀 폭 × 배율에 맞는 것은 브라우저가 선택한다 */
 const still = computed(() => {
   const stills = [...props.bg.stills].sort((a, b) => a.width - b.width);
   if (!stills.length) return null;
@@ -93,7 +93,7 @@ async function plan() {
   index.value = props.adaptive ? Math.min(recall() ?? 0, ladder.value.length - 1) : 0;
 }
 
-/** 다른 코덱의 첫 단계(그 코덱을 못 틀 때). 없으면 정지 그림 */
+/** 다른 코덱의 첫 단계(그 코덱을 재생하지 못할 때). 없으면 정지 이미지 */
 function nextCodec() {
   const now = codec.value;
   const at = ladder.value.findIndex((one, i) => i > index.value && one.codec !== now);
@@ -120,7 +120,7 @@ async function attach() {
     onStall: () => adapter?.waited(),
     onFatal: ({ load }) => {
       if (mine !== attaching) return;
-      // 불러오기 오류면 배경이 바뀌었을 수 있다(부모가 다시 읽는다). 그동안 · 같은 배경이면 다음 코덱, 다 실패하면 정지 그림
+      // 불러오기 오류면 배경이 바뀌었을 수 있다(부모가 다시 읽는다). 그동안 · 같은 배경이면 다음 코덱, 다 실패하면 정지 이미지
       if (load) emit("stale");
       nextCodec();
     },
@@ -226,7 +226,7 @@ function onVisibility() {
   adapter?.hidden(document.hidden);
   if (!document.hidden && inView.value && videoEl.value?.paused)
     void videoEl.value.play().catch(() => {
-      // 자동재생이 막혔다(정지 그림이 그대로 보인다)
+      // 자동재생이 막혔다(정지 이미지가 그대로 보인다)
     });
 }
 
@@ -249,7 +249,7 @@ function startAdapting() {
     fps: rungs[0]?.frameRate ?? 30,
   });
 }
-// 보이는 동안 재생 위치가 6초 그대로면 다시 틀고, 다음에도 그대로면 그 위치부터 다시 붙인다
+// 보이는 동안 재생 위치가 6초 그대로면 다시 재생하고, 다음에도 그대로면 그 위치부터 다시 붙인다
 let guard = 0;
 let stuckFor = 0;
 let tries = 0;
@@ -286,7 +286,7 @@ async function begin() {
   paintScene(-1, FIRST_MS);
   startAdapting();
 }
-// 다른 배경이 오거나 같은 배경의 목록이 늘면(정지 화면 → H.264 → AV1 · VP9, 미리보기 화면) 순서를 처음부터 다시. 흐림의 1080p 상한도 이때 본다(흐림을 바꾸는 동안은 다시 정하지 않는다).
+// 다른 배경이 오거나 같은 배경의 목록이 늘면(정지 화면 → H.264 → AV1 · VP9, 미리보기 화면) 순서를 처음부터 다시. 블러의 1080p 상한도 이때 본다(블러를 바꾸는 동안은 다시 정하지 않는다).
 // 로그인 화면은 같은 배경이면 불러온 그대로라(다음 방문부터) 여기에 오지 않는다
 watch(
   () => `${props.bg.id}|${props.bg.kind === "video" ? props.bg.streams.map((one) => one.codec).join(",") : ""}`,
@@ -302,7 +302,7 @@ watch(inView, (on) => {
   if (!on) video.pause();
   else if (!document.hidden)
     void video.play().catch(() => {
-      // 자동재생이 막혔다(정지 그림이 그대로 보인다)
+      // 자동재생이 막혔다(정지 이미지가 그대로 보인다)
     });
 });
 

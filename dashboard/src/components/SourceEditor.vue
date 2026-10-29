@@ -156,7 +156,7 @@ watch(
   () => props.modelValue,
   (next) => {
     const incoming = next || [];
-    // 우리가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key 가 바뀐다
+    // 이 컴포넌트가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key 가 바뀐다
     if (JSON.stringify(incoming.map(clean)) === JSON.stringify(list.value.map(clean))) return;
     list.value = incoming.map((one) => ({ ...one, _key: ++serial }));
   },

@@ -56,7 +56,7 @@ const carets = reactive<Record<number, Caret | null>>({});
 // 행마다의 입력란. v-for 안의 함수 ref 가 넣는다
 const keep = (key: number, el: unknown) => (inputs[key] = el instanceof HTMLInputElement ? el : null);
 
-// 판을 열면 입력란에서 포커스가 떠나므로, 떠나기 전 커서 위치를 적어 둔다.
+// 이모지 선택을 열면 입력란에서 포커스가 떠나므로, 떠나기 전 커서 위치를 적어 둔다.
 // 한 번도 만지지 않은 입력란은 적어 둔 것이 없어, 넣을 때 글 끝으로 간다.
 function remember(message: MessageRow) {
   carets[message.key] = caretOf(inputs[message.key]);

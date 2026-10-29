@@ -13,7 +13,7 @@
     <DefineField v-slot="{ one, short }">
       <!-- 구간 선택은 체크박스 목록이라 label 로 감싸지 않는다(라벨을 누르면 첫 체크박스가 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 컴포넌트, SponsorBlock 을 끄면 흐리게 -->
       <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
-      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 고르면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에 -->
+      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 선택하면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에 -->
       <label v-else class="block min-w-0" :class="one.kind === 'cookies' && '@md/card:col-span-2'">
         <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
           ><span class="truncate">{{ (short && T.fields[one.key]?.short) || (T.fields[one.key]?.label ?? one.key) }}</span
@@ -96,7 +96,7 @@ const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>>
 
 const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
-// 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 고치는 중이거나 다시 시작을 기다리는 항목은 보인다(저장 막대 · 다시 시작 안내가 가리키는 칸이 숨지 않게)
+// 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 막대 · 다시 시작 안내가 가리키는 칸이 숨지 않게)
 const shown = (one: Tunable) => !one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key);
 const byGroup = (group: TunableGroup) => mine.value.filter((one) => one.group === group && shown(one));
 // 박스 밖의 항목 · 이 카드에 보이는 박스 · 박스 안의 항목

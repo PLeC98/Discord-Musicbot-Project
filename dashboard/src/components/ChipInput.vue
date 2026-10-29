@@ -43,7 +43,7 @@
           <span v-if="one.hint" class="ml-auto pl-2 text-xs text-on-surface-variant shrink-0">{{ one.hint }}</span>
         </button>
       </div>
-      <!-- 저쪽이 느릴 때가 있다. 요청 중인지 알 수 있어야 기다린다 -->
+      <!-- 후보 조회가 느릴 때가 있다. 요청 중임을 보여야 기다린다 -->
       <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[CHIP_PANEL_NOTE, 'flex items-center gap-2']" :style="style"><Icon name="progress_activity" :size="14" class="animate-spin" />{{ text.fields.suggestLoading }}</p>
       <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[CHIP_PANEL_NOTE, 'whitespace-pre-line']" :style="style">{{ text.fields.suggestFailed }}{{ failReason ? `\n${failReason}` : "" }}</p>
       <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">{{ text.fields.suggestNone }}</p>
@@ -69,7 +69,7 @@ const props = withDefaults(
   defineProps<{
     modelValue?: string[];
     placeholder?: string;
-    /** 제외 키워드처럼 대소문자를 가리지 않고 견주는 입력란. 입력되는 값 자체를 낮춰 둔다 */
+    /** 제외 키워드처럼 대소문자를 가리지 않고 비교하는 입력란. 입력되는 값 자체를 소문자로 바꿔 둔다 */
     lowercase?: boolean;
     /** 검색어로 후보를 불러온다. 없으면 후보를 표시하지 않는다 */
     suggest?: ((term: string) => Promise<Suggestion[]>) | null;

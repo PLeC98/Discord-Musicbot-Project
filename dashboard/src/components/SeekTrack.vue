@@ -43,7 +43,7 @@ const root = ref<HTMLElement | null>(null);
 const { width } = useElementSize(root);
 const shown = ref(props.value);
 let anchor = { value: props.value, at: performance.now() };
-// 핸들 양옆을 비우는 마스크. 핸들은 볼륨 막대처럼 세로 막대(폭 4 · 높이 두께의 3배, 드래그하는 동안 폭 2), 가운데에서 4 까지 비운다(볼륨 막대와 같은 틈)
+// 핸들 양옆을 비우는 마스크. 핸들은 볼륨 막대처럼 세로 막대(폭 4px · 높이 두께의 3배, 드래그하는 동안 폭 2px), 가운데에서 4px 까지 비운다(볼륨 막대와 같은 틈)
 const hole = computed(() => {
   const x = `${shown.value}%`;
   return `linear-gradient(to right, #000 calc(${x} - 4px), transparent calc(${x} - 4px), transparent calc(${x} + 4px), #000 calc(${x} + 4px))`;

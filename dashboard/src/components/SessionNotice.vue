@@ -98,7 +98,7 @@ async function check() {
   checking.value = false;
 }
 
-// 연결 안 됨: 로그인했는지도 모르던 처음이면 다시 묻고 가려던 곳으로, 그 뒤라면 한 번 닿아 본다(닿으면 띠가 사라진다)
+// 연결 안 됨: 로그인했는지도 모르던 처음이면 다시 확인하고 가려던 곳으로, 그 뒤라면 한 번 닿아 본다(닿으면 띠가 사라진다)
 async function retry() {
   checking.value = true;
   try {

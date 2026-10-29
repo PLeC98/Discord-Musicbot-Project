@@ -15,7 +15,7 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
-      <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색창(둘레 4 · 아래 구분선), 셀은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
+      <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16px. 위에 검색창(둘레 4px · 아래 구분선), 셀은 아이콘 버튼 S(40px · 이모지 24px) 8열 -->
       <div v-if="open" :class="panel" :style="popoverStyle">
         <div class="shrink-0 p-1 border-b border-outline-variant/50">
           <SearchInput ref="searchBox" v-model="query" :placeholder="T.emojiSearch" :input-class="[SEARCH_FIELD, 'w-full']" />
@@ -28,7 +28,7 @@
           </div>
           <p v-else-if="!groups.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiLoading }}</p>
 
-          <!-- 찾는 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
+          <!-- 검색 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
           <div v-else-if="results" class="p-1">
             <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiNone }}</p>
             <div v-else :class="grid">
@@ -37,7 +37,7 @@
           </div>
 
           <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
-               그림은 어차피 lazy 라 화면 밖은 불러오지도 않는다 -->
+               이미지는 어차피 lazy 라 화면 밖은 불러오지도 않는다 -->
           <section v-for="group in groups" v-else :key="group.name">
             <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠 · 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
             <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
@@ -156,7 +156,7 @@ function clear() {
   open.value = false;
 }
 
-// 판을 표시할 위치. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 셀 8개(40) + 둘레 4 · 4, 높이는 검색창(48 + 선) + 목록(18.75rem) + 비우기(40 + 선)
+// 팝오버를 표시할 위치. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 셀 8개(40px) + 둘레 4px · 4px, 높이는 검색창(48px + 선) + 목록(18.75rem) + 비우기(40px + 선)
 const WIDTH_REM = 20.5;
 function place() {
   const rect = root.value?.getBoundingClientRect();
@@ -170,7 +170,7 @@ function place() {
   popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
 }
 
-// 판은 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 버튼을 따라간다.
+// 팝오버는 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 버튼을 따라간다.
 // capture로 잡아야 안쪽 스크롤 상자가 움직일 때도 걸린다.
 const listen = (add: boolean) => {
   if (add) {

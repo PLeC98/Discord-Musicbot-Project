@@ -1,7 +1,7 @@
 <template>
   <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만 · 파비콘 · 로그인 배경 · 오디오 캐시) · 백업 불러오기.
        불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 선택한 것만 불러온다. 오디오 캐시는 합친다(나눔을 행마다).
-       불러온 뒤 쿠키 출처가 바뀌었으면 알리고, 다시 시작해야 먹는 값이 바뀌었으면 다시 시작 창을 연다. 내보내기 · 불러오기는 최근 로그인만 -->
+       불러온 뒤 쿠키 출처가 바뀌었으면 알리고, 다시 시작해야 적용되는 값이 바뀌었으면 다시 시작 창을 연다. 내보내기 · 불러오기는 최근 로그인만 -->
   <div class="flex flex-col gap-(--gap-in)">
     <BaseCard icon="download" :title="T.exportTitle">
       <p class="mb-3 text-sm text-on-surface-variant">
@@ -162,7 +162,7 @@ async function apply() {
     if (data.cookiesSource) notify({ ...T.cookiesChanged(data.cookiesSource), severity: "warning" });
     preview.value = null;
     applying.value = false;
-    // 다시 시작해야 먹는 값이 바뀌었으면 묻는다(지금 다시 시작 · 나중에). 아니면 열려 있던 편집기들이 옛 값을 들고 있어 새로 읽는다
+    // 다시 시작해야 적용되는 값이 바뀌었으면 묻는다(지금 다시 시작 · 나중에). 아니면 열려 있던 편집기들이 옛 값을 들고 있어 새로 읽는다
     if (data.restart) askRestart();
     else if (!merging) setTimeout(() => location.reload(), 800);
   } catch (err) {

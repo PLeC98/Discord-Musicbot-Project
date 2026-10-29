@@ -1,5 +1,5 @@
 <template>
-  <!-- 로그 한 줄(실시간 로그 · 로그 파일 보기). 넓으면 한 줄(시각 · 레벨 · 카테고리 · 태그 · 글), 좁으면(로그 영역 42rem 아래) 글을 아랫줄로. 글은 낱말 단위로 끊는다.
+  <!-- 로그 한 줄(실시간 로그 · 로그 파일 보기). 넓으면 한 줄(시각 · 레벨 · 카테고리 · 태그 · 글), 좁으면(로그 영역 42rem 아래) 글을 아랫줄로. 글은 단어 단위로 끊는다.
        검색어와 일치한 부분은 칠한다(MatchText) -->
   <div class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5">
     <span class="flex items-baseline gap-3 shrink-0">

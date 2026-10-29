@@ -1,8 +1,8 @@
 <template>
   <!-- 로그인 화면: 리싱한 Hyprland 의 잠금 화면(hyprlock) 스타일. 봇 정보 탭의 터미널과 같은 재료(활성 창 그라데이션 테두리).
-       위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 선택 · locked · 봇 상태와 짧은 날짜), 가운데 큰 시계 · 고리 두른 봇 그림 · hyprlock 입력란 모양의 로그인 버튼(오른쪽 끝 화살표, Enter 로도),
+       위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 선택 · locked · 봇 상태와 짧은 날짜), 가운데 큰 시계 · 고리 두른 봇 프로필 이미지 · hyprlock 입력란 모양의 로그인 버튼(오른쪽 끝 화살표, Enter 로도),
        아래 가운데에 같은 섬 하나로 소스 링크(AGPL 13조 고지).
-       배경: 운영자가 지정한 로그인 배경(GET /api/login-background)이 있으면 그것(LoginBackdrop, 화면 색도 그 배경의 색), 없으면 봇 그림.
+       배경: 운영자가 지정한 로그인 배경(GET /api/login-background)이 있으면 그것(LoginBackdrop, 화면 색도 그 배경의 색), 없으면 봇 프로필 이미지.
        preview 면(운영자 패널의 "로그인 화면으로 보기") 배경을 그리지 않는다(부르는 쪽이 고친 값으로 그린다) -->
   <div ref="rootEl" data-lock-screen class="relative min-h-dvh flex flex-col overflow-x-hidden">
     <AppWallpaper v-if="!preview" />
@@ -28,9 +28,9 @@
       </div>
     </header>
 
-    <!-- hyprlock: 봇 그림 · 이름 · 로그인 버튼 그룹이 화면 정가운데(세 행 격자 1fr · 그룹 · 1fr), 시계는 격자 밖에서 화면 높이 18% 가 중심.
+    <!-- hyprlock: 봇 프로필 이미지 · 이름 · 로그인 버튼 그룹이 화면 정가운데(세 행 격자 1fr · 그룹 · 1fr), 시계는 격자 밖에서 화면 높이 18% 가 중심.
          위 막대 · 아래 섬과 상관없이 화면 전체 기준이라 바깥에 깐다.
-         낮은 화면(휴대폰 가로 등, 높이 512 이하)은 공간이 없어 큰 시계를 빼고(위 막대 오른쪽이 날짜 대신 시각), 그룹은 휴대폰 크기, 실패는 대화상자로 -->
+         낮은 화면(휴대폰 가로 등, 높이 512px 이하)은 공간이 없어 큰 시계를 빼고(위 막대 오른쪽이 날짜 대신 시각), 그룹은 휴대폰 크기, 실패는 대화상자로 -->
     <main class="absolute inset-0 grid grid-rows-[1fr_auto_1fr] justify-items-center px-5 text-center">
       <!-- 시계: 화면 높이 18% 를 중심으로 고정(그룹과의 간격은 화면 높이를 따른다). 위 행은 비워 둔다. 낮은 화면은 공간이 없어 뺀다.
            그 위치가 위 막대나 그룹과 겹치면(애매하게 낮은 화면) 둘 사이 가운데로 옮기고 줄인다. 반 넘게 줄여야 하면 숨긴다(fit).
@@ -38,8 +38,8 @@
       <div></div>
       <p v-if="!short" ref="clockEl" :style="clockStyle" :class="fit.clockHidden && 'invisible'" class="absolute inset-x-0 top-[18%] -translate-y-1/2 font-round font-semibold nums leading-none tracking-[-0.04em] text-7xl md:text-8xl tall:text-9xl text-on-surface drop-shadow-[0_2px_12px_rgb(0_0_0/0.25)]">{{ clock }}</p>
 
-      <!-- 그림 · 이름 · 로그인 버튼 그룹이 화면 정가운데. 고리는 활성 창 테두리와 같은 45도 그라데이션.
-           크기는 폭만이 아니라 높이도 본다: 낮은 화면(휴대폰 가로)은 폭이 넓어도 휴대폰 크기. 정가운데에서 화면 높이 3% 만큼 올린다(눈으로 맞춘 값). 그림 · 이름 · 버튼 사이는 같은 간격 -->
+      <!-- 프로필 이미지 · 이름 · 로그인 버튼 그룹이 화면 정가운데. 고리는 활성 창 테두리와 같은 45도 그라데이션.
+           크기는 폭만이 아니라 높이도 본다: 낮은 화면(휴대폰 가로)은 폭이 넓어도 휴대폰 크기. 정가운데에서 화면 높이 3% 만큼 올린다(눈으로 맞춘 값). 이미지 · 이름 · 버튼 사이는 같은 간격 -->
       <div ref="groupEl" class="relative w-full flex flex-col items-center translate-y-[-3dvh]">
         <span class="rounded-full p-0.75 bg-[linear-gradient(45deg,var(--md-primary),var(--md-tertiary))]" :class="short ? 'size-22' : 'size-44 md:size-48'">
           <span class="size-full rounded-full overflow-hidden ring-3 ring-surface bg-primary-container text-on-primary-container flex items-center justify-center">
@@ -65,7 +65,7 @@
             <strong class="font-semibold">{{ errorText.title }}</strong
             >{{ NL }}{{ errorText.body }}{{ NL }}<span class="font-mono text-xs">{{ error }}</span>
           </p>
-          <!-- 키보드가 있는 기기에만: Enter 로도 들어간다. 배경 그림 위에서도 읽히게 작은 섬 위에 -->
+          <!-- 키보드가 있는 기기에만: Enter 로도 들어간다. 배경 이미지 위에서도 읽히게 작은 섬 위에 -->
           <p v-else class="mt-3 pane rounded-full h-7 px-3 flex items-center gap-1 font-mono text-xs text-on-surface-variant pointer-coarse:hidden">press <kbd class="px-1.5 rounded bg-on-surface/10 text-on-surface">Enter</kbd> to login</p>
         </div>
       </div>
@@ -112,7 +112,7 @@ const NL = "\n";
 const ISLAND = "pane rounded-full h-9 px-4 flex items-center gap-2 text-on-surface";
 const LINK = "text-on-surface no-underline hover:underline";
 
-/** preview: 운영자 패널이 고친 값으로 배경을 따로 그린다(배경 · 봇 그림을 깔지 않는다) */
+/** preview: 운영자 패널이 고친 값으로 배경을 따로 그린다(배경 · 봇 프로필 이미지를 깔지 않는다) */
 const props = withDefaults(defineProps<{ preview?: boolean }>(), { preview: false });
 
 const route = useRoute();
@@ -202,7 +202,7 @@ watch([short, error], () => nextTick(layout));
 const PAGE_ART = Symbol("login");
 onUnmounted(() => releasePageArt(PAGE_ART));
 
-// 로그인 배경. 없거나 못 불러오면 봇 그림 배경(불러온 뒤에 깐다)
+// 로그인 배경. 없거나 못 불러오면 봇 프로필 이미지 배경(불러온 뒤에 깐다)
 const background = ref<Exclude<LoginBackground, { kind: "none" }> | null>(null);
 async function loadBackground() {
   try {
@@ -211,7 +211,7 @@ async function loadBackground() {
     if (got.kind === "none") background.value = null;
     else if (got.id !== background.value?.id) background.value = got;
   } catch {
-    // 꾸밈이다. 못 불러오면 봇 그림으로
+    // 꾸밈이다. 못 불러오면 봇 프로필 이미지로
   }
   if (!background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
 }
@@ -234,14 +234,14 @@ onMounted(async () => {
   try {
     const res = await axios.get<BotInfo>("/api/bot");
     botAvatar.value = res.data.avatarUrl ?? undefined;
-    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 그림을 배경(쓰임 avatar: 원본 해상도, 옅은 블러 · 밝기 띠)과 색으로 깐다
+    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 프로필 이미지를 배경(쓰임 avatar: 원본 해상도, 옅은 블러 · 밝기 띠)과 색으로 깐다
     await backgroundRead;
     if (!props.preview && !background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
     botName.value = res.data.name ?? "";
     sourceRepo.value = res.data.sourceRepo;
     projectRepo.value = res.data.projectRepo;
   } catch {
-    // 봇 그림 · 이름은 꾸밈이다. 못 불러오면 기본 그림으로 두고 위 막대에 offline 을 표시한다
+    // 봇 프로필 이미지 · 이름은 꾸밈이다. 못 불러오면 기본 이미지로 두고 위 막대에 offline 을 표시한다
     online.value = false;
   }
 });

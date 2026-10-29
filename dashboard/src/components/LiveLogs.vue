@@ -1,7 +1,7 @@
 <template>
   <!-- 실시간 로그 탭. 창은 바탕화면 아래 끝까지 채우고(재생 바는 그 위에 겹친다. 바깥 아래 여백의 재생 바 몫은 음수 여백으로 돌려줘 페이지가 스크롤되지 않게),
        로그 영역이 남는 높이를 다 쓰고 그 안에서만 스크롤된다. 아래 여백은 창 여백 + (재생 바 - 바깥 틈): 창 아래 끝이 바탕화면 끝에서 바깥 틈만큼 위라, 로그 영역이 재생 바 위 끝에서 창 여백만큼 떨어진다.
-       휴대폰도 같다(위에 있던 탭 줄이 위 막대로 갔다) -->
+       휴대폰도 같다 -->
   <section class="@container/card pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
     <PaneHeader icon="article" :title="T.title">
       <!-- 제목 바로 옆에 연결 상태 · 줄 수. 연결되어 있으면 초록 점과 줄 수만, 끊기면 회색 점 · "끊김" · 줄 수. 점은 툴팁으로 상태를 말한다.
@@ -20,8 +20,8 @@
     </PaneHeader>
 
     <!-- 필터: 레벨은 여럿 켜기(심각한 것부터). 카테고리 · 태그는 흘러온 로그에서 본 것만 드롭다운으로(종류가 늘어나는 목록이라 칩 대신, 많으면 검색창). 오른쪽 끝에 자동 스크롤(켜 두면 새 줄을 따라 내려간다) · 지우기 -->
-    <!-- 카드 안쪽 587 이하(휴대폰 · 운영자 화면에서 사이드바를 접은 화면 795 이하): 첫 줄은 필터 버튼 · 자동 스크롤, 둘째 줄은 검색.
-         레벨 · 카테고리 · 태그 · 지우기는 필터 창에(고르는 대로 반영. 휴대폰은 바텀 시트, 그 밖은 가운데 팝업) -->
+    <!-- 카드 안쪽 587px 이하(휴대폰 · 운영자 화면에서 사이드바를 접은 화면 795px 이하): 첫 줄은 필터 버튼 · 자동 스크롤, 둘째 줄은 검색.
+         레벨 · 카테고리 · 태그 · 지우기는 필터 창에(선택하는 대로 반영. 휴대폰은 바텀 시트, 그 밖은 가운데 팝업) -->
     <div class="flex @min-[588px]/card:hidden items-center gap-2">
       <FilterButton :count="activeFilters" @open="openSheet" />
       <label class="ml-auto flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">{{ T.autoScroll }}<BaseSwitch :model-value="follow" :label="T.autoScroll" @update:model-value="setFollow" /></label>
@@ -45,9 +45,9 @@
       </section>
     </FilterSheet>
 
-    <!-- 카드 안쪽 588 이상: 칸 이름이 붙은 격자(같은 버튼을 두 번 그리지 않게 칸 자리만 바꾼다). 안쪽 폭 = 운영자 화면에서 사이드바를 접으면 화면 - 208.
-         588 ~ 742(화면 796 ~ 950): 레벨 · 자동 스크롤 · 지우기 / 카테고리 · 태그 · 검색(남은 폭).
-         743 이상(화면 951 이상): 레벨 / 카테고리 · 태그 · 검색(288 까지) · 오른쪽 끝 자동 스크롤 · 지우기 -->
+    <!-- 카드 안쪽 588px 이상: 영역 이름이 붙은 격자(같은 버튼을 두 번 그리지 않게 영역 위치만 바꾼다). 안쪽 폭 = 운영자 화면에서 사이드바를 접으면 화면 - 208px.
+         588 ~ 742px(화면 796 ~ 950px): 레벨 · 자동 스크롤 · 지우기 / 카테고리 · 태그 · 검색(남은 폭).
+         743px 이상(화면 951px 이상): 레벨 / 카테고리 · 태그 · 검색(288px 까지) · 오른쪽 끝 자동 스크롤 · 지우기 -->
     <div class="hidden @min-[588px]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_actions'_'filters_filters'] @min-[743px]/card:[grid-template-areas:'chips_chips'_'filters_actions']">
       <div class="[grid-area:chips] flex flex-wrap items-center gap-2">
         <button v-for="l in LEVEL_CHIPS" :key="l.value" type="button" :aria-pressed="levelsOn.has(l.value)" :class="[FILTER_CHIP, levelsOn.has(l.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleLevel(l.value)">{{ l.label }}</button>
@@ -55,7 +55,7 @@
       <div class="[grid-area:filters] flex items-center gap-2 min-w-0">
         <SingleSelect v-model="category" class="w-44 shrink-0" :options="categoryOptions" :search-from="0" :empty-label="T.allCategories" />
         <SingleSelect v-model="tag" class="w-44 shrink-0" :options="tagOptions" :empty-label="T.allTags" />
-        <!-- 글자 검색: 받아 둔 줄의 글 · 카테고리 · 태그에서(한국어 검색). 넓으면 288 까지, 그 밖은 남은 폭을 다 -->
+        <!-- 글자 검색: 받아 둔 줄의 글 · 카테고리 · 태그에서(한국어 검색). 넓으면 288px 까지, 그 밖은 남은 폭을 다 -->
         <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 @min-[743px]/card:max-w-72" />
       </div>
       <span class="[grid-area:actions] justify-self-end flex items-center gap-2">
@@ -64,8 +64,8 @@
       </span>
     </div>
 
-    <!-- 로그 영역. 넓으면 한 줄(시각 · 레벨 · 카테고리 · 글), 좁으면 시각 · 레벨 · 카테고리를 윗줄에 두고 글은 아랫줄. 글은 낱말 단위로 끊는다.
-         바탕은 드롭다운 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 트랙을 비운다 -->
+    <!-- 로그 영역. 넓으면 한 줄(시각 · 레벨 · 카테고리 · 글), 좁으면 시각 · 레벨 · 카테고리를 윗줄에 두고 글은 아랫줄. 글은 단어 단위로 끊는다.
+         바탕은 드롭다운 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3px 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 트랙을 비운다 -->
     <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto [overflow-anchor:none] rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
       <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ logs.length ? text.common.noMatch : T.empty }}</p>
       <!-- 줄은 한 번 그리면 검색어를 바꿀 때까지 바뀌지 않는다(v-memo: 탭을 옮기거나 새 줄이 와도 다시 비교하지 않는다. 검색어가 바뀌면 일치한 부분을 다시 칠한다). 화면 밖 줄은 그리기를 건너뛴다(content-visibility, 높이는 한 줄 25px 로 짐작하고 그린 뒤로는 그 높이) -->
@@ -216,7 +216,7 @@ watch(
   () => shown.value.at(-1)?.key,
   () => follow.value && toEnd(),
 );
-// 숨어 있는 동안(display:none)은 scrollTop 이 먹지 않는다. 돌아오면 맞춘다
+// 숨어 있는 동안(display:none)은 scrollTop 이 적용되지 않는다. 돌아오면 맞춘다
 watch(
   () => props.active,
   (on) => on && follow.value && toEnd(),

@@ -161,7 +161,7 @@ const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(
 function apply(data: Record<string, unknown>) {
   // 파일에 필드가 없을 때의 값은 봇이 그때 쓰는 값(schema/genres 의 GENRE_DEFAULTS). 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
   const defaults: Defaults = { ...GENRE_DEFAULTS, blockedKeywords: [], ...((data.defaults as Partial<Defaults> | undefined) || {}) };
-  // 제외 키워드는 제목을 소문자로 낮춰 견주므로, 입력되는 값도 낮춰 둔다. 대문자로 입력해 두면 아무것도 필터링하지 못한다
+  // 제외 키워드는 제목을 소문자로 바꿔 비교하므로, 입력되는 값도 소문자로 둔다. 대문자로 입력해 두면 아무것도 필터링하지 못한다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   const genres = (data.genres as Record<string, GenreData> | undefined) || {};
   draft.value = { defaults, genres };
@@ -178,14 +178,14 @@ useSaveTarget({ tab: "autoplay", dirty, saving, blocked: computed(() => problems
 // ── 순서 바꾸기. 접어 둔 기억도 그 장르를 따라간다 ─────────────────────────
 const { startDrag } = useDragReorder(rows, reorderGenres);
 
-// 자동완성 후보. 브라우저가 저쪽에 바로 요청하지 않고 서버를 거친다(GET /api/admin/source-suggest)
+// 자동완성 후보. 브라우저가 외부 서비스에 바로 요청하지 않고 서버를 거친다(GET /api/admin/source-suggest)
 const suggestFor = async (type: string, field: string, term: string) => (await axios.get<Suggestions>("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
 // ── 목록 · 상세(composables/list-detail). 주소는 ?genre= ─────────────────────────
 const paneEl = ref<HTMLElement | null>(null);
 const { listCardClass, paneClass, selectedIndex, selected, showGlobal, showList, isOn, globalOn, select, openGlobal, afterRemove } = useListDetail({ param: "genre", rows, paneEl });
 const listEl = ref<HTMLElement | null>(null);
-// 더 있는 쪽 끝 반 줄(24)을 페이드 처리한다
+// 더 있는 쪽 끝 반 줄(24px)을 페이드 처리한다
 const listFade = useScrollFade(listEl, () => true, 24);
 
 // 항목마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/genres)를 그 장르 하나에만 돌린 것. 목록 항목의 아이콘(툴팁)과 편집 영역 맨 위에 보인다.
@@ -236,14 +236,14 @@ function exportRow(row: GenreRow) {
   const { name, body } = genreFile(row);
   const url = URL.createObjectURL(new Blob([body], { type: "application/json" }));
   Object.assign(document.createElement("a"), { href: url, download: name }).click();
-  // 클릭이 내려받기를 시작한 뒤에 놓는다
+  // 클릭이 다운로드를 시작한 뒤에 해제한다
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function importPicked(event: Event) {
   const input = event.target as HTMLInputElement;
   const files = [...(input.files ?? [])];
-  input.value = ""; // 같은 파일을 다시 골라도 change 가 오게
+  input.value = ""; // 같은 파일을 다시 선택해도 change 가 오게
   const parsed = await Promise.all(files.map(async (file) => ({ file, got: parseGenreFile(await file.text()) })));
   const bad = parsed.filter((one) => !one.got).map((one) => one.file.name);
   const good = parsed.flatMap((one) => (one.got ? [one.got] : []));

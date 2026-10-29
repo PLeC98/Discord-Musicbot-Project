@@ -1,9 +1,7 @@
 <template>
-  <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background 의 상태 하나를 읽고 바꾸는 요청들도 그것으로 답한다.
-       미리보기 화면: 지금 쓰는 배경을 선택한 화면 비율의 틀에 그린다(로그인 화면과 같은 LoginBackdrop, 옵션 영역의 값을 저장 전에도 바로 보인다). 정지 화면 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
-       아래: 로그인 화면에 지금 걸린 것 · 처리 중인 배경의 진행 · 그만두기 · 변경 · 편집 · 삭제 · 로그인 화면으로 보기.
-       넓으면 미리보기 화면 영역(가운데 정렬) 오른쪽에 같은 높이의 옵션 영역: 좌우 · 상하(보일 위치) · 블러(화면 폭의 %) · 배경 불투명도(= 100 - 오버레이 진하기) · 몰입형 테마 색상 · 반복 전환 효과(영상).
-       옵션 · 고급 설정은 운영자 패널의 저장 막대(SaveDock, composables/save-targets)로 저장 · 되돌린다. 접는 고급 설정: 보존 개수 · 최대 용량 · 인코딩 환경(코덱마다 쓰는 인코더 · 꺼진 까닭 · 지금 인코딩).
+  <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background 의 상태 하나를 읽고, 바꾸는 요청들도 그 상태로 답한다.
+       미리보기 화면은 로그인 화면과 같은 LoginBackdrop 에 옵션 영역의 값을 저장 전에도 바로 그린다. 정지 화면 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
+       옵션 · 고급 설정은 운영자 패널의 저장 막대(SaveDock, composables/save-targets)로 저장 · 되돌린다.
        만드는 동안은 운영자 패널의 상태 읽기와 같이 3초마다 다시 읽는다(화면이 숨으면 멈춘다). 로그인 배경 백업은 백업 탭(파비콘과 따로) -->
   <BaseCard icon="wallpaper" :title="C.title">
     <template #actions
@@ -30,7 +28,7 @@
           </div>
         </div>
 
-        <!-- 옵션 영역: 화면에서 거는 것(CSS, 다시 만들지 않는다). 바꾼 값은 화면 판에 바로 보이고, 저장을 눌러야 봇에 간다 -->
+        <!-- 옵션 영역: 화면에서 거는 것(CSS, 다시 만들지 않는다). 바꾼 값은 미리보기 화면에 바로 보이고, 저장을 눌러야 봇에 간다 -->
         <div v-if="state" class="flex flex-col gap-4 rounded-2xl bg-surface-container p-4">
           <label v-for="axis in AXES" :key="axis.key" class="flex flex-col gap-1 text-sm">
             <span class="flex justify-between"
@@ -130,7 +128,7 @@
                 <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ one.why }}</span>
               </li>
             </ul>
-            <!-- 지금 인코딩: 함께 굽는 단계 · AV1 병렬 단계(남은 메모리에 맞춰 정한 것) · 묶은 코어 · 속도. 메모리 · 이벤트 루프 지연은 봇 상태 탭 -->
+            <!-- 지금 인코딩: 함께 인코딩하는 단계 · AV1 병렬 단계(남은 메모리에 맞춰 정한 것) · 묶은 코어 · 속도. 메모리 · 이벤트 루프 지연은 봇 상태 탭 -->
             <span v-if="bakeLine" class="flex items-baseline gap-2 text-xs nums"
               ><span class="shrink-0 font-semibold" v-tooltip="A.bakeTip">{{ A.bakeTitle }}</span
               ><span class="text-on-surface-variant">{{ bakeLine }}</span></span
@@ -145,7 +143,7 @@
   <BackgroundSourceDialog v-model="sourceOpen" :state="state" :busy="busy" :pending="pending" :uploading="uploading" @upload="pickFile" @link="fromLink" @use="useBg" @remove="removeBg" />
   <BackgroundEditDialog v-model="editOpen" :bg="editing" :state="state" :seam="draft.look.seam" @done="applyEdit" @recount="recount" />
 
-  <!-- 로그인 화면으로 보기: 지금 쓰는 배경(고친 값, 없으면 화면 판처럼 봇 그림) 위에 실제 로그인 화면. 그동안은 그 배경의 색을 화면 색으로 칠한다 -->
+  <!-- 로그인 화면으로 보기: 지금 쓰는 배경(고친 값, 없으면 미리보기 화면처럼 봇 이미지) 위에 실제 로그인 화면. 그동안은 그 배경의 색을 화면 색으로 칠한다 -->
   <Teleport to="body">
     <div v-if="loginOpen" class="fixed inset-0 z-400 bg-surface">
       <LoginBackdrop v-if="shown" :bg="shown" :look="look" paint-theme />
@@ -191,7 +189,7 @@ const POLL_MS = 3000;
 const COUNT_POLL_MS = 1000;
 /** 배경 불투명도 슬라이더의 아래(= 100 - 오버레이 진하기 상한) */
 const OPACITY_MIN = 100 - LOGIN_BG_COVER_MAX;
-/** 화면 판의 높이(rem). 넓은 비율은 영역 폭에 맞춰 줄인다 */
+/** 미리보기 화면의 높이(rem). 넓은 비율은 영역 폭에 맞춰 줄인다 */
 const PANE_REM = 20;
 /** 보일 위치 슬라이더 */
 const AXES = [
@@ -214,7 +212,7 @@ const RATIOS = [
 const state = ref<LoginBackgroundState | null>(null);
 const busy = ref(false);
 const ratio = ref(RATIOS[0]);
-/** 화면 판에 로그인 화면 실루엣을 겹친다 */
+/** 미리보기 화면에 로그인 화면 실루엣을 겹친다 */
 const silhouette = ref(true);
 const sourceOpen = ref(false);
 const editOpen = ref(false);
@@ -297,7 +295,7 @@ function revert() {
   draft.look = copyLook(saved.value.look);
 }
 
-// ── 화면 판에 그릴 것: 로그인 화면이 받는 배경 정보(지금 배경이 걸 것을 가졌을 때만) ──
+// ── 미리보기 화면에 그릴 것: 로그인 화면이 받는 배경 정보(지금 배경이 걸 것을 가졌을 때만) ──
 
 const shown = ref<Exclude<LoginBackground, { kind: "none" }> | null>(null);
 async function loadShown() {
@@ -305,7 +303,7 @@ async function loadShown() {
     const got = (await axios.get<LoginBackground>("/api/login-background")).data;
     shown.value = got.kind === "none" ? null : got;
   } catch {
-    // 꾸밈이다. 못 불러오면 봇 그림으로
+    // 꾸밈이다. 못 불러오면 봇 이미지로
   }
 }
 // 지금 배경 · 걸 수 있는 것(정지 화면 → 저화질 → 다)이 바뀌면 다시 불러온다
@@ -418,7 +416,7 @@ const clear = () =>
     notifyDone(N.cleared);
   });
 
-/** 편집 적용: 편집 창에서 고른 반복 전환 효과는 화면 값으로 저장한다(카드에서 나중에 바꿀 수 있다). 저장 전에 고친 다른 화면 값은 그대로 둔다 */
+/** 편집 적용: 편집 창에서 선택한 반복 전환 효과는 화면 값으로 저장한다(카드에서 나중에 바꿀 수 있다). 저장 전에 고친 다른 화면 값은 그대로 둔다 */
 function applyEdit(edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]) {
   const id = editingId.value;
   if (!id) return;
@@ -526,7 +524,7 @@ onMounted(async () => {
   try {
     avatar.value = (await axios.get<{ avatarUrl: string | null }>("/api/bot")).data.avatarUrl ?? null;
   } catch {
-    // 화면 판의 기본 그림만 빈다
+    // 미리보기 화면의 기본 이미지만 빈다
   }
 });
 onBeforeUnmount(() => {

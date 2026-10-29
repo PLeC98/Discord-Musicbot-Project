@@ -20,7 +20,7 @@
     </PageError>
 
     <template v-else>
-      <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 열이 는다(카드 한 장 360 쯤: 768~ 2열, 1152~ 3열). 높이를 맞춘 격자가 아니라 열마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
+      <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 열이 는다(카드 한 장 360px 쯤: 768px~ 2열, 1152px~ 3열). 높이를 맞춘 격자가 아니라 열마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
       <div class="columns-1 @3xl/desk:columns-2 @6xl/desk:columns-3 gap-(--gap-in) *:break-inside-avoid">
         <!-- 봇 전용 채널 -->
         <BaseCard icon="keep" :title="T.channel.title" class="mb-(--gap-in)">
@@ -34,7 +34,7 @@
 
           <SearchInput v-model="roleFilter" :disabled="!s.canEdit" :placeholder="text.fields.searchAmong(s.roles.length)" :input-class="[FIELD, 'w-full disabled:opacity-38']" class="mb-2" />
 
-          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12 - 1)에 맞춰 위아래 11 - 5 = 6 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3 으로(useOverflowing) -->
+          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12px - 1px)에 맞춰 위아래 11 - 5 = 6px 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3px 로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
             <label v-for="r in filteredRoles" :key="r.id" class="shrink-0 flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm" :class="s.canEdit ? 'state-layer cursor-pointer' : 'opacity-60'">
               <input type="checkbox" class="size-4 accent-primary shrink-0" :checked="selectedRoles.includes(r.id)" :disabled="!s.canEdit" @change="toggleRole(r.id)" />
@@ -66,7 +66,7 @@
         <BaseCard v-if="s.playlistAdd" icon="queue_music" :title="T.playlistAdd.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.playlistAdd.desc }}</p>
 
-          <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게 · 체크. 카드가 좁으면(384 미만, 작은 휴대폰) 버튼 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
+          <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게 · 체크. 카드가 좁으면(384px 미만, 작은 휴대폰) 버튼 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
           <div class="flex gap-0.5 mb-3" role="radiogroup" :aria-label="T.playlistAdd.choose">
             <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]">
               <Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultLong }}</span
@@ -138,7 +138,7 @@ const T = text.serverSettings;
 /** 불러오기 전에는 이름 · SponsorBlock · 재생목록 필드가 없다 */
 type SettingsSeen = Omit<GuildSettings, "guildName" | "sponsorblock" | "playlistAdd"> & { guildName: string | null; sponsorblock: GuildSettings["sponsorblock"] | null; playlistAdd: GuildSettings["playlistAdd"] | null };
 
-// 좁은 카드에서 곡 수 입력란을 촘촘하게(SE 375 에서 카드 밖으로 넘쳤다)
+// 좁은 카드에서 곡 수 입력란을 촘촘하게(아니면 iPhone SE 375px 에서 카드 밖으로 넘친다)
 const SEG_TIGHT = "@max-sm/card:px-2 @max-sm/card:gap-1";
 const route = useRoute();
 const router = useRouter();
@@ -335,7 +335,7 @@ onUnmounted(() => {
   clearTimeout(doneTimer);
 });
 
-// 화면 색 · 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 곡 그림이라 재생 화면에서 들어오면 색이 그대로다).
+// 화면 색 · 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 앨범아트라 재생 화면에서 들어오면 색이 그대로다).
 // 서버 목록의 지금 곡이라 곡이 바뀌면 따라간다. 목록을 처음 불러오는 동안은 지금 색을 붙잡는다(주소로 바로 들어온 때)
 const guilds = useGuildsStore();
 const artOwner = Symbol("settings");

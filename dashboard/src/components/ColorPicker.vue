@@ -13,7 +13,7 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
-      <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low · 모서리 16. 안쪽 둘레 12, 맨 아래 기본 색으로(40 + 선) -->
+      <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low · 모서리 16px. 안쪽 둘레 12px, 맨 아래 "기본 색으로" 버튼(40px + 구분선) -->
       <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
         <div class="flex flex-col gap-3 p-3">
           <!-- 채도(가로) · 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
@@ -28,7 +28,7 @@
             <button v-for="(one, i) in FORMATS" :key="one" type="button" role="radio" :aria-checked="format === one" :class="segment(format === one, i, FORMATS.length)" @click="pickFormat(one)">{{ one.toUpperCase() }}</button>
           </div>
 
-          <!-- 선택한 색 견본(40, 입력란과 같은 높이) + 값 입력란. 입력란 밑에 짧은 이름. 수는 화살표로 1, Shift 를 같이 누르면 10 -->
+          <!-- 선택한 색 견본(40px, 입력란과 같은 높이) + 값 입력란. 입력란 밑에 짧은 이름. 수는 화살표로 1, Shift 를 같이 누르면 10 -->
           <div class="flex items-start gap-2">
             <span class="size-10 shrink-0 rounded-full border border-outline-variant" :style="{ background: hex }"></span>
             <label v-if="format === 'hex'" class="flex-1 min-w-0 flex flex-col items-center">
@@ -66,7 +66,7 @@ const props = defineProps<{
   modelValue: string;
   /** 값이 없을 때의 색(기본값) */
   fallback: string;
-  /** 견본 동그라미 · 판의 이름(툴팁 · 읽어 주기) */
+  /** 견본 동그라미 · 팝오버의 이름(툴팁 · 스크린 리더) */
   label: string;
 }>();
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
@@ -220,7 +220,7 @@ function clear() {
   close();
 }
 
-// 판을 표시할 위치: 동그라미 아래, 넘치면 위(아래 재생바가 가리는 만큼은 빼고). 왼쪽은 동그라미에 맞추고 화면 안에 둔다
+// 팝오버를 표시할 위치: 동그라미 아래, 넘치면 위(아래 재생바가 가리는 만큼은 빼고). 왼쪽은 동그라미에 맞추고 화면 안에 둔다
 const WIDTH_REM = 16;
 function place() {
   const rect = root.value?.getBoundingClientRect();
@@ -234,7 +234,7 @@ function place() {
   popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
 }
 
-// 판은 화면 기준으로 놓이므로 페이지가 움직이면 다시 놓는다. 안쪽 스크롤 상자도 잡게 capture 로 듣는다
+// 팝오버는 화면 기준으로 놓이므로 페이지가 움직이면 다시 놓는다. 안쪽 스크롤 상자도 잡게 capture 로 듣는다
 const listen = (add: boolean) => {
   if (add) {
     window.addEventListener("scroll", place, { capture: true, passive: true });
@@ -261,7 +261,7 @@ const PANEL = "fixed z-200 flex flex-col overflow-hidden rounded-lg pane-menu bg
 </script>
 
 <style scoped>
-/* 색상 막대: 빨강에서 한 바퀴 돌아 빨강. 핸들은 지금 색상을 채운 흰 테두리 동그라미(판의 핸들과 같다) */
+/* 색상 막대: 빨강에서 한 바퀴 돌아 빨강. 핸들은 지금 색상을 채운 흰 테두리 동그라미(색 선택 영역의 핸들과 같다) */
 .hue {
   width: 100%;
   height: 12px;

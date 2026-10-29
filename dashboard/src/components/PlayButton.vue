@@ -10,6 +10,6 @@ import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
 const T = text.player;
 
-// 기본은 서버 화면의 재생 버튼 64(구글 Media3 전체 플레이어 63 의 근사) · 아이콘 32(M3E L 아이콘. 스포티파이처럼 동그라미의 절반쯤)
+// 기본은 서버 화면의 재생 버튼 64px(구글 Media3 전체 플레이어 63px 의 근사) · 아이콘 32px(M3E L 아이콘. 스포티파이처럼 동그라미의 절반쯤)
 withDefaults(defineProps<{ running: boolean; sizeClass?: string; iconSize?: number }>(), { sizeClass: "size-16", iconSize: 32 });
 </script>

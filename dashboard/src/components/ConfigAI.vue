@@ -11,15 +11,13 @@
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
 -->
 <template>
-  <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 목록 헤더에 켜고 끄기 스위치 · 무엇을 하는지 한 줄.
-       목록: 모델 · 프롬프트 · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
+  <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
 
-    <!-- 그룹: 모델(프로바이더 · 주소 · 키 · 모델이 한 카드, 연결 테스트 · 모델 파라미터) · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트) · 고급 설정(부르기 · 재시도) · 리퀘스트 로그 · 사용량 통계(둘 다 플레이스홀더만) -->
     <div ref="paneEl" :class="paneClass">
-      <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 선택하지 않았으면 모델 · 리퀘스트 로그 · 사용량 통계만 -->
+      <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 선택하지 않았으면 프롬프트만 막는다 -->
       <BaseCard v-if="showList" icon="campaign" :title="T.title" :class="listCardClass">
         <template #actions><BaseSwitch v-model="aiOn" :label="T.enable" /></template>
         <!-- 무엇을 하는지 한 줄, 자세한 것은 툴팁 -->

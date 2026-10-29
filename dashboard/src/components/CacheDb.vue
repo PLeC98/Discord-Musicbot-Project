@@ -1,7 +1,6 @@
 <template>
   <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite 의 데이터 보기를 본뜬 격자. 공유 타입 contract/track-cache.
-       위 줄(테이블 | 새로고침 · 필터 지우기 · 정렬 해제 | 새 행 · 행 삭제 | 재생 테스트 | 단축키 | 모든 열에서 필터) · 격자(행 번호 · 헤더 정렬 · 열마다 필터 · 이어 불러오기) ·
-       오른쪽 셀 편집 창 · 아래 줄(페이지 이동 · 범위 · 상태 안내 · 행으로 이동). 변경은 모아 두었다가 운영자 패널의 저장 막대로 쓴다(재생 테스트만 바로) -->
+       변경은 모아 두었다가 운영자 패널의 저장 막대로 쓴다(재생 테스트만 바로) -->
   <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-2 min-w-0" @click="closePopups()" @keydown.capture="onCardKey">
     <!-- 위 줄 -->
     <div class="relative flex flex-wrap items-center gap-1">
@@ -653,7 +652,7 @@ function cellClass(r: number, c: string) {
   if (isDeleted(r)) return "text-on-surface-variant";
   return failing(row, c) ? "text-error" : "text-on-surface";
 }
-// 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 틀 때 건너뛴다)
+// 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 재생할 때 건너뛴다)
 const checkFailed = (one: TrackRequestRow) => !!one.check && !one.check.ok && (one.check.code !== "live" || one.pinnedAt !== null);
 // 빨갛게 보일 셀: 재생 테스트 실패와 그 음원 · 다운로드 실패 · 원본이 바뀌었거나 없음
 function failing(row: AnyRow, c: string): boolean {
@@ -747,7 +746,7 @@ function syncPane() {
   pane.value = changedText(focus.value.r, focusInfo.value.column) ?? rawText(row, focusInfo.value.column);
   pane.dirty = false;
   pane.info = null;
-  // 드래그하거나 방향키를 누르고 있으면 셀마다 묻지 않게 잠깐 기다린다
+  // 드래그하거나 방향키를 누르고 있으면 셀마다 조회하지 않게 잠깐 기다린다
   clearTimeout(inspectTimer);
   if (focusInfo.value.editable) {
     const value = pane.value;
@@ -1078,7 +1077,7 @@ async function probe(keys: string[]) {
   }
 }
 let checkTimer = 0;
-// 확인 번호가 바뀌었으면 보이는 행의 확인 결과 · 원본만 다시 받는다(다시 읽지 않아 선택 · 바꾼 것이 남는다)
+// 확인 번호가 바뀌었으면 보이는 행의 확인 결과 · 원본만 다시 불러온다(다시 읽지 않아 선택 · 바꾼 것이 남는다)
 async function refreshChecks(latest: number) {
   if (latest === checkRevision.value) return;
   const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
@@ -1101,7 +1100,7 @@ function pollChecks() {
 
 // ── 변경 번호(탭이 보이는 동안 운영자 패널의 3초 읽기가 부른다) ─────────────
 
-/** 봇이 이 표들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것 · 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 고친다 */
+/** 봇이 이 테이블들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것 · 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 갱신한다 */
 async function checkChanged() {
   if (!loadedRevision.value) return;
   try {
@@ -1109,7 +1108,7 @@ async function checkChanged() {
     if (data.revision !== loadedRevision.value) botChanged.value = true;
     if (!checking.value.length) await refreshChecks(data.checkRevision);
   } catch {
-    // 다음 주기에 다시 묻는다
+    // 다음 주기에 다시 조회한다
   }
 }
 defineExpose({ checkChanged });

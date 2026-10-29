@@ -1,7 +1,5 @@
 <template>
-  <!-- 파비콘 한 크기의 팝업(추가하기 · 변경).
-       위: 이미지 업로드(파일 선택) · 링크로 추가(누르면 주소 입력란이 열린다, 봇이 대신 다운로드해 넘긴다). 아래: 기록(최근 FAVICON_HISTORY 개, 새것부터
-       행을 누르면 그 이미지를 쓴다, 미리 보기 · 업로드한 때 · 쓰고 있으면 칠하고 "사용 중", 행 안 오른쪽 끝에 기록에서 삭제). 바깥을 누르거나 Esc 면 닫는다 -->
+  <!-- 파비콘 한 크기의 팝업(추가하기 · 변경): 이미지 업로드 · 링크로 추가(봇이 대신 다운로드해 넘긴다) · 기록(최근 FAVICON_HISTORY 개, 새것부터) -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open && entry" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">

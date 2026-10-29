@@ -13,7 +13,7 @@
           <SearchInput ref="box" v-model="term" type="text" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
         </div>
         <!-- 스크롤바 트랙은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색창 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
-        <!-- 넘치면 오른쪽 안쪽 여백을 4 - 3 = 1 로(useOverflowing) -->
+        <!-- 넘치면 오른쪽 안쪽 여백을 4px - 3px = 1px 로(useOverflowing) -->
         <div ref="listEl" class="min-h-0 overflow-auto flex flex-col [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu) [&>button]:rounded-xs [&>button:first-of-type]:rounded-t-md [&>button:last-of-type]:rounded-b-md" :class="[overflowing ? 'py-1 pl-1 pr-px' : 'p-1', !searchable && '[&::-webkit-scrollbar-track]:mt-(--sb-inset-menu)']" :style="{ maxHeight: `${LIST_MAX_REM}rem` }">
           <slot />
           <p v-if="empty" class="px-4 py-3 text-xs text-on-surface-variant">{{ text.common.noMatch }}</p>
@@ -50,7 +50,7 @@ const props = defineProps<{
   disabled?: boolean;
   /** 목록이 보일 항목 수(넘으면 스크롤된다). 기본 6.5. 그룹 이름이 있는 짧은 메뉴(필터)는 다 보이게 늘린다 */
   rows?: number;
-  /** 작은 버튼(높이 32, 아이콘 버튼이 늘어선 도구 줄) */
+  /** 작은 버튼(높이 32px, 아이콘 버튼이 늘어선 도구 줄) */
   small?: boolean;
 }>();
 const open = defineModel<boolean>("open", { default: false });
@@ -58,8 +58,8 @@ const term = defineModel<string>("term", { default: "" });
 
 const boxBase = "w-full flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface font-[inherit] text-left cursor-pointer outline-none transition-[border-color] duration-150 focus-visible:border-primary disabled:opacity-38 disabled:cursor-not-allowed";
 const boxCls = computed(() => `${boxBase} ${props.small ? "h-8 pl-3 pr-2 text-xs" : "h-10 pl-4 pr-3 text-sm"}`);
-// M3E 세로 메뉴(Compose SegmentedMenuTokens · StandardMenuTokens): 바탕 surface-container-low · 그림자 2단 · 모서리 16 · 안쪽 여백 4.
-// 항목은 높이 44 · 좌우 16, 항목 사이 틈 없음(틈은 그룹 사이에만 두고 스크롤되는 메뉴에는 두지 않는다), 모서리 4 에 첫 항목 위 · 마지막 항목 아래만 12(쓰는 쪽의 항목은 button), 선택한 항목은 12 · tertiary-container
+// M3E 세로 메뉴(Compose SegmentedMenuTokens · StandardMenuTokens): 바탕 surface-container-low · 그림자 2단 · 모서리 16px · 안쪽 여백 4px.
+// 항목은 높이 44px · 좌우 16px, 항목 사이 틈 없음(틈은 그룹 사이에만 두고 스크롤되는 메뉴에는 두지 않는다), 모서리 4px 에 첫 항목 위 · 마지막 항목 아래만 12px(쓰는 쪽의 항목은 button), 선택한 항목은 12px · tertiary-container
 const panelCls = "pane-menu bg-surface-container-low! flex flex-col overflow-hidden rounded-lg";
 const searchCls = "w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface h-10 px-4 text-sm font-[inherit] outline-none transition-[border-color] duration-150 focus:border-primary placeholder:text-on-surface-variant";
 
@@ -68,11 +68,11 @@ const anchor = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const box = ref<InstanceType<typeof SearchInput> | null>(null);
 
-// 항목 높이는 M3E 세로 메뉴(44)에서 한 단계 촘촘하게(density -1, 40 = 2.5rem). 목록은 6.5개까지 보인다(마지막 항목이 반쯤 걸려 스크롤된다는 것이 보인다).
+// 항목 높이는 M3E 세로 메뉴(44px)에서 한 단계 촘촘하게(density -1, 40px = 2.5rem). 목록은 6.5개까지 보인다(마지막 항목이 반쯤 걸려 스크롤된다는 것이 보인다).
 // 패널은 검색창 몫까지 더해 잡고, 화면 남는 공간이 모자라면 목록이 줄어든다. 항목 높이가 rem 이라 높이도 rem 으로 계산한다
 const ROW_REM = 2.5;
 const LIST_MAX_REM = 0.25 + ROW_REM * (props.rows ?? 6.5);
-const PANEL_MAX = rem(LIST_MAX_REM + 3) + 1; // 검색창 몫: 위아래 여백 0.25 · 입력란 2.5rem · 아래 선 1px
+const PANEL_MAX = rem(LIST_MAX_REM + 3) + 1; // 검색창 몫: 위아래 여백 0.25rem · 입력란 2.5rem · 아래 선 1px
 
 const listEl = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(listEl);

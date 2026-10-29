@@ -1,6 +1,5 @@
 <template>
-  <!-- 설정 창 "계정"의 로그인한 기기: 기기마다 종류 아이콘 · 브라우저 · OS · 위치 · 마지막 활동, 이 기기가 아니면 로그아웃. 끊기는 서버가 최근 로그인을 요구한다(지났으면 다시 로그인 창).
-       위치를 IP 위치 DB 로 보였으면 아래에 출처 링크(DB-IP 가 요구한다) -->
+  <!-- 설정 창 "계정"의 로그인한 기기 목록. 위치를 IP 위치 DB 로 보였으면 아래에 출처 링크(DB-IP 라이선스가 요구한다) -->
   <div class="flex flex-col">
     <p v-if="loadError" class="text-label text-error py-2">{{ loadError }}</p>
     <div v-for="d in devices" :key="d.id" class="-mx-3 px-3 py-2 min-h-14 rounded-2xl flex items-center gap-4">
@@ -60,7 +59,7 @@ function agoText(at: number | null) {
   return relativeTime.format(-Math.floor(diff / size), unit);
 }
 
-/** 둘째 줄: 위치(지역 · 나라, 내부망) · 마지막 활동. 기록이 없으면 그렇다고 */
+/** 둘째 줄: 위치(지역 · 나라, 내부망) · 마지막 활동. 기록이 없는 기기는 안내 문구 */
 function subOf(d: LoginDevice) {
   if (!d.known) return T.unknownDesc;
   const place = d.place?.kind === "private" ? T.private : d.place?.kind === "geo" ? [d.place.region, d.place.country].filter(Boolean).join(", ") : "";
@@ -80,7 +79,7 @@ async function load() {
   }
 }
 
-// 끊기는 최근 로그인만: 오래됐으면 로그인 창을 먼저 연다(초기화 · 복원과 같다)
+// 다른 기기 로그아웃은 서버가 최근 로그인을 요구한다: 오래됐으면 로그인 창을 먼저 연다(초기화 · 복원과 같다)
 async function signOut(d: LoginDevice) {
   if (!(await ensureRecentLogin())) return;
   busy.value = true;

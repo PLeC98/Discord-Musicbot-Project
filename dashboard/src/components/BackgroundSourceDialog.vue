@@ -1,6 +1,5 @@
 <template>
-  <!-- 로그인 배경의 변경 팝업. 파비콘의 크기별 팝업과 같은 형태: 남은 저장 공간 · 파일 업로드 · 링크로 추가 · 기록.
-       기록은 행을 누르면 그 배경으로 바꾸고(다 만든 것만, 다시 만들지 않는다), 행 안 오른쪽 끝에서 삭제한다. 처리 중인 배경은 하는 일을, 실패한 배경은 까닭(툴팁)을 함께 보인다 -->
+  <!-- 로그인 배경의 변경 팝업(파비콘의 크기별 팝업과 같은 형태). 기록의 행을 누르면 그 배경으로 바꾼다(인코딩이 끝난 것만, 다시 만들지 않는다) -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open && state" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
@@ -102,9 +101,9 @@ useCloseLayer(
 );
 const emit = defineEmits<{ upload: []; link: [url: string]; use: [id: string]; remove: [id: string] }>();
 
-/** 보일 단계: 올리는 중이면 원본 받기 하나(올린 몫), 봇이 받은 뒤면 그 배경의 편집 전 단계 */
 /** 영상 배경을 만들 인코더(H.264 · VP9)가 없다(테스트하는 중이면 아직 모른다) */
 const imagesOnly = computed(() => !!props.state && !props.state.checking && props.state.encoders.length > 0 && !props.state.encoders.some((one) => (one.codec === "h264" || one.codec === "vp9") && one.encoder));
+/** 보일 단계: 올리는 중이면 원본 업로드 하나(올린 몫), 봇이 받은 뒤면 그 배경의 편집 전 단계 */
 const steps = computed(() => {
   if (props.uploading) return [props.uploading.progress];
   const bg = props.pending;
@@ -112,7 +111,7 @@ const steps = computed(() => {
   return bg.stages.filter((one) => LOGIN_BG_BEFORE_EDIT.includes(one)).map((one) => (bg.done.includes(one) ? 1 : bg.stage === one ? bg.progress : 0));
 });
 const overall = computed(() => (steps.value.length ? steps.value.reduce((sum, one) => sum + one, 0) / steps.value.length : 0));
-/** 다 구운 배경(기록에서 교체할 수 있다) */
+/** 인코딩이 끝난 배경(기록에서 교체할 수 있다) */
 const readyOf = (bg: LoginBackgroundItem) => bg.phase === "ready";
 /** 실패한 까닭(봇 문장표의 문제 코드 안내) */
 const problemOf = (bg: LoginBackgroundItem) => (bg.problem ? noticeText(bg.problem).title : "");

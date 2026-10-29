@@ -56,7 +56,7 @@ const props = withDefaults(
     blocked?: boolean;
     /** 저장을 막은 까닭(고칠 것이 남은 탭) */
     blockedTip?: string;
-    /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 먹는 값을 고쳤다) */
+    /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 적용되는 값을 고쳤다) */
     restart?: boolean;
   }>(),
   { dirty: false, saving: false, blocked: false, blockedTip: "", restart: false },
