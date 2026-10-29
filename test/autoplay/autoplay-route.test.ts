@@ -473,7 +473,7 @@ test("음원 주소가 같아도 필터링한다 — 모양이 달라도 다듬�
   assert.equal(reject({ title: "또 다른 제목", youtubeUrl: "https://youtu.be/otherotherx" }), false);
 });
 
-// 출처 곡은 url 에 출처 페이지를 들고 있어 후보의 영상 주소와 견주면 맞지 않는다. 음원 주소로 견준다
+// 출처 곡은 url 에 출처 페이지를 들고 있어 후보의 영상 주소와 비교하면 맞지 않는다. 음원 주소로 비교한다
 test("출처 곡을 최근에 틀었으면 같은 영상을 다른 이름으로 가져와도 필터링한다", () => {
   const reject = route.rejector([{ title: "Fatal", pageUrl: "https://anilist.co/anime/150672", audioUrl: "https://www.youtube.com/watch?v=fatalfatal1" }]);
   assert.equal(reject({ title: "ファタール", youtubeUrl: "https://www.youtube.com/watch?v=fatalfatal1" }), true);

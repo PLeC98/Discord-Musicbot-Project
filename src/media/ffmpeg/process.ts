@@ -141,7 +141,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
 
 /**
  * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
- * 파일 크기로 어림한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
+ * 파일 크기로 추산한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
  */
 async function probeDurationSec(file: string): Promise<number | null> {
   return (await probeAudio(file)).durationSec;

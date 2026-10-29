@@ -98,7 +98,7 @@ function createChunkedStream(options: ChunkedOptions): ChunkedStream {
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
 // 파일 처음이 아닌 자리(expected > 0, 이어받기 · 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
-// 0바이트에서 시작한 첫 요청의 크기는 어림값(유튜브 clen)이라 보지 않는다
+// 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range");
   if (!cr) return;

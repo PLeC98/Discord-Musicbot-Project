@@ -119,7 +119,7 @@ type FragmentFetch = (url: string, init: { headers: Record<string, string>; sign
 type Fragments = { base: string; count: number };
 type FragmentOptions = StreamOptions & {
   fragments: Fragments;
-  /** 곡 전체 길이(ms). 세그먼트 하나의 길이를 어림한다 */
+  /** 곡 전체 길이(ms). 세그먼트 하나의 길이를 추산한다 */
   durationMs: number;
   /** 곡 안의 시작 위치 */
   startMs: number;

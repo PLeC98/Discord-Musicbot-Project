@@ -458,7 +458,7 @@ class EncodePool {
     return true;
   }
 
-  // 기동 시 잰 프레임당 시간으로 지금 활성 세션에 필요한 워커 수를 어림해 모자라면 늘린다(세션 복원 몰림)
+  // 기동 시 잰 프레임당 시간으로 지금 활성 세션에 필요한 워커 수를 추산해 모자라면 늘린다(세션 복원 몰림)
   #growForLoad() {
     if (!this.#frameUs || this.#spawning) return;
     const active = this.#activeStreams();
