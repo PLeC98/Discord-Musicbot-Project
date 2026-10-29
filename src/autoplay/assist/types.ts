@@ -60,8 +60,10 @@ type JudgeResult = Preview & {
   tookMs?: number;
 };
 
-/** 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */
-/** preset: 저쪽 목록이 아니라 다운로드해 둔 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 묻지 못했다) */
+/**
+ * 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason 만 있다.
+ * preset 이면 저쪽 목록이 아니라 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 조회하지 못했다)
+ */
 type ModelsCheck = { ok: boolean; reason?: string; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; preset?: boolean; response?: string; tookMs?: number };
 
 /** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */

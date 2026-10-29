@@ -40,7 +40,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   shuffle: (it, player) => answerShuffle(it, player),
   highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
   volume: (it) => handleVolumeModal(it),
-  // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
+  // 순환: 끔 → 한 곡 반복 → 대기열 반복 → 끔. 라이브가 있으면 "끄기"에만 응한다
   loop: (it, player) => answerLoop(it, player, nextLoopMode(player.loop)),
   previous: (it, player) => answerPrevious(it, player),
 };
@@ -92,7 +92,7 @@ async function handleVolumeModal(interaction: Press) {
   await interaction.showModal(volumeModal());
 }
 
-/** 볼륨을 입력하는 모달. 받는 쪽은 modalHandler 의 볼륨 처리 */
+/** 볼륨을 입력하는 모달. 받는 쪽은 modal-handler 의 handleVolumeModal */
 function volumeModal() {
   const t = controlText.volumeModal();
   const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);
@@ -178,14 +178,13 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   await responder.dismissPlaceholder();
 }
 
-// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
-// 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
+// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 대기열 넘기기)과 재생 패널의 버튼.
 const routes: Route[] = [
   route("button", customId(SEARCH, ""), handleSearchInteraction),
   route("button", customId(HELP, "refresh"), handleHelpRefresh),
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),
-  // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다. 재생 패널의 다른 버튼보다 좁다
+  // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay 가 받는다
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 

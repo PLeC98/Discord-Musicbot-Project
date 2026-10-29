@@ -51,7 +51,7 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   try {
     await player.voice.connect();
   } catch {
-    // 까닭은 음성 연결이 남긴다
+    // 실패 원인은 음성 연결 쪽이 로그에 남긴다
     await player.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
     return { kind: "refused", code: "voice-failed" };
   }

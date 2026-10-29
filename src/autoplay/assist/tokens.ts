@@ -1,12 +1,11 @@
 /**
  * 토큰 세기. 요청이 몇 토큰짜리인지.
  *
- * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정함
- *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩
+ * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다
+ *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩이다
  *   gemma   제미니·젬마. data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자란다.
- *           그래서 저쪽 count_tokens 로 측정: 무료이고 정확
- *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
+ *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자라, 저쪽 count_tokens 로 잰다(무료, 정확).
+ *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산값이다
  * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")
  */
 import { Worker } from "worker_threads";
@@ -27,7 +26,7 @@ type Message = { role?: string; content?: string; text?: string };
  *   openai     한 메시지 3 + 요청 3
  *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같다
  *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
- *   anthropic  세대마다 다르다. 5(4.8~5) · 10(4.7) · 6(4.5~4.6)
+ *   anthropic  요청당 6(세대마다 조금 다르다)
  */
 const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
   openai: { perMessage: 3, perRequest: 3 },
@@ -106,7 +105,7 @@ async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
 
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────
 
-// 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
+// 그 모델이 쓰는 토크나이저. 모르면 tik
 function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | undefined, model: string | null | undefined): string {
   if (!registry || !model) return "tik";
   const found = models.modelsOf(registry).find((one) => one.modelId === model);
@@ -128,8 +127,8 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
 }
 
 /**
- * 앤트로픽에 직접 물어 정확히 측정. 무과금
- * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
+ * 앤트로픽 count_tokens 로 정확히 잰다(무료). 못 재면 null.
+ * 감싸는 몫까지 든 값이라 본문만 필요하면 FRAMING 만큼 뺀다
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;

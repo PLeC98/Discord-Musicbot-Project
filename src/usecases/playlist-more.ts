@@ -1,5 +1,5 @@
 // 재생목록 "더 넣기". 이어 불러올 위치(상태), 선택지, 메시지 수명. 화면은 ui/playlist-more-menu 가 그린다.
-// 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
+// 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 그대로 동작한다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 import * as links from "../rules/links.ts";
 import { SET_BATCH as SOUNDCLOUD_BATCH } from "../sources/soundcloud/index.ts";
@@ -82,10 +82,10 @@ function validState(s: RawState | null | undefined): MoreState | null {
   return { kind: s.kind, listId: String(s.listId), offset, anchorId: String(s.anchorId), insertFirst: s.insertFirst === true, requesterId: s.requesterId == null ? null : String(s.requesterId) };
 }
 
-// 방금 넣은 목록을 이어 불러올 수 있으면 그 상태. 총 곡 수를 모르거나(믹스) 끝까지 넣었으면 null.
 // 곡 찾기 결과에서 읽는 필드
 type Found = { isPlaylist?: boolean; collectionId?: string | null; total?: number | null; nextOffset?: number | null; tracks?: Array<{ id?: string }> };
 
+// 방금 넣은 목록을 이어 불러올 수 있으면 그 상태. 총 곡 수를 모르거나(믹스) 끝까지 넣었으면 null.
 function continuation(query: string | null | undefined, trackData: Found | null | undefined, { insertFirst = false } = {}): More | null {
   if (!query || !trackData?.isPlaylist || trackData.total == null || trackData.nextOffset == null) return null;
   const source = sourceOf(query, trackData.collectionId);
@@ -105,7 +105,7 @@ function decodeState(customId: unknown) {
   return validState({ kind, listId, offset, anchorId, insertFirst: place === "f", requesterId: requesterId ?? null });
 }
 
-// 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더
+// 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 지금 곡이 되니 한 자리 더
 function roomFor(player: Pick<Player, "queue" | "currentTrack">) {
   return roomWithin(player, config.bot.maxQueueSize);
 }
@@ -162,7 +162,7 @@ function countModal(state: MoreState, cap: number, batch = config.bot.playlistAd
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──
 
-const expiries = new Map<string, NodeJS.Timeout>(); // messageId → timer
+const expiries = new Map<string, NodeJS.Timeout>(); // 키는 메시지 ID
 
 function clearExpiry(messageId: string) {
   clearTimeout(expiries.get(messageId));

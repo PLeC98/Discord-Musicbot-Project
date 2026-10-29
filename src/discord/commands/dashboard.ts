@@ -17,8 +17,8 @@ const exported: GuildCommand = {
     const { guild, member, channel } = interaction;
     if (!channel) return noticeSelf(interaction, errors.notice("processing-failed")); // 캐시에 없는 채널
 
-    // 패널을 호출 채널로 옮기는 부작용이 있는 명령어. 봇 전용 채널이 지정된 서버: 그 채널에서만 사용 가능하되 전원 허용 (패널이 항상 전용 채널에 유지됨)
-    //  미지정 서버(삭제된 채널 포함): 어디서나 사용 가능하되 DJ 계층 필요
+    // 패널을 이 채널로 옮기는 명령이다. 전용 채널이 있는 서버는 그 채널에서만 누구나 쓴다(패널이 전용 채널을 떠나지 않는다).
+    // 전용 채널이 없는 서버(삭제된 채널 포함)는 어디서나 쓰되 DJ 계층이 필요하다
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {
       if (channel.id !== botChannelId) {

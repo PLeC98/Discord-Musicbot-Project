@@ -1,4 +1,4 @@
-// 재생 조작 코어. 진입점(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
+// 재생 조작 코어. 진입점(명령 · 버튼 · 대시보드)은 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
 // 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 순서로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
 // 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
@@ -79,7 +79,7 @@ async function pause(player: MaybePlayer, actor: Actor) {
 
 /**
  * 지금 곡을 건너뛴다. 한곡 반복 중이면 처음부터 다시(restarted).
- * 대기열이 비었으면 거절한다. 자동재생이 켜져 있으면 다음 곡을 자동재생이 선택하므로 넘긴다
+ * 대기열이 비었어도 거절하지 않는다. 그 뒤는 곡이 끝났을 때와 같다(자동재생이 켜져 있으면 다음 곡을 선택한다)
  */
 async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}) {
   if (!player) return fail("no-song");
@@ -174,11 +174,11 @@ async function volume(player: MaybePlayer, actor: Actor, level: unknown, { settl
   return done({ before, level: applied });
 }
 
-// 대시보드는 끄는 동안 볼륨을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
+// 대시보드는 슬라이더를 드래그하는 동안 볼륨을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
 const VOLUME_SETTLE_MS = 1000;
 /** 볼륨이 멈춘 뒤 부른다(대시보드가 디스코드 패널 채널에 알린다) */
 type Settled = (from: number, to: number) => void;
-const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout; settled?: Settled }>(); // player -> { from, timer, settled(마지막에 받은 것) }
+const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout; settled?: Settled }>(); // settled 는 마지막에 받은 것
 
 const saveServerVolume = async (player: Player) => guildSettings.saveVolume(player.guild.id, player.volume);
 
@@ -235,7 +235,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, player.queue[index]));
   if (blocked) return blocked;
   const track = player.removeFromQueue(index);
-  if (!track) return fail("bad-position", { size: player.queue.length }); // 위에서 본 위치라 늘 있다
+  if (!track) return fail("bad-position", { size: player.queue.length }); // 권한을 기다린 사이 대기열이 줄었다
   await refresh(player);
   return done({ track, left: player.queue.length });
 }

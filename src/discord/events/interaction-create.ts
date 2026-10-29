@@ -20,7 +20,7 @@ import type { BotContext } from "../../app/bot-context.ts";
  * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크 · 봇 감지 등)는
  * 그 문장으로, 아니면 fallback. 자리표시자를 표시한 핸들러가 선언했으면 그 자리표시자에(ui/failure-notice), 미뤄 둔 명령이면
  * 그 답 메시지에, 아니면 본인에게만(이미 답했으면 이어서).
- * 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류라 알리지 않는다
+ * 토큰이 죽었거나(10062) 이미 답한 곳이 있으면(40060) 알리지 않는다(rules/dead-interaction)
  */
 async function failed(interaction: RepliableInteraction, what: string, error: unknown, fallback: Notice) {
   const kind = errorKind(error);

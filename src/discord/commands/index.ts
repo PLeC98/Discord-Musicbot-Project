@@ -1,4 +1,4 @@
-// 슬래시 명령 전부. 새 명령은 여기에 더한다(app/command-loader 가 이 목록으로 등록 · 배포한다). 폴더의 파일과 같은지는 테스트(test/app/moduleLists)가 본다
+// 슬래시 명령 전부. 새 명령은 여기에 더한다(app/command-loader 가 이 목록으로 등록 · 배포한다). 폴더의 파일과 같은지는 테스트(test/app/module-lists)가 본다
 
 import autoplay from "./autoplay.ts";
 import cachestatus from "./cachestatus.ts";

@@ -75,7 +75,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
   if (!config.aiLog.enabled || !requests.isOpen()) return;
   try {
     const tokens = got.ok ? tokensFrom(call, got.text) : null;
-    // 모델 목록은 추론을 돌리지 않아 값이 들지 않는다
+    // 모델 목록은 추론을 돌리지 않아 비용이 들지 않는다
     const costUsd = call.source === "models" ? 0 : prices.costOf(prices.priceOf(call.provider, call.model), tokens);
     const guildId = call.source === "autoplay" ? currentGuild() : null;
     requests.record(

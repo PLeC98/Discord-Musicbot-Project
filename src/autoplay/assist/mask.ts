@@ -33,9 +33,7 @@ function mask(text: unknown): string {
   return out;
 }
 
-// 인증이 실리는 헤더는 규격마다 다르다(rules/secret-headers)
-
-/** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
+/** 화면에 보여도 되는 헤더. 인증이 실리는 헤더(규격마다 다르다, rules/secret-headers)의 키 값은 절대 나가지 않는다. */
 function safeHeaders(headers: Record<string, string> | null | undefined) {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers || {})) {
@@ -43,7 +41,7 @@ function safeHeaders(headers: Record<string, string> | null | undefined) {
       out[name] = value;
       continue;
     }
-    // 앞의 낱말(Bearer)은 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
+    // 앞의 단어(Bearer)는 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
     const scheme = /^(\w+)\s/.exec(String(value));
     out[name] = scheme ? `${scheme[1]} ${REDACTED}` : REDACTED;
   }

@@ -71,10 +71,9 @@ type Reply = {
   publisherModels?: Array<{ name?: string }>;
 } | null;
 
-// 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
+// 판정 기준. 이 글이 정확도를 크게 좌우한다.
 // 필터링할 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
-// 걸린다. "곡 하나냐 여러 곡이냐"로 묻고 예를 붙이는 지금 모양이 낫다.
-// 영어로 둔다(장르 식별자와 같은 말)
+// 걸려, "곡 하나냐 여러 곡이냐"로 묻고 예를 붙인다. 영어로 둔다(장르 식별자와 같은 말)
 const DEFAULT_PROMPT = `Decide whether each YouTube search result is usable for a Discord music bot's autoplay.
 
 song — Does this video contain **a single song**?
@@ -207,7 +206,7 @@ async function authOf(one: Partial<AiSettings>): Promise<Record<string, string>>
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
-/** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
+/** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(설정을 바꾸면 곧바로 반영된다). */
 function settings(): AiSettings | null {
   // 검사에 걸린 필드가 하나라도 있으면 enabled: false 가 얹혀 온다. 켜지 않는다(까닭은 ai() 가 알린다)
   const saved = aiConfig.ai();
@@ -221,7 +220,7 @@ function settings(): AiSettings | null {
 }
 
 // `__proto__` 한 마디면 Object.prototype이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
-// 모델 레지스트리(받아 오는 남의 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
+// 모델 레지스트리(외부에서 받아 오는 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const safeKeys = (path: string) => {
   const keys = String(path).split(".");
@@ -285,7 +284,7 @@ function relaxJson(text: string) {
       out += ch;
       continue;
     }
-    // 낱말 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
+    // 단어 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
     const edge = (c: string | undefined) => !c || !/[A-Za-z0-9_$]/.test(c);
     const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
     if (hit) {
@@ -423,7 +422,7 @@ const geminiAnswer = (json: Reply) => (json?.candidates?.[0]?.content?.parts || 
 
 /**
  * 저쪽 규격의 차이를 여기 한 곳에 모은다.
- * 규격마다 이 여섯 가지만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
+ * 규격마다 아래 것만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
  *
  *   chatUrl   생성 요청을 보낼 주소
  *   modelsUrl 모델 목록 주소 (없으면 목록을 못 불러오는 곳이다)
@@ -431,6 +430,7 @@ const geminiAnswer = (json: Reply) => (json?.candidates?.[0]?.content?.parts || 
  *   body      우리 {role, content} 목록을 저쪽 본문으로
  *   answerOf  응답에서 모델이 쓴 글
  *   modelsOf  모델 목록 응답에서 이름들
+ *   usageOf   응답이 알려 준 토큰 수 (없어도 된다)
  */
 type Dialect = {
   chatUrl(one: AiSettings): string;
@@ -585,7 +585,7 @@ const usable = (field: ModelField, value: unknown) => {
 
 /**
  * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
- * 무료이고, tik 로 어림하면 한국어에서 크게 모자란다.
+ * 무료이고, tik 로 추산하면 한국어에서 크게 모자란다.
  */
 async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCount | null> {
   try {
@@ -632,8 +632,7 @@ function withParams(body: Body, one: AiSettings): Body {
   return out;
 }
 
-/** 보낼 것 한 벌. 미리보기도 이것을 쓴다. */
-// 판정 요청은 토큰을 세지 않는다. 판정은 그 수를 안 쓰고, 세기가 이벤트 루프를 멈춘다(gemma 세기가 요청마다 수백 ms)
+/** 보낼 것 한 벌. 미리보기도 이것을 쓴다. 토큰은 세지 않는다(판정은 그 수를 쓰지 않는다, 미리보기는 따로 센다) */
 async function buildRequest(one: AiSettings, batch: Judged[], genre: string | undefined, { live = true }: { live?: boolean } = {}) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
@@ -810,7 +809,7 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
     if (total?.aborted) return { ok: false, reason: "판정 상한 초과", detail: `${Number(one.totalTimeoutMs) / 1000}초`, retry: false };
     if (perCall.aborted) return { ok: false, reason: "시간 초과", detail: `${Number(one.timeoutMs) / 1000}초`, retry: !!one.retryTimeouts };
     if (errorKind(error) === "network-error") return { ok: false, reason: "네트워크 오류", detail: messageOf(error), retry: true };
-    // 200 인데 본문이 JSON 이 아니다(앞에 둔 프록시의 안내 쪽 등). 판정을 못 읽은 답과 같이 한 번 더 묻는다
+    // 200 인데 본문이 JSON 이 아니다(앞에 둔 프록시의 안내 페이지 등). 판정을 못 읽은 답과 같이 한 번 더 묻는다
     if (error instanceof SyntaxError) return { ok: false, reason: "판정을 읽지 못함", detail: `JSON 이 아닌 답(${messageOf(error)})`, retry: false, unreadable: true };
     return { ok: false, reason: messageOf(error), detail: "", retry: false };
   }
@@ -861,11 +860,8 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
 }
 
 /**
- * 후보 목록에서 모델이 아니라고 한 것을 필터링한다.
+ * 순위가 매겨진 후보 목록에서 모델이 아니라고 한 것을 필터링한다.
  * 실패하면 받은 목록을 그대로 돌려준다. 판정을 못 했다고 곡을 버리면 모델이 죽었을 때 자동재생이 멈춘다.
- *
- * @param {Array<{title: string, durationSec?: number}>} candidates 순위가 매겨진 후보
- * @param {{genre?: string, confident?: boolean}} about
  */
 async function filter<T extends Judged>(candidates: T[] | null | undefined, about: About = {}): Promise<T[]> {
   const one = settings();
@@ -900,11 +896,9 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
 }
 
 /**
- * 곡 하나를 물어본다. 규칙이 이미 하나로 좁혀 놓은 경우(키워드 경로)용.
+ * 곡 하나를 틀어도 되는지 물어본다. 규칙이 이미 하나로 좁혀 놓은 경우(키워드 경로)용.
  * `filter`와 달리 아니라고 하면 정말로 버린다. 한 곡이라 "전부 떨어지면 되돌린다"가 성립하지 않는다.
  * 못 물어본 경우는 그대로 살린다.
- *
- * @returns {Promise<boolean>} 틀어도 되는가
  */
 async function accepts(candidate: Judged | null | undefined, about: About = {}): Promise<boolean> {
   const one = settings();
@@ -967,10 +961,6 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
   }
 }
 
-/**
- * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정 파일에 적게 하면
- * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
- */
 // 주소를 순서대로 묻는다. 404 면 다음 주소로. at 은 지금 묻는 주소를 알린다(실패해도 어디를 불렀는지 남긴다)
 async function askModels(urls: string[], headers: Record<string, string>, one: AiSettings, at: (url: string) => void) {
   for (const [i, url] of urls.entries()) {
@@ -1001,6 +991,10 @@ function withPreset(one: AiSettings, check: ModelsCheck): ModelsCheck {
   return all.length ? { ...check, ...visibleModels(all, one), preset: true } : check;
 }
 
+/**
+ * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정에 적게 하면
+ * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
+ */
 function hideRules(patterns: unknown) {
   return (Array.isArray(patterns) ? patterns : [])
     .map((one) => String(one ?? "").trim())

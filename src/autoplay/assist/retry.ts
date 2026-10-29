@@ -1,5 +1,5 @@
 /**
- * AI 보조가 실패한 부르기를 다시 할지, 얼마나 기다릴지. 부르는 일은 하지 않는다(index.ts 의 askBatch).
+ * AI 보조가 실패한 요청을 다시 할지, 얼마나 기다릴지 정한다. 요청은 하지 않는다(index.ts 의 askBatch).
  */
 
 /** 거절 응답에서 읽는 필드. 규격마다 이름이 다르다(Google status · Anthropic type · OpenAI code) */

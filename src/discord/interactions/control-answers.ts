@@ -76,7 +76,7 @@ const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () =
 async function answerReplay(interaction: Asked, player: MaybePlayer) {
   const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
   if (!r.ok) return refuse(interaction, r);
-  // 직접 링크 곡은 파일 태그 그림을 첨부한다(ui/discord-art)
+  // 직접 링크 곡은 파일 태그의 앨범아트를 첨부한다(ui/discord-art)
   const art = await discordArt.artFor(r.track);
   return toAll(interaction, replies.replayed(r.track, interaction.member, art), LIFETIME.result, art?.file && [art.file]);
 }

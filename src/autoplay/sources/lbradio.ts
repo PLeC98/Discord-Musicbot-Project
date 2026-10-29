@@ -16,8 +16,7 @@ type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: strin
 // 한도가 짧으면 멀쩡한 소스가 빈손으로 취급된다.
 const SLOW_MS = 30000;
 
-// ── lbradio ───────────────────────────────────────────────────────────────
-// 호출마다 50곡을 새로 짠다. 길이를 준다(병 유형). youtubeMatch의 길이 신호가 켜진다.
+// 호출마다 50곡을 새로 짠다. 길이를 주므로 youtubeMatch의 길이 신호가 켜진다.
 async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const token = config.sources?.listenbrainzToken;
   if (!token) throw new Error("ListenBrainz 토큰이 없습니다");
@@ -39,7 +38,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
       return {
         artist,
         title,
-        // 길이가 없는 곡은 정 유형으로 떨어져 필터를 탄다.
+        // 길이가 없는 곡은 길이 신호 없이 찾고 필터를 거친다.
         durationSec: Number(t.duration) > 0 ? Math.round(Number(t.duration) / 1000) : undefined,
         sourceUrl: t.identifier?.[0] || undefined, // MusicBrainz 녹음 주소
         platform: "lbradio",

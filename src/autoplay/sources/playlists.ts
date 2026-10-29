@@ -6,7 +6,6 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// ── 재생목록 ──────────────────────────────────────────────────────────────
 // 통째로 불러오지 않는다. total을 알면 무작위 오프셋으로 한 구간만 집어 온다.
 const PLAYLIST_PAGE = 50;
 

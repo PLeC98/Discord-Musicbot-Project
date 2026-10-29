@@ -1,9 +1,6 @@
 // 자동재생 후보를 필터링하는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
-//
-// 따로 빼 둔 이유: 실제 재생과 실측 도구가 같은 코드를 지나야 잰 것이 뜻을 갖는다.
-// 도구가 로직을 베끼면 규칙을 고칠 때마다 어긋나고, 그러면 "무엇이 나아졌는지"를 말할 수 없다.
-//
-// 임계값은 짐작이 아니라 실제 후보 표본을 세어 정한 값이다. 근거 없이 흔들지 말 것.
+// 실제 재생과 실측 도구가 이 코드를 같이 지난다(도구가 규칙을 베끼면 잰 값이 실제와 어긋난다).
+// 임계값은 실제 후보 표본을 세어 정했다.
 
 import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
 
@@ -21,7 +18,7 @@ const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
 // feat · ft 만 센다. fe?a?t 로 적으면 "fat" · "fet" 도 걸린다
 const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 
-// 낱말 경계를 쓸 수 있는 제외 키워드인지. 로마자·숫자·공백뿐이면 쓴다.
+// 단어 경계를 쓸 수 있는 제외 키워드인지. 로마자·숫자·공백뿐이면 쓴다.
 // 한국어·일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -35,11 +32,11 @@ type Verdict = { ok: boolean; reason?: string; detail?: string };
 function prepare(cfg: FilterConfig | null | undefined): Limits {
   const blocked: Limits["blocked"] = [];
   for (const raw of cfg?.blockedKeywords || []) {
-    // 제목을 소문자로 낮춰 견주므로 제외 키워드도 낮춰 둔다
+    // 제목을 소문자로 낮춰 비교하므로 제외 키워드도 낮춰 둔다
     const word = String(raw).trim().toLowerCase();
     if (!word) continue;
-    // 낱말 경계를 붙여야 "mix"가 "remix"를 죽이지 않는다. 설정에 공백을 넣어 두는 것으로는 안 된다
-    // 대시보드가 앞뒤 공백을 떼기 때문이다.
+    // 단어 경계를 붙여야 "mix"가 "remix"까지 막지 않는다. 설정에 공백을 넣어 두는 것으로는 안 된다
+    // (대시보드가 앞뒤 공백을 뗀다).
     blocked.push({ word, test: ASCII_WORD.test(word) ? new RegExp(`\\b${escape(word)}\\b`) : null });
   }
 

@@ -9,7 +9,6 @@ import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import { rand, getJson, query } from "./http.ts";
 
-// ── vocadb 계열 ───────────────────────────────────────────────────────────
 // 유튜브 주소를 직접 준다. 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
 const VOCA_HOSTS: Record<Site, string> = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
 const isSite = (type: string): type is Site => Object.hasOwn(VOCA_HOSTS, type);
@@ -23,17 +22,16 @@ type Artist = { id?: number; name?: string; artistType?: string; names?: Array<{
 
 const VOCA_PAGE = 50;
 
-// 곡 검색은 오래 기다린다. 가수를 걸면 저쪽이 느리다(깊은 창은 30초에서 저쪽이 500).
-// 곡이 도는 동안 다음 곡을 미리 선택하고 풀이 한 시간 가므로 기다려도 티가 안 난다.
-// 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
+// 곡 검색은 오래 기다린다. 가수를 걸면 저쪽이 느리고 30초에서 끊으므로(500) 그보다 조금 길게 잡아 저쪽 답을 받는다.
+// 다음 곡은 곡이 도는 동안 미리 선택하고 풀이 한 시간 가므로 기다려도 티가 안 난다.
 const VOCA_TIMEOUT_MS = 35_000;
 
-// 정렬 순서에서 몇 번째까지 볼지는 VOCA_WINDOW(genreSources). 깊은 창은 저쪽이 못 준다:
-// 깊이에 비례해 느려지고 너무 깊으면 500 을 준다. 가수 · 가수 분류를 걸면 훨씬 얕은 데서 그렇고, minScore 를 걸면 빠르다.
+// 정렬 순서에서 몇 번째까지 볼지는 VOCA_WINDOW(config/schema/genre-sources). 저쪽은 깊이에 비례해 느려지고 너무 깊으면 500 을 준다
+// (가수 · 가수 분류를 걸면 훨씬 얕은 데서 그렇고, minScore 를 걸면 빠르다).
 // 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽에서 선택하게 된다. 보통 설정(minScore 등)은 기본 깊이보다 적어 전체에서 선택한다
 
 // 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
-// 가사 언어: `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다. 그리고 한 번에 하나만 건다:
+// 가사 언어: `languages` 파라미터는 조용히 무시된다(아무 값을 넣어도 전체가 온다). 그리고 한 번에 하나만 건다:
 // 둘을 걸면 "둘 다 있는 곡"이 되어 크게 줄어든다.
 // 가수 분류: 웹은 아티스트 검색에만 보이지만 곡에도 걸린다. 여럿 선택하면 모두 참여한 곡이다
 function advancedFilters(lang: string | null, artistTypes: string[] = []) {
@@ -46,8 +44,8 @@ function advancedFilters(lang: string | null, artistTypes: string[] = []) {
   );
 }
 
-// 그래서 선택한 언어마다 따로 불러와 섞는다. 언어 하나에 요청이 두 번이라 한 번에 도는 수를 묶어 두고,
-// 그보다 많이 선택했으면 그때그때 몇 개만 선택한다. 매번 달라지니 여러 번 돌면 고르게 섞인다.
+// 그래서 선택한 언어마다 따로 불러와 섞는다. 언어 하나에 요청이 두 번이라 한 번에 부르는 언어 수를 묶어 두고,
+// 그보다 많이 선택했으면 매번 몇 개만 무작위로 쓴다. 매번 달라지니 여러 번 돌면 고르게 섞인다.
 const LANGS_PER_FETCH = 5;
 
 function someLanguages(list: string[] | undefined): Array<string | null> {
@@ -146,7 +144,7 @@ async function artistId(site: Site, name: string) {
   return found.id;
 }
 
-// Exact 로 물어도 딱 같은 이름만 오지 않는다. 대소문자를 구분하지 않고 별칭까지 본다(UNI 에 ユニちゃん · Urchin 이 같이 온다).
+// Exact 로 찾아도 딱 같은 이름만 오지 않는다. 대소문자를 구분하지 않고 별칭까지 본다(UNI 에 ユニちゃん · Urchin 이 같이 온다).
 // 대표 이름이 똑같은 것, 별칭이 똑같은 것, 대소문자만 다른 것 순으로 선택한다. 같은 단계에서는 곡이 많은 쪽(저쪽 정렬 그대로)
 function sameName(items: Artist[], name: string) {
   const all = (one: Artist) => [one.name, ...(one.names || []).map((n) => n.value)].filter((v): v is string => !!v);
@@ -175,7 +173,7 @@ async function suggest(site: Site, what: "tags" | "artists", term: string): Prom
   return (page?.items || []).flatMap((one) => (one.name ? [{ value: one.name, hint: one.artistType }] : []));
 }
 
-/** 테스트 시임. 기억한 id 를 버린다 */
+/** 테스트용. 기억한 id 를 버린다 */
 function _forgetIds() {
   ids.clear();
 }
@@ -201,9 +199,8 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
 }
 
 function candidateOf(song: Song, type: Site): Candidate | null {
-  // disabled 를 꼭 봐야 한다. 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
-  // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 선택해 재생이 실패한다.
-  // 죽은 PV 는 드물지 않고, 죽은 Original 다음에 멀쩡한 Original 이 오는 곡도 있어 안 보면 틀린 것을 집는다.
+  // disabled 를 꼭 본다. 저쪽은 내려간 영상을 표시해 두는데(웹에서 "PV 사용할 수 없음"으로 회색),
+  // 무시하면 죽은 영상을 선택해 재생이 실패한다. 죽은 Original 다음에 멀쩡한 Original 이 오는 곡도 있다.
   const pvs = (song.pvs || []).filter((p) => p.service === "Youtube" && !p.disabled);
   const pv = pvs.find((p) => p.pvType === "Original") || pvs[0];
   if (!pv?.url || !song.name || song.id === undefined) return null;

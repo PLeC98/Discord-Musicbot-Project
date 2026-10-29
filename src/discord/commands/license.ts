@@ -17,7 +17,7 @@ const exported: AnywhereCommand = {
 
     const lines = [`• [Copyright (c) 2025 umutxyp](${UPSTREAM_REPO}), **MIT License**`, `• [Copyright (C) 2026 PLeC](${projectRepo}), **GNU AGPL-3.0-or-later**`];
 
-    // SOURCE_REPO_URL로 개조본 저장소를 지정한 경우에만 세 번째 줄 추가 (기본값은 본 프로젝트 저장소라서 그대로 표시하면 위 줄과 중복됨)
+    // SOURCE_REPO_URL로 개조본 저장소를 지정했을 때만 셋째 줄을 단다(기본값은 본 프로젝트 저장소라 위 줄과 겹친다)
     if (sourceRepo !== projectRepo) {
       const label = sourceRepo.match(/github\.com\/([^/]+)/)?.[1] || "Modified Source";
       lines.push(`• [${label}](${sourceRepo}): **GNU AGPL-3.0-or-later**`);
