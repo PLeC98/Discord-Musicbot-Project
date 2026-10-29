@@ -1,4 +1,4 @@
-// src/dashboard/login-background/stills.ts · tones.ts · rules/art-seed.ts — 썸네일 · 정지 그림(폭별 WebP, sRGB) · 대표색 · 장면 바뀜과 장면 색.
+// src/dashboard/login-background/stills.ts · tones.ts · rules/art-seed.ts: 썸네일 · 정지 그림(폭별 WebP, sRGB) · 대표색 · 장면 바뀜과 장면 색.
 // 실제 ffmpeg 로 표본을 만든다(없으면 건너뛴다)
 
 import { test, before, after } from "node:test";

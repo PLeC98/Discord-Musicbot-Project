@@ -1,4 +1,4 @@
-// 비밀값 누출 테스트. 가짜 비밀값을 모든 위치(서비스 키 · AI 키 · 버텍스 JSON · 쿠키)에 넣고,
+// src/dashboard 의 운영자 경로 · 설정 내보내기 · 로그: 비밀값 누출 테스트. 가짜 비밀값을 모든 위치(서비스 키 · AI 키 · 버텍스 JSON · 쿠키)에 넣고,
 // 운영자가 부를 수 있는 읽기 경로 · 내보내기 파일 · 로그 어디에도 그 값이 나오지 않는지 본다. 끝 네 글자는 화면에 보이는 값이라 뺀 나머지로 본다.
 // 읽기 경로는 라우터에서 읽어 모두 부른다(경로가 늘어도 이 테스트에 저절로 들어온다)
 
@@ -79,7 +79,7 @@ let csrf = "";
 const server = createApp(fakeBot({ client }), { stream: createPlayerStream(), deployCommands: async () => ({ ok: true, skipped: false, count: 0, scope: "global", guildId: null, names: [] }), sessionMiddleware: signedIn }).listen(0, "127.0.0.1");
 
 before(async () => {
-  // 소스 목록 · 자동완성이 바깥(AnimeThemes 등)에 묻지 않게. 이 테스트는 바깥 상태에 기대지 않는다
+  // 소스 목록 · 자동완성이 바깥(AnimeThemes 등)에 요청하지 않게. 이 테스트는 바깥 상태에 기대지 않는다
   sourcesHttp.useFetch(fake<typeof fetch>(async () => Promise.reject(new Error("테스트는 바깥에 나가지 않는다"))));
   await new Promise((resolve) => server.once("listening", resolve));
   base = baseUrl(server);
@@ -98,7 +98,7 @@ after(() => {
   store.close();
 });
 
-// 라우터의 GET 경로. 경로 변수는 테스트할 값으로 채우고, 바깥에 묻는 경로 · SSE 연결은 뺀다
+// 라우터의 GET 경로. 경로 변수는 테스트할 값으로 채우고, 바깥에 요청하는 경로 · SSE 연결은 뺀다
 const MOUNTS: Array<[string, Router]> = [
   ["/api/admin", adminRouter],
   ["/api/admin/service-keys", serviceKeysRouter],
@@ -115,7 +115,7 @@ const MOUNTS: Array<[string, Router]> = [
 // 내보내기 다운로드는 한 번 쓰는 티켓이 있어야 답한다(아래 내보내기 테스트가 따로 본다)
 const SKIP = new Set(["/api/admin/settings-archive/download/:ticket", "/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
-// 물음표 뒤가 있어야 답하는 경로
+// 쿼리 문자열이 있어야 답하는 경로
 const QUERY: Record<string, string[]> = { "/api/admin/track-cache": ["?table=requests", "?table=files", "?table=age"] };
 
 function getPaths() {
@@ -149,7 +149,7 @@ test("서비스 키 · AI 키 상태는 끝 네 글자까지만 보인다", asyn
   leaksIn("서비스 키 상태", view);
 });
 
-// 나갈 요청을 미리 보여 주는 길은 키 위치를 가린다. 보내는 길(모델 목록 · 테스트)도 응답에 키를 싣지 않는다
+// 나갈 요청을 미리 보여 주는 경로는 키 위치를 가린다. 보내는 경로(모델 목록 · 테스트)도 응답에 키를 싣지 않는다
 test("AI 미리보기 · 모델 묻기 · 테스트 응답에 키가 없다", async () => {
   assist.useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 401, headers: new Headers(), text: async () => "unauthorized", json: async () => ({ error: "unauthorized" }) })));
   const post = (path: string, body: unknown) => fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body) });

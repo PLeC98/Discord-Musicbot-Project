@@ -1,7 +1,7 @@
-// SPEC 이 내는 필드 종류를 편집기가 다 그릴 수 있는가.
+// src/autoplay/sources/index.ts 의 SPEC · dashboard/src/components/SourceEditor.vue: SPEC 이 내는 필드 종류를 편집기가 다 그릴 수 있는가.
 //
-// 둘이 딴 파일에 있어서 한쪽만 고치면 그 필드가 조용히 일반 텍스트 입력으로 떨어진다.
-// 값이 정해진 필드인데 자유 입력이 되면 오타가 저장되고 그 소스가 빈손이 된다.
+// 둘이 다른 파일에 있어서 한쪽만 고치면 그 필드가 조용히 일반 텍스트 입력으로 떨어진다.
+// 값이 정해진 필드인데 자유 입력이 되면 오타가 저장되고 그 소스가 곡을 하나도 못 가져온다.
 
 import fs from "node:fs";
 import path from "node:path";

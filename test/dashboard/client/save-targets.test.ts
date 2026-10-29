@@ -1,4 +1,4 @@
-// dashboard/src/composables/save-targets.ts — 운영자 패널의 저장 막대 하나가 고친 편집기를 탭 순서로 저장 · 되돌린다
+// dashboard/src/composables/save-targets.ts: 운영자 패널의 저장 막대 하나가 고친 편집기를 탭 순서로 저장 · 되돌린다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

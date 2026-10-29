@@ -1,4 +1,4 @@
-// src/dashboard/routes/identity.ts — 지금 로그인한 사람(/api/me)과 로그인 전 화면이 쓰는 봇 정보(/api/bot)
+// src/dashboard/routes/identity.ts: 지금 로그인한 사용자(/api/me)과 로그인 전 화면이 쓰는 봇 정보(/api/bot)
 
 process.env.OWNER_ID = "owner";
 

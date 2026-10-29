@@ -1,3 +1,5 @@
+// src/dashboard/middleware/csrf.ts: 로그인한 세션에만 CSRF 토큰을 발급하고, 안전하지 않은 메서드는 그 토큰이 있어야 지나간다
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";

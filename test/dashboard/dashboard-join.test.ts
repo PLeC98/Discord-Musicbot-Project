@@ -1,4 +1,4 @@
-// src/dashboard/routes/player.ts 의 봇 부르기 — 디스코드 /join 과 같은 판정과 일(usecases/join)을 HTTP 로 옮기는지.
+// src/dashboard/routes/player.ts: 봇 부르기. 디스코드 /join 과 같은 판정과 일(usecases/join)을 HTTP 로 옮기는지.
 // 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 일은 /join 테스트(commands-add)가 본다.
 
 import * as h from "../helpers/player-harness.ts";

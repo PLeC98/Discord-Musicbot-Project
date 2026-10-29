@@ -1,3 +1,5 @@
+// src/dashboard/cors.ts: 대시보드 CORS 허용 출처(대시보드 주소 하나, 개발 서버는 명시적으로 켰을 때만)와 DASHBOARD_URL 검사
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCorsOptions, normalizeDashboardOrigin } from "../../src/dashboard/cors.ts";
@@ -18,7 +20,7 @@ test("기본 실행은 대시보드 주소 하나만 허용한다 (개발 서버
   assert.equal(await isAllowed(options, "http://localhost:5173"), false);
 });
 
-// 개발 서버 출처는 `pnpm run dev`가 켤 때만 연다. NODE_ENV 로 가르면 평상시 실행이 열린 쪽이 되어 운영자가 닫는 것을 기억해야 한다.
+// 개발 서버 출처는 `pnpm run dev`가 켤 때만 연다. NODE_ENV 로 구분하면 평상시 실행이 열린 쪽이 되어 운영자가 닫는 것을 기억해야 한다.
 test("개발 서버(5173)는 명시적으로 켰을 때만 허용한다", async () => {
   const options = createCorsOptions("http://localhost:33333", { allowDevOrigin: true });
   assert.equal(await isAllowed(options, "http://localhost:33333"), true);

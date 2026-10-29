@@ -1,4 +1,4 @@
-// src/dashboard/login-background/source.ts — 로그인 배경 원본을 읽어 보고(정지 그림은 sharp, 움직이는 것은 ffmpeg), 링크에서 다운로드한다.
+// src/dashboard/login-background/source.ts: 로그인 배경 원본을 읽어 보고(정지 그림은 sharp, 움직이는 것은 ffmpeg), 링크에서 다운로드한다.
 // 표본은 실제 ffmpeg 로 만든다(없으면 건너뛴다). 다른 파일을 읽는 형식(HLS 목록)은 막히고, 터무니없는 크기는 거절한다
 
 import { test, before, after } from "node:test";
@@ -48,7 +48,7 @@ before(async () => {
   await sharp({ create: { width: 8, height: 8, channels: 3, background: "#000" } })
     .png()
     .toFile(at("tiny.png"));
-  // 장면 하나짜리 영상(sharp 가 못 읽은 정지 그림이 영상 틀로 열린 것과 같다)
+  // 장면 하나짜리 영상(sharp 가 못 읽은 정지 그림이 영상으로 열린 것과 같다)
   await make(["-frames:v", "1", "-c:v", "mpeg4", at("one-frame.mp4")]);
   fs.writeFileSync(at("evil.m3u8"), "#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\nfile:///etc/hosts\n#EXT-X-ENDLIST\n");
   fs.writeFileSync(at("text.mp4"), "그냥 글");

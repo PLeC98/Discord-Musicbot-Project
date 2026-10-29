@@ -1,4 +1,4 @@
-// src/dashboard/track-cache-probe.ts — 재생 테스트 줄. 세우고 곧바로 돌아오며 하나씩 차례로 열고, 결과를 음원 키로 남긴다.
+// src/dashboard/track-cache-probe.ts: 재생 테스트 줄. 세우고 곧바로 돌아오며 하나씩 차례로 열고, 결과를 음원 키로 남긴다.
 // 결과는 확인 번호만 올린다(운영자가 누른 재생 테스트가 "새 변경 사항이 있어요" 알약을 표시하지 않게).
 
 import { test, after } from "node:test";

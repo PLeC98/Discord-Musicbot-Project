@@ -1,4 +1,4 @@
-// src/dashboard/discord-notice.ts — 대시보드에서 한 조작을 디스코드의 패널 채널에 알린다
+// src/dashboard/discord-notice.ts: 대시보드에서 한 조작을 디스코드의 패널 채널에 알린다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

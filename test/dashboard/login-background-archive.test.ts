@@ -1,4 +1,4 @@
-// src/dashboard/login-background/archive.ts — 로그인 배경 백업(설정 내보내기의 login-background 종류).
+// src/dashboard/login-background/archive.ts: 로그인 배경 백업(설정 내보내기의 login-background 종류).
 // 다 만든 배경의 내는 파일만 담고, 불러오면 새 id 로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일 · 빠진 파일 · 바깥을 가리키는 목록은 받지 않는다
 
 process.env.OWNER_ID = "owner";

@@ -1,4 +1,4 @@
-// dashboard/src/composables/docs.ts — 화면에서 저장소 설명서(docs/)로 가는 주소. 기본 브랜치(HEAD)를 보고, 형식을 모르는 곳은 잇지 않는다
+// dashboard/src/composables/docs.ts: 화면에서 저장소 설명서(docs/)로 가는 주소. 기본 브랜치(HEAD)를 보고, 주소 형식을 모르는 호스팅은 링크하지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

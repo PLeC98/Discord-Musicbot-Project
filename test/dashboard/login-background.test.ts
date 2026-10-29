@@ -1,5 +1,5 @@
-// src/dashboard/routes/login-background.ts · login-background/store.ts · runner.ts — 로그인 배경의 상태 기계.
-// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저 · 굽기 순서 · 이전 배경 · 한도 · 막는 전이 · 실패 · 이어 하기를 본다
+// src/dashboard/routes/login-background.ts · login-background/store.ts · runner.ts: 로그인 배경의 상태 기계.
+// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저 · 인코딩 순서 · 이전 배경 · 한도 · 막는 전이 · 실패 · 이어 하기를 본다
 
 process.env.OWNER_ID = "owner";
 
@@ -112,7 +112,7 @@ test("올리면 편집 전 단계를 하고 편집을 기다린다. 편집은 �
 
   assert.equal((await send("PUT", `/${id}/edit`, EDIT)).status, 200);
   one = await item(id);
-  // 편집을 적용하면 어림은 싣지 않고, 썸네일 전에는 걸지 않는다
+  // 편집을 적용하면 추산은 싣지 않고, 썸네일 전에는 걸지 않는다
   assert.deepEqual([one.phase, one.stage, one.estimate, (await state()).current], ["encoding", "thumb", null, null]);
   assert.deepEqual(await codeOf(await send("PUT", `/${id}/edit`, EDIT)), [409, "background-not-editable"]);
   await step(id, { media: { stills: [1280], color: "#336699", scenes: [], rungs: {} } });
@@ -128,7 +128,7 @@ test("편집 적용: 어림이 남은 저장 공간보다 크면 막는다(같�
   await step(id);
   assert.deepEqual(await codeOf(await send("PUT", `/${id}/edit`, EDIT)), [409, "background-no-space"]);
   assert.equal((await item(id)).phase, "editing");
-  // 다른 크롭의 어림은 그 크롭의 크기가 아니라 막지 않는다(남은 공간이 있는지만)
+  // 다른 크롭의 추산은 그 크롭의 크기가 아니라 막지 않는다(남은 공간이 있는지만)
   assert.equal((await send("PUT", `/${id}/edit`, { ...EDIT, crop: { x: 0, y: 0, w: 0.5, h: 1 } })).status, 200);
 });
 
@@ -202,7 +202,7 @@ test("이전 배경이 삭제된 뒤 인코딩을 취소하면 봇 프로필 그
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "h264");
   assert.deepEqual([(await state()).current, (await state()).previous], [b, a]);
-  // 굽는 동안 한도를 줄이면 바로 지킨다: 다 구운 기록인 A 를 삭제한다
+  // 인코딩하는 동안 한도를 줄이면 바로 지킨다: 인코딩을 마친 기록인 A 를 삭제한다
   assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
   assert.deepEqual([(await state()).current, (await state()).previous], [b, null]);
   assert.equal((await send("POST", `/${b}/cancel`)).status, 200);

@@ -1,4 +1,4 @@
-// src/dashboard/settings-archive.ts · routes/settings-archive.ts — 설정 내보내기 · 불러오기(ZIP).
+// src/dashboard/settings-archive.ts · routes/settings-archive.ts: 설정 내보내기 · 불러오기(ZIP).
 // 내보낸 것을 그대로 복원하고, 선택한 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 불러오기는 그 티켓으로
 
 process.env.OWNER_ID = "owner";
@@ -92,7 +92,7 @@ const settingsOf = (file: Buffer) =>
       .find((one) => one.name === "settings.json")
       ?.data.toString("utf8") ?? "null",
   ) as Record<string, unknown>;
-// settings.json 만 바꿔 다시 묶는다(그림은 그대로)
+// settings.json 만 바꿔 다시 묶는다(이미지는 그대로)
 const rewrite = (file: Buffer, change: (json: Record<string, unknown>) => void) => {
   const entries = unzip(file);
   const json = settingsOf(file);
@@ -349,7 +349,6 @@ test("내보내기 · 불러오기는 최근 로그인만, 미리 보기는 아�
   assert.equal((await preview(file)).status, 200);
 });
 
-// PC 에 매인 값(쿠키 출처 · POToken)도 담고 불러온다. 바뀌면 미리 보기가 알리고, 불러온 뒤 답이 다시 시작 · 쿠키 출처를 알린다
 test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지 · 바뀐 쿠키 출처를 답한다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" }, 0);
   const file = await exported();

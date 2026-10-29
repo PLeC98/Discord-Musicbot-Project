@@ -1,4 +1,4 @@
-// src/dashboard/status/ — 봇 상태 탭이 모으는 것: 최근 15분(15초 구간마다 한 점, 60점까지) · 게이트웨이 재연결 · 자식 프로세스
+// src/dashboard/status/: 봇 상태 탭이 모으는 것: 최근 15분(15초 구간마다 한 점, 60점까지) · 게이트웨이 재연결 · 자식 프로세스
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

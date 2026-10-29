@@ -1,4 +1,4 @@
-// src/dashboard/login-background/youtube.ts — 유튜브는 다운로드 대행: 다운로드 단계는 편집 창용 480p, 고해상도 다운로드 단계는 짧은 변 2160 이하의 가장 좋은 영상.
+// src/dashboard/login-background/youtube.ts: 유튜브는 다운로드 대행: 다운로드 단계는 편집 창용 480p, 고해상도 다운로드 단계는 짧은 변 2160 이하의 가장 좋은 영상.
 // yt-dlp 는 실행하는 exec 만 가짜로 둔다(출력 템플릿대로 영상 · 정보 파일을 쓴다). 영상은 실제 ffmpeg 로 만든 표본(없으면 건너뛴다)
 
 import { test, before, after, beforeEach } from "node:test";
@@ -98,7 +98,7 @@ test("고해상도가 다운로드 단계에서 본 크기보다 작으면 그 �
   assert.equal(shortfall({ width: 3840, height: 2160 }, { width: 640, height: 360 }), "640 × 360(다운로드 단계에서 본 크기 3840 × 2160)");
   assert.equal(shortfall({ width: 3840, height: 2160 }, { width: 3840, height: 2160 }), null);
   assert.equal(shortfall({ width: 1080, height: 1920 }, { width: 1080, height: 1920 }), null);
-  // 다운로드 단계에서 크기를 알지 못했으면 견주지 않는다
+  // 다운로드 단계에서 크기를 알지 못했으면 비교하지 않는다
   assert.equal(shortfall({ width: 0, height: 0 }, { width: 640, height: 360 }), null);
 });
 

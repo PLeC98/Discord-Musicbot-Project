@@ -1,4 +1,4 @@
-// src/dashboard/login-devices.ts · routes/login-devices.ts — 로그인한 기기 목록 · 하나씩 · 모두 로그아웃.
+// src/dashboard/login-devices.ts · routes/login-devices.ts: 로그인한 기기 목록 · 하나씩 · 모두 로그아웃.
 // 진짜 OAuth 경로(가짜 디스코드)로 쿠키 셋을 로그인시킨다: 같은 사용자 둘 · 다른 사용자 하나. 세션은 임시 SQLite.
 
 import { test, after, before } from "node:test";

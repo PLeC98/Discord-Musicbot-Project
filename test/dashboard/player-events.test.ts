@@ -1,9 +1,9 @@
-// src/dashboard/routes/player-events.ts — 서버 목록의 재생 상태 알림(SSE)을 누가 어느 서버로 받는가.
+// src/dashboard/routes/player-events.ts: 서버 목록의 재생 상태 알림(SSE)을 누가 어느 서버로 받는가.
 //
 // 지키려는 계약: 지금 멤버인 서버의 신호만 받는다. 로그인할 때 받은 서버 목록이나 연결을 연 때의 집합에 기대면,
 // 그 뒤 나간 서버의 재생 상태가 계속 흘러가거나 그 뒤 들어간 서버의 신호가 빠진다. 운영자도 같다(참가한 서버만).
 // 보기 권한 확인은 보낼 때 멤버 캐시로 한다. 그래서 연결을 열 때 사용자가 든 서버(사용자의 서버 목록)만 캐시를 채우고,
-// 봇이 새 서버에 들 때도 채운다. 목록을 받지 못하면 이미 확인한 서버만(봇이 든 서버마다 묻지 않는다). 사용 불가(unavailable) 서버는 보이지 않는다.
+// 봇이 새 서버에 들 때도 채운다. 목록을 받지 못하면 이미 확인한 서버만(봇이 든 서버마다 조회하지 않는다). 사용 불가(unavailable) 서버는 보이지 않는다.
 
 process.env.OWNER_ID = "owner";
 
@@ -18,7 +18,7 @@ import { fake, fakeBot } from "../helpers/fake.ts";
 import { requestJson } from "../helpers/dashboard.ts";
 import { userGuildsFixture } from "../helpers/user-guilds.ts";
 
-// 서버 하나. member 면 가져오기가 되고, 가져오면 진짜처럼 캐시에 남는다(캐시에 있으면 묻지 않고, force 면 묻는다). fetched: 디스코드에 물은 사용자
+// 서버 하나. member 면 가져오기가 되고, 가져오면 진짜처럼 캐시에 남는다(캐시에 있으면 조회하지 않고, force 면 조회한다). fetched: 디스코드에 조회한 사용자
 const guild = (id: string, member: boolean) => {
   const cache = new Map<string, object>();
   const fetched: string[] = [];

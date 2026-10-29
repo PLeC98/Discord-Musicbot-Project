@@ -1,3 +1,4 @@
+// src/autoplay/assist/retry.ts: AI 요청 거절의 요약 · 한도 소진 구분 · 기다리라는 시간 · 백오프
 import test from "node:test";
 import assert from "node:assert";
 import * as retry from "../../src/autoplay/assist/retry.ts";
@@ -10,7 +11,7 @@ test("거절 까닭의 key 는 상태 코드와 오류 이름만, 문구는 deta
   });
   assert.equal(retry.summaryOf(429, '{"type":"error","error":{"type":"rate_limit_error","message":"try again in 20s"}}').key, "HTTP 429 rate_limit_error");
   assert.equal(retry.summaryOf(429, '{"error":{"code":"rate_limit_exceeded","message":"req_abc"}}').key, "HTTP 429 rate_limit_exceeded");
-  // JSON 이 아니면 본문을 문구로
+  // JSON 이 아니면 공백을 접은 본문이 detail
   assert.deepEqual(retry.summaryOf(502, "<html>\n Bad   Gateway </html>"), { key: "HTTP 502", detail: "<html> Bad Gateway </html>" });
 });
 

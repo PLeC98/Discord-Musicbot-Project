@@ -1,4 +1,4 @@
-// src/dashboard/geoip.ts — IP 위치 DB 받기 · 확인 · 자동 · 읽기. 바깥(download.db-ip.com)에 닿지 않게 전송과 여는 것을 가짜로 넘긴다(작은 MMDB 를 만들 도구가 없다).
+// src/dashboard/geoip.ts: IP 위치 DB 다운로드 · 확인 · 자동 갱신 · 읽기. 바깥(download.db-ip.com)에 닿지 않게 전송과 여는 것을 가짜로 넘긴다(작은 MMDB 를 만들 도구가 없다).
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/dashboard/binding.ts — 대시보드를 열고 그 결과를 남긴다. 포트를 못 열면 열었다고 적지 않는다
+// src/dashboard/binding.ts: 대시보드를 열고 그 결과를 남긴다. 포트를 못 열면 열었다고 적지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,5 +1,5 @@
-// src/player/session-mirror.ts — 트랙 변경을 DB로 옮기는 미러, 세션 행, 복원.
-// 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
+// src/player/session-mirror.ts · src/store/player-sessions.ts: 트랙 변경을 DB로 옮기는 미러, 세션 행, 복원.
+// 임시 DB로 열어 운영 DB(database/cache.db)는 건드리지 않는다.
 
 import { sessions, type RestoredSession } from "../../src/store/player-sessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -321,7 +321,7 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
   }
   a.p.position = 11_000;
   b.p.position = 99_000;
-  b.p.pause.setHolds(["alone"]); // 저장 칸(사람의 뜻)은 그대로인 멈춤. 사람이 멈추면 그 순간의 위치를 한 번 저장한다
+  b.p.pause.setHolds(["alone"]); // 저장 필드(사람의 뜻)는 그대로인 멈춤. 사람이 멈추면 그 순간의 위치를 한 번 저장한다
 
   try {
     SessionPersistence._beat();
@@ -338,13 +338,13 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 function makeRestorePlayer(overrides: object = {}) {
   const { p, sp } = makePlayer({ connection: { state: {} }, ...overrides }); // 연결 재수립 경로 생략
   p.play = fake<Player["play"]>(async (ms: number) => {
-    // play()는 시작 직후 사람의 뜻을 보고 멈춘다(Playing 리스너) — 그 시점의 뜻을 기록
+    // play()는 시작 직후 사람의 뜻을 보고 멈춘다(Playing 리스너). 그 시점의 뜻을 기록한다
     p.calls.push(["play", ms, p.pause.userPaused]);
   });
   return { p, sp };
 }
 
-// 세션 표에서 되읽은 것처럼. 곡은 테스트가 보는 필드만
+// 세션 테이블에서 되읽은 것처럼. 곡은 테스트가 보는 필드만
 function makeRecord(sessionOverrides: object = {}, current: object | null = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
   return fake<RestoredSession>({
     session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, userPaused: false, positionMs: 30_000, ...sessionOverrides },
@@ -438,7 +438,7 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   }
 });
 
-// 미리 선택해 둔 자동재생 곡은 복원하지 않는다 — 사용자가 선택한 곡만 세션에 남는 것이 자연스럽고,
+// 미리 선택해 둔 자동재생 곡은 복원하지 않는다. 사용자가 선택한 곡만 세션에 남는 것이 자연스럽고,
 // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 선택된다. 요청자가 봇인 행으로 구분한다.
 test("복원: 자동재생이 미리 선택해 둔 곡은 복원하지 않고 DB도 맞춘다", async () => {
   const BOT = "bot1";
@@ -454,7 +454,7 @@ test("복원: 자동재생이 미리 선택해 둔 곡은 복원하지 않고 DB
   assert.deepEqual(stored(p.guild.id), memory(p), "필터링한 뒤 DB를 맞추지 않으면 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
 });
 
-// 봇 id를 모르면(클라이언트가 아직 없음) 필터링하지 않는다 — 사용자 곡을 실수로 버리는 쪽이 더 나쁘다.
+// 봇 id를 모르면(클라이언트가 아직 없음) 필터링하지 않는다. 사용자 곡을 실수로 버리는 쪽이 더 나쁘다.
 test("복원: 봇 id를 알 수 없으면 대기열을 그대로 복원한다", async () => {
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));

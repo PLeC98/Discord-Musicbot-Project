@@ -1,4 +1,4 @@
-// src/player/events.ts — 플레이어가 화면과 대시보드에 알리는 창구.
+// src/player/events.ts: 플레이어가 화면과 대시보드에 알리는 창구.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

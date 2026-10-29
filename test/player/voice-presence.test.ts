@@ -1,5 +1,5 @@
-// src/player/voice-presence.ts — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 사라짐 · 채널 이동 · 억제 사유 맞추기).
-// 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 구분한다. 억제 사유 계산은 플레이어(syncHolds)와 rules/holds 시험이 본다. 여기서는 무엇을 불렀는지만 본다.
+// src/player/voice-presence.ts: 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 사라짐 · 채널 이동 · 억제 사유 맞추기).
+// 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 구분한다. 억제 사유 계산은 플레이어(syncHolds)와 rules/holds 테스트가 본다. 여기서는 무엇을 불렀는지만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -55,7 +55,7 @@ test("플레이어가 없는 서버는 아무것도 안 한다", async () => {
 test("봇이 음성에서 쫓겨나면 세션을 삭제하고 끝난 패널(disconnected)로 버린다", async () => {
   const { client, calls, state, players } = setup();
   await onVoiceStateUpdate(client, players, state(BOT, "vc1"), state(BOT, null));
-  // 스테이지면 음성 서버의 닫힘 코드를 보고 고르므로 한 차례 뒤에 버린다
+  // 스테이지면 음성 서버의 닫힘 코드를 보고 고르므로 한 틱 뒤에 버린다
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(calls, ["dispose:봇이 음성에서 강제 퇴장됨:remove:disconnected"]);
 });

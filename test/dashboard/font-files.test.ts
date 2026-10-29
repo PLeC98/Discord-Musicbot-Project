@@ -1,4 +1,4 @@
-// 화면 글꼴의 라이선스 조건(scripts/font-names.ts 와 그것으로 만든 dashboard/src/assets 의 글꼴).
+// scripts/font-names.ts · dashboard/src/assets 의 글꼴: 화면 글꼴의 라이선스 조건.
 // 셋 다 SIL OFL 1.1 이다. 서브셋마다 라이선스(name 13 · 14번)가 따라가야 하고, 예약된 글꼴 이름(RFN)이 걸린 D2Coding 의 수정본은 그 이름을 쓸 수 없다
 
 import { test } from "node:test";

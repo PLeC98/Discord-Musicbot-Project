@@ -1,4 +1,4 @@
-// src/dashboard/track-cache.ts — 캐시 DB 화면의 읽기 · 쓰기 · 값 검사. 표 셋은 cache.db 의 표를 음원 키로 이은 것이고,
+// src/dashboard/track-cache.ts: 캐시 DB 화면의 읽기 · 쓰기 · 값 검사. 표 셋은 cache.db 의 표를 음원 키로 이은 것이고,
 // 쓰기는 모두 검사한 뒤 조작마다 화면이 본 값(expect)과 대조해 결과를 낸다. 바뀜 번호는 cache-db 의 트리거가 센다.
 
 import fs from "node:fs";

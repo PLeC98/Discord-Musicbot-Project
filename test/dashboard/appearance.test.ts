@@ -1,4 +1,4 @@
-// src/dashboard/routes/appearance.ts · appearance.ts — 크기 슬롯마다 파비콘을 올리고 교체하고 삭제하며, 빈 슬롯은 가장 가까운 슬롯의 보관본으로(없으면 봇 프로필 그림) 낸다
+// src/dashboard/routes/appearance.ts · appearance.ts: 크기 슬롯마다 파비콘을 올리고 교체하고 삭제하며, 빈 슬롯은 가장 가까운 슬롯의 보관본으로(없으면 봇 프로필 이미지) 낸다
 
 process.env.OWNER_ID = "owner";
 
@@ -20,7 +20,7 @@ const { appearanceRouter, publicAppearanceRouter } = await import("../../src/das
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "appearance-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
-/** 한 가지 색으로 칠한 그림(빨강, blue 면 파랑) */
+/** 한 가지 색으로 칠한 이미지(빨강, blue 면 파랑) */
 const square = (side: number, format: "png" | "webp" | "jpeg" | "gif" = "png", height = side, blue = false) =>
   sharp({ create: { width: side, height, channels: 4, background: blue ? { r: 40, g: 40, b: 200, alpha: 1 } : { r: 200, g: 40, b: 40, alpha: 1 } } })
     [format]()
@@ -30,7 +30,7 @@ const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" heig
 let user: object | null = { id: "owner", username: "운영자" };
 let avatarServed = 0;
 const app = express();
-// 봇 프로필 그림 위치(디스코드 CDN 대신)
+// 디스코드 CDN 대신 봇 프로필 이미지를 내주는 곳
 app.get("/avatar.png", async (_req, res) => {
   avatarServed++;
   res.type("png").send(await square(512));
@@ -57,7 +57,7 @@ const iconSize = async (size: number) => {
   const { width, height, format } = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
   return [format, width, height];
 };
-/** 그 크기에 지금 내는 그림의 왼쪽 위 한 점(빨강 쪽인지 파랑 쪽인지 · 투명한지) */
+/** 그 크기에 지금 내는 이미지의 왼쪽 위 한 점(빨강 쪽인지 파랑 쪽인지 · 투명한지) */
 const iconPixel = async (size: number) => {
   const { data } = await sharp(Buffer.from(await (await fetch(`${base}/favicon/${size}`)).arrayBuffer()))
     .ensureAlpha()

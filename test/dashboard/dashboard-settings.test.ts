@@ -1,7 +1,7 @@
-// src/dashboard/routes/guilds.ts — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
+// src/dashboard/routes/guild-settings.ts · player.ts · guild-list.ts(guilds.ts 로 묶는다): 서버 설정 GET/PUT + /player 플래그 + 서버 목록 통합 테스트.
 // 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
-// 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
+// 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
@@ -74,7 +74,7 @@ const store = {
   },
 };
 
-// 아무것도 쓰지 않았는지: 이 서버의 설정 행을 전후로 견준다
+// 아무것도 쓰지 않았는지: 이 서버의 설정 행을 전후로 비교한다
 const settingsRow = () => temp.settings().prepare("SELECT * FROM guild_settings WHERE guild_id = ?").get(GUILD_ID) ?? null;
 
 import express from "express";
@@ -198,7 +198,6 @@ test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여�
   currentUser = { id: "u1", username: "tester" };
 });
 
-// 옛 세션에 남은 isAdmin 값으로는 아무것도 지나가지 않는다
 test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 되지 않는다", async () => {
   currentMember = null;
   currentUser = { id: "former-owner", username: "이전 운영자", isAdmin: true };
@@ -337,16 +336,16 @@ test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드�
 // botInVoice/userInVoice만 보면 "같은 서버 다른 채널"을 구분하지 못한다.
 // 조작 가능 여부(checkVoice)의 실제 기준은 채널 일치라, 대시보드가 그걸 그대로 표현해야 한다.
 
-// 앞선 PUT 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다 — 이 절은 매번 초기화하고 시작한다.
+// 앞선 PUT 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다. 이 절은 매번 초기화하고 시작한다.
 const noDjRoles = () => store.djRoles.delete(GUILD_ID);
 const noVoice = () => voiceStates.clear();
 
-// 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.ts 중
+// 실 VoiceState는 channelId와 channel을 모두 갖는다. 한쪽만 두면 라우터와 permissions.ts 중
 // 하나만 만족시켜 통과 여부가 뒤바뀐다.
 const voiceState = (channelId: string | null) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
 
 // 라우터는 guild.voiceStates에서, permissions.ts는 member.voice에서 읽는다. 실제로는 같은 출처이므로
-// 픽스처도 반드시 함께 맞춘다 — 한쪽만 두면 통과 여부가 갈려 테스트가 거짓말을 한다.
+// 픽스처도 반드시 함께 맞춘다. 한쪽만 두면 통과 여부가 갈려 테스트가 거짓말을 한다.
 function inVoice(channelId: string | null, userId = "u1") {
   voiceStates.set(userId, voiceState(channelId));
   return { id: userId, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: voiceState(channelId) };
@@ -401,7 +400,7 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래�
   assert.equal(r.json.sameVoice, false);
   assert.equal(r.json.canControl, false);
 
-  // 모더레이터는 checkVoice 면제 — 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
+  // 모더레이터는 checkVoice 면제라 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.sameVoice, false);
@@ -501,7 +500,7 @@ test("GET guilds: listening — 봇과 같은 채널일 때만 참", async () =>
   currentUser = { id: "u1", username: "tester" };
 });
 
-// 멤버 캐시는 비어 있을 수 있지만 음성 상태는 게이트웨이가 항상 채운다 —
+// 멤버 캐시는 비어 있을 수 있지만 음성 상태는 게이트웨이가 항상 채운다.
 // 목록 라우트가 members.cache에 의존하면 여기서 조용히 거짓이 된다.
 test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", async () => {
   currentMember = plainMember(); // members.fetch만 성공, members.cache에는 없음

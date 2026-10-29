@@ -1,4 +1,4 @@
-// src/player/pause-state.ts — 사람의 뜻과 억제 사유를 따로 들고, 오디오를 한 곳에서 맞춘다
+// src/player/pause-state.ts: 사람의 뜻과 억제 사유를 따로 들고, 오디오를 한 곳에서 맞춘다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

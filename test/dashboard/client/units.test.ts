@@ -1,4 +1,4 @@
-// dashboard/src/utils/units.ts — 크기에 맞는 단위 고르기와 그래프 세로축의 상한
+// dashboard/src/utils/units.ts: 크기에 맞는 단위 고르기와 그래프 세로축의 상한
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

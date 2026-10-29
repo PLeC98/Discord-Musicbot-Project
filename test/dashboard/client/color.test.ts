@@ -1,4 +1,4 @@
-// dashboard/src/utils/color.ts — 색 선택의 #RRGGBB ↔ RGB ↔ HSV
+// dashboard/src/utils/color.ts: 색 선택의 #RRGGBB ↔ RGB ↔ HSV
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

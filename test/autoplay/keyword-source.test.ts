@@ -1,4 +1,4 @@
-// src/autoplay/sources/keyword.ts — 유튜브 검색 결과를 자동재생 후보로
+// src/autoplay/sources/keyword.ts: 유튜브 검색 결과를 자동재생 후보로
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

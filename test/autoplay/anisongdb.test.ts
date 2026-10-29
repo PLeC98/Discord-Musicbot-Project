@@ -1,4 +1,4 @@
-// AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가.
+// src/autoplay/sources/anisongdb.ts: AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가, 목록 캐시, 후보 모양.
 //
 // 지키려는 계약:
 //  · 보내는 값은 소문자. 받은 값을 되보내면 422
@@ -68,7 +68,6 @@ test("한쪽만 입력하면 반대쪽은 끝까지", () => {
   assert.deepEqual(build({ difficultyTo: 30 }).difficulty, { start: 1, end: 30 });
 });
 
-// 0 은 값이 아니라 결측 표시다.
 test("하한 0 은 1 로 올린다", () => {
   assert.deepEqual(build({ difficultyFrom: 0, difficultyTo: 100 }).difficulty, { start: 1, end: 100 });
 });
@@ -79,7 +78,7 @@ test("100을 넘겨도 100에서 멈춘다", () => {
 
 // ── 분기 ──────────────────────────────────────────────────────────────────
 
-// AnimeThemes 는 시즌 범위 문법이 없어 우리가 필터링했다. 저쪽은 범위를 받는다.
+// AnimeThemes 는 시즌 범위 문법이 없어 받은 뒤 자르지만, AnisongDB 는 범위를 받는다.
 test("분기는 저쪽이 범위로 받으므로 우리가 자르지 않는다", () => {
   assert.deepEqual(build({ yearFrom: 2024, seasonFrom: "Spring", yearTo: 2026, seasonTo: "Summer" }).season, { start: "Spring 2024", end: "Summer 2026" });
 });
@@ -156,7 +155,7 @@ test("목록을 못 받아도 던지지 않는다 — 입력란이 안 그려지
 
 // ── 후보 모양 ─────────────────────────────────────────────────────────────
 
-// 가짜 fetch. AnisongDB 와 AniList 를 부르는 순서대로 답한다.
+// 가짜 fetch. 주소로 AnisongDB 와 AniList 를 구분해 답하고, 부른 것을 적는다.
 function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; covers?: unknown[]; anilistFails?: boolean }) {
   const calls: Array<{ url: string; body: { variables?: { ids?: unknown[] } } | null }> = [];
   // 가짜 응답은 여기서 읽는 필드만 준다
@@ -190,7 +189,7 @@ test("후보 모양 — 음원 주소·출처·키", async () => {
   }
 });
 
-// 같은 곡이 속편·OVA·극장판에 다시 쓰인다. annSongId 로 막으면 그것들이 다 따로 센다.
+// 같은 곡이 속편·OVA·극장판에 다시 쓰이고 그때마다 annSongId 가 다르다. annSongId 로 막으면 같은 곡이 여러 번 나온다.
 test("amqSongId 가 같으면 한 번만 낸다", async () => {
   const s = stub({ songs: [song({ annSongId: 10 }), song({ annSongId: 11 }), song({ amqSongId: 2, annSongId: 12 })] });
   try {
@@ -237,7 +236,7 @@ test("AniList ID 가 없으면 ANN 주소를 쓴다", async () => {
   }
 });
 
-// AniList 는 분당 30회다. 곡마다 물으면 한도에 닿는다.
+// AniList 한도는 분당 30회라 곡마다 조회하면 닿는다.
 test("표지는 묶어서 묻는다 — 곡마다 묻지 않는다", async () => {
   const songs = Array.from({ length: 120 }, (_, i) => song({ amqSongId: i, linked_ids: { anilist: i } }));
   const s = stub({ songs });

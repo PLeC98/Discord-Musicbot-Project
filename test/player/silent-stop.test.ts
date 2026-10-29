@@ -1,4 +1,4 @@
-// src/player/player.ts 의 _stopWith — 재생 중이면 무음 프레임 다섯을 보낸 뒤 멈추고(stop()), 그 밖이면 바로 멈춘다(stop(true)).
+// src/player/player.ts 의 _stopWith: 재생 중이면 무음 프레임 다섯을 보낸 뒤 멈추고(stop()), 그 밖이면 바로 멈춘다(stop(true)).
 // 무음을 흘려보내는 동안은 멈추는 중이고, 상한이 지나도 Idle 이 아니면 바로 멈춘다. 대시보드는 그동안도 곡이 바뀌기를 기다린다.
 
 import { test } from "node:test";

@@ -1,9 +1,9 @@
-// src/dashboard/routes/guilds.ts — 플레이어 조작 API의 입력 검증
+// src/dashboard/routes/player.ts: 플레이어 조작 API의 입력 검증
 // 비문자열 query(TypeError면 async 핸들러라 응답 없는 unhandled rejection이 된다), "Infinity" · "50junk" 같은 느슨한 숫자,
 // 로그 · yt-dlp 로 흘러갈 제어문자를 막는다.
 // 실 라우터 + fake client/player, 모더레이터 멤버로 권한 게이트를 지나 검증 로직만 조준.
 
-// 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
+// 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
@@ -75,8 +75,7 @@ function makePlayer() {
     async play(ms: number) {
       this.calls.push(["play", ms]);
     },
-    // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신
-    // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 구분해야 한다).
+    // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 구분하는 한 통로).
     // 넘기기 · 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
     async untilSwitched() {},
     async seek(ms: number, reason: string) {
@@ -118,7 +117,7 @@ const panels = {
   updatePlaying: async () => {},
 };
 const bot = fakeBot({ client, players: new Map<string, Player>(), panels });
-// 곡 담기는 받은 것만 적는다
+// 곡 추가는 받은 것만 적는다
 fakeAdder(bot, async (_bot, guildId, trackData) => {
   embedCalls.push([guildId, trackData]);
   return { success: true };
@@ -140,7 +139,7 @@ before(async () => {
 
 after(() => server.close());
 
-// 응답이 없으면 기다리지 않고 실패한다(무응답이면 매달리지 않고 실패로 드러나게)
+// 응답이 없으면 매달리지 않고 3초 뒤 실패로 드러나게
 const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body, { timeoutMs: 3000 });
 
 function freshPlayer() {

@@ -1,4 +1,4 @@
-// src/dashboard/reset.ts — 봇 설정 · 서버별 설정 · 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
+// src/dashboard/reset.ts: 봇 설정 · 서버별 설정 · 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
 // 지운 뒤 메모리(설정 객체 · 서버별 설정의 캐시 · 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 지운다.
 
 import fs from "node:fs";

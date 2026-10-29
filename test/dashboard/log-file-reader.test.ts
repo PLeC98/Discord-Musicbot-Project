@@ -1,4 +1,4 @@
-// src/dashboard/log-file-reader.ts — 로그 파일 읽기(끝에서부터 쪽 · 뒤로 이어 읽기 · 시각으로 가기 · 필터 · 떼어진 파일 따라가기 · 덜 된 줄)
+// src/dashboard/log-file-reader.ts: 로그 파일 읽기(끝에서부터 쪽 · 뒤로 이어 읽기 · 시각으로 가기 · 필터 · 떼어진 파일 따라가기 · 덜 된 줄)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

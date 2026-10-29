@@ -1,4 +1,4 @@
-// src/autoplay/sources/lbradio.ts — ListenBrainz Radio 소스.
+// src/autoplay/sources/lbradio.ts: ListenBrainz Radio 소스.
 //
 // 지키려는 계약:
 //  · mode 파라미터는 하나만 받는다(둘을 주면 400). 모드를 섞으려면 프롬프트 안에서 원소마다 적는다

@@ -1,4 +1,4 @@
-// src/dashboard/login-background/encode.ts — H.264 · AV1 · VP9 를 HLS(fMP4)로 굽고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 굽는다(없으면 건너뛴다)
+// src/dashboard/login-background/encode.ts: H.264 · AV1 · VP9 를 HLS(fMP4)로 인코딩하고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 인코딩한다(없으면 건너뛴다)
 // 단계 크기 계산(4K · 세로 · 작은 원본) · 구간과 크롭 · 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다) · 마무리(원본 삭제) · 코어 계산
 
 import { test, before, after } from "node:test";
@@ -82,7 +82,7 @@ test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열 · 2초 �
 test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", opts, async () => {
   if (!encoders.encoderFor("av1") || !encoders.encoderFor("vp9")) return;
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
-  // 굽는 동안 운영자 패널에 보이는 것: 함께 굽는 단계 · AV1 병렬 단계 · 코어
+  // 인코딩하는 동안 운영자 패널에 보이는 것: 함께 인코딩하는 단계 · AV1 병렬 단계 · 코어
   const seen: NonNullable<ReturnType<typeof bakeNow>>[] = [];
   const watch = setInterval(() => {
     const now = bakeNow();

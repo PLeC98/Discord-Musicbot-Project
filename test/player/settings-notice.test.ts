@@ -1,4 +1,4 @@
-// 설정 필드(볼륨 · 반복 · 자동재생 · 멈춤 · 채널)을 바꾸는 길은 모두 세션 저장에 알린다. 알림을 받은 저장이 잠깐 모았다가 쓴다(sessionPersistence 테스트)
+// src/player/player.ts: 설정 필드(볼륨 · 반복 · 자동재생 · 멈춤 · 채널)를 바꾸는 길은 모두 세션 저장에 알린다. 알림을 받은 저장이 잠깐 모았다가 쓰는 것은 session-persistence 테스트가 본다
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";

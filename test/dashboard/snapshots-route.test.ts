@@ -1,4 +1,4 @@
-// src/dashboard/routes/snapshots.ts — 백업 탭의 스냅샷 목록 · 복원 예약 · 예약 취소
+// src/dashboard/routes/snapshots.ts: 백업 탭의 스냅샷 목록 · 복원 예약 · 예약 취소
 
 process.env.OWNER_ID = "owner";
 

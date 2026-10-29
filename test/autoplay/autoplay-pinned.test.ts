@@ -1,4 +1,4 @@
-// src/autoplay/route.ts — 직접 지정한 음원. 운영자가 정한 음원이 후보의 길(유튜브 주소 · 검색 · 음원)보다 앞서고 필터링을 다시 하지 않는다.
+// src/autoplay/route.ts: 직접 지정한 음원. 운영자가 정한 음원이 후보의 길(유튜브 주소 · 검색 · 음원)보다 앞서고 필터링을 다시 하지 않는다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

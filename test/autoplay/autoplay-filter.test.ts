@@ -1,7 +1,6 @@
-// src/autoplayFilter — 자동재생 후보를 필터링하는 규칙.
+// src/autoplay/filter.ts: 자동재생 후보를 필터링하는 규칙.
 //
-// 임계값은 짐작이 아니라 후보 840개를 세어 정했다.
-// 그래서 여기 적는 것은 "왜 이 값인가"가 아니라 "이 성질이 깨지면 안 된다"이다.
+// 임계값은 실제 후보를 세어 정했다. 여기서는 값이 아니라 깨지면 안 되는 성질을 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -36,7 +35,7 @@ test("제외 키워드는 단어 경계로 비교한다 — mix가 remix를 죽�
 });
 
 test("한국어·일본어 제외 키워드는 단어 경계 없이 본다", () => {
-  // \b는 한글 앞뒤에서 뜻대로 동작하지 않는다 — 그때는 그냥 포함 여부를 본다
+  // \b는 한글 · 가나 앞뒤에서 뜻대로 동작하지 않아 포함 여부만 본다
   assert.equal(judge("봄노래 메들리 모음").detail, "메들리");
   assert.equal(judge("2026 春アニメ メドレー", 240, { blockedKeywords: ["メドレー"] }).detail, "メドレー");
 });

@@ -1,4 +1,4 @@
-// dashboard/src/utils/event-link.ts — 탭의 SSE 연결: 끊기면 브라우저가 재연결하고, 닫히면 늘려 가는 간격으로 화면이 다시 연다
+// dashboard/src/utils/event-link.ts: 탭의 SSE 연결: 끊기면 브라우저가 재연결하고, 닫히면 늘려 가는 간격으로 화면이 다시 연다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -42,7 +42,7 @@ class FakeSource {
   }
 }
 
-/** 가짜 시계: 걸린 일을 적어 두고 테스트가 하나씩 돌린다 */
+/** 가짜 시계: 예약된 타이머를 적어 두고 테스트가 하나씩 돌린다 */
 function harness({ checks = [] as boolean[] } = {}) {
   const sources: FakeSource[] = [];
   const states: string[] = [];

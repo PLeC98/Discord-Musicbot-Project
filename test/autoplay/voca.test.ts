@@ -1,11 +1,11 @@
-// src/autoplay/sources/voca.ts — VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
+// src/autoplay/sources/voca.ts: VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
 //
 // 지키려는 계약:
 //  · 내려간 영상(disabled)은 고르지 않는다. 원곡(Original) 영상을 먼저, 없으면 다른 유튜브 영상
 //  · 만든 사람과 부른 쪽만 이름으로 쓴다("제작 feat. 가수"). 애니메이터 · 일러스트레이터까지 붙은 artistString 은 마지막 수단
 //  · 가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 번. 한 언어가 실패해도 나머지는 살린다. 다 실패하면 던진다
 //  · 설정 필드가 저쪽 파라미터로 바뀐다(BPM 은 천 배, 연도는 날짜, 가수를 걸면 하위 보이스뱅크까지)
-//  · 이름으로 입력하는 필드(태그 · 제외 태그 · 가수)은 id 로 풀어 건다. 못 풀면 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
+//  · 이름으로 입력하는 필드(태그 · 제외 태그 · 가수)는 id 로 풀어 건다. 못 풀면 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -183,7 +183,7 @@ test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () 
   const one = source({ tags: ["rock", "jazz"] });
   await assert.rejects(vocaFamily(one), /jazz/);
 
-  lookup.tags = { rock: 481, jazz: 7 }; // 나중에 생겼다
+  lookup.tags = { rock: 481, jazz: 7 }; // 저쪽에 태그가 나중에 생겼다
   await vocaFamily(one);
   await vocaFamily(one);
   const asked = urls.filter((u) => u.pathname.startsWith("/api/tags/")).map((u) => decodeURIComponent(u.pathname.split("/").pop() || ""));
@@ -191,7 +191,7 @@ test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () 
 });
 
 test("정렬 순서의 앞쪽에서만 고른다. 가수 · 가수 분류를 걸면 더 앞쪽. 저쪽이 깊은 창을 못 준다", async (t) => {
-  t.mock.method(Math, "random", () => 0.999); // 가장 깊은 창
+  t.mock.method(Math, "random", () => 0.999); // 고를 수 있는 가장 깊은 창
   const starts = async (extra: Partial<GenreSource>, total = 300_000) => {
     _forgetIds();
     const urls: URL[] = [];

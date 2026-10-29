@@ -1,6 +1,6 @@
-// src/dashboard/user-guilds.ts — 사용자가 든 서버(로그인 때 받은 토큰으로 /users/@me/guilds).
-// 지키는 것: 세션마다 30초 캐시하고, 같은 세션이 한꺼번에 물으면 진행 중인 요청 하나를 공유한다. stale 목록은 바로 주고 뒤에서 새로 받는다.
-// 10분 쓰지 않은 캐시 항목은 지운다. 401 을 받은 세션은 다시 로그인할 때까지 묻지 않는다(401 은 IP 차단 한도에 든다). 그 밖의 실패는 이번만
+// src/dashboard/user-guilds.ts: 사용자가 든 서버(로그인 때 받은 토큰으로 /users/@me/guilds).
+// 지키는 것: 세션마다 30초 캐시하고, 같은 세션이 한꺼번에 요청하면 진행 중인 요청 하나를 공유한다. stale 목록은 바로 주고 뒤에서 새로 받는다.
+// 10분 쓰지 않은 캐시 항목은 지운다. 401 을 받은 세션은 다시 로그인할 때까지 조회하지 않는다(401 은 IP 차단 한도에 든다). 그 밖의 실패는 이번만
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";

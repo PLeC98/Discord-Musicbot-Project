@@ -1,4 +1,4 @@
-// src/player/track-state.ts — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
+// src/player/track-state.ts: 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import type { Tracks, TrackSink } from "../../src/player/track-state.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 
-// 곡 가짜. 요청 키는 비워 둔다(큐 반복의 사본 찾기가 키를 볼 때만 준다)
+// 곡 가짜. 요청 키는 비워 둔다(대기열 반복의 사본 찾기가 키를 볼 때만 준다)
 const t = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: "", requestKey: "", ...extra });
 const titles = (arr: QueuedTrack[]) => arr.map((x) => x.title);
 
@@ -170,14 +170,14 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
-  trackState.rewind(p); // 큐 반복으로 끝에 들어간 F(3번째)를 빼고 앞으로 — 현재곡 E 는 그 뒤에
+  trackState.rewind(p); // 대기열 반복으로 끝에 들어간 F(3번째)를 빼고 앞으로. 현재곡 E 는 그 뒤에
   trackState.rewindRing(p); // 대기열 [F, E, C, B, D] 의 맨 끝(D, 4번째)을 앞으로. 기록은 그대로
   trackState.shuffle(p);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
   trackState.reset(p, { history: true });
   trackState.rewind(p);
-  trackState.restore(p, { current: t("R") }, { persisted: true }); // 저장소에서 읽은 그대로 — 알리지 않는다
+  trackState.restore(p, { current: t("R") }, { persisted: true }); // 저장소에서 읽은 그대로라 알리지 않는다
 
   assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "F", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "F", 3, "E", true], ["onRewind", "D", 4, "E", false], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });

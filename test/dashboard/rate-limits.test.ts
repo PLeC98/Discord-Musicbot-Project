@@ -1,4 +1,4 @@
-// src/dashboard/rate-limits.ts — 요청 제한. 일반 API 한도에서 빼는 경로와, 로그인한 사람마다 세는지
+// src/dashboard/rate-limits.ts: 요청 제한. 일반 API 한도에서 빼는 경로와, 로그인한 사용자마다 세는지
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

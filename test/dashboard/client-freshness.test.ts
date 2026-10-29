@@ -1,4 +1,4 @@
-// src/dashboard/client-freshness.ts — 빌드해 둔 화면이 지금 소스보다 옛것인가. 임시 폴더에 가짜 저장소 · 빌드를 만든다
+// src/dashboard/client-freshness.ts: 빌드해 둔 화면이 지금 소스보다 옛것인가. 임시 폴더에 가짜 저장소 · 빌드를 만든다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

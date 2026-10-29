@@ -1,4 +1,4 @@
-// src/dashboard/routes/login-background-public.ts — 로그인 화면이 받는 배경 정보와 그 파일(로그인 없이).
+// src/dashboard/routes/login-background-public.ts: 로그인 화면이 받는 배경 정보와 그 파일(로그인 없이).
 // 배경 정보는 지금 배경이 걸 것(썸네일)을 가졌을 때만, 파일은 기록에 있는 배경의 정해진 형식만(원본 · 미리보기 · 경로 거슬러 오르기는 404). 캐시 헤더 · 종류 · 304
 
 import { test, after, beforeEach } from "node:test";

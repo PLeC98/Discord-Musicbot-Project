@@ -1,9 +1,9 @@
-// src/dashboard — 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
+// src/dashboard/index.ts · middleware/error-handler.ts · binding.ts: 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
 // 미들웨어가 올바른 순서로 등록되는지.
 //
 // 세션 스토어가 죽어도 (1) 브라우저에 스택 트레이스를 보이지 않고, (2) 정적 자산은 세션 앞이라 앱 껍데기는 뜬다.
 //
-// 실 앱(createApp)을 임의 포트에 실행한다 — 순서 자체가 검증 대상이라 축소판으로는 의미가 없다.
+// 순서 자체가 검증 대상이라 축소판이 아니라 실 앱(createApp)을 임의 포트에 실행한다.
 // 세션 미들웨어만 "저장장치가 죽은 상태"로 넘긴다.
 
 import fs from "node:fs";
@@ -71,7 +71,7 @@ test("분류: SQLITE_*·I/O 오류는 storage-unavailable(503), 4xx는 bad-reque
   for (const code of ["SQLITE_CORRUPT", "SQLITE_NOTADB", "EIO", "ENOENT"]) assert.equal(c(Object.assign(new Error("x"), { code })), "storage-unavailable", code);
   assert.equal(PROBLEMS["storage-unavailable"].status, 503);
 
-  // express.json()이 잘못된 본문에 붙이는 400 — 500으로 뭉개면 안 된다
+  // express.json()이 잘못된 본문에 붙이는 400. 500으로 뭉개면 안 된다
   assert.equal(c(Object.assign(new Error("x"), { status: 400 })), "bad-request");
   assert.equal(c(Object.assign(new Error("x"), { statusCode: 403 })), "bad-request");
 
@@ -105,7 +105,7 @@ test("헤더가 이미 나간 응답(SSE)은 건드리지 않고 넘긴다", () 
 test("바인딩 안내: 루프백은 조용히, 외부+http는 경고", () => {
   const loopback = describeBinding("127.0.0.1", 33333, "http://localhost:33333");
   assert.match(loopback.line, /127\.0\.0\.1:33333/);
-  assert.match(loopback.line, /DASHBOARD_HOST/); // "왜 다른 기기에서 안 붙지" 시간을 없앤다
+  assert.match(loopback.line, /DASHBOARD_HOST/); // 다른 기기에서 접속이 안 될 때 무엇을 바꿀지 바로 알 수 있게
   assert.deepEqual(loopback.warnings, []);
 
   const openPlain = describeBinding("0.0.0.0", 33333, "http://example.com");
@@ -114,7 +114,7 @@ test("바인딩 안내: 루프백은 조용히, 외부+http는 경고", () => {
   assert.equal(openPlain.warnings.length, 1);
   assert.match(openPlain.warnings[0], /평문 HTTP/);
 
-  // https로 선언했으면 통과 — 실제로 평문인 경우는 요청 시점의 그물이 잡는다
+  // https로 선언했으면 통과. 실제로 평문인 경우는 요청 때의 검사가 잡는다
   assert.deepEqual(describeBinding("0.0.0.0", 33333, "https://example.com").warnings, []);
 
   // 특정 IP 바인딩은 "모든 인터페이스"가 아니다
@@ -171,7 +171,7 @@ test("보안 헤더: 넣기로 한 것만 있고, 넣으면 안 되는 것은 �
   const { headers } = await req("/");
 
   assert.match(headers.get("content-security-policy") || "", /default-src 'self'/);
-  assert.match(headers.get("content-security-policy") || "", /img-src 'self' data: blob: https:/); // 외부 CDN 썸네일 · 화면이 흐려 만든 배경화면
+  assert.match(headers.get("content-security-policy") || "", /img-src 'self' data: blob: https:/); // 외부 CDN 썸네일 · 화면이 블러로 만든 배경화면
   assert.match(headers.get("content-security-policy") || "", /media-src 'self' blob:/); // 로그인 배경 영상(hls.js 가 MediaSource 를 blob: 으로 붙인다)
   assert.match(headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
   assert.equal(headers.get("x-content-type-options"), "nosniff");
@@ -179,7 +179,7 @@ test("보안 헤더: 넣기로 한 것만 있고, 넣으면 안 되는 것은 �
   assert.equal(headers.get("referrer-policy"), "no-referrer");
 
   assert.equal(headers.get("x-powered-by"), null, "서버 스택 광고");
-  // 아래 셋은 의도적으로 넣지 않는다 — 남의 운영 환경을 깨뜨린다 (HSTS: 평문 호스트 영구 고정,
+  // 아래 셋은 남의 운영 환경을 깨뜨려서 넣지 않는다(HSTS: 평문 호스트 영구 고정,
   // COEP: 외부 CDN 썸네일 전면 차단, COOP: 팝업 OAuth 무음 파손)
   assert.equal(headers.get("strict-transport-security"), null);
   assert.equal(headers.get("cross-origin-embedder-policy"), null);

@@ -1,3 +1,5 @@
+// src/player/player-session-id.ts: 플레이어 세션 ID 의 형식(URL 에 그대로 쓰는 24자)과 겹치지 않음
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createPlayerSessionId } from "../../src/player/player-session-id.ts";

@@ -1,8 +1,8 @@
-// src/dashboard/view-as.ts — 권한 수준 오버라이드.
+// src/dashboard/view-as.ts: 권한 수준 오버라이드.
 //
 // 핵심 계약 두 가지:
 //  1) 판정 로직(src/usecases/permissions.ts)은 그대로 두고 입력(권한·역할)만 교체한다 → UI와 서버 강제가 함께 따라온다.
-//  2) 낮춰도 스스로를 잠그지 않는다 — requireOwner는 실 운영자 기준(isRealOwner)이라 해제 경로가 남는다.
+//  2) 낮춰도 스스로를 잠그지 않는다. requireOwner는 실 운영자 기준(isRealOwner)이라 해제 경로가 남는다.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.

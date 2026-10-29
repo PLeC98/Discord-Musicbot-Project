@@ -1,4 +1,4 @@
-// src/dashboard/routes/guild-list.ts — 서버 목록: 지금 멤버인 서버만, 서버마다 상태와 지금 곡.
+// src/dashboard/routes/guild-list.ts: 서버 목록. 지금 멤버인 서버만, 서버마다 상태와 지금 곡.
 // 사용자가 든 서버(사용자의 서버 목록)만 멤버 판정을 하고, 목록을 받지 못하면 이미 확인한 서버만 보이며 재로그인 안내를 싣는다
 
 process.env.OWNER_ID = "owner";
@@ -16,7 +16,7 @@ import type { Player } from "../../src/player/player.ts";
 
 const { createGuildListRouter } = await import("../../src/dashboard/routes/guild-list.ts");
 
-/** 서버 하나. members: 멤버인 사용자 ID. 가져오면 캐시에 남는다(캐시에 있으면 묻지 않는다). asked: 디스코드에 물은 사용자 */
+/** 서버 하나. members: 멤버인 사용자 ID. 가져오면 캐시에 남는다(캐시에 있으면 조회하지 않는다). asked: 디스코드에 조회한 사용자 */
 function guild(id: string, members: string[]) {
   const cache = new Map<string, object>();
   const asked: string[] = [];

@@ -1,4 +1,4 @@
-// src/player/player.ts — 자동재생이 곡을 선택하지 못한 뒤의 상태.
+// src/player/player.ts: 자동재생이 곡을 선택하지 못한 뒤의 상태.
 //
 // 후보를 하나도 못 찾아도 대기열 소진 처리(현재곡 비우기 · 종료 패널 · 퇴장 예약)를 건너뛰지 않는다.
 // 건너뛰면 currentTrack 이 끝난 곡을 가리킨 채 남아 패널이 멈추고, 곡을 넣어도 대기열에만 쌓인다.
@@ -20,7 +20,7 @@ function makeTrack(title: string, duration = 100) {
   return { title, url: `https://y/${title}`, duration };
 }
 
-// 대기열 소진 꼬리까지 받아 내는 하네스 — playbackLoop의 것은 반복 전이용이라 여기까지 오지 않는다.
+// 대기열 소진 처리까지 도는 하네스. playback-loop 테스트의 것은 반복 전이용이라 여기까지 오지 않는다.
 function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false }: { autoplay?: string | false; current?: ReturnType<typeof makeTrack> | null; picked?: boolean } = {}) {
   const calls = { idleLeave: 0, playbackEnd: [] as string[], autoplay: 0, voiceStatus: 0 };
   return fakePlayer({

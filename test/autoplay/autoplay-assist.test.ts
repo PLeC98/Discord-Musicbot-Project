@@ -1,4 +1,4 @@
-// src/autoplay/assist/index.ts — 자동재생 AI 보조.
+// src/autoplay/assist/index.ts: 자동재생 AI 보조.
 //
 // 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
@@ -49,9 +49,6 @@ const withText = (res: FakeResponse): FakeResponse => (res.text || !res.json ? r
 
 after(() => useDefaultDocuments());
 
-// 설정을 교체한다(설정 문서 "ai" 를 옛 설정 파일 형식의 YAML 글로 적는다).
-//
-// 프롬프트는 딴 문서다("ai-prompt") — 설정에는 안 섞는다.
 // 키는 비밀 표에 있다(store/ai-keys). 프로바이더마다 따로고, 입력할 때의 주소에 묶인다
 const KEY = "sk-test-do-not-log";
 const store = openTempStore("musicbot-ai-keys-");
@@ -60,7 +57,7 @@ after(() => {
   secrets._useKey();
   store.close();
 });
-// 버텍스는 키가 아니라 서비스 계정 JSON 을 쓴다 — 진짜 키라야 서명이 통과한다
+// 버텍스는 키가 아니라 서비스 계정 JSON 을 쓴다. 진짜 RSA 키라야 서명이 통과한다
 import nodecrypto from "node:crypto";
 const { privateKey: PRIVATE_KEY } = nodecrypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 const SA_JSON = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" });
@@ -81,6 +78,7 @@ function putKeys(settings: Record<string, unknown>) {
   }
 }
 
+// 설정을 교체한다. 설정 문서 "ai" 는 YAML 글로 적고, 프롬프트는 딴 문서("ai-prompt")라 섞지 않는다. 키도 그 설정의 주소로 다시 넣는다
 function useConfig(yaml: string, sections: PromptSection[] = []) {
   const settings = settingsOf(yaml);
   useDocument("ai", settings);
@@ -99,7 +97,7 @@ batchSize: 10
 retryDelayMs: 0
 `;
 
-// fetch 를 교체한다 — 진짜로 나가면 테스트가 남의 서버에 기댄다
+// 나간 요청을 적는다. 진짜로 나가면 테스트가 남의 서버에 기댄다
 const calls: Array<{ url: string; init: SentInit; body?: SentBody }> = [];
 // 모델에 보낸 JSON 본문. 목록 요청(GET)과 토큰 요청(폼)에는 없다
 const bodyOf = (init: SentInit): SentBody | undefined => (typeof init.body === "string" ? JSON.parse(init.body) : undefined);
@@ -144,7 +142,6 @@ test("꺼져 있으면 아예 부르지 않는다", async () => {
   assert.equal(calls.length, 0, "요청이 나가면 안 된다");
 });
 
-// 스위치(enabled: false)로 끄면 선택한 프로바이더 · 모델은 그대로 두고 부르지만 않는다
 test("enabled: false 면 프로바이더 · 모델이 있어도 부르지 않는다", async () => {
   useConfig("enabled: false\n" + ON);
   calls.length = 0;
@@ -222,7 +219,7 @@ test("전부 떨어지면 규칙이 고른 것을 그대로 쓴다", async () =>
 
 test("답을 못 받은 후보는 살린다", async () => {
   useConfig(ON);
-  // 2번을 빠뜨린 답 — 작은 모델이 곧잘 이런다
+  // 2번을 빠뜨린 답. 작은 모델이 곧잘 이런다
   answers('[{"n":1,"song":true,"fits":true},{"n":3,"song":true,"fits":true}]');
 
   const kept = await assist.filter([cand("A"), cand("B"), cand("C")], {});
@@ -640,7 +637,7 @@ test("추가 파라미터 — 못 읽은 줄을 알려 준다", () => {
   assert.match(got.problems.join(" "), /값이 없습니다: empty/);
 });
 
-// {{none}} 을 header:: 보다 먼저 봐야 한다 — 반대로 보면 헤더에 "{{none}}" 을 넣게 된다.
+// {{none}} 을 header:: 보다 먼저 봐야 한다. 반대로 보면 헤더에 "{{none}}" 을 넣게 된다.
 test("헤더도 {{none}} 으로 삭제한다", async () => {
   useConfig(`${ON}extra: |\n  header::Authorization={{none}}\n  header::X-Title=지움 확인\n`);
   calls.length = 0;
@@ -681,7 +678,7 @@ test("params 는 프로필이 적어 둔 경로로 간다", async () => {
   assert.equal(sent.body.thinking?.type, "adaptive", "선택하지 않은 필드는 프로필 기본값으로");
 });
 
-// 모델을 바꾸면 그 모델이 안 받는 값은 저절로 빠져야 한다 — 그대로 보내면 400 이다.
+// 모델을 바꾸면 그 모델이 안 받는 값은 저절로 빠져야 한다. 그대로 보내면 400 이다.
 test("그 모델이 안 받는 값은 안 보낸다", async () => {
   // Astra 는 reasoning_effort 에 none 을 안 받는다(프로필 enum 에 없다)
   useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    reasoning_effort: none\n    없는칸: 1\n", [{ role: "user", text: "{{list}}" }]);
@@ -694,7 +691,7 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
   assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 필드도 버린다");
 });
 
-// 장르는 한 요청에 하나다 — 모든 줄이 같은 값을 쓰므로 프롬프트에서도 쓸 수 있다.
+// 장르는 한 요청에 하나라 모든 줄이 같은 값을 쓰므로 프롬프트에서도 쓸 수 있다.
 test("{{genre}} 는 프롬프트에서도 풀린다", async () => {
   useConfig(`${ON}`, [
     { role: "system", text: "너는 {{genre}} 판정기다" },
@@ -720,7 +717,6 @@ test("종류가 안 맞는 값은 안 보낸다", async () => {
   assert.equal(sent.body.logprobs, false, "종류가 틀리면 프로필 기본값으로 떨어진다");
 });
 
-// 배열·JSON 필드도 제 모양이면 그대로 실린다.
 test("배열과 JSON 필드는 제 모양이면 실린다", async () => {
   useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop:\n      - 끝\n      - 그만\n    metadata:\n      who: musicbot\n", [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
@@ -745,7 +741,7 @@ test("프로필 기본값은 선택하지 않아도 붙는다", async () => {
   assert.equal(sent.body.logprobs, false);
 });
 
-// 켰다 끈 값이 params 에 남는다. 그대로 보내면 저쪽이 거절한다 —
+// 켰다 끈 값이 params 에 남는다. 그대로 보내면 저쪽이 거절한다.
 // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
 test("조건이 안 맞는 필드는 보내지 않는다", async () => {
   const withLogprobs = (on: string) => "provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-5.5:\n    logprobs: " + on + "\n    top_logprobs: 5\n";
@@ -761,7 +757,6 @@ test("조건이 안 맞는 필드는 보내지 않는다", async () => {
   assert.ok(!("top_logprobs" in lastSent().body), "끄면 딸린 필드도 안 나간다");
 });
 
-// 온도도 모델이 받는 필드 하나다 — 프로필이 적어 둔 위치로 들어간다(제미니는 generationConfig 안).
 // 끝 슬래시를 정규식으로 떼면 역추적으로 O(n²) 가 되어 긴 주소에서 이벤트 루프가 멈춘다.
 test("긴 주소에도 끝 슬래시 떼기가 느려지지 않는다", () => {
   const one = { provider: "custom", baseUrl: "/".repeat(200_000) + "x" };
@@ -773,8 +768,8 @@ test("긴 주소에도 끝 슬래시 떼기가 느려지지 않는다", () => {
   assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "" }), "");
 });
 
-// 점 경로는 설정 글에서만 오는 것이 아니다 — 모델 레지스트리의 mapsTo.path 로도 온다.
-// 레지스트리는 우리가 다운로드하는 남의 데이터라, `__proto__` 한 마디로 프로세스 전체가 오염될 수 있었다.
+// 점 경로는 설정 글에서만 오지 않고 모델 레지스트리의 mapsTo.path 로도 온다.
+// 레지스트리는 다운로드하는 남의 데이터라, 막지 않으면 `__proto__` 한 마디로 프로세스 전체가 오염된다.
 test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {
   for (const name of ["__proto__.뚫림", "constructor.prototype.뚫림", "a.__proto__.뚫림"]) {
     const got = assist.parseExtra(`${name}=1`);
@@ -784,13 +779,14 @@ test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {
   assert.equal(({} as { 뚫림?: unknown }).뚫림, undefined, "Object.prototype 이 멀쩡해야 한다");
 });
 
-// 멀쩡한 점 경로는 그대로 통해야 한다 — 위 가드가 과하게 막으면 안 된다
+// 위 가드가 멀쩡한 점 경로까지 막으면 안 된다
 test("평범한 점 경로는 막지 않는다", () => {
   const got = assist.parseExtra("generationConfig.topP=0.9");
   assert.deepEqual(got.body, { generationConfig: { topP: 0.9 } });
   assert.deepEqual(got.problems, []);
 });
 
+// 온도도 모델이 받는 필드 하나라 프로필이 적어 둔 위치로 들어간다(제미니는 generationConfig 안).
 test("온도는 params 를 타고 프로필이 적은 위치로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
@@ -803,7 +799,7 @@ test("온도는 params 를 타고 프로필이 적은 위치로 간다", async (
   await assist.accepts(cand("A"), {});
   assert.equal(lastSent().body.generationConfig.temperature, 0.7);
 
-  // 안 적으면 아예 안 보낸다 — 저쪽이 안 받는 모델도 있다
+  // 안 적으면 아예 안 보낸다. 저쪽이 안 받는 모델도 있다
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{list}}" }]);
   await assist.accepts(cand("A"), {});
   assert.ok(!("temperature" in (lastSent().body.generationConfig || {})));
@@ -819,7 +815,7 @@ test("params 는 모델마다 따로 기억한다", async () => {
   assert.equal(lastSent().body.reasoning_effort, "none", "고른 모델 것만 쓴다");
 });
 
-// 앤트로픽은 max_tokens 가 필수다 — 프로필의 defaults 가 채운다.
+// 앤트로픽은 max_tokens 가 필수라 프로필의 defaults 가 채운다.
 test("프로필의 기본값은 늘 붙는다", async () => {
   useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
@@ -832,7 +828,7 @@ test("프로필의 기본값은 늘 붙는다", async () => {
   assert.equal(lastSent().body.max_tokens, 4096);
 });
 
-// 추가 파라미터는 프로필이 모르는 것을 넣는 비상구다 — 마지막 말을 갖는다.
+// 추가 파라미터는 프로필이 모르는 것을 넣는 비상구라 마지막 말을 갖는다.
 test("추가 파라미터가 params 를 이긴다", async () => {
   useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
@@ -860,7 +856,7 @@ test("프롬프트가 비어 있으면 기본 구성으로 돈다", async () => 
 
 const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", extra: "think=false" };
 
-// 미리보기는 아무 데도 안 나간다. 테스트만 실제로 보낸다 — 둘을 섞으면
+// 미리보기는 아무 데도 안 나가고 테스트만 실제로 보낸다. 둘을 섞으면
 // "키도 입력하지 않았는데 왜 응답이 오지"가 된다.
 test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   calls.length = 0;
@@ -872,11 +868,11 @@ test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   assert.equal(shown.body.think, false);
   assert.ok(!("response" in shown), "보내지 않았으니 응답 필드가 없다");
 
-  // 키 값은 화면으로 가지 않는다 — 있었다는 표시만 남긴다
+  // 키 값은 화면으로 가지 않고 있었다는 표시만 남긴다
   assert.equal(shown.headers.Authorization, "Bearer [REDACTED_SECRET_KEY]");
   assert.ok(!JSON.stringify(shown).includes(KEY));
 
-  // 보기 곡 셋 중 하나는 길이를 모르는 것이다 — 그 처리를 눈으로 보라고 넣었다
+  // 보기 곡 셋 중 하나는 길이를 모르는 곡이다. 그 처리를 미리보기에서 눈으로 보게 한다
   const asked = (shown.body as SentBody).messages.at(-1)?.content;
   assert.ok(asked, "목록 섹션이 있어야 한다");
   assert.equal(asked.split("\n").length, 3);
@@ -906,14 +902,14 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
   assert.match(shown.response, /연결 실패/);
 });
 
-// 거절 응답에 보낸 값을 되비추는 서비스가 있다 — 화면에도 로그에도 키가 남으면 안 된다
+// 거절 응답에 보낸 값을 되비추는 서비스가 있다. 화면에도 로그에도 키가 남으면 안 된다
 test("응답에 키가 섞여 와도 가려서 준다", async () => {
   useFetch(async () => ({ ok: false, status: 401, text: async () => `bad key: ${KEY}` }));
 
   const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, 401);
   assert.ok(!shown.response.includes(KEY), shown.response);
-  // 별표만 있으면 원래 그런 값인 줄 안다 — 무엇이 가려졌는지 이름을 붙인다
+  // 별표만 있으면 원래 그런 값인 줄 안다. 무엇이 가려졌는지 이름을 붙인다
   assert.ok(shown.response.includes(assist.REDACTED), shown.response);
 });
 
@@ -952,7 +948,7 @@ test("무료 확인은 모델 목록만 받는다 — 추론이 없다", async (
   assert.ok(!calls[0].init.headers.Authorization, "로컬에는 키를 안 붙인다");
 });
 
-// 주소는 프로바이더에 박힌 것을 쓴다 — 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
+// 주소는 프로바이더에 박힌 것을 쓴다. 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
 test("baseUrl 은 custom 일 때만 쓴다", () => {
   assert.equal(assist.endpointOf({ provider: "openai", baseUrl: "http://엉뚱한곳/v1" }), "https://api.openai.com/v1");
   assert.equal(assist.endpointOf({ provider: "ollama", baseUrl: "http://엉뚱한곳/v1" }), "http://127.0.0.1:11434/v1");
@@ -1013,7 +1009,7 @@ test("추가 인자에 비밀 헤더는 입력하지 못한다(평문 설정 · 
   assert.deepEqual(of("header::Authorization={{none}}\nheader::X-Title=bot"), []);
 });
 
-// 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다 —
+// 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다.
 // 저쪽 목록에는 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
 // 키가 없으면 저쪽은 401 뿐이다. 묻지 않고 다운로드해 둔 모델 프로필(data/ai-models.json)로 목록을 채운다. 연결 확인은 실패로 둔다
 test("모델 목록: 키가 없거나 저쪽이 거절하면 다운로드해 둔 목록으로 채운다(확인 결과는 실패 그대로)", async () => {
@@ -1053,7 +1049,7 @@ test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
   // 입력하지 않으면 그대로 다 온다
   assert.equal((await assist.listModels({ provider: "openai" })).models?.length, 5);
 
-  // 글롭이지 정규식이 아니다 — 점은 점이다
+  // 정규식이 아니라 글롭이라 점은 글자 그대로 점이다
   const dots = await assist.listModels({ provider: "openai", hideModels: ["gpt.5"] });
   assert.ok(dots.models?.includes("gpt-5"), "gpt.5 가 gpt-5 를 가리면 안 된다");
 });
@@ -1138,7 +1134,7 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
   assert.ok(!("messages" in sent.body));
 });
 
-// 경로는 언제나 본문 맨 위부터다. 버텍스라고 generationConfig 안으로 넣어 주지 않는다 —
+// 경로는 언제나 본문 맨 위부터다. 버텍스라고 generationConfig 안으로 넣어 주지 않는다.
 // 모델 프로필의 mapsTo.path 와 같은 규칙이라야 두 길이 어긋나지 않는다.
 test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경로 그대로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: generationConfig.topP=0.9\n", [
@@ -1159,7 +1155,7 @@ test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경�
     ["model", "user"],
     "assistant 를 model 이라 부른다",
   );
-  // 맨 위에 두면 저쪽이 조용히 무시한다 — 가장 알아채기 어려운 종류다
+  // 맨 위에 두면 저쪽이 조용히 무시해 가장 알아채기 어렵다
   assert.equal(sent.body.generationConfig.topP, 0.9);
   assert.ok(!("topP" in sent.body));
   // global 리전은 호스트가 다르다
@@ -1191,7 +1187,7 @@ test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
 });
 
 // 모델 목록은 생성과 주소 체계가 다르다(프로젝트·리전이 안 붙는다).
-// 생성 주소를 그대로 썼다가 404 를 봤다. API 버전이 나뉘어 있어 순서대로 물어본다.
+// 생성 주소를 그대로 쓰면 404 다. API 버전이 나뉘어 있어 순서대로 조회한다.
 test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () => {
   const tried: string[] = [];
   useFetch(async (url) => {
@@ -1208,7 +1204,7 @@ test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () 
   assert.equal(tried.length, 2);
   assert.ok(!tried[0].includes("/projects/"), "목록 주소에는 프로젝트가 안 붙는다");
 
-  // 404 가 아니면 그 답이 곧 사실이다 — 더 물어보지 않는다
+  // 404 가 아니면 그 답이 곧 사실이라 더 조회하지 않는다
   tried.length = 0;
   useFetch(async (url) => {
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
@@ -1226,7 +1222,7 @@ test("버텍스 리전 기본값은 global", async () => {
   assert.match(shown.url, /^https:\/\/aiplatform\.googleapis\.com\/v1\/projects\/p\/locations\/global\//);
 });
 
-// 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다 — 다른 키와 같은 위치에 둔다.
+// 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다. 다른 키와 같은 위치에 둔다.
 test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", async () => {
   const inline = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "인라인-프로젝트" });
   useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [{ role: "user", text: "{{list}}" }]);
@@ -1315,7 +1311,7 @@ test("답에 U+2581 이 섞여 와도 읽는다", async () => {
 
 // ── 줄 형식의 모르는 이름 ─────────────────────────────────────────────────
 
-// 모르는 이름은 검사가 표시한다(저장 · 기동 시 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다 —
+// 모르는 이름은 검사가 표시한다(저장 · 기동 시 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다.
 // 오타를 조용히 지우면 왜 사라졌는지 알 길이 없다
 test("줄 형식의 모르는 자리표시자는 검사가 표시하고, 그려 보면 그대로 남는다", async () => {
   useConfig(`${ON}list:\n  lineFormat: "{{title}} / {{아티스트}} / {{duration::m}}분"\n`, [{ role: "user", text: "{{list}}" }]);
@@ -1505,7 +1501,7 @@ test("게이트웨이의 클로드 모델은 앤트로픽에 토큰을 묻지 �
 
 test("버텍스 미리보기는 토큰을 받으러 나가지 않는다. 연결 확인은 토큰을 못 받으면 까닭을 돌려준다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{list}}" }]);
-  googleAuth._reset(); // 앞 테스트가 받아 둔 토큰이 있으면 받으러 나가지 않아 테스트가 안 된다
+  googleAuth._reset(); // 앞 테스트가 받아 둔 토큰이 남아 있으면 받으러 나가지 않아 테스트가 안 된다
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });

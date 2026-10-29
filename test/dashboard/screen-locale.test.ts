@@ -1,4 +1,4 @@
-// dashboard/src — 화면의 숫자 · 시각 · 날짜 · 상대 시각 · 정렬은 언어를 한 곳(utils/locale)에서 선택한다. 다국어를 추가할 때 그곳만 바꾸면 되게
+// dashboard/src: 화면의 숫자 · 시각 · 날짜 · 상대 시각 · 정렬은 언어를 한 곳(utils/locale)에서 선택한다. 다국어를 추가할 때 그곳만 바꾸면 되게
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

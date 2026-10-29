@@ -1,4 +1,4 @@
-// src/dashboard/status/links.ts — 봇 상태 탭의 연결: 부른 결과와 설정으로 매긴다(쉼 · 실패 · 느림 · 정상 · 쓰지 않음)
+// src/dashboard/status/links.ts: 봇 상태 탭의 연결: 부른 결과와 설정으로 매긴다(쉼 · 실패 · 느림 · 정상 · 쓰지 않음)
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +14,6 @@ const { linkRows } = await import("../../src/dashboard/status/links.ts");
 const { _reset, record } = await import("../../src/infra/link-status.ts");
 const { _internals: spotify } = await import("../../src/sources/spotify.ts");
 
-/** 설정 문서를 바꾼다 */
 function writeConfig(name: "genres" | "status" | "ai", text: string) {
   useDocument(name, text);
 }

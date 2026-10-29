@@ -1,4 +1,4 @@
-// 곡 길이가 쓰이는 곳 — 넘침 안전망(playbackWatch)의 위치 계산, 곡에 적는 오디오 길이(startPlayback)
+// src/player/playback-watch.ts · src/player/start-playback.ts: 곡 길이가 쓰이는 곳. 오버플로 안전망의 위치 계산, 곡에 적는 오디오 길이(audioDurationSec)
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
 import { test, after } from "node:test";
@@ -11,7 +11,7 @@ import { audioDurationSec } from "../../src/player/start-playback.ts";
 import { fake } from "../helpers/fake.ts";
 import type { StreamInfo } from "../../src/sources/stream-url.ts";
 
-// ── 넘침 안전망 ──────────────────────────────────────────────
+// ── 오버플로 안전망 ──────────────────────────────────────────────
 
 // 멈춘 까닭(플레이어 안 필드)
 const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;

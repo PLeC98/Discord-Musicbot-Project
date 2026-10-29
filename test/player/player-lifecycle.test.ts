@@ -1,4 +1,4 @@
-// Player 의 곡 종료 · 정지 · 정리 · 오류 처리 · 조작의 지금 동작을 고정한다.
+// src/player/player.ts: Player 의 곡 종료 · 정지 · 정리 · 오류 처리 · 조작의 지금 동작을 고정한다.
 //
 // player-play.test.ts 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 고칠 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
@@ -51,8 +51,7 @@ function cached(id: string, extra?: Partial<QueuedTrack>) {
   return track;
 }
 
-// 재생 패널 관리자 대신. 무엇을 불렀는지만 남긴다
-// 이 플레이어가 화면에 알린 것(알림을 옛 화면 가짜의 기록 모양으로)
+// 이 플레이어가 화면에 알린 것(update · end:<까닭> · create:<곡 제목> · webhook:<채널 id>)
 const embeds = (player: Player) => recordPanel({ player });
 
 // 재생 상태 가짜. 테스트가 보는 필드만
@@ -1354,7 +1353,7 @@ test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 �
   assert.deepEqual(puts.slice(3), [["/channels/voice3/voice-status", `${config.voiceStatus.playingPrefix}지금 곡`]]);
 });
 
-// 다운로드가 제목을 고칠 수 있다(유튜브 영상의 제목 · 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
+// 다운로드가 제목을 바꿀 수 있다(유튜브 영상의 제목 · 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 갱신해야 한다
 test("음성 채널 상태: 곁에서 다운로드하며 지금 곡의 제목을 고치면 채널 상태도 고친다", async () => {
   voiceChannelStatus._internals._reset();
   const p = h.makePlayer();
@@ -1426,7 +1425,7 @@ test("파일 태그를 찾으면 그 음원의 곡(지금 곡 · 대기열)에 �
     const key = audioKeyOf(url)!;
     const tags = { title: "태그 제목", artist: "태그 가수", album: null };
 
-    // 갱신은 같은 차례의 것을 묶어 다음 차례에 낸다
+    // 갱신 알림은 같은 틱의 것을 묶어 다음 틱에 낸다
     const settle = () => new Promise((r) => setImmediate(r));
     p.takeFileTags("dl:다른 키", { tags, art: null });
     await settle();

@@ -1,4 +1,4 @@
-// src/player/playback-watch.ts 버퍼링 감시 — 재생이 시작되지 않은 채 멈춘 곡을 깨우는 판정
+// src/player/playback-watch.ts 버퍼링 감시: 재생이 시작되지 않은 채 멈춘 곡을 깨우는 판정
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
 import { test } from "node:test";

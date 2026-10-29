@@ -1,4 +1,4 @@
-// src/dashboard/routes/invite.ts · invite.ts — 봇 초대 화면(/api/invite).
+// src/dashboard/routes/invite.ts · invite.ts: 봇 초대 화면(/api/invite).
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 토큰은 진짜 세션 저장소(임시 DB)의 세션 행에 둔다.
 
 import fs from "node:fs";

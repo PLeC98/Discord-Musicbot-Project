@@ -1,4 +1,4 @@
-// src/player/voice-link.ts — 음성 연결 상태 기계. 전이 표의 행마다 테스트 하나.
+// src/player/voice-link.ts: 음성 연결 상태 기계. 전이 표의 행마다 테스트 하나.
 // 음성 라이브러리의 joinVoiceChannel · entersState 는 가짜로 넘기고, 연결의 전이는 가짜 연결에 stateChange 를 쏘아 흉내 낸다.
 
 import { test, beforeEach, afterEach } from "node:test";
@@ -88,11 +88,11 @@ afterEach(() => {
 });
 
 // 플레이어 가짜와 음성 연결. 테스트는 steps 로 무엇을 불렀는지 본다
-// fetchAs: 디스코드에 채널을 물었을 때의 답(기본: 캐시에 있으면 있다). 오류면 던진다
-// atDiscord: 디스코드에 봇의 음성 채널을 물었을 때의 답(기본: 캐시와 같다). 오류면 던진다
+// fetchAs: 디스코드에 채널을 조회했을 때의 답(기본: 캐시에 있으면 있다). 오류면 던진다
+// atDiscord: 디스코드에 봇의 음성 채널을 조회했을 때의 답(기본: 캐시와 같다). 오류면 던진다
 function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined } = {}) {
   const steps: string[] = [];
-  // 억제 사유를 맞춘 때(붙음 · 자동 재연결 · 복구 끝). 다른 단계의 차례와 섞지 않는다
+  // 억제 사유를 맞춘 때(붙음 · 자동 재연결 · 복구 끝). 다른 단계의 순서와 섞지 않는다
   const syncs: string[] = [];
   const channels = new Map<string, unknown>();
   if (channel) channels.set("vc1", { id: "vc1", isVoiceBased: () => true });
@@ -508,7 +508,7 @@ test("답 없는 참가: 봇이 그 채널에 없으면(10065 · 다른 채널) 
   await ready.link._unstick(ready.c as never, "vc1", 1);
   assert.deepEqual(ready.c.rejoins, [], "붙었으면 할 일이 없다");
 
-  // 묻는 사이에 붙었다
+  // 조회하는 사이에 붙었다
   const meanwhile = stuckJoin("vc1");
   meanwhile.player.guild = { ...meanwhile.player.guild, voiceStates: { fetch: async () => ((meanwhile.c.state = { status: VoiceConnectionStatus.Ready }), { channelId: "vc1" }) } } as never;
   await meanwhile.link._unstick(meanwhile.c as never, "vc1", 1);

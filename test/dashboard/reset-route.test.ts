@@ -1,4 +1,4 @@
-// src/dashboard/routes/reset.ts — 초기화 경로. 모두 최근 로그인, 봇 전체 초기화는 봇 이름을 그대로 입력해야 하고 예약한 복원을 취소한다.
+// src/dashboard/routes/reset.ts: 초기화 경로. 모두 최근 로그인, 봇 전체 초기화는 봇 이름을 그대로 입력해야 하고 예약한 복원을 취소한다.
 // 실행기로 켰으면 답을 보낸 뒤 다시 시작하고, 아니면 예약만 남는다(배너 · 예약 취소).
 
 process.env.OWNER_ID = "owner";

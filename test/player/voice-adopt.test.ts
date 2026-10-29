@@ -1,4 +1,4 @@
-// src/player/voice-adopt.ts — 세션 없이 음성 채널에 남은 봇을 기동 시 이어받는다.
+// src/player/voice-adopt.ts: 세션 없이 음성 채널에 남은 봇을 기동 시 이어받는다.
 // 가짜 서버 · 플레이어로 어느 서버에 무엇을 했는지만 본다.
 
 import { test, after } from "node:test";

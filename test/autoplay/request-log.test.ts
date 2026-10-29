@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그에 남기며 보내기(assist/request-log): 가림 · 시도 · 토큰 · 시간 초과 · 판정 못 읽음 · 남기지 않는 답 · 끄기
+// src/autoplay/assist/request-log.ts: AI 리퀘스트 로그에 남기며 보내기. 가림 · 시도 · 토큰 · 시간 초과 · 판정 못 읽음 · 남기지 않는 답 · 끄기
 
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert";
@@ -30,7 +30,7 @@ test("주고받은 것을 남기고 받은 글을 돌려준다. 인증 헤더는
   const entry = latest();
   assert.equal(entry.source, "ping");
   assert.deepEqual(entry.tokens, { input: 40, output: 7, cached: 3, reasoning: 2 });
-  // 로컬 모델은 값이 들지 않는다
+  // 로컬 모델(ollama)은 비용이 들지 않는다
   assert.equal(entry.costUsd, 0);
   assert.notEqual(entry.firstMs, null);
   const detail = requests.one(entry.id)!;

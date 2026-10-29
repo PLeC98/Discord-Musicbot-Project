@@ -1,4 +1,4 @@
-// Player.play() 의 지금 동작을 고정한다.
+// src/player/player.ts · src/player/start-playback.ts: Player.play() 의 지금 동작을 고정한다.
 //
 // 옳고 그름을 따지는 테스트가 아니다. 고칠 때 **무엇이 바뀌었는지**
 // 드러나게 하려는 것이다. 여기 적힌 동작이 이상해 보여도 고치지 말고, 고칠 때는 이 테스트를 같이 고친다.
@@ -115,7 +115,7 @@ test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구
     await p.seek(30_000, "dashboard");
     await p.play(60_000, { continued: true });
     assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 1, "처음 한 번만");
-    await p.play(0); // 한곡 반복 · 다음 곡처럼 새로 튼다
+    await p.play(0); // 한 곡 반복 · 다음 곡처럼 새로 튼다
     assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 2);
   } finally {
     h.dispose(p);
@@ -220,7 +220,7 @@ test("전체 길이(clen)를 아는 주소는 청크로 나눠 받는다", async
   assert.equal(calls.chunked[0].totalBytes, 4096);
 });
 
-// ── 긴 곡의 위치 이동: 색인으로 키프레임 바이트부터(media/seek-start) ──
+// ── 긴 곡의 위치 이동: 인덱스로 키프레임 바이트부터(media/seek-start) ──
 
 const LONG = "https://rr1.googlevideo.com/videoplayback?clen=120000000&x=1";
 const found = (over: Partial<{ startByte: number; startedAtMs: number }> = {}) => ({
@@ -789,7 +789,7 @@ test("0:00 으로 되감기 · 한곡 반복도 같은 곡이면 직전 주소�
     try {
       await p.play(0);
       await p.play(0, { continued: true }); // 처음부터 다시 · 0:00 으로 위치 이동
-      await p.play(0); // 한곡 반복
+      await p.play(0); // 한 곡 반복
     } finally {
       h.dispose(p);
     }

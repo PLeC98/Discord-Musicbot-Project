@@ -1,4 +1,4 @@
-// src/dashboard/player-stream.ts — SSE 연결 회계의 idempotent cleanup
+// src/dashboard/player-stream.ts: SSE 연결 회계(연결 캡 · idempotent cleanup) · 넛지 · 넛지 합치기 · 운영 조절값 반영
 // 쓰기에 실패하면 구독과 함께 perKey(연결 캡)도 정리한다. close 이벤트에만 기대면 close가 안 오는 비정상 종료에서 캡이 영구 점유된다.
 
 import { test, after, mock } from "node:test";
@@ -37,7 +37,7 @@ function makeRes({ closed = false } = {}) {
   return res;
 }
 
-// 볼 수 있는 서버(보낼 때 묻는 것)
+// 볼 수 있는 서버(보낼 때 확인하는 것)
 const sees =
   (...ids: string[]) =>
   (guildId: string) =>
@@ -63,8 +63,8 @@ test("idempotent: 쓰기 실패 정리 후 늦은 close가 와도 이중 감산 
   assert.equal(DashboardEvents.perKey.get("evU3"), 2);
 
   resA.failWrite = true;
-  DashboardEvents._pingAll(); // resA 정리
-  resA.emit("close"); // 뒤늦은 close — 같은 cleanup이라 no-op
+  DashboardEvents._pingAll(); // 쓰기 실패로 resA 정리
+  resA.emit("close"); // 뒤늦은 close: 같은 cleanup이라 no-op
 
   assert.equal(DashboardEvents.perKey.get("evU3"), 1, "resB의 몫은 유지");
   resB.emit("close");
@@ -156,7 +156,6 @@ test("봇이 나간 서버: 이제 볼 수 없어도 나가기 전에 멤버였�
   other.emit("close");
 });
 
-// 넛지 합치기: 몰린 알림은 창 하나에 한 번, 창이 끝나면 다시 받는다
 test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다시 예약한다. 그 서버를 볼 이가 없으면 예약도 안 한다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const hub = createPlayerStream({ heartbeatMs: 60_000, maxPerUser: 5, coalesceMs: 250 });

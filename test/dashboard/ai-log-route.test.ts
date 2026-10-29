@@ -1,4 +1,4 @@
-// src/dashboard/routes/ai-log.ts · ai-log-stream.ts — AI 리퀘스트 로그 목록 · 한 줄 · 삭제 · 사용량 통계 · SSE 연결
+// src/dashboard/routes/ai-log.ts · ai-log-stream.ts: AI 리퀘스트 로그 목록 · 한 건 · 삭제 · 사용량 통계 · SSE 연결
 
 process.env.OWNER_ID = "owner";
 

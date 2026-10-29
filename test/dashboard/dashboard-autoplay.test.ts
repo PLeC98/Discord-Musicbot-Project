@@ -1,4 +1,4 @@
-// src/dashboard/routes/player.ts — 대시보드의 자동재생: 장르 목록, 켜기 · 바꾸기 · 끄기(판정과 일은 디스코드의 장르 메뉴와 같다)
+// src/dashboard/routes/player.ts: 대시보드의 자동재생: 장르 목록, 켜기 · 바꾸기 · 끄기(판정과 일은 디스코드의 장르 메뉴와 같다)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

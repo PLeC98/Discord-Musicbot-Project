@@ -1,4 +1,4 @@
-// src/dashboard/session-store.ts — SQLite 세션 스토어
+// src/dashboard/session-store.ts: SQLite 세션 스토어
 // 다시 시작해도 세션이 남는다(MemoryStore 는 잃는다). 임시 DB 를 쓰고 운영 sessions.db 는 건드리지 않는다.
 
 import fs from "node:fs";

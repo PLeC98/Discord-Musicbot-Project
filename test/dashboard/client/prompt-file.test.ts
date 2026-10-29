@@ -1,4 +1,4 @@
-// dashboard/src/utils/prompt-file.ts — AI 판정 프롬프트 한 벌 내보내기 · 불러오기: 파일 모양, 다른 파일 거르기, 망가진 섹션
+// dashboard/src/utils/prompt-file.ts: AI 판정 프롬프트 한 벌 내보내기 · 불러오기. 파일 형식, 다른 파일 거부, 망가진 섹션
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// dashboard/src/login-background/pick.ts · adapt.ts — 로그인 배경 영상을 무엇으로 틀지(코덱 · 해상도 상한 · 내려갈 순서)와 조절의 좋음 판정
+// dashboard/src/login-background/pick.ts · adapt.ts: 로그인 배경 영상을 무엇으로 재생할지(코덱 · 해상도 상한 · 내려갈 순서)와 화질 조절이 잘 되는지의 판정
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -27,7 +27,7 @@ const STREAMS: LoginBackgroundStream[] = [
 ];
 const RUNGS = rungsOf(STREAMS);
 const rung = (codec: string, short: number) => RUNGS.find((one) => one.codec === codec && Math.min(one.width, one.height) === short)!;
-/** 판정: 기기가 풀 수 있는 것 · 전력 효율(○) */
+/** 단계별 판정표. 키는 `코덱-짧은 변`, 적지 않은 단계는 디코딩할 수 없는 것. ok 가 ○(전력 효율까지) */
 function verdicts(table: Record<string, Partial<Verdict>>): Map<Rung, Verdict> {
   return new Map(RUNGS.map((one) => [one, { supported: false, smooth: false, powerEfficient: false, ...table[`${one.codec}-${Math.min(one.width, one.height)}`] }]));
 }

@@ -1,4 +1,4 @@
-// 지연 정리 타이머와 레지스트리. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 레지스트리는 같은 플레이어일 때만 뺀다.
+// src/player/registry.ts · src/player/idle-leave.ts: 지연 정리 타이머와 레지스트리. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 레지스트리는 같은 플레이어일 때만 뺀다.
 //
 // 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약된다. 늦게 깨어난 옛 타이머가 길드 키로 레지스트리에서 지우면
 // 그 사이 등록된 새 플레이어가 지워져, 소리는 나는데 /nowplaying · 대시보드는 "재생 중 없음"이 된다.
@@ -35,7 +35,7 @@ after(() => {
   config.bot.leaveDelayQueueEmptyMs = savedDelay;
 });
 
-// playback-loop.test.ts와 같은 방식 — 코드가 건드리는 것만 나열한 목
+// playback-loop.test.ts와 같은 방식으로 코드가 건드리는 것만 나열한 목
 function makePlayer(current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
   const p = fakePlayer({
     lifecycle: new PlaybackState(),

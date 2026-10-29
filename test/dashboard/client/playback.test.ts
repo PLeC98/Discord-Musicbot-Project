@@ -1,4 +1,4 @@
-// dashboard/src/utils/playback.ts — 재생 바와 서버 화면이 같이 쓰는 재생 규칙
+// dashboard/src/utils/playback.ts: 재생 바와 서버 화면이 같이 쓰는 재생 규칙
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ test("진행 계산: 받은 위치 + 지난 시간, 멈췄거나 곡이 없으�
   assert.equal(positionAt(clockOf(null, 1000), 6000), 0);
   // 라이브는 길이가 0 이라 상한 없이 흐른다
   assert.equal(positionAt(clockOf({ playing: true, paused: false, currentTrack: { currentTime: 30, duration: 0 } }, 1000), 6000), 35);
-  // 시계가 뒤로 가도 받은 위치보다 앞으로 가지 않는다
+  // 지금 시각이 받은 시각보다 이르면(시계가 뒤로 감) 받은 위치에 머문다
   assert.equal(positionAt(clockOf(playing, 5000), 1000), 30);
 });
 

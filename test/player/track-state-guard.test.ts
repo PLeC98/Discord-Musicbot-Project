@@ -1,4 +1,4 @@
-// 현재곡·대기열·기록은 src/player/track-state.ts만 바꾼다. 다른 곳에서 직접 바꾸면 저장이 그 변화를 모른다.
+// src/player/track-state.ts: 현재곡·대기열·기록은 이 파일만 바꾼다(src 전체를 훑는다). 다른 곳에서 직접 바꾸면 저장이 그 변화를 모른다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ const OWNER = path.join("src", "player", "track-state.ts");
 
 const FORBIDDEN = [/\.queue\s*=(?!=)/, /\.queue\.(push|unshift|splice|shift|pop|sort|reverse|fill|copyWithin)\(/, /\.queue\[[^\]]*\]\]?\s*=(?!=)/, /\.currentTrack\s*=(?!=)/, /\.previousTracks\s*=(?!=)/, /\.previousTracks\.(push|unshift|splice|shift|pop)\(/];
 
-// 코드 파일. .ts 로 옮긴 폴더도 빠지면 안 된다(선언 파일은 코드가 아니다)
+// 코드 파일(.js · .ts). 선언 파일(.d.ts)은 코드가 아니다
 const isCode = (name: string) => /\.(js|ts)$/.test(name) && !name.endsWith(".d.ts");
 
 function codeFiles(dir: string): string[] {

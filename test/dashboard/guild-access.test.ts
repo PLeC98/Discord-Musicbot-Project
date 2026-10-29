@@ -1,4 +1,4 @@
-// src/dashboard/guild-access.ts — 대시보드 요청이 서버 하나를 여는 법.
+// src/dashboard/guild-access.ts: 대시보드 요청이 서버 하나를 여는 법.
 // 세션에 캐시된 서버 목록이 아니라 지금의 멤버십으로 판단하는지, 운영자는 멤버가 아니어도 지나가는지, 실패마다 알맞은 상태로 끝내는지.
 
 import { test } from "node:test";

@@ -1,9 +1,10 @@
+// src/autoplay/assist/tokens.ts: AI 요청의 토큰 개수. 실제 API 가 센 수와 맞는가, 세는 동안 이벤트 루프를 막지 않는가
 import test from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import * as tokens from "../../src/autoplay/assist/tokens.ts";
 
-// OpenAI API 가 이 문장 하나를 39 로 셌다(gpt-6-astra · gpt-5.6-luna · gpt-5 모두 같았다).
+// OpenAI API 가 실제로 39 토큰으로 센 문장
 const SENTENCE = "세차를 하려고 해. 세차장은 50미터 떨어져 있어. 걸어가야 할까, 운전해서 가야 할까?";
 
 test("메시지 하나의 토큰 개수가 저쪽 실측과 맞는다", async () => {
@@ -12,28 +13,27 @@ test("메시지 하나의 토큰 개수가 저쪽 실측과 맞는다", async ()
   assert.equal(got.each[0], 33, "본문만");
 });
 
-// 규격마다 메시지를 감싸는 몫이 다르다. 셋 다 실제 응답에서 잰 값이다.
+// 기대값은 모두 실제 응답에서 잰 값이다
 test("요청 토큰은 규격마다 감싸는 몫이 다르다", async () => {
   const one = [{ content: SENTENCE }];
-  // 제미니는 promptTokenCount 가 본문과 그대로 같았다 — 감싸는 몫이 없다
+  // 제미니의 promptTokenCount 는 본문 토큰 수와 같다
   const gemini = await tokens.countMessages(one, "gemma", "gemini");
   assert.equal(gemini.total, gemini.body, "제미니는 더 붙는 것이 없다");
   assert.equal(gemini.total, 33);
 
-  // OpenAI 는 본문 33 짜리가 prompt_tokens 39 로 왔다
+  // OpenAI 는 본문 33 토큰이 prompt_tokens 39 로 온다
   const openai = await tokens.countMessages(one, "tik", "openai");
   assert.equal(openai.body, 33);
   assert.equal(openai.total, 39);
 });
 
-// 제미니·젬마는 딴 토크나이저다 — 같은 글을 다르게 센다.
 test("gemma 는 tik 과 다르게 센다", async () => {
   assert.equal((await tokens.count("안녕하세요", "gemma")).tokens, 1);
   assert.equal((await tokens.count("안녕하세요", "tik")).tokens, 2);
   assert.equal((await tokens.count("가나다라마바사", "gemma")).tokens, 6);
 });
 
-// 붙일 때마다 전부 훑는 단순한 계산. 빠른 계산이 이것과 같은 수를 내야 한다
+// 병합할 때마다 전부 훑는 단순한 계산. 빠른 구현이 이것과 같은 수를 내야 한다
 let rank: Map<string, number> | null = null;
 function naiveGemma(text: string) {
   if (!rank) {
@@ -73,13 +73,13 @@ test("gemma 는 긴 글도 곧바로 센다", async () => {
 });
 
 test("tik 은 특수 토큰 글자를 글자 그대로 센다", async () => {
-  // 기본값이면 예외를 던진다
+  // gpt-tokenizer 기본 설정은 특수 토큰 글자에서 예외를 던진다
   assert.equal((await tokens.count("hi <|endoftext|> there", "tik")).tokens, 9);
 });
 
 // tik 은 공백 없는 긴 글에서 느리다. 세는 동안에도 이쪽 타이머는 돌아야 한다
 test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
-  await tokens.count("a", "tik"); // 스레드와 표를 먼저 준비한다
+  await tokens.count("a", "tik"); // 워커 스레드와 병합 표를 먼저 준비해 재는 시간에서 뺀다
   // 타이머 사이의 가장 긴 틈을 잰다. 이 스레드에서 세면 틈이 세는 시간 전체가 된다(횟수로 재면 다른 테스트가 함께 돌 때 흔들린다)
   const measure = async (text: string) => {
     let last = performance.now();
@@ -115,7 +115,7 @@ test("상한을 넘기면 실패로 답하고 다음 세기는 새로 시작한 
   ]);
 });
 
-// 앤트로픽은 공개 토크나이저가 없다. 어림수라는 것을 숨기지 않는다.
+// 앤트로픽은 공개 토크나이저가 없어 tik 으로 추산하고, 추산임을 밝힌다
 test("어느 기준으로 셌는지 밝힌다", async () => {
   assert.deepEqual(await tokens.count("a", "tik"), { tokens: 1, by: "tik", exact: true });
   const claude = await tokens.count("a", "claude");
@@ -123,7 +123,7 @@ test("어느 기준으로 셌는지 밝힌다", async () => {
   assert.equal(claude.exact, false);
 });
 
-// o200k_base 하나가 4o·4.1·o1·o3·5.x·6 을 다 덮는다 — 그 계열은 어림수가 아니다.
+// o200k_base 하나가 4o·4.1·o1·o3·5.x·6 을 다 덮어 OpenAI 계열은 추산이 아니다
 test("추산치인 것은 클로드뿐이다", async () => {
   assert.equal((await tokens.countMessages([{ content: "안녕" }], "tik")).exact, true);
   assert.equal((await tokens.countMessages([{ content: "안녕" }], "gemma")).exact, true);
@@ -136,7 +136,6 @@ test("빈 글은 0 이고, 모르는 모델은 tik 으로", async () => {
   assert.equal(tokens.tokenizerFor(null, null), "tik");
 });
 
-// 프로필이 어느 토크나이저를 쓰라고 하는지 그대로 따른다.
 test("토크나이저는 프로필이 정한다", () => {
   assert.equal(tokens.tokenizerFor("anthropic", "claude-opus-5"), "claude");
   assert.equal(tokens.tokenizerFor("openai", "gpt-6-astra"), "tik");

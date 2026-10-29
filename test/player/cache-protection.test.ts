@@ -1,4 +1,4 @@
-// src/player/player.ts releaseAudioProtection · src/store/audio-cache.ts protect — 재생 중인 곡의 캐시 보호
+// src/player/player.ts releaseAudioProtection · src/store/audio-cache.ts protect: 재생 중인 곡의 캐시 보호
 // 보호는 저장 계층이 서버마다 들고 있다. 강제 퇴장 · 비활성 종료처럼 currentTrack 을 먼저 비우는 종료 경로에서도 풀리고,
 // 두 서버가 같은 곡을 틀다 한쪽이 끝나도 다른 쪽 보호는 남는다. 메모리만 쓰고 DB 는 건드리지 않는다.
 
@@ -47,7 +47,7 @@ test("대기열 보호는 통째로 교체된다 — 해제를 따로 부르지 
   audioCache.setQueuedKeys("g1", ["a", "b", "c"]);
   assert.deepEqual([...audioCache._liveKeys()].sort(), ["a", "b", "c"]);
 
-  audioCache.setQueuedKeys("g1", ["b"]); // a, c가 대기열에서 빠짐
+  audioCache.setQueuedKeys("g1", ["b"]);
   assert.deepEqual([...audioCache._liveKeys()], ["b"]);
 
   audioCache.setQueuedKeys("g1", []);
@@ -58,7 +58,7 @@ test("한 길드의 교체가 다른 길드의 보호를 건드리지 않는다"
   audioCache.setQueuedKeys("g1", ["shared", "only1"]);
   audioCache.setQueuedKeys("g2", ["shared", "only2"]);
 
-  audioCache.setQueuedKeys("g1", []); // g1이 대기열을 비움
+  audioCache.setQueuedKeys("g1", []);
 
   const live = audioCache._liveKeys();
   assert.equal(live.has("shared"), true, "g2가 아직 쓰고 있으므로 유지");
@@ -85,7 +85,7 @@ test("빈 값·falsy 키는 보호에 들어가지 않는다", () => {
   audioCache.setQueuedKeys("g1", ["ok", null, undefined, ""]);
   assert.deepEqual([...audioCache._liveKeys()], ["ok"]);
 
-  audioCache.setQueuedKeys(null, ["ignored"]); // guildId 없음 — 무시
+  audioCache.setQueuedKeys(null, ["ignored"]);
   assert.deepEqual([...audioCache._liveKeys()], ["ok"]);
 
   audioCache.setQueuedKeys("g1", []);

@@ -1,4 +1,4 @@
-// dashboard/src/utils/big-art.ts — 큰 칸에 그릴 곡 그림: 출처의 큰 그림부터, 대체 그림 · 못 불러온 것은 기억해 다음 크기로
+// dashboard/src/utils/big-art.ts: 크게 그릴 앨범아트 주소. 출처의 큰 이미지부터, 대체 이미지 · 못 불러온 것은 기억해 다음 크기로
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

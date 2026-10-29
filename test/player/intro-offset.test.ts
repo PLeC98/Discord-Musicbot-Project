@@ -1,4 +1,4 @@
-// src/player/start-playback.ts introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
+// src/player/start-playback.ts introOffsetMs: 처음부터 트는 곡이 인트로 끝에서 시작하는 위치.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

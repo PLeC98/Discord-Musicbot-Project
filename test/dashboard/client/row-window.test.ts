@@ -1,6 +1,4 @@
-// dashboard/src/composables/row-window.ts · utils/reply-order.ts · pointer-reorder 의 높이 계산 — 긴 목록을 보이는 만큼만 받고 그리기.
-// 지키는 것: 보이는 행 계산(숨어서 높이 0 이면 계산하지 않음 · 목록 끝), 받을 구간은 위아래 한 화면씩 오버스캔(상한까지), 받은 구간이 덮는가(끝에서 짧은 구간).
-// 응답 순서 처리: 반영한 응답보다 앞선 번호의 응답은 성공 · 실패 모두 버리고, 보낸 뒤 쿼리가 바뀐 응답은 반영하지 않으며 반영한 것으로도 치지 않는다. 받는 중이면 busy
+// dashboard/src/composables/row-window.ts · utils/reply-order.ts · pointer-reorder 의 높이 계산: 긴 목록을 보이는 만큼만 받고 그리는 가상 스크롤, 응답 순서 처리, 드래그 거리
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

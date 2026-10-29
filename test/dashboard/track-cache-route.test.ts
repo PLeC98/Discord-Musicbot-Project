@@ -1,4 +1,4 @@
-// src/dashboard/routes/track-cache.ts — 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 공유 타입의 모양.
+// src/dashboard/routes/track-cache.ts: 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 공유 타입의 모양.
 
 process.env.OWNER_ID = "owner";
 

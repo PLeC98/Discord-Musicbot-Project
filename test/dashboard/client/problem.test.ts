@@ -1,4 +1,4 @@
-// dashboard/src/utils/problem.ts — 화면이 문제 응답을 글로 바꾸는 헬퍼. 문장은 봇과 같은 안내에서 코드로 선택한다
+// dashboard/src/utils/problem.ts: 화면이 문제 응답을 글로 바꾸는 헬퍼. 문장은 봇과 같은 안내에서 코드로 선택한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

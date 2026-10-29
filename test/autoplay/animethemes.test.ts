@@ -1,4 +1,4 @@
-// src/autoplay/sources/animethemes.ts — AnimeThemes 소스.
+// src/autoplay/sources/animethemes.ts: AnimeThemes 소스.
 //
 // 지키려는 계약:
 //  · 대사가 얹힌 버전(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다

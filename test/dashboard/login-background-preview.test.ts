@@ -1,5 +1,5 @@
-// src/dashboard/login-background/preview.ts — 편집 창의 미리보기와 세트 크기 어림. 실제 ffmpeg 로 돌린다(없으면 건너뛴다).
-// 영상(보통 · 투명이 있는 GIF · HDR)은 480p 안쪽 H.264 미리보기와 초마다의 어림, 그림은 WebP 미리보기와 정지 그림 세트의 어림. 크롭을 정하면 그 구간만 다시 센다
+// src/dashboard/login-background/preview.ts: 편집 창의 미리보기와 세트 크기 추산. 실제 ffmpeg 로 돌린다(없으면 건너뛴다).
+// 영상(보통 · 투명이 있는 GIF · HDR)은 480p 안쪽 H.264 미리보기와 초마다의 추산, 이미지는 WebP 미리보기와 정지 그림 세트의 추산. 크롭을 정하면 그 구간만 다시 센다
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";

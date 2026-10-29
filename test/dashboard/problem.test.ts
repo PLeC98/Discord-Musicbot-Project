@@ -1,4 +1,4 @@
-// src/dashboard/problem.ts — 대시보드 HTTP 오류 응답(RFC 9457). 본문의 모양 · 상태 · 값 필드, 요청 제한의 Retry-After, 코드 설명 주소
+// src/dashboard/problem.ts: 대시보드 HTTP 오류 응답(RFC 9457). 본문의 모양 · 상태 · 값 필드, 요청 제한의 Retry-After, 코드 설명 주소
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// src/autoplayRoute — 소스가 준 후보를 "틀 수 있는 트랙"으로 바꾸고, 소스를 훑어 한 곡을 고른다.
+// src/autoplay/route.ts: 소스가 준 후보를 재생할 수 있는 트랙으로 바꾸고, 소스를 훑어 한 곡을 고른다.
 //
 // 여기서 지키려는 것은 어느 필드가 찼는지가 길을 정한다는 규칙이다.
 // 바깥 경계(소스 · 유튜브 검색 · 링크 데이터 · AI 보조)는 넘겨 준다. 진짜로 부르지 않는다.
@@ -83,7 +83,7 @@ test("음원만 받았으면 그대로 튼다 — 출처가 곧 정답이라 필
   const track = await resolved({ artist: "", title: "주제가", audioUrl: "https://a.animethemes.moe/X-OP1.ogg", sourceKey: "at:9" }, LIMITS);
   assert.equal(track.platform, "direct");
   assert.equal(track.audioUrl, "https://a.animethemes.moe/X-OP1.ogg");
-  // 길이는 다운로드한 뒤 실측한다 — 미리 재지 않는다
+  // 길이는 미리 재지 않고 다운로드한 뒤 실측한다
   assert.equal(track.duration, 0);
   assert.equal(track.durationSource, "unknown");
 });
@@ -190,8 +190,7 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
   assert.equal(track.artist, "누군가");
 });
 
-// 음원을 직접 트는 곡도 platform 은 출처 이름이라 platform 으로는 소리가 어디서 오는지 가를 수 없다.
-// 소리가 어디서 오는지는 음원 주소로만 구분한다.
+// 음원을 직접 재생하는 곡도 platform 은 출처 이름이라, 소리가 어디서 오는지는 음원 주소로만 구분한다.
 test("음원으로 떨어져도 platform 은 출처 이름이다 — 소리의 출생은 음원 주소로 구분한다", async () => {
   ytResults = [];
   const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", platform: "anisongdb", sourceKey: "amq:1" };
@@ -278,7 +277,7 @@ test("링크 데이터가 음원 파일을 가리키면(전에 음원으로 떨�
 
 // ── 썸네일 ────────────────────────────────────────────────────────────────
 
-// Last.fm·LB Radio는 표지를 안 주므로 유튜브 검색 결과의 썸네일이 유일한 그림이다. 후보로 옮길 때 빠뜨리지 않는다.
+// Last.fm·LB Radio는 표지를 안 주므로 유튜브 검색 결과의 썸네일이 유일한 이미지다. 후보로 옮길 때 빠뜨리지 않는다.
 test("소스가 표지를 안 주면 영상 썸네일을 쓴다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/v1/hq.jpg" }];
 
@@ -303,7 +302,7 @@ test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본
   assert.equal(track.pickedFrom, "keyword");
 });
 
-// 제외 키워드는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다. 키워드 출처 필드에 입력하면 전역 대신 그것
+// 제외 키워드는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다.
 test("제외 키워드: 키워드 출처에만, 출처 필드가 있으면 전역 대신 그것", async () => {
   // 출처마다 영상 주소가 있는 후보 하나. 키워드만 검색 결과다(fromSearch)
   const one = (source: GenreSource, title: string) => [{ title, durationSec: 240, youtubeUrl: `https://www.youtube.com/watch?v=${source.type.slice(0, 3)}${title.length}`, fromSearch: source.type === "keyword", sourceKey: `${source.type}:${title}` }];
@@ -412,7 +411,7 @@ test("VocaDB 계열은 disabled 된 PV를 고르지 않는다", () => {
 
   // Original 이 다 죽었으면 살아 있는 다른 유튜브 PV로 내려간다
   assert.equal(pick([{ service: "Youtube", pvType: "Original", disabled: true, url: "죽은것" }, badApple[3]]), "다른사람업로드");
-  // 유튜브가 하나도 안 살아 있으면 고르지 않는다 — 니코동은 우리가 못 튼다
+  // 유튜브가 하나도 살아 있지 않으면 고르지 않는다. 니코동은 재생할 수 없다
   assert.equal(pick([badApple[0], badApple[1]]), undefined);
 });
 
@@ -425,13 +424,13 @@ test("소스 기본값 — 입력하지 않았을 때 무엇으로 도는가", (
   // lbradio: 이름과 반대로 hard 가 더 알려진 곡을 준다. 자동재생은 아는 곡이 나오는 편이 낫다.
   assert.ok(SPEC.lbradio.enums?.mode.includes("hard"));
 
-  // 사이트마다 "본체"가 다르다 — utaitedb 는 커버, touhoudb 는 어레인지가 본체다
+  // 사이트마다 "본체"가 다르다. utaitedb 는 커버, touhoudb 는 어레인지가 본체다
   for (const key of ["songTypes", "sort"]) assert.ok(Array.isArray(SPEC.vocadb.enums?.[key]));
   assert.ok(SPEC.touhoudb.enums?.songTypes.includes("Arrangement"));
   assert.ok(SPEC.animethemes.enums?.mediaFormat.includes("TV Short"), "띄어쓰기까지 그대로여야 한다");
 });
 
-// `languages` 파라미터는 저쪽이 조용히 무시한다 — 쓰레기 값을 넣어도 전체가 온다.
+// `languages` 파라미터는 저쪽이 조용히 무시해 아무 값을 넣어도 전체가 온다.
 // 실제로 듣는 것은 advancedFilters 쪽이고, 한 번에 하나만 걸린다.
 test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () => {
   const { _advancedFilters, _someLanguages, SPEC } = sources;
@@ -448,14 +447,14 @@ test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () 
   assert.deepEqual(_someLanguages(["ko", "en"]), ["ko", "en"]);
   assert.deepEqual(_someLanguages([]), [null], "안 골랐으면 조건 없이 한 번");
 
-  // 언어 하나에 요청이 두 번이다. 많이 선택했으면 그때그때 몇 개만 — 판마다 달라 결국 고르게 섞인다.
+  // 언어 하나에 요청이 두 번이라 많이 선택했으면 그때그때 몇 개만 쓴다. 고를 때마다 달라 결국 고르게 섞인다.
   const many = ["ja", "en", "ko", "zh", "es", "fr", "de"];
   const some = _someLanguages(many);
   assert.equal(some.length, 5);
   assert.equal(new Set(some).size, 5, "같은 언어를 두 번 돌지 않는다");
   assert.ok(some.every((one) => one !== null && many.includes(one)));
 
-  // 사이트마다 있는 언어가 다르다 — 없는 것을 선택하면 0곡이 온다
+  // 사이트마다 있는 언어가 달라, 없는 것을 선택하면 0곡이 온다
   assert.ok(SPEC.vocadb.enums?.languages.includes("ko"));
   assert.ok(!SPEC.touhoudb.enums?.languages.includes("ms"), "동방에는 말레이어 곡이 없다");
 });
@@ -547,8 +546,8 @@ test("앞 소스가 빈 손이면 다음 소스로 넘어간다", async () => {
     minDurationSec: 60,
     maxDurationSec: 3600,
     blockedKeywords: [],
-    // 검색어가 없는 keyword 소스는 반드시 빈 손으로 온다. .env에 무엇이 있든 결과가 같아야
-    // 하므로 키가 필요한 소스는 쓰지 않는다 — 키가 있으면 진짜 호출이 나간다.
+    // 검색어가 없는 keyword 소스는 반드시 빈 손으로 온다. 키 설정이 어떻든 결과가 같아야
+    // 하므로 키가 필요한 소스는 쓰지 않는다(키가 있으면 진짜 호출이 나간다).
     sources: [
       { type: "keyword", keywords: [], weight: 9 },
       { type: "keyword", keywords: ["아무거나"] },
@@ -560,7 +559,7 @@ test("앞 소스가 빈 손이면 다음 소스로 넘어간다", async () => {
 });
 
 test("키가 없는 소스는 아예 후보에서 빠진다", () => {
-  // 키가 필요한 소스는 SPEC 에 env(키 이름)가 있고, 그 키가 .env 에 있어야 쓸 수 있다(config/source-keys)
+  // 키가 필요한 소스는 SPEC 에 env(키 이름)가 있고, 그 키가 설정(API 키 탭)에 있어야 쓸 수 있다(config/source-keys)
   for (const type of sources.TYPES) {
     const need = sources.needsOf(type);
     if (!need) assert.equal(sources.usable(type), true, `${type}는 키가 필요 없으니 늘 쓸 수 있다`);

@@ -1,4 +1,4 @@
-// src/player/player.ts — 일시정지 의도가 버퍼링을 넘어 살아남는가.
+// src/player/player.ts: 일시정지 의도가 버퍼링을 넘어 살아남는가.
 // @discordjs/voice의 pause()는 재생 중일 때만 받는다. play(resource) 직후는 버퍼링이라, 그때 건 일시정지는
 // 조용히 무시되고 곡이 재생된다(다시 시작 뒤 일시정지 상태를 복원할 때가 그렇다).
 

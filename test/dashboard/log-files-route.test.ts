@@ -1,4 +1,4 @@
-// src/dashboard/routes/log-files.ts — 로그 파일 목록 · 한 쪽 · 내려받기(운영자만, 목록의 이름만, 파일 로그를 끄면 없음)
+// src/dashboard/routes/log-files.ts: 로그 파일 목록 · 한 쪽 · 다운로드(운영자만, 목록의 이름만, 파일 로그를 끄면 없음)
 
 import fs from "fs";
 import os from "os";

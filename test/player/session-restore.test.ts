@@ -1,4 +1,4 @@
-// src/player/session-restore.ts — 기동 시 저장 세션의 길드 확보.
+// src/player/session-restore.ts: 기동 시 저장 세션의 길드 확보와 복원.
 //
 // 지키는 것 1: 길드 조회가 계속 실패해도 정해진 횟수 뒤 끝낸다(실패를 삼키면 1초 간격 무한 루프로 기동이 멈춘다).
 // 지키는 것 2: 일시적 조회 실패에는 저장 세션을 지우지 않는다.
@@ -13,7 +13,7 @@ import type { Client, Guild } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import { fake } from "../helpers/fake.ts";
 
-// 재시도 대기는 0으로 — 검증 대상은 시도 횟수지 대기 시간이 아니다
+// 재시도 대기는 0으로 둔다. 검증 대상은 시도 횟수지 대기 시간이 아니다
 const NOW = { attempts: 3, delayMs: 0 };
 
 function makeClient(fetchImpl: (n: number) => unknown, cache = new Map<string, unknown>()) {
