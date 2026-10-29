@@ -29,7 +29,7 @@ function promptProblems(prompt: unknown, on: boolean): string[] {
     if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
     if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글로 적어야 합니다.`);
     else for (const one of parseFormat(textOf(section), PROMPT_NAMES).problems) problems.push(`${where} ${one.at + 1}번째 글자: ${one.message}`);
-    // ChatML 은 블록 안에 끝 표시가 또 나오면 파일이 깨진다
+    // 역할 표시 문자열은 넣지 못하게 한다. ChatML 템플릿으로 프롬프트를 짜는 모델에 섹션 경계로 섞여 들어가지 않게
     if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>·<|im_end|> 를 적을 수 없습니다.`);
   });
 
