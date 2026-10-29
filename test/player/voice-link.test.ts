@@ -41,7 +41,7 @@ class FakeConnection extends EventEmitter {
     this.rejoins.push(o);
   }
   // 라이브러리처럼 상태를 바꾸고 알린다
-  to(status: string, extra: { reason?: number; closeCode?: number } = {}) {
+  to(status: string, extra: { reason?: number; closeCode?: number; networking?: EventEmitter } = {}) {
     const old = this.state;
     this.state = { status, ...extra };
     this.emit("stateChange", old, this.state);
@@ -113,7 +113,7 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
       members: { me },
       voiceStates: { fetch: async () => (atDiscord instanceof Error ? Promise.reject(atDiscord) : { channelId: atDiscord === undefined ? me.voice.channelId : atDiscord }) },
     },
-    voiceChannel: { id: "vc1", name: "음성" } as { id: string; name?: string },
+    voiceChannel: { id: "vc1", name: "음성" } as { id: string; name?: string; type?: ChannelType },
     audioPlayer: { name: "audioPlayer" },
     connection: null as FakeConnection | null,
     currentTrack: track ? { title: "곡" } : null,
@@ -375,6 +375,35 @@ test("봇이 채널에서 빠졌다: 채널이 있으면 강제 퇴장, 없으�
   gone.link.onBotState(state("vc1"), state(null));
   await until(() => gone.steps.length > 0, "버리기");
   assert.deepEqual(gone.steps, ["dispose:remove:disconnected:channel-gone"]);
+});
+
+test("스테이지에서 빠졌다: 음성 서버가 모두를 끊었으면(4022, 빠짐 알림 뒤에 온다) 스테이지 종료, 한 명만 끊었으면(4014) 강제 퇴장, 코드가 오지 않으면 둘 다", async () => {
+  // before: 빠짐 알림 전에 온 닫힘 코드, after: 뒤에 온 코드
+  const leave = async ({ before = null as number | null, after = null as number | null }) => {
+    const s = await ready();
+    s.player.voiceChannel = { id: "vc1", name: "무대", type: ChannelType.GuildStageVoice } as typeof s.player.voiceChannel;
+    s.link.closeWaitMs = 30;
+    const net = new EventEmitter();
+    s.conn().to(VoiceConnectionStatus.Ready, { networking: net });
+    if (before) net.emit("close", before);
+    s.link.onBotState(state("vc1"), state(null));
+    if (after) setTimeout(() => net.emit("close", after), 5);
+    await until(() => s.steps.length > 0, "버리기");
+    return s.steps;
+  };
+  assert.deepEqual(await leave({ after: 4022 }), ["dispose:remove:disconnected:stage-ended"]);
+  assert.deepEqual(await leave({ before: 4014 }), ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(await leave({}), ["dispose:remove:disconnected:stage-disconnect"]);
+});
+
+test("일반 음성 채널에서 빠지면 닫힘 코드와 상관없이 강제 퇴장이다(기다리지 않는다)", async () => {
+  const s = await ready();
+  const net = new EventEmitter();
+  s.conn().to(VoiceConnectionStatus.Ready, { networking: net });
+  s.link.onBotState(state("vc1"), state(null));
+  net.emit("close", 4022);
+  await until(() => s.steps.length > 0, "버리기");
+  assert.deepEqual(s.steps, ["dispose:remove:disconnected:forced-disconnect"]);
 });
 
 test("채널 삭제 알림보다 빠짐 알림이 먼저 와 캐시에 채널이 남아 있어도, 디스코드가 없다고(10003) 하면 채널 사라짐이다. 묻지 못하면 강제 퇴장", async () => {

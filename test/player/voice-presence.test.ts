@@ -55,6 +55,8 @@ test("플레이어가 없는 서버는 아무것도 안 한다", async () => {
 test("봇이 음성에서 쫓겨나면 세션을 삭제하고 끝난 패널(disconnected)로 버린다", async () => {
   const { client, calls, state, players } = setup();
   await onVoiceStateUpdate(client, players, state(BOT, "vc1"), state(BOT, null));
+  // 스테이지면 음성 서버의 닫힘 코드를 보고 고르므로 한 차례 뒤에 버린다
+  await new Promise((r) => setImmediate(r));
   assert.deepEqual(calls, ["dispose:봇이 음성에서 강제 퇴장됨:remove:disconnected"]);
 });
 

@@ -28,6 +28,7 @@ const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
 const UNKNOWN_VOICE_STATE = RESTJSONErrorCodes.UnknownVoiceState; // 봇이 음성 채널에 없다
 const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
+const CALL_TERMINATED = 4022; // 음성 서버의 닫힘 코드. 통화를 끝내 모두를 끊었다(스테이지 종료 · 채널 삭제 등)
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
 // 로그에 찍을 이름
@@ -36,6 +37,10 @@ const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
 // 빠짐 · 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
+// 스테이지가 끝나도 쫓겨난 것과 같은 빠짐 알림만 온다. 가르는 것은 음성 서버의 닫힘 코드: 끝나면 모두를 끊어 4022, 한 명만 내보내면 4014.
+// 4014 는 빠짐 알림보다 먼저, 4022 는 0.1 ~ 0.2초 뒤에 온다(실측). 코드가 끝내 오지 않으면 둘 다 말한다
+const STAGE_ENDED = { reason: "스테이지가 끝남", session: "remove", panel: "disconnected", end: "stage-ended" } as const;
+const STAGE_OUT = { reason: "봇이 스테이지에서 나옴(스테이지 종료 또는 강제 퇴장)", session: "remove", panel: "disconnected", end: "stage-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
 
 class VoiceLink {
@@ -47,12 +52,16 @@ class VoiceLink {
   waitTimer: NodeJS.Timeout | null = null;
   /** 기다림을 건 끊김의 닫힘 코드. 4014 면 쫓겨났거나 옮겨진 것 */
   waitCloseCode: number | null = null;
+  /** 지금 음성 서버 연결이 닫힌 코드(새 연결이면 비운다). 스테이지에서 빠진 까닭을 가른다 */
+  lastCloseCode: number | null = null;
+  closeWaiters: Array<(code: number | null) => void> = [];
   recoveryAttempts = 0;
   maxRecoveryAttempts = 5;
   // 기다리는 시간. 테스트가 줄인다
   waitStartMs = 5000; // 끊긴 뒤 라이브러리가 재연결을 시작하기까지(Signalling · Connecting)
   waitReadyMs = 20_000; // 재연결을 시작한 뒤 Ready 까지
   recoveryRetryDelayMs = 3000; // 복구 시도 사이
+  closeWaitMs = 1500; // 스테이지에서 빠진 뒤 닫힘 코드를 기다리는 시간
   attemptSpanMs = RECOVER_READY_MS + 3000; // 복구 시도 하나가 쓰는 시간의 하한(곧바로 실패해도 이만큼 뒤에 다음 시도)
   lastMove: { from: string; to: string; at: number } | null = null;
   lastBounceFix: number | null = null;
@@ -236,7 +245,12 @@ class VoiceLink {
   _watchNetworking(oldState: VoiceConnectionState, newState: VoiceConnectionState) {
     const networking = "networking" in newState ? newState.networking : null;
     if (!networking || ("networking" in oldState && oldState.networking === networking)) return;
-    networking.prependOnceListener("close", (code: number) => log.debug(`음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`));
+    this.lastCloseCode = null;
+    networking.prependOnceListener("close", (code: number) => {
+      log.debug(`음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`);
+      this.lastCloseCode = code;
+      for (const done of this.closeWaiters.splice(0)) done(code);
+    });
   }
 
   _onError(error: Error) {
@@ -464,8 +478,9 @@ class VoiceLink {
     if (this.state === "closed") return;
     this.stop();
     this.state = "closed";
+    const closed = this._closeCode();
     this._channelExists(channelId)
-      .then((exists) => this.player.dispose(exists ? FORCED_OUT : CHANNEL_GONE))
+      .then(async (exists) => this.player.dispose(exists ? this._outOf(await closed) : CHANNEL_GONE))
       .catch((error: unknown) => log.error("음성 채널 퇴장 후 정리 실패:", error));
   }
 
@@ -486,6 +501,30 @@ class VoiceLink {
   /** 봇이 음성에서 쫓겨났다. 세션을 삭제하고 끝난 패널로 버린다 */
   forcedOut() {
     this._end(FORCED_OUT);
+  }
+
+  // 채널이 남아 있는데 빠졌다. 스테이지면 닫힘 코드로 끝남 · 쫓겨남을 가른다
+  _outOf(code: number | null) {
+    if (this.player.voiceChannel?.type !== ChannelType.GuildStageVoice) return FORCED_OUT;
+    if (code === CALL_TERMINATED) return STAGE_ENDED;
+    if (code === DO_NOT_RECONNECT) return FORCED_OUT;
+    return STAGE_OUT;
+  }
+
+  // 빠진 때의 닫힘 코드. 스테이지에서 아직 닫히지 않았으면 닫히기를 기다린다(시간 안에 닫히지 않으면 null)
+  _closeCode() {
+    if (this.lastCloseCode !== null || this.player.voiceChannel?.type !== ChannelType.GuildStageVoice) return Promise.resolve(this.lastCloseCode);
+    return new Promise<number | null>((resolve) => {
+      const timer = setTimeout(() => {
+        this.closeWaiters = this.closeWaiters.filter((one) => one !== done);
+        resolve(null);
+      }, this.closeWaitMs);
+      const done = (code: number | null) => {
+        clearTimeout(timer);
+        resolve(code);
+      };
+      this.closeWaiters.push(done);
+    });
   }
 
   /** 봇의 음성 채널이 사라졌다. 세션을 삭제하고 버린다 */

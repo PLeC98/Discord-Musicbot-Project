@@ -56,6 +56,8 @@ const ended = (): EndNotice => ({ icon: "music", title: "재생이 끝났어요"
 const CUT_OFF: Record<string, string> = {
   "inactivity-timeout": "한동안 곡이 없거나 듣는 사람이 없어서 쉬러 갔어요. `/play`로 부르면 다시 올게요.",
   "forced-disconnect": "누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요.",
+  "stage-ended": "스테이지가 끝나서 나왔어요. `/play`로 부르면 다시 올게요.",
+  "stage-disconnect": "스테이지가 끝났거나 누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요.",
   "operator-leave": "봇 운영자가 이 서버에서 저를 내보냈어요.",
   "voice-lost": "음성 연결이 끊겨 다시 연결하지 못했어요. `/join`으로 이어 들을 수 있어요.",
   "channel-gone": "제가 있던 음성 채널이 사라졌어요. `/play`로 부르면 다시 올게요.",
