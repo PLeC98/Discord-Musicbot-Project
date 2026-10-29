@@ -13,7 +13,7 @@ const joining = "부르는 중...";
 const addPlaceholder = "곡 이름 또는 링크";
 const addSubmit = "넣기";
 const playlistLink = "재생목록 링크예요";
-/** 재생목록 링크일 때 넣을 곡 고르기 */
+/** 재생목록 링크일 때 넣을 곡 선택 */
 const addWhich = "넣을 곡";
 const addWholePlaylist = "재생목록 전체";
 /** 재생목록 안의 곡 링크면 그 곡, 재생목록만이면 첫 곡 */

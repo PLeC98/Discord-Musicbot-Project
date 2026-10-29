@@ -7,7 +7,7 @@ const announce = {
   title: "전체 공지",
   desc: "봇이 들어간 모든 서버에 공지를 보내요.",
   kind: "공지 종류",
-  /** 공지 종류의 짧은 이름(고르기 단추). 임베드 제목은 공유 타입의 ANNOUNCE_STYLE */
+  /** 공지 종류의 짧은 이름(선택 버튼). 임베드 제목은 공유 타입의 ANNOUNCE_STYLE */
   kinds: { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" },
   toolbar: "서식",
   placeholder: "공지 내용",

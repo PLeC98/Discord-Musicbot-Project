@@ -1,4 +1,4 @@
-// 캐시 DB 격자의 모양: 셀 값을 그리는 글 · 바뀐 것(쓰기 전) · 바뀐 것에서 조작 목록. 화면 부품(components/CacheDb.vue)이 쓴다
+// 캐시 DB 격자의 표시 규칙: 셀 값을 그리는 글 · 바뀐 것(쓰기 전) · 바뀐 것에서 조작 목록. 컴포넌트 components/CacheDb.vue 가 쓴다
 
 import type { TrackCacheOp, TrackCacheRow, TrackCacheTable, TrackFileRow, TrackRequestRow, TrackAgeRow } from "../../../src/dashboard/contract/track-cache.ts";
 import { formatBytes, formatDuration } from "../../../src/ui/format.ts";

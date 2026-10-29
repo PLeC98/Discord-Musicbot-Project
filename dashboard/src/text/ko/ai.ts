@@ -300,7 +300,7 @@ const paid = {
   what: "보낼 것",
   checking: "확인하는 중…",
   emptyModel: "(비어 있음)",
-  /** 판정 테스트로 보낼 것: 섹션 수(비었으면 기본) · 고른 곡 수(없으면 보기 곡 셋) */
+  /** 판정 테스트로 보낼 것: 섹션 수(비었으면 기본) · 선택한 곡 수(없으면 보기 곡 셋) */
   judgeWhat: (sections: number, picked: number) => `판정 프롬프트 전체 (${sections ? `섹션 ${sections}개` : "기본 섹션"} · ${picked ? `선택한 곡 ${picked}개` : "예시 곡 3개"})`,
   cancel: "취소",
   send: "보내기",
@@ -314,9 +314,9 @@ const preview = {
   rawHide: "원본 접기",
 };
 
-// 묶음(목록 줄)
+// 목록 행 이름
 const items = { model: "모델", prompt: "프롬프트", advanced: "고급 설정", log: "리퀘스트 로그", usage: "사용량 통계" };
-/** 프로바이더를 고르지 않은 값 */
+/** 프로바이더를 선택하지 않은 값 */
 const providerOff = "사용하지 않음";
 /** 버텍스 주소를 보일 때 아직 모르는 칸 */
 const endpointProject = "[프로젝트 ID]";
@@ -343,7 +343,7 @@ const savedNote = "다음 자동재생부터 반영돼요";
 const boxes = { headers: "요청 헤더", body: "요청 본문", response: "응답", empty: "(비어 있음)" };
 const verdicts = { pass: "통과", notSong: "곡 아님", wrongGenre: "장르 다름" };
 const hiddenCount = (count: number) => `, ${count}개 숨김`;
-/** 저쪽에 묻지 못해 받아 둔 목록으로 채웠다 */
+/** 프로바이더에 묻지 못해 받아 둔 목록으로 채웠다 */
 const presetModels = (count: number) => `미리 저장된 목록의 모델 ${count}개를 표시해요`;
 const failed = {
   tokens: "토큰을 세지 못했어요.",

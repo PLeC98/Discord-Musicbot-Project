@@ -1,9 +1,9 @@
-// 입력 부품(고르기 · 여럿 고르기 · 칩 · 태그 · 구간 · 이모지 · 마크다운 편집)의 글
+// 입력 컴포넌트(단일 선택 · 다중 선택 · 칩 · 태그 · 구간 · 이모지 · 마크다운 편집)의 글
 
-/** 고르기 입력란의 검색(후보가 많을 때) */
+/** 선택 입력란의 검색(후보가 많을 때) */
 const searchAmong = (count: number) => `${count}개 중에서 검색`;
 const pick = "선택";
-/** 여럿 고르기에서 둘 이상 골랐을 때 */
+/** 다중 선택에서 둘 이상 선택했을 때 */
 const pickedSummary = (first: string, more: number) => `${first} 외 ${more}개`;
 const emojiChange = "이모지 변경";
 const emojiPick = "이모지 선택";
@@ -13,14 +13,14 @@ const typeForSuggestions = "입력하면 후보가 표시돼요";
 const suggestLoading = "후보를 찾는 중이에요";
 const suggestFailed = "후보를 불러오지 못했어요. Enter 로 그대로 입력할 수 있어요";
 const suggestNone = "후보가 없어요. Enter 로 그대로 입력할 수 있어요";
-/** 마크다운 링크를 넣을 때 고른 글이 없으면 그 자리 */
+/** 마크다운 링크를 넣을 때 선택한 글이 없으면 그 자리 */
 const linkText = "링크 텍스트";
 /** 마크다운 미리보기에서 멘션 자리(누구인지 모른다) */
 const mentionUser = "@사용자";
 const mentionRole = "@역할";
 const mentionChannel = "#채널";
 
-// 이모지 고르기
+// 이모지 선택
 const emojiSearch = "이름 · 디스코드 이름 · 이모지 붙여넣기";
 const searchClear = "검색어 지우기";
 const emojiLoading = "불러오는 중...";
@@ -57,7 +57,7 @@ const format = {
   timestamp: "현재 시간 (시간대 자동 변환)",
 };
 
-// 날짜 · 시간 고르기
+// 날짜 · 시간 선택
 const datePicker = {
   placeholder: "날짜 · 시간",
   month: (year: number, month: number) => `${year}년 ${month}월`,
@@ -69,10 +69,10 @@ const datePicker = {
   nextMonth: "다음 달",
   hour: "시",
   minute: "분",
-  /** 고른 시각을 지우고 처음으로 */
+  /** 선택한 시각을 지우고 처음으로 */
   reset: "초기화",
   apply: "적용",
-  /** 고른 시각(입력란에 적는 글). 올해면 연도를 빼고 */
+  /** 선택한 시각(입력란에 적는 글). 올해면 연도를 빼고 */
   summary: (d: Date) => {
     const two = (n: number) => String(n).padStart(2, "0");
     const year = d.getFullYear() === new Date().getFullYear() ? "" : `${d.getFullYear()}년 `;

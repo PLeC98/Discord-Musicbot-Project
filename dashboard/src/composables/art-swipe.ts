@@ -8,10 +8,10 @@
 
 import { computed, ref, type Ref } from "vue";
 
-const SLOP = 8; // 이만큼 움직여야 방향을 정한다
-const PASS = 0.3; // 폭의 이만큼 넘기면 넘긴다
+const SLOP = 8; // 이만큼(px) 움직여야 방향을 정한다
+const PASS = 0.3; // 폭의 이 비율을 넘기면 넘긴다
 const FLING = 0.5; // px/ms 이상으로 놓으면 거리와 상관없이
-const RESIST = 0.25; // 넘길 수 없는 쪽으로는 이만큼만 따라온다
+const RESIST = 0.25; // 넘길 수 없는 쪽으로는 손가락 이동의 이 비율만 따라온다
 const SLIDE_MS = 250; // 띠가 옆 칸까지 · 제자리로 미끄러지는 시간(화면의 transition 과 같다)
 const ANSWER_MS = 1000; // 넘기기 답을 이만큼까지 기다린다(늦으면 넘기지 못한 것으로)
 

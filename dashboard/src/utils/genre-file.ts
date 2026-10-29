@@ -1,4 +1,4 @@
-// 장르 하나를 파일로 주고받는 모양. 내보내기는 편집기에 보이는 장르(저장하지 않은 편집 포함)를, 불러오기는 그 파일을 새 행으로 만든다.
+// 장르 하나를 파일로 주고받는 형식. 내보내기는 편집기에 보이는 장르(저장하지 않은 편집 포함)를, 불러오기는 그 파일을 새 행으로 만든다.
 // 파일은 { musicbotGenre: 형식 번호, id: 식별자, genre: 장르 문서의 한 항목 그대로 }. 그래서 불러온 뒤에는 편집기 · 저장 검사(schema/genres)가 평소처럼 본다
 
 import { toMap, toRows, type GenreData, type GenreRow, type SourceData } from "./genre-rows.ts";

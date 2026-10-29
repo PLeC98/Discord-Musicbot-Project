@@ -17,7 +17,7 @@ export function onGuildNudge(fn: NudgeHandler): () => boolean {
 }
 const nudgeAll = (guildId: string | null) => nudgeHandlers.forEach((fn) => fn(guildId));
 
-/** 실시간 알림 한 건에서 서버 ID. 형식이 바뀌었더라도 "뭔가 바뀜"이라는 신호는 살린다(null) */
+/** SSE 알림 한 건에서 서버 ID. 형식이 바뀌었더라도 "뭔가 바뀜"이라는 신호는 살린다(null) */
 function changedGuild(data: unknown): string | null {
   try {
     const event = JSON.parse(String(data)) as Partial<GuildEvent> | null;
@@ -38,7 +38,7 @@ let missed = false; // 열리지 않은 동안이 있었다. 다시 열리면 �
 
 const FALLBACK_MS = 30_000;
 
-// 상호(유저∩봇) 서버 목록. 구독 카운팅으로 연결을 하나로: 첫 구독자가 열고, 마지막 구독자가 닫는다.
+// 상호(사용자∩봇) 서버 목록. 구독 카운팅으로 연결을 하나로: 첫 구독자가 열고, 마지막 구독자가 닫는다.
 export const useGuildsStore = defineStore("guilds", {
   state: () => ({
     guilds: [] as GuildRow[],

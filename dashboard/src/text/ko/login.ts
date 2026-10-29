@@ -2,7 +2,7 @@
 
 const loginWithDiscord = "Discord로 로그인";
 const loginAgain = "다시 로그인";
-/** 밝기 고르기(작업 공간 알약) */
+/** 밝기 선택(작업 공간 알약) */
 const modeDark = "어두운 화면";
 const modeLight = "밝은 화면";
 const modeSystem = "시스템 설정 따르기";

@@ -2,9 +2,9 @@
 // 버린 장면으로 내리기는 우리 조절(adapt.ts)이 맡는다(hls.js 의 capLevelOnFPSDrop 은 5초에 20% 넘게 버려야 내리고 그 재생 내내 그대로라 끈다).
 // hls.js 는 영상 배경일 때만 불러온다. MSE 가 없고 HLS 를 바로 트는 브라우저는 브라우저에 맡긴다(상한을 걸 수 없다)
 
-/** 지금 단계의 짧은 변 · 통신 어림(bps) */
+/** 지금 단계의 짧은 변 · 대역폭 추산(bps) */
 type HlsInfo = { short: number; bandwidth: number };
-/** fatal: 멈추는 오류(목록 · 세그먼트를 못 받음 · 풀지 못함). 불러오기 오류면 load 가 참(배경이 바뀌었을 수 있다) */
+/** fatal: 멈추는 오류(목록 · 세그먼트를 못 받음 · 디코딩하지 못함). 불러오기 오류면 load 가 참(배경이 바뀌었을 수 있다) */
 type HlsEvents = { onFatal: (failure: { load: boolean }) => void; onStall: () => void };
 type HlsPlayer = { cap(short: number | null): void; destroy(): void; info: HlsInfo };
 
@@ -43,7 +43,7 @@ async function playHls(video: HTMLVideoElement, url: string, cap: number | null,
       },
     };
   }
-  // 작업자(worker)는 쓰지 않는다: 목록이 fMP4 라 바꿀 것이 없고, 쓰면 CSP 에 worker-src blob: 을 열어야 한다
+  // 워커는 쓰지 않는다: 목록이 fMP4 라 바꿀 것이 없고, 쓰면 CSP 에 worker-src blob: 을 열어야 한다
   const hls = new Hls({ capLevelOnFPSDrop: false, capLevelToPlayerSize: true, startLevel: -1, maxBufferLength: 12, enableWorker: false });
   const shortOf = (level: { width: number; height: number }) => Math.min(level.width, level.height);
   /** 짧은 변이 cap 이하인 것 중 가장 높은 단계로 상한을 건다(null 이면 화면 크기에 맡긴다) */

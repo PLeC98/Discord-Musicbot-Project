@@ -1,5 +1,5 @@
 // 운영자 패널 캐시 DB 탭의 문구.
-// 낱말은 DB 도구 · 엑셀에서 흔히 쓰는 말 그대로(테이블 · 행 · 열 · 셀 · 필터 · 헤더 · 정렬). 셀 툴팁은 값만으로 알 수 없는 것에만
+// 단어는 DB 도구 · 엑셀에서 흔히 쓰는 말 그대로(테이블 · 행 · 열 · 셀 · 필터 · 헤더 · 정렬). 셀 툴팁은 값만으로 알 수 없는 것에만
 
 import type { TrackCacheTable, TrackFileUse } from "../../../../src/dashboard/contract/track-cache.ts";
 

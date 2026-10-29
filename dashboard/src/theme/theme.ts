@@ -82,7 +82,7 @@ function paint(ms = SHIFT_MS) {
   const root = document.documentElement;
   const target = paletteOf(seed.value, dark.value);
   if (!painted || reduced.matches) setNow(target);
-  // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 첫 단계가 무거운 프레임에 걸리지 않게
+  // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 색 전환의 첫 프레임이 무거운 프레임에 걸리지 않게
   else requestAnimationFrame(() => requestAnimationFrame(() => blendTo(target, ms)));
   painted = true;
   root.dataset.theme = dark.value ? "dark" : "light";
@@ -110,7 +110,7 @@ watch(
 );
 
 /**
- * 화면이 자기 그림을 깐다(art.page). 쓰임(kind)으로 배경화면 값을 선택한다(로그인 화면의 봇 프사는 avatar).
+ * 화면이 자기 그림을 깐다(art.page). 쓰임(kind)으로 배경화면 값을 선택한다(로그인 화면의 봇 프로필 이미지는 avatar).
  * 깐 화면이 주인이 되고, 치울 때는 주인만 치운다.
  * 화면이 바뀌면 새 화면이 먼저 깔고 옛 화면의 정리(onUnmounted)가 뒤에 돈다. 아무나 치우면 새 화면이 깐 것을 지운다
  */

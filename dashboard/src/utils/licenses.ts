@@ -25,7 +25,7 @@ export const LIBRARIES: LicenseItem[] = [
   { name: "Material Color Utilities", license: "Apache 2.0", url: "https://github.com/material-foundation/material-color-utilities" },
 ];
 
-// 저장소 주소 견주기: 끝의 / · .git, 대소문자, http(s):// · www. 는 무시한다(같은 저장소를 적는 흔한 다른 형식)
+// 저장소 주소 비교: 끝의 / · .git, 대소문자, http(s):// · www. 는 무시한다(같은 저장소를 적는 흔한 다른 형식)
 const repoKey = (url: string) =>
   url
     .trim()

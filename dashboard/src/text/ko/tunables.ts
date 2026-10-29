@@ -1,6 +1,6 @@
 // 운영자 패널: 일반 · 유튜브 · 연령 제한 · 디스플레이 탭(과 AI 보조 탭의 리퀘스트 로그)의 운영 조절값(필드 목록은 src/rules/tunables.ts)
 
-/** 묶음마다 제목 · 아이콘 · 설명 */
+/** 그룹마다 제목 · 아이콘 · 설명 */
 const groups = {
   queue: { title: "대기열 · 나가기", icon: "queue_music", desc: "" },
   look: { title: "디스코드", icon: "forum", desc: "" },
@@ -14,7 +14,7 @@ const groups = {
   ailog: { title: "기록 설정", icon: "settings", desc: "" },
 } as const;
 
-/** 필드마다 이름표 · 설명(툴팁) */
+/** 필드마다 라벨 · 설명(툴팁) */
 /** label: 항목 이름(알림 · 안내에도 쓴다), short: 박스 안에서 보일 짧은 이름(박스 제목이 나머지를 말한다) */
 const fields: Record<string, { label: string; help: string; short?: string }> = {
   QUEUE_MAX_TRACKS: { label: "대기열 곡 수 상한", help: "재생 중인 곡은 빼고 세요. 0 이면 끔, 켜면 25 이상.\n곡이 수천 개면 셔플처럼 대기열 전체를 다시 쓰는 조작 동안 봇 전체가 잠깐 멈출 수 있어요. 1,000곡 안쪽을 권해요." },
@@ -69,9 +69,9 @@ const restartTip = "시작할 때 한 번 정하는 값이라 봇을 다시 시�
 const pending = "저장함 · 다시 시작하면 적용";
 const restartBadge = "다시 시작해야 적용";
 const pickColor = "색 선택";
-/** 유튜브 카드 헤더의 설명서 단추 */
+/** 유튜브 카드 헤더의 설명서 버튼 */
 const youtubeDoc = "상세 설명";
-/** 쿠키 출처 고르기 */
+/** 쿠키 출처 선택 */
 const cookies = { none: "사용 안 함", file: "쿠키 직접 입력", browsers: "브라우저", otherGroup: "기타 형식", other: "기타(직접 입력)", otherPlaceholder: "예: chrome:Profile 1" };
 /** 카드 안의 박스(rules/tunables 의 box) */
 const boxes = {

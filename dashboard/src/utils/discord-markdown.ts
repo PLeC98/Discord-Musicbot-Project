@@ -85,7 +85,7 @@ const LINE_KINDS: Array<{ head: RegExp; kind: Block["kind"]; cut: number }> = [
   { head: /^\s*\d+\. /, kind: "ol", cut: 0 },
 ];
 
-/** i 번째 줄에서 여는 코드 블록. 같은 줄에서 닫히면 그 줄만, 아니면 닫는 ``` 까지(여는 줄의 나머지가 낱말 하나면 언어 이름). 닫지 않았으면 null */
+/** i 번째 줄에서 여는 코드 블록. 같은 줄에서 닫히면 그 줄만, 아니면 닫는 ``` 까지(여는 줄의 나머지가 단어 하나면 언어 이름). 닫지 않았으면 null */
 function codeBlock(lines: string[], i: number): { block: Block; end: number } | null {
   const rest = lines[i].slice(3);
   const close = rest.indexOf("```");

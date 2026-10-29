@@ -1,4 +1,4 @@
-// AI 판정 프롬프트 한 벌(후보 목록의 줄 형식 + 섹션들)을 파일로 주고받는 모양. 섹션은 줄 형식이 만든 {{list}} 를 쓰므로 함께 다닌다.
+// AI 판정 프롬프트 한 벌(후보 목록의 줄 형식 + 섹션들)을 파일로 주고받는 형식. 섹션은 줄 형식이 만든 {{list}} 를 쓰므로 함께 다닌다.
 // 파일은 { musicbotPrompt: 형식 번호, lineFormat, sections: [{ role, name, text }] }. 불러온 뒤에는 편집기 · 저장 검사(schema/ai · ai-prompt)가 평소처럼 본다
 
 const FORMAT = 1;

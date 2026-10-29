@@ -6,7 +6,7 @@
 //
 // 판 안에서 Esc 를 먼저 쓸 곳(검색어 지우기 · 고치던 입력란 되돌리기)은 그 keydown 의 preventDefault 를 부른다. 막힌 Esc 로는 판이 닫히지 않는다.
 // close 가 닫지 않을 수도 있다(요청을 보내는 중인 대화상자). 그러면 그 판이 그대로 맨 위에 남는다.
-// CloseWatcher 는 사용자 입력 없이 만든 것(저절로 뜨는 판, 닫기를 거절해 다시 건 것)을 아래 판과 한 묶음으로 둘 수 있다. 그때는 한 번에 함께 닫힌다
+// CloseWatcher 는 사용자 입력 없이 만든 것(저절로 뜨는 판, 닫기를 거절해 다시 건 것)을 아래 판과 한 그룹으로 둘 수 있다. 그때는 한 번에 함께 닫힌다
 
 import { nextTick, onScopeDispose, watch, type Ref } from "vue";
 

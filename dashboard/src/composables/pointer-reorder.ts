@@ -28,8 +28,8 @@ type Options = {
   count?: () => number;
 };
 
-const EDGE = 48; // 자동 스크롤을 시작하는 끝 거리
-const SPEED = 14; // 한 프레임에 스크롤하는 최대 거리
+const EDGE = 48; // 자동 스크롤을 시작하는 끝 거리(px)
+const SPEED = 14; // 한 프레임에 스크롤하는 최대 거리(px)
 const SLIDE = "transform 200ms cubic-bezier(0.2, 0, 0, 1)"; // 비켜서는 항목(M3 standard)
 // 드래그 중인 항목: M3 elevation Level 4 그림자 · 모서리 large · dragged 상태 레이어(on-surface 16%)
 const LIFTED: Partial<CSSStyleDeclaration> = {
@@ -73,7 +73,7 @@ export function boundedDy(dy: number, from: number, rows: { h: number; count: nu
 }
 
 // 아래로 자동 스크롤할 수 있는 끝: 드래그를 시작할 때의 맨 아래, 그 뒤 붙은 행(가상 스크롤 목록이 더 받음)만큼 늘린다.
-// 드래그 중인 항목이 끝 너머로 나가 늘어난 영역은 빼야 한다(따라 내려가면 항목이 손가락에서 떨어져 덜걱거린다. 위쪽은 0 에서 멈춰 그렇다)
+// 드래그 중인 항목이 끝 너머로 나가 늘어난 영역은 빼야 한다(따라 내려가면 항목이 손가락에서 떨어져 덜걱거린다. 위쪽은 scrollTop 이 0 에서 멈춰 문제가 없다)
 function bottomOf(scroller: HTMLElement | null, rowHeight?: () => number, count?: () => number) {
   if (!scroller) return () => 0;
   const max = scroller.scrollHeight - scroller.clientHeight;
@@ -105,7 +105,7 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
   // 높이로 계산할 때: 드래그하는 동안 새로 그려진 행(처음 밀어낼 때는 미끄러지지 않고 바로 그 자리에)
   let seen = new WeakSet<HTMLElement>();
   let scroller: HTMLElement | null = null;
-  // 항목마다 드래그 시작 때의 위 · 높이(스크롤한 거리를 빼 목록 기준으로)
+  // 항목마다 드래그 시작 때의 위 · 높이(시작 때의 화면 좌표. 그 뒤에 스크롤한 거리는 dy 에 더한다)
   let tops: number[] = [];
   let heights: number[] = [];
   let shift = 0; // 비켜서는 항목이 움직이는 거리(드래그 중인 항목 높이 + 항목 사이)

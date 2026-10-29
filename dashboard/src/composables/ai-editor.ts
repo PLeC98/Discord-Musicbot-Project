@@ -62,7 +62,7 @@ export type Tested = { kind: string; ok: boolean; status: number | null | undefi
 
 // ── 화면에 그대로 쓰는 값 ─────────────────────────────────────────────────────
 const NL = String.fromCharCode(10);
-// 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다. 값으로 둔다(LIST_MARK 는 봇과 같이 쓰는 config/schema/ai-prompt)
+// 템플릿에 그대로 적으면 Vue 가 보간으로 읽어서 값으로 넘긴다
 const NONE_MARK = "{{none}}";
 const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 const ROLES = AI_ROLES;
@@ -137,7 +137,7 @@ function editorState() {
     // 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
     tested: ref<Tested | null>(null),
     showRaw: ref(false),
-    // 미리보기: 나갈 것을 만들어만 본 것
+    // 미리보기: 보내지 않고 만들어만 본 요청
     shown: ref<Preview | null>(null),
     showRawRequest: ref(false),
     defaults: ref<{ sections: PromptSection[]; line: string }>({ sections: [], line: "" }),
@@ -160,7 +160,7 @@ function providerView(s: State) {
   // 키는 프로바이더마다 따로다(비밀 테이블). 값은 안 내려오고 상태만 온다.
   // 저장된 키가 있는가(지금 주소로 쓸 수 없어도 있다. 그때는 keyTrouble 이 까닭을 보인다)
   const hasKey = computed(() => (keyStates.value[draft.value.provider ?? ""] ?? (keyPresence.value[draft.value.provider ?? ""] ? "ok" : "none")) !== "none");
-  // 키가 있는데 지금 쓸 수 없는 까닭: moved(주소 · 리전이 바뀜) · again(풀 수 없음). 없거나 쓸 수 있으면 null
+  // 키가 있는데 지금 쓸 수 없는 까닭: moved(주소 · 리전이 바뀜) · again(복호화할 수 없음). 없거나 쓸 수 있으면 null
   const keyTrouble = computed(() => {
     const state = keyStates.value[draft.value.provider ?? ""];
     return state === "moved" || state === "again" ? state : null;
@@ -230,7 +230,7 @@ function providerView(s: State) {
 // ── 모델 매개변수(프로필이 정한 필드) ──────────────────────────────────────────
 function paramsView(s: State) {
   const { draft, fieldInfo, params, allParams, jsonText, jsonBad, showAdvanced } = s;
-  // 모델 필드의 값. 선택한 것은 모양이 정해져 있지 않아(프로필이 정한다) 그리는 필드에 맞춰 읽는다
+  // 모델 필드의 값. 형태는 프로필마다 달라 그리는 필드에 맞춰 읽는다
   function numberParam(key: string): number | string | null {
     const v = params.value[key];
     return typeof v === "number" || typeof v === "string" ? v : null;
@@ -263,7 +263,7 @@ function paramsView(s: State) {
     const range = lo !== undefined && hi !== undefined ? `${lo}~${hi}` : lo !== undefined ? T.atLeast(lo) : T.atMost(hi!);
     return `${field.path} · ${range}`;
   }
-  // 저쪽이 "이 필드가 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼).
+  // 프로필이 "이 필드가 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼).
   // 가려진 필드는 서버도 안 보낸다(autoplayAssist.withParams). 판정 기준을 같게 둔다.
   function showIfOk(field: ModelField) {
     const cond = field.showIf;
@@ -301,7 +301,7 @@ function paramsView(s: State) {
     }
     return out;
   });
-  // 선택한 값은 그때그때 모델 필드에 담는다
+  // 선택한 값은 그때그때 지금 모델 몫(allParams)에 담는다
   watch(
     params,
     (now) => {
@@ -357,7 +357,7 @@ function advancedView(s: State) {
 }
 
 // ── 프롬프트: 섹션 · 줄 형식 안내 · 요청 미리보기 ────────────────────────────
-// 줄 형식 문제 하나의 앞뒤 몇 글자
+// 줄 형식 문제를 보여 줄 때 앞뒤로 붙이는 글자 수
 const AROUND = 12;
 // 줄 형식 미리보기의 보기 후보 둘: 길이를 아는 것 · 모르는 것
 const PREVIEW_CANDS = [
@@ -378,7 +378,7 @@ function promptView(s: State) {
   function loadDefaults() {
     sections.value = defaults.value.sections.map((one) => ({ key: ++inner.serial, role: one.role, name: "", text: one.text }));
   }
-  // 자리표시자 알약. 줄 형식 입력란 끝에 붙인다
+  // 자리표시자 칩. 줄 형식 입력란 끝에 붙인다
   function insertMark(mark: string) {
     listCfg.value.lineFormat = `${listCfg.value.lineFormat || defaults.value.line}${mark}`;
   }
@@ -401,7 +401,7 @@ function promptView(s: State) {
   });
   // 순서 바꾸기. 접어 둔 기억도 그 섹션을 따라간다
   const { startDrag } = useDragReorder(sections, reorderPrompts);
-  // 다듬지 않는다. 무엇이 나갈지 그대로 봐야 한다. 보낼 글을 섹션별로(규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다).
+  // 다듬지 않는다. 무엇이 나갈지 그대로 봐야 한다. 보낼 글을 섹션별로(규격에 따라 본문 형태가 달라 JSON 으로는 읽기 어렵다).
   // 빈 섹션은 요청에서 빠진다. 서버가 달아 준 `at`(원래 섹션 번호)으로 라벨을 찾아야 밀리지 않는다
   const shownSections = computed(() =>
     (shown.value?.messages || []).map((one, i) => {
@@ -419,7 +419,7 @@ function promptView(s: State) {
       { title: T.boxes.body, text: JSON.stringify(one.body, null, 2) },
     ];
   });
-  // 프롬프트 한 벌(줄 형식 + 섹션) 내보내기 · 불러오기(utils/prompt-file). 불러오면 지금 것을 바꿔 끼운다(저장해야 반영, 되돌리면 원래대로)
+  // 프롬프트 한 벌(줄 형식 + 섹션) 내보내기 · 불러오기(utils/prompt-file). 불러오면 지금 것을 교체한다(저장해야 반영, 되돌리면 원래대로)
   function exportPrompt() {
     const { name, body } = promptFile(
       listCfg.value.lineFormat,
@@ -427,7 +427,7 @@ function promptView(s: State) {
     );
     const url = URL.createObjectURL(new Blob([body], { type: "application/json" }));
     Object.assign(document.createElement("a"), { href: url, download: name }).click();
-    // 클릭이 내려받기를 시작한 뒤에 놓는다
+    // 클릭이 다운로드를 시작한 뒤에 해제한다
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function importPrompt(file: File) {
@@ -441,7 +441,7 @@ function promptView(s: State) {
   return { listMarked, addSection, removeSection, loadDefaults, insertMark, lineProblems, linePreview, startDrag, shownSections, boxes, exportPrompt, importPrompt };
 }
 
-// ── 토큰 세기(어림수, 어느 기준으로 셌는지 같이 밝힌다) ──────────────────────
+// ── 토큰 세기(추산치, 어느 기준으로 셌는지 같이 밝힌다) ──────────────────────
 function tokenCount(s: State) {
   const { sections, draft } = s;
   const tokenEach = ref<number[]>([]);
@@ -483,7 +483,7 @@ function tokenCount(s: State) {
   return { tokenEach, tokenTotal, tokenExact, tokenError, countTokens };
 }
 
-// ── 주고받기: 보낼 모양 · 받은 것 넣기 · 저장 막대 ───────────────────────────
+// ── 주고받기: 보낼 형태 · 받은 것 반영 · 저장 막대 ───────────────────────────
 function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unknown>>>) {
   const { draft, listCfg, sections, allParams, params, savedBaseUrl, keyInput, keyPresence, keyStates, inner } = s;
   // 저장은 보낸 순서대로 둔다. 기본 설정 문서와 같은 순서(schema/ai 의 AI_KEY_ORDER)로 보내 내보내기 글이 읽기 좋게 한다.
@@ -496,7 +496,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
     return out;
   });
   const promptPayload = computed((): PromptSection[] => sections.value.map((one) => ({ role: one.role, text: one.text })));
-  // AI 에 보낼 요청을 만들 때 쓰는 것. 저장용(payload)과 달라지는 곳은 프롬프트 하나다(딴 문서로 저장한다).
+  // AI 에 보낼 요청을 만들 때 쓰는 것. 저장용(payload)과 달라지는 곳은 프롬프트 하나다(다른 문서로 저장한다).
   // 미리보기 · 판정 요청처럼 "지금 화면에 있는 것"을 테스트하는 곳은 전부 이쪽을 쓴다.
   const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
   function apply(data: Record<string, unknown>) {
@@ -507,7 +507,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
     rememberModel(draft.value.provider, draft.value.model);
     inner.picking = draft.value.model || "";
     params.value = { ...(allParams.value[inner.picking] || {}) };
-    // 옛 필드(길이를 모르는 후보)는 읽지 않는다. 저장하면 빠진다(이제 줄 형식 안의 {{#if-exist}} 로 정한다)
+    // list 의 옛 필드(길이를 모르는 후보)는 읽지 않아 저장하면 빠진다. 길이 표시는 줄 형식 안의 {{#if-exist}} 가 정한다
     listCfg.value = { lineFormat: String((list as Partial<ListCfg> | undefined)?.lineFormat ?? "") };
     inner.names = Array.isArray(promptNames) ? promptNames.map(String) : [];
     sections.value.forEach((one, i) => (one.name = inner.names[i] || ""));
@@ -526,7 +526,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
       /* 다음에 탭을 열 때 다시 불러온다 */
     }
   }
-  // 설정과 프롬프트는 딴 문서지만 한 편집기다. 둘을 한 번에 읽고, 한 요청으로 저장한다(둘 중 하나만 저장되지 않게).
+  // 설정과 프롬프트는 다른 문서지만 한 편집기다. 둘을 한 번에 읽고, 한 요청으로 저장한다(둘 중 하나만 저장되지 않게).
   // 이름(promptNames)이 설정 쪽에 실리므로 설정을 반영한 뒤에 프롬프트를 반영한다. 저장 번호는 설정 문서의 것을 들고 있다가 돌려보낸다
   let aiRevision = 0;
   const file = useConfigFile({

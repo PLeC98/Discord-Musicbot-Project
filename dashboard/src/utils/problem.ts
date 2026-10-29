@@ -38,7 +38,7 @@ export function noticeText(code: Code): { title: string; body: string } {
 /** 응답 없이 실패한 요청의 제목 줄 */
 export const unansweredTitle = (kind: FailureKind) => UNANSWERED[kind]?.title ?? "";
 
-/** 응답 없이 실패한 요청의 알림 전체(알림에 표시하는 모양) */
+/** 응답 없이 실패한 요청의 알림 전체(알림에 표시하는 형태) */
 export function unansweredNotice(kind: "timeout" | "offline"): ProblemNotice {
   const { code, ...rest } = UNANSWERED[kind]!;
   return { ...rest, detail: "", codeLine: codeLineOf(code), reportUrl: "" };

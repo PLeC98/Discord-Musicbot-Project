@@ -38,7 +38,7 @@
       </template>
 
       <div class="flex-1 min-h-0 min-w-0 flex flex-col">
-        <!-- 위 막대. 틀의 위쪽 가장자리(휴대폰 48 · 태블릿 · PC 36). 가운데에 보고 있는 서버(서버 화면 · 서버 설정), 모든 서버 화면이면 "서버 목록", 운영자 패널이면 그 이름 -->
+        <!-- 위 막대. 틀의 위쪽 가장자리(휴대폰 48px · 태블릿 · PC 36px). 가운데에 보고 있는 서버(서버 화면 · 서버 설정), 모든 서버 화면이면 "서버 목록", 운영자 패널이면 그 이름 -->
         <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" :aria-label="T.topBar">
           <div v-if="viewedGuild" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-[60%]">
             <GuildAvatar :guild="viewedGuild" active :status="false" size-class="size-6" text-class="text-2xs" />

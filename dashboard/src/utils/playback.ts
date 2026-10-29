@@ -79,12 +79,12 @@ export const skipEnabled = (s: StateSeen | null | undefined): boolean => Boolean
 /** 이전 곡 버튼(rules/controls 의 canGoBack). 상태는 기록이 있는지만 싣는다 */
 export const previousEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && Boolean(s?.canControl) && canGoBack({ history: s?.hasPrevious ? 1 : 0, loop: s?.loop });
 
-/** 탐색 · 넘기기 · 이전 · 하이라이트를 "지금 곡이 이것일 때만" 하라는 표식. 항목 번호가 있을 때만 싣는다 */
 /** 반복을 바꿀 수 있는지: 조작할 수 있고 대기열에 라이브가 없을 때(끝이 없는 곡은 반복할 수 없다) */
 export const loopEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) && !s?.hasLive;
 /** 섞을 수 있는지: 조작할 수 있고 대기열에 둘 이상 */
 export const shuffleEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) && queueSize(s) >= 2;
 
+/** 탐색 · 넘기기 · 이전 · 하이라이트를 "지금 곡이 이것일 때만" 하라는 표식. 항목 번호가 있을 때만 싣는다 */
 export const onTrackOf = (s: StateSeen | null | undefined): { onTrack?: number } => {
   const entry = s?.currentTrack?.entry;
   return typeof entry === "number" && Number.isInteger(entry) ? { onTrack: entry } : {};

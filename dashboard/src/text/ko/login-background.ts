@@ -30,7 +30,7 @@ const card = {
   stageOf,
   queued: "인코딩 대기 중이에요.",
   resumed: "중단된 인코딩을 이어서 하고 있어요.",
-  /** 편집을 마치기 전(받기 · 프리뷰 · 스프라이트 · 편집 대기) · 편집을 적용한 뒤(인코딩 · 대기) */
+  /** 편집을 마치기 전(다운로드 · 프리뷰 · 스프라이트 · 편집 대기) · 편집을 적용한 뒤(인코딩 · 대기) */
   cancelEdit: "편집 취소",
   cancelEditTip: "올린 배경을 버려요.",
   cancelEncode: "인코딩 취소",
@@ -56,11 +56,11 @@ const card = {
   waitingEdit: "완료되지 않은 편집이 있어요.",
   /** 만들다 실패한 배경(까닭은 봇 문장표의 문제 코드 안내) */
   failed: (name: string) => `"${name}"${josa(name, "을")} 만들지 못했어요.`,
-  /** 로그인 화면 위에 지금 배경을 띄워 본다 */
+  /** 로그인 화면 위에 지금 배경을 표시해 본다 */
   viewLogin: "미리보기",
   closeLogin: "닫기",
   silhouette: "로그인 화면 겹쳐 보기",
-  /** 화면 판의 비율 단추 툴팁: 그 비율의 기기(지금 흔한 것 중심) */
+  /** 화면 판의 비율 버튼 툴팁: 그 비율의 기기(지금 흔한 것 중심) */
   ratioDevices: {
     "16:9": "대부분의 모니터 · 노트북(FHD · QHD · 4K), TV",
     "16:10": "맥북 · 요즘 윈도우 노트북 · 갤럭시 탭",
@@ -92,7 +92,7 @@ const advanced = {
   noEncoder: "사용할 수 있는 인코더가 없어요",
   checking: "확인하는 중…",
   recheck: "다시 확인",
-  /** 지금 굽는 것: 단계 · AV1 병렬 단계 · 묶은 코어 · 속도(실시간의 몇 배) */
+  /** 지금 인코딩하는 것: 단계 · AV1 병렬 단계 · 묶은 코어 · 속도(실시간의 몇 배) */
   bakeTitle: "지금 인코딩",
   bake: (rungs: string, lp: number | null, cores: string, speed: number | null) => [rungs, ...(lp === null ? [] : [`AV1 병렬 단계 ${lp}`]), cores, ...(speed === null ? [] : [`실시간의 ${speed < 1 ? speed.toFixed(2) : speed.toFixed(1)}배`])].join(" · "),
   bakeTip: "봇 상태 탭에서 인코딩하는 동안의 메모리와 이벤트 루프 지연을 볼 수 있어요.",
@@ -131,13 +131,13 @@ const edit = {
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 예상 파일 크기(세트 하나) */
   estimate: (size: string) => `예상 파일 크기 약 ${size}`,
-  /** 예상 인코딩 시간(이 기기에서 잰 굽는 속도 × 구간 길이) */
+  /** 예상 인코딩 시간(이 기기에서 잰 인코딩 속도 × 구간 길이) */
   encodeTime: (minutes: number) => (minutes < 1 ? "예상 인코딩 시간 1분 이내" : `예상 인코딩 시간 약 ${Math.round(minutes)}분`),
   counting: "예상 파일 크기 계산 중…",
-  /** 이 기기에서는 크기 어림을 하지 않는다(AV1 인코더가 SVT-AV1 일 때만 잰다) */
+  /** 이 기기에서는 크기 추산을 하지 않는다(AV1 인코더가 SVT-AV1 일 때만 잰다) */
   noEstimate: "예상 파일 크기를 셀 수 없어요",
   noSpace: (free: string) => `남은 저장 공간(${free})보다 커서 적용할 수 없어요`,
-  /** 유튜브는 480p 로 잰 어림이다(고해상도는 적용한 뒤에 받는다) */
+  /** 유튜브는 480p 로 잰 추산이다(고해상도는 적용한 뒤에 다운로드한다) */
   rough: "고화질 영상을 받기 전이라 대략적인 값이에요",
   evict: (n: number) => `최대 용량을 넘을 수 있어 오래된 기록 ${n}개를 지우게 될 수 있어요.`,
   overAlone: "이 배경 하나만으로 최대 용량을 넘을 수 있어요. 만들면 기록을 모두 지우고 이것만 남겨요.",

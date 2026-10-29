@@ -9,7 +9,7 @@ const serverList = "서버 목록";
 const serverSettingsSuffix = "- 서버 설정";
 const adminPanel = "운영자 패널";
 const openMenu = "메뉴 열기";
-/** 권한 수준 오버라이드 중임을 알리는 줄. tier 는 고른 계층의 이름 */
+/** 권한 수준 오버라이드 중임을 알리는 줄. tier 는 선택한 계층의 이름 */
 const viewingAs = "권한으로 보는 중";
 const clearViewAs = "해제";
 

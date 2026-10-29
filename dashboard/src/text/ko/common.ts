@@ -1,4 +1,4 @@
-// 여러 화면이 같은 뜻으로 쓰는 단추 · 짧은 말
+// 여러 화면이 같은 뜻으로 쓰는 버튼 · 짧은 말
 
 const cancel = "취소";
 const close = "닫기";
@@ -14,7 +14,7 @@ const add = "추가";
 const expand = "펼치기";
 const collapse = "접기";
 const clearValue = "비우기";
-/** 저장소 설명서로 가는 단추(카드 헤더) */
+/** 저장소 설명서로 가는 버튼(카드 헤더) */
 const docs = "설명서";
 const docsTip = "봇 저장소의 설명서를 새 탭에서 열어요.";
 

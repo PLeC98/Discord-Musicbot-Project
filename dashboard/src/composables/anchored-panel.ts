@@ -27,7 +27,7 @@ export function coveredBottom(el: HTMLElement) {
 const EDGE = 8;
 
 /**
- * 폭을 정한 패널의 가로 자리. Compose Material3 메뉴와 같은 차례로, 화면 가장자리(EDGE) 안에 들어가는 첫 자리를 쓴다:
+ * 폭을 정한 패널의 가로 자리. Compose Material3 메뉴와 같은 순서로, 화면 가장자리(EDGE) 안에 들어가는 첫 자리를 쓴다:
  * 기준 요소의 왼쪽에 맞춤 → 오른쪽 끝을 기준 요소의 오른쪽 끝에 맞춤 → 기준 요소가 있는 쪽의 화면 끝. 화면보다 넓으면 가운데
  */
 function sideBy(rect: DOMRect, width: number) {
@@ -38,7 +38,7 @@ function sideBy(rect: DOMRect, width: number) {
   return rect.left + rect.width / 2 < room / 2 ? EDGE : room - width - EDGE;
 }
 
-/** 패널의 쌓임 순서: 기준 요소가 든 층(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 층이 없으면 PANEL_Z */
+/** 패널의 쌓임 순서: 기준 요소가 든 레이어(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 레이어가 없으면 PANEL_Z */
 const PANEL_Z = 160;
 function layerAbove(el: HTMLElement) {
   let top = PANEL_Z - 1;
@@ -56,7 +56,7 @@ function layerAbove(el: HTMLElement) {
  */
 export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number }) {
   const style = ref<CSSProperties>({});
-  // 층은 패널이 실제로 그려졌을 때만(칩 입력 · 태그 고르기는 입력란에 포커스만 가도 open 이 참이다)
+  // 닫기 레이어는 패널이 실제로 그려졌을 때만(칩 입력 · 태그 선택은 입력란에 포커스만 가도 open 이 참이다)
   useCloseLayer(
     computed(() => open.value && panel.value != null),
     () => (open.value = false),

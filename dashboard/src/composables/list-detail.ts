@@ -12,10 +12,10 @@ import { useNowPlayingStore } from "../stores/now-playing.ts";
 
 /** 목록의 전역 값 항목의 주소 표식. 항목 표식의 @순번은 수만 쓰므로 겹치지 않는다 */
 const GLOBAL_TOKEN = "@defaults";
-/** 편집기마다(주소 표식 이름 → 지금 1열로 상세를 여는지). 운영자 패널이 위 막대 ← 를 보일지 정한다(태블릿에서도 1열이면 ← 로 목록에) */
-/** 목록 항목(48). 선택한 항목은 SELECT_ROW_ON, 끈 것은 흐리게(opacity) */
+/** 목록 항목(높이 48px). 선택한 항목은 SELECT_ROW_ON, 끈 것은 흐리게(opacity) */
 export const LIST_ROW = "state-layer flex items-center gap-3 h-12 pl-1 pr-3 rounded-(--r-row) cursor-pointer text-sm text-on-surface transition-[background-color,opacity] duration-150";
 
+/** 편집기마다(주소 표식 이름 → 지금 1열로 상세를 여는지). 운영자 패널이 위 막대 ← 를 보일지 정한다(태블릿에서도 1열이면 ← 로 목록에) */
 export const singlePane = reactive<Record<string, boolean>>({});
 /** 주소 표식 param 의 편집기가 1열이면 알린다. 떠날 때 지우지 않는다: 새로 그리는 순서(개발 서버의 HMR 등)에 따라 새 편집기가 쓴 값을
  *  옛 편집기가 지울 수 있고, 남은 값은 그 탭이 보일 때 다시 쓰이므로 해가 없다. 운영자 패널은 ← 를 표시할지에만 쓰고, 누른 뒤 할 일은 주소로 정한다 */
