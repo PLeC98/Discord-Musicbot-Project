@@ -33,9 +33,10 @@
          낮은 화면(휴대폰 가로 등, 높이 512 이하)은 공간이 없어 큰 시계를 빼고(위 막대 오른쪽이 날짜 대신 시각), 그룹은 휴대폰 크기, 실패는 대화상자로 -->
     <main class="absolute inset-0 grid grid-rows-[1fr_auto_1fr] justify-items-center px-5 text-center">
       <!-- 시계: 화면 높이 18% 를 중심으로 고정(그룹과의 간격은 화면 높이를 따른다). 위 행은 비워 둔다. 낮은 화면은 공간이 없어 뺀다.
-           그 위치가 위 막대나 그룹과 겹치면(애매하게 낮은 화면) 둘 사이 가운데로 옮기고 줄인다. 반 넘게 줄여야 하면 숨긴다(fit) -->
+           그 위치가 위 막대나 그룹과 겹치면(애매하게 낮은 화면) 둘 사이 가운데로 옮기고 줄인다. 반 넘게 줄여야 하면 숨긴다(fit).
+           글자는 좁은 화면 7xl · 넓은 화면 8xl · 높이가 넉넉하면(tall, 56rem 이상) 9xl -->
       <div></div>
-      <p v-if="!short" ref="clockEl" :style="clockStyle" :class="fit.clockHidden && 'invisible'" class="absolute inset-x-0 top-[18%] -translate-y-1/2 font-round font-semibold nums leading-none tracking-[-0.04em] text-7xl md:text-[6.5rem] text-on-surface drop-shadow-[0_2px_12px_rgb(0_0_0/0.25)]">{{ clock }}</p>
+      <p v-if="!short" ref="clockEl" :style="clockStyle" :class="fit.clockHidden && 'invisible'" class="absolute inset-x-0 top-[18%] -translate-y-1/2 font-round font-semibold nums leading-none tracking-[-0.04em] text-7xl md:text-8xl tall:text-9xl text-on-surface drop-shadow-[0_2px_12px_rgb(0_0_0/0.25)]">{{ clock }}</p>
 
       <!-- 그림 · 이름 · 로그인 버튼 그룹이 화면 정가운데. 고리는 활성 창 테두리와 같은 45도 그라데이션.
            크기는 폭만이 아니라 높이도 본다: 낮은 화면(휴대폰 가로)은 폭이 넓어도 휴대폰 크기. 정가운데에서 화면 높이 3% 만큼 올린다(눈으로 맞춘 값). 그림 · 이름 · 버튼 사이는 같은 간격 -->

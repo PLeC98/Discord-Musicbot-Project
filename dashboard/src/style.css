@@ -167,6 +167,8 @@
 @custom-variant md (@media (width >= 45rem) and (height > 32rem));
 @custom-variant lg (@media (width >= 64rem) and (height > 32rem));
 @custom-variant xl (@media (width >= 80rem) and (height > 32rem));
+/* 높이가 넉넉한 넓은 화면(PC 전체 화면 · 패드). 로그인 큰 시계처럼 화면 높이를 따라 키울 것만. md 뒤에 두어 둘 다 맞으면 이것이 이긴다 */
+@custom-variant tall (@media (width >= 45rem) and (height >= 56rem));
 
 /* 색 역할 · 모양 · 글자 · 움직임을 Tailwind 이름으로. inline 이라 값이 :root 의 var(...) 를 그대로 가리킨다 */
 @theme inline {
@@ -237,7 +239,7 @@
   --text-body-lg--line-height: 1.5;
   --text-body: 0.875rem;
   --text-body--line-height: 1.45;
-  /* 글자 크기는 Tailwind 이름(xs 12 · sm 14 · base 16 · lg 18 · xl 20 · 2xl 24 · 3xl 30 · 7xl 72)으로 쓰고 text-[1.23rem] 같은 임의 값은 쓰지 않는다.
+  /* 글자 크기는 Tailwind 이름(xs 12 · sm 14 · base 16 · lg 18 · xl 20 · 2xl 24 · 3xl 30 · 7xl 72 · 8xl 96 · 9xl 128)으로 쓰고 text-[1.23rem] 같은 임의 값은 쓰지 않는다.
      규격(M3)보다 한 단계 아래로 맞춘다(BodyLarge 16 → 14, LabelLarge 14 → 12). 2xs 는 작은 표(11, M3 label-small) */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
