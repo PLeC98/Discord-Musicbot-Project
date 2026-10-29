@@ -21,9 +21,9 @@ const viaDashboard = (who: string) => `${who} (대시보드)`;
 
 // 억제 사유(rules/holds)로 소리가 함께 멈춰 있을 때 덧붙이는 말: 멈춰 둠 · 아직 멈춘 까닭 · 언제 이어 트나
 const HELD_AFTER: Record<Hold, { keep: string; still: string; when: string }> = {
-  mute: { keep: "음소거가 풀려도 멈춘 채로 둘게요.", still: "아직 음소거 상태예요.", when: "음소거가 풀리면" },
-  stage: { keep: "발언자가 돼도 멈춘 채로 둘게요.", still: "아직 발언자를 기다리고 있어요.", when: "발언자가 되면" },
-  alone: { keep: "채널에 사람이 들어와도 멈춘 채로 둘게요.", still: "아직 채널에 혼자 남아 있어요.", when: "사람이 들어오면" },
+  mute: { keep: "음소거가 풀려도 멈춘 채로 둘게요.", still: "아직 음소거 상태라 멈춰 있어요.", when: "음소거가 풀리면" },
+  stage: { keep: "발언자가 돼도 멈춘 채로 둘게요.", still: "아직 스테이지 청중이라 멈춰 있어요.", when: "발언자가 되면" },
+  alone: { keep: "누가 들어와도 멈춘 채로 둘게요.", still: "아직 채널에 저 혼자라 멈춰 있어요.", when: "누가 들어오면" },
 };
 
 /** 일시정지 · 재개. heldBy: 소리를 함께 멈추고 있는 억제 사유(있으면 그 사유가 풀린 뒤를 말한다) */
