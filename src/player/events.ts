@@ -1,7 +1,7 @@
 // 플레이어가 화면과 대시보드에 알리는 창구. 플레이어는 화면을 모르고 여기로 알린다.
 // 듣는 쪽은 조립(src/app/main.ts)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
-//   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
+//   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로(같은 차례에 여러 번 부르면 한 번)
 //   ended(player, reason, cause) 재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · failures · stop · leave · disconnected · joined).
 //                               cause 는 버린 까닭(dispose 의 end: forced-disconnect · inactivity-timeout · voice-lost 등). 없으면 패널 모양이 곧 까닭
 //   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡 · 세션 복원). 새 패널을 올린다
@@ -58,7 +58,19 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
   await Promise.all([...set].map((fn) => fn(...args)));
 }
 
-const refresh = (player: Player) => emit("refresh", player);
+// 갱신은 부를 때마다 패널 메시지를 고친다. 한 차례(같은 동기 흐름)에 여러 곳이 부르면(멈춤이 바뀜 · 옮겨짐 · 조작) 한 번으로 묶는다.
+// 같은 차례에 부른 쪽은 같은 약속을 받으므로 기다리는 쪽은 그대로 끝을 기다린다
+const pendingRefresh = new Map<Player, Promise<void>>();
+function refresh(player: Player): Promise<void> {
+  const pending = pendingRefresh.get(player);
+  if (pending) return pending;
+  const next = Promise.resolve().then(() => {
+    pendingRefresh.delete(player);
+    return emit("refresh", player);
+  });
+  pendingRefresh.set(player, next);
+  return next;
+}
 const ended = (player: Player, reason: string, cause?: string) => emit("ended", player, reason, cause);
 const started = (player: Player) => emit("started", player);
 const leaving = (player: Player, leavesAt: number | null) => emit("leaving", player, leavesAt);
@@ -92,6 +104,7 @@ function touched(guildId: string) {
 
 function _reset() {
   for (const set of Object.values(listeners)) set.clear();
+  pendingRefresh.clear();
 }
 
 export { on, refresh, ended, started, notice, leaving, released, disposed, touched, _reset };

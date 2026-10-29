@@ -1383,14 +1383,19 @@ test("파일 태그를 찾으면 그 음원의 곡(지금 곡 · 대기열)에 �
     const key = audioKeyOf(url)!;
     const tags = { title: "태그 제목", artist: "태그 가수", album: null };
 
+    // 갱신은 같은 차례의 것을 묶어 다음 차례에 낸다
+    const settle = () => new Promise((r) => setImmediate(r));
     p.takeFileTags("dl:다른 키", { tags, art: null });
+    await settle();
     assert.equal(refreshed.length, 0, "다른 키");
 
     p.takeFileTags(key, { tags, art: null });
+    await settle();
     assert.deepEqual([p.currentTrack.title, p.queue[0].title, p.queue[0].artist, p.queue[1].title], ["태그 제목", "태그 제목", "태그 가수", "track_09"]);
     assert.deepEqual([refreshed.length, p.persistence.dirty], [1, true]);
 
     p.takeFileTags(key, { tags, art: { fingerprint: "f", width: 1, height: 1 } });
+    await settle();
     assert.equal(refreshed.length, 2, "곡 정보는 그대로여도 그림이 생겼다");
   } finally {
     off();

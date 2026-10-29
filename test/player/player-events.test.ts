@@ -49,3 +49,20 @@ test("대시보드 알림 · 놓기는 기다리지 않고, 실패해도 알린 
   playerEvents.released(player(), "t1");
   assert.deepEqual(seen, ["touched:g1", "released:t1"]);
 });
+
+test("같은 차례에 여러 번 부른 갱신은 한 번으로 묶이고, 부른 쪽은 모두 그 끝을 기다린다", async () => {
+  const seen: string[] = [];
+  playerEvents.on("refresh", async (p) => {
+    await new Promise((r) => setImmediate(r));
+    seen.push(p.sessionId);
+  });
+  const a = player("a");
+  const first = playerEvents.refresh(a);
+  const second = playerEvents.refresh(a);
+  const other = playerEvents.refresh(player("b"));
+  assert.equal(first, second, "같은 약속");
+  await Promise.all([first, second, other]);
+  assert.deepEqual(seen.sort(), ["a", "b"], "플레이어마다 한 번");
+  await playerEvents.refresh(a);
+  assert.deepEqual(seen.sort(), ["a", "a", "b"], "다음 차례는 다시 부른다");
+});
