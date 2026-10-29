@@ -5,10 +5,10 @@
 //   끝의 공백 · 괄호 · 따옴표 · 기호는 건너뛰고 그 앞 글자를 본다("곡 (Live)" 는 Live).
 //   한글은 받침, 숫자는 읽는 소리(자릿수까지: 10 십 · 100 백 · 10000 만), 소수는 마지막 자리 숫자.
 //   영어는 발음 사전(CMU)의 마지막 소리에 외래어 표기법을 따른다(짧은 모음 뒤의 p · t · k 는 받침, 그 밖의 자음은 "으" 가 붙어 받침이 없다).
-//   사전에 없는 말은 철자로 어림하고, 사전에 없는 대문자 약어는 글자 이름(BTS 의 S 는 에스)으로 읽는다(rules/english-final).
-//   사전은 그 어림과 답이 다른 낱말만 추린 표(data/english-finals.json)로 들고 있다.
+//   사전에 없는 말은 철자로 추정하고, 사전에 없는 대문자 약어는 글자 이름(BTS 의 S 는 에스)으로 읽는다(rules/english-final).
+//   사전은 그 추정과 답이 다른 단어만 추린 표(data/english-finals.json)로 들고 있다.
 //   일본어 가나는 ん 이면 ㄴ, っ 면 ㅅ, 장음 ー · 작은 가나 · 그 밖의 가나는 받침이 없다. 반복 기호는 앞 글자를 따른다.
-//   한자는 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다(data/kanji-finals.json, 유니코드 Unihan 에서 만든 표). 갈리면 모른다.
+//   한자는 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다(data/kanji-finals.json, 유니코드 Unihan 에서 만든 표). 읽기마다 다르면 모른다.
 
 // 브라우저(대시보드)도 쓴다. Node 에 기대는 것이 없다
 
@@ -108,10 +108,10 @@ function numberFinal(text: string): Final {
 
 // ── 영어 ──
 
-// 철자 어림과 답이 다른 낱말 → 사전의 끝소리
+// 철자 추정과 답이 다른 단어 → 사전의 끝소리
 const ENGLISH_FINALS = new Map<string, Final>((["final", "rieul", "none"] as const).flatMap((final) => (ENGLISH[final] ? ENGLISH[final].split(" ") : []).map((word): [string, Final] => [word, final])));
 
-// 영문자로만 된 낱말. 표에 있으면 사전의 답, 사전에 있는 대문자 약어(모음이 있는 것)는 낱말로 읽는다(표에 없으면 글자 이름과 같다)
+// 영문자로만 된 단어. 표에 있으면 사전의 답, 사전에 있는 대문자 약어(모음이 있는 것)는 단어로 읽는다(표에 없으면 글자 이름과 같다)
 function englishFinal(word: string): Final {
   const known = ENGLISH_FINALS.get(word.toLowerCase());
   if (/^[A-Z]{1,5}$/.test(word) && (known === undefined || !/[AEIOUY]/.test(word))) return letterFinal(word);

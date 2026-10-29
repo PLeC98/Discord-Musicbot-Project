@@ -1,4 +1,4 @@
-// 응답 템플릿. 헤더 줄 · 본문 · 작은 글씨의 푸터를 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 헤더 옆에 붙인다(큰 그림, ui/discord-art).
+// 응답 템플릿. 헤더 줄 · 본문 · 작은 글씨의 푸터를 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 헤더 옆에 붙인다(큰 이미지, ui/discord-art).
 // 헤더 줄의 아이콘은 그 화면의 색으로 칠한 것을 쓴다(ui/icons). 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 아이콘을, 얼마나 심각한지(severity)로 색을 정한다
 
 import { ContainerBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
@@ -51,7 +51,7 @@ const headOf = (notice: Notice) => {
 /** 오류 · 경고 안내의 화면 */
 const noticeFrame = (notice: Notice) => frame({ title: headOf(notice), body: notice.body, color: notice.severity });
 
-/** 화면에 첨부하는 파일(썸네일을 attachment:// 로 건 곡 그림) */
+/** 화면에 첨부하는 파일(썸네일을 attachment:// 로 건 곡 이미지) */
 type Attachment = { attachment: Buffer; name: string };
 const withFiles = (files: Attachment[] | undefined) => (files?.length ? { files } : {});
 /** 새 응답(본인에게만) */

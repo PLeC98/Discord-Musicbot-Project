@@ -1,5 +1,5 @@
-// FLAC 그림 블록(METADATA_BLOCK_PICTURE). Ogg Opus 의 그림 태그는 이것을 base64 로 적은 Vorbis 주석이다(RFC 7845 · FLAC 형식).
-// 모든 수는 빅 엔디언 32비트: 종류(3 = 앞 표지) · MIME 길이 · MIME · 설명 길이 · 설명 · 가로 · 세로 · 색 깊이 · 색 수(팔레트 아니면 0) · 그림 길이 · 그림
+// FLAC PICTURE 블록(METADATA_BLOCK_PICTURE). Ogg Opus 의 이미지 태그는 이것을 base64 로 적은 Vorbis 주석이다(RFC 7845 · FLAC 형식).
+// 모든 수는 빅 엔디언 32비트: 종류(3 = 앞 표지) · MIME 길이 · MIME · 설명 길이 · 설명 · 가로 · 세로 · 색 깊이 · 색 수(팔레트 아니면 0) · 이미지 길이 · 이미지
 
 type PictureBlock = { mime: string; width: number; height: number; data: Uint8Array };
 

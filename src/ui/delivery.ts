@@ -1,7 +1,7 @@
 // 상호작용 응답을 누구에게 보이고 얼마 뒤 삭제할지. 수명은 LIFETIME 한 곳에서 정한다.
 //   본인(ephemeral): 상호작용 토큰으로 삭제한다. 토큰이 15분이라 그보다 긴 수명은 두지 않는다(사용자가 닫거나 디스코드를 다시 시작하면 사라진다)
 //   모두: 공개 응답 · 채널 메시지. transientMessages.scheduleDelete 로 삭제해 패널이 묻혔는지 셀 때 빠진다
-// "하는 중"(자리표시자 · 메뉴 · 설정 화면)은 본인에게, 결과는 모두에게. 본인 자리표시자 뒤의 결과는 자리표시자를 삭제하고 채널에 새로 보낸다
+// "하는 중"(플레이스홀더 · 메뉴 · 설정 화면)은 본인에게, 결과는 모두에게. 본인 플레이스홀더 뒤의 결과는 플레이스홀더를 삭제하고 채널에 새로 보낸다
 
 import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -19,7 +19,7 @@ const LIFETIME = {
   error: 15_000, // 봇 쪽 문제. 운영자에게 알릴 수도 있어 조금 더 둔다
   result: 15_000, // 조작 결과
   farewell: 30_000, // 정지 · 나가기
-  glance: 10_000, // 잠깐 보는 것(곡 담은 안내 · 지금 값 보기 · 취소 · 이미 들어와 있음)
+  glance: 10_000, // 잠깐 보는 것(곡 추가 안내 · 지금 값 보기 · 취소 · 이미 들어와 있음)
   menu: 60_000, // 선택 화면(더 넣기 · 검색 결과 · 자동재생 장르)
   screen: 600_000, // 읽는 화면 · 설정 화면
 } as const;
@@ -75,7 +75,7 @@ async function toSelf(interaction: RepliableInteraction, payload: SelfPayload, m
   expireSelf(interaction, ms, message.id);
 }
 
-/** 본인에게 표시한 자리표시자(Components V2)를 고치고 ms 뒤 삭제한다 */
+/** 본인에게 표시한 플레이스홀더(Components V2)를 고치고 ms 뒤 삭제한다 */
 async function replaceSelf(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null) {
   await interaction.editReply(post(view));
   expireSelf(interaction, ms);
@@ -99,7 +99,7 @@ function noticeSelf(interaction: RepliableInteraction, notice: Notice) {
 }
 
 /**
- * 모두에게. 아직 답하지 않았으면 공개 응답으로, 본인 자리표시자를 표시했으면 그것을 삭제하고 채널에 새로 보낸다
+ * 모두에게. 아직 답하지 않았으면 공개 응답으로, 본인 플레이스홀더를 표시했으면 그것을 삭제하고 채널에 새로 보낸다
  * (채널에 쓸 수 없으면 공개 후속 메시지). ms 뒤 삭제한다. files: 화면이 attachment:// 로 건 첨부
  */
 async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, ms: number | null, files?: Attachment[]) {

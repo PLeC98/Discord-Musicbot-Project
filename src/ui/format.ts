@@ -6,7 +6,6 @@ const pad = (n: number) => String(n).padStart(2, "0");
 function formatDuration(seconds: number | string | null | undefined, unknown = "0:00") {
   if (!seconds || seconds === 0) return unknown;
 
-  // 부동소수점 오류를 피하도록 정수로 처리
   const totalSeconds = Math.floor(Number(seconds) || 0);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -56,7 +55,7 @@ function byteUnit(bytes: number) {
 type Scaled = { n: number; unit: string; per: number };
 
 /**
- * 값을 고른 단위의 글로. pick: 단위 고르기(byteUnit · 대시보드의 utils/units), digits: 그 단위에서 소수 자릿수.
+ * 값을 선택한 단위의 글로. pick: 단위 선택(byteUnit · 대시보드의 utils/units), digits: 그 단위에서 소수 자릿수.
  * 반올림한 수가 다음 단위의 경계에 닿으면(999.96 MB/s → "1000.0") 다음 단위로, 자릿수 규칙의 경계를 넘으면(99.96 → "100.0") 넘은 쪽 자릿수로 다시 쓴다
  */
 function scaledText(v: number, pick: (v: number) => Scaled, digits: (n: number, unit: string) => number) {

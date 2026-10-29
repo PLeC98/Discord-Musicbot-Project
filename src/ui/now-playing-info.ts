@@ -1,4 +1,4 @@
-// /nowplaying 의 화면. 지금 곡의 필드(아티스트 · 앨범 · 플랫폼 · 진행 · 요청자 · 상태)을 모두 작은 글씨 줄로 보인다.
+// /nowplaying 의 화면. 지금 곡의 필드(아티스트 · 앨범 · 플랫폼 · 진행 · 요청자 · 상태)를 모두 작은 글씨 줄로 보인다.
 // 재생 패널과는 따로 그린다. 진행 막대만 패널과 같다
 
 import { emojiOf, labelOf } from "../rules/platforms.ts";
@@ -11,7 +11,7 @@ import type { QueuedTrack } from "../player/track.ts";
 import { songTitle } from "./text/ko/labels.ts";
 import type { DiscordArt } from "./discord-art.ts";
 
-/** art: 걸 그림(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡 그림 주소 */
+/** art: 붙일 썸네일(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
 function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | null) {
   const t = infoText.nowPlaying();
   // 길이를 모르는 곡(라이브 아님)은 진행을 뺀다

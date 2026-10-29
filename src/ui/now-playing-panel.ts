@@ -5,7 +5,7 @@ import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
 import { labelOf } from "../rules/platforms.ts";
 
-/** 곡을 담은 결과를 알리는 매체(usecases/responders) */
+/** 곡을 추가한 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
@@ -14,7 +14,7 @@ const NO_RESPONDER: Responder = {
     // 알릴 곳이 없다
   },
   async dismissPlaceholder() {
-    // 치울 자리표시자가 없다
+    // 치울 플레이스홀더가 없다
   },
 };
 import * as playerEvents from "../player/events.ts";
@@ -39,7 +39,7 @@ const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(e
 // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 
-// 패널을 올리는 웹후크의 이름. 메시지는 봇 이름 · 아바타로 보내므로 이 이름은 채널 설정의 웹후크 목록에만 보인다
+// 패널을 올리는 웹훅의 이름. 메시지는 봇 이름 · 아바타로 보내므로 이 이름은 채널 설정의 웹훅 목록에만 보인다
 const WEBHOOK_NAME = "Now Playing";
 // 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
 const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
@@ -48,7 +48,7 @@ const isRestTimeout = (error: unknown) => error instanceof Error && error.name =
 const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message.channelId : message.channel_id);
 
 /**
- * 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을, 그림이 없는 곡은 음표 썸네일을 첨부한다.
+ * 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을, 앨범아트가 없는 곡은 음표 썸네일을 첨부한다.
  * attachments: [] 는 붙어 있던 첨부를 떼고 files 만 남긴다(고칠 때 첨부를 보내지 않으면 붙어 있던 것이 그대로 남는다)
  */
 type Payload = {
@@ -65,7 +65,7 @@ type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" |
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 삭제되므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
-/** 패널에 붙여 둔 썸네일이 음표(그림 없는 곡)라는 표시. 그 밖은 파일 태그 그림의 지문 */
+/** 패널에 붙여 둔 썸네일이 음표(앨범아트 없는 곡)라는 표시. 그 밖은 파일 태그 이미지의 fingerprint */
 const NO_ART = "no-art";
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
 import { LIFETIME, unlessGone } from "./delivery.ts";
@@ -104,7 +104,7 @@ const canSkip = (p: Controls) => canGoNext({ queue: p.queue.length, loop: p.loop
 // 대기열 화면은 다음 곡만 보인다. 다음 곡이 없으면 대기열 버튼을 끈다
 const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
-// 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행바의 경과 시간 위치에 있다(buildProgressBar). 여기서 또 내지 않는다.
+// 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행 막대의 경과 시간 자리에 있어(ui/progress-bar) 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
   // 억제 사유가 있으면 그것을, 사람만 멈췄으면 일시정지를. 억제 중에 사람이 멈춰 뒀으면(사유가 풀려도 멈춘 채) 그것도 붙인다
@@ -144,8 +144,8 @@ class NowPlayingPanel {
   location: PanelLocation;
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
-  editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
-  attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표 · 파일 태그 그림의 지문)
+  editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 연속 갱신 실패(네트워크)
+  attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표 · 파일 태그 이미지의 fingerprint)
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -188,7 +188,7 @@ class NowPlayingPanel {
     }
   }
 
-  /** 재생목록을 넣어 첫 곡이 시작된 뒤 남은 곡을 담았다고 알린다. 잠깐 보이고 삭제한다 */
+  /** 재생목록을 넣어 첫 곡이 시작된 뒤 남은 곡을 추가했다고 알린다. 잠깐 보이고 삭제한다 */
   async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
@@ -219,7 +219,7 @@ class NowPlayingPanel {
     player.nowPlayingWebhook = webhook;
     if (!reused) await this.location.commit(player.guild, channel, message, webhook);
 
-    // 진입점이 표시한 "검색 중…" 자리표시자 제거. 채널에 중복/정지 메시지를 남기지 않는다
+    // 진입점이 표시한 "검색 중…" 플레이스홀더 제거. 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
 
     player.nowPlayingMessage = message;
@@ -230,18 +230,17 @@ class NowPlayingPanel {
   }
 
   /**
-   * 현재 재생 메시지를 채널에 보냅니다. 참조 갱신은 호출자 몫.
+   * 현재 재생 메시지를 채널에 보낸다. 참조 갱신은 부르는 쪽 몫.
    *
-   * 지속되는 now-playing 메시지는 상호작용 유무와 무관하게 항상 채널 웹훅(실패 시 일반 채널 메시지)으로 보낸다.
-   * 상호작용 응답(@original)으로 보내면 이후 편집이 상호작용 토큰을 사용하는데, 이 토큰은 생성 15분 뒤 만료되어
-   * 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
-   * (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
+   * 상호작용이 있어도 늘 채널 웹훅(없으면 일반 채널 메시지)으로 보낸다. 상호작용 응답(@original)으로 보내면 이후 편집이
+   * 상호작용 토큰을 쓰는데, 토큰은 15분 뒤 만료되어 긴 세션의 진행 막대 · 곡 갱신이 50027(Invalid Webhook Token)로 실패한다.
+   * 웹훅 · 봇 토큰은 만료되지 않는다(메시지에 webhook_id 가 붙어 CV2 이모지 링크도 제대로 그려진다).
    */
   async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
     return this._sendPanel(channel, await this._playingPayload(player, track, true));
   }
 
-  // 기억해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 기억을 지우고 새로 만들어 한 번 더 보낸다
+  // 캐시해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 캐시에서 지우고 새로 만들어 한 번 더 보낸다
   async _sendPanel(channel: GuildTextBasedChannel, payload: Payload, retried = false): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
     const webhook = await this.getOrCreateWebhook(channel);
     if (!webhook) return { message: await channel.send(payload), webhook: null };
@@ -262,8 +261,8 @@ class NowPlayingPanel {
   }
 
   /**
-   * 재생 중 패널 내용. 첨부하는 썸네일(그림이 없는 곡의 음표 · 직접 링크 곡의 파일 태그 그림)은 바뀔 때만 올린다(5초 갱신마다 다시 올리지 않는다):
-   * 새로 올리는 패널(fresh) · 붙어 있는 것과 다르면 올리고, 주소로 거는 그림인 곡으로 바뀌면 뗀다
+   * 재생 중 패널 내용. 첨부하는 썸네일(앨범아트가 없는 곡의 음표 · 직접 링크 곡의 파일 태그 이미지)은 바뀔 때만 올린다(5초 갱신마다 다시 올리지 않는다):
+   * 새로 올리는 패널(fresh) · 붙어 있는 것과 다르면 올리고, 썸네일을 주소로 거는 곡으로 바뀌면 뗀다
    */
   async _playingPayload(player: Player, track: QueuedTrack, fresh = false): Promise<Payload> {
     const art = await discordArt.artFor(track);
@@ -307,7 +306,7 @@ class NowPlayingPanel {
     return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
-  /** 현재 재생 메시지를 삭제합니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
+  /** 현재 재생 메시지를 삭제한다. 이미 없거나 권한이 없으면 넘어간다 */
   async _removeNowPlaying(channel: GuildTextBasedChannel, webhook: WebhookClient | null, messageId: string | undefined) {
     if (!messageId) return;
     try {
@@ -319,10 +318,10 @@ class NowPlayingPanel {
   }
 
   /**
-   * 현재 재생 메시지를 채널 맨 아래에 다시 올립니다 (기존 것은 제거).
-   * 사용자가 삭제했을 때의 자가 복구와, 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 씁니다.
+   * 현재 재생 메시지를 채널 맨 아래에 다시 올린다(기존 것은 삭제).
+   * 사용자가 삭제했을 때의 자가 복구와 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 쓴다.
    *
-   * 서버당 한 번만. 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
+   * 서버당 한 번만 돈다. 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
    * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 삭제한다.
    */
   async _repostNowPlaying(player: Player, reason: string) {
@@ -360,7 +359,7 @@ class NowPlayingPanel {
   }
 
   /**
-   * 전용 채널에서 현재 재생 메시지가 다른 메시지 밑에 묻혔는지 봅니다.
+   * 전용 채널에서 현재 재생 메시지가 다른 메시지 밑에 묻혔는지 본다.
    *
    * 채널 캐시만 읽는다(추가 API 호출 없음). 삭제된 메시지는 캐시에서도 빠지므로
    * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
@@ -370,7 +369,7 @@ class NowPlayingPanel {
     return channel ? this._buriedAt(channel, player.nowPlayingMessage?.id, now) : false;
   }
 
-  // 채널 캐시만 읽는다. 12초 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
+  // 채널 캐시만 읽는다. PIN_SETTLE_MS(12초) 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
   _buriedAt(channel: GuildBasedChannel, messageId: string | undefined, now = Date.now()) {
     if (!messageId || !("messages" in channel) || !channel.messages?.cache) return false;
 
@@ -379,7 +378,7 @@ class NowPlayingPanel {
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
-  /** 재생 중 패널의 화면(Components V2). art: 걸 그림(ui/discord-art, 주지 않으면 여기서 묻는다) */
+  /** 재생 중 패널의 화면(Components V2). art: 붙일 썸네일(ui/discord-art, 주지 않으면 여기서 구한다) */
   async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false, art?: discordArt.DiscordArt | null) {
     const nowPlayingTitle = panelText.playingTitle();
 
@@ -396,8 +395,8 @@ class NowPlayingPanel {
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
 
-    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 그림이 없는 곡은 음표 썸네일(_playingPayload 가 첨부한다).
-    // 디스코드는 눌러서 크게 보여 주므로 큰 그림을 건다(곡 그림 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 그림)
+    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload 가 첨부한다).
+    // 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다(썸네일 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 이미지)
     const shown = art === undefined ? await discordArt.artFor(track) : art;
     const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(shown?.url ?? noArtThumbnail.url));
 
@@ -511,7 +510,7 @@ class NowPlayingPanel {
     const link = dashboardLink();
     if (link) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link}`));
 
-    // 붙어 있던 첨부(그림 없는 곡의 음표 썸네일)는 떼고 투명 썸네일만
+    // 붙어 있던 첨부(앨범아트 없는 곡의 음표 썸네일)는 떼고 투명 썸네일만
     return { components: [container], files: [blankThumbnail.file()], attachments: [] as [] };
   }
 
@@ -672,7 +671,7 @@ class NowPlayingPanel {
   async createControlButtons(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
     const id = (action: string) => panelId(action, player.sessionId);
 
-    // Row 1: 이전곡 + 일시정지 + 스킵 + 정지 + 볼륨
+    // 첫째 줄: 이전 곡 · 일시정지 · 건너뛰기 · 정지 · 볼륨
     const previousButton = new ButtonBuilder()
       .setCustomId(id("previous"))
       .setStyle(ButtonStyle.Secondary)
@@ -696,7 +695,7 @@ class NowPlayingPanel {
 
     const volumeButton = new ButtonBuilder().setCustomId(id("volume")).setStyle(ButtonStyle.Secondary).setEmoji(buttonEmoji("volume")).setDisabled(disabled);
 
-    // 둘째 줄: 섞기(아이콘만) · 반복 · 대기열 · 자동재생
+    // 둘째 줄: (하이라이트) · 섞기(아이콘만) · 반복 · 대기열 · 자동재생
     const shuffleButton = new ButtonBuilder().setCustomId(id("shuffle")).setStyle(ButtonStyle.Secondary).setEmoji(buttonEmoji("shuffle")).setDisabled(disabled);
 
     // 반복 버튼은 끔 → 한 곡 반복 → 대기열 반복 차례로 돈다
@@ -719,7 +718,7 @@ class NowPlayingPanel {
       .setEmoji(buttonEmoji(autoplayLook.icon))
       .setDisabled(disabled && !keepAutoplay);
 
-    // SponsorBlock 하이라이트 점프. 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽. 봇 전체에서 SponsorBlock 을 껐으면 버튼을 두지 않는다
+    // SponsorBlock 하이라이트로 건너뛰기. 지점이 없으면 끈다(건너뛰기 버튼과 같다). 섞기 왼쪽에 두고, 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다
     const highlightAt = player.sponsor?.highlightAt;
     const hasHighlight = highlightAt !== null && highlightAt !== undefined;
     const highlightButton = new ButtonBuilder()
@@ -736,7 +735,7 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 대기열이 비었거나 재생 라벨이 없으면 null
+   * 대기열이 비었거나 세션 id 가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;

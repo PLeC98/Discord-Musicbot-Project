@@ -87,7 +87,7 @@ function isSoundCloudURL(url: unknown): boolean {
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
-    // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 넘겨주기를 따라간다
+    // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 리다이렉트를 따라간다
     /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
     // 곡 · 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
     /^https?:\/\/api(-v2)?\.soundcloud\.com\/(tracks|playlists)\/\d+/,
@@ -124,7 +124,7 @@ function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other"
 // 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립 · 채널, 스포티파이 에피소드 · 짧은 링크)도 그 사이트의 페이지다
 const KNOWN_SITE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "spotify.com", "spotify.link", "soundcloud.com"];
 
-/** 알려진 사이트의 호스트인가. 직접 링크(파일 · 방송 주소)와 가른다 */
+/** 알려진 사이트의 호스트인가. 직접 링크(파일 · 방송 주소)와 구분한다 */
 function isKnownSiteHost(value: unknown): boolean {
   if (typeof value !== "string") return false;
   try {

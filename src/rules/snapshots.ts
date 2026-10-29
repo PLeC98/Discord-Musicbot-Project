@@ -2,7 +2,7 @@
 
 /** daily: 하루 한 번, before-import · before-restore · before-reset: 불러오기 · 복원 · 초기화로 바꾸기 전 */
 type SnapshotKind = "daily" | "before-import" | "before-restore" | "before-reset";
-/** 스냅샷 하나. at: 뜬 때(ms), bytes: 크기 */
+/** 스냅샷 하나. at: 만든 시각(ms), bytes: 크기(바이트) */
 type Snapshot = { name: string; kind: SnapshotKind; at: number; bytes: number };
 /** 백업 탭의 목록. staged: 다음 기동에 복원하려고 예약한 스냅샷(없으면 null) */
 type SnapshotsView = { rows: Snapshot[]; staged: string | null };

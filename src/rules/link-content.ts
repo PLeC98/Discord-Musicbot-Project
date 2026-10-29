@@ -3,7 +3,7 @@
 //   hls    HLS 재생목록(#EXTM3U 에 #EXT-X- 줄)
 //   list   단순 목록(PLS · 주소 줄만 있는 M3U). 첫 주소로 다시 판정한다
 //   page   웹 페이지. "알 수 없는 링크"로 거절한다
-//   other  그 밖(그림 · 문서 · 모르는 바이트). 거절한다
+//   other  그 밖(이미지 · 문서 · 모르는 바이트). 거절한다
 // 앞부분이 헤더보다 앞선다(거짓 Content-Type). application/octet-stream · text/plain 은 오디오 · 재생목록 둘 다 흔하다.
 // 형식 판별은 file-type 이 하고, 그것이 하지 않는 넷(#EXTM3U · [playlist] · 맨 앞 '<' · MPEG 프레임 둘 연속)만 여기서 본다
 

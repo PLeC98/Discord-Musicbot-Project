@@ -1,5 +1,5 @@
 // HLS 재생목록(RFC 8216) 해석. 보는 것은 목록 글과 그 주소뿐이다(통신 없음).
-// 상위 목록은 화질 · 음성 고르기를, 하위 목록은 세그먼트(주소 · 바이트 구간 · 초기화 세그먼트 · 키 · 순번)와 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
+// 상위 목록은 화질 · 음성 선택지를, 하위 목록은 세그먼트(주소 · 바이트 구간 · 초기화 세그먼트 · 키 · 순번)와 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
 
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };

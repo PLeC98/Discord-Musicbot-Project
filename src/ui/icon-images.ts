@@ -1,7 +1,7 @@
-// 디스코드 앱 이모지 그림 굽기. 아이콘 표(ui/icons)의 한 항목 + 바탕색 → 128 × 128 PNG(도는 것은 GIF).
+// 디스코드 앱 이모지 이미지 만들기. 아이콘 표(ui/icons)의 한 항목 + 바탕색 → 128 × 128 PNG(도는 것은 GIF).
 // 타일: 둥근 사각형(모서리 28%)에 바탕색의 톤 40, 기호는 톤 98(rules/icon-tones). 흰 기호: 타일 없이 흰색(색 버튼 위).
 // 머티리얼 기호는 글꼴 칸(960) 기준으로 모두 같은 배율이라 디자이너가 칸 안에서 맞춘 크기 보정이 살아 있다. 방패(SponsorBlock)는 자체 여백이 없어 경계 상자로 맞춘다.
-// 같은 입력이면 같은 바이트다(sharp · libvips 버전이 같을 때). 맞추기(app/app-emojis)가 디스코드에 올라간 것과 바이트로 견준다
+// 같은 입력이면 같은 바이트다(sharp · libvips 버전이 같을 때). 동기화(app/app-emojis)가 디스코드에 올라간 것과 바이트로 비교한다
 
 import fs from "fs";
 import path from "path";
@@ -15,7 +15,7 @@ import type { IconSpec, Tint } from "./icons.ts";
 
 const SIZE = 128;
 const RADIUS = SIZE * 0.28;
-/** 머티리얼 기호: 글꼴 칸이 이모지 칸에서 차지하는 비율(디스코드에서 견주어 정함) */
+/** 머티리얼 기호: 글꼴 칸이 이모지 칸에서 차지하는 비율(디스코드에서 비교해 정함) */
 const SCALE = 0.88;
 /** 방패: 보이는 모양의 긴 변이 이모지 칸에서 차지하는 비율(대시보드와 같은 기호 칸 대비 비율) */
 const SHIELD = SCALE * SHIELD_OF_GLYPH;
@@ -61,7 +61,7 @@ function svgOf(spec: IconSpec, tint: Tint, rotate = 0) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">${body}</svg>`;
 }
 
-/** 그 항목의 그림. 도는 것은 움직이는 GIF */
+/** 그 항목의 이미지. 도는 것은 움직이는 GIF */
 async function imageOf(spec: IconSpec, tint: Tint): Promise<{ data: Buffer; animated: boolean }> {
   if (spec.shape !== "spin")
     return {

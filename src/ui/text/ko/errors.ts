@@ -60,7 +60,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "too-few-to-move": () => warning("state", "순서를 바꿀 곡이 없어요!", "순서를 바꾸려면 대기열에 곡이 2곡 이상 있어야 해요."),
   // 건너뛰기 · 이전 곡 · 곡으로 건너뛰기가 곡을 바꾸지 못했다(지금 곡이 없을 때 난다)
   "switch-failed": () => warning("state", "작업에 실패했어요!", "곡을 전환하지 못했어요. 잠시 후 재시도해 보고, 계속되면 봇 운영자에게 알려주세요."),
-  // 곡을 담는 사이에 플레이어가 사라졌다(더 넣기 포함)
+  // 곡을 추가하는 사이에 플레이어가 사라졌다(더 넣기 포함)
   "ended-while-adding": () => warning("state", "그 사이에 재생이 끝나버렸어요!", "플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요."),
   "live-no-seek": () => warning("live", "라이브 방송은 이동을 할 수 없어요!", "라이브 방송은 실시간으로만 재생이 가능해요."),
   "live-no-loop": () => warning("live", "라이브 방송은 반복 모드를 지원하지 않아요!", "라이브 방송이 재생중이거나 대기열에 있을 때는 반복 모드를 설정할 수 없어요. 해당 곡을 빼고 시도해 주세요."),
@@ -94,7 +94,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 대상이나 핸들러가 없음
   // 실행 목록에 없는 명령(꺼진 기능이 디스코드에 아직 남아 있다)
   "unknown-command": () => warning("stale", "사용할 수 없는 명령어예요!", "비활성화되었거나 변경된 명령어예요. 디스코드를 다시 시작해도 보이면 봇 운영자에게 알려 주세요."),
-  // 버튼 · 메뉴를 받을 핸들러가 없다. 봇을 고치기 전에 올린 메시지의 것이 대개 이렇다(custom_id 모양이 바뀌었다). 꺼진 기능의 버튼 · 메뉴도 이렇다
+  // 버튼 · 메뉴를 받을 핸들러가 없다. 봇을 업데이트하기 전에 올린 메시지의 것이 대개 이렇다(custom_id 형식이 바뀌었다). 꺼진 기능의 버튼 · 메뉴도 이렇다
   "unknown-interaction": () => warning("stale", "만료되었거나 알 수 없는 버튼이에요.", "새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, 명령을 다시 실행하거나 패널을 새로 불러와서 사용해 주세요!"),
   "more-unknown-menu": () => warning("stale", "알 수 없는 메뉴예요."),
   // 곡 찾기가 찾은 것이 없다
@@ -253,14 +253,14 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
 
 /** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params, 모두 있어야 한다), look 은 그리는 쪽의 값 형식 */
 function notice<C extends Code>(code: C, ...[params, look = PLAIN]: NeedsParams<C> extends true ? [params: ParamsOf<C>, look?: Look] : [params?: ParamsOf<C>, look?: Look]): Notice {
-  // 코드마다 다른 값 타입을 한 표에서 고르므로 여기서만 넓힌다(위 시그니처가 맞춰 넘겼다)
+  // 코드마다 다른 값 타입을 한 테이블에서 꺼내므로 여기서만 넓힌다(위 시그니처가 맞춰 넘겼다)
   const text = TEXT[code] as (p: Params, look: Look) => Notice;
   return { code, ...text(params ?? {}, look) };
 }
 
 /**
- * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답 · 곡 담기 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
- * 빠진 이름은 missing 으로 넘긴다(봇은 남기고, 화면은 그대로 보인다)
+ * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답 · 곡 추가 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
+ * 빠진 이름은 missing 으로 넘긴다(봇은 로그에 남기고, 화면은 그대로 보인다)
  */
 function noticeFor(code: Code, params: Params = {}, look: Look = PLAIN, missing?: (names: string[]) => void): Notice {
   const names = ((PROBLEMS[code] as { params?: readonly (keyof Params)[] }).params ?? []).filter((name) => params[name] === undefined);

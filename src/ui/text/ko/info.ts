@@ -85,7 +85,7 @@ const ping = ({ botMark, botMs, apiMark, apiMs }: { botMark: string; botMs: numb
 /** 첫 응답. 그 응답이 닿은 시각으로 잰다 */
 const pinging = () => "핑 측정 중...";
 
-/** /license. repos 는 저작권 줄들(마크다운 링크) */
+/** /license. lines 는 저작권 줄들(마크다운 링크) */
 const license = (lines: string[]) => ({
   title: `${icon("license")} 라이선스 정보`,
   description: "이 봇은 오픈 소스 소프트웨어입니다.\n" + "네트워크를 통해 이 봇과 상호작용하는 모든 사용자는 " + "GNU AGPL-3.0에 따라 소스 코드를 받을 권리가 있습니다.",

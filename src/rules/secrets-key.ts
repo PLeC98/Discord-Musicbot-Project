@@ -8,7 +8,6 @@ const SECRETS_KEY_BYTES = 32;
 /** 운영자에게 알려 줄 만드는 명령. 출력을 .env 의 SECRETS_KEY= 뒤에 넣는다 */
 const SECRETS_KEY_COMMAND = `node -e "console.log(require('node:crypto').randomBytes(${SECRETS_KEY_BYTES}).toString('base64'))"`;
 
-/** 무작위 32바이트를 base64 로 */
 function newSecretsKey() {
   return crypto.randomBytes(SECRETS_KEY_BYTES).toString("base64");
 }

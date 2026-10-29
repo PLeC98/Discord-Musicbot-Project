@@ -2,7 +2,7 @@ import { escapeMarkdown } from "discord.js";
 import type { Look } from "./text/ko/errors.ts";
 import config from "../config/index.ts";
 
-// 트랙 제목·파일명은 외부에서 오는데 그대로 메시지에 실린다. 멘션과 마스크드 링크를 막는다.
+// 곡 제목·파일 이름은 외부에서 오는데 그대로 메시지에 실린다. 멘션과 마스크드 링크를 막는다.
 
 // 클라이언트 기본값. 멘션이 필요한 곳은 payload에서 users/roles를 명시해 덮어쓴다.
 const ALLOWED_MENTIONS = { parse: [], repliedUser: false };

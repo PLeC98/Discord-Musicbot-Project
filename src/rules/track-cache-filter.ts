@@ -7,7 +7,7 @@
 import type { Code } from "./problems.ts";
 import { koMatch } from "./ko-search.ts";
 
-/** 열 하나의 필터 식 · 아무 열에서나 필터 · 그 안의 정규식 길이 상한 */
+/** 글자 수 상한: 필터 식(열 하나 · 아무 열에서나) · 그 안의 정규식 */
 const FILTER_MAX = 200;
 const REGEX_MAX = 100;
 
@@ -127,7 +127,7 @@ function matchFilter(filter: Filter, value: string | number | null): boolean {
   return COMPARE[filter.op](Number(value), filter.value);
 }
 
-/** 아무 열에서나: 낱말마다 어느 열에든 들어간 행(대소문자 무시, 한국어는 조합 중인 글자 · 초성도). 빈 문자열은 null */
+/** 아무 열에서나: 단어마다 어느 열에든 들어간 행(대소문자 무시, 한국어는 조합 중인 글자 · 초성도). 빈 문자열은 null */
 function parseWords(input: string): Words | null {
   const text = input.trim();
   if (!text) return null;

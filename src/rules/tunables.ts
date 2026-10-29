@@ -1,4 +1,4 @@
-// 운영 조절값. 대시보드(운영자 패널의 일반 · 유튜브 · 연령 제한 · 디스플레이 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다.
+// 운영 조절값. 대시보드(운영자 패널의 일반 · 유튜브 · 연령 제한 · 디스플레이 · AI 보조 탭, GROUP_TAB)에서 고치고 settings.db 의 "tunables" 문서에 둔다.
 // 이름 · 값은 .env 값과 같은 모양(대문자 이름 · 글자 값)이다. 읽는 길(config 의 envReaders)이 하나라 검사 · 단위 바꾸기 · 다듬기가 .env 값과 같다.
 // 화면도 부르므로 Node 없는 모듈이다. 라벨 · 설명은 화면 문구표(dashboard/src/text/ko/tunables.ts)에 있다.
 //
@@ -13,7 +13,7 @@ type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
  * 필드의 형식. int: 정수(min · max), bool: true · false, text: 문자열, color: #RRGGBB, url: http · https 주소,
- * list: 쉼표로 나눈 이름들, cookies: file 또는 브라우저 이름
+ * list: 쉼표로 나눈 이름들, cookies: file 또는 브라우저 이름, categories: 쉼표로 이은 SponsorBlock 구간 id
  */
 type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies" | "categories";
 
@@ -58,7 +58,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "CACHE_MAX_TRACK_MINUTES", group: "cache", kind: "int", def: "60", min: 0, max: 10080 },
   { key: "CACHE_EVICT_TARGET_PERCENT", group: "cache", kind: "int", def: "90", min: 50, max: 99, advanced: true },
   { key: "CACHE_EVICT_INTERVAL_HOURS", group: "cache", kind: "int", def: "4", min: 1, max: 168, advanced: true },
-  // 캐시로 튼 곡의 원본을 다시 묻는 간격(일, 0 이면 묻지 않는다). 묻기의 값 · 바뀌었을 때 할 일이 출처마다 달라 따로
+  // 캐시로 튼 곡의 원본을 다시 확인하는 간격(일, 0 이면 확인하지 않는다). 확인할 값 · 바뀌었을 때 할 일이 출처마다 달라 따로
   { key: "CACHE_RECHECK_YOUTUBE_DAYS", group: "cache", kind: "int", def: "90", min: 0, max: 3650, advanced: true, box: "recheck" },
   { key: "CACHE_RECHECK_SOUNDCLOUD_DAYS", group: "cache", kind: "int", def: "30", min: 0, max: 3650, advanced: true, box: "recheck" },
   { key: "CACHE_RECHECK_DIRECT_DAYS", group: "cache", kind: "int", def: "14", min: 0, max: 3650, advanced: true, box: "recheck" },

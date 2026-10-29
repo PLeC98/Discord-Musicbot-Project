@@ -1,7 +1,4 @@
-// 대기열을 보여 주는 곳들이 같은 생김새를 쓰게 한다.
-//
-// `/queue`와 대기열 버튼은 거의 같은 임베드를 각자 만들고 있었다. 한쪽만 고치면 표시가 어긋나므로
-// 줄 만드는 일을 여기로 모은다. 점프 메뉴 설명도 같은 규칙(요청자 표기)을 따른다.
+// 대기열 줄 만들기. `/queue` · 대기열 버튼 · 점프 메뉴 설명이 같은 규칙(요청자 표기)을 쓰게 한 곳에 둔다.
 
 import { formatDuration } from "./format.ts";
 import { songTitle } from "./text/ko/labels.ts";
@@ -11,13 +8,11 @@ import type { QueuedTrack } from "../player/track.ts";
 // 요청자 표기에서 읽는 필드
 type Requested = Pick<QueuedTrack, "autoplay" | "requestedBy"> | null | undefined;
 
-// 자동재생이 미리 선택해 둔 곡 표시는 자동재생 아이콘. 장르별 이모지는 쓰지 않는다.
-// 알려야 하는 것은 "자동으로 들어온 곡"이지 장르가 아니고, 장르마다 다르면 전달이 흐려진다.
-
 // 라이브 곡의 길이 표기
 const LIVE_MARK = "🔴LIVE";
 
 // 임베드용. 멘션으로 적는다. 알림은 가지 않고, 이름 캐시가 없어도 항상 맞게 보인다.
+// 자동재생 곡은 장르 이모지가 아니라 자동재생 아이콘이다(알릴 것은 장르가 아니라 자동으로 들어온 곡이라는 것)
 function requesterLabel(track: Requested) {
   if (track?.autoplay) return icon("autoplay");
   const id = track?.requestedBy?.id;

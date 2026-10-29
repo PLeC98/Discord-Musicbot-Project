@@ -33,7 +33,7 @@ const onlyConsonants = (q: string) => /^[ㄱ-ㅎ]+$/.test(q);
 
 type Range = [number, number];
 
-/** 덜 된 글자가 걸친 글자까지의 끝(맞지 않으면 -1). from 부터 최대 세 글자를 자모로 견준다 */
+/** 덜 된 글자가 걸친 글자까지의 끝(맞지 않으면 -1). from 부터 최대 세 글자를 자모로 비교한다 */
 function tailEnd(t: string, from: number, last: string): number {
   for (let k = 1; k <= 3 && from + k <= t.length; k++) {
     if (jamo(t.slice(from, from + k)).startsWith(last)) return from + k;
@@ -41,7 +41,7 @@ function tailEnd(t: string, from: number, last: string): number {
   return -1;
 }
 
-// 마지막 글자만 덜 된 글자로 보고, 앞은 그대로 맞는 위치에서 뒤를 자모로 견준다. 덜 된 글자가 걸친 글자까지 맞은 자리다
+// 마지막 글자만 덜 된 글자로 보고, 앞은 그대로 맞는 위치에서 뒤를 자모로 비교한다. 덜 된 글자가 걸친 글자까지 맞은 자리다
 // (그대로 들어 있는 것도 여기서 걸린다: 마지막 글자의 자모는 자기 자신으로 시작한다)
 function tailMatches(t: string, q: string, all: boolean): Range[] {
   const out: Range[] = [];

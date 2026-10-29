@@ -1,4 +1,4 @@
-// 서버 설정 화면(/setting · /setchannel · /setplaylistlimit)과 그 결과. 응답 템플릿(ui/frame)로 그린다.
+// 서버 설정 화면(/setting · /setchannel · /setplaylistlimit)과 그 결과. 응답 템플릿(ui/frame)으로 그린다.
 // 서버 설정을 바꿔 저장한 결과는 완료 색, 설정 화면 · 취소 · 지금 값은 기본 색
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextDisplayBuilder } from "discord.js";
@@ -29,7 +29,7 @@ type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Op
 
 /**
  * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴) · SponsorBlock(켜기 버튼 · 구간 메뉴) · 연령 제한 콘텐츠(틀 곳 버튼 둘), 맨 아래 닫기.
- * 고르면 바로 저장하고 이 화면을 다시 그린다. 받는 쪽은 src/discord/interactions/settings-panel-handler
+ * 선택하면 바로 저장하고 이 화면을 다시 그린다. 받는 쪽은 src/discord/interactions/settings-panel-handler
  */
 function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
   const t = settingsText.panel;
@@ -50,7 +50,7 @@ function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
       .setLabel(t.sponsorToggle(sponsor.enabled))
       .setStyle(sponsor.enabled ? ButtonStyle.Secondary : ButtonStyle.Success);
     container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text(t.sponsor(sponsor.enabled))).setButtonAccessory(toggle));
-    // 끄면 구간은 고를 수 없다(고른 것은 남는다)
+    // 끄면 구간은 선택할 수 없다(선택한 것은 남는다)
     const categories = new StringSelectMenuBuilder().setCustomId("setting:sb-cats").setPlaceholder(t.sponsorPlaceholder).setMinValues(0).setMaxValues(sponsor.options.length).addOptions(sponsor.options).setDisabled(!sponsor.enabled);
     container.addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(categories));
   }
@@ -58,7 +58,7 @@ function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
   if (agePlace) {
     divide();
     container.addTextDisplayComponents(text(t.age()));
-    // 고른 쪽이 색 버튼
+    // 선택한 쪽이 색 버튼
     const pick = (place: AgePlace, label: string) =>
       new ButtonBuilder()
         .setCustomId(`setting:age-${place}`)

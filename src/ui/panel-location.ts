@@ -12,8 +12,7 @@ import type { PanelHook as Hook } from "../player/player.ts";
 
 const { UnknownChannel: UNKNOWN_CHANNEL, UnknownMessage: UNKNOWN_MESSAGE, UnknownWebhook: UNKNOWN_WEBHOOK } = RESTJSONErrorCodes;
 
-/** 웹훅을 다시 찾는 쪽(NowPlayingPanel) */
-/** 채널의 웹훅. deleteWebhookCache 는 디스코드에서 삭제된 웹훅의 기억을 지운다 */
+/** 채널의 웹훅을 찾는 쪽(NowPlayingPanel). deleteWebhookCache 는 디스코드에서 삭제된 웹훅을 캐시에서 지운다 */
 type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
 /** 기록 저장소. 테스트는 가짜를 준다 */
 type Store = Pick<typeof panelRecords, "getPanel" | "setPanel">;
@@ -66,7 +65,7 @@ class PanelLocation {
         return { channel, webhook, messageId: record.messageId };
       } catch (error) {
         if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 삭제됐다. 다음 게시가 새로 올린다
-        // 웹훅이 삭제됐다. 기억을 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 삭제한다)
+        // 웹훅이 삭제됐다. 캐시에서 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 삭제한다)
         if (codeOf(error) === UNKNOWN_WEBHOOK) this.embeds.deleteWebhookCache(channel.id);
         else if (codeOf(error) !== UNKNOWN_MESSAGE) log.warn(`기록된 재생 패널 갱신 실패 (${guild.id}): ${describeError(error)}`);
         return null;

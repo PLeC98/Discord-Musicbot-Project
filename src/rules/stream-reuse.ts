@@ -1,5 +1,5 @@
-// 받아 둔 유튜브 스트림 주소를 다시 써도 되나. 주소가 알려 준 만료 시각(expire=)이 남은 곡을 다 받고도 여유가 있을 때만.
-// 같은 곡을 다시 열 때의 직전 주소(player/start-playback)와 받아 둔 영상 정보(sources/youtube/recent-info)가 같이 쓴다
+// 캐시해 둔 유튜브 스트림 주소를 다시 써도 되나. 주소가 알려 준 만료 시각(expire=)이 남은 곡을 다 받고도 여유가 있을 때만.
+// 같은 곡을 다시 열 때의 직전 주소(player/start-playback)와 캐시된 영상 정보(sources/youtube/recent-info)가 같이 쓴다
 
 /** 남은 곡을 다 받고도 만료까지 이만큼은 남아야 한다 */
 const REUSE_MARGIN_MS = 60_000;

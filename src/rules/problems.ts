@@ -38,7 +38,7 @@ const SHARED = {
   "live-no-seek": { status: 409, title: "Cannot seek a live stream" },
   "live-no-loop": { status: 409, title: "Cannot loop with a live stream" },
   "live-upcoming": { status: 409, title: "Live stream has not started" },
-  // 라이브로 담은 방송(직접 링크 HLS)이 끝났다. 다시보기를 처음부터 틀지 않는다
+  // 라이브로 추가한 방송(직접 링크 HLS)이 끝났다. 다시보기를 처음부터 틀지 않는다
   "live-ended": { status: 409, title: "Live stream has ended" },
   // 직접 지정한 음원이 라이브다(지정할 수 없다). 그 재생은 지정을 건너뛰고 다시 찾고, 찾지 못했을 때만 보인다
   "pinned-live": { status: 409, title: "Pinned source is a live stream" },
@@ -203,7 +203,7 @@ const WEB = {
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
-  // 가져온 파일이 쓸 수 있는 그림 · 영상이 아니다(형식 · 해상도 · 길이 · 초당 장면 수)
+  // 가져온 파일이 쓸 수 있는 이미지 · 영상이 아니다(형식 · 해상도 · 길이 · 초당 장면 수)
   "background-bad-source": { status: 422, title: "Not a usable image or video" },
   // 링크에서 다운로드하지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
@@ -235,8 +235,7 @@ const WEB = {
 const PROBLEMS = { ...SHARED, ...WEB };
 
 type Code = keyof typeof PROBLEMS;
-/** 그 코드의 문장에 드는 값의 이름(목록의 params) */
-// 코드마다 따로 본다(여러 코드의 유니온이면 그중 하나라도 드는 이름 모두)
+/** 그 코드의 문장에 드는 값의 이름(목록의 params). 코드마다 따로 본다(여러 코드의 유니온이면 그중 하나라도 드는 이름 모두) */
 type ParamNames<C extends Code> = C extends Code ? ((typeof PROBLEMS)[C] extends { params: readonly (infer P extends Param)[] } ? P : never) : never;
 /** 그 코드의 문장에 드는 값. 목록에 적은 이름은 모두 있어야 한다 */
 type ParamsOf<C extends Code> = { [K in ParamNames<C>]: Exclude<Params[K], undefined> };
@@ -244,7 +243,7 @@ type ParamsOf<C extends Code> = { [K in ParamNames<C>]: Exclude<Params[K], undef
 type NeedsParams<C extends Code> = [ParamNames<C>] extends [never] ? false : true;
 /** 문제 하나: 코드와 그 코드의 문장에 드는 값 */
 type Problem = { [C in Code]: { code: C } & ParamsOf<C> }[Code];
-/** 실행 중에 코드가 정해져 값을 아직 견주지 않은 문제(대시보드 응답 · 곡 담기 결과). 그리기 전에 errors.noticeFor 가 견준다 */
+/** 실행 중에 코드가 정해져 값을 아직 검사하지 않은 문제(대시보드 응답 · 곡 추가 결과). 그리기 전에 errors.noticeFor 가 검사한다 */
 type LooseProblem = { code: Code } & Params;
 
 /** 목록에 있는 코드인가 */

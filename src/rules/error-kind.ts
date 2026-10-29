@@ -61,7 +61,7 @@ function errorKind(error: unknown): Code {
     const coded = kindOf(one as object);
     if (coded) return coded;
   }
-  // AbortSignal.timeout 이 끊은 요청. (음성 연결의 기다림이 끝난 것은 AbortError 라 여기 들지 않는다)
+  // AbortSignal.timeout 이 끊은 요청(음성 연결 대기가 끝난 것은 AbortError 라 여기 들지 않는다)
   if (chain.some((one) => "name" in (one as object) && (one as { name?: unknown }).name === "TimeoutError")) return "network-error";
   return "unknown-error";
 }
