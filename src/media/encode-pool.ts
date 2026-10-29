@@ -35,8 +35,8 @@ const ACTIVE_MS = 1000;
 const CALM_TICKS = 180;
 const DEPTH_CHANGES_PER_MIN = 4;
 // 지연 경고: 최근 SLOW_WINDOW 틱의 지연 프레임이 활성 스트림마다 SLOW_FRAMES 개(100ms) 넘으면 warn, SLOW_CALM_TICKS 틱 내리 없으면 해소.
-// 큐 깊이 · 응답 시간이 아니라 지연 프레임(소리가 빈 프레임)으로 본다: CPU 를 빼앗기면 응답 시간이 들쭉날쭉해 응답 시간으로는 끊기는 동안에도 해소됐다고 보았다
-// 지연은 띄엄띄엄 한 틱에 몰려 온다(CPU 를 빼앗긴 2코어에서 스트림마다 0.6 ~ 5초씩, 20 ~ 60초 간격). 몇 틱에 났는지가 아니라 양으로 보고, 해소는 그 간격보다 길게 기다린다
+// 큐 깊이 · 응답 시간이 아니라 지연 프레임(소리가 빈 프레임)으로 본다: CPU 를 빼앗기면 응답 시간이 들쭉날쭉해 끊기는 동안에도 해소로 보인다
+// 지연은 띄엄띄엄 한 틱에 몰려 온다. 몇 틱에 났는지가 아니라 양으로 보고, 해소는 몰려 오는 간격보다 길게 기다린다
 const SLOW_FRAMES = 5;
 const SLOW_WINDOW = 5;
 const SLOW_CALM_TICKS = 30;
@@ -100,7 +100,7 @@ class Session implements EncodeSession {
   readonly deaths: number[] = [];
   // 옮겨 갈 워커. 옛 워커에 보낸 프레임의 답을 다 받을 때까지 새 프레임은 들고 있는다
   moveTo: Entry | null = null;
-  // 아직 보내지 않았으면 곧 보낼 세션으로 센다(스트림은 첫 프레임까지 1초를 넘기기도 해, 몰려 열면 한 워커에 쏠렸다)
+  // 아직 보내지 않았으면 곧 보낼 세션으로 센다(스트림은 첫 프레임까지 1초를 넘기기도 해, 빼면 몰려 연 스트림이 한 워커에 쏠린다)
   lastSend = Infinity;
   freed = false;
   #seq = 0;
@@ -749,7 +749,7 @@ class EncodePool {
   }
 
   // 워커를 하나 늘리면 이 워커의 활성 세션이 새 워커로 옮겨 가는가(#rebalance 와 같은 몫). 옮길 것이 없으면 늘려도 이 워커는 그대로 늦다
-  // (스트림 하나가 늦을 때 늘리기만 거듭해 상한까지 늘었다)
+  // (이 확인이 없으면 스트림 하나가 늦을 때 늘리기만 거듭해 상한까지 간다)
   #wouldShed(entry: Entry) {
     const share = Math.floor(this.#activeStreams() / (this.#workers.length + 1));
     return share >= 1 && this.#activeOf(entry) > share;

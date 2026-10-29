@@ -1,4 +1,4 @@
-// 트랙의 모양. 곡은 흐르면서 필드가 늘어나므로 단계마다 타입을 둔다. 값은 없고 타입만 있다.
+// 곡의 타입. 곡은 흐르면서 필드가 늘어나므로 단계마다 타입을 둔다. 값은 없고 타입만 있다.
 //
 // 링크 필드 셋은 하는 일이 다르다.
 //   pageUrl     사람에게 보여 줄 링크. 누르면 가는 곳. 비우지 않는다
@@ -31,16 +31,16 @@ type TrackInfo = {
   requestKey: string;
   audioUrl?: string;
   audioFoundBy?: AudioFoundBy;
-  /** 담을 때의 답. 틀 때의 답은 CurrentPlayback 에 있다(플레이어의 isLive 가 둘을 선택한다) */
+  /** 추가할 때의 답. 틀 때의 답은 CurrentPlayback 에 있다(플레이어의 isLive 가 둘을 선택한다) */
   isLive?: boolean;
-  /** 담을 때의 답 */
+  /** 추가할 때의 답 */
   liveStatus?: string | null;
 };
 
 /** 요청한 사람. 진입점이 접은 표준형(usecases/add-tracks 의 toRequester)이거나 디스코드 사용자. 복원한 곡은 id 뿐이다 */
 type Requester = { id: string | null; username?: string | null; displayName?: string; tag?: string | null };
 
-/** 대기열에 담은 것. */
+/** 대기열에 추가된 곡. */
 type QueuedTrack = TrackInfo & {
   /** 대기열 ID. track-state 가 들어올 때 찍는 열거되지 않는 필드(복사본에는 따라가지 않는다) */
   readonly entry?: number;

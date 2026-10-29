@@ -16,7 +16,7 @@ const HEARTBEAT_MS = 5000;
 // 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(볼륨을 연달아 바꾸는 따위)
 const SETTINGS_SETTLE_MS = 200;
 
-// 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 트랙이 DB에서 삭제된다.
+// 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 곡이 DB에서 삭제된다.
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
@@ -66,7 +66,7 @@ class SessionPersistence {
     this.lastRow = null;
   }
 
-  // ── 트랙 미러 (trackState가 부른다) ──
+  // ── 곡 미러 (trackState가 부른다) ──
 
   _mirror(write: (store: PlayerSessionStore, guildId: string) => boolean | void) {
     const guildId = this.player.guild?.id;
@@ -238,7 +238,7 @@ class SessionPersistence {
   reviveTrack(data: RestoredTrack | null): QueuedTrack | null {
     if (!data) return null;
     const { requesterId, id, title, duration, platform, artist, album, entry, ...rest } = data;
-    // 행은 빈 열을 null 로 준다. 트랙의 모양으로 맞춘다(없는 필드는 비우고, 꼭 있어야 하는 필드는 빈 값)
+    // 행은 빈 열을 null 로 준다. 곡의 타입에 맞춘다(없는 필드는 비우고, 꼭 있어야 하는 필드는 빈 값)
     const track: QueuedTrack = { ...rest, id: id ?? undefined, title: title ?? "", duration: duration ?? 0, platform: platform ?? "", artist: artist ?? undefined, album: album ?? undefined };
     // 요청자는 권한 판정과 멘션에 id만 쓰인다
     if (requesterId) track.requestedBy = { id: requesterId };
@@ -288,7 +288,7 @@ class SessionPersistence {
     return "restored";
   }
 
-  // 저장된 트랙을 메모리에 올린다
+  // 저장된 곡을 메모리에 올린다
   _restoreTracks(record: RestoredSession, guildId: string) {
     const player = this.player;
     // 미리 선택해 둔 자동재생 곡은 복원하지 않는다. 사용자가 선택한 곡만 세션에 남는 것이 자연스럽고,
@@ -333,7 +333,7 @@ class SessionPersistence {
     const player = this.player;
     if (player.textChannel) {
       try {
-        // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
+        // 재생 패널을 새로 올린다(진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복원에는 진입점 자리표시자가 없다.
         await playerEvents.started(player);
       } catch (error) {
         log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
@@ -350,7 +350,7 @@ class SessionPersistence {
   }
 }
 
-// 이어 틀 위치. 끝나기 직전이었으면 처음부터
+// 이어 틀 위치. 끝나기 2초 전 안쪽이었으면 처음부터
 function resumeAt(track: QueuedTrack | null, positionMs: number | null | undefined) {
   // 라이브에 저장된 위치는 의미가 없다. 어차피 지금 시점(라이브 엣지)으로만 붙는다.
   if (track?.isLive) return 0;

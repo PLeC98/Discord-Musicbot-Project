@@ -171,7 +171,7 @@ class OpusOutput extends Duplex {
     }
   }
 
-  // 끝에 남은 20ms 미만은 버린다. 뒤에 voice 의 무음 다섯이 이어진다
+  // 끝에 남은 20ms 미만은 버린다. 뒤에 voice 의 무음 프레임 5개가 이어진다
   #end() {
     if (!this.#finish || this.#pending || this.#frames.length || this.#inflight || this.#ready.length) return;
     const done = this.#finish;

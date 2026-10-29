@@ -13,7 +13,7 @@ import { sessions } from "../store/player-sessions.ts";
 
 const log = logger.child({ category: "voice" });
 
-// 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
+// 플레이어는 부르는 쪽이 준 생성자로 만든다(player.ts 를 불러오지 않게)
 type PlayerClass = typeof Player;
 
 /** touched: 이번 기동에 세션 복원이 손댄 서버(복원했거나 못 해서 세션을 삭제하고 나갔다). 건드리지 않는다 */

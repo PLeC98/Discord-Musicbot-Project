@@ -57,7 +57,7 @@ function enqueue(player: Queue, tracks: QueuedTrack[], { front = false }: { fron
   sinkOf(player)?.onEnqueue(tracks, front);
 }
 
-// 사용자가 넣은 곡은 자동재생이 미리 선택해 둔 곡보다 앞에 선다.
+// 사용자가 추가한 곡은 자동재생이 미리 선택해 둔 곡보다 앞에 선다.
 // 미리 선택이 켜지면 대기열이 비어 있지 않은 것이 기본이라, 그냥 뒤에 붙이면 사용자 곡이 뒤로 밀린다.
 function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   if (tracks.length === 0) return;
@@ -68,7 +68,7 @@ function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   sinkOf(player)?.onReplace();
 }
 
-// 자동재생이 미리 선택해 둔 곡만 제거한다. 사용자가 넣은 곡은 그대로 둔다. 반환: 제거한 수
+// 자동재생이 미리 선택해 둔 곡만 제거한다. 사용자가 추가한 곡은 그대로 둔다. 반환: 제거한 수
 function dropAutoplay(player: Queue) {
   const before = player.queue.length;
   player.queue = player.queue.filter((t) => !t?.autoplay);
@@ -94,7 +94,7 @@ function shiftNext(player: Pick<Tracks, "currentTrack" | "queue" | "trackSink">)
   return player.currentTrack;
 }
 
-// 끝난 곡을 기록에 남기고 큐 반복이면 대기열 끝으로. 현재곡은 비우지 않는다. 다음 곡이 덮는다.
+// 끝난 곡을 기록에 남기고 대기열 반복이면 대기열 끝으로. 현재곡은 비우지 않는다. 다음 곡이 덮는다.
 function retire(player: Pick<Tracks, "previousTracks" | "queue" | "trackSink">, track: QueuedTrack, { requeue = false }: { requeue?: boolean } = {}) {
   player.previousTracks.push(track);
   if (player.previousTracks.length > HISTORY_MAX) player.previousTracks.shift();
@@ -141,12 +141,12 @@ function rewindRing(player: Tracks) {
   return prev;
 }
 
-/** 이전 곡이 지금 곡을 처음부터 트는가. 한곡 반복, 또는 대기열 반복인데 대기열이 비었다(고리에 지금 곡뿐) */
+/** 이전 곡이 지금 곡을 처음부터 트는가. 한 곡 반복, 또는 대기열 반복인데 대기열이 비었다(고리에 지금 곡뿐) */
 function restartsOnPrevious(player: Pick<Tracks, "loop" | "queue">) {
   return player.loop === "track" || (player.loop === "queue" && player.queue.length === 0);
 }
 
-/** 이전 곡을 누르면 틀 곡. 바꾸지 않고 본다(player.previous 와 같은 고르기: 처음부터 · rewindRing · rewind) */
+/** 이전 곡을 누르면 틀 곡. 바꾸지 않고 본다(player.previous 와 같은 선택: 처음부터 · rewindRing · rewind) */
 function previousOf(player: Tracks) {
   if (!player.currentTrack) return null;
   if (restartsOnPrevious(player)) return player.currentTrack;

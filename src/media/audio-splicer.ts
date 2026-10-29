@@ -29,8 +29,8 @@ class AudioSplicer extends Readable {
   _failFrom: (err: Error) => void;
 
   /**
-   * @param {Readable} source  최초 소스 (ffmpeg stdout)
-   * @param {number}   fadeMs  크로스페이드 길이
+   * @param {Readable} source  처음 소스 (ffmpeg stdout)
+   * @param {number}   fadeMs  크로스페이드 길이(ms). 한 프레임(20ms)보다 짧으면 20ms
    */
   constructor(source: Readable, { fadeMs = 40 }: { fadeMs?: number } = {}) {
     super({ highWaterMark: 64 * 1024 });
@@ -226,7 +226,7 @@ class AudioSplicer extends Readable {
     const old = this.a;
     this.a = next;
     // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
-    // 트랙 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
+    // 곡 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
     // 버린 소스의 오류는 이제 이 재생과 무관하다. 그런데 핸들러를 그냥 떼면 듣는 사람이
     // 없어져 uncaughtException이 되므로, 떼는 게 아니라 흡수기로 교체한다.
     // 교체하지 않으면 이 파괴가 방금 성공한 전환을 도로 죽인다.
@@ -246,7 +246,7 @@ class AudioSplicer extends Readable {
     if (this.waiting === s) return;
     this.waiting = s;
     // 둘 중 하나가 깨우면 나머지도 반드시 뗀다. 안 그러면 굶었다 깨어날 때마다 리스너가
-    // 하나씩 쌓여 MaxListenersExceededWarning이 나고, 긴 트랙에서 계속 누적된다.
+    // 하나씩 쌓여 MaxListenersExceededWarning이 나고, 긴 곡에서 계속 누적된다.
     const again = () => {
       s.off("readable", again);
       s.off("end", again);

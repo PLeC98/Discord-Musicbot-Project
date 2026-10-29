@@ -19,7 +19,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * 흘릴 세그먼트들. 세그먼트가 무엇인지(F)는 출처만 안다.
- * next 는 차례대로 부른다고 보지 않는다(미리 받기가 앞 세그먼트를 받는 중에 부른다). 출처가 순서를 지킨다
+ * next 는 순서대로 부른다고 보지 않는다(미리 받기가 앞 세그먼트를 받는 중에 부른다). 출처가 순서를 지킨다
  */
 type FragmentSource<F> = {
   /** 다음 세그먼트. 끝이면 null(끝난 뒤에도 null). 라이브는 목록에 새 세그먼트가 나올 때까지 기다린다 */
@@ -68,7 +68,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
     }
   }
 
-  // 다음 세그먼트를 골라 받는다. 끝이면 null
+  // 다음 세그먼트를 정해 받는다. 끝이면 null
   async function take(): Promise<Buffer | null> {
     const fragment = await source.next();
     return fragment === null ? null : fetchOne(fragment);
@@ -80,7 +80,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
       const current = ahead ?? take();
       ahead = take();
       ahead.catch(() => {
-        /* 미리 받는 세그먼트의 실패는 그 세그먼트를 흘릴 차례에 받는다 */
+        /* 미리 받는 세그먼트의 실패는 그 세그먼트를 흘릴 때 받는다 */
       });
       current.then(
         (chunk) => {

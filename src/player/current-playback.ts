@@ -12,7 +12,7 @@ import type { StreamInfo } from "../sources/stream-url.ts";
 import type { InputHealth } from "../media/input-health.ts";
 import type { OpusOutput } from "../media/opus-output.ts";
 
-/** 같은 곡 안에서 위치를 옮길 때 다시 쓸 스트림 주소(startPlayback 이 남긴다) */
+/** 같은 곡 안에서 위치를 옮길 때 다시 쓸 스트림 주소(start-playback 의 commitPlaying 이 남긴다) */
 type Resume = { trackKey: string | null; url: string | null; info: Partial<StreamInfo> };
 
 class CurrentPlayback {

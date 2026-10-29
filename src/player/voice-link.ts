@@ -437,7 +437,7 @@ class VoiceLink {
   }
 
   // 채널에 들어왔다(부름 · 옮겨짐 · 재연결). 스테이지에 청중으로 들어왔으면 발언자가 되려 한다. 들어올 때만: 모더레이터가 청중으로 내린 것은 따른다.
-  // 음성 서버 연결이 붙기 전에 발언자가 되면 소리를 보내도 들리지 않는다(사용자 실재생). 그때는 붙은 뒤(_settled)에 한다
+  // 음성 서버 연결이 붙기 전에 발언자가 되면 소리를 보내도 들리지 않는다. 그때는 붙은 뒤(_settled)에 한다
   _entered(now: Pick<VoiceState, "channelId" | "suppress" | "channel">) {
     if (this.stageTaken !== now.channelId) this.stageTaken = null;
     if (now.suppress && now.channel && this._linked()) this._enterStage(now.channel);
@@ -635,7 +635,7 @@ class VoiceLink {
     }
   }
 
-  /** 연결을 부수고 채널에서 나간다. 무음으로 나가면 왜 나갔는지 사후에 알 수 없으므로 원인을 남긴다 */
+  /** 연결을 부수고 채널에서 나간다. 로그 없이 나가면 왜 나갔는지 나중에 알 수 없으므로 원인을 남긴다 */
   disconnect(reason = "정리") {
     this.stop();
     this.state = "closed";

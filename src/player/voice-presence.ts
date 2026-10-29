@@ -8,9 +8,8 @@ import type { PlayerSeats } from "./registry.ts";
 async function onVoiceStateUpdate(client: Client, players: Pick<PlayerSeats, "get">, oldState: VoiceState, newState: VoiceState) {
   const guild = oldState.guild;
 
-  // 채널 이동은 대시보드의 "봇 부르기 / 곡 추가 / 재생 조작" 노출 조건을 바꾼다.
-  // 이 알림이 없으면 재생 중일 때만 우연히 갱신된다. 아래 임베드 갱신 훅에 묻어가기 때문에.
-  // 마이크 음소거·화면 공유 등도 같은 이벤트로 오지만 노출 조건과 무관하므로 채널이 바뀔 때만.
+  // 채널 이동은 대시보드의 버튼 노출 조건을 바꾸므로 알린다(재생 중이 아니면 따로 갱신할 계기가 없다).
+  // 마이크 음소거 · 화면 공유도 같은 이벤트로 오지만 노출 조건과 무관하므로 채널이 바뀔 때만.
   if (oldState.channelId !== newState.channelId) playerEvents.touched(guild.id);
 
   const player = players.get(guild.id);
@@ -27,7 +26,7 @@ async function onVoiceStateUpdate(client: Client, players: Pick<PlayerSeats, "ge
   }
   // 억제 사유(음소거 · 스테이지 · 혼자)를 지금 상태로. 패널 갱신 · 혼자 남음 타이머는 바뀐 만큼 거기서 따라온다
   player.syncHolds({ moved });
-  // 옮겨짐은 채널 이름 등 보이는 것이 바뀐다(멈춤 갱신과 같은 차례면 한 번으로 묶인다)
+  // 옮겨짐은 채널 이름 등 보이는 것이 바뀐다(멈춤 갱신과 같은 동기 흐름이면 한 번으로 묶인다)
   if (moved) await playerEvents.refresh(player);
 }
 

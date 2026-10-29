@@ -1,7 +1,7 @@
 /**
  * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려준다.
  * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 지연 · 멈춤을 잰다.
- * 답은 한 차례(이벤트 루프 한 바퀴)에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 배치가 커져 메인의 메시지 비용이 준다.
+ * 답은 이벤트 루프 한 바퀴에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 배치가 커져 메인의 메시지 비용이 준다.
  * media/opus-encoder 와 Node 내장만 부른다. logger 를 부르면 이 스레드에 파일 출력이 없는 sink 가 따로 생긴다(로그는 메인이 남긴다).
  *
  * 받는 것(parentPort): init · open · frame · close. 주는 것(init 때 받은 포트): ready · replies · load
@@ -26,7 +26,7 @@ const FRAME_BYTES = 3840;
 const LOAD_EVERY_MS = 1000;
 
 type Frame = Extract<ToWorker, { type: "frame" }>;
-// 인코더를 만드는 동안 온 프레임은 줄 세워 두고, 만든 뒤 차례대로 처리한다(답의 순서가 보낸 순서와 같게)
+// 인코더를 만드는 동안 온 프레임은 모아 두고, 만든 뒤 순서대로 처리한다(답의 순서가 보낸 순서와 같게)
 type Stream = { encoder: OpusEncoder | null; waiting: Frame[]; closed: boolean; failed: string | null };
 
 const streams = new Map<number, Stream>();

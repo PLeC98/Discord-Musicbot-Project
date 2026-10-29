@@ -41,12 +41,13 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
   return { guild: null, gone: false };
 }
 
-// 기동 시 저장된 재생 세션을 모두 복원한다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
+// 플레이어는 부르는 쪽이 준 생성자로 만든다(player.ts 를 불러오지 않게)
 type PlayerClass = typeof Player;
 /** 서버마다의 플레이어. 복원한 플레이어를 여기에 올린다(복원하는 동안 들어온 명령이 같은 플레이어를 보게 먼저 올린다) */
 type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
+ * 기동 시 저장된 재생 세션을 모두 복원한다.
  * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
  * 돌려주는 것: 저장된 세션이 있던 서버 ID(복원했든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */

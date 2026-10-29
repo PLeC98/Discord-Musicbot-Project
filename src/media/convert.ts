@@ -11,7 +11,7 @@ const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type CodecPlan, type ConvertPlan } from "../rules/convert-plan.ts";
 
 type Converted = ConvertPlan & { durationSec: number | null };
-/** 캐시 파일에 적을 것: 받은 파일의 태그 중 우리가 쓰는 것과 다시 구운 그림 */
+/** 캐시 파일에 적을 것: 받은 파일의 태그 중 우리가 쓰는 것과 다시 인코딩한 앨범아트 */
 type CacheTags = { tags?: Partial<TagInfo> | null; cover?: Cover | null };
 
 /**
@@ -23,22 +23,22 @@ const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;
 
 /**
  * 정해진 계획을 ffmpeg 인자로. 출력은 언제나 `.opus`(ogg/opus). 캐시 파일명이 그 전제다.
- * 받은 파일의 태그는 버리고(-map_metadata -1) tags(제목 · 가수 · 앨범)만 적는다. pictureFile 이 있으면 그 ffmetadata 파일의 그림 태그를 오디오 스트림에 붙인다.
- * ffmpeg 는 Ogg 에 그림 스트림을 쓰지 못해(Unsupported codec id) 그림은 태그(METADATA_BLOCK_PICTURE)로만 들어간다
+ * 받은 파일의 태그는 버리고(-map_metadata -1) tags(제목 · 가수 · 앨범)만 적는다. pictureFile 이 있으면 그 ffmetadata 파일의 앨범아트 태그를 오디오 스트림에 붙인다.
+ * ffmpeg 는 Ogg 에 이미지 스트림을 쓰지 못해(Unsupported codec id) 앨범아트는 태그(METADATA_BLOCK_PICTURE)로만 들어간다
  */
 function argsFor(plan: CodecPlan, srcFile: string, outFile: string, { tags, pictureFile }: { tags?: Partial<TagInfo> | null; pictureFile?: string | null } = {}): string[] {
   const codec = plan.action === "copy" ? ["-c:a", "copy"] : ["-c:a", "libopus", "-b:a", `${plan.bitrateKbps}k`];
   const picture = pictureFile ? [...inputFilter(["ffmetadata"], "file"), "-f", "ffmetadata", "-i", pictureFile] : [];
   const pictureMeta = pictureFile ? ["-map_metadata:s:a:0", "1:s:0"] : [];
   const written = (["title", "artist", "album"] as const).flatMap((name) => (tags?.[name] ? ["-metadata:s:a:0", `${name}=${tags[name]}`] : []));
-  // `-vn` 은 두 경우 모두 붙인다. 앨범아트가 붙은 파일을 리먹싱하면 그림 스트림까지 따라 들어온다.
+  // `-vn` 은 두 경우 모두 붙인다. 앨범아트가 붙은 파일을 리먹싱하면 이미지 스트림까지 따라 들어온다.
   return ["-hide_banner", "-loglevel", "error", ...inputFilter(AUDIO_FORMATS, "file"), "-i", srcFile, ...picture, "-vn", "-map_metadata", "-1", ...pictureMeta, ...written, ...codec, "-f", "opus", "-y", outFile];
 }
 
 /** ffmetadata 의 값 이스케이프(= ; # \ 줄바꿈) */
 const escapeMeta = (value: string) => value.replace(/[=;#\\\n]/g, (c) => `\\${c}`);
 
-/** 그림 태그 하나를 든 ffmetadata 파일의 내용 */
+/** 앨범아트 태그 하나를 든 ffmetadata 파일의 내용 */
 const pictureMetadata = (cover: Cover) => `;FFMETADATA1\n[STREAM]\nMETADATA_BLOCK_PICTURE=${escapeMeta(Buffer.from(pictureBlock({ mime: "image/jpeg", width: cover.width, height: cover.height, data: cover.jpeg })).toString("base64"))}\n`;
 
 /**
@@ -46,7 +46,7 @@ const pictureMetadata = (cover: Cover) => `;FFMETADATA1\n[STREAM]\nMETADATA_BLOC
  *
  * @param {string} srcFile  다운로드해 둔 원본(확장자 무관)
  * @param {string} outFile  만들 `.opus` 경로
- * @param cache  적을 태그 · 그림. 그림은 `<출력 이름>.meta`(임시 파일 정리가 알아보는 이름)에 적어 넘기고 지운다
+ * @param cache  적을 태그 · 앨범아트. 앨범아트는 `<출력 이름>.meta`(임시 파일 정리가 알아보는 이름)에 적어 넘기고 지운다
  */
 async function toCacheOpus(srcFile: string, outFile: string, { tags, cover }: CacheTags = {}): Promise<Converted> {
   const info = await probeAudio(srcFile);

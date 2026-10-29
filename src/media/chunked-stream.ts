@@ -77,16 +77,13 @@ const seekMismatch = <E extends Error>(err: E) => Object.assign(err, { seekMisma
 const isSeekMismatch = (err: unknown) => (err as { seekMismatch?: boolean } | null)?.seekMismatch === true;
 
 /**
- * @param {string}   url          받을 주소 (서명된 미디어 URL)
- * @param {object}   headers      yt-dlp가 준 요청 헤더
- * @param {number}   totalBytes   전체 길이. googlevideo는 URL의 clen 파라미터로 준다
- * @param {number}   chunkSize    요청 하나의 크기 = 미리 받아 두는 양의 단위
- * @param {(err: Error) => boolean} [onInterrupt]
- *   재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것. 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
- * @param {(info: {attempts: number, downtimeMs: number, starvedMs: number}) => void} [onResumed]
- *   끊긴 뒤 다시 받기 시작했을 때. starvedMs는 그동안 내보낼 것이 없어 소비자가 기다린 시간이다.
- * @param {Function} fetchImpl    테스트 주입용. 기본은 전역 fetch
- * @returns {Readable}
+ * 옵션:
+ *  - url: 받을 주소(서명된 미디어 URL) · headers: yt-dlp가 준 요청 헤더
+ *  - totalBytes: 전체 길이. googlevideo는 URL의 clen 파라미터로 준다
+ *  - chunkSize: 요청 하나의 크기 = 미리 받아 두는 양의 단위
+ *  - onInterrupt: 재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것. 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
+ *  - onResumed: 끊긴 뒤 다시 받기 시작했을 때. starvedMs는 그동안 내보낼 것이 없어 소비자가 기다린 시간이다.
+ *  - fetchImpl: 테스트가 넘긴다. 기본은 전역 fetch
  */
 function createChunkedStream(options: ChunkedOptions): ChunkedStream {
   const { totalBytes, chunkSize, startByte = 0 } = options;
@@ -385,7 +382,7 @@ class ChunkedReader {
     }
   }
 
-  // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 기존 fetch와 같은 곳에서 실패를 잡도록.
+  // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 스트림을 여는 자리에서 실패를 잡도록.
   prime() {
     if (!this.ready) {
       this.ready = new Promise<void>((resolve, reject) => {

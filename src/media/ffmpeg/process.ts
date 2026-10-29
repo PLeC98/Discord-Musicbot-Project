@@ -7,22 +7,20 @@ import { messageOf } from "../../rules/error-kind.ts";
 import { exitText, exitVerdict } from "./exit.ts";
 const log = logger.child({ category: "ffmpeg" });
 
-/**
- * ffmpeg 자식 프로세스 생성.
- *
- * prism.FFmpeg는 쓰지 않는다(prism-media@1.3.5). `command` 옵션을 무시하고 자체 탐색한 바이너리를
- * 쓰며, stderr를 배수하지 않아 로그를 켜면 파이프 버퍼가 차서 멈추고, `'close'`가 Duplex로 가버려
- * 프로세스 종료와 어긋난다.
- */
-
 // 소리를 내는 ffmpeg(playback-input · 갭리스 전환)
 const PLAYING = new Set(["stream", "playback", "switch"]);
 
 /**
+ * ffmpeg 자식 프로세스를 실행한다.
+ *
+ * prism.FFmpeg는 쓰지 않는다(prism-media@1.3.5). `command` 옵션을 무시하고 자체 탐색한 바이너리를
+ * 쓰며, stderr를 비우지 않아 로그를 켜면 파이프 버퍼가 차서 멈추고, `'close'`가 Duplex로 가
+ * 프로세스 종료와 어긋난다.
+ *
  * @param {string[]} args 완전한 ffmpeg 인자. 출력 대상까지 호출부가 지정한다.
  *   재생은 `pipe:1`, 검사는 `-f null -`이라 여기서 임의로 붙일 수 없다.
  * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "switch" | "probe")
- * @param {{killOnStdoutClose?: boolean}} opts stdout을 소비하는 경로(재생)에서만 true
+ * @param {{killOnStdoutClose?: boolean}} opts stdout이 닫히면 ffmpeg를 죽인다(기본 true). stdout을 읽지 않는 검사(probe)는 false
  */
 function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
   const bin = ffmpegPath();
@@ -32,7 +30,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡 · 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
-  // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
+  // stderr 끝 1000자를 모아 두기만 하고, 실패로 끝났을 때만 종료 줄에 함께 남긴다.
   let stderrTail = "";
   child.stderr.on("data", (chunk) => {
     stderrTail = (stderrTail + chunk.toString()).slice(-1000);
@@ -46,10 +44,9 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
     /* 소비자 쪽에서 종료를 감지해 처리한다 */
   });
 
-  // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남는다.
-  // prism의 _cleanup()이 하던 일을 여기서 대신한다.
+  // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남으므로 죽인다(prism의 _cleanup()이 하던 일).
   // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
-  // 우리가 손을 떼서 죽인 것인지 표시. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
+  // closedByUs: 우리가 손을 떼서 죽인 것인가. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
   // (스킵 · 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
   // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg 는 파이프 쓰기가 실패해 스스로 죽는다(exit.ts)
   let closedByUs = false;
@@ -105,7 +102,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
     if (perStream) out.bitrateKbps = Number(perStream[1]);
   }
   // 컨테이너 값은 영상이 섞여 있으면 오디오 비트레이트가 아니다. 모르는 채로 두는 편이 낫다.
-  // 부르는 쪽이 "상한을 넘음"으로 보고 멀쩡한 opus 를 다시 굽기 때문이다.
+  // 부르는 쪽이 "상한을 넘음"으로 보고 멀쩡한 opus 를 다시 인코딩하기 때문이다.
   if (out.bitrateKbps === null && !/Stream #\d+:\d+[^\r\n]*:\s*Video:/.test(str)) {
     const container = str.match(/Duration:[^\r\n]*?bitrate:\s*(\d+)\s*kb\/s/);
     if (container) out.bitrateKbps = Number(container[1]);

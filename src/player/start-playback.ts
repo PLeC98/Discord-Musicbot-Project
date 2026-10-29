@@ -75,7 +75,7 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
  * @param previousResume  직전 재생이 남긴 위치 재개 정보
  */
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
-  // 캐시 파일을 고르기 전에 보호를 건다. 고른 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
+  // 캐시 파일을 찾기 전에 보호를 건다. 찾은 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
   // 연령 제한으로 적힌 곡은 그 전에 판정한다. 캐시는 쿠키 없이 틀므로 여기서 막지 않으면 연령 제한 콘텐츠를 꺼도 틀린다
   const pickCacheFile = () => {
     ageCheck(track.audioUrl);
@@ -84,7 +84,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
-  // 같은 곡을 다시 열면(위치 이동 · 처음으로 · 한곡 반복 · 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
+  // 같은 곡을 다시 열면(위치 이동 · 처음으로 · 한 곡 반복 · 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
   let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previousResume, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
@@ -120,10 +120,10 @@ function ageCheck(audioUrl: string | null | undefined) {
   if (videoId && markedAgeRestricted(videoId)) assertAgeAllowed(videoId);
 }
 
-// 재생목록으로 담은 곡은 재생목록 페이지가 준 제목을 쓰고 있는데, 같은 영상인데도 다를 수 있다.
+// 재생목록으로 추가한 곡은 재생목록 페이지가 준 제목을 쓰고 있는데, 같은 영상인데도 다를 수 있다.
 // 스트림을 가져왔다면 그 응답에 영상 자체의 제목이 실려 있으므로 왕복 없이 고칠 수 있다.
 // (캐시로 재생하는 곡은 여기를 지나지 않는다. 그쪽은 다운로드할 때 고친다.)
-// 스포티파이 곡은 제외한다: 유튜브 동등물의 제목은 다른 문자열이고, 사용자가 넣은 것은
+// 스포티파이 곡은 제외한다: 유튜브 동등물의 제목은 다른 문자열이고, 사용자가 추가한 것은
 // 스포티파이 곡이므로 표시는 그쪽이 맞다. 직접 지정한 음원으로 트는 곡도 제외한다(곡 정보는 요청의 것이다).
 function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
   if (track.platform !== "youtube" || track.audioFoundBy === "pinned" || !streamInfo?.title) return false;
@@ -134,8 +134,8 @@ function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
   return true;
 }
 
-// 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 담길 때 방송 중이었어도 그사이 끝나
-// 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록 · 믹스).
+// 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 추가될 때 방송 중이었어도 그사이 끝나
+// 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 추가된 것도 있다(재생목록 · 믹스).
 // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 다운로드하지 않는다. 모르면 null
 function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   if (streamInfo && "liveStatus" in streamInfo) return streamInfo.liveStatus === "is_live";
@@ -157,7 +157,7 @@ function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, sta
     log.debug(`직전 스트림 주소는 ${state === "unknown" ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받습니다: ${logTitle(track.title)}`);
     return null;
   }
-  // 다시 쓴 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
+  // 재사용한 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
   return { ...resume.info, url: resume.url, reused: true };
 }
 
@@ -175,7 +175,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   const { resource } = pb;
   if (!resource) throw codedError("stream-failed", "열린 소리가 없습니다");
 
-  // 자동 스킵 워처 가동. 구간 있으면 시작, 위치 이동이면 기준점을 그 위치로(수동 진입 허용)
+  // SponsorBlock 구간을 받은 뒤 자동 스킵을 켠다. 기준점은 시작 위치다(위치 이동으로 구간 안에 들어가면 건너뛰지 않는다)
   pb.sponsor = await source.sponsor;
   // 기다리는 사이에 플레이어가 버려졌다. 정리(_endPlayback)가 이 리소스를 destroy 했으니 틀지 않는다
   if (player.lifecycle.disposed) return;
@@ -209,7 +209,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   player.persistence.startStateSync();
   player.warmer.start();
-  // 지금 곡의 파일 태그 · 그림을 먼저 찾게 한다(직접 링크만. 대기열은 예열의 박자가 넘긴다)
+  // 지금 곡의 파일 태그 · 앨범아트를 먼저 찾게 한다(직접 링크만. 대기열은 예열의 틱이 넘긴다)
   embeddedArt.want([track], { first: true });
   await player.persistence.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
 
@@ -218,7 +218,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 }
 
 // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록. 같은 곡을 이어 틀 때는 재생 횟수를 세지 않는다(퇴거 점수가 본다).
-// 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
+// 기록일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
 function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boolean, { countPlay }: { countPlay: boolean }) {
   try {
     if (countPlay) audioCache.recordPlayback(audioKey);

@@ -1,10 +1,10 @@
-// 캐시해 둔 음원의 원본이 지금 어떤가: 같은가 · 바뀌었는가 · 견줄 수 없는가 · 사라졌는가 · 모르는가. 캐시의 다시 확인이 부른다.
-// 원본에 한 번 묻고, 다운로드할 때 적어 둔 버전(media/audio-version)과 견준다. 무엇을 할지(알리기 · 다시 받기)는 부르는 쪽이 정한다.
+// 캐시해 둔 음원의 원본이 지금 어떤가: 같은가 · 바뀌었는가 · 비교할 수 없는가 · 사라졌는가 · 모르는가. 캐시의 다시 확인이 부른다.
+// 원본에 한 번 묻고, 다운로드할 때 적어 둔 버전(media/audio-version)과 비교한다. 무엇을 할지(알리기 · 다시 받기)는 부르는 쪽이 정한다.
 //
 //   유튜브        영상 정보 한 번(yt-dlp). 적어 둔 lmt 가 지금 포맷 어디에도 없으면 바뀜. 오디오 포맷의 길이가 캐시와 다른지도 적는다(자르기면 다르고, 오디오만 바꾸면 같다)
 //   사운드클라우드 재생 주소 한 번(yt-dlp). 음원 파일 id 가 다르면 바뀜. 미리듣기만 남았으면 사라짐(sc-preview-only)
-//   직접 링크     첫 1바이트만 받는 요청(가드를 거친다). ETag > Last-Modified > 전체 크기로 견준다
-// 사라짐은 다시 해도 같은 답만(재생 테스트 · 직접 지정한 음원과 같은 가름, sources/dead-source). 일시 오류 · 요청 제한 · 만료된 주소는 모름이다
+//   직접 링크     첫 1바이트만 받는 요청(가드를 거친다). ETag > Last-Modified > 전체 크기로 비교한다
+// 사라짐은 다시 해도 같은 답만(재생 테스트 · 직접 지정한 음원과 같은 판정, sources/dead-source). 일시 오류 · 요청 제한 · 만료된 주소는 모름이다
 
 import * as YouTube from "../sources/youtube/index.ts";
 import * as SoundCloud from "../sources/soundcloud/api.ts";
@@ -21,7 +21,7 @@ type Stored = { version: string | null; durationSec: number | null };
 /**
  * same: 같은 원본(version 은 적어 둔 버전과 같은 값).
  * changed: 바뀜(version 은 원본의 지금 버전). durationChanged: 유튜브에서 오디오 길이가 캐시와 다른가(모르면 null).
- * uncompared: 원본은 답했지만 견줄 버전이 없다(적어 둔 버전이 없는 캐시 · 버전을 주지 않는 서버. 다시 물어도 같다, 까닭).
+ * uncompared: 원본은 답했지만 비교할 버전이 없다(적어 둔 버전이 없는 캐시 · 버전을 주지 않는 서버. 다시 물어도 같다, 까닭).
  * gone: 원본에서 틀 수 없다(문제 코드). unknown: 이번에는 모른다(일시 오류 등, 까닭)
  */
 type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string };
@@ -49,7 +49,7 @@ const DEPS: Deps = {
   directHead,
 };
 
-/** 원본이 지금 어떤가. 음원 주소의 출처로 묻는 길을 고른다 */
+/** 원본이 지금 어떤가. 음원 주소의 출처로 묻는 길을 정한다 */
 async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Promise<Recheck> {
   const kind = inputKind(audioUrl);
   try {
@@ -75,7 +75,7 @@ function youtube(info: { formats?: unknown[] | null }, stored: Stored): Recheck 
 }
 
 function direct(headers: Record<string, unknown>, stored: Stored): Recheck {
-  // 지운 파일 자리에 웹 페이지를 주는 서버(재생 테스트 · 직접 지정한 음원과 같은 가름)
+  // 지운 파일 자리에 웹 페이지를 주는 서버(재생 테스트 · 직접 지정한 음원과 같은 판정)
   if (/^\s*text\/html/i.test(String(headers["content-type"] ?? ""))) return { kind: "gone", code: "unsupported-link" };
   return compared(versionOf.fromHeaders(headers), stored, versionOf.sameDirect);
 }
@@ -83,7 +83,7 @@ function direct(headers: Record<string, unknown>, stored: Stored): Recheck {
 // 사운드클라우드 두 버전: 같은 형식(음원 파일 id 끼리 · 수정 시각끼리)만 비교한다. 재생 주소에서는 늘 파일 id 라 적어 둔 것이 수정 시각이면 비교할 수 없다
 const sameSoundCloud = (a: string, b: string) => (a.split(":")[0] === b.split(":")[0] ? a === b : null);
 
-// 원본의 지금 버전을 적어 둔 것과 견준다. 어느 쪽이든 없거나 견줄 수 없으면 견주지 못함
+// 원본의 지금 버전을 적어 둔 것과 비교한다. 어느 쪽이든 없거나 비교할 수 없으면 uncompared
 function compared(now: string | null, stored: Stored, same: (a: string, b: string) => boolean | null): Recheck {
   if (!now) return { kind: "uncompared", reason: "원본이 버전을 주지 않는다" };
   if (!stored.version) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
@@ -95,7 +95,7 @@ function compared(now: string | null, stored: Stored, same: (a: string, b: strin
 function failed(error: unknown, kind: string): Recheck {
   const code = deadSourceCode(error);
   if (code && code !== "live") return { kind: "gone", code };
-  // 직접 링크는 묻는 길이 가드된 요청이라 상태로 가른다(404 · 410 은 사라짐, 그 밖은 일시 오류 · 막힘 · 만료된 주소일 수 있다)
+  // 직접 링크는 묻는 길이 가드된 요청이라 상태로 구분한다(404 · 410 은 사라짐, 그 밖은 일시 오류 · 막힘 · 만료된 주소일 수 있다)
   const status = (error as { status?: unknown } | null)?.status;
   if (kind === "direct" && (status === 404 || status === 410)) return { kind: "gone", code: "direct-unavailable" };
   return { kind: "unknown", reason: messageOf(error) };

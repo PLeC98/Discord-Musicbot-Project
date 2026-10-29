@@ -6,7 +6,7 @@
 const AUDIO_FORMATS = ["mov", "matroska", "mp3", "aac", "flac", "ogg", "wav", "w64", "aiff", "caf", "asf", "ape", "wv", "tta", "mpc", "mpc8", "ac3", "eac3", "dts", "dtshd", "amr", "au", "mpegts"];
 /** 캐시 파일(봇이 만든 Ogg Opus, 백업으로 불러온 것도 같은 자리에 든다) */
 const CACHE_FORMATS = ["ogg"];
-/** 영상 컨테이너와 움직이는 그림(로그인 배경 원본) */
+/** 영상 컨테이너와 애니메이션 이미지(로그인 배경 원본) */
 const VIDEO_FORMATS = ["mov", "matroska", "avi", "flv", "mpegts", "mpeg", "ogg", "asf", "gif", "webp_anim", "apng"];
 
 /** from: 파일 입력이면 file, 표준 입력(`pipe:0`)이면 pipe */

@@ -63,9 +63,9 @@ type InputOptions<R> = {
   /** 처음 볼륨 배율(rules/volume-gain). 출력 스트림이 만들어지자마자 데이터가 흐르므로 처음부터 받는다 */
   gain: number;
   onProgress(): void;
-  /** 라이브로 담은 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
+  /** 라이브로 추가된 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
   liveOnly?: boolean;
-  /** 주소를 새로 받는다. 부르는 쪽은 다시 쓴 주소(streamInfo.reused)일 때만 주고, 열리지 않으면 한 번 부른다 */
+  /** 주소를 새로 받는다. 부르는 쪽은 재사용한 주소(streamInfo.reused)일 때만 주고, 열리지 않으면 한 번 부른다 */
   refresh?: (() => Promise<StreamInfo>) | null;
   label: string;
 };
@@ -121,7 +121,7 @@ const CAN_OPEN: Record<"hls" | "dash" | "other", (caps: Capabilities) => boolean
 
 // HLS · DASH. 목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
 function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
-  // 진입점(playRequest)과 사운드클라우드 포맷 선택이 먼저 필터링하지만, 여기까지 온 것은 막는다.
+  // 스트림 주소를 고를 때(canPlayHls) 먼저 필터링하지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";
   if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
     throw codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? (streamInfo.protocol ?? "없음") : list.toUpperCase()} 스트림을 재생할 수 없습니다`);
@@ -176,7 +176,7 @@ function openFile<R>(o: InputOptions<R>): Opened<R> {
 // 스트림 파이프. 캐시를 나란히 다운로드하면서 기다리지 않고 바로 튼다. 이 분기에서는 네트워크를 Node가 담당하고
 // ffmpeg에는 pipe로만 넣는다. URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패
 // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
-// 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 분기에만 두었다.
+// 그래서 URL 입력은 그럴 수밖에 없는 목록(HLS · DASH) 분기에만 쓴다.
 async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promise<Opened<R>> {
   // 직접 링크는 연 것을 보고 다운로드할지 정한다. 끝을 알 수 없는 스트림을 나란히 다운로드하면 디스크를 한도까지 채운다
   const direct = o.streamInfo?.platform === "direct";
@@ -217,7 +217,7 @@ async function fallBack<R>(o: InputOptions<R>, download: Download | null, direct
   return { resource: null, cacheFile: file, health: null };
 }
 
-// 다시 쓴 주소(받아 둔 영상 정보 · 직전 재생의 주소)가 열리지 않았다. 주소는 추출한 IP 에 묶여 망을 옮기면 안 열린다.
+// 재사용한 주소(받아 둔 영상 정보 · 직전 재생의 주소)가 열리지 않았다. 주소는 추출한 IP 에 묶여 망을 옮기면 안 열린다.
 // 새로 받아 한 번 더 연다. 그것도 안 되면 null(원래 오류로 캐시 폴백에 맡긴다)
 async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown): Promise<{ streamInfo: StreamInfo; audioStream: OpenedStream | null } | null> {
   if (!o.refresh) return null;
@@ -259,7 +259,7 @@ function adWaitMs(error: unknown, availableAt: number | null | undefined, now: n
 }
 
 async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: Hooks): Promise<OpenedStream | null> {
-  // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
+  // 곡의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
   // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
   if (streamInfo.platform === "direct") return openDirect(o, streamInfo.url, hooks);
 
