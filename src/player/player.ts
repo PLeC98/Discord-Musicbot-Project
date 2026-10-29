@@ -47,6 +47,8 @@ import * as audioCache from "../store/audio-cache.ts";
 import { VoiceLink } from "./voice-link.ts";
 import { PlaybackWatch } from "./playback-watch.ts";
 import { IdleLeave } from "./idle-leave.ts";
+import { PauseState, type PauseChange } from "./pause-state.ts";
+import { holdsOf, listenersIn, type VoiceView } from "../rules/holds.ts";
 import { PlaybackState } from "./playback-state.ts";
 import { CurrentPlayback } from "./current-playback.ts";
 import type { Resume } from "./current-playback.ts";
@@ -201,7 +203,6 @@ class Player {
   loop: Loop;
   /** 끄면 false, 켜면 장르 이름 */
   autoplay: string | false;
-  paused: boolean;
   // 화면(ui)이 채우는 패널
   nowPlayingMessage: PanelMessage | null;
   nowPlayingWebhook?: PanelHook | null;
@@ -228,7 +229,8 @@ class Player {
   finishByCaller = false;
   lifecycle: PlaybackState;
   lastPlaybackPosition: number;
-  pauseReasons: Set<string>;
+  /** 멈춤: 사람의 뜻과 지금 음성 상태에서 계산한 억제 사유. 밖에서는 이것의 메서드와 syncHolds 로만 바꾼다 */
+  pause: PauseState;
   voice: VoiceLink;
   watch: PlaybackWatch;
   idle: IdleLeave;
@@ -260,7 +262,6 @@ class Player {
     this.volume = guildSettings.resolveVolume(guild.id); // 이 서버에서 마지막으로 정한 볼륨
     this.loop = false;
     this.autoplay = false;
-    this.paused = false;
 
     this.nowPlayingMessage = null; // 이 재생의 패널 메시지
 
@@ -274,8 +275,11 @@ class Player {
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
     this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
 
-    // 멈춘 까닭들. 하나라도 남아 있으면 멈춰 있다
-    this.pauseReasons = new Set();
+    // 소리가 멈춰 있어야 하나는 사람의 뜻과 억제 사유로 계산한다(paused)
+    this.pause = new PauseState(
+      () => this.audioPlayer,
+      (change) => this._pauseChanged(change),
+    );
 
     // 협력 모듈. 각자 자기 상태와 타이머를 가진다
     this.voice = this.io.createVoice(this);
@@ -312,22 +316,16 @@ class Player {
     this.audioPlayer.on(
       AudioPlayerStatus.Playing,
       own(() => {
-        // pause()는 재생 중일 때만 먹는다. 버퍼링 중에 걸린 일시정지는 재생으로 넘어오는 이 순간에 건다.
-        if (this.pauseReasons.size > 0) {
-          this.audioPlayer.pause();
-          return;
-        }
-        this.paused = false;
-        this._showTrackInVoiceStatus();
+        // pause()는 재생 중일 때만 먹는다. 버퍼링 중에 걸린 멈춤은 재생으로 넘어오는 이 순간에 건다.
+        // 멈추면 Paused 리스너가 음성 채널 상태를 고친다(여기서도 고치면 곡마다 두 번 쓴다)
+        this.pause.apply();
+        if (!this.paused) this._showTrackInVoiceStatus();
       }),
     );
 
     this.audioPlayer.on(
       AudioPlayerStatus.Paused,
-      own(() => {
-        this.paused = true;
-        this._showTrackInVoiceStatus();
-      }),
+      own(() => this._showTrackInVoiceStatus()),
     );
 
     this.audioPlayer.on(
@@ -724,67 +722,44 @@ class Player {
     return this._silentStop !== null;
   }
 
-  pauseFor(reason: string | null = null) {
-    if (reason) {
-      if (!this.pauseReasons.has(reason)) {
-        log.info(`일시정지: 원인=${reason} | ${this._trackLabel()}`);
-      }
-      this.pauseReasons.add(reason);
-    }
-    this.settingsSink?.onSettingsChanged(); // 멈춤 여부는 아래에서 정해진다. 받는 쪽이 잠깐 모았다가 읽는다
-
-    const status = this.audioPlayer.state.status;
-    if (status === AudioPlayerStatus.Paused) {
-      this.paused = true;
-      return true;
-    }
-
-    if (status === AudioPlayerStatus.Playing) {
-      const paused = this.audioPlayer.pause();
-      if (paused) {
-        this.paused = true;
-        return true;
-      }
-    }
-
-    // 버퍼링 중이면 의도만 받아 둔다. 재생으로 넘어오는 순간 Playing 리스너가 멈춘다
-    if (status === AudioPlayerStatus.Buffering && this.pauseReasons.size > 0) {
-      this.paused = true;
-      return true;
-    }
-
-    return false;
+  /** 소리가 멈춰 있어야 하나(사람이 멈춰 뒀거나 억제 사유가 있다) */
+  get paused() {
+    return this.pause.silent;
   }
 
-  resumeFor(reason: string | null = null) {
-    if (reason) {
-      if (this.pauseReasons.has(reason)) {
-        log.info(`일시정지 해제: 원인=${reason} | ${this._trackLabel()}`);
-      }
-      this.pauseReasons.delete(reason);
-    }
-    this.settingsSink?.onSettingsChanged();
+  /**
+   * 억제 사유를 지금 음성 상태로 맞춘다. 몇 번 불러도 결과가 같다(이벤트를 놓쳐도 다음 부름이 바로잡는다).
+   * 봇이 이 플레이어의 채널에 붙어 있지 않으면(연결 중 · 재연결 중 · 옮겨지는 중) 모르므로 그대로 둔다.
+   * 혼자 남음 타이머는 여기서 넘긴다: 부르는 쪽이 바뀜을 다루면 같은 이벤트를 먼저 맞춘 쪽만 바뀜을 보고 나중 쪽은 놓친다.
+   * moved: 봇이 다른 채널로 옮겨졌다(혼자 남음이 그대로 참이면 새 채널 기준으로 다시 잰다)
+   */
+  syncHolds({ moved = false }: { moved?: boolean } = {}) {
+    const view = this.lifecycle.disposed ? null : this._voiceView();
+    if (!view) return;
+    const { added, removed } = this.pause.setHolds(holdsOf(view));
+    if (added.includes("alone")) this.idle.onAlone(true);
+    else if (removed.includes("alone")) this.idle.onAlone(false);
+    else if (moved && this.pause.holds.has("alone")) this.idle.restartAlone();
+  }
 
-    if (this.pauseReasons.size > 0) {
-      return false;
-    }
+  // 억제 사유를 계산할 지금 음성 상태. 봇이 이 플레이어의 채널에 붙어 있지 않으면 null
+  _voiceView(): VoiceView | null {
+    const me = this.guild.members.me?.voice;
+    const channelId = me?.channelId;
+    if (!me || !channelId || channelId !== this.voiceChannel?.id) return null;
+    const channel = this.guild.channels.cache.get(channelId);
+    if (!channel?.isVoiceBased()) return null;
+    return { serverMute: Boolean(me.serverMute), suppress: Boolean(me.suppress), onStage: channel.type === ChannelType.GuildStageVoice, listeners: listenersIn(channel.members.values()) };
+  }
 
-    const status = this.audioPlayer.state.status;
-    if (status === AudioPlayerStatus.Paused) {
-      const resumed = this.audioPlayer.unpause();
-      if (resumed) {
-        this.paused = false;
-        return true;
-      }
-      return false;
-    }
-
-    if (status === AudioPlayerStatus.Playing || status === AudioPlayerStatus.Buffering) {
-      this.paused = false;
-      return true;
-    }
-
-    return false;
+  // 멈춤이 바뀌었다. 로그 · 저장 알림 · 패널 갱신
+  _pauseChanged({ user, added, removed }: PauseChange) {
+    const label = this._trackLabel();
+    if (user !== undefined) log.info(`${user ? "일시정지" : "일시정지 해제"}: 원인=user | ${label}`);
+    for (const hold of added) log.info(`일시정지: 원인=${hold} | ${label}`);
+    for (const hold of removed) log.info(`일시정지 해제: 원인=${hold} | ${label}`);
+    this.settingsSink?.onSettingsChanged(); // 받는 쪽이 잠깐 모았다가 읽는다
+    if (this.currentTrack) bestEffort(log, playerEvents.refresh(this), "멈춤 바뀜 뒤 패널 갱신");
   }
 
   /** 반복 타이머를 모두 멈춘다. 재생 상태 · 저장된 세션은 건드리지 않는다. 버리는 플레이어는 꼭 부른다(남은 타이머가 플레이어를 붙잡는다) */
@@ -820,8 +795,7 @@ class Player {
       else if (session === "remove") this.persistence?.removeSession();
 
       this.sponsorSkipper?.stop();
-      this.pauseReasons.clear();
-      this.paused = false;
+      this.pause.reset();
       this._stopTimers();
       this.releaseAudioProtection(); // currentTrack 을 읽으므로 비우기 전에
       this._endPlayback(end);
@@ -1242,7 +1216,6 @@ class Player {
 
     await playerEvents.ended(this, "queue-end");
 
-    this.idle.cancelAlone(false);
     this.persistence?.removeSession();
 
     this.idle.scheduleEmpty();
@@ -1443,9 +1416,9 @@ class Player {
     this.settingsSink?.onSettingsChanged();
   }
 
-  /** 저장된 설정을 복원한다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
-  restoreSettings({ volume, loop, autoplay }: { volume?: number | null; loop: Loop; autoplay: string | false }) {
-    this.pauseReasons = new Set();
+  /** 저장된 설정을 복원한다(세션 복원). 억제 사유는 건드리지 않는다(지금 음성 상태에서 계산하므로 syncHolds 가 맞춘다) */
+  restoreSettings({ volume, loop, autoplay, userPaused }: { volume?: number | null; loop: Loop; autoplay: string | false; userPaused: boolean }) {
+    this.pause.setUser(userPaused);
     if (typeof volume === "number") this.volume = Math.max(0, Math.min(VOLUME_MAX, volume));
     this.loop = loop;
     this.autoplay = autoplay;

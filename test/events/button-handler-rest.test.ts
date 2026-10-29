@@ -107,8 +107,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
       seen.push(`autoplay:${v}`);
       p.autoplay = v;
     },
-    pauseFor: () => false,
-    resumeFor: () => false,
+    pause: { setUser: (on: boolean) => void (p.paused = on), heldBy: null },
     skip: () => false,
     previous: () => false,
     _restartsOnPrevious: Player.prototype._restartsOnPrevious,
@@ -185,13 +184,12 @@ test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린�
 
 // ── 조작이 실패했을 때의 답 ───────────────────────────────────────────
 
-test("조작 버튼: 플레이어가 거절하면 실패 문장(일시정지 · 건너뛰기 · 이전곡)", async () => {
+test("조작 버튼: 플레이어가 거절하면 실패 문장(건너뛰기 · 이전곡)", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", url: "u" };
   w.player.queue = [{ title: "다음" }];
   w.player.previousTracks = [{ title: "앞" }];
   const cases = [
-    ["panel:pause:S1", "### ❌ 작업이 실패했어요!"],
     ["panel:skip:S1", "### ⚠️ 작업에 실패했어요!"],
     ["panel:previous:S1", "### ⚠️ 작업에 실패했어요!"],
   ];
@@ -206,7 +204,6 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
   const w = world();
   w.player.currentTrack = { title: "곡", url: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.queue = [{ title: "다음" }];
-  w.player.pauseFor = () => true;
   w.player.skip = () => true;
   const pause = press(w, "panel:pause:S1");
   await interactionCreate.execute(pause.bot, pause.it);
@@ -234,7 +231,6 @@ test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정�
     w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
     w.player.queue = [{ title: "다음" }];
     w.player.previousTracks = [{ title: "앞" }];
-    w.player.pauseFor = () => true;
     w.player.skip = () => true;
     w.player.previous = () => true;
     return w;
@@ -258,7 +254,6 @@ test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정�
 test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정지는 썸네일을 붙이지 않는다", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
-  w.player.pauseFor = () => true;
   let payload: Payload = {};
   const { it, bot } = press(w, "panel:pause:S1", { reply: async (p: Payload) => ((payload = p), { resource: { message: { id: "r1" } } }) });
   await interactionCreate.execute(bot, it);

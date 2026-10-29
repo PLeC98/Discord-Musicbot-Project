@@ -21,7 +21,8 @@ import { recentProblems } from "../../src/dashboard/status/env.ts";
 
 after(stopVitals);
 
-const player = (status: AudioPlayerStatus) => ({ audioPlayer: { state: { status } } });
+// 멈춤은 플레이어 값이다(사람의 뜻 · 억제 사유). 가짜는 오디오가 멈춘 것을 멈춤으로 둔다
+const player = (status: AudioPlayerStatus) => ({ audioPlayer: { state: { status } }, paused: status === AudioPlayerStatus.Paused });
 const bot = fakeBot({
   client: { ws: { ping: 42 } },
   players: new Map<string, unknown>([
@@ -209,7 +210,7 @@ test("플레이어: 상태별 개수 · 합계는 전부, 행은 필터링된 �
       ["b", "음악 감상실", AudioPlayerStatus.Paused, "밤편지"],
       ["c", "게임방", AudioPlayerStatus.Idle, null],
       ["d", "노래방", AudioPlayerStatus.Playing, "음악의 숲"],
-    ].map(([id, name, status, title]) => [id, { guild: { id, name, icon: null, members: { me: null } }, audioPlayer: { state: { status } }, currentTrack: title ? { title, artist: "가수", duration: 200 } : null, queue: { length: 2 } }]),
+    ].map(([id, name, status, title]) => [id, { guild: { id, name, icon: null, members: { me: null } }, audioPlayer: { state: { status } }, paused: status === AudioPlayerStatus.Paused, currentTrack: title ? { title, artist: "가수", duration: 200 } : null, queue: { length: 2 } }]),
   ) as unknown as PlayerRegistry;
   const asked: string[] = [];
   const client = { guilds: { cache: { get: (id: string) => (asked.push(id), { members: { cache: new Map([["viewer", {}]]) } }) } } } as unknown as Client;

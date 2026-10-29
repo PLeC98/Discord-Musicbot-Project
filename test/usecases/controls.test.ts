@@ -12,6 +12,8 @@ import { openTempStore } from "../helpers/temp-store.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
 import { Player } from "../../src/player/player.ts";
+import { PauseState } from "../../src/player/pause-state.ts";
+import type { Hold } from "../../src/rules/holds.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
@@ -42,9 +44,17 @@ const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
 
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: "", requestKey: title, platform: "youtube", duration: 0, ...extra });
 
-// 부른 것을 적는 가짜 플레이어
-function fakePlayer(over: object = {}) {
+// 부른 것을 적는 가짜 플레이어. 멈춤은 진짜 상태 모듈(오디오는 재생 중인 가짜). user · holds 로 처음 상태를 준다
+function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: boolean; holds?: Hold[] } & Record<string, unknown> = {}) {
   const calls: string[] = [];
+  const audio = { state: { status: "playing" }, pause: () => true, unpause: () => true };
+  const pause = new PauseState(
+    () => audio as never,
+    (change) => change.user !== undefined && calls.push(change.user ? "pause" : "resume"),
+  );
+  pause.setHolds(holds);
+  if (user) pause.setUser(true);
+  calls.length = 0;
   const p = {
     calls,
     guild,
@@ -52,14 +62,14 @@ function fakePlayer(over: object = {}) {
     queue: [track("a"), track("b")],
     previousTracks: [track("전")],
     loop: false,
-    paused: false,
-    pauseReasons: new Set<string>(),
+    pause,
+    get paused() {
+      return pause.silent;
+    },
     volume: 50,
     isLive: false,
     isPlayStarting: false,
     sponsor: null,
-    pauseFor: () => (calls.push("pause"), true),
-    resumeFor: () => (calls.push("resume"), true),
     skip: (reason?: string) => (calls.push(`skip${reason ? `:${reason}` : ""}`), true),
     previous: () => (calls.push("previous"), true),
     _restartsOnPrevious: Player.prototype._restartsOnPrevious,
@@ -98,23 +108,19 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
 
   const playing = fakePlayer();
   assert.deepEqual(await controls.pause(playing, DJ), { ok: true, paused: true, track: playing.currentTrack });
-  const paused = fakePlayer({ paused: true });
+  const paused = fakePlayer({ user: true });
   assert.equal(accepted(await controls.pause(paused, DJ)).paused, false);
   assert.deepEqual([...playing.calls, ...paused.calls], ["pause", "resume"]);
   assert.deepEqual(seen, ["refresh", "refresh"]);
-
-  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseFor: () => false }), DJ)), "control-failed");
 });
 
 test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 스테이지 청중 · 혼자 남음)이 붙들고 있으면 그 까닭의 코드로 거절한다", async () => {
-  const muted = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "mute"]), resumeFor: () => (muted.pauseReasons.delete("manual"), false) });
+  const muted = fakePlayer({ user: true, holds: ["mute"] });
   assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held-mute" });
-  const alone = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "alone"]), resumeFor: () => (alone.pauseReasons.delete("manual"), false) });
-  assert.deepEqual(await controls.pause(alone, DJ), { ok: false, code: "held-alone" });
-  const audience = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "stage"]), resumeFor: () => (audience.pauseReasons.delete("manual"), false) });
-  assert.deepEqual(await controls.pause(audience, DJ), { ok: false, code: "held-stage" });
-  assert.equal(codeOf(await controls.pause(fakePlayer({ paused: true, resumeFor: () => false }), DJ)), "control-failed", "붙든 까닭이 없으면 그냥 실패");
-  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "control-failed", "멈추기 실패는 붙든 까닭과 상관없다");
+  assert.equal(muted.pause.userPaused, false, "사람의 멈춤은 풀었다. 까닭이 풀리면 이어 튼다");
+  assert.deepEqual(await controls.pause(fakePlayer({ user: true, holds: ["alone"] }), DJ), { ok: false, code: "held-alone" });
+  assert.deepEqual(await controls.pause(fakePlayer({ user: true, holds: ["stage"] }), DJ), { ok: false, code: "held-stage" });
+  assert.deepEqual(await controls.pause(fakePlayer({ holds: ["alone", "mute"] }), DJ), { ok: false, code: "held-mute" }, "여럿이면 보여 줄 첫째");
 });
 
 test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처리가 대기열 소진으로 끝낸다, 한곡 반복은 처음부터). 곡 요청자는 DJ 가 아니어도 된다", async () => {

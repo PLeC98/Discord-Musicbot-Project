@@ -929,7 +929,7 @@ test("멈춤 사유가 있으면 불러만 두고 멈춘 상태로 둔다", asyn
   h.seedCache("yt:uuuuuuuuuuu", track);
   const p = h.makePlayer();
   p.currentTrack = track;
-  p.pauseReasons.add("alone");
+  p.pause.setHolds(["alone"]);
 
   await playOnce(p);
 

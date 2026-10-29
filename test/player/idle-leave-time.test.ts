@@ -17,7 +17,7 @@ const EMPTY_MS = 300_000;
 
 // 퇴장 타이머가 건드리는 것만 둔 플레이어
 function player(currentTrack: object | null = null) {
-  return fakePlayer({ currentTrack, guild: { id: "g", name: "G" }, voiceChannel: { id: "v", name: "V" }, pauseReasons: new Set(), pauseFor() {}, resumeFor() {} });
+  return fakePlayer({ currentTrack, guild: { id: "g", name: "G" }, voiceChannel: { id: "v", name: "V" }, syncHolds() {} });
 }
 
 let cleanups: Array<() => void> = [];
@@ -47,10 +47,10 @@ test("곡이 없을 때 혼자 남으면 먼저 끝나는 쪽 시각을, 사람�
     idle.scheduleEmpty();
     assert.deepEqual(told, [], "대기열 소진 시각은 끝난 패널이 처음부터 적는다");
 
-    idle.startAlone();
+    idle.onAlone(true);
     assert.ok(near(told[0], start + ALONE_MS), "혼자 남음이 먼저 끝난다");
 
-    idle.cancelAlone(true);
+    idle.onAlone(false);
     assert.ok(near(told[1], start + EMPTY_MS), "돌아오면 대기열 소진 시각으로");
   }));
 
@@ -60,24 +60,37 @@ test("혼자 남음이 대기열 소진보다 늦으면 대기열 소진 시각 
     const told = watch(idle);
     const start = Date.now();
     idle.scheduleEmpty();
-    idle.startAlone();
+    idle.onAlone(true);
     assert.ok(near(told[0], start + EMPTY_MS));
   }));
 
-test("대기열이 끝나 스스로 취소할 때와 재생 중일 때는 알리지 않는다", () =>
+test("버릴 때 · 타이머가 없었을 때 · 재생 중일 때는 알리지 않는다", () =>
   withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const idle = new IdleLeave(player());
     const told = watch(idle);
-    idle.startAlone();
+    idle.onAlone(true);
     told.length = 0;
-    idle.cancelAlone(false);
-    assert.deepEqual(told, [], "끝난 패널을 곧 새로 그린다");
+    idle.stop();
+    assert.deepEqual(told, [], "버릴 때");
+    idle.onAlone(false);
+    assert.deepEqual(told, [], "타이머가 돌지 않았으면 돌아온 것을 알릴 것이 없다");
 
     const playing = new IdleLeave(player({ title: "곡" }));
     const toldPlaying = watch(playing);
-    playing.startAlone();
-    playing.cancelAlone(true);
+    playing.onAlone(true);
+    playing.onAlone(false);
     assert.deepEqual(toldPlaying, [], "재생 패널은 나갈 시각을 보이지 않는다");
+  }));
+
+test("옮겨져도 혼자면 새 채널 기준으로 다시 잰다", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
+    const idle = new IdleLeave(player());
+    const told = watch(idle);
+    idle.onAlone(true);
+    const first = idle.aloneAt;
+    idle.restartAlone();
+    assert.equal(told.length, 2, "다시 잰 시각을 알린다");
+    assert.ok(idle.aloneAt !== null && first !== null && idle.aloneAt >= first);
   }));
 
 // ── 패널 ──

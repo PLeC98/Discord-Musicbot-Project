@@ -14,10 +14,10 @@ const log = logger.child({ category: "voice" });
 /** 음성 라이브러리에서 부르는 것 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 필드 */
-type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "pauseFor" | "resumeFor" | "pauseReasons" | "movedVoiceStatus" | "noticeStage">;
+type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "syncHolds" | "movedVoiceStatus" | "noticeStage">;
 type LinkState = "idle" | "joining" | "ready" | "waiting" | "recovering" | "closed";
-/** 게이트웨이의 봇 음성 상태에서 일어난 일. 화면 · 혼자 남음은 부른 쪽이 맞춘다 */
-type BotStateChange = { left: boolean; moved: boolean; muteChanged: boolean };
+/** 게이트웨이의 봇 음성 상태에서 일어난 일. 억제 사유 · 화면은 부른 쪽이 맞춘다(player.syncHolds) */
+type BotStateChange = { left: boolean; moved: boolean };
 
 const VOICE_LIB: VoiceLib = { joinVoiceChannel, entersState };
 const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
@@ -95,7 +95,7 @@ class VoiceLink {
       await this._join(JOIN_READY_MS);
       this.state = "ready";
       log.info(`음성 채널 참가: ${this._label()}`);
-      this._syncHold();
+      this._settled();
       return true;
     } catch (error) {
       this._drop({ leave: true });
@@ -215,6 +215,7 @@ class VoiceLink {
       this._clearWait();
       this.state = "ready";
       log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${this._label()}`);
+      this._settled();
       return;
     }
     if (newState.status === VoiceConnectionStatus.Disconnected && this.state === "ready") {
@@ -310,6 +311,7 @@ class VoiceLink {
       if (joined) {
         this.state = "ready";
         log.info({ tags: ["recovered"] }, `연결 복구 완료: ${this._label()} | 시도 ${this.recoveryAttempts}회`);
+        this._settled();
         await this.player.onVoiceRecovered();
         return;
       }
@@ -372,24 +374,24 @@ class VoiceLink {
   // ── 게이트웨이: 봇 자신의 음성 상태 ──
 
   /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 구분한다 */
-  onBotState(oldState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress">, newState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress" | "channel">): BotStateChange {
+  onBotState(oldState: Pick<VoiceState, "channelId">, newState: Pick<VoiceState, "channelId" | "suppress" | "channel">): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
       this.stageTaken = null; // 다시 들어오면 다시 발언자가 된다
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
       if (this.selfLeave === oldState.channelId) {
         this.selfLeave = null;
         log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가를 기다립니다: ${this._label()}`);
-        return { left: false, moved: false, muteChanged: false };
+        return { left: false, moved: false };
       }
       // 재연결하는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
       // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다. 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
         log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이므로 강제 퇴장으로 처리하지 않습니다: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
-        return { left: false, moved: false, muteChanged: false };
+        return { left: false, moved: false };
       }
       this._leftChannel(oldState.channelId);
-      return { left: true, moved: false, muteChanged: false };
+      return { left: true, moved: false };
     }
     let moved = false;
     let bounced = false;
@@ -399,7 +401,7 @@ class VoiceLink {
     }
     // 되돌려 붙는 중이면 그 채널은 곧 떠난다
     if (newState.channelId !== oldState.channelId && !bounced) this._entered(newState);
-    return { left: false, moved, muteChanged: this._followMute(newState) };
+    return { left: false, moved };
   }
 
   // 채널에 들어왔다(부름 · 옮겨짐 · 재연결). 스테이지에 청중으로 들어왔으면 발언자가 되려 한다. 들어올 때만: 모더레이터가 청중으로 내린 것은 따른다
@@ -408,12 +410,12 @@ class VoiceLink {
     if (now.suppress && now.channel) this._enterStage(now.channel);
   }
 
-  // 붙은 뒤 지금 음성 상태로 멈춤을 맞춘다. 이미 음소거 · 청중인 채로 재연결하면(기동 뒤 이어받기 · 세션 복원) 바뀜 알림이 오지 않는다
-  _syncHold() {
+  // 붙었다(참가 · 자동 재연결 · 복구). 이미 음소거 · 청중인 채로 붙으면 바뀜 알림이 오지 않으므로 지금 상태로 맞추고,
+  // 스테이지 청중이면 발언자가 되려 한다. 게이트웨이를 다시 붙어도 캐시는 새로 차지만 voiceStateUpdate 는 오지 않는다
+  _settled() {
+    this.player.syncHolds();
     const now = this.player.guild.members.me?.voice;
-    if (!now?.channelId) return;
-    this._followMute(now);
-    if (now.suppress && now.channel) this._enterStage(now.channel);
+    if (now?.channelId && now.suppress && now.channel) this._enterStage(now.channel);
   }
 
   _enterStage(channel: VoiceBasedChannel) {
@@ -422,25 +424,9 @@ class VoiceLink {
     void this._takeStage(channel);
   }
 
-  // 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다. 멈춤이 바뀌었으면 true
-  _followMute(now: Pick<VoiceState, "serverMute" | "serverDeaf" | "suppress" | "channel">) {
-    const onStage = now.channel?.type === ChannelType.GuildStageVoice;
-    const mute = this._holdFor("mute", Boolean(now.serverMute || now.serverDeaf || (now.suppress && !onStage)));
-    const stage = this._holdFor("stage", Boolean(now.suppress && onStage));
-    return mute || stage;
-  }
-
-  // 멈춤 까닭 하나를 지금 상태대로. 바뀌었으면 true
-  _holdFor(reason: string, on: boolean) {
-    if (on === this.player.pauseReasons.has(reason)) return false;
-    if (on) this.player.pauseFor(reason);
-    else this.player.resumeFor(reason);
-    return true;
-  }
-
   /**
    * 스테이지에서는 발언자여야 들린다. 멤버 음소거 권한이 있으면 스스로 발언자가 되고, 없으면 발언을 요청한다.
-   * 모더레이터가 받아 주면 suppress 가 풀려 이어 튼다(_followMute). 둘 다 안 되면 알린다
+   * 모더레이터가 받아 주면 suppress 가 풀려 이어 튼다(player.syncHolds). 둘 다 안 되면 알린다
    */
   async _takeStage(channel: VoiceBasedChannel) {
     const me = this.player.guild.members.me;

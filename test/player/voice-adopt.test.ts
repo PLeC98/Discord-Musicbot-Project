@@ -30,7 +30,7 @@ function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as str
   class FakePlayer {
     guild: { id: string };
     voice: { connect(): Promise<boolean> };
-    idle = { scheduleEmpty: (why: string) => steps.push(`${this.guild.id}:empty:${why}`), startAlone: () => steps.push(`${this.guild.id}:alone`) };
+    idle = { scheduleEmpty: (why: string) => steps.push(`${this.guild.id}:empty:${why}`), announce: () => steps.push(`${this.guild.id}:announce`) };
     constructor(guild: { id: string }, text: unknown, voice: { id: string }) {
       this.guild = guild;
       steps.push(`${guild.id}:new:${String(text)}:${voice.id}`);
@@ -58,16 +58,16 @@ test("봇이 음성 채널에 남아 있고 플레이어가 없는 서버만 이
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), restored, guildWith("g3", { botIn: null })]);
   players.set("g2", "세션을 복원한 플레이어");
   await adoptLingeringVoice(client, players, FakePlayer);
-  assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", `g1:status:${config.voiceStatus.idleText}`, "g1:empty:곡 없이 대기"]);
+  assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", `g1:status:${config.voiceStatus.idleText}`, "g1:empty:곡 없이 대기", "g1:announce"]);
   assert.ok(players.has("g1"));
   assert.equal(players.get("g2"), "세션을 복원한 플레이어");
   assert.equal(players.has("g3"), false);
 });
 
-test("그 채널에 사람이 없으면 혼자 남음 퇴장도 건다", async () => {
+test("혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 틀 게 없음 퇴장을 건 뒤 나갈 시각을 한 번 더 알린다", async () => {
   const { client, players, steps, FakePlayer } = world([guildWith("g1", { humans: 0 })]);
   await adoptLingeringVoice(client, players, FakePlayer);
-  assert.deepEqual(steps.slice(-2), ["g1:empty:곡 없이 대기", "g1:alone"]);
+  assert.deepEqual(steps.slice(-2), ["g1:empty:곡 없이 대기", "g1:announce"]);
 });
 
 test("재연결하지 못하면 그 서버는 정리하고(세션은 남김) 다음 서버로 넘어간다", async () => {

@@ -34,7 +34,7 @@ type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied |
 
 /** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems 의 params) */
 const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true ? [params: ParamsOf<C>] : [params?: ParamsOf<C>]): Refusal => ({ ok: false, code, ...params }) as Refusal;
-// 사람이 풀 수 없는 멈춤(Player.pauseReasons)의 까닭마다
+// 사람이 풀 수 없는 멈춤(억제 사유, rules/holds)의 까닭마다
 const HELD: Record<string, "held-mute" | "held-stage" | "held-alone"> = { mute: "held-mute", stage: "held-stage", alone: "held-alone" };
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
@@ -71,9 +71,10 @@ async function pause(player: MaybePlayer, actor: Actor) {
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const resuming = player.paused;
-  if (!(resuming ? player.resumeFor("manual") : player.pauseFor("manual"))) {
+  player.pause.setUser(!resuming);
+  if (resuming && player.paused) {
     // 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있다. 그 까닭이 풀리면 이어 튼다
-    const held = resuming ? [...player.pauseReasons].find((reason) => reason !== "manual") : undefined;
+    const held = player.pause.heldBy;
     return fail((held && HELD[held]) || "control-failed");
   }
   await refresh(player);

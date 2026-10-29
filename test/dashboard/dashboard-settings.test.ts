@@ -449,7 +449,8 @@ test("GET guilds: 상태는 유휴(봇이 음성 밖) · 대기 중(곡 없음 �
   currentMember = plainMember();
   currentUser = { id: "u1", username: "tester" };
   const stateNow = async () => ((await req("GET", "/api/guilds")).json.guilds as { state: string }[] | undefined)?.[0]?.state;
-  const withStatus = (status: string | undefined) => fakePlayer({ audioPlayer: { state: { status } } });
+  // 멈춤은 플레이어 값이다. 가짜는 오디오가 멈춘 것을 멈춤으로 둔다
+  const withStatus = (status: string | undefined) => fakePlayer({ audioPlayer: { state: { status } }, paused: status === "paused" });
   try {
     guild.members.me = null;
     players.set(GUILD_ID, withStatus("playing"));

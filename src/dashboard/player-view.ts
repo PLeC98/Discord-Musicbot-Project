@@ -96,7 +96,8 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
   return {
     ...order,
     playing: status.playing,
-    paused: status.paused,
+    // 곡이 없을 때도 혼자 남음이면 멈춤이 참이다. 보이는 곡이 있을 때만 멈춤으로 보인다
+    paused: Boolean(track) && status.paused,
     volume: status.volume,
     loop: status.loop,
     currentTrack: track ? playingView(player, track) : null,

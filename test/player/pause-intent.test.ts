@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { Player } from "../../src/player/player.ts";
 import { fakePlayer } from "../helpers/fake.ts";
+import { PauseState } from "../../src/player/pause-state.ts";
 
 // @discordjs/voice와 같은 규칙: 상태가 바뀌면 그 상태 이름으로 이벤트, pause()는 playing에서만, unpause()는 paused에서만
 class FakeAudio extends EventEmitter {
@@ -38,20 +39,21 @@ class FakeAudio extends EventEmitter {
 
 function makePlayer(status: string) {
   const audio = new FakeAudio(status);
+  const pause = new PauseState(
+    () => audio as never,
+    () => {},
+  );
   const p = fakePlayer({
     guild: { id: "g1" },
     audioPlayer: audio,
-    pauseReasons: new Set(),
-    paused: false,
+    pause,
     currentTrack: null,
-    scheduleStatePersist() {},
     onPlayerIdle() {},
     _trackLabel: Player.prototype._trackLabel,
-    pauseFor: Player.prototype.pauseFor,
-    resumeFor: Player.prototype.resumeFor,
     _showTrackInVoiceStatus: Player.prototype._showTrackInVoiceStatus,
     _onAudioState: Player.prototype._onAudioState,
   });
+  Object.defineProperty(p, "paused", { get: () => pause.silent });
   Player.prototype.setupEvents.call(p);
   // 가짜 오디오 플레이어의 상태를 옮기는 핸들
   return Object.assign(p, { audio });
@@ -59,8 +61,8 @@ function makePlayer(status: string) {
 
 test("버퍼링 중에 건 일시정지는 재생으로 넘어오는 순간 걸린다(다시 시작 뒤 복원에서도)", () => {
   const p = makePlayer("buffering");
-  assert.equal(p.pauseFor("manual"), true, "의도는 받았다고 알린다 — 일시정지 버튼이 이 값으로 응답한다");
-  assert.equal(p.paused, true);
+  p.pause.setUser(true);
+  assert.equal(p.paused, true, "의도는 받아 둔다");
 
   p.audio.to("playing");
   assert.equal(p.audio.state.status, "paused", "버퍼링 중에 건 일시정지가 걸려 있다");
@@ -69,19 +71,19 @@ test("버퍼링 중에 건 일시정지는 재생으로 넘어오는 순간 걸�
 
 test("버퍼링 중에 풀었으면 그대로 재생한다", () => {
   const p = makePlayer("buffering");
-  p.pauseFor("manual");
-  assert.equal(p.resumeFor("manual"), true);
+  p.pause.setUser(true);
+  p.pause.setUser(false);
   assert.equal(p.paused, false);
 
   p.audio.to("playing");
   assert.equal(p.audio.state.status, "playing");
 });
 
-test("사유가 하나라도 남아 있으면 계속 멈춘다", () => {
+test("사람의 멈춤이나 억제 사유가 하나라도 남아 있으면 계속 멈춘다", () => {
   const p = makePlayer("buffering");
-  p.pauseFor("manual");
-  p.pauseFor("alone");
-  assert.equal(p.resumeFor("alone"), false);
+  p.pause.setUser(true);
+  p.pause.setHolds(["alone"]);
+  p.pause.setHolds([]);
 
   p.audio.to("playing");
   assert.equal(p.audio.state.status, "paused");
@@ -89,16 +91,14 @@ test("사유가 하나라도 남아 있으면 계속 멈춘다", () => {
 
 test("멈춘 채 새 곡이 시작돼도(이동·다음 곡) 멈춘 상태를 지킨다", () => {
   const p = makePlayer("idle");
-  p.pauseReasons.add("manual");
+  p.pause.setUser(true);
   p.audio.to("buffering");
   p.audio.to("playing");
   assert.equal(p.audio.state.status, "paused");
 });
 
-test("사유 없는 재생은 건드리지 않는다", () => {
+test("멈출 까닭이 없는 재생은 건드리지 않는다", () => {
   const p = makePlayer("buffering");
-  assert.equal(p.pauseFor(), false, "사유 없이 부르면 받아 둘 의도가 없다");
-
   p.audio.to("playing");
   assert.equal(p.audio.state.status, "playing");
   assert.equal(p.paused, false);

@@ -1,6 +1,7 @@
 // 봇 상태 탭의 플레이어: 플레이어가 있는 서버(재생 · 일시정지 · 곡 없이 대기). 상태별로 세고, 필터링하고, 쿼리의 구간만 행으로
 
 import { getVoiceConnections } from "@discordjs/voice";
+import { listenersIn } from "../../rules/holds.ts";
 import type { Client } from "discord.js";
 import { playState } from "../../ui/player-status.ts";
 import { koMatch } from "../../rules/ko-search.ts";
@@ -29,8 +30,8 @@ function nowPlaying(player: Player, state: PlayerState) {
 function playerLine(player: Player) {
   const state = playState(player);
   const channel = player.guild.members.me?.voice?.channel;
-  // 듣는 사람(봇 빼고)
-  return { player, state, ...nowPlaying(player, state), listeners: channel ? channel.members.filter((m) => !m.user.bot).size : 0, queued: player.queue?.length ?? 0 };
+  // 듣는 사람(봇 · 헤드셋을 끈 사람 빼고). 혼자 남음과 같은 기준(rules/holds)
+  return { player, state, ...nowPlaying(player, state), listeners: channel ? listenersIn(channel.members.values()) : 0, queued: player.queue?.length ?? 0 };
 }
 type PlayerLine = ReturnType<typeof playerLine>;
 

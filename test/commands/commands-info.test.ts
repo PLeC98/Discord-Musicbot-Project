@@ -116,7 +116,7 @@ type Status = { playing: boolean; paused: boolean; volume: number; loop: string 
 
 function nowPlayer(track: object | null, status: Status = { playing: true, paused: false, volume: 70, loop: "track" }) {
   const audio = status.playing ? "playing" : status.paused ? "paused" : "idle";
-  return { currentTrack: track, getCurrentTime: () => 90_000, audioPlayer: { state: { status: audio } }, volume: status.volume, loop: status.loop };
+  return { currentTrack: track, getCurrentTime: () => 90_000, audioPlayer: { state: { status: audio } }, paused: status.paused, volume: status.volume, loop: status.loop };
 }
 
 test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", async () => {

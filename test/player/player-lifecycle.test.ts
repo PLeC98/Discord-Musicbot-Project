@@ -520,24 +520,27 @@ test("Idle 이벤트는 멈춘 까닭을 곧바로 꺼내고, 처리는 멈춘 �
   assert.deepEqual(reasons, ["skip"]);
 });
 
-test("Playing 이벤트: 멈춤을 풀고, 멈춤 사유가 있으면 그 자리에서 다시 멈춘다", () => {
+test("Playing 이벤트: 멈출 까닭이 없으면 그대로, 있으면 그 자리에서 다시 멈춘다", () => {
   const p = h.makePlayer();
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
-  p.paused = true;
 
   p.audioPlayer.emit(AudioPlayerStatus.Playing);
+  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Playing);
   assert.equal(p.paused, false);
 
-  p.pauseReasons.add("alone");
+  p.pause.setHolds(["alone"]);
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing }; // 오디오만 다시 재생된 경우(재연결 등)
   p.audioPlayer.emit(AudioPlayerStatus.Playing);
   h.dispose(p);
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
 });
 
-test("Paused 이벤트는 멈춤으로 적는다", () => {
+test("멈춤은 오디오 상태가 아니라 사람의 뜻 · 억제 사유로 계산한다(Paused 이벤트는 음성 채널 상태만 고친다)", () => {
   const p = h.makePlayer();
 
   p.audioPlayer.emit(AudioPlayerStatus.Paused);
+  assert.equal(p.paused, false);
+  p.pause.setUser(true);
   h.dispose(p);
 
   assert.equal(p.paused, true);
@@ -643,7 +646,7 @@ test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 �
   p.queue = [yt("rrrrrrrrrrr")];
   p.previousTracks = [yt("sssssssssss")];
   audioCache.protect(p.guild.id, "yt:qqqqqqqqqqq");
-  p.pauseReasons.add("manual");
+  p.pause.setUser(true);
 
   const from = sink.buffer.length;
   await p.dispose({ reason: "정지", session: "remove" });
@@ -655,7 +658,7 @@ test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 �
   assert.deepEqual(calls.persists, ["remove"]);
   assert.equal(p.connection, null);
   assert.equal(h.fakeAudioOf(p).stops, 1);
-  assert.equal(p.pauseReasons.size, 0);
+  assert.equal(p.paused, false, "멈춤을 비운다");
   assert.equal(audioCache._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
   const ended = sink.buffer.slice(from).filter((e) => e.text.startsWith("트랙 종료:"));
   assert.deepEqual(
@@ -804,13 +807,14 @@ test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀�
 
 // ── 혼자 남았을 때 ────────────────────────────────────────────────────
 
-type Member = { user: { bot: boolean; id: string } };
+type Member = { user: { bot: boolean; id: string }; voice: { selfDeaf: boolean; serverDeaf: boolean } };
 
-// 음성 채널에 사람을 둔다. 플레이어가 읽는 필드(members.filter · 권한)만
+// 음성 채널에 사람을 두고 봇을 그 채널에 붙여 둔다. 플레이어가 읽는 필드(members · 권한 · 봇의 음성 상태)만
 function voiceChannelWith(player: Player, humans: string[]) {
-  const all = new Map(humans.map((id): [string, Member] => [id, { user: { bot: false, id } }]));
+  const all = new Map(humans.map((id): [string, Member] => [id, { user: { bot: false, id }, voice: { selfDeaf: false, serverDeaf: false } }]));
   const members = Object.assign(all, { filter: (fn: (m: Member) => boolean) => ({ size: [...all.values()].filter(fn).length }) });
   player.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
+  Object.assign(player.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
 }
 
 test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도 없으면 정리하고 레지스트리에서 뺀다", async () => {
@@ -821,32 +825,34 @@ test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
   p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.idle.startAlone();
-  assert.ok(p.pauseReasons.has("alone"));
+  p.syncHolds();
+  assert.ok(p.pause.holds.has("alone"));
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
   await tick(10);
   h.dispose(p);
 
-  assert.deepEqual(seen, ["end:disconnected", "webhook:text1"]);
+  assert.deepEqual(seen, ["update", "end:disconnected", "webhook:text1"], "멈추는 순간 패널을 고친다");
   assert.ok(calls.persists.includes("remove"), "세션을 지운다");
   assert.equal(p.connection, null);
   assert.equal(h.registryOf(p)?.has("g1"), false);
 });
 
-test("시간이 됐을 때 사람이 있으면 alone 을 풀고 패널만 갱신한다", async () => {
+test("시간이 됐을 때 사람이 있으면(돌아온 이벤트를 놓쳤어도) alone 을 풀고 패널만 갱신한다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
-  voiceChannelWith(p, ["u1"]);
+  voiceChannelWith(p, []);
   p.idle.aloneMs = 0;
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
+  p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.idle.startAlone();
+  p.syncHolds();
+  voiceChannelWith(p, ["u1"]); // 사람이 들어왔지만 이벤트는 오지 않았다
   await tick(10);
   h.dispose(p);
 
-  assert.equal(p.pauseReasons.has("alone"), false);
+  assert.equal(p.pause.holds.has("alone"), false);
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Playing);
-  assert.deepEqual(seen, ["update"]);
+  assert.deepEqual(seen, ["update", "update"], "멈출 때 · 풀 때 한 번씩");
   assert.equal(h.registryOf(p)?.get("g1"), p);
 });
 
@@ -858,7 +864,7 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   h.registryOf(p)?.set("g1", current);
   p.idle.aloneMs = 0;
 
-  p.idle.startAlone();
+  p.syncHolds();
   p.lifecycle.to("disposed", "교체"); // 타이머는 일부러 두었다(이미 깨어나는 중인 경우)
   await tick(10);
   h.dispose(p);
@@ -867,18 +873,51 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   assert.ok(p.connection, "연결은 현행 플레이어 것일 수 있어 끊지 않는다");
 });
 
-test("사람이 돌아오면 예약을 취소하고 alone 만 푼다. 다른 멈춤 사유는 남는다", () => {
+test("사람이 돌아오면 예약을 취소하고 alone 만 푼다. 사람이 멈춰 둔 것은 남는다", () => {
   const p = h.makePlayer();
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
-  p.pauseReasons.add("manual");
-  p.idle.startAlone();
+  p.pause.setUser(true);
+  voiceChannelWith(p, []);
+  p.syncHolds();
+  assert.ok(p.idle.aloneTimer);
 
-  p.idle.cancelAlone(true);
+  voiceChannelWith(p, ["u1"]);
+  p.syncHolds();
   h.dispose(p);
 
   assert.equal(p.idle.aloneTimer, null);
-  assert.deepEqual([...p.pauseReasons], ["manual"]);
-  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused, "manual 이 남아 멈춘 채");
+  assert.equal(p.pause.holds.size, 0);
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused, "사람의 멈춤이 남아 멈춘 채");
+});
+
+test("붙어 있지 않으면(연결 · 재연결 · 옮겨지는 중) 억제 사유를 그대로 두고, 버린 플레이어는 맞추지 않는다", () => {
+  const p = h.makePlayer();
+  voiceChannelWith(p, []);
+  p.syncHolds();
+  Object.assign(p.guild.members.me!, { voice: { channelId: null } });
+  voiceChannelWith(p, ["u1"]);
+  Object.assign(p.guild.members.me!, { voice: { channelId: "other" } });
+  p.syncHolds();
+  assert.ok(p.pause.holds.has("alone"), "모르면 바꾸지 않는다");
+
+  Object.assign(p.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
+  p.lifecycle.to("disposed", "교체");
+  p.syncHolds();
+  h.dispose(p);
+  assert.ok(p.pause.holds.has("alone"), "버린 플레이어");
+});
+
+test("대기열이 끝나도 혼자 남음 타이머는 그대로 돈다(채널 밖에서 곡을 넣어도 소리 없이 남지 않는다)", async () => {
+  const p = h.makePlayer();
+  embeds(p);
+  voiceChannelWith(p, []);
+  p.syncHolds();
+  const timer = p.idle.aloneTimer;
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+  assert.ok(timer);
+  assert.equal(p.idle.aloneTimer, null, "버리며 지운다");
 });
 
 // ── 오류 처리 ─────────────────────────────────────────────────────────
@@ -1261,7 +1300,11 @@ test("상태 요약과 재생 여부(화면 쪽 요약이 플레이어 상태를
   assert.equal(soundAttached(p), false);
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Buffering };
   assert.equal(soundAttached(p), true);
-  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
+  assert.deepEqual(playbackStatus(p), { playing: true, paused: false, volume: p.volume, loop: false });
+  // 멈춤은 오디오 상태가 아니라 플레이어 값(사람의 뜻 · 억제 사유). 곡을 여는 중에도 멈춰 있어야 하면 멈춤
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Buffering };
+  p.pause.setUser(true);
   const s = playbackStatus(p);
   h.dispose(p);
   assert.deepEqual(s, { playing: false, paused: true, volume: p.volume, loop: false });

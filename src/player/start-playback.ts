@@ -196,10 +196,10 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
   if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified, { countPlay: !continued });
 
-  if (player.pauseReasons.size > 0) {
+  if (player.paused) {
     // 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
-    log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${Array.from(player.pauseReasons).join(", ")}`);
-    player.paused = true;
+    const why = [...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds];
+    log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${why.join(", ")}`);
   }
 
   pb.resume = resumeInfo(track, streamInfo);

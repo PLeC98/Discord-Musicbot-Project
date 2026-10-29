@@ -92,6 +92,8 @@ afterEach(() => {
 // atDiscord: 디스코드에 봇의 음성 채널을 물었을 때의 답(기본: 캐시와 같다). 오류면 던진다
 function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined } = {}) {
   const steps: string[] = [];
+  // 억제 사유를 맞춘 때(붙음 · 자동 재연결 · 복구 끝). 다른 단계의 차례와 섞지 않는다
+  const syncs: string[] = [];
   const channels = new Map<string, unknown>();
   if (channel) channels.set("vc1", { id: "vc1", isVoiceBased: () => true });
   channels.set("vc2", { id: "vc2", isVoiceBased: () => true });
@@ -121,16 +123,14 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
     async onVoiceRecovered() {
       steps.push("resume");
     },
-    pauseReasons: new Set<string>(),
-    pauseFor: (r: string) => (player.pauseReasons.add(r), steps.push(`pause:${r}`), true),
-    resumeFor: (r: string) => (player.pauseReasons.delete(r), steps.push(`resume:${r}`), true),
+    syncHolds: () => void syncs.push("sync"),
     movedVoiceStatus: (from: string) => steps.push(`status-moved:${from}`),
     noticeStage: (code: string) => steps.push(`notice:${code}`),
   };
   const link = new VoiceLink(fake<VoiceHost>(player), lib);
   Object.assign(link, { waitStartMs: 10, waitReadyMs: 20, recoveryRetryDelayMs: 1, attemptSpanMs: 1 });
   links.push(link);
-  return { steps, player, link, me, channels, conn: () => player.connection as FakeConnection };
+  return { steps, syncs, player, link, me, channels, conn: () => player.connection as FakeConnection };
 }
 
 // 붙어 있는 연결 하나
@@ -364,7 +364,7 @@ const state = (channelId: string | null, extra: object = {}) => ({ channelId, se
 
 test("봇이 채널에서 빠졌다: 채널이 있으면 강제 퇴장, 없으면 채널 사라짐. 끝난 뒤에는 늦은 끊김을 보지 않는다", async () => {
   const kicked = await ready();
-  assert.deepEqual(kicked.link.onBotState(state("vc1"), state(null)), { left: true, moved: false, muteChanged: false });
+  assert.deepEqual(kicked.link.onBotState(state("vc1"), state(null)), { left: true, moved: false });
   await until(() => kicked.steps.length > 0, "버리기");
   assert.deepEqual(kicked.steps, ["dispose:remove:disconnected:forced-disconnect"]);
   kicked.conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
@@ -393,7 +393,7 @@ test("재연결 중에 봇이 채널에서 빠졌다는 알림은 쫓겨난 것�
   const { link, conn, steps } = await ready();
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.AdapterUnavailable });
   assert.equal(link.state, "waiting");
-  assert.deepEqual(link.onBotState(state("vc1"), state(null)), { left: false, moved: false, muteChanged: false });
+  assert.deepEqual(link.onBotState(state("vc1"), state(null)), { left: false, moved: false });
   await until(() => steps.length > 0, "재연결해 이어 틀기");
   assert.deepEqual(steps, ["resume"]);
   assert.equal(link.state, "ready");
@@ -403,7 +403,7 @@ test("4014 로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알�
   const { link, conn, steps } = await ready();
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
   assert.equal(link.state, "waiting");
-  assert.deepEqual(link.onBotState(state("vc1"), state(null)), { left: true, moved: false, muteChanged: false });
+  assert.deepEqual(link.onBotState(state("vc1"), state(null)), { left: true, moved: false });
   await until(() => steps.length > 0, "버리기");
   assert.deepEqual(steps, ["dispose:remove:disconnected:forced-disconnect"]);
   assert.equal(joins.length, 1, "재연결하지 않는다");
@@ -432,7 +432,7 @@ test("참가 요청에 답이 없으면 처음에는 다시 보낸다. 다시 �
   assert.equal(s.c.rejoins.length, 2, "나감 뒤에 다시 참가");
 
   // 그 나감 알림 한 번은 쫓겨난 것이 아니다. 그 뒤의 빠짐은 쫓겨난 것
-  assert.deepEqual(s.link.onBotState(state("vc1"), state(null)), { left: false, moved: false, muteChanged: false });
+  assert.deepEqual(s.link.onBotState(state("vc1"), state(null)), { left: false, moved: false });
   await sleep(10);
   assert.deepEqual(s.steps, [], "버리지 않는다");
   assert.equal(s.link.state, "joining");
@@ -532,44 +532,21 @@ test("어댑터가 고치지 않고 내보낸 참가 요청만 되돌림 판단�
   assert.equal(link.lastPlainJoin, null);
 });
 
-test("서버 음소거 · 무대 발언권 없음이면 mute 로 멈추고, 풀리면 푼다", async () => {
-  const { link, steps } = await ready();
-  assert.equal(link.onBotState(state("vc1"), state("vc1", { serverMute: true })).muteChanged, true);
-  assert.equal(link.onBotState(state("vc1", { suppress: true }), state("vc1")).muteChanged, true);
-  assert.equal(link.onBotState(state("vc1"), state("vc1")).muteChanged, false);
-  assert.deepEqual(steps, ["pause:mute", "resume:mute"]);
+test("붙으면 억제 사유를 지금 상태로 맞춘다(이미 음소거된 채로 붙으면 바뀜 알림이 오지 않는다)", async () => {
+  const s = setup();
+  await s.link.connect();
+  assert.deepEqual(s.syncs, ["sync"]);
 });
 
-test("멈춤 까닭은 지금 상태에 맞춘다: 이미 음소거된 채로 붙으면 붙은 뒤 멈추고, 끊긴 사이 풀렸으면 다시 들어올 때 푼다", async () => {
-  const s = setup();
-  Object.assign(s.me.voice, { serverMute: true });
-  await s.link.connect();
-  assert.deepEqual(
-    s.steps.filter((x) => x.startsWith("pause")),
-    ["pause:mute"],
-    "바뀜 알림 없이도 멈춘다",
-  );
-
-  s.link.state = "recovering";
-  s.link.onBotState(state("vc1", { serverMute: true }), state(null));
-  s.link.onBotState(state(null), state("vc1"));
-  assert.deepEqual(
-    s.steps.filter((x) => x.startsWith("pause") || x.startsWith("resume:mute")),
-    ["pause:mute", "resume:mute"],
-  );
+test("음소거 · 청중 바뀜은 음성 연결이 다루지 않는다(부른 쪽이 syncHolds 로 맞춘다)", async () => {
+  const { link, steps } = await ready();
+  steps.length = 0;
+  assert.deepEqual(link.onBotState(state("vc1"), state("vc1", { serverMute: true })), { left: false, moved: false });
+  assert.deepEqual(steps, []);
 });
 
 // 스테이지 채널. perms: 봇이 그 채널에서 가진 권한
 const stage = (id: string, perms: bigint[] = []) => fake<VoiceBasedChannel>({ id, type: ChannelType.GuildStageVoice, permissionsFor: () => ({ has: (bit: bigint) => perms.includes(bit) }) });
-
-test("스테이지 청중이면 stage 로 멈추고 발언자가 되면 푼다. 스테이지가 아닌 곳의 suppress(AFK 채널)는 mute", async () => {
-  const { link, steps } = await ready();
-  const st = stage("st1");
-  assert.equal(link.onBotState(state("st1", { channel: st }), state("st1", { channel: st, suppress: true })).muteChanged, true);
-  assert.equal(link.onBotState(state("st1", { channel: st, suppress: true }), state("st1", { channel: st })).muteChanged, true);
-  link.onBotState(state("vc1"), state("vc1", { suppress: true }));
-  assert.deepEqual(steps, ["pause:stage", "resume:stage", "pause:mute"]);
-});
 
 test("스테이지에 청중으로 들어오면: 멤버 음소거 권한이면 스스로 발언자, 아니면 발언 요청과 안내, 둘 다 없으면 안내만. 모더레이터가 내린 것은 따른다", async () => {
   const calls: string[] = [];
@@ -590,7 +567,7 @@ test("스테이지에 청중으로 들어오면: 멤버 음소거 권한이면 �
   assert.deepEqual(calls, []);
 });
 
-test("이미 청중인 채로 붙으면(이어받기 · 복원) 붙은 뒤 멈추고 발언을 요청한다. 재연결해 다시 요청해도 채널에는 한 번만 알린다", async () => {
+test("이미 청중인 채로 붙으면(이어받기 · 복원) 붙은 뒤 사유를 맞추고 발언을 요청한다. 재연결해 다시 요청해도 채널에는 한 번만 알린다", async () => {
   const s = setup();
   const calls: string[] = [];
   const st = stage("st1", [PermissionFlagsBits.RequestToSpeak]);
@@ -599,9 +576,10 @@ test("이미 청중인 채로 붙으면(이어받기 · 복원) 붙은 뒤 멈�
   s.link.onBotState(state(null), state("st1", { channel: st, suppress: true }));
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(calls, ["request:true"]);
+  assert.deepEqual(s.syncs, ["sync"], "청중이라 멈추는 것은 syncHolds 가 계산한다");
   assert.deepEqual(
-    s.steps.filter((x) => x.startsWith("pause") || x.startsWith("notice")),
-    ["pause:stage", "notice:stage-requested"],
+    s.steps.filter((x) => x.startsWith("notice")),
+    ["notice:stage-requested"],
   );
 
   // 끊겼다 다시 들어오면 다시 요청한다

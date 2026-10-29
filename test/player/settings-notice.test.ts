@@ -17,8 +17,16 @@ const changes: Array<[string, (p: Player) => unknown]> = [
   ["볼륨", (p) => p.setVolume(40)],
   ["반복", (p) => p.setLoop("queue")],
   ["자동재생", (p) => p.setAutoplay(false)],
-  ["멈춤", (p) => p.pauseFor("manual")],
-  ["멈춤 풀기", (p) => p.resumeFor("manual")],
+  ["멈춤", (p) => p.pause.setUser(true)],
+  [
+    "멈춤 풀기",
+    (p) => {
+      p.pause.setUser(true);
+      h.calls.settings = 0;
+      p.pause.setUser(false);
+    },
+  ],
+  ["억제 사유", (p) => p.pause.setHolds(["alone"])],
   ["채널", (p) => p.bindChannels({ voice, text })],
   ["패널 옮기기", (p) => p.movePanel(text)],
 ];

@@ -107,12 +107,7 @@ const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length 
 // 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행바의 경과 시간 위치에 있다(buildProgressBar). 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
-  if (player.paused) {
-    if (player.pauseReasons?.has("mute")) parts.push(panelText.pausedStatus("mute"));
-    else if (player.pauseReasons?.has("stage")) parts.push(panelText.pausedStatus("stage"));
-    else if (player.pauseReasons?.has("alone")) parts.push(panelText.pausedStatus("alone"));
-    else parts.push(panelText.pausedStatus("other"));
-  }
+  if (player.paused) parts.push(panelText.pausedStatus(player.pause.heldBy ?? "other"));
   if (player.queue.length > 0) {
     parts.push(panelText.queuedStatus(player.queue.length));
   }

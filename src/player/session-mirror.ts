@@ -149,8 +149,8 @@ class SessionPersistence {
       volume: p.volume,
       loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : ("off" as const),
       autoplay: p.autoplay || null,
-      // 복원하는 건 수동 일시정지뿐이다. 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
-      pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
+      // 저장하는 건 사람의 뜻뿐이다(억제로 소리가 이미 멈춰 있어도). 억제 사유는 복원한 뒤 지금 음성 상태에서 다시 계산한다
+      pausedManual: p.pause.userPaused,
       // 곡 안의 절대 위치(시작 위치를 더한 값)라 복원할 때 이것만 본다
       positionMs: p.getCurrentTime?.() || 0,
     };
@@ -179,7 +179,7 @@ class SessionPersistence {
     return JSON.stringify(row);
   }
 
-  async persistState(reason = "manual") {
+  async persistState(reason: string) {
     this.saveNow(reason);
   }
 
@@ -260,21 +260,21 @@ class SessionPersistence {
       volume: session.volume,
       loop: session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false,
       autoplay: session.autoplay || false,
+      userPaused: Boolean(session.pausedManual),
     });
 
     this._restoreTracks(record, player.guild.id);
     const resumeMs = resumeAt(player.currentTrack, session.positionMs);
     player.lastPlaybackPosition = resumeMs;
-    player.paused = false;
 
     await this._reconnect();
+    // 이미 붙어 있었으면 붙기가 맞추지 않으므로 여기서 맞춘다(겹쳐 불러도 같다)
+    player.syncHolds();
 
     if (!player.currentTrack) {
       this.removeSession();
       return "empty";
     }
-
-    if (session.pausedManual) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
 
     player.quietFailures = !announce;
     try {
@@ -283,7 +283,6 @@ class SessionPersistence {
       player.quietFailures = false;
     }
     if (!player.currentTrack) return "failed";
-    if (session.pausedManual) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
     await this._announceRestored(resumeMs, announce);
     return "restored";
@@ -343,7 +342,7 @@ class SessionPersistence {
 
     if (announce && player.currentTrack) {
       try {
-        await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(resumeMs / 1000), paused: player.paused });
+        await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(resumeMs / 1000), paused: player.pause.userPaused });
       } catch (error) {
         log.warn(`복원 알림을 보내지 못했습니다: ${messageOf(error)}`);
       }

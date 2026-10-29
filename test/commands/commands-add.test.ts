@@ -527,7 +527,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
 
   const paused = await run(async function () {
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
-    this.paused = true;
+    this.pause.setUser(true);
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 

@@ -8,6 +8,7 @@ import * as transientMessages from "../../src/ui/transient-messages.ts";
 import config from "../../src/config/index.ts";
 import type { GuildTextBasedChannel } from "discord.js";
 import { Player } from "../../src/player/player.ts";
+import { PauseState } from "../../src/player/pause-state.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 
@@ -57,8 +58,15 @@ function makePlayer(overrides: object = {}) {
     volume: 100,
     loop: false,
     autoplay: false,
-    paused: false,
-    pauseReasons: new Set(),
+    // 멈춤은 진짜 상태 모듈로. 오디오는 쓰지 않으니 아무것도 하지 않는 것
+    pause: new PauseState(
+      () => ({ state: { status: "idle" }, pause: () => false, unpause: () => false }) as never,
+      () => {},
+    ),
+    syncs: 0,
+    syncHolds() {
+      this.syncs++;
+    },
     playback: null,
     requesterId: null,
     nowPlayingMessage: null,
@@ -69,6 +77,7 @@ function makePlayer(overrides: object = {}) {
     },
     ...overrides,
   });
+  Object.defineProperty(p, "paused", { get: () => p.pause.silent });
   trackState.init(p);
   const sp = new SessionPersistence(p);
   p.trackSink = sp;
@@ -270,10 +279,11 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
 
 // ── 세션 행 ──
 
-test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남긴다", async () => {
-  const { p, sp } = makePlayer({ paused: true, pauseReasons: new Set(["alone"]), volume: 30, position: 42_000 });
+test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남긴다(억제로 소리가 멈춰 있어도)", async () => {
+  const { p, sp } = makePlayer({ volume: 30, position: 42_000 });
+  p.pause.setHolds(["alone"]);
   trackState.setCurrent(p, t("x"));
-  await sp.persistState();
+  await sp.persistState("test");
 
   let { session } = loaded(p.guild.id);
   assert.equal(session.loopMode, "off");
@@ -284,20 +294,20 @@ test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남�
 
   p.loop = "queue";
   p.autoplay = "kpop";
-  p.pauseReasons.add("manual");
-  await sp.persistState();
+  p.pause.setUser(true);
+  await sp.persistState("test");
   ({ session } = loaded(p.guild.id));
   assert.equal(session.loopMode, "queue");
   assert.equal(session.autoplay, "kpop");
-  assert.equal(session.pausedManual, true);
+  assert.equal(session.pausedManual, true, "혼자 남아 멈춘 동안 사람이 멈춰 둔 것도 남는다");
 });
 
 test("곡도 대기열도 없으면 세션을 삭제한다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("x"));
-  await sp.persistState();
+  await sp.persistState("test");
   trackState.setCurrent(p, null);
-  await sp.persistState();
+  await sp.persistState("test");
   assert.equal(sessions().load(p.guild.id), null);
 });
 
@@ -306,12 +316,12 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
   const b = makePlayer({ position: 20_000 });
   for (const { p, sp } of [a, b]) {
     trackState.setCurrent(p, t());
-    await sp.persistState();
+    await sp.persistState("test");
     sp.startStateSync();
   }
   a.p.position = 11_000;
   b.p.position = 99_000;
-  b.p.paused = true;
+  b.p.pause.setHolds(["alone"]); // 저장 칸(사람의 뜻)은 그대로인 멈춤. 사람이 멈추면 그 순간의 위치를 한 번 저장한다
 
   try {
     SessionPersistence._beat();
@@ -328,13 +338,8 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 function makeRestorePlayer(overrides: object = {}) {
   const { p, sp } = makePlayer({ connection: { state: {} }, ...overrides }); // 연결 재수립 경로 생략
   p.play = fake<Player["play"]>(async (ms: number) => {
-    // play()는 시작 직후 pauseReasons를 보고 즉시 일시정지 — 그 시점의 사유 유무를 기록
-    p.calls.push(["play", ms, p.pauseReasons.has("manual")]);
-  });
-  p.pauseFor = fake<Player["pauseFor"]>((reason: string) => {
-    p.pauseReasons.add(reason);
-    p.paused = true;
-    p.calls.push(["pauseFor", reason]);
+    // play()는 시작 직후 사람의 뜻을 보고 멈춘다(Playing 리스너) — 그 시점의 뜻을 기록
+    p.calls.push(["play", ms, p.pause.userPaused]);
   });
   return { p, sp };
 }
@@ -358,11 +363,11 @@ async function restore(record: RestoredSession, setup: (p: TestPlayer) => void =
   return p;
 }
 
-test("복원: 수동 일시정지 세션은 멈춘 상태로", async () => {
+test("복원: 사람이 멈춰 둔 세션은 멈춘 상태로", async () => {
   const p = await restore(makeRecord({ pausedManual: true }));
-  assert.deepEqual(p.calls[0], ["play", 30_000, true], "play 시작 시점에 이미 manual 사유가 걸려 즉시 일시정지");
+  assert.deepEqual(p.calls[0], ["play", 30_000, true], "play 시작 시점에 이미 사람의 뜻이 걸려 즉시 멈춘다");
   assert.equal(p.paused, true);
-  assert.ok(p.pauseReasons.has("manual"));
+  assert.equal(p.pause.userPaused, true);
 });
 
 test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 복원한다", async () => {
@@ -374,12 +379,10 @@ test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 복원
   assert.equal(p.autoplay, "rock");
 });
 
-test("복원: 전의 멈춤 사유(혼자 남음 등)는 비운다. 복원한 뒤의 상황이 다시 건다", async () => {
-  const p = await restore(makeRecord(), (q) => {
-    q.pauseReasons.add("alone");
-    q.pauseReasons.add("mute");
-  });
-  assert.deepEqual([...p.pauseReasons], []);
+test("복원: 억제 사유(혼자 남음 · 음소거)는 비우지 않고 지금 음성 상태로 다시 맞춘다", async () => {
+  const p = await restore(makeRecord(), (q) => q.pause.setHolds(["mute"]));
+  assert.deepEqual([...p.pause.holds], ["mute"], "지금 상태의 계산이라 비울 까닭이 없다");
+  assert.ok(p.syncs >= 1, "붙은 뒤 맞춘다");
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
 });
 
