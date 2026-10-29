@@ -208,7 +208,7 @@ test("스트림: 헤더 · 앞 광고 시각이 없으면 빈 값", async () => 
 
 test("스트림: 주소가 없거나 yt-dlp 가 실패하면 던진다", async () => {
   respond = () => video("iiiiiiiiiii");
-  await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=iiiiiiiiiii"), /yt-dlp가 스트림 URL을 주지 않음/);
+  await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=iiiiiiiiiii"), /스트림 URL을 찾을 수 없음/);
   await assert.rejects(YouTube.getStream(""), /URL이 필요함/);
   respond = () => ({ fail: "ERROR: [youtube] iiiiiiiiiii: Video unavailable" });
   await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=iiiiiiiiiii"), /Video unavailable/);

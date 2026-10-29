@@ -208,7 +208,7 @@ async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp
   const info = readInfo(raw);
 
   if (!info || !info.url) {
-    throw new Error("yt-dlp가 스트림 URL을 주지 않음");
+    throw new Error("스트림 URL을 찾을 수 없음");
   }
 
   // 위치는 주소에 싣지 않는다. ffmpeg 의 -ss 가 정한다

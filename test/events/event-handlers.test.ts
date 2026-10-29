@@ -227,7 +227,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제�
     mock.timers.tick(1);
     await new Promise(setImmediate);
     assert.equal(msg.deleted, true);
-    assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔄 **노래 제목** 검색 중…" })));
+    assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔄 **노래 제목** 검색 중..." })));
     assert.equal(resolved[0].query, "노래 제목");
     assert.equal(resolved[0].context, "전용채널.resolveQuery");
     assert.equal(w.handled[0].who?.username, "사용자");
@@ -276,7 +276,7 @@ test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다",
   await settings.setBotChannel("g1", "bot-channel");
   const msg = message(w, { content: "가".repeat(70) });
   await messageHandler.execute(w.bot, msg);
-  assert.equal(textOf(msg.sent[0].payload), `🔄 **${"가".repeat(60)}…** 검색 중…`);
+  assert.equal(textOf(msg.sent[0].payload), `🔄 **${"가".repeat(60)}…** 검색 중...`);
 });
 
 test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 경고 수명(10초) 뒤 삭제한다", async () => {
