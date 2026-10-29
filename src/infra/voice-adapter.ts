@@ -16,9 +16,10 @@ type GatewayPayload = { op?: number; d?: { channel_id?: string | null; [field: s
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 이동 · 나가기
 const HOLD_MS = 300; // 붙잡는 시간. 닫힘과 상태 패킷은 보통 몇 ms 차이로 온다
 
-/** creator: 디스코드 쪽 어댑터 생성기(guild.voiceAdapterCreator) */
+/** onRewrite: 붙잡은 참가 요청의 채널을 고쳤을 때, onSend: 참가 요청을 내보낼 때(고쳤는지와 함께) */
 type Hooks = { holdMs?: number; onRewrite?: (from: string, to: string) => void; onSend?: (channelId: string, rewritten: boolean) => void };
 
+/** creator(디스코드 쪽 어댑터 생성기, guild.voiceAdapterCreator)를 감싸 참가 요청을 holdMs 동안 붙잡는다 */
 function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs = HOLD_MS, onRewrite, onSend }: Hooks = {}): DiscordGatewayAdapterCreator {
   return (methods) => {
     let pending: { payload: GatewayPayload & { d: { channel_id: string } }; timer: NodeJS.Timeout; rewritten: boolean } | null = null; // 붙잡아 둔 참가 요청

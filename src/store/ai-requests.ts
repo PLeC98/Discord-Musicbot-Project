@@ -61,7 +61,7 @@ function cap(text: string): { text: string; truncated: boolean } {
   if (size <= MAX_FIELD_BYTES) return { text, truncated: false };
   const half = Math.floor(MAX_FIELD_BYTES / 2);
   const buf = Buffer.from(text, "utf8");
-  // 글자 가운데에서 끊기면 깨진 글자 하나가 남을 뿐이다(UTF-8 풀이가 대체 글자로 둔다)
+  // 글자 가운데에서 끊기면 깨진 글자 하나가 남을 뿐이다(UTF-8 디코딩이 대체 글자로 둔다)
   const head = buf.subarray(0, half).toString("utf8");
   const tail = buf.subarray(size - half).toString("utf8");
   return { text: `${head}\n\n...[${Math.round((size - half * 2) / 1024)} KB 생략]...\n\n${tail}`, truncated: true };

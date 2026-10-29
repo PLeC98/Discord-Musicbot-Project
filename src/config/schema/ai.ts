@@ -11,7 +11,7 @@ const SECRET_HEADER = "extra 에 비밀 헤더(Authorization · x-api-key · Coo
 
 /**
  * 줄 형식의 문제(글자 위치와 함께, 화면이 그 위치를 표시한다). 비우면 기본 형식이라 문제가 없다. 제목이 없으면 판정할 거리가 없다.
- * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 필드(list.unknownDuration · unknownText)은 읽지 않는다
+ * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 필드(list.unknownDuration · unknownText)는 읽지 않는다
  */
 function lineFormatProblems(format: string): Problem[] {
   if (!format.trim()) return [];
@@ -89,12 +89,11 @@ const aiFile = z.preprocess(
         .nullish(),
       // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
       hideModels: present((v) => Array.isArray(v) && v.every((one) => typeof one === "string"), 'hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).'),
-      // 섹션 이름은 대시보드에서 어느 섹션인지 알아보려고 붙이는 것이다.
-      // ChatML 에는 이름을 적을 곳이 없어서 여기 둔다. 순서가 프롬프트 섹션과 같아야 한다.
+      // 대시보드에서 어느 섹션인지 알아보려고 붙이는 이름. 프롬프트 섹션에는 이름 필드가 없어 여기 두므로 순서가 섹션과 같아야 한다
       promptNames: present((v) => Array.isArray(v) && v.every((one) => one == null || typeof one === "string"), "promptNames는 글자 목록이어야 합니다."),
       list,
     })
-    // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
+    // 켰는데 프로바이더가 없으면 알리고, 프로바이더를 골랐을 때만 주소 · 모델을 따진다
     .superRefine((data, ctx) => {
       if (data.enabled === true && (!data.provider || data.provider === "off")) ctx.addIssue({ code: "custom", message: "켜려면 provider를 선택해야 합니다." });
       if (!data.provider || data.provider === "off") return;
@@ -107,7 +106,7 @@ const aiFile = z.preprocess(
     }, ALWAYS),
 );
 
-/** 꺼 두었는지(enabled: false). 꺼 두면 나머지 필드를 따지지 않는다(프롬프트는 파일이 깨지지 않을 만큼만 본다: ai-prompt 의 promptProblems(…, false)) */
+/** 꺼 두었는지(enabled: false). 꺼 두면 나머지 필드를 따지지 않는다(프롬프트는 형식만 본다: ai-prompt 의 promptProblems(…, false)) */
 const aiSwitchedOff = (data: unknown) => !!data && typeof data === "object" && (data as { enabled?: unknown }).enabled === false;
 
 /** AI 설정의 문제 목록. 없으면 빈 배열. 꺼 두었어도 비밀 헤더는 막는다(설정은 평문으로 남고 내보내기에도 실린다) */

@@ -14,7 +14,7 @@ const conn = () => stateDb.get();
 // 서버마다 읽어 둔 위치. 없으면 null 을 담는다
 const cache = new Map<string, PanelRecord | null>();
 
-// 테스트 시임. 읽어 둔 것을 버린다
+// 테스트: 읽어 둔 것을 버린다
 function _reset() {
   cache.clear();
 }

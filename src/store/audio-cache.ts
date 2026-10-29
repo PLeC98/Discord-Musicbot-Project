@@ -47,7 +47,7 @@ type TrackMeta = { title?: string | null; artist?: string | null; channel?: stri
 const protectedKeys = new Map<string, string>();
 const protectedFiles = new Set<string>(); // 지금 다운로드 중인 파일 경로(임시 파일 · 옮긴 뒤 기록 전의 최종 파일). 정리가 건드리면 안 된다
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
-// 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC · 담기) 그동안 퇴거 · 삭제 · 초기화가 지우지 않게 한다
+// 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC · 담기) 그동안 퇴거 · 삭제 · 초기화가 삭제하지 않게 한다
 const exportingKeys = new Set<Set<string>>();
 let evictInterval: NodeJS.Timeout | null = null;
 let evictEveryMs = 0;
@@ -75,12 +75,12 @@ const conn = () => cacheDb.get();
 /** 캐시 파일이 놓이는 폴더 */
 const cacheDir = () => dir;
 
-// 테스트 시임. 임시 폴더로 바꾼다
+// 테스트: 임시 폴더로 바꾼다
 function _setCacheDir(next: string) {
   dir = next;
 }
 
-// 테스트 시임. 파일 삭제를 교체한다. 인자 없이 부르면 원래대로
+// 테스트: 파일 삭제를 교체한다. 인자 없이 부르면 원래대로
 function _setRemoval({ unlink: nextUnlink = fsUnlink, timeoutMs = REMOVE_TIMEOUT_MS }: { unlink?: (target: string) => Promise<void>; timeoutMs?: number } = {}) {
   unlink = nextUnlink;
   removeTimeoutMs = timeoutMs;
@@ -179,13 +179,10 @@ function inDownload(target: string) {
 }
 
 /**
- * 길드의 대기열 보호 집합을 통째로 교체한다.
+ * 서버의 대기열 보호 집합을 통째로 교체한다. 추가 · 삭제를 하나씩 따라가지 않고 대기열이 바뀔 때마다 전체를 다시 계산해
+ * 넘기므로, 해제를 빠뜨려 보호가 남는 일이 없다.
  *
- * 추가·삭제를 개별로 추적하지 않는 것이 요점이다. 대기열이 바뀔 때마다 전체를 다시 계산해
- * 넘기므로 해제를 빠뜨려 보호가 남는 누수가 생기지 않는다.
- *
- * 길드별로 나누는 이유: 두 길드가 같은 곡을 대기열에 두었을 때 한쪽이 비운다고
- * 다른 쪽 보호까지 풀리면 안 된다.
+ * 서버마다 나눈다: 두 서버가 같은 곡을 대기열에 두었을 때 한쪽이 비워도 다른 쪽 보호는 남아야 한다.
  */
 function setQueuedKeys(guildId: string | null | undefined, keys: Array<string | null | undefined> | null | undefined) {
   if (!guildId) return;
@@ -194,7 +191,7 @@ function setQueuedKeys(guildId: string | null | undefined, keys: Array<string | 
   else queuedKeys.set(guildId, set);
 }
 
-/** 재생 중 + 모든 길드의 대기열 + 내보내는 중. 퇴거에서 제외할 키 전부 */
+/** 재생 중 + 모든 서버의 대기열 + 내보내는 중. 퇴거에서 제외할 키 전부 */
 function liveKeys() {
   const keys = new Set(protectedKeys.values());
   for (const set of [...queuedKeys.values(), ...exportingKeys]) for (const k of set) keys.add(k);
@@ -255,7 +252,7 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
     )
     .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, audioKey);
 
-  // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
+  // 다운로드 뒤 퇴거 검사(기다리지 않는다). 그사이 DB 가 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
   setImmediate(() => {
     if (cacheDb.isOpen()) bestEffort(log, evictIfNeeded(), "다운로드 뒤 캐시 비우기");
   });
@@ -277,14 +274,14 @@ function recordPlayback(audioKey: string) {
 }
 
 /**
- * 저장된 세션에서 지켜야 할 캐시 파일. 기동 시 고아 파일 청소가 쓴다.
+ * 저장된 세션에서 지켜야 할 캐시 파일. 기동 시 고아 파일 정리가 쓴다.
  * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡·대기열이 유일한 근거다.
  */
 function getProtectedCacheFiles() {
   return new Set([...sessionKeys()].map((key) => path.resolve(getFilePath(key))));
 }
 
-// 저장된 세션이 쓰는 캐시 키. 고아 청소는 지금 곡 · 대기열 전부를, 퇴거는 지금 곡 · 대기열 앞부분을 지킨다
+// 저장된 세션이 쓰는 캐시 키. 고아 파일 정리는 지금 곡 · 대기열 전부를, 퇴거는 지금 곡 · 대기열 앞부분을 지킨다
 function sessionKeys(audioUrls = sessions().liveAudioUrls()) {
   const keys = new Set<string>();
   for (const audioUrl of audioUrls) {
@@ -313,10 +310,10 @@ async function onStartup() {
   }
   if (orphanDbCount > 0) log.info(`오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
 
-  // 3. DB에서 추적하지 않는 오디오 파일 삭제. 다운로드하다 만 조각도 삭제하므로 복원이 다운로드를 시작하기 전에 끝낸다
+  // DB에서 추적하지 않는 오디오 파일 삭제. 다운로드하다 만 조각도 삭제하므로 복원이 다운로드를 시작하기 전에 끝낸다
   await cleanOrphanFiles();
 
-  // 4. 제한 초과 시 제거. 기다리지 않는다(복원될 곡은 저장된 세션을 보고 지킨다)
+  // 상한을 넘었으면 퇴거한다. 기다리지 않는다(복원될 곡은 저장된 세션을 보고 지킨다)
   bestEffort(log, evictIfNeeded(), "기동 캐시 비우기");
 }
 
@@ -337,7 +334,7 @@ function wipeTables(parts: readonly AudioCachePart[], survivors: string[]): Part
   return cleared;
 }
 
-// 지우기 전의 크기(지운 크기를 센다). 못 읽으면 0(없는 것은 이미 지워졌다)
+// 삭제하기 전의 크기(삭제한 크기를 센다). 못 읽으면 0(없는 것은 이미 삭제됐다)
 function sizeOf(target: string) {
   try {
     return fs.statSync(target).size;
@@ -347,11 +344,11 @@ function sizeOf(target: string) {
   }
 }
 
-/** 오디오 캐시 초기화의 결과. removed · kept · freedBytes 는 캐시 파일을 선택했을 때의 파일 수 · 남긴 파일 수 · 실제로 지운 크기, cleared 는 선택마다 비운 행 수 */
+/** 오디오 캐시 초기화의 결과. removed · kept · freedBytes 는 캐시 파일을 선택했을 때 삭제한 파일 수 · 남긴 파일 수 · 실제로 삭제한 크기, cleared 는 선택마다 비운 행 수 */
 type ResetResult = { removed: number; kept: number; freedBytes: number; cleared: Partial<Record<AudioCachePart, number>> };
 
 /**
- * 오디오 캐시에서 선택한 것을 초기 상태로 되돌린다(rules/audio-cache-parts). 캐시 파일을 선택하면 오디오 파일까지 지운다.
+ * 오디오 캐시에서 선택한 것을 초기 상태로 되돌린다(rules/audio-cache-parts). 캐시 파일을 선택하면 파일까지 삭제한다.
  * 서버 설정(settings.db)과 저장된 대기열 · 음성 채널 상태(state.db)는 다른 파일이라 남는다.
  *
  * 재생 중 · 대기열 앞 곡과 다운로드 중인 파일은 남긴다(파일 잠금에 기대지 않는다: 리눅스는 재생 중인 파일도 삭제된다).
@@ -375,7 +372,7 @@ async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResul
   return { removed: files.removed, kept: files.kept, freedBytes: files.freedBytes, cleared };
 }
 
-// 캐시 파일을 모두 지운다. 남긴 것(재생 중 · 대기열 앞 · 삭제하지 못한 것)의 키는 행을 남기려고 돌려준다
+// 캐시 파일을 모두 삭제한다. 남긴 것(재생 중 · 대기열 앞 · 삭제하지 못한 것)의 키는 행을 남기려고 돌려준다
 async function removeAllFiles() {
   // 파일을 먼저 삭제하고, 남긴 것의 행은 남긴다. 행만 삭제하고 파일을 남기면 DB 가 모르는 파일이 된다.
   const rows = conn().prepare("SELECT audio_key, file_path, status FROM audio_cache").all() as Array<Pick<AudioRow, "audio_key" | "file_path" | "status">>;
@@ -455,9 +452,9 @@ async function cleanOrphanFiles() {
   if (partials > 0) log.info(`캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
 }
 
-// 제거
+// 퇴거
 
-/** CACHE_DIR 파일시스템의 디스크 여유 공간(바이트). 오류 시 Infinity 반환. */
+/** 캐시 폴더 드라이브의 여유 공간(바이트). 읽지 못하면 Infinity(여유 공간 기준 정리를 건너뛴다) */
 function freeDiskBytes() {
   try {
     const stat = fs.statfsSync(dir);
@@ -483,8 +480,8 @@ const cacheUsage = () => ({ bytes: cacheSize(), files: cacheCount() });
 type AdoptRow = { audioKey: string; title: string | null; channel: string | null; durationSec: number | null; sizeBytes: number; plays: number; lastPlayedAt: number | null; downloadedAt: number | null; audioVersion: string | null };
 
 /**
- * 오디오 캐시 불러오기: 임시 파일로 받아 둔 캐시 파일을 이 봇의 자리로 옮기고 행을 적는다(정리 잠금 안). 옮겼으면 true.
- * 그새 이 봇이 같은 곡을 받았거나 받는 중이면 임시 파일을 지우고 false. 경로는 키에서 계산한다(받은 이름을 쓰지 않는다)
+ * 오디오 캐시 불러오기: 임시 파일로 받아 둔 캐시 파일을 이 봇의 경로로 옮기고 행을 적는다(정리 잠금 안). 옮겼으면 true.
+ * 그새 이 봇이 같은 곡을 받았거나 받는 중이면 임시 파일을 삭제하고 false. 경로는 키에서 계산한다(받은 이름을 쓰지 않는다)
  */
 function adoptFile(row: AdoptRow, tempPath: string): Promise<boolean> {
   return underCleanupLock(async () => {
@@ -560,7 +557,7 @@ async function checkAndEvict() {
   await evictLocked({ totalSize, fileCount, diskFree });
 }
 
-// 삭제하지 않고 지키는 키: 재생 중인 곡과 각 길드의 대기열 앞부분(메모리 · 저장된 세션 양쪽).
+// 삭제하지 않고 지키는 키: 재생 중인 곡과 서버마다의 대기열 앞부분(메모리 · 저장된 세션 양쪽).
 // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다.
 // 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 적용되지 않는다. 앞부분만(미리 다운로드 범위)
 function guardedKeys() {
@@ -574,7 +571,7 @@ function guardedKeys() {
 function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "last_played_at" | "downloaded_at" | "created_at" | "file_size_bytes">>(rows: T[], moreAge: Iterable<string> = []) {
   const now = Date.now();
 
-  // 연령 제한 영상은 재취득이 느리고 쿠키가 필요하므로 퇴거에서 더 오래 잔존시킨다(점수↓).
+  // 연령 제한 영상은 다시 받기가 느리고 쿠키가 필요하므로 더 오래 남긴다(점수를 낮춘다).
   const ageSet = new Set([
     ...conn()
       .prepare("SELECT video_id FROM age_restricted")
@@ -602,7 +599,7 @@ function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "
       // 점수가 높을수록 먼저 삭제한다
       let score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
 
-      // 연령 제한 영상: 점수를 낮춰 잔존 우선순위를 높임 (재취득 비용↑). 절대 임계값이 아닌 상대 랭킹이라 영구보존은 아님.
+      // 연령 제한 영상은 점수를 절반으로. 순위만 뒤로 밀 뿐 늘 남기지는 않는다
       const vid = typeof r.audio_key === "string" && r.audio_key.startsWith("yt:") ? r.audio_key.slice(3) : null;
       if (vid && ageSet.has(vid)) score *= 0.5;
 
@@ -643,7 +640,7 @@ function evict(state: { totalSize?: number; fileCount?: number; diskFree?: numbe
 }
 
 async function evictLocked({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
-  // 보호 중인 키 제외(guardedKeys). 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다
+  // 보호 중인 키 제외(guardedKeys). 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 삭제한다
   const live = guardedKeys();
   const all = conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[];
   const scored = rankForEviction(all.filter((r) => !live.has(r.audio_key)));

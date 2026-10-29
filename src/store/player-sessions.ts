@@ -1,5 +1,5 @@
-// 플레이어 세션 저장소. 길드당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
-// DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
+// 플레이어 세션 저장소. 서버당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
+// DB는 재시작 복원용 사본이다. 재생 중의 원본은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 import { HISTORY_MAX } from "../rules/history.ts";
@@ -229,7 +229,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 재생 위치만. 활성 플레이어 전부를 한 트랜잭션에
+  // 재생 위치만 저장한다. 도는 플레이어 전부를 한 트랜잭션으로
   savePositions(entries: Array<{ guildId: string; positionMs?: number }>) {
     this._tx(() => {
       for (const e of entries) this.q.position.run(Math.max(0, Math.round(e.positionMs ?? 0)), e.guildId);
@@ -243,7 +243,7 @@ class PlayerSessionStore {
     });
   }
 
-  // ── 트랙 행 (증분) ──
+  // ── 트랙 행 (한 곡씩) ──
 
   setCurrent(guildId: string, track: TrackIn | null | undefined) {
     this._tx(() => {
@@ -326,7 +326,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
+  // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 대기열 반복 사본(copy번째)은 먼저 뺀다.
   // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 삭제한다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy 만 옮긴다
   rewind(guildId: string, track: TrackIn, { copy = -1, current = null, fromHistory = true }: { copy?: number; current?: TrackIn | null; fromHistory?: boolean } = {}): boolean {
     return this._tx(() => {
@@ -387,7 +387,7 @@ class PlayerSessionStore {
     return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...this._group(byGuild.get(s.guild_id) || []) }));
   }
 
-  // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 다운로드하면 된다)
+  // 기동 시 고아 파일 정리가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 다운로드하면 된다)
   liveAudioUrls(): string[] {
     return this.q.liveRefs.all().map((r) => r.audio_url);
   }
@@ -398,9 +398,9 @@ class PlayerSessionStore {
   }
 }
 
-// 모양이 틀린 행은 버리고 DB 에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
 type RestoredTrack = ReturnType<typeof fromRow>;
 
+// 모양이 틀린 행은 버리고 DB 에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
 function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {
   const out: { current: RestoredTrack | null; queue: RestoredTrack[]; history: RestoredTrack[] } = { current: null, queue: [], history: [] };
   for (const raw of rows) {

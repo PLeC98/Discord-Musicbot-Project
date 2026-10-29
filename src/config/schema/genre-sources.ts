@@ -59,11 +59,8 @@ const ANISONG_BROADCASTS = ["normal", "dub", "rebroadcast"];
 // 태그는 수가 많아 못 적는다. 오타는 저쪽 422로 드러난다.
 const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"];
 
-// 기본 곡 종류가 사이트마다 다르다. 셋 다 같은 소프트웨어지만 무엇이 "본체"인지가 다르다.
-//   utaitedb. 우타이테는 남의 곡을 부르는 사람들이다. Original로 받으면 정작 우타이테가
-//              아니라 보컬로이드 원곡이 온다(MARETU feat. 初音ミク 같은 것).
-//   touhoudb. 동방은 어레인지 문화다. Original은 ZUN의 게임 BGM 3,190곡뿐이고,
-//              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
+// 기본 곡 종류가 사이트마다 다르다. utaitedb 는 Original 로 받으면 우타이테가 아니라 보컬로이드 원곡이 오고,
+// touhoudb 는 Original 이 게임 BGM 뿐이라 사람들이 듣는 Arrangement 를 받는다.
 const VOCA_DEFAULT_TYPES: Partial<Record<Site, string[]>> = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
 // 값이 정해져 있는 필드들. 오타를 설정 시점에 잡는다. 안 그러면 저쪽이 422/400을 돌려주고
@@ -74,7 +71,7 @@ const MEDIA_FORMATS = ["TV", "TV Short", "Movie", "OVA", "ONA", "Special"];
 
 const LB_MODES = ["easy", "medium", "hard"];
 
-// 정렬 이름은 저쪽 코드값이다. 화면에는 한국어로 보인다. 코드값은 예제 파일 주석으로 충분하다.
+// 정렬 이름은 저쪽 코드값이고 화면에는 한국어로 보인다
 const SONG_SORT_OPTIONS = [
   { value: "RatingScore", label: "평가 점수 높은 순" },
   { value: "FavoritedTimes", label: "즐겨찾기 많은 순" },
@@ -131,12 +128,8 @@ const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
   touhoudb: null,
 };
 
-// 가사 언어. 저쪽이 목록을 안 주므로 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다
-// (유튜브 PV 가 있는 곡 기준. 사이트마다 다르고, 많은 순서다).
-//
-// ha·ln·yo·jv 는 뺐다. 그 언어의 곡이 아니라 로마자 가사에 엉뚱한 코드가 붙은 것이다.
-//
-// 번역 가사만 있는 곡도 걸린다. 그 언어로 부른 곡만 필터링할 방법은 저쪽에 없다.
+// 가사 언어. 저쪽이 목록을 주지 않아 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다(유튜브 PV 가 있는 곡 기준, 사이트마다 많은 순서).
+// 로마자 가사에 엉뚱한 코드가 붙은 ha · ln · yo · jv 는 뺐다. 번역 가사만 있는 곡도 걸린다(그 언어로 부른 곡만 고를 방법이 저쪽에 없다).
 const LANG_NAMES: Record<string, string> = {
   ja: "일본어",
   en: "영어",
@@ -217,7 +210,7 @@ const VOCA_SINGER: Record<Site, { typeLabel?: string; artistLabel: string; artis
   touhoudb: { artistLabel: "특정 아티스트만", artistHint: "입력하면 후보가 표시돼요. 예) ZUN. 여럿이면 모두 참여한 곡" },
 };
 
-// 척도는 사이트마다 크게 다르지만(예제 파일의 표 참고) 설명할 말은 같다
+// 척도는 사이트마다 크게 다르지만 설명할 말은 같다
 const VOCA_SCORE_HINT = '해당 사이트의 "評価" 점수.';
 
 function vocaFields(site: Site): Field[] {
@@ -358,8 +351,6 @@ const SPEC: Record<string, SourceSpec> = {
   spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트" })] },
   youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "일반 재생목록이나 유튜브 뮤직 공식 재생목록(list=RDCLAK…)을 넣어 주세요. 전체 곡 수 안에서 무작위로 곡을 뽑기 때문에, 믹스처럼 유튜브가 끝없이 이어 주는 자동 목록은 쓰지 못해요." })] },
 };
-
-/** 이 타입을 지금 쓸 수 있나. 키가 필요한 소스는 키가 있어야 한다. */
 
 /** 이 타입이 무엇을 필요로 하는지(없으면 null). 기동 시 문구를 만들 때 쓴다. */
 const needsOf = (type: string): { env: string; label: string } | null => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);

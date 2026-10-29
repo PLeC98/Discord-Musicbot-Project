@@ -10,7 +10,7 @@ import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 const cacheDb = new DbFile({
   label: "캐시 DB",
   fileName: "cache.db",
-  // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다. 7: 재생 테스트 · 다시 확인의 원본 버전(source_checks.version)
+  // 7: 재생 테스트 · 다시 확인의 원본 버전(source_checks.version)
   version: 7,
   synchronous: "NORMAL",
   onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },

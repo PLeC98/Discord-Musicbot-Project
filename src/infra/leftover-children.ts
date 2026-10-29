@@ -1,4 +1,4 @@
-// 직전 실행이 남긴 자식 프로세스(POToken 서버 · ffmpeg · yt-dlp)를 기동 시 종료한다.
+// 이전 실행이 남긴 자식 프로세스(POToken 서버 · ffmpeg · yt-dlp)를 기동 시 종료한다.
 // 정리는 종료 핸들러와 exit 훅이 하지만, 창을 그냥 닫거나 강제로 끄거나 네이티브 충돌로 죽으면 그 둘이 돌지 않는다.
 // 남은 POToken 서버가 4416 을 쥐면 새 서버가 실행되지 않으므로 POToken 서버를 실행하기 전에 부른다.
 //
@@ -36,7 +36,7 @@ const imageName = (name: string) => name.replace(/\.exe$/i, "").toLowerCase();
 // 바깥 프로그램의 출력 글(콘솔 코드 페이지로 읽는다)
 const textOf = (bytes: Buffer | null | undefined) => (bytes ? consoleText(bytes) : "");
 
-// 묻지 못했으면 까닭을 남긴다. 빈 목록이면 모두 끝난 것으로 보고 기록을 지운다
+// 묻지 못했으면 까닭을 남긴다. 그때 출력은 빈 목록이라 아무것도 종료하지 않는다
 function asked(what: string, result: { error?: Error; status: number | null; stderr?: Buffer | null }, okStatus: (status: number | null) => boolean) {
   const stderr = textOf(result.stderr).trim();
   if (result.error) log.warn(`잔류 자식 프로세스 확인 실패(${what}): ${result.error.message}`);

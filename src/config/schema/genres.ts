@@ -1,4 +1,4 @@
-// 장르 설정("genres" 문서)의 스키마. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 그대로 둔다.
+// 장르 설정("genres" 문서)의 스키마. 문구는 운영자에게 그대로 보이므로 무엇을 고칠지까지 적는다.
 
 import { SPEC, TYPES } from "./genre-sources.ts";
 import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";
@@ -13,7 +13,7 @@ const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 // 조용히 어긋난다("재즈 80 팝"이 "80 재즈 팝"이 된다). 순서는 선택 메뉴에 그대로 나오므로 막는다.
 const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 
-// 키가 식별자다(주소 · 버튼 id · AI 의 {{genre}}). YAML이 값으로 읽어 버리는 말은 식별자로 쓸 수 없다.
+// 키가 식별자다(주소 · 버튼 id · AI 의 {{genre}}). 값처럼 읽히는 말(true · false · null)과 빈 이름은 식별자로 받지 않는다.
 const YAML_WORDS = ["true", "false", "", "null"];
 
 const filled = (v: unknown) => (Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim());
@@ -55,11 +55,8 @@ const genre = z.preprocess(
   z.object({
     // 보여 줄 이름(디스코드 메뉴 · 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
     label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비우지 않은 글(100자까지)이어야 합니다."),
-    // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다. 파일을 손으로 고칠 수도 있어서 여기서 막는다.
     emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)), "{id}: emoji는 이모지 한 글자여야 합니다."),
-    // 맨 위 keywords:는 읽지 않는다. 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
-    // 그건 축약이 아니라 영구 호환층이다. 새로 쓰는 사람이 keywords:를 선택할 이유가 없다.
-    // 한 번 크게 깨지고 끝나는 편이 두 모양을 영원히 들고 가는 것보다 낫다.
+    // 맨 위 keywords: 는 읽지 않고 sources 로 옮기라고 알린다(두 형식을 함께 받지 않는다)
     keywords: z
       .unknown()
       .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
@@ -92,7 +89,7 @@ const genres = z.preprocess(
   }, ALWAYS),
 );
 
-/** 파일의 defaults 에 필드가 없을 때 봇이 쓰는 값. 길이 상한(maxDurationSec)은 비우면 없다. 대시보드도 비운 입력란에 이 값을 보인다 */
+/** 문서의 defaults 에 필드가 없을 때 봇이 쓰는 값. 길이 상한(maxDurationSec)은 비우면 없다. 대시보드도 비운 입력란에 이 값을 보인다 */
 const GENRE_DEFAULTS = { prefetchCount: 1, minDurationSec: 60, maxDurationSec: null } as const;
 
 const defaults = z.preprocess(

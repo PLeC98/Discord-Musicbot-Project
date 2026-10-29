@@ -21,7 +21,7 @@ function remove(provider: string) {
   secrets.remove(nameOf(provider));
 }
 
-/** 지금 주소로 꺼낸 키. 없거나 주소가 다르거나 못 풀면 빈 문자열 */
+/** 지금 주소로 꺼낸 키. 없거나 주소가 다르거나 복호화하지 못하면 빈 문자열 */
 function read(provider: string, endpoint: string) {
   const got = secrets.read(nameOf(provider), { provider, endpoint });
   return got.state === "ok" ? got.value : "";
@@ -34,8 +34,8 @@ function stateOf(provider: string, endpoint: string): AiKeyState {
 }
 
 /**
- * 저장된 키 값 모두(가리기용: 거절 응답이 되비춘 키를 화면 · 로그에서 지운다). 키마다 묶인 곳으로 푼다.
- * 묶인 주소 열을 바꿔 둔 행은 풀리지 않아 빠진다. 그런 키는 어디로도 나가지 않으므로 가릴 것도 없다
+ * 저장된 키 값 모두(가리기용: 거절 응답이 되비춘 키를 화면 · 로그에서 가린다). 키마다 묶인 곳으로 복호화한다.
+ * 묶인 주소 열을 바꿔 둔 행은 복호화되지 않아 빠진다. 그런 키는 어디로도 나가지 않으므로 가릴 것도 없다
  */
 function allValues(providers: readonly string[]) {
   const out: string[] = [];

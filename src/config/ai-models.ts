@@ -165,11 +165,12 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
   return { ...(base?.defaultBody || {}), ...(found.profile.defaults || {}) };
 }
 
-/** 저쪽에서 한 버전 다운로드한다. 원본 그대로 담되 우리 프로바이더 것만 선택한다. */
-// index: 이미 다운로드해 둔 목차(갱신은 해시를 보려고 먼저 다운로드한다). 없으면 여기서 다운로드한다
-// 모델 목록은 GitHub 에서 다운로드한다(공유 HTTP 클라이언트)
 const github = httpFor("github");
 
+/**
+ * 저쪽에서 한 버전 다운로드한다. 원본 그대로 담되 우리 프로바이더 것만 선택한다.
+ * index: 이미 다운로드해 둔 목차(갱신은 해시를 보려고 먼저 다운로드한다). 없으면 여기서 다운로드한다
+ */
 async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = github.fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
   const get = async <T>(at: string): Promise<T> => {
     const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });

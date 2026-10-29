@@ -1,6 +1,6 @@
 // 모델 프로필(config/ai-models)에서 대시보드로 나가는 모양. 화면도 부르므로 Node 를 부르지 않는 여기에 둔다
 
-// showIf: 다른 필드(key)이 이 값(equals)일 때만 보인다
+// showIf: 다른 필드(key)가 이 값(equals)일 때만 보인다
 type ShowIf = { key?: string; equals?: unknown };
 
 /** 모델이 받는 필드 하나. 대시보드가 그리고 본문에 넣는다 */

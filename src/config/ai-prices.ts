@@ -111,7 +111,6 @@ function costOf(price: Price | 0 | null, tokens: AiTokens | null): number | null
   return (Math.max(0, tokens.input - tokens.cached) * input + tokens.cached * cacheRead + tokens.output * output) / 1_000_000;
 }
 
-// 값표는 models.dev 에서 다운로드한다(공유 HTTP 클라이언트)
 const modelsdev = httpFor("modelsdev");
 
 /** 다운로드해서 사본(`database/ai-prices.json`)에 쓴다. 선택한 값이 같으면 쓰지 않는다. 모델 정보 갱신과 같은 길이다 */

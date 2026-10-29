@@ -92,7 +92,7 @@ function putAll(puts: DocPut[]): number[] {
 /** 기본값(새로 설치했을 때의 문서) */
 const defaultOf = (name: DocName) => DEFAULTS[name]();
 
-// 테스트 시임. 문서를 바로 넣는다(번호 · 저장소를 거치지 않는다). 인자 없이 부르면 모두 기본값으로
+// 테스트: 문서를 바로 넣는다(번호 · 저장소를 거치지 않는다). 인자 없이 부르면 모두 기본값으로
 function _use(name?: DocName, data?: unknown) {
   if (!name) {
     store = null;

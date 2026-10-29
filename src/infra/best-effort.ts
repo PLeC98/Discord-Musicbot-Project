@@ -3,7 +3,7 @@
 
 import { messageOf } from "./error-text.ts";
 
-/** 일이 끝나기를 기다릴 수 있게 약속을 돌려준다. 실패해도 이 약속은 이룬다 */
+/** 일이 끝나기를 기다릴 수 있는 Promise 를 돌려준다. 일이 실패해도 이 Promise 는 resolve 된다 */
 function bestEffort(log: { debug(line: string): unknown }, work: PromiseLike<unknown>, what: string): Promise<void> {
   return Promise.resolve(work).then(
     () => undefined,

@@ -11,12 +11,10 @@ import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { FFMPEG_RELEASE, BGUTIL_VERSION } from "./vendor-versions.ts";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
-// ─────────────────────────────────────────────────────────────────────────────
 //
 // 불러와도 멈추지 않는다. 잘못 적은 값은 문제 목록(problems)에, 기능만 꺼지는 빈 값은 경고 목록(warnings)에
-// 모으고, 기동(src/index.ts)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
+// 모으고, 기동(app/config-check)이 첫 줄에서 찍고 문제가 있으면 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
 // 값은 process.env 에서만 읽는다. .env 를 process.env 에 올리는 것은 진입 파일의 첫 줄(app/env-bootstrap)이다(테스트는 .env 를 읽지 않는다).
 // 운영 조절값(rules/tunables)은 .env 가 아니라 settings.db 의 문서에서 온다. 불러올 때는 기본값이고, 기동이 DB 를 연 뒤
 // 같은 loadConfig 로 다시 계산해 이 객체에 올린다(store/tunables). 그 값이 틀렸으면 기동을 멈추지 않고 그 필드만 기본값(tuneProblems).
@@ -26,7 +24,7 @@ const ENV_PATH = PROJECT.env;
 // 대기열 상한. 0이면 끔. 켜면 하한이 있다: 그 아래는 사전 캐싱(앞 5곡) 버퍼밖에 안 된다
 const QUEUE_MAX_FLOOR = 25;
 
-// 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 필터링함)
+// 쉼표로 구분한 문자열 → 아는 카테고리 배열(오타 · 모르는 값은 조용히 뺀다)
 function parseSbCategories(raw: string | null) {
   const valid = new Set(SKIP_CATEGORIES);
   return [
@@ -67,7 +65,7 @@ const YTDLP_UPDATE_MODES = ["auto", "notify", "off"] as const;
 
 // User-Agent
 //   browser  브라우저를 기대하는 곳에서 사용
-//   bot      우리가 누구인지 밝히는 쪽. 버전은 package.json 에서 끌어옴.
+//   bot      우리가 누구인지 밝히는 쪽. 버전은 package.json 에서 읽는다
 const USER_AGENTS = {
   browser: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
   bot: `Discord-Musicbot-Project/${pkg.version} (+${PROJECT_REPO})`,
@@ -90,7 +88,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   }
 
   /**
-   * 잘못 적은 설정값은 기동을 멈춘다. 문제로 적고 기본값을 돌려준다(기동이 문제를 보고 멈춘다).
+   * 잘못 적은 .env 값은 문제로 적고 기본값을 돌려준다(기동이 문제를 보고 멈춘다). 운영 조절값은 tuneProblems 에 적고 그 필드만 기본값으로 돈다.
    *
    * 조용히 기본값으로 돌면 "왜 내가 설정한 값이 안 먹지"가 되고, 경고만 남기면 로그를 보지 않는
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
@@ -170,9 +168,6 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return n;
   }
 
-  // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
-  // 그대로 넘기므로 모양은 깨지 않고(`chrome:Profile 1`), 앞의 브라우저 이름만 yt-dlp 가 받는 것인지 본다.
-  // 모르는 이름이면 yt-dlp 가 사용법 오류로 끝나 모든 곡 찾기가 실패한다
   // yt-dlp 릴리스 태그(rules/ytdlp-tag)
   function envYtdlpVersion(key: string) {
     const v = env(key);
@@ -180,6 +175,9 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 합니다", null);
   }
 
+  // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
+  // 그대로 넘기므로 모양은 깨지 않고(`chrome:Profile 1`), 앞의 브라우저 이름만 yt-dlp 가 받는 것인지 본다.
+  // 모르는 이름이면 yt-dlp 가 사용법 오류로 끝나 모든 곡 찾기가 실패한다
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
@@ -233,14 +231,14 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   const { env, envEnum, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envClients, tuneInt, tuneBool } = readers;
 
   // ── 자격증명 ──
-  // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
+  // 필수 자격증명이 없으면 기동을 멈춘다.
   // CLIENT_SECRET 도 필수다: 대시보드는 늘 같이 뜨고 로그인(OAuth)이 없으면 쓸 수 없다.
   // .env 가 없으면 그 문제 하나만 알린다(나머지는 거기서 따라 나온다).
   const missing = REQUIRED_CREDENTIALS.filter((name) => !env(name));
   if (envFileFound && missing.length) {
     problems.push(`비어 있는 필수 값: ${missing.join(" · ")}. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.`);
   }
-  // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키 · 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 못 푼다
+  // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키 · 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
   const remake = `만들기: ${SECRETS_KEY_COMMAND} 의 출력을 .env 의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 못 풀어 다시 입력해야 합니다.`;
   if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY 가 비어 있습니다(비밀값 암호화 키). ${remake}`);
@@ -298,15 +296,15 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       leaveDelayAloneMs: tuneInt("LEAVE_DELAY_ALONE_SECONDS") * 1000,
     },
 
-    // 대기열 미리 다운로드(player/queue-warmer). 내부 튜닝 상수라 .env 대상이 아니다
+    // 대기열 미리 다운로드(player/queue-warmer). 내부 상수라 설정으로 바꾸지 않는다
     preload: {
-      ahead: 5, // 대기열 앞쪽 몇 곡을 미리 준비할지 (한 번에 전부는 YouTube에 부담)
-      gapMs: 3000, // 사전 로드 사이 간격 (YouTube 속도 제한 회피)
-      tickMs: 3000, // 대기열 점검 주기. 실제 반응은 최대 2틱. 조작이 멎은 뒤에 움직이므로
+      ahead: 5, // 대기열 앞쪽 몇 곡을 미리 준비할지(한 번에 전부 받으면 유튜브에 부담이다)
+      gapMs: 3000, // 미리 다운로드 사이 간격(유튜브 속도 제한을 피한다)
+      tickMs: 3000, // 대기열 점검 주기. 조작이 멎은 뒤에 움직이므로 실제 반응은 최대 두 주기
     },
 
-    // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.ts가 자동 탐색(vendor/bin/의 번들 → PATH).
-    // macOS는 자동 다운로드 대상이 아니므로 여기로 지정하거나 PATH에 두어야 한다(brew install ffmpeg).
+    // ffmpeg 실행 파일. 비우면 media/ffmpeg/path 가 찾는다(vendor/bin 의 번들 → PATH).
+    // macOS 는 설치 스크립트가 다운로드하지 않으므로 여기로 지정하거나 PATH 에 두어야 한다(brew install ffmpeg).
     ffmpeg: {
       path: resolveFromRoot(env("FFMPEG_PATH")),
       // scripts/install-ffmpeg.ts 가 다운로드할 릴리스
@@ -315,16 +313,16 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
 
     ytdlp: {
       // 쿠키를 어디서 가져오나. 설정 하나다. 브라우저 이름이면 그 브라우저에서 가져오고,
-      // "file"이면 대시보드에 입력한 쿠키를 쓴다(비밀 표에 암호화, 실행마다 파일로 푼다: store/cookie-jar). 비우면 쓰지 않는다.
+      // "file"이면 대시보드에 입력한 쿠키를 쓴다(비밀 표에 암호화, 실행마다 복호화해 파일로 쓴다: store/cookie-jar). 비우면 쓰지 않는다.
       cookiesSource: COOKIES_SOURCE,
       cookiesFromBrowser: USE_COOKIE_FILE ? null : COOKIES_SOURCE || null,
       useCookieFile: USE_COOKIE_FILE,
 
       // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
-      // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/sources/youtube/index.ts).
+      // 여러 개를 한 번에 넘기면 yt-dlp 가 전부 호출해 병합하므로 하나씩 넘긴다(sources/youtube).
       playerClients: envClients("YTDLP_PLAYER_CLIENTS"),
-      // "최근 window회 중 fails회 실패"면 그 클라이언트를 이번 실행 동안 제외한다.
-      // 연속 실패로 세지 않는 이유는 src/sources/youtube/clients.ts 상단 주석 참조.
+      // "최근 window회 중 fails회 실패"면 그 클라이언트를 제외하고 clientRetryMs 뒤에 다시 써 본다.
+      // 같은 클라이언트 · 같은 영상도 실행마다 결과가 달라 연속 실패가 아니라 빈도로 센다.
       clientWindow: tuneInt("YTDLP_CLIENT_WINDOW"),
       clientFails: tuneInt("YTDLP_CLIENT_FAILS"),
       clientRetryMs: tuneInt("YTDLP_CLIENT_RETRY_MINUTES") * 60 * 1000,
@@ -332,7 +330,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       lookupSlots: tuneInt("YTDLP_LOOKUP_SLOTS"),
       backgroundSlots: tuneInt("YTDLP_BACKGROUND_SLOTS"),
 
-      // 바이너리 버전(src/sources/ytdlp-binary.ts). 채널의 최신을 따라가거나 버전 하나로 고정한다
+      // 바이너리 버전(sources/ytdlp-binary). 채널의 최신을 따라가거나 버전 하나로 고정한다
       channel: envEnum("YTDLP_CHANNEL", "nightly", YTDLP_CHANNELS),
       // 비우면 채널의 최신. 태그(그 채널 저장소의 릴리스 태그)면 그 버전으로 고정
       version: envYtdlpVersion("YTDLP_VERSION"),
@@ -340,8 +338,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       update: envEnum("YTDLP_UPDATE", "auto", YTDLP_UPDATE_MODES),
     },
 
-    // POToken 공급자(bgutil). 설치돼 있어도 이 값이 true일 때만 실행한다.
-    // 쓰지 않을 서버를 상시 실행할 이유가 없다(인증 없는 로컬 HTTP 서버라 표면도 는다).
+    // POToken 공급자(bgutil). 설치돼 있어도 켰을 때만 실행한다(인증 없는 로컬 HTTP 서버라 띄워 두면 공격 표면이 는다).
     bgutil: {
       enabled: tuneBool("BGUTIL_ENABLED"),
       // scripts/install-bgutil.ts 가 체크아웃할 태그
@@ -366,23 +363,22 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       ownerId: env("OWNER_ID"),
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
-      // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림). 기동 로그에 경고
+      // 세션 쿠키 서명 비밀. 비우면 기동마다 무작위로 만든다(다시 시작하면 대시보드 로그인이 풀린다). 기동 로그에 경고
       sessionSecret: env("SESSION_SECRET"),
-      // API 요청 제한 (src/config/index.ts 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
-      // 넉넉히 넘는 값. 도배만 차단.
+      // API 요청 제한. 정상 사용(5초 폴링 = 분당 12번, 재생목록 추가도 요청 한 번)을 넉넉히 넘는 값으로 도배만 막는다
       rateLimit: {
         windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,
-        apiMax: tuneInt("RATE_LIMIT_API_MAX"), // 일반 인증 API (/api/*)
+        apiMax: tuneInt("RATE_LIMIT_API_MAX"), // 로그인한 API(/api/*)
         publicMax: tuneInt("RATE_LIMIT_PUBLIC_MAX"), // 로그인 없이 받는 것(화면 파일 · 파비콘 · 로그인 배경 · 오류 설명), IP 마다
         queueMax: tuneInt("RATE_LIMIT_QUEUE_MAX"), // 곡 추가 (POST /player/queue) · 캐시 DB 재생 테스트(POST /admin/track-cache/probe). 둘 다 yt-dlp 를 실행한다
         authWindowMs: tuneInt("RATE_LIMIT_AUTH_WINDOW_SEC") * 1000,
         authMax: tuneInt("RATE_LIMIT_AUTH_MAX"), // 로그인/OAuth (/auth/*)
       },
-      // 실시간 갱신(SSE). 플레이어 상태 변화 넛지. 값은 src/config/index.ts 기본값 + .env 오버라이드.
+      // SSE 연결. 플레이어 상태가 바뀌면 넛지를 보낸다
       sse: {
-        heartbeatMs: tuneInt("SSE_HEARTBEAT_SEC") * 1000, // 유휴 연결 keepalive
+        heartbeatMs: tuneInt("SSE_HEARTBEAT_SEC") * 1000, // 조용한 연결이 끊기지 않게 보내는 간격
         maxPerUser: tuneInt("SSE_MAX_CONNECTIONS"), // 사용자당 동시 연결 상한(플레이어 · 로그 스트림이 따로 센다)
-        coalesceMs: tuneInt("SSE_COALESCE_MS"), // 서버당 넛지 합치기 창
+        coalesceMs: tuneInt("SSE_COALESCE_MS"), // 서버마다 이 시간 안의 넛지를 하나로 합친다
       },
     },
 
@@ -399,14 +395,14 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       recheckMs: { youtube: tuneInt("CACHE_RECHECK_YOUTUBE_DAYS") * 86_400_000, soundcloud: tuneInt("CACHE_RECHECK_SOUNDCLOUD_DAYS") * 86_400_000, direct: tuneInt("CACHE_RECHECK_DIRECT_DAYS") * 86_400_000 },
     },
 
-    // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsor-block.ts). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
-    // enabled=false 면 API 호출·캐싱이 전부 무동작. 상업적 이용 시 데이터 라이선스(비상업)를 피하는 마스터 스위치.
+    // SponsorBlock. 음악이 아닌 구간을 자동으로 건너뛴다(sources/sponsor-block). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
+    // 끄면 API 호출도 캐시도 하지 않는다. 상업적으로 쓸 때 데이터 라이선스(비상업)를 피하는 스위치다.
     sponsorblock: {
       enabled: tuneBool("SPONSORBLOCK_ENABLED"),
       apiBase: envUrl("SPONSORBLOCK_API_BASE", tunable("SPONSORBLOCK_API_BASE").def).replace(/\/+$/, ""),
       hashPrefixLen: tuneInt("SPONSORBLOCK_HASH_PREFIX"),
       timeoutMs: tuneInt("SPONSORBLOCK_TIMEOUT_MS"),
-      // 서버별 미설정 시 기본으로 자동 스킵할 카테고리(서버 설정이 이긴다)
+      // 서버 설정이 없을 때 자동으로 건너뛸 카테고리
       categories: parseSbCategories(tuneText("SPONSORBLOCK_CATEGORIES")),
     },
 
@@ -427,20 +423,20 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       idleText: tuneText("VOICE_IDLE_STATUS"),
     },
 
-    // 재생 스트림 수신. googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/media/chunked-stream.ts).
+    // 재생 스트림 수신(media/chunked-stream). googlevideo 는 순차 GET 을 재생 시간의 약 2배속으로 조인다.
     stream: {
       chunkBytes: tuneInt("STREAM_CHUNK_KB") * 1024,
     },
 
-    // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다. 사후 분석용.
+    // 로그. 파일(NDJSON)은 터미널 · 대시보드와 따로 디스크에 남긴다(사후 분석용).
     logging: {
-      // 무엇을 기록할 것인가 (터미널·파일·대시보드 전부의 상한).
-      // 조사용 로그를 삭제하지 않고 debug로 내려둔 뒤, 필요할 때만 이걸 낮춰 되살린다.
+      // 기록할 가장 낮은 레벨(터미널 · 파일 · 대시보드 모두).
+      // 조사용 로그는 debug 로 남겨 두고 필요할 때만 이 값을 낮춰 본다.
       level: envEnum("LOG_LEVEL", "info", LEVEL_NAMES),
       // 그중 터미널에 찍을 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
       // 파일·대시보드는 debug를 받고 터미널만 조용하다.
       consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVEL_NAMES]),
-      // 기본은 끔. 모든 운영자가 파일 로그를 원하지는 않는다. 필요한 사람이 켠다.
+      // 기본은 켬. 원하지 않으면 false
       fileEnabled: env("LOG_FILE_ENABLED", "true") === "true",
       file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
       // 두 값 모두 0 = "그 축에는 제한 없음". 크기 0이면 회전하지 않고, 개수 0이면 삭제하지 않는다.

@@ -35,7 +35,7 @@ function driveOf(target: string): { drive: string; usedBytes: number; totalBytes
   }
 }
 
-/** 디스크를 꽉 채우지 않게 남겨 둘 크기(설정 DB · 로그가 쓸 공간). 큰 파일을 다운로드하거나 구울 때 이만큼은 남긴다 */
+/** 디스크를 꽉 채우지 않게 남겨 둘 크기(설정 DB · 로그가 쓸 공간). 큰 파일을 다운로드하거나 인코딩할 때 이만큼은 남긴다 */
 const KEEP_FREE_BYTES = 256 * 1024 * 1024;
 
 /** 이 사용자가 쓸 수 있는 남은 크기(바이트). 읽지 못하면 null */

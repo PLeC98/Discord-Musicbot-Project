@@ -17,7 +17,7 @@ const aiLogDb = new DbFile({
 });
 
 function createTables(db: Db) {
-  // 목록 검색: 한국어 검색(조합 중인 글자 · 초성)를 SQL 에서 부른다(화면의 실시간 필터 aiLogMatches 와 같은 규칙). 연결마다 단다
+  // 목록 검색: 한국어 검색(조합 중인 글자 · 초성)을 SQL 에서 부른다(화면의 실시간 필터 aiLogMatches 와 같은 규칙). 연결마다 단다
   db.function("ko_match", { deterministic: true }, (text: unknown, q: unknown) => (koMatch(String(text ?? ""), String(q ?? "")) ? 1 : 0));
   // 삭제한 공간을 파일에서 돌려준다(로그는 계속 순환 삭제하므로 그대로 두면 파일이 늘기만 한다). 표가 없을 때만 적용된다
   db.pragma("auto_vacuum = INCREMENTAL");

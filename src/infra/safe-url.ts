@@ -2,7 +2,7 @@
  * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET과 파비콘의 링크로 추가가 여기를 지난다.
  *
  *  - 스키마 화이트리스트(http/https만)
- *  - 내부·예약 IP 대역 차단 (infra/public-address: 공인 unicast만 통과, IPv4-매핑 언랩)
+ *  - 내부·예약 IP 대역 차단 (infra/public-address: 공인 unicast만 통과, IPv4 매핑 주소는 안의 IPv4 로 본다)
  *  - IP 우회표기 정규화 (10진/16진/8진/매핑 모두 판정이 쓰는 ipaddr.parse가 해석)
  *  - DNS 리바인딩 차단 (해석 1회 → 그 IP로 핀 접속, 소켓 재해석 불가)
  *  - 리다이렉트 홉별 재검증 (http.request 는 따라가지 않는다. 수동 루프, IP-리터럴 리다이렉트까지 검사)
@@ -23,12 +23,12 @@ import { isPublicIp } from "./public-address.ts";
 import { codeOf, messageOf } from "./error-text.ts";
 import config from "../config/index.ts";
 
-// --- 보안 상수 (코드 고정: 오설정으로 방어가 꺼지지 않도록 .env화하지 않음) ---
+// 보안 상수. 잘못 설정해 방어가 꺼지지 않게 설정으로 빼지 않는다
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
 const MAX_REDIRECTS = 3;
 const HEAD_TIMEOUT_MS = 10000;
 const GET_TIMEOUT_MS = 30000;
-const MAX_BYTES = 500 * 1024 * 1024; // 500 MB
+const MAX_BYTES = 500 * 1024 * 1024;
 const ALLOWED_CONTENT_TYPE = /^\s*(audio\/|video\/|application\/octet-stream|binary\/octet-stream)/i;
 
 // DNS 조회. 테스트가 가짜를 넘긴다
@@ -59,7 +59,7 @@ const dnsReason = (error: unknown) => codeOf(error) ?? messageOf(error);
 /** 공인(global unicast) IP 가 아니면 막는다. 판정은 infra/public-address(패널의 대시보드 링크와 같은 판정) */
 const isBlockedIp = (ip: string) => !isPublicIp(ip);
 
-/** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략). IP 차단이 주 방어이고 이건 심층방어. */
+/** Content-Type 화이트리스트. 헤더가 없으면 통과(일부 CDN 이 빠뜨린다). 주 방어는 IP 차단이고 이것은 심층 방어다 */
 function isAllowedContentType(contentType: unknown, allowed = ALLOWED_CONTENT_TYPE): boolean {
   if (!contentType) return true;
   return allowed.test(String(contentType));
@@ -142,7 +142,7 @@ function send({ method, url, agent, timeoutMs, headers }: Outgoing): Promise<Inc
 
 /**
  * 가드된 요청 + 수동 리다이렉트 루프. 각 홉을 재검증·핀 접속한다.
- * 호출측이 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
+ * 부르는 쪽이 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
  */
 async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, extra: Record<string, string> = {}) {
   let currentUrl = rawUrl;
@@ -166,13 +166,13 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
       agent.destroy();
       const location = response.headers.location;
       if (!location) throw new SsrfError("리다이렉트 응답에 Location 헤더 없음");
-      currentUrl = new URL(String(location), url).href; // 상대 경로/프로토콜 상대 처리
+      currentUrl = new URL(String(location), url).href; // 상대 주소는 이 홉의 주소를 기준으로 푼다
       continue;
     }
     if (response.status < 200 || response.status >= 300) {
       response.body.destroy();
       agent.destroy();
-      // 받는 쪽이 상태로 가른다(416 은 받을 구간이 없음, 4xx 는 다시 받아도 같다)
+      // 받는 쪽이 상태로 구분한다(416 은 받을 구간이 없음, 4xx 는 다시 받아도 같다)
       throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
     }
 
@@ -182,7 +182,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
   throw new SsrfError(`리다이렉트 횟수 초과(>${MAX_REDIRECTS})`);
 }
 
-/** 최대 크기 초과 시 에러로 스트림을 끊는 통과 변환. */
+/** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform */
 function byteCap(maxBytes: number) {
   let total = 0;
   return new Transform({
@@ -197,7 +197,7 @@ function byteCap(maxBytes: number) {
   });
 }
 
-/** 응답 헤더의 Content-Type / Content-Length 심층방어 검사. @throws {SsrfError} */
+/** 응답 헤더의 Content-Type · Content-Length 검사(심층 방어). @throws {SsrfError} */
 function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
   const headers = responseHeaders as Record<string, unknown>;
   const ct = headers["content-type"] || "";
@@ -211,7 +211,7 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
 }
 
 /**
- * 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws
+ * 가드된 HEAD. 마지막 응답의 상태 · 헤더를 돌려준다(Content-Type · 크기도 검사한다). @throws
  * deps: { request, lookup } 외부 경계. 생략하면 send 와 dns.lookup
  */
 async function head(rawUrl: string, deps: RequestDeps = {}) {
@@ -230,7 +230,7 @@ const BODY_CHECK_MS = 1000;
 /**
  * 본문 무응답 감시. 받는 쪽이 받으려는데 idleMs 동안 아무것도 오지 않으면 스트림을 오류로 닫는다.
  * 받는 쪽이 멈춰(일시정지 등) 흐름을 막은 동안은 서버가 조용한 것이 정상이라 세지 않는다.
- * 소켓의 시간 제한은 이 둘을 가르지 못해 오래 멈춘 재생을 끊는다. 그래서 응답이 오면 소켓 쪽은 끄고 이것으로 바꾼다.
+ * 소켓의 시간 제한은 이 둘을 구분하지 못해 오래 멈춘 재생을 끊는다. 그래서 응답이 오면 소켓 쪽은 끄고 이것으로 바꾼다.
  * pipeline 뒤에 건다. 먼저 걸면 data 리스너가 흐름을 먼저 열어 받는 쪽 없이 흘린다
  */
 function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, idleMs: number) {
@@ -249,7 +249,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
 }
 
 /**
- * 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws
+ * 가드된 GET 스트림. Content-Type 을 검사하고 크기 상한을 건 Readable 을 돌려준다. deps 는 head 와 같다. @throws
  * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다).
  * accept: 받을 것의 조건(Content-Type · 크기 상한 · 홉마다의 응답 대기). 기본은 음원(직접 링크)
  * from · to: 이 바이트 구간을 받는다(Range, to 는 끝 바이트를 포함하고 없으면 끝까지). 서버가 따르지 않을 수 있어 받는 쪽이 상태 · 헤더로 확인한다(servedFrom).

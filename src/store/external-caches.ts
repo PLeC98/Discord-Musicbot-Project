@@ -9,9 +9,9 @@ type JsonRow = { data_json: string; fetched_at: number };
 // 열기 전에 부르면 던진다
 const conn = () => cacheDb.get();
 
-// ── SponsorBlock 세그먼트 캐시 (폴백 전용) ─────────────────────────────────
+// ── SponsorBlock 구간 캐시 ──
 
-/** videoId의 캐시된 원시 세그먼트 반환. { segments: [...], fetchedAt } 또는 null */
+/** videoId 의 캐시된 원시 세그먼트와 받은 때. 없거나 망가졌으면 null */
 function getSponsorSegments(videoId: string | null | undefined): { segments: unknown; fetchedAt: number } | null {
   if (!videoId) return null;
   const row = conn().prepare("SELECT data_json, fetched_at FROM sponsorblock_cache WHERE video_id = ?").get(videoId) as JsonRow | undefined;
@@ -19,11 +19,11 @@ function getSponsorSegments(videoId: string | null | undefined): { segments: unk
   try {
     return { segments: JSON.parse(row.data_json) as unknown, fetchedAt: row.fetched_at };
   } catch {
-    return null; // 손상된 캐시는 무시 (다음 라이브 조회가 덮어씀)
+    return null; // 망가진 캐시는 없는 것으로 본다(다음 조회가 덮어쓴다)
   }
 }
 
-/** videoId의 원시 세그먼트 write-through 저장 (빈 배열도 저장. "구간 없음" 네거티브 캐시) */
+/** videoId 의 원시 세그먼트를 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
 function setSponsorSegments(videoId: string | null | undefined, segments: unknown) {
   if (!videoId || !Array.isArray(segments)) return;
   conn()
@@ -56,9 +56,9 @@ function mergeSponsorSegments(rows: Array<{ videoId: string; data: string; fetch
   })();
 }
 
-// ── 연령 제한 videoId 레지스트리 ───────────────────────────────────────────
+// ── 연령 제한 기록 ──
 
-/** videoId를 연령 제한으로 기록 (재조회 시 쿠키 폴백 직행 + 퇴거 잔존용) */
+/** videoId 를 연령 제한으로 기록한다. 다시 찾을 때 곧바로 쿠키로 가고, 캐시 파일이 퇴거돼도 기록은 남는다 */
 function markAgeRestricted(videoId: string | null | undefined) {
   if (!videoId) return;
   conn().prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES (?, ?) ON CONFLICT(video_id) DO NOTHING").run(videoId, Date.now());
@@ -75,7 +75,7 @@ function allAgeRestricted(): Array<{ videoId: string; markedAt: number }> {
   return (conn().prepare("SELECT video_id, marked_at FROM age_restricted").all() as Array<{ video_id: string; marked_at: number }>).map((row) => ({ videoId: row.video_id, markedAt: row.marked_at }));
 }
 
-/** 연령 제한 표시를 지운다(캐시 DB 화면). 표시한 때가 본 값일 때만. 다음 재생은 쿠키 없이 먼저 해 보고 다시 표시한다 */
+/** 연령 제한 기록을 삭제한다(캐시 DB 화면). 표시한 때가 본 값일 때만. 다음 재생은 쿠키 없이 먼저 해 보고 다시 표시한다 */
 function clearAgeRestricted(videoId: string, expect: number): Guarded<number> {
   if (conn().prepare("DELETE FROM age_restricted WHERE video_id = ? AND marked_at = ?").run(videoId, expect).changes) return DONE;
   const current = conn().prepare("SELECT marked_at FROM age_restricted WHERE video_id = ?").pluck().get(videoId) as number | undefined;
@@ -96,9 +96,10 @@ function mergeAgeRestricted(rows: Array<{ videoId: string; markedAt: number }>):
   })();
 }
 
-// Spotify 익명 웹플레이어 상태 (secret/해시/clientVersion). 자가치유 캐시
+// ── 스포티파이 익명 웹 플레이어 상태 ──
+// secret · 해시 · clientVersion. 오래됐거나 토큰 · 해시 오류가 나면 sources/spotify 가 다시 추출해 덮어쓴다
 
-/** 저장된 익명 상태 반환 (없으면 null). `{ ...data, fetchedAt }` */
+/** 저장된 익명 상태 `{ ...data, fetchedAt }`. 없거나 망가졌으면 null */
 function getSpotifyAnonState(): (Record<string, unknown> & { fetchedAt: number }) | null {
   const row = conn().prepare("SELECT data_json, fetched_at FROM spotify_anon WHERE id = 1").get() as JsonRow | undefined;
   if (!row) return null;
@@ -109,7 +110,7 @@ function getSpotifyAnonState(): (Record<string, unknown> & { fetchedAt: number }
   }
 }
 
-/** 익명 상태 저장(단일 행 upsert). data는 JSON 직렬화 가능한 객체. */
+/** 익명 상태를 저장한다(행 하나를 덮어쓴다). data 는 JSON 으로 직렬화할 수 있는 객체 */
 function setSpotifyAnonState(data: unknown) {
   conn().prepare("INSERT INTO spotify_anon (id, data_json, fetched_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at").run(JSON.stringify(data), Date.now());
 }

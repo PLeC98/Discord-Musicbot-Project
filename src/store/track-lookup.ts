@@ -68,17 +68,15 @@ const DISPLAY_SET = `
               title_verified    = MAX(track_lookup.title_verified, excluded.title_verified)`;
 
 /**
- * "이 요청은 이 음원이다"와 표시용 메타데이터 기록. 음원 주소가 정해진 곡만 적는다. 곡이 음원을 어떻게 알았나(audioFoundBy)로 가른다:
+ * "이 요청은 이 음원이다"와 표시용 메타데이터 기록. 음원 주소가 정해진 곡만 적는다. 곡이 음원을 어떻게 알았나(audioFoundBy)로 구분한다:
  *   pinned  쓰지 않는다. 지정을 해제하면 자동 결과로 돌아가야 한다
- *   ledger  행을 새로 만들지 않는다. 행의 음원이 곡의 음원과 같을 때만 표시 열을 고친다. 그새 새로 찾았거나(다른 음원) 운영자가 지웠으면(행 없음)
+ *   ledger  행을 새로 만들지 않는다. 행의 음원이 곡의 음원과 같을 때만 표시 열을 고친다. 그새 새로 찾았거나(다른 음원) 운영자가 삭제했으면(행 없음)
  *           옛 곡이 그 결과를 되살리지 않는다
  *   그 밖   넣거나 바꾼다. 음원이 요청과 다르면(자동으로 찾은 결과) 넣은 뒤 그 곡을 ledger 로 표시한다. 다음에 다시 틀거나 저장 세션에서 돌아와도 위 규칙을 따른다
  *
- * `verified`는 "제목을 음원 자체에서 확인했는가"다(유튜브는 영상 자체, 직접 링크는 파일 태그). 재생목록 페이지가 주는 제목은 같은 영상인데도
- * 다를 수 있어(재생목록은 앞에 전각 공백이 붙은 축약 제목을, 영상 자체는
- * 정식 제목을 준다), 직접 링크는 태그를 읽기 전에 파일 이름이 제목이다. 그걸로 확인된
- * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 확인된 제목은 확인된
- * 제목으로만 갱신한다.
+ * `verified`는 "제목을 음원 자체에서 확인했는가"다(유튜브는 영상 자체, 직접 링크는 파일 태그). 재생목록 페이지가 주는 제목은 같은 영상이어도
+ * 다르고(앞에 전각 공백이 붙은 축약 제목), 직접 링크는 태그를 읽기 전에 파일 이름이 제목이다. 그것으로 확인된 제목을 덮으면
+ * 고친 제목이 낡은 값으로 돌아가므로, 확인된 제목은 확인된 제목으로만 갱신한다.
  */
 function recordTrackLookup(track: Partial<TrackInfo> | null | undefined, { verified = false } = {}) {
   if (!track?.requestKey || !track.audioUrl || track.audioFoundBy === "pinned") return;
@@ -128,8 +126,8 @@ function getVerifiedTitle(requestKey: string): string | null {
 }
 
 /**
- * 이 요청의 음원 주소만 조회 (파일 검증 없음). 유튜브 재검색 스킵용(Tier-1).
- * resolveFromCache와 달리 오디오 파일 존재를 요구하지 않는다. 파일이 퇴거됐어도 링크 데이터는 남는다.
+ * 이 요청의 음원 주소만 조회한다. 유튜브를 다시 검색하지 않으려고 쓴다.
+ * resolveFromCache와 달리 캐시 파일이 있는지는 보지 않는다(파일이 퇴거됐어도 링크 데이터는 남는다).
  */
 function getAudioUrl(requestKey: string): string | null {
   return rowOf(requestKey)?.audio_url ?? null;
@@ -186,7 +184,7 @@ function mergeRows(rows: MergeRow[]): number {
   })();
 }
 
-/** 죽은 음원을 가리키는 행 삭제. 링크 데이터에서 가져온 영상이 내려간 경우 재검색 전에 호출. */
+/** 죽은 음원을 가리키는 행을 삭제한다. 링크 데이터에서 가져온 영상이 내려갔을 때 다시 검색하기 전에 부른다 */
 function removeResolution(requestKey: string) {
   conn().prepare("DELETE FROM track_lookup WHERE request_key = ?").run(canonicalUrl(requestKey));
 }

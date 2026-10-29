@@ -41,7 +41,7 @@ const range = (kind: RangeKind) =>
 
 // 문구 하나. 글자로 적거나 { text, type } 으로 풀어 적는다
 const message = z.preprocess(
-  // 배열은 필드가 없는 표로 읽던 것과 같게 빈 표로
+  // 배열은 빈 표로 본다
   (item) => (typeof item === "string" ? { text: item } : Array.isArray(item) ? {} : item),
   z.object(
     {

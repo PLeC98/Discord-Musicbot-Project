@@ -47,8 +47,8 @@ function unpin(requestKey: string, expect: string): Guarded<string> {
   return current === null ? GONE : changedTo(current);
 }
 
-/** 요청 하나를 지운다(캐시 DB 화면): 링크 데이터 행과 직접 지정한 음원. 둘 다 본 값일 때만 한 번에 */
 type RequestExpect = { ledgerAudioUrl: string | null; pinned: string | null };
+/** 요청 하나를 삭제한다(캐시 DB 화면): 링크 데이터 행과 직접 지정한 음원. 둘 다 본 값일 때만 한 번에 */
 function deleteRequest(requestKey: string, expect: RequestExpect): Guarded<RequestExpect> {
   return conn().transaction((): Guarded<RequestExpect> => {
     const current = { ledgerAudioUrl: trackLookup.getAudioUrl(requestKey), pinned: currentOf(requestKey) };
@@ -68,7 +68,7 @@ function allPins(): Pin[] {
     .map((row) => pinOf(row)!);
 }
 
-/** 직접 지정한 음원을 붙일 곡. 여기서 읽고 쓰는 필드만(트랙 · 스포티파이 동등물 찾기의 곡 · 자동재생 곡) */
+/** 직접 지정한 음원을 붙일 곡. 여기서 읽고 쓰는 필드만(트랙 · 스포티파이 곡의 유튜브 매칭 · 자동재생 곡) */
 type PinTarget = { requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; isLive?: unknown; liveStatus?: unknown; duration?: unknown; durationSource?: unknown };
 
 /**

@@ -23,11 +23,11 @@ const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 function wireFields(rec: { level: number; time: number; msg?: unknown; category?: unknown; sub?: unknown; tags?: unknown }): WireFields {
   const entry: WireFields = {
     ts: rec.time,
-    // 실제 레벨 이름 그대로. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 가르지 못한다
+    // 실제 레벨 이름 그대로. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 구분하지 못한다
     level: levelNameOf(rec.level) || "info",
     text: typeof rec.msg === "string" ? rec.msg.replace(ANSI_RE, "") : String(rec.msg ?? ""),
   };
-  if (typeof rec.category === "string" && rec.category) entry.category = rec.category; // 있을 때만
+  if (typeof rec.category === "string" && rec.category) entry.category = rec.category;
   if (typeof rec.sub === "string" && rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
   if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags.map(String); // 교차 태그
   return entry;

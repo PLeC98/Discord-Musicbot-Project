@@ -1,3 +1,5 @@
+// 서버별 설정(settings.db 의 guild_settings). 서버마다 JSON 문서 하나를 필드 하나씩 읽고 쓰고, 읽은 값은 메모리에 담아 둔다.
+
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import { z } from "zod";
@@ -107,20 +109,20 @@ const table = {
   },
 
   setDjRoles(guildId: string, roleIds: string[]) {
-    writeField(guildId, "djRoleIds", roleIds.length ? roleIds : undefined); // 빈 배열 = 미설정과 동일
+    writeField(guildId, "djRoleIds", roleIds.length ? roleIds : undefined); // 빈 배열은 지정하지 않은 것과 같다
   },
 
   clearDjRoles(guildId: string) {
     writeField(guildId, "djRoleIds", undefined);
   },
 
-  /** 서버별 SponsorBlock 설정. { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
+  /** 서버별 SponsorBlock 설정. 필드가 null 이면 전역 설정을 따른다 */
   getGuildSponsorBlock(guildId: string): SponsorBlockSetting {
     const sb = readDoc(guildId).sponsorBlock;
     return { enabled: sb?.enabled ?? null, categories: sb?.categories ?? null };
   },
 
-  /** 서버별 SponsorBlock 설정 저장. enabled/categories 각각 null이면 "상속"으로 기록. */
+  /** 서버별 SponsorBlock 설정 저장. enabled · categories 가 null 이면 전역을 따른다(둘 다 null 이면 필드를 뺀다) */
   setGuildSponsorBlock(guildId: string, { enabled, categories }: Partial<SponsorBlockSetting>) {
     const next = { enabled: typeof enabled === "boolean" ? enabled : null, categories: Array.isArray(categories) ? categories : null };
     writeField(guildId, "sponsorBlock", next.enabled === null && next.categories === null ? undefined : next);
@@ -141,7 +143,7 @@ const table = {
     return readDoc(guildId).agePlace ?? "channel";
   },
 
-  /** 기본값(연령 제한 채널에서만)이면 지운다 */
+  /** 기본값(연령 제한 채널에서만)이면 필드를 뺀다 */
   setAgePlace(guildId: string, place: AgePlace) {
     writeField(guildId, "agePlace", place === "channel" ? undefined : place);
   },
@@ -151,7 +153,7 @@ const table = {
     return readDoc(guildId).volume ?? null;
   },
 
-  /** 기본 볼륨이면 지운다 */
+  /** 기본 볼륨이면 필드를 뺀다 */
   setVolume(guildId: string, level: number) {
     writeField(guildId, "volume", level === config.bot.defaultVolume ? undefined : level);
   },
@@ -262,7 +264,7 @@ async function clearDjRoles(guildId: string) {
   cache.delete(`${guildId}_djRoles`);
 }
 
-// ── 재생목록 한 번에 넣는 곡 수 ─────────────────────────────────────────────
+// ── 재생목록 한 번에 넣는 곡 수 ──
 // 첫 배치와 "더 넣기" 선택지 단위를 정한다. 더 넣기 자체는 대기열 상한만 본다.
 
 /** 설정할 수 있는 범위와 기본값 */
@@ -286,7 +288,7 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
   }
 }
 
-/** null이면 기본값으로 되돌린다. 범위 검증은 호출자 몫(명령·대시보드가 사용자에게 알린다). */
+/** null이면 기본값으로 되돌린다. 범위 검사는 부르는 쪽이 한다(명령 · 대시보드가 사용자에게 알린다) */
 async function setPlaylistAddMax(guildId: string, count: number | null | undefined) {
   try {
     table.setPlaylistAddMax(guildId, count);
@@ -301,7 +303,7 @@ async function setPlaylistAddMax(guildId: string, count: number | null | undefin
 
 /**
  * 실제로 쓸 값. 읽을 때마다 범위로 자른다. 서버가 200을 정한 뒤 운영자가 대기열 상한을 줄일 수 있어서다.
- * DB가 열린 뒤에만 읽는다. 열지 않은 채 부르는 테스트가 운영 DB를 건드리지 않게.
+ * DB 가 열리지 않았으면 읽지 않고 기본값을 쓴다(DB 를 열지 않고 부르는 테스트).
  */
 function resolvePlaylistAddMax(guildId: string): number {
   const { min, max, default: fallback } = playlistAddLimits();
@@ -318,7 +320,7 @@ function resolvePlaylistAddMax(guildId: string): number {
   return Math.max(min, Math.min(max, stored ?? fallback));
 }
 
-// ── 연령 제한 콘텐츠를 틀 곳 ────────────────────────────────────────────────
+// ── 연령 제한 콘텐츠를 틀 곳 ──
 
 /** 이 서버에서 연령 제한 콘텐츠를 틀 곳. 곡을 찾거나 틀 때마다 부르므로 메모리에 담는다. DB 가 열리지 않았거나 못 읽으면 기본(연령 제한 채널에서만) */
 function resolveAgePlace(guildId: string): AgePlace {
@@ -347,7 +349,7 @@ async function setAgePlace(guildId: string, place: AgePlace) {
   }
 }
 
-// ── 볼륨 ─────────────────────────────────────────────────────────────────
+// ── 볼륨 ──
 
 /** 이 서버에서 새 플레이어가 시작할 볼륨(마지막으로 정한 값). DB 가 열리지 않았거나 못 읽으면 기본 볼륨 */
 function resolveVolume(guildId: string): number {
@@ -377,9 +379,9 @@ async function saveVolume(guildId: string, level: number) {
   }
 }
 
-// ── SponsorBlock 서버별 설정 ────────────────────────────────────────────────
+// ── SponsorBlock 서버별 설정 ──
 
-/** 서버별 원본 설정(상속=null). { enabled: null|bool, categories: null|string[] } */
+/** 서버가 정한 그대로의 설정. null 은 전역을 따른다 */
 async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   const hit = cached(guildId, "sb");
   if (hit !== undefined) return hit;
@@ -394,7 +396,7 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   }
 }
 
-/** 부분 갱신. patch에 준 키만 변경(enabled/categories). null 전달 시 "상속"으로 되돌림. */
+/** 일부만 바꾼다. patch 에 준 키(enabled · categories)만 바꾸고, null 을 주면 전역을 따르게 되돌린다 */
 async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetting>) {
   const cur = await getSponsorBlock(guildId);
   const next = {
@@ -413,9 +415,8 @@ async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetti
 }
 
 /**
- * 유효 SponsorBlock 설정. { enabled, categories }.
- * 전역 마스터(config)가 off면 서버 설정과 무관하게 하드 off(상업적 이용 컴플라이언스).
- * 마스터 on이면: enabled = 서버값 ?? true(기본 on), categories = 서버값 ?? 전역 기본.
+ * 실제로 쓸 SponsorBlock 설정. 전역 스위치(config)가 꺼져 있으면 서버 설정과 상관없이 끈다(상업적으로 쓸 때의 데이터 라이선스).
+ * 켜져 있으면 enabled = 서버 값 ?? true, categories = 서버 값 ?? 전역 기본.
  */
 function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: string[] } {
   const master = config.sponsorblock;

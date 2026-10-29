@@ -2,7 +2,7 @@
 // Linux 는 /sys/class/net/<이름>/statistics/tx_bytes 를 읽는다(프로그램을 실행하지 않는다). 장치가 있는 인터페이스만 센다
 // (docker 브리지 · veth · VPN 은 같은 바이트가 실제 카드에서 한 번 더 세진다). 장치가 하나도 없으면(컨테이너 안) 루프백만 뺀다.
 // Windows 는 Node 에 API 가 없어 PowerShell 하나를 띄워 두고 물을 때마다 .NET NetworkInterface 로 읽는다
-// (WMI 를 거치는 Get-NetAdapterStatistics 보다 싸고, 조회마다 띄우면 기동에만 CPU 0.3초가 든다). 이더넷 · 무선 종류만 센다.
+// (WMI 를 거치는 Get-NetAdapterStatistics 보다 싸고, 조회마다 띄우면 PowerShell 기동 비용이 매번 든다). 이더넷 · 무선 종류만 센다.
 //   언어 설정과 상관없게 인터페이스 Id(GUID)와 숫자만 받는다. 자식 프로세스 기록에 올려 봇이 내려갈 때 함께 내리고, 봇이 갑자기 죽으면 stdin 이 닫혀 스스로 끝난다.
 // 그 밖의 운영체제는 재지 않는다(null). 읽지 못하면 null 을 주고 warn 으로 알린다
 
@@ -19,12 +19,12 @@ type Sent = Map<string, number>;
 
 const SYS_NET = "/sys/class/net";
 const ANSWER_TIMEOUT_MS = 10_000;
-// 떠 있지 못하면 이만큼 기다렸다 다시 띄운다(띄울 때마다 CPU 0.3초). 붙으면 처음부터
+// 셸이 죽거나 답하지 않으면 이만큼 기다렸다 다시 띄운다(띄우는 비용이 크다). 다시 응답하면 처음 간격부터
 const RESTART_DELAYS_MS = [60_000, 300_000, 1_800_000];
 
 const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "시스템 업로드 읽기");
 
-/** 두 누계 사이에 보낸 양. 두 번 다 있는 인터페이스만 센다(새로 생기거나 사라진 것), 줄었으면(다시 만들어졌다) 그 인터페이스는 뺀다 */
+/** 두 누계 사이에 보낸 양. 두 번 다 있는 인터페이스만 센다(새로 생기거나 사라진 것은 뺀다). 누계가 줄었으면(다시 만들어졌다) 그 인터페이스는 뺀다 */
 function sentBetween(from: Sent, to: Sent) {
   let sum = 0;
   for (const [name, bytes] of to) {

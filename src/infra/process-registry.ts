@@ -11,7 +11,7 @@ const log = logger.child({ category: "proc" });
 const IS_WIN = process.platform === "win32";
 
 /**
- * yt-dlp / ffmpeg 프로세스 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
+ * 자식 프로세스(yt-dlp · ffmpeg 등) 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
  *
  * yt-dlp가 다운로드를 ffmpeg에 넘기므로 ffmpeg는 손자 프로세스다. 그냥 두면 봇을 내려도 남아서
  * 파일을 물고 방송을 계속 받아쓴다. Windows는 `taskkill /T`로, POSIX는 detached로 실행한
@@ -70,7 +70,7 @@ function persistTo(file: string) {
 
 /**
  * exit 훅 설치. 첫 register 때 한 번만.
- * SIGINT/SIGTERM/SIGHUP은 app/shutdown.ts 의 종료 처리가 killAll을 직접 부르고, 여기는 그 밖의 경로용 백스톱이다.
+ * SIGINT/SIGTERM/SIGHUP은 app/shutdown 의 종료 처리가 killAll을 직접 부르고, 여기는 그 밖의 길로 나갈 때의 안전망이다.
  */
 function install() {
   if (hooksInstalled) return;
@@ -108,7 +108,7 @@ function _isAlive(child: Tracked | null | undefined): boolean {
   return child.exitCode === null && child.signalCode === null;
 }
 
-// taskkill 한 번에 넘기는 PID 수(명령줄 길이 한도 안). 하나씩 부르면 이 PC 에서 하나에 약 0.45초라 재생 50곳의 종료가 20초를 넘었다
+// taskkill 한 번에 넘기는 PID 수(명령줄 길이 한도 안). 하나씩 부르면 재생이 많을 때 종료가 수십 초 걸린다
 const TASKKILL_BATCH = 100;
 
 /**
@@ -116,7 +116,7 @@ const TASKKILL_BATCH = 100;
  * 돌려주는 것은 실제로 kill 을 시도한 것
  */
 function killTrees(entries: Entry[]): Entry[] {
-  // pid 0 → -0 = 자기 그룹 자살 방지, 끝난 것은 PID 가 재사용된 남의 프로세스일 수 있다
+  // pid 0 은 -0 이 되어 자기 그룹을 죽인다. 끝난 것은 PID 가 재사용된 남의 프로세스일 수 있다
   const live = entries.filter(({ pid, child }) => Number.isInteger(pid) && pid > 1 && _isAlive(child));
   if (!IS_WIN) {
     for (const entry of live) killPosix(entry);
@@ -161,7 +161,7 @@ function kill(child: Tracked): boolean {
 }
 
 /**
- * 등록된 모든 프로세스를 트리째 종료한다. 멱등. 두 번 불러도 안전하다.
+ * 등록된 모든 프로세스를 트리째 종료한다. 두 번 불러도 안전하다.
  * 돌려주는 것은 실제로 종료를 시도한 프로세스. 줄은 부르는 쪽이 남긴다(종료 처리는 info, 그 밖의 길로 나가면 warn)
  */
 function killAll(): Array<{ label: string; pid: number }> {
@@ -179,7 +179,6 @@ function killAll(): Array<{ label: string; pid: number }> {
   }
 }
 
-/** 현재 추적 중인 프로세스 수 */
 function size() {
   return active.size;
 }

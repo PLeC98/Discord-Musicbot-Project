@@ -1,4 +1,4 @@
-// 유튜브 쿠키(로그인된 세션 그 자체). 비밀 표(store/secrets)에 암호화해 두고, yt-dlp 를 한 번 돌릴 때만 파일로 푼다.
+// 유튜브 쿠키(로그인된 세션 그 자체). 비밀 표(store/secrets)에 암호화해 두고, yt-dlp 를 한 번 돌릴 때만 복호화해 파일로 쓴다.
 //
 // yt-dlp 는 `--cookies FILE` 을 읽고 끝나면서 고친 쿠키를 그 파일에 되쓴다. 그래서 실행마다 따로 파일을 주고(checkout),
 // 끝나면 바뀐 내용을 되담은 뒤 파일을 삭제한다(release). 그사이 대시보드에서 새 쿠키를 입력했으면 되담지 않는다(새것을 옛것으로 덮지 않게).
@@ -17,7 +17,7 @@ import { settingsDb } from "./settings-db.ts";
 
 const NAME = "youtube.cookies";
 const PREFIX = "cookies-";
-/** yt-dlp 옵션의 cookies 필드에 이 값이 오면 실행 때 파일로 풀어 바꾼다(sources/youtube/ytdlp-run) */
+/** yt-dlp 옵션의 cookies 필드에 이 값이 오면 실행 때 복호화한 쿠키 파일로 바꾼다(sources/youtube/ytdlp-run) */
 const JAR = "cookie-jar:youtube";
 
 // 파일을 둘 경로. 테스트가 교체한다
@@ -41,7 +41,7 @@ function save(text: unknown): boolean {
 }
 
 /**
- * 쓸 수 있는 쿠키가 있는가(저장했고 지금 키로 풀린다).
+ * 쓸 수 있는 쿠키가 있는가(저장했고 지금 키로 복호화된다).
  * DB 를 열기 전(기동 전 · 테스트)에는 없는 것으로 본다. 곡 찾기 실패의 안내에도 쓰는 판정이라 던지면 원래 오류를 덮는다
  */
 function ready() {
@@ -93,7 +93,7 @@ function warnLegacyFile(configDir = PROJECT.config) {
   }
 }
 
-// 테스트 시임. 파일을 둘 경로를 바꾼다
+// 테스트: 파일을 둘 경로를 바꾼다
 function _setDir(next: string) {
   dir = next;
 }
