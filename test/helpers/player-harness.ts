@@ -12,6 +12,7 @@
 //
 // node --test 는 테스트 파일마다 프로세스를 따로 실행하므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
 
+import { after } from "node:test";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -209,6 +210,12 @@ const audioCache = await import("../../src/store/audio-cache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
+// 파일이 끝나면 지운다. DB 를 먼저 닫아야 Windows 에서 지워진다
+after(() => {
+  audioCache.close();
+  stores.close();
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
+});
 
 // 설정. 캐시 길이 상한은 테스트마다 기본값으로 되돌린다(reset)
 const config = (await import("../../src/config/index.ts")).default;

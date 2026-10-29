@@ -2,7 +2,7 @@
 // 쿠키가 없다고 player_client 를 강제로 바꾸지 않는다
 // 쿠키 출처는 운영 조절값(settings.db)이라 .env 와 상관없이 기본값(쓰지 않음)으로 시작한다.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const ytdlpOptions = await import("../../src/sources/ytdlp-options.ts");
@@ -61,8 +61,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+const roots: string[] = [];
+after(() => {
+  for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 });
+});
 function fixture(layout: string) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "plugroot-"));
+  roots.push(root);
   fs.mkdirSync(path.join(root, layout), { recursive: true });
   return root;
 }

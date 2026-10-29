@@ -1,6 +1,6 @@
 // src/dashboard/log-file-reader.ts — 로그 파일 읽기(끝에서부터 쪽 · 뒤로 이어 읽기 · 시각으로 가기 · 필터 · 떼어진 파일 따라가기 · 덜 된 줄)
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
@@ -12,8 +12,14 @@ const T0 = 1_760_000_000_000;
 /** i 번째 줄: 1초 간격, 셋마다 warn, 다섯마다 youtube 카테고리 · retry 태그 */
 const record = (i: number) => ({ time: T0 + i * 1000, level: i % 3 === 0 ? 40 : 30, msg: `줄 ${i} 재생 시작`, ...(i % 5 === 0 ? { category: "youtube", sub: "client", tags: ["retry"] } : { category: "player" }) });
 
+const dirs: string[] = [];
+after(() => {
+  for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+});
+
 function writeLog(n: number, extra = "") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logread-test-"));
+  dirs.push(dir);
   const file = path.join(dir, "bot.log");
   fs.writeFileSync(file, Array.from({ length: n }, (_, i) => JSON.stringify(record(i)) + "\n").join("") + extra);
   return { dir, file };
@@ -149,6 +155,7 @@ test("내려받기: 필터링한 줄을 화면과 같은 열로, 시각은 보�
 
 test("실제 기록기가 크기를 넘겨 떼어 내도, 보던 쪽에서 앞 · 뒤로 이어 읽는다", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logread-rotate-"));
+  dirs.push(dir);
   const file = path.join(dir, "bot.log");
   const dest = createFileDestination({ file, maxBytes: 64 * 1024, keep: 5 });
   const write = (from: number, to: number) => {

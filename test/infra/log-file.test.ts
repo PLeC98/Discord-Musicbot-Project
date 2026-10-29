@@ -1,13 +1,19 @@
 // src/infra/log/file.ts — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } from "../../src/infra/log/file.ts";
+const dirs: string[] = [];
+after(() => {
+  for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+});
 function tmpdir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
+  dirs.push(dir);
+  return dir;
 }
 
 const rec = (msg: string, extra = {}) => ({ time: 1757400000000, level: 30, msg, ...extra });

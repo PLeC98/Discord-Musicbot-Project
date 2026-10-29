@@ -31,7 +31,10 @@ app.use((req, _res, next) => {
 app.use("/api/admin/logs", logFilesRouter);
 const server = await listenForFetch(app);
 const base = `${baseUrl(server)}/api/admin/logs`;
-after(() => server.close());
+after(() => {
+  server.close();
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+});
 
 test("목록과 한 쪽: 운영자는 파일 목록 · 필터링한 줄을 받는다", async () => {
   const list = (await (await fetch(`${base}/files`)).json()) as LogFileList;
