@@ -53,6 +53,7 @@ const source = {
   noKey: " (키 없음)",
   listSuggest: "입력하면 후보가 표시돼요. 후보에 없는 값은 입력하고 Enter",
   listPlain: "하나씩 입력하고 Enter",
+  openUrl: "새 탭에서 열기",
   deepClose: "상세 설정 접기",
   deepOpen: (count: number) => `상세 설정 ${count}개 펼치기`,
   window: (depth: number) => `곡이 너무 많으면 상위 ${formatNumber(depth)}곡 중에서 선택해요.`,

@@ -58,7 +58,13 @@
 
             <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="[FIELD, 'w-full']" @update:model-value="setField(i, field.key, $event)" />
 
-            <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
+            <div v-else-if="field.kind === 'url'" class="flex items-center gap-1">
+              <input :value="valueAt(source, field.key) ?? ''" type="text" placeholder="https://…" :class="[FIELD, 'flex-1 min-w-0']" @input="setField(i, field.key, valueOf($event) || null)" />
+              <!-- http(s) 주소일 때만 연다. 그 밖의 값(javascript: 등)은 링크로 만들지 않는다 -->
+              <a :href="linkOf(source, field.key) ?? undefined" target="_blank" rel="noopener noreferrer" :aria-disabled="!linkOf(source, field.key)" :tabindex="linkOf(source, field.key) ? undefined : -1" :class="[ICON_BTN, 'size-10', !linkOf(source, field.key) && 'pointer-events-none opacity-38']" :aria-label="T.openUrl" v-tooltip="T.openUrl"><Icon name="open_in_new" :size="20" /></a>
+            </div>
+
+            <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
           </div>
         </div>
 
@@ -175,6 +181,11 @@ const asList = (v: unknown): OptionValue[] => (Array.isArray(v) ? v.filter((one)
 const valueAt = (source: SourceData, key: string): OptionValue | null => {
   const v = source[key];
   return typeof v === "string" || typeof v === "number" ? v : null;
+};
+/** 새 탭에서 열 주소. http(s) 가 아니면 null */
+const linkOf = (source: SourceData, key: string): string | null => {
+  const v = String(valueAt(source, key) ?? "").trim();
+  return /^https?:\/\/\S+$/i.test(v) ? v : null;
 };
 const numberAt = (source: SourceData, key: string): number | string | null => valueAt(source, key);
 const rangeAt = (source: SourceData, key: string | undefined): number | null => {
