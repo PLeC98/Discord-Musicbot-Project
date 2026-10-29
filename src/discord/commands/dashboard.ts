@@ -11,7 +11,7 @@ import { noticeSelf, unlessGone } from "../../ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj-outside-bot-channel" },
-  data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "재생 패널을 이 채널의 맨 아래에 다시 표시해요" }),
+  data: new SlashCommandBuilder().setName("dashboard").setDescription("재생 패널을 이 채널의 맨 아래에 다시 표시해요"),
 
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;

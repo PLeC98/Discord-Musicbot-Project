@@ -8,9 +8,8 @@ const exported: GuildCommand = {
   help: { section: "queue", tier: "everyone" },
   data: new SlashCommandBuilder()
     .setName("queue")
-    .setDescription("Show the play queue")
-    .setDescriptionLocalizations({ ko: "대기열을 보여줘요" })
-    .addIntegerOption((option) => option.setName("page").setNameLocalizations({ ko: "페이지" }).setDescription("Page number (default: 1)").setDescriptionLocalizations({ ko: "페이지 번호 (기본값: 1)" }).setRequired(false).setMinValue(1)),
+    .setDescription("대기열을 보여줘요")
+    .addIntegerOption((option) => option.setName("page").setNameLocalizations({ ko: "페이지" }).setDescription("페이지 번호 (기본값: 1)").setRequired(false).setMinValue(1)),
 
   async execute(interaction, bot) {
     const { guild } = interaction;

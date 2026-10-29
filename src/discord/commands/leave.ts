@@ -7,7 +7,7 @@ import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj" },
-  data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "대기열을 저장하고 음성 채널에서 나가요" }),
+  data: new SlashCommandBuilder().setName("leave").setDescription("대기열을 저장하고 음성 채널에서 나가요"),
 
   async execute(interaction, bot) {
     const { guild, member } = interaction;

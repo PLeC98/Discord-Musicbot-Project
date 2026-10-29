@@ -9,7 +9,7 @@ import { LIFETIME, toSelf } from "../../ui/delivery.ts";
 const exported: GuildCommand = {
   help: { section: "channel", tier: "moderator" },
   // 설명에 부분 이름을 적지 않는다. 운영자가 끈 기능의 부분은 화면에 없어 그때그때 다르다
-  data: new SlashCommandBuilder().setName("setting").setDescription("Open server settings").setDescriptionLocalizations({ ko: "서버 설정을 열어요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("setting").setDescription("서버 설정을 열어요").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
     await toSelf(interaction, reply(await panel(interaction.guild)), LIFETIME.screen);

@@ -12,6 +12,6 @@ const unknownLength = () => "알 수 없음";
 const adding = () => ({ title: `${icon("progress")} 넣는 중...`, description: "선택한 곡을 추가하고 있어요..." });
 
 /** /play · 전용 채널 입력이 찾는 동안의 자리표시자. input 은 입력한 것(전용 채널은 앞부분만 자른 것) */
-const searching = (input: string) => `${icon("progress")} **${input}** 검색 중...`;
+const searching = (input: string) => `${icon("progress")} **${input}** 검색 중…`;
 
 export { results, result, unknownLength, adding, searching };

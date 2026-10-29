@@ -7,7 +7,7 @@ import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj" },
-  data: new SlashCommandBuilder().setName("clear").setDescription("Clear the queue").setDescriptionLocalizations({ ko: "대기열을 비워요" }),
+  data: new SlashCommandBuilder().setName("clear").setDescription("대기열을 비워요"),
 
   async execute(interaction, bot) {
     const { guild, member } = interaction;

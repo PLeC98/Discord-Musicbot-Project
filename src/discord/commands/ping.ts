@@ -11,7 +11,7 @@ const MARK: Record<LatencyGrade, string> = { good: "🟢", fair: "🟡", poor: "
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "moderator" },
   anywhere: true,
-  data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇의 응답 시간을 측정해요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("ping").setDescription("봇의 응답 시간을 측정해요").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
     const { resource } = await interaction.reply({ content: infoText.pinging(), withResponse: true, flags: MessageFlags.Ephemeral });

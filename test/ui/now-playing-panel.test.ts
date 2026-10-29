@@ -273,7 +273,7 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
   const sent: string[] = [];
   const stale = { send: async () => Promise.reject(Object.assign(new Error("Unknown Webhook"), { code: 10015 })), destroy: () => sent.push("stale-destroyed") };
   mem.webhookCache.set("c1", fake<WebhookClient>(stale));
-  const fresh = { id: "w2", token: "t2", name: "Music Now Playing", owner: { id: "bot" }, isIncoming: () => true };
+  const fresh = { id: "w2", token: "t2", name: "Now Playing", owner: { id: "bot" }, isIncoming: () => true };
   const channel = fake<GuildTextBasedChannel>({
     id: "c1",
     fetchWebhooks: async () => new Collection(),

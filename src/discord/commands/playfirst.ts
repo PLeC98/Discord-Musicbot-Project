@@ -5,8 +5,7 @@ import { checkControl, checkSummon } from "../../usecases/permissions.ts";
 const exported = playCommand({
   help: { section: "play", tier: "dj" },
   name: "playfirst",
-  description: "Add a song to the front of the queue",
-  ko: "대기열 맨 앞에 곡을 넣어요",
+  description: "대기열 맨 앞에 곡을 넣어요",
   permission: async (member) => (await checkControl(member)) || checkSummon(member),
   insertFirst: true,
 });

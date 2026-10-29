@@ -76,9 +76,9 @@ test('"서버 관리 권한" 표시는 디스코드가 그 권한으로 막는 �
 
 test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완성이 보인다). 권한 표시를 끝에 붙인다", () => {
   const [section] = helpSections([
-    { defined: { name: "x", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "dj" } },
-    { defined: { name: "y", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "moderator" } },
-    { defined: { name: "z", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "everyone" } },
+    { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
+    { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "moderator" } },
+    { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
   ]);
   assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);
 });

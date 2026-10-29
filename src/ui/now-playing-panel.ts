@@ -38,6 +38,9 @@ const { UnknownMessage: UNKNOWN_MESSAGE, UnknownWebhook: UNKNOWN_WEBHOOK } = RES
 const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(error) === UNKNOWN_WEBHOOK;
 // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
+
+// 패널을 올리는 웹후크의 이름. 메시지는 봇 이름 · 아바타로 보내므로 이 이름은 채널 설정의 웹후크 목록에만 보인다
+const WEBHOOK_NAME = "Now Playing";
 // 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
 const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
 
@@ -172,10 +175,10 @@ class NowPlayingPanel {
     if (!("fetchWebhooks" in channel)) return null;
     try {
       const webhooks = await channel.fetchWebhooks();
-      const ours = (wh: Webhook): wh is Webhook<WebhookType.Incoming> => wh.isIncoming() && wh.owner?.id === this.client.user?.id && wh.name === "Music Now Playing";
+      const ours = (wh: Webhook): wh is Webhook<WebhookType.Incoming> => wh.isIncoming() && wh.owner?.id === this.client.user?.id && wh.name === WEBHOOK_NAME;
       let webhook = webhooks.find(ours);
       if (!webhook) {
-        webhook = await channel.createWebhook({ name: "Music Now Playing" });
+        webhook = await channel.createWebhook({ name: WEBHOOK_NAME });
       }
       const client = new WebhookClient({ id: webhook.id, token: webhook.token }, { allowedMentions: ALLOWED_MENTIONS });
       this.webhookCache.set(channel.id, client);

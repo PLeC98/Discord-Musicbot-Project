@@ -7,17 +7,8 @@ const exported: GuildCommand = {
   help: { section: "mode", tier: "dj" },
   data: new SlashCommandBuilder()
     .setName("loop")
-    .setDescription("Set loop mode")
-    .setDescriptionLocalizations({ ko: "반복 모드를 설정해요" })
-    .addStringOption((option) =>
-      option
-        .setName("mode")
-        .setNameLocalizations({ ko: "모드" })
-        .setDescription("Loop mode (omit to cycle: off → track → queue → off)")
-        .setDescriptionLocalizations({ ko: "반복 모드 (모드를 정하지 않으면 순서대로 순환해요: 끔 → 한 곡 반복 → 대기열 반복)" })
-        .setRequired(false)
-        .addChoices({ name: "Off", name_localizations: { ko: "끔" }, value: "off" }, { name: "Track (repeat current)", name_localizations: { ko: "한 곡 반복" }, value: "track" }, { name: "Queue (repeat all)", name_localizations: { ko: "대기열 반복" }, value: "queue" }),
-    ),
+    .setDescription("반복 모드를 설정해요")
+    .addStringOption((option) => option.setName("mode").setNameLocalizations({ ko: "모드" }).setDescription("반복 모드 (모드를 정하지 않으면 순서대로 순환해요: 끔 → 한 곡 반복 → 대기열 반복)").setRequired(false).addChoices({ name: "끔", value: "off" }, { name: "한 곡 반복", value: "track" }, { name: "대기열 반복", value: "queue" })),
 
   async execute(interaction, bot) {
     const player = bot.players.get(interaction.guild.id);

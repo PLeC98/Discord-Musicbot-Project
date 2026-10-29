@@ -20,30 +20,19 @@ import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery
 type PlayOptions = {
   name: string;
   description: string;
-  ko: string;
   help: HelpEntry;
   /** 막으면 안내 문장 */
   permission: (member: GuildMember) => Promise<PermissionDenied | null> | PermissionDenied | null;
   insertFirst?: boolean;
 };
 
-function playCommand({ name, description, ko, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
+function playCommand({ name, description, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
   return {
     help,
     data: new SlashCommandBuilder()
       .setName(name)
       .setDescription(description)
-      .setDescriptionLocalizations({ ko })
-      .addStringOption((option) =>
-        option
-          .setName("query")
-          .setNameLocalizations({ ko: "곡" })
-          .setDescription("Song name, artist, YouTube/Spotify/SoundCloud URL or direct link")
-          .setDescriptionLocalizations({
-            ko: "지원하는 플랫폼이나 미디어 파일 링크, 유튜브 검색어",
-          })
-          .setRequired(true),
-      ),
+      .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "곡" }).setDescription("지원하는 플랫폼이나 미디어 파일 링크, 유튜브 검색어").setRequired(true)),
 
     async execute(interaction, bot) {
       const query = interaction.options.getString("query", true);
@@ -83,8 +72,7 @@ function playCommand({ name, description, ko, help, permission, insertFirst = fa
 const exported = playCommand({
   help: { section: "play", tier: "everyone" },
   name: "play",
-  description: "Plays music - Supports YouTube, Spotify, SoundCloud or direct links",
-  ko: "곡을 재생해요",
+  description: "곡을 재생해요",
   permission: (member) => checkAdd(member) || checkSummon(member),
 });
 export default exported;

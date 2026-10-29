@@ -8,7 +8,7 @@ import { LIFETIME, selfOnly, toSelf } from "../../ui/delivery.ts";
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "everyone" },
   anywhere: true,
-  data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스와 소스 코드 저장소를 표시해요" }),
+  data: new SlashCommandBuilder().setName("license").setDescription("라이선스와 소스 코드 저장소를 표시해요"),
 
   async execute(interaction) {
     const UPSTREAM_REPO = "https://github.com/umutxyp/MusicBot";

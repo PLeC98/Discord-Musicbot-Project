@@ -58,20 +58,8 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
   help: { section: "explore", tier: "everyone" },
   data: new SlashCommandBuilder()
     .setName("search")
-    .setDescription("Search and select music on YouTube")
-    .setDescriptionLocalizations({
-      ko: "유튜브에서 검색해서 재생해요",
-    })
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setNameLocalizations({ ko: "검색어" })
-        .setDescription("Music name or artist to search")
-        .setDescriptionLocalizations({
-          ko: "검색할 키워드",
-        })
-        .setRequired(true),
-    ),
+    .setDescription("유튜브에서 검색해서 재생해요")
+    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true)),
 
   async execute(interaction: ChatInputCommandInteraction<"cached">, _bot: BotContext, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
     const query = interaction.options.getString("query", true);

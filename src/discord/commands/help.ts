@@ -41,7 +41,7 @@ async function buildHelpEmbed(client: Client<true>, { players, commands }: Pick<
 
 const exported: GuildCommand = {
   help: null,
-  data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어 목록을 알려줘요" }),
+  data: new SlashCommandBuilder().setName("help").setDescription("모든 명령어 목록을 알려줘요"),
 
   async execute(interaction, bot) {
     const { embed, row } = await buildHelpEmbed(interaction.client, bot);
