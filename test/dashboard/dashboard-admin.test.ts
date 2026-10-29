@@ -420,6 +420,16 @@ test("설정: 저장하면 값이 바뀌고 저장 번호가 오른다", async (
   assert.deepEqual((documents.get("genres") as GenresConfig["data"]).genres.팝.sources[0].keywords, ["pop music", "top pop"]);
 });
 
+test("설정: 저장할 때 출처 주소의 추적 쿼리를 버리고, 응답에도 다듬은 값이 온다", async () => {
+  const kept = structuredClone(documents.get("genres"));
+  const doc = { defaults: { prefetchCount: 1 }, genres: { 팝: { sources: [{ type: "spotify", url: "https://open.spotify.com/playlist/AAA?si=share" }] } } };
+  const { status, json } = await putDoc<{ data: { genres: { 팝: { sources: { url: string }[] } } } }>("genres", doc);
+  assert.equal(status, 200);
+  assert.equal(json.data.genres.팝.sources[0].url, "https://open.spotify.com/playlist/AAA");
+  assert.equal((documents.get("genres") as { genres: { 팝: { sources: { url: string }[] } } }).genres.팝.sources[0].url, "https://open.spotify.com/playlist/AAA");
+  assert.equal((await putDoc("genres", kept)).status, 200);
+});
+
 // 두 탭 · 두 사람이 같은 문서를 고치면 나중 저장이 앞 저장을 모르고 덮는다. 읽은 번호가 낡았으면 거절한다
 test("설정: 읽은 뒤 그사이 저장됐으면 409 config-changed, 문서는 그대로", async () => {
   const { json: read } = await req<GenresConfig>("GET", "/api/admin/config/genres");

@@ -3,6 +3,7 @@
 import { SPEC, TYPES } from "./genre-sources.ts";
 import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";
 import { SELECT_MAX } from "../../rules/limits.ts";
+import { sourceUrl } from "../../rules/source-url.ts";
 
 // 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 하나로 센다.
 // g 플래그가 없어 test()에 상태가 남지 않는다.
@@ -133,4 +134,18 @@ function genreProblems(data: unknown): string[] {
   return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${String(id)}의 ${Number(index) + 1}번째 소스` }));
 }
 
-export { genreProblems, GENRE_DEFAULTS, NUMERIC_NAME, ONE_EMOJI, YAML_WORDS };
+/** 저장할 모양으로 다듬은 사본. 출처 주소에서 목록을 가리키지 않는 쿼리를 버린다(rules/source-url). 모양이 다른 곳은 손대지 않는다 */
+function tidyGenres(data: unknown): unknown {
+  const genres = (data as { genres?: unknown } | null)?.genres;
+  if (!genres || typeof genres !== "object") return data;
+  const copy = structuredClone(data) as { genres: Record<string, { sources?: unknown }> };
+  for (const genre of Object.values(copy.genres)) {
+    if (!Array.isArray(genre?.sources)) continue;
+    for (const source of genre.sources as Array<{ type?: unknown; url?: unknown } | null>) {
+      if (typeof source?.type === "string" && typeof source.url === "string") source.url = sourceUrl(source.type, source.url);
+    }
+  }
+  return copy;
+}
+
+export { genreProblems, tidyGenres, GENRE_DEFAULTS, NUMERIC_NAME, ONE_EMOJI, YAML_WORDS };

@@ -6,7 +6,7 @@ const log = logger.child({ category: "config" });
 import * as sources from "./schema/genre-sources.ts";
 import { usable } from "./source-keys.ts";
 import * as documents from "./documents.ts";
-import { genreProblems } from "./schema/genres.ts";
+import { genreProblems, tidyGenres } from "./schema/genres.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
@@ -186,6 +186,6 @@ function labelOf(id: string): string {
   return genres().genres[id]?.label?.trim() || id;
 }
 
-export { genres, genresBroken, validateGenres, unusableGenre, labelOf };
+export { genres, genresBroken, validateGenres, tidyGenres, unusableGenre, labelOf };
 export const _reset = () => ((lastGood = null), (reported = ""));
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };

@@ -208,6 +208,8 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
 // 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
 const VALIDATORS: Record<string, (data: unknown) => string[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
+// 저장할 모양으로 다듬기. 검사 전에 한 번(다듬은 값을 검사하고 저장한다). 응답이 저장한 문서를 돌려주므로 편집기에도 다듬은 값이 보인다
+const TIDIERS: Partial<Record<string, (data: unknown) => unknown>> = { genres: genreConfig.tidyGenres };
 
 // 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 필드를 받고, 지금 쓸 수 있는가.
 // 검증·실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
@@ -555,7 +557,8 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
 
-  const data = req.body?.data;
+  const sent: unknown = req.body?.data;
+  const data = sent && typeof sent === "object" ? (TIDIERS[name]?.(sent) ?? sent) : sent;
   const revision: unknown = req.body?.revision;
   if (!data || typeof data !== "object" || !Number.isInteger(revision) || !documents.isDocName(name)) return sendProblem(res, "nothing-to-save");
 
