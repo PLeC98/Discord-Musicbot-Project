@@ -270,7 +270,10 @@ class VoiceLink {
     this.state = "waiting";
     this.waitCloseCode = closeCode ?? null;
     const gen = ++this.gen;
-    log.warn(`연결 끊김: ${this._label()} | 원인=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`);
+    const line = `연결 끊김: ${this._label()} | 원인=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`;
+    // 4014 는 내보냄 · 옮겨짐 · 봇의 게이트웨이 끊김 중 하나다. 어느 쪽인지는 뒤따르는 줄(떠남 · 이동 · 복구)이 남긴다
+    if (closeCode === DO_NOT_RECONNECT) log.debug(line);
+    else log.warn(line);
     this._clearWait();
     this.waitTimer = setTimeout(() => {
       if (gen !== this.gen || this.state !== "waiting") return;
