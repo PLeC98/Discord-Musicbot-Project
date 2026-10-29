@@ -250,7 +250,17 @@ class VoiceLink {
       log.debug(`음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`);
       this.lastCloseCode = code;
       for (const done of this.closeWaiters.splice(0)) done(code);
+      this._noRejoin(networking, code);
     });
+  }
+
+  // 봇이 이미 채널에서 빠졌다(스테이지 종료 등). 라이브러리는 4014 가 아닌 닫힘이면 같은 채널로 다시 참가하므로(잠깐 청중으로 들어갔다 나온다)
+  // 이 리스너가 먼저 도는 동안 나감 없이 부순다. 나감은 디스코드가 이미 했다
+  _noRejoin(networking: object, code: number) {
+    const connection = this.player.connection;
+    if (this.state !== "closed" || code === DO_NOT_RECONNECT || !connection) return;
+    if (!("networking" in connection.state) || connection.state.networking !== networking) return;
+    connection.destroy(false);
   }
 
   _onError(error: Error) {
@@ -630,9 +640,10 @@ class VoiceLink {
     this.stop();
     this.state = "closed";
     const connection = this._detach();
-    if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
+    if (!connection) return;
     try {
-      connection.destroy();
+      // 이미 부순 연결(채널에서 빠진 뒤 다시 참가하지 않게 부숨)이면 나감도 이미 된 것이다
+      if (connection.state.status !== VoiceConnectionStatus.Destroyed) connection.destroy();
       log.info(`음성 채널 떠남: ${this._label()} | 원인=${reason}`);
     } catch (error) {
       log.error("음성 연결 종료 실패:", error);

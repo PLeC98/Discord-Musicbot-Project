@@ -396,6 +396,26 @@ test("스테이지에서 빠졌다: 음성 서버가 모두를 끊었으면(4022
   assert.deepEqual(await leave({}), ["dispose:remove:disconnected:stage-disconnect"]);
 });
 
+test("채널에서 빠진 뒤 음성 서버가 닫히면(4014 가 아님) 라이브러리가 같은 채널로 다시 참가하기 전에 나감 없이 부순다", async () => {
+  const s = await ready();
+  s.player.voiceChannel = { id: "vc1", name: "무대", type: ChannelType.GuildStageVoice } as typeof s.player.voiceChannel;
+  const net = new EventEmitter();
+  s.conn().to(VoiceConnectionStatus.Ready, { networking: net });
+  const c = s.conn();
+  s.link.onBotState(state("vc1"), state(null));
+  net.emit("close", 4022);
+  assert.deepEqual(c.destroyed, ["stay"]);
+  await until(() => s.steps.length > 0, "버리기");
+  assert.deepEqual(s.steps, ["dispose:remove:disconnected:stage-ended"]);
+
+  // 붙어 있는 동안의 닫힘은 라이브러리에 맡긴다
+  const live = await ready();
+  const liveNet = new EventEmitter();
+  live.conn().to(VoiceConnectionStatus.Ready, { networking: liveNet });
+  liveNet.emit("close", 4022);
+  assert.deepEqual(live.conn().destroyed, []);
+});
+
 test("일반 음성 채널에서 빠지면 닫힘 코드와 상관없이 강제 퇴장이다(기다리지 않는다)", async () => {
   const s = await ready();
   const net = new EventEmitter();
