@@ -33,6 +33,7 @@ function makePlayer() {
     currentTrack: makeTrack("현재곡"),
     queue: Array.from({ length: QUEUE_LEN }, (_, i) => Object.defineProperty(makeTrack(`q${i}`), "entry", { value: i + 1, enumerable: false })),
     previousTracks: [],
+    pause: { userPaused: false, heldBy: null },
     getCurrentTime: () => 0,
     removeFromQueue(i: number) {
       return this.queue.splice(i, 1)[0];

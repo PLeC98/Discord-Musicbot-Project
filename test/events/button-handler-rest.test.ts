@@ -107,7 +107,14 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
       seen.push(`autoplay:${v}`);
       p.autoplay = v;
     },
-    pause: { setUser: (on: boolean) => void (p.paused = on), heldBy: null },
+    pause: {
+      userPaused: false,
+      heldBy: null,
+      setUser(on: boolean) {
+        this.userPaused = on;
+        p.paused = on;
+      },
+    },
     skip: () => false,
     previous: () => false,
     _restartsOnPrevious: Player.prototype._restartsOnPrevious,

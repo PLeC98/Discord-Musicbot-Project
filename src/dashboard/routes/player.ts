@@ -149,7 +149,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.pause(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
-    announce(replies.paused(r.paused, r.track, dashboardActor(req)));
+    announce(replies.paused(r.userPaused, r.track, dashboardActor(req), r.heldBy));
     res.json(stateAfter(req));
   });
 

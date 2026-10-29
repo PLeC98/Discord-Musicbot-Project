@@ -69,6 +69,7 @@ function makePlayer() {
     previousTracks: [],
     volume: 50,
     loop: false,
+    pause: { userPaused: false, heldBy: null },
     audioPlayer: { state: { status: "playing" } },
     getCurrentTime: () => 0,
     async play(ms: number) {
@@ -260,7 +261,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
     skip: () => true,
     previous: () => true,
     _restartsOnPrevious: () => false,
-    pause: { setUser() {}, heldBy: null },
+    pause: { setUser() {}, userPaused: false, heldBy: null },
     hasLiveTrack: () => false,
     setLoop: (mode: Player["loop"]) => (p.loop = mode),
     shuffleQueue() {},
@@ -355,6 +356,21 @@ test("?queue=0 이면 대기열 없이 답한다(곡 수는 그대로). 비우�
   const none = await stateReq("GET", `/api/guilds/${GUILD_ID}/player?queue=0`);
   assert.deepEqual([none.json.queue.length, none.json.queueTotal], [0, 3]);
   for (const qs of ["", "?queue=", "?queue=abc", "?queue=-1"]) assert.equal((await stateReq("GET", `/api/guilds/${GUILD_ID}/player${qs}`)).json.queue.length, 3, qs);
+});
+
+test("상태: 사람의 멈춤과 억제 사유를 따로 싣는다. 억제 사유는 곡이 보일 때만", async () => {
+  const p = freshPlayer();
+  type Paused = { paused: boolean; userPaused: boolean; heldBy: string | null };
+  const pausedOf = async () => {
+    const { paused, userPaused, heldBy } = (await requestJson<Paused>(base, "GET", `/api/guilds/${GUILD_ID}/player`)).json;
+    return { paused, userPaused, heldBy };
+  };
+  Object.assign(p, { paused: true, pause: { userPaused: false, heldBy: "mute" } });
+  assert.deepEqual(await pausedOf(), { paused: true, userPaused: false, heldBy: "mute" }, "억제로만 멈췄다: 버튼은 일시정지 쪽");
+  Object.assign(p, { pause: { userPaused: true, heldBy: "mute" } });
+  assert.deepEqual(await pausedOf(), { paused: true, userPaused: true, heldBy: "mute" });
+  Object.assign(p, { audioPlayer: { state: { status: "idle" } }, pause: { userPaused: false, heldBy: "alone" } });
+  assert.deepEqual(await pausedOf(), { paused: false, userPaused: false, heldBy: null }, "곡이 보이지 않으면 멈춤 · 억제 사유도 보이지 않는다");
 });
 
 test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400, 본문의 맨 앞 넣기는 무시한다", async () => {

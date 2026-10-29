@@ -22,7 +22,7 @@ const refuse = (interaction: Asked, r: Problem) => noticeSelf(interaction, contr
 async function answerPause(interaction: Asked, player: MaybePlayer) {
   const r = await controls.pause(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.paused(r.paused, r.track, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.paused(r.userPaused, r.track, interaction.member, r.heldBy), LIFETIME.result);
 }
 
 async function answerSkip(interaction: Asked, player: MaybePlayer) {

@@ -94,6 +94,7 @@ function makeSetup(state: State = {}) {
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
     volume: 100,
     getCurrentTime: () => 1000,
     currentTrack: { title: "곡", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 100, platform: "direct" },

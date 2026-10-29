@@ -1,6 +1,7 @@
 // 서버와 화면이 주고받는 모양: 재생(/api/guilds/:id/player 아래). 서버는 dashboard/player-view · routes/player 가 만든다
 
 import type { Loop } from "../../rules/loop-cycle.ts";
+import type { Hold } from "../../rules/holds.ts";
 import type { More } from "../../rules/more-choices.ts";
 import type { TrackInfo } from "../../player/track.ts";
 
@@ -52,7 +53,12 @@ type PlayerState = {
   boot: number;
   seq: number;
   playing: boolean;
+  /** 소리가 멈춰 있어야 하나(사람이 멈춰 뒀거나 억제 사유가 있다) */
   paused: boolean;
+  /** 사람이 멈춰 뒀나. 재생 버튼은 이것을 뒤집는다(억제로 소리가 멈춰 있어도 이것이 거짓이면 일시정지 버튼) */
+  userPaused: boolean;
+  /** 소리를 함께 멈추고 있는 억제 사유(rules/holds, 보여 줄 첫째). 없으면 null */
+  heldBy: Hold | null;
   volume?: number;
   loop?: Loop;
   currentTrack: PlayingView | null;

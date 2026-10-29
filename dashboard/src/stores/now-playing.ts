@@ -36,8 +36,10 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const visible = computed(() => !!guildId.value && !onTargetPage.value && !!data.value?.hasPlayer);
 
   const canControl = computed(() => data.value?.canControl ?? false);
-  // 곡이 있고 멈추지 않았다(재생 · 일시정지 버튼이 어느 쪽인지)
+  // 곡이 있고 소리가 멈추지 않았다(진행 막대가 흐르나)
   const running = computed(() => Boolean(track.value && !data.value?.paused));
+  // 재생 버튼이 어느 쪽인지: 사람이 멈추지 않았으면 일시정지 버튼(억제로 소리가 멈춰 있어도)
+  const wantsPlay = computed(() => Boolean(track.value && !data.value?.userPaused));
   const canSkip = computed(() => skipAllowed(data.value));
   const duration = computed(() => track.value?.duration ?? 0);
   const position = computed(() => positionAt(clock.value, now.value));
@@ -89,9 +91,11 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
   function togglePause() {
     if (!data.value || isBusy("pause")) return;
-    const paused = !data.value.paused;
+    // 뒤집는 것은 사람의 멈춤이다. 억제 사유가 남아 있으면 소리는 계속 멈춰 있다
+    const userPaused = !data.value.userPaused;
+    const paused = userPaused || data.value.heldBy != null;
     clock.value = retime(clock.value, Date.now(), { running: Boolean(track.value && data.value.playing && !paused) });
-    data.value = { ...data.value, paused };
+    data.value = { ...data.value, userPaused, paused };
     return send("pause", undefined, text.player.failed.pause);
   }
   // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 항목 번호를 싣는다
@@ -164,5 +168,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, running, wantsPlay, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
 });

@@ -84,3 +84,16 @@ test("모든 문장", () => {
 test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자를 보고 선택한다", () => {
   assert.deepEqual(controls.paused(true, { title: null, pageUrl: "https://example.com/v" }), { icon: "pause", title: "일시정지했어요!", body: "**[알 수 없는 곡](https://example.com/v)**을 일시정지했어요." });
 });
+
+test("억제 사유로 소리가 함께 멈춰 있으면: 멈춰 둘 때는 풀려도 멈춘 채, 풀 때는 지금 멈춘 까닭과 언제 이어 트는지", () => {
+  const track = { title: "곡", pageUrl: "u" };
+  assert.deepEqual(
+    (["mute", "stage", "alone"] as const).map((held) => controls.paused(true, track, held).body),
+    ["**[곡](u)**을 일시정지했어요. 음소거가 풀려도 멈춘 채로 둘게요.", "**[곡](u)**을 일시정지했어요. 발언자가 돼도 멈춘 채로 둘게요.", "**[곡](u)**을 일시정지했어요. 채널에 사람이 들어와도 멈춘 채로 둘게요."],
+  );
+  assert.deepEqual(
+    (["mute", "stage", "alone"] as const).map((held) => controls.paused(false, track, held).body),
+    ["아직 음소거 상태예요. 음소거가 풀리면 **[곡](u)**을 다시 재생할게요.", "아직 발언자를 기다리고 있어요. 발언자가 되면 **[곡](u)**을 다시 재생할게요.", "아직 채널에 혼자 남아 있어요. 사람이 들어오면 **[곡](u)**을 다시 재생할게요."],
+  );
+  assert.equal(controls.paused(false, track, "mute").title, "일시정지를 해제했어요!");
+});

@@ -106,6 +106,7 @@ function makePlayer(guild: Guild, textChannel: GuildTextBasedChannel, over: obje
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
     getCurrentTime: () => 0,
     currentTrack: { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" },
     nowPlayingMessage: null,

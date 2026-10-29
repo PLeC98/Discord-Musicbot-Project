@@ -48,6 +48,7 @@ function playingPlayer() {
     previousTracks: [],
     volume: 50,
     loop: false,
+    pause: { userPaused: false, heldBy: null },
     audioPlayer: { state: { status: "playing" } },
     getCurrentTime: () => 0,
     guild,

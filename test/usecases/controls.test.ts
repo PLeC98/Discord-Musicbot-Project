@@ -102,25 +102,33 @@ test("공통: 플레이어가 없으면 no-song, 권한이 없으면 권한 판�
   assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "must-be-in-same-voice" });
 });
 
-test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다", async () => {
+test("멈춤: 곡이 없으면 거절, 있으면 사람의 멈춤을 뒤집고 패널에 알린다", async () => {
   const seen = panel();
   assert.equal(codeOf(await controls.pause(fakePlayer({ currentTrack: null }), DJ)), "no-song");
 
   const playing = fakePlayer();
-  assert.deepEqual(await controls.pause(playing, DJ), { ok: true, paused: true, track: playing.currentTrack });
+  assert.deepEqual(await controls.pause(playing, DJ), { ok: true, userPaused: true, heldBy: null, track: playing.currentTrack });
   const paused = fakePlayer({ user: true });
-  assert.equal(accepted(await controls.pause(paused, DJ)).paused, false);
+  assert.equal(accepted(await controls.pause(paused, DJ)).userPaused, false);
   assert.deepEqual([...playing.calls, ...paused.calls], ["pause", "resume"]);
   assert.deepEqual(seen, ["refresh", "refresh"]);
 });
 
-test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 스테이지 청중 · 혼자 남음)이 붙들고 있으면 그 까닭의 코드로 거절한다", async () => {
-  const muted = fakePlayer({ user: true, holds: ["mute"] });
-  assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held-mute" });
-  assert.equal(muted.pause.userPaused, false, "사람의 멈춤은 풀었다. 까닭이 풀리면 이어 튼다");
-  assert.deepEqual(await controls.pause(fakePlayer({ user: true, holds: ["alone"] }), DJ), { ok: false, code: "held-alone" });
-  assert.deepEqual(await controls.pause(fakePlayer({ user: true, holds: ["stage"] }), DJ), { ok: false, code: "held-stage" });
-  assert.deepEqual(await controls.pause(fakePlayer({ holds: ["alone", "mute"] }), DJ), { ok: false, code: "held-mute" }, "여럿이면 보여 줄 첫째");
+test("억제 사유(서버 음소거 · 스테이지 청중 · 혼자 남음)로 멈춰 있어도 사람의 멈춤만 뒤집는다. 거절하지 않는다", async () => {
+  // 억제로 멈춘 채 누르면 멈춰 둔다: 소리는 이미 멈춰 있고, 사유가 풀려도 멈춘 채로
+  const muted = fakePlayer({ holds: ["mute"] });
+  assert.deepEqual(await controls.pause(muted, DJ), { ok: true, userPaused: true, heldBy: "mute", track: muted.currentTrack });
+  muted.pause.setHolds([]);
+  assert.equal(muted.paused, true, "음소거가 풀려도 멈춘 채");
+
+  // 멈춰 둔 것을 풀면 사유가 남아 있는 동안은 조용하고, 사유가 풀리면 이어 튼다
+  const alone = fakePlayer({ user: true, holds: ["alone"] });
+  assert.deepEqual(await controls.pause(alone, DJ), { ok: true, userPaused: false, heldBy: "alone", track: alone.currentTrack });
+  assert.equal(alone.paused, true);
+  alone.pause.setHolds([]);
+  assert.equal(alone.paused, false);
+
+  assert.equal(accepted(await controls.pause(fakePlayer({ holds: ["alone", "stage"] }), DJ)).heldBy, "stage", "여럿이면 보여 줄 첫째");
 });
 
 test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처리가 대기열 소진으로 끝낸다, 한곡 반복은 처음부터). 곡 요청자는 DJ 가 아니어도 된다", async () => {

@@ -4,6 +4,7 @@
 import { josa } from "../../../rules/josa.ts";
 import { icon, type IconKey } from "../../icons.ts";
 import { songTitle } from "./labels.ts";
+import type { Hold } from "../../../rules/holds.ts";
 
 type Linked = { title: string | null; pageUrl: string };
 /** 헤더 줄(아이콘 키 + 제목)과 본문 */
@@ -18,8 +19,19 @@ const requestedBy = () => `${icon("person")} 요청한 사람`;
 /** 대시보드에서 한 조작의 누가 했나(사람 멘션 뒤에 붙인다) */
 const viaDashboard = (who: string) => `${who} (대시보드)`;
 
-/** 일시정지 · 재개 */
-const paused = (isPaused: boolean, track: Linked): Head => (isPaused ? { icon: "pause", title: "일시정지했어요!", body: `${linkObject(track)} 일시정지했어요.` } : { icon: "play", title: "일시정지를 해제했어요!", body: `${linkObject(track)} 다시 재생할게요.` });
+// 억제 사유(rules/holds)로 소리가 함께 멈춰 있을 때 덧붙이는 말: 멈춰 둠 · 아직 멈춘 까닭 · 언제 이어 트나
+const HELD_AFTER: Record<Hold, { keep: string; still: string; when: string }> = {
+  mute: { keep: "음소거가 풀려도 멈춘 채로 둘게요.", still: "아직 음소거 상태예요.", when: "음소거가 풀리면" },
+  stage: { keep: "발언자가 돼도 멈춘 채로 둘게요.", still: "아직 발언자를 기다리고 있어요.", when: "발언자가 되면" },
+  alone: { keep: "채널에 사람이 들어와도 멈춘 채로 둘게요.", still: "아직 채널에 혼자 남아 있어요.", when: "사람이 들어오면" },
+};
+
+/** 일시정지 · 재개. heldBy: 소리를 함께 멈추고 있는 억제 사유(있으면 그 사유가 풀린 뒤를 말한다) */
+function paused(isPaused: boolean, track: Linked, heldBy: Hold | null = null): Head {
+  if (isPaused) return { icon: "pause", title: "일시정지했어요!", body: `${linkObject(track)} 일시정지했어요.${heldBy ? ` ${HELD_AFTER[heldBy].keep}` : ""}` };
+  const held = heldBy ? HELD_AFTER[heldBy] : null;
+  return { icon: "play", title: "일시정지를 해제했어요!", body: held ? `${held.still} ${held.when} ${linkObject(track)} 다시 재생할게요.` : `${linkObject(track)} 다시 재생할게요.` };
+}
 
 /** 건너뛰기 · 이전 곡인데 한 곡 반복이라 지금 곡을 처음부터 다시 틀었다 */
 const restartedOnRepeat = (): Head => ({ icon: "repeat_one", title: "곡을 되감았어요!", body: "한 곡 반복 중이라 지금 곡을 처음부터 다시 틀어요." });

@@ -86,9 +86,14 @@ function previousArt(player: Player) {
   return prev ? trackArtUrl(player.guild?.id, prev) : null;
 }
 
+// 곡이 없을 때도 혼자 남음이면 멈춤이 참이다. 보이는 곡이 있을 때만 멈춤 · 억제 사유로 보인다
+function pauseView(player: Player, paused: boolean, shown: boolean) {
+  return { paused: shown && paused, userPaused: player.pause.userPaused, heldBy: shown ? player.pause.heldBy : null };
+}
+
 function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE): PlayerState {
   const order = { boot: BOOT, seq: ++made };
-  if (!player) return { ...order, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
+  if (!player) return { ...order, playing: false, paused: false, userPaused: false, heldBy: null, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = playbackStatus(player);
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다. 그래야
   // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다.
@@ -96,8 +101,7 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
   return {
     ...order,
     playing: status.playing,
-    // 곡이 없을 때도 혼자 남음이면 멈춤이 참이다. 보이는 곡이 있을 때만 멈춤으로 보인다
-    paused: Boolean(track) && status.paused,
+    ...pauseView(player, status.paused, Boolean(track)),
     volume: status.volume,
     loop: status.loop,
     currentTrack: track ? playingView(player, track) : null,

@@ -34,8 +34,6 @@ type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied |
 
 /** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems 의 params) */
 const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true ? [params: ParamsOf<C>] : [params?: ParamsOf<C>]): Refusal => ({ ok: false, code, ...params }) as Refusal;
-// 사람이 풀 수 없는 멈춤(억제 사유, rules/holds)의 까닭마다
-const HELD: Record<string, "held-mute" | "held-stage" | "held-alone"> = { mute: "held-mute", stage: "held-stage", alone: "held-alone" };
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
@@ -65,20 +63,18 @@ async function permittedTrack(player: Player, actor: Actor, check?: Check, onTra
 /** 지금 곡이 이 대기열 ID의 곡일 때만(대시보드). 없으면 확인하지 않는다 */
 type OnTrack = { onTrack?: number };
 
-/** 멈춤 · 재개를 뒤집는다 */
+/**
+ * 사람의 멈춤을 뒤집는다. 억제 사유(서버 음소거 · 스테이지 청중 · 혼자 남음)는 보지 않는다:
+ * 그 사유로 소리가 이미 멈춰 있어도 멈춰 두면 사유가 풀려도 멈춘 채로, 풀어 두면 사유가 풀리는 순간 이어 튼다.
+ * heldBy: 지금 소리를 함께 멈추고 있는 억제 사유(결과 안내가 그 사유가 풀린 뒤를 말한다)
+ */
 async function pause(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
-  const resuming = player.paused;
-  player.pause.setUser(!resuming);
-  if (resuming && player.paused) {
-    // 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있다. 그 까닭이 풀리면 이어 튼다
-    const held = player.pause.heldBy;
-    return fail((held && HELD[held]) || "control-failed");
-  }
+  player.pause.setUser(!player.pause.userPaused);
   await refresh(player);
-  return done({ paused: !resuming, track });
+  return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
 }
 
 /**

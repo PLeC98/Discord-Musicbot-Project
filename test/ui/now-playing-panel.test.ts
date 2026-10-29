@@ -27,6 +27,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
   });
   const base: QueuedTrack = { title: "Test", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct" };
 
@@ -40,7 +41,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 
 test("그림이 없는 곡은 음표 썸네일: 패널 메시지에 한 번만 올리고(5초 갱신마다 다시 올리지 않는다) 그림이 있는 곡으로 바뀌면 뗀다", async () => {
   const mem = newManager();
-  const player = fakePlayer({ guild: { id: "g-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const player = fakePlayer({ guild: { id: "g-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const bare: QueuedTrack = { title: "파일", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct", thumbnail: null };
   const art: QueuedTrack = { ...bare, title: "영상", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" };
   const shape = (payload: { files?: Array<{ name: string }>; attachments?: [] }) => [payload.files?.map((one) => one.name) ?? null, payload.attachments ?? null];
@@ -59,7 +60,7 @@ test("직접 링크 곡의 파일 태그 그림: 첨부해 걸고 같은 그림�
   const url = "https://files.test/panel-art.mp3";
   if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const mem = newManager();
-  const player = fakePlayer({ guild: { id: "g-file-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const player = fakePlayer({ guild: { id: "g-file-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const bare: QueuedTrack = { title: "파일", pageUrl: "https://files.test/none.mp3", requestKey: "https://files.test/none.mp3", audioUrl: "https://files.test/none.mp3", duration: 127, platform: "direct", thumbnail: null };
   const tagged: QueuedTrack = { ...bare, title: "태그", pageUrl: url, requestKey: url, audioUrl: url };
   const video: QueuedTrack = { ...bare, title: "영상", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" };
@@ -76,7 +77,7 @@ test("직접 링크 곡의 파일 태그 그림: 첨부해 걸고 같은 그림�
 
 test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {
   const mem = newManager();
-  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const track: QueuedTrack = { title: "주제가", duration: 90, platform: "anisongdb", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" };
 
   const json = JSON.stringify((await mem.createNowPlayingContainer(player, track)).toJSON());
@@ -100,6 +101,7 @@ function panelPlayer(over: object = {}) {
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
     currentTrack: null,
     ...over,
   });
@@ -374,4 +376,23 @@ test("진행 막대: 앞 갱신이 끝난 뒤 5초에 다음을 건다. 갱신 �
   await flush();
   assert.equal(started, 2, "갱신 중에 멈췄으면 다시 걸지 않는다");
   assert.equal(mem.progressTimers.has("g1"), false);
+});
+
+test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 멈춰 뒀으면 일시정지를 덧붙이고, 버튼은 사람의 멈춤을 따른다", async () => {
+  const mem = newManager();
+  const track = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
+  const look = async (pause: { heldBy: string | null; userPaused: boolean }) => {
+    const json = jsonOf(await mem.createNowPlayingContainer(panelPlayer({ paused: Boolean(pause.heldBy) || pause.userPaused, pause }), track));
+    const pauseButton = buttonsOf(json).find((b) => b.custom_id?.startsWith("panel:pause:")) as { emoji?: unknown } | undefined;
+    return { text: JSON.stringify(json), emoji: JSON.stringify(pauseButton?.emoji) };
+  };
+  const heldOnly = await look({ heldBy: "mute", userPaused: false });
+  assert.match(heldOnly.text, /음소거됨/);
+  assert.doesNotMatch(heldOnly.text, /음소거됨 • 일시정지/);
+  const heldAndUser = await look({ heldBy: "mute", userPaused: true });
+  assert.match(heldAndUser.text, /음소거됨 • 일시정지/);
+  const userOnly = await look({ heldBy: null, userPaused: true });
+  assert.match(userOnly.text, /일시정지/);
+  assert.notEqual(heldOnly.emoji, heldAndUser.emoji, "억제만이면 일시정지 버튼(누르면 멈춰 둔다), 사람이 멈췄으면 재생 버튼");
+  assert.equal(heldAndUser.emoji, userOnly.emoji);
 });

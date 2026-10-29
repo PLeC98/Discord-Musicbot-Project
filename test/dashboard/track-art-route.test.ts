@@ -73,7 +73,7 @@ before(async () => {
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
   base = baseUrl(server);
-  players.set(GUILD_ID, fakePlayer({ currentTrack: fileTrack(FILE), queue: [{ ...fileTrack("https://files.test/b.mp3"), thumbnail: YT_ART, audioUrl: undefined, platform: "youtube" }], previousTracks: [], getCurrentTime: () => 0, audioPlayer: { state: { status: "playing" } }, guild }));
+  players.set(GUILD_ID, fakePlayer({ currentTrack: fileTrack(FILE), queue: [{ ...fileTrack("https://files.test/b.mp3"), thumbnail: YT_ART, audioUrl: undefined, platform: "youtube" }], previousTracks: [], pause: { userPaused: false, heldBy: null }, getCurrentTime: () => 0, audioPlayer: { state: { status: "playing" } }, guild }));
 });
 after(() => server?.close());
 

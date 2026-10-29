@@ -6,6 +6,7 @@ import { formatDuration, formatMs } from "./format.ts";
 import * as controlText from "./text/ko/controls.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { DiscordArt } from "./discord-art.ts";
+import type { Hold } from "../rules/holds.ts";
 
 type Track = { title: string | null; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */
@@ -14,9 +15,9 @@ type Actor = { toString(): string };
 // 누가 했나 줄
 const who = (by: Actor) => `${controlText.requestedBy()} ${String(by)}`;
 
-/** 일시정지 · 재개 */
-function paused(isPaused: boolean, track: Track, by: Actor) {
-  const t = controlText.paused(isPaused, track);
+/** 일시정지 · 재개. heldBy: 소리를 함께 멈추고 있는 억제 사유 */
+function paused(isPaused: boolean, track: Track, by: Actor, heldBy: Hold | null = null) {
+  const t = controlText.paused(isPaused, track, heldBy);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 

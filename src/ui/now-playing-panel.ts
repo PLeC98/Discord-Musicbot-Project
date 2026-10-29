@@ -60,7 +60,7 @@ type Payload = {
 /** 끝난 패널의 문구 */
 type IdleView = { reason: string; leavesAt?: number | null };
 /** 조작 버튼을 그릴 때 읽는 필드. 끝난 패널은 플레이어 없이 그린다 */
-type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<Player, "sponsor">>;
+type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "autoplay"> & { pause: Pick<Player["pause"], "userPaused"> } & Partial<Pick<Player, "sponsor">>;
 
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 삭제되므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
@@ -84,7 +84,7 @@ import { canGoBack, canGoNext } from "../rules/controls.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 필드에 달고 나간다.
-const IDLE_CONTROLS: Controls = { sessionId: IDLE_SESSION, previousTracks: [], queue: [], loop: false, paused: false, autoplay: false };
+const IDLE_CONTROLS: Controls = { sessionId: IDLE_SESSION, previousTracks: [], queue: [], loop: false, pause: { userPaused: false }, autoplay: false };
 
 // 반복 버튼의 모양. 아이콘은 표의 키(그릴 때 앱 이모지로), 색 버튼 위는 흰 기호
 const LOOP_LOOKS = {
@@ -107,7 +107,10 @@ const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length 
 // 상태 줄: 일시정지 · 대기열 수 등. 라이브 표식은 진행바의 경과 시간 위치에 있다(buildProgressBar). 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
-  if (player.paused) parts.push(panelText.pausedStatus(player.pause.heldBy ?? "other"));
+  // 억제 사유가 있으면 그것을, 사람만 멈췄으면 일시정지를. 억제 중에 사람이 멈춰 뒀으면(사유가 풀려도 멈춘 채) 그것도 붙인다
+  const held = player.pause.heldBy;
+  if (held) parts.push(panelText.pausedStatus(held));
+  if (player.pause.userPaused) parts.push(held ? panelText.userPausedMark() : panelText.pausedStatus("other"));
   if (player.queue.length > 0) {
     parts.push(panelText.queuedStatus(player.queue.length));
   }
@@ -679,7 +682,8 @@ class NowPlayingPanel {
     const pauseButton = new ButtonBuilder()
       .setCustomId(id("pause"))
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji(buttonEmoji(player.paused ? "play" : "pause"))
+      // 버튼은 사람의 멈춤을 뒤집는다. 억제로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 멈춰 둔다)
+      .setEmoji(buttonEmoji(player.pause.userPaused ? "play" : "pause"))
       .setDisabled(disabled);
 
     const skipButton = new ButtonBuilder()

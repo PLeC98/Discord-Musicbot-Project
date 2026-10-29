@@ -24,7 +24,7 @@
             <div class="flex items-center gap-1">
               <button :class="toggleBtn" v-tooltip="T.shuffle" :disabled="!shuffleEnabled(np.data) || np.isBusy('shuffle')" @click="np.shuffle()"><Icon name="shuffle" :size="20" /></button>
               <button :class="iconBtn" v-tooltip="T.previous" :disabled="!previousEnabled(np.data) || np.isBusy('previous')" @click="np.previous()"><Icon name="skip_previous" :size="24" fill /></button>
-              <button :class="playBtn" v-tooltip="T.playPause(np.running)" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="24" fill /></button>
+              <button :class="playBtn" v-tooltip="T.playPause(np.wantsPlay)" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.wantsPlay ? 'pause' : 'play_arrow'" :size="24" fill /></button>
               <button :class="iconBtn" v-tooltip="T.next" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" @click="np.skip()"><Icon name="skip_next" :size="24" fill /></button>
               <button :class="[toggleBtn, np.data?.loop ? TOGGLE_ON : '']" v-tooltip="loopTip(np.data)" :disabled="!loopEnabled(np.data) || np.isBusy('loop')" @click="np.cycleLoop()"><Icon :name="np.data?.loop === 'track' ? 'repeat_one' : 'repeat'" :size="20" /><span v-if="np.data?.loop" :class="TOGGLE_DOT"></span></button>
             </div>
@@ -53,7 +53,7 @@
             </span>
           </button>
           <!-- 휴대폰 버튼은 한 단계 작게(36 · 아이콘 20) -->
-          <button :class="[playBtn, 'size-9!']" :disabled="!np.canControl || !np.track" :aria-label="T.playPause(np.running)" @click="np.togglePause()"><Icon :name="np.running ? 'pause' : 'play_arrow'" :size="20" fill /></button>
+          <button :class="[playBtn, 'size-9!']" :disabled="!np.canControl || !np.track" :aria-label="T.playPause(np.wantsPlay)" @click="np.togglePause()"><Icon :name="np.wantsPlay ? 'pause' : 'play_arrow'" :size="20" fill /></button>
           <button :class="[iconBtn, 'size-9!']" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" :aria-label="T.next" @click="np.skip()"><Icon name="skip_next" :size="20" fill /></button>
         </div>
         <div class="md:hidden absolute inset-x-1.5 bottom-1 h-0.5 rounded-full overflow-hidden bg-on-surface/15">

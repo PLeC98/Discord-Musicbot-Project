@@ -7,7 +7,7 @@ import { canGoBack, canGoNext, ownTrackDenied } from "../../../src/rules/control
 /** 규칙이 읽는 곡의 필드 */
 type TrackSeen = Partial<Pick<PlayingView, "entry" | "currentTime" | "duration" | "requestedBy">>;
 /** 규칙이 읽는 재생 상태의 필드 */
-type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "hasLive" | "botInVoice" | "sameVoice">> & {
+type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "userPaused" | "heldBy" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "hasLive" | "botInVoice" | "sameVoice">> & {
   queue?: TrackSeen[];
   currentTrack?: TrackSeen | null;
 };

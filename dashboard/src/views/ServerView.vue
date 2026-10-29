@@ -57,7 +57,7 @@
                    곡이 없으면 이 줄을 숨겨 "재생 중인 곡이 없어요" 두 줄이 아트 높이의 가운데에 온다 -->
               <div v-if="track" class="flex items-center gap-2 mb-1.5 min-w-0 h-8">
                 <!-- 좁은 창은 하이라이트 · 정지 공간을 지키려고 "내가 넣은 곡"을 뺀다 -->
-                <TrackChips :track="track" :mine="mine" mine-class="hidden! @xl/win:inline-flex!" />
+                <TrackChips :track="track" :mine="mine" :held="player.heldBy" mine-class="hidden! @xl/win:inline-flex!" />
                 <!-- 좁은 창: 하이라이트 · 정지는 이 줄 오른쪽 끝 -->
                 <div class="@xl/win:hidden ml-auto flex items-center gap-2 shrink-0">
                   <PlayerActions small :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
@@ -129,7 +129,7 @@
 
           <div :class="short ? 'flex-1 min-w-0 max-w-md flex flex-col justify-center' : 'contents'">
             <div v-if="!short" class="shrink-0 mt-6 flex items-center gap-2 h-6">
-              <TrackChips v-if="track" :track="track" :mine="mine" />
+              <TrackChips v-if="track" :track="track" :mine="mine" :held="player.heldBy" />
             </div>
             <div class="shrink-0 flex items-center gap-3" :class="!short && 'mt-3'">
               <div class="min-w-0 flex-1">
@@ -327,7 +327,7 @@ const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 
 const loadGone = ref(false);
 const GONE = ["guild-not-found", "no-guild-access"];
 // 처음 읽기 전의 모양. 봇이 없는 서버와 같다
-const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, canManage: false, userId: "", hasPrevious: false });
+const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, userPaused: false, heldBy: null, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, canManage: false, userId: "", hasPrevious: false });
 
 // 대기열은 앞에서부터 한 페이지씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
 const loadedCount = ref(QUEUE_PAGE);
@@ -488,10 +488,12 @@ const shuffle = () => send("shuffle", "shuffle", undefined, P.failed.shuffle);
 // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
 function togglePause() {
   if (isBusy("pause")) return;
-  const paused = !player.value.paused;
+  // 뒤집는 것은 사람의 멈춤이다. 억제 사유가 남아 있으면 소리는 계속 멈춰 있다
+  const userPaused = !player.value.userPaused;
+  const paused = userPaused || player.value.heldBy != null;
   const current = player.value.currentTrack;
   clock.value = retime(clock.value, Date.now(), { running: Boolean(current && player.value.playing && !paused) });
-  player.value = { ...player.value, paused };
+  player.value = { ...player.value, userPaused, paused };
   void send("pause", "pause", undefined, P.failed.pause);
 }
 
