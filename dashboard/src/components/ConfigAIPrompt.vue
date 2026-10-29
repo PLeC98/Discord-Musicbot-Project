@@ -8,6 +8,16 @@
       <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenTotal) }}</span>
       <span v-else-if="tokenError" class="text-xs text-(--warn-ink)" v-tooltip="tokenError">{{ TR.tokensFailed }}</span>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TR.addSection" v-tooltip="text.common.add" @click="addSection"><Icon name="add" :size="20" /></button>
+      <!-- 프롬프트 한 벌(목록 형식 + 섹션)을 파일로. 불러오면 편집기에만 들어간다(저장 막대로 저장하거나 되돌린다) -->
+      <MoreMenu
+        :label="text.editor.more"
+        :button-class="[ICON_BTN, 'size-8']"
+        :items="[
+          { label: TR.exportPrompt, icon: 'download', select: exportPrompt },
+          { label: TR.importPrompt, icon: 'upload', select: () => fileEl?.click() },
+        ]"
+      />
+      <input ref="fileEl" type="file" accept=".json,application/json" class="hidden" @change="picked" />
     </template>
     <div class="flex flex-col gap-3">
       <p class="text-sm text-on-surface-variant">{{ TR.descBefore }}<code class="font-mono">[{"n":1,"song":true,"fits":false}]</code>{{ TR.descAfter }}</p>
@@ -44,6 +54,8 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import SingleSelect from "./SingleSelect.vue";
 import NoticeBox from "./NoticeBox.vue";
+import MoreMenu from "./MoreMenu.vue";
+import { ref } from "vue";
 import { FIELD, AREA } from "../utils/field.ts";
 import { isFolded, toggleFold, promptFoldId } from "../composables/config-folds.ts";
 import { valueOf } from "../utils/dom.ts";
@@ -52,5 +64,13 @@ import { text } from "../text/index.ts";
 import { useAiEditor } from "../composables/ai-editor.ts";
 const TR = text.ai.prompt;
 
-const { startDrag, ROLES, tokenEach, tokenTotal, tokenExact, tokenError, sections, listMarked, addSection, removeSection, loadDefaults, openPreview } = useAiEditor();
+const { startDrag, ROLES, tokenEach, tokenTotal, tokenExact, tokenError, sections, listMarked, addSection, removeSection, loadDefaults, openPreview, exportPrompt, importPrompt } = useAiEditor();
+
+const fileEl = ref<HTMLInputElement | null>(null);
+function picked(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ""; // 같은 파일을 다시 골라도 change 가 오게
+  if (file) void importPrompt(file);
+}
 </script>

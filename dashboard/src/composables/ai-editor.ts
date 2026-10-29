@@ -12,7 +12,8 @@ import { formatNumber } from "../utils/locale.ts";
 import { reorderPrompts } from "./config-folds.ts";
 import { useConfigFile } from "./config-file.ts";
 import { useSaveTarget } from "./save-targets.ts";
-import { notifyDone, notifyProblem } from "./toasts.ts";
+import { notify, notifyDone, notifyProblem } from "./toasts.ts";
+import { promptFile, parsePromptFile } from "../utils/prompt-file.ts";
 import { useDragReorder } from "./drag-reorder.ts";
 import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { AI_ROLES, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
@@ -418,7 +419,26 @@ function promptView(s: State) {
       { title: T.boxes.body, text: JSON.stringify(one.body, null, 2) },
     ];
   });
-  return { listMarked, addSection, removeSection, loadDefaults, insertMark, lineProblems, linePreview, startDrag, shownSections, boxes };
+  // 프롬프트 한 벌(줄 형식 + 섹션) 내보내기 · 불러오기(utils/prompt-file). 불러오면 지금 것을 바꿔 끼운다(저장해야 반영, 되돌리면 원래대로)
+  function exportPrompt() {
+    const { name, body } = promptFile(
+      listCfg.value.lineFormat,
+      sections.value.map((one) => ({ role: one.role, name: one.name, text: one.text })),
+    );
+    const url = URL.createObjectURL(new Blob([body], { type: "application/json" }));
+    Object.assign(document.createElement("a"), { href: url, download: name }).click();
+    // 클릭이 내려받기를 시작한 뒤에 놓는다
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function importPrompt(file: File) {
+    const got = parsePromptFile(await file.text());
+    if (!got) return notify({ title: TR.importBad, body: file.name });
+    listCfg.value.lineFormat = got.lineFormat;
+    sections.value = got.sections.map((one) => ({ key: ++inner.serial, role: one.role, name: one.name, text: one.text }));
+    notifyDone(TR.imported, text.editor.defaultLoadedNote);
+    if (got.dropped) notify({ title: TR.importDropped(got.dropped), severity: "warning" });
+  }
+  return { listMarked, addSection, removeSection, loadDefaults, insertMark, lineProblems, linePreview, startDrag, shownSections, boxes, exportPrompt, importPrompt };
 }
 
 // ── 토큰 세기(어림수, 어느 기준으로 셌는지 같이 밝힌다) ──────────────────────

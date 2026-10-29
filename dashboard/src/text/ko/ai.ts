@@ -129,6 +129,11 @@ const prompt = {
   removeSection: "이 섹션 삭제",
   defaults: "기본값",
   preview: "리퀘스트 미리보기",
+  exportPrompt: "프롬프트 내보내기",
+  importPrompt: "프롬프트 불러오기",
+  imported: "프롬프트를 불러왔어요",
+  importBad: "프롬프트 파일이 아니라 불러오지 않았어요",
+  importDropped: (count: number) => `읽을 수 없는 섹션 ${count}개는 빼고 불러왔어요`,
 };
 
 // 판정 테스트 카드
