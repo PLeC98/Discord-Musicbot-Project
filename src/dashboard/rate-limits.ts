@@ -10,7 +10,7 @@ import { tooManyRequests } from "./problem.ts";
 const userOrIp = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
 
 // 일반 API 한도에서 빼는 경로: SSE 연결(오래 붙어 있다) · 볼륨(드래그하는 동안 잇달아 온다) · 앨범아트(대기열의 것이 한꺼번에 불린다). 볼륨 · 앨범아트는 그 경로가 따로 센다
-const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume)$/, /^\/api\/guilds\/[^/]+\/art\/[^/]+$/];
+const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/admin\/ai\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume)$/, /^\/api\/guilds\/[^/]+\/art\/[^/]+$/];
 
 /** 일반 API 한도에서 빼는 요청인가(주소의 경로로 본다) */
 const unlimited = (req: Pick<Request, "originalUrl">) => UNLIMITED.some((re) => re.test(req.originalUrl.split("?")[0]));

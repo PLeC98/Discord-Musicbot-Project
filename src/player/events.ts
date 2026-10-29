@@ -86,7 +86,7 @@ function disposed(player: Player, reason: string) {
     try {
       fn(player, reason);
     } catch (error) {
-      log.warn(`곡 제외 알림 전송 실패: ${messageOf(error)}`);
+      log.warn(`플레이어 정리 알림 처리 실패: ${messageOf(error)}`);
     }
   }
 }
