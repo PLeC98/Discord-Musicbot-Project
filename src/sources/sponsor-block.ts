@@ -1,10 +1,10 @@
-// SponsorBlock. 영상별 비음악/인트로/아웃트로 등 구간을 SponsorBlock API로 조회해 자동 스킵에 사용.
+// SponsorBlock. 영상별 비음악/인트로/아웃트로 등 구간을 SponsorBlock API로 조회해 자동 스킵에 쓴다.
 //
 // 설계:
-//  - 프라이버시 해시-프리픽스 엔드포인트로 조회 (어떤 영상을 트는지 서버에 노출 안 함).
-//  - 원시 세그먼트(카테고리 전부)를 write-through 캐시에 저장, 정규화/필터는 읽을 때 카테고리별로 수행.
-//  - fail-open: 라이브 조회 실패/타임아웃 시 캐시 폴백, 그마저 없으면 스킵 없이 진행.
-//  - config.sponsorblock.enabled=false 면 API·캐시 전부 무동작(상업적 이용용 마스터 킬스위치).
+//  - 해시 프리픽스 엔드포인트로 조회한다(어떤 영상을 트는지 서버에 드러내지 않는다).
+//  - 원시 세그먼트(카테고리 전부)를 write-through 캐시에 저장하고, 정규화 · 필터는 읽을 때 카테고리별로 한다.
+//  - fail-open: 캐시가 있으면 바로 쓰고 라이브는 뒤에서 갱신한다. 캐시가 없으면 라이브를 기다리고, 실패 · 타임아웃이면 스킵 없이 진행한다.
+//  - config.sponsorblock.enabled=false 면 API · 캐시 모두 동작하지 않는다(상업적 이용을 위한 전체 차단 스위치).
 //
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
@@ -19,7 +19,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 
-// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 실제 fetch)
 const http = httpFor("sponsorblock");
 const send = http.fetch;
 const useFetch = http.useFetch;
@@ -37,17 +37,17 @@ type ApiVideo = { hash?: string; videoID?: string; segments?: Array<{ category: 
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
-// 조회 시 항상 전 카테고리 + 하이라이트를 받아 캐시를 카테고리-완전하게 유지 (서버별 필터는 읽을 때)
+// 조회는 늘 전 카테고리 + 하이라이트를 받아 캐시가 모든 카테고리를 갖게 한다(서버별 필터는 읽을 때)
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
 
-// 영상 id 로 기억한 조회 결과(DB 캐시 앞의 메모리 기억). 같은 곡을 다시 틀 때 묻지 않는다.
+// 영상 id 로 기억한 조회 결과(DB 캐시 앞의 메모리 기억). 같은 곡을 다시 틀 때 다시 조회하지 않는다.
 // 서버마다 카테고리가 달라 필터링 전의 원시 구간을 기억한다.
 const remembered = new Map<string, { at: number; none: boolean; promise: Promise<Fetched> }>();
 const REMEMBER_MAX = 500;
-const RETRY_NONE_MS = 10 * 60_000; // 못 불러온 것은 이만큼 지나 다시 묻는다
+const RETRY_NONE_MS = 10 * 60_000; // 못 불러온 것은 이만큼 지나 다시 조회한다
 
-// 겹치거나 맞닿은 skip 구간을 합집합으로 병합. 기여한 카테고리는 union으로 보존
+// 겹치거나 맞닿은 skip 구간을 합친다. 합친 구간의 카테고리는 모두 남긴다
 function mergeIntervals(segs: Array<{ start: number; end: number; category: string }>): SkipSegment[] {
   if (!segs.length) return [];
   const sorted = [...segs].sort((a, b) => a.start - b.start);
@@ -65,8 +65,8 @@ function mergeIntervals(segs: Array<{ start: number; end: number; category: stri
 }
 
 // 원시 세그먼트 배열 → { skipSegments, highlightAt }
-//  - skipSegments: enabledCategories에 속한 skip 구간을 병합한 [{start,end,categories}]
-//  - highlightAt: poi_highlight 지점(최다 득표) 초 단위 또는 null (하이라이트 기능용)
+//  - skipSegments: enabledCategories에 속한 skip 구간을 병합한 것
+//  - highlightAt: poi_highlight 지점(최다 득표, 초) 또는 null
 function normalize(raw: RawSegment[] | null | undefined, enabledCategories: Iterable<string>) {
   const enabled = new Set(enabledCategories);
   const skips = (raw || []).flatMap((s) => (s.actionType === "skip" && enabled.has(s.category) && finite(s.start) && finite(s.end) && s.end > s.start ? [{ start: s.start, end: s.end, category: s.category }] : []));
@@ -79,9 +79,9 @@ function normalize(raw: RawSegment[] | null | undefined, enabledCategories: Iter
 }
 
 /**
- * videoId의 라이브 조회 → 원시 세그먼트 배열, 실패 시 null.
- * 200 + 배열이면 성공(우리 영상 세그먼트 없으면 빈 배열. 이는 실패 아님, "구간 없음").
- * 네트워크/타임아웃(abort)/비200/비배열 → null(=폴백 트리거).
+ * videoId를 라이브로 조회해 원시 세그먼트 배열을 돌려준다. 실패하면 null.
+ * 200 + 배열이면 성공이다(이 영상의 세그먼트가 없으면 빈 배열: 실패가 아니라 "구간 없음").
+ * 네트워크 · 타임아웃(abort) · 200 이 아닌 응답(404 포함) · 배열이 아닌 응답은 null.
  */
 async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
   const sb = config.sponsorblock;
@@ -115,7 +115,7 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
       })),
     );
   } catch (error) {
-    // abort/네트워크 오류 → 폴백
+    // abort · 네트워크 오류도 null
     log.debug(`SponsorBlock 조회 실패: ${videoId} | ${controller.signal.aborted ? `${sb.timeoutMs}ms 초과` : messageOf(error)}`);
     return null;
   } finally {
@@ -124,10 +124,7 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
 }
 
 /**
- * videoId의 스킵/하이라이트 정보 조회.
- * @param {string} videoId
- * @param {{categories?: string[]}} opts  enabledCategories(서버별 해석 결과). 미지정 시 config 기본.
- * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:'live'|'cache'|'none'|'disabled'}>}
+ * videoId의 스킵/하이라이트 정보 조회. categories: 켠 카테고리(서버별 해석 결과). 없으면 config 기본값
  */
 async function lookup(videoId: string | null | undefined, { categories = config.sponsorblock.categories }: { categories?: string[] } = {}): Promise<Segments> {
   if (!config.sponsorblock.enabled) return { skipSegments: [], highlightAt: null, source: "disabled" };
@@ -137,14 +134,14 @@ async function lookup(videoId: string | null | undefined, { categories = config.
 }
 
 /**
- * 원시 구간과 출처. DB 캐시가 있으면 곧바로 그것을 쓰고 라이브는 뒤에서 고친다(바로 트는 첫 곡이 라이브 응답을 기다리지 않게).
+ * 원시 구간과 출처. DB 캐시가 있으면 곧바로 그것을 쓰고 라이브는 뒤에서 갱신한다(바로 트는 첫 곡이 라이브 응답을 기다리지 않게).
  * 캐시가 없는 영상만 라이브를 기다린다. 뒤에서 받은 답은 다음 재생부터 쓴다(지금 곡은 캐시의 구간으로 건너뛴다)
  */
 async function _rawFor(videoId: string): Promise<Fetched> {
   const cached = externalCaches.getSponsorSegments(videoId);
   if (cached) {
     void _refresh(videoId);
-    return { raw: cached.segments as RawSegment[], source: "cache" }; // 우리가 적은 모양
+    return { raw: cached.segments as RawSegment[], source: "cache" }; // 이 모듈이 저장한 형식
   }
   const raw = await _fetchRaw(videoId);
   if (raw) {
@@ -154,7 +151,7 @@ async function _rawFor(videoId: string): Promise<Fetched> {
   return { raw: null, source: "none" };
 }
 
-// 캐시로 답한 뒤 라이브로 고친다. 못 받거나 못 적으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다.
+// 캐시로 답한 뒤 라이브로 갱신한다. 못 받거나 못 적으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다.
 // 뒤에서 도는 일이라 DB_NOT_OPEN 말고는 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
 async function _refresh(videoId: string) {
   try {
@@ -169,16 +166,15 @@ async function _refresh(videoId: string) {
   }
 }
 
-/** 트랙에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
+/** 곡에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
 function _trackVideoId(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined): string | null {
   return (track?.audioUrl && links.extractVideoId(track.audioUrl)) || null;
 }
 
 /**
  * 곡의 구간 · 하이라이트를 서버별 설정으로 필터링한 것. 재생 근접(미리 다운로드) · 재생 직전에 부른다.
- * 조회는 영상 id 로 기억해 두고 다시 묻지 않는다. 겹쳐 불러도 한 번만 묻는다.
+ * 조회는 영상 id 로 기억해 두고 다시 조회하지 않는다. 겹쳐 불러도 한 번만 조회한다.
  * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. DB 를 열기 전(DB_NOT_OPEN) 말고는 던지지 않는다.
- * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}
  */
 async function forTrack(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined, guildId: string): Promise<Segments | null> {
   const videoId = _trackVideoId(track);
@@ -213,7 +209,7 @@ function _remember(videoId: string) {
   return entry;
 }
 
-/** 기억한 구간을 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 곡부터 다시 묻는다 */
+/** 기억한 구간을 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 곡부터 다시 조회한다 */
 function forget() {
   remembered.clear();
 }

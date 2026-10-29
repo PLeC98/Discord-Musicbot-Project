@@ -18,7 +18,7 @@ import * as recentInfo from "./recent-info.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp } from "../ytdlp-spawn.ts";
 
-// yt-dlp 정보 한 벌(검색 항목이거나 상세 정보). 없을 수 있다
+// yt-dlp 정보 하나(검색 항목이거나 상세 정보). 없을 수 있다
 type Item = YtInfo | null | undefined;
 
 /**
@@ -34,7 +34,6 @@ function _detectLive(item: Item): boolean {
 /**
  * 라이브의 종류를 구분한다. `_detectLive`는 "라이브 계열인가"만 보지만,
  * 재생은 방송 중(is_live)과 시작 전(is_upcoming)을 다르게 다뤄야 한다. 틀 것이 없는 쪽은 거절한다.
- * @returns {"is_live"|"is_upcoming"|null}
  */
 function liveStatusOf(item: Item): "is_live" | "is_upcoming" | null {
   if (!item) return null;
@@ -44,7 +43,7 @@ function liveStatusOf(item: Item): "is_live" | "is_upcoming" | null {
   return null;
 }
 
-// 곡의 id 필드는 글자다. yt-dlp 는 수로 줄 때도 있다
+// 곡의 id 필드는 문자열이다. yt-dlp 는 숫자로 줄 때도 있다
 const idOf = (id: unknown) => (id == null ? undefined : String(id));
 
 /**
@@ -76,9 +75,8 @@ function _isVideoEntry(item: Item): item is YtInfo {
   return false;
 }
 
-// 제목 · 가수(올린 사람)가 없으면 비워 둔다(제목은 null). 그리는 곳이 "알 수 없는 곡"으로 적고, 표시 문구가 매칭 검색어 · 중복 판정에 들어가지 않는다
-
-// yt-dlp 가 준 영상 하나 → 트랙의 공통 필드. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원)
+// yt-dlp 가 준 영상 하나 → 곡의 공통 필드. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원).
+// 제목 · 가수(올린 사람)가 없으면 비워 둔다(제목은 null). 그리는 곳이 "알 수 없는 곡"으로 적어, 표시 문구가 매칭 검색어 · 중복 판정에 들어가지 않는다
 function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
   const link = canonicalUrl(url);
   return {
@@ -113,15 +111,13 @@ async function searchTrack(item: YtInfo) {
   return track;
 }
 
-// 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 진짜. getInfo · getStream · getPlaylist 도 같다
+// 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 실제 구현. getInfo · getStream · getPlaylist 도 같다
 // 찾은 것이 없으면 빈 배열, 찾지 못한 것(yt-dlp · 네트워크 실패)은 던진다. 오류의 이름은 yt-dlp 를 실행하는 곳이 붙였다
 async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: RunYtDlp } = {}) {
-  // 이미 YouTube URL인 경우 직접 정보를 가져옴
   if (links.isYouTubeURL(query)) {
     return [await getInfo(query)];
   }
 
-  // 유튜브 검색에 yt-dlp 사용
   const searchQuery = `ytsearch${limit}:${query}`;
 
   // 목록 모양만 본다. 항목은 하나씩 readInfo 로 읽는다
@@ -139,7 +135,7 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
 
   const tracks = [];
   // 비디오가 아닌 검색 결과(채널·재생목록·핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
-  // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 순위로 우승).
+  // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 1위가 된다).
   const videoEntries = results.entries
     .map(readInfo)
     .filter((e) => _isVideoEntry(e))
@@ -156,7 +152,7 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
   return tracks;
 }
 
-// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 고르기까지)이라 받은 것을 재생 주소 · 다운로드가 그대로 다시 쓴다(recent-info)
+// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소 · 다운로드가 그대로 다시 쓴다(recent-info)
 const extractInfo = (url: string, exec?: RunYtDlp) =>
   run.runYtDlp(
     url,
@@ -171,7 +167,7 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
     exec,
   );
 
-// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 까닭을 알린다. 받은 정보는 재생 주소 · 다운로드가 다시 쓰게 둔다
+// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 원인을 알린다. 받은 정보는 재생 주소 · 다운로드가 다시 쓰게 둔다
 async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   const raw = await extractInfo(url, exec);
   recentInfo.remember(raw);
@@ -184,7 +180,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
 }
 
-// 받아 둔 영상 정보가 있으면 그것(known), 없으면 추출해 캐시한다. fresh 면 받아 둔 것을 읽지도 캐시하지도 않는다
+// 캐시된 영상 정보가 있으면 그것(known), 없으면 추출해 캐시한다. fresh 면 캐시를 읽지도 캐시하지도 않는다
 async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: boolean): Promise<{ raw: unknown; known: boolean }> {
   const id = fresh ? null : links.extractVideoId(url);
   const recalled = id ? recentInfo.recall(id) : null;
@@ -195,8 +191,8 @@ async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: bool
 }
 
 /**
- * 재생용 스트림 서술자. 받아 둔 영상 정보(곡 정보 · 앞선 재생 주소)가 있으면 yt-dlp 없이 그것으로 만들고 reused 를 단다(열리지 않으면 재생 쪽이 fresh 로 다시 묻는다).
- * fresh: 받아 둔 것을 읽지도 캐시하지도 않고 지금 유튜브에 묻는다(재생 테스트 · 다시 쓴 주소가 열리지 않았을 때)
+ * 재생용 스트림 서술자. 캐시된 영상 정보(곡 정보 · 앞선 재생 주소)가 있으면 yt-dlp 없이 그것으로 만들고 reused 를 단다(열리지 않으면 재생 쪽이 fresh 로 다시 부른다).
+ * fresh: 캐시를 읽지도 쓰지도 않고 새로 추출한다(재생 테스트 · 다시 쓴 주소가 열리지 않았을 때)
  */
 async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp; fresh?: boolean } = {}) {
   // 실패는 부르는 쪽(재생)이 한 번 남긴다
@@ -235,7 +231,7 @@ async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp
 }
 
 /**
- * 세그먼트 목록(방송이 끝나고 다시보기를 다 만들기 전의 유튜브 소리)을 base · count 로. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`다.
+ * 세그먼트 목록(방송이 끝나고 다시보기를 다 만들기 전의 유튜브 오디오)을 base · count 로. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`다.
  * 세그먼트가 없으면 null. 모양이 다르면 던진다(첫 세그먼트만 틀고 끝난 것처럼 보이지 않게)
  */
 function fragmentsOf(info: YtInfo) {

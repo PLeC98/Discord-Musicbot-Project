@@ -36,7 +36,7 @@ const REAL: Boundary = {
   exit: (code) => process.exit(code),
   record: runRecord,
 };
-/** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
+/** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
 type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
@@ -55,7 +55,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
-  // why: 로그 · 연결 정리에 적는 까닭. restart 면 다시 시작 코드로 나간다
+  // why: 로그 · 연결 정리에 적는 원인. restart 면 다시 시작 코드로 나간다
   const gracefulShutdown = async (why: string, restart = false) => {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
@@ -180,7 +180,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   if (logFile) logFile.close();
 }
 
-// ffmpeg:playback 2 · yt-dlp 1
+// 라벨별 개수. 예: "ffmpeg:playback 2 · yt-dlp 1"
 function countByLabel(killed: Array<{ label: string }>) {
   const counts = new Map<string, number>();
   for (const { label } of killed) counts.set(label, (counts.get(label) ?? 0) + 1);

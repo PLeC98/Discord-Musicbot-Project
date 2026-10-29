@@ -37,7 +37,7 @@ function scrubBgutilLine(line: unknown): string {
 
 // 남의 프로세스라 레벨을 직접 붙일 수 없다. 스트림(stdout/stderr)과 문구로 구분한다.
 // bgutil의 stdout은 전량 요청 단위 상세(POT 생성·챌린지)라 debug로 내린다. 수명주기(시작·준비
-// 완료·비정상 종료)는 아래 우리 코드가 따로 남기므로 여기서 info로 올릴 것이 없다.
+// 완료·비정상 종료)는 이 파일이 따로 남기므로 여기서 info로 올릴 것이 없다.
 function relay(chunk: Buffer | string, stream: "out" | "err") {
   for (const raw of chunk.toString().split("\n").filter(Boolean)) {
     const line = scrubBgutilLine(raw);
@@ -48,7 +48,7 @@ function relay(chunk: Buffer | string, stream: "out" | "err") {
 }
 
 /**
- * spawn · exists · fetch: 바깥 경계. 생략하면 진짜
+ * spawn · exists · fetch: 바깥 경계. 생략하면 실제 구현
  */
 function createPotServer({ spawn = (command, args, options) => childProcess.spawn(command, args, options), exists = fs.existsSync, fetch = (url, init) => globalThis.fetch(url, init) }: { spawn?: Spawn; exists?: (file: string) => boolean; fetch?: Fetch } = {}) {
   let proc: PotProcess | null = null;
@@ -58,13 +58,13 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     if (stopping) return;
     const installed = exists(ENTRY);
 
-    // 사용하지 않겠다고 했으면 조용히 넘어간다. 안 쓸 서버가 없다고 떠들어봐야 의미가 없고,
-    // 인증 없는 로컬 HTTP 서버를 상시 실행하지 않는 것 자체가 이 토글의 목적이다.
+    // 꺼 두었으면 조용히 넘어간다. 인증 없는 로컬 HTTP 서버를 상시 실행하지 않는 것이
+    // 이 설정의 목적이다.
     if (!config.bgutil.enabled) {
       if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있습니다. POToken 서버를 실행하지 않고 진행합니다.");
       return;
     }
-    // 반대로 사용하겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
+    // 켜 두었는데 설치돼 있지 않으면 error 로 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
     if (!installed) {
       log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
       return;

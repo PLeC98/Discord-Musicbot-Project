@@ -1,4 +1,4 @@
-// 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 구분한다.
+// 곡 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 구분한다.
 
 import { codedError } from "../rules/error-kind.ts";
 import * as YouTube from "./youtube/index.ts";
@@ -12,7 +12,6 @@ import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { leaveDeadPin } from "./pinned-fallback.ts";
 
-// 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
 /** 스트림 서술자. 재생 쪽이 읽는 필드만 적는다. 소스마다 필드가 더 있다 */
 type StreamInfo = {
   url: string;
@@ -29,24 +28,24 @@ type StreamInfo = {
   availableAt?: number | null;
   /** 세그먼트 목록으로만 주는 포맷이면 세그먼트 주소의 모양(포맷 주소 뒤 `&sq=번호`, 세그먼트 수). 아니면 없다 */
   fragments?: { base: string; count: number } | null;
-  /** 앞서 받아 둔 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 받는다) */
+  /** 캐시된 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 추출한다) */
   reused?: boolean;
   [field: string]: unknown;
 };
-// 여기서 부르는 것만
+// 여는 쪽 · 유튜브 동등물 찾는 쪽. 테스트가 가짜를 넘긴다. 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
-/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 받아 둔 유튜브 영상 정보를 쓰지 않는다(다시 쓴 주소가 열리지 않았다) */
+/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 쓰지 않는다(다시 쓴 주소가 열리지 않았다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean; fresh: boolean };
 const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true, fresh: false };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
  * 곡이 어디서 왔는지(platform)는 보지 않는다. 자동재생 곡은 출처 이름을 들고 소리는 영상이나 음원에서 온다.
+ * options 에서 넘기지 않은 것은 DEFAULTS(실제 모듈, canPlayHls = true, fresh = false)
  */
-// options: 넘기지 않은 것은 진짜(youtube · soundcloud · equivalent)와 canPlayHls = true
 async function getStream(track: Seeking & { platform?: string | null }, options: Partial<StreamOptions> = {}) {
   const opts = { ...DEFAULTS, ...options };
   try {
@@ -93,9 +92,9 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
       return soundcloud.getStream(audioUrl, { canPlayHls });
 
     case "direct":
-      // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.getStream(SafeUrl 가드)이
+      // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.open(SafeUrl 가드)이
       // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수·이중소비가 생긴다.
-      // 인터넷 라디오는 담을 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
+      // 인터넷 라디오는 곡 추가 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
       return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null };
 
     default:

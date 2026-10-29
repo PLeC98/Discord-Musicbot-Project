@@ -4,10 +4,10 @@
 // 설정 DB 는 database/settings.db 가 아니라 database/settings.restore.db 로 담는다. 다음 기동이 지금 것을 스냅샷으로 남기고 교체한다
 // (store/snapshots). 풀어서 settings.db 를 덮으면 그 폴더에 남은 -wal 이 새 파일에 얹혀 깨질 수 있다.
 // 로그인 배경은 대시보드의 로그인 배경 내보내기와 같은 것(다 만든 배경 · index.json)을 저장 위치 그대로 담는다. 풀어 덮어쓰면 그 봇에 있던 배경 폴더는
-// 새 index.json 에 없어 다음 기동이 치운다(배경을 한 번도 쓰지 않은 봇이면 담지 않는다). 봇이 켜져 있어도 되게 기록은 읽기만 한다(봇의 기록 읽기는 목록에 없는 폴더를 삭제하는데, 그건 켜진 봇이 올려 받는 중인 폴더일 수 있다).
+// 새 index.json 에 없어 다음 기동이 치운다(배경을 한 번도 쓰지 않은 봇이면 담지 않는다). 봇이 켜져 있어도 되게 기록은 읽기만 한다(봇의 기록 읽기는 목록에 없는 폴더를 삭제하는데, 그건 켜진 봇이 업로드 받는 중인 폴더일 수 있다).
 // 오디오 캐시는 대시보드의 오디오 캐시 내보내기와 같은 ZIP 을 database/audio-cache.restore.zip 으로 담는다(기본은 캐시 파일 없이, withAudio 면 캐시 파일까지).
-// 다음 기동이 대시보드 불러오기와 같은 합치기로 불러오고 삭제한다(settings-archive 의 applyStagedAudio). cache.db 는 한 시점 사본을 열어 읽고,
-// 켜진 봇의 지킴이 이 프로세스에 닿지 않아 그새 퇴거가 지운 캐시 파일은 건너뛴다(행 목록에서도 빠진다).
+// 다음 기동이 대시보드 불러오기와 같은 합치기로 불러오고 삭제한다(settings-archive 의 applyStagedAudio). cache.db 는 한 시점 사본을 열어 읽는다.
+// 이 프로세스의 캐시 파일 보호는 켜진 봇의 퇴거를 막지 못하므로, 그 사이 퇴거로 지워진 캐시 파일은 건너뛴다(행 목록에서도 빠진다).
 // 수 GB 가 될 수 있어 스트리밍으로 쓴다. 만든 파일은 database/full-backups/ 에 하나만 둔다(평문 토큰이 든 파일이 쌓이지 않게). 다 쓴 뒤에 이전 것을 삭제한다
 
 import fs from "fs";
@@ -70,7 +70,7 @@ async function writeTo(out: string, inputs: ZipInput[]) {
 }
 
 // 오디오 캐시 번들. cache.db 사본을 열어 오디오 캐시 내보내기와 같은 ZIP 을 임시 폴더에 쓴다. cache.db 가 없으면 null.
-// 이 프로세스가 그 cache.db 를 이미 열었으면(봇 안 · 테스트) 그것을 그대로 읽는다(내보내는 동안의 지킴도 걸린다). 다른 파일을 열어 두었으면 던진다(캐시 DB 는 프로세스에 하나다)
+// 이 프로세스가 그 cache.db 를 이미 열었으면(봇 안 · 테스트) 그것을 그대로 읽는다(내보내는 동안의 캐시 파일 보호도 걸린다). 다른 파일을 열어 두었으면 던진다(캐시 DB 는 프로세스에 하나다)
 async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ file: string; files: number; done: () => void } | null> {
   const cache = path.join(databaseDir, "cache.db");
   if (!fs.existsSync(cache)) return null;

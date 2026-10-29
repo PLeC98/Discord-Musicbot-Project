@@ -1,4 +1,4 @@
-// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 실행하는 곳(ytdlpSpawn)은 지금 버전의 경로를 묻는다.
+// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 실행하는 곳(ytdlp-spawn)은 실행할 때마다 현재 버전의 경로를 가져온다.
 //
 // 새 버전은 지금 버전의 복사본 위에서 yt-dlp 의 자체 업데이트(--update-to 채널@태그. 다운로드한 파일의 SHA-256 을 검사한다)로 다운로드하고,
 // 다운로드한 버전이 목표와 같을 때만 교체한다. 교체는 가리키는 경로만 바꾸므로 이미 돌고 있는 yt-dlp 는 옛 버전으로 끝까지 돈다.
@@ -36,7 +36,7 @@ const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으�
 // youtube-dl-exec 가 설치 때 다운로드한 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
 
-/** vendor/bin/yt-dlp/state.json. 지금 버전 · 직전 버전 · 최신을 마지막으로 본 때 · 다운로드해 봤지만 목표가 아니었던 태그 */
+/** vendor/bin/yt-dlp/state.json. 현재 버전 · 이전 버전 · 최신을 마지막으로 확인한 시각 · 다운로드해 봤지만 목표가 아니었던 태그 */
 type State = { version: string; previous: string | null; lastChecked: number; capped: string | null };
 /** 바이너리를 한 번 부른 결과 */
 type Ran = { status: number | null; stdout: string; stderr: string };
@@ -83,12 +83,11 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
   });
 }
 
-// 최신 릴리스는 GitHub API 로
 const realLatestTag = (channel: Channel) => latestReleaseTag(REPOS[channel]);
 
 const REAL: Io = { dir: path.join(PROJECT.bin, "yt-dlp"), seed: YOUTUBE_DL_PATH, run: realRun, latestTag: realLatestTag, now: () => Date.now() };
 
-// 실패한 호출을 한 줄로. yt-dlp 는 마지막 줄에 까닭(ERROR: …)을 적는다
+// 실패한 호출을 한 줄로. yt-dlp 는 마지막 줄에 원인(ERROR: …)을 적는다
 const reasonOf = (ran: Ran) => ran.stderr.trim().split(/\r?\n/).at(-1)?.trim() || `종료 코드 ${ran.status ?? "없음"}`;
 
 class YtdlpBinary {
@@ -97,7 +96,7 @@ class YtdlpBinary {
   // 버전 맞추기는 한 번에 하나(기동 확인과 하루 확인이 겹치지 않게)
   busy: Promise<Outcome> | null = null;
   timer: NodeJS.Timeout | null = null;
-  /** 다음 확인 때(예약하지 않았으면 null) */
+  /** 다음 확인 시각(예약하지 않았으면 null) */
   nextAt: number | null = null;
 
   constructor(io: Io = REAL) {
@@ -124,7 +123,7 @@ class YtdlpBinary {
     }
   }
 
-  // 다른 프로세스(update:ytdlp)가 읽다 만 파일을 보지 않게 옆에 쓰고 옮긴다
+  // 다른 프로세스(update:ytdlp)가 쓰다 만 파일을 읽지 않게 임시 파일에 쓰고 rename 한다
   _write(state: State) {
     fs.mkdirSync(this.io.dir, { recursive: true });
     const temp = `${this.stateFile}.${process.pid}.tmp`;
@@ -166,7 +165,7 @@ class YtdlpBinary {
     fs.chmodSync(to, 0o755);
   }
 
-  // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 모양이 다르면 쓰지 않는다
+  // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 형식이 다르면 쓰지 않는다
   async _latestTag(channel: Channel) {
     const tag = await this.io.latestTag(channel);
     if (!isYtdlpTag(tag)) throw new Error(`yt-dlp 릴리스 태그의 모양이 아닙니다: ${tag.slice(0, 40)}`);

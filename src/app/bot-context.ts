@@ -10,7 +10,6 @@ type BotContext = {
   client: Client;
   /** 서버마다 플레이어 하나 */
   players: PlayerRegistry;
-  /** 재생 패널 */
   panels: NowPlayingPanel;
   /** 켜진 슬래시 명령. 이름으로 */
   commands: ReadonlyMap<string, SlashCommand>;

@@ -19,13 +19,13 @@ type InfoOptions = { tags?: (track: DirectTrack, tags: FileTags) => void; net?: 
 
 /** 홉마다의 응답 대기. 재생을 시작하는 길(지정한 음원이 라디오인지)도 부르므로 HEAD 와 같다 */
 const INFO_ACCEPT: SafeUrl.Accept = { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 담기 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 담고 마저 읽는다(결과는 embedded-art 가 기억하고 알린다) */
+/** 곡 추가 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 추가하고 태그는 마저 읽는다(결과는 embedded-art 가 기억하고 알린다) */
 const TAG_WAIT_MS = 1500;
 
 /**
  * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류 · 크기 · 파일 이름 · 라디오를 보고, tags 를 주면 본문 앞부분의 태그를 읽는다.
  * HLS 는 목록으로 VOD(길이) · 라이브를 본다. 단순 목록(PLS · M3U)은 첫 주소를 열어 본다(곡의 음원 주소는 목록 주소 그대로, 열 때마다 다시 푼다).
- * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지 · 그림 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
+ * 다른 출처의 search()처럼 배열을 돌려준다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지 · 이미지 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD 를 거절하는 서버(AnimeThemes CDN 의 403)에서도 된다
  */
 async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream } }: InfoOptions = {}): Promise<DirectTrack[]> {
@@ -80,12 +80,12 @@ function trackOf(url: string, headers: Record<string, unknown>, radio: boolean):
     pageUrl: url,
     requestKey: url,
     audioUrl: url,
-    // 크기로 길이를 어림하면 VBR 에서 크게 어긋난다. 모르는 채로 두고 다운로드한 뒤 잰 값으로 채운다(cacheDownload)
+    // 크기로 길이를 추산하면 VBR 에서 크게 어긋난다. 모르는 채로 두고 다운로드한 뒤 잰 값으로 채운다(media/cache-download)
     duration: 0,
     durationSource: "unknown",
     // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 헤더를 붙인다(radio). 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 캐시 없음)
     ...(radio ? { isLive: true, liveStatus: "is_live" } : {}),
-    // 곡에 그림 주소는 없다. 파일 태그의 그림은 따로 찾는다
+    // 썸네일 주소는 없다. 파일 태그의 앨범아트는 따로 찾는다
     thumbnail: null,
     platform: "direct",
     id: generateId(url),
@@ -140,7 +140,7 @@ function decoded(text: string): string {
 
 /**
  * 파일 이름에서 제목. 확장자를 떼고 인코딩을 푼다. 띄어쓰기가 없는 이름(my-song_name)만 구분자를 공백으로 바꾼다.
- * 대소문자는 건드리지 않는다(iPhone 같은 이름을 바꾼다). 다운로드한 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cache-download)
+ * 대소문자는 건드리지 않는다(바꾸면 iPhone 같은 이름이 망가진다). 다운로드한 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cache-download)
  */
 function extractTitle(filename: string): string | null {
   const name = decoded(path.parse(filename).name);
@@ -155,7 +155,7 @@ function stationName(value: unknown): string | null {
   return (utf8.includes("\uFFFD") ? value : utf8).trim() || null;
 }
 
-/** 담을 때의 제목: 인터넷 라디오는 방송 이름, 아니면 파일 이름. 둘 다 없으면 null(부르는 쪽이 호스트로) */
+/** 곡 추가 때의 제목: 인터넷 라디오는 방송 이름, 아니면 파일 이름. 둘 다 없으면 null(부르는 쪽이 호스트로) */
 function titleOf(filename: string, headers: Record<string, unknown>, radio: boolean): string | null {
   return (radio ? stationName(headers["icy-name"]) : null) ?? extractTitle(filename);
 }

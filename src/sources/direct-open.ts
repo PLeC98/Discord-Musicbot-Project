@@ -1,7 +1,7 @@
 // 직접 링크를 연다: GET 하나(SSRF 가드)의 응답 헤더와 본문 앞부분으로 무엇인지 판정하고(rules/link-content), 읽은 앞부분은 되돌려 넣는다.
-// 담을 때 · 재생 · 다운로드 · 재생 테스트 · 파일 태그 찾기가 모두 이것을 지나므로 판정 결과를 곡 · DB 에 적지 않는다.
+// 곡 추가 · 재생 · 다운로드 · 재생 테스트 · 파일 태그 찾기가 모두 이것을 지나므로 판정 결과를 곡 · DB 에 적지 않는다.
 //   file  본문 Readable(앞부분 포함) · 헤더 · 크기 · 인터넷 라디오(icy-*)인가
-//   hls   재생목록 글(작다, 다 받는다)과 그 마지막 주소(리다이렉트를 거친, 상대 주소의 기준)
+//   hls   재생목록 텍스트(작다, 다 받는다)과 그 마지막 주소(리다이렉트를 거친, 상대 주소의 기준)
 //   list  단순 목록(PLS · M3U)의 첫 주소. openFollowing 은 그 주소를 다시 연다(목록 안의 목록은 한 번까지)
 //   page · other  음원이 아니다(부르는 쪽이 거절한다)
 // 옛 SHOUTcast(v1)는 첫 줄을 `ICY 200 OK` 로 답해 Node 가 응답을 읽지 못한다. 그 방송은 shoutcast-v1 로 거절한다(받은 응답으로 안 것이라 숨기지 않는다).
@@ -20,7 +20,7 @@ type StreamNet = { getStream: (url: string, deps?: undefined, opts?: OpenOptions
 type Opened = { kind: "file"; body: AudioStream; headers: Record<string, unknown>; status: number; length: number | null; radio: boolean } | { kind: "hls"; text: string; url: string } | { kind: "list"; target: string | null } | { kind: "page" | "other" };
 type OpenedFile = Extract<Opened, { kind: "file" }>;
 
-/** 판정하려면 웹 페이지 · 그림도 받아 봐야 한다(판정이 거절한다). 크기 상한 · 홉 대기는 음원과 같다 */
+/** 판정하려면 웹 페이지 · 이미지도 받아 봐야 한다(판정이 거절한다). 크기 상한 · 홉 대기는 음원과 같다 */
 const OPEN_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
 /** 재생목록 · 단순 목록은 다 받아 읽는다(작다) */
 const LIST_MAX_BYTES = 1024 * 1024;
@@ -76,7 +76,7 @@ function withHead(source: AudioStream, head: Buffer, ended: boolean): AudioStrea
   return body;
 }
 
-/** 본문을 끝까지(상한 안에서) 글로 */
+/** 본문을 끝까지 문자열로. LIST_MAX_BYTES 를 넘으면 null */
 async function readAll(source: Readable, head: Buffer, ended: boolean): Promise<string | null> {
   const chunks = [head];
   let length = head.length;
@@ -90,7 +90,7 @@ async function readAll(source: Readable, head: Buffer, ended: boolean): Promise<
   return Buffer.concat(chunks).toString("utf8");
 }
 
-/** Node 의 HTTP 해석기가 첫 줄 `ICY …`(SHOUTcast v1)를 거절한 오류인가 */
+/** Node 의 HTTP 파서가 첫 줄 `ICY …`(SHOUTcast v1)를 거절한 오류인가 */
 function isIcyStatusLine(error: unknown): boolean {
   const { code, rawPacket } = (error ?? {}) as { code?: unknown; rawPacket?: unknown };
   return code === "HPE_INVALID_CONSTANT" && Buffer.isBuffer(rawPacket) && rawPacket.subarray(0, 4).toString("latin1") === "ICY ";
@@ -118,7 +118,7 @@ async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, .
   }
   const file = fileOf(source);
   if (opts.from !== undefined) return file;
-  // 인터넷 라디오는 헤더로 안다(끝이 없어 앞부분을 기다릴 까닭이 없다)
+  // 인터넷 라디오는 헤더로 안다(끝이 없어 앞부분을 기다릴 이유가 없다)
   if (file.radio && /^\s*audio\//i.test(String(file.headers["content-type"] ?? ""))) return file;
   return judge(source, url);
 }

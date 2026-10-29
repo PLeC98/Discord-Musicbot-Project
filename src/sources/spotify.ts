@@ -1,10 +1,10 @@
-// Spotify 소스. 링크 타입별 투트랙 라우팅.
+// Spotify 소스. 링크 타입별로 두 경로를 쓴다.
 //   track/album/artist → 운영자가 키를 넣었으면 공식 Web API(공유 HTTP 클라이언트, client credentials), 실패하거나 키가 없으면 익명 GraphQL
 //   playlist           → 익명 GraphQL 전용(공식은 100곡 상한이라 사실상 불가)
 //
-// 익명 경로는 웹플레이어의 공개 동작(TOTP → /api/token → api-partner/pathfinder)을 재현한 것.
-// 외부 코드 이식 없이 번들에서 직접 밝혀낸 원리로 구현. secret/해시/clientVersion은 DB에 캐시하고
-// TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
+// 익명 경로는 웹플레이어의 공개 동작(TOTP → /api/token → api-partner/pathfinder)을 재현한다.
+// 외부 코드를 옮기지 않고 번들에서 직접 밝혀낸 원리로 구현했다(LavaSrc · discord-player-spotify 는 원리 교차 확인에만 참고).
+// secret/해시/clientVersion은 DB에 캐시하고, TTL이 지나거나 실패하면 번들에서 다시 추출한다.
 
 import crypto from "crypto";
 import { parseSpotifyURL } from "../rules/links.ts";
@@ -16,12 +16,12 @@ import { messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import { httpFor } from "../infra/http.ts";
 import type { KeyCheck } from "../rules/service-keys.ts";
 
-// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 실제 fetch)
 const http = httpFor("spotify");
 const send = http.fetch;
 const useFetch = http.useFetch;
 
-// 응답의 모양. 여기서 읽는 필드만
+// 응답의 형식. 여기서 읽는 필드만
 type ApiImage = { url?: string; height?: number | null };
 type ApiTrack = { id?: string; name?: string; duration_ms?: number; artists?: Array<{ name?: string }>; album?: { name?: string; images?: ApiImage[] }; external_urls?: { spotify?: string } };
 type ApiAlbum = { name?: string; images?: ApiImage[]; tracks?: { items?: ApiTrack[]; next?: string | null; total?: number } };
@@ -46,9 +46,9 @@ type AnonState = { secrets: Array<{ secret: string; version: number }>; hashes: 
 
 const isTrack = (t: SpotifyTrack | null): t is SpotifyTrack => t !== null;
 
-/** 요청 함수. get 은 공식 API, query 는 익명 GraphQL. 테스트가 가짜를 넘기는 곳(넘기지 않은 것은 진짜) */
+/** 요청 함수. get 은 공식 API, query 는 익명 GraphQL. 테스트가 가짜를 넘기는 곳(넘기지 않은 것은 실제 요청) */
 type Net = { get: (path: string) => Promise<unknown>; query: (operationName: string, hashKey: string, variables: Record<string, unknown>) => Promise<unknown> };
-// 진짜 요청 함수. 아래 두 프로바이더가 가진 것을 부른다
+// 실제 요청 함수. 아래 두 프로바이더의 것을 부른다
 const net = (over: Partial<Net> = {}): Net => ({ get: (p) => official._get(p), query: (op, hash, vars) => graphql._query(op, hash, vars), ...over });
 
 const ua = () => config.userAgents.browser;
@@ -65,12 +65,12 @@ const BUNDLE_TIMEOUT_MS = 30000;
 const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
 // secret · 해시는 코드에 두지 않는다. 늘 번들에서 추출하고 DB 에 남긴다. 낡은 값을 코드에 두면 추출 실패를 가린다
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
-// 추출에 실패하면 이만큼은 다시 추출하지 않고 저장값을 쓴다. 저쪽이 죽어 있을 때 요청마다 번들(수 MB)을 다운로드하지 않게
+// 추출에 실패하면 이만큼은 다시 추출하지 않고 저장값을 쓴다. 스포티파이 쪽이 고장 났을 때 요청마다 번들(수 MB)을 다운로드하지 않게
 const EXTRACT_RETRY_MS = 10 * 60 * 1000;
 // 번들에서 해시를 추출하는 쿼리
 const OPERATIONS = ["fetchPlaylist", "queryArtistOverview", "getTrack", "getAlbum"];
 
-// ── 정규화 (양 경로 공통 출력 계약) ──
+// ── 정규화(두 경로 공통 출력) ──
 function pickImageUrl(sources: ApiImage[] | null | undefined): string | null {
   if (!Array.isArray(sources) || !sources.length) return null;
   const withUrl = sources.filter((s): s is ApiImage & { url: string } => !!(s && s.url));
@@ -80,7 +80,7 @@ function pickImageUrl(sources: ApiImage[] | null | undefined): string | null {
   return (withUrl.find((s) => s.url.includes("0000b273")) || withUrl[withUrl.length - 1]).url; // 640px(0000b273) 우선
 }
 
-// 공식 API 트랙 → 표준. album 트랙(SimplifiedTrack)은 album 필드가 없어 albumOverride로 앨범 메타 주입.
+// 공식 API 곡 → SpotifyTrack. 앨범의 곡(SimplifiedTrack)은 album 필드가 없어 albumOverride로 앨범 정보를 넣는다.
 function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: string; images?: ApiImage[] }): SpotifyTrack | null {
   if (!t || !t.name) return null;
   const album = albumOverride || t.album;
@@ -110,7 +110,7 @@ function artistsOf(d: GqlTrack) {
   return names.join(", ") || undefined;
 }
 
-// GraphQL 트랙 data(playlist item.itemV2.data / artist topTracks item.track) → 표준.
+// GraphQL 곡 data(playlist item.itemV2.data / artist topTracks item.track) → SpotifyTrack.
 function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
   if (!d || !d.name) return null;
   const id = (d.uri || "").split(":").pop() || d.id;
@@ -120,7 +120,7 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
   return {
     title: d.name,
     artist: artistsOf(d),
-    album: d.albumOfTrack?.name || null, // GraphQL은 앨범명이 없을 수 있음(표시용, 없으면 null)
+    album: d.albumOfTrack?.name || null, // GraphQL은 앨범명이 없을 수 있다(표시용)
     pageUrl: url,
     requestKey: url,
     duration: Math.floor(durMs / 1000),
@@ -130,7 +130,7 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
   };
 }
 
-/** 재생목록 한 쪽의 항목들 */
+/** 재생목록 한 페이지의 항목들 */
 type GqlItems = NonNullable<NonNullable<NonNullable<GqlPlaylist["playlistV2"]>["content"]>["items"]>;
 
 // 재생할 수 있는 곡만(지역 제한 · 삭제된 곡은 NotFound 로 온다)
@@ -143,7 +143,7 @@ function playable(items: GqlItems) {
   return out;
 }
 
-// 앨범 한 쪽. 앨범 이름 · 표지는 곡에 없어 앨범의 것을 붙인다. 없는 앨범은 NotFound 로 온다. count: 받은 항목 수(원본 위치를 센다)
+// 앨범 한 페이지. 앨범 이름 · 앨범아트는 곡에 없어 앨범의 것을 붙인다. 없는 앨범은 NotFound 로 온다. count: 받은 항목 수(원본 위치를 센다)
 async function albumPage(query: Net["query"], id: string, offset: number, limit: number) {
   const a = ((await query("getAlbum", "getAlbum", { uri: `spotify:album:${id}`, locale: "", offset, limit })) as GqlAlbum | null)?.albumUnion;
   if (!a || a.__typename === "NotFound") throw codedError("not-found", `앨범 없음(NotFound) ${id}`);
@@ -153,7 +153,7 @@ async function albumPage(query: Net["query"], id: string, offset: number, limit:
   return { tracks, count: items.length, total: a.tracksV2?.totalCount ?? null };
 }
 
-// 재생목록 한 쪽. 접근할 수 없으면 던진다
+// 재생목록 한 페이지. 접근할 수 없으면 던진다
 async function playlistPage(query: Net["query"], id: string, offset: number, limit: number) {
   const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
   const pl = data?.playlistV2;
@@ -234,7 +234,7 @@ const official = {
     const tok = await this._accessToken();
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
     const r = await send(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-    // 없는 곡 · 앨범 · 가수는 없음이다(resolveType). 요청 제한은 그렇다고 단다
+    // 없는 곡 · 앨범 · 가수는 없음이다(resolveType). 요청 제한은 rate-limited 코드를 단다
     if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", `API ${r.status} (${path.slice(0, 40)})`);
     return r.json();
   },
@@ -246,7 +246,7 @@ const official = {
 
   async album(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
     const { get } = net(over);
-    const a = (await get(`/albums/${id}`)) as ApiAlbum; // 앨범 이름·표지는 여기에만 있다
+    const a = (await get(`/albums/${id}`)) as ApiAlbum; // 앨범 이름·앨범아트는 여기에만 있다
     const albumMeta = { name: a.name, images: a.images };
     let items: ApiTrack[] = offset === 0 ? a.tracks?.items || [] : [];
     let next = offset === 0 ? a.tracks?.next : `/albums/${id}/tracks?offset=${offset}&limit=50`;
@@ -287,7 +287,7 @@ const graphql = {
   },
 
   async _ensureState(forceRefresh: boolean): Promise<AnonState> {
-    const stored = this._state ?? (externalCaches.getSpotifyAnonState() as AnonState | null); // 우리가 적은 모양
+    const stored = this._state ?? (externalCaches.getSpotifyAnonState() as AnonState | null); // 이 모듈이 저장한 형식
     const usable = stored?.secrets?.length ? stored : null;
     const reused = this._reusable(forceRefresh, usable);
     if (reused) return (this._state = reused);
@@ -480,7 +480,7 @@ const ANONYMOUS: Record<string, Route> = {
 const routesOf = (type: string): Route[] | undefined => (Object.hasOwn(ANONYMOUS, type) ? [...(hasKeys() && Object.hasOwn(OFFICIAL, type) ? [OFFICIAL[type]] : []), ANONYMOUS[type]] : undefined);
 
 // 한 경로라도 답했으면(빈 결과 포함) 그 답이다. 주 경로가 실패하고 폴백이 빈 결과면 없음이다(주 경로 실패는 경고로 남는다).
-// 모든 경로가 실패하면 마지막 까닭을 던진다. 없는 곡 · 앨범(404)은 실패가 아니라 없음이다
+// 모든 경로가 실패하면 마지막 오류를 던진다. 없는 곡 · 앨범(404)은 실패가 아니라 없음이다
 async function resolveType(type: string, id: string, options: Range, over: Partial<Net>): Promise<Part> {
   const empty: Part = { tracks: [], total: null, nextOffset: null };
   const chain = routesOf(type);
@@ -494,7 +494,7 @@ async function resolveType(type: string, id: string, options: Range, over: Parti
       if (result.tracks.length || last) return result;
       answered = true; // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
-      // 없는 곡 · 앨범 · 가수다. 다른 경로도 같은 답이라 묻지 않는다
+      // 없는 곡 · 앨범 · 가수다. 다른 경로도 같은 답이라 조회하지 않는다
       if (codeOf(e) === "not-found") return empty;
       log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${messageOf(e)}${last ? "" : ", 폴백 전환"}`);
       failure = e;
@@ -504,10 +504,9 @@ async function resolveType(type: string, id: string, options: Range, over: Parti
   throw failure;
 }
 
-// ── 외부 계약 (sources/lookup 이 쓰는 것) ──
+// ── 내보내는 것(sources/lookup 이 쓴다) ──
 
-// 여러 곡 출처는 필요한 구간만 불러온다
-// over: 요청 함수 가짜(테스트). 생략하면 진짜
+// 여러 곡 출처는 필요한 구간만 불러온다. over: 요청 함수 가짜(테스트), 생략하면 실제 요청
 async function getCollection(url: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
   const { type, id } = parseSpotifyURL(url);
   if (!type || !id) return { tracks: [], total: null, nextOffset: null };
@@ -524,7 +523,7 @@ function forgetAnonState() {
   graphql._state = null;
 }
 
-// 테스트 시임. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 실행한 것처럼)
+// 테스트용. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 실행한 것처럼)
 function _reset() {
   official._token = null;
   graphql._anonToken = null;
@@ -532,7 +531,6 @@ function _reset() {
   graphql._failedAt = 0;
 }
 
-// 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 /** 저장된 키로 토큰을 받아 본다(운영자 패널의 연결 테스트). 쥐고 있는 토큰은 쓰지도 바꾸지도 않는다 */
 async function checkCredentials(): Promise<KeyCheck> {
   const { clientId, clientSecret } = config.spotify;
@@ -554,9 +552,10 @@ async function checkCredentials(): Promise<KeyCheck> {
   }
 }
 
+// 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-/** 익명 토큰이 끝나는 때(봇 상태 탭). 받은 적이 없으면 null */
+/** 익명 토큰 만료 시각(봇 상태 탭). 받은 적이 없으면 null */
 const anonTokenExpiresAt = () => graphql._anonToken?.expiresAt ?? null;
 
 export { getCollection, anonTokenExpiresAt, checkCredentials, forgetAnonState, _reset, _internals, useFetch };

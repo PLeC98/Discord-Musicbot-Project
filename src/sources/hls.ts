@@ -1,10 +1,10 @@
 // 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
 // 모든 요청(상위 · 하위 목록 · 세그먼트 · 초기화 세그먼트 · 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
-//   상위 목록   음성 따로가 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
+//   상위 목록   오디오 전용 하위 목록이 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
 //   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 세그먼트부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
 //              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게)
-//   암호       AES-128 은 키를 받아 풀고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 풀지 않는다
+//   암호화     AES-128 은 키를 받아 복호화하고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
 // 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range 로 받는다. 구간을 무시하고 200 으로 주는 서버면 그 구간만 잘라 쓴다.
 
 import crypto from "node:crypto";
@@ -59,7 +59,7 @@ async function settled<T>(request: Promise<T>): Promise<T> {
   }
 }
 
-/** 본문을 끝까지(slice 가 있으면 그 구간까지만) 모은다. signal 이 끊으면 본문을 부수고 그 까닭으로 던진다 */
+/** 본문을 끝까지(slice 가 있으면 그 구간까지만) 모은다. signal 이 끊으면 본문을 부수고 그 사유로 던진다 */
 async function collect(body: Readable, { signal, slice }: { signal?: AbortSignal; slice?: ByteRange | null } = {}): Promise<Buffer> {
   const stop = () => body.destroy(signal?.reason instanceof Error ? signal.reason : new Error("그만 받음"));
   signal?.addEventListener("abort", stop, { once: true });
@@ -102,14 +102,14 @@ function assertPlayable(playlist: MediaPlaylist): void {
   if (playlist.segments.some((segment) => segment.key?.method === "OTHER")) throw permanent(codedError("unsupported-link", "DRM 으로 잠긴 HLS 입니다"));
 }
 
-/** 세그먼트 순번의 IV(16바이트 큰 끝) */
+/** 세그먼트 순번의 IV(16바이트 빅엔디언) */
 function sequenceIv(sequence: number): Buffer {
   const iv = Buffer.alloc(16);
   iv.writeBigUInt64BE(BigInt(sequence), 8);
   return iv;
 }
 
-/** AES-128-CBC 풀기. 풀리지 않으면(키 · IV 가 틀림) 다시 받아도 같다 */
+/** AES-128-CBC 복호화. 실패하면(키 · IV 가 틀림) 다시 받아도 같다 */
 function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
   try {
     const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
@@ -134,7 +134,7 @@ async function openHls(text: string, url: string, { net = { getStream: SafeUrl.g
   };
 }
 
-/** 받을 차례. startMs 가 null 이면 라이브(끝 가까이부터, 목록을 다시 받으며) */
+/** 받을 세그먼트를 차례로 내놓는 출처. startMs 가 null 이면 라이브(끝 가까이부터, 목록을 다시 받으며) */
 function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: StreamNet, sleep: (ms: number) => Promise<void>, startMs: number | null): HlsFragments {
   let playlist = first.playlist;
   const keys = new Map<string, Promise<Buffer>>();
@@ -199,7 +199,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     return parts;
   }
 
-  // 차례를 지킨다(미리 받기가 앞 세그먼트를 받는 중에 부른다)
+  // 순서를 지킨다(미리 받기가 앞 세그먼트를 받는 중에 next 를 부른다)
   let chain: Promise<unknown> = Promise.resolve();
   async function takeNext(): Promise<HlsPart | null> {
     for (;;) {

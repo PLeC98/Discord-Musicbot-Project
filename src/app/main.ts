@@ -1,5 +1,5 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
-// 로그 → 남은 자식 프로세스 정리 → 종료 핸들러 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 핸들러 → 기동 확인 → 로그인.
+// 로그 → 실행 기록 → 남은 자식 프로세스 정리 → 종료 핸들러 → DB · 설정 → 슬래시 명령 배포 → POToken 서버 → 전체 백업의 오디오 캐시 → 클라이언트 · 화면 · 대시보드 → 핸들러 → 기동 확인 → 로그인.
 
 import { Client, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
@@ -76,22 +76,22 @@ type LogFile = ReturnType<typeof createFileDestination>;
 type Shutdown = ReturnType<typeof installShutdown>;
 // 레지스트리가 적는 자식 프로세스 기록. 다음 기동이 남은 것을 정리한다
 const CHILDREN_FILE = path.join(PROJECT.database, "child-processes.json");
-/** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
+/** 이벤트 모듈을 쓸 때의 형식. 이름의 이벤트 인자로 부른다 */
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(bot: BotContext, ...args: ClientEvents[K]): unknown };
 /** 이벤트 목록(src/discord/events/index)의 한 항목. 이벤트마다 인자가 다르다 */
 type AnyClientEvent = { [K in keyof ClientEvents]: ClientEvent<K> }[keyof ClientEvents];
-/** 등록할 때 보는 모양. 인자는 이름이 정한다 */
+/** 등록할 때 보는 형식. 인자는 이름이 정한다 */
 type EventModule = { name: keyof ClientEvents; once?: boolean; execute(bot: BotContext, ...args: unknown[]): unknown };
 
-// 기동을 멈춘다. 까닭은 던지기 전에 로그에 남겼다
+// 기동을 멈춘다. 원인은 던지기 전에 로그에 남겼다
 class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
-  // 직전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 복원하지 않는다
+  // 이전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 복원하지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
-  // 직전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 실행하기 전에
+  // 이전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 실행하기 전에
   sweepLeftoverChildren(CHILDREN_FILE);
   procRegistry.persistTo(CHILDREN_FILE);
 
@@ -116,7 +116,7 @@ function main() {
 
 /**
  * DB 를 열고 설정을 설정 객체에 올린다. 어느 DB 든 구조가 맞지 않거나 못 열면 멈춘다(무엇을 하면 되는지 안내한다).
- * 내용이 틀린 것(조절값 · 못 푸는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
+ * 내용이 틀린 것(조절값 · 복호화하지 못하는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
@@ -143,13 +143,13 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   warnLegacyConfigFiles();
   serviceKeys.load();
   aiKeys.warnLegacyFile();
-  // 쿠키는 실행마다 파일로 풀었다 삭제한다. 꺼지다 남은 것을 치운다
+  // 쿠키는 실행마다 파일로 복호화했다가 삭제한다. 비정상 종료로 남은 것을 치운다
   cookieJar.sweep();
   cookieJar.warnLegacyFile();
   return true;
 }
 
-// 명령 전체 백업의 오디오 캐시 번들을 합친다(캐시 상한이 운영 값으로 올라온 뒤, 정기 퇴거 · 기동 정리 · 대시보드보다 먼저). 실패해도 기동은 이어 간다
+// 전체 백업(pnpm run backup)의 오디오 캐시 번들을 합친다(캐시 상한이 운영 값으로 올라온 뒤, 정기 퇴거 · 기동 정리 · 대시보드보다 먼저). 실패해도 기동은 이어 간다
 async function restoreAudioCache() {
   try {
     const done = await archive.applyStagedAudio(PROJECT.database);
@@ -196,7 +196,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
     // GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다. 권한 판정 · 서버 목록이 멤버를 캐시에서 먼저 보는데,
     // 역할 · 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
-    // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
+    // 외부에서 온 곡 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,
     // 거절된 요청이 이만큼 쌓일 때마다 알린다(listenToLibrary)
     rest: { invalidRequestWarningInterval: 500 },
@@ -207,7 +207,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   // 명령은 기동 확인 뒤 init 이 채운다
   const commands = new Map<string, SlashCommand>();
   const bot: BotContext = { client, players, panels, commands };
-  // 연령 제한 콘텐츠의 서버 판정이 볼 곳: 봇이 지금 든 음성 채널(옮겨져도 따라간다), 음성 밖이면 곡을 넣는 일이 실은 붙을 채널. 둘 다 없으면 모른다
+  // 연령 제한 콘텐츠의 서버 판정이 볼 곳: 봇이 지금 든 음성 채널(옮겨져도 따라간다), 음성 밖이면 곡 추가가 넘긴, 봇이 들어갈 채널. 둘 다 없으면 모른다
   ageGate.usePlace((guildId, target) => {
     const guild = client.guilds.cache.get(guildId);
     const channel = guild?.members.me?.voice?.channel ?? (target ? guild?.channels.cache.get(target) : null);
@@ -302,12 +302,12 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, players, Player, { touched });
-  // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 먼저 싣는다. 패널을 유니코드로 한 번 그렸다가 다시 고치지 않게
+  // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 먼저 싣는다. 패널을 유니코드로 한 번 그렸다가 다시 그리지 않게
   const appEmojis = new AppEmojis(apiOf(client), { onChanged: () => panels.redrawIdlePanels() });
   await appEmojis.loadKnown();
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await panels.restorePanels();
-  // 그림이 맞는지 견주고 올리기 · 지우기는 뒤에서(운영자 색이 바뀌면 다시)
+  // 이미지 비교 · 업로드 · 삭제는 백그라운드에서(운영자 색이 바뀌면 다시)
   appEmojis.start();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
 }
@@ -349,14 +349,14 @@ function checkBeforeLogin() {
   ytdlpOptions.useFfmpeg(ffmpegPath);
   // 캐시 폴더와 정기 퇴거. DB 는 기동 첫머리에 열었다(openSettings)
   audioCache.initialize();
-  // 음성 채널 상태 중 우리가 쓴 것. 다시 시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
+  // 음성 채널 상태 중 봇이 쓴 것. 다시 시작 전에 쓴 것도 계속 갱신하려면 게이트웨이에 붙기 전에 읽어 둔다
   voiceChannelStatus.keepIn(voiceStatusStore);
 
-  // 지금 무엇으로 유튜브에 붙는지 한 줄. 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 걸 몰랐다.
+  // 지금 무엇으로 유튜브에 붙는지 한 줄. 없으면 POToken 서버가 죽어 있어도 모르고 지나간다.
   YouTube.logAuthMode();
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기");
-  // bgutil 은 설치된 것 · 설정한 것 · 최신을 견주어 알리기만 한다(설치는 봇을 끄고)
+  // bgutil 은 설치된 것 · 설정한 것 · 최신을 비교해 알리기만 한다(설치는 봇을 끄고)
   bestEffort(log, bgutilVersion.start(), "bgutil 버전 확인");
 
   // 자동재생 · 활동 문구 설정을 여기서 한 번 읽는다. 읽는 쪽이 쓸 때뿐이라 그대로 두면 틀린 설정 · 키가 빠진 소스 경고가

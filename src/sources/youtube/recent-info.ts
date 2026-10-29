@@ -1,7 +1,7 @@
-// 받아 둔 유튜브 영상 정보. 곡 정보 · 재생 주소가 추출한 것을 재생 주소 · 다운로드가 다시 쓴다(같은 영상을 짧은 사이에 다시 추출하지 않게).
-// 봇 전체에 하나. 줄인 JSON 글자로 두고 꺼낼 때마다 새로 읽은 사본을 준다. 남은 곡을 다 받기 전에 주소가 만료될 것은 꺼내지 않는다(rules/stream-reuse).
+// 캐시된 유튜브 영상 정보. 곡 정보 · 재생 주소가 추출한 것을 재생 주소 · 다운로드가 다시 쓴다(같은 영상을 짧은 사이에 다시 추출하지 않게).
+// 봇 전체에 하나. 줄인 JSON 문자열로 두고 꺼낼 때마다 새로 파싱한 사본을 준다. 곡을 다 다운로드하기 전에 주소가 만료될 것은 꺼내지 않는다(rules/stream-reuse).
 // 그 곡의 다운로드가 끝나면 지운다(youtube/ytdlp-run 의 downloadAudio). 크기 합이 상한을 넘으면 만료된 것 → 가장 오래 남은 것을 밀어낸다.
-// 주소는 추출한 IP 에 묶인다(열리지 않으면 재생 쪽이 새로 받는다)
+// 주소는 추출한 IP 에 묶인다(열리지 않으면 재생 쪽이 새로 추출한다)
 
 import os from "node:os";
 import { expireOf, reuseState } from "../../rules/stream-reuse.ts";
@@ -27,7 +27,7 @@ function budgetFor(constrained: number, total: number): number {
 const entries = new Map<string, Entry>();
 let bytes = 0;
 let budget: number | null = null;
-// 밀려난 영상 id 와 그 때. 그 뒤 1시간 안에 필요해지면 놓친 것으로 센다
+// 밀려난 영상 id 와 시각. 그 뒤 1시간 안에 필요해지면 놓친 것으로 센다
 const evicted = new Map<string, number>();
 const reusedAt: number[] = [];
 const missedAt: number[] = [];
@@ -58,7 +58,7 @@ function trimmed(info: Info): Info | null {
   const out: Info = { ...info };
   for (const key of DROP) delete out[key];
   out.http_headers = withoutCookie(info.http_headers);
-  // 소리만 있는 포맷과 고른 포맷(스토리보드는 소리도 영상도 없다)
+  // 소리만 있는 포맷과 선택된 포맷(스토리보드는 소리도 영상도 없다)
   const formats = Array.isArray(info.formats) ? info.formats.filter(isObject) : [];
   out.formats = formats.filter((f) => (f.acodec !== "none" && f.vcodec === "none") || f.format_id === info.format_id).map(({ cookies: _cookies, ...f }) => ({ ...f, http_headers: withoutCookie(f.http_headers) }));
   return out;
@@ -107,7 +107,7 @@ function remember(raw: unknown) {
   makeRoom(now);
 }
 
-/** 다시 쓸 영상 정보(새로 읽은 사본). 없거나 곡을 다 받기 전에 만료될 것이면 null */
+/** 다시 쓸 영상 정보(새로 파싱한 사본). 없거나 곡을 다 다운로드하기 전에 만료될 것이면 null */
 function recall(id: string): Info | null {
   const now = Date.now();
   prune(now);

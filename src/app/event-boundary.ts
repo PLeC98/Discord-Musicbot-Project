@@ -16,7 +16,7 @@ function guildOf(args: unknown[]): string | null {
   return null;
 }
 
-/** 핸들러를 경계로 감싼다. 돌려주는 함수는 약속을 돌려주지 않는다(실패는 onFault 가 받는다) */
+/** 핸들러를 경계로 감싼다. 돌려주는 함수는 Promise 를 돌려주지 않는다(실패는 onFault 가 받는다) */
 function guarded<A extends unknown[]>(where: string, listener: (...args: A) => unknown, onFault: OnFault) {
   return (...args: A) => {
     const guildId = guildOf(args);

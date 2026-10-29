@@ -1,5 +1,5 @@
 // bgutil(POToken 공급자)의 설치된 버전 · 목표(BGUTIL_VERSION) · 최신 릴리스. 기동 시와 하루 한 번 최신을 보고, 옮길 것이 있으면 한 줄 남긴다.
-// 설치는 하지 않는다(봇을 끄고 pnpm run update:bgutil. 의존성을 갈아 끼우므로 돌고 있는 POToken 서버와 같이 못 간다). 봇 상태 탭이 셋을 보인다
+// 설치는 하지 않는다(봇을 끄고 pnpm run update:bgutil. 의존성을 교체하므로 돌고 있는 POToken 서버와 같이 못 간다). 봇 상태 탭이 세 버전을 보여 준다
 
 import fs from "fs";
 import path from "path";
@@ -56,7 +56,7 @@ class BgutilVersion {
     this.installed = this.io.installed();
     if (!this.installed) return;
     const target = config.bgutil.version;
-    // 코드를 받아 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 묻지 않아도 안다
+    // 코드를 업데이트해 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 조회하지 않아도 안다
     if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다릅니다: 설치 ${this.installed} · 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
     await this._tick();
   }
