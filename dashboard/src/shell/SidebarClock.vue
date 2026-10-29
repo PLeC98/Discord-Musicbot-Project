@@ -2,16 +2,16 @@
   <!-- 세로 막대의 시계. 접으면 시 위에 분(세로), 펼치면 "시:분" 한 줄이 두 배로 커져 같은 높이(36)를 채우고 남는 폭에 날짜.
        시는 아이콘 영역 가운데를 중심으로 제자리에서 커지고, 분은 아래에서 오른쪽으로 미끄러진다.
        글자 크기는 그대로 두고 배율(scale)만 바꾼다: 위치를 숫자 폭 단위로 고정해 두어 크기가 변해도 위치가 흔들리지 않는다 -->
-  <div class="relative h-9 w-full shrink-0 @container font-round font-semibold nums text-[1.0625rem] leading-4.5" :aria-label="T.clockLabel(hh, mm)">
+  <div class="relative h-9 w-full shrink-0 @container font-round font-semibold nums text-lg leading-4.5" :aria-label="T.clockLabel(hh, mm)">
     <span :class="cell" :style="hourAt">{{ hh }}</span>
     <span :class="[cell, open ? 'opacity-100' : 'opacity-0']" :style="colonAt">:</span>
     <span :class="[cell, 'text-on-surface-variant']" :style="minuteAt">{{ mm }}</span>
     <!-- 날짜: 두 줄(월 · 일 / 요일). 폭이 넓어질수록 "10/05" → "10월 5일" → "2026/10/05" → "2026년 10월 5일" -->
     <span class="absolute top-[0.1rem] flex flex-col font-sans font-medium text-xs leading-4 text-on-surface-variant whitespace-nowrap [font-variation-settings:normal] transition-opacity duration-300" :class="open ? 'opacity-100 delay-100' : 'opacity-0'" :style="dateAt">
-      <span class="@min-[11.5rem]:hidden">{{ shortDate }}</span>
-      <span class="hidden @min-[11.5rem]:inline @min-[12.75rem]:hidden">{{ month }} {{ day }}</span>
-      <span class="hidden @min-[12.75rem]:inline @min-[14.5rem]:hidden">{{ year.slice(0, -1) }}/{{ shortDate }}</span>
-      <span class="hidden @min-[14.5rem]:inline">{{ year }} {{ month }} {{ day }}</span>
+      <span class="@min-[12rem]:hidden">{{ shortDate }}</span>
+      <span class="hidden @min-[12rem]:inline @min-[13.25rem]:hidden">{{ month }} {{ day }}</span>
+      <span class="hidden @min-[13.25rem]:inline @min-[15rem]:hidden">{{ year.slice(0, -1) }}/{{ shortDate }}</span>
+      <span class="hidden @min-[15rem]:inline">{{ year }} {{ month }} {{ day }}</span>
       <span>{{ weekday }}</span>
     </span>
   </div>
@@ -27,8 +27,8 @@ const T = text.shell;
 
 // 펼쳤을 때의 배율. 한 줄(18)이 두 줄 높이(36)를 채운다
 const BIG = 2;
-// 숫자 하나의 폭(17px 글꼴에서 0.647em = 0.6875rem). 날짜처럼 글자 크기가 다른 요소에서도 같은 값이 되게 rem 으로(ch 는 그 요소의 글자 크기를 따른다)
-const DIGIT = "0.6875rem";
+// 숫자 하나의 폭(18px 글꼴에서 그려지는 폭 약 11.8px 에 가까운 정수 12px. 멈추는 자리가 정수 픽셀이 되게). 날짜처럼 글자 크기가 다른 요소에서도 같은 값이 되게 rem 으로(ch 는 그 요소의 글자 크기를 따른다)
+const DIGIT = "0.75rem";
 // 쌍점의 폭(숫자 폭에 대한 비)
 const COLON = 0.55;
 
