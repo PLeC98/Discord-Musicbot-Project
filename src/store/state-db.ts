@@ -8,7 +8,9 @@ const stateDb = new DbFile({
   label: "실행 상태 DB",
   fileName: "state.db",
   // 2: 곡마다 음원 주소를 어떻게 알았는지(session_tracks.audio_found_by)
-  version: 2,
+  // 3: 사람이 멈춰 둔 것(player_sessions.paused_manual → user_paused). 그 자리에서 올린다
+  version: 3,
+  upgrades: { 2: (db) => db.exec("ALTER TABLE player_sessions RENAME COLUMN paused_manual TO user_paused") },
   synchronous: "NORMAL",
   onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 위치가 사라집니다." },
   createTables,
@@ -24,7 +26,7 @@ function createTables(db: Db) {
       volume                 INTEGER NOT NULL DEFAULT 100,
       loop_mode              TEXT    NOT NULL DEFAULT 'off' CHECK (loop_mode IN ('off', 'track', 'queue')),
       autoplay               TEXT,
-      paused_manual          INTEGER NOT NULL DEFAULT 0,
+      user_paused            INTEGER NOT NULL DEFAULT 0,
       position_ms            INTEGER NOT NULL DEFAULT 0
     );
 

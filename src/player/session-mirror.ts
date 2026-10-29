@@ -150,7 +150,7 @@ class SessionPersistence {
       loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : ("off" as const),
       autoplay: p.autoplay || null,
       // 저장하는 건 사람의 뜻뿐이다(억제로 소리가 이미 멈춰 있어도). 억제 사유는 복원한 뒤 지금 음성 상태에서 다시 계산한다
-      pausedManual: p.pause.userPaused,
+      userPaused: p.pause.userPaused,
       // 곡 안의 절대 위치(시작 위치를 더한 값)라 복원할 때 이것만 본다
       positionMs: p.getCurrentTime?.() || 0,
     };
@@ -260,7 +260,7 @@ class SessionPersistence {
       volume: session.volume,
       loop: session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false,
       autoplay: session.autoplay || false,
-      userPaused: Boolean(session.pausedManual),
+      userPaused: Boolean(session.userPaused),
     });
 
     this._restoreTracks(record, player.guild.id);

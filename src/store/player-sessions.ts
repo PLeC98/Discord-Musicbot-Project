@@ -49,7 +49,7 @@ type SessionRow = {
   volume: number;
   loop_mode: LoopMode;
   autoplay: string | null;
-  paused_manual: number;
+  user_paused: number;
   position_ms: number;
 };
 
@@ -60,7 +60,7 @@ type SessionState = {
   volume?: number;
   loopMode?: LoopMode;
   autoplay?: string | null;
-  pausedManual?: boolean;
+  userPaused?: boolean;
   positionMs?: number;
 };
 
@@ -118,7 +118,7 @@ function sessionFromRow(row: SessionRow) {
     volume: row.volume,
     loopMode: row.loop_mode,
     autoplay: row.autoplay,
-    pausedManual: Boolean(row.paused_manual),
+    userPaused: Boolean(row.user_paused),
     positionMs: row.position_ms,
   };
 }
@@ -130,13 +130,13 @@ function queries(conn: Db) {
     ensure: conn.prepare<[string]>("INSERT OR IGNORE INTO player_sessions (guild_id) VALUES (?)"),
     upsert: conn.prepare<SessionRow>(`
         INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
-                                     paused_manual, position_ms)
+                                     user_paused, position_ms)
         VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
-                @paused_manual, @position_ms)
+                @user_paused, @position_ms)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
           volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
-          paused_manual = excluded.paused_manual, position_ms = excluded.position_ms`),
+          user_paused = excluded.user_paused, position_ms = excluded.position_ms`),
     position: conn.prepare<[number, string]>("UPDATE player_sessions SET position_ms = ? WHERE guild_id = ?"),
     deleteSession: conn.prepare<[string]>("DELETE FROM player_sessions WHERE guild_id = ?"),
     deleteGuildTracks: conn.prepare<[string]>("DELETE FROM session_tracks WHERE guild_id = ?"),
@@ -224,7 +224,7 @@ class PlayerSessionStore {
       volume: s.volume ?? 100,
       loop_mode: s.loopMode ?? "off",
       autoplay: s.autoplay || null,
-      paused_manual: s.pausedManual ? 1 : 0,
+      user_paused: s.userPaused ? 1 : 0,
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
     });
   }

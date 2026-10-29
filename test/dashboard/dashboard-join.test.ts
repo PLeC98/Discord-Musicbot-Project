@@ -104,7 +104,7 @@ test("음성 채널에 붙지 못하면 502 이고 플레이어가 남지 않는
 
 test("저장한 세션이 있으면 복원한다. 복원하다가 오류가 나면 500 이고 플레이어가 남지 않는다", async () => {
   const saveSession = () => {
-    sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
+    sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
     sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
   };
   saveSession();

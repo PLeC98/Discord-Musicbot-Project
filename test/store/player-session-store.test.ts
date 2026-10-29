@@ -237,14 +237,14 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
     volume: 40,
     loopMode: "queue",
     autoplay: "kpop",
-    pausedManual: true,
+    userPaused: true,
     positionMs: 12_345.6,
   });
   store.savePositions([{ guildId: G, positionMs: 99_000 }]);
 
   const { session } = loaded(store);
   assert.equal(session.positionMs, 99_000);
-  assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", pausedManual: true, positionMs: undefined });
+  assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", userPaused: true, positionMs: undefined });
 });
 
 test("반복 모드는 세 값만 받는다", () => {

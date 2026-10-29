@@ -288,7 +288,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남�
   let { session } = loaded(p.guild.id);
   assert.equal(session.loopMode, "off");
   assert.equal(session.autoplay, null);
-  assert.equal(session.pausedManual, false, "혼자 남아 멈춘 것은 복원 대상이 아니다");
+  assert.equal(session.userPaused, false, "혼자 남아 멈춘 것은 복원 대상이 아니다");
   assert.equal(session.positionMs, 42_000);
   assert.equal(session.volume, 30);
 
@@ -299,7 +299,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남�
   ({ session } = loaded(p.guild.id));
   assert.equal(session.loopMode, "queue");
   assert.equal(session.autoplay, "kpop");
-  assert.equal(session.pausedManual, true, "혼자 남아 멈춘 동안 사람이 멈춰 둔 것도 남는다");
+  assert.equal(session.userPaused, true, "혼자 남아 멈춘 동안 사람이 멈춰 둔 것도 남는다");
 });
 
 test("곡도 대기열도 없으면 세션을 삭제한다", async () => {
@@ -347,7 +347,7 @@ function makeRestorePlayer(overrides: object = {}) {
 // 세션 표에서 되읽은 것처럼. 곡은 테스트가 보는 필드만
 function makeRecord(sessionOverrides: object = {}, current: object | null = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
   return fake<RestoredSession>({
-    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, ...sessionOverrides },
+    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, userPaused: false, positionMs: 30_000, ...sessionOverrides },
     current,
     queue: [],
     history: [],
@@ -364,7 +364,7 @@ async function restore(record: RestoredSession, setup: (p: TestPlayer) => void =
 }
 
 test("복원: 사람이 멈춰 둔 세션은 멈춘 상태로", async () => {
-  const p = await restore(makeRecord({ pausedManual: true }));
+  const p = await restore(makeRecord({ userPaused: true }));
   assert.deepEqual(p.calls[0], ["play", 30_000, true], "play 시작 시점에 이미 사람의 뜻이 걸려 즉시 멈춘다");
   assert.equal(p.paused, true);
   assert.equal(p.pause.userPaused, true);
@@ -520,7 +520,7 @@ function fakeChannel() {
 
 test("복원 안내: 멈춘 채 복원했으면 재개됐다고 하지 않는다", async () => {
   const paused = fakeChannel();
-  await restore(makeRecord({ pausedManual: true }), (p) => (p.textChannel = fake<GuildTextBasedChannel>(paused)));
+  await restore(makeRecord({ userPaused: true }), (p) => (p.textChannel = fake<GuildTextBasedChannel>(paused)));
   assert.equal(paused.sent.length, 1);
   assert.ok(paused.sent[0].content.startsWith("### 🔄 봇이 복구됐어요\n마지막 일시정지 상태를 유지할게요."), paused.sent[0].content);
 

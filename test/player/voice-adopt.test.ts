@@ -78,7 +78,7 @@ test("재연결하지 못하면 그 서버는 정리하고(세션은 남김) 다
 });
 
 test("저장된 세션이 있는 서버(이번에 복원하지 않았다)는 이어받지 않고 세션도 건드리지 않는다. /join 이 이어 튼다", async () => {
-  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
   try {
     const { client, players, steps, FakePlayer } = world([guildWith("g1")]);
     await adoptLingeringVoice(client, players, FakePlayer);
