@@ -6,6 +6,13 @@ import { formatNumber } from "../../utils/locale.ts";
 const listTitle = (count: number, max: number) => `자동재생 (${count}/${max})`;
 const addGenre = "장르 추가";
 const resetGenres = "자동재생 장르 초기화";
+const importGenres = "장르 불러오기";
+const imported = (count: number) => `장르 ${count}개를 불러왔어요`;
+const importedNote = (renamed: number) => (renamed ? `저장하면 반영돼요. 식별자가 겹친 ${renamed}개는 뒤에 숫자를 붙였어요.` : "저장하면 반영돼요.");
+const importBad = "장르 파일이 아니라 불러오지 않았어요";
+const importDropped = "이 봇이 지원하지 않는 출처는 빼고 불러왔어요";
+const droppedLine = (genre: string, types: string[]) => `${genre}: ${types.join(", ")}`;
+const importOver = (count: number, max: number) => `장르는 ${max}개까지라 ${count}개는 불러오지 않았어요`;
 const atMost = (max: number) => `${max}개까지만 추가할 수 있어요`;
 const desc = "자동재생에 사용할 장르와 장르마다 곡을 가져올 출처를 설정해요.";
 const global = "전역 설정";
@@ -22,6 +29,7 @@ const id = "식별자";
 const idPlaceholder = "영어로 짧게(예: rock)";
 const idTip = "봇 내부 구분과 AI 판정 프롬프트의 {{genre}} 에 쓰여요. 영어로 작성하길 권장해요(예: k-pop, lo-fi).\n재생 중인 장르의 식별자를 바꾸면 그 서버는 장르를 다시 선택해야 해요.";
 const removeGenre = "이 장르 삭제";
+const exportGenre = "이 장르 내보내기";
 const sources = "출처";
 const sourcesDesc = "가중치가 높은 출처의 곡을 더 자주 선택하며, 곡을 가져오지 못하는 출처는 건너뛰어요.";
 const overrides = "전역 설정 오버라이드";
@@ -75,4 +83,4 @@ const defaults = {
   blockedPlaceholder: "제외할 키워드를 입력하고 Enter",
 };
 
-export { listTitle, addGenre, resetGenres, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, label, labelPlaceholder, id, idPlaceholder, idTip, removeGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };
+export { listTitle, addGenre, resetGenres, importGenres, imported, importedNote, importBad, importDropped, droppedLine, importOver, atMost, desc, global, dragToReorder, noName, sourceCount, empty, savedNote, label, labelPlaceholder, id, idPlaceholder, idTip, removeGenre, exportGenre, sources, sourcesDesc, overrides, minDuration, maxDuration, currentGlobal, noGlobalLimit, problems, source, defaults };

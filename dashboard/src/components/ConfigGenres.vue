@@ -13,8 +13,16 @@
       <BaseCard v-if="showList" icon="library_music" :title="T.listTitle(rows.length, SELECT_MAX)" :class="listCardClass">
         <template #actions>
           <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="rows.length >= SELECT_MAX" :aria-label="T.addGenre" v-tooltip="rows.length >= SELECT_MAX ? T.atMost(SELECT_MAX) : text.common.add" @click="addRow"><Icon name="add" :size="20" /></button>
-          <!-- 기본값은 편집기에 불러오기만 한다(저장 막대로 저장하거나 되돌린다) -->
-          <MoreMenu :label="text.editor.more" :button-class="[ICON_BTN, 'size-8']" :items="[{ label: T.resetGenres, icon: 'restart_alt', select: loadDefault }]" />
+          <!-- 기본값 · 장르 파일은 편집기에 불러오기만 한다(저장 막대로 저장하거나 되돌린다) -->
+          <MoreMenu
+            :label="text.editor.more"
+            :button-class="[ICON_BTN, 'size-8']"
+            :items="[
+              { label: T.importGenres, icon: 'upload', select: () => fileEl?.click() },
+              { label: T.resetGenres, icon: 'restart_alt', select: loadDefault },
+            ]"
+          />
+          <input ref="fileEl" type="file" accept=".json,application/json" multiple class="hidden" @change="importPicked" />
         </template>
         <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
         <!-- 어느 항목의 것도 아닌 문제(저장할 때 서버가 가리킨 것 등) · 읽기 실패. 항목마다의 문제는 그 항목의 오류 아이콘과 편집 영역 맨 위에 -->
@@ -94,6 +102,11 @@
               </label>
             </div>
           </section>
+
+          <!-- 이 장르를 파일 하나로(저장하지 않은 편집도 담긴다). 불러오기는 목록의 ⋯ 메뉴 -->
+          <div class="flex pt-3 border-t border-outline-variant/40">
+            <BaseButton variant="secondary" size="sm" @click="exportRow(selected)"><Icon name="download" :size="16" />{{ T.exportGenre }}</BaseButton>
+          </div>
         </div>
       </BaseCard>
     </div>
@@ -108,6 +121,7 @@ import GenreGlobalForm from "./GenreGlobalForm.vue";
 import { useListDetail, LIST_ROW } from "../composables/list-detail.ts";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
+import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import SourceEditor from "./SourceEditor.vue";
 import NumberInput from "./NumberInput.vue";
@@ -124,9 +138,11 @@ import { useSaveTarget } from "../composables/save-targets.ts";
 import { useDragReorder } from "../composables/drag-reorder.ts";
 import { problemText } from "../utils/problem.ts";
 import { toRows, toMap, newRow, shownName, type GenreData, type GenreRow } from "../utils/genre-rows.ts";
+import { genreFile, parseGenreFile, importedRows } from "../utils/genre-file.ts";
+import { notify, notifyDone } from "../composables/toasts.ts";
 import { genreProblems, GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
-import type { SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
+import { TYPES, type SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.genres;
@@ -211,6 +227,45 @@ function removeRow(i: number) {
 function addRow() {
   rows.value.push(newRow());
   select(rows.value.length - 1);
+}
+
+// ── 장르 하나 내보내기 · 불러오기(utils/genre-file). 브라우저 안에서만 한다(서버는 저장할 때 평소처럼 검사한다) ──
+const fileEl = ref<HTMLInputElement | null>(null);
+
+function exportRow(row: GenreRow) {
+  const { name, body } = genreFile(row);
+  const url = URL.createObjectURL(new Blob([body], { type: "application/json" }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  // 클릭이 내려받기를 시작한 뒤에 놓는다
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function importPicked(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = [...(input.files ?? [])];
+  input.value = ""; // 같은 파일을 다시 골라도 change 가 오게
+  const parsed = await Promise.all(files.map(async (file) => ({ file, got: parseGenreFile(await file.text()) })));
+  const bad = parsed.filter((one) => !one.got).map((one) => one.file.name);
+  const good = parsed.flatMap((one) => (one.got ? [one.got] : []));
+  const room = Math.max(0, SELECT_MAX - rows.value.length);
+  // 지원하는 출처는 이 화면과 함께 빌드된 봇의 표(schema/genre-sources)로 본다. 서버의 목록을 기다리지 않아도 된다
+  const {
+    rows: added,
+    renamed,
+    dropped,
+  } = importedRows(
+    good.slice(0, room),
+    rows.value.map((r) => r.name.trim()),
+    new Set(TYPES),
+  );
+  if (added.length) {
+    rows.value.push(...added);
+    select(rows.value.length - 1);
+    notifyDone(T.imported(added.length), T.importedNote(renamed));
+  }
+  if (dropped.length) notify({ title: T.importDropped, body: dropped.map(({ name, types }) => T.droppedLine(name || T.noName, types)).join("\n"), severity: "warning" });
+  if (good.length > room) notify({ title: T.importOver(good.length - room, SELECT_MAX) });
+  if (bad.length) notify({ title: T.importBad, body: bad.join("\n") });
 }
 
 // 어떤 출처를 쓸 수 있고 무슨 필드를 받는지는 서버가 안다(.env 의 키 유무까지).
