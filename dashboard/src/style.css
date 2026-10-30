@@ -22,14 +22,6 @@
   src: url("./assets/material-symbols.woff2") format("woff2-variations");
 }
 
-/* 이모지는 Twemoji 그림(TwemojiImage.vue)으로 그린다. 이 폰트는 그림을 못 불러왔을 때의 대비다.
-   Windows에는 국기 글리프가 아예 없어 그냥 두면 "🇰🇷"가 "KR"로 보인다. */
-@font-face {
-  font-family: "Twemoji";
-  src: url("twemoji-colr-font/twemoji.woff2") format("woff2");
-  font-display: swap;
-}
-
 /* 화면 폭 구간은 Tailwind 기본 스케일을 쓰되 md 만 720px 로 내린다(웹사이트라 M3 창 크기 구간을 따르지 않는다. 대화상자는 M3 기본 대화상자처럼 모든 폭에서 가운데).
    md(720) = 휴대폰 · 태블릿 뼈대 전환(744 폭 기기: 아이패드 미니 6/7 세로 · 폴드 펼침 세로를 태블릿으로), xl(1280) = 뼈대 치수 한 단계(아래 :root). lg(1024) 는 위 막대 글처럼 화면 전체 폭에 놓이는 것만.
    안쪽 배치(카드 열 수 · 재생 화면 히어로 · 카드 안 칸 나눔)는 화면 폭이 아니라 받은 폭으로 바꾼다(컨테이너 쿼리, Tailwind 컨테이너 스케일):
@@ -395,9 +387,8 @@ html:has([data-lock-screen]) body {
 
 body {
   font-family: var(--font-sans);
-  /* Twemoji가 맨 앞이어야 한다. OS 이모지 폰트가 앞에 있으면 국기 자리를 먼저 가져가
-     글리프가 없는 채로 글자를 그려 버린다(그게 "KR"로 보이는 이유다). */
-  --font-emoji: "Twemoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  /* 이모지는 Twemoji 그림(TwemojiImage.vue)으로 그린다. 그림이 없는 이모지(디스코드에도 없는 것)만 OS 이모지 글꼴로 */
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   background: var(--md-surface);
   color: var(--md-on-surface);
   min-height: 100dvh;
@@ -548,7 +539,7 @@ body {
 }
 
 /* 이모지를 그리는 자리에만 붙인다. 본문에 쓰면 안 된다.
-   키캡 이모지(1️⃣) 때문에 이 폰트는 숫자와 #·*도 들고 있어서, 본문에 깔면 숫자가 그림으로 바뀐다. */
+   키캡 이모지(1️⃣) 때문에 이모지 글꼴은 숫자와 #·*도 들고 있어서, 본문에 깔면 숫자가 그림으로 바뀐다. */
 .emoji {
   font-family: var(--font-emoji);
 }

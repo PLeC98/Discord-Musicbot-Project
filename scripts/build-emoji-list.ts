@@ -17,8 +17,8 @@ import * as prettier from "prettier";
 import { messageOf } from "../src/rules/error-kind.ts";
 
 const EMOJIBASE = "17.0.0";
-// 대시보드가 이미지를 받아오는 곳과 같은 버전을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
-import twemojiPackage from "../dashboard/node_modules/@twemoji/api/package.json" with { type: "json" };
+// 대시보드가 내주는 그림(디스코드가 올린 @discordapp/twemoji)과 같은 것을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
+import twemojiPackage from "../dashboard/node_modules/@discordapp/twemoji/package.json" with { type: "json" };
 import { PROJECT } from "../src/infra/project-paths.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
@@ -26,7 +26,6 @@ const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md")
 const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.ts");
 
 // 다운로드하는 데이터의 형식. 여기서 읽는 필드만 적는다
-const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });
 const Gist = z.record(z.string(), z.string());
 const Compact = z.array(z.object({ hexcode: z.string(), unicode: z.string(), label: z.string().optional(), tags: z.array(z.string()).optional() }));
 const Shortcodes = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
@@ -75,12 +74,12 @@ function readPicker() {
     }));
 }
 
-// Twemoji 저장소에 있는 svg 파일 이름들
-async function readAssets() {
-  const listing = await json(`https://data.jsdelivr.com/v1/packages/gh/jdecked/twemoji@${TWEMOJI}?structure=flat`, Listing);
-  const ids = (listing.files || []).map((f) => f.name).filter((n) => n.startsWith("/assets/svg/"));
+// 설치된 Twemoji 패키지에 있는 svg 파일 이름들
+function readAssets() {
+  const dir = path.join(PROJECT.root, "dashboard", "node_modules", "@discordapp", "twemoji", "dist", "svg");
+  const ids = fs.readdirSync(dir).filter((n) => n.endsWith(".svg"));
   if (!ids.length) throw new Error("Twemoji 파일 목록을 읽지 못했다");
-  return new Set(ids.map((n) => n.slice("/assets/svg/".length, -".svg".length)));
+  return new Set(ids.map((n) => n.slice(0, -".svg".length)));
 }
 
 type Compacted = z.output<typeof Compact>[number];
@@ -157,7 +156,7 @@ async function main() {
     "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.",
     "// 분류·순서는 디스코드 선택기 그대로.",
     `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
-    `// 그림: twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
+    `// 그림: @discordapp/twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
     "//",
     "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
     "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
@@ -185,7 +184,7 @@ async function main() {
   fs.writeFileSync(OUT, await prettier.format(source, { ...(await prettier.resolveConfig(OUT)), filepath: OUT }));
 
   console.log(groups.map(([n, r]) => `${n}(${r.length})`).join(" "));
-  console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB · twemoji@${TWEMOJI}`);
+  console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB · @discordapp/twemoji@${TWEMOJI}`);
   if (dropped.length) console.log(`뺀 것 ${dropped.length}개: ${dropped.slice(0, 6).join(" ")}${dropped.length > 6 ? " …" : ""}`);
   console.log(noAsset.length ? `그림 파일이 없는 것 ${noAsset.length}개: ${noAsset.slice(0, 8).join(" ")}` : "그림 파일은 전부 있음");
 }

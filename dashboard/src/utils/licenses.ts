@@ -10,8 +10,7 @@ export const FONTS_AND_ART: LicenseItem[] = [
   { name: "Pretendard", license: "SIL OFL 1.1", url: "https://github.com/orioncactus/pretendard" },
   { name: "D2Coding", license: "SIL OFL 1.1", url: "https://github.com/naver/d2-coding-font", note: T.d2codingNote },
   { name: "Material Symbols Rounded", license: "SIL OFL 1.1", url: "https://fonts.google.com/icons" },
-  { name: T.twemojiArt, license: "CC BY 4.0", url: "https://github.com/jdecked/twemoji", note: T.twemojiArtNote },
-  { name: T.twemojiFont, license: "SIL OFL 1.1", url: "https://github.com/mrdrogdrog/twemoji-color-font" },
+  { name: T.twemojiArt, license: "CC BY 4.0", url: "https://github.com/discord/twemoji", note: T.twemojiArtNote },
 ];
 
 export const LIBRARIES: LicenseItem[] = [
@@ -21,7 +20,6 @@ export const LIBRARIES: LicenseItem[] = [
   { name: "VueUse", license: "MIT", url: "https://vueuse.org" },
   { name: "Tailwind CSS", license: "MIT", url: "https://tailwindcss.com" },
   { name: "axios", license: "MIT", url: "https://axios-http.com" },
-  { name: "Twemoji API", license: "MIT", url: "https://github.com/jdecked/twemoji" },
   { name: "Material Color Utilities", license: "Apache 2.0", url: "https://github.com/material-foundation/material-color-utilities" },
 ];
 

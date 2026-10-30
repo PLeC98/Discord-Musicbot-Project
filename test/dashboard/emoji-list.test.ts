@@ -58,7 +58,7 @@ test("디스코드에서 복사한 이름으로 찾을 수 있다", async () => 
 });
 
 test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
-  // 대시보드는 이모지마다 Twemoji 이미지 주소를 코드포인트로 지어 만든다(TwemojiImage.vue).
+  // 대시보드는 이모지마다 Twemoji 그림 주소를 코드포인트로 지어 만든다(TwemojiImage.vue).
   // 주소가 깨지면 그 셀만 조용히 글자로 되돌아가므로, 이름이 나올 수 있는 형식인지 본다.
   const shape = /^[0-9a-f]+(-[0-9a-f]+)*$/;
   const bad = [];
@@ -74,9 +74,9 @@ test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
 });
 
 test("기록된 Twemoji 버전이 대시보드가 고정한 버전과 같다", async () => {
-  // 이미지는 twemoji 패키지가 가리키는 CDN에서 온다. 패키지만 올리고 목록을 다시 만들지 않으면
+  // 그림은 이 패키지에서 화면이 같이 내준다(dashboard/twemoji-images.ts). 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다. 그때 여기서 걸린다.
   // 버전은 범위가 아니라 하나로 고정해 둔다. 설치물이 아니라 package.json을 보므로 대시보드를 깔지 않은 작업 트리에서도 같은 답이다
-  const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "package.json"), "utf8")) as { dependencies: Record<string, string> };
-  assert.equal((await list()).TWEMOJI_VERSION, pkg.dependencies["@twemoji/api"], "scripts/build-emoji-list.ts를 다시 실행해야 한다");
+  const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "package.json"), "utf8")) as { devDependencies: Record<string, string> };
+  assert.equal((await list()).TWEMOJI_VERSION, pkg.devDependencies["@discordapp/twemoji"], "scripts/build-emoji-list.ts를 다시 실행해야 한다");
 });

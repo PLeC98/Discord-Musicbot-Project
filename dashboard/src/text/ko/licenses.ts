@@ -17,7 +17,6 @@ const groupData = "데이터";
 const items = {
   twemojiArt: "Twemoji 그림",
   twemojiArtNote: "ⓒ Twitter, Inc 및 기여자",
-  twemojiFont: "Twemoji COLR 글꼴",
   d2codingNote: "ⓒ NAVER Corporation · 서브셋 수정본을 Musicbot Mono 라는 이름으로 씀",
   modelRegistry: "PocketRisu 모델 레지스트리",
   modelRegistryNote: "AI 모델 정보",
