@@ -14,15 +14,18 @@ import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
-import { httpFor } from "../infra/http.ts";
+import { httpFor, type Judged } from "../infra/http.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 실제 fetch)
 const http = httpFor("sponsorblock");
-const send = http.fetch;
 const useFetch = http.useFetch;
+
+// 주소가 SponsorBlock 구간 API 가 아니면 처음 한 번 경고하고, 다시 답을 받으면 한 줄
+const wrongAnswer = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 조회");
 
 /** 원시 구간 하나(카테고리 전부). 캐시에도 이 모양으로 담는다 */
 type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };
@@ -33,7 +36,7 @@ type Fetched = { raw: RawSegment[] | null; source: Source };
 /** 곡에 걸 구간 · 하이라이트 */
 type Segments = { skipSegments: SkipSegment[]; highlightAt: number | null; source: Source };
 // API 응답(해시 앞자리에 걸린 영상들). 여기서 읽는 필드만
-type ApiVideo = { hash?: string; videoID?: string; segments?: Array<{ category: string; actionType: string; segment?: unknown; votes?: number; locked?: unknown }> };
+type ApiVideo = { videoID: string; segments?: Array<{ category: string; actionType: string; segment?: unknown; votes?: number; locked?: unknown }> };
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
@@ -78,33 +81,59 @@ function normalize(raw: RawSegment[] | null | undefined, enabledCategories: Iter
   return { skipSegments, highlightAt };
 }
 
+/** 구간 API 응답을 가른 것. videos: 그 앞자리에 걸린 영상들(없으면 빈 배열). failed: 답이 아닌 까닭, notApi 면 구간 API 의 응답이 아니다 */
+type Answer = { videos: ApiVideo[] } | { failed: string; notApi: boolean };
+
+const isVideo = (v: unknown): v is ApiVideo => typeof v === "object" && v !== null && typeof (v as ApiVideo).videoID === "string";
+
+function parsed(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * videoId를 라이브로 조회해 원시 세그먼트 배열을 돌려준다. 실패하면 null.
- * 200 + 배열이면 성공이다(이 영상의 세그먼트가 없으면 빈 배열: 실패가 아니라 "구간 없음").
- * 네트워크 · 타임아웃(abort) · 200 이 아닌 응답(404 포함) · 배열이 아닌 응답은 null.
+ * 구간 API 응답을 읽어 가른다. 200 + 영상 배열이 답이고, 404 + JSON 빈 배열은 "구간 없음"이라는 답이다(그 앞자리에 구간이 하나도 없다).
+ * 그 밖의 404(경로가 없는 서버의 HTML 등) · 배열이 아닌 200 · 읽을 수 없는 본문은 구간 API 의 응답이 아니다(주소 · 앞자리 길이가 맞지 않는 미러).
+ * 그 밖의 상태(400 · 429 · 5xx)는 실패
+ */
+async function judgeSegments(res: Response): Promise<Judged<Answer>> {
+  const status = `HTTP ${res.status}`;
+  if (res.status !== 200 && res.status !== 404) return { value: { failed: status, notApi: false }, error: status };
+  const body = parsed(await res.text());
+  const json = res.headers.get("content-type")?.includes("application/json") ?? false;
+  if (res.status === 200 && Array.isArray(body) && body.every(isVideo)) return { value: { videos: body }, error: null };
+  if (res.status === 404 && json && Array.isArray(body) && body.length === 0) return { value: { videos: [] }, error: null };
+  return { value: { failed: status, notApi: true }, error: "구간 API 응답이 아님" };
+}
+
+/**
+ * videoId를 라이브로 조회해 원시 세그먼트 배열을 돌려준다(이 영상의 것이 없으면 빈 배열: 실패가 아니라 "구간 없음").
+ * 답을 받지 못하면 null: 연결 오류 · 시간 초과 · 실패 상태 · 구간 API 가 아닌 응답(운영자 설정 문제라 경고를 남긴다)
  */
 async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
   const sb = config.sponsorblock;
-  const fullHash = crypto.createHash("sha256").update(videoId).digest("hex");
-  const prefix = fullHash.slice(0, sb.hashPrefixLen);
+  const prefix = crypto.createHash("sha256").update(videoId).digest("hex").slice(0, sb.hashPrefixLen);
   const url = `${sb.apiBase}/api/skipSegments/${prefix}` + `?categories=${encodeURIComponent(JSON.stringify(FETCH_CATEGORIES))}` + `&actionTypes=${encodeURIComponent(JSON.stringify(FETCH_ACTION_TYPES))}`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), sb.timeoutMs);
+  let answer: Answer;
   try {
-    const res = await send(url, { headers: { "User-Agent": config.userAgents.bot }, signal: controller.signal });
-    if (res.status !== 200) {
-      // 404 는 그 해시 앞자리에 구간이 하나도 없다는 답이다
-      if (res.status !== 404) log.debug(`SponsorBlock 조회 실패: ${videoId} | HTTP ${res.status}`);
-      return null;
-    }
-    const arr: unknown = await res.json();
-    if (!Array.isArray(arr)) {
-      log.debug(`SponsorBlock 조회 실패: ${videoId} | 응답이 배열이 아님`);
-      return null;
-    }
-    const mine = (arr as ApiVideo[]).filter((v) => v.hash === fullHash || v.videoID === videoId);
-    return mine.flatMap((v) =>
+    answer = await http.read(url, { headers: { "User-Agent": config.userAgents.bot }, signal: AbortSignal.timeout(sb.timeoutMs) }, judgeSegments);
+  } catch (error) {
+    log.debug(`SponsorBlock 조회 실패: ${videoId} | ${messageOf(error)}`);
+    return null;
+  }
+  if ("failed" in answer) {
+    if (answer.notApi) wrongAnswer.fail(`${sb.apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${answer.failed}). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`);
+    else log.debug(`SponsorBlock 조회 실패: ${videoId} | ${answer.failed}`);
+    return null;
+  }
+  wrongAnswer.ok();
+  return answer.videos
+    .filter((v) => v.videoID === videoId)
+    .flatMap((v) =>
       (v.segments || []).map((s) => ({
         category: s.category,
         actionType: s.actionType,
@@ -114,13 +143,6 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
         locked: s.locked ? 1 : 0,
       })),
     );
-  } catch (error) {
-    // abort · 네트워크 오류도 null
-    log.debug(`SponsorBlock 조회 실패: ${videoId} | ${controller.signal.aborted ? `${sb.timeoutMs}ms 초과` : messageOf(error)}`);
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 /**

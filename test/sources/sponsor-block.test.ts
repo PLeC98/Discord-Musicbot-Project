@@ -15,21 +15,27 @@ import * as externalCaches from "../../src/store/external-caches.ts";
 import * as SponsorBlock from "../../src/sources/sponsor-block.ts";
 import config from "../../src/config/index.ts";
 import { fake } from "../helpers/fake.ts";
+import sink from "../../src/infra/log/sink.ts";
+import { _reset as resetLinks, linkStatus } from "../../src/infra/link-status.ts";
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}`);
 
-// 가짜 fetch 를 걸 위치. 테스트마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다.
-// 가짜 응답은 SponsorBlock 이 읽는 필드(status · json)만 가진다. 정하지 않은 테스트가 부르면 실패한다
-type Reply = { status: number; json(): Promise<unknown> };
-const unset = (): Promise<Reply> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
+// 가짜 fetch 를 걸 위치. 테스트마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다. 정하지 않은 테스트가 부르면 실패한다
+const unset = (_init?: RequestInit): Promise<Response> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
 const net = { fetch: unset };
+
+// 실제 서버처럼 JSON 으로 답한다(구간이 없는 앞자리는 404 + [])
+const JSON_TYPE = "application/json; charset=utf-8";
+function reply(body: unknown, status = 200, type = JSON_TYPE) {
+  return new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": type } });
+}
 
 before(() => {
   fs.rmSync(DB_DIR, { recursive: true, force: true });
   stores.open(DB_DIR);
   audioCache.initialize();
   config.sponsorblock.enabled = true; // 테스트 기준 활성
-  SponsorBlock.useFetch(fake<typeof fetch>(() => net.fetch()));
+  SponsorBlock.useFetch(fake<typeof fetch>((_url: unknown, init?: RequestInit) => net.fetch(init)));
 });
 
 after(() => {
@@ -47,10 +53,7 @@ beforeEach(() => {
 // SponsorBlock 해시 엔드포인트 응답 형태로 스텁 (우리 videoId의 세그먼트를 담은 한 항목).
 // 실제 API처럼 항목의 videoID를 조회 대상과 일치시켜 _fetchRaw 필터를 통과하게 한다.
 function stubFetch(videoId: string, segments: unknown[], { status = 200 } = {}) {
-  net.fetch = async () => ({
-    status,
-    json: async () => [{ videoID: videoId, hash: "0".repeat(64), segments }],
-  });
+  net.fetch = async () => reply([{ videoID: videoId, hash: "0".repeat(64), segments }], status);
 }
 
 function seg(category: string, start: number, end: number, actionType = "skip", extra: Record<string, unknown> = {}) {
@@ -118,7 +121,7 @@ test("lookup: 마스터 킬스위치 off면 fetch/캐시 없이 disabled", async
   let called = false;
   net.fetch = async () => {
     called = true;
-    return { status: 200, json: async () => [] };
+    return reply([]);
   };
   const r = await SponsorBlock.lookup("vidDisabled");
   assert.equal(r.source, "disabled");
@@ -161,7 +164,7 @@ test("lookup: 캐시가 있으면 곧바로 캐시로 답하고, 라이브는 �
   net.fetch = async () => {
     asked += 1;
     answer(null);
-    return { status: 200, json: async () => [{ videoID: "vidBoth", hash: "0".repeat(64), segments: [seg("intro", 0, 12, "skip")] }] };
+    return reply([{ videoID: "vidBoth", hash: "0".repeat(64), segments: [seg("intro", 0, 12, "skip")] }]);
   };
   const r = await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
   assert.equal(r.source, "cache");
@@ -182,7 +185,7 @@ test("forTrack: 캐시로 답한 뒤 뒤에서 받은 라이브 답을 기억한
   const answered = new Promise((done) => (answer = done));
   net.fetch = async () => {
     answer(null);
-    return { status: 200, json: async () => [{ videoID: "ytVid9", hash: "0".repeat(64), segments: [seg("intro", 0, 9, "skip")] }] };
+    return reply([{ videoID: "ytVid9", hash: "0".repeat(64), segments: [seg("intro", 0, 9, "skip")] }]);
   };
   const track = { platform: "youtube", id: "ytVid9", audioUrl: "https://youtu.be/ytVid9" };
   assert.equal((await SponsorBlock.forTrack(track, "gFresh"))?.source, "cache");
@@ -214,6 +217,97 @@ test("lookup: 우리 영상 세그먼트 없음(빈 배열)은 라이브 성공 
   assert.deepEqual(r.skipSegments, []);
   const cached = externalCaches.getSponsorSegments("vidEmpty");
   assert.ok(cached && Array.isArray(cached.segments) && cached.segments.length === 0);
+});
+
+// ── 응답 가르기: 구간 없음이라는 답 · 구간 API 가 아닌 응답 · 실패 ─────────────────
+
+const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error]) ?? [];
+const notices = (from: number) =>
+  sink.buffer
+    .slice(from)
+    .filter((e) => e.text.startsWith("SponsorBlock 구간 조회") && e.level !== "debug")
+    .map((e) => [e.level, e.text]);
+const noneStored = (videoId: string) => (externalCaches.getSponsorSegments(videoId) ?? null) === null;
+
+test("404 + JSON 빈 배열 · 200 + 다른 영상만은 '구간 없음'이라는 답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
+  resetLinks();
+  const answers = [
+    reply([], 404), // 그 앞자리에 구간이 하나도 없다
+    reply([]), // 미러는 빈 답도 200 이다
+    reply([{ videoID: "someOtherVid", segments: [seg("intro", 0, 8)] }]),
+  ];
+  for (const [i, res] of answers.entries()) {
+    net.fetch = async () => res;
+    const r = await SponsorBlock.lookup(`vidNoSegs${i}`, { categories: ["intro"] });
+    assert.deepEqual([r.source, r.skipSegments], ["live", []]);
+    assert.deepEqual(externalCaches.getSponsorSegments(`vidNoSegs${i}`)?.segments, []);
+  }
+  assert.deepEqual(outcomes(), [
+    [true, null],
+    [true, null],
+    [true, null],
+  ]);
+});
+
+test("구간 API 가 아닌 응답은 저장하지 않고 연결 실패로 남기며, 처음 한 번 경고하고 다시 답을 받으면 한 줄", async () => {
+  resetLinks();
+  const from = sink.buffer.length;
+  const notApi = [
+    reply("<!DOCTYPE html><pre>Cannot GET /api/api/skipSegments/abcde</pre>", 404, "text/html; charset=utf-8"), // 주소 끝에 /api 를 붙여 넣었다
+    reply({ message: "not found" }, 404),
+    reply("Hash prefix does not match format requirements.", 200), // 앞자리를 4자만 받는 미러
+    reply({ videos: [] }),
+  ];
+  for (const [i, res] of notApi.entries()) {
+    net.fetch = async () => res;
+    assert.equal((await SponsorBlock.lookup(`vidNotApi${i}`, { categories: ["intro"] })).source, "none");
+    assert.ok(noneStored(`vidNotApi${i}`));
+  }
+  stubFetch("vidApiBack", []);
+  assert.equal((await SponsorBlock.lookup("vidApiBack", { categories: ["intro"] })).source, "live");
+
+  assert.deepEqual(outcomes(), [...notApi.map(() => [false, "구간 API 응답이 아님"]), [true, null]]);
+  const base = config.sponsorblock.apiBase;
+  assert.deepEqual(notices(from), [
+    ["warn", `SponsorBlock 구간 조회 실패: ${base}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 404). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`],
+    ["warn", `SponsorBlock 구간 조회 실패: ${base}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 200). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`],
+    ["info", "SponsorBlock 구간 조회 복구(실패 2회)"],
+  ]);
+});
+
+test("400 · 429 · 5xx · 연결 오류는 실패: 저장하지 않고 연결 실패로 남기되 주소 경고는 하지 않는다", async () => {
+  resetLinks();
+  const from = sink.buffer.length;
+  for (const status of [400, 429, 503]) {
+    net.fetch = async () => reply({ message: "x" }, status);
+    assert.equal((await SponsorBlock.lookup(`vidFail${status}`, { categories: ["intro"] })).source, "none");
+    assert.ok(noneStored(`vidFail${status}`));
+  }
+  net.fetch = async () => {
+    throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+  };
+  assert.equal((await SponsorBlock.lookup("vidRefused", { categories: ["intro"] })).source, "none");
+  assert.deepEqual(outcomes(), [
+    [false, "HTTP 400"],
+    [false, "HTTP 429"],
+    [false, "HTTP 503"],
+    [false, "ECONNREFUSED"],
+  ]);
+  assert.deepEqual(notices(from), []);
+});
+
+test("시간 초과는 연결 실패 timeout 으로 남는다", async (t) => {
+  resetLinks();
+  const timeoutMs = config.sponsorblock.timeoutMs;
+  t.after(() => (config.sponsorblock.timeoutMs = timeoutMs));
+  config.sponsorblock.timeoutMs = 20;
+  net.fetch = (init) =>
+    new Promise((_, reject) => {
+      const signal = init!.signal!;
+      signal.addEventListener("abort", () => reject(signal.reason as Error));
+    });
+  assert.equal((await SponsorBlock.lookup("vidSlow", { categories: ["intro"] })).source, "none");
+  assert.deepEqual(outcomes(), [[false, "timeout"]]);
 });
 
 test("lookup: videoId 없으면 none", async () => {
@@ -276,7 +370,7 @@ test("forTrack: 겹쳐 불러도 한 번만 묻는다", async () => {
   let asked = 0;
   net.fetch = async () => {
     asked++;
-    return { status: 200, json: async () => [{ videoID: "ytVidTwice", hash: "0".repeat(64), segments: [] }] };
+    return reply([{ videoID: "ytVidTwice", hash: "0".repeat(64), segments: [] }]);
   };
   const track = { audioUrl: "https://youtu.be/ytVidTwice" };
   await Promise.all([SponsorBlock.forTrack(track, "gEnsure"), SponsorBlock.forTrack(track, "gEnsure")]);
@@ -289,7 +383,7 @@ test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
   let called = false;
   net.fetch = async () => {
     called = true;
-    return { status: 200, json: async () => [] };
+    return reply([]);
   };
   const r = await SponsorBlock.forTrack({ audioUrl: "https://youtu.be/ytVid2" }, "gEnsureOff");
   assert.equal(r, null);

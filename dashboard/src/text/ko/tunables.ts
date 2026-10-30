@@ -36,7 +36,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   SPONSORBLOCK_ENABLED: { label: "SponsorBlock 사용", help: "끄면 조회 · 캐시를 아예 하지 않아요. 상업적으로 쓰면 꺼 두길 권해요(데이터 라이선스가 비상업)." },
   SPONSORBLOCK_CATEGORIES: { label: "기본으로 건너뛸 구간(서버 설정이 없을 때)", help: "" },
   SPONSORBLOCK_API_BASE: { label: "API 주소", help: "미러 · 직접 실행한 서버를 쓸 때만 바꿔요." },
-  SPONSORBLOCK_HASH_PREFIX: { label: "해시 접두어 길이", help: "4~32. 짧을수록 어떤 영상을 조회하는지 덜 드러나고 응답은 커져요." },
+  SPONSORBLOCK_HASH_PREFIX: { label: "해시 접두어 길이", help: "4~32. 짧을수록 어떤 영상을 조회하는지 덜 드러나고 응답은 커져요. 6 이상은 서버가 캐시하지 않아 서버에 부담이 커요." },
   SPONSORBLOCK_TIMEOUT_MS: { label: "조회 제한 시간(ms)", help: "넘으면 저장해 둔 구간을 쓰거나 건너뛰기 없이 재생해요." },
   CACHE_MAX_SIZE_MB: { label: "최대 용량(MB)", help: "넘으면 오래 · 덜 들은 곡부터 지워요." },
   CACHE_MAX_FILES: { label: "최대 파일 수", help: "" },
