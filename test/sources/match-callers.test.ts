@@ -75,20 +75,26 @@ test("동등물: 같은 곡을 같은 줄에서 찾는 중이면 검색 한 벌�
   assert.equal(asked.length, 2 * (primary.length + secondary.length + 1), "끝난 뒤에는 새로 찾는다");
 });
 
-test("동등물: 미리 받기(뒤 줄)가 찾는 곡에 지금 곡(앞 줄)이 붙지 않는다. 찾지 못한 답도 같이 받는다", async () => {
+test("동등물: 미리 받기(뒤 줄)가 찾는 곡에 지금 곡(앞 줄)이 붙지 않는다. 검색 실패도 같이 받는다", async () => {
   let release = () => {};
   const gate = new Promise<void>((done) => (release = done));
   let calls = 0;
+  const down = new Error("검색 실패");
   const failing = async () => {
     calls++;
     await gate;
-    throw new Error("검색 실패");
+    throw down;
   };
   const song = () => ({ title: TARGET.title, artist: TARGET.artist, duration: TARGET.durationSec, requestKey: "sp:lanes" });
-  const background = inGuild("g", () => Promise.all([equivalent.findYouTubeEquivalent(song(), { search: failing }), equivalent.findYouTubeEquivalent(song(), { search: failing })]), "prefetch");
-  const now = equivalent.findYouTubeEquivalent(song(), { search: failing });
+  const background = inGuild("g", () => Promise.allSettled([equivalent.findYouTubeEquivalent(song(), { search: failing }), equivalent.findYouTubeEquivalent(song(), { search: failing })]), "prefetch");
+  const now = equivalent.findYouTubeEquivalent(song(), { search: failing }).catch((error: unknown) => error);
   release();
-  assert.deepEqual(await Promise.all([background, now]), [[null, null], null]);
+  const [behind, ahead] = await Promise.all([background, now]);
+  assert.deepEqual(
+    behind.map((r) => (r.status === "rejected" ? r.reason : r.value)),
+    [down, down],
+  );
+  assert.equal(ahead, down);
   assert.equal(calls, 2 * (primary.length + secondary.length + 1), "뒤 줄 둘은 한 벌, 앞 줄은 따로 한 벌");
 });
 
@@ -119,6 +125,23 @@ test("검색: exact 는 1차 · 2차 검색어를 한꺼번에 묻고, 합친 �
     found.map((c) => c.id),
     all.map((q, i) => (q === primary[1] ? null : `q${i}`)).filter(Boolean),
   );
+});
+
+test('동등물: 검색어가 모두 실패하면(망 끊김) 그 오류를 던진다. "같은 곡 없음"(null)이 되지 않는다. 하나라도 답하면 없음은 없음', async () => {
+  const down = Object.assign(new Error("connect ECONNRESET"), { code: "ECONNRESET" });
+  const failing = async () => {
+    throw down;
+  };
+  const song = (key: string): equivalent.Seeking => ({ title: TARGET.title, artist: TARGET.artist, duration: TARGET.durationSec, requestKey: key });
+  await assert.rejects(equivalent.findYouTubeEquivalent(song("sp:down"), { search: failing }), (error) => error === down);
+  assert.equal((await searchCandidates(TARGET, failing, "cheap")).failed, down, "자동재생 쪽은 실어 보내기만 한다");
+
+  // 한 검색어만 답하고(빈 답) 나머지는 실패: 찾아봤는데 없다
+  const partly = async (query: string) => {
+    if (query === primary[0]) return [];
+    throw down;
+  };
+  assert.equal(await equivalent.findYouTubeEquivalent(song("sp:partly"), { search: partly }), null);
 });
 
 test("검색: cheap 는 1차 앞 둘을 한꺼번에 묻고, 2차는 1차가 빈 것을 본 뒤에 묻는다", async () => {

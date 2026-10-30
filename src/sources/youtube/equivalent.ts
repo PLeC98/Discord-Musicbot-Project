@@ -20,9 +20,10 @@ type Search = (query: string, limit: number) => Promise<Array<{ id?: string | nu
 // 줄을 넘어 공유하지 않는다: 미리 받기(background 줄)가 찾는 곡을 지금 틀면 따로 찾는다(공유하면 사용자가 background 줄을 기다린다)
 const seeking = new Map<string, Promise<string | null>>();
 
-/** 찾은 것 중 가장 맞는 영상의 주소. 없으면 null */
+/** 찾은 것 중 가장 맞는 영상의 주소. 없으면 null. 검색이 하나도 되지 않았으면 그 오류를 던진다(망이 끊겼는데 "같은 곡 없음"이 되지 않게) */
 async function bestOf(target: Target, search: Search): Promise<string | null> {
-  const { candidates, artistChannels } = await searchCandidates(target, search, "exact");
+  const { candidates, artistChannels, failed } = await searchCandidates(target, search, "exact");
+  if (failed) throw failed;
   if (!candidates.length) return null;
   return rankCandidates(candidates, { ...target, artistChannels }).best?.url || null;
 }

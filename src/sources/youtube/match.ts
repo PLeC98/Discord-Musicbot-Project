@@ -487,16 +487,21 @@ function ownUploads<C extends { channel?: string | null; title?: string | null }
  * (라이브는 같은 곡으로서 언제나 오답이고, 선택해 두면 캐시 다운로드가 끝나지 않는다). 한 검색어가 실패해도 나머지로 간다.
  * 검색어는 한꺼번에 요청한다(동시 실행 수는 yt-dlp 줄이 제한한다). exact 는 1차 · 2차 · 아티스트 검색을 함께, cheap 의 2차는 1차가 빈 것을 본 뒤에.
  * artistChannels: 아티스트 검색으로 알아본 채널. 채점할 때 target 에 실어 넘긴다(rankCandidates)
+ * failed: 검색어가 하나도 되지 않았으면 마지막 오류. 후보가 없는 까닭이 "없다"가 아니라 "못 찾았다"다(망 끊김 등)
  */
 async function searchCandidates(target: Target, search: Search, profile: SearchProfile) {
   const p = SEARCH_PROFILES[profile];
   const { primary, secondary } = buildSearchQueries(target);
+  let answered = false;
+  let failed: unknown = null;
   const one = async (query: string, limit: number = p.perQuery) => {
     try {
       const results = (await search(query, limit)) || [];
+      answered = true;
       return results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
     } catch (error) {
       log.debug(`개별 검색어 검색 실패(나머지 결과 사용): "${query}" | ${briefError(error, 1)}`);
+      failed = error;
       return [];
     }
   };
@@ -514,7 +519,7 @@ async function searchCandidates(target: Target, search: Search, profile: SearchP
   // 아티스트 채널의 영상은 2차와 같은 자리(순위를 뒤로 민다)에 더한다
   const extra = channel && artistList ? [ownUploads(artistList, channel, target)] : [];
   const candidates = mergeCandidateLists(primaryLists, [...secondaryLists, ...extra]).filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
-  return { candidates, artistChannels: channel ? [channel] : [] };
+  return { candidates, artistChannels: channel ? [channel] : [], failed: answered ? null : failed };
 }
 
 export { buildSearchQueries, mergeCandidateLists, rankCandidates, scoreCandidate, searchCandidates, SEARCH_PROFILES, W, JUNK_TERMS, VERSION_TERMS, REUPLOAD_TERMS };
