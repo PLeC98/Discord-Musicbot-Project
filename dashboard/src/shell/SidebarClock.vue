@@ -8,10 +8,10 @@
     <span :class="[cell, 'text-on-surface-variant']" :style="minuteAt">{{ mm }}</span>
     <!-- 날짜: 두 줄(월 · 일 / 요일). 폭이 넓어질수록 "10/05" → "10월 5일" → "2026/10/05" → "2026년 10월 5일" -->
     <span class="absolute top-[0.1rem] flex flex-col font-sans font-medium text-xs leading-4 text-on-surface-variant whitespace-nowrap [font-variation-settings:normal] transition-opacity duration-300" :class="open ? 'opacity-100 delay-100' : 'opacity-0'" :style="dateAt">
-      <span class="@min-[12rem]:hidden">{{ shortDate }}</span>
-      <span class="hidden @min-[12rem]:inline @min-[13.25rem]:hidden">{{ month }} {{ day }}</span>
-      <span class="hidden @min-[13.25rem]:inline @min-[15rem]:hidden">{{ year.slice(0, -1) }}/{{ shortDate }}</span>
-      <span class="hidden @min-[15rem]:inline">{{ year }} {{ month }} {{ day }}</span>
+      <span class="@min-[12.5rem]:hidden">{{ shortDate }}</span>
+      <span class="hidden @min-[12.5rem]:inline @min-[13.75rem]:hidden">{{ month }} {{ day }}</span>
+      <span class="hidden @min-[13.75rem]:inline @min-[15.5rem]:hidden">{{ year.slice(0, -1) }}/{{ shortDate }}</span>
+      <span class="hidden @min-[15.5rem]:inline">{{ year }} {{ month }} {{ day }}</span>
       <span>{{ weekday }}</span>
     </span>
   </div>
@@ -44,8 +44,8 @@ const weekday = computed(() => formatDate(now.value, { weekday: "long" }));
 
 const cell = "absolute top-0 whitespace-nowrap origin-top-left transition-[left,top,scale,opacity] spring";
 
-// 영역 가운데(막대 폭의 절반)를 기준으로 숫자 폭 n 개만큼 옮긴 위치
-const at = (n: number) => `calc(var(--bar) / 2 + ${n} * ${DIGIT})`;
+// 아이콘 영역 가운데(왼쪽 여백 --bar-x + 막대 폭의 절반)를 기준으로 숫자 폭 n 개만큼 옮긴 위치
+const at = (n: number) => `calc(var(--bar-x, 0px) + var(--bar) / 2 + ${n} * ${DIGIT})`;
 // 시: 가운데가 늘 영역 가운데. 폭이 숫자 둘 × 배율이라 왼쪽 끝은 -1 × 배율
 // 펼친 한 줄은 숫자의 보이는 위아래 가운데가 영역(36px) 가운데에 오게 조금 내린다(줄 상자 가운데보다 숫자가 위에 앉는다. 화면에서 잰 값)
 const BIG_TOP = "0.140625rem";

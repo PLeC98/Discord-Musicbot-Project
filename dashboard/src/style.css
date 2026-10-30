@@ -335,11 +335,15 @@
 }
 
 /* 한 줄 글이 넘치면 … 대신 끝을 투명하게. 넘치지 않으면 스크롤 타임라인이 비활성이라 마스크가 걸리지 않는다.
-   마스크는 content box 기준이라 오른쪽 padding 에는 글이 보이지 않는다(끝에 붙지 않게). 스크롤 타임라인이 없는 브라우저는 … 그대로 */
+   마스크는 content box 기준이라 오른쪽 padding 에는 글이 보이지 않는다(끝에 붙지 않게). 스크롤 타임라인이 없는 브라우저는 … 그대로,
+   padding 에 글이 보이지 않는 것은 clip-path 로 맞춘다 */
 @utility fade-end {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  @supports not (animation-timeline: scroll()) {
+    clip-path: content-box;
+  }
   @supports (animation-timeline: scroll()) {
     text-overflow: clip;
     animation: fade-end linear both;
@@ -470,6 +474,13 @@ body {
 }
 .sb-auto-hide::-webkit-scrollbar-thumb {
   background-color: color-mix(in oklab, var(--md-on-surface) var(--sb-thumb-mix), transparent);
+}
+/* 사이드바 서버 목록: 칸을 줄여 막대 폭을 덜 늘린다. 손잡이 4px, 여백은 왼쪽 1px · 오른쪽 3px(다른 스크롤바와 같다) */
+.rail-list::-webkit-scrollbar {
+  width: 8px;
+}
+.rail-list::-webkit-scrollbar-thumb {
+  border-width: 3px 3px 3px 1px;
 }
 @supports not selector(::-webkit-scrollbar) {
   .sb-auto-hide {
