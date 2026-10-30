@@ -465,7 +465,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
   // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
   if (start.failure && !opened) {
-    if (start.failure.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+    if (start.failure.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     else if (!player.currentTrack && player.queue.length === 0) await player.finishQueue();
     return { success: false, ...start.failure };
   }

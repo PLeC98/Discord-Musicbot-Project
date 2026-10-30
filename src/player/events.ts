@@ -6,7 +6,7 @@
 //                               cause 는 버린 까닭(dispose 의 end: forced-disconnect · inactivity-timeout · voice-lost 등). 없으면 패널 모양이 곧 까닭
 //   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡 · 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
-//   disposed(player, reason)    플레이어를 버렸다(reason: 버린 까닭). 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
+//   disposed(player, reason, end) 플레이어를 버렸다(reason: 로그에 남는 까닭, end: 끝의 종류 PlayerEnd). 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
 //   notice(player, code, detail)     텍스트 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/player-notices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 //   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 끝난 패널의 문구를 고친다
@@ -14,7 +14,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { messageOf } from "../rules/error-kind.ts";
-import type { Player } from "./player.ts";
+import type { Player, PlayerEnd } from "./player.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };
@@ -38,7 +38,7 @@ type EventArgs = {
   ended: [player: Player, reason: string, cause?: string];
   started: [player: Player];
   released: [player: Player, textChannelId: string];
-  disposed: [player: Player, reason: string];
+  disposed: [player: Player, reason: string, end: PlayerEnd];
   notice: [player: Player, code: NoticeCode, detail: Notices[NoticeCode]];
   touched: [guildId: string];
   leaving: [player: Player, leavesAt: number | null];
@@ -83,10 +83,10 @@ function released(player: Player, textChannelId: string) {
 }
 
 // 버리는 도중에 부른다. 듣는 쪽의 실패가 정리를 끊지 않게 한다
-function disposed(player: Player, reason: string) {
+function disposed(player: Player, reason: string, end: PlayerEnd) {
   for (const fn of listeners.disposed) {
     try {
-      fn(player, reason);
+      fn(player, reason, end);
     } catch (error) {
       log.warn(`플레이어 정리 알림 처리 실패: ${messageOf(error)}`);
     }

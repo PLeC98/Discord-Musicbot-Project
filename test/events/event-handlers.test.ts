@@ -265,7 +265,7 @@ test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 �
 
   await guildDelete.execute(bot, guild);
 
-  assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove" }]);
+  assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove", end: "guild-gone" }]);
   assert.equal(sessions().load("g-left"), null);
   assert.equal(await panelRecords.getPanel("g-left"), null);
   settings.forgetCache();

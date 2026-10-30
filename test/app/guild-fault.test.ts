@@ -26,7 +26,7 @@ function world({ track = true } = {}) {
 test("곡이 있으면 세션을 저장하고 채널에 남긴 채 버린 뒤 그 서버만 복원한다", async () => {
   const { steps, fault } = world();
   await fault("g1", new Error("버그"), "시험");
-  assert.deepEqual(steps, ["dispose:save:stay:-:fault", "restore:g1"]);
+  assert.deepEqual(steps, ["dispose:save:stay:-:fault-restart", "restore:g1"]);
 });
 
 test("플레이어가 없으면(명령 · 화면 쪽) 로그만. 지킬 곡이 없으면 평소처럼 버린다", async () => {
@@ -36,7 +36,7 @@ test("플레이어가 없으면(명령 · 화면 쪽) 로그만. 지킬 곡이 �
 
   const idle = world({ track: false });
   await idle.fault("g1", new Error("버그"), "시험");
-  assert.deepEqual(idle.steps, ["dispose:remove:leave:-:fault"]);
+  assert.deepEqual(idle.steps, ["dispose:remove:leave:-:fault-cleared"]);
 });
 
 test(`같은 서버에서 ${WINDOW_MS / 60_000}분 안에 ${MAX_RESETS}번을 넘으면 세션을 삭제하고 그 서버만 멈춘다. 시간이 지나면 다시 센다`, async () => {
@@ -49,7 +49,7 @@ test(`같은 서버에서 ${WINDOW_MS / 60_000}분 안에 ${MAX_RESETS}번을 �
   steps.length = 0;
   clock.now += WINDOW_MS;
   await fault("g1", new Error("버그"), "시험");
-  assert.deepEqual(steps, ["dispose:save:stay:-:fault", "restore:g1"]);
+  assert.deepEqual(steps, ["dispose:save:stay:-:fault-restart", "restore:g1"]);
 });
 
 test("다시 시작하는 중에 같은 서버에서 난 오류는 그 다시 시작이 맡는다", async () => {

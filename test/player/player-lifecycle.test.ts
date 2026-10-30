@@ -656,7 +656,7 @@ test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 �
   p.pause.setUser(true);
 
   const from = sink.buffer.length;
-  await p.dispose({ reason: "정지", session: "remove" });
+  await p.dispose({ reason: "정지", session: "remove", end: "stop" });
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
@@ -681,7 +681,7 @@ test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 
   p.currentTrack = yt("ttttttttttt");
   p.queue = [yt("uuuuuuuuuuu")];
 
-  await p.dispose({ reason: "나가며 저장", session: "save" });
+  await p.dispose({ reason: "나가며 저장", session: "save", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["leave"]);
@@ -702,7 +702,7 @@ test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포�
   p.currentTrack = yt("vvvvvvvvvvv");
   p.previousTracks = [yt("wwwwwwwwwww")];
 
-  await p.dispose({ reason: "시험", session: "remove" });
+  await p.dispose({ reason: "시험", session: "remove", end: "stop" });
   h.dispose(p);
 
   assert.equal(destroyed, 1);
@@ -721,7 +721,7 @@ test("버리면 타이머와 함께 대기열 미리 다운로드 · 세션 동�
   const stopped: string[] = [];
   p.warmer.stop = () => void stopped.push("warmer");
   p.persistence.stopStateSync = () => void stopped.push("sync");
-  await p.dispose({ reason: "시험", session: "keep" });
+  await p.dispose({ reason: "시험", session: "keep", end: "stop" });
   const atDispose = [...stopped].sort();
   h.dispose(p);
   assert.deepEqual(atDispose, ["sync", "warmer"]);
@@ -732,8 +732,8 @@ test("버리기는 한 번만 한다. 두 번째 부름은 아무것도 하지 �
   const seen = embeds(p);
   p.currentTrack = yt("aaaaaaaaaaa");
 
-  await p.dispose({ reason: "첫째", session: "remove", panel: "stop" });
-  await p.dispose({ reason: "둘째", session: "save", panel: "leave" });
+  await p.dispose({ reason: "첫째", session: "remove", panel: "stop", end: "stop" });
+  await p.dispose({ reason: "둘째", session: "save", panel: "leave", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["remove"]);
@@ -745,7 +745,7 @@ test("버리기(세션 그대로): 저장도 삭제도 하지 않는다. 따로 
   const p = h.makePlayer();
   p.currentTrack = yt("bbbbbbbbbbb");
 
-  await p.dispose({ reason: "교체", session: "keep" });
+  await p.dispose({ reason: "교체", session: "keep", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, []);
@@ -761,7 +761,7 @@ test("버리기(세션 그대로): 메모리를 비워도 저장된 곡 행은 �
   trackState.setCurrent(p, yt("kkkkkkkkkk1"));
   trackState.enqueue(p, [yt("kkkkkkkkkk2")]);
 
-  await p.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+  await p.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "stop" });
   h.dispose(p);
 
   const left = sessions().load("gkeep");
@@ -779,7 +779,7 @@ test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고�
     throw new Error("패널 고치기 실패");
   });
   try {
-    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected" });
+    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "stop" });
   } finally {
     off();
     h.dispose(p);
@@ -1794,11 +1794,11 @@ test("오디오 플레이어의 전이는 누가 쏘든 이 서버의 문맥에�
 test("버리기: stay 면 음성 채널에 남긴 채 연결만 정리하고(서버 하나 다시 시작), 아니면 나간다", async () => {
   const stay = h.makePlayer();
   const kept = stay.connection as unknown as { destroyed: string[] };
-  await stay.dispose({ reason: "시험", session: "keep", stay: true });
+  await stay.dispose({ reason: "시험", session: "keep", stay: true, end: "stop" });
   assert.deepEqual(kept.destroyed, ["stay"]);
 
   const leave = h.makePlayer();
   const left = leave.connection as unknown as { destroyed: string[] };
-  await leave.dispose({ reason: "시험", session: "keep" });
+  await leave.dispose({ reason: "시험", session: "keep", end: "stop" });
   assert.deepEqual(left.destroyed, ["leave"]);
 });

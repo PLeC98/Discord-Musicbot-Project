@@ -44,7 +44,7 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
 
   // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머 · 상태 동기화 · 캐시 퇴거 보호가
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
-  if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep" });
+  if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep", end: "replaced" });
 
   const player = ensurePlayer(bot, { guild, textChannel: textChannel ?? (await resolveFallbackTextChannel(guild)), voiceChannel: channel });
   // 지금 곡이 없고 대기열만 있는 세션도 복원한다(첫 곡에서 멈춘 채)
@@ -59,7 +59,7 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
     await player.voice.connect();
   } catch {
     // 실패 원인은 음성 연결 쪽이 로그에 남긴다
-    await player.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+    await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     return { kind: "refused", code: "voice-failed" };
   }
   waitEmpty(player);
@@ -86,7 +86,7 @@ async function restore(player: Player, saved: RestoredSession): Promise<JoinResu
     return { kind: "restored", player, track: outcome === "restored" || outcome === "parked" ? player.currentTrack : null, left: player.queue.length, parked: outcome === "parked" };
   } catch (error) {
     log.error("세션 복원 실패:", messageOf(error));
-    await player.dispose({ reason: "세션 복원 실패", session: "keep" });
+    await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
     return { kind: "restore-error" };
   }
 }

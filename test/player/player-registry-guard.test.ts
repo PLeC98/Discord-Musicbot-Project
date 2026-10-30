@@ -84,7 +84,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
       if (this.lifecycle.disposed) return;
       this.disposeCalls.push(reason);
       this.lifecycle.to("disposed", reason);
-      playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason);
+      playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason, "stop");
     },
   });
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
@@ -122,10 +122,10 @@ test("늦게 버려진 옛 플레이어는 레지스트리의 새 플레이어�
   const fresh = makePlayer({ title: "재생 중인 곡", duration: 200 });
   players.set(GUILD, fresh);
 
-  await stale.dispose({ reason: "늦은 정리", session: "keep" });
+  await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
   assert.equal(players.get(GUILD), fresh);
 
-  await fresh.dispose({ reason: "정리", session: "remove" });
+  await fresh.dispose({ reason: "정리", session: "remove", end: "stop" });
   assert.equal(players.has(GUILD), false);
 });
 
@@ -140,8 +140,8 @@ test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은
   t.after(() => (logger.level = level));
   const from = sink.buffer.length;
 
-  await stale.dispose({ reason: "늦은 정리", session: "keep" });
-  await fresh.dispose({ reason: "inactivity-timeout", session: "remove" });
+  await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
+  await fresh.dispose({ reason: "inactivity-timeout", session: "remove", end: "stop" });
 
   const lines = sink.buffer
     .slice(from)

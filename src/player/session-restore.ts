@@ -140,7 +140,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   } catch (error) {
     // 음성 연결 실패 등. 세션은 남긴다(다음 기동 · /join 이 다시 해 본다)
     log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
-    await player.dispose({ reason: "세션 복원 실패", session: "keep" });
+    await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
   }
 }
 

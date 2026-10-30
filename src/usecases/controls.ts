@@ -104,7 +104,7 @@ async function stop(player: MaybePlayer, actor: Actor) {
   const track = player.currentTrack;
   const cleared = player.queue.length;
   log.info(`정지: ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
-  await player.dispose({ reason: "정지", session: "remove", panel: "stop" });
+  await player.dispose({ reason: "정지", session: "remove", panel: "stop", end: "stop" });
   return done({ track, cleared });
 }
 
@@ -345,7 +345,7 @@ async function joinedIdle(target: Player) {
     await target.voice.connect();
     return true;
   } catch {
-    await target.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+    await target.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     return false;
   }
 }

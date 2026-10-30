@@ -86,7 +86,7 @@ test("재생 단계: 틀지 못하면 idle 로 돌아오고, 정지하면 dispos
   assert.equal(p.lifecycle.phase, "idle");
   assert.equal(p.isPlayStarting, false);
 
-  await p.dispose({ reason: "정지", session: "remove" });
+  await p.dispose({ reason: "정지", session: "remove", end: "stop" });
   assert.equal(p.lifecycle.phase, "disposed");
 });
 
@@ -980,7 +980,7 @@ test("트는 사이에 플레이어가 버려지면 틀지 않고 출력을 dest
   // 위치 이동(0 이 아님)이라 인트로 조회를 건너뛰고, 리소스를 만든 뒤 SponsorBlock 답을 기다린다
   const playing = p.play(3000);
   while (calls.resources.length === 0) await new Promise((r) => setImmediate(r));
-  await p.dispose({ reason: "테스트", session: "keep" });
+  await p.dispose({ reason: "테스트", session: "keep", end: "stop" });
   answer(null);
   const r = await playing;
   h.dispose(p);

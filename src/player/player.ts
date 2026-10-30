@@ -183,6 +183,12 @@ const REAL = {
   pickAutoplay: (cfg: Parameters<typeof autoplayRoute.pickTrack>[0], recent: Parameters<typeof autoplayRoute.pickTrack>[1], deps?: AutoplayDeps) => autoplayRoute.pickTrack(cfg, recent, deps),
 };
 type Boundary = typeof REAL;
+/**
+ * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause) · 끝 알림(disposed)을 듣는 쪽이 가른다.
+ * 사람이 끝냄: stop · leave. 기다리다 나감: queue-drained · inactivity-timeout. 디스코드 쪽: forced-disconnect · stage-ended · stage-disconnect · channel-gone · voice-lost · guild-gone · operator-leave.
+ * 세션을 남기고 버림: connect-failed · restore-failed · adopt-failed · replaced(새 플레이어가 곧 선다). 오류: fault(되풀이되어 멈춤) · fault-cleared(곡 없이 정리) · fault-restart(곧 복원한다)
+ */
+type PlayerEnd = "stop" | "leave" | "queue-drained" | "inactivity-timeout" | "forced-disconnect" | "stage-ended" | "stage-disconnect" | "channel-gone" | "voice-lost" | "guild-gone" | "operator-leave" | "connect-failed" | "restore-failed" | "adopt-failed" | "replaced" | "fault" | "fault-cleared" | "fault-restart";
 /** 갭리스 전환에서 스플라이서에게 묻고 부르는 필드 */
 type Switchable = Pick<AudioSplicer, "destroyed" | "switchPending" | "emittedMs" | "slips" | "planSwitch"> & { once(event: "switched", listener: (ms: number) => void): unknown };
 let defaultBoundary: Boundary = REAL;
@@ -545,7 +551,7 @@ class Player {
     // 음성에 붙지 못했다. 넘기거나 세지 않는다(다음 곡도 붙지 못한다). 곡 추가는 스스로 정리하고(finishByCaller), 음성 복구 중이면 복구가 다시 연다. 그 밖은 세션을 남기고 버린다
     if (codeOf(error) === "voice-failed") {
       log.warn(`음성에 붙지 못해 재생하지 못합니다: ${this._trackLabel()} | ${messageOf(error)}`);
-      if (!this.finishByCaller && !this.isRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+      if (!this.finishByCaller && !this.isRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
       return { ok: false, code: "voice-failed", error } satisfies PlayResult;
     }
     // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음 · 세션 복원) 실패로 세지 않고 알리고 넘긴다
@@ -824,7 +830,7 @@ class Player {
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect · inactivity-timeout · leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
-  async dispose({ reason, session, panel, end = "stop", stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end?: string; stay?: boolean }) {
+  async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
@@ -844,14 +850,14 @@ class Player {
     } catch (error) {
       log.error("정리 중 오류:", error);
     }
-    playerEvents.disposed(this, reason);
+    playerEvents.disposed(this, reason, end);
     // 패널은 정리가 끝난 뒤에. 패널 참조(텍스트 채널 · 메시지)를 놓기 전에 끝난 모양으로 고친다
     if (panel) await playerEvents.ended(this, panel, end).catch((error) => log.warn(`종료된 재생 패널 갱신 실패: ${messageOf(error)}`));
     this._dropPanel();
   }
 
   // 버린 플레이어는 곡 끝 처리(다음 곡 · 재시도)를 하지 않는다. 끝 줄은 여기서 남긴다
-  _endPlayback(end: string) {
+  _endPlayback(end: PlayerEnd) {
     const ending = this.currentTrack ? this._trackLabel() : null;
     trackState.reset(this, { history: true });
     this.audioPlayer.removeAllListeners();
@@ -1628,5 +1634,5 @@ class Player {
   }
 }
 
-export type { Boundary, PanelMessage, PanelHook };
+export type { Boundary, PanelMessage, PanelHook, PlayerEnd };
 export { Player };

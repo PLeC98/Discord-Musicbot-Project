@@ -103,7 +103,7 @@ class IdleLeave {
       this.emptyAt = null;
       if (player.queue.length !== 0 || player.currentTrack) return;
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      bestEffort(log, player.dispose({ reason, session: "remove", panel: "disconnected" }), "대기열 소진으로 나가기");
+      bestEffort(log, player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }), "대기열 소진으로 나가기");
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 

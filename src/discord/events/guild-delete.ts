@@ -11,7 +11,7 @@ import type { ClientEvent } from "../../app/main.ts";
 const exported: ClientEvent<Events.GuildDelete> = {
   name: Events.GuildDelete,
   async execute({ players }, guild) {
-    await players.get(guild.id)?.dispose({ reason: "서버에서 나감", session: "remove" });
+    await players.get(guild.id)?.dispose({ reason: "서버에서 나감", session: "remove", end: "guild-gone" });
     forgetGuild(guild.id, guild.channels.cache.keys());
     panelRecords.forget(guild.id);
     log.info(`서버에서 나갔습니다: ${guild.name} (${guild.id}). 저장된 대기열 · 패널 위치 · 음성 채널 상태를 삭제했습니다`);

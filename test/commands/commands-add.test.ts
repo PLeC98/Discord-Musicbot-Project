@@ -478,7 +478,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   // 진짜처럼 버림을 알린다. 레지스트리에서 빼기는 실제 경로(알림)로
   const dispose = async (o: { session: string }) => {
     calls.push(`dispose:${o.session}`);
-    playerEvents.disposed(w.player, "replaced");
+    playerEvents.disposed(w.player, "replaced", "replaced");
   };
   Object.assign(w.player, { voice: { isAlive: () => false }, guild: w.guild, dispose });
   const { it } = interaction(w);

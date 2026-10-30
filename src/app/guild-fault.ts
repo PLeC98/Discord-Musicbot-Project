@@ -40,13 +40,13 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
 
     // 지킬 곡이 없으면 다시 시작할 것도 없다. 평소처럼 버린다
     if (!player.currentTrack && player.queue.length === 0) {
-      await player.dispose({ reason: "모르는 오류로 정리", session: "remove", end: "fault" });
+      await player.dispose({ reason: "모르는 오류로 정리", session: "remove", end: "fault-cleared" });
       return;
     }
     resetting.add(guildId);
     try {
       log.warn(`서버 ${guildId}만 다시 시작합니다(세션 저장 → 정리 → 복원)`);
-      await player.dispose({ reason: "모르는 오류로 다시 시작", session: "save", stay: true, end: "fault" });
+      await player.dispose({ reason: "모르는 오류로 다시 시작", session: "save", stay: true, end: "fault-restart" });
       await restore(guildId);
     } catch (e) {
       log.error(`서버 ${guildId} 다시 시작 실패:`, e);

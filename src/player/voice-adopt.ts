@@ -33,7 +33,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
       await player.voice.connect();
     } catch (error) {
       log.warn(`세션 없이 남은 음성 채널에 재연결하지 못해 정리합니다: "${channel.name}" (${guild.name}) | ${messageOf(error)}`);
-      await player.dispose({ reason: "남은 채널 이어받기 실패", session: "keep" });
+      await player.dispose({ reason: "남은 채널 이어받기 실패", session: "keep", end: "adopt-failed" });
       continue;
     }
     log.info(`세션 없이 음성 채널에 남아 있던 봇을 이어받습니다: "${channel.name}" (${guild.name})`);
