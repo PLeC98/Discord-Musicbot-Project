@@ -15,7 +15,8 @@ const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { fake } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { useDefaultDocuments } = await import("../helpers/config-docs.ts");
-const { zip, unzip } = await import("../../src/infra/zip.ts");
+const { unzip } = await import("../../src/infra/zip.ts");
+const { zipped } = await import("../helpers/zip.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
 const settingsDocs = await import("../../src/store/settings-docs.ts");
@@ -97,7 +98,7 @@ const rewrite = (file: Buffer, change: (json: Record<string, unknown>) => void) 
   const entries = unzip(file);
   const json = settingsOf(file);
   change(json);
-  return zip(entries.map((one) => (one.name === "settings.json" ? { name: one.name, data: Buffer.from(JSON.stringify(json)) } : one)));
+  return zipped(entries.map((one) => (one.name === "settings.json" ? { name: one.name, data: Buffer.from(JSON.stringify(json)) } : one)));
 };
 const square = (side: number) =>
   sharp({ create: { width: side, height: side, channels: 4, background: { r: 10, g: 120, b: 200, alpha: 1 } } })
@@ -192,7 +193,7 @@ test("문서를 불러오면 저장 번호가 올라 열어 둔 편집기는 낡
 });
 
 test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모두 알리고 아무것도 바꾸지 않는다", async () => {
-  const file = rewrite(await exported(), (json) => {
+  const file = await rewrite(await exported(), (json) => {
     (json.documents as Record<string, unknown>).status = { interval: 1, messages: [] };
     json.tunables = { QUEUE_MAX_TRACKS: "abc" };
   });
@@ -212,16 +213,16 @@ test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모
 
 // 평문으로 남는 필드에 비밀 헤더를 적어 불러오지 못한다(저장 때와 같은 검사)
 test("AI 설정의 추가 인자에 비밀 헤더가 있으면 꺼 두었어도 불러오지 않는다", async () => {
-  const file = rewrite(await exported(), (json) => {
+  const file = await rewrite(await exported(), (json) => {
     (json.documents as Record<string, unknown>).ai = { enabled: true, provider: "openai", model: "m", extra: "header::Authorization=Bearer sk-몰래" };
   });
   assert.equal((await send("import?items=ai", file)).status, 400);
-  const off = rewrite(file, (json) => ((json.documents as Record<string, { enabled: boolean }>).ai.enabled = false));
+  const off = await rewrite(file, (json) => ((json.documents as Record<string, { enabled: boolean }>).ai.enabled = false));
   assert.equal((await send("import?items=ai", off)).status, 400, "꺼 둔 설정이어도");
 });
 
 test("파일에 없는 항목 · 모르는 항목 · 빈 목록은 거절한다", async () => {
-  const file = rewrite(await exported(), (json) => delete (json.documents as Record<string, unknown>).genres);
+  const file = await rewrite(await exported(), (json) => delete (json.documents as Record<string, unknown>).genres);
   assert.equal(rowsOf((await preview(file)).json).genres.inFile, false);
   assert.equal((await send("import?items=genres", file)).status, 400);
   assert.equal((await send("import?items=guilds", file)).status, 400, "없어진 항목");
@@ -230,7 +231,7 @@ test("파일에 없는 항목 · 모르는 항목 · 빈 목록은 거절한다"
 });
 
 test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 알린다", async () => {
-  const full = zip([
+  const full = await zipped([
     { name: ".env", data: Buffer.from("DISCORD_TOKEN=x") },
     { name: "database/settings.restore.db", data: Buffer.from("db") },
   ]);
@@ -240,7 +241,7 @@ test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 
 });
 
 test("ZIP 이 아니거나 settings.json 이 없거나 모르는 형식이면 bad-archive", async () => {
-  const cases = [Buffer.from("그냥 글"), zip([{ name: "other.json", data: Buffer.from("{}") }]), rewrite(await exported(), (json) => (json.format = 2))];
+  const cases = [Buffer.from("그냥 글"), await zipped([{ name: "other.json", data: Buffer.from("{}") }]), await rewrite(await exported(), (json) => (json.format = 2))];
   for (const file of cases) {
     const { status, json } = await preview(file);
     assert.deepEqual([status, json.code], [400, "bad-archive"]);
@@ -271,7 +272,7 @@ test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 �
   assert.equal(fs.readdirSync(faviconDir).length, 5, "목록 하나 · 이미지마다 둘, 48 의 파일은 치웠다");
 
   appearance.removeFavicon(32, appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.current!);
-  const cleared = zip(unzip(first).map((one) => (one.name === "favicon/index.json" ? { name: one.name, data: Buffer.from('{"slots":{}}') } : one)));
+  const cleared = await zipped(unzip(first).map((one) => (one.name === "favicon/index.json" ? { name: one.name, data: Buffer.from('{"slots":{}}') } : one)));
   assert.equal((await send("import?items=favicon", cleared)).status, 200);
   assert.deepEqual(currents(), []);
   assert.deepEqual(
@@ -283,14 +284,14 @@ test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 �
 test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하고 불러오지 않는다. 목록이 없는(예전 모양) 파일은 파비콘이 없는 것으로 본다", async () => {
   await appearance.addFavicon(32, await square(32));
   const file = await exported("favicon");
-  const missing = zip(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
+  const missing = await zipped(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
   assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있습니다."]);
-  const broken = zip(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
+  const broken = await zipped(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
   assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["망가졌거나 크기가 맞지 않는 이미지가 있습니다."]);
   assert.notEqual((await send("import?items=favicon", broken)).status, 200);
   assert.deepEqual(currents(), [32], "불러오지 않았다");
 
-  const old = zip([...unzip(rewrite(file, (json) => (json.favicons = ["32.png"]))).filter((one) => !one.name.startsWith("favicon/")), { name: "favicon/32.png", data: await square(32) }]);
+  const old = await zipped([...unzip(await rewrite(file, (json) => (json.favicons = ["32.png"]))).filter((one) => !one.name.startsWith("favicon/")), { name: "favicon/32.png", data: await square(32) }]);
   assert.equal(rowsOf((await preview(old)).json).favicon.inFile, false);
 });
 
@@ -298,7 +299,7 @@ test("예전에 봇 설정과 함께 내보낸 파비콘도 불러온다", async
   await appearance.addFavicon(32, await square(32));
   const favicons = unzip(await exported("favicon")).filter((one) => one.name.startsWith("favicon/"));
   const names = favicons.map((one) => one.name.slice("favicon/".length));
-  const old = zip([...unzip(rewrite(await exported("settings"), (json) => (json.favicons = names))), ...favicons]);
+  const old = await zipped([...unzip(await rewrite(await exported("settings"), (json) => (json.favicons = names))), ...favicons]);
   appearance.removeFavicon(32, appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.current!);
 
   const { json } = await preview(old);
@@ -365,7 +366,7 @@ test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 
 
 // 남이 준 파일로 모르고 불러오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
 test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다", async () => {
-  const file = rewrite(await exported("settings"), (json) => {
+  const file = await rewrite(await exported("settings"), (json) => {
     (json.tunables as Record<string, string>).WEBSITE = "https://phish.example";
     const docs = json.documents as Record<string, unknown>;
     docs.ai = { enabled: true, provider: "custom", baseUrl: "https://evil.example/v1", model: "m" };

@@ -1,5 +1,5 @@
 // ZIP 읽기 · 쓰기(설정 내보내기 · 불러오기 · 전체 백업 · 로그인 배경 백업). Node 의 zlib 만 쓴다(deflate · crc32). 이 봇이 만든 파일과 흔한 압축 프로그램이 만든 파일을 읽는다.
-// 쓰기는 작은 것을 메모리로(zip), 큰 것을 스트림으로(writeZip, 파일 · 응답) 쓴다: 바이트로 준 항목은 줄어들면 deflate, 파일로 준 항목은 그대로 담는다(영상 세그먼트 · 이미지는 이미 압축됐다).
+// 쓰기는 스트림으로(writeZip, 파일 · 응답) 쓴다: 바이트로 준 항목은 줄어들면 deflate, 파일로 준 항목은 그대로 담는다(영상 세그먼트 · 이미지는 이미 압축됐다).
 // 4GB 를 넘는 항목 · 위치 · 중앙 디렉터리, 65535 개를 넘는 항목은 ZIP64 로 적는다.
 // 읽기는 읽을 곳(메모리 · 파일)만 다르고 중앙 디렉터리 읽기 · 항목 풀기는 같다. 읽을 때는 항목 수 · 풀린 크기에 상한을 두고,
 // 경로가 폴더 밖을 가리키거나(.. · 절대 경로) 암호 · 모르는 압축이면 거절한다. 풀린 내용은 크기 · CRC 를 맞춰 본다
@@ -161,24 +161,7 @@ function endOf(count: number, directoryAt: number, directoryLength: number, forc
   return Buffer.concat([...parts, end]);
 }
 
-/** 메모리에 묶는다(작은 아카이브: 설정 내보내기 등). 줄어들지 않는 것(이미 압축된 이미지)은 그대로 담는다 */
-function zip(entries: ZipEntry[], at = new Date()): Buffer {
-  const when = dosTime(at);
-  const locals: Buffer[] = [];
-  const centrals: Buffer[] = [];
-  let offset = 0;
-  for (const { name, data } of entries) {
-    const body = dataBody(data);
-    const { local, central } = headersOf(name, body, offset, when);
-    locals.push(local, body.body);
-    centrals.push(central);
-    offset += local.length + body.body.length;
-  }
-  const directory = Buffer.concat(centrals);
-  return Buffer.concat([...locals, directory, endOf(entries.length, offset, directory.length)]);
-}
-
-/** 스트림으로 묶는다(큰 아카이브: 로그인 배경 · 전체 백업). 파일로 준 항목은 그대로 스트림으로 담는다. 쓴 바이트 수. zip64 는 작아도 ZIP64 형식으로 적는다(테스트 · 호환 확인) */
+/** 스트림으로 묶는다(설정 내보내기 · 로그인 배경 · 전체 백업). 파일로 준 항목은 그대로 스트림으로 담는다. 쓴 바이트 수. zip64 는 작아도 ZIP64 형식으로 적는다(테스트 · 호환 확인) */
 async function writeZip(inputs: ZipInput[], sink: Sink, { at = new Date(), zip64 = false }: { at?: Date; zip64?: boolean } = {}): Promise<number> {
   const when = dosTime(at);
   const centrals: Buffer[] = [];
@@ -392,5 +375,5 @@ function openZip(file: string, { maxEntries = 100_000 }: { maxEntries?: number }
   }
 }
 
-export { zip, writeZip, sinkOf, unzip, openZip };
+export { writeZip, sinkOf, unzip, openZip };
 export type { ZipEntry, ZipInput, Central as ZipItem };

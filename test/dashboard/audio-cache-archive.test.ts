@@ -11,7 +11,8 @@ import express from "express";
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { fake } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
-const { zip, unzip } = await import("../../src/infra/zip.ts");
+const { unzip } = await import("../../src/infra/zip.ts");
+const { zipped } = await import("../helpers/zip.ts");
 const { default: config } = await import("../../src/config/index.ts");
 const audioCache = await import("../../src/store/audio-cache.ts");
 const trackLookup = await import("../../src/store/track-lookup.ts");
@@ -207,10 +208,10 @@ test("행 목록이 없거나 모양이 틀리면 bad-archive. 받은 이름이 
   seedFile("yt:aaaaaaaaaa1", 100, 1, 1);
   const file = await exported();
   const entries = unzip(file, { maxBytes: 10_000_000 });
-  const noRows = zip(entries.filter((one) => one.name !== "audio-cache/rows.json"));
+  const noRows = await zipped(entries.filter((one) => one.name !== "audio-cache/rows.json"));
   const rows = JSON.parse(entries.find((one) => one.name === "audio-cache/rows.json")!.data.toString("utf8")) as { files: Array<{ audioKey: string }> };
   rows.files[0].audioKey = "../../x";
-  const broken = zip(entries.map((one) => (one.name === "audio-cache/rows.json" ? { name: one.name, data: Buffer.from(JSON.stringify(rows)) } : one)));
+  const broken = await zipped(entries.map((one) => (one.name === "audio-cache/rows.json" ? { name: one.name, data: Buffer.from(JSON.stringify(rows)) } : one)));
   for (const bad of [noRows, broken]) {
     const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: bad });
     assert.deepEqual([res.status, ((await res.json()) as { code: string }).code], [400, "bad-archive"]);

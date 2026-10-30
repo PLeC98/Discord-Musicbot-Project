@@ -7,7 +7,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { zip, unzip, writeZip, sinkOf, openZip, type ZipInput } from "../../src/infra/zip.ts";
+import { unzip, writeZip, sinkOf, openZip, type ZipInput } from "../../src/infra/zip.ts";
+import { zipped } from "../helpers/zip.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 
 const rejects = (buf: Buffer, options?: Parameters<typeof unzip>[1]) => {
@@ -19,45 +20,45 @@ const rejects = (buf: Buffer, options?: Parameters<typeof unzip>[1]) => {
   return false;
 };
 
-test("묶은 것을 그대로 푼다. 한글 이름 · 빈 파일 · 줄지 않는 내용도", () => {
+test("묶은 것을 그대로 푼다. 한글 이름 · 빈 파일 · 줄지 않는 내용도", async () => {
   const entries = [
     { name: "settings.json", data: Buffer.from(JSON.stringify({ 장르: "팝".repeat(500) })) },
     { name: "favicon/16.png", data: Buffer.from(Array.from({ length: 300 }, (_, i) => (i * 7919) % 256)) },
     { name: "빈 파일.txt", data: Buffer.alloc(0) },
   ];
-  const out = unzip(zip(entries));
+  const out = unzip(await zipped(entries));
   assert.deepEqual(
     out.map((one) => [one.name, one.data.toString("hex")]),
     entries.map((one) => [one.name, one.data.toString("hex")]),
   );
 });
 
-test("항목 수 · 풀린 크기 상한을 넘으면 거절한다", () => {
-  const many = zip(Array.from({ length: 5 }, (_, i) => ({ name: `${i}.txt`, data: Buffer.from("x") })));
+test("항목 수 · 풀린 크기 상한을 넘으면 거절한다", async () => {
+  const many = await zipped(Array.from({ length: 5 }, (_, i) => ({ name: `${i}.txt`, data: Buffer.from("x") })));
   assert.ok(rejects(many, { maxEntries: 4 }));
-  const big = zip([{ name: "big.txt", data: Buffer.alloc(10_000, 1) }]);
+  const big = await zipped([{ name: "big.txt", data: Buffer.alloc(10_000, 1) }]);
   assert.ok(rejects(big, { maxBytes: 9_999 }), "압축은 작아도 풀린 크기로 잰다");
 });
 
-test("폴더 밖 경로 · 깨진 내용 · ZIP 이 아닌 것은 거절한다", () => {
-  for (const name of ["../x", "a/../../x", "/etc/x", "C:/x", "..\\x"]) assert.ok(rejects(zip([{ name, data: Buffer.from("x") }])), name);
+test("폴더 밖 경로 · 깨진 내용 · ZIP 이 아닌 것은 거절한다", async () => {
+  for (const name of ["../x", "a/../../x", "/etc/x", "C:/x", "..\\x"]) assert.ok(rejects(await zipped([{ name, data: Buffer.from("x") }])), name);
   assert.ok(rejects(Buffer.from("그냥 글")));
-  const broken = zip([{ name: "a.txt", data: Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") }]);
+  const broken = await zipped([{ name: "a.txt", data: Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") }]);
   broken[40] ^= 0xff; // 압축된 몸통 한 바이트
   assert.ok(rejects(broken));
 });
 
 // 다른 프로그램이 만든 ZIP 의 흔한 형식: 압축 없이 담은 항목 · 폴더 항목 · 끝 주석
 // Windows PowerShell 5.1 의 Compress-Archive 는 경로를 \ 로 나눈다(사용자가 풀었다 다시 묶은 파일)
-test("\\ 로 나눈 경로는 / 로 읽는다", () => {
+test("\\ 로 나눈 경로는 / 로 읽는다", async () => {
   assert.deepEqual(
-    unzip(zip([{ name: "favicon\\32.png", data: Buffer.from("x") }])).map((one) => one.name),
+    unzip(await zipped([{ name: "favicon\\32.png", data: Buffer.from("x") }])).map((one) => one.name),
     ["favicon/32.png"],
   );
 });
 
-test("압축 없이 담은 항목 · 폴더 항목 · 끝의 주석이 있어도 읽는다", () => {
-  const made = zip([
+test("압축 없이 담은 항목 · 폴더 항목 · 끝의 주석이 있어도 읽는다", async () => {
+  const made = await zipped([
     { name: "dir/", data: Buffer.alloc(0) },
     { name: "dir/a.txt", data: Buffer.from("ab") },
   ]);
