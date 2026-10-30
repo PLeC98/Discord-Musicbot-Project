@@ -215,8 +215,8 @@
               <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
               <div class="grid grid-cols-2 gap-1">
                 <button v-for="g in genres" :key="g.id" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.id)">
-                  <span class="emoji text-lg">{{ g.emoji ?? "" }}</span
-                  ><span class="truncate">{{ g.label }}</span>
+                  <Twemoji v-if="g.emoji" :char="g.emoji" :size="20" class="shrink-0" />
+                  <span class="truncate">{{ g.label }}</span>
                 </button>
               </div>
             </div>
@@ -286,6 +286,7 @@ import { useElementSize, useMediaQuery } from "@vueuse/core";
 import axios from "axios";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
+import Twemoji from "../components/TwemojiImage.vue";
 import VolumeIcon from "../components/VolumeIcon.vue";
 import VolumeSlider from "../components/VolumeSlider.vue";
 import AppWindow from "../shell/AppWindow.vue";
