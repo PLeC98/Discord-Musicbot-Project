@@ -4,7 +4,9 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 const YouTube = await import("../../src/sources/youtube/index.ts");
+const { createPotServer } = await import("../../src/sources/youtube/pot-server.ts");
 const ytdlpOptions = await import("../../src/sources/ytdlp-options.ts");
 const config = (await import("../../src/config/index.ts")).default;
 
@@ -97,10 +99,9 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
   assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
 });
 
-// 스위치 값을 주변 환경에서 읽어 오면 안 된다. 환경의 BGUTIL_ENABLED가 true면
-// "끄면 안 넘긴다"가 확인되지 않은 채 실패로만 뜬다. 두 방향을 직접 세워서 본다.
-// potEnabled()는 부를 때마다 config를 보므로 값을 교체하면 그대로 듣는다.
-test("BGUTIL_ENABLED가 pluginDirs 전달을 정한다", (t) => {
+// 스위치 값을 주변 환경에서 읽어 오면 안 된다. 두 방향을 직접 세워서 본다.
+// 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣는다. 없을 때 실으면 플러그인이 기본 주소(4416)의 남의 서버로 간다
+test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때만 싣고, 그 주소를 넘긴다", async (t) => {
   const { BGUTIL_AVAILABLE } = YouTube._internals;
   const restore = config.bgutil.enabled;
   t.after(() => {
@@ -112,10 +113,24 @@ test("BGUTIL_ENABLED가 pluginDirs 전달을 정한다", (t) => {
   assert.equal(YouTube.potEnabled(), false);
   assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined);
 
-  // 켜고 설치돼 있을 때만 넘어간다. 미설치 환경에서는 켜도 안 넘어가는 것이 맞다
+  // 켜 두어도 띄운 서버가 없으면 싣지 않는다
   config.bgutil.enabled = true;
   assert.equal(YouTube.potEnabled(), BGUTIL_AVAILABLE);
-  assert.equal(YouTube.getYtDlpOptions().pluginDirs === undefined, !BGUTIL_AVAILABLE);
+  assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined);
+
+  // 서버를 띄우면 그 주소를 넘긴다(설치돼 있을 때만)
+  const server = createPotServer({ spawn: () => Object.assign(new EventEmitter(), { stdout: null, stderr: null, kill: () => true }), exists: () => true, freePort: async () => 45999 });
+  await server.start();
+  try {
+    const opts = YouTube.getYtDlpOptions();
+    if (BGUTIL_AVAILABLE) {
+      assert.ok(opts.pluginDirs);
+      assert.deepEqual(opts.extractorArgs, ["youtubepot-bgutilhttp:base_url=http://127.0.0.1:45999"]);
+    } else assert.equal(opts.pluginDirs, undefined);
+  } finally {
+    await server.stop();
+  }
+  assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined, "내리면 싣지 않는다");
 });
 
 // ── 실패 분류 ────────────────────────────────────────────────────────────────

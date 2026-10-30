@@ -6,7 +6,7 @@
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 //
-// 봇은 실행 시 설치된 bgutil 을 감지해 POToken 서버(포트 4416)를 함께 시작한다.
+// 봇은 실행 시 설치된 bgutil 을 감지해 POToken 서버를 함께 시작한다(실행마다 빈 포트).
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import { execSync, execFileSync } from "child_process";
@@ -86,7 +86,7 @@ try {
 
   run("npx tsc", SERVER); // build/main.js 생성 (tsconfig outDir=./build)
 
-  console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 포트 4416에서 함께 시작됩니다.");
+  console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 함께 시작됩니다.");
   if (existed && moved) {
     // yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부한다(경고가 아니라 중단).
     // 봇이 실행해 둔 서버는 설치 전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.

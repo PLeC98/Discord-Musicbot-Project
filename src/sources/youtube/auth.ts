@@ -7,7 +7,8 @@ import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import config from "../../config/index.ts";
-import { baseOptions } from "../ytdlp-options.ts";
+import { argList, baseOptions } from "../ytdlp-options.ts";
+import { potServerUrl } from "./pot-server.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
 import type { CookieSource, YoutubeStatus } from "./status-types.ts";
@@ -45,9 +46,14 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
     jsRuntimes: `node:${process.execPath}` as const,
     // User-Agent를 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 선택해 주고, 그 값이
     // http_headers로 실려 와 재생 요청 헤더가 된다. 덮으면 낡은 단일 값 하나로 뭉개진다.
-    ...(potEnabled() && { pluginDirs: BGUTIL_DIR }),
     ...extraOptions,
   });
+  // 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣고 그 주소를 준다(플러그인의 기본 주소는 남의 서버일 수 있다)
+  const pot = potEnabled() ? potServerUrl() : null;
+  if (pot) {
+    options.pluginDirs = BGUTIL_DIR;
+    options.extractorArgs = [...argList(options.extractorArgs), `youtubepot-bgutilhttp:base_url=${pot}`];
+  }
 
   // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
   // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 쓰지 않는다(config/age-content).

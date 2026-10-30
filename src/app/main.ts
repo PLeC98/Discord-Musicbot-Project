@@ -102,7 +102,7 @@ function main() {
   // 설정(조절값 · 키)은 DB 에 있다. POToken 서버 · 명령 배포 · 대시보드가 설정을 읽기 전에 연다
   if (!openSettings({ potServer, logFile })) return;
   deploySlashCommands();
-  potServer.start();
+  void potServer.start();
   potServer
     .waitReady()
     .then(() => restoreAudioCache())

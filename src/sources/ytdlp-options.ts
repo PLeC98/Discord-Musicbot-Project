@@ -26,4 +26,7 @@ function baseOptions(extra: Flags = {}): Flags {
   };
 }
 
-export { useFfmpeg, baseOptions };
+/** --extractor-args 들. 하나면 글자, 여럿이면 배열로 온다(같은 옵션을 되풀이해 넘긴다) */
+const argList = (args: string | string[] | undefined): string[] => (args === undefined ? [] : Array.isArray(args) ? args : [args]);
+
+export { useFfmpeg, baseOptions, argList };

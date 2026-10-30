@@ -26,7 +26,7 @@ const SPAWN_OPTS = IS_WIN ? {} : { detached: true };
  * yt-dlp 플래그(camelCase). 라이브러리 타입에 없는 것 중 쓰는 필드를 더한다.
  * 출력 템플릿은 하나만 쓴다(yt-dlp 는 종류마다 -o 를 따로 받지만 다운로드 파일 그룹 감시가 하나를 전제한다)
  */
-type YtDlpFlags = Omit<Flags, "output"> & { output?: string; cookiesFromBrowser?: string; extractorArgs?: string; pluginDirs?: string; fragmentRetries?: number; concurrentFragments?: number; loadInfoJson?: string };
+type YtDlpFlags = Omit<Flags, "output"> & { output?: string; cookiesFromBrowser?: string; extractorArgs?: string | string[]; pluginDirs?: string; fragmentRetries?: number; concurrentFragments?: number; loadInfoJson?: string };
 
 /** yt-dlp 가 실패했을 때 던지는 것. message 는 stderr 와 같고, 어떤 실패인지 code 로 구분해 붙인다 */
 type YtDlpError = Error & { stderr?: string; stdout?: string; exitCode?: number; code?: string };

@@ -7,6 +7,7 @@ import * as links from "../../rules/links.ts";
 import youtubedl from "../ytdlp-spawn.ts";
 
 import type { YtDlpFlags as Flags, RunYtDlp } from "../ytdlp-spawn.ts";
+import { argList } from "../ytdlp-options.ts";
 
 /** forceCookies 를 받아 yt-dlp 옵션을 만든다(연령 제한이면 쿠키를 붙여 다시 만든다) */
 type BuildOptions = (forceCookies: boolean) => Flags;
@@ -159,11 +160,13 @@ function requireAudioOnly(result: unknown, options: Flags) {
 
 /**
  * 한 번 호출 + 경고 훑기.
- * 호출부가 extractorArgs를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다.
+ * 호출부가 유튜브 추출기 인자(youtube:…)를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다. 다른 추출기 인자(POToken 주소 등)에는 이어 붙인다.
  * 클라이언트를 하나씩만 넘긴다. 여러 개 넘기면 yt-dlp 가 전부 호출해 포맷을 병합할 뿐 폴백하지 않는다(clients.ts).
  */
 async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl, retry = false): Promise<unknown> {
-  const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
+  const own = argList(options.extractorArgs);
+  const clientArg = `youtube:player_client=${client ?? ""}`;
+  const opts = client && !own.some((arg) => arg.startsWith("youtube:")) ? { ...options, extractorArgs: own.length ? [...own, clientArg] : clientArg } : options;
   // 대시보드에 입력한 쿠키는 이 실행만의 파일로 복호화해 넘기고, 끝나면 yt-dlp 가 갱신한 쿠키를 다시 저장하고 파일을 삭제한다(store/cookie-jar)
   const held = opts.cookies === cookieJar.JAR ? cookieJar.checkout() : null;
   const sent = opts.cookies === cookieJar.JAR ? { ...opts, cookies: held?.file } : opts;

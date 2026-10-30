@@ -10,6 +10,7 @@ import * as procRegistry from "../../infra/process-registry.ts";
 import { linkStatus, type Service } from "../../infra/link-status.ts";
 import { LB_TIMEOUT_MS } from "../../autoplay/sources/lbradio.ts";
 import { anonTokenExpiresAt } from "../../sources/spotify.ts";
+import { potServerUrl } from "../../sources/youtube/pot-server.ts";
 import type { LinkRow } from "../contract/admin.ts";
 import { gateway } from "./gateway.ts";
 
@@ -94,7 +95,8 @@ function potokenRow(): LinkRow {
   const base = { id: "potoken", group: "youtube" as const, name: "POToken", latencyMs: null, lastOkAt: null, error: null };
   if (!config.bgutil.enabled) return { ...base, state: "off", note: "꺼 둠" };
   const running = procRegistry.list().some((p) => p.job === "pot-server");
-  return { ...base, state: running ? "ok" : "fail", note: running ? null : "서버가 떠 있지 않음" };
+  // 서버는 실행마다 빈 포트에 열린다. 떠 있으면 그 주소를 보인다
+  return { ...base, state: running ? "ok" : "fail", note: running ? (potServerUrl()?.replace(/^http:\/\//, "") ?? null) : "서버가 떠 있지 않음" };
 }
 
 function linkRows(client: Client): LinkRow[] {
