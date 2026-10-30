@@ -15,14 +15,14 @@ const { LogManager } = sink;
 const quiet = () => {};
 
 // ── facade: 인자 파싱/레코드 형태 ─────────────────────────────
-test("buildRecord: (msg, ...interp) — util.format 적용", () => {
+test("buildRecord: (msg, ...interp). util.format 적용", () => {
   const r = buildRecord(LEVELS.info, {}, ["안녕 %s", "세계"]);
   assert.equal(r.level, 30);
   assert.equal(r.msg, "안녕 세계");
   assert.equal(typeof r.time, "number");
 });
 
-test("buildRecord: (mergingObj, msg) — 바인딩이 top-level로 병합", () => {
+test("buildRecord: (mergingObj, msg). 바인딩이 top-level로 병합", () => {
   const r = buildRecord(LEVELS.warn, { category: "youtube" }, [{ guildId: "42" }, "실패"]);
   assert.equal(r.level, 40);
   assert.equal(r.msg, "실패");
@@ -30,7 +30,7 @@ test("buildRecord: (mergingObj, msg) — 바인딩이 top-level로 병합", () =
   assert.equal(r.guildId, "42"); // 호출부 merging object
 });
 
-test("buildRecord: (err) — err는 필드로 남고 stack이 msg에 접붙음", () => {
+test("buildRecord: (err). err는 필드로 남고 stack이 msg에 접붙음", () => {
   const e = new Error("펑");
   const r = buildRecord(LEVELS.error, {}, [e]);
   assert.match(r.msg, /펑/);
@@ -38,7 +38,7 @@ test("buildRecord: (err) — err는 필드로 남고 stack이 msg에 접붙음",
   assert.match(String(r.err), /펑/);
 });
 
-test("buildRecord: (obj) 단독 — msg 빈 문자열", () => {
+test("buildRecord: (obj) 단독. msg 빈 문자열", () => {
   const r = buildRecord(LEVELS.info, {}, [{ a: 1 }]);
   assert.equal(r.msg, "");
   assert.equal(r.a, 1);
@@ -199,7 +199,7 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   return res;
 }
 
-test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429 — 무한정 받지 않는다", () => {
+test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429. 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 

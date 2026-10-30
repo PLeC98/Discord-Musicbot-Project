@@ -186,7 +186,7 @@ test("seek: Infinity/비숫자/음수는 400 (라이브 duration 0 클램프 우
   assert.deepEqual(player.calls[0], ["seek", 30000, "dashboard"]);
 });
 
-test("volume: '50junk'/소수는 400 — 구 parseInt는 50으로 통과", async () => {
+test("volume: '50junk'/소수는 400. 구 parseInt는 50으로 통과", async () => {
   freshPlayer();
   for (const volume of ["50junk", 50.5, "1e2junk", [50, 60]]) {
     const r = await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume });

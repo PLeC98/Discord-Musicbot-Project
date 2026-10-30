@@ -89,7 +89,7 @@ test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열·기�
   assert.equal(p.previousTracks.length, 0, "기록 불변");
 });
 
-test("한곡 반복: 스킵도 현재 곡 재시작 — 대기열을 진행시키지 않음", async () => {
+test("한곡 반복: 스킵도 현재 곡 재시작. 대기열을 진행시키지 않음", async () => {
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B")] });
 
@@ -233,7 +233,7 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 
 // ── 조기 종료 재시도 ──────────────────────────────────────────
 
-test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
+test("재시도 예산은 곡마다. 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
 
@@ -263,7 +263,7 @@ test("반복 없음: 스킵은 다음 곡 진행 + 기록 (기존 동작 보존)
   assert.deepEqual(titles(p.previousTracks), ["A"]);
 });
 
-test("반복 없음: 이전곡 연타 체인 — 중복 없이 기록을 거슬러 올라감", async () => {
+test("반복 없음: 이전곡 연타 체인. 중복 없이 기록을 거슬러 올라감", async () => {
   const [A, B, C, D] = ["A", "B", "C", "D"].map((t) => makeTrack(t));
   const p = makePlayer({ current: C, queue: [D], history: [A, B] });
 

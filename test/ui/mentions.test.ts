@@ -53,7 +53,7 @@ test("서식 문자는 이스케이프하되 텍스트는 보존한다", () => {
   assert.ok(escaped.includes("my"));
 });
 
-test("멘션 문자열은 텍스트로 보존된다 — 차단은 allowedMentions가 한다", () => {
+test("멘션 문자열은 텍스트로 보존된다. 차단은 allowedMentions가 한다", () => {
   assert.ok(escapeMd(EVIL_MENTION).includes("@everyone"));
 });
 

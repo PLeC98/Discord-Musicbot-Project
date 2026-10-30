@@ -8,14 +8,14 @@ import { fake } from "../helpers/fake.ts";
 
 const segs = (...pairs: Array<[number, number]>) => pairs.map(([start, end]) => ({ start, end, categories: ["music_offtopic"] }));
 
-test("decide: 인트로(start=0) — 신규 재생(prevSec=-1)에서 발동", () => {
+test("decide: 인트로(start=0). 신규 재생(prevSec=-1)에서 발동", () => {
   const d = SponsorSkipper.decide(segs([0, 8]), -1, 0.5, 200);
   assert.equal(d.action, "seek");
   assert.equal(d.toSec, 8);
   assert.equal(d.prevSec, 8);
 });
 
-test("decide: 중간 구간 — 시작 경계를 넘어선 틱에 발동", () => {
+test("decide: 중간 구간. 시작 경계를 넘어선 틱에 발동", () => {
   // prev=100, cur=101 사이에 start=100.5 들어옴
   const d = SponsorSkipper.decide(segs([100.5, 130]), 100, 101, 240);
   assert.equal(d.action, "seek");
@@ -51,7 +51,7 @@ test("decide: duration 미상(0)이면 끝 구간도 seek로 처리", () => {
   assert.equal(d.toSec, 240);
 });
 
-test("decide: 한 틱에 하나만 — 가장 이른 미처리 구간", () => {
+test("decide: 한 틱에 하나만. 가장 이른 미처리 구간", () => {
   const d = SponsorSkipper.decide(segs([10, 20], [30, 40]), 5, 35, 200);
   assert.equal(d.action, "seek");
   assert.equal(d.toSec, 20);

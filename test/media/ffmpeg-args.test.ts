@@ -49,13 +49,13 @@ test("스트리밍: 입력은 pipe:0. 부르지 않은 곳에 URL이 새지 않�
   }
 });
 
-test("스트리밍 + 오프셋: -ss는 -i 뒤(출력측) — pipe에서 입력측은 출력이 잘린다", () => {
+test("스트리밍 + 오프셋: -ss는 -i 뒤(출력측). pipe에서 입력측은 출력이 잘린다", () => {
   const args = build({ seekMs: 30000 });
   assert.ok(idx(args, "-ss") > idx(args, "-i"), `-ss가 -i보다 뒤여야 함: ${args.join(" ")}`);
   assert.equal(args[idx(args, "-ss") + 1], "30.000");
 });
 
-test("파일 + 오프셋: -ss는 -i 앞(입력측) — 파일은 seek 가능해 이쪽이 빠르다", () => {
+test("파일 + 오프셋: -ss는 -i 앞(입력측). 파일은 seek 가능해 이쪽이 빠르다", () => {
   const args = build({ file: "/cache/track_abc.opus", seekMs: 30000 });
   assert.ok(idx(args, "-ss") < idx(args, "-i"), `-ss가 -i보다 앞이어야 함: ${args.join(" ")}`);
   assert.equal(args[idx(args, "-i") + 1], "/cache/track_abc.opus");
@@ -76,7 +76,7 @@ test("출력 포맷은 두 모드가 동일하고 pipe:1로 끝난다 (출력 �
   }
 });
 
-test("-loglevel은 error — 0(무음)이면 SIGSEGV가 단서 없이 묻힌다", () => {
+test("-loglevel은 error. 0(무음)이면 SIGSEGV가 단서 없이 묻힌다", () => {
   for (const args of [build(), build({ file: "/cache/x.opus" })]) {
     assert.equal(args[idx(args, "-loglevel") + 1], "error", args.join(" "));
   }

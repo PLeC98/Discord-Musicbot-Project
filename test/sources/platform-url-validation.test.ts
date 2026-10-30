@@ -12,14 +12,14 @@ import { codedError } from "../../src/rules/error-kind.ts";
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonical-url.ts");
 
-test("accepts supported media hosts by parsed hostname", () => {
+test("지원하는 미디어 사이트는 파싱한 호스트 이름으로 인식한다", () => {
   assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
   assert.equal(lookup.detectPlatform("https://open.spotify.com/track/123abc"), "spotify");
   assert.equal(lookup.detectPlatform("spotify:track:123abc"), "spotify");
   assert.equal(lookup.detectPlatform("https://soundcloud.com/artist/track"), "soundcloud");
 });
 
-test("does not treat embedded domain text as a trusted media URL", () => {
+test("주소에 도메인 글자가 섞여 있다고 그 사이트 주소로 보지 않는다", () => {
   const internalPlaylist = "http://127.0.0.1:33333/youtube.com/playlist?list=PL123";
   assert.equal(links.isYouTubeURL(internalPlaylist), false);
   assert.equal(links.isYouTubePlaylist(internalPlaylist), false);
@@ -28,7 +28,7 @@ test("does not treat embedded domain text as a trusted media URL", () => {
   assert.equal(links.isSoundCloudURL("https://evil.example/soundcloud.com/artist/track"), false);
 });
 
-test("recognizes canonical YouTube playlists and video IDs", () => {
+test("유튜브 재생목록과 영상 ID를 인식한다", () => {
   assert.equal(links.isYouTubePlaylist("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123"), true);
   assert.equal(links.isYouTubePlaylist("https://youtu.be/dQw4w9WgXcQ?list=PL123"), true);
   assert.equal(links.extractVideoId("https://m.youtube.com/shorts/dQw4w9WgXcQ"), "dQw4w9WgXcQ");
@@ -36,7 +36,7 @@ test("recognizes canonical YouTube playlists and video IDs", () => {
 });
 
 // 형태를 하나라도 놓치면 URL 문자열이 그대로 검색어가 되어 무관한 영상이 재생된다. 형태별로 못박는다.
-test("YouTube URL 형태별 인식 — /live/ 포함", () => {
+test("YouTube URL 형태별 인식: /live/ 포함", () => {
   const shapes = [
     ["https://www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"],
     ["https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"],
@@ -74,7 +74,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
   assert.equal(lookup.isUnsupportedLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), false);
 });
 
-test("cache normalization only canonicalizes genuine YouTube URLs", () => {
+test("캐시 키 정규화는 실제 유튜브 주소만 표준 형태로 바꾼다", () => {
   const disguised = "https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ";
   assert.equal(canonicalUrl(disguised), disguised);
   assert.equal(canonicalUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");

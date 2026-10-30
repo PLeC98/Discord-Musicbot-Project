@@ -81,7 +81,7 @@ test("자동재생 곡이 없으면 평소대로 뒤에 붙인다", () => {
   assert.deepEqual(titles(p.queue), ["내곡1", "내곡2"]);
 });
 
-test("정리는 자동재생 곡만 — 사용자 곡은 남는다", () => {
+test("정리는 자동재생 곡만. 사용자 곡은 남는다", () => {
   const p = { queue: [auto("자동1"), user("내곡"), auto("자동2")] };
   assert.equal(trackState.dropAutoplay(p), 2);
   assert.deepEqual(titles(p.queue), ["내곡"]);
@@ -107,7 +107,7 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
 
 // 뽑기 한 번에 유튜브 검색이 여러 번 나간다. 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰려
 // 뒤이은 다운로드가 403을 맞는다. 급한 것은 첫 곡뿐이므로 나머지는 사이를 둔다.
-test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않는다", async () => {
+test("둘째 곡부터는 쉬었다 뽑는다. 유튜브를 몰아치지 않는다", async () => {
   const p = makePlayer({ prefetch: 3 });
   await ensureAutoplayNext.call(p);
 
@@ -118,7 +118,7 @@ test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않�
 
 // 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라, 한 번에 한 곡씩 넣으면 늘 한 곡 앞만 보인다.
 // 기본값 1 로만 보면 값을 키워도 한 곡만 들어가는 것을 놓친다.
-test("prefetchCount만큼 채운다 — 한 번 불려도 끝까지", async () => {
+test("prefetchCount만큼 채운다. 한 번 불려도 끝까지", async () => {
   const p = makePlayer({ prefetch: 3 });
 
   assert.equal(await ensureAutoplayNext.call(p), true);
@@ -207,7 +207,7 @@ test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
   assert.deepEqual(p.panel, ["create:첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
 });
 
-test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", async () => {
+test("패널이 이미 있으면 고쳐 쓴다. 새로 올리지 않는다", async () => {
   const p = makeNowPlayer({ nowPlayingMessage: { id: "m1" } });
 
   assert.equal(await handleAutoplay.call(p), true);
@@ -215,7 +215,7 @@ test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", 
 });
 
 // 조용히 멈추면 무엇이 잘못됐는지 알 길이 없다. 아무거나 트는 것보다는 끄는 편이 낫다.
-test("고를 곡이 없으면 끄고 알린다 — 아무거나 틀지 않는다", async () => {
+test("고를 곡이 없으면 끄고 알린다. 아무거나 틀지 않는다", async () => {
   const p = makeNowPlayer();
   p.pickAutoplayTrack = async () => null;
 
@@ -258,7 +258,7 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 
 // 제목만 소문자로 낮추고 제외 키워드를 그대로 두면 "Playlist" 같은 대문자 섞인 제외 키워드가 아무것도 필터링하지 못한다.
 // 규칙 자체는 autoplay-filter.test.ts 가 본다. 여기서는 설정에서 뽑기까지, 소스에서 온 후보가 필터를 지나는 길이 실제로 이어지는가를 본다.
-test("설정의 제외 키워드가 뽑기까지 이어진다 — 대소문자를 구분하지 않는다", async () => {
+test("설정의 제외 키워드가 뽑기까지 이어진다. 대소문자를 구분하지 않는다", async () => {
   // 키워드 소스가 부르는 유튜브 검색만 가짜로. 후보가 필터를 지나는 길은 진짜다
   const search = async () => [
     { id: "1", title: "Best Playlist Ever", audioUrl: "https://y/1", duration: 200 },

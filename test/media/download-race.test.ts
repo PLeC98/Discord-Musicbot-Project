@@ -93,7 +93,7 @@ test("임시 경로: 같은 폴더·.opus·부를 때마다 다르다", () => {
   }
 });
 
-test("실패 정리는 내 임시 파일과 그 부스러기만 — 남이 다운로드 중인 파일은 두고 간다", () => {
+test("실패 정리는 내 임시 파일과 그 부스러기만. 남이 다운로드 중인 파일은 두고 간다", () => {
   const mine = tempPathFor(finalPath);
   const theirs = tempPathFor(finalPath);
   const stem = path.basename(mine, ".opus");
@@ -118,7 +118,7 @@ test("실패 정리는 내 임시 파일과 그 부스러기만 — 남이 다�
   fs.rmSync(files.done);
 });
 
-test("게시: 최종 경로로 옮긴다 — 먼저 끝난 쪽이 있으면 내 것을 버린다", async () => {
+test("게시: 최종 경로로 옮긴다. 먼저 끝난 쪽이 있으면 내 것을 버린다", async () => {
   const mine = tempPathFor(finalPath);
   fs.writeFileSync(mine, "내 파일");
 

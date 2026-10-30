@@ -25,7 +25,7 @@ test("아무것도 입력하지 않으면 OP/ED · standard · normal · 음원 
   assert.deepEqual(f.media_links, { require_any: ["audio", "HQ"] });
 });
 
-test("입력하지 않은 필드는 아예 없다 — 빈 배열을 보내면 422다", () => {
+test("입력하지 않은 필드는 아예 없다. 빈 배열을 보내면 422다", () => {
   const f = build({});
   for (const key of ["anime_types", "genres", "tags", "difficulty", "season"]) {
     assert.ok(!(key in f), `${key} 는 없어야 한다`);
@@ -51,7 +51,7 @@ test("받은 대문자를 그대로 되보내지 않는다", () => {
   assert.deepEqual(f.anime_types, ["tv", "movie"]);
 });
 
-test("모르는 값은 버리고 기본값으로 돌아간다 — 422로 소스가 조용히 죽는 것보다 낫다", () => {
+test("모르는 값은 버리고 기본값으로 돌아간다. 422로 소스가 조용히 죽는 것보다 낫다", () => {
   const f = build({ songTypes: ["오프닝"], broadcasts: ["없는값"] });
   assert.deepEqual(f.song_types, ["opening", "ending"]);
   assert.deepEqual(f.broadcasts, ["normal"]);
@@ -87,7 +87,7 @@ test("분기를 입력하지 않으면 그 해 처음부터 끝까지", () => {
   assert.deepEqual(build({ yearFrom: 2020, yearTo: 2021 }).season, { start: "Winter 2020", end: "Fall 2021" });
 });
 
-test("분기만 입력하고 연도가 없으면 무시한다 — 연도 없는 분기는 뜻이 없다", () => {
+test("분기만 입력하고 연도가 없으면 무시한다. 연도 없는 분기는 뜻이 없다", () => {
   assert.equal(build({ seasonFrom: "Summer" }).season, undefined);
 });
 
@@ -143,7 +143,7 @@ test("난이도 분포에서 0 구간을 뺀다", async () => {
   }
 });
 
-test("목록을 못 받아도 던지지 않는다 — 입력란이 안 그려지는 것보다 빈 목록이 낫다", async () => {
+test("목록을 못 받아도 던지지 않는다. 입력란이 안 그려지는 것보다 빈 목록이 낫다", async () => {
   useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 503, text: async () => "" })));
   try {
     sources._seedAnisongStats(null);
@@ -173,7 +173,7 @@ function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; 
 
 const song = (over: Record<string, unknown> = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
 
-test("후보 모양 — 음원 주소·출처·키", async () => {
+test("후보 모양: 음원 주소·출처·키", async () => {
   const s = stub({ songs: [song()], covers: [{ id: 7, coverImage: { extraLarge: "https://cover/7.jpg" } }] });
   try {
     const [cand] = await sources.fetchFrom({ type: "anisongdb" });
@@ -237,7 +237,7 @@ test("AniList ID 가 없으면 ANN 주소를 쓴다", async () => {
 });
 
 // AniList 한도는 분당 30회라 곡마다 조회하면 닿는다.
-test("표지는 묶어서 묻는다 — 곡마다 묻지 않는다", async () => {
+test("표지는 묶어서 묻는다. 곡마다 묻지 않는다", async () => {
   const songs = Array.from({ length: 120 }, (_, i) => song({ amqSongId: i, linked_ids: { anilist: i } }));
   const s = stub({ songs });
   try {

@@ -104,7 +104,7 @@ test("청크가 전체보다 크면 요청 한 번으로 끝난다", async () =>
   assert.equal(s.stats().requests, 1);
 });
 
-test("요청 구간이 이어진다 — 겹치거나 빠지는 바이트가 없다", async () => {
+test("요청 구간이 이어진다. 겹치거나 빠지는 바이트가 없다", async () => {
   const body = makeBody(30_000);
   const seen: Array<{ start: number; end: number }> = [];
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });
@@ -176,7 +176,7 @@ test("느린 소비자에게도 한 바이트도 빠뜨리지 않는다 (중단�
 
 // ── 이어받기 ─────────────────────────────────────────────────
 
-test("중간에 끊기면 받은 위치부터 이어받는다 — 결과는 원본과 같다", async () => {
+test("중간에 끊기면 받은 위치부터 이어받는다. 결과는 원본과 같다", async () => {
   const body = makeBody(50_000);
   const seen: number[] = [];
   const resumed: Array<{ attempts: number; downtimeMs: number; starvedMs: number }> = [];
@@ -248,7 +248,7 @@ test("아무것도 못 받고 연속으로 실패하면 정해진 횟수 뒤 오
   assert.equal(requests, 1 + 1 + 3, "첫 청크 + 끊긴 요청 + 재시도 3회");
 });
 
-test("조금씩이라도 받으면 실패 횟수가 초기화된다 — 여러 번 끊겨도 끝까지 받는다", async () => {
+test("조금씩이라도 받으면 실패 횟수가 초기화된다. 여러 번 끊겨도 끝까지 받는다", async () => {
   const body = makeBody(30_000);
   const s = createChunkedStream({
     url: URL_,
@@ -287,7 +287,7 @@ test("받는 중에 데이터가 멈추면 정체로 보고 다시 요청한다"
   assert.deepEqual(await collect(s), body);
 });
 
-test("첫 요청이 네트워크 오류로 실패해도 다시 시도해 연다 — 재생 전이라 넘겨받기는 묻지 않는다", async () => {
+test("첫 요청이 네트워크 오류로 실패해도 다시 시도해 연다. 재생 전이라 넘겨받기는 묻지 않는다", async () => {
   const body = makeBody(20_000);
   let asked = 0;
   const s = await openChunkedStream({
@@ -324,7 +324,7 @@ test("destroy()는 진행 중인 요청을 abort하고 더 밀어내지 않는�
   assert.equal(pushed, atDestroy, "destroy 이후로는 밀어내지 않는다");
 });
 
-test("중단은 오류가 아니다 — AbortError를 스트림 오류로 올리지 않는다", async () => {
+test("중단은 오류가 아니다. AbortError를 스트림 오류로 올리지 않는다", async () => {
   const body = makeBody(100_000);
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, fetchImpl: fakeFetch(body, { sliceBytes: 512 }) });
   let errored = null;
@@ -654,7 +654,7 @@ test("clen: URL에서 전체 길이를 읽는다 (HEAD 요청 불필요)", () =>
   assert.equal(contentLengthFromUrl("https://r1.googlevideo.com/videoplayback?clen=3626380&itag=251"), 3626380);
 });
 
-test("clen: 없거나 쓸 수 없으면 null — 호출부가 단일 GET으로 돌아간다", () => {
+test("clen: 없거나 쓸 수 없으면 null. 호출부가 단일 GET으로 돌아간다", () => {
   assert.equal(contentLengthFromUrl("https://r1.googlevideo.com/videoplayback?itag=251"), null, "라이브 스트림에는 clen이 없다");
   assert.equal(contentLengthFromUrl("https://x/y?clen=0"), null);
   assert.equal(contentLengthFromUrl("https://x/y?clen=abc"), null);

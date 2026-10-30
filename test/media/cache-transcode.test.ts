@@ -38,7 +38,7 @@ async function captureOptions(): Promise<YtDlpFlags | undefined> {
   return seen.options;
 }
 
-test("캐시 변환은 코덱을 못 박지 않는다 — yt-dlp 가 소스를 보고 선택한다", async () => {
+test("캐시 변환은 코덱을 못 박지 않는다. yt-dlp 가 소스를 보고 선택한다", async () => {
   const options = await captureOptions();
   assert.ok(options, "옵션을 가로채지 못했습니다");
 

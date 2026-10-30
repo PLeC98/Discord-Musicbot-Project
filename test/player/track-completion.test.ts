@@ -110,7 +110,7 @@ test("스트림으로 틀면 스트림 정보의 길이를 쓴다", () => {
   });
 });
 
-test("둘 다 모르면 null — 곡의 기존 길이를 건드리지 않는다", () => {
+test("둘 다 모르면 null. 곡의 기존 길이를 건드리지 않는다", () => {
   withLookup({}, () => {
     assert.equal(audioDurationSec(track(), null, "/cache/x.opus"), null);
     const lengthless: StreamInfo = { url: "https://example.com/stream-url" };

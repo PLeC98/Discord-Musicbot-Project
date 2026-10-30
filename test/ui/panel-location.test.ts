@@ -92,7 +92,7 @@ test("같은 메시지를 다시 기록해도 지우지 않는다", async () => 
   assert.deepEqual(log, []);
 });
 
-test("동시에 올라온 두 패널은 줄을 서서 — 마지막 것만 남는다", async () => {
+test("동시에 올라온 두 패널은 줄을 서서 마지막 것만 남는다", async () => {
   const { log, guild, channels, store, panel } = setup({ record: { channelId: "c1", messageId: "m0" } });
   const webhook = fakeWebhook(log);
 
@@ -103,7 +103,7 @@ test("동시에 올라온 두 패널은 줄을 서서 — 마지막 것만 남�
   assert.equal(panel.chains.size, 0);
 });
 
-test("기록된 패널을 제자리에서 고친다 — 지워졌으면 기록을 비운다", async () => {
+test("기록된 패널을 제자리에서 고친다. 지워졌으면 기록을 비운다", async () => {
   const edits: string[] = [];
   let fail: Error | null = null;
   const webhook = fake<PanelHook>({

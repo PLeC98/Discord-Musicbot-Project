@@ -127,7 +127,7 @@ test("killTree: 이미 종료한 프로세스에는 시그널을 보내지 않�
   release();
 });
 
-test("killAll: 멱등 — 비어 있으면 빈 목록을 반환하고 아무것도 하지 않는다", () => {
+test("killAll: 멱등. 비어 있으면 빈 목록을 반환하고 아무것도 하지 않는다", () => {
   assert.equal(registry.size(), 0);
   assert.deepEqual(registry.killAll(), []);
   assert.deepEqual(registry.killAll(), []);

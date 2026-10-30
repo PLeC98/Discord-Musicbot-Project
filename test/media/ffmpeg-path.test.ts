@@ -19,7 +19,7 @@ test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 추출한다", () => 
   assert.ok(["FFMPEG_PATH", "번들", "PATH"].includes(info.source), `출처: ${info.source}`);
 });
 
-test("resolve: 결과를 캐시한다 — 매 호출마다 프로세스를 실행하지 않는다", () => {
+test("resolve: 결과를 캐시한다. 매 호출마다 프로세스를 실행하지 않는다", () => {
   assert.equal(resolve(), resolve(), "동일 객체를 돌려줘야 함");
   assert.equal(ffmpegPath(), resolve().path);
 });

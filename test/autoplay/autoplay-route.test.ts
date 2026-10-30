@@ -67,7 +67,7 @@ test("출처 · 영상 모두 제목이 없으면 곡 제목을 비워 둔다(nu
   assert.equal(track.title, null);
 });
 
-test("유튜브 주소를 받은 것에는 필터를 건다 — 검색을 안 했으니 제목을 못 믿는다", async () => {
+test("유튜브 주소를 받은 것에는 필터를 건다. 검색을 안 했으니 제목을 못 믿는다", async () => {
   assert.equal(await resolve({ title: "2시간 연속 재생 mix", durationSec: 200, youtubeUrl: "https://youtu.be/x", sourceKey: "yt:x" }, LIMITS), null);
   assert.equal(await resolve({ title: "긴 영상", durationSec: 9999, youtubeUrl: "https://youtu.be/y", sourceKey: "yt:y" }, LIMITS), null);
 });
@@ -79,7 +79,7 @@ test("이름만 받았으면 유튜브에서 찾는다", async () => {
   assert.ok(ytCalls.length > 0);
 });
 
-test("음원만 받았으면 그대로 튼다 — 출처가 곧 정답이라 필터가 없다", async () => {
+test("음원만 받았으면 그대로 튼다. 출처가 곧 정답이라 필터가 없다", async () => {
   const track = await resolved({ artist: "", title: "주제가", audioUrl: "https://a.animethemes.moe/X-OP1.ogg", sourceKey: "at:9" }, LIMITS);
   assert.equal(track.platform, "direct");
   assert.equal(track.audioUrl, "https://a.animethemes.moe/X-OP1.ogg");
@@ -96,7 +96,7 @@ test("풀버전을 찾으면 유튜브를 쓴다", async () => {
   assert.equal(track.platform, "youtube");
 });
 
-test("찾은 것이 TV 사이즈 립이면 음원으로 떨어진다 — 음질만 나쁘고 단계만 는다", async () => {
+test("찾은 것이 TV 사이즈 립이면 음원으로 떨어진다. 음질만 나쁘고 단계만 는다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Artist - Song", artist: "Artist", duration: 91 }];
   const track = await resolved({ artist: "Artist", title: "Song", audioUrl: "https://a.animethemes.moe/X.ogg", sourceKey: "at:1" }, LIMITS);
   assert.equal(track.platform, "direct", `${route.FULL_SEC}초 미만이면 음원을 쓴다`);
@@ -132,7 +132,7 @@ test("이름뿐인데 못 찾으면 null", async () => {
 // ── 표시 이름 ─────────────────────────────────────────────────────────────
 
 // 채널명은 올린 사람이지 아티스트가 아니다(`lcozzarelli`). 우리가 그 곡을 찾아서 고른 것이므로 소스가 안다.
-test("표시 이름은 소스 것을 앞세운다 — 유튜브 채널명은 아티스트가 아니다", async () => {
+test("표시 이름은 소스 것을 앞세운다. 유튜브 채널명은 아티스트가 아니다", async () => {
   // 올린 사람이 채널명(artist 필드)으로 오고, 영상 제목에는 군더더기가 붙어 있다
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Sarah Vaughan - Fever (HQ audio)", artist: "lcozzarelli", duration: 240 }];
 
@@ -141,7 +141,7 @@ test("표시 이름은 소스 것을 앞세운다 — 유튜브 채널명은 아
   assert.equal(track.title, "Fever");
 });
 
-test("소스가 이름을 모르면 영상 쪽을 쓴다 — 키워드·유튜브 재생목록이 그렇다", async () => {
+test("소스가 이름을 모르면 영상 쪽을 쓴다. 키워드·유튜브 재생목록이 그렇다", async () => {
   const track = await resolved({ title: "어느 영상", durationSec: 200, youtubeUrl: "https://youtu.be/z", sourceKey: "yt:z" }, LIMITS);
   assert.equal(track.title, "어느 영상");
 });
@@ -151,7 +151,7 @@ test("소스가 이름을 모르면 영상 쪽을 쓴다 — 키워드·유튜�
 // 출처 곡을 `platform: "youtube"` + 영상 주소로 만들면 링크 데이터(track_lookup)의 그 영상 행에 우리 이름이 덮이고
 // (누가 그 영상을 직접 틀면 우리 이름이 나온다), TrackDownloader 가 제목을 영상 제목으로 되돌린다.
 // 스포티파이와 같이 보여 줄 링크와 platform은 출처 것, 영상은 음원 주소로 나눠 쓴다.
-test("출처가 있는 곡은 주소도 platform도 출처 것이다 — 소리만 유튜브에서 온다", async () => {
+test("출처가 있는 곡은 주소도 platform도 출처 것이다. 소리만 유튜브에서 온다", async () => {
   const track = await resolved(
     {
       title: "絶対零度フェスティバル",
@@ -172,7 +172,7 @@ test("출처가 있는 곡은 주소도 platform도 출처 것이다 — 소리�
   assert.equal(audioKeyOf(track.audioUrl), "yt:4mMzhyUczic", "음원 파일은 영상 기준으로 함께 쓴다");
 });
 
-test("출처가 없으면 영상 자체가 출처다 — 키워드·유튜브 재생목록", async () => {
+test("출처가 없으면 영상 자체가 출처다. 키워드·유튜브 재생목록", async () => {
   const track = await resolved({ title: "어느 영상", durationSec: 200, youtubeUrl: "https://www.youtube.com/watch?v=abcdefg", sourceKey: "yt:abcdefg" }, LIMITS);
 
   assert.equal(track.platform, "youtube");
@@ -191,7 +191,7 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
 });
 
 // 음원을 직접 재생하는 곡도 platform 은 출처 이름이라, 소리가 어디서 오는지는 음원 주소로만 구분한다.
-test("음원으로 떨어져도 platform 은 출처 이름이다 — 소리의 출생은 음원 주소로 구분한다", async () => {
+test("음원으로 떨어져도 platform 은 출처 이름이다. 소리의 출생은 음원 주소로 구분한다", async () => {
   ytResults = [];
   const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", platform: "anisongdb", sourceKey: "amq:1" };
   const track = await resolved(cand, LIMITS);
@@ -200,7 +200,7 @@ test("음원으로 떨어져도 platform 은 출처 이름이다 — 소리의 �
 });
 
 // 같은 소스가 유튜브로 올라갔을 때는 반대다. platform 은 그대로고 키만 바뀐다.
-test("유튜브로 올라가도 platform 은 그대로다 — 키가 yt: 로 바뀐다", async () => {
+test("유튜브로 올라가도 platform 은 그대로다. 키가 yt: 로 바뀐다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
   const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceUrl: "https://anilist.co/anime/1", platform: "anisongdb", sourceKey: "amq:2" };
   const track = await resolved(cand, LIMITS);
@@ -296,7 +296,7 @@ test("그림은 소리를 따라간다: 영상으로 틀면 소스가 표지를 
   assert.equal(viaAudio.thumbnail, "https://s4.anilist.co/poster.jpg");
 });
 
-test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본다", async () => {
+test("어느 소스에서 왔는지 남긴다. 이상할 때 이것부터 본다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240 }];
   const track = await picked({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: [], sources: [{ type: "keyword", keywords: ["아무거나"] }] }, []);
   assert.equal(track.pickedFrom, "keyword");
@@ -385,7 +385,7 @@ test("못 트는 영상으로 표시하면 다시 고르지 않는다", async ()
   route._dead.clear();
 });
 
-test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 페이지가 영상이 아니라 음원 주소를 본다", () => {
+test("트랙을 통째로 넘겨도 표시된다. 출처 곡은 페이지가 영상이 아니라 음원 주소를 본다", () => {
   route._dead.clear();
   route.markDead({ pageUrl: "https://vocadb.net/S/1", audioUrl: "https://youtu.be/abcdefghijk" });
   assert.equal(route._dead.has("abcdefghijk"), true);
@@ -395,7 +395,7 @@ test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 페이지가 
 // ── 소스 기본값 ───────────────────────────────────────────────────────────
 
 // 기본값은 조용히 성격을 정한다. 뒤집히면 아무도 모른 채 딴 곡이 나오므로 여기 못 박는다.
-test("소스 기본값 — 입력하지 않았을 때 무엇으로 도는가", () => {
+test("소스 기본값: 입력하지 않았을 때 무엇으로 도는가", () => {
   const { SPEC } = sources;
 
   // lbradio: 이름과 반대로 hard 가 더 알려진 곡을 준다. 자동재생은 아는 곡이 나오는 편이 낫다.
@@ -409,7 +409,7 @@ test("소스 기본값 — 입력하지 않았을 때 무엇으로 도는가", (
 
 // `languages` 파라미터는 저쪽이 조용히 무시해 아무 값을 넣어도 전체가 온다.
 // 실제로 듣는 것은 advancedFilters 쪽이고, 한 번에 하나만 걸린다.
-test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () => {
+test("가사 언어는 advancedFilters 로 건다. 한 번에 하나씩", () => {
   const { _advancedFilters, _someLanguages, SPEC } = sources;
 
   assert.deepEqual(_advancedFilters(null), {}, "안 고르면 조건을 안 붙인다");
@@ -438,13 +438,13 @@ test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () 
 
 // ── 중복 회피 ─────────────────────────────────────────────────────────────
 
-test("최근에 튼 곡은 이름으로도 필터링한다 — 소스가 다르면 주소가 다르기 때문이다", () => {
+test("최근에 튼 곡은 이름으로도 필터링한다. 소스가 다르면 주소가 다르기 때문이다", () => {
   const reject = route.rejector([{ artist: "YOASOBI", title: "Idol", audioUrl: "https://www.youtube.com/watch?v=a" }]);
   assert.equal(reject({ artist: "yoasobi", title: "  IDOL " }), true, "대소문자·공백은 같은 곡으로 본다");
   assert.equal(reject({ artist: "YOASOBI", title: "Racing Into The Night" }), false);
 });
 
-test("음원 주소가 같아도 필터링한다 — 모양이 달라도 다듬어 비교한다", () => {
+test("음원 주소가 같아도 필터링한다. 모양이 달라도 다듬어 비교한다", () => {
   const reject = route.rejector([{ title: "x", audioUrl: "https://www.youtube.com/watch?v=samesamesam" }]);
   assert.equal(reject({ title: "다른 제목", youtubeUrl: "https://youtu.be/samesamesam?si=1" }), true);
   assert.equal(reject({ title: "또 다른 제목", youtubeUrl: "https://youtu.be/otherotherx" }), false);
@@ -486,7 +486,7 @@ test("표기가 다른 같은 곡을 같다고 본다", () => {
   }
 });
 
-test("버전·참여 표기가 다르면 다른 곡이다 — 너무 뭉개면 멀쩡한 곡이 사라진다", () => {
+test("버전·참여 표기가 다르면 다른 곡이다. 너무 뭉개면 멀쩡한 곡이 사라진다", () => {
   const reject = route.rejector([
     { artist: "a", title: "Uragirimono no Requiem" },
     { artist: "b", title: "NEVER SAY GOODBYE" },
@@ -505,14 +505,14 @@ test("일본어 제목끼리 뭉개지지 않는다", () => {
 
 // ── 소스 훑기 ─────────────────────────────────────────────────────────────
 
-test("무게대로 훑되 모든 소스를 한 번씩 거친다 — 목록이 곧 폴백 사슬이다", () => {
+test("무게대로 훑되 모든 소스를 한 번씩 거친다. 목록이 곧 폴백 사슬이다", () => {
   const list = [{ type: "a", weight: 5 }, { type: "b", weight: 1 }, { type: "c" }];
   const seen = [...route._byWeight(list)].map((s) => s.type);
   assert.equal(seen.length, 3);
   assert.deepEqual([...seen].sort(), ["a", "b", "c"]);
 });
 
-test("쓸 수 있는 소스가 없으면 null — 아무거나 틀지 않는다", async () => {
+test("쓸 수 있는 소스가 없으면 null. 아무거나 틀지 않는다", async () => {
   assert.equal(await pick({ sources: [] }), null);
   assert.equal(await pick({ sources: [{ type: "없는소스" }] }), null);
 });

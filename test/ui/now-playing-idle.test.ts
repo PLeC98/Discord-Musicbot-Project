@@ -127,7 +127,7 @@ async function play(mem: NowPlayingPanel, player: Player) {
   }
 }
 
-test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화면으로 고친다 — 새로 올리지 않는다", async () => {
+test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화면으로 고친다. 새로 올리지 않는다", async () => {
   const { mem, guild, calls, records, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text(BOT));
 
@@ -166,7 +166,7 @@ test("전용 채널: 끝난 패널이 묻혀 있으면 맨 아래에 새로 올�
   assert.equal(records.get("g1")?.messageId, calls.sent[0].id);
 });
 
-test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 채널에 — 없으면 요청한 채널", async () => {
+test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 채널에. 없으면 요청한 채널", async () => {
   const withBot = setup();
   await play(withBot.mem, makePlayer(withBot.guild, withBot.text("general")));
   assert.equal(withBot.calls.sent[0].channel, BOT);
@@ -179,7 +179,7 @@ test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 
   assert.ok(noBot.calls.deleted.includes("general:800"));
 });
 
-test("살아 있는 패널이 없을 때 끝나면 기록된 패널의 문구만 고친다 — 종료 메시지는 없다", async () => {
+test("살아 있는 패널이 없을 때 끝나면 기록된 패널의 문구만 고친다. 종료 메시지는 없다", async () => {
   const { mem, guild, calls, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text("general"), { currentTrack: null });
 
@@ -228,7 +228,7 @@ test("전용 채널이 있는 서버에서 다른 채널로 틀고 끝나도 종
   assert.equal(calls.sent.filter((s) => s.channel === "general").length, 0);
 });
 
-test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다 — 새로 올리지 않는다", async () => {
+test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다. 새로 올리지 않는다", async () => {
   const { mem, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
   await mem.restorePanels();
   assert.equal(calls.sent.length, 0);
@@ -264,7 +264,7 @@ test("기동: 세션을 복원해 패널을 올린 서버는 건너뛰고, 전�
   assert.match(textOf(plain.calls.edited[0].payload), /\/play/);
 });
 
-test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 패널을 지운다 — 풀면 지운다", async () => {
+test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 패널을 지운다. 풀면 지운다", async () => {
   const { mem, guild, calls, records } = setup({ record: { channelId: "general", messageId: "800" } });
   await mem.onBotChannelChanged(guild);
   assert.equal(calls.sent[0].channel, BOT);

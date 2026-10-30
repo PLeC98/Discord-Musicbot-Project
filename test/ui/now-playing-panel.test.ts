@@ -201,7 +201,7 @@ test("곡이 연달아 실패해 멈춘 것은 전용 채널 밖이어도 '모�
   assert.equal(sent.length, 0);
 });
 
-test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다 — 종료 메시지는 전용 채널 밖에서만", async () => {
+test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다. 종료 메시지는 전용 채널 밖에서만", async () => {
   try {
     const cases: Array<[botChannel: string | null, expectNotice: boolean]> = [
       ["chan-1", false],

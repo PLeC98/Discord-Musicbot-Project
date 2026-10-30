@@ -44,7 +44,7 @@ test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () =>
   assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 
-test("허용 범위를 벗어나면 문제다 — 조용히 기본값으로 돌지 않는다", () => {
+test("허용 범위를 벗어나면 문제다. 조용히 기본값으로 돌지 않는다", () => {
   assert.match(load({ DASHBOARD_PORT: "99999" }).problems.join(), /DASHBOARD_PORT.*65535 이하/);
   assert.equal(tune({ SSE_HEARTBEAT_SEC: "0" }).tuneProblems.length, 1, "0초 하트비트 같은 1ms급 타이머도 막는다");
 });

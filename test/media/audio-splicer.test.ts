@@ -65,7 +65,7 @@ test("소스가 끝나면 이 스트림도 끝난다 (AudioPlayer가 Idle로 가
 
 // ── 전환 ─────────────────────────────────────────────────────
 
-test("지정한 지점에서 갈아탄다 — 전후로 바이트가 새지 않는다", async () => {
+test("지정한 지점에서 갈아탄다. 전후로 바이트가 새지 않는다", async () => {
   const src = feed();
   const nxt = feed();
   const sp = new AudioSplicer(src, { fadeMs: 40 });

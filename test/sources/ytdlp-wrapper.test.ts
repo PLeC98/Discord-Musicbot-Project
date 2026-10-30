@@ -36,7 +36,7 @@ test("성공 계약: 원본과 같은 값을 돌려주고 프로세스 등록을
   assert.equal(registry.size(), before, "정상 종료 후 레지스트리에 남으면 안 된다(누수)");
 });
 
-test("실패 계약: stderr를 담은 Error — 연령제한/삭제영상 판별이 이걸 읽는다", opts, async () => {
+test("실패 계약: stderr를 담은 Error. 연령제한/삭제영상 판별이 이걸 읽는다", opts, async () => {
   const before = registry.size();
 
   // 모르는 플래그를 넘겨 본다

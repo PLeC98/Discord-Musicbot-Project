@@ -167,7 +167,7 @@ test("재시도 필드가 범위를 벗어나면 켜지지 않는다", () => {
 
 // ── 판정 ─────────────────────────────────────────────────────────────────
 
-test("아니라고 하면 버린다 — 한 곡을 물었을 때", async () => {
+test("아니라고 하면 버린다. 한 곡을 물었을 때", async () => {
   useConfig(ON);
   answers('[{"n":1,"song":false,"fits":true}]');
   assert.equal(await assist.accepts(cand("Pop Hits 2021 믹스", 3600), { genre: "팝" }), false);
@@ -517,7 +517,7 @@ test("섹션마다 역할을 정해 적은 순서대로 보낸다", async () => 
   assert.match(sent[2].content, /^아래를 판정해라\n1\. genre=록 length=3min title=Toxicity/);
 });
 
-test("{{list}} 위치에 후보가 들어간다 — 어느 역할이든", async () => {
+test("{{list}} 위치에 후보가 들어간다. 어느 역할이든", async () => {
   useConfig(ON, [{ role: "system", text: "기준. 목록: {{list}} 끝." }]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true},{"n":2,"song":true,"fits":true}]');
@@ -553,7 +553,7 @@ test("줄 형식을 직접 짤 수 있다", async () => {
 });
 
 // 길이를 모르는데 "0분"이라고 적으면 모델에게 거짓을 알려 주는 것이다. 어떻게 적을지는 줄 형식 안에서 정한다({{#if-exist}} · {{:else}})
-test("길이를 모르는 후보 — 구간째 빼거나, 글자로 적거나, 0으로", async () => {
+test("길이를 모르는 후보: 구간째 빼거나, 글자로 적거나, 0으로", async () => {
   const unknown = { title: "이름만 아는 곡" };
   const ask = async (extra: Record<string, unknown>) => {
     useConfig({ ...ON, ...extra }, [{ role: "user", text: "{{list}}" }]);
@@ -579,7 +579,7 @@ test("길이를 모르는 후보 — 구간째 빼거나, 글자로 적거나, 0
 // ── 추가 파라미터 ─────────────────────────────────────────────────────────
 
 // 서비스마다 이름도 위치도 달라 글로 받는다. RisuAI 와 같은 입력법이다.
-test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
+test("추가 파라미터: 값·JSON·헤더·빼기", () => {
   const got = assist.parseExtra(["think=false", "reasoning_effort=low", "top_p=0.9", 'response_format=json::{"type":"json_object"}', "header::X-Title=Discord Musicbot", "temperature={{none}}", "# 주석은 건너뛴다", "", "이름없음"].join("\n"));
 
   assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
@@ -589,7 +589,7 @@ test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
 });
 
 // 점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다. 키 이름이 통째로 들어가 조용히 무시된다.
-test("추가 파라미터 — 점 표기로 안쪽 필드에 넣는다", () => {
+test("추가 파라미터: 점 표기로 안쪽 필드에 넣는다", () => {
   const got = assist.parseExtra(["thinking.budget_tokens=1024", "thinking.type=enabled", "generationConfig.thinkingConfig.thinkingLevel=high"].join("\n"));
 
   assert.deepEqual(got.body, {
@@ -599,7 +599,7 @@ test("추가 파라미터 — 점 표기로 안쪽 필드에 넣는다", () => {
 });
 
 // 값을 어떻게 읽을지. 따옴표로 두르면 숫자처럼 보여도 글자다.
-test("추가 파라미터 — 값의 형식", () => {
+test("추가 파라미터: 값의 형식", () => {
   const got = assist.parseExtra(['seed="123"', "stop=null", "n=2", "flag=true", "name=그냥 글자", 'cfg=json::{"a":True,"b":None}'].join("\n"));
 
   assert.equal(got.body.seed, "123", "따옴표를 벗기고 글자로 둔다");
@@ -611,7 +611,7 @@ test("추가 파라미터 — 값의 형식", () => {
 });
 
 // 조용히 버리면 "왜 안 먹지"가 된다. 못 읽은 줄은 돌려줘서 화면이 보여 준다.
-test("추가 파라미터 — 못 읽은 줄을 알려 준다", () => {
+test("추가 파라미터: 못 읽은 줄을 알려 준다", () => {
   const got = assist.parseExtra(["cfg=json::{깨짐", "empty=", "ok=1"].join("\n"));
 
   assert.deepEqual(got.body, { ok: 1 }, "멀쩡한 줄은 살린다");
@@ -914,7 +914,7 @@ test("확인 실패는 상태 코드와 본문을 그대로 전한다", async ()
 
 // 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고,
 // "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
-test("무료 확인은 모델 목록만 받는다 — 추론이 없다", async () => {
+test("무료 확인은 모델 목록만 받는다. 추론이 없다", async () => {
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -1261,7 +1261,7 @@ test("클라우드 프로바이더에는 키를 붙인다", async () => {
   assert.equal(calls[0].init.headers.Authorization, `Bearer ${KEY}`);
 });
 
-test("유료 확인은 짧은 물음 하나만 보낸다 — 판정 프롬프트가 아니다", async () => {
+test("유료 확인은 짧은 물음 하나만 보낸다. 판정 프롬프트가 아니다", async () => {
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });

@@ -89,7 +89,7 @@ test("기본 응답은 한 구간만 싣고 총 개수를 따로 알린다", asy
   assert.equal(json.queue[0].platformLabel, "YouTube");
 });
 
-test("?queue=n이면 펼쳐 둔 만큼 돌려준다 — 조작 응답도 같다", async () => {
+test("?queue=n이면 펼쳐 둔 만큼 돌려준다. 조작 응답도 같다", async () => {
   const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=150`);
   assert.equal(json.queue.length, 150);
 

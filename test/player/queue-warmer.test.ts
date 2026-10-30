@@ -268,7 +268,7 @@ test("대기열이 움직이면 실패 기록을 버리고 다시 시도한다",
 
 // ── 퇴거 보호 ────────────────────────────────────────────────
 
-test("보호 집합을 통째로 교체한다 — 큐에서 빠진 키는 사라진다", async () => {
+test("보호 집합을 통째로 교체한다. 큐에서 빠진 키는 사라진다", async () => {
   const queue = [track("a"), track("b")];
   const { warmer, protection } = makeWarmer({ queue });
 
@@ -295,7 +295,7 @@ test("아직 캐시되지 않은 키도 보호한다 (예열이 끝나기 전에
   assert.deepEqual(protection.at(-1)?.keys, ["yt:a"]);
 });
 
-test("키가 없는 트랙은 보호에서 빠진다 (미해석 스포티파이 — 보호할 파일이 없다)", async () => {
+test("키가 없는 트랙은 보호에서 빠진다 (미해석 스포티파이: 보호할 파일이 없다)", async () => {
   const spotify = track("s", { requestKey: "https://open.spotify.com/track/x", audioUrl: undefined });
   const { warmer, protection } = makeWarmer({ queue: [spotify, track("b")] });
 
@@ -410,7 +410,7 @@ test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 선�
   assert.equal(route._dead.has("BYlcTa9SQXs"), true, "다음 뽑기에서 또 고르면 안 된다");
 });
 
-test("사용자가 넣은 곡은 빼지 않는다 — 없어졌다는 것을 알아야 한다", async () => {
+test("사용자가 넣은 곡은 빼지 않는다. 없어졌다는 것을 알아야 한다", async () => {
   const mine = track("mine", { audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" });
   const warm = async () => {
     throw new Error("ERROR: [youtube] aaaaaaaaaaa: Video unavailable");

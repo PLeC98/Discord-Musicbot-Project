@@ -106,7 +106,7 @@ function makeSetup(state: State = {}) {
   return { mem, player, calls, state, cache, text };
 }
 
-test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 않는다", async () => {
+test("지워진 임베드는 다시 올린다. 같은 오류를 반복하지 않는다", async () => {
   const { mem, player, calls, state } = makeSetup({ editError: gone() });
 
   await mem.updatePlaying(player);

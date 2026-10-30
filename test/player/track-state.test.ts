@@ -51,7 +51,7 @@ test("shiftNext: 맨 앞을 현재곡으로, 비었으면 현재곡을 건드리
   assert.equal(empty.currentTrack?.title, "Z");
 });
 
-test("retire: 기록에 남기고, 큐 반복이면 대기열 끝으로 — 현재곡은 그대로", () => {
+test("retire: 기록에 남기고, 큐 반복이면 대기열 끝으로. 현재곡은 그대로", () => {
   const A = t("A");
   const p = make({ current: A, queue: [t("B")] });
   trackState.retire(p, A, { requeue: true });
@@ -147,7 +147,7 @@ test("restore: 기록이 상한보다 길면 최근 것만 남긴다", () => {
   assert.equal(p.previousTracks.at(-1)?.title, `h${trackState.HISTORY_MAX + 4}`);
 });
 
-test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라가는 통로", () => {
+test("바꾼 뒤 한 번씩 알린다. 세션 저장이 메모리를 따라가는 통로", () => {
   const calls: unknown[][] = [];
   const brief = (a: unknown) => (Array.isArray(a) ? titles(a) : ((a as QueuedTrack | null)?.title ?? a));
   const sink = new Proxy(
@@ -184,7 +184,7 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
 
 const song = (title: string) => t(title, { requestKey: `https://y/${title}` });
 
-test("rewind: 반복을 끄기 전에 대기열 끝으로 돌아간 사본은 빼고 앞으로 가져온다 — 곡 수가 그대로다", () => {
+test("rewind: 반복을 끄기 전에 대기열 끝으로 돌아간 사본은 빼고 앞으로 가져온다. 곡 수가 그대로다", () => {
   const A = song("A");
   const p = make({ current: song("B"), queue: [song("C")] });
   trackState.retire(p, A, { requeue: true }); // 반복 중에 A가 끝나 기록과 대기열 끝 양쪽에 들어간 뒤 반복을 껐다
@@ -201,7 +201,7 @@ test("rewindRing: 대기열 반복의 이전 곡은 대기열 맨 끝 곡이다.
   assert.equal(trackState.rewindRing(make({ current: song("B"), queue: [] })), null, "대기열이 비면 꺼낼 곡이 없다");
 });
 
-test("rewind: 대기열 반복에서 이전 곡(고리)을 누른 뒤 반복을 끄고 또 누르면, 기록 끝에 남은 지금 곡을 건너뛰고 그 앞 곡으로 간다 — 곡이 늘지 않는다", () => {
+test("rewind: 대기열 반복에서 이전 곡(고리)을 누른 뒤 반복을 끄고 또 누르면, 기록 끝에 남은 지금 곡을 건너뛰고 그 앞 곡으로 간다. 곡이 늘지 않는다", () => {
   const [A, B, C, D] = ["A", "B", "C", "D"].map((x) => song(x));
   const p = make({ current: A, queue: [B, C, D] });
   p.loop = "queue";
@@ -221,7 +221,7 @@ test("rewind: 대기열 반복에서 이전 곡(고리)을 누른 뒤 반복을 
   assert.deepEqual(titles(p.previousTracks), []);
 });
 
-test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리지 않는다 — 사용자가 일부러 넣은 곡이다", () => {
+test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리지 않는다. 사용자가 일부러 넣은 곡이다", () => {
   const p = make({ current: song("B"), queue: [song("A")], history: [song("A")] });
   trackState.rewind(p);
   assert.deepEqual(titles(p.queue), ["A", "B", "A"]);

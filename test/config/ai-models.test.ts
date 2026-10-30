@@ -87,7 +87,7 @@ test("늘 붙는 값은 base 와 프로필을 겹쳐서 준다", () => {
   assert.deepEqual(models.defaultsOf("p", "m", snapshot), { stream: false, max_tokens: 4096 });
 });
 
-test("모르는 모델은 빈 손으로 — 던지지 않는다", () => {
+test("모르는 모델은 빈 손으로. 던지지 않는다", () => {
   const snapshot = { baseProviders: {}, profiles: {} };
   assert.deepEqual(models.fieldsOf("p", "없는모델", snapshot), []);
   assert.deepEqual(models.defaultsOf("p", "없는모델", snapshot), {});

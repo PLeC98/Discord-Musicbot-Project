@@ -12,7 +12,7 @@ const judge = (title: string, duration = 240, over?: filter.FilterConfig) => fil
 
 // ── 길이 ──────────────────────────────────────────────────────────────────
 
-test("길이를 모르면 떨어진다 — 대개 라이브다", () => {
+test("길이를 모르면 떨어진다. 대개 라이브다", () => {
   assert.equal(filter.judge({ title: "노래", duration: null }, limits()).reason, "길이 없음");
 });
 
@@ -26,7 +26,7 @@ test("길이 범위 밖은 떨어진다", () => {
 
 // 단순 포함으로 판정하면 "mix"가 "remix"(멀쩡하고 흔한 곡)를 죽인다.
 // 설정에 " mix"처럼 공백을 넣어 두는 것으로는 못 막는다. 대시보드가 앞뒤 공백을 뗀다.
-test("제외 키워드는 단어 경계로 비교한다 — mix가 remix를 죽이지 않는다", () => {
+test("제외 키워드는 단어 경계로 비교한다. mix가 remix를 죽이지 않는다", () => {
   assert.equal(judge("BTS - MIC Drop (Steve Aoki Remix) Official MV").ok, true);
   assert.equal(judge("Clarity (BUNT. Remix)").ok, true);
 
@@ -44,7 +44,7 @@ test("제외 키워드는 대소문자를 구분하지 않는다", () => {
   assert.equal(judge("Best Playlist Ever").detail, "playlist");
 });
 
-test("제외 키워드는 곡 표식이 있어도 면제하지 않는다 — 공식 믹스도 믹스다", () => {
+test("제외 키워드는 곡 표식이 있어도 면제하지 않는다. 공식 믹스도 믹스다", () => {
   assert.equal(judge("Official Summer Mix (Official Video)").detail, "mix");
 });
 
@@ -84,6 +84,6 @@ test("상한을 비우면 길이 제한이 없다", () => {
   assert.equal(filter.judge({ title: "교향곡", duration: 9999 }, filter.prepare({ minDurationSec: 60 })).ok, true);
 });
 
-test("빈 제외 키워드는 무시한다 — 설정에 빈 줄이 남아도 전부를 막으면 안 된다", () => {
+test("빈 제외 키워드는 무시한다. 설정에 빈 줄이 남아도 전부를 막으면 안 된다", () => {
   assert.equal(judge("아무 노래", 240, { blockedKeywords: ["", "  ", "mix"] }).ok, true);
 });

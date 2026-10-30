@@ -7,7 +7,7 @@ import * as blankThumbnail from "../../src/ui/blank-thumbnail.ts";
 
 const { crc32, NAME, SIZE } = blankThumbnail._internals;
 
-test("투명 썸네일: 올바른 PNG — 서명·크기·RGBA·체크섬, 픽셀은 전부 투명", () => {
+test("투명 썸네일: 올바른 PNG. 서명·크기·RGBA·체크섬, 픽셀은 전부 투명", () => {
   const { attachment, name } = blankThumbnail.file();
   assert.equal(name, NAME);
   assert.equal(blankThumbnail.url, `attachment://${NAME}`);

@@ -139,7 +139,7 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
   assert.equal(player.voiceChannel, voice);
 });
 
-test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
+test("ensurePlayer: 있으면 재사용한다. 큐가 사라지면 안 된다", () => {
   const bot = makeBot();
   const guild = makeGuild();
   const existing = fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: voiceOf("v0") });
@@ -677,7 +677,7 @@ test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡�
     assert.deepEqual({ offset: done.next?.offset, anchorId: done.next?.anchorId, remaining: done.next?.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
   }));
 
-test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다 — 빠지거나 겹치는 곡이 없다", () =>
+test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다. 빠지거나 겹치는 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const { added } = await continueWith({ state: stateAt(50), count: 50, shift: 2 });
     assert.deepEqual(

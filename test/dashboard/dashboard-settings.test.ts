@@ -152,7 +152,7 @@ const req = (method: string, urlPath: string, body?: unknown) => requestJson<Rep
 
 // ── GET /settings ────────────────────────────────────────────
 
-test("GET settings: 모더레이터 — 현황 + 드롭다운 목록", async () => {
+test("GET settings: 모더레이터. 현황 + 드롭다운 목록", async () => {
   currentMember = modMember();
   store.djRoles.set(GUILD_ID, ["r1", "deleted-role"]);
   store.botChannel.set(GUILD_ID, "c2");
@@ -209,7 +209,7 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
 
 // ── GET /player의 canManage (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: canManage — 일반 멤버 false / 모더레이터 true", async () => {
+test("GET player: canManage. 일반 멤버 false / 모더레이터 true", async () => {
   currentMember = plainMember();
   let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.status, 200);
@@ -228,7 +228,7 @@ test("PUT settings: 일반 멤버 403", async () => {
   assert.equal(r.status, 403);
 });
 
-test("PUT settings: 정상 저장 — 중복·유령 역할 정리", async () => {
+test("PUT settings: 정상 저장. 중복·유령 역할 정리", async () => {
   currentMember = modMember();
   const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1", "r2", "r1", "ghost"], botChannelId: "c1" });
   assert.equal(r.status, 200);
@@ -247,7 +247,7 @@ test("PUT settings: 빈 배열 = DJ 해제, null = 채널 해제", async () => {
   assert.equal(store.botChannel.has(GUILD_ID), false);
 });
 
-test("PUT settings: SponsorBlock 저장 — 유효 카테고리만 통과", async () => {
+test("PUT settings: SponsorBlock 저장. 유효 카테고리만 통과", async () => {
   currentMember = modMember();
   const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { sponsorblock: { enabled: false, categories: ["intro", "outro", "bogus"] } });
   assert.equal(r.status, 200);
@@ -290,7 +290,7 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
   assert.equal(r.status, 400, "디스코드 셀렉트 메뉴 25개 한계와 정합");
 });
 
-test("GET settings: 재생목록 한 번에 넣는 곡 수 — 저장값·실제값·범위", async () => {
+test("GET settings: 재생목록 한 번에 넣는 곡 수. 저장값·실제값·범위", async () => {
   currentMember = modMember();
   store.playlistAdd.delete(GUILD_ID);
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
@@ -298,7 +298,7 @@ test("GET settings: 재생목록 한 번에 넣는 곡 수 — 저장값·실제
   assert.deepEqual(r.json.playlistAdd, { value: null, effective: 50, min: 1, max: 250, default: 50 });
 });
 
-test("PUT settings: 재생목록 한 번에 넣는 곡 수 — 저장 / null은 기본값 / 범위 밖·소수는 400", async () => {
+test("PUT settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기본값 / 범위 밖·소수는 400", async () => {
   currentMember = modMember();
   let r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 120 });
   assert.equal(r.status, 200);
@@ -474,7 +474,7 @@ test("GET guilds: 상태는 유휴(봇이 음성 밖) · 대기 중(곡 없음 �
 
 // ── GET /api/guilds의 listening (전역 재생 바가 대상 서버를 찾는 기준) ──
 
-test("GET guilds: listening — 봇과 같은 채널일 때만 참", async () => {
+test("GET guilds: listening. 봇과 같은 채널일 때만 참", async () => {
   currentMember = plainMember();
   currentUser = { id: "u1", username: "tester" };
 

@@ -36,7 +36,7 @@ test("비워지면 다시 쓸 수 있다", () => {
   assert.equal(vcs.canWrite(CH), true);
 });
 
-test("기동 시 GUILD_CREATE가 현재 값을 채운다 — 봇이 켜지기 전에 적어 둔 것도 지킨다", () => {
+test("기동 시 GUILD_CREATE가 현재 값을 채운다. 봇이 켜지기 전에 적어 둔 것도 지킨다", () => {
   reset();
   vcs.consumePacket({
     t: "GUILD_CREATE",
@@ -54,7 +54,7 @@ test("기동 시 GUILD_CREATE가 현재 값을 채운다 — 봇이 켜지기 �
   assert.equal(vcs.canWrite("text-1"), true, "음성 채널이 아닌 것은 담지 않는다");
 });
 
-test("모르는 채널은 쓸 수 있다고 본다 — 소식을 못 들었을 뿐", () => {
+test("모르는 채널은 쓸 수 있다고 본다. 소식을 못 들었을 뿐", () => {
   reset();
   assert.equal(vcs.canWrite("본 적 없음"), true);
   assert.equal(vcs.canWrite(null), false, "채널이 없으면 쓸 곳도 없다");

@@ -18,7 +18,7 @@ test("대기열 줄: 요청자는 멘션으로", () => {
   assert.equal(line, "`3.` **[곡](https://y/1)** | <@u1>\n");
 });
 
-test("대기열 줄: 자동재생 곡은 자동재생 아이콘으로 — 장르 이모지를 쓰지 않는다. 앱 이모지를 맞추면 그것", () => {
+test("대기열 줄: 자동재생 곡은 자동재생 아이콘으로. 장르 이모지를 쓰지 않는다. 앱 이모지를 맞추면 그것", () => {
   const line = () => queueLine(song({ autoplay: true, requestedBy: { id: "bot" } }), 1);
   assert.equal(line(), "`1.` **[곡](https://y/1)** | 🎲\n");
   useUploaded(new Map([["autoplay", { id: "7", animated: false }]]));

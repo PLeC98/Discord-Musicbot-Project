@@ -125,7 +125,7 @@ test("캐시가 있으면 현재 위치보다 앞선 지점에 예약한다", ()
   next.destroy?.();
 });
 
-test("예약했는지를 돌려준다 — 청크 스트림이 이어받을지 이걸로 정한다", () => {
+test("예약했는지를 돌려준다. 청크 스트림이 이어받을지 이걸로 정한다", () => {
   cacheAs(null);
   assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK }), fakeSplicer(), opened()), false);
 

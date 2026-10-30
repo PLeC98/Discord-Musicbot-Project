@@ -82,7 +82,7 @@ test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", 
   assert.equal(new Set(names).size, names.length, `중복: ${names.filter((n, i) => names.indexOf(n) !== i)}`);
 });
 
-test("deployCommands: 성공 경로 — 현재 로드된 세트 전체를 1회 PUT", async () => {
+test("deployCommands: 성공 경로. 현재 로드된 세트 전체를 1회 PUT", async () => {
   putCalls = [];
   const result = await deployCommands({ hashPath: freshHashPath(), put });
 

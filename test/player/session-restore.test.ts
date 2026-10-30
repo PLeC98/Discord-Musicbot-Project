@@ -55,7 +55,7 @@ test("fetch가 null을 돌려줘도 무한히 돌지 않는다", { timeout: 3000
   assert.equal(res.gone, false);
 });
 
-test("길드가 실제로 사라졌을 때만 gone — 재시도 없이 즉시", async () => {
+test("길드가 실제로 사라졌을 때만 gone. 재시도 없이 즉시", async () => {
   for (const code of [RESTJSONErrorCodes.UnknownGuild, RESTJSONErrorCodes.MissingAccess]) {
     const client = makeClient(() => {
       throw apiError(code);

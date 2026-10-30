@@ -250,7 +250,7 @@ test("DJ 역할: 미지정 서버는 빈 배열", () => {
 
 // ── 서버 설정 문서: 봇 채널 ──────────────────────────────────
 
-test("봇 채널: 저장/조회/해제 — DJ 설정과 같은 문서에서 서로 무손상", () => {
+test("봇 채널: 저장/조회/해제. DJ 설정과 같은 문서에서 서로 무손상", () => {
   guildTable.setDjRoles("g4", ["r1"]);
   guildTable.setBotChannel("g4", "ch4");
   assert.equal(guildTable.getBotChannel("g4"), "ch4");

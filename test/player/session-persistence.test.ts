@@ -120,7 +120,7 @@ function rng(seed: number) {
 
 // ── 미러 ──
 
-test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 1500회", () => {
+test("trackState의 모든 변경이 DB에 그대로 옮겨진다. 무작위 1500회", () => {
   const { p } = makePlayer();
   const pick = rng(915);
   const random = () => pick(1_000_000) / 1_000_000;

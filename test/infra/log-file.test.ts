@@ -37,7 +37,7 @@ test("한 줄에 레코드 하나, 바인딩을 그대로 보존한다", () => {
   assert.equal(out[1].category, "watchdog");
 });
 
-test("ANSI만 벗긴다 — 색이 남으면 grep이 깨진다", () => {
+test("ANSI만 벗긴다. 색이 남으면 grep이 깨진다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const dest = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
   dest.write(rec("\u001b[31m❌ 실패\u001b[39m"));
@@ -46,7 +46,7 @@ test("ANSI만 벗긴다 — 색이 남으면 grep이 깨진다", () => {
   assert.equal(lines(file)[0].msg, "❌ 실패");
 });
 
-test("이어 쓰기 — 재시작해도 기존 내용을 덮지 않는다", () => {
+test("이어 쓰기: 재시작해도 기존 내용을 덮지 않는다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const first = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
   first.write(rec("이전 기동"));
@@ -184,7 +184,7 @@ test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤�
 
 // 같은 밀리초에 두 번 회전할 때 번호를 덧붙이면(`…407-2.log`) `-`가 `.`보다 작아
 // 번호 붙은 쪽이 원본보다 앞으로 정렬된다(빠른 러너에서만 드러난다).
-test("이름이 겹치면 시각을 밀어서 비운다 — 이름순이 곧 시간순이어야 한다", () => {
+test("이름이 겹치면 시각을 밀어서 비운다. 이름순이 곧 시간순이어야 한다", () => {
   const at = new Date(2026, 8, 10, 14, 23, 5, 123);
   const taken = new Set(["/a/bot-2026-09-10T14-23-05.123.log", "/a/bot-2026-09-10T14-23-05.124.log"]);
 

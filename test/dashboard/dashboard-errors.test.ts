@@ -201,7 +201,7 @@ test("등록되지 않은 /api 경로는 HTML이 아니라 문제 응답 404", a
   }
 });
 
-test("잘못된 JSON 본문은 400 — 500으로 뭉개지 않는다", async () => {
+test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => {
   storeBroken = false;
   try {
     const res = await req("/api/guilds/x/player/queue", {

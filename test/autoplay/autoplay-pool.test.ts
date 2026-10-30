@@ -34,7 +34,7 @@ test("같은 곡을 두 번 내지 않는다", async () => {
   assert.equal(new Set(got).size, 10);
 });
 
-test("다 쓰면 다시 채운다 — 소진과 장애를 같은 일로 다룬다", async () => {
+test("다 쓰면 다시 채운다. 소진과 장애를 같은 일로 다룬다", async () => {
   let round = 0;
   const fill = async () => songs(3, `r${++round}-`);
   const src = { type: "lastfm", tags: ["pop"] };
@@ -45,7 +45,7 @@ test("다 쓰면 다시 채운다 — 소진과 장애를 같은 일로 다룬�
   assert.ok(next?.sourceKey.startsWith("r2-"));
 });
 
-test("설정이 다르면 풀도 다르다 — 같은 소스라도 태그가 다르면 섞이지 않는다", async () => {
+test("설정이 다르면 풀도 다르다. 같은 소스라도 태그가 다르면 섞이지 않는다", async () => {
   const seen: string[] = [];
   const fill = async (s: GenreSource) => {
     const [tag = ""] = s.tags ?? [];
@@ -63,11 +63,11 @@ test("키 순서가 달라도 같은 설정이면 같은 풀이다", () => {
   assert.equal(pool.keyOf({ type: "lastfm", tags: ["pop"] }), pool.keyOf({ tags: ["pop"], type: "lastfm" }));
 });
 
-test("weight는 풀을 나누지 않는다 — 고를 확률일 뿐 내용이 아니다", () => {
+test("weight는 풀을 나누지 않는다. 고를 확률일 뿐 내용이 아니다", () => {
   assert.equal(pool.keyOf({ type: "lastfm", tags: ["pop"], weight: 1 }), pool.keyOf({ type: "lastfm", tags: ["pop"], weight: 9 }));
 });
 
-test("소스가 죽어도 던지지 않는다 — 부르는 쪽이 다음 소스로 넘어가야 한다", async () => {
+test("소스가 죽어도 던지지 않는다. 부르는 쪽이 다음 소스로 넘어가야 한다", async () => {
   const fill = async () => {
     throw new Error("HTTP 503");
   };
@@ -78,7 +78,7 @@ test("빈 손으로 오면 null이다", async () => {
   assert.equal(await pool.take({ type: "lastfm", tags: ["pop"] }, async () => []), null);
 });
 
-test("싫다고 한 곡은 건너뛰되 썼다고 치지 않는다 — 다른 서버는 받아도 된다", async () => {
+test("싫다고 한 곡은 건너뛰되 썼다고 치지 않는다. 다른 서버는 받아도 된다", async () => {
   const fill = async () => songs(3);
   const src = { type: "lastfm", tags: ["pop"] };
 
@@ -95,7 +95,7 @@ test("싫다고 한 곡은 건너뛰되 썼다고 치지 않는다 — 다른 �
   assert.ok(rest.includes("s0"), "건너뛴 곡은 여전히 남아 있어야 한다");
 });
 
-test("싫다는 것만 남으면 null — 억지로 내지 않는다", async () => {
+test("싫다는 것만 남으면 null. 억지로 내지 않는다", async () => {
   const fill = async () => songs(2);
   assert.equal(await pool.take({ type: "lastfm", tags: ["pop"] }, fill, () => true), null);
 });

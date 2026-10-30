@@ -52,7 +52,7 @@ function rng(seed: number) {
   };
 }
 
-test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
+test("무작위 조작 2000회: 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
   const { store } = open();
   const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
@@ -137,7 +137,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   }
 });
 
-test("같은 위치에 계속 끼우면 간격이 닳는다 — 재번호 후에도 순서가 맞다", () => {
+test("같은 위치에 계속 끼우면 간격이 닳는다. 재번호 후에도 순서가 맞다", () => {
   const { store } = open();
   const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
@@ -275,7 +275,7 @@ test("replaceTracks: 주어진 목록으로 통째로 바꾸고 기록은 상한
   assert.equal(s.history.at(-1)?.title, `h${trackState.HISTORY_MAX + 2}`);
 });
 
-test("liveAudioUrls: 현재곡과 대기열만 — 기록은 지킬 필요가 없다", () => {
+test("liveAudioUrls: 현재곡과 대기열만. 기록은 지킬 필요가 없다", () => {
   const { store } = open();
   store.setCurrent(G, t("now"));
   store.append(G, [t("next"), { title: "스포티파이", requestKey: "https://open.spotify.com/track/x" }]);
@@ -293,7 +293,7 @@ test("loadAll: 트랙이 없는 세션도 빈 목록으로 돌아온다", () => 
   assert.deepEqual(titles(all[G].queue), ["A"]);
 });
 
-test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다 — 남은 곡의 위치가 메모리와 맞는다", () => {
+test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다. 남은 곡의 위치가 메모리와 맞는다", () => {
   const { db, store } = open();
   store.append(G, [t("A"), t("B"), t("C")]);
   db.prepare("UPDATE session_tracks SET request_key = NULL WHERE title = 'B'").run(); // 손으로 고쳤거나 옛 코드가 남긴 행
