@@ -84,7 +84,7 @@ test("항목 이름 규칙은 장르와 같다", () => {
 // 문서는 DB 에 있고 고칠 대시보드가 실행돼야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다
 test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문구 없이 돈다(던지지 않는다)", () => {
   const from = sink.buffer.length;
-  useDocument("status", "interval: 1\nmessages: []\n");
+  useDocument("status", { interval: 1, messages: [] });
   assert.deepEqual(statusConfig.status(), { messages: [] });
   const said = sink.buffer.slice(from).find((e) => e.level === "error");
   assert.ok(said?.text.startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")), said?.text);
@@ -92,7 +92,7 @@ test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문�
 
 test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
   // status()는 회전 주기마다 setInterval 안에서 불리므로, 던지면 타이머에서 잡히지 않는 예외가 된다.
-  useDocument("status", "interval: 30\nmessages: [맞는 문구]\n");
+  useDocument("status", { interval: 30, messages: ["맞는 문구"] });
   assert.deepEqual(statusConfig.status().messages, ["맞는 문구"]);
 
   documents._use("status", { interval: 1, messages: [] });

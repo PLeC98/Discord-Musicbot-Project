@@ -392,16 +392,16 @@ function firstComplaint(read: () => unknown) {
 }
 
 test("장르 문서가 검사에 걸리면 알리고 빈 장르로 돈다. 문구는 한 줄씩 들여 쓴다", () => {
-  useDocument("genres", "genres:\n  가요:\n    sources: []\n");
+  useDocument("genres", { genres: { 가요: { sources: [] } } });
   assert.ok(firstComplaint(() => assert.deepEqual(genreConfig.genres().genres, {})).startsWith(["자동재생 장르 설정을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n")));
 });
 
 test("상태 문서도 처음부터 검사에 걸리면 알리고 문구 없이 돈다. 문구는 장르와 같은 모양으로 한 줄씩", () => {
-  useDocument("status", "interval: 5\nmessages: []\n");
+  useDocument("status", { interval: 5, messages: [] });
   assert.ok(firstComplaint(() => assert.deepEqual(statusConfig.status().messages, [])).startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")));
 });
 
 test("AI 문서는 검사에 걸리면 끈 채로 돌려준다", () => {
-  useDocument("ai", "provider: custom\n");
+  useDocument("ai", { provider: "custom" });
   assert.equal(aiConfig.ai().enabled, false);
 });

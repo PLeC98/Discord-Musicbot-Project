@@ -65,7 +65,7 @@ test("두 화면 다 본인에게만 보인다", () => {
 
 test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
   const { useDocument } = await import("../helpers/config-docs.ts");
-  useDocument("genres", ["defaults: {}", "genres:", "  팝:", '    emoji: ""', "    sources: [{ type: keyword, keywords: [pop] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", "  록:", "    emoji: 🤘", "    sources: [{ type: keyword, keywords: [rock] }]", ""].join("\n"));
+  useDocument("genres", { defaults: {}, genres: { 팝: { emoji: "", sources: [{ type: "keyword", keywords: ["pop"] }] }, 재즈: { sources: [{ type: "keyword", keywords: ["jazz"] }] }, 록: { emoji: "🤘", sources: [{ type: "keyword", keywords: ["rock"] }] } } });
   try {
     const menu = menuOf(buildGenreMenu());
     assert.deepEqual(

@@ -20,7 +20,6 @@ import * as route from "../../src/autoplay/route.ts";
 import { prepare } from "../../src/autoplay/filter.ts";
 import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
-import { parse as parseYaml } from "yaml";
 import type { PromptSection } from "../../src/config/schema/ai-prompt.ts";
 
 // 보낸 요청. 우리 코드는 본문을 글로, 헤더를 객체로 보낸다
@@ -62,15 +61,6 @@ import nodecrypto from "node:crypto";
 const { privateKey: PRIVATE_KEY } = nodecrypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 const SA_JSON = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" });
 
-// 키를 묶을 설정. 일부러 틀리게 적은 글(겹친 필드 등)도 받는다
-function settingsOf(yaml: string): Record<string, unknown> {
-  try {
-    return (parseYaml(yaml, { uniqueKeys: false }) ?? {}) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
 // 키를 넣는다. 묶는 주소는 그 설정이 가리키는 곳(저장된 설정 = 화면에서 키를 입력할 때의 설정)
 function putKeys(settings: Record<string, unknown>) {
   for (const [provider, value] of Object.entries({ openai: KEY, custom: KEY, anthropic: KEY, aistudio: KEY, vertex: SA_JSON })) {
@@ -78,24 +68,17 @@ function putKeys(settings: Record<string, unknown>) {
   }
 }
 
-// 설정을 교체한다. 설정 문서 "ai" 는 YAML 글로 적고, 프롬프트는 딴 문서("ai-prompt")라 섞지 않는다. 키도 그 설정의 주소로 다시 넣는다
-function useConfig(yaml: string, sections: PromptSection[] = []) {
-  const settings = settingsOf(yaml);
+// 설정을 교체한다. 설정 문서 "ai" 는 저장되는 모양(객체)으로 적고, 프롬프트는 딴 문서("ai-prompt")라 섞지 않는다. 키도 그 설정의 주소로 다시 넣는다
+function useConfig(settings: Record<string, unknown>, sections: PromptSection[] = []) {
   useDocument("ai", settings);
   useDocument("ai-prompt", sections);
   putKeys(settings);
 }
 
 // 설정 문서를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
-useConfig("provider: off\n");
+useConfig({ provider: "off" });
 
-const ON = `provider: custom
-baseUrl: http://127.0.0.1:11434/v1
-model: test-model
-timeoutMs: 5000
-batchSize: 10
-retryDelayMs: 0
-`;
+const ON = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1", model: "test-model", timeoutMs: 5000, batchSize: 10, retryDelayMs: 0 };
 
 // 나간 요청을 적는다. 진짜로 나가면 테스트가 남의 서버에 기댄다
 const calls: Array<{ url: string; init: SentInit; body?: SentBody }> = [];
@@ -132,7 +115,7 @@ const cand = (title: string, durationSec = 200) => ({ title, durationSec });
 // ── 꺼져 있을 때 ──────────────────────────────────────────────────────────
 
 test("꺼져 있으면 아예 부르지 않는다", async () => {
-  useConfig("provider: off\n");
+  useConfig({ provider: "off" });
   calls.length = 0;
   answers("[]");
 
@@ -143,7 +126,7 @@ test("꺼져 있으면 아예 부르지 않는다", async () => {
 });
 
 test("enabled: false 면 프로바이더 · 모델이 있어도 부르지 않는다", async () => {
-  useConfig("enabled: false\n" + ON);
+  useConfig({ enabled: false, ...ON });
   calls.length = 0;
   answers("[]");
 
@@ -154,7 +137,7 @@ test("enabled: false 면 프로바이더 · 모델이 있어도 부르지 않는
 
 // 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다. 아예 켜지 않는다.
 test("설정이 어긋나면 켜지지 않는다", async () => {
-  useConfig("provider: custom\nbaseUrl: \nmodel: \n");
+  useConfig({ provider: "custom", baseUrl: null, model: null });
   calls.length = 0;
   answers("[]");
 
@@ -165,7 +148,7 @@ test("설정이 어긋나면 켜지지 않는다", async () => {
 
 // 비운 필드가 Number(null) = 0 이 되면 부르자마자 끊긴다
 test("비워 둔 필드는 기본값을 쓴다", () => {
-  useConfig(`${ON.replace("timeoutMs: 5000", "timeoutMs:")}retries:\nretryStatus:\n`);
+  useConfig({ ...ON, timeoutMs: null, retries: null, retryStatus: null });
   const one = assist.settings();
   assert.ok(one);
   assert.equal(one.timeoutMs, 60000);
@@ -174,11 +157,11 @@ test("비워 둔 필드는 기본값을 쓴다", () => {
 });
 
 test("재시도 필드가 범위를 벗어나면 켜지지 않는다", () => {
-  for (const bad of ["retries: 99", "retries: -1", "totalTimeoutMs: 500", "retryTimeouts: yes please", "retryDelayMs: 99999999", "retryStatus: [200]", 'retryStatus: "429"']) {
-    useConfig(`${ON}${bad}\n`);
-    assert.equal(assist.settings(), null, bad);
+  for (const bad of [{ retries: 99 }, { retries: -1 }, { totalTimeoutMs: 500 }, { retryTimeouts: "yes please" }, { retryDelayMs: 99999999 }, { retryStatus: [200] }, { retryStatus: "429" }]) {
+    useConfig({ ...ON, ...bad });
+    assert.equal(assist.settings(), null, JSON.stringify(bad));
   }
-  useConfig(`${ON}retries: 0\ntotalTimeoutMs: 0\nretryTimeouts: true\nretryDelayMaxMs: 60000\nretryStatus: [429]\n`);
+  useConfig({ ...ON, retries: 0, totalTimeoutMs: 0, retryTimeouts: true, retryDelayMaxMs: 60000, retryStatus: [429] });
   assert.ok(assist.settings(), "범위 안이면 켜진다");
 });
 
@@ -273,7 +256,7 @@ test("일시 오류는 retries 만큼 다시 부르고, 되면 그 판정을 쓴
   assert.equal(await assist.accepts(cand("A"), {}), true, "끝내 실패하면 규칙만으로");
   assert.equal(calls.length, 3, "기본 retries 2: 처음 한 번 + 두 번");
 
-  useConfig(`${ON}retries: 0\n`);
+  useConfig({ ...ON, retries: 0 });
   replies(status(503));
   await assist.accepts(cand("A"), {});
   assert.equal(calls.length, 1, "0 이면 다시 부르지 않는다");
@@ -352,7 +335,7 @@ test("다시 해도 같은 답인 것은 다시 부르지 않는다", async () =
 });
 
 test("다시 부를 상태 코드는 설정으로 정한다", async () => {
-  useConfig(`${ON}retryStatus: [418]\n`);
+  useConfig({ ...ON, retryStatus: [418] });
   replies(status(503));
   await assist.accepts(cand("A"), {});
   assert.equal(calls.length, 1, "목록에 없는 503");
@@ -372,12 +355,12 @@ function hangs() {
 }
 
 test("시간 초과는 기본으로 다시 부르지 않고, retryTimeouts 를 켜면 다시 부른다", async () => {
-  useConfig(ON.replace("timeoutMs: 5000", "timeoutMs: 1000"));
+  useConfig({ ...ON, timeoutMs: 1000 });
   hangs();
   assert.equal(await assist.accepts(cand("A"), {}), true);
   assert.equal(calls.length, 1);
 
-  useConfig(`${ON.replace("timeoutMs: 5000", "timeoutMs: 1000")}retryTimeouts: true\nretries: 1\n`);
+  useConfig({ ...ON, timeoutMs: 1000, retryTimeouts: true, retries: 1 });
   hangs();
   await assist.accepts(cand("A"), {});
   assert.equal(calls.length, 2);
@@ -385,7 +368,7 @@ test("시간 초과는 기본으로 다시 부르지 않고, retryTimeouts 를 �
 
 test("판정 하나의 상한(totalTimeoutMs)을 넘기면 재시도 중이어도 그만둔다", async () => {
   // 호출 한 번은 5초까지 기다리지만 판정 전체는 1초
-  useConfig(`${ON}totalTimeoutMs: 1000\nretryTimeouts: true\n`);
+  useConfig({ ...ON, totalTimeoutMs: 1000, retryTimeouts: true });
   hangs();
   const started = Date.now();
   const level = logger.level;
@@ -404,7 +387,7 @@ test("판정 하나의 상한(totalTimeoutMs)을 넘기면 재시도 중이어�
   );
 
   // 대기가 남은 시간을 넘으면 기다리지 않고 그만둔다
-  useConfig(`${ON.replace("retryDelayMs: 0", "retryDelayMs: 8000")}totalTimeoutMs: 2000\n`);
+  useConfig({ ...ON, retryDelayMs: 8000, totalTimeoutMs: 2000 });
   replies(status(503));
   const again = Date.now();
   await assist.accepts(cand("A"), {});
@@ -434,7 +417,7 @@ test("저쪽이 기다리라는 시간을 쓰고, 대기 상한보다 길면 다
 });
 
 test("판정을 읽지 못한 답은 재시도와 따로 한 번만 다시 묻는다", async () => {
-  useConfig(`${ON}retries: 0\n`);
+  useConfig({ ...ON, retries: 0 });
   const babble = () => ({ ok: true, json: async () => ({ choices: [{ message: { content: "죄송합니다, 판단할 수 없습니다." } }] }) });
   replies(babble, ok1);
   assert.equal(await assist.accepts(cand("A"), {}), false, "다시 물은 답을 쓴다");
@@ -481,7 +464,7 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
 // ── 요청 모양 ────────────────────────────────────────────────────────────
 
 test("설정한 것이 그대로 요청에 실린다", async () => {
-  useConfig(`${ON}extra: |\n  think=false\n  reasoning_effort=low\n  temperature=0.4\n`, [
+  useConfig({ ...ON, extra: "think=false\nreasoning_effort=low\ntemperature=0.4\n" }, [
     { role: "system", text: "내가 쓴 기준" },
     { role: "user", text: "{{list}}" },
   ]);
@@ -561,7 +544,7 @@ test("내용이 빈 섹션은 보내지 않는다", async () => {
 // ── 후보 목록의 모양 ──────────────────────────────────────────────────────
 
 test("줄 형식을 직접 짤 수 있다", async () => {
-  useConfig(`${ON}list:\n  lineFormat: "{{index}}) {{title}} [{{duration::s}}s]"\n`, [{ role: "user", text: "{{list}}" }]);
+  useConfig({ ...ON, list: { lineFormat: "{{index}}) {{title}} [{{duration::s}}s]" } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -572,16 +555,16 @@ test("줄 형식을 직접 짤 수 있다", async () => {
 // 길이를 모르는데 "0분"이라고 적으면 모델에게 거짓을 알려 주는 것이다. 어떻게 적을지는 줄 형식 안에서 정한다({{#if-exist}} · {{:else}})
 test("길이를 모르는 후보 — 구간째 빼거나, 글자로 적거나, 0으로", async () => {
   const unknown = { title: "이름만 아는 곡" };
-  const ask = async (yaml: string) => {
-    useConfig(`${ON}${yaml}`, [{ role: "user", text: "{{list}}" }]);
+  const ask = async (extra: Record<string, unknown>) => {
+    useConfig({ ...ON, ...extra }, [{ role: "user", text: "{{list}}" }]);
     calls.length = 0;
     answers('[{"n":1,"song":true,"fits":true}]');
     await assist.accepts(unknown, { genre: "록" });
     return lastSent().body.messages[0].content;
   };
 
-  assert.equal(await ask(""), "1. genre=록 title=이름만 아는 곡", "기본은 길이 구간을 통째로 뺀다");
-  const withElse = (otherwise: string) => `list:\n  lineFormat: "{{index}}. 장르={{genre}} 길이={{#if-exist {{duration}}}}{{duration::m}}분{{:else}}${otherwise}{{/}} 제목={{title}}"\n`;
+  assert.equal(await ask({}), "1. genre=록 title=이름만 아는 곡", "기본은 길이 구간을 통째로 뺀다");
+  const withElse = (otherwise: string) => ({ list: { lineFormat: `{{index}}. 장르={{genre}} 길이={{#if-exist {{duration}}}}{{duration::m}}분{{:else}}${otherwise}{{/}} 제목={{title}}` } });
   assert.equal(await ask(withElse("모름")), "1. 장르=록 길이=모름 제목=이름만 아는 곡");
   assert.equal(await ask(withElse("0분")), "1. 장르=록 길이=0분 제목=이름만 아는 곡");
 
@@ -639,7 +622,7 @@ test("추가 파라미터 — 못 읽은 줄을 알려 준다", () => {
 
 // {{none}} 을 header:: 보다 먼저 봐야 한다. 반대로 보면 헤더에 "{{none}}" 을 넣게 된다.
 test("헤더도 {{none}} 으로 삭제한다", async () => {
-  useConfig(`${ON}extra: |\n  header::Authorization={{none}}\n  header::X-Title=지움 확인\n`);
+  useConfig({ ...ON, extra: "header::Authorization={{none}}\nheader::X-Title=지움 확인\n" });
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -650,7 +633,7 @@ test("헤더도 {{none}} 으로 삭제한다", async () => {
 });
 
 test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
-  useConfig(`${ON}extra: |\n  header::X-Title=Musicbot\n  temperature={{none}}\n  top_p=0.5\n`);
+  useConfig({ ...ON, extra: "header::X-Title=Musicbot\ntemperature={{none}}\ntop_p=0.5\n" });
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -665,7 +648,7 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
 
 // 값이 본문 어디로 가는지는 모델 프로필이 안다(data/ai-models.json).
 test("params 는 프로필이 적어 둔 경로로 간다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: high\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "anthropic", model: "claude-opus-5", params: { "claude-opus-5": { effort: "high" } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -681,7 +664,7 @@ test("params 는 프로필이 적어 둔 경로로 간다", async () => {
 // 모델을 바꾸면 그 모델이 안 받는 값은 저절로 빠져야 한다. 그대로 보내면 400 이다.
 test("그 모델이 안 받는 값은 안 보낸다", async () => {
   // Astra 는 reasoning_effort 에 none 을 안 받는다(프로필 enum 에 없다)
-  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    reasoning_effort: none\n    없는칸: 1\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "openai", model: "gpt-6-astra", params: { "gpt-6-astra": { reasoning_effort: "none", 없는칸: 1 } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers("[]");
 
@@ -693,7 +676,7 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
 
 // 장르는 한 요청에 하나라 모든 줄이 같은 값을 쓰므로 프롬프트에서도 쓸 수 있다.
 test("{{genre}} 는 프롬프트에서도 풀린다", async () => {
-  useConfig(`${ON}`, [
+  useConfig(ON, [
     { role: "system", text: "너는 {{genre}} 판정기다" },
     { role: "user", text: "{{list}}" },
   ]);
@@ -706,7 +689,7 @@ test("{{genre}} 는 프롬프트에서도 풀린다", async () => {
 
 // 저쪽이 배열을 바라는 필드에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤을 수 있다.
 test("종류가 안 맞는 값은 안 보낸다", async () => {
-  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop: 그냥글자\n    seed: 열둘\n    logprobs: 켬\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "openai", model: "gpt-6-astra", params: { "gpt-6-astra": { stop: "그냥글자", seed: "열둘", logprobs: "켬" } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers("[]");
 
@@ -718,7 +701,7 @@ test("종류가 안 맞는 값은 안 보낸다", async () => {
 });
 
 test("배열과 JSON 필드는 제 모양이면 실린다", async () => {
-  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop:\n      - 끝\n      - 그만\n    metadata:\n      who: musicbot\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "openai", model: "gpt-6-astra", params: { "gpt-6-astra": { stop: ["끝", "그만"], metadata: { who: "musicbot" } } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers("[]");
 
@@ -730,7 +713,7 @@ test("배열과 JSON 필드는 제 모양이면 실린다", async () => {
 
 // 화면에 안 보이는(고급) 필드라도 프로필 기본값은 붙어야 한다.
 test("프로필 기본값은 선택하지 않아도 붙는다", async () => {
-  useConfig("provider: openai\nmodel: gpt-6-astra\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "openai", model: "gpt-6-astra" }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers("[]");
 
@@ -744,14 +727,14 @@ test("프로필 기본값은 선택하지 않아도 붙는다", async () => {
 // 켰다 끈 값이 params 에 남는다. 그대로 보내면 저쪽이 거절한다.
 // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
 test("조건이 안 맞는 필드는 보내지 않는다", async () => {
-  const withLogprobs = (on: string) => "provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-5.5:\n    logprobs: " + on + "\n    top_logprobs: 5\n";
+  const withLogprobs = (on: boolean) => ({ provider: "openai", model: "gpt-5.5", params: { "gpt-5.5": { logprobs: on, top_logprobs: 5 } } });
 
-  useConfig(withLogprobs("true"), [{ role: "user", text: "{{list}}" }]);
+  useConfig(withLogprobs(true), [{ role: "user", text: "{{list}}" }]);
   answers("[]");
   await assist.accepts(cand("A"), {});
   assert.equal(lastSent().body.top_logprobs, 5, "켜 두었으면 나간다");
 
-  useConfig(withLogprobs("false"), [{ role: "user", text: "{{list}}" }]);
+  useConfig(withLogprobs(false), [{ role: "user", text: "{{list}}" }]);
   await assist.accepts(cand("A"), {});
   assert.equal(lastSent().body.logprobs, false);
   assert.ok(!("top_logprobs" in lastSent().body), "끄면 딸린 필드도 안 나간다");
@@ -788,7 +771,7 @@ test("평범한 점 경로는 막지 않는다", () => {
 
 // 온도도 모델이 받는 필드 하나라 프로필이 적어 둔 위치로 들어간다(제미니는 generationConfig 안).
 test("온도는 params 를 타고 프로필이 적은 위치로 간다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "vertex", model: "gemini-3.7-flash", location: "global", params: { "gemini-3.7-flash": { temperature: 0.7 } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -800,14 +783,14 @@ test("온도는 params 를 타고 프로필이 적은 위치로 간다", async (
   assert.equal(lastSent().body.generationConfig.temperature, 0.7);
 
   // 안 적으면 아예 안 보낸다. 저쪽이 안 받는 모델도 있다
-  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "vertex", model: "gemini-3.7-flash", location: "global" }, [{ role: "user", text: "{{list}}" }]);
   await assist.accepts(cand("A"), {});
   assert.ok(!("temperature" in (lastSent().body.generationConfig || {})));
 });
 
 // 모델을 바꾸면 앞 모델에서 선택한 값이 따라오면 안 된다.
 test("params 는 모델마다 따로 기억한다", async () => {
-  useConfig("provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-6-astra:\n    reasoning_effort: max\n  gpt-5.5:\n    reasoning_effort: none\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "openai", model: "gpt-5.5", params: { "gpt-6-astra": { reasoning_effort: "max" }, "gpt-5.5": { reasoning_effort: "none" } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers("[]");
 
@@ -817,7 +800,7 @@ test("params 는 모델마다 따로 기억한다", async () => {
 
 // 앤트로픽은 max_tokens 가 필수라 프로필의 defaults 가 채운다.
 test("프로필의 기본값은 늘 붙는다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "anthropic", model: "claude-opus-5" }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -830,7 +813,7 @@ test("프로필의 기본값은 늘 붙는다", async () => {
 
 // 추가 파라미터는 프로필이 모르는 것을 넣는 비상구라 마지막 말을 갖는다.
 test("추가 파라미터가 params 를 이긴다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "anthropic", model: "claude-opus-5", params: { "claude-opus-5": { effort: "low" } }, extra: "output_config.effort=max" }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -963,7 +946,7 @@ test("baseUrl 은 custom 일 때만 쓴다", () => {
 });
 
 test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () => {
-  useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
+  useConfig({ provider: "custom", baseUrl: "https://내가저장한곳/v1", model: "m" });
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -983,7 +966,7 @@ test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () =
 
 // 저장된 주소를 바꿔도 키는 입력할 때의 주소에 묶여 있어 새 주소로 가지 않는다. 다시 입력해야 한다
 test("키는 입력할 때의 주소에 묶인다: 주소를 바꿔 저장해도 새 주소에는 키를 안 붙인다", async () => {
-  useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
+  useConfig({ provider: "custom", baseUrl: "https://내가저장한곳/v1", model: "m" });
   // 키는 그대로 두고 주소만 바꿔 저장한다
   useDocument("ai", { provider: "custom", baseUrl: "https://바뀐곳/v1", model: "m" });
   calls.length = 0;
@@ -1058,7 +1041,7 @@ test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
 
 // OpenAI 와 다른 것 셋: system 이 본문 맨 위 필드, max_tokens 가 필수, 인증이 x-api-key.
 test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-x\n", [
+  useConfig({ provider: "anthropic", model: "claude-x" }, [
     { role: "system", text: "기준 하나" },
     { role: "system", text: "기준 둘" },
     { role: "user", text: "{{list}}" },
@@ -1087,7 +1070,7 @@ test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
 });
 
 test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
-  useConfig("provider: anthropic\nmodel: claude-x\nextra: max_tokens=4096\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "anthropic", model: "claude-x", extra: "max_tokens=4096" }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -1106,7 +1089,7 @@ test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
 
 // 여기만 유난히 다르다: 주소를 조립하고, 토큰으로 인증하고, 본문이 contents/parts 다.
 test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [
+  useConfig({ provider: "vertex", model: "gemini-3-pro", location: "us-central1" }, [
     { role: "system", text: "기준이다" },
     { role: "user", text: "{{list}}" },
   ]);
@@ -1137,7 +1120,7 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
 // 경로는 언제나 본문 맨 위부터다. 버텍스라고 generationConfig 안으로 넣어 주지 않는다.
 // 모델 프로필의 mapsTo.path 와 같은 규칙이라야 두 길이 어긋나지 않는다.
 test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경로 그대로 간다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: generationConfig.topP=0.9\n", [
+  useConfig({ provider: "vertex", model: "gemini-3-pro", location: "global", extra: "generationConfig.topP=0.9" }, [
     { role: "assistant", text: "알겠다" },
     { role: "user", text: "{{list}}" },
   ]);
@@ -1165,7 +1148,7 @@ test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경�
 // AI 스튜디오도 제미니 네이티브다. OpenAI 호환층(/v1beta/openai)을 쓰면 추론 설정이
 // 저쪽 규격과 어긋나고, 모델 프로필이 적어 둔 경로도 네이티브 기준이다.
 test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
-  useConfig("provider: aistudio\nmodel: gemini-3.7-flash\nextra: generationConfig.topP=0.5\n", [
+  useConfig({ provider: "aistudio", model: "gemini-3.7-flash", extra: "generationConfig.topP=0.5" }, [
     { role: "system", text: "너는 판정기다" },
     { role: "user", text: "{{list}}" },
   ]);
@@ -1225,7 +1208,7 @@ test("버텍스 리전 기본값은 global", async () => {
 // 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다. 다른 키와 같은 위치에 둔다.
 test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", async () => {
   const inline = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "인라인-프로젝트" });
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "vertex", model: "gemini-3-pro", location: "us-central1" }, [{ role: "user", text: "{{list}}" }]);
   aiKeys.put("vertex", inline, assist.keyBinding({ provider: "vertex", location: "us-central1" }));
   googleAuth._reset();
 
@@ -1314,7 +1297,7 @@ test("답에 U+2581 이 섞여 와도 읽는다", async () => {
 // 모르는 이름은 검사가 표시한다(저장 · 기동 시 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다.
 // 오타를 조용히 지우면 왜 사라졌는지 알 길이 없다
 test("줄 형식의 모르는 자리표시자는 검사가 표시하고, 그려 보면 그대로 남는다", async () => {
-  useConfig(`${ON}list:\n  lineFormat: "{{title}} / {{아티스트}} / {{duration::m}}분"\n`, [{ role: "user", text: "{{list}}" }]);
+  useConfig({ ...ON, list: { lineFormat: "{{title}} / {{아티스트}} / {{duration::m}}분" } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
   await assist.accepts(cand("Toxicity", 210), {});
@@ -1324,7 +1307,7 @@ test("줄 형식의 모르는 자리표시자는 검사가 표시하고, 그려 
 });
 
 test("배치 크기대로 나눠 묻는다", async () => {
-  useConfig(`${ON.replace("batchSize: 10", "batchSize: 2")}`);
+  useConfig({ ...ON, batchSize: 2 });
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true},{"n":2,"song":true,"fits":true}]');
 
@@ -1381,7 +1364,7 @@ test("규칙이 확신하면 묻지 않는다", async () => {
   assert.equal(calls.length, 0);
 
   // skipConfident 를 끄면 확신해도 묻는다
-  useConfig(`${ON}skipConfident: false\n`);
+  useConfig({ ...ON, skipConfident: false });
   await assist.accepts(cand("A"), { confident: true });
   assert.equal(calls.length, 1);
 });
@@ -1448,7 +1431,7 @@ test("미리보기는 URL 을 돌려준다. 화면이 주소를 흉내 내지 �
 // ── 배치 실패 · 판정 읽기 ─────────────────────────────────────────────────
 
 test("배치 하나가 실패해도 앞 배치의 판정은 살리고 남은 후보는 그대로 둔다", async () => {
-  useConfig(`${ON.replace("batchSize: 10", "batchSize: 2")}`);
+  useConfig({ ...ON, batchSize: 2 });
   let n = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -1476,7 +1459,7 @@ test('답 앞뒤 설명에 대괄호가 있어도 판정 배열을 읽고, 글�
 // ── 토큰 세기 ─────────────────────────────────────────────────────────────
 
 test("판정 요청은 토큰을 세지 않는다(앤트로픽이어도 count_tokens 를 부르지 않는다)", async () => {
-  useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "anthropic", model: "claude-opus-5" }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -1490,7 +1473,7 @@ test("판정 요청은 토큰을 세지 않는다(앤트로픽이어도 count_to
 });
 
 test("게이트웨이의 클로드 모델은 앤트로픽에 토큰을 묻지 않는다(그 키가 앤트로픽으로 나가지 않는다)", async () => {
-  useConfig("provider: off\n");
+  useConfig({ provider: "off" });
   aiKeys.put("openrouter", KEY, assist.keyBinding({ provider: "openrouter" }));
   calls.length = 0;
   answers("[]");
@@ -1500,7 +1483,7 @@ test("게이트웨이의 클로드 모델은 앤트로픽에 토큰을 묻지 �
 });
 
 test("버텍스 미리보기는 토큰을 받으러 나가지 않는다. 연결 확인은 토큰을 못 받으면 까닭을 돌려준다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{list}}" }]);
+  useConfig({ provider: "vertex", model: "gemini-3.7-flash", location: "global" }, [{ role: "user", text: "{{list}}" }]);
   googleAuth._reset(); // 앞 테스트가 받아 둔 토큰이 남아 있으면 받으러 나가지 않아 테스트가 안 된다
   calls.length = 0;
   useFetch(async (url, init) => {

@@ -8,10 +8,9 @@ import * as documents from "../../src/config/documents.ts";
 import { GENRE_DEFAULTS } from "../../src/config/schema/genres.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import sink from "../../src/infra/log/sink.ts";
-import YAML from "yaml";
 
-// 장르 문서를 바꾼다(옛 설정 파일 형식의 YAML 글로 적는다). 읽어 둔 직전 설정은 그대로 둔다(돌던 중에 바뀐 것처럼)
-const write = (name: "genres", text: string) => documents._use(name, YAML.parse(text));
+// 장르 문서를 바꾼다. 읽어 둔 직전 설정은 그대로 둔다(돌던 중에 바뀐 것처럼)
+const write = (name: "genres", value: unknown) => documents._use(name, value);
 
 // 테스트마다 기동한 것처럼 본다. 직전에 맞던 설정이 남아 있으면 틀린 문서에도 그것으로 돈다
 beforeEach(() => genreConfig._reset());
@@ -39,7 +38,7 @@ test("true · false · null 도 장르 식별자로 쓸 수 있고, 비었거나
 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
   // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 드래그해서 옮긴 순서가 조용히 어긋난다.
-  write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
+  write("genres", { defaults: {}, genres: { 80: { sources: [{ type: "keyword", keywords: ["pop"] }] } } });
 
   const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
@@ -53,26 +52,20 @@ test("emoji 필드에 이모지가 아닌 값이 있으면 읽을 때 걸린다"
   // 대시보드는 선택기로만 입력하지만 DB 는 바깥에서도 고칠 수 있다. 읽을 때 잡지 않으면
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 위치에서 죽는다.
   const load = (emoji: string) => {
-    write("genres", ["defaults: {}", "genres:", "  팝:", `    emoji: ${emoji}`, "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
+    write("genres", { defaults: {}, genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["pop"] }] } } });
     return genreConfig.genres();
   };
 
   assert.equal(load("🇰🇷").genres.팝.emoji, "🇰🇷", "국기처럼 코드포인트가 여럿인 것도 한 글자다");
-  assert.equal(load('""').genres.팝.emoji, "", "비워 두는 것은 괜찮다");
+  assert.equal(load("").genres.팝.emoji, "", "비워 두는 것은 괜찮다");
 
   const err = complaint(() => load("abc"));
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /이모지/);
 });
 
-test("no·on 같은 말은 그냥 장르 키가 된다 — 따옴표가 필요 없다", () => {
-  const src = "    sources: [{ type: keyword, keywords: [a] }]";
-  write("genres", ["defaults: {}", "genres:", "  no:", "    label: 노", src, "  on:", "    label: 온", src, ""].join("\n"));
-  assert.deepEqual(Object.keys(genreConfig.genres().genres), ["no", "on"]);
-});
-
 test("defaults와 genres를 함께 돌려준다", () => {
-  write("genres", ["defaults:", "  prefetchCount: 2", "genres:", "  pop:", "    label: 팝", "    sources: [{ type: keyword, keywords: [a] }]", ""].join("\n"));
+  write("genres", { defaults: { prefetchCount: 2 }, genres: { pop: { label: "팝", sources: [{ type: "keyword", keywords: ["a"] }] } } });
   const cfg = genreConfig.genres();
   assert.deepEqual(Object.keys(cfg.genres), ["pop"]);
   assert.equal(cfg.defaults.prefetchCount, 2);
@@ -191,7 +184,7 @@ test("검사: 미리 선택해 둘 곡 수는 장르마다 둘 수 없다(기본
 
 // 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 시작해야 다음 문제가 보이지 않게
 test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장 전 검사와 같은 문구)", () => {
-  write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", "  팝:", "    emoji: abc", "    sources: []", ""].join("\n"));
+  write("genres", { defaults: {}, genres: { 80: { sources: [{ type: "keyword", keywords: ["pop"] }] }, 팝: { emoji: "abc", sources: [] } } });
   const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
   const lines = err.message.split("\n");
@@ -202,10 +195,10 @@ test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장
 });
 
 test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(던지지 않는다)", () => {
-  write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
+  write("genres", { defaults: {}, genres: { 팝: { sources: [{ type: "keyword", keywords: ["pop"] }] } } });
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"]);
 
-  write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: []", ""].join("\n"));
+  write("genres", { defaults: {}, genres: { 팝: { sources: [] } } });
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 문서 대신 직전 값");
 });
 
@@ -213,7 +206,7 @@ test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(던지
 test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장르만 못 쓴다. 키를 입력하면 바로 쓴다", async () => {
   const config = (await import("../../src/config/index.ts")).default;
   const saved = config.sources.lastfmKey;
-  write("genres", ["defaults: {}", "genres:", "  재즈:", "    sources: [{ type: lastfm, tags: [jazz] }]", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
+  write("genres", { defaults: {}, genres: { 재즈: { sources: [{ type: "lastfm", tags: ["jazz"] }] }, 팝: { sources: [{ type: "keyword", keywords: ["pop"] }] } } });
   try {
     config.sources.lastfmKey = null;
     assert.deepEqual(Object.keys(genreConfig.genres().genres), ["재즈", "팝"]);

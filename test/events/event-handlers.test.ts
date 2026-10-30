@@ -54,7 +54,7 @@ const fakeLookup = { ...lookup };
 addTracks.useLookup(fakeLookup);
 const resolved: { query: string; context?: string | null; range?: Range }[] = [];
 before(() => {
-  useDocument("genres", "genres:\n  가요:\n    sources:\n      - type: keyword\n        keywords: [가요]\n");
+  useDocument("genres", { genres: { 가요: { sources: [{ type: "keyword", keywords: ["가요"] }] } } });
 });
 
 after(() => {

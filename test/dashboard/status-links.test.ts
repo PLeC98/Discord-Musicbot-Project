@@ -7,16 +7,12 @@ import { useDocument } from "../helpers/config-docs.ts";
 import * as documents from "../../src/config/documents.ts";
 
 // 장르는 Last.fm · VocaDB 만 쓴다
-useDocument("genres", "defaults:\n  prefetchCount: 1\ngenres:\n  락:\n    sources:\n      - type: lastfm\n        tags: [rock]\n      - type: vocadb\n");
+useDocument("genres", { defaults: { prefetchCount: 1 }, genres: { 락: { sources: [{ type: "lastfm", tags: ["rock"] }, { type: "vocadb" }] } } });
 
 const config = (await import("../../src/config/index.ts")).default;
 const { linkRows } = await import("../../src/dashboard/status/links.ts");
 const { _reset, record } = await import("../../src/infra/link-status.ts");
 const { _internals: spotify } = await import("../../src/sources/spotify.ts");
-
-function writeConfig(name: "genres" | "status" | "ai", text: string) {
-  useDocument(name, text);
-}
 
 const client = { isReady: () => true, ws: { ping: 48 } } as unknown as Client;
 const rowOf = (id: string) => linkRows(client).find((row) => row.id === id)!;
@@ -66,7 +62,7 @@ test("디스코드는 게이트웨이, POToken 은 서버 프로세스로 본다
 });
 
 test("늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간, ListenBrainz 는 이름에 올리면 시간 한도", () => {
-  writeConfig("ai", ["enabled: true", "provider: ollama", "model: qwen3:8b", ""].join("\n"));
+  useDocument("ai", { enabled: true, provider: "ollama", model: "qwen3:8b" });
   spotify.graphql._anonToken = { value: "t", expiresAt: Date.now() + 41 * 60_000 + 1000 };
   try {
     assert.deepEqual([rowOf("ai").state, rowOf("ai").note], ["idle", "qwen3:8b"]);

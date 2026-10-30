@@ -78,9 +78,6 @@ importers:
       ua-parser-js:
         specifier: ^2.0.10
         version: 2.0.10
-      yaml:
-        specifier: ^2.9.1
-        version: 2.9.1
       youtube-dl-exec:
         specifier: ^3.1.17
         version: 3.1.17(debug@4.4.3(supports-color@7.2.0))
@@ -161,7 +158,7 @@ importers:
         specifier: 'catalog:'
         version: 0.4.0(patch_hash=64001191cd06bfecdc3b428821e6a39026cafce3a326a070351bd18e90d3a0f3)
       '@twemoji/api':
-        specifier: ^17.0.3
+        specifier: 17.0.3
         version: 17.0.3
       '@vueuse/core':
         specifier: ^15.0.0
@@ -4780,7 +4777,8 @@ snapshots:
 
   xml-name-validator@5.0.0: {}
 
-  yaml@2.9.1: {}
+  yaml@2.9.1:
+    optional: true
 
   yocto-queue@0.1.0: {}
 
