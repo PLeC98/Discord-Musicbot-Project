@@ -225,7 +225,7 @@ test("음원을 빌려 오는 것은 음원 주소가 없는 곡(스포티파이
   const { needsBorrowedAudio } = TrackDownloader._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);
-  assert.equal(needsBorrowedAudio({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), false, "SC-4");
+  assert.equal(needsBorrowedAudio({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), false, "사운드클라우드는 빌려 오지 않는다");
   assert.equal(needsBorrowedAudio({ platform: "youtube", audioUrl: "https://www.youtube.com/watch?v=x" }), false);
   assert.equal(needsBorrowedAudio({ platform: "direct", audioUrl: "https://f.test/a.mp3" }), false);
   // 이미 찾아 둔 영상이 있으면 다시 찾지 않는다(자동재생 출처 트랙)

@@ -392,29 +392,6 @@ test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 페이지가 
   route._dead.clear();
 });
 
-// VocaDB 계열은 영상이 내려간 것을 disabled 로 표시해 둔다(웹에서 "PV 사용할 수 없음"으로 회색이 되는 그것).
-// 그걸 안 보고 Original 부터 찾으면 죽은 Original 다음에 멀쩡한 Original 이 있는 곡에서 틀린 것을 집는다.
-test("VocaDB 계열은 disabled 된 PV를 고르지 않는다", () => {
-  const pick = (pvs: Array<{ service: string; disabled?: boolean; pvType?: string; url: string }>) => {
-    const ok = pvs.filter((p) => p.service === "Youtube" && !p.disabled);
-    return (ok.find((p) => p.pvType === "Original") || ok[0])?.url;
-  };
-
-  // 실제 Bad Apple!!(touhoudb.com/S/1041)의 PV 순서
-  const badApple = [
-    { service: "NicoNicoDouga", pvType: "Other", disabled: false, url: "nico" },
-    { service: "Youtube", pvType: "Original", disabled: true, url: "죽은것" },
-    { service: "Youtube", pvType: "Original", disabled: false, url: "살아있는것" },
-    { service: "Youtube", pvType: "Other", disabled: false, url: "다른사람업로드" },
-  ];
-  assert.equal(pick(badApple), "살아있는것");
-
-  // Original 이 다 죽었으면 살아 있는 다른 유튜브 PV로 내려간다
-  assert.equal(pick([{ service: "Youtube", pvType: "Original", disabled: true, url: "죽은것" }, badApple[3]]), "다른사람업로드");
-  // 유튜브가 하나도 살아 있지 않으면 고르지 않는다. 니코동은 재생할 수 없다
-  assert.equal(pick([badApple[0], badApple[1]]), undefined);
-});
-
 // ── 소스 기본값 ───────────────────────────────────────────────────────────
 
 // 기본값은 조용히 성격을 정한다. 뒤집히면 아무도 모른 채 딴 곡이 나오므로 여기 못 박는다.
@@ -577,6 +554,20 @@ test("키가 필요한 소스는 그 키가 있을 때만 쓴다", async () => {
     assert.equal(sources.usable("lastfm"), true);
     assert.equal(sources.usable("lbradio"), false);
   });
+});
+
+test("고를 때 키가 없는 소스는 부르지 않는다. 그런 소스뿐이면 곡이 없다(null)", async () => {
+  const asked: string[] = [];
+  const own = { ...deps, fetch: async (source: GenreSource) => (asked.push(source.type), []) };
+  const lastfmOnly: route.PickConfig = { sources: [{ type: "lastfm", tags: ["rock"] } as GenreSource] };
+  await withConfig({ sources: { lastfmKey: null } }, async () => {
+    assert.equal(await route.pickTrack(lastfmOnly, [], own), null);
+  });
+  assert.deepEqual(asked, [], "키가 없으면 소스를 부르지 않는다");
+  await withConfig({ sources: { lastfmKey: "key" } }, async () => {
+    await route.pickTrack(lastfmOnly, [], own);
+  });
+  assert.deepEqual(asked, ["lastfm"], "키가 있으면 부른다");
 });
 
 test("스포티파이 재생목록 소스는 키 없이도 쓴다(재생목록 · 아티스트는 익명 경로)", async () => {

@@ -43,7 +43,7 @@ function seedTrack(key: string, title: string) {
   return { track, file };
 }
 
-test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다", async () => {
+test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다. 그 뒤에도 재생 중인 곡의 기록이 터지지 않는다", async () => {
   const playing = seedTrack("yt:playing", "재생중인곡");
   const idle = seedTrack("yt:idle", "그냥캐시된곡");
 
@@ -74,13 +74,11 @@ test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머
   );
   assert.equal(audioCache._liveKeys().size, 0, "보호는 초기화가 만들거나 비우지 않는다(재생 중이면 플레이어가 서버마다 걸어 둔 것이 남는다)");
   assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 데이터는 파일과 따로 살므로 통째로 비운다");
-});
 
-test("초기화 뒤에도 재생 중인 곡의 링크 데이터 기록이 터지지 않는다", () => {
-  // 위 테스트가 남긴 상태 그대로. 재생 경로가 곡을 계속 틀며 기록을 남기는 순간이다.
+  // 재생 경로가 곡을 계속 틀며 기록을 남기는 순간이다
   assert.doesNotThrow(() => {
     audioCache.recordPlayback("yt:playing");
-    trackLookup.recordTrackLookup({ requestKey: "https://y/재생중인곡", pageUrl: "https://y/재생중인곡", audioUrl: "https://www.youtube.com/watch?v=playing", platform: "youtube", title: "재생중인곡", artist: "가수" });
+    trackLookup.recordTrackLookup(playing.track);
   });
 });
 
