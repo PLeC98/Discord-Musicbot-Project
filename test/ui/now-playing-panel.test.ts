@@ -181,24 +181,6 @@ test("종료 모양의 문구는 사유를 따른다", async () => {
   assert.match(await text({ reason: "leave" }), /듣고 있던 곡이 있어요.*\/join/);
   assert.match(await text({ reason: "stop", dedicated: true }), /쉬는 중이에요.*곡을 입력하면/);
   assert.match(await text({ reason: "disconnected" }), /쉬는 중이에요.*\/play/);
-  const failed = await text({ reason: "failures" });
-  assert.match(failed, /곡 재생에 연달아 실패해서 재생을 멈췄어요.*곡을 넣으면 다시 틀게요/);
-  assert.doesNotMatch(failed, /쉬러 갈게요/, "대기열이 남으면 나가지 않으니 나갈 시각을 보이지 않는다");
-});
-
-test("곡이 연달아 실패해 멈춘 것은 전용 채널 밖이어도 '모든 노래가 재생되었습니다' 메시지를 보내지 않는다(채널 알림이 따로 간다)", async () => {
-  tempStore.setGuild("g1", { botChannel: null });
-  const mem = newManager();
-  const sent: unknown[] = [];
-  const player = panelPlayer({
-    nowPlayingMessage: { id: "100" },
-    nowPlayingWebhook: { editMessage: async () => {} },
-    textChannel: { id: "chan-1", send: async (payload: unknown) => sent.push(payload) },
-  });
-
-  await mem.drawEndedPanel(player, { reason: "failures" });
-
-  assert.equal(sent.length, 0);
 });
 
 test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다. 종료 메시지는 전용 채널 밖에서만", async () => {
@@ -237,13 +219,12 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
   }
 });
 
-test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로). 사람이 멈추거나 내보낸 것 · 연달아 실패는 보내지 않는다", async () => {
+test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로). 사람이 멈추거나 내보낸 것은 보내지 않는다", async () => {
   const cases: Array<[reason: string, cause: string | undefined, notice: string | null]> = [
     ["queue-end", undefined, "재생이 끝났어요"],
     ["stop", "stop", null],
     ["leave", "leave", null],
     ["disconnected", "stop", null],
-    ["failures", undefined, null],
     ["disconnected", "inactivity-timeout", "쉬러 갔어요"],
     ["disconnected", "forced-disconnect", "내보냈어요"],
     ["disconnected", "operator-leave", "봇 운영자가"],

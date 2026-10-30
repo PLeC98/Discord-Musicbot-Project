@@ -36,8 +36,6 @@ function idle({ reason, leavesAt, dedicated }: { reason: string; leavesAt?: numb
   let title: string, status: string;
   if (reason === "leave") {
     [title, status] = ["듣고 있던 곡이 있어요", `${icon("resume")} \`/join\`으로 이어 들을 수 있어요`];
-  } else if (reason === "failures") {
-    [title, status] = ["곡 재생에 연달아 실패해서 재생을 멈췄어요", `${icon("music")} 곡을 넣으면 다시 틀게요`];
   } else if (leavesAt) {
     [title, status] = [reason === "joined" ? "곡을 기다리고 있어요" : "재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
   } else {

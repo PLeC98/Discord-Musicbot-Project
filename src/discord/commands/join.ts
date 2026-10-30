@@ -12,7 +12,7 @@ async function answer(interaction: ChatInputCommandInteraction<"cached">, result
     case "refused":
       return noticeSelf(interaction, errors.notice(result.code));
     case "already":
-      return toSelf(interaction, reply(replies.alreadyJoined()), LIFETIME.glance);
+      return toSelf(interaction, reply(replies.alreadyJoined(result.player.parked)), LIFETIME.glance);
     case "joined":
       return toAll(interaction, replies.joined(), LIFETIME.result);
     case "restored":

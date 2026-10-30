@@ -116,8 +116,8 @@ function joined() {
   const t = controlText.joined();
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
-function alreadyJoined() {
-  const t = controlText.alreadyJoined();
+function alreadyJoined(parked = false) {
+  const t = controlText.alreadyJoined(parked);
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
