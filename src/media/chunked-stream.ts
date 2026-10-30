@@ -290,7 +290,8 @@ class ChunkedReader {
         }
         this.accept(value);
       }
-      if (this.pos < this.target) throw codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`);
+      // 범위: 연결이 중간에 끊겼다(player/failure-scope)
+      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`), { scope: "environment" });
     } catch (err) {
       this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;

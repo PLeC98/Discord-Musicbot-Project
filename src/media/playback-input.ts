@@ -124,7 +124,8 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // 스트림 주소를 고를 때(canPlayHls) 먼저 필터링하지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";
   if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
-    throw codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? (streamInfo.protocol ?? "없음") : list.toUpperCase()} 스트림을 재생할 수 없습니다`);
+    // 범위: 이 ffmpeg 로는 이 꼴의 스트림이 모두 안 된다(player/failure-scope)
+    throw Object.assign(codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? (streamInfo.protocol ?? "없음") : list.toUpperCase()} 스트림을 재생할 수 없습니다`), { scope: "environment" });
   }
 
   // 라이브가 아닌 HLS(사운드클라우드 등)는 평소대로 캐시를 다운로드해 둔다. 재생은 기다리지 않는다.

@@ -85,7 +85,8 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
     return await ask(canPlayHls ? "play" : "progressive");
   } catch (error) {
     if (codeOf(error) !== "no-formats") throw error;
-    if (!canPlayHls) throw codedError("stream-failed", "이 ffmpeg 는 HLS 를 열지 못하고, 이 곡에는 mp3 가 없습니다", { cause: error });
+    // 범위: mp3 가 있는 곡은 된다(player/failure-scope)
+    if (!canPlayHls) throw Object.assign(codedError("stream-failed", "이 ffmpeg 는 HLS 를 열지 못하고, 이 곡에는 mp3 가 없습니다", { cause: error }), { scope: "track" });
     return ask("lookup");
   }
 }

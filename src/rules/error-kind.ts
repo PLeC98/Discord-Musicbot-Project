@@ -33,13 +33,16 @@ function permissionKind(one: object) {
   return "permission-other";
 }
 
+/** 연결이 끊기거나 닿지 않았다는 시스템 이름인가(Node · undici) */
+const isNetworkCode = (code: unknown) => typeof code === "string" && (NETWORK_CODES.has(code) || code.startsWith("UND_ERR_"));
+
 // 오류 하나의 이름을 종류로. 모르는 이름이면 null
 function kindOf(one: object): Code | null {
   const code = codeOf(one);
   if (typeof code === "number") return PERMISSION_CODES.has(code) ? permissionKind(one) : null;
   if (!code) return null;
   if (isCode(code) && KINDS.has(code)) return code;
-  if (NETWORK_CODES.has(code) || code.startsWith("UND_ERR_")) return "network-error";
+  if (isNetworkCode(code)) return "network-error";
   return null;
 }
 
@@ -66,4 +69,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-export { errorKind, codedError, codeOf, messageOf, describeError };
+export { errorKind, codedError, codeOf, messageOf, describeError, chainOf, isNetworkCode };
