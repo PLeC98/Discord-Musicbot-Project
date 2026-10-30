@@ -119,8 +119,8 @@ class VoiceLink {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
     if (!channelId) throw new Error("음성 채널이 없습니다");
-    // debug: 라이브러리의 진행 줄(음성 서버 · 네트워킹)을 받는다(_watch)
-    const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: true });
+    // debug: 라이브러리의 진행 줄(음성 서버 · 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들어 trace 를 남길 때만
+    const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: log.level === "trace" });
     player.connection = connection;
     this._watch(connection);
     connection.subscribe(player.audioPlayer);
