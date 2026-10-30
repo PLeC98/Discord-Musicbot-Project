@@ -74,8 +74,8 @@ const log = logger.child({ category: "core" });
 type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
 type Shutdown = ReturnType<typeof installShutdown>;
-// 레지스트리가 적는 자식 프로세스 기록. 다음 기동이 남은 것을 정리한다
-const CHILDREN_FILE = path.join(PROJECT.database, "child-processes.json");
+// 레지스트리가 적는 자식 프로세스 기록(실행마다 파일 하나). 다음 기동이 남은 것을 정리한다
+const CHILDREN_DIR = path.join(PROJECT.database, "child-processes");
 /** 이벤트 모듈을 쓸 때의 형식. 이름의 이벤트 인자로 부른다 */
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(bot: BotContext, ...args: ClientEvents[K]): unknown };
 /** 이벤트 목록(src/discord/events/index)의 한 항목. 이벤트마다 인자가 다르다 */
@@ -92,8 +92,8 @@ function main() {
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
   // 이전 실행이 남긴 자식(POToken 서버 · ffmpeg · yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 실행하기 전에
-  sweepLeftoverChildren(CHILDREN_FILE);
-  procRegistry.persistTo(CHILDREN_FILE);
+  sweepLeftoverChildren(CHILDREN_DIR);
+  procRegistry.persistTo(CHILDREN_DIR);
 
   // 유튜브 POToken 서버. 준비를 확인한 뒤 봇을 켠다
   const potServer = createPotServer();
