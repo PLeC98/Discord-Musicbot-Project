@@ -97,7 +97,7 @@ const hasTracks = (saved: RestoredSession | null): saved is RestoredSession => B
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {
   bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
-  if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
+  player.idle.scheduleEmpty("곡 없이 대기");
   playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${messageOf(error)}`));
 }
 

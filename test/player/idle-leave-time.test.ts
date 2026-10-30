@@ -125,3 +125,27 @@ test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그
   await panels.updateIdleLeave(fake<Player>(player({ title: "곡" })), 700);
   assert.equal(panels.drawn.length, 1, "재생 중이면 끝난 패널이 아니다");
 });
+
+test("끝난 패널의 처음 나갈 시각도 idle 이 정한다: 혼자 남음이 먼저면 그쪽, 틀 게 없음이 0 이면 시각 없음", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
+    const idle = new IdleLeave(player());
+    watch(idle);
+    const start = Date.now();
+    assert.ok(near(idle.upcomingLeave(), start + EMPTY_MS), "타이머를 걸기 전이면 걸 시각");
+    idle.onAlone(true);
+    assert.ok(near(idle.upcomingLeave(), start + ALONE_MS));
+    idle.stop();
+    withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, () => assert.equal(idle.upcomingLeave(), null));
+  }));
+
+test("틀 게 없음이 0 이면 곡 없이 기다리는 어느 길이든 바로 나간다", async () =>
+  withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, async () => {
+    const disposed: string[] = [];
+    const p = player();
+    Object.assign(p, { queue: [], dispose: async (o: { reason: string }) => void disposed.push(o.reason) });
+    const idle = new IdleLeave(p);
+    cleanups.push(() => idle.stop());
+    idle.scheduleEmpty("곡 없이 대기");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(disposed, ["곡 없이 대기"]);
+  }));

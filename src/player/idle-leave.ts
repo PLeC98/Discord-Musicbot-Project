@@ -119,6 +119,14 @@ class IdleLeave {
     return times.length ? Math.min(...times) : null;
   }
 
+  /** 곡 없이 기다리는 끝난 패널에 보일 나갈 시각. 패널을 타이머보다 먼저 그리므로 틀 게 없음 타이머가 아직 없으면 걸 시각으로 센다 */
+  upcomingLeave() {
+    const ms = config.bot.leaveDelayQueueEmptyMs;
+    const empty = this.emptyAt ?? (ms > 0 ? Date.now() + ms : null);
+    const times = [this.aloneAt, empty].filter((t): t is number => t !== null);
+    return times.length ? Math.min(...times) : null;
+  }
+
   // 곡이 없을 때만. 재생 중이면 패널이 나갈 시각을 보이지 않는다
   announce() {
     if (this.player.currentTrack) return;

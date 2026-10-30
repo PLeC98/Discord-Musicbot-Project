@@ -38,7 +38,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     }
     log.info(`세션 없이 음성 채널에 남아 있던 봇을 이어받습니다: "${channel.name}" (${guild.name})`);
     bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
-    if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
+    player.idle.scheduleEmpty("곡 없이 대기");
     // 혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 그때의 안내는 틀 게 없음 타이머 전이라 한 번 더 알린다
     player.idle.announce();
   }
