@@ -25,6 +25,9 @@ import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
+import * as trackState from "../../src/player/track-state.ts";
+import { SessionPersistence } from "../../src/player/session-mirror.ts";
+import { sessions } from "../../src/store/player-sessions.ts";
 import * as voiceChannelStatus from "../../src/player/voice-channel-status.ts";
 import config from "../../src/config/index.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
@@ -742,6 +745,23 @@ test("버리기(세션 그대로): 저장도 삭제도 하지 않는다. 따로 
 
   assert.deepEqual(calls.persists, []);
   assert.equal(h.registryOf(p)?.has("g1"), false, "레지스트리에서는 빠진다");
+});
+
+test("버리기(세션 그대로): 메모리를 비워도 저장된 곡 행은 남는다(진짜 세션 저장으로)", async () => {
+  const p = h.makePlayer({ guildId: "gkeep" });
+  // 이 도우미는 세션 저장을 가짜로 끼운다. DB 에 남는 것을 보려고 진짜로 바꾼다
+  const real = new SessionPersistence(p);
+  p.persistence = real;
+  p.trackSink = real;
+  trackState.setCurrent(p, yt("kkkkkkkkkk1"));
+  trackState.enqueue(p, [yt("kkkkkkkkkk2")]);
+
+  await p.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+  h.dispose(p);
+
+  const left = sessions().load("gkeep");
+  assert.deepEqual([left?.current?.title, left?.queue.map((t) => t.title)], [yt("kkkkkkkkkk1").title, [yt("kkkkkkkkkk2").title]]);
+  sessions().removeSession("gkeep");
 });
 
 test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고친다. 패널 고치기가 실패해도 버림은 끝난다", async () => {

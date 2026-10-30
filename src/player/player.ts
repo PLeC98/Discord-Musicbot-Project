@@ -792,6 +792,8 @@ class Player {
       bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
       if (session === "save") await this.persistence.persistState("leave");
       else if (session === "remove") this.persistence?.removeSession();
+      // 남긴다: 아래에서 메모리를 비우는 것(_endPlayback)이 미러를 타고 저장된 곡 행까지 지우지 않게 미러를 뗀다
+      else if (this.persistence) this.persistence.frozen = true;
 
       this.sponsorSkipper?.stop();
       this.pause.reset();
