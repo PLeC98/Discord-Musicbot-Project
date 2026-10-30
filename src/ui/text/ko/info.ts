@@ -118,9 +118,6 @@ const nowPlaying = () => ({
   queued: (count: number, length: string, partial: boolean) => `${count}곡 · ${length}${partial ? " 이상" : ""}`,
   autoplay: "자동재생",
   autoplayOn: (genre: string) => `켜짐 · ${genre}`,
-  autoplayOff: "꺼짐",
-  sections: "구간",
-  sectionsValue: (count: number, highlight: string | null) => [count ? `건너뛸 구간 ${count}개` : null, highlight ? `하이라이트 ${highlight}` : null].filter(Boolean).join(" · "),
 });
 /** /nowplaying 의 상태 값: 재생 상태 · 볼륨 · 반복 */
 function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {

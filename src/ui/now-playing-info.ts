@@ -1,8 +1,7 @@
 // /nowplaying 의 화면. 재생 패널과 같은 머리(현재 재생 중 · 곡 링크 · 아티스트와 앨범 · 곡 그림)에 진행 막대, 그 아래 작은 글씨 두 묶음:
-// 이 곡(상태 · 요청 · 출처 · 음원)과 이어질 것(다음 곡 · 대기열 · 자동재생 · 건너뛸 구간). 재생 패널과는 따로 그린다
+// 이 곡(상태 · 요청 · 출처 · 음원)과 이어질 것(다음 곡 · 대기열 · 자동재생). 재생 패널과는 따로 그린다
 
 import { ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
-import config from "../config/index.ts";
 import * as genreConfig from "../config/genres.ts";
 import { emojiOf, labelOf } from "../rules/platforms.ts";
 import { colorOf } from "./colors.ts";
@@ -47,20 +46,10 @@ function nextValue(player: Player) {
   return `[${songTitle(next.title)}](${next.pageUrl})${next.artist ? ` · ${escapeMd(next.artist)}` : ""}`;
 }
 
-/** 건너뛸 구간(SponsorBlock). 봇 전체에서 껐거나 구간 · 하이라이트가 없으면 null */
-function sectionsValue(player: Player) {
-  const sponsor = config.sponsorblock.enabled ? player.sponsor : null;
-  const segments = sponsor?.skipSegments?.length ?? 0;
-  const at = sponsor?.highlightAt;
-  const highlight = at === null || at === undefined ? null : formatDuration(at);
-  return segments || highlight ? T.sectionsValue(segments, highlight) : null;
-}
-
-/** 이어질 것: 다음 곡 · 대기열(곡 수 · 남은 길이) · 자동재생 · 건너뛸 구간 */
+/** 이어질 것: 다음 곡 · 대기열(곡 수 · 남은 길이) · 자동재생(켜져 있을 때만) */
 function whatsNext(player: Player) {
   const queue = player.queue ?? [];
   const known = queue.reduce((sum, one) => sum + (one.duration || 0), 0);
-  const sections = sectionsValue(player);
   return [
     T.line("next", T.next, nextValue(player)),
     queue.length
@@ -74,8 +63,7 @@ function whatsNext(player: Player) {
           ),
         )
       : null,
-    T.line("autoplay", T.autoplay, player.autoplay ? T.autoplayOn(genreConfig.labelOf(player.autoplay)) : T.autoplayOff),
-    sections ? T.line("highlight", T.sections, sections) : null,
+    player.autoplay ? T.line("autoplay", T.autoplay, T.autoplayOn(genreConfig.labelOf(player.autoplay))) : null,
   ].filter(Boolean);
 }
 

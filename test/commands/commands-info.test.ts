@@ -121,7 +121,7 @@ test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", 
   assert.deepEqual(idle.log[0][1], noticeReply(errors.notice("no-song")));
 });
 
-test("/nowplaying: 패널과 같은 머리 · 진행, 이 곡(상태 · 요청 · 출처 · 음원) · 이어질 것(다음 · 대기열 · 자동재생 · 구간)", async () => {
+test("/nowplaying: 패널과 같은 머리 · 진행, 이 곡(상태 · 요청 · 출처 · 음원) · 이어질 것(다음 · 대기열 · 자동재생)", async () => {
   const track = { title: "곡", url: "https://open.spotify.com/track/x", pageUrl: "https://open.spotify.com/track/x", audioUrl: "https://www.youtube.com/watch?v=abc", audioFoundBy: "ledger", artist: "가수", album: "앨범", platform: "spotify", duration: 200, requestedBy: { id: "u9" }, thumbnail: "https://thumb" };
   const queue = [
     { title: "다음 곡", pageUrl: "https://youtu.be/n", artist: "다음 가수", duration: 100 },
@@ -167,7 +167,7 @@ test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면
   assert.ok(!lines.some((line) => line.includes("**요청**")), "요청자를 모르면 줄이 없다");
   assert.ok(!lines.some((line) => line.includes("**음원**")), "요청 그대로 트는 곡은 음원 줄이 없다");
   assert.ok(lines.includes("-# ⏭️ **다음** 없음"));
-  assert.ok(lines.includes("-# 🎲 **자동재생** 꺼짐"));
+  assert.ok(!lines.some((line) => line.includes("**자동재생**")), "자동재생이 꺼져 있으면 줄이 없다");
 
   const stopped = interaction({ player: nowPlayer({ title: "곡", url: "u" }, { playing: false, paused: false, volume: 1, loop: false }) });
   await run(await command("nowplaying"), stopped.it, stopped.bot);

@@ -28,8 +28,6 @@ test("모든 문장", () => {
       info.nowPlaying().queued(12, "43:10", false),
       info.nowPlaying().queued(3, "9:00", true),
       info.nowPlaying().autoplayOn("K-POP"),
-      info.nowPlaying().sectionsValue(2, "1:05"),
-      info.nowPlaying().sectionsValue(0, "1:05"),
     ],
     [
       "새로고침",
@@ -76,8 +74,6 @@ test("모든 문장", () => {
       "12곡 · 43:10",
       "3곡 · 9:00 이상",
       "켜짐 · K-POP",
-      "건너뛸 구간 2개 · 하이라이트 1:05",
-      "하이라이트 1:05",
     ],
   );
 });
