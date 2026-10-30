@@ -65,6 +65,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
+    warmer: { stop() {} },
     _tellSkipped: Player.prototype._tellSkipped,
     audioPlayer: { state: { status: "idle" }, stop() {} },
     async play(ms: number) {

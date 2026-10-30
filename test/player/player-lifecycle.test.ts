@@ -127,11 +127,14 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   const p = h.makePlayer();
   const seen = embeds(p);
   playing(p, yt("ccccccccccc"));
+  let warmerStopped = false;
+  p.warmer.stop = () => void (warmerStopped = true);
 
   await p.onTrackEnd("idle");
   const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
 
+  assert.ok(warmerStopped, "곡 없이 기다리는 동안 예열 틱을 멈춘다");
   assert.equal(p.currentTrack, null);
   assert.deepEqual(seen, ["end:queue-end"]);
   assert.ok(calls.persists.includes("remove"));

@@ -58,6 +58,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
+    warmer: { stop() {} },
     _tellSkipped: Player.prototype._tellSkipped,
     audioPlayer: { stop() {} },
     releaseAudioProtection() {},

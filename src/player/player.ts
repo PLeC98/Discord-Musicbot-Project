@@ -1243,6 +1243,7 @@ class Player {
   async finishQueue() {
     this._tellSkipped();
     trackState.reset(this, { history: true });
+    this.warmer.stop(); // 곡 없이 기다리는 동안 틱을 돌리지 않는다. 다음 곡을 열면 다시 켠다
 
     bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
 
