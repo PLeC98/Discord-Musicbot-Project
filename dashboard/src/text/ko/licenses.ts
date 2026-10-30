@@ -17,14 +17,14 @@ const groupData = "데이터";
 const items = {
   twemojiArt: "Twemoji 그림",
   twemojiArtNote: "ⓒ Twitter, Inc 및 기여자",
-  d2codingNote: "ⓒ NAVER Corporation · 서브셋 수정본을 Musicbot Mono 라는 이름으로 씀",
+  d2codingNote: "ⓒ NAVER Corporation",
   modelRegistry: "PocketRisu 모델 레지스트리",
   modelRegistryNote: "AI 모델 정보",
   cmudictNote: "영어 끝소리, 조사 선택",
   gemmaTokenizer: "Gemma 4 토크나이저",
   gemmaTokenizerNote: "토큰 수 세기",
   unihanNote: "한자 읽기, 조사 선택",
-  dbipNote: "로그인한 기기의 위치(봇이 받아 둔다)",
+  dbipNote: "로그인한 기기의 위치",
 };
 
 export { title, thisBot, runningSource, runningSourceModified, originalProject, originalSource, sourceUnknown, upstreamPart, groupFontsArt, groupLibraries, groupData, items };
