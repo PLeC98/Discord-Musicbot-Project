@@ -30,24 +30,31 @@ function streamStatus(status: number): FailureScope {
 // 직접 링크는 링크마다 서버가 다르고, 핫링크 차단 · 만료된 서명 주소는 그 링크만 403 이다. 없어졌다(404 · 410)만 곡 탓
 const directStatus = (status: number): FailureScope => (status === 404 || status === 410 ? "track" : "unknown");
 
+// 사슬의 한 고리가 말해 주는 범위. 말해 주는 것이 없으면 null(다음 고리로)
+function scopeOf(one: unknown, direct: boolean): FailureScope | null {
+  if (one instanceof SsrfError) return "track"; // 그 링크가 가리키는 곳 자체가 막혔다
+  const tagged = (one as { scope?: unknown }).scope;
+  if (SCOPES.has(tagged)) return tagged as FailureScope;
+  const status = (one as { status?: unknown }).status;
+  if (typeof status === "number") return direct ? directStatus(status) : streamStatus(status);
+  const code = codeOf(one);
+  if (typeof code !== "string") return null;
+  if (TRACK.has(code)) return "track";
+  // 직접 링크의 연결 실패는 그 링크의 서버만일 수 있다
+  if (code === "network-error" || isNetworkCode(code)) return direct ? "unknown" : "environment";
+  return ENVIRONMENT.has(code) ? "environment" : null;
+}
+
 /** 이 실패가 어디까지 닿는가. direct: 직접 링크 곡이다(HTTP 상태를 링크 하나의 일로 본다) */
 function failureScope(error: unknown, { direct = false }: { direct?: boolean } = {}): FailureScope {
   if (deadSourceCode(error)) return "track";
-  for (const one of chainOf(error)) {
-    if (one instanceof SsrfError) return "track"; // 그 링크가 가리키는 곳 자체가 막혔다
-    const tagged = (one as { scope?: unknown }).scope;
-    if (SCOPES.has(tagged)) return tagged as FailureScope;
-    const status = (one as { status?: unknown }).status;
-    if (typeof status === "number") return direct ? directStatus(status) : streamStatus(status);
-    const code = codeOf(one);
-    if (typeof code !== "string") continue;
-    if (TRACK.has(code)) return "track";
-    // 직접 링크의 연결 실패는 그 링크의 서버만일 수 있다
-    if (code === "network-error" || isNetworkCode(code)) return direct ? "unknown" : "environment";
-    if (ENVIRONMENT.has(code)) return "environment";
+  const chain = chainOf(error);
+  for (const one of chain) {
+    const scope = scopeOf(one, direct);
+    if (scope) return scope;
   }
   // AbortSignal.timeout 이 끊은 요청
-  if (chainOf(error).some((one) => (one as { name?: unknown }).name === "TimeoutError")) return direct ? "unknown" : "environment";
+  if (chain.some((one) => (one as { name?: unknown }).name === "TimeoutError")) return direct ? "unknown" : "environment";
   return "unknown";
 }
 
