@@ -26,7 +26,7 @@
               <button :class="iconBtn" v-tooltip="T.previous" :disabled="!previousEnabled(np.data) || np.isBusy('previous')" @click="np.previous()"><Icon name="skip_previous" :size="24" fill /></button>
               <button :class="playBtn" v-tooltip="T.playPause(np.wantsPlay)" :disabled="!np.canControl || !np.track" @click="np.togglePause()"><Icon :name="np.wantsPlay ? 'pause' : 'play_arrow'" :size="24" fill /></button>
               <button :class="iconBtn" v-tooltip="T.next" :disabled="!skipEnabled(np.data) || np.isBusy('skip')" @click="np.skip()"><Icon name="skip_next" :size="24" fill /></button>
-              <button :class="[toggleBtn, np.data?.loop ? TOGGLE_ON : '']" v-tooltip="loopTip(np.data)" :disabled="!loopEnabled(np.data) || np.isBusy('loop')" @click="np.cycleLoop()"><Icon :name="np.data?.loop === 'track' ? 'repeat_one' : 'repeat'" :size="20" /><span v-if="np.data?.loop" :class="TOGGLE_DOT"></span></button>
+              <button :class="[toggleBtn, np.data?.loop ? TOGGLE_ON : '']" v-tooltip.stay="loopTip(np.data)" :disabled="!loopEnabled(np.data) || np.isBusy('loop')" @click="np.cycleLoop()"><Icon :name="np.data?.loop === 'track' ? 'repeat_one' : 'repeat'" :size="20" /><span v-if="np.data?.loop" :class="TOGGLE_DOT"></span></button>
             </div>
             <div class="flex items-center gap-2 w-full">
               <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->

@@ -6,7 +6,7 @@
     <button type="button" :class="[CTL_BTN, SIDE_BTN]" :aria-label="T.previous" v-tooltip="T.previous" :disabled="!previousEnabled(player) || busy('previous')" @click="emit('previous')"><Icon name="skip_previous" :size="32" fill /></button>
     <PlayButton :size-class="playSize" :running="running" :aria-label="T.playPause(running)" v-tooltip="T.playPause(running)" :disabled="!player.canControl || !player.currentTrack" @click="emit('pause')" />
     <button type="button" :class="[CTL_BTN, SIDE_BTN]" :aria-label="T.next" v-tooltip="T.next" :disabled="!skipEnabled(player) || busy('skip')" @click="emit('skip')"><Icon name="skip_next" :size="32" fill /></button>
-    <button type="button" :class="[CTL_BTN, TOGGLE_BTN, player.loop && TOGGLE_ON]" :aria-label="loopTip(player)" v-tooltip="loopTip(player)" :disabled="!loopEnabled(player) || busy('loop')" @click="emit('loop')"><Icon :name="player.loop === 'track' ? 'repeat_one' : 'repeat'" :size="24" /><span v-if="player.loop" :class="TOGGLE_DOT"></span></button>
+    <button type="button" :class="[CTL_BTN, TOGGLE_BTN, player.loop && TOGGLE_ON]" :aria-label="loopTip(player)" v-tooltip.stay="loopTip(player)" :disabled="!loopEnabled(player) || busy('loop')" @click="emit('loop')"><Icon :name="player.loop === 'track' ? 'repeat_one' : 'repeat'" :size="24" /><span v-if="player.loop" :class="TOGGLE_DOT"></span></button>
   </div>
 </template>
 
