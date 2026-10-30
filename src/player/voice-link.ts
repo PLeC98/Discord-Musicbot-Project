@@ -13,7 +13,8 @@ import { codeOf, codedError, describeError, errorKind, messageOf } from "../rule
 const log = logger.child({ category: "voice" });
 
 /** 음성 라이브러리에서 부르는 것 */
-type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
+/** newSessionAt: 그 샤드가 마지막으로 게이트웨이 새 세션을 받은 때(ms, infra/gateway-sessions). 없으면 새 세션을 모르는 것으로 본다 */
+type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState; newSessionAt?: (shardId: number) => number | null };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 필드 */
 type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "syncHolds" | "movedVoiceStatus" | "noticeStage">;
 type LinkState = "idle" | "joining" | "ready" | "waiting" | "recovering" | "closed";
@@ -25,6 +26,7 @@ const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
 const RECOVER_READY_MS = 15_000; // 재연결할 때 Ready 까지
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본다(_unstick)
+const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014 의 까닭으로 본다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
 const UNKNOWN_VOICE_STATE = RESTJSONErrorCodes.UnknownVoiceState; // 봇이 음성 채널에 없다
@@ -60,6 +62,8 @@ class VoiceLink {
   waitTimer: NodeJS.Timeout | null = null;
   /** 기다림을 건 끊김의 닫힘 코드. 4014 면 쫓겨났거나 옮겨진 것 */
   waitCloseCode: number | null = null;
+  waitAt: number | null = null; // 끊겨 기다리기 시작한 때
+  readyAt: number | null = null; // 연결이 마지막으로 Ready 가 된 때
   /** 지금 음성 서버 연결이 닫힌 코드(새 연결이면 비운다). 스테이지에서 빠진 까닭을 가른다 */
   lastCloseCode: number | null = null;
   closeWaiters: Array<(code: number | null) => void> = [];
@@ -228,6 +232,7 @@ class VoiceLink {
     if (this.state === "closed") return;
     this._watchNetworking(oldState, newState);
     if (oldState.status !== newState.status) log.debug(`연결 상태: ${oldState.status} → ${newState.status} | ${this._label()}`);
+    if (newState.status === VoiceConnectionStatus.Ready) this.readyAt = Date.now();
     if (newState.status === VoiceConnectionStatus.Ready && this.state === "waiting") {
       this._clearWait();
       this.state = "ready";
@@ -287,6 +292,7 @@ class VoiceLink {
   _wait(reason: VoiceConnectionDisconnectReason, closeCode: number | undefined) {
     this.state = "waiting";
     this.waitCloseCode = closeCode ?? null;
+    this.waitAt = Date.now();
     const gen = ++this.gen;
     const line = `연결 끊김: ${this._label()} | 원인=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`;
     // 4014 는 내보냄 · 옮겨짐 · 봇의 게이트웨이 끊김 중 하나다. 어느 쪽인지는 뒤따르는 줄(떠남 · 이동 · 복구)이 남긴다
@@ -316,6 +322,7 @@ class VoiceLink {
   _afterWait() {
     const inChannel = this.player.guild.members?.me?.voice?.channelId;
     if (inChannel === null) {
+      if (this._renewedSession()) return;
       this._leftChannel(this.player.voiceChannel?.id ?? null);
       return;
     }
@@ -405,6 +412,18 @@ class VoiceLink {
     return channelId ? this.player.guild.channels.cache.get(channelId) : null;
   }
 
+  // 4014 로 끊겨 봇이 채널에서 빠졌는데 그 앞뒤에 봇의 게이트웨이가 새 세션을 받았다. 내보낸 것이 아니라 디스코드가 음성 상태를 지운 것이라 다시 참가한다.
+  // 아래쪽 경계(연결이 마지막으로 Ready 된 때)는 기동 · 재연결 직후 사람이 내보낸 것을 복구로 보지 않게
+  _renewedSession() {
+    if (this.state !== "waiting" || this.waitCloseCode !== DO_NOT_RECONNECT || this.waitAt === null) return false;
+    const shardId = this.player.guild.shardId;
+    const renewed = typeof shardId === "number" ? this.lib.newSessionAt?.(shardId) : null;
+    if (!renewed || renewed < Math.max(this.waitAt - RENEWED_WINDOW_MS, this.readyAt ?? 0)) return false;
+    log.warn(`봇의 게이트웨이가 새 세션을 받아 음성 상태가 지워졌습니다. 강제 퇴장이 아니므로 다시 참가합니다: ${this._label()}`);
+    this.recover("게이트웨이 새 세션");
+    return true;
+  }
+
   // 재연결하지 못했다. 세션을 저장하고 버린다. /join 이 저장된 세션으로 이어서 튼다
   _giveUp() {
     log.error(`연결 복구 포기: ${this._label()} | 최대 ${this.maxRecoveryAttempts}회를 넘었습니다. 세션을 저장하고 정리합니다`);
@@ -424,12 +443,13 @@ class VoiceLink {
         return { left: false, moved: false };
       }
       // 재연결하는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
-      // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다. 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
+      // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다(게이트웨이 새 세션은 _renewedSession 이 가른다). 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
         log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이므로 강제 퇴장으로 처리하지 않습니다: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
         return { left: false, moved: false };
       }
+      if (this._renewedSession()) return { left: false, moved: false };
       this._leftChannel(oldState.channelId);
       return { left: true, moved: false };
     }

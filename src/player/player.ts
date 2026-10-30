@@ -68,6 +68,7 @@ import { inputKind } from "../rules/input-kind.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { bindToGuild, inGuild } from "../infra/guild-context.ts";
+import { newSessionAt } from "../infra/gateway-sessions.ts";
 import type { Job } from "../infra/process-job.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
@@ -172,6 +173,7 @@ const REAL = {
   getStream: (track: Seeking & { platform?: string | null }, options?: Partial<StreamOptions>) => streamUrl.getStream(track, options),
   joinVoiceChannel,
   entersState,
+  newSessionAt,
   createVoice: (player: Player) => new VoiceLink(player, player.io),
   createPersistence: (player: Player) => new SessionPersistence(player),
   createWarmer: (player: Player, deps: WarmerDeps) => new QueueWarmer(player, deps),

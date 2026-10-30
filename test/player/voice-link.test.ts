@@ -459,6 +459,45 @@ test("4014 로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알�
   assert.equal(joins.length, 1, "재연결하지 않는다");
 });
 
+// 게이트웨이 새 세션: 디스코드가 봇의 음성 상태를 지우고 음성 서버는 4014 로 닫는다. 빠짐 알림은 오지 않을 때가 많다
+function renewedAt(link: VoiceLink, player: { guild: object }, at: number) {
+  Object.assign(player.guild, { shardId: 0 });
+  link.lib = { ...lib, newSessionAt: (shardId: number) => (shardId === 0 ? at : null) };
+}
+
+test("4014 로 끊겨 봇이 채널에서 빠졌어도 그 앞뒤에 같은 샤드가 게이트웨이 새 세션을 받았으면 강제 퇴장이 아니라 다시 참가한다(빠짐 알림이 없을 때 · 있을 때)", async () => {
+  const silent = await ready();
+  renewedAt(silent.link, silent.player, Date.now());
+  silent.me.voice.channelId = null;
+  silent.conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
+  await until(() => silent.steps.length > 0, "다시 참가해 이어 틀기");
+  assert.deepEqual(silent.steps, ["resume"]);
+  assert.equal(silent.link.state, "ready");
+
+  const told = await ready();
+  told.conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
+  renewedAt(told.link, told.player, Date.now());
+  told.me.voice.channelId = null;
+  assert.deepEqual(told.link.onBotState(state("vc1"), state(null)), { left: false, moved: false });
+  await until(() => told.steps.length > 0, "다시 참가해 이어 틀기");
+  assert.deepEqual(told.steps, ["resume"]);
+});
+
+test("새 세션이 경계 앞이면(연결이 마지막으로 Ready 된 때 앞 · 4014 의 30초 앞) 지금처럼 강제 퇴장이다", async () => {
+  for (const [label, ago, readyAgo] of [
+    ["Ready 앞", 1_000, 500],
+    ["30초 앞", 31_000, 60_000],
+  ] as const) {
+    const { link, conn, me, player, steps } = await ready();
+    renewedAt(link, player, Date.now() - ago);
+    link.readyAt = Date.now() - readyAgo;
+    me.voice.channelId = null;
+    conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
+    await until(() => steps.length > 0, "버리기");
+    assert.deepEqual(steps, ["dispose:remove:disconnected:forced-disconnect"], label);
+  }
+});
+
 // 답 없는 참가 하나. atDiscord 는 디스코드가 보는 봇의 음성 채널(REST). 오류면 던진다
 function stuckJoin(atDiscord: string | null | Error) {
   const s = setup();

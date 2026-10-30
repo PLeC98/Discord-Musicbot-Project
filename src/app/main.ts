@@ -58,6 +58,7 @@ import { watchGateway } from "../dashboard/status/gateway.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
 import { botJoinedGuild, botLeftGuild, guildBack } from "../dashboard/routes/player-events.ts";
 import { watchGoneGuilds } from "../discord/gone-guilds.ts";
+import { watchGatewaySessions } from "../infra/gateway-sessions.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
@@ -260,6 +261,7 @@ function listenToLibrary(client: Client) {
   const dlog = logger.child({ category: "discord" });
   watchGateway(client);
   watchGoneGuilds(client);
+  watchGatewaySessions(client);
   client.on(Events.Warn, (message) => dlog.warn(message));
   // 하트비트마다 나오는 양이라 trace
   client.on(Events.Debug, (message) => dlog.trace(message));
