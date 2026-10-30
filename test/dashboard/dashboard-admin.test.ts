@@ -443,7 +443,7 @@ test("설정: 읽은 뒤 그사이 저장됐으면 409 config-changed, 문서는
 // 봇이 그 설정으로 돌기 때문에 깨진 값을 남기느니 거절한다.
 test("설정: 쓸 수 없는 값은 저장 전에 거절한다", async () => {
   const kept = structuredClone(documents.get("genres"));
-  const bad = { defaults: {}, genres: { true: { sources: [{ type: "keyword", keywords: [] }] } } };
+  const bad = { defaults: {}, genres: { "  ": { sources: [{ type: "keyword", keywords: [] }] } } };
   const { status, json } = await putDoc("genres", bad);
   assert.deepEqual([status, json.code], [400, "config-invalid"]);
   assert.ok((json.errors ?? []).length >= 2, "무엇이 문제인지 모두 알려준다");
