@@ -72,7 +72,7 @@ function createTables(db: Db) {
             );
 
             -- SponsorBlock 구간. 있으면 곧바로 쓰고, 오래됐거나 다른 주소에서 받았으면 뒤에서 다시 받는다(sources/sponsor-block).
-            -- data_json = 정규화 이전 원시 배열(카테고리 전부, 빈 배열은 "구간 없음"). api_base = 받은 주소(모르면 NULL: 주소 없이 불러온 내보내기 파일)
+            -- data_json = 정규화 이전 원시 배열(카테고리 전부, 빈 배열은 "구간 없음"). api_base = 받은 주소(모르면 NULL)
             CREATE TABLE IF NOT EXISTS sponsorblock_cache (
                 video_id    TEXT PRIMARY KEY,
                 data_json   TEXT NOT NULL,

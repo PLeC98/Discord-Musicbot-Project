@@ -43,8 +43,8 @@ function allSponsorSegments(): SponsorExport[] {
   return (conn().prepare("SELECT video_id, data_json, fetched_at, api_base FROM sponsorblock_cache").all() as Array<SponsorRow & { video_id: string }>).map((row) => ({ videoId: row.video_id, data: row.data_json, fetchedAt: row.fetched_at, apiBase: row.api_base }));
 }
 
-/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 주소가 없는 이전 버전의 파일은 주소 없이. 새로 넣은 수 */
-function mergeSponsorSegments(rows: Array<Omit<SponsorExport, "apiBase"> & { apiBase?: string | null }>): number {
+/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 새로 넣은 수 */
+function mergeSponsorSegments(rows: SponsorExport[]): number {
   const has = conn().prepare("SELECT 1 FROM sponsorblock_cache WHERE video_id = ?").pluck();
   const upsert = conn().prepare(
     `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at, api_base) VALUES (?, ?, ?, ?)
@@ -54,7 +54,7 @@ function mergeSponsorSegments(rows: Array<Omit<SponsorExport, "apiBase"> & { api
     let added = 0;
     for (const row of rows) {
       if (!has.get(row.videoId)) added++;
-      upsert.run(row.videoId, row.data, row.fetchedAt, row.apiBase ?? null);
+      upsert.run(row.videoId, row.data, row.fetchedAt, row.apiBase);
     }
     return added;
   })();

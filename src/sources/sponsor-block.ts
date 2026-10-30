@@ -43,7 +43,7 @@ const finite = (v: unknown): v is number => typeof v === "number" && Number.isFi
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
 
-/** 받은 답: 원시 구간(카테고리 전부)과 받은 때 · 주소. 주소 없이 불러온 답은 주소를 모른다(null) */
+/** 받은 답: 원시 구간(카테고리 전부)과 받은 때 · 주소. 주소를 모르면 null */
 type Got = { raw: RawSegment[]; fetchedAt: number; apiBase: string | null };
 /**
  * 영상 하나의 기억. loading: 처음 받는 중(DB에 없어 라이브를 기다린다). got: 쓰는 답(없으면 못 받았다).

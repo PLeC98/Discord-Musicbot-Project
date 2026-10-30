@@ -246,7 +246,7 @@ test("같은 영상의 다시 받기는 한 번에 하나: 나가 있는 동안 
   assert.equal(live.asked(), 1);
 });
 
-test("다른 주소에서 받은 답(주소를 바꿨거나 주소 없이 불러온 답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
+test("다른 주소에서 받은 답(주소를 바꿨거나 주소를 모르는 답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
   externalCaches.setSponsorSegments("vidOldBase", [], { fetchedAt: Date.now(), apiBase: BASE });
   cacheDb.get().prepare("UPDATE sponsorblock_cache SET api_base = NULL WHERE video_id = ?").run("vidOldBase");
   const urls: string[] = [];
