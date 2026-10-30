@@ -98,23 +98,18 @@ const license = (lines: string[]) => ({
   footer: "GNU AGPL-3.0-or-later • MIT",
 });
 
-/** /nowplaying. 필드 라벨 */
-const nowPlaying = () => ({
-  title: `${icon("music")} 현재 재생 중`,
-  artist: `${icon("artist")} 아티스트`,
-  album: `${icon("album")} 앨범`,
-  platform: `${icon("web")} 출처`,
-  progress: `${icon("time")} 진행`,
-  requester: `${icon("person")} 요청자`,
-  status: `${icon("stats")} 상태`,
-});
-/** /nowplaying 의 상태 줄 */
-function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {
-  let text = playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`;
-  text += ` • ${icon("volume")} ${volume}%`;
-  if (loop === "track") text += ` • ${icon("repeat_one")} 한 곡 반복`;
-  else if (loop === "queue") text += ` • ${icon("repeat")} 대기열 반복`;
-  return text;
+/** /nowplaying 맨 위의 상태 */
+function nowPlayingState({ playing, paused }: { playing: boolean; paused: boolean }) {
+  return playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`;
 }
+/** /nowplaying 의 설정 줄: 볼륨 · 반복 */
+function nowPlayingSettings({ volume, loop }: { volume: number; loop: string | false }) {
+  const parts = [`${icon("volume")} ${volume}%`];
+  if (loop === "track") parts.push(`${icon("repeat_one")} 한 곡 반복`);
+  else if (loop === "queue") parts.push(`${icon("repeat")} 대기열 반복`);
+  return parts.join(" • ");
+}
+/** /nowplaying 의 요청자 */
+const nowPlayingRequester = (userId: string) => `${icon("person")} <@${userId}>`;
 
-export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };
+export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlayingState, nowPlayingSettings, nowPlayingRequester };

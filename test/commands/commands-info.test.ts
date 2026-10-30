@@ -21,8 +21,7 @@ import { remember } from "../helpers/tagged-audio.ts";
 import { fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/player.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
-import * as infoText from "../../src/ui/text/ko/info.ts";
-import { headOf, screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
+import { screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 import { COMMANDS as COMMAND_LIST } from "../../src/discord/commands/index.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
@@ -58,15 +57,8 @@ type Sent = {
 type Logged = [name: string, payload: Sent];
 
 const fieldsOf = (payload: Sent) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
-// /nowplaying 의 작은 글씨 줄. 필드 이름 → 값
-const NOW = infoText.nowPlaying();
-function nowLines(payload: unknown) {
-  const lines = textOf(payload)
-    .split("\n")
-    .filter((l) => l.startsWith("-# "))
-    .map((l) => l.slice(3));
-  return Object.fromEntries([NOW.artist, NOW.album, NOW.platform, NOW.progress, NOW.requester, NOW.status].flatMap((name) => lines.filter((l) => l.startsWith(`${name} `)).map((l) => [name, l.slice(name.length + 1)])));
-}
+// /nowplaying 의 글 줄들(위에서부터)
+const nowLines = (payload: unknown) => textOf(payload).split("\n");
 
 type InteractionOptions = { player?: object | null; options?: Record<string, unknown>; userId?: string; guildRoles?: string[]; manage?: boolean; channelId?: string };
 
@@ -129,22 +121,21 @@ test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", 
   assert.deepEqual(idle.log[0][1], noticeReply(errors.notice("no-song")));
 });
 
-test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상태를 담는다", async () => {
-  const track = { title: "곡", url: "https://youtu.be/x", artist: "가수", album: "앨범", platform: "youtube", duration: 200, requestedBy: { id: "u9" }, thumbnail: "https://thumb" };
+test("/nowplaying: 상태 · 큰 제목 · 아티스트와 앨범 · 진행, 구분선 아래 볼륨과 반복 · 요청자와 출처", async () => {
+  const track = { title: "곡", url: "https://youtu.be/x", pageUrl: "https://youtu.be/x", artist: "가수", album: "앨범", platform: "youtube", duration: 200, requestedBy: { id: "u9" }, thumbnail: "https://thumb" };
   const { it, log, bot } = interaction({ player: nowPlayer(track) });
 
   await run(await command("nowplaying"), it, bot);
 
-  const f = nowLines(log[0][1]);
-  assert.equal(f["🎤 아티스트"], "가수");
-  assert.equal(f["💿 앨범"], "앨범");
-  assert.match(f["🌐 출처"], /YouTube/);
-  assert.match(f["⏱️ 진행"], /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
-  assert.equal(f["👤 요청자"], "<@u9>");
-  assert.equal(f["📊 상태"], "▶️ 재생 중 • 🔊 70% • 🔂 한 곡 반복");
+  const [state, title, byline, bar, settings, who] = nowLines(log[0][1]);
+  assert.equal(state, "-# ▶️ 재생 중");
+  assert.equal(title, "## [곡](https://youtu.be/x)");
+  assert.equal(byline, "가수 · 앨범");
+  assert.match(bar, /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
+  assert.equal(settings, "-# 🔊 70% • 🔂 한 곡 반복");
+  assert.match(who, /^-# 👤 <@u9> • .+ YouTube$/);
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
-  assert.equal(headOf(log[0][1] as never), "### 🎵 현재 재생 중");
 });
 
 test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
@@ -163,13 +154,17 @@ test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨�
 test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 진입점이 알린다", async () => {
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.bot);
-  const f = nowLines(paused.log[0][1]);
-  assert.equal(f["📊 상태"], "⏸️ 일시정지 • 🔊 10% • 🔁 대기열 반복");
-  assert.equal(f["⏱️ 진행"], undefined);
+  const lines = nowLines(paused.log[0][1]);
+  assert.equal(lines[0], "-# ⏸️ 일시정지");
+  assert.ok(lines.includes("-# 🔊 10% • 🔁 대기열 반복"));
+  assert.ok(!lines.some((line) => line.includes("●")), "길이를 모르면 진행 막대가 없다");
+  assert.ok(!lines.some((line) => line.includes("👤")), "요청자가 없으면 출처만");
 
   const stopped = interaction({ player: nowPlayer({ title: "곡", url: "u" }, { playing: false, paused: false, volume: 1, loop: false }) });
   await run(await command("nowplaying"), stopped.it, stopped.bot);
-  assert.equal(nowLines(stopped.log[0][1])["📊 상태"], "⏳ 준비 중 • 🔊 1%");
+  const stoppedLines = nowLines(stopped.log[0][1]);
+  assert.equal(stoppedLines[0], "-# ⏳ 준비 중");
+  assert.ok(stoppedLines.includes("-# 🔊 1%"));
 
   const broken = interaction({
     player: {
