@@ -3,7 +3,7 @@
 // 설계:
 //  - 해시 프리픽스 엔드포인트로 조회한다(어떤 영상을 트는지 서버에 드러내지 않는다).
 //  - 원시 세그먼트(카테고리 전부)를 write-through 캐시에 저장하고, 정규화 · 필터는 읽을 때 카테고리별로 한다.
-//  - fail-open: 캐시가 있으면 바로 쓰고 라이브는 뒤에서 갱신한다. 캐시가 없으면 라이브를 기다리고, 실패 · 타임아웃이면 스킵 없이 진행한다.
+//  - fail-open: 받아 둔 답이 있으면 바로 쓰고, 오래됐거나(받은 때) 다른 주소에서 받았으면 뒤에서 다시 받는다. 없으면 라이브를 기다리고, 실패 · 타임아웃이면 스킵 없이 진행한다.
 //  - config.sponsorblock.enabled=false 면 API · 캐시 모두 동작하지 않는다(상업적 이용을 위한 전체 차단 스위치).
 //
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
@@ -31,8 +31,7 @@ const wrongAnswer = repeatingFailure({ error: (line) => log.warn(line), info: (l
 type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };
 /** 병합한 스킵 구간 */
 type SkipSegment = { start: number; end: number; categories: string[] };
-type Source = "live" | "cache" | "none" | "disabled";
-type Fetched = { raw: RawSegment[] | null; source: Source };
+type Source = "live" | "cache" | "none";
 /** 곡에 걸 구간 · 하이라이트 */
 type Segments = { skipSegments: SkipSegment[]; highlightAt: number | null; source: Source };
 // API 응답(해시 앞자리에 걸린 영상들). 여기서 읽는 필드만
@@ -44,11 +43,21 @@ const finite = (v: unknown): v is number => typeof v === "number" && Number.isFi
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
 
-// 영상 id 로 기억한 조회 결과(DB 캐시 앞의 메모리 기억). 같은 곡을 다시 틀 때 다시 조회하지 않는다.
-// 서버마다 카테고리가 달라 필터링 전의 원시 구간을 기억한다.
-const remembered = new Map<string, { at: number; none: boolean; promise: Promise<Fetched> }>();
+/** 받은 답: 원시 구간(카테고리 전부)과 받은 때 · 주소. 옛 판에서 올린 DB 의 답은 주소가 없다 */
+type Got = { raw: RawSegment[]; fetchedAt: number; apiBase: string | null };
+/**
+ * 영상 하나의 기억. loading: 처음 받는 중(DB 에 없어 라이브를 기다린다). got: 쓰는 답(없으면 못 받았다).
+ * missedAt: 마지막으로 못 받은 때. refreshing: 뒤에서 다시 받는 중
+ */
+type Entry = { loading: Promise<void> | null; got: Got | null; source: Source; missedAt: number; refreshing: boolean };
+
+// 영상 id 로 기억한 답(DB 캐시 앞의 메모리 기억). 서버마다 카테고리가 달라 필터링 전의 원시 구간을 기억한다
+const remembered = new Map<string, Entry>();
 const REMEMBER_MAX = 500;
-const RETRY_NONE_MS = 10 * 60_000; // 못 불러온 것은 이만큼 지나 다시 조회한다
+const RETRY_NONE_MS = 10 * 60_000; // 답이 없는 영상은 이만큼 지나 다시 묻는다
+const RETRY_STALE_MS = 30 * 60_000; // 오래된 답을 다시 받다 실패하면 이만큼 쉰다(답은 그대로 쓴다)
+// forget() 마다 오른다. 그 전에 나간 조회의 답은 기억 · 저장하지 않고 버린다
+let generation = 0;
 
 // 겹치거나 맞닿은 skip 구간을 합친다. 합친 구간의 카테고리는 모두 남긴다
 function mergeIntervals(segs: Array<{ start: number; end: number; category: string }>): SkipSegment[] {
@@ -113,10 +122,10 @@ async function judgeSegments(res: Response): Promise<Judged<Answer>> {
  * videoId를 라이브로 조회해 원시 세그먼트 배열을 돌려준다(이 영상의 것이 없으면 빈 배열: 실패가 아니라 "구간 없음").
  * 답을 받지 못하면 null: 연결 오류 · 시간 초과 · 실패 상태 · 구간 API 가 아닌 응답(운영자 설정 문제라 경고를 남긴다)
  */
-async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
+async function _fetchRaw(videoId: string, apiBase: string): Promise<RawSegment[] | null> {
   const sb = config.sponsorblock;
   const prefix = crypto.createHash("sha256").update(videoId).digest("hex").slice(0, sb.hashPrefixLen);
-  const url = `${sb.apiBase}/api/skipSegments/${prefix}` + `?categories=${encodeURIComponent(JSON.stringify(FETCH_CATEGORIES))}` + `&actionTypes=${encodeURIComponent(JSON.stringify(FETCH_ACTION_TYPES))}`;
+  const url = `${apiBase}/api/skipSegments/${prefix}` + `?categories=${encodeURIComponent(JSON.stringify(FETCH_CATEGORIES))}` + `&actionTypes=${encodeURIComponent(JSON.stringify(FETCH_ACTION_TYPES))}`;
 
   let answer: Answer;
   try {
@@ -126,7 +135,7 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
     return null;
   }
   if ("failed" in answer) {
-    if (answer.notApi) wrongAnswer.fail(`${sb.apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${answer.failed}). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`);
+    if (answer.notApi) wrongAnswer.fail(`${apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${answer.failed}). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`);
     else log.debug(`SponsorBlock 조회 실패: ${videoId} | ${answer.failed}`);
     return null;
   }
@@ -145,47 +154,54 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
     );
 }
 
-/**
- * videoId의 스킵/하이라이트 정보 조회. categories: 켠 카테고리(서버별 해석 결과). 없으면 config 기본값
- */
-async function lookup(videoId: string | null | undefined, { categories = config.sponsorblock.categories }: { categories?: string[] } = {}): Promise<Segments> {
-  if (!config.sponsorblock.enabled) return { skipSegments: [], highlightAt: null, source: "disabled" };
-  if (!videoId) return { skipSegments: [], highlightAt: null, source: "none" };
-
-  return shape(await _rawFor(videoId), categories);
+/** 다시 받을 때가 됐나: 지금 주소에서 받지 않았거나, 받은 지 오래됐다(구간 없음은 더 짧게) */
+function isStale(got: Got, now: number) {
+  const sb = config.sponsorblock;
+  if (got.apiBase !== sb.apiBase) return true;
+  return now - got.fetchedAt >= (got.raw.length ? sb.recheckMs : sb.recheckEmptyMs);
 }
 
-/**
- * 원시 구간과 출처. DB 캐시가 있으면 곧바로 그것을 쓰고 라이브는 뒤에서 갱신한다(바로 트는 첫 곡이 라이브 응답을 기다리지 않게).
- * 캐시가 없는 영상만 라이브를 기다린다. 뒤에서 받은 답은 다음 재생부터 쓴다(지금 곡은 캐시의 구간으로 건너뛴다)
- */
-async function _rawFor(videoId: string): Promise<Fetched> {
+/** 라이브로 받아 저장한다. 못 받았거나 그 사이 forget() 했으면 null */
+async function _live(videoId: string): Promise<Got | null> {
+  const apiBase = config.sponsorblock.apiBase;
+  const asked = generation;
+  const raw = await _fetchRaw(videoId, apiBase);
+  if (!raw || asked !== generation) return null;
+  const got = { raw, fetchedAt: Date.now(), apiBase };
+  externalCaches.setSponsorSegments(videoId, raw, got); // write-through (빈 배열도 저장)
+  return got;
+}
+
+// 처음 기억할 때. DB 에 답이 있으면 곧바로 그것을 쓴다(바로 트는 첫 곡이 라이브를 기다리지 않게). 없는 영상만 라이브를 기다린다
+async function _load(videoId: string, entry: Entry) {
   const cached = externalCaches.getSponsorSegments(videoId);
   if (cached) {
-    void _refresh(videoId);
-    return { raw: cached.segments as RawSegment[], source: "cache" }; // 이 모듈이 저장한 형식
+    entry.got = { raw: cached.segments as RawSegment[], fetchedAt: cached.fetchedAt, apiBase: cached.apiBase }; // 이 모듈이 저장한 형식
+    entry.source = "cache";
+    return;
   }
-  const raw = await _fetchRaw(videoId);
-  if (raw) {
-    externalCaches.setSponsorSegments(videoId, raw); // write-through (빈 배열도 저장)
-    return { raw, source: "live" };
-  }
-  return { raw: null, source: "none" };
+  const got = await _live(videoId);
+  if (got) Object.assign(entry, { got, source: "live" });
+  else entry.missedAt = Date.now();
 }
 
-// 캐시로 답한 뒤 라이브로 갱신한다. 못 받거나 못 적으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다.
+// 답이 오래됐으면 뒤에서 한 번 다시 받는다(지금 곡은 가진 답을 쓴다). 나가 있으면 합치고, 실패하면 답을 그대로 두고 RETRY_STALE_MS 쉰다.
 // 뒤에서 도는 일이라 DB_NOT_OPEN 말고는 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
-async function _refresh(videoId: string) {
-  try {
-    const raw = await _fetchRaw(videoId);
-    if (!raw) return;
-    externalCaches.setSponsorSegments(videoId, raw);
-    const entry = remembered.get(videoId);
-    if (entry) entry.promise = Promise.resolve({ raw, source: "live" });
-  } catch (error) {
-    if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.debug(`SponsorBlock 구간 새로고침 실패: ${videoId} | ${messageOf(error)}`);
-  }
+function _refreshIfStale(videoId: string, entry: Entry) {
+  const now = Date.now();
+  if (!entry.got || entry.refreshing || !isStale(entry.got, now) || now - entry.missedAt < RETRY_STALE_MS) return;
+  entry.refreshing = true;
+  void _live(videoId)
+    .then((got) => {
+      if (got) Object.assign(entry, { got, source: "live" });
+      else entry.missedAt = Date.now();
+    })
+    .catch((error: unknown) => {
+      if (codeOf(error) === "DB_NOT_OPEN") throw error;
+      entry.missedAt = Date.now();
+      log.debug(`SponsorBlock 구간 다시 받기 실패: ${videoId} | ${messageOf(error)}`);
+    })
+    .finally(() => (entry.refreshing = false));
 }
 
 /** 곡에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
@@ -195,7 +211,7 @@ function _trackVideoId(track: { audioUrl?: string | null; [field: string]: unkno
 
 /**
  * 곡의 구간 · 하이라이트를 서버별 설정으로 필터링한 것. 재생 근접(미리 다운로드) · 재생 직전에 부른다.
- * 조회는 영상 id 로 기억해 두고 다시 조회하지 않는다. 겹쳐 불러도 한 번만 조회한다.
+ * 답은 영상 id 로 기억해 두고, 오래되면 가진 답을 쓰면서 뒤에서 다시 받는다. 겹쳐 불러도 한 번만 조회한다.
  * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. DB 를 열기 전(DB_NOT_OPEN) 말고는 던지지 않는다.
  */
 async function forTrack(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined, guildId: string): Promise<Segments | null> {
@@ -204,26 +220,24 @@ async function forTrack(track: { audioUrl?: string | null; [field: string]: unkn
 
   const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
   if (!eff.enabled) return null;
-  if (!config.sponsorblock.enabled) return { skipSegments: [], highlightAt: null, source: "disabled" };
 
   let entry = remembered.get(videoId);
-  if (!entry || (entry.none && Date.now() - entry.at >= RETRY_NONE_MS)) entry = _remember(videoId);
-  return shape(await entry.promise, eff.categories);
+  if (!entry || (!entry.loading && !entry.got && Date.now() - entry.missedAt >= RETRY_NONE_MS)) entry = _remember(videoId);
+  if (entry.loading) await entry.loading;
+  _refreshIfStale(videoId, entry);
+  if (!entry.got) return { skipSegments: [], highlightAt: null, source: "none" };
+  return { ...normalize(entry.got.raw, eff.categories), source: entry.source };
 }
 
 function _remember(videoId: string) {
-  const at = Date.now();
-  const promise = _rawFor(videoId)
-    .catch((error: unknown): Fetched => {
+  const entry: Entry = { loading: null, got: null, source: "none", missedAt: 0, refreshing: false };
+  entry.loading = _load(videoId, entry)
+    .catch((error: unknown) => {
       if (codeOf(error) === "DB_NOT_OPEN") throw error;
+      entry.missedAt = Date.now();
       log.debug(`SponsorBlock 구간 조회 실패: ${videoId} | ${messageOf(error)}`);
-      return { raw: null, source: "none" };
     })
-    .then((r) => {
-      entry.none = !r.raw;
-      return r;
-    });
-  const entry = { at, none: false, promise };
+    .finally(() => (entry.loading = null));
   remembered.delete(videoId);
   remembered.set(videoId, entry);
   const oldest = remembered.keys().next().value;
@@ -231,17 +245,13 @@ function _remember(videoId: string) {
   return entry;
 }
 
-/** 기억한 구간을 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 다음 곡부터 다시 조회한다 */
+/** 기억한 구간을 버린다(오디오 캐시 초기화의 바깥 서비스 데이터). 나가 있는 조회의 답도 버리고, 다음 곡부터 다시 조회한다 */
 function forget() {
+  generation++;
   remembered.clear();
 }
 
-function shape({ raw, source }: Fetched, categories: Iterable<string>): Segments {
-  if (!raw) return { skipSegments: [], highlightAt: null, source };
-  return { ...normalize(raw, categories), source };
-}
-
-export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, forget, useFetch };
+export { _trackVideoId, forTrack, forget, useFetch };
 export const _internal = { mergeIntervals, normalize };
 
 export type { RawSegment, SkipSegment, Segments };

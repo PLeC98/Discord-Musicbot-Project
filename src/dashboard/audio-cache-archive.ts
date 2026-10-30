@@ -54,7 +54,7 @@ const RowsSchema = z.object({
   ledger: z.array(z.object({ requestKey: text(4096).min(1), pageUrl: text(4096), audioUrl: text(4096).min(1), platform: text(100), title: text(2000).nullable(), artist: text(2000).nullable(), thumbnail: text(4096).nullable(), titleVerified: z.boolean() })),
   pins: z.array(z.object({ requestKey: text(4096).min(1), audioUrl: text(4096).min(1), pinnedAt: time })),
   age: z.array(z.object({ videoId: text(64).min(1), markedAt: time })),
-  sponsorblock: z.array(z.object({ videoId: text(64).min(1), data: text(1024 * 1024), fetchedAt: time })),
+  sponsorblock: z.array(z.object({ videoId: text(64).min(1), data: text(1024 * 1024), fetchedAt: time, apiBase: text(2048).nullable().optional() })),
 });
 type Rows = z.infer<typeof RowsSchema>;
 type FileRow = audioCache.AdoptRow;

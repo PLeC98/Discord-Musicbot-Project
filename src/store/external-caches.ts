@@ -5,52 +5,56 @@ import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
 
 // JSON 을 담아 둔 한 행
 type JsonRow = { data_json: string; fetched_at: number };
+// SponsorBlock 구간 한 행: 받은 주소를 함께 둔다
+type SponsorRow = JsonRow & { api_base: string | null };
+/** 오디오 캐시 묶음의 SponsorBlock 구간 한 줄. data 는 담아 둔 원시 JSON 문자열 그대로 */
+type SponsorExport = { videoId: string; data: string; fetchedAt: number; apiBase: string | null };
 
 // 열기 전에 부르면 던진다
 const conn = () => cacheDb.get();
 
 // ── SponsorBlock 구간 캐시 ──
 
-/** videoId 의 캐시된 원시 세그먼트와 받은 때. 없거나 망가졌으면 null */
-function getSponsorSegments(videoId: string | null | undefined): { segments: unknown; fetchedAt: number } | null {
+/** videoId 의 캐시된 원시 세그먼트와 받은 때 · 주소. 없거나 망가졌으면 null */
+function getSponsorSegments(videoId: string | null | undefined): { segments: unknown; fetchedAt: number; apiBase: string | null } | null {
   if (!videoId) return null;
-  const row = conn().prepare("SELECT data_json, fetched_at FROM sponsorblock_cache WHERE video_id = ?").get(videoId) as JsonRow | undefined;
+  const row = conn().prepare("SELECT data_json, fetched_at, api_base FROM sponsorblock_cache WHERE video_id = ?").get(videoId) as SponsorRow | undefined;
   if (!row) return null;
   try {
-    return { segments: JSON.parse(row.data_json) as unknown, fetchedAt: row.fetched_at };
+    return { segments: JSON.parse(row.data_json) as unknown, fetchedAt: row.fetched_at, apiBase: row.api_base };
   } catch {
     return null; // 망가진 캐시는 없는 것으로 본다(다음 조회가 덮어쓴다)
   }
 }
 
-/** videoId 의 원시 세그먼트를 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
-function setSponsorSegments(videoId: string | null | undefined, segments: unknown) {
+/** videoId 의 원시 세그먼트를 받은 때 · 주소와 함께 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
+function setSponsorSegments(videoId: string | null | undefined, segments: unknown, { fetchedAt, apiBase }: { fetchedAt: number; apiBase: string }) {
   if (!videoId || !Array.isArray(segments)) return;
   conn()
     .prepare(
-      `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at) VALUES (?, ?, ?)
-       ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at`,
+      `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at, api_base) VALUES (?, ?, ?, ?)
+       ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at, api_base = excluded.api_base`,
     )
-    .run(videoId, JSON.stringify(segments), Date.now());
+    .run(videoId, JSON.stringify(segments), fetchedAt, apiBase);
 }
 
-/** SponsorBlock 구간 전부(오디오 캐시 내보내기). data 는 담아 둔 원시 JSON 문자열 그대로 */
-function allSponsorSegments(): Array<{ videoId: string; data: string; fetchedAt: number }> {
-  return (conn().prepare("SELECT video_id, data_json, fetched_at FROM sponsorblock_cache").all() as Array<{ video_id: string; data_json: string; fetched_at: number }>).map((row) => ({ videoId: row.video_id, data: row.data_json, fetchedAt: row.fetched_at }));
+/** SponsorBlock 구간 전부(오디오 캐시 내보내기) */
+function allSponsorSegments(): SponsorExport[] {
+  return (conn().prepare("SELECT video_id, data_json, fetched_at, api_base FROM sponsorblock_cache").all() as Array<SponsorRow & { video_id: string }>).map((row) => ({ videoId: row.video_id, data: row.data_json, fetchedAt: row.fetched_at, apiBase: row.api_base }));
 }
 
-/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 새로 넣은 수 */
-function mergeSponsorSegments(rows: Array<{ videoId: string; data: string; fetchedAt: number }>): number {
+/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 주소가 없는 옛 묶음은 주소 없이. 새로 넣은 수 */
+function mergeSponsorSegments(rows: Array<Omit<SponsorExport, "apiBase"> & { apiBase?: string | null }>): number {
   const has = conn().prepare("SELECT 1 FROM sponsorblock_cache WHERE video_id = ?").pluck();
   const upsert = conn().prepare(
-    `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at) VALUES (?, ?, ?)
-     ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at WHERE excluded.fetched_at > sponsorblock_cache.fetched_at`,
+    `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at, api_base) VALUES (?, ?, ?, ?)
+     ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at, api_base = excluded.api_base WHERE excluded.fetched_at > sponsorblock_cache.fetched_at`,
   );
   return conn().transaction(() => {
     let added = 0;
     for (const row of rows) {
       if (!has.get(row.videoId)) added++;
-      upsert.run(row.videoId, row.data, row.fetchedAt);
+      upsert.run(row.videoId, row.data, row.fetchedAt, row.apiBase ?? null);
     }
     return added;
   })();

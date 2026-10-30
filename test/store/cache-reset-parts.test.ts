@@ -81,7 +81,7 @@ test("바깥 서비스 데이터를 고르면 메모리의 기억(SponsorBlock �
   sponsorBlock.useFetch(
     fake<typeof fetch>(async () => {
       asked++;
-      return fake<Response>({ status: 200, json: async () => [{ videoID: "ddddddddddd", hash: "0".repeat(64), segments: [{ category: "intro", actionType: "skip", segment: [0, 5] }] }] });
+      return new Response(JSON.stringify([{ videoID: "ddddddddddd", segments: [{ category: "intro", actionType: "skip", segment: [0, 5] }] }]), { headers: { "content-type": "application/json" } });
     }),
   );
   const enabled = config.sponsorblock.enabled;

@@ -38,6 +38,8 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   SPONSORBLOCK_API_BASE: { label: "API 주소", help: "미러 · 직접 실행한 서버를 쓸 때만 바꿔요." },
   SPONSORBLOCK_HASH_PREFIX: { label: "해시 접두어 길이", help: "4~32. 짧을수록 어떤 영상을 조회하는지 덜 드러나고 응답은 커져요. 6 이상은 서버가 캐시하지 않아 서버에 부담이 커요." },
   SPONSORBLOCK_TIMEOUT_MS: { label: "조회 제한 시간(ms)", help: "넘으면 저장해 둔 구간을 쓰거나 건너뛰기 없이 재생해요." },
+  SPONSORBLOCK_RECHECK_EMPTY_HOURS: { label: "구간 없는 영상 다시 확인(시간)", help: "지나면 저장한 답으로 재생하고 뒤에서 다시 받아요. 새 영상은 나중에 구간이 생기곤 해요." },
+  SPONSORBLOCK_RECHECK_DAYS: { label: "구간 있는 영상 다시 확인(일)", help: "지나면 저장한 구간으로 재생하고 뒤에서 다시 받아요." },
   CACHE_MAX_SIZE_MB: { label: "최대 용량(MB)", help: "넘으면 오래 · 덜 들은 곡부터 지워요." },
   CACHE_MAX_FILES: { label: "최대 파일 수", help: "" },
   CACHE_MIN_FREE_DISK_MB: { label: "디스크 최소 여유(MB)", help: "드라이브 여유가 이보다 적으면 상한과 상관없이 지워요." },

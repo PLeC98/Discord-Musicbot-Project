@@ -111,7 +111,7 @@ test("되돌리기: 비운 캐시에 파일 · 재생 기록 · 링크 데이터
   ledger(yt("aaaaaaaaaa1"), yt("aaaaaaaaaa1"), "하나");
   pinnedSources.setPin("https://open.spotify.com/track/p", "https://soundcloud.com/a/b", 77);
   externalCaches.markAgeRestricted("aaaaaaaaaa1");
-  externalCaches.setSponsorSegments("aaaaaaaaaa1", [{ segment: [0, 5] }]);
+  externalCaches.setSponsorSegments("aaaaaaaaaa1", [{ segment: [0, 5] }], { fetchedAt: 5, apiBase: "https://sb.example" });
   const file = await exported();
 
   await audioCache.resetCache(AUDIO_CACHE_PARTS);
@@ -129,7 +129,7 @@ test("되돌리기: 비운 캐시에 파일 · 재생 기록 · 링크 데이터
   assert.equal(trackLookup.getAudioUrl(yt("aaaaaaaaaa1")), yt("aaaaaaaaaa1"));
   assert.deepEqual(pinnedSources.getPin("https://open.spotify.com/track/p"), { requestKey: "https://open.spotify.com/track/p", audioUrl: "https://soundcloud.com/a/b", pinnedAt: 77 });
   assert.equal(externalCaches.isAgeRestricted("aaaaaaaaaa1"), true);
-  assert.ok(externalCaches.getSponsorSegments("aaaaaaaaaa1"));
+  assert.deepEqual(externalCaches.getSponsorSegments("aaaaaaaaaa1"), { segments: [{ segment: [0, 5] }], fetchedAt: 5, apiBase: "https://sb.example" }, "받은 때 · 주소도 돌아온다");
   assert.deepEqual(
     fs.readdirSync(audioCache.cacheDir()).filter((name) => name.includes(".tmp-")),
     [],

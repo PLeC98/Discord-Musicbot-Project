@@ -191,7 +191,7 @@ test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열 · 같은 키 �
 
 test("바뀜 번호: 화면의 표에 쓰면 오르고, 재생 테스트 결과는 따로, 다른 표 · 맞는 행이 없는 쓰기는 올리지 않는다. 캐시 초기화 뒤에도 남는다", async () => {
   const start = cacheRevision();
-  externalCaches.setSponsorSegments("aaaaaaaaaa1", []);
+  externalCaches.setSponsorSegments("aaaaaaaaaa1", [], { fetchedAt: 1, apiBase: "https://sb.example" });
   store.db().prepare("UPDATE track_lookup SET platform = 'x' WHERE request_key = 'none'").run();
   assert.deepEqual(cacheRevision(), start);
 

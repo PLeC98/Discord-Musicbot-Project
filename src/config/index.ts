@@ -402,6 +402,9 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       apiBase: envUrl("SPONSORBLOCK_API_BASE", tunable("SPONSORBLOCK_API_BASE").def).replace(/\/+$/, ""),
       hashPrefixLen: tuneInt("SPONSORBLOCK_HASH_PREFIX"),
       timeoutMs: tuneInt("SPONSORBLOCK_TIMEOUT_MS"),
+      // 받은 답이 이만큼 지나면 그대로 쓰고 뒤에서 다시 받는다(ms). 구간 없음은 새 영상에 구간이 생기는 쪽이 흔해 짧게
+      recheckEmptyMs: tuneInt("SPONSORBLOCK_RECHECK_EMPTY_HOURS") * 3_600_000,
+      recheckMs: tuneInt("SPONSORBLOCK_RECHECK_DAYS") * 86_400_000,
       // 서버 설정이 없을 때 자동으로 건너뛸 카테고리
       categories: parseSbCategories(tuneText("SPONSORBLOCK_CATEGORIES")),
     },

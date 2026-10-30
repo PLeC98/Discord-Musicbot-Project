@@ -49,6 +49,8 @@ const TUNABLES: readonly Tunable[] = [
   { key: "SPONSORBLOCK_API_BASE", group: "sponsorblock", kind: "url", def: "https://sponsor.ajay.app", advanced: true },
   { key: "SPONSORBLOCK_HASH_PREFIX", group: "sponsorblock", kind: "int", def: "5", min: 4, max: 32, advanced: true },
   { key: "SPONSORBLOCK_TIMEOUT_MS", group: "sponsorblock", kind: "int", def: "1000", min: 100, max: 10000, advanced: true },
+  { key: "SPONSORBLOCK_RECHECK_EMPTY_HOURS", group: "sponsorblock", kind: "int", def: "6", min: 1, max: 720, advanced: true },
+  { key: "SPONSORBLOCK_RECHECK_DAYS", group: "sponsorblock", kind: "int", def: "7", min: 1, max: 365, advanced: true },
   // 화면은 체크박스 목록(카드 폭 전체라 그룹 맨 끝). 쉼표로 이은 구간 id, 하나도 선택하지 않으면 NO_CATEGORIES
   { key: "SPONSORBLOCK_CATEGORIES", group: "sponsorblock", kind: "categories", def: "music_offtopic,intro,outro" },
   // 오디오 캐시
