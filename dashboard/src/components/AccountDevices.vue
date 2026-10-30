@@ -1,5 +1,5 @@
 <template>
-  <!-- 설정 창 "계정"의 로그인한 기기 목록. 위치를 IP 위치 DB 로 보였으면 아래에 출처 링크(DB-IP 라이선스가 요구한다) -->
+  <!-- 설정 창 "계정"의 로그인한 기기 목록. 접속 지역을 IP 지역 DB 로 보였으면 아래에 출처 링크(DB-IP 라이선스가 요구한다) -->
   <div class="flex flex-col">
     <p v-if="loadError" class="text-label text-error py-2">{{ loadError }}</p>
     <div v-for="d in devices" :key="d.id" class="-mx-3 px-3 py-2 min-h-14 rounded-2xl flex items-center gap-4">
@@ -59,7 +59,7 @@ function agoText(at: number | null) {
   return relativeTime.format(-Math.floor(diff / size), unit);
 }
 
-/** 둘째 줄: 위치(지역 · 나라, 내부망) · 마지막 활동. 기록이 없는 기기는 안내 문구 */
+/** 둘째 줄: 접속 지역(지역 · 나라, 내부망) · 마지막 활동. 기록이 없는 기기는 안내 문구 */
 function subOf(d: LoginDevice) {
   if (!d.known) return T.unknownDesc;
   const place = d.place?.kind === "private" ? T.private : d.place?.kind === "geo" ? [d.place.region, d.place.country].filter(Boolean).join(", ") : "";

@@ -24,7 +24,7 @@ const items = {
   gemmaTokenizer: "Gemma 4 토크나이저",
   gemmaTokenizerNote: "토큰 수 세기",
   unihanNote: "한자 읽기, 조사 선택",
-  dbipNote: "로그인한 기기의 위치",
+  dbipNote: "로그인 기기 접속 지역",
 };
 
 export { title, thisBot, runningSource, runningSourceModified, originalProject, originalSource, sourceUnknown, upstreamPart, groupFontsArt, groupLibraries, groupData, items };
