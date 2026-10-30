@@ -35,10 +35,10 @@ function heldExec() {
 }
 
 let children: ChildProcess[] = [];
-// 말이 없는 진짜 자식. ms 뒤에 스스로 끝난다(없으면 내릴 때까지)
-const sleeper = (ms?: number) =>
+// 말이 없는 진짜 자식. 내릴 때까지 끝나지 않는다
+const sleeper = () =>
   ((..._args: unknown[]) => {
-    const proc = spawn(process.execPath, ["-e", ms ? `setTimeout(() => {}, ${ms})` : "setTimeout(() => {}, 600000)"], { windowsHide: true });
+    const proc = spawn(process.execPath, ["-e", "setTimeout(() => {}, 600000)"], { windowsHide: true });
     children.push(proc);
     const done = new Promise((resolve, reject) => {
       proc.on("exit", (code) => (code === 0 ? resolve({ stdout: "", stderr: "" }) : reject(Object.assign(new Error("killed"), { stderr: "", exitCode: code }))));
@@ -120,12 +120,37 @@ test("뒤 줄에서는 지금 곡의 다운로드가 미리 받기보다 먼저,
   await Promise.all([first, ...waiting]);
 });
 
-test("줄에서 기다린 시간은 정보 호출의 한도에 들지 않는다", { timeout: 10_000 }, async () => {
-  useExec(sleeper(400));
+// 한도는 setTimeout 이라 가짜 시계로 옮긴다. 가짜 실행은 pid 가 없어 내려지지 않으므로, 한도를 넘겼는지는 실패를 알릴 때의 문장으로 본다
+test("줄에서 기다린 시간은 정보 호출의 한도에 들지 않는다", HELD, async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { exec, finish } = heldExec();
+  useExec(exec);
   useInfoTimeout(600);
   useLaneSizes({ lookup: 1, background: 1 });
-  const results = await Promise.all([run("https://youtu.be/a", { dumpSingleJson: true }), run("https://youtu.be/b", { dumpSingleJson: true })]);
-  assert.deepEqual(results, ["", ""], "둘째는 400ms 기다리고 400ms 돌아도 한도(600ms) 안이다");
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((done) => setImmediate(done));
+  };
+  const outcome = (url: string) =>
+    run(url, { dumpSingleJson: true }).then(
+      () => "ok",
+      (error: YtDlpError) => (/끝나지 않아 내렸습니다/.test(error.message) ? "한도" : "실패"),
+    );
+
+  const a = outcome("https://youtu.be/a");
+  const b = outcome("https://youtu.be/b");
+  await settle();
+  t.mock.timers.tick(500);
+  finish("https://youtu.be/a");
+  await settle();
+  t.mock.timers.tick(500); // 둘째는 줄에 선 때부터 1000ms, 띄운 때부터 500ms
+  finish("https://youtu.be/b", true);
+  assert.deepEqual([await a, await b], ["ok", "실패"], "기다린 500ms 를 세면 둘째가 한도로 끝난다");
+
+  const c = outcome("https://youtu.be/c");
+  await settle();
+  t.mock.timers.tick(601);
+  finish("https://youtu.be/c", true);
+  assert.equal(await c, "한도", "띄운 뒤 한도를 넘기면 한도로 끝난다");
 });
 
 test("기다리다 끊기면 줄에서 빠진다", HELD, async () => {
@@ -164,7 +189,8 @@ test("다운로드 파일 묶음: 출력 이름으로 시작하는 것, 템플�
   assert.equal(template.has("downloads.webm"), false);
 });
 
-test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연결 오류로 실패한다", { timeout: 10_000 }, async () => {
+// 시간은 재지 않는다. 제한은 멈춤을 막는 것뿐이다(전체 테스트의 부하에서는 taskkill 만 몇 초 걸린다)
+test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연결 오류로 실패한다", { timeout: 60_000 }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lanes-stall-"));
   try {
     useExec(sleeper());
@@ -212,16 +238,25 @@ test("다운로드 감시: 처음 본 뒤 파일 묶음이 한도 동안 그대�
   }
 });
 
-test("다운로드는 파일 묶음이 바뀌는 동안 둔다(크기가 줄어도)", { timeout: 10_000 }, async () => {
+// 끝을 손으로 정하는 가짜로 본다(진짜 자식은 낮은 우선순위로 돌아 전체 테스트의 부하에서는 몇 초씩 늦게 끝난다).
+// 가짜는 내려지지 않으므로, 감시가 멎었다고 봤는지는 실패를 알릴 때의 문장으로 본다
+test("다운로드는 파일 묶음이 바뀌는 동안 둔다(크기가 줄어도)", HELD, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lanes-busy-"));
   try {
-    useExec(sleeper(900));
+    const { exec, finish } = heldExec();
+    useExec(exec);
     useStallWatch({ everyMs: 50, limitMs: 300 });
     const part = path.join(dir, "x.opus.part");
     let n = 0;
     const writer = setInterval(() => fs.writeFileSync(part, "a".repeat(n++ % 2 ? 10 : 5)), 100);
     try {
-      assert.equal(await run("https://youtu.be/x", { output: path.join(dir, "x.opus") }), "");
+      const done = run("https://youtu.be/x", { output: path.join(dir, "x.opus") }).then(
+        () => "ok",
+        (error: YtDlpError) => error.message,
+      );
+      await new Promise((wait) => setTimeout(wait, 1000)); // 한도(300ms)의 세 배 넘게 바뀌는 동안
+      finish("https://youtu.be/x", true);
+      assert.doesNotMatch(await done, /나아가지 않아/);
     } finally {
       clearInterval(writer);
     }

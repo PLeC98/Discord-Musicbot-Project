@@ -210,7 +210,7 @@ test("WASM 오류는 그 프레임의 세션만 실패시키고 다른 세션은
   }
 });
 
-test("워커가 늦고 늘릴 수 없으면 큐 깊이를 올리고, 자리를 잡으면 머문다", async () => {
+test("워커가 늦고 늘릴 수 없으면 큐 깊이를 필요한 만큼만 올리고 내리지 않는다", async () => {
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
   try {
     await pool.start();
@@ -226,16 +226,28 @@ test("워커가 늦고 늘릴 수 없으면 큐 깊이를 올리고, 자리를 �
         sent++;
       }
     }, 20);
+    // 응답 시간은 이 PC의 부하를 따른다(전체 테스트 중에는 다른 파일이 CPU를 나눠 쓴다). 그래서 상한을 정해 두지 않고 그 자리에서 잰다:
+    // 한 단계 올리려면 그 틱의 p99가 그 깊이의 임계값을 넘어야 하므로, 본 p99 가운데 가장 큰 값이 넘지 못하는 깊이보다 깊어지지 않는다.
+    // 판단은 1초마다라 200ms마다 읽어 틱을 놓치지 않는다
     const depths: number[] = [];
-    for (let s = 0; s < 8; s++) {
-      await sleep(1000);
-      depths.push(session.depth);
+    let maxP99 = 0;
+    for (let i = 1; i <= 40; i++) {
+      await sleep(200);
+      maxP99 = Math.max(maxP99, pool.stats().workers[0]?.rttP99 ?? 0);
+      if (i % 5 === 0) depths.push(session.depth);
     }
     clearInterval(timer);
     assert.deepEqual(errors, []);
-    // 올린 순간 한꺼번에 보낸 프레임이 줄을 서 한 단계 더 오를 수 있다. 그 뒤로는 머문다
-    const last = depths.slice(-3);
-    assert.ok(last.every((d) => d === last[0]) && last[0] !== undefined && last[0] >= 3 && last[0] <= 4, `큐 깊이 ${depths.join(",")}`);
+    let needed = START_DEPTH;
+    while (needed < MAX_DEPTH && maxP99 > (needed - 1) * 20 * 0.8) needed++;
+    const final = depths.at(-1) ?? 0;
+    const why = `큐 깊이 ${depths.join(",")}, 가장 큰 p99 ${maxP99}ms, 필요한 깊이 ${needed}`;
+    assert.ok(final > START_DEPTH, `늦으면 올린다: ${why}`);
+    assert.ok(final <= needed, `필요한 만큼만 올린다: ${why}`);
+    assert.ok(
+      depths.every((d, i) => i === 0 || d >= depths[i - 1]),
+      `여유가 이어지기 전에는 내리지 않는다: ${why}`,
+    );
     session.free();
   } finally {
     await pool.close();
