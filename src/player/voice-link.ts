@@ -26,6 +26,7 @@ const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
 const RECOVER_READY_MS = 15_000; // 재연결할 때 Ready 까지
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본다(_unstick)
+const MAX_LIB_REJOINS = 5; // 라이브러리가 Ready 없이 스스로 다시 참가하는 횟수의 상한. 넘으면 우리 복구(시도 사이를 둔다)로
 const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014 의 까닭으로 본다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
@@ -264,6 +265,7 @@ class VoiceLink {
       this.lastCloseCode = code;
       for (const done of this.closeWaiters.splice(0)) done(code);
       this._noRejoin(networking, code);
+      this._capRejoins(networking, code);
     });
   }
 
@@ -273,6 +275,17 @@ class VoiceLink {
     const connection = this.player.connection;
     if (this.state !== "closed" || code === DO_NOT_RECONNECT || !connection) return;
     if (!("networking" in connection.state) || connection.state.networking !== networking) return;
+    connection.destroy(false);
+  }
+
+  // 라이브러리는 4014 가 아닌 닫힘마다 쉬지 않고 같은 채널로 다시 참가한다(다시 붙지 말라는 4021 요청 제한에도). 이 리스너가 라이브러리보다 먼저 돌 때 부순다.
+  // 상태 리스너 안에서 부수면 라이브러리가 바꾼 상태의 어댑터를 읽다 던진다. 부서짐은 _onStateChange 가 복구로 넘기고, 복구 중이면 다음 시도가 새로 참가한다
+  _capRejoins(networking: object, code: number) {
+    const connection = this.player.connection;
+    if (this.state === "closed" || this.state === "idle" || code === DO_NOT_RECONNECT || !connection) return;
+    if (!("networking" in connection.state) || connection.state.networking !== networking) return;
+    if (connection.rejoinAttempts < MAX_LIB_REJOINS) return;
+    log.warn(`음성 서버 연결이 Ready 없이 ${connection.rejoinAttempts}번 닫혀(마지막 코드 ${code}) 라이브러리의 다시 참가를 멈추고 직접 재연결합니다: ${this._label()}`);
     connection.destroy(false);
   }
 

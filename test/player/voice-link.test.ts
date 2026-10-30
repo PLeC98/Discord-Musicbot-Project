@@ -20,6 +20,7 @@ class FakeConnection extends EventEmitter {
   sent: unknown[] = [];
   state: { status: string; reason?: number; closeCode?: number; adapter?: { sendPayload(p: unknown): boolean } } = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: (p) => (this.sent.push(p), true) } };
   joinConfig = { selfDeaf: true, selfMute: false }; // 라이브러리 기본값
+  rejoinAttempts = 0; // 라이브러리가 Ready 없이 스스로 다시 참가한 횟수
   // 받아 둔 음성 서버 정보로 재연결한 횟수. serverInfo 가 없으면 라이브러리처럼 아무것도 하지 않는다
   reattaches = 0;
   serverInfo = true;
@@ -415,6 +416,31 @@ test("채널에서 빠진 뒤 음성 서버가 닫히면(4014 가 아님) 라이
   live.conn().to(VoiceConnectionStatus.Ready, { networking: liveNet });
   liveNet.emit("close", 4022);
   assert.deepEqual(live.conn().destroyed, []);
+});
+
+test("라이브러리가 Ready 없이 다섯 번 다시 참가한 뒤의 닫힘(4021 등)이면 다시 참가하기 전에 나감 없이 부숴 우리 복구로 넘긴다", async () => {
+  const s = await ready();
+  const net = new EventEmitter();
+  s.conn().to(VoiceConnectionStatus.Ready, { networking: net });
+  const c = s.conn();
+  c.rejoinAttempts = 4;
+  net.emit("close", 4021);
+  assert.deepEqual(c.destroyed, [], "다섯 번 전에는 라이브러리에 맡긴다");
+
+  const net2 = new EventEmitter();
+  c.to(VoiceConnectionStatus.Ready, { networking: net2 });
+  c.rejoinAttempts = 5;
+  const from = sink.buffer.length;
+  net2.emit("close", 4021);
+  assert.deepEqual(c.destroyed, ["stay"]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("라이브러리의 다시 참가를 멈추고")));
+
+  const closing = await ready();
+  const net3 = new EventEmitter();
+  closing.conn().to(VoiceConnectionStatus.Ready, { networking: net3 });
+  closing.conn().rejoinAttempts = 9;
+  net3.emit("close", 4014);
+  assert.deepEqual(closing.conn().destroyed, [], "4014 는 라이브러리가 다시 참가하지 않는다");
 });
 
 test("일반 음성 채널에서 빠지면 닫힘 코드와 상관없이 강제 퇴장이다(기다리지 않는다)", async () => {
