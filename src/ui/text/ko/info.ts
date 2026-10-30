@@ -1,7 +1,7 @@
 // 정보 화면(/system · /cachestatus · /ping · /license · /nowplaying)의 문구. 값은 부르는 쪽이 말로 적어 넘긴다.
 // 플랫폼 · 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
 
-import { icon } from "../../icons.ts";
+import { icon, type IconKey } from "../../icons.ts";
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
@@ -98,18 +98,36 @@ const license = (lines: string[]) => ({
   footer: "GNU AGPL-3.0-or-later • MIT",
 });
 
-/** /nowplaying 맨 위의 상태 */
-function nowPlayingState({ playing, paused }: { playing: boolean; paused: boolean }) {
-  return playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`;
-}
-/** /nowplaying 의 설정 줄: 볼륨 · 반복 */
-function nowPlayingSettings({ volume, loop }: { volume: number; loop: string | false }) {
-  const parts = [`${icon("volume")} ${volume}%`];
+/** /nowplaying 의 문구. 작은 글씨 줄은 아이콘 + 굵은 항목 이름 + 값 */
+const nowPlaying = () => ({
+  title: `${icon("music")} 현재 재생 중`,
+  artist: icon("artist"),
+  album: icon("album"),
+  line: (key: IconKey, name: string, value: string) => `-# ${icon(key)} **${name}** ${value}`,
+  status: "상태",
+  requester: "요청",
+  autoplayPick: `${icon("autoplay")} 자동재생이 고름`,
+  source: "출처",
+  audio: "음원",
+  // 음원 주소를 어떻게 알았나(rules/audio-found-by, 요청 그대로는 줄을 내지 않는다)
+  foundBy: { ledger: "자동 검색 결과", search: "자동 검색 결과", pinned: "직접 지정한 음원" } as Record<string, string>,
+  next: "다음",
+  nextByAutoplay: "자동재생이 골라요",
+  nextNone: "없음",
+  queue: "대기열",
+  queued: (count: number, length: string, partial: boolean) => `${count}곡 · ${length}${partial ? " 이상" : ""}`,
+  autoplay: "자동재생",
+  autoplayOn: (genre: string) => `켜짐 · ${genre}`,
+  autoplayOff: "꺼짐",
+  sections: "구간",
+  sectionsValue: (count: number, highlight: string | null) => [count ? `건너뛸 구간 ${count}개` : null, highlight ? `하이라이트 ${highlight}` : null].filter(Boolean).join(" · "),
+});
+/** /nowplaying 의 상태 값: 재생 상태 · 볼륨 · 반복 */
+function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {
+  const parts = [playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`, `${icon("volume")} ${volume}%`];
   if (loop === "track") parts.push(`${icon("repeat_one")} 한 곡 반복`);
   else if (loop === "queue") parts.push(`${icon("repeat")} 대기열 반복`);
   return parts.join(" • ");
 }
-/** /nowplaying 의 요청자 */
-const nowPlayingRequester = (userId: string) => `${icon("person")} <@${userId}>`;
 
-export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlayingState, nowPlayingSettings, nowPlayingRequester };
+export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };

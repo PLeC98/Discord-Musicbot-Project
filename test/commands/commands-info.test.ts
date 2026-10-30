@@ -121,19 +121,26 @@ test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", 
   assert.deepEqual(idle.log[0][1], noticeReply(errors.notice("no-song")));
 });
 
-test("/nowplaying: 상태 · 큰 제목 · 아티스트와 앨범 · 진행, 구분선 아래 볼륨과 반복 · 요청자와 출처", async () => {
-  const track = { title: "곡", url: "https://youtu.be/x", pageUrl: "https://youtu.be/x", artist: "가수", album: "앨범", platform: "youtube", duration: 200, requestedBy: { id: "u9" }, thumbnail: "https://thumb" };
-  const { it, log, bot } = interaction({ player: nowPlayer(track) });
+test("/nowplaying: 패널과 같은 머리 · 진행, 이 곡(상태 · 요청 · 출처 · 음원) · 이어질 것(다음 · 대기열 · 자동재생 · 구간)", async () => {
+  const track = { title: "곡", url: "https://open.spotify.com/track/x", pageUrl: "https://open.spotify.com/track/x", audioUrl: "https://www.youtube.com/watch?v=abc", audioFoundBy: "ledger", artist: "가수", album: "앨범", platform: "spotify", duration: 200, requestedBy: { id: "u9" }, thumbnail: "https://thumb" };
+  const queue = [
+    { title: "다음 곡", pageUrl: "https://youtu.be/n", artist: "다음 가수", duration: 100 },
+    { title: "그 다음", pageUrl: "https://youtu.be/m", duration: 0 },
+  ];
+  const { it, log, bot } = interaction({ player: { ...nowPlayer(track), queue, autoplay: "kpop" } });
 
   await run(await command("nowplaying"), it, bot);
 
-  const [state, title, byline, bar, settings, who] = nowLines(log[0][1]);
-  assert.equal(state, "-# ▶️ 재생 중");
-  assert.equal(title, "## [곡](https://youtu.be/x)");
-  assert.equal(byline, "가수 · 앨범");
-  assert.match(bar, /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
-  assert.equal(settings, "-# 🔊 70% • 🔂 한 곡 반복");
-  assert.match(who, /^-# 👤 <@u9> • .+ YouTube$/);
+  const lines = nowLines(log[0][1]);
+  assert.deepEqual(lines.slice(0, 3), ["### 🎵 현재 재생 중", "**[곡](https://open.spotify.com/track/x)**", "-# 🎤 가수 · 💿 앨범"]);
+  assert.match(lines[3], /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
+  assert.equal(lines[4], "-# 📊 **상태** ▶️ 재생 중 • 🔊 70% • 🔂 한 곡 반복");
+  assert.equal(lines[5], "-# 👤 **요청** <@u9>");
+  assert.match(lines[6], /^-# 🌐 \*\*출처\*\* .+ Spotify$/);
+  assert.equal(lines[7], "-# 🔗 **음원** [YouTube](https://www.youtube.com/watch?v=abc) · 자동 검색 결과");
+  assert.equal(lines[8], "-# ⏭️ **다음** [다음 곡](https://youtu.be/n) · 다음 가수");
+  assert.equal(lines[9], "-# 📋 **대기열** 2곡 · 1:40 이상", "길이를 모르는 곡이 있으면 이상");
+  assert.match(lines[10], /^-# 🎲 \*\*자동재생\*\* 켜짐 · /);
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
@@ -155,16 +162,16 @@ test("/nowplaying: 멈춤 · 준비 중 · 대기열 반복, 길이를 모르면
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.bot);
   const lines = nowLines(paused.log[0][1]);
-  assert.equal(lines[0], "-# ⏸️ 일시정지");
-  assert.ok(lines.includes("-# 🔊 10% • 🔁 대기열 반복"));
+  assert.ok(lines.includes("-# 📊 **상태** ⏸️ 일시정지 • 🔊 10% • 🔁 대기열 반복"));
   assert.ok(!lines.some((line) => line.includes("●")), "길이를 모르면 진행 막대가 없다");
-  assert.ok(!lines.some((line) => line.includes("👤")), "요청자가 없으면 출처만");
+  assert.ok(!lines.some((line) => line.includes("**요청**")), "요청자를 모르면 줄이 없다");
+  assert.ok(!lines.some((line) => line.includes("**음원**")), "요청 그대로 트는 곡은 음원 줄이 없다");
+  assert.ok(lines.includes("-# ⏭️ **다음** 없음"));
+  assert.ok(lines.includes("-# 🎲 **자동재생** 꺼짐"));
 
   const stopped = interaction({ player: nowPlayer({ title: "곡", url: "u" }, { playing: false, paused: false, volume: 1, loop: false }) });
   await run(await command("nowplaying"), stopped.it, stopped.bot);
-  const stoppedLines = nowLines(stopped.log[0][1]);
-  assert.equal(stoppedLines[0], "-# ⏳ 준비 중");
-  assert.ok(stoppedLines.includes("-# 🔊 1%"));
+  assert.ok(nowLines(stopped.log[0][1]).includes("-# 📊 **상태** ⏳ 준비 중 • 🔊 1%"));
 
   const broken = interaction({
     player: {
