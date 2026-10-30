@@ -15,8 +15,6 @@ const cacheDb = new DbFile({
   synchronous: "NORMAL",
   onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
   createTables,
-  // 6 → 7 · 7 → 8은 열 하나를 더할 뿐이라 그 자리에서(직접 지정한 음원 · 링크 데이터를 잃지 않게). 주소가 빈 옛 구간은 다음 재생 때 뒤에서 다시 받는다
-  upgrades: { 6: (db) => db.exec("ALTER TABLE source_checks ADD COLUMN version TEXT"), 7: (db) => db.exec("ALTER TABLE sponsorblock_cache ADD COLUMN api_base TEXT") },
 });
 
 function createTables(db: Db) {
@@ -74,7 +72,7 @@ function createTables(db: Db) {
             );
 
             -- SponsorBlock 구간. 있으면 곧바로 쓰고, 오래됐거나 다른 주소에서 받았으면 뒤에서 다시 받는다(sources/sponsor-block).
-            -- data_json = 정규화 이전 원시 배열(카테고리 전부, 빈 배열은 "구간 없음"). api_base = 받은 주소(이전 버전에서 올린 것은 NULL)
+            -- data_json = 정규화 이전 원시 배열(카테고리 전부, 빈 배열은 "구간 없음"). api_base = 받은 주소(모르면 NULL: 주소 없이 불러온 내보내기 파일)
             CREATE TABLE IF NOT EXISTS sponsorblock_cache (
                 video_id    TEXT PRIMARY KEY,
                 data_json   TEXT NOT NULL,
