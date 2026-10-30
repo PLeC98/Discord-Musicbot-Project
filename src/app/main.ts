@@ -59,6 +59,7 @@ import { createPlayerStream } from "../dashboard/player-stream.ts";
 import { botJoinedGuild, botLeftGuild, guildBack } from "../dashboard/routes/player-events.ts";
 import { watchGoneGuilds } from "../discord/gone-guilds.ts";
 import { watchGatewaySessions } from "../infra/gateway-sessions.ts";
+import * as staySeats from "../store/stay-seats.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
@@ -143,6 +144,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신했습니다: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(" · ")}`);
   warnLegacyConfigFiles();
   serviceKeys.load();
+  staySeats.load();
   aiKeys.warnLegacyFile();
   // 쿠키는 실행마다 파일로 복호화했다가 삭제한다. 비정상 종료로 남은 것을 치운다
   cookieJar.sweep();

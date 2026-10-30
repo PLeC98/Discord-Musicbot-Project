@@ -1,4 +1,4 @@
-// 실행 상태 DB(state.db). 봇을 다시 시작했을 때 이어 가려고 남기는 것: 저장된 대기열(재생 세션) · 음성 채널 상태 · 재생 패널 위치.
+// 실행 상태 DB(state.db). 봇을 다시 시작했을 때 이어 가려고 남기는 것: 저장된 대기열(재생 세션) · 음성 채널 상태 · 재생 패널 위치 · 24/7 자리.
 // 캐시 초기화와 무관하다. 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다).
 
 import { DbFile } from "./sqlite.ts";
@@ -58,6 +58,14 @@ function createTables(db: Db) {
     CREATE TABLE IF NOT EXISTS voice_status (
       channel_id  TEXT PRIMARY KEY,
       status      TEXT NOT NULL
+    );
+
+    -- 24/7: 서버마다 봇이 머무는 음성 채널(자리). 대기열 세션과 수명이 달라 따로 둔다(store/stay-seats)
+    CREATE TABLE IF NOT EXISTS stay_seats (
+      guild_id    TEXT    PRIMARY KEY,
+      channel_id  TEXT    NOT NULL,
+      set_by      TEXT,
+      set_at      INTEGER NOT NULL
     );
 
     -- 서버당 하나뿐인 현재 재생 패널의 위치. 옛 패널을 치우는 기준(ui/panel-location)

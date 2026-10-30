@@ -68,6 +68,7 @@ import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
+import * as staySeats from "../../store/stay-seats.ts";
 
 // 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 확인한다: 오래됐으면 reauth-required 로 로그인 창을 먼저 열고, 확인 창은 로그인을 마친 뒤에 연다
 adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
@@ -172,6 +173,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
 
   const name = guild.name;
   try {
+    staySeats.clear(guild.id); // 버리기보다 먼저(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
     const player = players.get(guild.id);
     if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" });
     await guild.leave();

@@ -24,6 +24,7 @@ import { fakeAdder } from "../helpers/adder.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { frame, noticeReply, post } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
+import * as staySeats from "../../src/store/stay-seats.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -254,8 +255,9 @@ test("전용 채널이 삭제되면 설정을 비우고 패널을 옮긴다. 다
   assert.deepEqual(moved, ["g1"]);
 });
 
-test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열 · 패널 위치를 삭제한다. 서버 설정은 남긴다", async () => {
+test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열 · 패널 위치 · 24/7 자리를 삭제한다. 서버 설정은 남긴다", async () => {
   await settings.setBotChannel("g-left", "bot-channel");
+  staySeats.set("g-left", "vc1", "u1");
   await panelRecords.setPanel("g-left", "bot-channel", "m1");
   sessions().append("g-left", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
   const disposed: Array<{ reason: string; session: string }> = [];
@@ -268,6 +270,7 @@ test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 �
   assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove", end: "guild-gone" }]);
   assert.equal(sessions().load("g-left"), null);
   assert.equal(await panelRecords.getPanel("g-left"), null);
+  assert.equal(staySeats.seatOf("g-left"), null, "다시 초대해도 저절로 들어오지 않는다");
   settings.forgetCache();
   assert.equal(await settings.getBotChannel("g-left"), "bot-channel", "다시 초대하면 그대로 쓴다");
 });
