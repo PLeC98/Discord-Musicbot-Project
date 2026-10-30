@@ -225,7 +225,7 @@ class Player {
   skippedQuiet = 0;
   /** 그 곡에서 멈춰 두기(park) 전에 사람이 이미 멈춰 뒀나. 멈춰 둔 곡을 떠날 때 멈춤을 되돌릴지 정한다 */
   _parkedOverUserPause = false;
-  /** ▶ 로 멈춰 둔 곡을 다시 여는 중(대시보드가 그 사이에도 곡을 보이게) */
+  /** 재생 버튼으로 멈춰 둔 곡을 다시 여는 중(대시보드가 그 사이에도 곡을 보이게) */
   _retryingParked = false;
   /** play() 의 세대. 끝 정리는 자기 세대가 마지막일 때만 한다(겹친 play 의 정리가 새 것의 단계 · 보호를 지우지 않게) */
   _playGen = 0;
@@ -1520,8 +1520,8 @@ class Player {
     this.persistence.startStateSync();
     bestEffort(log, this.persistence.persistState("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
     this._showTrackInVoiceStatus();
-    log.warn(`그 곡에서 멈춰 둡니다(▶ 로 다시 시도): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, YouTube.cookiesConfigured())}` : ""}`);
-    // 기다리지 않는다. 기다리는 사이 ▶ 로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
+    log.warn(`그 곡에서 일시정지합니다(재생 버튼으로 다시 시도): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, YouTube.cookiesConfigured())}` : ""}`);
+    // 기다리지 않는다. 기다리는 사이 재생 버튼으로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
     if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed);
   }
 
@@ -1545,7 +1545,7 @@ class Player {
     }
   }
 
-  /** 멈춰 둔 곡이 있다(▶ 로 다시 여는 중 포함). 화면은 이때도 곡을 멈춤으로 보인다 */
+  /** 멈춰 둔 곡이 있다(재생 버튼으로 다시 여는 중 포함). 화면은 이때도 곡을 멈춤으로 보인다 */
   get parked() {
     return this.lifecycle.parked || this._retryingParked;
   }

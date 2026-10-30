@@ -102,8 +102,8 @@ const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
 
 /** 음성 채널에 들어오기 */
 const joined = (): Head => ({ icon: "done", title: "음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." });
-/** parked: 곡을 열지 못해 그 곡에서 멈춰 둔 상태다 */
-const alreadyJoined = (parked = false): Head => ({ icon: "done", title: "이미 음성 채널에 있어요.", body: parked ? "곡을 열지 못해 멈춰 둔 곡이 있어요. ▶ 을 누르면 다시 시도해요." : "저는 준비됐어요. 언제든지 곡을 넣어 주세요." });
+/** parked: 곡을 열지 못해 그 곡에서 일시정지한 상태다 */
+const alreadyJoined = (parked = false): Head => ({ icon: "done", title: "이미 음성 채널에 있어요.", body: parked ? "곡이 재생되지 않아 일시정지 상태예요. 재생 버튼을 누르면 다시 시도해요." : "저는 준비됐어요. 언제든지 곡을 넣어 주세요." });
 /** /join 이 저장한 세션을 복원하는 동안 */
 const restoring = () => `${icon("progress")} 듣던 곡을 불러오는 중...`;
 /** /join 이 저장한 세션을 복원했다 */

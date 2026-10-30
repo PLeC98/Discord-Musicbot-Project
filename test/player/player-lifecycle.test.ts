@@ -1014,13 +1014,13 @@ test("까닭 모를 실패가 연달아 셋이면 넘기기를 그만두고 셋�
   const leaveTimer = p.idle.emptyTimer; // 치우기 전에 읽는다
   h.dispose(p);
 
-  assert.equal(p.currentTrack, c, "지금 곡을 비우지 않는다(곡을 넣으면 뒤에 붙고, ▶ 로 다시 연다)");
+  assert.equal(p.currentTrack, c, "지금 곡을 비우지 않는다(곡을 넣으면 뒤에 붙고, 재생 버튼으로 다시 연다)");
   assert.deepEqual(p.queue, [d]);
   assert.equal(p.lifecycle.parked, true);
   assert.equal(p.pause.userPaused, true, "멈춤으로 저장된다(재시작이 저절로 틀지 않는다)");
   assert.equal(p.lastPlaybackPosition, 0);
   assert.equal(p.failedTracks, 0, "멈추면 다시 센다. 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게");
-  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개 재생에 연달아 실패해서 멈췄어요.\n▶ 로 다시 시도하거나 ⏭ 로 넘길 수 있어요."));
+  assert.ok(calls.sent.map(textOf).includes("### ❌ 3곡이 연달아 재생되지 않아 일시정지했어요.\n재생 버튼으로 다시 시도하거나 다음 곡 버튼으로 넘길 수 있어요."));
   assert.ok(calls.persists.includes("parked"));
   assert.equal(calls.persists.includes("remove"), false);
   assert.equal(leaveTimer, null, "나갈 예약을 걸지 않는다");
@@ -1229,7 +1229,7 @@ test("환경 탓(망 끊김)은 넘기지 않고 그 곡 · 그 위치에서 멈
   assert.equal(p.pause.userPaused, true);
   assert.equal(p.failedTracks, 0);
   assert.ok(calls.persists.includes("parked"));
-  assert.equal(calls.sent.map(textOf).filter((t) => t.includes("다음 곡으로 넘기지 않고 멈췄어요")).length, 1);
+  assert.equal(calls.sent.map(textOf).filter((t) => t.includes("다음 곡으로 넘기지 않고 일시정지했어요")).length, 1);
 });
 
 test("곡 탓(영상 내려감)은 넘기고 세지 않는다. 다섯이 이어져도 멈추지 않는다. 대기열의 같은 곡도 같이 뺀다", async () => {
@@ -1246,7 +1246,7 @@ test("곡 탓(영상 내려감)은 넘기고 세지 않는다. 다섯이 이어�
   assert.equal(p.lifecycle.parked, false, "멈춰 두지 않는다");
   assert.equal(p.currentTrack, null, "다 넘기고 대기열이 끝났다");
   assert.equal(p.failedTracks, 0);
-  assert.ok(calls.sent.map(textOf).some((t) => t.includes("대기열에 있던 같은 곡 1곡도 뺐어요.")));
+  assert.ok(calls.sent.map(textOf).some((t) => t.includes("대기열에 같은 곡이 1번 더 있어서 함께 뺐어요.")));
 });
 
 test("곡 탓 넘기기 알림은 셋까지 하나씩, 그 뒤는 모았다가 대기열이 끝나면 한 번에", async () => {
@@ -1260,9 +1260,9 @@ test("곡 탓 넘기기 알림은 셋까지 하나씩, 그 뒤는 모았다가 �
   h.dispose(p);
 
   const sent = calls.sent.map(textOf);
-  assert.equal(sent.filter((t) => t.includes("재생할 수 없는 곡") && t.includes("더 넘겼어요")).length, 1);
+  assert.equal(sent.filter((t) => t.includes("재생할 수 없는 ") && t.includes("곡을 더 넘겼어요")).length, 1);
   assert.ok(
-    sent.some((t) => t.includes("재생할 수 없는 곡 2곡을 더 넘겼어요.")),
+    sent.some((t) => t.includes("재생할 수 없는 2곡을 더 넘겼어요.")),
     sent.join("\n---\n"),
   );
 });
