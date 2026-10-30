@@ -1,4 +1,4 @@
-// 시험이 만들거나 고친 아카이브를 메모리로 묶는다. 봇이 실제로 쓰는 writeZip 을 거친다
+// 테스트가 만들거나 고친 아카이브를 메모리로 묶는다. 봇이 실제로 쓰는 writeZip을 거친다
 //
 //   const file = await zipped([{ name: "settings.json", data: Buffer.from("{}") }]);
 

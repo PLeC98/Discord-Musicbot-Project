@@ -1,13 +1,13 @@
 // 외부 서비스로 나가는 HTTP 요청은 모두 이 클라이언트를 지난다. 서비스마다 부른 결과를 infra/link-status 에 남긴다.
-// fetch 는 응답을 받으면 성공(4xx 는 요청의 문제라 성공으로 친다). 5xx · 429 · 401 · 403(키 · 권한이 막혀 쓸 수 없다) · 연결 실패 · 시간 초과는 실패.
-// 상태 코드만으로 가를 수 없는 서비스는 read 로 부르고 응답을 읽어 판정한다.
+// fetch는 응답을 받으면 성공(4xx는 요청의 문제라 성공으로 친다). 5xx · 429 · 401 · 403(키 · 권한이 막혀 쓸 수 없다) · 연결 실패 · 시간 초과는 실패.
+// 상태 코드만으로 판정할 수 없는 서비스는 read로 부르고 응답을 읽어 판정한다.
 // 부른 쪽이 스스로 끊은 것(AbortError)은 서비스의 일이 아니라 남기지 않는다
 
 import { record, type Service } from "./link-status.ts";
 
 type Fetch = typeof fetch;
 
-/** 응답을 읽어 매긴 결과. error 가 있으면 실패(짧은 까닭) */
+/** 응답을 읽어 매긴 결과. error가 있으면 실패(짧은 까닭) */
 type Judged<T> = { value: T; error: string | null };
 
 /** 4xx 중 실패로 치는 것: 너무 많이 부름 · 키가 틀림 · 권한 없음 */
@@ -47,7 +47,7 @@ function httpFor(service: Service) {
     return res;
   }
 
-  /** 응답을 judge 로 읽어 판정한다. 보낼 때는 남기지 않고, 판정 · 본문 읽기 실패 · 던짐 어느 경우에도 한 번 남긴다 */
+  /** 응답을 judge로 읽어 판정한다. 보낼 때는 남기지 않고, 판정 · 본문 읽기 실패 · 던짐 어느 경우에도 한 번 남긴다 */
   async function read<T>(input: string | URL | Request, init: RequestInit | undefined, judge: (res: Response) => Promise<Judged<T>>): Promise<T> {
     const started = performance.now();
     let judged: Judged<T>;

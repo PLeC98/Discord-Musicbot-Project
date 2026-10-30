@@ -161,7 +161,7 @@ function endOf(count: number, directoryAt: number, directoryLength: number, forc
   return Buffer.concat([...parts, end]);
 }
 
-/** 스트림으로 묶는다(설정 내보내기 · 로그인 배경 · 전체 백업). 파일로 준 항목은 그대로 스트림으로 담는다. 쓴 바이트 수. zip64 는 작아도 ZIP64 형식으로 적는다(테스트 · 호환 확인) */
+/** 스트림으로 묶는다(설정 내보내기 · 로그인 배경 · 전체 백업). 파일로 준 항목은 그대로 스트림으로 담는다. 쓴 바이트 수. zip64는 작아도 ZIP64 형식으로 적는다(테스트 · 호환 확인) */
 async function writeZip(inputs: ZipInput[], sink: Sink, { at = new Date(), zip64 = false }: { at?: Date; zip64?: boolean } = {}): Promise<number> {
   const when = dosTime(at);
   const centrals: Buffer[] = [];

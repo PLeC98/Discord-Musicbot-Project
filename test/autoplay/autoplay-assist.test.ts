@@ -68,7 +68,7 @@ function putKeys(settings: Record<string, unknown>) {
   }
 }
 
-// 설정을 교체한다. 설정 문서 "ai" 는 저장되는 모양(객체)으로 적고, 프롬프트는 딴 문서("ai-prompt")라 섞지 않는다. 키도 그 설정의 주소로 다시 넣는다
+// 설정을 교체한다. 설정 문서 "ai"는 저장되는 모양(객체)으로 적고, 프롬프트는 딴 문서("ai-prompt")라 섞지 않는다. 키도 그 설정의 주소로 다시 넣는다
 function useConfig(settings: Record<string, unknown>, sections: PromptSection[] = []) {
   useDocument("ai", settings);
   useDocument("ai-prompt", sections);

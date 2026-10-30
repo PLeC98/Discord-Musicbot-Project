@@ -1,9 +1,9 @@
 // bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 실행하고 지킨다.
 // 조립(app/main)이 하나 만들어 기동 시 실행하고 종료 시 내린다.
 //
-// 서버는 실행마다 OS 가 준 빈 포트 · 127.0.0.1 하나에만 열고, yt-dlp 에는 그 주소를 넘긴다(youtube/auth). 고정 포트(4416)를 쓰면
-// 그 포트를 남(남은 서버 · 따로 띄운 서버 · 다른 봇)이 쥐었을 때 서버가 뜨지 못하고 yt-dlp 가 남의 서버에 기댄다.
-// 주소를 하나로 정하는 까닭: 정하지 않으면 bgutil 은 ::1 과 127.0.0.1 에 따로 열고 하나만 열려도 돈다(남이 IPv4 만 쥐면 반쪽으로 뜬다).
+// 서버는 실행마다 OS가 준 빈 포트 · 127.0.0.1 하나에만 열고, yt-dlp에는 그 주소를 넘긴다(youtube/auth). 고정 포트(4416)를 쓰면
+// 그 포트를 남(남은 서버 · 따로 띄운 서버 · 다른 봇)이 쥐었을 때 서버가 뜨지 못하고 yt-dlp가 남의 서버에 기댄다.
+// 주소를 하나로 정하는 까닭: 정하지 않으면 bgutil은 ::1과 127.0.0.1에 따로 열고 하나만 열려도 돈다(남이 IPv4만 쥐면 반쪽으로 뜬다).
 
 import childProcess from "child_process";
 import fs from "fs";
@@ -24,7 +24,7 @@ const BIND_TRIES = 3; // 받은 빈 포트를 그 사이 남이 잡아 실행하
 const STOP_WAIT_MS = 1000; // 내릴 때 꺼지기를 기다리는 상한. 넘으면 종료 처리의 자식 정리가 내린다
 // Windows 콘솔의 종료 신호(창 닫기 · 콘솔 전체에 간 Ctrl+C)로 끝난 코드(STATUS_CONTROL_C_EXIT). 같은 콘솔의 봇도 곧 끝난다
 const CONSOLE_EXIT = 0xc000013a;
-// 서버보다 먼저 싣는 코드: 봇이 열어 둔 표준 입력이 닫히면(봇이 어떻게 끝나든 OS 가 닫는다) 서버도 끝난다. bgutil 은 고치지 않는다
+// 서버보다 먼저 싣는 코드: 봇이 열어 둔 표준 입력이 닫히면(봇이 어떻게 끝나든 OS가 닫는다) 서버도 끝난다. bgutil은 고치지 않는다
 const EXIT_WITH_PARENT = "data:text/javascript,process.stdin.on('end',()=>process.exit(0));process.stdin.on('error',()=>process.exit(0));process.stdin.resume();";
 
 // 실행한 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
@@ -39,7 +39,7 @@ type FreePort = () => Promise<number>;
 // 지금 이 봇이 띄운 서버의 주소. 없으면 null(꺼 둠 · 설치 안 됨 · 내림 · 포트를 잡지 못해 멈춤)
 let current: string | null = null;
 
-/** yt-dlp 가 물을 POToken 서버 주소. 이 봇이 띄운 서버가 없으면 null(그때는 플러그인을 싣지 않는다) */
+/** yt-dlp가 쓸 POToken 서버 주소. 이 봇이 띄운 서버가 없으면 null(그때는 플러그인을 싣지 않는다) */
 function potServerUrl() {
   return current;
 }
@@ -54,7 +54,7 @@ function installedVersion(): string | null {
   }
 }
 
-// OS 가 준 빈 포트. 열었다 곧바로 닫으므로 서버가 열기 전에 남이 잡을 수 있다(그때 서버는 곧 끝나고 새 포트로 다시 실행한다)
+// OS가 준 빈 포트. 열었다 곧바로 닫으므로 서버가 열기 전에 남이 잡을 수 있다(그때 서버는 곧 끝나고 새 포트로 다시 실행한다)
 function pickFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const probe = net.createServer();
@@ -101,7 +101,7 @@ async function versionOf(res: { json?(): Promise<unknown> }) {
 }
 
 /**
- * spawn · exists · fetch · freePort: 바깥 경계. 생략하면 실제 구현. version: 받아 둔 서버의 버전(모르면 null 이고 버전을 맞춰 보지 않는다)
+ * spawn · exists · fetch · freePort: 바깥 경계. 생략하면 실제 구현. version: 받아 둔 서버의 버전(모르면 null이고 버전을 맞춰 보지 않는다)
  */
 function createPotServer({ spawn = (command, args, options) => childProcess.spawn(command, args, options), exists = fs.existsSync, fetch = (url, init) => globalThis.fetch(url, init), freePort = pickFreePort, version = installedVersion() }: { spawn?: Spawn; exists?: (file: string) => boolean; fetch?: Fetch; freePort?: FreePort; version?: string | null } = {}) {
   let proc: PotProcess | null = null;
@@ -118,7 +118,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
   function run(newPort: boolean) {
     starting = launch(newPort).catch((error: unknown) => {
       current = null;
-      log.error({ sub: "bgutil" }, `POToken 서버를 실행하지 못했습니다. POToken 없이 진행합니다: ${messageOf(error)}`);
+      log.error({ sub: "bgutil" }, `POToken 서버를 실행하지 못해 POToken 없이 진행합니다: ${messageOf(error)}`);
     });
     return starting;
   }
@@ -198,7 +198,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     });
   }
 
-  // /ping 에 응답할 때까지 기다린다(최대 timeoutMs). 실행한 것이 없으면 바로 통과, 시간을 넘기면 경고만.
+  // /ping에 응답할 때까지 기다린다(최대 timeoutMs). 실행한 것이 없으면 바로 통과, 시간을 넘기면 경고만.
   // 답한 서버의 버전이 받아 둔 서버와 다르면 이 봇이 띄운 서버가 아니다
   async function waitReady(timeoutMs = 30000) {
     await starting;

@@ -57,14 +57,14 @@ test("오류 분류 표: yt-dlp 가 단 이름으로 구분한 종류와 판별 
   assert.deepEqual(actual, TABLE); // 한 번에 비교해 어긋난 셀을 전부 보인다
 });
 
-test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). errorKind 는 이름만 본다", () => {
+test("분류는 stderr가 있으면 그것을 본다(YouTube 쪽). errorKind는 이름만 본다", () => {
   const e = Object.assign(new Error("exit 1"), { stderr: "ERROR: Video unavailable" });
   assert.equal(YouTube.isVideoUnavailableError(e), true);
   assert.equal(errorKind(e), "unknown-error");
 });
 
 // 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(단어로 구분하면 프로그램 버그가 엉뚱한 종류가 된다)
-test("errorKind 는 이름이 없으면 unknown-error. 문자열과 빈 값도 받는다", () => {
+test("errorKind는 이름이 없으면 unknown-error. 문자열과 빈 값도 받는다", () => {
   for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
     assert.equal(errorKind(new Error(msg)), "unknown-error", msg);
   }

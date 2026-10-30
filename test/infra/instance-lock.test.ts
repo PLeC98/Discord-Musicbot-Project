@@ -10,7 +10,7 @@ import { acquireInstanceLock, lockNameFor } from "../../src/infra/instance-lock.
 
 const dir = () => path.join(os.tmpdir(), `instance-lock-${process.pid}-${Math.random().toString(36).slice(2)}`);
 
-test("둘째는 쥐지 못하고 쥔 실행의 pid 를 받는다. 놓으면 다시 쥔다", async () => {
+test("둘째는 쥐지 못하고 쥔 실행의 pid를 받는다. 놓으면 다시 쥔다", async () => {
   const where = dir();
   const first = await acquireInstanceLock(where);
   assert.equal(first.ok, true);
@@ -30,14 +30,14 @@ test("폴더가 다르면 따로 쥔다", async () => {
   if (b.ok) await b.release();
 });
 
-test("이름: Windows 는 대소문자를 가리지 않는 파이프, Linux 는 추상 소켓, 그 밖은 임시 폴더의 소켓 파일", () => {
+test("이름: Windows는 대소문자를 가리지 않는 파이프, Linux는 추상 소켓, 그 밖은 임시 폴더의 소켓 파일", () => {
   assert.equal(lockNameFor("C:\\Bot\\database", "win32"), lockNameFor("c:\\bot\\DATABASE", "win32"));
   assert.match(lockNameFor("C:\\Bot\\database", "win32"), /^\\\\\.\\pipe\\musicbot-[0-9a-f]{16}$/);
   assert.match(lockNameFor("/srv/bot/database", "linux"), /^\0musicbot-[0-9a-f]{16}$/);
   assert.equal(path.dirname(lockNameFor("/srv/bot/database", "darwin")), os.tmpdir());
 });
 
-// 쥔 실행이 끝나 파일만 남은 소켓(유닉스 소켓을 쓰는 OS)은 지우고 쥔다. 파일 소켓을 만들 수 있는 OS 에서만 본다
+// 쥔 실행이 끝나 파일만 남은 소켓(유닉스 소켓을 쓰는 OS)은 삭제하고 쥔다. 파일 소켓을 만들 수 있는 OS에서만 본다
 test("남은 소켓 파일은 치우고 쥔다", { skip: process.platform === "win32" || process.platform === "linux" }, async () => {
   const where = dir();
   const name = lockNameFor(where);

@@ -9,7 +9,7 @@ import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
 import { createPotServer, scrubBgutilLine, potServerUrl } from "../../src/sources/youtube/pot-server.ts";
 
-// OS 의 빈 포트 대신. 부를 때마다 다음 번호
+// OS의 빈 포트 대신. 부를 때마다 다음 번호
 const ports = (first = 45001) => {
   let next = first;
   return async () => next++;
@@ -56,7 +56,7 @@ test("켜져 있어도 설치돼 있지 않으면 실행하지 않는다", async
   assert.equal(spawned.length, 0);
 });
 
-test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트 · 127.0.0.1 하나로 실행하고, /ping 이 답하면 준비된 것이다", async () => {
+test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트 · 127.0.0.1 하나로 실행하고, /ping이 답하면 준비된 것이다", async () => {
   const { spawn, spawned } = fakeSpawn();
   const pings: string[] = [];
   let up = 0;
@@ -225,7 +225,7 @@ test("서버 출력은 토큰을 가려 흘린다(오류 줄도 멈추지 않는
 test("실행한 서버를 프로세스 레지스트리에 올리고, 끝나면 내린다", async () => {
   const procRegistry = await import("../../src/infra/process-registry.ts");
   const { spawn: base, spawned } = fakeSpawn();
-  // 레지스트리는 pid 가 있는 것만 받는다. 실제로 없는 번호를 쓰고, 시험 안에서 반드시 끝낸다
+  // 레지스트리는 pid가 있는 것만 받는다. 실제로 없는 번호를 쓰고, 테스트 안에서 반드시 끝낸다
   const spawn = (cmd: string, args: string[], opts: SpawnOpts) => Object.assign(base(cmd, args, opts), { pid: 2_000_000_001, exitCode: null, signalCode: null });
   const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());

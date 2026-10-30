@@ -63,7 +63,7 @@ test("서비스마다 따로, 최근 몇 번만 둔다", async () => {
   );
 });
 
-test("read 는 응답을 읽어 판정한 대로 한 번만 남긴다: 판정 · 본문 읽기 실패 · 연결 실패. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
+test("read는 응답을 읽어 판정한 대로 한 번만 남긴다: 판정 · 본문 읽기 실패 · 연결 실패. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
   const http = httpFor("lastfm");
   const judge = async (res: Response) => {
     const body = (await res.json()) as { ok?: boolean };
@@ -72,7 +72,7 @@ test("read 는 응답을 읽어 판정한 대로 한 번만 남긴다: 판정 ·
   http.useFetch(async () => new Response('{"ok":true}', { status: 404 }));
   assert.deepEqual(await http.read("https://example.test/", undefined, judge), { ok: true }, "판정한 값을 돌려준다");
   http.useFetch(async () => new Response("{}", { status: 503 }));
-  assert.deepEqual(await http.read("https://example.test/", undefined, judge), {}, "상태 코드로 가르지 않는다");
+  assert.deepEqual(await http.read("https://example.test/", undefined, judge), {}, "상태 코드로 판정하지 않는다");
   http.useFetch(async () => new Response("<html>", { status: 200 }));
   await assert.rejects(http.read("https://example.test/", undefined, judge), SyntaxError);
   http.useFetch(fail(Object.assign(new Error("timed out"), { name: "TimeoutError" })));

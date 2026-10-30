@@ -40,7 +40,7 @@ test("항목 수 · 풀린 크기 상한을 넘으면 거절한다", async () =>
   assert.ok(rejects(big, { maxBytes: 9_999 }), "압축은 작아도 풀린 크기로 잰다");
 });
 
-test("폴더 밖 경로 · 깨진 내용 · ZIP 이 아닌 것은 거절한다", async () => {
+test("폴더 밖 경로 · 깨진 내용 · ZIP이 아닌 것은 거절한다", async () => {
   for (const name of ["../x", "a/../../x", "/etc/x", "C:/x", "..\\x"]) assert.ok(rejects(await zipped([{ name, data: Buffer.from("x") }])), name);
   assert.ok(rejects(Buffer.from("그냥 글")));
   const broken = await zipped([{ name: "a.txt", data: Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") }]);

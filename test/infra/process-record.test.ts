@@ -1,5 +1,5 @@
-// src/infra/process-registry.ts 의 기록 파일: 기동이 켜면 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 등록 · 해제마다 살아 있는 자식을 적는다.
-// 켜기 전에는 쓰지 않는다. 이 파일은 프로세스마다 따로 돌아 레지스트리의 켜짐이 다른 시험에 새지 않는다
+// src/infra/process-registry.ts의 기록 파일: 기동이 켜면 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 등록 · 해제마다 살아 있는 자식을 적는다.
+// 켜기 전에는 쓰지 않는다. 이 파일은 프로세스마다 따로 돌아 레지스트리의 켜짐이 다른 테스트에 새지 않는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

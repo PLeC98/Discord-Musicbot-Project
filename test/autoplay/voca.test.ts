@@ -133,7 +133,7 @@ test("설정 필드가 저쪽 파라미터로 바뀐다", async () => {
   assert.deepEqual(q.getAll("artistId[]"), ["1"]);
 });
 
-// 사이트마다 곡의 중심이 다르다. UtaiteDB 는 커버(우타이테가 부른 것), TouhouDB 는 원작 곡의 편곡
+// 사이트마다 곡의 중심이 다르다. UtaiteDB는 커버(우타이테가 부른 것), TouhouDB는 원작 곡의 편곡
 test("곡 종류를 정하지 않으면 사이트마다의 기본값(VocaDB 원곡 · UtaiteDB 커버 · TouhouDB 편곡)을, 정하면 그것을 보낸다", async () => {
   const urls = serve(() => []);
   for (const type of ["vocadb", "utaitedb", "touhoudb"] as const) await vocaFamily(source({ type }));

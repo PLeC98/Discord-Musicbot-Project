@@ -76,7 +76,7 @@ test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
 test("기록된 Twemoji 버전이 대시보드가 고정한 버전과 같다", async () => {
   // 이미지는 twemoji 패키지가 가리키는 CDN에서 온다. 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다. 그때 여기서 걸린다.
-  // 버전은 범위가 아니라 하나로 고정해 둔다. 설치물이 아니라 package.json 을 보므로 대시보드를 깔지 않은 작업 트리에서도 같은 답이다
+  // 버전은 범위가 아니라 하나로 고정해 둔다. 설치물이 아니라 package.json을 보므로 대시보드를 깔지 않은 작업 트리에서도 같은 답이다
   const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "package.json"), "utf8")) as { dependencies: Record<string, string> };
   assert.equal((await list()).TWEMOJI_VERSION, pkg.dependencies["@twemoji/api"], "scripts/build-emoji-list.ts를 다시 실행해야 한다");
 });

@@ -29,8 +29,8 @@ function complaint(fn: () => unknown = () => genreConfig.genres()) {
   return { code: "CONFIG_INVALID", message: line.text, got };
 }
 
-// 설정은 JSON 문서라 true · false · null 도 그냥 글자다. 화면처럼 앞뒤 공백을 뺀 이름이 비었을 때만 거절한다
-test("true · false · null 도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
+// 설정은 JSON 문서라 true · false · null도 그냥 글자다. 화면처럼 앞뒤 공백을 뺀 이름이 비었을 때만 거절한다
+test("true · false · null도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
   const one = (id: string) => genreConfig.validateGenres({ genres: { [id]: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   for (const id of ["true", "false", "null"]) assert.deepEqual(one(id), [], id);
   for (const id of ["", "  "]) assert.deepEqual(one(id), ["장르 식별자가 비었습니다."], JSON.stringify(id));

@@ -16,7 +16,7 @@ const DIR = "records";
 
 type Files = Record<string, ChildRecord | string>;
 
-// 기록 파일들과 OS 가 아는 프로세스(null: 읽지 못함). 내린 것 · 지운 파일 · 다시 쓴 파일 · 목록을 읽은 횟수를 적는다
+// 기록 파일들과 OS가 아는 프로세스(null: 읽지 못함). 내린 것 · 삭제한 파일 · 다시 쓴 파일 · 목록을 읽은 횟수를 적는다
 function world(files: Files, running: Proc[] | null, { failKill = [] as number[], now = T + 60_000, isWin = true } = {}) {
   const killed: string[] = [];
   const removed: string[] = [];
@@ -49,13 +49,13 @@ test("기록이 없으면 아무것도 하지 않는다(OS 에 묻지도 않는�
   assert.equal(w.snapshots(), 0);
 });
 
-test("읽지 못하는 기록은 지우고, 쓰는 중의 임시 파일은 건드리지 않는다", () => {
+test("읽지 못하는 기록은 삭제하고, 쓰는 중의 임시 파일은 건드리지 않는다", () => {
   const w = world({ "1-2.json": "{깨짐", "3-4.json.9.tmp": "{}" }, []);
   w.run();
   assert.deepEqual(w.removed, ["1-2.json"]);
 });
 
-test("살아 있고 이름 · 시작 시각이 기록과 맞는 자식만 트리째 내리고 기록을 지운다", () => {
+test("살아 있고 이름 · 시작 시각이 기록과 맞는 자식만 트리째 내리고 기록을 삭제한다", () => {
   const w = world({ "300-1.json": record([child(10, "bgutil", "node"), child(11, "ffmpeg", "ffmpeg", { group: true })]) }, [proc(10, "node"), proc(11, "ffmpeg")]);
   assert.deepEqual(w.run(), ["bgutil#10", "ffmpeg#11"]);
   assert.deepEqual(w.killed, ["10", "11:group"]);
@@ -69,19 +69,19 @@ test("pid 가 다른 프로그램에 다시 쓰였으면(이름이 다르거나 
   assert.deepEqual(w.removed, ["300-1.json"]);
 });
 
-test("시계와 상관없는 시작 표지가 둘 다 있으면 그것으로 맞춘다(Linux)", () => {
+test("시계와 상관없는 시작 키가 둘 다 있으면 그것으로 맞춘다(Linux)", () => {
   const files = { "300-1.json": record([child(10, "yt-dlp", "yt-dlp", { startKey: "boot:100" })]) };
   assert.deepEqual(world(files, [proc(10, "yt-dlp", { startKey: "boot:100", startedAt: T + DAY })]).run(), ["yt-dlp#10"]);
   assert.deepEqual(world(files, [proc(10, "yt-dlp", { startKey: "boot:999" })]).run(), []);
 });
 
-test("Windows: 끝난 yt-dlp 의 남은 손자(안쪽 yt-dlp · conhost)를 부모 pid 로 찾아 내린다. 그보다 먼저 생긴 것 · 다른 프로그램은 둔다", () => {
+test("Windows: 끝난 yt-dlp의 남은 손자(안쪽 yt-dlp · conhost)를 부모 pid로 찾아 내린다. 그보다 먼저 생긴 것 · 다른 프로그램은 둔다", () => {
   const w = world({ "300-1.json": record([child(20, "yt-dlp", "yt-dlp")]) }, [proc(21, "yt-dlp", { ppid: 20, startedAt: T + 5200 }), proc(22, "conhost", { ppid: 20, startedAt: T + 5100 }), proc(23, "notepad", { ppid: 20, startedAt: T + 6000 }), proc(24, "yt-dlp", { ppid: 20, startedAt: T - DAY })]);
   assert.deepEqual(w.run(), ["yt-dlp#20의 yt-dlp#21", "yt-dlp#20의 conhost#22"]);
   assert.deepEqual(w.killed, ["21", "22"]);
 });
 
-test("POSIX: 끝난 yt-dlp 의 프로세스 그룹에 남은 것이 있으면 그룹째 내린다. 그룹으로 띄우지 않은 자식은 손자를 찾지 않는다", () => {
+test("POSIX: 끝난 yt-dlp의 프로세스 그룹에 남은 것이 있으면 그룹째 내린다. 그룹으로 띄우지 않은 자식은 손자를 찾지 않는다", () => {
   const w = world({ "300-1.json": record([child(30, "yt-dlp", "yt-dlp", { group: true }), child(31, "ffmpeg", "ffmpeg")]) }, [proc(35, "ffmpeg", { pgid: 30, startedAt: T + 6000 }), proc(36, "ffmpeg", { ppid: 31 })], { isWin: false });
   assert.deepEqual(w.run(), ["yt-dlp#30의 그룹"]);
   assert.deepEqual(w.killed, ["30:group"]);
@@ -109,7 +109,7 @@ test("내리지 못한 자식은 그것만 남겨 기록을 다시 쓴다", () =
   );
 });
 
-test("목록을 읽지 못하면 아무것도 내리지 않고 기록을 둔다. 7일 넘은 실행의 기록만 지운다", () => {
+test("목록을 읽지 못하면 아무것도 내리지 않고 기록을 둔다. 7일 넘은 실행의 기록만 삭제한다", () => {
   const w = world({ "300-1.json": record([child(10, "bgutil", "node")]), "200-1.json": record([child(20, "ffmpeg", "ffmpeg")], { ...owner, pid: 200, startedAt: T - 8 * DAY }) }, null);
   assert.deepEqual(w.run(), []);
   assert.deepEqual(w.killed, []);

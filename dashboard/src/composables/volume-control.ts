@@ -4,7 +4,7 @@
 // 마지막 값만 남긴다. 놓은 뒤 마지막 요청이 끝나면 서버 값을 보여 준다.
 // 서버 값을 바로 묶으면 화면이 다시 그려질 때마다(진행바가 1초마다 그린다) 핸들이 서버 값으로 튄다.
 //
-// 보낼지는 서버가 받아들인 값(serverVolume)과 보내는 중인 값으로 가른다. 보낸 값으로 가르면 실패한 값을
+// 보낼지는 서버가 받아들인 값(serverVolume)과 보내는 중인 값으로 구분한다. 보낸 값으로 구분하면 실패한 값을
 // 다시 놓아도 보내지 않는다. 실패하면 저절로 다시 보내지 않는다(사람이 다시 놓는 것이 다시 하기다).
 import { ref, computed, type Ref } from "vue";
 import { notifyProblem } from "./toasts.ts";
@@ -50,7 +50,7 @@ export function useVolumeControl(serverVolume: Readonly<Ref<number | undefined>>
     if (!Number.isFinite(level)) return;
     released = final;
     draft.value = level;
-    // 보내는 중인 값으로 돌아왔으면 그 요청이 맡는다(60 을 보내는 중에 70 → 60)
+    // 보내는 중인 값으로 돌아왔으면 그 요청이 맡는다(60을 보내는 중에 70 → 60)
     pending = level === sending ? null : level;
     void pump();
   }

@@ -1,11 +1,11 @@
-// dashboard/src/composables/volume-control.ts: 볼륨 슬라이더가 언제 보내는지. 서버가 받아들인 값 · 보내는 중인 값으로 가른다
+// dashboard/src/composables/volume-control.ts: 볼륨 슬라이더가 언제 보내는지. 서버가 받아들인 값 · 보내는 중인 값으로 구분한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { useVolumeControl } from "../../../dashboard/src/composables/volume-control.ts";
 
-// 서버(받아들이면 값이 바뀐다)와 보낸 기록. hold 를 켜면 release 를 부를 때까지 답하지 않는다. fail 이면 거절한다.
-// 보낼지는 서버 값을 그때그때 읽어 가르므로 서버 값은 반응형이 아니어도 된다
+// 서버(받아들이면 값이 바뀐다)와 보낸 기록. hold를 켜면 release를 부를 때까지 답하지 않는다. fail이면 거절한다.
+// 보낼지는 서버 값을 그때그때 읽어 정하므로 서버 값은 반응형이 아니어도 된다
 function setup(start = 50) {
   const server = { value: start as number | undefined };
   const sent: number[] = [];
@@ -91,7 +91,7 @@ test("보내는 중에 원래 서버 값으로 되돌리면 그 값을 보낸다
   net.hold = true;
   control.input(60);
   await settle();
-  control.change(50); // 서버는 아직 50 이지만 60 이 받아들여지면 달라진다
+  control.change(50); // 서버는 아직 50이지만 60이 받아들여지면 달라진다
   net.hold = false;
   net.release();
   await settle();

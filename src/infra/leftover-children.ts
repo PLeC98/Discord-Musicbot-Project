@@ -1,10 +1,10 @@
 // 이전 실행이 남긴 자식 프로세스(POToken 서버 · ffmpeg · yt-dlp)를 기동 시 종료한다.
 // 정리는 종료 핸들러와 exit 훅이 하지만, 창을 그냥 닫거나 강제로 끄거나 네이티브 충돌로 죽으면 그 둘이 돌지 않는다.
-// Windows 는 Node 가 직접 자식을 부모와 함께 끝나는 잡에 넣어 주지만 손자(yt-dlp.exe 의 안쪽 프로세스 · 그가 띄운 ffmpeg)는 빠지고,
-// Linux 는 그런 장치가 없다. 그래서 기록의 자식과 그 손자를 찾아 내린다.
+// Windows는 Node가 직접 자식을 부모와 함께 끝나는 잡에 넣어 주지만 손자(yt-dlp.exe의 안쪽 프로세스 · 그가 띄운 ffmpeg)는 빠지고,
+// Linux는 그런 장치가 없다. 그래서 기록의 자식과 그 손자를 찾아 내린다.
 //
 // 기록은 실행마다 파일 하나(infra/process-registry). 파일마다 기록을 남긴 봇이 끝났을 때만, 지금도 살아 있고 실행 파일 이름과 시작 시각이
-// 기록과 맞는 것만 트리째 종료한다(OS 가 pid 를 다른 프로그램에 다시 줬으면 건드리지 않는다).
+// 기록과 맞는 것만 트리째 종료한다(OS가 pid를 다른 프로그램에 다시 줬으면 건드리지 않는다).
 // 프로세스 목록을 읽지 못하면 아무것도 내리지 않고 파일을 둔다(다음 기동이 다시 본다).
 
 import { spawnSync } from "node:child_process";
@@ -20,7 +20,7 @@ const log = logger.child({ category: "proc" });
 const IS_WIN = process.platform === "win32";
 // 기록의 시작 시각과 OS 가 아는 시작 시각의 허용 차(등록은 실행 직후라 보통 1초 안이다)
 const START_SLACK_MS = 10_000;
-// 프로세스 목록을 읽지 못하는 일이 이어져도 이보다 오래된 실행의 기록은 지운다(파일이 쌓이지 않게)
+// 프로세스 목록을 읽지 못하는 일이 이어져도 이보다 오래된 실행의 기록은 삭제한다(파일이 쌓이지 않게)
 const GIVE_UP_MS = 7 * 24 * 60 * 60_000;
 // 기록하지 않은 손자로 내리는 것. 기록한 자식의 이름도 더한다
 const DESCENDANT_IMAGES = ["yt-dlp", "ffmpeg", "ffprobe", "conhost"];
@@ -34,7 +34,7 @@ type Boundary = {
   remove(file: string): void;
   /** 지금 프로세스 전부. 읽지 못하면 null */
   snapshot(): Proc[] | null;
-  /** 트리째 강제로 종료한다. group: POSIX 에서 자체 프로세스 그룹으로 실행했다. 내렸거나 이미 없으면 true */
+  /** 트리째 강제로 종료한다. group: POSIX에서 자체 프로세스 그룹으로 실행했다. 내렸거나 이미 없으면 true */
   killTree(pid: number, group: boolean): boolean;
   self: { pid: number; ppid: number };
   now(): number;
@@ -89,7 +89,7 @@ const REAL: Boundary = {
   now: () => Date.now(),
 };
 
-/** 그 프로세스가 기록의 그것인가: 이름이 같고, 시작 시각이 맞다(둘 다 시계와 상관없는 표지가 있으면 그것으로) */
+/** 그 프로세스가 기록의 그것인가: 이름이 같고, 시작 시각이 맞다(둘 다 시계와 상관없는 시작 키가 있으면 그것으로) */
 function same(proc: Proc | undefined, who: ProcessIdentity): proc is Proc {
   if (!proc || !sameImage(proc.image, who.image)) return false;
   if (proc.startKey && who.startKey) return proc.startKey === who.startKey;
@@ -111,7 +111,7 @@ type Target = { pid: number; group: boolean; label: string };
 
 /**
  * 기록한 자식 하나에서 내릴 것. 살아 있으면 그 트리째. 이미 끝났으면 남은 손자:
- * Windows 는 부모 pid 를 따라(부모가 끝나도 그대로 남는다), POSIX 는 그 자식이 만든 프로세스 그룹으로(고아는 부모가 init 으로 바뀐다)
+ * Windows는 부모 pid를 따라(부모가 끝나도 그대로 남는다), POSIX는 그 자식이 만든 프로세스 그룹으로(고아는 부모가 init으로 바뀐다)
  */
 function targetsOf(child: ChildRecord["children"][number], procs: Proc[], byPid: Map<number, Proc>, isWin: boolean): Target[] {
   if (same(byPid.get(child.pid), child)) return [{ pid: child.pid, group: child.group, label: `${child.label}#${child.pid}` }];
@@ -121,17 +121,17 @@ function targetsOf(child: ChildRecord["children"][number], procs: Proc[], byPid:
     if (!child.group) return [];
     return procs.some((proc) => proc.pgid === child.pid && later(proc)) ? [{ pid: child.pid, group: true, label: `${child.label}#${child.pid}의 그룹` }] : [];
   }
-  // Windows: 끝난 자식의 바로 아래 손자들. 손자의 트리는 taskkill /T 가 함께 내린다
+  // Windows: 끝난 자식의 바로 아래 손자들. 손자의 트리는 taskkill /T가 함께 내린다
   return procs.filter((proc) => proc.ppid === child.pid && later(proc)).map((proc) => ({ pid: proc.pid, group: false, label: `${child.label}#${child.pid}의 ${proc.image}#${proc.pid}` }));
 }
 
 /**
  * 폴더의 다른 실행이 남긴 기록을 보고 남은 자식을 종료한다. 돌려주는 것은 종료한 것의 라벨.
- * 기록을 남긴 봇이 아직 돌면 그 파일은 건드리지 않는다. 내리지 못한 자식은 파일에 남기고, 다 내렸으면 파일을 지운다
+ * 기록을 남긴 봇이 아직 돌면 그 파일은 건드리지 않는다. 내리지 못한 자식은 파일에 남기고, 다 내렸으면 파일을 삭제한다
  */
 type Found = { file: string; record: ChildRecord };
 
-// 폴더의 기록들. 쓰는 중의 임시 파일(*.tmp)은 읽지 않고, 읽지 못하는 기록은 지운다(내릴 대상을 알 수 없다)
+// 폴더의 기록들. 쓰는 중의 임시 파일(*.tmp)은 읽지 않고, 읽지 못하는 기록은 삭제한다(내릴 대상을 알 수 없다)
 function readRecords(dir: string, io: Boundary): Found[] {
   const found: Found[] = [];
   for (const name of io.list(dir)) {
@@ -147,7 +147,7 @@ function readRecords(dir: string, io: Boundary): Found[] {
   return found;
 }
 
-// 기록 하나: 맞는 자식과 그 손자를 내리고, 내리지 못한 자식만 남긴다(다 내렸으면 파일을 지운다)
+// 기록 하나: 맞는 자식과 그 손자를 내리고, 내리지 못한 자식만 남긴다(다 내렸으면 파일을 삭제한다)
 function sweepRecord({ file, record }: Found, procs: Proc[], byPid: Map<number, Proc>, io: Boundary, isWin: boolean): string[] {
   const killed: string[] = [];
   const kept: ChildRecord["children"] = [];
@@ -165,7 +165,7 @@ function sweepRecord({ file, record }: Found, procs: Proc[], byPid: Map<number, 
 
 /**
  * 폴더의 다른 실행이 남긴 기록을 보고 남은 자식을 종료한다. 돌려주는 것은 종료한 것의 라벨.
- * 기록을 남긴 봇이 아직 돌면 그 파일은 건드리지 않는다. 내리지 못한 자식은 파일에 남기고, 다 내렸으면 파일을 지운다
+ * 기록을 남긴 봇이 아직 돌면 그 파일은 건드리지 않는다. 내리지 못한 자식은 파일에 남기고, 다 내렸으면 파일을 삭제한다
  */
 function sweepLeftoverChildren(dir: string, boundary: Partial<Boundary> = {}, isWin = IS_WIN): string[] {
   const io = { ...REAL, ...boundary };

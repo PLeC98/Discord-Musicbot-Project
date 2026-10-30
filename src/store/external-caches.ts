@@ -7,7 +7,7 @@ import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
 type JsonRow = { data_json: string; fetched_at: number };
 // SponsorBlock 구간 한 행: 받은 주소를 함께 둔다
 type SponsorRow = JsonRow & { api_base: string | null };
-/** 오디오 캐시 묶음의 SponsorBlock 구간 한 줄. data 는 담아 둔 원시 JSON 문자열 그대로 */
+/** 오디오 캐시 내보내기 파일의 SponsorBlock 구간 한 행. data는 담아 둔 원시 JSON 문자열 그대로 */
 type SponsorExport = { videoId: string; data: string; fetchedAt: number; apiBase: string | null };
 
 // 열기 전에 부르면 던진다
@@ -15,7 +15,7 @@ const conn = () => cacheDb.get();
 
 // ── SponsorBlock 구간 캐시 ──
 
-/** videoId 의 캐시된 원시 세그먼트와 받은 때 · 주소. 없거나 망가졌으면 null */
+/** videoId의 캐시된 원시 세그먼트와 받은 때 · 주소. 없거나 망가졌으면 null */
 function getSponsorSegments(videoId: string | null | undefined): { segments: unknown; fetchedAt: number; apiBase: string | null } | null {
   if (!videoId) return null;
   const row = conn().prepare("SELECT data_json, fetched_at, api_base FROM sponsorblock_cache WHERE video_id = ?").get(videoId) as SponsorRow | undefined;
@@ -27,7 +27,7 @@ function getSponsorSegments(videoId: string | null | undefined): { segments: unk
   }
 }
 
-/** videoId 의 원시 세그먼트를 받은 때 · 주소와 함께 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
+/** videoId의 원시 세그먼트를 받은 때 · 주소와 함께 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
 function setSponsorSegments(videoId: string | null | undefined, segments: unknown, { fetchedAt, apiBase }: { fetchedAt: number; apiBase: string }) {
   if (!videoId || !Array.isArray(segments)) return;
   conn()
@@ -43,7 +43,7 @@ function allSponsorSegments(): SponsorExport[] {
   return (conn().prepare("SELECT video_id, data_json, fetched_at, api_base FROM sponsorblock_cache").all() as Array<SponsorRow & { video_id: string }>).map((row) => ({ videoId: row.video_id, data: row.data_json, fetchedAt: row.fetched_at, apiBase: row.api_base }));
 }
 
-/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 주소가 없는 옛 묶음은 주소 없이. 새로 넣은 수 */
+/** 오디오 캐시 불러오기: SponsorBlock 구간을 합친다(없으면 넣고, 있으면 더 새로 받은 쪽). 주소가 없는 이전 버전의 파일은 주소 없이. 새로 넣은 수 */
 function mergeSponsorSegments(rows: Array<Omit<SponsorExport, "apiBase"> & { apiBase?: string | null }>): number {
   const has = conn().prepare("SELECT 1 FROM sponsorblock_cache WHERE video_id = ?").pluck();
   const upsert = conn().prepare(

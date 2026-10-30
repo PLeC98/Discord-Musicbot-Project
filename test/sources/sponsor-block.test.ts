@@ -1,4 +1,4 @@
-// src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억 · DB 캐시 · 라이브 · 뒤에서 다시 받기) + 응답 가르기.
+// src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억 · DB 캐시 · 라이브 · 뒤에서 다시 받기) + 응답 구분.
 // 네트워크는 가짜 fetch 를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
@@ -21,11 +21,11 @@ import { _reset as resetLinks, linkStatus } from "../../src/infra/link-status.ts
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}`);
 
-// 가짜 fetch 를 걸 위치. 테스트마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다. 정하지 않은 테스트가 부르면 실패한다
+// 가짜 fetch를 걸 위치. 테스트마다 net.fetch를 정하고 SponsorBlock에는 이것을 부르는 것을 넘긴다. 정하지 않은 테스트가 부르면 실패한다
 const unset = (_url: string, _init?: RequestInit): Promise<Response> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
 const net = { fetch: unset };
 
-// 실제 서버처럼 JSON 으로 답한다(구간이 없는 앞자리는 404 + [])
+// 실제 서버처럼 JSON으로 답한다(구간이 없는 접두어는 404 + [])
 const JSON_TYPE = "application/json; charset=utf-8";
 function reply(body: unknown, status = 200, type = JSON_TYPE) {
   return new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": type } });
@@ -65,13 +65,13 @@ function seg(category: string, start: number, end: number, actionType = "skip", 
   return { category, actionType, segment: [start, end], votes: 0, locked: 0, ...extra };
 }
 
-// 실제 길(forTrack)로 묻는다. 서버 설정이 없어 기본 카테고리(music_offtopic · intro · outro)
+// 실제 경로(forTrack)로 조회한다. 서버 설정이 없어 기본 카테고리(music_offtopic · intro · outro)
 const ask = (videoId: string) => SponsorBlock.forTrack({ audioUrl: `https://youtu.be/${videoId}` }, "gAsk");
 // 뒤에서 도는 다시 받기가 끝나게 한 바퀴씩 넘긴다
 async function settle(rounds = 20) {
   for (let i = 0; i < rounds; i++) await new Promise((done) => setImmediate(done));
 }
-// 답을 세워 둘 수 있는 가짜. release 로 답을 보낸다
+// 답을 세워 둘 수 있는 가짜. release로 답을 보낸다
 function gated(answer: () => Response) {
   let open = (_: unknown) => {};
   const gate = new Promise((done) => (open = done));
@@ -153,7 +153,7 @@ test("마스터 킬스위치 off면 조회 · 캐시 없이 null", async () => {
   assert.equal(called, false);
 });
 
-test("DB 에 없으면 라이브를 기다려 받고, 받은 때 · 주소와 함께 저장한다", async () => {
+test("DB에 없으면 라이브를 기다려 받고, 받은 때 · 주소와 함께 저장한다", async () => {
   stubFetch("vidLive", [seg("music_offtopic", 0, 21, "skip", { locked: 1, votes: 41 })]);
   const r = await ask("vidLive");
   assert.equal(r?.source, "live");
@@ -164,7 +164,7 @@ test("DB 에 없으면 라이브를 기다려 받고, 받은 때 · 주소와 �
   assert.ok(cached && Date.now() - cached.fetchedAt < 60_000);
 });
 
-test("조회 실패 + DB 에 없음 → none, 스킵 없음", async () => {
+test("조회 실패 + DB에 없음 → none, 스킵 없음", async () => {
   net.fetch = async () => {
     throw new Error("network down");
   };
@@ -173,8 +173,8 @@ test("조회 실패 + DB 에 없음 → none, 스킵 없음", async () => {
   assert.deepEqual(r?.skipSegments, []);
 });
 
-// 기동 뒤(기억이 빈 채로) DB 의 받은 때로 판단한다. 오래돼도 재생은 기다리지 않는다
-test("DB 의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시간 · 구간 있음 7일) 뒤에서 한 번 다시 받아 기억 · DB 를 바꾼다", async (t) => {
+// 기동 뒤(기억이 빈 채로) DB의 받은 때로 판단한다. 오래돼도 재생은 기다리지 않는다
+test("DB의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시간 · 구간 있음 7일) 뒤에서 한 번 다시 받아 기억 · DB를 바꾼다", async (t) => {
   const now = 50 * DAY;
   t.mock.timers.enable({ apis: ["Date"], now });
   externalCaches.setSponsorSegments("vidHasSegs", [{ category: "intro", actionType: "skip", start: 0, end: 8 }], { fetchedAt: now - 7 * DAY + HOUR, apiBase: BASE });
@@ -196,7 +196,7 @@ test("DB 의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시
   assert.equal(urls.length, 1, "구간 없음은 6시간에");
   const again = await ask("vidNoSegs");
   assert.deepEqual([again?.source, again?.skipSegments[0]?.end], ["live", 12], "다음부터 새 답");
-  assert.equal(externalCaches.getSponsorSegments("vidNoSegs")?.fetchedAt, now + HOUR, "DB 의 받은 때도 바꾼다");
+  assert.equal(externalCaches.getSponsorSegments("vidNoSegs")?.fetchedAt, now + HOUR, "DB의 받은 때도 바꾼다");
 
   assert.equal((await ask("vidHasSegs"))?.skipSegments[0]?.end, 8);
   await settle();
@@ -204,10 +204,10 @@ test("DB 의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시
   assert.equal((await ask("vidHasSegs"))?.skipSegments[0]?.end, 12);
   await ask("vidNoSegs");
   await settle();
-  assert.equal(urls.length, 2, "새로 받은 답은 다시 묻지 않는다");
+  assert.equal(urls.length, 2, "새로 받은 답은 다시 조회하지 않는다");
 });
 
-test("다시 받다 실패하면 가진 답 · 받은 때를 지키고 30분 쉰 뒤 다시 묻는다", async (t) => {
+test("다시 받다 실패하면 가진 답 · 받은 때를 지키고 30분 쉰 뒤 다시 조회한다", async (t) => {
   const now = 50 * DAY;
   t.mock.timers.enable({ apis: ["Date"], now });
   externalCaches.setSponsorSegments("vidStale", [{ category: "intro", actionType: "skip", start: 0, end: 8 }], { fetchedAt: now - 8 * DAY, apiBase: BASE });
@@ -223,7 +223,7 @@ test("다시 받다 실패하면 가진 답 · 받은 때를 지키고 30분 쉰
   t.mock.timers.tick(30 * 60_000 - 1);
   assert.equal((await ask("vidStale"))?.skipSegments[0]?.end, 8, "답은 그대로 쓴다");
   await settle();
-  assert.equal(asked, 1, "30분 동안은 묻지 않는다");
+  assert.equal(asked, 1, "30분 동안은 조회하지 않는다");
   assert.equal(externalCaches.getSponsorSegments("vidStale")?.fetchedAt, now - 8 * DAY);
 
   t.mock.timers.tick(1);
@@ -246,7 +246,7 @@ test("같은 영상의 다시 받기는 한 번에 하나: 나가 있는 동안 
   assert.equal(live.asked(), 1);
 });
 
-test("다른 주소에서 받은 답(주소를 바꿨거나 옛 판에서 올린 답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
+test("다른 주소에서 받은 답(주소를 바꿨거나 이전 버전에서 올린 답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
   externalCaches.setSponsorSegments("vidOldBase", [], { fetchedAt: Date.now(), apiBase: BASE });
   cacheDb.get().prepare("UPDATE sponsorblock_cache SET api_base = NULL WHERE video_id = ?").run("vidOldBase");
   const urls: string[] = [];
@@ -276,10 +276,10 @@ test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억 �
   assert.equal(externalCaches.getSponsorSegments("vidLate"), null);
 
   stubFetch("vidLate", [seg("intro", 0, 6)]);
-  assert.equal((await ask("vidLate"))?.skipSegments[0]?.end, 6, "다음 곡부터 다시 묻는다");
+  assert.equal((await ask("vidLate"))?.skipSegments[0]?.end, 6, "다음 곡부터 다시 조회한다");
 });
 
-// ── 응답 가르기: 구간 없음이라는 답 · 구간 API 가 아닌 응답 · 실패 ─────────────────
+// ── 응답 구분: 구간 없음이라는 답 · 구간 API가 아닌 응답 · 실패 ─────────────────
 
 const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error]) ?? [];
 const notices = (from: number) =>
@@ -292,8 +292,8 @@ const noneStored = (videoId: string) => externalCaches.getSponsorSegments(videoI
 test("404 + JSON 빈 배열 · 200 + 이 영상의 빈 구간 · 200 + 다른 영상만은 '구간 없음'이라는 답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
   resetLinks();
   const answers = [
-    reply([], 404), // 그 앞자리에 구간이 하나도 없다
-    reply([]), // 미러는 빈 답도 200 이다
+    reply([], 404), // 그 접두어에 구간이 하나도 없다
+    reply([]), // 미러는 빈 답도 200이다
     reply([{ videoID: "vidNoSegs2", segments: [] }]),
     reply([{ videoID: "someOtherVid", segments: [seg("intro", 0, 8)] }]),
   ];
@@ -309,13 +309,13 @@ test("404 + JSON 빈 배열 · 200 + 이 영상의 빈 구간 · 200 + 다른 �
   );
 });
 
-test("구간 API 가 아닌 응답은 저장하지 않고 연결 실패로 남기며, 처음 한 번 경고하고 다시 답을 받으면 한 줄", async () => {
+test("구간 API가 아닌 응답은 저장하지 않고 연결 실패로 남기며, 처음 한 번 경고하고 다시 답을 받으면 한 줄", async () => {
   resetLinks();
   const from = sink.buffer.length;
   const notApi = [
-    reply("<!DOCTYPE html><pre>Cannot GET /api/api/skipSegments/abcde</pre>", 404, "text/html; charset=utf-8"), // 주소 끝에 /api 를 붙여 넣었다
+    reply("<!DOCTYPE html><pre>Cannot GET /api/api/skipSegments/abcde</pre>", 404, "text/html; charset=utf-8"), // 주소 끝에 /api를 붙여 넣었다
     reply({ message: "not found" }, 404),
-    reply("Hash prefix does not match format requirements.", 200), // 앞자리를 4자만 받는 미러
+    reply("Hash prefix does not match format requirements.", 200), // 접두어를 4자만 받는 미러
     reply({ videos: [] }),
   ];
   for (const [i, res] of notApi.entries()) {
@@ -328,8 +328,8 @@ test("구간 API 가 아닌 응답은 저장하지 않고 연결 실패로 남�
 
   assert.deepEqual(outcomes(), [...notApi.map(() => [false, "구간 API 응답이 아님"]), [true, null]]);
   assert.deepEqual(notices(from), [
-    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 404). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`],
-    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 200). SponsorBlock API 주소 · 해시 접두어 길이 설정 확인`],
+    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 404). SponsorBlock API 주소 · 해시 접두어 길이 설정을 확인하세요`],
+    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 200). SponsorBlock API 주소 · 해시 접두어 길이 설정을 확인하세요`],
     ["info", "SponsorBlock 구간 조회 복구(실패 2회)"],
   ]);
 });
@@ -355,7 +355,7 @@ test("400 · 429 · 5xx · 연결 오류는 실패: 저장하지 않고 연결 �
   assert.deepEqual(notices(from), []);
 });
 
-test("시간 초과는 연결 실패 timeout 으로 남는다", async (t) => {
+test("시간 초과는 연결 실패 timeout으로 남는다", async (t) => {
   resetLinks();
   const timeoutMs = config.sponsorblock.timeoutMs;
   t.after(() => (config.sponsorblock.timeoutMs = timeoutMs));
