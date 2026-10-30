@@ -1371,6 +1371,10 @@ class Player {
     // 다음 곡이 또 실패하면 여기로 다시 온다. 연달아 실패하면 대기열을 다 버리기 전에 멈춘다(자동재생이 죽은 곡을 계속 선택할 때도)
     if (counted && this._countFailure()) return this._stopAfterFailures();
 
+    // 못 튼 곡의 재생 · 위치를 버린다(곡 끝과 같이). 남기면 다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡의 위치로 쓴다
+    this.playback = null;
+    this.lastPlaybackPosition = 0;
+
     // 대기열이 비었어도 자동재생 중이면 멈추지 않는다. 그대로 두면 봇이 얼어붙는다.
     if (this.queue.length === 0 && this.autoplay) {
       trackState.setCurrent(this, null);

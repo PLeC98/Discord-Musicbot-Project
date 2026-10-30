@@ -245,9 +245,11 @@ class PlayerSessionStore {
 
   // ── 트랙 행 (한 곡씩) ──
 
+  // 지금 곡이 바뀌면 위치도 0으로. 새 곡의 재생이 위치를 쓰기 전에 꺼지면 앞 곡의 위치로 열게 된다
   setCurrent(guildId: string, track: TrackIn | null | undefined) {
     this._tx(() => {
       this.q.deleteSlot.run(guildId, "current");
+      this.q.position.run(0, guildId);
       if (!track) return; // 비우기만 할 때는 세션 행을 새로 만들지 않는다
       this._ensure(guildId);
       this._insert(guildId, "current", 0, track);
@@ -266,12 +268,13 @@ class PlayerSessionStore {
     });
   }
 
-  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다)
+  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다). 위치는 setCurrent 와 같이 0
   take(guildId: string, index: number): boolean {
     return this._tx(() => {
       const row = this.q.rowidAt.get(guildId, "queue", index);
       if (!row) return false;
       this.q.deleteSlot.run(guildId, "current");
+      this.q.position.run(0, guildId);
       this.q.toCurrent.run(row.rowid);
       return true;
     });

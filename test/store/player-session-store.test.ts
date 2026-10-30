@@ -247,6 +247,29 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
   assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", userPaused: true, positionMs: undefined });
 });
 
+test("지금 곡이 바뀌면(지정 · 대기열에서 꺼내기 · 비우기) 위치가 0이 된다. 앞 곡의 위치가 새 곡에 남지 않는다", () => {
+  const { store } = open();
+  const position = () => loaded(store).session.positionMs;
+  store.saveSession(G, { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  store.append(G, [t("q1"), t("q2")]);
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  store.setCurrent(G, t("a"));
+  assert.equal(position(), 0, "지정");
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  assert.equal(store.take(G, 0), true);
+  assert.equal(position(), 0, "대기열에서 꺼내기");
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  store.setCurrent(G, null);
+  assert.equal(position(), 0, "비우기");
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  assert.equal(store.take(G, 5), false);
+  assert.equal(position(), 238_000, "꺼낼 곡이 없으면 그대로");
+});
+
 test("반복 모드는 세 값만 받는다", () => {
   const { store } = open();
   const bad = { loopMode: "false" } as unknown as SessionState; // 타입 밖의 값을 표가 막는가

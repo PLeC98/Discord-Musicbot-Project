@@ -1002,6 +1002,26 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   assert.equal(leaveTimer, null, "남은 곡이 있으니 나갈 예약을 걸지 않는다(패널이 오지 않을 나갈 시각을 보이지 않게)");
 });
 
+test("곡을 못 열어 다음 곡으로 넘기면 앞 곡의 위치를 버린다(다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡에 쓰지 않게)", async () => {
+  const p = h.makePlayer();
+  const [a, b] = [yt("p1fffffffff"), yt("p2fffffffff")];
+  unplayable();
+  // 다음 곡을 새로 열 때(위치 0) 시작 위치를 정하려고 SponsorBlock 을 묻는다. 그때의 위치가 주기 저장이 쓰는 값이다
+  const seen: number[] = [];
+  behavior.sponsor = (track) => {
+    if (track === b) seen.push(p.getCurrentTime());
+    return null;
+  };
+  p.currentTrack = a;
+  p.queue = [b];
+
+  await p.play(90_000); // 복원 위치에서 열다 실패
+  h.dispose(p);
+
+  assert.ok(seen.length > 0, "다음 곡을 열었다");
+  assert.deepEqual([...new Set(seen)], [0]);
+});
+
 test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈추면 채널에 알리지 않는다. 패널은 멈춘 모양으로", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
