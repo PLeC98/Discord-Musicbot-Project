@@ -12,6 +12,8 @@ const autoplayGenreUnusable = (genre: string, keys: string) => noticeOf("warning
 const autoplayGaveUp = (genre: string) => noticeOf("warning", "autoplay", `\`${genre}\` 장르에서 틀 곡을 찾지 못해 자동재생을 종료했어요.`);
 /** 곡이 연달아 실패해 넘기기를 그만뒀다. left 는 대기열에 남은 곡 수 */
 const failedInRow = (count: number, left: number) => noticeOf("error", "failed", `곡 ${count}개 재생에 연달아 실패해서 재생을 중단했어요.`, left > 0 ? `남은 ${left}곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요.` : undefined);
+/** /join 없이 새로 틀어 저장해 둔 대기열을 지웠다. count 는 사람이 넣은 곡 수 */
+const savedSessionReplaced = (count: number) => noticeOf("warning", "state", `저장해 둔 대기열 ${count}곡은 지우고 새로 시작했어요.`, "이어 들으려면 곡을 넣기 전에 `/join`으로 불러와 주세요.");
 /** 봇을 다시 시작해 저장한 세션을 복원했다 { icon, title, body }(icon 은 헤더 줄 아이콘의 키). at 은 이어 튼 위치를 말로 적은 것 */
 const restored = (title: string | null | undefined, at: string, paused: boolean) => {
   const line = `• **${escapeMd(songTitle(title))}** (${at})`;
@@ -23,4 +25,4 @@ const stageRequested = () => noticeOf("warning", "voice", "스테이지 발언�
 /** 스테이지에서 발언자가 될 수도, 요청할 수도 없다 */
 const stageCannotSpeak = () => noticeOf("error", "permission", "이 스테이지에서는 말할 수 없어요.", "봇에게 멤버 음소거 권한이나 발언권 요청 권한을 주거나, 모더레이터가 저를 발언자로 초대해 주세요.");
 
-export { autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, failedInRow, restored, stageRequested, stageCannotSpeak };
+export { autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, failedInRow, savedSessionReplaced, restored, stageRequested, stageCannotSpeak };

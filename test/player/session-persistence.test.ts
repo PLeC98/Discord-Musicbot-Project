@@ -583,3 +583,65 @@ test("복원 안내는 잠시 뒤 삭제한다", async () => {
     mock.timers.reset();
   }
 });
+
+// ── 앞 플레이어가 남긴 세션 위의 새 플레이어(/join 없이 새로 틀기) ──────────
+
+// 앞 플레이어가 /leave 등으로 남긴 세션. requester 는 곡마다 요청자 id
+function leftBehind(guildId: string, { current = "OLDcur", queue = ["OLDq1", "OLDq2"], requester = "u1" }: { current?: string; queue?: string[]; requester?: string | ((title: string) => string) } = {}) {
+  const who = (title: string) => ({ id: typeof requester === "function" ? requester(title) : requester });
+  sessions().saveSession(guildId, { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 61_000 });
+  sessions().setCurrent(guildId, { ...t(current), requestedBy: who(current) });
+  sessions().append(
+    guildId,
+    queue.map((title) => ({ ...t(title), requestedBy: who(title) })),
+  );
+}
+const inDb = (guildId: string) => {
+  const s = sessions().load(guildId);
+  return s ? { current: s.current?.title ?? null, queue: titles(s.queue) } : null;
+};
+
+test("새 플레이어가 저장된 세션 위에 처음 쓰면 그 세션을 지우고 새로 쓴다. DB 가 메모리와 같다", () => {
+  const { p } = makePlayer();
+  leftBehind(p.guild.id);
+
+  trackState.setCurrent(p, t("NEWa"));
+  trackState.enqueue(p, [t("NEWb")]);
+  trackState.retire(p, p.currentTrack!);
+  trackState.shiftNext(p);
+
+  assert.deepEqual(inDb(p.guild.id), { current: "NEWb", queue: [] });
+  assert.equal(sessions().load(p.guild.id)?.session.positionMs, 0, "옛 위치도 남지 않는다");
+});
+
+test("넘겨받기: 사람이 넣은 곡만 센다(봇이 고른 자동재생 곡 빼고, 저장 때의 지금 곡 포함). 두 번째는 0", () => {
+  const { p } = makePlayer({ guild: { id: `g${serial++}-claim`, client: { user: { id: "bot" } } } });
+  leftBehind(p.guild.id, { queue: ["OLDq1", "AUTO"], requester: (title) => (title === "AUTO" ? "bot" : "u1") });
+
+  assert.equal(p.trackSink.claimSaved(), 2);
+  assert.equal(sessions().load(p.guild.id), null);
+  assert.equal(p.trackSink.claimSaved(), 0);
+});
+
+test("넘겨받지 않은 플레이어는 남의 세션을 지우지 않는다(버릴 때 비우기 · 세션 지우기 · 틀 곡 없는 저장)", () => {
+  const { p, sp } = makePlayer();
+  leftBehind(p.guild.id);
+
+  trackState.reset(p, { history: true }); // 버릴 때(dispose) 메모리를 비운다
+  sp.removeSession();
+  sp.saveNow("leave");
+
+  assert.deepEqual(inDb(p.guild.id), { current: "OLDcur", queue: ["OLDq1", "OLDq2"] }, "/join 이 복원할 수 있게 남는다");
+  sessions().removeSession(p.guild.id);
+});
+
+test("복원한 플레이어는 그 세션을 넘겨받은 것이다. 이어지는 쓰기가 세션을 지우지 않는다", async () => {
+  const { p, sp } = makeRestorePlayer();
+  leftBehind(p.guild.id);
+
+  await sp.restoreFromState(sessions().load(p.guild.id));
+  trackState.enqueue(p, [t("NEW")]);
+
+  assert.deepEqual(inDb(p.guild.id), { current: "OLDcur", queue: ["OLDq1", "OLDq2", "NEW"] });
+  sessions().removeSession(p.guild.id);
+});

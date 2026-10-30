@@ -5,6 +5,7 @@ import { type ButtonInteraction, type RepliableInteraction, type StringSelectMen
 import * as errors from "../../ui/text/ko/errors.ts";
 import * as controls from "../../usecases/controls.ts";
 import { ensurePlayer } from "../../usecases/add-tracks.ts";
+import { waitForRestore } from "../../player/session-restore.ts";
 import { controlMessage } from "../../ui/control-messages.ts";
 import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../ui/genre-menu.ts";
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../../ui/custom-ids.ts";
@@ -42,7 +43,11 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { 
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];
-  const create = () => ensurePlayer(bot, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
+  // 기동 복원을 기다리는 서버면 먼저 복원한다(복원한 플레이어가 있으면 그것을 쓴다)
+  const create = async () => {
+    await waitForRestore(guild.id);
+    return ensurePlayer(bot, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
+  };
   const r = await controls.autoplay(bot.players.get(guild.id), { member }, genre, {
     create,
     onAccepted: async () => {

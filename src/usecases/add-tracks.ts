@@ -8,6 +8,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import * as trackState from "../player/track-state.ts";
+import { waitForRestore } from "../player/session-restore.ts";
 import * as labels from "../ui/text/ko/labels.ts";
 import { continuation, validState, batchFor, KINDS } from "./playlist-more.ts";
 import { roomFor, roomLeft } from "../rules/queue-room.ts";
@@ -160,6 +161,8 @@ async function requestPlayback(bot: Bot, request: PlaybackRequest): Promise<Play
   const who = toRequester(request.requester);
   logRequest(request, who, isRefused(checked) ? checked : trimmed(checked, request.single));
   if (isRefused(checked)) return { success: false, ...checked };
+  // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다(곧 되살아날 세션을 새 플레이어가 지우지 않게). 복원한 플레이어에 넣는다
+  await waitForRestore(guild.id);
   const player = await playerFor(bot, request);
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
@@ -485,6 +488,15 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
 
 // 쉬던 플레이어에 첫 곡을 튼다
 async function startFirst(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<FirstStart> {
+  // 음성에 먼저 붙는다. 첫 곡 지정은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게
+  if (!player.connection) {
+    try {
+      await player.voice.connect();
+    } catch {
+      return { opened: null, failure: { code: "voice-failed" } };
+    }
+  }
+  player.takeOverSaved();
   trackState.setCurrent(player, track);
   const failure = await startPlayback(player);
   if (failure) {

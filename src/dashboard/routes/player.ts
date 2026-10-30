@@ -10,6 +10,7 @@ import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
 import { loopOf, type AddReply, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage } from "../contract/player.ts";
 import { requestPlayback, continueCollection, ensurePlayer, resolveFallbackTextChannel } from "../../usecases/add-tracks.ts";
+import { waitForRestore } from "../../player/session-restore.ts";
 import * as genreConfig from "../../config/genres.ts";
 import { autoplayOn } from "../../ui/genre-menu.ts";
 import { join } from "../../usecases/join.ts";
@@ -311,7 +312,7 @@ function autoplayRoutes(router: Router) {
     const { genre } = body.value;
     // 새 플레이어의 텍스트 채널은 곡 넣기와 같다(전용 채널이 있으면 그것)
     const textChannel = genre && !ctx.player?.textChannel ? await resolveFallbackTextChannel(guild) : null;
-    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create: () => ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null }) });
+    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create: async () => (await waitForRestore(guild.id), ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null })) });
     if (!r.ok) return refuse(res, r);
     if (genre) announcer(bot, bot.players.get(guild.id))(autoplayOn(genre, dashboardActor(req)));
     res.json(stateAfter(req));

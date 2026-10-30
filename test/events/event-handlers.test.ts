@@ -110,6 +110,7 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     queue: [] as { title: string }[],
     previousTracks: [] as { title: string }[],
     currentTrack: null as { title: string } | null,
+    connection: {}, // 붙어 있다(자동재생 켜기가 쉬던 플레이어를 먼저 붙이는 길은 usecases/controls 테스트가 본다)
     volume: 50,
     textChannel: null,
     skipResult: true,

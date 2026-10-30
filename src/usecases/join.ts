@@ -9,6 +9,7 @@ import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import { sessions, type RestoredSession } from "../store/player-sessions.ts";
+import { waitForRestore } from "../player/session-restore.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { ensurePlayer, resolveFallbackTextChannel } from "./add-tracks.ts";
@@ -30,6 +31,9 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   const channel = member.voice.channel;
   const refused = refusal(guild, channel);
   if (refused || !channel) return { kind: "refused", code: refused ?? "must-be-in-voice" };
+
+  // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다. 같은 세션을 기동 복원과 둘이 되살리지 않게
+  await waitForRestore(guild.id);
 
   // 이미 붙어 있음(붙는 중 · 끊겨 재연결하는 중 포함)
   const existing = bot.players.get(guild.id);

@@ -53,6 +53,8 @@ type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Arra
 function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false, connects = true }: Setup = {}) {
   const calls: unknown[] = [];
   const sent: Sent[] = [];
+  // 앞 플레이어가 남긴 세션을 넘겨받은 때마다 음성에 붙어 있었는지
+  const takenOver: boolean[] = [];
   const player = fakePlayer({
     currentTrack: current,
     queue: [...queue],
@@ -85,6 +87,10 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     async finishQueue() {
       calls.push("finish");
     },
+    takeOverSaved() {
+      takenOver.push(Boolean(this.connection));
+      return 0;
+    },
     async dispose() {
       calls.push("dispose");
     },
@@ -96,7 +102,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
   const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
   // 이 서버에 곡을 추가한다
   const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(bot, "g1", data, requester, via);
-  return { mem, add, player, calls, sent, notices, responder };
+  return { mem, add, player, calls, sent, notices, responder, takenOver };
 }
 
 test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패널을 만든다. 요청자와 넣은 시각을 붙인다", async () => {
@@ -106,6 +112,17 @@ test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패�
   assert.deepEqual(r, { success: true });
   assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"]]);
   assert.equal(player.currentTrack?.requestedBy, who);
+});
+
+test("앞 플레이어가 남긴 세션은 음성에 붙은 뒤 첫 곡을 지정하기 전에 넘겨받는다. 붙지 못하면 넘겨받지 않는다(/join 으로 이어 듣게 남긴다)", async () => {
+  const fresh = setup();
+  await fresh.add({ tracks: [track("a")] }, who);
+  assert.deepEqual(fresh.takenOver, [true]);
+
+  const stranded = setup({ connects: false });
+  await stranded.add({ tracks: [track("a"), track("b")] }, who);
+  assert.deepEqual(stranded.takenOver, []);
+  assert.equal(stranded.player.currentTrack, null, "곡도 지정하지 않았다");
 });
 
 test("이미 붙어 있으면 연결하지 않는다", async () => {

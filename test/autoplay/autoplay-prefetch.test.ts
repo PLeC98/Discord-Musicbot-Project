@@ -183,6 +183,7 @@ function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id:
       return auto("첫곡");
     },
     async play() {},
+    takeOverSaved: () => 0,
     // 곡을 못 고르면 알리고 끄는 길. 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
     _giveUpAutoplay: Player.prototype._giveUpAutoplay,
     setAutoplay: Player.prototype.setAutoplay,

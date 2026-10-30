@@ -57,6 +57,8 @@ class SessionPersistence {
   /** 지난번에 쓴 세션 행(위치 뺀 열). 설정 알림과 주기 저장이 이것과 비교한다 */
   lastRow: string | null;
   settingsTimer: NodeJS.Timeout | null = null;
+  /** 그 서버의 저장된 세션이 이 플레이어의 것인가(복원했거나, 앞 플레이어가 남긴 것을 지우고 새로 쓰기 시작했다) */
+  claimed = false;
 
   // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
   constructor(player: Player) {
@@ -66,12 +68,41 @@ class SessionPersistence {
     this.lastRow = null;
   }
 
+  /**
+   * 앞 플레이어가 남긴 세션(/leave · 음성 복구 포기 등)을 지우고 이 플레이어의 것으로 삼는다. 지운 곡 중 사람이 넣은 곡 수.
+   * 새 플레이어의 증분 쓰기는 옛 행 위에 얹혀 메모리와 어긋나므로 첫 쓰기 전에 부른다. 이어 듣기는 /join 이 복원으로 한다
+   */
+  claimSaved(): number {
+    if (this.claimed) return 0;
+    this.claimed = true;
+    const store = liveStore();
+    const guildId = this.player.guild?.id;
+    if (!store || !guildId) return 0;
+    try {
+      const saved = store.load(guildId);
+      if (!saved) return 0;
+      const botId = this.player.guild?.client?.user?.id ?? null;
+      const human = [saved.current, ...saved.queue].filter((t) => t && t.requesterId !== botId).length;
+      store.removeSession(guildId);
+      log.info(`저장된 세션을 지우고 새로 시작합니다: 사람이 넣은 곡 ${human}곡 (서버 ID ${guildId})`);
+      return human;
+    } catch (error) {
+      log.error(`저장된 세션 정리 실패 (서버 ID ${guildId}):`, messageOf(error));
+      return 0;
+    }
+  }
+
   // ── 곡 미러 (trackState가 부른다) ──
 
-  _mirror(write: (store: PlayerSessionStore, guildId: string) => boolean | void) {
+  // clearing: 비우기만 하는 쓰기(버릴 때의 reset). 아직 세션을 넘겨받지 않은 플레이어가 비우는 것은 남의 세션이라 건드리지 않는다
+  _mirror(write: (store: PlayerSessionStore, guildId: string) => boolean | void, { clearing = false }: { clearing?: boolean } = {}) {
     const guildId = this.player.guild?.id;
     const store = liveStore();
     if (this.frozen || !guildId || !store) return;
+    if (!this.claimed) {
+      if (clearing) return;
+      this.claimSaved();
+    }
     if (this.dirty) return this.resync(store);
     try {
       // 옮길 행이 없었다 = 이미 어긋나 있었다
@@ -85,6 +116,7 @@ class SessionPersistence {
   resync(store: PlayerSessionStore | null = liveStore()) {
     const p = this.player;
     if (this.frozen || !store || !p.guild?.id) return;
+    this.claimSaved();
     try {
       store.replaceTracks(p.guild.id, { current: p.currentTrack, queue: p.queue, history: p.previousTracks });
       this.dirty = false;
@@ -127,7 +159,7 @@ class SessionPersistence {
   }
 
   onReset(history: boolean) {
-    this._mirror((s, g) => s.reset(g, { history }));
+    this._mirror((s, g) => s.reset(g, { history }), { clearing: true });
   }
 
   onReplace() {
@@ -190,9 +222,11 @@ class SessionPersistence {
     if (this.frozen || !p.guild?.id || !store) return;
     try {
       if (!p.currentTrack && p.queue.length === 0) {
-        store.removeSession(p.guild.id);
+        // 넘겨받지 않은 세션은 남의 것이다(앞 플레이어가 남긴 것). 틀 곡이 없는 이 플레이어가 지우지 않는다
+        if (this.claimed) store.removeSession(p.guild.id);
         this.lastRow = null;
       } else {
+        this.claimSaved();
         if (this.dirty) this.resync(store);
         store.saveSession(p.guild.id, this.sessionFields());
         this.lastRow = this._rowKey();
@@ -206,7 +240,8 @@ class SessionPersistence {
   removeSession() {
     const store = liveStore();
     const guildId = this.player.guild?.id;
-    if (!store || !guildId) return;
+    // 넘겨받지 않은 세션은 앞 플레이어가 남긴 것이다. /join 이 복원할 수 있게 둔다
+    if (!store || !guildId || !this.claimed) return;
     try {
       store.removeSession(guildId);
       this.lastRow = null;
@@ -255,6 +290,7 @@ class SessionPersistence {
     const player = this.player;
     if (!record || !player.guild?.id) return "empty";
     const { session } = record;
+    this.claimed = true; // 저장된 세션을 이 플레이어로 되살린다
     this.stopStateSync();
     player.restoreSettings({
       volume: session.volume,

@@ -6,7 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { RESTJSONErrorCodes } from "discord.js";
-import { resolveGuildForRestore, restoreSavedPlayers } from "../../src/player/session-restore.ts";
+import { resolveGuildForRestore, restoreSavedPlayers, waitForRestore } from "../../src/player/session-restore.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { Client, Guild } from "discord.js";
@@ -246,4 +246,39 @@ test("복원: 기다리는 사이 그 서버에서 재생이 시작됐으면 건
   assert.equal(players.get("r5"), live, "지금 도는 플레이어를 교체하지 않는다");
   assert.deepEqual(remaining(), ["r5"], "세션 기록도 그 플레이어의 것이다");
   sessions().removeSession("r5");
+});
+
+test("기동 복원을 기다리는 서버에 곡 추가 등이 오면 그 서버를 먼저 복원한다. 기동 복원은 같은 서버를 다시 복원하지 않는다", async () => {
+  saved("w1");
+  saved("w2");
+  const { client, players } = clientWith([guildWith("w1"), guildWith("w2")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  const boot = restoreSavedPlayers(client, players, FakePlayer);
+  await waitForRestore("w2"); // 기동 복원이 w1 을 하는 동안 w2 에 곡을 넣었다
+  assert.ok(players.has("w2"), "기다리고 나면 w2 가 복원돼 있다(넣을 플레이어가 있다)");
+  await boot;
+
+  assert.deepEqual(made.flatMap((p) => p.calls).sort(), ["restore:w1", "restore:w2"], "서버마다 한 번씩");
+  await waitForRestore("w2"); // 끝난 서버는 아무것도 안 한다
+  assert.equal(made.length, 2);
+  sessions().removeSession("w1");
+  sessions().removeSession("w2");
+});
+
+test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다. 그사이 지워진 세션은 되살리지 않는다", async () => {
+  saved("x1");
+  saved("x2");
+  const { client, players } = clientWith([guildWith("x1"), guildWith("x2")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  const boot = restoreSavedPlayers(client, players, FakePlayer);
+  sessions().removeSession("x2"); // x1 을 복원하는 동안 x2 의 세션이 지워졌다(새로 틀기 등)
+  await boot;
+
+  assert.deepEqual(
+    made.map((p) => p.calls),
+    [["restore:x1"]],
+  );
+  sessions().removeSession("x1");
 });

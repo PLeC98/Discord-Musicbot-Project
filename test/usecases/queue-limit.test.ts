@@ -37,6 +37,7 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
     async play() {
       return { ok: true };
     },
+    takeOverSaved: () => 0,
   });
   trackState.init(player);
   if (playing) trackState.setCurrent(player, t("now"));

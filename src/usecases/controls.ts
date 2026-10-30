@@ -331,7 +331,19 @@ async function autoplayBlocked(actor: Actor) {
 }
 
 /** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
-type AutoplayOptions = { create?: () => Player; onAccepted?: () => unknown };
+type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown };
+
+// 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다
+async function joinedIdle(target: Player) {
+  if (target.connection) return true;
+  try {
+    await target.voice.connect();
+    return true;
+  } catch {
+    await target.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+    return false;
+  }
+}
 
 /**
  * 자동재생. genre 로 켜고 false 로 끈다. 플레이어는 켤 때만 만든다(장르를 선택한 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
@@ -345,11 +357,14 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
     const missing = genreConfig.unusableGenre(genre);
     if (missing) return fail("genre-unusable", { genre: genreConfig.labelOf(genre), keys: missing.join(", ") });
   }
-  const target = player ?? (genre === false ? null : create?.());
+  const target = player ?? (genre === false ? null : await create?.());
   if (!target) return fail("no-song");
+  // 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 튼다
+  const starts = genre !== false && !target.currentTrack;
+  if (starts && !(await joinedIdle(target))) return fail("voice-failed");
   target.setAutoplay(genre);
   await onAccepted?.();
-  if (genre !== false && !target.currentTrack) {
+  if (starts) {
     await target.handleAutoplay();
     return done({ genre, started: true });
   }

@@ -29,6 +29,8 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   "skipped-after-error": ({ error }) => shown(errorMessage(error)),
   // 곡이 연달아 실패해 넘기기를 그만뒀다. 대기열은 남아 있다
   "failed-in-row": ({ count, left }) => shown(notices.failedInRow(count, left)),
+  // /join 없이 새로 틀어 앞 플레이어가 남긴 세션을 지웠다
+  "saved-session-replaced": ({ count }) => shown(notices.savedSessionReplaced(count)),
   // 스테이지에 청중으로 들어왔다(player/voice-link)
   "stage-requested": () => shown(notices.stageRequested()),
   "stage-cannot-speak": () => shown(notices.stageCannotSpeak()),

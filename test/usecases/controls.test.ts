@@ -420,11 +420,29 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(await controls.autoplay(null, DJ, "없는장르", { create: () => assert.fail("거절하면 만들지 않는다") }), { ok: false, code: "unknown-genre", genre: "없는장르" });
   assert.equal(plainText(controlMessage({ code: "unknown-genre", genre: "없는장르" })), "알 수 없는 장르예요!\n그 사이 장르 목록이 변경되어 `없는장르`는 없어졌어요. 장르를 다시 선택해 주세요.");
 
+  // 음성에 먼저 붙고 나서 켠다(첫 곡을 넣는 것은 DB 에 쓴다. 붙지 못했을 때 앞 플레이어가 남긴 세션을 건드리지 않게)
   const order: string[] = [];
-  const made = fakePlayer({ currentTrack: null, setAutoplay: (g: unknown) => order.push(`set:${g}`), handleAutoplay: async () => order.push("first") });
+  const made = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => order.push("connect") }, setAutoplay: (g: unknown) => order.push(`set:${g}`), handleAutoplay: async () => order.push("first") });
   const r = await controls.autoplay(null, DJ, genre, { create: () => (order.push("create"), made), onAccepted: () => order.push("answer") });
   assert.deepEqual(r, { ok: true, genre, started: true });
-  assert.deepEqual(order, ["create", `set:${genre}`, "answer", "first"]);
+  assert.deepEqual(order, ["create", "connect", `set:${genre}`, "answer", "first"]);
+
+  // 붙지 못하면 켜지 않고 플레이어를 버린다. 세션은 건드리지 않는다(keep)
+  const disposed: unknown[] = [];
+  const stranded = fakePlayer({
+    currentTrack: null,
+    connection: null,
+    voice: {
+      connect: async () => {
+        throw new Error("붙지 못함");
+      },
+    },
+    setAutoplay: () => assert.fail("켜지 않는다"),
+    handleAutoplay: async () => assert.fail("뽑지 않는다"),
+    dispose: async (o: unknown) => disposed.push(o),
+  });
+  assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stranded }), { ok: false, code: "voice-failed" });
+  assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", session: "keep" }]);
 
   // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 선택하지 않고 패널만 갱신한다
   const playing = fakePlayer({ setAutoplay: () => {}, handleAutoplay: async () => assert.fail("뽑지 않는다") });

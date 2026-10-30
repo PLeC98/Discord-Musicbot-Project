@@ -1282,6 +1282,8 @@ class Player {
       return false;
     }
 
+    // 아무것도 안 틀던 새 플레이어면 앞 플레이어가 남긴 세션을 처리한다(이미 넘겨받았으면 아무것도 안 한다)
+    this.takeOverSaved();
     trackState.enqueue(this, [picked]);
     trackState.shiftNext(this);
     await this.play(0);
@@ -1401,6 +1403,13 @@ class Player {
   }
 
   // ── 세션 영속화. 로직은 SessionPersistence ────────────────────────────────
+
+  /** 앞 플레이어가 남긴 세션을 지우고 이 플레이어의 것으로 삼는다. 사람이 넣은 곡이 있었으면 채널에 알린다(이어 듣기는 /join). 음성에 붙은 뒤 첫 쓰기 전에 부른다 */
+  takeOverSaved() {
+    const count = this.persistence.claimSaved();
+    if (count > 0) playerEvents.notice(this, "saved-session-replaced", { count }).catch(noticeFailed);
+    return count;
+  }
 
   /** 쓸 채널을 정한다. 준 것만 바꾸고 null 은 덮지 않는다(대시보드처럼 텍스트 채널이 없는 진입점이 지우지 않게) */
   bindChannels({ voice = null, text = null }: { voice?: VoiceBasedChannel | null; text?: GuildTextBasedChannel | null }) {
