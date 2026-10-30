@@ -69,8 +69,8 @@ async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor
         // 서버 문맥으로: 복원한 재생이 여는 일(연령 제한 판정 · 자식 프로세스 기록)이 그 서버의 일로 돈다
         await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, guildId));
       } catch (error) {
-        log.error(`서버 ID ${guildId} 세션 복원 중 오류:`, messageOf(error));
-        sessions().removeSession(guildId);
+        // 지우지 않는다. 다음 기동 · /join 이 다시 해 본다(지운 대기열은 되찾을 수 없다)
+        log.error(`서버 ID ${guildId} 세션 복원 중 오류(세션은 남김):`, messageOf(error));
       }
     });
   }
@@ -125,10 +125,12 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
 
   const channels = await savedChannels(guild, record.session);
   if (alreadyPlaying()) return;
-  if (!channels) {
+  if (channels === "gone") {
     sessions().removeSession(guildId);
     return;
   }
+  // 채널을 잠깐 못 불러왔다(네트워크 · 5xx · 요청 제한). 다음 기동 · /join 이 다시 해 본다
+  if (channels === "unknown") return;
 
   const player = new PlayerCtor(guild, channels.text, channels.voice);
   players.set(guildId, player);
@@ -136,29 +138,41 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
     const outcome = await player.persistence.restoreFromState(record);
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
-    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, messageOf(error));
-    await player.dispose({ reason: "세션 복원 실패", session: "remove" });
+    // 음성 연결 실패 등. 세션은 남긴다(다음 기동 · /join 이 다시 해 본다)
+    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+    await player.dispose({ reason: "세션 복원 실패", session: "keep" });
   }
 }
 
 // 복원한 결과를 로그에
 const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
 
-// 저장된 음성 · 텍스트 채널. 기록이 없거나 그 종류의 채널이 아니면 null
+// 채널이 없다는 디스코드의 확답(삭제됨 · 볼 수 없음). 그 밖의 조회 실패는 잠깐일 수 있다
+const CHANNEL_GONE = new Set<unknown>([RESTJSONErrorCodes.UnknownChannel, RESTJSONErrorCodes.MissingAccess]);
+// 조회 실패의 답: gone 은 없다는 확답, unknown 은 알 수 없음(잠깐의 실패)
+const lookupFailed = Symbol("lookup-failed");
+
+/**
+ * 저장된 음성 · 텍스트 채널. gone: 음성 채널 기록이 없거나 없다는 확답이거나 음성 채널이 아니다(세션을 지운다) · unknown: 잠깐 못 불러왔다(세션을 남긴다).
+ * 텍스트 채널은 없어도 된다(전용 채널 없이 대시보드로 시작한 세션은 텍스트 채널 없이 저장된다. 패널은 서버의 전용 채널로 간다)
+ */
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {
-  if (!voiceChannelId || !textChannelId) return null;
+  if (!voiceChannelId) return "gone" as const;
   const fetch = (id: string) =>
     guild.channels.fetch(id).catch((error: unknown) => {
-      // 채널이 삭제됐다(10003)는 답은 없다는 뜻이다. 그 밖의 실패도 세션을 제거하게 되므로 까닭을 남긴다
-      if (codeOf(error) !== RESTJSONErrorCodes.UnknownChannel) log.warn(`서버 ${guild.name}의 채널 ${id} 조회 실패: ${describeError(error)}`);
-      return null;
+      if (CHANNEL_GONE.has(codeOf(error))) return null;
+      log.warn(`서버 ${guild.name}의 채널 ${id} 조회 실패(세션은 남김): ${describeError(error)}`);
+      return lookupFailed;
     });
   const find = async (id: string) => guild.channels.cache.get(id) || (await fetch(id));
   const voice = await find(voiceChannelId);
-  const text = await find(textChannelId);
-  if (voice?.isVoiceBased() && text?.isTextBased()) return { voice, text };
-  log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 삭제합니다`);
-  return null;
+  const text = textChannelId ? await find(textChannelId) : null;
+  if (voice === lookupFailed || text === lookupFailed) return "unknown" as const;
+  if (!voice?.isVoiceBased()) {
+    log.warn(`서버 ${guild.name}의 저장된 음성 채널이 없어 저장된 세션을 삭제합니다`);
+    return "gone" as const;
+  }
+  return { voice, text: text?.isTextBased() ? text : null };
 }
 
 /** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 시작). 세션이 없으면 아무것도 안 한다 */

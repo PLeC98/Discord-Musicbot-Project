@@ -187,18 +187,47 @@ test("복원하지 않기(짧게 끊긴 실행이 연달아): 플레이어를 �
   sessions().removeSession("r9");
 });
 
-test("복원: 저장 상태를 복원하지 못하면 플레이어를 세션 삭제로 버린다(레지스트리 빼기 · 세션 삭제는 버림이 한다)", async () => {
+test("복원: 저장 상태를 복원하지 못하면(음성 연결 실패 등) 플레이어는 버리되 세션은 남긴다. 다음 기동 · /join 이 다시 해 본다", async () => {
   saved("r2");
   const { client, players } = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
 
   await restoreSavedPlayers(client, players, FakePlayer);
 
-  assert.deepEqual(made[0].calls, ["restore:r2", "dispose:세션 복원 실패:remove"]);
+  assert.deepEqual(made[0].calls, ["restore:r2", "dispose:세션 복원 실패:keep"]);
+  assert.deepEqual(remaining(), ["r2"]);
   sessions().removeSession("r2");
 });
 
-test("복원: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 삭제한다", async () => {
+test("복원: 텍스트 채널 기록이 없는 세션(전용 채널 없이 대시보드로 시작)도 복원한다. 텍스트 채널 없이", async () => {
+  sessions().saveSession("r6", { voiceChannelId: "vc1", textChannelId: null });
+  const { client, players } = clientWith([guildWith("r6")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.deepEqual(
+    made.map((p) => [p.voice.id, p.text, p.calls]),
+    [["vc1", null, ["restore:r6"]]],
+  );
+  sessions().removeSession("r6");
+});
+
+test("복원: 채널을 잠깐 못 불러왔으면(네트워크 · 5xx) 세션을 남기고, 없다는 확답(10003 · 50001)이면 지운다", async () => {
+  const failing = (code: unknown) => fake<Guild>({ id: `c${String(code)}`, name: "서버", channels: { cache: new Map(), fetch: async () => Promise.reject(Object.assign(new Error("조회 실패"), { code })) } });
+  const guilds = [failing("ECONNRESET"), failing(500), failing(RESTJSONErrorCodes.UnknownChannel), failing(RESTJSONErrorCodes.MissingAccess)];
+  for (const g of guilds) saved(g.id);
+  const { client, players } = clientWith(guilds);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, players, FakePlayer);
+
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining().sort(), ["c500", "cECONNRESET"]);
+  for (const id of remaining()) sessions().removeSession(id);
+});
+
+test("복원: 음성 채널 기록이 없거나 음성 채널이 아니면 세션을 삭제한다", async () => {
   saved("r3", { voice: null });
   saved("r4", { voice: "tc1", text: "vc1" }); // 서로 바뀐 종류
   const { client, players } = clientWith([guildWith("r3"), guildWith("r4")]);
