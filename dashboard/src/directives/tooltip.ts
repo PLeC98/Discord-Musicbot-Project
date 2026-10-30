@@ -49,6 +49,9 @@ function show(el: HTMLElement) {
   t.textContent = text;
   t.style.display = "block";
   t.style.opacity = "0";
+  // 앞 툴팁의 자리에서 재면 폭이 "창 너비 - left" 로 눌려 접힌 채 재진다(오른쪽 끝에서 글이 바뀌면 자리가 매번 달라졌다)
+  t.style.left = "0px";
+  t.style.top = "0px";
 
   const r = el.getBoundingClientRect();
   const tr = t.getBoundingClientRect();
@@ -58,6 +61,8 @@ function show(el: HTMLElement) {
   const gap = 4;
   let top = r.top - tr.height - gap;
   if (top < pad) top = r.bottom + gap;
+  // 아래로 뒤집어도 넘치면 창 안으로 민다(창이 아주 낮을 때)
+  top = Math.max(pad, Math.min(top, window.innerHeight - tr.height - pad));
   t.style.left = `${Math.round(left)}px`;
   t.style.top = `${Math.round(top)}px`;
   requestAnimationFrame(() => {
