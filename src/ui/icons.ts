@@ -110,19 +110,6 @@ const ICONS = {
   players: { glyph: "graphic_eq", unicode: "🎵" },
   dj: { glyph: "lock", unicode: "🔒" },
 
-  // 곡이 온 곳(rules/platforms 의 이름, platformIcon). 바탕은 그곳의 색에 가까운 응답 색, 나머지는 운영자 색
-  platform_youtube: { glyph: "smart_display", unicode: "🔴", tints: ["error"] },
-  platform_spotify: { glyph: "graphic_eq", unicode: "🟢", tints: ["done"] },
-  platform_soundcloud: { glyph: "cloud", unicode: "🟠", tints: ["warning"] },
-  platform_direct: { glyph: "link", unicode: "🔗" },
-  platform_lastfm: { glyph: "equalizer", unicode: "🔺" },
-  platform_lbradio: { glyph: "sensors", unicode: "🧠" },
-  platform_animethemes: { glyph: "movie", unicode: "🎌" },
-  platform_anisongdb: { glyph: "library_music", unicode: "🎏" },
-  platform_vocadb: { glyph: "piano", unicode: "🎹" },
-  platform_utaitedb: { glyph: "mic", unicode: "🎤" },
-  platform_touhoudb: { glyph: "temple_buddhist", unicode: "⛩️" },
-
   // 운영자 공지(대시보드에서 보내는 임베드의 제목)
   announce_maintenance: { glyph: "build", unicode: "🔧", tints: ["warning"] },
   announce_update: { glyph: "new_releases", unicode: "🆕", tints: ["done"] },
@@ -152,9 +139,6 @@ function useUploaded(next: ReadonlyMap<string, { id: string; animated: boolean }
 /** 그 바탕색으로 그려 두지 않은 키면 운영자 색으로 */
 const tintOf = (key: IconKey, tint: Tint): Tint => (((ICONS[key] as IconSpec).tints ?? ["brand"]).includes(tint) ? tint : ((ICONS[key] as IconSpec).tints ?? ["brand"])[0]);
 
-/** 곡이 온 곳의 아이콘 키. 모르는 곳은 음표 */
-const platformIcon = (platform: string | null | undefined): IconKey => (platform && `platform_${platform}` in ICONS ? (`platform_${platform}` as IconKey) : "music");
-
 /** 문장 안의 아이콘: 앱 이모지(<:이름:id>, 움직이면 <a:…>) 또는 유니코드 */
 function icon(key: IconKey, tint: Tint = "brand"): string {
   const name = emojiName(key, tintOf(key, tint));
@@ -169,5 +153,5 @@ function buttonEmoji(key: IconKey, tint: Tint = "brand"): { id: string; name: st
   return found ? { id: found.id, name, animated: found.animated } : { name: ICONS[key].unicode };
 }
 
-export { ICONS, emojiName, iconEntries, useUploaded, icon, buttonEmoji, platformIcon };
+export { ICONS, emojiName, iconEntries, useUploaded, icon, buttonEmoji };
 export type { IconKey, IconSpec, Shape, Tint };

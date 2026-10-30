@@ -21,6 +21,7 @@ import { remember } from "../helpers/tagged-audio.ts";
 import { fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/player.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
+import { useUploaded } from "../../src/ui/icons.ts";
 import { screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 import { COMMANDS as COMMAND_LIST } from "../../src/discord/commands/index.ts";
 
@@ -136,13 +137,30 @@ test("/nowplaying: 패널과 같은 머리 · 진행, 이 곡(상태 · 요청 �
   assert.match(lines[3], /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
   assert.equal(lines[4], "-# 📊 **상태** ▶️ 재생 중 • 🔊 70% • 🔂 한 곡 반복");
   assert.equal(lines[5], "-# 👤 **요청** <@u9>");
-  assert.match(lines[6], /^-# 🌐 \*\*출처\*\* .+ Spotify$/);
+  assert.equal(lines[6], "-# 🌐 **출처** Spotify");
   assert.equal(lines[7], "-# 🔗 **음원** [YouTube](https://www.youtube.com/watch?v=abc) · 자동 검색 결과");
   assert.equal(lines[8], "-# ⏭️ **다음** [다음 곡](https://youtu.be/n) · 다음 가수");
   assert.equal(lines[9], "-# 📋 **대기열** 2곡 · 1:40 이상", "길이를 모르는 곡이 있으면 이상");
   assert.match(lines[10], /^-# 🎲 \*\*자동재생\*\* 켜짐 · /);
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
+});
+
+test("/nowplaying: 앱 이모지를 맞춘 뒤에 그리면 머리의 아이콘도 앱 이모지(불러올 때 유니코드로 굳지 않는다)", async (t) => {
+  t.after(() => useUploaded(new Map()));
+  useUploaded(
+    new Map([
+      ["music", { id: "1", animated: false }],
+      ["artist", { id: "2", animated: false }],
+      ["album", { id: "3", animated: false }],
+    ]),
+  );
+  const track = { title: "곡", url: "u", pageUrl: "u", artist: "가수", album: "앨범", platform: "youtube", duration: 200, thumbnail: "https://thumb" };
+  const { it, log, bot } = interaction({ player: nowPlayer(track) });
+  await run(await command("nowplaying"), it, bot);
+  const lines = nowLines(log[0][1]);
+  assert.equal(lines[0], "### <:music:1> 현재 재생 중");
+  assert.equal(lines[2], "-# <:artist:2> 가수 · <:album:3> 앨범");
 });
 
 test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
