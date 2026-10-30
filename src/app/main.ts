@@ -295,6 +295,10 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇 · 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
   void loadAppInfo(client);
 
+  // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 패널을 그리는 무엇보다 먼저 싣는다(세션 복원도 재생 패널을 올린다).
+  // 늦으면 패널이 유니코드로 올라갔다가 다음 갱신에 앱 이모지로 바뀐다. 실패하면 경고만 남기고 유니코드로 간다
+  const appEmojis = new AppEmojis(apiOf(client), { onChanged: () => panels.redrawIdlePanels() });
+  await appEmojis.loadKnown();
   // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행 · 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
@@ -302,9 +306,6 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, players, Player, { touched });
-  // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 먼저 싣는다. 패널을 유니코드로 한 번 그렸다가 다시 그리지 않게
-  const appEmojis = new AppEmojis(apiOf(client), { onChanged: () => panels.redrawIdlePanels() });
-  await appEmojis.loadKnown();
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await panels.restorePanels();
   // 이미지 비교 · 업로드 · 삭제는 백그라운드에서(운영자 색이 바뀌면 다시)
