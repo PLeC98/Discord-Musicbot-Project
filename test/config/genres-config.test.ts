@@ -30,15 +30,11 @@ function complaint(fn: () => unknown = () => genreConfig.genres()) {
   return { code: "CONFIG_INVALID", message: line.text, got };
 }
 
-// 이 라이브러리는 YAML 1.2 core라 no·yes·on·off·y·n이 전부 문자열이다.
-// 값으로 읽히는 것은 true/false/null뿐이고, null 키는 빈 문자열이 된다.
-test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 마찬가지", () => {
-  for (const key of ["true", '"true"', "null"]) {
-    write("genres", `defaults: {}\ngenres:\n  ${key}:\n    label: 값\n`);
-    const err = complaint();
-    assert.equal(err.code, "CONFIG_INVALID", key);
-    assert.match(err.message, /쓸 수 없습니다/);
-  }
+// 설정은 JSON 문서라 true · false · null 도 그냥 글자다. 화면처럼 앞뒤 공백을 뺀 이름이 비었을 때만 거절한다
+test("true · false · null 도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
+  const one = (id: string) => genreConfig.validateGenres({ genres: { [id]: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
+  for (const id of ["true", "false", "null"]) assert.deepEqual(one(id), [], id);
+  for (const id of ["", "  "]) assert.deepEqual(one(id), ["장르 식별자가 비었습니다."], JSON.stringify(id));
 });
 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {

@@ -189,7 +189,7 @@ const listEl = ref<HTMLElement | null>(null);
 const listFade = useScrollFade(listEl, () => true, 24);
 
 // 항목마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/genres)를 그 장르 하나에만 돌린 것. 목록 항목의 아이콘(툴팁)과 편집 영역 맨 위에 보인다.
-// 이름이 비었으면 검사에는 "이름 없는 장르"로 넘긴다(빈 이름으로 돌리면 ": 소스…" · "null" 같은 문장이 나온다)
+// 이름이 비었으면 검사에는 "이름 없는 장르"로 넘긴다(빈 이름으로 돌리면 ": 소스…" 같은 문장이 나오고, 빈 이름은 위에서 이미 알린다)
 function rowProblems(row: GenreRow) {
   const name = row.name.trim();
   const out: string[] = [];

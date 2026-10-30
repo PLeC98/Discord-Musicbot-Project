@@ -13,9 +13,6 @@ const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 // 조용히 어긋난다("재즈 80 팝"이 "80 재즈 팝"이 된다). 순서는 선택 메뉴에 그대로 나오므로 막는다.
 const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 
-// 키가 식별자다(주소 · 버튼 id · AI 의 {{genre}}). 값처럼 읽히는 말(true · false · null)과 빈 이름은 식별자로 받지 않는다.
-const YAML_WORDS = ["true", "false", "", "null"];
-
 const filled = (v: unknown) => (Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim());
 
 // 소스 한 줄. 종류마다 SPEC 이 필요한 필드와 쓸 수 있는 값을 정한다
@@ -81,7 +78,8 @@ const genres = z.preprocess(
     // 장르 선택은 디스코드 선택 메뉴 하나다
     if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여줍니다.` });
     for (const id of ids) {
-      if (YAML_WORDS.includes(id)) ctx.addIssue({ code: "custom", message: `"${id || "null"}"는 장르 식별자로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
+      // 키가 식별자다(주소 · 버튼 id · AI 의 {{genre}}). 화면처럼 앞뒤 공백을 뺀 이름으로 본다
+      if (!id.trim()) ctx.addIssue({ code: "custom", message: "장르 식별자가 비었습니다." });
       if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 식별자는 순서가 어긋납니다. "${id}s"처럼 글자를 붙여 주세요.` });
       // 디스코드 선택지 값(식별자)은 100자까지
       if (id.length > 100) ctx.addIssue({ code: "custom", message: `"${id.slice(0, 20)}…": 식별자는 100자까지입니다.` });
@@ -145,4 +143,4 @@ function tidyGenres(data: unknown): unknown {
   return copy;
 }
 
-export { genreProblems, tidyGenres, GENRE_DEFAULTS, NUMERIC_NAME, ONE_EMOJI, YAML_WORDS };
+export { genreProblems, tidyGenres, GENRE_DEFAULTS, NUMERIC_NAME, ONE_EMOJI };
