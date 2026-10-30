@@ -18,7 +18,7 @@ class FakeConnection extends EventEmitter {
   // 게이트웨이로 보낸 것(참가 · 나가기)
   sent: unknown[] = [];
   state: { status: string; reason?: number; closeCode?: number; adapter?: { sendPayload(p: unknown): boolean } } = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: (p) => (this.sent.push(p), true) } };
-  joinConfig = { selfDeaf: false, selfMute: false };
+  joinConfig = { selfDeaf: true, selfMute: false }; // 라이브러리 기본값
   // 받아 둔 음성 서버 정보로 재연결한 횟수. serverInfo 가 없으면 라이브러리처럼 아무것도 하지 않는다
   reattaches = 0;
   serverInfo = true;
@@ -467,7 +467,7 @@ function stuckJoin(atDiscord: string | null | Error) {
   s.link.state = "joining";
   return { ...s, c };
 }
-const LEAVE = { op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: false, self_mute: false } };
+const LEAVE = { op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: true, self_mute: false } };
 
 test("참가 요청에 답이 없으면 처음에는 다시 보낸다. 다시 보내도 답이 없고 디스코드가 봇이 그 채널에 있다고 하면 게이트웨이로 나갔다가 다시 참가한다", async () => {
   const s = stuckJoin("vc1");
@@ -548,7 +548,7 @@ test("봇이 옮겨졌다: 재연결하지 않고 기록만 맞춘다. 곧바로
   const back = fake<VoiceBasedChannel>({ id: "vc1" });
   link.lastPlainJoin = { channelId: "vc1", at: Date.now() }; // 라이브러리가 옛 채널로 고치지 않은 참가 요청을 보냈다(어댑터가 늦었다)
   link.onBotState(state("vc2"), state("vc1", { channel: back }));
-  assert.deepEqual(conn().rejoins, [{ channelId: "vc2", selfDeaf: false, selfMute: false }]);
+  assert.deepEqual(conn().rejoins, [{ channelId: "vc2", selfDeaf: true, selfMute: false }], "붙을 때의 귀막음 · 음소거를 그대로");
   assert.equal(joins.length, 1, "새 연결을 만들지 않는다");
   assert.deepEqual(steps, ["status-moved:vc1"], "되돌림은 이동이 아니다. 목적지로 다시 옮겨진 알림이 맞춘다");
 });

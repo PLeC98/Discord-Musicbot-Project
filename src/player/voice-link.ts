@@ -571,7 +571,8 @@ class VoiceLink {
       this.lastMove = null;
       player.voiceChannel = target;
       log.warn(`음성 채널 이동 직후 원래 채널로 되돌아가 다시 이동합니다: "${target.name ?? target.id}" (${where})`);
-      player.connection?.rejoin({ channelId: target.id, selfDeaf: false, selfMute: false });
+      const connection = player.connection;
+      if (connection) connection.rejoin({ channelId: target.id, selfDeaf: connection.joinConfig.selfDeaf, selfMute: connection.joinConfig.selfMute });
       return true;
     }
     this.lastMove = { from: fromId, to: toChannel.id, at: now };
