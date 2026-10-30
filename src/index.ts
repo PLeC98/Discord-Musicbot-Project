@@ -7,8 +7,17 @@ import * as loadedConfig from "./config/index.ts"; // 설정 값과 함께 문�
 import * as configCheck from "./app/config-check.ts";
 import logger from "./infra/log/logger.ts";
 import { EXIT } from "./app/exit-codes.ts";
+import { acquireInstanceLock } from "./infra/instance-lock.ts";
+import { PROJECT } from "./infra/project-paths.ts";
 
 configCheck.stopOnConfigProblems(loadedConfig, logger.child({ category: "config" }));
+
+// 같은 폴더에서 둘째 실행은 DB 를 열기 전에 멈춘다. 다시 시작해도 같으므로 설정 오류와 같은 코드로(실행기가 다시 띄우지 않는다)
+const lock = await acquireInstanceLock(PROJECT.database);
+if (!lock.ok) {
+  logger.child({ category: "core" }).error(`이 폴더에서 봇이 이미 실행 중입니다${lock.holder ? `(pid ${lock.holder})` : ""}. 같은 폴더에서는 하나만 실행할 수 있습니다`);
+  process.exit(EXIT.badSetup);
+}
 
 // 본체를 불러오다 던지면(명령 · 이벤트 파일이 깨졌다) 로그인하지 않고 멈춘다. 고치기 전에는 다시 시작해도 같은 실패다
 let main: () => void;
