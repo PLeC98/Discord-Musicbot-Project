@@ -1221,14 +1221,14 @@ class Player {
     if (!genres[genre]) {
       // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 일반 대기열 종료 흐름으로
       log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${genre}`);
-      playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed);
+      if (!this.quietFailures) playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed);
       this.setAutoplay(false);
       return false;
     }
     const missing = genreConfig.unusableGenre(genre);
     if (missing) {
       log.warn(`자동재생을 종료합니다. 장르 ${genre}: ${missing.join(", ")} 키가 없어 쓸 소스가 없습니다`);
-      playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed);
+      if (!this.quietFailures) playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed);
       this.setAutoplay(false);
       return false;
     }

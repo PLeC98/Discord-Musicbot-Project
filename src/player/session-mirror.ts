@@ -11,6 +11,8 @@ import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/player-sessions.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
+import * as audioCache from "../store/audio-cache.ts";
+import { audioKeyOf } from "../rules/audio-key-of.ts";
 
 const HEARTBEAT_MS = 5000;
 // 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(볼륨을 연달아 바꾸는 따위)
@@ -300,17 +302,28 @@ class SessionPersistence {
     });
 
     this._restoreTracks(record, player.guild.id);
-    const resumeMs = resumeAt(player.currentTrack, session.positionMs);
+    // 지금 곡 없이 대기열만 저장됐다(곡 기록이 DB 에 닿지 못한 채 꺼졌다). 첫 곡을 지금 곡으로 올리되 저절로 틀지 않는다(멈춘 채 연다)
+    if (!player.currentTrack && player.queue.length > 0) {
+      trackState.shiftNext(player);
+      player.pause.setUser(true);
+    }
+    let resumeMs = resumeAt(player.currentTrack, session.positionMs);
+    // 저장 위치가 곡 끝이었다. 다 들은 곡을 처음부터 다시 틀지 않고, 곡이 끝났을 때와 같이 다음 곡으로
+    if (endedAt(player.currentTrack, session.positionMs)) {
+      resumeMs = 0;
+      await this._advancePastEnd();
+    }
     player.lastPlaybackPosition = resumeMs;
 
-    await this._reconnect();
-    // 이미 붙어 있었으면 붙기가 맞추지 않으므로 여기서 맞춘다(겹쳐 불러도 같다)
-    player.syncHolds();
-
+    // 틀 곡이 없으면 붙지 않는다(붙은 채 나갈 타이머 없이 남지 않게)
     if (!player.currentTrack) {
       this.removeSession();
       return "empty";
     }
+
+    await this._reconnect();
+    // 이미 붙어 있었으면 붙기가 맞추지 않으므로 여기서 맞춘다(겹쳐 불러도 같다)
+    player.syncHolds();
 
     player.quietFailures = !announce;
     try {
@@ -321,12 +334,27 @@ class SessionPersistence {
     if (!player.currentTrack) return "failed";
     // 열지 못해 그 곡에서 멈춰 뒀다. 이어 튼다고 알리지 않는다(까닭은 멈춰 둘 때의 알림 · /join 응답이 말한다). 패널은 멈춘 곡으로
     if (player.lifecycle.parked) {
-      await this._announceRestored(resumeMs, false);
+      await this._announceRestored(false);
       return "parked";
     }
 
-    await this._announceRestored(resumeMs, announce);
+    await this._announceRestored(announce);
     return "restored";
+  }
+
+  // 저장 위치가 곡 끝이었다. 곡이 끝났을 때와 같이 간다: 한 곡 반복이면 그 곡을 처음부터, 대기열 반복이면 맨 뒤로, 아니면 기록으로 보내고 다음 곡,
+  // 대기열이 비었으면 자동재생 곡을 하나 골라 넣고, 그것도 없으면 지금 곡을 비운다(틀 곡 없음). 끝 처리(_playNext)는 아직 없는 패널을 고치려 하므로 단계만 쓴다
+  async _advancePastEnd() {
+    const player = this.player;
+    const finished = player.currentTrack;
+    if (!finished || player.loop === "track") return;
+    trackState.retire(player, finished, { requeue: player.loop === "queue" });
+    if (player.queue.length === 0 && player.autoplay) {
+      const picked = await player.pickAutoplayTrack().catch(() => null);
+      if (picked) trackState.enqueue(player, [picked]);
+    }
+    if (player.queue.length > 0) trackState.shiftNext(player);
+    else trackState.setCurrent(player, null);
   }
 
   // 저장된 곡을 메모리에 올린다
@@ -353,10 +381,6 @@ class SessionPersistence {
       // 잘랐거나 필터링했으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
       { persisted: !cut && droppedAutoplay === 0 },
     );
-
-    if (!player.currentTrack && player.queue.length > 0) {
-      trackState.shiftNext(player);
-    }
   }
 
   async _reconnect() {
@@ -370,7 +394,7 @@ class SessionPersistence {
   }
 
   // 패널을 다시 세운다. announce 면 이어 튼다고 텍스트 채널에 알린다
-  async _announceRestored(resumeMs: number, announce: boolean) {
+  async _announceRestored(announce: boolean) {
     const player = this.player;
     if (player.textChannel) {
       try {
@@ -383,7 +407,8 @@ class SessionPersistence {
 
     if (announce && player.currentTrack) {
       try {
-        await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(resumeMs / 1000), paused: player.pause.userPaused });
+        // 실제로 튼 곡과 위치(복원하던 곡을 곡 탓으로 넘겼으면 다른 곡 · 처음부터다)
+        await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(player.getCurrentTime() / 1000), paused: player.pause.userPaused });
       } catch (error) {
         log.warn(`복원 알림을 보내지 못했습니다: ${messageOf(error)}`);
       }
@@ -391,13 +416,21 @@ class SessionPersistence {
   }
 }
 
-// 이어 틀 위치. 끝나기 2초 전 안쪽이었으면 처음부터
+// 이어 틀 위치. 라이브에 저장된 위치는 의미가 없다(어차피 지금 시점, 라이브 엣지로만 붙는다)
 function resumeAt(track: QueuedTrack | null, positionMs: number | null | undefined) {
-  // 라이브에 저장된 위치는 의미가 없다. 어차피 지금 시점(라이브 엣지)으로만 붙는다.
-  if (track?.isLive) return 0;
-  const trackDurationMs = track?.duration ? Number(track.duration) * 1000 : null;
-  const resumeMs = Math.max(0, Number(positionMs) || 0);
-  return trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0) ? 0 : resumeMs;
+  return track?.isLive ? 0 : Math.max(0, Number(positionMs) || 0);
+}
+
+/**
+ * 저장 위치가 곡 끝인가: 위치 + 주기 저장 간격 ≥ 곡 길이. 위치는 5초마다 쓰므로 비정상 종료면 실제보다 최대 그만큼 늦다(그 안쪽이면 이미 끝났을 수 있다).
+ * 길이는 캐시에 잰 오디오 길이를 먼저(스포티파이 곡은 표시 길이를 지키는데 받은 음원이 더 길 수 있다), 없으면 표시 길이. 길이를 모르거나 라이브면 아니다
+ */
+function endedAt(track: QueuedTrack | null, positionMs: number | null | undefined) {
+  if (!track || track.isLive) return false;
+  const key = audioKeyOf(track.audioUrl);
+  const measured = key ? audioCache.lookupByAudioKey(key)?.duration_sec : null;
+  const lengthMs = (measured && measured > 0 ? measured : Number(track.duration) || 0) * 1000;
+  return lengthMs > 0 && Math.max(0, Number(positionMs) || 0) + HEARTBEAT_MS >= lengthMs;
 }
 
 export { SessionPersistence };

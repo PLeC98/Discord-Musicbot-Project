@@ -530,9 +530,15 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 열지 못해 그 곡에서 멈춰 둠 · 둘 다 없음)
-  const nothingLeft = await run(async () => {});
+  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 열지 못해 그 곡에서 멈춰 둠 · 틀다 실패해 남은 곡 없음 · 틀 곡 없음)
+  const nothingLeft = await run(async function () {
+    this.queue.push(tracks.youtube("ddddddddddd")); // 가짜가 "틀다 실패"로 보는 모양
+  });
   assert.deepEqual(nothingLeft.shown(), [post(noticeFrame(errors.notice("restore-nothing-left")))]);
+
+  // 저장 위치가 마지막 곡의 끝이라 틀 곡이 남지 않았다: 보통의 참가로 잇는다
+  const ended = await run(async () => {});
+  assert.deepEqual(ended.shown(), [post(replies.joined())]);
 
   const parked = await run(async function () {
     this.currentTrack = tracks.youtube("ddddddddddd");

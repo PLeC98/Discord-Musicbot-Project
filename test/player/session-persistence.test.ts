@@ -491,9 +491,67 @@ test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다"
   }
 });
 
-test("복원: 곡 길이 끝에 거의 닿은 위치는 처음부터", async () => {
-  const p = await restore(makeRecord({ positionMs: 99_500 }));
-  assert.deepEqual(p.calls[0], ["play", 0, false]);
+// 곡 길이 100초. queue 는 저장된 대기열의 제목
+function endRecord(positionMs: number, { loopMode = "off", queue = [] as string[], live = false, duration = 100 } = {}) {
+  const row = (title: string) => ({ title, url: `https://y/${title}`, duration, requesterId: "u1", isLive: live });
+  return fake<RestoredSession>({
+    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode, autoplay: null, userPaused: false, positionMs },
+    current: row("지금 곡"),
+    queue: queue.map(row),
+    history: [],
+  });
+}
+
+test("복원: 저장 위치가 곡 끝(위치 + 주기 저장 5초 ≥ 길이)이면 다 들은 곡을 다시 틀지 않고 곡이 끝났을 때처럼 다음 곡으로", async () => {
+  const next = await restore(endRecord(96_000, { queue: ["다음 곡"] }));
+  assert.equal(next.currentTrack?.title, "다음 곡");
+  assert.deepEqual(next.calls[0], ["play", 0, false]);
+  assert.deepEqual(titles(next.previousTracks), ["지금 곡"], "끝난 곡은 기록으로");
+
+  const ring = await restore(endRecord(96_000, { loopMode: "queue", queue: ["다음 곡"] }));
+  assert.equal(ring.currentTrack?.title, "다음 곡");
+  assert.deepEqual(titles(ring.queue), ["지금 곡"], "대기열 반복이면 맨 뒤로");
+
+  const same = await restore(endRecord(96_000, { loopMode: "track" }));
+  assert.equal(same.currentTrack?.title, "지금 곡");
+  assert.deepEqual(same.calls[0], ["play", 0, false], "한 곡 반복이면 처음부터");
+
+  const kept = await restore(endRecord(94_000, { queue: ["다음 곡"] }));
+  assert.deepEqual(kept.calls[0], ["play", 94_000, false], "5초 넘게 남았으면 그 자리");
+
+  const unknown = await restore(endRecord(99_000, { duration: 0 }));
+  assert.deepEqual(unknown.calls[0], ["play", 99_000, false], "길이를 모르면 그 자리");
+
+  const live = await restore(endRecord(99_000, { live: true }));
+  assert.deepEqual(live.calls[0], ["play", 0, false], "라이브는 위치를 쓰지 않는다");
+});
+
+test("복원: 끝난 곡 뒤에 틀 곡이 없으면 음성에 붙지 않고 세션을 지운다(틀 곡 없음)", async () => {
+  const { p, sp } = makeRestorePlayer({ connection: null });
+  let joins = 0;
+  p.voice = fake<Player["voice"]>({ connect: async () => (joins += 1) });
+  sessions().saveSession(p.guild.id, { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, userPaused: false, positionMs: 99_000 });
+
+  assert.equal(await sp.restoreFromState(endRecord(99_000)), "empty");
+  assert.equal(joins, 0);
+  assert.equal(p.calls.length, 0);
+  assert.equal(sessions().load(p.guild.id), null);
+});
+
+test("복원: 지금 곡 없이 대기열만 저장됐으면 첫 곡을 지금 곡으로 올리되 멈춘 채 연다(저절로 틀지 않는다)", async () => {
+  const record = fake<RestoredSession>({
+    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 },
+    current: null,
+    queue: [
+      { title: "첫 곡", url: "https://y/a", duration: 100, requesterId: "u1" },
+      { title: "둘째 곡", url: "https://y/b", duration: 100, requesterId: "u1" },
+    ],
+    history: [],
+  });
+  const p = await restore(record);
+  assert.equal(p.currentTrack?.title, "첫 곡");
+  assert.deepEqual(titles(p.queue), ["둘째 곡"]);
+  assert.deepEqual(p.calls[0], ["play", 0, true], "멈춘 채 연다");
 });
 
 type Sent = { content: string; deleted: boolean; delete(): Promise<void> };

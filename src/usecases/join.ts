@@ -47,9 +47,12 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep" });
 
   const player = ensurePlayer(bot, { guild, textChannel: textChannel ?? (await resolveFallbackTextChannel(guild)), voiceChannel: channel });
-  if (saved?.current) {
+  // 지금 곡이 없고 대기열만 있는 세션도 복원한다(첫 곡에서 멈춘 채)
+  if (hasTracks(saved)) {
     await restoring?.();
-    return restore(player, saved);
+    const restored = await restore(player, saved);
+    // 저장 위치가 마지막 곡의 끝이라 틀 곡이 남지 않았다(복원은 붙지 않았다). 보통의 참가로
+    if (restored) return restored;
   }
 
   try {
@@ -75,11 +78,11 @@ function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
   return null;
 }
 
-// 저장한 세션을 복원한다. 채널 알림은 내지 않는다(진입점이 결과를 알린다)
-async function restore(player: Player, saved: RestoredSession): Promise<JoinResult> {
+// 저장한 세션을 복원한다. 채널 알림은 내지 않는다(진입점이 결과를 알린다). 틀 곡이 남지 않았으면(empty) null: 부르는 쪽이 보통의 참가로 잇는다
+async function restore(player: Player, saved: RestoredSession): Promise<JoinResult | null> {
   try {
     const outcome = await player.persistence.restoreFromState(saved, { announce: false });
-    // 재생 중이던 곡이 저장된 세션만 복원하니 틀 곡이 없는 결과(empty)는 나오지 않는다
+    if (outcome === "empty") return null;
     return { kind: "restored", player, track: outcome === "restored" || outcome === "parked" ? player.currentTrack : null, left: player.queue.length, parked: outcome === "parked" };
   } catch (error) {
     log.error("세션 복원 실패:", messageOf(error));
@@ -87,6 +90,9 @@ async function restore(player: Player, saved: RestoredSession): Promise<JoinResu
     return { kind: "restore-error" };
   }
 }
+
+// 되살릴 곡이 있는 세션인가
+const hasTracks = (saved: RestoredSession | null): saved is RestoredSession => Boolean(saved && (saved.current || saved.queue.length > 0));
 
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {
