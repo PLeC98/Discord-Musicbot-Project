@@ -25,6 +25,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   VOICE_PLAYING_PREFIX: { label: "음성 상태: 재생 중 접두어", help: "음성 채널 상태에 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: 📻 " },
   VOICE_PAUSED_PREFIX: { label: "음성 상태: 일시정지 접두어", help: "일시정지 중일 때 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: ⏸ " },
   VOICE_IDLE_STATUS: { label: "음성 상태: 대기 중 문구", help: "재생할 곡이 없을 때 음성 채널 상태에 표시해요." },
+  VOICE_SERVER_DEAFEN: { label: "스스로 서버 헤드셋 끄기", help: "자기 헤드셋 끄기로는 막히지 않는 다른 사람의 말소리 수신을 끊어 네트워크 사용량을 줄여요. 멤버 헤드셋 끄기 권한이 있을 때만 걸고, 음악은 그대로 들려요. 봇의 헤드셋 표시는 빨갛게 보여요." },
   YTDLP_PLAYER_CLIENTS: { label: "유튜브 클라이언트 순서", help: "쉼표로 구분해 입력해요. 앞에서부터 시도하고 실패하면 뒤로 넘어가요. 비우면 yt-dlp 기본값.\n예: visionos,tv_simply,web_embedded,mweb" },
   YTDLP_CLIENT_WINDOW: { label: "최근 몇 번을 보고 판단할지", help: "클라이언트가 막혔는지 볼 때 최근 몇 번의 결과를 볼지." },
   YTDLP_CLIENT_FAILS: { label: "그중 몇 번 실패하면 건너뛸지", help: "위 횟수 가운데 이만큼 실패하면 그 클라이언트를 한동안 건너뛰어요." },

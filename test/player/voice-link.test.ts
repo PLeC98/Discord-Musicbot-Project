@@ -12,6 +12,7 @@ import { fake } from "../helpers/fake.ts";
 import { inGuild, currentGuild } from "../../src/infra/guild-context.ts";
 import { HOLD_MS } from "../../src/infra/voice-adapter.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { withConfig } from "../helpers/config.ts";
 
 // 가짜 연결. 부순 방식 · 구독한 것 · 재연결한 곳을 적는다
 class FakeConnection extends EventEmitter {
@@ -707,4 +708,76 @@ test("연결의 전이 · 오류는 누가 쏘든 이 서버의 문맥에서 돈
     c.emit("error", new Error("오류"));
   });
   assert.deepEqual(seen, ["g1", "g1"]);
+});
+
+// ── 서버 헤드셋 끄기 ──
+
+// 봇의 음성 상태를 서버 헤드셋 끄기를 볼 수 있게 채운다. 건 것은 deafs 에 적는다
+function deafenable(me: { voice: object }, { serverDeaf = false, allowed = true, channelId = "vc1", fails = null as unknown } = {}) {
+  const deafs: Array<[boolean, string | undefined]> = [];
+  me.voice = {
+    channelId,
+    serverDeaf,
+    channel: { id: channelId, permissionsFor: () => ({ has: (flag: bigint) => allowed && flag === PermissionFlagsBits.DeafenMembers }) },
+    setDeaf: async (on: boolean, reason?: string) => {
+      if (fails) throw fails;
+      deafs.push([on, reason]);
+    },
+  };
+  return deafs;
+}
+
+test("서버 헤드셋 끄기: 붙은 뒤 권한이 있고 아직 걸리지 않았으면 건다. 걸려 있거나 · 권한이 없거나 · 다른 채널이거나 · 운영자가 껐으면 걸지 않는다", async () => {
+  const cases = [
+    { o: {}, want: 1 },
+    { o: { serverDeaf: true }, want: 0 },
+    { o: { allowed: false }, want: 0 },
+    { o: { channelId: "vc2" }, want: 0 },
+  ];
+  for (const { o, want } of cases) {
+    const { link, me } = setup();
+    const deafs = deafenable(me, o);
+    await link.connect();
+    await sleep(0);
+    assert.equal(deafs.length, want, JSON.stringify(o));
+    if (want) assert.equal(deafs[0][0], true);
+  }
+  await withConfig({ bot: { serverDeafen: false } }, async () => {
+    const { link, me } = setup();
+    const deafs = deafenable(me);
+    await link.connect();
+    await sleep(0);
+    assert.equal(deafs.length, 0, "운영자가 끔");
+  });
+});
+
+test("서버 헤드셋 끄기: 음성 밖이라 못 걸면(40032) 조용히, 다른 실패는 warn", async () => {
+  for (const [code, warned] of [
+    [40032, false],
+    [50013, true],
+  ] as const) {
+    const { link, me } = setup();
+    deafenable(me, { fails: Object.assign(new Error("거절"), { code }) });
+    const from = sink.buffer.length;
+    await link.connect();
+    await sleep(0);
+    const warns = sink.buffer.slice(from).filter((e) => e.level === "warn" && e.text.startsWith("서버 헤드셋 끄기 실패"));
+    assert.equal(warns.length, warned ? 1 : 0, String(code));
+  }
+});
+
+test("서버 헤드셋 끄기: 같은 채널에서 사람이 풀면 그 서버는 다시 걸지 않는다(다른 서버는 건다)", async () => {
+  const { link, me, player } = await ready();
+  player.guild.id = "g-undeafened";
+  link.onBotState(state("vc1", { serverDeaf: true }), state("vc1", { serverDeaf: false }));
+  const deafs = deafenable(me);
+  link._settled();
+  await sleep(0);
+  assert.deepEqual(deafs, [], "모더레이터의 뜻을 따른다");
+
+  const other = setup();
+  const otherDeafs = deafenable(other.me);
+  await other.link.connect();
+  await sleep(0);
+  assert.equal(otherDeafs.length, 1);
 });

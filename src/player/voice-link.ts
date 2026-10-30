@@ -5,6 +5,7 @@ import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChanne
 import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
+import config from "../config/index.ts";
 import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
@@ -42,6 +43,13 @@ const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "r
 const STAGE_ENDED = { reason: "스테이지가 끝남", session: "remove", panel: "disconnected", end: "stage-ended" } as const;
 const STAGE_OUT = { reason: "봇이 스테이지에서 나옴(스테이지 종료 또는 강제 퇴장)", session: "remove", panel: "disconnected", end: "stage-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
+
+// 서버 헤드셋 끄기. 자기 헤드셋 끄기로는 디스코드가 채널의 말소리를 계속 보내온다.
+// 멤버에 남아(채널을 옮기거나 다시 들어와도) 대개 서버마다 한 번 걸린다. 음성 밖에서는 걸 수 없다(40032)
+const DEAFEN_REASON = "쓰지 않는 음성 수신을 끊어 트래픽 절약"; // 감사 로그에 남는 사유
+const NOT_IN_VOICE = 40032;
+// 사람이 풀어 준 서버. 다투지 않게 다시 시작할 때까지 걸지 않는다
+const undeafenedByPeople = new Set<string>();
 
 class VoiceLink {
   player: VoiceHost;
@@ -406,7 +414,7 @@ class VoiceLink {
   // ── 게이트웨이: 봇 자신의 음성 상태 ──
 
   /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 구분한다 */
-  onBotState(oldState: Pick<VoiceState, "channelId">, newState: Pick<VoiceState, "channelId" | "suppress" | "channel">): BotStateChange {
+  onBotState(oldState: Pick<VoiceState, "channelId"> & Partial<Pick<VoiceState, "serverDeaf">>, newState: Pick<VoiceState, "channelId" | "suppress" | "channel"> & Partial<Pick<VoiceState, "serverDeaf">>): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
       this.stageTaken = null; // 다시 들어오면 다시 발언자가 된다
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
@@ -425,6 +433,7 @@ class VoiceLink {
       this._leftChannel(oldState.channelId);
       return { left: true, moved: false };
     }
+    this._undeafened(oldState, newState);
     let moved = false;
     let bounced = false;
     if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId && newState.channel) {
@@ -453,6 +462,31 @@ class VoiceLink {
     this.player.syncHolds();
     const now = this.player.guild.members.me?.voice;
     if (now?.channelId && now.suppress && now.channel) this._enterStage(now.channel);
+    this._deafen();
+  }
+
+  // 권한이 있고 봇이 플레이어의 채널에 붙어 있으며 아직 걸리지 않았을 때만
+  _deafen() {
+    const guildId = this.player.guild.id;
+    const me = this.player.guild.members.me;
+    const voice = me?.voice;
+    if (!config.bot.serverDeafen || undeafenedByPeople.has(guildId) || !me || !voice?.channel) return;
+    if (voice.serverDeaf !== false || voice.channelId !== this.player.voiceChannel?.id || typeof voice.setDeaf !== "function") return;
+    if (!voice.channel.permissionsFor?.(me)?.has(PermissionFlagsBits.DeafenMembers)) return;
+    voice.setDeaf(true, DEAFEN_REASON).then(
+      () => log.debug(`서버 헤드셋 끄기: ${this._label()}`),
+      (error: unknown) => {
+        if (codeOf(error) !== NOT_IN_VOICE) log.warn(`서버 헤드셋 끄기 실패: ${this._label()} | ${messageOf(error)}`);
+      },
+    );
+  }
+
+  // 같은 채널에서 서버 헤드셋 끄기가 풀렸다. 봇은 풀지 않으므로 사람이 푼 것이다
+  _undeafened(oldState: Partial<Pick<VoiceState, "channelId" | "serverDeaf">>, newState: Partial<Pick<VoiceState, "channelId" | "serverDeaf">>) {
+    if (!oldState.channelId || oldState.channelId !== newState.channelId || oldState.serverDeaf !== true || newState.serverDeaf !== false) return;
+    if (undeafenedByPeople.has(this.player.guild.id)) return;
+    undeafenedByPeople.add(this.player.guild.id);
+    log.info(`서버 헤드셋 끄기가 풀려 이 서버에서는 다시 걸지 않습니다(다시 시작하면 한 번 다시 겁니다): ${this._label()}`);
   }
 
   _enterStage(channel: VoiceBasedChannel) {

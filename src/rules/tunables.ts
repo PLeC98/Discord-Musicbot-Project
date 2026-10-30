@@ -33,6 +33,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "VOICE_PLAYING_PREFIX", group: "look", kind: "text", def: "" },
   { key: "VOICE_PAUSED_PREFIX", group: "look", kind: "text", def: "" },
   { key: "VOICE_IDLE_STATUS", group: "look", kind: "text", def: "" },
+  { key: "VOICE_SERVER_DEAFEN", group: "look", kind: "bool", def: "true" },
   // 유튜브
   { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
   { key: "YTDLP_PLAYER_CLIENTS", group: "youtube", kind: "list", def: "", advanced: true },
