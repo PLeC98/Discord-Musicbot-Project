@@ -359,6 +359,48 @@ test("진행 막대: 앞 갱신이 끝난 뒤 5초에 다음을 건다. 갱신 �
   assert.equal(mem.progressTimers.has("g1"), false);
 });
 
+test("진행 막대: 멈춰 있으면 고치지 않고 쉬다가 소리가 다시 나면 다시 건다. 오류로 멈춘 갱신은 되살리지 않는다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const mem = newManager();
+  const edits: unknown[] = [];
+  const sound = { paused: true };
+  const player = fakePlayer({
+    guild: { id: "g1", name: "서버" },
+    currentTrack: { title: "곡" },
+    nowPlayingMessage: { id: "m1", edit: async (p: unknown) => void edits.push(p) },
+    get paused() {
+      return sound.paused;
+    },
+  });
+  mem._playingPayload = async () => ({ components: [], flags: 0 }) as unknown as Awaited<ReturnType<typeof mem._playingPayload>>;
+  let ticks = 0;
+  mem._tickProgress = async () => void ticks++;
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  mem.startProgressUpdate(player);
+  t.mock.timers.tick(5_000);
+  await flush();
+  assert.equal(ticks, 0, "멈춘 동안은 고치지 않는다");
+  assert.equal(mem.progressTimers.has("g1"), false);
+  t.mock.timers.tick(60_000);
+  await flush();
+  assert.equal(ticks, 0, "다시 걸지도 않는다");
+
+  await mem.updatePlaying(player);
+  assert.equal(mem.progressTimers.has("g1"), false, "아직 멈춰 있으면 다시 걸지 않는다");
+
+  sound.paused = false;
+  await mem.updatePlaying(player);
+  assert.equal(edits.length, 2);
+  t.mock.timers.tick(5_000);
+  await flush();
+  assert.equal(ticks, 1, "소리가 다시 나면 5초 갱신을 다시 건다");
+
+  mem.stopProgressUpdate("g1");
+  await mem.updatePlaying(player);
+  assert.equal(mem.progressTimers.has("g1"), false, "멈춤 때문에 쉰 것이 아니면 되살리지 않는다");
+});
+
 test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 멈춰 뒀으면 일시정지를 덧붙이고, 버튼은 사람의 멈춤을 따른다", async () => {
   const mem = newManager();
   const track = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };

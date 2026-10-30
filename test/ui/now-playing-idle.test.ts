@@ -206,6 +206,14 @@ test("끝난 패널이 묻히면 기억해 둔 문구로 맨 아래에 다시 �
   players.set("g1", fakePlayer({ currentTrack: {}, nowPlayingMessage: { id: "1" } }));
   await mem.repinIdlePanel(guild, BOT, now);
   assert.equal(calls.sent.length, 0, "재생 중이면 5초 갱신이 맡는다");
+  let reposted = 0;
+  mem._isBuried = async () => true;
+  mem._repostNowPlaying = async () => void reposted++;
+  mem.heldProgress.add("g1");
+  await mem.repinIdlePanel(guild, BOT, now);
+  assert.equal(reposted, 1, "멈춰 5초 갱신이 쉬는 재생 패널은 여기서 다시 올린다");
+  assert.equal(calls.sent.length, 0, "끝난 패널을 올리지 않는다");
+  mem.heldProgress.delete("g1");
   players.clear();
 
   await mem.repinIdlePanel(guild, BOT, now);

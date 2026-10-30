@@ -139,6 +139,7 @@ class NowPlayingPanel {
   client: Client;
   players: Pick<PlayerSeats, "get">; // 서버마다의 플레이어. 패널이 지금 재생 중인지 본다
   progressTimers = new Map<string, NodeJS.Timeout>(); // guildId -> 다음 진행 막대 갱신
+  heldProgress = new Set<string>(); // 멈춰 있어 진행 막대 갱신을 쉬는 서버. 소리가 다시 나면 updatePlaying 이 다시 건다
   webhookCache = new Map<string, WebhookClient>(); // channelId -> 그 채널에 패널을 올리는 웹훅
   reposting = new Set<string>(); // 현재 재생 메시지를 다시 올리는 중인 guildId
   location: PanelLocation;
@@ -430,6 +431,7 @@ class NowPlayingPanel {
     const panel = player.nowPlayingMessage;
     if (!panel || !player.currentTrack) return;
     if (this.reposting.has(player.guild.id)) return; // 다시 올리는 중. 그쪽이 최신 내용으로 보낸다
+    if (!player.paused && this.heldProgress.delete(player.guild.id)) this.startProgressUpdate(player);
 
     try {
       const payload = await this._playingPayload(player, player.currentTrack);
@@ -577,7 +579,7 @@ class NowPlayingPanel {
     await this._showIdle(player, null, { ...next, dedicated: await this._panelIsDedicated(player, null) });
   }
 
-  /** 전용 채널에 메시지가 올라오면 끝난 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
+  /** 전용 채널에 메시지가 올라오면 끝난 패널 · 멈춘 재생 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
   async scheduleIdleRepin(guild: Guild | null | undefined, channelId: string) {
     if (!guild?.id || (await GuildSettingsManager.getBotChannel(guild.id)) !== channelId) return;
     clearTimeout(this.repinTimers.get(guild.id));
@@ -591,7 +593,10 @@ class NowPlayingPanel {
 
   async repinIdlePanel(guild: Guild, channelId: string, now = Date.now()) {
     const player = this.players.get(guild.id);
-    if (player?.currentTrack && player.nowPlayingMessage) return;
+    if (player?.currentTrack && player.nowPlayingMessage) {
+      if (this.heldProgress.has(guild.id) && (await this._isBuried(player, now))) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+      return;
+    }
     const channel = await this._dedicatedChannel(guild);
     if (!canSend(channel) || channel.id !== channelId) return;
     const record = await this.location.store.getPanel(guild.id);
@@ -774,6 +779,12 @@ class NowPlayingPanel {
       this.stopProgressUpdate(guildId);
       return;
     }
+    // 멈춘 동안은 같은 내용이라 고치지 않는다. 묻힘은 scheduleIdleRepin 이 본다
+    if (player.paused) {
+      this.progressTimers.delete(guildId);
+      this.heldProgress.add(guildId);
+      return;
+    }
     try {
       await this._tickProgress(player);
     } catch (error) {
@@ -800,6 +811,7 @@ class NowPlayingPanel {
       clearTimeout(timer);
       this.progressTimers.delete(guildId);
     }
+    this.heldProgress.delete(guildId);
     this.editFailures.delete(guildId);
   }
 }
