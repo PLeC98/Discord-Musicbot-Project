@@ -3,10 +3,11 @@
 
 import { ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import * as genreConfig from "../config/genres.ts";
-import { emojiOf, labelOf } from "../rules/platforms.ts";
+import { labelOf } from "../rules/platforms.ts";
 import { colorOf } from "./colors.ts";
 import * as discordArt from "./discord-art.ts";
 import { formatDuration } from "./format.ts";
+import { icon, platformIcon } from "./icons.ts";
 import { escapeMd } from "./mentions.ts";
 import { playbackStatus } from "./player-status.ts";
 import { progressBar } from "./progress-bar.ts";
@@ -36,7 +37,7 @@ function aboutTrack(player: Player, track: QueuedTrack) {
   const requester = track.autoplay ? T.autoplayPick : track.requestedBy?.id ? `<@${track.requestedBy.id}>` : null;
   const audioUrl = track.audioUrl;
   const foundBy = audioUrl && track.audioFoundBy ? T.foundBy[track.audioFoundBy] : null;
-  return [T.line("stats", T.status, status), requester ? T.line("person", T.requester, requester) : null, T.line("web", T.source, `${emojiOf(platform)} ${labelOf(platform)}`), audioUrl && foundBy ? T.line("link", T.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
+  return [T.line("stats", T.status, status), requester ? T.line("person", T.requester, requester) : null, T.line("web", T.source, `${icon(platformIcon(platform))} ${labelOf(platform)}`), audioUrl && foundBy ? T.line("link", T.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
 }
 
 /** 다음 곡. 대기열이 비면 자동재생이 고르는지, 아니면 없음 */

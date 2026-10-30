@@ -1,9 +1,9 @@
-// src/rules/platforms.ts: 플랫폼 라벨 · 이모지. 자동재생 소스가 빠짐없이 제 이름을 갖는다
+// src/rules/platforms.ts: 플랫폼 라벨. 자동재생 소스가 빠짐없이 제 이름을 갖는다
 
 import test from "node:test";
 import assert from "node:assert";
 
-import { PLATFORM_NAMES, isPlatform, labelOf, emojiOf } from "../../src/rules/platforms.ts";
+import { PLATFORM_NAMES, isPlatform, labelOf } from "../../src/rules/platforms.ts";
 import { TYPES } from "../../src/autoplay/sources/index.ts";
 
 // 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 이름 없이(그리고 회색 점으로) 뜬다.
@@ -22,13 +22,6 @@ test("모르는 값은 첫 글자만 올리고, 빈 값은 한 글자로", () =>
   assert.equal(labelOf(""), "-");
   assert.equal(labelOf(null), "-");
   assert.equal(labelOf("touhoudb"), "TouhouDB");
-});
-
-// 라벨과 이모지는 같은 키 목록(Platform)으로 적어 하나를 빠뜨리면 타입 검사가 잡는다
-test("이모지: 아는 플랫폼은 그 이모지, 모르는 값은 음표", () => {
-  assert.equal(emojiOf("anisongdb"), "🎏");
-  assert.equal(emojiOf("bandcamp"), "🎵");
-  assert.equal(emojiOf(""), "🎵");
 });
 
 // platform 은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 된다.

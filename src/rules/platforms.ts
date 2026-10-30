@@ -22,32 +22,11 @@ const PLATFORM_NAMES: Record<Platform, string> = {
   touhoudb: "TouhouDB",
 };
 
-// 앞의 넷은 사용자가 직접 넣는 경로, 나머지는 자동재생이 출처에서 받아 온 곡들이다
-// (소리는 유튜브나 그쪽 음원에서 온다).
-const PLATFORM_EMOJI: Record<Platform, string> = {
-  youtube: "🔴",
-  spotify: "🟢",
-  soundcloud: "🟠",
-  direct: "🔗",
-  lastfm: "🔺",
-  lbradio: "🧠",
-  animethemes: "🎌",
-  anisongdb: "🎏",
-  vocadb: "🎹",
-  utaitedb: "🎤",
-  touhoudb: "⛩️",
-};
-
 /** 모르는 값은 첫 글자만 대문자로 올린다. */
 function labelOf(platform: string | null | undefined) {
   if (!platform) return "-";
   return isPlatform(platform) ? PLATFORM_NAMES[platform] : platform.charAt(0).toUpperCase() + platform.slice(1);
 }
 
-/** 모르는 값은 음표. 빈 자리로 두면 줄이 어긋나 보인다. */
-function emojiOf(platform: string | null | undefined) {
-  return isPlatform(platform) ? PLATFORM_EMOJI[platform] : "🎵";
-}
-
-export { PLATFORMS, PLATFORM_NAMES, PLATFORM_EMOJI, isPlatform, labelOf, emojiOf };
+export { PLATFORMS, PLATFORM_NAMES, isPlatform, labelOf };
 export type { Platform };

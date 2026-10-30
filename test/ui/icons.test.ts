@@ -4,9 +4,20 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { ICONS, buttonEmoji, emojiName, icon, iconEntries, useUploaded } from "../../src/ui/icons.ts";
+import { ICONS, buttonEmoji, emojiName, icon, iconEntries, platformIcon, useUploaded } from "../../src/ui/icons.ts";
+import { PLATFORMS } from "../../src/rules/platforms.ts";
 
 afterEach(() => useUploaded(new Map()));
+
+test("곡이 온 곳마다 아이콘이 있고, 모르는 곳은 음표", () => {
+  const missing = PLATFORMS.filter((one) => platformIcon(one) === "music");
+  assert.deepEqual(missing, [], `아이콘 없는 곳: ${missing.join(", ")}`);
+  assert.equal(platformIcon("bandcamp"), "music");
+  assert.equal(platformIcon(null), "music");
+  // 바탕색이 하나뿐인 아이콘은 운영자 색을 물어도 그 색으로
+  useUploaded(new Map([["platform_youtube_error", { id: "1", animated: false }]]));
+  assert.equal(icon(platformIcon("youtube")), "<:platform_youtube_error:1>");
+});
 
 test("맞추기 전에는 유니코드", () => {
   assert.equal(icon("pause"), "⏸️");
