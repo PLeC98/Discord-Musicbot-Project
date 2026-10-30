@@ -18,9 +18,9 @@ type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextB
 
 /**
  * refused: 부르지 않았다 · already: 이미 그 채널에 있다 · joined: 붙어서 곡을 기다린다 ·
- * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡) · restore-error: 복원하다가 오류가 나 플레이어를 버렸다
+ * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡. parked: 열지 못해 그 곡에서 멈춰 뒀다) · restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
-type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number } | { kind: "restore-error" };
+type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number; parked: boolean } | { kind: "restore-error" };
 
 /**
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
@@ -80,7 +80,7 @@ async function restore(player: Player, saved: RestoredSession): Promise<JoinResu
   try {
     const outcome = await player.persistence.restoreFromState(saved, { announce: false });
     // 재생 중이던 곡이 저장된 세션만 복원하니 틀 곡이 없는 결과(empty)는 나오지 않는다
-    return { kind: "restored", player, track: outcome === "restored" ? player.currentTrack : null, left: player.queue.length };
+    return { kind: "restored", player, track: outcome === "restored" || outcome === "parked" ? player.currentTrack : null, left: player.queue.length, parked: outcome === "parked" };
   } catch (error) {
     log.error("세션 복원 실패:", messageOf(error));
     await player.dispose({ reason: "세션 복원 실패", session: "keep" });

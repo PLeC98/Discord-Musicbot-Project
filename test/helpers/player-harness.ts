@@ -281,6 +281,7 @@ class FakePersistence extends SessionPersistence {
   async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
     if (behavior.restore) {
       await behavior.restore.call(this.player, record, options);
+      if (this.player.lifecycle.parked) return "parked";
       return this.player.currentTrack ? "restored" : this.player.queue.length ? "failed" : "empty";
     }
     return super.restoreFromState(record, options);

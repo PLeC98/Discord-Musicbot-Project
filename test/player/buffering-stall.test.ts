@@ -24,6 +24,7 @@ function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reas
       },
     },
     _endReason: reason,
+    lifecycle: { parked: false },
     _stopWith: Player.prototype._stopWith,
     _clearSilentStop: Player.prototype._clearSilentStop,
     _silentStop: null,

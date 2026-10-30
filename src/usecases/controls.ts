@@ -72,6 +72,11 @@ async function pause(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
+  // 실패로 멈춰 둔 곡이면 ▶ 는 그 위치부터 다시 연다(멈춤만 풀면 열린 소리가 없어 아무 일도 없다)
+  if (player.parked) {
+    await player.retryParked();
+    return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
+  }
   player.pause.setUser(!player.pause.userPaused);
   await refresh(player);
   return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });

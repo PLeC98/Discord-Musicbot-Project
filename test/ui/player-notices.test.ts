@@ -19,19 +19,21 @@ function channel() {
 }
 const accentOf = (p: Sent) => (p.components[0].toJSON() as { accent_color?: number }).accent_color;
 
-test("연달아 실패는 오류 색 · 헤더 줄 · 남은 곡 줄, 채널 메시지(Components V2)로", async () => {
+test("그 곡에서 멈춰 둠: 연달아 실패는 오류 색 · 헤더 줄 · ▶ 줄, 채널 메시지(Components V2)로. 다음 곡도 안 되는 실패는 그 까닭에 한 줄을 더한다", async () => {
   const { player, sent } = channel();
-  await sendNotice(player, "failed-in-row", { count: 3, left: 2 });
-  assert.deepEqual(textsOf(sent[0]), ["### ❌ 곡 3개 재생에 연달아 실패해서 재생을 중단했어요.\n남은 2곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요."]);
+  await sendNotice(player, "parked", { kind: "failures", count: 3 });
+  assert.deepEqual(textsOf(sent[0]), ["### ❌ 곡 3개 재생에 연달아 실패해서 멈췄어요.\n▶ 로 다시 시도하거나 ⏭ 로 넘길 수 있어요."]);
+  await sendNotice(player, "parked", { kind: "environment", error: Object.assign(new Error("끊김"), { code: "network-error" }) });
+  assert.match(textsOf(sent[1])[0], /\n다음 곡으로 넘기지 않고 멈췄어요\. ▶ 을 누르면 다시 시도해요\.$/);
   assert.equal(accentOf(sent[0]), resolveColor("#ED4245"));
   assert.deepEqual(sent[0].flags, [MessageFlags.IsComponentsV2]);
 });
 
-test("안내는 그 수준의 수명 뒤 지운다: 연달아 실패(오류) 15초, 자동재생(경고) · 복원 10초", async () => {
+test("안내는 그 수준의 수명 뒤 지운다: 멈춰 둠(오류) 15초, 자동재생(경고) · 복원 10초", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const { player, deleted } = channel();
-    await sendNotice(player, "failed-in-row", { count: 3, left: 2 });
+    await sendNotice(player, "parked", { kind: "failures", count: 3 });
     await sendNotice(player, "autoplay-gave-up", { genre: "jazz" });
     await sendNotice(player, "restored", { title: "곡", atSec: 61, paused: false });
     mock.timers.tick(10_000);

@@ -39,8 +39,11 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
     if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
   }
-  // 붙지 못하면 voice-failed 로 던진다. play() 의 실패 처리가 알리고 다음 곡으로 넘긴다
-  if (!player.connection) await player.voice.connect();
+  // 붙지 못하면 voice-failed 로 던진다. play() 는 넘기거나 세지 않고 그 결과를 돌려준다. 음성 복구 중이면 붙지 않는다(새로 붙으면 복구가 멈추고, 실패하면 채널에서 나간다. 복구가 다시 연다)
+  if (!player.connection) {
+    if (player.isRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중입니다");
+    await player.voice.connect();
+  }
 
   const wanted = Number(seekMs) || 0;
   let startMs = Math.max(0, Math.floor(wanted));

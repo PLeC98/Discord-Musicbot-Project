@@ -21,7 +21,7 @@ function fakePlayer(status: AudioPlayerStatus) {
     _endScheduled: false,
     _endWaiters: new Set(),
     _silentStop: null,
-    lifecycle: { ending: false },
+    lifecycle: { ending: false, parked: false },
     _stopWith: Player.prototype._stopWith,
     _clearSilentStop: Player.prototype._clearSilentStop,
     _trackLabel: Player.prototype._trackLabel,

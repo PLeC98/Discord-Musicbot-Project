@@ -153,7 +153,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "dj-role-save-failed": () => error("failed", "저장하지 못했어요", "DJ 역할 저장 중에 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
   // /join 이 저장한 세션을 복원하지 못했다. 다시 틀다 실패하고 남은 곡이 없다 · 연달아 실패해 멈췄다 · 복원하다가 오류
   "restore-nothing-left": () => error("failed", "이어 들을 곡을 틀지 못했어요", "저장된 곡을 다시 틀다 실패했고 남은 곡이 없어요. `/play`로 곡을 넣어 주세요."),
-  "restore-failed-in-row": ({ left }) => error("failed", "이어 들을 곡들을 연달아 틀지 못했어요", `남은 ${left}곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요.`),
+  "restore-parked": () => error("failed", "이어 들을 곡을 열지 못해 멈춰 뒀어요", "▶ 을 누르면 다시 시도해요."),
   // 디스코드 /join 과 대시보드 참가 버튼이 같이 쓴다
   "restore-failed": () => error("failed", "오류가 발생했어요!", "이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join` 이나 대시보드의 참가 버튼으로 다시 시도해 보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요."),
 

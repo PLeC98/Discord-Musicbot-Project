@@ -16,7 +16,7 @@ async function answer(interaction: ChatInputCommandInteraction<"cached">, result
     case "joined":
       return toAll(interaction, replies.joined(), LIFETIME.result);
     case "restored":
-      return toAll(interaction, replies.restoreResult(result.track, result.player.paused, result.left), LIFETIME.result);
+      return toAll(interaction, replies.restoreResult(result.track, result.player.paused, result.parked), LIFETIME.result);
     case "restore-error":
       return toAll(interaction, noticeFrame(errors.notice("restore-failed")), LIFETIME.result);
   }

@@ -23,8 +23,9 @@ type Notices = {
   "autoplay-unknown-genre": { genre: string };
   "autoplay-genre-unusable": { genre: string; keys: string };
   "autoplay-gave-up": { genre: string };
-  "skipped-after-error": { error: unknown };
-  "failed-in-row": { count: number; left: number };
+  "skipped-after-error": { error: unknown; removed?: number };
+  "skipped-more": { count: number };
+  parked: { kind: "environment"; error: unknown } | { kind: "failures"; count: number; error?: undefined } | { kind: "dropped"; error?: unknown };
   "saved-session-replaced": { count: number };
   "stage-requested": Record<string, never>;
   "stage-cannot-speak": Record<string, never>;

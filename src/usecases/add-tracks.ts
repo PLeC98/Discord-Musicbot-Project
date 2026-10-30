@@ -499,6 +499,8 @@ async function startFirst(panel: Panel, player: Player, track: QueuedTrack, resp
   player.takeOverSaved();
   trackState.setCurrent(player, track);
   const failure = await startPlayback(player);
+  // 그 곡에서 멈춰 뒀다(다음 곡도 같은 이유로 안 된다 · 까닭 모를 실패가 연달아). 곡을 지우지도 다음 곡을 열지도 않고 멈춘 패널을 세운다. 까닭은 채널 알림이 말한다
+  if (failure?.code === "parked") return { opened: await openPanel(panel, player, track, responder), failure: null, started: track };
   if (failure) {
     // 실패한 곡으로는 패널을 세우지 않고 대기열에도 넣지 않는다(다시 틀어도 실패한다)
     trackState.setCurrent(player, null);
@@ -533,7 +535,8 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
   if (player.currentTrack || player.queue.length === 0) return null;
   try {
     const nextResult = await player.play(0);
-    if (nextResult && nextResult.ok !== false && player.currentTrack) {
+    // 그 곡에서 멈춰 뒀어도 패널을 세운다(멈춘 곡으로)
+    if (nextResult && (nextResult.ok !== false || nextResult.code === "parked") && player.currentTrack) {
       return await openPanel(panel, player, player.currentTrack, responder);
     }
   } catch (e) {

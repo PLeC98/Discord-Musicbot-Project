@@ -30,6 +30,7 @@ function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, isLive = f
     audioPlayer: audio,
     isLive,
     _endReason: null,
+    lifecycle: { parked: false },
     _stopWith: Player.prototype._stopWith,
     _trackLabel: Player.prototype._trackLabel,
     getCurrentTime: Player.prototype.getCurrentTime,

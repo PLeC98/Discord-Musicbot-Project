@@ -39,6 +39,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _runLaterEnd: Player.prototype._runLaterEnd,
     _scheduleEnd: Player.prototype._scheduleEnd,
     _closeEnd: Player.prototype._closeEnd,
+    _toIdleOnEnd: Player.prototype._toIdleOnEnd,
     _endScheduled: false,
     _endWaiters: new Set(),
     _resetFailures: Player.prototype._resetFailures,
@@ -64,6 +65,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
+    _tellSkipped: Player.prototype._tellSkipped,
     audioPlayer: { state: { status: "idle" }, stop() {} },
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });
@@ -233,19 +235,26 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 
 // ── 조기 종료 재시도 ──────────────────────────────────────────
 
-test("재시도 예산은 곡마다. 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
+test("재시도 예산은 곡마다. 앞 곡이 다 쓰고 멈춰 둔 뒤 넘긴 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
+  // 예산을 다 쓰면 그 곡에서 멈춰 둔다. 사람이 넘긴 것처럼 다음 곡으로 옮긴다
+  const parked: Array<string | null | undefined> = [];
+  p.park = () => {
+    parked.push(p.currentTrack?.title);
+    p.currentTrack = p.queue.shift() ?? null;
+  };
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 10_000, playStream: { readableEnded: false } } }); // 매번 10초쯤 가다 패킷 공급이 끊겨 멈춤
     await onTrackEnd.call(p, "idle");
   }
 
+  assert.deepEqual(parked, ["A"]);
   assert.deepEqual(
     p.played.map((x) => x.title),
     ["A", "A", "B", "B"],
-    "앞 곡의 소진된 카운터를 물려받으면 B는 재시도 없이 넘어간다",
+    "앞 곡의 소진된 카운터를 물려받으면 B는 재시도 없이 멈춘다",
   );
 });
 

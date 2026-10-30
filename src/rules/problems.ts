@@ -111,7 +111,7 @@ const SHARED = {
   "dj-role-save-failed": { status: 500, title: "Could not save the DJ role" },
   // /join 이 저장한 세션을 복원하지 못했다
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
-  "restore-failed-in-row": { status: 500, title: "Saved tracks failed in a row", params: ["left"] },
+  "restore-parked": { status: 500, title: "Could not open the saved track, paused on it" },
   "restore-failed": { status: 500, title: "Could not restore the session" },
 } as const satisfies Record<string, ProblemSpec>;
 

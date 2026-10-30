@@ -530,14 +530,15 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
+  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 열지 못해 그 곡에서 멈춰 둠 · 둘 다 없음)
   const nothingLeft = await run(async () => {});
   assert.deepEqual(nothingLeft.shown(), [post(noticeFrame(errors.notice("restore-nothing-left")))]);
 
-  const stopped = await run(async function () {
-    this.queue.push(tracks.youtube("ddddddddddd"), tracks.youtube("eeeeeeeeeee"));
+  const parked = await run(async function () {
+    this.currentTrack = tracks.youtube("ddddddddddd");
+    this.lifecycle.to("parked", "시험");
   });
-  assert.deepEqual(stopped.shown(), [post(noticeFrame(errors.notice("restore-failed-in-row", { left: 2 })))]);
+  assert.deepEqual(parked.shown(), [post(noticeFrame(errors.notice("restore-parked")))]);
 
   const failed = await run(async () => {
     throw new Error("복원 실패");

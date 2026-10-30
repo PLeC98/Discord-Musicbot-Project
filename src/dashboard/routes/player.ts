@@ -126,7 +126,7 @@ function joinRoute(router: Router) {
     if (result.kind === "restore-error") return sendProblem(res, "restore-failed");
     const { player } = result;
     if (result.kind === "joined") announcer(bot, player)(replies.joined());
-    if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(result.track, player.paused, result.left));
+    if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(result.track, player.paused, result.parked));
 
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));

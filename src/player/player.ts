@@ -27,6 +27,7 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 import config from "../config/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf, codedError, codeOf } from "../rules/error-kind.ts";
+import { failureScope, type FailureScope } from "./failure-scope.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
@@ -75,7 +76,8 @@ import { logTitle } from "../infra/log/title.ts";
 // 사용자가 조정해서 나아질 여지가 없다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가(캐시 디코더가 뜨는 시간보다 넉넉히)
 const LIVE_REOPEN_DELAY_MS = 1000; // 라이브 다시 열기 간격의 단위. 예산을 쓴 횟수에 비례해 늘린다
-const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 멈춘다
+const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 그 곡에서 멈춰 둔다(까닭을 모르는 실패 · 자동재생이 고른 곡)
+const SKIP_NOTICES_IN_ROW = 3; // 곡 탓으로 연달아 넘길 때 하나씩 알리는 수. 넘으면 모았다가 한 번에
 const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이만큼 넘게 다르면 남긴다
 // 재생 중 패킷 공급이 끊겨도 이만큼(20ms 프레임 500개 = 10초) 버틴다. 라이브러리 기본은 5(0.1초).
 // 입력 층(청크 스트림 이어받기 · HLS 재접속 · 직접 링크 본문 무응답)이 이보다 먼저 결론 내게 둔다.
@@ -86,7 +88,9 @@ const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 �
 const SILENT_STOP_CAP_MS = 500;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
-type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
+type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
+/** 그 곡에서 멈춰 둔 까닭. environment: 다음 곡도 안 되는 실패 · failures: 까닭을 모르는 실패가 연달아(count 곡) · dropped: 들리던 곡이 끊겨 다시 열지 못함 */
+type ParkReason = { kind: "environment"; error: unknown } | { kind: "failures"; count: number; error?: undefined } | { kind: "dropped"; error?: unknown };
 
 // 끊긴 라이브를 다시 열었는데 라이브가 아니다(방송이 끝나 다시보기가 됐다)
 const endedLive = (liveReopen: boolean, transport: { live: boolean }) => liveReopen && !transport.live;
@@ -214,6 +218,17 @@ class Player {
   failedTracks: number;
   /** 연달아 실패한 곡(로그용). 실패 수와 같이 비운다 */
   failedLabels: string[] = [];
+  /** 자동재생이 고른 곡이 연달아 실패한 수(갈래와 상관없이). 소리를 낸 곡이 끝나면 0 */
+  autoplayFailures = 0;
+  /** 곡 탓으로 연달아 넘긴 수 · 그중 알리지 않고 모은 수. 소리가 나기 시작하면 모은 것을 한 번에 알린다 */
+  skippedInRow = 0;
+  skippedQuiet = 0;
+  /** 그 곡에서 멈춰 두기(park) 전에 사람이 이미 멈춰 뒀나. 멈춰 둔 곡을 떠날 때 멈춤을 되돌릴지 정한다 */
+  _parkedOverUserPause = false;
+  /** ▶ 로 멈춰 둔 곡을 다시 여는 중(대시보드가 그 사이에도 곡을 보이게) */
+  _retryingParked = false;
+  /** play() 의 세대. 끝 정리는 자기 세대가 마지막일 때만 한다(겹친 play 의 정리가 새 것의 단계 · 보호를 지우지 않게) */
+  _playGen = 0;
   /** 끝 처리 중에 끝난 곡(그 처리가 막 튼 다음 곡). 그 처리가 끝나면 이어서 처리한다 */
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched 가 본다 */
@@ -402,7 +417,8 @@ class Player {
 
   /** 음성 연결이 복구됐다(voice 가 알린다). 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다 */
   async onVoiceRecovered() {
-    if (!this.currentTrack) return;
+    // 멈춰 둔 곡은 다시 열지 않는다(다시 트는 것은 사람의 ▶)
+    if (!this.currentTrack || this.lifecycle.parked) return;
     try {
       await this.play(this.getCurrentTime(), { continued: true });
     } catch (error) {
@@ -423,6 +439,7 @@ class Player {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다. starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
+    const gen = ++this._playGen;
     let pb: CurrentPlayback | null = null;
     try {
       const start = await prepareStart(this, seekMs);
@@ -464,17 +481,22 @@ class Player {
       // 트는 사이에 버려졌다. 넘긴 리소스는 정리(_endPlayback)가 destroy 했다
       if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
       this.lifecycle.to("playing");
+      this._tellSkipped();
       return { ok: true, track: this.currentTrack };
     } catch (error) {
-      return await this._playFailed(error, liveReopen, pb);
+      return await this._playFailed(error, liveReopen, pb, { at: seekMs, continued });
     } finally {
       // 틀지 못하고 나왔다(대기열이 비었거나 라이브가 끝났거나 실패). 캐시 파일을 찾으며 건 보호도 푼다.
       // 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰고 보호도 그 곡의 것이다
-      if (this.lifecycle.starting) {
-        this.releaseAudioProtection();
-        this.lifecycle.to("idle", "시작 못 함");
-      }
+      this._closeStart(gen);
     }
+  }
+
+  // 틀지 못하고 나왔다. 캐시 파일을 찾으며 건 보호를 풀고 쉬는 단계로. 그사이 다른 play() 가 시작했으면(세대가 다르다) 그쪽의 단계 · 보호라 건드리지 않는다
+  _closeStart(gen: number) {
+    if (!this.lifecycle.starting || gen !== this._playGen) return;
+    this.releaseAudioProtection();
+    this.lifecycle.to("idle", "시작 못 함");
   }
 
   // 소리를 어디서 받을지 정하고 연다. 끊긴 라이브를 다시 여는데 방송이 끝났으면 null(다시보기를 처음부터 틀지 않는다. 사용자가 추가한 것은 방송이다)
@@ -514,10 +536,16 @@ class Player {
 
   // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다
   // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 구분할 수 없어 끝 처리가 남긴다)
-  async _playFailed(error: unknown, liveReopen: boolean, pb: CurrentPlayback | null) {
+  async _playFailed(error: unknown, liveReopen: boolean, pb: CurrentPlayback | null, { at, continued }: { at: number; continued: boolean }) {
     // 만들었지만 voice 에 넘기지 못한 리소스는 voice 도 정리도 destroy 하지 않는다. 그대로 두면 ffmpeg · Opus 인코더가 남는다
     dropUnplayed(pb);
     if (this.lifecycle.disposed) return { ok: false, code: "disposed" } satisfies PlayResult;
+    // 음성에 붙지 못했다. 넘기거나 세지 않는다(다음 곡도 붙지 못한다). 곡 추가는 스스로 정리하고(finishByCaller), 음성 복구 중이면 복구가 다시 연다. 그 밖은 세션을 남기고 버린다
+    if (codeOf(error) === "voice-failed") {
+      log.warn(`음성에 붙지 못해 재생하지 못합니다: ${this._trackLabel()} | ${messageOf(error)}`);
+      if (!this.finishByCaller && !this.isRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep" });
+      return { ok: false, code: "voice-failed", error } satisfies PlayResult;
+    }
     // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음 · 세션 복원) 실패로 세지 않고 알리고 넘긴다
     const ended = codeOf(error) === "live-ended";
     if (liveReopen) return ended ? ({ ok: false, code: "live-ended" } satisfies PlayResult) : ({ ok: false, code: "live-reopen-failed", error } satisfies PlayResult);
@@ -529,7 +557,8 @@ class Player {
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
     elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
     elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
-    await this.handleError(error, { tell: true });
+    await this.handleError(error, { tell: true, at, continued });
+    if (this.lifecycle.parked) return { ok: false, code: "parked", error } satisfies PlayResult;
     return { ok: false, code: "play-failed", error } satisfies PlayResult;
   }
 
@@ -656,6 +685,8 @@ class Player {
     this._clearSilentStop();
     const reason = this._endReason ?? trigger;
     this._endReason = null;
+    // 멈춰 두며 내린 소리다. 곡이 끝난 것이 아니다(park)
+    if (this.lifecycle.parked) return;
     // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 무음을 흘려보내면 100ms 뒤에 온다
     this._scheduleEnd(reason);
   }
@@ -693,6 +724,12 @@ class Player {
    * 무음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
    */
   _stopWith(reason: string, { force = false }: { force?: boolean } = {}) {
+    // 멈춰 둔 곡에는 열린 소리가 없어 멈춰도 Idle 이 오지 않는다. 끝 처리를 직접 건다
+    if (this.lifecycle.parked) {
+      this._endReason = null;
+      if (!this._endScheduled) this._scheduleEnd(reason);
+      return;
+    }
     if (this._endReason && this._endReason !== reason) log.debug(`이미 정지 처리 중(원인=${this._endReason})이므로 ${reason} 요청은 무시합니다: ${this._trackLabel()}`);
     this._endReason ??= reason;
     if (force || this.audioPlayer.state.status !== AudioPlayerStatus.Playing) {
@@ -1006,7 +1043,7 @@ class Player {
       if (this.playback) this._laterEnd = { reason, playback: this.playback };
       return;
     }
-    if (this.lifecycle.phase === "playing") this.lifecycle.to("idle", `곡 끝(${reason})`);
+    this._toIdleOnEnd(reason);
     this.sponsorSkipper?.stop(); // 다음 곡의 play()가 onPlayStart로 다시 켠다
 
     try {
@@ -1018,7 +1055,7 @@ class Player {
       if ((this.playback?.resource?.playbackDuration ?? 0) >= PROGRESS_MS) this._resetFailures();
       const end = this._describeEnd(finishedTrack, reason);
       // 멎어서 넘기는 곡도 실패로 센다. 멎음 감시가 대기열을 10초마다 한 곡씩 버리지 않게
-      if (reason === "stuck" && this._countFailure(finishedTrack)) return await this._stopAfterFailures();
+      if (reason === "stuck" && this._countFailure(finishedTrack)) return this.park(this.getCurrentTime(), { kind: "failures", count: this._takeFailures() });
       if (await this._recoverDrop(finishedTrack, end)) return;
 
       if (!finishedTrack) {
@@ -1030,6 +1067,13 @@ class Player {
     } finally {
       this._closeEnd();
     }
+  }
+
+  // 곡 끝에서 쉬는 단계로. 멈춰 둔 곡을 떠나는 것이면 park 가 건 멈춤을 되돌린다
+  _toIdleOnEnd(reason: string) {
+    const wasParked = this.lifecycle.parked;
+    if (this.lifecycle.phase === "playing" || wasParked) this.lifecycle.to("idle", `곡 끝(${reason})`);
+    if (wasParked) this._leaveParked();
   }
 
   // 끝 처리를 닫는다. 미뤄 둔 끝을 걸고, 더 걸린 끝이 없으면 곡이 바뀌기를 기다리던 쪽을 깨운다
@@ -1097,12 +1141,16 @@ class Player {
       if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열었습니다: ${label} | ${sec(Date.now() - started)}초 걸림`);
       return true;
     }
+    // 들리던 곡이다(곡 탓으로 볼 근거가 없다). 끊긴 위치에서 멈춰 둔다. 라이브는 끊긴 위치가 의미 없어 세고 넘긴다
+    if (!live) {
+      log.error(`재생을 복구하지 못해 그 자리에서 멈춰 둡니다: ${label} | ${at} 지점, ${step.why}`);
+      this.park(playedMs, { kind: "dropped" });
+      return true;
+    }
     const stopping = this._countFailure();
-    const detail = `${live ? "" : `${at} 지점, `}${step.why}`;
-    const what = live ? "라이브를 다시 열지 못해" : "재생을 복구하지 못해";
-    log.error(`${what} ${stopping ? "곡을 끝냅니다" : "다음 곡으로 넘깁니다"}: ${label} | ${detail}`);
+    log.error(`라이브를 다시 열지 못해 ${stopping ? "멈춰 둡니다" : "다음 곡으로 넘깁니다"}: ${label} | ${step.why}`);
     if (!stopping) return false;
-    await this._stopAfterFailures();
+    this.park(0, { kind: "failures", count: this._takeFailures() });
     return true;
   }
 
@@ -1117,7 +1165,7 @@ class Player {
     return false;
   }
 
-  // 곡 하나가 실패했다. 연달아 한도에 닿았으면 true(부르는 쪽이 _stopAfterFailures 로 멈춘다)
+  // 곡 하나가 실패했다. 연달아 한도에 닿았으면 true(부르는 쪽이 그 곡에서 멈춰 둔다)
   _countFailure(track: QueuedTrack | null = this.currentTrack) {
     this.failedTracks += 1;
     this.failedLabels.push(this._trackLabel(track));
@@ -1128,33 +1176,16 @@ class Player {
   _resetFailures() {
     this.failedTracks = 0;
     this.failedLabels = [];
+    this.autoplayFailures = 0;
   }
 
-  /**
-   * 곡이 연달아 실패했다. 다음 곡으로 넘기기를 그만두고 멈춘다. 네트워크가 끊겼을 때 대기열을 통째로 버리지 않게.
-   * 실패한 곡만 내리고 대기열은 둔다. 곡을 추가하면 그 곡부터 다시 튼다
-   */
-  async _stopAfterFailures() {
+  // 한도에 닿아 멈춰 둔다. 실패한 곡들을 로그에 남기고 다시 센다(사람이 다시 틀 때 한 번 실패로 곧바로 멈추지 않게). 실패한 수
+  _takeFailures() {
     const count = this.failedTracks;
-    const failed = this.failedLabels.length ? this.failedLabels.join(" · ") : this._trackLabel();
-    this._resetFailures(); // 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게
-    log.error(`곡 ${count}개가 연달아 실패해 재생을 멈춥니다: ${failed}${this.queue.length ? ` | 대기열 ${this.queue.length}곡은 둡니다` : ""}`);
-    trackState.setCurrent(this, null);
-    this.playback = null;
-    this.lastPlaybackPosition = 0;
-    try {
-      this.audioPlayer.stop(true);
-    } catch (error) {
-      // 멈춘 플레이어의 stop 은 던지지 않는다. 던졌으면 전이를 받은 리스너가 던진 것이다
-      log.warn(`오디오 플레이어 정지 실패: ${messageOf(error)}`);
-    }
-    // 세션을 복원하는 /join 은 이것을 명령 응답으로 말한다(quietFailures)
-    if (!this.quietFailures) await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
-    // 남은 곡이 없으면 보통의 대기열 소진과 같다(세션을 삭제하고, 나갈 시각을 보이고, 나간다). 곡 추가가 첫 곡을 트는 중이면 곡 추가 쪽이 끝낸다
-    if (this.queue.length === 0) return this.finishByCaller ? undefined : this.finishQueue();
-    bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
-    // 남은 곡이 있으니 나가지 않는다. 틀 게 없음 퇴장을 걸지 않는다(혼자 남음 퇴장은 그대로 돈다)
-    await playerEvents.ended(this, "failures");
+    log.error(`곡 ${count}개가 연달아 실패했습니다: ${this.failedLabels.join(" · ") || this._trackLabel()}`);
+    this.failedTracks = 0;
+    this.failedLabels = [];
+    return count;
   }
 
   // 한 곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
@@ -1210,6 +1241,7 @@ class Player {
 
   // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
   async finishQueue() {
+    this._tellSkipped();
     trackState.reset(this, { history: true });
 
     bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
@@ -1289,6 +1321,8 @@ class Player {
     trackState.enqueue(this, [picked]);
     trackState.shiftNext(this);
     await this.play(0);
+    // 음성에 붙지 못해 버려졌다(play 가 세션을 남기고 버린다)
+    if (this.lifecycle.disposed) return false;
 
     // 패널이 없을 수 있다. 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
     // 패널 고치기는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
@@ -1354,6 +1388,7 @@ class Player {
   // 미리 선택해 둘 수 있는 상태인가. 선택하기 전과 넣기 직전에 같은 것을 본다.
   _canPrefetchAutoplay() {
     if (!this.autoplay || typeof this.autoplay !== "string") return false;
+    if (this.lifecycle.parked) return false; // 멈춰 둔 동안(망이 끊겼을 수 있다) 더 고르지 않는다
     if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
     if (this.loop === "track") return false; // 한 곡 반복이면 다음 곡으로 넘어가지 않는다
     const want = Number(this._autoplayConfig()?.prefetchCount ?? GENRE_DEFAULTS.prefetchCount);
@@ -1370,11 +1405,40 @@ class Player {
   }
 
   // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다. counted: 연달은 실패로 센다(끝난 방송은 세지 않는다)
-  async handleError(error: unknown, { tell = false, counted = true }: { tell?: boolean; counted?: boolean } = {}) {
+  /**
+   * 곡을 못 틀었다. 실패가 어디까지 닿는지(player/failure-scope)로 정한다:
+   * 곡 탓은 넘기고 세지 않는다 · 환경 탓은 넘기지 않고 그 곡에서 멈춰 둔다(넘기면 멀쩡한 대기열을 태운다) · 모름은 넘기고 세어 연달아면 그 곡에서 멈춰 둔다.
+   * 같은 곡을 이어 열다(continued: 위치 이동 · 끊김 복구 · 세션 복원 · 음성 복구) 곡 탓이 아닌 실패는 들리던 곡이라 그 위치(at)에서 멈춰 둔다
+   * tell: 넘길 때 무엇이 잘못됐는지 채널에 알린다. counted: 모름을 연달은 실패로 센다(끝난 방송은 세지 않는다)
+   */
+  async handleError(error: unknown, { tell = false, counted = true, at = 0, continued = false }: { tell?: boolean; counted?: boolean; at?: number; continued?: boolean } = {}) {
+    const failed = this.currentTrack;
+    const scope = failureScope(error, { direct: failed?.platform === "direct" });
+    this._countAutoplayFailure(failed);
     if (this._droppedDeadAutoplay(error)) tell = false;
-    // 다음 곡이 또 실패하면 여기로 다시 온다. 연달아 실패하면 대기열을 다 버리기 전에 멈춘다(자동재생이 죽은 곡을 계속 선택할 때도)
-    if (counted && this._countFailure()) return this._stopAfterFailures();
+    if (this._parkedOnFailure(error, scope, { at, continued, counted })) return;
+    // 곡 탓이면 대기열의 같은 곡도 뺀다(같은 이유로 안 열린다)
+    await this._skipFailed(error, { tell, removed: scope === "track" && failed ? this._dropCopies(failed) : 0 });
+  }
 
+  // 자동재생이 고른 곡은 갈래와 상관없이 따로 센다. 곡 탓을 세지 않으면 실패 → 자동재생 → 실패의 고리를 끊을 것이 없다
+  _countAutoplayFailure(failed: QueuedTrack | null) {
+    if (!failed?.autoplay || ++this.autoplayFailures < FAILED_TRACKS_LIMIT) return;
+    this.autoplayFailures = 0;
+    this._giveUpAutoplay();
+  }
+
+  // 넘기지 않고 그 곡에서 멈춰 둘 실패인가. 멈춰 뒀으면 true
+  _parkedOnFailure(error: unknown, scope: FailureScope, { at, continued, counted }: { at: number; continued: boolean; counted: boolean }) {
+    if (scope === "environment") this.park(at, { kind: "environment", error });
+    else if (continued && scope !== "track") this.park(at, { kind: "dropped", error });
+    else if (scope === "unknown" && counted && this._countFailure()) this.park(0, { kind: "failures", count: this._takeFailures() });
+    else return false;
+    return true;
+  }
+
+  // 못 튼 곡을 넘긴다. tell: 무엇이 잘못됐는지 채널에 알린다. removed: 같이 뺀 같은 곡 수
+  async _skipFailed(error: unknown, { tell, removed }: { tell: boolean; removed: number }) {
     // 못 튼 곡의 재생 · 위치를 버린다(곡 끝과 같이). 남기면 다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡의 위치로 쓴다
     this.playback = null;
     this.lastPlaybackPosition = 0;
@@ -1387,7 +1451,7 @@ class Player {
 
     // 남은 곡이 있으면 못 튼 까닭을 알리고 다음 곡으로 넘긴다
     if (this.queue.length > 0) {
-      if (tell) await playerEvents.notice(this, "skipped-after-error", { error }).catch(noticeFailed);
+      if (tell) this._tellSkip(error, removed);
       trackState.shiftNext(this);
       await this.play(0);
     } else {
@@ -1402,6 +1466,88 @@ class Player {
       // 틀 곡이 없다. 다 튼 것과 같이 끝낸다(끝난 패널 · 세션 삭제 · 나갈 예약). 곡 추가가 첫 곡을 트는 중이면 곡 추가 쪽이 끝낸다
       if (!this.finishByCaller) await this.finishQueue();
     }
+  }
+
+  // 대기열에서 이 곡과 요청 키가 같은 곡을 뺀다. 뺀 수
+  _dropCopies(track: QueuedTrack) {
+    const key = track.requestKey;
+    if (!key) return 0;
+    let removed = 0;
+    for (let i = this.queue.length - 1; i >= 0; i--) {
+      if (this.queue[i]?.requestKey !== key) continue;
+      trackState.removeAt(this, i);
+      removed++;
+    }
+    if (removed) log.info(`넘긴 곡과 같은 곡을 대기열에서 뺐습니다: ${this._trackLabel(track)} | ${removed}곡`);
+    return removed;
+  }
+
+  // 곡 탓으로 넘겼다고 알린다. 연달아 넘긴 것이 셋을 넘으면 그 뒤는 모았다가 소리가 나기 시작할 때 한 번에(삭제된 곡만 든 재생목록에 알림이 쌓이지 않게)
+  _tellSkip(error: unknown, removed: number) {
+    if (++this.skippedInRow <= SKIP_NOTICES_IN_ROW) playerEvents.notice(this, "skipped-after-error", { error, removed }).catch(noticeFailed);
+    else this.skippedQuiet++;
+  }
+
+  // 모아 둔 넘기기를 알린다. 소리가 나기 시작했거나 대기열이 끝났을 때
+  _tellSkipped() {
+    const quiet = this.skippedQuiet;
+    this.skippedInRow = 0;
+    this.skippedQuiet = 0;
+    if (quiet > 0) playerEvents.notice(this, "skipped-more", { count: quiet }).catch(noticeFailed);
+  }
+
+  /**
+   * 그 곡에서 멈춰 둔다(parked): 지금 곡은 그대로, 열린 소리는 없고, 사람이 ▶ 해야 다시 연다. 실패로 멈추는 길은 이것 하나다.
+   * 저장은 사람의 멈춤 · 위치로 한다(복원이 멈춘 채 되살린다). at: 다시 열 위치
+   */
+  park(at: number, why: ParkReason) {
+    if (this.lifecycle.disposed || !this.currentTrack) return;
+    // 단계를 먼저 바꾼다. 아래에서 열려 있던 소리를 내리면 Idle 이 동기로 오는데, 그 끝 처리가 곡을 넘기지 않게(onPlayerIdle 이 parked 를 본다)
+    this.lifecycle.to("parked", why.kind);
+    this._clearSilentStop();
+    if (this.audioPlayer.state.status !== AudioPlayerStatus.Idle) this.audioPlayer.stop(true);
+    this._endReason = null;
+    this.sponsorSkipper?.stop();
+    this.warmer.stop();
+    this.watch.stopIdle();
+    this.watch.stopOverflow();
+    this.releaseAudioProtection();
+    this.playback = null;
+    this.lastPlaybackPosition = Math.max(0, at || 0);
+    this._parkedOverUserPause = this.pause.userPaused;
+    this.pause.setUser(true);
+    // 소리를 한 번도 열지 못한 플레이어는 상태 동기화에 없어 설정 변경이 저장되지 않는다. 붙이고 지금 상태를 곧바로 쓴다
+    this.persistence.startStateSync();
+    bestEffort(log, this.persistence.persistState("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
+    this._showTrackInVoiceStatus();
+    log.warn(`그 곡에서 멈춰 둡니다(▶ 로 다시 시도): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, YouTube.cookiesConfigured())}` : ""}`);
+    // 기다리지 않는다. 기다리는 사이 ▶ 로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
+    if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed);
+  }
+
+  // 멈춰 둔 곡을 떠난다(넘기기 · 점프 · 이전 · 대기열 소진). park 가 건 멈춤을 되돌린다. 사람이 이미 멈춰 뒀으면 남긴다
+  _leaveParked() {
+    const userPausedBefore = this._parkedOverUserPause;
+    this._parkedOverUserPause = false;
+    if (!userPausedBefore) this.pause.setUser(false);
+  }
+
+  /** ▶: 멈춰 둔 곡을 그 위치부터 다시 연다. 이미 여는 중이거나 끝 처리가 걸려 있으면(방금 넘김) 아무것도 안 한다 */
+  async retryParked() {
+    if (!this.lifecycle.parked || this._endScheduled) return;
+    this._parkedOverUserPause = false;
+    this._retryingParked = true;
+    try {
+      this.pause.setUser(false);
+      await this.play(this.getCurrentTime(), { continued: true });
+    } finally {
+      this._retryingParked = false;
+    }
+  }
+
+  /** 멈춰 둔 곡이 있다(▶ 로 다시 여는 중 포함). 화면은 이때도 곡을 멈춤으로 보인다 */
+  get parked() {
+    return this.lifecycle.parked || this._retryingParked;
   }
 
   // ── 세션 영속화. 로직은 SessionPersistence ────────────────────────────────

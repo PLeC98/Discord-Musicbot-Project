@@ -286,7 +286,7 @@ class SessionPersistence {
    * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂 · failed 틀 곡을 열지 못함(남은 곡은 대기열에) · empty 틀 곡이 없음.
    * announce 를 끄면 텍스트 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
    */
-  async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "failed" | "empty"> {
+  async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "parked" | "failed" | "empty"> {
     const player = this.player;
     if (!record || !player.guild?.id) return "empty";
     const { session } = record;
@@ -319,6 +319,11 @@ class SessionPersistence {
       player.quietFailures = false;
     }
     if (!player.currentTrack) return "failed";
+    // 열지 못해 그 곡에서 멈춰 뒀다. 이어 튼다고 알리지 않는다(까닭은 멈춰 둘 때의 알림 · /join 응답이 말한다). 패널은 멈춘 곡으로
+    if (player.lifecycle.parked) {
+      await this._announceRestored(resumeMs, false);
+      return "parked";
+    }
 
     await this._announceRestored(resumeMs, announce);
     return "restored";

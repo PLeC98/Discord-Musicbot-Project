@@ -127,10 +127,11 @@ function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
-/** 복원한 결과. 이어 튼 곡이 있으면 그 곡, 없으면 까닭(남은 곡이 있으면 연달아 실패해 멈춘 것) */
-function restoreResult(track: Track | null, isPaused: boolean, left: number) {
+/** 복원한 결과. 열지 못해 그 곡에서 멈춰 뒀으면 그 까닭과 ▶, 이어 튼 곡이 있으면 그 곡, 없으면 틀 곡이 남지 않았다 */
+function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) {
+  if (parked) return noticeFrame(errors.notice("restore-parked"));
   if (track) return restored(track, isPaused);
-  return noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"));
+  return noticeFrame(errors.notice("restore-nothing-left"));
 }
 
 export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };
