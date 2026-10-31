@@ -101,7 +101,7 @@ class PlaybackWatch {
     const player = this.player;
     this.idleTimer = null;
     // 실패로 멈춰 둔 곡(parked)은 소리 없이 기다리는 것이 맞다
-    if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.parked) return;
+    if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.released) return;
     // 곡을 여는 중 · 끝 처리 중 · 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
     if (player.lifecycle.starting || player.lifecycle.ending || player.isRecovering) return this.armIdle();
     wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 곡을 끝냅니다: ${player._trackLabel()}`);

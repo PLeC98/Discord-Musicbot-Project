@@ -1935,3 +1935,98 @@ test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연
   h.dispose(failing);
   h.dispose(p);
 });
+
+// ── 쉬어 두기: 오래 멈춘 곡의 소리를 내리고 멈춤이 풀리면 그 위치부터 다시 연다 ──
+
+// 열고 사람이 멈춘 곡. 가짜 오디오 플레이어를 실제처럼 Paused 로 둔다
+async function pausedAt(p: Player, track: QueuedTrack, at: number) {
+  p.currentTrack = track;
+  await p.play(at);
+  p.pause.setUser(true);
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
+}
+
+test("쉬어 두기: 소리를 내리되 곡 · 위치 · 재생 정보는 남긴다. 그때의 Idle 은 곡 끝이 아니고, 화면은 곡을 멈춤으로 보인다", async () => {
+  const p = h.makePlayer();
+  const track = cached("ra1aaaaaaaa");
+  await pausedAt(p, track, 30_000);
+  const pb = p.playback;
+
+  assert.equal(p.rest(), true);
+  assert.equal(p.lifecycle.resting, true);
+  assert.equal(p.playback, pb, "재생 정보(구간 · 라이브 판정 · 받아 둔 원본)는 그대로");
+  assert.equal(p.resource, null);
+  assert.equal(p.getCurrentTime(), 30_000);
+  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Idle);
+
+  p.audioPlayer.emit(AudioPlayerStatus.Idle);
+  await tick();
+  assert.equal(p.currentTrack, track, "곡을 넘기지 않는다");
+  assert.equal(soundAttached(p), true);
+  assert.equal(playbackStatus(p).paused, true);
+  assert.equal(p.rest(), false, "두 번 쉬지 않는다");
+  h.dispose(p);
+});
+
+test("쉬어 두기: 멈춰야 하면 깨우지 않고, 풀리면 그 위치에서 한 번만 다시 연다. 넘기기가 걸려 있으면 깨우지 않는다", async () => {
+  const p = h.makePlayer();
+  await pausedAt(p, cached("rb1aaaaaaaa"), 45_000);
+  p.rest();
+  const opened = h.calls.resources.length;
+
+  await p.wake();
+  assert.equal(h.calls.resources.length, opened, "아직 멈춰 있다");
+
+  p.pause.setUser(false);
+  p._endScheduled = true;
+  await p.wake();
+  assert.equal(h.calls.resources.length, opened, "방금 넘겼으면 그 끝 처리가 다음 곡을 연다");
+  p._endScheduled = false;
+
+  await Promise.all([p.wake(), p.wake()]);
+  h.dispose(p);
+  assert.equal(h.calls.resources.length, opened + 1, "두 번 불러도 한 번 연다");
+  assert.equal(p.lifecycle.resting, false);
+  assert.equal(p.getCurrentTime(), 45_000);
+});
+
+test("쉬어 두기: 쉬는 중 넘기면 다음 곡을 멈춘 채 연다. 음성이 다시 붙어도 저절로 열지 않는다. 라이브는 쉬지 않는다", async () => {
+  const p = h.makePlayer();
+  const next = cached("rc2aaaaaaaa");
+  await pausedAt(p, cached("rc1aaaaaaaa"), 10_000);
+  p.queue = [next];
+  p.rest();
+
+  const opened = h.calls.resources.length;
+  await p.onVoiceRecovered();
+  assert.equal(h.calls.resources.length, opened, "음성 복구는 쉬어 둔 곡을 열지 않는다");
+
+  assert.equal(p.skip(), true);
+  await p.untilSwitched();
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.lifecycle.resting, false);
+  assert.equal(p.pause.userPaused, true, "멈춘 채");
+  h.dispose(p);
+
+  const live = h.makePlayer();
+  await pausedAt(live, cached("rd1aaaaaaaa"), 0);
+  if (live.playback) live.playback.isLive = true; // 재생이 판정한 라이브
+  assert.equal(live.rest(), false);
+  h.dispose(live);
+});
+
+test("쉬어 두기: 상주 자리의 정지는 쉬어 둔 곡도 끝내고 곡 없이 기다린다", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  await pausedAt(p, cached("re1aaaaaaaa"), 5_000);
+  p.queue = [cached("re2aaaaaaaa")];
+  p.rest();
+
+  await p.stopStaying();
+  await p.untilSwitched();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.deepEqual(p.queue, []);
+  assert.ok(seen.includes("end:stay-stop"));
+});

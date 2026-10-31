@@ -213,6 +213,18 @@ class SessionPersistence {
     return JSON.stringify(row);
   }
 
+  /** 지금 위치만 쓴다(주기 저장은 멈춘 플레이어를 건너뛰어, 멈춘 채 쉬어 둘 때 한 번) */
+  savePosition() {
+    const store = liveStore();
+    const p = this.player;
+    if (!store || this.frozen || !p.guild?.id || !p.currentTrack) return;
+    try {
+      store.savePositions([{ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0 }]);
+    } catch (error) {
+      log.warn(`재생 위치 저장 실패: ${messageOf(error)}`);
+    }
+  }
+
   async persistState(reason: string) {
     this.saveNow(reason);
   }
