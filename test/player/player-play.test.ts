@@ -22,6 +22,7 @@ import { recordPanel } from "../helpers/panel-events.ts";
 import type { FakeChild } from "../helpers/player-harness.ts";
 import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
+import type { StreamInfo } from "../../src/sources/stream-url.ts";
 import type { Segments, SkipSegment } from "../../src/sources/sponsor-block.ts";
 
 const { calls, behavior } = h;
@@ -891,35 +892,40 @@ test("스포티파이 곡도 유튜브 영상을 찾은 뒤의 위치 이동은 
   assert.equal(calls.steps.filter((s) => s === "equivalent").length, 1, "영상은 처음에 한 번 찾는다");
 });
 
-test("직접 링크, 사운드클라우드는 만료 시각(expire=)이 없어 위치를 옮길 때마다 서술자를 다시 받는다", async (t) => {
+// 위치를 옮기며 서술자를 다시 받는 횟수와, 직전 주소 이야기를 남겼는지
+async function reopenTwice(track: QueuedTrack, stream: StreamInfo, t: { after(fn: () => void): void }) {
   const level = logger.level;
   logger.level = "debug";
   t.after(() => {
     logger.level = level;
   });
-  const soon = Math.floor(Date.now() / 1000) + 7200;
-  for (const [what, track, url] of [
-    ["직접 링크", tracks.direct("https://files.test/song.mp3", { duration: 300 }), "https://files.test/song.mp3"],
-    ["사운드클라우드", { id: "1", title: "곡", pageUrl: "https://soundcloud.com/a/b", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud", duration: 300 }, `https://cf-media.sndcdn.com/b.128.mp3?Policy=x&Signature=y&Key-Pair-Id=z&expires=${soon}`],
-  ] as const) {
-    h.reset();
-    const p = h.makePlayer();
-    p.currentTrack = { ...track };
-    let asked = 0;
-    behavior.stream = () => (asked++, { url, duration: 300, ...(what === "직접 링크" ? { platform: "direct" } : {}) });
-    const from = sink.buffer.length;
-    try {
-      await p.play(0);
-      await p.play(30_000, { continued: true });
-    } finally {
-      h.dispose(p);
-    }
-    assert.equal(asked, 2, what);
-    assert.ok(
-      sink.buffer.slice(from).some((e) => e.text.startsWith("직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다:")),
-      what,
-    );
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  let asked = 0;
+  behavior.stream = () => (asked++, stream);
+  const from = sink.buffer.length;
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
   }
+  return { asked, told: sink.buffer.slice(from).some((e) => e.text.startsWith("직전 스트림 주소")) };
+}
+
+test("직접 링크는 서술자를 만드는 데 받는 것이 없어 다시 쓰지 않고, 직전 주소 이야기도 남기지 않는다", async (t) => {
+  const url = "https://files.test/song.mp3";
+  const { asked, told } = await reopenTwice(tracks.direct(url, { duration: 300 }), { url, duration: 300, platform: "direct" }, t);
+  assert.equal(asked, 2);
+  assert.equal(told, false);
+});
+
+test("사운드클라우드는 다시 쓰지 않는다: 목록 주소는 받은 지 5.5분에 막힌다(expires= 는 그보다 한참 뒤라 믿지 않는다)", async (t) => {
+  const track = { id: "1", title: "곡", pageUrl: "https://soundcloud.com/a/b", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud", duration: 300 };
+  const url = `https://cf-media.sndcdn.com/b.128.mp3?Policy=x&Signature=y&Key-Pair-Id=z&expires=${Math.floor(Date.now() / 1000) + 7200}&expire=${Math.floor(Date.now() / 1000) + 7200}`;
+  const { asked, told } = await reopenTwice(track, { url, duration: 300 }, t);
+  assert.equal(asked, 2, "만료가 넉넉해 보여도 다시 쓰지 않는다");
+  assert.equal(told, false);
 });
 
 test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 다시 쓸 서술자를 남기지 않는다(파일로 튼다)", async () => {

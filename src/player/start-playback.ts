@@ -168,6 +168,7 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
  * 새로 받은 유튜브 주소는 앞 광고가 끝날 때까지 본편을 막지만(media/playback-input 의 광고 대기) 직전 주소는 그 시간이 이미 지났다.
  * 그 주소를 받은 음원이 지금 곡이 열 음원일 때만. 곡의 음원은 재생 중에 바뀔 수 있어(다시 찾기) 곡이 아니라 서술자에 실린 키와 견준다.
  * 키를 모르면 다시 쓰지 않는다(잘못 다시 쓰면 다른 소리가 난다).
+ * 유튜브만. 직접 링크는 서술자를 만드는 데 받는 것이 없고, 사운드클라우드 목록 주소는 받은 지 몇 분에 막힌다(주소의 expires 는 그보다 한참 뒤다).
  * 파이프로 연 서술자만. 주소 분기(HLS, DASH)에는 막혔을 때 새로 받는 길이 없다.
  * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다.
  * 라이브는 늘 새로 받는다(끊긴 라이브를 다시 열 때 새 답을 봐야 방송이 끝났는지 안다)
@@ -175,7 +176,7 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
 function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, startMs: number): StreamInfo | null {
   const stream = previous?.stream;
   const key = audioKeyOf(track.audioUrl);
-  if (!stream?.url || !key || stream.audioKey !== key || previous?.transport?.via !== "pipe" || stream.liveStatus === "is_live") return null;
+  if (!stream?.url || !key?.startsWith("yt:") || stream.audioKey !== key || previous?.transport?.via !== "pipe" || stream.liveStatus === "is_live") return null;
   const remainingMs = Math.max(0, (stream.duration || track.duration || 0) * 1000 - startMs);
   const state = reuseState(stream.url, remainingMs);
   if (state !== "ok") {
