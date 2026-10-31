@@ -72,6 +72,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
     warmer: { stop() {} },
+    _cancelRest() {},
     _tellSkipped: Player.prototype._tellSkipped,
     releaseAudioProtection() {},
     scheduleStatePersist() {},

@@ -87,6 +87,8 @@ const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
 // 무음을 흘려보내는 멈춤(무음 프레임 5개 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
 const SILENT_STOP_CAP_MS = 500;
+// 소리가 이만큼 멈춰 있으면 내려 둔다(쉬어 두기). 짧으면 사람의 ▶ 가 자주 늦고, 이득은 오래 멈춘 상주 자리에서 쌓인다
+const REST_AFTER_MS = 10 * 60_000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
 type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
@@ -242,6 +244,8 @@ class Player {
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
   _endWhileStarting: { reason: string; gen: number } | null = null; // 여는 중(소리가 아직 없다)에 온 끝 요청. 연 뒤에 건다(_stopWith)
+  restAfterMs = REST_AFTER_MS; // 시험이 줄인다
+  _restTimer: NodeJS.Timeout | null = null;
   _waking = false; // 쉬어 둔 곡을 다시 여는 중(wake). 화면이 곡을 보이게
   _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡 · 반복 · 자동재생으로 잇지 않는다
   /** 무음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
@@ -450,6 +454,7 @@ class Player {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다. starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
+    this._cancelRest(); // 새로 여는 소리는 연 뒤에 다시 잰다
     const gen = ++this._playGen;
     let pb: CurrentPlayback | null = null;
     try {
@@ -493,6 +498,7 @@ class Player {
       if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
       this.lifecycle.to("playing");
       this._tellSkipped();
+      this._armRest(); // 멈춘 채 열었으면(멈춘 채 넘기기 · 위치 이동 · 복원) 여기서부터 잰다
       this._takeEndWhileStarting(gen);
       return { ok: true, track: this.currentTrack };
     } catch (error) {
@@ -825,12 +831,37 @@ class Player {
     for (const hold of added) log.info(`일시정지: 원인=${hold} | ${label}`);
     for (const hold of removed) log.info(`일시정지 해제: 원인=${hold} | ${label}`);
     this.settingsSink?.onSettingsChanged(); // 받는 쪽이 잠깐 모았다가 읽는다
+    if (this.paused) this._armRest();
+    else this._cancelRest();
     if (this.currentTrack) bestEffort(log, playerEvents.refresh(this), "멈춤 바뀜 뒤 패널 갱신");
+  }
+
+  // 멈춘 채 열린 곡이면 쉬기 타이머를 건다. 이미 걸려 있으면 그대로(억제 사유가 오락가락해도 처음 멈춘 때부터 잰다)
+  _armRest() {
+    if (this._restTimer || !this.paused || this.lifecycle.phase !== "playing" || !this.playback?.resource || this.isLive) return;
+    this._restTimer = setTimeout(() => {
+      this._restTimer = null;
+      this._restIfStill();
+    }, this.restAfterMs);
+    this._restTimer.unref?.();
+  }
+
+  _cancelRest() {
+    if (this._restTimer) clearTimeout(this._restTimer);
+    this._restTimer = null;
+  }
+
+  // 멈춘 지 restAfterMs. 그 안에 나갈 예정이면(혼자 남음 · 틀 게 없음) 곧 버릴 플레이어라 내리지 않는다. 나머지 조건은 rest() 가 다시 본다
+  _restIfStill() {
+    const leavesAt = this.idle.leavesAt();
+    if (leavesAt !== null && leavesAt - Date.now() < this.restAfterMs) return;
+    this.rest();
   }
 
   /** 반복 타이머를 모두 멈춘다. 재생 상태 · 저장된 세션은 건드리지 않는다. 버리는 플레이어는 꼭 부른다(남은 타이머가 플레이어를 붙잡는다) */
   _stopTimers() {
     this._clearSilentStop();
+    this._cancelRest();
     this.idle.stop();
     this.warmer.stop();
     this.persistence.stopStateSync();
@@ -1106,6 +1137,7 @@ class Player {
 
   // 곡 끝에서 쉬는 단계로. 멈춰 둔 곡을 떠나는 것이면 park 가 건 멈춤을 되돌린다(쉬어 둔 곡은 멈춤을 건드리지 않았다)
   _toIdleOnEnd(reason: string) {
+    this._cancelRest();
     const wasParked = this.lifecycle.parked;
     if (this.lifecycle.phase === "playing" || this.lifecycle.released) this.lifecycle.to("idle", `곡 끝(${reason})`);
     if (wasParked) this._leaveParked();

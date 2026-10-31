@@ -2030,3 +2030,44 @@ test("쉬어 두기: 상주 자리의 정지는 쉬어 둔 곡도 끝내고 곡 
   assert.deepEqual(p.queue, []);
   assert.ok(seen.includes("end:stay-stop"));
 });
+
+test("쉬기 타이머: 멈춘 지 정해진 시간이 지나면 쉰다. 그 전에 풀면 안 쉬고, 그 안에 나갈 예정이면(곧 버릴 플레이어) 안 쉰다", async () => {
+  const resting = h.makePlayer();
+  resting.restAfterMs = 20;
+  await pausedAt(resting, cached("rt1aaaaaaaa"), 0);
+  await tick(60);
+  assert.equal(resting.lifecycle.resting, true);
+  h.dispose(resting);
+
+  const resumed = h.makePlayer();
+  resumed.restAfterMs = 20;
+  await pausedAt(resumed, cached("rt2aaaaaaaa"), 0);
+  resumed.pause.setUser(false);
+  await tick(60);
+  assert.equal(resumed.lifecycle.resting, false, "풀면 타이머를 지운다");
+  assert.equal(resumed._restTimer, null);
+  h.dispose(resumed);
+
+  const leaving = h.makePlayer();
+  leaving.restAfterMs = 20;
+  leaving.idle.leavesAt = () => Date.now() + 10;
+  await pausedAt(leaving, cached("rt3aaaaaaaa"), 0);
+  await tick(60);
+  assert.equal(leaving.lifecycle.resting, false, "곧 나간다");
+  h.dispose(leaving);
+});
+
+test("쉬기 타이머: 멈춘 채 새 곡을 열면 그 곡을 연 때부터 다시 잰다. 버리면 지운다", async () => {
+  const p = h.makePlayer();
+  p.restAfterMs = 10_000;
+  await pausedAt(p, cached("ru1aaaaaaaa"), 0);
+  const first = p._restTimer;
+  assert.ok(first);
+  p.queue = [cached("ru2aaaaaaaa")];
+  p.skip();
+  await endNow(p);
+  assert.ok(p._restTimer && p._restTimer !== first, "새 곡을 연 때부터");
+  await p.dispose({ reason: "시험", session: "keep", end: "stop" });
+  assert.equal(p._restTimer, null);
+  h.dispose(p);
+});
