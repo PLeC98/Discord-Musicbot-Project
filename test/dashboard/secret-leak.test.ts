@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import type { NextFunction, Request, Response, Router } from "express";
 
-const { baseUrl } = await import("../helpers/listen.ts");
+const { baseUrl, listenForFetch } = await import("../helpers/listen.ts");
 const { fake, fakeBot } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { unzip } = await import("../../src/infra/zip.ts");
@@ -76,12 +76,11 @@ const client = { isReady: () => true, user: { tag: "bot#0001", id: "1", username
 
 let base = "";
 let csrf = "";
-const server = createApp(fakeBot({ client }), { stream: createPlayerStream(), deployCommands: async () => ({ ok: true, skipped: false, count: 0, scope: "global", guildId: null, names: [] }), sessionMiddleware: signedIn }).listen(0, "127.0.0.1");
+const server = await listenForFetch(createApp(fakeBot({ client }), { stream: createPlayerStream(), deployCommands: async () => ({ ok: true, skipped: false, count: 0, scope: "global", guildId: null, names: [] }), sessionMiddleware: signedIn }), "127.0.0.1");
 
 before(async () => {
   // 소스 목록 · 자동완성이 바깥(AnimeThemes 등)에 요청하지 않게. 이 테스트는 바깥 상태에 기대지 않는다
   sourcesHttp.useFetch(fake<typeof fetch>(async () => Promise.reject(new Error("테스트는 바깥에 나가지 않는다"))));
-  await new Promise((resolve) => server.once("listening", resolve));
   base = baseUrl(server);
   csrf = ((await (await fetch(`${base}/api/csrf-token`)).json()) as { csrfToken: string }).csrfToken;
 

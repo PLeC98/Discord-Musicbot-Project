@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { NextFunction, Request, Response } from "express";
 import { fake, fakeBot } from "../helpers/fake.ts";
-import { baseUrl } from "../helpers/listen.ts";
+import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const store = openTempStore("client-serving-");
@@ -32,8 +32,7 @@ let server: Server;
 let base: string;
 before(async () => {
   const deployCommands = () => assert.fail("이 테스트는 명령을 등록하지 않는다");
-  server = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: noSession, clientDist: dist }).listen(0, "127.0.0.1");
-  await new Promise((resolve) => server.once("listening", resolve));
+  server = await listenForFetch(createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: noSession, clientDist: dist }), "127.0.0.1");
   base = baseUrl(server);
 });
 after(() => server.close());

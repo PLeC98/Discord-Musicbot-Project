@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { NextFunction, Request, Response } from "express";
 import { fake, fakeBot } from "../helpers/fake.ts";
-import { baseUrl } from "../helpers/listen.ts";
+import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 import logSink from "../../src/infra/log/sink.ts";
 import { PROBLEMS } from "../../src/rules/problems.ts";
 import { notice } from "../../src/ui/text/ko/errors.ts";
@@ -51,8 +51,7 @@ let base: string;
 
 before(async () => {
   const deployCommands = () => assert.fail("이 테스트는 명령을 등록하지 않는다");
-  server = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
-  await new Promise((resolve) => server.once("listening", resolve));
+  server = await listenForFetch(createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: brokenSession }), "127.0.0.1");
   base = baseUrl(server);
 });
 
@@ -224,8 +223,7 @@ test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽
   const saved = config.dashboard.rateLimit.publicMax;
   config.dashboard.rateLimit.publicMax = 2;
   // 카운터가 다른 테스트와 섞이지 않게 앱을 새로 띄운다
-  const own = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
-  await new Promise((resolve) => own.once("listening", resolve));
+  const own = await listenForFetch(createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: brokenSession }), "127.0.0.1");
   const at = (urlPath: string) => fetch(baseUrl(own) + urlPath, { signal: AbortSignal.timeout(3000) }).then(async (res) => ({ status: res.status, body: await res.text() }));
   try {
     for (let i = 0; i < 3; i++) assert.notEqual((await at("/api/whatever")).status, 429, "/api 는 공개 경로 한도로 세지 않는다");
