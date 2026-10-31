@@ -822,7 +822,7 @@ test("캐시 파일로 이어 틀면 직전 주소를 따지지 않는다. 만�
   assert.ok(!lines().some((l) => l.startsWith("직전 스트림 주소")), "파일로 트는데 주소 이야기를 남기지 않는다");
 });
 
-test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 불러온다", async () => {
+test("직전 주소는 같은 음원에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 불러온다", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const p = h.makePlayer();
   behavior.stream = (t) => ({ url: `https://rr1.googlevideo.com/videoplayback?id=${t.id}&expire=${expire}`, duration: 300 });
@@ -905,7 +905,7 @@ test("직접 링크, 사운드클라우드는 만료 시각(expire=)이 없어 �
   }
 });
 
-test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 열리지 않은 주소를 다시 쓸 주소로 남긴다", async () => {
+test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 다시 쓸 서술자를 남기지 않는다(파일로 튼다)", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const url = `https://rr1.googlevideo.com/videoplayback?id=f&expire=${expire}`;
   const p = h.makePlayer();
@@ -919,10 +919,81 @@ test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 열리�
     const r = await p.play(0);
     assert.equal(r.ok, true);
     assert.equal(p.playback?.cacheFile !== null, true, "파일로 튼다");
-    assert.equal(p.playback?.stream?.url, url);
+    assert.equal(p.playback?.stream, null, "열리지 않은 주소를 남기지 않는다");
   } finally {
     h.dispose(p);
   }
+});
+
+test("직전 주소는 그 주소를 받은 음원이 지금 곡이 열 음원일 때만 다시 쓴다: 재생 중 곡의 음원이 바뀐 뒤의 위치 이동은 새로 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  const track = yt("pm1xxxxxxxx", { duration: 300 });
+  p.currentTrack = track;
+  const asked: string[] = [];
+  behavior.stream = (t) => {
+    asked.push(String(t.audioUrl));
+    return { url: `https://rr1.googlevideo.com/videoplayback?id=${asked.length}&expire=${expire}`, duration: 300 };
+  };
+  try {
+    await p.play(0);
+    track.audioUrl = tracks.watch("pm1yyyyyyyy"); // 나란히 하던 다운로드가 다시 찾았다
+    await p.seek(60_000, "highlight");
+  } finally {
+    h.dispose(p);
+  }
+  assert.deepEqual(asked, [tracks.watch("pm1xxxxxxxx"), tracks.watch("pm1yyyyyyyy")]);
+  assert.match(calls.fetches.at(-1)?.url ?? "", /id=2/);
+});
+
+test("직전 주소: 요청이 달라도 음원이 같으면 다시 쓴다(상주 자리의 정지 뒤 같은 영상을 다른 링크로)", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=s&expire=${expire}`, duration: 300 });
+  p.currentTrack = yt("pn1aaaaaaaa");
+  try {
+    await p.play(0);
+    await p.stopStaying();
+    p.audioPlayer.emit(AudioPlayerStatus.Idle);
+    for (let i = 0; i < 5; i++) await tick();
+    p.currentTrack = { ...yt("pn1aaaaaaaa"), id: "amq:7", requestKey: "amq:7", platform: "anisongdb" };
+    await p.play(30_000);
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(asked, 1);
+});
+
+test("직전 주소: 서술자에 음원 키가 없으면 곡에서 대신 셈하지 않고 새로 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("po1oooooooo", { duration: 300 });
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=o&expire=${expire}`, duration: 300, audioKey: null });
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(asked, 2);
+});
+
+test("직전 주소: 주소 분기(HLS)로 연 서술자는 다시 쓰지 않는다(그 분기에는 막혔을 때 새로 받는 길이 없다)", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pq1qqqqqqqq", { duration: 300 });
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://manifest.googlevideo.com/v.m3u8?expire=${expire}`, protocol: "m3u8_native", liveStatus: "was_live", duration: 300 });
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(calls.spawns[0].label, "stream", "주소 분기로 열었다");
+  assert.equal(asked, 2);
 });
 
 // ── 재생이 트는 음원 ── 곡의 음원 주소는 재생 중에도 바뀐다(나란히 하던 다운로드가 다시 찾는다). 재생 쪽 기록은 튼 음원을 따른다
@@ -932,7 +1003,7 @@ test("재생이 트는 음원: 여는 동안 곡의 음원이 바뀌어도 재�
   const track = yt("pk1xxxxxxxx");
   p.currentTrack = track;
   audioCache.recordDownloadStart("yt:pk1yyyyyyyy", yt("pk1yyyyyyyy"));
-  behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?id=x", duration: 100 });
+  behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?id=x", duration: 100, title: "X 영상의 제목" });
   behavior.fetch = () => {
     track.audioUrl = tracks.watch("pk1yyyyyyyy"); // 나란히 하던 다운로드가 X 가 내려간 것을 알고 Y 로 다시 찾았다
     return { ok: true, status: 200, body: new PassThrough() };
@@ -947,6 +1018,9 @@ test("재생이 트는 음원: 여는 동안 곡의 음원이 바뀌어도 재�
   assert.equal(h.audioRow("yt:pk1xxxxxxxx")?.play_count, 1);
   assert.equal(h.audioRow("yt:pk1yyyyyyyy")?.play_count, 0);
   assert.equal(key, "yt:pk1xxxxxxxx");
+  // 링크 데이터는 다음에 열 음원(Y)으로 적되, 받은 서술자의 제목은 X 의 것이라 확인됨으로 치지 않는다
+  assert.equal(h.lookupRow(track.requestKey)?.audio_url, tracks.watch("pk1yyyyyyyy"));
+  assert.equal(h.lookupRow(track.requestKey)?.title_verified, 0);
 });
 
 test("재생이 트는 음원: 캐시 폴백이 다른 음원의 파일로 끝나면(다시 찾은 다운로드) 재생의 키, 길이, 재생 횟수는 그 파일의 것이다", async () => {

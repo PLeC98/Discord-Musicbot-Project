@@ -151,13 +151,16 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
 /**
  * 같은 곡을 다시 열 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp 를 다시 부르지 않는다). 위치가 0 이어도 같다:
  * 새로 받은 유튜브 주소는 앞 광고가 끝날 때까지 본편을 막지만(media/playback-input 의 광고 대기) 직전 주소는 그 시간이 이미 지났다.
+ * 그 주소를 받은 음원이 지금 곡이 열 음원일 때만. 곡의 음원은 재생 중에 바뀔 수 있어(다시 찾기) 곡이 아니라 서술자에 실린 키와 견준다.
+ * 키를 모르면 다시 쓰지 않는다(잘못 다시 쓰면 다른 소리가 난다).
+ * 파이프로 연 서술자만. 주소 분기(HLS, DASH)에는 막혔을 때 새로 받는 길이 없다.
  * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다.
  * 라이브는 늘 새로 받는다(끊긴 라이브를 다시 열 때 새 답을 봐야 방송이 끝났는지 안다)
  */
 function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, startMs: number): StreamInfo | null {
   const stream = previous?.stream;
-  const key = resumeKeyOf(track);
-  if (!previous || !stream?.url || !key || resumeKeyOf(previous.track) !== key || stream.liveStatus === "is_live") return null;
+  const key = audioKeyOf(track.audioUrl);
+  if (!stream?.url || !key || stream.audioKey !== key || previous?.transport?.via !== "pipe" || stream.liveStatus === "is_live") return null;
   const remainingMs = Math.max(0, (stream.duration || track.duration || 0) * 1000 - startMs);
   const state = reuseState(stream.url, remainingMs);
   if (state !== "ok") {
@@ -166,11 +169,6 @@ function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, star
   }
   // 재사용한 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
   return { ...stream, reused: true };
-}
-
-function resumeKeyOf(track: QueuedTrack | null) {
-  if (!track) return null;
-  return track.id || track.requestKey || `${track.title ?? ""}-${track.duration}`;
 }
 
 /**
@@ -201,7 +199,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   player.audioPlayer.play(resource);
   player._handedGen = gen;
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
-  if (!player.isLive) recordPlayed(track, pb.audioKey, source.titleVerified, { countPlay: !continued });
+  if (!player.isLive) recordPlayed(track, pb.audioKey, verifiedFor(track, source), { countPlay: !continued });
 
   if (player.paused) {
     // 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
@@ -209,7 +207,8 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
     log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${why.join(", ")}`);
   }
 
-  pb.stream = streamInfo;
+  // 파일로 틀면 다시 쓸 주소가 없다(캐시 폴백이면 그 주소는 열리지 않았다)
+  pb.stream = pb.cacheFile ? null : streamInfo;
 
   // 끝을 알리지 못하는 입력의 마지막 그물. 곡 끝은 Idle 때 판정한다
   player.watch.startOverflow();
@@ -223,6 +222,9 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
   player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 선택 실패: ${messageOf(error)}`));
 }
+
+// 제목 확인됨은 받은 서술자가 링크 데이터에 적을 음원(곡의 음원 주소)의 것일 때만. 여는 동안 다시 찾아졌으면 그 제목은 다른 영상의 것이다
+const verifiedFor = (track: QueuedTrack, source: Pick<Source, "titleVerified" | "streamInfo">) => source.titleVerified && (source.streamInfo?.audioKey ?? null) === audioKeyOf(track.audioUrl);
 
 // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록. 같은 곡을 이어 틀 때는 재생 횟수를 세지 않는다(퇴거 점수가 본다).
 // 재생 횟수는 실제로 튼 음원(playedKey)에, 링크 데이터는 다음에 이 요청을 열 음원(곡의 음원 주소)에 적는다. 둘은 재생 중에 갈릴 수 있다.
