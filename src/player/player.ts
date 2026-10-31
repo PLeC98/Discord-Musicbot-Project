@@ -200,6 +200,8 @@ function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "
   if (player._endWhileStarting?.gen !== player._playGen) player._endWhileStarting = { reason, gen: player._playGen, track: player.currentTrack };
   return player.audioPlayer.state.status === AudioPlayerStatus.Idle;
 }
+// 끝 처리가 다음 곡을 고를 까닭. 다시 여는 동안 받은 이전 곡, 넘기기가 있으면 그것이다(이전 곡이면 대기열을 이미 되감아 다 튼 곡으로 기록하지 않는다)
+const reasonAfter = (player: Partial<Pick<Player, "_endInstead">>, reason: string) => player._endInstead ?? reason;
 /**
  * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause), 끝 알림(disposed)을 듣는 쪽이 가른다.
  * 사람이 끝냄: stop, leave. 기다리다 나감: queue-drained, inactivity-timeout. 디스코드 쪽: forced-disconnect, stage-ended, stage-disconnect, channel-gone, voice-lost, guild-gone, operator-leave.
@@ -257,6 +259,8 @@ class Player {
   _handedGen = 0; // 소리를 오디오 플레이어에 넘긴 재생의 세대(commitPlaying)
   /** 끝 처리 중에 끝난 곡(그 처리가 막 튼 다음 곡). 그 처리가 끝나면 이어서 처리한다 */
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
+  /** 끝 처리 안의 다시 열기(끊긴 라이브)가 실패해 버린, 여는 중에 온 끝 요청. 그 끝 처리가 이 까닭으로 다음 곡을 고른다 */
+  _endInstead: string | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
   _endWhileStarting: { reason: string; gen: number; track: QueuedTrack | null } | null = null; // 여는 중에 온 끝 요청과 그때의 곡. 연 뒤에 건다(_stopWith)
@@ -539,7 +543,10 @@ class Player {
     // 그 곡에서 멈춰 뒀으면 마저 건다. 이전 곡, 점프는 대기열을 먼저 옮겨 두어, 버리면 옮긴 대기열만 남는다
     const pending = this._endWhileStarting?.gen === gen ? this._endWhileStarting : null;
     if (pending) this._endWhileStarting = null;
-    if (pending && this.lifecycle.parked && this.currentTrack === pending.track) this._stopWith(pending.reason);
+    if (pending && this.currentTrack === pending.track) {
+      if (this.lifecycle.parked) this._stopWith(pending.reason);
+      else if (this.lifecycle.ending) this._endInstead = pending.reason;
+    }
     if (!this.lifecycle.starting || gen !== this._playGen) return;
     this.releaseAudioProtection();
     this.lifecycle.to("idle", "시작 못 함");
@@ -1155,7 +1162,7 @@ class Player {
         await this.finishQueue({ stopped: true });
         return;
       }
-      if (await this._playNext(finishedTrack, reason)) return;
+      if (await this._playNext(finishedTrack, reasonAfter(this, reason))) return;
       await this.finishQueue();
     } finally {
       this._closeEnd();
@@ -1174,6 +1181,7 @@ class Player {
   _closeEnd() {
     this.lifecycle.finishEnd();
     this._endReason = null;
+    this._endInstead = null;
     this._runLaterEnd();
     if (!this._endScheduled) for (const wake of [...this._endWaiters]) wake();
   }

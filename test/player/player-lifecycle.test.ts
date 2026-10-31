@@ -443,6 +443,29 @@ for (const [ending, answer, line] of [
   });
 }
 
+test("끊긴 라이브를 다시 여는 중에 이전 곡을 눌렀는데 방송이 끝났으면 이전 곡을 연다. 라이브는 다 튼 곡으로 기록하지 않는다(대기열에만 한 번)", async () => {
+  const p = h.makePlayer();
+  const before = cached("m5mmmmmmmmm");
+  const live = playing(p, yt("m6mmmmmmmmm", { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
+  const next = cached("m7mmmmmmmmm");
+  p.previousTracks = [before];
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => {
+    assert.equal(p.previous(), true, "다시 여는 중에 누른다");
+    return { url: "https://media.test/vod", duration: 3600, liveStatus: null };
+  };
+
+  await p.onTrackEnd("idle");
+  await p.untilSwitched();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, before);
+  assert.deepEqual(p.queue, [live, next]);
+  assert.deepEqual(p.previousTracks, [], "기록과 대기열에 둘 다 남지 않는다");
+  assert.equal(p._endInstead, null);
+});
+
 test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝났으면 다음 곡으로. 실패로 세지 않는다", async () => {
   const p = h.makePlayer();
   const url = "https://h.test/live/index.m3u8";
