@@ -56,7 +56,7 @@
             <span class="shrink-0 text-xs text-on-surface-variant nums" v-tooltip="formatDateTime(entry.at)">{{ formatClock(entry.at, { seconds: true }) }}</span>
             <span class="min-w-0 flex-1 truncate text-sm text-on-surface" v-tooltip="entry.url">{{ titleOf(entry) }}</span>
             <span v-if="entry.tokens" class="shrink-0 hidden @xl/log:inline text-xs text-on-surface-variant nums">{{ T.tokenPair(formatTokens(entry.tokens.input), formatTokens(entry.tokens.output)) }}</span>
-            <span class="shrink-0 text-xs text-on-surface-variant nums">{{ formatMs(entry.tookMs) }}</span>
+            <span class="shrink-0 text-xs text-on-surface-variant nums">{{ formatLatency(entry.tookMs) }}</span>
             <span v-if="entry.attempt > 1" class="shrink-0 h-6 px-2 inline-flex items-center rounded-xs bg-tertiary-container text-on-tertiary-container text-xs">{{ T.retry(entry.attempt) }}</span>
             <span class="shrink-0 hidden @md/log:inline-flex h-6 px-2 items-center rounded-xs border border-outline-variant text-xs text-on-surface-variant">{{ T.sources[entry.source] }}</span>
             <Icon name="expand_more" :size="18" class="shrink-0 text-on-surface-variant transition-transform duration-150" :class="open.has(entry.id) && 'rotate-180'" />
@@ -102,7 +102,7 @@ import { ICON_BTN } from "../utils/icon-button.ts";
 import { CODE_BOX, SEARCH_FIELD } from "../utils/field.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { formatClock, formatDateTime } from "../utils/locale.ts";
-import { formatMs, formatTokens, formatUsd, prettyJson, shortUrl } from "../utils/ai-usage-format.ts";
+import { formatLatency, formatTokens, formatUsd, prettyJson, shortUrl } from "../utils/ai-usage-format.ts";
 import { notifyDone } from "../composables/toasts.ts";
 import { useAiLog } from "../composables/ai-log.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
@@ -128,8 +128,8 @@ const titleOf = (entry: AiLogEntry) => entry.name || entry.model || shortUrl(ent
 
 /** 펼친 줄의 요약: 있는 것만 */
 function factsOf(entry: AiLogEntry) {
-  const out: Array<{ label: string; value: string; tip?: string }> = [{ label: T.took, value: formatMs(entry.tookMs) }];
-  if (entry.firstMs != null) out.push({ label: T.first, value: formatMs(entry.firstMs) });
+  const out: Array<{ label: string; value: string; tip?: string }> = [{ label: T.took, value: formatLatency(entry.tookMs) }];
+  if (entry.firstMs != null) out.push({ label: T.first, value: formatLatency(entry.firstMs) });
   if (entry.tokens) out.push({ label: T.tokens, value: T.tokenPair(formatTokens(entry.tokens.input), formatTokens(entry.tokens.output)), tip: T.tokenTip(formatTokens(entry.tokens.cached), formatTokens(entry.tokens.reasoning)) });
   out.push({ label: T.cost, value: entry.costUsd == null ? T.costUnknown : formatUsd(entry.costUsd) });
   out.push({ label: T.provider, value: entry.model ? `${entry.provider} · ${entry.model}` : entry.provider });

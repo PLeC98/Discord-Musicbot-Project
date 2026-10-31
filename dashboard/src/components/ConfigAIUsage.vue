@@ -78,7 +78,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import UsageChart from "./UsageChart.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
-import { formatMs, formatTokens, formatUsd } from "../utils/ai-usage-format.ts";
+import { formatLatency, formatTokens, formatUsd } from "../utils/ai-usage-format.ts";
 import { useAiUsage } from "../composables/ai-usage.ts";
 import { AI_LOG_SOURCES, AI_USAGE_PERIODS, type AiUsageBucket } from "../../../src/dashboard/contract/ai-log.ts";
 import { text } from "../text/index.ts";
@@ -104,7 +104,7 @@ const tiles = computed(() => {
     { label: TC.input, value: formatTokens(all.input), sub: TC.cached(formatTokens(all.cached)) },
     { label: TC.output, value: formatTokens(all.output), sub: TC.reasoning(formatTokens(all.reasoning)) },
     { label: TC.cost, value: formatUsd(all.costUsd), sub: all.unpriced ? TC.unpriced(formatTokens(all.unpriced)) : "" },
-    { label: TC.latency, value: formatMs(all.avgMs), sub: all.p95Ms == null ? "" : TC.p95(formatMs(all.p95Ms)) },
+    { label: TC.latency, value: formatLatency(all.avgMs), sub: all.p95Ms == null ? "" : TC.p95(formatLatency(all.p95Ms)) },
   ];
 });
 
@@ -114,7 +114,7 @@ const COLUMNS: Array<{ key: "requests" | "input" | "output" | "cached" | "cost" 
   { key: "output", show: (one) => formatTokens(one.output) },
   { key: "cached", show: (one) => formatTokens(one.cached) },
   { key: "cost", show: costText },
-  { key: "avg", show: (one) => formatMs(one.avgMs) },
+  { key: "avg", show: (one) => formatLatency(one.avgMs) },
 ];
 
 const tables = computed(() => {
