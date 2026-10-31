@@ -153,6 +153,17 @@ test("포맷 목록: 정보와 같은 추출로 받고, 원본 다시 확인의 
   assert.deepEqual(await recheck(url, { version: `lmt:${lmt}`, durationSec: 200 }), { kind: "same", version: `lmt:${lmt}` });
 });
 
+test("정보: 재생목록이 붙은 영상 주소는 영상 하나만 묻고, 재생목록 답은 곡으로 삼지 않고 던진다", async () => {
+  // yt-dlp 는 noPlaylist 가 없으면 watch?v=X&list=Y 에 재생목록 답(제목 "Mix - …", 길이와 주소 없음)을 준다(2026.10.29 로 확인)
+  const mix = { _type: "playlist", id: "RDggggggggggg", title: "Mix - 영상 ggggggggggg", entries: [video("ggggggggggg")] };
+  respond = (_url, flags) => (flags.noPlaylist ? video("ggggggggggg") : mix);
+  const t = await YouTube.getInfo("https://www.youtube.com/watch?v=ggggggggggg&list=RDggggggggggg");
+  assert.deepEqual([calls[0].flags.noPlaylist, t.title, t.duration], [true, "영상 ggggggggggg", 200]);
+
+  respond = () => mix;
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/playlist?list=RDggggggggggg"), /재생목록/);
+});
+
 test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없는 오류로 알린다)", async () => {
   respond = () => ({ fail: "ERROR: [youtube] fffffffffff: Some other failure" });
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), /Some other failure/);

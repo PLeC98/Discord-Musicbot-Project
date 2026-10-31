@@ -152,7 +152,8 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
   return tracks;
 }
 
-// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소, 다운로드가 그대로 다시 쓴다(recent-info)
+// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소, 다운로드가 그대로 다시 쓴다(recent-info).
+// 재생목록이 붙은 영상 주소(watch?v=X&list=Y)도 영상 하나만 묻는다. 재생목록은 getPlaylist 가 따로 연다
 const extractInfo = (url: string, exec?: RunYtDlp) =>
   run.runYtDlp(
     url,
@@ -161,6 +162,7 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
         {
           dumpSingleJson: true,
           format: run.AUDIO_FORMAT,
+          noPlaylist: true,
         },
         { forceCookies },
       ),
@@ -173,6 +175,7 @@ async function fetchInfo(url: string, exec: RunYtDlp | undefined) {
   recentInfo.remember(raw);
   const info = readInfo(raw);
   if (!info) throw new Error("yt-dlp 가 정보를 주지 않았습니다");
+  if (info._type === "playlist") throw new Error(`yt-dlp 가 영상 대신 재생목록 정보를 줬습니다(항목 ${info.entries?.length ?? 0}개)`);
   return info;
 }
 
