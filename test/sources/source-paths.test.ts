@@ -538,5 +538,5 @@ test("스트림: 새로 찾은 영상이 내려간 것은 다시 찾지 않는�
   await assert.rejects(streamUrl.getStream({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=x", audioFoundBy: "search" }, { youtube, equivalent: noResearch }), /Video unavailable/);
 
   const soundcloud = { getStream: async (url: string) => ({ url: `${url}#stream` }) };
-  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }, { soundcloud }), { url: "https://soundcloud.com/a/b#stream" });
+  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }, { soundcloud }), { url: "https://soundcloud.com/a/b#stream", audioKey: "sc:a/b" });
 });

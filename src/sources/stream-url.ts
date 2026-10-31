@@ -11,6 +11,7 @@ import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { leaveDeadPin } from "./pinned-fallback.ts";
+import { audioKeyOf } from "../rules/audio-key-of.ts";
 
 /** 스트림 서술자. 재생 쪽이 읽는 필드만 적는다. 소스마다 필드가 더 있다 */
 type StreamInfo = {
@@ -30,6 +31,8 @@ type StreamInfo = {
   fragments?: { base: string; count: number } | null;
   /** 캐시된 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 추출한다) */
   reused?: boolean;
+  /** 이 서술자를 받은 음원 주소의 캐시 키(rules/audio-key-of). 곡의 음원 주소는 나중에 바뀔 수 있어 받은 때의 것을 싣는다 */
+  audioKey?: string | null;
   [field: string]: unknown;
 };
 // 여는 쪽, 유튜브 동등물 찾는 쪽. 테스트가 가짜를 넘긴다. 여기서 부르는 것만
@@ -68,7 +71,10 @@ async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInf
   return info?.isLive === true;
 }
 
-async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions) {
+// 받은 음원 주소의 키를 싣는다. 서술자의 url 은 CDN 주소라 키가 되지 않는다
+const keyed = (stream: StreamInfo, audioUrl: string): StreamInfo => ({ ...stream, audioKey: audioKeyOf(audioUrl) });
+
+async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions): Promise<StreamInfo> {
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
     throw codedError("sp-no-youtube-match", `유튜브에서 같은 곡을 찾지 못함: ${logTitle(track.title)}`);
@@ -77,25 +83,25 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
   switch (inputKind(audioUrl)) {
     case "youtube":
       try {
-        return await youtube.getStream(audioUrl, { fresh });
+        return keyed(await youtube.getStream(audioUrl, { fresh }), audioUrl);
       } catch (err) {
         // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드, 즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);
-          if (ytUrl) return await youtube.getStream(ytUrl, { fresh });
+          if (ytUrl) return keyed(await youtube.getStream(ytUrl, { fresh }), ytUrl);
         }
         throw err;
       }
 
     case "soundcloud":
-      return soundcloud.getStream(audioUrl, { canPlayHls });
+      return keyed(await soundcloud.getStream(audioUrl, { canPlayHls }), audioUrl);
 
     case "direct":
       // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.open(SafeUrl 가드)이
       // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수, 이중소비가 생긴다.
       // 인터넷 라디오는 곡 추가 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
-      return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null };
+      return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null, audioKey: audioKeyOf(audioUrl) };
 
     default:
       throw new Error(`지원되지 않는 음원 주소: ${track.platform ?? "없음"}`);

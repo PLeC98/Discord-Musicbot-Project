@@ -409,7 +409,9 @@ const fakes: Partial<Boundary> = {
   openFragmentStream: openFragmentStream as unknown as Boundary["openFragmentStream"],
   getStream: async (track, options) => {
     if (!behavior.stream) throw new Error("테스트가 스트림을 정하지 않았다");
-    return behavior.stream(track as QueuedTrack, options);
+    const got = await behavior.stream(track as QueuedTrack, options);
+    // 진짜(sources/stream-url)처럼 받은 음원 주소의 키를 싣는다. 테스트가 키를 정했으면(null 포함) 그대로
+    return "audioKey" in got ? got : { ...got, audioKey: audioKeyOf((track as QueuedTrack).audioUrl) };
   },
   directStream: (async (url: string, opts?: { startMs?: number; liveOnly?: boolean }) => {
     calls.directStreams.push(url);

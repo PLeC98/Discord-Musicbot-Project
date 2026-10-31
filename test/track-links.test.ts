@@ -9,6 +9,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { canonicalUrl } from "../src/rules/canonical-url.ts";
+import { audioKeyOf } from "../src/rules/audio-key-of.ts";
 import * as stores from "../src/store/stores.ts";
 import { cacheDb } from "../src/store/cache-db.ts";
 import { createTables as createStateTables } from "../src/store/state-db.ts";
@@ -66,7 +67,7 @@ test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도
 
 test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음원 주소에서만 온다", async () => {
   const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
-  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null });
+  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null, audioKey: audioKeyOf(track.audioUrl) });
 });
 
 // 링크 데이터 키가 작품 페이지면 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮는다(「Fatal」 링크를 넣으면 「Burning」)
