@@ -90,7 +90,7 @@ class PanelLocation {
     if (cached) return cached;
     const fetched = await guild.channels?.fetch?.(channelId).catch((error: unknown) => {
       // 채널이 삭제됐다(10003)는 답은 없다는 뜻이다
-      if (codeOf(error) !== UNKNOWN_CHANNEL) log.warn(`패널 채널 조회 실패 (${guild.id} · ${channelId}): ${describeError(error)}`);
+      if (codeOf(error) !== UNKNOWN_CHANNEL) log.warn(`패널 채널 조회 실패 (${guild.id}, ${channelId}): ${describeError(error)}`);
       return null;
     });
     return fetched ?? null;

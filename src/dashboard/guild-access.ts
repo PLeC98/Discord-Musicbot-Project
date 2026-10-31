@@ -16,7 +16,7 @@ const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONE
 
 /** members.fetch 의 catch. 멤버가 아니라는 답은 조용히, 다른 실패는 까닭을 남긴다. 어느 쪽이든 null(멤버로 보지 않는다) */
 const notMember = (guildId: string, userId: string) => (error: unknown) => {
-  if (!NOT_MEMBER.has(codeOf(error))) log.debug(`멤버 조회 실패: 서버 ${guildId} · 사용자 ${userId} | ${describeError(error)}`);
+  if (!NOT_MEMBER.has(codeOf(error))) log.debug(`멤버 조회 실패: 서버 ${guildId}, 사용자 ${userId} | ${describeError(error)}`);
   return null;
 };
 

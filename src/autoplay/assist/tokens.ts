@@ -90,7 +90,7 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
-      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 중단합니다(${tokenizer} · ${chars}자). 다음 계산 시 다시 시작합니다`);
+      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 중단합니다(${tokenizer}, ${chars}자). 다음 계산 시 다시 시작합니다`);
       stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });

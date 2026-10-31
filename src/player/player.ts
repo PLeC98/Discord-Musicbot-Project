@@ -1276,7 +1276,7 @@ class Player {
   // 한도에 닿아 멈춰 둔다. 실패한 곡들을 로그에 남기고 다시 센다(사람이 다시 틀 때 한 번 실패로 곧바로 멈추지 않게). 실패한 수
   _takeFailures() {
     const count = this.failedTracks;
-    log.error(`곡 ${count}개가 연달아 실패했습니다: ${this.failedLabels.join(" · ") || this._trackLabel()}`);
+    log.error(`곡 ${count}개가 연달아 실패했습니다: ${this.failedLabels.join(", ") || this._trackLabel()}`);
     this.failedTracks = 0;
     this.failedLabels = [];
     return count;

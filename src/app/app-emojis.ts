@@ -163,7 +163,7 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
   for (const { id, name } of renames) await api.rename(id, name);
 
   if (skipped.length) log.warn(`봇이 등록하지 않은 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
-  if (added || unused.size) log.info(`앱 이모지 동기화: ${next.size}개 중 ${added}개 추가 · ${unused.size}개 삭제`);
+  if (added || unused.size) log.info(`앱 이모지 동기화: ${next.size}개 중 ${added}개 추가, ${unused.size}개 삭제`);
   else log.debug(`앱 이모지 동기화: ${next.size}개 변경 없음`);
 }
 

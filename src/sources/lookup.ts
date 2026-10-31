@@ -97,7 +97,7 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
   const { skipped } = found;
-  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외합니다(미리듣기 · 지역 제한 등): ${found.title ?? query}`);
+  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외합니다(미리듣기, 지역 제한 등): ${found.title ?? query}`);
   const secret = /\/s-[\w-]+\/?$/.test(new URL(query).pathname);
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
@@ -172,7 +172,7 @@ async function resolveQuery(query: string, context?: string | null, range: Range
   if (pin) return { success: true, isPlaylist: false, tracks: [await pinnedTrack(query, pin, context, sources)] };
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit && (inputKind(query) !== "direct" || cacheHit.track.audioFoundBy === "given")) {
-    log.debug(`캐시 히트(조회 · 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
+    log.debug(`캐시 히트(조회, 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
   return getTrackData(query, context, range, sources);

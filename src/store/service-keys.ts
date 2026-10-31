@@ -41,7 +41,7 @@ function load() {
     if (states.some((state) => state !== "ok" && state !== "none")) {
       log.warn(`${LABELS[service]} 키 복호화 실패(SECRETS_KEY가 변경되었거나 저장된 값이 손상됨). 운영자 패널의 API 키 탭에서 다시 입력하세요`);
     } else if (service === "spotify" && states.includes("none")) {
-      log.warn("Spotify API 키가 없습니다. 트랙 · 앨범 링크는 열지 못하고 재생목록 · 아티스트는 키 없이 엽니다. 운영자 패널의 API 키 탭에서 입력하세요");
+      log.warn("Spotify API 키가 없습니다. 트랙, 앨범 링크는 열지 못하고 재생목록, 아티스트는 키 없이 엽니다. 운영자 패널의 API 키 탭에서 입력하세요");
     }
   }
 }

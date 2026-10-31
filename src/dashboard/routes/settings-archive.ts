@@ -108,7 +108,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
     const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
     uploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(" · ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
     if (unreadable(res, error)) return;

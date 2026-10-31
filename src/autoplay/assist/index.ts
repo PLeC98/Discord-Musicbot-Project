@@ -600,7 +600,7 @@ async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCoun
     return await tokens.countMessages(messages, by, spec?.dialect || "openai");
   } catch (error) {
     // 못 세도 요청은 나가야 한다
-    log.debug(`토큰 세기 실패(${String(one.provider)} · ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
+    log.debug(`토큰 세기 실패(${String(one.provider)}, ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
     return null;
   }
 }

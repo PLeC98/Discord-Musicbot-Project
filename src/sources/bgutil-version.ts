@@ -57,7 +57,7 @@ class BgutilVersion {
     if (!this.installed) return;
     const target = config.bgutil.version;
     // 코드를 업데이트해 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 조회하지 않아도 안다
-    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다릅니다: 설치 ${this.installed} · 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
+    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다릅니다: 설치 ${this.installed}, 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
     await this._tick();
   }
 

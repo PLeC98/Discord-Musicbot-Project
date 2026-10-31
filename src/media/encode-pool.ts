@@ -775,7 +775,7 @@ class EncodePool {
       this.#slowCalm = 0;
       const streams = this.#workers.reduce((sum, e) => sum + e.ids.size, 0);
       const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : "알 수 없음";
-      log.warn(`재생 인코딩이 지연되고 있습니다(워커 ${this.#workers.length}개 · 상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊깁니다`);
+      log.warn(`재생 인코딩이 지연되고 있습니다(워커 ${this.#workers.length}개/상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊깁니다`);
     }
     if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
       log.info(`재생 인코딩 지연이 해소됐습니다(${Math.round((now() - this.#slowSince) / 1000)}초 동안 지연 프레임 ${this.#slowLate}개)`);

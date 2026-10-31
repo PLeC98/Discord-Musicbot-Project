@@ -46,7 +46,7 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
   }
   const files = parts.includes("files") ? [`캐시 파일 ${result.removed}개(${MB(result.freedBytes)}MB) 삭제${result.kept ? `(재생 중이거나 대기열 앞에 있는 곡, 또는 삭제하지 못한 ${result.kept}개는 남김)` : ""}`] : [];
   const rows = parts.filter((part) => part !== "files").map((part) => `${PART_NAMES[part]} ${result.cleared[part] ?? 0}행`);
-  log.warn({ sub: "admin" }, `대시보드에서 오디오 캐시 초기화: ${[...files, ...rows].join(" · ")}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 오디오 캐시 초기화: ${[...files, ...rows].join(", ")}. 실행 ${by}`);
   return result;
 }
 
@@ -62,7 +62,7 @@ async function resetBotSettings(by: string) {
   tunables.reload();
   serviceKeys.load();
   const restart = tunables.view().pending.length > 0;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 설정 초기화: 설정 문서 ${removed.documents}개 · 비밀값 ${removed.secrets}개 삭제(되돌릴 스냅샷 ${snapshot})${restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 봇 설정 초기화: 설정 문서 ${removed.documents}개, 비밀값 ${removed.secrets}개 삭제(되돌릴 스냅샷 ${snapshot})${restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${by}`);
   return { snapshot, restart };
 }
 
@@ -82,7 +82,7 @@ function resetDisplay(by: string) {
   const backgrounds = backgroundStore.items().length;
   backgroundRunner.stopAll();
   backgroundStore.replace({ current: null, items: [], options: LOGIN_BG_OPTIONS_DEFAULT, limits: LOGIN_BG_LIMITS_DEFAULT });
-  log.warn({ sub: "admin" }, `대시보드에서 디스플레이 설정 초기화: 파비콘 ${favicons}개 · 로그인 배경 ${backgrounds}개. 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 디스플레이 설정 초기화: 파비콘 ${favicons}개, 로그인 배경 ${backgrounds}개. 실행 ${by}`);
   return { favicons, backgrounds };
 }
 

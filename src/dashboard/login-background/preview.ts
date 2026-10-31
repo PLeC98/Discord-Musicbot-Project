@@ -96,7 +96,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   // 편집 창이 트는 미리보기: H.264, 없으면 VP9. 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다)
   const h264 = encoderFor("h264");
   const encoder = h264 ?? encoderFor("vp9");
-  if (!encoder) throw codedError("background-no-video-encoder", "H.264 · VP9 인코더가 없어 영상 배경을 만들 수 없습니다");
+  if (!encoder) throw codedError("background-no-video-encoder", "H.264와 VP9 인코더가 없어 영상 배경을 만들 수 없습니다");
   const ext = h264 ? "mp4" : "webm";
   const container = h264 ? ["-movflags", "+faststart", "-f", "mp4"] : ["-f", "webm"];
   const source = store.sourceOf(item.id);

@@ -203,7 +203,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
   const size = cropped(probed.width, probed.height, item.edit!.crop);
   const fps = frameRate(probed);
   const missing = codecs.filter((codec) => !encoderFor(codec));
-  if (missing.length) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}": ${missing.join(" · ")} 인코더가 없어 그 코덱은 만들지 않습니다`);
+  if (missing.length) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}": ${missing.join(", ")} 인코더가 없어 그 코덱은 만들지 않습니다`);
   const left = plansFor(codecs, size, fps).filter((plan) => !made(item.id, plan));
   // 나눠 인코딩하기는 남은 메모리가 지금 넉넉할 때만(기다리지 않고 따로 인코딩한다)
   const together = left.length > 1 ? splitLp(left.some((plan) => plan.short >= UHD)) : null;

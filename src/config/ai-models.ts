@@ -210,7 +210,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
 
   const got = await fetchRegistry(registries, { timeoutMs, index });
   const lost = lostShape(registries, held, got);
-  if (lost.length) throw new Error(`${lost.join(" · ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
+  if (lost.length) throw new Error(`${lost.join(", ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 
   fs.mkdirSync(path.dirname(FETCHED), { recursive: true });
   fs.writeFileSync(FETCHED, JSON.stringify(got, null, 2) + String.fromCharCode(10));
