@@ -1278,7 +1278,7 @@ test("멈춤 사유가 있으면 불러만 두고 멈춘 상태로 둔다", asyn
   assert.equal(h.fakeAudioOf(p).played.length, 1, "리소스는 건다. 멈추는 것은 Playing 리스너다");
 });
 
-test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
+test("틀고 나면 저장한다. 위치를 두고 다시 열어도 같다", async () => {
   const track = yt("vvvvvvvvvvv");
   h.seedCache("yt:vvvvvvvvvvv", track);
   const p = h.makePlayer();
@@ -1287,10 +1287,23 @@ test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
   await p.play(0);
   await playOnce(p, 1000);
 
-  assert.deepEqual(
-    calls.persists.filter((x) => !x.startsWith("schedule:")),
-    ["play", "resume-playback"],
-  );
+  assert.deepEqual(calls.persists, ["play", "play"]);
+});
+
+test("재생 시작 줄: 제목은 따옴표로 묶고, 시작 위치와 음원 길이는 정수 초, 소리를 어디서 읽나는 맨 뒤", async () => {
+  const track = yt("wwwwwwwwwww", { title: "A | B" });
+  h.seedCache("yt:wwwwwwwwwww", track, { durationSec: 201.6 });
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  const from = sink.buffer.length;
+
+  await playOnce(p, 42_400);
+
+  const lines = sink.buffer
+    .slice(from)
+    .filter((e) => e.text.startsWith("재생: "))
+    .map((e) => `${e.level} ${e.text}`);
+  assert.deepEqual(lines, ['info 재생: "A | B" (youtube) | 시작 42초 / 길이 202초 | 출처=캐시']);
 });
 
 test("리소스를 만든 뒤 voice 에 넘기기 전에 실패하면 그 출력을 destroy 한다(ffmpeg, 인코더가 남지 않게)", async () => {

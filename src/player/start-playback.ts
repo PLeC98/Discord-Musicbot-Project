@@ -210,7 +210,9 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   // 표시는 처음 보인 값을 지킨다. 캐시 기록은 다운로드해 둔 음원을 잰 값, 스트림 정보는 출처가 준 값이다
   const shown = shownDuration(track, durationSec, pb.cacheFile ? "measured" : "provided");
   if (shown) Object.assign(track, shown);
-  log.info(`재생: ${logTitle(track.title)} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
+  // 길이는 끝 판정이 쓰는 음원 길이(표시 길이가 아니다). 트랙 종료 판정 줄과 맞대 볼 수 있다
+  const length = player.isLive ? "라이브" : pb.lengthMs ? `길이 ${Math.round(pb.lengthMs / 1000)}초` : "길이 모름";
+  log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}`);
 
   player.audioPlayer.play(resource);
   player._handedGen = gen;
@@ -233,7 +235,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   player.warmer.start();
   // 지금 곡의 파일 태그, 앨범아트를 먼저 찾게 한다(직접 링크만. 대기열은 예열의 틱이 넘긴다)
   embeddedArt.want([track], { first: true });
-  await player.persistence.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
+  await player.persistence.persistState("play");
 
   // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
   player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 선택 실패: ${messageOf(error)}`));
