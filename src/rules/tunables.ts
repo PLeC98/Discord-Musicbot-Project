@@ -45,7 +45,7 @@ const TUNABLES: readonly Tunable[] = [
   // 연령 제한 영상을 받을 때만 쓰는 쿠키. 연령 제한 콘텐츠를 켰을 때만 쓰고 보인다(config/age-content)
   { key: "COOKIES_SOURCE", group: "ageyoutube", kind: "cookies", def: "" },
   // SponsorBlock
-  { key: "SPONSORBLOCK_ENABLED", group: "sponsorblock", kind: "bool", def: "true", restart: true },
+  { key: "SPONSORBLOCK_ENABLED", group: "sponsorblock", kind: "bool", def: "true" },
   { key: "SPONSORBLOCK_API_BASE", group: "sponsorblock", kind: "url", def: "https://sponsor.ajay.app", advanced: true },
   { key: "SPONSORBLOCK_HASH_PREFIX", group: "sponsorblock", kind: "int", def: "5", min: 4, max: 32, advanced: true },
   { key: "SPONSORBLOCK_TIMEOUT_MS", group: "sponsorblock", kind: "int", def: "1000", min: 100, max: 10000, advanced: true },

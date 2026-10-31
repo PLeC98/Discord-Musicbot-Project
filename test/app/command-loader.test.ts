@@ -25,7 +25,8 @@ const put: PutCommands = (route, body) => {
   return putImpl(route, body);
 };
 
-const { enabledCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/command-loader.ts");
+const { enabledCommands, followEnabledCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/command-loader.ts");
+const { tunablesChanged } = await import("../../src/config/tunables-changed.ts");
 const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../src/config/index.ts")).default;
@@ -42,6 +43,29 @@ test("봇 전체에서 SponsorBlock 을 껐으면 /highlight 를 등록하지도
   const off = withConfig({ sponsorblock: { enabled: false } }, names);
   assert.ok(!off.includes("highlight") && off.includes("setting"));
   assert.equal(off.length, COMMANDS.length - 1, "다른 명령은 그대로");
+});
+
+test("운영 조절값을 저장해 켜진 명령이 바뀌면 실행 목록을 다시 만들고 등록을 맞춘다. 바뀌지 않은 저장에는 아무것도 하지 않는다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const calls: string[] = [];
+  const off = withConfig({ sponsorblock: { enabled: true } }, () =>
+    followEnabledCommands(
+      () => calls.push("load"),
+      () => calls.push("deploy"),
+    ),
+  );
+  try {
+    withConfig({ sponsorblock: { enabled: true } }, () => tunablesChanged());
+    assert.deepEqual(calls, [], "켜진 명령이 그대로다");
+    withConfig({ sponsorblock: { enabled: false } }, () => tunablesChanged());
+    assert.deepEqual(calls, ["load", "deploy"], "SponsorBlock 을 껐다");
+    withConfig({ sponsorblock: { enabled: false } }, () => tunablesChanged());
+    assert.deepEqual(calls, ["load", "deploy"]);
+    withConfig({ sponsorblock: { enabled: true } }, () => tunablesChanged());
+    assert.deepEqual(calls, ["load", "deploy", "load", "deploy"], "다시 켰다");
+  } finally {
+    off();
+  }
 });
 
 test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {

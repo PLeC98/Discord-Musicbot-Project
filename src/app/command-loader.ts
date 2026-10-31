@@ -4,6 +4,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import config from "../config/index.ts";
+import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { COMMANDS } from "../discord/commands/index.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { BotContext } from "./bot-context.ts";
@@ -15,7 +16,7 @@ const log = logger.child({ category: "core" });
 type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
 /**
  * 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다.
- * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(다음 기동의 배포에서)
+ * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(기동 때, 그 설정을 저장할 때의 배포에서)
  */
 type GuildCommand = { data: CommandData; help: HelpEntry | null; anywhere?: false; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext): unknown };
 /** 서버 밖(DM)에서도 쓰는 명령 */
@@ -29,6 +30,22 @@ const HASH_PATH = path.join(PROJECT.database, "deployed-commands.json");
 /** 켜진 명령. 배포하는 것과 실행 목록에 올리는 것이 이 집합이다(꺼진 기능은 진입점이 없다) */
 function enabledCommands() {
   return COMMANDS.filter((command) => command.enabled?.() ?? true);
+}
+
+/** 켜진 명령이 바뀌면(운영 조절값을 저장해 기능을 켜거나 껐다) 실행 목록을 다시 만들고(load) 등록을 맞춘다(deploy). 떼는 함수를 돌려준다 */
+function followEnabledCommands(load: () => void, deploy: () => void) {
+  const namesOf = () =>
+    enabledCommands()
+      .map((command) => command.data.name)
+      .join(" ");
+  let names = namesOf();
+  return onTunablesChanged(() => {
+    const now = namesOf();
+    if (now === names) return;
+    names = now;
+    load();
+    deploy();
+  });
 }
 
 /** 배포용 JSON */
@@ -100,5 +117,5 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
   return lines;
 }
 
-export { enabledCommands, definitions, deployCommands, deployErrorLines };
+export { enabledCommands, followEnabledCommands, definitions, deployCommands, deployErrorLines };
 export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, DeployResult };

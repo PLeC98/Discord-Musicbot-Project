@@ -340,6 +340,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
     checkBeforeLogin();
     await startEncoding();
     loadCommands(commands);
+    commandLoader.followEnabledCommands(() => loadCommands(commands), deploySlashCommands);
     loadEvents(bot, onFault);
     // 이제부터 끄면 세션을 저장하고 연결 · 봇까지 정리한다
     shutdown.attach({ client, players });
@@ -402,6 +403,7 @@ function stopIfThrows(check: () => unknown, hint: string | null = null) {
 
 function loadCommands(commands: Map<string, SlashCommand>) {
   const enabled = commandLoader.enabledCommands();
+  commands.clear();
   for (const command of enabled) commands.set(command.data.name, command);
   log.info({ tags: ["startup"] }, `슬래시 명령어 ${enabled.length}개 준비 완료`);
 }
