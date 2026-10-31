@@ -12,7 +12,7 @@ import * as embeddedArt from "../sources/embedded-art.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import { assertAgeAllowed, markedAgeRestricted } from "../sources/age-gate.ts";
-import { extractVideoId } from "../rules/links.ts";
+import { extractVideoId, youtubeWatchUrl } from "../rules/links.ts";
 import * as trackState from "./track-state.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { reuseState } from "../rules/stream-reuse.ts";
@@ -27,8 +27,8 @@ import type { Segments } from "../sources/sponsor-block.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 /** 소리를 어디서 받을지 정한 것 */
-/** cacheKey: 여기서 찾은 캐시 파일의 음원 키. 스트림이면 서술자가 키를 싣는다 */
-type Source = { cacheFile: string | null; cacheKey: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
+/** cacheKey: 여기서 찾은 캐시 파일의 음원 키. 스트림이면 서술자가 키를 싣는다. sponsorKey: SponsorBlock 을 물은 음원 */
+type Source = { cacheFile: string | null; cacheKey: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null>; sponsorKey: string | null };
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다
 
 /**
@@ -112,12 +112,27 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     streamInfo,
     titleVerified: verifyTitle(track, streamInfo),
     isLive: liveAnswer(streamInfo, cacheFile),
-    sponsor: player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
-      if (codeOf(error) === "DB_NOT_OPEN") throw error;
-      log.debug(`SponsorBlock 구간 조회 실패, 구간 건너뛰기 없이 재생합니다: ${messageOf(error)}`);
-      return null;
-    }),
+    sponsor: askSponsor(player, track),
+    sponsorKey: audioKeyOf(track.audioUrl),
   };
+}
+
+// 조회 실패는 넘긴다(fail-open). 구간 건너뛰기 없이 재생
+function askSponsor(player: Player, track: QueuedTrack) {
+  return player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
+    if (codeOf(error) === "DB_NOT_OPEN") throw error;
+    log.debug(`SponsorBlock 구간 조회 실패, 구간 건너뛰기 없이 재생합니다: ${messageOf(error)}`);
+    return null;
+  });
+}
+
+// SponsorBlock 구간은 트는 음원의 것이어야 한다(구간은 그 영상의 시각이다).
+// 물은 영상과 트는 음원이 다르면(여는 동안이나 캐시 폴백에서 다시 찾아졌다) 트는 영상으로 다시 묻는다. 유튜브가 아니면 구간이 없다
+async function sponsorOfPlaying(player: Player, track: QueuedTrack, source: Pick<Source, "sponsor" | "sponsorKey">, audioKey: string | null) {
+  const asked = await source.sponsor;
+  if (source.sponsorKey === audioKey) return asked;
+  const videoId = audioKey?.startsWith("yt:") ? audioKey.slice(3) : null;
+  return videoId ? askSponsor(player, { ...track, audioUrl: youtubeWatchUrl(videoId) }) : null;
 }
 
 /** 연령 제한으로 적어 둔 유튜브 영상이면 연령 제한 콘텐츠를 틀어도 되는지 본다(sources/age-gate) */
@@ -181,7 +196,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   if (!resource) throw codedError("stream-failed", "열린 소리가 없습니다");
 
   // SponsorBlock 구간을 받은 뒤 자동 스킵을 켠다. 기준점은 시작 위치다(위치 이동으로 구간 안에 들어가면 건너뛰지 않는다)
-  pb.sponsor = await source.sponsor;
+  pb.sponsor = await sponsorOfPlaying(player, track, source, pb.audioKey);
   // 기다리는 사이에 플레이어가 버려졌거나(정리가 이 리소스를 destroy 했다) 다른 재생이 시작했다(play() 가 버린다). 틀지 않는다
   if (player.lifecycle.disposed || gen !== player._playGen) return;
   player.sponsorSkipper.onPlayStart(pb.startOffsetMs);

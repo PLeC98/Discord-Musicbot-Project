@@ -1046,6 +1046,30 @@ test("재생이 트는 음원: 캐시 폴백이 다른 음원의 파일로 끝�
   assert.equal(h.audioRow("yt:pl1xxxxxxxx")?.play_count ?? 0, 0);
 });
 
+test("재생이 트는 음원: SponsorBlock 구간은 트는 음원의 것이다(물은 영상과 트는 음원이 다르면 다시 묻는다)", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("pu1xxxxxxxx");
+  const yFile = h.seedCache("yt:pu1yyyyyyyy", yt("pu1yyyyyyyy"), { durationSec: 222 });
+  behavior.stream = () => ({ url: "https://media.test/x", duration: 100 });
+  behavior.download = () => new Promise((done) => setTimeout(() => done(yFile), 20));
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+  const asked: string[] = [];
+  behavior.sponsor = (t) => {
+    asked.push(String(t.audioUrl));
+    return segments([{ start: t.audioUrl?.includes("yyy") ? 100 : 50, end: 110, categories: ["sponsor"] }]);
+  };
+  try {
+    assert.equal((await p.play(30_000)).ok, true);
+    assert.equal(p.playback?.audioKey, "yt:pu1yyyyyyyy");
+    assert.equal(p.playback?.sponsor?.skipSegments[0]?.start, 100, "Y 의 구간");
+  } finally {
+    h.dispose(p);
+  }
+  assert.deepEqual(asked, [tracks.watch("pu1xxxxxxxx"), tracks.watch("pu1yyyyyyyy")]);
+});
+
 test("재생이 트는 음원: 트는 중에 곡이 다른 음원으로 다시 찾아져 그 다운로드가 끝나도 이 재생의 길이로 적지 않는다", async () => {
   const p = h.makePlayer();
   const x = "https://files.test/x.mp3";
