@@ -27,6 +27,7 @@ const TUNABLES: readonly Tunable[] = [
   { key: "QUEUE_MAX_TRACKS", group: "queue", kind: "int", def: "250", min: 0 },
   { key: "LEAVE_DELAY_QUEUE_EMPTY_SECONDS", group: "queue", kind: "int", def: "600", min: 0, max: 86400 },
   { key: "LEAVE_DELAY_ALONE_SECONDS", group: "queue", kind: "int", def: "120", min: 0, max: 86400 },
+  { key: "STAY_ENABLED", group: "queue", kind: "bool", def: "true" },
   // 표시
   { key: "EMBED_COLOR", group: "look", kind: "color", def: "#2743D2" },
   { key: "WEBSITE", group: "look", kind: "url", def: "" },

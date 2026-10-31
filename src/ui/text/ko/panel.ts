@@ -30,14 +30,17 @@ const dashboardLink = (url: string) => `${icon("dashboard")} [대시보드](${ur
 
 /**
  * 끝난 패널. reason 은 nowPlayingPanel.createIdleContainer 와 같다. leavesAt 은 음성에서 나갈 시각(ms),
- * dedicated 는 전용 채널의 패널인지(그러면 곡 이름만 적어도 다시 온다)
+ * staying 은 24/7 자리에서 곡을 기다리는지, dedicated 는 전용 채널의 패널인지(그러면 곡 이름만 적어도 다시 온다)
  */
-function idle({ reason, leavesAt, dedicated }: { reason: string; leavesAt?: number | null; dedicated: boolean }) {
+function idle({ reason, leavesAt, staying = false, dedicated }: { reason: string; leavesAt?: number | null; staying?: boolean; dedicated: boolean }) {
   let title: string, status: string;
+  const waitingTitle = reason === "queue-end" ? "재생이 끝났어요" : "곡을 기다리고 있어요";
   if (reason === "leave") {
     [title, status] = ["듣고 있던 곡이 있어요", `${icon("resume")} \`/join\`으로 이어 들을 수 있어요`];
+  } else if (staying) {
+    [title, status] = [waitingTitle, `${icon("stay")} 24/7로 이 채널에서 다음 곡을 기다려요`];
   } else if (leavesAt) {
-    [title, status] = [reason === "joined" ? "곡을 기다리고 있어요" : "재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
+    [title, status] = [waitingTitle, `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
   } else {
     [title, status] = ["쉬는 중이에요", dedicated ? "👋 곡을 입력하면 다시 올게요" : "👋 `/play`로 부르면 다시 올게요"];
   }

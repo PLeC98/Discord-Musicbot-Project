@@ -58,7 +58,7 @@ type Payload = {
   attachments?: [];
 };
 /** 끝난 패널의 문구 */
-type IdleView = { reason: string; leavesAt?: number | null };
+type IdleView = { reason: string; leavesAt?: number | null; staying?: boolean };
 /** 조작 버튼을 그릴 때 읽는 필드. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "autoplay"> & { pause: Pick<Player["pause"], "userPaused"> } & Partial<Pick<Player, "sponsor">>;
 
@@ -127,11 +127,12 @@ const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? panelText.dashb
 const PROGRESS_MS = 5000;
 
 // 끝난 패널 가운데 음성에 남아 기다리는 모양. 나갈 시각을 붙인다
-const WAITING = new Set(["queue-end", "joined"]);
+const WAITING = new Set(["queue-end", "joined", "stay-stop"]);
 
 // 끝난 패널의 문구. 음성에 잠시 남을 때만 나갈 시각을 붙인다(언제 나가는지는 플레이어의 idle 이 정한다)
-function idleViewOf(reason: string, player: { idle?: Pick<Player["idle"], "upcomingLeave"> }): IdleView {
-  return { reason, leavesAt: WAITING.has(reason) ? (player.idle?.upcomingLeave() ?? null) : null };
+function idleViewOf(reason: string, player: { idle?: Pick<Player["idle"], "upcomingLeave" | "seated"> }): IdleView {
+  if (!WAITING.has(reason)) return { reason, leavesAt: null };
+  return { reason, leavesAt: player.idle?.upcomingLeave() ?? null, staying: Boolean(player.idle?.seated()) };
 }
 
 class NowPlayingPanel {
@@ -499,8 +500,8 @@ class NowPlayingPanel {
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
    * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
    */
-  async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
-    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
+  async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
+    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
     const container = new ContainerBuilder()
       .setAccentColor(resolveColor(colorOf("brand")))
@@ -572,8 +573,9 @@ class NowPlayingPanel {
   async updateIdleLeave(player: Player, leavesAt: number | null) {
     const guildId = player.guild?.id;
     const view = guildId ? this.idleViews.get(guildId) : undefined;
-    if (!guildId || !view || player.currentTrack || !WAITING.has(view.reason) || view.leavesAt === leavesAt) return;
-    const next: IdleView = { ...view, leavesAt };
+    const staying = Boolean(player.idle?.seated());
+    if (!guildId || !view || player.currentTrack || !WAITING.has(view.reason) || (view.leavesAt === leavesAt && Boolean(view.staying) === staying)) return;
+    const next: IdleView = { ...view, leavesAt, staying };
     this.idleViews.set(guildId, next);
     await this._showIdle(player, null, { ...next, dedicated: await this._panelIsDedicated(player, null) });
   }

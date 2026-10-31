@@ -191,7 +191,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.stop(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
-    announce(replies.stopped(r.cleared, dashboardActor(req)), LIFETIME.farewell);
+    announce(replies.stopped(r.cleared, dashboardActor(req), r.stayed), LIFETIME.farewell);
     res.json(stateAfter(req));
   });
 

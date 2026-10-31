@@ -123,6 +123,25 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   assert.equal(p._endReason, null);
 });
 
+test("24/7 자리의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없이 기다린다. 반복 · 자동재생 · 사람의 멈춤이 잇지 않는다", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  playing(p, yt("ccccccccccc"));
+  p.queue = [yt("ddddddddddd")];
+  p.loop = "queue";
+  p.pause.setUser(true);
+
+  await p.stopStaying();
+  await p.onTrackEnd("stop");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.deepEqual(p.queue, [], "대기열 반복이어도 끝난 곡을 다시 넣지 않는다");
+  assert.equal(p.pause.userPaused, false);
+  assert.ok(seen.includes("end:stay-stop") && !seen.includes("end:queue-end"), "다 틀었다고 알리지 않는 끝난 패널");
+  assert.equal(p._halting, false);
+});
+
 test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을 끝내고 세션을 삭제하고 나갈 예약을 건다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);

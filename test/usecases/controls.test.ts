@@ -20,6 +20,7 @@ import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import * as genreConfig from "../../src/config/genres.ts";
 import * as guildSettings from "../../src/store/guild-settings.ts";
 import { plainText } from "../helpers/notice.ts";
+import * as staySeats from "../../src/store/stay-seats.ts";
 
 useDefaultDocuments();
 
@@ -148,7 +149,7 @@ test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처�
 test("정지: 세션을 삭제하고 끝난 패널(stop)로 버린다. 레지스트리 빼기는 버림이 한다", async () => {
   const p = fakePlayer();
   const r = await controls.stop(p, DJ);
-  assert.deepEqual(r, { ok: true, track: p.currentTrack, cleared: 2 });
+  assert.deepEqual(r, { ok: true, track: p.currentTrack, cleared: 2, stayed: false });
   assert.deepEqual(p.calls, ["dispose:remove:stop"]);
 });
 
@@ -374,12 +375,12 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   const p = fakePlayer();
   players.set("g1", p);
   const r = await controls.leave(guild, DJ, players);
-  assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 } });
+  assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 }, stayOff: false });
   assert.deepEqual(p.calls, ["dispose:save:leave"], "세션을 저장하고 끝난 패널(leave)로 버린다");
 
   let disconnected = 0;
   const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });
-  assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only" });
+  assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only", stayOff: false });
   assert.equal(disconnected, 1);
   assert.equal(codeOf(await controls.leave(fake<Guild>({ id: "g3", members: { me: {} } }), DJ, players)), "no-song");
 });
@@ -453,4 +454,25 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
 test("안내: 코드와 값의 안내", () => {
   assert.deepEqual(controlMessage({ code: "must-dj" }), errors.notice("must-dj"));
   assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
+});
+
+test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 중이면 거절). 나가기는 서버 관리 권한이면 자리까지 끄고, 아니면 거절한다", async () => {
+  staySeats.set("g1", "vc1", "u1");
+  try {
+    const p = fakePlayer({ voiceChannel: { id: "vc1" }, stopStaying: async () => void p.calls.push("stop-staying") });
+    assert.deepEqual(await controls.stop(p, DJ), { ok: true, track: p.currentTrack, cleared: 2, stayed: true });
+    assert.deepEqual(p.calls, ["stop-staying"]);
+    assert.equal(codeOf(await controls.stop(fakePlayer({ voiceChannel: { id: "vc1" }, isPlayStarting: true }), DJ)), "still-starting", "여는 곡이 정지 뒤에 틀어지지 않게");
+    const elsewhere = fakePlayer({ voiceChannel: { id: "vc2" } });
+    await controls.stop(elsewhere, DJ);
+    assert.deepEqual(elsewhere.calls, ["dispose:remove:stop"], "자리가 아닌 채널이면 보통의 정지");
+
+    const players = new Map<string, Player>([["g1", fakePlayer({ voiceChannel: { id: "vc1" } })]]);
+    assert.equal(codeOf(await controls.leave(guild, { member: member({ mod: false }) }, players)), "stay-leave-moderator");
+    assert.ok(staySeats.seatOf("g1"), "거절하면 자리는 그대로");
+    assert.equal(accepted(await controls.leave(guild, DJ, players)).stayOff, true);
+    assert.equal(staySeats.seatOf("g1"), null);
+  } finally {
+    staySeats.clear("g1");
+  }
 });

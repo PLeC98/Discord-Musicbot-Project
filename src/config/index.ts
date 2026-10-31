@@ -295,6 +295,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       leaveDelayQueueEmptyMs: tuneInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS") * 1000,
       leaveDelayAloneMs: tuneInt("LEAVE_DELAY_ALONE_SECONDS") * 1000,
       serverDeafen: tuneBool("VOICE_SERVER_DEAFEN"), // 붙은 뒤 스스로 서버 헤드셋 끄기(player/voice-link)
+      stayEnabled: tuneBool("STAY_ENABLED"), // 24/7 자리를 쓰나. 끄면 자리를 지우지 않고 무시한다
     },
 
     // 대기열 미리 다운로드(player/queue-warmer). 내부 상수라 설정으로 바꾸지 않는다

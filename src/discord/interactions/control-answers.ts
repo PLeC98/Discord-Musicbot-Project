@@ -40,7 +40,7 @@ async function answerPrevious(interaction: Asked, player: MaybePlayer) {
 async function answerStop(interaction: Asked, player: MaybePlayer) {
   const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.stopped(r.cleared, interaction.member), LIFETIME.farewell);
+  return toAll(interaction, replies.stopped(r.cleared, interaction.member, r.stayed), LIFETIME.farewell);
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {

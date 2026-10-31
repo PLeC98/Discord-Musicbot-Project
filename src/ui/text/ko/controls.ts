@@ -45,6 +45,14 @@ const jumped = (track: Linked): Head => ({ icon: "next", title: "선택한 곡�
 /** 정지. cleared 는 비운 대기열 곡 수(0 이면 말하지 않는다) */
 const stopped = (cleared: number): Head => ({ icon: "stopped", title: "재생을 중지했어요!", body: `${cleared > 0 ? `대기열에 남아 있던 ${cleared}곡을 삭제하고 ` : ""}채널에서 나갔어요.` });
 
+/** 24/7 중 정지: 대기열만 비우고 채널에 남는다. cleared 는 비운 대기열 곡 수(0 이면 말하지 않는다) */
+const stoppedStaying = (cleared: number): Head => ({ icon: "stopped", title: "재생을 중지했어요!", body: `${cleared > 0 ? `대기열에 남아 있던 ${cleared}곡을 삭제했어요. ` : ""}24/7이라 채널에 남아 있을게요.` });
+
+/** 24/7 켬. channel 은 자리 채널(멘션), already 면 이미 그 채널에 켜져 있었다 */
+const stayOn = (channel: string, already: boolean): Head => (already ? { icon: "stay", title: "이미 24/7이 켜져 있어요.", body: `${channel}에 머물고 있어요.` } : { icon: "stay", title: "24/7을 켰어요!", body: `${channel}에 자리를 잡았어요. 대기열이 끝나거나 혼자 남아도 나가지 않아요.` });
+/** 24/7 끔. already 면 이미 꺼져 있었다 */
+const stayOff = (already: boolean): Head => (already ? { icon: "done", title: "이미 24/7이 꺼져 있어요.", body: "대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 가요." } : { icon: "done", title: "24/7을 껐어요!", body: "이제 대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 갈게요." });
+
 /** 섞기 */
 const shuffled = (count: number): Head => ({ icon: "shuffle", title: "대기열을 셔플했어요!", body: `${count}곡을 섞었어요.` });
 
@@ -94,11 +102,12 @@ const volumeSet = (before: number, level: number): Head => ({ icon: "volume", ti
 /** 볼륨 입력 창 */
 const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" });
 
-/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(at, 적은 것) · 대기열 곡 수와 복원하는 법 */
-const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
-  title: "👋 음성 채널에서 나갔어요",
-  body: saved ? [`재생 중이던 곡: ${link(saved.track)}`, `${icon("time")} 저장한 위치 \`${saved.at}\` · ${icon("queue")} 저장한 대기열 ${saved.queue}곡`, "`/join`으로 이어 들을 수 있어요."].join("\n") : null,
-});
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(at, 적은 것) · 대기열 곡 수와 복원하는 법. stayOff 면 24/7 도 껐다 */
+const left = (saved: { track: Linked; at: string; queue: number } | null, stayOff = false) => {
+  const lines = saved ? [`재생 중이던 곡: ${link(saved.track)}`, `${icon("time")} 저장한 위치 \`${saved.at}\` · ${icon("queue")} 저장한 대기열 ${saved.queue}곡`, "`/join`으로 이어 들을 수 있어요."] : [];
+  if (stayOff) lines.push("켜 두었던 24/7도 껐어요.");
+  return { title: "👋 음성 채널에서 나갔어요", body: lines.length ? lines.join("\n") : null };
+};
 
 /** 음성 채널에 들어오기 */
 const joined = (): Head => ({ icon: "done", title: "음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." });
@@ -109,4 +118,4 @@ const restoring = () => `${icon("progress")} 듣던 곡을 불러오는 중...`;
 /** /join 이 저장한 세션을 복원했다 */
 const restored = (track: Linked, isPaused: boolean): Head => (isPaused ? { icon: "pause", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!` } : { icon: "play", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
-export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };
+export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };

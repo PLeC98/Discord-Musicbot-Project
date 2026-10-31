@@ -1,6 +1,7 @@
 // 재생 조작의 응답 화면(응답 템플릿 ui/frame). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다
 
 import { frame, noticeFrame } from "./frame.ts";
+import { DISCORD_LOOK } from "./mentions.ts";
 import * as errors from "./text/ko/errors.ts";
 import { formatDuration, formatMs } from "./format.ts";
 import * as controlText from "./text/ko/controls.ts";
@@ -39,9 +40,9 @@ function jumped(track: Track) {
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
-/** 정지. cleared 는 비운 대기열 곡 수 */
-function stopped(cleared: number, by: Actor) {
-  const t = controlText.stopped(cleared);
+/** 정지. cleared 는 비운 대기열 곡 수, stayed 면 24/7 자리라 채널에 남았다 */
+function stopped(cleared: number, by: Actor, stayed = false) {
+  const t = stayed ? controlText.stoppedStaying(cleared) : controlText.stopped(cleared);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
@@ -106,9 +107,19 @@ function volumeSet(before: number, level: number, by: Actor) {
 }
 
 /** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(초) · 대기열 곡 수 */
-function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor) {
-  const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue });
+function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor, stayOff = false) {
+  const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue }, stayOff);
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
+}
+
+/** 24/7 켬 · 끔 · 지금 상태. channelId 는 자리 채널 */
+function stayOn(channelId: string, already: boolean, by: Actor) {
+  const t = controlText.stayOn(DISCORD_LOOK.channel(channelId), already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
+}
+function stayOff(already: boolean, by: Actor) {
+  const t = controlText.stayOff(already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
 }
 
 /** 음성 채널에 들어왔다 · 이미 들어와 있다 */
@@ -134,4 +145,4 @@ function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) 
   return noticeFrame(errors.notice("restore-nothing-left"));
 }
 
-export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };
+export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };

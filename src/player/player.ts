@@ -241,6 +241,7 @@ class Player {
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
+  _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡 · 반복 · 자동재생으로 잇지 않는다
   /** 무음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
   _silentStop: NodeJS.Timeout | null = null;
   /** 걸린 곡 끝 처리가 끝나기를 기다리는 쪽 */
@@ -1070,6 +1071,11 @@ class Player {
         this.playback = null;
         return;
       }
+      if (this._halting) {
+        this._halting = false;
+        await this.finishQueue({ stopped: true });
+        return;
+      }
       if (await this._playNext(finishedTrack, reason)) return;
       await this.finishQueue();
     } finally {
@@ -1247,15 +1253,31 @@ class Player {
     return this.handleAutoplay();
   }
 
-  // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
-  async finishQueue() {
+  /**
+   * 24/7 자리에서의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없이 기다린다(채널 · 플레이어는 남는다).
+   * 사람의 멈춤은 푼다(남으면 다음 곡이 소리 없이 시작한다). 곡을 여는 중에는 부르지 않는다(usecases/controls 가 거절한다)
+   */
+  async stopStaying() {
+    trackState.clearQueue(this);
+    this.pause.setUser(false);
+    const open = this.lifecycle.parked || this.audioPlayer.state.status !== AudioPlayerStatus.Idle;
+    if (!this.currentTrack || !open) {
+      await this.finishQueue({ stopped: true });
+      return;
+    }
+    this._halting = true;
+    this._stopWith("stop");
+  }
+
+  // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다. stopped: 24/7 자리에서 사람이 정지했다(끝난 패널이 "다 틀었어요" 를 알리지 않는다)
+  async finishQueue({ stopped = false }: { stopped?: boolean } = {}) {
     this._tellSkipped();
     trackState.reset(this, { history: true });
     this.warmer.stop(); // 곡 없이 기다리는 동안 틱을 돌리지 않는다. 다음 곡을 열면 다시 켠다
 
     bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
 
-    await playerEvents.ended(this, "queue-end");
+    await playerEvents.ended(this, stopped ? "stay-stop" : "queue-end");
 
     this.persistence?.removeSession();
 

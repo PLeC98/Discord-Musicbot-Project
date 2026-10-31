@@ -2,7 +2,7 @@
 //
 // 끝난 패널의 "n분 후 쉬러 갈게요"는 두 타이머(대기열 소진 · 혼자 남음) 중 먼저 끝나는 쪽이다. 실제로 나가는 때가 그것이다.
 
-import { test, afterEach } from "node:test";
+import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { IdleLeave } from "../../src/player/idle-leave.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -11,6 +11,12 @@ import type { Player, PanelMessage } from "../../src/player/player.ts";
 import type { Client } from "discord.js";
 import { withConfig } from "../helpers/config.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import * as staySeats from "../../src/store/stay-seats.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
+
+// 24/7 자리를 적는다
+const store = openTempStore("idle-leave-");
+after(() => store.close());
 
 const ALONE_MS = 60_000;
 const EMPTY_MS = 300_000;
@@ -111,7 +117,7 @@ test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그
 
   panels.idleViews.set("g", { reason: "queue-end", leavesAt: 1000 });
   await panels.updateIdleLeave(idlePlayer, 500);
-  assert.deepEqual(panels.drawn, [{ reason: "queue-end", leavesAt: 500, dedicated: true }]);
+  assert.deepEqual(panels.drawn, [{ reason: "queue-end", leavesAt: 500, staying: false, dedicated: true }]);
   assert.equal(panels.idleViews.get("g")?.leavesAt, 500, "다시 올릴 때도 같은 모양으로");
 
   await panels.updateIdleLeave(idlePlayer, 500);
@@ -148,4 +154,36 @@ test("틀 게 없음이 0 이면 곡 없이 기다리는 어느 길이든 바로
     idle.scheduleEmpty("곡 없이 대기");
     await new Promise((resolve) => setTimeout(resolve, 5));
     assert.deepEqual(disposed, ["곡 없이 대기"]);
+  }));
+
+test("24/7 자리에 있으면 두 타이머를 걸지 않고 나갈 시각도 없다. 켜고 끄면 지금 상태로 다시 걸고, 운영자가 끄면 보통대로", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS, stayEnabled: true } }, () => {
+    const p = player();
+    Object.assign(p, { queue: [], pause: { holds: new Set(["alone"]) } });
+    const idle = new IdleLeave(p);
+    const told = watch(idle);
+    staySeats.set("g", "v", "u1");
+    try {
+      idle.scheduleEmpty();
+      idle.onAlone(true);
+      assert.equal(idle.emptyTimer, null);
+      assert.equal(idle.aloneTimer, null);
+      assert.equal(idle.upcomingLeave(), null);
+
+      staySeats.clear("g");
+      idle.reconsider();
+      assert.ok(idle.emptyTimer && idle.aloneTimer, "끄면 지금부터 두 타이머");
+      assert.ok(near(told.at(-1) ?? null, Date.now() + ALONE_MS));
+
+      staySeats.set("g", "v", "u1");
+      idle.reconsider();
+      assert.equal(idle.emptyTimer, null, "다시 켜면 지운다");
+      assert.equal(told.at(-1), null);
+
+      withConfig({ bot: { stayEnabled: false } }, () => assert.equal(idle.seated(), false, "운영자가 끄면 자리를 무시한다"));
+      staySeats.set("g", "other", "u1");
+      assert.equal(idle.seated(), false, "자리가 아닌 채널이면 보통대로");
+    } finally {
+      staySeats.clear("g");
+    }
   }));

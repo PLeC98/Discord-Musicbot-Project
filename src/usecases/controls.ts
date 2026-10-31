@@ -22,6 +22,8 @@ import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
 import type { Code, NeedsParams, ParamsOf, Problem } from "../rules/problems.ts";
+import * as staySeats from "../store/stay-seats.ts";
+import { seatedIn } from "../player/idle-leave.ts";
 
 /** 누가 시켰나: 디스코드 멤버 */
 type Actor = { member: GuildMember };
@@ -103,9 +105,16 @@ async function stop(player: MaybePlayer, actor: Actor) {
   if (blocked) return blocked;
   const track = player.currentTrack;
   const cleared = player.queue.length;
+  // 24/7 자리에서는 대기열만 비우고 남는다. 여는 중이면 그 곡이 정지 뒤에 틀어지지 않게 거절한다
+  if (seatedIn(player.guild?.id ?? "", player.voiceChannel?.id)) {
+    if (player.isPlayStarting) return fail("still-starting");
+    log.info(`정지(24/7 자리라 채널에 남음): ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
+    await player.stopStaying();
+    return done({ track, cleared, stayed: true });
+  }
   log.info(`정지: ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
   await player.dispose({ reason: "정지", session: "remove", panel: "stop", end: "stop" });
-  return done({ track, cleared });
+  return done({ track, cleared, stayed: false });
 }
 
 /** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track 은 되돌아간 곡(처음부터면 지금 곡) */
@@ -384,16 +393,20 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
+  // 24/7 자리도 함께 끈다. 켜고 끄는 권한(서버 관리)과 같게, 없으면 거절한다. 버리기보다 먼저 지운다(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
+  const seated = staySeats.seatOf(guild.id) !== null;
+  if (seated && !perm.isModerator(actor.member)) return fail("stay-leave-moderator");
+  if (seated) staySeats.clear(guild.id);
   const player = players.get(guild.id);
   if (!player) {
     if (!guild.members.me?.voice?.channel) return fail("no-song");
     await guild.members.me.voice.disconnect();
-    return done({ left: "voice-only" as const });
+    return done({ left: "voice-only" as const, stayOff: seated });
   }
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
   await player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected", end: "leave" });
-  return done({ left: "player" as const, track, saved });
+  return done({ left: "player" as const, track, saved, stayOff: seated });
 }
 
 export type { Actor, Refusal };
