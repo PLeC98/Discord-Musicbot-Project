@@ -146,7 +146,7 @@ test("상주 자리의 정지: 사람이 멈춰 둔 곡을 정지 전에 다시 
   const p = h.makePlayer();
   playing(p, yt("cccccccccc2"));
   p.pause.setUser(true);
-  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused };
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
   let unpaused = 0;
   p.audioPlayer.unpause = () => ((unpaused += 1), true);
 
