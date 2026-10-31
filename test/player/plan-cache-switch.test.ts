@@ -60,8 +60,8 @@ function fakePlayer({ track, startOffsetMs = 0 }: { track?: QueuedTrack; startOf
 }
 
 const TRACK = tracks.youtube("pcspcspcs01", { title: "곡", duration: 200 });
-// 스트림을 연 재생(곡, 시작 위치, 입력)
-const opened = (startOffsetMs = 0, input: InputHealth | null = null) => ({ track: TRACK, startOffsetMs, input });
+// 스트림을 연 재생(곡, 시작 위치, 입력, 트는 음원)
+const opened = (startOffsetMs = 0, input: InputHealth | null = null) => ({ track: TRACK, startOffsetMs, input, audioKey: "yt:pcspcspcs01" });
 const cacheFile = audioCache.getFilePath("yt:pcspcspcs01");
 
 // 이 곡의 캐시 파일을 둔다. null 이면 없앤다
@@ -107,6 +107,32 @@ test("이미 파괴됐거나 예약된 스플라이서는 건드리지 않는다
   assert.equal(pending.calls.length, 0, "이미 예약됨");
 
   planCacheSwitch.call(player, null, opened()); // 던지지 않는다
+});
+
+test("트는 음원의 파일이 아니면 예약하지 않는다: 곡이 그사이 다른 음원으로 다시 찾아져 그 음원의 파일만 있다", () => {
+  cacheAs(null);
+  const track = tracks.youtube("pcsxxxxxxxx", { title: "곡", duration: 200 });
+  const pb = { track, startOffsetMs: 0, input: null, audioKey: "yt:pcsxxxxxxxx" };
+  track.audioUrl = tracks.watch("pcsyyyyyyyy"); // 나란히 하던 다운로드가 X 가 내려간 것을 알고 Y 로 다시 찾았다
+  const yFile = audioCache.getFilePath("yt:pcsyyyyyyyy");
+  fs.writeFileSync(yFile, Buffer.alloc(4096));
+  try {
+    const sp = fakeSplicer();
+    assert.equal(planCacheSwitch.call(fakePlayer({ track }), sp, pb), false, "X 를 트는 중에 Y 를 잇지 않는다");
+    assert.equal(sp.calls.length, 0);
+  } finally {
+    fs.rmSync(yFile, { force: true });
+  }
+});
+
+test("트는 음원의 파일이 있으면 곡의 음원이 바뀌었어도 그 파일로 잇는다", () => {
+  cacheAs(Buffer.alloc(4096));
+  const track = { ...TRACK };
+  const pb = { track, startOffsetMs: 0, input: null, audioKey: "yt:pcspcspcs01" };
+  track.audioUrl = tracks.watch("pcsnewnew01");
+  const sp = fakeSplicer();
+  assert.equal(planCacheSwitch.call(fakePlayer({ track }), sp, pb), true);
+  sp.calls[0].next.destroy?.();
 });
 
 // ── 예약하는 경우 ────────────────────────────────────────────

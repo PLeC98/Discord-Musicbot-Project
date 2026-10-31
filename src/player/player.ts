@@ -199,6 +199,13 @@ function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "
   if (player._endWhileStarting?.gen !== player._playGen) player._endWhileStarting = { reason, gen: player._playGen, track: player.currentTrack };
   return player.audioPlayer.state.status === AudioPlayerStatus.Idle;
 }
+
+// 연 소리의 음원을 재생에 적는다(캐시 폴백이 다른 음원의 파일로 끝났을 수 있다). 파일로 틀면 그 파일을 지킨다
+function settleAudio(guildId: string, pb: CurrentPlayback, source: Parameters<typeof playingKey>[0]) {
+  pb.audioKey = playingKey(source, pb.cacheFile);
+  if (pb.cacheFile) audioCache.protect(guildId, pb.audioKey);
+}
+
 // 끝 처리가 다음 곡을 고를 까닭. 다시 여는 동안 받은 이전 곡, 넘기기가 있으면 그것이다(이전 곡이면 대기열을 이미 되감아 다 튼 곡으로 기록하지 않는다)
 const reasonAfter = (player: Partial<Pick<Player, "_endInstead">>, reason: string) => player._endInstead ?? reason;
 /**
@@ -508,7 +515,7 @@ class Player {
       pb.resource = input.resource;
       pb.output = input.output ?? null;
       pb.cacheFile = input.cacheFile;
-      pb.audioKey = playingKey(source, input.cacheFile);
+      settleAudio(this.guild.id, pb, source);
       pb.input = input.health;
       const stale = overtaken(this, gen);
       if (stale) {
@@ -566,6 +573,8 @@ class Player {
     const track = pb.track;
     const source = await resolveSource(this, track, startMs, previous);
     const { streamInfo, cacheFile } = source;
+    // 트는 음원은 소리를 열기 전에 정해 둔다(여는 중에 스트림이 끊기면 캐시 전환이 본다). 캐시 폴백이 다른 파일을 받으면 연 뒤에 고친다
+    pb.audioKey = playingKey(source, cacheFile);
     pb.isLive = source.isLive;
     const transport = (pb.transport = transportOf({ file: cacheFile, streamUrl: streamInfo?.url, streamInfo }));
     pb.live = transport.live; // 끝 처리가 재연결 여부를 이걸로 구분한다
@@ -696,7 +705,7 @@ class Player {
    * pb: 그 스트림을 연 재생. 같은 곡의 새 재생(위치 이동, 다시 열기)을 여는 동안 옛 스트림이 끊기면 지금 재생(this.playback)은 이미 새 것이라,
    * 위치, 입력은 그 스트림을 연 재생의 것으로 센다. 새 재생이 자리 잡을 때까지 옛 소리는 캐시로 이어진다
    */
-  _planCacheSwitch(splicer: Switchable | null, pb: Pick<CurrentPlayback, "track" | "startOffsetMs" | "input">) {
+  _planCacheSwitch(splicer: Switchable | null, pb: Pick<CurrentPlayback, "track" | "startOffsetMs" | "input" | "audioKey">) {
     const { track } = pb;
     const giveUp = (why: string) => {
       wlog.debug(`갭리스 전환 포기: ${this._trackLabel()} | ${why}`);
@@ -707,8 +716,9 @@ class Player {
     // 늦게 도착한 오류가 다음 곡의 재생을 건드리지 않도록
     if (!track || this.currentTrack !== track) return giveUp("이미 다른 곡으로 넘어감");
 
-    const file = TrackDownloader.findCacheFile(track);
-    if (!file) return giveUp("쓸 수 있는 캐시 파일이 없음");
+    // 트는 음원의 파일만 잇는다. 곡이 그사이 다른 음원으로 다시 찾아졌으면 그 파일은 다른 소리다(잇지 않고 끊긴 곡 다시 열기가 새 음원으로 연다)
+    const file = TrackDownloader.cacheFileOf(pb.audioKey);
+    if (!file) return giveUp(pb.audioKey !== audioKeyOf(track.audioUrl) ? "곡의 음원이 바뀌어 트는 음원의 파일이 없음" : "쓸 수 있는 캐시 파일이 없음");
 
     // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
     // resource.playbackDuration을 쓰면 지점이 어긋난다.

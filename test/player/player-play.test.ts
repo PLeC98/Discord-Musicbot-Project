@@ -1038,6 +1038,7 @@ test("재생이 트는 음원: 캐시 폴백이 다른 음원의 파일로 끝�
     assert.equal(p.playback?.cacheFile, yFile);
     assert.equal(p.playback?.audioKey, "yt:pl1yyyyyyyy");
     assert.equal(p.playback?.lengthMs, 222_000, "열리지 않은 X 스트림의 길이가 아니다");
+    assert.equal(audioCache._protectedKeys.get(p.guild.id), "yt:pl1yyyyyyyy", "트는 파일을 지킨다(퇴거가 지우지 않게)");
   } finally {
     h.dispose(p);
   }
