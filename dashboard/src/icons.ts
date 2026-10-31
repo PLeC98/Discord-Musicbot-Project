@@ -108,7 +108,6 @@ const ICONS = {
   priority_high: 0xe645,
   progress_activity: 0xe9d0,
   public: 0xe80b,
-  push_pin: 0xf10d,
   queue_music: 0xe03d,
   radio_button_checked: 0xe837,
   radio_button_unchecked: 0xe836,

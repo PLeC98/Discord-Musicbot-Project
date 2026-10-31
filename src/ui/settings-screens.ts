@@ -24,14 +24,14 @@ function channelSet(channel: string) {
 
 /** 선택지 하나. default 면 선택한 채로 */
 type Option = { label: string; value: string; default: boolean };
-/** /setting 에 그릴 것. sponsor · agePlace · stay 가 null 이면 그 부분이 없다(봇 전체에서 SponsorBlock · 연령 제한 콘텐츠 · 24/7 을 껐다). stay.channel 은 자리 채널 멘션(꺼져 있으면 null) */
-type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Option[] } | null; agePlace: AgePlace | null; stay?: { channel: string | null } | null };
+/** /setting 에 그릴 것. sponsor · agePlace 가 null 이면 그 부분이 없다(봇 전체에서 SponsorBlock · 연령 제한 콘텐츠를 껐다) */
+type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Option[] } | null; agePlace: AgePlace | null };
 
 /**
- * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴) · SponsorBlock(켜기 버튼 · 구간 메뉴) · 연령 제한 콘텐츠(틀 곳 버튼 둘) · 24/7(켜기 · 끄기 버튼), 맨 아래 닫기.
+ * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴) · SponsorBlock(켜기 버튼 · 구간 메뉴) · 연령 제한 콘텐츠(틀 곳 버튼 둘), 맨 아래 닫기.
  * 선택하면 바로 저장하고 이 화면을 다시 그린다. 받는 쪽은 src/discord/interactions/settings-panel-handler
  */
-function settingsPanel({ djRoleIds, sponsor, agePlace, stay = null }: PanelView) {
+function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
   const t = settingsText.panel;
   const container = frame({ icon: t.icon, title: t.title, body: t.description });
   const divide = () => container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
@@ -66,17 +66,6 @@ function settingsPanel({ djRoleIds, sponsor, agePlace, stay = null }: PanelView)
         .setStyle(agePlace === place ? ButtonStyle.Primary : ButtonStyle.Secondary);
     container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(pick("channel", t.ageChannel), pick("all", t.ageAll)));
     if (agePlace === "all") container.addTextDisplayComponents(text(t.ageAllWarning));
-  }
-
-  if (stay) {
-    divide();
-    const on = stay.channel !== null;
-    // 지금 상태의 반대로 하는 버튼이다(누른 뒤 화면을 다시 그려 지금 값을 보인다)
-    const toggle = new ButtonBuilder()
-      .setCustomId(on ? "setting:stay-off" : "setting:stay-on")
-      .setLabel(t.stayToggle(on))
-      .setStyle(on ? ButtonStyle.Secondary : ButtonStyle.Success);
-    container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text(t.stay(stay.channel))).setButtonAccessory(toggle));
   }
 
   divide();

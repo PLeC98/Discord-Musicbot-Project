@@ -28,16 +28,9 @@ type GuildSettings = {
   playlistAdd: { value: number | null; effective: number; min: number; max: number; default: number };
   /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 null(화면에 입력란이 없다) */
   agePlace: AgePlace | null;
-  /** 24/7. channel 은 자리 채널(꺼져 있으면 null). 운영자가 봇 전체에서 껐으면 null(화면에 카드가 없다) */
-  stay: StayView | null;
 };
-
-/** 24/7 의 지금 상태 */
-type StayView = { channel: { id: string; name: string } | null };
-/** 24/7 켜기 · 끄기의 답 */
-type StaySet = { success: true; stay: StayView };
 
 /** 서버 설정 저장의 답 */
 type Saved = { success: true };
 
-export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, GuildSettings, Saved, StayView, StaySet };
+export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, GuildSettings, Saved };

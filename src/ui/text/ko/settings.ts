@@ -27,7 +27,7 @@ const playlistLimitNow = ({ count, isDefault, min, max }: { count: number; isDef
 });
 const playlistLimitSet = (count: number) => ({ icon: "done" as const, title: "재생목록에 한 번에 넣을 곡 수를 바꿨어요", description: `이제 재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.` });
 
-/** /setting 한 화면: DJ 역할 · SponsorBlock · 연령 제한 콘텐츠 · 24/7. 선택하면 바로 저장한다 */
+/** /setting 한 화면: DJ 역할 · SponsorBlock · 연령 제한 콘텐츠. 선택하면 바로 저장한다 */
 const panel = {
   icon: "modes" as const,
   title: "서버 설정",
@@ -38,10 +38,6 @@ const panel = {
   sponsor: (enabled: boolean) => `${icon("sponsorblock")} **SponsorBlock 자동 건너뛰기**\n현재 설정: **${onOff(enabled)}**`,
   sponsorToggle: (enabled: boolean) => (enabled ? "끄기" : "켜기"),
   sponsorPlaceholder: "건너뛸 구간 종류 선택",
-  /** 24/7. channel 은 자리 채널(멘션), 꺼져 있으면 null */
-  stay: (channel: string | null) => `${icon("stay")} **24/7**
-${channel ? `${channel}에 머물고 있어요. 대기열이 끝나거나 혼자 남아도 나가지 않아요.` : "꺼져 있어요. 켜면 제가 있는 음성 채널에 머물러요. 제가 음성 채널에 없으면 켠 사람이 있는 채널로 가요."}`,
-  stayToggle: (on: boolean) => (on ? "끄기" : "켜기"),
   age: () => `${icon("age_restricted")} **연령 제한 콘텐츠**\n연령 제한이 걸린 곡을 어떤 음성 채널에서 재생 가능하게 할지 정해요.`,
   ageChannel: "연령 제한 채널에서만",
   ageAll: "모든 채널에서",

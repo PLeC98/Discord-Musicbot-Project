@@ -98,16 +98,6 @@
           </div>
           <NoticeBox v-if="agePlace === 'all'" variant="note" tone="notice" icon="warning">{{ T.agePlace.allWarning }}</NoticeBox>
         </BaseCard>
-
-        <!-- 24/7: 설정 저장(자동 저장)과 따로 바로 켜고 끈다(켜기는 음성에 붙을 수 있다) -->
-        <BaseCard v-if="s.stay" icon="push_pin" :title="T.stay.title" class="mb-(--gap-in)">
-          <p class="text-on-surface-variant text-sm mb-3">{{ T.stay.desc }}</p>
-          <label class="flex items-center justify-between gap-3 py-2 text-sm" :class="s.canEdit ? 'cursor-pointer' : ''">
-            <span>{{ T.stay.enable }}</span>
-            <BaseSwitch :model-value="s.stay.channel !== null" :disabled="!s.canEdit || stayBusy" @update:model-value="setStay" />
-          </label>
-          <p class="text-on-surface-variant text-sm">{{ s.stay.channel ? T.stay.at(`# ${s.stay.channel.name}`) : T.stay.where }}</p>
-        </BaseCard>
       </div>
     </template>
   </div>
@@ -140,8 +130,8 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import { AGE_PLACES, type AgePlace } from "../../../src/rules/age-place.ts";
-import type { GuildSettings, Saved, StaySet } from "../../../src/dashboard/contract/guilds.ts";
-import type { SettingsRequest, StayRequest } from "../../../src/dashboard/request-schemas.ts";
+import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";
+import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
 import { text } from "../text/index.ts";
 const T = text.serverSettings;
 
@@ -159,7 +149,7 @@ const loadError = ref<string | null>(null);
 // 읽기 실패가 서버가 없거나 멤버가 아니어서다(다시 해도 같다)
 const loadGone = ref(false);
 const GONE = ["guild-not-found", "no-guild-access"];
-const s = ref<SettingsSeen>({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null, agePlace: null, stay: null });
+const s = ref<SettingsSeen>({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null, agePlace: null });
 
 // 편집 폼 상태 (서버 값과 분리. 저장 전까지 반영 안 됨)
 const selectedRoles = ref<string[]>([]);
@@ -330,21 +320,6 @@ async function save() {
       again = false;
       schedule();
     }
-  }
-}
-
-// 24/7 켜기 · 끄기. 답의 상태로 그린다(거절이면 그대로 두고 알린다)
-const stayBusy = ref(false);
-async function setStay(on: boolean) {
-  if (stayBusy.value) return;
-  stayBusy.value = true;
-  try {
-    const body: StayRequest = { on };
-    s.value = { ...s.value, stay: (await axios.post<StaySet>(`/api/guilds/${guildId}/stay`, body)).data.stay };
-  } catch (e) {
-    notifyProblem(e, T.saveFailed);
-  } finally {
-    stayBusy.value = false;
   }
 }
 
