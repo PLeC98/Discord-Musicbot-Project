@@ -1059,23 +1059,25 @@ async function preview(draft: Draft, genre = "rock"): Promise<Preview> {
 
 /**
  * 유튜브 주소로 후보를 만든다. 판정 테스트가 진짜 곡으로 테스트할 수 있게.
- * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
+ * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다. describe: 읽다 던진 오류 → 화면에 보일 안내(진입점이 고른다)
  */
-async function candidatesFromUrls(urls: unknown[] | null | undefined, { timeoutMs = 30000 }: { timeoutMs?: number } = {}): Promise<TestCandidate[]> {
+async function candidatesFromUrls(urls: unknown[] | null | undefined, { describe, timeoutMs = 30000 }: { describe: (error: unknown) => string; timeoutMs?: number }): Promise<TestCandidate[]> {
   const out: TestCandidate[] = [];
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();
     if (!url) continue;
     if (!links.isYouTubeURL(url)) {
-      out.push({ url, error: "유튜브 주소가 아닙니다." });
+      out.push({ url, error: "유튜브 URL이 아니라 건너뛰었어요." });
       continue;
     }
+    const timedOut = new Error(`시간 초과(${timeoutMs / 1000}초)`);
     try {
-      const info = await Promise.race([YouTube.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(new Error("시간이 걸려 그만뒀습니다.")), timeoutMs))]);
-      if (!info) throw new Error("정보를 읽지 못했습니다.");
+      const info = await Promise.race([YouTube.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(timedOut), timeoutMs))]);
       out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
     } catch (error) {
-      out.push({ url, error: (error as Error | null)?.message || "정보를 읽지 못했습니다." });
+      // 화면에는 부르는 쪽이 고른 안내(describe), yt-dlp 원문은 운영자 로그로
+      log.warn(`AI 판정 테스트 후보 조회 실패: ${url} | ${messageOf(error)}`);
+      out.push({ url, error: error === timedOut ? `시간 초과(${timeoutMs / 1000}초)로 곡 정보를 불러오지 못했어요.` : describe(error) });
     }
   }
   return out;

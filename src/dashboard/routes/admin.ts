@@ -69,6 +69,7 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 import * as staySeats from "../../store/stay-seats.ts";
+import { errorMessage } from "../../ui/error-messages.ts";
 
 // 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 확인한다: 오래됐으면 reauth-required 로 로그인 창을 먼저 열고, 확인 창은 로그인을 마친 뒤에 연다
 adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
@@ -348,7 +349,8 @@ adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
   if (!urls.length) return sendProblem(res, "urls-empty");
   if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
 
-  res.json({ candidates: await assist.candidatesFromUrls(urls) } satisfies CandidatesReply);
+  // 못 읽은 줄의 안내는 그 오류 종류의 제목(디스코드 안내와 같은 글)
+  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => errorMessage(error).title }) } satisfies CandidatesReply);
 });
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식, 장르를 고치는 대로 다시 그린다. */

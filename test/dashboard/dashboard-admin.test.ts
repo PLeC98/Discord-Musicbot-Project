@@ -18,6 +18,7 @@ import type { AdminGuilds, AdminStatus } from "../../src/dashboard/contract/admi
 import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, detailsOf, type ProblemReply } from "../helpers/dashboard.ts";
+import type { Exec } from "../../src/sources/ytdlp-spawn.ts";
 
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
 const { deployCommands } = await import("../../src/app/command-loader.ts");
@@ -560,7 +561,16 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
   const bad = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
   assert.equal(bad.status, 200);
-  assert.equal(bad.json.candidates[0].error, "유튜브 주소가 아닙니다.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
+  assert.equal(bad.json.candidates[0].error, "유튜브 URL이 아니라 건너뛰었어요.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
+  // 읽다 던진 줄은 yt-dlp 원문이 아니라 그 종류의 안내 제목
+  const { useExec } = await import("../../src/sources/ytdlp-spawn.ts");
+  useExec((() => Promise.reject(Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] zzzzzzzzzzz: Video unavailable", exitCode: 1 }))) as unknown as Exec);
+  try {
+    const gone = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://www.youtube.com/watch?v=zzzzzzzzzzz"] });
+    assert.equal(gone.json.candidates[0].error, "접근할 수 없거나 존재하지 않는 영상이에요!");
+  } finally {
+    useExec(null);
+  }
 
   assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: [] })).status, 400);
   assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");

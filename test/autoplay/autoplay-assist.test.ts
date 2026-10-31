@@ -19,6 +19,8 @@ import * as googleAuth from "../../src/autoplay/assist/google-auth.ts";
 import * as route from "../../src/autoplay/route.ts";
 import { prepare } from "../../src/autoplay/filter.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { useExec, type Exec } from "../../src/sources/ytdlp-spawn.ts";
+import { errorKind } from "../../src/rules/error-kind.ts";
 import logger from "../../src/infra/log/logger.ts";
 import type { PromptSection } from "../../src/config/schema/ai-prompt.ts";
 
@@ -1501,4 +1503,28 @@ test("버텍스 미리보기는 토큰을 받으러 나가지 않는다. 연결 
   const judged = await assist.judgeTest({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" }, []);
   assert.equal(judged.status, null);
   assert.match(judged.response, /network down/);
+});
+
+test("판정 테스트 후보: 못 읽은 줄은 부르는 쪽이 고른 안내를 보이고, 실패 원문은 운영자 로그로 보낸다", async (t) => {
+  const url = "https://www.youtube.com/watch?v=xxxxxxxxxxx";
+  useExec((() => Promise.reject(Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] xxxxxxxxxxx: Video unavailable", exitCode: 1 }))) as unknown as Exec);
+  t.after(() => useExec(null));
+  const from = sink.buffer.length;
+
+  const [gone, other] = await assist.candidatesFromUrls([url, "https://example.com/노래"], { describe: (e) => `안내(${errorKind(e)})` });
+
+  assert.deepEqual(gone, { url, error: "안내(unavailable-contents)" });
+  assert.deepEqual(other, { url: "https://example.com/노래", error: "유튜브 URL이 아니라 건너뛰었어요." });
+  const lines = sink.buffer
+    .slice(from)
+    .filter((e) => e.text.startsWith("AI 판정 테스트 후보"))
+    .map((e) => `${e.level} ${e.text}`);
+  assert.deepEqual(lines, [`warn AI 판정 테스트 후보 조회 실패: ${url} | ERROR: [youtube] xxxxxxxxxxx: Video unavailable`]);
+});
+
+test("판정 테스트 후보: 정해 둔 시간을 넘기면 그만두고 그렇다고 보인다", async (t) => {
+  useExec((() => new Promise((ok) => setTimeout(() => ok({ stdout: "{}", stderr: "" }), 200))) as unknown as Exec);
+  t.after(() => useExec(null));
+  const [one] = await assist.candidatesFromUrls(["https://www.youtube.com/watch?v=yyyyyyyyyyy"], { describe: () => "부르면 안 된다", timeoutMs: 20 });
+  assert.deepEqual(one, { url: "https://www.youtube.com/watch?v=yyyyyyyyyyy", error: "시간 초과(0.02초)로 곡 정보를 불러오지 못했어요." });
 });
